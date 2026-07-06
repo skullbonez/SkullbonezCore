@@ -263,6 +263,7 @@
     <ClCompile Include="SkullbonezSource\UI\UITabCinematic.cpp" />
     <ClCompile Include="SkullbonezSource\UI\UITabControls.cpp" />
     <ClCompile Include="SkullbonezSource\UI\UITabEditor.cpp" />
+    <ClCompile Include="SkullbonezSource\UI\UITabMemory.cpp" />
     <ClCompile Include="SkullbonezSource\UI\UITabOptions.cpp" />
     <ClCompile Include="SkullbonezSource\UI\UITabPhysics.cpp" />
     <ClCompile Include="SkullbonezSource\UI\UITabProfiler.cpp" />
@@ -448,6 +449,7 @@
     <ClInclude Include="SkullbonezSource\UI\UITabCinematic.h" />
     <ClInclude Include="SkullbonezSource\UI\UITabControls.h" />
     <ClInclude Include="SkullbonezSource\UI\UITabEditor.h" />
+    <ClInclude Include="SkullbonezSource\UI\UITabMemory.h" />
     <ClInclude Include="SkullbonezSource\UI\UITabOptions.h" />
     <ClInclude Include="SkullbonezSource\UI\UITabPhysics.h" />
     <ClInclude Include="SkullbonezSource\UI\UITabProfiler.h" />

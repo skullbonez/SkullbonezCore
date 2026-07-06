@@ -104,7 +104,13 @@ constexpr int PHYSICS_CANDIDATE_PAIR_RESERVE = MAX_GAME_MODELS * 4;
 constexpr int PHYSICS_COLLISION_VISUAL_BODY_RESERVE = PHYSICS_CANDIDATE_PAIR_RESERVE * 2;
 constexpr const char* REPLAY_SOLVER_SNAPSHOT_RESERVE_OWNER = "replay_solver_snapshot";
 constexpr int REPLAY_SOLVER_SNAPSHOT_RESERVE_HARD_BYTES = 64 * 1024 * 1024;
-constexpr int REPLAY_SOLVER_SNAPSHOT_RESERVE_GROWTH_LIMIT = 8;
+constexpr std::size_t REPLAY_SOLVER_SNAPSHOT_VECTOR_INITIAL_CAPACITY = 1024u;
+constexpr std::size_t REPLAY_SOLVER_SNAPSHOT_VECTOR_GROWTH_CHUNK = 4096u;
+// Runtime allocation policy: replay prediction visualization can discover
+// larger solver snapshots interactively. The hard byte cap is the memory bound;
+// growth count remains diagnostic instead of being a fatal budget.
+constexpr int REPLAY_SOLVER_SNAPSHOT_RESERVE_GROWTH_LIMIT =
+    RuntimeAllocation::RUNTIME_RESERVE_REPLAY_GROWTH_LIMIT_UNBOUNDED;
 constexpr uint32_t PHYSICS_TORNADO_WORKER_HASH = HashStr( "Frame/Physics/TornadoField/WorkerBodies" );
 constexpr uint32_t PHYSICS_APPLY_FORCES_WORKER_HASH = HashStr( "Frame/Physics/ApplyForces/WorkerBodies" );
 constexpr uint32_t PHYSICS_NARROWPHASE_ISLAND_WORKER_HASH =
@@ -149,9 +155,34 @@ void ReportReplaySolverSnapshotReserveFailure( const char* label, std::size_t re
 }
 
 template <typename T>
+std::size_t ReplaySolverSnapshotReserveCapacity( const std::vector<T>& values, std::size_t requestedCapacity )
+{
+    // Why: replay snapshots are diagnostics payloads, not steady gameplay
+    // storage. Chunking capacity here keeps prediction exploration from logging
+    // a chain of tiny reserve events as contact caches discover denser frames.
+    if ( requestedCapacity <= values.capacity() )
+    {
+        return values.capacity();
+    }
+    if ( requestedCapacity > static_cast<std::size_t>( PHYSICS_COLLISION_VISUAL_BODY_RESERVE ) )
+    {
+        return requestedCapacity;
+    }
+
+    const std::size_t doubled =
+        values.capacity() > 0 ? values.capacity() * 2u : REPLAY_SOLVER_SNAPSHOT_VECTOR_INITIAL_CAPACITY;
+    const std::size_t remainder = requestedCapacity % REPLAY_SOLVER_SNAPSHOT_VECTOR_GROWTH_CHUNK;
+    const std::size_t chunked = remainder == 0
+                                    ? requestedCapacity
+                                    : requestedCapacity + ( REPLAY_SOLVER_SNAPSHOT_VECTOR_GROWTH_CHUNK - remainder );
+    const std::size_t reserveCapacity = (std::max)( doubled, chunked );
+    return (std::min)( reserveCapacity, static_cast<std::size_t>( PHYSICS_COLLISION_VISUAL_BODY_RESERVE ) );
+}
+
+template <typename T>
 uint64_t ReplaySolverSnapshotRequestedBytes( const std::vector<T>& values, std::size_t requestedCapacity )
 {
-    const std::size_t capacity = (std::max)( values.capacity(), requestedCapacity );
+    const std::size_t capacity = ReplaySolverSnapshotReserveCapacity( values, requestedCapacity );
     return static_cast<uint64_t>( capacity ) * static_cast<uint64_t>( sizeof( T ) );
 }
 
@@ -166,7 +197,8 @@ void ReserveReplaySolverSnapshotVector( std::vector<T>& values, std::size_t requ
     {
         ReportReplaySolverSnapshotReserveFailure( label, requestedCapacity );
     }
-    values.reserve( requestedCapacity );
+    const std::size_t reserveCapacity = ReplaySolverSnapshotReserveCapacity( values, requestedCapacity );
+    values.reserve( reserveCapacity );
     if ( requestedCapacity > values.capacity() )
     {
         ReportReplaySolverSnapshotReserveFailure( label, requestedCapacity );
@@ -465,6 +497,7 @@ void PhysicsWorld::CaptureReplaySolverSnapshot( ReplaySolverWorldSnapshot& outSn
         }
         const RuntimeAllocation::RuntimeReserveOwnerHandle owner = ReplaySolverSnapshotReserveOwner();
         const RuntimeAllocation::RuntimeReserveGrowthRequest request = { REPLAY_SOLVER_SNAPSHOT_RESERVE_OWNER,
+                                                                         "ReplaySolverWorldSnapshot",
                                                                          RuntimeAllocation::RuntimeReservePhase::Replay,
                                                                          modelCount,
                                                                          static_cast<int>( oldSnapshotBytes ),

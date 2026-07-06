@@ -384,6 +384,8 @@ enum class RunInteractionAutomationAssertKind
     ReplayPredictionEnabled,
     ReplayPathTarget,
     PredictionPathVisible,
+    ReplaySolverTrackAtPresent,
+    PredictionScrubFrameActive,
     PredictionTargetDisplacementMin,
     GizmoVisible
 };

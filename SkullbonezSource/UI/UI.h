@@ -34,6 +34,7 @@ Related:
 #include "../Core/Common.h"
 #include "../Core/Config.h"
 #include "../Core/MainMemoryStats.h"
+#include "../Runtime/Allocation/RuntimeReserveAllocator.h"
 #include "../Rendering/IShader.h"
 #include "UIButton.h"
 #include "UICheckBox.h"
@@ -49,6 +50,7 @@ Related:
 #include "UITabCinematic.h"
 #include "UITabControls.h"
 #include "UITabEditor.h"
+#include "UITabMemory.h"
 #include "UITabOptions.h"
 #include "UITabPhysics.h"
 #include "UITabProfiler.h"
@@ -87,6 +89,7 @@ enum class InGameUITab
     Keys,
     Sky,
     Cinematic,
+    Memory,
     Count
 };
 
@@ -94,6 +97,7 @@ constexpr int UI_RENDER_TARGET_PREVIEW_MAX = 12;
 constexpr int UI_PROFILER_MARKER_OPTION_MAX = ProfilerTab::MAX_MARKERS + 1;
 constexpr uint32_t UI_PROFILER_FRAME_TOTAL_HASH = 0u;
 constexpr int UI_SOUND_SET_MAX = 16;
+constexpr int UI_RUNTIME_RESERVE_GROWTH_EVENT_MAX = 64;
 
 struct UIRenderContext
 {
@@ -197,6 +201,10 @@ struct InGameUIFrameData
     const char* soundSamplePaths[UI_SOUND_SAMPLE_MAX] = {};
     int soundSampleCount = 0;
     Basics::MainMemoryStats mainMemory;
+    Runtime::Allocation::RuntimeReserveGrowthEventView reserveGrowthEvents[UI_RUNTIME_RESERVE_GROWTH_EVENT_MAX];
+    int reserveGrowthEventCount = 0;
+    uint64_t reserveGrowthEventTotalCount = 0;
+    uint64_t reserveGrowthEventDroppedCount = 0;
     int modelCount = 0;
     int modelCapacity = DEFAULT_GAME_MODEL_CAPACITY;
     int workerThreadCount = 0;
@@ -330,6 +338,9 @@ class InGameUI
     void SetPerformanceHistogramEnabled( bool enabled );
     bool IsPerformanceHistogramEnabled() const;
     void TogglePerformanceHistogramEnabled();
+    void SetMemoryOverlayEnabled( bool enabled );
+    bool IsMemoryOverlayEnabled() const;
+    void ToggleMemoryOverlayEnabled();
     bool NeedsUiTextPass() const;
     void SetHitboxOverlayEnabled( bool enabled );
     void SetScrollY( float scrollY );
@@ -382,6 +393,7 @@ class InGameUI
     UIBackdropBlur m_backdropBlur;
     UICacheState m_cache;
     UIDrawList m_histogramDrawList;
+    UIDrawList m_memoryOverlayDrawList;
     std::unique_ptr<Rendering::IShader> m_renderTargetPreviewShader;
     uint32_t m_renderTargetPreviewVB = 0;
     UIScrollBar m_scrollBar;
@@ -405,6 +417,7 @@ class InGameUI
     OptionsTab::UIOptionsTabState m_optionsTab;
     PhysicsTab::UIPhysicsTabState m_physicsTab;
     ProfilerTab::UIProfilerTabState m_profilerTab;
+    MemoryTab::UIMemoryOverlayState m_memoryOverlay;
     SceneTab::UISceneTabState m_sceneTab;
     SoundTab::UISoundTabState m_soundTab;
     SkyTab::UISkyTabState m_skyTab;

@@ -515,6 +515,7 @@ void AdvanceTakeInputKeyboardActionMemories( RuntimeInputContext& input )
                                                         { RuntimeInputAction::ToggleBroadphaseOverlay, 'G' },
                                                         { RuntimeInputAction::ToggleUIVisibility, '0' },
                                                         { RuntimeInputAction::TogglePerformanceHistogram, VK_F5 },
+                                                        { RuntimeInputAction::ToggleMemoryOverlay, VK_F6 },
                                                         { RuntimeInputAction::NavigateScenePrevious, VK_LEFT },
                                                         { RuntimeInputAction::NavigateSceneNext, VK_RIGHT },
                                                         { RuntimeInputAction::DismissOrExitUI, VK_ESCAPE },
@@ -2442,6 +2443,20 @@ void Run::TakeInput()
                 ApplyCursorOwnership();
                 ReleaseMouseToUI();
                 UpdateRuntimeInputModeAfterAction( RuntimeInputAction::TogglePerformanceHistogram,
+                                                   RuntimeInputActionSource::Keyboard );
+            }
+        }
+
+        // F6: toggle the standalone memory waterline without opening the full diagnostics window.
+        {
+            if ( InputController::CaptureKeyboardActionPress( m_runtimeInput,
+                                                              RuntimeInputAction::ToggleMemoryOverlay,
+                                                              VK_F6 ) )
+            {
+                m_UI.ToggleMemoryOverlayEnabled();
+                ApplyCursorOwnership();
+                ReleaseMouseToUI();
+                UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleMemoryOverlay,
                                                    RuntimeInputActionSource::Keyboard );
             }
         }

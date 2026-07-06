@@ -466,9 +466,38 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
 
     auto setReplayLiveAdvanceHeld = [&]( bool held )
     {
+        const float previousPredictionPresentT = m_replayRuntime.SolverPresentTrackPosition();
         if ( !m_replayRuntime.SetLiveAdvanceHeld( held ) )
         {
             return;
+        }
+
+        if ( !held )
+        {
+            // Why: live play should freeze the last committed path preview.
+            // Prediction can still be rebuilt explicitly, but the play button
+            // must not let automatic refresh chase the moving live frame.
+            RunReplayPredictionState& prediction = m_replayRuntime.Prediction();
+            if ( prediction.building && prediction.buildFrameCount >= 2 &&
+                 prediction.buildFrameCount <= prediction.buildFrames.size() &&
+                 ( prediction.frames.empty() || prediction.buildFrameCount >= prediction.frames.size() ) )
+            {
+                // Why: the overlay may be drawing a build prefix before the
+                // full horizon finishes. Promote that visible prefix so Play
+                // freezes the lines the user saw instead of clearing them.
+                prediction.frames.swap( prediction.buildFrames );
+                prediction.frames.resize( prediction.buildFrameCount );
+                prediction.buildFrameCount = 0;
+            }
+            m_replayRuntime.Prediction().enabled = false;
+            m_replayRuntime.Prediction().horizonDragging = false;
+            m_replayRuntime.CancelPredictionJob( false );
+            const float currentPosition = m_replayRuntime.TrackPosition( RunReplayTrack::Solver );
+            if ( ReplayRuntime::TrackPositionIsFuture( currentPosition, previousPredictionPresentT ) )
+            {
+                m_replayRuntime.SetTrackPosition( RunReplayTrack::Solver, 1.0f );
+                m_replayRuntime.Scrubber().historicalSamplePaused = false;
+            }
         }
 
         if ( held )

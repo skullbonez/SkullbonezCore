@@ -35,6 +35,7 @@ Related:
 #include "UILayout.h"
 #include "UITabControls.h"
 #include "UITabEditor.h"
+#include "UITabMemory.h"
 #include "UITabOptions.h"
 #include "UITabPhysics.h"
 #include "UITabProfiler.h"
@@ -186,6 +187,20 @@ uint32_t BuildUIContentSignature( const InGameUIFrameData& data )
     }
     hash = HashInt( hash, data.drawCallsBeforeUI );
     hash = HashInt( hash, data.UIDrawCalls );
+    hash = HashInt( hash, static_cast<int>( data.reserveGrowthEventTotalCount ) );
+    hash = HashInt( hash, data.reserveGrowthEventCount );
+    for ( int eventIndex = 0;
+          eventIndex < data.reserveGrowthEventCount && eventIndex < UI_RUNTIME_RESERVE_GROWTH_EVENT_MAX;
+          ++eventIndex )
+    {
+        const SkullbonezCore::Runtime::Allocation::RuntimeReserveGrowthEventView& event =
+            data.reserveGrowthEvents[eventIndex];
+        hash = HashTextValue( hash, event.targetName );
+        hash = HashInt( hash, event.frameNumber );
+        hash = HashInt( hash, event.grantedCapacity );
+        hash = HashInt( hash, static_cast<int>( event.bytes ) );
+        hash = HashBool( hash, event.granted );
+    }
     hash = HashFloat( hash, data.fps );
     hash = HashFloat( hash, data.renderMs, 1000.0f );
     hash = HashFloat( hash, data.physicsMs, 1000.0f );
@@ -1199,9 +1214,28 @@ void InGameUI::TogglePerformanceHistogramEnabled()
 }
 
 
+void InGameUI::SetMemoryOverlayEnabled( bool enabled )
+{
+    MemoryTab::SetOverlayEnabled( m_memoryOverlay, enabled );
+    m_cache.Reset();
+}
+
+
+bool InGameUI::IsMemoryOverlayEnabled() const
+{
+    return MemoryTab::OverlayEnabled( m_memoryOverlay );
+}
+
+
+void InGameUI::ToggleMemoryOverlayEnabled()
+{
+    SetMemoryOverlayEnabled( !IsMemoryOverlayEnabled() );
+}
+
+
 bool InGameUI::NeedsUiTextPass() const
 {
-    return m_window.isVisible || IsPerformanceHistogramEnabled();
+    return m_window.isVisible || IsPerformanceHistogramEnabled() || IsMemoryOverlayEnabled();
 }
 
 
@@ -1379,6 +1413,8 @@ void InGameUI::DrawHitboxOverlay( const UIDrawContext& draw,
         DrawHitboxRect( draw, m_profilerTab.workerToggle.Bounds(), contentR, contentG, contentB );
         DrawHitboxRect( draw, m_profilerTab.workerThreadSlider.Bounds(), contentR, contentG, contentB );
         break;
+    case InGameUITab::Memory:
+        break;
     default:
         break;
     }
@@ -1409,6 +1445,8 @@ int InGameUI::ContentHeight() const
         return ControlsTab::ContentHeight();
     case InGameUITab::Profiler:
         return ProfilerTab::ContentHeight( m_profilerTab );
+    case InGameUITab::Memory:
+        return MemoryTab::ContentHeight();
     case InGameUITab::Editor:
         return EditorTab::ContentHeight();
     case InGameUITab::Physics:
@@ -2469,7 +2507,8 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd,
 void InGameUI::Draw( const InGameUIFrameData& data, const UIRenderContext& render )
 {
     const bool histogramEnabled = ProfilerTab::PerformanceHistogramEnabled( m_profilerTab );
-    if ( !m_window.isVisible && !histogramEnabled )
+    const bool memoryOverlayEnabled = MemoryTab::OverlayEnabled( m_memoryOverlay );
+    if ( !m_window.isVisible && !histogramEnabled && !memoryOverlayEnabled )
     {
         return;
     }
@@ -2506,14 +2545,43 @@ void InGameUI::Draw( const InGameUIFrameData& data, const UIRenderContext& rende
         FlushUIDrawList( m_histogramDrawList, renderCommands, screenW, screenH );
     };
 
+    auto drawMemoryOverlay = [&]()
+    {
+        if ( !memoryOverlayEnabled )
+        {
+            return;
+        }
+
+        // Why: allocator events are retained by memory level, not by sample
+        // index. Draw it after the F5 panel so the F6 panel can anchor under
+        // the CPU histogram's current position when both are visible.
+        m_memoryOverlayDrawList.Clear();
+        const UIDrawContext memoryDraw( screenW, screenH, &m_memoryOverlayDrawList );
+        const float memoryX = histogramEnabled ? m_profilerTab.histogramPanelX : 16.0f;
+        const float memoryY =
+            histogramEnabled ? m_profilerTab.histogramPanelY + m_profilerTab.histogramPanelH + 8.0f : 16.0f;
+        MemoryTab::DrawOverlay( m_memoryOverlay, memoryDraw, data, memoryX, memoryY );
+        FlushUIDrawList( m_memoryOverlayDrawList, renderCommands, screenW, screenH );
+    };
+
+    auto drawStandaloneOverlays = [&]()
+    {
+        drawHistogramOverlay();
+        drawMemoryOverlay();
+    };
+
     if ( histogramEnabled )
     {
         ProfilerTab::PushPerformanceHistogramSample( m_profilerTab, data );
     }
+    if ( memoryOverlayEnabled )
+    {
+        MemoryTab::PushOverlayFrame( m_memoryOverlay, data );
+    }
 
     if ( !m_window.isVisible )
     {
-        drawHistogramOverlay();
+        drawStandaloneOverlays();
         return;
     }
 
@@ -2530,7 +2598,7 @@ void InGameUI::Draw( const InGameUIFrameData& data, const UIRenderContext& rende
             {
                 Chrome::DrawWindowAnimationShell( draw, animBounds );
                 FlushUIDrawList( drawList, renderCommands, screenW, screenH );
-                drawHistogramOverlay();
+                drawStandaloneOverlays();
                 return;
             }
         }
@@ -2595,7 +2663,7 @@ void InGameUI::Draw( const InGameUIFrameData& data, const UIRenderContext& rende
         }
         DrawEditorObjectCounter( draw, data, screenW, screenH );
         FlushUIDrawList( drawList, renderCommands, screenW, screenH );
-        drawHistogramOverlay();
+        drawStandaloneOverlays();
         return;
     }
 
@@ -2664,7 +2732,7 @@ void InGameUI::Draw( const InGameUIFrameData& data, const UIRenderContext& rende
         const float replayOffsetX = m_cache.ReplayOffsetX( cacheKey );
         const float replayOffsetY = m_cache.ReplayOffsetY( cacheKey );
         FlushUIDrawList( m_cache.DrawList(), renderCommands, screenW, screenH, replayOffsetX, replayOffsetY );
-        drawHistogramOverlay();
+        drawStandaloneOverlays();
         m_cache.StoreFrame( cacheKey );
         return;
     }
@@ -2687,7 +2755,7 @@ void InGameUI::Draw( const InGameUIFrameData& data, const UIRenderContext& rende
     DrawEditorObjectCounter( draw, data, screenW, screenH, &objectCounterAvoidBounds );
 
     static const char* kTabs[] =
-        { "Profile", "Scene", "Editor", "Physics", "Sound", "Options", "Render", "Targets", "Controls", "Sky", "Cine" };
+        { "Prof", "Scene", "Edit", "Phys", "Sound", "Opt", "Render", "Targets", "Ctrl", "Sky", "Cine", "Mem" };
     const int tabCount = static_cast<int>( InGameUITab::Count );
     const float tabPad = 14.0f;
     m_tabBar.SetBounds( x + tabPad, y + titleH, w - tabPad * 2.0f, tabH );
@@ -2710,6 +2778,10 @@ void InGameUI::Draw( const InGameUIFrameData& data, const UIRenderContext& rende
                            contentH,
                            m_scrollY,
                            m_activeSlider );
+    }
+    else if ( m_activeTab == InGameUITab::Memory )
+    {
+        MemoryTab::Draw( draw, data, contentX, contentY, contentW, contentH, scrolledY );
     }
     else if ( m_activeTab == InGameUITab::Scene )
     {
@@ -3185,7 +3257,7 @@ void InGameUI::Draw( const InGameUIFrameData& data, const UIRenderContext& rende
 
     PROFILE_END( "Frame/UI/DrawBuild" );
     FlushUIDrawList( drawList, renderCommands, screenW, screenH );
-    drawHistogramOverlay();
+    drawStandaloneOverlays();
     if ( drawsLiveRenderTargetPreview )
     {
         m_cache.Reset();

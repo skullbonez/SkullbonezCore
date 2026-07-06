@@ -130,8 +130,9 @@ bool Run::TryPickReplayPathTargetFromMouse( bool additive, bool clearOnMiss )
                 m_replayRuntime.PathVisualizer().targets.erase( m_replayRuntime.PathVisualizer().targets.begin() );
             }
             if ( !ReserveReplayPredictionVector( m_replayRuntime.PathVisualizer().targets,
-                                                 REPLAY_PATH_MAX_ROOT_TARGETS,
-                                                 SceneState().currentFrame ) )
+                                                  REPLAY_PATH_MAX_ROOT_TARGETS,
+                                                  SceneState().currentFrame,
+                                                  "RunReplayPathVisualizer::targets" ) )
             {
                 return false;
             }

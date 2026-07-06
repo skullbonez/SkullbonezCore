@@ -427,8 +427,8 @@ bool IntersectRaySphere( const Vector3& rayOrigin,
     return true;
 }
 
-constexpr std::size_t REPLAY_PATH_MAX_FUTURE_NODES = 64;
-constexpr std::size_t REPLAY_PATH_MAX_ROOT_TARGETS = 12;
+constexpr std::size_t REPLAY_PATH_MAX_FUTURE_NODES = 100;
+constexpr std::size_t REPLAY_PATH_MAX_ROOT_TARGETS = 100;
 constexpr std::size_t REPLAY_PATH_MAX_SEGMENTS = 260;
 constexpr float REPLAY_PATH_MIN_SEGMENT_DISTANCE_SQ = 0.0001f;
 
@@ -481,6 +481,15 @@ void Run::RenderReplayPathVisualizer( RunEditorTracer& tracer )
                                       tracer,
                                       visualizerStart,
                                       REPLAY_PREDICTION_MAX_WORK_MILLISECONDS );
+    const RunReplayPredictionState& prediction = m_replayRuntime.Prediction();
+    if ( !prediction.enabled && prediction.frames.size() >= 2 && m_replayRuntime.PathVisualizer().hasTarget &&
+         prediction.targetId.value == m_replayRuntime.PathVisualizer().targetId.value )
+    {
+        // Why: Play disables prediction but keeps the committed path preview.
+        // Letting the retained visualizer continue here would rebuild child
+        // paths from the advancing live timeline and make frozen lines drift.
+        return;
+    }
     if ( ReplayPredictionBudgetExpired( visualizerStart, REPLAY_PREDICTION_MAX_WORK_MILLISECONDS ) )
     {
         return;
@@ -500,7 +509,8 @@ void Run::RenderReplayPathVisualizer( RunEditorTracer& tracer )
     {
         if ( !ReserveReplayPredictionVector( m_replayRuntime.PathVisualizer().targets,
                                              REPLAY_PATH_MAX_ROOT_TARGETS,
-                                             SceneState().currentFrame ) )
+                                             SceneState().currentFrame,
+                                             "RunReplayPathVisualizer::targets" ) )
         {
             return;
         }
@@ -610,10 +620,7 @@ void Run::RenderReplayPathVisualizer( RunEditorTracer& tracer )
         {
             PROFILE_SCOPED( "Frame/Replay/PathVisualizer/RetainedTarget/DrawChildren" );
             m_replayRuntime.Solver().ForEachSampleChronological( DrawReplayChildPaths, &childDraw );
-            AddReplayFutureContactMarkers( targetVisualizer,
-                                           tracer,
-                                           visualizerStart,
-                                           REPLAY_PREDICTION_MAX_WORK_MILLISECONDS );
+            DrawReplayChildFinalMarkers( childDraw );
         }
         if ( ReplayPredictionBudgetExpired( visualizerStart, REPLAY_PREDICTION_MAX_WORK_MILLISECONDS ) )
         {

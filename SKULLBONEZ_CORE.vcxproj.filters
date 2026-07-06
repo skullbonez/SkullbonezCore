@@ -601,6 +601,9 @@
     <ClCompile Include="SkullbonezSource\UI\UITabEditor.cpp">
       <Filter>Source Files\UI</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\UI\UITabMemory.cpp">
+      <Filter>Source Files\UI</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\UI\UITabOptions.cpp">
       <Filter>Source Files\UI</Filter>
     </ClCompile>
@@ -1170,6 +1173,9 @@
       <Filter>Header Files\UI</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\UI\UITabEditor.h">
+      <Filter>Header Files\UI</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\UI\UITabMemory.h">
       <Filter>Header Files\UI</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\UI\UITabOptions.h">

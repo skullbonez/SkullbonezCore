@@ -30,6 +30,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "RunInternal.h"
+#include "Allocation/RuntimeReserveAllocator.h"
 #include "../Core/WorkerPool.h"
 #include "../UI/UIDraw.h"
 #include "../UI/UIStyle.h"
@@ -536,9 +537,17 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         UIData.currentSceneIndex = view.sceneIndex;
         UIData.sceneCount = view.sceneCount;
         UIData.now = m_host.m_timers.simulationTimer.GetTotalTime();
-        if ( m_host.m_UI.GetActiveTab() == InGameUITab::Profiler )
+        if ( m_host.m_UI.GetActiveTab() == InGameUITab::Memory || m_host.m_UI.IsMemoryOverlayEnabled() )
         {
             UIData.mainMemory = m_host.RefreshMainMemoryStats( UIData.now, inputs.models.gameObjectMemory );
+            UIData.reserveGrowthEventTotalCount =
+                SkullbonezCore::Runtime::Allocation::RuntimeReserveAllocator::GrowthEventCount();
+            UIData.reserveGrowthEventDroppedCount =
+                SkullbonezCore::Runtime::Allocation::RuntimeReserveAllocator::GrowthEventDroppedCount();
+            UIData.reserveGrowthEventCount =
+                SkullbonezCore::Runtime::Allocation::RuntimeReserveAllocator::CopyRecentGrowthEvents(
+                    UIData.reserveGrowthEvents,
+                    SkullbonezCore::UI::UI_RUNTIME_RESERVE_GROWTH_EVENT_MAX );
         }
         UIData.sceneMode = view.sceneMode;
         UIData.scenePhysicsEnabled = view.scenePhysics;
@@ -886,7 +895,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         const float titleSz = 0.013f;
         const float entrySz = 0.011f;
         const float lineH = 0.020f;
-        const int nRows = 14;
+        const int nRows = 15;
         const float panPad = 0.012f;
         const float titleGap = 0.016f; // space between title baseline and first entry
         const float keyW = 0.058f;     // key-name column width
@@ -934,6 +943,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
             { "Space", "Play paused scene" },
             { "R/Bksp", "Reset scene" },
             { "F3", "Screenshot" },
+            { "F5", "CPU histogram" },
         };
         static const KeyEntry kRight[nRows] = {
             { "Esc", "Min/expand UI" },
@@ -950,6 +960,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
             { "O", "Terrain probe" },
             { "PgUp/Dn", "Water height" },
             { "F7/F8", "Pipeline stage" },
+            { "F6", "Memory waterline" },
         };
 
         for ( int i = 0; i < nRows; ++i )

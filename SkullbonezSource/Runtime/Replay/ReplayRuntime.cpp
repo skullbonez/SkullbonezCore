@@ -552,6 +552,9 @@ std::string SolverReplayHashLogPath( const std::string& presentationPath )
 ReplayRuntime::ReplayRuntime()
 {
     m_causeTree.rows.reserve( REPLAY_CAUSE_TREE_ROW_CAPACITY );
+    // Runtime allocation policy: focus masks are rewritten during replay render
+    // passes, so the byte vector owns its full model-capacity storage up front.
+    m_focusModelMask.reserve( MAX_GAME_MODELS );
     m_renderPoseBodyMatched.fill( uint8_t{ 0 } );
 }
 
@@ -2058,7 +2061,8 @@ const std::vector<ReplayPredictionGhostDrawRequest>& ReplayRuntime::PredictionGh
 bool ReplayRuntime::BuildFocusModelMask( const PhysicsBodyStore& bodyStore, int modelCount )
 {
     PROFILE_SCOPED( "Frame/Replay/FocusMask" );
-    if ( !m_pathVisualizer.hasTarget || m_pathVisualizer.targetId.value == 0 || modelCount <= 0 )
+    if ( !m_pathVisualizer.hasTarget || m_pathVisualizer.targetId.value == 0 || modelCount <= 0 ||
+         modelCount > MAX_GAME_MODELS )
     {
         m_focusModelMask.clear();
         return false;

@@ -83,15 +83,23 @@ bool TryPredictionTargetDisplacement( const ReplayRuntime& replayRuntime,
     // Concept: automation reports compare the first and last prediction sample
     // for the selected replay body. Missing target data is a clean "not ready",
     // not an error state for the running scene.
-    const std::vector<RunReplayPredictionFrame>& activePredictionFrames = replayRuntime.ActivePredictionFrames();
+    const RunReplayPredictionState& prediction = replayRuntime.Prediction();
+    const std::vector<RunReplayPredictionFrame>* activePredictionFrames = &replayRuntime.ActivePredictionFrames();
+    std::size_t activeFrameCount = activePredictionFrames->size();
+    if ( activeFrameCount < 2 && prediction.building && prediction.buildFrameCount >= 2 )
+    {
+        activePredictionFrames = &prediction.buildFrames;
+        activeFrameCount = (std::min)( prediction.buildFrameCount, activePredictionFrames->size() );
+    }
     const ReplayBodyId targetId = replayRuntime.PathVisualizer().targetId;
-    if ( targetId.value == 0 || activePredictionFrames.empty() )
+    if ( targetId.value == 0 || activeFrameCount < 2 )
     {
         return false;
     }
 
-    const RunReplayPredictionBodySample* first = FindPredictionBodyById( activePredictionFrames.front(), targetId );
-    const RunReplayPredictionBodySample* last = FindPredictionBodyById( activePredictionFrames.back(), targetId );
+    const RunReplayPredictionBodySample* first = FindPredictionBodyById( activePredictionFrames->front(), targetId );
+    const RunReplayPredictionBodySample* last =
+        FindPredictionBodyById( ( *activePredictionFrames )[activeFrameCount - 1], targetId );
     if ( !first || !last )
     {
         return false;
@@ -107,6 +115,31 @@ bool TryPredictionTargetDisplacement( const ReplayRuntime& replayRuntime,
         *outLast = last->position;
     }
     return true;
+}
+
+std::size_t VisiblePredictionFrameCount( const ReplayRuntime& replayRuntime )
+{
+    const RunReplayPredictionState& prediction = replayRuntime.Prediction();
+    const std::vector<RunReplayPredictionFrame>& activePredictionFrames = replayRuntime.ActivePredictionFrames();
+    if ( activePredictionFrames.size() >= 2 )
+    {
+        return activePredictionFrames.size();
+    }
+    if ( prediction.building )
+    {
+        return (std::min)( prediction.buildFrameCount, prediction.buildFrames.size() );
+    }
+    return activePredictionFrames.size();
+}
+
+bool ReplayPredictionPathVisible( const ReplayRuntime& replayRuntime )
+{
+    // Concept: long prediction jobs expose a populated build prefix before the
+    // final frame vector is swapped in. Automation should agree with the overlay
+    // and count that prefix as visible once it can draw at least one segment.
+    return replayRuntime.PathVisualizer().hasTarget &&
+           ( !replayRuntime.PathVisualizer().futureNodes.empty() || VisiblePredictionFrameCount( replayRuntime ) >= 2 ||
+             !replayRuntime.Prediction().futureNodes.empty() );
 }
 
 const char* CameraModeName( RunCameraMode mode )
@@ -310,6 +343,10 @@ const char* AssertName( RunInteractionAutomationAssertKind kind )
         return "replayPathTarget";
     case RunInteractionAutomationAssertKind::PredictionPathVisible:
         return "predictionPathVisible";
+    case RunInteractionAutomationAssertKind::ReplaySolverTrackAtPresent:
+        return "replaySolverTrackAtPresent";
+    case RunInteractionAutomationAssertKind::PredictionScrubFrameActive:
+        return "predictionScrubFrameActive";
     case RunInteractionAutomationAssertKind::PredictionTargetDisplacementMin:
         return "predictionTargetDisplacementMin";
     case RunInteractionAutomationAssertKind::GizmoVisible:
@@ -499,6 +536,16 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
         else if ( name == "predictionPathVisible" )
         {
             outAction.assertKind = RunInteractionAutomationAssertKind::PredictionPathVisible;
+            outAction.boolValue = ReadBool( member.value() );
+        }
+        else if ( name == "replaySolverTrackAtPresent" )
+        {
+            outAction.assertKind = RunInteractionAutomationAssertKind::ReplaySolverTrackAtPresent;
+            outAction.boolValue = ReadBool( member.value() );
+        }
+        else if ( name == "predictionScrubFrameActive" )
+        {
+            outAction.assertKind = RunInteractionAutomationAssertKind::PredictionScrubFrameActive;
             outAction.boolValue = ReadBool( member.value() );
         }
         else if ( name == "predictionTargetDisplacementMin" )
@@ -731,8 +778,8 @@ void Run::TickInteractionAutomationBeforeInput()
         case RunInteractionAutomationActionType::ClickReplayControl:
             if ( strcmp( action.text, "predict" ) == 0 )
             {
-                const int screenW = RuntimeWindowScreenWidth( m_systems, Cfg() );
-                const int screenH = RuntimeWindowScreenHeight( m_systems, Cfg() );
+                const int screenW = RuntimeWindowScreenWidth( m_systems, m_config );
+                const int screenH = RuntimeWindowScreenHeight( m_systems, m_config );
                 const ReplayRecorderStats solverReplayStats = m_replayRuntime.Solver().GetStats();
                 // Why: interaction scripts should match the real UI: Predict
                 // can branch from the current live solver state even before a
@@ -771,6 +818,95 @@ void Run::TickInteractionAutomationBeforeInput()
                                         nullptr,
                                         false,
                                         "replay predict control unavailable" );
+                }
+            }
+            else if ( strcmp( action.text, "pause" ) == 0 || strcmp( action.text, "play" ) == 0 )
+            {
+                const int screenW = RuntimeWindowScreenWidth( m_systems, m_config );
+                const int screenH = RuntimeWindowScreenHeight( m_systems, m_config );
+                const ReplayRecorderStats solverReplayStats = m_replayRuntime.Solver().GetStats();
+                const bool solverToolsEnabled = solverReplayStats.enabled && solverReplayStats.sampleCount >= 2;
+                if ( screenW > 0 && screenH > 0 && solverToolsEnabled )
+                {
+                    // Concept: the scrubber exposes one physical button whose
+                    // label flips between pause and play. Automation clicks the
+                    // real rectangle so replay input ownership does the state
+                    // transition and prediction-freeze work.
+                    const UI::UIRect pauseButton = ReplayScrubberPauseButtonRect( screenW, screenH );
+                    POINT mouse = {};
+                    mouse.x = static_cast<LONG>( pauseButton.x + pauseButton.w * 0.5f );
+                    mouse.y = static_cast<LONG>( pauseButton.y + pauseButton.h * 0.5f );
+                    state.mouseClientPosition = mouse;
+                    state.hasMouseClientPosition = true;
+                    state.leftMouseDown = true;
+                    state.releaseLeftFrame = frame + 1;
+                    action.mouse = mouse;
+                    action.hasMouse = true;
+                    m_replayRuntime.Scrubber().visible = true;
+                    m_replayRuntime.Scrubber().visibleUntil =
+                        m_timers.simulationTimer.GetTotalTime() + REPLAY_SCRUBBER_VISIBLE_SECONDS;
+                    AppendReportAction( state,
+                                        frame,
+                                        action.type,
+                                        action.text,
+                                        &mouse,
+                                        true,
+                                        "mouse press injected at pause/play toggle" );
+                }
+                else
+                {
+                    FailAutomation( state, "replay pause/play control unavailable" );
+                    AppendReportAction( state,
+                                        frame,
+                                        action.type,
+                                        action.text,
+                                        nullptr,
+                                        false,
+                                        "replay pause/play control unavailable" );
+                }
+            }
+            else if ( strcmp( action.text, "velocity" ) == 0 )
+            {
+                const int screenW = RuntimeWindowScreenWidth( m_systems, m_config );
+                const int screenH = RuntimeWindowScreenHeight( m_systems, m_config );
+                const ReplayRecorderStats solverReplayStats = m_replayRuntime.Solver().GetStats();
+                const bool solverToolsEnabled = solverReplayStats.enabled && solverReplayStats.sampleCount >= 2;
+                if ( screenW > 0 && screenH > 0 && solverToolsEnabled )
+                {
+                    // Concept: velocity automation toggles the visible scrubber
+                    // control, then lets the next scripted world click exercise
+                    // replay velocity targeting through normal input ownership.
+                    const UI::UIRect velocityToggle = ReplayScrubberVelocityEditToggleRect( screenW, screenH );
+                    POINT mouse = {};
+                    mouse.x = static_cast<LONG>( velocityToggle.x + velocityToggle.w * 0.5f );
+                    mouse.y = static_cast<LONG>( velocityToggle.y + velocityToggle.h * 0.5f );
+                    state.mouseClientPosition = mouse;
+                    state.hasMouseClientPosition = true;
+                    state.leftMouseDown = true;
+                    state.releaseLeftFrame = frame + 1;
+                    action.mouse = mouse;
+                    action.hasMouse = true;
+                    m_replayRuntime.Scrubber().visible = true;
+                    m_replayRuntime.Scrubber().visibleUntil =
+                        m_timers.simulationTimer.GetTotalTime() + REPLAY_SCRUBBER_VISIBLE_SECONDS;
+                    AppendReportAction( state,
+                                        frame,
+                                        action.type,
+                                        action.text,
+                                        &mouse,
+                                        true,
+                                        "mouse press injected at velocity toggle" );
+                }
+                else
+                {
+                    FailAutomation( state, "replay velocity control unavailable" );
+                    AppendReportAction( state,
+                                        frame,
+                                        action.type,
+                                        action.text,
+                                        nullptr,
+                                        false,
+                                        "replay velocity control unavailable" );
                 }
             }
             else
@@ -918,13 +1054,28 @@ void Run::TickInteractionAutomationAfterRender()
             break;
         case RunInteractionAutomationAssertKind::PredictionPathVisible:
         {
-            const bool visible =
-                m_replayRuntime.PathVisualizer().hasTarget && ( !m_replayRuntime.PathVisualizer().futureNodes.empty() ||
-                                                                !m_replayRuntime.ActivePredictionFrames().empty() ||
-                                                                !m_replayRuntime.Prediction().futureNodes.empty() );
+            const bool visible = ReplayPredictionPathVisible( m_replayRuntime );
             expected = BoolString( action.boolValue );
             actual = BoolString( visible );
             passed = visible == action.boolValue;
+            break;
+        }
+        case RunInteractionAutomationAssertKind::ReplaySolverTrackAtPresent:
+        {
+            const float solverPosition = m_replayRuntime.TrackPosition( RunReplayTrack::Solver );
+            const float presentT = m_replayRuntime.SolverPresentTrackPosition();
+            const bool atPresent = ReplayRuntime::AtPresentTrackPosition( solverPosition, presentT );
+            expected = BoolString( action.boolValue );
+            actual = BoolString( atPresent );
+            passed = atPresent == action.boolValue;
+            break;
+        }
+        case RunInteractionAutomationAssertKind::PredictionScrubFrameActive:
+        {
+            const bool active = m_replayRuntime.CurrentPredictionScrubFrame() != nullptr;
+            expected = BoolString( action.boolValue );
+            actual = BoolString( active );
+            passed = active == action.boolValue;
             break;
         }
         case RunInteractionAutomationAssertKind::PredictionTargetDisplacementMin:
@@ -1044,11 +1195,13 @@ void Run::WriteInteractionAutomationReport()
     }
     const bool gizmoVisible =
         selectedIndex >= 0 && ( m_runtimeTools.Editor().editorModeEnabled || InspectGizmoInteractionActive() );
-    const bool predictionPathVisible =
-        m_replayRuntime.PathVisualizer().hasTarget &&
-        ( !m_replayRuntime.PathVisualizer().futureNodes.empty() || !m_replayRuntime.ActivePredictionFrames().empty() ||
-          !m_replayRuntime.Prediction().futureNodes.empty() );
-    const std::vector<RunReplayPredictionFrame>& activePredictionFrames = m_replayRuntime.ActivePredictionFrames();
+    const std::size_t predictionVisibleFrameCount = VisiblePredictionFrameCount( m_replayRuntime );
+    const bool predictionPathVisible = ReplayPredictionPathVisible( m_replayRuntime );
+    const float replaySolverTrackPosition = m_replayRuntime.TrackPosition( RunReplayTrack::Solver );
+    const float replaySolverPresentTrackPosition = m_replayRuntime.SolverPresentTrackPosition();
+    const bool replaySolverTrackAtPresent =
+        ReplayRuntime::AtPresentTrackPosition( replaySolverTrackPosition, replaySolverPresentTrackPosition );
+    const bool predictionScrubFrameActive = m_replayRuntime.CurrentPredictionScrubFrame() != nullptr;
     bool predictionTargetDisplacementValid = false;
     Vector3 predictionTargetFirst = ZERO_VECTOR;
     Vector3 predictionTargetLast = ZERO_VECTOR;
@@ -1080,9 +1233,9 @@ void Run::WriteInteractionAutomationReport()
                 m_replayRuntime.PathVisualizer().hasTarget ? m_replayRuntime.PathVisualizer().targetName : "" },
               { "replayPathTargetCount", static_cast<int>( m_replayRuntime.PathVisualizer().targets.size() ) },
               { "predictionPathVisible", predictionPathVisible },
-              { "predictionActiveFrameCount", static_cast<int>( activePredictionFrames.size() ) },
+              { "predictionActiveFrameCount", static_cast<int>( predictionVisibleFrameCount ) },
               { "predictionFrameCount", static_cast<int>( m_replayRuntime.Prediction().frames.size() ) },
-              { "predictionBuildFrameCount", static_cast<int>( m_replayRuntime.Prediction().buildFrames.size() ) },
+              { "predictionBuildFrameCount", static_cast<int>( m_replayRuntime.Prediction().buildFrameCount ) },
               { "predictionTargetDisplacementValid", predictionTargetDisplacementValid },
               { "predictionTargetFirst", Vec3Json( predictionTargetFirst ) },
               { "predictionTargetLast", Vec3Json( predictionTargetLast ) },
@@ -1090,6 +1243,13 @@ void Run::WriteInteractionAutomationReport()
               { "predictionFutureNodeCount", static_cast<int>( m_replayRuntime.Prediction().futureNodes.size() ) },
               { "predictionFutureNodeBuildFrameCount",
                 static_cast<int>( m_replayRuntime.Prediction().futureNodesBuiltFrameCount ) },
+              { "replayActiveTrack",
+                m_replayRuntime.Scrubber().activeTrack == RunReplayTrack::Solver ? "Solver" : "Presentation" },
+              { "replayHistoricalSamplePaused", m_replayRuntime.Scrubber().historicalSamplePaused },
+              { "replaySolverTrackPosition", replaySolverTrackPosition },
+              { "replaySolverPresentTrackPosition", replaySolverPresentTrackPosition },
+              { "replaySolverTrackAtPresent", replaySolverTrackAtPresent },
+              { "predictionScrubFrameActive", predictionScrubFrameActive },
               { "replayFutureNodeCount", static_cast<int>( m_replayRuntime.PathVisualizer().futureNodes.size() ) } };
 
     std::ofstream output;

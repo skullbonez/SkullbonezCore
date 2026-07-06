@@ -61,8 +61,17 @@ bool ReplayPredictionMutationReserveSpent( const std::chrono::steady_clock::time
 constexpr const char* REPLAY_PREDICTION_RESERVE_OWNER = "replay_prediction_working_set";
 constexpr int REPLAY_PREDICTION_FRAME_CAPACITY =
     static_cast<int>( REPLAY_PREDICTION_MAX_SECONDS / PHYSICS_FIXED_DT ) + 2;
-constexpr int REPLAY_PREDICTION_RESERVE_HARD_CAPACITY = REPLAY_PREDICTION_FRAME_CAPACITY * MAX_GAME_MODELS;
-constexpr int REPLAY_PREDICTION_RESERVE_GROWTH_LIMIT = 32;
+constexpr int REPLAY_PREDICTION_PATH_BUDGET = 100;
+constexpr int REPLAY_PREDICTION_RESERVE_HARD_CAPACITY =
+    REPLAY_PREDICTION_FRAME_CAPACITY * MAX_GAME_MODELS * REPLAY_PREDICTION_PATH_BUDGET;
+constexpr std::size_t REPLAY_PREDICTION_DEBUG_CONTACT_INITIAL_MIN = 512u;
+constexpr std::size_t REPLAY_PREDICTION_DEBUG_CONTACT_INITIAL_MAX = 2048u;
+constexpr std::size_t REPLAY_PREDICTION_DEBUG_CONTACT_GROWTH_CHUNK = 4096u;
+// Runtime allocation policy: prediction scratch can grow as the user explores
+// larger retained paths. The registered hard cap is the budget; growth count is
+// telemetry so interactive replay does not trip a per-run count fuse.
+constexpr int REPLAY_PREDICTION_RESERVE_GROWTH_LIMIT =
+    RuntimeAllocation::RUNTIME_RESERVE_REPLAY_GROWTH_LIMIT_UNBOUNDED;
 
 RuntimeAllocation::RuntimeReserveOwnerHandle ReplayPredictionReserveOwner()
 {
@@ -75,12 +84,41 @@ RuntimeAllocation::RuntimeReserveOwnerHandle ReplayPredictionReserveOwner()
               REPLAY_PREDICTION_RESERVE_HARD_CAPACITY,
               REPLAY_PREDICTION_RESERVE_GROWTH_LIMIT,
               true,
-              "replay prediction bodies, frames, and future-node scratch grow only under replay approval" } );
+              "replay prediction supports large retained path visualization under a hard replay budget" } );
     return owner;
 }
 
+std::size_t RoundUpReplayPredictionCapacity( std::size_t requestedCapacity, std::size_t chunk )
+{
+    if ( chunk == 0 || requestedCapacity == 0 )
+    {
+        return requestedCapacity;
+    }
+    const std::size_t remainder = requestedCapacity % chunk;
+    return remainder == 0 ? requestedCapacity : requestedCapacity + ( chunk - remainder );
+}
+
+std::size_t ReplayPredictionInitialDebugContactCapacity( int modelCount )
+{
+    const std::size_t modelScaled = static_cast<std::size_t>( (std::max)( modelCount, 1 ) ) * 8u;
+    return std::clamp( modelScaled,
+                       REPLAY_PREDICTION_DEBUG_CONTACT_INITIAL_MIN,
+                       REPLAY_PREDICTION_DEBUG_CONTACT_INITIAL_MAX );
+}
+
+std::size_t ReplayPredictionNextDebugContactCapacity( std::size_t currentCapacity, std::size_t requiredCapacity )
+{
+    const std::size_t chunked =
+        RoundUpReplayPredictionCapacity( requiredCapacity, REPLAY_PREDICTION_DEBUG_CONTACT_GROWTH_CHUNK );
+    const std::size_t doubled = currentCapacity > 0 ? currentCapacity * 2u : REPLAY_PREDICTION_DEBUG_CONTACT_INITIAL_MIN;
+    return (std::max)( chunked, doubled );
+}
+
 template<typename T>
-bool ReserveReplayPredictionVector( std::vector<T>& values, std::size_t requestedCapacity, int frameNumber )
+bool ReserveReplayPredictionVector( std::vector<T>& values,
+                                    std::size_t requestedCapacity,
+                                    int frameNumber,
+                                    const char* targetName )
 {
     if ( requestedCapacity <= values.capacity() )
     {
@@ -93,6 +131,7 @@ bool ReserveReplayPredictionVector( std::vector<T>& values, std::size_t requeste
 
     const RuntimeAllocation::RuntimeReserveOwnerHandle owner = ReplayPredictionReserveOwner();
     const RuntimeAllocation::RuntimeReserveGrowthRequest request = { REPLAY_PREDICTION_RESERVE_OWNER,
+                                                                     targetName,
                                                                      RuntimeAllocation::RuntimeReservePhase::Replay,
                                                                      frameNumber,
                                                                      static_cast<int>( values.capacity() ),
@@ -120,6 +159,7 @@ bool ReserveReplayPredictionFramePayloadVectors( std::vector<RunReplayPrediction
                                                  std::size_t requestedFrameCount,
                                                  std::size_t requestedCapacityPerFrame,
                                                  int frameNumber,
+                                                 const char* targetName,
                                                  std::vector<T> RunReplayPredictionFrame::*member )
 {
     // Runtime allocation policy: prediction captures many future frames. Batch
@@ -147,6 +187,7 @@ bool ReserveReplayPredictionFramePayloadVectors( std::vector<RunReplayPrediction
 
     const RuntimeAllocation::RuntimeReserveOwnerHandle owner = ReplayPredictionReserveOwner();
     const RuntimeAllocation::RuntimeReserveGrowthRequest request = { REPLAY_PREDICTION_RESERVE_OWNER,
+                                                                     targetName,
                                                                      RuntimeAllocation::RuntimeReservePhase::Replay,
                                                                      frameNumber,
                                                                      static_cast<int>( oldCapacity ),
@@ -322,6 +363,13 @@ Vector3 ReplayNormalizeOr( Vector3 value, const Vector3& fallback )
     }
     value /= sqrtf( magSq );
     return value;
+}
+
+Quaternion ReplaySolverBodyOrientation( const ReplaySolverBodySample& body )
+{
+    Quaternion orientation( body.orientation[0], body.orientation[1], body.orientation[2], body.orientation[3] );
+    orientation.Normalise();
+    return orientation;
 }
 
 const ReplaySolverBodySample* FindReplayBodyByModelIndex( const ReplaySolverFrameSample& sample, int modelIndex )
@@ -729,9 +777,12 @@ struct ReplayPathChildDrawState
     RunReplayPathTraceNode node;
     bool hasIncomingPrevious = false;
     bool hasPrevious = false;
-    bool markerDrawn = false;
+    bool hasMarkerPose = false;
+    int markerModelIndex = -1;
     Vector3 incomingPrevious = SkullbonezCore::Math::Vector::ZERO_VECTOR;
     Vector3 previous = SkullbonezCore::Math::Vector::ZERO_VECTOR;
+    Vector3 markerPosition = SkullbonezCore::Math::Vector::ZERO_VECTOR;
+    Quaternion markerOrientation = IDENTITY_QUATERNION;
 };
 
 struct ReplayPathChildDrawContext
@@ -760,17 +811,62 @@ bool ReplayPathChildDrawBudgetExpired( ReplayPathChildDrawContext& context )
     return context.budgetExpired;
 }
 
-float ReplayFutureMarkerRadiusForModelIndex( const ColliderStore* colliderStore, int modelIndex )
+// Why: downstream replay markers should show the collider's real authored
+// shape, not the broadphase radius used for cheap collision culling.
+const ColliderRecord* ReplayColliderRecordForModelIndex( const ColliderStore* colliderStore, int modelIndex )
 {
-    if ( colliderStore )
+    if ( !colliderStore )
     {
-        float radius = 1.0f;
-        if ( TryReplayColliderRadiusForModelIndex( *colliderStore, modelIndex, radius ) )
+        return nullptr;
+    }
+
+    const PhysicsColliderHandle colliderHandle = colliderStore->HandleForModelIndex( modelIndex );
+    const ColliderRecord* collider = colliderStore->RecordForHandle( colliderHandle );
+    if ( !collider || colliderStore->ModelIndexForHandle( colliderHandle ) != modelIndex )
+    {
+        return nullptr;
+    }
+    return collider;
+}
+
+void CaptureReplayChildMarkerPose( ReplayPathChildDrawState& drawState,
+                                   const Vector3& position,
+                                   const Quaternion& orientation,
+                                   int modelIndex )
+{
+    drawState.markerPosition = position;
+    drawState.markerOrientation = orientation;
+    drawState.markerModelIndex = modelIndex;
+    drawState.hasMarkerPose = true;
+}
+
+void DrawReplayChildFinalMarkers( ReplayPathChildDrawContext& context )
+{
+    // Why: downstream body markers summarize where each transferred body ends
+    // up in the visible prefix. Stamping contact-time poses made boxes look cut
+    // short while their gray future trails continued past the outline.
+    for ( std::size_t i = 0; i < context.nodeCount; ++i )
+    {
+        if ( ReplayPathChildDrawBudgetExpired( context ) )
         {
-            return radius * 1.18f;
+            return;
+        }
+
+        const ReplayPathChildDrawState& drawState = context.nodes[i];
+        if ( !drawState.hasMarkerPose )
+        {
+            continue;
+        }
+
+        if ( const ColliderRecord* collider =
+                 ReplayColliderRecordForModelIndex( context.colliderStore, drawState.markerModelIndex ) )
+        {
+            context.tracer->AddReplayFutureTargetMarker( drawState.markerPosition,
+                                                         drawState.markerOrientation,
+                                                         collider->shape,
+                                                         drawState.node.depth );
         }
     }
-    return 1.25f;
 }
 
 void ReplayChildIncomingColor( int depth, float t, float& r, float& g, float& b )
@@ -791,19 +887,21 @@ void ReplayChildFutureColor( int depth, float t, float& r, float& g, float& b )
 }
 
 void DrawReplayPredictionRagdollTorsoTrails( const std::vector<RunReplayPredictionFrame>& frames,
+                                             std::size_t frameCount,
                                              const SkullbonezCore::GameObjects::GameModelCollection& collection,
                                              RunEditorTracer& tracer,
                                              const std::chrono::steady_clock::time_point& budgetStart,
                                              double budgetMilliseconds )
 {
     const int modelCount = collection.GetModelCount();
-    if ( frames.size() < 2 || modelCount <= 0 )
+    frameCount = (std::min)( frameCount, frames.size() );
+    if ( frameCount < 2 || modelCount <= 0 )
     {
         return;
     }
 
-    const ReplayFrameIndex lastFrame = frames.back().frameIndex;
-    const std::size_t sampleStride = ReplayPathStrideForSampleCount( frames.size() );
+    const ReplayFrameIndex lastFrame = frames[frameCount - 1].frameIndex;
+    const std::size_t sampleStride = ReplayPathStrideForSampleCount( frameCount );
     for ( int modelIndex = 0; modelIndex < modelCount; ++modelIndex )
     {
         if ( ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ) )
@@ -819,8 +917,9 @@ void DrawReplayPredictionRagdollTorsoTrails( const std::vector<RunReplayPredicti
         bool hasPrevious = false;
         Vector3 previous = SkullbonezCore::Math::Vector::ZERO_VECTOR;
         std::size_t ordinal = 0;
-        for ( const RunReplayPredictionFrame& frame : frames )
+        for ( std::size_t frameIndex = 0; frameIndex < frameCount; ++frameIndex )
         {
+            const RunReplayPredictionFrame& frame = frames[frameIndex];
             if ( ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ) )
             {
                 return;
@@ -892,13 +991,6 @@ void DrawReplayChildPaths( const ReplaySolverFrameSample& sample, void* userData
 
         if ( sample.frameIndex <= drawState.node.firstFrame )
         {
-            if ( !drawState.markerDrawn )
-            {
-                const float radius =
-                    ReplayFutureMarkerRadiusForModelIndex( context.colliderStore, body->modelIndex );
-                context.tracer->AddReplayFutureTargetMarker( body->position, radius, drawState.node.depth );
-                drawState.markerDrawn = true;
-            }
             if ( drawState.hasIncomingPrevious &&
                  VectorMagSquared( body->position - drawState.incomingPrevious ) > REPLAY_PATH_MIN_SEGMENT_DISTANCE_SQ )
             {
@@ -925,34 +1017,13 @@ void DrawReplayChildPaths( const ReplaySolverFrameSample& sample, void* userData
         }
         if ( sample.frameIndex >= drawState.node.firstFrame )
         {
+            CaptureReplayChildMarkerPose( drawState,
+                                          body->position,
+                                          ReplaySolverBodyOrientation( *body ),
+                                          body->modelIndex );
             drawState.previous = body->position;
             drawState.hasPrevious = true;
         }
-    }
-}
-
-void AddReplayFutureContactMarkers( const RunReplayPathVisualizerState& visualizer,
-                                    RunEditorTracer& tracer,
-                                    const std::chrono::steady_clock::time_point& budgetStart,
-                                    double budgetMilliseconds )
-{
-    for ( const RunReplayPathTraceNode& node : visualizer.futureNodes )
-    {
-        if ( ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ) )
-        {
-            return;
-        }
-
-        float r = 0.58f;
-        float g = 0.62f;
-        float b = 0.70f;
-        if ( node.depth <= 1 )
-        {
-            r = 0.72f;
-            g = 0.78f;
-            b = 0.86f;
-        }
-        tracer.AddReplayContactMarker( node.contactPoint, node.contactNormal, r, g, b );
     }
 }
 
@@ -1099,14 +1170,20 @@ bool BuildReplayPredictionFutureNodes( const RunReplayPredictionFrame& frame,
 
 void UpdateReplayPredictionFutureNodeCache( RunReplayPredictionState& prediction,
                                             const std::vector<RunReplayPredictionFrame>& frames,
+                                            std::size_t frameCount,
                                             bool usingBuildFrames,
                                             const SkullbonezCore::GameObjects::GameModelCollection& collection,
                                             ReplayBodyId rootId,
                                             const std::chrono::steady_clock::time_point& budgetStart,
                                             double budgetMilliseconds )
 {
+    // Invariant: frameCount is the populated prefix of frames. buildFrames is
+    // pre-sized for the whole prediction horizon, so using frames.size() while
+    // building would scan empty rows and mark the future-node cache complete
+    // before contacts have been captured.
+    frameCount = (std::min)( frameCount, frames.size() );
     const bool completingBuildFrames = !usingBuildFrames && prediction.futureNodesBuiltFromBuildFrames &&
-                                       prediction.futureNodesBuiltFrameCount <= frames.size();
+                                       prediction.futureNodesBuiltFrameCount <= frameCount;
     const bool sourceMismatch =
         prediction.futureNodesBuiltFromBuildFrames != usingBuildFrames && !completingBuildFrames;
     // Invariant: these inputs define the meaning of the cached tree. Any change
@@ -1115,7 +1192,7 @@ void UpdateReplayPredictionFutureNodeCache( RunReplayPredictionState& prediction
     const bool cacheMismatch = !prediction.futureNodesCacheValid ||
                                prediction.futureNodesBuiltTargetId.value != rootId.value ||
                                prediction.futureNodesBuiltRagdollVisuals != prediction.ragdollVisualsEnabled ||
-                               sourceMismatch || prediction.futureNodesBuiltFrameCount > frames.size();
+                               sourceMismatch || prediction.futureNodesBuiltFrameCount > frameCount;
     if ( cacheMismatch )
     {
         ClearReplayPredictionFutureNodeCache( prediction );
@@ -1129,7 +1206,7 @@ void UpdateReplayPredictionFutureNodeCache( RunReplayPredictionState& prediction
         prediction.futureNodesBuiltFromBuildFrames = false;
     }
 
-    if ( rootId.value == 0 || frames.empty() || !prediction.futureNodesCacheValid )
+    if ( rootId.value == 0 || frameCount == 0 || !prediction.futureNodesCacheValid )
     {
         return;
     }
@@ -1144,7 +1221,7 @@ void UpdateReplayPredictionFutureNodeCache( RunReplayPredictionState& prediction
 
     if ( prediction.futureNodeBuildScratch.size() >= REPLAY_PATH_MAX_FUTURE_NODES )
     {
-        prediction.futureNodesBuiltFrameCount = frames.size();
+        prediction.futureNodesBuiltFrameCount = frameCount;
         prediction.futureNodesBuiltContactIndex = 0;
         publishScratch();
         return;
@@ -1157,7 +1234,7 @@ void UpdateReplayPredictionFutureNodeCache( RunReplayPredictionState& prediction
     futureContext.rootId = rootId;
     futureContext.includeRagdollVisuals = prediction.ragdollVisualsEnabled;
 
-    while ( prediction.futureNodesBuiltFrameCount < frames.size() )
+    while ( prediction.futureNodesBuiltFrameCount < frameCount )
     {
         const std::size_t frameIndex = prediction.futureNodesBuiltFrameCount;
         std::size_t nextContactIndex = prediction.futureNodesBuiltContactIndex;
@@ -1177,7 +1254,7 @@ void UpdateReplayPredictionFutureNodeCache( RunReplayPredictionState& prediction
 
         if ( prediction.futureNodeBuildScratch.size() >= REPLAY_PATH_MAX_FUTURE_NODES )
         {
-            prediction.futureNodesBuiltFrameCount = frames.size();
+            prediction.futureNodesBuiltFrameCount = frameCount;
             prediction.futureNodesBuiltContactIndex = 0;
             break;
         }
@@ -1205,7 +1282,10 @@ bool CaptureReplayPredictionBodyState( SkullbonezCore::GameObjects::GameModelCol
     }
 
     outBodies.clear();
-    if ( !ReserveReplayPredictionVector( outBodies, static_cast<std::size_t>( modelCount ), 0 ) )
+    if ( !ReserveReplayPredictionVector( outBodies,
+                                         static_cast<std::size_t>( modelCount ),
+                                         0,
+                                         "RunReplayPredictionBodyBackup[]" ) )
     {
         return false;
     }
@@ -1358,7 +1438,21 @@ bool CaptureReplayPredictionFrame( ReplayRuntime& replayRuntime,
     const std::vector<PhysicsDebugContact>& debugContacts = modelCollection.GetPhysicsDebugContacts();
     if ( debugContacts.size() > frame.debugContacts.capacity() )
     {
-        return false;
+        // Why: debug contacts feed the optional future-contact tree; the root
+        // trajectory line only needs body samples. If a dense contact frame asks
+        // for more replay scratch, grow it here. If the replay reserve refuses,
+        // keep the frame and drop contacts rather than cancelling prediction.
+        const std::size_t requestedDebugContactCapacity =
+            ReplayPredictionNextDebugContactCapacity( frame.debugContacts.capacity(), debugContacts.size() );
+        if ( !ReserveReplayPredictionVector( frame.debugContacts,
+                                             requestedDebugContactCapacity,
+                                             static_cast<int>( frameIndex ),
+                                             "RunReplayPredictionFrame::debugContacts" ) )
+        {
+            frame.debugContacts.clear();
+            prediction.buildFrameCount = (std::max)( prediction.buildFrameCount, frameSlot + 1 );
+            return true;
+        }
     }
     frame.debugContacts = debugContacts;
     prediction.buildFrameCount = (std::max)( prediction.buildFrameCount, frameSlot + 1 );

@@ -234,6 +234,12 @@ class RunEditorTracer
                   float r,
                   float g,
                   float bl );
+    void EmitShapeOutline( const Math::Vector::Vector3& position,
+                           const Math::Orientation::Quaternion& orientation,
+                           const Math::CollisionDetection::CollisionShape& shape,
+                           float r,
+                           float g,
+                           float b );
 
   public:
     RunEditorTracer();
@@ -262,7 +268,13 @@ class RunEditorTracer
                                  float r,
                                  float g,
                                  float b );
-    void AddReplayFutureTargetMarker( const Math::Vector::Vector3& center, float radius, int depth );
+    // Draws the downstream replay collision marker from the exact collider
+    // shape at the predicted contact frame. Callers pass explicit pose/shape so
+    // future-node overlays never fall back to broadphase radius rings.
+    void AddReplayFutureTargetMarker( const Math::Vector::Vector3& position,
+                                      const Math::Orientation::Quaternion& orientation,
+                                      const Math::CollisionDetection::CollisionShape& shape,
+                                      int depth );
     // Draws a replay target marker from explicit store values. Replay may still
     // resolve identity by model order, but marker geometry must not read legacy
     // model-side body state.

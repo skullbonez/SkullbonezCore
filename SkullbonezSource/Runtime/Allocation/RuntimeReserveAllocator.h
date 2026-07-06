@@ -7,13 +7,14 @@ Mental model:
   Runtime allocation policy is enforced by named owners, not by one anonymous
   heap. Gameplay owners register fixed capacity so diagnostics can report their
   budget and high-water use. Replay owners are the only owners allowed to ask
-  for bounded runtime reserve bumps, and every bump is counted.
+  for hard-cap-bounded runtime reserve bumps, and every bump is counted.
 
 Glossary:
   Reserve owner: A runtime subsystem buffer with a named capacity contract.
   Owner scope: A cheap thread-local label used by the global allocation hook to
     attribute generic C++ heap traffic to the owner currently doing work.
-  Replay growth: A rare, bounded capacity increase requested during replay.
+  Replay growth: A rare capacity increase requested during replay and bounded
+    by its registered hard capacity.
 
 Invariants:
   - Registry and counter storage is fixed; reporting and hook attribution must
@@ -40,6 +41,8 @@ namespace Allocation
 using RuntimeReserveOwnerHandle = uint16_t;
 
 constexpr RuntimeReserveOwnerHandle INVALID_RUNTIME_RESERVE_OWNER = 0u;
+constexpr int RUNTIME_RESERVE_REPLAY_GROWTH_LIMIT_UNBOUNDED = -1;
+constexpr int RUNTIME_RESERVE_GROWTH_EVENT_HISTORY = 256;
 
 enum class RuntimeReservePhase
 {
@@ -76,7 +79,7 @@ struct RuntimeReserveOwnerDesc
     RuntimeReservePhase initPhase;
     int initialCapacity;
     int hardCapacity;
-    int replayGrowthLimit;
+    int replayGrowthLimit; // Negative means hard-cap-only; every growth is still counted.
     bool allowReplayGrowth;
     const char* capacityReason;
 };
@@ -84,6 +87,7 @@ struct RuntimeReserveOwnerDesc
 struct RuntimeReserveGrowthRequest
 {
     const char* ownerName;
+    const char* targetName;
     RuntimeReservePhase phase;
     int frameNumber;
     int oldCapacity;
@@ -96,6 +100,24 @@ struct RuntimeReserveGrowthResult
     bool granted;
     int grantedCapacity;
     int growthCount;
+};
+
+struct RuntimeReserveGrowthEventView
+{
+    const char* ownerName;
+    const char* targetName;
+    const char* subsystemName;
+    const char* phaseName;
+    const char* reason;
+    uint64_t sequence;
+    uint64_t bytes;
+    int frameNumber;
+    int oldCapacity;
+    int requestedCapacity;
+    int grantedCapacity;
+    int elementSizeBytes;
+    int growthCount;
+    bool granted;
 };
 
 class RuntimeReserveGrowthScope
@@ -142,6 +164,9 @@ class RuntimeReserveAllocator
 
     static void RecordAllocation( RuntimeReserveOwnerHandle owner, int phaseIndex, uint64_t bytes ) noexcept;
     static void RecordFree( RuntimeReserveOwnerHandle owner, uint64_t bytes ) noexcept;
+    static int CopyRecentGrowthEvents( RuntimeReserveGrowthEventView* outEvents, int maxEvents ) noexcept;
+    static uint64_t GrowthEventCount() noexcept;
+    static uint64_t GrowthEventDroppedCount() noexcept;
     static void ResetCounters() noexcept;
     static void PrintSummary( FILE* out ) noexcept;
 

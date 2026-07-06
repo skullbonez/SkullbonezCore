@@ -381,6 +381,8 @@ const char* InputController::DescribeAction( RuntimeInputAction action )
         return "ToggleUIVisibility";
     case RuntimeInputAction::TogglePerformanceHistogram:
         return "TogglePerformanceHistogram";
+    case RuntimeInputAction::ToggleMemoryOverlay:
+        return "ToggleMemoryOverlay";
     case RuntimeInputAction::NavigateScenePrevious:
         return "NavigateScenePrevious";
     case RuntimeInputAction::NavigateSceneNext:

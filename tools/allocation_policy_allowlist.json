@@ -92,7 +92,7 @@
       "owner": "Replay prediction working set",
       "phase": "replay",
       "reason": "Replay prediction uses this helper as the single registered growth gate for top-level prediction, path, and body-state vectors.",
-      "cap": "Registered owner replay_prediction_working_set, hard cap REPLAY_PREDICTION_FRAME_CAPACITY * MAX_GAME_MODELS, bounded growth count.",
+      "cap": "Registered owner replay_prediction_working_set, hard cap REPLAY_PREDICTION_FRAME_CAPACITY * MAX_GAME_MODELS, counted replay growth.",
       "removal_or_wrapper_plan": "Keep prediction growth behind ReserveReplayPredictionVector or replace it with a fixed prediction arena; do not add direct vector reserve callsites."
     },
     {
