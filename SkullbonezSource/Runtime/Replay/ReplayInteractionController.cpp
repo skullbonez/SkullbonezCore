@@ -25,7 +25,10 @@ Related:
 #include "ReplayInteractionController.h"
 
 #include "ReplayOverlayLayout.h"
+#include "../../Core/Profiler.h"
+#include "../../GameObjects/GameModelCollection.h"
 
+#include <algorithm>
 #include <cstdio>
 #include <cstring>
 
@@ -111,6 +114,111 @@ bool ReplayInteractionController::RestoreScrubberSelectionAsLive( const ReplayLi
     PublishScrubberRestoreResult( context.replayRuntime.Scrubber(), context.now, restored, messageTrack );
     WriteReason( context.outReason, context.reasonSize, reason );
     return restored;
+}
+
+
+ReplayVelocityEditInputFrame ReplayInteractionController::BeginVelocityEditInputFrame( ReplayRuntime& replayRuntime,
+                                                                                       bool leftDown )
+{
+    RunReplayVelocityEditState& velocityEdit = replayRuntime.VelocityEdit();
+    ReplayVelocityEditInputFrame frame;
+    frame.leftDown = leftDown;
+    frame.leftPressed = leftDown && !velocityEdit.leftWasDown;
+    frame.leftReleased = !leftDown && velocityEdit.leftWasDown;
+    velocityEdit.leftWasDown = leftDown;
+    return frame;
+}
+
+
+void ReplayInteractionController::SetVelocityEditHoverAxes( ReplayRuntime& replayRuntime,
+                                                            int linearAxis,
+                                                            int angularAxis )
+{
+    replayRuntime.VelocityEdit().hotLinearAxis = linearAxis;
+    replayRuntime.VelocityEdit().hotAngularAxis = angularAxis;
+}
+
+
+ReplayVelocityEditResetResult ReplayInteractionController::ResetVelocityEditInteraction( ReplayRuntime& replayRuntime,
+                                                                                         bool clearHoverAxes )
+{
+    RunReplayVelocityEditState& velocityEdit = replayRuntime.VelocityEdit();
+    ReplayVelocityEditResetResult result;
+    if ( clearHoverAxes )
+    {
+        velocityEdit.hotLinearAxis = -1;
+        velocityEdit.hotAngularAxis = -1;
+    }
+    result.endDragGesture = velocityEdit.dragging;
+    velocityEdit.dragging = false;
+    velocityEdit.draggingAngular = false;
+    velocityEdit.activeAxis = -1;
+    result.releaseMouseCapture = velocityEdit.mouseCaptured;
+    velocityEdit.mouseCaptured = false;
+    return result;
+}
+
+
+ReplayVelocityEditResetResult ReplayInteractionController::EndVelocityEditDrag( ReplayRuntime& replayRuntime )
+{
+    return ResetVelocityEditInteraction( replayRuntime, false );
+}
+
+
+void ReplayInteractionController::BeginVelocityEditDrag( ReplayRuntime& replayRuntime,
+                                                         const ReplayVelocityEditDragStart& start )
+{
+    // Invariant: replay velocity edit drag state stores the body handle's model
+    // slot only as gesture metadata. Live velocity mutation resolves the handle
+    // again before touching PhysicsBodyStore.
+    replayRuntime.Prediction().enabled = true;
+    RunReplayVelocityEditState& velocityEdit = replayRuntime.VelocityEdit();
+    velocityEdit.dragging = true;
+    velocityEdit.draggingAngular = start.angular;
+    velocityEdit.activeAxis = start.axis;
+    velocityEdit.dragStartAxisT = start.axisT;
+    velocityEdit.dragStartAngle = start.angle;
+    velocityEdit.dragStartLinearVelocity = start.linearVelocity;
+    velocityEdit.dragStartAngularVelocity = start.angularVelocity;
+}
+
+
+void ReplayInteractionController::SelectVelocityEditTarget( ReplayRuntime& replayRuntime, double visibleUntil )
+{
+    replayRuntime.Prediction().enabled = true;
+    replayRuntime.Scrubber().visibleUntil = visibleUntil;
+    replayRuntime.Scrubber().visible = true;
+}
+
+
+bool ReplayInteractionController::ApplyVelocityEditToBody( const ReplayVelocityEditApplyContext& context )
+{
+    PROFILE_SCOPED( "Frame/Replay/VelocityEdit/Apply" );
+    // Invariant: replay velocity edit mutates live physics state deliberately,
+    // then marks prediction dirty so retained and predicted overlays do not
+    // present stale paths for the edited body.
+    if ( !context.body.IsValid() )
+    {
+        return false;
+    }
+
+    Math::Vector::Vector3 clampedLinear = context.linearVelocity;
+    Math::Vector::Vector3 clampedAngular = context.angularVelocity;
+    clampedLinear.x = std::clamp( clampedLinear.x, -context.linearVelocityLimit, context.linearVelocityLimit );
+    clampedLinear.y = std::clamp( clampedLinear.y, -context.linearVelocityLimit, context.linearVelocityLimit );
+    clampedLinear.z = std::clamp( clampedLinear.z, -context.linearVelocityLimit, context.linearVelocityLimit );
+    clampedAngular.x = std::clamp( clampedAngular.x, -context.angularVelocityLimit, context.angularVelocityLimit );
+    clampedAngular.y = std::clamp( clampedAngular.y, -context.angularVelocityLimit, context.angularVelocityLimit );
+    clampedAngular.z = std::clamp( clampedAngular.z, -context.angularVelocityLimit, context.angularVelocityLimit );
+
+    if ( !context.models.GetPhysicsEngine().SetBodyVelocity( context.body, clampedLinear, clampedAngular, true ) )
+    {
+        return false;
+    }
+    context.replayRuntime.MarkPredictionDirty();
+    context.replayRuntime.Scrubber().visibleUntil = context.visibleUntil;
+    context.replayRuntime.Scrubber().visible = true;
+    return true;
 }
 
 

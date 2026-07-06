@@ -31,6 +31,10 @@ Related:
 
 namespace SkullbonezCore
 {
+namespace GameObjects
+{
+class GameModelCollection;
+}
 namespace Basics
 {
 struct ReplayLiveRestoreApi
@@ -62,10 +66,53 @@ struct ReplayLiveRestoreContext
     std::size_t reasonSize = 0;
 };
 
+struct ReplayVelocityEditInputFrame
+{
+    bool leftDown = false;
+    bool leftPressed = false;
+    bool leftReleased = false;
+};
+
+struct ReplayVelocityEditResetResult
+{
+    bool endDragGesture = false;
+    bool releaseMouseCapture = false;
+};
+
+struct ReplayVelocityEditDragStart
+{
+    int modelIndex = -1;
+    int axis = -1;
+    bool angular = false;
+    float axisT = 0.0f;
+    float angle = 0.0f;
+    Math::Vector::Vector3 linearVelocity = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 angularVelocity = Math::Vector::ZERO_VECTOR;
+};
+
+struct ReplayVelocityEditApplyContext
+{
+    ReplayRuntime& replayRuntime;
+    GameObjects::GameModelCollection& models;
+    Physics::PhysicsBodyHandle body;
+    Math::Vector::Vector3 linearVelocity = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 angularVelocity = Math::Vector::ZERO_VECTOR;
+    float linearVelocityLimit = 0.0f;
+    float angularVelocityLimit = 0.0f;
+    double visibleUntil = 0.0;
+};
+
 class ReplayInteractionController
 {
   public:
     bool RestoreScrubberSelectionAsLive( const ReplayLiveRestoreContext& context );
+    ReplayVelocityEditInputFrame BeginVelocityEditInputFrame( ReplayRuntime& replayRuntime, bool leftDown );
+    void SetVelocityEditHoverAxes( ReplayRuntime& replayRuntime, int linearAxis, int angularAxis );
+    ReplayVelocityEditResetResult ResetVelocityEditInteraction( ReplayRuntime& replayRuntime, bool clearHoverAxes );
+    ReplayVelocityEditResetResult EndVelocityEditDrag( ReplayRuntime& replayRuntime );
+    void BeginVelocityEditDrag( ReplayRuntime& replayRuntime, const ReplayVelocityEditDragStart& start );
+    void SelectVelocityEditTarget( ReplayRuntime& replayRuntime, double visibleUntil );
+    bool ApplyVelocityEditToBody( const ReplayVelocityEditApplyContext& context );
 
   private:
     static void WriteReason( char* outReason, std::size_t reasonSize, const char* reason );
