@@ -368,6 +368,7 @@ enum class RunInteractionAutomationActionType
     ClickReplayControl,
     ScrubReplaySolverTrack,
     SetReplayPredictionEnabled,
+    SetReplayPathTarget,
     ShowReplayScrubber,
     PressKey,
     AssertState,

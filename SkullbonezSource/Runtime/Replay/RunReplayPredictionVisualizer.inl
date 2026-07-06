@@ -130,11 +130,11 @@ bool BeginReplayPredictionJob( ReplayRuntime& replayRuntime,
     replayRuntime.Prediction().buildFrames.resize( buildFrameCapacity );
     replayRuntime.Prediction().buildFrameCount = 0;
     if ( !ReserveReplayPredictionFramePayloadVectors( replayRuntime.Prediction().buildFrames,
-                                                       buildFrameCapacity,
-                                                       static_cast<std::size_t>( modelCount ),
-                                                       0,
-                                                       "RunReplayPredictionFrame::bodies",
-                                                       &RunReplayPredictionFrame::bodies ) )
+                                                      buildFrameCapacity,
+                                                      static_cast<std::size_t>( modelCount ),
+                                                      0,
+                                                      "RunReplayPredictionFrame::bodies",
+                                                      &RunReplayPredictionFrame::bodies ) )
     {
         replayRuntime.CancelPredictionJob( true );
         replayRuntime.Prediction().dirty = true;
@@ -144,8 +144,7 @@ bool BeginReplayPredictionJob( ReplayRuntime& replayRuntime,
     // reserve is intentionally generous and later growth is rounded to large
     // chunks. The root trajectory still publishes even if optional contact-tree
     // payloads outgrow the reserve.
-    const std::size_t initialDebugContactCapacity =
-        ReplayPredictionInitialDebugContactCapacity( modelCount );
+    const std::size_t initialDebugContactCapacity = ReplayPredictionInitialDebugContactCapacity( modelCount );
     (void)ReserveReplayPredictionFramePayloadVectors( replayRuntime.Prediction().buildFrames,
                                                       buildFrameCapacity,
                                                       initialDebugContactCapacity,
@@ -368,8 +367,9 @@ bool DrawReplayPredictionOverlay( ReplayRuntime& replayRuntime,
                                   double budgetMilliseconds )
 {
     const RunReplayPredictionState& prediction = replayRuntime.Prediction();
-    const bool usingBuildFrames = prediction.building && prediction.buildFrameCount >= 2 &&
-                                  ( prediction.frames.empty() || prediction.buildFrameCount >= prediction.frames.size() );
+    const bool usingBuildFrames =
+        prediction.building && prediction.buildFrameCount >= 2 &&
+        ( prediction.frames.empty() || prediction.buildFrameCount >= prediction.frames.size() );
     const std::vector<RunReplayPredictionFrame>& activePredictionFrames =
         usingBuildFrames ? prediction.buildFrames : prediction.frames;
     const std::size_t activePredictionFrameCount =
@@ -385,8 +385,7 @@ bool DrawReplayPredictionOverlay( ReplayRuntime& replayRuntime,
     // an unfolding animation: the root line grows first, and each child starts
     // drawing when the cursor passes the frame where its cause happened.
     const ReplayFrameIndex lastFrame = activePredictionFrames[activePredictionFrameCount - 1].frameIndex;
-    const ReplayFrameIndex revealFrame =
-        ReplayPredictionRevealFrameIndex( replayRuntime.Prediction(), lastFrame );
+    const ReplayFrameIndex revealFrame = ReplayPredictionRevealFrameIndex( replayRuntime.Prediction(), lastFrame );
     // Why: while the job is still building there is no authoritative ending,
     // so no grey resting box may be derived from the growing prefix.
     const bool bufferComplete = !usingBuildFrames;
@@ -472,10 +471,14 @@ bool DrawReplayPredictionOverlay( ReplayRuntime& replayRuntime,
                                                   rootRestPosition,
                                                   rootRestOrientation ) )
             {
-                if ( const ColliderRecord* collider = ReplayColliderRecordForModelIndex(
-                         &colliderStore, replayRuntime.PathVisualizer().targetModelIndex ) )
+                if ( ReplayColliderRecordForModelIndex( &colliderStore,
+                                                        replayRuntime.PathVisualizer().targetModelIndex ) )
                 {
-                    tracer.AddReplayCausalRestMarker( rootRestPosition, rootRestOrientation, collider->shape );
+                    RetainReplayPredictionRestMarker( replayRuntime.Prediction(),
+                                                      replayRuntime.PathVisualizer().targetId,
+                                                      replayRuntime.PathVisualizer().targetModelIndex,
+                                                      rootRestPosition,
+                                                      rootRestOrientation );
                 }
             }
         }
@@ -530,8 +533,7 @@ bool DrawReplayPredictionOverlay( ReplayRuntime& replayRuntime,
         // a frame whenever the child scan ran long.
         bool childScanBudgetExhausted = false;
         std::size_t ordinal = 0;
-        for ( std::size_t frameIndex = 0;
-              frameIndex < activePredictionFrameCount && !childScanBudgetExhausted;
+        for ( std::size_t frameIndex = 0; frameIndex < activePredictionFrameCount && !childScanBudgetExhausted;
               ++frameIndex )
         {
             const RunReplayPredictionFrame& frame = activePredictionFrames[frameIndex];
@@ -608,8 +610,10 @@ bool DrawReplayPredictionOverlay( ReplayRuntime& replayRuntime,
                     // knows it, never a sampled pose from after the impulse
                     // arrived. Anchoring the trail start there makes lines
                     // grow straight out of the yellow formation box.
-                    const RunReplayPredictionBodySample* initialSample = FindReplayPredictionBodyByIdWithHint(
-                        activePredictionFrames[0], drawState.node.id, body->modelIndex );
+                    const RunReplayPredictionBodySample* initialSample =
+                        FindReplayPredictionBodyByIdWithHint( activePredictionFrames[0],
+                                                              drawState.node.id,
+                                                              body->modelIndex );
                     drawState.hasEntryPose = true;
                     drawState.entryModelIndex = body->modelIndex;
                     drawState.entryPosition = initialSample ? initialSample->position : body->position;
@@ -642,11 +646,11 @@ bool DrawReplayPredictionOverlay( ReplayRuntime& replayRuntime,
             }
         }
 
-        DrawReplayPredictionCausalMarkers( childDraw,
+        DrawReplayPredictionCausalMarkers( replayRuntime.Prediction(),
+                                           childDraw,
                                            revealFrame,
                                            bufferComplete ? &activePredictionFrames : nullptr,
                                            bufferComplete ? activePredictionFrameCount : 0 );
-
     }
 
     if ( !ReplayPredictionBudgetExpired( childDrawBudgetStart, budgetMilliseconds ) )
@@ -654,6 +658,7 @@ bool DrawReplayPredictionOverlay( ReplayRuntime& replayRuntime,
         PROFILE_SCOPED( "Frame/Replay/Prediction/DrawAffectedBodies" );
         DrawReplayPredictionAffectedBodyTrails( activePredictionFrames,
                                                 activePredictionFrameCount,
+                                                replayRuntime.Prediction(),
                                                 revealFrame,
                                                 bufferComplete,
                                                 replayRuntime.PathVisualizer().targetId,
@@ -677,6 +682,19 @@ bool DrawReplayPredictionOverlay( ReplayRuntime& replayRuntime,
                                                 childDrawBudgetStart,
                                                 budgetMilliseconds );
     }
+    if ( bufferComplete )
+    {
+        RetainReplayPredictionEndStateMarkers( replayRuntime.Prediction(),
+                                               revealFrame,
+                                               activePredictionFrames,
+                                               activePredictionFrameCount );
+    }
+    DrawReplayPredictionRetainedMarkers( replayRuntime.Prediction(),
+                                         activePredictionFrames,
+                                         activePredictionFrameCount,
+                                         revealFrame,
+                                         colliderStore,
+                                         tracer );
     return true;
 }
 
@@ -719,7 +737,12 @@ void RenderReplayPredictionVisualizer( ReplayRuntime& replayRuntime,
         replayRuntime.Prediction().sourceFrameIndex != latestFrame ||
         replayRuntime.Prediction().sourceSolverHash != latestHash;
     const bool refreshDue = ( now - replayRuntime.Prediction().lastBuildTime ) >= REPLAY_PREDICTION_REFRESH_SECONDS;
-    const bool allowAutomaticRefresh = !replayRuntime.Scrubber().liveAdvanceHeld;
+    const bool hasCommittedPrediction = replayRuntime.Prediction().frames.size() >= 2;
+    // Invariant: a committed prediction is a frozen future for the current
+    // branch. Space-stepping the paused live scene changes solver frame/hash,
+    // but must not redraw the preview; explicit dirty events such as branch,
+    // target, horizon, or predict toggles are the only rebuild triggers.
+    const bool allowAutomaticRefresh = !replayRuntime.Scrubber().liveAdvanceHeld && !hasCommittedPrediction;
     if ( replayRuntime.Prediction().dirty ||
          ( allowAutomaticRefresh && !replayRuntime.Prediction().building && sourceChanged && refreshDue ) )
     {

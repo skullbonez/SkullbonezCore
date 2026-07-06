@@ -664,6 +664,7 @@ void ReplayRuntime::ClearPredictionFutureNodeCache()
     m_prediction.futureNodesBuiltRagdollVisuals = m_prediction.ragdollVisualsEnabled;
     m_prediction.futureNodesBuiltFromBuildFrames = false;
     m_prediction.futureNodesCacheValid = false;
+    m_prediction.retainedMarkerCount = 0;
 }
 
 void ReplayRuntime::CancelPredictionJob( bool clearSamples )
@@ -1628,12 +1629,14 @@ bool ReplayRuntime::BuildCauseTreeRows(
                 }
                 RunReplayCauseTreeRow contactRow;
                 contactRow.kind = node.contactDerived ? RunReplayCauseTreeRowKind::PredictionContact
-                                                       : RunReplayCauseTreeRowKind::PredictionMotion;
+                                                      : RunReplayCauseTreeRowKind::PredictionMotion;
                 contactRow.id = bodyRow.id;
                 contactRow.parentId = node.parentId;
+                contactRow.counterpartId = node.parentId;
                 contactRow.firstFrame = node.firstFrame;
                 contactRow.depth = bodyRow.depth + 1;
                 contactRow.modelIndex = bodyRow.modelIndex;
+                contactRow.counterpartModelIndex = node.parentModelIndex;
                 contactRow.contactIndex = i;
                 contactRow.prediction = true;
                 contactRow.point = node.contactPoint;

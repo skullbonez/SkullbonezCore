@@ -222,11 +222,33 @@ class RunEditorTracer
 {
   private:
     std::vector<float> m_lineData;
+    std::vector<float> m_priorityLineData;
+    std::vector<float> m_renderLineData;
 
+    void EmitLineTo( std::vector<float>& lineData,
+                     const Math::Vector::Vector3& a,
+                     const Math::Vector::Vector3& b,
+                     float r,
+                     float g,
+                     float bl );
     void EmitLine( const Math::Vector::Vector3& a, const Math::Vector::Vector3& b, float r, float g, float bl );
     void EmitArrow( const Math::Vector::Vector3& a, const Math::Vector::Vector3& b, float r, float g, float bl );
     void EmitRing( const Math::Vector::Vector3& center, int axis, float radius, float r, float g, float bl );
+    void EmitSphereTo( std::vector<float>& lineData,
+                       const Math::Vector::Vector3& center,
+                       float radius,
+                       float r,
+                       float g,
+                       float bl );
     void EmitSphere( const Math::Vector::Vector3& center, float radius, float r, float g, float bl );
+    void EmitBoxTo( std::vector<float>& lineData,
+                    const Math::Vector::Vector3& center,
+                    const Math::Vector::Vector3& xAxis,
+                    const Math::Vector::Vector3& yAxis,
+                    const Math::Vector::Vector3& zAxis,
+                    float r,
+                    float g,
+                    float bl );
     void EmitBox( const Math::Vector::Vector3& center,
                   const Math::Vector::Vector3& xAxis,
                   const Math::Vector::Vector3& yAxis,
@@ -234,6 +256,13 @@ class RunEditorTracer
                   float r,
                   float g,
                   float bl );
+    void EmitShapeOutlineTo( std::vector<float>& lineData,
+                             const Math::Vector::Vector3& position,
+                             const Math::Orientation::Quaternion& orientation,
+                             const Math::CollisionDetection::CollisionShape& shape,
+                             float r,
+                             float g,
+                             float b );
     void EmitShapeOutline( const Math::Vector::Vector3& position,
                            const Math::Orientation::Quaternion& orientation,
                            const Math::CollisionDetection::CollisionShape& shape,
@@ -258,6 +287,11 @@ class RunEditorTracer
                                float r,
                                float g,
                                float b );
+    void AddReplayCausalTrailSegment( const Math::Vector::Vector3& start,
+                                      const Math::Vector::Vector3& end,
+                                      float r,
+                                      float g,
+                                      float b );
     void AddReplayContactMarker( const Math::Vector::Vector3& point,
                                  const Math::Vector::Vector3& normal,
                                  float r,
@@ -287,6 +321,9 @@ class RunEditorTracer
     void AddReplayCausalRestMarker( const Math::Vector::Vector3& position,
                                     const Math::Orientation::Quaternion& orientation,
                                     const Math::CollisionDetection::CollisionShape& shape );
+    void AddReplayCausalHorizonMarker( const Math::Vector::Vector3& position,
+                                       const Math::Orientation::Quaternion& orientation,
+                                       const Math::CollisionDetection::CollisionShape& shape );
     // Draws a replay target marker from explicit store values. Replay may still
     // resolve identity by model order, but marker geometry must not read legacy
     // model-side body state.

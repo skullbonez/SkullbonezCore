@@ -754,6 +754,89 @@ void Run::RenderReplayCauseFocusOverlay( RunEditorTracer& tracer )
                 }
             }
         }
+        else if ( m_replayRuntime.Camera().focusKind == RunReplayCameraFocusKind::PredictionContact )
+        {
+            ReplayFrameIndex focusFrame = 0;
+            int focusedModelIndex = m_replayRuntime.Camera().focusModelIndex;
+            int counterpartModelIndex = m_replayRuntime.Camera().focusCounterpartModelIndex;
+
+            const RunReplayCauseTreeState& causeTree = m_replayRuntime.CauseTree();
+            if ( causeTree.selectedRow >= 0 && causeTree.selectedRow < static_cast<int>( causeTree.rows.size() ) )
+            {
+                const RunReplayCauseTreeRow& row = causeTree.rows[static_cast<std::size_t>( causeTree.selectedRow )];
+                if ( row.kind == RunReplayCauseTreeRowKind::PredictionContact &&
+                     row.id.value == m_replayRuntime.Camera().focusedId.value )
+                {
+                    focusFrame = row.firstFrame;
+                    focusedModelIndex = row.modelIndex;
+                    counterpartModelIndex = row.counterpartModelIndex;
+                }
+            }
+            else if ( m_replayRuntime.Camera().focusContactIndex >= 0 &&
+                      m_replayRuntime.Camera().focusContactIndex <
+                          static_cast<int>( m_replayRuntime.Prediction().futureNodes.size() ) )
+            {
+                const RunReplayPathTraceNode& node =
+                    m_replayRuntime.Prediction()
+                        .futureNodes[static_cast<std::size_t>( m_replayRuntime.Camera().focusContactIndex )];
+                if ( node.id.value == m_replayRuntime.Camera().focusedId.value && node.contactDerived )
+                {
+                    focusFrame = node.firstFrame;
+                    focusedModelIndex = node.modelIndex;
+                    counterpartModelIndex = node.parentModelIndex;
+                }
+            }
+
+            bool drewPredictionManifold = false;
+            const std::vector<RunReplayPredictionFrame>& frames = m_replayRuntime.ActivePredictionFrames();
+            for ( const RunReplayPredictionFrame& frame : frames )
+            {
+                if ( frame.frameIndex != focusFrame )
+                {
+                    continue;
+                }
+
+                // Why: prediction contacts are selected from the future-node
+                // tree, but the full manifold lives in the frame's debug
+                // contacts. Match by the selected child/parent body pair so the
+                // manifold marker remains visible while that collision row is
+                // selected.
+                for ( const PhysicsDebugContact& contact : frame.debugContacts )
+                {
+                    const int contactModelA =
+                        ReplayRagdollTorsoModelIndexForPart( m_cGameModelCollection, contact.bodyA );
+                    const int contactModelB =
+                        contact.bodyB >= 0
+                            ? ReplayRagdollTorsoModelIndexForPart( m_cGameModelCollection, contact.bodyB )
+                            : contact.bodyB;
+                    const bool selectedPairAB = contactModelA == focusedModelIndex &&
+                                                ( counterpartModelIndex < 0 || contactModelB == counterpartModelIndex );
+                    const bool selectedPairBA = contactModelB == focusedModelIndex &&
+                                                ( counterpartModelIndex < 0 || contactModelA == counterpartModelIndex );
+                    if ( !selectedPairAB && !selectedPairBA )
+                    {
+                        continue;
+                    }
+
+                    Vector3 normal = contact.normal;
+                    if ( selectedPairBA && contactModelB >= 0 )
+                    {
+                        normal = normal * -1.0f;
+                    }
+                    tracer.AddReplayContactMarker( contact.point,
+                                                   ReplayNormalizeOr( normal, Vector3( 0.0f, 1.0f, 0.0f ) ),
+                                                   0.1f,
+                                                   0.95f,
+                                                   1.0f );
+                    drewPredictionManifold = true;
+                }
+                break;
+            }
+            if ( drewPredictionManifold )
+            {
+                return;
+            }
+        }
         tracer.AddReplayContactMarker( m_replayRuntime.Camera().targetPoint,
                                        m_replayRuntime.Camera().targetNormal,
                                        0.1f,

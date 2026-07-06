@@ -537,8 +537,8 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         UIData.currentSceneIndex = view.sceneIndex;
         UIData.sceneCount = view.sceneCount;
         UIData.now = m_host.m_timers.simulationTimer.GetTotalTime();
-        const bool memoryTabActive = m_host.m_UI.IsVisible() && !m_host.m_UI.IsMinimized() &&
-                                     m_host.m_UI.GetActiveTab() == InGameUITab::Memory;
+        const bool memoryTabActive =
+            m_host.m_UI.IsVisible() && !m_host.m_UI.IsMinimized() && m_host.m_UI.GetActiveTab() == InGameUITab::Memory;
         const bool memoryOverlayEnabled = m_host.m_UI.IsMemoryOverlayEnabled();
         if ( memoryTabActive )
         {

@@ -350,6 +350,8 @@ const char* ActionTypeName( RunInteractionAutomationActionType type )
         return "scrubReplaySolverTrack";
     case RunInteractionAutomationActionType::SetReplayPredictionEnabled:
         return "setReplayPredictionEnabled";
+    case RunInteractionAutomationActionType::SetReplayPathTarget:
+        return "setReplayPathTarget";
     case RunInteractionAutomationActionType::ShowReplayScrubber:
         return "showReplayScrubber";
     case RunInteractionAutomationActionType::PressKey:
@@ -530,6 +532,13 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
     {
         outAction.type = RunInteractionAutomationActionType::SetReplayPredictionEnabled;
         outAction.boolValue = ReadBool( entry["setReplayPredictionEnabled"] );
+        return true;
+    }
+
+    if ( entry.contains( "setReplayPathTarget" ) )
+    {
+        outAction.type = RunInteractionAutomationActionType::SetReplayPathTarget;
+        CopyText( outAction.text, sizeof( outAction.text ), entry["setReplayPathTarget"].get<std::string>() );
         return true;
     }
 
@@ -746,6 +755,35 @@ bool Run::TryFindInteractionAutomationModel( const char* name, int& outIndex ) c
     return false;
 }
 
+bool Run::TrySetInteractionAutomationReplayPathTarget( const char* name )
+{
+    int modelIndex = -1;
+    if ( !TryFindInteractionAutomationModel( name, modelIndex ) )
+    {
+        return false;
+    }
+
+    const auto* body = m_cGameModelCollection.GetPhysicsBodyStore().RecordForModelIndex( modelIndex );
+    if ( !body || body->replayBodyId == 0 )
+    {
+        return false;
+    }
+
+    RunReplayPathVisualizerState& visualizer = m_replayRuntime.PathVisualizer();
+    visualizer.hasTarget = true;
+    visualizer.targetId.value = body->replayBodyId;
+    visualizer.targetModelIndex = modelIndex;
+    visualizer.targetName[0] = '\0';
+    if ( name && name[0] != '\0' )
+    {
+        strncpy_s( visualizer.targetName, sizeof( visualizer.targetName ), name, _TRUNCATE );
+    }
+    visualizer.futureNodes.clear();
+    m_replayRuntime.ClearPredictionCache();
+    m_replayRuntime.MarkPredictionDirty();
+    return true;
+}
+
 bool Run::TryProjectInteractionAutomationModel( const char* name, POINT& outMouse )
 {
     int modelIndex = -1;
@@ -877,6 +915,23 @@ void Run::TickInteractionAutomationBeforeInput()
                                 action.boolValue ? "prediction enabled" : "prediction disabled" );
             action.processed = true;
             break;
+        case RunInteractionAutomationActionType::SetReplayPathTarget:
+        {
+            const bool targetSet = TrySetInteractionAutomationReplayPathTarget( action.text );
+            if ( !targetSet )
+            {
+                FailAutomation( state, "failed to set replay path target" );
+            }
+            AppendReportAction( state,
+                                frame,
+                                action.type,
+                                action.text,
+                                nullptr,
+                                targetSet,
+                                targetSet ? "replay path target set" : "replay path target unavailable" );
+            action.processed = true;
+            break;
+        }
         case RunInteractionAutomationActionType::PressKey:
             // Why: key automation should still enter through Input and
             // RuntimeInputContext edge detection. This only supplies the
@@ -1425,6 +1480,28 @@ void Run::WriteInteractionAutomationReport()
                                                                          predictionTargetDisplacement,
                                                                          &predictionTargetFirst,
                                                                          &predictionTargetLast );
+    const RunReplayPredictionState& predictionState = m_replayRuntime.Prediction();
+    std::size_t predictionRetainedEntryMarkerCount = 0;
+    std::size_t predictionRetainedRestMarkerCount = 0;
+    std::size_t predictionRetainedHorizonMarkerCount = 0;
+    // Why: prediction visual regressions are often spatial, so the interaction
+    // report records the retained marker inventory that backs screenshot proof.
+    for ( std::size_t i = 0; i < predictionState.retainedMarkerCount; ++i )
+    {
+        const ReplayPredictionRetainedMarker& marker = predictionState.retainedMarkers[i];
+        if ( marker.hasEntryPose )
+        {
+            ++predictionRetainedEntryMarkerCount;
+        }
+        if ( marker.hasRestPose )
+        {
+            ++predictionRetainedRestMarkerCount;
+        }
+        if ( marker.hasHorizonPose )
+        {
+            ++predictionRetainedHorizonMarkerCount;
+        }
+    }
 
     const std::string* scenePath = m_sceneController.CurrentPath();
     Json report;
@@ -1444,21 +1521,23 @@ void Run::WriteInteractionAutomationReport()
               { "selectedModelIndex", selectedIndex },
               { "gizmoVisible", gizmoVisible },
               { "memoryOverlayEnabled", m_UI.IsMemoryOverlayEnabled() },
-              { "replayPredictionEnabled", m_replayRuntime.Prediction().enabled },
+              { "replayPredictionEnabled", predictionState.enabled },
               { "replayPathTarget",
                 m_replayRuntime.PathVisualizer().hasTarget ? m_replayRuntime.PathVisualizer().targetName : "" },
               { "replayPathTargetCount", static_cast<int>( m_replayRuntime.PathVisualizer().targets.size() ) },
               { "predictionPathVisible", predictionPathVisible },
               { "predictionActiveFrameCount", static_cast<int>( predictionVisibleFrameCount ) },
-              { "predictionFrameCount", static_cast<int>( m_replayRuntime.Prediction().frames.size() ) },
-              { "predictionBuildFrameCount", static_cast<int>( m_replayRuntime.Prediction().buildFrameCount ) },
+              { "predictionFrameCount", static_cast<int>( predictionState.frames.size() ) },
+              { "predictionBuildFrameCount", static_cast<int>( predictionState.buildFrameCount ) },
               { "predictionTargetDisplacementValid", predictionTargetDisplacementValid },
               { "predictionTargetFirst", Vec3Json( predictionTargetFirst ) },
               { "predictionTargetLast", Vec3Json( predictionTargetLast ) },
               { "predictionTargetDisplacement", predictionTargetDisplacement },
-              { "predictionFutureNodeCount", static_cast<int>( m_replayRuntime.Prediction().futureNodes.size() ) },
-              { "predictionFutureNodeBuildFrameCount",
-                static_cast<int>( m_replayRuntime.Prediction().futureNodesBuiltFrameCount ) },
+              { "predictionFutureNodeCount", static_cast<int>( predictionState.futureNodes.size() ) },
+              { "predictionFutureNodeBuildFrameCount", static_cast<int>( predictionState.futureNodesBuiltFrameCount ) },
+              { "predictionRetainedEntryMarkerCount", static_cast<int>( predictionRetainedEntryMarkerCount ) },
+              { "predictionRetainedRestMarkerCount", static_cast<int>( predictionRetainedRestMarkerCount ) },
+              { "predictionRetainedHorizonMarkerCount", static_cast<int>( predictionRetainedHorizonMarkerCount ) },
               { "replayActiveTrack", ReplayTrackName( m_replayRuntime.Scrubber().activeTrack ) },
               { "replayHistoricalSamplePaused", m_replayRuntime.Scrubber().historicalSamplePaused },
               { "replaySolverTrackPosition", replaySolverTrackPosition },

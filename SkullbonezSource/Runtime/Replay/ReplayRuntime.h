@@ -67,6 +67,7 @@ namespace Basics
 struct ReplayV2SaveResult;
 
 inline constexpr std::size_t REPLAY_PREDICTION_GHOST_MAX_FRAMES = 24;
+inline constexpr std::size_t REPLAY_PREDICTION_MARKER_CAPACITY = static_cast<std::size_t>( MAX_GAME_MODELS );
 inline constexpr std::size_t REPLAY_CAUSE_TREE_CONTACT_CAPACITY = static_cast<std::size_t>( MAX_GAME_MODELS ) * 4u;
 inline constexpr std::size_t REPLAY_CAUSE_TREE_ROW_CAPACITY =
     1u + static_cast<std::size_t>( MAX_GAME_MODELS ) + REPLAY_CAUSE_TREE_CONTACT_CAPACITY * 3u;
@@ -96,14 +97,14 @@ struct RunReplayScrubberState
     RunReplayTrack saveHoveredTrack = RunReplayTrack::Solver;
     RunReplayTrack saveMessageTrack = RunReplayTrack::Solver;
     bool leftWasDown = false;
-    float position = 1.0f;         // 0 = oldest retained sample, 1 = live edge.
+    float position = 1.0f;                                            // 0 = oldest retained sample, 1 = live edge.
     float presentationPosition = 1.0f;
     float solverPosition = 1.0f;
     int mouseX = 0;
     int mouseY = 0;
     double visibleUntil = 0.0;
-    double fadeUpdatedAt = 0.0;    // Last scrubber opacity update in runtime seconds.
-    float visibleAlpha = 0.0f;     // 0 = hidden, 1 = fully faded in.
+    double fadeUpdatedAt = 0.0;                                       // Last scrubber opacity update in runtime seconds.
+    float visibleAlpha = 0.0f;                                        // 0 = hidden, 1 = fully faded in.
     double saveMessageUntil = 0.0;
     char saveMessage[96] = {};
 };
@@ -112,13 +113,13 @@ struct RunReplayPathTraceNode
 {
     ReplayBodyId id;
     ReplayBodyId parentId;
-    int modelIndex = -1;           // Fast lookup hint; ReplayBodyId remains authority.
-    int parentModelIndex = -1;     // Fast lookup hint for contact-chain parents.
+    int modelIndex = -1;                                              // Fast lookup hint; ReplayBodyId remains authority.
+    int parentModelIndex = -1;                                        // Fast lookup hint for contact-chain parents.
     ReplayFrameIndex firstFrame = 0;
     Math::Vector::Vector3 contactPoint = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 contactNormal = Math::Vector::ZERO_VECTOR;
     int depth = 0;
-    bool contactDerived = true;     // False when prediction inferred the child from pose divergence.
+    bool contactDerived = true;                                       // False when prediction inferred the child from pose divergence.
 };
 
 struct RunReplayPathTarget
@@ -284,6 +285,21 @@ struct ReplayPredictionGhostDrawRequest
     float alpha = 1.0f;
 };
 
+struct ReplayPredictionRetainedMarker
+{
+    ReplayBodyId id;
+    int modelIndex = -1;
+    bool hasEntryPose = false;
+    bool hasRestPose = false;
+    bool hasHorizonPose = false;
+    Math::Vector::Vector3 entryPosition = Math::Vector::ZERO_VECTOR;
+    Math::Orientation::Quaternion entryOrientation = Math::Orientation::IDENTITY_QUATERNION;
+    Math::Vector::Vector3 restPosition = Math::Vector::ZERO_VECTOR;
+    Math::Orientation::Quaternion restOrientation = Math::Orientation::IDENTITY_QUATERNION;
+    Math::Vector::Vector3 horizonPosition = Math::Vector::ZERO_VECTOR;
+    Math::Orientation::Quaternion horizonOrientation = Math::Orientation::IDENTITY_QUATERNION;
+};
+
 struct RunReplayPredictionState
 {
     bool enabled = false;
@@ -330,6 +346,11 @@ struct RunReplayPredictionState
     bool futureNodesBuiltRagdollVisuals = false;
     bool futureNodesBuiltFromBuildFrames = false;
     bool futureNodesCacheValid = false;
+    // Invariant: once a causal yellow or grey box has been revealed, budgeted
+    // line scans may not make it disappear. This fixed cache redraws retained
+    // marker poses until a new prediction/future cache resets the story.
+    std::array<ReplayPredictionRetainedMarker, REPLAY_PREDICTION_MARKER_CAPACITY> retainedMarkers = {};
+    std::size_t retainedMarkerCount = 0;
     // Concept: reveal anchor — wall-clock start of the causal-unfold animation.
     // The overlay clamps drawn prediction frames to a cursor derived from this
     // anchor so the tree unfolds over real time instead of popping in whole.
@@ -559,10 +580,10 @@ class ReplayRuntime
     bool SavePresentationWithSolverHashes( const char* path, ReplayV2SaveResult* result = nullptr ) const;
 
   private:
-    ReplayRecorder m_presentation; // Bounded replay presentation recorder for recent-frame inspection.
-    ReplaySolverRecorder m_solver; // Same-tick solver-state recorder kept in tandem with presentation replay.
-    ReplayEventRecorder m_events;  // Bounded intent/event stream kept beside v2 replay tracks.
-    ReplayBranchInfo m_branch;     // Current live replay branch provenance.
+    ReplayRecorder m_presentation;                                    // Bounded replay presentation recorder for recent-frame inspection.
+    ReplaySolverRecorder m_solver;                                    // Same-tick solver-state recorder kept in tandem with presentation replay.
+    ReplayEventRecorder m_events;                                     // Bounded intent/event stream kept beside v2 replay tracks.
+    ReplayBranchInfo m_branch;                                        // Current live replay branch provenance.
     RunLoadedReplayPresentationState m_loadedPresentation;
     RunReplayScrubberState m_scrubber;
     RunReplayCameraState m_camera;

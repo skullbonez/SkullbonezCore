@@ -20,7 +20,9 @@ Glossary:
     must match the primitive bodies that placement will actually spawn.
 
 Invariants:
-  - Trace generation must stay transient; m_lineData is cleared every frame by the caller.
+  - Trace generation must stay transient; line buffers are cleared every frame by the caller.
+  - Replay causal entry/rest markers use priority line storage so expensive
+    prediction paths can degrade without erasing already-revealed boxes.
   - This file must only be included from RunEditorTools.cpp after tracer helper math is declared.
 
 Related:
@@ -32,7 +34,9 @@ Related:
 namespace
 {
 constexpr std::size_t RUN_EDITOR_TRACER_LINE_FLOAT_CAPACITY = 262144;
+constexpr std::size_t RUN_EDITOR_TRACER_PRIORITY_LINE_FLOAT_CAPACITY = 524288;
 constexpr std::size_t RUN_EDITOR_TRACER_FLOATS_PER_LINE = 12;
+constexpr float RUN_EDITOR_TRACER_REPLAY_LINE_OPACITY = 0.5f;
 } // namespace
 
 
@@ -42,22 +46,37 @@ RunEditorTracer::RunEditorTracer()
     // construction. EmitLine refuses overflow so replay prediction, gizmos, and
     // target markers cannot grow this vector while render builds the frame.
     m_lineData.reserve( RUN_EDITOR_TRACER_LINE_FLOAT_CAPACITY );
+    m_priorityLineData.reserve( RUN_EDITOR_TRACER_PRIORITY_LINE_FLOAT_CAPACITY );
+    m_renderLineData.reserve( RUN_EDITOR_TRACER_LINE_FLOAT_CAPACITY + RUN_EDITOR_TRACER_PRIORITY_LINE_FLOAT_CAPACITY );
 }
 
 
 void RunEditorTracer::Clear()
 {
     m_lineData.clear();
+    m_priorityLineData.clear();
+    m_renderLineData.clear();
+}
+
+
+void RunEditorTracer::EmitLineTo( std::vector<float>& lineData,
+                                  const Vector3& a,
+                                  const Vector3& b,
+                                  float r,
+                                  float g,
+                                  float bl )
+{
+    if ( lineData.size() + RUN_EDITOR_TRACER_FLOATS_PER_LINE > lineData.capacity() )
+    {
+        return;
+    }
+    lineData.insert( lineData.end(), { a.x, a.y, a.z, r, g, bl, b.x, b.y, b.z, r, g, bl } );
 }
 
 
 void RunEditorTracer::EmitLine( const Vector3& a, const Vector3& b, float r, float g, float bl )
 {
-    if ( m_lineData.size() + RUN_EDITOR_TRACER_FLOATS_PER_LINE > m_lineData.capacity() )
-    {
-        return;
-    }
-    m_lineData.insert( m_lineData.end(), { a.x, a.y, a.z, r, g, bl, b.x, b.y, b.z, r, g, bl } );
+    EmitLineTo( m_lineData, a, b, r, g, bl );
 }
 
 
@@ -105,7 +124,12 @@ void RunEditorTracer::EmitRing( const Vector3& center, int axis, float radius, f
 }
 
 
-void RunEditorTracer::EmitSphere( const Vector3& center, float radius, float r, float g, float bl )
+void RunEditorTracer::EmitSphereTo( std::vector<float>& lineData,
+                                    const Vector3& center,
+                                    float radius,
+                                    float r,
+                                    float g,
+                                    float bl )
 {
     constexpr int segments = 32;
     for ( int plane = 0; plane < 3; ++plane )
@@ -135,7 +159,7 @@ void RunEditorTracer::EmitSphere( const Vector3& center, float radius, float r, 
 
             if ( i > 0 )
             {
-                EmitLine( previous, next, r, g, bl );
+                EmitLineTo( lineData, previous, next, r, g, bl );
             }
             previous = next;
         }
@@ -143,13 +167,20 @@ void RunEditorTracer::EmitSphere( const Vector3& center, float radius, float r, 
 }
 
 
-void RunEditorTracer::EmitBox( const Vector3& center,
-                               const Vector3& xAxis,
-                               const Vector3& yAxis,
-                               const Vector3& zAxis,
-                               float r,
-                               float g,
-                               float bl )
+void RunEditorTracer::EmitSphere( const Vector3& center, float radius, float r, float g, float bl )
+{
+    EmitSphereTo( m_lineData, center, radius, r, g, bl );
+}
+
+
+void RunEditorTracer::EmitBoxTo( std::vector<float>& lineData,
+                                 const Vector3& center,
+                                 const Vector3& xAxis,
+                                 const Vector3& yAxis,
+                                 const Vector3& zAxis,
+                                 float r,
+                                 float g,
+                                 float bl )
 {
     const Vector3 corners[8] = {
         center - xAxis - yAxis - zAxis,
@@ -178,7 +209,66 @@ void RunEditorTracer::EmitBox( const Vector3& center,
     };
     for ( const auto& edge : kEdges )
     {
-        EmitLine( corners[edge[0]], corners[edge[1]], r, g, bl );
+        EmitLineTo( lineData, corners[edge[0]], corners[edge[1]], r, g, bl );
+    }
+}
+
+
+void RunEditorTracer::EmitBox( const Vector3& center,
+                               const Vector3& xAxis,
+                               const Vector3& yAxis,
+                               const Vector3& zAxis,
+                               float r,
+                               float g,
+                               float bl )
+{
+    EmitBoxTo( m_lineData, center, xAxis, yAxis, zAxis, r, g, bl );
+}
+
+
+void RunEditorTracer::EmitShapeOutlineTo( std::vector<float>& lineData,
+                                          const Vector3& position,
+                                          const Quaternion& orientation,
+                                          const CollisionShape& shape,
+                                          float r,
+                                          float g,
+                                          float b )
+{
+    Quaternion outlineOrientation = orientation;
+    const RotationMatrix rot = outlineOrientation.GetOrientationMatrix();
+
+    if ( const BoundingSphere* sphere = std::get_if<BoundingSphere>( &shape ) )
+    {
+        EmitSphereTo( lineData, position + rot * sphere->GetPosition(), sphere->GetBoundingRadius(), r, g, b );
+        return;
+    }
+    if ( const BoundingBox* box = std::get_if<BoundingBox>( &shape ) )
+    {
+        const Vector3& he = box->GetHalfExtents();
+        const Vector3 center = position + rot * box->GetPosition();
+        EmitBoxTo( lineData,
+                   center,
+                   rot * Vector3( he.x, 0.0f, 0.0f ),
+                   rot * Vector3( 0.0f, he.y, 0.0f ),
+                   rot * Vector3( 0.0f, 0.0f, he.z ),
+                   r,
+                   g,
+                   b );
+        return;
+    }
+    if ( const ConvexHullShape* hull = std::get_if<ConvexHullShape>( &shape ) )
+    {
+        const Vector3 hullCenter = position + rot * hull->GetPosition();
+        for ( uint16_t edgeIndex = 0; edgeIndex < hull->GetEdgeCount(); ++edgeIndex )
+        {
+            const ConvexHullEdge& edge = hull->GetEdge( edgeIndex );
+            EmitLineTo( lineData,
+                        hullCenter + rot * hull->GetVertex( edge.vertexA ),
+                        hullCenter + rot * hull->GetVertex( edge.vertexB ),
+                        r,
+                        g,
+                        b );
+        }
     }
 }
 
@@ -190,40 +280,7 @@ void RunEditorTracer::EmitShapeOutline( const Vector3& position,
                                         float g,
                                         float b )
 {
-    Quaternion outlineOrientation = orientation;
-    const RotationMatrix rot = outlineOrientation.GetOrientationMatrix();
-
-    if ( const BoundingSphere* sphere = std::get_if<BoundingSphere>( &shape ) )
-    {
-        EmitSphere( position + rot * sphere->GetPosition(), sphere->GetBoundingRadius(), r, g, b );
-        return;
-    }
-    if ( const BoundingBox* box = std::get_if<BoundingBox>( &shape ) )
-    {
-        const Vector3& he = box->GetHalfExtents();
-        const Vector3 center = position + rot * box->GetPosition();
-        EmitBox( center,
-                 rot * Vector3( he.x, 0.0f, 0.0f ),
-                 rot * Vector3( 0.0f, he.y, 0.0f ),
-                 rot * Vector3( 0.0f, 0.0f, he.z ),
-                 r,
-                 g,
-                 b );
-        return;
-    }
-    if ( const ConvexHullShape* hull = std::get_if<ConvexHullShape>( &shape ) )
-    {
-        const Vector3 hullCenter = position + rot * hull->GetPosition();
-        for ( uint16_t edgeIndex = 0; edgeIndex < hull->GetEdgeCount(); ++edgeIndex )
-        {
-            const ConvexHullEdge& edge = hull->GetEdge( edgeIndex );
-            EmitLine( hullCenter + rot * hull->GetVertex( edge.vertexA ),
-                      hullCenter + rot * hull->GetVertex( edge.vertexB ),
-                      r,
-                      g,
-                      b );
-        }
-    }
+    EmitShapeOutlineTo( m_lineData, position, orientation, shape, r, g, b );
 }
 
 
@@ -413,7 +470,25 @@ void RunEditorTracer::AddRayCastTestLine( const Vector3& start, const Vector3& e
 
 void RunEditorTracer::AddReplayPathSegment( const Vector3& start, const Vector3& end, float r, float g, float b )
 {
-    EmitLine( start, end, r, g, b );
+    EmitLine( start,
+              end,
+              r * RUN_EDITOR_TRACER_REPLAY_LINE_OPACITY,
+              g * RUN_EDITOR_TRACER_REPLAY_LINE_OPACITY,
+              b * RUN_EDITOR_TRACER_REPLAY_LINE_OPACITY );
+}
+
+
+void RunEditorTracer::AddReplayCausalTrailSegment( const Vector3& start, const Vector3& end, float r, float g, float b )
+{
+    // Why: retained causal trails are the evidence attached to yellow/grey/ghost
+    // boxes. They live with the priority markers so overflow in ordinary path
+    // rendering cannot leave a marker without its sampled route.
+    EmitLineTo( m_priorityLineData,
+                start,
+                end,
+                r * RUN_EDITOR_TRACER_REPLAY_LINE_OPACITY,
+                g * RUN_EDITOR_TRACER_REPLAY_LINE_OPACITY,
+                b * RUN_EDITOR_TRACER_REPLAY_LINE_OPACITY );
 }
 
 
@@ -464,8 +539,9 @@ void RunEditorTracer::AddReplayCausalEntryMarker( const Vector3& position,
                                                   const CollisionShape& shape )
 {
     // Why: entry and rest form a fixed two-color vocabulary. Yellow always
-    // means "joined the causal tree here", so no depth fade is applied.
-    EmitShapeOutline( position, orientation, shape, 1.0f, 0.85f, 0.25f );
+    // means "joined the causal tree here", so no depth fade is applied. Use the
+    // priority buffer so path-line overflow cannot erase already-revealed boxes.
+    EmitShapeOutlineTo( m_priorityLineData, position, orientation, shape, 1.0f, 0.85f, 0.25f );
 }
 
 
@@ -473,7 +549,18 @@ void RunEditorTracer::AddReplayCausalRestMarker( const Vector3& position,
                                                  const Quaternion& orientation,
                                                  const CollisionShape& shape )
 {
-    EmitShapeOutline( position, orientation, shape, 0.58f, 0.58f, 0.62f );
+    EmitShapeOutlineTo( m_priorityLineData, position, orientation, shape, 0.58f, 0.58f, 0.62f );
+}
+
+
+void RunEditorTracer::AddReplayCausalHorizonMarker( const Vector3& position,
+                                                    const Quaternion& orientation,
+                                                    const CollisionShape& shape )
+{
+    // Concept: horizon ghosts are not landings. They mark "this is where the
+    // prediction buffer ends" for a body still mid-flight, so the color stays
+    // distinct from grey resting boxes.
+    EmitShapeOutlineTo( m_priorityLineData, position, orientation, shape, 0.45f, 0.92f, 1.0f );
 }
 
 
@@ -647,11 +734,24 @@ void RunEditorTracer::AddReplayVelocityGizmo( const Vector3& origin,
 
 void RunEditorTracer::Render( const Matrix4& viewProjection )
 {
-    if ( m_lineData.empty() || !IsGfxReady() )
+    if ( ( m_lineData.empty() && m_priorityLineData.empty() ) || !IsGfxReady() )
     {
         return;
     }
     // Invariant: m_lineData stores colored vertices as xyz/rgb floats; every
     // pair of vertices is one line segment consumed by DrawLinesColored.
-    Gfx().DrawLinesColored( m_lineData.data(), static_cast<int>( m_lineData.size() / 6 ), viewProjection.Data() );
+    const float* lineData = m_lineData.data();
+    std::size_t floatCount = m_lineData.size();
+    if ( !m_priorityLineData.empty() )
+    {
+        // Why: runtime-boundary guardrails allow this tracer one renderer call.
+        // Build one pre-reserved stream so ordinary paths and priority causal
+        // markers keep independent caps without adding another Gfx() access.
+        m_renderLineData.clear();
+        m_renderLineData.insert( m_renderLineData.end(), m_lineData.begin(), m_lineData.end() );
+        m_renderLineData.insert( m_renderLineData.end(), m_priorityLineData.begin(), m_priorityLineData.end() );
+        lineData = m_renderLineData.data();
+        floatCount = m_renderLineData.size();
+    }
+    Gfx().DrawLinesColored( lineData, static_cast<int>( floatCount / 6 ), viewProjection.Data() );
 }

@@ -93,8 +93,8 @@ ReplayFrameIndex ReplayPredictionRevealFrameIndex( RunReplayPredictionState& pre
     {
         revealSeconds = availableSeconds;
         prediction.revealAnchor =
-            now - std::chrono::duration_cast<std::chrono::steady_clock::duration>( std::chrono::duration<double>(
-                      availableSeconds / REPLAY_PREDICTION_REVEAL_SECONDS_PER_SECOND ) );
+            now - std::chrono::duration_cast<std::chrono::steady_clock::duration>(
+                      std::chrono::duration<double>( availableSeconds / REPLAY_PREDICTION_REVEAL_SECONDS_PER_SECOND ) );
     }
 
     const double revealFrame = revealSeconds / static_cast<double>( PHYSICS_FIXED_DT );
@@ -113,8 +113,7 @@ constexpr std::size_t REPLAY_PREDICTION_DEBUG_CONTACT_GROWTH_CHUNK = 4096u;
 // larger retained paths. The registered hard cap is a real byte ceiling, not a
 // theoretical element-count product; growth count is telemetry so interactive
 // replay does not trip a per-run count fuse.
-constexpr int REPLAY_PREDICTION_RESERVE_GROWTH_LIMIT =
-    RuntimeAllocation::RUNTIME_RESERVE_REPLAY_GROWTH_LIMIT_UNBOUNDED;
+constexpr int REPLAY_PREDICTION_RESERVE_GROWTH_LIMIT = RuntimeAllocation::RUNTIME_RESERVE_REPLAY_GROWTH_LIMIT_UNBOUNDED;
 
 RuntimeAllocation::RuntimeReserveOwnerHandle ReplayPredictionReserveOwner()
 {
@@ -131,11 +130,10 @@ RuntimeAllocation::RuntimeReserveOwnerHandle ReplayPredictionReserveOwner()
     return owner;
 }
 
-template<typename T>
-bool ReplayPredictionCapacityBytes( std::size_t capacity, uint64_t& outBytes )
+template <typename T> bool ReplayPredictionCapacityBytes( std::size_t capacity, uint64_t& outBytes )
 {
     constexpr uint64_t elementBytes = static_cast<uint64_t>( sizeof( T ) );
-    const uint64_t maxCapacity = (std::numeric_limits<uint64_t>::max)() / elementBytes;
+    const uint64_t maxCapacity = ( std::numeric_limits<uint64_t>::max )() / elementBytes;
     if ( capacity > maxCapacity )
     {
         return false;
@@ -144,17 +142,15 @@ bool ReplayPredictionCapacityBytes( std::size_t capacity, uint64_t& outBytes )
     return true;
 }
 
-template<typename T>
-bool ReplayPredictionFramePayloadBytes( std::size_t frameCount,
-                                        std::size_t capacityPerFrame,
-                                        uint64_t& outBytes )
+template <typename T>
+bool ReplayPredictionFramePayloadBytes( std::size_t frameCount, std::size_t capacityPerFrame, uint64_t& outBytes )
 {
     uint64_t bytesPerFrame = 0;
     if ( !ReplayPredictionCapacityBytes<T>( capacityPerFrame, bytesPerFrame ) )
     {
         return false;
     }
-    const uint64_t maxValue = (std::numeric_limits<uint64_t>::max)();
+    const uint64_t maxValue = ( std::numeric_limits<uint64_t>::max )();
     const uint64_t maxFrameCount = bytesPerFrame > 0 ? maxValue / bytesPerFrame : maxValue;
     if ( frameCount > maxFrameCount )
     {
@@ -186,11 +182,12 @@ std::size_t ReplayPredictionNextDebugContactCapacity( std::size_t currentCapacit
 {
     const std::size_t chunked =
         RoundUpReplayPredictionCapacity( requiredCapacity, REPLAY_PREDICTION_DEBUG_CONTACT_GROWTH_CHUNK );
-    const std::size_t doubled = currentCapacity > 0 ? currentCapacity * 2u : REPLAY_PREDICTION_DEBUG_CONTACT_INITIAL_MIN;
+    const std::size_t doubled =
+        currentCapacity > 0 ? currentCapacity * 2u : REPLAY_PREDICTION_DEBUG_CONTACT_INITIAL_MIN;
     return (std::max)( chunked, doubled );
 }
 
-template<typename T>
+template <typename T>
 bool ReserveReplayPredictionVector( std::vector<T>& values,
                                     std::size_t requestedCapacity,
                                     int frameNumber,
@@ -234,13 +231,13 @@ bool ReserveReplayPredictionVector( std::vector<T>& values,
     return requestedCapacity <= values.capacity();
 }
 
-template<typename T>
+template <typename T>
 bool ReserveReplayPredictionFramePayloadVectors( std::vector<RunReplayPredictionFrame>& frames,
                                                  std::size_t requestedFrameCount,
                                                  std::size_t requestedCapacityPerFrame,
                                                  int frameNumber,
                                                  const char* targetName,
-                                                 std::vector<T> RunReplayPredictionFrame::*member )
+                                                 std::vector<T> RunReplayPredictionFrame::* member )
 {
     // Runtime allocation policy: prediction captures many future frames. Batch
     // the per-frame payload reserves under one replay approval so validation
@@ -255,7 +252,7 @@ bool ReserveReplayPredictionFramePayloadVectors( std::vector<RunReplayPrediction
     {
         uint64_t frameBytes = 0;
         if ( !ReplayPredictionCapacityBytes<T>( ( frames[i].*member ).capacity(), frameBytes ) ||
-             oldBytes > (std::numeric_limits<uint64_t>::max)() - frameBytes )
+             oldBytes > ( std::numeric_limits<uint64_t>::max )() - frameBytes )
         {
             return false;
         }
@@ -318,6 +315,7 @@ void ClearReplayPredictionFutureNodeCache( RunReplayPredictionState& prediction 
     prediction.futureNodesBuiltRagdollVisuals = prediction.ragdollVisualsEnabled;
     prediction.futureNodesBuiltFromBuildFrames = false;
     prediction.futureNodesCacheValid = false;
+    prediction.retainedMarkerCount = 0;
 }
 
 
@@ -534,8 +532,7 @@ bool ReplayPredictionBodyRestingPose( const std::vector<RunReplayPredictionFrame
     const RunReplayPredictionBodySample* graceBody =
         FindReplayPredictionBodyByIdWithHint( frames[frameCount - 1 - graceSlots], id, modelIndexHint );
     if ( !graceBody || ReplayPredictionBodyHasVisibleLinearMotion( *graceBody ) ||
-         VectorMagSquared( finalBody->position - graceBody->position ) >
-             REPLAY_PREDICTION_REST_POSITION_EPSILON_SQ )
+         VectorMagSquared( finalBody->position - graceBody->position ) > REPLAY_PREDICTION_REST_POSITION_EPSILON_SQ )
     {
         return false;
     }
@@ -792,12 +789,12 @@ void BuildReplayFutureNodes( const ReplaySolverFrameSample& sample, void* userDa
 
         const bool ragdollA = context.collection && ReplayModelIndexIsRagdollPart( *context.collection, contact.bodyA );
         const bool ragdollB = context.collection && ReplayModelIndexIsRagdollPart( *context.collection, contact.bodyB );
-        const int modelIndexA = context.collection ? ReplayRagdollTorsoModelIndexForPart( *context.collection,
-                                                                                          contact.bodyA )
-                                                   : contact.bodyA;
-        const int modelIndexB = context.collection ? ReplayRagdollTorsoModelIndexForPart( *context.collection,
-                                                                                          contact.bodyB )
-                                                   : contact.bodyB;
+        const int modelIndexA = context.collection
+                                    ? ReplayRagdollTorsoModelIndexForPart( *context.collection, contact.bodyA )
+                                    : contact.bodyA;
+        const int modelIndexB = context.collection
+                                    ? ReplayRagdollTorsoModelIndexForPart( *context.collection, contact.bodyB )
+                                    : contact.bodyB;
         const ReplayBodyId idA = ReplayBodyIdForModelIndex( sample, modelIndexA );
         const ReplayBodyId idB = ReplayBodyIdForModelIndex( sample, modelIndexB );
         int depthA = -1;
@@ -978,6 +975,271 @@ const ColliderRecord* ReplayColliderRecordForModelIndex( const ColliderStore* co
     return collider;
 }
 
+ReplayPredictionRetainedMarker*
+FindOrAddReplayPredictionRetainedMarker( RunReplayPredictionState& prediction, ReplayBodyId id, int modelIndex )
+{
+    if ( id.value == 0 )
+    {
+        return nullptr;
+    }
+    for ( std::size_t i = 0; i < prediction.retainedMarkerCount; ++i )
+    {
+        ReplayPredictionRetainedMarker& marker = prediction.retainedMarkers[i];
+        if ( marker.id.value == id.value )
+        {
+            if ( modelIndex >= 0 )
+            {
+                marker.modelIndex = modelIndex;
+            }
+            return &marker;
+        }
+    }
+    if ( prediction.retainedMarkerCount >= prediction.retainedMarkers.size() )
+    {
+        return nullptr;
+    }
+
+    ReplayPredictionRetainedMarker& marker = prediction.retainedMarkers[prediction.retainedMarkerCount++];
+    marker = ReplayPredictionRetainedMarker{};
+    marker.id = id;
+    marker.modelIndex = modelIndex;
+    return &marker;
+}
+
+void RetainReplayPredictionEntryMarker( RunReplayPredictionState& prediction,
+                                        ReplayBodyId id,
+                                        int modelIndex,
+                                        const Vector3& position,
+                                        Quaternion orientation )
+{
+    if ( ReplayPredictionRetainedMarker* marker =
+             FindOrAddReplayPredictionRetainedMarker( prediction, id, modelIndex ) )
+    {
+        marker->hasEntryPose = true;
+        marker->entryPosition = position;
+        marker->entryOrientation = orientation;
+        marker->entryOrientation.Normalise();
+    }
+}
+
+void RetainReplayPredictionRestMarker( RunReplayPredictionState& prediction,
+                                       ReplayBodyId id,
+                                       int modelIndex,
+                                       const Vector3& position,
+                                       Quaternion orientation )
+{
+    if ( ReplayPredictionRetainedMarker* marker =
+             FindOrAddReplayPredictionRetainedMarker( prediction, id, modelIndex ) )
+    {
+        marker->hasRestPose = true;
+        marker->hasHorizonPose = false;
+        marker->restPosition = position;
+        marker->restOrientation = orientation;
+        marker->restOrientation.Normalise();
+    }
+}
+
+void RetainReplayPredictionHorizonMarker( RunReplayPredictionState& prediction,
+                                          ReplayBodyId id,
+                                          int modelIndex,
+                                          const Vector3& position,
+                                          Quaternion orientation )
+{
+    if ( ReplayPredictionRetainedMarker* marker =
+             FindOrAddReplayPredictionRetainedMarker( prediction, id, modelIndex ) )
+    {
+        if ( marker->hasRestPose )
+        {
+            return;
+        }
+        marker->hasHorizonPose = true;
+        marker->horizonPosition = position;
+        marker->horizonOrientation = orientation;
+        marker->horizonOrientation.Normalise();
+    }
+}
+
+std::size_t ReplayRetainedMarkerTrailStrideForFrameCount( std::size_t frameCount )
+{
+    constexpr std::size_t retainedTrailMaxSegments = 96;
+    if ( frameCount <= retainedTrailMaxSegments )
+    {
+        return 1;
+    }
+    return ( frameCount + retainedTrailMaxSegments - 1 ) / retainedTrailMaxSegments;
+}
+
+void ReplayRetainedMarkerTrailColor( std::size_t trailOrdinal,
+                                     float t,
+                                     bool horizonGhost,
+                                     float& r,
+                                     float& g,
+                                     float& b )
+{
+    const float laneOffset = std::clamp( static_cast<float>( trailOrdinal % 8u ) * 0.016f, 0.0f, 0.10f );
+    if ( horizonGhost )
+    {
+        r = std::clamp( 0.42f + t * 0.20f + laneOffset, 0.38f, 0.74f );
+        g = std::clamp( 0.78f + t * 0.16f, 0.72f, 1.0f );
+        b = std::clamp( 0.95f + laneOffset * 0.30f, 0.86f, 1.0f );
+        return;
+    }
+
+    r = std::clamp( 0.86f - t * 0.28f - laneOffset, 0.50f, 0.92f );
+    g = std::clamp( 0.84f - t * 0.20f - laneOffset, 0.50f, 0.90f );
+    b = std::clamp( 0.90f - t * 0.10f, 0.62f, 0.96f );
+}
+
+void DrawReplayPredictionRetainedMarkerTrail( const ReplayPredictionRetainedMarker& marker,
+                                              const std::vector<RunReplayPredictionFrame>& frames,
+                                              std::size_t frameCount,
+                                              ReplayFrameIndex revealFrame,
+                                              std::size_t trailOrdinal,
+                                              RunEditorTracer& tracer )
+{
+    frameCount = (std::min)( frameCount, frames.size() );
+    if ( !marker.hasEntryPose || marker.id.value == 0 || frameCount < 2 )
+    {
+        return;
+    }
+
+    const ReplayFrameIndex lastFrame = frames[frameCount - 1].frameIndex;
+    const std::size_t sampleStride = ReplayRetainedMarkerTrailStrideForFrameCount( frameCount );
+    bool hasPrevious = true;
+    Vector3 previous = marker.entryPosition;
+    const bool horizonGhost = marker.hasHorizonPose && !marker.hasRestPose;
+
+    for ( std::size_t frameSlot = 1; frameSlot < frameCount; ++frameSlot )
+    {
+        const RunReplayPredictionFrame& frame = frames[frameSlot];
+        if ( frame.frameIndex > revealFrame )
+        {
+            break;
+        }
+
+        // Invariant: retained marker trails are sampled polylines, never a
+        // direct entry-to-rest chord. Always include the visible reveal edge and
+        // completed horizon endpoint, then thin the interior samples.
+        const bool endpointFrame = frame.frameIndex == revealFrame || frame.frameIndex == lastFrame;
+        if ( !endpointFrame && ( frameSlot % sampleStride ) != 0 )
+        {
+            continue;
+        }
+
+        const RunReplayPredictionBodySample* body =
+            FindReplayPredictionBodyByIdWithHint( frame, marker.id, marker.modelIndex );
+        if ( !body )
+        {
+            continue;
+        }
+
+        if ( hasPrevious && VectorMagSquared( body->position - previous ) > REPLAY_PATH_MIN_SEGMENT_DISTANCE_SQ )
+        {
+            const float t = ReplayPathFrameT( frame.frameIndex, 0, lastFrame );
+            float r = 0.82f;
+            float g = 0.82f;
+            float b = 0.88f;
+            ReplayRetainedMarkerTrailColor( trailOrdinal, t, horizonGhost, r, g, b );
+            tracer.AddReplayCausalTrailSegment( previous, body->position, r, g, b );
+        }
+        previous = body->position;
+        hasPrevious = true;
+    }
+}
+
+void DrawReplayPredictionRetainedMarkers( const RunReplayPredictionState& prediction,
+                                          const std::vector<RunReplayPredictionFrame>& frames,
+                                          std::size_t frameCount,
+                                          ReplayFrameIndex revealFrame,
+                                          const ColliderStore& colliderStore,
+                                          RunEditorTracer& tracer )
+{
+    // Invariant: marker emission is bounded by MAX_GAME_MODELS and independent
+    // of the visualizer budget. Lines may degrade under load; already-revealed
+    // yellow/grey boxes must not.
+    for ( std::size_t i = 0; i < prediction.retainedMarkerCount; ++i )
+    {
+        const ReplayPredictionRetainedMarker& marker = prediction.retainedMarkers[i];
+        const ColliderRecord* collider = ReplayColliderRecordForModelIndex( &colliderStore, marker.modelIndex );
+        if ( !collider )
+        {
+            continue;
+        }
+        DrawReplayPredictionRetainedMarkerTrail( marker, frames, frameCount, revealFrame, i, tracer );
+        if ( marker.hasEntryPose )
+        {
+            tracer.AddReplayCausalEntryMarker( marker.entryPosition, marker.entryOrientation, collider->shape );
+        }
+        if ( marker.hasRestPose )
+        {
+            tracer.AddReplayCausalRestMarker( marker.restPosition, marker.restOrientation, collider->shape );
+        }
+        else if ( marker.hasHorizonPose )
+        {
+            tracer.AddReplayCausalHorizonMarker( marker.horizonPosition, marker.horizonOrientation, collider->shape );
+        }
+    }
+}
+
+void RetainReplayPredictionEndStateMarkers( RunReplayPredictionState& prediction,
+                                            ReplayFrameIndex revealFrame,
+                                            const std::vector<RunReplayPredictionFrame>& completeFrames,
+                                            std::size_t completeFrameCount )
+{
+    completeFrameCount = (std::min)( completeFrameCount, completeFrames.size() );
+    if ( completeFrameCount < 2 || revealFrame < completeFrames[completeFrameCount - 1].frameIndex )
+    {
+        return;
+    }
+
+    // Why: late in the 200-brick wall prediction, ownership can move from the
+    // affected-body fallback into the future-node tree faster than the budgeted
+    // line scan can rediscover every brick. The stable end state is cheap to
+    // prove from the final and grace frames. Resting bodies get grey boxes;
+    // bodies still moving when the event horizon ends get a ghost endpoint.
+    for ( std::size_t i = 0; i < prediction.retainedMarkerCount; ++i )
+    {
+        ReplayPredictionRetainedMarker& marker = prediction.retainedMarkers[i];
+        if ( !marker.hasEntryPose || marker.hasRestPose || marker.hasHorizonPose )
+        {
+            continue;
+        }
+
+        Vector3 restPosition = SkullbonezCore::Math::Vector::ZERO_VECTOR;
+        Quaternion restOrientation = IDENTITY_QUATERNION;
+        if ( ReplayPredictionBodyRestingPose( completeFrames,
+                                              completeFrameCount,
+                                              marker.id,
+                                              marker.modelIndex,
+                                              restPosition,
+                                              restOrientation ) )
+        {
+            RetainReplayPredictionRestMarker( prediction, marker.id, marker.modelIndex, restPosition, restOrientation );
+            continue;
+        }
+
+        const RunReplayPredictionBodySample* finalBody =
+            FindReplayPredictionBodyByIdWithHint( completeFrames[completeFrameCount - 1],
+                                                  marker.id,
+                                                  marker.modelIndex );
+        if ( !finalBody )
+        {
+            continue;
+        }
+        if ( VectorMagSquared( finalBody->position - marker.entryPosition ) <= REPLAY_PATH_MIN_SEGMENT_DISTANCE_SQ &&
+             !ReplayPredictionBodyHasVisibleLinearMotion( *finalBody ) )
+        {
+            continue;
+        }
+
+        RetainReplayPredictionHorizonMarker( prediction,
+                                             marker.id,
+                                             finalBody->modelIndex,
+                                             finalBody->position,
+                                             finalBody->orientation );
+    }
+}
+
 void CaptureReplayChildMarkerPose( ReplayPathChildDrawState& drawState,
                                    const Vector3& position,
                                    const Quaternion& orientation,
@@ -1025,28 +1287,22 @@ void DrawReplayChildFinalMarkers( ReplayPathChildDrawContext& context )
 // final resting pose, and only when the completed prediction actually ends
 // with it at rest; a body still moving at the horizon end gets a travel line
 // and nothing else. Neither box ever slides.
-void DrawReplayPredictionCausalMarkers( ReplayPathChildDrawContext& context,
+void DrawReplayPredictionCausalMarkers( RunReplayPredictionState& prediction,
+                                        ReplayPathChildDrawContext& context,
                                         ReplayFrameIndex revealFrame,
                                         const std::vector<RunReplayPredictionFrame>* completeFrames,
                                         std::size_t completeFrameCount )
 {
     for ( std::size_t i = 0; i < context.nodeCount; ++i )
     {
-        if ( ReplayPathChildDrawBudgetExpired( context ) )
-        {
-            return;
-        }
-
         const ReplayPathChildDrawState& drawState = context.nodes[i];
         if ( drawState.hasEntryPose )
         {
-            if ( const ColliderRecord* collider =
-                     ReplayColliderRecordForModelIndex( context.colliderStore, drawState.entryModelIndex ) )
-            {
-                context.tracer->AddReplayCausalEntryMarker( drawState.entryPosition,
-                                                            drawState.entryOrientation,
-                                                            collider->shape );
-            }
+            RetainReplayPredictionEntryMarker( prediction,
+                                               drawState.node.id,
+                                               drawState.entryModelIndex,
+                                               drawState.entryPosition,
+                                               drawState.entryOrientation );
         }
 
         // Why: completeFrames is null while the job is still building — a
@@ -1072,11 +1328,11 @@ void DrawReplayPredictionCausalMarkers( ReplayPathChildDrawContext& context,
         {
             continue;
         }
-        if ( const ColliderRecord* collider =
-                 ReplayColliderRecordForModelIndex( context.colliderStore, drawState.node.modelIndex ) )
-        {
-            context.tracer->AddReplayCausalRestMarker( restPosition, restOrientation, collider->shape );
-        }
+        RetainReplayPredictionRestMarker( prediction,
+                                          drawState.node.id,
+                                          drawState.node.modelIndex,
+                                          restPosition,
+                                          restOrientation );
     }
 }
 
@@ -1203,19 +1459,19 @@ void ReplayAffectedBodyTrailColor( std::size_t trailOrdinal, float t, float& r, 
     b = std::clamp( 0.14f + t * 0.42f + laneOffset * 0.50f, 0.10f, 0.72f );
 }
 
-void DrawReplayPredictionAffectedBodyTrails(
-    const std::vector<RunReplayPredictionFrame>& frames,
-    std::size_t frameCount,
-    ReplayFrameIndex revealFrame,
-    bool bufferComplete,
-    ReplayBodyId rootId,
-    int rootModelIndex,
-    const std::vector<RunReplayPathTraceNode>& futureNodes,
-    const SkullbonezCore::GameObjects::GameModelCollection& collection,
-    const ColliderStore& colliderStore,
-    RunEditorTracer& tracer,
-    const std::chrono::steady_clock::time_point& budgetStart,
-    double budgetMilliseconds )
+void DrawReplayPredictionAffectedBodyTrails( const std::vector<RunReplayPredictionFrame>& frames,
+                                             std::size_t frameCount,
+                                             RunReplayPredictionState& prediction,
+                                             ReplayFrameIndex revealFrame,
+                                             bool bufferComplete,
+                                             ReplayBodyId rootId,
+                                             int rootModelIndex,
+                                             const std::vector<RunReplayPathTraceNode>& futureNodes,
+                                             const SkullbonezCore::GameObjects::GameModelCollection& collection,
+                                             const ColliderStore& colliderStore,
+                                             RunEditorTracer& tracer,
+                                             const std::chrono::steady_clock::time_point& budgetStart,
+                                             double budgetMilliseconds )
 {
     frameCount = (std::min)( frameCount, frames.size() );
     if ( frameCount < 2 || rootId.value == 0 )
@@ -1362,26 +1618,32 @@ void DrawReplayPredictionAffectedBodyTrails(
     for ( std::size_t trailIndex = 0; trailIndex < trailCount; ++trailIndex )
     {
         const ReplayPredictionAffectedBodyTrail& trail = trails[trailIndex];
-        if ( const ColliderRecord* collider = ReplayColliderRecordForModelIndex( &colliderStore, trail.modelIndex ) )
+        if ( !ReplayColliderRecordForModelIndex( &colliderStore, trail.modelIndex ) )
         {
-            tracer.AddReplayCausalEntryMarker( trail.entryPosition, trail.entryOrientation, collider->shape );
-            // Why: grey exists only for stories that end at rest inside the
-            // completed horizon — see DrawReplayPredictionCausalMarkers.
-            if ( !bufferComplete || revealFrame < trail.lastMotionFrame + REPLAY_PREDICTION_REST_GRACE_FRAMES )
-            {
-                continue;
-            }
-            Vector3 restPosition = SkullbonezCore::Math::Vector::ZERO_VECTOR;
-            Quaternion restOrientation = IDENTITY_QUATERNION;
-            if ( ReplayPredictionBodyRestingPose( frames,
-                                                  frameCount,
-                                                  trail.id,
-                                                  trail.modelIndex,
-                                                  restPosition,
-                                                  restOrientation ) )
-            {
-                tracer.AddReplayCausalRestMarker( restPosition, restOrientation, collider->shape );
-            }
+            continue;
+        }
+
+        RetainReplayPredictionEntryMarker( prediction,
+                                           trail.id,
+                                           trail.modelIndex,
+                                           trail.entryPosition,
+                                           trail.entryOrientation );
+        // Why: grey exists only for stories that end at rest inside the
+        // completed horizon — see DrawReplayPredictionCausalMarkers.
+        if ( !bufferComplete || revealFrame < trail.lastMotionFrame + REPLAY_PREDICTION_REST_GRACE_FRAMES )
+        {
+            continue;
+        }
+        Vector3 restPosition = SkullbonezCore::Math::Vector::ZERO_VECTOR;
+        Quaternion restOrientation = IDENTITY_QUATERNION;
+        if ( ReplayPredictionBodyRestingPose( frames,
+                                              frameCount,
+                                              trail.id,
+                                              trail.modelIndex,
+                                              restPosition,
+                                              restOrientation ) )
+        {
+            RetainReplayPredictionRestMarker( prediction, trail.id, trail.modelIndex, restPosition, restOrientation );
         }
     }
 }
@@ -1584,12 +1846,12 @@ bool BuildReplayPredictionFutureNodes( const RunReplayPredictionFrame& frame,
         const PhysicsDebugContact& contact = frame.debugContacts[contactIndex];
         const bool ragdollA = context.collection && ReplayModelIndexIsRagdollPart( *context.collection, contact.bodyA );
         const bool ragdollB = context.collection && ReplayModelIndexIsRagdollPart( *context.collection, contact.bodyB );
-        const int modelIndexA = context.collection ? ReplayRagdollTorsoModelIndexForPart( *context.collection,
-                                                                                          contact.bodyA )
-                                                   : contact.bodyA;
-        const int modelIndexB = context.collection ? ReplayRagdollTorsoModelIndexForPart( *context.collection,
-                                                                                          contact.bodyB )
-                                                   : contact.bodyB;
+        const int modelIndexA = context.collection
+                                    ? ReplayRagdollTorsoModelIndexForPart( *context.collection, contact.bodyA )
+                                    : contact.bodyA;
+        const int modelIndexB = context.collection
+                                    ? ReplayRagdollTorsoModelIndexForPart( *context.collection, contact.bodyB )
+                                    : contact.bodyB;
         const ReplayBodyId idA = ReplayPredictionBodyIdForModelIndex( frame, modelIndexA );
         const ReplayBodyId idB = ReplayPredictionBodyIdForModelIndex( frame, modelIndexB );
         int depthA = -1;
@@ -1869,11 +2131,11 @@ bool CaptureReplayPredictionBodyState( SkullbonezCore::GameObjects::GameModelCol
     if ( modelCount >= REPLAY_PREDICTION_PARALLEL_BODY_MIN )
     {
         workerPool.ParallelForNoAlloc( 0,
-                                modelCount,
-                                captureBody,
-                                REPLAY_PREDICTION_PARALLEL_BODY_MIN,
-                                "Frame/Replay/Prediction/CaptureBodyState/WorkerBodies",
-                                REPLAY_PREDICTION_CAPTURE_BODY_WORKER_HASH );
+                                       modelCount,
+                                       captureBody,
+                                       REPLAY_PREDICTION_PARALLEL_BODY_MIN,
+                                       "Frame/Replay/Prediction/CaptureBodyState/WorkerBodies",
+                                       REPLAY_PREDICTION_CAPTURE_BODY_WORKER_HASH );
     }
     else
     {
@@ -1968,11 +2230,11 @@ bool CaptureReplayPredictionFrame( ReplayRuntime& replayRuntime,
     if ( modelCount >= REPLAY_PREDICTION_PARALLEL_BODY_MIN )
     {
         workerPool.ParallelForNoAlloc( 0,
-                                modelCount,
-                                captureBody,
-                                REPLAY_PREDICTION_PARALLEL_BODY_MIN,
-                                "Frame/Replay/Prediction/CaptureSample/WorkerBodies",
-                                REPLAY_PREDICTION_CAPTURE_SAMPLE_WORKER_HASH );
+                                       modelCount,
+                                       captureBody,
+                                       REPLAY_PREDICTION_PARALLEL_BODY_MIN,
+                                       "Frame/Replay/Prediction/CaptureSample/WorkerBodies",
+                                       REPLAY_PREDICTION_CAPTURE_SAMPLE_WORKER_HASH );
     }
     else
     {

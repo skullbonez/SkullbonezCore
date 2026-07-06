@@ -168,6 +168,7 @@ class Run
     void ClearInteractionAutomationInput();                                // Releases input overrides after completion or failure.
     void WriteInteractionAutomationReport();                               // Writes JSON result for --interaction-report.
     bool TryFindInteractionAutomationModel( const char* name, int& outIndex ) const;
+    bool TrySetInteractionAutomationReplayPathTarget( const char* name );
     bool TryProjectInteractionAutomationModel( const char* name, POINT& outMouse );
     bool DrainRuntimeCommands();                                           // Applies queued runtime/tool command intents at the frame boundary.
     void StepPhysicsPipelineStage( int direction );                        // direction is a left/right cursor step for pipeline visualization.
