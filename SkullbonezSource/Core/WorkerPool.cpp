@@ -385,9 +385,8 @@ void WorkerPool::WorkerLoop( int workerIndex )
 }
 
 
-bool RunWorkerSystemSelfTest( FILE* out )
+bool RunWorkerSystemSelfTest( WorkerPool& pool, FILE* out )
 {
-    WorkerPool& pool = WorkerPool::Instance();
     std::vector<int> squares( 257, 0 );
     pool.ParallelFor(
         0,

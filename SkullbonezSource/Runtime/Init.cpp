@@ -3326,7 +3326,7 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine
     workerPool.Initialise( cfg.workerThreads );
     if ( args.workerSelfTest )
     {
-        const bool workersOk = RunWorkerSystemSelfTest( stdout );
+        const bool workersOk = RunWorkerSystemSelfTest( workerPool, stdout );
         workerPool.Shutdown();
         CoUninitialize();
         return workersOk ? 0 : 1;

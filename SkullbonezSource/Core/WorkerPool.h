@@ -293,7 +293,7 @@ void WorkerPool::ExecuteParallelChunkTask( void* dispatchState, const WorkerChun
     state->fence.Signal();
 }
 
-bool RunWorkerSystemSelfTest( FILE* out );
+bool RunWorkerSystemSelfTest( WorkerPool& pool, FILE* out );
 
 } // namespace Threading
 } // namespace SkullbonezCore

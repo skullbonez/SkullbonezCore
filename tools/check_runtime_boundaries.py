@@ -1556,7 +1556,7 @@ MUTABLE_PROCESS_GLOBAL_PATTERN = re.compile(r"\bg_[A-Za-z_]\w*\b")
 # SVC-035: current tracked-source global-service census on 2026-07-07.
 # Per-file rows classify remaining debt; this total blocks stale row slack from
 # approving growth while later rows drain the explicit-service surface.
-MAX_GLOBAL_SERVICE_ACCESS_CENSUS = 168
+MAX_GLOBAL_SERVICE_ACCESS_CENSUS = 167
 MAX_RUN_PRIVATE_METHOD_DECLARATIONS = 129
 RUN_PRIVATE_METHOD_DECLARATION_PATTERN = re.compile(
     r"(?m)^\s*(?:static\s+)?(?:[A-Za-z_][\w:<>,~]*\s*(?:[&*]\s*)?\s+)+"
@@ -1682,7 +1682,7 @@ GLOBAL_SERVICE_ACCESS_ALLOWLIST: Counter[tuple[Path, str]] = Counter(
             ( "SkullbonezSource/Core/Profiler.cpp", "IsGfxReady()", 6 ),
             ( "SkullbonezSource/Core/Profiler.cpp", "Profiler::Instance()", 2 ),
             ( "SkullbonezSource/Core/Profiler.h", "Profiler::Instance()", 11 ),
-            ( "SkullbonezSource/Core/WorkerPool.cpp", "WorkerPool::Instance()", 2 ),
+            ( "SkullbonezSource/Core/WorkerPool.cpp", "WorkerPool::Instance()", 1 ),
             ( "SkullbonezSource/Core/WorkerPool.cpp", "g_*", 8 ),
             ( "SkullbonezSource/Physics/Debug/BroadphaseVisualizer.cpp", "Gfx()", 2 ),
             ( "SkullbonezSource/Physics/Debug/CollisionVisualizer.cpp", "Gfx()", 14 ),
