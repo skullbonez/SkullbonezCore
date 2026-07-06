@@ -40,9 +40,9 @@ Glossary:
 Invariants:
   - m_gameModels is the stable scene-order owner; collaborators mirror or view
     that order rather than replacing it.
-  - m_sceneObjectGroups is a same-length sidecar keyed by m_gameModels slot.
-    GameModel does not own runtime grouping fields; PhysicsScene owns body
-    descriptor rows for topology repair.
+  - SceneObjectGroupStore is a same-length scene metadata store keyed by
+    m_gameModels slot. GameModel does not own runtime grouping fields;
+    PhysicsScene owns body descriptor rows for topology repair.
   - Replay identity lives in PhysicsBodyStore rows after creation. Collection
     code receives scene-owned ids at creation and does not allocate them.
   - Collider shape/material data is imported into ColliderStore at create,
@@ -61,6 +61,7 @@ Related:
 */
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 #include <vector>
 
@@ -166,11 +167,26 @@ class GameModelCollection
         int partIndex = -1;
     };
 
+    // Scene-object groups are cold scene identity metadata, not per-frame model
+    // data. Keep their dense storage behind query methods so editor/replay code
+    // can ask by scene slot without reopening GameModel fields.
+    class SceneObjectGroupStore
+    {
+      public:
+        void Reserve( std::size_t capacity );
+        void Clear();
+        void Append( SceneObjectGroupRecord record );
+        bool TrimToCount( int count );
+        int Count() const;
+        uint64_t CapacityBytes() const;
+        SceneObjectGroupRecord RecordAt( int modelIndex ) const;
+
+      private:
+        std::vector<SceneObjectGroupRecord> m_records;
+    };
+
     std::vector<GameModel> m_gameModels;
-    // Dense sidecar for cold scene-object grouping. Keeping this metadata out
-    // of GameModel preserves the model vector for authored presentation data
-    // while collection-order systems still get O(1) group lookup by model slot.
-    std::vector<SceneObjectGroupRecord> m_sceneObjectGroups;
+    SceneObjectGroupStore m_sceneObjectGroupStore;
     Physics::PhysicsEngine m_physicsEngine;
     Threading::WorkerPool* m_workerPool = nullptr;               // Borrowed startup worker pool for render/physics parallel helpers.
     int m_activeGameModelCapacity = DEFAULT_GAME_MODEL_CAPACITY; // Configured model cap used by append/reserve guards.
@@ -259,8 +275,9 @@ class GameModelCollection
                             float flatSlopeX = 0.0f,
                             float flatSlopeZ = 0.0f );
     Math::Vector::Vector3 GetModelPosition( int index );
-    int GetModelCount() const;
-    int ModelCount() const;
+    // Scene entity count is the stable model-slot count shared by scene files,
+    // editor picks, replay streams, and cold owner-repair boundaries.
+    int SceneEntityCount() const;
     const std::vector<GameModel>& Models() const;
     // Lifetime: returned model pointers are stable only until collection
     // mutation. Null means the caller held a stale model index.

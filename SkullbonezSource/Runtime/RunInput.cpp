@@ -656,7 +656,7 @@ bool Run::RouteRuntimePointerInput( const RuntimeInputSnapshot& inputSnapshot, c
                 m_runtimeTools.RayCastTest().fireMode == RunLauncherFireMode::Projectile,
                 m_runtimeTools.RayCastTest().impulseStrength,
                 m_runtimeTools.RayCastTest().projectileSpeed,
-                m_cGameModelCollection.GetModelCount() );
+                m_cGameModelCollection.SceneEntityCount() );
             // Why: RuntimeTools now fails closed unless Run has completed the
             // cold collection-to-store topology repair at the owner boundary.
             const bool launcherStoresReady = m_cGameModelCollection.RepairPhysicsBodyAndColliderTopology();
@@ -668,7 +668,7 @@ bool Run::RouteRuntimePointerInput( const RuntimeInputSnapshot& inputSnapshot, c
                                                                         rayDirection,
                                                                         cameraUp ) )
             {
-                SceneState().modelCount = m_cGameModelCollection.GetModelCount();
+                SceneState().modelCount = m_cGameModelCollection.SceneEntityCount();
             }
         }
         UpdateRuntimeInputModeAfterAction( RuntimeInputAction::FireLauncher, RuntimeInputActionSource::Mouse );
@@ -1012,7 +1012,7 @@ bool Run::ExecuteRuntimeInteractionCommand( const RuntimeInteractionCommand& com
     {
     case RuntimeInteractionCommandType::SetEditorSelection:
     {
-        if ( command.modelIndex < -1 || command.modelIndex >= m_cGameModelCollection.GetModelCount() )
+        if ( command.modelIndex < -1 || command.modelIndex >= m_cGameModelCollection.SceneEntityCount() )
         {
             return false;
         }
@@ -1134,7 +1134,7 @@ bool Run::IsDemoCameraModeAvailable() const
     {
         return false;
     }
-    return m_cGameModelCollection.GetModelCount() > 0;
+    return m_cGameModelCollection.SceneEntityCount() > 0;
 }
 
 
@@ -1742,7 +1742,7 @@ void Run::ApplyCameraMode( RunCameraMode mode, RuntimeInputActionSource source )
 
     if ( mode == RunCameraMode::Demo )
     {
-        const int modelCount = m_cGameModelCollection.GetModelCount();
+        const int modelCount = m_cGameModelCollection.SceneEntityCount();
         if ( m_camera.trackBallIndex < 0 || m_camera.trackBallIndex >= modelCount )
         {
             m_camera.trackBallIndex = 0;
@@ -2411,7 +2411,7 @@ void Run::TakeInput()
         {
             if ( SceneState().isSceneMode && m_camera.trackBallIndex >= 0 && !m_debug.isBroadphaseOverlay )
             {
-                int count = m_cGameModelCollection.GetModelCount();
+                int count = m_cGameModelCollection.SceneEntityCount();
                 if ( count > 0 )
                 {
                     m_camera.trackBallIndex = ( m_camera.trackBallIndex + 1 ) % count;

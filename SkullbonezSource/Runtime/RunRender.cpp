@@ -1776,7 +1776,7 @@ RuntimeRenderModelFrameView Run::BuildRuntimeRenderModelFrameView()
                                         m_cGameModelCollection.GetPhysicsDebugContacts(),
                                         m_cGameModelCollection.GetPhysicsPipelineTrace(),
                                         m_cGameModelCollection.RenderWorkerPool(),
-                                        m_cGameModelCollection.GetModelCount(),
+                                        m_cGameModelCollection.SceneEntityCount(),
                                         m_cGameModelCollection.ShouldRenderCollisionVolumes(),
                                         m_cGameModelCollection.ShouldUseShadowParallelPrep(),
                                         m_cGameModelCollection.GetSceneKineticEnergy(),

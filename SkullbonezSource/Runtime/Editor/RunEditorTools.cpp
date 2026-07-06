@@ -144,7 +144,7 @@ bool RecordEditorTransformEventFromBodyStore( ReplayRuntime& replayRuntime,
                                               body->replayBodyId,
                                               body->position,
                                               body->orientation,
-                                              collection.GetModelCount(),
+                                              collection.SceneEntityCount(),
                                               scaleAxis,
                                               scaleFactor );
     return true;
@@ -681,7 +681,7 @@ void CaptureEditorGizmoDragGroupState( RunEditorPlacementState& editor,
     // invalidates the group before movement, scale, or rotation applies.
     editor.gizmoDragGroupCount = 0;
     editor.gizmoDragGroupIndices.fill( -1 );
-    if ( editor.selectedModelIndex < 0 || editor.selectedModelIndex >= collection.GetModelCount() )
+    if ( editor.selectedModelIndex < 0 || editor.selectedModelIndex >= collection.SceneEntityCount() )
     {
         return;
     }
@@ -739,7 +739,7 @@ int ValidCapturedEditorGizmoGroupCount( const RunEditorPlacementState& editor, i
 // current body-store row once topology drift is repaired at this boundary.
 void WakeEditorPhysicsBody( SkullbonezCore::GameObjects::GameModelCollection& collection, int modelIndex )
 {
-    const int modelCount = collection.GetModelCount();
+    const int modelCount = collection.SceneEntityCount();
     if ( modelIndex < 0 || modelIndex >= modelCount )
     {
         return;
@@ -763,7 +763,7 @@ void WakeEditorPhysicsBody( SkullbonezCore::GameObjects::GameModelCollection& co
 
 void SeedEditorPhysicsBodyAsleep( SkullbonezCore::GameObjects::GameModelCollection& collection, int modelIndex )
 {
-    const int modelCount = collection.GetModelCount();
+    const int modelCount = collection.SceneEntityCount();
     if ( modelIndex < 0 || modelIndex >= modelCount )
     {
         return;
@@ -1284,7 +1284,7 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
         if ( leftReleased || suppressWorldActionThisFrame )
         {
             if ( leftReleased && !suppressWorldActionThisFrame && m_runtimeTools.Editor().selectedModelIndex >= 0 &&
-                 m_runtimeTools.Editor().selectedModelIndex < m_cGameModelCollection.GetModelCount() )
+                 m_runtimeTools.Editor().selectedModelIndex < m_cGameModelCollection.SceneEntityCount() )
             {
                 const int selectedModelIndex = m_runtimeTools.Editor().selectedModelIndex;
                 const PhysicsBodyStore& bodyStore = m_cGameModelCollection.GetPhysicsEngine().BodyStore();
@@ -1320,8 +1320,9 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
                 }
                 else
                 {
-                    const int groupCount = ValidCapturedEditorGizmoGroupCount( m_runtimeTools.Editor(),
-                                                                               m_cGameModelCollection.GetModelCount() );
+                    const int groupCount =
+                        ValidCapturedEditorGizmoGroupCount( m_runtimeTools.Editor(),
+                                                            m_cGameModelCollection.SceneEntityCount() );
                     if ( groupCount > 0 )
                     {
                         for ( int groupIndex = 0; groupIndex < groupCount; ++groupIndex )
@@ -1407,7 +1408,7 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
                                             m_interaction.Gesture().kind == RuntimeInteractionGestureKind::None;
         const bool editorScaleMode = transformGizmoActive && Input::IsKeyDown( VK_CONTROL );
         if ( canCaptureGizmoGesture && editorScaleMode && m_runtimeTools.Editor().selectedModelIndex >= 0 &&
-             m_runtimeTools.Editor().selectedModelIndex < m_cGameModelCollection.GetModelCount() &&
+             m_runtimeTools.Editor().selectedModelIndex < m_cGameModelCollection.SceneEntityCount() &&
              m_runtimeTools.Editor().hotGizmoAxis >= 0 )
         {
             Vector3 rayOrigin;

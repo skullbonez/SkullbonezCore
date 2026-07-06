@@ -986,7 +986,7 @@ bool Run::ApplyReplaySolverSampleState( const ReplaySolverFrameSample& sample, c
         return false;
     }
 
-    const int liveModelCount = m_cGameModelCollection.GetModelCount();
+    const int liveModelCount = m_cGameModelCollection.SceneEntityCount();
     if ( sample.bodies.size() > static_cast<std::size_t>( liveModelCount ) )
     {
         writeReason( "selected frame needs unavailable bodies" );
@@ -1047,7 +1047,7 @@ bool Run::ApplyReplaySolverSampleState( const ReplaySolverFrameSample& sample, c
 
     if ( !m_cGameModelCollection.GetPhysicsEngine().RestoreReplaySolverSnapshot(
              sample.worldSnapshot,
-             m_cGameModelCollection.GetModelCount() ) )
+             m_cGameModelCollection.SceneEntityCount() ) )
     {
         writeReason( "failed to restore solver world snapshot" );
         return false;
@@ -1061,7 +1061,7 @@ bool Run::ApplyReplaySolverSampleState( const ReplaySolverFrameSample& sample, c
     SceneState().isFixedStep = sample.world.fixedStep;
     SceneState().isScenePhysics = sample.world.scenePhysicsEnabled;
     SceneState().isSceneText = sample.world.sceneTextEnabled;
-    SceneState().modelCount = m_cGameModelCollection.GetModelCount();
+    SceneState().modelCount = m_cGameModelCollection.SceneEntityCount();
     m_runtimeSettings.isPhysicsSleepEnabled = sample.worldSnapshot.sleepEnabled;
     m_runtimeSettings.tornadoField = sample.worldSnapshot.tornadoConfig;
     m_runtimeSettings.tornadoSystem = sample.worldSnapshot.tornadoSystemConfig;

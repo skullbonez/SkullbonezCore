@@ -1274,7 +1274,7 @@ void Run::TickInteractionAutomationAfterRender()
         {
             expected = action.text;
             const int selectedIndex = m_runtimeTools.Editor().selectedModelIndex;
-            if ( selectedIndex >= 0 && selectedIndex < m_cGameModelCollection.GetModelCount() )
+            if ( selectedIndex >= 0 && selectedIndex < m_cGameModelCollection.SceneEntityCount() )
             {
                 actual = m_cGameModelCollection.GetModelAtIndex( selectedIndex ).GetName();
             }
@@ -1459,7 +1459,7 @@ void Run::WriteInteractionAutomationReport()
 
     const int selectedIndex = m_runtimeTools.Editor().selectedModelIndex;
     const char* selectedName = "";
-    if ( selectedIndex >= 0 && selectedIndex < m_cGameModelCollection.GetModelCount() )
+    if ( selectedIndex >= 0 && selectedIndex < m_cGameModelCollection.SceneEntityCount() )
     {
         selectedName = m_cGameModelCollection.GetModelAtIndex( selectedIndex ).GetName();
     }

@@ -176,7 +176,7 @@ Vector3 ScaleSceneVector( const Vector3& value, float scale )
 
 void AppendAuthoredSimpleRagdoll( SceneSimpleRagdollAppendContext context, const RagdollBuildOptions& options )
 {
-    const int firstBody = context.models.GetModelCount();
+    const int firstBody = context.models.SceneEntityCount();
     const uint32_t groupId = static_cast<uint32_t>( firstBody + 1 );
     const float scale = Ragdoll::ClampScale( options.scale );
     Quaternion orientation = options.orientation;
@@ -737,7 +737,7 @@ void SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context, con
         // and snapshot bodies uniformly.
         const SceneObjectMaterialOverride& material = scene.GetObjectMaterialOverride( materialIndex );
         const auto& colliders = context.models.GetPhysicsEngine().Colliders().Records();
-        for ( int modelIndex = 0; modelIndex < context.models.GetModelCount(); ++modelIndex )
+        for ( int modelIndex = 0; modelIndex < context.models.SceneEntityCount(); ++modelIndex )
         {
             const ColliderShapeKind shapeKind = modelIndex < static_cast<int>( colliders.size() )
                                                     ? colliders[static_cast<std::size_t>( modelIndex )].shapeKind

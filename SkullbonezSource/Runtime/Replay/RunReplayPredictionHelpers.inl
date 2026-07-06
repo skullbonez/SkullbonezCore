@@ -1364,7 +1364,7 @@ void DrawReplayPredictionRagdollTorsoTrails( const std::vector<RunReplayPredicti
                                              const std::chrono::steady_clock::time_point& budgetStart,
                                              double budgetMilliseconds )
 {
-    const int modelCount = collection.GetModelCount();
+    const int modelCount = collection.SceneEntityCount();
     frameCount = (std::min)( frameCount, frames.size() );
     if ( frameCount < 2 || modelCount <= 0 )
     {
@@ -2084,7 +2084,7 @@ bool CaptureReplayPredictionBodyState( SkullbonezCore::GameObjects::GameModelCol
                                        std::vector<RunReplayPredictionBodyBackup>& outBodies )
 {
     PROFILE_SCOPED( "Frame/Replay/Prediction/CaptureBodyState" );
-    const int modelCount = modelCollection.GetModelCount();
+    const int modelCount = modelCollection.SceneEntityCount();
     const auto& bodyRecords = modelCollection.GetPhysicsEngine().BodyStore().Records();
     if ( static_cast<int>( bodyRecords.size() ) < modelCount )
     {
@@ -2155,7 +2155,7 @@ bool ApplyReplayPredictionBodyState( SkullbonezCore::GameObjects::GameModelColle
                                      const std::vector<RunReplayPredictionBodyBackup>& bodies )
 {
     PROFILE_SCOPED( "Frame/Replay/Prediction/ApplyBodyState" );
-    if ( bodies.size() != static_cast<std::size_t>( modelCollection.GetModelCount() ) )
+    if ( bodies.size() != static_cast<std::size_t>( modelCollection.SceneEntityCount() ) )
     {
         return false;
     }
@@ -2188,7 +2188,7 @@ bool CaptureReplayPredictionFrame( ReplayRuntime& replayRuntime,
                                    ReplayFrameIndex frameIndex )
 {
     PROFILE_SCOPED( "Frame/Replay/Prediction/CaptureSample" );
-    const int modelCount = modelCollection.GetModelCount();
+    const int modelCount = modelCollection.SceneEntityCount();
     const auto& bodyRecords = modelCollection.GetPhysicsEngine().BodyStore().Records();
     if ( static_cast<int>( bodyRecords.size() ) < modelCount )
     {

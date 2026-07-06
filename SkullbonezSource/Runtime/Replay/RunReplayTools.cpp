@@ -677,7 +677,7 @@ void Run::RenderReplayPathVisualizer( RunEditorTracer& tracer )
             if ( TryResolveReplayBodyModelIndex( bodyStore,
                                                  target.id,
                                                  target.modelIndex,
-                                                 m_cGameModelCollection.GetModelCount(),
+                                                 m_cGameModelCollection.SceneEntityCount(),
                                                  markerIndex ) )
             {
                 target.modelIndex = markerIndex;

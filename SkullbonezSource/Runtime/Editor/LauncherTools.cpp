@@ -353,7 +353,7 @@ RuntimeTools::WriteLauncherReproSnapshot( const LauncherReproSnapshotContext& co
     fprintf( f, "time_scale,%.6f\n", context.sceneState.timeScale );
     fprintf( f, "renderer,%s\n", rendererName );
     fprintf( f, "generated_object_override,%s\n", generatedObjectOverride );
-    fprintf( f, "model_count,%d\n", context.collection.GetModelCount() );
+    fprintf( f, "model_count,%d\n", context.collection.SceneEntityCount() );
     fprintf( f, "vsync_enabled,%d\n", context.runtimeSettings.isVsyncEnabled ? 1 : 0 );
     fprintf( f, "pipeline_sync_enabled,%d\n", context.runtimeSettings.isPipelineSyncEnabled ? 1 : 0 );
     if ( context.sceneState.isSceneMode )

@@ -414,7 +414,7 @@ bool RuntimeTools::FireLauncherRay( GameObjects::GameModelCollection& collection
                                     const Math::Vector::Vector3& rayDirection,
                                     const Math::Vector::Vector3& cameraUp )
 {
-    const int modelCount = collection.GetModelCount();
+    const int modelCount = collection.SceneEntityCount();
     Physics::PhysicsEngine& physics = collection.GetPhysicsEngine();
     if ( !LauncherPhysicsStoresReady( physics, modelCount ) )
     {

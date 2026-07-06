@@ -81,7 +81,7 @@ EditorInteractionPreviewResult UpdateEditorInteractionPreview( EditorInteraction
                                 collider->body == context.editor.selectedBody;
     }
 
-    if ( context.editor.selectedModelIndex >= context.models.GetModelCount() ||
+    if ( context.editor.selectedModelIndex >= context.models.SceneEntityCount() ||
          ( hasSelection && !selectionHandlesValid ) )
     {
         // Invariant: Selection stores handles plus a model-index hint. If
@@ -135,7 +135,7 @@ void BuildEditorToolOverlayTrace( EditorToolOverlayTraceContext context, const E
     }
 
     if ( ( context.editor.editorModeEnabled || input.inspectGizmoActive ) && !context.editor.placementModeEnabled &&
-         context.editor.selectedModelIndex >= 0 && context.editor.selectedModelIndex < context.models.GetModelCount() )
+         context.editor.selectedModelIndex >= 0 && context.editor.selectedModelIndex < context.models.SceneEntityCount() )
     {
         Vector3 gizmoOrigin;
         float radius = 1.0f;
@@ -162,7 +162,7 @@ void BuildEditorToolOverlayTrace( EditorToolOverlayTraceContext context, const E
     }
 
     if ( context.mousePickup.active && context.mousePickup.modelIndex >= 0 &&
-         context.mousePickup.modelIndex < context.models.GetModelCount() )
+         context.mousePickup.modelIndex < context.models.SceneEntityCount() )
     {
         const PhysicsBodyRecord* body = context.bodyStore.RecordForHandle( context.mousePickup.body );
         const PhysicsColliderHandle colliderHandle =
@@ -193,7 +193,7 @@ void BuildEditorToolOverlayTrace( EditorToolOverlayTraceContext context, const E
         }
     }
 
-    if ( input.attachedCameraTargetIndex >= 0 && input.attachedCameraTargetIndex < context.models.GetModelCount() )
+    if ( input.attachedCameraTargetIndex >= 0 && input.attachedCameraTargetIndex < context.models.SceneEntityCount() )
     {
         const PhysicsBodyHandle bodyHandle = context.bodyStore.HandleForModelIndex( input.attachedCameraTargetIndex );
         const PhysicsBodyRecord* body = context.bodyStore.RecordForHandle( bodyHandle );

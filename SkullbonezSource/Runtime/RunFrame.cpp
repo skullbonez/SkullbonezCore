@@ -207,7 +207,7 @@ void StepRuntimePhysicsTick( SkullbonezCore::GameObjects::GameModelCollection& m
                              const PhysicsWorldForces& worldForces,
                              SkullbonezCore::Threading::WorkerPool& workerPool )
 {
-    const int modelCount = modelCollection.ModelCount();
+    const int modelCount = modelCollection.SceneEntityCount();
     // Invariant: PhysicsBodyStore is the per-tick body authority. Descriptor
     // sidecars are imported only when model/body/collider topology changes;
     // same-count editor or replay mutations must commit explicitly before this
@@ -1270,7 +1270,7 @@ void Run::TickReplaySaveProbe()
                               m_cWorldEnvironment.GetFluidDensity() );
         m_runtimeTools.Editor().placementScale = Vector3( 2.0f, 2.0f, 2.0f );
         m_runtimeTools.Editor().autoTerrainAlign = false;
-        const int modelCountBeforePlace = m_cGameModelCollection.GetModelCount();
+        const int modelCountBeforePlace = m_cGameModelCollection.SceneEntityCount();
         EditorObjectPlacementContext placementContext{ m_runtimeTools.Editor(),
                                                        m_cGameModelCollection,
                                                        SceneState(),
@@ -1354,7 +1354,7 @@ void Run::TickReplaySaveProbe()
                 placedBodyAfterEdit->replayBodyId,
                 placedBodyAfterEdit->position,
                 placedBodyAfterEdit->orientation,
-                m_cGameModelCollection.GetModelCount(),
+                m_cGameModelCollection.SceneEntityCount(),
                 PROBE_SCALE_AXIS,
                 PROBE_SCALE_FACTOR );
         }
@@ -1374,7 +1374,7 @@ void Run::TickReplaySaveProbe()
                 m_runtimeTools.RayCastTest().fireMode == RunLauncherFireMode::Projectile,
                 m_runtimeTools.RayCastTest().impulseStrength,
                 m_runtimeTools.RayCastTest().projectileSpeed,
-                m_cGameModelCollection.GetModelCount() );
+                m_cGameModelCollection.SceneEntityCount() );
             // Why: RuntimeTools now fails closed unless Run has completed the
             // cold collection-to-store topology repair at the owner boundary.
             const bool launcherStoresReady = m_cGameModelCollection.RepairPhysicsBodyAndColliderTopology();
@@ -1386,7 +1386,7 @@ void Run::TickReplaySaveProbe()
                                                                         rayDirection,
                                                                         cameraUp ) )
             {
-                SceneState().modelCount = m_cGameModelCollection.GetModelCount();
+                SceneState().modelCount = m_cGameModelCollection.SceneEntityCount();
             }
         }
     }
@@ -1916,7 +1916,7 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
                                                                         rayDirection,
                                                                         cameraUp ) )
             {
-                SceneState().modelCount = m_cGameModelCollection.GetModelCount();
+                SceneState().modelCount = m_cGameModelCollection.SceneEntityCount();
             }
             WriteReplayProbeReason( eventOutReason, eventReasonSize, "applied launcher fire" );
             return true;
@@ -1944,7 +1944,7 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
                 return false;
             }
 
-            const int modelCountBefore = m_cGameModelCollection.GetModelCount();
+            const int modelCountBefore = m_cGameModelCollection.SceneEntityCount();
             if ( event.value3 != modelCountBefore )
             {
                 WriteReplayProbeReason( eventOutReason,
@@ -2012,14 +2012,14 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
                 return false;
             }
 
-            if ( event.value2 != m_cGameModelCollection.GetModelCount() )
+            if ( event.value2 != m_cGameModelCollection.SceneEntityCount() )
             {
                 WriteReplayProbeReason( eventOutReason,
                                         eventReasonSize,
                                         "editor transform model count precondition mismatch" );
                 return false;
             }
-            if ( event.value0 < 0 || event.value0 >= m_cGameModelCollection.GetModelCount() )
+            if ( event.value0 < 0 || event.value0 >= m_cGameModelCollection.SceneEntityCount() )
             {
                 WriteReplayProbeReason( eventOutReason,
                                         eventReasonSize,
@@ -2221,7 +2221,7 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
 
     auto checkpointTopologyMatchesLive = [&]() -> bool
     {
-        const int liveModelCount = m_cGameModelCollection.GetModelCount();
+        const int liveModelCount = m_cGameModelCollection.SceneEntityCount();
         if ( checkpoint->bodies.size() > static_cast<std::size_t>( liveModelCount ) )
         {
             return false;
@@ -2940,7 +2940,7 @@ void Run::TickAutoCycle()
     const RuntimeCaptureResult result =
         m_diagnosticsRuntime.Capture().TickAutoCycle( SceneState().isSceneMode,
                                                       SceneState().isInteractiveRun,
-                                                      m_cGameModelCollection.GetModelCount(),
+                                                      m_cGameModelCollection.SceneEntityCount(),
                                                       m_camera.autoCycleInterval,
                                                       m_camera.autoCycleAccum,
                                                       m_camera.autoCycleShotsTaken,
