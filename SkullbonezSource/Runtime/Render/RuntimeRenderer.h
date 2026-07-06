@@ -34,6 +34,7 @@ Related:
 #include "RuntimeRenderPasses.h"
 #include "../../Rendering/RenderGraph.h"
 
+#include <array>
 #include <cstdint>
 #include <vector>
 
@@ -44,7 +45,7 @@ namespace Basics
 class RuntimeRenderer
 {
   public:
-    explicit RuntimeRenderer( RuntimeRenderHost& host );
+    RuntimeRenderer( const RuntimeRendererBindings& bindings, RuntimeRenderHost& callbackHost );
 
     void EnsureFrameResources( const RenderResourceContext& resources );
     void RenderFrame( const RuntimeRenderInputs& renderInputs );
@@ -54,10 +55,11 @@ class RuntimeRenderer
                                 const Assets::AssetSystem& assets,
                                 int screenW,
                                 int screenH );
-    bool ShouldRenderUiText() const;
+    bool ShouldRenderUiText( const UiTextPassState& state ) const;
     void SetUiTextRayTracingCapability( Rendering::IRenderRayTracing* renderRayTracing );
     void RenderUiText( Rendering::IRenderDiagnostics& renderDiagnostics,
                        const UI::UIRenderContext& uiRender,
+                       const UiTextPassState& state,
                        const RuntimeRenderModelFrameView& models,
                        DiagnosticsRuntime& diagnosticsRuntime,
                        ReplayRuntime& replayRuntime,
@@ -164,6 +166,7 @@ class RuntimeRenderer
     CinematicPostGraphResult ExecuteCinematicPostThroughRenderGraph( const RenderFrameContext& frame );
     bool ExecuteUiTextThroughRenderGraph( Rendering::IRenderDiagnostics& renderDiagnostics,
                                           const UI::UIRenderContext& uiRender,
+                                          const UiTextPassState& state,
                                           const RuntimeRenderModelFrameView& models,
                                           DiagnosticsRuntime& diagnosticsRuntime,
                                           ReplayRuntime& replayRuntime,
@@ -173,7 +176,22 @@ class RuntimeRenderer
                                           Rendering::IRenderRayTracing* renderRayTracing,
                                           double secondsPerFrame );
 
-    RuntimeRenderHost& m_host;
+    RuntimeRenderHost& m_callbackHost;
+    RunSubsystemState& m_systems;             // Long-lived render pass resources owned by Run.
+    RunDebugState& m_debug;                   // Frame/debug toggles sampled by render scheduling.
+    RunTimerState& m_timers;                  // Simulation clock used by visual/replay overlays.
+    EngineConfig& m_config;                   // Process config that owns ordinary render style.
+    RunRuntimeSettings& m_runtimeSettings;    // Runtime-toggled render/physics presentation settings.
+    Environment::WorldEnvironment& m_world;   // Fluid surface and gravity owner for pass contexts.
+    Physics::CollisionVisualizer& m_collisionVisualizer;
+    Physics::BroadphaseVisualizer& m_broadphaseVisualizer;
+    Physics::PhysicsDebugVisualizer& m_physicsDebugVisualizer;
+    RuntimeTools& m_runtimeTools;             // Tool overlay owner used outside hot render loops.
+    RunEditorPlacementState& m_editor;        // Editor overlay state sampled once per frame.
+    RunCameraState& m_camera;                 // Current camera mode needed by tool overlay wake-up checks.
+    ReplayRuntime& m_replayRuntime;           // Replay presentation owner for ghost/focus overlays.
+    std::array<float, MAX_GAME_MODELS * 16> m_dxrReflectionTransforms =
+        {};                                   // Scratch matrices for DXR TLAS instance upload.
     FullscreenQuadPass m_fullscreenQuadPass;  // Shared full-screen vertex buffer pass used by sky/post effects.
     SkyPass m_skyPass;                        // Background sky pass, reused by reflection and scene target passes.
     SceneTargetPass m_sceneTargetPass;        // Cinematic HDR scene-target begin/release pass.

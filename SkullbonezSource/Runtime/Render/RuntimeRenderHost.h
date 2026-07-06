@@ -1,17 +1,17 @@
 /*
 File: SkullbonezSource/Runtime/Render/RuntimeRenderHost.h
 Purpose:
-  Names the non-render services borrowed by runtime render passes.
+  Names the callback boundary and startup bindings for runtime render passes.
 
 Mental model:
-  RuntimeRenderer owns pass order and pass objects. RuntimeRenderHost is the
-  explicit bridge to runtime services while later phases continue moving editor,
-  scene, and UI presentation behind narrower services.
+  RuntimeRenderer owns pass order and pass objects. RuntimeRenderHost is now the
+  explicit callback bridge for behavior still implemented by Run while renderer
+  dependencies travel through named startup bindings.
 
 Glossary:
-  Render host: Borrowed service view used by render passes while Run remains
-    the broader composition root.
-  Binding: Pointer set that connects host methods to current runtime owners.
+  Render host: Callback holder used while Run still owns editor overlay and
+    lifecycle logging behavior.
+  Binding: Pointer set that connects RuntimeRenderer to current runtime owners.
   Callback: Transitional function pointer used for behavior still implemented
     on Run.
   Render backend view: Borrowed active renderer capabilities published by the
@@ -20,9 +20,9 @@ Glossary:
     streamed from the scene view into the DX12 TLAS build.
 
 Invariants:
-  - RuntimeRenderHost does not own the referenced state.
-  - RuntimeRenderHost owns renderer scratch state that should not leak back
-    into Run.h, including DXR reflection instance transforms.
+  - RuntimeRenderHost does not own the callback target.
+  - RuntimeRenderer owns renderer scratch state that should not leak back into
+    Run.h, including DXR reflection instance transforms.
   - All references must outlive RuntimeRenderer and its passes.
   - Callback functions are bound once by Run construction; they preserve the
     remaining Run-side behavior until later phases move those services behind
@@ -148,7 +148,13 @@ struct RuntimeRenderBackendView
     Rendering::IRenderRayTracing* rayTracingBackend = nullptr; // Optional DXR facet borrowed from the active renderer.
 };
 
-struct RuntimeRenderHostBindings
+// Concept: RuntimeRendererBindings is the startup borrow set for pass owners.
+// Owner: RuntimeRenderer. Reason: Run is still the composition root, but render
+// pass construction needs explicit long-lived owners instead of a browsable host.
+// Deletion condition: replace each borrowed owner with a domain renderer/pass
+// owner as plans 01/03/04 drain. Checker budget: bindings may be populated only
+// by Run startup code and must not grow per-frame draw decisions.
+struct RuntimeRendererBindings
 {
     RuntimeRenderBackendView backend;                          // Stable backend capability pointers captured at Run startup.
     RenderRuntimeView runtime;
@@ -196,58 +202,13 @@ struct RuntimeRenderHostCallbacks
 class RuntimeRenderHost
 {
   public:
-    RuntimeRenderHost( RuntimeRenderHostBindings bindings, RuntimeRenderHostCallbacks callbacks )
-        : m_renderBackend( bindings.backend ), m_systems( *bindings.runtime.systems ),
-          m_debug( *bindings.diagnostics.debug ), m_timers( *bindings.diagnostics.timers ),
-          m_config( *bindings.runtime.config ), m_launchOptions( *bindings.runtime.launchOptions ),
-          m_runtimeSettings( *bindings.runtime.runtimeSettings ),
-          m_cWorldEnvironment( *bindings.world.worldEnvironment ),
-          m_collisionVisualizer( *bindings.world.collisionVisualizer ),
-          m_broadphaseVisualizer( *bindings.world.broadphaseVisualizer ),
-          m_physicsDebugVisualizer( *bindings.world.physicsDebugVisualizer ),
-          m_runtimeTools( *bindings.toolOverlay.tools ), m_rayCastTest( m_runtimeTools.RayCastTest() ),
-          m_editor( m_runtimeTools.Editor() ), m_mousePickup( m_runtimeTools.MousePickup() ),
-          m_replayRuntime( *bindings.replayOverlay.replayRuntime ), m_launcherLaser( m_runtimeTools.Laser() ),
-          m_UI( *bindings.ui.ui ), m_runtimeInput( *bindings.ui.runtimeInput ), m_camera( *bindings.ui.camera ),
-          m_runtimeViewModel( *bindings.ui.runtimeViewModel ), m_sceneController( *bindings.scene.sceneController ),
-          m_sceneBrowser( *bindings.scene.sceneBrowser ), m_callbacks( callbacks )
+    explicit RuntimeRenderHost( RuntimeRenderHostCallbacks callbacks ) : m_callbacks( callbacks )
     {
     }
-
-    bool IsLauncherCameraMode() const;
-
-    int WindowScreenWidth() const;
-
-    int WindowScreenHeight() const;
-
-    Rendering::IRenderBackend* ActiveRenderBackend() const;
-
-    Rendering::IRenderRayTracing* ActiveRayTracingBackend() const;
-
-    const char* RendererNameOrDefault( const char* fallbackName ) const;
-
-    bool SupportsDxrReflection() const;
-
-    void SetVsyncEnabled( bool enabled ) const;
 
     void LogRenderResourceLifecycleStep( const char* phase, const char* step ) const
     {
         m_callbacks.logRenderResourceLifecycleStep( m_callbacks.user, phase, step );
-    }
-
-    const ReplayPresentationSample* CurrentReplayScrubSample() const
-    {
-        return m_replayRuntime.CurrentScrubSample();
-    }
-
-    const ReplaySolverFrameSample* CurrentReplaySolverScrubSample() const
-    {
-        return m_replayRuntime.CurrentSolverScrubSample();
-    }
-
-    const RunReplayPredictionFrame* CurrentReplayPredictionScrubFrame() const
-    {
-        return m_replayRuntime.CurrentPredictionScrubFrame();
     }
 
     void RenderEditorOverlay( Rendering::IRenderResourceFactory& renderResources,
@@ -257,97 +218,6 @@ class RuntimeRenderHost
     {
         m_callbacks.renderEditorOverlay( m_callbacks.user, renderResources, viewProjection, cameraEye, cameraUp );
     }
-
-    void RefreshRuntimeViewModel() const
-    {
-        m_callbacks.refreshRuntimeViewModel( m_callbacks.user );
-    }
-
-    const RunSceneState& SceneState() const;
-
-    bool ShouldRenderReplayScrubber() const
-    {
-        return m_replayRuntime.ShouldRenderScrubber( m_editor.editorModeEnabled, m_UI.IsVisible(), m_UI.IsMinimized() );
-    }
-
-    bool ReplayLiveAdvanceHeld() const
-    {
-        return m_replayRuntime.LiveAdvanceHeld();
-    }
-
-    bool ReplayPathVisualizerHasTarget() const
-    {
-        return m_replayRuntime.HasPathVisualizerTarget();
-    }
-
-    bool ReplayHasCameraFocus() const
-    {
-        return m_replayRuntime.HasCameraFocus();
-    }
-
-    bool ReplayVelocityEditActive() const
-    {
-        return m_replayRuntime.VelocityEditActive();
-    }
-
-    bool ToolHasLingeredRayCastLine( float maxAgeSeconds ) const
-    {
-        return m_runtimeTools.HasLingeredRayCastLine( maxAgeSeconds );
-    }
-
-    bool ToolHasSelectionOverlayWork( int modelCount ) const;
-
-    bool ToolHasMousePickupOverlayWork( int modelCount ) const;
-
-    bool ToolHasLauncherShots() const
-    {
-        return m_runtimeTools.HasLauncherShots();
-    }
-
-    const char* LauncherFireModeLabel() const
-    {
-        return m_runtimeTools.LauncherFireModeLabel();
-    }
-
-    int CurrentSceneBrowserIndex() const;
-
-    uint32_t CameraModeEnabledMask() const
-    {
-        return m_callbacks.cameraModeEnabledMask( m_callbacks.user );
-    }
-
-    const char* CameraModeLabel( RunCameraMode mode ) const
-    {
-        return m_callbacks.cameraModeLabel( m_callbacks.user, mode );
-    }
-
-    bool BuildReplayFocusModelMask( const RenderFrameContext& frame ) const;
-
-    RuntimeRenderBackendView m_renderBackend;
-    RunSubsystemState& m_systems;
-    RunDebugState& m_debug;
-    RunTimerState& m_timers;
-    EngineConfig& m_config;
-    const RunLaunchOptions& m_launchOptions;
-    RunRuntimeSettings& m_runtimeSettings;
-    Environment::WorldEnvironment& m_cWorldEnvironment;
-    Physics::CollisionVisualizer& m_collisionVisualizer;
-    Physics::BroadphaseVisualizer& m_broadphaseVisualizer;
-    Physics::PhysicsDebugVisualizer& m_physicsDebugVisualizer;
-    std::array<float, MAX_GAME_MODELS * 16> m_dxrReflectionTransforms =
-        {};                                                    // Scratch matrices for DXR TLAS instance upload.
-    RuntimeTools& m_runtimeTools;
-    RunRayCastTestState& m_rayCastTest;
-    RunEditorPlacementState& m_editor;
-    RunMousePickupState& m_mousePickup;
-    ReplayRuntime& m_replayRuntime;
-    LauncherLaser& m_launcherLaser;
-    UI::InGameUI& m_UI;
-    RuntimeInputContext& m_runtimeInput;
-    RunCameraState& m_camera;
-    RuntimeViewModel& m_runtimeViewModel;
-    SceneController& m_sceneController;
-    RunSceneBrowserState& m_sceneBrowser;
 
   private:
     RuntimeRenderHostCallbacks m_callbacks;

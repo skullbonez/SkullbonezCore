@@ -37,6 +37,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "RunInternal.h"
+#include "Scene/SceneRuntimeLoad.h"
 
 #include "CaptureSystem.h"
 #include "Editor/EditorTools.h"
@@ -627,8 +628,46 @@ void Run::Execute()
             }
             PROFILE_END( "Frame/Render" );
 
-            if ( m_renderer.ShouldRenderUiText() )
+            // Lifetime: the UI text pass borrows these Run-owned objects for
+            // this late frame only. ShouldRender samples only flow/UI toggles;
+            // RefreshRuntimeViewModel below updates the referenced view before
+            // the pass builds draw data.
+            const RunSceneBrowserState& uiSceneBrowser = m_sceneController.Browser();
+            const std::string* uiScenePath = m_sceneController.CurrentPath();
+            const UiTextPassState uiTextState{
+                m_debug,
+                m_timers,
+                SceneState(),
+                m_runtimeSettings,
+                m_config,
+                m_cWorldEnvironment,
+                m_runtimeTools.RayCastTest(),
+                m_runtimeTools.Editor(),
+                m_UI,
+                m_runtimeInput,
+                m_camera,
+                m_runtimeViewModel,
+                uiSceneBrowser,
+                m_systems.renderPasses,
+                m_systems.workerPool,
+                RuntimeWindowScreenWidth( m_systems, m_config ),
+                RuntimeWindowScreenHeight( m_systems, m_config ),
+                m_sceneController.QueueSize(),
+                m_sceneController.HasCurrentEntry(),
+                uiScenePath ? uiScenePath->c_str() : nullptr,
+                CurrentSceneBrowserIndex( m_sceneController, uiSceneBrowser ),
+                CameraModeEnabledMask(),
+                CameraModeLabel( m_camera.mode ),
+                m_runtimeTools.LauncherFireModeLabel(),
+                IsLauncherCameraMode(),
+                m_replayRuntime.ShouldRenderScrubber( m_runtimeTools.Editor().editorModeEnabled,
+                                                      m_UI.IsVisible(),
+                                                      m_UI.IsMinimized() ),
+                m_replayRuntime.HasPathVisualizerTarget() };
+
+            if ( m_renderer.ShouldRenderUiText( uiTextState ) )
             {
+                RefreshRuntimeViewModel();
                 const CinematicRenderConfig& uiCinematic = RuntimeActiveCinematicConfig( SceneState(), m_config );
                 const bool uiCinematicRendering =
                     RuntimeCinematicRenderingEnabled( SceneState(), m_config, m_launchOptions, m_debug, true );
@@ -649,6 +688,7 @@ void Run::Execute()
                     DRAW_CALL_TRACE_SCOPE( "Frame/UI" );
                     m_renderer.RenderUiText( frameRenderDiagnostics,
                                              uiRender,
+                                             uiTextState,
                                              renderModels,
                                              m_diagnosticsRuntime,
                                              m_replayRuntime,

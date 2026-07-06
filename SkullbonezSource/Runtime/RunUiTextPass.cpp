@@ -98,19 +98,20 @@ void UiTextPass::ReleaseGpuResources( Rendering::IRenderResourceFactory* renderR
 }
 
 
-bool UiTextPass::ShouldRender() const
+bool UiTextPass::ShouldRender( const UiTextPassState& state ) const
 {
-    return m_host.m_debug.isTextOnly || !m_host.SceneState().isSceneMode || m_host.SceneState().isSceneText ||
-           m_host.m_debug.overlayMode != OverlayMode::None || m_host.m_UI.NeedsUiTextPass() ||
-           ( m_host.m_debug.isCrossScenePauseLocked && !m_host.m_debug.isTopTextHidden ) ||
-           ( m_host.SceneState().isTestComplete && !m_host.m_debug.isTopTextHidden ) ||
-           m_host.ShouldRenderReplayScrubber() || m_host.ReplayPathVisualizerHasTarget() ||
-           ( m_host.m_camera.mode != RunCameraMode::Demo && m_host.m_camera.mode != RunCameraMode::Scene );
+    return state.debug.isTextOnly || !state.scene.isSceneMode || state.scene.isSceneText ||
+           state.debug.overlayMode != OverlayMode::None || state.ui.NeedsUiTextPass() ||
+           ( state.debug.isCrossScenePauseLocked && !state.debug.isTopTextHidden ) ||
+           ( state.scene.isTestComplete && !state.debug.isTopTextHidden ) || state.replayScrubberVisible ||
+           state.replayPathVisualizerHasTarget ||
+           ( state.camera.mode != RunCameraMode::Demo && state.camera.mode != RunCameraMode::Scene );
 }
 
 
 void UiTextPass::Render( const UiTextPassInputs& inputs )
 {
+    const UiTextPassState& state = inputs.state;
     const int uiPassDrawCallStart = inputs.renderDiagnostics.GetFrameDrawCallCount();
     assert( inputs.uiRender.IsReady() );
     Rendering::IRenderCommandContext& renderCommands = *inputs.uiRender.commands;
@@ -120,44 +121,43 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
 
     // Invariant: rolling diagnostics update before any overlay early return so
     // FPS, physics time, render time, and scene energy age at the same cadence.
-    m_host.m_timers.updateTimer.StopTimer();
-    m_host.m_timers.timeSinceLastRender += static_cast<float>( m_host.m_timers.updateTimer.GetElapsedTime() );
-    m_host.m_timers.updateTimer.StartTimer();
+    state.timers.updateTimer.StopTimer();
+    state.timers.timeSinceLastRender += static_cast<float>( state.timers.updateTimer.GetElapsedTime() );
+    state.timers.updateTimer.StartTimer();
 
     const double currentSceneEnergy = inputs.models.sceneKineticEnergy;
-    m_host.m_timers.sceneEnergyAccumulator += currentSceneEnergy;
-    ++m_host.m_timers.sceneEnergySampleCount;
+    state.timers.sceneEnergyAccumulator += currentSceneEnergy;
+    ++state.timers.sceneEnergySampleCount;
 
-    if ( m_host.m_timers.timeSinceLastRender > 0.5f )
+    if ( state.timers.timeSinceLastRender > 0.5f )
     {
         if ( inputs.secondsPerFrame )
         {
-            m_host.m_timers.rollingFpsTime = 1.0f / static_cast<float>( inputs.secondsPerFrame );
-            m_host.m_timers.rollingPhysicsTime = m_host.m_timers.physicsTime;
-            m_host.m_timers.rollingRenderTime = m_host.m_timers.renderTime;
+            state.timers.rollingFpsTime = 1.0f / static_cast<float>( inputs.secondsPerFrame );
+            state.timers.rollingPhysicsTime = state.timers.physicsTime;
+            state.timers.rollingRenderTime = state.timers.renderTime;
         }
-        if ( m_host.m_timers.sceneEnergySampleCount > 0 )
+        if ( state.timers.sceneEnergySampleCount > 0 )
         {
-            m_host.m_timers.rollingSceneEnergy =
-                static_cast<float>( m_host.m_timers.sceneEnergyAccumulator /
-                                    static_cast<double>( m_host.m_timers.sceneEnergySampleCount ) );
-            m_host.m_timers.sceneEnergyAccumulator = 0.0;
-            m_host.m_timers.sceneEnergySampleCount = 0;
+            state.timers.rollingSceneEnergy = static_cast<float>(
+                state.timers.sceneEnergyAccumulator / static_cast<double>( state.timers.sceneEnergySampleCount ) );
+            state.timers.sceneEnergyAccumulator = 0.0;
+            state.timers.sceneEnergySampleCount = 0;
         }
-        m_host.m_timers.timeSinceLastRender = 0.0f;
+        state.timers.timeSinceLastRender = 0.0f;
     }
 
-    float sceneEnergyForDisplay = m_host.m_timers.rollingSceneEnergy;
-    if ( m_host.m_timers.sceneEnergySampleCount > 0 && sceneEnergyForDisplay == 0.0f )
+    float sceneEnergyForDisplay = state.timers.rollingSceneEnergy;
+    if ( state.timers.sceneEnergySampleCount > 0 && sceneEnergyForDisplay == 0.0f )
     {
-        sceneEnergyForDisplay = static_cast<float>( m_host.m_timers.sceneEnergyAccumulator /
-                                                    static_cast<double>( m_host.m_timers.sceneEnergySampleCount ) );
+        sceneEnergyForDisplay = static_cast<float>( state.timers.sceneEnergyAccumulator /
+                                                    static_cast<double>( state.timers.sceneEnergySampleCount ) );
     }
 
     const char* rendererName = inputs.renderDiagnostics.GetRendererName();
 
     // text_only mode: solid background + full-screen pangram, no HUD/profiler
-    if ( m_host.m_debug.isTextOnly )
+    if ( state.debug.isTextOnly )
     {
         // Dark background covering the full viewport
         Text2d::Render2dQuad( renderCommands, -0.55f, -0.45f, 0.55f, 0.45f, 0.08f, 0.08f, 0.12f, 1.0f );
@@ -189,51 +189,49 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
 
     const auto renderScenePauseBadge = [&]()
     {
-        if ( m_host.m_debug.isTopTextHidden ||
-             ( !m_host.SceneState().isSceneMode && !m_host.m_debug.isCrossScenePauseLocked &&
-               !m_host.SceneState().isTestComplete ) )
+        if ( state.debug.isTopTextHidden ||
+             ( !state.scene.isSceneMode && !state.debug.isCrossScenePauseLocked && !state.scene.isTestComplete ) )
         {
             return;
         }
 
-        const int screenW = (std::max)( 1, m_host.WindowScreenWidth() );
-        const int screenH = (std::max)( 1, m_host.WindowScreenHeight() );
+        const int screenW = (std::max)( 1, state.screenW );
+        const int screenH = (std::max)( 1, state.screenH );
         const SkullbonezCore::UI::UIDrawContext draw( screenW, screenH, nullptr, &renderCommands );
         const SkullbonezCore::UI::Style::UIPalette& palette = SkullbonezCore::UI::Style::Palette();
         const SkullbonezCore::UI::Style::UIRadii& radii = SkullbonezCore::UI::Style::Radii();
 
         char sceneLine[64] = {};
-        if ( !m_host.SceneState().isSceneMode )
+        if ( !state.scene.isSceneMode )
         {
-            sprintf_s( sceneLine, sizeof( sceneLine ), "Demo  Frame %d", m_host.SceneState().currentFrame );
+            sprintf_s( sceneLine, sizeof( sceneLine ), "Demo  Frame %d", state.scene.currentFrame );
         }
-        else if ( m_host.SceneState().targetFrameCount > 0 )
+        else if ( state.scene.targetFrameCount > 0 )
         {
-            const int frame = m_host.SceneState().isTestComplete &&
-                                      m_host.SceneState().currentFrame > m_host.SceneState().targetFrameCount
-                                  ? m_host.SceneState().targetFrameCount
-                                  : m_host.SceneState().currentFrame;
+            const int frame = state.scene.isTestComplete && state.scene.currentFrame > state.scene.targetFrameCount
+                                  ? state.scene.targetFrameCount
+                                  : state.scene.currentFrame;
             sprintf_s( sceneLine,
                        sizeof( sceneLine ),
                        "Scene %d/%d  Frame %d/%d",
-                       m_host.SceneState().currentSceneIndex + 1,
-                       m_host.m_sceneController.QueueSize(),
+                       state.scene.currentSceneIndex + 1,
+                       state.sceneQueueSize,
                        frame,
-                       m_host.SceneState().targetFrameCount );
+                       state.scene.targetFrameCount );
         }
         else
         {
             sprintf_s( sceneLine,
                        sizeof( sceneLine ),
                        "Scene %d/%d  Frame %d",
-                       m_host.SceneState().currentSceneIndex + 1,
-                       m_host.m_sceneController.QueueSize(),
-                       m_host.SceneState().currentFrame );
+                       state.scene.currentSceneIndex + 1,
+                       state.sceneQueueSize,
+                       state.scene.currentFrame );
         }
 
-        const char* stateLine = m_host.m_debug.isCrossScenePauseLocked
+        const char* stateLine = state.debug.isCrossScenePauseLocked
                                     ? "P Pause Lock   Space advances"
-                                    : ( m_host.SceneState().isTestComplete ? "Scene complete" : "P pause lock" );
+                                    : ( state.scene.isTestComplete ? "Scene complete" : "P pause lock" );
         const float titlePx = 11.5f;
         const float valuePx = 10.0f;
         const float padX = 10.0f;
@@ -255,9 +253,9 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
                           4.0f,
                           panelH - 2.0f,
                           radii.smallButton,
-                          m_host.m_debug.isCrossScenePauseLocked ? palette.warningAccent.r : palette.accent.r,
-                          m_host.m_debug.isCrossScenePauseLocked ? palette.warningAccent.g : palette.accent.g,
-                          m_host.m_debug.isCrossScenePauseLocked ? palette.warningAccent.b : palette.accent.b,
+                          state.debug.isCrossScenePauseLocked ? palette.warningAccent.r : palette.accent.r,
+                          state.debug.isCrossScenePauseLocked ? palette.warningAccent.g : palette.accent.g,
+                          state.debug.isCrossScenePauseLocked ? palette.warningAccent.b : palette.accent.b,
                           0.90f );
         Text2d::FlushQuads( renderCommands );
         draw.Text( x + padX,
@@ -270,9 +268,9 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         draw.Text( x + padX,
                    y + padY + lineGap,
                    valuePx,
-                   m_host.m_debug.isCrossScenePauseLocked ? palette.warningAccent.r : palette.accent.r,
-                   m_host.m_debug.isCrossScenePauseLocked ? palette.warningAccent.g : palette.accent.g,
-                   m_host.m_debug.isCrossScenePauseLocked ? palette.warningAccent.b : palette.accent.b,
+                   state.debug.isCrossScenePauseLocked ? palette.warningAccent.r : palette.accent.r,
+                   state.debug.isCrossScenePauseLocked ? palette.warningAccent.g : palette.accent.g,
+                   state.debug.isCrossScenePauseLocked ? palette.warningAccent.b : palette.accent.b,
                    stateLine );
         topRightBadgeY = y + panelH + TOP_RIGHT_BADGE_GAP;
     };
@@ -281,40 +279,40 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
     {
         // Why: clean validation/look-dev captures use --hide-top-text to remove
         // top-left chrome without changing scene simulation or camera state.
-        if ( m_host.m_debug.isTopTextHidden )
+        if ( state.debug.isTopTextHidden )
         {
             return;
         }
-        if ( m_host.m_camera.mode == RunCameraMode::Demo || m_host.m_camera.mode == RunCameraMode::Scene )
+        if ( state.camera.mode == RunCameraMode::Demo || state.camera.mode == RunCameraMode::Scene )
         {
             return;
         }
 
-        const int screenW = (std::max)( 1, m_host.WindowScreenWidth() );
-        const int screenH = (std::max)( 1, m_host.WindowScreenHeight() );
+        const int screenW = (std::max)( 1, state.screenW );
+        const int screenH = (std::max)( 1, state.screenH );
         const SkullbonezCore::UI::UIDrawContext draw( screenW, screenH, nullptr, &renderCommands );
         const SkullbonezCore::UI::Style::UIPalette& palette = SkullbonezCore::UI::Style::Palette();
         const SkullbonezCore::UI::Style::UIRadii& radii = SkullbonezCore::UI::Style::Radii();
 
-        const char* modeLine = m_host.CameraModeLabel( m_host.m_camera.mode );
+        const char* modeLine = state.cameraModeLabel;
 
         const char* detail = "RMB look  WASD  Space";
         SkullbonezCore::UI::Style::UIColor accent = palette.accent;
-        if ( m_host.m_camera.mode == RunCameraMode::Attach )
+        if ( state.camera.mode == RunCameraMode::Attach )
         {
             detail = "LMB target  RMB orbit  F1  Enter";
             accent = palette.accentStrong;
         }
-        else if ( m_host.m_camera.mode == RunCameraMode::Manipulator )
+        else if ( state.camera.mode == RunCameraMode::Manipulator )
         {
             detail = "LMB drag  Space";
             accent = palette.accentStrong;
         }
-        else if ( m_host.m_camera.mode == RunCameraMode::Launcher )
+        else if ( state.camera.mode == RunCameraMode::Launcher )
         {
             detail = "LMB fire  M mode";
         }
-        else if ( m_host.m_camera.mode == RunCameraMode::Inspect )
+        else if ( state.camera.mode == RunCameraMode::Inspect )
         {
             detail = "RMB look  WASD  Space";
         }
@@ -360,7 +358,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
 
     // Crosshair - always visible when launcher mode is active, regardless of overlay state.
     // A tiny center gap keeps the target visible instead of covering it.
-    if ( m_host.IsLauncherCameraMode() )
+    if ( state.launcherCameraMode )
     {
         const float cArm = 0.020f;
         const float cGap = 0.004f;
@@ -374,16 +372,16 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         Text2d::Render2dQuad( renderCommands, cGap, -cHalf, cArm, cHalf, 0.80f, 0.96f, 1.0f, 0.88f );
         Text2d::Render2dQuad( renderCommands, -cHalf, -cArm, cHalf, -cGap, 0.80f, 0.96f, 1.0f, 0.88f );
         Text2d::Render2dQuad( renderCommands, -cHalf, cGap, cHalf, cArm, 0.80f, 0.96f, 1.0f, 0.88f );
-        const char* fireModeLabel = m_host.LauncherFireModeLabel();
+        const char* fireModeLabel = state.launcherFireModeLabel;
         const float modeSz = 0.011f;
         const float modeW = Text2d::MeasureText( modeSz, fireModeLabel );
         Text2d::Render2dTextColor( -modeW * 0.5f, -0.048f, modeSz, 0.72f, 0.94f, 1.0f, "%s", fireModeLabel );
 #ifdef _DEBUG
-        if ( m_host.m_debug.reproSnapshotMessage[0] != '\0' &&
-             m_host.m_timers.simulationTimer.GetTimeSinceLastStart() <= m_host.m_debug.reproSnapshotMessageUntil )
+        if ( state.debug.reproSnapshotMessage[0] != '\0' &&
+             state.timers.simulationTimer.GetTimeSinceLastStart() <= state.debug.reproSnapshotMessageUntil )
         {
             const float msgSz = 0.014f;
-            float msgW = Text2d::MeasureText( msgSz, m_host.m_debug.reproSnapshotMessage );
+            float msgW = Text2d::MeasureText( msgSz, state.debug.reproSnapshotMessage );
             Text2d::Render2dTextColor( -msgW * 0.5f,
                                        -0.065f,
                                        msgSz,
@@ -391,49 +389,48 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
                                        0.92f,
                                        1.0f,
                                        "%s",
-                                       m_host.m_debug.reproSnapshotMessage );
+                                       state.debug.reproSnapshotMessage );
         }
 #endif
     }
 
-    m_host.RefreshRuntimeViewModel();
-    const RuntimeViewModel& view = m_host.m_runtimeViewModel;
+    const RuntimeViewModel& view = state.runtimeViewModel;
 
     const char* sceneName = "";
-    if ( view.sceneMode && m_host.m_sceneController.HasCurrentEntry() )
+    if ( view.sceneMode && state.sceneHasCurrentEntry && state.currentScenePath )
     {
-        sceneName = FileNameFromPath( m_host.m_sceneController.CurrentPath()->c_str() );
+        sceneName = FileNameFromPath( state.currentScenePath );
     }
 
-    if ( m_host.m_UI.NeedsUiTextPass() )
+    if ( state.ui.NeedsUiTextPass() )
     {
         PROFILE_BEGIN( "Frame/UI/BuildData" );
         InGameUIFrameData UIData;
-        UIData.screenW = m_host.WindowScreenWidth();
-        UIData.screenH = m_host.WindowScreenHeight();
-        if ( m_host.m_debug.isUITestPattern )
+        UIData.screenW = state.screenW;
+        UIData.screenH = state.screenH;
+        if ( state.debug.isUITestPattern )
         {
             DrawUITestPattern( renderCommands, UIData.screenW, UIData.screenH );
         }
         UIData.rendererName = rendererName;
         UIData.sceneName = sceneName;
-        UIData.sceneOptions = m_host.m_sceneBrowser.namePtrs.empty() ? nullptr : m_host.m_sceneBrowser.namePtrs.data();
-        UIData.sceneOptionCount = static_cast<int>( m_host.m_sceneBrowser.namePtrs.size() );
-        UIData.selectedSceneOption = m_host.CurrentSceneBrowserIndex();
-        UIData.selectedCineModeSceneOption = m_host.m_sceneBrowser.selectedCineModeSceneIndex;
-        UIData.UIDrawCalls = m_host.m_timers.lastUIDrawCalls;
+        UIData.sceneOptions = state.sceneBrowser.namePtrs.empty() ? nullptr : state.sceneBrowser.namePtrs.data();
+        UIData.sceneOptionCount = static_cast<int>( state.sceneBrowser.namePtrs.size() );
+        UIData.selectedSceneOption = state.currentSceneBrowserIndex;
+        UIData.selectedCineModeSceneOption = state.sceneBrowser.selectedCineModeSceneIndex;
+        UIData.UIDrawCalls = state.timers.lastUIDrawCalls;
         UIData.fps =
-            m_host.m_timers.rollingFpsTime > 0.0f
-                ? m_host.m_timers.rollingFpsTime
+            state.timers.rollingFpsTime > 0.0f
+                ? state.timers.rollingFpsTime
                 : ( inputs.secondsPerFrame > 0.0 ? 1.0f / static_cast<float>( inputs.secondsPerFrame ) : 0.0f );
-        UIData.renderMs = ( m_host.m_timers.rollingRenderTime > 0.0f ? m_host.m_timers.rollingRenderTime
-                                                                     : m_host.m_timers.renderTime ) *
-                          1000.0f;
-        UIData.physicsMs = ( m_host.m_timers.rollingPhysicsTime > 0.0f ? m_host.m_timers.rollingPhysicsTime
-                                                                       : m_host.m_timers.physicsTime ) *
-                           1000.0f;
-        UIData.cpuFrameMs = m_host.m_timers.cpuFrameWorkMs;
-        UIData.gpuFrameMs = m_host.m_timers.gpuFrameWorkMs;
+        UIData.renderMs =
+            ( state.timers.rollingRenderTime > 0.0f ? state.timers.rollingRenderTime : state.timers.renderTime ) *
+            1000.0f;
+        UIData.physicsMs =
+            ( state.timers.rollingPhysicsTime > 0.0f ? state.timers.rollingPhysicsTime : state.timers.physicsTime ) *
+            1000.0f;
+        UIData.cpuFrameMs = state.timers.cpuFrameWorkMs;
+        UIData.gpuFrameMs = state.timers.gpuFrameWorkMs;
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
         {
             // Why: worker-core samples are committed at FrameEnd. Reading the
@@ -572,19 +569,19 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         }
         UIData.modelCount = view.modelCount;
         UIData.modelCapacity = ActiveGameModelCapacity();
-        UIData.workerThreadCount = m_host.m_systems.workerPool ? m_host.m_systems.workerPool->GetThreadCount() : 0;
+        UIData.workerThreadCount = state.workerPool ? state.workerPool->GetThreadCount() : 0;
         UIData.maxWorkerThreadCount = SkullbonezCore::Threading::WorkerPool::MaxThreadCount();
         UIData.currentFrame = view.frame;
         UIData.targetFrameCount = view.targetFrameCount;
-        UIData.rngSeed = m_host.SceneState().rngSeed;
-        UIData.solverBallCount = m_host.SceneState().solverBallCount;
-        UIData.solverBoxCount = m_host.SceneState().solverBoxCount;
+        UIData.rngSeed = state.scene.rngSeed;
+        UIData.solverBallCount = state.scene.solverBallCount;
+        UIData.solverBoxCount = state.scene.solverBoxCount;
         UIData.currentSceneIndex = view.sceneIndex;
         UIData.sceneCount = view.sceneCount;
-        UIData.now = m_host.m_timers.simulationTimer.GetTotalTime();
+        UIData.now = state.timers.simulationTimer.GetTotalTime();
         const bool memoryTabActive =
-            m_host.m_UI.IsVisible() && !m_host.m_UI.IsMinimized() && m_host.m_UI.GetActiveTab() == InGameUITab::Memory;
-        const bool memoryOverlayEnabled = m_host.m_UI.IsMemoryOverlayEnabled();
+            state.ui.IsVisible() && !state.ui.IsMinimized() && state.ui.GetActiveTab() == InGameUITab::Memory;
+        const bool memoryOverlayEnabled = state.ui.IsMemoryOverlayEnabled();
         if ( memoryTabActive )
         {
             // Why: memory sampling belongs to DiagnosticsRuntime; the render host
@@ -616,13 +613,13 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         UIData.sceneMode = view.sceneMode;
         UIData.scenePhysicsEnabled = view.scenePhysics;
         UIData.sceneTextEnabled = view.sceneText;
-        UIData.textOnly = m_host.m_debug.isTextOnly;
+        UIData.textOnly = state.debug.isTextOnly;
         UIData.fixedStep = view.fixedStep;
-        UIData.exitOnComplete = m_host.SceneState().isExitOnComplete;
-        UIData.testComplete = m_host.SceneState().isTestComplete;
-        UIData.vsyncEnabled = m_host.m_runtimeSettings.isVsyncEnabled;
-        UIData.pipelineSyncEnabled = m_host.m_runtimeSettings.isPipelineSyncEnabled;
-        const RuntimeContactAudioSnapshot& contactAudio = m_host.m_runtimeViewModel.contactAudio;
+        UIData.exitOnComplete = state.scene.isExitOnComplete;
+        UIData.testComplete = state.scene.isTestComplete;
+        UIData.vsyncEnabled = state.runtimeSettings.isVsyncEnabled;
+        UIData.pipelineSyncEnabled = state.runtimeSettings.isPipelineSyncEnabled;
+        const RuntimeContactAudioSnapshot& contactAudio = state.runtimeViewModel.contactAudio;
         UIData.contactAudioEnabled = contactAudio.enabled;
         UIData.contactAudioAvailable = contactAudio.available;
         UIData.contactAudioDebugCounters = contactAudio.debugCounters;
@@ -695,15 +692,15 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         }
         UIData.sceneEnergy = sceneEnergyForDisplay;
         UIData.timeScale = view.timeScale;
-        UIData.trackHeight = m_host.m_camera.trackBallIndex >= 0 ? m_host.m_camera.trackHeight : 0.0f;
-        UIData.autoCycleInterval = m_host.m_camera.autoCycleInterval > 0.0f ? m_host.m_camera.autoCycleInterval : 0.0f;
-        UIData.worldGravity = m_host.m_cWorldEnvironment.GetGravity();
-        UIData.worldFluidHeight = m_host.m_cWorldEnvironment.GetFluidSurfaceHeight();
-        UIData.worldFluidDensity = m_host.m_cWorldEnvironment.GetFluidDensity();
-        UIData.physicsDebugFlags = m_host.m_debug.physicsDebugFlags;
+        UIData.trackHeight = state.camera.trackBallIndex >= 0 ? state.camera.trackHeight : 0.0f;
+        UIData.autoCycleInterval = state.camera.autoCycleInterval > 0.0f ? state.camera.autoCycleInterval : 0.0f;
+        UIData.worldGravity = state.world.GetGravity();
+        UIData.worldFluidHeight = state.world.GetFluidSurfaceHeight();
+        UIData.worldFluidDensity = state.world.GetFluidDensity();
+        UIData.physicsDebugFlags = state.debug.physicsDebugFlags;
         {
             const int stageCount = static_cast<int>( PhysicsPipelineStage::Count );
-            int stageIndex = stageCount > 0 ? m_host.m_debug.physicsDebugPipelineStageCursor % stageCount : 0;
+            int stageIndex = stageCount > 0 ? state.debug.physicsDebugPipelineStageCursor % stageCount : 0;
             if ( stageIndex < 0 )
             {
                 stageIndex += stageCount;
@@ -713,51 +710,51 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
             UIData.physicsPipelineStageIndex = stageIndex;
             UIData.physicsPipelineStageCount = stageCount;
         }
-        UIData.physicsDebugAlpha = m_host.m_debug.physicsDebugAlpha;
-        UIData.physicsDebugContactLinger = m_host.m_debug.physicsDebugContactLinger;
-        UIData.physicsSleepEnabled = m_host.m_runtimeSettings.isPhysicsSleepEnabled;
-        UIData.collisionVisualizer = m_host.m_debug.isCollisionVisualizer;
-        UIData.physicsDebugTransparent = m_host.m_debug.isPhysicsDebugTransparent;
-        UIData.broadphaseOverlay = m_host.m_debug.isBroadphaseOverlay;
-        UIData.tornadoEnabled = m_host.m_runtimeSettings.tornadoField.enabled;
+        UIData.physicsDebugAlpha = state.debug.physicsDebugAlpha;
+        UIData.physicsDebugContactLinger = state.debug.physicsDebugContactLinger;
+        UIData.physicsSleepEnabled = state.runtimeSettings.isPhysicsSleepEnabled;
+        UIData.collisionVisualizer = state.debug.isCollisionVisualizer;
+        UIData.physicsDebugTransparent = state.debug.isPhysicsDebugTransparent;
+        UIData.broadphaseOverlay = state.debug.isBroadphaseOverlay;
+        UIData.tornadoEnabled = state.runtimeSettings.tornadoField.enabled;
         UIData.tornadoVisualShell =
-            m_host.m_runtimeSettings.tornadoVisual.enabled && m_host.m_runtimeSettings.tornadoField.enabled;
-        UIData.tornadoFieldVectors = m_host.m_runtimeSettings.tornadoField.visualizeVelocityField;
-        UIData.tornadoRadius = m_host.m_runtimeSettings.tornadoField.radius;
-        UIData.tornadoHeight = m_host.m_runtimeSettings.tornadoField.height;
-        UIData.tornadoInwardAcceleration = m_host.m_runtimeSettings.tornadoField.inwardAcceleration;
-        UIData.tornadoSwirlAcceleration = m_host.m_runtimeSettings.tornadoField.swirlAcceleration;
-        UIData.tornadoLiftAcceleration = m_host.m_runtimeSettings.tornadoField.liftAcceleration;
-        const EngineConfig& liveConfig = m_host.m_config;
-        UIData.rayCastVisualization = m_host.m_rayCastTest.visualizeRays;
-        UIData.rayCastImpulseStrength = m_host.m_rayCastTest.impulseStrength;
-        UIData.launcherProjectileSpeed = m_host.m_rayCastTest.projectileSpeed;
+            state.runtimeSettings.tornadoVisual.enabled && state.runtimeSettings.tornadoField.enabled;
+        UIData.tornadoFieldVectors = state.runtimeSettings.tornadoField.visualizeVelocityField;
+        UIData.tornadoRadius = state.runtimeSettings.tornadoField.radius;
+        UIData.tornadoHeight = state.runtimeSettings.tornadoField.height;
+        UIData.tornadoInwardAcceleration = state.runtimeSettings.tornadoField.inwardAcceleration;
+        UIData.tornadoSwirlAcceleration = state.runtimeSettings.tornadoField.swirlAcceleration;
+        UIData.tornadoLiftAcceleration = state.runtimeSettings.tornadoField.liftAcceleration;
+        const EngineConfig& liveConfig = state.config;
+        UIData.rayCastVisualization = state.rayCastTest.visualizeRays;
+        UIData.rayCastImpulseStrength = state.rayCastTest.impulseStrength;
+        UIData.launcherProjectileSpeed = state.rayCastTest.projectileSpeed;
         UIData.terrainFrictionCoeff = liveConfig.frictionCoeff;
         UIData.objectFrictionCoeff = liveConfig.objectFrictionCoeff;
         UIData.rollingFrictionCoeff = liveConfig.rollingFrictionCoeff;
-        UIData.waterFreezeDebug = m_host.m_debug.isWaterFreezeDebug;
-        UIData.waterFlatDebug = m_host.m_debug.isWaterFlatDebug;
-        UIData.terrainHidden = m_host.m_debug.isTerrainHidden;
-        UIData.waterHidden = m_host.m_debug.isWaterHidden;
-        UIData.waterNoReflect = m_host.m_debug.isWaterNoReflect;
-        UIData.waterRTReflect = m_host.m_debug.isWaterRTReflect;
-        const RuntimeInputMode runtimeInputMode = m_host.m_runtimeInput.CurrentMode();
-        UIData.cameraModeIndex = static_cast<int>( m_host.m_camera.mode );
-        UIData.cameraModeEnabledMask = m_host.CameraModeEnabledMask();
-        UIData.runtimeInputModeLabel = m_host.CameraModeLabel( m_host.m_camera.mode );
+        UIData.waterFreezeDebug = state.debug.isWaterFreezeDebug;
+        UIData.waterFlatDebug = state.debug.isWaterFlatDebug;
+        UIData.terrainHidden = state.debug.isTerrainHidden;
+        UIData.waterHidden = state.debug.isWaterHidden;
+        UIData.waterNoReflect = state.debug.isWaterNoReflect;
+        UIData.waterRTReflect = state.debug.isWaterRTReflect;
+        const RuntimeInputMode runtimeInputMode = state.runtimeInput.CurrentMode();
+        UIData.cameraModeIndex = static_cast<int>( state.camera.mode );
+        UIData.cameraModeEnabledMask = state.cameraModeEnabledMask;
+        UIData.runtimeInputModeLabel = state.cameraModeLabel;
         UIData.cameraMouseActive =
             ( runtimeInputMode == RuntimeInputMode::FlyCamera || runtimeInputMode == RuntimeInputMode::Launcher ||
               runtimeInputMode == RuntimeInputMode::EditorViewportLook ) &&
-            !m_host.m_UI.BlocksCameraMouse();
+            !state.ui.BlocksCameraMouse();
         UIData.nativeCursorVisible = !UIData.cameraMouseActive;
-        UIData.editorModeEnabled = m_host.m_editor.editorModeEnabled;
-        UIData.editorPlacementMode = m_host.m_editor.placementModeEnabled;
-        UIData.editorPlaceStatic = m_host.m_editor.placeStaticObject;
-        UIData.editorTerrainAlign = m_host.m_editor.autoTerrainAlign;
-        UIData.editorViewportLookActive = m_host.m_editor.viewportLookActive;
-        UIData.editorObjectType = m_host.m_editor.objectType;
-        UIData.canSaveSceneDefaults = view.sceneMode && m_host.m_sceneController.HasCurrentEntry() &&
-                                      !m_host.m_sceneController.CurrentPath()->empty();
+        UIData.editorModeEnabled = state.editor.editorModeEnabled;
+        UIData.editorPlacementMode = state.editor.placementModeEnabled;
+        UIData.editorPlaceStatic = state.editor.placeStaticObject;
+        UIData.editorTerrainAlign = state.editor.autoTerrainAlign;
+        UIData.editorViewportLookActive = state.editor.viewportLookActive;
+        UIData.editorObjectType = state.editor.objectType;
+        UIData.canSaveSceneDefaults =
+            view.sceneMode && state.sceneHasCurrentEntry && state.currentScenePath && state.currentScenePath[0] != '\0';
         UIData.cinematicRendering = inputs.cinematicRendering;
         UIData.ordinaryRender = liveConfig.ordinaryRender;
         UIData.cinematic = inputs.cinematic;
@@ -804,7 +801,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
                             hdr );
             };
 
-            const RunRenderPassResources& passes = m_host.m_systems.renderPasses;
+            const RunRenderPassResources& passes = state.renderPasses;
             const bool shadowsAvailable =
                 UIData.cinematicRendering ? UIData.cinematic.shadowsEnabled : UIData.ordinaryRender.shadowsEnabled;
             const bool cinematicTargetsAvailable = UIData.cinematicRendering;
@@ -845,8 +842,8 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
                 inputs.renderRayTracing ? inputs.renderRayTracing->GetReflectionUAVTexture() : 0;
             addPreview( "DXR Reflection",
                         dxrReflection,
-                        m_host.WindowScreenWidth() * 2,
-                        m_host.WindowScreenHeight() * 2,
+                        state.screenW * 2,
+                        state.screenH * 2,
                         UIData.waterRTReflect && !UIData.waterNoReflect,
                         false,
                         false );
@@ -860,14 +857,14 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         }
         PROFILE_END( "Frame/UI/PreFlushText" );
         UIData.drawCallsBeforeUI = uiPassDrawCallStart;
-        m_host.m_UI.Draw( UIData, inputs.uiRender );
+        state.ui.Draw( UIData, inputs.uiRender );
         PROFILE_BEGIN( "Frame/UI/PostFlushText" );
         {
             DRAW_CALL_TRACE_SCOPE( "Frame/UI/PostFlushText" );
             Text2d::FlushText( renderCommands );
         }
         PROFILE_END( "Frame/UI/PostFlushText" );
-        if ( m_host.m_UI.IsVisible() )
+        if ( state.ui.IsVisible() )
         {
             RenderReplayScrubberOverlayFromInputs( inputs );
             return;
@@ -875,7 +872,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
     }
 
     // --- Overlay: None ---
-    if ( m_host.m_debug.overlayMode == OverlayMode::None )
+    if ( state.debug.overlayMode == OverlayMode::None )
     {
         RenderReplayScrubberOverlayFromInputs( inputs );
         {
@@ -886,7 +883,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
     }
 
     // --- Overlay: Scene telemetry ---
-    if ( m_host.m_debug.overlayMode == OverlayMode::SceneStats )
+    if ( state.debug.overlayMode == OverlayMode::SceneStats )
     {
         const float titleSz = 0.013f;
         const float entrySz = 0.012f;
@@ -914,7 +911,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
                                    0.85f,
                                    0.85f,
                                    "Model Count: %d",
-                                   m_host.SceneState().modelCount );
+                                   state.scene.modelCount );
         Text2d::Render2dTextColor( panX0 + panPad,
                                    panY1 - panPad - titleSz - lineH * 2.0f,
                                    entrySz,
@@ -933,8 +930,8 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
 
     // --- Overlay: Visual profiler bars (normalized or absolute) ---
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
-    if ( m_host.m_debug.overlayMode == OverlayMode::BarsNormalized ||
-         m_host.m_debug.overlayMode == OverlayMode::BarsAbsolute )
+    if ( state.debug.overlayMode == OverlayMode::BarsNormalized ||
+         state.debug.overlayMode == OverlayMode::BarsAbsolute )
     {
         // Panel anchored bottom-left, filling most of the width. Height kept modest - leave vertical
         // space above for future multi-core stacked rows.
@@ -942,7 +939,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         const float panH = ( hh - mY ) * 2.0f * 0.22f; // 22% of screen height
         const float panX = -( hw - mX ) + mX * 0.5f;   // slight left margin
         const float panY = -( hh - mY ) + mY * 0.5f;   // slight bottom margin
-        const bool absolute = ( m_host.m_debug.overlayMode == OverlayMode::BarsAbsolute );
+        const bool absolute = ( state.debug.overlayMode == OverlayMode::BarsAbsolute );
         profiler.RenderBarOverlay( renderCommands, panX, panY, panW, panH, absolute );
         RenderReplayScrubberOverlayFromInputs( inputs );
         {
@@ -954,7 +951,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
 #endif
 
     // --- Overlay: Keys reference screen (compact, bottom-left) ---
-    if ( m_host.m_debug.overlayMode == OverlayMode::Keys )
+    if ( state.debug.overlayMode == OverlayMode::Keys )
     {
         const float titleSz = 0.013f;
         const float entrySz = 0.011f;
@@ -1058,7 +1055,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
                                 -( hh - mY ) - padY,
                                 lineH,
                                 profFSz,
-                                m_host.m_timers.rollingFpsTime );
+                                state.timers.rollingFpsTime );
     }
 #endif
 

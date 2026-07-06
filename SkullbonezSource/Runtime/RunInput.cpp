@@ -43,6 +43,7 @@ Related:
 #include "Scene/SceneRuntimeGeneratedControls.h"
 #include "Scene/SceneRuntimeLoad.h"
 #include "Scene/SceneRuntimeStyle.h"
+#include "../Rendering/IRenderBackend.h"
 #include "../Physics/ColliderStore.h"
 #include "../Physics/PhysicsBodyStore.h"
 #include "../UI/UIInput.h"
@@ -2146,18 +2147,19 @@ void Run::TakeInput()
                  IsLauncherCameraMode() && !m_replayRuntime.Scrubber().restoreConsumedThisFrame )
             {
                 const double simulationSeconds = m_timers.simulationTimer.GetTimeSinceLastStart();
-                const LauncherReproSnapshotStatus snapshotStatus =
-                    m_runtimeTools.WriteLauncherReproSnapshot( { m_cGameModelCollection,
-                                                                 m_systems.cameras,
-                                                                 m_systems.terrain.get(),
-                                                                 m_cWorldEnvironment,
-                                                                 SceneState(),
-                                                                 m_sceneController.CurrentPath(),
-                                                                 m_launchOptions,
-                                                                 m_runtimeSettings,
-                                                                 m_debug,
-                                                                 m_renderHost.RendererNameOrDefault( "DirectX 12" ),
-                                                                 simulationSeconds } );
+                const LauncherReproSnapshotStatus snapshotStatus = m_runtimeTools.WriteLauncherReproSnapshot(
+                    { m_cGameModelCollection,
+                      m_systems.cameras,
+                      m_systems.terrain.get(),
+                      m_cWorldEnvironment,
+                      SceneState(),
+                      m_sceneController.CurrentPath(),
+                      m_launchOptions,
+                      m_runtimeSettings,
+                      m_debug,
+                      m_renderBackendView.renderBackend ? m_renderBackendView.renderBackend->GetRendererName()
+                                                        : "DirectX 12",
+                      simulationSeconds } );
                 const char* snapshotMessage = "Failed to write repro snapshot";
                 if ( snapshotStatus == LauncherReproSnapshotStatus::Wrote )
                 {
@@ -2255,7 +2257,8 @@ void Run::TakeInput()
             {
                 if ( !m_debug.isWaterRTReflect && !m_debug.isWaterNoReflect )
                 {
-                    if ( m_renderHost.SupportsDxrReflection() )
+                    if ( m_renderBackendView.renderBackend &&
+                         m_renderBackendView.renderBackend->GetCapabilities().supportsDxrReflection )
                     {
                         m_debug.isWaterRTReflect = true;
                     }
@@ -2625,7 +2628,10 @@ void Run::TakeInput()
         if ( uiCommands.renderer.toggleVsync )
         {
             m_runtimeSettings.isVsyncEnabled = !m_runtimeSettings.isVsyncEnabled;
-            m_renderHost.SetVsyncEnabled( m_runtimeSettings.isVsyncEnabled );
+            if ( m_renderBackendView.renderBackend )
+            {
+                m_renderBackendView.renderBackend->SetVsyncEnabled( m_runtimeSettings.isVsyncEnabled );
+            }
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleVsync, RuntimeInputActionSource::UI );
         }
         if ( uiCommands.run.requestedCameraMode >= 0 &&
@@ -3223,7 +3229,7 @@ void Run::TakeInput()
                                                         m_cGameModelCollection,
                                                         m_simulation,
                                                         m_runtimeTools,
-                                                        m_renderHost.ActiveRenderBackend(),
+                                                        m_renderBackendView.renderBackend,
                                                         m_launchOptions.generatedObjectTypeOverride,
                                                         ActiveGameModelCapacity() };
         };

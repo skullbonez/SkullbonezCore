@@ -178,6 +178,7 @@ struct UiTextGraphCallbackData
     UiTextPass* uiTextPass = nullptr;
     SkullbonezCore::Rendering::IRenderDiagnostics* renderDiagnostics = nullptr;
     const SkullbonezCore::UI::UIRenderContext* uiRender = nullptr;
+    const UiTextPassState* state = nullptr;
     const RuntimeRenderModelFrameView* models = nullptr;
     DiagnosticsRuntime* diagnosticsRuntime = nullptr;
     ReplayRuntime* replayRuntime = nullptr;
@@ -404,12 +405,13 @@ void ExecuteSkyboxGraphCallback( const SkullbonezCore::Rendering::RenderGraphPas
 void ExecuteUiTextGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& /*context*/, void* userData )
 {
     auto* data = static_cast<UiTextGraphCallbackData*>( userData );
-    if ( !data || !data->uiTextPass || !data->renderDiagnostics || !data->uiRender || !data->models ||
+    if ( !data || !data->uiTextPass || !data->renderDiagnostics || !data->uiRender || !data->state || !data->models ||
          !data->diagnosticsRuntime || !data->replayRuntime || !data->replayOverlay || !data->cinematic )
     {
         throw std::runtime_error( "UiTextPass graph callback missing execution data" );
     }
-    data->uiTextPass->Render( { *data->renderDiagnostics,
+    data->uiTextPass->Render( { *data->state,
+                                *data->renderDiagnostics,
                                 *data->uiRender,
                                 *data->models,
                                 *data->diagnosticsRuntime,
@@ -985,20 +987,20 @@ RuntimeRenderer::ExecuteTornadoVisualThroughRenderGraph( const RenderFrameContex
 
 TornadoVisualSnapshot RuntimeRenderer::BuildTornadoVisualSnapshot() const
 {
-    const ReplayPresentationSample* replaySample = m_host.CurrentReplayScrubSample();
-    const ReplaySolverFrameSample* solverSample = replaySample ? nullptr : m_host.CurrentReplaySolverScrubSample();
+    const ReplayPresentationSample* replaySample = m_replayRuntime.CurrentScrubSample();
+    const ReplaySolverFrameSample* solverSample = replaySample ? nullptr : m_replayRuntime.CurrentSolverScrubSample();
     const RunReplayPredictionFrame* predictionFrame =
-        ( replaySample || solverSample ) ? nullptr : m_host.CurrentReplayPredictionScrubFrame();
+        ( replaySample || solverSample ) ? nullptr : m_replayRuntime.CurrentPredictionScrubFrame();
 
     TornadoVisualSnapshot snapshot;
-    snapshot.visual = &m_host.m_runtimeSettings.tornadoVisual;
-    snapshot.tornadoSystem = &m_host.m_runtimeSettings.tornadoSystem;
-    snapshot.tornadoField = &m_host.m_runtimeSettings.tornadoField;
+    snapshot.visual = &m_runtimeSettings.tornadoVisual;
+    snapshot.tornadoSystem = &m_runtimeSettings.tornadoSystem;
+    snapshot.tornadoField = &m_runtimeSettings.tornadoField;
     snapshot.replaySample = replaySample;
     snapshot.solverSample = solverSample;
     snapshot.predictionFrame = predictionFrame;
-    snapshot.replayLiveAdvanceHeld = m_host.ReplayLiveAdvanceHeld();
-    snapshot.simulationSourceSeconds = m_host.m_timers.simulationTimer.GetTimeSinceLastStart();
+    snapshot.replayLiveAdvanceHeld = m_replayRuntime.LiveAdvanceHeld();
+    snapshot.simulationSourceSeconds = m_timers.simulationTimer.GetTimeSinceLastStart();
     return snapshot;
 }
 
@@ -1026,9 +1028,9 @@ bool RuntimeRenderer::ExecuteReplayGhostsThroughRenderGraph( const RenderFrameCo
     AddFrameTargetWrites( graph, replayPass, useCinematicTarget );
 
     ReplayGhostGraphCallbackData callbackData;
-    callbackData.replayRuntime = &m_host.m_replayRuntime;
+    callbackData.replayRuntime = &m_replayRuntime;
     callbackData.frame = &frame;
-    callbackData.config = &m_host.m_config;
+    callbackData.config = &m_config;
     callbackData.cinematic = activeCinematic;
     callbackData.shadow = objectShadow;
     graph.SetPassCallback( replayPass,
@@ -1090,20 +1092,21 @@ bool RuntimeRenderer::ExecuteDebugOverlayThroughRenderGraph( const RenderFrameCo
 DebugOverlaySnapshot RuntimeRenderer::BuildDebugOverlaySnapshot( const RenderFrameContext& frame ) const
 {
     DebugOverlaySnapshot snapshot;
-    snapshot.broadphaseOverlayVisible = m_host.m_debug.isBroadphaseOverlay;
-    snapshot.tornadoVectorsVisible = m_host.m_runtimeSettings.tornadoField.visualizeVelocityField ||
-                                     TornadoSystemVectorsVisible( m_host.m_runtimeSettings.tornadoSystem );
-    snapshot.tornadoOverlayWorkVisible = m_host.m_runtimeSettings.tornadoField.visualizeVelocityField ||
-                                         m_host.m_runtimeSettings.tornadoSystem.visualizeVelocityField;
-    snapshot.physicsDebugFlags = m_host.m_debug.physicsDebugFlags;
-    snapshot.physicsDebugPipelineStageCursor = m_host.m_debug.physicsDebugPipelineStageCursor;
+    snapshot.broadphaseOverlayVisible = m_debug.isBroadphaseOverlay;
+    snapshot.tornadoVectorsVisible = m_runtimeSettings.tornadoField.visualizeVelocityField ||
+                                     TornadoSystemVectorsVisible( m_runtimeSettings.tornadoSystem );
+    snapshot.tornadoOverlayWorkVisible =
+        m_runtimeSettings.tornadoField.visualizeVelocityField || m_runtimeSettings.tornadoSystem.visualizeVelocityField;
+    snapshot.physicsDebugFlags = m_debug.physicsDebugFlags;
+    snapshot.physicsDebugPipelineStageCursor = m_debug.physicsDebugPipelineStageCursor;
 
-    const float rayLinger = (std::max)( 0.0f, m_host.m_debug.physicsDebugContactLinger );
-    snapshot.editorOverlayWorkVisible =
-        m_host.ToolHasLingeredRayCastLine( rayLinger ) || m_host.ToolHasSelectionOverlayWork( frame.modelCount ) ||
-        m_host.ToolHasMousePickupOverlayWork( frame.modelCount ) || m_host.ReplayPathVisualizerHasTarget() ||
-        m_host.ReplayHasCameraFocus() || ( m_host.ReplayVelocityEditActive() && !m_host.m_editor.editorModeEnabled ) ||
-        m_host.ToolHasLauncherShots();
+    const float rayLinger = (std::max)( 0.0f, m_debug.physicsDebugContactLinger );
+    snapshot.editorOverlayWorkVisible = m_runtimeTools.HasLingeredRayCastLine( rayLinger ) ||
+                                        m_runtimeTools.HasSelectionOverlayWork( frame.modelCount, m_camera.mode ) ||
+                                        m_runtimeTools.HasMousePickupOverlayWork( frame.modelCount ) ||
+                                        m_replayRuntime.HasPathVisualizerTarget() || m_replayRuntime.HasCameraFocus() ||
+                                        ( m_replayRuntime.VelocityEditActive() && !m_editor.editorModeEnabled ) ||
+                                        m_runtimeTools.HasLauncherShots();
     return snapshot;
 }
 
@@ -1125,7 +1128,7 @@ RuntimeRenderer::ExecuteCinematicPostThroughRenderGraph( const RenderFrameContex
 
     if ( volumetricDeclared )
     {
-        const VolumetricLightPassResources& volumetric = m_host.m_systems.renderPasses.volumetricLight;
+        const VolumetricLightPassResources& volumetric = m_systems.renderPasses.volumetricLight;
         Rendering::RenderGraphTransientResourceDesc volumetricDesc;
         volumetricDesc.kind = Rendering::RenderGraphResourceKind::Texture2D;
         volumetricDesc.format = Rendering::RenderGraphResourceFormat::RGBA16F;
@@ -1213,6 +1216,7 @@ RuntimeRenderer::ExecuteCinematicPostThroughRenderGraph( const RenderFrameContex
 
 bool RuntimeRenderer::ExecuteUiTextThroughRenderGraph( Rendering::IRenderDiagnostics& renderDiagnostics,
                                                        const UI::UIRenderContext& uiRender,
+                                                       const UiTextPassState& state,
                                                        const RuntimeRenderModelFrameView& models,
                                                        DiagnosticsRuntime& diagnosticsRuntime,
                                                        ReplayRuntime& replayRuntime,
@@ -1235,6 +1239,7 @@ bool RuntimeRenderer::ExecuteUiTextThroughRenderGraph( Rendering::IRenderDiagnos
     callbackData.uiTextPass = &m_uiTextPass;
     callbackData.renderDiagnostics = &renderDiagnostics;
     callbackData.uiRender = &uiRender;
+    callbackData.state = &state;
     callbackData.models = &models;
     callbackData.diagnosticsRuntime = &diagnosticsRuntime;
     callbackData.replayRuntime = &replayRuntime;
@@ -1288,8 +1293,8 @@ RenderFrameContext RuntimeRenderer::BuildRenderFrameContext( const RuntimeRender
     frame.renderCommands = &services.renderCommands;
     frame.renderDiagnostics = &services.renderDiagnostics;
     frame.renderRayTracing = services.renderRayTracing;
-    frame.windowWidth = (std::max)( 1, m_host.WindowScreenWidth() );
-    frame.windowHeight = (std::max)( 1, m_host.WindowScreenHeight() );
+    frame.windowWidth = (std::max)( 1, RuntimeWindowScreenWidth( m_systems, m_config ) );
+    frame.windowHeight = (std::max)( 1, RuntimeWindowScreenHeight( m_systems, m_config ) );
 
     // Ordinary and cinematic rendering both use a directional sun (w = 0).
     // Keeping one sun-vector contract makes direct BRDF lighting and shadow-map
@@ -1331,47 +1336,51 @@ RenderResourceContext RuntimeRenderer::BuildRenderResourceContext( const Runtime
     return RenderResourceContext{ cinematicRender,
                                   services.assets,
                                   services.renderResources,
-                                  (std::max)( 1, m_host.WindowScreenWidth() ),
-                                  (std::max)( 1, m_host.WindowScreenHeight() ) };
+                                  (std::max)( 1, RuntimeWindowScreenWidth( m_systems, m_config ) ),
+                                  (std::max)( 1, RuntimeWindowScreenHeight( m_systems, m_config ) ) };
 }
 
 
-RuntimeRenderer::RuntimeRenderer( RuntimeRenderHost& host )
-    : m_host( host ), m_fullscreenQuadPass( host.m_systems.renderPasses.fullscreen ),
-      m_skyPass( host.m_systems.renderPasses.sky,
-                 host.m_systems.renderPasses.fullscreen,
-                 host.m_systems.skyBox,
-                 host.m_config ),
-      m_sceneTargetPass( host.m_systems.renderPasses.cinematicScene ),
-      m_shadowPass( host.m_systems.renderPasses.shadows,
-                    host.m_systems.terrain,
-                    host.m_config,
-                    LogRenderResourceLifecycleFromHost,
-                    &host ),
-      m_reflectionPass( host.m_systems.renderPasses.reflection,
-                        host.m_collisionVisualizer,
-                        host.m_config,
-                        host.m_dxrReflectionTransforms.data(),
-                        static_cast<int>( host.m_dxrReflectionTransforms.size() / 16 ),
+RuntimeRenderer::RuntimeRenderer( const RuntimeRendererBindings& bindings, RuntimeRenderHost& callbackHost )
+    : m_callbackHost( callbackHost ), m_systems( *bindings.runtime.systems ), m_debug( *bindings.diagnostics.debug ),
+      m_timers( *bindings.diagnostics.timers ), m_config( *bindings.runtime.config ),
+      m_runtimeSettings( *bindings.runtime.runtimeSettings ), m_world( *bindings.world.worldEnvironment ),
+      m_collisionVisualizer( *bindings.world.collisionVisualizer ),
+      m_broadphaseVisualizer( *bindings.world.broadphaseVisualizer ),
+      m_physicsDebugVisualizer( *bindings.world.physicsDebugVisualizer ), m_runtimeTools( *bindings.toolOverlay.tools ),
+      m_editor( m_runtimeTools.Editor() ), m_camera( *bindings.ui.camera ),
+      m_replayRuntime( *bindings.replayOverlay.replayRuntime ),
+      m_fullscreenQuadPass( m_systems.renderPasses.fullscreen ),
+      m_skyPass( m_systems.renderPasses.sky, m_systems.renderPasses.fullscreen, m_systems.skyBox, m_config ),
+      m_sceneTargetPass( m_systems.renderPasses.cinematicScene ), m_shadowPass( m_systems.renderPasses.shadows,
+                                                                                m_systems.terrain,
+                                                                                m_config,
+                                                                                LogRenderResourceLifecycleFromHost,
+                                                                                &m_callbackHost ),
+      m_reflectionPass( m_systems.renderPasses.reflection,
+                        m_collisionVisualizer,
+                        m_config,
+                        m_dxrReflectionTransforms.data(),
+                        static_cast<int>( m_dxrReflectionTransforms.size() / 16 ),
                         LogRenderResourceLifecycleFromHost,
-                        &host ),
-      m_objectPass( host.m_collisionVisualizer, host.m_config ), m_terrainPass( host.m_systems.terrain, host.m_config ),
-      m_waterPass( host.m_cWorldEnvironment, host.m_config ), m_tornadoVisualPass( host.m_systems.terrain ),
-      m_debugOverlayPass( host.m_broadphaseVisualizer,
-                          host.m_physicsDebugVisualizer,
-                          host.m_systems.terrain,
+                        &m_callbackHost ),
+      m_objectPass( m_collisionVisualizer, m_config ), m_terrainPass( m_systems.terrain, m_config ),
+      m_waterPass( m_world, m_config ), m_tornadoVisualPass( m_systems.terrain ),
+      m_debugOverlayPass( m_broadphaseVisualizer,
+                          m_physicsDebugVisualizer,
+                          m_systems.terrain,
                           RenderEditorOverlayFromHost,
-                          &host ),
-      m_volumetricPass( host.m_systems.renderPasses.cinematicScene,
-                        host.m_systems.renderPasses.volumetricLight,
-                        host.m_systems.renderPasses.fullscreen,
-                        host.m_config ),
-      m_tonemapPass( host.m_systems.renderPasses.cinematicScene,
-                     host.m_systems.renderPasses.volumetricLight,
-                     host.m_systems.renderPasses.tonemap,
-                     host.m_systems.renderPasses.fullscreen,
-                     host.m_config ),
-      m_uiTextPass( host )
+                          &m_callbackHost ),
+      m_volumetricPass( m_systems.renderPasses.cinematicScene,
+                        m_systems.renderPasses.volumetricLight,
+                        m_systems.renderPasses.fullscreen,
+                        m_config ),
+      m_tonemapPass( m_systems.renderPasses.cinematicScene,
+                     m_systems.renderPasses.volumetricLight,
+                     m_systems.renderPasses.tonemap,
+                     m_systems.renderPasses.fullscreen,
+                     m_config ),
+      m_uiTextPass()
 {
     m_renderPassGraphScratch.ReserveForRuntimePassGraph();
     m_renderPassCompileScratch.ReserveForRuntimePassGraph();
@@ -1411,12 +1420,11 @@ void RuntimeRenderer::EnsureFrameResources( const RenderResourceContext& resourc
 
 void RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
 {
-    RuntimeRenderHost& host = m_host;
     const RuntimeRenderServices& services = renderInputs.services;
     m_uiTextRayTracing = services.renderRayTracing;
     const bool cinematicRender = services.cinematicEnabled;
     const CinematicRenderConfig& renderConfig = services.cinematic;
-    const OrdinaryRenderConfig& ordinaryRender = Cfg().ordinaryRender;
+    const OrdinaryRenderConfig& ordinaryRender = m_config.ordinaryRender;
     CinematicRenderConfig ordinaryShadowConfig = renderConfig;
     ordinaryShadowConfig.shadowsEnabled = ordinaryRender.shadowsEnabled;
     ordinaryShadowConfig.shadowTerrainCasts = ordinaryRender.shadowTerrainCasts;
@@ -1431,7 +1439,7 @@ void RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
     ordinaryShadowConfig.shadowSlopeBias = ordinaryRender.shadowSlopeBias;
     ordinaryShadowConfig.shadowMaxDistance = ordinaryRender.shadowMaxDistance;
     const CinematicRenderConfig& activeShadowStyle = cinematicRender ? renderConfig : ordinaryShadowConfig;
-    const bool shadowMapsEnabled = activeShadowStyle.shadowsEnabled && services.renderReady && !host.m_debug.isTextOnly;
+    const bool shadowMapsEnabled = activeShadowStyle.shadowsEnabled && services.renderReady && !m_debug.isTextOnly;
 
     const RenderResourceContext resourceContext = BuildRenderResourceContext( renderInputs, cinematicRender );
     {
@@ -1479,7 +1487,10 @@ void RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
     {
         RuntimeAllocation::RuntimeAllocationScope allocationScope(
             RuntimeAllocation::RuntimeAllocationPhase::BackendInit );
-        RenderHelperContext helperContext{ services.renderResources, services.renderCommands, services.assets, Cfg() };
+        RenderHelperContext helperContext{ services.renderResources,
+                                           services.renderCommands,
+                                           services.assets,
+                                           m_config };
         RenderHelper::EnsureShadowDepthPrimitiveResources( helperContext );
         if ( services.terrain )
         {
@@ -1489,17 +1500,16 @@ void RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
     }
     const ShadowGraphResult shadowGraph = ExecuteShadowThroughRenderGraph( frame,
                                                                            activeShadowConfig,
-                                                                           host.m_debug.isTerrainHidden,
-                                                                           host.m_debug.isCollisionVisualizer );
+                                                                           m_debug.isTerrainHidden,
+                                                                           m_debug.isCollisionVisualizer );
     ShadowPassOutput shadowPass = shadowGraph.output;
     const bool shadowCallbackOwned = shadowGraph.callbackOwned;
     const Rendering::ShadowFrameData* terrainShadowFrame = shadowPass.terrainShadow;
     const Rendering::ShadowFrameData* objectShadowFrame = shadowPass.objectShadow;
 
-    const bool collisionStateColorsVisible = host.m_debug.isCollisionVisualizer;
-    const bool debugTransparentBodyPass =
-        host.m_debug.isPhysicsDebugTransparent && host.m_debug.physicsDebugAlpha < 1.0f;
-    const bool replayPredictionOverlayActive = host.m_replayRuntime.Prediction().enabled;
+    const bool collisionStateColorsVisible = m_debug.isCollisionVisualizer;
+    const bool debugTransparentBodyPass = m_debug.isPhysicsDebugTransparent && m_debug.physicsDebugAlpha < 1.0f;
+    const bool replayPredictionOverlayActive = m_replayRuntime.Prediction().enabled;
     const bool replayFocusFadeActive = [&]()
     {
         if ( replayPredictionOverlayActive || collisionStateColorsVisible || debugTransparentBodyPass )
@@ -1509,16 +1519,20 @@ void RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
 
         RuntimeAllocation::RuntimeAllocationScope replayAllocationScope(
             RuntimeAllocation::RuntimeAllocationPhase::Replay );
-        return host.BuildReplayFocusModelMask( frame );
+        if ( !frame.bodyStore )
+        {
+            return false;
+        }
+        return m_replayRuntime.BuildFocusModelMask( *frame.bodyStore, frame.modelCount );
     }();
     const std::vector<uint8_t>* replayFocusModelMask =
-        replayFocusFadeActive ? &host.m_replayRuntime.FocusModelMask() : nullptr;
+        replayFocusFadeActive ? &m_replayRuntime.FocusModelMask() : nullptr;
     const bool transparentBodyPass = debugTransparentBodyPass || replayFocusFadeActive;
-    const float bodyRenderAlpha = debugTransparentBodyPass ? host.m_debug.physicsDebugAlpha : 1.0f;
+    const float bodyRenderAlpha = debugTransparentBodyPass ? m_debug.physicsDebugAlpha : 1.0f;
     const float collisionVisualizerAlphaOverride = debugTransparentBodyPass ? bodyRenderAlpha : -1.0f;
     const bool waterModeOff = frame.cinematicEnabled && activeCinematic && activeCinematic->waterMode == 0;
-    const bool waterVisibleThisFrame = !host.m_debug.isWaterHidden && !waterModeOff;
-    const bool reflectionPassNeeded = waterVisibleThisFrame && !host.m_debug.isWaterNoReflect;
+    const bool waterVisibleThisFrame = !m_debug.isWaterHidden && !waterModeOff;
+    const bool reflectionPassNeeded = waterVisibleThisFrame && !m_debug.isWaterNoReflect;
 
     // Invariant: sky and reflection both consume the interpolated render camera
     // from RenderFrameContext. Using the selected destination camera here would
@@ -1552,9 +1566,9 @@ void RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
                                                  debugTransparentBodyPass,
                                                  collisionVisualizerAlphaOverride,
                                                  bodyRenderAlpha,
-                                                 host.m_debug.isWaterRTReflect,
-                                                 host.m_debug.isWaterNoReflect,
-                                                 static_cast<float>( host.m_timers.simulationTimer.GetTotalTime() ) );
+                                                 m_debug.isWaterRTReflect,
+                                                 m_debug.isWaterNoReflect,
+                                                 static_cast<float>( m_timers.simulationTimer.GetTotalTime() ) );
         reflection = reflectionGraph.output;
         reflectionCallbackOwned = reflectionGraph.callbackOwned;
     }
@@ -1589,7 +1603,7 @@ void RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
                                                                         useCinematicTarget,
                                                                         activeCinematic,
                                                                         terrainShadowFrame,
-                                                                        host.m_debug.isTerrainHidden );
+                                                                        m_debug.isTerrainHidden );
 
     // Water is deliberately downstream of ReflectionPass; it samples the
     // reflection texture but never rebuilds it.
@@ -1598,12 +1612,12 @@ void RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
                                         reflection,
                                         useCinematicTarget,
                                         activeCinematic,
-                                        host.m_debug.isWaterHidden,
-                                        host.m_debug.isWaterFlatDebug,
-                                        host.m_debug.isWaterNoReflect,
-                                        host.m_debug.isWaterFreezeDebug,
-                                        host.m_debug.frozenWaterTime,
-                                        static_cast<float>( host.m_timers.simulationTimer.GetTimeSinceLastStart() ) );
+                                        m_debug.isWaterHidden,
+                                        m_debug.isWaterFlatDebug,
+                                        m_debug.isWaterNoReflect,
+                                        m_debug.isWaterFreezeDebug,
+                                        m_debug.frozenWaterTime,
+                                        static_cast<float>( m_timers.simulationTimer.GetTimeSinceLastStart() ) );
 
     const GraphPassResult tornadoVisualGraph =
         ExecuteTornadoVisualThroughRenderGraph( frame, useCinematicTarget, tornadoVisual );
@@ -1665,7 +1679,7 @@ void RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
     frameSnapshot.reflectionUsedDxr = reflection.usedDxr;
     frameSnapshot.objectOpaquePass = !debugTransparentBodyPass;
     frameSnapshot.objectTransparentPass = transparentBodyPass;
-    frameSnapshot.terrainPassRendered = !host.m_debug.isTerrainHidden;
+    frameSnapshot.terrainPassRendered = !m_debug.isTerrainHidden;
     const WaterPassDebugInfo& waterDebug = m_waterPass.LastDebugInfo();
     frameSnapshot.waterPassRendered = waterDebug.rendered;
     frameSnapshot.waterSamplesReflection =
@@ -1729,9 +1743,9 @@ void RuntimeRenderer::EnsureUiTextResources( Rendering::IRenderResourceFactory& 
 }
 
 
-bool RuntimeRenderer::ShouldRenderUiText() const
+bool RuntimeRenderer::ShouldRenderUiText( const UiTextPassState& state ) const
 {
-    return m_uiTextPass.ShouldRender();
+    return m_uiTextPass.ShouldRender( state );
 }
 
 
@@ -1743,6 +1757,7 @@ void RuntimeRenderer::SetUiTextRayTracingCapability( Rendering::IRenderRayTracin
 
 void RuntimeRenderer::RenderUiText( Rendering::IRenderDiagnostics& renderDiagnostics,
                                     const UI::UIRenderContext& uiRender,
+                                    const UiTextPassState& state,
                                     const RuntimeRenderModelFrameView& models,
                                     DiagnosticsRuntime& diagnosticsRuntime,
                                     ReplayRuntime& replayRuntime,
@@ -1753,6 +1768,7 @@ void RuntimeRenderer::RenderUiText( Rendering::IRenderDiagnostics& renderDiagnos
 {
     (void)ExecuteUiTextThroughRenderGraph( renderDiagnostics,
                                            uiRender,
+                                           state,
                                            models,
                                            diagnosticsRuntime,
                                            replayRuntime,

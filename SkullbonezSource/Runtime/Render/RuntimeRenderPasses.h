@@ -90,6 +90,7 @@ class AssetSystem;
 
 namespace UI
 {
+class InGameUI;
 struct UIRenderContext;
 } // namespace UI
 
@@ -103,18 +104,28 @@ namespace Basics
 {
 class DiagnosticsRuntime;
 class EngineConfig;
+class RuntimeInputContext;
 struct CinematicScenePassResources;
 struct FullscreenPassResources;
 struct ReflectionPassResources;
 struct ReplayPresentationSample;
 struct ReplaySolverFrameSample;
+struct RunCameraState;
+struct RunDebugState;
+struct RunEditorPlacementState;
+struct RunRayCastTestState;
+struct RunRenderPassResources;
 struct ShadowPassResources;
 struct SkyPassResources;
 struct TonemapPassResources;
 struct VolumetricLightPassResources;
 class ReplayRuntime;
-class RuntimeRenderHost;
 struct RuntimeRenderModelFrameView;
+struct RuntimeViewModel;
+struct RunRuntimeSettings;
+struct RunSceneBrowserState;
+struct RunSceneState;
+struct RunTimerState;
 struct RunReplayPredictionFrame;
 struct TornadoVisualSettings;
 struct RenderHelperContext;
@@ -314,10 +325,46 @@ struct ReplayOverlayFrameState
     double nowSeconds = 0.0;
 };
 
+struct UiTextPassState
+{
+    // UI/text is the late overlay pass, so it samples a broad but UI-specific
+    // set of already-owned runtime state. The pass may read these references for
+    // this frame only; mutations stay limited to timer rolling diagnostics and
+    // immediate UI drawing.
+    RunDebugState& debug;
+    RunTimerState& timers;
+    const RunSceneState& scene;
+    const RunRuntimeSettings& runtimeSettings;
+    const EngineConfig& config;
+    Environment::WorldEnvironment& world;
+    const RunRayCastTestState& rayCastTest;
+    const RunEditorPlacementState& editor;
+    UI::InGameUI& ui;
+    RuntimeInputContext& runtimeInput;
+    const RunCameraState& camera;
+    const RuntimeViewModel& runtimeViewModel;
+    const RunSceneBrowserState& sceneBrowser;
+    const RunRenderPassResources& renderPasses;
+    Threading::WorkerPool* workerPool = nullptr;
+    int screenW = 1;
+    int screenH = 1;
+    int sceneQueueSize = 0;
+    bool sceneHasCurrentEntry = false;
+    const char* currentScenePath = nullptr;
+    int currentSceneBrowserIndex = 0;
+    uint32_t cameraModeEnabledMask = 0u;
+    const char* cameraModeLabel = "";
+    const char* launcherFireModeLabel = "";
+    bool launcherCameraMode = false;
+    bool replayScrubberVisible = false;
+    bool replayPathVisualizerHasTarget = false;
+};
+
 struct UiTextPassInputs
 {
     // UI/text can run even when text-only mode skips RuntimeRenderer::RenderFrame(),
     // so it borrows only the narrow render facets sampled by overlays.
+    const UiTextPassState& state;
     Rendering::IRenderDiagnostics& renderDiagnostics;
     const UI::UIRenderContext& uiRender;
     const RuntimeRenderModelFrameView& models;
@@ -804,7 +851,7 @@ class TonemapPass
 class UiTextPass
 {
   public:
-    explicit UiTextPass( RuntimeRenderHost& host ) : m_host( host )
+    UiTextPass()
     {
     }
 
@@ -813,11 +860,8 @@ class UiTextPass
                              int screenW,
                              int screenH );
     void ReleaseGpuResources( Rendering::IRenderResourceFactory* renderResources );
-    bool ShouldRender() const;
+    bool ShouldRender( const UiTextPassState& state ) const;
     void Render( const UiTextPassInputs& inputs );
-
-  private:
-    RuntimeRenderHost& m_host;
 };
 
 } // namespace Basics
