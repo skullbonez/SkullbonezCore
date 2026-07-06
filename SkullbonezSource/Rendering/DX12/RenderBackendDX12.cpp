@@ -142,9 +142,6 @@ static bool IsDx12DeviceLostResult( HRESULT hr )
     return hr == DXGI_ERROR_DEVICE_REMOVED || hr == DXGI_ERROR_DEVICE_RESET || hr == DXGI_ERROR_DRIVER_INTERNAL_ERROR;
 }
 
-RenderBackendDX12* RenderBackendDX12::s_instance = nullptr;
-
-
 // --- Backend Setup Entry Point ---
 
 
@@ -1570,7 +1567,6 @@ D3D12_CPU_DESCRIPTOR_HANDLE RenderBackendDX12::GetDSVHandle( UINT index )
 
 bool RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
 {
-    s_instance = this;
     m_width = width;
     m_height = height;
 
@@ -2215,8 +2211,6 @@ void RenderBackendDX12::Shutdown()
     m_allocatorIndex = 0;
     m_frameIndex = 0;
     m_allowTearing = false;
-
-    s_instance = nullptr;
 }
 
 

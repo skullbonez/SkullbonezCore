@@ -222,8 +222,6 @@ class RenderBackendDX12 : public IRenderBackend, public IRenderRayTracing
 {
 
   private:
-    static RenderBackendDX12* s_instance;
-
     // Frame management:
     //
     // Two frames can be in flight. Each frame owns its own command allocator,
@@ -527,11 +525,6 @@ class RenderBackendDX12 : public IRenderBackend, public IRenderRayTracing
     ~RenderBackendDX12() override
     {
         Shutdown();
-    }
-
-    static RenderBackendDX12* Get()
-    {
-        return s_instance;
     }
 
     bool Init( HWND hwnd, HDC hdc, int width, int height ) override;
