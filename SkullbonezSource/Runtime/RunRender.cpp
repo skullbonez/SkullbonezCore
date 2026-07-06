@@ -1078,6 +1078,7 @@ RenderFrameContext RuntimeRenderer::BuildRenderFrameContext( const RuntimeRender
     frame.sceneKineticEnergy = services.models.sceneKineticEnergy;
     frame.tornadoElapsedSeconds = services.models.tornadoElapsedSeconds;
     frame.assets = &services.assets;
+    frame.textures = &services.textures;
     frame.renderResources = &services.renderResources;
     frame.renderCommands = &services.renderCommands;
     frame.renderDiagnostics = &services.renderDiagnostics;

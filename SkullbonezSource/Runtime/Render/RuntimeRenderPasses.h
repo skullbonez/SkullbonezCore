@@ -68,6 +68,11 @@ namespace Threading
 class WorkerPool;
 }
 
+namespace Textures
+{
+class TextureCollection;
+}
+
 namespace Assets
 {
 class AssetSystem;
@@ -157,6 +162,9 @@ struct RenderFrameContext
     // non-null after RuntimeRenderer::BuildRenderFrameContext(), and pass code
     // must not store it beyond the current RenderFrame call.
     Assets::AssetSystem* assets = nullptr;
+    // Lifetime: borrowed texture binding service for this frame only. Pass code
+    // uses it to resolve legacy texture handles without reopening RuntimeRenderHost.
+    Textures::TextureCollection* textures = nullptr;
     // Lifetime: borrowed from RuntimeRenderInputs for lazy debug resource
     // creation in this frame only.
     Rendering::IRenderResourceFactory* renderResources = nullptr;

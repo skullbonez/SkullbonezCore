@@ -229,10 +229,6 @@ class RuntimeRenderHost
 
     bool IsLauncherCameraMode() const;
 
-    uint32_t TextureHandle( uint32_t textureHash ) const;
-
-    void SelectRenderTexture( uint32_t textureHash ) const;
-
     int WindowScreenWidth() const;
 
     int WindowScreenHeight() const;

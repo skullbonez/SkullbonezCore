@@ -41,6 +41,7 @@ Related:
 */
 #include "RunInternal.h"
 #include "RuntimeTuning.h"
+#include "../Assets/TextureCollection.h"
 #include "../Core/PlatformProfiler.h"
 #include "../Rendering/IRenderDiagnostics.h"
 #include "../Rendering/IRenderRayTracing.h"
@@ -170,6 +171,12 @@ SkullbonezCore::Assets::AssetSystem& RenderAssets( const RenderFrameContext& fra
 {
     assert( frame.assets && "RenderFrameContext requires an asset registry" );
     return *frame.assets;
+}
+
+SkullbonezCore::Textures::TextureCollection& RenderTextures( const RenderFrameContext& frame )
+{
+    assert( frame.textures && "RenderFrameContext requires a texture collection" );
+    return *frame.textures;
 }
 
 SkullbonezCore::Rendering::IRenderResourceFactory& RenderResources( const RenderFrameContext& frame )
@@ -1077,14 +1084,15 @@ ReflectionPassOutput ReflectionPass::Render( const ReflectionPassInputs& inputs,
         float cameraPos[3] = { inputs.frame.eye.x, inputs.frame.eye.y, inputs.frame.eye.z };
         float simTime = static_cast<float>( m_host.m_timers.simulationTimer.GetTotalTime() );
 
-        uint32_t sphereHandle = m_host.TextureHandle( TEXTURE_BOUNDING_SPHERE );
-        uint32_t terrainHandle = m_host.TextureHandle( TEXTURE_GROUND );
-        uint32_t skyUpHandle = m_host.TextureHandle( TEXTURE_SKY_UP );
-        uint32_t skyDownHandle = m_host.TextureHandle( TEXTURE_SKY_DOWN );
-        uint32_t skyRightHandle = m_host.TextureHandle( TEXTURE_SKY_RIGHT );
-        uint32_t skyLeftHandle = m_host.TextureHandle( TEXTURE_SKY_LEFT );
-        uint32_t skyFrontHandle = m_host.TextureHandle( TEXTURE_SKY_FRONT );
-        uint32_t skyBackHandle = m_host.TextureHandle( TEXTURE_SKY_BACK );
+        Textures::TextureCollection& textures = RenderTextures( inputs.frame );
+        uint32_t sphereHandle = textures.GetTextureHandle( TEXTURE_BOUNDING_SPHERE );
+        uint32_t terrainHandle = textures.GetTextureHandle( TEXTURE_GROUND );
+        uint32_t skyUpHandle = textures.GetTextureHandle( TEXTURE_SKY_UP );
+        uint32_t skyDownHandle = textures.GetTextureHandle( TEXTURE_SKY_DOWN );
+        uint32_t skyRightHandle = textures.GetTextureHandle( TEXTURE_SKY_RIGHT );
+        uint32_t skyLeftHandle = textures.GetTextureHandle( TEXTURE_SKY_LEFT );
+        uint32_t skyFrontHandle = textures.GetTextureHandle( TEXTURE_SKY_FRONT );
+        uint32_t skyBackHandle = textures.GetTextureHandle( TEXTURE_SKY_BACK );
         rayTracing->DispatchReflectionRays( invVP.Data(),
                                             cameraPos,
                                             inputs.frame.waterY,
@@ -1160,7 +1168,7 @@ ReflectionPassOutput ReflectionPass::Render( const ReflectionPassInputs& inputs,
                 renderCommands,
                 RENDER_TEXTURE_SLOT_0 |
                     ( inputs.objectShadow && inputs.objectShadow->valid ? RENDER_TEXTURE_SLOT_3 : 0u ) );
-            m_host.SelectRenderTexture( TEXTURE_BOUNDING_SPHERE );
+            RenderTextures( inputs.frame ).SelectTexture( TEXTURE_BOUNDING_SPHERE );
             if ( inputs.frame.renderInstances && inputs.frame.colliders )
             {
                 GameObjects::GameModelRenderer::RenderModels( RenderHelperServices( inputs.frame, m_host.m_config ),
@@ -1226,7 +1234,7 @@ void ObjectPass::Render( const ObjectPassInputs& inputs )
         ClearRenderTextureSlotsExcept(
             RenderCommands( inputs.frame ),
             RENDER_TEXTURE_SLOT_0 | ( inputs.shadow && inputs.shadow->valid ? RENDER_TEXTURE_SLOT_3 : 0u ) );
-        m_host.SelectRenderTexture( TEXTURE_BOUNDING_SPHERE );
+        RenderTextures( inputs.frame ).SelectTexture( TEXTURE_BOUNDING_SPHERE );
         if ( inputs.frame.renderInstances && inputs.frame.colliders )
         {
             GameObjects::GameModelRenderer::RenderModels( RenderHelperServices( inputs.frame, m_host.m_config ),
@@ -1274,7 +1282,7 @@ void TerrainPass::Render( const TerrainPassInputs& inputs )
     ClearRenderTextureSlotsExcept(
         renderCommands,
         RENDER_TEXTURE_SLOT_0 | ( inputs.shadow && inputs.shadow->valid ? RENDER_TEXTURE_SLOT_3 : 0u ) );
-    m_host.SelectRenderTexture( TEXTURE_GROUND );
+    RenderTextures( inputs.frame ).SelectTexture( TEXTURE_GROUND );
     m_host.m_systems.terrain->Render( inputs.frame.baseView,
                                       inputs.frame.projection,
                                       renderCommands,

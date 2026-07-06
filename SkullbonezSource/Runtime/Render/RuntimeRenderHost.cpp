@@ -71,27 +71,6 @@ bool RuntimeRenderHost::IsLauncherCameraMode() const
     return m_camera.mode == RunCameraMode::Launcher;
 }
 
-uint32_t RuntimeRenderHost::TextureHandle( uint32_t textureHash ) const
-{
-    // Hazard: render passes ask for texture handles before drawing, but tools
-    // and headless validations can temporarily run without a texture collection.
-    // Fail loudly instead of returning a sentinel that would mask a bad binding.
-    if ( !m_systems.textures )
-    {
-        throw std::runtime_error( "Texture collection is not initialised." );
-    }
-    return m_systems.textures->GetTextureHandle( textureHash );
-}
-
-void RuntimeRenderHost::SelectRenderTexture( uint32_t textureHash ) const
-{
-    if ( !m_systems.textures )
-    {
-        throw std::runtime_error( "Texture collection is not initialised." );
-    }
-    m_systems.textures->SelectTexture( textureHash );
-}
-
 int RuntimeRenderHost::WindowScreenWidth() const
 {
     return RunInternal::RuntimeWindowScreenWidth( m_systems, m_config );
@@ -219,7 +198,8 @@ void RuntimeRenderHost::RenderReplayPredictionGhosts( const RenderFrameContext& 
     const auto& colliders = frame.colliders->Records();
     const std::vector<Rendering::RenderInstanceRecord>& renderInstances = frame.renderInstances->Records();
 
-    SelectRenderTexture( TEXTURE_BOUNDING_SPHERE );
+    assert( frame.textures && "RenderFrameContext requires a texture collection" );
+    frame.textures->SelectTexture( TEXTURE_BOUNDING_SPHERE );
     assert( frame.renderResources && frame.renderCommands && frame.assets );
     const RenderHelperContext helperContext{ *frame.renderResources, *frame.renderCommands, *frame.assets, m_config };
     RenderHelper::DrawBoxBatchBegin( helperContext,
