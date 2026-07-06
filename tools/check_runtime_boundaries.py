@@ -1473,7 +1473,7 @@ RENDER_BACKEND_AGGREGATE_DEPENDENCY_PATTERNS: tuple[tuple[str, re.Pattern[str], 
 # These budgets are not approval for growth; per-file rows classify remaining
 # render-backend aggregate debt while Plan 05 drains it.
 MAX_IRENDER_BACKEND_DEPENDENCY_CENSUS = 43
-MAX_RENDER_BACKEND_DX12_GET_CENSUS = 9
+MAX_RENDER_BACKEND_DX12_GET_CENSUS = 0
 RENDER_BACKEND_AGGREGATE_DEPENDENCY_ALLOWLIST: Counter[tuple[Path, str]] = Counter(
     {
         ( Path(path), label ): count
@@ -1482,10 +1482,7 @@ RENDER_BACKEND_AGGREGATE_DEPENDENCY_ALLOWLIST: Counter[tuple[Path, str]] = Count
             ( "SkullbonezSource/Physics/Debug/BroadphaseVisualizer.cpp", "IRenderBackend", 1 ),
             ( "SkullbonezSource/Physics/Debug/CollisionVisualizer.cpp", "IRenderBackend", 1 ),
             ( "SkullbonezSource/Physics/Debug/PhysicsDebugVisualizer.cpp", "IRenderBackend", 1 ),
-            ( "SkullbonezSource/Rendering/DX12/FramebufferDX12.cpp", "RenderBackendDX12::Get()", 4 ),
-            ( "SkullbonezSource/Rendering/DX12/MeshDX12.cpp", "RenderBackendDX12::Get()", 3 ),
             ( "SkullbonezSource/Rendering/DX12/RenderBackendDX12.h", "IRenderBackend", 2 ),
-            ( "SkullbonezSource/Rendering/DX12/ShaderDX12.cpp", "RenderBackendDX12::Get()", 2 ),
             ( "SkullbonezSource/Rendering/GameModelRenderer.cpp", "IRenderBackend", 1 ),
             ( "SkullbonezSource/Rendering/IRenderBackend.cpp", "IRenderBackend", 4 ),
             ( "SkullbonezSource/Rendering/IRenderBackend.h", "IRenderBackend", 4 ),

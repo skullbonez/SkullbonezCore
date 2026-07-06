@@ -61,6 +61,7 @@ class MeshDX12 : public IMesh
 {
 
   private:
+    RenderBackendDX12& m_backend; // Borrowed DX12 owner for uploads, barriers, and draw recording.
     ID3D12Resource* m_vertexBuffer;
     D3D12_VERTEX_BUFFER_VIEW m_vbView;
     int m_vertexCount;
@@ -68,7 +69,7 @@ class MeshDX12 : public IMesh
     VertexFormat12 m_format;
 
   public:
-    MeshDX12();
+    explicit MeshDX12( RenderBackendDX12& backend );
     ~MeshDX12() override;
 
     void Create( ID3D12Device* device,

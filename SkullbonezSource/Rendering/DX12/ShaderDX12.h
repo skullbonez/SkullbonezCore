@@ -61,6 +61,7 @@ class ShaderDX12 : public IShader
 {
 
   private:
+    RenderBackendDX12& m_backend; // Borrowed DX12 owner for shader activation and constant-buffer uploads.
     Microsoft::WRL::ComPtr<ID3DBlob> m_vsBlob;
     Microsoft::WRL::ComPtr<ID3DBlob> m_psBlob;
 
@@ -103,7 +104,7 @@ class ShaderDX12 : public IShader
 #endif
 
   public:
-    ShaderDX12();
+    explicit ShaderDX12( RenderBackendDX12& backend );
     ~ShaderDX12() override;
 
     bool Compile( const char* hlslPath );

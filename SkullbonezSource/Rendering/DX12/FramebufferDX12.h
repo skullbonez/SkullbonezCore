@@ -57,6 +57,7 @@ class FramebufferDX12 : public IFramebuffer
 {
 
   private:
+    RenderBackendDX12& m_backend; // Borrowed DX12 owner for descriptor rows, transitions, and retire queues.
     ID3D12Resource* m_colorTexture;
     ID3D12Resource* m_depthTexture;
     D3D12_CPU_DESCRIPTOR_HANDLE m_rtvHandle;
@@ -65,8 +66,8 @@ class FramebufferDX12 : public IFramebuffer
     // after the framebuffer is unbound.
     UINT m_srvIndex;
     UINT m_depthSrvIndex;
-    uint32_t m_texHandle;      // Color handle returned by backend's texture registry
-    uint32_t m_depthTexHandle; // Depth handle returned by backend's texture registry
+    uint32_t m_texHandle;         // Color handle returned by backend's texture registry
+    uint32_t m_depthTexHandle;    // Depth handle returned by backend's texture registry
     FramebufferColorFormat m_colorFormat;
     int m_width;
     int m_height;
@@ -77,7 +78,8 @@ class FramebufferDX12 : public IFramebuffer
     mutable D3D12_CPU_DESCRIPTOR_HANDLE m_savedDSV;
 
   public:
-    explicit FramebufferDX12( FramebufferColorFormat colorFormat = FramebufferColorFormat::RGBA8 );
+    explicit FramebufferDX12( RenderBackendDX12& backend,
+                              FramebufferColorFormat colorFormat = FramebufferColorFormat::RGBA8 );
     ~FramebufferDX12() override;
 
     void Create( int width, int height );
