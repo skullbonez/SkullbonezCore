@@ -30,6 +30,8 @@
 #   Render-backend aggregate census: Counted use of IRenderBackend and
 #     RenderBackendDX12::Get helper backdoors while narrow render capabilities
 #     replace the wide facade.
+#   Physics collection census: Counted GameModelCollection mentions under
+#     Physics/ while debug and ragdoll rows migrate to explicit store views.
 #
 # Invariants:
 #   - New deleted-artifact guards belong in DELETED_MIGRATION_ARTIFACT_PATTERNS.
@@ -42,6 +44,8 @@
 #     per-file allowance must not approve net-new global lookups.
 #   - Render-backend aggregate budget records current Plan 05 debt; new aggregate
 #     dependencies must choose a narrow render capability or lower the ratchet.
+#   - Physics GameModelCollection budget records current Plan 02 debt; new
+#     physics dependencies must choose body/collider/render stores or lower the ratchet.
 #   - Checker self-tests run before repo scans.
 #   - Comment-only historical mentions of deleted names are allowed; live code is
 #     scanned after comments and string literals are stripped where needed.
@@ -1642,6 +1646,11 @@ def normalize_boundary_line(line: str) -> str:
     return " ".join(line.strip().split())
 
 
+# PHYS-034: current tracked Physics/ GameModelCollection census on 2026-07-07.
+# This is not approval for growth. The row-level allowlist classifies each
+# remaining debug/ragdoll/model-access dependency while store-authority rows
+# replace them with explicit body/collider/render views.
+MAX_PHYSICS_GAME_MODEL_COLLECTION_CENSUS = 35
 PHYSICS_GAME_MODEL_COLLECTION_ALLOWLIST: Counter[tuple[Path, str]] = Counter(
     ( Path(path), normalize_boundary_line(line) )
     for path, line in (
@@ -2972,18 +2981,44 @@ def check_physics_game_model_collection_guardrails_text(
     return errors
 
 
+def count_physics_game_model_collection_dependencies_text(text: str) -> int:
+    stripped = strip_cpp_comments(text)
+    return sum(1 for line in stripped.splitlines() if GAME_MODEL_COLLECTION_PATTERN.search(line))
+
+
+def check_physics_game_model_collection_census_budget(
+    path: Path,
+    count: int,
+    budget: int = MAX_PHYSICS_GAME_MODEL_COLLECTION_CENSUS,
+) -> list[BoundaryError]:
+    if count <= budget:
+        return []
+    return [
+        BoundaryError(
+            path,
+            0,
+            "physics GameModelCollection dependency census exceeded",
+            f"Current census is {count}; PHYS-034 budget is {budget}. Migrate an existing dependency before adding another.",
+        )
+    ]
+
+
 def check_physics_game_model_collection_guardrails(repo: Path) -> list[BoundaryError]:
     errors: list[BoundaryError] = []
+    census = 0
     for path in sorted((repo / PHYSICS_ROOT).rglob("*")):
         if path.suffix not in { ".cpp", ".h" }:
             continue
+        text = path.read_text(encoding="utf-8")
+        census += count_physics_game_model_collection_dependencies_text(text)
         errors.extend(
             check_physics_game_model_collection_guardrails_text(
                 path,
-                path.read_text(encoding="utf-8"),
+                text,
                 path.relative_to(repo),
             )
         )
+    errors.extend(check_physics_game_model_collection_census_budget(PHYSICS_ROOT, census))
     return errors
 
 
@@ -15604,6 +15639,23 @@ def run_self_tests() -> list[str]:
     };
     """
     expect_clean('comment-only general inheritance synthetic text was rejected', check_approved_inheritance_guardrails_text( Path("SkullbonezSource/Runtime/CaptureSystem.h"), commented_general_inheritance, Path("SkullbonezSource/Runtime/CaptureSystem.h"), ))
+
+    expect_clean(
+        'physics GameModelCollection census at budget was rejected',
+        check_physics_game_model_collection_census_budget(
+            Path("SkullbonezSource/Physics"),
+            MAX_PHYSICS_GAME_MODEL_COLLECTION_CENSUS,
+        ),
+    )
+
+    expect_error(
+        'physics GameModelCollection census over budget was not rejected',
+        check_physics_game_model_collection_census_budget(
+            Path("SkullbonezSource/Physics"),
+            MAX_PHYSICS_GAME_MODEL_COLLECTION_CENSUS + 1,
+        ),
+        'physics GameModelCollection dependency census exceeded',
+    )
 
     compatibility_physics_models_text = (
         "std::vector<SkullbonezCore::GameObjects::GameModel>& physicsModels = "
