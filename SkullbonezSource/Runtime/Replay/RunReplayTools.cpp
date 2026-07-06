@@ -44,6 +44,7 @@ Related:
 #include "../RunInternal.h"
 #include "../Editor/EditorHullAssets.h"
 #include "../InputController.h"
+#include "ReplayInteractionController.h"
 #include "ReplayOverlayLayout.h"
 #include "ReplayOverlayRenderer.h"
 #include "../RuntimePickService.h"

@@ -236,6 +236,7 @@ RUNTIME_ALLOCATION_PREFIXES = (
 
 RUNTIME_REPLAY_PREFIXES = (
     "ReplayExporter",
+    "ReplayInteractionController",
     "ReplayOverlayLayout",
     "ReplayOverlayRenderer",
     "ReplayRecorder",
