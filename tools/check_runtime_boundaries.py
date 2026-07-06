@@ -21,10 +21,14 @@
 #   Store-authority fence: Rule that keeps migrated callers on body/collider/
 #     render stores instead of reopening model mirrors.
 #   Inheritance budget: Approved list of stable runtime-polymorphism boundaries.
+#   Throw-site census: Textual count of source `throw` tokens used as a ratchet
+#     against adding new exception paths without an owning cleanup row.
 #
 # Invariants:
 #   - New deleted-artifact guards belong in DELETED_MIGRATION_ARTIFACT_PATTERNS.
 #   - New inheritance needs an approved stable-boundary row with owner evidence.
+#   - Throw-site budget is the current tracked-source census, not an approval to
+#     add more exception paths.
 #   - Checker self-tests run before repo scans.
 #   - Comment-only historical mentions of deleted names are allowed; live code is
 #     scanned after comments and string literals are stripped where needed.
@@ -1547,6 +1551,8 @@ RUN_PRIVATE_METHOD_DECLARATION_PATTERN = re.compile(
     r"(?:=\s*(?:delete|default)\s*)?;",
     re.S,
 )
+MAX_SOURCE_THROW_TOKENS = 355
+THROW_TOKEN_PATTERN = re.compile(r"\bthrow\b")
 
 
 def normalize_boundary_line(line: str) -> str:
@@ -2717,6 +2723,45 @@ def check_run_private_method_count_text(
             f"Found {method_count}; maximum is {max_allowed}. Move behavior to a subsystem or update the ratchet intentionally.",
         )
     ]
+
+
+def check_throw_site_count_entries(
+    entries: list[tuple[Path, str]],
+    max_allowed: int = MAX_SOURCE_THROW_TOKENS,
+) -> list[BoundaryError]:
+    total_count = 0
+    first_over_budget: tuple[Path, str, int] | None = None
+    for path, text in entries:
+        matches = list(THROW_TOKEN_PATTERN.finditer(text))
+        if not matches:
+            continue
+        if first_over_budget is None and total_count + len(matches) > max_allowed:
+            first_extra_index = max_allowed - total_count
+            first_over_budget = ( path, text, matches[first_extra_index].start() )
+        total_count += len(matches)
+
+    if total_count <= max_allowed:
+        return []
+
+    assert first_over_budget is not None
+    path, text, offset = first_over_budget
+    return [
+        BoundaryError(
+            path,
+            line_for_offset(text, offset),
+            "source throw-site count exceeds ratchet",
+            f"Found {total_count}; maximum is {max_allowed}. Replace new exception paths with existing owners or update the ratchet intentionally.",
+        )
+    ]
+
+
+def check_throw_site_count(repo: Path) -> list[BoundaryError]:
+    entries: list[tuple[Path, str]] = []
+    for path in sorted((repo / SOURCE_ROOT).rglob("*")):
+        if path.suffix not in SOURCE_BEARING_SUFFIXES:
+            continue
+        entries.append(( path, path.read_text(encoding="utf-8") ))
+    return check_throw_site_count_entries(entries)
 
 
 def check_text_rules(path: Path, text: str, rules: tuple[tuple[str, str, str], ...]) -> list[BoundaryError]:
@@ -9045,6 +9090,23 @@ def run_self_tests() -> list[str]:
         "Run.h private method count exceeds ratchet",
     )
 
+    throw_ratchet_clean_entries = [
+        ( Path("synthetic/AlreadyOwnedThrow.cpp"), "void ExistingOwner() { throw std::runtime_error( \"owned\" ); }\n" ),
+    ]
+    expect_clean(
+        "budget-matched throw-site synthetic surface was rejected",
+        check_throw_site_count_entries(throw_ratchet_clean_entries, max_allowed=1),
+    )
+    throw_ratchet_grown_entries = [
+        ( Path("synthetic/AlreadyOwnedThrow.cpp"), "void ExistingOwner() { throw std::runtime_error( \"owned\" ); }\n" ),
+        ( Path("synthetic/NewThrow.cpp"), "void NewExceptionPath() { throw std::runtime_error( \"new\" ); }\n" ),
+    ]
+    expect_error(
+        "grown throw-site synthetic surface was not rejected",
+        check_throw_site_count_entries(throw_ratchet_grown_entries, max_allowed=1),
+        "source throw-site count exceeds ratchet",
+    )
+
     pointer_return_run_header = allowed_run_header.replace(
         "void Render();",
         "void Render();\n        const ReplayPresentationSample* CurrentReplayScrubSample() const;",
@@ -15234,6 +15296,7 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     run_header = repo / RUN_HEADER
     errors = check_text_rules(run_header, run_header.read_text(encoding="utf-8"), RUN_HEADER_RULES)
     errors.extend(check_run_private_method_count_text(run_header, run_header.read_text(encoding="utf-8")))
+    errors.extend(check_throw_site_count(repo))
     errors.extend(check_run_internal_scrubber_guardrails(repo))
     errors.extend(check_run_internal_replay_layout_guardrails(repo))
     errors.extend(check_run_internal_scene_runtime_guardrails(repo))

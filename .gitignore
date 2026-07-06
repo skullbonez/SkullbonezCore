@@ -49,6 +49,7 @@ Agentic/style-harness/
 
 # Agent/orchestrator run artifacts: reports, screenshots, logs, and worker scratch
 Agentic/Runs/
+Agentic/Temp/
 
 # Python
 __pycache__/

@@ -7,14 +7,14 @@ audits when it is still useful.
 
 | Field | Value |
 |-------|-------|
-| Branch | `nightrunner-5th-july` in worktree `C:\SkullbonezCore`. |
-| Active objective | Post-duck correction on `nightrunner-5th-july` is implemented and validated: replay prediction reserve units, F6 overlay proof, and replay branch-restore proof now match the branch claims. |
-| Last documentation milestone | Added a post-duck evidence correction section to `Agentic/Plans/Done/runtime-static-allocation-policy-plan.md` with byte-cap proof and tracked interaction-proof commands. |
-| Last source/data milestone | Replay prediction registered growth now requests bytes under a 256 MiB hard cap, including aggregate frame-payload bytes for prediction debug contacts. Interaction automation can inject one bounded key press, scrub the replay solver track through its UI hitbox, click the Branch button, assert memory-overlay/replay live-edge state, and run tracked scripts for F6 overlay and branch-restore proof. |
-| Pending work | No remaining source work for the post-duck correction. Follow-up architecture items remain in their own active plans and references. |
+| Branch | `nightrunner-7th-july` in worktree `C:\SkullbonezCore`. |
+| Active objective | Unattended 2026-07-07 overnight run claimed at 00:04 +10:00: drain all five authoritative `Agentic/Plans/In_Progress/` CSVs in order 04 -> 03 -> 05 -> 02 -> 01, including explicit user-approved `overnight=defer` rows. |
+| Last documentation milestone | 2026-07-07 overnight run claim recorded before pre-flight builds and baseline validation. |
+| Last source/data milestone | No 2026-07-07 implementation slice has started yet; pre-flight baseline validation is next. |
+| Pending work | Run Debug/Profile pre-flight builds, run initial `tools\validate_full.bat`, then execute FILL-001/FILL-002 and the five authoritative plans sequentially. |
 | Concurrent work warning | No concurrent dirty source work observed at the last status check. Still run `git status --short --branch` before editing. |
-| Blockers | No validation blocker. Open scope remains tracked in the plan rows above. |
-| Validation | Post-duck targeted proof from final Profile build: `tools\validate_build.bat Profile` 0 warnings/errors; `memory_overlay_f6_toggle.json` report `ok=1`, asserted `memoryOverlayEnabled=true`, screenshot captured, allocation guard PASS; `replay_branch_restore_live_edge.json` report `ok=1`, solver restore hash matched, asserted active Solver track, `replayHistoricalSamplePaused=false`, and solver track at present; replay prediction click and `prediction_ragdoll_wall_200_predict.json` passed under `--allocation-guard gameplay` with `replay_prediction_working_set` hard cap `268435456` bytes and no reserve policy violations. Final gates passed: `tools\validate_perf.bat` clean allocation-guard evidence, `policy_violations=0`, no perf regressions, Profile/Debug 0 warnings/errors; `tools\validate_full.bat` passed project filters, runtime boundaries, formatting, DX12 InfoQueue 0/errors and screenshot baselines, and byte-exact `physics_regression_solver.csv`. |
+| Blockers | None at 2026-07-07 run start. |
+| Validation | 2026-07-07 pre-flight validation pending: `tools\validate_build.bat Debug`, `tools\validate_build.bat Profile`, then `tools\validate_full.bat`. |
 
 ## Active Notes
 
