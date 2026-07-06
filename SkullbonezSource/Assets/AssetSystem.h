@@ -36,6 +36,10 @@ Related:
 
 namespace SkullbonezCore
 {
+namespace Basics
+{
+class EngineConfig;
+}
 namespace Rendering
 {
 class IShader;
@@ -134,6 +138,7 @@ class AssetSystem
   public:
     explicit AssetSystem( std::string dataRoot = DATA_ROOT );
 
+    void RegisterBuiltInSourceAssets( const Basics::EngineConfig& config );
     const std::string& GetDataRoot() const;
     std::string ResolvePath( const char* relativePath ) const;
 
