@@ -1004,6 +1004,16 @@ struct CliValueDirective
     bool ( *apply )( const char* value, ParsedArgs& args );
 };
 
+struct ConfigCliValueDirective
+{
+    // Why: startup config options mutate the loaded EngineConfig before any
+    // subsystem borrows it, so these handlers must not reopen the global config
+    // singleton.
+    const char* name;
+    const char* alias;
+    bool ( *apply )( const char* value, ParsedArgs& args, EngineConfig& config );
+};
+
 struct PhysicsDebugComponentDirective
 {
     const char* dashedName;
@@ -1045,6 +1055,16 @@ const char* FindValueDirective( const CommandLineView& commandLine, const CliVal
     return FindOptionValue( commandLine, directive.alias );
 }
 
+const char* FindValueDirective( const CommandLineView& commandLine, const ConfigCliValueDirective& directive )
+{
+    const char* value = FindOptionValue( commandLine, directive.name );
+    if ( value || !directive.alias )
+    {
+        return value;
+    }
+    return FindOptionValue( commandLine, directive.alias );
+}
+
 template <size_t N>
 bool ApplyCliValueDirectives( const CommandLineView& commandLine,
                               ParsedArgs& out,
@@ -1054,6 +1074,23 @@ bool ApplyCliValueDirectives( const CommandLineView& commandLine,
     {
         const char* value = FindValueDirective( commandLine, directive );
         if ( value && !directive.apply( value, out ) )
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
+template <size_t N>
+bool ApplyConfigCliValueDirectives( const CommandLineView& commandLine,
+                                    ParsedArgs& out,
+                                    EngineConfig& config,
+                                    const ConfigCliValueDirective ( &directives )[N] )
+{
+    for ( const ConfigCliValueDirective& directive : directives )
+    {
+        const char* value = FindValueDirective( commandLine, directive );
+        if ( value && !directive.apply( value, out, config ) )
         {
             return false;
         }
@@ -1673,8 +1710,8 @@ bool ParseRendererArg( const CommandLineView& commandLine )
     return FailCommandLineParse( "--renderer expects dx12. GL and DX11 are retired runtime choices." );
 }
 
-// --vsync on|off patches the already-loaded Cfg() singleton.
-bool ApplyVsyncOverride( const CommandLineView& commandLine )
+// --vsync on|off patches the already-loaded startup config.
+bool ApplyVsyncOverride( const CommandLineView& commandLine, EngineConfig& config )
 {
     const char* vsyncArg = FindOptionValue( commandLine, "--vsync" );
     if ( !vsyncArg )
@@ -1688,14 +1725,15 @@ bool ApplyVsyncOverride( const CommandLineView& commandLine )
         return FailCommandLineParse( "--vsync expects on|off." );
     }
 
-    Cfg().runtimeRender.vsyncEnabled = enabled;
+    config.runtimeRender.vsyncEnabled = enabled;
     fprintf( stdout, "[vsync] %s via command line.\n", enabled ? "Enabled" : "Disabled" );
     return true;
 }
 
 
-bool ApplyCinematicShadowsOverride( const char* value, ParsedArgs& args )
+bool ApplyCinematicShadowsOverride( const char* value, ParsedArgs& args, EngineConfig& config )
 {
+    static_cast<void>( config );
     bool enabled = false;
     if ( !ParseOptionalOnOffValue( value, enabled ) )
     {
@@ -1709,21 +1747,23 @@ bool ApplyCinematicShadowsOverride( const char* value, ParsedArgs& args )
 }
 
 
-bool ApplyStartupCliValueDirectives( const CommandLineView& commandLine, ParsedArgs& out )
+bool ApplyStartupCliValueDirectives( const CommandLineView& commandLine, ParsedArgs& out, EngineConfig& config )
 {
-    static const CliValueDirective kValues[] = {
+    static const ConfigCliValueDirective kValues[] = {
         { "--switch-interval",
           nullptr,
-          []( const char* value, ParsedArgs& args ) -> bool
+          []( const char* value, ParsedArgs& args, EngineConfig& config ) -> bool
           {
               static_cast<void>( value );
               static_cast<void>( args );
+              static_cast<void>( config );
               return FailCommandLineParse( "--switch-interval is retired because DX12 is the only runtime renderer." );
           } },
         { "--time-scale",
           nullptr,
-          []( const char* value, ParsedArgs& args ) -> bool
+          []( const char* value, ParsedArgs& args, EngineConfig& config ) -> bool
           {
+              static_cast<void>( config );
               float timeScale = 0.0f;
               if ( !ParseFloatToken( value, timeScale ) || timeScale <= 0.0f )
               {
@@ -1735,8 +1775,9 @@ bool ApplyStartupCliValueDirectives( const CommandLineView& commandLine, ParsedA
           } },
         { "--tornado",
           nullptr,
-          []( const char* value, ParsedArgs& args ) -> bool
+          []( const char* value, ParsedArgs& args, EngineConfig& config ) -> bool
           {
+              static_cast<void>( config );
               bool enabled = false;
               if ( !ParseOptionalOnOffValue( value, enabled ) )
               {
@@ -1749,8 +1790,9 @@ bool ApplyStartupCliValueDirectives( const CommandLineView& commandLine, ParsedA
           } },
         { "--tornado-vectors",
           "--tornado-vector-field",
-          []( const char* value, ParsedArgs& args ) -> bool
+          []( const char* value, ParsedArgs& args, EngineConfig& config ) -> bool
           {
+              static_cast<void>( config );
               bool enabled = false;
               if ( !ParseOptionalOnOffValue( value, enabled ) )
               {
@@ -1764,8 +1806,9 @@ bool ApplyStartupCliValueDirectives( const CommandLineView& commandLine, ParsedA
           } },
         { "--cinematic",
           "--cinematic-rendering",
-          []( const char* value, ParsedArgs& args ) -> bool
+          []( const char* value, ParsedArgs& args, EngineConfig& config ) -> bool
           {
+              static_cast<void>( config );
               bool enabled = false;
               if ( !ParseOptionalOnOffValue( value, enabled ) )
               {
@@ -1780,7 +1823,7 @@ bool ApplyStartupCliValueDirectives( const CommandLineView& commandLine, ParsedA
         { "--cinematic-shadows", "--cinematic_shadows", ApplyCinematicShadowsOverride },
         { "--workers",
           "--worker-threads",
-          []( const char* value, ParsedArgs& args ) -> bool
+          []( const char* value, ParsedArgs& args, EngineConfig& config ) -> bool
           {
               static_cast<void>( args );
               int workerThreads = 0;
@@ -1791,17 +1834,17 @@ bool ApplyStartupCliValueDirectives( const CommandLineView& commandLine, ParsedA
                   snprintf( message, sizeof( message ), "--workers expects -1, 0, or 1..%d.", maxWorkerThreads );
                   return FailCommandLineParse( message );
               }
-              Cfg().workerThreads = workerThreads;
+              config.workerThreads = workerThreads;
               fprintf( stdout,
                        "[workers] Override: %d (resolved %d, max %d)\n",
-                       Cfg().workerThreads,
-                       WorkerPool::ResolveThreadCount( Cfg().workerThreads ),
+                       config.workerThreads,
+                       WorkerPool::ResolveThreadCount( config.workerThreads ),
                        maxWorkerThreads );
               return true;
           } },
         { "--model-capacity",
           nullptr,
-          []( const char* value, ParsedArgs& args ) -> bool
+          []( const char* value, ParsedArgs& args, EngineConfig& config ) -> bool
           {
               static_cast<void>( args );
               int capacity = 0;
@@ -1809,16 +1852,16 @@ bool ApplyStartupCliValueDirectives( const CommandLineView& commandLine, ParsedA
               {
                   return FailCommandLineParse( "--model-capacity expects 1..%d.", MAX_GAME_MODELS );
               }
-              Cfg().gameModelCapacity = capacity;
+              config.gameModelCapacity = capacity;
               fprintf( stdout,
                        "[models] Active model capacity: %d (compiled max %d)\n",
-                       ActiveGameModelCapacity(),
+                       config.gameModelCapacity,
                        MAX_GAME_MODELS );
               return true;
           } },
         { "--physics-parallel",
           "--parallel-physics",
-          []( const char* value, ParsedArgs& args ) -> bool
+          []( const char* value, ParsedArgs& args, EngineConfig& config ) -> bool
           {
               static_cast<void>( args );
               bool enabled = false;
@@ -1826,12 +1869,12 @@ bool ApplyStartupCliValueDirectives( const CommandLineView& commandLine, ParsedA
               {
                   return FailCommandLineParse( "--physics-parallel expects optional on|off." );
               }
-              Cfg().physicsParallel = enabled;
-              Cfg().physicsParallelApplyForces = enabled;
-              Cfg().physicsParallelTornadoField = enabled;
-              Cfg().physicsParallelNarrowphase = enabled;
-              Cfg().physicsParallelTerrainDetect = enabled;
-              Cfg().physicsParallelIntegrate = enabled;
+              config.physicsParallel = enabled;
+              config.physicsParallelApplyForces = enabled;
+              config.physicsParallelTornadoField = enabled;
+              config.physicsParallelNarrowphase = enabled;
+              config.physicsParallelTerrainDetect = enabled;
+              config.physicsParallelIntegrate = enabled;
               fprintf( stdout,
                        "[workers] Physics parallel jobs %s via command line.\n",
                        enabled ? "enabled" : "disabled" );
@@ -1839,7 +1882,7 @@ bool ApplyStartupCliValueDirectives( const CommandLineView& commandLine, ParsedA
           } },
         { "--shadow-parallel-prep",
           "--parallel-shadow-prep",
-          []( const char* value, ParsedArgs& args ) -> bool
+          []( const char* value, ParsedArgs& args, EngineConfig& config ) -> bool
           {
               static_cast<void>( args );
               bool enabled = false;
@@ -1847,7 +1890,7 @@ bool ApplyStartupCliValueDirectives( const CommandLineView& commandLine, ParsedA
               {
                   return FailCommandLineParse( "--shadow-parallel-prep expects optional on|off." );
               }
-              Cfg().shadowParallelPrep = enabled;
+              config.shadowParallelPrep = enabled;
               fprintf( stdout,
                        "[workers] Shadow parallel prep %s via command line.\n",
                        enabled ? "enabled" : "disabled" );
@@ -1855,8 +1898,9 @@ bool ApplyStartupCliValueDirectives( const CommandLineView& commandLine, ParsedA
           } },
         { "--interactive",
           "--hold",
-          []( const char* value, ParsedArgs& args ) -> bool
+          []( const char* value, ParsedArgs& args, EngineConfig& config ) -> bool
           {
+              static_cast<void>( config );
               bool enabled = false;
               if ( !ParseOptionalOnOffValue( value, enabled ) )
               {
@@ -1872,7 +1916,7 @@ bool ApplyStartupCliValueDirectives( const CommandLineView& commandLine, ParsedA
           } },
     };
 
-    return ApplyCliValueDirectives( commandLine, out, kValues );
+    return ApplyConfigCliValueDirectives( commandLine, out, config, kValues );
 }
 
 
@@ -2704,9 +2748,9 @@ bool ParsePhysicsDiagnosticsPath( const CommandLineView& commandLine, char ( &ou
 #endif
 
 // ParsedArgs owns all command-line option state after this pass.
-// Also loads engine.cfg and applies any overrides to the global Cfg() singleton.
+// Also loads engine.cfg and applies any overrides to the passed startup config.
 // False means startup should abort, such as --physics-regression-log in Release.
-bool ParseCommandLine( const CommandLineView& commandLine, ParsedArgs& out )
+bool ParseCommandLine( const CommandLineView& commandLine, EngineConfig& config, ParsedArgs& out )
 {
     if ( !ParseSceneArgs( commandLine, out.sceneList, out.isSuiteOrSceneMode ) )
     {
@@ -2717,8 +2761,8 @@ bool ParseCommandLine( const CommandLineView& commandLine, ParsedArgs& out )
         return false;
     }
 
-    Cfg().Load( ( std::string( DATA_ROOT ) + "engine.cfg" ).c_str() );
-    if ( !ApplyVsyncOverride( commandLine ) )
+    config.Load( ( std::string( DATA_ROOT ) + "engine.cfg" ).c_str() );
+    if ( !ApplyVsyncOverride( commandLine, config ) )
     {
         return false;
     }
@@ -2784,7 +2828,7 @@ bool ParseCommandLine( const CommandLineView& commandLine, ParsedArgs& out )
     out.physicsDiagnosticsRequested = out.physicsDiagnosticsPath[0] != '\0';
 #endif
 
-    if ( !ApplyStartupCliValueDirectives( commandLine, out ) )
+    if ( !ApplyStartupCliValueDirectives( commandLine, out, config ) )
     {
         return false;
     }
@@ -2892,7 +2936,7 @@ bool ParseCommandLine( const CommandLineView& commandLine, ParsedArgs& out )
 
     if ( out.dumpConfig )
     {
-        Cfg().Dump( stdout );
+        config.Dump( stdout );
     }
 
     PlatformProfiler::SetEnabled( out.platformProfilerMarkers );
@@ -3244,8 +3288,10 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine
         return atlasExitCode;
     }
 
+    EngineConfig& cfg = Cfg();
+
     ParsedArgs args;
-    if ( !ParseCommandLine( commandLine, args ) )
+    if ( !ParseCommandLine( commandLine, cfg, args ) )
     {
         const char* error = GetCommandLineError();
         fprintf( stderr, "FATAL: %s\n", error );
@@ -3262,7 +3308,6 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine
                  RuntimeAllocation::RuntimeAllocationGuardModeName( args.allocationGuardMode ) );
     }
 
-    EngineConfig& cfg = Cfg();
     int contactAudioSmokeExitCode = 0;
     if ( HandleContactAudioSmoke( args, cfg, contactAudioSmokeExitCode ) )
     {
