@@ -260,7 +260,7 @@ void TestRenderGraphTracksSubresourceTransitionsIndependently()
 
     Dx12RenderGraphExecutionDesc desc;
     const Dx12RenderGraphExecutionResult result = ExecuteDx12RenderGraphTransitions( graph, compiled, desc );
-    EXPECT_EQ( result.barriers.size(), static_cast<size_t>( 3 ) );
+    EXPECT_EQ( result.barrierCount, static_cast<size_t>( 3 ) );
     EXPECT_EQ( result.barriers[0].subresource, 1u );
     EXPECT_EQ( result.barriers[1].subresource, 2u );
     EXPECT_EQ( result.barriers[2].subresource, 1u );
@@ -553,7 +553,7 @@ void TestDx12RenderGraphExecutorDryRunBackbufferTransitions()
 
     const Dx12RenderGraphExecutionResult result = ExecuteDx12RenderGraphTransitions( graph, compiled, desc );
 
-    EXPECT_EQ( result.barriers.size(), static_cast<size_t>( 2 ) );
+    EXPECT_EQ( result.barrierCount, static_cast<size_t>( 2 ) );
     EXPECT_EQ( result.transitionBarrierCount, static_cast<size_t>( 2 ) );
     EXPECT_EQ( result.emittedTransitionBarrierCount, static_cast<size_t>( 0 ) );
     EXPECT_EQ( result.missingNativeResourceTransitionCount, static_cast<size_t>( 0 ) );
@@ -584,7 +584,7 @@ void TestDx12RenderGraphExecutorSkipsUnknownInitialAccess()
     const Dx12RenderGraphExecutionResult result = ExecuteDx12RenderGraphTransitions( graph, compiled, desc );
 
     EXPECT_EQ( compiled.transitions.size(), static_cast<size_t>( 0 ) );
-    EXPECT_EQ( result.barriers.size(), static_cast<size_t>( 0 ) );
+    EXPECT_EQ( result.barrierCount, static_cast<size_t>( 0 ) );
     EXPECT_EQ( result.unknownStateTransitionCount, static_cast<size_t>( 0 ) );
 }
 
@@ -603,7 +603,7 @@ void TestDx12RenderGraphExecutorIdentifiesUavAccess()
     Dx12RenderGraphExecutionDesc desc;
     const Dx12RenderGraphExecutionResult result = ExecuteDx12RenderGraphTransitions( graph, compiled, desc );
 
-    EXPECT_EQ( result.barriers.size(), static_cast<size_t>( 1 ) );
+    EXPECT_EQ( result.barrierCount, static_cast<size_t>( 1 ) );
     EXPECT_EQ( result.uavAccessTransitionCount, static_cast<size_t>( 1 ) );
     EXPECT_TRUE( result.barriers[0].requiresUavOrderingReview );
     EXPECT_TRUE( result.barriers[0].beforeState == D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE );
@@ -627,6 +627,33 @@ void TestDx12SingleTransitionRequiresCommandListForEmit()
     EXPECT_TRUE( !result.emitted );
     EXPECT_TRUE( result.beforeState == D3D12_RESOURCE_STATE_PRESENT );
     EXPECT_TRUE( result.afterState == D3D12_RESOURCE_STATE_RENDER_TARGET );
+}
+
+void TestDx12SingleTransitionExecutionProducesRecord()
+{
+    Dx12RenderGraphSingleTransitionDesc desc;
+    desc.commandList = nullptr;
+    desc.resource = reinterpret_cast<ID3D12Resource*>( static_cast<uintptr_t>( 0x4100u ) );
+    desc.before = RenderGraphResourceAccess::Present;
+    desc.after = RenderGraphResourceAccess::RenderTarget;
+    desc.subresource = 2u;
+
+    const Dx12RenderGraphBarrierRecord record =
+        ExecuteDx12RenderGraphSingleTransition( "GraphOwned", "Draw", "Backbuffer", desc );
+
+    EXPECT_EQ( record.source, std::string( "GraphOwned:Draw" ) );
+    EXPECT_EQ( record.passName, std::string( "Draw" ) );
+    EXPECT_EQ( record.resourceName, std::string( "Backbuffer" ) );
+    EXPECT_TRUE( record.nativeResource == desc.resource );
+    EXPECT_TRUE( record.beforeAccess == RenderGraphResourceAccess::Present );
+    EXPECT_TRUE( record.afterAccess == RenderGraphResourceAccess::RenderTarget );
+    EXPECT_EQ( record.subresource, 2u );
+    EXPECT_TRUE( record.hasNativeResource );
+    EXPECT_TRUE( record.hasConcreteStates );
+    EXPECT_TRUE( record.missingCommandList );
+    EXPECT_TRUE( !record.emitted );
+    EXPECT_TRUE( record.beforeState == D3D12_RESOURCE_STATE_PRESENT );
+    EXPECT_TRUE( record.afterState == D3D12_RESOURCE_STATE_RENDER_TARGET );
 }
 
 void TestDx12UavBarrierRequiresCommandListForEmit()
@@ -701,6 +728,7 @@ const TestCase kTests[] = {
     { "DX12 render graph executor skips Unknown initial access", TestDx12RenderGraphExecutorSkipsUnknownInitialAccess },
     { "DX12 render graph executor identifies UAV access", TestDx12RenderGraphExecutorIdentifiesUavAccess },
     { "DX12 single transition requires command list for emit", TestDx12SingleTransitionRequiresCommandListForEmit },
+    { "DX12 single transition execution produces record", TestDx12SingleTransitionExecutionProducesRecord },
     { "DX12 UAV barrier requires command list for emit", TestDx12UavBarrierRequiresCommandListForEmit },
     { "DX12 graph transient pool-slot reuse allows same-compile alias",
       TestDx12GraphTransientPoolSlotReuseAllowsSameCompileAlias },

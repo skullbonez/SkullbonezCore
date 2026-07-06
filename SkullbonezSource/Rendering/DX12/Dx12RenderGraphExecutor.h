@@ -65,6 +65,7 @@ struct Dx12RenderGraphBarrierRecord
     UINT subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
     bool hasConcreteStates = false;
     bool hasNativeResource = false;
+    bool missingCommandList = false;
     bool requiresUavOrderingReview = false;
     bool emitted = false;
 };
@@ -131,6 +132,10 @@ bool TryDx12RenderGraphAccessToResourceState( RenderGraphResourceAccess access, 
 std::string Dx12ResourceStateToString( D3D12_RESOURCE_STATES state );
 Dx12RenderGraphSingleTransitionResult
 EmitDx12RenderGraphTransitionBarrier( const Dx12RenderGraphSingleTransitionDesc& desc );
+Dx12RenderGraphBarrierRecord ExecuteDx12RenderGraphSingleTransition( const char* sourcePrefix,
+                                                                     const char* passName,
+                                                                     const char* resourceName,
+                                                                     const Dx12RenderGraphSingleTransitionDesc& desc );
 Dx12RenderGraphUavBarrierResult EmitDx12RenderGraphUavBarrier( const Dx12RenderGraphUavBarrierDesc& desc );
 
 Dx12RenderGraphExecutionResult ExecuteDx12RenderGraphTransitions( const RenderGraph& graph,

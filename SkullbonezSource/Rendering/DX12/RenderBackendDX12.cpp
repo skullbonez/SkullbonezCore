@@ -551,25 +551,21 @@ void RenderBackendDX12::ExecuteGraphTransition( const char* passName,
     desc.before = before;
     desc.after = after;
     desc.subresource = subresource;
-    const Dx12RenderGraphSingleTransitionResult result = EmitDx12RenderGraphTransitionBarrier( desc );
-    if ( !result.hasConcreteStates || !result.hasNativeResource || result.missingCommandList ||
-         result.skippedSameState || !result.emitted )
+    const Dx12RenderGraphBarrierRecord record =
+        ExecuteDx12RenderGraphSingleTransition( "GraphOwned", passName, resourceName, desc );
+    if ( !record.hasConcreteStates || !record.hasNativeResource || record.missingCommandList ||
+         record.beforeState == record.afterState || !record.emitted )
     {
         throw std::runtime_error( "DX12 graph-owned transition did not emit exactly one concrete barrier" );
     }
 
-    char source[64] = {};
-    snprintf( source,
-              sizeof( source ),
-              "GraphOwned:%s",
-              ( passName && passName[0] != '\0' ) ? passName : "UnnamedPass" );
-    RecordLiveBarrier( source,
-                       resourceName,
+    RecordLiveBarrier( record.source,
+                       record.resourceName,
                        resource,
                        before,
                        after,
-                       result.beforeState,
-                       result.afterState,
+                       record.beforeState,
+                       record.afterState,
                        subresource );
 }
 
