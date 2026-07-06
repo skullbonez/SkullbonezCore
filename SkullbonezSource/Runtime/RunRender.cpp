@@ -1760,28 +1760,29 @@ void RuntimeRenderer::RenderUiText( Rendering::IRenderDiagnostics& renderDiagnos
 }
 
 
-RuntimeRenderModelFrameView Run::BuildRuntimeRenderModelFrameView()
+RuntimeRenderModelFrameView
+RuntimeRenderer::BuildModelFrameView( SkullbonezCore::GameObjects::GameModelCollection& models ) const
 {
-    PhysicsEngine& physics = m_cGameModelCollection.GetPhysicsEngine();
-    return RuntimeRenderModelFrameView{ m_cGameModelCollection.RenderInstances(),
-                                        m_cGameModelCollection.Colliders(),
-                                        m_cGameModelCollection.GetPhysicsEngine().BodyStore(),
+    PhysicsEngine& physics = models.GetPhysicsEngine();
+    return RuntimeRenderModelFrameView{ models.RenderInstances(),
+                                        models.Colliders(),
+                                        physics.BodyStore(),
                                         physics,
-                                        m_cGameModelCollection.RenderPresentationRecords(),
-                                        m_cGameModelCollection.GetCollisionVisualContacts(),
-                                        m_cGameModelCollection.GetSleepStates(),
-                                        m_cGameModelCollection.GetSleepIslandVisualIds(),
-                                        m_cGameModelCollection.GetSleepSupportedStates(),
-                                        m_cGameModelCollection.GetSleepInhibitedStates(),
-                                        m_cGameModelCollection.GetPhysicsDebugContacts(),
-                                        m_cGameModelCollection.GetPhysicsPipelineTrace(),
-                                        m_cGameModelCollection.RenderWorkerPool(),
-                                        m_cGameModelCollection.SceneEntityCount(),
-                                        m_cGameModelCollection.ShouldRenderCollisionVolumes(),
-                                        m_cGameModelCollection.ShouldUseShadowParallelPrep(),
-                                        m_cGameModelCollection.GetSceneKineticEnergy(),
-                                        m_cGameModelCollection.GetTornadoSystemElapsedSeconds(),
-                                        m_cGameModelCollection.CollectMemoryStats() };
+                                        models.RenderPresentationRecords(),
+                                        models.GetCollisionVisualContacts(),
+                                        models.GetSleepStates(),
+                                        models.GetSleepIslandVisualIds(),
+                                        models.GetSleepSupportedStates(),
+                                        models.GetSleepInhibitedStates(),
+                                        models.GetPhysicsDebugContacts(),
+                                        models.GetPhysicsPipelineTrace(),
+                                        models.RenderWorkerPool(),
+                                        models.SceneEntityCount(),
+                                        models.ShouldRenderCollisionVolumes(),
+                                        models.ShouldUseShadowParallelPrep(),
+                                        models.GetSceneKineticEnergy(),
+                                        models.GetTornadoSystemElapsedSeconds(),
+                                        models.CollectMemoryStats() };
 }
 
 

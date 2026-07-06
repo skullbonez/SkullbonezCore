@@ -623,7 +623,7 @@ void Run::Execute()
                 PROFILE_END( "Frame/PipelineSync" );
             }
 
-            RuntimeRenderModelFrameView renderModels = BuildRuntimeRenderModelFrameView();
+            RuntimeRenderModelFrameView renderModels = m_renderer.BuildModelFrameView( m_cGameModelCollection );
 
             PROFILE_BEGIN( "Frame/Render" );
             {

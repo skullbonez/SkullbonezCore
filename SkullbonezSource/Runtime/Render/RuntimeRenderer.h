@@ -41,6 +41,10 @@ Related:
 
 namespace SkullbonezCore
 {
+namespace GameObjects
+{
+class GameModelCollection;
+}
 namespace Basics
 {
 class RuntimeRenderer
@@ -52,6 +56,8 @@ class RuntimeRenderer
                      void* callbackUser );
 
     void EnsureFrameResources( const RenderResourceContext& resources );
+    // Packages model-owned render/debug views before the frame passes consume them.
+    RuntimeRenderModelFrameView BuildModelFrameView( GameObjects::GameModelCollection& models ) const;
     void RenderFrame( const RuntimeRenderInputs& renderInputs );
     void ReleaseBackendOwnedResources( Rendering::IRenderResourceFactory* renderResources );
 

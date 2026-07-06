@@ -153,8 +153,6 @@ class Run
     inline static int sPerfPass = 0;
     void Render( const RuntimeRenderModelFrameView&
                      renderModels );                                       // Skips 3D in text-only runs, then records passes for the current camera state.
-    RuntimeRenderModelFrameView
-    BuildRuntimeRenderModelFrameView();                                    // Packages model-owned render/debug views for this frame.
     RunSceneState& SceneState();                                           // Mutable scene-run state owned by SceneController
     const RunSceneState& SceneState() const;                               // Read-only scene-run state owned by SceneController
     void BindEngineContext();                                              // Binds runtime-owned systems into EngineContext
