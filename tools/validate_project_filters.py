@@ -172,6 +172,7 @@ WORLD_PREFIXES = (
 )
 
 RUNTIME_PREFIXES = (
+    "AttachedCameraController",
     "Camera",
     "CameraCollection",
     "CaptureController",

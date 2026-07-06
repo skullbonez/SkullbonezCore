@@ -244,6 +244,9 @@
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneRuntimeUiOptions.cpp">
       <Filter>Source Files\Runtime\Scene</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\AttachedCameraController.cpp">
+      <Filter>Source Files\Runtime</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\SimulationController.cpp">
       <Filter>Source Files\Runtime</Filter>
     </ClCompile>
@@ -1078,6 +1081,9 @@
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Allocation\RuntimeAllocationTracker.h">
       <Filter>Header Files\Runtime\Allocation</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\AttachedCameraController.h">
+      <Filter>Header Files\Runtime</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\CaptureController.h">
       <Filter>Header Files\Runtime</Filter>

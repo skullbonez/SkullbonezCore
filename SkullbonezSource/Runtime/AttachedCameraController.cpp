@@ -1,0 +1,542 @@
+/*
+File: SkullbonezSource/Runtime/AttachedCameraController.cpp
+Purpose:
+  Implements attach-camera target recovery and pose solving.
+
+Mental model:
+  The controller is a pure state transformer over attach-camera state, physics
+  target snapshots, and the current camera pose. It repairs stale target handles,
+  maintains orbit state, and emits a pose command; Run remains the owner of
+  camera collection mutation and UI/input latches.
+
+Glossary:
+  Replay body id: Stable physics identity used to recover a followed body when
+    dense model rows are rebuilt.
+  Ragdoll eyes: Attach submode that places the camera near a resolved head body
+    and looks along that body's forward axis.
+  Orbit wheel: Mouse-wheel zoom applied to attach orbit distance.
+
+Invariants:
+  - Duplicate replay ids invalidate the target instead of selecting an
+    arbitrary body.
+  - Orbit pitch and distance are clamped before producing a camera pose.
+  - Invalid or degenerate pose math fails closed without changing the camera.
+
+Related:
+  - SkullbonezSource/Runtime/AttachedCameraController.h
+  - SkullbonezSource/Runtime/RunInput.cpp
+*/
+#include "AttachedCameraController.h"
+#include "../GameObjects/GameModelCollection.h"
+#include "../Physics/ColliderStore.h"
+#include "../Physics/PhysicsBodyStore.h"
+#include "../Physics/PhysicsEngine.h"
+
+#include <algorithm>
+#include <cmath>
+#include <cstddef>
+#include <cstring>
+
+using namespace SkullbonezCore::GameObjects;
+using namespace SkullbonezCore::Math::Orientation;
+using namespace SkullbonezCore::Math::Transformation;
+using namespace SkullbonezCore::Math::Vector;
+using namespace SkullbonezCore::Physics;
+
+namespace SkullbonezCore
+{
+namespace Basics
+{
+namespace
+{
+constexpr int ATTACHED_CAMERA_WHEEL_DELTA = 120;
+constexpr float ATTACHED_CAMERA_ORBIT_DEFAULT_PITCH = 0.30f;
+constexpr float ATTACHED_CAMERA_ORBIT_MOUSE_PITCH_MIN = -1.35f;
+constexpr float ATTACHED_CAMERA_ORBIT_MOUSE_PITCH_MAX = 1.35f;
+constexpr float ATTACHED_CAMERA_ORBIT_MIN_DISTANCE_RADIUS = 1.25f;
+constexpr float ATTACHED_CAMERA_ORBIT_MAX_DISTANCE_RADIUS = 40.0f;
+constexpr float ATTACHED_CAMERA_ORBIT_WHEEL_FACTOR = 0.88f;
+
+bool IsFiniteVector( const Vector3& v )
+{
+    return std::isfinite( v.x ) && std::isfinite( v.y ) && std::isfinite( v.z );
+}
+
+
+bool TryNormalizeVector( Vector3& v )
+{
+    // Hazard: attachment and replay camera targets can briefly collapse to a
+    // zero-length vector after a reset or stale body recovery. Callers must use
+    // a fallback instead of feeding NaNs into camera matrices.
+    if ( !IsFiniteVector( v ) )
+    {
+        return false;
+    }
+    const float lengthSq = VectorMagSquared( v );
+    if ( lengthSq <= TOLERANCE * TOLERANCE )
+    {
+        return false;
+    }
+    v *= 1.0f / sqrtf( lengthSq );
+    return true;
+}
+
+
+Vector3 NormalizedOr( Vector3 v, const Vector3& fallback )
+{
+    if ( TryNormalizeVector( v ) )
+    {
+        return v;
+    }
+    Vector3 safeFallback = fallback;
+    if ( TryNormalizeVector( safeFallback ) )
+    {
+        return safeFallback;
+    }
+    return Vector3( 0.0f, 1.0f, 0.0f );
+}
+
+
+RotationMatrix BodyRotation( Quaternion orientation )
+{
+    return orientation.GetOrientationMatrix();
+}
+
+
+Vector3 TargetToWorldVector( const RotationMatrix& rotation, const Vector3& localVector )
+{
+    return rotation * localVector;
+}
+
+
+Vector3 WorldToTargetVector( const RotationMatrix& rotation, const Vector3& worldVector )
+{
+    return rotation.TransposeMultiply( worldVector );
+}
+
+
+float AttachedCameraTargetRadius( const PhysicsBodyRecord& body, const ColliderRecord& collider )
+{
+    return (std::max)( (std::max)( collider.boundingRadius, body.boundingRadius ), 1.0f );
+}
+
+
+const char* PresentationNameForModelIndex( const GameModelCollection& collection, int modelIndex )
+{
+    const auto& presentationRecords = collection.RenderPresentationRecords();
+    if ( modelIndex < 0 || modelIndex >= static_cast<int>( presentationRecords.size() ) )
+    {
+        return "";
+    }
+    return presentationRecords[static_cast<std::size_t>( modelIndex )].displayName;
+}
+
+
+bool EndsWith( const char* value, const char* suffix )
+{
+    if ( !value || !suffix )
+    {
+        return false;
+    }
+    const size_t valueLength = strlen( value );
+    const size_t suffixLength = strlen( suffix );
+    return valueLength >= suffixLength && strcmp( value + valueLength - suffixLength, suffix ) == 0;
+}
+
+
+float WrapAttachedCameraOrbitYaw( float yaw )
+{
+    while ( yaw > _PI )
+    {
+        yaw -= _2PI;
+    }
+    while ( yaw < -_PI )
+    {
+        yaw += _2PI;
+    }
+    return yaw;
+}
+
+
+float AttachedCameraOrbitMinDistance( float targetRadius )
+{
+    return (std::max)( 1.0f, targetRadius * ATTACHED_CAMERA_ORBIT_MIN_DISTANCE_RADIUS );
+}
+
+
+float AttachedCameraOrbitMaxDistance( float targetRadius )
+{
+    const float minDistance = AttachedCameraOrbitMinDistance( targetRadius );
+    return (std::max)( minDistance + 1.0f, targetRadius * ATTACHED_CAMERA_ORBIT_MAX_DISTANCE_RADIUS );
+}
+
+
+float ClampAttachedCameraOrbitDistance( float targetRadius, float distance )
+{
+    if ( !std::isfinite( distance ) )
+    {
+        distance = targetRadius * 8.0f;
+    }
+    return std::clamp( distance,
+                       AttachedCameraOrbitMinDistance( targetRadius ),
+                       AttachedCameraOrbitMaxDistance( targetRadius ) );
+}
+
+
+float ClampAttachedCameraOrbitPitch( float pitch )
+{
+    if ( !std::isfinite( pitch ) )
+    {
+        return ATTACHED_CAMERA_ORBIT_DEFAULT_PITCH;
+    }
+    return std::clamp( pitch, ATTACHED_CAMERA_ORBIT_MOUSE_PITCH_MIN, ATTACHED_CAMERA_ORBIT_MOUSE_PITCH_MAX );
+}
+
+
+Vector3 AttachedCameraOrbitOffset( float yaw, float pitch, float distance )
+{
+    const float cosPitch = cosf( pitch );
+    return Vector3( sinf( yaw ) * cosPitch * distance, sinf( pitch ) * distance, cosf( yaw ) * cosPitch * distance );
+}
+} // namespace
+
+
+void AttachedCameraController::ClearTarget( AttachedCameraState& state )
+{
+    state.target = AttachedCameraTarget{};
+    state.hasFixedOffset = false;
+    state.hasOrbit = false;
+    state.hasLastLookDirection = false;
+}
+
+
+bool AttachedCameraController::TryAttachTargetHandlesFromModelIndex( const GameModelCollection& collection,
+                                                                     int modelIndex,
+                                                                     AttachedCameraTarget& target )
+{
+    const PhysicsBodyStore& bodyStore = collection.GetPhysicsEngine().BodyStore();
+    const ColliderStore& colliderStore = collection.GetPhysicsEngine().Colliders();
+    const PhysicsBodyRecord* body = bodyStore.RecordForModelIndex( modelIndex );
+    const ColliderRecord* collider =
+        body ? colliderStore.RecordForHandle( colliderStore.HandleForBodyHandle( body->handle ) ) : nullptr;
+    if ( !body || !collider || collider->body != body->handle )
+    {
+        return false;
+    }
+
+    target.body = body->handle;
+    target.collider = collider->handle;
+    target.modelIndex = modelIndex;
+    target.replayBodyId = body->replayBodyId;
+    return true;
+}
+
+
+bool AttachedCameraController::TryResolveTargetIdentity( const GameModelCollection& collection,
+                                                         AttachedCameraTarget& target,
+                                                         int& outModelIndex )
+{
+    outModelIndex = -1;
+    const PhysicsBodyStore& bodyStore = collection.GetPhysicsEngine().BodyStore();
+    const ColliderStore& colliderStore = collection.GetPhysicsEngine().Colliders();
+
+    if ( target.body.IsValid() )
+    {
+        const PhysicsBodyRecord* body = bodyStore.RecordForHandle( target.body );
+        const int modelIndex = bodyStore.ModelIndexForHandle( target.body );
+        const ColliderRecord* collider =
+            target.collider.IsValid() ? colliderStore.RecordForHandle( target.collider ) : nullptr;
+        if ( body && modelIndex >= 0 && ( !collider || collider->body != body->handle ) )
+        {
+            const PhysicsColliderHandle colliderHandle = colliderStore.HandleForBodyHandle( body->handle );
+            collider = colliderStore.RecordForHandle( colliderHandle );
+            if ( collider )
+            {
+                target.collider = collider->handle;
+            }
+        }
+        if ( body && collider && collider->body == body->handle )
+        {
+            // Concept: the attach camera follows physics identity, not vector
+            // order. Model index is kept as a presentation hint after the live
+            // handle proves which dense row currently owns the body.
+            target.body = body->handle;
+            target.modelIndex = modelIndex;
+            target.replayBodyId = body->replayBodyId;
+            outModelIndex = modelIndex;
+            return true;
+        }
+    }
+
+    const int modelCount = bodyStore.Count();
+    const int cachedIndex = target.modelIndex;
+    if ( cachedIndex >= 0 && cachedIndex < modelCount )
+    {
+        const bool hasReplayId = target.replayBodyId != 0;
+        bool cachedIndexMatches = true;
+        if ( hasReplayId )
+        {
+            const PhysicsBodyRecord* cachedBody = bodyStore.RecordForModelIndex( cachedIndex );
+            cachedIndexMatches = cachedBody && cachedBody->replayBodyId == target.replayBodyId;
+        }
+        if ( cachedIndexMatches && TryAttachTargetHandlesFromModelIndex( collection, cachedIndex, target ) )
+        {
+            outModelIndex = cachedIndex;
+            return true;
+        }
+    }
+
+    if ( target.replayBodyId != 0 )
+    {
+        int match = -1;
+        const auto& bodyRecords = bodyStore.Records();
+        // Invariant: duplicate replay ids are corruption, not an arbitrary
+        // first match. Scan the dense body rows so stale camera targets fail
+        // closed without touching authoring/presentation data.
+        for ( int i = 0; i < static_cast<int>( bodyRecords.size() ); ++i )
+        {
+            if ( bodyRecords[static_cast<std::size_t>( i )].replayBodyId == target.replayBodyId )
+            {
+                if ( match >= 0 )
+                {
+                    target = AttachedCameraTarget{};
+                    return false;
+                }
+                match = i;
+            }
+        }
+        if ( match >= 0 && TryAttachTargetHandlesFromModelIndex( collection, match, target ) )
+        {
+            outModelIndex = match;
+            return true;
+        }
+    }
+
+    target = AttachedCameraTarget{};
+    return false;
+}
+
+
+bool AttachedCameraController::TryResolvePhysicsTarget( const GameModelCollection& collection,
+                                                        AttachedCameraTarget& target,
+                                                        AttachedCameraPhysicsTarget& outTarget,
+                                                        int* outModelIndex )
+{
+    int modelIndex = -1;
+    if ( !TryResolveTargetIdentity( collection, target, modelIndex ) )
+    {
+        return false;
+    }
+    if ( outModelIndex )
+    {
+        *outModelIndex = modelIndex;
+    }
+
+    const PhysicsBodyStore& bodyStore = collection.GetPhysicsEngine().BodyStore();
+    const ColliderStore& colliderStore = collection.GetPhysicsEngine().Colliders();
+    const PhysicsBodyRecord* body = bodyStore.RecordForHandle( target.body );
+    const ColliderRecord* collider = colliderStore.RecordForHandle( target.collider );
+    if ( !body || !collider || collider->body != body->handle )
+    {
+        return false;
+    }
+
+    outTarget.position = body->position;
+    outTarget.linearVelocity = body->linearVelocity;
+    outTarget.rotation = BodyRotation( body->orientation );
+    outTarget.radius = AttachedCameraTargetRadius( *body, *collider );
+    return true;
+}
+
+
+bool AttachedCameraController::TryResolveRagdollHead( const GameModelCollection& collection,
+                                                      int selectedModelIndex,
+                                                      int& outHeadModelIndex )
+{
+    outHeadModelIndex = -1;
+    const int modelCount = collection.GetPhysicsEngine().BodyStore().Count();
+    if ( selectedModelIndex < 0 || selectedModelIndex >= modelCount )
+    {
+        return false;
+    }
+
+    if ( !collection.IsSimpleRagdollPart( selectedModelIndex ) )
+    {
+        return false;
+    }
+
+    if ( collection.TryFindSimpleRagdollPart( selectedModelIndex, 1, outHeadModelIndex ) )
+    {
+        return true;
+    }
+
+    const int rootModelIndex = collection.GroupRootModelIndexAt( selectedModelIndex );
+    for ( int i = 0; i < modelCount; ++i )
+    {
+        if ( collection.IsSimpleRagdollPart( i ) && collection.GroupRootModelIndexAt( i ) == rootModelIndex &&
+             EndsWith( PresentationNameForModelIndex( collection, i ), "_head" ) )
+        {
+            outHeadModelIndex = i;
+            return true;
+        }
+    }
+    return false;
+}
+
+
+void AttachedCameraController::CaptureFixedOffset( AttachedCameraState& state,
+                                                   const AttachedCameraPose& currentPose,
+                                                   const AttachedCameraPhysicsTarget& target )
+{
+    state.localEyeOffset = WorldToTargetVector( target.rotation, currentPose.eye - target.position );
+    state.localViewOffset = WorldToTargetVector( target.rotation, currentPose.view - target.position );
+    state.localUp = NormalizedOr( WorldToTargetVector( target.rotation, currentPose.up ), Vector3( 0.0f, 1.0f, 0.0f ) );
+    Vector3 look = currentPose.view - currentPose.eye;
+    if ( TryNormalizeVector( look ) )
+    {
+        state.lastLookDirection = look;
+        state.hasLastLookDirection = true;
+    }
+    state.hasFixedOffset = true;
+    CaptureOrbit( state, currentPose, target );
+}
+
+
+void AttachedCameraController::CaptureOrbit( AttachedCameraState& state,
+                                             const AttachedCameraPose& currentPose,
+                                             const AttachedCameraPhysicsTarget& target )
+{
+    Vector3 offset = currentPose.eye - target.position;
+    float distance = sqrtf( VectorMagSquared( offset ) );
+    if ( !std::isfinite( distance ) || distance < AttachedCameraOrbitMinDistance( target.radius ) )
+    {
+        Vector3 look = currentPose.view - currentPose.eye;
+        if ( !TryNormalizeVector( look ) )
+        {
+            look = Vector3( 0.0f, 0.0f, 1.0f );
+        }
+        distance = target.radius * 8.0f;
+        offset = -look * distance;
+    }
+
+    const float pitchDistance = (std::max)( distance, 0.001f );
+    const float normalizedY = std::clamp( offset.y / pitchDistance, -1.0f, 1.0f );
+    state.orbitDistance = ClampAttachedCameraOrbitDistance( target.radius, distance );
+    state.orbitPitchRadians = ClampAttachedCameraOrbitPitch( asinf( normalizedY ) );
+    state.orbitYawRadians = WrapAttachedCameraOrbitYaw( atan2f( offset.x, offset.z ) );
+    state.hasOrbit = true;
+}
+
+
+bool AttachedCameraController::ApplyOrbitWheel( AttachedCameraState& state,
+                                                const AttachedCameraPhysicsTarget& target,
+                                                int unhandledWheelDelta )
+{
+    const int wheelSteps = unhandledWheelDelta / ATTACHED_CAMERA_WHEEL_DELTA;
+    if ( wheelSteps == 0 )
+    {
+        return false;
+    }
+
+    const float nextDistance =
+        state.orbitDistance * powf( ATTACHED_CAMERA_ORBIT_WHEEL_FACTOR, static_cast<float>( wheelSteps ) );
+    state.orbitDistance = ClampAttachedCameraOrbitDistance( target.radius, nextDistance );
+    state.hasOrbit = true;
+    return true;
+}
+
+
+bool AttachedCameraController::BuildFollowPose( const GameModelCollection& collection,
+                                                AttachedCameraState& state,
+                                                const AttachedCameraPhysicsTarget& target,
+                                                int modelIndex,
+                                                const AttachedCameraPose& currentPose,
+                                                float orbitYawDelta,
+                                                float orbitPitchDelta,
+                                                AttachedCameraPoseCommand& outCommand )
+{
+    if ( state.submode == AttachedCameraSubmode::RagdollEyes )
+    {
+        int headIndex = -1;
+        if ( TryResolveRagdollHead( collection, modelIndex, headIndex ) )
+        {
+            AttachedCameraPhysicsTarget headState;
+            AttachedCameraTarget headTarget;
+            if ( !TryAttachTargetHandlesFromModelIndex( collection, headIndex, headTarget ) ||
+                 !TryResolvePhysicsTarget( collection, headTarget, headState ) )
+            {
+                return false;
+            }
+
+            const float radius = (std::max)( 0.5f, headState.radius );
+            const Vector3 eye =
+                headState.position +
+                TargetToWorldVector( headState.rotation, Vector3( 0.0f, 0.20f * radius, 0.85f * radius ) );
+            const Vector3 forward =
+                NormalizedOr( TargetToWorldVector( headState.rotation, Vector3( 0.0f, 0.0f, 1.0f ) ),
+                              Vector3( 0.0f, 0.0f, 1.0f ) );
+            const Vector3 up = NormalizedOr( TargetToWorldVector( headState.rotation, Vector3( 0.0f, 1.0f, 0.0f ) ),
+                                             Vector3( 0.0f, 1.0f, 0.0f ) );
+            outCommand.pose.eye = eye;
+            outCommand.pose.view = eye + forward;
+            outCommand.pose.up = up;
+            outCommand.startEntryTween = state.needsEntryTween;
+            state.needsEntryTween = false;
+            state.lastLookDirection = forward;
+            state.hasLastLookDirection = true;
+            return true;
+        }
+
+        state.submode = AttachedCameraSubmode::FixedRelative;
+    }
+
+    if ( !state.hasOrbit )
+    {
+        CaptureOrbit( state, currentPose, target );
+    }
+
+    if ( orbitYawDelta != 0.0f || orbitPitchDelta != 0.0f )
+    {
+        state.orbitYawRadians = WrapAttachedCameraOrbitYaw( state.orbitYawRadians + orbitYawDelta );
+        state.orbitPitchRadians = ClampAttachedCameraOrbitPitch( state.orbitPitchRadians + orbitPitchDelta );
+    }
+
+    state.orbitDistance = ClampAttachedCameraOrbitDistance( target.radius, state.orbitDistance );
+
+    const Vector3 targetPosition = target.position;
+    const Vector3 eye =
+        targetPosition +
+        AttachedCameraOrbitOffset( state.orbitYawRadians, state.orbitPitchRadians, state.orbitDistance );
+    Vector3 view = targetPosition;
+    Vector3 up = Vector3( 0.0f, 1.0f, 0.0f );
+    if ( state.submode == AttachedCameraSubmode::VelocityForward )
+    {
+        Vector3 direction = target.linearVelocity;
+        if ( !TryNormalizeVector( direction ) )
+        {
+            direction = state.hasLastLookDirection ? state.lastLookDirection : currentPose.view - currentPose.eye;
+            if ( !TryNormalizeVector( direction ) )
+            {
+                direction = NormalizedOr( view - eye, Vector3( 0.0f, 0.0f, 1.0f ) );
+            }
+        }
+        view = targetPosition + direction * (std::max)( target.radius, state.orbitDistance * 0.25f );
+        state.lastLookDirection = direction;
+        state.hasLastLookDirection = true;
+    }
+
+    if ( !IsFiniteVector( eye ) || !IsFiniteVector( view ) || !IsFiniteVector( up ) ||
+         VectorMagSquared( view - eye ) <= TOLERANCE * TOLERANCE )
+    {
+        return false;
+    }
+
+    outCommand.pose.eye = eye;
+    outCommand.pose.view = view;
+    outCommand.pose.up = up;
+    outCommand.startEntryTween = state.needsEntryTween;
+    state.needsEntryTween = false;
+    return true;
+}
+} // namespace Basics
+} // namespace SkullbonezCore
