@@ -708,8 +708,8 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
     const RenderInstanceHandle renderHandleA = renderStore.HandleForModelIndex( 0 );
     const bool handlesMatchStores = bodyA.IsValid() && bodyB.IsValid() && bodyARecord && bodyBRecord &&
                                     bodyARecord->handle == bodyA && bodyBRecord->handle == bodyB &&
-                                    colliderStore.HandleForModelIndex( 0 ).IsValid() &&
-                                    colliderStore.HandleForModelIndex( 1 ).IsValid();
+                                    colliderStore.HandleForBodyHandle( bodyA ).IsValid() &&
+                                    colliderStore.HandleForBodyHandle( bodyB ).IsValid();
     const bool renderMirrorMatches = bodyARecord && renderStore.Count() == 2 && renderHandleA.IsValid() &&
                                      renderStore.ModelIndexForHandle( renderHandleA ) == 0 &&
                                      !renderStore.Records().empty() &&

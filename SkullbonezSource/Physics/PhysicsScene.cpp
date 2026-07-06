@@ -277,7 +277,7 @@ void PhysicsScene::ValidatePhysicsStoreMappings( int modelCount ) const
         const PhysicsBodyRecord& body = bodies[index];
         const ColliderRecord& collider = colliders[index];
         const PhysicsBodyHandle bodyHandle = m_bodyStore.HandleForModelIndex( i );
-        const PhysicsColliderHandle colliderHandle = m_colliderStore.HandleForModelIndex( i );
+        const PhysicsColliderHandle colliderHandle = m_colliderStore.HandleForBodyHandle( bodyHandle );
 
         assert( bodyHandle.IsValid() );
         assert( colliderHandle.IsValid() );

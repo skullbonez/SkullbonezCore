@@ -102,6 +102,14 @@ class ColliderStore
     int Count() const;
     bool Empty() const;
     PhysicsColliderHandle HandleForModelIndex( int modelIndex ) const;
+    // Resolves collider identity through physics-owned body identity. The scan is
+    // for cold tools, replay overlays, and save paths that already hold a body
+    // handle and should not promote the model-index hint back to authority.
+    PhysicsColliderHandle HandleForBodyHandle( PhysicsBodyHandle body ) const;
+    // Scene/replay restore can know only the stable scene object id. Keep that
+    // lookup explicit so callers do not invent a model slot just to reach the
+    // collider row.
+    PhysicsColliderHandle HandleForSceneObjectId( PhysicsSceneObjectId sceneObjectId ) const;
     int ModelIndexForHandle( PhysicsColliderHandle handle ) const;
     bool Contains( PhysicsColliderHandle handle ) const;
     const ColliderRecordList& Records() const;

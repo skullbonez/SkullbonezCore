@@ -177,8 +177,8 @@ bool TryAttachCameraTargetHandlesFromModelIndex( SkullbonezCore::GameObjects::Ga
     const PhysicsBodyStore& bodyStore = collection.GetPhysicsBodyStore();
     const ColliderStore& colliderStore = collection.GetColliderStore();
     const PhysicsBodyRecord* body = bodyStore.RecordForModelIndex( modelIndex );
-    const PhysicsColliderHandle colliderHandle = colliderStore.HandleForModelIndex( modelIndex );
-    const ColliderRecord* collider = colliderStore.RecordForHandle( colliderHandle );
+    const ColliderRecord* collider =
+        body ? colliderStore.RecordForHandle( colliderStore.HandleForBodyHandle( body->handle ) ) : nullptr;
     if ( !body || !collider || collider->body != body->handle )
     {
         return false;
@@ -207,7 +207,7 @@ bool TryResolveAttachedCameraTargetIdentity( SkullbonezCore::GameObjects::GameMo
             target.collider.IsValid() ? colliderStore.RecordForHandle( target.collider ) : nullptr;
         if ( body && modelIndex >= 0 && ( !collider || collider->body != body->handle ) )
         {
-            const PhysicsColliderHandle colliderHandle = colliderStore.HandleForModelIndex( modelIndex );
+            const PhysicsColliderHandle colliderHandle = colliderStore.HandleForBodyHandle( body->handle );
             collider = colliderStore.RecordForHandle( colliderHandle );
             if ( collider )
             {

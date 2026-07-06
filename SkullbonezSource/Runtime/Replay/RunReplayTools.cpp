@@ -115,6 +115,9 @@ Vector3 EditorAxisVector( int axis )
 // on the live store row instead of forcing a GameModel mirror refresh.
 bool TryReplayColliderRadiusForModelIndex( const ColliderStore& colliderStore, int modelIndex, float& outRadius )
 {
+    // Why: retained replay rows may only carry a model-index sample. This helper
+    // is a display-radius fallback; live target markers resolve collider rows
+    // through PhysicsBodyHandle before drawing authored shapes.
     const PhysicsColliderHandle colliderHandle = colliderStore.HandleForModelIndex( modelIndex );
     const ColliderRecord* collider = colliderStore.RecordForHandle( colliderHandle );
     if ( !collider || colliderStore.ModelIndexForHandle( colliderHandle ) != modelIndex )
@@ -181,7 +184,7 @@ bool TryAddReplayTargetMarkerFromStores( RunEditorTracer& tracer,
                                          int modelIndex )
 {
     const PhysicsBodyHandle bodyHandle = bodyStore.HandleForModelIndex( modelIndex );
-    const PhysicsColliderHandle colliderHandle = colliderStore.HandleForModelIndex( modelIndex );
+    const PhysicsColliderHandle colliderHandle = colliderStore.HandleForBodyHandle( bodyHandle );
     const PhysicsBodyRecord* body = bodyStore.RecordForHandle( bodyHandle );
     const ColliderRecord* collider = colliderStore.RecordForHandle( colliderHandle );
     if ( !body || !collider || bodyStore.ModelIndexForHandle( bodyHandle ) != modelIndex ||

@@ -673,7 +673,7 @@ bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
     outResult.placedBody = lastPlacedBody;
     if ( placed && lastPlacedModelIndex >= 0 )
     {
-        outResult.placedCollider = context.models.GetColliderStore().HandleForModelIndex( lastPlacedModelIndex );
+        outResult.placedCollider = context.models.GetColliderStore().HandleForBodyHandle( lastPlacedBody );
     }
     outResult.objectType = type;
     outResult.fixedObject = fixedObject;

@@ -270,7 +270,8 @@ bool SceneSnapshotWriter::Save( GameModelCollection& collection,
         // Live physics values must come from the stores so saving does not need
         // the post-step GameModel mirror to be fresh.
         const PhysicsBodyRecord* body = bodyStore.RecordForModelIndex( i );
-        const ColliderRecord* collider = colliderStore.RecordForHandle( colliderStore.HandleForModelIndex( i ) );
+        const ColliderRecord* collider =
+            body ? colliderStore.RecordForHandle( colliderStore.HandleForBodyHandle( body->handle ) ) : nullptr;
         if ( !body || !collider || collider->body != body->handle )
         {
             continue;

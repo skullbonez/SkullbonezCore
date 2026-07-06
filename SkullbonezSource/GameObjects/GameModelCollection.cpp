@@ -1345,7 +1345,7 @@ bool GameModelCollection::ApplyPhysicsBodyColliderEdit( int modelIndex,
     colliderDesc.body = bodyRecord->handle;
     colliderDesc.sceneObjectId = bodyRecord->sceneObjectId;
     ApplyCollectionPhysicsMaterialToColliderDesc( colliderDesc, m_physicsMaterial );
-    const PhysicsColliderHandle collider = m_physicsEngine.Colliders().HandleForModelIndex( modelIndex );
+    const PhysicsColliderHandle collider = m_physicsEngine.Colliders().HandleForBodyHandle( bodyRecord->handle );
     const ColliderRecord* existingCollider = m_physicsEngine.Colliders().RecordForHandle( collider );
     if ( colliderDesc.contactMaterialName[0] == '\0' && existingCollider &&
          existingCollider->contactMaterialName[0] != '\0' )

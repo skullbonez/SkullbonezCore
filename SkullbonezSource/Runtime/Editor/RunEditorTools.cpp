@@ -522,10 +522,11 @@ bool TryResolveEditorBodyCollider( const PhysicsBodyStore& bodyStore,
                                    const PhysicsBodyRecord*& outBody,
                                    const ColliderRecord*& outCollider )
 {
+    const PhysicsBodyHandle bodyHandle = bodyStore.HandleForModelIndex( modelIndex );
     return TryResolveEditorBodyCollider( bodyStore,
                                          colliderStore,
-                                         bodyStore.HandleForModelIndex( modelIndex ),
-                                         colliderStore.HandleForModelIndex( modelIndex ),
+                                         bodyHandle,
+                                         colliderStore.HandleForBodyHandle( bodyHandle ),
                                          modelIndex,
                                          outBody,
                                          outCollider );
@@ -565,7 +566,7 @@ bool TryGetEditorSelectionFrame( const GameModelCollection& collection,
         const PhysicsBodyHandle bodyHandle =
             selectedMember ? selectedBodyHandle : bodyStore.HandleForModelIndex( modelIndex );
         const PhysicsColliderHandle colliderHandle =
-            selectedMember ? selectedColliderHandle : colliderStore.HandleForModelIndex( modelIndex );
+            selectedMember ? selectedColliderHandle : colliderStore.HandleForBodyHandle( bodyHandle );
         if ( !TryResolveEditorBodyCollider( bodyStore,
                                             colliderStore,
                                             bodyHandle,
@@ -635,7 +636,7 @@ bool TryTraceEditorSelectionOverlayFromStores( const GameModelCollection& collec
         const PhysicsBodyHandle bodyHandle =
             selectedMember ? selectedBodyHandle : bodyStore.HandleForModelIndex( modelIndex );
         const PhysicsColliderHandle colliderHandle =
-            selectedMember ? selectedColliderHandle : colliderStore.HandleForModelIndex( modelIndex );
+            selectedMember ? selectedColliderHandle : colliderStore.HandleForBodyHandle( bodyHandle );
         if ( !TryResolveEditorBodyCollider( bodyStore,
                                             colliderStore,
                                             bodyHandle,

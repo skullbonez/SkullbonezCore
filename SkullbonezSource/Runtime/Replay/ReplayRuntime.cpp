@@ -370,6 +370,9 @@ float ReplayRuntimeColliderRadius( const ColliderRecord& collider )
 
 float ReplayRuntimeColliderRadiusForModelIndex( const ColliderStore& colliderStore, int modelIndex )
 {
+    // Why: prediction and scrub samples can outlive the exact live body handle.
+    // Treat modelIndex as a replay-sample hint for a display radius only; live
+    // body-backed callers use ReplayRuntimeColliderRadiusForBody above.
     const Physics::PhysicsColliderHandle colliderHandle = colliderStore.HandleForModelIndex( modelIndex );
     if ( const ColliderRecord* collider = colliderStore.RecordForHandle( colliderHandle ) )
     {
@@ -388,12 +391,10 @@ float ReplayRuntimeColliderRadiusForBody( const ColliderStore& colliderStore,
                                           const PhysicsBodyRecord& body,
                                           int fallbackModelIndex )
 {
-    for ( const ColliderRecord& collider : colliderStore.Records() )
+    const Physics::PhysicsColliderHandle colliderHandle = colliderStore.HandleForBodyHandle( body.handle );
+    if ( const ColliderRecord* collider = colliderStore.RecordForHandle( colliderHandle ) )
     {
-        if ( collider.body == body.handle )
-        {
-            return ReplayRuntimeColliderRadius( collider );
-        }
+        return ReplayRuntimeColliderRadius( *collider );
     }
     return ReplayRuntimeColliderRadiusForModelIndex( colliderStore, fallbackModelIndex );
 }
@@ -1447,7 +1448,12 @@ bool ReplayRuntime::ResolveCauseTreeBodyPosition( ReplayBodyId id,
             outPosition = body->position;
             if ( outRadius )
             {
-                *outRadius = ReplayRuntimeColliderRadiusForModelIndex( colliderStore, body->modelIndex );
+                const PhysicsBodyHandle liveBody = bodyStore.HandleForReplayBodyId( id.value, body->modelIndex );
+                const PhysicsBodyRecord* liveBodyRecord = bodyStore.RecordForHandle( liveBody );
+                *outRadius =
+                    liveBodyRecord
+                        ? ReplayRuntimeColliderRadiusForBody( colliderStore, *liveBodyRecord, body->modelIndex )
+                        : ReplayRuntimeColliderRadiusForModelIndex( colliderStore, body->modelIndex );
             }
             return true;
         }
@@ -1460,7 +1466,12 @@ bool ReplayRuntime::ResolveCauseTreeBodyPosition( ReplayBodyId id,
             outPosition = body->position;
             if ( outRadius )
             {
-                *outRadius = ReplayRuntimeColliderRadiusForModelIndex( colliderStore, body->modelIndex );
+                const PhysicsBodyHandle liveBody = bodyStore.HandleForReplayBodyId( id.value, body->modelIndex );
+                const PhysicsBodyRecord* liveBodyRecord = bodyStore.RecordForHandle( liveBody );
+                *outRadius =
+                    liveBodyRecord
+                        ? ReplayRuntimeColliderRadiusForBody( colliderStore, *liveBodyRecord, body->modelIndex )
+                        : ReplayRuntimeColliderRadiusForModelIndex( colliderStore, body->modelIndex );
             }
             return true;
         }

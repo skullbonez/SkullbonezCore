@@ -966,6 +966,9 @@ const ColliderRecord* ReplayColliderRecordForModelIndex( const ColliderStore* co
         return nullptr;
     }
 
+    // Why: retained prediction markers store historical model-index samples, not
+    // live body handles. Use this only for presentation fallback; mutation paths
+    // resolve through PhysicsBodyHandle before reading collider rows.
     const PhysicsColliderHandle colliderHandle = colliderStore->HandleForModelIndex( modelIndex );
     const ColliderRecord* collider = colliderStore->RecordForHandle( colliderHandle );
     if ( !collider || colliderStore->ModelIndexForHandle( colliderHandle ) != modelIndex )

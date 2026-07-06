@@ -60,8 +60,8 @@ static bool TryResolveReplayVelocityBodyView( const ReplayRuntime& replayRuntime
         return false;
     }
     const PhysicsBodyRecord* body = bodyStore.RecordForHandle( bodyHandle );
-    const PhysicsColliderHandle colliderHandle = colliderStore.HandleForModelIndex( modelIndex );
-    const ColliderRecord* collider = colliderStore.RecordForHandle( colliderHandle );
+    const ColliderRecord* collider =
+        body ? colliderStore.RecordForHandle( colliderStore.HandleForBodyHandle( body->handle ) ) : nullptr;
     if ( !body || !collider )
     {
         return false;

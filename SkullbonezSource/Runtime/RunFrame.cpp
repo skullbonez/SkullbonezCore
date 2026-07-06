@@ -156,8 +156,12 @@ TryGetEditorTransformColliderRecord( const SkullbonezCore::GameObjects::GameMode
                                      uint32_t replayBodyId )
 {
     const ColliderStore& colliderStore = collection.Colliders();
+    const PhysicsBodyStore& bodyStore = collection.GetPhysicsEngine().BodyStore();
+    const PhysicsBodyHandle bodyHandle = replayBodyId != 0u
+                                             ? bodyStore.HandleForReplayBodyId( replayBodyId, modelIndex )
+                                             : bodyStore.HandleForModelIndex( modelIndex );
     const PhysicsColliderHandle resolvedHandle =
-        colliderHandle.IsValid() ? colliderHandle : colliderStore.HandleForModelIndex( modelIndex );
+        colliderHandle.IsValid() ? colliderHandle : colliderStore.HandleForBodyHandle( bodyHandle );
     const ColliderRecord* collider = colliderStore.RecordForHandle( resolvedHandle );
     if ( !collider || colliderStore.ModelIndexForHandle( resolvedHandle ) != modelIndex )
     {
@@ -2018,7 +2022,8 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
             }
 
             const PhysicsBodyStore& bodyStoreBeforeEdit = m_cGameModelCollection.GetPhysicsEngine().BodyStore();
-            const PhysicsBodyHandle eventBody = bodyStoreBeforeEdit.HandleForModelIndex( event.value0 );
+            const PhysicsBodyHandle eventBody =
+                bodyStoreBeforeEdit.HandleForReplayBodyId( static_cast<uint32_t>( event.value1 ), event.value0 );
             const PhysicsBodyRecord* eventBodyRecord = bodyStoreBeforeEdit.RecordForHandle( eventBody );
             if ( !eventBodyRecord || bodyStoreBeforeEdit.ModelIndexForHandle( eventBody ) != event.value0 ||
                  eventBodyRecord->replayBodyId != static_cast<uint32_t>( event.value1 ) )
@@ -2088,7 +2093,8 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
             // PhysicsBodyStore record, not presentation/authored pose data.
             PhysicsEngine& physics = m_cGameModelCollection.GetPhysicsEngine();
             const PhysicsBodyStore& bodyStore = physics.BodyStore();
-            const PhysicsBodyHandle body = bodyStore.HandleForModelIndex( event.value0 );
+            const PhysicsBodyHandle body =
+                bodyStore.HandleForReplayBodyId( static_cast<uint32_t>( event.value1 ), event.value0 );
             const PhysicsBodyRecord* bodyRecord = bodyStore.RecordForHandle( body );
             if ( bodyRecord && !bodyRecord->isFixed )
             {

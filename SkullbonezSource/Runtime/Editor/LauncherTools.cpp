@@ -68,9 +68,12 @@ float LauncherReproRadius( const ColliderRecord& collider )
 }
 
 
-const ColliderRecord* LauncherReproColliderForModelIndex( const ColliderStore& colliderStore, int modelIndex )
+const ColliderRecord* LauncherReproColliderForModelIndex( const PhysicsBodyStore& bodyStore,
+                                                          const ColliderStore& colliderStore,
+                                                          int modelIndex )
 {
-    const PhysicsColliderHandle colliderHandle = colliderStore.HandleForModelIndex( modelIndex );
+    const PhysicsBodyHandle bodyHandle = bodyStore.HandleForModelIndex( modelIndex );
+    const PhysicsColliderHandle colliderHandle = colliderStore.HandleForBodyHandle( bodyHandle );
     return colliderStore.RecordForHandle( colliderHandle );
 }
 
@@ -193,7 +196,7 @@ RuntimeTools::WriteLauncherReproSnapshot( const LauncherReproSnapshotContext& co
     GameModel& model = context.collection.GetModelAtIndex( targetIndex );
     const ColliderStore& colliderStore = context.collection.GetColliderStore();
     const PhysicsBodyStore& bodyStore = context.collection.GetPhysicsBodyStore();
-    const ColliderRecord* collider = LauncherReproColliderForModelIndex( colliderStore, targetIndex );
+    const ColliderRecord* collider = LauncherReproColliderForModelIndex( bodyStore, colliderStore, targetIndex );
     if ( !collider )
     {
         return LauncherReproSnapshotStatus::NoTarget;

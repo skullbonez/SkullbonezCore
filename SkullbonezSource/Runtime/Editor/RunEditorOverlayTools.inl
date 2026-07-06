@@ -166,7 +166,7 @@ void BuildEditorToolOverlayTrace( EditorToolOverlayTraceContext context, const E
     {
         const PhysicsBodyRecord* body = context.bodyStore.RecordForHandle( context.mousePickup.body );
         const PhysicsColliderHandle colliderHandle =
-            context.colliderStore.HandleForModelIndex( context.mousePickup.modelIndex );
+            context.colliderStore.HandleForBodyHandle( context.mousePickup.body );
         const ColliderRecord* collider = context.colliderStore.RecordForHandle( colliderHandle );
         if ( !body || !collider ||
              context.bodyStore.ModelIndexForHandle( context.mousePickup.body ) != context.mousePickup.modelIndex ||
@@ -198,7 +198,7 @@ void BuildEditorToolOverlayTrace( EditorToolOverlayTraceContext context, const E
         const PhysicsBodyHandle bodyHandle = context.bodyStore.HandleForModelIndex( input.attachedCameraTargetIndex );
         const PhysicsBodyRecord* body = context.bodyStore.RecordForHandle( bodyHandle );
         const PhysicsColliderHandle colliderHandle =
-            context.colliderStore.HandleForModelIndex( input.attachedCameraTargetIndex );
+            context.colliderStore.HandleForBodyHandle( bodyHandle );
         const ColliderRecord* collider = context.colliderStore.RecordForHandle( colliderHandle );
         if ( body && collider &&
              context.bodyStore.ModelIndexForHandle( bodyHandle ) == input.attachedCameraTargetIndex &&
