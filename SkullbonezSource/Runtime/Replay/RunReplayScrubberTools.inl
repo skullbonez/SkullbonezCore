@@ -11,6 +11,8 @@ Mental model:
 Glossary:
   Scrubber: UI control that selects retained replay frames.
   Live restore: Applying a retained replay sample back into the current scene.
+  Branch restore: Applying a historical replay sample as the new live timeline
+    while preserving parent/source branch provenance.
   Inspection camera: Temporary replay-focused camera state for selected samples.
 
 Invariants:
@@ -222,6 +224,17 @@ bool Run::RestoreReplayScrubberSelectionAsLive( double now,
     {
         sprintf_s( reason, sizeof( reason ), "no historical replay branch target selected" );
         fprintf( stderr, "[replay] Branch restore failed: %s\n", reason );
+    }
+
+    if ( restored )
+    {
+        // Why: a branch restore makes the selected historical frame the new live
+        // timeline. Keep the visible scrubber at the live edge instead of
+        // leaving it on the parent timeline's old historical position.
+        m_replayRuntime.Scrubber().activeTrack = RunReplayTrack::Solver;
+        m_replayRuntime.Scrubber().historicalSamplePaused = false;
+        m_replayRuntime.Scrubber().branchHovered = false;
+        m_replayRuntime.SetAllTrackPositions( 1.0f );
     }
 
     m_replayRuntime.Scrubber().restoreConsumedThisFrame = true;
