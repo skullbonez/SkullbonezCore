@@ -26,7 +26,7 @@ Related:
 #include "CaptureController.h"
 #include "EngineContext.h"
 #include "Scene/SceneController.h"
-#include "../GameObjects/GameModelCollection.h"
+#include "../Physics/PhysicsEngine.h"
 
 #include <cassert>
 
@@ -59,7 +59,10 @@ RuntimeViewModel RuntimeViewModelBuilder::Build( const EngineContext& context )
     view.sceneCount = bindings.scene->QueueSize();
     view.frame = scene.currentFrame;
     view.targetFrameCount = scene.targetFrameCount;
-    view.modelCount = bindings.models ? bindings.models->GetModelCount() : 0;
+    // Why: the UI displays a runtime count, but physics body rows are the
+    // simulation snapshot authority. Do not ask GameModelCollection to report a
+    // model-order compatibility count for this presentation value.
+    view.modelCount = bindings.physics ? bindings.physics->BodyStore().Count() : 0;
     view.timeScale = scene.timeScale;
     return view;
 }

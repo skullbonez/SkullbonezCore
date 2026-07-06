@@ -42,7 +42,7 @@ bool EngineContext::IsBound() const
 {
     return m_bindings.scene && m_bindings.simulation && m_bindings.capture && m_bindings.diagnostics &&
            m_bindings.commands && m_bindings.systems && m_bindings.runtimeSettings && m_bindings.input &&
-           m_bindings.camera && m_bindings.debug && m_bindings.world && m_bindings.models;
+           m_bindings.camera && m_bindings.debug && m_bindings.world && m_bindings.physics && m_bindings.models;
 }
 
 

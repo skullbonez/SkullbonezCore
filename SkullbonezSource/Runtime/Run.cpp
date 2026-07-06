@@ -241,6 +241,7 @@ void Run::BindEngineContext()
                                                  &m_camera,
                                                  &m_debug,
                                                  &m_cWorldEnvironment,
+                                                 &m_cGameModelCollection.GetPhysicsEngine(),
                                                  &m_cGameModelCollection } );
 }
 
