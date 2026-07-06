@@ -21,6 +21,11 @@ Related:
   - SkullbonezSource/Runtime/CaptureSystem.h
 */
 #include "CaptureController.h"
+#include "Allocation/RuntimeAllocationTracker.h"
+
+#include <cstdio>
+
+namespace RuntimeAllocation = SkullbonezCore::Runtime::Allocation;
 
 namespace SkullbonezCore
 {
@@ -68,6 +73,15 @@ RuntimeCaptureResult CaptureController::TickAutoCycle( bool isSceneMode,
                                          autoCycleShotsTaken,
                                          trackBallIndex,
                                          sink );
+}
+
+
+void CaptureController::SaveScreenshot( Rendering::IRenderCaptureBackend& backend, const char* path )
+{
+    RuntimeAllocation::RuntimeAllocationScope allocationScope( RuntimeAllocation::RuntimeAllocationPhase::Capture );
+    CaptureSystem::SaveBackbufferBmp( backend, path );
+    printf( "[capture] Screenshot taken: %s\n", path );
+    fflush( stdout );
 }
 
 

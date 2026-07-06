@@ -47,6 +47,7 @@ class CaptureController
                                         int& trackBallIndex,
                                         const RuntimeCaptureSink& sink );
 
+    void SaveScreenshot( Rendering::IRenderCaptureBackend& backend, const char* path );
     static void SaveBackbufferBmp( Rendering::IRenderCaptureBackend& backend, const char* path );
 
   private:

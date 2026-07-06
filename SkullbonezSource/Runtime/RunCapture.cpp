@@ -24,12 +24,9 @@ Invariants:
 Related:
   - Agentic/Reference/comment-style-guide.md
 */
-#include "CaptureSystem.h"
+#include "CaptureController.h"
 #include "RunInternal.h"
-#include "Allocation/RuntimeAllocationTracker.h"
 #include "../Rendering/IRenderCaptureBackend.h"
-
-#include <cstdio>
 
 using namespace SkullbonezCore::Basics;
 using namespace SkullbonezCore::Math::CollisionDetection;
@@ -37,14 +34,15 @@ using namespace SkullbonezCore::Math::Orientation;
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Physics;
 using namespace SkullbonezCore::Basics::RunInternal;
-namespace RuntimeAllocation = SkullbonezCore::Runtime::Allocation;
 
 void Run::SaveScreenshot( const char* path )
 {
-    RuntimeAllocation::RuntimeAllocationScope allocationScope( RuntimeAllocation::RuntimeAllocationPhase::Capture );
-    // Why: screenshot save only needs readback capability, so keep the call on
-    // the narrow capture facade instead of handing CaptureController Gfx().
-    CaptureController::SaveBackbufferBmp( SkullbonezCore::Rendering::GfxCapture(), path );
-    printf( "[capture] Screenshot taken: %s\n", path );
-    fflush( stdout );
+    // Why: screenshot save only needs readback capability, so keep the command
+    // on the capture controller and pass the narrow backend facet explicitly.
+    SkullbonezCore::Rendering::IRenderCaptureBackend* captureBackend = m_renderBackendView.captureBackend;
+    if ( !captureBackend )
+    {
+        captureBackend = &SkullbonezCore::Rendering::GfxCapture();
+    }
+    m_diagnosticsRuntime.Capture().SaveScreenshot( *captureBackend, path );
 }
