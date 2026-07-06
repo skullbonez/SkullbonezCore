@@ -41,6 +41,7 @@ Related:
 #include <cassert>
 #include <cmath>
 #include <cstddef>
+#include <limits>
 #include <stdexcept>
 #include <type_traits>
 
@@ -948,6 +949,54 @@ PhysicsBodyRecord MakeBodyRecord( const PhysicsBodyCreateDesc& desc, bool sleepE
 
 
 PhysicsBodyStore::PhysicsBodyStore() = default;
+
+
+static uint32_t NextReplayBodyIdAfter( const PhysicsBodyRecordList& bodies )
+{
+    uint32_t nextReplayBodyId = 1;
+    const uint32_t maxReplayBodyId = ( std::numeric_limits<uint32_t>::max )();
+    for ( const PhysicsBodyRecord& body : bodies )
+    {
+        if ( body.replayBodyId == maxReplayBodyId )
+        {
+            return maxReplayBodyId;
+        }
+        if ( body.replayBodyId != 0 )
+        {
+            nextReplayBodyId = (std::max)( nextReplayBodyId, body.replayBodyId + 1u );
+        }
+    }
+    return nextReplayBodyId;
+}
+
+
+std::vector<uint32_t> PhysicsBodyStore::BuildReplayBodyIdsForReload( int sceneEntityCount ) const
+{
+    std::vector<uint32_t> replayBodyIds;
+    replayBodyIds.reserve( static_cast<std::size_t>( sceneEntityCount ) );
+    uint32_t nextReplayBodyId = NextReplayBodyIdAfter( m_bodies );
+    for ( int i = 0; i < sceneEntityCount; ++i )
+    {
+        uint32_t replayBodyId = 0;
+        if ( const PhysicsBodyRecord* body = RecordForModelIndex( i ) )
+        {
+            replayBodyId = body->replayBodyId;
+        }
+        // Why: descriptor repair is cold. Existing rows preserve store-owned
+        // replay identity, while scene rows that do not have a body yet receive
+        // fresh ids from the same scanned range before handle reassignment.
+        if ( replayBodyId == 0 )
+        {
+            if ( nextReplayBodyId == ( std::numeric_limits<uint32_t>::max )() )
+            {
+                throw std::runtime_error( "Replay body id scratch range exhausted." );
+            }
+            replayBodyId = nextReplayBodyId++;
+        }
+        replayBodyIds.push_back( replayBodyId );
+    }
+    return replayBodyIds;
+}
 
 
 // Concept: body handles identify allocator slots, not legacy model positions.

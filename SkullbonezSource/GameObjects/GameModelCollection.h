@@ -219,7 +219,6 @@ class GameModelCollection
                                                            int newModelIndex,
                                                            SceneObjectGroupCreateDesc groupDesc );
     SceneObjectGroupRecord GroupRecordAt( int modelIndex ) const;
-    std::vector<uint32_t> BuildReplayBodyIdsForReload( const Physics::PhysicsBodyStore& bodyStore );
     // Owner boundary: fixed-tree grouping is collection metadata. Body-store
     // import receives only the scalar root, never collection-kind accessors.
     std::vector<int> BuildFixedTreeReleaseRootsForReload() const;

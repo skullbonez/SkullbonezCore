@@ -151,6 +151,9 @@ class PhysicsBodyStore
     void RefreshRecordFromDescriptorAt( const PhysicsBodyCreateDesc& desc, int modelIndex );
     void CopySleepStatesFrom( const std::vector<uint8_t>& sleepStates );
     void CopySleepStatesTo( std::vector<uint8_t>& sleepStates ) const;
+    // Cold descriptor refresh keeps replay identity with the body store. Scene
+    // owners supply only the row count; missing rows receive fresh store-scanned ids.
+    std::vector<uint32_t> BuildReplayBodyIdsForReload( int sceneEntityCount ) const;
     // Converts an authored fixed body record into a dynamic body without a
     // descriptor reload. Release-on-impact paths call this while they
     // already own the live store row.

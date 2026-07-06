@@ -69,7 +69,6 @@ Related:
 #include <cstddef>
 #include <cmath>
 #include <cstring>
-#include <limits>
 #include <stdexcept>
 #include <utility>
 #include <variant>
@@ -304,57 +303,6 @@ GameModelCollection::SceneObjectGroupRecord GameModelCollection::GroupRecordAt( 
 }
 
 
-static uint32_t NextReplayBodyIdAfter( const PhysicsBodyStore& bodyStore )
-{
-    uint32_t nextReplayBodyId = 1;
-    const uint32_t maxReplayBodyId = ( std::numeric_limits<uint32_t>::max )();
-    for ( const PhysicsBodyRecord& body : bodyStore.Records() )
-    {
-        if ( body.replayBodyId == maxReplayBodyId )
-        {
-            return maxReplayBodyId;
-        }
-        if ( body.replayBodyId != 0 )
-        {
-            nextReplayBodyId = (std::max)( nextReplayBodyId, body.replayBodyId + 1u );
-        }
-    }
-    return nextReplayBodyId;
-}
-
-
-std::vector<uint32_t>
-GameModelCollection::BuildReplayBodyIdsForReload( const SkullbonezCore::Physics::PhysicsBodyStore& bodyStore )
-{
-    std::vector<uint32_t> replayBodyIds;
-    const int sceneEntityCount = SceneEntityCount();
-    replayBodyIds.reserve( static_cast<std::size_t>( sceneEntityCount ) );
-    uint32_t nextReplayBodyId = NextReplayBodyIdAfter( bodyStore );
-    for ( int i = 0; i < sceneEntityCount; ++i )
-    {
-        uint32_t replayBodyId = 0;
-        if ( const PhysicsBodyRecord* body = bodyStore.RecordForModelIndex( i ) )
-        {
-            replayBodyId = body->replayBodyId;
-        }
-        // Why: body topology repair is cold. Existing rows preserve their
-        // PhysicsBodyStore-owned replay id; only genuinely missing rows allocate
-        // a fresh local scratch id until PHYS-006/013 move this to the body
-        // store repair owner.
-        if ( replayBodyId == 0 )
-        {
-            if ( nextReplayBodyId == ( std::numeric_limits<uint32_t>::max )() )
-            {
-                throw std::runtime_error( "Replay body id scratch range exhausted." );
-            }
-            replayBodyId = nextReplayBodyId++;
-        }
-        replayBodyIds.push_back( replayBodyId );
-    }
-    return replayBodyIds;
-}
-
-
 std::vector<int> GameModelCollection::BuildFixedTreeReleaseRootsForReload() const
 {
     std::vector<int> fixedTreeReleaseRoots;
@@ -383,7 +331,8 @@ std::vector<const char*> GameModelCollection::BuildDiagnosticNamesForReload() co
 
 bool GameModelCollection::RefreshPhysicsBodyStoreFromAuthoredDescriptors()
 {
-    const std::vector<uint32_t> replayBodyIds = BuildReplayBodyIdsForReload( m_physicsEngine.BodyStore() );
+    const std::vector<uint32_t> replayBodyIds =
+        m_physicsEngine.BodyStore().BuildReplayBodyIdsForReload( SceneEntityCount() );
     const std::vector<int> fixedTreeReleaseRoots = BuildFixedTreeReleaseRootsForReload();
     const std::vector<const char*> diagnosticNames = BuildDiagnosticNamesForReload();
     return m_physicsEngine.RefreshBodyStoreFromAuthoredDescriptors( replayBodyIds,
