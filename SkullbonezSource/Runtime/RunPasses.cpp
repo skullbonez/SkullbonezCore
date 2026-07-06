@@ -587,9 +587,17 @@ void ShadowPass::EnsureGpuResources( const RenderResourceContext& resources, con
             target = RenderResources( resources ).CreateFramebuffer( mapSize, mapSize );
         }
     };
-    ShadowPassResources& shadows = m_host.m_systems.renderPasses.shadows;
-    ensureTarget( shadows.terrainTarget );
-    ensureTarget( shadows.objectTarget );
+    ensureTarget( m_resources.terrainTarget );
+    ensureTarget( m_resources.objectTarget );
+}
+
+
+void ShadowPass::LogResourceLifecycleStep( const char* phase, const char* step ) const
+{
+    if ( m_lifecycleLog )
+    {
+        m_lifecycleLog( m_lifecycleLogUser, phase, step );
+    }
 }
 
 
@@ -620,30 +628,29 @@ void ShadowPass::ReleaseGpuResources()
         { "shadow_frame_payloads", ShadowResetStep::FramePayloads },
     };
 
-    ShadowPassResources& shadows = m_host.m_systems.renderPasses.shadows;
     for ( const ShadowResetPhase& phase : resetSteps )
     {
-        m_host.LogRenderResourceLifecycleStep( "shadow_reset", phase.name );
+        LogResourceLifecycleStep( "shadow_reset", phase.name );
         switch ( phase.step )
         {
         case ShadowResetStep::TerrainShadowFBO:
-            if ( shadows.terrainTarget )
+            if ( m_resources.terrainTarget )
             {
-                shadows.terrainTarget->ResetResources();
+                m_resources.terrainTarget->ResetResources();
             }
-            shadows.terrainTarget.reset();
+            m_resources.terrainTarget.reset();
             break;
         case ShadowResetStep::ObjectShadowFBO:
-            if ( shadows.objectTarget )
+            if ( m_resources.objectTarget )
             {
-                shadows.objectTarget->ResetResources();
+                m_resources.objectTarget->ResetResources();
             }
-            shadows.objectTarget.reset();
+            m_resources.objectTarget.reset();
             break;
         case ShadowResetStep::FramePayloads:
-            shadows.terrainFrame = Rendering::ShadowFrameData();
-            shadows.objectFrame = Rendering::ShadowFrameData();
-            shadows.objectCasterBatches.Clear();
+            m_resources.terrainFrame = Rendering::ShadowFrameData();
+            m_resources.objectFrame = Rendering::ShadowFrameData();
+            m_resources.objectCasterBatches.Clear();
             break;
         }
     }
@@ -657,8 +664,7 @@ ShadowPass::BuildTerrainFrameData( const CinematicRenderConfig& cinematic,
     PROFILE_SCOPED( "Frame/Shadows/ShadowMap/BuildTerrainFrame" );
 
     Rendering::ShadowFrameData shadowFrame;
-    const ShadowPassResources& shadows = m_host.m_systems.renderPasses.shadows;
-    if ( !m_host.m_systems.terrain || !shadows.terrainTarget )
+    if ( !m_terrain || !m_resources.terrainTarget )
     {
         return shadowFrame;
     }
@@ -669,11 +675,10 @@ ShadowPass::BuildTerrainFrameData( const CinematicRenderConfig& cinematic,
     // shadow visibility blocks the direct light the BRDF is actually shading.
     Vector3 lightDir = NormalizeShadowLightDirection( lightDirectionWorld );
 
-    const XZBounds terrainBounds = m_host.m_systems.terrain->GetXZBounds();
+    const XZBounds terrainBounds = m_terrain->GetXZBounds();
     const float extentX = (std::max)( terrainBounds.m_xMax - terrainBounds.m_xMin, 1.0f );
     const float extentZ = (std::max)( terrainBounds.m_zMax - terrainBounds.m_zMin, 1.0f );
-    const float terrainHeightRange =
-        (std::max)( m_host.m_systems.terrain->GetMaxHeight() - m_host.m_systems.terrain->GetMinHeight(), 64.0f );
+    const float terrainHeightRange = (std::max)( m_terrain->GetMaxHeight() - m_terrain->GetMinHeight(), 64.0f );
     const float terrainRadius = (std::max)( extentX, extentZ ) * 0.5f;
     const float shadowRadius =
         std::clamp( terrainRadius + 180.0f, 128.0f, (std::max)( cinematic.shadowMaxDistance, 128.0f ) );
@@ -683,7 +688,7 @@ ShadowPass::BuildTerrainFrameData( const CinematicRenderConfig& cinematic,
     // and makes screenshots deterministic, at the cost of spreading resolution
     // across the authored terrain bounds instead of using cascades.
     const Vector3 focus( ( terrainBounds.m_xMin + terrainBounds.m_xMax ) * 0.5f,
-                         ( m_host.m_systems.terrain->GetMinHeight() + m_host.m_systems.terrain->GetMaxHeight() ) * 0.5f,
+                         ( m_terrain->GetMinHeight() + m_terrain->GetMaxHeight() ) * 0.5f,
                          ( terrainBounds.m_zMin + terrainBounds.m_zMax ) * 0.5f );
     const float lightBackDistance = shadowRadius + terrainHeightRange + 650.0f;
     const Vector3 lightEye = focus + lightDir * lightBackDistance;
@@ -696,12 +701,12 @@ ShadowPass::BuildTerrainFrameData( const CinematicRenderConfig& cinematic,
         Matrix4::OrthoZeroToOne( -shadowRadius, shadowRadius, -shadowRadius, shadowRadius, nearPlane, farPlane );
     shadowFrame.lightViewProjection = shadowFrame.lightProjection * shadowFrame.lightView;
     shadowFrame.lightDirectionWorld = lightDir;
-    shadowFrame.depthTextureHandle = shadows.terrainTarget->GetDepthTextureHandle();
+    shadowFrame.depthTextureHandle = m_resources.terrainTarget->GetDepthTextureHandle();
 
     // Everything below is copied into shader uniforms by ApplyShadowReceiverUniforms.
     // Keeping the values in one payload makes balls, boxes, terrain, and any
     // future backend consume the same shadow decision for the frame.
-    shadowFrame.mapSize = shadows.terrainTarget->GetWidth();
+    shadowFrame.mapSize = m_resources.terrainTarget->GetWidth();
     shadowFrame.pcfRadius = std::clamp( cinematic.shadowPcfRadius, 0, 3 );
     shadowFrame.strength = std::clamp( cinematic.shadowStrength, 0.0f, 1.0f );
     shadowFrame.depthBias = (std::max)( cinematic.shadowDepthBias, 0.0f );
@@ -727,8 +732,7 @@ ShadowPass::BuildObjectFrameData( const CinematicRenderConfig& cinematic,
     PROFILE_SCOPED( "Frame/Shadows/ShadowMap/BuildObjectFrame" );
 
     Rendering::ShadowFrameData shadowFrame;
-    ShadowPassResources& shadows = m_host.m_systems.renderPasses.shadows;
-    if ( !shadows.objectTarget || !cinematic.shadowObjectsCast || !cinematic.shadowObjectsReceive )
+    if ( !m_resources.objectTarget || !cinematic.shadowObjectsCast || !cinematic.shadowObjectsReceive )
     {
         return shadowFrame;
     }
@@ -761,8 +765,8 @@ ShadowPass::BuildObjectFrameData( const CinematicRenderConfig& cinematic,
         Matrix4::OrthoZeroToOne( -shadowRadius, shadowRadius, -shadowRadius, shadowRadius, nearPlane, farPlane );
     shadowFrame.lightViewProjection = shadowFrame.lightProjection * shadowFrame.lightView;
     shadowFrame.lightDirectionWorld = lightDir;
-    shadowFrame.depthTextureHandle = shadows.objectTarget->GetDepthTextureHandle();
-    shadowFrame.mapSize = shadows.objectTarget->GetWidth();
+    shadowFrame.depthTextureHandle = m_resources.objectTarget->GetDepthTextureHandle();
+    shadowFrame.mapSize = m_resources.objectTarget->GetWidth();
     shadowFrame.pcfRadius = std::clamp( cinematic.shadowPcfRadius, 0, 3 );
     shadowFrame.strength = std::clamp( cinematic.shadowStrength, 0.0f, 1.0f );
     shadowFrame.depthBias = (std::max)( cinematic.shadowDepthBias, 0.0f );
@@ -829,7 +833,7 @@ void ShadowPass::RenderShadowMap( Rendering::IFramebuffer& target,
     // scene cannot leak into this off-screen pass.
     ClearAllRenderTextureSlots( renderCommands );
 
-    if ( renderTerrain && cinematic.shadowTerrainCasts && !m_host.m_debug.isTerrainHidden && m_host.m_systems.terrain )
+    if ( renderTerrain && cinematic.shadowTerrainCasts && !m_activeTerrainHidden && m_terrain )
     {
         PROFILE_SCOPED( "Frame/Shadows/ShadowMap/RenderMap/TerrainCasters" );
         DRAW_CALL_TRACE_SCOPE( "Frame/Shadows/ShadowMap/RenderMap/TerrainCasters" );
@@ -838,10 +842,10 @@ void ShadowPass::RenderShadowMap( Rendering::IFramebuffer& target,
         // visible terrain uses. Otherwise cinematic basin relief would receive
         // shadows from the flat CPU height map and the contact would visibly
         // detach. With normal rendering the relief amount is zero by default.
-        m_host.m_systems.terrain->RenderShadowDepth( shadowFrame.lightView, shadowFrame.lightProjection, &cinematic );
+        m_terrain->RenderShadowDepth( shadowFrame.lightView, shadowFrame.lightProjection, &cinematic );
     }
 
-    if ( renderObjects && cinematic.shadowObjectsCast && !m_host.m_debug.isCollisionVisualizer )
+    if ( renderObjects && cinematic.shadowObjectsCast && !m_activeCollisionVisualizerVisible )
     {
         PROFILE_SCOPED( "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters" );
         DRAW_CALL_TRACE_SCOPE( "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters" );
@@ -875,19 +879,18 @@ void ShadowPass::RenderShadowMap( Rendering::IFramebuffer& target,
     renderCommands.SetDepthWrite( depthWasEnabled );
     renderCommands.SetBlend( blendWasEnabled );
     target.Unbind();
-    renderCommands.SetViewport( 0, 0, m_host.WindowScreenWidth(), m_host.WindowScreenHeight() );
+    renderCommands.SetViewport( 0, 0, m_activeWindowWidth, m_activeWindowHeight );
 }
 
 
 ShadowPassOutput ShadowPass::Render( const ShadowPassInputs& inputs )
 {
-    ShadowPassResources& shadows = m_host.m_systems.renderPasses.shadows;
     // Invariant: always clear the receiver payloads at the start of the pass.
     // If shadows are disabled, downstream terrain/object passes must see null
     // outputs instead of last frame's depth texture handles.
-    shadows.terrainFrame = Rendering::ShadowFrameData();
-    shadows.objectFrame = Rendering::ShadowFrameData();
-    shadows.objectCasterBatches.Clear();
+    m_resources.terrainFrame = Rendering::ShadowFrameData();
+    m_resources.objectFrame = Rendering::ShadowFrameData();
+    m_resources.objectCasterBatches.Clear();
     if ( inputs.cinematic )
     {
         if ( !inputs.frame.renderInstances || !inputs.frame.colliders )
@@ -906,9 +909,9 @@ ShadowPassOutput ShadowPass::Render( const ShadowPassInputs& inputs )
             Vector3 lightDirection( inputs.frame.lightPosition[0],
                                     inputs.frame.lightPosition[1],
                                     inputs.frame.lightPosition[2] );
-            Rendering::ShadowCasterBatches& objectCasters = shadows.objectCasterBatches;
+            Rendering::ShadowCasterBatches& objectCasters = m_resources.objectCasterBatches;
             const bool shouldBuildObjectCasters =
-                inputs.cinematic->shadowObjectsCast && !m_host.m_debug.isCollisionVisualizer;
+                inputs.cinematic->shadowObjectsCast && !inputs.collisionVisualizerVisible;
             if ( shouldBuildObjectCasters )
             {
                 GameObjects::GameModelRenderer::BuildShadowCasterBatches( *inputs.frame.renderInstances,
@@ -917,12 +920,16 @@ ShadowPassOutput ShadowPass::Render( const ShadowPassInputs& inputs )
                                                                           inputs.frame.shadowParallelPrep,
                                                                           objectCasters );
             }
-            shadows.terrainFrame = BuildTerrainFrameData( *inputs.cinematic, lightDirection );
-            if ( shadows.terrainTarget )
+            m_activeTerrainHidden = inputs.terrainHidden;
+            m_activeCollisionVisualizerVisible = inputs.collisionVisualizerVisible;
+            m_activeWindowWidth = inputs.frame.windowWidth;
+            m_activeWindowHeight = inputs.frame.windowHeight;
+            m_resources.terrainFrame = BuildTerrainFrameData( *inputs.cinematic, lightDirection );
+            if ( m_resources.terrainTarget )
             {
-                RenderShadowMap( *shadows.terrainTarget,
-                                 RenderHelperServices( inputs.frame, m_host.m_config ),
-                                 shadows.terrainFrame,
+                RenderShadowMap( *m_resources.terrainTarget,
+                                 RenderHelperServices( inputs.frame, m_config ),
+                                 m_resources.terrainFrame,
                                  *inputs.cinematic,
                                  RenderCommands( inputs.frame ),
                                  true,
@@ -936,17 +943,17 @@ ShadowPassOutput ShadowPass::Render( const ShadowPassInputs& inputs )
             // Anchor the tight object-shadow map to the render look target, not
             // the eye. Locked/inspect zoom moves the eye around a stable target;
             // using the eye makes nearby-object bounds pop as the user zooms.
-            shadows.objectFrame = BuildObjectFrameData( *inputs.cinematic,
-                                                        lightDirection,
-                                                        inputs.frame.viewCenter,
-                                                        *inputs.frame.renderInstances,
-                                                        inputs.frame.renderWorkerPool,
-                                                        inputs.frame.shadowParallelPrep );
-            if ( shadows.objectTarget )
+            m_resources.objectFrame = BuildObjectFrameData( *inputs.cinematic,
+                                                            lightDirection,
+                                                            inputs.frame.viewCenter,
+                                                            *inputs.frame.renderInstances,
+                                                            inputs.frame.renderWorkerPool,
+                                                            inputs.frame.shadowParallelPrep );
+            if ( m_resources.objectTarget )
             {
-                RenderShadowMap( *shadows.objectTarget,
-                                 RenderHelperServices( inputs.frame, m_host.m_config ),
-                                 shadows.objectFrame,
+                RenderShadowMap( *m_resources.objectTarget,
+                                 RenderHelperServices( inputs.frame, m_config ),
+                                 m_resources.objectFrame,
                                  *inputs.cinematic,
                                  RenderCommands( inputs.frame ),
                                  false,
@@ -962,8 +969,8 @@ ShadowPassOutput ShadowPass::Render( const ShadowPassInputs& inputs )
     }
 
     ShadowPassOutput output;
-    output.terrainShadow = shadows.terrainFrame.valid ? &shadows.terrainFrame : nullptr;
-    output.objectShadow = shadows.objectFrame.valid ? &shadows.objectFrame : output.terrainShadow;
+    output.terrainShadow = m_resources.terrainFrame.valid ? &m_resources.terrainFrame : nullptr;
+    output.objectShadow = m_resources.objectFrame.valid ? &m_resources.objectFrame : output.terrainShadow;
     return output;
 }
 

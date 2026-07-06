@@ -102,6 +102,7 @@ class DiagnosticsRuntime;
 class EngineConfig;
 struct CinematicScenePassResources;
 struct FullscreenPassResources;
+struct ShadowPassResources;
 struct SkyPassResources;
 struct TonemapPassResources;
 struct VolumetricLightPassResources;
@@ -126,6 +127,8 @@ enum class ObjectPassMode
     Opaque,                                 // Normal body draw before water.
     Transparent                             // Debug alpha body draw after water so overlays remain readable.
 };
+
+using RenderResourceLifecycleLogFn = void ( * )( void* user, const char* phase, const char* step );
 
 struct RenderFrameContext
 {
@@ -349,6 +352,8 @@ struct ShadowPassInputs
     // should be built and receivers should get null shadow outputs.
     const RenderFrameContext& frame;
     const CinematicRenderConfig* cinematic;
+    bool terrainHidden;                     // Frame snapshot of debug/scene terrain visibility.
+    bool collisionVisualizerVisible;        // Collision-color mode disables object shadow casters.
 };
 
 struct ShadowPassOutput
@@ -449,7 +454,13 @@ class SceneTargetPass
 class ShadowPass
 {
   public:
-    explicit ShadowPass( RuntimeRenderHost& host ) : m_host( host )
+    ShadowPass( ShadowPassResources& resources,
+                std::unique_ptr<Geometry::Terrain>& terrain,
+                const EngineConfig& config,
+                RenderResourceLifecycleLogFn lifecycleLog,
+                void* lifecycleLogUser )
+        : m_resources( resources ), m_terrain( terrain ), m_config( config ), m_lifecycleLog( lifecycleLog ),
+          m_lifecycleLogUser( lifecycleLogUser )
     {
     }
 
@@ -458,6 +469,7 @@ class ShadowPass
     ShadowPassOutput Render( const ShadowPassInputs& inputs );
 
   private:
+    void LogResourceLifecycleStep( const char* phase, const char* step ) const;
     Rendering::ShadowFrameData BuildTerrainFrameData( const CinematicRenderConfig& cinematic,
                                                       const Math::Vector::Vector3& lightDirectionWorld ) const;
     Rendering::ShadowFrameData BuildObjectFrameData( const CinematicRenderConfig& cinematic,
@@ -479,7 +491,15 @@ class ShadowPass
                           bool shadowParallelPrep,
                           const Rendering::ShadowCasterBatches* objectCasters );
 
-    RuntimeRenderHost& m_host;
+    ShadowPassResources& m_resources;
+    std::unique_ptr<Geometry::Terrain>& m_terrain;
+    const EngineConfig& m_config;
+    RenderResourceLifecycleLogFn m_lifecycleLog = nullptr;
+    void* m_lifecycleLogUser = nullptr;
+    bool m_activeTerrainHidden = false;
+    bool m_activeCollisionVisualizerVisible = false;
+    int m_activeWindowWidth = 1;
+    int m_activeWindowHeight = 1;
 };
 
 /* -- ReflectionPass

@@ -94,6 +94,8 @@ struct ShadowGraphCallbackData
     ShadowPass* shadowPass = nullptr;
     const RenderFrameContext* frame = nullptr;
     const CinematicRenderConfig* cinematic = nullptr;
+    bool terrainHidden = false;
+    bool collisionVisualizerVisible = false;
     ShadowPassOutput output;
 };
 
@@ -205,7 +207,8 @@ void ExecuteShadowGraphCallback( const SkullbonezCore::Rendering::RenderGraphPas
     {
         throw std::runtime_error( "ShadowMapPass graph callback missing execution data" );
     }
-    data->output = data->shadowPass->Render( { *data->frame, data->cinematic } );
+    data->output = data->shadowPass->Render(
+        { *data->frame, data->cinematic, data->terrainHidden, data->collisionVisualizerVisible } );
 }
 
 void ExecuteReflectionGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& /*context*/,
@@ -526,9 +529,20 @@ void AddFrameTargetWrites( SkullbonezCore::Rendering::RenderGraph& graph, uint32
 }
 } // namespace
 
+void LogShadowResourceLifecycleFromHost( void* user, const char* phase, const char* step )
+{
+    auto* host = static_cast<RuntimeRenderHost*>( user );
+    if ( host )
+    {
+        host->LogRenderResourceLifecycleStep( phase, step );
+    }
+}
+
 RuntimeRenderer::ShadowGraphResult
 RuntimeRenderer::ExecuteShadowThroughRenderGraph( const RenderFrameContext& frame,
-                                                  const CinematicRenderConfig* activeShadowConfig )
+                                                  const CinematicRenderConfig* activeShadowConfig,
+                                                  bool terrainHidden,
+                                                  bool collisionVisualizerVisible )
 {
     Rendering::RenderGraph& graph = BeginRenderPassGraph();
     const Rendering::RenderGraphResourceHandle terrainShadow =
@@ -546,6 +560,8 @@ RuntimeRenderer::ExecuteShadowThroughRenderGraph( const RenderFrameContext& fram
     callbackData.shadowPass = &m_shadowPass;
     callbackData.frame = &frame;
     callbackData.cinematic = activeShadowConfig;
+    callbackData.terrainHidden = terrainHidden;
+    callbackData.collisionVisualizerVisible = collisionVisualizerVisible;
     graph.SetPassCallback( shadowPass, ExecuteShadowGraphCallback, &callbackData, true, "Frame/Shadows/ShadowMap" );
 
     // Invariant: even when activeShadowConfig is null, ShadowPass::Render clears
@@ -1237,9 +1253,15 @@ RuntimeRenderer::RuntimeRenderer( RuntimeRenderHost& host )
                  host.m_systems.renderPasses.fullscreen,
                  host.m_systems.skyBox,
                  host.m_config ),
-      m_sceneTargetPass( host.m_systems.renderPasses.cinematicScene ), m_shadowPass( host ), m_reflectionPass( host ),
-      m_objectPass( host.m_collisionVisualizer, host.m_config ), m_terrainPass( host.m_systems.terrain, host.m_config ),
-      m_waterPass( host.m_cWorldEnvironment, host.m_config ), m_tornadoVisualPass( host ), m_debugOverlayPass( host ),
+      m_sceneTargetPass( host.m_systems.renderPasses.cinematicScene ),
+      m_shadowPass( host.m_systems.renderPasses.shadows,
+                    host.m_systems.terrain,
+                    host.m_config,
+                    LogShadowResourceLifecycleFromHost,
+                    &host ),
+      m_reflectionPass( host ), m_objectPass( host.m_collisionVisualizer, host.m_config ),
+      m_terrainPass( host.m_systems.terrain, host.m_config ), m_waterPass( host.m_cWorldEnvironment, host.m_config ),
+      m_tornadoVisualPass( host ), m_debugOverlayPass( host ),
       m_volumetricPass( host.m_systems.renderPasses.cinematicScene,
                         host.m_systems.renderPasses.volumetricLight,
                         host.m_systems.renderPasses.fullscreen,
@@ -1364,7 +1386,10 @@ void RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
         }
         m_shadowPass.EnsureGpuResources( resourceContext, *activeShadowConfig );
     }
-    const ShadowGraphResult shadowGraph = ExecuteShadowThroughRenderGraph( frame, activeShadowConfig );
+    const ShadowGraphResult shadowGraph = ExecuteShadowThroughRenderGraph( frame,
+                                                                           activeShadowConfig,
+                                                                           host.m_debug.isTerrainHidden,
+                                                                           host.m_debug.isCollisionVisualizer );
     ShadowPassOutput shadowPass = shadowGraph.output;
     const bool shadowCallbackOwned = shadowGraph.callbackOwned;
     const Rendering::ShadowFrameData* terrainShadowFrame = shadowPass.terrainShadow;

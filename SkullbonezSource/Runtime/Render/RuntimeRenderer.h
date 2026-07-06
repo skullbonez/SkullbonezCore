@@ -111,7 +111,9 @@ class RuntimeRenderer
     Rendering::RenderGraph& BeginRenderPassGraph();
     const Rendering::RenderGraphCompileResult& CompileRenderPassGraph( Rendering::RenderGraph& graph );
     ShadowGraphResult ExecuteShadowThroughRenderGraph( const RenderFrameContext& frame,
-                                                       const CinematicRenderConfig* activeShadowConfig );
+                                                       const CinematicRenderConfig* activeShadowConfig,
+                                                       bool terrainHidden,
+                                                       bool collisionVisualizerVisible );
     bool ExecuteSkyboxThroughRenderGraph( const RenderFrameContext& frame );
     ReflectionGraphResult ExecuteReflectionThroughRenderGraph( const RenderFrameContext& frame,
                                                                const CinematicRenderConfig* activeCinematic,
