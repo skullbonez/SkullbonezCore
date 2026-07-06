@@ -179,11 +179,12 @@ class GameModelCollection
     Physics::PhysicsMaterial m_physicsMaterial;
     Physics::BodySimulationLimits m_bodySimulationLimits;
     Physics::ContactPolicy m_contactPolicy;
-    Threading::WorkerPool* m_workerPool = nullptr; // Borrowed startup worker pool for render/physics parallel helpers.
-    bool m_renderCollisionVolumes = false;         // Cached render debug toggle copied from EngineConfig.
-    bool m_shadowParallelPrep = false;             // Cached worker-prep toggle copied from EngineConfig.
+    Threading::WorkerPool* m_workerPool = nullptr;               // Borrowed startup worker pool for render/physics parallel helpers.
+    int m_activeGameModelCapacity = DEFAULT_GAME_MODEL_CAPACITY; // Configured model cap used by append/reserve guards.
+    bool m_renderCollisionVolumes = false;                       // Cached render debug toggle copied from EngineConfig.
+    bool m_shadowParallelPrep = false;                           // Cached worker-prep toggle copied from EngineConfig.
     std::vector<Rendering::RenderInstancePresentationRecord>
-        m_renderPresentationRecords;               // Render-facing material/highlight values keyed by model slot.
+        m_renderPresentationRecords;                             // Render-facing material/highlight values keyed by model slot.
 
     void ReserveForActiveGameModelCapacity();
     SceneObjectGroupRecord BuildSceneObjectGroupForAppend( const GameModel& gameModel,

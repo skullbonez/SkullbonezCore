@@ -3288,7 +3288,7 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine
         return atlasExitCode;
     }
 
-    EngineConfig& cfg = Cfg();
+    EngineConfig& cfg = EngineConfig::Instance();
 
     ParsedArgs args;
     if ( !ParseCommandLine( commandLine, cfg, args ) )
@@ -3333,6 +3333,7 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine
     }
 
     Window* window = Window::Instance();
+    window->SetStartupWindowSize( cfg.window.screenX, cfg.window.screenY );
     window->SetProjectionFrustum( cfg.frustumNear, cfg.frustumFar );
     window->CreateAppWindow( hInstance, cfg.window.fullscreen );
     window->m_sDevice = GetDC( window->m_sWindow );

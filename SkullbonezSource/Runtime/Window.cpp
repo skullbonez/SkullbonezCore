@@ -47,6 +47,8 @@ Window::Window()
     m_sDevice = 0;
     m_projectionNearPlane = 1.0f;
     m_projectionFarPlane = 5500.0f;
+    m_startupWindowWidth = 1800;
+    m_startupWindowHeight = 1000;
 }
 
 
@@ -90,6 +92,13 @@ void Window::SetProjectionFrustum( float nearPlane, float farPlane )
 {
     m_projectionNearPlane = nearPlane;
     m_projectionFarPlane = farPlane;
+}
+
+
+void Window::SetStartupWindowSize( int width, int height )
+{
+    m_startupWindowWidth = (std::max)( 1, width );
+    m_startupWindowHeight = (std::max)( 1, height );
 }
 
 
@@ -287,7 +296,7 @@ void Window::CreateAppWindow( HINSTANCE hInstance, bool isFullScreenMode )
         dwStyle = WS_POPUP | WS_CLIPSIBLINGS | WS_CLIPCHILDREN;
 
         // Changes to full screen mode
-        ChangeToFullScreen( Cfg().window.screenX, Cfg().window.screenY );
+        ChangeToFullScreen( m_startupWindowWidth, m_startupWindowHeight );
 
         Input::SetSystemCursorVisible( false );
     }
@@ -298,8 +307,8 @@ void Window::CreateAppWindow( HINSTANCE hInstance, bool isFullScreenMode )
 
     int windowX = 0;
     int windowY = 0;
-    const int windowW = Cfg().window.screenX;
-    const int windowH = Cfg().window.screenY;
+    const int windowW = m_startupWindowWidth;
+    const int windowH = m_startupWindowHeight;
     if ( !m_fIsFullScreenMode )
     {
         // Default the window to the bottom-left of the usable desktop work area.

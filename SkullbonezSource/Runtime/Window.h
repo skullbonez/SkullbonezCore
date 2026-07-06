@@ -51,6 +51,8 @@ class Window
 
     float m_projectionNearPlane;                                 // Near depth plane used by the cached perspective projection.
     float m_projectionFarPlane;                                  // Far depth plane used by the cached perspective projection.
+    int m_startupWindowWidth = 1800;                             // Configured initial window width supplied by startup.
+    int m_startupWindowHeight = 1000;                            // Configured initial window height supplied by startup.
 
     Window();                                                    // Private singleton construction; use Instance().
     ~Window();                                                   // Static singleton lifetime; destructor currently has no native teardown.
@@ -69,6 +71,7 @@ class Window
     void SetTitleText( const char* cText );                      // Updates the native title bar without touching renderer text.
     void SetProjectionFrustum( float nearPlane,
                                float farPlane );                 // Stores projection depth planes used by later resize messages.
+    void SetStartupWindowSize( int width, int height );          // Stores config-owned initial window/fullscreen dimensions.
     const Math::Transformation::Matrix4& GetProjectionMatrix() const
     {
         return projectionMatrix;

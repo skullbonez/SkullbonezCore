@@ -945,7 +945,7 @@ void Run::ResetReplayTimelineForActiveScene( bool preserveBranchMetadata )
         HashReplayInt( hash, SceneState().solverBallCount );
         HashReplayInt( hash, SceneState().solverBoxCount );
         HashReplayInt( hash, static_cast<int32_t>( SceneState().rngSeed ) );
-        HashReplayInt( hash, static_cast<int32_t>( ActiveGameModelCapacity() ) );
+        HashReplayInt( hash, static_cast<int32_t>( m_startup.gameModelCapacity ) );
         HashReplayInt( hash, static_cast<int32_t>( m_launchOptions.generatedObjectTypeOverride ) );
 
         m_replayRuntime.RecordEvent( ReplayEventKind::GeneratedSceneConfig,

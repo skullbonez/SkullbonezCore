@@ -15,8 +15,8 @@ Glossary:
 Invariants:
   - Shared constants in this file are compile-time engine contracts; changing
     capacities, tolerances, or fixed timestep values changes validation scope.
-  - Cfg() and Log() are convenience accessors only; ownership remains with the
-    singleton types declared in their own subsystem headers.
+  - Log() is a convenience accessor only; ownership remains with the singleton
+    type declared in its own subsystem header.
 
 Related:
   - Agentic/Reference/runtime-reference.md
@@ -107,15 +107,9 @@ constexpr float ZERO_TAKE_TOLERANCE = -0.00005f;
 #include "Config.h"
 #include "Log.h"
 
-// Convenience accessor — use Cfg().fieldName anywhere Common.h is included.
-inline SkullbonezCore::Basics::EngineConfig& Cfg()
+inline int ActiveGameModelCapacity( const SkullbonezCore::Basics::EngineConfig& config )
 {
-    return SkullbonezCore::Basics::EngineConfig::Instance();
-}
-
-inline int ActiveGameModelCapacity()
-{
-    return std::clamp( Cfg().gameModelCapacity, 1, MAX_GAME_MODELS );
+    return std::clamp( config.gameModelCapacity, 1, MAX_GAME_MODELS );
 }
 
 // Convenience accessor — use Log().Writef("file.csv", fmt, ...) anywhere (debug no-op in release).

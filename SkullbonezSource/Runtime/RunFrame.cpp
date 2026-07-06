@@ -1275,7 +1275,7 @@ void Run::TickReplaySaveProbe()
                                                        m_cWorldEnvironment,
                                                        m_systems.terrain.get(),
                                                        m_systems.assets,
-                                                       ActiveGameModelCapacity() };
+                                                       m_startup.gameModelCapacity };
         EditorObjectPlacementRequest placementRequest{ UI::EditorTab::OBJECT_BOX, true, Vector3( 18.0f, 0.0f, 18.0f ) };
         EditorObjectPlacementResult placementResult;
         if ( CanPlaceEditorObjectAtTerrainPoint( placementContext, placementRequest ) )
@@ -1376,7 +1376,7 @@ void Run::TickReplaySaveProbe()
             if ( m_runtimeTools.FireLauncherRay( m_cGameModelCollection,
                                                  SceneState(),
                                                  m_systems.terrain.get(),
-                                                 ActiveGameModelCapacity(),
+                                                 m_startup.gameModelCapacity,
                                                  rayOrigin,
                                                  rayDirection,
                                                  cameraUp ) )
@@ -1903,7 +1903,7 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
             if ( m_runtimeTools.FireLauncherRay( m_cGameModelCollection,
                                                  SceneState(),
                                                  m_systems.terrain.get(),
-                                                 ActiveGameModelCapacity(),
+                                                 m_startup.gameModelCapacity,
                                                  rayOrigin,
                                                  rayDirection,
                                                  cameraUp ) )
@@ -1957,7 +1957,7 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
                                                            m_cWorldEnvironment,
                                                            m_systems.terrain.get(),
                                                            m_systems.assets,
-                                                           ActiveGameModelCapacity() };
+                                                           m_startup.gameModelCapacity };
             EditorObjectPlacementRequest placementRequest{ event.value0,
                                                            ( event.flags & REPLAY_EDITOR_PLACE_FIXED ) != 0,
                                                            terrainPoint };
@@ -2282,7 +2282,7 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
                                     "generated solver counts do not match model count" );
             return false;
         }
-        if ( event.value0 > ActiveGameModelCapacity() )
+        if ( event.value0 > m_startup.gameModelCapacity )
         {
             WriteReplayProbeReason( rebuildReason,
                                     rebuildReasonSize,

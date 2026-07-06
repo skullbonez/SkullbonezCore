@@ -157,7 +157,7 @@ void GameModelCollection::ReserveForActiveGameModelCapacity()
     // Config can raise the active model capacity after construction, so each
     // setup/config boundary repeats the reserve instead of letting render-time
     // append paths discover the new capacity by reallocating.
-    const std::size_t capacity = static_cast<std::size_t>( ActiveGameModelCapacity() );
+    const std::size_t capacity = static_cast<std::size_t>( m_activeGameModelCapacity );
     m_gameModels.reserve( capacity );
     m_sceneObjectGroups.reserve( capacity );
     m_authoredBodyDescs.reserve( capacity );
@@ -306,6 +306,7 @@ void GameModelCollection::BindWorkerPool( SkullbonezCore::Threading::WorkerPool&
 
 void GameModelCollection::ApplyRuntimeConfig( const Basics::EngineConfig& config )
 {
+    m_activeGameModelCapacity = ActiveGameModelCapacity( config );
     ReserveForActiveGameModelCapacity();
     m_physicsMaterial = Physics::PhysicsMaterial::FromConfig( config );
     m_bodySimulationLimits = Physics::BodySimulationLimits::FromConfig( config );
@@ -371,7 +372,7 @@ PhysicsBodyHandle GameModelCollection::AppendGameModelAndPhysicsRows( GameModel 
                                                                       PhysicsColliderCreateDesc colliderDesc,
                                                                       SceneObjectGroupCreateDesc groupDesc )
 {
-    const int activeCapacity = ActiveGameModelCapacity();
+    const int activeCapacity = m_activeGameModelCapacity;
     assert( static_cast<int>( m_gameModels.size() ) < activeCapacity && "Exceeded active game model capacity" );
     if ( static_cast<int>( m_gameModels.size() ) >= activeCapacity )
     {

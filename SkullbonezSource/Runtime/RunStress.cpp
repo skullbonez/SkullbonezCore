@@ -224,7 +224,7 @@ void Run::RunUIStressActions()
                                                     m_sceneController.UIOverrides(),
                                                     m_camera,
                                                     m_sceneController,
-                                                    Cfg(),
+                                                    m_config,
                                                     m_cWorldEnvironment,
                                                     m_systems.terrain.get(),
                                                     m_cGameModelCollection,
@@ -232,7 +232,7 @@ void Run::RunUIStressActions()
                                                     m_runtimeTools,
                                                     IsGfxReady() ? &Gfx() : nullptr,
                                                     m_launchOptions.generatedObjectTypeOverride,
-                                                    ActiveGameModelCapacity() };
+                                                    m_startup.gameModelCapacity };
     };
     const auto executeSceneGeneratedControlAction = [this]( const SceneRuntimeGeneratedControlAction& action )
     {

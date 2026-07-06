@@ -1556,7 +1556,7 @@ MUTABLE_PROCESS_GLOBAL_PATTERN = re.compile(r"\bg_[A-Za-z_]\w*\b")
 # SVC-035: current tracked-source global-service census on 2026-07-07.
 # Per-file rows classify remaining debt; this total blocks stale row slack from
 # approving growth while later rows drain the explicit-service surface.
-MAX_GLOBAL_SERVICE_ACCESS_CENSUS = 176
+MAX_GLOBAL_SERVICE_ACCESS_CENSUS = 168
 MAX_RUN_PRIVATE_METHOD_DECLARATIONS = 129
 RUN_PRIVATE_METHOD_DECLARATION_PATTERN = re.compile(
     r"(?m)^\s*(?:static\s+)?(?:[A-Za-z_][\w:<>,~]*\s*(?:[&*]\s*)?\s+)+"
@@ -1674,8 +1674,6 @@ GLOBAL_SERVICE_ACCESS_ALLOWLIST: Counter[tuple[Path, str]] = Counter(
     {
         ( Path(path), label ): count
         for path, label, count in (
-            ( "SkullbonezSource/Core/Common.h", "Cfg()", 2 ),
-            ( "SkullbonezSource/Core/Common.h", "EngineConfig::Instance()", 1 ),
             ( "SkullbonezSource/Core/Config.cpp", "EngineConfig::Instance()", 1 ),
             ( "SkullbonezSource/Core/LockOrderValidator.cpp", "LockOrderValidator::Instance()", 5 ),
             ( "SkullbonezSource/Core/LockOrderValidator.cpp", "g_*", 12 ),
@@ -1698,19 +1696,17 @@ GLOBAL_SERVICE_ACCESS_ALLOWLIST: Counter[tuple[Path, str]] = Counter(
             ( "SkullbonezSource/Rendering/IRenderBackend.h", "GfxRayTracing()", 1 ),
             ( "SkullbonezSource/Rendering/IRenderBackend.h", "IsGfxReady()", 2 ),
             ( "SkullbonezSource/Rendering/IRenderBackend.h", "IsGfxRayTracingReady()", 1 ),
-            ( "SkullbonezSource/Runtime/Init.cpp", "Cfg()", 1 ),
+            ( "SkullbonezSource/Runtime/Init.cpp", "EngineConfig::Instance()", 1 ),
             ( "SkullbonezSource/Runtime/Init.cpp", "Window::Instance()", 1 ),
             ( "SkullbonezSource/Runtime/Init.cpp", "WorkerPool::Instance()", 1 ),
             ( "SkullbonezSource/Runtime/Init.cpp", "g_*", 6 ),
             ( "SkullbonezSource/Runtime/Input.cpp", "g_*", 33 ),
             ( "SkullbonezSource/Runtime/RunInput.cpp", "IsGfxReady()", 1 ),
             ( "SkullbonezSource/Runtime/RunPasses.cpp", "IsGfxReady()", 1 ),
-            ( "SkullbonezSource/Runtime/RunStress.cpp", "Cfg()", 1 ),
             ( "SkullbonezSource/Runtime/RunStress.cpp", "Gfx()", 2 ),
             ( "SkullbonezSource/Runtime/RunStress.cpp", "IsGfxReady()", 2 ),
             ( "SkullbonezSource/Runtime/RunUiTextPass.cpp", "Profiler::Instance()", 1 ),
             ( "SkullbonezSource/Runtime/RuntimeDiagnostics.cpp", "Profiler::Instance()", 4 ),
-            ( "SkullbonezSource/Runtime/Window.cpp", "Cfg()", 4 ),
             ( "SkullbonezSource/Runtime/Window.cpp", "Gfx()", 1 ),
             ( "SkullbonezSource/Runtime/Window.cpp", "IsGfxReady()", 1 ),
             ( "SkullbonezSource/Runtime/Window.cpp", "Window::Instance()", 1 ),

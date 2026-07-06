@@ -661,7 +661,7 @@ bool Run::RouteRuntimePointerInput( const RuntimeInputSnapshot& inputSnapshot, c
             if ( m_runtimeTools.FireLauncherRay( m_cGameModelCollection,
                                                  SceneState(),
                                                  m_systems.terrain.get(),
-                                                 ActiveGameModelCapacity(),
+                                                 m_startup.gameModelCapacity,
                                                  rayOrigin,
                                                  rayDirection,
                                                  cameraUp ) )
@@ -3233,7 +3233,7 @@ void Run::TakeInput()
                                                         m_runtimeTools,
                                                         m_renderBackendView.renderBackend,
                                                         m_launchOptions.generatedObjectTypeOverride,
-                                                        ActiveGameModelCapacity() };
+                                                        m_startup.gameModelCapacity };
         };
         const auto executeSceneGeneratedControlAction = [this]( const SceneRuntimeGeneratedControlAction& action )
         {
@@ -3262,7 +3262,7 @@ void Run::TakeInput()
         }
         if ( uiCommands.run.requestedSolverBallCount >= 0 )
         {
-            const int modelCapacity = ActiveGameModelCapacity();
+            const int modelCapacity = m_startup.gameModelCapacity;
             const int boxes = m_sceneController.UIOverrides().solverBoxCountOverride >= 0
                                   ? m_sceneController.UIOverrides().solverBoxCountOverride
                                   : SceneState().solverBoxCount;
@@ -3274,7 +3274,7 @@ void Run::TakeInput()
         }
         if ( uiCommands.run.requestedSolverBoxCount >= 0 )
         {
-            const int modelCapacity = ActiveGameModelCapacity();
+            const int modelCapacity = m_startup.gameModelCapacity;
             const int balls = m_sceneController.UIOverrides().solverBallCountOverride >= 0
                                   ? m_sceneController.UIOverrides().solverBallCountOverride
                                   : SceneState().solverBallCount;

@@ -1174,7 +1174,7 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
                                  sphereVBVA,
                                  sphereVertCount,
                                  sphereStride,
-                                 ActiveGameModelCapacity() );
+                                 m_startup.gameModelCapacity );
         }
     }
     runtime.RecordLifecycleEvent( SceneRuntimeLifecycleEvent::AfterSceneActivated );
