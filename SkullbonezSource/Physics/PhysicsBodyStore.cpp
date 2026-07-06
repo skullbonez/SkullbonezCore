@@ -42,6 +42,7 @@ Related:
 #include <cmath>
 #include <cstddef>
 #include <cstdio>
+#include <cstdlib>
 #include <limits>
 #include <stdexcept>
 #include <type_traits>
@@ -1004,7 +1005,7 @@ std::vector<uint32_t> PhysicsBodyStore::BuildReplayBodyIdsForReload( int sceneEn
     {
         ReportReplayBodyIdReloadCapacityExceeded( sceneEntityCount, capacity, Count() );
         assert( false && "PhysicsBodyStore replay body id reload capacity exceeded" );
-        throw std::runtime_error( "PhysicsBodyStore replay body id reload capacity exceeded." );
+        std::abort();
     }
 
     std::vector<uint32_t> replayBodyIds;
