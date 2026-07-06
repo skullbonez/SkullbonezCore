@@ -13,8 +13,10 @@ Glossary:
   used by one or more graph passes, and reusable by later compatible lifetimes.
   Pool slot: Compiler-assigned alias bucket for non-overlapping transient
   lifetimes with matching descriptor needs.
-  SRV/RTV/DSV/UAV: DX12 descriptor row types for shader reads, color writes,
-  depth/stencil writes, and unordered writes.
+  SRV (Shader Resource View): Descriptor row used when shaders read textures.
+  RTV (Render Target View): Descriptor row used when the GPU writes color.
+  DSV (Depth Stencil View): Descriptor row used for depth/stencil writes.
+  UAV (Unordered Access View): Descriptor row used when shaders write data.
 
 Invariants:
   - Pool-slot reuse is legal even when a previous logical transient already
@@ -56,6 +58,30 @@ struct GraphTransientResourceDX12
     RenderGraphResourceAccess currentAccess = RenderGraphResourceAccess::Unknown;
     bool usedThisCompile = false;
 };
+
+inline bool ReleaseGraphTransientPoolSlotResourceDX12( GraphTransientResourceDX12& slot )
+{
+    if ( !slot.resource )
+    {
+        return false;
+    }
+
+    // Lifetime: native texture release belongs to the graph transient pool slot,
+    // not to material/object texture ownership. The caller unregisters any engine
+    // texture handle first because the backend texture registry owns that mapping;
+    // this helper then retires only the DX12 resource and descriptor identities
+    // cached on the physical pool slot.
+    slot.resource->Release();
+    slot.resource = nullptr;
+    slot.rtv = {};
+    slot.dsv = {};
+    slot.srvIndex = UINT_MAX;
+    slot.uavIndex = UINT_MAX;
+    slot.resourceName[0] = '\0';
+    slot.currentAccess = RenderGraphResourceAccess::Unknown;
+    slot.usedThisCompile = false;
+    return true;
+}
 
 struct GraphTransientBindingDX12
 {

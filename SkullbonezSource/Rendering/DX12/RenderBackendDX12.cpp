@@ -1046,10 +1046,8 @@ void RenderBackendDX12::ReleaseGraphTransientResources( const char* reason )
             UnregisterSRV( slot.textureHandle );
             slot.textureHandle = 0;
         }
-        if ( slot.resource )
+        if ( ReleaseGraphTransientPoolSlotResourceDX12( slot ) )
         {
-            slot.resource->Release();
-            slot.resource = nullptr;
             ++released;
         }
     }
