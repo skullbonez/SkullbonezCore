@@ -127,7 +127,7 @@ struct RuntimeRenderServices
     UI::InGameUI& ui;
     Geometry::SkyBox* skyBox;
     // Lifetime: selected once by Run for this render call. Passes use this
-    // snapshot instead of asking RuntimeRenderHost to reopen scene/config state.
+    // snapshot instead of asking Run to reopen scene/config state.
     const CinematicRenderConfig& cinematic;
     bool cinematicEnabled = false;
     // Lifetime: this command facet is borrowed from the process-bound backend

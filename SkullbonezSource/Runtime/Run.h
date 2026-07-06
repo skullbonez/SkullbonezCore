@@ -147,8 +147,7 @@ class Run
     RuntimeCommandQueue m_runtimeCommands;                                 // Deferred runtime/tool command intent.
     EngineContext m_engineContext;                                         // Bound view over runtime-owned systems.
     RuntimeViewModel m_runtimeViewModel;                                   // Scalar runtime snapshot for presentation/diagnostics.
-    RuntimeRenderBackendView m_renderBackendView;                          // Borrowed active renderer capabilities for render-host users.
-    RuntimeRenderHost m_renderHost;                                        // Render callback boundary for Run-owned behavior.
+    RuntimeRenderBackendView m_renderBackendView;                          // Borrowed active renderer capabilities for renderer users.
     RuntimeRenderer m_renderer;                                            // Owns runtime render passes and frame render ordering.
 
     inline static int sPerfPass = 0;
@@ -274,7 +273,6 @@ class Run
                                         const std::string& relativePath ); // Resolves DATA_ROOT path while preserving
                                                                            // source asset identity for rebuilds.
     RuntimeRendererBindings BuildRuntimeRendererBindings();
-    RuntimeRenderHostCallbacks BuildRuntimeRenderHostCallbacks();
     void ReleaseBackendOwnedRenderResources(
         const char* phaseName );                                           // Ordered GPU-resource release hook while the backend is alive.
     void RebuildRegisteredRenderResources();                               // Recreates renderer resources from source asset records

@@ -21,8 +21,8 @@ Glossary:
 
 Invariants:
   - Pass input/output structs borrow data for one frame only.
-  - Pass constructors receive named long-lived owners; only migration-bound passes
-    still borrow RuntimeRenderHost directly.
+  - Pass constructors receive named long-lived owners; per-frame runtime data
+    travels through explicit pass input structs.
   - Pass order is owned by RuntimeRenderer::RenderFrame.
 
 Related:
@@ -208,7 +208,7 @@ struct RenderFrameContext
     // must not store it beyond the current RenderFrame call.
     Assets::AssetSystem* assets = nullptr;
     // Lifetime: borrowed texture binding service for this frame only. Pass code
-    // uses it to resolve legacy texture handles without reopening RuntimeRenderHost.
+    // uses it to resolve legacy texture handles without reopening Run state.
     Textures::TextureCollection* textures = nullptr;
     // Lifetime: borrowed from RuntimeRenderInputs for lazy debug resource
     // creation in this frame only.

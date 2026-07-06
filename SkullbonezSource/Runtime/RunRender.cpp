@@ -33,7 +33,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h declares pass contracts.
-  - SkullbonezSource/Runtime/Run.h owns the runtime state borrowed by RuntimeRenderHost.
+  - SkullbonezSource/Runtime/Run.h owns the runtime state borrowed by renderer bindings.
   - SkullbonezSource/Rendering/RenderPipeline.h owns executed frame graph diagnostics.
   - Agentic/Reference/comment-style-guide.md
 */
@@ -554,28 +554,7 @@ bool TornadoSystemVectorsVisible( const Physics::TornadoSystemConfig& config )
     return false;
 }
 
-void RenderEditorOverlayFromHost( void* user,
-                                  SkullbonezCore::Rendering::IRenderResourceFactory& renderResources,
-                                  const Math::Transformation::Matrix4& viewProjection,
-                                  const Math::Vector::Vector3& cameraEye,
-                                  const Math::Vector::Vector3& cameraUp )
-{
-    auto* host = static_cast<RuntimeRenderHost*>( user );
-    if ( host )
-    {
-        host->RenderEditorOverlay( renderResources, viewProjection, cameraEye, cameraUp );
-    }
-}
 } // namespace
-
-void LogRenderResourceLifecycleFromHost( void* user, const char* phase, const char* step )
-{
-    auto* host = static_cast<RuntimeRenderHost*>( user );
-    if ( host )
-    {
-        host->LogRenderResourceLifecycleStep( phase, step );
-    }
-}
 
 RuntimeRenderer::ShadowGraphResult
 RuntimeRenderer::ExecuteShadowThroughRenderGraph( const RenderFrameContext& frame,
@@ -1341,8 +1320,12 @@ RenderResourceContext RuntimeRenderer::BuildRenderResourceContext( const Runtime
 }
 
 
-RuntimeRenderer::RuntimeRenderer( const RuntimeRendererBindings& bindings, RuntimeRenderHost& callbackHost )
-    : m_callbackHost( callbackHost ), m_systems( *bindings.runtime.systems ), m_debug( *bindings.diagnostics.debug ),
+RuntimeRenderer::RuntimeRenderer( const RuntimeRendererBindings& bindings,
+                                  RenderResourceLifecycleLogFn lifecycleLog,
+                                  RenderEditorOverlayFn editorOverlay,
+                                  void* callbackUser )
+    : m_lifecycleLog( lifecycleLog ), m_editorOverlay( editorOverlay ), m_callbackUser( callbackUser ),
+      m_systems( *bindings.runtime.systems ), m_debug( *bindings.diagnostics.debug ),
       m_timers( *bindings.diagnostics.timers ), m_config( *bindings.runtime.config ),
       m_runtimeSettings( *bindings.runtime.runtimeSettings ), m_world( *bindings.world.worldEnvironment ),
       m_collisionVisualizer( *bindings.world.collisionVisualizer ),
@@ -1352,25 +1335,22 @@ RuntimeRenderer::RuntimeRenderer( const RuntimeRendererBindings& bindings, Runti
       m_replayRuntime( *bindings.replayOverlay.replayRuntime ),
       m_fullscreenQuadPass( m_systems.renderPasses.fullscreen ),
       m_skyPass( m_systems.renderPasses.sky, m_systems.renderPasses.fullscreen, m_systems.skyBox, m_config ),
-      m_sceneTargetPass( m_systems.renderPasses.cinematicScene ), m_shadowPass( m_systems.renderPasses.shadows,
-                                                                                m_systems.terrain,
-                                                                                m_config,
-                                                                                LogRenderResourceLifecycleFromHost,
-                                                                                &m_callbackHost ),
+      m_sceneTargetPass( m_systems.renderPasses.cinematicScene ),
+      m_shadowPass( m_systems.renderPasses.shadows, m_systems.terrain, m_config, m_lifecycleLog, m_callbackUser ),
       m_reflectionPass( m_systems.renderPasses.reflection,
                         m_collisionVisualizer,
                         m_config,
                         m_dxrReflectionTransforms.data(),
                         static_cast<int>( m_dxrReflectionTransforms.size() / 16 ),
-                        LogRenderResourceLifecycleFromHost,
-                        &m_callbackHost ),
+                        m_lifecycleLog,
+                        m_callbackUser ),
       m_objectPass( m_collisionVisualizer, m_config ), m_terrainPass( m_systems.terrain, m_config ),
       m_waterPass( m_world, m_config ), m_tornadoVisualPass( m_systems.terrain ),
       m_debugOverlayPass( m_broadphaseVisualizer,
                           m_physicsDebugVisualizer,
                           m_systems.terrain,
-                          RenderEditorOverlayFromHost,
-                          &m_callbackHost ),
+                          m_editorOverlay,
+                          m_callbackUser ),
       m_volumetricPass( m_systems.renderPasses.cinematicScene,
                         m_systems.renderPasses.volumetricLight,
                         m_systems.renderPasses.fullscreen,

@@ -126,72 +126,74 @@ RuntimeRendererBindings Run::BuildRuntimeRendererBindings()
 }
 
 
-RuntimeRenderHostCallbacks Run::BuildRuntimeRenderHostCallbacks()
-{
-    RuntimeRenderHostCallbacks callbacks;
-    callbacks.user = this;
-    callbacks.logRenderResourceLifecycleStep = []( void* user, const char* phase, const char* step )
-    { static_cast<Run*>( user )->LogRenderResourceLifecycleStep( phase, step ); };
-    callbacks.renderEditorOverlay = []( void* user,
-                                        SkullbonezCore::Rendering::IRenderResourceFactory& renderResources,
-                                        const Math::Transformation::Matrix4& viewProjection,
-                                        const Math::Vector::Vector3& cameraEye,
-                                        const Math::Vector::Vector3& cameraUp )
-    {
-        Run* run = static_cast<Run*>( user );
-        RunEditorTracer& tracer = run->m_runtimeTools.EditorTracer();
-        tracer.Clear();
-
-        int attachedTargetIndex = -1;
-        if ( run->IsAttachedCameraMode() )
-        {
-            int targetIndex = -1;
-            if ( run->TryResolveAttachedCameraTarget( targetIndex ) )
-            {
-                attachedTargetIndex = targetIndex;
-            }
-        }
-
-        BuildEditorToolOverlayTrace( { run->m_runtimeTools.Editor(),
-                                       run->m_runtimeTools.RayCastTest(),
-                                       run->m_runtimeTools.MousePickup(),
-                                       run->m_cGameModelCollection,
-                                       run->m_cGameModelCollection.GetPhysicsEngine().BodyStore(),
-                                       run->m_cGameModelCollection.GetPhysicsEngine().Colliders(),
-                                       run->m_systems.assets,
-                                       tracer },
-                                     { run->m_debug.physicsDebugContactLinger,
-                                       run->InspectGizmoInteractionActive(),
-                                       Input::IsKeyDown( VK_CONTROL ),
-                                       attachedTargetIndex,
-                                       run->m_attachedCamera.activeFollow } );
-        run->RenderReplayPathVisualizer( tracer );
-        run->RenderReplayCauseFocusOverlay( tracer );
-        run->RenderReplayVelocityEditOverlay( tracer );
-        tracer.Render( viewProjection );
-        run->m_runtimeTools.Laser().Render( viewProjection,
-                                            cameraEye,
-                                            cameraUp,
-                                            run->m_systems.assets,
-                                            renderResources );
-    };
-    callbacks.refreshRuntimeViewModel = []( void* user ) { static_cast<Run*>( user )->RefreshRuntimeViewModel(); };
-    callbacks.cameraModeEnabledMask = []( void* user ) -> uint32_t
-    { return static_cast<Run*>( user )->CameraModeEnabledMask(); };
-    callbacks.cameraModeLabel = []( void* user, RunCameraMode mode ) -> const char*
-    { return static_cast<Run*>( user )->CameraModeLabel( mode ); };
-    return callbacks;
-}
-
-
+// Why: RuntimeRenderer still passes C-style hooks down to a few pass owners.
+// Keeping the noncapturing hook lambdas here lets them access Run-owned editor
+// overlay behavior without adding another Run.h method or callback-holder type.
 Run::Run( Window& window,
           std::vector<std::string> sceneQueue,
           EngineConfig& config,
           Threading::WorkerPool& workerPool,
           RuntimeRenderBackendView renderBackendView )
     : m_config( config ), m_sceneController( std::move( sceneQueue ) ), m_sceneCoordinator( m_sceneController ),
-      m_renderBackendView( renderBackendView ), m_renderHost( BuildRuntimeRenderHostCallbacks() ),
-      m_renderer( BuildRuntimeRendererBindings(), m_renderHost )
+      m_renderBackendView( renderBackendView ),
+      m_renderer(
+          BuildRuntimeRendererBindings(),
+          []( void* user, const char* phase, const char* step )
+          {
+              if ( Run* run = static_cast<Run*>( user ) )
+              {
+                  run->LogRenderResourceLifecycleStep( phase, step );
+              }
+          },
+          []( void* user,
+              SkullbonezCore::Rendering::IRenderResourceFactory& renderResources,
+              const Math::Transformation::Matrix4& viewProjection,
+              const Math::Vector::Vector3& cameraEye,
+              const Math::Vector::Vector3& cameraUp )
+          {
+              Run* run = static_cast<Run*>( user );
+              if ( !run )
+              {
+                  return;
+              }
+
+              RunEditorTracer& tracer = run->m_runtimeTools.EditorTracer();
+              tracer.Clear();
+
+              int attachedTargetIndex = -1;
+              if ( run->IsAttachedCameraMode() )
+              {
+                  int targetIndex = -1;
+                  if ( run->TryResolveAttachedCameraTarget( targetIndex ) )
+                  {
+                      attachedTargetIndex = targetIndex;
+                  }
+              }
+
+              BuildEditorToolOverlayTrace( { run->m_runtimeTools.Editor(),
+                                             run->m_runtimeTools.RayCastTest(),
+                                             run->m_runtimeTools.MousePickup(),
+                                             run->m_cGameModelCollection,
+                                             run->m_cGameModelCollection.GetPhysicsEngine().BodyStore(),
+                                             run->m_cGameModelCollection.GetPhysicsEngine().Colliders(),
+                                             run->m_systems.assets,
+                                             tracer },
+                                           { run->m_debug.physicsDebugContactLinger,
+                                             run->InspectGizmoInteractionActive(),
+                                             Input::IsKeyDown( VK_CONTROL ),
+                                             attachedTargetIndex,
+                                             run->m_attachedCamera.activeFollow } );
+              run->RenderReplayPathVisualizer( tracer );
+              run->RenderReplayCauseFocusOverlay( tracer );
+              run->RenderReplayVelocityEditOverlay( tracer );
+              tracer.Render( viewProjection );
+              run->m_runtimeTools.Laser().Render( viewProjection,
+                                                  cameraEye,
+                                                  cameraUp,
+                                                  run->m_systems.assets,
+                                                  renderResources );
+          },
+          this )
 {
     m_systems.window = &window;
     m_systems.workerPool = &workerPool;

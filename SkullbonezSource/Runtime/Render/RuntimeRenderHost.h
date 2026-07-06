@@ -1,32 +1,23 @@
 /*
 File: SkullbonezSource/Runtime/Render/RuntimeRenderHost.h
 Purpose:
-  Names the callback boundary and startup bindings for runtime render passes.
+  Names the startup bindings for runtime render passes.
 
 Mental model:
-  RuntimeRenderer owns pass order and pass objects. RuntimeRenderHost is now the
-  explicit callback bridge for behavior still implemented by Run while renderer
-  dependencies travel through named startup bindings.
+  RuntimeRenderer owns pass order and pass objects. Renderer dependencies travel
+  through named startup bindings while Run stays the composition root.
 
 Glossary:
-  Render host: Callback holder used while Run still owns editor overlay and
-    lifecycle logging behavior.
   Binding: Pointer set that connects RuntimeRenderer to current runtime owners.
-  Callback: Transitional function pointer used for behavior still implemented
-    on Run.
   Render backend view: Borrowed active renderer capabilities published by the
     composition root; null pointers mean the backend is not available.
   DXR reflection transform buffer: Host-owned per-frame scratch matrix data
     streamed from the scene view into the DX12 TLAS build.
 
 Invariants:
-  - RuntimeRenderHost does not own the callback target.
   - RuntimeRenderer owns renderer scratch state that should not leak back into
     Run.h, including DXR reflection instance transforms.
   - All references must outlive RuntimeRenderer and its passes.
-  - Callback functions are bound once by Run construction; they preserve the
-    remaining Run-side behavior until later phases move those services behind
-    narrower owners.
 
 Related:
   - SkullbonezSource/Runtime/Render/RuntimeRenderer.h
@@ -164,63 +155,6 @@ struct RuntimeRendererBindings
     RenderToolOverlayView toolOverlay;
     RenderUiView ui;
     RenderDiagnosticsView diagnostics;
-};
-
-// Concept: RuntimeRenderHost owns this callback boundary while Run remains the
-// composition root for editor overlays, resource lifecycle logging, and camera
-// labels.
-//
-// Why: those commands still live on Run, but render passes must not borrow the
-// whole Run object or the concrete scene container. Keeping the function-pointer
-// list here makes each remaining command explicit.
-//
-// Deletion condition: replace each callback with a domain owner in the runtime
-// decomposition plan, then remove the corresponding entry from this struct.
-// Checker budget: no concrete scene-container borrow is allowed in Runtime/Render;
-// callbacks stay outside per-instance render loops and are audited as this one
-// host-owned boundary.
-struct RuntimeRenderHostCallbacks
-{
-    using LogLifecycleStepFn = void ( * )( void* user, const char* phase, const char* step );
-    using RenderEditorOverlayFn = void ( * )( void* user,
-                                              Rendering::IRenderResourceFactory& renderResources,
-                                              const Math::Transformation::Matrix4& viewProjection,
-                                              const Math::Vector::Vector3& cameraEye,
-                                              const Math::Vector::Vector3& cameraUp );
-    using VoidFn = void ( * )( void* user );
-    using CameraModeEnabledMaskFn = uint32_t ( * )( void* user );
-    using CameraModeLabelFn = const char* (*)( void* user, RunCameraMode mode );
-
-    void* user = nullptr;
-    LogLifecycleStepFn logRenderResourceLifecycleStep = nullptr;
-    RenderEditorOverlayFn renderEditorOverlay = nullptr;
-    VoidFn refreshRuntimeViewModel = nullptr;
-    CameraModeEnabledMaskFn cameraModeEnabledMask = nullptr;
-    CameraModeLabelFn cameraModeLabel = nullptr;
-};
-
-class RuntimeRenderHost
-{
-  public:
-    explicit RuntimeRenderHost( RuntimeRenderHostCallbacks callbacks ) : m_callbacks( callbacks )
-    {
-    }
-
-    void LogRenderResourceLifecycleStep( const char* phase, const char* step ) const
-    {
-        m_callbacks.logRenderResourceLifecycleStep( m_callbacks.user, phase, step );
-    }
-
-    void RenderEditorOverlay( Rendering::IRenderResourceFactory& renderResources,
-                              const Math::Transformation::Matrix4& viewProjection,
-                              const Math::Vector::Vector3& cameraEye,
-                              const Math::Vector::Vector3& cameraUp ) const
-    {
-        m_callbacks.renderEditorOverlay( m_callbacks.user, renderResources, viewProjection, cameraEye, cameraUp );
-    }
-
-  private:
-    RuntimeRenderHostCallbacks m_callbacks;
 };
 
 } // namespace Basics
