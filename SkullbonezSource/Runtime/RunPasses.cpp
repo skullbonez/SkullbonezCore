@@ -431,31 +431,29 @@ void FullscreenQuadPass::EnsureGpuResources( const RenderResourceContext& resour
         return;
     }
 
-    FullscreenPassResources& fullscreen = m_host.m_systems.renderPasses.fullscreen;
-    if ( fullscreen.quadVB == 0 )
+    if ( m_resources.quadVB == 0 )
     {
         // Full-screen shaders draw one rectangle; each vertex stores screen xy
         // plus uv, and every pass gives that same geometry its own shader meaning.
         const int attribs[] = { 2, 2 };
-        fullscreen.quadVB = RenderResources( resources ).CreateDynamicVB( attribs, 2, 6 );
+        m_resources.quadVB = RenderResources( resources ).CreateDynamicVB( attribs, 2, 6 );
     }
 }
 
 
 void FullscreenQuadPass::ReleaseGpuResources( Rendering::IRenderResourceFactory* renderResources )
 {
-    FullscreenPassResources& fullscreen = m_host.m_systems.renderPasses.fullscreen;
-    if ( renderResources && fullscreen.quadVB != 0 )
+    if ( renderResources && m_resources.quadVB != 0 )
     {
-        renderResources->DestroyDynamicVB( fullscreen.quadVB );
+        renderResources->DestroyDynamicVB( m_resources.quadVB );
     }
-    fullscreen.quadVB = 0;
+    m_resources.quadVB = 0;
 }
 
 
 uint32_t FullscreenQuadPass::QuadVB() const
 {
-    return m_host.m_systems.renderPasses.fullscreen.quadVB;
+    return m_resources.quadVB;
 }
 
 

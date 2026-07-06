@@ -86,6 +86,7 @@ struct UIRenderContext;
 namespace Basics
 {
 class DiagnosticsRuntime;
+struct FullscreenPassResources;
 class ReplayRuntime;
 class RuntimeRenderHost;
 struct RuntimeRenderModelFrameView;
@@ -350,7 +351,7 @@ struct ShadowPassOutput
 class FullscreenQuadPass
 {
   public:
-    explicit FullscreenQuadPass( RuntimeRenderHost& host ) : m_host( host )
+    explicit FullscreenQuadPass( FullscreenPassResources& resources ) : m_resources( resources )
     {
     }
 
@@ -359,7 +360,7 @@ class FullscreenQuadPass
     uint32_t QuadVB() const;
 
   private:
-    RuntimeRenderHost& m_host;
+    FullscreenPassResources& m_resources;
 };
 
 /* -- SkyPass
