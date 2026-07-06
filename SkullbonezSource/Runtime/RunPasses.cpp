@@ -489,39 +489,38 @@ void SceneTargetPass::EnsureGpuResources( const RenderResourceContext& resources
 
     const int w = resources.windowWidth;
     const int h = resources.windowHeight;
-    CinematicScenePassResources& scene = m_host.m_systems.renderPasses.cinematicScene;
     const bool needsSceneTarget =
-        !scene.hdrTarget || scene.hdrTarget->GetWidth() != w || scene.hdrTarget->GetHeight() != h ||
-        scene.hdrTarget->GetColorFormat() != SkullbonezCore::Rendering::FramebufferColorFormat::RGBA16F;
+        !m_resources.hdrTarget || m_resources.hdrTarget->GetWidth() != w || m_resources.hdrTarget->GetHeight() != h ||
+        m_resources.hdrTarget->GetColorFormat() != SkullbonezCore::Rendering::FramebufferColorFormat::RGBA16F;
     if ( needsSceneTarget )
     {
         // RGBA16F preserves bright sky/fog values until TonemapPass compresses
         // them back to display color on the window backbuffer.
-        if ( scene.hdrTarget )
+        if ( m_resources.hdrTarget )
         {
-            scene.hdrTarget->ResetResources();
+            m_resources.hdrTarget->ResetResources();
         }
-        scene.hdrTarget.reset();
-        scene.hdrTarget = RenderResources( resources )
-                              .CreateFramebuffer( w, h, SkullbonezCore::Rendering::FramebufferColorFormat::RGBA16F );
+        m_resources.hdrTarget.reset();
+        m_resources.hdrTarget =
+            RenderResources( resources )
+                .CreateFramebuffer( w, h, SkullbonezCore::Rendering::FramebufferColorFormat::RGBA16F );
     }
 }
 
 
 void SceneTargetPass::ReleaseGpuResources()
 {
-    CinematicScenePassResources& scene = m_host.m_systems.renderPasses.cinematicScene;
-    if ( scene.hdrTarget )
+    if ( m_resources.hdrTarget )
     {
-        scene.hdrTarget->ResetResources();
+        m_resources.hdrTarget->ResetResources();
     }
-    scene.hdrTarget.reset();
+    m_resources.hdrTarget.reset();
 }
 
 
 bool SceneTargetPass::IsReady() const
 {
-    return m_host.m_systems.renderPasses.cinematicScene.hdrTarget != nullptr;
+    return m_resources.hdrTarget != nullptr;
 }
 
 
@@ -1028,10 +1027,9 @@ void SceneTargetPass::Begin( const RenderFrameContext& frame, SkyPass& skyPass )
     // Invariant: from this point onward, draw the world into the HDR scene
     // target instead of directly into the window. The post pass later moves it
     // to the backbuffer with the cinematic effects applied.
-    CinematicScenePassResources& scene = m_host.m_systems.renderPasses.cinematicScene;
-    scene.hdrTarget->Bind();
+    m_resources.hdrTarget->Bind();
     Rendering::IRenderCommandContext& renderCommands = RenderCommands( frame );
-    renderCommands.SetViewport( 0, 0, scene.hdrTarget->GetWidth(), scene.hdrTarget->GetHeight() );
+    renderCommands.SetViewport( 0, 0, m_resources.hdrTarget->GetWidth(), m_resources.hdrTarget->GetHeight() );
     renderCommands.Clear( true, true );
 
     PROFILE_GPU_BEGIN( "Frame/Render/CinematicSky" );

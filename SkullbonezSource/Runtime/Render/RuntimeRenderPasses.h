@@ -92,6 +92,7 @@ namespace Basics
 {
 class DiagnosticsRuntime;
 class EngineConfig;
+struct CinematicScenePassResources;
 struct FullscreenPassResources;
 struct SkyPassResources;
 class ReplayRuntime;
@@ -413,7 +414,7 @@ class SkyPass
 class SceneTargetPass
 {
   public:
-    explicit SceneTargetPass( RuntimeRenderHost& host ) : m_host( host )
+    explicit SceneTargetPass( CinematicScenePassResources& resources ) : m_resources( resources )
     {
     }
 
@@ -423,7 +424,7 @@ class SceneTargetPass
     void Begin( const RenderFrameContext& frame, SkyPass& skyPass );
 
   private:
-    RuntimeRenderHost& m_host;
+    CinematicScenePassResources& m_resources;
 };
 
 /* -- ShadowPass
