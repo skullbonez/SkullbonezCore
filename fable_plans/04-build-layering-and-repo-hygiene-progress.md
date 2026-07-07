@@ -1,7 +1,7 @@
 # Progress: Build Layering And Repo Hygiene (plan 04)
 
 Source plan: `fable_plans/04-build-layering-and-repo-hygiene-plan.md`
-Status: not started
+Status: phase 1 complete on 2026-07-07; phase 2 not started
 Last updated: 2026-07-07
 
 ## How to work this file
@@ -13,12 +13,14 @@ Last updated: 2026-07-07
 
 ## Verified facts (do not re-derive)
 
-- `.gitignore` already ignores `Debug/ Release/ Profile/ *.obj *.pdb *.exe`
-  etc., but NOT `Agentic/Temp/`. Tracked junk exists: commit `065bb64b`
-  checked in `Agentic/Temp/skullbonez_profile_disasm.txt` (81 MB),
-  `Agentic/Temp/ProfilePrediction/WinPixEventRuntime.dll`, and a
-  `ProfilePrediction*/` build-output tree. `git ls-files Agentic/Temp`
-  currently returns 6 entries.
+- `.gitignore` ignores `Debug/ Release/ Profile/ *.obj *.pdb *.exe`
+  etc. and now includes `Agentic/Temp/`. `git ls-files Agentic/Temp`
+  returned no tracked tip paths on 2026-07-07. Historical junk still exists
+  in commit `065bb64b`: `Agentic/Temp/skullbonez_profile_disasm.txt`
+  (81 MB), `Agentic/Temp/ProfilePrediction/WinPixEventRuntime.dll`, and a
+  `ProfilePrediction*/` build-output tree. Shrinking the 542 MiB pack still
+  requires explicit user approval for a history rewrite and coordinated
+  re-clone.
 - Solution/toolset: single vcxproj, toolset **v145**, Level4, stdcpp17,
   static CRT (see facts in `01-unit-test-pyramid-progress.md`).
 - Maths layering: `SkullbonezSource/Maths/` = GeometricMath, GeometricStructures,
@@ -56,31 +58,50 @@ Last updated: 2026-07-07
     CycleCameraMode, cursor ownership, fly mode) + MoveCamera(:3658).
   - Replay/editor gesture helpers: :719-786.
   - Odd one out: StepPhysicsPipelineStage(:535) — physics, not input.
-- `tools\validate_fast.bat` steps: format → project filters → runtime
-  boundaries → build Profile → ready builds. Python helpers live in `tools/`
-  (`check_runtime_boundaries.py` pattern: rules + self-tests + budgets).
+- `tools\validate_fast.bat` steps: format -> project filters -> staged file
+  sizes -> runtime boundaries -> build Profile -> unit tests -> ready builds.
+  Python helpers live in `tools/` (`check_runtime_boundaries.py` pattern:
+  rules + self-tests + budgets).
 
 ## Phase 1 — repo hygiene (one sitting; == FILL-001/FILL-004 in the overnight protocol; skip any box already done by an overnight run)
 
-- [ ] H1. Append to `.gitignore`:
+- [x] H1. Append to `.gitignore`:
   ```
   # Agent scratch space — never commit
   Agentic/Temp/
   ```
-- [ ] H2. Untrack (tip only — NO history rewrite):
+
+  Evidence: `.gitignore:52` contains `Agentic/Temp/` under the agent scratch
+  artifact ignore block.
+
+- [x] H2. Untrack (tip only — NO history rewrite):
   `git rm -r --cached Agentic/Temp` then commit with a note listing the six
   paths and their sizes. Evidence: `git ls-files Agentic/Temp` returns empty;
   `git status` shows the dir as untracked/ignored.
-- [ ] H3. Add `tools/check_staged_file_sizes.py`: fail if any staged/added
+
+  Evidence: `git ls-files Agentic/Temp` returned empty on 2026-07-07. No tip
+  untracking command was needed because the branch already had no tracked
+  `Agentic/Temp` paths when this phase was resumed.
+
+- [x] H3. Add `tools/check_staged_file_sizes.py`: fail if any staged/added
   tracked file exceeds 5 MB outside allowlist
   (`TestOutput/baselines/`, `SkullbonezData/`). Imitate the rule+self-test
   structure of `tools/check_runtime_boundaries.py`. Wire it as a step in
   `validate_fast.bat` (after project filters). Evidence: `validate_fast`
   passes; self-test proves a synthetic 6 MB file fails.
-- [ ] H4. Record (do NOT act): pack size 542 MiB; shrinking requires
+
+  Evidence: `tools/check_staged_file_sizes.py` added with synthetic clean/fail
+  cases; `tools/validate_fast.bat` now runs it after project filters. Final
+  evidence is recorded in
+  `Agentic/Reports/2026-07-07/fable-04-phase-1-repo-hygiene.md`.
+
+- [x] H4. Record (do NOT act): pack size 542 MiB; shrinking requires
   git-filter-repo of `Agentic/Temp` blobs + coordinated re-clone — decision
   owner: user. Add this as a line in `Agentic/SessionState.md` open items.
   Commit phase (gate: `validate_fast`).
+
+  Evidence: `Agentic/SessionState.md` current work items now records the pack
+  size cleanup decision as user-owned, with no history rewrite performed.
 
 ## Phase 2 — SkullbonezMaths.lib extraction
 
