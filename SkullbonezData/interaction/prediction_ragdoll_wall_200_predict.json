@@ -7,6 +7,7 @@
     { "frame": 105, "assert": { "replayPredictionEnabled": true } },
     { "frame": 105, "assert": { "replayPathTarget": "prediction_striker_ball" } },
     { "frame": 165, "assert": { "predictionPathVisible": true } },
+    { "frame": 165, "assert": { "liveSolverHashStableAcrossPrediction": true } },
     { "frame": 190, "screenshot": "TestOutput/interaction/prediction_ragdoll_wall_200_predict.bmp" }
   ]
 }

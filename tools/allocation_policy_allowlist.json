@@ -107,6 +107,17 @@
       "removal_or_wrapper_plan": "Move prediction frame payloads to a flat fixed arena if prediction memory is centralized; keep approvals batched until then."
     },
     {
+      "path": "SkullbonezSource/Runtime/Replay/RunReplayPredictionHelpers.inl",
+      "patterns": [
+        "std::make_unique<PhysicsEngine>"
+      ],
+      "owner": "Replay prediction working set",
+      "phase": "replay",
+      "reason": "The private prediction engine object is constructed lazily inside the replay reserve owner scope so normal runtime startup and perf-smoke paths do not pay PhysicsWorld reserve memory.",
+      "cap": "One PhysicsEngine instance retained by RunReplayPredictionState; its construction and copied store growth are counted under replay_prediction_working_set with the 256 MB hard cap.",
+      "removal_or_wrapper_plan": "Replace with a dedicated replay prediction arena/object factory if runtime allocation policy gains typed owner allocators; do not construct the private engine at startup."
+    },
+    {
       "path": "SkullbonezSource/Physics/PhysicsWorld.cpp",
       "patterns": [
         "RuntimeAllocation::RuntimeReserveAllocator::RequestGrowth( owner, request );"

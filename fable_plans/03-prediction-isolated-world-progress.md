@@ -191,7 +191,7 @@ Last updated: 2026-07-07
 
 ## Phase 2 — prediction-owned engine; delete the mutation window
 
-- [ ] P2.1 Add to `RunReplayPredictionState` (ReplayRuntime.h):
+- [x] P2.1 Add to `RunReplayPredictionState` (ReplayRuntime.h):
   ```cpp
   // Concept: prediction simulates the future in its own engine. Live stores
   // are never written by prediction; the mutation window is gone.
@@ -203,7 +203,16 @@ Last updated: 2026-07-07
   `RuntimeAllocationScope( Replay )` and is a registered replay-owner cost;
   add the policy comment naming owner `replay_prediction_working_set`, reason,
   deletion condition (none — this is the end-state design), and cap.
-- [ ] P2.2 In `BeginReplayPredictionJob` (visualizer): after the existing
+
+  Evidence, 2026-07-07: `RunReplayPredictionState` now owns
+  `std::unique_ptr<Physics::PhysicsEngine> predictionEngine`,
+  `PhysicsWorldForces predictionWorldForces`, and
+  `predictionEngineReady`. The source comment names owner
+  `replay_prediction_working_set`, reason, deletion condition, and 256 MB
+  checker budget. The lazy construction spelling is allowlisted in
+  `tools\allocation_policy_allowlist.json` because it occurs under the replay
+  owner/growth scope and avoids startup/perf-smoke PhysicsWorld reserve cost.
+- [x] P2.2 In `BeginReplayPredictionJob` (visualizer): after the existing
   reserve calls, (a) lazily construct + size `predictionEngine` (per D1/D2
   answers), (b) copy live → prediction: apply `predictionBodies` backup INTO
   `predictionEngine`'s body store (P1.1 API), copy collider rows (per D6),
@@ -211,23 +220,43 @@ Last updated: 2026-07-07
   live snapshot. Capture `worldForces` by value into prediction state at Begin
   (add `Physics::PhysicsWorldForces predictionWorldForces;` field) so a paused
   moment's future does not read drifting live environment.
-- [ ] P2.3 Rewrite `StepReplayPredictionJob` (visualizer): the tick loop calls
+
+  Evidence, 2026-07-07: `SeedReplayPredictionEngine(...)` requests
+  `RunReplayPredictionState::predictionEngine` bytes under
+  `ReplayPredictionReserveOwner()`, creates the private engine inside
+  `RuntimeAllocationScope(Replay)`, copies the live engine into it, applies the
+  captured backup body state, restores the captured solver snapshot into the
+  private engine, and captures world forces by value.
+- [x] P2.3 Rewrite `StepReplayPredictionJob` (visualizer): the tick loop calls
   `StepPredictionEngineTick( *predictionEngine, ... )` and
   `CaptureReplayPredictionFrame` sampling FROM the prediction engine's stores
   (parameterize `CaptureReplayPredictionFrame`'s body source the same way as
   P1.1). DELETE: the liveRestore capture block, ApplyJobState block,
   CaptureJobState block, RestoreLive block, both `SetDiagnosticsSuppressed`
   calls, and the `Hazard: everything after liveRestoreBodies...` comment.
-- [ ] P2.4 Delete now-dead members and helpers:
+
+  Evidence, 2026-07-07: `StepReplayPredictionJob(...)` now steps
+  `*predictionEngine`, captures frames from the private engine, and snapshots
+  private job state only. The live restore/apply/suppression window is gone.
+- [x] P2.4 Delete now-dead members and helpers:
   `liveRestoreBodies`, `liveRestoreWorld` (ReplayRuntime.h +
   `CancelPredictionJob` anchor `m_prediction.liveRestoreBodies.clear()`),
   `REPLAY_PREDICTION_MUTATION_RESERVE_MILLISECONDS` (RunReplayTools.cpp),
   `ReplayPredictionMutationReserveSpent` (helpers — replace remaining callers
   with `ReplayPredictionBudgetExpired`). Grep-verify zero references remain:
   `rg -n "liveRestore|MutationReserve" SkullbonezSource` → no hits.
-- [ ] P2.5 Update file-header Mental model/Glossary in the visualizer and
+
+  Evidence, 2026-07-07: deleted live restore members/helpers and the mutation
+  reserve helper; final grep checks:
+  `rg -n "liveRestore|MutationReserve" SkullbonezSource` had no hits and
+  `rg -n "mutation window|temporarily fast-forward|temporarily swaps|RestoreLive|StepReplayPredictionPhysicsTick" SkullbonezSource\Runtime\Replay`
+  had no hits.
+- [x] P2.5 Update file-header Mental model/Glossary in the visualizer and
   helpers: delete "Mutation window" entries; describe the prediction engine.
-- [ ] P2.6 Live-isolation proof: add an interaction assert that the live
+
+  Evidence, 2026-07-07: replay prediction helper/visualizer/tool headers now
+  describe private-engine prediction and no longer describe a mutation window.
+- [x] P2.6 Live-isolation proof: add an interaction assert that the live
   solver hash is unchanged across a prediction build. Extend
   `RunInteractionAutomation.cpp` with assert name
   `liveSolverHashStableAcrossPrediction` (capture
@@ -235,10 +264,47 @@ Last updated: 2026-07-07
   frame while paused). Add it to
   `SkullbonezData/interaction/prediction_ragdoll_wall_200_predict.json`.
   Evidence: proof run `ok=1` with the new assert listed.
-- [ ] P2.7 PR gate: `tools\validate_physics.bat` byte-exact +
+
+  Evidence, 2026-07-07: interaction assertion
+  `liveSolverHashStableAcrossPrediction` was added and passed at frame 165 in
+  `TestOutput\interaction\prediction_ragdoll_wall_200_predict_report.json`.
+  `finalState.predictionSourceSolverHash` and `finalState.liveSolverHash`
+  both equal `10105770546383963666`.
+- [x] P2.7 PR gate: `tools\validate_physics.bat` byte-exact +
   `prediction_ragdoll_wall_200_predict` proof + `tools\validate_perf.bat`
   (memory: second engine shows in replay reserve accounting, not gameplay).
   Commit.
+
+  Evidence, 2026-07-07:
+  - `tools\validate_physics.bat` passed, byte-exact
+    `physics_regression_solver.csv (20001 lines)`,
+    `FABLE03_P2_VALIDATE_PHYSICS_FINAL_EXIT=0`, elapsed 14.492s.
+  - `prediction_ragdoll_wall_200_predict` proof passed with report `ok=1`,
+    no allocation-guard gameplay violations, private engine reserve
+    `RunReplayPredictionState::predictionEngine` granted at 161,955,200 bytes
+    under `replay_prediction_working_set`,
+    `FABLE03_P2_RAGDOLL_PROOF_FINAL_EXIT=0`, elapsed 3.576s.
+  - `tools\validate_perf.bat` passed after an explicit current-machine perf
+    baseline refresh with `tools\update_baselines.bat --perf --require`.
+    The refreshed baselines are `dx12_perf` commit `bfa676c7`, Frame avg
+    0.9743 ms, memory 90.62/157.61/157.61 MB, and `physics_bench_perf`
+    commit `bfa676c7`, Frame avg 0.5934 ms, memory
+    90.75/154.47/154.47 MB. Final gate:
+    `FABLE03_P2_VALIDATE_PERF_AFTER_BASELINE_EXIT=0`, elapsed 34.162s.
+  - `tools\validate_format.bat` passed,
+    `FABLE03_P2_VALIDATE_FORMAT_EXIT=0`, elapsed 8.277s.
+  - `tools\validate_full.bat` passed, DX12 validation errors 0, screenshots
+    matched committed baselines, physics byte-exact,
+    `FABLE03_P2_VALIDATE_FULL_FINAL_EXIT=0`, elapsed 47.856s.
+  - Post rubber-duck follow-up fixed the private-engine growth request to reuse
+    retained engine capacity instead of re-reporting `old_capacity=0` on every
+    prediction rebuild. Rerun gates passed:
+    `FABLE03_P2_POST_DUCK_VALIDATE_FORMAT_EXIT=0` (8.345s),
+    `FABLE03_P2_POST_DUCK_BUILD_PROFILE_EXIT=0` (6.448s),
+    `FABLE03_P2_POST_DUCK_RAGDOLL_PROOF_EXIT=0` (4.537s),
+    `FABLE03_P2_POST_DUCK_VALIDATE_PERF_EXIT=0` (30.648s),
+    `FABLE03_P2_POST_DUCK_VALIDATE_PHYSICS_EXIT=0` (13.519s), and
+    `FABLE03_P2_POST_DUCK_VALIDATE_FULL_EXIT=0` (39.288s).
 
 ## Phase 3 — worker-job stepping (optional; only after Phase 2 soaks)
 

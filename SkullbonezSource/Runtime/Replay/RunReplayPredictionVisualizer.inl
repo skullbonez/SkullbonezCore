@@ -4,10 +4,9 @@ Purpose:
   Implements replay prediction job stepping and prediction-path visualization.
 
 Mental model:
-  The visualizer advances a prediction job in small slices, restores live physics state after
-  each mutation window, and emits bounded overlay traces for the current frame. Prediction
-  stepping, future-node topology, and visible path drawing each get short slices so one phase
-  cannot make the others disappear.
+  The visualizer advances a private prediction engine in small slices and emits bounded overlay
+  traces for the current frame. Prediction stepping, future-node topology, and visible path
+  drawing each get short slices so one phase cannot make the others disappear.
 
 Glossary:
   Build frames: In-progress prediction samples accumulated while a prediction job is still
@@ -21,7 +20,8 @@ Glossary:
     its final resting pose when the completed prediction actually ends with it at rest.
     Bodies still moving at the horizon end get a travel line and no grey box. Once shown,
     neither box ever leaves until the prediction is rebuilt.
-  Mutation window: Period where live physics stores temporarily contain prediction state.
+  Prediction engine: Replay-owned physics facade copied from the live scene at prediction begin
+    and stepped forward without writing live body, collider, or solver stores.
   Reveal cursor: Wall-clock playhead that caps which prediction frames may draw this render
     frame. It makes the causal tree unfold over real time — root line first, child lines when
     their causing frame is revealed. Monotonic per prediction: it plays once, holds at the
@@ -31,7 +31,7 @@ Glossary:
   Visualizer budget: Millisecond cap applied to each bounded prediction or overlay work slice.
 
 Invariants:
-  - Every successful prediction-state swap must restore live body and solver snapshots.
+  - Prediction samples must come from the private prediction engine, never from live store edits.
   - This file must only be included from RunReplayTools.cpp inside the prediction anonymous namespace.
 
 Related:
@@ -42,6 +42,8 @@ Related:
 
 bool BeginReplayPredictionJob( ReplayRuntime& replayRuntime,
                                SkullbonezCore::GameObjects::GameModelCollection& modelCollection,
+                               const EngineConfig& config,
+                               const SkullbonezCore::Physics::PhysicsWorldForces& worldForces,
                                SkullbonezCore::Threading::WorkerPool& workerPool,
                                bool scenePhysics,
                                double fallbackSourceSimulationSeconds,
@@ -180,7 +182,16 @@ bool BeginReplayPredictionJob( ReplayRuntime& replayRuntime,
 
     physicsEngine.CaptureReplaySolverSnapshot( replayRuntime.Prediction().predictionWorld, modelCount );
 
-    if ( !CaptureReplayPredictionFrame( replayRuntime, modelCollection, liveBodyStore, workerPool, 0 ) )
+    if ( !SeedReplayPredictionEngine( replayRuntime.Prediction(), physicsEngine, config, worldForces, modelCount ) )
+    {
+        replayRuntime.CancelPredictionJob( true );
+        replayRuntime.Prediction().dirty = true;
+        return false;
+    }
+
+    if ( !replayRuntime.Prediction().predictionEngine ||
+         !CaptureReplayPredictionFrame(
+             replayRuntime, modelCollection, *replayRuntime.Prediction().predictionEngine, workerPool, 0 ) )
     {
         replayRuntime.CancelPredictionJob( true );
         replayRuntime.Prediction().dirty = true;
@@ -195,7 +206,6 @@ bool BeginReplayPredictionJob( ReplayRuntime& replayRuntime,
 bool StepReplayPredictionJob( ReplayRuntime& replayRuntime,
                               SkullbonezCore::GameObjects::GameModelCollection& modelCollection,
                               const EngineConfig& config,
-                              const SkullbonezCore::Physics::PhysicsWorldForces& worldForces,
                               SkullbonezCore::Threading::WorkerPool& workerPool,
                               double simulationTotalSeconds,
                               const std::chrono::steady_clock::time_point& budgetStart,
@@ -207,132 +217,75 @@ bool StepReplayPredictionJob( ReplayRuntime& replayRuntime,
         return replayRuntime.Prediction().complete;
     }
 
-    if ( ReplayPredictionMutationReserveSpent( budgetStart, budgetMilliseconds ) )
+    if ( ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ) )
     {
         return false;
     }
 
-    PhysicsEngine& physicsEngine = modelCollection.GetPhysicsEngine();
-    const PhysicsBodyStore& liveBodyStore = physicsEngine.BodyStore();
-
-    // Hazard: everything after liveRestoreBodies/liveRestoreWorld succeeds may
-    // swap live state for prediction state. All early exits before RestoreLive
-    // must happen before the swap, or after the restore block below.
-    if ( !CaptureReplayPredictionBodyState( modelCollection,
-                                            liveBodyStore,
-                                            workerPool,
-                                            replayRuntime.Prediction().liveRestoreBodies ) )
+    if ( !replayRuntime.Prediction().predictionEngineReady || !replayRuntime.Prediction().predictionEngine )
     {
         replayRuntime.CancelPredictionJob( true );
         replayRuntime.Prediction().dirty = true;
         return false;
     }
-    const int liveBodyCount = liveBodyStore.Count();
-    physicsEngine.CaptureReplaySolverSnapshot( replayRuntime.Prediction().liveRestoreWorld, liveBodyCount );
-    if ( ReplayPredictionMutationReserveSpent( budgetStart, budgetMilliseconds ) )
-    {
-        return false;
-    }
+    PhysicsEngine& predictionEngine = *replayRuntime.Prediction().predictionEngine;
 
-#ifdef _DEBUG
-    const bool previousDiagnosticsSuppressed = physicsEngine.SetDiagnosticsSuppressed( true );
-#endif
-
-    bool jobApplied = false;
-    bool jobStateCaptured = false;
     bool progressed = false;
     bool predictionStepFailed = false;
 
     {
-        PROFILE_SCOPED( "Frame/Replay/Prediction/ApplyJobState" );
-        jobApplied =
-            ApplyReplayPredictionBodyState( modelCollection, liveBodyStore, replayRuntime.Prediction().predictionBodies ) &&
-            physicsEngine.RestoreReplaySolverSnapshot( replayRuntime.Prediction().predictionWorld,
-                                                       physicsEngine.BodyStore().Count() );
-    }
-
-    if ( jobApplied )
-    {
+        PROFILE_SCOPED( "Frame/Replay/Prediction/Steps" );
+        while ( replayRuntime.Prediction().nextTick <= replayRuntime.Prediction().targetTickCount )
         {
-            PROFILE_SCOPED( "Frame/Replay/Prediction/Steps" );
-            while ( replayRuntime.Prediction().nextTick <= replayRuntime.Prediction().targetTickCount )
+            // Why: a large prediction can spend most of the slice on frame
+            // capture. Still take one tick per entered slice so the visible
+            // build prefix advances instead of stalling forever.
+            if ( progressed && ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ) )
             {
-                // Why: large prediction worlds can spend the slice on the live
-                // backup before entering the loop. Still take one tick so the
-                // visible build prefix advances instead of stalling forever.
-                if ( progressed && ReplayPredictionMutationReserveSpent( budgetStart, budgetMilliseconds ) )
-                {
-                    break;
-                }
+                break;
+            }
 
+            {
+                PROFILE_SCOPED( "Frame/Replay/Prediction/StepPhysics" );
+                if ( !StepPredictionEngineTick( predictionEngine,
+                                                PHYSICS_FIXED_DT,
+                                                config,
+                                                replayRuntime.Prediction().predictionWorldForces,
+                                                workerPool ) )
                 {
-                    PROFILE_SCOPED( "Frame/Replay/Prediction/StepPhysics" );
-                    const int predictionBodyCount = physicsEngine.BodyStore().Count();
-                    if ( !StepReplayPredictionPhysicsTick( modelCollection,
-                                                           physicsEngine,
-                                                           predictionBodyCount,
-                                                           PHYSICS_FIXED_DT,
-                                                           config,
-                                                           worldForces,
-                                                           workerPool ) )
-                    {
-                        predictionStepFailed = true;
-                        replayRuntime.Prediction().dirty = true;
-                        break;
-                    }
-                }
-                if ( !CaptureReplayPredictionFrame(
-                         replayRuntime,
-                         modelCollection,
-                         liveBodyStore,
-                         workerPool,
-                         static_cast<ReplayFrameIndex>( replayRuntime.Prediction().nextTick ) ) )
-                {
-                    // Hazard: prediction owns live physics state until the
-                    // RestoreLive block below. Fail closed only after restoring
-                    // so a rejected sample cannot move the real scene.
                     predictionStepFailed = true;
                     replayRuntime.Prediction().dirty = true;
                     break;
                 }
-                ++replayRuntime.Prediction().nextTick;
-                progressed = true;
-
-                if ( ReplayPredictionMutationReserveSpent( budgetStart, budgetMilliseconds ) )
-                {
-                    break;
-                }
             }
-        }
-
-        if ( !predictionStepFailed )
-        {
-            PROFILE_SCOPED( "Frame/Replay/Prediction/CaptureJobState" );
-            jobStateCaptured = CaptureReplayPredictionBodyState( modelCollection,
-                                                                 liveBodyStore,
-                                                                 workerPool,
-                                                                 replayRuntime.Prediction().predictionBodies );
-            if ( jobStateCaptured )
+            if ( !CaptureReplayPredictionFrame( replayRuntime,
+                                                modelCollection,
+                                                predictionEngine,
+                                                workerPool,
+                                                static_cast<ReplayFrameIndex>( replayRuntime.Prediction().nextTick ) ) )
             {
-                physicsEngine.CaptureReplaySolverSnapshot( replayRuntime.Prediction().predictionWorld,
-                                                           physicsEngine.BodyStore().Count() );
+                predictionStepFailed = true;
+                replayRuntime.Prediction().dirty = true;
+                break;
+            }
+            ++replayRuntime.Prediction().nextTick;
+            progressed = true;
+
+            if ( ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ) )
+            {
+                break;
             }
         }
     }
 
-#ifdef _DEBUG
-    physicsEngine.SetDiagnosticsSuppressed( previousDiagnosticsSuppressed );
-#endif
-
-    bool liveRestored = false;
+    if ( progressed )
     {
-        PROFILE_SCOPED( "Frame/Replay/Prediction/RestoreLive" );
-        liveRestored =
-            ApplyReplayPredictionBodyState( modelCollection, liveBodyStore, replayRuntime.Prediction().liveRestoreBodies ) &&
-            physicsEngine.RestoreReplaySolverSnapshot( replayRuntime.Prediction().liveRestoreWorld, liveBodyCount );
+        PROFILE_SCOPED( "Frame/Replay/Prediction/CaptureJobState" );
+        predictionEngine.CaptureReplaySolverSnapshot( replayRuntime.Prediction().predictionWorld,
+                                                      predictionEngine.BodyStore().Count() );
     }
 
-    if ( !jobApplied || predictionStepFailed || !jobStateCaptured || !liveRestored )
+    if ( predictionStepFailed )
     {
         replayRuntime.CancelPredictionJob( true );
         replayRuntime.Prediction().dirty = true;
@@ -770,6 +723,8 @@ void RenderReplayPredictionVisualizer( ReplayRuntime& replayRuntime,
         }
         BeginReplayPredictionJob( replayRuntime,
                                   modelCollection,
+                                  config,
+                                  worldForces,
                                   workerPool,
                                   scenePhysics,
                                   fallbackSourceSimulationSeconds,
@@ -792,7 +747,6 @@ void RenderReplayPredictionVisualizer( ReplayRuntime& replayRuntime,
             StepReplayPredictionJob( replayRuntime,
                                      modelCollection,
                                      config,
-                                     worldForces,
                                      workerPool,
                                      simulationTotalSeconds,
                                      budgetStart,
@@ -800,7 +754,7 @@ void RenderReplayPredictionVisualizer( ReplayRuntime& replayRuntime,
         }
     }
 
-    // Why: prediction stepping owns the mutation budget, but visible replay
+    // Why: prediction stepping owns the private-engine budget, but visible replay
     // lines need a draw chance even on frames where stepping consumes that
     // budget. Start a fresh draw-only timer so the overlay degrades by detail
     // instead of disappearing for a frame.

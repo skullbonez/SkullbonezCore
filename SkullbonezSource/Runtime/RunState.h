@@ -401,6 +401,7 @@ enum class RunInteractionAutomationAssertKind
     ReplaySolverTrackAtPresent,
     PredictionScrubFrameActive,
     PredictionTargetDisplacementMin,
+    LiveSolverHashStableAcrossPrediction,
     GizmoVisible,
     ReplayActiveTrack,
     ReplayHistoricalSamplePaused,

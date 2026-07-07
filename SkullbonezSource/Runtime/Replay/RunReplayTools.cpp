@@ -6,8 +6,8 @@ Purpose:
 
 Mental model:
   Replay tools read two timelines. Retained solver samples describe what already
-  happened; prediction samples temporarily fast-forward the live physics state
-  and then restore it. The renderer only receives lightweight overlay geometry.
+  happened; prediction samples advance a private replay-owned physics engine.
+  The renderer only receives lightweight overlay geometry.
 
 Glossary:
   Scrubber: UI control that maps mouse position to retained replay frames.
@@ -19,8 +19,8 @@ Glossary:
     body from live body/collider store rows.
   Prediction slice: Time-budgeted replay preview work performed inside a render
     frame.
-  Prediction physics tick: Replay-owned fixed step that temporarily advances
-    PhysicsBodyStore and then restores the live store snapshot.
+  Prediction physics tick: Replay-owned fixed step against the private
+    prediction engine.
   Future node: Body discovered by following contacts or predicted movement
     outward from a selected root body.
   ReplayBodyId: Stable runtime id used across retained samples even when vector
@@ -31,8 +31,8 @@ Glossary:
     fork-join loops.
 
 Invariants:
-  - Prediction may mutate live physics state only between a captured restore
-    snapshot and a guaranteed restore path.
+  - Prediction must never write live physics stores; private engine state owns
+    all future ticks and samples.
   - Path visualizer work shares one per-frame budget so replay overlays cannot
     hide frame spikes under child profiler markers.
   - Physics steps stay serial; only read-only body capture is parallelized.
@@ -188,61 +188,14 @@ bool TryAddReplayTargetMarkerFromStores( RunEditorTracer& tracer,
 }
 
 
-bool StepReplayPredictionPhysicsTick( SkullbonezCore::GameObjects::GameModelCollection& modelCollection,
-                                      PhysicsEngine& physicsEngine,
-                                      int bodyCount,
-                                      float fixedDt,
-                                      const EngineConfig& config,
-                                      const PhysicsWorldForces& worldForces,
-                                      SkullbonezCore::Threading::WorkerPool& workerPool )
-{
-    RuntimeAllocation::RuntimeAllocationScope replayAllocationScope(
-        RuntimeAllocation::RuntimeAllocationPhase::Replay );
-    if ( bodyCount < 0 || physicsEngine.BodyStore().Count() != bodyCount ||
-         physicsEngine.Colliders().Count() != bodyCount )
-    {
-        return false;
-    }
-    // Invariant: prediction steps mutate PhysicsBodyStore, then restore live
-    // state from captured store records. The caller supplies the prepared
-    // body-store count so this tick cannot quietly re-enter collection topology
-    // repair while mutating prediction state.
-    modelCollection.TickContactHighlights( bodyCount, fixedDt );
-
-    const char* const* diagnosticNames = nullptr;
-    int diagnosticNameCount = 0;
-#ifdef _DEBUG
-    std::vector<const char*> physicsDiagnosticsModelNames;
-    if ( physicsEngine.ShouldEmitStepDiagnostics() || physicsEngine.ShouldEmitCollisionTimeDiagnostics() )
-    {
-        // Lifetime: diagnostics names are borrowed only through the immediate
-        // Step call, matching the runtime fixed-step edge.
-        modelCollection.FillPhysicsDiagnosticsNames( bodyCount, physicsDiagnosticsModelNames );
-        diagnosticNames = physicsDiagnosticsModelNames.empty() ? nullptr : physicsDiagnosticsModelNames.data();
-        diagnosticNameCount = static_cast<int>( physicsDiagnosticsModelNames.size() );
-    }
-#endif
-    physicsEngine.Step( fixedDt, config, worldForces, workerPool, diagnosticNames, diagnosticNameCount );
-
-    for ( int index : physicsEngine.GetFixedContactHighlightBodies() )
-    {
-        modelCollection.NotifyFixedContact( index, 0.5f );
-    }
-    // Invariant: prediction samples read PhysicsBodyStore records directly.
-    // Do not project temporary preview poses into GameModel mirrors; the
-    // captured restore state owns the live model pose after prediction exits.
-    return true;
-}
-
-
 // Concept: prediction stepping is pure physics. Contact-highlight and
-// diagnostics-name presentation belongs to the live mutation-window tick above.
-// Phase 2 calls this once prediction owns a private PhysicsEngine.
-[[maybe_unused]] bool StepPredictionEngineTick( PhysicsEngine& engine,
-                                                float fixedDt,
-                                                const EngineConfig& config,
-                                                const PhysicsWorldForces& worldForces,
-                                                SkullbonezCore::Threading::WorkerPool& workerPool )
+// diagnostics-name presentation belongs to the live engine only; prediction
+// samples read the private engine's body records directly.
+bool StepPredictionEngineTick( PhysicsEngine& engine,
+                               float fixedDt,
+                               const EngineConfig& config,
+                               const PhysicsWorldForces& worldForces,
+                               SkullbonezCore::Threading::WorkerPool& workerPool )
 {
     RuntimeAllocation::RuntimeAllocationScope replayAllocationScope(
         RuntimeAllocation::RuntimeAllocationPhase::Replay );
@@ -311,10 +264,6 @@ constexpr ReplayFrameIndex REPLAY_PREDICTION_REST_GRACE_FRAMES =
     static_cast<ReplayFrameIndex>( REPLAY_PREDICTION_REST_GRACE_SECONDS / PHYSICS_FIXED_DT );
 constexpr float REPLAY_PREDICTION_REST_POSITION_EPSILON_SQ = 0.5f * 0.5f;
 
-// Hazard: prediction temporarily swaps live model/solver state. Keep a small
-// reserve so we do not enter a mutation section after spending the whole visual
-// budget and then visibly spike while restoring live state.
-constexpr double REPLAY_PREDICTION_MUTATION_RESERVE_MILLISECONDS = 1.0;
 constexpr uint32_t REPLAY_PREDICTION_CAPTURE_BODY_WORKER_HASH =
     HashStr( "Frame/Replay/Prediction/CaptureBodyState/WorkerBodies" );
 constexpr uint32_t REPLAY_PREDICTION_CAPTURE_SAMPLE_WORKER_HASH =

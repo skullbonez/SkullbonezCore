@@ -39,6 +39,7 @@ Related:
 #include "ReplayV2Artifact.h"
 #include "../../Core/Profiler.h"
 #include "../../Physics/ColliderStore.h"
+#include "../../Physics/PhysicsApi.h"
 #include "../../Physics/PhysicsEngine.h"
 #include "../../Physics/PhysicsBodyStore.h"
 
@@ -77,6 +78,7 @@ using Physics::ColliderStore;
 using Physics::PhysicsBodyHandle;
 using Physics::PhysicsBodyRecord;
 using Physics::PhysicsBodyStore;
+using Physics::PhysicsEngine;
 using Physics::PhysicsPipelineRecord;
 using Physics::PhysicsPipelineStageName;
 
@@ -263,6 +265,21 @@ uint64_t PresentationSampleMemoryBytes( const ReplayPresentationSample& sample )
 uint64_t PredictionFrameMemoryBytes( const RunReplayPredictionFrame& frame )
 {
     return VectorCapacityBytes( frame.bodies ) + VectorCapacityBytes( frame.debugContacts );
+}
+
+uint64_t PredictionEngineMemoryBytes( const PhysicsEngine& engine )
+{
+    // Why: sizeof(m_prediction) only counts the unique_ptr. The private
+    // prediction engine owns physics stores and solver scratch that must remain
+    // visible in the replay memory overlay.
+    uint64_t bytes = static_cast<uint64_t>( sizeof( engine ) );
+    bytes += engine.CollectPhysicsWorldMemoryBytes();
+    bytes += engine.CollectDebugAndBroadphaseMemoryBytes();
+    bytes += static_cast<uint64_t>( engine.BodyStore().Records().capacity() ) * sizeof( PhysicsBodyRecord );
+    bytes += static_cast<uint64_t>( engine.Colliders().Records().capacity() ) * sizeof( ColliderRecord );
+    bytes += VectorCapacityBytes( engine.RenderInstances().Records() );
+    bytes += VectorCapacityBytes( engine.RenderInstances().PresentationRecords() );
+    return bytes;
 }
 
 bool ReplayRuntimeModelIsRagdollPart(
@@ -555,6 +572,18 @@ std::string SolverReplayHashLogPath( const std::string& presentationPath )
 } // namespace
 
 
+RunReplayPredictionState::RunReplayPredictionState() = default;
+
+
+RunReplayPredictionState::~RunReplayPredictionState() = default;
+
+
+RunReplayPredictionState::RunReplayPredictionState( RunReplayPredictionState&& ) noexcept = default;
+
+
+RunReplayPredictionState& RunReplayPredictionState::operator=( RunReplayPredictionState&& ) noexcept = default;
+
+
 ReplayRuntime::ReplayRuntime()
 {
     m_causeTree.rows.reserve( REPLAY_CAUSE_TREE_ROW_CAPACITY );
@@ -680,10 +709,9 @@ void ReplayRuntime::CancelPredictionJob( bool clearSamples )
     m_prediction.targetModelIndex = -1;
     m_prediction.nextTick = 1;
     m_prediction.targetTickCount = 0;
+    m_prediction.predictionEngineReady = false;
     m_prediction.predictionBodies.clear();
-    m_prediction.liveRestoreBodies.clear();
     m_prediction.predictionWorld = ReplaySolverWorldSnapshot();
-    m_prediction.liveRestoreWorld = ReplaySolverWorldSnapshot();
     m_prediction.buildFrames.clear();
     m_prediction.buildFrameCount = 0;
     if ( clearSamples )
@@ -2345,10 +2373,12 @@ MainMemoryReplayStats ReplayRuntime::CollectMemoryStats() const
     stats.loadedReplaySamples = m_loadedPresentation.samples.size();
 
     stats.predictionBytes = static_cast<uint64_t>( sizeof( m_prediction ) );
+    if ( m_prediction.predictionEngine )
+    {
+        stats.predictionBytes += PredictionEngineMemoryBytes( *m_prediction.predictionEngine );
+    }
     stats.predictionBytes += SolverWorldSnapshotMemoryBytes( m_prediction.predictionWorld );
-    stats.predictionBytes += SolverWorldSnapshotMemoryBytes( m_prediction.liveRestoreWorld );
     stats.predictionBytes += VectorCapacityBytes( m_prediction.predictionBodies );
-    stats.predictionBytes += VectorCapacityBytes( m_prediction.liveRestoreBodies );
     stats.predictionBytes += VectorCapacityBytes( m_prediction.frames );
     stats.predictionBytes += VectorCapacityBytes( m_prediction.buildFrames );
     stats.predictionBytes += VectorCapacityBytes( m_prediction.futureNodes );

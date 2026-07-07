@@ -48,10 +48,12 @@ Related:
 #include "../../Core/Common.h"
 #include "../../Maths/Quaternion.h"
 #include "../../Physics/PhysicsHandles.h"
+#include "../../Physics/PhysicsWorldForces.h"
 #include "../../Rendering/RenderInstanceStore.h"
 
 #include <array>
 #include <chrono>
+#include <memory>
 
 namespace SkullbonezCore
 {
@@ -302,6 +304,13 @@ struct ReplayPredictionRetainedMarker
 
 struct RunReplayPredictionState
 {
+    RunReplayPredictionState();
+    ~RunReplayPredictionState();
+    RunReplayPredictionState( const RunReplayPredictionState& ) = delete;
+    RunReplayPredictionState& operator=( const RunReplayPredictionState& ) = delete;
+    RunReplayPredictionState( RunReplayPredictionState&& ) noexcept;
+    RunReplayPredictionState& operator=( RunReplayPredictionState&& ) noexcept;
+
     bool enabled = false;
     bool checkboxHovered = false;
     bool ragdollVisualsEnabled = false;
@@ -322,10 +331,20 @@ struct RunReplayPredictionState
     uint64_t sourceSolverHash = 0;
     double sourceSimulationSeconds = 0.0;
     double lastBuildTime = 0.0;
+    // Concept: prediction simulates the future in its own engine. Live stores
+    // are never written by prediction, so replay preview state stays isolated.
+    // Lifetime: constructed lazily on first prediction begin under the replay
+    // reserve owner, pre-sized by copying the current live physics facade, and
+    // reused across prediction builds so startup/perf-smoke memory stays flat.
+    // Runtime allocation policy: owner replay_prediction_working_set; reason:
+    // private prediction needs a bounded physics copy for exploratory replay;
+    // deletion condition: none, this is the end-state isolation boundary;
+    // checker budget: 256 MB hard cap registered by ReplayPredictionReserveOwner().
+    std::unique_ptr<Physics::PhysicsEngine> predictionEngine;
+    Physics::PhysicsWorldForces predictionWorldForces;
+    bool predictionEngineReady = false;
     ReplaySolverWorldSnapshot predictionWorld;
-    ReplaySolverWorldSnapshot liveRestoreWorld;
     std::vector<RunReplayPredictionBodyBackup> predictionBodies;
-    std::vector<RunReplayPredictionBodyBackup> liveRestoreBodies;
     std::vector<RunReplayPredictionFrame> frames;
     // Runtime allocation policy: prediction buildFrames can be pre-sized for a
     // whole horizon while only buildFrameCount rows are populated. Render reads

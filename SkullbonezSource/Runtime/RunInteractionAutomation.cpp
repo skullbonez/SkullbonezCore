@@ -143,6 +143,27 @@ bool ReplayPredictionPathVisible( const ReplayRuntime& replayRuntime )
              !replayRuntime.Prediction().futureNodes.empty() );
 }
 
+bool LiveSolverHashStableAcrossPrediction( const ReplayRuntime& replayRuntime,
+                                           uint64_t* outSourceHash = nullptr,
+                                           uint64_t* outLiveHash = nullptr )
+{
+    // Concept: prediction isolation proof. The source hash is captured before
+    // the private prediction engine starts stepping; the live latest hash should
+    // still match after prediction has produced visible frames.
+    const ReplaySolverFrameSample* latest = replayRuntime.Solver().LatestSample();
+    const uint64_t sourceHash = replayRuntime.Prediction().sourceSolverHash;
+    const uint64_t liveHash = latest ? latest->solverHash : 0;
+    if ( outSourceHash )
+    {
+        *outSourceHash = sourceHash;
+    }
+    if ( outLiveHash )
+    {
+        *outLiveHash = liveHash;
+    }
+    return latest && sourceHash != 0 && sourceHash == liveHash;
+}
+
 const char* CameraModeName( RunCameraMode mode )
 {
     switch ( mode )
@@ -386,6 +407,8 @@ const char* AssertName( RunInteractionAutomationAssertKind kind )
         return "predictionScrubFrameActive";
     case RunInteractionAutomationAssertKind::PredictionTargetDisplacementMin:
         return "predictionTargetDisplacementMin";
+    case RunInteractionAutomationAssertKind::LiveSolverHashStableAcrossPrediction:
+        return "liveSolverHashStableAcrossPrediction";
     case RunInteractionAutomationAssertKind::GizmoVisible:
         return "gizmoVisible";
     case RunInteractionAutomationAssertKind::ReplayActiveTrack:
@@ -639,6 +662,11 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
         {
             outAction.assertKind = RunInteractionAutomationAssertKind::PredictionTargetDisplacementMin;
             outAction.numberValue = member.value().get<float>();
+        }
+        else if ( name == "liveSolverHashStableAcrossPrediction" )
+        {
+            outAction.assertKind = RunInteractionAutomationAssertKind::LiveSolverHashStableAcrossPrediction;
+            outAction.boolValue = ReadBool( member.value() );
         }
         else if ( name == "gizmoVisible" )
         {
@@ -1344,6 +1372,14 @@ void Run::TickInteractionAutomationAfterRender()
             passed = valid && displacement >= action.numberValue;
             break;
         }
+        case RunInteractionAutomationAssertKind::LiveSolverHashStableAcrossPrediction:
+        {
+            const bool stable = LiveSolverHashStableAcrossPrediction( m_replayRuntime );
+            expected = BoolString( action.boolValue );
+            actual = BoolString( stable );
+            passed = stable == action.boolValue;
+            break;
+        }
         case RunInteractionAutomationAssertKind::GizmoVisible:
         {
             const bool visible = m_runtimeTools.Editor().selectedModelIndex >= 0 &&
@@ -1467,6 +1503,10 @@ void Run::WriteInteractionAutomationReport()
         selectedIndex >= 0 && ( m_runtimeTools.Editor().editorModeEnabled || InspectGizmoInteractionActive() );
     const std::size_t predictionVisibleFrameCount = VisiblePredictionFrameCount( m_replayRuntime );
     const bool predictionPathVisible = ReplayPredictionPathVisible( m_replayRuntime );
+    uint64_t predictionSourceSolverHash = 0;
+    uint64_t liveSolverHash = 0;
+    const bool liveSolverHashStableAcrossPrediction =
+        LiveSolverHashStableAcrossPrediction( m_replayRuntime, &predictionSourceSolverHash, &liveSolverHash );
     const float replaySolverTrackPosition = m_replayRuntime.TrackPosition( RunReplayTrack::Solver );
     const float replaySolverPresentTrackPosition = m_replayRuntime.SolverPresentTrackPosition();
     const bool replaySolverTrackAtPresent =
@@ -1526,6 +1566,9 @@ void Run::WriteInteractionAutomationReport()
                 m_replayRuntime.PathVisualizer().hasTarget ? m_replayRuntime.PathVisualizer().targetName : "" },
               { "replayPathTargetCount", static_cast<int>( m_replayRuntime.PathVisualizer().targets.size() ) },
               { "predictionPathVisible", predictionPathVisible },
+              { "liveSolverHashStableAcrossPrediction", liveSolverHashStableAcrossPrediction },
+              { "predictionSourceSolverHash", predictionSourceSolverHash },
+              { "liveSolverHash", liveSolverHash },
               { "predictionActiveFrameCount", static_cast<int>( predictionVisibleFrameCount ) },
               { "predictionFrameCount", static_cast<int>( predictionState.frames.size() ) },
               { "predictionBuildFrameCount", static_cast<int>( predictionState.buildFrameCount ) },
