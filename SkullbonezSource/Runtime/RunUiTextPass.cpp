@@ -118,7 +118,8 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
     assert( inputs.uiRender.IsReady() );
     Rendering::IRenderCommandContext& renderCommands = *inputs.uiRender.commands;
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
-    const Profiler& profiler = Profiler::Instance();
+    assert( inputs.profiler && "UiTextPass requires a startup-bound profiler in profile builds." );
+    const Profiler& profiler = *inputs.profiler;
 #endif
 
     // Invariant: rolling diagnostics update before any overlay early return so

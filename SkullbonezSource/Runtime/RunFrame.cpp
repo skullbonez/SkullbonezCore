@@ -960,7 +960,7 @@ void Run::Execute()
 
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
             {
-                const RuntimeProfilerFrameTimes profilerTimes = RuntimeDiagnostics::SampleProfilerFrameTimes();
+                const RuntimeProfilerFrameTimes profilerTimes = m_diagnosticsRuntime.SampleProfilerFrameTimes();
                 m_timers.physicsTime = profilerTimes.physicsTimeSeconds;
                 m_timers.renderTime = profilerTimes.renderTimeSeconds;
                 m_timers.gpuFrameWorkMs = profilerTimes.gpuFrameWorkMs;

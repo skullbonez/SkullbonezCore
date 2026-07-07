@@ -319,7 +319,7 @@ void RuntimeDiagnostics::ConfigurePerfLogFlush( RunPerfLogState& perfLog, bool e
 }
 
 
-void RuntimeDiagnostics::OpenScenePerfLog( RunPerfLogState& perfLog, const char* path, int pass )
+void RuntimeDiagnostics::OpenScenePerfLog( RunPerfLogState& perfLog, const char* path, int pass, Profiler* profiler )
 {
     if ( !path || path[0] == '\0' )
     {
@@ -337,7 +337,10 @@ void RuntimeDiagnostics::OpenScenePerfLog( RunPerfLogState& perfLog, const char*
         // Why: validation appends multiple scene passes in one process. Reset
         // the profiler pass state so the existing warmup skips restart rows
         // before CSV output represents steady-state frame costs.
-        PROFILE_SCHEDULE_RESET();
+        if ( profiler )
+        {
+            profiler->ScheduleReset();
+        }
 #endif
         LogPerfMemory( perfLog, pass + 1, "start" );
     }
@@ -350,23 +353,31 @@ bool RuntimeDiagnostics::PerfTestActive( const RunPerfLogState& perfLog )
 }
 
 
-void RuntimeDiagnostics::InvalidateProfilerGpuQueries()
+void RuntimeDiagnostics::InvalidateProfilerGpuQueries( Profiler* profiler )
 {
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
-    Profiler::Instance().InvalidateGpuQueries();
+    if ( profiler )
+    {
+        profiler->InvalidateGpuQueries();
+    }
+#else
+    (void)profiler;
 #endif
 }
 
 
-RuntimeProfilerFrameTimes RuntimeDiagnostics::SampleProfilerFrameTimes()
+RuntimeProfilerFrameTimes RuntimeDiagnostics::SampleProfilerFrameTimes( const Profiler* profiler )
 {
     RuntimeProfilerFrameTimes times;
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
-    Profiler& profiler = Profiler::Instance();
+    if ( !profiler )
+    {
+        return times;
+    }
     static constexpr uint32_t kPhysicsHash = ::HashStr( "Frame/Physics" );
     static constexpr uint32_t kRenderHash = ::HashStr( "Frame/Render" );
-    times.physicsTimeSeconds = profiler.LastFrameMsByHash( kPhysicsHash ) * 0.001f;
-    times.renderTimeSeconds = profiler.LastFrameMsByHash( kRenderHash ) * 0.001f;
+    times.physicsTimeSeconds = profiler->LastFrameMsByHash( kPhysicsHash ) * 0.001f;
+    times.renderTimeSeconds = profiler->LastFrameMsByHash( kRenderHash ) * 0.001f;
     static constexpr uint32_t kRenderGpuHashes[] = {
         ::HashStr( "Frame/Shadows/ShadowMap" ),
         ::HashStr( "Frame/Render/Skybox" ),
@@ -384,14 +395,18 @@ RuntimeProfilerFrameTimes RuntimeDiagnostics::SampleProfilerFrameTimes()
     };
     for ( uint32_t h : kRenderGpuHashes )
     {
-        times.gpuFrameWorkMs += profiler.LastGpuFrameMsByHash( h );
+        times.gpuFrameWorkMs += profiler->LastGpuFrameMsByHash( h );
     }
+#else
+    (void)profiler;
 #endif
     return times;
 }
 
 
-void RuntimeDiagnostics::TickPerfLog( RunPerfLogState& perfLog, const RuntimePerfTickContext& context )
+void RuntimeDiagnostics::TickPerfLog( RunPerfLogState& perfLog,
+                                      const RuntimePerfTickContext& context,
+                                      Profiler* profiler )
 {
     if ( !perfLog.isPerfTest || !perfLog.perfLogFile )
     {
@@ -401,11 +416,18 @@ void RuntimeDiagnostics::TickPerfLog( RunPerfLogState& perfLog, const RuntimePer
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
     if ( !perfLog.perfHeaderWritten )
     {
-        Profiler::Instance().WritePerfCSVHeader( perfLog.perfLogFile );
+        if ( profiler )
+        {
+            profiler->WritePerfCSVHeader( perfLog.perfLogFile );
+        }
         perfLog.perfHeaderWritten = true;
     }
-    Profiler::Instance().WritePerfCSVRow( perfLog.perfLogFile, context.pass, context.frame );
+    if ( profiler )
+    {
+        profiler->WritePerfCSVRow( perfLog.perfLogFile, context.pass, context.frame );
+    }
 #else
+    (void)profiler;
     fprintf( perfLog.perfLogFile,
              "%d,%d,%.4f,%.4f\n",
              context.pass,

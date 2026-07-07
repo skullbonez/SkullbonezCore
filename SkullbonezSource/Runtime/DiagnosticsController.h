@@ -30,9 +30,14 @@ namespace SkullbonezCore
 {
 namespace Basics
 {
+class Profiler;
 class DiagnosticsController
 {
   public:
+    // Binds the startup-resolved profiler diagnostics source. Null is valid
+    // when profiling is compiled out; profile builds should bind before runs.
+    void BindProfiler( Profiler* profiler );
+
     RunPerfLogState& PerfLog();
     const RunPerfLogState& PerfLog() const;
 
@@ -44,6 +49,9 @@ class DiagnosticsController
     void OpenScenePerfLog( const char* path, int pass );
     bool PerfTestActive() const;
     void TickPerfLog( const RuntimePerfTickContext& context );
+    // Samples the bound profiler without reopening the Profiler::Instance()
+    // singleton from frame or diagnostics code.
+    RuntimeProfilerFrameTimes SampleProfilerFrameTimes() const;
 
 #ifdef _DEBUG
     RunPhysicsDiagnosticsState& PhysicsDiagnostics();
@@ -52,6 +60,7 @@ class DiagnosticsController
 #endif
 
   private:
+    Profiler* m_profiler = nullptr;                  // Startup-bound diagnostics source; null in non-profile builds.
     RunPerfLogState m_perfLog;                       // Perf CSV paths, handles, and flush policy
 #ifdef _DEBUG
     RunPhysicsDiagnosticsState m_physicsDiagnostics; // Queryable physics trace state

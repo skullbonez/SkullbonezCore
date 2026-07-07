@@ -1,7 +1,7 @@
 # Overnight Blockers - 2026-07-07
 
 Single remaining blocker ledger for the 7 July nightrunner pass. Current
-remaining blocker count: 27. Rows are grouped by plan and ordered
+remaining blocker count: 26. Rows are grouped by plan and ordered
 hardest-to-unblock first inside each plan.
 
 ## Resolved During Remediation
@@ -34,6 +34,20 @@ hardest-to-unblock first inside each plan.
   - Evidence: checker allowlist rows for `UITabProfiler.cpp` were removed;
     boundary self-test/scan, `tools\validate_fast.bat`, and
     `tools\validate_full.bat` passed for the slice.
+
+- **SVC-022** - `SkullbonezSource/Runtime/RuntimeDiagnostics.cpp` / `Profiler::Instance CSV`
+  - Resolved 2026-07-07 through the fable-02 profiler diagnostics receiving-path
+    slice.
+  - Result: `RuntimeDiagnostics.cpp` and `RunUiTextPass.cpp` now have 0 direct
+    `Profiler::Instance()` hits. Runtime startup resolves the sanctioned
+    profiler singleton once in `Init.cpp`, then diagnostics/perf CSV, frame-time
+    sampling, RuntimeRenderer, and the UI text pass consume the nullable
+    startup-bound `Profiler*`.
+  - Evidence: checker global-service census lowered from 133 to 129; boundary
+    self-test/scan passed, `tools\validate_fast.bat` passed after targeted
+    header formatting, and `tools\validate_full.bat` passed with DX12 validation
+    errors 0, screenshots matched, and `physics_regression_solver.csv`
+    byte-exact.
 
 ## Plan 02 - Physics Store Authority
 
@@ -150,11 +164,6 @@ hardest-to-unblock first inside each plan.
   - Attempted: service locator deletion assessment.
   - Failure/reason: `Gfx()` still serves broad compatibility callers across the renderer service surface; the checker ratchet prevents growth but deletion needs dependent cleanup.
   - Needed to unblock: migrate remaining callers to explicit render capabilities.
-
-- **SVC-022** - `SkullbonezSource/Runtime/RuntimeDiagnostics.cpp` / `Profiler::Instance CSV`
-  - Attempted: diagnostics/UI profiler snapshot cluster, then revert after failed gates.
-  - Failure/reason: first `tools\validate_fast.bat` failed formatting for `RuntimeDiagnostics.cpp`, `RunUiTextPass.cpp`, and `UITabProfiler.cpp`; after targeted formatting, the second attempt failed because `RuntimeDiagnostics.h` still required the header formatting pipeline.
-  - Needed to unblock: human-awake formatting/header pipeline pass and a smaller diagnostics snapshot slice.
 
 ## Plan 01 - Run Composition Root
 

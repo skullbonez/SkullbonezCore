@@ -96,8 +96,11 @@ void RunStartupState::ApplyStartupConfig( const EngineConfig& config )
 }
 
 
-RuntimeRendererBindings Run::BuildRuntimeRendererBindings()
+RuntimeRendererBindings Run::BuildRuntimeRendererBindings( Profiler* profiler )
 {
+    // Lifetime: Init resolves the optional profiler once, then Run wires that
+    // borrowed diagnostics source into the owners that sample it. Frame code
+    // should not reopen the global profiler accessor.
     RuntimeRendererBindings bindings;
     bindings.backend = m_renderBackendView;
     bindings.runtime.systems = &m_systems;
@@ -118,6 +121,7 @@ RuntimeRendererBindings Run::BuildRuntimeRendererBindings()
     bindings.ui.runtimeViewModel = &m_runtimeViewModel;
     bindings.diagnostics.debug = &m_debug;
     bindings.diagnostics.timers = &m_timers;
+    bindings.diagnostics.profiler = profiler;
     return bindings;
 }
 
@@ -129,11 +133,12 @@ Run::Run( Window& window,
           std::vector<std::string> sceneQueue,
           EngineConfig& config,
           Threading::WorkerPool& workerPool,
+          Profiler* profiler,
           RuntimeRenderBackendView renderBackendView )
     : m_config( config ), m_sceneController( std::move( sceneQueue ) ), m_sceneCoordinator( m_sceneController ),
       m_renderBackendView( renderBackendView ),
       m_renderer(
-          BuildRuntimeRendererBindings(),
+          BuildRuntimeRendererBindings( profiler ),
           []( void* user, const char* phase, const char* step )
           {
               if ( Run* run = static_cast<Run*>( user ) )
@@ -194,6 +199,7 @@ Run::Run( Window& window,
           this )
 {
     const EngineConfig& cfg = m_config;
+    m_diagnosticsRuntime.BindProfiler( profiler );
     m_systems.BindStartupServices( window, workerPool, cfg );
     BindEngineContext();
     RefreshRuntimeViewModel();

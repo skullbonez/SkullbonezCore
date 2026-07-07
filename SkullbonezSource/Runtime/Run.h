@@ -84,6 +84,7 @@ class IRenderDiagnostics;
 }
 namespace Basics
 {
+class Profiler;
 struct RuntimeInteractionCommand;
 struct RuntimeInteractionEvent;
 
@@ -270,7 +271,7 @@ class Run
                                         const char* logicalName,
                                         const std::string& relativePath ); // Resolves DATA_ROOT path while preserving
                                                                            // source asset identity for rebuilds.
-    RuntimeRendererBindings BuildRuntimeRendererBindings();
+    RuntimeRendererBindings BuildRuntimeRendererBindings( Profiler* profiler );
     void ReleaseBackendOwnedRenderResources(
         const char* phaseName );                                           // Ordered GPU-resource release hook while the backend is alive.
     void RebuildRegisteredRenderResources();                               // Recreates renderer resources from source asset records
@@ -364,6 +365,7 @@ class Run
          std::vector<std::string> sceneQueue,
          EngineConfig& config,
          Threading::WorkerPool& workerPool,
+         Profiler* profiler,
          RuntimeRenderBackendView renderBackendView );                     // sceneQueue empty string selects generated demo mode.
     ~Run();
     void Initialise();                                                     // Initialises shared resources and loads first scene

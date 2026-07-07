@@ -32,6 +32,7 @@ namespace SkullbonezCore
 {
 namespace Basics
 {
+class Profiler;
 class ReplayRuntime;
 class TestScene;
 
@@ -43,6 +44,9 @@ class DiagnosticsRuntime
 
     DiagnosticsController& Diagnostics();
     const DiagnosticsController& Diagnostics() const;
+    // Startup binding that keeps perf CSV and frame-time diagnostics off the
+    // global profiler accessor after initialization.
+    void BindProfiler( Profiler* profiler );
 
     RunPerfLogState& PerfLog();
     const RunPerfLogState& PerfLog() const;
@@ -56,6 +60,7 @@ class DiagnosticsRuntime
     void ApplySceneAutomationOptions( const TestScene& scene, bool suppressAutomationExit, int perfPass );
     bool PerfTestActive() const;
     void TickPerfLog( const RuntimePerfTickContext& context );
+    RuntimeProfilerFrameTimes SampleProfilerFrameTimes() const;
     const MainMemoryStats& RefreshMainMemoryStats( const ReplayRuntime& replay,
                                                    const GameObjects::GameModelCollection& models,
                                                    double nowSeconds,

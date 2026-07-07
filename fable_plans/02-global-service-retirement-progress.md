@@ -1,8 +1,8 @@
 # Progress: Global Service Retirement (plan 02)
 
 Source plan: `fable_plans/02-global-service-retirement-plan.md`
-Status: phase 4 L2 WorkerPool, Window, EngineConfig, and UI profiler snapshot slices complete on 2026-07-07; remaining profiler diagnostics/Gfx singleton demotion/freezing pending.
-Last updated: 2026-07-07 (takeover UI profiler snapshot slice)
+Status: phase 4 L2 WorkerPool, Window, EngineConfig, UI profiler snapshot, and profiler diagnostics receiving-path slices complete on 2026-07-07; remaining Core profiler/Gfx singleton cleanup pending.
+Last updated: 2026-07-07 (SVC-022 profiler diagnostics receiving path)
 
 ## How to work this file
 
@@ -14,7 +14,7 @@ Last updated: 2026-07-07 (takeover UI profiler snapshot slice)
   unblock their blocked rows without reading the blocker reason.
 - Comment quality gate applies to touched source files.
 
-## Current facts (post-UI profiler snapshot, 2026-07-07)
+## Current facts (post-SVC-022 profiler diagnostics receiving path, 2026-07-07)
 
 - `Cfg()` no longer exists (0 call sites), and `EngineConfig::Instance()` has
   now been deleted. Runtime startup owns an `EngineConfig` value, loads and
@@ -23,9 +23,11 @@ Last updated: 2026-07-07 (takeover UI profiler snapshot slice)
   The only remaining text is the runtime-boundary checker's synthetic regression
   self-test that rejects reintroduced singleton config access.
 - Singleton-style source files from `::Instance()`/`GetInstance(` census:
-  5 files total (`Core` 3, `Runtime` 2, `UI` 0, `Rendering` 0, `Physics` 0):
-  `Core\Profiler.h`, `Core\Profiler.cpp`, `Core\LockOrderValidator.cpp`,
-  `Runtime\RuntimeDiagnostics.cpp`, and `Runtime\RunUiTextPass.cpp`.
+  4 live-code files total (`Core` 3, `Runtime` 1, `UI` 0, `Rendering` 0,
+  `Physics` 0): `Core\Profiler.h`, `Core\Profiler.cpp`,
+  `Core\LockOrderValidator.cpp`, and the startup-only
+  `Runtime\Init.cpp` profiler bind. `Runtime\RuntimeDiagnostics.cpp` and
+  `Runtime\RunUiTextPass.cpp` now have 0 direct `Profiler::Instance()` hits.
 - `UITabProfiler.cpp` now has 0 `Gfx()`, 0 `IsGfxReady()`, and 0
   `Profiler::Instance()` hits. Its draw trace, marker tree, and worker-core
   chart consume the bounded `ProfilerTab::FrameSnapshot` filled by
@@ -34,8 +36,12 @@ Last updated: 2026-07-07 (takeover UI profiler snapshot slice)
   LockOrderValidator::Instance (SVC-034 frozen diagnostics exception), plus
   `s_gfxBackend`/`Gfx()`/`SetGfxBackend` in `Rendering/IRenderBackend.cpp`.
 - The checker `tools/check_runtime_boundaries.py` now carries
-  `MAX_GLOBAL_SERVICE_ACCESS_CENSUS = 133`, no EngineConfig allowlist rows, and
-  no `UITabProfiler.cpp` global-service allowlist rows.
+  `MAX_GLOBAL_SERVICE_ACCESS_CENSUS = 129`, no EngineConfig allowlist rows, no
+  `UITabProfiler.cpp` global-service allowlist rows, no
+  `RuntimeDiagnostics.cpp` profiler allowlist rows, and no
+  `RunUiTextPass.cpp` profiler allowlist rows. The one new
+  `Runtime\Init.cpp` `Profiler::Instance()` row is a startup-only diagnostics
+  bind.
 
 ## Verified facts (as of 2026-07-07 takeover census — re-verify before later phases)
 
@@ -277,7 +283,7 @@ Phase 4 execution notes:
   | `EngineConfig` | Superseded by L2: `Runtime\Init.cpp:3295` now constructs `EngineConfig cfg` with automatic startup storage, then `Run` receives `EngineConfig&`. | Demoted from singleton. No process-static config or accessor remains; focused tests now build local deterministic config values instead of mutating global state. |
   | `WorkerPool` | Superseded by L2: `Runtime\Init.cpp:3330` now constructs `WorkerPool workerPool` with automatic startup storage, then `Run` receives `WorkerPool&`. | Demoted from singleton. Explicit `workerPool.Shutdown()` still runs at `Runtime\Init.cpp:3355`, and the destructor calls `Shutdown()` again after startup scope exit; no process-static worker-pool lifetime remains. |
   | `Window` | Superseded by L2: `Runtime\Init.cpp:3339-3340` now constructs `Window windowOwner` with automatic startup storage and passes `&windowOwner` to existing pointer-based startup helpers. | Demoted from singleton. `CleanupWindow()` still disarms input/backend state, releases the device context, restores fullscreen state, and unregisters the class; no `pInstance` cache or process-static Window remains. |
-  | `Profiler` | `Core\Profiler.cpp:79-82`, function-local static reached by macros, runtime diagnostics CSV/sampling, and runtime text pass snapshot creation. | Medium risk: no explicit destructor work, but GPU timer methods still read renderer globals and diagnostics CSV still queries the singleton. `UITabProfiler` no longer reads Profiler/Gfx directly; final freeze/demotion depends on SVC-022 diagnostics receiving path and the Core GPU timer global reads. |
+  | `Profiler` | `Core\Profiler.cpp:79-82`, function-local static reached by macros plus one startup-only bind in `Runtime\Init.cpp`. | Medium risk: no explicit destructor work, and GPU timer methods still read renderer globals. Runtime diagnostics CSV/sampling and `RunUiTextPass` now use the startup-bound profiler pointer; final freeze/demotion depends on the Core profiler GPU-timer/global macro cleanup. |
   | `LockOrderValidator` | `Core\LockOrderValidator.cpp:114-120`, function-local static with header/source frozen-diagnostics comments from SVC-034. | Accepted frozen diagnostics exception: no config reads, no renderer/worker ownership, and no singleton teardown dependency. |
 
 - 2026-07-07 SVC-034: `LockOrderValidator::Instance` was classified under the
@@ -331,6 +337,21 @@ Phase 4 execution notes:
   `tools\validate_fast.bat` (48.437s, 0 warnings/errors), and
   `tools\validate_full.bat` (45.392s, DX12 validation errors 0, screenshots
   matched, `physics_regression_solver.csv` byte-exact).
+- 2026-07-07 L2 profiler diagnostics receiving path: resolved SVC-022 by
+  resolving `Profiler::Instance()` once in `Runtime\Init.cpp`, then threading a
+  nullable startup-bound `Profiler*` through `DiagnosticsRuntime`,
+  `DiagnosticsController`, `RuntimeRendererBindings`, and `UiTextPassInputs`.
+  `RuntimeDiagnostics.cpp` now writes perf CSV rows and samples frame times from
+  the bound pointer, while `RunUiTextPass.cpp` snapshots profiler markers from
+  the same explicit input. Lowered the checker global-service census from 133
+  to 129, removed `RuntimeDiagnostics.cpp` and `RunUiTextPass.cpp` profiler
+  allowlist rows, and added a classified `RenderDiagnosticsView.profiler`
+  guardrail row. Gates passed: `python tools\check_runtime_boundaries.py
+  --self-test` (0.261s), `python tools\check_runtime_boundaries.py` (15.357s,
+  0 errors), `tools\validate_fast.bat` (64.523s, 0 warnings/errors after
+  targeted header formatting), and `tools\validate_full.bat` (42.066s, DX12
+  validation errors 0, screenshots matched, `physics_regression_solver.csv`
+  byte-exact).
 
 ## Closure
 

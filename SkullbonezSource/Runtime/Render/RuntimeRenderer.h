@@ -237,6 +237,7 @@ class RuntimeRenderer
     RuntimeTools& m_runtimeTools;                          // Tool overlay owner used outside hot render loops.
     RunEditorPlacementState& m_editor;                     // Editor overlay state sampled once per frame.
     RunCameraState& m_camera;                              // Current camera mode needed by tool overlay wake-up checks.
+    Profiler* m_profiler = nullptr;                        // Startup-bound diagnostics source; null in non-profile builds.
     ReplayRuntime& m_replayRuntime;                        // Replay presentation owner for ghost/focus overlays.
     std::array<float, MAX_GAME_MODELS * 16> m_dxrReflectionTransforms =
         {};                                                // Scratch matrices for DXR TLAS instance upload.

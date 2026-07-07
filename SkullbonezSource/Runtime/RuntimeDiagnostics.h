@@ -55,6 +55,7 @@ struct ContactAudioStats;
 namespace Basics
 {
 class EngineConfig;
+class Profiler;
 struct ReplayBodyPresentationSample;
 struct ReplayPresentationSample;
 struct ReplaySolverFrameSample;
@@ -114,11 +115,13 @@ class RuntimeDiagnostics
     static void LogPerfMemory( RunPerfLogState& perfLog, int pass, const char* checkpoint );
     static void ResetPerfLogForSceneLoad( RunPerfLogState& perfLog );
     static void ConfigurePerfLogFlush( RunPerfLogState& perfLog, bool enabled, int interval );
-    static void OpenScenePerfLog( RunPerfLogState& perfLog, const char* path, int pass );
+    // Profiler is a startup-bound optional dependency so artifact writers do
+    // not call Profiler::Instance() while ticking frames or scene automation.
+    static void OpenScenePerfLog( RunPerfLogState& perfLog, const char* path, int pass, Profiler* profiler );
     static bool PerfTestActive( const RunPerfLogState& perfLog );
-    static void TickPerfLog( RunPerfLogState& perfLog, const RuntimePerfTickContext& context );
-    static void InvalidateProfilerGpuQueries();
-    static RuntimeProfilerFrameTimes SampleProfilerFrameTimes();
+    static void TickPerfLog( RunPerfLogState& perfLog, const RuntimePerfTickContext& context, Profiler* profiler );
+    static void InvalidateProfilerGpuQueries( Profiler* profiler );
+    static RuntimeProfilerFrameTimes SampleProfilerFrameTimes( const Profiler* profiler );
 
 #ifdef _DEBUG
     static void SetPhysicsRegressionLogOverride( RunPerfLogState& perfLog, const char* path );

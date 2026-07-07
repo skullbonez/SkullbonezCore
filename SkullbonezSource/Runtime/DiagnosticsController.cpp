@@ -26,6 +26,12 @@ namespace SkullbonezCore
 {
 namespace Basics
 {
+void DiagnosticsController::BindProfiler( Profiler* profiler )
+{
+    m_profiler = profiler;
+}
+
+
 RunPerfLogState& DiagnosticsController::PerfLog()
 {
     return m_perfLog;
@@ -70,7 +76,7 @@ void DiagnosticsController::ConfigurePerfLogFlush( bool enabled, int interval )
 
 void DiagnosticsController::OpenScenePerfLog( const char* path, int pass )
 {
-    RuntimeDiagnostics::OpenScenePerfLog( m_perfLog, path, pass );
+    RuntimeDiagnostics::OpenScenePerfLog( m_perfLog, path, pass, m_profiler );
 }
 
 
@@ -82,7 +88,13 @@ bool DiagnosticsController::PerfTestActive() const
 
 void DiagnosticsController::TickPerfLog( const RuntimePerfTickContext& context )
 {
-    RuntimeDiagnostics::TickPerfLog( m_perfLog, context );
+    RuntimeDiagnostics::TickPerfLog( m_perfLog, context, m_profiler );
+}
+
+
+RuntimeProfilerFrameTimes DiagnosticsController::SampleProfilerFrameTimes() const
+{
+    return RuntimeDiagnostics::SampleProfilerFrameTimes( m_profiler );
 }
 
 

@@ -53,6 +53,7 @@ Related:
 #include "../Rendering/RenderInstanceStore.h"
 #include "../World/WorldEnvironment.h"
 #include "../Core/PlatformProfiler.h"
+#include "../Core/Profiler.h"
 #include "../Core/WorkerPool.h"
 #include <cerrno>
 #include <float.h>
@@ -2988,11 +2989,12 @@ int RunApp( Window* window,
             ParsedArgs& args,
             EngineConfig& cfg,
             WorkerPool& workerPool,
+            Profiler* profiler,
             RuntimeRenderBackendView renderBackendView )
 {
     {
         std::unique_ptr<Run> cRun =
-            std::make_unique<Run>( *window, std::move( args.sceneList ), cfg, workerPool, renderBackendView );
+            std::make_unique<Run>( *window, std::move( args.sceneList ), cfg, workerPool, profiler, renderBackendView );
         cRun->SetAllocationGuardMode( args.allocationGuardMode );
         if ( args.timeScaleOverride > 0.0f )
         {
@@ -3347,7 +3349,14 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine
     window->SetResizeRenderBackend( renderBackendView.renderBackend );
     window->HandleScreenResize();
 
-    const int runExitCode = RunApp( window, args, cfg, workerPool, renderBackendView );
+    Profiler* profiler = nullptr;
+#if defined( SKULLBONEZ_PROFILE_ENABLED )
+    // Why: Profiler remains the sanctioned diagnostics singleton, but runtime
+    // owners receive this startup borrow instead of resolving it mid-frame.
+    profiler = &Profiler::Instance();
+#endif
+
+    const int runExitCode = RunApp( window, args, cfg, workerPool, profiler, renderBackendView );
 
     {
         RuntimeAllocation::RuntimeAllocationScope allocationScope(

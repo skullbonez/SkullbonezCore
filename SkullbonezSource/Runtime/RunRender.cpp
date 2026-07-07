@@ -177,6 +177,7 @@ struct UiTextGraphCallbackData
 {
     UiTextPass* uiTextPass = nullptr;
     SkullbonezCore::Rendering::IRenderDiagnostics* renderDiagnostics = nullptr;
+    Profiler* profiler = nullptr;
     const SkullbonezCore::UI::UIRenderContext* uiRender = nullptr;
     const UiTextPassState* state = nullptr;
     const RuntimeRenderModelFrameView* models = nullptr;
@@ -412,6 +413,7 @@ void ExecuteUiTextGraphCallback( const SkullbonezCore::Rendering::RenderGraphPas
     }
     data->uiTextPass->Render( { *data->state,
                                 *data->renderDiagnostics,
+                                data->profiler,
                                 *data->uiRender,
                                 *data->models,
                                 *data->diagnosticsRuntime,
@@ -1217,6 +1219,7 @@ bool RuntimeRenderer::ExecuteUiTextThroughRenderGraph( Rendering::IRenderDiagnos
     UiTextGraphCallbackData callbackData;
     callbackData.uiTextPass = &m_uiTextPass;
     callbackData.renderDiagnostics = &renderDiagnostics;
+    callbackData.profiler = m_profiler;
     callbackData.uiRender = &uiRender;
     callbackData.state = &state;
     callbackData.models = &models;
@@ -1331,7 +1334,7 @@ RuntimeRenderer::RuntimeRenderer( const RuntimeRendererBindings& bindings,
       m_collisionVisualizer( *bindings.world.collisionVisualizer ),
       m_broadphaseVisualizer( *bindings.world.broadphaseVisualizer ),
       m_physicsDebugVisualizer( *bindings.world.physicsDebugVisualizer ), m_runtimeTools( *bindings.toolOverlay.tools ),
-      m_editor( m_runtimeTools.Editor() ), m_camera( *bindings.ui.camera ),
+      m_editor( m_runtimeTools.Editor() ), m_camera( *bindings.ui.camera ), m_profiler( bindings.diagnostics.profiler ),
       m_replayRuntime( *bindings.replayOverlay.replayRuntime ),
       m_fullscreenQuadPass( m_systems.renderPasses.fullscreen ),
       m_skyPass( m_systems.renderPasses.sky, m_systems.renderPasses.fullscreen, m_systems.skyBox, m_config ),
@@ -1786,7 +1789,7 @@ void RuntimeRenderer::ReleaseBackendOwnedRuntimeResources( const BackendResource
             break;
         case BackendResourceStep::ProfilerQueries:
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
-            RuntimeDiagnostics::InvalidateProfilerGpuQueries();
+            RuntimeDiagnostics::InvalidateProfilerGpuQueries( m_profiler );
 #endif
             break;
         case BackendResourceStep::TextureCollection:

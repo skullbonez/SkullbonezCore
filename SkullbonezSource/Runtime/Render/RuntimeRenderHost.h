@@ -65,6 +65,7 @@ class InGameUI;
 }
 namespace Basics
 {
+class Profiler;
 class LauncherLaser;
 class RuntimeInputContext;
 class SceneController;
@@ -135,6 +136,7 @@ struct RenderDiagnosticsView
 {
     RunDebugState* debug = nullptr;
     RunTimerState* timers = nullptr;
+    Profiler* profiler = nullptr;                                 // Startup-bound diagnostics source; null in non-profile builds.
 };
 
 struct RuntimeRenderBackendView
