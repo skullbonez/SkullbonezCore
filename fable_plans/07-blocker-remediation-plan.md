@@ -321,3 +321,9 @@ else returns to the overnight machine as gated, verifiable slices.
   the stale `Config.h` comment that still taught normal code to use the global
   accessor. No behavior changed; evidence command passed:
   `python tools\check_runtime_boundaries.py` (0 errors).
+- 2026-07-07: Completed fable-02 phase 3 G1/G2 classification. The raw
+  `rg -n "\bGfx\(\)" SkullbonezSource` census has 25 exact text hits and 0
+  orphans: profiler/UI hits belong to Cluster D diagnostics, backend facade and
+  tracing hits belong to SVC-001/SVC-002 plus plan-05 render capability cleanup,
+  and the rest are comments/declarations. No local renderer conversion was
+  needed; G3 remains pending until those owned clusters drain.

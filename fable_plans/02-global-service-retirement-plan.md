@@ -1,7 +1,7 @@
 # Global Service Retirement Plan
 
 Date: 2026-07-06
-Status: Phase 2 config cleanup complete on 2026-07-07; Gfx burn-down not started
+Status: Phase 3 Gfx classification/orphan sweep complete on 2026-07-07; accessor deletion pending owned clusters
 Impact area: runtime, rendering, core services; behavior-preserving refactor
 Validation for this document: none (documentation-only)
 

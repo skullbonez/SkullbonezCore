@@ -1,8 +1,8 @@
 # Progress: Global Service Retirement (plan 02)
 
 Source plan: `fable_plans/02-global-service-retirement-plan.md`
-Status: phase 2 config cleanup complete on 2026-07-07; Gfx burn-down not started.
-Last updated: 2026-07-07 (takeover phase 2 config cleanup)
+Status: phase 3 Gfx classification/orphan sweep complete on 2026-07-07; accessor deletion pending owned clusters.
+Last updated: 2026-07-07 (takeover phase 3 Gfx classification)
 
 ## How to work this file
 
@@ -164,18 +164,42 @@ Phase 2 evidence (2026-07-07 takeover config cleanup):
 
 ## Phase 3 — Gfx() burn-down (25 exact sites; coordinate with plan-05 RGRAPH rows)
 
-- [ ] G1. Classify the 25 exact hits: `rg -n "\bGfx\(\)"
+- [x] G1. Classify the 25 exact hits: `rg -n "\bGfx\(\)"
   SkullbonezSource` → tag each line here as: (a) startup/teardown
   (Init.cpp SetGfxBackend region — keep,
   allowlist), (b) covered by an authoritative SVC/RGRAPH row (cite row id —
   work it THERE, not here, or verify already done), (c) orphan (no row —
   convert here). Expected: most are (b).
-- [ ] G2. Convert the orphans using the capability interfaces plan-05
+
+G1 classification evidence (2026-07-07 takeover Gfx census):
+
+The raw `rg` command reports 25 exact text hits. This includes comments,
+declarations, string literals, and real calls; the runtime-boundary checker uses
+stripped source and the `GLOBAL_RENDERER_SERVICE_ACCESS_CLASSIFICATIONS` file
+fence for behavior-bearing uses.
+
+| File / lines | Classification | Owner |
+|--------------|----------------|-------|
+| `Core\Profiler.cpp:460,484,496,502,510,516,525,535,589,613` | (b) diagnostics/profiler bridge | Cluster D / SVC-022, SVC-032, SVC-033 receiving path before profiler/UI conversions |
+| `UI\UITabProfiler.cpp:165` | (b) UI diagnostics compatibility | Cluster D / SVC-032, SVC-033 |
+| `Rendering\IRenderBackend.h:77,89,96` | (b) backend accessor declaration and tracing RAII compatibility | Cluster E / SVC-001, SVC-002 endgame; plan-05 render capability cleanup supplies the explicit trace/render context first |
+| `Rendering\IRenderBackend.cpp:39,41,44,54` | (a)/(b) backend accessor definition, guard strings, and raytracing facade | Cluster E / SVC-001, SVC-002 endgame; keep until all callers leave the facade |
+| `UI\UIBackdropBlur.cpp:20`, `Rendering\IRenderBackend.h:8,62`, `Rendering\IRenderBackend.cpp:7,17,20,53` | Comment-only or migration-contract prose | No conversion; keep wording accurate as rows drain |
+
+G1 result: 0 orphan exact `Gfx()` hits. G2 should not start by inventing local
+conversions here; it should consume the Cluster D diagnostics path, plan-05
+render capability rows, and SVC-001/SVC-002 endgame in that order.
+- [x] G2. Convert the orphans using the capability interfaces plan-05
   established (`IRenderCommandContext`, `IRenderResourceFactory`,
   `IRenderDiagnostics` — passed through RenderFrameContext or explicit
   parameters; imitate a completed RHOST/SVC row's commit for the idiom:
   `git log --oneline --grep="SVC-" | head` to find one). Gate per commit:
   `validate_dx12_renderer`. Ratchet decrement per commit.
+
+G2 evidence: G1 found 0 orphan exact `Gfx()` hits. The remaining real calls are
+owned by Cluster D diagnostics, plan-05 render capability cleanup, and the
+SVC-001/SVC-002 accessor endgame, so there was no local orphan conversion and
+no renderer validation gate for this documentation-only classification slice.
 - [ ] G3. Delete `Gfx()` + `s_gfxBackend` public accessor once N1-count
   reaches the startup allowlist only (SVC-001/002/004 endgame — check their
   status first). Gate: `validate_full` + `validate_dx12_renderer`. Commit.
