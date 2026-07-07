@@ -1502,14 +1502,13 @@ RENDER_BACKEND_AGGREGATE_DEPENDENCY_PATTERNS: tuple[tuple[str, re.Pattern[str], 
 # RGRAPH-030: include-aware tracked-source census on 2026-07-07.
 # These budgets are not approval for growth; per-file rows classify remaining
 # render-backend aggregate debt while Plan 05 drains it.
-MAX_IRENDER_BACKEND_DEPENDENCY_CENSUS = 37
+MAX_IRENDER_BACKEND_DEPENDENCY_CENSUS = 36
 MAX_RENDER_BACKEND_DX12_GET_CENSUS = 0
 RENDER_BACKEND_AGGREGATE_DEPENDENCY_ALLOWLIST: Counter[tuple[Path, str]] = Counter(
     {
         ( Path(path), label ): count
         for path, label, count in (
             ( "SkullbonezSource/Physics/Debug/CollisionVisualizer.cpp", "IRenderBackend", 1 ),
-            ( "SkullbonezSource/Physics/Debug/PhysicsDebugVisualizer.cpp", "IRenderBackend", 1 ),
             ( "SkullbonezSource/Rendering/DX12/RenderBackendDX12.h", "IRenderBackend", 2 ),
             ( "SkullbonezSource/Rendering/GameModelRenderer.cpp", "IRenderBackend", 1 ),
             ( "SkullbonezSource/Rendering/IRenderBackend.cpp", "IRenderBackend", 4 ),
@@ -1621,7 +1620,6 @@ GLOBAL_RENDERER_SERVICE_LABELS = { "Gfx()", "GfxCapture()", "GfxRayTracing()", "
 # compatibility location instead of letting a raw count entry approve a new file.
 GLOBAL_RENDERER_SERVICE_ACCESS_CLASSIFICATIONS: dict[Path, str] = {
     Path("SkullbonezSource/Physics/Debug/CollisionVisualizer.cpp"): "physics debug visualizer compatibility",
-    Path("SkullbonezSource/Physics/Debug/PhysicsDebugVisualizer.cpp"): "physics debug visualizer compatibility",
     Path("SkullbonezSource/Physics/TornadoField.cpp"): "physics debug rendering compatibility",
     Path("SkullbonezSource/Rendering/IRenderBackend.cpp"): "backend accessor definition",
     Path("SkullbonezSource/Rendering/IRenderBackend.h"): "backend accessor declaration and tracing RAII",
@@ -1658,7 +1656,7 @@ FROZEN_DIAGNOSTIC_SINGLETON_INSTANCE_CLASSES = {
 # profiler diagnostics receiving path resolves the singleton once in Init, and
 # Core profiler GPU timers now use a startup-bound IRenderDiagnostics borrow
 # instead of reopening Gfx().
-MAX_GLOBAL_SERVICE_ACCESS_CENSUS = 109
+MAX_GLOBAL_SERVICE_ACCESS_CENSUS = 107
 # RUN-001: current Run.h private `m_` field census on 2026-07-07.
 # This is not approval for growth. Run remains the composition root, but new
 # feature state should enter through one of the narrower owners below instead
@@ -1794,7 +1792,6 @@ GLOBAL_SERVICE_ACCESS_ALLOWLIST: Counter[tuple[Path, str]] = Counter(
             ( "SkullbonezSource/Core/WorkerPool.cpp", "g_*", 8 ),
             ( "SkullbonezSource/Physics/Debug/CollisionVisualizer.cpp", "Gfx()", 14 ),
             ( "SkullbonezSource/Physics/Debug/CollisionVisualizer.cpp", "IsGfxReady()", 1 ),
-            ( "SkullbonezSource/Physics/Debug/PhysicsDebugVisualizer.cpp", "Gfx()", 2 ),
             ( "SkullbonezSource/Rendering/IRenderBackend.cpp", "Gfx()", 1 ),
             ( "SkullbonezSource/Rendering/IRenderBackend.cpp", "IsGfxReady()", 1 ),
             ( "SkullbonezSource/Rendering/IRenderBackend.h", "Gfx()", 3 ),

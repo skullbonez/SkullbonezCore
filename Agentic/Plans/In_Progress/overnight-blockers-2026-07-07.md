@@ -157,12 +157,12 @@ hardest-to-unblock first inside each plan.
 
 - **SVC-001** - `SkullbonezSource/Rendering/IRenderBackend.cpp` / `s_gfxBackend`
   - Attempted: central renderer singleton migration assessment.
-  - Failure/reason: active renderer singleton cannot be startup-only while compatibility callers still exist in remaining physics debug visualizers, window resize/backend readiness, and draw-call trace helpers. The profiler marker/timer dependency was removed by the 2026-07-07 Profiler renderer-diagnostics bind; `RunPasses.cpp` no longer uses the global readiness helper, the stale `RunInput.cpp` readiness allowance has been deleted, `GfxCapture()` is gone, and `BroadphaseVisualizer` now uses the explicit debug overlay render context.
+  - Failure/reason: active renderer singleton cannot be startup-only while compatibility callers still exist in the collision visualizer, window resize/backend readiness, and draw-call trace helpers. The profiler marker/timer dependency was removed by the 2026-07-07 Profiler renderer-diagnostics bind; `RunPasses.cpp` no longer uses the global readiness helper, the stale `RunInput.cpp` readiness allowance has been deleted, `GfxCapture()` is gone, and Broadphase/PhysicsDebug line overlays now use the explicit debug overlay render context.
   - Needed to unblock: finish the remaining non-profiler renderer-service cleanup or approve a bounded compatibility decision.
 
 - **SVC-002** - `SkullbonezSource/Rendering/IRenderBackend.cpp` / `Gfx`
   - Attempted: service locator deletion assessment.
-  - Failure/reason: `Gfx()` still serves the backend facade, remaining physics debug visualizers, and draw-call trace helpers; the checker ratchet prevents growth but deletion needs dependent cleanup. Core profiler no longer depends on it, the tornado visual pass and Broadphase visualizer now use explicit frame render context, and capture uses the startup-bound `IRenderCaptureBackend` borrow.
+  - Failure/reason: `Gfx()` still serves the backend facade, collision visualizer, and draw-call trace helpers; the checker ratchet prevents growth but deletion needs dependent cleanup. Core profiler no longer depends on it, the tornado visual pass plus Broadphase/PhysicsDebug visualizers now use explicit frame render context, and capture uses the startup-bound `IRenderCaptureBackend` borrow.
   - Needed to unblock: migrate remaining callers to explicit render capabilities and then delete the facade accessor.
 
 ## Plan 01 - Run Composition Root

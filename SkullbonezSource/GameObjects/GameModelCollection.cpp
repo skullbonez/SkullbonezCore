@@ -620,6 +620,8 @@ void GameModelCollection::RenderCollisionStateSolids( Physics::CollisionVisualiz
 
 void GameModelCollection::RenderPhysicsDebug( Physics::PhysicsDebugVisualizer& visualizer,
                                               const Matrix4& viewProjection,
+                                              Rendering::IRenderCommandContext& renderCommands,
+                                              bool supportsDebugLines,
                                               Geometry::Terrain* terrain )
 {
     const Physics::PhysicsDebugFrameView frameView{
@@ -632,7 +634,9 @@ void GameModelCollection::RenderPhysicsDebug( Physics::PhysicsDebugVisualizer& v
         m_physicsEngine.GetPhysicsPipelineTrace(),
         m_physicsEngine.BodyStore().Count(),
     };
-    visualizer.Render( frameView, viewProjection, terrain );
+    // Caller contract: runtime render passes own renderer readiness for the
+    // frame; this collection only packages the physics store view.
+    visualizer.Render( frameView, viewProjection, renderCommands, supportsDebugLines, terrain );
 }
 
 

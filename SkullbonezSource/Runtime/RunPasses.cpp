@@ -1792,7 +1792,14 @@ void DebugOverlayPass::Render( const DebugOverlayPassInputs& inputs )
         if ( HasPhysicsDebugFrameView( inputs.frame ) )
         {
             const PhysicsDebugFrameView frameView = BuildPhysicsDebugFrameView( inputs.frame );
-            m_physicsDebugVisualizer.Render( frameView, inputs.frame.viewProjection, m_terrain.get() );
+            // Pass contract: physics debug owns diagnostic line generation,
+            // while renderer readiness/capability stays with this frame pass.
+            const bool supportsDebugLines = RenderDiagnostics( inputs.frame ).GetCapabilities().supportsDebugLines;
+            m_physicsDebugVisualizer.Render( frameView,
+                                             inputs.frame.viewProjection,
+                                             RenderCommands( inputs.frame ),
+                                             supportsDebugLines,
+                                             m_terrain.get() );
         }
         if ( detailMarkers )
         {

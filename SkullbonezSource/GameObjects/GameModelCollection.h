@@ -424,8 +424,12 @@ class GameModelCollection
                                      const Math::Transformation::Matrix4& proj,
                                      const float lightPos[4],
                                      float alphaOverride );
+    // Packages physics store views for debug drawing; caller supplies the
+    // frame-owned renderer command context and debug-line capability.
     void RenderPhysicsDebug( Physics::PhysicsDebugVisualizer& visualizer,
                              const Math::Transformation::Matrix4& viewProjection,
+                             Rendering::IRenderCommandContext& renderCommands,
+                             bool supportsDebugLines,
                              Geometry::Terrain* terrain );
     void RenderTornadoFieldVectors( const Math::Transformation::Matrix4& viewProj,
                                     Rendering::IRenderCommandContext& renderCommands,

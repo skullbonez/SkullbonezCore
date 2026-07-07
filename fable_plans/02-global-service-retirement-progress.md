@@ -1,8 +1,8 @@
 # Progress: Global Service Retirement (plan 02)
 
 Source plan: `fable_plans/02-global-service-retirement-plan.md`
-Status: phase 4 L2 WorkerPool, Window, EngineConfig, UI profiler snapshot, profiler diagnostics receiving path, Profiler renderer-diagnostics bind, RunPasses readiness probe, RunInput stale-readiness ratchet, capture-facade cleanup, and Broadphase visualizer cleanup slices complete on 2026-07-07; Gfx accessor endgame pending.
-Last updated: 2026-07-07 (Broadphase visualizer cleanup)
+Status: phase 4 L2 WorkerPool, Window, EngineConfig, UI profiler snapshot, profiler diagnostics receiving path, Profiler renderer-diagnostics bind, RunPasses readiness probe, RunInput stale-readiness ratchet, capture-facade cleanup, Broadphase visualizer cleanup, and PhysicsDebug visualizer cleanup slices complete on 2026-07-07; Gfx accessor endgame pending.
+Last updated: 2026-07-07 (PhysicsDebug visualizer cleanup)
 
 ## How to work this file
 
@@ -14,7 +14,7 @@ Last updated: 2026-07-07 (Broadphase visualizer cleanup)
   unblock their blocked rows without reading the blocker reason.
 - Comment quality gate applies to touched source files.
 
-## Current facts (post-Broadphase visualizer cleanup, 2026-07-07)
+## Current facts (post-PhysicsDebug visualizer cleanup, 2026-07-07)
 
 - `Cfg()` no longer exists (0 call sites), and `EngineConfig::Instance()` has
   now been deleted. Runtime startup owns an `EngineConfig` value, loads and
@@ -37,7 +37,8 @@ Last updated: 2026-07-07 (Broadphase visualizer cleanup)
   visual pass tests the frame-borrowed render command context instead of
   reopening the process-global renderer readiness helper, and the Broadphase
   debug visualizer receives the same explicit frame command context plus the
-  frame diagnostics debug-line capability.
+  frame diagnostics debug-line capability. PhysicsDebug overlay line rendering
+  now follows that same pass-owned renderer-capability contract.
 - `RunInput.cpp` already had 0 `Gfx()` and 0 `IsGfxReady()` live-code hits; the
   stale checker allowlist and renderer-service classification rows have been
   removed.
@@ -47,6 +48,10 @@ Last updated: 2026-07-07 (Broadphase visualizer cleanup)
 - `BroadphaseVisualizer.cpp` now has 0 live `Gfx()` hits and no
   `IRenderBackend` dependency. It generates line data locally, but renderer
   readiness and command submission are owned by `DebugOverlayPass`.
+- `PhysicsDebugVisualizer.cpp` now has 0 live `Gfx()` hits and no
+  `IRenderBackend` dependency. `DebugOverlayPass` and the
+  `GameModelCollection::RenderPhysicsDebug` compatibility helper pass the
+  one-frame render command context and debug-line capability explicitly.
 - Singleton accessors known from the current census: Profiler::Instance and
   LockOrderValidator::Instance (SVC-034 frozen diagnostics exception), plus
   `s_gfxBackend`/`Gfx()`/`SetGfxBackend` in `Rendering/IRenderBackend.cpp`.
@@ -59,10 +64,12 @@ Last updated: 2026-07-07 (Broadphase visualizer cleanup)
   `RuntimeDiagnostics.cpp` profiler allowlist rows, no
   `RunUiTextPass.cpp` profiler allowlist rows, no `Core\Profiler.cpp`
   renderer-service rows, no `RunPasses.cpp` readiness row, no `RunInput.cpp`
-  readiness or renderer-service row, no `GfxCapture()` facade, and no
-  `BroadphaseVisualizer.cpp` renderer-service row. The
-  `MAX_IRENDER_BACKEND_DEPENDENCY_CENSUS = 37` ratchet now has no
-  `BroadphaseVisualizer.cpp` `IRenderBackend` row. The
+  readiness or renderer-service row, no `GfxCapture()` facade, no
+  `BroadphaseVisualizer.cpp` renderer-service row, and no
+  `PhysicsDebugVisualizer.cpp` renderer-service row. The
+  `MAX_IRENDER_BACKEND_DEPENDENCY_CENSUS = 36` ratchet now has no
+  `BroadphaseVisualizer.cpp` or `PhysicsDebugVisualizer.cpp` `IRenderBackend`
+  row. The
   remaining `Runtime\Init.cpp` `Profiler::Instance()` row is a startup-only
   diagnostics bind.
 
@@ -443,6 +450,26 @@ Phase 4 execution notes:
   unit tests passed: 44 doctest cases, 574 assertions), and
   `tools\validate_dx12_renderer.bat` (19.816s, DX12 InfoQueue 0 validation
   errors, screenshots matched committed baselines).
+- 2026-07-07 G3 PhysicsDebug visualizer cleanup:
+  `PhysicsDebugVisualizer::Render` now receives an explicit
+  `IRenderCommandContext&` and `supportsDebugLines` from frame-owned render
+  paths instead of reaching through `Gfx()` and `IRenderBackend`. The
+  `GameModelCollection::RenderPhysicsDebug` compatibility helper was widened
+  to forward the same explicit command context/capability bit, so it does not
+  hide a renderer-global fallback. This removed the PhysicsDebug
+  renderer-service classification, global-service allowlist row, and
+  `IRenderBackend` dependency row. `MAX_GLOBAL_SERVICE_ACCESS_CENSUS` dropped
+  from 109 to 107, and `MAX_IRENDER_BACKEND_DEPENDENCY_CENSUS` dropped from 37
+  to 36. Gates passed: boundary self-test
+  (`check_runtime_boundaries.py --self-test`, 0.310s), boundary scan
+  (`check_runtime_boundaries.py`, 17.342s, 0 errors),
+  `tools\validate_fast.bat` (57.277s, formatting/project filters/staged-size/
+  runtime-boundaries/Profile+Debug builds passed with 0 warnings/errors, and
+  unit tests passed: 44 doctest cases, 574 assertions),
+  `tools\validate_dx12_renderer.bat` (19.629s, DX12 InfoQueue 0 validation
+  errors, screenshots matched committed baselines), and
+  `tools\validate_full.bat` (42.497s, DX12 validation errors 0, screenshots
+  matched, `physics_regression_solver.csv` byte-exact).
 
 ## Closure
 
