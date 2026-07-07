@@ -1779,7 +1779,7 @@ void RuntimeRenderer::ReleaseBackendOwnedRuntimeResources( const BackendResource
             context.models.ResetRenderResources();
             break;
         case BackendResourceStep::CollisionVisualizer:
-            m_collisionVisualizer.ResetResources();
+            m_collisionVisualizer.ResetResources( context.renderResources );
             break;
         case BackendResourceStep::UIResources:
             context.ui.ResetResources( context.renderResources );

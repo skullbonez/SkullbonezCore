@@ -106,6 +106,7 @@ struct PhysicsColliderCreateDesc;
 namespace Rendering
 {
 class IRenderCommandContext;
+class IRenderDiagnostics;
 class IRenderResourceFactory;
 } // namespace Rendering
 
@@ -417,9 +418,13 @@ class GameModelCollection
     }
     void UpdateCollisionVisualizer( Physics::CollisionVisualizer& visualizer, float deltaSeconds );
     void UpdatePhysicsDebugVisualizer( Physics::PhysicsDebugVisualizer& visualizer, float deltaSeconds );
+    // Packages collision-store views for solid state rendering; caller supplies
+    // frame-owned renderer capabilities so debug drawing cannot reopen globals.
     void RenderCollisionStateSolids( Physics::CollisionVisualizer& visualizer,
                                      Assets::AssetSystem& assets,
                                      Rendering::IRenderResourceFactory& renderResources,
+                                     Rendering::IRenderCommandContext& renderCommands,
+                                     Rendering::IRenderDiagnostics& renderDiagnostics,
                                      const Math::Transformation::Matrix4& view,
                                      const Math::Transformation::Matrix4& proj,
                                      const float lightPos[4],

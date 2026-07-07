@@ -598,6 +598,8 @@ void GameModelCollection::UpdatePhysicsDebugVisualizer( Physics::PhysicsDebugVis
 void GameModelCollection::RenderCollisionStateSolids( Physics::CollisionVisualizer& visualizer,
                                                       Assets::AssetSystem& assets,
                                                       Rendering::IRenderResourceFactory& renderResources,
+                                                      Rendering::IRenderCommandContext& renderCommands,
+                                                      Rendering::IRenderDiagnostics& renderDiagnostics,
                                                       const Matrix4& view,
                                                       const Matrix4& proj,
                                                       const float lightPos[4],
@@ -613,7 +615,7 @@ void GameModelCollection::RenderCollisionStateSolids( Physics::CollisionVisualiz
         m_physicsEngine.BodyStore().Count(),
     };
     visualizer.SetAlphaOverride( alphaOverride );
-    visualizer.Render( assets, renderResources, frameView, view, proj, lightPos );
+    visualizer.Render( assets, renderResources, renderCommands, renderDiagnostics, frameView, view, proj, lightPos );
     visualizer.SetAlphaOverride( -1.0f );
 }
 

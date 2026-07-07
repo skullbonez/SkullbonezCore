@@ -1162,6 +1162,8 @@ ReflectionPassOutput ReflectionPass::Render( const ReflectionPassInputs& inputs,
                 m_collisionVisualizer.SetAlphaOverride( inputs.collisionVisualizerAlphaOverride );
                 m_collisionVisualizer.Render( RenderAssets( inputs.frame ),
                                               RenderResources( inputs.frame ),
+                                              renderCommands,
+                                              RenderDiagnostics( inputs.frame ),
                                               frameView,
                                               inputs.frame.reflectionView,
                                               inputs.frame.projection,
@@ -1217,18 +1219,21 @@ void ObjectPass::Render( const ObjectPassInputs& inputs )
     GpuProfilerScope profileScope( passName, passHash );
 #endif
     Rendering::DrawCallTraceScope drawTraceScope( passName, passHash );
+    Rendering::IRenderCommandContext& renderCommands = RenderCommands( inputs.frame );
 
     if ( inputs.collisionStateColorsVisible )
     {
         // Pass contract: collision-state solids are vertex-colored and do not
         // sample textures.
-        ClearAllRenderTextureSlots( RenderCommands( inputs.frame ) );
+        ClearAllRenderTextureSlots( renderCommands );
         if ( HasCollisionVisualizerFrameView( inputs.frame ) )
         {
             const CollisionVisualizerFrameView frameView = BuildCollisionVisualizerFrameView( inputs.frame );
             m_collisionVisualizer.SetAlphaOverride( inputs.collisionVisualizerAlphaOverride );
             m_collisionVisualizer.Render( RenderAssets( inputs.frame ),
                                           RenderResources( inputs.frame ),
+                                          renderCommands,
+                                          RenderDiagnostics( inputs.frame ),
                                           frameView,
                                           inputs.frame.baseView,
                                           inputs.frame.projection,
@@ -1241,7 +1246,7 @@ void ObjectPass::Render( const ObjectPassInputs& inputs )
         // Pass contract: lit model shaders read the material texture in slot 0
         // and optionally the shadow depth texture in slot 3.
         ClearRenderTextureSlotsExcept(
-            RenderCommands( inputs.frame ),
+            renderCommands,
             RENDER_TEXTURE_SLOT_0 | ( inputs.shadow && inputs.shadow->valid ? RENDER_TEXTURE_SLOT_3 : 0u ) );
         RenderTextures( inputs.frame ).SelectTexture( TEXTURE_BOUNDING_SPHERE );
         if ( inputs.frame.renderInstances && inputs.frame.colliders )

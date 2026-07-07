@@ -1,8 +1,8 @@
 # Progress: Global Service Retirement (plan 02)
 
 Source plan: `fable_plans/02-global-service-retirement-plan.md`
-Status: phase 4 L2 WorkerPool, Window, EngineConfig, UI profiler snapshot, profiler diagnostics receiving path, Profiler renderer-diagnostics bind, RunPasses readiness probe, RunInput stale-readiness ratchet, capture-facade cleanup, Broadphase visualizer cleanup, PhysicsDebug visualizer cleanup, and Window resize lifecycle cleanup slices complete on 2026-07-07; Gfx accessor endgame pending.
-Last updated: 2026-07-07 (Window resize lifecycle cleanup)
+Status: phase 4 L2 WorkerPool, Window, EngineConfig, UI profiler snapshot, profiler diagnostics receiving path, Profiler renderer-diagnostics bind, RunPasses readiness probe, RunInput stale-readiness ratchet, capture-facade cleanup, Broadphase visualizer cleanup, PhysicsDebug visualizer cleanup, Window resize lifecycle cleanup, and CollisionVisualizer renderer-facet cleanup slices complete on 2026-07-07; Gfx accessor endgame pending.
+Last updated: 2026-07-07 (CollisionVisualizer renderer-facet cleanup)
 
 ## How to work this file
 
@@ -14,7 +14,7 @@ Last updated: 2026-07-07 (Window resize lifecycle cleanup)
   unblock their blocked rows without reading the blocker reason.
 - Comment quality gate applies to touched source files.
 
-## Current facts (post-Window resize lifecycle cleanup, 2026-07-07)
+## Current facts (post-CollisionVisualizer renderer-facet cleanup, 2026-07-07)
 
 - `Cfg()` no longer exists (0 call sites), and `EngineConfig::Instance()` has
   now been deleted. Runtime startup owns an `EngineConfig` value, loads and
@@ -55,6 +55,11 @@ Last updated: 2026-07-07 (Window resize lifecycle cleanup)
 - `Window.cpp`/`Window.h` now have no `IRenderBackend` dependency. Window
   resize callbacks borrow only `IRenderDeviceLifecycle*`, and startup wires
   that borrow from `RuntimeRenderBackendView::deviceLifecycle`.
+- `CollisionVisualizer.cpp`/`CollisionVisualizer.h` now have no `Gfx()`,
+  `IsGfxReady()`, `IRenderBackend`, or physics-side `GameModelCollection`
+  dependency. Resource creation/destruction uses `IRenderResourceFactory`,
+  draw/state work uses `IRenderCommandContext`, and child draw-trace scopes use
+  `IRenderDiagnostics`.
 - Singleton accessors known from the current census: Profiler::Instance and
   LockOrderValidator::Instance (SVC-034 frozen diagnostics exception), plus
   `s_gfxBackend`/`Gfx()`/`SetGfxBackend` in `Rendering/IRenderBackend.cpp`.
@@ -62,17 +67,19 @@ Last updated: 2026-07-07 (Window resize lifecycle cleanup)
   plain `rg` can skip them because `Debug/` is ignored. Use `git ls-files` or
   targeted `rg --no-ignore` for that census.
 - The checker `tools/check_runtime_boundaries.py` now carries
-  `MAX_GLOBAL_SERVICE_ACCESS_CENSUS = 107`, no EngineConfig allowlist rows, no
+  `MAX_GLOBAL_SERVICE_ACCESS_CENSUS = 92`, no EngineConfig allowlist rows, no
   `UITabProfiler.cpp` global-service allowlist rows, no
   `RuntimeDiagnostics.cpp` profiler allowlist rows, no
   `RunUiTextPass.cpp` profiler allowlist rows, no `Core\Profiler.cpp`
   renderer-service rows, no `RunPasses.cpp` readiness row, no `RunInput.cpp`
   readiness or renderer-service row, no `GfxCapture()` facade, no
   `BroadphaseVisualizer.cpp` renderer-service row, and no
-  `PhysicsDebugVisualizer.cpp` renderer-service row. The
-  `MAX_IRENDER_BACKEND_DEPENDENCY_CENSUS = 31` ratchet now has no
-  `BroadphaseVisualizer.cpp`, `PhysicsDebugVisualizer.cpp`, `Window.cpp`, or
-  `Window.h` `IRenderBackend` rows. The
+  `PhysicsDebugVisualizer.cpp` or `CollisionVisualizer.cpp` renderer-service
+  row. The `MAX_IRENDER_BACKEND_DEPENDENCY_CENSUS = 30` ratchet now has no
+  `BroadphaseVisualizer.cpp`, `PhysicsDebugVisualizer.cpp`,
+  `CollisionVisualizer.cpp`, `Window.cpp`, or `Window.h` `IRenderBackend` rows.
+  The `MAX_PHYSICS_GAME_MODEL_COLLECTION_CENSUS = 0` ratchet has no physics-side
+  `GameModelCollection` allowlist rows. The
   remaining `Runtime\Init.cpp` `Profiler::Instance()` row is a startup-only
   diagnostics bind.
 
@@ -489,6 +496,27 @@ Phase 4 execution notes:
   44 doctest cases, 574 assertions), and `tools\validate_full.bat` (42.335s,
   DX12 validation errors 0, screenshots matched,
   `physics_regression_solver.csv` byte-exact).
+- 2026-07-07 G3 CollisionVisualizer renderer-facet cleanup:
+  `CollisionVisualizer` now receives the frame-owned `IRenderResourceFactory`,
+  `IRenderCommandContext`, and `IRenderDiagnostics` capabilities instead of
+  reopening `Gfx()`, `IsGfxReady()`, or the aggregate `IRenderBackend`. Runtime
+  pass call sites pass the current frame command/diagnostics context, and
+  backend-owned visualizer resources release through `RunRender.cpp` while the
+  resource factory is still live. The compatibility
+  `GameModelCollection::RenderCollisionStateSolids` helper was widened to carry
+  the same explicit capabilities, and stale PHYS-034 `GameModelCollection`
+  allowlist rows were removed after the Physics-side census reached zero. This
+  removed the CollisionVisualizer renderer-service classification and
+  allowlist rows, dropped `MAX_GLOBAL_SERVICE_ACCESS_CENSUS` from 107 to 92,
+  dropped `MAX_IRENDER_BACKEND_DEPENDENCY_CENSUS` from 31 to 30, and set
+  `MAX_PHYSICS_GAME_MODEL_COLLECTION_CENSUS` to 0. Gates passed: boundary
+  self-test (`check_runtime_boundaries.py --self-test`, 0.298s), boundary scan
+  (`check_runtime_boundaries.py`, 15.530s, 0 errors), `tools\validate_fast.bat`
+  (51.559s, formatting/project filters/staged-size/runtime-boundaries/
+  Profile+Debug builds passed with 0 warnings/errors), `tools\validate_dx12_renderer.bat`
+  (19.512s, DX12 InfoQueue 0 validation errors, screenshots matched committed
+  baselines), and `tools\validate_full.bat` (41.230s, DX12 validation errors 0,
+  screenshots matched, `physics_regression_solver.csv` byte-exact).
 
 ## Closure
 

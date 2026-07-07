@@ -1502,13 +1502,12 @@ RENDER_BACKEND_AGGREGATE_DEPENDENCY_PATTERNS: tuple[tuple[str, re.Pattern[str], 
 # RGRAPH-030: include-aware tracked-source census on 2026-07-07.
 # These budgets are not approval for growth; per-file rows classify remaining
 # render-backend aggregate debt while Plan 05 drains it.
-MAX_IRENDER_BACKEND_DEPENDENCY_CENSUS = 31
+MAX_IRENDER_BACKEND_DEPENDENCY_CENSUS = 30
 MAX_RENDER_BACKEND_DX12_GET_CENSUS = 0
 RENDER_BACKEND_AGGREGATE_DEPENDENCY_ALLOWLIST: Counter[tuple[Path, str]] = Counter(
     {
         ( Path(path), label ): count
         for path, label, count in (
-            ( "SkullbonezSource/Physics/Debug/CollisionVisualizer.cpp", "IRenderBackend", 1 ),
             ( "SkullbonezSource/Rendering/DX12/RenderBackendDX12.h", "IRenderBackend", 2 ),
             ( "SkullbonezSource/Rendering/GameModelRenderer.cpp", "IRenderBackend", 1 ),
             ( "SkullbonezSource/Rendering/IRenderBackend.cpp", "IRenderBackend", 4 ),
@@ -1617,7 +1616,6 @@ GLOBAL_RENDERER_SERVICE_LABELS = { "Gfx()", "GfxCapture()", "GfxRayTracing()", "
 # they make each remaining direct renderer-service file an explicitly reviewed
 # compatibility location instead of letting a raw count entry approve a new file.
 GLOBAL_RENDERER_SERVICE_ACCESS_CLASSIFICATIONS: dict[Path, str] = {
-    Path("SkullbonezSource/Physics/Debug/CollisionVisualizer.cpp"): "physics debug visualizer compatibility",
     Path("SkullbonezSource/Physics/TornadoField.cpp"): "physics debug rendering compatibility",
     Path("SkullbonezSource/Rendering/IRenderBackend.cpp"): "backend accessor definition",
     Path("SkullbonezSource/Rendering/IRenderBackend.h"): "backend accessor declaration and tracing RAII",
@@ -1653,7 +1651,7 @@ FROZEN_DIAGNOSTIC_SINGLETON_INSTANCE_CLASSES = {
 # profiler diagnostics receiving path resolves the singleton once in Init, and
 # Core profiler GPU timers now use a startup-bound IRenderDiagnostics borrow
 # instead of reopening Gfx().
-MAX_GLOBAL_SERVICE_ACCESS_CENSUS = 107
+MAX_GLOBAL_SERVICE_ACCESS_CENSUS = 92
 # RUN-001: current Run.h private `m_` field census on 2026-07-07.
 # This is not approval for growth. Run remains the composition root, but new
 # feature state should enter through one of the narrower owners below instead
@@ -1681,88 +1679,12 @@ def normalize_boundary_line(line: str) -> str:
     return " ".join(line.strip().split())
 
 
-# PHYS-034: current tracked Physics/ GameModelCollection census on 2026-07-07.
-# This is not approval for growth. The row-level allowlist classifies each
-# remaining debug/ragdoll/model-access dependency while store-authority rows
-# replace them with explicit body/collider/render views.
-MAX_PHYSICS_GAME_MODEL_COLLECTION_CENSUS = 35
-PHYSICS_GAME_MODEL_COLLECTION_ALLOWLIST: Counter[tuple[Path, str]] = Counter(
-    ( Path(path), normalize_boundary_line(line) )
-    for path, line in (
-        # Legacy debug visualizers still inspect GameModelCollection state while
-        # body/collider/render/entity stores become authoritative.
-        ( "SkullbonezSource/Physics/Debug/CollisionVisualizer.cpp", '#include "../../GameObjects/GameModelCollection.h"' ),
-        ( "SkullbonezSource/Physics/Debug/CollisionVisualizer.cpp", "void CollisionVisualizer::Update( float dt, GameModelCollection& models )" ),
-        ( "SkullbonezSource/Physics/Debug/CollisionVisualizer.cpp", "void CollisionVisualizer::BuildSleepGroupSizes( GameModelCollection& models )" ),
-        (
-            "SkullbonezSource/Physics/Debug/CollisionVisualizer.cpp",
-            "CollisionVisualizer::Color CollisionVisualizer::ComputeModelColor( int modelIndex, GameModelCollection& models ) const",
-        ),
-        ( "SkullbonezSource/Physics/Debug/CollisionVisualizer.cpp", "GameModelCollection& models," ),
-        ( "SkullbonezSource/Physics/Debug/CollisionVisualizer.h", "class GameModelCollection;" ),
-        (
-            "SkullbonezSource/Physics/Debug/CollisionVisualizer.h",
-            "Color ComputeModelColor( int modelIndex, GameObjects::GameModelCollection& models ) const;",
-        ),
-        (
-            "SkullbonezSource/Physics/Debug/CollisionVisualizer.h",
-            "void BuildSleepGroupSizes( GameObjects::GameModelCollection& models );",
-        ),
-        ( "SkullbonezSource/Physics/Debug/CollisionVisualizer.h", "void Update( float dt, GameObjects::GameModelCollection& models );" ),
-        ( "SkullbonezSource/Physics/Debug/CollisionVisualizer.h", "GameObjects::GameModelCollection& models," ),
-        ( "SkullbonezSource/Physics/Debug/PhysicsDebugVisualizer.cpp", '#include "../../GameObjects/GameModelCollection.h"' ),
-        ( "SkullbonezSource/Physics/Debug/PhysicsDebugVisualizer.cpp", "void PhysicsDebugVisualizer::EmitObjectAxes( GameModelCollection& models )" ),
-        (
-            "SkullbonezSource/Physics/Debug/PhysicsDebugVisualizer.cpp",
-            "void PhysicsDebugVisualizer::EmitConvexHullWireframes( GameModelCollection& models )",
-        ),
-        ( "SkullbonezSource/Physics/Debug/PhysicsDebugVisualizer.cpp", "void PhysicsDebugVisualizer::EmitContacts( GameModelCollection& models )" ),
-        ( "SkullbonezSource/Physics/Debug/PhysicsDebugVisualizer.cpp", "void PhysicsDebugVisualizer::EmitSleepState( GameModelCollection& models )" ),
-        (
-            "SkullbonezSource/Physics/Debug/PhysicsDebugVisualizer.cpp",
-            "void PhysicsDebugVisualizer::EmitPipelineStage( GameModelCollection& models )",
-        ),
-        (
-            "SkullbonezSource/Physics/Debug/PhysicsDebugVisualizer.cpp",
-            "void PhysicsDebugVisualizer::EmitTerrainContactProbe( GameModelCollection& models, Geometry::Terrain* terrain )",
-        ),
-        ( "SkullbonezSource/Physics/Debug/PhysicsDebugVisualizer.cpp", "void PhysicsDebugVisualizer::Update( float dt, GameModelCollection& models )" ),
-        (
-            "SkullbonezSource/Physics/Debug/PhysicsDebugVisualizer.cpp",
-            "void PhysicsDebugVisualizer::Render( GameModelCollection& models, const Matrix4& viewProj, Geometry::Terrain* terrain )",
-        ),
-        ( "SkullbonezSource/Physics/Debug/PhysicsDebugVisualizer.h", "class GameModelCollection;" ),
-        ( "SkullbonezSource/Physics/Debug/PhysicsDebugVisualizer.h", "void EmitObjectAxes( GameObjects::GameModelCollection& models );" ),
-        (
-            "SkullbonezSource/Physics/Debug/PhysicsDebugVisualizer.h",
-            "void EmitConvexHullWireframes( GameObjects::GameModelCollection& models );",
-        ),
-        ( "SkullbonezSource/Physics/Debug/PhysicsDebugVisualizer.h", "void EmitContacts( GameObjects::GameModelCollection& models );" ),
-        ( "SkullbonezSource/Physics/Debug/PhysicsDebugVisualizer.h", "void EmitSleepState( GameObjects::GameModelCollection& models );" ),
-        ( "SkullbonezSource/Physics/Debug/PhysicsDebugVisualizer.h", "void EmitPipelineStage( GameObjects::GameModelCollection& models );" ),
-        (
-            "SkullbonezSource/Physics/Debug/PhysicsDebugVisualizer.h",
-            "void EmitTerrainContactProbe( GameObjects::GameModelCollection& models, Geometry::Terrain* terrain );",
-        ),
-        ( "SkullbonezSource/Physics/Debug/PhysicsDebugVisualizer.h", "void Update( float dt, GameObjects::GameModelCollection& models );" ),
-        ( "SkullbonezSource/Physics/Debug/PhysicsDebugVisualizer.h", "void Render( GameObjects::GameModelCollection& models," ),
-        # Creation still enters through scene/model append facades; the solver
-        # path uses body/collider handles after creation.
-        ( "SkullbonezSource/Physics/Ragdoll.cpp", '#include "../GameObjects/GameModelCollection.h"' ),
-        ( "SkullbonezSource/Physics/Ragdoll.cpp", "void Ragdoll::AddSimpleHumanoid( GameModelCollection& collection," ),
-        ( "SkullbonezSource/Physics/Ragdoll.h", "class GameModelCollection;" ),
-        ( "SkullbonezSource/Physics/Ragdoll.h", "static void AddSimpleHumanoid( GameObjects::GameModelCollection& collection," ),
-        # The deleted PhysicsModelAccess facade remains listed only as historical
-        # allowlist debt; physics code must not add unrelated GameModelCollection
-        # dependencies.
-        ( "SkullbonezSource/Physics/PhysicsModelAccess.h", "class GameModelCollection;" ),
-        (
-            "SkullbonezSource/Physics/PhysicsModelAccess.h",
-            "explicit PhysicsModelAccess( GameObjects::GameModelCollection& collection );",
-        ),
-        ( "SkullbonezSource/Physics/PhysicsModelAccess.h", "GameObjects::GameModelCollection& m_collection;" ),
-    )
-)
+# PHYS-034: tracked Physics/ GameModelCollection census reached zero on 2026-07-07.
+# This is not approval for growth; physics debug draw paths must use explicit
+# body/collider/render views rather than reopening owner-side model collection
+# access.
+MAX_PHYSICS_GAME_MODEL_COLLECTION_CENSUS = 0
+PHYSICS_GAME_MODEL_COLLECTION_ALLOWLIST: Counter[tuple[Path, str]] = Counter()
 
 # The old neutral PhysicsModels() name is fully blocked. New model-vector
 # borrowers must use an owner-specific store/descriptor path instead of reopening
@@ -1787,8 +1709,6 @@ GLOBAL_SERVICE_ACCESS_ALLOWLIST: Counter[tuple[Path, str]] = Counter(
             ( "SkullbonezSource/Core/Profiler.cpp", "Profiler::Instance()", 2 ),
             ( "SkullbonezSource/Core/Profiler.h", "Profiler::Instance()", 11 ),
             ( "SkullbonezSource/Core/WorkerPool.cpp", "g_*", 8 ),
-            ( "SkullbonezSource/Physics/Debug/CollisionVisualizer.cpp", "Gfx()", 14 ),
-            ( "SkullbonezSource/Physics/Debug/CollisionVisualizer.cpp", "IsGfxReady()", 1 ),
             ( "SkullbonezSource/Rendering/IRenderBackend.cpp", "Gfx()", 1 ),
             ( "SkullbonezSource/Rendering/IRenderBackend.cpp", "IsGfxReady()", 1 ),
             ( "SkullbonezSource/Rendering/IRenderBackend.h", "Gfx()", 3 ),
