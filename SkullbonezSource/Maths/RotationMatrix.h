@@ -25,7 +25,7 @@ Related:
 #pragma once
 
 
-#include "../Core/Common.h"
+#include "MathsCommon.h"
 #include "Vector3.h"
 #if SKULLBONEZ_INTRINSICS
 #include <immintrin.h> // SSE4.1 intrinsics for LoadSSE

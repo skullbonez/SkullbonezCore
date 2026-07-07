@@ -9,6 +9,8 @@ Mental model:
   when that state changes.
 
 Glossary:
+  Maths prelude: Math-only constants and CRT math includes owned by
+    Maths/MathsCommon.h during the Common.h aliasing period.
   Validation gate: Repository script that proves a class of changes before
   commit or PR.
 
@@ -52,26 +54,15 @@ Related:
 #include <cstdlib>   // std::atoi, std::atof, std::abs
 #include <cstdio>    // std::sprintf_s, std::sscanf_s, std::FILE
 #include <cstdarg>   // std::va_list, std::va_start, std::va_end
-#include <cmath>     // std::sqrtf, std::sinf, std::cosf, std::fabsf, std::acosf
-#include <cfloat>    // FLT_MAX
 #include <cassert>   // assert()
 #include <stdexcept> // std::runtime_error
 #include <memory>    // std::unique_ptr
 #include <algorithm> // std::clamp, std::min, std::max
+#include "../Maths/MathsCommon.h"
 
 #ifdef _DEBUG
 #define CRTDBG_MAP_ALLOC // must precede crtdbg.h to redirect malloc → _malloc_dbg
 #include <crtdbg.h>
-#endif
-
-// SSE/SIMD intrinsics — enabled in Release/Profile by default.
-// Override to 0 here to force scalar fallback paths in any configuration.
-#ifndef SKULLBONEZ_INTRINSICS
-#ifndef _DEBUG
-#define SKULLBONEZ_INTRINSICS 1
-#else
-#define SKULLBONEZ_INTRINSICS 0
-#endif
 #endif
 
 // Array-sizing counts (must remain compile-time)
@@ -86,22 +77,9 @@ constexpr const char* WINDOW_NAME = "SkullbonezWindow";
 constexpr const char* TITLE_TEXT = "::SKULLBONEZ CORE::";
 constexpr const char* DATA_ROOT = "SkullbonezData/";
 
-// Math constants
-constexpr float _PI = 3.14159265f;
-constexpr float _2PI = 6.2831853f;
-constexpr float _HALF_PI = 1.570796325f;
-constexpr float FOUR_OVER_THREE = 1.33333f;
-constexpr float ONE_OVER_THREE = 0.33333f;
-
 // Fixed physics timestep (120 Hz) — guarantees deterministic simulation
 constexpr float PHYSICS_FIXED_DT = 1.0f / 120.0f;
 constexpr int PHYSICS_MAX_STEPS_PER_FRAME = 8;
-
-// Numeric sentinels / tolerances
-constexpr float NO_COLLISION = 1e30f;
-constexpr float TOLERANCE = 0.00005f;
-constexpr float ONE_PLUS_TOLERANCE = 1.00005f;
-constexpr float ZERO_TAKE_TOLERANCE = -0.00005f;
 
 // All other engine parameters live in EngineConfig (loaded from engine.cfg).
 #include "Config.h"

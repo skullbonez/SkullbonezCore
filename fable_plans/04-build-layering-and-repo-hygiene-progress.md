@@ -1,7 +1,7 @@
 # Progress: Build Layering And Repo Hygiene (plan 04)
 
 Source plan: `fable_plans/04-build-layering-and-repo-hygiene-plan.md`
-Status: phase 1 complete on 2026-07-07; phase 2 L1 include break complete on 2026-07-08
+Status: phase 1 complete on 2026-07-07; phase 2 L1 include break and L2 Maths prelude split complete on 2026-07-08
 Last updated: 2026-07-08
 
 ## How to work this file
@@ -24,27 +24,29 @@ Last updated: 2026-07-08
 - Solution/toolset: single vcxproj, toolset **v145**, Level4, stdcpp17,
   static CRT (see facts in `01-unit-test-pyramid-progress.md`).
 - Maths layering: `SkullbonezSource/Maths/` = GeometricMath, GeometricStructures,
-  Matrix4, Quaternion, RotationMatrix, Vector3 (.h/.cpp). Outward includes:
-  every header includes `../Core/Common.h`; **GeometricMath.h also includes
-  `../World/Terrain.h`** (the only Maths→World dependency — must break for
-  the lib split).
-- `Core/Common.h` (141 lines) content map — it is included by ~everything and
-  transitively drags `<windows.h>` (line 51, with WIN32_LEAN_AND_MEAN),
-  `Config.h` + `Log.h` (lines 107-108), `<stdexcept>` (58):
-  - Lines 49-65: windows.h + CRT includes + crtdbg — PLATFORM, not common.
-  - 69-75: SKULLBONEZ_INTRINSICS toggle — build config.
-  - 78-82: TOTAL_CAMERA_COUNT, TOTAL_TEXTURE_COUNT, DEFAULT/MAX_GAME_MODELS —
+  MathsCommon, Matrix4, Quaternion, RotationMatrix, Vector3. Current outward
+  include proof: the five direct Maths headers include `MathsCommon.h`, and
+  `GeometricStructures.h` reaches it through `Vector3.h`; no Maths include
+  directive pulls `../Core/Common.h`, `<windows.h>`, `Config.h`, `Log.h`, or
+  `ZeroMemory`.
+- `Core/Common.h` (118 lines after L2) content map - it is included by
+  ~everything and still transitively drags `<windows.h>` (line 53, with
+  WIN32_LEAN_AND_MEAN), `Config.h` + `Log.h` (lines 85-86), and `<stdexcept>`
+  (line 58). It includes `../Maths/MathsCommon.h` (line 61) during the aliasing
+  period:
+  - Lines 51-66: windows.h + CRT/platform includes + crtdbg - PLATFORM, not
+    common.
+  - 68-73: TOTAL_CAMERA_COUNT, TOTAL_TEXTURE_COUNT, DEFAULT/MAX_GAME_MODELS -
     scene/render capacities.
-  - 85-87: WINDOW_NAME, TITLE_TEXT, DATA_ROOT — runtime/window.
-  - 90-94: _PI, _2PI, _HALF_PI, fraction constants — MATHS.
-  - 97-98: PHYSICS_FIXED_DT, PHYSICS_MAX_STEPS_PER_FRAME — PHYSICS.
-  - 101-104: NO_COLLISION, TOLERANCE, ONE_PLUS_TOLERANCE, ZERO_TAKE_TOLERANCE
-    — collision/maths tolerances.
-  - 107-108: `#include "Config.h"` + `#include "Log.h"` — the global-service
+  - 75-78: WINDOW_NAME, TITLE_TEXT, DATA_ROOT - runtime/window.
+  - 80-82: PHYSICS_FIXED_DT, PHYSICS_MAX_STEPS_PER_FRAME - PHYSICS.
+  - `Maths/MathsCommon.h` (54 lines) now owns SKULLBONEZ_INTRINSICS,
+    _PI/_2PI/_HALF_PI, fraction constants, and the math/collision tolerances.
+  - 85-86: `#include "Config.h"` + `#include "Log.h"` - the global-service
     leak (plan 02 owns deleting Cfg; this plan owns un-nesting the includes).
-  - 110-113: ActiveGameModelCapacity(config) — scene capacity policy.
-  - 116-119: Log() accessor — sanctioned global (plan 02).
-  - 123-141: HashStr + TEXTURE_*/CAMERA_* hash constants — assets/render.
+  - 88-91: ActiveGameModelCapacity(config) - scene capacity policy.
+  - 93-97: Log() accessor - sanctioned global (plan 02).
+  - 100-118: HashStr + TEXTURE_*/CAMERA_* hash constants - assets/render.
 - `RunInput.cpp` (3,580 lines) function inventory groups cleanly:
   - Input routing/commands: BuildRuntimeInputSnapshot(:564),
     RouteRuntimePointerInput(:613), ExecuteRuntimeInteractionCommand(:1009),
@@ -127,7 +129,7 @@ Last updated: 2026-07-08
   (log timestamp span 00:00:55). Key result lines: `PASS: Build
   Debug|x64 succeeded.`, `PASS: Profile and Debug binaries are ready.`, and
   `VALIDATE_FAST: ALL PASSED`.
-- [ ] L2. Give Maths its own minimal prelude so it stops needing Common.h:
+- [x] L2. Give Maths its own minimal prelude so it stops needing Common.h:
   create `Maths/MathsCommon.h` containing ONLY: the CRT math includes
   (<cmath>, <cfloat>), `_PI/_2PI/_HALF_PI/FOUR_OVER_THREE/ONE_OVER_THREE`,
   `TOLERANCE/ONE_PLUS_TOLERANCE/ZERO_TAKE_TOLERANCE/NO_COLLISION`, and
@@ -138,6 +140,35 @@ Last updated: 2026-07-08
   (`cl /P /nologo SkullbonezSource/Maths/Vector3.cpp` grep the .i for
   `windows.h` = 0 hits — or simply confirm no compile error after removing
   the include). Gate: `validate_fast`. Commit.
+
+  Evidence (2026-07-08): Added `SkullbonezSource/Maths/MathsCommon.h`
+  containing only `<cmath>`, `<cfloat>`, `SKULLBONEZ_INTRINSICS`, the angle and
+  fraction constants, and the math/collision tolerances. `Core/Common.h`
+  includes `../Maths/MathsCommon.h` to preserve alias-period names. Switched
+  `Vector3.h`, `RotationMatrix.h`, `Matrix4.h`, `GeometricMath.h`, and
+  `Quaternion.h` from `../Core/Common.h` to `MathsCommon.h`; `GeometricStructures.h`
+  reaches the prelude through `Vector3.h`. Added explicit `<stdexcept>` includes
+  in `GeometricMath.cpp` and `Vector3.cpp`, and replaced the remaining Maths
+  `ZeroMemory` platform dependency with `Plane plane{};`. This returned no
+  matches:
+  ```bat
+  rg -n '^#include\s+"\.\./Core/Common\.h"|^#include\s+<windows\.h>|^#include\s+"Config\.h"|^#include\s+"Log\.h"|ZeroMemory' SkullbonezSource\Maths
+  ```
+  Touched-file comment audit:
+  10 source-bearing files inspected, 0 deferred.
+
+  Validation (2026-07-08): `tools\validate_fast.bat` passed in
+  `00:00:54.3133481`; log:
+  `Agentic\Reports\2026-07-08\logs\fable-04-l2-validate-fast.log`. Key result
+  lines: `PASS: Project filter validation passed.`, `PASS: Runtime boundary
+  validation passed.`, `PASS: Build Profile|x64 succeeded.`, `PASS: Build
+  Debug|x64 succeeded.`, `PASS: Profile and Debug binaries are ready.`, and
+  `VALIDATE_FAST: ALL PASSED`. Because the slice touches `Core/Common.h`,
+  `tools\validate_full.bat` also passed in `00:00:46.7472032`; log:
+  `Agentic\Reports\2026-07-08\logs\fable-04-l2-validate-full.log`. Key result
+  lines: `DX12 validation errors: 0`, `PASS: DX12 screenshots match committed
+  baselines.`, `PASS: physics_regression_solver.csv (20001 lines, byte-exact
+  match)`, and `VALIDATE_FULL: DEFAULT GATE PASSED`.
 - [ ] L3. Create `SKULLBONEZ_MATHS.vcxproj` (StaticLibrary, same
   toolset/W4/stdcpp17/CRT — copy ItemDefinitionGroups from the main vcxproj),
   ItemGroup = the 11 Maths files; add to sln; remove those files from

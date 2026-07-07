@@ -30,7 +30,7 @@ Related:
 #pragma once
 
 
-#include "../Core/Common.h"
+#include "MathsCommon.h"
 
 namespace SkullbonezCore
 {

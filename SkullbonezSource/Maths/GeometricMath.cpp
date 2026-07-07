@@ -23,6 +23,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "GeometricMath.h"
+#include <stdexcept>
 
 
 using namespace SkullbonezCore::Math;
@@ -64,8 +65,7 @@ Vector3 GeometricMath::ComputeTriangleNormal( const Triangle& triangle )
 //   d = dot( n, v1 )
 Plane GeometricMath::ComputePlane( const Triangle& triangle )
 {
-    Plane plane;
-    ZeroMemory( &plane, sizeof( plane ) );
+    Plane plane{};
 
     plane.m_normal = GeometricMath::ComputeTriangleNormal( triangle );
 

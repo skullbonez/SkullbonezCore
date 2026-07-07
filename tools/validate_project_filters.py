@@ -63,6 +63,7 @@ SOURCE_PROJECT_SUFFIX_TYPES = {
 MATH_PREFIXES = (
     "GeometricMath",
     "GeometricStructures",
+    "MathsCommon",
     "Matrix4",
     "Quaternion",
     "RotationMatrix",

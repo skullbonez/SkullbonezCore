@@ -24,6 +24,7 @@ Related:
 */
 #include "Vector3.h"
 #include <limits>
+#include <stdexcept>
 
 
 using namespace SkullbonezCore::Math::Vector;

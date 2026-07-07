@@ -1,7 +1,7 @@
 # Build Layering And Repo Hygiene Plan
 
 Date: 2026-07-06
-Status: Phase 1 repo hygiene complete on 2026-07-07; Phase 2 L1 Maths upward include break complete on 2026-07-08; remaining library layering phases pending
+Status: Phase 1 repo hygiene complete on 2026-07-07; Phase 2 L1/L2 Maths include/prelude cleanup complete on 2026-07-08; remaining library layering phases pending
 Impact area: build system, file organization, git hygiene; no behavior change
 Validation for this document: none (documentation-only)
 

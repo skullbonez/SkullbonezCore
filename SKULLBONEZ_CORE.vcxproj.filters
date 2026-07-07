@@ -755,6 +755,9 @@
     <ClInclude Include="SkullbonezSource\Maths\GeometricStructures.h">
       <Filter>Header Files\Maths</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\Maths\MathsCommon.h">
+      <Filter>Header Files\Maths</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\Rendering\Helper.h">
       <Filter>Header Files\Rendering</Filter>
     </ClInclude>
