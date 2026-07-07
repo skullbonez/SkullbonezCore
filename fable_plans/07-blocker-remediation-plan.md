@@ -333,3 +333,13 @@ else returns to the overnight machine as gated, verifiable slices.
   `LockOrderValidator`; current census has no `TextureCollection`,
   `CameraCollection`, or `SkyBox` singleton hits. This was discovery only; L2
   demotion/freezing remains pending.
+- 2026-07-07: Completed fable-02 phase 4 L2 WorkerPool demotion. Deleted
+  `WorkerPool::Instance()`, made runtime startup own a local `WorkerPool`
+  before passing it into `Run`, lowered `MAX_GLOBAL_SERVICE_ACCESS_CENSUS` from
+  152 to 150, removed the old WorkerPool allowlist entries, and added a
+  WorkerPool-specific checker self-test. Gates passed:
+  `python tools\check_runtime_boundaries.py --self-test`,
+  `python tools\check_runtime_boundaries.py` (0 errors),
+  `tools\validate_fast.bat` (65.975s, 0 warnings/errors), and
+  `tools\validate_full.bat` (42.469s, DX12 validation errors 0, screenshots
+  matched, physics CSV byte-exact).

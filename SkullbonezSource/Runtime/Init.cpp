@@ -3327,7 +3327,7 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine
         return standalonePhysicsExitCode;
     }
 
-    WorkerPool& workerPool = WorkerPool::Instance();
+    WorkerPool workerPool;
     workerPool.Initialise( cfg.workerThreads );
     if ( args.workerSelfTest )
     {

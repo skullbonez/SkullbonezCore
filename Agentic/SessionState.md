@@ -8,13 +8,13 @@ audits when it is still useful.
 | Field | Value |
 |-------|-------|
 | Branch | `nightrunner-7th-july` in worktree `C:\SkullbonezCore`. |
-| Active objective | Continue the 2026-07-07 takeover cleanup after fable-02 phase 4 L1 discovery; all five authoritative CSVs were drained earlier, and follow-up blocker-plan work remains. |
-| Last documentation milestone | Fable-02 phase 4 L1 singleton lifetime discovery complete: construction sites and teardown risks are recorded for `EngineConfig`, `WorkerPool`, `Window`, `Profiler`, and frozen `LockOrderValidator`; no `TextureCollection`/`CameraCollection`/`SkyBox` hits remain. |
-| Last source/data milestone | Fable-02 phase 2 made a comment-only source edit in `SkullbonezSource\Core\Config.h`; fable-01 phase 4 remains the last behavior/test milestone with real PhysicsEngine determinism coverage. Current authoritative blocker-ledger totals remain 131 done and 29 blocked. |
-| Pending work | Continue fable-02 L2 singleton demotion/freezing and the remaining fable directory follow-ups, while addressing the remaining 29 blocked rows in `Agentic/Plans/In_Progress/overnight-blockers-2026-07-07.md`. |
+| Active objective | Continue the 2026-07-07 takeover cleanup after fable-02 phase 4 L2 WorkerPool demotion; all five authoritative CSVs were drained earlier, and follow-up blocker-plan work remains. |
+| Last documentation milestone | Fable-02 phase 4 L2 WorkerPool demotion recorded: WorkerPool is now startup-owned, the singleton census is down to 9 source files, and the global-service checker budget is 150. |
+| Last source/data milestone | Fable-02 phase 4 L2 WorkerPool demotion deleted `WorkerPool::Instance()`, made `Runtime\Init.cpp` own a local `WorkerPool`, and tightened `tools\check_runtime_boundaries.py` with a WorkerPool self-test. Current authoritative blocker-ledger totals remain 131 done and 29 blocked. |
+| Pending work | Continue fable-02 remaining singleton demotion/freezing and the other fable directory follow-ups while addressing the remaining 29 blocked rows in `Agentic/Plans/In_Progress/overnight-blockers-2026-07-07.md`. |
 | Concurrent work warning | No unrelated dirty files were present before the fable-01 phase 0 slice. Still run `git status --short --branch` before editing. |
 | Blockers | `Agentic/Plans/In_Progress/overnight-blockers-2026-07-07.md`; Plan03 5 blocked, Plan05 9 blocked, Plan02 11 blocked, Plan01 4 blocked, Plan04 0 blocked. |
-| Validation | Latest source gates passed on 2026-07-07 for fable-01 phase 4: `tools\validate_tests.bat` (5.203s, 42 doctest cases and 527 assertions passed, 0 warnings/errors) and `tools\validate_physics.bat` (15.907s, byte-exact `physics_regression_solver.csv`). Latest comment/docs-only fable-02 phase 2 evidence: `python tools\check_runtime_boundaries.py` passed with 0 errors; no repository validation script was required. |
+| Validation | Latest source gates passed on 2026-07-07 for fable-02 WorkerPool demotion: `python tools\check_runtime_boundaries.py --self-test`, `python tools\check_runtime_boundaries.py` (0 errors), `tools\validate_fast.bat` (65.975s, 0 warnings/errors), and `tools\validate_full.bat` (42.469s, DX12 validation errors 0, screenshots matched, byte-exact `physics_regression_solver.csv`). |
 
 ## Active Notes
 
@@ -51,7 +51,7 @@ audits when it is still useful.
 | Physics/GameModel authority | Active follow-up | `Agentic/Plans/To_Eval/physics-game-model-authority-plan.md`; 2026-07-05 endgame slice deleted the remaining physics-side GameModel compatibility import/writeback/API surface, removed render-host concrete collection reliance from production render surfaces, tightened tombstone guardrails, and moved the focused endgame plan to Done. |
 | Runtime static allocation policy | Complete; post-duck correction validated | Plan moved to `Agentic/Plans/Done/runtime-static-allocation-policy-plan.md`; post-duck source/data update converts replay prediction growth accounting to bytes, adds tracked F6/branch interaction proofs, and passed targeted proof plus `validate_perf`/`validate_full`. |
 | Architecture pass follow-up | Active reference | `Agentic/Plans/architecture_pass_2026-06-02.md` remains the broad checkpoint for runtime, physics data, assets, parser, water, and render graph boundaries. |
-| 2026-07-07 overnight remediation | Remediation pass active | Handoff: `Agentic/Reports/2026-07-07/overnight-run-handoff.md`; blockers: `Agentic/Plans/In_Progress/overnight-blockers-2026-07-07.md`; SVC-034, fable-01 phase 0/M1/M2/M3/M4/S1/S2/S3/S4/S5/E1/E2/E3/D1/D2/D3/closure, fable-02 phases 1-3 G1/G2 and phase 4 L1, PHYS-035/fable-03 prediction isolation, fable-04 phase 1, and fable-05 phase 1 are fixed. |
+| 2026-07-07 overnight remediation | Remediation pass active | Handoff: `Agentic/Reports/2026-07-07/overnight-run-handoff.md`; blockers: `Agentic/Plans/In_Progress/overnight-blockers-2026-07-07.md`; SVC-034, fable-01 phase 0/M1/M2/M3/M4/S1/S2/S3/S4/S5/E1/E2/E3/D1/D2/D3/closure, fable-02 phases 1-3 G1/G2 plus phase 4 L1/L2 WorkerPool, PHYS-035/fable-03 prediction isolation, fable-04 phase 1, and fable-05 phase 1 are fixed. |
 | Repo pack-size cleanup | User decision needed for history rewrite | `Agentic/Temp/` is ignored and empty in the tip tree, and `tools/check_staged_file_sizes.py` blocks new oversized staged files outside approved data roots. Existing pack size was recorded at 542 MiB; shrinking it requires a user-approved `git filter-repo` rewrite of historical `Agentic/Temp` blobs and coordinated re-clone. |
 
 ## Known Bugs

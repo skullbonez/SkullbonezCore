@@ -55,13 +55,6 @@ WorkerPool::~WorkerPool()
 }
 
 
-WorkerPool& WorkerPool::Instance()
-{
-    static WorkerPool s_pool;
-    return s_pool;
-}
-
-
 int WorkerPool::MaxThreadCount()
 {
     const unsigned int hardwareThreads = std::thread::hardware_concurrency();

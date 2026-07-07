@@ -64,8 +64,6 @@ class WorkerPool
     using IndexFunction = std::function<void( int )>;
     using ChunkFunction = std::function<void( int chunkIndex, int begin, int end )>;
 
-    static WorkerPool& Instance();
-
     WorkerPool();
     ~WorkerPool();
 

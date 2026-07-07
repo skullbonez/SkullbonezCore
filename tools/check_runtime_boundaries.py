@@ -1657,7 +1657,7 @@ FROZEN_DIAGNOSTIC_SINGLETON_INSTANCE_CLASSES = {
 # SVC-035: current tracked-source global-service census on 2026-07-07.
 # Per-file rows classify remaining debt; this total blocks stale row slack from
 # approving growth while later rows drain the explicit-service surface.
-MAX_GLOBAL_SERVICE_ACCESS_CENSUS = 152
+MAX_GLOBAL_SERVICE_ACCESS_CENSUS = 150
 # RUN-001: current Run.h private `m_` field census on 2026-07-07.
 # This is not approval for growth. Run remains the composition root, but new
 # feature state should enter through one of the narrower owners below instead
@@ -1793,7 +1793,6 @@ GLOBAL_SERVICE_ACCESS_ALLOWLIST: Counter[tuple[Path, str]] = Counter(
             ( "SkullbonezSource/Core/Profiler.cpp", "IsGfxReady()", 6 ),
             ( "SkullbonezSource/Core/Profiler.cpp", "Profiler::Instance()", 2 ),
             ( "SkullbonezSource/Core/Profiler.h", "Profiler::Instance()", 11 ),
-            ( "SkullbonezSource/Core/WorkerPool.cpp", "WorkerPool::Instance()", 1 ),
             ( "SkullbonezSource/Core/WorkerPool.cpp", "g_*", 8 ),
             ( "SkullbonezSource/Physics/Debug/BroadphaseVisualizer.cpp", "Gfx()", 2 ),
             ( "SkullbonezSource/Physics/Debug/CollisionVisualizer.cpp", "Gfx()", 14 ),
@@ -1805,7 +1804,6 @@ GLOBAL_SERVICE_ACCESS_ALLOWLIST: Counter[tuple[Path, str]] = Counter(
             ( "SkullbonezSource/Rendering/IRenderBackend.h", "IsGfxReady()", 2 ),
             ( "SkullbonezSource/Runtime/Init.cpp", "EngineConfig::Instance()", 1 ),
             ( "SkullbonezSource/Runtime/Init.cpp", "Window::Instance()", 1 ),
-            ( "SkullbonezSource/Runtime/Init.cpp", "WorkerPool::Instance()", 1 ),
             ( "SkullbonezSource/Runtime/Init.cpp", "g_*", 6 ),
             ( "SkullbonezSource/Runtime/Input.cpp", "g_*", 33 ),
             ( "SkullbonezSource/Runtime/RunInput.cpp", "IsGfxReady()", 1 ),
@@ -9628,6 +9626,9 @@ def run_self_tests() -> list[str]:
 
     new_window_singleton_access = "void DeepInputPath() { Window::Instance()->ShowCursor( true ); }"
     expect_error('new window singleton synthetic surface was not rejected', check_global_service_access_guardrails_text( Path("SkullbonezSource/Runtime/InputNew.cpp"), new_window_singleton_access, relative_path=Path("SkullbonezSource/Runtime/InputNew.cpp"), ), 'global window service access is count-guarded')
+
+    new_worker_pool_singleton_access = "void DeepWorkerPath() { WorkerPool::Instance().Shutdown(); }"
+    expect_error('new worker pool singleton synthetic surface was not rejected', check_global_service_access_guardrails_text( Path("SkullbonezSource/Runtime/NewWorkerPath.cpp"), new_worker_pool_singleton_access, relative_path=Path("SkullbonezSource/Runtime/NewWorkerPath.cpp"), ), 'global worker pool access is count-guarded')
 
     new_cfg_access = "void DeepConfigPath() { int threads = Cfg().workerThreads; }"
     expect_error('new Cfg synthetic surface was not rejected', check_global_service_access_guardrails_text( Path("SkullbonezSource/Runtime/NewConfigPath.cpp"), new_cfg_access, relative_path=Path("SkullbonezSource/Runtime/NewConfigPath.cpp"), ), 'global config access is count-guarded')
