@@ -26,6 +26,8 @@ from the progress file; the plan file is the rationale.
 | [05-unified-error-handling-policy-plan.md](05-unified-error-handling-policy-plan.md) | [progress](05-unified-error-handling-policy-progress.md) | 355 `throw` sites / 28 `catch` sites / fatal asserts / bool returns with no policy for which applies where | None to start |
 | [06-stable-identity-plan.md](06-stable-identity-plan.md) | [progress](06-stable-identity-progress.md) | Dense `modelIndex` stored as identity and re-validated ad hoc; handle/id/index triality | Coordinates with `authoritative-plan-02` |
 | [07-blocker-remediation-plan.md](07-blocker-remediation-plan.md) | (is itself the sequenced plan) | The 31 rows the 2026-07-07 overnight run blocked — clustered into four root causes with an unblock calendar | Reads the overnight blocker commits; feeds rows back to the overnight machine |
+| [08-demo-director-plan.md](08-demo-director-plan.md) | [progress](08-demo-director-progress.md) | Butterfly demo needs hand-authored "scene phases" — camera pose + render type per phase, easy grab/release of the camera | Reuses live-style system + free-fly camera + interaction automation |
+| [09-consequence-look-plan.md](09-consequence-look-plan.md) | [progress](09-consequence-look-progress.md) | Cinematic modes make the *world* pretty; the demo needs causality to be the light — grade, glowing lines, two-tone butterfly, divergence counter | Render-only; pairs with 08 (per-phase grade); phase 3 depends on plan 03 |
 
 ## Suggested order
 
