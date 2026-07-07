@@ -1738,7 +1738,12 @@ void DebugOverlayPass::Render( const DebugOverlayPassInputs& inputs )
             PROFILE_GPU_BEGIN( "Frame/Render/DebugOverlay/Broadphase" );
         }
         DRAW_CALL_TRACE_SCOPE( "Broadphase" );
-        m_broadphaseVisualizer.Render( inputs.frame.viewProjection );
+        // Pass contract: broadphase owns grid-line generation, while renderer
+        // readiness/capability stays with the one-frame debug overlay context.
+        const bool supportsDebugLines = RenderDiagnostics( inputs.frame ).GetCapabilities().supportsDebugLines;
+        m_broadphaseVisualizer.Render( inputs.frame.viewProjection,
+                                       RenderCommands( inputs.frame ),
+                                       supportsDebugLines );
         if ( detailMarkers )
         {
             PROFILE_GPU_END( "Frame/Render/DebugOverlay/Broadphase" );

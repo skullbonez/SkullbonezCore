@@ -1,8 +1,8 @@
 # Progress: Global Service Retirement (plan 02)
 
 Source plan: `fable_plans/02-global-service-retirement-plan.md`
-Status: phase 4 L2 WorkerPool, Window, EngineConfig, UI profiler snapshot, profiler diagnostics receiving path, Profiler renderer-diagnostics bind, RunPasses readiness probe, RunInput stale-readiness ratchet, and capture-facade cleanup slices complete on 2026-07-07; Gfx accessor endgame pending.
-Last updated: 2026-07-07 (capture-facade cleanup)
+Status: phase 4 L2 WorkerPool, Window, EngineConfig, UI profiler snapshot, profiler diagnostics receiving path, Profiler renderer-diagnostics bind, RunPasses readiness probe, RunInput stale-readiness ratchet, capture-facade cleanup, and Broadphase visualizer cleanup slices complete on 2026-07-07; Gfx accessor endgame pending.
+Last updated: 2026-07-07 (Broadphase visualizer cleanup)
 
 ## How to work this file
 
@@ -14,7 +14,7 @@ Last updated: 2026-07-07 (capture-facade cleanup)
   unblock their blocked rows without reading the blocker reason.
 - Comment quality gate applies to touched source files.
 
-## Current facts (post-capture-facade cleanup, 2026-07-07)
+## Current facts (post-Broadphase visualizer cleanup, 2026-07-07)
 
 - `Cfg()` no longer exists (0 call sites), and `EngineConfig::Instance()` has
   now been deleted. Runtime startup owns an `EngineConfig` value, loads and
@@ -35,13 +35,18 @@ Last updated: 2026-07-07 (capture-facade cleanup)
   `RunUiTextPass`.
 - `RunPasses.cpp` now has 0 `Gfx()` and 0 `IsGfxReady()` hits. The tornado
   visual pass tests the frame-borrowed render command context instead of
-  reopening the process-global renderer readiness helper.
+  reopening the process-global renderer readiness helper, and the Broadphase
+  debug visualizer receives the same explicit frame command context plus the
+  frame diagnostics debug-line capability.
 - `RunInput.cpp` already had 0 `Gfx()` and 0 `IsGfxReady()` live-code hits; the
   stale checker allowlist and renderer-service classification rows have been
   removed.
 - `GfxCapture()` no longer exists in live source. `Run::SaveScreenshot` now
   uses the startup-bound `RuntimeRenderBackendView::captureBackend` capability
   and treats a missing capture backend as a Lane F startup invariant.
+- `BroadphaseVisualizer.cpp` now has 0 live `Gfx()` hits and no
+  `IRenderBackend` dependency. It generates line data locally, but renderer
+  readiness and command submission are owned by `DebugOverlayPass`.
 - Singleton accessors known from the current census: Profiler::Instance and
   LockOrderValidator::Instance (SVC-034 frozen diagnostics exception), plus
   `s_gfxBackend`/`Gfx()`/`SetGfxBackend` in `Rendering/IRenderBackend.cpp`.
@@ -49,13 +54,15 @@ Last updated: 2026-07-07 (capture-facade cleanup)
   plain `rg` can skip them because `Debug/` is ignored. Use `git ls-files` or
   targeted `rg --no-ignore` for that census.
 - The checker `tools/check_runtime_boundaries.py` now carries
-  `MAX_GLOBAL_SERVICE_ACCESS_CENSUS = 111`, no EngineConfig allowlist rows, no
+  `MAX_GLOBAL_SERVICE_ACCESS_CENSUS = 109`, no EngineConfig allowlist rows, no
   `UITabProfiler.cpp` global-service allowlist rows, no
   `RuntimeDiagnostics.cpp` profiler allowlist rows, no
   `RunUiTextPass.cpp` profiler allowlist rows, no `Core\Profiler.cpp`
   renderer-service rows, no `RunPasses.cpp` readiness row, no `RunInput.cpp`
-  readiness or renderer-service row, and no `GfxCapture()` facade. The
-  `MAX_IRENDER_BACKEND_DEPENDENCY_CENSUS = 38` ratchet is unchanged. The
+  readiness or renderer-service row, no `GfxCapture()` facade, and no
+  `BroadphaseVisualizer.cpp` renderer-service row. The
+  `MAX_IRENDER_BACKEND_DEPENDENCY_CENSUS = 37` ratchet now has no
+  `BroadphaseVisualizer.cpp` `IRenderBackend` row. The
   remaining `Runtime\Init.cpp` `Profiler::Instance()` row is a startup-only
   diagnostics bind.
 
@@ -422,6 +429,20 @@ Phase 4 execution notes:
   Debug builds passed with 0 warnings/errors, and unit tests passed: 44 doctest
   cases, 574 assertions), and `tools\validate_dx12_renderer.bat` (19.420s,
   DX12 InfoQueue 0 validation errors, screenshots matched committed baselines).
+- 2026-07-07 G3 Broadphase visualizer cleanup: `BroadphaseVisualizer::Render`
+  now receives an explicit `IRenderCommandContext&` and `supportsDebugLines`
+  from `DebugOverlayPass` instead of reaching through `Gfx()` and
+  `IRenderBackend`. This removed the Broadphase renderer-service
+  classification, global-service allowlist row, and `IRenderBackend` dependency
+  row. `MAX_GLOBAL_SERVICE_ACCESS_CENSUS` dropped from 111 to 109, and
+  `MAX_IRENDER_BACKEND_DEPENDENCY_CENSUS` dropped from 38 to 37. Gates passed:
+  boundary self-test (`check_runtime_boundaries.py --self-test`, 0.324s),
+  boundary scan (`check_runtime_boundaries.py`, 16.881s, 0 errors),
+  `tools\validate_fast.bat` (47.995s, formatting/project filters/staged-size/
+  runtime-boundaries/Profile+Debug builds passed with 0 warnings/errors, and
+  unit tests passed: 44 doctest cases, 574 assertions), and
+  `tools\validate_dx12_renderer.bat` (19.816s, DX12 InfoQueue 0 validation
+  errors, screenshots matched committed baselines).
 
 ## Closure
 

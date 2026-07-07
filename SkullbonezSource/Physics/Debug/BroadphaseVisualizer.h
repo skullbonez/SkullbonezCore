@@ -36,6 +36,11 @@ Related:
 
 namespace SkullbonezCore
 {
+namespace Rendering
+{
+class IRenderCommandContext;
+}
+
 namespace Physics
 {
 /* -- Broadphase Visualizer
@@ -130,8 +135,11 @@ class BroadphaseVisualizer
                  const int64_t* collisionKeys,
                  int collisionKeyCount );
 
-    // Generates line vertex data and calls Gfx().DrawLinesColored().
-    void Render( const Math::Transformation::Matrix4& viewProj );
+    // Generates line vertex data and submits it through the frame command context.
+    // The caller owns renderer readiness and debug-line capability for the frame.
+    void Render( const Math::Transformation::Matrix4& viewProj,
+                 Rendering::IRenderCommandContext& renderCommands,
+                 bool supportsDebugLines );
 };
 } // namespace Physics
 } // namespace SkullbonezCore
