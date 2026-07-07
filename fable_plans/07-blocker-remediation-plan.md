@@ -186,3 +186,15 @@ else returns to the overnight machine as gated, verifiable slices.
   `tools\validate_physics.bat` (18.514s, byte-exact physics CSV) and
   `tools\validate_full.bat` (40.456s, DX12 validation errors 0, screenshots
   matched, physics byte-exact).
+- 2026-07-07: Completed fable-04 phase 1 repo hygiene. `Agentic/Temp/` is
+  ignored and empty in the tip tree, `tools/check_staged_file_sizes.py` blocks
+  new oversized staged files outside approved data roots, and the 542 MiB pack
+  shrink is recorded as a user-owned history-rewrite decision. Gate passed:
+  `tools\validate_fast.bat` (32.100s, 0 warnings/errors).
+- 2026-07-07: Completed fable-05 phase 1 error policy. Added Core
+  `FatalError`/`SB_FATAL` and `SbResult`, wrote the Lane F/R/P policy into
+  `AGENTS.md`, recorded the existing throw ratchet
+  (`MAX_SOURCE_THROW_TOKENS = 355`), and updated project-filter rules for the
+  new Core files. Gates passed: focused Profile build (4.293s),
+  runtime-boundary self-test/check (0 errors), project filters (554 matched
+  items), and `tools\validate_fast.bat` (35.331s, 0 warnings/errors).

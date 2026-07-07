@@ -184,6 +184,22 @@ actions such as screenshot/readback, file save/load, replay artifact IO,
 diagnostics dumps, and editor mutation actions. Violations are lint, validation,
 and review failures.
 
+## Error Handling Policy
+
+Exceptions are banned for new engine code. Existing `throw` sites are tracked
+by `tools/check_runtime_boundaries.py` and must only go down unless a plan names
+the owner and updates the ratchet intentionally. Any new `throw` is a review
+failure.
+
+| Lane | Use For | Mechanism |
+|------|---------|-----------|
+| F: Fatal invariant | Should-never-happen engine state in physics, stores, solver, frame loop, replay internals, or other owned runtime logic | `SB_FATAL(owner, ...)`; logs owner/diagnostics, flushes, breaks in Debug/Profile, and never returns |
+| R: Recoverable result | External input or environment failure: scene/asset files, editor commands, automation input, device support, file IO | `SbResult`/future value-carrying result; operation fails and reports an owner/message to the UI or log boundary |
+| P: Probe assertion | Validation, interaction, replay, scrub, and stress probes that should become machine-readable failures | Existing probe/report channel such as `FailAutomation(...)`, with interaction report `ok=false` and a failure message |
+
+New fatal or recoverable paths must name their lane in source comments or the
+owning plan when the lane is not obvious from the API being used.
+
 ## After Editing
 
 Do not run validation scripts automatically after every edit. Formal repository

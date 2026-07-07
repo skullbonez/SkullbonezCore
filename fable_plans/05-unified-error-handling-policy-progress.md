@@ -1,7 +1,7 @@
 # Progress: Unified Error Handling Policy (plan 05)
 
 Source plan: `fable_plans/05-unified-error-handling-policy-plan.md`
-Status: not started
+Status: phase 1 complete on 2026-07-07; conversions not started
 Last updated: 2026-07-07
 
 ## How to work this file
@@ -41,10 +41,17 @@ Last updated: 2026-07-07
   (do NOT grow Common.h; plan 04 is shrinking it).
 - Log API pattern: `Log().WriteEventf( "event key=\"%s\"", value )` +
   `Log().FlushAll()` before dying (see Init.cpp:3207-3210).
+- Profile builds define `SKULLBONEZ_PROFILE_ENABLED` in
+  `SKULLBONEZ_CORE.vcxproj`; Debug defines both `_DEBUG` and
+  `SKULLBONEZ_PROFILE_ENABLED`.
+- `tools/check_runtime_boundaries.py` already includes the phase-1 throw
+  ratchet (`MAX_SOURCE_THROW_TOKENS = 355`), `check_throw_site_count`, and
+  synthetic clean/grown self-tests. This phase records and validates that
+  existing guard instead of duplicating it.
 
 ## Phase 1 — policy, primitives, ratchet (no conversions yet)
 
-- [ ] P1.1 Create `SkullbonezSource/Core/FatalError.h` (+ .cpp), no includes
+- [x] P1.1 Create `SkullbonezSource/Core/FatalError.h` (+ .cpp), no includes
   beyond <cstdio>/<cstdarg> and Log.h:
   ```cpp
   // Concept: SB_FATAL is the single Lane F mechanism — a programmer
@@ -67,7 +74,16 @@ Last updated: 2026-07-07
   Evidence: Profile build 0/0. Add both files to the vcxproj AND the
   .vcxproj.filters (project-filter validation exists — run
   `tools\validate_project_filters.bat` if present, else validate_fast).
-- [ ] P1.2 Create `SkullbonezSource/Core/SbResult.h`:
+
+  Evidence: `SkullbonezSource/Core/FatalError.h` and `.cpp` added and wired
+  into `SKULLBONEZ_CORE.vcxproj` and `.filters`; the implementation uses
+  `EngineLog::Get()` directly so it does not grow `Common.h`. The public
+  header stays Common-free; the `.cpp` adds `<cstdlib>` and conditional
+  `<intrin.h>` only for `std::abort()` and Profile/Debug `__debugbreak()`.
+  Profile define discovery found `SKULLBONEZ_PROFILE_ENABLED`. Focused Profile
+  build passed in 4.293s with 0 warnings/errors.
+
+- [x] P1.2 Create `SkullbonezSource/Core/SbResult.h`:
   ```cpp
   // Concept: Lane R — recoverable failure triggered by external input.
   // The operation fails; the app does not. No exceptions.
@@ -87,7 +103,12 @@ Last updated: 2026-07-07
   };
   ```
   Evidence: Profile build 0/0.
-- [ ] P1.3 Ratchet: add a `throw`-census rule to
+
+  Evidence: `SkullbonezSource/Core/SbResult.h` added as a header-only Lane R
+  carrier with bounded inline error text and no heap ownership. Focused Profile
+  build passed in 4.293s with 0 warnings/errors.
+
+- [x] P1.3 Ratchet: add a `throw`-census rule to
   `tools/check_runtime_boundaries.py` — count `\bthrow\b` in
   SkullbonezSource (excluding comments/strings as best the script's existing
   scanning supports), stored budget = the count the rule measures on HEAD
@@ -95,9 +116,20 @@ Last updated: 2026-07-07
   condition: count exceeds budget. Include a self-test. Follow the existing
   rule+self-test pattern in the script. Evidence: checker green on HEAD;
   self-test red on synthetic throw. Gate: `validate_fast` + run the checker.
-- [ ] P1.4 Write the three-lane policy into `AGENTS.md` (short table:
+
+  Evidence: existing checker rule is present as `MAX_SOURCE_THROW_TOKENS = 355`
+  plus `check_throw_site_count`; self-tests include a budget-matched throw
+  surface and a grown throw surface that expects `source throw-site count
+  exceeds ratchet`. Final validation evidence is recorded in
+  `Agentic/Reports/2026-07-07/fable-05-phase-1-error-policy.md`.
+
+- [x] P1.4 Write the three-lane policy into `AGENTS.md` (short table:
   Lane F = SB_FATAL, Lane R = SbResult, Lane P = FailAutomation/probe report;
   "new `throw` is a review failure"). Documentation-only. Commit phase 1.
+
+  Evidence: `AGENTS.md` now has an Error Handling Policy section with Lane F,
+  Lane R, and Lane P mechanisms, plus the review rule banning new `throw`
+  sites.
 
 ## Phase 2 — probes (RunFrame.cpp, ~60 sites, lowest risk)
 

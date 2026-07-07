@@ -160,6 +160,7 @@
     <ClCompile Include="SkullbonezSource\Runtime\Editor\LauncherLaser.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Editor\LauncherTools.cpp" />
     <ClCompile Include="SkullbonezSource\Core\AmortizedTask.cpp" />
+    <ClCompile Include="SkullbonezSource\Core\FatalError.cpp" />
     <ClCompile Include="SkullbonezSource\GameObjects\GameModel.cpp" />
     <ClCompile Include="SkullbonezSource\GameObjects\GameModelCollection.cpp" />
     <ClCompile Include="SkullbonezSource\Rendering\GameModelRenderer.cpp" />
@@ -332,6 +333,7 @@
     <ClInclude Include="SkullbonezSource\Core\AmortizedTask.h" />
     <ClInclude Include="SkullbonezSource\Physics\CollisionShape.h" />
     <ClInclude Include="SkullbonezSource\Core\Common.h" />
+    <ClInclude Include="SkullbonezSource\Core\FatalError.h" />
     <ClInclude Include="SkullbonezSource\Core\MainMemoryStats.h" />
     <ClInclude Include="SkullbonezSource\Physics\ContactSolverCommon.h" />
     <ClInclude Include="SkullbonezSource\Rendering\DrawCallTrace.h" />
@@ -365,6 +367,7 @@
     <ClInclude Include="SkullbonezSource\Runtime\EngineContext.h" />
     <ClInclude Include="SkullbonezSource\Core\LockOrderValidator.h" />
     <ClInclude Include="SkullbonezSource\Core\Log.h" />
+    <ClInclude Include="SkullbonezSource\Core\SbResult.h" />
     <ClInclude Include="SkullbonezSource\Rendering\PrimitiveMeshBuilder.h" />
     <ClInclude Include="SkullbonezSource\Maths\Quaternion.h" />
     <ClInclude Include="SkullbonezSource\Maths\RotationMatrix.h" />
