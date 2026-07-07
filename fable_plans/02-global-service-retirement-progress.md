@@ -1,9 +1,8 @@
 # Progress: Global Service Retirement (plan 02)
 
 Source plan: `fable_plans/02-global-service-retirement-plan.md`
-Status: not started — NOTE: the overnight authoritative run is actively moving
-this ground; re-census before every phase.
-Last updated: 2026-07-07 (early AM, mid-overnight-run)
+Status: phase 1 census complete on 2026-07-07; config/Gfx burn-down not started.
+Last updated: 2026-07-07 (takeover phase 1 census)
 
 ## How to work this file
 
@@ -15,46 +14,105 @@ Last updated: 2026-07-07 (early AM, mid-overnight-run)
   unblock their blocked rows without reading the blocker reason.
 - Comment quality gate applies to touched source files.
 
-## Verified facts (as of 2026-07-07 early AM — VOLATILE, re-verify)
+## Verified facts (as of 2026-07-07 takeover census — re-verify before later phases)
 
 - `Cfg()` no longer exists (0 call sites). Config access is now
   `EngineConfig::Instance()` — declared `Core/Config.h:256`, documented at
   Config.h:40-41 ("Access via EngineConfig::Instance().fieldName ... anywhere").
   The convenience accessor died; the GLOBAL did not. The target moved from
   "delete Cfg()" to "retire EngineConfig::Instance() from normal paths".
-- `Gfx()` call sites: 44 (down from the 579-era inventory).
-- Singleton accessors known: EngineConfig::Instance (Config.cpp),
+- `EngineConfig::Instance` exact call sites: 3 total (`Core` 2, `Runtime` 1).
+- Exact `Gfx()` call sites: 25 total by the Phase 1 command (`Core` 10,
+  `Rendering` 13, `UI` 2, `Runtime` 0, `Physics` 0). The broader checker
+  budget also covers related renderer service globals such as
+  `GfxRayTracing()` and readiness probes.
+- Singleton-style source files from `::Instance()`/`GetInstance(` census:
+  11 files total (`Core` 6, `Runtime` 4, `UI` 1, `Rendering` 0, `Physics` 0).
+- Singleton accessors known from the current census: EngineConfig::Instance,
   WorkerPool::Instance, Window::Instance, Profiler::Instance,
-  LockOrderValidator::Instance (SVC-034 classifies it as allowed diagnostics),
-  TextureCollection singleton, RenderBackendDX12::s_instance/Get (plan-05
-  RGRAPH rows own that one), `s_gfxBackend`/`Gfx()`/`SetGfxBackend`
-  (Rendering/IRenderBackend.cpp).
-- The checker `tools/check_runtime_boundaries.py` already carries overnight
-  ratchets (commit `e101a40f "guard: ratchet Run private members"` is the
-  pattern to imitate — read that commit's diff for the current rule+self-test
-  idiom: `git show e101a40f -- tools/check_runtime_boundaries.py`).
+  LockOrderValidator::Instance (SVC-034 frozen diagnostics exception), plus
+  `s_gfxBackend`/`Gfx()`/`SetGfxBackend` in `Rendering/IRenderBackend.cpp`.
+- The checker `tools/check_runtime_boundaries.py` already carries the
+  global-service ratchet installed by overnight work: `GLOBAL_SERVICE_ACCESS_ALLOWLIST`
+  entries including `EngineConfig::Instance()`, counted global-service
+  patterns, generic `Class::Instance()` handling, reviewed renderer-service
+  file classifications, frozen diagnostics singleton classification for
+  `LockOrderValidator`, and `MAX_GLOBAL_SERVICE_ACCESS_CENSUS = 152`.
 - Sanctioned-global candidates per source plan: `Log()` (Common.h:116-119,
   documented as convenience accessor over EngineLog::Get()) and Profiler —
   frozen, not injected. Everything else is injection work.
 
 ## Phase 1 — census + ratchet (idempotent; do even if overnight ratchets exist)
 
-- [ ] N1. Fresh census, recorded HERE with date:
+- [x] N1. Fresh census, recorded HERE with date:
   `rg -c "\bGfx\(\)" SkullbonezSource | sort` (per-file),
   `rg -c "EngineConfig::Instance" SkullbonezSource | sort`,
   `rg -n "::Instance\(\)|GetInstance\(" SkullbonezSource --type-add 'src:*.{cpp,h,inl}' -tsrc -l`.
   Paste totals + per-top-directory counts (Runtime, Rendering, UI, Physics,
   Core) in a dated block below this list.
-- [ ] N2. Read the current checker state:
+- [x] N2. Read the current checker state:
   `python tools/check_runtime_boundaries.py` (record which global-service
   rules already exist from the overnight run) and
   `git log --oneline -- tools/check_runtime_boundaries.py | head -10`.
   If a Gfx/Instance ratchet already exists, record its budget numbers and
   SKIP N3.
-- [ ] N3. (Only if missing) Add per-directory budget rules for `Gfx()`,
+- [x] N3. (Only if missing) Add per-directory budget rules for `Gfx()`,
   `EngineConfig::Instance`, `::Instance()` with stored budgets = N1 numbers,
   self-tests included, imitating the `e101a40f` idiom. Gate: `validate_fast`
   + run the checker. Commit.
+
+Phase 1 evidence (2026-07-07 takeover census):
+
+- `rg -c "\bGfx\(\)" SkullbonezSource | sort`
+  - `SkullbonezSource\Core\Profiler.cpp:10`
+  - `SkullbonezSource\Rendering\IRenderBackend.cpp:8`
+  - `SkullbonezSource\Rendering\IRenderBackend.h:5`
+  - `SkullbonezSource\UI\UIBackdropBlur.cpp:1`
+  - `SkullbonezSource\UI\UITabProfiler.cpp:1`
+  - Total exact `Gfx()` hits: 25 (`Core` 10, `Rendering` 13, `UI` 2,
+    `Runtime` 0, `Physics` 0).
+- `rg -c "EngineConfig::Instance" SkullbonezSource | sort`
+  - `SkullbonezSource\Core\Config.cpp:1`
+  - `SkullbonezSource\Core\Config.h:1`
+  - `SkullbonezSource\Runtime\Init.cpp:1`
+  - Total `EngineConfig::Instance` hits: 3 (`Core` 2, `Runtime` 1,
+    `Rendering` 0, `UI` 0, `Physics` 0).
+- `rg -n "::Instance\(\)|GetInstance\(" SkullbonezSource --type-add 'src:*.{cpp,h,inl}' -tsrc -l`
+  - 11 source files: `Core\WorkerPool.cpp`, `Core\Profiler.h`,
+    `Core\Profiler.cpp`, `Core\LockOrderValidator.cpp`, `Core\Config.h`,
+    `Core\Config.cpp`, `Runtime\Init.cpp`, `Runtime\RuntimeDiagnostics.cpp`,
+    `Runtime\RunUiTextPass.cpp`, `Runtime\Window.cpp`, `UI\UITabProfiler.cpp`.
+  - Top-directory counts: `Core` 6, `Runtime` 4, `UI` 1, `Rendering` 0,
+    `Physics` 0.
+- `python tools\check_runtime_boundaries.py` passed:
+  `Runtime boundary summary: TestOutput\validation\runtime_boundaries\summary.json (0 errors)`.
+- Existing checker ratchet state:
+  - `GLOBAL_SERVICE_ACCESS_ALLOWLIST` stores the current per-file budgets,
+    including `EngineConfig::Instance()` entries for `Core\Config.cpp` and
+    `Runtime\Init.cpp`.
+  - `GLOBAL_SERVICE_ACCESS_PATTERNS` covers `Cfg()`, `Gfx()`,
+    `GfxRayTracing()`, `IsGfxReady()`, `IsGfxRayTracingReady()`,
+    `ActiveAssetSystem()`, `CreateShaderFromActiveAssets()`,
+    `TextureCollection::Instance()`, `CameraCollection::Instance()`,
+    `Window::Instance()`, `SkyBox::Instance()`, `WorkerPool::Instance()`,
+    and `Profiler::Instance()`.
+  - `GENERIC_INSTANCE_ACCESS_PATTERN` count-guards other
+    `Class::Instance()` calls unless the class is a named global-service
+    singleton or a frozen diagnostics singleton.
+  - `GLOBAL_RENDERER_SERVICE_ACCESS_CLASSIFICATIONS` reviews each remaining
+    renderer-global file.
+  - `FROZEN_DIAGNOSTIC_SINGLETON_INSTANCE_CLASSES` contains
+    `LockOrderValidator`.
+  - `MAX_GLOBAL_SERVICE_ACCESS_CENSUS = 152`.
+  - Recent checker commits:
+    `96580241 guard: close replay prediction isolation`,
+    `e04d7fec fix: classify lock-order validator singleton`,
+    `fc15d9de refactor: split replay velocity edit unit`,
+    `e101a40f guard: ratchet Run private members`,
+    `c2aeb4fd tools: ratchet physics collection authority`.
+- N3 skipped by condition: the global-service ratchet and reviewed renderer
+  classifications already exist. No checker/source change was needed for this
+  phase-1 documentation slice.
 
 ## Phase 2 — config snapshots (the EngineConfig::Instance burn-down)
 

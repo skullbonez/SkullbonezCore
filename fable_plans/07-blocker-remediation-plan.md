@@ -305,3 +305,12 @@ else returns to the overnight machine as gated, verifiable slices.
   `tools\validate_tests.bat` (5.203s, 42 doctest cases, 527 assertions,
   0 warnings/errors) and `tools\validate_physics.bat` (15.907s,
   `physics_regression_solver.csv` byte-exact).
+- 2026-07-07: Completed fable-02 phase 1 global-service census/ratchet.
+  Refreshed exact `Gfx()` and `EngineConfig::Instance` counts, singleton-style
+  source-file counts, and checker state. Existing overnight guardrails already
+  cover global-service access through `GLOBAL_SERVICE_ACCESS_PATTERNS`,
+  reviewed renderer-service file classifications, the
+  `LockOrderValidator` frozen diagnostics exception, and
+  `MAX_GLOBAL_SERVICE_ACCESS_CENSUS = 152`, so no checker/source change was
+  needed. Evidence command passed: `python tools\check_runtime_boundaries.py`
+  (0 errors).

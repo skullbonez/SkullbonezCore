@@ -1,7 +1,7 @@
 # Global Service Retirement Plan
 
 Date: 2026-07-06
-Status: Proposed
+Status: Phase 1 census/ratchet complete on 2026-07-07; burn-down phases not started
 Impact area: runtime, rendering, core services; behavior-preserving refactor
 Validation for this document: none (documentation-only)
 

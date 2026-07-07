@@ -8,13 +8,13 @@ audits when it is still useful.
 | Field | Value |
 |-------|-------|
 | Branch | `nightrunner-7th-july` in worktree `C:\SkullbonezCore`. |
-| Active objective | Continue the 2026-07-07 takeover cleanup after fable-01 phase 4; all five authoritative CSVs were drained earlier, and follow-up blocker-plan work remains. |
-| Last documentation milestone | Fable-01 phase 4 and closure complete: plan progress/source plan, fable-03 P2.7 citation, blocker log, AGENTS regression-test norm, and phase report all record determinism coverage and validation evidence. |
+| Active objective | Continue the 2026-07-07 takeover cleanup after fable-02 phase 1; all five authoritative CSVs were drained earlier, and follow-up blocker-plan work remains. |
+| Last documentation milestone | Fable-02 phase 1 global-service census/ratchet complete: exact `Gfx()`/`EngineConfig::Instance`/singleton-style counts are recorded, the existing checker budget is documented, and N3 is skipped because the ratchet already exists. |
 | Last source/data milestone | Fable-01 phase 4 complete: `SKULLBONEZ_TESTS` now compiles real PhysicsEngine/scene/world solver dependencies and covers byte-exact micro-world stepping plus solver/body snapshot restore. Current authoritative blocker-ledger totals remain 131 done and 29 blocked. |
-| Pending work | Continue addressing the remaining 29 blocked rows in `Agentic/Plans/In_Progress/overnight-blockers-2026-07-07.md` and the remaining fable directory follow-ups. |
+| Pending work | Continue fable-02 burn-down phases and the remaining fable directory follow-ups, while addressing the remaining 29 blocked rows in `Agentic/Plans/In_Progress/overnight-blockers-2026-07-07.md`. |
 | Concurrent work warning | No unrelated dirty files were present before the fable-01 phase 0 slice. Still run `git status --short --branch` before editing. |
 | Blockers | `Agentic/Plans/In_Progress/overnight-blockers-2026-07-07.md`; Plan03 5 blocked, Plan05 9 blocked, Plan02 11 blocked, Plan01 4 blocked, Plan04 0 blocked. |
-| Validation | Latest gates passed on 2026-07-07 for fable-01 phase 4: `tools\validate_tests.bat` (5.203s, 42 doctest cases and 527 assertions passed, 0 warnings/errors) and `tools\validate_physics.bat` (15.907s, byte-exact `physics_regression_solver.csv`). |
+| Validation | Latest source gates passed on 2026-07-07 for fable-01 phase 4: `tools\validate_tests.bat` (5.203s, 42 doctest cases and 527 assertions passed, 0 warnings/errors) and `tools\validate_physics.bat` (15.907s, byte-exact `physics_regression_solver.csv`). Latest docs-only fable-02 phase 1 evidence: `python tools\check_runtime_boundaries.py` passed with 0 errors. |
 
 ## Active Notes
 
@@ -51,7 +51,7 @@ audits when it is still useful.
 | Physics/GameModel authority | Active follow-up | `Agentic/Plans/To_Eval/physics-game-model-authority-plan.md`; 2026-07-05 endgame slice deleted the remaining physics-side GameModel compatibility import/writeback/API surface, removed render-host concrete collection reliance from production render surfaces, tightened tombstone guardrails, and moved the focused endgame plan to Done. |
 | Runtime static allocation policy | Complete; post-duck correction validated | Plan moved to `Agentic/Plans/Done/runtime-static-allocation-policy-plan.md`; post-duck source/data update converts replay prediction growth accounting to bytes, adds tracked F6/branch interaction proofs, and passed targeted proof plus `validate_perf`/`validate_full`. |
 | Architecture pass follow-up | Active reference | `Agentic/Plans/architecture_pass_2026-06-02.md` remains the broad checkpoint for runtime, physics data, assets, parser, water, and render graph boundaries. |
-| 2026-07-07 overnight remediation | Remediation pass active | Handoff: `Agentic/Reports/2026-07-07/overnight-run-handoff.md`; blockers: `Agentic/Plans/In_Progress/overnight-blockers-2026-07-07.md`; SVC-034, fable-01 phase 0/M1/M2/M3/M4/S1/S2/S3/S4/S5/E1/E2/E3/D1/D2/D3/closure, PHYS-035/fable-03 prediction isolation, fable-04 phase 1, and fable-05 phase 1 are fixed. |
+| 2026-07-07 overnight remediation | Remediation pass active | Handoff: `Agentic/Reports/2026-07-07/overnight-run-handoff.md`; blockers: `Agentic/Plans/In_Progress/overnight-blockers-2026-07-07.md`; SVC-034, fable-01 phase 0/M1/M2/M3/M4/S1/S2/S3/S4/S5/E1/E2/E3/D1/D2/D3/closure, fable-02 phase 1, PHYS-035/fable-03 prediction isolation, fable-04 phase 1, and fable-05 phase 1 are fixed. |
 | Repo pack-size cleanup | User decision needed for history rewrite | `Agentic/Temp/` is ignored and empty in the tip tree, and `tools/check_staged_file_sizes.py` blocks new oversized staged files outside approved data roots. Existing pack size was recorded at 542 MiB; shrinking it requires a user-approved `git filter-repo` rewrite of historical `Agentic/Temp` blobs and coordinated re-clone. |
 
 ## Known Bugs
