@@ -37,6 +37,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "RunInternal.h"
+#include "RunDemoDirector.h"
 #include "Scene/SceneRuntimeLoad.h"
 
 #include "CaptureSystem.h"
@@ -3233,6 +3234,7 @@ void Run::UpdateLogic( float simulationDt, float cameraDt )
     const EngineConfig& cfg = m_config;
     MoveCamera( cameraDt * cfg.keySpeed, CAMERA_MOUSE_REFERENCE_DT * cfg.mouseSensitivity );
     TickAttachedCamera();
+    DemoDirectorPlayback::Tick( m_camera, m_systems, cameraDt );
 
     UpdateWaterHeightControls( simulationDt );
 

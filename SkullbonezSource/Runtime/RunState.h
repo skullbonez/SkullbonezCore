@@ -391,6 +391,8 @@ struct RunInputLatchState
 
 enum class RunInteractionAutomationActionType
 {
+    LoadShotList,
+    DirectorAdvance,
     SetCameraMode,
     ClickObject,
     ClickReplayControl,

@@ -186,6 +186,7 @@ RUNTIME_PREFIXES = (
     "InputController",
     "Run",
     "RunCapture",
+    "RunDemoDirector",
     "RunFrame",
     "RunInteractionAutomation",
     "RunInput",

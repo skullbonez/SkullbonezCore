@@ -1,7 +1,7 @@
 # Progress: Demo Director (plan 08)
 
 Source plan: `fable_plans/08-demo-director-plan.md`
-Status: phase 2 P2.2 Director runtime state complete; per-frame director tick next
+Status: phase 2 P2.3 per-frame Director tick complete; grab/release next
 Last updated: 2026-07-07
 
 ## How to work this file
@@ -230,12 +230,57 @@ Last updated: 2026-07-07
     validation errors; DX12 screenshots matched committed baselines;
     `physics_regression_solver.csv` matched byte-exactly; `VALIDATE_FULL:
     DEFAULT GATE PASSED`.
-- [ ] P2.3 Per-frame director tick (new `RunDemoDirector.cpp`, `Run::` methods,
+- [x] P2.3 Per-frame director tick (new `RunDemoDirector.cpp`, `Run::` methods,
   called from the frame update near the other camera ticks — see
   `TickAttachedCamera` call site for where): if not grabbed, drive the rendered
   camera (D2) from the current phase pose, lerping over `blendInSeconds` on
   phase entry; apply the phase style once on entry (P3). Evidence: a 2-phase
   shot list visibly cuts camera + look between two poses.
+  Evidence recorded 2026-07-07:
+  - Added `SkullbonezSource/Runtime/RunDemoDirector.h/.cpp` as a narrow
+    presentation-only helper module. The helper takes `RunCameraState` and
+    `RunSubsystemState` explicitly, so `Run.h` does not grow new private
+    methods and the runtime-boundary ratchet remains green.
+  - `RunFrame.cpp` now calls `DemoDirectorPlayback::Tick(...)` immediately
+    after `TickAttachedCamera()`, before render-side camera matrix setup.
+    Director playback writes through `CameraCollection::SetPrimaryPose(...)`
+    and is a no-op unless Director mode has a loaded non-empty shot list.
+  - `RunInput.cpp` seeds Director blend/timer state when entering Director
+    mode, and `RunInteractionAutomation.cpp` gained the proof-oriented
+    `loadShotList` and `directorAdvance` verbs plus final report fields:
+    `directorShotListLoaded`, `directorPhaseIndex`, and
+    `directorPhaseCount`. The remaining P4.2 verbs stay open.
+  - Added `RunDemoDirector` to `SKULLBONEZ_CORE.vcxproj`/filters and to
+    `tools/validate_project_filters.py` so new source/header entries are
+    covered by project metadata validation.
+  - Comment-quality audit scope:
+    `RunDemoDirector.h`, `RunDemoDirector.cpp`, `RunFrame.cpp`,
+    `RunInput.cpp`, `RunInteractionAutomation.cpp`, `RunState.h`, and
+    `tools/validate_project_filters.py`. All touched source-bearing files have
+    learning headers; `RunInteractionAutomation.cpp` now describes interaction
+    scripts rather than only world-click scripts.
+  - `python tools\validate_project_filters.py` passed on 2026-07-07 in
+    1.026s with 0 errors and 558 project/filter items.
+  - Gate: `tools\validate_fast.bat` passed on 2026-07-07 in 45.866s. Log:
+    `Agentic\Reports\2026-07-07\logs\fable-08-director-tick-validate-fast.log`.
+    Key lines: formatting passed; project filters passed; staged file size
+    check passed; runtime boundaries passed; Profile and Debug builds
+    succeeded with 0 warnings/0 errors; unit tests passed.
+  - Gate: `tools\validate_full.bat` passed on 2026-07-07 in 42.632s. Log:
+    `Agentic\Reports\2026-07-07\logs\fable-08-director-tick-validate-full.log`.
+    Key lines: project filters/runtime boundaries passed; Profile and Debug
+    builds succeeded with 0 warnings/0 errors; DX12 InfoQueue reported 0
+    validation errors; DX12 screenshots matched committed baselines;
+    `physics_regression_solver.csv` matched byte-exactly; `VALIDATE_FULL:
+    DEFAULT GATE PASSED`.
+  - Runtime proof: `Profile\SKULLBONEZ_CORE.exe --scene
+    SkullbonezData\scenes\interaction_inspect_gizmo_harness.scene.json
+    --interaction-script Agentic\Temp\director_p2_3_interaction.json
+    --interaction-report TestOutput\interaction\director_p2_3_report.json
+    --frames 40 --vsync off` passed in 9.449s. Report final state:
+    `cameraMode=Director`, `directorShotListLoaded=true`,
+    `directorPhaseIndex=1`, `directorPhaseCount=2`; screenshot:
+    `TestOutput\interaction\director_p2_3_after_advance.bmp`.
 - [ ] P2.4 GRAB: a key (pick an unused one; record it) sets `grabbed=true`,
   seeds the free-fly camera with the *current authored pose* (no jump), and
   routes input to free-fly. RELEASE: same key toggles `grabbed=false` and

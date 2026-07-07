@@ -1,16 +1,18 @@
 /*
 File: SkullbonezSource/Runtime/RunInteractionAutomation.cpp
 Purpose:
-  Drives deterministic runtime world-click scripts through the normal input path.
+  Drives deterministic runtime interaction scripts through the normal input path.
 
 Mental model:
   Interaction automation is a validation driver. It asks the same picking,
-  replay, camera, and world-input code that an operator would use, then writes a
-  compact JSON report for the test harness.
+  replay, camera, director-shot, and world-input code that an operator would
+  use, then writes a compact JSON report for the test harness.
 
 Glossary:
   World click: Automation request that projects a screen-space click into the
   scene and routes it through the active runtime owner.
+  Director shot action: Automation request that loads or advances a fixed camera
+    shot list without taking ownership away from the runtime camera state.
   Prediction target: Replay body selected for future-path diagnostics.
   Automation report: JSON side-channel describing what the scripted interaction
   observed without mutating validation baselines directly.
@@ -29,6 +31,7 @@ Related:
 #include "RunInternal.h"
 #include "Allocation/RuntimeAllocationTracker.h"
 #include "Replay/ReplayOverlayLayout.h"
+#include "RunDemoDirector.h"
 #include "RuntimeFileWriter.h"
 #include "RuntimePickService.h"
 
@@ -368,6 +371,10 @@ const char* ActionTypeName( RunInteractionAutomationActionType type )
 {
     switch ( type )
     {
+    case RunInteractionAutomationActionType::LoadShotList:
+        return "loadShotList";
+    case RunInteractionAutomationActionType::DirectorAdvance:
+        return "directorAdvance";
     case RunInteractionAutomationActionType::SetCameraMode:
         return "setCameraMode";
     case RunInteractionAutomationActionType::ClickObject:
@@ -527,6 +534,19 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
             return false;
         }
         CopyText( outAction.text, sizeof( outAction.text ), modeName );
+        return true;
+    }
+
+    if ( entry.contains( "loadShotList" ) )
+    {
+        outAction.type = RunInteractionAutomationActionType::LoadShotList;
+        CopyText( outAction.path, sizeof( outAction.path ), entry["loadShotList"].get<std::string>() );
+        return true;
+    }
+
+    if ( entry.contains( "directorAdvance" ) )
+    {
+        outAction.type = RunInteractionAutomationActionType::DirectorAdvance;
         return true;
     }
 
@@ -921,6 +941,40 @@ void Run::TickInteractionAutomationBeforeInput()
 
         switch ( action.type )
         {
+        case RunInteractionAutomationActionType::LoadShotList:
+        {
+            const bool loaded = DemoDirectorPlayback::LoadShotList( m_camera, m_systems, action.path );
+            if ( !loaded )
+            {
+                FailAutomation( state, "failed to load director shot list" );
+            }
+            AppendReportAction( state,
+                                frame,
+                                action.type,
+                                action.path,
+                                nullptr,
+                                loaded,
+                                loaded ? "shot list loaded" : "shot list unavailable" );
+            action.processed = true;
+            break;
+        }
+        case RunInteractionAutomationActionType::DirectorAdvance:
+        {
+            const bool advanced = DemoDirectorPlayback::AdvancePhase( m_camera, m_systems );
+            if ( !advanced )
+            {
+                FailAutomation( state, "failed to advance director phase" );
+            }
+            AppendReportAction( state,
+                                frame,
+                                action.type,
+                                "",
+                                nullptr,
+                                advanced,
+                                advanced ? "director phase advanced" : "director phase unavailable" );
+            action.processed = true;
+            break;
+        }
         case RunInteractionAutomationActionType::SetCameraMode:
             ApplyCameraMode( action.cameraMode, RuntimeInputActionSource::Runtime );
             AppendReportAction( state, frame, action.type, action.text, nullptr, true, "camera mode applied" );
@@ -1562,6 +1616,9 @@ void Run::WriteInteractionAutomationReport()
     report["failure"] = state.failure;
     report["finalState"] =
         Json{ { "cameraMode", CameraModeName( m_camera.mode ) },
+              { "directorShotListLoaded", m_camera.director.hasActiveShotList },
+              { "directorPhaseIndex", m_camera.director.currentPhaseIndex },
+              { "directorPhaseCount", m_camera.director.activeShotList.phaseCount },
               { "workspace", WorkspaceName( m_interaction.Workspace() ) },
               { "owner", OwnerName( m_interaction.Owner() ) },
               { "selectedObject", selectedName },

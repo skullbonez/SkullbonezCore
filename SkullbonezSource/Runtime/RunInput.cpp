@@ -36,6 +36,7 @@ Related:
 #include "Editor/EditorTools.h"
 #include "InputController.h"
 #include "Replay/ReplayOverlayLayout.h"
+#include "RunDemoDirector.h"
 #include "RuntimeInteractionCommands.h"
 #include "RuntimePickService.h"
 #include "Scene/SceneRuntimeCreate.h"
@@ -1368,6 +1369,10 @@ void Run::ApplyCameraMode( RunCameraMode mode, RuntimeInputActionSource source )
         {
             m_camera.trackHeight = 300.0f;
         }
+    }
+    if ( mode == RunCameraMode::Director && previousMode != RunCameraMode::Director )
+    {
+        DemoDirectorPlayback::EnterMode( m_camera, m_systems );
     }
 
     const RuntimeInteractionTransition transition = EnterInteractionForCameraMode( mode );
