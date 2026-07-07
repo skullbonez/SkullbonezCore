@@ -1076,6 +1076,7 @@ void Run::TickPhysics( double secondsPerFrame )
         // style/camera entry work so authored show decks behave in static scenes.
         DemoDirectorPlayback::Tick( m_camera,
                                     m_systems,
+                                    m_replayRuntime.Prediction(),
                                     SceneRuntimeStyleContext{ m_launchOptions,
                                                               SceneState(),
                                                               m_sceneController.Browser(),
@@ -3253,6 +3254,7 @@ void Run::UpdateLogic( float simulationDt, float cameraDt )
     TickAttachedCamera();
     DemoDirectorPlayback::Tick( m_camera,
                                 m_systems,
+                                m_replayRuntime.Prediction(),
                                 SceneRuntimeStyleContext{ m_launchOptions,
                                                           SceneState(),
                                                           m_sceneController.Browser(),

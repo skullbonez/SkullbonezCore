@@ -375,6 +375,7 @@ struct RunReplayPredictionState
     // anchor so the tree unfolds over real time instead of popping in whole.
     // Overlay-only pacing state: it never feeds physics, replay samples, or
     // solver restores, so steady_clock here cannot affect determinism.
+    double revealSecondsPerSecond = 1.0;                              // Runtime-authored causal-unfold speed; 1.0 = real-time.
     std::chrono::steady_clock::time_point revealAnchor = {};
     bool revealAnchorValid = false;
 };

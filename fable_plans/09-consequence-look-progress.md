@@ -1,8 +1,8 @@
 # Progress: Consequence Look (plan 09)
 
 Source plan: `fable_plans/09-consequence-look-plan.md`
-Status: not started
-Last updated: 2026-07-07
+Status: not started; smooth antialiased debug-line/glow requirement recorded
+Last updated: 2026-07-07 (smooth antialiased debug-line/glow requirement)
 
 ## How to work this file
 
@@ -67,17 +67,22 @@ Last updated: 2026-07-07
   as silhouettes, boxes brightest). Gate: `validate_dx12_renderer`, update the
   butterfly-scene baseline intentionally. Commit.
 
-## Phase 2 — glowing lines and boxes
+## Phase 2 — smooth glowing lines and boxes
 
-- [ ] P2.1 In `AddReplayPathSegment`, emit each segment as TWO draws: a wide,
-  low-alpha additive underlay (color × ~0.4, several px if width is supported
-  per D3; else a parallel offset quad) then the existing bright core. Same
-  treatment factored into `EmitShapeOutline` for the yellow/grey boxes.
-  Keep it behind a `predictionGlow` flag so non-demo overlays are unchanged.
+- [ ] P2.1 Make causal lines and boxes anti-aliased/smooth before adding glow.
+  Preferred shape: shader-supported screen-space line width with an
+  anti-alias feather, then optional glow controls (`glowStrength`,
+  `glowRadius`, or equivalent) so selected butterfly-effect lines can stand
+  out. If the current line path cannot support shader feathering directly,
+  emit camera-facing quads with smooth edge falloff rather than wider jagged
+  wireframe. Keep the styling behind a `predictionGlow`/demo-look flag so
+  non-demo overlays are unchanged.
 - [ ] P2.2 If D4 says lines are NOT in bloom input, add the line/outline target
-  to the bloom source (cheapest real glow). If they are, just raise line HDR
-  intensity above 1.0 so bloom picks them up.
-  Evidence: side-by-side screenshot, hairline vs glow. Gate:
+  to the bloom source (cheapest real glow). If they are, expose a shader/debug
+  line style option that raises selected line HDR intensity above 1.0 so bloom
+  can pick them up without over-brightening every overlay.
+  Evidence: side-by-side screenshot, current jagged hairline vs smooth
+  anti-aliased glow/emphasis. Gate:
   `validate_dx12_renderer` (+ `validate_perf` if the extra draws are per-frame
   heavy — the tracer is already bounded by REPLAY_PATH_MAX_SEGMENTS). Commit.
 

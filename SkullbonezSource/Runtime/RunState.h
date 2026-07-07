@@ -188,6 +188,9 @@ struct DemoDirectorPlaybackState
     char appliedStylePath[DemoPhase::STYLE_PATH_BYTES] =
         {};                                                    // Exact applied path; same-phase author edits can request a new look.
     int appliedStyleCount = 0;                                 // Successful phase-entry style applications for automation proof.
+    int appliedRevealRatePhaseIndex = -1;                      // Phase index whose revealRate last updated replay presentation pacing.
+    float appliedRevealRate = 1.0f;                            // Normalized runtime rate applied from the active phase.
+    int appliedRevealRateCount = 0;                            // Successful phase-entry reveal-rate applications for automation proof.
     float phaseElapsedSeconds = 0.0f;                          // Seconds spent in currentPhaseIndex.
     float blendElapsedSeconds = 0.0f;                          // Seconds spent blending from blendStartPose.
     DemoCameraPose blendStartPose;                             // Pose captured when a phase/release blend starts.

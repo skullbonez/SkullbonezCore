@@ -1,7 +1,7 @@
 # Progress: Demo Director (plan 08)
 
 Source plan: `fable_plans/08-demo-director-plan.md`
-Status: phase 3 P3.1 phase-entry style apply complete; P3.2 reveal-rate next
+Status: phase 3 P3.2 phase-entry reveal-rate control complete; Phase 4 next
 Last updated: 2026-07-07
 
 ## How to work this file
@@ -457,13 +457,70 @@ Last updated: 2026-07-07
     validation errors; DX12 screenshots matched committed baselines;
     `physics_regression_solver.csv` matched byte-exactly; `VALIDATE_FULL:
     DEFAULT GATE PASSED`.
-- [ ] P3.2 Phase-entry also sets the prediction reveal rate to
+- [x] P3.2 Phase-entry also sets the prediction reveal rate to
   `phase.revealRate` (write `REPLAY_PREDICTION_REVEAL_SECONDS_PER_SECOND`'s
   runtime equivalent — if it is currently a constexpr constant in
   RunReplayTools.cpp, promote it to a runtime field on
   `RunReplayPredictionState` first, defaulting to 1.0, so the director can
   slow the unfold for the money shot). Gate: `validate_dx12_renderer` +
   `prediction_ragdoll_wall_200_predict` proof (reveal still works). Commit.
+  Evidence recorded 2026-07-07:
+  - Promoted reveal pacing from the old
+    `REPLAY_PREDICTION_REVEAL_SECONDS_PER_SECOND` constant to
+    `RunReplayPredictionState::revealSecondsPerSecond`, defaulting to 1.0.
+  - `ReplayPredictionRevealFrameIndex(...)` now reads the runtime rate through
+    a non-positive fallback helper so malformed shot-list data cannot freeze
+    the reveal cursor or divide by zero while prediction builds catch up.
+  - `DemoDirectorPlayback::Tick(...)` now receives
+    `RunReplayPredictionState&` from both frame paths and applies the active
+    phase `revealRate` once per phase entry. Re-anchoring preserves already
+    revealed prediction seconds, so slowing a money-shot phase changes future
+    pacing without snapping the causal tree backward.
+  - `RunInteractionAutomation.cpp` reports `directorPhaseRevealRate`,
+    `directorAppliedRevealRatePhaseIndex`, `directorAppliedRevealRate`,
+    `directorAppliedRevealRateCount`, and
+    `predictionRevealSecondsPerSecond` for proof scripts.
+  - Runtime proof: `Profile\SKULLBONEZ_CORE.exe --scene
+    SkullbonezData\scenes\interaction_inspect_gizmo_harness.scene.json
+    --interaction-script Agentic\Temp\director_p3_2_reveal_rate_interaction.json
+    --interaction-report TestOutput\interaction\director_p3_2_reveal_rate_report.json
+    --frames 35 --vsync off` passed with report `ok=true`,
+    `directorAppliedRevealRate=0.25`, `directorAppliedRevealRateCount=1`, and
+    `predictionRevealSecondsPerSecond=0.25`. Screenshot:
+    `TestOutput\interaction\director_p3_2_reveal_rate.bmp`. Log:
+    `Agentic\Reports\2026-07-07\logs\fable-08-p3-2-reveal-rate-interaction.log`.
+  - Prediction reveal proof: `Profile\SKULLBONEZ_CORE.exe --scene
+    SkullbonezData\scenes\prediction_ragdoll_wall_200.scene.json
+    --interaction-script SkullbonezData\interaction\prediction_ragdoll_wall_200_predict.json
+    --interaction-report TestOutput\interaction\prediction_ragdoll_wall_200_predict_report.json
+    --frames 220 --replay on --replay-seconds 2 --fixed-step --vsync off
+    --allocation-guard gameplay` passed with report `ok=true`,
+    `predictionPathVisible=true`, `liveSolverHashStableAcrossPrediction=true`,
+    `predictionRevealSecondsPerSecond=1.0`, and allocation guard
+    `gameplay_violations=0`. Screenshot:
+    `TestOutput\interaction\prediction_ragdoll_wall_200_predict.bmp`. Log:
+    `Agentic\Reports\2026-07-07\logs\fable-08-p3-2-prediction-ragdoll-proof.log`.
+  - Comment-quality audit scope: `ReplayRuntime.h`,
+    `RunReplayPredictionHelpers.inl`, `RunReplayTools.cpp`,
+    `RunDemoDirector.h`, `RunDemoDirector.cpp`, `RunFrame.cpp`,
+    `RunInteractionAutomation.cpp`, and `RunState.h`. Checklist path: N/A for
+    touched-file pass; checked count 8, deferred count 0, unchecked files none.
+  - Gate: `tools\validate_fast.bat` passed after a targeted
+    `RunDemoDirector.cpp` clang-format fix. Log:
+    `Agentic\Reports\2026-07-07\logs\fable-08-p3-2-validate-fast.log`. Key
+    lines: source formatting passed, project filters passed, staged file size
+    check passed, runtime boundaries passed, unit tests passed, and
+    Profile/Debug builds succeeded with 0 warnings/0 errors.
+  - Gate: `tools\validate_dx12_renderer.bat` passed. Log:
+    `Agentic\Reports\2026-07-07\logs\fable-08-p3-2-validate-dx12-renderer.log`.
+    Key lines: DX12 InfoQueue reported 0 validation errors, DX12 screenshots
+    matched committed baselines, and `VALIDATE_DX12_RENDERER: ALL PASSED`.
+  - Gate: `tools\validate_full.bat` passed. Log:
+    `Agentic\Reports\2026-07-07\logs\fable-08-p3-2-validate-full.log`. Key
+    lines: runtime boundaries passed, Profile and Debug builds succeeded with
+    0 warnings/0 errors, DX12 validation errors 0, screenshots matched,
+    `physics_regression_solver.csv` matched byte-exactly, and `VALIDATE_FULL:
+    DEFAULT GATE PASSED`.
 
 ## Phase 4 — advance rules + automation + the demo shot list
 

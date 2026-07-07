@@ -1,7 +1,7 @@
 # Consequence Look Plan (butterfly-demo visual impact)
 
 Date: 2026-07-07
-Status: Proposed
+Status: Proposed; smooth antialiased debug-line/glow requirement recorded
 Impact area: rendering (tonemap/grade, line rendering, prediction ghosts, HUD);
 no physics change
 Validation for this document: none (documentation-only)
@@ -14,8 +14,9 @@ overlay on a pretty world*. Four moves, in impact order:
 1. **Consequence grade** — when Predict engages, blend the whole scene into a
    dark, desaturated, cool grade so the muted bricks become silhouettes and the
    yellow/grey causal boxes + trails become the brightest things in frame.
-2. **Glowing lines** — the causal trails and box outlines get an energy look
-   (fat additive underlay + bright core), not 1px wireframe.
+2. **Smooth glowing lines** — the causal trails and box outlines get an
+   anti-aliased energy look (smooth core + optional additive glow), not jaggy
+   1px wireframe.
 3. **Two-tone butterfly** — the baseline future renders as cold cyan ghosts;
    the nudged future unfolds warm over it. Divergence is readable at a glance.
 4. **Divergence counter** — one big on-screen number (sum of baseline-vs-current
@@ -55,7 +56,9 @@ existing screenshot baselines.
 
 - Toggling Predict (or entering a graded director phase) crossfades into the
   consequence grade over ~1s and back out cleanly.
-- Causal trails and boxes visibly glow (additive underlay + core), not hairlines.
+- Causal trails and boxes are smooth/anti-aliased first, then visibly glow
+  where the butterfly demo needs emphasis. Shader options can boost selected
+  lines with additive glow without making every debug overlay loud.
 - With a baseline captured, the old future renders cold/ghosted and the new
   future warm; a divergence number is displayed and grows as they separate.
 - No DX12 validation errors; committed screenshot baselines updated

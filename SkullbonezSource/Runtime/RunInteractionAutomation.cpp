@@ -1712,6 +1712,7 @@ void Run::WriteInteractionAutomationReport()
     Json directorPhaseCameraEye = nullptr;
     Json directorPhaseCameraView = nullptr;
     Json directorPhaseCameraUp = nullptr;
+    Json directorPhaseRevealRate = nullptr;
     const char* directorPhaseName = "";
     const char* directorPhaseStylePath = "";
     const DemoDirectorPlaybackState& director = m_camera.director;
@@ -1724,6 +1725,7 @@ void Run::WriteInteractionAutomationReport()
         directorPhaseCameraEye = Vec3Json( phase.camera.eye );
         directorPhaseCameraView = Vec3Json( phase.camera.view );
         directorPhaseCameraUp = Vec3Json( phase.camera.up );
+        directorPhaseRevealRate = phase.revealRate;
     }
 
     const std::string* scenePath = m_sceneController.CurrentPath();
@@ -1745,9 +1747,13 @@ void Run::WriteInteractionAutomationReport()
               { "directorShotListPath", m_camera.director.activeShotListPath },
               { "directorPhaseName", directorPhaseName },
               { "directorPhaseStylePath", directorPhaseStylePath },
+              { "directorPhaseRevealRate", directorPhaseRevealRate },
               { "directorAppliedStylePhaseIndex", m_camera.director.appliedStylePhaseIndex },
               { "directorAppliedStylePath", m_camera.director.appliedStylePath },
               { "directorAppliedStyleCount", m_camera.director.appliedStyleCount },
+              { "directorAppliedRevealRatePhaseIndex", m_camera.director.appliedRevealRatePhaseIndex },
+              { "directorAppliedRevealRate", m_camera.director.appliedRevealRate },
+              { "directorAppliedRevealRateCount", m_camera.director.appliedRevealRateCount },
               { "directorPhaseCameraEye", directorPhaseCameraEye },
               { "directorPhaseCameraView", directorPhaseCameraView },
               { "directorPhaseCameraUp", directorPhaseCameraUp },
@@ -1758,6 +1764,7 @@ void Run::WriteInteractionAutomationReport()
               { "gizmoVisible", gizmoVisible },
               { "memoryOverlayEnabled", m_UI.IsMemoryOverlayEnabled() },
               { "replayPredictionEnabled", predictionState.enabled },
+              { "predictionRevealSecondsPerSecond", predictionState.revealSecondsPerSecond },
               { "replayPathTarget",
                 m_replayRuntime.PathVisualizer().hasTarget ? m_replayRuntime.PathVisualizer().targetName : "" },
               { "replayPathTargetCount", static_cast<int>( m_replayRuntime.PathVisualizer().targets.size() ) },

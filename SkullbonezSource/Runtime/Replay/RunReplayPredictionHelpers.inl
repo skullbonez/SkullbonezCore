@@ -53,6 +53,14 @@ double ReplayPredictionRemainingMilliseconds( const std::chrono::steady_clock::t
     return (std::max)( 0.0, budgetMilliseconds - ReplayPredictionElapsedMilliseconds( start ) );
 }
 
+double ReplayPredictionRevealSecondsPerSecond( const RunReplayPredictionState& prediction )
+{
+    // Why: authored shot-list data is allowed to be imperfect. Non-positive
+    // rates fall back to real-time pacing instead of freezing the reveal cursor
+    // or dividing by zero while the prediction build catches up.
+    return prediction.revealSecondsPerSecond > 0.0 ? prediction.revealSecondsPerSecond : 1.0;
+}
+
 // Concept: reveal cursor — the wall-clock playhead of the causal-unfold animation.
 //
 // Every prediction draw pass clamps to the frame this returns, so the pace of
@@ -78,13 +86,14 @@ ReplayFrameIndex ReplayPredictionRevealFrameIndex( RunReplayPredictionState& pre
     const double availableSeconds = static_cast<double>( lastAvailableFrame ) * PHYSICS_FIXED_DT;
     const double elapsedSeconds =
         (std::max)( 0.0, std::chrono::duration<double>( now - prediction.revealAnchor ).count() );
-    double revealSeconds = elapsedSeconds * REPLAY_PREDICTION_REVEAL_SECONDS_PER_SECOND;
+    const double revealSecondsPerSecond = ReplayPredictionRevealSecondsPerSecond( prediction );
+    double revealSeconds = elapsedSeconds * revealSecondsPerSecond;
     if ( prediction.building && revealSeconds > availableSeconds )
     {
         revealSeconds = availableSeconds;
         prediction.revealAnchor =
             now - std::chrono::duration_cast<std::chrono::steady_clock::duration>(
-                      std::chrono::duration<double>( availableSeconds / REPLAY_PREDICTION_REVEAL_SECONDS_PER_SECOND ) );
+                      std::chrono::duration<double>( availableSeconds / revealSecondsPerSecond ) );
     }
 
     const double revealFrame = revealSeconds / static_cast<double>( PHYSICS_FIXED_DT );

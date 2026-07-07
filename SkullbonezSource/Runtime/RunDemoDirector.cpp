@@ -1,12 +1,13 @@
 /*
 File: SkullbonezSource/Runtime/RunDemoDirector.cpp
 Purpose:
-  Applies Demo Director shot-list camera poses and phase styles.
+  Applies Demo Director shot-list camera poses, phase styles, and reveal pacing.
 
 Mental model:
   The director never invents framing or looks. A loaded shot list owns authored
   camera/style phases, RunCameraState owns playback timers, and this file
-  blends the selected phase into runtime camera/style owners before rendering.
+  blends the selected phase into runtime camera/style/replay presentation owners
+  before rendering.
 
 Glossary:
   Phase pose: Authored eye, view target, and up vector stored in `.shot.json`.
@@ -17,6 +18,8 @@ Glossary:
     timer/reveal advance rules are wired.
   Phase style: Optional `.style.json` applied through SceneRuntimeStyle when a
     phase becomes active.
+  Reveal rate: Authored multiplier for prediction seconds revealed per real
+    second while this phase is active.
 
 Invariants:
   - Director playback is presentation-only; it must not mutate physics state.
@@ -24,6 +27,8 @@ Invariants:
     listener, replay, and screenshot paths keep using the normal camera owner.
   - Phase style writes go through SceneRuntimeStyle so material/cinematic
     changes stay inside the existing render-facing scene owner.
+  - Reveal-rate writes only affect replay overlay presentation timing; they
+    must not mark prediction dirty or rebuild private physics state.
   - Empty or missing shot lists leave Director mode as a no-op.
 
 Related:
@@ -33,11 +38,13 @@ Related:
   - fable_plans/08-demo-director-progress.md
 */
 #include "RunDemoDirector.h"
+#include "Replay/ReplayRuntime.h"
 #include "Scene/SceneRuntimeStyle.h"
 
 #include "../Scene/TestScene.h"
 
 #include <algorithm>
+#include <chrono>
 #include <cstddef>
 #include <cstdio>
 #include <cstring>
@@ -124,6 +131,61 @@ bool PhaseStyleAttempted( const DemoDirectorPlaybackState& director, const DemoP
 {
     return director.appliedStylePhaseIndex == director.currentPhaseIndex &&
            std::strncmp( director.appliedStylePath, phase.stylePath, sizeof( director.appliedStylePath ) ) == 0;
+}
+
+float NormalizedRevealRate( float revealRate )
+{
+    return revealRate > 0.0f ? revealRate : 1.0f;
+}
+
+bool PhaseRevealRateApplied( const DemoDirectorPlaybackState& director, const DemoPhase& phase )
+{
+    const float revealRate = NormalizedRevealRate( phase.revealRate );
+    return director.appliedRevealRatePhaseIndex == director.currentPhaseIndex &&
+           director.appliedRevealRate == revealRate;
+}
+
+void SetPredictionRevealRatePreservingCursor( RunReplayPredictionState& prediction, double revealRate )
+{
+    const double normalizedRevealRate = revealRate > 0.0 ? revealRate : 1.0;
+    const double previousRevealRate = prediction.revealSecondsPerSecond > 0.0 ? prediction.revealSecondsPerSecond : 1.0;
+    if ( prediction.revealAnchorValid )
+    {
+        const auto now = std::chrono::steady_clock::now();
+        const double elapsedSeconds =
+            (std::max)( 0.0, std::chrono::duration<double>( now - prediction.revealAnchor ).count() );
+        const double revealedSeconds = elapsedSeconds * previousRevealRate;
+        prediction.revealAnchor = now - std::chrono::duration_cast<std::chrono::steady_clock::duration>(
+                                            std::chrono::duration<double>( revealedSeconds / normalizedRevealRate ) );
+    }
+    prediction.revealSecondsPerSecond = normalizedRevealRate;
+}
+
+void ApplyPhaseRevealRateIfNeeded( DemoDirectorPlaybackState& director, RunReplayPredictionState& prediction )
+{
+    if ( !IsCurrentPhaseValid( director ) )
+    {
+        return;
+    }
+
+    const DemoPhase& phase = director.activeShotList.phases[static_cast<std::size_t>( director.currentPhaseIndex )];
+    if ( PhaseRevealRateApplied( director, phase ) )
+    {
+        return;
+    }
+
+    const float revealRate = NormalizedRevealRate( phase.revealRate );
+    // Why: changing rate mid-prediction should alter only future pacing.
+    // Re-anchoring preserves already revealed prediction seconds so the causal
+    // tree never snaps backward when a director phase slows the unfold.
+    SetPredictionRevealRatePreservingCursor( prediction, static_cast<double>( revealRate ) );
+    director.appliedRevealRatePhaseIndex = director.currentPhaseIndex;
+    director.appliedRevealRate = revealRate;
+    ++director.appliedRevealRateCount;
+    std::printf( "[demo-director] applied reveal rate %.3f for phase %d (%s)\n",
+                 static_cast<double>( revealRate ),
+                 director.currentPhaseIndex,
+                 phase.name[0] ? phase.name : "<unnamed>" );
 }
 
 void ApplyPhaseStyleIfNeeded( DemoDirectorPlaybackState& director, SceneRuntimeStyleContext styleContext )
@@ -219,6 +281,7 @@ void EnterMode( RunCameraState& camera, const RunSubsystemState& systems )
     director.phaseElapsedSeconds = 0.0f;
     director.appliedStylePhaseIndex = -1;
     director.appliedStylePath[0] = '\0';
+    director.appliedRevealRatePhaseIndex = -1;
     ResetBlendFromCurrentPose( director, systems );
     if ( director.hasActiveShotList &&
          ( director.currentPhaseIndex < 0 || director.currentPhaseIndex >= director.activeShotList.phaseCount ) )
@@ -322,6 +385,7 @@ bool SaveShotList( const RunCameraState& camera )
 
 void Tick( RunCameraState& camera,
            const RunSubsystemState& systems,
+           RunReplayPredictionState& prediction,
            SceneRuntimeStyleContext styleContext,
            float cameraDt )
 {
@@ -342,6 +406,7 @@ void Tick( RunCameraState& camera,
     // and path keeps it out of the per-frame camera blend unless the phase or
     // authored style path actually changes.
     ApplyPhaseStyleIfNeeded( director, styleContext );
+    ApplyPhaseRevealRateIfNeeded( director, prediction );
     if ( director.grabbed )
     {
         return;

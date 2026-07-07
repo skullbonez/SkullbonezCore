@@ -252,9 +252,8 @@ constexpr int REPLAY_PREDICTION_PARALLEL_BODY_MIN = 2048;
 // static plot. A wall-clock reveal cursor sweeps the predicted frames so the
 // root line grows first and each child line starts only when its causing frame
 // is revealed; after the sweep the finished tree holds until the prediction is
-// rebuilt. Rate is predicted seconds revealed per real second; 1.0 means the
-// future unfolds at the same pace it would actually happen.
-constexpr double REPLAY_PREDICTION_REVEAL_SECONDS_PER_SECOND = 1.0;
+// rebuilt. The per-run rate lives on RunReplayPredictionState so authored
+// director phases can slow the money-shot unfold without touching physics.
 // Why: "at rest" for the causal overlay is decided from the END of the
 // completed prediction, never from a momentary pause. A body rests only when
 // the final frame shows no visible motion and it has not drifted across the
