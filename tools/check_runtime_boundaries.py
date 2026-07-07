@@ -1502,7 +1502,7 @@ RENDER_BACKEND_AGGREGATE_DEPENDENCY_PATTERNS: tuple[tuple[str, re.Pattern[str], 
 # RGRAPH-030: include-aware tracked-source census on 2026-07-07.
 # These budgets are not approval for growth; per-file rows classify remaining
 # render-backend aggregate debt while Plan 05 drains it.
-MAX_IRENDER_BACKEND_DEPENDENCY_CENSUS = 36
+MAX_IRENDER_BACKEND_DEPENDENCY_CENSUS = 31
 MAX_RENDER_BACKEND_DX12_GET_CENSUS = 0
 RENDER_BACKEND_AGGREGATE_DEPENDENCY_ALLOWLIST: Counter[tuple[Path, str]] = Counter(
     {
@@ -1522,8 +1522,6 @@ RENDER_BACKEND_AGGREGATE_DEPENDENCY_ALLOWLIST: Counter[tuple[Path, str]] = Count
             ( "SkullbonezSource/Runtime/Scene/SceneRuntimeGeneratedControls.h", "IRenderBackend", 2 ),
             ( "SkullbonezSource/Runtime/Scene/SceneRuntimeLoad.cpp", "IRenderBackend", 1 ),
             ( "SkullbonezSource/Runtime/Scene/SceneRuntimeLoad.h", "IRenderBackend", 2 ),
-            ( "SkullbonezSource/Runtime/Window.cpp", "IRenderBackend", 2 ),
-            ( "SkullbonezSource/Runtime/Window.h", "IRenderBackend", 3 ),
             ( "SkullbonezSource/UI/UI.cpp", "IRenderBackend", 1 ),
         )
     }
@@ -1630,7 +1628,6 @@ GLOBAL_RENDERER_SERVICE_ACCESS_CLASSIFICATIONS: dict[Path, str] = {
     Path("SkullbonezSource/Runtime/RunRender.cpp"): "runtime render service composition",
     Path("SkullbonezSource/Runtime/RunStress.cpp"): "runtime stress harness bridge",
     Path("SkullbonezSource/Runtime/RunUiTextPass.cpp"): "UI text pass compatibility",
-    Path("SkullbonezSource/Runtime/Window.cpp"): "window resize bridge",
 }
 GENERIC_INSTANCE_ACCESS_PATTERN = re.compile(r"\b(?P<class_name>[A-Za-z_]\w*)\s*::\s*Instance\s*\(")
 NAMED_GLOBAL_SERVICE_INSTANCE_CLASSES = {

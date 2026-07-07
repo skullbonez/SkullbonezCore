@@ -3233,7 +3233,7 @@ void CleanupWindow( Window* window, HINSTANCE hInstance )
         Input::UnbindCallbackBridge( window->m_sWindow );
     }
     Input::UnbindWindow( *window );
-    window->SetResizeRenderBackend( nullptr );
+    window->SetResizeRenderLifecycle( nullptr );
     DestroyGfxBackend();
 
     if ( window->m_sDevice )
@@ -3346,7 +3346,7 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine
     window->m_sDevice = GetDC( window->m_sWindow );
 
     const RuntimeRenderBackendView renderBackendView = InitRenderBackend( window );
-    window->SetResizeRenderBackend( renderBackendView.renderBackend );
+    window->SetResizeRenderLifecycle( renderBackendView.deviceLifecycle );
     window->HandleScreenResize();
 
     Profiler* profiler = nullptr;

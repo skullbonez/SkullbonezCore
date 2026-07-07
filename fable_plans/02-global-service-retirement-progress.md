@@ -1,8 +1,8 @@
 # Progress: Global Service Retirement (plan 02)
 
 Source plan: `fable_plans/02-global-service-retirement-plan.md`
-Status: phase 4 L2 WorkerPool, Window, EngineConfig, UI profiler snapshot, profiler diagnostics receiving path, Profiler renderer-diagnostics bind, RunPasses readiness probe, RunInput stale-readiness ratchet, capture-facade cleanup, Broadphase visualizer cleanup, and PhysicsDebug visualizer cleanup slices complete on 2026-07-07; Gfx accessor endgame pending.
-Last updated: 2026-07-07 (PhysicsDebug visualizer cleanup)
+Status: phase 4 L2 WorkerPool, Window, EngineConfig, UI profiler snapshot, profiler diagnostics receiving path, Profiler renderer-diagnostics bind, RunPasses readiness probe, RunInput stale-readiness ratchet, capture-facade cleanup, Broadphase visualizer cleanup, PhysicsDebug visualizer cleanup, and Window resize lifecycle cleanup slices complete on 2026-07-07; Gfx accessor endgame pending.
+Last updated: 2026-07-07 (Window resize lifecycle cleanup)
 
 ## How to work this file
 
@@ -14,7 +14,7 @@ Last updated: 2026-07-07 (PhysicsDebug visualizer cleanup)
   unblock their blocked rows without reading the blocker reason.
 - Comment quality gate applies to touched source files.
 
-## Current facts (post-PhysicsDebug visualizer cleanup, 2026-07-07)
+## Current facts (post-Window resize lifecycle cleanup, 2026-07-07)
 
 - `Cfg()` no longer exists (0 call sites), and `EngineConfig::Instance()` has
   now been deleted. Runtime startup owns an `EngineConfig` value, loads and
@@ -52,6 +52,9 @@ Last updated: 2026-07-07 (PhysicsDebug visualizer cleanup)
   `IRenderBackend` dependency. `DebugOverlayPass` and the
   `GameModelCollection::RenderPhysicsDebug` compatibility helper pass the
   one-frame render command context and debug-line capability explicitly.
+- `Window.cpp`/`Window.h` now have no `IRenderBackend` dependency. Window
+  resize callbacks borrow only `IRenderDeviceLifecycle*`, and startup wires
+  that borrow from `RuntimeRenderBackendView::deviceLifecycle`.
 - Singleton accessors known from the current census: Profiler::Instance and
   LockOrderValidator::Instance (SVC-034 frozen diagnostics exception), plus
   `s_gfxBackend`/`Gfx()`/`SetGfxBackend` in `Rendering/IRenderBackend.cpp`.
@@ -59,7 +62,7 @@ Last updated: 2026-07-07 (PhysicsDebug visualizer cleanup)
   plain `rg` can skip them because `Debug/` is ignored. Use `git ls-files` or
   targeted `rg --no-ignore` for that census.
 - The checker `tools/check_runtime_boundaries.py` now carries
-  `MAX_GLOBAL_SERVICE_ACCESS_CENSUS = 109`, no EngineConfig allowlist rows, no
+  `MAX_GLOBAL_SERVICE_ACCESS_CENSUS = 107`, no EngineConfig allowlist rows, no
   `UITabProfiler.cpp` global-service allowlist rows, no
   `RuntimeDiagnostics.cpp` profiler allowlist rows, no
   `RunUiTextPass.cpp` profiler allowlist rows, no `Core\Profiler.cpp`
@@ -67,9 +70,9 @@ Last updated: 2026-07-07 (PhysicsDebug visualizer cleanup)
   readiness or renderer-service row, no `GfxCapture()` facade, no
   `BroadphaseVisualizer.cpp` renderer-service row, and no
   `PhysicsDebugVisualizer.cpp` renderer-service row. The
-  `MAX_IRENDER_BACKEND_DEPENDENCY_CENSUS = 36` ratchet now has no
-  `BroadphaseVisualizer.cpp` or `PhysicsDebugVisualizer.cpp` `IRenderBackend`
-  row. The
+  `MAX_IRENDER_BACKEND_DEPENDENCY_CENSUS = 31` ratchet now has no
+  `BroadphaseVisualizer.cpp`, `PhysicsDebugVisualizer.cpp`, `Window.cpp`, or
+  `Window.h` `IRenderBackend` rows. The
   remaining `Runtime\Init.cpp` `Profiler::Instance()` row is a startup-only
   diagnostics bind.
 
@@ -470,6 +473,22 @@ Phase 4 execution notes:
   errors, screenshots matched committed baselines), and
   `tools\validate_full.bat` (42.497s, DX12 validation errors 0, screenshots
   matched, `physics_regression_solver.csv` byte-exact).
+- 2026-07-07 G3 Window resize lifecycle cleanup:
+  `Window::SetResizeRenderBackend`/`m_resizeRenderBackend` became
+  `Window::SetResizeRenderLifecycle`/`m_resizeRenderLifecycle`, borrowing
+  `IRenderDeviceLifecycle*` instead of the aggregate `IRenderBackend*`.
+  Startup now passes `RuntimeRenderBackendView::deviceLifecycle`, and cleanup
+  clears the same lifecycle borrow before backend teardown. This removed the
+  `Window.cpp`/`Window.h` `IRenderBackend` dependency rows and lowered
+  `MAX_IRENDER_BACKEND_DEPENDENCY_CENSUS` from 36 to 31. Gates passed:
+  boundary self-test (`check_runtime_boundaries.py --self-test`, 0.316s),
+  boundary scan (`check_runtime_boundaries.py`, 15.780s, 0 errors),
+  `tools\validate_fast.bat` (51.173s after targeted `Window.h` header
+  alignment, formatting/project filters/staged-size/runtime-boundaries/
+  Profile+Debug builds passed with 0 warnings/errors, and unit tests passed:
+  44 doctest cases, 574 assertions), and `tools\validate_full.bat` (42.335s,
+  DX12 validation errors 0, screenshots matched,
+  `physics_regression_solver.csv` byte-exact).
 
 ## Closure
 

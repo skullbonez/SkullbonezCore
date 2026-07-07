@@ -12,7 +12,7 @@ Glossary:
   HWND (Window Handle): Win32 identifier for the native application window.
   HDC (Handle to Device Context): Win32 drawing context associated with the
   window.
-  Resize backend: Borrowed renderer capability used only to resize swap-chain
+  Resize lifecycle: Borrowed renderer capability used only to resize swap-chain
   and depth resources when Win32 reports a new client size.
   Projection frustum: Camera depth range used when rebuilding the perspective
   matrix after a client-size change.
@@ -22,7 +22,7 @@ Glossary:
 Invariants:
   - m_sWindowDimensions stores client width/height, not monitor or full window
     bounds.
-  - m_resizeRenderBackend is borrowed from startup and must be cleared before
+  - m_resizeRenderLifecycle is borrowed from startup and must be cleared before
     the render backend is destroyed.
   - projectionMatrix must be rebuilt from cached depth settings whenever the
     client size changes.
@@ -42,7 +42,7 @@ namespace SkullbonezCore
 {
 namespace Rendering
 {
-class IRenderBackend;
+class IRenderDeviceLifecycle;
 }
 namespace Basics
 {
@@ -55,42 +55,42 @@ class Window
 {
 
   private:
-    float m_projectionNearPlane;                                 // Near depth plane used by the cached perspective projection.
-    float m_projectionFarPlane;                                  // Far depth plane used by the cached perspective projection.
-    int m_startupWindowWidth = 1800;                             // Configured initial window width supplied by startup.
-    int m_startupWindowHeight = 1000;                            // Configured initial window height supplied by startup.
-    Rendering::IRenderBackend* m_resizeRenderBackend = nullptr;  // Borrowed renderer used by Win32 resize messages.
+    float m_projectionNearPlane;                                          // Near depth plane used by the cached perspective projection.
+    float m_projectionFarPlane;                                           // Far depth plane used by the cached perspective projection.
+    int m_startupWindowWidth = 1800;                                      // Configured initial window width supplied by startup.
+    int m_startupWindowHeight = 1000;                                     // Configured initial window height supplied by startup.
+    Rendering::IRenderDeviceLifecycle* m_resizeRenderLifecycle = nullptr; // Borrowed resize-only renderer lifecycle.
 
   public:
-    Window();                                                    // Startup constructs the single runtime window owner.
-    ~Window();                                                   // Native teardown is explicit in Runtime/Init.cpp cleanup.
+    Window();                                                             // Startup constructs the single runtime window owner.
+    ~Window();                                                            // Native teardown is explicit in Runtime/Init.cpp cleanup.
 
-    HWND m_sWindow;                                              // Native Win32 window handle used by renderer and input code.
-    HDC m_sDevice;                                               // Native device context paired with m_sWindow.
-    POINT m_sWindowDimensions;                                   // Client width/height cached for projection and recentering.
-    bool m_fIsFullScreenMode;                                    // Window-mode policy chosen at creation time.
+    HWND m_sWindow;                                                       // Native Win32 window handle used by renderer and input code.
+    HDC m_sDevice;                                                        // Native device context paired with m_sWindow.
+    POINT m_sWindowDimensions;                                            // Client width/height cached for projection and recentering.
+    bool m_fIsFullScreenMode;                                             // Window-mode policy chosen at creation time.
 
-    Math::Transformation::Matrix4 projectionMatrix;              // Perspective projection rebuilt after client-size changes.
+    Math::Transformation::Matrix4 projectionMatrix;                       // Perspective projection rebuilt after client-size changes.
 
-    void HandleScreenResize();                                   // Resize the active renderer and projection when the client area changes
-    void SetTitleText( const char* cText );                      // Updates the native title bar without touching renderer text.
+    void HandleScreenResize();                                            // Resize the active renderer and projection when the client area changes
+    void SetTitleText( const char* cText );                               // Updates the native title bar without touching renderer text.
     void SetProjectionFrustum( float nearPlane,
-                               float farPlane );                 // Stores projection depth planes used by later resize messages.
-    void SetStartupWindowSize( int width, int height );          // Stores config-owned initial window/fullscreen dimensions.
-    void SetResizeRenderBackend(
-        Rendering::IRenderBackend* renderBackend );              // Borrows or clears the renderer used by resize callbacks.
+                               float farPlane );                          // Stores projection depth planes used by later resize messages.
+    void SetStartupWindowSize( int width, int height );                   // Stores config-owned initial window/fullscreen dimensions.
+    void SetResizeRenderLifecycle(
+        Rendering::IRenderDeviceLifecycle* deviceLifecycle );             // Borrows or clears the resize lifecycle callback target.
     const Math::Transformation::Matrix4& GetProjectionMatrix() const
     {
         return projectionMatrix;
     } // Projection matrix currently used by render passes.
-    void SetWindowDimensions( const RECT dimensions );           // Caches dimensions from a Win32 RECT.
-    void SetWindowDimensions( int width, int height );           // Caches dimensions from explicit client width/height.
+    void SetWindowDimensions( const RECT dimensions );                    // Caches dimensions from a Win32 RECT.
+    void SetWindowDimensions( int width, int height );                    // Caches dimensions from explicit client width/height.
     void CreateAppWindow( HINSTANCE hInstance,
-                          bool isFullScreenMode );               // Creates the native window and stores the HWND/HDC pair.
-    void ChangeToFullScreen( int xResolution, int yResolution ); // Applies fullscreen display mode dimensions.
+                          bool isFullScreenMode );                        // Creates the native window and stores the HWND/HDC pair.
+    void ChangeToFullScreen( int xResolution, int yResolution );          // Applies fullscreen display mode dimensions.
     int MsgBox( const char* cMsgBoxText,
                 const char* cMsgBoxTitle,
-                const UINT iMsgBoxType );                        // Native modal message box for startup/validation failures.
+                const UINT iMsgBoxType );                                 // Native modal message box for startup/validation failures.
 };
 } // namespace Basics
 } // namespace SkullbonezCore
