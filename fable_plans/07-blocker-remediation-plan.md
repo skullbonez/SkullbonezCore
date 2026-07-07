@@ -198,3 +198,9 @@ else returns to the overnight machine as gated, verifiable slices.
   new Core files. Gates passed: focused Profile build (4.293s),
   runtime-boundary self-test/check (0 errors), project filters (554 matched
   items), and `tools\validate_fast.bat` (35.331s, 0 warnings/errors).
+- 2026-07-07: Completed fable-01 M1 Vector3 tests. Added
+  `SkullbonezTests/TestVector3.cpp`, compiled `Vector3.cpp` into
+  `SKULLBONEZ_TESTS`, and covered zero-vector `Normalise()` throwing, non-zero
+  normalization, dot/cross basis identities, and magnitude consistency. Gate
+  passed: `tools\validate_tests.bat` (4.049s, 5 doctest cases, 16 assertions,
+  0 warnings/errors).

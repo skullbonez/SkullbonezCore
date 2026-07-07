@@ -142,6 +142,8 @@
   <ItemGroup>
     <ClCompile Include="SkullbonezTests\TestMain.cpp" />
     <ClCompile Include="SkullbonezTests\TestSmoke.cpp" />
+    <ClCompile Include="SkullbonezTests\TestVector3.cpp" />
+    <ClCompile Include="SkullbonezSource\Maths\Vector3.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ThirdPtySource\doctest\doctest.h" />

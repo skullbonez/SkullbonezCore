@@ -111,10 +111,19 @@ reference), write the test file under `SkullbonezTests/`, run
 SkullbonezSource/Maths/<file>.cpp` must return zero hits; if not, `[B]` the
 item against plan 02 and pick the next.
 
-- [ ] M1. `TestVector3.cpp` — Maths/Vector3: normalize of zero vector
+- [x] M1. `TestVector3.cpp` — Maths/Vector3: normalize of zero vector
   (document actual behavior — Vector3.cpp contains 5 `throw` sites; assert
   the throwing contract as it exists), dot/cross identities, magnitude vs
   magnitudeSquared consistency.
+
+  Evidence: discovery `rg -n "Cfg\(|Gfx\(|::Instance"
+  SkullbonezSource/Maths/Vector3.cpp` returned no hits. Added
+  `SkullbonezTests/TestVector3.cpp` and compiled
+  `SkullbonezSource/Maths/Vector3.cpp` into `SKULLBONEZ_TESTS`. The tests lock
+  zero-vector `Normalise()` throwing, non-zero normalization, dot/cross basis
+  identities, and `VectorMag`/`VectorMagSquared` consistency. Gate:
+  `tools\validate_tests.bat` passed in 4.049s with 5 doctest cases and
+  16 assertions all passing.
 - [ ] M2. `TestQuaternion.cpp` — Maths/Quaternion: Normalise() idempotence,
   axis-angle round-trip, slerp endpoints (t=0/t=1 exact), renormalization
   drift under repeated multiply (bound the error).
