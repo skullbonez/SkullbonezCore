@@ -285,19 +285,54 @@ Last updated: 2026-07-08
   `tools\validate_physics.bat` passed in 00:00:26.2402259 with
   `VALIDATE_PHYSICS: ALL PASSED`. Touched-file comment audit inspected
   `PhysicsWorld.cpp` and `tools/check_runtime_boundaries.py` with 0 deferred.
-- [ ] P3.1c Convert GameModelCollection.cpp (8 current throw sites, anchors like
-  `Failed to resolve newly authored physics body record`) after P3.3
-  classification decides which sites are Lane F and which are Lane R. One file
-  or narrow site-family per commit.
+- [ ] P3.1c Convert GameModelCollection.cpp (8 current throw sites) according
+  to the P3.3 classification below. One file or narrow site-family per commit:
+  first pure Lane F post-append topology invariants, then Lane R append/camera
+  surfaces after their callers can report failure cleanly.
 - [ ] P3.2c Gate GameModelCollection commit: `tools\validate_physics.bat`
   byte-exact, plus broader validation if the classification changes editor or
   scene-load recovery behavior. Ratchet budget updated in the same commit.
-- [ ] P3.3 Audit before converting GameModelCollection: 3 of the 28 catch
+- [x] P3.3 Audit before converting GameModelCollection: 3 of the 28 catch
   sites may be swallowing these (check ConvexHullShape's 12 catches and any
   caller catch of collection append — `rg -n "catch" SkullbonezSource/Scene
   SkullbonezSource/Runtime/Scene`). Any throw that IS caught-and-recovered
   today is Lane R, not Lane F — convert those to SbResult instead. Record the
   classification inline here per site before editing.
+
+  Evidence (2026-07-08): GameModelCollection currently has 8 live throw sites,
+  not 9. The only direct caught-and-reported collection append path found was
+  `Init.cpp:798-805`, where `--physics-standalone-smoke` catches
+  `RunPhysicsRuntimeHandleSmokeSample()`/`AddGameModel()` exceptions and records
+  `runtimeMirror.errorMessage`. Scene setup and editor placement currently
+  bubble append exceptions toward the top-level `fatal_exception` catch; those
+  are still Lane R candidates because they are scene/config/editor-command
+  failures and should become load failure or UI no-op surfaces before conversion.
+  ConvexHullShape catches are hull loader-local and do not recover collection
+  append exceptions.
+
+  Classification table:
+
+  | Site | Function / message | Lane | Conversion note |
+  |------|--------------------|------|-----------------|
+  | `GameModelCollection.cpp:287` | `BuildSceneObjectGroupForAppend`: `Invalid scene-object group descriptor supplied during model append.` | Lane R at caller boundary | Authored scene metadata and editor-generated group descriptors can be bad external/action input. Validate or return `SbResult` before mutating rows. Do not make fatal until scene/editor callers can report the bad descriptor cleanly. |
+  | `GameModelCollection.cpp:409` | `AppendGameModelAndPhysicsRows`: `Exceeded active game model capacity; raise --model-capacity or game_model_capacity.` | Lane R | Capacity is scene/config/editor-action input. Scene load should fail with the message; editor placement/runtime tool append should no-op/report instead of aborting. |
+  | `GameModelCollection.cpp:416` | `AppendGameModelAndPhysicsRows`: `Cannot append model without a scene object id.` | Lane R | A missing/exhausted scene-object id is an authoring/allocation-boundary failure. Return/report before append instead of fatal. |
+  | `GameModelCollection.cpp:427` | `AppendGameModelAndPhysicsRows`: `Cannot append model while physics collider rows are missing.` | Lane F | Existing collection/store topology is already divergent before append. This is internal state corruption, not bad input. Convert with the pure invariant slice. |
+  | `GameModelCollection.cpp:440` | `AppendGameModelAndPhysicsRows`: `Failed to resolve newly authored physics body record.` | Lane F | `RegisterAuthoredBody` returned a handle that cannot resolve immediately. Convert with the pure invariant slice. |
+  | `GameModelCollection.cpp:455` | `AppendGameModelAndPhysicsRows`: `Failed to register newly authored physics collider record.` | Lane F | Collider registration failed after a valid body append/policy apply. Convert with the pure invariant slice. |
+  | `GameModelCollection.cpp:707` | `GetModelPosition`: `No game model exists at the specified index...` | Lane R/API cleanup | Only live caller is the legacy render camera fallback in `RunRender.cpp:2239/2243` using hardcoded indices 0/1. Replace with `TryGetModelPosition`/no-op or camera fallback; do not fatal for missing scene content. |
+  | `GameModelCollection.cpp:719` | `GetModelPosition`: `No physics body exists at the specified index...` | Split: Lane F after caller cleanup | A valid model without a body is topology drift, but the current throwing API is used by a camera read path. First split the API so invalid/missing selection returns false; then fatal only if a valid model row lacks its physics body. |
+
+  Safe follow-up order:
+  1. Convert the pure Lane F append topology sites (`427`, `440`, `455`) to
+     `SB_FATAL`, lower the ratchet by 3, and gate with `validate_fast` plus
+     `validate_physics`.
+  2. Add a recoverable append/result surface for `287`, `409`, and `416` and
+     update scene/editor/runtime-tool callers to report load failure, smoke
+     failure, or placement no-op. Gate with `validate_full` because scene load
+     and editor action behavior changes.
+  3. Replace `GetModelPosition` with a non-throwing camera read/fallback, then
+     decide whether the missing-body branch remains an internal fatal invariant.
 
 ## Phase 4 — loaders and editor surface (Lane R)
 
