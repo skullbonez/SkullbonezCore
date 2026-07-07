@@ -18,8 +18,8 @@ Invariants:
     draw, and resource-creation capabilities belong to broader render services.
   - Capture data is BGR and bottom-up so validation artifacts can be written to
     BMP without a second image-layout conversion.
-  - The returned capability is borrowed from the active renderer and must not be
-    retained across backend teardown.
+  - The capture capability is borrowed from the active renderer through runtime
+    startup wiring and must not be retained across backend teardown.
 
 Related:
   - SkullbonezSource/Rendering/IRenderBackend.h
@@ -42,8 +42,6 @@ class IRenderCaptureBackend
     virtual bool SupportsBackbufferCapture() const = 0;
     virtual std::vector<uint8_t> CaptureBackbuffer( int& outWidth, int& outHeight ) = 0;
 };
-
-IRenderCaptureBackend& GfxCapture();
 
 } // namespace Rendering
 } // namespace SkullbonezCore

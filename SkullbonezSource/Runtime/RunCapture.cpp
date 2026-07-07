@@ -26,6 +26,7 @@ Related:
 */
 #include "CaptureController.h"
 #include "RunInternal.h"
+#include "../Core/FatalError.h"
 #include "../Rendering/IRenderCaptureBackend.h"
 
 using namespace SkullbonezCore::Basics;
@@ -42,7 +43,9 @@ void Run::SaveScreenshot( const char* path )
     SkullbonezCore::Rendering::IRenderCaptureBackend* captureBackend = m_renderBackendView.captureBackend;
     if ( !captureBackend )
     {
-        captureBackend = &SkullbonezCore::Rendering::GfxCapture();
+        // Lane F: runtime startup must bind the capture capability before any
+        // screenshot command can reach this path.
+        SB_FATAL( "RunCapture", "Run::SaveScreenshot requires a startup-bound capture backend" );
     }
     m_diagnosticsRuntime.Capture().SaveScreenshot( *captureBackend, path );
 }

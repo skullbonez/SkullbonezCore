@@ -157,12 +157,12 @@ hardest-to-unblock first inside each plan.
 
 - **SVC-001** - `SkullbonezSource/Rendering/IRenderBackend.cpp` / `s_gfxBackend`
   - Attempted: central renderer singleton migration assessment.
-  - Failure/reason: active renderer singleton cannot be startup-only while compatibility callers still exist in physics debug visualizers, window resize, capture facade, and draw-call trace helpers. The profiler marker/timer dependency was removed by the 2026-07-07 Profiler renderer-diagnostics bind; `RunPasses.cpp` no longer uses the global readiness helper, and the stale `RunInput.cpp` readiness allowance has been deleted.
+  - Failure/reason: active renderer singleton cannot be startup-only while compatibility callers still exist in physics debug visualizers, window resize/backend readiness, and draw-call trace helpers. The profiler marker/timer dependency was removed by the 2026-07-07 Profiler renderer-diagnostics bind; `RunPasses.cpp` no longer uses the global readiness helper, the stale `RunInput.cpp` readiness allowance has been deleted, and `GfxCapture()` is gone.
   - Needed to unblock: finish the remaining non-profiler renderer-service cleanup or approve a bounded compatibility decision.
 
 - **SVC-002** - `SkullbonezSource/Rendering/IRenderBackend.cpp` / `Gfx`
   - Attempted: service locator deletion assessment.
-  - Failure/reason: `Gfx()` still serves the backend facade, physics debug visualizers, capture compatibility, and draw-call trace helpers; the checker ratchet prevents growth but deletion needs dependent cleanup. Core profiler no longer depends on it, and the tornado visual pass now uses its explicit frame command context.
+  - Failure/reason: `Gfx()` still serves the backend facade, physics debug visualizers, and draw-call trace helpers; the checker ratchet prevents growth but deletion needs dependent cleanup. Core profiler no longer depends on it, the tornado visual pass now uses its explicit frame command context, and capture uses the startup-bound `IRenderCaptureBackend` borrow.
   - Needed to unblock: migrate remaining callers to explicit render capabilities and then delete the facade accessor.
 
 ## Plan 01 - Run Composition Root

@@ -1544,6 +1544,12 @@ GLOBAL_SERVICE_ACCESS_PATTERNS: tuple[tuple[str, re.Pattern[str], str, str], ...
         "Pass an explicit renderer/render context for new code instead of adding another Gfx() call.",
     ),
     (
+        "GfxCapture()",
+        re.compile(r"\bGfxCapture\s*\(\s*\)"),
+        "global capture service access is count-guarded",
+        "Pass IRenderCaptureBackend through RuntimeRenderBackendView instead of reopening the capture facade.",
+    ),
+    (
         "GfxRayTracing()",
         re.compile(r"\bGfxRayTracing\s*\(\s*\)"),
         "global raytracing service access is count-guarded",
@@ -1610,7 +1616,7 @@ GLOBAL_SERVICE_ACCESS_PATTERNS: tuple[tuple[str, re.Pattern[str], str, str], ...
         "Route diagnostics/profiling through an explicit diagnostics context before adding another profiler singleton call.",
     ),
 )
-GLOBAL_RENDERER_SERVICE_LABELS = { "Gfx()", "GfxRayTracing()", "IsGfxReady()", "IsGfxRayTracingReady()" }
+GLOBAL_RENDERER_SERVICE_LABELS = { "Gfx()", "GfxCapture()", "GfxRayTracing()", "IsGfxReady()", "IsGfxRayTracingReady()" }
 # Location classifications are a second fence over the counted Gfx() ratchet:
 # they make each remaining direct renderer-service file an explicitly reviewed
 # compatibility location instead of letting a raw count entry approve a new file.
@@ -1654,7 +1660,7 @@ FROZEN_DIAGNOSTIC_SINGLETON_INSTANCE_CLASSES = {
 # profiler diagnostics receiving path resolves the singleton once in Init, and
 # Core profiler GPU timers now use a startup-bound IRenderDiagnostics borrow
 # instead of reopening Gfx().
-MAX_GLOBAL_SERVICE_ACCESS_CENSUS = 112
+MAX_GLOBAL_SERVICE_ACCESS_CENSUS = 111
 # RUN-001: current Run.h private `m_` field census on 2026-07-07.
 # This is not approval for growth. Run remains the composition root, but new
 # feature state should enter through one of the narrower owners below instead
@@ -1792,7 +1798,7 @@ GLOBAL_SERVICE_ACCESS_ALLOWLIST: Counter[tuple[Path, str]] = Counter(
             ( "SkullbonezSource/Physics/Debug/CollisionVisualizer.cpp", "Gfx()", 14 ),
             ( "SkullbonezSource/Physics/Debug/CollisionVisualizer.cpp", "IsGfxReady()", 1 ),
             ( "SkullbonezSource/Physics/Debug/PhysicsDebugVisualizer.cpp", "Gfx()", 2 ),
-            ( "SkullbonezSource/Rendering/IRenderBackend.cpp", "Gfx()", 2 ),
+            ( "SkullbonezSource/Rendering/IRenderBackend.cpp", "Gfx()", 1 ),
             ( "SkullbonezSource/Rendering/IRenderBackend.cpp", "IsGfxReady()", 1 ),
             ( "SkullbonezSource/Rendering/IRenderBackend.h", "Gfx()", 3 ),
             ( "SkullbonezSource/Rendering/IRenderBackend.h", "IsGfxReady()", 2 ),
@@ -9596,6 +9602,10 @@ def run_self_tests() -> list[str]:
         { ( unclassified_global_renderer_path, "Gfx()" ): 1 }
     )
     expect_error('unclassified count-allowed Gfx synthetic surface was not rejected', check_global_service_access_guardrails_text( unclassified_global_renderer_path, "void NewRenderPath() { Gfx().Present(); }", allowlist=synthetic_unclassified_renderer_allowlist, ), 'global renderer service access is outside approved compatibility files')
+
+    new_global_capture_access = "void SaveFrame() { int w = 0, h = 0; GfxCapture().CaptureBackbuffer( w, h ); }"
+    expect_error('new GfxCapture synthetic surface was not rejected', check_global_service_access_guardrails_text( Path("SkullbonezSource/Runtime/NewCapturePath.cpp"), new_global_capture_access, relative_path=Path("SkullbonezSource/Runtime/NewCapturePath.cpp"), ), 'global renderer service access is outside approved compatibility files')
+    expect_error('new GfxCapture census synthetic surface was not counted', check_global_service_access_count_entries([( Path("synthetic/NewCapturePath.cpp"), new_global_capture_access )], max_allowed=0), 'global service access census exceeds ratchet')
 
     unclassified_global_dxr_path = Path("SkullbonezSource/Runtime/NewDxrPath.cpp")
     synthetic_unclassified_dxr_allowlist: Counter[tuple[Path, str]] = Counter(

@@ -1,8 +1,8 @@
 # Progress: Global Service Retirement (plan 02)
 
 Source plan: `fable_plans/02-global-service-retirement-plan.md`
-Status: phase 4 L2 WorkerPool, Window, EngineConfig, UI profiler snapshot, profiler diagnostics receiving path, Profiler renderer-diagnostics bind, RunPasses readiness probe, and RunInput stale-readiness ratchet slices complete on 2026-07-07; Gfx accessor endgame pending.
-Last updated: 2026-07-07 (RunInput stale-readiness ratchet)
+Status: phase 4 L2 WorkerPool, Window, EngineConfig, UI profiler snapshot, profiler diagnostics receiving path, Profiler renderer-diagnostics bind, RunPasses readiness probe, RunInput stale-readiness ratchet, and capture-facade cleanup slices complete on 2026-07-07; Gfx accessor endgame pending.
+Last updated: 2026-07-07 (capture-facade cleanup)
 
 ## How to work this file
 
@@ -14,7 +14,7 @@ Last updated: 2026-07-07 (RunInput stale-readiness ratchet)
   unblock their blocked rows without reading the blocker reason.
 - Comment quality gate applies to touched source files.
 
-## Current facts (post-RunInput stale-readiness ratchet, 2026-07-07)
+## Current facts (post-capture-facade cleanup, 2026-07-07)
 
 - `Cfg()` no longer exists (0 call sites), and `EngineConfig::Instance()` has
   now been deleted. Runtime startup owns an `EngineConfig` value, loads and
@@ -39,6 +39,9 @@ Last updated: 2026-07-07 (RunInput stale-readiness ratchet)
 - `RunInput.cpp` already had 0 `Gfx()` and 0 `IsGfxReady()` live-code hits; the
   stale checker allowlist and renderer-service classification rows have been
   removed.
+- `GfxCapture()` no longer exists in live source. `Run::SaveScreenshot` now
+  uses the startup-bound `RuntimeRenderBackendView::captureBackend` capability
+  and treats a missing capture backend as a Lane F startup invariant.
 - Singleton accessors known from the current census: Profiler::Instance and
   LockOrderValidator::Instance (SVC-034 frozen diagnostics exception), plus
   `s_gfxBackend`/`Gfx()`/`SetGfxBackend` in `Rendering/IRenderBackend.cpp`.
@@ -46,15 +49,15 @@ Last updated: 2026-07-07 (RunInput stale-readiness ratchet)
   plain `rg` can skip them because `Debug/` is ignored. Use `git ls-files` or
   targeted `rg --no-ignore` for that census.
 - The checker `tools/check_runtime_boundaries.py` now carries
-  `MAX_GLOBAL_SERVICE_ACCESS_CENSUS = 112`, no EngineConfig allowlist rows, no
+  `MAX_GLOBAL_SERVICE_ACCESS_CENSUS = 111`, no EngineConfig allowlist rows, no
   `UITabProfiler.cpp` global-service allowlist rows, no
   `RuntimeDiagnostics.cpp` profiler allowlist rows, no
   `RunUiTextPass.cpp` profiler allowlist rows, no `Core\Profiler.cpp`
   renderer-service rows, no `RunPasses.cpp` readiness row, no `RunInput.cpp`
-  readiness or renderer-service row, and
-  `MAX_IRENDER_BACKEND_DEPENDENCY_CENSUS = 38`. The remaining
-  `Runtime\Init.cpp` `Profiler::Instance()` row is a startup-only diagnostics
-  bind.
+  readiness or renderer-service row, and no `GfxCapture()` facade. The
+  `MAX_IRENDER_BACKEND_DEPENDENCY_CENSUS = 38` ratchet is unchanged. The
+  remaining `Runtime\Init.cpp` `Profiler::Instance()` row is a startup-only
+  diagnostics bind.
 
 ## Verified facts (as of 2026-07-07 takeover census — re-verify before later phases)
 
@@ -406,6 +409,19 @@ Phase 4 execution notes:
   `tools\validate_fast.bat` (32.607s, formatting/project filters/staged-size/
   runtime-boundaries/Profile+Debug builds passed with 0 warnings/errors, and
   unit tests passed: 44 doctest cases, 574 assertions).
+- 2026-07-07 G3 capture-facade cleanup: `Run::SaveScreenshot` now uses the
+  explicit `RuntimeRenderBackendView::captureBackend` borrow only; the
+  `GfxCapture()` declaration/definition and fallback are deleted. A missing
+  capture backend is a Lane F startup invariant. The checker now counts
+  `GfxCapture()` as renderer-global debt, adds synthetic coverage for it, lowers
+  `IRenderBackend.cpp` `Gfx()` allowance from 2 to 1, and lowers
+  `MAX_GLOBAL_SERVICE_ACCESS_CENSUS` from 112 to 111. Gates passed: boundary
+  self-test (`check_runtime_boundaries.py --self-test`, 0.320s), boundary scan
+  (`check_runtime_boundaries.py`, 15.693s, 0 errors), `tools\validate_fast.bat`
+  (38.833s, formatting/project filters/staged-size/runtime-boundaries/Profile+
+  Debug builds passed with 0 warnings/errors, and unit tests passed: 44 doctest
+  cases, 574 assertions), and `tools\validate_dx12_renderer.bat` (19.420s,
+  DX12 InfoQueue 0 validation errors, screenshots matched committed baselines).
 
 ## Closure
 

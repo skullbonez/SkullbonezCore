@@ -47,14 +47,6 @@ IRenderBackend& Gfx()
 }
 
 
-IRenderCaptureBackend& GfxCapture()
-{
-    // Lifetime: capture is a borrowed capability of the active backend, not a
-    // separately owned service. Gfx() keeps the startup/teardown guard central.
-    return Gfx();
-}
-
-
 bool IsGfxReady()
 {
     return s_gfxBackend != nullptr;
