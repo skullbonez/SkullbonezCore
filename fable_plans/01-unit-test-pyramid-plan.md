@@ -1,7 +1,7 @@
 # Unit Test Pyramid Plan
 
 Date: 2026-07-06
-Status: Proposed
+Status: Implemented 2026-07-07
 Impact area: build system, tests, tools; no runtime behavior change
 Validation for this document: none (documentation-only)
 

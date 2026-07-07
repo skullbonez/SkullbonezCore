@@ -16,6 +16,9 @@
     <Filter Include="Source Files\Tests">
       <UniqueIdentifier>{7FE9CC7D-498C-4297-85D1-2E1344653D29}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\Core">
+      <UniqueIdentifier>{6D78E017-7C94-4395-8805-7D563854A025}</UniqueIdentifier>
+    </Filter>
     <Filter Include="Source Files\Maths">
       <UniqueIdentifier>{6FF6208D-1EF1-4B2A-8701-C60839C18552}</UniqueIdentifier>
     </Filter>
@@ -31,12 +34,21 @@
     <Filter Include="Source Files\Scene">
       <UniqueIdentifier>{B4027C52-533E-4F44-9B93-8775E7F77737}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\Rendering">
+      <UniqueIdentifier>{8E9E77BA-E6E7-4C35-A9C6-8713679A3E3D}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="SkullbonezTests\TestBounds.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezTests\TestConvexHull.cpp">
+      <Filter>Source Files\Tests</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezTests\TestDeterminism.cpp">
+      <Filter>Source Files\Tests</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezTests\TestDiagnosticsLinkStubs.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezTests\TestGeometricMath.cpp">
@@ -81,6 +93,12 @@
     <ClCompile Include="SkullbonezTests\TestVector3.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Core\Config.cpp">
+      <Filter>Source Files\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Core\WorkerPool.cpp">
+      <Filter>Source Files\Core</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Maths\Vector3.cpp">
       <Filter>Source Files\Maths</Filter>
     </ClCompile>
@@ -99,17 +117,59 @@
     <ClCompile Include="SkullbonezSource\Physics\ConvexHullShape.cpp">
       <Filter>Source Files\Physics</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Physics\ObjectContactManifold.cpp">
+      <Filter>Source Files\Physics</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Physics\PersistentContactSolver.cpp">
+      <Filter>Source Files\Physics</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Physics\PhysicsApi.cpp">
+      <Filter>Source Files\Physics</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Physics\PhysicsBodyStore.cpp">
+      <Filter>Source Files\Physics</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Physics\PhysicsDiagnosticsSink.cpp">
+      <Filter>Source Files\Physics</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Physics\PhysicsEngine.cpp">
+      <Filter>Source Files\Physics</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Physics\PhysicsObjectPolicy.cpp">
+      <Filter>Source Files\Physics</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Physics\PhysicsScene.cpp">
+      <Filter>Source Files\Physics</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Physics\PhysicsWorld.cpp">
+      <Filter>Source Files\Physics</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Physics\Ragdoll.cpp">
+      <Filter>Source Files\Physics</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Physics\SleepIslandSystem.cpp">
       <Filter>Source Files\Physics</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Physics\SpatialGrid.cpp">
       <Filter>Source Files\Physics</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Physics\TerrainContactManifold.cpp">
+      <Filter>Source Files\Physics</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Physics\TornadoField.cpp">
+      <Filter>Source Files\Physics</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Allocation\RuntimeReserveAllocator.cpp">
+      <Filter>Source Files\Runtime\Allocation</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Allocation\RuntimeAllocationTracker.cpp">
       <Filter>Source Files\Runtime\Allocation</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayRecorder.cpp">
       <Filter>Source Files\Runtime\Replay</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Rendering\RenderInstanceStore.cpp">
+      <Filter>Source Files\Rendering</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Scene\TestScene.cpp">
       <Filter>Source Files\Scene</Filter>

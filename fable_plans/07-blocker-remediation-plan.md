@@ -297,3 +297,11 @@ else returns to the overnight machine as gated, verifiable slices.
   basename collision and uncalled asset-system symbol; final gate passed:
   `tools\validate_tests.bat` (4.120s, 40 doctest cases, 417 assertions,
   0 warnings/errors).
+- 2026-07-07: Completed fable-01 phase 4 determinism and closure. Added
+  `SkullbonezTests/TestDeterminism.cpp` with real `PhysicsEngine` micro-world
+  stepping and solver/body snapshot restore coverage, promoted the Terrain link
+  stub into a flat-plane physics fixture, added Debug diagnostics link stubs,
+  and closed the AGENTS regression-test review norm. Gates passed:
+  `tools\validate_tests.bat` (5.203s, 42 doctest cases, 527 assertions,
+  0 warnings/errors) and `tools\validate_physics.bat` (15.907s,
+  `physics_regression_solver.csv` byte-exact).

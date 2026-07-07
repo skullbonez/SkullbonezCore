@@ -1,14 +1,14 @@
 //
 // File: SkullbonezTests/TestSceneParserLinkStubs.cpp
 // Purpose:
-//   Provide loud unit-test link stubs for scene-parser asset-system hooks that
-//   are not part of the focused committed-scene parse tests.
+//   Provide unit-test link stubs for asset-system hooks that are not part of the
+//   focused committed-scene parse tests.
 //
 // Mental model:
 //   `TestSceneParser.cpp` supports both simple path-based scene JSON and
 //   runtime asset-library resolution through AssetSystem. E3 tests exercise the
-//   committed path-based scene contract, but the parser object file still
-//   references the asset-system lookup method from uncalled helper bodies.
+//   committed path-based scene contract, while later physics fixtures need only
+//   a constructible AssetSystem token for borrowed Terrain signatures.
 //
 // Glossary:
 //   Asset-system hook: Runtime lookup used when a scene resolves logical asset
@@ -29,11 +29,16 @@
 #include "../SkullbonezSource/Assets/AssetSystem.h"
 
 #include <stdexcept>
+#include <utility>
 
 namespace SkullbonezCore
 {
 namespace Assets
 {
+AssetSystem::AssetSystem( std::string dataRoot ) : m_dataRoot( std::move( dataRoot ) )
+{
+}
+
 const AssetLibrarySourceAsset* AssetSystem::FindAssetLibrarySourceAsset( const char* ) const
 {
     // Hazard: reaching this stub means a focused path-based parser test crossed

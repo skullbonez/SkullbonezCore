@@ -296,6 +296,13 @@ Last updated: 2026-07-07
   - `tools\validate_full.bat` passed, DX12 validation errors 0, screenshots
     matched committed baselines, physics byte-exact,
     `FABLE03_P2_VALIDATE_FULL_FINAL_EXIT=0`, elapsed 47.856s.
+  - Follow-up fable-01 D3 unit coverage now directly locks the snapshot
+    invariant this phase depends on: `SkullbonezTests/TestDeterminism.cpp`
+    restores `ReplaySolverWorldSnapshot` plus body replay state and re-steps
+    to a byte-exact match against an uninterrupted `PhysicsEngine`.
+    `tools\validate_tests.bat` passed in 5.203s with 42 cases / 527 assertions,
+    and `tools\validate_physics.bat` passed in 15.907s with a byte-exact
+    `physics_regression_solver.csv` match.
   - Post rubber-duck follow-up fixed the private-engine growth request to reuse
     retained engine capacity instead of re-reporting `old_capacity=0` on every
     prediction rebuild. Rerun gates passed:

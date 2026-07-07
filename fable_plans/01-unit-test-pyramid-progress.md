@@ -256,8 +256,9 @@ item against plan 02 and pick the next.
   generation rejection. `PhysicsBodyStore.cpp` also contains uncalled terrain
   integration helpers, so the unit harness adds
   `SkullbonezTests/TestTerrainLinkStubs.cpp`: a test-only Terrain stub that
-  throws if reached, proving these handle tests stay inside the store boundary
-  while satisfying link-time references. The first local-store run
+  satisfies link-time references. It started as a loud throw stub for handle
+  tests and was later promoted by D1-D3 into a deterministic flat-plane terrain
+  fixture for the engine determinism micro-world. The first local-store run
   stack-overflowed because both stores own fixed-capacity runtime arrays; the
   final tests use static store fixtures and `Clear()` between cases. Gate:
   `tools\validate_tests.bat` passed in 4.011s with 27 doctest cases and
@@ -324,7 +325,7 @@ item against plan 02 and pick the next.
   `SkullbonezTests/TestReplayRecorder.cpp`, compiled `ReplayRecorder.cpp` into
   `SKULLBONEZ_TESTS`, and added `TestReplayRecorderLinkStubs.cpp` because the
   same translation unit also contains uncalled full-capture functions that link
-  to camera/world/model/physics owners. Tests capture synthetic solver samples
+  to camera/world/model/collection owners. Tests capture synthetic solver samples
   through `CaptureFrameFromSolverSample()` so they exercise the real
   presentation ring without live runtime owners. They lock retention capacity,
   oldest-frame eviction after wrap, chronological copy order, event cursor
@@ -362,25 +363,57 @@ item against plan 02 and pick the next.
 
 ## Phase 4 — fast determinism property
 
-- [ ] D1. DISCOVERY: what a minimal PhysicsEngine needs — construct engine,
+- [x] D1. DISCOVERY: what a minimal PhysicsEngine needs — construct engine,
   add 3-5 body/collider rows (per S1 findings), default EngineConfig +
   PhysicsWorldForces, a WorkerPool (or the serial path — record how
   `REPLAY_PREDICTION_PARALLEL_BODY_MIN` gates worker use). If engine
   construction requires collection/scene plumbing, `[B]` against
   authoritative-plan-02/fable-03 P1 and stop the phase.
-- [ ] D2. `TestDeterminism.cpp` — step the micro-world 240 ticks twice from
+- [x] D2. `TestDeterminism.cpp` — step the micro-world 240 ticks twice from
   identical initial state (two engine instances), byte-compare body store
   poses/velocities each 60 ticks. Must run in milliseconds.
-- [ ] D3. Snapshot losslessness: capture ReplaySolverWorldSnapshot + body
+- [x] D3. Snapshot losslessness: capture ReplaySolverWorldSnapshot + body
   state mid-run, step 60 ticks, restore, re-step 60 ticks, compare against
   uninterrupted run — byte-equal. (This is the invariant fable-plan-03 leans
   on; cite this test from that plan's P2.7 evidence.)
   Commit phase (gate: `validate_tests` + `tools\validate_physics.bat` to
   prove the harness itself changed no engine behavior).
 
+  Evidence: CodeGraph mapped `PhysicsEngine::Step`,
+  `RegisterAuthoredBody`, `RegisterAuthoredCollider`, solver snapshot capture/
+  restore, and replay body-state restore as the minimal engine path. The
+  micro-world uses two default-constructed `PhysicsEngine` instances, three
+  authored dynamic sphere bodies/colliders, explicit deterministic
+  `EngineConfig::Instance()` settings, `PhysicsWorldForces`, `SetSleepEnabled(false)`,
+  a local default `WorkerPool`, and a test-only flat Terrain fixture. Worker
+  fan-out stays disabled because the three-body world sits far below the
+  physics/replay parallel thresholds, including
+  `REPLAY_PREDICTION_PARALLEL_BODY_MIN = 2048`.
+
+  Added `SkullbonezTests/TestDeterminism.cpp`, promoted
+  `TestTerrainLinkStubs.cpp` into a flat-plane query fixture, added
+  `TestDiagnosticsLinkStubs.cpp` for Debug-only uncalled diagnostics symbols,
+  and compiled the real `PhysicsEngine`/`PhysicsScene`/`PhysicsWorld`/solver
+  dependencies into `SKULLBONEZ_TESTS`. The first unit gate failed because the
+  engine step reached terrain with a null body terrain pointer; the fixture now
+  passes the flat Terrain pointer through the authored body descriptor. The
+  first physics gate failed while Debug linked uncalled diagnostics methods; the
+  diagnostics link stubs keep those cold paths out of the unit harness.
+
+  Tests lock 240 fixed ticks from identical initial state with byte-exact
+  body-store pose/velocity comparisons every 60 ticks. The snapshot test steps
+  120 ticks, captures `ReplaySolverWorldSnapshot` plus body replay state, steps
+  both paths 60 ticks, restores solver and body state, re-steps 60 ticks, and
+  byte-compares against the uninterrupted engine. Comment audit covered all
+  touched source-bearing test/stub files. Final gates:
+  `tools\validate_tests.bat` passed in 5.203s with 42 doctest cases and
+  527 assertions all passing; `tools\validate_physics.bat` passed in 15.907s
+  with `physics_regression_solver.csv` byte-exact against the 20,001-line
+  baseline.
+
 ## Closure
 
-- [ ] Z1. AGENTS.md: add "bug fixes in covered subsystems add a regression
+- [x] Z1. AGENTS.md: add "bug fixes in covered subsystems add a regression
   test in the same commit" to the review section.
-- [ ] Z2. Update `fable_plans/01-unit-test-pyramid-plan.md` status + this
+- [x] Z2. Update `fable_plans/01-unit-test-pyramid-plan.md` status + this
   file; record test count + runtime seconds here.

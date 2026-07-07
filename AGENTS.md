@@ -308,6 +308,11 @@ ordered by severity with file and line references. Keep summaries secondary.
 If no issues are found, say so clearly and name any residual validation or test
 risk.
 
+For bug fixes in subsystems that already have unit coverage, add or update a
+regression test in the same commit unless the user explicitly scopes the work to
+investigation or documentation only. If a regression test is not practical,
+record the reason in the commit body or handoff.
+
 ---
 
 ## Commit Notes

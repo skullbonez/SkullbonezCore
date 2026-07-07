@@ -1,23 +1,25 @@
 //
 // File: SkullbonezTests/TestTerrainLinkStubs.cpp
 // Purpose:
-//   Provide loud unit-test link stubs for Terrain queries pulled in by focused
-//   PhysicsBodyStore tests.
+//   Provide deterministic unit-test Terrain stubs for focused physics tests.
 //
 // Mental model:
 //   The unit harness links selected runtime translation units directly. Some
-//   uncalled PhysicsBodyStore integration helpers reference Terrain, but the
-//   handle-store tests must stay scoped to identity maps and dense-row moves.
+//   focused tests need a real terrain query shape without constructing the
+//   render-backed Terrain implementation. The stubbed Terrain instance behaves
+//   as a flat analytic plane while render/resource paths stay outside this
+//   focused harness.
 //
 // Glossary:
-//   Link stub: Test-only method definition that satisfies unresolved symbols
-//     while failing loudly if the focused test crosses into that dependency.
-//   Test boundary: The intended subject of the unit test; crossing it means the
-//     test is exercising integration behavior and needs a different fixture.
+//   Stub terrain: Test-only method definitions that satisfy Terrain references
+//     while returning a deterministic flat surface for physics queries.
+//   Flat plane: y=0 terrain with an upward normal and the standard flat-slope
+//     X/Z bounds from Terrain.
 //
 // Invariants:
-//   - These methods are test-only link stubs, not physics fixtures.
-//   - A focused handle test reaching Terrain is a test boundary failure.
+//   - These methods are test-only link stubs, not runtime Terrain.
+//   - Only collision/height queries are supported; render-resource entrypoints
+//     remain outside this focused harness.
 //
 // Related:
 //   - SkullbonezSource/Physics/PhysicsBodyStore.cpp
@@ -27,38 +29,62 @@
 
 #include "../SkullbonezSource/World/Terrain.h"
 
-#include <stdexcept>
-#include <string>
-
 namespace SkullbonezCore
 {
 namespace Geometry
 {
-namespace
-{
-[[noreturn]] void ThrowUnexpectedTerrainQuery( const char* methodName )
-{
-    throw std::runtime_error(
-        std::string( "TestTerrainLinkStubs: unexpected Terrain query in focused unit test: " ) +
-        methodName );
-}
-} // namespace
 
-bool Terrain::IsInBounds( float, float )
+Terrain::Terrain( float,
+                  float,
+                  float,
+                  const Basics::EngineConfig& config,
+                  Assets::AssetSystem& assets,
+                  Rendering::IRenderResourceFactory& resources )
+    : displayListReference( 0 ),
+      m_mapSize( 0 ),
+      m_stepSize( 0 ),
+      m_renderStepSize( 0 ),
+      m_renderPostsPerSide( 0 ),
+      m_textureWrap( 0 ),
+      m_postsPerSide( 0 ),
+      m_terrainSizeWorldCoords( 0 ),
+      m_maxTerrainHeight( 0.0f ),
+      m_minTerrainHeight( 0.0f ),
+      m_config( &config ),
+      m_assets( &assets ),
+      m_resources( &resources ),
+      m_isFlatSlope( true ),
+      m_slopeBaseY( 0.0f ),
+      m_slopeX( 0.0f ),
+      m_slopeZ( 0.0f ),
+      m_flatSlopeNormal( 0.0f, 1.0f, 0.0f )
 {
-    // Hazard: this stub exists only to satisfy link-time references from uncalled
-    // Terrain integration helpers; using it would hide a physics-boundary leak.
-    ThrowUnexpectedTerrainQuery( "Terrain::IsInBounds" );
+    m_flatSlopePlane.m_normal = m_flatSlopeNormal;
+    m_flatSlopePlane.m_distance = 0.0f;
 }
 
-float Terrain::GetTerrainHeightAt( float, float, bool )
+Terrain::~Terrain() = default;
+
+bool Terrain::IsInBounds( float xPosition, float zPosition )
 {
-    ThrowUnexpectedTerrainQuery( "Terrain::GetTerrainHeightAt" );
+    return xPosition >= 0.0f && xPosition < FLAT_SLOPE_EXTENT && zPosition >= 0.0f &&
+           zPosition < FLAT_SLOPE_EXTENT;
 }
 
-void Terrain::GetTerrainHeightAndPlaneAt( float, float, float&, Plane& )
+float Terrain::GetTerrainHeightAt( float, float, bool isFluidMin )
 {
-    ThrowUnexpectedTerrainQuery( "Terrain::GetTerrainHeightAndPlaneAt" );
+    if ( isFluidMin && m_config )
+    {
+        return ( 0.0f < m_config->fluidHeight ) ? m_config->fluidHeight : 0.0f;
+    }
+    return 0.0f;
+}
+
+void Terrain::GetTerrainHeightAndPlaneAt( float, float, float& outHeight, Plane& outPlane )
+{
+    outHeight = 0.0f;
+    outPlane.m_normal = Math::Vector::Vector3( 0.0f, 1.0f, 0.0f );
+    outPlane.m_distance = 0.0f;
 }
 } // namespace Geometry
 } // namespace SkullbonezCore
