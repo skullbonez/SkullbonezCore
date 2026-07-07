@@ -1,7 +1,7 @@
 # Unified Error Handling Policy Plan
 
 Date: 2026-07-06
-Status: Phase 1 policy and ratchet complete on 2026-07-07; Phase 2 probe discovery complete on 2026-07-08; conversions not started
+Status: Phase 1 policy and ratchet complete on 2026-07-07; Phase 2 replay probe conversion/evidence complete on 2026-07-08; hot-path, loader, and DX12 conversions pending
 Impact area: all subsystems, incrementally; policy + mechanical conversion
 Validation for this document: none (documentation-only)
 
@@ -53,9 +53,10 @@ Adopt and document in `AGENTS.md` a three-lane rule:
   with owner + message), propagated to the nearest UI/log boundary. The
   operation fails; the app does not.
 - **Lane P — Probe/stress assertion.** Self-test probes report through a
-  dedicated `ProbeFailure` channel (log + interaction-report failure + nonzero
-  exit in automation runs), not through the exception machinery. Probe
-  failures become machine-readable in the existing interaction-report JSON.
+  dedicated `ProbeFailure` channel (log + machine-readable automation failure
+  or nonzero CLI exit, depending on the probe owner), not through the exception
+  machinery. Probe failures must be machine-readable instead of becoming
+  `fatal_exception` crashes.
 
 **Exceptions are banned for new code in all three lanes.** Existing throws are
 converted lane by lane; `/EHsc` stays on (MSVC stdlib needs it) but the
@@ -74,8 +75,10 @@ codebase stops authoring throws.
 ### Phase 2 — probes first (biggest single cluster, lowest risk)
 
 - Convert `RunFrame.cpp`'s ~60 probe throws to the `ProbeFailure` channel.
-  Probes are only exercised by automation, so regression risk is contained
-  and the interaction-report improvement is immediate.
+  P2.1 discovery found these replay probes are Debug-only CLI diagnostics, not
+  direct `--interaction-script` actions, so the conversion surfaces failure via
+  `replay_probe_failed` logging and a nonzero process exit while preserving the
+  old assertion messages.
 
 ### Phase 3 — hot-path invariants
 
@@ -120,7 +123,7 @@ codebase stops authoring throws.
 | Slice | Validation |
 |-------|-----------|
 | Policy + ratchet | `validate_fast`, then run the changed checker |
-| Probe conversion | Run the affected interaction proofs + `validate_fast` |
+| Probe conversion | Run the affected interaction proofs + forced CLI probe failure + `validate_fast` (`validate_full` too when Run/Runtime/Init files are touched) |
 | Physics invariants | `validate_physics` (+ `validate_perf` if signatures change) |
 | Loader lane | `validate_full` (scene/asset load is broad scope) |
 | DX12 lane | `validate_dx12_renderer` × 3 consecutive |

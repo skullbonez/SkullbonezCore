@@ -3134,6 +3134,28 @@ int RunApp( Window* window,
             cRun->SetPhysicsDiagnosticsPath( args.physicsDiagnosticsPath, args.fixedStepForcedByPhysicsDiagnostics );
         }
 #endif
+#ifdef _DEBUG
+        // Why: Debug replay probes are CLI diagnostics, not interaction
+        // automation actions. They report through the process exit code and log
+        // boundary so validation can fail without using fatal exceptions.
+        auto reportReplayProbeFailure = [&]( const char* owner, const char* message ) -> int
+        {
+            const char* safeOwner = owner && owner[0] != '\0' ? owner : "ReplayProbe";
+            const char* safeMessage = message && message[0] != '\0' ? message : "replay probe failed";
+            Log().WriteEventf( "replay_probe_failed owner=\"%s\" message=\"%s\"", safeOwner, safeMessage );
+            fprintf( stderr, "[replay] Probe failed: %s\n", safeMessage );
+            fflush( stderr );
+            Log().FlushAll();
+            if ( !args.isSuiteOrSceneMode && !args.suppressExitDialog )
+            {
+                window->MsgBox( safeMessage, "Replay Probe Failed", MB_OK );
+            }
+            return 1;
+        };
+
+        auto reportReplayProbeResult = [&]( const SbResult& result ) -> int
+        { return reportReplayProbeFailure( result.error.owner, result.error.message ); };
+#endif
         try
         {
             cRun->Initialise();
@@ -3154,27 +3176,51 @@ int RunApp( Window* window,
 #ifdef _DEBUG
             if ( args.replayLoadProbe )
             {
-                cRun->VerifyLoadedReplayPresentationProbe( 0.25f );
+                const SbResult probeResult = cRun->VerifyLoadedReplayPresentationProbe( 0.25f );
+                if ( !probeResult.ok )
+                {
+                    return reportReplayProbeResult( probeResult );
+                }
                 skipExecute = true;
             }
             if ( args.replayRestoreFileProbe )
             {
-                cRun->VerifyReplaySolverCheckpointFileProbe( args.replayRestoreFileProbePath );
+                const SbResult probeResult =
+                    cRun->VerifyReplaySolverCheckpointFileProbe( args.replayRestoreFileProbePath );
+                if ( !probeResult.ok )
+                {
+                    return reportReplayProbeResult( probeResult );
+                }
                 skipExecute = true;
             }
             if ( args.replayRestoreTargetFileProbe )
             {
-                cRun->VerifyReplaySolverTargetFileProbe( args.replayRestoreTargetFileProbePath );
+                const SbResult probeResult =
+                    cRun->VerifyReplaySolverTargetFileProbe( args.replayRestoreTargetFileProbePath );
+                if ( !probeResult.ok )
+                {
+                    return reportReplayProbeResult( probeResult );
+                }
                 skipExecute = true;
             }
             if ( args.replayRestoreBranchFileProbe )
             {
-                cRun->VerifyReplaySolverBranchFileProbe( args.replayRestoreBranchFileProbePath );
+                const SbResult probeResult =
+                    cRun->VerifyReplaySolverBranchFileProbe( args.replayRestoreBranchFileProbePath );
+                if ( !probeResult.ok )
+                {
+                    return reportReplayProbeResult( probeResult );
+                }
                 skipExecute = true;
             }
             if ( args.replayRestoreFailureFileProbe )
             {
-                cRun->VerifyReplaySolverFailureFileProbe( args.replayRestoreFailureFileProbePath );
+                const SbResult probeResult =
+                    cRun->VerifyReplaySolverFailureFileProbe( args.replayRestoreFailureFileProbePath );
+                if ( !probeResult.ok )
+                {
+                    return reportReplayProbeResult( probeResult );
+                }
                 skipExecute = true;
             }
 #endif
@@ -3189,6 +3235,13 @@ int RunApp( Window* window,
             else if ( !skipExecute )
             {
                 cRun->Execute();
+#ifdef _DEBUG
+                if ( cRun->ReplayProbeFailed() )
+                {
+                    return reportReplayProbeFailure( cRun->ReplayProbeFailureOwner(),
+                                                     cRun->ReplayProbeFailureMessage() );
+                }
+#endif
                 if ( args.graphicsStress )
                 {
                     printf( "[graphics-stress] Execute returned.\n" );

@@ -14,11 +14,15 @@ Glossary:
   into the live scene.
   Save probe: Debug launch path that writes a replay artifact after enough
   timeline coverage exists.
+  Probe failure: CLI-visible diagnostic result that should make validation
+  return nonzero without routing through the fatal-exception path.
 
 Invariants:
   - Probe state exists only in debug builds and is driven by CLI test paths.
   - Completion flags are one-shot guards so a successful probe does not repeat
     every frame after its minimum sample count is reached.
+  - Failure text is bounded and stored here so WinMain can return a nonzero
+    probe result after the frame loop exits.
 
 Related:
   - SkullbonezSource/Runtime/Run.h
@@ -57,6 +61,21 @@ struct RunReplaySaveProbeState
     bool eventCoverageInjected = false;
     int minSampleCount = 24;
     char path[260] = {};
+};
+
+struct RunReplayProbeFailureState
+{
+    bool failed = false;
+    char owner[64] = {};
+    char message[512] = {};
+};
+
+struct RunReplayProbeState
+{
+    RunReplayScrubProbeState scrub;
+    RunReplayRestoreProbeState restore;
+    RunReplaySaveProbeState save;
+    RunReplayProbeFailureState failure;
 };
 #endif
 } // namespace Basics

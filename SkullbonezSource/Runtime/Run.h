@@ -38,6 +38,7 @@ Related:
 #include <string>
 #include <vector>
 #include "../Core/Common.h"
+#include "../Core/SbResult.h"
 #include "CameraCollection.h"
 #include "InputController.h"
 #include "Diagnostics/DiagnosticsRuntime.h"
@@ -112,9 +113,7 @@ class Run
     // and render-host bindings borrow from these objects; they do not own them.
     DiagnosticsRuntime m_diagnosticsRuntime;                               // Capture, perf, and queryable physics diagnostics owner.
 #ifdef _DEBUG
-    RunReplayScrubProbeState m_replayScrubProbe;                           // CLI-only SkullScope replay scrub self-test state.
-    RunReplayRestoreProbeState m_replayRestoreProbe;                       // CLI-only solver restore hash self-test state.
-    RunReplaySaveProbeState m_replaySaveProbe;                             // CLI-only v2 replay artifact save self-test state.
+    RunReplayProbeState m_replayProbes;                                    // CLI-only replay self-test state and non-throwing failures.
 #endif
     RunRuntimeSettings m_runtimeSettings;                                  // Scene/app runtime swap policy toggles
     RunTimerState m_timers;                                                // Frame/simulation timers and rolling timing values
@@ -353,9 +352,10 @@ class Run
 #ifdef _DEBUG
     void LogSceneFinished( const char* reason );
     void BeginPhysicsDiagnosticsRun( const char* scenePath );
-    void TickReplayScrubProbe();
-    void TickReplayRestoreProbe();
-    void TickReplaySaveProbe();
+    SbResult TickReplayScrubProbe();
+    SbResult TickReplayRestoreProbe();
+    SbResult TickReplaySaveProbe();
+    void RecordReplayProbeFailure( const SbResult& result );
     void EndPhysicsDiagnosticsRun( const char* status );
 #endif
 
@@ -420,14 +420,17 @@ class Run
     void SetReplayScrubProbe( float normalized );                          // Enable CLI-only replay scrub SkullScope probe.
     void SetReplayRestoreProbe( float normalized );                        // Enable CLI-only replay restore hash probe.
     void SetReplaySaveProbe( const char* path );                           // Enable CLI-only v2 replay save probe.
-    void VerifyLoadedReplayPresentationProbe( float normalized );          // Validate runtime scrubbing from a loaded v2 file.
-    void VerifyReplaySolverCheckpointFileProbe(
+    bool ReplayProbeFailed() const;                                        // True when a CLI replay probe failed without throwing.
+    const char* ReplayProbeFailureOwner() const;                           // Owner tag for the latest CLI replay probe failure.
+    const char* ReplayProbeFailureMessage() const;                         // Failure text for the latest CLI replay probe failure.
+    SbResult VerifyLoadedReplayPresentationProbe( float normalized );      // Validate runtime scrubbing from a loaded v2 file.
+    SbResult VerifyReplaySolverCheckpointFileProbe(
         const char* path );                                                // Validate hash-gated restore from a v2 solver checkpoint.
-    void VerifyReplaySolverTargetFileProbe(
+    SbResult VerifyReplaySolverTargetFileProbe(
         const char* path );                                                // Validate checkpoint-plus-event replay to a saved non-checkpoint target.
-    void VerifyReplaySolverBranchFileProbe(
+    SbResult VerifyReplaySolverBranchFileProbe(
         const char* path );                                                // Validate checkpoint-plus-event replay can become a live branch.
-    void VerifyReplaySolverFailureFileProbe(
+    SbResult VerifyReplaySolverFailureFileProbe(
         const char* path );                                                // Validate saved-file restore failures emit SkullScope diagnostics.
 #endif
 };

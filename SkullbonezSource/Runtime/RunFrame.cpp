@@ -79,6 +79,15 @@ void PrintRuntimeExitReason( const char* reason )
     fflush( stdout );
 }
 
+#ifdef _DEBUG
+constexpr const char* REPLAY_PROBE_OWNER = "ReplayProbe";
+
+SbResult ReplayProbeFailure( const char* message )
+{
+    return SbResult::Failure( REPLAY_PROBE_OWNER, "%s", message );
+}
+#endif
+
 bool ShouldFlashContactAudioDecision( ContactAudioFlashMode mode,
                                       const SkullbonezCore::Runtime::Audio::ContactAudioDecision& decision )
 {
@@ -1109,16 +1118,38 @@ void Run::AfterPhysicsStep()
 #ifdef _DEBUG
     if ( result.replayCaptured )
     {
-        TickReplayScrubProbe();
-        TickReplayRestoreProbe();
-        TickReplaySaveProbe();
+        // Why: WM_QUIT's code is not WinMain's final status in this app. Store
+        // the probe failure on Run so Runtime/Init can return the CLI-visible
+        // nonzero result after Execute() unwinds normally.
+        auto handleReplayProbeResult = [this]( const SbResult& probeResult ) -> bool
+        {
+            if ( probeResult.ok )
+            {
+                return false;
+            }
+            RecordReplayProbeFailure( probeResult );
+            PostQuitMessage( 0 );
+            return true;
+        };
+        if ( handleReplayProbeResult( TickReplayScrubProbe() ) )
+        {
+            return;
+        }
+        if ( handleReplayProbeResult( TickReplayRestoreProbe() ) )
+        {
+            return;
+        }
+        if ( handleReplayProbeResult( TickReplaySaveProbe() ) )
+        {
+            return;
+        }
     }
 #endif
 }
 
 
 #ifdef _DEBUG
-void Run::TickReplayScrubProbe()
+SbResult Run::TickReplayScrubProbe()
 {
     auto distanceSquared = []( const Math::Vector::Vector3& a, const Math::Vector::Vector3& b ) -> float
     {
@@ -1126,23 +1157,23 @@ void Run::TickReplayScrubProbe()
         return delta.x * delta.x + delta.y * delta.y + delta.z * delta.z;
     };
 
-    if ( !m_replayScrubProbe.enabled || m_replayScrubProbe.completed )
+    if ( !m_replayProbes.scrub.enabled || m_replayProbes.scrub.completed )
     {
-        return;
+        return SbResult::Success();
     }
 
     const ReplayRecorderStats stats = m_replayRuntime.Presentation().GetStats();
-    if ( stats.sampleCount < static_cast<std::size_t>( m_replayScrubProbe.minSampleCount ) )
+    if ( stats.sampleCount < static_cast<std::size_t>( m_replayProbes.scrub.minSampleCount ) )
     {
-        return;
+        return SbResult::Success();
     }
 
     const ReplayPresentationSample* selected =
-        m_replayRuntime.Presentation().SampleAtNormalized( m_replayScrubProbe.normalized );
+        m_replayRuntime.Presentation().SampleAtNormalized( m_replayProbes.scrub.normalized );
     const ReplayPresentationSample* live = m_replayRuntime.Presentation().LatestSample();
     if ( !selected || !live || selected->frameIndex >= live->frameIndex )
     {
-        throw std::runtime_error( "replay scrub probe could not select an older replay sample" );
+        return ReplayProbeFailure( "replay scrub probe could not select an older replay sample" );
     }
 
     const ReplayBodyPresentationSample* selectedBody = nullptr;
@@ -1173,16 +1204,16 @@ void Run::TickReplayScrubProbe()
         }
     }
 
-    if ( !selectedBody || !liveBody || bestDistanceSquared < m_replayScrubProbe.minDistanceSquared )
+    if ( !selectedBody || !liveBody || bestDistanceSquared < m_replayProbes.scrub.minDistanceSquared )
     {
-        throw std::runtime_error( "replay scrub probe did not find a moved body in the selected replay window" );
+        return ReplayProbeFailure( "replay scrub probe did not find a moved body in the selected replay window" );
     }
 
     const int probedModelIndex = liveBody->modelIndex;
     const PhysicsBodyRecord* probedBody = TryGetReplayProbeBodyRecord( m_cGameModelCollection, probedModelIndex );
     if ( !probedBody )
     {
-        throw std::runtime_error( "replay scrub probe selected an invalid live body index" );
+        return ReplayProbeFailure( "replay scrub probe selected an invalid live body index" );
     }
 
     // Why: scrub probes prove presentation overrides do not mutate live
@@ -1190,9 +1221,9 @@ void Run::TickReplayScrubProbe()
     // not depend on temporary presentation rows.
     const Math::Vector::Vector3 preApplyPosition = probedBody->position;
     const float preLiveDeltaSquared = distanceSquared( preApplyPosition, liveBody->position );
-    if ( preLiveDeltaSquared > m_replayScrubProbe.minDistanceSquared )
+    if ( preLiveDeltaSquared > m_replayProbes.scrub.minDistanceSquared )
     {
-        throw std::runtime_error(
+        return ReplayProbeFailure(
             "replay scrub probe live body did not match the current replay sample before applying scrub state" );
     }
 
@@ -1200,47 +1231,48 @@ void Run::TickReplayScrubProbe()
         ApplyReplayProbePresentationSampleForRender( m_cGameModelCollection, m_replayRuntime, *selected );
     if ( !applied )
     {
-        throw std::runtime_error( "replay scrub probe failed to apply the selected presentation sample" );
+        return ReplayProbeFailure( "replay scrub probe failed to apply the selected presentation sample" );
     }
     const PhysicsBodyRecord* appliedBody = TryGetReplayProbeBodyRecord( m_cGameModelCollection, probedModelIndex );
     if ( !appliedBody )
     {
         RestoreReplayProbeRenderInstances( m_cGameModelCollection );
-        throw std::runtime_error( "replay scrub probe lost the selected live body after applying scrub state" );
+        return ReplayProbeFailure( "replay scrub probe lost the selected live body after applying scrub state" );
     }
     const Math::Vector::Vector3 liveAfterApplyPosition = appliedBody->position;
     const float livePreservedDeltaSquared = distanceSquared( liveAfterApplyPosition, preApplyPosition );
-    if ( livePreservedDeltaSquared > m_replayScrubProbe.minDistanceSquared )
+    if ( livePreservedDeltaSquared > m_replayProbes.scrub.minDistanceSquared )
     {
         RestoreReplayProbeRenderInstances( m_cGameModelCollection );
-        throw std::runtime_error( "replay scrub probe mutated the live body while applying scrub state" );
+        return ReplayProbeFailure( "replay scrub probe mutated the live body while applying scrub state" );
     }
 
     Math::Vector::Vector3 appliedRenderPosition;
     if ( !TryPrepareReplayProbeRenderPosition( m_cGameModelCollection, probedModelIndex, appliedRenderPosition ) )
     {
         RestoreReplayProbeRenderInstances( m_cGameModelCollection );
-        throw std::runtime_error( "replay scrub probe lost the selected render instance after applying scrub state" );
+        return ReplayProbeFailure( "replay scrub probe lost the selected render instance after applying scrub state" );
     }
     const float appliedDeltaSquared = distanceSquared( appliedRenderPosition, selectedBody->position );
-    if ( appliedDeltaSquared > m_replayScrubProbe.minDistanceSquared )
+    if ( appliedDeltaSquared > m_replayProbes.scrub.minDistanceSquared )
     {
         RestoreReplayProbeRenderInstances( m_cGameModelCollection );
-        throw std::runtime_error( "replay scrub probe did not move the render instance to the selected replay sample" );
+        return ReplayProbeFailure(
+            "replay scrub probe did not move the render instance to the selected replay sample" );
     }
 
     RestoreReplayProbeRenderInstances( m_cGameModelCollection );
     const PhysicsBodyRecord* restoredBody = TryGetReplayProbeBodyRecord( m_cGameModelCollection, probedModelIndex );
     if ( !restoredBody )
     {
-        throw std::runtime_error( "replay scrub probe lost the selected live body after restoring scrub state" );
+        return ReplayProbeFailure( "replay scrub probe lost the selected live body after restoring scrub state" );
     }
     const Math::Vector::Vector3 restoredPosition = restoredBody->position;
     const float restoredDeltaSquared = distanceSquared( restoredPosition, preApplyPosition );
-    const bool restored = restoredDeltaSquared <= m_replayScrubProbe.minDistanceSquared;
+    const bool restored = restoredDeltaSquared <= m_replayProbes.scrub.minDistanceSquared;
     if ( !restored )
     {
-        throw std::runtime_error(
+        return ReplayProbeFailure(
             "replay scrub probe did not restore the live model after applying the selected sample" );
     }
 
@@ -1249,7 +1281,7 @@ void Run::TickReplayScrubProbe()
                                               *live,
                                               *selectedBody,
                                               *liveBody,
-                                              m_replayScrubProbe.normalized,
+                                              m_replayProbes.scrub.normalized,
                                               bestDistanceSquared,
                                               applied,
                                               restored,
@@ -1257,7 +1289,7 @@ void Run::TickReplayScrubProbe()
                                               appliedDeltaSquared,
                                               restoredDeltaSquared );
 
-    m_replayScrubProbe.completed = true;
+    m_replayProbes.scrub.completed = true;
     printf(
         "[replay] Scrub probe passed: selected_replay_frame=%llu live_replay_frame=%llu body_id=%u distance_sq=%.6f\n",
         static_cast<unsigned long long>( selected->frameIndex ),
@@ -1265,31 +1297,32 @@ void Run::TickReplayScrubProbe()
         selectedBody->id.value,
         bestDistanceSquared );
     PostQuitMessage( 0 );
+    return SbResult::Success();
 }
 
-void Run::TickReplayRestoreProbe()
+SbResult Run::TickReplayRestoreProbe()
 {
-    if ( !m_replayRestoreProbe.enabled || m_replayRestoreProbe.completed )
+    if ( !m_replayProbes.restore.enabled || m_replayProbes.restore.completed )
     {
-        return;
+        return SbResult::Success();
     }
 
     const ReplayRecorderStats stats = m_replayRuntime.Solver().GetStats();
-    if ( stats.sampleCount < static_cast<std::size_t>( m_replayRestoreProbe.minSampleCount ) )
+    if ( stats.sampleCount < static_cast<std::size_t>( m_replayProbes.restore.minSampleCount ) )
     {
-        return;
+        return SbResult::Success();
     }
 
     const ReplaySolverFrameSample* selectedSample =
-        m_replayRuntime.Solver().SampleAtNormalized( m_replayRestoreProbe.normalized );
+        m_replayRuntime.Solver().SampleAtNormalized( m_replayProbes.restore.normalized );
     const ReplaySolverFrameSample* latestSample = m_replayRuntime.Solver().LatestSample();
     if ( !selectedSample || !latestSample )
     {
-        throw std::runtime_error( "replay restore probe could not select retained solver samples" );
+        return ReplayProbeFailure( "replay restore probe could not select retained solver samples" );
     }
     if ( selectedSample->frameIndex >= latestSample->frameIndex )
     {
-        throw std::runtime_error( "replay restore probe did not select an older solver sample" );
+        return ReplayProbeFailure( "replay restore probe did not select an older solver sample" );
     }
 
     const ReplaySolverFrameSample selected = *selectedSample;
@@ -1299,24 +1332,22 @@ void Run::TickReplayRestoreProbe()
     const bool restored = RestoreReplaySolverSampleAsLive( selected, reason, sizeof( reason ) );
     if ( !restored )
     {
-        char message[224] = {};
-        sprintf_s( message,
-                   sizeof( message ),
-                   "replay restore probe failed: %s",
-                   reason[0] != '\0' ? reason : "unknown restore failure" );
-        throw std::runtime_error( message );
+        return SbResult::Failure( REPLAY_PROBE_OWNER,
+                                  "replay restore probe failed: %s",
+                                  reason[0] != '\0' ? reason : "unknown restore failure" );
     }
 
-    m_replayRestoreProbe.completed = true;
+    m_replayProbes.restore.completed = true;
     printf( "[replay] Restore probe passed: target_replay_frame=%llu previous_live_replay_frame=%llu "
             "solver_hash=0x%016llX\n",
             static_cast<unsigned long long>( selected.frameIndex ),
             static_cast<unsigned long long>( latestFrame ),
             static_cast<unsigned long long>( selectedHash ) );
     PostQuitMessage( 0 );
+    return SbResult::Success();
 }
 
-void Run::TickReplaySaveProbe()
+SbResult Run::TickReplaySaveProbe()
 {
     auto distanceSquared = []( const Math::Vector::Vector3& a, const Math::Vector::Vector3& b ) -> float
     {
@@ -1324,23 +1355,23 @@ void Run::TickReplaySaveProbe()
         return delta.x * delta.x + delta.y * delta.y + delta.z * delta.z;
     };
 
-    if ( !m_replaySaveProbe.enabled || m_replaySaveProbe.completed )
+    if ( !m_replayProbes.save.enabled || m_replayProbes.save.completed )
     {
-        return;
+        return SbResult::Success();
     }
 
     const ReplayRecorderStats stats = m_replayRuntime.Presentation().GetStats();
-    if ( !m_replaySaveProbe.runtimeResetCoverageInjected && stats.sampleCount >= 4 )
+    if ( !m_replayProbes.save.runtimeResetCoverageInjected && stats.sampleCount >= 4 )
     {
-        m_replaySaveProbe.runtimeResetCoverageInjected = true;
-        m_replaySaveProbe.eventCoverageInjected = false;
+        m_replayProbes.save.runtimeResetCoverageInjected = true;
+        m_replayProbes.save.eventCoverageInjected = false;
         m_runtimeCommands.Push( RuntimeCommand{ RuntimeCommandType::ResetCurrentScene } );
-        return;
+        return SbResult::Success();
     }
 
-    if ( !m_replaySaveProbe.eventCoverageInjected && stats.sampleCount >= 4 )
+    if ( !m_replayProbes.save.eventCoverageInjected && stats.sampleCount >= 4 )
     {
-        m_replaySaveProbe.eventCoverageInjected = true;
+        m_replayProbes.save.eventCoverageInjected = true;
         const float currentGravity = m_cWorldEnvironment.GetGravity();
         const float probeGravity = currentGravity != 0.0f ? currentGravity * 0.95f : -0.25f;
         ApplyUIWorldOverride( m_cWorldEnvironment,
@@ -1378,7 +1409,7 @@ void Run::TickReplaySaveProbe()
                 m_cGameModelCollection.GetPhysicsEngine().BodyStore().RecordForHandle( placementResult.placedBody );
             if ( !placedBodyBeforeEdit )
             {
-                throw std::runtime_error( "replay save probe failed to resolve placed body record" );
+                return ReplayProbeFailure( "replay save probe failed to resolve placed body record" );
             }
             // Why: placement has already registered a PhysicsBodyHandle. Use the
             // authoritative body row as the starting transform, then commit the
@@ -1397,7 +1428,7 @@ void Run::TickReplaySaveProbe()
                                                      placedBodyBeforeEdit->replayBodyId );
             if ( !placedColliderBeforeEdit )
             {
-                throw std::runtime_error( "replay save probe failed to resolve placed collider record" );
+                return ReplayProbeFailure( "replay save probe failed to resolve placed collider record" );
             }
             const CollisionShape placedShapeBeforeScale = placedColliderBeforeEdit->shape;
             constexpr int PROBE_SCALE_AXIS = 0;
@@ -1408,7 +1439,7 @@ void Run::TickReplaySaveProbe()
                                           PROBE_SCALE_FACTOR,
                                           placedShapeAfterScale ) )
             {
-                throw std::runtime_error( "replay save probe failed to apply editor transform scale" );
+                return ReplayProbeFailure( "replay save probe failed to apply editor transform scale" );
             }
             placedBodyEdit.hasLinearVelocity = true;
             placedBodyEdit.linearVelocity = Vector3( 0.0f, 0.0f, 0.0f );
@@ -1426,7 +1457,7 @@ void Run::TickReplaySaveProbe()
                 m_cGameModelCollection.GetPhysicsEngine().BodyStore().RecordForModelIndex( modelCountBeforePlace );
             if ( !placedBodyAfterEdit || placedBodyAfterEdit->replayBodyId == 0 )
             {
-                throw std::runtime_error( "replay save probe failed to capture edited body record" );
+                return ReplayProbeFailure( "replay save probe failed to capture edited body record" );
             }
             m_replayRuntime.RecordEditorTransformEvent(
                 modelCountBeforePlace,
@@ -1470,42 +1501,42 @@ void Run::TickReplaySaveProbe()
             }
         }
     }
-    if ( stats.sampleCount < static_cast<std::size_t>( m_replaySaveProbe.minSampleCount ) )
+    if ( stats.sampleCount < static_cast<std::size_t>( m_replayProbes.save.minSampleCount ) )
     {
-        return;
+        return SbResult::Success();
     }
 
     ReplayV2SaveResult result;
-    if ( !m_replayRuntime.SavePresentationWithSolverHashes( m_replaySaveProbe.path, &result ) )
+    if ( !m_replayRuntime.SavePresentationWithSolverHashes( m_replayProbes.save.path, &result ) )
     {
-        throw std::runtime_error( "replay save probe failed to write v2 presentation artifact" );
+        return ReplayProbeFailure( "replay save probe failed to write v2 presentation artifact" );
     }
     if ( result.solverHashCount < result.sampleCount )
     {
-        throw std::runtime_error( "replay save probe wrote v2 artifact without a full solver hash track" );
+        return ReplayProbeFailure( "replay save probe wrote v2 artifact without a full solver hash track" );
     }
     if ( result.solverCheckpointCount == 0 )
     {
-        throw std::runtime_error( "replay save probe wrote v2 artifact without solver checkpoint chunks" );
+        return ReplayProbeFailure( "replay save probe wrote v2 artifact without solver checkpoint chunks" );
     }
     if ( result.eventCount == 0 )
     {
-        throw std::runtime_error( "replay save probe wrote v2 artifact without event chunks" );
+        return ReplayProbeFailure( "replay save probe wrote v2 artifact without event chunks" );
     }
     if ( result.eventCursorCount == 0 )
     {
-        throw std::runtime_error( "replay save probe wrote v2 artifact without checkpoint event cursors" );
+        return ReplayProbeFailure( "replay save probe wrote v2 artifact without checkpoint event cursors" );
     }
 
     std::vector<ReplayPresentationSample> loadedSamples;
     ReplayV2LoadResult loadResult;
-    if ( !ReplayV2Artifact::LoadPresentation( m_replaySaveProbe.path, loadedSamples, &loadResult ) )
+    if ( !ReplayV2Artifact::LoadPresentation( m_replayProbes.save.path, loadedSamples, &loadResult ) )
     {
-        throw std::runtime_error( "replay save probe failed to reload v2 presentation artifact" );
+        return ReplayProbeFailure( "replay save probe failed to reload v2 presentation artifact" );
     }
     if ( loadedSamples.size() < 2 )
     {
-        throw std::runtime_error( "replay save probe loaded too few v2 presentation samples" );
+        return ReplayProbeFailure( "replay save probe loaded too few v2 presentation samples" );
     }
 
     const std::size_t selectedIndex = (std::min)( loadedSamples.size() / 4, loadedSamples.size() - 2 );
@@ -1513,7 +1544,7 @@ void Run::TickReplaySaveProbe()
     const ReplayPresentationSample& live = loadedSamples.back();
     if ( selected.frameIndex >= live.frameIndex )
     {
-        throw std::runtime_error( "replay save probe could not seek to an older loaded v2 sample" );
+        return ReplayProbeFailure( "replay save probe could not seek to an older loaded v2 sample" );
     }
 
     const ReplayBodyPresentationSample* selectedBody = nullptr;
@@ -1540,73 +1571,73 @@ void Run::TickReplaySaveProbe()
     }
     if ( !selectedBody || !liveBody || bestDistanceSquared < 0.0001f )
     {
-        throw std::runtime_error( "replay save probe did not find a moved body in the loaded v2 artifact" );
+        return ReplayProbeFailure( "replay save probe did not find a moved body in the loaded v2 artifact" );
     }
 
     const int probedModelIndex = liveBody->modelIndex;
     const PhysicsBodyRecord* probedBody = TryGetReplayProbeBodyRecord( m_cGameModelCollection, probedModelIndex );
     if ( !probedBody )
     {
-        throw std::runtime_error( "replay save probe loaded an invalid live body index" );
+        return ReplayProbeFailure( "replay save probe loaded an invalid live body index" );
     }
 
     const Math::Vector::Vector3 preApplyPosition = probedBody->position;
     const float preLiveDeltaSquared = distanceSquared( preApplyPosition, liveBody->position );
     if ( preLiveDeltaSquared > 0.0001f )
     {
-        throw std::runtime_error( "replay save probe live body did not match the loaded v2 live sample" );
+        return ReplayProbeFailure( "replay save probe live body did not match the loaded v2 live sample" );
     }
 
     const bool applied =
         ApplyReplayProbePresentationSampleForRender( m_cGameModelCollection, m_replayRuntime, selected );
     if ( !applied )
     {
-        throw std::runtime_error( "replay save probe failed to apply the loaded v2 presentation sample" );
+        return ReplayProbeFailure( "replay save probe failed to apply the loaded v2 presentation sample" );
     }
     const PhysicsBodyRecord* appliedBody = TryGetReplayProbeBodyRecord( m_cGameModelCollection, probedModelIndex );
     if ( !appliedBody )
     {
         RestoreReplayProbeRenderInstances( m_cGameModelCollection );
-        throw std::runtime_error( "replay save probe lost the selected live body after applying the v2 sample" );
+        return ReplayProbeFailure( "replay save probe lost the selected live body after applying the v2 sample" );
     }
     const Math::Vector::Vector3 liveAfterApplyPosition = appliedBody->position;
     const float livePreservedDeltaSquared = distanceSquared( liveAfterApplyPosition, preApplyPosition );
     if ( livePreservedDeltaSquared > 0.0001f )
     {
         RestoreReplayProbeRenderInstances( m_cGameModelCollection );
-        throw std::runtime_error( "replay save probe mutated the live body while applying the v2 sample" );
+        return ReplayProbeFailure( "replay save probe mutated the live body while applying the v2 sample" );
     }
 
     Math::Vector::Vector3 appliedRenderPosition;
     if ( !TryPrepareReplayProbeRenderPosition( m_cGameModelCollection, probedModelIndex, appliedRenderPosition ) )
     {
         RestoreReplayProbeRenderInstances( m_cGameModelCollection );
-        throw std::runtime_error( "replay save probe lost the selected render instance after applying the v2 sample" );
+        return ReplayProbeFailure( "replay save probe lost the selected render instance after applying the v2 sample" );
     }
     const float appliedDeltaSquared = distanceSquared( appliedRenderPosition, selectedBody->position );
     if ( appliedDeltaSquared > 0.0001f )
     {
         RestoreReplayProbeRenderInstances( m_cGameModelCollection );
-        throw std::runtime_error( "replay save probe did not move the render instance to the loaded v2 sample" );
+        return ReplayProbeFailure( "replay save probe did not move the render instance to the loaded v2 sample" );
     }
 
     RestoreReplayProbeRenderInstances( m_cGameModelCollection );
     const PhysicsBodyRecord* restoredBody = TryGetReplayProbeBodyRecord( m_cGameModelCollection, probedModelIndex );
     if ( !restoredBody )
     {
-        throw std::runtime_error( "replay save probe lost the selected live body after restoring the v2 sample" );
+        return ReplayProbeFailure( "replay save probe lost the selected live body after restoring the v2 sample" );
     }
     const Math::Vector::Vector3 restoredPosition = restoredBody->position;
     const float restoredDeltaSquared = distanceSquared( restoredPosition, preApplyPosition );
     if ( restoredDeltaSquared > 0.0001f )
     {
-        throw std::runtime_error( "replay save probe live body changed after applying the loaded v2 sample" );
+        return ReplayProbeFailure( "replay save probe live body changed after applying the loaded v2 sample" );
     }
 
-    m_replaySaveProbe.completed = true;
+    m_replayProbes.save.completed = true;
     printf( "[replay] Save probe wrote: path=%s samples=%llu bodies=%llu solver_hashes=%llu "
             "solver_checkpoints=%llu events=%llu event_cursors=%llu bytes=%llu\n",
-            m_replaySaveProbe.path,
+            m_replayProbes.save.path,
             static_cast<unsigned long long>( result.sampleCount ),
             static_cast<unsigned long long>( result.bodyDictionaryCount ),
             static_cast<unsigned long long>( result.solverHashCount ),
@@ -1624,9 +1655,10 @@ void Run::TickReplaySaveProbe()
             selectedBody->id.value,
             bestDistanceSquared );
     PostQuitMessage( 0 );
+    return SbResult::Success();
 }
 
-void Run::VerifyLoadedReplayPresentationProbe( float normalized )
+SbResult Run::VerifyLoadedReplayPresentationProbe( float normalized )
 {
     auto distanceSquared = []( const Math::Vector::Vector3& a, const Math::Vector::Vector3& b ) -> float
     {
@@ -1636,7 +1668,7 @@ void Run::VerifyLoadedReplayPresentationProbe( float normalized )
 
     if ( !m_replayRuntime.HasLoadedPresentation() )
     {
-        throw std::runtime_error( "replay load probe requires a loaded v2 presentation artifact" );
+        return ReplayProbeFailure( "replay load probe requires a loaded v2 presentation artifact" );
     }
 
     if ( m_replayRuntime.Scrubber().liveAdvanceHeld )
@@ -1651,7 +1683,7 @@ void Run::VerifyLoadedReplayPresentationProbe( float normalized )
                                                                       m_timers.simulationTimer.GetTotalTime() );
     if ( !armed )
     {
-        throw std::runtime_error( "replay load probe could not arm the loaded presentation scrubber" );
+        return ReplayProbeFailure( "replay load probe could not arm the loaded presentation scrubber" );
     }
     SetWorldInteractionOwnerAfterInteractionTransition( WorldInteractionOwner::ReplayScrub,
                                                         InteractionExitReason::EnterReplay );
@@ -1667,11 +1699,11 @@ void Run::VerifyLoadedReplayPresentationProbe( float normalized )
     const ReplayPresentationSample* latest = m_replayRuntime.LoadedPresentationLatestSample();
     if ( !selected || !latest )
     {
-        throw std::runtime_error( "replay load probe could not select a loaded presentation sample" );
+        return ReplayProbeFailure( "replay load probe could not select a loaded presentation sample" );
     }
     if ( selected->frameIndex >= latest->frameIndex )
     {
-        throw std::runtime_error( "replay load probe did not select an older v2 presentation sample" );
+        return ReplayProbeFailure( "replay load probe did not select an older v2 presentation sample" );
     }
 
     const ReplayBodyPresentationSample* selectedBody = nullptr;
@@ -1698,14 +1730,14 @@ void Run::VerifyLoadedReplayPresentationProbe( float normalized )
     }
     if ( !selectedBody || !latestBody || bestDistanceSquared < 0.0001f )
     {
-        throw std::runtime_error( "replay load probe did not find a moved body in the loaded v2 artifact" );
+        return ReplayProbeFailure( "replay load probe did not find a moved body in the loaded v2 artifact" );
     }
 
     const int probedModelIndex = selectedBody->modelIndex;
     const PhysicsBodyRecord* probedBody = TryGetReplayProbeBodyRecord( m_cGameModelCollection, probedModelIndex );
     if ( !probedBody )
     {
-        throw std::runtime_error( "replay load probe loaded an invalid body index" );
+        return ReplayProbeFailure( "replay load probe loaded an invalid body index" );
     }
 
     const Math::Vector::Vector3 preApplyPosition = probedBody->position;
@@ -1713,34 +1745,34 @@ void Run::VerifyLoadedReplayPresentationProbe( float normalized )
         ApplyReplayProbePresentationSampleForRender( m_cGameModelCollection, m_replayRuntime, *selected );
     if ( !applied )
     {
-        throw std::runtime_error( "replay load probe failed to apply the selected loaded v2 sample" );
+        return ReplayProbeFailure( "replay load probe failed to apply the selected loaded v2 sample" );
     }
 
     const PhysicsBodyRecord* appliedBody = TryGetReplayProbeBodyRecord( m_cGameModelCollection, probedModelIndex );
     if ( !appliedBody )
     {
         RestoreReplayProbeRenderInstances( m_cGameModelCollection );
-        throw std::runtime_error( "replay load probe lost the selected body after applying the v2 sample" );
+        return ReplayProbeFailure( "replay load probe lost the selected body after applying the v2 sample" );
     }
     const Math::Vector::Vector3 liveAfterApplyPosition = appliedBody->position;
     const float livePreservedDeltaSquared = distanceSquared( liveAfterApplyPosition, preApplyPosition );
     if ( livePreservedDeltaSquared > 0.0001f )
     {
         RestoreReplayProbeRenderInstances( m_cGameModelCollection );
-        throw std::runtime_error( "replay load probe mutated the live body while applying the v2 sample" );
+        return ReplayProbeFailure( "replay load probe mutated the live body while applying the v2 sample" );
     }
 
     Math::Vector::Vector3 appliedRenderPosition;
     if ( !TryPrepareReplayProbeRenderPosition( m_cGameModelCollection, probedModelIndex, appliedRenderPosition ) )
     {
         RestoreReplayProbeRenderInstances( m_cGameModelCollection );
-        throw std::runtime_error( "replay load probe lost the selected render instance after applying the v2 sample" );
+        return ReplayProbeFailure( "replay load probe lost the selected render instance after applying the v2 sample" );
     }
     const float appliedDeltaSquared = distanceSquared( appliedRenderPosition, selectedBody->position );
     if ( appliedDeltaSquared > 0.0001f )
     {
         RestoreReplayProbeRenderInstances( m_cGameModelCollection );
-        throw std::runtime_error(
+        return ReplayProbeFailure(
             "replay load probe did not move the render instance to the selected loaded v2 sample" );
     }
 
@@ -1748,13 +1780,13 @@ void Run::VerifyLoadedReplayPresentationProbe( float normalized )
     const PhysicsBodyRecord* restoredBody = TryGetReplayProbeBodyRecord( m_cGameModelCollection, probedModelIndex );
     if ( !restoredBody )
     {
-        throw std::runtime_error( "replay load probe lost the selected body after restoring the v2 sample" );
+        return ReplayProbeFailure( "replay load probe lost the selected body after restoring the v2 sample" );
     }
     const Math::Vector::Vector3 restoredPosition = restoredBody->position;
     const float restoredDeltaSquared = distanceSquared( restoredPosition, preApplyPosition );
     if ( restoredDeltaSquared > 0.0001f )
     {
-        throw std::runtime_error( "replay load probe live body changed after applying the selected loaded v2 sample" );
+        return ReplayProbeFailure( "replay load probe live body changed after applying the selected loaded v2 sample" );
     }
 
     printf( "[replay] Load probe passed: path=%s samples=%llu bodies=%llu first_frame=%llu selected_frame=%llu "
@@ -1767,40 +1799,38 @@ void Run::VerifyLoadedReplayPresentationProbe( float normalized )
             static_cast<unsigned long long>( latest->frameIndex ),
             selectedBody->id.value,
             bestDistanceSquared );
+    return SbResult::Success();
 }
 
-void Run::VerifyReplaySolverCheckpointFileProbe( const char* path )
+SbResult Run::VerifyReplaySolverCheckpointFileProbe( const char* path )
 {
     if ( !path || path[0] == '\0' )
     {
-        throw std::runtime_error( "replay restore file probe requires a v2 artifact path" );
+        return ReplayProbeFailure( "replay restore file probe requires a v2 artifact path" );
     }
 
     std::vector<ReplaySolverFrameSample> checkpoints;
     ReplayV2SolverCheckpointLoadResult result;
     if ( !ReplayV2Artifact::LoadSolverCheckpoints( path, checkpoints, &result ) )
     {
-        throw std::runtime_error( "replay restore file probe failed to load v2 solver checkpoints" );
+        return ReplayProbeFailure( "replay restore file probe failed to load v2 solver checkpoints" );
     }
     if ( checkpoints.empty() )
     {
-        throw std::runtime_error( "replay restore file probe found no v2 solver checkpoints" );
+        return ReplayProbeFailure( "replay restore file probe found no v2 solver checkpoints" );
     }
 
     const ReplaySolverFrameSample& checkpoint = checkpoints.front();
     if ( checkpoint.eventCursor == 0 )
     {
-        throw std::runtime_error( "replay restore file probe loaded a checkpoint without an event cursor" );
+        return ReplayProbeFailure( "replay restore file probe loaded a checkpoint without an event cursor" );
     }
     char reason[160] = {};
     if ( !RestoreReplaySolverSampleAsLive( checkpoint, reason, sizeof( reason ) ) )
     {
-        char message[256] = {};
-        sprintf_s( message,
-                   sizeof( message ),
-                   "replay restore file probe failed: %s",
-                   reason[0] != '\0' ? reason : "unknown restore failure" );
-        throw std::runtime_error( message );
+        return SbResult::Failure( REPLAY_PROBE_OWNER,
+                                  "replay restore file probe failed: %s",
+                                  reason[0] != '\0' ? reason : "unknown restore failure" );
     }
 
     printf( "[replay] Restore file probe passed: path=%s checkpoints=%llu first_frame=%llu target_frame=%llu "
@@ -1813,6 +1843,7 @@ void Run::VerifyReplaySolverCheckpointFileProbe( const char* path )
             static_cast<unsigned long long>( checkpoint.bodies.size() ),
             static_cast<unsigned long long>( checkpoint.solverHash ),
             static_cast<unsigned long long>( result.fileBytes ) );
+    return SbResult::Success();
 }
 #endif
 
@@ -2752,7 +2783,7 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
 }
 
 #ifdef _DEBUG
-void Run::VerifyReplaySolverTargetFileProbe( const char* path )
+SbResult Run::VerifyReplaySolverTargetFileProbe( const char* path )
 {
     RunReplayV2TargetRestoreResult result;
     char reason[256] = {};
@@ -2763,12 +2794,9 @@ void Run::VerifyReplaySolverTargetFileProbe( const char* path )
                                               reason,
                                               sizeof( reason ) ) )
     {
-        char message[384] = {};
-        sprintf_s( message,
-                   sizeof( message ),
-                   "replay restore target probe failed: %s",
-                   reason[0] != '\0' ? reason : "unknown restore failure" );
-        throw std::runtime_error( message );
+        return SbResult::Failure( REPLAY_PROBE_OWNER,
+                                  "replay restore target probe failed: %s",
+                                  reason[0] != '\0' ? reason : "unknown restore failure" );
     }
 
     printf( "[replay] Restore target probe passed: path=%s checkpoints=%llu events=%llu hashes=%llu "
@@ -2789,38 +2817,37 @@ void Run::VerifyReplaySolverTargetFileProbe( const char* path )
             static_cast<unsigned long long>( result.presentationHash ),
             static_cast<unsigned long long>( result.fileBytes ) );
     PostQuitMessage( 0 );
+    return SbResult::Success();
 }
 
-void Run::VerifyReplaySolverFailureFileProbe( const char* path )
+SbResult Run::VerifyReplaySolverFailureFileProbe( const char* path )
 {
     constexpr ReplayFrameIndex MISSING_TARGET_FRAME = 999999999u;
     RunReplayV2TargetRestoreResult result;
     char reason[256] = {};
     if ( RestoreReplayV2ArtifactTargetState( path, MISSING_TARGET_FRAME, false, result, reason, sizeof( reason ) ) )
     {
-        throw std::runtime_error( "replay restore failure probe unexpectedly restored a missing target frame" );
+        return ReplayProbeFailure( "replay restore failure probe unexpectedly restored a missing target frame" );
     }
     if ( strstr( reason, "found no saved hash for requested target frame" ) == nullptr )
     {
-        char message[384] = {};
-        sprintf_s( message,
-                   sizeof( message ),
-                   "replay restore failure probe produced an unexpected reason: %s",
-                   reason[0] != '\0' ? reason : "unknown restore failure" );
-        throw std::runtime_error( message );
+        return SbResult::Failure( REPLAY_PROBE_OWNER,
+                                  "replay restore failure probe produced an unexpected reason: %s",
+                                  reason[0] != '\0' ? reason : "unknown restore failure" );
     }
 
     printf( "[replay] Restore failure probe passed: path=%s missing_frame=%llu reason=\"%s\"\n",
             path,
             static_cast<unsigned long long>( MISSING_TARGET_FRAME ),
             reason );
+    return SbResult::Success();
 }
 
-void Run::VerifyReplaySolverBranchFileProbe( const char* path )
+SbResult Run::VerifyReplaySolverBranchFileProbe( const char* path )
 {
     if ( !LoadReplayPresentationArtifact( path, true ) )
     {
-        throw std::runtime_error( "replay restore branch probe failed to load v2 presentation scrub source" );
+        return ReplayProbeFailure( "replay restore branch probe failed to load v2 presentation scrub source" );
     }
     m_replayRuntime.Scrubber().historicalSamplePaused = true;
     m_replayRuntime.Scrubber().activeTrack = RunReplayTrack::Presentation;
@@ -2833,16 +2860,13 @@ void Run::VerifyReplaySolverBranchFileProbe( const char* path )
                                                 reason,
                                                 sizeof( reason ) ) )
     {
-        char message[384] = {};
-        sprintf_s( message,
-                   sizeof( message ),
-                   "replay restore branch probe failed: %s",
-                   reason[0] != '\0' ? reason : "unknown restore failure" );
-        throw std::runtime_error( message );
+        return SbResult::Failure( REPLAY_PROBE_OWNER,
+                                  "replay restore branch probe failed: %s",
+                                  reason[0] != '\0' ? reason : "unknown restore failure" );
     }
     if ( !result.madeLiveBranch || result.branchId == 0 )
     {
-        throw std::runtime_error( "replay restore branch probe did not create a scrubber live branch" );
+        return ReplayProbeFailure( "replay restore branch probe did not create a scrubber live branch" );
     }
 
     printf( "[replay] Restore branch probe passed: path=%s checkpoints=%llu events=%llu hashes=%llu "
@@ -2864,6 +2888,7 @@ void Run::VerifyReplaySolverBranchFileProbe( const char* path )
             static_cast<unsigned long long>( result.solverHash ),
             static_cast<unsigned long long>( result.presentationHash ),
             static_cast<unsigned long long>( result.fileBytes ) );
+    return SbResult::Success();
 }
 #endif
 

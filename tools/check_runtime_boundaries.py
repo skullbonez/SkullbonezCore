@@ -1673,7 +1673,7 @@ TYPE_WITH_BODY_PATTERN = re.compile(r"\b(?:struct|class)\s+[A-Za-z_]\w*(?:\s*:[^
 STORED_MODEL_INDEX_MEMBER_PATTERN = re.compile(
     r"(?m)^[ \t]*int[ \t]+(?:modelIndex|[A-Za-z_]\w*ModelIndex)\w*[ \t]*(?:=[^,;]*)?;"
 )
-MAX_SOURCE_THROW_TOKENS = 355
+MAX_SOURCE_THROW_TOKENS = 294
 THROW_TOKEN_PATTERN = re.compile(r"\bthrow\b")
 MAX_RENDER_PASS_HOST_FIELD_ACCESSES = 109
 RENDER_PASS_HOST_FIELD_PATTERN = re.compile(r"\bm_host\.m_[A-Za-z_]\w*")

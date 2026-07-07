@@ -1,7 +1,7 @@
 # Progress: Unified Error Handling Policy (plan 05)
 
 Source plan: `fable_plans/05-unified-error-handling-policy-plan.md`
-Status: phase 1 complete on 2026-07-07; P2.1 probe discovery complete on 2026-07-08; conversions not started
+Status: phase 1 complete on 2026-07-07; P2.1-P2.3 replay probe conversion and evidence complete on 2026-07-08; hot-path conversions pending
 Last updated: 2026-07-08
 
 ## How to work this file
@@ -44,10 +44,10 @@ Last updated: 2026-07-08
 - Profile builds define `SKULLBONEZ_PROFILE_ENABLED` in
   `SKULLBONEZ_CORE.vcxproj`; Debug defines both `_DEBUG` and
   `SKULLBONEZ_PROFILE_ENABLED`.
-- `tools/check_runtime_boundaries.py` already includes the phase-1 throw
-  ratchet (`MAX_SOURCE_THROW_TOKENS = 355`), `check_throw_site_count`, and
-  synthetic clean/grown self-tests. This phase records and validates that
-  existing guard instead of duplicating it.
+- `tools/check_runtime_boundaries.py` includes the throw ratchet,
+  `check_throw_site_count`, and synthetic clean/grown self-tests. Phase 1
+  recorded the pre-conversion budget at 355; P2.2/P2.3 lowered it to 294 after
+  replacing the Debug replay probe throws.
 
 ## Phase 1 — policy, primitives, ratchet (no conversions yet)
 
@@ -165,19 +165,77 @@ Last updated: 2026-07-08
   `:1916`, so the P2.2 conversion should separate CLI probe result reporting
   from interaction-report failures instead of assuming every RunFrame probe is
   already under an automation state.
-- [ ] P2.2 Convert each probe function: return `SbResult` (or bool + SbError
-  out-param if signatures forbid) instead of throwing; the probe driver calls
-  `FailAutomation( state, error.message )` so failures land in the
-  interaction report as `ok=false` + failure text instead of a
-  `fatal_exception` crash. Keep messages byte-identical to the old throw
+- [x] P2.2 Convert each probe function: return `SbResult` (or bool + SbError
+  out-param if signatures forbid) instead of throwing. P2.1 discovery corrected
+  the reporting boundary: these RunFrame probes are Debug-only CLI diagnostics,
+  not direct `--interaction-script` actions, so failures are recorded on
+  `RunReplayProbeState::failure` and surfaced by `RunApp` as
+  `replay_probe_failed`, stderr text, optional dialog, and process exit 1
+  instead of `fatal_exception`. Keep messages byte-identical to the old throw
   strings (they are assertion documentation).
-- [ ] P2.3 Evidence: run the tracked proofs
+
+  Evidence (2026-07-08): `TickReplayScrubProbe`,
+  `TickReplayRestoreProbe`, `TickReplaySaveProbe`,
+  `VerifyLoadedReplayPresentationProbe`,
+  `VerifyReplaySolverCheckpointFileProbe`,
+  `VerifyReplaySolverTargetFileProbe`,
+  `VerifyReplaySolverFailureFileProbe`, and
+  `VerifyReplaySolverBranchFileProbe` now return `SbResult`. Per-frame probe
+  failures are stored through `Run::RecordReplayProbeFailure()` so `Execute()`
+  can unwind normally; Init file probes return immediately through the same
+  CLI reporting helper. Old failure strings are preserved, including formatted
+  `... failed: %s` cases. The non-P2 throws called out by P2.1 remain:
+  `Run::Execute requires a render backend`, replay load failure, and
+  `SetReplaySaveProbe` missing-path validation.
+
+- [x] P2.3 Evidence: run the tracked proofs
   (`memory_overlay_f6_toggle`, `replay_branch_restore_live_edge`,
   `prediction_ragdoll_wall_200_predict`) — all `ok=1`; then force one probe
-  to fail locally (temporary sabotage) and confirm the report shows
-  `ok=false` with the message, no crash; revert the sabotage. Gate:
-  `validate_fast`. Ratchet budget drops by ~60 — update the stored number in
-  the same commit. Commit.
+  to fail locally and confirm the chosen machine-readable surface shows the old
+  message, no crash; revert any sabotage. Gate: `validate_fast`. Ratchet budget
+  drops by ~60 — update the stored number in the same commit. Commit.
+
+  Evidence (2026-07-08):
+  - `memory_overlay_f6_toggle`: `Profile\SKULLBONEZ_CORE.exe --renderer dx12
+    --scene SkullbonezData\scenes\interaction_inspect_gizmo_harness.scene.json
+    --interaction-script SkullbonezData\interaction\memory_overlay_f6_toggle.json
+    --interaction-report TestOutput\interaction\memory_overlay_f6_toggle_report.json
+    --frames 90 --vsync off --allocation-guard gameplay
+    --platform-profiler-markers` exited 0 in 10.095s; report `ok=true`.
+  - `replay_branch_restore_live_edge`: `Profile\SKULLBONEZ_CORE.exe --renderer
+    dx12 --scene SkullbonezData\scenes\interaction_replay_prediction_harness.scene.json
+    --interaction-script SkullbonezData\interaction\replay_branch_restore_live_edge.json
+    --interaction-report TestOutput\interaction\replay_branch_restore_live_edge_report.json
+    --frames 140 --replay on --replay-seconds 2 --fixed-step --vsync off
+    --platform-profiler-markers` exited 0 in 3.028s; report `ok=true`.
+  - `prediction_ragdoll_wall_200_predict`: `Profile\SKULLBONEZ_CORE.exe
+    --renderer dx12 --scene SkullbonezData\scenes\prediction_ragdoll_wall_200.scene.json
+    --interaction-script SkullbonezData\interaction\prediction_ragdoll_wall_200_predict.json
+    --interaction-report TestOutput\interaction\prediction_ragdoll_wall_200_predict_report.json
+    --frames 220 --replay on --replay-seconds 2 --fixed-step --vsync off`
+    exited 0 in 5.054s; report `ok=true`, `predictionPathVisible=true`, and
+    `liveSolverHashStableAcrossPrediction=true`. A prior run with the extra
+    `--allocation-guard gameplay` option also produced report `ok=true` but
+    exited 9 from unrelated existing render-phase allocation-guard violations,
+    so the accepted P2.3 proof uses the checklist's `ok=1` criterion.
+  - Forced local failure: `Debug\SKULLBONEZ_CORE.exe --renderer dx12 --scene
+    SkullbonezData\scenes\physics_roll.scene.json --frames 1 --vsync off
+    --shadows off --replay-restore-file-probe
+    TestOutput\interaction\missing_replay_probe_artifact.bin` intentionally
+    used a missing artifact and returned process exit 1 in 4.718s with
+    `[replay] Probe failed: replay restore file probe failed to load v2 solver checkpoints`
+    and no `fatal_exception`.
+  - Ratchet: `MAX_SOURCE_THROW_TOKENS` lowered from 355 to 294. `python
+    tools\check_runtime_boundaries.py --self-test` passed, and `python
+    tools\check_runtime_boundaries.py --max-errors 20` passed with 0 errors.
+  - Touched-file comment audit inspected 7 source-bearing files with 0
+    deferred: `Core/SbResult.h`, `Runtime/Init.cpp`, `Runtime/Run.cpp`,
+    `Runtime/Run.h`, `Runtime/RunFrame.cpp`,
+    `Runtime/RunReplayProbeState.h`, and `tools/check_runtime_boundaries.py`.
+  - Commit gates: `tools\validate_fast.bat` passed in 67.232s; conservative
+    runtime gate `tools\validate_full.bat` passed in 45.705s with DX12
+    validation errors 0, screenshots matching committed baselines, and
+    `physics_regression_solver.csv` byte-exact.
 
 ## Phase 3 — hot-path invariants (physics/stores)
 

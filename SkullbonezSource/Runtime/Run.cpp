@@ -567,18 +567,18 @@ void Run::SetInteractionAutomation( const char* scriptPath, const char* reportPa
 #ifdef _DEBUG
 void Run::SetReplayScrubProbe( float normalized )
 {
-    m_replayScrubProbe.enabled = true;
-    m_replayScrubProbe.completed = false;
-    m_replayScrubProbe.normalized = std::clamp( normalized, 0.0f, 0.99f );
-    printf( "[replay] Scrub probe enabled: normalized=%.3f\n", m_replayScrubProbe.normalized );
+    m_replayProbes.scrub.enabled = true;
+    m_replayProbes.scrub.completed = false;
+    m_replayProbes.scrub.normalized = std::clamp( normalized, 0.0f, 0.99f );
+    printf( "[replay] Scrub probe enabled: normalized=%.3f\n", m_replayProbes.scrub.normalized );
 }
 
 void Run::SetReplayRestoreProbe( float normalized )
 {
-    m_replayRestoreProbe.enabled = true;
-    m_replayRestoreProbe.completed = false;
-    m_replayRestoreProbe.normalized = std::clamp( normalized, 0.0f, 0.99f );
-    printf( "[replay] Restore probe enabled: normalized=%.3f\n", m_replayRestoreProbe.normalized );
+    m_replayProbes.restore.enabled = true;
+    m_replayProbes.restore.completed = false;
+    m_replayProbes.restore.normalized = std::clamp( normalized, 0.0f, 0.99f );
+    printf( "[replay] Restore probe enabled: normalized=%.3f\n", m_replayProbes.restore.normalized );
 }
 
 void Run::SetReplaySaveProbe( const char* path )
@@ -588,10 +588,40 @@ void Run::SetReplaySaveProbe( const char* path )
         throw std::runtime_error( "replay save probe requires an output path" );
     }
 
-    m_replaySaveProbe.enabled = true;
-    m_replaySaveProbe.completed = false;
-    strcpy_s( m_replaySaveProbe.path, sizeof( m_replaySaveProbe.path ), path );
-    printf( "[replay] Save probe enabled: path=%s\n", m_replaySaveProbe.path );
+    m_replayProbes.save.enabled = true;
+    m_replayProbes.save.completed = false;
+    strcpy_s( m_replayProbes.save.path, sizeof( m_replayProbes.save.path ), path );
+    printf( "[replay] Save probe enabled: path=%s\n", m_replayProbes.save.path );
+}
+
+void Run::RecordReplayProbeFailure( const SbResult& result )
+{
+    if ( result.ok || m_replayProbes.failure.failed )
+    {
+        return;
+    }
+
+    const char* owner = result.error.owner && result.error.owner[0] != '\0' ? result.error.owner : "ReplayProbe";
+    const char* message =
+        result.error.message[0] != '\0' ? result.error.message : "replay probe failed without a failure message";
+    m_replayProbes.failure.failed = true;
+    strcpy_s( m_replayProbes.failure.owner, sizeof( m_replayProbes.failure.owner ), owner );
+    strcpy_s( m_replayProbes.failure.message, sizeof( m_replayProbes.failure.message ), message );
+}
+
+bool Run::ReplayProbeFailed() const
+{
+    return m_replayProbes.failure.failed;
+}
+
+const char* Run::ReplayProbeFailureOwner() const
+{
+    return m_replayProbes.failure.owner[0] != '\0' ? m_replayProbes.failure.owner : "ReplayProbe";
+}
+
+const char* Run::ReplayProbeFailureMessage() const
+{
+    return m_replayProbes.failure.message[0] != '\0' ? m_replayProbes.failure.message : "replay probe failed";
 }
 #endif
 
