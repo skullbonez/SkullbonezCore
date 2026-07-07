@@ -48,6 +48,7 @@ void EnterMode( RunCameraState& camera, const RunSubsystemState& systems );
 bool BeginGrab( RunCameraState& camera, const RunSubsystemState& systems );
 bool EndGrab( RunCameraState& camera, const RunSubsystemState& systems );
 bool SetCurrentPhasePose( RunCameraState& camera, const RunSubsystemState& systems );
+bool SetCurrentPhaseStyle( RunCameraState& camera, const char* stylePath );
 bool SelectNextPhaseForAuthoring( RunCameraState& camera, const RunSubsystemState& systems );
 bool SaveShotList( const RunCameraState& camera );
 void Tick( RunCameraState& camera,

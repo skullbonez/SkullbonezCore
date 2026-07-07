@@ -11,8 +11,9 @@ Mental model:
 Glossary:
   World click: Automation request that projects a screen-space click into the
   scene and routes it through the active runtime owner.
-  Director shot action: Automation request that loads or advances a fixed camera
-    shot list without taking ownership away from the runtime camera state.
+  Director shot action: Automation request that loads, plays, grabs, advances,
+    or retargets a fixed camera shot list without taking ownership away from
+    the runtime camera state.
   Prediction target: Replay body selected for future-path diagnostics.
   Automation report: JSON side-channel describing what the scripted interaction
   observed without mutating validation baselines directly.
@@ -144,6 +145,20 @@ bool ReplayPredictionPathVisible( const ReplayRuntime& replayRuntime )
     return replayRuntime.PathVisualizer().hasTarget &&
            ( !replayRuntime.PathVisualizer().futureNodes.empty() || VisiblePredictionFrameCount( replayRuntime ) >= 2 ||
              !replayRuntime.Prediction().futureNodes.empty() );
+}
+
+const DemoPhase* ActiveDirectorPhase( const RunCameraState& camera )
+{
+    // Concept: phase assertions observe the same active phase that playback
+    // uses. They are report-only probes and must not advance or repair director
+    // state just to make a scripted screenshot line up.
+    const DemoDirectorPlaybackState& director = camera.director;
+    if ( !director.hasActiveShotList || director.currentPhaseIndex < 0 ||
+         director.currentPhaseIndex >= director.activeShotList.phaseCount )
+    {
+        return nullptr;
+    }
+    return &director.activeShotList.phases[static_cast<std::size_t>( director.currentPhaseIndex )];
 }
 
 bool LiveSolverHashStableAcrossPrediction( const ReplayRuntime& replayRuntime,
@@ -433,8 +448,16 @@ const char* ActionTypeName( RunInteractionAutomationActionType type )
     {
     case RunInteractionAutomationActionType::LoadShotList:
         return "loadShotList";
+    case RunInteractionAutomationActionType::DirectorPlay:
+        return "directorPlay";
     case RunInteractionAutomationActionType::DirectorAdvance:
         return "directorAdvance";
+    case RunInteractionAutomationActionType::DirectorGrab:
+        return "directorGrab";
+    case RunInteractionAutomationActionType::DirectorRelease:
+        return "directorRelease";
+    case RunInteractionAutomationActionType::SetPhaseStyle:
+        return "setPhaseStyle";
     case RunInteractionAutomationActionType::SetCameraPose:
         return "setCameraPose";
     case RunInteractionAutomationActionType::SetCameraMode:
@@ -473,6 +496,12 @@ const char* AssertName( RunInteractionAutomationAssertKind kind )
         return "cameraMode";
     case RunInteractionAutomationAssertKind::DirectorGrabbed:
         return "directorGrabbed";
+    case RunInteractionAutomationAssertKind::DirectorPhaseIndex:
+        return "directorPhaseIndex";
+    case RunInteractionAutomationAssertKind::DirectorPhaseName:
+        return "directorPhaseName";
+    case RunInteractionAutomationAssertKind::DirectorPhaseStylePath:
+        return "directorPhaseStylePath";
     case RunInteractionAutomationAssertKind::ReplayPredictionEnabled:
         return "replayPredictionEnabled";
     case RunInteractionAutomationAssertKind::ReplayPathTarget:
@@ -608,9 +637,36 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
         return true;
     }
 
+    if ( entry.contains( "directorPlay" ) )
+    {
+        outAction.type = RunInteractionAutomationActionType::DirectorPlay;
+        outAction.boolValue = ReadBool( entry["directorPlay"] );
+        CopyText( outAction.text, sizeof( outAction.text ), outAction.boolValue ? "Director" : "Inspect" );
+        return true;
+    }
+
     if ( entry.contains( "directorAdvance" ) )
     {
         outAction.type = RunInteractionAutomationActionType::DirectorAdvance;
+        return true;
+    }
+
+    if ( entry.contains( "directorGrab" ) )
+    {
+        outAction.type = RunInteractionAutomationActionType::DirectorGrab;
+        return true;
+    }
+
+    if ( entry.contains( "directorRelease" ) )
+    {
+        outAction.type = RunInteractionAutomationActionType::DirectorRelease;
+        return true;
+    }
+
+    if ( entry.contains( "setPhaseStyle" ) )
+    {
+        outAction.type = RunInteractionAutomationActionType::SetPhaseStyle;
+        CopyText( outAction.path, sizeof( outAction.path ), entry["setPhaseStyle"].get<std::string>() );
         return true;
     }
 
@@ -734,6 +790,21 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
         {
             outAction.assertKind = RunInteractionAutomationAssertKind::DirectorGrabbed;
             outAction.boolValue = ReadBool( member.value() );
+        }
+        else if ( name == "directorPhaseIndex" )
+        {
+            outAction.assertKind = RunInteractionAutomationAssertKind::DirectorPhaseIndex;
+            outAction.numberValue = static_cast<float>( member.value().get<int>() );
+        }
+        else if ( name == "directorPhaseName" )
+        {
+            outAction.assertKind = RunInteractionAutomationAssertKind::DirectorPhaseName;
+            CopyText( outAction.text, sizeof( outAction.text ), member.value().get<std::string>() );
+        }
+        else if ( name == "directorPhaseStylePath" )
+        {
+            outAction.assertKind = RunInteractionAutomationAssertKind::DirectorPhaseStylePath;
+            CopyText( outAction.path, sizeof( outAction.path ), member.value().get<std::string>() );
         }
         else if ( name == "replayPredictionEnabled" )
         {
@@ -1033,6 +1104,25 @@ void Run::TickInteractionAutomationBeforeInput()
             action.processed = true;
             break;
         }
+        case RunInteractionAutomationActionType::DirectorPlay:
+        {
+            const RunCameraMode targetMode = action.boolValue ? RunCameraMode::Director : RunCameraMode::Inspect;
+            ApplyCameraMode( targetMode, RuntimeInputActionSource::Runtime );
+            const bool applied = m_camera.mode == targetMode;
+            if ( !applied )
+            {
+                FailAutomation( state, "failed to apply director play state" );
+            }
+            AppendReportAction( state,
+                                frame,
+                                action.type,
+                                action.text,
+                                nullptr,
+                                applied,
+                                applied ? "director play state applied" : "director play state failed" );
+            action.processed = true;
+            break;
+        }
         case RunInteractionAutomationActionType::DirectorAdvance:
         {
             const bool advanced = DemoDirectorPlayback::AdvancePhase( m_camera, m_systems );
@@ -1047,6 +1137,57 @@ void Run::TickInteractionAutomationBeforeInput()
                                 nullptr,
                                 advanced,
                                 advanced ? "director phase advanced" : "director phase unavailable" );
+            action.processed = true;
+            break;
+        }
+        case RunInteractionAutomationActionType::DirectorGrab:
+        {
+            const bool grabbed = DemoDirectorPlayback::BeginGrab( m_camera, m_systems );
+            if ( !grabbed )
+            {
+                FailAutomation( state, "failed to grab director camera" );
+            }
+            AppendReportAction( state,
+                                frame,
+                                action.type,
+                                "",
+                                nullptr,
+                                grabbed,
+                                grabbed ? "director camera grabbed" : "director grab unavailable" );
+            action.processed = true;
+            break;
+        }
+        case RunInteractionAutomationActionType::DirectorRelease:
+        {
+            const bool released = DemoDirectorPlayback::EndGrab( m_camera, m_systems );
+            if ( !released )
+            {
+                FailAutomation( state, "failed to release director camera" );
+            }
+            AppendReportAction( state,
+                                frame,
+                                action.type,
+                                "",
+                                nullptr,
+                                released,
+                                released ? "director camera released" : "director release unavailable" );
+            action.processed = true;
+            break;
+        }
+        case RunInteractionAutomationActionType::SetPhaseStyle:
+        {
+            const bool applied = DemoDirectorPlayback::SetCurrentPhaseStyle( m_camera, action.path );
+            if ( !applied )
+            {
+                FailAutomation( state, "failed to set director phase style" );
+            }
+            AppendReportAction( state,
+                                frame,
+                                action.type,
+                                action.path,
+                                nullptr,
+                                applied,
+                                applied ? "director phase style set" : "director phase unavailable" );
             action.processed = true;
             break;
         }
@@ -1485,6 +1626,30 @@ void Run::TickInteractionAutomationAfterRender()
             actual = BoolString( m_camera.director.grabbed );
             passed = m_camera.director.grabbed == action.boolValue;
             break;
+        case RunInteractionAutomationAssertKind::DirectorPhaseIndex:
+        {
+            const int expectedPhase = static_cast<int>( action.numberValue );
+            expected = std::to_string( expectedPhase );
+            actual = std::to_string( m_camera.director.currentPhaseIndex );
+            passed = m_camera.director.currentPhaseIndex == expectedPhase;
+            break;
+        }
+        case RunInteractionAutomationAssertKind::DirectorPhaseName:
+        {
+            const DemoPhase* phase = ActiveDirectorPhase( m_camera );
+            expected = action.text;
+            actual = phase ? phase->name : "";
+            passed = actual == expected;
+            break;
+        }
+        case RunInteractionAutomationAssertKind::DirectorPhaseStylePath:
+        {
+            const DemoPhase* phase = ActiveDirectorPhase( m_camera );
+            expected = action.path;
+            actual = phase ? phase->stylePath : "";
+            passed = actual == expected;
+            break;
+        }
         case RunInteractionAutomationAssertKind::ReplayPredictionEnabled:
             expected = BoolString( action.boolValue );
             actual = BoolString( m_replayRuntime.Prediction().enabled );

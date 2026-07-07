@@ -402,7 +402,11 @@ struct RunInputLatchState
 enum class RunInteractionAutomationActionType
 {
     LoadShotList,
+    DirectorPlay,
     DirectorAdvance,
+    DirectorGrab,
+    DirectorRelease,
+    SetPhaseStyle,
     SetCameraPose,
     SetCameraMode,
     ClickObject,
@@ -428,6 +432,9 @@ enum class RunInteractionAutomationAssertKind
     Owner,
     CameraMode,
     DirectorGrabbed,
+    DirectorPhaseIndex,
+    DirectorPhaseName,
+    DirectorPhaseStylePath,
     ReplayPredictionEnabled,
     ReplayPathTarget,
     PredictionPathVisible,

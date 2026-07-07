@@ -14,8 +14,8 @@ Glossary:
   Blend start pose: Camera pose captured when a phase transition begins.
   Grab: Temporary operator ownership of the camera while Director mode remains
     selected.
-  Director advance: Manual phase step used for early automation proof before
-    timer/reveal advance rules are wired.
+  Director advance: Manual, timer, or reveal-synced rule that selects the next
+    authored phase without changing simulation ownership.
   Phase style: Optional `.style.json` applied through SceneRuntimeStyle when a
     phase becomes active.
   Reveal rate: Authored multiplier for prediction seconds revealed per real
@@ -112,6 +112,16 @@ bool IsCurrentPhaseValid( const DemoDirectorPlaybackState& director )
            director.currentPhaseIndex < director.activeShotList.phaseCount;
 }
 
+const DemoPhase& CurrentPhase( const DemoDirectorPlaybackState& director )
+{
+    return director.activeShotList.phases[static_cast<std::size_t>( director.currentPhaseIndex )];
+}
+
+DemoPhase& CurrentPhase( DemoDirectorPlaybackState& director )
+{
+    return director.activeShotList.phases[static_cast<std::size_t>( director.currentPhaseIndex )];
+}
+
 void CopyShotListPath( DemoDirectorPlaybackState& director, const char* path )
 {
     director.activeShotListPath[0] = '\0';
@@ -145,6 +155,18 @@ bool PhaseRevealRateApplied( const DemoDirectorPlaybackState& director, const De
            director.appliedRevealRate == revealRate;
 }
 
+void ResetPhaseStyleApplication( DemoDirectorPlaybackState& director )
+{
+    director.appliedStylePhaseIndex = -1;
+    director.appliedStylePath[0] = '\0';
+}
+
+void ResetPhaseEntryApplications( DemoDirectorPlaybackState& director )
+{
+    ResetPhaseStyleApplication( director );
+    director.appliedRevealRatePhaseIndex = -1;
+}
+
 void SetPredictionRevealRatePreservingCursor( RunReplayPredictionState& prediction, double revealRate )
 {
     const double normalizedRevealRate = revealRate > 0.0 ? revealRate : 1.0;
@@ -161,6 +183,90 @@ void SetPredictionRevealRatePreservingCursor( RunReplayPredictionState& predicti
     prediction.revealSecondsPerSecond = normalizedRevealRate;
 }
 
+bool ActivePredictionLastFrame( const RunReplayPredictionState& prediction, ReplayFrameIndex& outLastFrame )
+{
+    const bool usingBuildFrames =
+        prediction.building && prediction.buildFrameCount >= 2 &&
+        ( prediction.frames.empty() || prediction.buildFrameCount >= prediction.frames.size() );
+    const auto& activeFrames = usingBuildFrames ? prediction.buildFrames : prediction.frames;
+    const std::size_t activeFrameCount =
+        usingBuildFrames ? (std::min)( prediction.buildFrameCount, activeFrames.size() ) : activeFrames.size();
+    if ( activeFrameCount < 2 )
+    {
+        outLastFrame = 0;
+        return false;
+    }
+
+    outLastFrame = activeFrames[activeFrameCount - 1].frameIndex;
+    return outLastFrame > 0;
+}
+
+ReplayFrameIndex PredictionRevealFrameForAdvance( const RunReplayPredictionState& prediction,
+                                                  ReplayFrameIndex lastAvailableFrame )
+{
+    if ( !prediction.revealAnchorValid || lastAvailableFrame == 0 )
+    {
+        return 0;
+    }
+
+    const double availableSeconds = static_cast<double>( lastAvailableFrame ) * PHYSICS_FIXED_DT;
+    if ( availableSeconds <= 0.0 )
+    {
+        return 0;
+    }
+
+    const auto now = std::chrono::steady_clock::now();
+    const double elapsedSeconds =
+        (std::max)( 0.0, std::chrono::duration<double>( now - prediction.revealAnchor ).count() );
+    const double revealSecondsPerSecond =
+        prediction.revealSecondsPerSecond > 0.0 ? prediction.revealSecondsPerSecond : 1.0;
+    const double revealedSeconds = (std::min)( availableSeconds, elapsedSeconds * revealSecondsPerSecond );
+    const double revealFrame = revealedSeconds / static_cast<double>( PHYSICS_FIXED_DT );
+    return (std::min)( lastAvailableFrame, static_cast<ReplayFrameIndex>( revealFrame ) );
+}
+
+bool PredictionRevealProgress01( const RunReplayPredictionState& prediction, float& outProgress )
+{
+    ReplayFrameIndex lastFrame = 0;
+    if ( !ActivePredictionLastFrame( prediction, lastFrame ) )
+    {
+        outProgress = 0.0f;
+        return false;
+    }
+
+    const ReplayFrameIndex revealFrame = PredictionRevealFrameForAdvance( prediction, lastFrame );
+    // Concept: RevealAtLeast is keyed to the same frame cursor that gates the
+    // visible causal overlay. It reads presentation state only; advancing a
+    // director phase must never dirty prediction or mutate solver samples.
+    outProgress = std::clamp( static_cast<float>( revealFrame ) / static_cast<float>( lastFrame ), 0.0f, 1.0f );
+    return true;
+}
+
+bool CurrentPhaseRequestsAdvance( const DemoDirectorPlaybackState& director,
+                                  const RunReplayPredictionState& prediction )
+{
+    if ( !IsCurrentPhaseValid( director ) )
+    {
+        return false;
+    }
+
+    const DemoPhase& phase = CurrentPhase( director );
+    switch ( phase.advance )
+    {
+    case PhaseAdvance::Manual:
+        return false;
+    case PhaseAdvance::Timer:
+        return director.phaseElapsedSeconds >= (std::max)( 0.0f, phase.timerSeconds );
+    case PhaseAdvance::RevealAtLeast:
+    {
+        float revealProgress = 0.0f;
+        return PredictionRevealProgress01( prediction, revealProgress ) &&
+               revealProgress >= std::clamp( phase.revealThreshold, 0.0f, 1.0f );
+    }
+    }
+    return false;
+}
+
 void ApplyPhaseRevealRateIfNeeded( DemoDirectorPlaybackState& director, RunReplayPredictionState& prediction )
 {
     if ( !IsCurrentPhaseValid( director ) )
@@ -168,7 +274,7 @@ void ApplyPhaseRevealRateIfNeeded( DemoDirectorPlaybackState& director, RunRepla
         return;
     }
 
-    const DemoPhase& phase = director.activeShotList.phases[static_cast<std::size_t>( director.currentPhaseIndex )];
+    const DemoPhase& phase = CurrentPhase( director );
     if ( PhaseRevealRateApplied( director, phase ) )
     {
         return;
@@ -195,7 +301,7 @@ void ApplyPhaseStyleIfNeeded( DemoDirectorPlaybackState& director, SceneRuntimeS
         return;
     }
 
-    const DemoPhase& phase = director.activeShotList.phases[static_cast<std::size_t>( director.currentPhaseIndex )];
+    const DemoPhase& phase = CurrentPhase( director );
     if ( PhaseStyleAttempted( director, phase ) )
     {
         return;
@@ -270,6 +376,7 @@ bool AdvancePhase( RunCameraState& camera, const RunSubsystemState& systems )
 
     director.currentPhaseIndex = nextPhase;
     director.phaseElapsedSeconds = 0.0f;
+    ResetPhaseEntryApplications( director );
     ResetBlendFromCurrentPose( director, systems );
     return true;
 }
@@ -279,9 +386,7 @@ void EnterMode( RunCameraState& camera, const RunSubsystemState& systems )
     DemoDirectorPlaybackState& director = camera.director;
     director.grabbed = false;
     director.phaseElapsedSeconds = 0.0f;
-    director.appliedStylePhaseIndex = -1;
-    director.appliedStylePath[0] = '\0';
-    director.appliedRevealRatePhaseIndex = -1;
+    ResetPhaseEntryApplications( director );
     ResetBlendFromCurrentPose( director, systems );
     if ( director.hasActiveShotList &&
          ( director.currentPhaseIndex < 0 || director.currentPhaseIndex >= director.activeShotList.phaseCount ) )
@@ -333,7 +438,7 @@ bool SetCurrentPhasePose( RunCameraState& camera, const RunSubsystemState& syste
     }
 
     const DemoCameraPose pose = CaptureCurrentPose( systems );
-    DemoPhase& phase = director.activeShotList.phases[static_cast<std::size_t>( director.currentPhaseIndex )];
+    DemoPhase& phase = CurrentPhase( director );
     phase.camera = pose;
     director.poseCapturedAtGrab = pose;
     director.blendStartPose = pose;
@@ -341,6 +446,27 @@ bool SetCurrentPhasePose( RunCameraState& camera, const RunSubsystemState& syste
     std::printf( "[demo-director] captured pose for phase %d (%s)\n",
                  director.currentPhaseIndex,
                  phase.name[0] ? phase.name : "<unnamed>" );
+    return true;
+}
+
+bool SetCurrentPhaseStyle( RunCameraState& camera, const char* stylePath )
+{
+    DemoDirectorPlaybackState& director = camera.director;
+    if ( !IsCurrentPhaseValid( director ) )
+    {
+        return false;
+    }
+
+    DemoPhase& phase = CurrentPhase( director );
+    std::snprintf( phase.stylePath, sizeof( phase.stylePath ), "%s", stylePath ? stylePath : "" );
+    // Why: automation may retarget a phase's look while Director mode is already
+    // active. Clearing only the style attempt lets the next tick apply the new
+    // style without recounting reveal-rate application for the same phase.
+    ResetPhaseStyleApplication( director );
+    std::printf( "[demo-director] set style for phase %d (%s) to %s\n",
+                 director.currentPhaseIndex,
+                 phase.name[0] ? phase.name : "<unnamed>",
+                 phase.stylePath[0] ? phase.stylePath : "<empty>" );
     return true;
 }
 
@@ -360,8 +486,9 @@ bool SelectNextPhaseForAuthoring( RunCameraState& camera, const RunSubsystemStat
 
     director.currentPhaseIndex = nextPhase;
     director.phaseElapsedSeconds = 0.0f;
+    ResetPhaseEntryApplications( director );
     ResetBlendFromCurrentPose( director, systems );
-    const DemoPhase& phase = director.activeShotList.phases[static_cast<std::size_t>( director.currentPhaseIndex )];
+    const DemoPhase& phase = CurrentPhase( director );
     std::printf( "[demo-director] selected phase %d (%s)\n",
                  director.currentPhaseIndex,
                  phase.name[0] ? phase.name : "<unnamed>" );
@@ -399,6 +526,7 @@ void Tick( RunCameraState& camera,
     {
         director.currentPhaseIndex = 0;
         director.phaseElapsedSeconds = 0.0f;
+        ResetPhaseEntryApplications( director );
         ResetBlendFromCurrentPose( director, systems );
     }
 
@@ -412,13 +540,17 @@ void Tick( RunCameraState& camera,
         return;
     }
 
-    const DemoPhase& phase = director.activeShotList.phases[static_cast<std::size_t>( director.currentPhaseIndex )];
+    const DemoPhase& phase = CurrentPhase( director );
     director.phaseElapsedSeconds += cameraDt;
     director.blendElapsedSeconds += cameraDt;
 
     const float blendAlpha = PhaseBlendAlpha( phase, director.blendElapsedSeconds );
     const DemoCameraPose pose = LerpPose( director.blendStartPose, phase.camera, blendAlpha );
     systems.cameras->SetPrimaryPose( pose.eye, pose.view, pose.up );
+    if ( CurrentPhaseRequestsAdvance( director, prediction ) )
+    {
+        AdvancePhase( camera, systems );
+    }
 }
 } // namespace DemoDirectorPlayback
 } // namespace Basics

@@ -160,6 +160,49 @@ The watched folder defaults to `Agentic\style-harness\` and contains:
 
 `--live-style-control` automatically enters interactive hold mode. The app only parses/apply styles when `live.style.json` changes, then captures after render/UI on the next requested frame. It does not rebuild objects, reload cameras, restart frame counters, change simulation time scale, or apply scene fields such as `terrain`, `objects`, or `simulation.timeScale`.
 
+## Demo Director Shot Lists
+
+Demo Director plays ordered `.shot.json` phase lists for reproducible camera/style takes. `SkullbonezData\shots\butterfly.shot.json` is the authored butterfly-effect take for `prediction_ragdoll_wall_200.scene.json`.
+
+Each shot list uses:
+
+```json
+{
+  "format": "skullbonez.shot.json",
+  "version": 1,
+  "loop": false,
+  "phases": [
+    {
+      "name": "phase-name",
+      "camera": {
+        "position": [0.0, 0.0, 0.0],
+        "view": [0.0, 0.0, -1.0],
+        "up": [0.0, 1.0, 0.0]
+      },
+      "stylePath": "SkullbonezData/styles/storm_front.style.json",
+      "advance": "RevealAtLeast",
+      "timerSeconds": 1.0,
+      "revealThreshold": 0.25,
+      "blendInSeconds": 0.4,
+      "revealRate": 0.5
+    }
+  ]
+}
+```
+
+`advance` accepts `Manual`, `Timer`, or `RevealAtLeast`. `Timer` advances when the active phase elapsed time reaches `timerSeconds`. `RevealAtLeast` advances when the replay prediction reveal cursor reaches `revealThreshold` as normalized revealed frame over last prediction frame; it waits for a real prediction frame range before advancing. `revealRate` controls prediction seconds revealed per real second while the phase is active.
+
+Director authoring keys:
+
+| Key | Action |
+|-----|--------|
+| B | Grab/release the Director camera. Grab starts from the current Director pose and keeps the camera in Director mode. |
+| J | Capture the current camera pose into the active phase. Works in Director or fly-style camera modes when a shot list is loaded. |
+| K | Select the next phase for authoring. Non-looping shot lists wrap for authoring selection only. |
+| L | Save the loaded shot list back to its source path. |
+
+Interaction automation supports Director takes with `loadShotList`, `directorPlay`, `directorAdvance`, `directorGrab`, `directorRelease`, `setPhaseStyle`, `setCameraPose`, and `screenshot`. Assertions include `directorGrabbed`, `directorPhaseIndex`, `directorPhaseName`, and `directorPhaseStylePath`, so scripted screenshots can be pinned to exact phases.
+
 ## Replay Capture And Scrub
 
 Replay capture keeps the last 30 seconds of presentation and solver samples in memory by default for generated and interactive runs. Scene/suite automation leaves replay off unless the command line opts in with `--replay on`, `--replay-seconds`, or `--replay-hashes`. With the in-game UI minimized and editor mode off, move the mouse near the bottom edge to reveal the scrubber. Click-hold or drag a row thumb left to inspect earlier retained frames; physics pauses while a historical frame is selected. The active row is the only row whose thumb moves while dragging, and the opposite row is muted at its own stored position. Drag the active thumb back to the live end to resume simulation. Entering scrub inspection or pressing the scrubber's `PAUSE` button copies the current render camera once into the internal `CAMERA_FREE` camera, then leaves the camera completely user-controlled; retained replay camera poses are not applied during inspection preview. While paused, `PLAY` resumes the previous fly/launcher mode, and Space steps physics without clearing the current prediction drawing.
@@ -247,6 +290,10 @@ Physics regression CSV output is command-line only via `--physics-regression-log
 | Alt | In edit mode, toggle Place/Gizmo mode. Outside edit mode, toggle replay velocity edit for the selected dynamic replay target. |
 | Tab | In edit mode, cycle the placement object type. |
 | Ctrl+Tab | In edit mode, toggle new placements between static/fixed and dynamic/physics. |
+| B | In Director mode, grab or release the camera from the active phase pose. |
+| J | In Director or fly-style camera modes, capture the current camera pose into the active shot-list phase. |
+| K | In Director or fly-style camera modes, select the next shot-list phase for authoring. |
+| L | In Director or fly-style camera modes, save the loaded shot list. |
 | Rock placement | Tab-selectable rock slab, lump, shard, and chipped-block entries place the authored convex hull rock assets with their stone material colors. |
 | Tree Small / Tree Big placement | Tab-selectable tree objects place the full stacked tree at once. With Static object enabled, all tree hulls are fixed; with dynamic placement, the trunk and foliage tiers are separate physics hulls that can be knocked over. |
 | 0 | Toggle profiler overlay. |
