@@ -1,7 +1,7 @@
 # Unified Error Handling Policy Plan
 
 Date: 2026-07-06
-Status: Phase 1 policy and ratchet complete on 2026-07-07; conversions not started
+Status: Phase 1 policy and ratchet complete on 2026-07-07; Phase 2 probe discovery complete on 2026-07-08; conversions not started
 Impact area: all subsystems, incrementally; policy + mechanical conversion
 Validation for this document: none (documentation-only)
 

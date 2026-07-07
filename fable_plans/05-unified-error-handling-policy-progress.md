@@ -1,8 +1,8 @@
 # Progress: Unified Error Handling Policy (plan 05)
 
 Source plan: `fable_plans/05-unified-error-handling-policy-plan.md`
-Status: phase 1 complete on 2026-07-07; conversions not started
-Last updated: 2026-07-07
+Status: phase 1 complete on 2026-07-07; P2.1 probe discovery complete on 2026-07-08; conversions not started
+Last updated: 2026-07-08
 
 ## How to work this file
 
@@ -133,10 +133,38 @@ Last updated: 2026-07-07
 
 ## Phase 2 — probes (RunFrame.cpp, ~60 sites, lowest risk)
 
-- [ ] P2.1 Locate the probe entry points: `rg -n "probe" SkullbonezSource/Runtime/RunFrame.cpp`
+- [x] P2.1 Locate the probe entry points: `rg -n "probe" SkullbonezSource/Runtime/RunFrame.cpp`
   — record which functions contain the throw clusters (scrub probe, restore
   probe, etc.) and who calls them (frame loop under automation flags only?).
   Record: are probes reachable outside `--interaction-script`/stress runs?
+
+  Evidence (2026-07-08): CodeGraph was used first for the RunFrame probe
+  surface and `FailAutomation` report path. The RunFrame probe throw clusters
+  are Debug-only CLI probe surfaces, not ordinary gameplay and not direct
+  `--interaction-script` actions. Per-frame probes are called from
+  `Run::ExecuteFrame` only after replay capture (`RunFrame.cpp:1112-1114`) and
+  are enabled by Init wiring from command-line flags:
+  `--replay-scrub-probe`, `--replay-restore-probe`, and
+  `--replay-save-probe` (`Init.cpp:3080-3088`). File probes are invoked
+  directly from Init debug-probe options (`Init.cpp:3157-3177`). Non-Debug
+  guards reject those CLI options in `Init.cpp:2560-2688`.
+
+  Throw clusters counted in `RunFrame.cpp`:
+  `TickReplayScrubProbe:1121` has 11 throws;
+  `TickReplayRestoreProbe:1270` has 3;
+  `TickReplaySaveProbe:1319` has 22;
+  `VerifyLoadedReplayPresentationProbe:1629` has 13;
+  `VerifyReplaySolverCheckpointFileProbe:1772` has 5;
+  `VerifyReplaySolverTargetFileProbe:2755` has 1;
+  `VerifyReplaySolverFailureFileProbe:2794` has 2;
+  `VerifyReplaySolverBranchFileProbe:2819` has 3. The non-probe
+  `Run::Execute requires a render backend` throw at `RunFrame.cpp:746` is
+  outside P2 and belongs to a fatal-invariant lane. `FailAutomation` remains in
+  `RunInteractionAutomation.cpp:612`; interaction automation currently throws
+  after setting `state.failed` at `RunInteractionAutomation.cpp:1098` and
+  `:1916`, so the P2.2 conversion should separate CLI probe result reporting
+  from interaction-report failures instead of assuming every RunFrame probe is
+  already under an automation state.
 - [ ] P2.2 Convert each probe function: return `SbResult` (or bool + SbError
   out-param if signatures forbid) instead of throwing; the probe driver calls
   `FailAutomation( state, error.message )` so failures land in the
