@@ -157,13 +157,13 @@ hardest-to-unblock first inside each plan.
 
 - **SVC-001** - `SkullbonezSource/Rendering/IRenderBackend.cpp` / `s_gfxBackend`
   - Attempted: central renderer singleton migration assessment.
-  - Failure/reason: active renderer singleton cannot be startup-only while compatibility callers still exist in profiler marker/timer code, window resize, stress, input/readiness checks, UI profiler, and draw-call trace helpers.
-  - Needed to unblock: finish dependent renderer-service cleanup or approve a bounded compatibility decision.
+  - Failure/reason: active renderer singleton cannot be startup-only while compatibility callers still exist in physics debug visualizers, window resize, stress/input readiness checks, capture facade, and draw-call trace helpers. The profiler marker/timer dependency was removed by the 2026-07-07 Profiler renderer-diagnostics bind.
+  - Needed to unblock: finish the remaining non-profiler renderer-service cleanup or approve a bounded compatibility decision.
 
 - **SVC-002** - `SkullbonezSource/Rendering/IRenderBackend.cpp` / `Gfx`
   - Attempted: service locator deletion assessment.
-  - Failure/reason: `Gfx()` still serves broad compatibility callers across the renderer service surface; the checker ratchet prevents growth but deletion needs dependent cleanup.
-  - Needed to unblock: migrate remaining callers to explicit render capabilities.
+  - Failure/reason: `Gfx()` still serves the backend facade, physics debug visualizers, capture compatibility, and draw-call trace helpers; the checker ratchet prevents growth but deletion needs dependent cleanup. Core profiler no longer depends on it.
+  - Needed to unblock: migrate remaining callers to explicit render capabilities and then delete the facade accessor.
 
 ## Plan 01 - Run Composition Root
 

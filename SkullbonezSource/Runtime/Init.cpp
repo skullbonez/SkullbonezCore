@@ -3354,6 +3354,7 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine
     // Why: Profiler remains the sanctioned diagnostics singleton, but runtime
     // owners receive this startup borrow instead of resolving it mid-frame.
     profiler = &Profiler::Instance();
+    profiler->BindRenderDiagnostics( renderBackendView.renderDiagnostics );
 #endif
 
     const int runExitCode = RunApp( window, args, cfg, workerPool, profiler, renderBackendView );
@@ -3361,6 +3362,9 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine
     {
         RuntimeAllocation::RuntimeAllocationScope allocationScope(
             RuntimeAllocation::RuntimeAllocationPhase::Shutdown );
+#if defined( SKULLBONEZ_PROFILE_ENABLED )
+        profiler->BindRenderDiagnostics( nullptr );
+#endif
         workerPool.Shutdown();
         CleanupWindow( window, hInstance );
     }

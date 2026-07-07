@@ -15,6 +15,9 @@ Glossary:
   wall-clock marker spans.
   GPU timestamp: Backend query pair that measures elapsed GPU execution without
   blocking the CPU until the readback is ready.
+  Render diagnostics capability: Narrow renderer interface used here for GPU
+    timers and platform GPU marker events without depending on the wide backend
+    facade.
   Ring buffer: Fixed-size rolling sample window used for p50/p99 statistics.
   Warmup frame: Completed frame intentionally excluded from profiler stats and
     perf CSV rows while a scene/pass settles.
@@ -48,7 +51,8 @@ namespace SkullbonezCore
 namespace Rendering
 {
 class IRenderCommandContext;
-}
+class IRenderDiagnostics;
+} // namespace Rendering
 
 namespace Basics
 {
@@ -61,7 +65,8 @@ namespace Basics
     undefined.
 
     CPU timing uses QueryPerformanceCounter (wall-clock).
-    GPU timing uses the active render backend's non-blocking timestamp readback.
+    GPU timing uses the startup-bound render diagnostics capability's
+    non-blocking timestamp readback.
 
     Use the macros:
       PROFILE_BEGIN / PROFILE_END / PROFILE_SCOPED         — CPU-only timing
@@ -177,6 +182,11 @@ class Profiler
     void FrameBegin();
     void FrameEnd();                             // commits per-frame totals; recomputes p50/p99; refreshes moving avg every 500 ms
 
+    // Lifetime: runtime startup binds the active renderer diagnostics borrow
+    // before frames begin and clears it before backend teardown. Profiler keeps
+    // no renderer ownership and has no fallback global lookup.
+    void BindRenderDiagnostics( Rendering::IRenderDiagnostics* renderDiagnostics );
+
     // Call when the renderer device is destroyed/recreated to invalidate GPU query state.
     void InvalidateGpuQueries();
 
@@ -281,6 +291,8 @@ class Profiler
     int m_warmupFrames;                          // frames remaining in warmup window; ring-buffer stats not recorded when > 0
     bool m_resetPending;                         // set by ScheduleReset(); applied at the next FrameBegin()
     int m_nextColorIndex;                        // round-robin colour assignment for leaf markers
+    Rendering::IRenderDiagnostics*
+        m_renderDiagnostics;                     // Startup-bound renderer diagnostics borrow; null before/after backend lifetime.
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
     mutable std::mutex m_workerSampleMutex;
 #endif

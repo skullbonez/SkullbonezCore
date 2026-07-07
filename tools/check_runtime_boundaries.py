@@ -1502,13 +1502,12 @@ RENDER_BACKEND_AGGREGATE_DEPENDENCY_PATTERNS: tuple[tuple[str, re.Pattern[str], 
 # RGRAPH-030: include-aware tracked-source census on 2026-07-07.
 # These budgets are not approval for growth; per-file rows classify remaining
 # render-backend aggregate debt while Plan 05 drains it.
-MAX_IRENDER_BACKEND_DEPENDENCY_CENSUS = 39
+MAX_IRENDER_BACKEND_DEPENDENCY_CENSUS = 38
 MAX_RENDER_BACKEND_DX12_GET_CENSUS = 0
 RENDER_BACKEND_AGGREGATE_DEPENDENCY_ALLOWLIST: Counter[tuple[Path, str]] = Counter(
     {
         ( Path(path), label ): count
         for path, label, count in (
-            ( "SkullbonezSource/Core/Profiler.cpp", "IRenderBackend", 1 ),
             ( "SkullbonezSource/Physics/Debug/BroadphaseVisualizer.cpp", "IRenderBackend", 1 ),
             ( "SkullbonezSource/Physics/Debug/CollisionVisualizer.cpp", "IRenderBackend", 1 ),
             ( "SkullbonezSource/Physics/Debug/PhysicsDebugVisualizer.cpp", "IRenderBackend", 1 ),
@@ -1616,7 +1615,6 @@ GLOBAL_RENDERER_SERVICE_LABELS = { "Gfx()", "GfxRayTracing()", "IsGfxReady()", "
 # they make each remaining direct renderer-service file an explicitly reviewed
 # compatibility location instead of letting a raw count entry approve a new file.
 GLOBAL_RENDERER_SERVICE_ACCESS_CLASSIFICATIONS: dict[Path, str] = {
-    Path("SkullbonezSource/Core/Profiler.cpp"): "diagnostics/profiler bridge",
     Path("SkullbonezSource/Physics/Debug/BroadphaseVisualizer.cpp"): "physics debug visualizer compatibility",
     Path("SkullbonezSource/Physics/Debug/CollisionVisualizer.cpp"): "physics debug visualizer compatibility",
     Path("SkullbonezSource/Physics/Debug/PhysicsDebugVisualizer.cpp"): "physics debug visualizer compatibility",
@@ -1655,9 +1653,10 @@ FROZEN_DIAGNOSTIC_SINGLETON_INSTANCE_CLASSES = {
 # SVC-035/SVC-022: current tracked-source global-service census on 2026-07-07.
 # Per-file rows classify remaining debt; this total blocks stale row slack from
 # approving growth while later rows drain the explicit-service surface. The
-# profiler diagnostics receiving path now resolves the singleton once in Init
-# instead of from RuntimeDiagnostics or RunUiTextPass.
-MAX_GLOBAL_SERVICE_ACCESS_CENSUS = 129
+# profiler diagnostics receiving path resolves the singleton once in Init, and
+# Core profiler GPU timers now use a startup-bound IRenderDiagnostics borrow
+# instead of reopening Gfx().
+MAX_GLOBAL_SERVICE_ACCESS_CENSUS = 114
 # RUN-001: current Run.h private `m_` field census on 2026-07-07.
 # This is not approval for growth. Run remains the composition root, but new
 # feature state should enter through one of the narrower owners below instead
@@ -1788,8 +1787,6 @@ GLOBAL_SERVICE_ACCESS_ALLOWLIST: Counter[tuple[Path, str]] = Counter(
         for path, label, count in (
             ( "SkullbonezSource/Core/LockOrderValidator.cpp", "g_*", 12 ),
             ( "SkullbonezSource/Core/PlatformProfiler.cpp", "g_*", 12 ),
-            ( "SkullbonezSource/Core/Profiler.cpp", "Gfx()", 9 ),
-            ( "SkullbonezSource/Core/Profiler.cpp", "IsGfxReady()", 6 ),
             ( "SkullbonezSource/Core/Profiler.cpp", "Profiler::Instance()", 2 ),
             ( "SkullbonezSource/Core/Profiler.h", "Profiler::Instance()", 11 ),
             ( "SkullbonezSource/Core/WorkerPool.cpp", "g_*", 8 ),

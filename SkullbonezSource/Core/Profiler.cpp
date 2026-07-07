@@ -9,6 +9,9 @@ Mental model:
   when that state changes.
 
 Glossary:
+  Render diagnostics capability: Narrow renderer interface used here for GPU
+    timers and platform GPU marker events without depending on the wide backend
+    facade.
   Warmup frame: Completed frame intentionally excluded from profiler stats and
     perf CSV rows while a scene/pass settles.
   Validation gate: Repository script that proves a class of changes before
@@ -26,7 +29,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "Profiler.h"
-#include "../Rendering/IRenderBackend.h"
+#include "../Rendering/IRenderDiagnostics.h"
 #include "WorkerPool.h"
 
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
@@ -86,7 +89,7 @@ Profiler& Profiler::Instance()
 Profiler::Profiler()
     : m_markerCount( 0 ), m_workerCoreSampleCount( 0 ), m_stackTop( 0 ), m_qpcFrequency( 0 ), m_frameStartTicks( 0 ),
       m_lastAvgTicks( 0 ), m_inFrame( false ), m_warmupFrames( WARMUP_FRAMES + 1 ), m_resetPending( false ),
-      m_nextColorIndex( 0 )
+      m_nextColorIndex( 0 ), m_renderDiagnostics( nullptr )
 {
     LARGE_INTEGER f;
     if ( QueryPerformanceFrequency( &f ) )
@@ -435,12 +438,12 @@ void Profiler::EndInternal( const char* fullPath, uint32_t hash, bool emitCpuPla
 
 void Profiler::GpuBegin( const char* fullPath, uint32_t hash )
 {
-    // Owner: RenderDiagnostics through Profiler. Reason: platform GPU markers
-    // and GPU timers share Profiler's nesting stack until scope construction can
-    // receive an explicit render-diagnostics capability. Deletion condition:
-    // remove this renderer reach when GpuProfilerScope is constructed with that
-    // capability. Checker budget: Core/Profiler.cpp keeps its current renderer
-    // service allowance only for this marker/timer block.
+    // Owner: Profiler with a startup-bound RenderDiagnostics borrow. Reason:
+    // GPU markers share Profiler's nesting stack, but Core must not reopen the
+    // renderer singleton while recording a scope. Deletion condition: if GPU
+    // scopes become owned by render passes directly, this borrow can disappear
+    // with the scope wrapper. Checker budget: Core/Profiler.cpp has zero
+    // renderer-service global accesses.
     if ( SkullbonezCore::Threading::WorkerPool::IsCurrentThreadWorker() )
     {
         return;
@@ -455,9 +458,9 @@ void Profiler::GpuBegin( const char* fullPath, uint32_t hash )
             hash );
         m_platformProfilerGpuRecordOpen[stackSlot] = true;
     }
-    if ( PlatformProfiler::IsEnabled() && IsGfxReady() )
+    if ( PlatformProfiler::IsEnabled() && m_renderDiagnostics )
     {
-        Gfx().PlatformProfilerGpuBegin( fullPath, hash );
+        m_renderDiagnostics->PlatformProfilerGpuBegin( fullPath, hash );
         m_platformProfilerGpuEventOpen[stackSlot] = true;
     }
     BeginGpuTimerInternal( fullPath, hash );
@@ -479,9 +482,9 @@ void Profiler::GpuEnd( const char* fullPath, uint32_t hash )
         m_platformProfilerGpuRecordOpen[stackSlot] = false;
     }
     EndGpuTimerInternal( fullPath, hash );
-    if ( platformGpuOpen && IsGfxReady() )
+    if ( platformGpuOpen && m_renderDiagnostics )
     {
-        Gfx().PlatformProfilerGpuEnd();
+        m_renderDiagnostics->PlatformProfilerGpuEnd();
     }
     if ( platformRecordOpen )
     {
@@ -493,13 +496,14 @@ void Profiler::GpuEnd( const char* fullPath, uint32_t hash )
 
 void Profiler::BeginGpuTimerInternal( const char* fullPath, uint32_t hash )
 {
-    if ( IsGfxReady() && Gfx().GetCapabilities().supportsGpuTimers )
+    Rendering::IRenderDiagnostics* renderDiagnostics = m_renderDiagnostics;
+    if ( renderDiagnostics && renderDiagnostics->GetCapabilities().supportsGpuTimers )
     {
         int idx = FindOrRegister( fullPath, hash );
         Marker& m = m_markers[idx];
         m.hasGpu = true;
         m.gpuWrittenThisFrame = true;
-        Gfx().GpuTimerBegin( idx );
+        renderDiagnostics->GpuTimerBegin( idx );
         return;
     }
 }
@@ -507,13 +511,14 @@ void Profiler::BeginGpuTimerInternal( const char* fullPath, uint32_t hash )
 
 void Profiler::EndGpuTimerInternal( const char* fullPath, uint32_t hash )
 {
-    if ( IsGfxReady() && Gfx().GetCapabilities().supportsGpuTimers )
+    Rendering::IRenderDiagnostics* renderDiagnostics = m_renderDiagnostics;
+    if ( renderDiagnostics && renderDiagnostics->GetCapabilities().supportsGpuTimers )
     {
         int idx = FindOrRegister( fullPath, hash );
         Marker& m = m_markers[idx];
         if ( m.gpuWrittenThisFrame )
         {
-            Gfx().GpuTimerEnd( idx );
+            renderDiagnostics->GpuTimerEnd( idx );
         }
         return;
     }
@@ -522,7 +527,8 @@ void Profiler::EndGpuTimerInternal( const char* fullPath, uint32_t hash )
 
 void Profiler::ReadPendingGpuResults()
 {
-    if ( IsGfxReady() && Gfx().GetCapabilities().supportsGpuTimers )
+    Rendering::IRenderDiagnostics* renderDiagnostics = m_renderDiagnostics;
+    if ( renderDiagnostics && renderDiagnostics->GetCapabilities().supportsGpuTimers )
     {
         for ( int i = 0; i < m_markerCount; ++i )
         {
@@ -532,7 +538,7 @@ void Profiler::ReadPendingGpuResults()
                 continue;
             }
             float ms = 0.0f;
-            if ( Gfx().GpuTimerRead( i, ms ) )
+            if ( renderDiagnostics->GpuTimerRead( i, ms ) )
             {
                 m.gpuLastFrameMs = ms;
                 m.gpuRingMs[m.gpuRingHead] = ms;
@@ -569,6 +575,20 @@ void Profiler::AdvanceGpuWriteCursors()
 }
 
 
+void Profiler::BindRenderDiagnostics( Rendering::IRenderDiagnostics* renderDiagnostics )
+{
+    if ( m_renderDiagnostics == renderDiagnostics )
+    {
+        return;
+    }
+
+    // Lifetime: invalidate against the old backend borrow before replacing it
+    // so stale timestamp queries cannot be read after a renderer reset/teardown.
+    InvalidateGpuQueries();
+    m_renderDiagnostics = renderDiagnostics;
+}
+
+
 void Profiler::InvalidateGpuQueries()
 {
     for ( int i = 0; i < m_markerCount; ++i )
@@ -584,9 +604,9 @@ void Profiler::InvalidateGpuQueries()
     }
     RestartWarmup();
 
-    if ( IsGfxReady() )
+    if ( m_renderDiagnostics )
     {
-        Gfx().GpuTimerInvalidate();
+        m_renderDiagnostics->GpuTimerInvalidate();
     }
 }
 
@@ -610,7 +630,7 @@ void Profiler::FrameBegin()
     if ( m_resetPending )
     {
         // Wipe GPU query state on all current markers, then clear the registry.
-        // InvalidateGpuQueries also calls Gfx().GpuTimerInvalidate() and resets warmup.
+        // InvalidateGpuQueries also invalidates the bound renderer timers and resets warmup.
         InvalidateGpuQueries();
         m_markerCount = 0;
         m_lastAvgTicks = 0;

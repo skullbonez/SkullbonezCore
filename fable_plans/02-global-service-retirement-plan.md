@@ -1,7 +1,7 @@
 # Global Service Retirement Plan
 
 Date: 2026-07-06
-Status: Phase 4 L2 WorkerPool, Window, EngineConfig, UI profiler snapshot, and profiler diagnostics receiving-path slices complete on 2026-07-07; remaining Core profiler/Gfx singleton cleanup pending
+Status: Phase 4 L2 WorkerPool, Window, EngineConfig, UI profiler snapshot, profiler diagnostics receiving path, and Profiler renderer-diagnostics bind slices complete on 2026-07-07; Gfx accessor endgame pending
 Impact area: runtime, rendering, core services; behavior-preserving refactor
 Validation for this document: none (documentation-only)
 

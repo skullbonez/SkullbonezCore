@@ -1,8 +1,8 @@
 # Progress: Global Service Retirement (plan 02)
 
 Source plan: `fable_plans/02-global-service-retirement-plan.md`
-Status: phase 4 L2 WorkerPool, Window, EngineConfig, UI profiler snapshot, and profiler diagnostics receiving-path slices complete on 2026-07-07; remaining Core profiler/Gfx singleton cleanup pending.
-Last updated: 2026-07-07 (SVC-022 profiler diagnostics receiving path)
+Status: phase 4 L2 WorkerPool, Window, EngineConfig, UI profiler snapshot, profiler diagnostics receiving path, and Profiler renderer-diagnostics bind slices complete on 2026-07-07; Gfx accessor endgame pending.
+Last updated: 2026-07-07 (Profiler renderer-diagnostics bind)
 
 ## How to work this file
 
@@ -14,7 +14,7 @@ Last updated: 2026-07-07 (SVC-022 profiler diagnostics receiving path)
   unblock their blocked rows without reading the blocker reason.
 - Comment quality gate applies to touched source files.
 
-## Current facts (post-SVC-022 profiler diagnostics receiving path, 2026-07-07)
+## Current facts (post-Profiler renderer-diagnostics bind, 2026-07-07)
 
 - `Cfg()` no longer exists (0 call sites), and `EngineConfig::Instance()` has
   now been deleted. Runtime startup owns an `EngineConfig` value, loads and
@@ -22,12 +22,13 @@ Last updated: 2026-07-07 (SVC-022 profiler diagnostics receiving path)
 - `EngineConfig::Instance` exact call sites: 0 in production source and tests.
   The only remaining text is the runtime-boundary checker's synthetic regression
   self-test that rejects reintroduced singleton config access.
-- Singleton-style source files from `::Instance()`/`GetInstance(` census:
-  4 live-code files total (`Core` 3, `Runtime` 1, `UI` 0, `Rendering` 0,
-  `Physics` 0): `Core\Profiler.h`, `Core\Profiler.cpp`,
-  `Core\LockOrderValidator.cpp`, and the startup-only
-  `Runtime\Init.cpp` profiler bind. `Runtime\RuntimeDiagnostics.cpp` and
-  `Runtime\RunUiTextPass.cpp` now have 0 direct `Profiler::Instance()` hits.
+- Singleton-style source files from `::Instance()`/`GetInstance(` live-code
+  census remain the frozen diagnostics surface: `Core\Profiler.h`,
+  `Core\Profiler.cpp`, `Core\LockOrderValidator.cpp`, and the startup-only
+  `Runtime\Init.cpp` profiler bind. `Core\Profiler.cpp` now has 0 direct
+  `Gfx()`, 0 direct `IsGfxReady()`, and no `IRenderBackend` dependency; GPU
+  timers and platform GPU events use the startup-bound `IRenderDiagnostics`
+  borrow.
 - `UITabProfiler.cpp` now has 0 `Gfx()`, 0 `IsGfxReady()`, and 0
   `Profiler::Instance()` hits. Its draw trace, marker tree, and worker-core
   chart consume the bounded `ProfilerTab::FrameSnapshot` filled by
@@ -36,12 +37,13 @@ Last updated: 2026-07-07 (SVC-022 profiler diagnostics receiving path)
   LockOrderValidator::Instance (SVC-034 frozen diagnostics exception), plus
   `s_gfxBackend`/`Gfx()`/`SetGfxBackend` in `Rendering/IRenderBackend.cpp`.
 - The checker `tools/check_runtime_boundaries.py` now carries
-  `MAX_GLOBAL_SERVICE_ACCESS_CENSUS = 129`, no EngineConfig allowlist rows, no
+  `MAX_GLOBAL_SERVICE_ACCESS_CENSUS = 114`, no EngineConfig allowlist rows, no
   `UITabProfiler.cpp` global-service allowlist rows, no
-  `RuntimeDiagnostics.cpp` profiler allowlist rows, and no
-  `RunUiTextPass.cpp` profiler allowlist rows. The one new
-  `Runtime\Init.cpp` `Profiler::Instance()` row is a startup-only diagnostics
-  bind.
+  `RuntimeDiagnostics.cpp` profiler allowlist rows, no
+  `RunUiTextPass.cpp` profiler allowlist rows, no `Core\Profiler.cpp`
+  renderer-service rows, and `MAX_IRENDER_BACKEND_DEPENDENCY_CENSUS = 38`.
+  The remaining `Runtime\Init.cpp` `Profiler::Instance()` row is a
+  startup-only diagnostics bind.
 
 ## Verified facts (as of 2026-07-07 takeover census — re-verify before later phases)
 
@@ -206,15 +208,16 @@ Phase 2 evidence (2026-07-07 takeover config cleanup):
 G1 classification evidence (2026-07-07 takeover Gfx census):
 
 The raw takeover `rg` command reported 25 exact text hits. After the
-2026-07-07 UI profiler snapshot slice, current exact text hits are 24 because
-the `UITabProfiler.cpp` draw-trace row was retired. This includes comments,
+2026-07-07 UI profiler snapshot and Profiler renderer-diagnostics bind slices,
+current exact text hits are 14 because the `UITabProfiler.cpp` draw-trace row
+and the Core profiler GPU timer bridge were retired. This includes comments,
 declarations, string literals, and real calls; the runtime-boundary checker uses
 stripped source and the `GLOBAL_RENDERER_SERVICE_ACCESS_CLASSIFICATIONS` file
 fence for behavior-bearing uses.
 
 | File / lines | Classification | Owner |
 |--------------|----------------|-------|
-| `Core\Profiler.cpp:460,484,496,502,510,516,525,535,589,613` | (b) diagnostics/profiler bridge | Cluster D / SVC-022 receiving path and Core profiler GPU-timer cleanup |
+| `Core\Profiler.cpp:460,484,496,502,510,516,525,535,589,613` | Retired 2026-07-07 | Profiler L2 renderer-diagnostics bind; GPU timers/platform GPU markers use startup-bound `IRenderDiagnostics` |
 | `UI\UITabProfiler.cpp:165` | Retired 2026-07-07 | SVC-032/SVC-033 resolved by `ProfilerTab::FrameSnapshot`; no current `UITabProfiler.cpp` `Gfx()` hit |
 | `Rendering\IRenderBackend.h:77,89,96` | (b) backend accessor declaration and tracing RAII compatibility | Cluster E / SVC-001, SVC-002 endgame; plan-05 render capability cleanup supplies the explicit trace/render context first |
 | `Rendering\IRenderBackend.cpp:39,41,44,54` | (a)/(b) backend accessor definition, guard strings, and raytracing facade | Cluster E / SVC-001, SVC-002 endgame; keep until all callers leave the facade |
@@ -254,7 +257,7 @@ no renderer validation gate for this documentation-only classification slice.
   (WorkerPool, Window, Profiler, TextureCollection, EngineConfig,
   LockOrderValidator): record its construction site + destruction order risk
   (static local? namespace static? member of Run?). One line each here.
-- [ ] L2. Demote or freeze each: (a) demote = composition root member +
+- [x] L2. Demote or freeze each: (a) demote = composition root member +
   delete static accessor (WorkerPool and Window are SVC-007/008/011/012 —
   check status; TextureCollection likely demotable to AssetSystem); (b)
   freeze = documented diagnostics exception with trivially-safe lifetime
@@ -283,7 +286,7 @@ Phase 4 execution notes:
   | `EngineConfig` | Superseded by L2: `Runtime\Init.cpp:3295` now constructs `EngineConfig cfg` with automatic startup storage, then `Run` receives `EngineConfig&`. | Demoted from singleton. No process-static config or accessor remains; focused tests now build local deterministic config values instead of mutating global state. |
   | `WorkerPool` | Superseded by L2: `Runtime\Init.cpp:3330` now constructs `WorkerPool workerPool` with automatic startup storage, then `Run` receives `WorkerPool&`. | Demoted from singleton. Explicit `workerPool.Shutdown()` still runs at `Runtime\Init.cpp:3355`, and the destructor calls `Shutdown()` again after startup scope exit; no process-static worker-pool lifetime remains. |
   | `Window` | Superseded by L2: `Runtime\Init.cpp:3339-3340` now constructs `Window windowOwner` with automatic startup storage and passes `&windowOwner` to existing pointer-based startup helpers. | Demoted from singleton. `CleanupWindow()` still disarms input/backend state, releases the device context, restores fullscreen state, and unregisters the class; no `pInstance` cache or process-static Window remains. |
-  | `Profiler` | `Core\Profiler.cpp:79-82`, function-local static reached by macros plus one startup-only bind in `Runtime\Init.cpp`. | Medium risk: no explicit destructor work, and GPU timer methods still read renderer globals. Runtime diagnostics CSV/sampling and `RunUiTextPass` now use the startup-bound profiler pointer; final freeze/demotion depends on the Core profiler GPU-timer/global macro cleanup. |
+  | `Profiler` | `Core\Profiler.cpp:79-82`, function-local static reached by macros plus one startup-only bind in `Runtime\Init.cpp`. | Frozen diagnostics exception after the renderer-diagnostics bind slice: no config reads, no Core-side renderer global access, and the backend diagnostics pointer is bound at startup then cleared before backend teardown. |
   | `LockOrderValidator` | `Core\LockOrderValidator.cpp:114-120`, function-local static with header/source frozen-diagnostics comments from SVC-034. | Accepted frozen diagnostics exception: no config reads, no renderer/worker ownership, and no singleton teardown dependency. |
 
 - 2026-07-07 SVC-034: `LockOrderValidator::Instance` was classified under the
@@ -352,6 +355,24 @@ Phase 4 execution notes:
   targeted header formatting), and `tools\validate_full.bat` (42.066s, DX12
   validation errors 0, screenshots matched, `physics_regression_solver.csv`
   byte-exact).
+- 2026-07-07 L2 Profiler renderer-diagnostics bind: froze the remaining
+  profiler renderer bridge by binding `IRenderDiagnostics*` from runtime startup
+  and clearing it before backend teardown. `Core\Profiler.cpp` now reads GPU
+  timer capability, GPU timestamps, and platform GPU marker events through that
+  explicit borrow instead of `Gfx()`/`IsGfxReady()`, and no longer includes
+  `IRenderBackend.h`. Lowered the checker global-service census from 129 to
+  114, removed the `Core\Profiler.cpp` `Gfx()`/`IsGfxReady()` compatibility
+  rows and renderer-service classification, and lowered the
+  `IRenderBackend` dependency census from 39 to 38. Gates passed:
+  `python tools\check_runtime_boundaries.py --self-test` (0.314s) and
+  `python tools\check_runtime_boundaries.py` (15.371s, 0 errors),
+  `tools\validate_fast.bat` (52.424s, formatting/project filters/staged-size/
+  runtime-boundaries/Profile+Debug builds passed with 0 warnings/errors),
+  `tools\validate_full.bat` (41.890s, DX12 validation errors 0, screenshots
+  matched committed baselines, `physics_regression_solver.csv` byte-exact),
+  and `Profile\SKULLBONEZ_CORE.exe --platform-profiler-markers --renderer dx12
+  --vsync off --frames 2 --scene SkullbonezData\scenes\solver_smoke.scene.json`
+  (1.879s, marker emission requested/enabled and exited cleanly).
 
 ## Closure
 
