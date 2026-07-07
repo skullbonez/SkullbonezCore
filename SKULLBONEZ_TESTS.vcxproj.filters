@@ -21,6 +21,9 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="SkullbonezTests\TestGeometricMath.cpp">
+      <Filter>Source Files\Tests</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezTests\TestMain.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
@@ -37,6 +40,9 @@
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Maths\Vector3.cpp">
+      <Filter>Source Files\Maths</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Maths\GeometricMath.cpp">
       <Filter>Source Files\Maths</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Maths\Matrix4.cpp">

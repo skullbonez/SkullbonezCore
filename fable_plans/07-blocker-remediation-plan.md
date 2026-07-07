@@ -218,3 +218,12 @@ else returns to the overnight machine as gated, verifiable slices.
   manual column-major values, `Data()` storage aliasing, and inverse-original
   identity composition. Gate passed: `tools\validate_tests.bat` (3.834s,
   12 doctest cases, 86 assertions, 0 warnings/errors).
+- 2026-07-07: Completed fable-01 M4 GeometricMath tests and closed the
+  pure-math phase. Added `SkullbonezTests/TestGeometricMath.cpp`, compiled
+  `GeometricMath.cpp` into `SKULLBONEZ_TESTS`, and covered public ray-plane,
+  plane/height, sentinel, and reachable degenerate throw contracts. Discovery
+  found the old ray-sphere/ray-box wording does not match the current public
+  Maths API; those helpers live under runtime/physics surfaces. Gates passed:
+  `tools\validate_tests.bat` (3.812s, 15 doctest cases, 105 assertions,
+  0 warnings/errors) and `tools\validate_fast.bat` (33.651s, 0
+  warnings/errors).

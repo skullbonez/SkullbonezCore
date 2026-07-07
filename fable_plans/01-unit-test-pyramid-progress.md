@@ -156,9 +156,25 @@ item against plan 02 and pick the next.
   original` returning identity within epsilon. Gate:
   `tools\validate_tests.bat` passed in 3.834s with 12 doctest cases and
   86 assertions all passing.
-- [ ] M4. `TestGeometricMath.cpp` — ray/sphere hit+miss+tangent, ray/box
+- [x] M4. `TestGeometricMath.cpp` — ray/sphere hit+miss+tangent, ray/box
   face/edge cases, the degenerate inputs near the file's 3 throw sites.
   Commit phase (gate: `validate_tests` + `validate_fast`).
+
+  Evidence: CodeGraph mapped the current `GeometricMath` API as plane,
+  triangle, and ray-segment helpers with no covering tests. Discovery
+  `rg -n "Cfg\(|Gfx\(|::Instance" SkullbonezSource/Maths/GeometricMath.cpp`
+  returned no hits. A focused source search found no public ray-sphere or
+  ray-box helper under `SkullbonezSource/Maths`; those helpers currently live
+  under runtime/physics surfaces, outside this pure-math phase. Added
+  `SkullbonezTests/TestGeometricMath.cpp` and compiled
+  `SkullbonezSource/Maths/GeometricMath.cpp` into `SKULLBONEZ_TESTS`. Tests
+  lock plane construction, sloped-plane height, ray-plane hit/miss/boundary
+  times, `NO_COLLISION` sentinel behavior, zero-normal throws,
+  out-of-segment intersection throws, and collinear-triangle throws. The
+  private barycentric throw site remains inaccessible through the public API
+  without a test-only access hack, so it is recorded here rather than forced.
+  Gate: `tools\validate_tests.bat` passed in 3.812s with 15 doctest cases and
+  105 assertions all passing.
 
 ## Phase 2 — physics primitives and stores
 

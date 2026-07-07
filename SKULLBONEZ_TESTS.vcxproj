@@ -140,11 +140,13 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="SkullbonezTests\TestGeometricMath.cpp" />
     <ClCompile Include="SkullbonezTests\TestMain.cpp" />
     <ClCompile Include="SkullbonezTests\TestMatrix4.cpp" />
     <ClCompile Include="SkullbonezTests\TestQuaternion.cpp" />
     <ClCompile Include="SkullbonezTests\TestSmoke.cpp" />
     <ClCompile Include="SkullbonezTests\TestVector3.cpp" />
+    <ClCompile Include="SkullbonezSource\Maths\GeometricMath.cpp" />
     <ClCompile Include="SkullbonezSource\Maths\Matrix4.cpp" />
     <ClCompile Include="SkullbonezSource\Maths\Quaternion.cpp" />
     <ClCompile Include="SkullbonezSource\Maths\RotationMatrix.cpp" />
