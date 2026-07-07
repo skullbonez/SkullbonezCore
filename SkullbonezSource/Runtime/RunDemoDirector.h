@@ -39,6 +39,9 @@ bool AdvancePhase( RunCameraState& camera, const RunSubsystemState& systems );
 void EnterMode( RunCameraState& camera, const RunSubsystemState& systems );
 bool BeginGrab( RunCameraState& camera, const RunSubsystemState& systems );
 bool EndGrab( RunCameraState& camera, const RunSubsystemState& systems );
+bool SetCurrentPhasePose( RunCameraState& camera, const RunSubsystemState& systems );
+bool SelectNextPhaseForAuthoring( RunCameraState& camera, const RunSubsystemState& systems );
+bool SaveShotList( const RunCameraState& camera );
 void Tick( RunCameraState& camera, const RunSubsystemState& systems, float cameraDt );
 } // namespace DemoDirectorPlayback
 } // namespace Basics

@@ -175,11 +175,14 @@ struct RunSubsystemState
 
 struct DemoDirectorPlaybackState
 {
+    static constexpr int SHOT_LIST_PATH_BYTES = 260;
+
     // Concept: Director playback is camera presentation state. The shot list is
     // fixed-capacity authoring data, and these timers only decide which authored
     // pose should drive the camera on later playback slices.
     DemoShotList activeShotList;
     bool hasActiveShotList = false;
+    char activeShotListPath[SHOT_LIST_PATH_BYTES] = {};        // Cold authoring save target captured from load.
     int currentPhaseIndex = -1;                                // -1 until a shot list chooses its first phase.
     float phaseElapsedSeconds = 0.0f;                          // Seconds spent in currentPhaseIndex.
     float blendElapsedSeconds = 0.0f;                          // Seconds spent blending from blendStartPose.
@@ -393,6 +396,7 @@ enum class RunInteractionAutomationActionType
 {
     LoadShotList,
     DirectorAdvance,
+    SetCameraPose,
     SetCameraMode,
     ClickObject,
     ClickReplayControl,
@@ -437,6 +441,7 @@ struct RunInteractionAutomationAction
     RunInteractionAutomationButton button = RunInteractionAutomationButton::Left;
     RunInteractionAutomationAssertKind assertKind = RunInteractionAutomationAssertKind::SelectedObject;
     RunCameraMode cameraMode = RunCameraMode::Inspect;
+    DemoCameraPose cameraPose;
     int keyVirtualKey = 0;
     bool boolValue = false;
     float numberValue = 0.0f;

@@ -240,6 +240,9 @@ void AdvanceTakeInputKeyboardActionMemories( RuntimeInputContext& input )
                                                         { RuntimeInputAction::CycleAttachedCameraSubmode, VK_F1 },
                                                         { RuntimeInputAction::ToggleAttachedCameraPin, VK_RETURN },
                                                         { RuntimeInputAction::ToggleDirectorGrab, 'B' },
+                                                        { RuntimeInputAction::SetDirectorPhasePose, 'J' },
+                                                        { RuntimeInputAction::StepDirectorPhase, 'K' },
+                                                        { RuntimeInputAction::SaveDirectorShotList, 'L' },
                                                         { RuntimeInputAction::ToggleEditor, VK_OEM_3 },
                                                         { RuntimeInputAction::ToggleEditorTool, VK_MENU },
                                                         { RuntimeInputAction::CycleLauncherFireMode, 'M' },
@@ -1795,6 +1798,43 @@ void Run::TakeInput()
                 EnterFlyModeCamera();
                 ApplyCursorOwnership();
                 UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleDirectorGrab,
+                                                   RuntimeInputActionSource::Keyboard );
+            }
+        }
+
+        // J/K/L: cold Director authoring keys. They edit the loaded shot list
+        // through the helper module and stay inert when no phase is selected.
+        const bool directorAuthoringAvailable = m_camera.mode == RunCameraMode::Director || IsFlyCameraMode();
+        if ( InputController::CaptureKeyboardActionPress( m_runtimeInput,
+                                                          RuntimeInputAction::SetDirectorPhasePose,
+                                                          'J' ) &&
+             directorAuthoringAvailable )
+        {
+            if ( DemoDirectorPlayback::SetCurrentPhasePose( m_camera, m_systems ) )
+            {
+                UpdateRuntimeInputModeAfterAction( RuntimeInputAction::SetDirectorPhasePose,
+                                                   RuntimeInputActionSource::Keyboard );
+            }
+        }
+        if ( InputController::CaptureKeyboardActionPress( m_runtimeInput,
+                                                          RuntimeInputAction::StepDirectorPhase,
+                                                          'K' ) &&
+             directorAuthoringAvailable )
+        {
+            if ( DemoDirectorPlayback::SelectNextPhaseForAuthoring( m_camera, m_systems ) )
+            {
+                UpdateRuntimeInputModeAfterAction( RuntimeInputAction::StepDirectorPhase,
+                                                   RuntimeInputActionSource::Keyboard );
+            }
+        }
+        if ( InputController::CaptureKeyboardActionPress( m_runtimeInput,
+                                                          RuntimeInputAction::SaveDirectorShotList,
+                                                          'L' ) &&
+             directorAuthoringAvailable )
+        {
+            if ( DemoDirectorPlayback::SaveShotList( m_camera ) )
+            {
+                UpdateRuntimeInputModeAfterAction( RuntimeInputAction::SaveDirectorShotList,
                                                    RuntimeInputActionSource::Keyboard );
             }
         }

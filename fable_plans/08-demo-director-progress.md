@@ -1,7 +1,7 @@
 # Progress: Demo Director (plan 08)
 
 Source plan: `fable_plans/08-demo-director-plan.md`
-Status: phase 2 P2.4 grab/release complete; pose-authoring controls next
+Status: phase 2 P2.5 pose-authoring controls complete; phase 3 style/reveal-rate next
 Last updated: 2026-07-07
 
 ## How to work this file
@@ -334,10 +334,69 @@ Last updated: 2026-07-07
     validation errors; DX12 screenshots matched committed baselines;
     `physics_regression_solver.csv` matched byte-exactly; `VALIDATE_FULL:
     DEFAULT GATE PASSED`.
-- [ ] P2.5 "Set pose here": while grabbed (or in any fly mode), a key writes
+- [x] P2.5 "Set pose here": while grabbed (or in any fly mode), a key writes
   the current camera pose into the selected phase; another key steps the
   selected phase; another saves the shot list (P1.2). Evidence: author a pose
   live, save, reload, pose matches. Gate: `validate_dx12_renderer`. Commit.
+  Evidence recorded 2026-07-07:
+  - Picked `J` for "set pose here", `K` for selected-phase step, and `L` for
+    save. These keys were unused in the central runtime key map.
+  - Added fixed `activeShotListPath` storage to Director playback state so the
+    loaded `.shot.json` can be saved back through `SaveDemoShotList(...)`
+    without adding a new `Run` private member.
+  - Added `DemoDirectorPlayback::SetCurrentPhasePose(...)`,
+    `SelectNextPhaseForAuthoring(...)`, and `SaveShotList(...)`. The selected
+    phase remains `currentPhaseIndex`; authoring phase step cycles for editing
+    without changing the existing non-looping playback advance semantics.
+  - `RunInput.cpp` wires `J/K/L` through normal `RuntimeInputAction` edge
+    detection. Authoring keys are inert when no playable shot list/current phase
+    is available.
+  - `RunInteractionAutomation.cpp` now reports selected Director phase name,
+    path, and camera pose fields. It also gained a proof-oriented
+    `setCameraPose` action that seeds the current camera pose; the authored
+    write and save still happen through the real `J` and `L` key paths.
+  - Comment-quality audit scope:
+    `RunDemoDirector.h`, `RunDemoDirector.cpp`, `RunInput.cpp`,
+    `InputController.h`, `InputController.cpp`,
+    `RunInteractionAutomation.cpp`, and `RunState.h`. All touched
+    source-bearing files have learning headers; new local comments explain
+    cold authoring keys, loaded-path save ownership, and automation camera-pose
+    seeding.
+  - Targeted builds: `tools\validate_build.bat Profile` passed twice, first in
+    8.20s and after the `setCameraPose` proof hook in 8.14s, both with 0
+    warnings and 0 errors. Logs:
+    `Agentic\Reports\2026-07-07\logs\fable-08-director-pose-authoring-build-profile.log`
+    and
+    `Agentic\Reports\2026-07-07\logs\fable-08-director-pose-authoring-build-profile-rerun.log`.
+  - Runtime proof author/save: `Profile\SKULLBONEZ_CORE.exe --scene
+    SkullbonezData\scenes\interaction_inspect_gizmo_harness.scene.json
+    --interaction-script Agentic\Temp\director_p2_5_author_interaction.json
+    --interaction-report TestOutput\interaction\director_p2_5_author_report.json
+    --frames 55 --vsync off` passed in 10.591s. The report shows
+    `B` grabbed Director, `setCameraPose` seeded the current pose, `J` captured
+    phase 0, `L` saved the shot list, `K` selected phase 1, and screenshot
+    `TestOutput\interaction\director_p2_5_author_saved.bmp` was written. Log:
+    `Agentic\Reports\2026-07-07\logs\fable-08-director-pose-authoring-proof-author-rerun.log`.
+  - Runtime proof reload: `Profile\SKULLBONEZ_CORE.exe --scene
+    SkullbonezData\scenes\interaction_inspect_gizmo_harness.scene.json
+    --interaction-script Agentic\Temp\director_p2_5_reload_interaction.json
+    --interaction-report TestOutput\interaction\director_p2_5_reload_report.json
+    --frames 35 --vsync off` passed in 9.395s. Reload report final state:
+    `cameraMode=Director`, `directorShotListLoaded=true`,
+    `directorPhaseIndex=0`, `directorPhaseName=author-wide`,
+    `directorPhaseCameraEye=[470.0,112.0,575.0]`, and
+    `directorPhaseCameraView=[500.0,84.0,505.0]`. A PowerShell JSON comparison
+    confirmed the saved file's phase 0 position/view exactly matched the reload
+    report (`poseMatch=True`, `viewMatch=True`). Screenshot:
+    `TestOutput\interaction\director_p2_5_reloaded_pose.bmp`. Log:
+    `Agentic\Reports\2026-07-07\logs\fable-08-director-pose-authoring-proof-reload.log`.
+  - Gate: `tools\validate_full.bat` passed on 2026-07-07 in 47.012s. Log:
+    `Agentic\Reports\2026-07-07\logs\fable-08-director-pose-authoring-validate-full.log`.
+    Key lines: project filters/runtime boundaries passed; Profile and Debug
+    builds succeeded with 0 warnings/0 errors; DX12 InfoQueue reported 0
+    validation errors; DX12 screenshots matched committed baselines;
+    `physics_regression_solver.csv` matched byte-exactly; `VALIDATE_FULL:
+    DEFAULT GATE PASSED`.
 
 ## Phase 3 — render type (style) per phase
 

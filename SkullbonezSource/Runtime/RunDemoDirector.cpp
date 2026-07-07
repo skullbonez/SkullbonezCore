@@ -90,6 +90,21 @@ bool HasPlayableShotList( const DemoDirectorPlaybackState& director )
 {
     return director.hasActiveShotList && director.activeShotList.phaseCount > 0;
 }
+
+bool IsCurrentPhaseValid( const DemoDirectorPlaybackState& director )
+{
+    return HasPlayableShotList( director ) && director.currentPhaseIndex >= 0 &&
+           director.currentPhaseIndex < director.activeShotList.phaseCount;
+}
+
+void CopyShotListPath( DemoDirectorPlaybackState& director, const char* path )
+{
+    director.activeShotListPath[0] = '\0';
+    if ( path && path[0] )
+    {
+        std::snprintf( director.activeShotListPath, sizeof( director.activeShotListPath ), "%s", path );
+    }
+}
 } // namespace
 
 namespace DemoDirectorPlayback
@@ -109,6 +124,7 @@ bool LoadShotList( RunCameraState& camera, const RunSubsystemState& systems, con
     nextState.currentPhaseIndex = 0;
     nextState.blendStartPose = CaptureCurrentPose( systems );
     nextState.poseCapturedAtGrab = nextState.blendStartPose;
+    CopyShotListPath( nextState, path );
     camera.director = nextState;
 
     std::printf( "[demo-director] loaded %d phase(s) from %s\n",
@@ -186,6 +202,65 @@ bool EndGrab( RunCameraState& camera, const RunSubsystemState& systems )
     director.blendElapsedSeconds = 0.0f;
     director.grabbed = false;
     return true;
+}
+
+bool SetCurrentPhasePose( RunCameraState& camera, const RunSubsystemState& systems )
+{
+    DemoDirectorPlaybackState& director = camera.director;
+    if ( !IsCurrentPhaseValid( director ) || !systems.cameras )
+    {
+        return false;
+    }
+
+    const DemoCameraPose pose = CaptureCurrentPose( systems );
+    DemoPhase& phase = director.activeShotList.phases[static_cast<std::size_t>( director.currentPhaseIndex )];
+    phase.camera = pose;
+    director.poseCapturedAtGrab = pose;
+    director.blendStartPose = pose;
+    director.blendElapsedSeconds = 0.0f;
+    std::printf( "[demo-director] captured pose for phase %d (%s)\n",
+                 director.currentPhaseIndex,
+                 phase.name[0] ? phase.name : "<unnamed>" );
+    return true;
+}
+
+bool SelectNextPhaseForAuthoring( RunCameraState& camera, const RunSubsystemState& systems )
+{
+    DemoDirectorPlaybackState& director = camera.director;
+    if ( !HasPlayableShotList( director ) )
+    {
+        return false;
+    }
+
+    int nextPhase = director.currentPhaseIndex + 1;
+    if ( nextPhase < 0 || nextPhase >= director.activeShotList.phaseCount )
+    {
+        nextPhase = 0;
+    }
+
+    director.currentPhaseIndex = nextPhase;
+    director.phaseElapsedSeconds = 0.0f;
+    ResetBlendFromCurrentPose( director, systems );
+    const DemoPhase& phase = director.activeShotList.phases[static_cast<std::size_t>( director.currentPhaseIndex )];
+    std::printf( "[demo-director] selected phase %d (%s)\n",
+                 director.currentPhaseIndex,
+                 phase.name[0] ? phase.name : "<unnamed>" );
+    return true;
+}
+
+bool SaveShotList( const RunCameraState& camera )
+{
+    const DemoDirectorPlaybackState& director = camera.director;
+    if ( !HasPlayableShotList( director ) || !director.activeShotListPath[0] )
+    {
+        return false;
+    }
+
+    const bool saved = SaveDemoShotList( director.activeShotListPath, director.activeShotList );
+    std::printf( "[demo-director] %s shot list to %s\n",
+                 saved ? "saved" : "failed to save",
+                 director.activeShotListPath );
+    return saved;
 }
 
 void Tick( RunCameraState& camera, const RunSubsystemState& systems, float cameraDt )

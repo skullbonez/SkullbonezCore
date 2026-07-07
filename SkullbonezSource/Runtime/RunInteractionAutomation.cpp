@@ -388,6 +388,45 @@ bool TryParseVirtualKey( const std::string& value, int& outVirtualKey )
     return false;
 }
 
+bool ReadAutomationVec3( const Json& value, Vector3& out )
+{
+    if ( !value.is_array() || value.size() != 3u || !value[0].is_number() || !value[1].is_number() ||
+         !value[2].is_number() )
+    {
+        return false;
+    }
+
+    out.x = value[0].get<float>();
+    out.y = value[1].get<float>();
+    out.z = value[2].get<float>();
+    return true;
+}
+
+bool ReadAutomationCameraPose( const Json& value, DemoCameraPose& out, std::string& outError )
+{
+    if ( !value.is_object() )
+    {
+        outError = "setCameraPose must be an object";
+        return false;
+    }
+    if ( !value.contains( "position" ) || !ReadAutomationVec3( value["position"], out.eye ) )
+    {
+        outError = "setCameraPose.position must be a 3-number array";
+        return false;
+    }
+    if ( !value.contains( "view" ) || !ReadAutomationVec3( value["view"], out.view ) )
+    {
+        outError = "setCameraPose.view must be a 3-number array";
+        return false;
+    }
+    if ( !value.contains( "up" ) || !ReadAutomationVec3( value["up"], out.up ) )
+    {
+        outError = "setCameraPose.up must be a 3-number array";
+        return false;
+    }
+    return true;
+}
+
 const char* ActionTypeName( RunInteractionAutomationActionType type )
 {
     switch ( type )
@@ -396,6 +435,8 @@ const char* ActionTypeName( RunInteractionAutomationActionType type )
         return "loadShotList";
     case RunInteractionAutomationActionType::DirectorAdvance:
         return "directorAdvance";
+    case RunInteractionAutomationActionType::SetCameraPose:
+        return "setCameraPose";
     case RunInteractionAutomationActionType::SetCameraMode:
         return "setCameraMode";
     case RunInteractionAutomationActionType::ClickObject:
@@ -571,6 +612,12 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
     {
         outAction.type = RunInteractionAutomationActionType::DirectorAdvance;
         return true;
+    }
+
+    if ( entry.contains( "setCameraPose" ) )
+    {
+        outAction.type = RunInteractionAutomationActionType::SetCameraPose;
+        return ReadAutomationCameraPose( entry["setCameraPose"], outAction.cameraPose, outError );
     }
 
     if ( entry.contains( "clickObject" ) )
@@ -1000,6 +1047,31 @@ void Run::TickInteractionAutomationBeforeInput()
                                 nullptr,
                                 advanced,
                                 advanced ? "director phase advanced" : "director phase unavailable" );
+            action.processed = true;
+            break;
+        }
+        case RunInteractionAutomationActionType::SetCameraPose:
+        {
+            const bool applied = m_systems.cameras != nullptr;
+            if ( applied )
+            {
+                // Why: pose-authoring proofs seed the current camera, then use
+                // normal J/L key handling to write and save the shot list.
+                m_systems.cameras->SetPrimaryPose( action.cameraPose.eye,
+                                                   action.cameraPose.view,
+                                                   action.cameraPose.up );
+            }
+            else
+            {
+                FailAutomation( state, "failed to set camera pose" );
+            }
+            AppendReportAction( state,
+                                frame,
+                                action.type,
+                                "",
+                                nullptr,
+                                applied,
+                                applied ? "camera pose applied" : "camera unavailable" );
             action.processed = true;
             break;
         }
@@ -1637,6 +1709,21 @@ void Run::WriteInteractionAutomationReport()
         }
     }
 
+    Json directorPhaseCameraEye = nullptr;
+    Json directorPhaseCameraView = nullptr;
+    Json directorPhaseCameraUp = nullptr;
+    const char* directorPhaseName = "";
+    const DemoDirectorPlaybackState& director = m_camera.director;
+    if ( director.hasActiveShotList && director.currentPhaseIndex >= 0 &&
+         director.currentPhaseIndex < director.activeShotList.phaseCount )
+    {
+        const DemoPhase& phase = director.activeShotList.phases[static_cast<std::size_t>( director.currentPhaseIndex )];
+        directorPhaseName = phase.name;
+        directorPhaseCameraEye = Vec3Json( phase.camera.eye );
+        directorPhaseCameraView = Vec3Json( phase.camera.view );
+        directorPhaseCameraUp = Vec3Json( phase.camera.up );
+    }
+
     const std::string* scenePath = m_sceneController.CurrentPath();
     Json report;
     report["ok"] = !state.failed;
@@ -1653,6 +1740,11 @@ void Run::WriteInteractionAutomationReport()
               { "directorPhaseIndex", m_camera.director.currentPhaseIndex },
               { "directorPhaseCount", m_camera.director.activeShotList.phaseCount },
               { "directorGrabbed", m_camera.director.grabbed },
+              { "directorShotListPath", m_camera.director.activeShotListPath },
+              { "directorPhaseName", directorPhaseName },
+              { "directorPhaseCameraEye", directorPhaseCameraEye },
+              { "directorPhaseCameraView", directorPhaseCameraView },
+              { "directorPhaseCameraUp", directorPhaseCameraUp },
               { "workspace", WorkspaceName( m_interaction.Workspace() ) },
               { "owner", OwnerName( m_interaction.Owner() ) },
               { "selectedObject", selectedName },

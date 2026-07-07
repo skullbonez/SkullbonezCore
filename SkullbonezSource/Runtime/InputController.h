@@ -145,6 +145,9 @@ enum class RuntimeInputAction
     SaveSkyDefaults,
     ToggleCrossScenePause,
     ToggleDirectorGrab,
+    SetDirectorPhasePose,
+    StepDirectorPhase,
+    SaveDirectorShotList,
     Count
 };
 
