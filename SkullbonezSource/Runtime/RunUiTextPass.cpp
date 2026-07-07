@@ -176,7 +176,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         Text2d::Render2dTextColor( -0.46f, -0.38f, 0.015f, 0.60f, 0.60f, 0.60f, "renderer: %s", rendererName );
 
         {
-            DRAW_CALL_TRACE_SCOPE( "TextOnly" );
+            DRAW_CALL_TRACE_SCOPE( inputs.renderDiagnostics, "TextOnly" );
             Text2d::FlushText( renderCommands );
         }
         return;
@@ -925,7 +925,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
 
         PROFILE_BEGIN( "Frame/UI/PreFlushText" );
         {
-            DRAW_CALL_TRACE_SCOPE( "PreFlushText" );
+            DRAW_CALL_TRACE_SCOPE( inputs.renderDiagnostics, "PreFlushText" );
             Text2d::FlushText( renderCommands );
         }
         PROFILE_END( "Frame/UI/PreFlushText" );
@@ -933,7 +933,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         state.ui.Draw( UIData, inputs.uiRender );
         PROFILE_BEGIN( "Frame/UI/PostFlushText" );
         {
-            DRAW_CALL_TRACE_SCOPE( "Frame/UI/PostFlushText" );
+            DRAW_CALL_TRACE_SCOPE( inputs.renderDiagnostics, "Frame/UI/PostFlushText" );
             Text2d::FlushText( renderCommands );
         }
         PROFILE_END( "Frame/UI/PostFlushText" );
@@ -949,7 +949,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
     {
         RenderReplayScrubberOverlayFromInputs( inputs );
         {
-            DRAW_CALL_TRACE_SCOPE( "HUD" );
+            DRAW_CALL_TRACE_SCOPE( inputs.renderDiagnostics, "HUD" );
             Text2d::FlushText( renderCommands );
         }
         return;
@@ -995,7 +995,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
                                    sceneEnergyForDisplay );
         RenderReplayScrubberOverlayFromInputs( inputs );
         {
-            DRAW_CALL_TRACE_SCOPE( "SceneStats" );
+            DRAW_CALL_TRACE_SCOPE( inputs.renderDiagnostics, "SceneStats" );
             Text2d::FlushText( renderCommands );
         }
         return;
@@ -1016,7 +1016,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         profiler.RenderBarOverlay( renderCommands, panX, panY, panW, panH, absolute );
         RenderReplayScrubberOverlayFromInputs( inputs );
         {
-            DRAW_CALL_TRACE_SCOPE( "ProfilerBars" );
+            DRAW_CALL_TRACE_SCOPE( inputs.renderDiagnostics, "ProfilerBars" );
             Text2d::FlushText( renderCommands );
         }
         return;
@@ -1108,7 +1108,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
 
         RenderReplayScrubberOverlayFromInputs( inputs );
         {
-            DRAW_CALL_TRACE_SCOPE( "Keys" );
+            DRAW_CALL_TRACE_SCOPE( inputs.renderDiagnostics, "Keys" );
             Text2d::FlushText( renderCommands );
         }
         return;
@@ -1134,7 +1134,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
 
     RenderReplayScrubberOverlayFromInputs( inputs );
     {
-        DRAW_CALL_TRACE_SCOPE( "ProfilerOverlay" );
+        DRAW_CALL_TRACE_SCOPE( inputs.renderDiagnostics, "ProfilerOverlay" );
         Text2d::FlushText( renderCommands );
     }
 }

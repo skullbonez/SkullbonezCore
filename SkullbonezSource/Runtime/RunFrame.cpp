@@ -753,7 +753,8 @@ void Run::Execute()
             SkullbonezCore::Rendering::IRenderCommandContext& frameRenderCommands = *m_renderBackendView.renderCommands;
             const SkullbonezCore::UI::UIRenderContext uiRender = { &m_systems.assets,
                                                                    &frameRenderResources,
-                                                                   &frameRenderCommands };
+                                                                   &frameRenderCommands,
+                                                                   &frameRenderDiagnostics };
             frameRenderDiagnostics.ResetFrameDrawCalls();
 
             PROFILE_BEGIN( "Frame/Input" );
@@ -835,7 +836,7 @@ void Run::Execute()
             {
                 RuntimeAllocation::RuntimeAllocationScope allocationScope(
                     RuntimeAllocation::RuntimeAllocationPhase::Render );
-                DRAW_CALL_TRACE_SCOPE( "Frame/Render" );
+                DRAW_CALL_TRACE_SCOPE( frameRenderDiagnostics, "Frame/Render" );
                 Render( renderModels );
             }
             PROFILE_END( "Frame/Render" );
@@ -897,7 +898,7 @@ void Run::Execute()
                 {
                     RuntimeAllocation::RuntimeAllocationScope allocationScope(
                         RuntimeAllocation::RuntimeAllocationPhase::Render );
-                    DRAW_CALL_TRACE_SCOPE( "Frame/UI" );
+                    DRAW_CALL_TRACE_SCOPE( frameRenderDiagnostics, "Frame/UI" );
                     m_renderer.RenderUiText( frameRenderDiagnostics,
                                              uiRender,
                                              uiTextState,

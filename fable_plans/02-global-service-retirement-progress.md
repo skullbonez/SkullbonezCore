@@ -1,8 +1,8 @@
 # Progress: Global Service Retirement (plan 02)
 
 Source plan: `fable_plans/02-global-service-retirement-plan.md`
-Status: phase 4 L2 WorkerPool, Window, EngineConfig, UI profiler snapshot, profiler diagnostics receiving path, Profiler renderer-diagnostics bind, RunPasses readiness probe, RunInput stale-readiness ratchet, capture-facade cleanup, Broadphase visualizer cleanup, PhysicsDebug visualizer cleanup, Window resize lifecycle cleanup, and CollisionVisualizer renderer-facet cleanup slices complete on 2026-07-07; Gfx accessor endgame pending.
-Last updated: 2026-07-07 (CollisionVisualizer renderer-facet cleanup)
+Status: phase 4 L2 WorkerPool, Window, EngineConfig, UI profiler snapshot, profiler diagnostics receiving path, Profiler renderer-diagnostics bind, RunPasses readiness probe, RunInput stale-readiness ratchet, capture-facade cleanup, Broadphase visualizer cleanup, PhysicsDebug visualizer cleanup, Window resize lifecycle cleanup, CollisionVisualizer renderer-facet cleanup, and draw-call trace diagnostics-facet cleanup slices complete on 2026-07-07; Gfx accessor/facade deletion pending.
+Last updated: 2026-07-07 (draw-call trace diagnostics-facet cleanup)
 
 ## How to work this file
 
@@ -14,7 +14,7 @@ Last updated: 2026-07-07 (CollisionVisualizer renderer-facet cleanup)
   unblock their blocked rows without reading the blocker reason.
 - Comment quality gate applies to touched source files.
 
-## Current facts (post-CollisionVisualizer renderer-facet cleanup, 2026-07-07)
+## Current facts (post-draw-call trace diagnostics-facet cleanup, 2026-07-07)
 
 - `Cfg()` no longer exists (0 call sites), and `EngineConfig::Instance()` has
   now been deleted. Runtime startup owns an `EngineConfig` value, loads and
@@ -60,6 +60,12 @@ Last updated: 2026-07-07 (CollisionVisualizer renderer-facet cleanup)
   dependency. Resource creation/destruction uses `IRenderResourceFactory`,
   draw/state work uses `IRenderCommandContext`, and child draw-trace scopes use
   `IRenderDiagnostics`.
+- `DrawCallTraceScope` and `DRAW_CALL_TRACE_SCOPE` now live on
+  `IRenderDiagnostics.h` and require an explicit diagnostics facet. The helper
+  no longer calls `Gfx()`/`IsGfxReady()` through `IRenderBackend.h`.
+  `RunFrame`, `RunPasses`, `RunRender`, `RunUiTextPass`, `UI`, and
+  `GameModelRenderer` pass their frame/helper diagnostics borrows into trace
+  scopes.
 - Singleton accessors known from the current census: Profiler::Instance and
   LockOrderValidator::Instance (SVC-034 frozen diagnostics exception), plus
   `s_gfxBackend`/`Gfx()`/`SetGfxBackend` in `Rendering/IRenderBackend.cpp`.
@@ -67,7 +73,7 @@ Last updated: 2026-07-07 (CollisionVisualizer renderer-facet cleanup)
   plain `rg` can skip them because `Debug/` is ignored. Use `git ls-files` or
   targeted `rg --no-ignore` for that census.
 - The checker `tools/check_runtime_boundaries.py` now carries
-  `MAX_GLOBAL_SERVICE_ACCESS_CENSUS = 92`, no EngineConfig allowlist rows, no
+  `MAX_GLOBAL_SERVICE_ACCESS_CENSUS = 89`, no EngineConfig allowlist rows, no
   `UITabProfiler.cpp` global-service allowlist rows, no
   `RuntimeDiagnostics.cpp` profiler allowlist rows, no
   `RunUiTextPass.cpp` profiler allowlist rows, no `Core\Profiler.cpp`
@@ -75,9 +81,10 @@ Last updated: 2026-07-07 (CollisionVisualizer renderer-facet cleanup)
   readiness or renderer-service row, no `GfxCapture()` facade, no
   `BroadphaseVisualizer.cpp` renderer-service row, and no
   `PhysicsDebugVisualizer.cpp` or `CollisionVisualizer.cpp` renderer-service
-  row. The `MAX_IRENDER_BACKEND_DEPENDENCY_CENSUS = 30` ratchet now has no
+  row. The `MAX_IRENDER_BACKEND_DEPENDENCY_CENSUS = 26` ratchet now has no
   `BroadphaseVisualizer.cpp`, `PhysicsDebugVisualizer.cpp`,
-  `CollisionVisualizer.cpp`, `Window.cpp`, or `Window.h` `IRenderBackend` rows.
+  `CollisionVisualizer.cpp`, `Window.cpp`, `Window.h`,
+  `GameModelRenderer.cpp`, or `UI.cpp` `IRenderBackend` rows.
   The `MAX_PHYSICS_GAME_MODEL_COLLECTION_CENSUS = 0` ratchet has no physics-side
   `GameModelCollection` allowlist rows. The
   remaining `Runtime\Init.cpp` `Profiler::Instance()` row is a startup-only
@@ -257,7 +264,7 @@ fence for behavior-bearing uses.
 |--------------|----------------|-------|
 | `Core\Profiler.cpp:460,484,496,502,510,516,525,535,589,613` | Retired 2026-07-07 | Profiler L2 renderer-diagnostics bind; GPU timers/platform GPU markers use startup-bound `IRenderDiagnostics` |
 | `UI\UITabProfiler.cpp:165` | Retired 2026-07-07 | SVC-032/SVC-033 resolved by `ProfilerTab::FrameSnapshot`; no current `UITabProfiler.cpp` `Gfx()` hit |
-| `Rendering\IRenderBackend.h:77,89,96` | (b) backend accessor declaration and tracing RAII compatibility | Cluster E / SVC-001, SVC-002 endgame; plan-05 render capability cleanup supplies the explicit trace/render context first |
+| `Rendering\IRenderBackend.h:77,78` | (b) backend accessor/readiness declarations only | Cluster E / SVC-001, SVC-002 endgame; draw-call trace helper retired 2026-07-07, remaining work is facade/accessor deletion |
 | `Rendering\IRenderBackend.cpp:39,41,44,54` | (a)/(b) backend accessor definition, guard strings, and raytracing facade | Cluster E / SVC-001, SVC-002 endgame; keep until all callers leave the facade |
 | `UI\UIBackdropBlur.cpp:20`, `Rendering\IRenderBackend.h:8,62`, `Rendering\IRenderBackend.cpp:7,17,20,53` | Comment-only or migration-contract prose | No conversion; keep wording accurate as rows drain |
 
@@ -517,6 +524,27 @@ Phase 4 execution notes:
   (19.512s, DX12 InfoQueue 0 validation errors, screenshots matched committed
   baselines), and `tools\validate_full.bat` (41.230s, DX12 validation errors 0,
   screenshots matched, `physics_regression_solver.csv` byte-exact).
+- 2026-07-07 G3 draw-call trace diagnostics-facet cleanup:
+  `DrawCallTraceScope` moved from the aggregate `IRenderBackend.h` facade to
+  `IRenderDiagnostics.h`, and every trace macro site now passes an explicit
+  diagnostics borrow from its frame/helper/UI context. This removes the trace
+  helper's hidden `Gfx()`/`IsGfxReady()` calls, removes `IRenderBackend.h`
+  includes from `UI.cpp` and `GameModelRenderer.cpp`, adds diagnostics to
+  `UIRenderContext` and `RenderHelperContext`, and keeps the precomputed hash
+  path for dynamic object-pass names. The checker lowered
+  `MAX_GLOBAL_SERVICE_ACCESS_CENSUS` from 92 to 89 and
+  `MAX_IRENDER_BACKEND_DEPENDENCY_CENSUS` from 30 to 26; stale aggregate
+  allowlist slack in `Run.cpp` and `RunScene.cpp` was tightened to the live
+  census. Comment audit: touched-file pass inspected 12 source-bearing files,
+  0 deferred. Gates passed: boundary self-test
+  (`check_runtime_boundaries.py --self-test`, 0.326s), boundary scan
+  (`check_runtime_boundaries.py`, 15.498s, 0 errors),
+  `tools\validate_fast.bat` (45.818s, formatting/project filters/staged-size/
+  runtime-boundaries/Profile+Debug builds passed with 0 warnings/errors),
+  `tools\validate_dx12_renderer.bat` (19.761s, DX12 InfoQueue 0 validation
+  errors, screenshots matched committed baselines), and
+  `tools\validate_full.bat` (41.604s, DX12 validation errors 0, screenshots
+  matched, `physics_regression_solver.csv` byte-exact).
 
 ## Closure
 

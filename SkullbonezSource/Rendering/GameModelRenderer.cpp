@@ -35,7 +35,7 @@ Related:
 #include "../Core/Config.h"
 #include "../Physics/ColliderStore.h"
 #include "Helper.h"
-#include "IRenderBackend.h"
+#include "IRenderDiagnostics.h"
 #include "RenderInstanceStore.h"
 #include "../Core/Profiler.h"
 #include "../Core/WorkerPool.h"
@@ -151,7 +151,7 @@ void GameModelRenderer::RenderModels( const RenderHelperContext& helperContext,
     };
 
     {
-        DRAW_CALL_TRACE_SCOPE( "Spheres" );
+        DRAW_CALL_TRACE_SCOPE( helperContext.renderDiagnostics, "Spheres" );
         RenderHelper::DrawSphereBatchBegin( helperContext,
                                             view,
                                             proj,
@@ -211,7 +211,7 @@ void GameModelRenderer::RenderModels( const RenderHelperContext& helperContext,
     };
 
     {
-        DRAW_CALL_TRACE_SCOPE( "Boxes" );
+        DRAW_CALL_TRACE_SCOPE( helperContext.renderDiagnostics, "Boxes" );
         RenderHelper::DrawBoxBatchBegin( helperContext,
                                          view,
                                          proj,
@@ -226,7 +226,7 @@ void GameModelRenderer::RenderModels( const RenderHelperContext& helperContext,
 
     if ( hasPineVisualModels )
     {
-        DRAW_CALL_TRACE_SCOPE( "Pines" );
+        DRAW_CALL_TRACE_SCOPE( helperContext.renderDiagnostics, "Pines" );
         RenderHelper::DrawPineBatchBegin( helperContext,
                                           view,
                                           proj,
@@ -240,7 +240,7 @@ void GameModelRenderer::RenderModels( const RenderHelperContext& helperContext,
     }
 
     {
-        DRAW_CALL_TRACE_SCOPE( "ConvexHulls" );
+        DRAW_CALL_TRACE_SCOPE( helperContext.renderDiagnostics, "ConvexHulls" );
         const ColliderRecordList* colliders = nullptr;
         for ( int x = 0; x < modelCount; ++x )
         {
@@ -401,7 +401,7 @@ void GameModelRenderer::SubmitShadowCasterBatches( const RenderHelperContext& he
 
     {
         PROFILE_SCOPED( "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters/SubmitBatches/Spheres" );
-        DRAW_CALL_TRACE_SCOPE( "Spheres" );
+        DRAW_CALL_TRACE_SCOPE( helperContext.renderDiagnostics, "Spheres" );
 
         RenderHelper::DrawShadowDepthSphereBatchBegin( helperContext, view, proj, cinematic );
         for ( const Matrix4& model : batches.spheres )
@@ -413,7 +413,7 @@ void GameModelRenderer::SubmitShadowCasterBatches( const RenderHelperContext& he
 
     {
         PROFILE_SCOPED( "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters/SubmitBatches/Boxes" );
-        DRAW_CALL_TRACE_SCOPE( "Boxes" );
+        DRAW_CALL_TRACE_SCOPE( helperContext.renderDiagnostics, "Boxes" );
 
         RenderHelper::DrawShadowDepthBoxBatchBegin( helperContext, view, proj );
         for ( const Matrix4& model : batches.boxes )
@@ -426,7 +426,7 @@ void GameModelRenderer::SubmitShadowCasterBatches( const RenderHelperContext& he
     if ( !batches.pines.empty() )
     {
         PROFILE_SCOPED( "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters/SubmitBatches/Pines" );
-        DRAW_CALL_TRACE_SCOPE( "Pines" );
+        DRAW_CALL_TRACE_SCOPE( helperContext.renderDiagnostics, "Pines" );
 
         RenderHelper::DrawShadowDepthPineBatchBegin( helperContext, view, proj );
         for ( const Matrix4& model : batches.pines )
@@ -439,7 +439,7 @@ void GameModelRenderer::SubmitShadowCasterBatches( const RenderHelperContext& he
     if ( !batches.convexHulls.empty() )
     {
         PROFILE_SCOPED( "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters/SubmitBatches/ConvexHulls" );
-        DRAW_CALL_TRACE_SCOPE( "ConvexHulls" );
+        DRAW_CALL_TRACE_SCOPE( helperContext.renderDiagnostics, "ConvexHulls" );
 
         for ( const auto& caster : batches.convexHulls )
         {

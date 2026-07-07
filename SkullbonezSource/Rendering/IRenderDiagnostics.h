@@ -34,6 +34,8 @@ Related:
 */
 #pragma once
 
+#include "../Core/Common.h"
+
 #include <cstddef>
 #include <cstdint>
 
@@ -166,5 +168,47 @@ class IRenderDiagnostics
     }
 };
 
+class DrawCallTraceScope
+{
+  public:
+    DrawCallTraceScope( IRenderDiagnostics& renderDiagnostics, const char* fullPathOrLeaf )
+        : m_renderDiagnostics( &renderDiagnostics ), m_hash( HashStr( fullPathOrLeaf ) )
+    {
+        // Lifetime: trace scopes are frame-local diagnostics annotations. They
+        // borrow the diagnostics facet already owned by the caller instead of
+        // reopening the global renderer facade.
+        m_renderDiagnostics->PushDrawCallTraceScope( fullPathOrLeaf, m_hash );
+    }
+
+    DrawCallTraceScope( IRenderDiagnostics& renderDiagnostics, const char* fullPathOrLeaf, uint32_t hash )
+        : m_renderDiagnostics( &renderDiagnostics ), m_hash( hash )
+    {
+        // Why: graph/object passes may already have the profiler hash in hand.
+        // Reusing it keeps CPU and GPU diagnostics grouped by the same key.
+        m_renderDiagnostics->PushDrawCallTraceScope( fullPathOrLeaf, m_hash );
+    }
+
+    ~DrawCallTraceScope()
+    {
+        if ( m_renderDiagnostics )
+        {
+            m_renderDiagnostics->PopDrawCallTraceScope( m_hash );
+        }
+    }
+
+    DrawCallTraceScope( const DrawCallTraceScope& ) = delete;
+    DrawCallTraceScope& operator=( const DrawCallTraceScope& ) = delete;
+
+  private:
+    IRenderDiagnostics* m_renderDiagnostics = nullptr;
+    uint32_t m_hash = 0;
+};
+
 } // namespace Rendering
 } // namespace SkullbonezCore
+
+#define DRAW_CALL_TRACE_PASTE_INNER( a, b ) a##b
+#define DRAW_CALL_TRACE_PASTE( a, b ) DRAW_CALL_TRACE_PASTE_INNER( a, b )
+#define DRAW_CALL_TRACE_SCOPE( diagnostics, name )                                                                     \
+    ::SkullbonezCore::Rendering::DrawCallTraceScope DRAW_CALL_TRACE_PASTE( _drawTraceScope_, __LINE__ )( diagnostics,  \
+                                                                                                         name )

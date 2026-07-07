@@ -157,13 +157,13 @@ hardest-to-unblock first inside each plan.
 
 - **SVC-001** - `SkullbonezSource/Rendering/IRenderBackend.cpp` / `s_gfxBackend`
   - Attempted: central renderer singleton migration assessment.
-  - Failure/reason: active renderer singleton cannot be startup-only while draw-call trace helper compatibility still opens the facade. The profiler marker/timer dependency was removed by the 2026-07-07 Profiler renderer-diagnostics bind; `RunPasses.cpp` no longer uses the global readiness helper, the stale `RunInput.cpp` readiness allowance has been deleted, `GfxCapture()` is gone, Broadphase/PhysicsDebug line overlays and CollisionVisualizer now use explicit render facets, and window resize now borrows only `IRenderDeviceLifecycle`.
-  - Needed to unblock: finish the remaining draw-call trace/facade cleanup or approve a bounded compatibility decision.
+  - Failure/reason: active renderer singleton cannot be startup-only while the aggregate facade and public accessor are still live. The draw-call trace helper now uses explicit `IRenderDiagnostics`, the profiler marker/timer dependency was removed by the 2026-07-07 Profiler renderer-diagnostics bind, `RunPasses.cpp` no longer uses the global readiness helper, the stale `RunInput.cpp` readiness allowance has been deleted, `GfxCapture()` is gone, Broadphase/PhysicsDebug line overlays and CollisionVisualizer now use explicit render facets, and window resize now borrows only `IRenderDeviceLifecycle`.
+  - Needed to unblock: delete or strictly bound the remaining `IRenderBackend` aggregate facade/accessor startup mechanics.
 
 - **SVC-002** - `SkullbonezSource/Rendering/IRenderBackend.cpp` / `Gfx`
   - Attempted: service locator deletion assessment.
-  - Failure/reason: `Gfx()` still serves the backend facade and draw-call trace helpers; the checker ratchet prevents growth but deletion needs dependent cleanup. Core profiler no longer depends on it, the tornado visual pass plus Broadphase/PhysicsDebug visualizers and CollisionVisualizer now use explicit frame render context/facets, and capture uses the startup-bound `IRenderCaptureBackend` borrow.
-  - Needed to unblock: migrate remaining trace/facade callers to explicit render capabilities and then delete the facade accessor.
+  - Failure/reason: `Gfx()` still serves the backend aggregate facade/accessor surface; the checker ratchet prevents growth but deletion needs dependent cleanup. Draw-call trace helpers now use explicit diagnostics, Core profiler no longer depends on it, the tornado visual pass plus Broadphase/PhysicsDebug visualizers and CollisionVisualizer now use explicit frame render context/facets, and capture uses the startup-bound `IRenderCaptureBackend` borrow.
+  - Needed to unblock: migrate or delete the remaining aggregate-facade callers, then delete the facade accessor.
 
 ## Plan 01 - Run Composition Root
 

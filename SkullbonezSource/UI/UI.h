@@ -70,6 +70,7 @@ class AssetSystem;
 namespace Rendering
 {
 class IRenderCommandContext;
+class IRenderDiagnostics;
 class IRenderResourceFactory;
 } // namespace Rendering
 
@@ -102,15 +103,16 @@ constexpr int UI_RUNTIME_RESERVE_GROWTH_EVENT_MAX = 64;
 struct UIRenderContext
 {
     // Lifetime: each pointer is borrowed for the current UI/text pass only.
-    // Resource creation and draw commands stay split so the UI never needs the
-    // wide renderer facade.
+    // Resource creation, draw commands, and draw tracing stay split so the UI
+    // never needs the wide renderer facade.
     Assets::AssetSystem* assets = nullptr;
     Rendering::IRenderResourceFactory* resources = nullptr;
     Rendering::IRenderCommandContext* commands = nullptr;
+    Rendering::IRenderDiagnostics* diagnostics = nullptr;
 
     bool IsReady() const
     {
-        return assets != nullptr && resources != nullptr && commands != nullptr;
+        return assets != nullptr && resources != nullptr && commands != nullptr && diagnostics != nullptr;
     }
 };
 constexpr int UI_SOUND_BAND_MAX = 4;

@@ -332,8 +332,12 @@ void RenderReplayPredictionGhosts( ReplayRuntime& replayRuntime,
 
     assert( frame.textures && "RenderFrameContext requires a texture collection" );
     frame.textures->SelectTexture( TEXTURE_BOUNDING_SPHERE );
-    assert( frame.renderResources && frame.renderCommands && frame.assets );
-    const RenderHelperContext helperContext{ *frame.renderResources, *frame.renderCommands, *frame.assets, config };
+    assert( frame.renderResources && frame.renderCommands && frame.renderDiagnostics && frame.assets );
+    const RenderHelperContext helperContext{ *frame.renderResources,
+                                             *frame.renderCommands,
+                                             *frame.renderDiagnostics,
+                                             *frame.assets,
+                                             config };
     RenderHelper::DrawBoxBatchBegin( helperContext,
                                      frame.baseView,
                                      frame.projection,
@@ -1472,6 +1476,7 @@ void RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
             RuntimeAllocation::RuntimeAllocationPhase::BackendInit );
         RenderHelperContext helperContext{ services.renderResources,
                                            services.renderCommands,
+                                           services.renderDiagnostics,
                                            services.assets,
                                            m_config };
         RenderHelper::EnsureShadowDepthPrimitiveResources( helperContext );
@@ -1525,7 +1530,7 @@ void RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
     {
         PROFILE_GPU_BEGIN( "Frame/Render/Skybox" );
         {
-            DRAW_CALL_TRACE_SCOPE( "Frame/Render/Skybox" );
+            DRAW_CALL_TRACE_SCOPE( services.renderDiagnostics, "Frame/Render/Skybox" );
             skyboxCallbackOwned = ExecuteSkyboxThroughRenderGraph( frame );
         }
         PROFILE_GPU_END( "Frame/Render/Skybox" );

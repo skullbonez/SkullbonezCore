@@ -1149,16 +1149,21 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
     SkullbonezCore::Rendering::IRenderRayTracing* rayTracing = m_renderBackendView.rayTracingBackend;
     SkullbonezCore::Rendering::IRenderResourceFactory* renderResources = m_renderBackendView.renderResources;
     SkullbonezCore::Rendering::IRenderCommandContext* renderCommands = m_renderBackendView.renderCommands;
+    SkullbonezCore::Rendering::IRenderDiagnostics* renderDiagnostics = m_renderBackendView.renderDiagnostics;
     const bool hasRayTracingReflection =
-        m_renderBackendView.renderDiagnostics &&
-        m_renderBackendView.renderDiagnostics->GetCapabilities().supportsDxrReflection && rayTracing;
+        renderDiagnostics && renderDiagnostics->GetCapabilities().supportsDxrReflection && rayTracing;
     if ( hasRayTracingReflection && RenderHelper::GetSphereInstMeshHandle() == 0 )
     {
-        if ( !renderResources || !renderCommands )
+        if ( !renderResources || !renderCommands || !renderDiagnostics )
         {
-            throw std::runtime_error( "DXR reflection initialization requires render resource and command facets" );
+            throw std::runtime_error(
+                "DXR reflection initialization requires render resource, command, and diagnostics facets" );
         }
-        const RenderHelperContext helperContext{ *renderResources, *renderCommands, m_systems.assets, m_config };
+        const RenderHelperContext helperContext{ *renderResources,
+                                                 *renderCommands,
+                                                 *renderDiagnostics,
+                                                 m_systems.assets,
+                                                 m_config };
         RenderHelper::EnsureSphereMesh( helperContext );
     }
     if ( hasRayTracingReflection && m_systems.terrain && m_systems.terrain->GetMesh() )

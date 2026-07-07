@@ -79,39 +79,6 @@ bool IsGfxReady();
 void SetGfxBackend( std::unique_ptr<IRenderBackend> backend );
 void DestroyGfxBackend();
 
-class DrawCallTraceScope
-{
-  public:
-    DrawCallTraceScope( const char* fullPathOrLeaf, uint32_t hash ) : m_hash( hash ), m_active( IsGfxReady() )
-    {
-        if ( m_active )
-        {
-            Gfx().PushDrawCallTraceScope( fullPathOrLeaf, hash );
-        }
-    }
-    ~DrawCallTraceScope()
-    {
-        if ( m_active )
-        {
-            Gfx().PopDrawCallTraceScope( m_hash );
-        }
-    }
-    DrawCallTraceScope( const DrawCallTraceScope& ) = delete;
-    DrawCallTraceScope& operator=( const DrawCallTraceScope& ) = delete;
-
-  private:
-    uint32_t m_hash = 0;
-    bool m_active = false;
-};
-
 
 } // namespace Rendering
 } // namespace SkullbonezCore
-
-#define DRAW_CALL_TRACE_PASTE_INNER( a, b ) a##b
-#define DRAW_CALL_TRACE_PASTE( a, b ) DRAW_CALL_TRACE_PASTE_INNER( a, b )
-#define DRAW_CALL_TRACE_SCOPE( name )                                                                                  \
-    constexpr uint32_t DRAW_CALL_TRACE_PASTE( _drawTraceHash_, __LINE__ ) = ::HashStr( name );                         \
-    ::SkullbonezCore::Rendering::DrawCallTraceScope DRAW_CALL_TRACE_PASTE( _drawTraceScope_, __LINE__ )(               \
-        name,                                                                                                          \
-        DRAW_CALL_TRACE_PASTE( _drawTraceHash_, __LINE__ ) )

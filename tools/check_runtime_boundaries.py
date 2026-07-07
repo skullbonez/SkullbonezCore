@@ -1502,26 +1502,24 @@ RENDER_BACKEND_AGGREGATE_DEPENDENCY_PATTERNS: tuple[tuple[str, re.Pattern[str], 
 # RGRAPH-030: include-aware tracked-source census on 2026-07-07.
 # These budgets are not approval for growth; per-file rows classify remaining
 # render-backend aggregate debt while Plan 05 drains it.
-MAX_IRENDER_BACKEND_DEPENDENCY_CENSUS = 30
+MAX_IRENDER_BACKEND_DEPENDENCY_CENSUS = 26
 MAX_RENDER_BACKEND_DX12_GET_CENSUS = 0
 RENDER_BACKEND_AGGREGATE_DEPENDENCY_ALLOWLIST: Counter[tuple[Path, str]] = Counter(
     {
         ( Path(path), label ): count
         for path, label, count in (
             ( "SkullbonezSource/Rendering/DX12/RenderBackendDX12.h", "IRenderBackend", 2 ),
-            ( "SkullbonezSource/Rendering/GameModelRenderer.cpp", "IRenderBackend", 1 ),
             ( "SkullbonezSource/Rendering/IRenderBackend.cpp", "IRenderBackend", 4 ),
             ( "SkullbonezSource/Rendering/IRenderBackend.h", "IRenderBackend", 4 ),
             ( "SkullbonezSource/Runtime/Init.cpp", "IRenderBackend", 1 ),
             ( "SkullbonezSource/Runtime/Render/RuntimeRenderHost.h", "IRenderBackend", 2 ),
-            ( "SkullbonezSource/Runtime/Run.cpp", "IRenderBackend", 3 ),
+            ( "SkullbonezSource/Runtime/Run.cpp", "IRenderBackend", 2 ),
             ( "SkullbonezSource/Runtime/RunInternal.h", "IRenderBackend", 2 ),
-            ( "SkullbonezSource/Runtime/Scene/RunScene.cpp", "IRenderBackend", 4 ),
+            ( "SkullbonezSource/Runtime/Scene/RunScene.cpp", "IRenderBackend", 3 ),
             ( "SkullbonezSource/Runtime/Scene/SceneRuntimeGeneratedControls.cpp", "IRenderBackend", 1 ),
             ( "SkullbonezSource/Runtime/Scene/SceneRuntimeGeneratedControls.h", "IRenderBackend", 2 ),
             ( "SkullbonezSource/Runtime/Scene/SceneRuntimeLoad.cpp", "IRenderBackend", 1 ),
             ( "SkullbonezSource/Runtime/Scene/SceneRuntimeLoad.h", "IRenderBackend", 2 ),
-            ( "SkullbonezSource/UI/UI.cpp", "IRenderBackend", 1 ),
         )
     }
 )
@@ -1618,7 +1616,7 @@ GLOBAL_RENDERER_SERVICE_LABELS = { "Gfx()", "GfxCapture()", "GfxRayTracing()", "
 GLOBAL_RENDERER_SERVICE_ACCESS_CLASSIFICATIONS: dict[Path, str] = {
     Path("SkullbonezSource/Physics/TornadoField.cpp"): "physics debug rendering compatibility",
     Path("SkullbonezSource/Rendering/IRenderBackend.cpp"): "backend accessor definition",
-    Path("SkullbonezSource/Rendering/IRenderBackend.h"): "backend accessor declaration and tracing RAII",
+    Path("SkullbonezSource/Rendering/IRenderBackend.h"): "backend accessor declaration",
     Path("SkullbonezSource/Runtime/Editor/LauncherLaser.cpp"): "editor transient geometry compatibility",
     Path("SkullbonezSource/Runtime/Editor/RunEditorTracer.inl"): "editor debug tracing compatibility",
     Path("SkullbonezSource/Runtime/Run.cpp"): "runtime composition root",
@@ -1651,7 +1649,7 @@ FROZEN_DIAGNOSTIC_SINGLETON_INSTANCE_CLASSES = {
 # profiler diagnostics receiving path resolves the singleton once in Init, and
 # Core profiler GPU timers now use a startup-bound IRenderDiagnostics borrow
 # instead of reopening Gfx().
-MAX_GLOBAL_SERVICE_ACCESS_CENSUS = 92
+MAX_GLOBAL_SERVICE_ACCESS_CENSUS = 89
 # RUN-001: current Run.h private `m_` field census on 2026-07-07.
 # This is not approval for growth. Run remains the composition root, but new
 # feature state should enter through one of the narrower owners below instead
@@ -1711,8 +1709,8 @@ GLOBAL_SERVICE_ACCESS_ALLOWLIST: Counter[tuple[Path, str]] = Counter(
             ( "SkullbonezSource/Core/WorkerPool.cpp", "g_*", 8 ),
             ( "SkullbonezSource/Rendering/IRenderBackend.cpp", "Gfx()", 1 ),
             ( "SkullbonezSource/Rendering/IRenderBackend.cpp", "IsGfxReady()", 1 ),
-            ( "SkullbonezSource/Rendering/IRenderBackend.h", "Gfx()", 3 ),
-            ( "SkullbonezSource/Rendering/IRenderBackend.h", "IsGfxReady()", 2 ),
+            ( "SkullbonezSource/Rendering/IRenderBackend.h", "Gfx()", 1 ),
+            ( "SkullbonezSource/Rendering/IRenderBackend.h", "IsGfxReady()", 1 ),
             ( "SkullbonezSource/Runtime/Init.cpp", "g_*", 6 ),
             ( "SkullbonezSource/Runtime/Init.cpp", "Profiler::Instance()", 1 ),
             ( "SkullbonezSource/Runtime/Input.cpp", "g_*", 33 ),
