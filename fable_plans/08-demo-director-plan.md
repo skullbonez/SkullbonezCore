@@ -1,7 +1,7 @@
 # Demo Director Plan (scene phases + hand-authored camera)
 
 Date: 2026-07-07
-Status: In progress; phase 1 data model/load-save complete
+Status: In progress; phase 2 P2.1 Director camera mode complete
 Impact area: runtime camera, live-style application, interaction, UI overlay;
 no physics change
 Validation for this document: none (documentation-only)
@@ -29,8 +29,9 @@ a perfect take on demand.
 
 ## What already exists (reuse, do not rebuild)
 
-- `RunCameraMode` enum (Demo/Scene/Inspect/Attach/Launcher/Manipulator/Count)
-  in `Runtime/RuntimeCameraMode.h` — add one director mode.
+- `RunCameraMode` enum
+  (Demo/Scene/Inspect/Attach/Launcher/Manipulator/Director/Count) in
+  `Runtime/RuntimeCameraMode.h`.
 - Free-fly camera (fly-mode enter/exit, MouseLook, MoveCamera) already in
   `RunInput.cpp` — the pose-authoring tool.
 - Live style application: `RunLiveStyle.cpp` hot-reloads a style file by calling

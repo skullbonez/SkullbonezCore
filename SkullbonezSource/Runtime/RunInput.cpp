@@ -847,6 +847,8 @@ const char* Run::CameraModeLabel( RunCameraMode mode ) const
         return "Launcher";
     case RunCameraMode::Manipulator:
         return "Manipulator";
+    case RunCameraMode::Director:
+        return "Director";
     default:
         return "Unknown";
     }
@@ -901,7 +903,7 @@ bool Run::IsFlyCameraMode() const
 
 bool Run::IsManualCameraMode() const
 {
-    return IsFlyCameraMode() || IsAttachedCameraMode();
+    return IsFlyCameraMode() || IsAttachedCameraMode() || m_camera.mode == RunCameraMode::Director;
 }
 
 
@@ -1334,6 +1336,7 @@ uint32_t Run::CameraModeEnabledMask() const
     mask |= 1u << static_cast<int>( RunCameraMode::Attach );
     mask |= 1u << static_cast<int>( RunCameraMode::Launcher );
     mask |= 1u << static_cast<int>( RunCameraMode::Manipulator );
+    mask |= 1u << static_cast<int>( RunCameraMode::Director );
     return mask;
 }
 

@@ -106,7 +106,8 @@ bool UiTextPass::ShouldRender( const UiTextPassState& state ) const
            ( state.debug.isCrossScenePauseLocked && !state.debug.isTopTextHidden ) ||
            ( state.scene.isTestComplete && !state.debug.isTopTextHidden ) || state.replayScrubberVisible ||
            state.replayPathVisualizerHasTarget ||
-           ( state.camera.mode != RunCameraMode::Demo && state.camera.mode != RunCameraMode::Scene );
+           ( state.camera.mode != RunCameraMode::Demo && state.camera.mode != RunCameraMode::Scene &&
+             state.camera.mode != RunCameraMode::Director );
 }
 
 
@@ -284,7 +285,8 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         {
             return;
         }
-        if ( state.camera.mode == RunCameraMode::Demo || state.camera.mode == RunCameraMode::Scene )
+        if ( state.camera.mode == RunCameraMode::Demo || state.camera.mode == RunCameraMode::Scene ||
+             state.camera.mode == RunCameraMode::Director )
         {
             return;
         }

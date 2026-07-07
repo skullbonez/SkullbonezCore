@@ -180,6 +180,8 @@ const char* CameraModeName( RunCameraMode mode )
         return "Launcher";
     case RunCameraMode::Manipulator:
         return "Manipulator";
+    case RunCameraMode::Director:
+        return "Director";
     case RunCameraMode::Count:
         break;
     }
@@ -216,6 +218,11 @@ bool TryParseCameraMode( const std::string& value, RunCameraMode& outMode )
     if ( value == "Manipulator" )
     {
         outMode = RunCameraMode::Manipulator;
+        return true;
+    }
+    if ( value == "Director" )
+    {
+        outMode = RunCameraMode::Director;
         return true;
     }
     return false;

@@ -100,9 +100,12 @@ uint32_t HashFloat( uint32_t seed, float value, float scale = 100.0f )
     return HashInt( seed, static_cast<int>( std::round( value * scale ) ) );
 }
 
-constexpr int CAMERA_MODE_OPTION_COUNT = 6;
+// Invariant: camera mode options are indexed by static_cast<int>(RunCameraMode)
+// even though this UI file stays decoupled from the runtime enum header. Keep
+// this table in enum order and keep UI.h default masks at one bit per option.
+constexpr int CAMERA_MODE_OPTION_COUNT = 7;
 const char* const kCameraModeOptions[CAMERA_MODE_OPTION_COUNT] =
-    { "Demo", "Scene", "Inspect", "Attach", "Launcher", "Manipulator" };
+    { "Demo", "Scene", "Inspect", "Attach", "Launcher", "Manipulator", "Director" };
 constexpr float MINIMIZED_CAMERA_MODE_COMBO_W = 104.0f;
 constexpr float MINIMIZED_CAMERA_MODE_GAP = 8.0f;
 constexpr float MINIMIZED_RESTORE_W = 42.0f;

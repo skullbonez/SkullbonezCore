@@ -1,7 +1,7 @@
 # Progress: Demo Director (plan 08)
 
 Source plan: `fable_plans/08-demo-director-plan.md`
-Status: phase 1 data model/load-save complete; phase 2 Director camera mode next
+Status: phase 2 P2.1 Director camera mode complete; phase 2 runtime state next
 Last updated: 2026-07-07
 
 ## How to work this file
@@ -17,7 +17,7 @@ Last updated: 2026-07-07
 
 - `RunCameraMode` enum: `Runtime/RuntimeCameraMode.h` (anchor
   `enum class RunCameraMode`) — values Demo, Scene, Inspect, Attach, Launcher,
-  Manipulator, Count. Add `Director` before `Count`.
+  Manipulator, Director, Count.
 - Camera state struct: `RunState.h` (anchor `struct RunCameraState`) — holds
   `mode`, `modeBeforeLauncher`, `modeBeforeAttach`, `cameraTime`, tracking
   fields. The "return to previous mode" pattern (`modeBeforeAttach`) is the
@@ -179,10 +179,33 @@ Last updated: 2026-07-07
     warnings/0 errors; `SKULLBONEZ_TESTS` reported 44 test cases and 574
     assertions passed.
 
-- [ ] P2.1 Add `RunCameraMode::Director` to the enum (before `Count`); update
+- [x] P2.1 Add `RunCameraMode::Director` to the enum (before `Count`); update
   every exhaustive switch the compiler flags (that is the checklist — build and
   fix each `-W4` switch warning). Add label in `CameraModeLabel`
   (RunInput.cpp:1081). Gate: build 0/0.
+  Evidence recorded 2026-07-07:
+  - Added `RunCameraMode::Director` before `Count` and documented it in
+    `RuntimeCameraMode.h`.
+  - Wired Director through `CameraModeLabel`, `CameraModeName`,
+    `TryParseCameraMode`, `CameraModeEnabledMask`, and the compact UI camera
+    mode option table/default mask.
+  - Mapped Director camera transitions to `RuntimeInteractionController::EnterLive`
+    so it uses Live/None ownership while later director playback owns camera
+    math explicitly.
+  - Kept Director out of fly/launcher/manipulator routing; classified it as
+    manual for generated-demo camera suppression and hid the runtime manual-mode
+    badge so it does not advertise free-fly controls before grab/release exists.
+  - Comment-quality audit scope:
+    `RuntimeCameraMode.h`, `RunInput.cpp`, `RunInteractionAutomation.cpp`,
+    `RuntimeInteractionController.cpp`, `RunUiTextPass.cpp`, `UI.cpp`, and
+    `UI.h`. All touched files had learning headers; added a local invariant for
+    the UI option table/enum-order contract.
+  - Gate: `tools\validate_fast.bat` passed on 2026-07-07 in 45.504s. Log:
+    `Agentic\Reports\2026-07-07\logs\fable-08-director-camera-mode-validate-fast.log`.
+    Key lines: format passed; project filters passed; staged file size check
+    passed; runtime boundaries passed; Profile and Debug builds succeeded with
+    0 warnings/0 errors; `SKULLBONEZ_TESTS` reported 44 test cases and 574
+    assertions passed.
 - [ ] P2.2 Director runtime state on the Run side (fixed, in RunState.h near
   RunCameraState): active shot list, current phase index, phase elapsed time,
   blend timer, and a `grabbed` bool + the free-fly pose captured at grab.

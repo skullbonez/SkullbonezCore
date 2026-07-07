@@ -174,6 +174,7 @@ RuntimeInteractionTransition RuntimeInteractionController::EnterCameraMode( RunC
     {
     case RunCameraMode::Demo:
     case RunCameraMode::Scene:
+    case RunCameraMode::Director:
         return EnterLive();
     case RunCameraMode::Inspect:
     case RunCameraMode::Attach:
