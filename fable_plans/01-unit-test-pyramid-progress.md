@@ -285,12 +285,30 @@ item against plan 02 and pick the next.
 
 ## Phase 3 — engine-adjacent units
 
-- [ ] E1. `TestReserveAllocator.cpp` — RuntimeReserveAllocator: RegisterOwner
+- [x] E1. `TestReserveAllocator.cpp` — RuntimeReserveAllocator: RegisterOwner
   + RequestGrowth under cap grants; over-cap denies; growth counting.
   DISCOVERY: `rg -n "RegisterOwner|RequestGrowth" SkullbonezSource/Runtime/Allocation`
   — record signatures + any global state that needs reset between TEST_CASEs
   (if the allocator is a process-global registry, use unique owner names per
   case and note the constraint here).
+
+  Evidence: CodeGraph mapped `RuntimeReserveAllocator::RegisterOwner`,
+  `RequestGrowth`, `ResetCounters`, `CopyRecentGrowthEvents`,
+  `GrowthEventCount`, policy-violation counters, and
+  `RuntimeReserveGrowthScope` as the public test surface. Discovery
+  `rg -n "RegisterOwner|RequestGrowth" SkullbonezSource/Runtime/Allocation`
+  confirmed registration persists in fixed process-global owner storage while
+  `ResetCounters()` clears owner counters, policy violations, and recent growth
+  events. Added `SkullbonezTests/TestReserveAllocator.cpp` and compiled
+  `SkullbonezSource/Runtime/Allocation/RuntimeReserveAllocator.cpp` into
+  `SKULLBONEZ_TESTS`. Tests use unique owner names per case and lock replay
+  growth grants under cap, event byte accounting, replay-growth scope approval,
+  over-cap denial, policy violation counting, growth-count limit denial, event
+  reason fields, and reset-without-unregistering-owner behavior. The first gate
+  failed in project-filter validation because runtime allocation source belongs
+  under `Source Files\Runtime\Allocation`; the filter was corrected. Final gate:
+  `tools\validate_tests.bat` passed in 3.798s with 35 doctest cases and
+  364 assertions all passing.
 - [ ] E2. `TestReplayRecorder.cpp` — ring-buffer wrap: fill past capacity,
   assert oldest overwritten + cursor restore matches
   (RunRayCastTestState.MAX_LINES pattern documents the ABI expectation;

@@ -263,3 +263,14 @@ else returns to the overnight machine as gated, verifiable slices.
   default mass, bounding radius, projected area, inertia half-extents, and
   box-approx inertia scaling. Gate passed: `tools\validate_tests.bat`
   (3.744s, 30 doctest cases, 305 assertions, 0 warnings/errors).
+- 2026-07-07: Completed fable-01 E1 RuntimeReserveAllocator tests. Added
+  `SkullbonezTests/TestReserveAllocator.cpp`, compiled
+  `RuntimeReserveAllocator.cpp` into `SKULLBONEZ_TESTS`, and covered replay
+  growth grants under cap, event byte accounting, replay-growth scope approval,
+  over-cap denial, policy violation counting, growth-count limit denial, event
+  reason fields, and `ResetCounters()` preserving owner registration while
+  clearing diagnostics. The first gate failed on project-filter classification;
+  `RuntimeReserveAllocator.cpp` now lives under
+  `Source Files\Runtime\Allocation` in the test filters. Final gate passed:
+  `tools\validate_tests.bat` (3.798s, 35 doctest cases, 364 assertions,
+  0 warnings/errors).
