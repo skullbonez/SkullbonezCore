@@ -262,11 +262,26 @@ item against plan 02 and pick the next.
   final tests use static store fixtures and `Clear()` between cases. Gate:
   `tools\validate_tests.bat` passed in 4.011s with 27 doctest cases and
   174 assertions all passing.
-- [ ] S5. `TestConvexHull.cpp` — load a committed baked hull from
+- [x] S5. `TestConvexHull.cpp` — load a committed baked hull from
   `SkullbonezData/hulls/` (pick the smallest), assert face/edge/mass/inertia
   invariants the bake guarantees (ConvexHullShape.cpp's 41 validation throws
   document the invariants — mirror 5-8 of them as CHECKs on good data).
   Commit phase (gate: `validate_tests`).
+
+  Evidence: CodeGraph mapped `ConvexHullShape::LoadFromFile`, baked topology
+  getters, and mass/inertia getters as uncovered. Discovery
+  `rg -n "Cfg\(|Gfx\(|::Instance" SkullbonezSource/Physics/ConvexHullShape.cpp`
+  returned no hits. The smallest committed baked hull is
+  `SkullbonezData/hulls/pyramid.hull` (1,150 bytes). Added
+  `SkullbonezTests/TestConvexHull.cpp`; `ConvexHullShape.cpp` was already
+  compiled into `SKULLBONEZ_TESTS` from S2. Tests lock the pyramid name, vertex
+  count, face count, edge count, centered vertices, base face span, face normal
+  lengths, face index ranges, edge vertex/face ranges, edge endpoint adjacency
+  against both faces, baked center of mass, volume, default mass, bounding
+  radius, projected surface area, inertia half-extents, and
+  `ComputeBoxApproxInertia()`. Phase 2 physics primitive/store coverage is now
+  complete. Gate: `tools\validate_tests.bat` passed in 3.744s with 30 doctest
+  cases and 305 assertions all passing.
 
 ## Phase 3 — engine-adjacent units
 

@@ -255,3 +255,11 @@ else returns to the overnight machine as gated, verifiable slices.
   fixtures and `Clear()` between cases to match fixed-capacity runtime storage.
   Gate passed: `tools\validate_tests.bat` (4.011s, 27 doctest cases,
   174 assertions, 0 warnings/errors).
+- 2026-07-07: Completed fable-01 S5 ConvexHull tests and closed the physics
+  primitives/stores phase. Added `SkullbonezTests/TestConvexHull.cpp`, loaded
+  the smallest committed baked hull `SkullbonezData/hulls/pyramid.hull`, and
+  covered baked identity, centered vertices, face spans, face normal lengths,
+  face index ranges, edge topology, adjacent-face endpoint membership, volume,
+  default mass, bounding radius, projected area, inertia half-extents, and
+  box-approx inertia scaling. Gate passed: `tools\validate_tests.bat`
+  (3.744s, 30 doctest cases, 305 assertions, 0 warnings/errors).

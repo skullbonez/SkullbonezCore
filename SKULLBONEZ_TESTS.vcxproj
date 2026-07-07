@@ -141,6 +141,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="SkullbonezTests\TestBounds.cpp" />
+    <ClCompile Include="SkullbonezTests\TestConvexHull.cpp" />
     <ClCompile Include="SkullbonezTests\TestGeometricMath.cpp" />
     <ClCompile Include="SkullbonezTests\TestMain.cpp" />
     <ClCompile Include="SkullbonezTests\TestMatrix4.cpp" />
