@@ -274,3 +274,15 @@ else returns to the overnight machine as gated, verifiable slices.
   `Source Files\Runtime\Allocation` in the test filters. Final gate passed:
   `tools\validate_tests.bat` (3.798s, 35 doctest cases, 364 assertions,
   0 warnings/errors).
+- 2026-07-07: Completed fable-01 E2 ReplayRecorder tests. Added
+  `SkullbonezTests/TestReplayRecorder.cpp`, compiled `ReplayRecorder.cpp` into
+  `SKULLBONEZ_TESTS`, and used synthetic solver samples through
+  `CaptureFrameFromSolverSample()` to cover presentation ring wrap without live
+  runtime owners. Coverage locks retention capacity, oldest-frame eviction,
+  chronological copy order, event cursor retention, latest sample, normalized
+  scrub lookup, stats, and `ResetTimeline()` preserving capacity. Added
+  `SkullbonezTests/TestReplayRecorderLinkStubs.cpp` as loud test-only stubs for
+  uncalled full-capture camera/world/model/physics owner hooks. The first gate
+  failed at link before those stubs; final gate passed:
+  `tools\validate_tests.bat` (4.335s, 38 doctest cases, 397 assertions,
+  0 warnings/errors).

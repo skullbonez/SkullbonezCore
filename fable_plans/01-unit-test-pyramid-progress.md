@@ -309,10 +309,31 @@ item against plan 02 and pick the next.
   under `Source Files\Runtime\Allocation`; the filter was corrected. Final gate:
   `tools\validate_tests.bat` passed in 3.798s with 35 doctest cases and
   364 assertions all passing.
-- [ ] E2. `TestReplayRecorder.cpp` — ring-buffer wrap: fill past capacity,
+- [x] E2. `TestReplayRecorder.cpp` — ring-buffer wrap: fill past capacity,
   assert oldest overwritten + cursor restore matches
   (RunRayCastTestState.MAX_LINES pattern documents the ABI expectation;
   target the ReplayRecorder ring API — DISCOVERY: `rg -n "class ReplayRecorder" -A 40 SkullbonezSource/Runtime/Replay/ReplayRecorder.h`).
+
+  Evidence: CodeGraph and focused source reads mapped `ReplayRecorder` as the
+  presentation ring, with `Configure`, `ResetTimeline`,
+  `CaptureFrameFromSolverSample`, `CopySamplesChronological`,
+  `SampleAtNormalized`, `LatestSample`, and `GetStats` as the clean standalone
+  surface. Discovery `rg -n "Cfg\(|Gfx\(|::Instance"
+  SkullbonezSource/Runtime/Replay/ReplayRecorder.cpp
+  SkullbonezSource/Runtime/Replay/ReplayRecorder.h` returned no hits. Added
+  `SkullbonezTests/TestReplayRecorder.cpp`, compiled `ReplayRecorder.cpp` into
+  `SKULLBONEZ_TESTS`, and added `TestReplayRecorderLinkStubs.cpp` because the
+  same translation unit also contains uncalled full-capture functions that link
+  to camera/world/model/physics owners. Tests capture synthetic solver samples
+  through `CaptureFrameFromSolverSample()` so they exercise the real
+  presentation ring without live runtime owners. They lock retention capacity,
+  oldest-frame eviction after wrap, chronological copy order, event cursor
+  retention, latest sample, normalized scrub lookup, stats, and
+  `ResetTimeline()` clearing samples/cursors while preserving capacity. The
+  first gate failed at link on the uncalled full-capture owner hooks; the loud
+  link stubs now throw if a focused ring test crosses that boundary. Final
+  gate: `tools\validate_tests.bat` passed in 4.335s with 38 doctest cases and
+  397 assertions all passing.
 - [ ] E3. `TestSceneParser.cpp` — smallest committed scene from
   `SkullbonezData/scenes/` parses ok; malformed JSON returns error (currently
   throws — assert the current contract; plan 05 converts it to SbResult and

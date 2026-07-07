@@ -148,6 +148,8 @@
     <ClCompile Include="SkullbonezTests\TestPhysicsHandles.cpp" />
     <ClCompile Include="SkullbonezTests\TestQuaternion.cpp" />
     <ClCompile Include="SkullbonezTests\TestReserveAllocator.cpp" />
+    <ClCompile Include="SkullbonezTests\TestReplayRecorder.cpp" />
+    <ClCompile Include="SkullbonezTests\TestReplayRecorderLinkStubs.cpp" />
     <ClCompile Include="SkullbonezTests\TestSpatialGrid.cpp" />
     <ClCompile Include="SkullbonezTests\TestSmoke.cpp" />
     <ClCompile Include="SkullbonezTests\TestTerrainLinkStubs.cpp" />
@@ -159,6 +161,7 @@
     <ClCompile Include="SkullbonezSource\Physics\PhysicsBodyStore.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\SpatialGrid.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Allocation\RuntimeReserveAllocator.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayRecorder.cpp" />
     <ClCompile Include="SkullbonezSource\Maths\GeometricMath.cpp" />
     <ClCompile Include="SkullbonezSource\Maths\Matrix4.cpp" />
     <ClCompile Include="SkullbonezSource\Maths\Quaternion.cpp" />
