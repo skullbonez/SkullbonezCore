@@ -95,6 +95,7 @@ bool BeginReplayPredictionJob( ReplayRuntime& replayRuntime,
     }
     PhysicsEngine& physicsEngine = modelCollection.GetPhysicsEngine();
     const int modelCount = physicsEngine.BodyStore().Count();
+    const PhysicsBodyStore& liveBodyStore = physicsEngine.BodyStore();
     if ( replayRuntime.PathVisualizer().hasTarget && replayRuntime.PathVisualizer().targetId.value != 0 )
     {
         int targetIndex = -1;
@@ -103,8 +104,7 @@ bool BeginReplayPredictionJob( ReplayRuntime& replayRuntime,
             replayRuntime.Prediction().dirty = true;
             return false;
         }
-        const PhysicsBodyStore& bodyStore = physicsEngine.BodyStore();
-        if ( !TryResolveReplayBodyModelIndex( bodyStore,
+        if ( !TryResolveReplayBodyModelIndex( liveBodyStore,
                                               replayRuntime.PathVisualizer().targetId,
                                               replayRuntime.PathVisualizer().targetModelIndex,
                                               modelCount,
@@ -171,7 +171,8 @@ bool BeginReplayPredictionJob( ReplayRuntime& replayRuntime,
         return false;
     }
 
-    if ( !CaptureReplayPredictionBodyState( modelCollection, workerPool, replayRuntime.Prediction().predictionBodies ) )
+    if ( !CaptureReplayPredictionBodyState(
+             modelCollection, liveBodyStore, workerPool, replayRuntime.Prediction().predictionBodies ) )
     {
         replayRuntime.CancelPredictionJob( true );
         return false;
@@ -179,7 +180,7 @@ bool BeginReplayPredictionJob( ReplayRuntime& replayRuntime,
 
     physicsEngine.CaptureReplaySolverSnapshot( replayRuntime.Prediction().predictionWorld, modelCount );
 
-    if ( !CaptureReplayPredictionFrame( replayRuntime, modelCollection, workerPool, 0 ) )
+    if ( !CaptureReplayPredictionFrame( replayRuntime, modelCollection, liveBodyStore, workerPool, 0 ) )
     {
         replayRuntime.CancelPredictionJob( true );
         replayRuntime.Prediction().dirty = true;
@@ -211,10 +212,14 @@ bool StepReplayPredictionJob( ReplayRuntime& replayRuntime,
         return false;
     }
 
+    PhysicsEngine& physicsEngine = modelCollection.GetPhysicsEngine();
+    const PhysicsBodyStore& liveBodyStore = physicsEngine.BodyStore();
+
     // Hazard: everything after liveRestoreBodies/liveRestoreWorld succeeds may
     // swap live state for prediction state. All early exits before RestoreLive
     // must happen before the swap, or after the restore block below.
     if ( !CaptureReplayPredictionBodyState( modelCollection,
+                                            liveBodyStore,
                                             workerPool,
                                             replayRuntime.Prediction().liveRestoreBodies ) )
     {
@@ -222,8 +227,7 @@ bool StepReplayPredictionJob( ReplayRuntime& replayRuntime,
         replayRuntime.Prediction().dirty = true;
         return false;
     }
-    PhysicsEngine& physicsEngine = modelCollection.GetPhysicsEngine();
-    const int liveBodyCount = physicsEngine.BodyStore().Count();
+    const int liveBodyCount = liveBodyStore.Count();
     physicsEngine.CaptureReplaySolverSnapshot( replayRuntime.Prediction().liveRestoreWorld, liveBodyCount );
     if ( ReplayPredictionMutationReserveSpent( budgetStart, budgetMilliseconds ) )
     {
@@ -242,7 +246,7 @@ bool StepReplayPredictionJob( ReplayRuntime& replayRuntime,
     {
         PROFILE_SCOPED( "Frame/Replay/Prediction/ApplyJobState" );
         jobApplied =
-            ApplyReplayPredictionBodyState( modelCollection, replayRuntime.Prediction().predictionBodies ) &&
+            ApplyReplayPredictionBodyState( modelCollection, liveBodyStore, replayRuntime.Prediction().predictionBodies ) &&
             physicsEngine.RestoreReplaySolverSnapshot( replayRuntime.Prediction().predictionWorld,
                                                        physicsEngine.BodyStore().Count() );
     }
@@ -280,6 +284,7 @@ bool StepReplayPredictionJob( ReplayRuntime& replayRuntime,
                 if ( !CaptureReplayPredictionFrame(
                          replayRuntime,
                          modelCollection,
+                         liveBodyStore,
                          workerPool,
                          static_cast<ReplayFrameIndex>( replayRuntime.Prediction().nextTick ) ) )
                 {
@@ -304,6 +309,7 @@ bool StepReplayPredictionJob( ReplayRuntime& replayRuntime,
         {
             PROFILE_SCOPED( "Frame/Replay/Prediction/CaptureJobState" );
             jobStateCaptured = CaptureReplayPredictionBodyState( modelCollection,
+                                                                 liveBodyStore,
                                                                  workerPool,
                                                                  replayRuntime.Prediction().predictionBodies );
             if ( jobStateCaptured )
@@ -322,7 +328,7 @@ bool StepReplayPredictionJob( ReplayRuntime& replayRuntime,
     {
         PROFILE_SCOPED( "Frame/Replay/Prediction/RestoreLive" );
         liveRestored =
-            ApplyReplayPredictionBodyState( modelCollection, replayRuntime.Prediction().liveRestoreBodies ) &&
+            ApplyReplayPredictionBodyState( modelCollection, liveBodyStore, replayRuntime.Prediction().liveRestoreBodies ) &&
             physicsEngine.RestoreReplaySolverSnapshot( replayRuntime.Prediction().liveRestoreWorld, liveBodyCount );
     }
 

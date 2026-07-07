@@ -2080,12 +2080,13 @@ void UpdateReplayPredictionFutureNodeCache( RunReplayPredictionState& prediction
 }
 
 bool CaptureReplayPredictionBodyState( SkullbonezCore::GameObjects::GameModelCollection& modelCollection,
+                                       const PhysicsBodyStore& bodyStore,
                                        SkullbonezCore::Threading::WorkerPool& workerPool,
                                        std::vector<RunReplayPredictionBodyBackup>& outBodies )
 {
     PROFILE_SCOPED( "Frame/Replay/Prediction/CaptureBodyState" );
     const int modelCount = modelCollection.SceneEntityCount();
-    const auto& bodyRecords = modelCollection.GetPhysicsEngine().BodyStore().Records();
+    const auto& bodyRecords = bodyStore.Records();
     if ( static_cast<int>( bodyRecords.size() ) < modelCount )
     {
         return false;
@@ -2152,10 +2153,12 @@ bool CaptureReplayPredictionBodyState( SkullbonezCore::GameObjects::GameModelCol
 
 
 bool ApplyReplayPredictionBodyState( SkullbonezCore::GameObjects::GameModelCollection& modelCollection,
+                                     const PhysicsBodyStore& bodyStore,
                                      const std::vector<RunReplayPredictionBodyBackup>& bodies )
 {
     PROFILE_SCOPED( "Frame/Replay/Prediction/ApplyBodyState" );
-    if ( bodies.size() != static_cast<std::size_t>( modelCollection.SceneEntityCount() ) )
+    if ( bodies.size() != static_cast<std::size_t>( modelCollection.SceneEntityCount() ) ||
+         bodies.size() != static_cast<std::size_t>( bodyStore.Count() ) )
     {
         return false;
     }
@@ -2184,12 +2187,13 @@ bool ApplyReplayPredictionBodyState( SkullbonezCore::GameObjects::GameModelColle
 
 bool CaptureReplayPredictionFrame( ReplayRuntime& replayRuntime,
                                    SkullbonezCore::GameObjects::GameModelCollection& modelCollection,
+                                   const PhysicsBodyStore& bodyStore,
                                    SkullbonezCore::Threading::WorkerPool& workerPool,
                                    ReplayFrameIndex frameIndex )
 {
     PROFILE_SCOPED( "Frame/Replay/Prediction/CaptureSample" );
     const int modelCount = modelCollection.SceneEntityCount();
-    const auto& bodyRecords = modelCollection.GetPhysicsEngine().BodyStore().Records();
+    const auto& bodyRecords = bodyStore.Records();
     if ( static_cast<int>( bodyRecords.size() ) < modelCount )
     {
         return false;

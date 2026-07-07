@@ -158,3 +158,12 @@ else returns to the overnight machine as gated, verifiable slices.
   passed: `tools\validate_tests.bat` (5.192s) and `tools\validate_fast.bat`
   (34.166s), both with 0 warnings/errors. Takeover rerun:
   `tools\validate_fast.bat` passed in 31.346s before commit.
+- 2026-07-07: Started A0 / fable-03 prediction isolation and completed phase 1
+  parameterization. Discovery recorded PhysicsEngine ownership, store reserve
+  shape, PhysicsWorld snapshot coverage, zero physics singleton/global hits,
+  explicit body-state helper access, and immutable collider stepping. Source
+  slice threads `PhysicsBodyStore` into prediction body capture/apply/frame
+  helpers and adds staged pure `StepPredictionEngineTick`. Gates passed:
+  `tools\validate_physics.bat` (18.514s, byte-exact physics CSV) and
+  `tools\validate_full.bat` (40.456s, DX12 validation errors 0, screenshots
+  matched, physics byte-exact).

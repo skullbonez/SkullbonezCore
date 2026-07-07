@@ -235,6 +235,22 @@ bool StepReplayPredictionPhysicsTick( SkullbonezCore::GameObjects::GameModelColl
 }
 
 
+// Concept: prediction stepping is pure physics. Contact-highlight and
+// diagnostics-name presentation belongs to the live mutation-window tick above.
+// Phase 2 calls this once prediction owns a private PhysicsEngine.
+[[maybe_unused]] bool StepPredictionEngineTick( PhysicsEngine& engine,
+                                                float fixedDt,
+                                                const EngineConfig& config,
+                                                const PhysicsWorldForces& worldForces,
+                                                SkullbonezCore::Threading::WorkerPool& workerPool )
+{
+    RuntimeAllocation::RuntimeAllocationScope replayAllocationScope(
+        RuntimeAllocation::RuntimeAllocationPhase::Replay );
+    engine.Step( fixedDt, config, worldForces, workerPool, nullptr, 0 );
+    return true;
+}
+
+
 bool IntersectRaySphere( const Vector3& rayOrigin,
                          const Vector3& rayDirection,
                          const Vector3& center,

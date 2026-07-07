@@ -1,7 +1,7 @@
 # Progress: Prediction Isolated World (plan 03)
 
 Source plan: `fable_plans/03-prediction-isolated-world-plan.md`
-Status: not started
+Status: in progress
 Last updated: 2026-07-07
 
 ## How to work this file
@@ -58,48 +58,99 @@ Last updated: 2026-07-07
 
 ## Phase 0 — discovery (read-only; record answers inline here)
 
-- [ ] D1. Record the `PhysicsEngine` constructor + ownership shape.
+- [x] D1. Record the `PhysicsEngine` constructor + ownership shape.
   Command: `rg -n "PhysicsEngine\(" SkullbonezSource/Physics/PhysicsEngine.h SkullbonezSource/Physics/PhysicsEngine.cpp`
   Record: ctor signature; whether PhysicsEngine is default-constructible;
   which members allocate (m_scene → PhysicsScene members `m_world`,
   `m_bodyStore`, `m_colliderStore`, `m_renderInstanceStore` — see
   PhysicsScene.h anchor `m_world`).
-- [ ] D2. Record store sizing/reserve APIs.
+  Evidence, 2026-07-07: command returned
+  `SkullbonezSource\Physics\PhysicsEngine.h:63:    PhysicsEngine() = default;`.
+  `PhysicsEngine` is default-constructible and owns a `PhysicsScene`; the scene
+  owns `m_world`, `m_bodyStore`, `m_colliderStore`, and
+  `m_renderInstanceStore`.
+- [x] D2. Record store sizing/reserve APIs.
   Command: `rg -n "Reserve|reserve\(" SkullbonezSource/Physics/PhysicsBodyStore.h SkullbonezSource/Physics/ColliderStore.h SkullbonezSource/Physics/PhysicsWorld.h`
   Record: how a second engine gets pre-sized to the live body count without
   gameplay-phase allocation (candidate: mirror what
   `GameModelCollection::ReserveForActiveGameModelCapacity` does — anchor in
   GameModelCollection.cpp).
-- [ ] D3. Enumerate `PhysicsWorld.h` members NOT covered by
+  Evidence, 2026-07-07: the exact header command returned no reserve APIs in
+  the body/collider/world headers. Current sizing path is
+  `GameModelCollection::ReserveForActiveGameModelCapacity`, which calls
+  `m_physicsEngine.ReserveAuthoredBodyCapacity(capacity)` and
+  `m_physicsEngine.ReserveRenderPresentationCapacity(capacity)`. Engine reserve
+  forwards to `PhysicsScene::ReserveAuthoredBodyCapacity`, which reserves only
+  `m_authoredBodyDescs`. Store rows are created through
+  `PhysicsBodyStore::CreateBodyRecord` and
+  `ColliderStore::CreateColliderRecord`; no direct body/collider store pre-size
+  API exists yet.
+- [x] D3. Enumerate `PhysicsWorld.h` members NOT covered by
   `ReplaySolverWorldSnapshot`. Command:
   `rg -n "^\s+(std::|int|float|bool|uint|Physics|Math)" SkullbonezSource/Physics/PhysicsWorld.h`
   Cross out every member that appears in the snapshot struct or is per-step
   scratch (rebuilt each Step). Anything left is hidden state: list it here and
   decide copy vs rebuild for each. THIS LIST GATES PHASE 2.
-- [ ] D4. Record what `PhysicsEngine::Step` reads outside its parameters.
+  Evidence, 2026-07-07: durable restored state is covered by
+  `ReplaySolverWorldSnapshot`: `m_timeRemaining`, sleep support/inhibit/state/
+  counter arrays, underwater lock, tornado capture/eject arrays, collision
+  visual contacts, sleep island ids/parents/ranks/flags, persistent contacts,
+  persistent contact cache, persistent contact counts, debug contacts, pipeline
+  trace, collision cell keys, solver stats, `m_nextSleepIslandVisualId`,
+  `m_sleepEnabled`, `m_collisionVisualFrameActive`, tornado field config,
+  tornado system config, and tornado elapsed seconds. Restore then clears
+  rebuilt scratch: `m_candidatePairs`, `m_solverBodies`,
+  `m_terrainContactManifolds`, `m_terrainDetectionCandidates`, object
+  narrowphase arrays, and `m_spatialGrid`. Remaining hidden state:
+  `m_seedSleepFrameCount` is config-derived policy and should be copied by
+  applying runtime config to the prediction engine; point-joint sleep scratch,
+  sleep visual scratch, persistent contact side effects, terrain rest applied,
+  solver/system objects, diagnostics sink, and `_DEBUG m_diagnosticsSuppressed`
+  are rebuilt/owned by the prediction engine rather than copied from live.
+- [x] D4. Record what `PhysicsEngine::Step` reads outside its parameters.
   Command: `rg -n "Cfg\(|Gfx\(|::Instance" SkullbonezSource/Physics/PhysicsWorld.cpp SkullbonezSource/Physics/PhysicsScene.cpp SkullbonezSource/Physics/PhysicsEngine.cpp`
   Expected: zero hits on the step path (physics is store-based). Any hit is a
   blocker to log against plan 02.
-- [ ] D5. Record how `ApplyReplayPredictionBodyState` /
+  Evidence, 2026-07-07: command returned no hits.
+- [x] D5. Record how `ApplyReplayPredictionBodyState` /
   `CaptureReplayPredictionBodyState` reach the body store (anchor both in
   RunReplayPredictionHelpers.inl). Record whether they take
   `GameModelCollection&` and internally use `GetPhysicsBodyStore()` — phase 1
   parameterizes exactly this.
-- [ ] D6. Confirm collider immutability during prediction: check whether
+  Evidence, 2026-07-07: `CaptureReplayPredictionBodyState` takes
+  `GameModelCollection&`, reads `modelCollection.SceneEntityCount()`, then
+  reaches body rows through `modelCollection.GetPhysicsEngine().BodyStore()`.
+  It also reads `GameModel::GetFixedContactHighlightSeconds()`.
+  `ApplyReplayPredictionBodyState` takes `GameModelCollection&` and restores
+  through `TryRestoreReplayPredictionBodyState(...)`, which writes both body
+  rows and the presentation timer. Phase 1 can split body-store access while
+  leaving the presentation timer path on the collection.
+- [x] D6. Confirm collider immutability during prediction: check whether
   `PhysicsEngine::Step` can mutate `ColliderStore` rows (search
   `rg -n "m_colliderStore\." SkullbonezSource/Physics/PhysicsWorld.cpp`).
   If immutable during stepping, the prediction engine can hold a copied
   collider set once per Begin (no per-slice copy).
 
+  Evidence, 2026-07-07: `rg -n "m_colliderStore\." ...PhysicsWorld.cpp`
+  returned no hits. Follow-up search for `ColliderStore&` in PhysicsWorld.cpp
+  shows step helpers take `const ColliderStore&` and read
+  `colliderStore.Records()`, so stepping treats collider rows as immutable.
+
 ## Phase 1 — engine-parameterized capture/apply (behavior identical)
 
-- [ ] P1.1 Change `CaptureReplayPredictionBodyState` and
+- [x] P1.1 Change `CaptureReplayPredictionBodyState` and
   `ApplyReplayPredictionBodyState` (RunReplayPredictionHelpers.inl) to take
   `Physics::PhysicsBodyStore&` (or `PhysicsEngine&`) instead of reaching
   through `GameModelCollection`. Keep existing call sites working by passing
   `modelCollection.GetPhysicsBodyStore()` / `GetPhysicsEngine()` at each call.
   Evidence: `tools\validate_build.bat Profile` 0 warnings/errors.
-- [ ] P1.2 Add an engine-parameterized prediction tick alongside the current
+
+  Evidence, 2026-07-07: `tools\validate_build.bat Profile` passed with
+  `Build succeeded. 0 Warning(s), 0 Error(s).`
+  `FABLE03_P1_BUILD_PROFILE_EXIT=0`,
+  `FABLE03_P1_BUILD_PROFILE_ELAPSED_SECONDS=8.955`, log
+  `Agentic\Reports\2026-07-07\logs\fable-03-p1-profile-build.log`.
+- [x] P1.2 Add an engine-parameterized prediction tick alongside the current
   one, with NO GameModelCollection side effects:
   ```cpp
   // Concept: prediction stepping is pure physics. Contact-highlight and
@@ -119,9 +170,24 @@ Last updated: 2026-07-07
   Place next to `StepReplayPredictionPhysicsTick` in RunReplayTools.cpp. Not
   yet called. Evidence: Profile build 0/0. (If /W4 flags it unused, call it
   from the next item in the same commit.)
-- [ ] P1.3 PR gate for the slice: `tools\validate_physics.bat` byte-exact
+
+  Evidence, 2026-07-07: added `StepPredictionEngineTick(...)` next to
+  `StepReplayPredictionPhysicsTick(...)` and marked it `[[maybe_unused]]`
+  because phase 2 owns the call switch. `tools\validate_build.bat Profile`
+  passed with `Build succeeded. 0 Warning(s), 0 Error(s).`
+- [x] P1.3 PR gate for the slice: `tools\validate_physics.bat` byte-exact
   (nothing behavioral changed) + `tools\validate_perf.bat` if signatures on
   the live tick changed. Commit.
+
+  Evidence, 2026-07-07: `tools\validate_physics.bat` passed with
+  `VALIDATE_PHYSICS: ALL PASSED`,
+  `physics_regression_solver.csv (20001 lines, byte-exact match)`,
+  `FABLE03_P1_VALIDATE_PHYSICS_EXIT=0`, elapsed 18.514s. No
+  `validate_perf` required because `StepReplayPredictionPhysicsTick`'s live
+  signature did not change. Runtime/Replay file-map gate also ran:
+  `tools\validate_full.bat` passed with `DX12 validation errors: 0`, DX12
+  screenshots matching committed baselines, the same physics byte-exact match,
+  `FABLE03_P1_VALIDATE_FULL_EXIT=0`, elapsed 40.456s.
 
 ## Phase 2 — prediction-owned engine; delete the mutation window
 
