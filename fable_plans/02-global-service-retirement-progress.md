@@ -1,8 +1,8 @@
 # Progress: Global Service Retirement (plan 02)
 
 Source plan: `fable_plans/02-global-service-retirement-plan.md`
-Status: phase 3 Gfx classification/orphan sweep complete on 2026-07-07; accessor deletion pending owned clusters.
-Last updated: 2026-07-07 (takeover phase 3 Gfx classification)
+Status: phase 4 L1 singleton lifetime discovery complete on 2026-07-07; demotion/freezing work pending.
+Last updated: 2026-07-07 (takeover phase 4 singleton lifetime discovery)
 
 ## How to work this file
 
@@ -206,7 +206,7 @@ no renderer validation gate for this documentation-only classification slice.
 
 ## Phase 4 — singleton lifetime hardening
 
-- [ ] L1. For each remaining `::Instance()` class after phases 2-3
+- [x] L1. For each remaining `::Instance()` class after phases 2-3
   (WorkerPool, Window, Profiler, TextureCollection, EngineConfig,
   LockOrderValidator): record its construction site + destruction order risk
   (static local? namespace static? member of Run?). One line each here.
@@ -226,6 +226,19 @@ no renderer validation gate for this documentation-only classification slice.
   ordering-dependent singleton remains.
 
 Phase 4 execution notes:
+
+- 2026-07-07 L1 discovery: current `rg -n "::Instance\(\)|GetInstance\("`
+  census names `EngineConfig`, `WorkerPool`, `Window`, `Profiler`, and
+  `LockOrderValidator`. `TextureCollection`, `CameraCollection`, and `SkyBox`
+  no longer appear in the current source census.
+
+  | Class | Construction site / storage | Teardown and ordering risk |
+  |-------|-----------------------------|----------------------------|
+  | `EngineConfig` | `Core\Config.cpp:533-536`, function-local static; first runtime call is startup bootstrap `Runtime\Init.cpp:3296`. | Low current runtime risk because normal code now receives references from startup; still a global static whose `std::string` fields destruct at process exit, so final demotion waits for composition-root config ownership. |
+  | `WorkerPool` | `Core\WorkerPool.cpp:58-61`, function-local static; startup binds `Runtime\Init.cpp:3330`, then `Run` receives `WorkerPool&`. | Medium risk: explicit `workerPool.Shutdown()` runs at `Runtime\Init.cpp:3355`, and the destructor calls `Shutdown()` again at process exit. Hidden static lifetime remains until `WorkerPool` becomes composition-root owned. |
+  | `Window` | `Runtime\Window.cpp:65-72`, function-local static plus `Window::pInstance` cache; startup binds `Runtime\Init.cpp:3340`. | Medium risk: `CleanupWindow()` disarms input/backend state and calls `window->Destroy()` at `Runtime\Init.cpp:3249`, which only nulls `pInstance`; the static object itself remains until process exit. |
+  | `Profiler` | `Core\Profiler.cpp:79-82`, function-local static reached by macros, diagnostics, UI, and runtime text pass. | Medium risk: no explicit destructor work, but GPU timer methods still read renderer globals and worker-sample paths query worker-thread state. Freeze/demotion depends on Cluster D diagnostics receiving path. |
+  | `LockOrderValidator` | `Core\LockOrderValidator.cpp:114-120`, function-local static with header/source frozen-diagnostics comments from SVC-034. | Accepted frozen diagnostics exception: no config reads, no renderer/worker ownership, and no singleton teardown dependency. |
 
 - 2026-07-07 SVC-034: `LockOrderValidator::Instance` was classified under the
   L2 frozen diagnostics contract. The source now documents function-local

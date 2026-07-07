@@ -1,7 +1,7 @@
 # Global Service Retirement Plan
 
 Date: 2026-07-06
-Status: Phase 3 Gfx classification/orphan sweep complete on 2026-07-07; accessor deletion pending owned clusters
+Status: Phase 4 L1 singleton lifetime discovery complete on 2026-07-07; demotion/freezing work pending
 Impact area: runtime, rendering, core services; behavior-preserving refactor
 Validation for this document: none (documentation-only)
 

@@ -327,3 +327,9 @@ else returns to the overnight machine as gated, verifiable slices.
   tracing hits belong to SVC-001/SVC-002 plus plan-05 render capability cleanup,
   and the rest are comments/declarations. No local renderer conversion was
   needed; G3 remains pending until those owned clusters drain.
+- 2026-07-07: Completed fable-02 phase 4 L1 singleton lifetime discovery.
+  Recorded construction sites and teardown risk for `EngineConfig`,
+  `WorkerPool`, `Window`, `Profiler`, and frozen diagnostics
+  `LockOrderValidator`; current census has no `TextureCollection`,
+  `CameraCollection`, or `SkyBox` singleton hits. This was discovery only; L2
+  demotion/freezing remains pending.
