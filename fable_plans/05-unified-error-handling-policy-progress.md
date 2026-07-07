@@ -1,7 +1,7 @@
 # Progress: Unified Error Handling Policy (plan 05)
 
 Source plan: `fable_plans/05-unified-error-handling-policy-plan.md`
-Status: phase 1 complete on 2026-07-07; P2.1-P2.3 replay probe conversion and evidence complete on 2026-07-08; hot-path conversions pending
+Status: phase 1 complete on 2026-07-07; P2.1-P2.3 replay probe conversion and evidence complete on 2026-07-08; SpatialGrid hot-path conversion complete; remaining hot-path conversions pending
 Last updated: 2026-07-08
 
 ## How to work this file
@@ -47,7 +47,8 @@ Last updated: 2026-07-08
 - `tools/check_runtime_boundaries.py` includes the throw ratchet,
   `check_throw_site_count`, and synthetic clean/grown self-tests. Phase 1
   recorded the pre-conversion budget at 355; P2.2/P2.3 lowered it to 294 after
-  replacing the Debug replay probe throws.
+  replacing the Debug replay probe throws. P3 SpatialGrid conversion lowered
+  the budget again to 281.
 
 ## Phase 1 — policy, primitives, ratchet (no conversions yet)
 
@@ -239,13 +240,43 @@ Last updated: 2026-07-08
 
 ## Phase 3 — hot-path invariants (physics/stores)
 
-- [ ] P3.1 Convert SpatialGrid.cpp (13), PhysicsWorld.cpp (6),
-  GameModelCollection.cpp (9, anchors like
-  `Failed to resolve newly authored physics body record`) throws → `SB_FATAL(
-  "<subsystem>", ... )` with the same message text. One file per commit.
-- [ ] P3.2 Gate per commit: `tools\validate_physics.bat` byte-exact (the
-  mechanism swap must not reorder any math — SB_FATAL call sites must stay
-  exactly where the throws were). Ratchet budget updated per commit.
+- [x] P3.1a Convert SpatialGrid.cpp (13) throws to `SB_FATAL(
+  "Physics/SpatialGrid", ... )` with the same message text. One file per
+  commit.
+
+  Evidence (2026-07-08): `SkullbonezSource/Physics/SpatialGrid.cpp` now has
+  13 `SB_FATAL` call sites and no live `throw` or `<stdexcept>` use. The call
+  sites stayed in the same guard branches as the old exceptions, and the file
+  glossary/invariants now identify these capacity/index failures as Lane F
+  broadphase contract failures.
+
+- [x] P3.2a Gate SpatialGrid commit: `tools\validate_physics.bat` byte-exact
+  (the mechanism swap must not reorder any math). Ratchet budget updated in
+  the same commit.
+
+  Evidence (2026-07-08): `MAX_SOURCE_THROW_TOKENS` lowered from 294 to 281.
+  `python tools\check_runtime_boundaries.py --self-test` passed; `python
+  tools\check_runtime_boundaries.py --max-errors 20` passed with 0 errors;
+  focused `SKULLBONEZ_TESTS.vcxproj` project-filter validation passed with
+  48/48 items and 0 errors; `tools\validate_fast.bat` passed in
+  00:00:38.1202317; `tools\validate_physics.bat` passed in 00:00:15.2232463
+  with Profile/Debug binaries ready and `VALIDATE_PHYSICS: ALL PASSED`.
+  Touched-file comment audit inspected `SpatialGrid.cpp`,
+  `TestDiagnosticsLinkStubs.cpp`, and `tools/check_runtime_boundaries.py`
+  with 0 deferred.
+
+- [ ] P3.1b Convert PhysicsWorld.cpp (6) throws to `SB_FATAL(
+  "Physics/PhysicsWorld", ... )` with the same message text. One file per
+  commit.
+- [ ] P3.2b Gate PhysicsWorld commit: `tools\validate_physics.bat` byte-exact.
+  Ratchet budget updated in the same commit.
+- [ ] P3.1c Convert GameModelCollection.cpp (8 current throw sites, anchors like
+  `Failed to resolve newly authored physics body record`) after P3.3
+  classification decides which sites are Lane F and which are Lane R. One file
+  or narrow site-family per commit.
+- [ ] P3.2c Gate GameModelCollection commit: `tools\validate_physics.bat`
+  byte-exact, plus broader validation if the classification changes editor or
+  scene-load recovery behavior. Ratchet budget updated in the same commit.
 - [ ] P3.3 Audit before converting GameModelCollection: 3 of the 28 catch
   sites may be swallowing these (check ConvexHullShape's 12 catches and any
   caller catch of collection append — `rg -n "catch" SkullbonezSource/Scene
