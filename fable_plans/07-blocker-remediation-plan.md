@@ -151,3 +151,10 @@ else returns to the overnight machine as gated, verifiable slices.
   global-service census, and lowered `MAX_GLOBAL_SERVICE_ACCESS_CENSUS` from
   157 to 152. Gates passed: checker self-test, checker scan, and
   `tools\validate_fast.bat` (37.164s, 0 warnings/errors).
+- 2026-07-07: Completed fable-01 phase 0 harness bootstrap. Added vendored
+  doctest v2.4.12 under `ThirdPtySource/doctest`, `SKULLBONEZ_TESTS` console
+  project, smoke test, `tools\validate_tests.bat`, partial-project filter
+  validation, solution wiring, and `validate_fast` test integration. Gates
+  passed: `tools\validate_tests.bat` (5.192s) and `tools\validate_fast.bat`
+  (34.166s), both with 0 warnings/errors. Takeover rerun:
+  `tools\validate_fast.bat` passed in 31.346s before commit.

@@ -44,6 +44,7 @@ PROJECT_ITEM_TYPES = ("ClCompile", "ClInclude", "None", "ResourceCompile")
 SOURCE_FILTER_ROOT = "Source Files"
 HEADER_FILTER_ROOT = "Header Files"
 EXTERNAL_FILTER = "External"
+TEST_FILTER = "Tests"
 SCENE_FILTER = "Scene Files"
 STYLE_FILTER = "Style Files"
 PROJECT_FILTER = "Project Files"
@@ -425,6 +426,8 @@ def source_area(include: str) -> str | None:
     parts = tuple(path.parts)
     if len(parts) >= 2 and parts[0].lower() == "thirdptysource":
         return EXTERNAL_FILTER
+    if len(parts) >= 2 and parts[0].lower() == "skullboneztests":
+        return TEST_FILTER
     if len(parts) >= 3 and parts[0].lower() == "skullbonezsource" and parts[1].lower() == "ui":
         return "UI"
 
@@ -525,7 +528,12 @@ def pair_filter_errors(items_by_key: dict[tuple[str, str], ProjectItem]) -> list
     return errors
 
 
-def validate_project_filters(repo: Path, project_path: Path, filters_path: Path) -> tuple[list[str], dict[str, int]]:
+def validate_project_filters(
+    repo: Path,
+    project_path: Path,
+    filters_path: Path,
+    require_all_source_files: bool = True,
+) -> tuple[list[str], dict[str, int]]:
     errors: list[str] = []
 
     project_root = load_xml(project_path)
@@ -558,7 +566,9 @@ def validate_project_filters(repo: Path, project_path: Path, filters_path: Path)
 
     project_by_key = {item.key: item for item in project_items}
     filter_by_key = {item.key: item for item in filter_items}
-    source_files_on_disk = read_source_files_on_disk(repo)
+    # Why: auxiliary projects such as SKULLBONEZ_TESTS intentionally compile a
+    # subset of source files while still needing casing and filter drift checks.
+    source_files_on_disk = read_source_files_on_disk(repo) if require_all_source_files else []
 
     for item in source_files_on_disk:
         if item.key not in project_by_key:
@@ -633,6 +643,11 @@ def main() -> int:
     parser.add_argument("--project", type=Path, default=None)
     parser.add_argument("--filters", type=Path, default=None)
     parser.add_argument("--json-out", type=Path, default=None)
+    parser.add_argument(
+        "--partial-project",
+        action="store_true",
+        help="Validate only the items listed in the project; skip full SkullbonezSource coverage.",
+    )
     parser.add_argument("--max-errors", type=int, default=80)
     args = parser.parse_args()
 
@@ -641,7 +656,12 @@ def main() -> int:
     filters_path = args.filters or repo / "SKULLBONEZ_CORE.vcxproj.filters"
     summary_path = args.json_out or repo / "TestOutput" / "validation" / "project_filters" / "summary.json"
 
-    errors, stats = validate_project_filters(repo, project_path, filters_path)
+    errors, stats = validate_project_filters(
+        repo,
+        project_path,
+        filters_path,
+        require_all_source_files=not args.partial_project,
+    )
     summary = {
         "generatedAtUtc": datetime.now(timezone.utc).isoformat(),
         "project": repo_relative(repo, project_path),

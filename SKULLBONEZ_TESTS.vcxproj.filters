@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{B25E98F8-1671-4EF8-A5CB-68B416912E0E}</UniqueIdentifier>
+      <Extensions>cpp;c;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{7F6FE446-C91D-49E1-8793-7547C9EAEB49}</UniqueIdentifier>
+      <Extensions>h;hpp;hxx;hm;inl;inc;xsd</Extensions>
+    </Filter>
+    <Filter Include="External">
+      <UniqueIdentifier>{A9A6924F-4E9E-419E-BE93-834B0D715D54}</UniqueIdentifier>
+      <Extensions>c;cpp;h;hpp</Extensions>
+    </Filter>
+    <Filter Include="Source Files\Tests">
+      <UniqueIdentifier>{7FE9CC7D-498C-4297-85D1-2E1344653D29}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="SkullbonezTests\TestMain.cpp">
+      <Filter>Source Files\Tests</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezTests\TestSmoke.cpp">
+      <Filter>Source Files\Tests</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="ThirdPtySource\doctest\doctest.h">
+      <Filter>External</Filter>
+    </ClInclude>
+  </ItemGroup>
+</Project>

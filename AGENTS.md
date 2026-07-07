@@ -196,6 +196,7 @@ perf, UI, and stress validation only when the change actually needs them:
 | Change Type | Pre-Commit/PR Command | Runtime |
 |-------------|---------|---------|
 | Documentation only | No validation required | N/A |
+| Unit tests only | `tools\validate_tests.bat` | build + console test runner |
 | Small refactor, no render or physics changes | `tools\validate_fast.bat` | ~30s |
 | Shader or render backend | `tools\validate_dx12_renderer.bat` | ~2 min |
 | DX12 renderer validation tooling | `tools\validate_fast.bat`, then `tools\validate_dx12_renderer.bat` | ~2 min |
@@ -230,6 +231,7 @@ Profile\SKULLBONEZ_CORE.exe --platform-profiler-markers
 | `TestOutput/baselines/physics_regression_solver.csv` | `validate_physics` |
 | Other physics CSV baselines or `TestOutput/baselines/physics_query*.json` | `validate_physics_deep` |
 | `Common.h` | `validate_full` |
+| `SkullbonezTests/*`, `SKULLBONEZ_TESTS.vcxproj`, `SKULLBONEZ_TESTS.vcxproj.filters` | `validate_tests` |
 | `Runtime/Allocation/*`, `tools/check_allocation_policy.py`, `tools/allocation_policy_allowlist.json` | `validate_perf` |
 | `Run*`, `Runtime/*` | `validate_full` |
 | `Window*` | `validate_full` |
@@ -239,7 +241,7 @@ Profile\SKULLBONEZ_CORE.exe --platform-profiler-markers
 | `SkullbonezData/scenes/*.scene.json` | `validate_full` |
 | Multiple areas or unsure | `validate_full` |
 | `Agentic/*`, `*.md`, docs | No validation required when documentation-only |
-| `tools/*` | `validate_fast`, then run the changed script |
+| `tools/*` | `validate_fast`, then run the changed script; `validate_fast` includes `validate_tests` |
 
 ---
 

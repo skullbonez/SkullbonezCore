@@ -35,7 +35,7 @@ echo   VALIDATE_FAST - Format + Metadata + Build
 echo ========================================
 echo.
 
-echo [1/4] Checking formatting...
+echo [1/5] Checking formatting...
 call "%~dp0validate_format.bat"
 if errorlevel 1 (
     echo.
@@ -43,20 +43,24 @@ if errorlevel 1 (
     exit /b 1
 )
 
-echo [2/4] Checking Visual Studio project filters...
+echo [2/5] Checking Visual Studio project filters...
 call "%~dp0validate_project_filters.bat"
 if errorlevel 1 exit /b 2
 
-echo [3/4] Checking runtime boundaries...
+echo [3/5] Checking runtime boundaries...
 call "%~dp0validate_runtime_boundaries.bat"
 if errorlevel 1 exit /b 3
 
-echo [4/4] Building Profile x64...
+echo [4/5] Building Profile x64...
 call "%~dp0validate_build.bat" Profile
 if errorlevel 1 exit /b 4
 
-call "%~dp0validate_ready_builds.bat"
+echo [5/5] Running unit tests...
+call "%~dp0validate_tests.bat"
 if errorlevel 1 exit /b 5
+
+call "%~dp0validate_ready_builds.bat"
+if errorlevel 1 exit /b 6
 
 echo.
 echo ========================================

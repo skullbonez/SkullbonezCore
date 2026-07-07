@@ -1,7 +1,7 @@
 # Progress: Unit Test Pyramid (plan 01)
 
 Source plan: `fable_plans/01-unit-test-pyramid-plan.md`
-Status: not started
+Status: in progress
 Last updated: 2026-07-07
 
 ## How to work this file
@@ -32,6 +32,10 @@ Last updated: 2026-07-07
   step after [4] (they need a built test binary).
 - `SkullbonezSource/ThirdParty/` does NOT exist yet — create it for the
   vendored doctest header.
+  Execution note superseding this setup path: doctest now lives under the
+  existing `ThirdPtySource/doctest/` tree, not `SkullbonezSource/ThirdParty/`,
+  because `tools/validate_project_filters.py` treats every
+  `SkullbonezSource/*.h` file as production-source project inventory.
 - Determinism inputs: `PHYSICS_FIXED_DT = 1.0f / 120.0f`
   (Core/Common.h, anchor `PHYSICS_FIXED_DT`). Snapshot API:
   `PhysicsEngine::CaptureReplaySolverSnapshot( Basics::ReplaySolverWorldSnapshot&, int modelCount )`
@@ -46,21 +50,21 @@ Last updated: 2026-07-07
 
 ## Phase 0 — harness bootstrap
 
-- [ ] H1. Vendor doctest: create
-  `SkullbonezSource/ThirdParty/doctest/doctest.h` from the official
-  single-header release (latest 2.4.x). Add a `ThirdParty/README.md` noting
+- [x] H1. Vendor doctest: create
+  `ThirdPtySource/doctest/doctest.h` from the official
+  single-header release (latest 2.4.x). Add a `ThirdPtySource/README.md` noting
   version + source URL + license (MIT). No other files.
-- [ ] H2. Create `SkullbonezTests/` at repo root with `TestMain.cpp`:
+- [x] H2. Create `SkullbonezTests/` at repo root with `TestMain.cpp`:
   ```cpp
   #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
-  #include "../SkullbonezSource/ThirdParty/doctest/doctest.h"
+  #include "../ThirdPtySource/doctest/doctest.h"
   ```
   and one smoke file `TestSmoke.cpp`:
   ```cpp
-  #include "../SkullbonezSource/ThirdParty/doctest/doctest.h"
+  #include "../ThirdPtySource/doctest/doctest.h"
   TEST_CASE( "smoke: harness runs" ) { CHECK( 1 + 1 == 2 ); }
   ```
-- [ ] H3. Create `SKULLBONEZ_TESTS.vcxproj` by copying the shell of
+- [x] H3. Create `SKULLBONEZ_TESTS.vcxproj` by copying the shell of
   SKULLBONEZ_CORE.vcxproj and editing: new GUID (generate one), Application
   type (console: `<SubsystemType>Console` in Link settings /
   `<ConfigurationType>Application`), SAME toolset v145 / Level4 / stdcpp17 /
@@ -70,20 +74,33 @@ Last updated: 2026-07-07
   which). ItemGroup lists TestMain.cpp + TestSmoke.cpp only at this step.
   Matching `SKULLBONEZ_TESTS.vcxproj.filters` (project-filter validation is a
   gate — imitate the CORE filters file structure).
-- [ ] H4. Add the project to SKULLBONEZ_CORE.sln (Project line + config
+- [x] H4. Add the project to SKULLBONEZ_CORE.sln (Project line + config
   mappings for Debug|x64, Profile|x64, Release|x64 imitating the existing
   block). Evidence: `msbuild SKULLBONEZ_CORE.sln /p:Configuration=Profile /p:Platform=x64`
   builds both projects, 0 warnings.
-- [ ] H5. Create `tools\validate_tests.bat` (imitate validate_build.bat
+- [x] H5. Create `tools\validate_tests.bat` (imitate validate_build.bat
   header comment style): build SKULLBONEZ_TESTS Profile x64, run
   `Profile\SKULLBONEZ_TESTS.exe --duration=true`, exit nonzero on failure.
   Evidence: run it; smoke test green in under 10 seconds.
-- [ ] H6. Wire into `tools\validate_fast.bat` as step [5/5] after the Profile
+- [x] H6. Wire into `tools\validate_fast.bat` as step [5/5] after the Profile
   build (renumber the echo labels). Evidence: `tools\validate_fast.bat`
   passes end-to-end.
-- [ ] H7. Update AGENTS.md validation tables: row "Unit tests only" →
+- [x] H7. Update AGENTS.md validation tables: row "Unit tests only" →
   `tools\validate_tests.bat`; note validate_fast now includes tests.
   Gate for the whole phase: `tools\validate_fast.bat`. Commit.
+
+Execution evidence: phase 0 used vendored doctest v2.4.12 from
+`ThirdPtySource/doctest/doctest.h`, `SKULLBONEZ_TESTS` GUID
+`{4EA1011B-106E-4BC2-B328-E873367F4E42}`, `DOCTEST_CONFIG_USE_STD_HEADERS`
+for current MSVC, and `DOCTEST_CONFIG_NO_RTTI` to match `/GR-`.
+`tools\validate_tests.bat` passed in 5.192s with 1 doctest case / 1 assertion
+passed. `tools\validate_fast.bat` passed in 34.166s with format, project
+filters, runtime boundaries, Profile and Debug solution builds, ready builds,
+and unit tests all green with 0 warnings/errors. A takeover rerun of
+`tools\validate_fast.bat` also passed in 31.346s before commit. Logs:
+`Agentic/Reports/2026-07-07/logs/fable-01-validate-tests.log`,
+`Agentic/Reports/2026-07-07/logs/fable-01-validate-fast.log`, and
+`Agentic/Reports/2026-07-07/logs/fable-01-validate-fast-rerun.log`.
 
 ## Phase 1 — pure math tests (no engine deps)
 
