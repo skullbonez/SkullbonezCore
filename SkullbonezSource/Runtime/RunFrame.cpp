@@ -1068,6 +1068,22 @@ void Run::TickPhysics( double secondsPerFrame )
     {
         UpdateLogic( tick.simulationDt, tick.cameraDt );
     }
+    else
+    {
+        // Why: Scene-mode, no-physics harnesses intentionally skip simulation
+        // UpdateLogic, but Director is presentation state. It still needs phase
+        // style/camera entry work so authored show decks behave in static scenes.
+        DemoDirectorPlayback::Tick( m_camera,
+                                    m_systems,
+                                    SceneRuntimeStyleContext{ m_launchOptions,
+                                                              SceneState(),
+                                                              m_sceneController.Browser(),
+                                                              m_cGameModelCollection,
+                                                              m_systems.assets,
+                                                              RuntimeActiveCinematicConfig( SceneState(), m_config ),
+                                                              m_defaultCinematicRender },
+                                    static_cast<float>( secondsPerFrame ) );
+    }
 }
 
 
@@ -3234,7 +3250,16 @@ void Run::UpdateLogic( float simulationDt, float cameraDt )
     const EngineConfig& cfg = m_config;
     MoveCamera( cameraDt * cfg.keySpeed, CAMERA_MOUSE_REFERENCE_DT * cfg.mouseSensitivity );
     TickAttachedCamera();
-    DemoDirectorPlayback::Tick( m_camera, m_systems, cameraDt );
+    DemoDirectorPlayback::Tick( m_camera,
+                                m_systems,
+                                SceneRuntimeStyleContext{ m_launchOptions,
+                                                          SceneState(),
+                                                          m_sceneController.Browser(),
+                                                          m_cGameModelCollection,
+                                                          m_systems.assets,
+                                                          RuntimeActiveCinematicConfig( SceneState(), m_config ),
+                                                          m_defaultCinematicRender },
+                                cameraDt );
 
     UpdateWaterHeightControls( simulationDt );
 

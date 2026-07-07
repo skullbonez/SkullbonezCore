@@ -1,7 +1,7 @@
 # Demo Director Plan (scene phases + hand-authored camera)
 
 Date: 2026-07-07
-Status: In progress; phase 2 P2.5 pose-authoring controls complete
+Status: In progress; phase 3 P3.1 phase-entry style apply complete
 Impact area: runtime camera, live-style application, interaction, UI overlay;
 no physics change
 Validation for this document: none (documentation-only)

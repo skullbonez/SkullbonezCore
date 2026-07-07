@@ -1713,12 +1713,14 @@ void Run::WriteInteractionAutomationReport()
     Json directorPhaseCameraView = nullptr;
     Json directorPhaseCameraUp = nullptr;
     const char* directorPhaseName = "";
+    const char* directorPhaseStylePath = "";
     const DemoDirectorPlaybackState& director = m_camera.director;
     if ( director.hasActiveShotList && director.currentPhaseIndex >= 0 &&
          director.currentPhaseIndex < director.activeShotList.phaseCount )
     {
         const DemoPhase& phase = director.activeShotList.phases[static_cast<std::size_t>( director.currentPhaseIndex )];
         directorPhaseName = phase.name;
+        directorPhaseStylePath = phase.stylePath;
         directorPhaseCameraEye = Vec3Json( phase.camera.eye );
         directorPhaseCameraView = Vec3Json( phase.camera.view );
         directorPhaseCameraUp = Vec3Json( phase.camera.up );
@@ -1742,6 +1744,10 @@ void Run::WriteInteractionAutomationReport()
               { "directorGrabbed", m_camera.director.grabbed },
               { "directorShotListPath", m_camera.director.activeShotListPath },
               { "directorPhaseName", directorPhaseName },
+              { "directorPhaseStylePath", directorPhaseStylePath },
+              { "directorAppliedStylePhaseIndex", m_camera.director.appliedStylePhaseIndex },
+              { "directorAppliedStylePath", m_camera.director.appliedStylePath },
+              { "directorAppliedStyleCount", m_camera.director.appliedStyleCount },
               { "directorPhaseCameraEye", directorPhaseCameraEye },
               { "directorPhaseCameraView", directorPhaseCameraView },
               { "directorPhaseCameraUp", directorPhaseCameraUp },

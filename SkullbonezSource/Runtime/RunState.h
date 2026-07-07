@@ -18,7 +18,7 @@ Glossary:
   Attached camera target: Camera-owned follow identity that stores physics
     handles for live motion and keeps model-order facts only as UI fallback.
   Director playback: Presentation-owned shot-list state that times authored
-    camera phases without changing deterministic physics state.
+    camera/style phases without changing deterministic physics state.
   Borrowed subsystem pointer: Non-owning pointer to state owned elsewhere in
     the Run composition root.
   Interaction automation: CLI-driven validation state that injects bounded
@@ -184,6 +184,10 @@ struct DemoDirectorPlaybackState
     bool hasActiveShotList = false;
     char activeShotListPath[SHOT_LIST_PATH_BYTES] = {};        // Cold authoring save target captured from load.
     int currentPhaseIndex = -1;                                // -1 until a shot list chooses its first phase.
+    int appliedStylePhaseIndex = -1;                           // Phase index whose stylePath last updated the live scene look.
+    char appliedStylePath[DemoPhase::STYLE_PATH_BYTES] =
+        {};                                                    // Exact applied path; same-phase author edits can request a new look.
+    int appliedStyleCount = 0;                                 // Successful phase-entry style applications for automation proof.
     float phaseElapsedSeconds = 0.0f;                          // Seconds spent in currentPhaseIndex.
     float blendElapsedSeconds = 0.0f;                          // Seconds spent blending from blendStartPose.
     DemoCameraPose blendStartPose;                             // Pose captured when a phase/release blend starts.

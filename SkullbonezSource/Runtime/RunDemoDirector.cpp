@@ -1,12 +1,12 @@
 /*
 File: SkullbonezSource/Runtime/RunDemoDirector.cpp
 Purpose:
-  Applies Demo Director shot-list camera poses during Director camera mode.
+  Applies Demo Director shot-list camera poses and phase styles.
 
 Mental model:
-  The director never invents framing. A loaded shot list owns authored poses,
-  RunCameraState owns playback timers, and this file blends the selected phase
-  into CameraCollection before the render view matrix is built.
+  The director never invents framing or looks. A loaded shot list owns authored
+  camera/style phases, RunCameraState owns playback timers, and this file
+  blends the selected phase into runtime camera/style owners before rendering.
 
 Glossary:
   Phase pose: Authored eye, view target, and up vector stored in `.shot.json`.
@@ -15,12 +15,15 @@ Glossary:
     selected.
   Director advance: Manual phase step used for early automation proof before
     timer/reveal advance rules are wired.
+  Phase style: Optional `.style.json` applied through SceneRuntimeStyle when a
+    phase becomes active.
 
 Invariants:
-  - Director playback is presentation-only; it must not mutate physics or scene
-    object state.
+  - Director playback is presentation-only; it must not mutate physics state.
   - Camera writes go through CameraCollection::SetPrimaryPose so render camera,
     listener, replay, and screenshot paths keep using the normal camera owner.
+  - Phase style writes go through SceneRuntimeStyle so material/cinematic
+    changes stay inside the existing render-facing scene owner.
   - Empty or missing shot lists leave Director mode as a no-op.
 
 Related:
@@ -30,10 +33,15 @@ Related:
   - fable_plans/08-demo-director-progress.md
 */
 #include "RunDemoDirector.h"
+#include "Scene/SceneRuntimeStyle.h"
+
+#include "../Scene/TestScene.h"
 
 #include <algorithm>
 #include <cstddef>
 #include <cstdio>
+#include <cstring>
+#include <exception>
 
 namespace SkullbonezCore
 {
@@ -105,6 +113,53 @@ void CopyShotListPath( DemoDirectorPlaybackState& director, const char* path )
         std::snprintf( director.activeShotListPath, sizeof( director.activeShotListPath ), "%s", path );
     }
 }
+
+void RememberPhaseStyleAttempt( DemoDirectorPlaybackState& director, const DemoPhase& phase )
+{
+    director.appliedStylePhaseIndex = director.currentPhaseIndex;
+    std::snprintf( director.appliedStylePath, sizeof( director.appliedStylePath ), "%s", phase.stylePath );
+}
+
+bool PhaseStyleAttempted( const DemoDirectorPlaybackState& director, const DemoPhase& phase )
+{
+    return director.appliedStylePhaseIndex == director.currentPhaseIndex &&
+           std::strncmp( director.appliedStylePath, phase.stylePath, sizeof( director.appliedStylePath ) ) == 0;
+}
+
+void ApplyPhaseStyleIfNeeded( DemoDirectorPlaybackState& director, SceneRuntimeStyleContext styleContext )
+{
+    if ( !IsCurrentPhaseValid( director ) )
+    {
+        return;
+    }
+
+    const DemoPhase& phase = director.activeShotList.phases[static_cast<std::size_t>( director.currentPhaseIndex )];
+    if ( PhaseStyleAttempted( director, phase ) )
+    {
+        return;
+    }
+
+    RememberPhaseStyleAttempt( director, phase );
+    if ( phase.stylePath[0] == '\0' )
+    {
+        return;
+    }
+
+    try
+    {
+        const TestScene styleScene = TestScene::LoadStyleFromFile( phase.stylePath, styleContext.assets );
+        ApplyLiveStyleScene( styleContext, styleScene );
+        ++director.appliedStyleCount;
+        std::printf( "[demo-director] applied style %s for phase %d (%s)\n",
+                     phase.stylePath,
+                     director.currentPhaseIndex,
+                     phase.name[0] ? phase.name : "<unnamed>" );
+    }
+    catch ( const std::exception& e )
+    {
+        std::fprintf( stderr, "[demo-director] style error for %s: %s\n", phase.stylePath, e.what() );
+    }
+}
 } // namespace
 
 namespace DemoDirectorPlayback
@@ -162,6 +217,8 @@ void EnterMode( RunCameraState& camera, const RunSubsystemState& systems )
     DemoDirectorPlaybackState& director = camera.director;
     director.grabbed = false;
     director.phaseElapsedSeconds = 0.0f;
+    director.appliedStylePhaseIndex = -1;
+    director.appliedStylePath[0] = '\0';
     ResetBlendFromCurrentPose( director, systems );
     if ( director.hasActiveShotList &&
          ( director.currentPhaseIndex < 0 || director.currentPhaseIndex >= director.activeShotList.phaseCount ) )
@@ -263,11 +320,13 @@ bool SaveShotList( const RunCameraState& camera )
     return saved;
 }
 
-void Tick( RunCameraState& camera, const RunSubsystemState& systems, float cameraDt )
+void Tick( RunCameraState& camera,
+           const RunSubsystemState& systems,
+           SceneRuntimeStyleContext styleContext,
+           float cameraDt )
 {
     DemoDirectorPlaybackState& director = camera.director;
-    if ( camera.mode != RunCameraMode::Director || director.grabbed || !HasPlayableShotList( director ) ||
-         !systems.cameras )
+    if ( camera.mode != RunCameraMode::Director || !HasPlayableShotList( director ) || !systems.cameras )
     {
         return;
     }
@@ -277,6 +336,15 @@ void Tick( RunCameraState& camera, const RunSubsystemState& systems, float camer
         director.currentPhaseIndex = 0;
         director.phaseElapsedSeconds = 0.0f;
         ResetBlendFromCurrentPose( director, systems );
+    }
+
+    // Why: Style JSON is cold phase-entry authoring data. Remembering the phase
+    // and path keeps it out of the per-frame camera blend unless the phase or
+    // authored style path actually changes.
+    ApplyPhaseStyleIfNeeded( director, styleContext );
+    if ( director.grabbed )
+    {
+        return;
     }
 
     const DemoPhase& phase = director.activeShotList.phases[static_cast<std::size_t>( director.currentPhaseIndex )];

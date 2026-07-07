@@ -1,7 +1,7 @@
 # Progress: Demo Director (plan 08)
 
 Source plan: `fable_plans/08-demo-director-plan.md`
-Status: phase 2 P2.5 pose-authoring controls complete; phase 3 style/reveal-rate next
+Status: phase 3 P3.1 phase-entry style apply complete; P3.2 reveal-rate next
 Last updated: 2026-07-07
 
 ## How to work this file
@@ -400,13 +400,63 @@ Last updated: 2026-07-07
 
 ## Phase 3 — render type (style) per phase
 
-- [ ] P3.1 On phase entry, copy the live-style idiom from
+- [x] P3.1 On phase entry, copy the live-style idiom from
   `RunLiveStyle.cpp:260-261`: `TestScene::LoadStyleFromFile(phase.stylePath,
   m_systems.assets)` followed by `ApplyLiveStyleScene(context, styleScene)`.
   Build the `SceneRuntimeStyleContext` the same way Run already does for the
   live-style harness. If D3 said apply is expensive, preload each phase's
   `TestScene` into the shot list at load and call `ApplyLiveStyleScene` with
   the cached scene.
+  Evidence recorded 2026-07-07:
+  - `DemoDirectorPlayback::Tick(...)` now accepts the existing
+    `SceneRuntimeStyleContext`, loads the active phase `stylePath` with
+    `TestScene::LoadStyleFromFile(..., styleContext.assets)`, and applies it
+    through `ApplyLiveStyleScene(...)`.
+  - `DemoDirectorPlaybackState` records `appliedStylePhaseIndex`,
+    `appliedStylePath`, and `appliedStyleCount`. The phase index plus exact path
+    keeps style JSON out of the per-frame blend while still allowing same-phase
+    authoring edits to request a new look.
+  - `RunFrame.cpp` passes the same style context shape used by the live-style
+    harness and adds a no-physics scene fallback: static authored scenes can
+    skip `UpdateLogic`, but Director phase style/camera entry still needs to
+    tick.
+  - `RunInteractionAutomation.cpp` report final state now includes
+    `directorPhaseStylePath`, `directorAppliedStylePhaseIndex`,
+    `directorAppliedStylePath`, and `directorAppliedStyleCount`.
+  - Runtime proof: `Profile\SKULLBONEZ_CORE.exe --scene
+    SkullbonezData\scenes\interaction_inspect_gizmo_harness.scene.json
+    --interaction-script Agentic\Temp\director_p3_1_style_interaction.json
+    --interaction-report TestOutput\interaction\director_p3_1_style_report.json
+    --frames 45 --vsync off` passed in 11.437s. The log contains
+    `[demo-director] applied style SkullbonezData/styles/neon_cyberpunk.style.json
+    for phase 0 (style-entry-neon)`, and the JSON proof confirmed
+    `directorAppliedStyleCount=1`, `directorAppliedStylePhaseIndex=0`,
+    `directorAppliedStylePath=SkullbonezData/styles/neon_cyberpunk.style.json`,
+    and matching `directorPhaseStylePath`. Screenshot:
+    `TestOutput\interaction\director_p3_1_style_entry.bmp`. Log:
+    `Agentic\Reports\2026-07-07\logs\fable-08-p3-1-style-interaction-rerun.log`.
+  - Comment-quality audit scope:
+    `RunDemoDirector.h`, `RunDemoDirector.cpp`, `RunFrame.cpp`,
+    `RunInteractionAutomation.cpp`, and `RunState.h`. All touched
+    source-bearing files have learning headers; new or refreshed comments name
+    phase style ownership, cold phase-entry JSON work, and the no-physics scene
+    presentation fallback. Checklist path: N/A for touched-file pass; checked
+    count 5, deferred count 0, unchecked files none.
+  - Targeted builds: `tools\validate_build.bat Profile` passed in 8.844s before
+    the no-physics fallback and 5.868s after it, both with 0 warnings and 0
+    errors. Logs:
+    `Agentic\Reports\2026-07-07\logs\fable-08-p3-1-build-profile.log` and
+    `Agentic\Reports\2026-07-07\logs\fable-08-p3-1-build-profile-rerun.log`.
+  - Formatting: `tools\validate_format.bat` passed in 8.398s after targeted
+    clang-format/header-post-pass on touched source files. Log:
+    `Agentic\Reports\2026-07-07\logs\fable-08-p3-1-validate-format-rerun.log`.
+  - Gate: `tools\validate_full.bat` passed on 2026-07-07 in 55.619s. Log:
+    `Agentic\Reports\2026-07-07\logs\fable-08-p3-1-validate-full-rerun.log`.
+    Key lines: project filters/runtime boundaries passed; Profile and Debug
+    builds succeeded with 0 warnings/0 errors; DX12 InfoQueue reported 0
+    validation errors; DX12 screenshots matched committed baselines;
+    `physics_regression_solver.csv` matched byte-exactly; `VALIDATE_FULL:
+    DEFAULT GATE PASSED`.
 - [ ] P3.2 Phase-entry also sets the prediction reveal rate to
   `phase.revealRate` (write `REPLAY_PREDICTION_REVEAL_SECONDS_PER_SECOND`'s
   runtime equivalent — if it is currently a constexpr constant in
