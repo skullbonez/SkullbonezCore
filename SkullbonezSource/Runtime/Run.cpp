@@ -29,6 +29,7 @@ Related:
 #include "RunInternal.h"
 #include "Editor/EditorOverlayTools.h"
 #include "Replay/ReplayOverlayLayout.h"
+#include "Replay/ReplayRestoreService.h"
 #include "Replay/ReplayV2Artifact.h"
 #include "RuntimeFileWriter.h"
 #include "Allocation/RuntimeAllocationTracker.h"
@@ -51,41 +52,7 @@ namespace RuntimeAllocation = SkullbonezCore::Runtime::Allocation;
 
 namespace
 {
-constexpr uint32_t REPLAY_GENERATED_SCENE_EXACT_SOLVER_COUNTS = 1u;
-constexpr uint32_t REPLAY_GENERATED_SCENE_UI_MODEL_COUNT = 2u;
-constexpr uint32_t REPLAY_GENERATED_SCENE_UI_SOLVER_COUNTS = 4u;
-constexpr uint32_t REPLAY_GENERATED_SCENE_OVERRIDE_SHIFT = 8u;
-constexpr uint32_t REPLAY_GENERATED_SCENE_OVERRIDE_MASK = 3u << REPLAY_GENERATED_SCENE_OVERRIDE_SHIFT;
 constexpr std::size_t REPLAY_LAUNCHER_LASER_SHOT_CAPACITY = 32;
-constexpr uint64_t REPLAY_EVENT_FNV_OFFSET = 14695981039346656037ull;
-constexpr uint64_t REPLAY_EVENT_FNV_PRIME = 1099511628211ull;
-
-const char* ContactAudioFlashModeLabel( ContactAudioFlashMode mode )
-{
-    switch ( mode )
-    {
-    case ContactAudioFlashMode::Off:
-        return "Flash: Off";
-    case ContactAudioFlashMode::Emitted:
-        return "Flash: Emitted";
-    case ContactAudioFlashMode::Candidates:
-        return "Flash: Candidates";
-    case ContactAudioFlashMode::Rejected:
-        return "Flash: Rejected";
-    default:
-        return "Flash: Emitted";
-    }
-}
-
-void HashReplayInt( uint64_t& hash, int32_t value )
-{
-    const uint32_t bits = static_cast<uint32_t>( value );
-    for ( int shift = 0; shift < 32; shift += 8 )
-    {
-        hash ^= static_cast<uint64_t>( ( bits >> shift ) & 0xFFu );
-        hash *= REPLAY_EVENT_FNV_PRIME;
-    }
-}
 
 SkullbonezCore::Environment::CameraMovementSettings BuildCameraMovementSettings( const EngineConfig& cfg )
 {
@@ -100,10 +67,39 @@ SkullbonezCore::Environment::CameraMovementSettings BuildCameraMovementSettings(
 } // namespace
 
 
-RuntimeRenderHostBindings Run::BuildRuntimeRenderHostBindings()
+void RunSubsystemState::BindStartupServices( Window& windowOwner,
+                                             Threading::WorkerPool& workerPoolOwner,
+                                             const EngineConfig& configOwner )
 {
-    RuntimeRenderHostBindings bindings;
-    bindings.backend.active = &m_renderBackendView;
+    // Lifetime: these are process-start borrows. Runtime/Init owns the native
+    // window and worker pool, while Run owns the config reference passed into
+    // the constructor.
+    window = &windowOwner;
+    workerPool = &workerPoolOwner;
+    config = &configOwner;
+    cameraCollection.ApplyMovementSettings( BuildCameraMovementSettings( configOwner ) );
+}
+
+
+void RunRuntimeSettings::ApplyStartupConfig( const EngineConfig& config )
+{
+    isVsyncEnabled = config.runtimeRender.vsyncEnabled;
+    isPipelineSyncEnabled = config.runtimeRender.forcePipelineSync;
+    contactAudioDebugCounters = config.contactAudio.debugCounters;
+}
+
+
+void RunStartupState::ApplyStartupConfig( const EngineConfig& config )
+{
+    gameModelCapacity = std::clamp( config.gameModelCapacity, 1, MAX_GAME_MODELS );
+    workerThreads = config.workerThreads;
+}
+
+
+RuntimeRendererBindings Run::BuildRuntimeRendererBindings()
+{
+    RuntimeRendererBindings bindings;
+    bindings.backend = m_renderBackendView;
     bindings.runtime.systems = &m_systems;
     bindings.runtime.config = &m_config;
     bindings.runtime.launchOptions = &m_launchOptions;
@@ -120,71 +116,15 @@ RuntimeRenderHostBindings Run::BuildRuntimeRenderHostBindings()
     bindings.ui.runtimeInput = &m_runtimeInput;
     bindings.ui.camera = &m_camera;
     bindings.ui.runtimeViewModel = &m_runtimeViewModel;
-    bindings.diagnostics.diagnosticsRuntime = &m_diagnosticsRuntime;
     bindings.diagnostics.debug = &m_debug;
     bindings.diagnostics.timers = &m_timers;
     return bindings;
 }
 
 
-RuntimeRenderHostCallbacks Run::BuildRuntimeRenderHostCallbacks()
-{
-    RuntimeRenderHostCallbacks callbacks;
-    callbacks.user = this;
-    callbacks.logRenderResourceLifecycleStep = []( void* user, const char* phase, const char* step )
-    { static_cast<Run*>( user )->LogRenderResourceLifecycleStep( phase, step ); };
-    callbacks.renderEditorOverlay = []( void* user,
-                                        SkullbonezCore::Rendering::IRenderResourceFactory& renderResources,
-                                        const Math::Transformation::Matrix4& viewProjection,
-                                        const Math::Vector::Vector3& cameraEye,
-                                        const Math::Vector::Vector3& cameraUp )
-    {
-        Run* run = static_cast<Run*>( user );
-        RunEditorTracer& tracer = run->m_runtimeTools.EditorTracer();
-        tracer.Clear();
-
-        int attachedTargetIndex = -1;
-        if ( run->IsAttachedCameraMode() )
-        {
-            int targetIndex = -1;
-            if ( run->TryResolveAttachedCameraTarget( targetIndex ) )
-            {
-                attachedTargetIndex = targetIndex;
-            }
-        }
-
-        BuildEditorToolOverlayTrace( { run->m_runtimeTools.Editor(),
-                                       run->m_runtimeTools.RayCastTest(),
-                                       run->m_runtimeTools.MousePickup(),
-                                       run->m_cGameModelCollection,
-                                       run->m_cGameModelCollection.GetPhysicsEngine().BodyStore(),
-                                       run->m_cGameModelCollection.GetPhysicsEngine().Colliders(),
-                                       run->m_systems.assets,
-                                       tracer },
-                                     { run->m_debug.physicsDebugContactLinger,
-                                       run->InspectGizmoInteractionActive(),
-                                       Input::IsKeyDown( VK_CONTROL ),
-                                       attachedTargetIndex,
-                                       run->m_attachedCamera.activeFollow } );
-        run->RenderReplayPathVisualizer( tracer );
-        run->RenderReplayCauseFocusOverlay( tracer );
-        run->RenderReplayVelocityEditOverlay( tracer );
-        tracer.Render( viewProjection );
-        run->m_runtimeTools.Laser().Render( viewProjection,
-                                            cameraEye,
-                                            cameraUp,
-                                            run->m_systems.assets,
-                                            renderResources );
-    };
-    callbacks.refreshRuntimeViewModel = []( void* user ) { static_cast<Run*>( user )->RefreshRuntimeViewModel(); };
-    callbacks.cameraModeEnabledMask = []( void* user ) -> uint32_t
-    { return static_cast<Run*>( user )->CameraModeEnabledMask(); };
-    callbacks.cameraModeLabel = []( void* user, RunCameraMode mode ) -> const char*
-    { return static_cast<Run*>( user )->CameraModeLabel( mode ); };
-    return callbacks;
-}
-
-
+// Why: RuntimeRenderer still passes C-style hooks down to a few pass owners.
+// Keeping the noncapturing hook lambdas here lets them access Run-owned editor
+// overlay behavior without adding another Run.h method or callback-holder type.
 Run::Run( Window& window,
           std::vector<std::string> sceneQueue,
           EngineConfig& config,
@@ -192,24 +132,77 @@ Run::Run( Window& window,
           RuntimeRenderBackendView renderBackendView )
     : m_config( config ), m_sceneController( std::move( sceneQueue ) ), m_sceneCoordinator( m_sceneController ),
       m_renderBackendView( renderBackendView ),
-      m_renderHost( BuildRuntimeRenderHostBindings(), BuildRuntimeRenderHostCallbacks() ), m_renderer( m_renderHost )
+      m_renderer(
+          BuildRuntimeRendererBindings(),
+          []( void* user, const char* phase, const char* step )
+          {
+              if ( Run* run = static_cast<Run*>( user ) )
+              {
+                  run->LogRenderResourceLifecycleStep( phase, step );
+              }
+          },
+          []( void* user,
+              SkullbonezCore::Rendering::IRenderResourceFactory& renderResources,
+              SkullbonezCore::Rendering::IRenderCommandContext& renderCommands,
+              const Math::Transformation::Matrix4& viewProjection,
+              const Math::Vector::Vector3& cameraEye,
+              const Math::Vector::Vector3& cameraUp )
+          {
+              Run* run = static_cast<Run*>( user );
+              if ( !run )
+              {
+                  return;
+              }
+
+              RunEditorTracer& tracer = run->m_runtimeTools.EditorTracer();
+              tracer.Clear();
+
+              int attachedTargetIndex = -1;
+              if ( run->IsAttachedCameraMode() )
+              {
+                  int targetIndex = -1;
+                  if ( run->TryResolveAttachedCameraTarget( targetIndex ) )
+                  {
+                      attachedTargetIndex = targetIndex;
+                  }
+              }
+
+              BuildEditorToolOverlayTrace( { run->m_runtimeTools.Editor(),
+                                             run->m_runtimeTools.RayCastTest(),
+                                             run->m_runtimeTools.MousePickup(),
+                                             run->m_cGameModelCollection,
+                                             run->m_cGameModelCollection.GetPhysicsEngine().BodyStore(),
+                                             run->m_cGameModelCollection.GetPhysicsEngine().Colliders(),
+                                             run->m_systems.assets,
+                                             tracer },
+                                           { run->m_debug.physicsDebugContactLinger,
+                                             run->InspectGizmoInteractionActive(),
+                                             Input::IsKeyDown( VK_CONTROL ),
+                                             attachedTargetIndex,
+                                             run->m_attachedCamera.activeFollow } );
+              run->RenderReplayPathVisualizer( tracer );
+              run->RenderReplayCauseFocusOverlay( tracer );
+              run->RenderReplayVelocityEditOverlay( tracer );
+              tracer.Render( viewProjection, renderCommands );
+              run->m_runtimeTools.Laser().Render( viewProjection,
+                                                  cameraEye,
+                                                  cameraUp,
+                                                  run->m_systems.assets,
+                                                  renderResources,
+                                                  renderCommands );
+          },
+          this )
 {
-    m_systems.window = &window;
-    m_systems.workerPool = &workerPool;
+    const EngineConfig& cfg = m_config;
+    m_systems.BindStartupServices( window, workerPool, cfg );
     BindEngineContext();
     RefreshRuntimeViewModel();
     RefreshSceneBrowserList( m_sceneController.Browser() );
-    const EngineConfig& cfg = m_config;
-    m_systems.config = &cfg;
-    m_systems.cameraCollection.ApplyMovementSettings( BuildCameraMovementSettings( cfg ) );
     m_cGameModelCollection.BindWorkerPool( workerPool );
     m_cGameModelCollection.ApplyRuntimeConfig( cfg );
-    m_runtimeSettings.isVsyncEnabled = cfg.runtimeRender.vsyncEnabled;
-    m_runtimeSettings.isPipelineSyncEnabled = cfg.runtimeRender.forcePipelineSync;
-    m_runtimeSettings.contactAudioDebugCounters = cfg.contactAudio.debugCounters;
+    m_runtimeSettings.ApplyStartupConfig( cfg );
     m_defaultCinematicRender = cfg.cinematicRender;
-    m_startup.gameModelCapacity = std::clamp( cfg.gameModelCapacity, 1, MAX_GAME_MODELS );
-    m_startup.workerThreads = cfg.workerThreads;
+    m_startup.ApplyStartupConfig( cfg );
 }
 
 
@@ -238,44 +231,19 @@ void Run::BindEngineContext()
                                                  &m_camera,
                                                  &m_debug,
                                                  &m_cWorldEnvironment,
+                                                 &m_cGameModelCollection.GetPhysicsEngine(),
                                                  &m_cGameModelCollection } );
 }
 
 
 void Run::RefreshRuntimeViewModel()
 {
-    m_runtimeViewModel = RuntimeViewModelBuilder::Build( m_engineContext );
-    RuntimeContactAudioSnapshot& audio = m_runtimeViewModel.contactAudio;
-    audio.enabled = m_contactAudio.IsEnabled();
-    audio.available = m_contactAudio.IsAvailable();
-    audio.debugCounters = m_runtimeSettings.contactAudioDebugCounters;
-    audio.flashMode = static_cast<int>( m_runtimeSettings.contactAudioFlashMode );
-    audio.flashModeLabel = ContactAudioFlashModeLabel( m_runtimeSettings.contactAudioFlashMode );
-    audio.masterGain = m_contactAudio.MasterGain();
-    audio.maxDistanceScale = m_contactAudio.MaxDistanceScale();
-    audio.minClosingSpeed = m_contactAudio.MinClosingSpeed();
-    audio.minImpactScore = m_contactAudio.MinImpactScore();
-    audio.impactScoreRangeSeconds = m_contactAudio.ImpactScoreRangeSeconds();
-    audio.simpleMode = m_contactAudio.SimpleModeEnabled();
-    audio.simpleMinLinearEnergy = m_contactAudio.SimpleMinLinearEnergy();
-    audio.simpleMinLinearDeltaSpeed = m_contactAudio.SimpleMinLinearDeltaSpeed();
-    audio.simpleLinearEnergyRange = m_contactAudio.SimpleLinearEnergyRange();
-    audio.burstVoicesPerWindow = m_contactAudio.BurstVoicesPerWindow();
-    audio.rollingLevelDb = m_contactAudio.RollingLevelDb();
-    audio.rollingMaxDistance = m_contactAudio.RollingMaxDistance();
-    audio.rollingMinSlipSpeed = m_contactAudio.RollingMinSlipSpeed();
-    audio.rollingVoicesPerWindow = m_contactAudio.RollingVoicesPerWindow();
-    audio.stats = m_contactAudio.Stats();
-    audio.soundSetCount = (std::min)( m_contactAudio.SoundSetCount(), RUNTIME_CONTACT_AUDIO_SET_MAX );
-    audio.soundSampleCount = (std::min)( m_contactAudio.SoundSampleCount(), RUNTIME_CONTACT_AUDIO_SAMPLE_MAX );
-    for ( int setIndex = 0; setIndex < audio.soundSetCount; ++setIndex )
-    {
-        m_contactAudio.GetSoundSetTuning( setIndex, audio.soundSets[setIndex] );
-    }
-    for ( int sampleIndex = 0; sampleIndex < audio.soundSampleCount; ++sampleIndex )
-    {
-        audio.soundSamplePaths[sampleIndex] = m_contactAudio.SoundSamplePath( sampleIndex );
-    }
+    m_runtimeViewModel =
+        RuntimeViewModelBuilder::Build( RuntimeViewModelContext{ m_sceneController,
+                                                                 m_diagnosticsRuntime.Capture(),
+                                                                 m_runtimeSettings,
+                                                                 m_cGameModelCollection.GetPhysicsEngine() },
+                                        m_contactAudio );
 }
 
 
@@ -324,9 +292,9 @@ Run::~Run()
     // Hazard: backend resources can still be referenced by queued GPU work.
     // Flush before releasing the runtime's owning pointers so teardown cannot
     // free memory while the device is still reading it.
-    if ( IsGfxReady() )
+    if ( m_renderBackendView.renderBackend )
     {
-        Gfx().FlushGPU();
+        m_renderBackendView.renderBackend->FlushGPU();
     }
 
     // Lifetime: clean up backend-owned render resources while the current
@@ -339,235 +307,22 @@ Run::~Run()
 
 void Run::ReleaseBackendOwnedRenderResources( const char* phaseName )
 {
-    enum class BackendResourceStep
-    {
-        WorldEnvironment,
-        HelperResources,
-        GameModelResources,
-        CollisionVisualizer,
-        UIResources,
-        RenderPassResources,
-        ProfilerQueries,
-        TextureCollection,
-        CameraCollection,
-        SkyBox,
-        LauncherLaser
-    };
+    SkullbonezCore::Rendering::IRenderDeviceLifecycle* releaseDeviceLifecycle = m_renderBackendView.deviceLifecycle;
+    SkullbonezCore::Rendering::IRenderResourceFactory* releaseRenderResources = m_renderBackendView.renderResources;
 
-    struct BackendResourcePhase
-    {
-        const char* name;
-        BackendResourceStep step;
-        bool flushAfter;
-    };
-
-    const BackendResourcePhase releaseSteps[] = {
-        { "world_environment", BackendResourceStep::WorldEnvironment, true },
-        { "helper_resources", BackendResourceStep::HelperResources, false },
-        { "game_model_resources", BackendResourceStep::GameModelResources, false },
-        { "collision_visualizer", BackendResourceStep::CollisionVisualizer, false },
-        { "ui_resources", BackendResourceStep::UIResources, false },
-        { "render_pass_resources", BackendResourceStep::RenderPassResources, false },
-        { "profiler_queries", BackendResourceStep::ProfilerQueries, false },
-        { "texture_collection", BackendResourceStep::TextureCollection, false },
-        { "camera_collection", BackendResourceStep::CameraCollection, false },
-        { "skybox", BackendResourceStep::SkyBox, false },
-        { "launcher_laser", BackendResourceStep::LauncherLaser, false },
-    };
-
-    SkullbonezCore::Rendering::IRenderResourceFactory* releaseRenderResources = nullptr;
-    if ( IsGfxReady() )
-    {
-        releaseRenderResources = &static_cast<SkullbonezCore::Rendering::IRenderResourceFactory&>( Gfx() );
-    }
-
-    for ( const BackendResourcePhase& phase : releaseSteps )
-    {
-        LogRenderResourceLifecycleStep( phaseName, phase.name );
-        switch ( phase.step )
-        {
-        case BackendResourceStep::WorldEnvironment:
-            m_cWorldEnvironment.ReleaseRenderResources();
-            break;
-        case BackendResourceStep::HelperResources:
-            RenderHelper::ResetRenderResources( releaseRenderResources );
-            break;
-        case BackendResourceStep::GameModelResources:
-            m_cGameModelCollection.ResetRenderResources();
-            break;
-        case BackendResourceStep::CollisionVisualizer:
-            m_collisionVisualizer.ResetResources();
-            break;
-        case BackendResourceStep::UIResources:
-            m_UI.ResetResources( releaseRenderResources );
-            break;
-        case BackendResourceStep::RenderPassResources:
-            // Lifetime: shutdown can run after a failed backend init. Pass
-            // resources still need their CPU-side handles reset, but dynamic
-            // buffer destruction can only call into a live backend.
-            m_renderer.ReleaseBackendOwnedResources( releaseRenderResources );
-            break;
-        case BackendResourceStep::ProfilerQueries:
-#if defined( SKULLBONEZ_PROFILE_ENABLED )
-            Profiler::Instance().InvalidateGpuQueries();
-#endif
-            break;
-        case BackendResourceStep::TextureCollection:
-            if ( m_systems.textures )
-            {
-                m_systems.textures->DeleteAllTextures();
-                m_systems.textures->BindAssetSystem( nullptr );
-                m_systems.textures->BindRenderContexts( nullptr, nullptr );
-            }
-            break;
-        case BackendResourceStep::CameraCollection:
-            if ( m_systems.cameras )
-            {
-                m_systems.cameras->Reset();
-                m_systems.cameras->SetTerrain( nullptr );
-            }
-            break;
-        case BackendResourceStep::SkyBox:
-            if ( m_systems.skyBox )
-            {
-                m_systems.skyBox->ReleaseRenderResources();
-                m_systems.skyBoxOwner.reset();
-                m_systems.skyBox = nullptr;
-            }
-            break;
-        case BackendResourceStep::LauncherLaser:
-            m_runtimeTools.Laser().ResetResources();
-            break;
-        }
-
-        if ( phase.flushAfter && IsGfxReady() )
-        {
-            LogRenderResourceLifecycleStep( phaseName, "flush_after_world_environment" );
-            Gfx().FlushGPU();
-        }
-    }
+    m_renderer.ReleaseBackendOwnedRuntimeResources(
+        RuntimeRenderer::BackendResourceReleaseContext{ phaseName,
+                                                        releaseDeviceLifecycle,
+                                                        releaseRenderResources,
+                                                        m_cGameModelCollection,
+                                                        m_UI,
+                                                        m_runtimeTools } );
 }
 
 
 void Run::RegisterBuiltInAssets()
 {
-    const EngineConfig& cfg = m_config;
-    m_systems.assets
-        .RegisterTextureSourceAsset( "texture.terrain", cfg.terrainTexture.c_str(), TEXTURE_GROUND, true, true, 3 );
-    m_systems.assets.RegisterTextureSourceAsset( "texture.sphere",
-                                                 cfg.sphereTexture.c_str(),
-                                                 TEXTURE_BOUNDING_SPHERE,
-                                                 true,
-                                                 true,
-                                                 3 );
-    m_systems.assets
-        .RegisterTextureSourceAsset( "texture.sky.left", cfg.skyLeft.c_str(), TEXTURE_SKY_LEFT, true, true, 3 );
-    m_systems.assets
-        .RegisterTextureSourceAsset( "texture.sky.right", cfg.skyRight.c_str(), TEXTURE_SKY_RIGHT, true, true, 3 );
-    m_systems.assets
-        .RegisterTextureSourceAsset( "texture.sky.front", cfg.skyFront.c_str(), TEXTURE_SKY_FRONT, true, true, 3 );
-    m_systems.assets
-        .RegisterTextureSourceAsset( "texture.sky.back", cfg.skyBack.c_str(), TEXTURE_SKY_BACK, true, true, 3 );
-    m_systems.assets.RegisterTextureSourceAsset( "texture.sky.up", cfg.skyUp.c_str(), TEXTURE_SKY_UP, true, true, 3 );
-    m_systems.assets
-        .RegisterTextureSourceAsset( "texture.sky.down", cfg.skyDown.c_str(), TEXTURE_SKY_DOWN, true, true, 3 );
-
-    m_systems.assets.RegisterAssetLibrarySourceAsset( "assetlib.low_poly_nature",
-                                                      "assets/low_poly_nature.assets.json" );
-    m_systems.assets.RegisterAssetLibrarySourceAsset( "assetlib.buildings", "assets/buildings.assets.json" );
-    m_systems.assets.RegisterAssetLibrarySourceAsset( "assetlib.physics_props", "assets/physics_props.assets.json" );
-
-    auto contract = []( bool usesTexture, bool usesLighting, bool usesInstancing, bool depthOnly, bool postProcess )
-    {
-        Assets::ShaderProgramContract result;
-        result.usesTexture = usesTexture;
-        result.usesLighting = usesLighting;
-        result.usesInstancing = usesInstancing;
-        result.depthOnly = depthOnly;
-        result.postProcess = postProcess;
-        return result;
-    };
-
-    m_systems.assets.RegisterShaderSourceAsset( "shader.lit_textured",
-                                                "shaders/lit_textured",
-                                                Assets::ShaderProgramKind::LitTextured,
-                                                contract( true, true, false, false, false ) );
-    m_systems.assets.RegisterShaderSourceAsset( "shader.lit_textured_instanced",
-                                                "shaders/lit_textured_instanced",
-                                                Assets::ShaderProgramKind::LitTextured,
-                                                contract( true, true, true, false, false ) );
-    m_systems.assets.RegisterShaderSourceAsset( "shader.unlit_textured",
-                                                "shaders/unlit_textured",
-                                                Assets::ShaderProgramKind::UnlitTextured,
-                                                contract( true, false, false, false, false ) );
-    m_systems.assets.RegisterShaderSourceAsset( "shader.shadow_depth",
-                                                "shaders/shadow_depth",
-                                                Assets::ShaderProgramKind::ShadowDepth,
-                                                contract( false, false, false, true, false ) );
-    m_systems.assets.RegisterShaderSourceAsset( "shader.shadow_depth_instanced",
-                                                "shaders/shadow_depth_instanced",
-                                                Assets::ShaderProgramKind::ShadowDepth,
-                                                contract( false, false, true, true, false ) );
-    m_systems.assets.RegisterShaderSourceAsset( "shader.post_tonemap",
-                                                "shaders/post_tonemap",
-                                                Assets::ShaderProgramKind::PostProcess,
-                                                contract( true, false, false, false, true ) );
-    m_systems.assets.RegisterShaderSourceAsset( "shader.post_volumetric_light",
-                                                "shaders/post_volumetric_light",
-                                                Assets::ShaderProgramKind::PostProcess,
-                                                contract( true, false, false, false, true ) );
-    m_systems.assets.RegisterShaderSourceAsset( "shader.sky_atmosphere",
-                                                "shaders/sky_atmosphere",
-                                                Assets::ShaderProgramKind::PostProcess,
-                                                contract( false, false, false, false, true ) );
-    m_systems.assets.RegisterShaderSourceAsset( "shader.text",
-                                                "shaders/text",
-                                                Assets::ShaderProgramKind::Text,
-                                                contract( true, false, false, false, false ) );
-    m_systems.assets.RegisterShaderSourceAsset( "shader.solid_color",
-                                                "shaders/solid_color",
-                                                Assets::ShaderProgramKind::Text,
-                                                contract( false, false, false, false, false ) );
-    m_systems.assets.RegisterShaderSourceAsset( "shader.solid_color_batch",
-                                                "shaders/solid_color_batch",
-                                                Assets::ShaderProgramKind::Text,
-                                                contract( false, false, false, false, false ) );
-    m_systems.assets.RegisterShaderSourceAsset( "shader.water_calm",
-                                                "shaders/water_calm",
-                                                Assets::ShaderProgramKind::Water,
-                                                contract( true, true, false, false, false ) );
-    m_systems.assets.RegisterShaderSourceAsset( "shader.water_ocean",
-                                                "shaders/water_ocean",
-                                                Assets::ShaderProgramKind::Water,
-                                                contract( true, true, false, false, false ) );
-    m_systems.assets.RegisterShaderSourceAsset( "shader.collision_visualizer",
-                                                "shaders/collision_visualizer",
-                                                Assets::ShaderProgramKind::Collision,
-                                                contract( false, true, true, false, false ) );
-    m_systems.assets.RegisterShaderSourceAsset( "shader.grid_line",
-                                                "shaders/grid_line",
-                                                Assets::ShaderProgramKind::DebugLine,
-                                                contract( false, false, false, false, false ) );
-    m_systems.assets.RegisterShaderSourceAsset( "shader.launcher_laser",
-                                                "shaders/launcher_laser",
-                                                Assets::ShaderProgramKind::DebugLine,
-                                                contract( false, false, false, false, false ) );
-    m_systems.assets.RegisterShaderSourceAsset( "shader.tornado_fx",
-                                                "shaders/tornado_fx",
-                                                Assets::ShaderProgramKind::DebugLine,
-                                                contract( false, false, false, false, false ) );
-    m_systems.assets.RegisterShaderSourceAsset( "shader.ui_backdrop_blur",
-                                                "shaders/UIBackdropBlur",
-                                                Assets::ShaderProgramKind::UI,
-                                                contract( true, false, false, false, true ) );
-    m_systems.assets.RegisterShaderSourceAsset( "shader.reflect_rt",
-                                                "shaders/reflect.rt",
-                                                Assets::ShaderProgramKind::RayTracing,
-                                                contract( true, false, false, false, false ) );
-    m_systems.assets.RegisterShaderSourceAsset( "shader.generate_mips",
-                                                "shaders/generate_mips",
-                                                Assets::ShaderProgramKind::Compute,
-                                                contract( true, false, false, false, false ) );
+    m_systems.assets.RegisterBuiltInSourceAssets( m_config );
 }
 
 
@@ -592,9 +347,10 @@ void Run::DumpTextureAssets( FILE* out ) const
 
 void Run::LogRenderResourceLifecycleStep( const char* phase, const char* step ) const
 {
-    const bool gfxReady = IsGfxReady();
-    const int backendWidth = gfxReady ? Gfx().GetWidth() : 0;
-    const int backendHeight = gfxReady ? Gfx().GetHeight() : 0;
+    const SkullbonezCore::Rendering::IRenderBackend* renderBackend = m_renderBackendView.renderBackend;
+    const bool gfxReady = renderBackend != nullptr;
+    const int backendWidth = renderBackend ? renderBackend->GetWidth() : 0;
+    const int backendHeight = renderBackend ? renderBackend->GetHeight() : 0;
     Log().WriteEventf( "render_resource_lifecycle phase=%s step=%s gfx_ready=%d backend_width=%d backend_height=%d "
                        "scene_index=%d load=%d",
                        phase ? phase : "unknown",
@@ -896,66 +652,42 @@ bool Run::LoadReplayPresentationArtifact( const char* path, bool activateScrubbe
 
 void Run::ResetReplayTimelineForActiveScene( bool preserveBranchMetadata )
 {
-    if ( !preserveBranchMetadata )
-    {
-        m_replayRuntime.ResetBranch();
-    }
     CancelReplayToolDragState();
-    if ( m_replayRuntime.Scrubber().liveAdvanceHeld )
-    {
-        m_replayRuntime.SetLiveAdvanceHeld( false );
-    }
-    if ( m_replayRuntime.ResetScrubberState() )
+
+    const std::string* scenePath = m_sceneController.CurrentPath();
+    const char* sceneLabel = scenePath && !scenePath->empty() ? scenePath->c_str() : "generated";
+    ReplayRuntime::SceneTimelineResetInput replayReset;
+    replayReset.sceneLabel = sceneLabel;
+    replayReset.preserveBranchMetadata = preserveBranchMetadata;
+    replayReset.isSceneMode = SceneState().isSceneMode;
+    replayReset.modelCount = SceneState().modelCount;
+    replayReset.solverBallCount = SceneState().solverBallCount;
+    replayReset.solverBoxCount = SceneState().solverBoxCount;
+    replayReset.rngSeed = SceneState().rngSeed;
+    replayReset.gameModelCapacity = m_startup.gameModelCapacity;
+    replayReset.generatedObjectTypeOverride = static_cast<uint32_t>( m_launchOptions.generatedObjectTypeOverride );
+    replayReset.hasUiModelCountOverride = m_sceneController.UIOverrides().modelCountOverride >= 0;
+    replayReset.hasUiSolverCountOverride = m_sceneController.UIOverrides().solverBallCountOverride >= 0 ||
+                                           m_sceneController.UIOverrides().solverBoxCountOverride >= 0;
+
+    const ReplayRuntime::SceneTimelineResetResult replayResetBegin =
+        m_replayRuntime.BeginSceneTimelineReset( replayReset );
+    if ( replayResetBegin.exitInspectionCamera )
     {
         ExitReplayInspectionCamera();
     }
-    m_replayRuntime.LoadedPresentation() = RunLoadedReplayPresentationState{};
-    m_replayRuntime.ClearCameraFocusForRestore();
-    ExitReplayInspectionCamera();
-    m_replayRuntime.ClearPathVisualizerState();
-    m_replayRuntime.VelocityEdit() = RunReplayVelocityEditState{};
-    if ( !m_replayRuntime.IsPresentationEnabled() )
+
+    const ReplayRuntime::SceneTimelineResetResult replayResetFinish =
+        m_replayRuntime.FinishSceneTimelineReset( replayReset );
+    if ( replayResetFinish.exitInspectionCamera )
+    {
+        ExitReplayInspectionCamera();
+    }
+    if ( !replayResetFinish.timelineStarted )
     {
         return;
     }
 
-    const std::string* scenePath = m_sceneController.CurrentPath();
-    const char* sceneLabel = scenePath && !scenePath->empty() ? scenePath->c_str() : "generated";
-    m_replayRuntime.ResetTimeline( sceneLabel );
-    m_replayRuntime.RecordEvent( ReplayEventKind::TimelineStart, 0, 0, 0, 0, 0, 0, 0, sceneLabel );
-    if ( !( SceneState().isSceneMode && SceneState().solverBallCount <= 0 && SceneState().solverBoxCount <= 0 ) )
-    {
-        uint32_t flags = 0;
-        flags |= ( SceneState().solverBallCount > 0 || SceneState().solverBoxCount > 0 )
-                     ? REPLAY_GENERATED_SCENE_EXACT_SOLVER_COUNTS
-                     : 0u;
-        flags |= m_sceneController.UIOverrides().modelCountOverride >= 0 ? REPLAY_GENERATED_SCENE_UI_MODEL_COUNT : 0u;
-        flags |= ( m_sceneController.UIOverrides().solverBallCountOverride >= 0 ||
-                   m_sceneController.UIOverrides().solverBoxCountOverride >= 0 )
-                     ? REPLAY_GENERATED_SCENE_UI_SOLVER_COUNTS
-                     : 0u;
-        flags |= ( static_cast<uint32_t>( m_launchOptions.generatedObjectTypeOverride )
-                   << REPLAY_GENERATED_SCENE_OVERRIDE_SHIFT ) &
-                 REPLAY_GENERATED_SCENE_OVERRIDE_MASK;
-
-        uint64_t hash = REPLAY_EVENT_FNV_OFFSET;
-        HashReplayInt( hash, SceneState().modelCount );
-        HashReplayInt( hash, SceneState().solverBallCount );
-        HashReplayInt( hash, SceneState().solverBoxCount );
-        HashReplayInt( hash, static_cast<int32_t>( SceneState().rngSeed ) );
-        HashReplayInt( hash, static_cast<int32_t>( ActiveGameModelCapacity() ) );
-        HashReplayInt( hash, static_cast<int32_t>( m_launchOptions.generatedObjectTypeOverride ) );
-
-        m_replayRuntime.RecordEvent( ReplayEventKind::GeneratedSceneConfig,
-                                     0,
-                                     flags,
-                                     SceneState().modelCount,
-                                     SceneState().solverBallCount,
-                                     SceneState().solverBoxCount,
-                                     static_cast<int32_t>( SceneState().rngSeed ),
-                                     hash,
-                                     "generated_scene_config" );
-    }
     m_solverReplayMismatch.reports = 0;
     m_solverReplayMismatch.suppressed = false;
 }
@@ -963,122 +695,16 @@ void Run::ResetReplayTimelineForActiveScene( bool preserveBranchMetadata )
 
 bool Run::ApplyReplaySolverSampleState( const ReplaySolverFrameSample& sample, char* outReason, std::size_t reasonSize )
 {
-    auto writeReason = [outReason, reasonSize]( const char* message )
-    {
-        if ( outReason && reasonSize > 0 )
-        {
-            strncpy_s( outReason, reasonSize, message ? message : "restore failed", _TRUNCATE );
-        }
-    };
-
-    if ( sample.worldSnapshot.version < 1 || sample.worldSnapshot.version > 2 )
-    {
-        writeReason( "unsupported snapshot version" );
-        return false;
-    }
-
-    if ( sample.worldSnapshot.modelCount != static_cast<int>( sample.bodies.size() ) )
-    {
-        writeReason( "snapshot body count mismatch" );
-        return false;
-    }
-
-    const int liveModelCount = m_cGameModelCollection.GetModelCount();
-    if ( sample.bodies.size() > static_cast<std::size_t>( liveModelCount ) )
-    {
-        writeReason( "selected frame needs unavailable bodies" );
-        return false;
-    }
-
-    const int restoreModelCount = static_cast<int>( sample.bodies.size() );
-    const PhysicsBodyStore& bodyStore = m_cGameModelCollection.GetPhysicsEngine().BodyStore();
-    for ( const ReplaySolverBodySample& body : sample.bodies )
-    {
-        if ( body.modelIndex < 0 || body.modelIndex >= liveModelCount || body.modelIndex >= restoreModelCount )
-        {
-            writeReason( "selected frame has invalid body index" );
-            return false;
-        }
-
-        // Invariant: replay restore identity belongs to the live body row.
-        // Authoring/presentation data is secondary after the restore writes
-        // store-owned pose, velocity, and fixed state.
-        const PhysicsBodyRecord* liveBody = bodyStore.RecordForModelIndex( body.modelIndex );
-        if ( !liveBody || liveBody->replayBodyId != body.id.value )
-        {
-            writeReason( "selected frame body ids no longer match" );
-            return false;
-        }
-    }
-
-    if ( !m_cGameModelCollection.TrimModelsForReplayRestore( restoreModelCount ) )
-    {
-        writeReason( "failed to trim live model list" );
-        return false;
-    }
-    SceneState().ResetSceneObjectIdCursor( m_cGameModelCollection.GetPhysicsEngine().BodyStore() );
-
-    for ( const ReplaySolverBodySample& body : sample.bodies )
-    {
-        Math::Orientation::Quaternion orientation( body.orientation[0],
-                                                   body.orientation[1],
-                                                   body.orientation[2],
-                                                   body.orientation[3] );
-        if ( !m_cGameModelCollection.TryRestoreReplayBodyState( body.modelIndex,
-                                                                body.id.value,
-                                                                body.fixed,
-                                                                body.position,
-                                                                orientation,
-                                                                body.linearVelocity,
-                                                                body.angularVelocity,
-                                                                body.mass,
-                                                                body.inverseMass,
-                                                                body.rotationalInertia,
-                                                                body.inverseRotationalInertia ) )
-        {
-            writeReason( "failed to restore replay body state" );
-            return false;
-        }
-    }
-    m_cGameModelCollection.GetPhysicsEngine().ClearPendingBodyImpulses();
-
-    if ( !m_cGameModelCollection.GetPhysicsEngine().RestoreReplaySolverSnapshot(
-             sample.worldSnapshot,
-             m_cGameModelCollection.GetModelCount() ) )
-    {
-        writeReason( "failed to restore solver world snapshot" );
-        return false;
-    }
-
-    m_cWorldEnvironment.SetGravity( sample.world.gravity );
-    m_cWorldEnvironment.SetFluidSurfaceHeight( sample.world.fluidHeight );
-    m_cWorldEnvironment.SetFluidDensity( sample.world.fluidDensity );
-    m_debug.isWaterHidden = sample.world.waterHidden;
-    m_debug.isTerrainHidden = sample.world.terrainHidden;
-    SceneState().isFixedStep = sample.world.fixedStep;
-    SceneState().isScenePhysics = sample.world.scenePhysicsEnabled;
-    SceneState().isSceneText = sample.world.sceneTextEnabled;
-    SceneState().modelCount = m_cGameModelCollection.GetModelCount();
-    m_runtimeSettings.isPhysicsSleepEnabled = sample.worldSnapshot.sleepEnabled;
-    m_runtimeSettings.tornadoField = sample.worldSnapshot.tornadoConfig;
-    m_runtimeSettings.tornadoSystem = sample.worldSnapshot.tornadoSystemConfig;
-    if ( m_runtimeSettings.tornadoVisual.autoEnableWithTornado )
-    {
-        m_runtimeSettings.tornadoVisual.enabled =
-            m_runtimeSettings.tornadoField.enabled || m_runtimeSettings.tornadoSystem.enabled;
-    }
-
-    if ( m_systems.cameras )
-    {
-        m_systems.cameras->CancelTween();
-        m_systems.cameras->SetPrimaryPosition( sample.camera.eye );
-        m_systems.cameras->SetViewCoordinates( sample.camera.view );
-        m_systems.cameras->SetCamera();
-    }
-
-    m_runtimeTools.RestoreReplayLauncherVisualSample( sample.launcherVisual );
-    writeReason( "applied" );
-    return true;
+    return ReplayRestoreService::ApplySolverSampleState( ReplaySolverSampleRestoreContext{ m_cGameModelCollection,
+                                                                                           m_cWorldEnvironment,
+                                                                                           SceneState(),
+                                                                                           m_runtimeSettings,
+                                                                                           m_debug,
+                                                                                           m_systems.cameras,
+                                                                                           m_runtimeTools },
+                                                         sample,
+                                                         outReason,
+                                                         reasonSize );
 }
 
 bool Run::CaptureCurrentReplaySolverHash( const ReplaySolverFrameSample& reference,
@@ -1321,7 +947,8 @@ void Run::Initialise()
 {
     assert( m_systems.window );
 
-    IRenderBackend& renderBackend = Gfx();
+    assert( m_renderBackendView.renderBackend && "Run requires a render backend before Initialise()" );
+    IRenderBackend& renderBackend = *m_renderBackendView.renderBackend;
     auto& renderResources = static_cast<SkullbonezCore::Rendering::IRenderResourceFactory&>( renderBackend );
     auto& renderCommands = static_cast<SkullbonezCore::Rendering::IRenderCommandContext&>( renderBackend );
 
@@ -1454,20 +1081,20 @@ void Run::LogSceneFinished( const char* reason )
         scenePath = currentScenePath->c_str();
     }
 
-    m_diagnosticsRuntime.LogSceneFinished( SceneState(),
-                                           scenePath,
-                                           IsGfxReady() ? Gfx().GetRendererName() : "unknown",
-                                           reason );
+    const char* rendererName =
+        m_renderBackendView.renderBackend ? m_renderBackendView.renderBackend->GetRendererName() : "unknown";
+    m_diagnosticsRuntime.LogSceneFinished( SceneState(), scenePath, rendererName, reason );
 }
 
 
 void Run::BeginPhysicsDiagnosticsRun( const char* scenePath )
 {
-    m_diagnosticsRuntime.BeginPhysicsDiagnosticsRun( m_cGameModelCollection,
-                                                     SceneState(),
-                                                     m_config,
-                                                     scenePath,
-                                                     IsGfxReady() ? Gfx().GetRendererName() : "unknown" );
+    m_diagnosticsRuntime.BeginPhysicsDiagnosticsRun(
+        m_cGameModelCollection,
+        SceneState(),
+        m_config,
+        scenePath,
+        m_renderBackendView.renderBackend ? m_renderBackendView.renderBackend->GetRendererName() : "unknown" );
 }
 
 

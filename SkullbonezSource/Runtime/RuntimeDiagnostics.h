@@ -96,6 +96,13 @@ struct RuntimePerfTickContext
     float renderTimeSeconds = 0.0f;
 };
 
+struct RuntimeProfilerFrameTimes
+{
+    float physicsTimeSeconds = 0.0f;
+    float renderTimeSeconds = 0.0f;
+    float gpuFrameWorkMs = 0.0f;
+};
+
 class RuntimeDiagnostics
 {
   public:
@@ -110,6 +117,8 @@ class RuntimeDiagnostics
     static void OpenScenePerfLog( RunPerfLogState& perfLog, const char* path, int pass );
     static bool PerfTestActive( const RunPerfLogState& perfLog );
     static void TickPerfLog( RunPerfLogState& perfLog, const RuntimePerfTickContext& context );
+    static void InvalidateProfilerGpuQueries();
+    static RuntimeProfilerFrameTimes SampleProfilerFrameTimes();
 
 #ifdef _DEBUG
     static void SetPhysicsRegressionLogOverride( RunPerfLogState& perfLog, const char* path );

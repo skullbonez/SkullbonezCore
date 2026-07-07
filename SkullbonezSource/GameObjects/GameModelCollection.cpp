@@ -9,16 +9,16 @@ Mental model:
   when that state changes.
 
 Glossary:
-  Physics material: Per-object friction and drag coefficients cached by the
-    collection before models are added or reconfigured.
-  Body simulation limit: Scalar cap cached by the collection before authored
+  Physics material: Per-object friction and drag coefficients owned by
+    PhysicsScene and copied into authored descriptor rows at cold boundaries.
+  Body simulation limit: Scalar cap owned by PhysicsScene before authored
     descriptors create PhysicsBodyStore rows.
-  Contact policy: Terrain and contact thresholds cached by the collection so
+  Contact policy: Terrain and contact thresholds owned by PhysicsScene so
     existing and newly added models receive the same physics policy.
-  Body descriptor: Value packet containing authoring body facts that
-    PhysicsScene turns into a live PhysicsBodyStore row.
+  Body descriptor: PhysicsScene-owned authoring value that can rebuild a live
+    PhysicsBodyStore row without reading GameModel physics fields.
   Render instance store: Renderer-facing snapshot built from physics-owned pose
-    and model-owned material/presentation state before frame passes.
+    and render-owned presentation rows before frame passes.
   Collider descriptor: Value packet containing shape/material facts that
     PhysicsScene turns into a live ColliderStore row.
   Topology drift: A body/collider/model count mismatch that means stores must
@@ -33,15 +33,18 @@ Glossary:
     commit or PR.
 
 Invariants:
-  - Model vector order remains the scene alignment key for physics stores,
+  - SceneEntityStore order remains the scene alignment key for physics stores,
     render batches, and scene snapshots. Replay ids live in PhysicsBodyStore
     rows after append.
-  - Scene-object group records are a same-length sidecar keyed by model slot;
-    GameModel does not carry runtime grouping fields.
+  - SceneObjectGroupStore is a same-length scene metadata store keyed by model
+    slot. GameModel does not carry runtime grouping fields. PhysicsScene owns
+    the same-order authored body descriptors.
   - Render prep imports store-backed snapshots once before frame passes; render
     code must not rebuild model-derived pose streams.
   - Owner-side release paths repair topology once before resolving body handles
     from PhysicsBodyStore.
+  - Render presentation records live in RenderInstanceStore. Collection only
+    supplies model-owned material/name/highlight values at the cold refresh edge.
 
 Related:
   - SkullbonezSource/GameObjects/GameModelCollection.h
@@ -66,7 +69,6 @@ Related:
 #include <cstddef>
 #include <cmath>
 #include <cstring>
-#include <limits>
 #include <stdexcept>
 #include <utility>
 #include <variant>
@@ -77,10 +79,8 @@ using SkullbonezCore::Math::CollisionDetection::BoundingSphere;
 using SkullbonezCore::Math::Orientation::Quaternion;
 using SkullbonezCore::Math::Transformation::Matrix4;
 using SkullbonezCore::Math::Vector::Vector3;
-using SkullbonezCore::Physics::BodySimulationLimits;
 using SkullbonezCore::Physics::ColliderRecord;
 using SkullbonezCore::Physics::ColliderStore;
-using SkullbonezCore::Physics::ContactPolicy;
 using SkullbonezCore::Physics::PhysicsBodyCreateDesc;
 using SkullbonezCore::Physics::PhysicsBodyHandle;
 using SkullbonezCore::Physics::PhysicsBodyMotionKind;
@@ -88,7 +88,6 @@ using SkullbonezCore::Physics::PhysicsBodyRecord;
 using SkullbonezCore::Physics::PhysicsBodyStore;
 using SkullbonezCore::Physics::PhysicsColliderCreateDesc;
 using SkullbonezCore::Physics::PhysicsColliderHandle;
-using SkullbonezCore::Physics::PhysicsMaterial;
 using SkullbonezCore::Physics::PhysicsSceneObjectId;
 using SkullbonezCore::Rendering::ShadowFrameData;
 
@@ -99,31 +98,6 @@ template <typename T> uint64_t VectorCapacityBytes( const T& values )
     return static_cast<uint64_t>( values.capacity() ) * static_cast<uint64_t>( sizeof( typename T::value_type ) );
 }
 
-
-void ApplyCollectionPhysicsMaterialToColliderDesc( PhysicsColliderCreateDesc& desc, const PhysicsMaterial& material )
-{
-    desc.friction = material.frictionCoefficient;
-    if ( BoundingSphere* sphere = std::get_if<BoundingSphere>( &desc.shape ) )
-    {
-        sphere->SetDragCoefficient( material.sphereDragCoefficient );
-        desc.dragCoefficient = material.sphereDragCoefficient;
-    }
-}
-
-void ApplyCollectionPhysicsPolicyToBodyDesc( PhysicsBodyCreateDesc& desc,
-                                             const PhysicsMaterial& material,
-                                             const BodySimulationLimits& limits,
-                                             const ContactPolicy& policy )
-{
-    desc.friction = material.frictionCoefficient;
-    desc.angularVelocityLimit = limits.angularVelocityLimit;
-    desc.contactEpsilon = policy.contactEpsilon;
-    if ( BoundingSphere* sphere = std::get_if<BoundingSphere>( &desc.shape ) )
-    {
-        sphere->SetDragCoefficient( material.sphereDragCoefficient );
-        desc.dragCoefficient = material.sphereDragCoefficient;
-    }
-}
 
 void RefreshBodyDescFromStoreBodyState( const PhysicsBodyRecord& record,
                                         const PhysicsBodyStateEdit& edit,
@@ -151,17 +125,147 @@ GameModelCollection::GameModelCollection()
 }
 
 
+void GameModelCollection::SceneEntityStore::Reserve( std::size_t capacity )
+{
+    m_records.reserve( capacity );
+}
+
+
+void GameModelCollection::SceneEntityStore::Clear()
+{
+    m_records.clear();
+}
+
+
+void GameModelCollection::SceneEntityStore::Append( GameModel model )
+{
+    m_records.push_back( std::move( model ) );
+}
+
+
+bool GameModelCollection::SceneEntityStore::TrimToCount( int count )
+{
+    if ( count < 0 || count > static_cast<int>( m_records.size() ) )
+    {
+        return false;
+    }
+
+    const std::size_t targetCount = static_cast<std::size_t>( count );
+    if ( targetCount < m_records.size() )
+    {
+        m_records.erase( m_records.begin() + static_cast<std::ptrdiff_t>( targetCount ), m_records.end() );
+    }
+    return true;
+}
+
+
+int GameModelCollection::SceneEntityStore::Count() const
+{
+    return static_cast<int>( m_records.size() );
+}
+
+
+std::size_t GameModelCollection::SceneEntityStore::Capacity() const
+{
+    return m_records.capacity();
+}
+
+
+uint64_t GameModelCollection::SceneEntityStore::CapacityBytes() const
+{
+    return VectorCapacityBytes( m_records );
+}
+
+
+const std::vector<GameModel>& GameModelCollection::SceneEntityStore::Records() const
+{
+    return m_records;
+}
+
+
+GameModel& GameModelCollection::SceneEntityStore::MutableAt( int index )
+{
+    return m_records[static_cast<std::size_t>( index )];
+}
+
+
+const GameModel* GameModelCollection::SceneEntityStore::TryGet( int index ) const
+{
+    if ( index < 0 || index >= static_cast<int>( m_records.size() ) )
+    {
+        return nullptr;
+    }
+    return &m_records[static_cast<std::size_t>( index )];
+}
+
+
+void GameModelCollection::SceneObjectGroupStore::Reserve( std::size_t capacity )
+{
+    m_records.reserve( capacity );
+}
+
+
+void GameModelCollection::SceneObjectGroupStore::Clear()
+{
+    m_records.clear();
+}
+
+
+void GameModelCollection::SceneObjectGroupStore::Append( SceneObjectGroupRecord record )
+{
+    m_records.push_back( record );
+}
+
+
+bool GameModelCollection::SceneObjectGroupStore::TrimToCount( int count )
+{
+    if ( count < 0 || count > static_cast<int>( m_records.size() ) )
+    {
+        return false;
+    }
+
+    const std::size_t targetCount = static_cast<std::size_t>( count );
+    if ( targetCount < m_records.size() )
+    {
+        m_records.erase( m_records.begin() + static_cast<std::ptrdiff_t>( targetCount ), m_records.end() );
+    }
+    return true;
+}
+
+
+int GameModelCollection::SceneObjectGroupStore::Count() const
+{
+    return static_cast<int>( m_records.size() );
+}
+
+
+uint64_t GameModelCollection::SceneObjectGroupStore::CapacityBytes() const
+{
+    return VectorCapacityBytes( m_records );
+}
+
+
+GameModelCollection::SceneObjectGroupRecord GameModelCollection::SceneObjectGroupStore::RecordAt( int modelIndex ) const
+{
+    if ( modelIndex < 0 || modelIndex >= static_cast<int>( m_records.size() ) )
+    {
+        return SceneObjectGroupRecord{};
+    }
+    return m_records[static_cast<std::size_t>( modelIndex )];
+}
+
+
 void GameModelCollection::ReserveForActiveGameModelCapacity()
 {
     // Invariant: model-order storage must be fully sized before steady frames.
     // Config can raise the active model capacity after construction, so each
     // setup/config boundary repeats the reserve instead of letting render-time
     // append paths discover the new capacity by reallocating.
-    const std::size_t capacity = static_cast<std::size_t>( ActiveGameModelCapacity() );
-    m_gameModels.reserve( capacity );
-    m_sceneObjectGroups.reserve( capacity );
-    m_authoredBodyDescs.reserve( capacity );
-    m_renderPresentationRecords.reserve( capacity );
+    const std::size_t capacity = static_cast<std::size_t>( m_activeGameModelCapacity );
+    m_sceneEntities.Reserve( capacity );
+    m_sceneObjectGroupStore.Reserve( capacity );
+    m_physicsEngine.ReserveAuthoredBodyCapacity( capacity );
+    m_physicsEngine.ReserveRenderPresentationCapacity( capacity );
 }
 
 
@@ -170,7 +274,7 @@ GameModelCollection::BuildSceneObjectGroupForAppend( const GameModel&,
                                                      int newModelIndex,
                                                      SceneObjectGroupCreateDesc groupDesc )
 {
-    assert( m_sceneObjectGroups.size() == m_gameModels.size() );
+    assert( m_sceneObjectGroupStore.Count() == SceneEntityCount() );
     SceneObjectGroupRecord group;
 
     if ( groupDesc.kind != GameModelCollectionKind::None )
@@ -195,68 +299,16 @@ GameModelCollection::BuildSceneObjectGroupForAppend( const GameModel&,
 
 GameModelCollection::SceneObjectGroupRecord GameModelCollection::GroupRecordAt( int modelIndex ) const
 {
-    if ( modelIndex < 0 || modelIndex >= static_cast<int>( m_sceneObjectGroups.size() ) )
-    {
-        return SceneObjectGroupRecord{};
-    }
-    return m_sceneObjectGroups[static_cast<std::size_t>( modelIndex )];
-}
-
-
-static uint32_t NextReplayBodyIdAfter( const PhysicsBodyStore& bodyStore )
-{
-    uint32_t nextReplayBodyId = 1;
-    const uint32_t maxReplayBodyId = ( std::numeric_limits<uint32_t>::max )();
-    for ( const PhysicsBodyRecord& body : bodyStore.Records() )
-    {
-        if ( body.replayBodyId == maxReplayBodyId )
-        {
-            return maxReplayBodyId;
-        }
-        if ( body.replayBodyId != 0 )
-        {
-            nextReplayBodyId = (std::max)( nextReplayBodyId, body.replayBodyId + 1u );
-        }
-    }
-    return nextReplayBodyId;
-}
-
-
-std::vector<uint32_t>
-GameModelCollection::BuildReplayBodyIdsForReload( const SkullbonezCore::Physics::PhysicsBodyStore& bodyStore )
-{
-    std::vector<uint32_t> replayBodyIds;
-    replayBodyIds.reserve( m_gameModels.size() );
-    uint32_t nextReplayBodyId = NextReplayBodyIdAfter( bodyStore );
-    for ( int i = 0; i < static_cast<int>( m_gameModels.size() ); ++i )
-    {
-        uint32_t replayBodyId = 0;
-        if ( const PhysicsBodyRecord* body = bodyStore.RecordForModelIndex( i ) )
-        {
-            replayBodyId = body->replayBodyId;
-        }
-        // Why: body topology repair is cold. Existing rows preserve their
-        // PhysicsBodyStore-owned replay id; only genuinely missing rows allocate
-        // a fresh local scratch id rather than keeping collection authority.
-        if ( replayBodyId == 0 )
-        {
-            if ( nextReplayBodyId == ( std::numeric_limits<uint32_t>::max )() )
-            {
-                throw std::runtime_error( "Replay body id scratch range exhausted." );
-            }
-            replayBodyId = nextReplayBodyId++;
-        }
-        replayBodyIds.push_back( replayBodyId );
-    }
-    return replayBodyIds;
+    return m_sceneObjectGroupStore.RecordAt( modelIndex );
 }
 
 
 std::vector<int> GameModelCollection::BuildFixedTreeReleaseRootsForReload() const
 {
     std::vector<int> fixedTreeReleaseRoots;
-    fixedTreeReleaseRoots.reserve( m_gameModels.size() );
-    for ( int i = 0; i < static_cast<int>( m_gameModels.size() ); ++i )
+    const int sceneEntityCount = SceneEntityCount();
+    fixedTreeReleaseRoots.reserve( static_cast<std::size_t>( sceneEntityCount ) );
+    for ( int i = 0; i < sceneEntityCount; ++i )
     {
         fixedTreeReleaseRoots.push_back( FixedTreeReleaseRootForModelIndex( i ) );
     }
@@ -264,30 +316,28 @@ std::vector<int> GameModelCollection::BuildFixedTreeReleaseRootsForReload() cons
 }
 
 
-std::vector<PhysicsBodyCreateDesc>
-GameModelCollection::BuildBodyCreateDescsForReload( const SkullbonezCore::Physics::PhysicsBodyStore& bodyStore )
+std::vector<const char*> GameModelCollection::BuildDiagnosticNamesForReload() const
 {
-    std::vector<uint32_t> replayBodyIds = BuildReplayBodyIdsForReload( bodyStore );
-    std::vector<int> fixedTreeReleaseRoots = BuildFixedTreeReleaseRootsForReload();
-    assert( replayBodyIds.size() == m_authoredBodyDescs.size() );
-    assert( fixedTreeReleaseRoots.size() == m_authoredBodyDescs.size() );
-
-    std::vector<PhysicsBodyCreateDesc> bodyDescs;
-    bodyDescs.reserve( m_authoredBodyDescs.size() );
-    for ( int i = 0; i < static_cast<int>( m_authoredBodyDescs.size() ); ++i )
+    std::vector<const char*> diagnosticNames;
+    const std::vector<GameModel>& sceneEntities = m_sceneEntities.Records();
+    diagnosticNames.reserve( sceneEntities.size() );
+    for ( const GameModel& model : sceneEntities )
     {
-        PhysicsBodyCreateDesc desc = m_authoredBodyDescs[static_cast<std::size_t>( i )];
-        desc.sceneObjectId = SkullbonezCore::Physics::MakePhysicsSceneObjectIdFromReplayBodyId(
-            replayBodyIds[static_cast<std::size_t>( i )] );
-        desc.fixedTreeReleaseRootIndex = fixedTreeReleaseRoots[static_cast<std::size_t>( i )];
-        if ( i < static_cast<int>( m_gameModels.size() ) )
-        {
-            desc.diagnosticName = m_gameModels[static_cast<std::size_t>( i )].GetName();
-        }
-        ApplyCollectionPhysicsPolicyToBodyDesc( desc, m_physicsMaterial, m_bodySimulationLimits, m_contactPolicy );
-        bodyDescs.push_back( desc );
+        diagnosticNames.push_back( model.GetName() );
     }
-    return bodyDescs;
+    return diagnosticNames;
+}
+
+
+bool GameModelCollection::RefreshPhysicsBodyStoreFromAuthoredDescriptors()
+{
+    const std::vector<uint32_t> replayBodyIds =
+        m_physicsEngine.BodyStore().BuildReplayBodyIdsForReload( SceneEntityCount() );
+    const std::vector<int> fixedTreeReleaseRoots = BuildFixedTreeReleaseRootsForReload();
+    const std::vector<const char*> diagnosticNames = BuildDiagnosticNamesForReload();
+    return m_physicsEngine.RefreshBodyStoreFromAuthoredDescriptors( replayBodyIds,
+                                                                    fixedTreeReleaseRoots,
+                                                                    diagnosticNames );
 }
 
 
@@ -306,30 +356,11 @@ void GameModelCollection::BindWorkerPool( SkullbonezCore::Threading::WorkerPool&
 
 void GameModelCollection::ApplyRuntimeConfig( const Basics::EngineConfig& config )
 {
+    m_activeGameModelCapacity = ActiveGameModelCapacity( config );
     ReserveForActiveGameModelCapacity();
-    m_physicsMaterial = Physics::PhysicsMaterial::FromConfig( config );
-    m_bodySimulationLimits = Physics::BodySimulationLimits::FromConfig( config );
-    m_contactPolicy = Physics::ContactPolicy::FromConfig( config );
     m_renderCollisionVolumes = config.runtimeRender.renderCollisionVolumes;
     m_shadowParallelPrep = config.shadowParallelPrep;
     m_physicsEngine.ApplyRuntimeConfig( config );
-    const bool colliderRowsReady =
-        m_physicsEngine.BodyStore().Count() == ModelCount() && m_physicsEngine.Colliders().Count() == ModelCount();
-    for ( int i = 0; i < static_cast<int>( m_authoredBodyDescs.size() ); ++i )
-    {
-        ApplyCollectionPhysicsPolicyToBodyDesc( m_authoredBodyDescs[static_cast<std::size_t>( i )],
-                                                m_physicsMaterial,
-                                                m_bodySimulationLimits,
-                                                m_contactPolicy );
-    }
-    if ( colliderRowsReady )
-    {
-        m_physicsEngine.ApplyColliderMaterial( m_physicsMaterial );
-    }
-    if ( !colliderRowsReady )
-    {
-        RepairPhysicsBodyAndColliderTopology();
-    }
 }
 
 
@@ -371,14 +402,14 @@ PhysicsBodyHandle GameModelCollection::AppendGameModelAndPhysicsRows( GameModel 
                                                                       PhysicsColliderCreateDesc colliderDesc,
                                                                       SceneObjectGroupCreateDesc groupDesc )
 {
-    const int activeCapacity = ActiveGameModelCapacity();
-    assert( static_cast<int>( m_gameModels.size() ) < activeCapacity && "Exceeded active game model capacity" );
-    if ( static_cast<int>( m_gameModels.size() ) >= activeCapacity )
+    const int activeCapacity = m_activeGameModelCapacity;
+    assert( SceneEntityCount() < activeCapacity && "Exceeded active game model capacity" );
+    if ( SceneEntityCount() >= activeCapacity )
     {
         throw std::runtime_error(
             "Exceeded active game model capacity; raise --model-capacity or game_model_capacity." );
     }
-    const int modelIndex = static_cast<int>( m_gameModels.size() );
+    const int modelIndex = SceneEntityCount();
     const SceneObjectGroupRecord groupRecord = BuildSceneObjectGroupForAppend( gameModel, modelIndex, groupDesc );
     if ( !sceneObjectId.IsValid() )
     {
@@ -399,10 +430,8 @@ PhysicsBodyHandle GameModelCollection::AppendGameModelAndPhysicsRows( GameModel 
     bodyDesc.fixedTreeReleaseRootIndex =
         groupRecord.kind == GameModelCollectionKind::ReleasableTree ? groupRecord.rootModelIndex : -1;
     bodyDesc.diagnosticName = gameModel.GetName();
-    ApplyCollectionPhysicsPolicyToBodyDesc( bodyDesc, m_physicsMaterial, m_bodySimulationLimits, m_contactPolicy );
-    m_gameModels.push_back( std::move( gameModel ) );
-    m_sceneObjectGroups.push_back( groupRecord );
-    m_authoredBodyDescs.push_back( bodyDesc );
+    m_sceneEntities.Append( std::move( gameModel ) );
+    m_sceneObjectGroupStore.Append( groupRecord );
     const PhysicsBodyHandle bodyHandle = m_physicsEngine.RegisterAuthoredBody( bodyDesc );
     const PhysicsBodyRecord* bodyRecord = m_physicsEngine.BodyStore().RecordForHandle( bodyHandle );
     assert( bodyRecord != nullptr );
@@ -418,7 +447,7 @@ PhysicsBodyHandle GameModelCollection::AppendGameModelAndPhysicsRows( GameModel 
     PhysicsColliderCreateDesc authoredCollider = std::move( colliderDesc );
     authoredCollider.body = bodyRecord->handle;
     authoredCollider.sceneObjectId = bodyRecord->sceneObjectId;
-    ApplyCollectionPhysicsMaterialToColliderDesc( authoredCollider, m_physicsMaterial );
+    m_physicsEngine.ApplyAuthoredColliderPolicy( authoredCollider );
     const auto colliderHandle = m_physicsEngine.RegisterAuthoredCollider( authoredCollider );
     assert( colliderHandle.IsValid() );
     if ( !colliderHandle.IsValid() )
@@ -431,10 +460,8 @@ PhysicsBodyHandle GameModelCollection::AppendGameModelAndPhysicsRows( GameModel 
 
 void GameModelCollection::Clear()
 {
-    m_gameModels.clear();
-    m_sceneObjectGroups.clear();
-    m_authoredBodyDescs.clear();
-    m_renderPresentationRecords.clear();
+    m_sceneEntities.Clear();
+    m_sceneObjectGroupStore.Clear();
     m_physicsEngine.Clear();
 }
 
@@ -455,8 +482,8 @@ int GameModelCollection::CopyDxrModelMatrices( float* outMatrixFloats, int maxMo
         return 0;
     }
 
-    const int collectionModelCount = GetModelCount();
-    if ( m_physicsEngine.RenderInstances().Count() != collectionModelCount )
+    const int sceneEntityCount = SceneEntityCount();
+    if ( m_physicsEngine.RenderInstances().Count() != sceneEntityCount )
     {
         // Hazard: normal render frames call PrepareRenderInstances() first. This
         // cold path keeps standalone DXR callers on the render-instance
@@ -545,7 +572,7 @@ void GameModelCollection::UpdateCollisionVisualizer( Physics::CollisionVisualize
         m_physicsEngine.GetCollisionVisualContacts(),
         m_physicsEngine.GetSleepStates(),
         m_physicsEngine.GetSleepIslandVisualIds(),
-        GetModelCount(),
+        m_physicsEngine.BodyStore().Count(),
     };
     visualizer.Update( deltaSeconds, view );
 }
@@ -562,7 +589,7 @@ void GameModelCollection::UpdatePhysicsDebugVisualizer( Physics::PhysicsDebugVis
         m_physicsEngine.GetSleepInhibitedStates(),
         m_physicsEngine.GetPhysicsDebugContacts(),
         m_physicsEngine.GetPhysicsPipelineTrace(),
-        GetModelCount(),
+        m_physicsEngine.BodyStore().Count(),
     };
     visualizer.Update( deltaSeconds, view );
 }
@@ -583,7 +610,7 @@ void GameModelCollection::RenderCollisionStateSolids( Physics::CollisionVisualiz
         m_physicsEngine.GetCollisionVisualContacts(),
         m_physicsEngine.GetSleepStates(),
         m_physicsEngine.GetSleepIslandVisualIds(),
-        GetModelCount(),
+        m_physicsEngine.BodyStore().Count(),
     };
     visualizer.SetAlphaOverride( alphaOverride );
     visualizer.Render( assets, renderResources, frameView, view, proj, lightPos );
@@ -603,7 +630,7 @@ void GameModelCollection::RenderPhysicsDebug( Physics::PhysicsDebugVisualizer& v
         m_physicsEngine.GetSleepInhibitedStates(),
         m_physicsEngine.GetPhysicsDebugContacts(),
         m_physicsEngine.GetPhysicsPipelineTrace(),
-        GetModelCount(),
+        m_physicsEngine.BodyStore().Count(),
     };
     visualizer.Render( frameView, viewProjection, terrain );
 }
@@ -669,7 +696,7 @@ bool GameModelCollection::SaveSceneSnapshot( const char* path,
 
 Vector3 GameModelCollection::GetModelPosition( int index )
 {
-    if ( index < 0 || index >= static_cast<int>( m_gameModels.size() ) )
+    if ( index < 0 || index >= SceneEntityCount() )
     {
         throw std::runtime_error(
             "No game model exists at the specified index.  (GameModelCollection::GetModelPosition)" );
@@ -677,9 +704,9 @@ Vector3 GameModelCollection::GetModelPosition( int index )
 
     // Why: object-follow cameras should read the same store-owned pose that
     // physics, diagnostics, replay capture, and render snapshots consume. A
-    // topology mismatch is repaired by GetPhysicsBodyStore(); same-count edits
-    // must already have entered the store through explicit command/commit paths.
-    const PhysicsBodyStore& bodyStore = GetPhysicsBodyStore();
+    // topology mismatch must be repaired by the owning runtime/editor boundary
+    // before this read; same-count edits enter through explicit commit paths.
+    const PhysicsBodyStore& bodyStore = GetPhysicsEngine().BodyStore();
     const PhysicsBodyRecord* record = bodyStore.RecordForModelIndex( index );
     if ( !record )
     {
@@ -690,32 +717,26 @@ Vector3 GameModelCollection::GetModelPosition( int index )
 }
 
 
-int GameModelCollection::GetModelCount() const
+int GameModelCollection::SceneEntityCount() const
 {
-    return static_cast<int>( m_gameModels.size() );
-}
-
-
-int GameModelCollection::ModelCount() const
-{
-    return GetModelCount();
+    return m_sceneEntities.Count();
 }
 
 
 const std::vector<GameModel>& GameModelCollection::Models() const
 {
-    return m_gameModels;
+    return m_sceneEntities.Records();
 }
 
 
 const GameModel* GameModelCollection::TryGetModel( int index ) const
 {
-    if ( index < 0 || index >= GetModelCount() )
+    if ( index < 0 || index >= SceneEntityCount() )
     {
         return nullptr;
     }
 
-    return &m_gameModels[static_cast<std::size_t>( index )];
+    return m_sceneEntities.TryGet( index );
 }
 
 
@@ -757,7 +778,7 @@ int GameModelCollection::RagdollRootModelIndexForPart( int modelIndex ) const
         return modelIndex;
     }
 
-    if ( group.rootModelIndex >= 0 && group.rootModelIndex < GetModelCount() &&
+    if ( group.rootModelIndex >= 0 && group.rootModelIndex < SceneEntityCount() &&
          IsSimpleRagdollPart( group.rootModelIndex ) )
     {
         return group.rootModelIndex;
@@ -775,7 +796,7 @@ bool GameModelCollection::TryFindSimpleRagdollPart( int selectedModelIndex, int 
     }
 
     const int rootModelIndex = GroupRootModelIndexAt( selectedModelIndex );
-    for ( int i = 0; i < GetModelCount(); ++i )
+    for ( int i = 0; i < SceneEntityCount(); ++i )
     {
         const SceneObjectGroupRecord group = GroupRecordAt( i );
         if ( group.kind == GameModelCollectionKind::SimpleRagdoll && group.rootModelIndex == rootModelIndex &&
@@ -798,7 +819,7 @@ int GameModelCollection::GatherGroupMemberIndices( int selectedModelIndex, int* 
             outIndices[i] = -1;
         }
     }
-    if ( !outIndices || maxIndices <= 0 || selectedModelIndex < 0 || selectedModelIndex >= GetModelCount() )
+    if ( !outIndices || maxIndices <= 0 || selectedModelIndex < 0 || selectedModelIndex >= SceneEntityCount() )
     {
         return 0;
     }
@@ -811,14 +832,14 @@ int GameModelCollection::GatherGroupMemberIndices( int selectedModelIndex, int* 
     }
 
     const int selectedRootIndex = selectedGroup.rootModelIndex;
-    if ( selectedRootIndex < 0 || selectedRootIndex >= GetModelCount() )
+    if ( selectedRootIndex < 0 || selectedRootIndex >= SceneEntityCount() )
     {
         outIndices[0] = selectedModelIndex;
         return 1;
     }
 
     int count = 0;
-    for ( int i = 0; i < GetModelCount() && count < maxIndices; ++i )
+    for ( int i = 0; i < SceneEntityCount() && count < maxIndices; ++i )
     {
         const SceneObjectGroupRecord group = GroupRecordAt( i );
         if ( group.kind == selectedGroup.kind && group.rootModelIndex == selectedRootIndex )
@@ -840,12 +861,12 @@ int GameModelCollection::GatherGroupMemberIndices( int selectedModelIndex, int* 
 #ifdef _DEBUG
 bool GameModelCollection::TryGetPhysicsDiagnosticsModelName( int index, const char*& outName ) const
 {
-    if ( index < 0 || index >= GetModelCount() )
+    if ( index < 0 || index >= SceneEntityCount() )
     {
         return false;
     }
 
-    const GameModel& model = m_gameModels[static_cast<std::size_t>( index )];
+    const GameModel& model = *m_sceneEntities.TryGet( index );
     outName = model.GetName();
     return true;
 }
@@ -855,12 +876,12 @@ void GameModelCollection::FillPhysicsDiagnosticsNames( int bodyCount, std::vecto
 {
     const int clampedBodyCount = (std::max)( 0, bodyCount );
     outNames.assign( static_cast<std::size_t>( clampedBodyCount ), "" );
-    const int copyCount = (std::min)( clampedBodyCount, GetModelCount() );
+    const int copyCount = (std::min)( clampedBodyCount, SceneEntityCount() );
     for ( int i = 0; i < copyCount; ++i )
     {
         // Lifetime: these are borrowed display-name pointers for the current
         // Debug diagnostics write; the caller owns only the pointer table.
-        outNames[static_cast<std::size_t>( i )] = m_gameModels[static_cast<std::size_t>( i )].GetName();
+        outNames[static_cast<std::size_t>( i )] = m_sceneEntities.Records()[static_cast<std::size_t>( i )].GetName();
     }
 }
 
@@ -880,7 +901,7 @@ bool GameModelCollection::TryRestoreReplayBodyState( int index,
                                                      const Vector3& rotationalInertia,
                                                      const Vector3& inverseRotationalInertia )
 {
-    if ( index < 0 || index >= GetModelCount() )
+    if ( index < 0 || index >= SceneEntityCount() )
     {
         return false;
     }
@@ -911,9 +932,9 @@ bool GameModelCollection::TryRestoreReplayBodyState( int index,
         return false;
     }
 
-    if ( index < static_cast<int>( m_authoredBodyDescs.size() ) )
+    PhysicsBodyCreateDesc desc;
+    if ( m_physicsEngine.TryGetAuthoredBodyDescriptor( index, desc ) )
     {
-        PhysicsBodyCreateDesc& desc = m_authoredBodyDescs[static_cast<std::size_t>( index )];
         desc.sceneObjectId = bodyRecord->sceneObjectId;
         desc.position = position;
         desc.orientation = orientation;
@@ -922,9 +943,12 @@ bool GameModelCollection::TryRestoreReplayBodyState( int index,
         desc.rotationalInertia = rotationalInertia;
         desc.mass = mass;
         desc.motionKind = fixed ? PhysicsBodyMotionKind::Fixed : PhysicsBodyMotionKind::Dynamic;
-        desc.diagnosticName = m_gameModels[static_cast<std::size_t>( index )].GetName();
+        desc.diagnosticName = m_sceneEntities.Records()[static_cast<std::size_t>( index )].GetName();
         desc.fixedTreeReleaseRootIndex = FixedTreeReleaseRootForModelIndex( index );
-        ApplyCollectionPhysicsPolicyToBodyDesc( desc, m_physicsMaterial, m_bodySimulationLimits, m_contactPolicy );
+        if ( !m_physicsEngine.UpdateAuthoredBodyDescriptor( index, desc, SceneEntityCount() ) )
+        {
+            return false;
+        }
     }
     return true;
 }
@@ -943,7 +967,7 @@ bool GameModelCollection::TryRestoreReplayPredictionBodyState( int index,
                                                                const Vector3& inverseRotationalInertia,
                                                                float fixedContactHighlightSeconds )
 {
-    if ( index < 0 || index >= GetModelCount() )
+    if ( index < 0 || index >= SceneEntityCount() )
     {
         return false;
     }
@@ -977,7 +1001,7 @@ bool GameModelCollection::TryRestoreReplayPredictionBodyState( int index,
         return false;
     }
 
-    m_gameModels[static_cast<std::size_t>( index )].SetFixedContactHighlightSeconds( fixedContactHighlightSeconds );
+    m_sceneEntities.MutableAt( index ).SetFixedContactHighlightSeconds( fixedContactHighlightSeconds );
     // Why: prediction restore is a scratch/live-state swap used for preview and
     // prediction jobs. Authored descriptors represent editor/replay commits and
     // must not be churned every render frame just to apply a temporary body row.
@@ -987,7 +1011,7 @@ bool GameModelCollection::TryRestoreReplayPredictionBodyState( int index,
 
 bool GameModelCollection::TrySetModelAngularVelocity( int index, const Vector3& angularVelocity )
 {
-    if ( index < 0 || index >= GetModelCount() )
+    if ( index < 0 || index >= SceneEntityCount() )
     {
         return false;
     }
@@ -1006,18 +1030,18 @@ MainMemoryGameObjectStats GameModelCollection::CollectMemoryStats() const
     const Physics::ColliderStore& colliderStore = m_physicsEngine.Colliders();
     const Rendering::RenderInstanceStore& renderStore = m_physicsEngine.RenderInstances();
 
-    stats.modelCount = m_gameModels.size();
-    stats.modelCapacity = m_gameModels.capacity();
+    stats.modelCount = static_cast<std::size_t>( m_sceneEntities.Count() );
+    stats.modelCapacity = m_sceneEntities.Capacity();
     stats.bodyStoreCapacity = bodyStore.Records().capacity();
     stats.colliderStoreCapacity = colliderStore.Records().capacity();
     stats.renderStoreCapacity = renderStore.Records().capacity();
-    stats.modelVectorBytes = VectorCapacityBytes( m_gameModels );
+    stats.modelVectorBytes = m_sceneEntities.CapacityBytes();
     stats.physicsStoreBytes = VectorCapacityBytes( bodyStore.Records() );
     stats.colliderStoreBytes = VectorCapacityBytes( colliderStore.Records() );
     stats.renderStoreBytes = VectorCapacityBytes( renderStore.Records() );
     stats.physicsWorldBytes = m_physicsEngine.CollectPhysicsWorldMemoryBytes();
     stats.debugAndBroadphaseBytes = m_physicsEngine.CollectDebugAndBroadphaseMemoryBytes();
-    const uint64_t sceneObjectGroupBytes = VectorCapacityBytes( m_sceneObjectGroups );
+    const uint64_t sceneObjectGroupBytes = m_sceneObjectGroupStore.CapacityBytes();
     stats.totalBytes = stats.modelVectorBytes + sceneObjectGroupBytes + stats.physicsStoreBytes +
                        stats.colliderStoreBytes + stats.renderStoreBytes + stats.physicsWorldBytes;
     return stats;
@@ -1026,12 +1050,11 @@ MainMemoryGameObjectStats GameModelCollection::CollectMemoryStats() const
 
 bool GameModelCollection::TrimModelsForReplayRestore( int modelCount )
 {
-    if ( modelCount < 0 || modelCount > static_cast<int>( m_gameModels.size() ) )
+    if ( modelCount < 0 || modelCount > SceneEntityCount() )
     {
         return false;
     }
 
-    const std::size_t targetCount = static_cast<std::size_t>( modelCount );
     if ( !m_physicsEngine.TrimBodyStoreToCount( modelCount ) )
     {
         return false;
@@ -1040,13 +1063,17 @@ bool GameModelCollection::TrimModelsForReplayRestore( int modelCount )
     {
         return false;
     }
-    if ( targetCount < m_gameModels.size() )
+    if ( !m_physicsEngine.TrimAuthoredBodyDescriptorsToCount( modelCount ) )
     {
-        m_gameModels.erase( m_gameModels.begin() + static_cast<std::ptrdiff_t>( targetCount ), m_gameModels.end() );
-        m_sceneObjectGroups.erase( m_sceneObjectGroups.begin() + static_cast<std::ptrdiff_t>( targetCount ),
-                                   m_sceneObjectGroups.end() );
-        m_authoredBodyDescs.erase( m_authoredBodyDescs.begin() + static_cast<std::ptrdiff_t>( targetCount ),
-                                   m_authoredBodyDescs.end() );
+        return false;
+    }
+    if ( !m_sceneEntities.TrimToCount( modelCount ) )
+    {
+        return false;
+    }
+    if ( !m_sceneObjectGroupStore.TrimToCount( modelCount ) )
+    {
+        return false;
     }
     return true;
 }
@@ -1054,13 +1081,13 @@ bool GameModelCollection::TrimModelsForReplayRestore( int modelCount )
 
 void GameModelCollection::CaptureReplaySolverWorldSnapshot( ReplaySolverWorldSnapshot& outSnapshot ) const
 {
-    m_physicsEngine.CaptureReplaySolverSnapshot( outSnapshot, static_cast<int>( m_gameModels.size() ) );
+    m_physicsEngine.CaptureReplaySolverSnapshot( outSnapshot, SceneEntityCount() );
 }
 
 
 bool GameModelCollection::RestoreReplaySolverWorldSnapshot( const ReplaySolverWorldSnapshot& snapshot )
 {
-    return m_physicsEngine.RestoreReplaySolverSnapshot( snapshot, static_cast<int>( m_gameModels.size() ) );
+    return m_physicsEngine.RestoreReplaySolverSnapshot( snapshot, SceneEntityCount() );
 }
 
 
@@ -1076,42 +1103,22 @@ const SkullbonezCore::Physics::PhysicsEngine& GameModelCollection::GetPhysicsEng
 }
 
 
-const SkullbonezCore::Physics::PhysicsBodyStore& GameModelCollection::GetPhysicsBodyStore()
-{
-    RepairPhysicsBodyTopology();
-    return m_physicsEngine.BodyStore();
-}
-
-
-const SkullbonezCore::Physics::ColliderStore& GameModelCollection::GetColliderStore()
-{
-    // Invariant: convenience reads repair topology only. Shape/material edits
-    // commit through CommitEditedModelColliderState() so picks, saves, and
-    // queries do not rebuild collider metadata just to inspect it.
-    const bool repaired = RepairPhysicsBodyAndColliderTopology();
-    assert( repaired );
-    (void)repaired;
-    return m_physicsEngine.Colliders();
-}
-
-
 bool GameModelCollection::RepairPhysicsBodyTopology()
 {
-    if ( m_physicsEngine.BodyStore().Count() != ModelCount() )
+    if ( m_physicsEngine.BodyStore().Count() != SceneEntityCount() )
     {
         // Invariant: topology repair imports construction rows only. Same-count
         // state edits are physics-store authority and must not be overwritten by
         // a convenience read that rebuilds descriptor rows.
-        std::vector<PhysicsBodyCreateDesc> bodyDescs = BuildBodyCreateDescsForReload( m_physicsEngine.BodyStore() );
-        m_physicsEngine.RefreshBodyStore( bodyDescs );
+        (void)RefreshPhysicsBodyStoreFromAuthoredDescriptors();
     }
-    return m_physicsEngine.BodyStore().Count() == ModelCount();
+    return m_physicsEngine.BodyStore().Count() == SceneEntityCount();
 }
 
 
 bool GameModelCollection::RepairPhysicsBodyAndColliderTopology()
 {
-    const int modelCount = ModelCount();
+    const int modelCount = SceneEntityCount();
     const bool bodyTopologyChanged = m_physicsEngine.BodyStore().Count() != modelCount;
     const bool colliderTopologyChanged = m_physicsEngine.Colliders().Count() != modelCount;
     if ( bodyTopologyChanged || colliderTopologyChanged )
@@ -1122,8 +1129,7 @@ bool GameModelCollection::RepairPhysicsBodyAndColliderTopology()
         // shape facts from GameModel.
         if ( bodyTopologyChanged )
         {
-            std::vector<PhysicsBodyCreateDesc> bodyDescs = BuildBodyCreateDescsForReload( m_physicsEngine.BodyStore() );
-            m_physicsEngine.RefreshBodyStore( bodyDescs );
+            (void)RefreshPhysicsBodyStoreFromAuthoredDescriptors();
         }
         const bool colliderBindingsReady = m_physicsEngine.RefreshColliderSnapshot();
         return m_physicsEngine.BodyStore().Count() == modelCount && m_physicsEngine.Colliders().Count() == modelCount &&
@@ -1147,11 +1153,11 @@ const SkullbonezCore::Rendering::RenderInstanceStore& GameModelCollection::Rende
 
 const char* GameModelCollection::DisplayNameAt( int modelIndex ) const
 {
-    if ( modelIndex < 0 || modelIndex >= GetModelCount() )
+    if ( modelIndex < 0 || modelIndex >= SceneEntityCount() )
     {
         return "";
     }
-    return m_gameModels[static_cast<std::size_t>( modelIndex )].GetName();
+    return m_sceneEntities.Records()[static_cast<std::size_t>( modelIndex )].GetName();
 }
 
 
@@ -1161,7 +1167,7 @@ int GameModelCollection::FindModelIndexByDisplayName( const char* name ) const
     {
         return -1;
     }
-    for ( int modelIndex = 0; modelIndex < GetModelCount(); ++modelIndex )
+    for ( int modelIndex = 0; modelIndex < SceneEntityCount(); ++modelIndex )
     {
         if ( strcmp( DisplayNameAt( modelIndex ), name ) == 0 )
         {
@@ -1181,7 +1187,7 @@ const SkullbonezCore::Rendering::RenderInstanceStore& GameModelCollection::GetRe
 
 GameModel& GameModelCollection::GetModelAtIndex( int index )
 {
-    return m_gameModels[index];
+    return m_sceneEntities.MutableAt( index );
 }
 
 
@@ -1190,7 +1196,7 @@ double GameModelCollection::GetSceneKineticEnergy()
     constexpr double REST_LINEAR_SPEED_SQ = 0.5 * 0.5;
     constexpr double REST_ANGULAR_SPEED_SQ = 0.3 * 0.3;
     double totalEnergy = 0.0;
-    const PhysicsBodyStore& bodyStore = GetPhysicsBodyStore();
+    const PhysicsBodyStore& bodyStore = GetPhysicsEngine().BodyStore();
     const auto& bodies = bodyStore.Records();
     for ( const PhysicsBodyRecord& body : bodies )
     {
@@ -1222,30 +1228,37 @@ double GameModelCollection::GetSceneKineticEnergy()
 
 void GameModelCollection::RefreshRenderInstances()
 {
-    const int modelCount = ModelCount();
+    const int modelCount = SceneEntityCount();
     if ( !RepairPhysicsBodyTopology() || !m_physicsEngine.PrepareRenderStoreRefresh( modelCount ) )
     {
         return;
     }
-    // Owner boundary: model material and presentation highlight values still
-    // live in GameModelCollection. Physics prepares body/collider rows; this
-    // cold projection edge packages the remaining render-facing facts once.
-    Rendering::RenderInstanceStore& renderInstanceStore = m_physicsEngine.MutableRenderInstances();
-    const PhysicsBodyStore& bodyStore = m_physicsEngine.BodyStore();
-    const ColliderStore& colliderStore = m_physicsEngine.Colliders();
-    m_renderPresentationRecords.resize( static_cast<std::size_t>( modelCount ) );
+    if ( !m_physicsEngine.ResizeRenderPresentationRecords( modelCount ) )
+    {
+        return;
+    }
+    // Owner boundary: model material and highlight values still live in
+    // GameModelCollection, but the render-facing presentation rows belong to
+    // RenderInstanceStore before physics/store projection creates draw records.
     for ( int i = 0; i < modelCount; ++i )
     {
-        const GameModel& model = m_gameModels[static_cast<std::size_t>( i )];
-        Rendering::RenderInstancePresentationRecord& presentation =
-            m_renderPresentationRecords[static_cast<std::size_t>( i )];
-        presentation.material = model.GetRenderMaterial();
-        strncpy_s( presentation.displayName, sizeof( presentation.displayName ), model.GetName(), _TRUNCATE );
-        presentation.simpleRagdollPart = IsSimpleRagdollPart( i );
-        presentation.fixedContactAlpha = model.GetFixedContactHighlightAlpha();
-        presentation.audioContactAlpha = model.GetAudioContactHighlightAlpha();
+        const GameModel& model = m_sceneEntities.Records()[static_cast<std::size_t>( i )];
+        Rendering::RenderInstancePresentationRecord* presentation =
+            m_physicsEngine.MutableRenderPresentationRecordForModelIndex( i );
+        if ( !presentation )
+        {
+            return;
+        }
+        presentation->material = model.GetRenderMaterial();
+        strncpy_s( presentation->displayName, sizeof( presentation->displayName ), model.GetName(), _TRUNCATE );
+        presentation->simpleRagdollPart = IsSimpleRagdollPart( i );
+        presentation->fixedContactAlpha = model.GetFixedContactHighlightAlpha();
+        presentation->audioContactAlpha = model.GetAudioContactHighlightAlpha();
     }
-    renderInstanceStore.Refresh( m_renderPresentationRecords, bodyStore, colliderStore );
+    if ( !m_physicsEngine.RefreshRenderInstancesFromPresentation() )
+    {
+        return;
+    }
 #ifdef _DEBUG
     m_physicsEngine.ValidateRenderStore( modelCount );
 #endif
@@ -1254,7 +1267,7 @@ void GameModelCollection::RefreshRenderInstances()
 
 bool GameModelCollection::ApplyPhysicsBodyEdit( int modelIndex, const PhysicsBodyStateEdit& edit )
 {
-    const int modelCount = GetModelCount();
+    const int modelCount = SceneEntityCount();
     if ( modelIndex < 0 || modelIndex >= modelCount )
     {
         return false;
@@ -1262,15 +1275,17 @@ bool GameModelCollection::ApplyPhysicsBodyEdit( int modelIndex, const PhysicsBod
 
     // Invariant: cold editor/replay commands provide the changed body values.
     // Unchanged fields come from PhysicsBodyStore, not the presentation row.
-    if ( static_cast<int>( m_authoredBodyDescs.size() ) != modelCount )
+    if ( m_physicsEngine.AuthoredBodyDescriptorCount() != modelCount )
     {
         return false;
     }
 
     if ( m_physicsEngine.BodyStore().Count() != modelCount )
     {
-        std::vector<PhysicsBodyCreateDesc> bodyDescs = BuildBodyCreateDescsForReload( m_physicsEngine.BodyStore() );
-        m_physicsEngine.RefreshBodyStore( bodyDescs );
+        if ( !RefreshPhysicsBodyStoreFromAuthoredDescriptors() )
+        {
+            return false;
+        }
     }
 
     const PhysicsBodyRecord* bodyRecord = m_physicsEngine.BodyStore().RecordForModelIndex( modelIndex );
@@ -1279,14 +1294,21 @@ bool GameModelCollection::ApplyPhysicsBodyEdit( int modelIndex, const PhysicsBod
         return false;
     }
 
-    PhysicsBodyCreateDesc bodyDesc = m_authoredBodyDescs[static_cast<std::size_t>( modelIndex )];
+    PhysicsBodyCreateDesc bodyDesc;
+    if ( !m_physicsEngine.TryGetAuthoredBodyDescriptor( modelIndex, bodyDesc ) )
+    {
+        return false;
+    }
     RefreshBodyDescFromStoreBodyState( *bodyRecord, edit, bodyDesc, FixedTreeReleaseRootForModelIndex( modelIndex ) );
-    ApplyCollectionPhysicsPolicyToBodyDesc( bodyDesc, m_physicsMaterial, m_bodySimulationLimits, m_contactPolicy );
-    m_authoredBodyDescs[static_cast<std::size_t>( modelIndex )] = bodyDesc;
+    if ( !m_physicsEngine.UpdateAuthoredBodyDescriptor( modelIndex, bodyDesc, modelCount ) )
+    {
+        return false;
+    }
     m_physicsEngine.RefreshBodyFromDescriptor( bodyDesc, modelIndex, modelCount );
 
-    // Why: body edits now stop at PhysicsBodyStore/m_authoredBodyDescs. Render,
-    // replay, snapshots, and editor wake checks read those stores directly.
+    // Why: body edits now stop at PhysicsBodyStore and PhysicsScene authored
+    // descriptors. Render, replay, snapshots, and editor wake checks read those
+    // stores directly.
     return true;
 }
 
@@ -1295,7 +1317,7 @@ bool GameModelCollection::ApplyPhysicsBodyColliderEdit( int modelIndex,
                                                         const PhysicsBodyStateEdit& edit,
                                                         PhysicsColliderCreateDesc colliderDesc )
 {
-    const int modelCount = GetModelCount();
+    const int modelCount = SceneEntityCount();
     if ( modelIndex < 0 || modelIndex >= modelCount )
     {
         return false;
@@ -1305,15 +1327,17 @@ bool GameModelCollection::ApplyPhysicsBodyColliderEdit( int modelIndex,
     // body row first, then replace exactly one collider row by stable handle.
     // Count drift still goes through topology repair because missing rows cannot
     // be patched by a single descriptor.
-    if ( static_cast<int>( m_authoredBodyDescs.size() ) != modelCount )
+    if ( m_physicsEngine.AuthoredBodyDescriptorCount() != modelCount )
     {
         return false;
     }
 
     if ( m_physicsEngine.BodyStore().Count() != modelCount )
     {
-        std::vector<PhysicsBodyCreateDesc> bodyDescs = BuildBodyCreateDescsForReload( m_physicsEngine.BodyStore() );
-        m_physicsEngine.RefreshBodyStore( bodyDescs );
+        if ( !RefreshPhysicsBodyStoreFromAuthoredDescriptors() )
+        {
+            return false;
+        }
     }
 
     const PhysicsBodyRecord* existingBody = m_physicsEngine.BodyStore().RecordForModelIndex( modelIndex );
@@ -1321,7 +1345,11 @@ bool GameModelCollection::ApplyPhysicsBodyColliderEdit( int modelIndex,
     {
         return false;
     }
-    PhysicsBodyCreateDesc bodyDesc = m_authoredBodyDescs[static_cast<std::size_t>( modelIndex )];
+    PhysicsBodyCreateDesc bodyDesc;
+    if ( !m_physicsEngine.TryGetAuthoredBodyDescriptor( modelIndex, bodyDesc ) )
+    {
+        return false;
+    }
     RefreshBodyDescFromStoreBodyState( *existingBody, edit, bodyDesc, FixedTreeReleaseRootForModelIndex( modelIndex ) );
     bodyDesc.shape = colliderDesc.shape;
     bodyDesc.boundingRadius = Math::CollisionDetection::GetShapeBoundingRadius( bodyDesc.shape );
@@ -1329,8 +1357,10 @@ bool GameModelCollection::ApplyPhysicsBodyColliderEdit( int modelIndex,
     bodyDesc.projectedSurfaceArea = Math::CollisionDetection::GetShapeProjectedSurfaceArea( bodyDesc.shape );
     bodyDesc.dragCoefficient = Math::CollisionDetection::GetShapeDragCoefficient( bodyDesc.shape );
     bodyDesc.usesWorldInertia = !std::holds_alternative<BoundingSphere>( bodyDesc.shape );
-    ApplyCollectionPhysicsPolicyToBodyDesc( bodyDesc, m_physicsMaterial, m_bodySimulationLimits, m_contactPolicy );
-    m_authoredBodyDescs[static_cast<std::size_t>( modelIndex )] = bodyDesc;
+    if ( !m_physicsEngine.UpdateAuthoredBodyDescriptor( modelIndex, bodyDesc, modelCount ) )
+    {
+        return false;
+    }
     m_physicsEngine.RefreshBodyFromDescriptor( bodyDesc, modelIndex, modelCount );
 
     const bool colliderBindingsReady = m_physicsEngine.RefreshColliderSnapshot();
@@ -1343,8 +1373,8 @@ bool GameModelCollection::ApplyPhysicsBodyColliderEdit( int modelIndex,
 
     colliderDesc.body = bodyRecord->handle;
     colliderDesc.sceneObjectId = bodyRecord->sceneObjectId;
-    ApplyCollectionPhysicsMaterialToColliderDesc( colliderDesc, m_physicsMaterial );
-    const PhysicsColliderHandle collider = m_physicsEngine.Colliders().HandleForModelIndex( modelIndex );
+    m_physicsEngine.ApplyAuthoredColliderPolicy( colliderDesc );
+    const PhysicsColliderHandle collider = m_physicsEngine.Colliders().HandleForBodyHandle( bodyRecord->handle );
     const ColliderRecord* existingCollider = m_physicsEngine.Colliders().RecordForHandle( collider );
     if ( colliderDesc.contactMaterialName[0] == '\0' && existingCollider &&
          existingCollider->contactMaterialName[0] != '\0' )
@@ -1357,7 +1387,7 @@ bool GameModelCollection::ApplyPhysicsBodyColliderEdit( int modelIndex,
     (void)m_physicsEngine.UpdateAuthoredCollider( collider, colliderDesc );
 
     // Why: shape/body edits now stop at ColliderStore/PhysicsBodyStore plus the
-    // descriptor sidecar. GameModel keeps presentation metadata only.
+    // PhysicsScene descriptor store. GameModel keeps presentation metadata only.
     return true;
 }
 
@@ -1376,7 +1406,7 @@ void GameModelCollection::CommitEditedModelColliderState( int modelIndex, Physic
 
 void GameModelCollection::NotifyFixedContact( int modelIndex, float highlightSeconds )
 {
-    if ( modelIndex < 0 || modelIndex >= static_cast<int>( m_gameModels.size() ) )
+    if ( modelIndex < 0 || modelIndex >= SceneEntityCount() )
     {
         return;
     }
@@ -1387,7 +1417,7 @@ void GameModelCollection::NotifyFixedContact( int modelIndex, float highlightSec
     const PhysicsBodyRecord* body = m_physicsEngine.BodyStore().RecordForModelIndex( modelIndex );
     if ( body && body->isFixed )
     {
-        m_gameModels[static_cast<size_t>( modelIndex )].NotifyFixedContact( highlightSeconds );
+        m_sceneEntities.MutableAt( modelIndex ).NotifyFixedContact( highlightSeconds );
     }
 }
 
@@ -1397,22 +1427,22 @@ void GameModelCollection::TickContactHighlights( int modelCount, float deltaSeco
     // Why: contact highlights are presentation state on GameModel. Physics owns
     // when contact events happen, but the model collection owns the timers that
     // render/debug/audio views later sample.
-    const int tickCount = (std::min)( modelCount, static_cast<int>( m_gameModels.size() ) );
+    const int tickCount = (std::min)( modelCount, SceneEntityCount() );
     for ( int i = 0; i < tickCount; ++i )
     {
-        m_gameModels[static_cast<size_t>( i )].TickFixedContactHighlight( deltaSeconds );
+        m_sceneEntities.MutableAt( i ).TickFixedContactHighlight( deltaSeconds );
     }
 }
 
 
 void GameModelCollection::NotifyAudioContact( int modelIndex, float highlightSeconds )
 {
-    if ( modelIndex < 0 || modelIndex >= static_cast<int>( m_gameModels.size() ) )
+    if ( modelIndex < 0 || modelIndex >= SceneEntityCount() )
     {
         return;
     }
 
-    m_gameModels[static_cast<size_t>( modelIndex )].NotifyAudioContact( highlightSeconds );
+    m_sceneEntities.MutableAt( modelIndex ).NotifyAudioContact( highlightSeconds );
 }
 
 
@@ -1421,7 +1451,7 @@ bool GameModelCollection::ReleaseAttachedFixedTreeParts( int sourceIndex,
                                                          const Vector3& seedLinearVelocity,
                                                          const Vector3& seedAngularVelocity )
 {
-    if ( sourceIndex < 0 || sourceIndex >= static_cast<int>( m_gameModels.size() ) )
+    if ( sourceIndex < 0 || sourceIndex >= SceneEntityCount() )
     {
         return false;
     }
@@ -1470,7 +1500,7 @@ void GameModelCollection::ClearPointJointConstraints()
 
 void GameModelCollection::BeginCollisionVisualFrame()
 {
-    m_physicsEngine.BeginCollisionVisualFrame( static_cast<int>( m_gameModels.size() ) );
+    m_physicsEngine.BeginCollisionVisualFrame( SceneEntityCount() );
 }
 
 
@@ -1492,9 +1522,11 @@ void GameModelCollection::SetTornadoSystemConfig( const Physics::TornadoSystemCo
 }
 
 
-void GameModelCollection::RenderTornadoFieldVectors( const Matrix4& viewProj )
+void GameModelCollection::RenderTornadoFieldVectors( const Matrix4& viewProj,
+                                                     Rendering::IRenderCommandContext& renderCommands,
+                                                     bool supportsDebugLines )
 {
-    m_physicsEngine.RenderTornadoFieldVectors( viewProj );
+    m_physicsEngine.RenderTornadoFieldVectors( viewProj, renderCommands, supportsDebugLines );
 }
 
 

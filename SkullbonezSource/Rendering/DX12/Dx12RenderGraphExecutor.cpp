@@ -56,14 +56,40 @@ template <size_t N> void CopyLabel( char ( &destination )[N], const char* value 
     snprintf( destination, N, "%s", ( value && value[0] != '\0' ) ? value : "unknown" );
 }
 
-template <size_t N>
-void MakeBarrierSource( char ( &destination )[N], const char* prefix, const RenderGraphPassDesc& pass )
+template <size_t N> void MakeBarrierSource( char ( &destination )[N], const char* prefix, const char* passName )
 {
     snprintf( destination,
               N,
               "%s:%s",
               ( prefix && prefix[0] != '\0' ) ? prefix : "Graph",
-              ( pass.name && pass.name[0] != '\0' ) ? pass.name : "UnnamedPass" );
+              ( passName && passName[0] != '\0' ) ? passName : "UnnamedPass" );
+}
+
+template <size_t N>
+void MakeBarrierSource( char ( &destination )[N], const char* prefix, const RenderGraphPassDesc& pass )
+{
+    MakeBarrierSource( destination, prefix, pass.name );
+}
+
+Dx12RenderGraphBarrierRecord MakeSingleTransitionRecord( const char* sourcePrefix,
+                                                         const char* passName,
+                                                         const char* resourceName,
+                                                         const Dx12RenderGraphSingleTransitionDesc& desc )
+{
+    Dx12RenderGraphBarrierRecord record;
+    MakeBarrierSource( record.source, sourcePrefix, passName );
+    CopyLabel( record.passName, passName );
+    CopyLabel( record.resourceName, resourceName );
+    record.nativeResource = desc.resource;
+    record.beforeAccess = desc.before;
+    record.afterAccess = desc.after;
+    record.subresource = desc.subresource;
+    record.hasNativeResource = desc.resource != nullptr;
+    record.hasConcreteStates = TryDx12RenderGraphAccessToResourceState( desc.before, record.beforeState ) &&
+                               TryDx12RenderGraphAccessToResourceState( desc.after, record.afterState );
+    record.requiresUavOrderingReview = desc.before == RenderGraphResourceAccess::UnorderedAccess ||
+                                       desc.after == RenderGraphResourceAccess::UnorderedAccess;
+    return record;
 }
 
 } // namespace
@@ -191,6 +217,24 @@ EmitDx12RenderGraphTransitionBarrier( const Dx12RenderGraphSingleTransitionDesc&
 }
 
 
+Dx12RenderGraphBarrierRecord ExecuteDx12RenderGraphSingleTransition( const char* sourcePrefix,
+                                                                     const char* passName,
+                                                                     const char* resourceName,
+                                                                     const Dx12RenderGraphSingleTransitionDesc& desc )
+{
+    Dx12RenderGraphBarrierRecord record = MakeSingleTransitionRecord( sourcePrefix, passName, resourceName, desc );
+    const Dx12RenderGraphSingleTransitionResult result = EmitDx12RenderGraphTransitionBarrier( desc );
+    record.beforeState = result.beforeState;
+    record.afterState = result.afterState;
+    record.hasConcreteStates = result.hasConcreteStates;
+    record.hasNativeResource = result.hasNativeResource;
+    record.missingCommandList = result.missingCommandList;
+    record.requiresUavOrderingReview = result.requiresUavOrderingReview;
+    record.emitted = result.emitted;
+    return record;
+}
+
+
 Dx12RenderGraphUavBarrierResult EmitDx12RenderGraphUavBarrier( const Dx12RenderGraphUavBarrierDesc& desc )
 {
     Dx12RenderGraphUavBarrierResult result;
@@ -214,6 +258,24 @@ Dx12RenderGraphUavBarrierResult EmitDx12RenderGraphUavBarrier( const Dx12RenderG
 }
 
 
+Dx12RenderGraphUavBarrierRecord ExecuteDx12RenderGraphUavBarrier( const char* sourcePrefix,
+                                                                  const char* passName,
+                                                                  const char* resourceName,
+                                                                  const Dx12RenderGraphUavBarrierDesc& desc )
+{
+    Dx12RenderGraphUavBarrierRecord record;
+    MakeBarrierSource( record.source, sourcePrefix, passName );
+    CopyLabel( record.resourceName, resourceName );
+    record.nativeResource = desc.resource;
+
+    const Dx12RenderGraphUavBarrierResult result = EmitDx12RenderGraphUavBarrier( desc );
+    record.hasNativeResource = result.hasNativeResource;
+    record.missingCommandList = result.missingCommandList;
+    record.emitted = result.emitted;
+    return record;
+}
+
+
 Dx12RenderGraphExecutionResult ExecuteDx12RenderGraphTransitions( const RenderGraph& graph,
                                                                   const RenderGraphCompileResult& compiled,
                                                                   const Dx12RenderGraphExecutionDesc& desc )
@@ -225,19 +287,15 @@ Dx12RenderGraphExecutionResult ExecuteDx12RenderGraphTransitions( const RenderGr
         const RenderGraphResourceDesc& resource = graph.Resources()[transition.resource.index];
         const RenderGraphPassDesc& pass = graph.Passes()[transition.passIndex];
 
-        Dx12RenderGraphBarrierRecord record;
-        MakeBarrierSource( record.source, desc.sourcePrefix, pass );
-        CopyLabel( record.passName, pass.name );
-        CopyLabel( record.resourceName, resource.name );
-        record.nativeResource = transition.nativeResource;
-        record.beforeAccess = transition.before;
-        record.afterAccess = transition.after;
-        record.subresource = static_cast<UINT>( transition.subresource );
-        record.hasNativeResource = transition.nativeResource != nullptr;
-        record.hasConcreteStates = TryDx12RenderGraphAccessToResourceState( transition.before, record.beforeState ) &&
-                                   TryDx12RenderGraphAccessToResourceState( transition.after, record.afterState );
-        record.requiresUavOrderingReview = transition.before == RenderGraphResourceAccess::UnorderedAccess ||
-                                           transition.after == RenderGraphResourceAccess::UnorderedAccess;
+        Dx12RenderGraphSingleTransitionDesc singleDesc;
+        singleDesc.commandList = desc.commandList;
+        singleDesc.resource = static_cast<ID3D12Resource*>( const_cast<void*>( transition.nativeResource ) );
+        singleDesc.before = transition.before;
+        singleDesc.after = transition.after;
+        singleDesc.subresource = static_cast<UINT>( transition.subresource );
+
+        Dx12RenderGraphBarrierRecord record =
+            MakeSingleTransitionRecord( desc.sourcePrefix, pass.name, resource.name, singleDesc );
 
         if ( record.requiresUavOrderingReview )
         {
@@ -265,20 +323,12 @@ Dx12RenderGraphExecutionResult ExecuteDx12RenderGraphTransitions( const RenderGr
         ++result.transitionBarrierCount;
         if ( desc.mode == Dx12RenderGraphExecutionMode::EmitBarriers )
         {
-            Dx12RenderGraphSingleTransitionDesc singleDesc;
-            singleDesc.commandList = desc.commandList;
-            singleDesc.resource = static_cast<ID3D12Resource*>( const_cast<void*>( record.nativeResource ) );
-            singleDesc.before = transition.before;
-            singleDesc.after = transition.after;
-            singleDesc.subresource = static_cast<UINT>( transition.subresource );
-            const Dx12RenderGraphSingleTransitionResult singleResult =
-                EmitDx12RenderGraphTransitionBarrier( singleDesc );
-            if ( singleResult.emitted )
+            record = ExecuteDx12RenderGraphSingleTransition( desc.sourcePrefix, pass.name, resource.name, singleDesc );
+            if ( record.emitted )
             {
-                record.emitted = true;
                 ++result.emittedTransitionBarrierCount;
             }
-            if ( singleResult.missingCommandList )
+            if ( record.missingCommandList )
             {
                 ++result.missingCommandListEmissionCount;
             }

@@ -194,6 +194,10 @@ struct InGameUIFrameData
     float cpuFrameMs = 0.0f;
     float gpuFrameMs = 0.0f;
     float workerCoreTotalMs = 0.0f;                // Sum of worker-pool CPU chunk time from the last committed frame, in ms.
+    // Lifetime: profiler and draw-trace names are borrowed for this immediate UI
+    // pass. The profiler tab caches only bounded values needed for next-frame
+    // input/layout; drawing gets refreshed from this snapshot every frame.
+    ProfilerTab::FrameSnapshot profiler;
     UIProfilerMarkerOption profilerMarkerOptions[UI_PROFILER_MARKER_OPTION_MAX];
     int profilerMarkerOptionCount = 0;
     UISoundSetFrameData soundSets[UI_SOUND_SET_MAX];
@@ -298,7 +302,7 @@ struct InGameUIFrameData
     bool nativeCursorVisible = false;
     const char* runtimeInputModeLabel = "";
     int cameraModeIndex = 0;
-    uint32_t cameraModeEnabledMask = 0x3Fu;
+    uint32_t cameraModeEnabledMask = 0x7Fu;
     bool editorModeEnabled = false;
     bool editorPlacementMode = false;
     bool editorPlaceStatic = true;
@@ -358,7 +362,7 @@ class InGameUI
                                      bool editorTerrainAlign = false,
                                      int editorObjectType = EditorTab::OBJECT_BOX,
                                      int cameraModeIndex = 0,
-                                     uint32_t cameraModeEnabledMask = 0x3Fu,
+                                     uint32_t cameraModeEnabledMask = 0x7Fu,
                                      const char* const* sceneOptions = nullptr,
                                      int sceneOptionCount = 0,
                                      int selectedSceneOption = -1 );

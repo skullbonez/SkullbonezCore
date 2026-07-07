@@ -147,19 +147,16 @@ class Run
     RuntimeCommandQueue m_runtimeCommands;                                 // Deferred runtime/tool command intent.
     EngineContext m_engineContext;                                         // Bound view over runtime-owned systems.
     RuntimeViewModel m_runtimeViewModel;                                   // Scalar runtime snapshot for presentation/diagnostics.
-    RuntimeRenderBackendView m_renderBackendView;                          // Borrowed active renderer capabilities for render-host users.
-    RuntimeRenderHost m_renderHost;                                        // Explicit render-facing service view over Run-owned state.
+    RuntimeRenderBackendView m_renderBackendView;                          // Borrowed active renderer capabilities for renderer users.
     RuntimeRenderer m_renderer;                                            // Owns runtime render passes and frame render ordering.
 
     inline static int sPerfPass = 0;
     void Render( const RuntimeRenderModelFrameView&
                      renderModels );                                       // Skips 3D in text-only runs, then records passes for the current camera state.
-    RuntimeRenderModelFrameView
-    BuildRuntimeRenderModelFrameView();                                    // Packages model-owned render/debug views for this frame.
     RunSceneState& SceneState();                                           // Mutable scene-run state owned by SceneController
     const RunSceneState& SceneState() const;                               // Read-only scene-run state owned by SceneController
     void BindEngineContext();                                              // Binds runtime-owned systems into EngineContext
-    void RefreshRuntimeViewModel();                                        // Rebuilds scalar presentation state from EngineContext
+    void RefreshRuntimeViewModel();                                        // Rebuilds scalar presentation state from narrow owner borrows
     void RelativeUpdateCamera( uint32_t hash );                            // Keeps non-selected relative cameras inside terrain height limits.
     void UpdateLogic( float simulationDt, float cameraDt );                // simulationDt drives physics; cameraDt is unscaled wall time.
     void TakeInput();                                                      // Applies focused input to camera, UI, scene cycling, diagnostics, and editor tools.
@@ -273,8 +270,7 @@ class Run
                                         const char* logicalName,
                                         const std::string& relativePath ); // Resolves DATA_ROOT path while preserving
                                                                            // source asset identity for rebuilds.
-    RuntimeRenderHostBindings BuildRuntimeRenderHostBindings();
-    RuntimeRenderHostCallbacks BuildRuntimeRenderHostCallbacks();
+    RuntimeRendererBindings BuildRuntimeRendererBindings();
     void ReleaseBackendOwnedRenderResources(
         const char* phaseName );                                           // Ordered GPU-resource release hook while the backend is alive.
     void RebuildRegisteredRenderResources();                               // Recreates renderer resources from source asset records

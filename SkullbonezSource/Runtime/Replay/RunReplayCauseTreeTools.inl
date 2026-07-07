@@ -27,10 +27,9 @@ bool Run::TickReplayCauseTreeInput( HWND hwnd, bool uiBlocksMouse, int wheelDelt
     // Concept: Cause-tree input owns the explanatory replay window state while
     // delegating body/sample interpretation to ReplayRuntime queries.
     const bool leftDown = Input::IsLeftMouseDown();
-    const bool leftPressed = leftDown && !m_replayRuntime.CauseTree().leftWasDown;
-    const bool leftReleased = !leftDown && m_replayRuntime.CauseTree().leftWasDown;
-    m_replayRuntime.CauseTree().leftWasDown = leftDown;
-    m_replayRuntime.CauseTree().hoveredRow = -1;
+    const ReplayRuntime::PointerButtonEdges inputEdges = m_replayRuntime.BeginCauseTreeInputFrame( leftDown );
+    const bool leftPressed = inputEdges.leftPressed;
+    const bool leftReleased = inputEdges.leftReleased;
 
     const auto activateReplayCameraForCauseRow = [&]( const RunReplayCauseTreeRow& row, int rowIndex )
     {
@@ -38,24 +37,27 @@ bool Run::TickReplayCauseTreeInput( HWND hwnd, bool uiBlocksMouse, int wheelDelt
         Vector3 targetPosition = row.point;
         float targetRadius = 2.0f;
         RunReplayCameraFocusKind focusKind = RunReplayCameraFocusKind::Body;
-        // Lifetime: GetColliderStore repairs both body and collider topology on
-        // count drift. Take that broader repair first, then borrow the body
-        // store so the references stay valid for this focus action.
-        const auto& colliderStore = m_cGameModelCollection.GetColliderStore();
-        const auto& bodyStore = m_cGameModelCollection.GetPhysicsBodyStore();
+        // Lifetime: replay focus borrows already-prepared physics store views
+        // for one UI action. Topology repair belongs to the runtime/frame
+        // boundary, not this read-only cause-tree lookup.
+        const auto& colliderStore = m_cGameModelCollection.GetPhysicsEngine().Colliders();
+        const auto& bodyStore = m_cGameModelCollection.GetPhysicsEngine().BodyStore();
         switch ( row.kind )
         {
         case RunReplayCauseTreeRowKind::Body:
-            if ( !m_replayRuntime.ResolveCauseTreeBodyPosition( row.id,
-                                                                bodyStore,
-                                                                colliderStore,
-                                                                targetPosition,
-                                                                &targetRadius ) )
+        {
+            const bool bodyResolved = m_replayRuntime.ResolveCauseTreeBodyPosition( row.id,
+                                                                                    bodyStore,
+                                                                                    colliderStore,
+                                                                                    targetPosition,
+                                                                                    &targetRadius );
+            if ( !bodyResolved )
             {
                 return;
             }
             focusKind = RunReplayCameraFocusKind::Body;
             break;
+        }
         case RunReplayCauseTreeRowKind::Manifold:
             m_replayRuntime.ResolveCauseTreeBodyPosition( row.id,
                                                           bodyStore,
@@ -167,7 +169,7 @@ bool Run::TickReplayCauseTreeInput( HWND hwnd, bool uiBlocksMouse, int wheelDelt
         return false;
     }
 
-    const auto& bodyStore = m_cGameModelCollection.GetPhysicsBodyStore();
+    const auto& bodyStore = m_cGameModelCollection.GetPhysicsEngine().BodyStore();
     if ( !m_replayRuntime.BuildCauseTreeRows( m_cGameModelCollection.RenderPresentationRecords(), bodyStore ) )
     {
         endCauseTreeDragIfReleased();
@@ -278,9 +280,8 @@ bool Run::TickReplayCauseTreeInput( HWND hwnd, bool uiBlocksMouse, int wheelDelt
         }
         else if ( leftPressed )
         {
-            m_replayRuntime.ClearCameraFocusForRestore();
+            m_replayRuntime.ClearCauseTreeFocusSelection();
             ExitReplayInspectionCamera();
-            m_replayRuntime.ClearPathVisualizerState();
         }
     }
 

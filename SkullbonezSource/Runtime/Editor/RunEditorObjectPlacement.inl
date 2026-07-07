@@ -73,7 +73,7 @@ static bool TryResolveEditorObjectPlacementPreflight( EditorObjectPlacementConte
     // Invariant: This preflight is the single capacity and asset-count gate
     // for both CanPlace and Place. Add new multi-part object families here
     // before adding their placement branch below.
-    const int modelCount = context.models.GetModelCount();
+    const int modelCount = context.models.SceneEntityCount();
     const int type = std::clamp( request.objectType, 0, UI::EditorTab::OBJECT_TYPE_COUNT - 1 );
     const EditorTreeDefinition* tree = EditorTreeDefinitionForType( type );
     const EditorHouseDefinition* house = EditorHouseDefinitionForType( type );
@@ -123,7 +123,7 @@ bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
         return false;
     }
 
-    const int modelCount = context.models.GetModelCount();
+    const int modelCount = context.models.SceneEntityCount();
     const EditorTreeDefinition* tree = EditorTreeDefinitionForType( type );
     const EditorHouseDefinition* house = EditorHouseDefinitionForType( type );
     const EditorBuildingDefinition* building = EditorBuildingDefinitionForType( type );
@@ -167,7 +167,7 @@ bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
         // Physics sleep state must be seeded immediately, while the returned
         // placement result reports only the before/after count.
         bodyDesc.motionKind = modelFixed ? PhysicsBodyMotionKind::Fixed : PhysicsBodyMotionKind::Dynamic;
-        const int index = context.models.GetModelCount();
+        const int index = context.models.SceneEntityCount();
         lastPlacedBody = context.models.AddGameModel(
             std::move( model ),
             std::move( bodyDesc ),
@@ -305,7 +305,7 @@ bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
 
     auto addTree = [&]( const EditorTreeDefinition& treeDefinition )
     {
-        const int treeRootModelIndex = context.models.GetModelCount();
+        const int treeRootModelIndex = context.models.SceneEntityCount();
         for ( int partIndex = 0; partIndex < treeDefinition.partCount; ++partIndex )
         {
             const EditorTreePartDefinition& part = treeDefinition.parts[partIndex];
@@ -665,7 +665,7 @@ bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
         break;
     }
 
-    context.scene.modelCount = context.models.GetModelCount();
+    context.scene.modelCount = context.models.SceneEntityCount();
     const bool placed = context.scene.modelCount > modelCount;
     outResult.placed = placed;
     outResult.modelCountBefore = modelCount;
@@ -673,7 +673,7 @@ bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
     outResult.placedBody = lastPlacedBody;
     if ( placed && lastPlacedModelIndex >= 0 )
     {
-        outResult.placedCollider = context.models.GetColliderStore().HandleForModelIndex( lastPlacedModelIndex );
+        outResult.placedCollider = context.models.GetPhysicsEngine().Colliders().HandleForBodyHandle( lastPlacedBody );
     }
     outResult.objectType = type;
     outResult.fixedObject = fixedObject;

@@ -14,10 +14,14 @@ Glossary:
   Narrowphase: Precise collision pass that computes contact points, normals,
   and penetration.
   Manifold: Set of contact points and normals describing one colliding pair.
+  Debug-line command context: Borrowed render surface used only to submit
+  overlay line vertices after the runtime has proven the backend capability.
 
 Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines
-  are the validation contract.
+    are the validation contract.
+  - Tornado vector rendering is debug-overlay output; callers supply renderer
+    capability facts so physics does not reopen the process-global renderer.
 
 Related:
   - SkullbonezSource/Physics/TornadoField.cpp
@@ -35,6 +39,10 @@ Related:
 
 namespace SkullbonezCore
 {
+namespace Rendering
+{
+class IRenderCommandContext;
+} // namespace Rendering
 namespace Physics
 {
 struct TornadoFieldConfig
@@ -98,7 +106,11 @@ class TornadoField
     static Math::Vector::Vector3 SampleAccelerationForConfig( const TornadoFieldConfig& config,
                                                               const Math::Vector::Vector3& position );
     Math::Vector::Vector3 SampleAcceleration( const Math::Vector::Vector3& position ) const;
-    void RenderVectors( const Math::Transformation::Matrix4& viewProj );
+    // Debug overlay entry: emits visualization lines only through the supplied
+    // command context and only when the caller-provided capability bit allows it.
+    void RenderVectors( const Math::Transformation::Matrix4& viewProj,
+                        Rendering::IRenderCommandContext& renderCommands,
+                        bool supportsDebugLines );
     std::size_t DynamicMemoryBytes() const;
 
   private:
@@ -127,7 +139,11 @@ class TornadoSystem
         return m_activeVortices;
     }
     Math::Vector::Vector3 SampleAcceleration( const Math::Vector::Vector3& position ) const;
-    void RenderVectors( const Math::Transformation::Matrix4& viewProj );
+    // Debug overlay entry: forwards each active vortex through the caller-owned
+    // render command context instead of querying renderer globals.
+    void RenderVectors( const Math::Transformation::Matrix4& viewProj,
+                        Rendering::IRenderCommandContext& renderCommands,
+                        bool supportsDebugLines );
     std::size_t DynamicMemoryBytes() const;
 
     static void BuildActiveVortices( const TornadoSystemConfig& config,

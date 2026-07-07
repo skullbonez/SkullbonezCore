@@ -13,6 +13,8 @@ Glossary:
   Ribbon: Thin render strip used for the laser core and glow.
   Render resource factory: Renderer capability borrowed only while creating
     laser-owned shader resources.
+  Render command context: Per-frame renderer capability borrowed only while
+    drawing laser vertices and temporarily changing draw state.
   Snapshot: Compact replay record of visible launcher feedback.
   Shader handle: Runtime id that resolves to renderer-owned shader state.
 
@@ -38,6 +40,7 @@ namespace SkullbonezCore
 {
 namespace Rendering
 {
+class IRenderCommandContext;
 class IRenderResourceFactory;
 class IShader;
 } // namespace Rendering
@@ -117,7 +120,9 @@ class LauncherLaser
     LauncherLaser();
     ~LauncherLaser();
 
-    void ResetResources();
+    // Lifetime: pass a live resource factory from the backend-release phase to
+    // destroy GPU handles; nullptr means clear CPU-side state only.
+    void ResetResources( Rendering::IRenderResourceFactory* renderResources );
     void Clear();
     void Fire( const Math::Vector::Vector3& rayOrigin,
                const Math::Vector::Vector3& rayDirection,
@@ -132,7 +137,8 @@ class LauncherLaser
                  const Math::Vector::Vector3& cameraEye,
                  const Math::Vector::Vector3& cameraUp,
                  Assets::AssetSystem& assets,
-                 Rendering::IRenderResourceFactory& renderResources );
+                 Rendering::IRenderResourceFactory& renderResources,
+                 Rendering::IRenderCommandContext& renderCommands );
 };
 } // namespace Basics
 } // namespace SkullbonezCore

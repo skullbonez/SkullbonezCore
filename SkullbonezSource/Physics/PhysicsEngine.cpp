@@ -38,24 +38,65 @@ using SkullbonezCore::Physics::PhysicsColliderCreateDesc;
 using SkullbonezCore::Physics::PhysicsColliderHandle;
 using SkullbonezCore::Physics::PhysicsConstraintHandle;
 using SkullbonezCore::Physics::PhysicsEngine;
-using SkullbonezCore::Physics::PhysicsMaterial;
-
-
 void PhysicsEngine::ApplyRuntimeConfig( const Basics::EngineConfig& config )
 {
     m_scene.ApplyRuntimeConfig( config );
 }
 
 
-void PhysicsEngine::ApplyColliderMaterial( const PhysicsMaterial& material )
+void PhysicsEngine::ApplyAuthoredBodyPolicy( PhysicsBodyCreateDesc& desc ) const
 {
-    m_scene.ApplyColliderMaterial( material );
+    m_scene.ApplyAuthoredBodyPolicy( desc );
+}
+
+
+void PhysicsEngine::ApplyAuthoredColliderPolicy( PhysicsColliderCreateDesc& desc ) const
+{
+    m_scene.ApplyAuthoredColliderPolicy( desc );
+}
+
+
+void PhysicsEngine::ReserveAuthoredBodyCapacity( std::size_t capacity )
+{
+    m_scene.ReserveAuthoredBodyCapacity( capacity );
+}
+
+
+int PhysicsEngine::AuthoredBodyDescriptorCount() const
+{
+    return m_scene.AuthoredBodyDescriptorCount();
+}
+
+
+bool PhysicsEngine::TryGetAuthoredBodyDescriptor( int modelIndex, PhysicsBodyCreateDesc& outDesc ) const
+{
+    return m_scene.TryGetAuthoredBodyDescriptor( modelIndex, outDesc );
+}
+
+
+bool PhysicsEngine::UpdateAuthoredBodyDescriptor( int modelIndex, PhysicsBodyCreateDesc& desc, int expectedModelCount )
+{
+    return m_scene.UpdateAuthoredBodyDescriptor( modelIndex, desc, expectedModelCount );
+}
+
+
+bool PhysicsEngine::TrimAuthoredBodyDescriptorsToCount( int bodyCount )
+{
+    return m_scene.TrimAuthoredBodyDescriptorsToCount( bodyCount );
 }
 
 
 void PhysicsEngine::Clear()
 {
     m_scene.Clear();
+}
+
+
+bool PhysicsEngine::RefreshBodyStoreFromAuthoredDescriptors( const std::vector<uint32_t>& replayBodyIds,
+                                                             const std::vector<int>& fixedTreeReleaseRoots,
+                                                             const std::vector<const char*>& diagnosticNames )
+{
+    return m_scene.RefreshBodyStoreFromAuthoredDescriptors( replayBodyIds, fixedTreeReleaseRoots, diagnosticNames );
 }
 
 
@@ -144,6 +185,38 @@ bool PhysicsEngine::RefreshColliderSnapshot()
 bool PhysicsEngine::PrepareRenderStoreRefresh( int expectedModelCount )
 {
     return m_scene.PrepareRenderStoreRefresh( expectedModelCount );
+}
+
+
+void PhysicsEngine::ReserveRenderPresentationCapacity( std::size_t capacity )
+{
+    m_scene.ReserveRenderPresentationCapacity( capacity );
+}
+
+
+bool PhysicsEngine::ResizeRenderPresentationRecords( int presentationCount )
+{
+    return m_scene.ResizeRenderPresentationRecords( presentationCount );
+}
+
+
+SkullbonezCore::Rendering::RenderInstancePresentationRecord*
+PhysicsEngine::MutableRenderPresentationRecordForModelIndex( int modelIndex )
+{
+    return m_scene.MutableRenderPresentationRecordForModelIndex( modelIndex );
+}
+
+
+const std::vector<SkullbonezCore::Rendering::RenderInstancePresentationRecord>&
+PhysicsEngine::RenderPresentationRecords() const
+{
+    return m_scene.RenderPresentationRecords();
+}
+
+
+bool PhysicsEngine::RefreshRenderInstancesFromPresentation()
+{
+    return m_scene.RefreshRenderInstancesFromPresentation();
 }
 
 
@@ -298,9 +371,11 @@ float PhysicsEngine::GetTornadoSystemElapsedSeconds() const
 }
 
 
-void PhysicsEngine::RenderTornadoFieldVectors( const Math::Transformation::Matrix4& viewProj )
+void PhysicsEngine::RenderTornadoFieldVectors( const Math::Transformation::Matrix4& viewProj,
+                                               Rendering::IRenderCommandContext& renderCommands,
+                                               bool supportsDebugLines )
 {
-    m_scene.RenderTornadoFieldVectors( viewProj );
+    m_scene.RenderTornadoFieldVectors( viewProj, renderCommands, supportsDebugLines );
 }
 
 

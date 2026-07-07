@@ -4,8 +4,8 @@ Purpose:
   Declares the named runtime render pass contracts.
 
 Mental model:
-  Runtime render passes are small frame-order units that borrow the explicit
-  RuntimeRenderHost service view. The declarations live outside Run so pass
+  Runtime render passes are small frame-order units with explicit constructor
+  owners and frame input structs. The declarations live outside Run so pass
   ownership stays with RuntimeRenderer instead of growing Run.h.
 
 Glossary:
@@ -21,7 +21,8 @@ Glossary:
 
 Invariants:
   - Pass input/output structs borrow data for one frame only.
-  - Pass constructors receive RuntimeRenderHost so non-render dependencies stay named.
+  - Pass constructors receive named long-lived owners; per-frame runtime data
+    travels through explicit pass input structs.
   - Pass order is owned by RuntimeRenderer::RenderFrame.
 
 Related:
@@ -39,18 +40,27 @@ Related:
 #include "../../Rendering/Shadow.h"
 
 #include <cstdint>
+#include <memory>
 #include <vector>
 
 namespace SkullbonezCore
 {
 namespace Physics
 {
+class BroadphaseVisualizer;
+class CollisionVisualizer;
 class ColliderStore;
+class PhysicsDebugVisualizer;
 class PhysicsEngine;
 class PhysicsBodyStore;
 struct PhysicsDebugContact;
 struct PhysicsPipelineRecord;
 } // namespace Physics
+
+namespace Environment
+{
+class WorldEnvironment;
+} // namespace Environment
 
 namespace Rendering
 {
@@ -68,6 +78,11 @@ namespace Threading
 class WorkerPool;
 }
 
+namespace Textures
+{
+class TextureCollection;
+}
+
 namespace Assets
 {
 class AssetSystem;
@@ -75,21 +90,51 @@ class AssetSystem;
 
 namespace UI
 {
+class InGameUI;
 struct UIRenderContext;
 } // namespace UI
 
+namespace Geometry
+{
+class SkyBox;
+class Terrain;
+} // namespace Geometry
+
 namespace Basics
 {
-class RuntimeRenderHost;
+class DiagnosticsRuntime;
+class EngineConfig;
+class RuntimeInputContext;
+struct CinematicScenePassResources;
+struct FullscreenPassResources;
+struct ReflectionPassResources;
+struct ReplayPresentationSample;
+struct ReplaySolverFrameSample;
+struct RunCameraState;
+struct RunDebugState;
+struct RunEditorPlacementState;
+struct RunRayCastTestState;
+struct RunRenderPassResources;
+struct ShadowPassResources;
+struct SkyPassResources;
+struct TonemapPassResources;
+struct VolumetricLightPassResources;
+class ReplayRuntime;
 struct RuntimeRenderModelFrameView;
+struct RuntimeViewModel;
+struct RunRuntimeSettings;
+struct RunSceneBrowserState;
+struct RunSceneState;
+struct RunTimerState;
+struct RunReplayPredictionFrame;
+struct TornadoVisualSettings;
 struct RenderHelperContext;
 
 // Concept: these private pass contracts are the extraction boundary.
 //
 // RuntimeRenderer::RenderFrame() owns pass order, and each pass receives a named
-// input bundle and returns only the data later passes need. References and
-// pointers here are borrowed for one frame; long-lived GPU resources live in
-// RunRenderPassResources instead.
+// input bundle or explicit long-lived resources. Frame references are rebuilt
+// each pass, while GPU resources stay in RunRenderPassResources.
 enum class SkyPassMode
 {
     CubemapOnly,                            // Force the authored cube-map skybox path.
@@ -101,6 +146,14 @@ enum class ObjectPassMode
     Opaque,                                 // Normal body draw before water.
     Transparent                             // Debug alpha body draw after water so overlays remain readable.
 };
+
+using RenderResourceLifecycleLogFn = void ( * )( void* user, const char* phase, const char* step );
+using RenderEditorOverlayFn = void ( * )( void* user,
+                                          Rendering::IRenderResourceFactory& renderResources,
+                                          Rendering::IRenderCommandContext& renderCommands,
+                                          const Math::Transformation::Matrix4& viewProjection,
+                                          const Math::Vector::Vector3& cameraEye,
+                                          const Math::Vector::Vector3& cameraUp );
 
 struct RenderFrameContext
 {
@@ -155,6 +208,9 @@ struct RenderFrameContext
     // non-null after RuntimeRenderer::BuildRenderFrameContext(), and pass code
     // must not store it beyond the current RenderFrame call.
     Assets::AssetSystem* assets = nullptr;
+    // Lifetime: borrowed texture binding service for this frame only. Pass code
+    // uses it to resolve legacy texture handles without reopening Run state.
+    Textures::TextureCollection* textures = nullptr;
     // Lifetime: borrowed from RuntimeRenderInputs for lazy debug resource
     // creation in this frame only.
     Rendering::IRenderResourceFactory* renderResources = nullptr;
@@ -209,6 +265,7 @@ struct TerrainPassInputs
     const RenderFrameContext& frame;
     const CinematicRenderConfig* cinematic;
     const Rendering::ShadowFrameData* shadow;
+    bool terrainHidden;                     // Frame snapshot of the debug/scene visibility flag.
 };
 
 struct ReflectionPassInputs
@@ -219,12 +276,15 @@ struct ReflectionPassInputs
     const RenderFrameContext& frame;
     const CinematicRenderConfig* cinematic;
     const Rendering::ShadowFrameData* objectShadow;
+    bool waterRayTracingReflection;         // Frame snapshot of the debug water reflection mode.
+    bool waterNoReflection;                 // Frame snapshot of the water reflection disable switch.
     bool collisionStateColorsVisible;       // Reflection must match the selected body visualization mode.
     // Disables DXR reflection because the mirrored raster path can honor
     // debug alpha and collision-state rendering.
     bool transparentBodyPass;
     float collisionVisualizerAlphaOverride; // Forwarded to reflected collision-state geometry.
     float bodyAlpha;                        // Forwarded to reflected production body rendering.
+    float simulationTimeSeconds;            // Timer sample consumed by the DXR reflection shader.
 };
 
 struct ReflectionPassOutput
@@ -249,15 +309,73 @@ struct WaterPassInputs
     bool noReflection;                      // Debug override: keep water visible but force the no-reflection shader path.
     bool freezeTime;                        // Debug override: hold wave animation at frozenTime.
     float frozenTime;                       // Simulation time captured when water animation was frozen.
+    float liveWaterTime;                    // Current simulation time used when water animation is not frozen.
+};
+
+struct ReplayOverlayFrameState
+{
+    // Replay overlay draw code needs UI/window policy, not the full runtime host.
+    // Run samples these values once for the late UI frame so scrubber rendering
+    // cannot observe a different scene/UI state from the rest of the pass.
+    bool editorModeEnabled = false;
+    bool uiVisible = false;
+    bool uiMinimized = false;
+    bool scenePhysicsEnabled = false;
+    int screenW = 1;
+    int screenH = 1;
+    double nowSeconds = 0.0;
+};
+
+struct UiTextPassState
+{
+    // UI/text is the late overlay pass, so it samples a broad but UI-specific
+    // set of already-owned runtime state. The pass may read these references for
+    // this frame only; mutations stay limited to timer rolling diagnostics and
+    // immediate UI drawing.
+    RunDebugState& debug;
+    RunTimerState& timers;
+    const RunSceneState& scene;
+    const RunRuntimeSettings& runtimeSettings;
+    const EngineConfig& config;
+    Environment::WorldEnvironment& world;
+    const RunRayCastTestState& rayCastTest;
+    const RunEditorPlacementState& editor;
+    UI::InGameUI& ui;
+    RuntimeInputContext& runtimeInput;
+    const RunCameraState& camera;
+    const RuntimeViewModel& runtimeViewModel;
+    const RunSceneBrowserState& sceneBrowser;
+    const RunRenderPassResources& renderPasses;
+    Threading::WorkerPool* workerPool = nullptr;
+    int screenW = 1;
+    int screenH = 1;
+    int sceneQueueSize = 0;
+    bool sceneHasCurrentEntry = false;
+    const char* currentScenePath = nullptr;
+    int currentSceneBrowserIndex = 0;
+    uint32_t cameraModeEnabledMask = 0u;
+    const char* cameraModeLabel = "";
+    const char* launcherFireModeLabel = "";
+    bool launcherCameraMode = false;
+    bool replayScrubberVisible = false;
+    bool replayPathVisualizerHasTarget = false;
 };
 
 struct UiTextPassInputs
 {
     // UI/text can run even when text-only mode skips RuntimeRenderer::RenderFrame(),
     // so it borrows only the narrow render facets sampled by overlays.
+    const UiTextPassState& state;
     Rendering::IRenderDiagnostics& renderDiagnostics;
     const UI::UIRenderContext& uiRender;
     const RuntimeRenderModelFrameView& models;
+    DiagnosticsRuntime& diagnosticsRuntime;
+    ReplayRuntime& replayRuntime;
+    const ReplayOverlayFrameState& replayOverlay;
+    // Lifetime: selected by Run for this UI frame. UI text can render without
+    // world passes, so it receives its own snapshot instead of reopening host state.
+    const CinematicRenderConfig& cinematic;
+    bool cinematicRendering = false;
     Rendering::IRenderRayTracing* renderRayTracing;
     double secondsPerFrame = 0.0;
 };
@@ -277,11 +395,40 @@ struct WaterPassDebugInfo
     int styleWaterMode = -1;
 };
 
+struct TornadoVisualSnapshot
+{
+    // Frame-level tornado art inputs. Live runtime state chooses the visual
+    // style and time source before the graph callback; the pass only expands
+    // that snapshot into transient ribbon/dust vertices.
+    const TornadoVisualSettings* visual = nullptr;
+    const Physics::TornadoSystemConfig* tornadoSystem = nullptr;
+    const Physics::TornadoFieldConfig* tornadoField = nullptr;
+    const ReplayPresentationSample* replaySample = nullptr;
+    const ReplaySolverFrameSample* solverSample = nullptr;
+    const RunReplayPredictionFrame* predictionFrame = nullptr;
+    bool replayLiveAdvanceHeld = false;
+    double simulationSourceSeconds = 0.0;
+};
+
 struct TornadoVisualPassInputs
 {
     // Production tornado art uses the final world view/depth after opaque
     // objects, terrain, and water. Physics field state is read-only shape input.
     const RenderFrameContext& frame;
+    const TornadoVisualSnapshot& snapshot;
+};
+
+struct DebugOverlaySnapshot
+{
+    // Frame-level overlay decisions sampled before graph callback execution.
+    // The pass may draw multiple overlay families, but it should not reopen
+    // broad runtime debug/tool/replay state while drawing them.
+    bool broadphaseOverlayVisible = false;
+    bool tornadoVectorsVisible = false;     // Includes per-vortex flags once another overlay wakes the pass.
+    bool tornadoOverlayWorkVisible = false; // Legacy pass wake-up predicate from global tornado vector toggles.
+    bool editorOverlayWorkVisible = false;
+    uint32_t physicsDebugFlags = 0u;
+    int physicsDebugPipelineStageCursor = 0;
 };
 
 struct DebugOverlayPassInputs
@@ -290,6 +437,7 @@ struct DebugOverlayPassInputs
     // view-projection. They do not participate in material or pass-resource
     // ownership.
     const RenderFrameContext& frame;
+    const DebugOverlaySnapshot& snapshot;
 };
 
 struct ShadowPassInputs
@@ -298,6 +446,8 @@ struct ShadowPassInputs
     // should be built and receivers should get null shadow outputs.
     const RenderFrameContext& frame;
     const CinematicRenderConfig* cinematic;
+    bool terrainHidden;                     // Frame snapshot of debug/scene terrain visibility.
+    bool collisionVisualizerVisible;        // Collision-color mode disables object shadow casters.
 };
 
 struct ShadowPassOutput
@@ -319,7 +469,7 @@ struct ShadowPassOutput
 class FullscreenQuadPass
 {
   public:
-    explicit FullscreenQuadPass( RuntimeRenderHost& host ) : m_host( host )
+    explicit FullscreenQuadPass( FullscreenPassResources& resources ) : m_resources( resources )
     {
     }
 
@@ -328,7 +478,7 @@ class FullscreenQuadPass
     uint32_t QuadVB() const;
 
   private:
-    RuntimeRenderHost& m_host;
+    FullscreenPassResources& m_resources;
 };
 
 /* -- SkyPass
@@ -341,7 +491,12 @@ class FullscreenQuadPass
 class SkyPass
 {
   public:
-    explicit SkyPass( RuntimeRenderHost& host ) : m_host( host )
+    SkyPass( SkyPassResources& skyResources,
+             FullscreenPassResources& fullscreenResources,
+             Geometry::SkyBox*& skyBox,
+             const EngineConfig& config )
+        : m_skyResources( skyResources ), m_fullscreenResources( fullscreenResources ), m_skyBox( skyBox ),
+          m_config( config )
     {
     }
 
@@ -352,7 +507,12 @@ class SkyPass
   private:
     void RenderCinematicSky( const RenderFrameContext& frame, const Math::Transformation::Matrix4& view );
 
-    RuntimeRenderHost& m_host;
+    SkyPassResources& m_skyResources;
+    FullscreenPassResources& m_fullscreenResources;
+    // Lifetime: this aliases RunSubsystemState::skyBox because RuntimeRenderer
+    // is constructed before Initialise wires the owned SkyBox pointer.
+    Geometry::SkyBox*& m_skyBox;
+    const EngineConfig& m_config;
 };
 
 /* -- SceneTargetPass
@@ -365,7 +525,7 @@ class SkyPass
 class SceneTargetPass
 {
   public:
-    explicit SceneTargetPass( RuntimeRenderHost& host ) : m_host( host )
+    explicit SceneTargetPass( CinematicScenePassResources& resources ) : m_resources( resources )
     {
     }
 
@@ -375,7 +535,7 @@ class SceneTargetPass
     void Begin( const RenderFrameContext& frame, SkyPass& skyPass );
 
   private:
-    RuntimeRenderHost& m_host;
+    CinematicScenePassResources& m_resources;
 };
 
 /* -- ShadowPass
@@ -388,7 +548,13 @@ class SceneTargetPass
 class ShadowPass
 {
   public:
-    explicit ShadowPass( RuntimeRenderHost& host ) : m_host( host )
+    ShadowPass( ShadowPassResources& resources,
+                std::unique_ptr<Geometry::Terrain>& terrain,
+                const EngineConfig& config,
+                RenderResourceLifecycleLogFn lifecycleLog,
+                void* lifecycleLogUser )
+        : m_resources( resources ), m_terrain( terrain ), m_config( config ), m_lifecycleLog( lifecycleLog ),
+          m_lifecycleLogUser( lifecycleLogUser )
     {
     }
 
@@ -397,6 +563,7 @@ class ShadowPass
     ShadowPassOutput Render( const ShadowPassInputs& inputs );
 
   private:
+    void LogResourceLifecycleStep( const char* phase, const char* step ) const;
     Rendering::ShadowFrameData BuildTerrainFrameData( const CinematicRenderConfig& cinematic,
                                                       const Math::Vector::Vector3& lightDirectionWorld ) const;
     Rendering::ShadowFrameData BuildObjectFrameData( const CinematicRenderConfig& cinematic,
@@ -418,7 +585,15 @@ class ShadowPass
                           bool shadowParallelPrep,
                           const Rendering::ShadowCasterBatches* objectCasters );
 
-    RuntimeRenderHost& m_host;
+    ShadowPassResources& m_resources;
+    std::unique_ptr<Geometry::Terrain>& m_terrain;
+    const EngineConfig& m_config;
+    RenderResourceLifecycleLogFn m_lifecycleLog = nullptr;
+    void* m_lifecycleLogUser = nullptr;
+    bool m_activeTerrainHidden = false;
+    bool m_activeCollisionVisualizerVisible = false;
+    int m_activeWindowWidth = 1;
+    int m_activeWindowHeight = 1;
 };
 
 /* -- ReflectionPass
@@ -431,7 +606,17 @@ class ShadowPass
 class ReflectionPass
 {
   public:
-    explicit ReflectionPass( RuntimeRenderHost& host ) : m_host( host )
+    ReflectionPass( ReflectionPassResources& resources,
+                    Physics::CollisionVisualizer& collisionVisualizer,
+                    const EngineConfig& config,
+                    float* dxrReflectionTransforms,
+                    int dxrReflectionTransformCapacity,
+                    RenderResourceLifecycleLogFn lifecycleLog,
+                    void* lifecycleLogUser )
+        : m_resources( resources ), m_collisionVisualizer( collisionVisualizer ), m_config( config ),
+          m_dxrReflectionTransforms( dxrReflectionTransforms ),
+          m_dxrReflectionTransformCapacity( dxrReflectionTransformCapacity ), m_lifecycleLog( lifecycleLog ),
+          m_lifecycleLogUser( lifecycleLogUser )
     {
     }
 
@@ -440,7 +625,15 @@ class ReflectionPass
     ReflectionPassOutput Render( const ReflectionPassInputs& inputs, SkyPass& skyPass );
 
   private:
-    RuntimeRenderHost& m_host;
+    void LogResourceLifecycleStep( const char* phase, const char* step ) const;
+
+    ReflectionPassResources& m_resources;
+    Physics::CollisionVisualizer& m_collisionVisualizer;
+    const EngineConfig& m_config;
+    float* m_dxrReflectionTransforms = nullptr;
+    int m_dxrReflectionTransformCapacity = 0;
+    RenderResourceLifecycleLogFn m_lifecycleLog = nullptr;
+    void* m_lifecycleLogUser = nullptr;
 };
 
 /* -- ObjectPass
@@ -453,7 +646,8 @@ class ReflectionPass
 class ObjectPass
 {
   public:
-    explicit ObjectPass( RuntimeRenderHost& host ) : m_host( host )
+    ObjectPass( Physics::CollisionVisualizer& collisionVisualizer, const EngineConfig& config )
+        : m_collisionVisualizer( collisionVisualizer ), m_config( config )
     {
     }
 
@@ -462,7 +656,8 @@ class ObjectPass
     void Render( const ObjectPassInputs& inputs );
 
   private:
-    RuntimeRenderHost& m_host;
+    Physics::CollisionVisualizer& m_collisionVisualizer;
+    const EngineConfig& m_config;
 };
 
 /* -- TerrainPass
@@ -474,7 +669,8 @@ class ObjectPass
 class TerrainPass
 {
   public:
-    explicit TerrainPass( RuntimeRenderHost& host ) : m_host( host )
+    TerrainPass( std::unique_ptr<Geometry::Terrain>& terrain, const EngineConfig& config )
+        : m_terrain( terrain ), m_config( config )
     {
     }
 
@@ -483,7 +679,10 @@ class TerrainPass
     void Render( const TerrainPassInputs& inputs );
 
   private:
-    RuntimeRenderHost& m_host;
+    // Lifetime: aliases RunSubsystemState::terrain because terrain is scene-owned
+    // and may be replaced after RuntimeRenderer construction.
+    std::unique_ptr<Geometry::Terrain>& m_terrain;
+    const EngineConfig& m_config;
 };
 
 /* -- WaterPass
@@ -495,7 +694,7 @@ class TerrainPass
 class WaterPass
 {
   public:
-    explicit WaterPass( RuntimeRenderHost& host ) : m_host( host )
+    WaterPass( Environment::WorldEnvironment& world, const EngineConfig& config ) : m_world( world ), m_config( config )
     {
     }
 
@@ -508,7 +707,8 @@ class WaterPass
     }
 
   private:
-    RuntimeRenderHost& m_host;
+    Environment::WorldEnvironment& m_world;
+    const EngineConfig& m_config;
     WaterPassDebugInfo m_debugInfo;
 };
 
@@ -521,16 +721,18 @@ class WaterPass
 class TornadoVisualPass
 {
   public:
-    explicit TornadoVisualPass( RuntimeRenderHost& host ) : m_host( host )
+    explicit TornadoVisualPass( std::unique_ptr<Geometry::Terrain>& terrain ) : m_terrain( terrain )
     {
     }
 
-    void EnsureGpuResources( const RenderResourceContext& resources );
+    void EnsureGpuResources( const RenderResourceContext& resources, const TornadoVisualSnapshot& snapshot );
     void ReleaseGpuResources();
     bool Render( const TornadoVisualPassInputs& inputs );
 
   private:
-    RuntimeRenderHost& m_host;
+    // Lifetime: aliases RunSubsystemState::terrain because scene loads may
+    // replace the terrain object after RuntimeRenderer construction.
+    std::unique_ptr<Geometry::Terrain>& m_terrain;
     std::vector<float> m_vertices;
     std::vector<Physics::TornadoActiveVortex> m_activeVisualVortices;
     float m_liveVisualTimeSeconds = 0.0f;
@@ -548,7 +750,14 @@ class TornadoVisualPass
 class DebugOverlayPass
 {
   public:
-    explicit DebugOverlayPass( RuntimeRenderHost& host ) : m_host( host )
+    DebugOverlayPass( Physics::BroadphaseVisualizer& broadphaseVisualizer,
+                      Physics::PhysicsDebugVisualizer& physicsDebugVisualizer,
+                      std::unique_ptr<Geometry::Terrain>& terrain,
+                      RenderEditorOverlayFn renderEditorOverlay,
+                      void* renderEditorOverlayUser )
+        : m_broadphaseVisualizer( broadphaseVisualizer ), m_physicsDebugVisualizer( physicsDebugVisualizer ),
+          m_terrain( terrain ), m_renderEditorOverlay( renderEditorOverlay ),
+          m_renderEditorOverlayUser( renderEditorOverlayUser )
     {
     }
 
@@ -559,7 +768,13 @@ class DebugOverlayPass
   private:
     bool HasOverlayWork( const DebugOverlayPassInputs& inputs ) const;
 
-    RuntimeRenderHost& m_host;
+    Physics::BroadphaseVisualizer& m_broadphaseVisualizer;
+    Physics::PhysicsDebugVisualizer& m_physicsDebugVisualizer;
+    // Lifetime: aliases RunSubsystemState::terrain because scene loads may
+    // replace the terrain object after RuntimeRenderer construction.
+    std::unique_ptr<Geometry::Terrain>& m_terrain;
+    RenderEditorOverlayFn m_renderEditorOverlay = nullptr;
+    void* m_renderEditorOverlayUser = nullptr;
 };
 
 /* -- VolumetricPass
@@ -571,7 +786,12 @@ class DebugOverlayPass
 class VolumetricPass
 {
   public:
-    explicit VolumetricPass( RuntimeRenderHost& host ) : m_host( host )
+    VolumetricPass( CinematicScenePassResources& sceneResources,
+                    VolumetricLightPassResources& volumetricResources,
+                    FullscreenPassResources& fullscreenResources,
+                    const EngineConfig& config )
+        : m_sceneResources( sceneResources ), m_volumetricResources( volumetricResources ),
+          m_fullscreenResources( fullscreenResources ), m_config( config )
     {
     }
 
@@ -581,7 +801,10 @@ class VolumetricPass
     bool Render( const RenderFrameContext& frame, const Rendering::RenderGraphTextureBinding* graphOutput = nullptr );
 
   private:
-    RuntimeRenderHost& m_host;
+    CinematicScenePassResources& m_sceneResources;
+    VolumetricLightPassResources& m_volumetricResources;
+    FullscreenPassResources& m_fullscreenResources;
+    const EngineConfig& m_config;
 };
 
 /* -- TonemapPass
@@ -594,7 +817,13 @@ class VolumetricPass
 class TonemapPass
 {
   public:
-    explicit TonemapPass( RuntimeRenderHost& host ) : m_host( host )
+    TonemapPass( CinematicScenePassResources& sceneResources,
+                 VolumetricLightPassResources& volumetricResources,
+                 TonemapPassResources& tonemapResources,
+                 FullscreenPassResources& fullscreenResources,
+                 const EngineConfig& config )
+        : m_sceneResources( sceneResources ), m_volumetricResources( volumetricResources ),
+          m_tonemapResources( tonemapResources ), m_fullscreenResources( fullscreenResources ), m_config( config )
     {
     }
 
@@ -606,7 +835,11 @@ class TonemapPass
                  const Rendering::RenderGraphTextureBinding* graphVolumetric = nullptr );
 
   private:
-    RuntimeRenderHost& m_host;
+    CinematicScenePassResources& m_sceneResources;
+    VolumetricLightPassResources& m_volumetricResources;
+    TonemapPassResources& m_tonemapResources;
+    FullscreenPassResources& m_fullscreenResources;
+    const EngineConfig& m_config;
 };
 
 /* -- UiTextPass
@@ -619,7 +852,7 @@ class TonemapPass
 class UiTextPass
 {
   public:
-    explicit UiTextPass( RuntimeRenderHost& host ) : m_host( host )
+    UiTextPass()
     {
     }
 
@@ -628,11 +861,8 @@ class UiTextPass
                              int screenW,
                              int screenH );
     void ReleaseGpuResources( Rendering::IRenderResourceFactory* renderResources );
-    bool ShouldRender() const;
+    bool ShouldRender( const UiTextPassState& state ) const;
     void Render( const UiTextPassInputs& inputs );
-
-  private:
-    RuntimeRenderHost& m_host;
 };
 
 } // namespace Basics

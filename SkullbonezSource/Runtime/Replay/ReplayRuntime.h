@@ -48,10 +48,12 @@ Related:
 #include "../../Core/Common.h"
 #include "../../Maths/Quaternion.h"
 #include "../../Physics/PhysicsHandles.h"
+#include "../../Physics/PhysicsWorldForces.h"
 #include "../../Rendering/RenderInstanceStore.h"
 
 #include <array>
 #include <chrono>
+#include <memory>
 
 namespace SkullbonezCore
 {
@@ -302,6 +304,13 @@ struct ReplayPredictionRetainedMarker
 
 struct RunReplayPredictionState
 {
+    RunReplayPredictionState();
+    ~RunReplayPredictionState();
+    RunReplayPredictionState( const RunReplayPredictionState& ) = delete;
+    RunReplayPredictionState& operator=( const RunReplayPredictionState& ) = delete;
+    RunReplayPredictionState( RunReplayPredictionState&& ) noexcept;
+    RunReplayPredictionState& operator=( RunReplayPredictionState&& ) noexcept;
+
     bool enabled = false;
     bool checkboxHovered = false;
     bool ragdollVisualsEnabled = false;
@@ -322,10 +331,20 @@ struct RunReplayPredictionState
     uint64_t sourceSolverHash = 0;
     double sourceSimulationSeconds = 0.0;
     double lastBuildTime = 0.0;
+    // Concept: prediction simulates the future in its own engine. Live stores
+    // are never written by prediction, so replay preview state stays isolated.
+    // Lifetime: constructed lazily on first prediction begin under the replay
+    // reserve owner, pre-sized by copying the current live physics facade, and
+    // reused across prediction builds so startup/perf-smoke memory stays flat.
+    // Runtime allocation policy: owner replay_prediction_working_set; reason:
+    // private prediction needs a bounded physics copy for exploratory replay;
+    // deletion condition: none, this is the end-state isolation boundary;
+    // checker budget: 256 MB hard cap registered by ReplayPredictionReserveOwner().
+    std::unique_ptr<Physics::PhysicsEngine> predictionEngine;
+    Physics::PhysicsWorldForces predictionWorldForces;
+    bool predictionEngineReady = false;
     ReplaySolverWorldSnapshot predictionWorld;
-    ReplaySolverWorldSnapshot liveRestoreWorld;
     std::vector<RunReplayPredictionBodyBackup> predictionBodies;
-    std::vector<RunReplayPredictionBodyBackup> liveRestoreBodies;
     std::vector<RunReplayPredictionFrame> frames;
     // Runtime allocation policy: prediction buildFrames can be pre-sized for a
     // whole horizon while only buildFrameCount rows are populated. Render reads
@@ -420,6 +439,52 @@ class ReplayRuntime
         ReplayEventRecorderStats eventStats;
     };
 
+    // Concept: scene load/reset code sends replay-owned timeline facts here so
+    // ReplayRuntime can clear scrubber, branch, loaded-artifact, path, velocity,
+    // and event recorder state without Run reopening each owned struct.
+    struct SceneTimelineResetInput
+    {
+        const char* sceneLabel = nullptr;
+        bool preserveBranchMetadata = false;
+        bool isSceneMode = false;
+        int modelCount = 0;
+        int solverBallCount = 0;
+        int solverBoxCount = 0;
+        uint32_t rngSeed = 0;
+        int gameModelCapacity = 0;
+        uint32_t generatedObjectTypeOverride = 0;
+        bool hasUiModelCountOverride = false;
+        bool hasUiSolverCountOverride = false;
+    };
+
+    // Run still owns process/UI side effects such as leaving inspection camera;
+    // the replay command reports those actions instead of calling back into Run.
+    struct SceneTimelineResetResult
+    {
+        bool exitInspectionCamera = false;
+        bool timelineStarted = false;
+    };
+
+    // Concept: replay interaction ticks pass raw button/key snapshots to
+    // ReplayRuntime, which owns edge memory for scrubber and cause-tree controls.
+    struct PointerButtonEdges
+    {
+        bool leftPressed = false;
+        bool leftReleased = false;
+    };
+
+    struct ScrubberInputFrame
+    {
+        bool leftPressed = false;
+        bool leftReleased = false;
+        bool restorePressed = false;
+    };
+
+    struct ScrubberUnavailableResult
+    {
+        bool exitInspectionCamera = false;
+    };
+
     ReplayRuntime();
 
     ReplayRecorder& Presentation();
@@ -467,6 +532,10 @@ class ReplayRuntime
     void SyncActiveTrackPosition();
     void SetAllTrackPositions( float position );
     bool ResetScrubberState();
+    ScrubberInputFrame BeginScrubberInputFrame( bool leftDown, bool restoreDown );
+    ScrubberUnavailableResult ResetUnavailableScrubberSurface( bool loadedPresentation, bool leftDown );
+    PointerButtonEdges BeginCauseTreeInputFrame( bool leftDown );
+    void ClearCauseTreeFocusSelection();
     bool SetLiveAdvanceHeld( bool held );
     // Concept: Render/input code asks replay-owned state for intent-level
     // predicates instead of reading scrubber, path, focus, or velocity structs.
@@ -494,6 +563,8 @@ class ReplayRuntime
     void FlushHashLogs();
     void ResetBranch();
     void ResetTimeline( const char* sceneLabel );
+    SceneTimelineResetResult BeginSceneTimelineReset( const SceneTimelineResetInput& input );
+    SceneTimelineResetResult FinishSceneTimelineReset( const SceneTimelineResetInput& input );
     bool IsPresentationEnabled() const;
     bool IsCaptureEnabled() const;
     ReplayRecorderStats PresentationStats() const;

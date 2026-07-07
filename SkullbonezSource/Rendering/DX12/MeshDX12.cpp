@@ -33,7 +33,9 @@ Related:
 using namespace SkullbonezCore::Rendering;
 
 
-MeshDX12::MeshDX12() : m_vertexBuffer( nullptr ), m_vertexCount( 0 ), m_stride( 0 ), m_format( VertexFormat12::Pos3 )
+MeshDX12::MeshDX12( RenderBackendDX12& backend )
+    : m_backend( backend ), m_vertexBuffer( nullptr ), m_vertexCount( 0 ), m_stride( 0 ),
+      m_format( VertexFormat12::Pos3 )
 {
     m_vbView = {};
 }
@@ -94,25 +96,29 @@ void MeshDX12::Create( ID3D12Device* device,
 
     memcpy( uploadPtr, data, (size_t)dataSize );
 
-    auto* backend = RenderBackendDX12::Get();
-    UINT64 uploadOffset = uploadAddr - backend->GetUploadBuffer()->GetGPUVirtualAddress();
+    ID3D12Resource* uploadBuffer = m_backend.GetUploadBuffer();
+    if ( !uploadBuffer )
+    {
+        throw std::runtime_error( "MeshDX12::Create: no DX12 upload buffer" );
+    }
+    UINT64 uploadOffset = uploadAddr - uploadBuffer->GetGPUVirtualAddress();
     // Record a GPU-side copy command: transfer vertex data from the upload buffer (CPU-visible staging
     // memory) to the vertex buffer (fast GPU-only memory). This happens asynchronously on the GPU —
     // the CPU just records the command, the actual copy happens when the command list is executed.
     // Docs:
     // https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-copybufferregion
-    cmdList->CopyBufferRegion( m_vertexBuffer, 0, backend->GetUploadBuffer(), uploadOffset, dataSize );
+    cmdList->CopyBufferRegion( m_vertexBuffer, 0, uploadBuffer, uploadOffset, dataSize );
 
     // Transition the vertex buffer from COMMON (implicitly promoted to COPY_DEST by CopyBufferRegion)
     // to a combined read state that covers both normal drawing (VERTEX_AND_CONSTANT_BUFFER) and DXR
     // acceleration structure builds (NON_PIXEL_SHADER_RESOURCE). Both are read-only states so they
     // can be combined per D3D12 spec.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/ne-d3d12-d3d12_resource_states
-    backend->ExecuteGraphTransition( "MeshVertexUploadFinal",
-                                     "MeshVertexBuffer",
-                                     m_vertexBuffer,
-                                     RenderGraphResourceAccess::CopyDest,
-                                     RenderGraphResourceAccess::VertexAndNonPixelShaderResource );
+    m_backend.ExecuteGraphTransition( "MeshVertexUploadFinal",
+                                      "MeshVertexBuffer",
+                                      m_vertexBuffer,
+                                      RenderGraphResourceAccess::CopyDest,
+                                      RenderGraphResourceAccess::VertexAndNonPixelShaderResource );
 
     m_vbView.BufferLocation = m_vertexBuffer->GetGPUVirtualAddress();
     m_vbView.SizeInBytes = (UINT)dataSize;
@@ -122,45 +128,45 @@ void MeshDX12::Create( ID3D12Device* device,
 
 void MeshDX12::Draw() const
 {
-    auto* backend = RenderBackendDX12::Get();
-    if ( !backend )
+    ID3D12GraphicsCommandList* commandList = m_backend.GetCommandList();
+    if ( !commandList )
     {
         return;
     }
-    backend->PrepareDraw( m_format );
+    m_backend.PrepareDraw( m_format );
     // Bind the vertex buffer to input slot 0 of the Input Assembler (IA) stage.
     // The IA is the very first stage of the GPU pipeline — it reads vertex data and feeds it
     // to the vertex shader. The view tells the GPU where the buffer is, how big it is, and the
     // stride (bytes per vertex).
     // Docs:
     // https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-iasetvertexbuffers
-    backend->GetCommandList()->IASetVertexBuffers( 0, 1, &m_vbView );
+    commandList->IASetVertexBuffers( 0, 1, &m_vbView );
 
     // Issue a non-indexed draw call. DrawInstanced draws all vertices sequentially from the bound
     // vertex buffer. Parameters: (vertexCount, instanceCount=1, startVertex=0, startInstance=0).
     // "Instanced" here means you *could* draw multiple copies, but we pass 1 for a single mesh.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-drawinstanced
-    backend->RecordDrawCall( { DrawCallKind::Mesh, "Mesh", m_vertexCount, 1 } );
-    backend->GetCommandList()->DrawInstanced( (UINT)m_vertexCount, 1, 0, 0 );
+    m_backend.RecordDrawCall( { DrawCallKind::Mesh, "Mesh", m_vertexCount, 1 } );
+    commandList->DrawInstanced( (UINT)m_vertexCount, 1, 0, 0 );
 }
 
 
 void MeshDX12::DrawInstanced( int instanceCount ) const
 {
-    auto* backend = RenderBackendDX12::Get();
-    if ( !backend )
+    ID3D12GraphicsCommandList* commandList = m_backend.GetCommandList();
+    if ( !commandList )
     {
         return;
     }
-    backend->PrepareDraw( m_format );
+    m_backend.PrepareDraw( m_format );
     // Instanced drawing renders many copies of one mesh with different
     // per-instance data in a single GPU draw call.
     // Docs:
     // https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-iasetvertexbuffers
-    backend->GetCommandList()->IASetVertexBuffers( 0, 1, &m_vbView );
+    commandList->IASetVertexBuffers( 0, 1, &m_vbView );
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-drawinstanced
-    backend->RecordDrawCall( { DrawCallKind::Mesh, "MeshInstanced", m_vertexCount, instanceCount } );
-    backend->GetCommandList()->DrawInstanced( (UINT)m_vertexCount, (UINT)instanceCount, 0, 0 );
+    m_backend.RecordDrawCall( { DrawCallKind::Mesh, "MeshInstanced", m_vertexCount, instanceCount } );
+    commandList->DrawInstanced( (UINT)m_vertexCount, (UINT)instanceCount, 0, 0 );
 }
 
 

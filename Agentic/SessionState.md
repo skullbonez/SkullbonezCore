@@ -7,14 +7,14 @@ audits when it is still useful.
 
 | Field | Value |
 |-------|-------|
-| Branch | `nightrunner-5th-july` in worktree `C:\SkullbonezCore`. |
-| Active objective | Post-duck correction on `nightrunner-5th-july` is implemented and validated: replay prediction reserve units, F6 overlay proof, and replay branch-restore proof now match the branch claims. |
-| Last documentation milestone | Added a post-duck evidence correction section to `Agentic/Plans/Done/runtime-static-allocation-policy-plan.md` with byte-cap proof and tracked interaction-proof commands. |
-| Last source/data milestone | Replay prediction registered growth now requests bytes under a 256 MiB hard cap, including aggregate frame-payload bytes for prediction debug contacts. Interaction automation can inject one bounded key press, scrub the replay solver track through its UI hitbox, click the Branch button, assert memory-overlay/replay live-edge state, and run tracked scripts for F6 overlay and branch-restore proof. |
-| Pending work | No remaining source work for the post-duck correction. Follow-up architecture items remain in their own active plans and references. |
-| Concurrent work warning | No concurrent dirty source work observed at the last status check. Still run `git status --short --branch` before editing. |
-| Blockers | No validation blocker. Open scope remains tracked in the plan rows above. |
-| Validation | Post-duck targeted proof from final Profile build: `tools\validate_build.bat Profile` 0 warnings/errors; `memory_overlay_f6_toggle.json` report `ok=1`, asserted `memoryOverlayEnabled=true`, screenshot captured, allocation guard PASS; `replay_branch_restore_live_edge.json` report `ok=1`, solver restore hash matched, asserted active Solver track, `replayHistoricalSamplePaused=false`, and solver track at present; replay prediction click and `prediction_ragdoll_wall_200_predict.json` passed under `--allocation-guard gameplay` with `replay_prediction_working_set` hard cap `268435456` bytes and no reserve policy violations. Final gates passed: `tools\validate_perf.bat` clean allocation-guard evidence, `policy_violations=0`, no perf regressions, Profile/Debug 0 warnings/errors; `tools\validate_full.bat` passed project filters, runtime boundaries, formatting, DX12 InfoQueue 0/errors and screenshot baselines, and byte-exact `physics_regression_solver.csv`. |
+| Branch | `nightrunner-7th-july` in worktree `C:\SkullbonezCore`. |
+| Active objective | Continue the 2026-07-07 takeover cleanup after fable-02 UI profiler snapshot slice; all five authoritative CSVs were drained earlier, and follow-up blocker-plan work remains. |
+| Last documentation milestone | Fable-08 Demo Director phase 3 P3.1 evidence records phase-entry style application, interaction proof, comment audit, and validation gates. |
+| Last source/data milestone | Fable-08 phase 3 P3.1 applies phase `stylePath` through `ApplyLiveStyleScene(...)`, tracks applied phase style path/count in Director state, ticks Director presentation in no-physics scene frames, and reports applied style proof fields. Current blocker ledger: 27 blocked rows remain. |
+| Pending work | Continue fable-08 phase 3 P3.2 reveal-rate work; fable-02 remaining SVC-022 profiler diagnostics receiving path, Core profiler/Gfx cleanup, and other fable directory follow-ups remain while addressing the remaining 27 blocked rows in `Agentic/Plans/In_Progress/overnight-blockers-2026-07-07.md`. |
+| Concurrent work warning | No unrelated dirty files were present before the fable-01 phase 0 slice. Still run `git status --short --branch` before editing. |
+| Blockers | `Agentic/Plans/In_Progress/overnight-blockers-2026-07-07.md`; Plan03 3 blocked, Plan05 9 blocked, Plan02 11 blocked, Plan01 4 blocked, Plan04 0 blocked. |
+| Validation | Latest source gates passed on 2026-07-07 for fable-08 Demo Director phase 3 P3.1: `tools\validate_build.bat Profile` twice (8.844s and 5.868s; both 0 warnings/0 errors), Profile phase-style interaction proof (11.437s; `directorAppliedStyleCount=1`, phase 0, path `SkullbonezData/styles/neon_cyberpunk.style.json`), `tools\validate_format.bat` (8.398s; all source files correctly formatted), and `tools\validate_full.bat` (55.619s; project filters/runtime boundaries passed; Profile and Debug builds 0 warnings/0 errors; DX12 InfoQueue 0 validation errors; DX12 screenshots matched baselines; `physics_regression_solver.csv` byte-exact). Logs: `Agentic\Reports\2026-07-07\logs\fable-08-p3-1-build-profile.log`, `Agentic\Reports\2026-07-07\logs\fable-08-p3-1-build-profile-rerun.log`, `Agentic\Reports\2026-07-07\logs\fable-08-p3-1-style-interaction-rerun.log`, `Agentic\Reports\2026-07-07\logs\fable-08-p3-1-validate-format-rerun.log`, `Agentic\Reports\2026-07-07\logs\fable-08-p3-1-validate-full-rerun.log`. |
 
 ## Active Notes
 
@@ -51,6 +51,8 @@ audits when it is still useful.
 | Physics/GameModel authority | Active follow-up | `Agentic/Plans/To_Eval/physics-game-model-authority-plan.md`; 2026-07-05 endgame slice deleted the remaining physics-side GameModel compatibility import/writeback/API surface, removed render-host concrete collection reliance from production render surfaces, tightened tombstone guardrails, and moved the focused endgame plan to Done. |
 | Runtime static allocation policy | Complete; post-duck correction validated | Plan moved to `Agentic/Plans/Done/runtime-static-allocation-policy-plan.md`; post-duck source/data update converts replay prediction growth accounting to bytes, adds tracked F6/branch interaction proofs, and passed targeted proof plus `validate_perf`/`validate_full`. |
 | Architecture pass follow-up | Active reference | `Agentic/Plans/architecture_pass_2026-06-02.md` remains the broad checkpoint for runtime, physics data, assets, parser, water, and render graph boundaries. |
+| 2026-07-07 overnight remediation | Remediation pass active | Handoff: `Agentic/Reports/2026-07-07/overnight-run-handoff.md`; blockers: `Agentic/Plans/In_Progress/overnight-blockers-2026-07-07.md`; SVC-034/SVC-032/SVC-033, fable-01 phase 0/M1/M2/M3/M4/S1/S2/S3/S4/S5/E1/E2/E3/D1/D2/D3/closure, fable-02 phases 1-3 G1/G2 plus phase 4 L1/L2 WorkerPool, Window, EngineConfig, and UI profiler snapshot, PHYS-035/fable-03 prediction isolation, fable-04 phase 1, fable-05 phase 1, and fable-08 phases 0-1 plus phase 2 P2.1/P2.2/P2.3/P2.4/P2.5 and phase 3 P3.1 are fixed. |
+| Repo pack-size cleanup | User decision needed for history rewrite | `Agentic/Temp/` is ignored and empty in the tip tree, and `tools/check_staged_file_sizes.py` blocks new oversized staged files outside approved data roots. Existing pack size was recorded at 542 MiB; shrinking it requires a user-approved `git filter-repo` rewrite of historical `Agentic/Temp` blobs and coordinated re-clone. |
 
 ## Known Bugs
 
@@ -68,6 +70,7 @@ not routine iteration steps.
 | Change | Validation |
 |--------|------------|
 | Documentation-only | No validation required |
+| Unit tests only | `tools\validate_tests.bat` |
 | Small non-render code refactor | `tools\validate_fast.bat` |
 | Renderer backend, shaders, screenshots, visual baselines | `tools\validate_dx12_renderer.bat` |
 | DX12 renderer gate or validation tooling | `tools\validate_fast.bat`, then `tools\validate_dx12_renderer.bat` |

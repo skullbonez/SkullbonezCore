@@ -319,6 +319,14 @@ const char* InputController::DescribeAction( RuntimeInputAction action )
         return "CycleAttachedCameraSubmode";
     case RuntimeInputAction::ToggleAttachedCameraPin:
         return "ToggleAttachedCameraPin";
+    case RuntimeInputAction::ToggleDirectorGrab:
+        return "ToggleDirectorGrab";
+    case RuntimeInputAction::SetDirectorPhasePose:
+        return "SetDirectorPhasePose";
+    case RuntimeInputAction::StepDirectorPhase:
+        return "StepDirectorPhase";
+    case RuntimeInputAction::SaveDirectorShotList:
+        return "SaveDirectorShotList";
     case RuntimeInputAction::ToggleEditor:
         return "ToggleEditor";
     case RuntimeInputAction::ToggleEditorTool:

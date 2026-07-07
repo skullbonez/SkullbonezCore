@@ -49,10 +49,13 @@ Related:
 
 using SkullbonezCore::Basics::ReplaySolverWorldSnapshot;
 using SkullbonezCore::Math::CollisionDetection::BoundingBox;
+using SkullbonezCore::Math::CollisionDetection::BoundingSphere;
 using SkullbonezCore::Math::CollisionDetection::ConvexHullShape;
+using SkullbonezCore::Physics::BodySimulationLimits;
 using SkullbonezCore::Physics::ColliderRecord;
 using SkullbonezCore::Physics::ColliderShapeKind;
 using SkullbonezCore::Physics::ColliderStore;
+using SkullbonezCore::Physics::ContactPolicy;
 using SkullbonezCore::Physics::PhysicsBodyCreateDesc;
 using SkullbonezCore::Physics::PhysicsBodyHandle;
 using SkullbonezCore::Physics::PhysicsBodyRecord;
@@ -110,22 +113,130 @@ PhysicsScene::PhysicsScene()
 
 void PhysicsScene::ApplyRuntimeConfig( const Basics::EngineConfig& config )
 {
+    m_physicsMaterial = PhysicsMaterial::FromConfig( config );
+    m_bodySimulationLimits = BodySimulationLimits::FromConfig( config );
+    m_contactPolicy = ContactPolicy::FromConfig( config );
     m_world.ApplyRuntimeConfig( config );
+    m_colliderStore.ApplyPhysicsMaterial( m_physicsMaterial );
+    for ( PhysicsBodyCreateDesc& desc : m_authoredBodyDescs )
+    {
+        ApplyAuthoredBodyPolicy( desc );
+    }
 }
 
 
-void PhysicsScene::ApplyColliderMaterial( const PhysicsMaterial& material )
+void PhysicsScene::ApplyAuthoredBodyPolicy( PhysicsBodyCreateDesc& desc ) const
 {
-    m_colliderStore.ApplyPhysicsMaterial( material );
+    desc.friction = m_physicsMaterial.frictionCoefficient;
+    desc.angularVelocityLimit = m_bodySimulationLimits.angularVelocityLimit;
+    desc.contactEpsilon = m_contactPolicy.contactEpsilon;
+    if ( BoundingSphere* sphere = std::get_if<BoundingSphere>( &desc.shape ) )
+    {
+        sphere->SetDragCoefficient( m_physicsMaterial.sphereDragCoefficient );
+        desc.dragCoefficient = m_physicsMaterial.sphereDragCoefficient;
+    }
+}
+
+
+void PhysicsScene::ApplyAuthoredColliderPolicy( PhysicsColliderCreateDesc& desc ) const
+{
+    desc.friction = m_physicsMaterial.frictionCoefficient;
+    if ( BoundingSphere* sphere = std::get_if<BoundingSphere>( &desc.shape ) )
+    {
+        sphere->SetDragCoefficient( m_physicsMaterial.sphereDragCoefficient );
+        desc.dragCoefficient = m_physicsMaterial.sphereDragCoefficient;
+    }
+}
+
+
+void PhysicsScene::ReserveAuthoredBodyCapacity( std::size_t capacity )
+{
+    m_authoredBodyDescs.reserve( capacity );
+}
+
+
+int PhysicsScene::AuthoredBodyDescriptorCount() const
+{
+    return static_cast<int>( m_authoredBodyDescs.size() );
+}
+
+
+bool PhysicsScene::TryGetAuthoredBodyDescriptor( int modelIndex, PhysicsBodyCreateDesc& outDesc ) const
+{
+    if ( modelIndex < 0 || modelIndex >= AuthoredBodyDescriptorCount() )
+    {
+        return false;
+    }
+    outDesc = m_authoredBodyDescs[static_cast<std::size_t>( modelIndex )];
+    return true;
+}
+
+
+bool PhysicsScene::UpdateAuthoredBodyDescriptor( int modelIndex, PhysicsBodyCreateDesc& desc, int expectedModelCount )
+{
+    if ( modelIndex < 0 || modelIndex >= expectedModelCount || expectedModelCount != AuthoredBodyDescriptorCount() )
+    {
+        return false;
+    }
+    ApplyAuthoredBodyPolicy( desc );
+    m_authoredBodyDescs[static_cast<std::size_t>( modelIndex )] = desc;
+    return true;
+}
+
+
+bool PhysicsScene::TrimAuthoredBodyDescriptorsToCount( int bodyCount )
+{
+    if ( bodyCount < 0 )
+    {
+        return false;
+    }
+    const std::size_t targetCount = static_cast<std::size_t>( bodyCount );
+    if ( targetCount > m_authoredBodyDescs.size() )
+    {
+        return false;
+    }
+    m_authoredBodyDescs.erase( m_authoredBodyDescs.begin() + static_cast<std::ptrdiff_t>( targetCount ),
+                               m_authoredBodyDescs.end() );
+    return AuthoredBodyDescriptorCount() == bodyCount;
 }
 
 
 void PhysicsScene::Clear()
 {
     m_world.Clear();
+    m_authoredBodyDescs.clear();
     m_bodyStore.Clear();
     m_colliderStore.Clear();
     m_renderInstanceStore.Clear();
+}
+
+
+bool PhysicsScene::RefreshBodyStoreFromAuthoredDescriptors( const std::vector<uint32_t>& replayBodyIds,
+                                                            const std::vector<int>& fixedTreeReleaseRoots,
+                                                            const std::vector<const char*>& diagnosticNames )
+{
+    const std::size_t descriptorCount = m_authoredBodyDescs.size();
+    if ( replayBodyIds.size() != descriptorCount || fixedTreeReleaseRoots.size() != descriptorCount ||
+         diagnosticNames.size() != descriptorCount )
+    {
+        return false;
+    }
+
+    std::vector<PhysicsBodyCreateDesc> bodyDescs;
+    bodyDescs.reserve( descriptorCount );
+
+    for ( int i = 0; i < static_cast<int>( descriptorCount ); ++i )
+    {
+        PhysicsBodyCreateDesc desc = m_authoredBodyDescs[static_cast<std::size_t>( i )];
+        desc.sceneObjectId = MakePhysicsSceneObjectIdFromReplayBodyId( replayBodyIds[static_cast<std::size_t>( i )] );
+        desc.fixedTreeReleaseRootIndex = fixedTreeReleaseRoots[static_cast<std::size_t>( i )];
+        desc.diagnosticName = diagnosticNames[static_cast<std::size_t>( i )];
+        ApplyAuthoredBodyPolicy( desc );
+        bodyDescs.push_back( desc );
+    }
+
+    RefreshBodyStore( bodyDescs );
+    return m_bodyStore.Count() == AuthoredBodyDescriptorCount();
 }
 
 
@@ -154,7 +265,10 @@ void PhysicsScene::RefreshBodyFromDescriptor( const PhysicsBodyCreateDesc& desc,
 
 PhysicsBodyHandle PhysicsScene::RegisterAuthoredBody( const PhysicsBodyCreateDesc& desc )
 {
-    return m_bodyStore.CreateBodyRecord( desc, m_world.IsPhysicsSleepEnabled() );
+    PhysicsBodyCreateDesc authoredDesc = desc;
+    ApplyAuthoredBodyPolicy( authoredDesc );
+    m_authoredBodyDescs.push_back( authoredDesc );
+    return m_bodyStore.CreateBodyRecord( authoredDesc, m_world.IsPhysicsSleepEnabled() );
 }
 
 
@@ -251,6 +365,39 @@ bool PhysicsScene::PrepareRenderStoreRefresh( int expectedModelCount )
 }
 
 
+void PhysicsScene::ReserveRenderPresentationCapacity( std::size_t capacity )
+{
+    m_renderInstanceStore.ReservePresentationCapacity( capacity );
+}
+
+
+bool PhysicsScene::ResizeRenderPresentationRecords( int presentationCount )
+{
+    return m_renderInstanceStore.ResizePresentationRecords( presentationCount );
+}
+
+
+SkullbonezCore::Rendering::RenderInstancePresentationRecord*
+PhysicsScene::MutableRenderPresentationRecordForModelIndex( int modelIndex )
+{
+    return m_renderInstanceStore.MutablePresentationRecordForModelIndex( modelIndex );
+}
+
+
+const std::vector<SkullbonezCore::Rendering::RenderInstancePresentationRecord>&
+PhysicsScene::RenderPresentationRecords() const
+{
+    return m_renderInstanceStore.PresentationRecords();
+}
+
+
+bool PhysicsScene::RefreshRenderInstancesFromPresentation()
+{
+    m_renderInstanceStore.Refresh( m_bodyStore, m_colliderStore );
+    return m_renderInstanceStore.Count() == m_bodyStore.Count();
+}
+
+
 SkullbonezCore::Rendering::RenderInstanceStore& PhysicsScene::MutableRenderInstances()
 {
     return m_renderInstanceStore;
@@ -277,7 +424,7 @@ void PhysicsScene::ValidatePhysicsStoreMappings( int modelCount ) const
         const PhysicsBodyRecord& body = bodies[index];
         const ColliderRecord& collider = colliders[index];
         const PhysicsBodyHandle bodyHandle = m_bodyStore.HandleForModelIndex( i );
-        const PhysicsColliderHandle colliderHandle = m_colliderStore.HandleForModelIndex( i );
+        const PhysicsColliderHandle colliderHandle = m_colliderStore.HandleForBodyHandle( bodyHandle );
 
         assert( bodyHandle.IsValid() );
         assert( colliderHandle.IsValid() );
@@ -590,9 +737,11 @@ float PhysicsScene::GetTornadoSystemElapsedSeconds() const
 }
 
 
-void PhysicsScene::RenderTornadoFieldVectors( const Math::Transformation::Matrix4& viewProj )
+void PhysicsScene::RenderTornadoFieldVectors( const Math::Transformation::Matrix4& viewProj,
+                                              Rendering::IRenderCommandContext& renderCommands,
+                                              bool supportsDebugLines )
 {
-    m_world.RenderTornadoFieldVectors( viewProj );
+    m_world.RenderTornadoFieldVectors( viewProj, renderCommands, supportsDebugLines );
 }
 
 

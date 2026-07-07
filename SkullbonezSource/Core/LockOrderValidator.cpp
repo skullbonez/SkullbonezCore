@@ -20,6 +20,8 @@ Invariants:
     must not pay graph-validation costs.
   - A thread's held-lock stack must be updated after cycle detection so failed
     acquisitions report the order that introduced the problem.
+  - The validator singleton is a frozen diagnostics exception: function-local
+    storage, no config reads, and no dependency on other singleton teardown.
 
 Related:
   - SkullbonezSource/Core/LockOrderValidator.h
@@ -111,6 +113,9 @@ LockOrderValidatorState& State()
 
 LockOrderValidator& LockOrderValidator::Instance()
 {
+    // Lifetime: the diagnostics object is a function-local static so callers do
+    // not depend on external startup or shutdown ordering. It owns no resources
+    // whose destructor must coordinate with renderer, config, or worker state.
     static LockOrderValidator s_validator;
     return s_validator;
 }

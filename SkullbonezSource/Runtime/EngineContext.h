@@ -41,6 +41,11 @@ namespace GameObjects
 class GameModelCollection;
 }
 
+namespace Physics
+{
+class PhysicsEngine;
+}
+
 namespace Assets
 {
 class AssetSystem;
@@ -84,6 +89,7 @@ struct EngineContextBindings
     RunCameraState* camera = nullptr;                   // Camera and tracking state
     RunDebugState* debug = nullptr;                     // Debug visualization toggles
     Environment::WorldEnvironment* world = nullptr;     // Fluid/gravity/terrain bounds
+    Physics::PhysicsEngine* physics = nullptr;          // Physics-owned runtime snapshot stores
     GameObjects::GameModelCollection* models = nullptr; // Runtime model and solver-visible state
 };
 
@@ -108,8 +114,6 @@ class EngineContext
     void Bind( const EngineContextBindings& bindings );
     bool IsBound() const;
 
-    const EngineContextBindings& Bindings() const;
-    EngineContextBindings& Bindings();
     EngineServices Services();
 
   private:

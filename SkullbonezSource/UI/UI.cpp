@@ -100,9 +100,12 @@ uint32_t HashFloat( uint32_t seed, float value, float scale = 100.0f )
     return HashInt( seed, static_cast<int>( std::round( value * scale ) ) );
 }
 
-constexpr int CAMERA_MODE_OPTION_COUNT = 6;
+// Invariant: camera mode options are indexed by static_cast<int>(RunCameraMode)
+// even though this UI file stays decoupled from the runtime enum header. Keep
+// this table in enum order and keep UI.h default masks at one bit per option.
+constexpr int CAMERA_MODE_OPTION_COUNT = 7;
 const char* const kCameraModeOptions[CAMERA_MODE_OPTION_COUNT] =
-    { "Demo", "Scene", "Inspect", "Attach", "Launcher", "Manipulator" };
+    { "Demo", "Scene", "Inspect", "Attach", "Launcher", "Manipulator", "Director" };
 constexpr float MINIMIZED_CAMERA_MODE_COMBO_W = 104.0f;
 constexpr float MINIMIZED_CAMERA_MODE_GAP = 8.0f;
 constexpr float MINIMIZED_RESTORE_W = 42.0f;
@@ -170,6 +173,60 @@ uint32_t HashRenderTargetPreviewCatalog( uint32_t hash, const InGameUIFrameData&
 }
 
 
+uint32_t HashProfilerFrameSnapshot( uint32_t hash, const ProfilerTab::FrameSnapshot& frame )
+{
+    // Invariant: profiler tab draw caching depends on bounded snapshot values,
+    // not live singleton reads. Hash only the fixed arrays copied into UIData.
+    const int markerCount = std::clamp( frame.markerCount, 0, ProfilerTab::MAX_MARKERS );
+    hash = HashInt( hash, markerCount );
+    for ( int markerIndex = 0; markerIndex < markerCount; ++markerIndex )
+    {
+        const ProfilerTab::MarkerSnapshot& marker = frame.markers[markerIndex];
+        hash = HashTextValue( hash, marker.leafName );
+        hash = HashInt( hash, static_cast<int>( marker.hash ) );
+        hash = HashInt( hash, marker.parentIndex );
+        hash = HashInt( hash, marker.depth );
+        hash = HashFloat( hash, marker.lastFrameMs, 1000.0f );
+        hash = HashFloat( hash, marker.lastSelfMs, 1000.0f );
+        hash = HashFloat( hash, marker.avgMs, 1000.0f );
+        hash = HashFloat( hash, marker.selfAvgMs, 1000.0f );
+        hash = HashFloat( hash, marker.p50Ms, 1000.0f );
+        hash = HashFloat( hash, marker.p99Ms, 1000.0f );
+    }
+
+    const int workerSampleCount = std::clamp( frame.workerCoreSampleCount, 0, ProfilerTab::MAX_WORKER_CORE_SAMPLES );
+    hash = HashInt( hash, workerSampleCount );
+    for ( int sampleIndex = 0; sampleIndex < workerSampleCount; ++sampleIndex )
+    {
+        const ProfilerTab::WorkerCoreSampleSnapshot& sample = frame.workerCoreSamples[sampleIndex];
+        hash = HashInt( hash, sample.workerIndex );
+        hash = HashInt( hash, sample.jobCount );
+        hash = HashFloat( hash, sample.coreMs, 1000.0f );
+        hash = HashFloat( hash, sample.avgCoreMs, 1000.0f );
+    }
+
+    const ProfilerTab::DrawTraceSnapshot& drawTrace = frame.drawTrace;
+    const int nodeCount = std::clamp( drawTrace.nodeCount, 0, ProfilerTab::MAX_MARKERS );
+    hash = HashInt( hash, nodeCount );
+    hash = HashInt( hash, drawTrace.nodeOverflowCount );
+    hash = HashInt( hash, drawTrace.eventCount );
+    hash = HashInt( hash, drawTrace.eventOverflowCount );
+    hash = HashInt( hash, drawTrace.scopeMismatchCount );
+    for ( int nodeIndex = 0; nodeIndex < nodeCount; ++nodeIndex )
+    {
+        const ProfilerTab::DrawTraceNodeSnapshot& node = drawTrace.nodes[nodeIndex];
+        hash = HashTextValue( hash, node.leafName );
+        hash = HashInt( hash, static_cast<int>( node.hash ) );
+        hash = HashInt( hash, node.parentIndex );
+        hash = HashInt( hash, node.depth );
+        hash = HashInt( hash, node.drawCallCount );
+        hash = HashInt( hash, node.instanceCount );
+        hash = HashInt( hash, node.vertexCount );
+    }
+    return hash;
+}
+
+
 uint32_t BuildUIContentSignature( const InGameUIFrameData& data )
 {
     // Invariant: The content signature is the cache invalidation contract.
@@ -207,6 +264,7 @@ uint32_t BuildUIContentSignature( const InGameUIFrameData& data )
     hash = HashFloat( hash, data.cpuFrameMs, 1000.0f );
     hash = HashFloat( hash, data.gpuFrameMs, 1000.0f );
     hash = HashFloat( hash, data.workerCoreTotalMs, 1000.0f );
+    hash = HashProfilerFrameSnapshot( hash, data.profiler );
     hash = HashInt( hash, data.modelCount );
     hash = HashInt( hash, data.modelCapacity );
     hash = HashInt( hash, data.workerThreadCount );
@@ -2508,6 +2566,9 @@ void InGameUI::Draw( const InGameUIFrameData& data, const UIRenderContext& rende
 {
     const bool histogramEnabled = ProfilerTab::PerformanceHistogramEnabled( m_profilerTab );
     const bool memoryOverlayEnabled = MemoryTab::OverlayEnabled( m_memoryOverlay );
+    // Why: input handling runs before the next draw, so the profiler tab keeps a
+    // bounded copy of the latest frame snapshot for content height and hit tests.
+    ProfilerTab::SetFrameSnapshot( m_profilerTab, data.profiler );
     if ( !m_window.isVisible && !histogramEnabled && !memoryOverlayEnabled )
     {
         return;

@@ -68,6 +68,7 @@ class GameModelCollection;
 namespace SkullbonezCore::Physics
 {
 class ColliderStore;
+class PhysicsEngine;
 class PhysicsBodyStore;
 } // namespace SkullbonezCore::Physics
 
@@ -86,6 +87,11 @@ namespace SkullbonezCore::Environment
 class CameraCollection;
 class WorldEnvironment;
 } // namespace SkullbonezCore::Environment
+
+namespace SkullbonezCore::Rendering
+{
+class IRenderCommandContext;
+} // namespace SkullbonezCore::Rendering
 
 namespace SkullbonezCore::Basics
 {
@@ -135,6 +141,8 @@ struct LauncherReproSnapshotContext
     const std::string* currentScenePath;
     const RunLaunchOptions& launchOptions;
     const RunRuntimeSettings& runtimeSettings;
+    float contactEpsilon;                                                   // Physics contact tolerance captured from Run config for repro output.
+    float frictionCoeff;                                                    // Physics friction setting captured from Run config for repro output.
     const RunDebugState& debug;
     const char* rendererName;
     double simulationSeconds;
@@ -360,7 +368,8 @@ class RunEditorTracer
                                  int hotAngularAxis,
                                  int activeAxis,
                                  bool activeAngular );
-    void Render( const Math::Transformation::Matrix4& viewProjection );
+    void Render( const Math::Transformation::Matrix4& viewProjection,
+                 Rendering::IRenderCommandContext& renderCommands );
 };
 
 class RuntimeTools
@@ -401,15 +410,18 @@ class RuntimeTools
                           const Math::Vector::Vector3& rayOrigin,
                           const Math::Vector::Vector3& rayDirection,
                           const Math::Vector::Vector3& cameraUp );
-    void FireLauncherLaser( GameObjects::GameModelCollection& collection,
+    void FireLauncherLaser( Physics::PhysicsEngine& physics,
+                            int modelCount,
                             Geometry::Terrain* terrain,
                             const Math::Vector::Vector3& rayOrigin,
                             const Math::Vector::Vector3& rayDirection,
                             const Math::Vector::Vector3& cameraUp );
     bool FireLauncherProjectile( GameObjects::GameModelCollection& collection,
+                                 Physics::PhysicsEngine& physics,
                                  RunSceneState& scene,
                                  Geometry::Terrain* terrain,
                                  int activeModelCapacity,
+                                 int modelCount,
                                  const Math::Vector::Vector3& rayOrigin,
                                  const Math::Vector::Vector3& rayDirection,
                                  const Math::Vector::Vector3& cameraUp );

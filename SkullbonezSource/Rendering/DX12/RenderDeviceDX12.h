@@ -671,9 +671,9 @@ struct Dx12RenderDeviceInitDesc
     Keeping device ownership here gives the renderer a clear boundary:
 
     - this class owns raw COM lifetime for factory/device/queue/swapchain/fence,
-    - the backend may borrow those pointers through accessors,
-    - future render graph and pass modules can ask for the command list and
-      queues without inheriting swap-chain setup code,
+    - the backend may borrow those pointers internally through accessors,
+    - DX12 helper classes ask the device owner for native handles instead of
+      treating RenderBackendDX12's migration aliases as the lifetime owner,
     - shutdown has one place to release the core DX12 objects in a safe order.
 
     This is not yet the final renderer device from the architecture plan. It is

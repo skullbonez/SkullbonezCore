@@ -41,6 +41,8 @@ Related:
 #include "../../Physics/PhysicsBodyStore.h"
 #include "../../Physics/Ragdoll.h"
 #include "../../Core/WorkerPool.h"
+#include "../../Rendering/IRenderBackend.h"
+#include "../../Rendering/IRenderRayTracing.h"
 
 #pragma warning( push, 0 )
 #include "../../../ThirdPtySource/nlohmann/json.hpp"
@@ -436,8 +438,8 @@ void Run::UpdateRequiredSceneContacts()
         return;
     }
 
-    const PhysicsBodyStore& bodyStore = m_cGameModelCollection.GetPhysicsBodyStore();
-    const ColliderStore& colliderStore = m_cGameModelCollection.GetColliderStore();
+    const PhysicsBodyStore& bodyStore = m_cGameModelCollection.GetPhysicsEngine().BodyStore();
+    const ColliderStore& colliderStore = m_cGameModelCollection.GetPhysicsEngine().Colliders();
     const auto& bodyRecords = bodyStore.Records();
     const auto& colliderRecords = colliderStore.Records();
     const int contactModelCount =
@@ -599,7 +601,7 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
     SceneRuntimeLoadBeginContext loadBeginContext{ runtime,
                                                    resetContext,
                                                    m_sceneController.Browser(),
-                                                   m_renderHost.ActiveRenderBackend(),
+                                                   m_renderBackendView.renderBackend,
                                                    m_launchOptions.interactiveSceneRun };
 #ifdef _DEBUG
     EndPhysicsDiagnosticsRun( "scene_reload" );
@@ -716,7 +718,7 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
             m_cWorldEnvironment,
             m_config,
             ResolveSourceAssetPath( SkullbonezCore::Assets::AssetKind::Terrain, "terrain.raw", m_config.terrainRaw ),
-            m_renderHost.ActiveRenderBackend() );
+            m_renderBackendView.renderBackend );
         ApplyConfiguredWorldEnvironment( m_cWorldEnvironment, m_config, m_systems.terrain.get() );
         ApplyNoWaterOverride( m_cWorldEnvironment, m_systems.terrain.get(), m_launchOptions.noWater );
         if ( shouldPreserveRuntimeState )
@@ -754,7 +756,9 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
                                                               m_systems.assets,
                                                               RuntimeActiveCinematicConfig( SceneState(), m_config ),
                                                               m_defaultCinematicRender } );
-        const char* rendererName = m_renderHost.RendererNameOrDefault( "unknown" );
+        const char* rendererName = m_renderBackendView.renderDiagnostics
+                                       ? m_renderBackendView.renderDiagnostics->GetRendererName()
+                                       : "unknown";
         char titleText[256];
         sprintf_s( titleText, "%s [%s]", TITLE_TEXT, rendererName );
         m_systems.window->SetTitleText( titleText );
@@ -866,7 +870,7 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
                                  scene.GetFlatBaseY(),
                                  scene.GetFlatSlopeX(),
                                  scene.GetFlatSlopeZ(),
-                                 m_renderHost.ActiveRenderBackend() );
+                                 m_renderBackendView.renderBackend );
         }
         else
         {
@@ -877,7 +881,7 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
                                ResolveSourceAssetPath( SkullbonezCore::Assets::AssetKind::Terrain,
                                                        "terrain.raw",
                                                        m_config.terrainRaw ),
-                               m_renderHost.ActiveRenderBackend() );
+                               m_renderBackendView.renderBackend );
         }
 
         ApplyConfiguredWorldEnvironment( m_cWorldEnvironment, m_config, m_systems.terrain.get() );
@@ -953,7 +957,9 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
             m_camera.trackBallIndex = 0;
             m_camera.autoCycleInterval = scene.GetAutoCycleInterval(); // -1 if not specified = disabled
         }
-        const char* rendererName = m_renderHost.RendererNameOrDefault( "unknown" );
+        const char* rendererName = m_renderBackendView.renderDiagnostics
+                                       ? m_renderBackendView.renderDiagnostics->GetRendererName()
+                                       : "unknown";
         char titleText[256];
         sprintf_s( titleText, "%s [SCENE MODE] [%s]", TITLE_TEXT, rendererName );
         m_systems.window->SetTitleText( titleText );
@@ -1105,18 +1111,19 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
     }
 
 #ifdef _DEBUG
-    Log().WriteEventf( "scene_started index=%d load=%d path=\"%s\" renderer=\"%s\" target_frames=%d seed=%u "
-                       "fixed_step=%d physics=%d text=%d models=%d",
-                       SceneState().currentSceneIndex,
-                       SceneState().loadCount,
-                       scenePath.empty() ? "generated" : scenePath.c_str(),
-                       m_renderHost.RendererNameOrDefault( "unknown" ),
-                       SceneState().targetFrameCount,
-                       SceneState().rngSeed,
-                       SceneState().isFixedStep ? 1 : 0,
-                       SceneState().isScenePhysics ? 1 : 0,
-                       SceneState().isSceneText ? 1 : 0,
-                       SceneState().modelCount );
+    Log().WriteEventf(
+        "scene_started index=%d load=%d path=\"%s\" renderer=\"%s\" target_frames=%d seed=%u "
+        "fixed_step=%d physics=%d text=%d models=%d",
+        SceneState().currentSceneIndex,
+        SceneState().loadCount,
+        scenePath.empty() ? "generated" : scenePath.c_str(),
+        m_renderBackendView.renderDiagnostics ? m_renderBackendView.renderDiagnostics->GetRendererName() : "unknown",
+        SceneState().targetFrameCount,
+        SceneState().rngSeed,
+        SceneState().isFixedStep ? 1 : 0,
+        SceneState().isScenePhysics ? 1 : 0,
+        SceneState().isSceneText ? 1 : 0,
+        SceneState().modelCount );
 #endif
 
 #ifdef _DEBUG
@@ -1124,7 +1131,10 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
 #endif
 
     // Runtime swap policy is chosen after config/scene overrides are resolved.
-    m_renderHost.SetVsyncEnabled( m_runtimeSettings.isVsyncEnabled );
+    if ( m_renderBackendView.deviceLifecycle )
+    {
+        m_renderBackendView.deviceLifecycle->SetVsyncEnabled( m_runtimeSettings.isVsyncEnabled );
+    }
 
     // Restart timers
     m_timers.frameTimer.StartTimer();
@@ -1136,14 +1146,19 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
 
     // Initialize DXR raytracing on first scene load (requires terrain + sphere meshes to exist)
     // Force sphere mesh creation (normally lazy-init on first render)
-    SkullbonezCore::Rendering::IRenderRayTracing* rayTracing = m_renderHost.ActiveRayTracingBackend();
-    SkullbonezCore::Rendering::IRenderBackend* renderBackend = m_renderHost.ActiveRenderBackend();
-    const bool hasRayTracingReflection = m_renderHost.SupportsDxrReflection() && rayTracing && renderBackend;
+    SkullbonezCore::Rendering::IRenderRayTracing* rayTracing = m_renderBackendView.rayTracingBackend;
+    SkullbonezCore::Rendering::IRenderResourceFactory* renderResources = m_renderBackendView.renderResources;
+    SkullbonezCore::Rendering::IRenderCommandContext* renderCommands = m_renderBackendView.renderCommands;
+    const bool hasRayTracingReflection =
+        m_renderBackendView.renderDiagnostics &&
+        m_renderBackendView.renderDiagnostics->GetCapabilities().supportsDxrReflection && rayTracing;
     if ( hasRayTracingReflection && RenderHelper::GetSphereInstMeshHandle() == 0 )
     {
-        auto& renderResources = static_cast<SkullbonezCore::Rendering::IRenderResourceFactory&>( *renderBackend );
-        auto& renderCommands = static_cast<SkullbonezCore::Rendering::IRenderCommandContext&>( *renderBackend );
-        const RenderHelperContext helperContext{ renderResources, renderCommands, m_systems.assets, m_config };
+        if ( !renderResources || !renderCommands )
+        {
+            throw std::runtime_error( "DXR reflection initialization requires render resource and command facets" );
+        }
+        const RenderHelperContext helperContext{ *renderResources, *renderCommands, m_systems.assets, m_config };
         RenderHelper::EnsureSphereMesh( helperContext );
     }
     if ( hasRayTracingReflection && m_systems.terrain && m_systems.terrain->GetMesh() )
@@ -1166,7 +1181,7 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
                                  sphereVBVA,
                                  sphereVertCount,
                                  sphereStride,
-                                 ActiveGameModelCapacity() );
+                                 m_startup.gameModelCapacity );
         }
     }
     runtime.RecordLifecycleEvent( SceneRuntimeLifecycleEvent::AfterSceneActivated );

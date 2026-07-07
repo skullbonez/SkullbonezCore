@@ -1,7 +1,7 @@
 /*
 File: SkullbonezSource/Runtime/RuntimeViewModel.cpp
 Purpose:
-  Builds runtime presentation snapshots from EngineContext.
+  Builds runtime presentation snapshots from explicit presentation inputs.
 
 Mental model:
   The builder reads existing subsystem owners and copies only scalar UI-facing
@@ -9,43 +9,98 @@ Mental model:
 
 Glossary:
   View model: Read-only presentation snapshot assembled from runtime owners.
-  EngineContext: Bound view over subsystems owned by Run.
+  RuntimeViewModelContext: Narrow borrowed view over the exact runtime owners
+    required for scalar presentation.
   Scalar state: Small copyable values such as counts, flags, and indices.
 
 Invariants:
   - Building the view model must not mutate subsystems.
-  - Debug builds assert before an unbound context can hide missing runtime
-    service bindings; release builds still return a default snapshot.
+  - The context is an explicit borrow packet; callers must pass live owners and
+    the builder must copy out only presentation values.
 
 Related:
   - SkullbonezSource/Runtime/RuntimeViewModel.h
-  - SkullbonezSource/Runtime/EngineContext.h
 */
 #include "RuntimeViewModel.h"
 
 #include "CaptureController.h"
-#include "EngineContext.h"
+#include "RunState.h"
 #include "Scene/SceneController.h"
-#include "../GameObjects/GameModelCollection.h"
+#include "../Physics/PhysicsEngine.h"
 
-#include <cassert>
+#include <algorithm>
 
 namespace SkullbonezCore
 {
 namespace Basics
 {
-RuntimeViewModel RuntimeViewModelBuilder::Build( const EngineContext& context )
+namespace
+{
+const char* ContactAudioFlashModeLabel( ContactAudioFlashMode mode )
+{
+    switch ( mode )
+    {
+    case ContactAudioFlashMode::Off:
+        return "Flash: Off";
+    case ContactAudioFlashMode::Emitted:
+        return "Flash: Emitted";
+    case ContactAudioFlashMode::Candidates:
+        return "Flash: Candidates";
+    case ContactAudioFlashMode::Rejected:
+        return "Flash: Rejected";
+    default:
+        return "Flash: Emitted";
+    }
+}
+
+
+void FillContactAudioSnapshot( RuntimeContactAudioSnapshot& audio,
+                               const Runtime::Audio::ContactAudioService& contactAudio,
+                               const RunRuntimeSettings& runtimeSettings )
+{
+    audio.enabled = contactAudio.IsEnabled();
+    audio.available = contactAudio.IsAvailable();
+    audio.debugCounters = runtimeSettings.contactAudioDebugCounters;
+    audio.flashMode = static_cast<int>( runtimeSettings.contactAudioFlashMode );
+    audio.flashModeLabel = ContactAudioFlashModeLabel( runtimeSettings.contactAudioFlashMode );
+    audio.masterGain = contactAudio.MasterGain();
+    audio.maxDistanceScale = contactAudio.MaxDistanceScale();
+    audio.minClosingSpeed = contactAudio.MinClosingSpeed();
+    audio.minImpactScore = contactAudio.MinImpactScore();
+    audio.impactScoreRangeSeconds = contactAudio.ImpactScoreRangeSeconds();
+    audio.simpleMode = contactAudio.SimpleModeEnabled();
+    audio.simpleMinLinearEnergy = contactAudio.SimpleMinLinearEnergy();
+    audio.simpleMinLinearDeltaSpeed = contactAudio.SimpleMinLinearDeltaSpeed();
+    audio.simpleLinearEnergyRange = contactAudio.SimpleLinearEnergyRange();
+    audio.burstVoicesPerWindow = contactAudio.BurstVoicesPerWindow();
+    audio.rollingLevelDb = contactAudio.RollingLevelDb();
+    audio.rollingMaxDistance = contactAudio.RollingMaxDistance();
+    audio.rollingMinSlipSpeed = contactAudio.RollingMinSlipSpeed();
+    audio.rollingVoicesPerWindow = contactAudio.RollingVoicesPerWindow();
+    audio.stats = contactAudio.Stats();
+    audio.soundSetCount = (std::min)( contactAudio.SoundSetCount(), RUNTIME_CONTACT_AUDIO_SET_MAX );
+    audio.soundSampleCount = (std::min)( contactAudio.SoundSampleCount(), RUNTIME_CONTACT_AUDIO_SAMPLE_MAX );
+
+    // Lifetime: sample paths and set tuning strings remain borrowed from the
+    // audio service. The view model is frame-local UI data, not an asset owner.
+    for ( int setIndex = 0; setIndex < audio.soundSetCount; ++setIndex )
+    {
+        contactAudio.GetSoundSetTuning( setIndex, audio.soundSets[setIndex] );
+    }
+    for ( int sampleIndex = 0; sampleIndex < audio.soundSampleCount; ++sampleIndex )
+    {
+        audio.soundSamplePaths[sampleIndex] = contactAudio.SoundSamplePath( sampleIndex );
+    }
+}
+} // namespace
+
+
+RuntimeViewModel RuntimeViewModelBuilder::Build( const RuntimeViewModelContext& context )
 {
     RuntimeViewModel view;
-    assert( context.IsBound() && "RuntimeViewModelBuilder requires a bound EngineContext" );
-    if ( !context.IsBound() )
-    {
-        return view;
-    }
 
-    const EngineContextBindings& bindings = context.Bindings();
-    const RunSceneState& scene = bindings.scene->State();
-    const RunScreenshotState& screenshot = bindings.capture->Screenshot();
+    const RunSceneState& scene = context.scene.State();
+    const RunScreenshotState& screenshot = context.capture.Screenshot();
     const bool screenshotConfigured = screenshot.isScreenshotAndExit || screenshot.screenshotFrame >= 0 ||
                                       screenshot.screenshotMs >= 0 || screenshot.screenshotPath[0] != '\0' ||
                                       screenshot.screenshotInterval > 0;
@@ -56,11 +111,24 @@ RuntimeViewModel RuntimeViewModelBuilder::Build( const EngineContext& context )
     view.fixedStep = scene.isFixedStep;
     view.screenshotPending = screenshotConfigured && !screenshot.isScreenshotSaved;
     view.sceneIndex = scene.currentSceneIndex;
-    view.sceneCount = bindings.scene->QueueSize();
+    view.sceneCount = context.scene.QueueSize();
     view.frame = scene.currentFrame;
     view.targetFrameCount = scene.targetFrameCount;
-    view.modelCount = bindings.models ? bindings.models->GetModelCount() : 0;
+    // Why: the UI displays a runtime count, but physics body rows are the
+    // simulation snapshot authority. Do not ask GameModelCollection to report a
+    // model-order compatibility count for this presentation value.
+    view.modelCount = context.physics.BodyStore().Count();
     view.timeScale = scene.timeScale;
+    return view;
+}
+
+
+RuntimeViewModel RuntimeViewModelBuilder::Build( const RuntimeViewModelContext& context,
+                                                 const Runtime::Audio::ContactAudioService& contactAudio )
+{
+    RuntimeViewModel view = Build( context );
+
+    FillContactAudioSnapshot( view.contactAudio, contactAudio, context.runtimeSettings );
     return view;
 }
 } // namespace Basics

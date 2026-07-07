@@ -21,10 +21,35 @@
 #   Store-authority fence: Rule that keeps migrated callers on body/collider/
 #     render stores instead of reopening model mirrors.
 #   Inheritance budget: Approved list of stable runtime-polymorphism boundaries.
+#   Run member census: Counted private `m_` fields in Run.h so the composition
+#     root cannot silently collect another subsystem owner.
+#   Throw-site census: Textual count of source `throw` tokens used as a ratchet
+#     against adding new exception paths without an owning cleanup row.
+#   Host-field census: Counted `m_host.m_` render-pass references that should
+#     shrink as passes receive frame snapshots and narrow services.
+#   Service-global census: Counted access to process-global service helpers and
+#     singleton `Instance()` calls while explicit context rows remove them.
+#   Render-backend aggregate census: Counted use of IRenderBackend and
+#     RenderBackendDX12::Get helper backdoors while narrow render capabilities
+#     replace the wide facade.
+#   Physics collection census: Counted GameModelCollection mentions under
+#     Physics/ while debug and ragdoll rows migrate to explicit store views.
 #
 # Invariants:
 #   - New deleted-artifact guards belong in DELETED_MIGRATION_ARTIFACT_PATTERNS.
 #   - New inheritance needs an approved stable-boundary row with owner evidence.
+#   - Throw-site budget is the current tracked-source census, not an approval to
+#     add more exception paths.
+#   - Host-field budget records current render-pass debt; new direct host field
+#     browsing is blocked while the plan rows remove old accesses.
+#   - Service-global budget records current explicit-service debt; stale
+#     per-file allowance must not approve net-new global lookups.
+#   - Render-backend aggregate budget records current Plan 05 debt; new aggregate
+#     dependencies must choose a narrow render capability or lower the ratchet.
+#   - Physics GameModelCollection budget records current Plan 02 debt; new
+#     physics dependencies must choose body/collider/render stores or lower the ratchet.
+#   - Run private member budget records current Plan 01 composition-root debt;
+#     new subsystem state must choose an existing owner or lower the ratchet.
 #   - Checker self-tests run before repo scans.
 #   - Comment-only historical mentions of deleted names are allowed; live code is
 #     scanned after comments and string literals are stripped where needed.
@@ -78,6 +103,7 @@ RUN_INPUT_SOURCE = Path("SkullbonezSource/Runtime/RunInput.cpp")
 RUNTIME_INTERACTION_COMMANDS_HEADER = Path("SkullbonezSource/Runtime/RuntimeInteractionCommands.h")
 RUNTIME_PICK_SERVICE_SOURCE = Path("SkullbonezSource/Runtime/RuntimePickService.cpp")
 RUN_PASSES_SOURCE = Path("SkullbonezSource/Runtime/RunPasses.cpp")
+RUNTIME_RENDER_PASSES_HEADER = Path("SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h")
 RUN_UI_TEXT_PASS_SOURCE = Path("SkullbonezSource/Runtime/RunUiTextPass.cpp")
 RUN_SCENE_SOURCE = Path("SkullbonezSource/Runtime/Scene/RunScene.cpp")
 SCENE_AUTHORED_SETUP_SOURCE = Path("SkullbonezSource/Runtime/Scene/SceneAuthoredSetup.cpp")
@@ -91,7 +117,7 @@ MOUSE_PICKUP_TOOLS_SOURCE = Path("SkullbonezSource/Runtime/Editor/RunMousePickup
 RUNTIME_TOOLS_SOURCE = Path("SkullbonezSource/Runtime/Tools/RuntimeTools.cpp")
 RUNTIME_TOOLS_HEADER = Path("SkullbonezSource/Runtime/Tools/RuntimeTools.h")
 RUN_REPLAY_TOOLS_SOURCE = Path("SkullbonezSource/Runtime/Replay/RunReplayTools.cpp")
-REPLAY_VELOCITY_EDIT_SOURCE = Path("SkullbonezSource/Runtime/Replay/RunReplayVelocityEdit.inl")
+REPLAY_VELOCITY_EDIT_SOURCE = Path("SkullbonezSource/Runtime/Replay/RunReplayVelocityEdit.cpp")
 REPLAY_QUERY_TOOLS_SOURCE = Path("SkullbonezSource/Runtime/Replay/RunReplayQueryTools.inl")
 REPLAY_PREDICTION_HELPERS_SOURCE = Path("SkullbonezSource/Runtime/Replay/RunReplayPredictionHelpers.inl")
 REPLAY_PREDICTION_VISUALIZER_SOURCE = Path("SkullbonezSource/Runtime/Replay/RunReplayPredictionVisualizer.inl")
@@ -429,7 +455,7 @@ REPLAY_RECORDER_MODEL_STATE_CAPTURE_PATTERN = re.compile(
     r"GetInvertedMass|GetRotationalInertia|GetInvertedRotationalInertia|IsFixed)\s*\()"
 )
 REPLAY_PREDICTION_CAPTURE_BODY_FUNCTION_PATTERN = re.compile(r"\bbool\s+CaptureReplayPredictionBodyState\s*\(")
-REPLAY_PREDICTION_CAPTURE_FRAME_FUNCTION_PATTERN = re.compile(r"\bvoid\s+CaptureReplayPredictionFrame\s*\(")
+REPLAY_PREDICTION_CAPTURE_FRAME_FUNCTION_PATTERN = re.compile(r"\b(?:bool|void)\s+CaptureReplayPredictionFrame\s*\(")
 REPLAY_PREDICTION_MODEL_STATE_CAPTURE_PATTERN = re.compile(
     r"\bmodel\s*(?:->|\.)\s*"
     r"(?:GetReplayBodyId|GetPosition|GetVelocity|GetAngularVelocity|GetOrientation|GetMass|"
@@ -440,6 +466,28 @@ REPLAY_PREDICTION_PHYSICS_TICK_FUNCTION_PATTERN = re.compile(r"\bvoid\s+StepRepl
 REPLAY_PREDICTION_BULK_WRITEBACK_PATTERN = re.compile(
     r"\bmodelCollection\s*\.\s*WriteBackPhysicsBodies\s*\("
 )
+REPLAY_PREDICTION_PRIVATE_ENGINE_RESTORE_SOURCES = (
+    REPLAY_PREDICTION_HELPERS_SOURCE,
+    REPLAY_PREDICTION_VISUALIZER_SOURCE,
+    RUN_REPLAY_TOOLS_SOURCE,
+)
+# Why: PHYS-035 is closed only while prediction restore calls target the
+# replay-owned private engine. A live-engine restore here would silently reopen
+# the old determinism-risk mutation window.
+REPLAY_PREDICTION_SOLVER_RESTORE_CALL_PATTERN = re.compile(
+    r"(?P<call>[^;{}]*\bRestoreReplaySolverSnapshot\s*\()",
+    re.S,
+)
+REPLAY_PREDICTION_PRIVATE_SOLVER_RESTORE_ALLOWED_PATTERN = re.compile(
+    r"\bpredictionEngine\s*\.\s*RestoreReplaySolverSnapshot\s*\("
+)
+REPLAY_PREDICTION_APPLY_BODY_STATE_CALL_PATTERN = re.compile(
+    r"\bApplyReplayPredictionBodyState\s*\(\s*(?P<target>[^,\n)]+)"
+)
+REPLAY_PREDICTION_PRIVATE_APPLY_TARGETS = {
+    "predictionEngine",
+    "*prediction.predictionEngine",
+}
 REPLAY_PREDICTION_GHOST_RENDER_FUNCTION_PATTERN = re.compile(
     r"\bvoid\s+RuntimeRenderHost::RenderReplayPredictionGhosts\s*\("
 )
@@ -1404,6 +1452,18 @@ GRAPH_OWNED_RENDER_PASS_DIRECT_CALL_PATTERN = re.compile(
 GRAPH_OWNED_RENDER_PASS_MANUAL_BARRIER_PATTERN = re.compile(
     r"\b(?:ResourceBarrier\s*\(|D3D12_RESOURCE_BARRIER\b|ExecuteGraph(?:Transition|UavBarrier)\s*\()"
 )
+GRAPH_OWNED_RENDER_PASS_DECLARATION_ONLY_PATTERN = re.compile(
+    r"\b(?:RenderGraphBarrierPolicy::DiagnosticOnly|RenderGraphPassExecutionOwner::DeclarationOnly)\b"
+)
+GRAPH_OWNED_RENDER_PASS_ADD_PASS_PATTERN = re.compile(
+    r"\bgraph\s*\.\s*AddPass\s*\((?:(?!;).)*?\);",
+    re.S,
+)
+GRAPH_OWNED_RENDER_PASS_ADD_PASS_ASSIGNMENT_PATTERN = re.compile(
+    r"\b(?:(?:const\s+)?uint32_t\s+)?([A-Za-z_]\w*)\s*=\s*graph\s*\.\s*AddPass\s*\((?:(?!;).)*?\);",
+    re.S,
+)
+GRAPH_OWNED_RENDER_PASS_EXECUTE_CALLBACKS_PATTERN = re.compile(r"\bgraph\s*\.\s*ExecuteCallbacks\s*\(")
 GRAPH_OWNED_RENDER_PASS_MANUAL_BARRIER_SOURCES = (
     RUN_RENDER_SOURCE,
     RUN_PASSES_SOURCE,
@@ -1423,6 +1483,52 @@ RENDER_GRAPH_UNKNOWN_ACCESS_ALLOWLIST: Counter[tuple[Path, str]] = Counter(
         # state until graph transient/import ownership replaces this legacy edge.
         ( RUN_RENDER_SOURCE, "CinematicSceneDepth" ): 1,
         ( RENDER_PIPELINE_SOURCE, "CinematicSceneDepth" ): 1,
+    }
+)
+RENDER_BACKEND_AGGREGATE_DEPENDENCY_PATTERNS: tuple[tuple[str, re.Pattern[str], str, str], ...] = (
+    (
+        "IRenderBackend",
+        re.compile(r"\bIRenderBackend\b|#\s*include\s+[<\"][^>\"]*IRenderBackend\.h[>\"]"),
+        "render backend aggregate dependency is count-guarded",
+        "Pass IRenderCommandContext, IRenderResourceFactory, IRenderDiagnostics, capture, or IRenderRayTracing instead of adding another IRenderBackend dependency.",
+    ),
+    (
+        "RenderBackendDX12::Get()",
+        re.compile(r"\bRenderBackendDX12\s*::\s*Get\s*\("),
+        "RenderBackendDX12::Get dependency is count-guarded",
+        "Pass a DX12 resource/context owner instead of using the static backend helper backdoor.",
+    ),
+)
+# RGRAPH-030: include-aware tracked-source census on 2026-07-07.
+# These budgets are not approval for growth; per-file rows classify remaining
+# render-backend aggregate debt while Plan 05 drains it.
+MAX_IRENDER_BACKEND_DEPENDENCY_CENSUS = 39
+MAX_RENDER_BACKEND_DX12_GET_CENSUS = 0
+RENDER_BACKEND_AGGREGATE_DEPENDENCY_ALLOWLIST: Counter[tuple[Path, str]] = Counter(
+    {
+        ( Path(path), label ): count
+        for path, label, count in (
+            ( "SkullbonezSource/Core/Profiler.cpp", "IRenderBackend", 1 ),
+            ( "SkullbonezSource/Physics/Debug/BroadphaseVisualizer.cpp", "IRenderBackend", 1 ),
+            ( "SkullbonezSource/Physics/Debug/CollisionVisualizer.cpp", "IRenderBackend", 1 ),
+            ( "SkullbonezSource/Physics/Debug/PhysicsDebugVisualizer.cpp", "IRenderBackend", 1 ),
+            ( "SkullbonezSource/Rendering/DX12/RenderBackendDX12.h", "IRenderBackend", 2 ),
+            ( "SkullbonezSource/Rendering/GameModelRenderer.cpp", "IRenderBackend", 1 ),
+            ( "SkullbonezSource/Rendering/IRenderBackend.cpp", "IRenderBackend", 4 ),
+            ( "SkullbonezSource/Rendering/IRenderBackend.h", "IRenderBackend", 4 ),
+            ( "SkullbonezSource/Runtime/Init.cpp", "IRenderBackend", 1 ),
+            ( "SkullbonezSource/Runtime/Render/RuntimeRenderHost.h", "IRenderBackend", 2 ),
+            ( "SkullbonezSource/Runtime/Run.cpp", "IRenderBackend", 3 ),
+            ( "SkullbonezSource/Runtime/RunInternal.h", "IRenderBackend", 2 ),
+            ( "SkullbonezSource/Runtime/Scene/RunScene.cpp", "IRenderBackend", 4 ),
+            ( "SkullbonezSource/Runtime/Scene/SceneRuntimeGeneratedControls.cpp", "IRenderBackend", 1 ),
+            ( "SkullbonezSource/Runtime/Scene/SceneRuntimeGeneratedControls.h", "IRenderBackend", 2 ),
+            ( "SkullbonezSource/Runtime/Scene/SceneRuntimeLoad.cpp", "IRenderBackend", 1 ),
+            ( "SkullbonezSource/Runtime/Scene/SceneRuntimeLoad.h", "IRenderBackend", 2 ),
+            ( "SkullbonezSource/Runtime/Window.cpp", "IRenderBackend", 2 ),
+            ( "SkullbonezSource/Runtime/Window.h", "IRenderBackend", 3 ),
+            ( "SkullbonezSource/UI/UI.cpp", "IRenderBackend", 1 ),
+        )
     }
 )
 GLOBAL_SERVICE_ACCESS_PATTERNS: tuple[tuple[str, re.Pattern[str], str, str], ...] = (
@@ -1527,7 +1633,6 @@ GLOBAL_RENDERER_SERVICE_ACCESS_CLASSIFICATIONS: dict[Path, str] = {
     Path("SkullbonezSource/Runtime/RunStress.cpp"): "runtime stress harness bridge",
     Path("SkullbonezSource/Runtime/RunUiTextPass.cpp"): "UI text pass compatibility",
     Path("SkullbonezSource/Runtime/Window.cpp"): "window resize bridge",
-    Path("SkullbonezSource/UI/UITabProfiler.cpp"): "UI diagnostics compatibility",
 }
 GENERIC_INSTANCE_ACCESS_PATTERN = re.compile(r"\b(?P<class_name>[A-Za-z_]\w*)\s*::\s*Instance\s*\(")
 NAMED_GLOBAL_SERVICE_INSTANCE_CLASSES = {
@@ -1540,6 +1645,23 @@ NAMED_GLOBAL_SERVICE_INSTANCE_CLASSES = {
 }
 PROCESS_GLOBAL_POINTER_PATTERN = re.compile(r"\bpInstance\b")
 MUTABLE_PROCESS_GLOBAL_PATTERN = re.compile(r"\bg_[A-Za-z_]\w*\b")
+# SVC-034: frozen diagnostics singletons are not normal service debt. They must
+# stay function-local, avoid config reads, and carry no destructor ordering
+# contract; otherwise they move back into the counted global-service surface.
+FROZEN_DIAGNOSTIC_SINGLETON_INSTANCE_CLASSES = {
+    "LockOrderValidator",
+}
+
+# SVC-035: current tracked-source global-service census on 2026-07-07.
+# Per-file rows classify remaining debt; this total blocks stale row slack from
+# approving growth while later rows drain the explicit-service surface.
+MAX_GLOBAL_SERVICE_ACCESS_CENSUS = 133
+# RUN-001: current Run.h private `m_` field census on 2026-07-07.
+# This is not approval for growth. Run remains the composition root, but new
+# feature state should enter through one of the narrower owners below instead
+# of expanding the top-level lifetime bag.
+MAX_RUN_PRIVATE_MEMBER_FIELDS = 41
+RUN_PRIVATE_MEMBER_FIELD_PATTERN = re.compile(r"\bm_[A-Za-z_]\w*\b")
 MAX_RUN_PRIVATE_METHOD_DECLARATIONS = 129
 RUN_PRIVATE_METHOD_DECLARATION_PATTERN = re.compile(
     r"(?m)^\s*(?:static\s+)?(?:[A-Za-z_][\w:<>,~]*\s*(?:[&*]\s*)?\s+)+"
@@ -1547,12 +1669,25 @@ RUN_PRIVATE_METHOD_DECLARATION_PATTERN = re.compile(
     r"(?:=\s*(?:delete|default)\s*)?;",
     re.S,
 )
+MAX_SOURCE_THROW_TOKENS = 355
+THROW_TOKEN_PATTERN = re.compile(r"\bthrow\b")
+MAX_RENDER_PASS_HOST_FIELD_ACCESSES = 109
+RENDER_PASS_HOST_FIELD_PATTERN = re.compile(r"\bm_host\.m_[A-Za-z_]\w*")
+RENDER_PASS_HOST_FIELD_SOURCES = (
+    RUN_PASSES_SOURCE,
+    RUNTIME_RENDER_PASSES_HEADER,
+)
 
 
 def normalize_boundary_line(line: str) -> str:
     return " ".join(line.strip().split())
 
 
+# PHYS-034: current tracked Physics/ GameModelCollection census on 2026-07-07.
+# This is not approval for growth. The row-level allowlist classifies each
+# remaining debug/ragdoll/model-access dependency while store-authority rows
+# replace them with explicit body/collider/render views.
+MAX_PHYSICS_GAME_MODEL_COLLECTION_CENSUS = 35
 PHYSICS_GAME_MODEL_COLLECTION_ALLOWLIST: Counter[tuple[Path, str]] = Counter(
     ( Path(path), normalize_boundary_line(line) )
     for path, line in (
@@ -1649,68 +1784,27 @@ GLOBAL_SERVICE_ACCESS_ALLOWLIST: Counter[tuple[Path, str]] = Counter(
     {
         ( Path(path), label ): count
         for path, label, count in (
-            ( "SkullbonezSource/Core/Common.h", "Cfg()", 2 ),
-            ( "SkullbonezSource/Core/Common.h", "EngineConfig::Instance()", 1 ),
-            ( "SkullbonezSource/Core/Config.cpp", "EngineConfig::Instance()", 1 ),
-            ( "SkullbonezSource/Core/LockOrderValidator.cpp", "LockOrderValidator::Instance()", 5 ),
             ( "SkullbonezSource/Core/LockOrderValidator.cpp", "g_*", 12 ),
             ( "SkullbonezSource/Core/PlatformProfiler.cpp", "g_*", 12 ),
             ( "SkullbonezSource/Core/Profiler.cpp", "Gfx()", 9 ),
             ( "SkullbonezSource/Core/Profiler.cpp", "IsGfxReady()", 6 ),
             ( "SkullbonezSource/Core/Profiler.cpp", "Profiler::Instance()", 2 ),
             ( "SkullbonezSource/Core/Profiler.h", "Profiler::Instance()", 11 ),
-            ( "SkullbonezSource/Core/WorkerPool.cpp", "WorkerPool::Instance()", 2 ),
             ( "SkullbonezSource/Core/WorkerPool.cpp", "g_*", 8 ),
             ( "SkullbonezSource/Physics/Debug/BroadphaseVisualizer.cpp", "Gfx()", 2 ),
             ( "SkullbonezSource/Physics/Debug/CollisionVisualizer.cpp", "Gfx()", 14 ),
             ( "SkullbonezSource/Physics/Debug/CollisionVisualizer.cpp", "IsGfxReady()", 1 ),
             ( "SkullbonezSource/Physics/Debug/PhysicsDebugVisualizer.cpp", "Gfx()", 2 ),
-            ( "SkullbonezSource/Physics/TornadoField.cpp", "Gfx()", 2 ),
             ( "SkullbonezSource/Rendering/IRenderBackend.cpp", "Gfx()", 2 ),
-            ( "SkullbonezSource/Rendering/IRenderBackend.cpp", "GfxRayTracing()", 1 ),
             ( "SkullbonezSource/Rendering/IRenderBackend.cpp", "IsGfxReady()", 1 ),
-            ( "SkullbonezSource/Rendering/IRenderBackend.cpp", "IsGfxRayTracingReady()", 1 ),
             ( "SkullbonezSource/Rendering/IRenderBackend.h", "Gfx()", 3 ),
-            ( "SkullbonezSource/Rendering/IRenderBackend.h", "GfxRayTracing()", 1 ),
             ( "SkullbonezSource/Rendering/IRenderBackend.h", "IsGfxReady()", 2 ),
-            ( "SkullbonezSource/Rendering/IRenderBackend.h", "IsGfxRayTracingReady()", 1 ),
-            ( "SkullbonezSource/Runtime/Editor/LauncherLaser.cpp", "Gfx()", 18 ),
-            ( "SkullbonezSource/Runtime/Editor/LauncherLaser.cpp", "IsGfxReady()", 3 ),
-            ( "SkullbonezSource/Runtime/Editor/LauncherTools.cpp", "Cfg()", 3 ),
-            ( "SkullbonezSource/Runtime/Editor/RunEditorTracer.inl", "Gfx()", 1 ),
-            ( "SkullbonezSource/Runtime/Editor/RunEditorTracer.inl", "IsGfxReady()", 1 ),
-            ( "SkullbonezSource/Runtime/Init.cpp", "Cfg()", 15 ),
-            ( "SkullbonezSource/Runtime/Init.cpp", "Window::Instance()", 1 ),
-            ( "SkullbonezSource/Runtime/Init.cpp", "WorkerPool::Instance()", 1 ),
             ( "SkullbonezSource/Runtime/Init.cpp", "g_*", 6 ),
-            ( "SkullbonezSource/Runtime/Input.cpp", "g_*", 43 ),
-            ( "SkullbonezSource/Runtime/Run.cpp", "Gfx()", 8 ),
-            ( "SkullbonezSource/Runtime/Run.cpp", "IsGfxReady()", 6 ),
-            ( "SkullbonezSource/Runtime/Run.cpp", "Profiler::Instance()", 1 ),
-            ( "SkullbonezSource/Runtime/RunFrame.cpp", "Gfx()", 1 ),
-            ( "SkullbonezSource/Runtime/RunFrame.cpp", "Profiler::Instance()", 3 ),
-            ( "SkullbonezSource/Runtime/RunInteractionAutomation.cpp", "Cfg()", 2 ),
+            ( "SkullbonezSource/Runtime/Input.cpp", "g_*", 33 ),
             ( "SkullbonezSource/Runtime/RunInput.cpp", "IsGfxReady()", 1 ),
             ( "SkullbonezSource/Runtime/RunPasses.cpp", "IsGfxReady()", 1 ),
-            ( "SkullbonezSource/Runtime/RunRender.cpp", "Cfg()", 3 ),
-            ( "SkullbonezSource/Runtime/RunRender.cpp", "Gfx()", 1 ),
-            ( "SkullbonezSource/Runtime/RunRender.cpp", "GfxRayTracing()", 1 ),
-            ( "SkullbonezSource/Runtime/RunRender.cpp", "IsGfxReady()", 1 ),
-            ( "SkullbonezSource/Runtime/RunRender.cpp", "IsGfxRayTracingReady()", 1 ),
-            ( "SkullbonezSource/Runtime/RunStress.cpp", "Cfg()", 1 ),
-            ( "SkullbonezSource/Runtime/RunStress.cpp", "Gfx()", 2 ),
-            ( "SkullbonezSource/Runtime/RunStress.cpp", "IsGfxReady()", 2 ),
             ( "SkullbonezSource/Runtime/RunUiTextPass.cpp", "Profiler::Instance()", 1 ),
-            ( "SkullbonezSource/Runtime/RuntimeDiagnostics.cpp", "Profiler::Instance()", 2 ),
-            ( "SkullbonezSource/Runtime/Window.cpp", "Cfg()", 6 ),
-            ( "SkullbonezSource/Runtime/Window.cpp", "Gfx()", 1 ),
-            ( "SkullbonezSource/Runtime/Window.cpp", "IsGfxReady()", 1 ),
-            ( "SkullbonezSource/Runtime/Window.cpp", "Window::Instance()", 1 ),
-            ( "SkullbonezSource/Runtime/Window.cpp", "pInstance", 4 ),
-            ( "SkullbonezSource/Runtime/Window.h", "pInstance", 1 ),
-            ( "SkullbonezSource/UI/UITabProfiler.cpp", "Gfx()", 1 ),
-            ( "SkullbonezSource/UI/UITabProfiler.cpp", "IsGfxReady()", 1 ),
-            ( "SkullbonezSource/UI/UITabProfiler.cpp", "Profiler::Instance()", 6 ),
+            ( "SkullbonezSource/Runtime/RuntimeDiagnostics.cpp", "Profiler::Instance()", 4 ),
         )
     }
 )
@@ -2550,7 +2644,12 @@ ALLOWED_RENDER_HOST_BINDINGS = {
 # legitimate top-level binding root.
 ALLOWED_RENDER_HOST_VIEW_FIELDS = {
     "RuntimeRenderBackendView": {
+        "captureBackend",
+        "deviceLifecycle",
         "renderBackend",
+        "renderCommands",
+        "renderDiagnostics",
+        "renderResources",
         "rayTracingBackend",
     },
     "RenderBackendView": {
@@ -2694,6 +2793,31 @@ def extract_run_private_section(stripped: str) -> tuple[int, str] | None:
     return private_start, stripped[private_start:private_end]
 
 
+def check_run_private_member_count_text(
+    path: Path,
+    text: str,
+    max_allowed: int = MAX_RUN_PRIVATE_MEMBER_FIELDS,
+) -> list[BoundaryError]:
+    stripped = strip_cpp_comments(text)
+    private_section = extract_run_private_section(stripped)
+    if private_section is None:
+        return []
+
+    private_start, private_body = private_section
+    member_count = len(RUN_PRIVATE_MEMBER_FIELD_PATTERN.findall(private_body))
+    if member_count <= max_allowed:
+        return []
+
+    return [
+        BoundaryError(
+            path,
+            line_for_offset(stripped, private_start),
+            "Run.h private member count exceeds ratchet",
+            f"Found {member_count}; maximum is {max_allowed}. Move new state behind an existing subsystem owner or update the ratchet intentionally.",
+        )
+    ]
+
+
 def check_run_private_method_count_text(
     path: Path,
     text: str,
@@ -2717,6 +2841,84 @@ def check_run_private_method_count_text(
             f"Found {method_count}; maximum is {max_allowed}. Move behavior to a subsystem or update the ratchet intentionally.",
         )
     ]
+
+
+def check_throw_site_count_entries(
+    entries: list[tuple[Path, str]],
+    max_allowed: int = MAX_SOURCE_THROW_TOKENS,
+) -> list[BoundaryError]:
+    total_count = 0
+    first_over_budget: tuple[Path, str, int] | None = None
+    for path, text in entries:
+        matches = list(THROW_TOKEN_PATTERN.finditer(text))
+        if not matches:
+            continue
+        if first_over_budget is None and total_count + len(matches) > max_allowed:
+            first_extra_index = max_allowed - total_count
+            first_over_budget = ( path, text, matches[first_extra_index].start() )
+        total_count += len(matches)
+
+    if total_count <= max_allowed:
+        return []
+
+    assert first_over_budget is not None
+    path, text, offset = first_over_budget
+    return [
+        BoundaryError(
+            path,
+            line_for_offset(text, offset),
+            "source throw-site count exceeds ratchet",
+            f"Found {total_count}; maximum is {max_allowed}. Replace new exception paths with existing owners or update the ratchet intentionally.",
+        )
+    ]
+
+
+def check_throw_site_count(repo: Path) -> list[BoundaryError]:
+    entries: list[tuple[Path, str]] = []
+    for path in sorted((repo / SOURCE_ROOT).rglob("*")):
+        if path.suffix not in SOURCE_BEARING_SUFFIXES:
+            continue
+        entries.append(( path, path.read_text(encoding="utf-8") ))
+    return check_throw_site_count_entries(entries)
+
+
+def check_render_pass_host_field_access_count_entries(
+    entries: list[tuple[Path, str]],
+    max_allowed: int = MAX_RENDER_PASS_HOST_FIELD_ACCESSES,
+) -> list[BoundaryError]:
+    total_count = 0
+    first_over_budget: tuple[Path, str, int] | None = None
+    for path, text in entries:
+        stripped = strip_cpp_comments_and_string_literals(text)
+        matches = list(RENDER_PASS_HOST_FIELD_PATTERN.finditer(stripped))
+        if not matches:
+            continue
+        if first_over_budget is None and total_count + len(matches) > max_allowed:
+            first_extra_index = max_allowed - total_count
+            first_over_budget = ( path, stripped, matches[first_extra_index].start() )
+        total_count += len(matches)
+
+    if total_count <= max_allowed:
+        return []
+
+    assert first_over_budget is not None
+    path, stripped, offset = first_over_budget
+    return [
+        BoundaryError(
+            path,
+            line_for_offset(stripped, offset),
+            "render pass host-field access exceeds ratchet",
+            f"Found {total_count}; maximum is {max_allowed}. Move new pass data through RenderFrameContext or typed pass inputs.",
+        )
+    ]
+
+
+def check_render_pass_host_field_access_count(repo: Path) -> list[BoundaryError]:
+    entries = [
+        ( repo / relative_path, ( repo / relative_path ).read_text(encoding="utf-8") )
+        for relative_path in RENDER_PASS_HOST_FIELD_SOURCES
+    ]
+    return check_render_pass_host_field_access_count_entries(entries)
 
 
 def check_text_rules(path: Path, text: str, rules: tuple[tuple[str, str, str], ...]) -> list[BoundaryError]:
@@ -2829,18 +3031,44 @@ def check_physics_game_model_collection_guardrails_text(
     return errors
 
 
+def count_physics_game_model_collection_dependencies_text(text: str) -> int:
+    stripped = strip_cpp_comments(text)
+    return sum(1 for line in stripped.splitlines() if GAME_MODEL_COLLECTION_PATTERN.search(line))
+
+
+def check_physics_game_model_collection_census_budget(
+    path: Path,
+    count: int,
+    budget: int = MAX_PHYSICS_GAME_MODEL_COLLECTION_CENSUS,
+) -> list[BoundaryError]:
+    if count <= budget:
+        return []
+    return [
+        BoundaryError(
+            path,
+            0,
+            "physics GameModelCollection dependency census exceeded",
+            f"Current census is {count}; PHYS-034 budget is {budget}. Migrate an existing dependency before adding another.",
+        )
+    ]
+
+
 def check_physics_game_model_collection_guardrails(repo: Path) -> list[BoundaryError]:
     errors: list[BoundaryError] = []
+    census = 0
     for path in sorted((repo / PHYSICS_ROOT).rglob("*")):
         if path.suffix not in { ".cpp", ".h" }:
             continue
+        text = path.read_text(encoding="utf-8")
+        census += count_physics_game_model_collection_dependencies_text(text)
         errors.extend(
             check_physics_game_model_collection_guardrails_text(
                 path,
-                path.read_text(encoding="utf-8"),
+                text,
                 path.relative_to(repo),
             )
         )
+    errors.extend(check_physics_game_model_collection_census_budget(PHYSICS_ROOT, census))
     return errors
 
 
@@ -4494,6 +4722,53 @@ def check_replay_prediction_step_writeback_guardrails_text(path: Path, text: str
 def check_replay_prediction_step_writeback_guardrails(repo: Path) -> list[BoundaryError]:
     path = repo / RUN_REPLAY_TOOLS_SOURCE
     return check_replay_prediction_step_writeback_guardrails_text(path, path.read_text(encoding="utf-8"))
+
+
+def check_replay_prediction_private_engine_restore_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    stripped = strip_cpp_comments_and_string_literals(text)
+    errors: list[BoundaryError] = []
+    for match in REPLAY_PREDICTION_SOLVER_RESTORE_CALL_PATTERN.finditer(stripped):
+        if REPLAY_PREDICTION_PRIVATE_SOLVER_RESTORE_ALLOWED_PATTERN.search(match.group("call")):
+            continue
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "replay prediction live solver restore is blocked",
+                (
+                    "Prediction may restore solver snapshots only into its private predictionEngine. "
+                    "Do not restore replay prediction state into the live collection or live PhysicsEngine."
+                ),
+            )
+        )
+
+    for match in REPLAY_PREDICTION_APPLY_BODY_STATE_CALL_PATTERN.finditer(stripped):
+        target = match.group("target").strip()
+        normalized_target = re.sub(r"\s+", "", target)
+        if "PhysicsEngine" in target and "&" in target:
+            continue
+        if normalized_target in REPLAY_PREDICTION_PRIVATE_APPLY_TARGETS:
+            continue
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "replay prediction live body-state apply is blocked",
+                (
+                    "Prediction body-state restore may target only the private predictionEngine. "
+                    "Do not apply prediction backups to the live collection or live PhysicsEngine."
+                ),
+            )
+        )
+    return errors
+
+
+def check_replay_prediction_private_engine_restore_guardrails(repo: Path) -> list[BoundaryError]:
+    errors: list[BoundaryError] = []
+    for relative_path in REPLAY_PREDICTION_PRIVATE_ENGINE_RESTORE_SOURCES:
+        path = repo / relative_path
+        errors.extend(check_replay_prediction_private_engine_restore_guardrails_text(path, path.read_text(encoding="utf-8")))
+    return errors
 
 
 def check_replay_prediction_ghost_render_store_authority_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
@@ -7171,6 +7446,89 @@ def check_runtime_render_pass_wide_backend_guardrails(repo: Path) -> list[Bounda
     return errors
 
 
+def render_backend_aggregate_dependency_matches(stripped: str) -> list[tuple[int, str, str, str]]:
+    matches: list[tuple[int, str, str, str]] = []
+    for label, pattern, message, detail in RENDER_BACKEND_AGGREGATE_DEPENDENCY_PATTERNS:
+        for match in pattern.finditer(stripped):
+            matches.append(( match.start(), label, message, detail ))
+    return sorted(matches)
+
+
+def check_render_backend_aggregate_dependency_guardrails_text(
+    path: Path,
+    text: str,
+    relative_path: Path | None = None,
+    allowlist: Counter[tuple[Path, str]] | None = None,
+) -> list[BoundaryError]:
+    key_path = relative_path or path
+    allowed = RENDER_BACKEND_AGGREGATE_DEPENDENCY_ALLOWLIST if allowlist is None else allowlist
+    # Preserve include paths while stripping comments so #include "IRenderBackend.h"
+    # is counted as a dependency instead of hidden behind string-literal stripping.
+    stripped = strip_cpp_comments(text)
+    seen: Counter[tuple[Path, str]] = Counter()
+    errors: list[BoundaryError] = []
+
+    for offset, label, message, detail in render_backend_aggregate_dependency_matches(stripped):
+        key = ( key_path, label )
+        seen[key] += 1
+        if seen[key] > allowed.get(key, 0):
+            errors.append(BoundaryError(path, line_for_offset(stripped, offset), message, detail))
+
+    return errors
+
+
+def check_render_backend_aggregate_dependency_count_entries(
+    entries: list[tuple[Path, str]],
+    max_irender_backend: int = MAX_IRENDER_BACKEND_DEPENDENCY_CENSUS,
+    max_render_backend_dx12_get: int = MAX_RENDER_BACKEND_DX12_GET_CENSUS,
+) -> list[BoundaryError]:
+    budgets = {
+        "IRenderBackend": max_irender_backend,
+        "RenderBackendDX12::Get()": max_render_backend_dx12_get,
+    }
+    totals: Counter[str] = Counter()
+    first_over_budget: dict[str, tuple[Path, str, tuple[int, str, str, str]]] = {}
+
+    for path, text in entries:
+        stripped = strip_cpp_comments(text)
+        for match_info in render_backend_aggregate_dependency_matches(stripped):
+            offset, label, _message, _detail = match_info
+            if label not in first_over_budget and totals[label] + 1 > budgets[label]:
+                first_over_budget[label] = ( path, stripped, match_info )
+            totals[label] += 1
+
+    errors: list[BoundaryError] = []
+    for label, ( path, stripped, ( offset, _label, _message, detail ) ) in first_over_budget.items():
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, offset),
+                "render backend aggregate dependency census exceeds ratchet",
+                f"Found {totals[label]} {label}; maximum {budgets[label]}. {detail}",
+            )
+        )
+    return errors
+
+
+def check_render_backend_aggregate_dependency_guardrails(repo: Path) -> list[BoundaryError]:
+    errors: list[BoundaryError] = []
+    entries: list[tuple[Path, str]] = []
+    for path in sorted((repo / SOURCE_ROOT).rglob("*")):
+        if path.suffix not in { ".cpp", ".h", ".hpp", ".inl" }:
+            continue
+        text = path.read_text(encoding="utf-8")
+        entries.append(( path, text ))
+        errors.extend(
+            check_render_backend_aggregate_dependency_guardrails_text(
+                path,
+                text,
+                path.relative_to(repo),
+            )
+        )
+    errors.extend(check_render_backend_aggregate_dependency_count_entries(entries))
+    return errors
+
+
 def check_graph_owned_render_pass_scheduling_text(path: Path, text: str) -> list[BoundaryError]:
     stripped = strip_cpp_comments(text)
     errors: list[BoundaryError] = []
@@ -7189,6 +7547,69 @@ def check_graph_owned_render_pass_scheduling_text(path: Path, text: str) -> list
 def check_graph_owned_render_pass_scheduling(repo: Path) -> list[BoundaryError]:
     path = repo / RUN_RENDER_SOURCE
     return check_graph_owned_render_pass_scheduling_text(path, path.read_text(encoding="utf-8"))
+
+
+def check_graph_owned_render_pass_execution_ownership_text(path: Path, text: str) -> list[BoundaryError]:
+    stripped = strip_cpp_comments_and_string_literals(text)
+    errors: list[BoundaryError] = []
+    for match in GRAPH_OWNED_RENDER_PASS_DECLARATION_ONLY_PATTERN.finditer(stripped):
+        token = match.group(0)
+        if token.endswith("DiagnosticOnly"):
+            errors.append(
+                BoundaryError(
+                    path,
+                    line_for_offset(stripped, match.start()),
+                    "graph-owned render pass diagnostic-only policy is blocked",
+                    "Use RenderGraphBarrierPolicy::HandoffValidated for migrated runtime pass declarations.",
+                )
+            )
+        else:
+            errors.append(
+                BoundaryError(
+                    path,
+                    line_for_offset(stripped, match.start()),
+                    "graph-owned render pass declaration-only ownership is blocked",
+                    "Use graph.SetPassCallback so migrated runtime pass execution is callback-owned before ExecuteCallbacks.",
+                )
+            )
+
+    for match in GRAPH_OWNED_RENDER_PASS_ADD_PASS_PATTERN.finditer(stripped):
+        if "RenderGraphBarrierPolicy::HandoffValidated" in match.group(0):
+            continue
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "graph-owned render pass AddPass must use HandoffValidated policy",
+                "Name the handoff barrier policy on each migrated RunRender graph pass instead of relying on defaults.",
+            )
+        )
+
+    for match in GRAPH_OWNED_RENDER_PASS_ADD_PASS_ASSIGNMENT_PATTERN.finditer(stripped):
+        pass_variable = match.group(1)
+        remaining = stripped[match.end() :]
+        execute_match = GRAPH_OWNED_RENDER_PASS_EXECUTE_CALLBACKS_PATTERN.search(remaining)
+        if execute_match is None:
+            callback_scope = remaining
+        else:
+            callback_scope = remaining[: execute_match.start()]
+        callback_pattern = re.compile(r"\bgraph\s*\.\s*SetPassCallback\s*\(\s*" + re.escape(pass_variable) + r"\b")
+        if callback_pattern.search(callback_scope):
+            continue
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "graph-owned render pass AddPass must set callback ownership",
+                "Install graph.SetPassCallback for the pass before ExecuteCallbacks so migrated execution cannot remain declaration-only.",
+            )
+        )
+    return errors
+
+
+def check_graph_owned_render_pass_execution_ownership(repo: Path) -> list[BoundaryError]:
+    path = repo / RUN_RENDER_SOURCE
+    return check_graph_owned_render_pass_execution_ownership_text(path, path.read_text(encoding="utf-8"))
 
 
 def check_graph_owned_render_pass_manual_barriers_text(path: Path, text: str) -> list[BoundaryError]:
@@ -7340,9 +7761,30 @@ def check_global_service_access_guardrails_text(
     key_path = relative_path or path
     allowed = GLOBAL_SERVICE_ACCESS_ALLOWLIST if allowlist is None else allowlist
     stripped = strip_cpp_comments_and_string_literals(text)
-    matches: list[tuple[int, str, str, str]] = []
     seen: Counter[tuple[Path, str]] = Counter()
     errors: list[BoundaryError] = []
+
+    for offset, label, message, detail in global_service_access_matches(stripped):
+        key = ( key_path, label )
+        seen[key] += 1
+        if label in GLOBAL_RENDERER_SERVICE_LABELS and key_path not in GLOBAL_RENDERER_SERVICE_ACCESS_CLASSIFICATIONS:
+            errors.append(
+                BoundaryError(
+                    path,
+                    line_for_offset(stripped, offset),
+                    "global renderer service access is outside approved compatibility files",
+                    "Borrow a renderer capability/context, or first classify this file as explicit renderer-service debt in the Carmack global/backend plans.",
+                )
+            )
+            continue
+        if seen[key] > allowed.get(key, 0):
+            errors.append(BoundaryError(path, line_for_offset(stripped, offset), message, detail))
+
+    return errors
+
+
+def global_service_access_matches(stripped: str) -> list[tuple[int, str, str, str]]:
+    matches: list[tuple[int, str, str, str]] = []
 
     for label, pattern, message, detail in GLOBAL_SERVICE_ACCESS_PATTERNS:
         for match in pattern.finditer(stripped):
@@ -7351,6 +7793,8 @@ def check_global_service_access_guardrails_text(
     for match in GENERIC_INSTANCE_ACCESS_PATTERN.finditer(stripped):
         class_name = match.group("class_name")
         if class_name in NAMED_GLOBAL_SERVICE_INSTANCE_CLASSES:
+            continue
+        if class_name in FROZEN_DIAGNOSTIC_SINGLETON_INSTANCE_CLASSES:
             continue
         matches.append(
             (
@@ -7381,37 +7825,54 @@ def check_global_service_access_guardrails_text(
             )
         )
 
-    for offset, label, message, detail in sorted(matches):
-        key = ( key_path, label )
-        seen[key] += 1
-        if label in GLOBAL_RENDERER_SERVICE_LABELS and key_path not in GLOBAL_RENDERER_SERVICE_ACCESS_CLASSIFICATIONS:
-            errors.append(
-                BoundaryError(
-                    path,
-                    line_for_offset(stripped, offset),
-                    "global renderer service access is outside approved compatibility files",
-                    "Borrow a renderer capability/context, or first classify this file as explicit renderer-service debt in the Carmack global/backend plans.",
-                )
-            )
-            continue
-        if seen[key] > allowed.get(key, 0):
-            errors.append(BoundaryError(path, line_for_offset(stripped, offset), message, detail))
+    return sorted(matches)
 
-    return errors
+
+def check_global_service_access_count_entries(
+    entries: list[tuple[Path, str]],
+    max_allowed: int = MAX_GLOBAL_SERVICE_ACCESS_CENSUS,
+) -> list[BoundaryError]:
+    total_count = 0
+    first_over_budget: tuple[Path, str, tuple[int, str, str, str]] | None = None
+    for path, text in entries:
+        stripped = strip_cpp_comments_and_string_literals(text)
+        matches = global_service_access_matches(stripped)
+        if first_over_budget is None and total_count + len(matches) > max_allowed:
+            first_extra_index = max_allowed - total_count
+            first_over_budget = ( path, stripped, matches[first_extra_index] )
+        total_count += len(matches)
+
+    if total_count <= max_allowed:
+        return []
+
+    assert first_over_budget is not None
+    path, stripped, ( offset, _label, _message, detail ) = first_over_budget
+    return [
+        BoundaryError(
+            path,
+            line_for_offset(stripped, offset),
+            "global service access census exceeds ratchet",
+            f"Found {total_count}; maximum {max_allowed}. {detail}",
+        )
+    ]
 
 
 def check_global_service_access_guardrails(repo: Path) -> list[BoundaryError]:
     errors: list[BoundaryError] = []
+    entries: list[tuple[Path, str]] = []
     for path in sorted((repo / Path("SkullbonezSource")).rglob("*")):
         if path.suffix not in { ".cpp", ".h", ".hpp", ".inl" }:
             continue
+        text = path.read_text(encoding="utf-8")
+        entries.append(( path, text ))
         errors.extend(
             check_global_service_access_guardrails_text(
                 path,
-                path.read_text(encoding="utf-8"),
+                text,
                 path.relative_to(repo),
             )
         )
+    errors.extend(check_global_service_access_count_entries(entries))
     return errors
 
 
@@ -8786,6 +9247,30 @@ def run_self_tests() -> list[str]:
         check_run_private_method_count_text(run_header_path, allowed_run_header, max_allowed=1),
     )
 
+    allowed_run_member_header = """
+    class Run
+    {
+      private:
+        RuntimeTools m_runtimeTools;
+      public:
+        void Execute();
+    };
+    """
+    expect_clean(
+        "budget-matched Run.h private member synthetic surface was rejected",
+        check_run_private_member_count_text(run_header_path, allowed_run_member_header, max_allowed=1),
+    )
+
+    grown_run_member_header = allowed_run_member_header.replace(
+        "RuntimeTools m_runtimeTools;",
+        "RuntimeTools m_runtimeTools;\n        RunDebugState m_debug;",
+    )
+    expect_error(
+        "grown Run.h private member synthetic surface was not rejected",
+        check_run_private_member_count_text(run_header_path, grown_run_member_header, max_allowed=1),
+        "Run.h private member count exceeds ratchet",
+    )
+
     old_run_dxr_reflection_state = allowed_run_header.replace(
         "void Render();",
         "void Render();\n        std::array<float, MAX_GAME_MODELS * 16> m_dxrReflectionTransforms = {};",
@@ -8862,6 +9347,68 @@ def run_self_tests() -> list[str]:
     """
     expect_error('runtime render pass wide backend include synthetic surface was not rejected', check_runtime_render_pass_wide_backend_guardrails_text( Path("synthetic/RunPasses.cpp"), old_runtime_pass_wide_backend_include, ), 'runtime render pass wide backend access is blocked')
 
+    allowed_render_backend_dependency_path = Path("synthetic/AllowedRenderBackend.cpp")
+    allowed_render_backend_dependency_allowlist: Counter[tuple[Path, str]] = Counter(
+        {
+            ( allowed_render_backend_dependency_path, "IRenderBackend" ): 1,
+            ( allowed_render_backend_dependency_path, "RenderBackendDX12::Get()" ): 1,
+        }
+    )
+    allowed_render_backend_dependency = """
+    #include "../Rendering/IRenderBackend.h"
+    auto* backend = RenderBackendDX12::Get();
+    """
+    expect_clean(
+        'allowed render backend aggregate dependency synthetic surface failed',
+        check_render_backend_aggregate_dependency_guardrails_text(
+            allowed_render_backend_dependency_path,
+            allowed_render_backend_dependency,
+            allowlist=allowed_render_backend_dependency_allowlist,
+        ),
+    )
+
+    duplicate_render_backend_dependency = allowed_render_backend_dependency + "\nIRenderBackend* second = nullptr;"
+    expect_error(
+        'duplicate IRenderBackend synthetic dependency was not rejected',
+        check_render_backend_aggregate_dependency_guardrails_text(
+            allowed_render_backend_dependency_path,
+            duplicate_render_backend_dependency,
+            allowlist=allowed_render_backend_dependency_allowlist,
+        ),
+        'render backend aggregate dependency is count-guarded',
+    )
+
+    duplicate_render_backend_get = allowed_render_backend_dependency + "\nauto* second = RenderBackendDX12::Get();"
+    expect_error(
+        'duplicate RenderBackendDX12::Get synthetic dependency was not rejected',
+        check_render_backend_aggregate_dependency_guardrails_text(
+            allowed_render_backend_dependency_path,
+            duplicate_render_backend_get,
+            allowlist=allowed_render_backend_dependency_allowlist,
+        ),
+        'RenderBackendDX12::Get dependency is count-guarded',
+    )
+
+    expect_error(
+        'new-file IRenderBackend synthetic dependency was not rejected',
+        check_render_backend_aggregate_dependency_guardrails_text(
+            Path("synthetic/NewRenderBackendUser.cpp"),
+            "void Draw( IRenderBackend& backend );",
+            allowlist=Counter(),
+        ),
+        'render backend aggregate dependency is count-guarded',
+    )
+
+    expect_error(
+        'render backend aggregate census synthetic surface was not rejected',
+        check_render_backend_aggregate_dependency_count_entries(
+            [( allowed_render_backend_dependency_path, "IRenderBackend* a; IRenderBackend* b;" )],
+            max_irender_backend=1,
+            max_render_backend_dx12_get=0,
+        ),
+        'render backend aggregate dependency census exceeds ratchet',
+    )
+
     allowed_graph_owned_pass_scheduling = """
     void RuntimeRenderer::RenderFrame()
     {
@@ -8880,6 +9427,59 @@ def run_self_tests() -> list[str]:
     }
     """
     expect_clean('allowed graph-owned pass helper scheduling synthetic surface failed', check_graph_owned_render_pass_scheduling_text( Path("synthetic/RunRender.cpp"), allowed_graph_owned_pass_scheduling, ))
+
+    allowed_graph_owned_pass_execution_ownership = """
+    void ExecuteUiTextThroughRenderGraph()
+    {
+        const uint32_t uiTextPass = graph.AddPass( "UiTextPass",
+                                                   Rendering::RenderGraphQueueType::Graphics,
+                                                   Rendering::RenderGraphBarrierPolicy::HandoffValidated );
+        graph.SetPassCallback( uiTextPass, ExecuteUiTextGraphCallback, &callbackData, true, "Frame/UI" );
+        graph.ExecuteCallbacks( Rendering::RenderGraphCallbackExecutionMode::DryRun );
+        graph.ExecuteCallbacks( Rendering::RenderGraphCallbackExecutionMode::Execute );
+    }
+    """
+    expect_clean('allowed graph-owned pass execution ownership synthetic surface failed', check_graph_owned_render_pass_execution_ownership_text( Path("synthetic/RunRender.cpp"), allowed_graph_owned_pass_execution_ownership, ))
+
+    old_diagnostic_graph_owned_pass = """
+    void ExecuteUiTextThroughRenderGraph()
+    {
+        const uint32_t uiTextPass = graph.AddPass( "UiTextPass",
+                                                   Rendering::RenderGraphQueueType::Graphics,
+                                                   Rendering::RenderGraphBarrierPolicy::DiagnosticOnly );
+        graph.SetPassCallback( uiTextPass, ExecuteUiTextGraphCallback, &callbackData, true, "Frame/UI" );
+    }
+    """
+    expect_error('diagnostic-only graph-owned pass synthetic surface was not rejected', check_graph_owned_render_pass_execution_ownership_text( Path("synthetic/RunRender.cpp"), old_diagnostic_graph_owned_pass, ), 'graph-owned render pass diagnostic-only policy is blocked')
+
+    old_declaration_only_graph_owned_pass = """
+    void ExecuteUiTextThroughRenderGraph()
+    {
+        RenderGraphPassExecutionOwner owner = RenderGraphPassExecutionOwner::DeclarationOnly;
+    }
+    """
+    expect_error('declaration-only graph-owned pass synthetic surface was not rejected', check_graph_owned_render_pass_execution_ownership_text( Path("synthetic/RunRender.cpp"), old_declaration_only_graph_owned_pass, ), 'graph-owned render pass declaration-only ownership is blocked')
+
+    old_default_policy_graph_owned_pass = """
+    void ExecuteUiTextThroughRenderGraph()
+    {
+        const uint32_t uiTextPass = graph.AddPass( "UiTextPass", Rendering::RenderGraphQueueType::Graphics );
+        graph.SetPassCallback( uiTextPass, ExecuteUiTextGraphCallback, &callbackData, true, "Frame/UI" );
+        graph.ExecuteCallbacks( Rendering::RenderGraphCallbackExecutionMode::Execute );
+    }
+    """
+    expect_error('default-policy graph-owned pass synthetic surface was not rejected', check_graph_owned_render_pass_execution_ownership_text( Path("synthetic/RunRender.cpp"), old_default_policy_graph_owned_pass, ), 'graph-owned render pass AddPass must use HandoffValidated policy')
+
+    old_callbackless_graph_owned_pass = """
+    void ExecuteUiTextThroughRenderGraph()
+    {
+        const uint32_t uiTextPass = graph.AddPass( "UiTextPass",
+                                                   Rendering::RenderGraphQueueType::Graphics,
+                                                   Rendering::RenderGraphBarrierPolicy::HandoffValidated );
+        graph.ExecuteCallbacks( Rendering::RenderGraphCallbackExecutionMode::Execute );
+    }
+    """
+    expect_error('callbackless graph-owned pass synthetic surface was not rejected', check_graph_owned_render_pass_execution_ownership_text( Path("synthetic/RunRender.cpp"), old_callbackless_graph_owned_pass, ), 'graph-owned render pass AddPass must set callback ownership')
 
     old_direct_graph_owned_pass_scheduling = """
     void RuntimeRenderer::RenderFrame()
@@ -9016,11 +9616,33 @@ def run_self_tests() -> list[str]:
     new_window_singleton_access = "void DeepInputPath() { Window::Instance()->ShowCursor( true ); }"
     expect_error('new window singleton synthetic surface was not rejected', check_global_service_access_guardrails_text( Path("SkullbonezSource/Runtime/InputNew.cpp"), new_window_singleton_access, relative_path=Path("SkullbonezSource/Runtime/InputNew.cpp"), ), 'global window service access is count-guarded')
 
+    new_worker_pool_singleton_access = "void DeepWorkerPath() { WorkerPool::Instance().Shutdown(); }"
+    expect_error('new worker pool singleton synthetic surface was not rejected', check_global_service_access_guardrails_text( Path("SkullbonezSource/Runtime/NewWorkerPath.cpp"), new_worker_pool_singleton_access, relative_path=Path("SkullbonezSource/Runtime/NewWorkerPath.cpp"), ), 'global worker pool access is count-guarded')
+
     new_cfg_access = "void DeepConfigPath() { int threads = Cfg().workerThreads; }"
     expect_error('new Cfg synthetic surface was not rejected', check_global_service_access_guardrails_text( Path("SkullbonezSource/Runtime/NewConfigPath.cpp"), new_cfg_access, relative_path=Path("SkullbonezSource/Runtime/NewConfigPath.cpp"), ), 'global config access is count-guarded')
 
     new_generic_instance_access = "void DeepConfigPath() { EngineConfig::Instance().workerThreads = 0; }"
     expect_error('new generic Instance synthetic surface was not rejected', check_global_service_access_guardrails_text( Path("SkullbonezSource/Runtime/NewConfigPath.cpp"), new_generic_instance_access, relative_path=Path("SkullbonezSource/Runtime/NewConfigPath.cpp"), ), 'generic singleton access is count-guarded')
+
+    frozen_diagnostic_singleton_access = (
+        'void DebugInstrumentation() { LockOrderValidator::Instance().RegisterLock( 7, "debug" ); }'
+    )
+    expect_clean(
+        'frozen diagnostics singleton synthetic surface was rejected',
+        check_global_service_access_guardrails_text(
+            Path("SkullbonezSource/Core/LockOrderValidator.cpp"),
+            frozen_diagnostic_singleton_access,
+            relative_path=Path("SkullbonezSource/Core/LockOrderValidator.cpp"),
+        ),
+    )
+    expect_clean(
+        'frozen diagnostics singleton synthetic surface was counted',
+        check_global_service_access_count_entries(
+            [( Path("SkullbonezSource/Core/LockOrderValidator.cpp"), frozen_diagnostic_singleton_access )],
+            max_allowed=0,
+        ),
+    )
 
     new_process_singleton_pointer = "class Service { static Service* pInstance; };"
     expect_error('new pInstance synthetic surface was not rejected', check_global_service_access_guardrails_text( Path("SkullbonezSource/Runtime/NewService.h"), new_process_singleton_pointer, relative_path=Path("SkullbonezSource/Runtime/NewService.h"), ), 'process singleton pointer access is count-guarded')
@@ -9038,11 +9660,70 @@ def run_self_tests() -> list[str]:
     '''
     expect_clean('diagnostic string/comment global service synthetic surface was rejected', check_global_service_access_guardrails_text( Path("SkullbonezSource/Runtime/DiagnosticStrings.cpp"), diagnostic_text_only_global, relative_path=Path("SkullbonezSource/Runtime/DiagnosticStrings.cpp"), ))
 
+    global_service_census_clean_entries = [
+        ( Path("synthetic/Bootstrap.cpp"), "void Bootstrap() { Gfx().Present(); }\n" ),
+    ]
+    expect_clean(
+        "budget-matched global service census synthetic surface was rejected",
+        check_global_service_access_count_entries(global_service_census_clean_entries, max_allowed=1),
+    )
+
+    global_service_census_grown_entries = [
+        ( Path("synthetic/Bootstrap.cpp"), "void Bootstrap() { Gfx().Present(); }\nvoid Added() { Cfg().workerThreads; }\n" ),
+    ]
+    expect_error(
+        "grown global service census synthetic surface was not rejected",
+        check_global_service_access_count_entries(global_service_census_grown_entries, max_allowed=1),
+        "global service access census exceeds ratchet",
+    )
+
     grown_run_header = allowed_run_header.replace("void Render();", "void Render();\n        void NewHelper();")
     expect_error(
         "grown Run.h private method count synthetic surface was not rejected",
         check_run_private_method_count_text(run_header_path, grown_run_header, max_allowed=1),
         "Run.h private method count exceeds ratchet",
+    )
+
+    throw_ratchet_clean_entries = [
+        ( Path("synthetic/AlreadyOwnedThrow.cpp"), "void ExistingOwner() { throw std::runtime_error( \"owned\" ); }\n" ),
+    ]
+    expect_clean(
+        "budget-matched throw-site synthetic surface was rejected",
+        check_throw_site_count_entries(throw_ratchet_clean_entries, max_allowed=1),
+    )
+    throw_ratchet_grown_entries = [
+        ( Path("synthetic/AlreadyOwnedThrow.cpp"), "void ExistingOwner() { throw std::runtime_error( \"owned\" ); }\n" ),
+        ( Path("synthetic/NewThrow.cpp"), "void NewExceptionPath() { throw std::runtime_error( \"new\" ); }\n" ),
+    ]
+    expect_error(
+        "grown throw-site synthetic surface was not rejected",
+        check_throw_site_count_entries(throw_ratchet_grown_entries, max_allowed=1),
+        "source throw-site count exceeds ratchet",
+    )
+    host_field_clean_entries = [
+        (
+            Path("synthetic/RunPasses.cpp"),
+            "void ExistingPass::Render() { (void)m_host.m_systems.renderPasses.fullscreen; }\n",
+        ),
+    ]
+    expect_clean(
+        "budget-matched render pass host-field synthetic surface was rejected",
+        check_render_pass_host_field_access_count_entries(host_field_clean_entries, max_allowed=1),
+    )
+    host_field_grown_entries = [
+        (
+            Path("synthetic/RunPasses.cpp"),
+            "void ExistingPass::Render() { (void)m_host.m_systems.renderPasses.fullscreen; }\n",
+        ),
+        (
+            Path("synthetic/NewPass.cpp"),
+            "void NewPass::Render() { (void)m_host.m_debug.isTerrainHidden; }\n",
+        ),
+    ]
+    expect_error(
+        "grown render pass host-field synthetic surface was not rejected",
+        check_render_pass_host_field_access_count_entries(host_field_grown_entries, max_allowed=1),
+        "render pass host-field access exceeds ratchet",
     )
 
     pointer_return_run_header = allowed_run_header.replace(
@@ -12045,6 +12726,45 @@ def run_self_tests() -> list[str]:
     """
     expect_clean('comment-only replay prediction writeback synthetic text was rejected', check_replay_prediction_step_writeback_guardrails_text( Path("SkullbonezSource/Runtime/Replay/RunReplayTools.cpp"), commented_replay_prediction_model_writeback, ))
 
+    old_replay_prediction_live_solver_restore = """
+    bool SeedReplayPredictionEngine( RunReplayPredictionState& prediction, GameModelCollection& modelCollection )
+    {
+        return modelCollection.GetPhysicsEngine().RestoreReplaySolverSnapshot( prediction.predictionWorld, modelCount );
+    }
+    """
+    expect_error('old replay prediction live solver restore synthetic surface was not rejected', check_replay_prediction_private_engine_restore_guardrails_text( REPLAY_PREDICTION_HELPERS_SOURCE, old_replay_prediction_live_solver_restore, ), 'replay prediction live solver restore is blocked')
+
+    old_replay_prediction_live_body_apply = """
+    bool SeedReplayPredictionEngine( RunReplayPredictionState& prediction, PhysicsEngine& liveEngine )
+    {
+        return ApplyReplayPredictionBodyState( liveEngine, prediction.predictionBodies );
+    }
+    """
+    expect_error('old replay prediction live body-state apply synthetic surface was not rejected', check_replay_prediction_private_engine_restore_guardrails_text( REPLAY_PREDICTION_HELPERS_SOURCE, old_replay_prediction_live_body_apply, ), 'replay prediction live body-state apply is blocked')
+
+    allowed_replay_prediction_private_engine_restore = """
+    bool SeedReplayPredictionEngine( RunReplayPredictionState& prediction )
+    {
+        PhysicsEngine& predictionEngine = *prediction.predictionEngine;
+        if ( !ApplyReplayPredictionBodyState( predictionEngine, prediction.predictionBodies ) ||
+             !predictionEngine.RestoreReplaySolverSnapshot( prediction.predictionWorld, modelCount ) )
+        {
+            return false;
+        }
+        return true;
+    }
+    """
+    expect_clean('private replay prediction restore synthetic surface was rejected', check_replay_prediction_private_engine_restore_guardrails_text( REPLAY_PREDICTION_HELPERS_SOURCE, allowed_replay_prediction_private_engine_restore, ))
+
+    commented_replay_prediction_live_restore = """
+    void DocumentOldPredictionRestore()
+    {
+        // modelCollection.GetPhysicsEngine().RestoreReplaySolverSnapshot(...) was the old live mutation path.
+        // ApplyReplayPredictionBodyState(liveEngine, bodies) is also no longer allowed.
+    }
+    """
+    expect_clean('comment-only replay prediction restore synthetic text was rejected', check_replay_prediction_private_engine_restore_guardrails_text( REPLAY_PREDICTION_HELPERS_SOURCE, commented_replay_prediction_live_restore, ))
+
     old_replay_prediction_ghost_model_render_read = """
     void RuntimeRenderHost::RenderReplayPredictionGhosts( const RenderFrameContext& frame )
     {
@@ -12882,7 +13602,7 @@ def run_self_tests() -> list[str]:
         modelCollection.GetPhysicsEngine().SetBodyVelocity( modelAccess, body, linearVelocity, angularVelocity, true );
     }
     """
-    expect_error('old SetBodyVelocity model-access call synthetic surface was not rejected', check_physics_velocity_model_access_guardrails_text( Path("SkullbonezSource/Runtime/Replay/RunReplayVelocityEdit.inl"), old_velocity_model_access_call, ), 'velocity model-access call is blocked')
+    expect_error('old SetBodyVelocity model-access call synthetic surface was not rejected', check_physics_velocity_model_access_guardrails_text( Path("SkullbonezSource/Runtime/Replay/RunReplayVelocityEdit.cpp"), old_velocity_model_access_call, ), 'velocity model-access call is blocked')
 
     allowed_velocity_handle_command = """
     PhysicsBodyHandle GameModelCollectionPhysicsAdapter::BodyHandleForVelocityCommand( int modelIndex,
@@ -12901,7 +13621,7 @@ def run_self_tests() -> list[str]:
         return m_bodyStore.SetBodyVelocity( body, linearVelocity, angularVelocity );
     }
     """
-    expect_clean('body-only velocity command synthetic surface was rejected', check_physics_velocity_model_access_guardrails_text( Path("SkullbonezSource/Runtime/Replay/RunReplayVelocityEdit.inl"), allowed_velocity_handle_command, ))
+    expect_clean('body-only velocity command synthetic surface was rejected', check_physics_velocity_model_access_guardrails_text( Path("SkullbonezSource/Runtime/Replay/RunReplayVelocityEdit.cpp"), allowed_velocity_handle_command, ))
 
     commented_velocity_model_access = """
     void DocumentOldVelocityCommand()
@@ -12911,7 +13631,7 @@ def run_self_tests() -> list[str]:
         modelCollection.GetPhysicsEngine().SetBodyVelocity( body, linearVelocity, angularVelocity, true );
     }
     """
-    expect_clean('comment-only velocity model-access synthetic text was rejected', check_physics_velocity_model_access_guardrails_text( Path("SkullbonezSource/Runtime/Replay/RunReplayVelocityEdit.inl"), commented_velocity_model_access, ))
+    expect_clean('comment-only velocity model-access synthetic text was rejected', check_physics_velocity_model_access_guardrails_text( Path("SkullbonezSource/Runtime/Replay/RunReplayVelocityEdit.cpp"), commented_velocity_model_access, ))
 
     old_wake_body_model_mirror = """
     void PhysicsScene::WakeBody( PhysicsModelAccess& modelAccess, PhysicsBodyHandle body )
@@ -14284,7 +15004,7 @@ def run_self_tests() -> list[str]:
         modelCollection.WakeModel( modelIndex );
     }
     """
-    expect_error('old replay velocity model-state command synthetic surface was not rejected', check_replay_velocity_model_state_physics_command_guardrails_text( Path("SkullbonezSource/Runtime/Replay/RunReplayVelocityEdit.inl"), old_replay_velocity_model_state_command, ), 'replay velocity model-state physics command is blocked')
+    expect_error('old replay velocity model-state command synthetic surface was not rejected', check_replay_velocity_model_state_physics_command_guardrails_text( Path("SkullbonezSource/Runtime/Replay/RunReplayVelocityEdit.cpp"), old_replay_velocity_model_state_command, ), 'replay velocity model-state physics command is blocked')
 
     old_replay_velocity_adapter_command = """
     void ApplyReplayVelocityEditToModel( GameModelCollection& modelCollection )
@@ -14294,7 +15014,7 @@ def run_self_tests() -> list[str]:
         modelCollection.GetPhysicsEngine().SetBodyVelocity( body, linearVelocity, angularVelocity, true );
     }
     """
-    expect_error('old replay velocity adapter lookup synthetic surface was not rejected', check_replay_velocity_model_state_physics_command_guardrails_text( Path("SkullbonezSource/Runtime/Replay/RunReplayVelocityEdit.inl"), old_replay_velocity_adapter_command, ), 'replay velocity adapter lookup is blocked')
+    expect_error('old replay velocity adapter lookup synthetic surface was not rejected', check_replay_velocity_model_state_physics_command_guardrails_text( Path("SkullbonezSource/Runtime/Replay/RunReplayVelocityEdit.cpp"), old_replay_velocity_adapter_command, ), 'replay velocity adapter lookup is blocked')
 
     allowed_replay_velocity_handle_command = """
     void ApplyReplayVelocityEditToBody( GameModelCollection& modelCollection )
@@ -14303,7 +15023,7 @@ def run_self_tests() -> list[str]:
         modelCollection.GetPhysicsEngine().SetBodyVelocity( body, linearVelocity, angularVelocity, true );
     }
     """
-    expect_clean('store-handle replay velocity command synthetic surface was rejected', check_replay_velocity_model_state_physics_command_guardrails_text( Path("SkullbonezSource/Runtime/Replay/RunReplayVelocityEdit.inl"), allowed_replay_velocity_handle_command, ))
+    expect_clean('store-handle replay velocity command synthetic surface was rejected', check_replay_velocity_model_state_physics_command_guardrails_text( Path("SkullbonezSource/Runtime/Replay/RunReplayVelocityEdit.cpp"), allowed_replay_velocity_handle_command, ))
 
     old_replay_velocity_model_body_reads = """
     void RenderReplayVelocityEditOverlay( const GameModel& model )
@@ -14317,7 +15037,7 @@ def run_self_tests() -> list[str]:
         const Vector3 angular = model.GetAngularVelocity();
     }
     """
-    expect_error('old replay velocity GameModel body read synthetic surface was not rejected', check_replay_velocity_model_state_physics_command_guardrails_text( Path("SkullbonezSource/Runtime/Replay/RunReplayVelocityEdit.inl"), old_replay_velocity_model_body_reads, ), 'replay velocity GameModel body read is blocked')
+    expect_error('old replay velocity GameModel body read synthetic surface was not rejected', check_replay_velocity_model_state_physics_command_guardrails_text( Path("SkullbonezSource/Runtime/Replay/RunReplayVelocityEdit.cpp"), old_replay_velocity_model_body_reads, ), 'replay velocity GameModel body read is blocked')
 
     allowed_replay_velocity_store_body_reads = """
     void RenderReplayVelocityEditOverlay( const PhysicsBodyRecord& body, const ColliderRecord& collider )
@@ -14332,7 +15052,7 @@ def run_self_tests() -> list[str]:
         tracer.AddReplayVelocityGizmo( origin, body.orientation, collider.shape, collider.boundingRadius, linear, angular, -1, -1, -1, false );
     }
     """
-    expect_clean('store-backed replay velocity body read synthetic surface was rejected', check_replay_velocity_model_state_physics_command_guardrails_text( Path("SkullbonezSource/Runtime/Replay/RunReplayVelocityEdit.inl"), allowed_replay_velocity_store_body_reads, ))
+    expect_clean('store-backed replay velocity body read synthetic surface was rejected', check_replay_velocity_model_state_physics_command_guardrails_text( Path("SkullbonezSource/Runtime/Replay/RunReplayVelocityEdit.cpp"), allowed_replay_velocity_store_body_reads, ))
 
     commented_replay_velocity_model_state_command = """
     void DocumentOldReplayVelocityCommand()
@@ -14343,7 +15063,7 @@ def run_self_tests() -> list[str]:
         modelCollection.GetPhysicsEngine().SetBodyVelocity( body, linearVelocity, angularVelocity, true );
     }
     """
-    expect_clean('comment-only replay velocity model-state command synthetic text was rejected', check_replay_velocity_model_state_physics_command_guardrails_text( Path("SkullbonezSource/Runtime/Replay/RunReplayVelocityEdit.inl"), commented_replay_velocity_model_state_command, ))
+    expect_clean('comment-only replay velocity model-state command synthetic text was rejected', check_replay_velocity_model_state_physics_command_guardrails_text( Path("SkullbonezSource/Runtime/Replay/RunReplayVelocityEdit.cpp"), commented_replay_velocity_model_state_command, ))
 
     old_replay_velocity_model_identity_lookup = """
     int ReplayRuntime::ResolveVelocityEditModelIndex( const std::vector<GameObjects::GameModel>& models ) const
@@ -14367,7 +15087,7 @@ def run_self_tests() -> list[str]:
         return modelIndex >= 0;
     }
     """
-    expect_error('old replay velocity collection Models lookup synthetic surface was not rejected', check_replay_velocity_model_state_physics_command_guardrails_text( Path("SkullbonezSource/Runtime/Replay/RunReplayVelocityEdit.inl"), old_replay_velocity_collection_models_lookup, ), 'replay velocity collection Models lookup is blocked')
+    expect_error('old replay velocity collection Models lookup synthetic surface was not rejected', check_replay_velocity_model_state_physics_command_guardrails_text( Path("SkullbonezSource/Runtime/Replay/RunReplayVelocityEdit.cpp"), old_replay_velocity_collection_models_lookup, ), 'replay velocity collection Models lookup is blocked')
 
     allowed_replay_velocity_body_handle_lookup = """
     PhysicsBodyHandle ReplayRuntime::ResolveVelocityEditBodyHandle( const PhysicsBodyStore& bodyStore ) const
@@ -15104,6 +15824,23 @@ def run_self_tests() -> list[str]:
     """
     expect_clean('comment-only general inheritance synthetic text was rejected', check_approved_inheritance_guardrails_text( Path("SkullbonezSource/Runtime/CaptureSystem.h"), commented_general_inheritance, Path("SkullbonezSource/Runtime/CaptureSystem.h"), ))
 
+    expect_clean(
+        'physics GameModelCollection census at budget was rejected',
+        check_physics_game_model_collection_census_budget(
+            Path("SkullbonezSource/Physics"),
+            MAX_PHYSICS_GAME_MODEL_COLLECTION_CENSUS,
+        ),
+    )
+
+    expect_error(
+        'physics GameModelCollection census over budget was not rejected',
+        check_physics_game_model_collection_census_budget(
+            Path("SkullbonezSource/Physics"),
+            MAX_PHYSICS_GAME_MODEL_COLLECTION_CENSUS + 1,
+        ),
+        'physics GameModelCollection dependency census exceeded',
+    )
+
     compatibility_physics_models_text = (
         "std::vector<SkullbonezCore::GameObjects::GameModel>& physicsModels = "
         "m_cGameModelCollection.MutablePhysicsModelsForCompatibility();"
@@ -15232,8 +15969,11 @@ def check_interaction_guardrails(repo: Path) -> list[BoundaryError]:
 
 def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     run_header = repo / RUN_HEADER
-    errors = check_text_rules(run_header, run_header.read_text(encoding="utf-8"), RUN_HEADER_RULES)
-    errors.extend(check_run_private_method_count_text(run_header, run_header.read_text(encoding="utf-8")))
+    run_header_text = run_header.read_text(encoding="utf-8")
+    errors = check_text_rules(run_header, run_header_text, RUN_HEADER_RULES)
+    errors.extend(check_run_private_member_count_text(run_header, run_header_text))
+    errors.extend(check_run_private_method_count_text(run_header, run_header_text))
+    errors.extend(check_throw_site_count(repo))
     errors.extend(check_run_internal_scrubber_guardrails(repo))
     errors.extend(check_run_internal_replay_layout_guardrails(repo))
     errors.extend(check_run_internal_scene_runtime_guardrails(repo))
@@ -15332,6 +16072,7 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_replay_recorder_store_authority_guardrails(repo))
     errors.extend(check_replay_prediction_body_capture_store_authority_guardrails(repo))
     errors.extend(check_replay_prediction_step_writeback_guardrails(repo))
+    errors.extend(check_replay_prediction_private_engine_restore_guardrails(repo))
     errors.extend(check_replay_prediction_ghost_render_store_authority_guardrails(repo))
     errors.extend(check_replay_restore_store_authority_guardrails(repo))
     errors.extend(check_collider_store_identity_authority_guardrails(repo))
@@ -15361,8 +16102,11 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_direct_gfx_raytracing_guardrails(repo))
     errors.extend(check_irender_backend_raytracing_declarations(repo))
     errors.extend(check_irender_backend_aggregate_contract(repo))
+    errors.extend(check_render_backend_aggregate_dependency_guardrails(repo))
+    errors.extend(check_render_pass_host_field_access_count(repo))
     errors.extend(check_runtime_render_pass_wide_backend_guardrails(repo))
     errors.extend(check_graph_owned_render_pass_scheduling(repo))
+    errors.extend(check_graph_owned_render_pass_execution_ownership(repo))
     errors.extend(check_graph_owned_render_pass_manual_barriers(repo))
     errors.extend(check_render_graph_unknown_access(repo))
     errors.extend(check_global_service_access_guardrails(repo))

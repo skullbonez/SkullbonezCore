@@ -148,10 +148,12 @@
     <ClCompile Include="SkullbonezSource\Physics\Debug\BroadphaseVisualizer.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Allocation\RuntimeReserveAllocator.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Allocation\RuntimeAllocationTracker.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\AttachedCameraController.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\CaptureController.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\CaptureSystem.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Camera.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\CameraCollection.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\DemoDirector.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\Debug\CollisionVisualizer.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\ObjectContactManifold.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\TerrainContactManifold.cpp" />
@@ -159,6 +161,7 @@
     <ClCompile Include="SkullbonezSource\Runtime\Editor\LauncherLaser.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Editor\LauncherTools.cpp" />
     <ClCompile Include="SkullbonezSource\Core\AmortizedTask.cpp" />
+    <ClCompile Include="SkullbonezSource\Core\FatalError.cpp" />
     <ClCompile Include="SkullbonezSource\GameObjects\GameModel.cpp" />
     <ClCompile Include="SkullbonezSource\GameObjects\GameModelCollection.cpp" />
     <ClCompile Include="SkullbonezSource\Rendering\GameModelRenderer.cpp" />
@@ -189,6 +192,7 @@
     <ClCompile Include="SkullbonezSource\Physics\SimulationSystem.cpp" />
     <ClCompile Include="SkullbonezSource\Core\SkullScope.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayExporter.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayInteractionController.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayOverlayLayout.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayOverlayRenderer.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayRecorder.cpp" />
@@ -221,11 +225,13 @@
     <ClCompile Include="SkullbonezSource\Runtime\Run.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Editor\RunEditorTools.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\RunFrame.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\RunDemoDirector.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\RunInteractionAutomation.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\RunInput.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\RunLiveStyle.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\RunPasses.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Replay\RunReplayTools.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Replay\RunReplayVelocityEdit.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Render\RuntimeRenderHost.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Tools\RuntimeTools.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\RunRender.cpp" />
@@ -307,10 +313,12 @@
     <ClInclude Include="SkullbonezSource\Physics\Debug\BroadphaseVisualizer.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Allocation\RuntimeReserveAllocator.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Allocation\RuntimeAllocationTracker.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\AttachedCameraController.h" />
     <ClInclude Include="SkullbonezSource\Runtime\CaptureController.h" />
     <ClInclude Include="SkullbonezSource\Runtime\CaptureSystem.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Camera.h" />
     <ClInclude Include="SkullbonezSource\Runtime\CameraCollection.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\DemoDirector.h" />
     <ClInclude Include="SkullbonezSource\Physics\Debug\CollisionVisualizer.h" />
     <ClInclude Include="SkullbonezSource\Physics\ObjectContactManifold.h" />
     <ClInclude Include="SkullbonezSource\Physics\TerrainContactManifold.h" />
@@ -328,6 +336,7 @@
     <ClInclude Include="SkullbonezSource\Core\AmortizedTask.h" />
     <ClInclude Include="SkullbonezSource\Physics\CollisionShape.h" />
     <ClInclude Include="SkullbonezSource\Core\Common.h" />
+    <ClInclude Include="SkullbonezSource\Core\FatalError.h" />
     <ClInclude Include="SkullbonezSource\Core\MainMemoryStats.h" />
     <ClInclude Include="SkullbonezSource\Physics\ContactSolverCommon.h" />
     <ClInclude Include="SkullbonezSource\Rendering\DrawCallTrace.h" />
@@ -361,11 +370,13 @@
     <ClInclude Include="SkullbonezSource\Runtime\EngineContext.h" />
     <ClInclude Include="SkullbonezSource\Core\LockOrderValidator.h" />
     <ClInclude Include="SkullbonezSource\Core\Log.h" />
+    <ClInclude Include="SkullbonezSource\Core\SbResult.h" />
     <ClInclude Include="SkullbonezSource\Rendering\PrimitiveMeshBuilder.h" />
     <ClInclude Include="SkullbonezSource\Maths\Quaternion.h" />
     <ClInclude Include="SkullbonezSource\Maths\RotationMatrix.h" />
     <ClInclude Include="SkullbonezSource\Core\Config.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Run.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\RunDemoDirector.h" />
     <ClInclude Include="SkullbonezSource\Runtime\RunInternal.h" />
     <ClInclude Include="SkullbonezSource\Runtime\RunReplayProbeState.h" />
     <ClInclude Include="SkullbonezSource\Runtime\RunState.h" />
@@ -400,9 +411,11 @@
     <ClInclude Include="SkullbonezSource\Runtime\SimulationController.h" />
     <ClInclude Include="SkullbonezSource\Physics\SimulationSystem.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayExporter.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayInteractionController.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayOverlayLayout.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayOverlayRenderer.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayRecorder.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayRestoreService.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayRuntime.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplaySolverSnapshot.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayV2Artifact.h" />
@@ -412,7 +425,6 @@
     <ClInclude Include="SkullbonezSource\Runtime\Replay\RunReplayImportExport.inl" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\RunReplayQueryTools.inl" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\RunReplayScrubberTools.inl" />
-    <ClInclude Include="SkullbonezSource\Runtime\Replay\RunReplayVelocityEdit.inl" />
     <ClInclude Include="SkullbonezSource\Runtime\Tools\RuntimeTools.h" />
     <ClInclude Include="SkullbonezSource\Runtime\RuntimeFileWriter.h" />
     <ClInclude Include="SkullbonezSource\World\SkyBox.h" />
@@ -474,6 +486,7 @@
     <ClInclude Include="SkullbonezSource\Rendering\RenderInstanceStore.h" />
     <ClInclude Include="SkullbonezSource\Rendering\RenderGraph.h" />
     <ClInclude Include="SkullbonezSource\Rendering\RenderPipeline.h" />
+    <ClInclude Include="SkullbonezSource\Rendering\RenderRasterBindingContract.h" />
     <ClInclude Include="SkullbonezSource\Rendering\RenderSceneSnapshot.h" />
     <ClInclude Include="SkullbonezSource\Rendering\DX12\Dx12RenderGraphExecutor.h" />
     <ClInclude Include="SkullbonezSource\Rendering\RenderMaterial.h" />

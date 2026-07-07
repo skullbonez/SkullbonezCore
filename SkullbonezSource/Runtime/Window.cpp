@@ -12,6 +12,8 @@ Glossary:
   HWND (Window Handle): Win32 identifier for the native application window.
   HDC (Handle to Device Context): Win32 drawing context associated with the
   window.
+  Resize backend: Borrowed renderer capability used only to resize swap-chain
+  and depth resources when Win32 reports a new client size.
   WndProc: Win32 callback used by the OS to deliver window, focus, cursor, and
   input messages.
   Callback bridge: Input's bound HWND gate that keeps late or foreign window
@@ -20,6 +22,8 @@ Glossary:
 Invariants:
   - Window dimensions are client-area dimensions and drive both renderer resize
     and the perspective/text projections.
+  - The resize backend borrow is installed after renderer startup and cleared
+    before backend teardown; Window never owns the renderer.
   - The singleton pointer is a legacy access shim around static storage; native
     HWND/HDC lifetime still follows CreateAppWindow and OS messages.
 
@@ -45,28 +49,16 @@ Window::Window()
 {
     m_sWindow = 0;
     m_sDevice = 0;
+    m_projectionNearPlane = 1.0f;
+    m_projectionFarPlane = 5500.0f;
+    m_startupWindowWidth = 1800;
+    m_startupWindowHeight = 1000;
+    m_resizeRenderBackend = nullptr;
 }
 
 
 Window::~Window()
 {
-}
-
-
-Window* Window::Instance()
-{
-    if ( !Window::pInstance )
-    {
-        static Window instance;
-        Window::pInstance = &instance;
-    }
-    return Window::pInstance;
-}
-
-
-void Window::Destroy()
-{
-    Window::pInstance = nullptr;
 }
 
 
@@ -84,6 +76,26 @@ void Window::SetWindowDimensions( const RECT dimensions )
 }
 
 
+void Window::SetProjectionFrustum( float nearPlane, float farPlane )
+{
+    m_projectionNearPlane = nearPlane;
+    m_projectionFarPlane = farPlane;
+}
+
+
+void Window::SetStartupWindowSize( int width, int height )
+{
+    m_startupWindowWidth = (std::max)( 1, width );
+    m_startupWindowHeight = (std::max)( 1, height );
+}
+
+
+void Window::SetResizeRenderBackend( IRenderBackend* renderBackend )
+{
+    m_resizeRenderBackend = renderBackend;
+}
+
+
 void Window::HandleScreenResize()
 {
     int w = m_sWindowDimensions.x;
@@ -91,12 +103,12 @@ void Window::HandleScreenResize()
 
     // Hazard: minimized windows report zero client area; resizing the backend
     // to zero dimensions would invalidate swap-chain and projection state.
-    if ( w <= 0 || h <= 0 || !IsGfxReady() )
+    if ( w <= 0 || h <= 0 || !m_resizeRenderBackend )
     {
         return;
     }
 
-    Gfx().Resize( w, h );
+    m_resizeRenderBackend->Resize( w, h );
 
     // Recompute the 2D text ortho projection to match the new aspect ratio.
     // Without this, text stretches when the window is resized or maximized.
@@ -104,9 +116,13 @@ void Window::HandleScreenResize()
 
     // DX12 clip-space depth is [0,1], so the perspective matrix must use the
     // matching projection convention after every resize.
+    // Invariant: Window owns the projection depth range after startup; resize
+    // must not reopen global config while handling OS messages.
     float aspect = static_cast<float>( w ) / static_cast<float>( h );
-    projectionMatrix =
-        Math::Transformation::Matrix4::PerspectiveZeroToOne( 45.0f, aspect, Cfg().frustumNear, Cfg().frustumFar );
+    projectionMatrix = Math::Transformation::Matrix4::PerspectiveZeroToOne( 45.0f,
+                                                                            aspect,
+                                                                            m_projectionNearPlane,
+                                                                            m_projectionFarPlane );
 }
 
 
@@ -274,7 +290,7 @@ void Window::CreateAppWindow( HINSTANCE hInstance, bool isFullScreenMode )
         dwStyle = WS_POPUP | WS_CLIPSIBLINGS | WS_CLIPCHILDREN;
 
         // Changes to full screen mode
-        ChangeToFullScreen( Cfg().window.screenX, Cfg().window.screenY );
+        ChangeToFullScreen( m_startupWindowWidth, m_startupWindowHeight );
 
         Input::SetSystemCursorVisible( false );
     }
@@ -285,8 +301,8 @@ void Window::CreateAppWindow( HINSTANCE hInstance, bool isFullScreenMode )
 
     int windowX = 0;
     int windowY = 0;
-    const int windowW = Cfg().window.screenX;
-    const int windowH = Cfg().window.screenY;
+    const int windowW = m_startupWindowWidth;
+    const int windowH = m_startupWindowHeight;
     if ( !m_fIsFullScreenMode )
     {
         // Default the window to the bottom-left of the usable desktop work area.

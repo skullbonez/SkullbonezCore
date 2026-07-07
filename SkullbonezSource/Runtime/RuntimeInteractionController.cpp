@@ -165,6 +165,32 @@ RuntimeInteractionTransition RuntimeInteractionController::EnterManipulator()
 }
 
 
+RuntimeInteractionTransition RuntimeInteractionController::EnterCameraMode( RunCameraMode mode )
+{
+    // Why: camera mode is the user-facing command, while workspace/owner is the
+    // interaction contract. Keeping this mapping here makes mode transitions use
+    // the same cleanup metadata as direct tool and replay owner transitions.
+    switch ( mode )
+    {
+    case RunCameraMode::Demo:
+    case RunCameraMode::Scene:
+    case RunCameraMode::Director:
+        return EnterLive();
+    case RunCameraMode::Inspect:
+    case RunCameraMode::Attach:
+        return EnterInspect();
+    case RunCameraMode::Launcher:
+        return EnterLauncher();
+    case RunCameraMode::Manipulator:
+        return EnterManipulator();
+    case RunCameraMode::Count:
+        break;
+    }
+
+    return EnterLive();
+}
+
+
 RuntimeInteractionTransition RuntimeInteractionController::SetWorldInteractionOwner( WorldInteractionOwner owner,
                                                                                      InteractionExitReason reason )
 {

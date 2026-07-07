@@ -1,16 +1,18 @@
 /*
 File: SkullbonezSource/Runtime/RunInteractionAutomation.cpp
 Purpose:
-  Drives deterministic runtime world-click scripts through the normal input path.
+  Drives deterministic runtime interaction scripts through the normal input path.
 
 Mental model:
   Interaction automation is a validation driver. It asks the same picking,
-  replay, camera, and world-input code that an operator would use, then writes a
-  compact JSON report for the test harness.
+  replay, camera, director-shot, and world-input code that an operator would
+  use, then writes a compact JSON report for the test harness.
 
 Glossary:
   World click: Automation request that projects a screen-space click into the
   scene and routes it through the active runtime owner.
+  Director shot action: Automation request that loads or advances a fixed camera
+    shot list without taking ownership away from the runtime camera state.
   Prediction target: Replay body selected for future-path diagnostics.
   Automation report: JSON side-channel describing what the scripted interaction
   observed without mutating validation baselines directly.
@@ -29,6 +31,7 @@ Related:
 #include "RunInternal.h"
 #include "Allocation/RuntimeAllocationTracker.h"
 #include "Replay/ReplayOverlayLayout.h"
+#include "RunDemoDirector.h"
 #include "RuntimeFileWriter.h"
 #include "RuntimePickService.h"
 
@@ -143,6 +146,27 @@ bool ReplayPredictionPathVisible( const ReplayRuntime& replayRuntime )
              !replayRuntime.Prediction().futureNodes.empty() );
 }
 
+bool LiveSolverHashStableAcrossPrediction( const ReplayRuntime& replayRuntime,
+                                           uint64_t* outSourceHash = nullptr,
+                                           uint64_t* outLiveHash = nullptr )
+{
+    // Concept: prediction isolation proof. The source hash is captured before
+    // the private prediction engine starts stepping; the live latest hash should
+    // still match after prediction has produced visible frames.
+    const ReplaySolverFrameSample* latest = replayRuntime.Solver().LatestSample();
+    const uint64_t sourceHash = replayRuntime.Prediction().sourceSolverHash;
+    const uint64_t liveHash = latest ? latest->solverHash : 0;
+    if ( outSourceHash )
+    {
+        *outSourceHash = sourceHash;
+    }
+    if ( outLiveHash )
+    {
+        *outLiveHash = liveHash;
+    }
+    return latest && sourceHash != 0 && sourceHash == liveHash;
+}
+
 const char* CameraModeName( RunCameraMode mode )
 {
     switch ( mode )
@@ -159,6 +183,8 @@ const char* CameraModeName( RunCameraMode mode )
         return "Launcher";
     case RunCameraMode::Manipulator:
         return "Manipulator";
+    case RunCameraMode::Director:
+        return "Director";
     case RunCameraMode::Count:
         break;
     }
@@ -195,6 +221,11 @@ bool TryParseCameraMode( const std::string& value, RunCameraMode& outMode )
     if ( value == "Manipulator" )
     {
         outMode = RunCameraMode::Manipulator;
+        return true;
+    }
+    if ( value == "Director" )
+    {
+        outMode = RunCameraMode::Director;
         return true;
     }
     return false;
@@ -313,6 +344,27 @@ const char* ReplayTrackName( RunReplayTrack track )
 
 bool TryParseVirtualKey( const std::string& value, int& outVirtualKey )
 {
+    if ( value.size() == 1 )
+    {
+        const char key = value[0];
+        // Why: Interaction scripts use human key labels; Win32 virtual-key
+        // values for alphanumeric keys intentionally match ASCII.
+        if ( key >= 'A' && key <= 'Z' )
+        {
+            outVirtualKey = key;
+            return true;
+        }
+        if ( key >= 'a' && key <= 'z' )
+        {
+            outVirtualKey = 'A' + ( key - 'a' );
+            return true;
+        }
+        if ( key >= '0' && key <= '9' )
+        {
+            outVirtualKey = key;
+            return true;
+        }
+    }
     if ( value == "F5" )
     {
         outVirtualKey = VK_F5;
@@ -336,10 +388,55 @@ bool TryParseVirtualKey( const std::string& value, int& outVirtualKey )
     return false;
 }
 
+bool ReadAutomationVec3( const Json& value, Vector3& out )
+{
+    if ( !value.is_array() || value.size() != 3u || !value[0].is_number() || !value[1].is_number() ||
+         !value[2].is_number() )
+    {
+        return false;
+    }
+
+    out.x = value[0].get<float>();
+    out.y = value[1].get<float>();
+    out.z = value[2].get<float>();
+    return true;
+}
+
+bool ReadAutomationCameraPose( const Json& value, DemoCameraPose& out, std::string& outError )
+{
+    if ( !value.is_object() )
+    {
+        outError = "setCameraPose must be an object";
+        return false;
+    }
+    if ( !value.contains( "position" ) || !ReadAutomationVec3( value["position"], out.eye ) )
+    {
+        outError = "setCameraPose.position must be a 3-number array";
+        return false;
+    }
+    if ( !value.contains( "view" ) || !ReadAutomationVec3( value["view"], out.view ) )
+    {
+        outError = "setCameraPose.view must be a 3-number array";
+        return false;
+    }
+    if ( !value.contains( "up" ) || !ReadAutomationVec3( value["up"], out.up ) )
+    {
+        outError = "setCameraPose.up must be a 3-number array";
+        return false;
+    }
+    return true;
+}
+
 const char* ActionTypeName( RunInteractionAutomationActionType type )
 {
     switch ( type )
     {
+    case RunInteractionAutomationActionType::LoadShotList:
+        return "loadShotList";
+    case RunInteractionAutomationActionType::DirectorAdvance:
+        return "directorAdvance";
+    case RunInteractionAutomationActionType::SetCameraPose:
+        return "setCameraPose";
     case RunInteractionAutomationActionType::SetCameraMode:
         return "setCameraMode";
     case RunInteractionAutomationActionType::ClickObject:
@@ -374,6 +471,8 @@ const char* AssertName( RunInteractionAutomationAssertKind kind )
         return "owner";
     case RunInteractionAutomationAssertKind::CameraMode:
         return "cameraMode";
+    case RunInteractionAutomationAssertKind::DirectorGrabbed:
+        return "directorGrabbed";
     case RunInteractionAutomationAssertKind::ReplayPredictionEnabled:
         return "replayPredictionEnabled";
     case RunInteractionAutomationAssertKind::ReplayPathTarget:
@@ -386,6 +485,8 @@ const char* AssertName( RunInteractionAutomationAssertKind kind )
         return "predictionScrubFrameActive";
     case RunInteractionAutomationAssertKind::PredictionTargetDisplacementMin:
         return "predictionTargetDisplacementMin";
+    case RunInteractionAutomationAssertKind::LiveSolverHashStableAcrossPrediction:
+        return "liveSolverHashStableAcrossPrediction";
     case RunInteractionAutomationAssertKind::GizmoVisible:
         return "gizmoVisible";
     case RunInteractionAutomationAssertKind::ReplayActiveTrack:
@@ -500,6 +601,25 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
         return true;
     }
 
+    if ( entry.contains( "loadShotList" ) )
+    {
+        outAction.type = RunInteractionAutomationActionType::LoadShotList;
+        CopyText( outAction.path, sizeof( outAction.path ), entry["loadShotList"].get<std::string>() );
+        return true;
+    }
+
+    if ( entry.contains( "directorAdvance" ) )
+    {
+        outAction.type = RunInteractionAutomationActionType::DirectorAdvance;
+        return true;
+    }
+
+    if ( entry.contains( "setCameraPose" ) )
+    {
+        outAction.type = RunInteractionAutomationActionType::SetCameraPose;
+        return ReadAutomationCameraPose( entry["setCameraPose"], outAction.cameraPose, outError );
+    }
+
     if ( entry.contains( "clickObject" ) )
     {
         outAction.type = RunInteractionAutomationActionType::ClickObject;
@@ -610,6 +730,11 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
             outAction.cameraMode = mode;
             CopyText( outAction.text, sizeof( outAction.text ), modeName );
         }
+        else if ( name == "directorGrabbed" )
+        {
+            outAction.assertKind = RunInteractionAutomationAssertKind::DirectorGrabbed;
+            outAction.boolValue = ReadBool( member.value() );
+        }
         else if ( name == "replayPredictionEnabled" )
         {
             outAction.assertKind = RunInteractionAutomationAssertKind::ReplayPredictionEnabled;
@@ -639,6 +764,11 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
         {
             outAction.assertKind = RunInteractionAutomationAssertKind::PredictionTargetDisplacementMin;
             outAction.numberValue = member.value().get<float>();
+        }
+        else if ( name == "liveSolverHashStableAcrossPrediction" )
+        {
+            outAction.assertKind = RunInteractionAutomationAssertKind::LiveSolverHashStableAcrossPrediction;
+            outAction.boolValue = ReadBool( member.value() );
         }
         else if ( name == "gizmoVisible" )
         {
@@ -763,7 +893,7 @@ bool Run::TrySetInteractionAutomationReplayPathTarget( const char* name )
         return false;
     }
 
-    const auto* body = m_cGameModelCollection.GetPhysicsBodyStore().RecordForModelIndex( modelIndex );
+    const auto* body = m_cGameModelCollection.GetPhysicsEngine().BodyStore().RecordForModelIndex( modelIndex );
     if ( !body || body->replayBodyId == 0 )
     {
         return false;
@@ -813,8 +943,8 @@ bool Run::TryProjectInteractionAutomationModel( const char* name, POINT& outMous
                 {
                     RuntimePickRequest request;
                     request.purpose = RuntimePickPurpose::EditorSelection;
-                    request.bodyStore = &m_cGameModelCollection.GetPhysicsBodyStore();
-                    request.colliderStore = &m_cGameModelCollection.GetColliderStore();
+                    request.bodyStore = &m_cGameModelCollection.GetPhysicsEngine().BodyStore();
+                    request.colliderStore = &m_cGameModelCollection.GetPhysicsEngine().Colliders();
                     request.rayOrigin = rayOrigin;
                     request.rayDirection = rayDirection;
 
@@ -886,6 +1016,65 @@ void Run::TickInteractionAutomationBeforeInput()
 
         switch ( action.type )
         {
+        case RunInteractionAutomationActionType::LoadShotList:
+        {
+            const bool loaded = DemoDirectorPlayback::LoadShotList( m_camera, m_systems, action.path );
+            if ( !loaded )
+            {
+                FailAutomation( state, "failed to load director shot list" );
+            }
+            AppendReportAction( state,
+                                frame,
+                                action.type,
+                                action.path,
+                                nullptr,
+                                loaded,
+                                loaded ? "shot list loaded" : "shot list unavailable" );
+            action.processed = true;
+            break;
+        }
+        case RunInteractionAutomationActionType::DirectorAdvance:
+        {
+            const bool advanced = DemoDirectorPlayback::AdvancePhase( m_camera, m_systems );
+            if ( !advanced )
+            {
+                FailAutomation( state, "failed to advance director phase" );
+            }
+            AppendReportAction( state,
+                                frame,
+                                action.type,
+                                "",
+                                nullptr,
+                                advanced,
+                                advanced ? "director phase advanced" : "director phase unavailable" );
+            action.processed = true;
+            break;
+        }
+        case RunInteractionAutomationActionType::SetCameraPose:
+        {
+            const bool applied = m_systems.cameras != nullptr;
+            if ( applied )
+            {
+                // Why: pose-authoring proofs seed the current camera, then use
+                // normal J/L key handling to write and save the shot list.
+                m_systems.cameras->SetPrimaryPose( action.cameraPose.eye,
+                                                   action.cameraPose.view,
+                                                   action.cameraPose.up );
+            }
+            else
+            {
+                FailAutomation( state, "failed to set camera pose" );
+            }
+            AppendReportAction( state,
+                                frame,
+                                action.type,
+                                "",
+                                nullptr,
+                                applied,
+                                applied ? "camera pose applied" : "camera unavailable" );
+            action.processed = true;
+            break;
+        }
         case RunInteractionAutomationActionType::SetCameraMode:
             ApplyCameraMode( action.cameraMode, RuntimeInputActionSource::Runtime );
             AppendReportAction( state, frame, action.type, action.text, nullptr, true, "camera mode applied" );
@@ -1274,7 +1463,7 @@ void Run::TickInteractionAutomationAfterRender()
         {
             expected = action.text;
             const int selectedIndex = m_runtimeTools.Editor().selectedModelIndex;
-            if ( selectedIndex >= 0 && selectedIndex < m_cGameModelCollection.GetModelCount() )
+            if ( selectedIndex >= 0 && selectedIndex < m_cGameModelCollection.SceneEntityCount() )
             {
                 actual = m_cGameModelCollection.GetModelAtIndex( selectedIndex ).GetName();
             }
@@ -1290,6 +1479,11 @@ void Run::TickInteractionAutomationAfterRender()
             expected = CameraModeName( action.cameraMode );
             actual = CameraModeName( m_camera.mode );
             passed = m_camera.mode == action.cameraMode;
+            break;
+        case RunInteractionAutomationAssertKind::DirectorGrabbed:
+            expected = BoolString( action.boolValue );
+            actual = BoolString( m_camera.director.grabbed );
+            passed = m_camera.director.grabbed == action.boolValue;
             break;
         case RunInteractionAutomationAssertKind::ReplayPredictionEnabled:
             expected = BoolString( action.boolValue );
@@ -1342,6 +1536,14 @@ void Run::TickInteractionAutomationAfterRender()
                 actual = stream.str();
             }
             passed = valid && displacement >= action.numberValue;
+            break;
+        }
+        case RunInteractionAutomationAssertKind::LiveSolverHashStableAcrossPrediction:
+        {
+            const bool stable = LiveSolverHashStableAcrossPrediction( m_replayRuntime );
+            expected = BoolString( action.boolValue );
+            actual = BoolString( stable );
+            passed = stable == action.boolValue;
             break;
         }
         case RunInteractionAutomationAssertKind::GizmoVisible:
@@ -1459,7 +1661,7 @@ void Run::WriteInteractionAutomationReport()
 
     const int selectedIndex = m_runtimeTools.Editor().selectedModelIndex;
     const char* selectedName = "";
-    if ( selectedIndex >= 0 && selectedIndex < m_cGameModelCollection.GetModelCount() )
+    if ( selectedIndex >= 0 && selectedIndex < m_cGameModelCollection.SceneEntityCount() )
     {
         selectedName = m_cGameModelCollection.GetModelAtIndex( selectedIndex ).GetName();
     }
@@ -1467,6 +1669,10 @@ void Run::WriteInteractionAutomationReport()
         selectedIndex >= 0 && ( m_runtimeTools.Editor().editorModeEnabled || InspectGizmoInteractionActive() );
     const std::size_t predictionVisibleFrameCount = VisiblePredictionFrameCount( m_replayRuntime );
     const bool predictionPathVisible = ReplayPredictionPathVisible( m_replayRuntime );
+    uint64_t predictionSourceSolverHash = 0;
+    uint64_t liveSolverHash = 0;
+    const bool liveSolverHashStableAcrossPrediction =
+        LiveSolverHashStableAcrossPrediction( m_replayRuntime, &predictionSourceSolverHash, &liveSolverHash );
     const float replaySolverTrackPosition = m_replayRuntime.TrackPosition( RunReplayTrack::Solver );
     const float replaySolverPresentTrackPosition = m_replayRuntime.SolverPresentTrackPosition();
     const bool replaySolverTrackAtPresent =
@@ -1503,6 +1709,23 @@ void Run::WriteInteractionAutomationReport()
         }
     }
 
+    Json directorPhaseCameraEye = nullptr;
+    Json directorPhaseCameraView = nullptr;
+    Json directorPhaseCameraUp = nullptr;
+    const char* directorPhaseName = "";
+    const char* directorPhaseStylePath = "";
+    const DemoDirectorPlaybackState& director = m_camera.director;
+    if ( director.hasActiveShotList && director.currentPhaseIndex >= 0 &&
+         director.currentPhaseIndex < director.activeShotList.phaseCount )
+    {
+        const DemoPhase& phase = director.activeShotList.phases[static_cast<std::size_t>( director.currentPhaseIndex )];
+        directorPhaseName = phase.name;
+        directorPhaseStylePath = phase.stylePath;
+        directorPhaseCameraEye = Vec3Json( phase.camera.eye );
+        directorPhaseCameraView = Vec3Json( phase.camera.view );
+        directorPhaseCameraUp = Vec3Json( phase.camera.up );
+    }
+
     const std::string* scenePath = m_sceneController.CurrentPath();
     Json report;
     report["ok"] = !state.failed;
@@ -1515,6 +1738,19 @@ void Run::WriteInteractionAutomationReport()
     report["failure"] = state.failure;
     report["finalState"] =
         Json{ { "cameraMode", CameraModeName( m_camera.mode ) },
+              { "directorShotListLoaded", m_camera.director.hasActiveShotList },
+              { "directorPhaseIndex", m_camera.director.currentPhaseIndex },
+              { "directorPhaseCount", m_camera.director.activeShotList.phaseCount },
+              { "directorGrabbed", m_camera.director.grabbed },
+              { "directorShotListPath", m_camera.director.activeShotListPath },
+              { "directorPhaseName", directorPhaseName },
+              { "directorPhaseStylePath", directorPhaseStylePath },
+              { "directorAppliedStylePhaseIndex", m_camera.director.appliedStylePhaseIndex },
+              { "directorAppliedStylePath", m_camera.director.appliedStylePath },
+              { "directorAppliedStyleCount", m_camera.director.appliedStyleCount },
+              { "directorPhaseCameraEye", directorPhaseCameraEye },
+              { "directorPhaseCameraView", directorPhaseCameraView },
+              { "directorPhaseCameraUp", directorPhaseCameraUp },
               { "workspace", WorkspaceName( m_interaction.Workspace() ) },
               { "owner", OwnerName( m_interaction.Owner() ) },
               { "selectedObject", selectedName },
@@ -1526,6 +1762,9 @@ void Run::WriteInteractionAutomationReport()
                 m_replayRuntime.PathVisualizer().hasTarget ? m_replayRuntime.PathVisualizer().targetName : "" },
               { "replayPathTargetCount", static_cast<int>( m_replayRuntime.PathVisualizer().targets.size() ) },
               { "predictionPathVisible", predictionPathVisible },
+              { "liveSolverHashStableAcrossPrediction", liveSolverHashStableAcrossPrediction },
+              { "predictionSourceSolverHash", predictionSourceSolverHash },
+              { "liveSolverHash", liveSolverHash },
               { "predictionActiveFrameCount", static_cast<int>( predictionVisibleFrameCount ) },
               { "predictionFrameCount", static_cast<int>( predictionState.frames.size() ) },
               { "predictionBuildFrameCount", static_cast<int>( predictionState.buildFrameCount ) },

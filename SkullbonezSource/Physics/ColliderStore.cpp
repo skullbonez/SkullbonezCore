@@ -397,6 +397,42 @@ PhysicsColliderHandle ColliderStore::HandleForModelIndex( int modelIndex ) const
 }
 
 
+PhysicsColliderHandle ColliderStore::HandleForBodyHandle( PhysicsBodyHandle body ) const
+{
+    if ( !body.IsValid() )
+    {
+        return PhysicsColliderHandle{};
+    }
+
+    for ( const ColliderRecord& collider : m_colliders )
+    {
+        if ( collider.body == body )
+        {
+            return collider.handle;
+        }
+    }
+    return PhysicsColliderHandle{};
+}
+
+
+PhysicsColliderHandle ColliderStore::HandleForSceneObjectId( PhysicsSceneObjectId sceneObjectId ) const
+{
+    if ( !sceneObjectId.IsValid() )
+    {
+        return PhysicsColliderHandle{};
+    }
+
+    for ( const ColliderRecord& collider : m_colliders )
+    {
+        if ( collider.sceneObjectId == sceneObjectId )
+        {
+            return collider.handle;
+        }
+    }
+    return PhysicsColliderHandle{};
+}
+
+
 int ColliderStore::ModelIndexForHandle( PhysicsColliderHandle handle ) const
 {
     if ( !Contains( handle ) )

@@ -12,6 +12,8 @@ Mental model:
 Glossary:
   Render instance: CPU-side record describing one model's draw transform and
     material intent.
+  Presentation record: Cold render-facing material, label, and highlight values
+    copied from the model owner before physics/store projection.
   Material intent: Renderer-neutral description of surface style and texture
     selection.
   Contact highlight: Render-only feedback alpha for red fixed-body hits or
@@ -24,6 +26,8 @@ Glossary:
 
 Invariants:
   - Instance order mirrors scene/model slot order so draw order stays stable.
+  - Presentation records are the only model-owned values the store needs during
+    refresh; physics/collider stores supply transforms and bounds.
   - Store refreshes do not touch GPU resources or renderer lifetime.
 
 Related:
@@ -32,6 +36,7 @@ Related:
 */
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 #include <vector>
 
@@ -126,7 +131,12 @@ class RenderInstanceStore
   public:
     RenderInstanceStore();
 
+    void ReservePresentationCapacity( std::size_t capacity );
+    bool ResizePresentationRecords( int presentationCount );
+    RenderInstancePresentationRecord* MutablePresentationRecordForModelIndex( int modelIndex );
+    const std::vector<RenderInstancePresentationRecord>& PresentationRecords() const;
     void Clear();
+    void Refresh( const Physics::PhysicsBodyStore& bodyStore, const Physics::ColliderStore& colliderStore );
     void Refresh( const std::vector<RenderInstancePresentationRecord>& presentation,
                   const Physics::PhysicsBodyStore& bodyStore,
                   const Physics::ColliderStore& colliderStore );
@@ -151,6 +161,8 @@ class RenderInstanceStore
     const std::vector<RenderInstanceRecord>& Records() const;
 
   private:
+    std::vector<RenderInstancePresentationRecord>
+        m_presentationRecords;                                           // Render-facing material/highlight values keyed by model slot.
     std::vector<RenderInstanceRecord> m_instances;                       // Render records in scene/model slot order.
     std::vector<RenderInstanceHandle> m_modelInstanceHandles;            // Model index to render handle map.
 };

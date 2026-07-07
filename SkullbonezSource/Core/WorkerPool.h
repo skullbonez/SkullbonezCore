@@ -64,8 +64,6 @@ class WorkerPool
     using IndexFunction = std::function<void( int )>;
     using ChunkFunction = std::function<void( int chunkIndex, int begin, int end )>;
 
-    static WorkerPool& Instance();
-
     WorkerPool();
     ~WorkerPool();
 
@@ -293,7 +291,7 @@ void WorkerPool::ExecuteParallelChunkTask( void* dispatchState, const WorkerChun
     state->fence.Signal();
 }
 
-bool RunWorkerSystemSelfTest( FILE* out );
+bool RunWorkerSystemSelfTest( WorkerPool& pool, FILE* out );
 
 } // namespace Threading
 } // namespace SkullbonezCore

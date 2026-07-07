@@ -165,102 +165,39 @@ bool Run::RestoreReplayScrubberSelectionAsLive( double now,
                                                 char* outReason,
                                                 std::size_t reasonSize )
 {
-    if ( outV2Result )
+    ReplayLiveRestoreApi api;
+    api.user = this;
+    api.enterInteractiveSceneRun = []( void* user ) { static_cast<Run*>( user )->EnterInteractiveSceneRun(); };
+    api.restoreV2ArtifactTargetState = []( void* user,
+                                           const char* path,
+                                           ReplayFrameIndex requestedFrame,
+                                           bool makeLiveBranch,
+                                           RunReplayV2TargetRestoreResult& result,
+                                           char* reason,
+                                           std::size_t size ) -> bool
     {
-        *outV2Result = RunReplayV2TargetRestoreResult();
-    }
-
-    auto writeReason = [outReason, reasonSize]( const char* reason )
-    {
-        if ( outReason && reasonSize > 0 )
-        {
-            strncpy_s( outReason, reasonSize, reason ? reason : "restore failed", _TRUNCATE );
-        }
+        return static_cast<Run*>( user )
+            ->RestoreReplayV2ArtifactTargetState( path, requestedFrame, makeLiveBranch, result, reason, size );
     };
+    api.restoreSolverSampleAsLive =
+        []( void* user, const ReplaySolverFrameSample& sample, char* reason, std::size_t size ) -> bool
+    { return static_cast<Run*>( user )->RestoreReplaySolverSampleAsLive( sample, reason, size ); };
 
-    char reason[160] = {};
-    bool restored = false;
-    RunReplayTrack messageTrack = m_replayRuntime.Scrubber().activeTrack;
-    if ( m_replayRuntime.HasLoadedPresentation() && m_replayRuntime.Scrubber().historicalSamplePaused &&
-         m_replayRuntime.Scrubber().activeTrack == RunReplayTrack::Presentation )
-    {
-        EnterInteractiveSceneRun();
-        RunReplayV2TargetRestoreResult result;
-        const ReplayPresentationSample* selected = m_replayRuntime.CurrentScrubSample();
-        const ReplayFrameIndex selectedFrame = selected ? selected->frameIndex : 0;
-        restored = selected && RestoreReplayV2ArtifactTargetState( m_replayRuntime.LoadedPresentation().path,
-                                                                   selectedFrame,
-                                                                   true,
-                                                                   result,
-                                                                   reason,
-                                                                   sizeof( reason ) );
-        if ( outV2Result )
-        {
-            *outV2Result = result;
-        }
-        messageTrack = RunReplayTrack::Presentation;
-        fprintf( stderr,
-                 "[replay] V2 file restore %s target_frame=%llu branch_id=%u%s%s\n",
-                 restored ? "applied" : "failed",
-                 static_cast<unsigned long long>( selectedFrame ),
-                 restored ? result.branchId : 0,
-                 reason[0] != '\0' ? ": " : "",
-                 reason );
-    }
-    else if ( m_replayRuntime.Scrubber().historicalSamplePaused &&
-              m_replayRuntime.Scrubber().activeTrack == RunReplayTrack::Solver )
-    {
-        EnterInteractiveSceneRun();
-        const ReplaySolverFrameSample* sample = m_replayRuntime.CurrentSolverScrubSample();
-        restored = sample && RestoreReplaySolverSampleAsLive( *sample, reason, sizeof( reason ) );
-        messageTrack = RunReplayTrack::Solver;
-        fprintf( stderr,
-                 "[replay] Solver restore %s%s%s\n",
-                 restored ? "applied" : "failed",
-                 reason[0] != '\0' ? ": " : "",
-                 reason );
-    }
-    else
-    {
-        sprintf_s( reason, sizeof( reason ), "no historical replay branch target selected" );
-        fprintf( stderr, "[replay] Branch restore failed: %s\n", reason );
-    }
-
-    if ( restored )
-    {
-        // Why: a branch restore makes the selected historical frame the new live
-        // timeline. Keep the visible scrubber at the live edge instead of
-        // leaving it on the parent timeline's old historical position.
-        m_replayRuntime.Scrubber().activeTrack = RunReplayTrack::Solver;
-        m_replayRuntime.Scrubber().historicalSamplePaused = false;
-        m_replayRuntime.Scrubber().branchHovered = false;
-        m_replayRuntime.SetAllTrackPositions( 1.0f );
-    }
-
-    m_replayRuntime.Scrubber().restoreConsumedThisFrame = true;
-    m_replayRuntime.Scrubber().saveMessageTrack = messageTrack;
-    sprintf_s( m_replayRuntime.Scrubber().saveMessage,
-               sizeof( m_replayRuntime.Scrubber().saveMessage ),
-               restored ? ( messageTrack == RunReplayTrack::Presentation ? "V2 FILE BRANCHED" : "SOLVER RESTORED" )
-                        : "RESTORE FAILED" );
-    m_replayRuntime.Scrubber().saveMessageUntil = now + 2.5;
-    m_replayRuntime.Scrubber().visibleUntil = now + REPLAY_SCRUBBER_VISIBLE_SECONDS;
-    m_replayRuntime.Scrubber().visible = true;
-    writeReason( reason );
-    return restored;
+    ReplayInteractionController replayInteraction;
+    return replayInteraction.RestoreScrubberSelectionAsLive(
+        ReplayLiveRestoreContext{ m_replayRuntime, now, api, outV2Result, outReason, reasonSize } );
 }
 
 bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
 {
     PROFILE_SCOPED( "Frame/Replay/ScrubberInput" );
-    m_replayRuntime.Scrubber().restoreConsumedThisFrame = false;
     const bool leftDown = Input::IsLeftMouseDown();
-    const bool leftPressed = leftDown && !m_replayRuntime.Scrubber().leftWasDown;
-    const bool leftReleased = !leftDown && m_replayRuntime.Scrubber().leftWasDown;
-    m_replayRuntime.Scrubber().leftWasDown = leftDown;
     const bool restoreDown = Input::IsKeyDown( VK_RETURN );
-    const bool restorePressed = restoreDown && !m_replayRuntime.Scrubber().restoreWasDown;
-    m_replayRuntime.Scrubber().restoreWasDown = restoreDown;
+    const ReplayRuntime::ScrubberInputFrame inputFrame =
+        m_replayRuntime.BeginScrubberInputFrame( leftDown, restoreDown );
+    const bool leftPressed = inputFrame.leftPressed;
+    const bool leftReleased = inputFrame.leftReleased;
+    const bool restorePressed = inputFrame.restorePressed;
 
     const bool scrubberAllowed = !m_runtimeTools.Editor().editorModeEnabled && m_UI.IsVisible() && m_UI.IsMinimized();
     const bool loadedPresentation = m_replayRuntime.HasLoadedPresentation();
@@ -273,25 +210,12 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
     if ( !scrubberAllowed || !replaySurfaceAvailable || screenW <= 0 || screenH <= 0 )
     {
         CancelReplayToolDragState();
-        if ( !loadedPresentation )
+        const ReplayRuntime::ScrubberUnavailableResult unavailable =
+            m_replayRuntime.ResetUnavailableScrubberSurface( loadedPresentation, leftDown );
+        if ( unavailable.exitInspectionCamera )
         {
-            if ( m_replayRuntime.ResetScrubberState() )
-            {
-                ExitReplayInspectionCamera();
-            }
+            ExitReplayInspectionCamera();
         }
-        m_replayRuntime.Prediction().checkboxHovered = false;
-        m_replayRuntime.Prediction().ragdollVisualsHovered = false;
-        m_replayRuntime.Prediction().decreaseHovered = false;
-        m_replayRuntime.Prediction().increaseHovered = false;
-        m_replayRuntime.Prediction().horizonHovered = false;
-        m_replayRuntime.Prediction().horizonDragging = false;
-        m_replayRuntime.VelocityEdit().toggleHovered = false;
-        m_replayRuntime.Scrubber().branchHovered = false;
-        m_replayRuntime.Scrubber().loadHovered = false;
-        m_replayRuntime.Scrubber().leftWasDown = leftDown;
-        m_replayRuntime.Scrubber().fadeUpdatedAt = 0.0;
-        m_replayRuntime.Scrubber().visibleAlpha = 0.0f;
         return false;
     }
 
@@ -438,8 +362,7 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
           m_replayRuntime.Prediction().horizonDragging || m_replayRuntime.Scrubber().historicalSamplePaused ||
           m_replayRuntime.Scrubber().liveAdvanceHeld );
     m_replayRuntime.Scrubber().pauseHovered = solverToolsEnabled && overPauseButton && solverControlVisible;
-    m_replayRuntime.VelocityEdit().toggleHovered =
-        solverToolsEnabled && overVelocityEditToggle && solverControlVisible;
+    m_replayRuntime.VelocityEdit().toggleHovered = solverToolsEnabled && overVelocityEditToggle && solverControlVisible;
     m_replayRuntime.Prediction().checkboxHovered =
         predictionToolsEnabled && overPredictToggle && predictionControlVisible;
     m_replayRuntime.Prediction().ragdollVisualsHovered =
@@ -654,8 +577,8 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
         consumesMouse = true;
     }
     else if ( ( loadedPresentation || solverToolsEnabled ) && leftPressed && canTakeMouse && !overBranchButton &&
-              !overPauseButton && !overPredictUi &&
-              !overLoadButton && ( inHotZone || overPanel || m_replayRuntime.Scrubber().historicalSamplePaused ) )
+              !overPauseButton && !overPredictUi && !overLoadButton &&
+              ( inHotZone || overPanel || m_replayRuntime.Scrubber().historicalSamplePaused ) )
     {
         EnterInteractiveSceneRun();
         BeginReplayToolGesture( RuntimeInteractionGestureKind::ReplayScrubDrag,
@@ -744,8 +667,7 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
         fadeUpdatedAt = now;
         const double fadeSeconds =
             scrubberTargetVisible ? REPLAY_SCRUBBER_FADE_IN_SECONDS : REPLAY_SCRUBBER_FADE_OUT_SECONDS;
-        const float alphaStep =
-            fadeSeconds > 0.0 ? static_cast<float>( deltaSeconds / fadeSeconds ) : 1.0f;
+        const float alphaStep = fadeSeconds > 0.0 ? static_cast<float>( deltaSeconds / fadeSeconds ) : 1.0f;
         visibleAlpha = std::clamp( visibleAlpha + ( scrubberTargetVisible ? alphaStep : -alphaStep ), 0.0f, 1.0f );
         m_replayRuntime.Scrubber().visible = scrubberTargetVisible || visibleAlpha > REPLAY_SCRUBBER_FADE_EPSILON;
     }

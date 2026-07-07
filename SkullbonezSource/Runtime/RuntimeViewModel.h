@@ -5,12 +5,13 @@ Purpose:
 
 Mental model:
   RuntimeViewModel is a read-only snapshot of common runtime presentation data.
-  It is rebuilt from EngineContext and Run-owned presentation services rather
-  than letting UI code chase storage owners directly.
+  It is rebuilt from an explicit presentation context rather than letting UI
+  code chase storage owners directly.
 
 Glossary:
   View model: Read-only presentation snapshot assembled from runtime owners.
-  EngineContext: Bound view over subsystems owned by Run.
+  RuntimeViewModelContext: Narrow borrowed view of the scene, capture, runtime
+    settings, and physics owners needed for presentation.
   Snapshot payload: Small copyable values such as counts, flags, indices, and
     bounded frame-local arrays.
   Presentation layer: UI or diagnostics code that reads state without owning it.
@@ -23,10 +24,10 @@ Glossary:
 
 Invariants:
   - View models are copies; consumers must not infer ownership from them.
-  - Builder reads through EngineContext and leaves source systems untouched.
+  - Builder reads through RuntimeViewModelContext and leaves source systems
+    untouched.
 
 Related:
-  - SkullbonezSource/Runtime/EngineContext.h
   - SkullbonezSource/Runtime/RunUiTextPass.cpp
 */
 #pragma once
@@ -35,9 +36,16 @@ Related:
 
 namespace SkullbonezCore
 {
+namespace Physics
+{
+class PhysicsEngine;
+}
+
 namespace Basics
 {
-class EngineContext;
+class CaptureController;
+class SceneController;
+struct RunRuntimeSettings;
 
 constexpr int RUNTIME_CONTACT_AUDIO_SET_MAX = 16;
 constexpr int RUNTIME_CONTACT_AUDIO_SAMPLE_MAX = 64;
@@ -86,10 +94,22 @@ struct RuntimeViewModel
     RuntimeContactAudioSnapshot contactAudio;
 };
 
+struct RuntimeViewModelContext
+{
+    // Lifetime: Run builds this from owners that outlive the frame-local view
+    // model rebuild. The builder copies values and never stores these borrows.
+    const SceneController& scene;
+    const CaptureController& capture;
+    const RunRuntimeSettings& runtimeSettings;
+    const Physics::PhysicsEngine& physics;
+};
+
 class RuntimeViewModelBuilder
 {
   public:
-    static RuntimeViewModel Build( const EngineContext& context );
+    static RuntimeViewModel Build( const RuntimeViewModelContext& context );
+    static RuntimeViewModel Build( const RuntimeViewModelContext& context,
+                                   const Runtime::Audio::ContactAudioService& contactAudio );
 };
 } // namespace Basics
 } // namespace SkullbonezCore

@@ -350,6 +350,47 @@ bool RuntimeDiagnostics::PerfTestActive( const RunPerfLogState& perfLog )
 }
 
 
+void RuntimeDiagnostics::InvalidateProfilerGpuQueries()
+{
+#if defined( SKULLBONEZ_PROFILE_ENABLED )
+    Profiler::Instance().InvalidateGpuQueries();
+#endif
+}
+
+
+RuntimeProfilerFrameTimes RuntimeDiagnostics::SampleProfilerFrameTimes()
+{
+    RuntimeProfilerFrameTimes times;
+#if defined( SKULLBONEZ_PROFILE_ENABLED )
+    Profiler& profiler = Profiler::Instance();
+    static constexpr uint32_t kPhysicsHash = ::HashStr( "Frame/Physics" );
+    static constexpr uint32_t kRenderHash = ::HashStr( "Frame/Render" );
+    times.physicsTimeSeconds = profiler.LastFrameMsByHash( kPhysicsHash ) * 0.001f;
+    times.renderTimeSeconds = profiler.LastFrameMsByHash( kRenderHash ) * 0.001f;
+    static constexpr uint32_t kRenderGpuHashes[] = {
+        ::HashStr( "Frame/Shadows/ShadowMap" ),
+        ::HashStr( "Frame/Render/Skybox" ),
+        ::HashStr( "Frame/Render/Reflection" ),
+        ::HashStr( "Frame/Render/CinematicSky" ),
+        ::HashStr( "Frame/Render/Balls" ),
+        ::HashStr( "Frame/Render/Terrain" ),
+        ::HashStr( "Frame/Render/Water" ),
+        ::HashStr( "Frame/Render/TornadoVisual" ),
+        ::HashStr( "Frame/Render/TransparentBalls" ),
+        ::HashStr( "Frame/Render/DebugOverlay" ),
+        ::HashStr( "Frame/Render/VolumetricLight" ),
+        ::HashStr( "Frame/Render/Tonemap" ),
+        ::HashStr( "Frame/UI/Draw" ),
+    };
+    for ( uint32_t h : kRenderGpuHashes )
+    {
+        times.gpuFrameWorkMs += profiler.LastGpuFrameMsByHash( h );
+    }
+#endif
+    return times;
+}
+
+
 void RuntimeDiagnostics::TickPerfLog( RunPerfLogState& perfLog, const RuntimePerfTickContext& context )
 {
     if ( !perfLog.isPerfTest || !perfLog.perfLogFile )

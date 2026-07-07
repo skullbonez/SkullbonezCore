@@ -13,6 +13,8 @@ Glossary:
   Store: Ordered snapshot for one concern, such as bodies, colliders, or render
     instances.
   Physics material: Runtime policy for collider friction and sphere drag.
+  Body simulation limit: Scalar cap applied to body descriptors before store import.
+  Contact policy: Terrain/contact thresholds copied into authored body descriptors.
   Fixed-tree release: Store-owned command that turns authored fixed props into
     dynamic bodies and wakes same-tree parts after an accepted impulse.
   Sleep: Solver optimization that stops integrating stable bodies until an
@@ -32,10 +34,13 @@ Related:
 */
 #pragma once
 
+#include <cstddef>
+#include <cstdint>
 #include <vector>
 
 #include "ColliderStore.h"
 #include "PhysicsBodyStore.h"
+#include "PhysicsObjectPolicy.h"
 #include "PhysicsWorld.h"
 #include "PhysicsWorldForces.h"
 #include "../Rendering/RenderInstanceStore.h"
@@ -52,6 +57,11 @@ namespace Threading
 class WorkerPool;
 } // namespace Threading
 
+namespace Rendering
+{
+class IRenderCommandContext;
+} // namespace Rendering
+
 namespace Physics
 {
 struct PhysicsColliderCreateDesc;
@@ -63,10 +73,22 @@ class PhysicsScene
     PhysicsScene();
 
     void ApplyRuntimeConfig( const Basics::EngineConfig& config );
-    // Applies collection-wide material config to live collider rows without
-    // reopening authoring storage.
-    void ApplyColliderMaterial( const PhysicsMaterial& material );
+    // Stamps current runtime policy onto cold authoring descriptors. Descriptor
+    // storage may still live outside PhysicsScene, but policy values do not.
+    void ApplyAuthoredBodyPolicy( PhysicsBodyCreateDesc& desc ) const;
+    void ApplyAuthoredColliderPolicy( PhysicsColliderCreateDesc& desc ) const;
+    // Caller contract: authored body descriptors are cold scene-authoring rows
+    // keyed by model order. Collection may supply replay/grouping scalars, but
+    // it must not keep a competing body descriptor sidecar.
+    void ReserveAuthoredBodyCapacity( std::size_t capacity );
+    int AuthoredBodyDescriptorCount() const;
+    bool TryGetAuthoredBodyDescriptor( int modelIndex, PhysicsBodyCreateDesc& outDesc ) const;
+    bool UpdateAuthoredBodyDescriptor( int modelIndex, PhysicsBodyCreateDesc& desc, int expectedModelCount );
+    bool TrimAuthoredBodyDescriptorsToCount( int bodyCount );
     void Clear();
+    bool RefreshBodyStoreFromAuthoredDescriptors( const std::vector<uint32_t>& replayBodyIds,
+                                                  const std::vector<int>& fixedTreeReleaseRoots,
+                                                  const std::vector<const char*>& diagnosticNames );
     void RefreshBodyStore( const std::vector<PhysicsBodyCreateDesc>& bodyDescs );
     // Owner passes the expected count so one-row descriptor commits stay a
     // same-topology edit and cannot hide missing body rows.
@@ -102,10 +124,15 @@ class PhysicsScene
     // Rebinds existing collider rows against the already-current body store.
     // Count drift must be fixed by the creator/editor path that owns shape data.
     bool RefreshColliderSnapshot();
-    // Prepares body/collider rows for the owner-side render projection refresh.
-    // The collection owner fills material/highlight facts after this returns.
+    // Prepares body/collider rows for the render-store projection refresh. The
+    // collection owner fills render presentation rows after this returns.
     bool PrepareRenderStoreRefresh( int expectedModelCount );
-    // Mutable only for the cold collection-owned render projection edge.
+    void ReserveRenderPresentationCapacity( std::size_t capacity );
+    bool ResizeRenderPresentationRecords( int presentationCount );
+    Rendering::RenderInstancePresentationRecord* MutableRenderPresentationRecordForModelIndex( int modelIndex );
+    const std::vector<Rendering::RenderInstancePresentationRecord>& RenderPresentationRecords() const;
+    bool RefreshRenderInstancesFromPresentation();
+    // Mutable only for replay/render presentation pose overrides.
     Rendering::RenderInstanceStore& MutableRenderInstances();
     void RunPhysics( float fChangeInTime,
                      const Basics::EngineConfig& config,
@@ -150,7 +177,11 @@ class PhysicsScene
     void SetTornadoSystemConfig( const TornadoSystemConfig& config );
     const TornadoSystemConfig& GetTornadoSystemConfig() const;
     float GetTornadoSystemElapsedSeconds() const;
-    void RenderTornadoFieldVectors( const Math::Transformation::Matrix4& viewProj );
+    // Debug overlay edge: renderer capability checks stay outside the
+    // deterministic physics scene.
+    void RenderTornadoFieldVectors( const Math::Transformation::Matrix4& viewProj,
+                                    Rendering::IRenderCommandContext& renderCommands,
+                                    bool supportsDebugLines );
     void CaptureReplaySolverSnapshot( Basics::ReplaySolverWorldSnapshot& outSnapshot, int modelCount ) const;
     bool RestoreReplaySolverSnapshot( const Basics::ReplaySolverWorldSnapshot& snapshot, int modelCount );
     PhysicsDiagnosticsView GetDiagnosticsView() const;
@@ -190,13 +221,17 @@ class PhysicsScene
     void ValidateRenderStoreMappings( int modelCount ) const;
 #endif
 
-    PhysicsWorld m_world;                                 // Deterministic solver and debug state over body-store records.
-    PhysicsBodyStore m_bodyStore;                         // Mutable body state in model/replay order.
-    ColliderStore m_colliderStore;                        // Collider snapshot in model/replay order.
-    Rendering::RenderInstanceStore m_renderInstanceStore; // Render snapshot in model/replay order.
-    PhysicsWorldForces m_lastWorldForces;                 // Last real step boundary forces used by explicit wake commands.
-    bool m_hasLastWorldForces = false;                    // False until the first physics step supplies world forces.
-    std::vector<int> m_fixedTreeReleaseWakeBodies;        // Reused scene-edge wake list; avoids release-time allocation churn.
+    PhysicsWorld m_world;                                   // Deterministic solver and debug state over body-store records.
+    std::vector<PhysicsBodyCreateDesc> m_authoredBodyDescs; // Cold body authoring descriptors keyed by scene/model order.
+    PhysicsBodyStore m_bodyStore;                           // Mutable body state in model/replay order.
+    ColliderStore m_colliderStore;                          // Collider snapshot in model/replay order.
+    Rendering::RenderInstanceStore m_renderInstanceStore;   // Render snapshot in model/replay order.
+    PhysicsMaterial m_physicsMaterial;                      // Runtime material policy copied into body/collider descriptors.
+    BodySimulationLimits m_bodySimulationLimits;            // Runtime body caps copied at authoring/import boundaries.
+    ContactPolicy m_contactPolicy;                          // Runtime contact thresholds copied at authoring/import boundaries.
+    PhysicsWorldForces m_lastWorldForces;                   // Last real step boundary forces used by explicit wake commands.
+    bool m_hasLastWorldForces = false;                      // False until the first physics step supplies world forces.
+    std::vector<int> m_fixedTreeReleaseWakeBodies;          // Reused scene-edge wake list; avoids release-time allocation churn.
 };
 } // namespace Physics
 } // namespace SkullbonezCore

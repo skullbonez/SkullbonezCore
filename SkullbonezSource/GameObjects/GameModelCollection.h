@@ -11,16 +11,17 @@ Mental model:
 Glossary:
   SkullScope: Queryable physics diagnostics workflow backed by bounded trace
   output and local queries.
-  Physics material: Per-object friction and drag coefficients cached by the
-    collection before models are added or reconfigured.
-  Body simulation limit: Scalar cap cached by the collection before authored
+  Physics material: Per-object friction and drag coefficients owned by
+    PhysicsScene and copied into authored descriptor rows at cold boundaries.
+  Body simulation limit: Scalar cap owned by PhysicsScene before authored
     descriptors create PhysicsBodyStore rows.
-  Contact policy: Terrain and contact thresholds cached by the collection so
+  Contact policy: Terrain and contact thresholds owned by PhysicsScene so
     existing and newly added models receive the same physics policy.
-  Body descriptor: Value packet containing authoring body facts that
-    PhysicsScene turns into a live PhysicsBodyStore row.
+  Body descriptor: PhysicsScene-owned authoring value that can rebuild a live
+    PhysicsBodyStore row without reading GameModel physics fields.
   Render instance store: Renderer-facing snapshot built once before frame passes
-    so draw code can read physics-owned transforms without GameModel pose copies.
+    so draw code can read physics-owned transforms and render-owned presentation
+    rows without GameModel pose copies.
   Topology drift: A body/collider/model count mismatch that means stores must
     import explicit construction descriptors before stepping.
   Scene-object group: Cold metadata that maps multi-part authored objects, such
@@ -37,17 +38,18 @@ Glossary:
   commit or PR.
 
 Invariants:
-  - m_gameModels is the stable scene-order owner; collaborators mirror or view
-    that order rather than replacing it.
-  - m_sceneObjectGroups and m_authoredBodyDescs are same-length sidecars keyed
-    by m_gameModels slot. GameModel does not own runtime grouping fields, and
-    body-store topology repair reloads from descriptor rows rather than model
-    physics fields.
+  - SceneEntityStore is the stable scene-order owner; collaborators mirror or
+    view that order rather than replacing it.
+  - SceneObjectGroupStore is a same-length scene metadata store keyed by
+    scene entity slot. GameModel does not own runtime grouping fields;
+    PhysicsScene owns body descriptor rows for topology repair.
   - Replay identity lives in PhysicsBodyStore rows after creation. Collection
     code receives scene-owned ids at creation and does not allocate them.
   - Collider shape/material data is imported into ColliderStore at create,
     edit, config, or topology-repair boundaries; the collection does not keep a
     second collider-authoring cache.
+  - Render presentation records live in RenderInstanceStore. Collection only
+    supplies model-owned material/name/highlight values at the cold refresh edge.
   - Replay body ids are derived from scene object ids at creation and stored on
     PhysicsBodyStore rows so diagnostics can identify bodies without reopening
     GameModel.
@@ -59,6 +61,7 @@ Related:
 */
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 #include <vector>
 
@@ -66,7 +69,6 @@ Related:
 #include "../Maths/Matrix4.h"
 #include "../Physics/PhysicsApi.h"
 #include "../Physics/PhysicsEngine.h"
-#include "../Physics/PhysicsObjectPolicy.h"
 #include "../Rendering/RenderInstanceStore.h"
 #include "../Rendering/Shadow.h"
 #include "../Maths/Vector3.h"
@@ -103,6 +105,7 @@ struct PhysicsColliderCreateDesc;
 
 namespace Rendering
 {
+class IRenderCommandContext;
 class IRenderResourceFactory;
 } // namespace Rendering
 
@@ -164,37 +167,67 @@ class GameModelCollection
         int partIndex = -1;
     };
 
-    std::vector<GameModel> m_gameModels;
-    // Dense sidecar for cold scene-object grouping. Keeping this metadata out
-    // of GameModel preserves the model vector for authored presentation data
-    // while collection-order systems still get O(1) group lookup by model slot.
-    std::vector<SceneObjectGroupRecord> m_sceneObjectGroups;
-    // Same-length authoring rows for body-store topology repair. Editor/replay
-    // commits update these before refreshing PhysicsBodyStore rows.
-    std::vector<Physics::PhysicsBodyCreateDesc> m_authoredBodyDescs;
-    Physics::PhysicsEngine m_physicsEngine;
-    // Cached physics policy applied to existing and newly added models whenever
-    // runtime config changes.
-    Physics::PhysicsMaterial m_physicsMaterial;
-    Physics::BodySimulationLimits m_bodySimulationLimits;
-    Physics::ContactPolicy m_contactPolicy;
-    Threading::WorkerPool* m_workerPool = nullptr; // Borrowed startup worker pool for render/physics parallel helpers.
-    bool m_renderCollisionVolumes = false;         // Cached render debug toggle copied from EngineConfig.
-    bool m_shadowParallelPrep = false;             // Cached worker-prep toggle copied from EngineConfig.
-    std::vector<Rendering::RenderInstancePresentationRecord>
-        m_renderPresentationRecords;               // Render-facing material/highlight values keyed by model slot.
+    // Scene entities preserve authored model-slot order while later owners
+    // consume explicit physics/render/group stores. GameModel remains the cold
+    // presentation record until all save/editor material callers have narrower
+    // inputs.
+    class SceneEntityStore
+    {
+      public:
+        void Reserve( std::size_t capacity );
+        void Clear();
+        void Append( GameModel model );
+        bool TrimToCount( int count );
+        int Count() const;
+        std::size_t Capacity() const;
+        uint64_t CapacityBytes() const;
+        const std::vector<GameModel>& Records() const;
+        GameModel& MutableAt( int index );
+        const GameModel* TryGet( int index ) const;
 
+      private:
+        std::vector<GameModel> m_records;
+    };
+
+    // Scene-object groups are cold scene identity metadata, not per-frame model
+    // data. Keep their dense storage behind query methods so editor/replay code
+    // can ask by scene slot without reopening GameModel fields.
+    class SceneObjectGroupStore
+    {
+      public:
+        void Reserve( std::size_t capacity );
+        void Clear();
+        void Append( SceneObjectGroupRecord record );
+        bool TrimToCount( int count );
+        int Count() const;
+        uint64_t CapacityBytes() const;
+        SceneObjectGroupRecord RecordAt( int modelIndex ) const;
+
+      private:
+        std::vector<SceneObjectGroupRecord> m_records;
+    };
+
+    SceneEntityStore m_sceneEntities;
+    SceneObjectGroupStore m_sceneObjectGroupStore;
+    Physics::PhysicsEngine m_physicsEngine;
+    Threading::WorkerPool* m_workerPool = nullptr;               // Borrowed startup worker pool for render/physics parallel helpers.
+    int m_activeGameModelCapacity = DEFAULT_GAME_MODEL_CAPACITY; // Configured model cap used by append/reserve guards.
+    bool m_renderCollisionVolumes = false;                       // Cached render debug toggle copied from EngineConfig.
+    bool m_shadowParallelPrep = false;                           // Cached worker-prep toggle copied from EngineConfig.
     void ReserveForActiveGameModelCapacity();
     SceneObjectGroupRecord BuildSceneObjectGroupForAppend( const GameModel& gameModel,
                                                            int newModelIndex,
                                                            SceneObjectGroupCreateDesc groupDesc );
     SceneObjectGroupRecord GroupRecordAt( int modelIndex ) const;
-    std::vector<uint32_t> BuildReplayBodyIdsForReload( const Physics::PhysicsBodyStore& bodyStore );
     // Owner boundary: fixed-tree grouping is collection metadata. Body-store
     // import receives only the scalar root, never collection-kind accessors.
     std::vector<int> BuildFixedTreeReleaseRootsForReload() const;
-    std::vector<Physics::PhysicsBodyCreateDesc>
-    BuildBodyCreateDescsForReload( const Physics::PhysicsBodyStore& bodyStore );
+    std::vector<const char*> BuildDiagnosticNamesForReload() const;
+    bool RefreshPhysicsBodyStoreFromAuthoredDescriptors();
+    // Private body-only repair is reserved for collection-owned projection
+    // phases. Public tool/runtime reads must use an explicit owner boundary
+    // before borrowing PhysicsEngine store views.
+    bool RepairPhysicsBodyTopology();
     int FixedTreeReleaseRootForModelIndex( int modelIndex ) const;
     void RefreshRenderInstances();
     Physics::PhysicsBodyHandle AppendGameModelAndPhysicsRows( GameModel gameModel,
@@ -263,8 +296,9 @@ class GameModelCollection
                             float flatSlopeX = 0.0f,
                             float flatSlopeZ = 0.0f );
     Math::Vector::Vector3 GetModelPosition( int index );
-    int GetModelCount() const;
-    int ModelCount() const;
+    // Scene entity count is the stable model-slot count shared by scene files,
+    // editor picks, replay streams, and cold owner-repair boundaries.
+    int SceneEntityCount() const;
     const std::vector<GameModel>& Models() const;
     // Lifetime: returned model pointers are stable only until collection
     // mutation. Null means the caller held a stale model index.
@@ -318,16 +352,12 @@ class GameModelCollection
     bool TrimModelsForReplayRestore( int modelCount );
     void CaptureReplaySolverWorldSnapshot( Basics::ReplaySolverWorldSnapshot& outSnapshot ) const;
     bool RestoreReplaySolverWorldSnapshot( const Basics::ReplaySolverWorldSnapshot& snapshot );
+    // PhysicsEngine owns body/collider store views. Callers that can observe
+    // topology drift must first run the explicit topology-repair command below.
     Physics::PhysicsEngine& GetPhysicsEngine();
     const Physics::PhysicsEngine& GetPhysicsEngine() const;
-    const Physics::PhysicsBodyStore& GetPhysicsBodyStore();
-    const Physics::ColliderStore& GetColliderStore();
-    // Repairs model/body count drift at the model-owner edge. Same-count body
-    // edits remain PhysicsBodyStore authority and must commit through explicit
-    // commands instead of reopening a model refresh.
-    bool RepairPhysicsBodyTopology();
-    // Repairs model/body/collider count drift before tool or picker code asks
-    // for body handles and collider bounds.
+    // Explicit cold owner boundary before tool or picker code asks for body
+    // handles and collider bounds. Read-only store accessors do not repair.
     bool RepairPhysicsBodyAndColliderTopology();
     // Current prepared collider snapshot. Hot render passes use this after
     // PrepareRenderInstances() instead of invoking topology repair mid-submit.
@@ -337,7 +367,7 @@ class GameModelCollection
     const Rendering::RenderInstanceStore& RenderInstances() const;
     const std::vector<Rendering::RenderInstancePresentationRecord>& RenderPresentationRecords() const
     {
-        return m_renderPresentationRecords;
+        return m_physicsEngine.RenderPresentationRecords();
     }
     const char* DisplayNameAt( int modelIndex ) const;
     int FindModelIndexByDisplayName( const char* name ) const;
@@ -397,7 +427,9 @@ class GameModelCollection
     void RenderPhysicsDebug( Physics::PhysicsDebugVisualizer& visualizer,
                              const Math::Transformation::Matrix4& viewProjection,
                              Geometry::Terrain* terrain );
-    void RenderTornadoFieldVectors( const Math::Transformation::Matrix4& viewProj );
+    void RenderTornadoFieldVectors( const Math::Transformation::Matrix4& viewProj,
+                                    Rendering::IRenderCommandContext& renderCommands,
+                                    bool supportsDebugLines );
 
     const Math::CollisionDetection::SpatialGrid& GetSpatialGrid() const
     {

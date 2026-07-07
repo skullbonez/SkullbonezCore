@@ -13,8 +13,10 @@ Glossary:
     direction.
   Ribbon: Thin quad strip used to render one laser streak.
   Afterimage: Fading visual trail that remains briefly after the shot.
-  Render resource factory: Renderer capability borrowed only while creating
-    laser-owned shader resources.
+  Render resource factory: Renderer capability borrowed only while creating or
+    releasing laser-owned shader resources.
+  Render command context: Per-frame renderer capability borrowed only while
+    drawing laser vertices and temporarily changing draw state.
   Shader handle: Runtime id that resolves to a renderer-owned shader resource.
 
 Invariants:
@@ -28,7 +30,8 @@ Related:
 #include "LauncherLaser.h"
 
 #include "../../Assets/AssetSystem.h"
-#include "../../Rendering/IRenderBackend.h"
+#include "../../Rendering/IRenderCommandContext.h"
+#include "../../Rendering/IRenderResourceFactory.h"
 #include "../../Rendering/IShader.h"
 
 #include <algorithm>
@@ -69,14 +72,17 @@ LauncherLaser::LauncherLaser()
 
 LauncherLaser::~LauncherLaser()
 {
-    ResetResources();
+    // Lifetime: backend-owned handles are explicitly released by Run while the
+    // renderer is live. Destruction may happen after backend teardown, so it
+    // only clears CPU-owned state.
+    ResetResources( nullptr );
 }
 
-void LauncherLaser::ResetResources()
+void LauncherLaser::ResetResources( Rendering::IRenderResourceFactory* renderResources )
 {
-    if ( IsGfxReady() && m_dynamicVB != 0 )
+    if ( renderResources && m_dynamicVB != 0 )
     {
-        Gfx().DestroyDynamicVB( m_dynamicVB );
+        renderResources->DestroyDynamicVB( m_dynamicVB );
     }
 
     m_dynamicVB = 0;
@@ -91,11 +97,6 @@ void LauncherLaser::Clear()
 
 void LauncherLaser::EnsureResources( Assets::AssetSystem& assets, Rendering::IRenderResourceFactory& renderResources )
 {
-    if ( !IsGfxReady() )
-    {
-        return;
-    }
-
     if ( !m_shader )
     {
         m_shader = assets.CreateShader( renderResources, "shader.launcher_laser" );
@@ -104,7 +105,7 @@ void LauncherLaser::EnsureResources( Assets::AssetSystem& assets, Rendering::IRe
     if ( m_dynamicVB == 0 )
     {
         const int attribs[] = { 3, 4 };
-        m_dynamicVB = Gfx().CreateDynamicVB( attribs, 2, MAX_VERTICES );
+        m_dynamicVB = renderResources.CreateDynamicVB( attribs, 2, MAX_VERTICES );
     }
 }
 
@@ -363,12 +364,9 @@ void LauncherLaser::Render( const Matrix4& viewProjection,
                             const Vector3& cameraEye,
                             const Vector3& cameraUp,
                             Assets::AssetSystem& assets,
-                            Rendering::IRenderResourceFactory& renderResources )
+                            Rendering::IRenderResourceFactory& renderResources,
+                            Rendering::IRenderCommandContext& renderCommands )
 {
-    if ( !IsGfxReady() )
-    {
-        return;
-    }
     static_cast<void>( cameraEye );
     static_cast<void>( cameraUp );
 
@@ -388,27 +386,27 @@ void LauncherLaser::Render( const Matrix4& viewProjection,
         return;
     }
 
-    const bool depthWasEnabled = Gfx().IsDepthTestEnabled();
-    const bool depthWriteWasEnabled = Gfx().IsDepthWriteEnabled();
-    const bool blendWasEnabled = Gfx().IsBlendEnabled();
-    const bool cullWasEnabled = Gfx().IsCullFaceEnabled();
+    const bool depthWasEnabled = renderCommands.IsDepthTestEnabled();
+    const bool depthWriteWasEnabled = renderCommands.IsDepthWriteEnabled();
+    const bool blendWasEnabled = renderCommands.IsBlendEnabled();
+    const bool cullWasEnabled = renderCommands.IsCullFaceEnabled();
     BlendFactor blendSrc = BlendFactor::One;
     BlendFactor blendDst = BlendFactor::Zero;
-    Gfx().GetBlendFunc( blendSrc, blendDst );
+    renderCommands.GetBlendFunc( blendSrc, blendDst );
 
-    Gfx().SetDepthTest( false );
-    Gfx().SetDepthWrite( false );
-    Gfx().SetBlend( true );
-    Gfx().SetBlendFunc( BlendFactor::SrcAlpha, BlendFactor::One );
-    Gfx().SetCullFace( false );
+    renderCommands.SetDepthTest( false );
+    renderCommands.SetDepthWrite( false );
+    renderCommands.SetBlend( true );
+    renderCommands.SetBlendFunc( BlendFactor::SrcAlpha, BlendFactor::One );
+    renderCommands.SetCullFace( false );
 
     m_shader->Use();
     m_shader->SetMat4( "uViewProj", viewProjection );
-    Gfx().UploadAndDrawDynamicVB( m_dynamicVB, m_vertices.data(), static_cast<int>( m_vertices.size() / 7 ) );
+    renderCommands.UploadAndDrawDynamicVB( m_dynamicVB, m_vertices.data(), static_cast<int>( m_vertices.size() / 7 ) );
 
-    Gfx().SetCullFace( cullWasEnabled );
-    Gfx().SetBlendFunc( blendSrc, blendDst );
-    Gfx().SetBlend( blendWasEnabled );
-    Gfx().SetDepthWrite( depthWriteWasEnabled );
-    Gfx().SetDepthTest( depthWasEnabled );
+    renderCommands.SetCullFace( cullWasEnabled );
+    renderCommands.SetBlendFunc( blendSrc, blendDst );
+    renderCommands.SetBlend( blendWasEnabled );
+    renderCommands.SetDepthWrite( depthWriteWasEnabled );
+    renderCommands.SetDepthTest( depthWasEnabled );
 }

@@ -6,8 +6,8 @@ Purpose:
 
 Mental model:
   Replay tools read two timelines. Retained solver samples describe what already
-  happened; prediction samples temporarily fast-forward the live physics state
-  and then restore it. The renderer only receives lightweight overlay geometry.
+  happened; prediction samples advance a private replay-owned physics engine.
+  The renderer only receives lightweight overlay geometry.
 
 Glossary:
   Scrubber: UI control that maps mouse position to retained replay frames.
@@ -19,8 +19,8 @@ Glossary:
     body from live body/collider store rows.
   Prediction slice: Time-budgeted replay preview work performed inside a render
     frame.
-  Prediction physics tick: Replay-owned fixed step that temporarily advances
-    PhysicsBodyStore and then restores the live store snapshot.
+  Prediction physics tick: Replay-owned fixed step against the private
+    prediction engine.
   Future node: Body discovered by following contacts or predicted movement
     outward from a selected root body.
   ReplayBodyId: Stable runtime id used across retained samples even when vector
@@ -31,8 +31,8 @@ Glossary:
     fork-join loops.
 
 Invariants:
-  - Prediction may mutate live physics state only between a captured restore
-    snapshot and a guaranteed restore path.
+  - Prediction must never write live physics stores; private engine state owns
+    all future ticks and samples.
   - Path visualizer work shares one per-frame budget so replay overlays cannot
     hide frame spikes under child profiler markers.
   - Physics steps stay serial; only read-only body capture is parallelized.
@@ -44,7 +44,9 @@ Related:
 #include "../RunInternal.h"
 #include "../Editor/EditorHullAssets.h"
 #include "../InputController.h"
+#include "ReplayInteractionController.h"
 #include "ReplayOverlayLayout.h"
+#include "ReplayOverlayRenderer.h"
 #include "../RuntimePickService.h"
 #include "../Allocation/RuntimeAllocationTracker.h"
 #include "../Allocation/RuntimeReserveAllocator.h"
@@ -94,27 +96,14 @@ bool IsReplayToolOwner( WorldInteractionOwner owner )
 }
 
 
-Vector3 EditorAxisVector( int axis )
-{
-    switch ( axis )
-    {
-    case 0:
-        return Vector3( 1.0f, 0.0f, 0.0f );
-    case 1:
-        return Vector3( 0.0f, 1.0f, 0.0f );
-    case 2:
-        return Vector3( 0.0f, 0.0f, 1.0f );
-    default:
-        return SkullbonezCore::Math::Vector::ZERO_VECTOR;
-    }
-}
-
-
 // Why: retained and predicted replay samples carry model-index hints, but
 // shape/radius facts are owned by ColliderStore. Keep overlay and query radii
 // on the live store row instead of forcing a GameModel mirror refresh.
 bool TryReplayColliderRadiusForModelIndex( const ColliderStore& colliderStore, int modelIndex, float& outRadius )
 {
+    // Why: retained replay rows may only carry a model-index sample. This helper
+    // is a display-radius fallback; live target markers resolve collider rows
+    // through PhysicsBodyHandle before drawing authored shapes.
     const PhysicsColliderHandle colliderHandle = colliderStore.HandleForModelIndex( modelIndex );
     const ColliderRecord* collider = colliderStore.RecordForHandle( colliderHandle );
     if ( !collider || colliderStore.ModelIndexForHandle( colliderHandle ) != modelIndex )
@@ -181,7 +170,7 @@ bool TryAddReplayTargetMarkerFromStores( RunEditorTracer& tracer,
                                          int modelIndex )
 {
     const PhysicsBodyHandle bodyHandle = bodyStore.HandleForModelIndex( modelIndex );
-    const PhysicsColliderHandle colliderHandle = colliderStore.HandleForModelIndex( modelIndex );
+    const PhysicsColliderHandle colliderHandle = colliderStore.HandleForBodyHandle( bodyHandle );
     const PhysicsBodyRecord* body = bodyStore.RecordForHandle( bodyHandle );
     const ColliderRecord* collider = colliderStore.RecordForHandle( colliderHandle );
     if ( !body || !collider || bodyStore.ModelIndexForHandle( bodyHandle ) != modelIndex ||
@@ -199,206 +188,19 @@ bool TryAddReplayTargetMarkerFromStores( RunEditorTracer& tracer,
 }
 
 
-float ReplayVelocityLinearBaseLength( float modelRadius )
-{
-    return (std::max)( 10.0f, modelRadius + 7.0f );
-}
-
-
-float ReplayVelocityLinearVisualAxisT( float modelRadius, float velocityComponent )
-{
-    const float sign = velocityComponent < 0.0f ? -1.0f : 1.0f;
-    const float t = std::clamp( fabsf( velocityComponent ) / REPLAY_VELOCITY_EDIT_LINEAR_MAX, 0.0f, 1.0f );
-    return sign * ( ReplayVelocityLinearBaseLength( modelRadius ) + t * REPLAY_VELOCITY_EDIT_LINEAR_EXTRA );
-}
-
-
-float ReplayVelocityLinearUnitsPerWorld()
-{
-    return REPLAY_VELOCITY_EDIT_LINEAR_MAX / REPLAY_VELOCITY_EDIT_LINEAR_EXTRA;
-}
-
-
-float ReplayVelocityAngularBaseRadius( float modelRadius )
-{
-    return (std::max)( 11.0f, modelRadius + 6.0f );
-}
-
-
-float ReplayVelocityAngularVisualRadius( float modelRadius, float angularComponent )
-{
-    const float t = std::clamp( fabsf( angularComponent ) / REPLAY_VELOCITY_EDIT_ANGULAR_MAX, 0.0f, 1.0f );
-    return ReplayVelocityAngularBaseRadius( modelRadius ) + t * (std::max)( 5.0f, modelRadius * 0.85f );
-}
-
-
-float ReplayVelocityAxisComponent( const Vector3& value, int axis )
-{
-    if ( axis == 0 )
-    {
-        return value.x;
-    }
-    if ( axis == 1 )
-    {
-        return value.y;
-    }
-    return value.z;
-}
-
-
-void ReplayVelocitySetAxisComponent( Vector3& value, int axis, float component )
-{
-    if ( axis == 0 )
-    {
-        value.x = component;
-    }
-    else if ( axis == 1 )
-    {
-        value.y = component;
-    }
-    else
-    {
-        value.z = component;
-    }
-}
-
-
-void StepReplayPredictionPhysicsTick( SkullbonezCore::GameObjects::GameModelCollection& modelCollection,
-                                      float fixedDt,
-                                      const EngineConfig& config,
-                                      const PhysicsWorldForces& worldForces,
-                                      SkullbonezCore::Threading::WorkerPool& workerPool )
+// Concept: prediction stepping is pure physics. Contact-highlight and
+// diagnostics-name presentation belongs to the live engine only; prediction
+// samples read the private engine's body records directly.
+bool StepPredictionEngineTick( PhysicsEngine& engine,
+                               float fixedDt,
+                               const EngineConfig& config,
+                               const PhysicsWorldForces& worldForces,
+                               SkullbonezCore::Threading::WorkerPool& workerPool )
 {
     RuntimeAllocation::RuntimeAllocationScope replayAllocationScope(
         RuntimeAllocation::RuntimeAllocationPhase::Replay );
-    const int modelCount = modelCollection.ModelCount();
-    // Invariant: prediction steps mutate PhysicsBodyStore, then restore live
-    // state from captured store records. Model topology repair remains the
-    // owner-side edge before the store-owned step reads body/collider rows.
-    modelCollection.RepairPhysicsBodyAndColliderTopology();
-    modelCollection.TickContactHighlights( modelCount, fixedDt );
-
-    PhysicsEngine& physicsEngine = modelCollection.GetPhysicsEngine();
-    const char* const* diagnosticNames = nullptr;
-    int diagnosticNameCount = 0;
-#ifdef _DEBUG
-    std::vector<const char*> physicsDiagnosticsModelNames;
-    if ( physicsEngine.ShouldEmitStepDiagnostics() || physicsEngine.ShouldEmitCollisionTimeDiagnostics() )
-    {
-        // Lifetime: diagnostics names are borrowed only through the immediate
-        // Step call, matching the runtime fixed-step edge.
-        modelCollection.FillPhysicsDiagnosticsNames( physicsEngine.BodyStore().Count(), physicsDiagnosticsModelNames );
-        diagnosticNames = physicsDiagnosticsModelNames.empty() ? nullptr : physicsDiagnosticsModelNames.data();
-        diagnosticNameCount = static_cast<int>( physicsDiagnosticsModelNames.size() );
-    }
-#endif
-    physicsEngine.Step( fixedDt, config, worldForces, workerPool, diagnosticNames, diagnosticNameCount );
-
-    for ( int index : physicsEngine.GetFixedContactHighlightBodies() )
-    {
-        modelCollection.NotifyFixedContact( index, 0.5f );
-    }
-    // Invariant: prediction samples read PhysicsBodyStore records directly.
-    // Do not project temporary preview poses into GameModel mirrors; the
-    // captured restore state owns the live model pose after prediction exits.
-}
-
-
-Vector3 EditorRotationRingBasisA( int axis )
-{
-    switch ( axis )
-    {
-    case 0:
-        return Vector3( 0.0f, 1.0f, 0.0f );
-    case 1:
-        return Vector3( 0.0f, 0.0f, 1.0f );
-    case 2:
-        return Vector3( 1.0f, 0.0f, 0.0f );
-    default:
-        return Vector3( 1.0f, 0.0f, 0.0f );
-    }
-}
-
-
-Vector3 EditorRotationRingBasisB( int axis )
-{
-    switch ( axis )
-    {
-    case 0:
-        return Vector3( 0.0f, 0.0f, 1.0f );
-    case 1:
-        return Vector3( 1.0f, 0.0f, 0.0f );
-    case 2:
-        return Vector3( 0.0f, 1.0f, 0.0f );
-    default:
-        return Vector3( 0.0f, 1.0f, 0.0f );
-    }
-}
-
-
-float WrapEditorAngleDelta( float delta )
-{
-    while ( delta > _PI )
-    {
-        delta -= 2.0f * _PI;
-    }
-    while ( delta < -_PI )
-    {
-        delta += 2.0f * _PI;
-    }
-    return delta;
-}
-
-
-float DistanceRayToSegmentSquared( const Vector3& rayOrigin,
-                                   const Vector3& rayDirection,
-                                   const Vector3& segmentA,
-                                   const Vector3& segmentB )
-{
-    const Vector3 segment = segmentB - segmentA;
-    const float segmentLenSq = segment * segment;
-    if ( segmentLenSq <= TOLERANCE * TOLERANCE )
-    {
-        const Vector3 toPoint = segmentA - rayOrigin;
-        const float rayT = (std::max)( 0.0f, toPoint * rayDirection );
-        return VectorMagSquared( rayOrigin + rayDirection * rayT - segmentA );
-    }
-
-    const Vector3 w0 = rayOrigin - segmentA;
-    const float a = rayDirection * rayDirection;
-    const float b = rayDirection * segment;
-    const float c = segmentLenSq;
-    const float d = rayDirection * w0;
-    const float e = segment * w0;
-    const float denom = a * c - b * b;
-
-    float rayT = 0.0f;
-    float segmentT = 0.0f;
-    if ( fabsf( denom ) > 1e-5f )
-    {
-        rayT = ( b * e - c * d ) / denom;
-        segmentT = ( a * e - b * d ) / denom;
-    }
-
-    if ( rayT < 0.0f )
-    {
-        rayT = 0.0f;
-        segmentT = std::clamp( e / c, 0.0f, 1.0f );
-    }
-    else if ( segmentT < 0.0f )
-    {
-        segmentT = 0.0f;
-        rayT = (std::max)( 0.0f, -d / a );
-    }
-    else if ( segmentT > 1.0f )
-    {
-        segmentT = 1.0f;
-        rayT = (std::max)( 0.0f, ( b - d ) / a );
-    }
-
-    const Vector3 rayPoint = rayOrigin + rayDirection * rayT;
-    const Vector3 segmentPoint = segmentA + segment * segmentT;
-    return VectorMagSquared( rayPoint - segmentPoint );
+    engine.Step( fixedDt, config, worldForces, workerPool, nullptr, 0 );
+    return true;
 }
 
 
@@ -462,10 +264,6 @@ constexpr ReplayFrameIndex REPLAY_PREDICTION_REST_GRACE_FRAMES =
     static_cast<ReplayFrameIndex>( REPLAY_PREDICTION_REST_GRACE_SECONDS / PHYSICS_FIXED_DT );
 constexpr float REPLAY_PREDICTION_REST_POSITION_EPSILON_SQ = 0.5f * 0.5f;
 
-// Hazard: prediction temporarily swaps live model/solver state. Keep a small
-// reserve so we do not enter a mutation section after spending the whole visual
-// budget and then visibly spike while restoring live state.
-constexpr double REPLAY_PREDICTION_MUTATION_RESERVE_MILLISECONDS = 1.0;
 constexpr uint32_t REPLAY_PREDICTION_CAPTURE_BODY_WORKER_HASH =
     HashStr( "Frame/Replay/Prediction/CaptureBodyState/WorkerBodies" );
 constexpr uint32_t REPLAY_PREDICTION_CAPTURE_SAMPLE_WORKER_HASH =
@@ -477,7 +275,6 @@ constexpr uint32_t REPLAY_PREDICTION_CAPTURE_SAMPLE_WORKER_HASH =
 
 #include "RunReplayScrubberTools.inl"
 #include "RunReplayCauseTreeTools.inl"
-#include "RunReplayVelocityEdit.inl"
 #include "RunReplayQueryTools.inl"
 
 namespace
@@ -485,7 +282,9 @@ namespace
 #include "RunReplayPredictionVisualizer.inl"
 } // namespace
 
-void Run::RenderReplayPathVisualizer( RunEditorTracer& tracer )
+namespace SkullbonezCore::Basics::ReplayOverlay
+{
+void RenderReplayPathVisualizer( const ReplayPathVisualizerRenderContext& context )
 {
     PROFILE_SCOPED( "Frame/Replay/PathVisualizer" );
     // Concept: this marker owns the replay visualizer frame budget.
@@ -494,21 +293,20 @@ void Run::RenderReplayPathVisualizer( RunEditorTracer& tracer )
     // markers all share this deadline. Child functions receive the same start
     // time so profiler nesting cannot hide extra replay work outside the cap.
     const auto visualizerStart = std::chrono::steady_clock::now();
-    const auto physicsWorldForces = m_cWorldEnvironment.GetPhysicsWorldForces();
-    RenderReplayPredictionVisualizer( m_replayRuntime,
-                                      m_cGameModelCollection,
-                                      *m_systems.config,
-                                      physicsWorldForces,
-                                      *m_systems.workerPool,
-                                      SceneState().isScenePhysics,
-                                      m_timers.simulationTimer.GetTimeSinceLastStart(),
-                                      m_timers.simulationTimer.GetTotalTime(),
-                                      tracer,
+    RenderReplayPredictionVisualizer( context.replayRuntime,
+                                      context.models,
+                                      context.config,
+                                      context.worldForces,
+                                      context.workerPool,
+                                      context.scenePhysicsEnabled,
+                                      context.simulationTimeSinceLastStart,
+                                      context.simulationTotalTime,
+                                      context.tracer,
                                       visualizerStart,
                                       REPLAY_PREDICTION_MAX_WORK_MILLISECONDS );
-    const RunReplayPredictionState& prediction = m_replayRuntime.Prediction();
-    if ( !prediction.enabled && prediction.frames.size() >= 2 && m_replayRuntime.PathVisualizer().hasTarget &&
-         prediction.targetId.value == m_replayRuntime.PathVisualizer().targetId.value )
+    const RunReplayPredictionState& prediction = context.replayRuntime.Prediction();
+    if ( !prediction.enabled && prediction.frames.size() >= 2 && context.replayRuntime.PathVisualizer().hasTarget &&
+         prediction.targetId.value == context.replayRuntime.PathVisualizer().targetId.value )
     {
         // Why: Play disables prediction but keeps the committed path preview.
         // Letting the retained visualizer continue here would rebuild child
@@ -520,39 +318,43 @@ void Run::RenderReplayPathVisualizer( RunEditorTracer& tracer )
         return;
     }
 
-    if ( !m_replayRuntime.PathVisualizer().hasTarget )
+    if ( !context.replayRuntime.PathVisualizer().hasTarget )
     {
         return;
     }
 
-    if ( !m_replayRuntime.Solver().IsEnabled() )
+    if ( !context.replayRuntime.Solver().IsEnabled() )
     {
         return;
     }
 
-    if ( m_replayRuntime.PathVisualizer().targets.empty() && m_replayRuntime.PathVisualizer().targetId.value != 0 )
+    if ( context.replayRuntime.PathVisualizer().targets.empty() &&
+         context.replayRuntime.PathVisualizer().targetId.value != 0 )
     {
-        if ( !ReserveReplayPredictionVector( m_replayRuntime.PathVisualizer().targets,
+        if ( !ReserveReplayPredictionVector( context.replayRuntime.PathVisualizer().targets,
                                              REPLAY_PATH_MAX_ROOT_TARGETS,
-                                             SceneState().currentFrame,
+                                             context.sceneCurrentFrame,
                                              "RunReplayPathVisualizer::targets" ) )
         {
             return;
         }
         RunReplayPathTarget target;
-        target.id = m_replayRuntime.PathVisualizer().targetId;
-        target.modelIndex = m_replayRuntime.PathVisualizer().targetModelIndex;
-        if ( m_replayRuntime.PathVisualizer().targetName[0] != '\0' )
+        target.id = context.replayRuntime.PathVisualizer().targetId;
+        target.modelIndex = context.replayRuntime.PathVisualizer().targetModelIndex;
+        if ( context.replayRuntime.PathVisualizer().targetName[0] != '\0' )
         {
-            strncpy_s( target.name, sizeof( target.name ), m_replayRuntime.PathVisualizer().targetName, _TRUNCATE );
+            strncpy_s( target.name,
+                       sizeof( target.name ),
+                       context.replayRuntime.PathVisualizer().targetName,
+                       _TRUNCATE );
         }
-        m_replayRuntime.PathVisualizer().targets.push_back( target );
+        context.replayRuntime.PathVisualizer().targets.push_back( target );
     }
 
-    const ReplaySolverFrameSample* presentSample = m_replayRuntime.CurrentSolverScrubSample();
+    const ReplaySolverFrameSample* presentSample = context.replayRuntime.CurrentSolverScrubSample();
     if ( !presentSample )
     {
-        presentSample = m_replayRuntime.Solver().LatestSample();
+        presentSample = context.replayRuntime.Solver().LatestSample();
     }
     if ( !presentSample )
     {
@@ -560,7 +362,7 @@ void Run::RenderReplayPathVisualizer( RunEditorTracer& tracer )
     }
 
     ReplayPathBoundsContext bounds;
-    m_replayRuntime.Solver().ForEachSampleChronological( CaptureReplayPathBounds, &bounds );
+    context.replayRuntime.Solver().ForEachSampleChronological( CaptureReplayPathBounds, &bounds );
     if ( ReplayPredictionBudgetExpired( visualizerStart, REPLAY_PREDICTION_MAX_WORK_MILLISECONDS ) )
     {
         return;
@@ -571,13 +373,13 @@ void Run::RenderReplayPathVisualizer( RunEditorTracer& tracer )
     }
 
     const ReplayFrameIndex presentFrame = std::clamp( presentSample->frameIndex, bounds.firstFrame, bounds.lastFrame );
-    const ReplayRecorderStats stats = m_replayRuntime.Solver().GetStats();
+    const ReplayRecorderStats stats = context.replayRuntime.Solver().GetStats();
     const std::size_t sampleStride = ReplayPathStrideForSampleCount( stats.sampleCount );
 
-    m_replayRuntime.PathVisualizer().futureNodes.clear();
-    const PhysicsBodyStore& bodyStore = m_cGameModelCollection.GetPhysicsEngine().BodyStore();
-    const ColliderStore& colliderStore = m_cGameModelCollection.GetPhysicsEngine().Colliders();
-    for ( RunReplayPathTarget& target : m_replayRuntime.PathVisualizer().targets )
+    context.replayRuntime.PathVisualizer().futureNodes.clear();
+    const PhysicsBodyStore& bodyStore = context.models.GetPhysicsEngine().BodyStore();
+    const ColliderStore& colliderStore = context.models.GetPhysicsEngine().Colliders();
+    for ( RunReplayPathTarget& target : context.replayRuntime.PathVisualizer().targets )
     {
         if ( ReplayPredictionBudgetExpired( visualizerStart, REPLAY_PREDICTION_MAX_WORK_MILLISECONDS ) )
         {
@@ -597,13 +399,13 @@ void Run::RenderReplayPathVisualizer( RunEditorTracer& tracer )
             PROFILE_SCOPED( "Frame/Replay/PathVisualizer/RetainedTarget/BuildTree" );
             ReplayPathFutureContext futureContext;
             futureContext.visualizer = &targetVisualizer;
-            futureContext.collection = &m_cGameModelCollection;
+            futureContext.collection = &context.models;
             futureContext.budgetStart = &visualizerStart;
             futureContext.rootId = target.id;
             futureContext.presentFrame = presentFrame;
             futureContext.budgetMilliseconds = REPLAY_PREDICTION_MAX_WORK_MILLISECONDS;
-            futureContext.includeRagdollVisuals = m_replayRuntime.Prediction().ragdollVisualsEnabled;
-            m_replayRuntime.Solver().ForEachSampleChronological( BuildReplayFutureNodes, &futureContext );
+            futureContext.includeRagdollVisuals = context.replayRuntime.Prediction().ragdollVisualsEnabled;
+            context.replayRuntime.Solver().ForEachSampleChronological( BuildReplayFutureNodes, &futureContext );
         }
         if ( ReplayPredictionBudgetExpired( visualizerStart, REPLAY_PREDICTION_MAX_WORK_MILLISECONDS ) )
         {
@@ -613,7 +415,7 @@ void Run::RenderReplayPathVisualizer( RunEditorTracer& tracer )
         {
             PROFILE_SCOPED( "Frame/Replay/PathVisualizer/RetainedTarget/DrawRoot" );
             ReplayPathRootDrawContext rootDraw;
-            rootDraw.tracer = &tracer;
+            rootDraw.tracer = &context.tracer;
             rootDraw.budgetStart = &visualizerStart;
             rootDraw.rootId = target.id;
             rootDraw.firstFrame = bounds.firstFrame;
@@ -621,7 +423,7 @@ void Run::RenderReplayPathVisualizer( RunEditorTracer& tracer )
             rootDraw.lastFrame = bounds.lastFrame;
             rootDraw.budgetMilliseconds = REPLAY_PREDICTION_MAX_WORK_MILLISECONDS;
             rootDraw.sampleStride = sampleStride;
-            m_replayRuntime.Solver().ForEachSampleChronological( DrawReplayRootPath, &rootDraw );
+            context.replayRuntime.Solver().ForEachSampleChronological( DrawReplayRootPath, &rootDraw );
         }
         if ( ReplayPredictionBudgetExpired( visualizerStart, REPLAY_PREDICTION_MAX_WORK_MILLISECONDS ) )
         {
@@ -629,7 +431,7 @@ void Run::RenderReplayPathVisualizer( RunEditorTracer& tracer )
         }
 
         ReplayPathChildDrawContext childDraw;
-        childDraw.tracer = &tracer;
+        childDraw.tracer = &context.tracer;
         childDraw.colliderStore = &colliderStore;
         childDraw.budgetStart = &visualizerStart;
         childDraw.presentFrame = presentFrame;
@@ -644,7 +446,7 @@ void Run::RenderReplayPathVisualizer( RunEditorTracer& tracer )
         if ( childDraw.nodeCount > 0 )
         {
             PROFILE_SCOPED( "Frame/Replay/PathVisualizer/RetainedTarget/DrawChildren" );
-            m_replayRuntime.Solver().ForEachSampleChronological( DrawReplayChildPaths, &childDraw );
+            context.replayRuntime.Solver().ForEachSampleChronological( DrawReplayChildPaths, &childDraw );
             DrawReplayChildFinalMarkers( childDraw );
         }
         if ( ReplayPredictionBudgetExpired( visualizerStart, REPLAY_PREDICTION_MAX_WORK_MILLISECONDS ) )
@@ -652,9 +454,9 @@ void Run::RenderReplayPathVisualizer( RunEditorTracer& tracer )
             return;
         }
 
-        if ( target.id.value == m_replayRuntime.PathVisualizer().targetId.value )
+        if ( target.id.value == context.replayRuntime.PathVisualizer().targetId.value )
         {
-            m_replayRuntime.PathVisualizer().futureNodes = targetVisualizer.futureNodes;
+            context.replayRuntime.PathVisualizer().futureNodes = targetVisualizer.futureNodes;
         }
 
         {
@@ -668,18 +470,38 @@ void Run::RenderReplayPathVisualizer( RunEditorTracer& tracer )
             if ( TryResolveReplayBodyModelIndex( bodyStore,
                                                  target.id,
                                                  target.modelIndex,
-                                                 m_cGameModelCollection.GetModelCount(),
+                                                 context.models.SceneEntityCount(),
                                                  markerIndex ) )
             {
                 target.modelIndex = markerIndex;
-                if ( target.id.value == m_replayRuntime.PathVisualizer().targetId.value )
+                if ( target.id.value == context.replayRuntime.PathVisualizer().targetId.value )
                 {
-                    m_replayRuntime.PathVisualizer().targetModelIndex = markerIndex;
+                    context.replayRuntime.PathVisualizer().targetModelIndex = markerIndex;
                 }
-                TryAddReplayTargetMarkerFromStores( tracer, bodyStore, colliderStore, markerIndex );
+                TryAddReplayTargetMarkerFromStores( context.tracer, bodyStore, colliderStore, markerIndex );
             }
         }
     }
+}
+} // namespace SkullbonezCore::Basics::ReplayOverlay
+
+void Run::RenderReplayPathVisualizer( RunEditorTracer& tracer )
+{
+    const auto physicsWorldForces = m_cWorldEnvironment.GetPhysicsWorldForces();
+    // Lifetime: physicsWorldForces is a local value because the overlay context
+    // borrows it by reference for the immediate delegate call.
+    const SkullbonezCore::Basics::ReplayOverlay::ReplayPathVisualizerRenderContext context{
+        m_replayRuntime,
+        m_cGameModelCollection,
+        *m_systems.config,
+        physicsWorldForces,
+        *m_systems.workerPool,
+        tracer,
+        SceneState().isScenePhysics,
+        SceneState().currentFrame,
+        m_timers.simulationTimer.GetTimeSinceLastStart(),
+        m_timers.simulationTimer.GetTotalTime() };
+    SkullbonezCore::Basics::ReplayOverlay::RenderReplayPathVisualizer( context );
 }
 
 

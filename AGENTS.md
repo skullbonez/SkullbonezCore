@@ -184,6 +184,22 @@ actions such as screenshot/readback, file save/load, replay artifact IO,
 diagnostics dumps, and editor mutation actions. Violations are lint, validation,
 and review failures.
 
+## Error Handling Policy
+
+Exceptions are banned for new engine code. Existing `throw` sites are tracked
+by `tools/check_runtime_boundaries.py` and must only go down unless a plan names
+the owner and updates the ratchet intentionally. Any new `throw` is a review
+failure.
+
+| Lane | Use For | Mechanism |
+|------|---------|-----------|
+| F: Fatal invariant | Should-never-happen engine state in physics, stores, solver, frame loop, replay internals, or other owned runtime logic | `SB_FATAL(owner, ...)`; logs owner/diagnostics, flushes, breaks in Debug/Profile, and never returns |
+| R: Recoverable result | External input or environment failure: scene/asset files, editor commands, automation input, device support, file IO | `SbResult`/future value-carrying result; operation fails and reports an owner/message to the UI or log boundary |
+| P: Probe assertion | Validation, interaction, replay, scrub, and stress probes that should become machine-readable failures | Existing probe/report channel such as `FailAutomation(...)`, with interaction report `ok=false` and a failure message |
+
+New fatal or recoverable paths must name their lane in source comments or the
+owning plan when the lane is not obvious from the API being used.
+
 ## After Editing
 
 Do not run validation scripts automatically after every edit. Formal repository
@@ -196,6 +212,7 @@ perf, UI, and stress validation only when the change actually needs them:
 | Change Type | Pre-Commit/PR Command | Runtime |
 |-------------|---------|---------|
 | Documentation only | No validation required | N/A |
+| Unit tests only | `tools\validate_tests.bat` | build + console test runner |
 | Small refactor, no render or physics changes | `tools\validate_fast.bat` | ~30s |
 | Shader or render backend | `tools\validate_dx12_renderer.bat` | ~2 min |
 | DX12 renderer validation tooling | `tools\validate_fast.bat`, then `tools\validate_dx12_renderer.bat` | ~2 min |
@@ -230,6 +247,7 @@ Profile\SKULLBONEZ_CORE.exe --platform-profiler-markers
 | `TestOutput/baselines/physics_regression_solver.csv` | `validate_physics` |
 | Other physics CSV baselines or `TestOutput/baselines/physics_query*.json` | `validate_physics_deep` |
 | `Common.h` | `validate_full` |
+| `SkullbonezTests/*`, `SKULLBONEZ_TESTS.vcxproj`, `SKULLBONEZ_TESTS.vcxproj.filters` | `validate_tests` |
 | `Runtime/Allocation/*`, `tools/check_allocation_policy.py`, `tools/allocation_policy_allowlist.json` | `validate_perf` |
 | `Run*`, `Runtime/*` | `validate_full` |
 | `Window*` | `validate_full` |
@@ -239,7 +257,7 @@ Profile\SKULLBONEZ_CORE.exe --platform-profiler-markers
 | `SkullbonezData/scenes/*.scene.json` | `validate_full` |
 | Multiple areas or unsure | `validate_full` |
 | `Agentic/*`, `*.md`, docs | No validation required when documentation-only |
-| `tools/*` | `validate_fast`, then run the changed script |
+| `tools/*` | `validate_fast`, then run the changed script; `validate_fast` includes `validate_tests` |
 
 ---
 
@@ -289,6 +307,11 @@ determinism risks, DX12 validation risks, and hot-path allocation concerns first
 ordered by severity with file and line references. Keep summaries secondary.
 If no issues are found, say so clearly and name any residual validation or test
 risk.
+
+For bug fixes in subsystems that already have unit coverage, add or update a
+regression test in the same commit unless the user explicitly scopes the work to
+investigation or documentation only. If a regression test is not practical,
+record the reason in the commit body or handoff.
 
 ---
 

@@ -71,9 +71,9 @@ size_t HashShaderBytecode( ID3DBlob* blob )
 } // namespace
 
 
-ShaderDX12::ShaderDX12()
-    : m_cbReflectedSize( 0 ), m_cbSize( 0 ), m_cbDirty( false ), m_vsBytecodeHash( 0 ), m_psBytecodeHash( 0 ),
-      m_contract( nullptr )
+ShaderDX12::ShaderDX12( RenderBackendDX12& backend )
+    : m_backend( backend ), m_cbReflectedSize( 0 ), m_cbSize( 0 ), m_cbDirty( false ), m_vsBytecodeHash( 0 ),
+      m_psBytecodeHash( 0 ), m_contract( nullptr )
 {
 }
 
@@ -237,10 +237,9 @@ void ShaderDX12::ReflectCB( ID3DBlob* blob )
 
 void ShaderDX12::Use() const
 {
-    auto* backend = RenderBackendDX12::Get();
-    if ( backend )
+    if ( m_backend.GetDevice() )
     {
-        backend->SetActiveShader( const_cast<ShaderDX12*>( this ) );
+        m_backend.SetActiveShader( const_cast<ShaderDX12*>( this ) );
     }
 #ifdef _DEBUG
     ResetContractActivation();
@@ -733,8 +732,7 @@ D3D12_GPU_VIRTUAL_ADDRESS ShaderDX12::FlushCB() const
     ReportMissingRequiredContractUniforms();
 #endif
 
-    auto* backend = RenderBackendDX12::Get();
-    if ( !backend )
+    if ( !m_backend.GetDevice() )
     {
         return 0;
     }
@@ -742,8 +740,8 @@ D3D12_GPU_VIRTUAL_ADDRESS ShaderDX12::FlushCB() const
     // Constant buffers must be 256-byte aligned in DX12. ReserveUpload probes
     // with that same alignment and flushes/resets the upload arena if needed,
     // instead of letting a busy frame throw after the arena fills up.
-    D3D12_GPU_VIRTUAL_ADDRESS addr = backend->ReserveUpload( m_cbSize, 256 );
-    memcpy( backend->GetUploadPtr( addr ), m_cbData.data(), m_cbSize );
+    D3D12_GPU_VIRTUAL_ADDRESS addr = m_backend.ReserveUpload( m_cbSize, 256 );
+    memcpy( m_backend.GetUploadPtr( addr ), m_cbData.data(), m_cbSize );
     m_cbDirty = false;
     return addr;
 }

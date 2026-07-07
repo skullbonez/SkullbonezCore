@@ -14,7 +14,7 @@ Glossary:
     shown, neither box ever leaves until the prediction is rebuilt.
   Future node: Body discovered by following predicted contact records or, while
     those records are still sparse, by pose divergence away from a target.
-  Prediction frame: Temporary replay frame captured while fast-forwarding live physics.
+  Prediction frame: Replay frame captured from the private prediction engine.
   Body record: Physics-owned row holding pose, velocity, mass, inertia, and
     fixed/dynamic state for one replay body.
   Scene-object group: Collection-owned metadata that folds ragdoll parts to
@@ -51,16 +51,6 @@ double ReplayPredictionRemainingMilliseconds( const std::chrono::steady_clock::t
         return 0.0;
     }
     return (std::max)( 0.0, budgetMilliseconds - ReplayPredictionElapsedMilliseconds( start ) );
-}
-
-bool ReplayPredictionMutationReserveSpent( const std::chrono::steady_clock::time_point& start,
-                                           double budgetMilliseconds )
-{
-    if ( budgetMilliseconds <= REPLAY_PREDICTION_MUTATION_RESERVE_MILLISECONDS )
-    {
-        return ReplayPredictionBudgetExpired( start, budgetMilliseconds );
-    }
-    return ReplayPredictionBudgetExpired( start, budgetMilliseconds - REPLAY_PREDICTION_MUTATION_RESERVE_MILLISECONDS );
 }
 
 // Concept: reveal cursor — the wall-clock playhead of the causal-unfold animation.
@@ -185,6 +175,28 @@ std::size_t ReplayPredictionNextDebugContactCapacity( std::size_t currentCapacit
     const std::size_t doubled =
         currentCapacity > 0 ? currentCapacity * 2u : REPLAY_PREDICTION_DEBUG_CONTACT_INITIAL_MIN;
     return (std::max)( chunked, doubled );
+}
+
+int ReplayPredictionEngineReserveBytes( const PhysicsEngine& engine )
+{
+    // Why: seeding the private engine copies several physics-owned vectors.
+    // Estimate the live working set before requesting the replay growth scope so
+    // those copy allocations are approved under one bounded prediction owner.
+    uint64_t bytes = static_cast<uint64_t>( sizeof( PhysicsEngine ) );
+    bytes += engine.CollectPhysicsWorldMemoryBytes();
+    bytes += engine.CollectDebugAndBroadphaseMemoryBytes();
+    bytes += static_cast<uint64_t>( engine.BodyStore().Records().capacity() ) * sizeof( PhysicsBodyRecord );
+    bytes += static_cast<uint64_t>( engine.Colliders().Records().capacity() ) * sizeof( ColliderRecord );
+    bytes += static_cast<uint64_t>( engine.RenderInstances().Records().capacity() ) *
+             sizeof( SkullbonezCore::Rendering::RenderInstanceRecord );
+    bytes += static_cast<uint64_t>( engine.RenderInstances().PresentationRecords().capacity() ) *
+             sizeof( SkullbonezCore::Rendering::RenderInstancePresentationRecord );
+    if ( bytes == 0 || bytes > static_cast<uint64_t>( REPLAY_PREDICTION_RESERVE_HARD_BYTES ) ||
+         bytes > static_cast<uint64_t>( ( std::numeric_limits<int>::max )() ) )
+    {
+        return 0;
+    }
+    return static_cast<int>( bytes );
 }
 
 template <typename T>
@@ -966,6 +978,9 @@ const ColliderRecord* ReplayColliderRecordForModelIndex( const ColliderStore* co
         return nullptr;
     }
 
+    // Why: retained prediction markers store historical model-index samples, not
+    // live body handles. Use this only for presentation fallback; store-edit
+    // paths resolve through PhysicsBodyHandle before reading collider rows.
     const PhysicsColliderHandle colliderHandle = colliderStore->HandleForModelIndex( modelIndex );
     const ColliderRecord* collider = colliderStore->RecordForHandle( colliderHandle );
     if ( !collider || colliderStore->ModelIndexForHandle( colliderHandle ) != modelIndex )
@@ -1361,7 +1376,7 @@ void DrawReplayPredictionRagdollTorsoTrails( const std::vector<RunReplayPredicti
                                              const std::chrono::steady_clock::time_point& budgetStart,
                                              double budgetMilliseconds )
 {
-    const int modelCount = collection.GetModelCount();
+    const int modelCount = collection.SceneEntityCount();
     frameCount = (std::min)( frameCount, frames.size() );
     if ( frameCount < 2 || modelCount <= 0 )
     {
@@ -2077,12 +2092,13 @@ void UpdateReplayPredictionFutureNodeCache( RunReplayPredictionState& prediction
 }
 
 bool CaptureReplayPredictionBodyState( SkullbonezCore::GameObjects::GameModelCollection& modelCollection,
+                                       const PhysicsBodyStore& bodyStore,
                                        SkullbonezCore::Threading::WorkerPool& workerPool,
                                        std::vector<RunReplayPredictionBodyBackup>& outBodies )
 {
     PROFILE_SCOPED( "Frame/Replay/Prediction/CaptureBodyState" );
-    const int modelCount = modelCollection.GetModelCount();
-    const auto& bodyRecords = modelCollection.GetPhysicsEngine().BodyStore().Records();
+    const int modelCount = modelCollection.SceneEntityCount();
+    const auto& bodyRecords = bodyStore.Records();
     if ( static_cast<int>( bodyRecords.size() ) < modelCount )
     {
         return false;
@@ -2127,7 +2143,7 @@ bool CaptureReplayPredictionBodyState( SkullbonezCore::GameObjects::GameModelCol
 
     // Invariant: this loop reads authoritative body records and one
     // presentation timer, then writes one output slot per body. Applying
-    // backups remains serial because it mutates live GameModel state.
+    // backups remains serial because it mutates physics body state.
     if ( modelCount >= REPLAY_PREDICTION_PARALLEL_BODY_MIN )
     {
         workerPool.ParallelForNoAlloc( 0,
@@ -2148,29 +2164,36 @@ bool CaptureReplayPredictionBodyState( SkullbonezCore::GameObjects::GameModelCol
 }
 
 
-bool ApplyReplayPredictionBodyState( SkullbonezCore::GameObjects::GameModelCollection& modelCollection,
+bool ApplyReplayPredictionBodyState( PhysicsEngine& physicsEngine,
                                      const std::vector<RunReplayPredictionBodyBackup>& bodies )
 {
     PROFILE_SCOPED( "Frame/Replay/Prediction/ApplyBodyState" );
-    if ( bodies.size() != static_cast<std::size_t>( modelCollection.GetModelCount() ) )
+    const PhysicsBodyStore& bodyStore = physicsEngine.BodyStore();
+    if ( bodies.size() != static_cast<std::size_t>( bodyStore.Count() ) )
     {
         return false;
     }
 
     for ( const RunReplayPredictionBodyBackup& backup : bodies )
     {
-        if ( !modelCollection.TryRestoreReplayPredictionBodyState( backup.modelIndex,
-                                                                   backup.id.value,
-                                                                   backup.fixed,
-                                                                   backup.position,
-                                                                   backup.orientation,
-                                                                   backup.linearVelocity,
-                                                                   backup.angularVelocity,
-                                                                   backup.mass,
-                                                                   backup.inverseMass,
-                                                                   backup.rotationalInertia,
-                                                                   backup.inverseRotationalInertia,
-                                                                   backup.fixedContactHighlightSeconds ) )
+        const PhysicsBodyHandle bodyHandle = bodyStore.HandleForModelIndex( backup.modelIndex );
+        const PhysicsBodyRecord* bodyRecord = bodyStore.RecordForHandle( bodyHandle );
+        if ( !bodyRecord || bodyStore.ModelIndexForHandle( bodyHandle ) != backup.modelIndex ||
+             bodyRecord->replayBodyId != backup.id.value )
+        {
+            return false;
+        }
+        if ( !physicsEngine.RestoreReplayBodyState( bodyHandle,
+                                                    backup.id.value,
+                                                    backup.fixed,
+                                                    backup.position,
+                                                    backup.orientation,
+                                                    backup.linearVelocity,
+                                                    backup.angularVelocity,
+                                                    backup.mass,
+                                                    backup.inverseMass,
+                                                    backup.rotationalInertia,
+                                                    backup.inverseRotationalInertia ) )
         {
             return false;
         }
@@ -2179,14 +2202,85 @@ bool ApplyReplayPredictionBodyState( SkullbonezCore::GameObjects::GameModelColle
 }
 
 
+bool SeedReplayPredictionEngine( RunReplayPredictionState& prediction,
+                                 const PhysicsEngine& liveEngine,
+                                 const EngineConfig& config,
+                                 const PhysicsWorldForces& worldForces,
+                                 int modelCount )
+{
+    PROFILE_SCOPED( "Frame/Replay/Prediction/SeedPrivateEngine" );
+    const RuntimeAllocation::RuntimeReserveOwnerHandle owner = ReplayPredictionReserveOwner();
+    const int requestedBytes = ReplayPredictionEngineReserveBytes( liveEngine );
+    if ( requestedBytes <= 0 )
+    {
+        return false;
+    }
+    const int currentBytes =
+        prediction.predictionEngine ? ReplayPredictionEngineReserveBytes( *prediction.predictionEngine ) : 0;
+    if ( prediction.predictionEngine && currentBytes <= 0 )
+    {
+        return false;
+    }
+
+    RuntimeAllocation::RuntimeReserveGrowthResult result = {};
+    if ( requestedBytes > currentBytes )
+    {
+        // Why: the private engine is retained across prediction rebuilds. Only
+        // real capacity increases should consume replay growth events; same-size
+        // reseeds just reuse the previous bounded reservation.
+        const RuntimeAllocation::RuntimeReserveGrowthRequest request = { REPLAY_PREDICTION_RESERVE_OWNER,
+                                                                         "RunReplayPredictionState::predictionEngine",
+                                                                         RuntimeAllocation::RuntimeReservePhase::Replay,
+                                                                         0,
+                                                                         currentBytes,
+                                                                         requestedBytes,
+                                                                         1 };
+        result = RuntimeAllocation::RuntimeReserveAllocator::RequestGrowth( owner, request );
+        if ( !result.granted )
+        {
+            return false;
+        }
+    }
+
+    RuntimeAllocation::RuntimeAllocationScope replayAllocationScope(
+        RuntimeAllocation::RuntimeAllocationPhase::Replay );
+    RuntimeAllocation::RuntimeReserveOwnerScope ownerScope( owner );
+    RuntimeAllocation::RuntimeReserveGrowthScope growthScope( owner,
+                                                              RuntimeAllocation::RuntimeReservePhase::Replay,
+                                                              result );
+    prediction.predictionEngineReady = false;
+    if ( !prediction.predictionEngine )
+    {
+        prediction.predictionEngine = std::make_unique<PhysicsEngine>();
+    }
+
+    // Invariant: seeding starts from the live facade's topology and cold policy,
+    // then restores the captured prediction values into the private engine. The
+    // live engine is never passed to prediction stepping after this point.
+    PhysicsEngine& predictionEngine = *prediction.predictionEngine;
+    predictionEngine = liveEngine;
+    predictionEngine.ApplyRuntimeConfig( config );
+    prediction.predictionWorldForces = worldForces;
+    if ( !ApplyReplayPredictionBodyState( predictionEngine, prediction.predictionBodies ) ||
+         !predictionEngine.RestoreReplaySolverSnapshot( prediction.predictionWorld, modelCount ) )
+    {
+        return false;
+    }
+    prediction.predictionEngineReady = true;
+    return true;
+}
+
+
 bool CaptureReplayPredictionFrame( ReplayRuntime& replayRuntime,
                                    SkullbonezCore::GameObjects::GameModelCollection& modelCollection,
+                                   const PhysicsEngine& physicsEngine,
                                    SkullbonezCore::Threading::WorkerPool& workerPool,
                                    ReplayFrameIndex frameIndex )
 {
     PROFILE_SCOPED( "Frame/Replay/Prediction/CaptureSample" );
-    const int modelCount = modelCollection.GetModelCount();
-    const auto& bodyRecords = modelCollection.GetPhysicsEngine().BodyStore().Records();
+    const int modelCount = modelCollection.SceneEntityCount();
+    const PhysicsBodyStore& bodyStore = physicsEngine.BodyStore();
+    const auto& bodyRecords = bodyStore.Records();
     if ( static_cast<int>( bodyRecords.size() ) < modelCount )
     {
         return false;
@@ -2203,7 +2297,7 @@ bool CaptureReplayPredictionFrame( ReplayRuntime& replayRuntime,
     frame.frameIndex = frameIndex;
     frame.simulationSeconds = prediction.sourceSimulationSeconds +
                               static_cast<double>( frameIndex ) * static_cast<double>( PHYSICS_FIXED_DT );
-    frame.tornadoSystemElapsedSeconds = modelCollection.GetTornadoSystemElapsedSeconds();
+    frame.tornadoSystemElapsedSeconds = physicsEngine.GetTornadoSystemElapsedSeconds();
     if ( static_cast<std::size_t>( modelCount ) > frame.bodies.capacity() )
     {
         return false;
@@ -2243,7 +2337,7 @@ bool CaptureReplayPredictionFrame( ReplayRuntime& replayRuntime,
             captureBody( i );
         }
     }
-    const std::vector<PhysicsDebugContact>& debugContacts = modelCollection.GetPhysicsDebugContacts();
+    const std::vector<PhysicsDebugContact>& debugContacts = physicsEngine.GetPhysicsDebugContacts();
     if ( debugContacts.size() > frame.debugContacts.capacity() )
     {
         // Why: debug contacts feed the optional future-impact tree; the root

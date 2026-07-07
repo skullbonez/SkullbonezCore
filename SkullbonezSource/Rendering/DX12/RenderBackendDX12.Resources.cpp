@@ -69,7 +69,7 @@ static inline void ThrowIfFailed( HRESULT hr, const char* msg )
 std::unique_ptr<IShader> RenderBackendDX12::CreateShader( const char* baseName )
 {
     std::string hlslPath = std::string( DATA_ROOT ) + baseName + ".hlsl";
-    auto shader = std::make_unique<ShaderDX12>();
+    auto shader = std::make_unique<ShaderDX12>( *this );
     if ( !shader->Compile( hlslPath.c_str() ) )
     {
         throw std::runtime_error( "ShaderDX12 compilation failed: " + hlslPath );
@@ -104,7 +104,7 @@ RenderBackendDX12::CreateMesh( const float* data, int vertexCount, bool hasNorma
     D3D12_GPU_VIRTUAL_ADDRESS uploadAddr = ReserveUpload( dataSize, 4 );
     uint8_t* uploadPtr = GetUploadPtr( uploadAddr );
 
-    auto mesh = std::make_unique<MeshDX12>();
+    auto mesh = std::make_unique<MeshDX12>( *this );
     mesh->Create( m_device, m_commandList, data, vertexCount, floatsPerVert, format, uploadAddr, uploadPtr );
     return mesh;
 }
@@ -113,7 +113,7 @@ RenderBackendDX12::CreateMesh( const float* data, int vertexCount, bool hasNorma
 std::unique_ptr<IFramebuffer>
 RenderBackendDX12::CreateFramebuffer( int width, int height, FramebufferColorFormat colorFormat )
 {
-    auto fbo = std::make_unique<FramebufferDX12>( colorFormat );
+    auto fbo = std::make_unique<FramebufferDX12>( *this, colorFormat );
     fbo->Create( width, height );
     return fbo;
 }

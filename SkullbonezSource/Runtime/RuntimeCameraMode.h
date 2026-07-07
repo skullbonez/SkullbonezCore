@@ -10,6 +10,7 @@ Mental model:
 
 Glossary:
   Demo: Authored scene camera mode used for unattended playback.
+  Director: Authored shot-list camera mode used by demo phase playback.
   Inspect: Free camera mode for operator navigation.
   Attach: Camera mode that follows or orbits a selected model.
   Manipulator: Runtime tool mode that lets the operator pick up dynamic bodies.
@@ -36,6 +37,7 @@ enum class RunCameraMode
     Attach,
     Launcher,
     Manipulator,
+    Director,
     Count
 };
 } // namespace SkullbonezCore::Basics

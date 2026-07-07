@@ -12,6 +12,7 @@ validation.
 | `agent_validate.bat` | PR gate when truly unsure; delegates to the two-launch default gate | 2 exe launches |
 | `validate_select.bat` | Run any subset of validations by name | ~depends |
 | `validate_fast.bat` | Small code refactors and non-render code edits | ~30s |
+| `validate_tests.bat` | Build and run the doctest unit-test executable | build + console test runner |
 | `validate_dx12_renderer.bat` | DX12-only screenshot regression and InfoQueue gate | ~2 min |
 | `validate_renderers.bat` | Retired compatibility alias that runs `validate_dx12_renderer.bat` | ~2 min |
 | `validate_deep.bat` | Opt-in broad sweep: render, deep physics, and perf | ~depends |
@@ -47,6 +48,7 @@ tools\validate_select.bat shaders
 tools\validate_select.bat project-filters
 tools\validate_select.bat runtime-boundaries
 tools\validate_select.bat runtime-interaction-policy
+tools\validate_tests.bat
 tools\validate_select.bat ui
 tools\validate_select.bat build-profile
 ```
@@ -71,6 +73,7 @@ tools\run_graphics_stress.bat overnight 3235774467 16 36 1800
 | `validate_format.bat` | Check clang-format compliance without auto-fixing |
 | `format_fix.bat` | Auto-fix formatting in-place |
 | `validate_build.bat <Config>` | Build a specific configuration (`Debug`, `Profile`, `Release`) |
+| `validate_tests.bat` | Build `SKULLBONEZ_TESTS`, validate its project filters, and run the doctest console runner |
 | `validate_concepts.bat [smoke\|core\|full] [dx12] [frames]` | Run finite concept-scene tiers and write logs plus JSON under `TestOutput\validation\concepts` |
 | `validate_shaders.bat` | Check shader file contracts from `tools\shader_contracts.json`; incomplete symbol, uniform, or resource coverage is reported as warnings |
 | `validate_project_filters.bat` | Check `.vcxproj` and `.vcxproj.filters` item coverage, exact path casing, source/header category pairing, scene/style/shader filters, and declared filter names |

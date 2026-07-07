@@ -55,13 +55,6 @@ WorkerPool::~WorkerPool()
 }
 
 
-WorkerPool& WorkerPool::Instance()
-{
-    static WorkerPool s_pool;
-    return s_pool;
-}
-
-
 int WorkerPool::MaxThreadCount()
 {
     const unsigned int hardwareThreads = std::thread::hardware_concurrency();
@@ -385,9 +378,8 @@ void WorkerPool::WorkerLoop( int workerIndex )
 }
 
 
-bool RunWorkerSystemSelfTest( FILE* out )
+bool RunWorkerSystemSelfTest( WorkerPool& pool, FILE* out )
 {
-    WorkerPool& pool = WorkerPool::Instance();
     std::vector<int> squares( 257, 0 );
     pool.ParallelFor(
         0,

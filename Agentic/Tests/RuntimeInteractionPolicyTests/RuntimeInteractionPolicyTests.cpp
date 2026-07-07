@@ -437,6 +437,61 @@ void TestWorkspaceTransitionClearsCapturedGesture()
 }
 
 
+void TestCameraModeCommandsMapToInteractionOwners()
+{
+    struct CameraModeCase
+    {
+        RunCameraMode mode;
+        RuntimeWorkspace workspace;
+        WorldInteractionOwner owner;
+        InteractionExitReason reason;
+    };
+
+    const CameraModeCase cases[] = {
+        { RunCameraMode::Demo, RuntimeWorkspace::Live, WorldInteractionOwner::None, InteractionExitReason::EnterLive },
+        { RunCameraMode::Scene, RuntimeWorkspace::Live, WorldInteractionOwner::None, InteractionExitReason::EnterLive },
+        { RunCameraMode::Inspect,
+          RuntimeWorkspace::Inspect,
+          WorldInteractionOwner::None,
+          InteractionExitReason::EnterInspect },
+        { RunCameraMode::Attach,
+          RuntimeWorkspace::Inspect,
+          WorldInteractionOwner::None,
+          InteractionExitReason::EnterInspect },
+        { RunCameraMode::Launcher,
+          RuntimeWorkspace::Live,
+          WorldInteractionOwner::Launcher,
+          InteractionExitReason::EnterLauncher },
+        { RunCameraMode::Manipulator,
+          RuntimeWorkspace::Live,
+          WorldInteractionOwner::Manipulator,
+          InteractionExitReason::EnterManipulator },
+        { RunCameraMode::Count, RuntimeWorkspace::Live, WorldInteractionOwner::None, InteractionExitReason::EnterLive },
+    };
+
+    for ( const CameraModeCase& modeCase : cases )
+    {
+        RuntimeInteractionController controller;
+        controller.EnterManipulator();
+        controller.BeginGesture( MakeMousePickupGesture(),
+                                 RuntimePointerCaptureOwner::ToolGesture,
+                                 InteractionExitReason::EnterManipulator );
+
+        const RuntimeInteractionTransition transition = controller.EnterCameraMode( modeCase.mode );
+
+        EXPECT_EQ( transition.workspace, modeCase.workspace );
+        EXPECT_EQ( transition.owner, modeCase.owner );
+        EXPECT_EQ( transition.reason, modeCase.reason );
+        EXPECT_TRUE( transition.gestureChanged );
+        EXPECT_TRUE( transition.pointerCaptureChanged );
+        EXPECT_EQ( transition.gesture.kind, RuntimeInteractionGestureKind::None );
+        EXPECT_EQ( transition.pointerCapture, RuntimePointerCaptureOwner::None );
+        EXPECT_EQ( controller.Workspace(), modeCase.workspace );
+        EXPECT_EQ( controller.Owner(), modeCase.owner );
+    }
+}
+
+
 void TestWorkspaceOwnerTransitionKeepsExactReplayOwner()
 {
     RuntimeInteractionController controller;
@@ -614,6 +669,7 @@ int main()
         { "CameraLookReleaseAllowsToolGesture", &TestCameraLookReleaseAllowsToolGesture },
         { "EndGesturePublishesCleanupMetadata", &TestEndGesturePublishesCleanupMetadata },
         { "WorkspaceTransitionClearsCapturedGesture", &TestWorkspaceTransitionClearsCapturedGesture },
+        { "CameraModeCommandsMapToInteractionOwners", &TestCameraModeCommandsMapToInteractionOwners },
         { "WorkspaceOwnerTransitionKeepsExactReplayOwner", &TestWorkspaceOwnerTransitionKeepsExactReplayOwner },
         { "ReplayToolGesturesCapturePointer", &TestReplayToolGesturesCapturePointer },
         { "GizmoDragCapturesPointerForEditorAndInspect", &TestGizmoDragCapturesPointerForEditorAndInspect },

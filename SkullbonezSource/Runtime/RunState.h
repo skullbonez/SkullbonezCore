@@ -17,6 +17,8 @@ Glossary:
     a body flash after physics, independent of deterministic simulation.
   Attached camera target: Camera-owned follow identity that stores physics
     handles for live motion and keeps model-order facts only as UI fallback.
+  Director playback: Presentation-owned shot-list state that times authored
+    camera/style phases without changing deterministic physics state.
   Borrowed subsystem pointer: Non-owning pointer to state owned elsewhere in
     the Run composition root.
   Interaction automation: CLI-driven validation state that injects bounded
@@ -45,6 +47,7 @@ Related:
 #include "../Physics/TornadoField.h"
 #include "../World/SkyBox.h"
 #include "CameraCollection.h"
+#include "DemoDirector.h"
 #include "Input.h"
 #include "Allocation/RuntimeAllocationTracker.h"
 #include "Render/RuntimeRenderResources.h"
@@ -117,6 +120,8 @@ struct RunRuntimeSettings
     Physics::TornadoFieldConfig tornadoField;                  // Live vortex force/debug vector field controlled by CLI/UI
     Physics::TornadoSystemConfig tornadoSystem;                // Scene-authored multi-vortex schedule and motion.
     TornadoVisualSettings tornadoVisual;                       // Render-only tornado art tuning outside deterministic physics state.
+
+    void ApplyStartupConfig( const EngineConfig& config );     // Copies config-owned live toggles at process startup.
 };
 
 struct RunTimerState
@@ -161,6 +166,33 @@ struct RunSubsystemState
     Threading::WorkerPool* workerPool = nullptr;               // Borrowed worker service initialised and shut down by Runtime/Init.cpp.
     Window* window = nullptr;
     Geometry::SkyBox* skyBox = nullptr;                        // Borrowed alias of skyBoxOwner after Initialise wires services.
+
+    void BindStartupServices(
+        Window& windowOwner,
+        Threading::WorkerPool& workerPoolOwner,
+        const EngineConfig& configOwner );                     // Binds process-start services and config-derived camera policy.
+};
+
+struct DemoDirectorPlaybackState
+{
+    static constexpr int SHOT_LIST_PATH_BYTES = 260;
+
+    // Concept: Director playback is camera presentation state. The shot list is
+    // fixed-capacity authoring data, and these timers only decide which authored
+    // pose should drive the camera on later playback slices.
+    DemoShotList activeShotList;
+    bool hasActiveShotList = false;
+    char activeShotListPath[SHOT_LIST_PATH_BYTES] = {};        // Cold authoring save target captured from load.
+    int currentPhaseIndex = -1;                                // -1 until a shot list chooses its first phase.
+    int appliedStylePhaseIndex = -1;                           // Phase index whose stylePath last updated the live scene look.
+    char appliedStylePath[DemoPhase::STYLE_PATH_BYTES] =
+        {};                                                    // Exact applied path; same-phase author edits can request a new look.
+    int appliedStyleCount = 0;                                 // Successful phase-entry style applications for automation proof.
+    float phaseElapsedSeconds = 0.0f;                          // Seconds spent in currentPhaseIndex.
+    float blendElapsedSeconds = 0.0f;                          // Seconds spent blending from blendStartPose.
+    DemoCameraPose blendStartPose;                             // Pose captured when a phase/release blend starts.
+    bool grabbed = false;                                      // True while the operator temporarily owns free-fly framing.
+    DemoCameraPose poseCapturedAtGrab;                         // Authored pose used to seed no-pop free-fly grab.
 };
 
 struct RunCameraState
@@ -171,6 +203,7 @@ struct RunCameraState
     RunCameraMode mode = RunCameraMode::Demo;                  // Explicit operator camera mode shown in the minimized HUD.
     RunCameraMode modeBeforeLauncher = RunCameraMode::Inspect; // N returns to the last non-launcher workspace.
     RunCameraMode modeBeforeAttach = RunCameraMode::Inspect;   // Pre-Attach workspace used by explicit attach-restore paths.
+    DemoDirectorPlaybackState director;                        // Fixed shot-list playback state for Director camera mode.
     bool needsMouseLookReset = true;                           // Discard stale absolute mouse deltas after UI/focus/fly transitions
     bool hasMouseLookLastClient = false;
     POINT mouseLookLastClient = {};
@@ -352,6 +385,8 @@ struct RunStartupState
 {
     int gameModelCapacity = DEFAULT_GAME_MODEL_CAPACITY;
     int workerThreads = -1;
+
+    void ApplyStartupConfig( const EngineConfig& config );     // Captures startup-only capacity/thread policy from config.
 };
 
 struct RunInputLatchState
@@ -363,6 +398,9 @@ struct RunInputLatchState
 
 enum class RunInteractionAutomationActionType
 {
+    LoadShotList,
+    DirectorAdvance,
+    SetCameraPose,
     SetCameraMode,
     ClickObject,
     ClickReplayControl,
@@ -386,12 +424,14 @@ enum class RunInteractionAutomationAssertKind
     SelectedObject,
     Owner,
     CameraMode,
+    DirectorGrabbed,
     ReplayPredictionEnabled,
     ReplayPathTarget,
     PredictionPathVisible,
     ReplaySolverTrackAtPresent,
     PredictionScrubFrameActive,
     PredictionTargetDisplacementMin,
+    LiveSolverHashStableAcrossPrediction,
     GizmoVisible,
     ReplayActiveTrack,
     ReplayHistoricalSamplePaused,
@@ -405,6 +445,7 @@ struct RunInteractionAutomationAction
     RunInteractionAutomationButton button = RunInteractionAutomationButton::Left;
     RunInteractionAutomationAssertKind assertKind = RunInteractionAutomationAssertKind::SelectedObject;
     RunCameraMode cameraMode = RunCameraMode::Inspect;
+    DemoCameraPose cameraPose;
     int keyVirtualKey = 0;
     bool boolValue = false;
     float numberValue = 0.0f;

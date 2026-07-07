@@ -142,9 +142,6 @@ static bool IsDx12DeviceLostResult( HRESULT hr )
     return hr == DXGI_ERROR_DEVICE_REMOVED || hr == DXGI_ERROR_DEVICE_RESET || hr == DXGI_ERROR_DRIVER_INTERNAL_ERROR;
 }
 
-RenderBackendDX12* RenderBackendDX12::s_instance = nullptr;
-
-
 // --- Backend Setup Entry Point ---
 
 
@@ -554,25 +551,21 @@ void RenderBackendDX12::ExecuteGraphTransition( const char* passName,
     desc.before = before;
     desc.after = after;
     desc.subresource = subresource;
-    const Dx12RenderGraphSingleTransitionResult result = EmitDx12RenderGraphTransitionBarrier( desc );
-    if ( !result.hasConcreteStates || !result.hasNativeResource || result.missingCommandList ||
-         result.skippedSameState || !result.emitted )
+    const Dx12RenderGraphBarrierRecord record =
+        ExecuteDx12RenderGraphSingleTransition( "GraphOwned", passName, resourceName, desc );
+    if ( !record.hasConcreteStates || !record.hasNativeResource || record.missingCommandList ||
+         record.beforeState == record.afterState || !record.emitted )
     {
         throw std::runtime_error( "DX12 graph-owned transition did not emit exactly one concrete barrier" );
     }
 
-    char source[64] = {};
-    snprintf( source,
-              sizeof( source ),
-              "GraphOwned:%s",
-              ( passName && passName[0] != '\0' ) ? passName : "UnnamedPass" );
-    RecordLiveBarrier( source,
-                       resourceName,
+    RecordLiveBarrier( record.source,
+                       record.resourceName,
                        resource,
                        before,
                        after,
-                       result.beforeState,
-                       result.afterState,
+                       record.beforeState,
+                       record.afterState,
                        subresource );
 }
 
@@ -594,18 +587,14 @@ void RenderBackendDX12::ExecuteGraphUavBarrier( const char* passName,
     Dx12RenderGraphUavBarrierDesc desc;
     desc.commandList = m_commandList;
     desc.resource = resource;
-    const Dx12RenderGraphUavBarrierResult result = EmitDx12RenderGraphUavBarrier( desc );
-    if ( !result.hasNativeResource || result.missingCommandList || !result.emitted )
+    const Dx12RenderGraphUavBarrierRecord record =
+        ExecuteDx12RenderGraphUavBarrier( "GraphOwned", passName, resourceName, desc );
+    if ( !record.hasNativeResource || record.missingCommandList || !record.emitted )
     {
         throw std::runtime_error( "DX12 graph-owned UAV barrier did not emit exactly one concrete barrier" );
     }
 
-    char source[64] = {};
-    snprintf( source,
-              sizeof( source ),
-              "GraphOwned:%s",
-              ( passName && passName[0] != '\0' ) ? passName : "UnnamedPass" );
-    RecordLiveUavBarrier( source, resourceName, resource );
+    RecordLiveUavBarrier( record.source, record.resourceName, resource );
 }
 
 
@@ -1057,10 +1046,8 @@ void RenderBackendDX12::ReleaseGraphTransientResources( const char* reason )
             UnregisterSRV( slot.textureHandle );
             slot.textureHandle = 0;
         }
-        if ( slot.resource )
+        if ( ReleaseGraphTransientPoolSlotResourceDX12( slot ) )
         {
-            slot.resource->Release();
-            slot.resource = nullptr;
             ++released;
         }
     }
@@ -1570,7 +1557,6 @@ D3D12_CPU_DESCRIPTOR_HANDLE RenderBackendDX12::GetDSVHandle( UINT index )
 
 bool RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
 {
-    s_instance = this;
     m_width = width;
     m_height = height;
 
@@ -2215,8 +2201,6 @@ void RenderBackendDX12::Shutdown()
     m_allocatorIndex = 0;
     m_frameIndex = 0;
     m_allowTearing = false;
-
-    s_instance = nullptr;
 }
 
 

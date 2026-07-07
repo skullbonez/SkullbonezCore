@@ -68,9 +68,12 @@ float LauncherReproRadius( const ColliderRecord& collider )
 }
 
 
-const ColliderRecord* LauncherReproColliderForModelIndex( const ColliderStore& colliderStore, int modelIndex )
+const ColliderRecord* LauncherReproColliderForModelIndex( const PhysicsBodyStore& bodyStore,
+                                                          const ColliderStore& colliderStore,
+                                                          int modelIndex )
 {
-    const PhysicsColliderHandle colliderHandle = colliderStore.HandleForModelIndex( modelIndex );
+    const PhysicsBodyHandle bodyHandle = bodyStore.HandleForModelIndex( modelIndex );
+    const PhysicsColliderHandle colliderHandle = colliderStore.HandleForBodyHandle( bodyHandle );
     return colliderStore.RecordForHandle( colliderHandle );
 }
 
@@ -115,8 +118,8 @@ bool RuntimeTools::PickLauncherReproTarget( GameModelCollection& collection,
     // sphere around its current physics body position, then chooses the nearest
     // sphere pierced by the camera ray. GameModel remains only the cold identity
     // table for the eventual snapshot row.
-    const ColliderStore& colliderStore = collection.GetColliderStore();
-    const PhysicsBodyStore& bodyStore = collection.GetPhysicsBodyStore();
+    const ColliderStore& colliderStore = collection.GetPhysicsEngine().Colliders();
+    const PhysicsBodyStore& bodyStore = collection.GetPhysicsEngine().BodyStore();
     const auto& colliders = colliderStore.Records();
     for ( const ColliderRecord& collider : colliders )
     {
@@ -191,9 +194,9 @@ RuntimeTools::WriteLauncherReproSnapshot( const LauncherReproSnapshotContext& co
     }
 
     GameModel& model = context.collection.GetModelAtIndex( targetIndex );
-    const ColliderStore& colliderStore = context.collection.GetColliderStore();
-    const PhysicsBodyStore& bodyStore = context.collection.GetPhysicsBodyStore();
-    const ColliderRecord* collider = LauncherReproColliderForModelIndex( colliderStore, targetIndex );
+    const ColliderStore& colliderStore = context.collection.GetPhysicsEngine().Colliders();
+    const PhysicsBodyStore& bodyStore = context.collection.GetPhysicsEngine().BodyStore();
+    const ColliderRecord* collider = LauncherReproColliderForModelIndex( bodyStore, colliderStore, targetIndex );
     if ( !collider )
     {
         return LauncherReproSnapshotStatus::NoTarget;
@@ -315,7 +318,7 @@ RuntimeTools::WriteLauncherReproSnapshot( const LauncherReproSnapshotContext& co
         Quaternion qCopy = body->orientation;
         RotationMatrix orientMat = qCopy.GetOrientationMatrix();
         const BoxTerrainVertexSupportProbe supportProbe =
-            ProbeBoxTerrainVertices( box, pos, orientMat, *context.terrain, Cfg().contactEpsilon, false );
+            ProbeBoxTerrainVertices( box, pos, orientMat, *context.terrain, context.contactEpsilon, false );
 
         if ( supportProbe.hasTerrainGaps )
         {
@@ -350,7 +353,7 @@ RuntimeTools::WriteLauncherReproSnapshot( const LauncherReproSnapshotContext& co
     fprintf( f, "time_scale,%.6f\n", context.sceneState.timeScale );
     fprintf( f, "renderer,%s\n", rendererName );
     fprintf( f, "generated_object_override,%s\n", generatedObjectOverride );
-    fprintf( f, "model_count,%d\n", context.collection.GetModelCount() );
+    fprintf( f, "model_count,%d\n", context.collection.SceneEntityCount() );
     fprintf( f, "vsync_enabled,%d\n", context.runtimeSettings.isVsyncEnabled ? 1 : 0 );
     fprintf( f, "pipeline_sync_enabled,%d\n", context.runtimeSettings.isPipelineSyncEnabled ? 1 : 0 );
     if ( context.sceneState.isSceneMode )
@@ -385,8 +388,8 @@ RuntimeTools::WriteLauncherReproSnapshot( const LauncherReproSnapshotContext& co
     fprintf( f, "world_gravity,%.6f\n", context.world.GetGravity() );
     fprintf( f, "world_fluid_height,%.6f\n", context.world.GetFluidSurfaceHeight() );
     fprintf( f, "world_fluid_density,%.6f\n", context.world.GetFluidDensity() );
-    fprintf( f, "cfg_friction_coeff,%.6f\n", Cfg().frictionCoeff );
-    fprintf( f, "cfg_contact_epsilon,%.6f\n", Cfg().contactEpsilon );
+    fprintf( f, "cfg_friction_coeff,%.6f\n", context.frictionCoeff );
+    fprintf( f, "cfg_contact_epsilon,%.6f\n", context.contactEpsilon );
     fprintf( f, "camera_eye,%.6f,%.6f,%.6f\n", camPos.x, camPos.y, camPos.z );
     fprintf( f, "camera_view,%.6f,%.6f,%.6f\n", camView.x, camView.y, camView.z );
     fprintf( f, "camera_up,%.6f,%.6f,%.6f\n", camUp.x, camUp.y, camUp.z );

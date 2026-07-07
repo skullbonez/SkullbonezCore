@@ -133,7 +133,7 @@ bool RecordEditorTransformEventFromBodyStore( ReplayRuntime& replayRuntime,
         return false;
     }
 
-    const PhysicsBodyRecord* body = collection.GetPhysicsBodyStore().RecordForModelIndex( modelIndex );
+    const PhysicsBodyRecord* body = collection.GetPhysicsEngine().BodyStore().RecordForModelIndex( modelIndex );
     if ( !body || body->replayBodyId == 0 )
     {
         return false;
@@ -144,7 +144,7 @@ bool RecordEditorTransformEventFromBodyStore( ReplayRuntime& replayRuntime,
                                               body->replayBodyId,
                                               body->position,
                                               body->orientation,
-                                              collection.GetModelCount(),
+                                              collection.SceneEntityCount(),
                                               scaleAxis,
                                               scaleFactor );
     return true;
@@ -522,10 +522,11 @@ bool TryResolveEditorBodyCollider( const PhysicsBodyStore& bodyStore,
                                    const PhysicsBodyRecord*& outBody,
                                    const ColliderRecord*& outCollider )
 {
+    const PhysicsBodyHandle bodyHandle = bodyStore.HandleForModelIndex( modelIndex );
     return TryResolveEditorBodyCollider( bodyStore,
                                          colliderStore,
-                                         bodyStore.HandleForModelIndex( modelIndex ),
-                                         colliderStore.HandleForModelIndex( modelIndex ),
+                                         bodyHandle,
+                                         colliderStore.HandleForBodyHandle( bodyHandle ),
                                          modelIndex,
                                          outBody,
                                          outCollider );
@@ -565,7 +566,7 @@ bool TryGetEditorSelectionFrame( const GameModelCollection& collection,
         const PhysicsBodyHandle bodyHandle =
             selectedMember ? selectedBodyHandle : bodyStore.HandleForModelIndex( modelIndex );
         const PhysicsColliderHandle colliderHandle =
-            selectedMember ? selectedColliderHandle : colliderStore.HandleForModelIndex( modelIndex );
+            selectedMember ? selectedColliderHandle : colliderStore.HandleForBodyHandle( bodyHandle );
         if ( !TryResolveEditorBodyCollider( bodyStore,
                                             colliderStore,
                                             bodyHandle,
@@ -635,7 +636,7 @@ bool TryTraceEditorSelectionOverlayFromStores( const GameModelCollection& collec
         const PhysicsBodyHandle bodyHandle =
             selectedMember ? selectedBodyHandle : bodyStore.HandleForModelIndex( modelIndex );
         const PhysicsColliderHandle colliderHandle =
-            selectedMember ? selectedColliderHandle : colliderStore.HandleForModelIndex( modelIndex );
+            selectedMember ? selectedColliderHandle : colliderStore.HandleForBodyHandle( bodyHandle );
         if ( !TryResolveEditorBodyCollider( bodyStore,
                                             colliderStore,
                                             bodyHandle,
@@ -680,7 +681,7 @@ void CaptureEditorGizmoDragGroupState( RunEditorPlacementState& editor,
     // invalidates the group before movement, scale, or rotation applies.
     editor.gizmoDragGroupCount = 0;
     editor.gizmoDragGroupIndices.fill( -1 );
-    if ( editor.selectedModelIndex < 0 || editor.selectedModelIndex >= collection.GetModelCount() )
+    if ( editor.selectedModelIndex < 0 || editor.selectedModelIndex >= collection.SceneEntityCount() )
     {
         return;
     }
@@ -738,7 +739,7 @@ int ValidCapturedEditorGizmoGroupCount( const RunEditorPlacementState& editor, i
 // current body-store row once topology drift is repaired at this boundary.
 void WakeEditorPhysicsBody( SkullbonezCore::GameObjects::GameModelCollection& collection, int modelIndex )
 {
-    const int modelCount = collection.GetModelCount();
+    const int modelCount = collection.SceneEntityCount();
     if ( modelIndex < 0 || modelIndex >= modelCount )
     {
         return;
@@ -762,14 +763,14 @@ void WakeEditorPhysicsBody( SkullbonezCore::GameObjects::GameModelCollection& co
 
 void SeedEditorPhysicsBodyAsleep( SkullbonezCore::GameObjects::GameModelCollection& collection, int modelIndex )
 {
-    const int modelCount = collection.GetModelCount();
+    const int modelCount = collection.SceneEntityCount();
     if ( modelIndex < 0 || modelIndex >= modelCount )
     {
         return;
     }
 
     PhysicsEngine& physics = collection.GetPhysicsEngine();
-    if ( !collection.RepairPhysicsBodyTopology() )
+    if ( !collection.RepairPhysicsBodyAndColliderTopology() )
     {
         return;
     }
@@ -1163,8 +1164,8 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
     const ColliderStore* previewColliderStore = nullptr;
     if ( m_runtimeTools.Editor().selectedModelIndex >= 0 )
     {
-        previewBodyStore = &m_cGameModelCollection.GetPhysicsBodyStore();
-        previewColliderStore = &m_cGameModelCollection.GetColliderStore();
+        previewBodyStore = &m_cGameModelCollection.GetPhysicsEngine().BodyStore();
+        previewColliderStore = &m_cGameModelCollection.GetPhysicsEngine().Colliders();
     }
 
     const EditorInteractionPreviewResult previewResult =
@@ -1212,7 +1213,7 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
                                                                m_cWorldEnvironment,
                                                                m_systems.terrain.get(),
                                                                m_systems.assets,
-                                                               ActiveGameModelCapacity() };
+                                                               m_startup.gameModelCapacity };
                 EditorObjectPlacementRequest placementRequest{ m_runtimeTools.Editor().objectType,
                                                                m_runtimeTools.Editor().placeStaticObject,
                                                                m_runtimeTools.Editor().placementTerrainPoint };
@@ -1283,11 +1284,11 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
         if ( leftReleased || suppressWorldActionThisFrame )
         {
             if ( leftReleased && !suppressWorldActionThisFrame && m_runtimeTools.Editor().selectedModelIndex >= 0 &&
-                 m_runtimeTools.Editor().selectedModelIndex < m_cGameModelCollection.GetModelCount() )
+                 m_runtimeTools.Editor().selectedModelIndex < m_cGameModelCollection.SceneEntityCount() )
             {
                 const int selectedModelIndex = m_runtimeTools.Editor().selectedModelIndex;
-                const PhysicsBodyStore& bodyStore = m_cGameModelCollection.GetPhysicsBodyStore();
-                const ColliderStore& colliderStore = m_cGameModelCollection.GetColliderStore();
+                const PhysicsBodyStore& bodyStore = m_cGameModelCollection.GetPhysicsEngine().BodyStore();
+                const ColliderStore& colliderStore = m_cGameModelCollection.GetPhysicsEngine().Colliders();
                 if ( m_runtimeTools.Editor().gizmoDragIsScale )
                 {
                     int scaleAxis = m_runtimeTools.Editor().activeGizmoAxis;
@@ -1319,8 +1320,9 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
                 }
                 else
                 {
-                    const int groupCount = ValidCapturedEditorGizmoGroupCount( m_runtimeTools.Editor(),
-                                                                               m_cGameModelCollection.GetModelCount() );
+                    const int groupCount =
+                        ValidCapturedEditorGizmoGroupCount( m_runtimeTools.Editor(),
+                                                            m_cGameModelCollection.SceneEntityCount() );
                     if ( groupCount > 0 )
                     {
                         for ( int groupIndex = 0; groupIndex < groupCount; ++groupIndex )
@@ -1406,7 +1408,7 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
                                             m_interaction.Gesture().kind == RuntimeInteractionGestureKind::None;
         const bool editorScaleMode = transformGizmoActive && Input::IsKeyDown( VK_CONTROL );
         if ( canCaptureGizmoGesture && editorScaleMode && m_runtimeTools.Editor().selectedModelIndex >= 0 &&
-             m_runtimeTools.Editor().selectedModelIndex < m_cGameModelCollection.GetModelCount() &&
+             m_runtimeTools.Editor().selectedModelIndex < m_cGameModelCollection.SceneEntityCount() &&
              m_runtimeTools.Editor().hotGizmoAxis >= 0 )
         {
             Vector3 rayOrigin;
@@ -1420,8 +1422,8 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
                                             rayDirection,
                                             axisT ) )
             {
-                const PhysicsBodyStore& bodyStore = m_cGameModelCollection.GetPhysicsBodyStore();
-                const ColliderStore& colliderStore = m_cGameModelCollection.GetColliderStore();
+                const PhysicsBodyStore& bodyStore = m_cGameModelCollection.GetPhysicsEngine().BodyStore();
+                const ColliderStore& colliderStore = m_cGameModelCollection.GetPhysicsEngine().Colliders();
                 const PhysicsBodyRecord* selectedBody = nullptr;
                 const ColliderRecord* selectedCollider = nullptr;
                 if ( !TryResolveEditorBodyCollider( bodyStore,
@@ -1486,8 +1488,8 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
                 m_runtimeTools.Editor().gizmoDragIsScale = false;
                 m_runtimeTools.Editor().activeGizmoAxis = m_runtimeTools.Editor().hotRotationAxis;
                 m_runtimeTools.Editor().gizmoDragStartRotationAngle = startAngle;
-                const PhysicsBodyStore& bodyStore = m_cGameModelCollection.GetPhysicsBodyStore();
-                const ColliderStore& colliderStore = m_cGameModelCollection.GetColliderStore();
+                const PhysicsBodyStore& bodyStore = m_cGameModelCollection.GetPhysicsEngine().BodyStore();
+                const ColliderStore& colliderStore = m_cGameModelCollection.GetPhysicsEngine().Colliders();
                 const PhysicsBodyRecord* selectedBody =
                     TryResolveEditorBodyRecord( bodyStore,
                                                 m_runtimeTools.Editor().selectedBody,
@@ -1527,8 +1529,8 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
             Vector3 rayDirection;
             float axisT = 0.0f;
             EditorGizmoContext gizmoContext{ m_runtimeTools.Editor(), m_cGameModelCollection, m_interaction };
-            const PhysicsBodyStore& bodyStore = m_cGameModelCollection.GetPhysicsBodyStore();
-            const ColliderStore& colliderStore = m_cGameModelCollection.GetColliderStore();
+            const PhysicsBodyStore& bodyStore = m_cGameModelCollection.GetPhysicsEngine().BodyStore();
+            const ColliderStore& colliderStore = m_cGameModelCollection.GetPhysicsEngine().Colliders();
             const PhysicsBodyRecord* selectedBody =
                 TryResolveEditorBodyRecord( bodyStore,
                                             m_runtimeTools.Editor().selectedBody,
@@ -1611,8 +1613,8 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
                 {
                     RuntimePickRequest request;
                     request.purpose = RuntimePickPurpose::EditorSelection;
-                    request.bodyStore = &m_cGameModelCollection.GetPhysicsBodyStore();
-                    request.colliderStore = &m_cGameModelCollection.GetColliderStore();
+                    request.bodyStore = &m_cGameModelCollection.GetPhysicsEngine().BodyStore();
+                    request.colliderStore = &m_cGameModelCollection.GetPhysicsEngine().Colliders();
                     request.rayOrigin = rayOrigin;
                     request.rayDirection = rayDirection;
                     RuntimePickService::TryPickModel( request, result );
