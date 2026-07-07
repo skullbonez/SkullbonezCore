@@ -236,10 +236,32 @@ item against plan 02 and pick the next.
   large fixed arrays; the test fixture now uses static storage and resets by
   `Clear()`/`SetCellSize()`. Gate: `tools\validate_tests.bat` passed in
   3.710s with 23 doctest cases and 128 assertions all passing.
-- [ ] S4. `TestPhysicsHandles.cpp` — store handle semantics: fresh handle
+- [x] S4. `TestPhysicsHandles.cpp` — store handle semantics: fresh handle
   IsValid; ModelIndexForHandle(HandleForModelIndex(i)) == i for live rows;
   stale generation rejected after row removal (per S1 discovery);
   ResolveHandleForModelIndex hint fast path == slow path result.
+
+  Evidence: CodeGraph mapped `PhysicsBodyStore` and `ColliderStore` handle
+  creation/destruction paths, dense-row movement, replay-id lookup, and
+  collider body/scene lookup as uncovered store behavior. Discovery
+  `rg -n "Cfg\(|Gfx\(|::Instance"
+  SkullbonezSource/Physics/PhysicsBodyStore.cpp
+  SkullbonezSource/Physics/ColliderStore.cpp` returned no hits. Added
+  `SkullbonezTests/TestPhysicsHandles.cpp` and compiled
+  `PhysicsBodyStore.cpp` plus `ColliderStore.cpp` into `SKULLBONEZ_TESTS`.
+  Tests lock fresh body handles, model-index/handle inverse lookup,
+  replay-id lookup with both good and stale hints, body deletion dense-row
+  movement, stale body generation rejection, collider lookup by body handle and
+  scene object id, collider deletion dense-row movement, and stale collider
+  generation rejection. `PhysicsBodyStore.cpp` also contains uncalled terrain
+  integration helpers, so the unit harness adds
+  `SkullbonezTests/TestTerrainLinkStubs.cpp`: a test-only Terrain stub that
+  throws if reached, proving these handle tests stay inside the store boundary
+  while satisfying link-time references. The first local-store run
+  stack-overflowed because both stores own fixed-capacity runtime arrays; the
+  final tests use static store fixtures and `Clear()` between cases. Gate:
+  `tools\validate_tests.bat` passed in 4.011s with 27 doctest cases and
+  174 assertions all passing.
 - [ ] S5. `TestConvexHull.cpp` — load a committed baked hull from
   `SkullbonezData/hulls/` (pick the smallest), assert face/edge/mass/inertia
   invariants the bake guarantees (ConvexHullShape.cpp's 41 validation throws

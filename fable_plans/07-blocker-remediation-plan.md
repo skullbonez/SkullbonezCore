@@ -243,3 +243,15 @@ else returns to the overnight machine as gated, verifiable slices.
   match SpatialGrid's large fixed-buffer design. Gate passed:
   `tools\validate_tests.bat` (3.710s, 23 doctest cases, 128 assertions,
   0 warnings/errors).
+- 2026-07-07: Completed fable-01 S4 PhysicsHandles tests. Added
+  `SkullbonezTests/TestPhysicsHandles.cpp`, compiled `PhysicsBodyStore.cpp`
+  and `ColliderStore.cpp` into `SKULLBONEZ_TESTS`, and covered fresh handles,
+  model-index inverse lookup, replay-id hint fallback, dense-row move on
+  destruction, stale generation rejection, collider body lookup, and collider
+  scene-object lookup. Added `SkullbonezTests/TestTerrainLinkStubs.cpp` as a
+  loud test-only link stub for uncalled Terrain references from body-store
+  integration helpers; if a focused handle test reaches Terrain, it throws.
+  The first local-store run stack-overflowed, so final tests use static store
+  fixtures and `Clear()` between cases to match fixed-capacity runtime storage.
+  Gate passed: `tools\validate_tests.bat` (4.011s, 27 doctest cases,
+  174 assertions, 0 warnings/errors).
