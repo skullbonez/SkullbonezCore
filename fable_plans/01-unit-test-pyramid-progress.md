@@ -1,0 +1,174 @@
+# Progress: Unit Test Pyramid (plan 01)
+
+Source plan: `fable_plans/01-unit-test-pyramid-plan.md`
+Status: not started
+Last updated: 2026-07-07
+
+## How to work this file
+
+- Do items in order; one checkbox = one verifiable action; tick only with the
+  named evidence pasted under the box. `[B]` + reason if blocked twice.
+- Comment quality gate applies to touched source; test files also get learning
+  headers (they are source-bearing).
+
+## Verified facts (do not re-derive)
+
+- Build: single project `SKULLBONEZ_CORE.vcxproj`, GUID
+  `{92972446-7D18-4AD1-AE43-15671C767306}`, toolset **v145** (note: AGENTS.md
+  says v143 — the vcxproj is authoritative), `WarningLevel Level4`,
+  `TreatWarningAsError false`, `LanguageStandard stdcpp17`, static CRT
+  (`MultiThreadedDebug` / `MultiThreaded`), defines `_HAS_STD_BYTE=0` always;
+  Debug adds `_DEBUG;SKULLBONEZ_PROFILE_ENABLED;SKULLBONEZ_PLATFORM_PROFILER_PIX;USE_PIX`,
+  Release/Profile add `NDEBUG` (Profile also PROFILE/PIX defines). No
+  `FloatingPointModel` element → default `/fp:precise` (determinism tests must
+  keep this default).
+- Solution: one project entry —
+  `Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "SKULLBONEZ_CORE", "SKULLBONEZ_CORE.vcxproj", "{92972446-...}"`.
+  A test project is added by imitating this line plus the per-config mapping
+  block in GlobalSection(ProjectConfigurationPlatforms).
+- `tools\validate_fast.bat` steps: [1] validate_format, [2]
+  validate_project_filters, [3] validate_runtime_boundaries, [4]
+  validate_build Profile, then validate_ready_builds. Tests slot in as a new
+  step after [4] (they need a built test binary).
+- `SkullbonezSource/ThirdParty/` does NOT exist yet — create it for the
+  vendored doctest header.
+- Determinism inputs: `PHYSICS_FIXED_DT = 1.0f / 120.0f`
+  (Core/Common.h, anchor `PHYSICS_FIXED_DT`). Snapshot API:
+  `PhysicsEngine::CaptureReplaySolverSnapshot( Basics::ReplaySolverWorldSnapshot&, int modelCount )`
+  / `RestoreReplaySolverSnapshot(...)` (PhysicsEngine.h:184-185). Step API:
+  `PhysicsEngine::Step( fixedDt, config, worldForces, workerPool, diagnosticNames, diagnosticNameCount )`
+  (call site anchor: RunReplayTools.cpp `physicsEngine.Step(`).
+- Handle APIs for store tests: `PhysicsBodyStore::HandleForModelIndex` /
+  `ModelIndexForHandle` / `ResolveHandleForModelIndex`
+  (PhysicsBodyStore.h:171/175/211); same trio on ColliderStore
+  (ColliderStore.h:104/113/121); handle structs in PhysicsHandles.h:37/48
+  (`index` + `generation`, `IsValid()`).
+
+## Phase 0 — harness bootstrap
+
+- [ ] H1. Vendor doctest: create
+  `SkullbonezSource/ThirdParty/doctest/doctest.h` from the official
+  single-header release (latest 2.4.x). Add a `ThirdParty/README.md` noting
+  version + source URL + license (MIT). No other files.
+- [ ] H2. Create `SkullbonezTests/` at repo root with `TestMain.cpp`:
+  ```cpp
+  #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
+  #include "../SkullbonezSource/ThirdParty/doctest/doctest.h"
+  ```
+  and one smoke file `TestSmoke.cpp`:
+  ```cpp
+  #include "../SkullbonezSource/ThirdParty/doctest/doctest.h"
+  TEST_CASE( "smoke: harness runs" ) { CHECK( 1 + 1 == 2 ); }
+  ```
+- [ ] H3. Create `SKULLBONEZ_TESTS.vcxproj` by copying the shell of
+  SKULLBONEZ_CORE.vcxproj and editing: new GUID (generate one), Application
+  type (console: `<SubsystemType>Console` in Link settings /
+  `<ConfigurationType>Application`), SAME toolset v145 / Level4 / stdcpp17 /
+  CRT settings / `_HAS_STD_BYTE=0` / default fp — copy the ItemDefinitionGroup
+  blocks verbatim, then strip PIX/profiler defines if they drag link deps
+  (discovery: try with them first; remove only on link failure, and note
+  which). ItemGroup lists TestMain.cpp + TestSmoke.cpp only at this step.
+  Matching `SKULLBONEZ_TESTS.vcxproj.filters` (project-filter validation is a
+  gate — imitate the CORE filters file structure).
+- [ ] H4. Add the project to SKULLBONEZ_CORE.sln (Project line + config
+  mappings for Debug|x64, Profile|x64, Release|x64 imitating the existing
+  block). Evidence: `msbuild SKULLBONEZ_CORE.sln /p:Configuration=Profile /p:Platform=x64`
+  builds both projects, 0 warnings.
+- [ ] H5. Create `tools\validate_tests.bat` (imitate validate_build.bat
+  header comment style): build SKULLBONEZ_TESTS Profile x64, run
+  `Profile\SKULLBONEZ_TESTS.exe --duration=true`, exit nonzero on failure.
+  Evidence: run it; smoke test green in under 10 seconds.
+- [ ] H6. Wire into `tools\validate_fast.bat` as step [5/5] after the Profile
+  build (renumber the echo labels). Evidence: `tools\validate_fast.bat`
+  passes end-to-end.
+- [ ] H7. Update AGENTS.md validation tables: row "Unit tests only" →
+  `tools\validate_tests.bat`; note validate_fast now includes tests.
+  Gate for the whole phase: `tools\validate_fast.bat`. Commit.
+
+## Phase 1 — pure math tests (no engine deps)
+
+For each item: add the source file(s) under test to SKULLBONEZ_TESTS's
+ItemGroup (compile-in; plan 04's Maths lib later replaces this with a project
+reference), write the test file under `SkullbonezTests/`, run
+`validate_tests`. DISCOVERY first per file: `rg -n "Cfg\(|Gfx\(|::Instance"
+SkullbonezSource/Maths/<file>.cpp` must return zero hits; if not, `[B]` the
+item against plan 02 and pick the next.
+
+- [ ] M1. `TestVector3.cpp` — Maths/Vector3: normalize of zero vector
+  (document actual behavior — Vector3.cpp contains 5 `throw` sites; assert
+  the throwing contract as it exists), dot/cross identities, magnitude vs
+  magnitudeSquared consistency.
+- [ ] M2. `TestQuaternion.cpp` — Maths/Quaternion: Normalise() idempotence,
+  axis-angle round-trip, slerp endpoints (t=0/t=1 exact), renormalization
+  drift under repeated multiply (bound the error).
+- [ ] M3. `TestMatrix4.cpp` — inverse(identity)==identity, TRS compose vs
+  manual, inverse(M)*M ≈ identity within epsilon.
+- [ ] M4. `TestGeometricMath.cpp` — ray/sphere hit+miss+tangent, ray/box
+  face/edge cases, the degenerate inputs near the file's 3 throw sites.
+  Commit phase (gate: `validate_tests` + `validate_fast`).
+
+## Phase 2 — physics primitives and stores
+
+- [ ] S1. DISCOVERY: list what PhysicsBodyStore/ColliderStore need for
+  standalone construction: `rg -n "class PhysicsBodyStore" -A 30
+  SkullbonezSource/Physics/PhysicsBodyStore.h` — record ctor + row-add API
+  here. If rows can only be created through GameModelCollection append, `[B]`
+  store tests against authoritative-plan-02 and test only the pure query
+  paths reachable from a default-constructed store.
+- [ ] S2. `TestBounds.cpp` — BoundingSphere/BoundingBox overlap/containment
+  truth tables including touching-surface cases.
+- [ ] S3. `TestSpatialGrid.cpp` — insert/query round-trip, cell-boundary
+  straddling, remove-then-query emptiness. (SpatialGrid.cpp has 13 invariant
+  throws — trigger none; they become SB_FATAL under plan 05.)
+- [ ] S4. `TestPhysicsHandles.cpp` — store handle semantics: fresh handle
+  IsValid; ModelIndexForHandle(HandleForModelIndex(i)) == i for live rows;
+  stale generation rejected after row removal (per S1 discovery);
+  ResolveHandleForModelIndex hint fast path == slow path result.
+- [ ] S5. `TestConvexHull.cpp` — load a committed baked hull from
+  `SkullbonezData/hulls/` (pick the smallest), assert face/edge/mass/inertia
+  invariants the bake guarantees (ConvexHullShape.cpp's 41 validation throws
+  document the invariants — mirror 5-8 of them as CHECKs on good data).
+  Commit phase (gate: `validate_tests`).
+
+## Phase 3 — engine-adjacent units
+
+- [ ] E1. `TestReserveAllocator.cpp` — RuntimeReserveAllocator: RegisterOwner
+  + RequestGrowth under cap grants; over-cap denies; growth counting.
+  DISCOVERY: `rg -n "RegisterOwner|RequestGrowth" SkullbonezSource/Runtime/Allocation`
+  — record signatures + any global state that needs reset between TEST_CASEs
+  (if the allocator is a process-global registry, use unique owner names per
+  case and note the constraint here).
+- [ ] E2. `TestReplayRecorder.cpp` — ring-buffer wrap: fill past capacity,
+  assert oldest overwritten + cursor restore matches
+  (RunRayCastTestState.MAX_LINES pattern documents the ABI expectation;
+  target the ReplayRecorder ring API — DISCOVERY: `rg -n "class ReplayRecorder" -A 40 SkullbonezSource/Runtime/Replay/ReplayRecorder.h`).
+- [ ] E3. `TestSceneParser.cpp` — smallest committed scene from
+  `SkullbonezData/scenes/` parses ok; malformed JSON returns error (currently
+  throws — assert the current contract; plan 05 converts it to SbResult and
+  this test updates in the same commit).
+  Commit phase (gate: `validate_tests`).
+
+## Phase 4 — fast determinism property
+
+- [ ] D1. DISCOVERY: what a minimal PhysicsEngine needs — construct engine,
+  add 3-5 body/collider rows (per S1 findings), default EngineConfig +
+  PhysicsWorldForces, a WorkerPool (or the serial path — record how
+  `REPLAY_PREDICTION_PARALLEL_BODY_MIN` gates worker use). If engine
+  construction requires collection/scene plumbing, `[B]` against
+  authoritative-plan-02/fable-03 P1 and stop the phase.
+- [ ] D2. `TestDeterminism.cpp` — step the micro-world 240 ticks twice from
+  identical initial state (two engine instances), byte-compare body store
+  poses/velocities each 60 ticks. Must run in milliseconds.
+- [ ] D3. Snapshot losslessness: capture ReplaySolverWorldSnapshot + body
+  state mid-run, step 60 ticks, restore, re-step 60 ticks, compare against
+  uninterrupted run — byte-equal. (This is the invariant fable-plan-03 leans
+  on; cite this test from that plan's P2.7 evidence.)
+  Commit phase (gate: `validate_tests` + `tools\validate_physics.bat` to
+  prove the harness itself changed no engine behavior).
+
+## Closure
+
+- [ ] Z1. AGENTS.md: add "bug fixes in covered subsystems add a regression
+  test in the same commit" to the review section.
+- [ ] Z2. Update `fable_plans/01-unit-test-pyramid-plan.md` status + this
+  file; record test count + runtime seconds here.
