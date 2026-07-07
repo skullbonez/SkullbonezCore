@@ -1,7 +1,7 @@
 # Progress: Unified Error Handling Policy (plan 05)
 
 Source plan: `fable_plans/05-unified-error-handling-policy-plan.md`
-Status: phase 1 complete on 2026-07-07; P2.1-P2.3 replay probe conversion and evidence complete on 2026-07-08; SpatialGrid hot-path conversion complete; remaining hot-path conversions pending
+Status: phase 1 complete on 2026-07-07; P2.1-P2.3 replay probe conversion and evidence complete on 2026-07-08; SpatialGrid and PhysicsWorld hot-path conversions complete; remaining hot-path conversions pending
 Last updated: 2026-07-08
 
 ## How to work this file
@@ -48,7 +48,7 @@ Last updated: 2026-07-08
   `check_throw_site_count`, and synthetic clean/grown self-tests. Phase 1
   recorded the pre-conversion budget at 355; P2.2/P2.3 lowered it to 294 after
   replacing the Debug replay probe throws. P3 SpatialGrid conversion lowered
-  the budget again to 281.
+  the budget to 281, and P3 PhysicsWorld lowered it to 275.
 
 ## Phase 1 — policy, primitives, ratchet (no conversions yet)
 
@@ -265,11 +265,26 @@ Last updated: 2026-07-08
   `TestDiagnosticsLinkStubs.cpp`, and `tools/check_runtime_boundaries.py`
   with 0 deferred.
 
-- [ ] P3.1b Convert PhysicsWorld.cpp (6) throws to `SB_FATAL(
+- [x] P3.1b Convert PhysicsWorld.cpp (6) throws to `SB_FATAL(
   "Physics/PhysicsWorld", ... )` with the same message text. One file per
   commit.
-- [ ] P3.2b Gate PhysicsWorld commit: `tools\validate_physics.bat` byte-exact.
+- [x] P3.2b Gate PhysicsWorld commit: `tools\validate_physics.bat` byte-exact.
   Ratchet budget updated in the same commit.
+
+  Evidence (2026-07-08): `SkullbonezSource/Physics/PhysicsWorld.cpp` now has
+  six `SB_FATAL` call sites and no live `throw` or `<stdexcept>` use. The sites
+  are fixed-capacity Lane F invariants in persistent-contact side effects,
+  resting-wake scratch, collision-cell keys, and object narrowphase island
+  staging. `MAX_SOURCE_THROW_TOKENS` lowered from 281 to 275. Hooke, a read-only
+  explorer subagent, independently classified all six sites as Lane F with no
+  recoverable/caught-path risk. `python tools\check_runtime_boundaries.py
+  --self-test` passed in 00:00:00.2918558; `python
+  tools\check_runtime_boundaries.py --max-errors 20` passed in
+  00:00:17.4556095 with 0 errors; `tools\validate_format.bat` passed on the
+  final source; `tools\validate_fast.bat` passed in 00:00:45.6318823; and
+  `tools\validate_physics.bat` passed in 00:00:26.2402259 with
+  `VALIDATE_PHYSICS: ALL PASSED`. Touched-file comment audit inspected
+  `PhysicsWorld.cpp` and `tools/check_runtime_boundaries.py` with 0 deferred.
 - [ ] P3.1c Convert GameModelCollection.cpp (8 current throw sites, anchors like
   `Failed to resolve newly authored physics body record`) after P3.3
   classification decides which sites are Lane F and which are Lane R. One file

@@ -25,10 +25,14 @@ Glossary:
     so buoyancy jitter does not repeatedly wake them.
   PhysicsScene: Step owner that supplies stores and handles model-order
     writeback after compact physics work finishes.
+  Lane F: Fatal invariant lane for should-never-happen engine state.
 
 Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines
     are the validation contract.
+  - Fixed-capacity physics scratch buffers must not grow during gameplay; an
+    exhausted reserve is a Lane F failure because continuing would either
+    allocate on a hot path or silently drop deterministic side effects.
 
 Related:
   - SkullbonezSource/Physics/PhysicsWorld.h
@@ -38,6 +42,7 @@ Related:
 #include "PhysicsWorld.h"
 
 #include "../Core/Config.h"
+#include "../Core/FatalError.h"
 #include "PhysicsApi.h"
 #include "PhysicsBodyStore.h"
 #include "PhysicsWorldForces.h"
@@ -56,7 +61,6 @@ Related:
 #include <cstdlib>
 #include <cstdio>
 #include <cstring>
-#include <stdexcept>
 #include <variant>
 
 using namespace SkullbonezCore::Physics;
@@ -942,6 +946,10 @@ void PhysicsWorld::PreparePersistentContactSideEffects( int modelCount )
     const int pipelineCapacity = (std::max)( 0,
                                              static_cast<int>( MAX_PIPELINE_TRACE_RECORDS ) -
                                                  static_cast<int>( m_physicsPipelineTrace.size() ) );
+    // Invariant: these side-effect lists are pre-reserved before steady
+    // physics. If any reserve is short, preserving determinism is no longer
+    // possible because the solver would need to allocate or skip a queued
+    // post-pass action.
     assert( effects.collisionVisualBodies.capacity() >= m_candidatePairs.size() * 2 );
     assert( effects.fixedContactBodies.capacity() >= static_cast<std::size_t>( modelCount ) );
     assert( effects.releaseWakeBodies.capacity() >= 8 );
@@ -952,7 +960,7 @@ void PhysicsWorld::PreparePersistentContactSideEffects( int modelCount )
          effects.releaseWakeBodies.capacity() < 8 || effects.fixedTreeReleases.capacity() < 8 ||
          effects.pipelineRecords.capacity() < static_cast<std::size_t>( pipelineCapacity ) )
     {
-        throw std::runtime_error( "Physics persistent-contact side-effect capacity exhausted." );
+        SB_FATAL( "Physics/PhysicsWorld", "Physics persistent-contact side-effect capacity exhausted." );
     }
 }
 
@@ -1938,7 +1946,10 @@ void PhysicsWorld::WakeRestingContactIsland( int bodyCount,
          modelCount > static_cast<int>( m_restingWakeQueueScratch.capacity() ) )
     {
         assert( false && "Physics resting-wake scratch capacity exceeded" );
-        throw std::runtime_error( "Physics resting-wake scratch capacity exceeded" );
+        // Invariant: wake propagation is a bounded scratch walk over the body
+        // rows. A larger model count means the world's pre-step reserve budget
+        // no longer matches the scene being simulated.
+        SB_FATAL( "Physics/PhysicsWorld", "Physics resting-wake scratch capacity exceeded" );
     }
     m_restingWakeVisitedScratch.assign( static_cast<size_t>( modelCount ), 0 );
     m_restingWakeQueueScratch.clear();
@@ -2840,7 +2851,10 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
             if ( m_collisionCellKeys.size() >= m_collisionCellKeys.capacity() )
             {
                 assert( false && "Physics collision-cell key capacity exceeded" );
-                throw std::runtime_error( "Physics collision-cell key capacity exceeded" );
+                // Invariant: collision-cell diagnostics share the fixed
+                // narrowphase event budget. Overflow means the pass can no
+                // longer record the same deterministic evidence each run.
+                SB_FATAL( "Physics/PhysicsWorld", "Physics collision-cell key capacity exceeded" );
             }
             m_collisionCellKeys.push_back( event.collisionCellKey );
         }
@@ -3149,7 +3163,10 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
                 if ( m_objectNarrowphaseIslands.size() >= m_objectNarrowphaseIslands.capacity() )
                 {
                     assert( false && "Physics object narrowphase island capacity exceeded" );
-                    throw std::runtime_error( "Physics object narrowphase island capacity exceeded" );
+                    // Invariant: object narrowphase island storage is bounded
+                    // by the precomputed pair/model limits for this frame.
+                    // Overflow would reorder or drop pair work.
+                    SB_FATAL( "Physics/PhysicsWorld", "Physics object narrowphase island capacity exceeded" );
                 }
                 m_objectNarrowphaseIslands.push_back( ObjectNarrowphaseIsland() );
                 m_objectNarrowphaseIslands.back().minPairIndex = INT_MAX;
@@ -3162,7 +3179,9 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
         if ( m_objectNarrowphaseIslandWriteOffsets.capacity() < m_objectNarrowphaseIslands.size() )
         {
             assert( false && "Physics object narrowphase island write-offset capacity exceeded" );
-            throw std::runtime_error( "Physics object narrowphase island write-offset capacity exceeded" );
+            // Invariant: write offsets are one row per island. A short reserve
+            // would make worker writes overlap or depend on allocation order.
+            SB_FATAL( "Physics/PhysicsWorld", "Physics object narrowphase island write-offset capacity exceeded" );
         }
         m_objectNarrowphaseIslandWriteOffsets.assign( m_objectNarrowphaseIslands.size(), 0 );
         size_t pairOffset = 0;
@@ -3176,7 +3195,9 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
         if ( pairOffset > m_objectNarrowphaseIslandPairIndices.capacity() )
         {
             assert( false && "Physics object narrowphase island pair capacity exceeded" );
-            throw std::runtime_error( "Physics object narrowphase island pair capacity exceeded" );
+            // Invariant: pair-index staging owns the exact compacted pair set
+            // for the worker pass. Overflow would drop pairs from narrowphase.
+            SB_FATAL( "Physics/PhysicsWorld", "Physics object narrowphase island pair capacity exceeded" );
         }
         m_objectNarrowphaseIslandPairIndices.resize( pairOffset, 0 );
         for ( int pairIndex = 0; pairIndex < candidatePairCount; ++pairIndex )

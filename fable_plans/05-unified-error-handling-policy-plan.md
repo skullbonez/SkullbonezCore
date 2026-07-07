@@ -1,7 +1,7 @@
 # Unified Error Handling Policy Plan
 
 Date: 2026-07-06
-Status: Phase 1 policy and ratchet complete on 2026-07-07; Phase 2 replay probe conversion/evidence complete on 2026-07-08; SpatialGrid hot-path conversion complete; remaining hot-path, loader, and DX12 conversions pending
+Status: Phase 1 policy and ratchet complete on 2026-07-07; Phase 2 replay probe conversion/evidence complete on 2026-07-08; SpatialGrid and PhysicsWorld hot-path conversions complete; remaining hot-path, loader, and DX12 conversions pending
 Impact area: all subsystems, incrementally; policy + mechanical conversion
 Validation for this document: none (documentation-only)
 
@@ -87,10 +87,9 @@ codebase stops authoring throws.
   exception paths from code the hot-path gate governs.
 - Gate: `validate_physics` byte-exact (mechanism swap must not reorder math).
 
-SpatialGrid is complete and validated as the first one-file commit in this
-phase. PhysicsWorld remains the next direct Lane F candidate; GameModelCollection
-must first classify the append catches so recovered editor/scene failures become
-Lane R instead of fatal invariants.
+SpatialGrid and PhysicsWorld are complete and validated as one-file commits in
+this phase. GameModelCollection must first classify the append catches so
+recovered editor/scene failures become Lane R instead of fatal invariants.
 
 ### Phase 4 — loaders and editor surface
 
