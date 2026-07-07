@@ -283,7 +283,6 @@
     <ClCompile Include="SkullbonezSource\Scene\TestSceneParser.cpp" />
     <ClCompile Include="SkullbonezSource\Core\PlatformProfiler.cpp" />
     <ClCompile Include="SkullbonezSource\Core\Profiler.cpp" />
-    <ClCompile Include="SkullbonezSource\Rendering\IRenderBackend.cpp" />
     <ClCompile Include="SkullbonezSource\Rendering\RenderInstanceStore.cpp" />
     <ClCompile Include="SkullbonezSource\Rendering\RenderGraph.cpp" />
     <ClCompile Include="SkullbonezSource\Rendering\RenderPipeline.cpp" />

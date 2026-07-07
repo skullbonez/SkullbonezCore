@@ -17,7 +17,8 @@ Glossary:
   render later in the frame.
 
 Invariants:
-  - UIBackdropBlur must not call GfxCapture(), Gfx(), or create GPU resources.
+  - UIBackdropBlur must not call renderer-global capture/accessor helpers or
+    create GPU resources.
   - Invalidation still tracks why the panel should refresh its cached bounds,
     but the refresh is now just geometry/state bookkeeping.
 

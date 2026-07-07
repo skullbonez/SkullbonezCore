@@ -1,8 +1,8 @@
 # Progress: Global Service Retirement (plan 02)
 
 Source plan: `fable_plans/02-global-service-retirement-plan.md`
-Status: phase 4 L2 WorkerPool, Window, EngineConfig, UI profiler snapshot, profiler diagnostics receiving path, Profiler renderer-diagnostics bind, RunPasses readiness probe, RunInput stale-readiness ratchet, capture-facade cleanup, Broadphase visualizer cleanup, PhysicsDebug visualizer cleanup, Window resize lifecycle cleanup, CollisionVisualizer renderer-facet cleanup, and draw-call trace diagnostics-facet cleanup slices complete on 2026-07-07; Gfx accessor/facade deletion pending.
-Last updated: 2026-07-07 (draw-call trace diagnostics-facet cleanup)
+Status: complete.
+Last updated: 2026-07-08 (Gfx accessor/facade deletion and closure)
 
 ## How to work this file
 
@@ -67,8 +67,8 @@ Last updated: 2026-07-07 (draw-call trace diagnostics-facet cleanup)
   `GameModelRenderer` pass their frame/helper diagnostics borrows into trace
   scopes.
 - Singleton accessors known from the current census: Profiler::Instance and
-  LockOrderValidator::Instance (SVC-034 frozen diagnostics exception), plus
-  `s_gfxBackend`/`Gfx()`/`SetGfxBackend` in `Rendering/IRenderBackend.cpp`.
+  LockOrderValidator::Instance. Both are frozen diagnostics exceptions; the
+  renderer-global `s_gfxBackend`/`Gfx()` owner/accessor surface is deleted.
 - Physics debug visualizer debt lives under tracked `Physics/Debug` files, but
   plain `rg` can skip them because `Debug/` is ignored. Use `git ls-files` or
   targeted `rg --no-ignore` for that census.
@@ -107,7 +107,7 @@ Last updated: 2026-07-07 (draw-call trace diagnostics-facet cleanup)
   `GfxRayTracing()` and readiness probes.
 - Singleton-style source files from `::Instance()`/`GetInstance(` census:
   8 files total (`Core` 4, `Runtime` 3, `UI` 1, `Rendering` 0, `Physics` 0).
-- Singleton accessors known from the current census: EngineConfig::Instance,
+- Singleton accessors known from the Phase 1 census: EngineConfig::Instance,
   Profiler::Instance,
   LockOrderValidator::Instance (SVC-034 frozen diagnostics exception), plus
   `s_gfxBackend`/`Gfx()`/`SetGfxBackend` in `Rendering/IRenderBackend.cpp`.
@@ -292,7 +292,7 @@ no renderer validation gate for this documentation-only classification slice.
   `tools\validate_fast.bat` (48.437s, 0 warnings/errors), and
   `tools\validate_full.bat` (45.392s, DX12 validation errors 0, screenshots
   matched, `physics_regression_solver.csv` byte-exact).
-- [ ] G3. Delete `Gfx()` + `s_gfxBackend` public accessor once N1-count
+- [x] G3. Delete `Gfx()` + `s_gfxBackend` public accessor once N1-count
   reaches the startup allowlist only (SVC-001/002/004 endgame — check their
   status first). Gate: `validate_full` + `validate_dx12_renderer`. Commit.
 
@@ -311,7 +311,7 @@ no renderer validation gate for this documentation-only classification slice.
   contract (no config reads, no ordering deps). One commit per class. Gates:
   `validate_full` for lifecycle changes; `platform-profiler-markers` launch
   for Profiler.
-- [ ] L3. Acceptance: delete the "Singleton lifecycle: use-after-destroy,
+- [x] L3. Acceptance: delete the "Singleton lifecycle: use-after-destroy,
   double-init crash" row from the AGENTS.md danger-zone table — with a commit
   note explaining why it is now structurally impossible. This is the
   source-plan's definition-of-done tripwire; do NOT delete the row if any
@@ -546,8 +546,50 @@ Phase 4 execution notes:
   `tools\validate_full.bat` (41.604s, DX12 validation errors 0, screenshots
   matched, `physics_regression_solver.csv` byte-exact).
 
+- 2026-07-08: Completed fable-02 G3/L3/Z closure. Runtime startup now owns the
+  DX12 backend as a scoped `std::unique_ptr<RenderBackendDX12>` and publishes
+  the existing `RuntimeRenderBackendView` capability borrows; shutdown clears
+  resize callbacks before resetting that owner, after `Run` has released
+  render-owned resources. Deleted `Rendering/IRenderBackend.cpp`, removed the
+  `Gfx()`, `IsGfxReady`, `SetGfxBackend`, `DestroyGfxBackend`, and
+  `s_gfxBackend` surface, removed stale project/filter entries, and added a
+  boundary-checker tombstone for those deleted renderer globals. Final source
+  census: 0 `Cfg()`, 0 `EngineConfig::Instance`, 0 `Gfx()`, 0 `IsGfxReady`,
+  0 `SetGfxBackend`, 0 `DestroyGfxBackend`, 0 `s_gfxBackend`. Remaining
+  `::Instance()` hits are frozen diagnostics only (`Profiler` and
+  `LockOrderValidator`). Checker ratchets: `MAX_GLOBAL_SERVICE_ACCESS_CENSUS`
+  89 -> 85 and `MAX_IRENDER_BACKEND_DEPENDENCY_CENSUS` 26 -> 21. Removed the
+  AGENTS.md singleton-lifecycle danger-zone row because backend lifetime is now
+  owned by the startup scope and diagnostics singletons are frozen, so the old
+  use-after-destroy/double-init class is structurally blocked. Early evidence:
+  `python tools\check_runtime_boundaries.py --self-test` passed and
+  `python tools\check_runtime_boundaries.py --max-errors 20` passed with
+  0 errors. Final commit-gate validation is recorded below.
+
 ## Closure
 
-- [ ] Z1. Ratchet budgets → allowlist-only bans; checker self-tests updated.
-- [ ] Z2. Update `fable_plans/02-global-service-retirement-plan.md` status +
+- [x] Z1. Ratchet budgets → allowlist-only bans; checker self-tests updated.
+- [x] Z2. Update `fable_plans/02-global-service-retirement-plan.md` status +
   this file with final counts (started 579-era → 0 outside allowlists).
+
+Final validation (2026-07-08):
+
+- Touched-file comment audit inspected 5 source-bearing files with 0 deferred:
+  `IRenderBackend.h`, `Init.cpp`, `RunInternal.h`, `UIBackdropBlur.cpp`, and
+  `tools/check_runtime_boundaries.py`.
+- `python tools\check_runtime_boundaries.py --self-test` passed.
+- `python tools\check_runtime_boundaries.py --max-errors 20` passed with
+  0 errors.
+- `tools\validate_fast.bat` passed in 00:00:50.6759731: formatting, project
+  filters, staged-size, runtime boundaries, unit tests, and Profile/Debug
+  builds passed with 0 warnings/errors.
+- `tools\validate_dx12_renderer.bat` passed in 00:00:20.1867231: DX12 InfoQueue
+  reported 0 validation errors and screenshots matched committed baselines.
+- `tools\validate_full.bat` passed in 00:00:43.8587184: project filters and
+  runtime boundaries passed, Profile/Debug builds had 0 warnings/errors, DX12
+  validation errors were 0, screenshots matched baselines, and
+  `physics_regression_solver.csv` matched byte-exactly.
+- Logs:
+  `Agentic\Reports\2026-07-08\logs\fable-02-gfx-delete-validate-fast.log`,
+  `Agentic\Reports\2026-07-08\logs\fable-02-gfx-delete-validate-dx12-renderer.log`,
+  `Agentic\Reports\2026-07-08\logs\fable-02-gfx-delete-validate-full.log`.

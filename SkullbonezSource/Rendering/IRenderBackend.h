@@ -1,21 +1,21 @@
 /*
 File: SkullbonezSource/Rendering/IRenderBackend.h
 Purpose:
-  Declares the temporary aggregate render facade implemented by the DX12 backend.
+  Declares the temporary aggregate render interface implemented by the DX12 backend.
 
 Mental model:
   The renderer is being split into narrower capability interfaces. Existing
-  callers still ask for IRenderBackend through Gfx(), but the facade now
-  aggregates lifecycle, resource factory, command context, diagnostics, and
-  capture capabilities instead of declaring one flat method pile.
+  runtime owners receive IRenderBackend only through startup-provided borrows;
+  most code should depend on one of the narrower capability facets instead of
+  this aggregate.
 
 Glossary:
   Capability interface: Narrow borrowed surface that exposes one category of
     renderer behavior.
   Render device: Engine-facing object that owns the active GPU backend and its
     resources.
-  Facade: Temporary compatibility type that groups narrower capabilities while
-    call sites migrate.
+  Aggregate: Temporary compatibility type that groups narrower capabilities
+    while call sites migrate.
   DXR (DirectX Raytracing): DX12 API used for hardware ray traversal and
     reflection dispatch.
 
@@ -30,7 +30,6 @@ Invariants:
     back onto this facade.
 
 Related:
-  - SkullbonezSource/Rendering/IRenderBackend.cpp
   - SkullbonezSource/Rendering/IRenderCommandContext.h
   - SkullbonezSource/Rendering/IRenderDeviceLifecycle.h
   - SkullbonezSource/Rendering/IRenderDiagnostics.h
@@ -39,8 +38,6 @@ Related:
 #pragma once
 
 #include <cstdint>
-#include <memory>
-
 #include "../Core/Common.h"
 #include "IRenderCaptureBackend.h"
 #include "IRenderCommandContext.h"
@@ -59,7 +56,7 @@ namespace Rendering
 
     Compatibility aggregate for the active DX12 backend. It deliberately has no
     methods of its own beyond the inherited capability contracts; shrinking this
-    type is the migration path away from wide Gfx() access.
+    type is the migration path away from wide renderer access.
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 class IRenderBackend : public IRenderDeviceLifecycle,
                        public IRenderResourceFactory,
@@ -70,15 +67,6 @@ class IRenderBackend : public IRenderDeviceLifecycle,
   public:
     ~IRenderBackend() override = default;
 };
-
-
-// --- Global Render Backend Accessor ---
-
-IRenderBackend& Gfx();
-bool IsGfxReady();
-void SetGfxBackend( std::unique_ptr<IRenderBackend> backend );
-void DestroyGfxBackend();
-
 
 } // namespace Rendering
 } // namespace SkullbonezCore

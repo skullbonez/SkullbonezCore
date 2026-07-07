@@ -43,7 +43,6 @@ Related:
 #include "Window.h"
 #include "Input.h"
 #include "../Core/Timer.h"
-#include "../Rendering/IRenderBackend.h"
 #include "../Rendering/DX12/RenderBackendDX12.h"
 #include "../GameObjects/GameModel.h"
 #include "../GameObjects/GameModelCollection.h"
@@ -2958,15 +2957,14 @@ bool ParseCommandLine( const CommandLineView& commandLine, EngineConfig& config,
 // Render backend
 // ---------------------------------------------------------------------------
 
-RuntimeRenderBackendView InitRenderBackend( Window* window )
+std::unique_ptr<RenderBackendDX12> InitRenderBackend( Window* window, RuntimeRenderBackendView& renderBackendView )
 {
     RuntimeAllocation::RuntimeAllocationScope allocationScope( RuntimeAllocation::RuntimeAllocationPhase::BackendInit );
     auto backend = std::make_unique<RenderBackendDX12>();
-    // Lifetime: SetGfxBackend takes ownership. Runtime render code keeps
-    // borrowed capability facets in RuntimeRenderBackendView instead of
-    // reopening renderer services through the global accessor.
+    // Lifetime: the process bootstrap owns the backend unique_ptr. Runtime
+    // render code keeps borrowed capability facets in RuntimeRenderBackendView
+    // and must let them die before shutdown resets the owner.
     RenderBackendDX12* renderBackend = backend.get();
-    RuntimeRenderBackendView renderBackendView;
     renderBackendView.renderBackend = renderBackend;
     renderBackendView.deviceLifecycle = renderBackend;
     renderBackendView.renderCommands = renderBackend;
@@ -2975,8 +2973,7 @@ RuntimeRenderBackendView InitRenderBackend( Window* window )
     renderBackendView.captureBackend = renderBackend;
     renderBackendView.rayTracingBackend = renderBackend;
     backend->Init( window->m_sWindow, window->m_sDevice, window->m_sWindowDimensions.x, window->m_sWindowDimensions.y );
-    SetGfxBackend( std::move( backend ) );
-    return renderBackendView;
+    return backend;
 }
 
 // ---------------------------------------------------------------------------
@@ -3224,7 +3221,7 @@ int RunApp( Window* window,
 // Cleanup
 // ---------------------------------------------------------------------------
 
-void CleanupWindow( Window* window, HINSTANCE hInstance )
+void CleanupWindow( Window* window, HINSTANCE hInstance, std::unique_ptr<RenderBackendDX12>& renderBackend )
 {
     // Lifetime: disarm callback-fed input queues while the HWND still names
     // the window that WndProc used, before backend/window class teardown.
@@ -3234,7 +3231,7 @@ void CleanupWindow( Window* window, HINSTANCE hInstance )
     }
     Input::UnbindWindow( *window );
     window->SetResizeRenderLifecycle( nullptr );
-    DestroyGfxBackend();
+    renderBackend.reset();
 
     if ( window->m_sDevice )
     {
@@ -3345,7 +3342,8 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine
     window->CreateAppWindow( hInstance, cfg.window.fullscreen );
     window->m_sDevice = GetDC( window->m_sWindow );
 
-    const RuntimeRenderBackendView renderBackendView = InitRenderBackend( window );
+    RuntimeRenderBackendView renderBackendView;
+    std::unique_ptr<RenderBackendDX12> renderBackend = InitRenderBackend( window, renderBackendView );
     window->SetResizeRenderLifecycle( renderBackendView.deviceLifecycle );
     window->HandleScreenResize();
 
@@ -3366,7 +3364,7 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine
         profiler->BindRenderDiagnostics( nullptr );
 #endif
         workerPool.Shutdown();
-        CleanupWindow( window, hInstance );
+        CleanupWindow( window, hInstance, renderBackend );
     }
     RuntimeAllocation::PrintRuntimeAllocationSummary( stdout );
     int finalExitCode = runExitCode;

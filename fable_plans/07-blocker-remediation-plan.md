@@ -1,7 +1,7 @@
 # Blocker Remediation Plan (overnight run, 2026-07-07)
 
 Date: 2026-07-07
-Status: In progress; SVC-022/SVC-032/SVC-033 resolved, draw-call trace helper migrated, 26 blockers remain
+Status: In progress; SVC-001/SVC-002/SVC-022/SVC-032/SVC-033 resolved, draw-call trace helper migrated, 24 blockers remain
 Input: 31 blocked rows + 1 open row from the authoritative overnight run
 (127/160 done). Reasons read from the blocker commits (`git log --grep=block`).
 Validation for this document: none (documentation-only)
@@ -20,7 +20,7 @@ overnight-safe work.
 | B. DX12 capability-split chain | RGRAPH-003, 004, 007, 010, 014, 022, 023, 024, 029 (9) | Everything chains to RGRAPH-003/004: narrow command-context and resource-factory capabilities don't exist yet, and the migration artifact gate (correctly) forbids bridge owners as a substitute. |
 | C. Run behavioral routers | RUN-009, 010, 011, 015 (4) | The gates cannot verify full routing/ordering equivalence for TakeInput, DrainRuntimeCommands, LoadScene, UpdateLogic. Needs decomposition + tests that make equivalence checkable, not braver refactoring. |
 | D. Diagnostics receiving path | SVC-022/SVC-032/SVC-033 resolved; SVC-034 decision done | Diagnostics snapshots and the runtime receiving path now carry profiler data without direct UI/runtime singleton reads outside the startup-bound profiler borrow. |
-| E. Endgame deletions | SVC-001, 002 (2) | `Gfx()`/`s_gfxBackend` deletion waits on the remaining aggregate facade/startup accessor mechanics; draw-call tracing, CollisionVisualizer, and other debug visualizers are now explicit-facet callers. |
+| E. Endgame deletions | SVC-001, 002 resolved | `Gfx()`/`s_gfxBackend` deletion completed; startup owns the DX12 backend and draw-call tracing, CollisionVisualizer, and other debug visualizers are explicit-facet callers. |
 | Stray | PHYS-035 (in A above, but see A0), RUN-027 (open) | See below — both have independent paths. |
 
 ## Quick wins first (no design needed; overnight-safe)
@@ -409,3 +409,9 @@ else returns to the overnight machine as gated, verifiable slices.
   `tools\validate_fast.bat` (66.672s, 0 warnings/errors), and
   `tools\validate_full.bat` (43.185s, DX12 validation errors 0, screenshots
   matched, physics CSV byte-exact).
+- 2026-07-08: Completed fable-02 G3/L3/Z closure and resolved SVC-001/SVC-002.
+  Deleted the renderer-global backend owner/accessors, moved DX12 backend
+  ownership into startup scope, added boundary-checker tombstones for the
+  deleted symbols, and removed the AGENTS.md singleton-lifecycle danger-zone
+  row after frozen diagnostics remained the only singleton accessors. Remaining
+  blockers: 24.

@@ -6,8 +6,8 @@
 #   text: runtime composition-root ownership, public physics/store authority,
 #   render graph scheduling, global service access, inheritance budgets, and
 #   deleted migration artifacts. Deleted names live in
-#   DELETED_MIGRATION_ARTIFACT_PATTERNS so each removed seam has one tombstone
-#   row plus self-test coverage instead of another bespoke check function.
+#   DELETED_MIGRATION_ARTIFACT_PATTERNS when a data row is enough; lifecycle
+#   seams such as the retired renderer-global owner also get focused checks.
 #
 # Mental model:
 #   This is a guardrail, not an architecture substitute. Prefer making old paths
@@ -1429,6 +1429,9 @@ DIRECT_GFX_RAYTRACING_PATTERN = re.compile(
     r"\bGfx\s*\(\s*\)\s*\.\s*(?:InitDXR|DispatchReflectionRays|BuildTLAS|GetReflectionUAVTexture|"
     r"ShutdownDXR|GetInstancedMeshStaticVBVA|GetInstancedMeshStaticStride)\s*\("
 )
+DELETED_GLOBAL_RENDERER_ACCESSOR_PATTERN = re.compile(
+    r"\b(?:Gfx|IsGfxReady|SetGfxBackend|DestroyGfxBackend)\s*\(|\bs_gfxBackend\b"
+)
 IRENDER_BACKEND_RAYTRACING_DECLARATION_PATTERN = re.compile(
     r"\b(?:virtual\s+)?(?:void|uint32_t|uint64_t|int)\s+"
     r"(?:InitDXR|DispatchReflectionRays|BuildTLAS|GetReflectionUAVTexture|ShutdownDXR|"
@@ -1502,16 +1505,14 @@ RENDER_BACKEND_AGGREGATE_DEPENDENCY_PATTERNS: tuple[tuple[str, re.Pattern[str], 
 # RGRAPH-030: include-aware tracked-source census on 2026-07-07.
 # These budgets are not approval for growth; per-file rows classify remaining
 # render-backend aggregate debt while Plan 05 drains it.
-MAX_IRENDER_BACKEND_DEPENDENCY_CENSUS = 26
+MAX_IRENDER_BACKEND_DEPENDENCY_CENSUS = 21
 MAX_RENDER_BACKEND_DX12_GET_CENSUS = 0
 RENDER_BACKEND_AGGREGATE_DEPENDENCY_ALLOWLIST: Counter[tuple[Path, str]] = Counter(
     {
         ( Path(path), label ): count
         for path, label, count in (
             ( "SkullbonezSource/Rendering/DX12/RenderBackendDX12.h", "IRenderBackend", 2 ),
-            ( "SkullbonezSource/Rendering/IRenderBackend.cpp", "IRenderBackend", 4 ),
             ( "SkullbonezSource/Rendering/IRenderBackend.h", "IRenderBackend", 4 ),
-            ( "SkullbonezSource/Runtime/Init.cpp", "IRenderBackend", 1 ),
             ( "SkullbonezSource/Runtime/Render/RuntimeRenderHost.h", "IRenderBackend", 2 ),
             ( "SkullbonezSource/Runtime/Run.cpp", "IRenderBackend", 2 ),
             ( "SkullbonezSource/Runtime/RunInternal.h", "IRenderBackend", 2 ),
@@ -1615,8 +1616,6 @@ GLOBAL_RENDERER_SERVICE_LABELS = { "Gfx()", "GfxCapture()", "GfxRayTracing()", "
 # compatibility location instead of letting a raw count entry approve a new file.
 GLOBAL_RENDERER_SERVICE_ACCESS_CLASSIFICATIONS: dict[Path, str] = {
     Path("SkullbonezSource/Physics/TornadoField.cpp"): "physics debug rendering compatibility",
-    Path("SkullbonezSource/Rendering/IRenderBackend.cpp"): "backend accessor definition",
-    Path("SkullbonezSource/Rendering/IRenderBackend.h"): "backend accessor declaration",
     Path("SkullbonezSource/Runtime/Editor/LauncherLaser.cpp"): "editor transient geometry compatibility",
     Path("SkullbonezSource/Runtime/Editor/RunEditorTracer.inl"): "editor debug tracing compatibility",
     Path("SkullbonezSource/Runtime/Run.cpp"): "runtime composition root",
@@ -1643,13 +1642,12 @@ FROZEN_DIAGNOSTIC_SINGLETON_INSTANCE_CLASSES = {
     "LockOrderValidator",
 }
 
-# SVC-035/SVC-022: current tracked-source global-service census on 2026-07-07.
+# SVC-035/SVC-022: current tracked-source global-service census on 2026-07-08.
 # Per-file rows classify remaining debt; this total blocks stale row slack from
 # approving growth while later rows drain the explicit-service surface. The
 # profiler diagnostics receiving path resolves the singleton once in Init, and
-# Core profiler GPU timers now use a startup-bound IRenderDiagnostics borrow
-# instead of reopening Gfx().
-MAX_GLOBAL_SERVICE_ACCESS_CENSUS = 89
+# Core profiler GPU timers now use a startup-bound IRenderDiagnostics borrow.
+MAX_GLOBAL_SERVICE_ACCESS_CENSUS = 85
 # RUN-001: current Run.h private `m_` field census on 2026-07-07.
 # This is not approval for growth. Run remains the composition root, but new
 # feature state should enter through one of the narrower owners below instead
@@ -1707,10 +1705,6 @@ GLOBAL_SERVICE_ACCESS_ALLOWLIST: Counter[tuple[Path, str]] = Counter(
             ( "SkullbonezSource/Core/Profiler.cpp", "Profiler::Instance()", 2 ),
             ( "SkullbonezSource/Core/Profiler.h", "Profiler::Instance()", 11 ),
             ( "SkullbonezSource/Core/WorkerPool.cpp", "g_*", 8 ),
-            ( "SkullbonezSource/Rendering/IRenderBackend.cpp", "Gfx()", 1 ),
-            ( "SkullbonezSource/Rendering/IRenderBackend.cpp", "IsGfxReady()", 1 ),
-            ( "SkullbonezSource/Rendering/IRenderBackend.h", "Gfx()", 1 ),
-            ( "SkullbonezSource/Rendering/IRenderBackend.h", "IsGfxReady()", 1 ),
             ( "SkullbonezSource/Runtime/Init.cpp", "g_*", 6 ),
             ( "SkullbonezSource/Runtime/Init.cpp", "Profiler::Instance()", 1 ),
             ( "SkullbonezSource/Runtime/Input.cpp", "g_*", 33 ),
@@ -7272,6 +7266,30 @@ def check_direct_gfx_raytracing_guardrails(repo: Path) -> list[BoundaryError]:
     return errors
 
 
+def check_deleted_global_renderer_accessors_text(path: Path, text: str) -> list[BoundaryError]:
+    stripped = strip_cpp_comments_and_string_literals(text)
+    errors: list[BoundaryError] = []
+    for match in DELETED_GLOBAL_RENDERER_ACCESSOR_PATTERN.finditer(stripped):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "deleted global renderer accessor is blocked",
+                "Runtime startup owns the DX12 backend and passes explicit capability borrows; do not restore the global renderer accessor or owner.",
+            )
+        )
+    return errors
+
+
+def check_deleted_global_renderer_accessors(repo: Path) -> list[BoundaryError]:
+    errors: list[BoundaryError] = []
+    for path in sorted((repo / Path("SkullbonezSource")).rglob("*")):
+        if path.suffix not in { ".cpp", ".h", ".hpp", ".inl" }:
+            continue
+        errors.extend(check_deleted_global_renderer_accessors_text(path, path.read_text(encoding="utf-8")))
+    return errors
+
+
 def check_irender_backend_raytracing_declarations_text(path: Path, text: str) -> list[BoundaryError]:
     stripped = strip_cpp_comments(text)
     errors: list[BoundaryError] = []
@@ -9527,6 +9545,22 @@ def run_self_tests() -> list[str]:
     void NewRenderHelper() { Gfx().Clear( true, true ); }
     """
     expect_error('grown global renderer service synthetic surface was not rejected', check_global_service_access_guardrails_text( allowed_global_service_path, grown_global_service_access, allowlist=synthetic_global_service_allowlist, ), 'global renderer service access is count-guarded')
+
+    deleted_global_renderer_accessors = """
+    static std::unique_ptr<IRenderBackend> s_gfxBackend;
+    IRenderBackend& Gfx();
+    bool IsGfxReady();
+    void SetGfxBackend( std::unique_ptr<IRenderBackend> backend );
+    void DestroyGfxBackend();
+    """
+    expect_error(
+        'deleted global renderer accessors synthetic surface was not rejected',
+        check_deleted_global_renderer_accessors_text(
+            Path("SkullbonezSource/Rendering/IRenderBackend.h"),
+            deleted_global_renderer_accessors,
+        ),
+        'deleted global renderer accessor is blocked',
+    )
 
     new_window_singleton_access = "void DeepInputPath() { Window::Instance()->ShowCursor( true ); }"
     expect_error('new window singleton synthetic surface was not rejected', check_global_service_access_guardrails_text( Path("SkullbonezSource/Runtime/InputNew.cpp"), new_window_singleton_access, relative_path=Path("SkullbonezSource/Runtime/InputNew.cpp"), ), 'global window service access is count-guarded')
@@ -16014,6 +16048,7 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_physics_body_store_runtime_collection_metadata_guardrails(repo))
     errors.extend(check_physics_hot_path_inheritance_guardrails(repo))
     errors.extend(check_approved_inheritance_guardrails(repo))
+    errors.extend(check_deleted_global_renderer_accessors(repo))
     errors.extend(check_direct_gfx_raytracing_guardrails(repo))
     errors.extend(check_irender_backend_raytracing_declarations(repo))
     errors.extend(check_irender_backend_aggregate_contract(repo))

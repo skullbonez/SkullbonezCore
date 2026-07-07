@@ -457,9 +457,6 @@
     <ClCompile Include="SkullbonezSource\Core\Profiler.cpp">
       <Filter>Source Files\Core</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Rendering\IRenderBackend.cpp">
-      <Filter>Source Files\Rendering</Filter>
-    </ClCompile>
     <ClCompile Include="SkullbonezSource\Rendering\RenderInstanceStore.cpp">
       <Filter>Source Files\Rendering</Filter>
     </ClCompile>
