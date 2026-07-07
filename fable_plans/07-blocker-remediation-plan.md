@@ -167,8 +167,16 @@ else returns to the overnight machine as gated, verifiable slices.
   `ok=1`, no gameplay allocation-guard violations), `tools\validate_perf.bat`
   (30.648s after explicit current-machine perf baseline refresh), and
   `tools\validate_full.bat` (39.288s, DX12 validation errors 0, screenshots
-  matched, physics byte-exact). PHYS-035 ledger closure still waits on the
-  fable-03 phase-4 guardrail/reference updates.
+  matched, physics byte-exact). Follow-up phase 4 closed the guardrail,
+  reference, and ledger work.
+- 2026-07-07: Completed A0 / fable-03 phase 4 and marked PHYS-035 resolved.
+  Added a runtime-boundary self-test and repo-scan rule forbidding prediction
+  solver/body restore calls against the live engine, updated the runtime
+  reference/source plan/progress checklist, and moved PHYS-035 to the resolved
+  section of the blocker ledger. Remaining blockers: 29. Gates passed:
+  `python tools\check_runtime_boundaries.py --self-test`,
+  `python tools\check_runtime_boundaries.py` (15.179s, 0 errors), and
+  `tools\validate_fast.bat` (33.065s, 0 warnings/errors).
 - 2026-07-07: Started A0 / fable-03 prediction isolation and completed phase 1
   parameterization. Discovery recorded PhysicsEngine ownership, store reserve
   shape, PhysicsWorld snapshot coverage, zero physics singleton/global hits,

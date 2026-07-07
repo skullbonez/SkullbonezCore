@@ -455,7 +455,7 @@ REPLAY_RECORDER_MODEL_STATE_CAPTURE_PATTERN = re.compile(
     r"GetInvertedMass|GetRotationalInertia|GetInvertedRotationalInertia|IsFixed)\s*\()"
 )
 REPLAY_PREDICTION_CAPTURE_BODY_FUNCTION_PATTERN = re.compile(r"\bbool\s+CaptureReplayPredictionBodyState\s*\(")
-REPLAY_PREDICTION_CAPTURE_FRAME_FUNCTION_PATTERN = re.compile(r"\bvoid\s+CaptureReplayPredictionFrame\s*\(")
+REPLAY_PREDICTION_CAPTURE_FRAME_FUNCTION_PATTERN = re.compile(r"\b(?:bool|void)\s+CaptureReplayPredictionFrame\s*\(")
 REPLAY_PREDICTION_MODEL_STATE_CAPTURE_PATTERN = re.compile(
     r"\bmodel\s*(?:->|\.)\s*"
     r"(?:GetReplayBodyId|GetPosition|GetVelocity|GetAngularVelocity|GetOrientation|GetMass|"
@@ -466,6 +466,28 @@ REPLAY_PREDICTION_PHYSICS_TICK_FUNCTION_PATTERN = re.compile(r"\bvoid\s+StepRepl
 REPLAY_PREDICTION_BULK_WRITEBACK_PATTERN = re.compile(
     r"\bmodelCollection\s*\.\s*WriteBackPhysicsBodies\s*\("
 )
+REPLAY_PREDICTION_PRIVATE_ENGINE_RESTORE_SOURCES = (
+    REPLAY_PREDICTION_HELPERS_SOURCE,
+    REPLAY_PREDICTION_VISUALIZER_SOURCE,
+    RUN_REPLAY_TOOLS_SOURCE,
+)
+# Why: PHYS-035 is closed only while prediction restore calls target the
+# replay-owned private engine. A live-engine restore here would silently reopen
+# the old determinism-risk mutation window.
+REPLAY_PREDICTION_SOLVER_RESTORE_CALL_PATTERN = re.compile(
+    r"(?P<call>[^;{}]*\bRestoreReplaySolverSnapshot\s*\()",
+    re.S,
+)
+REPLAY_PREDICTION_PRIVATE_SOLVER_RESTORE_ALLOWED_PATTERN = re.compile(
+    r"\bpredictionEngine\s*\.\s*RestoreReplaySolverSnapshot\s*\("
+)
+REPLAY_PREDICTION_APPLY_BODY_STATE_CALL_PATTERN = re.compile(
+    r"\bApplyReplayPredictionBodyState\s*\(\s*(?P<target>[^,\n)]+)"
+)
+REPLAY_PREDICTION_PRIVATE_APPLY_TARGETS = {
+    "predictionEngine",
+    "*prediction.predictionEngine",
+}
 REPLAY_PREDICTION_GHOST_RENDER_FUNCTION_PATTERN = re.compile(
     r"\bvoid\s+RuntimeRenderHost::RenderReplayPredictionGhosts\s*\("
 )
@@ -4713,6 +4735,53 @@ def check_replay_prediction_step_writeback_guardrails_text(path: Path, text: str
 def check_replay_prediction_step_writeback_guardrails(repo: Path) -> list[BoundaryError]:
     path = repo / RUN_REPLAY_TOOLS_SOURCE
     return check_replay_prediction_step_writeback_guardrails_text(path, path.read_text(encoding="utf-8"))
+
+
+def check_replay_prediction_private_engine_restore_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    stripped = strip_cpp_comments_and_string_literals(text)
+    errors: list[BoundaryError] = []
+    for match in REPLAY_PREDICTION_SOLVER_RESTORE_CALL_PATTERN.finditer(stripped):
+        if REPLAY_PREDICTION_PRIVATE_SOLVER_RESTORE_ALLOWED_PATTERN.search(match.group("call")):
+            continue
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "replay prediction live solver restore is blocked",
+                (
+                    "Prediction may restore solver snapshots only into its private predictionEngine. "
+                    "Do not restore replay prediction state into the live collection or live PhysicsEngine."
+                ),
+            )
+        )
+
+    for match in REPLAY_PREDICTION_APPLY_BODY_STATE_CALL_PATTERN.finditer(stripped):
+        target = match.group("target").strip()
+        normalized_target = re.sub(r"\s+", "", target)
+        if "PhysicsEngine" in target and "&" in target:
+            continue
+        if normalized_target in REPLAY_PREDICTION_PRIVATE_APPLY_TARGETS:
+            continue
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "replay prediction live body-state apply is blocked",
+                (
+                    "Prediction body-state restore may target only the private predictionEngine. "
+                    "Do not apply prediction backups to the live collection or live PhysicsEngine."
+                ),
+            )
+        )
+    return errors
+
+
+def check_replay_prediction_private_engine_restore_guardrails(repo: Path) -> list[BoundaryError]:
+    errors: list[BoundaryError] = []
+    for relative_path in REPLAY_PREDICTION_PRIVATE_ENGINE_RESTORE_SOURCES:
+        path = repo / relative_path
+        errors.extend(check_replay_prediction_private_engine_restore_guardrails_text(path, path.read_text(encoding="utf-8")))
+    return errors
 
 
 def check_replay_prediction_ghost_render_store_authority_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
@@ -12667,6 +12736,45 @@ def run_self_tests() -> list[str]:
     """
     expect_clean('comment-only replay prediction writeback synthetic text was rejected', check_replay_prediction_step_writeback_guardrails_text( Path("SkullbonezSource/Runtime/Replay/RunReplayTools.cpp"), commented_replay_prediction_model_writeback, ))
 
+    old_replay_prediction_live_solver_restore = """
+    bool SeedReplayPredictionEngine( RunReplayPredictionState& prediction, GameModelCollection& modelCollection )
+    {
+        return modelCollection.GetPhysicsEngine().RestoreReplaySolverSnapshot( prediction.predictionWorld, modelCount );
+    }
+    """
+    expect_error('old replay prediction live solver restore synthetic surface was not rejected', check_replay_prediction_private_engine_restore_guardrails_text( REPLAY_PREDICTION_HELPERS_SOURCE, old_replay_prediction_live_solver_restore, ), 'replay prediction live solver restore is blocked')
+
+    old_replay_prediction_live_body_apply = """
+    bool SeedReplayPredictionEngine( RunReplayPredictionState& prediction, PhysicsEngine& liveEngine )
+    {
+        return ApplyReplayPredictionBodyState( liveEngine, prediction.predictionBodies );
+    }
+    """
+    expect_error('old replay prediction live body-state apply synthetic surface was not rejected', check_replay_prediction_private_engine_restore_guardrails_text( REPLAY_PREDICTION_HELPERS_SOURCE, old_replay_prediction_live_body_apply, ), 'replay prediction live body-state apply is blocked')
+
+    allowed_replay_prediction_private_engine_restore = """
+    bool SeedReplayPredictionEngine( RunReplayPredictionState& prediction )
+    {
+        PhysicsEngine& predictionEngine = *prediction.predictionEngine;
+        if ( !ApplyReplayPredictionBodyState( predictionEngine, prediction.predictionBodies ) ||
+             !predictionEngine.RestoreReplaySolverSnapshot( prediction.predictionWorld, modelCount ) )
+        {
+            return false;
+        }
+        return true;
+    }
+    """
+    expect_clean('private replay prediction restore synthetic surface was rejected', check_replay_prediction_private_engine_restore_guardrails_text( REPLAY_PREDICTION_HELPERS_SOURCE, allowed_replay_prediction_private_engine_restore, ))
+
+    commented_replay_prediction_live_restore = """
+    void DocumentOldPredictionRestore()
+    {
+        // modelCollection.GetPhysicsEngine().RestoreReplaySolverSnapshot(...) was the old live mutation path.
+        // ApplyReplayPredictionBodyState(liveEngine, bodies) is also no longer allowed.
+    }
+    """
+    expect_clean('comment-only replay prediction restore synthetic text was rejected', check_replay_prediction_private_engine_restore_guardrails_text( REPLAY_PREDICTION_HELPERS_SOURCE, commented_replay_prediction_live_restore, ))
+
     old_replay_prediction_ghost_model_render_read = """
     void RuntimeRenderHost::RenderReplayPredictionGhosts( const RenderFrameContext& frame )
     {
@@ -15974,6 +16082,7 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_replay_recorder_store_authority_guardrails(repo))
     errors.extend(check_replay_prediction_body_capture_store_authority_guardrails(repo))
     errors.extend(check_replay_prediction_step_writeback_guardrails(repo))
+    errors.extend(check_replay_prediction_private_engine_restore_guardrails(repo))
     errors.extend(check_replay_prediction_ghost_render_store_authority_guardrails(repo))
     errors.extend(check_replay_restore_store_authority_guardrails(repo))
     errors.extend(check_collider_store_identity_authority_guardrails(repo))

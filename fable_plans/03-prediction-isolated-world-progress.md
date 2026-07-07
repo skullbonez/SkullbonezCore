@@ -326,12 +326,29 @@ Last updated: 2026-07-07
 
 ## Phase 4 — guardrails and closure
 
-- [ ] G1. `tools/check_runtime_boundaries.py`: add a rule that
+- [x] G1. `tools/check_runtime_boundaries.py`: add a rule that
   `RunReplayPrediction*` files may not call `RestoreReplaySolverSnapshot` /
   `ApplyReplayPredictionBodyState` against the live collection/engine
   (allowlist: the prediction-engine call sites). Include a checker self-test.
   Evidence: checker passes; self-test proves the rule fires on a synthetic
   violation.
-- [ ] G2. Update `Agentic/Reference/runtime-reference.md` prediction section
+
+  Evidence, 2026-07-07: added
+  `check_replay_prediction_private_engine_restore_guardrails_text(...)` with
+  synthetic failures for live solver restore and live body-state apply, plus
+  clean private-engine and comment-only cases. `python
+  tools\check_runtime_boundaries.py --self-test` printed
+  `SELF_TEST_PASS`; repo scan passed with
+  `FABLE03_P4_RUNTIME_BOUNDARIES_EXIT=0`, elapsed 15.179s.
+- [x] G2. Update `Agentic/Reference/runtime-reference.md` prediction section
   and `fable_plans/03-prediction-isolated-world-plan.md` status.
-- [ ] G3. Mark PHYS-035 done in the plan-02 CSV (or its Done successor).
+
+  Evidence, 2026-07-07: runtime reference now describes the private
+  replay-owned `PhysicsEngine`, retained reserve owner, and current prediction
+  profiler markers; source plan status says phase 2 and phase 4 are complete
+  with phase 3 worker-job stepping deferred until after soak.
+- [x] G3. Mark PHYS-035 done in the plan-02 CSV (or its Done successor).
+
+  Evidence, 2026-07-07: moved PHYS-035 to the resolved section of
+  `Agentic/Plans/In_Progress/overnight-blockers-2026-07-07.md`; remaining
+  blocker count is now 29.

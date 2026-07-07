@@ -1,6 +1,21 @@
 # Overnight Blockers - 2026-07-07
 
-Single remaining blocker ledger for the 7 July nightrunner pass. Rows are grouped by plan and ordered hardest-to-unblock first inside each plan.
+Single remaining blocker ledger for the 7 July nightrunner pass. Current
+remaining blocker count: 29. Rows are grouped by plan and ordered
+hardest-to-unblock first inside each plan.
+
+## Resolved During Remediation
+
+- **PHYS-035** - `SkullbonezSource/Runtime/Replay/RunReplayPredictionVisualizer.inl` / `StepReplayPredictionJob mutation window`
+  - Resolved 2026-07-07 through fable-03 phases 1, 2, and 4.
+  - Result: replay prediction now seeds and steps a private replay-owned
+    `PhysicsEngine`, deletes the live apply/restore mutation window, proves
+    `liveSolverHashStableAcrossPrediction`, and has a runtime-boundary
+    guardrail forbidding prediction restore calls against the live engine.
+  - Evidence: commit `d475830d` completed the private-engine implementation
+    with `tools\validate_physics.bat`, the ragdoll prediction interaction
+    proof, `tools\validate_perf.bat`, and `tools\validate_full.bat`; the phase
+    4 checker self-test and repo scan passed in the follow-up slice.
 
 ## Plan 02 - Physics Store Authority
 
@@ -43,11 +58,6 @@ Single remaining blocker ledger for the 7 July nightrunner pass. Rows are groupe
   - Attempted: clear/reset split inspection.
   - Failure/reason: `Clear` still resets scene entities, group metadata, and `PhysicsEngine` together; the real reset owner is the scene load lifecycle covered by PHYS-026/PHYS-027.
   - Needed to unblock: scene lifecycle reset owner with explicit subsystem reset contracts.
-
-- **PHYS-035** - `SkullbonezSource/Runtime/Replay/RunReplayPredictionVisualizer.inl` / `StepReplayPredictionJob mutation window`
-  - Attempted: defer-row replay prediction isolation inspection with determinism risk review.
-  - Failure/reason: prediction still mutates live `PhysicsEngine`/`PhysicsWorld` state and restores snapshots; the row explicitly requires PHYS-004/PHYS-020 store-bundle ownership before prediction can own an isolated bundle.
-  - Needed to unblock: PHYS-004/PHYS-020, then a prediction-owned `PhysicsWorldStores` bundle with byte-exact `validate_physics` proof.
 
 - **PHYS-021** - `SkullbonezSource/Physics/PhysicsWorld.h` / `m_spatialGrid/m_candidatePairs/m_timeRemaining`
   - Attempted: broadphase/sleep/contact/narrowphase scratch split inspection.

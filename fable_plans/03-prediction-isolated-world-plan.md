@@ -1,11 +1,17 @@
 # Prediction Isolated World Plan
 
 Date: 2026-07-06
-Status: Proposed
+Status: Phase 2 and Phase 4 complete on 2026-07-07; Phase 3 worker-job stepping deferred until after soak
 Impact area: replay prediction, physics stepping; determinism-sensitive
 Validation for this document: none (documentation-only)
 
 ## Problem
+
+2026-07-07 update: the live mutation window described below has been removed.
+Prediction now seeds and steps a replay-owned private `PhysicsEngine`, and
+phase 4 added a static guardrail preventing prediction restore calls against
+live physics. The historical problem statement remains here to explain why
+PHYS-035 was split out from the wider physics-ownership knot.
 
 Replay prediction does not simulate a copy of the world — it simulates the
 future **inside the live physics stores** and puts the present back afterward.
@@ -67,20 +73,19 @@ invariant. Every piece of that machinery is servicing an inverted design.
 
 ### Phase 2 — prediction owns a second bundle
 
-- `BeginReplayPredictionJob` deep-copies the live bundle into
-  `prediction.world` under the existing `replay_prediction_working_set`
-  reserve owner (the 256 MiB byte cap already accounts for this scale of
-  payload; copy cost replaces today's per-slice capture+restore cost, so the
-  slice budget likely *improves*).
-- `StepReplayPredictionJob` steps `prediction.world` directly. The apply/
-  restore choreography and the mutation-window hazard comments are deleted.
+- Done 2026-07-07: `BeginReplayPredictionJob` seeds a private
+  `RunReplayPredictionState::predictionEngine` under the existing
+  `replay_prediction_working_set` reserve owner. The 256 MiB byte cap accounts
+  for the copied physics working set and retained prediction data.
+- Done 2026-07-07: `StepReplayPredictionJob` steps the private
+  `predictionEngine` directly. The live apply/restore choreography and the
+  mutation-window hazard comments are deleted.
   Environmental inputs (world forces, tornado state) are captured by value at
   begin time — prediction of a paused moment should not read drifting live
   environment state anyway.
-- Still main-thread and budget-sliced at this phase; the only change is
-  *which* stores are stepped. Gate: `validate_physics` (live CSV must be
-  untouched by running prediction — add an interaction proof asserting the
-  live solver hash is identical before/after a prediction build).
+- Still main-thread and budget-sliced at this phase; the important change is
+  *which* engine is stepped. Gate passed: `validate_physics`, live-hash
+  interaction proof, `validate_perf`, and `validate_full`.
 
 ### Phase 3 — move stepping to a worker job
 
@@ -97,9 +102,9 @@ invariant. Every piece of that machinery is servicing an inverted design.
 
 ### Phase 4 — guardrails and cleanup
 
-- `tools/check_runtime_boundaries.py`: forbid `RestoreReplaySolverSnapshot`
+- Done 2026-07-07: `tools/check_runtime_boundaries.py` forbids `RestoreReplaySolverSnapshot`
   and live-store apply calls in prediction files (textual, with self-test).
-- Delete the "Mutation window" glossary entries; update
+- Done 2026-07-07: deleted the "Mutation window" glossary entries and updated
   `Agentic/Reference/runtime-reference.md`.
 - Unit tests (plan 01 phase 4): snapshot/restore losslessness on the bundle;
   copied-bundle step N ticks == reference sequence.
