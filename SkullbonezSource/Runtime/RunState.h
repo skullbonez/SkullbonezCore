@@ -416,6 +416,7 @@ enum class RunInteractionAutomationAssertKind
     SelectedObject,
     Owner,
     CameraMode,
+    DirectorGrabbed,
     ReplayPredictionEnabled,
     ReplayPathTarget,
     PredictionPathVisible,

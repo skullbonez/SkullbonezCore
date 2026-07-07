@@ -76,10 +76,11 @@ ContactAudioFlashMode NextContactAudioFlashMode( ContactAudioFlashMode mode )
     return static_cast<ContactAudioFlashMode>( ( rawMode + 1 ) % MODE_COUNT );
 }
 
-bool CameraModeUsesFlyControls( RunCameraMode mode, bool attachActiveFollow )
+bool CameraModeUsesFlyControls( RunCameraMode mode, bool attachActiveFollow, bool directorGrabbed )
 {
     return mode == RunCameraMode::Inspect || mode == RunCameraMode::Launcher || mode == RunCameraMode::Manipulator ||
-           ( mode == RunCameraMode::Attach && attachActiveFollow );
+           ( mode == RunCameraMode::Attach && attachActiveFollow ) ||
+           ( mode == RunCameraMode::Director && directorGrabbed );
 }
 
 
@@ -109,11 +110,13 @@ AttachedCameraPose AttachedCameraPoseFromCameras( SkullbonezCore::Environment::C
 }
 
 
-RuntimeInputModeState
-BuildRuntimeInputModeState( RunCameraMode mode, const RunEditorPlacementState& editor, bool attachActiveFollow )
+RuntimeInputModeState BuildRuntimeInputModeState( RunCameraMode mode,
+                                                  const RunEditorPlacementState& editor,
+                                                  bool attachActiveFollow,
+                                                  bool directorGrabbed )
 {
     RuntimeInputModeState state;
-    state.flyCamera = CameraModeUsesFlyControls( mode, attachActiveFollow );
+    state.flyCamera = CameraModeUsesFlyControls( mode, attachActiveFollow, directorGrabbed );
     state.launcher = CameraModeUsesLauncher( mode );
     state.manipulator = mode == RunCameraMode::Manipulator;
     state.editor = editor.editorModeEnabled;
@@ -236,6 +239,7 @@ void AdvanceTakeInputKeyboardActionMemories( RuntimeInputContext& input )
                                                         { RuntimeInputAction::CycleCameraMode, VK_TAB },
                                                         { RuntimeInputAction::CycleAttachedCameraSubmode, VK_F1 },
                                                         { RuntimeInputAction::ToggleAttachedCameraPin, VK_RETURN },
+                                                        { RuntimeInputAction::ToggleDirectorGrab, 'B' },
                                                         { RuntimeInputAction::ToggleEditor, VK_OEM_3 },
                                                         { RuntimeInputAction::ToggleEditorTool, VK_MENU },
                                                         { RuntimeInputAction::CycleLauncherFireMode, 'M' },
@@ -295,8 +299,10 @@ void Run::UpdateRuntimeInputModeAfterAction( RuntimeInputAction action, RuntimeI
 {
     InputController::ApplyModeAction(
         m_runtimeInput,
-        InputController::ResolveMode(
-            BuildRuntimeInputModeState( m_camera.mode, m_runtimeTools.Editor(), m_attachedCamera.activeFollow ) ),
+        InputController::ResolveMode( BuildRuntimeInputModeState( m_camera.mode,
+                                                                  m_runtimeTools.Editor(),
+                                                                  m_attachedCamera.activeFollow,
+                                                                  m_camera.director.grabbed ) ),
         action,
         source );
 }
@@ -898,7 +904,7 @@ void Run::SetCameraModeLabelAfterInteractionTransition( RunCameraMode mode )
 
 bool Run::IsFlyCameraMode() const
 {
-    return CameraModeUsesFlyControls( m_camera.mode, m_attachedCamera.activeFollow );
+    return CameraModeUsesFlyControls( m_camera.mode, m_attachedCamera.activeFollow, m_camera.director.grabbed );
 }
 
 
@@ -1605,12 +1611,14 @@ void Run::TakeInput()
                                               m_inputLatches.leftSceneCycleWasDown,
                                               m_inputLatches.rightSceneCycleWasDown );
         m_runtimeInput.ResetEdges();
-        InputController::BeginFrame(
-            m_runtimeInput,
-            BuildRuntimeInputModeState( m_camera.mode, m_runtimeTools.Editor(), m_attachedCamera.activeFollow ),
-            false,
-            true,
-            true );
+        InputController::BeginFrame( m_runtimeInput,
+                                     BuildRuntimeInputModeState( m_camera.mode,
+                                                                 m_runtimeTools.Editor(),
+                                                                 m_attachedCamera.activeFollow,
+                                                                 m_camera.director.grabbed ),
+                                     false,
+                                     true,
+                                     true );
         m_UI.CancelInputCapture();
         RunUIStressActions();
         return;
@@ -1619,12 +1627,14 @@ void Run::TakeInput()
     ApplyCursorOwnership();
 
     const bool UIBlocksKeyboardBeforeInput = m_UI.BlocksKeyboard();
-    InputController::BeginFrame(
-        m_runtimeInput,
-        BuildRuntimeInputModeState( m_camera.mode, m_runtimeTools.Editor(), m_attachedCamera.activeFollow ),
-        true,
-        UIBlocksKeyboardBeforeInput,
-        m_UI.BlocksCameraMouse() );
+    InputController::BeginFrame( m_runtimeInput,
+                                 BuildRuntimeInputModeState( m_camera.mode,
+                                                             m_runtimeTools.Editor(),
+                                                             m_attachedCamera.activeFollow,
+                                                             m_camera.director.grabbed ),
+                                 true,
+                                 UIBlocksKeyboardBeforeInput,
+                                 m_UI.BlocksCameraMouse() );
     bool keyboardToggleEditorMode = false;
     auto editorGizmoContext = [this]()
     { return RunInternal::EditorGizmoContext{ m_runtimeTools.Editor(), m_cGameModelCollection, m_interaction }; };
@@ -1761,6 +1771,32 @@ void Run::TakeInput()
              IsAttachedCameraMode() )
         {
             ToggleAttachedCameraPin();
+        }
+
+        // B key: Director grab/release keeps the visible mode as Director while
+        // temporarily letting the operator fly the selected camera.
+        if ( InputController::CaptureKeyboardActionPress( m_runtimeInput,
+                                                          RuntimeInputAction::ToggleDirectorGrab,
+                                                          'B' ) &&
+             m_camera.mode == RunCameraMode::Director )
+        {
+            if ( m_camera.director.grabbed )
+            {
+                if ( DemoDirectorPlayback::EndGrab( m_camera, m_systems ) )
+                {
+                    ExitFlyModeCamera();
+                    ApplyCursorOwnership();
+                    UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleDirectorGrab,
+                                                       RuntimeInputActionSource::Keyboard );
+                }
+            }
+            else if ( DemoDirectorPlayback::BeginGrab( m_camera, m_systems ) )
+            {
+                EnterFlyModeCamera();
+                ApplyCursorOwnership();
+                UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleDirectorGrab,
+                                                   RuntimeInputActionSource::Keyboard );
+            }
         }
 
 #ifdef _DEBUG

@@ -344,6 +344,27 @@ const char* ReplayTrackName( RunReplayTrack track )
 
 bool TryParseVirtualKey( const std::string& value, int& outVirtualKey )
 {
+    if ( value.size() == 1 )
+    {
+        const char key = value[0];
+        // Why: Interaction scripts use human key labels; Win32 virtual-key
+        // values for alphanumeric keys intentionally match ASCII.
+        if ( key >= 'A' && key <= 'Z' )
+        {
+            outVirtualKey = key;
+            return true;
+        }
+        if ( key >= 'a' && key <= 'z' )
+        {
+            outVirtualKey = 'A' + ( key - 'a' );
+            return true;
+        }
+        if ( key >= '0' && key <= '9' )
+        {
+            outVirtualKey = key;
+            return true;
+        }
+    }
     if ( value == "F5" )
     {
         outVirtualKey = VK_F5;
@@ -409,6 +430,8 @@ const char* AssertName( RunInteractionAutomationAssertKind kind )
         return "owner";
     case RunInteractionAutomationAssertKind::CameraMode:
         return "cameraMode";
+    case RunInteractionAutomationAssertKind::DirectorGrabbed:
+        return "directorGrabbed";
     case RunInteractionAutomationAssertKind::ReplayPredictionEnabled:
         return "replayPredictionEnabled";
     case RunInteractionAutomationAssertKind::ReplayPathTarget:
@@ -659,6 +682,11 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
             outAction.assertKind = RunInteractionAutomationAssertKind::CameraMode;
             outAction.cameraMode = mode;
             CopyText( outAction.text, sizeof( outAction.text ), modeName );
+        }
+        else if ( name == "directorGrabbed" )
+        {
+            outAction.assertKind = RunInteractionAutomationAssertKind::DirectorGrabbed;
+            outAction.boolValue = ReadBool( member.value() );
         }
         else if ( name == "replayPredictionEnabled" )
         {
@@ -1380,6 +1408,11 @@ void Run::TickInteractionAutomationAfterRender()
             actual = CameraModeName( m_camera.mode );
             passed = m_camera.mode == action.cameraMode;
             break;
+        case RunInteractionAutomationAssertKind::DirectorGrabbed:
+            expected = BoolString( action.boolValue );
+            actual = BoolString( m_camera.director.grabbed );
+            passed = m_camera.director.grabbed == action.boolValue;
+            break;
         case RunInteractionAutomationAssertKind::ReplayPredictionEnabled:
             expected = BoolString( action.boolValue );
             actual = BoolString( m_replayRuntime.Prediction().enabled );
@@ -1619,6 +1652,7 @@ void Run::WriteInteractionAutomationReport()
               { "directorShotListLoaded", m_camera.director.hasActiveShotList },
               { "directorPhaseIndex", m_camera.director.currentPhaseIndex },
               { "directorPhaseCount", m_camera.director.activeShotList.phaseCount },
+              { "directorGrabbed", m_camera.director.grabbed },
               { "workspace", WorkspaceName( m_interaction.Workspace() ) },
               { "owner", OwnerName( m_interaction.Owner() ) },
               { "selectedObject", selectedName },

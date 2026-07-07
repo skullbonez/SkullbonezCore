@@ -11,6 +11,8 @@ Mental model:
 Glossary:
   Phase pose: Authored eye, view target, and up vector stored in `.shot.json`.
   Blend start pose: Camera pose captured when a phase transition begins.
+  Grab: Temporary operator ownership of the camera while Director mode remains
+    selected.
   Director advance: Manual phase step used for early automation proof before
     timer/reveal advance rules are wired.
 
@@ -83,6 +85,11 @@ void ResetBlendFromCurrentPose( DemoDirectorPlaybackState& director, const RunSu
     director.blendStartPose = CaptureCurrentPose( systems );
     director.blendElapsedSeconds = 0.0f;
 }
+
+bool HasPlayableShotList( const DemoDirectorPlaybackState& director )
+{
+    return director.hasActiveShotList && director.activeShotList.phaseCount > 0;
+}
 } // namespace
 
 namespace DemoDirectorPlayback
@@ -113,7 +120,7 @@ bool LoadShotList( RunCameraState& camera, const RunSubsystemState& systems, con
 bool AdvancePhase( RunCameraState& camera, const RunSubsystemState& systems )
 {
     DemoDirectorPlaybackState& director = camera.director;
-    if ( !director.hasActiveShotList || director.activeShotList.phaseCount <= 0 )
+    if ( !HasPlayableShotList( director ) )
     {
         return false;
     }
@@ -147,11 +154,45 @@ void EnterMode( RunCameraState& camera, const RunSubsystemState& systems )
     }
 }
 
+bool BeginGrab( RunCameraState& camera, const RunSubsystemState& systems )
+{
+    DemoDirectorPlaybackState& director = camera.director;
+    if ( camera.mode != RunCameraMode::Director || director.grabbed || !HasPlayableShotList( director ) ||
+         !systems.cameras )
+    {
+        return false;
+    }
+
+    const DemoCameraPose pose = CaptureCurrentPose( systems );
+    director.poseCapturedAtGrab = pose;
+    director.blendStartPose = pose;
+    director.blendElapsedSeconds = 0.0f;
+    director.grabbed = true;
+    systems.cameras->SetPrimaryPose( pose.eye, pose.view, pose.up );
+    return true;
+}
+
+bool EndGrab( RunCameraState& camera, const RunSubsystemState& systems )
+{
+    DemoDirectorPlaybackState& director = camera.director;
+    if ( camera.mode != RunCameraMode::Director || !director.grabbed || !HasPlayableShotList( director ) ||
+         !systems.cameras )
+    {
+        return false;
+    }
+
+    director.poseCapturedAtGrab = CaptureCurrentPose( systems );
+    director.blendStartPose = director.poseCapturedAtGrab;
+    director.blendElapsedSeconds = 0.0f;
+    director.grabbed = false;
+    return true;
+}
+
 void Tick( RunCameraState& camera, const RunSubsystemState& systems, float cameraDt )
 {
     DemoDirectorPlaybackState& director = camera.director;
-    if ( camera.mode != RunCameraMode::Director || director.grabbed || !director.hasActiveShotList ||
-         director.activeShotList.phaseCount <= 0 || !systems.cameras )
+    if ( camera.mode != RunCameraMode::Director || director.grabbed || !HasPlayableShotList( director ) ||
+         !systems.cameras )
     {
         return;
     }

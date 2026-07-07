@@ -1,7 +1,7 @@
 # Progress: Demo Director (plan 08)
 
 Source plan: `fable_plans/08-demo-director-plan.md`
-Status: phase 2 P2.3 per-frame Director tick complete; grab/release next
+Status: phase 2 P2.4 grab/release complete; pose-authoring controls next
 Last updated: 2026-07-07
 
 ## How to work this file
@@ -281,13 +281,59 @@ Last updated: 2026-07-07
     `cameraMode=Director`, `directorShotListLoaded=true`,
     `directorPhaseIndex=1`, `directorPhaseCount=2`; screenshot:
     `TestOutput\interaction\director_p2_3_after_advance.bmp`.
-- [ ] P2.4 GRAB: a key (pick an unused one; record it) sets `grabbed=true`,
+- [x] P2.4 GRAB: a key (pick an unused one; record it) sets `grabbed=true`,
   seeds the free-fly camera with the *current authored pose* (no jump), and
   routes input to free-fly. RELEASE: same key toggles `grabbed=false` and
   blends the rendered camera from the current free-fly pose back to the phase
   pose over `blendInSeconds`. Model this on the `modeBeforeAttach`
   save/restore pattern. Evidence: grab → fly around → release → smooth return,
   no pop, recorded via a short screen capture or eyeballed on launch.
+  Evidence recorded 2026-07-07:
+  - Picked `B` as the Director grab/release key; it was unused in the runtime
+    keyboard action map.
+  - `DemoDirectorPlayback::BeginGrab(...)` captures the visible Director pose,
+    seeds the primary camera pose, resets blend timing, and marks
+    `RunCameraState::director.grabbed=true`.
+  - `DemoDirectorPlayback::EndGrab(...)` captures the operator's free-fly pose
+    as `blendStartPose`, clears `grabbed`, and lets the existing Director tick
+    blend back to the active phase pose over that phase's `blendInSeconds`.
+  - `RunInput.cpp` routes Director mode through free-fly controls only while
+    grabbed, calls `EnterFlyModeCamera()` on grab and `ExitFlyModeCamera()` on
+    release, and keeps the HUD camera mode label as Director throughout.
+  - `RunInteractionAutomation.cpp` gained `directorGrabbed` assertions/final
+    report state and expanded `pressKey` parsing to support single
+    alphanumeric keys (`B`, `W`, etc.) for scripted proof.
+  - Comment-quality audit scope:
+    `RunDemoDirector.h`, `RunDemoDirector.cpp`, `RunInput.cpp`,
+    `InputController.h`, `InputController.cpp`,
+    `RunInteractionAutomation.cpp`, and `RunState.h`. All touched
+    source-bearing files have learning headers; added local `Why:` guidance for
+    alphanumeric automation key parsing and a Director grab glossary entry.
+  - Targeted build: `tools\validate_build.bat Profile` passed twice, first in
+    8.43s and after the automation parser fix in 7.42s, both with 0 warnings
+    and 0 errors. Logs:
+    `Agentic\Reports\2026-07-07\logs\fable-08-director-grab-release-build-profile.log`
+    and
+    `Agentic\Reports\2026-07-07\logs\fable-08-director-grab-release-build-profile-rerun.log`.
+  - Runtime proof: `Profile\SKULLBONEZ_CORE.exe --scene
+    SkullbonezData\scenes\interaction_inspect_gizmo_harness.scene.json
+    --interaction-script Agentic\Temp\director_p2_4_interaction.json
+    --interaction-report TestOutput\interaction\director_p2_4_report.json
+    --frames 45 --vsync off` passed in 10.231s after the parser fix. Report:
+    `ok=true`, `cameraMode=Director`, `directorGrabbed=true` at frame 12,
+    three `W` nudges consumed while grabbed, `directorGrabbed=false` at frame
+    22, final state `directorShotListLoaded=true`, `directorPhaseIndex=0`,
+    `directorPhaseCount=2`. Screenshots:
+    `TestOutput\interaction\director_p2_4_grabbed.bmp` and
+    `TestOutput\interaction\director_p2_4_released.bmp`. Log:
+    `Agentic\Reports\2026-07-07\logs\fable-08-director-grab-release-interaction-proof-rerun.log`.
+  - Gate: `tools\validate_full.bat` passed on 2026-07-07 in 46.698s. Log:
+    `Agentic\Reports\2026-07-07\logs\fable-08-director-grab-release-validate-full.log`.
+    Key lines: project filters/runtime boundaries passed; Profile and Debug
+    builds succeeded with 0 warnings/0 errors; DX12 InfoQueue reported 0
+    validation errors; DX12 screenshots matched committed baselines;
+    `physics_regression_solver.csv` matched byte-exactly; `VALIDATE_FULL:
+    DEFAULT GATE PASSED`.
 - [ ] P2.5 "Set pose here": while grabbed (or in any fly mode), a key writes
   the current camera pose into the selected phase; another key steps the
   selected phase; another saves the shot list (P1.2). Evidence: author a pose

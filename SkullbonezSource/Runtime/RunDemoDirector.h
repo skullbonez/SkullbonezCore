@@ -37,6 +37,8 @@ namespace DemoDirectorPlayback
 bool LoadShotList( RunCameraState& camera, const RunSubsystemState& systems, const char* path );
 bool AdvancePhase( RunCameraState& camera, const RunSubsystemState& systems );
 void EnterMode( RunCameraState& camera, const RunSubsystemState& systems );
+bool BeginGrab( RunCameraState& camera, const RunSubsystemState& systems );
+bool EndGrab( RunCameraState& camera, const RunSubsystemState& systems );
 void Tick( RunCameraState& camera, const RunSubsystemState& systems, float cameraDt );
 } // namespace DemoDirectorPlayback
 } // namespace Basics
