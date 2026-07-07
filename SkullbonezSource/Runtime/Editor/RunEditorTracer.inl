@@ -4,8 +4,9 @@ Purpose:
   Implements runtime editor overlay tracer primitives and draw submission.
 
 Mental model:
-  The tracer turns editor/replay tool state into transient colored lines. It observes
-  state prepared elsewhere and should not mutate selection, physics, or replay ownership.
+  The tracer turns editor/replay tool state into transient colored lines and replay
+  ribbons. It observes state prepared elsewhere and should not mutate selection,
+  physics, or replay ownership.
 
 Glossary:
   Tracer: Per-frame line builder for placement rays, gizmos, replay paths, and selection outlines.
@@ -16,12 +17,14 @@ Glossary:
     body-store pose and collider-store shape/radius values.
   Replay future marker: Shape-accurate downstream collision outline drawn at
     the latest visible predicted/retained pose, never from a broadphase radius substitute.
+  Replay ribbon: Camera-facing quad strip generated from replay path or marker
+    segments so the shader can apply smooth edges and glow.
   Placement ghost: Preview outline drawn before an editor placement commit; it
     must match the primitive bodies that placement will actually spawn.
 
 Invariants:
   - Trace generation must stay transient; line buffers are cleared every frame by the caller.
-  - Replay causal entry/rest markers use priority line storage so expensive
+  - Replay causal entry/rest markers use priority ribbon storage so expensive
     prediction paths can degrade without erasing already-revealed boxes.
   - This file must only be included from RunEditorTools.cpp after tracer helper math is declared.
 
@@ -36,7 +39,49 @@ namespace
 constexpr std::size_t RUN_EDITOR_TRACER_LINE_FLOAT_CAPACITY = 262144;
 constexpr std::size_t RUN_EDITOR_TRACER_PRIORITY_LINE_FLOAT_CAPACITY = 524288;
 constexpr std::size_t RUN_EDITOR_TRACER_FLOATS_PER_LINE = 12;
+constexpr std::size_t RUN_EDITOR_TRACER_REPLAY_RIBBON_SEGMENT_CAPACITY = 32768;
+constexpr std::size_t RUN_EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_SEGMENT = 13;
+constexpr std::size_t RUN_EDITOR_TRACER_REPLAY_RIBBON_FLOAT_CAPACITY =
+    RUN_EDITOR_TRACER_REPLAY_RIBBON_SEGMENT_CAPACITY * RUN_EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_SEGMENT;
+constexpr std::size_t RUN_EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_VERTEX = 11;
+constexpr std::size_t RUN_EDITOR_TRACER_REPLAY_RIBBON_VERTICES_PER_SEGMENT = 6;
+constexpr std::size_t RUN_EDITOR_TRACER_REPLAY_RIBBON_VERTEX_FLOAT_CAPACITY =
+    RUN_EDITOR_TRACER_REPLAY_RIBBON_SEGMENT_CAPACITY * 2 * RUN_EDITOR_TRACER_REPLAY_RIBBON_VERTICES_PER_SEGMENT *
+    RUN_EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_VERTEX;
 constexpr float RUN_EDITOR_TRACER_REPLAY_LINE_OPACITY = 0.5f;
+
+Vector3 NormalizeTracerVectorOr( const Vector3& value, const Vector3& fallback )
+{
+    const float length = VectorMag( value );
+    if ( length <= TOLERANCE )
+    {
+        return fallback;
+    }
+    return value / length;
+}
+
+void AppendReplayRibbonVertex( std::vector<float>& vertexData,
+                               const Vector3& position,
+                               float r,
+                               float g,
+                               float b,
+                               float alpha,
+                               float edgeCoord,
+                               float edgeFeather,
+                               float hdrScale )
+{
+    vertexData.push_back( position.x );
+    vertexData.push_back( position.y );
+    vertexData.push_back( position.z );
+    vertexData.push_back( r );
+    vertexData.push_back( g );
+    vertexData.push_back( b );
+    vertexData.push_back( alpha );
+    vertexData.push_back( edgeCoord );
+    vertexData.push_back( edgeFeather );
+    vertexData.push_back( hdrScale );
+    vertexData.push_back( 0.0f );
+}
 } // namespace
 
 
@@ -48,6 +93,9 @@ RunEditorTracer::RunEditorTracer()
     m_lineData.reserve( RUN_EDITOR_TRACER_LINE_FLOAT_CAPACITY );
     m_priorityLineData.reserve( RUN_EDITOR_TRACER_PRIORITY_LINE_FLOAT_CAPACITY );
     m_renderLineData.reserve( RUN_EDITOR_TRACER_LINE_FLOAT_CAPACITY + RUN_EDITOR_TRACER_PRIORITY_LINE_FLOAT_CAPACITY );
+    m_replayRibbonSegments.reserve( RUN_EDITOR_TRACER_REPLAY_RIBBON_FLOAT_CAPACITY );
+    m_priorityReplayRibbonSegments.reserve( RUN_EDITOR_TRACER_REPLAY_RIBBON_FLOAT_CAPACITY );
+    m_replayRibbonVertexData.reserve( RUN_EDITOR_TRACER_REPLAY_RIBBON_VERTEX_FLOAT_CAPACITY );
 }
 
 
@@ -56,6 +104,9 @@ void RunEditorTracer::Clear()
     m_lineData.clear();
     m_priorityLineData.clear();
     m_renderLineData.clear();
+    m_replayRibbonSegments.clear();
+    m_priorityReplayRibbonSegments.clear();
+    m_replayRibbonVertexData.clear();
 }
 
 
@@ -284,6 +335,229 @@ void RunEditorTracer::EmitShapeOutline( const Vector3& position,
 }
 
 
+void RunEditorTracer::EmitReplayRibbonSegmentTo( std::vector<float>& ribbonData,
+                                                 const Vector3& a,
+                                                 const Vector3& b,
+                                                 float r,
+                                                 float g,
+                                                 float bl,
+                                                 const ReplayRibbonStyle& style )
+{
+    if ( VectorMagSquared( b - a ) <= TOLERANCE * TOLERANCE ||
+         ribbonData.size() + RUN_EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_SEGMENT > ribbonData.capacity() )
+    {
+        return;
+    }
+
+    // Invariant: replay ribbon storage is reserved during tracer construction.
+    // Explicit appends keep the steady-gameplay path inside that fixed budget.
+    ribbonData.push_back( a.x );
+    ribbonData.push_back( a.y );
+    ribbonData.push_back( a.z );
+    ribbonData.push_back( b.x );
+    ribbonData.push_back( b.y );
+    ribbonData.push_back( b.z );
+    ribbonData.push_back( r );
+    ribbonData.push_back( g );
+    ribbonData.push_back( bl );
+    ribbonData.push_back( style.width );
+    ribbonData.push_back( style.alpha );
+    ribbonData.push_back( style.edgeFeather );
+    ribbonData.push_back( style.hdrScale );
+}
+
+
+void RunEditorTracer::EmitReplayRibbonGlowPairTo( std::vector<float>& ribbonData,
+                                                  const Vector3& a,
+                                                  const Vector3& b,
+                                                  float r,
+                                                  float g,
+                                                  float bl,
+                                                  const ReplayRibbonStyle& glow,
+                                                  const ReplayRibbonStyle& core )
+{
+    EmitReplayRibbonSegmentTo( ribbonData, a, b, r, g, bl, glow );
+    EmitReplayRibbonSegmentTo( ribbonData, a, b, r, g, bl, core );
+}
+
+
+void RunEditorTracer::EmitReplayRibbonShapeOutlineTo( std::vector<float>& ribbonData,
+                                                      const Vector3& position,
+                                                      const Quaternion& orientation,
+                                                      const CollisionShape& shape,
+                                                      float r,
+                                                      float g,
+                                                      float b,
+                                                      const ReplayRibbonStyle& style )
+{
+    Quaternion outlineOrientation = orientation;
+    const RotationMatrix rot = outlineOrientation.GetOrientationMatrix();
+
+    if ( const BoundingSphere* sphere = std::get_if<BoundingSphere>( &shape ) )
+    {
+        constexpr int segments = 32;
+        const Vector3 center = position + rot * sphere->GetPosition();
+        const float radius = sphere->GetBoundingRadius();
+        for ( int plane = 0; plane < 3; ++plane )
+        {
+            Vector3 previous;
+            for ( int i = 0; i <= segments; ++i )
+            {
+                const float theta = static_cast<float>( i ) * ( 2.0f * _PI / static_cast<float>( segments ) );
+                const float c = cosf( theta ) * radius;
+                const float s = sinf( theta ) * radius;
+                Vector3 next = center;
+                if ( plane == 0 )
+                {
+                    next.x += c;
+                    next.z += s;
+                }
+                else if ( plane == 1 )
+                {
+                    next.x += c;
+                    next.y += s;
+                }
+                else
+                {
+                    next.y += c;
+                    next.z += s;
+                }
+
+                if ( i > 0 )
+                {
+                    EmitReplayRibbonSegmentTo( ribbonData, previous, next, r, g, b, style );
+                }
+                previous = next;
+            }
+        }
+        return;
+    }
+    if ( const BoundingBox* box = std::get_if<BoundingBox>( &shape ) )
+    {
+        const Vector3& he = box->GetHalfExtents();
+        const Vector3 center = position + rot * box->GetPosition();
+        const Vector3 xAxis = rot * Vector3( he.x, 0.0f, 0.0f );
+        const Vector3 yAxis = rot * Vector3( 0.0f, he.y, 0.0f );
+        const Vector3 zAxis = rot * Vector3( 0.0f, 0.0f, he.z );
+        const Vector3 corners[8] = {
+            center - xAxis - yAxis - zAxis,
+            center + xAxis - yAxis - zAxis,
+            center + xAxis + yAxis - zAxis,
+            center - xAxis + yAxis - zAxis,
+            center - xAxis - yAxis + zAxis,
+            center + xAxis - yAxis + zAxis,
+            center + xAxis + yAxis + zAxis,
+            center - xAxis + yAxis + zAxis,
+        };
+        static constexpr int kEdges[12][2] = {
+            { 0, 1 },
+            { 1, 2 },
+            { 2, 3 },
+            { 3, 0 },
+            { 4, 5 },
+            { 5, 6 },
+            { 6, 7 },
+            { 7, 4 },
+            { 0, 4 },
+            { 1, 5 },
+            { 2, 6 },
+            { 3, 7 },
+        };
+        for ( const auto& edge : kEdges )
+        {
+            EmitReplayRibbonSegmentTo( ribbonData, corners[edge[0]], corners[edge[1]], r, g, b, style );
+        }
+        return;
+    }
+    if ( const ConvexHullShape* hull = std::get_if<ConvexHullShape>( &shape ) )
+    {
+        const Vector3 hullCenter = position + rot * hull->GetPosition();
+        for ( uint16_t edgeIndex = 0; edgeIndex < hull->GetEdgeCount(); ++edgeIndex )
+        {
+            const ConvexHullEdge& edge = hull->GetEdge( edgeIndex );
+            EmitReplayRibbonSegmentTo( ribbonData,
+                                       hullCenter + rot * hull->GetVertex( edge.vertexA ),
+                                       hullCenter + rot * hull->GetVertex( edge.vertexB ),
+                                       r,
+                                       g,
+                                       b,
+                                       style );
+        }
+    }
+}
+
+
+void RunEditorTracer::BuildReplayRibbonVertices( const Vector3& cameraEye, const Vector3& cameraUp )
+{
+    m_replayRibbonVertexData.clear();
+
+    const Vector3 safeCameraUp = NormalizeTracerVectorOr( cameraUp, Vector3( 0.0f, 1.0f, 0.0f ) );
+    auto appendRibbonData = [&]( const std::vector<float>& ribbonData )
+    {
+        for ( std::size_t i = 0; i + RUN_EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_SEGMENT <= ribbonData.size();
+              i += RUN_EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_SEGMENT )
+        {
+            if ( m_replayRibbonVertexData.size() + RUN_EDITOR_TRACER_REPLAY_RIBBON_VERTICES_PER_SEGMENT *
+                                                       RUN_EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_VERTEX >
+                 m_replayRibbonVertexData.capacity() )
+            {
+                return;
+            }
+
+            const Vector3 a( ribbonData[i + 0], ribbonData[i + 1], ribbonData[i + 2] );
+            const Vector3 b( ribbonData[i + 3], ribbonData[i + 4], ribbonData[i + 5] );
+            const float r = ribbonData[i + 6];
+            const float g = ribbonData[i + 7];
+            const float bl = ribbonData[i + 8];
+            const float width = (std::max)( 0.02f, ribbonData[i + 9] );
+            const float alpha = std::clamp( ribbonData[i + 10], 0.0f, 1.0f );
+            const float edgeFeather = std::clamp( ribbonData[i + 11], 0.02f, 0.95f );
+            const float hdrScale = (std::max)( 0.0f, ribbonData[i + 12] );
+
+            const Vector3 segment = b - a;
+            const float segmentLength = VectorMag( segment );
+            if ( segmentLength <= TOLERANCE )
+            {
+                continue;
+            }
+            const Vector3 dir = segment / segmentLength;
+            const Vector3 mid = ( a + b ) * 0.5f;
+            const Vector3 toCamera = NormalizeTracerVectorOr( cameraEye - mid, safeCameraUp );
+            Vector3 side = CrossProduct( dir, toCamera );
+            if ( VectorMagSquared( side ) <= TOLERANCE * TOLERANCE )
+            {
+                side = CrossProduct( dir, safeCameraUp );
+            }
+            if ( VectorMagSquared( side ) <= TOLERANCE * TOLERANCE )
+            {
+                side =
+                    CrossProduct( dir,
+                                  fabsf( dir.y ) < 0.8f ? Vector3( 0.0f, 1.0f, 0.0f ) : Vector3( 1.0f, 0.0f, 0.0f ) );
+            }
+            side = NormalizeTracerVectorOr( side, Vector3( 1.0f, 0.0f, 0.0f ) ) * ( width * 0.5f );
+
+            const Vector3 aLeft = a - side;
+            const Vector3 aRight = a + side;
+            const Vector3 bLeft = b - side;
+            const Vector3 bRight = b + side;
+
+            AppendReplayRibbonVertex( m_replayRibbonVertexData, aLeft, r, g, bl, alpha, -1.0f, edgeFeather, hdrScale );
+            AppendReplayRibbonVertex( m_replayRibbonVertexData, aRight, r, g, bl, alpha, 1.0f, edgeFeather, hdrScale );
+            AppendReplayRibbonVertex( m_replayRibbonVertexData, bRight, r, g, bl, alpha, 1.0f, edgeFeather, hdrScale );
+            AppendReplayRibbonVertex( m_replayRibbonVertexData, aLeft, r, g, bl, alpha, -1.0f, edgeFeather, hdrScale );
+            AppendReplayRibbonVertex( m_replayRibbonVertexData, bRight, r, g, bl, alpha, 1.0f, edgeFeather, hdrScale );
+            AppendReplayRibbonVertex( m_replayRibbonVertexData, bLeft, r, g, bl, alpha, -1.0f, edgeFeather, hdrScale );
+        }
+    };
+
+    // Invariant: ordinary replay paths may overflow without erasing causal
+    // evidence. Priority ribbons are appended second, matching the old priority
+    // line buffer contract for yellow entry and grey rest boxes.
+    appendRibbonData( m_replayRibbonSegments );
+    appendRibbonData( m_priorityReplayRibbonSegments );
+}
+
+
 void RunEditorTracer::AddPlacementRay( const Vector3& rayOrigin, const Vector3& hitPoint )
 {
     EmitLine( rayOrigin, hitPoint, 0.25f, 0.80f, 1.0f );
@@ -470,25 +744,34 @@ void RunEditorTracer::AddRayCastTestLine( const Vector3& start, const Vector3& e
 
 void RunEditorTracer::AddReplayPathSegment( const Vector3& start, const Vector3& end, float r, float g, float b )
 {
-    EmitLine( start,
-              end,
-              r * RUN_EDITOR_TRACER_REPLAY_LINE_OPACITY,
-              g * RUN_EDITOR_TRACER_REPLAY_LINE_OPACITY,
-              b * RUN_EDITOR_TRACER_REPLAY_LINE_OPACITY );
+    const ReplayRibbonStyle glow = { 1.15f, 0.20f, 0.74f, 2.65f };
+    const ReplayRibbonStyle core = { 0.28f, 0.86f, 0.36f, 1.55f };
+    EmitReplayRibbonGlowPairTo( m_replayRibbonSegments,
+                                start,
+                                end,
+                                r * RUN_EDITOR_TRACER_REPLAY_LINE_OPACITY,
+                                g * RUN_EDITOR_TRACER_REPLAY_LINE_OPACITY,
+                                b * RUN_EDITOR_TRACER_REPLAY_LINE_OPACITY,
+                                glow,
+                                core );
 }
 
 
 void RunEditorTracer::AddReplayCausalTrailSegment( const Vector3& start, const Vector3& end, float r, float g, float b )
 {
     // Why: retained causal trails are the evidence attached to yellow/grey/ghost
-    // boxes. They live with the priority markers so overflow in ordinary path
-    // rendering cannot leave a marker without its sampled route.
-    EmitLineTo( m_priorityLineData,
-                start,
-                end,
-                r * RUN_EDITOR_TRACER_REPLAY_LINE_OPACITY,
-                g * RUN_EDITOR_TRACER_REPLAY_LINE_OPACITY,
-                b * RUN_EDITOR_TRACER_REPLAY_LINE_OPACITY );
+    // boxes. They live with the priority ribbons so overflow in ordinary root
+    // path rendering cannot leave a marker without its sampled route.
+    const ReplayRibbonStyle glow = { 1.55f, 0.28f, 0.78f, 3.25f };
+    const ReplayRibbonStyle core = { 0.34f, 0.92f, 0.34f, 1.90f };
+    EmitReplayRibbonGlowPairTo( m_priorityReplayRibbonSegments,
+                                start,
+                                end,
+                                r * RUN_EDITOR_TRACER_REPLAY_LINE_OPACITY,
+                                g * RUN_EDITOR_TRACER_REPLAY_LINE_OPACITY,
+                                b * RUN_EDITOR_TRACER_REPLAY_LINE_OPACITY,
+                                glow,
+                                core );
 }
 
 
@@ -539,9 +822,26 @@ void RunEditorTracer::AddReplayCausalEntryMarker( const Vector3& position,
                                                   const CollisionShape& shape )
 {
     // Why: entry and rest form a fixed two-color vocabulary. Yellow always
-    // means "joined the causal tree here", so no depth fade is applied. Use the
-    // priority buffer so path-line overflow cannot erase already-revealed boxes.
-    EmitShapeOutlineTo( m_priorityLineData, position, orientation, shape, 1.0f, 0.85f, 0.25f );
+    // means "joined the causal tree here", so no depth fade is applied. Use
+    // priority ribbons so path overflow cannot erase already-revealed boxes.
+    const ReplayRibbonStyle glow = { 1.65f, 0.30f, 0.80f, 3.45f };
+    const ReplayRibbonStyle core = { 0.36f, 0.95f, 0.34f, 2.05f };
+    EmitReplayRibbonShapeOutlineTo( m_priorityReplayRibbonSegments,
+                                    position,
+                                    orientation,
+                                    shape,
+                                    1.0f,
+                                    0.85f,
+                                    0.25f,
+                                    glow );
+    EmitReplayRibbonShapeOutlineTo( m_priorityReplayRibbonSegments,
+                                    position,
+                                    orientation,
+                                    shape,
+                                    1.0f,
+                                    0.85f,
+                                    0.25f,
+                                    core );
 }
 
 
@@ -549,7 +849,24 @@ void RunEditorTracer::AddReplayCausalRestMarker( const Vector3& position,
                                                  const Quaternion& orientation,
                                                  const CollisionShape& shape )
 {
-    EmitShapeOutlineTo( m_priorityLineData, position, orientation, shape, 0.58f, 0.58f, 0.62f );
+    const ReplayRibbonStyle glow = { 1.10f, 0.18f, 0.72f, 1.85f };
+    const ReplayRibbonStyle core = { 0.28f, 0.82f, 0.34f, 1.22f };
+    EmitReplayRibbonShapeOutlineTo( m_priorityReplayRibbonSegments,
+                                    position,
+                                    orientation,
+                                    shape,
+                                    0.58f,
+                                    0.58f,
+                                    0.62f,
+                                    glow );
+    EmitReplayRibbonShapeOutlineTo( m_priorityReplayRibbonSegments,
+                                    position,
+                                    orientation,
+                                    shape,
+                                    0.58f,
+                                    0.58f,
+                                    0.62f,
+                                    core );
 }
 
 
@@ -560,7 +877,24 @@ void RunEditorTracer::AddReplayCausalHorizonMarker( const Vector3& position,
     // Concept: horizon ghosts are not landings. They mark "this is where the
     // prediction buffer ends" for a body still mid-flight, so the color stays
     // distinct from grey resting boxes.
-    EmitShapeOutlineTo( m_priorityLineData, position, orientation, shape, 0.45f, 0.92f, 1.0f );
+    const ReplayRibbonStyle glow = { 1.30f, 0.22f, 0.76f, 2.60f };
+    const ReplayRibbonStyle core = { 0.30f, 0.88f, 0.34f, 1.55f };
+    EmitReplayRibbonShapeOutlineTo( m_priorityReplayRibbonSegments,
+                                    position,
+                                    orientation,
+                                    shape,
+                                    0.45f,
+                                    0.92f,
+                                    1.0f,
+                                    glow );
+    EmitReplayRibbonShapeOutlineTo( m_priorityReplayRibbonSegments,
+                                    position,
+                                    orientation,
+                                    shape,
+                                    0.45f,
+                                    0.92f,
+                                    1.0f,
+                                    core );
 }
 
 
@@ -732,26 +1066,46 @@ void RunEditorTracer::AddReplayVelocityGizmo( const Vector3& origin,
 }
 
 
-void RunEditorTracer::Render( const Matrix4& viewProjection, Rendering::IRenderCommandContext& renderCommands )
+void RunEditorTracer::Render( const Matrix4& viewProjection,
+                              const Vector3& cameraEye,
+                              const Vector3& cameraUp,
+                              Rendering::IRenderCommandContext& renderCommands )
 {
-    if ( m_lineData.empty() && m_priorityLineData.empty() )
+    if ( m_lineData.empty() && m_priorityLineData.empty() && m_replayRibbonSegments.empty() &&
+         m_priorityReplayRibbonSegments.empty() )
     {
         return;
     }
-    // Invariant: m_lineData stores colored vertices as xyz/rgb floats; every
-    // pair of vertices is one line segment consumed by DrawLinesColored.
-    const float* lineData = m_lineData.data();
-    std::size_t floatCount = m_lineData.size();
-    if ( !m_priorityLineData.empty() )
+
+    if ( !m_lineData.empty() || !m_priorityLineData.empty() )
     {
-        // Build one pre-reserved stream so ordinary paths and priority causal
-        // markers keep independent caps while the caller-owned render context
-        // performs the single debug-line draw.
-        m_renderLineData.clear();
-        m_renderLineData.insert( m_renderLineData.end(), m_lineData.begin(), m_lineData.end() );
-        m_renderLineData.insert( m_renderLineData.end(), m_priorityLineData.begin(), m_priorityLineData.end() );
-        lineData = m_renderLineData.data();
-        floatCount = m_renderLineData.size();
+        // Invariant: m_lineData stores colored vertices as xyz/rgb floats; every
+        // pair of vertices is one line segment consumed by DrawLinesColored.
+        const float* lineData = m_lineData.data();
+        std::size_t floatCount = m_lineData.size();
+        if ( !m_priorityLineData.empty() )
+        {
+            // Build one pre-reserved stream so ordinary paths and priority causal
+            // markers keep independent caps while the caller-owned render context
+            // performs the single debug-line draw.
+            m_renderLineData.clear();
+            m_renderLineData.insert( m_renderLineData.end(), m_lineData.begin(), m_lineData.end() );
+            m_renderLineData.insert( m_renderLineData.end(), m_priorityLineData.begin(), m_priorityLineData.end() );
+            lineData = m_renderLineData.data();
+            floatCount = m_renderLineData.size();
+        }
+        renderCommands.DrawLinesColored( lineData, static_cast<int>( floatCount / 6 ), viewProjection.Data() );
     }
-    renderCommands.DrawLinesColored( lineData, static_cast<int>( floatCount / 6 ), viewProjection.Data() );
+
+    if ( !m_replayRibbonSegments.empty() || !m_priorityReplayRibbonSegments.empty() )
+    {
+        BuildReplayRibbonVertices( cameraEye, cameraUp );
+        if ( !m_replayRibbonVertexData.empty() )
+        {
+            renderCommands.DrawReplayRibbons(
+                m_replayRibbonVertexData.data(),
+                static_cast<int>( m_replayRibbonVertexData.size() / RUN_EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_VERTEX ),
+                viewProjection.Data() );
+        }
+    }
 }

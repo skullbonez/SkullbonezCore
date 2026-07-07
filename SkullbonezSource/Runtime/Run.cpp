@@ -188,7 +188,7 @@ Run::Run( Window& window,
               run->RenderReplayPathVisualizer( tracer );
               run->RenderReplayCauseFocusOverlay( tracer );
               run->RenderReplayVelocityEditOverlay( tracer );
-              tracer.Render( viewProjection, renderCommands );
+              tracer.Render( viewProjection, cameraEye, cameraUp, renderCommands );
               run->m_runtimeTools.Laser().Render( viewProjection,
                                                   cameraEye,
                                                   cameraUp,

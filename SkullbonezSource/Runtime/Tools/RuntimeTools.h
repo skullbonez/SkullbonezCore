@@ -16,6 +16,8 @@ Glossary:
     scrubbing so debug feedback follows recorded frames.
   Replay target marker: Debug overlay outline/ring drawn around a replay body
     from live body/collider store values.
+  Replay ribbon: Camera-facing overlay stroke generated from replay path or
+    marker segments so the shader can apply smooth edges and glow.
   Gizmo drag group: Bounded set of selected model indices transformed as one
     editor gesture.
   Body store: Physics-owned dense body rows borrowed by tool hit tests and
@@ -229,9 +231,21 @@ struct RunEditorPlacementState
 class RunEditorTracer
 {
   private:
+    struct ReplayRibbonStyle
+    {
+        float width = 0.25f;                                                // World-space ribbon width.
+        float alpha = 0.80f;                                                // Blend weight before shader edge falloff.
+        float edgeFeather = 0.38f;                                          // Fraction of half-width used for antialias fading.
+        float hdrScale = 1.0f;                                              // Brightness multiplier for bloom/emphasis.
+    };
+
     std::vector<float> m_lineData;
     std::vector<float> m_priorityLineData;
     std::vector<float> m_renderLineData;
+    std::vector<float> m_replayRibbonSegments;                              // Packed 13-float replay segments before camera-facing expansion.
+    std::vector<float>
+        m_priorityReplayRibbonSegments;                                     // Retained causal marker segments that survive ordinary path overflow.
+    std::vector<float> m_replayRibbonVertexData;                            // Packed 11-float vertices consumed by replay_ribbon.hlsl.
 
     void EmitLineTo( std::vector<float>& lineData,
                      const Math::Vector::Vector3& a,
@@ -277,6 +291,30 @@ class RunEditorTracer
                            float r,
                            float g,
                            float b );
+    void EmitReplayRibbonSegmentTo( std::vector<float>& ribbonData,
+                                    const Math::Vector::Vector3& a,
+                                    const Math::Vector::Vector3& b,
+                                    float r,
+                                    float g,
+                                    float bl,
+                                    const ReplayRibbonStyle& style );
+    void EmitReplayRibbonGlowPairTo( std::vector<float>& ribbonData,
+                                     const Math::Vector::Vector3& a,
+                                     const Math::Vector::Vector3& b,
+                                     float r,
+                                     float g,
+                                     float bl,
+                                     const ReplayRibbonStyle& glow,
+                                     const ReplayRibbonStyle& core );
+    void EmitReplayRibbonShapeOutlineTo( std::vector<float>& ribbonData,
+                                         const Math::Vector::Vector3& position,
+                                         const Math::Orientation::Quaternion& orientation,
+                                         const Math::CollisionDetection::CollisionShape& shape,
+                                         float r,
+                                         float g,
+                                         float b,
+                                         const ReplayRibbonStyle& style );
+    void BuildReplayRibbonVertices( const Math::Vector::Vector3& cameraEye, const Math::Vector::Vector3& cameraUp );
 
   public:
     RunEditorTracer();
@@ -369,6 +407,8 @@ class RunEditorTracer
                                  int activeAxis,
                                  bool activeAngular );
     void Render( const Math::Transformation::Matrix4& viewProjection,
+                 const Math::Vector::Vector3& cameraEye,
+                 const Math::Vector::Vector3& cameraUp,
                  Rendering::IRenderCommandContext& renderCommands );
 };
 

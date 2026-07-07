@@ -48,6 +48,8 @@ Related:
 #include "../Rendering/RenderGraph.h"
 #include "../Rendering/RenderPipeline.h"
 
+#include <algorithm>
+#include <chrono>
 #include <cstddef>
 #include <fstream>
 #include <stdexcept>
@@ -67,6 +69,66 @@ namespace RuntimeAllocation = SkullbonezCore::Runtime::Allocation;
 
 namespace
 {
+float LerpFloat( float from, float to, float t )
+{
+    return from + ( to - from ) * t;
+}
+
+float ApproachFloat( float current, float target, float dtSeconds, float secondsToTarget )
+{
+    if ( secondsToTarget <= 0.0f )
+    {
+        return target;
+    }
+    const float step = std::clamp( dtSeconds / secondsToTarget, 0.0f, 1.0f );
+    if ( current < target )
+    {
+        return (std::min)( target, current + step );
+    }
+    return (std::max)( target, current - step );
+}
+
+void ApplyConsequenceGrade( CinematicRenderConfig& cinematic, float strength )
+{
+    const float s = std::clamp( strength, 0.0f, 1.0f );
+    if ( s <= 0.0f )
+    {
+        return;
+    }
+
+    // Concept: the consequence grade is a frame-local presentation override.
+    // It pushes the world down into cool silhouettes while replay ribbon HDR
+    // values stay bright enough for tonemap bloom to make causality read first.
+    cinematic.enabled = true;
+    cinematic.exposure = LerpFloat( cinematic.exposure, (std::max)( 0.05f, cinematic.exposure * 0.36f ), s );
+    cinematic.styleSaturation = LerpFloat( cinematic.styleSaturation, 0.24f, s );
+    cinematic.styleContrast = LerpFloat( cinematic.styleContrast, 1.12f, s );
+    cinematic.styleVignette = LerpFloat( cinematic.styleVignette, (std::max)( cinematic.styleVignette, 0.62f ), s );
+    cinematic.bloomEnabled = true;
+    cinematic.bloomThreshold = LerpFloat( cinematic.bloomThreshold, 0.62f, s );
+    cinematic.bloomKnee = LerpFloat( cinematic.bloomKnee, 0.72f, s );
+    cinematic.bloomStrength = LerpFloat( cinematic.bloomStrength, (std::max)( cinematic.bloomStrength, 0.62f ), s );
+    cinematic.bloomRadius = LerpFloat( cinematic.bloomRadius, (std::max)( cinematic.bloomRadius, 4.8f ), s );
+    cinematic.fogEnabled = true;
+    cinematic.fogColorR = LerpFloat( cinematic.fogColorR, 0.18f, s );
+    cinematic.fogColorG = LerpFloat( cinematic.fogColorG, 0.24f, s );
+    cinematic.fogColorB = LerpFloat( cinematic.fogColorB, 0.34f, s );
+    cinematic.fogMaxOpacity = LerpFloat( cinematic.fogMaxOpacity, (std::max)( cinematic.fogMaxOpacity, 0.28f ), s );
+    cinematic.sunIntensity = LerpFloat( cinematic.sunIntensity, (std::max)( 0.0f, cinematic.sunIntensity * 0.42f ), s );
+    cinematic.skyHorizonR = LerpFloat( cinematic.skyHorizonR, 0.22f, s );
+    cinematic.skyHorizonG = LerpFloat( cinematic.skyHorizonG, 0.34f, s );
+    cinematic.skyHorizonB = LerpFloat( cinematic.skyHorizonB, 0.58f, s );
+    cinematic.skyZenithR = LerpFloat( cinematic.skyZenithR, 0.04f, s );
+    cinematic.skyZenithG = LerpFloat( cinematic.skyZenithG, 0.08f, s );
+    cinematic.skyZenithB = LerpFloat( cinematic.skyZenithB, 0.20f, s );
+    cinematic.terrainTintR = LerpFloat( cinematic.terrainTintR, 0.08f, s );
+    cinematic.terrainTintG = LerpFloat( cinematic.terrainTintG, 0.14f, s );
+    cinematic.terrainTintB = LerpFloat( cinematic.terrainTintB, 0.18f, s );
+    cinematic.terrainAccentR = LerpFloat( cinematic.terrainAccentR, 0.02f, s );
+    cinematic.terrainAccentG = LerpFloat( cinematic.terrainAccentG, 0.07f, s );
+    cinematic.terrainAccentB = LerpFloat( cinematic.terrainAccentB, 0.12f, s );
+}
+
 // Concept: RenderGraph callback payloads are RuntimeRenderer-owned one-frame
 // scratch records. The graph API invokes C-style callbacks, so each payload
 // carries only the pass object and frame/view borrows needed by that pass.
@@ -2022,7 +2084,23 @@ void RuntimeRenderer::RenderFrameEntry( const FrameEntryContext& context )
     PROFILE_END( "Frame/Render/PrepareModels" );
     applyReplayRenderStateForFrame();
 
-    const bool cinematicRender = context.cinematicRequested && renderReady && !m_debug.isTextOnly;
+    const auto gradeNow = std::chrono::steady_clock::now();
+    float gradeDtSeconds = 0.0f;
+    if ( m_consequenceGradeLastTick.time_since_epoch().count() != 0 )
+    {
+        gradeDtSeconds =
+            std::clamp( std::chrono::duration<float>( gradeNow - m_consequenceGradeLastTick ).count(), 0.0f, 0.10f );
+    }
+    m_consequenceGradeLastTick = gradeNow;
+    const float consequenceGradeTarget = context.consequenceGradeRequested ? 1.0f : 0.0f;
+    m_consequenceGradeStrength =
+        ApproachFloat( m_consequenceGradeStrength, consequenceGradeTarget, gradeDtSeconds, 1.0f );
+
+    CinematicRenderConfig frameCinematic = context.cinematic;
+    ApplyConsequenceGrade( frameCinematic, m_consequenceGradeStrength );
+
+    const bool cinematicRender =
+        ( context.cinematicRequested || m_consequenceGradeStrength > 0.01f ) && renderReady && !m_debug.isTextOnly;
     RenderFrame( BuildRuntimeRenderInputs( m_systems,
                                            context.renderModels,
                                            m_world,
@@ -2031,7 +2109,7 @@ void RuntimeRenderer::RenderFrameEntry( const FrameEntryContext& context )
                                            *renderResources,
                                            *renderDiagnostics,
                                            renderRayTracing,
-                                           context.cinematic,
+                                           frameCinematic,
                                            cinematicRender,
                                            renderReady ) );
     restoreReplayLauncherVisualForRender();
@@ -2067,7 +2145,8 @@ void Run::Render( const RuntimeRenderModelFrameView& renderModels )
                                                                      m_cGameModelCollection,
                                                                      m_UI,
                                                                      activeCinematic,
-                                                                     cinematicRequested } );
+                                                                     cinematicRequested,
+                                                                     m_replayRuntime.Prediction().enabled } );
 }
 
 

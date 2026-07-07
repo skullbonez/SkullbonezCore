@@ -315,6 +315,72 @@ void RenderBackendDX12::DrawTransientColoredTriangles( const float* data,
 }
 
 
+void RenderBackendDX12::DrawReplayRibbons( const float* data, int vertexCount, const float* viewProjMatrix16 )
+{
+    if ( vertexCount <= 0 || !data || !viewProjMatrix16 )
+    {
+        return;
+    }
+
+    EnsureCommandListOpen();
+
+    if ( !m_replayRibbonShader )
+    {
+        m_replayRibbonShader = CreateShader( "shaders/replay_ribbon" );
+    }
+    ShaderDX12* shader = static_cast<ShaderDX12*>( m_replayRibbonShader.get() );
+
+    const bool depthTestWasEnabled = m_depthTestEnabled;
+    const bool depthWriteWasEnabled = m_depthWriteEnabled;
+    const bool blendWasEnabled = m_blendEnabled;
+    const bool cullWasEnabled = m_cullEnabled;
+    const BlendFactor blendSrc = m_blendSrc;
+    const BlendFactor blendDst = m_blendDst;
+
+    // Concept: replay ribbons replace jagged line-list prediction overlays with
+    // translucent camera-facing triangles. They draw over the world like the old
+    // debug lines, but use additive HDR color so cinematic bloom can catch only
+    // the authored causal-emphasis layers.
+    SetDepthTest( false );
+    SetDepthWrite( false );
+    SetBlend( true );
+    SetBlendFunc( BlendFactor::SrcAlpha, BlendFactor::One );
+    SetCullFace( false );
+
+    shader->Use();
+    shader->SetMat4( "uViewProj", Matrix4( viewProjMatrix16 ) );
+
+    DynamicVBDX12 vertexLayout = {};
+    vertexLayout.numAttribs = 3;
+    vertexLayout.attribComponents[0] = 3;
+    vertexLayout.attribComponents[1] = 4;
+    vertexLayout.attribComponents[2] = 4;
+    vertexLayout.floatsPerVertex = 11;
+    vertexLayout.stride = 11 * static_cast<int>( sizeof( float ) );
+
+    const UINT64 dataSize = static_cast<UINT64>( vertexCount ) * static_cast<UINT64>( vertexLayout.stride );
+    const D3D12_GPU_VIRTUAL_ADDRESS vbAddress = ReserveUpload( dataSize, 4 );
+    memcpy( GetUploadPtr( vbAddress ), data, static_cast<size_t>( dataSize ) );
+
+    PrepareDraw( VertexFormat12::Pos3, false, nullptr, &vertexLayout );
+
+    D3D12_VERTEX_BUFFER_VIEW vbView = {};
+    vbView.BufferLocation = vbAddress;
+    vbView.SizeInBytes = static_cast<UINT>( dataSize );
+    vbView.StrideInBytes = static_cast<UINT>( vertexLayout.stride );
+    m_commandList->IASetVertexBuffers( 0, 1, &vbView );
+
+    RecordDrawCall( { DrawCallKind::DynamicVertexBuffer, "ReplayRibbon", vertexCount, 1 } );
+    m_commandList->DrawInstanced( static_cast<UINT>( vertexCount ), 1, 0, 0 );
+
+    SetCullFace( cullWasEnabled );
+    SetBlendFunc( blendSrc, blendDst );
+    SetBlend( blendWasEnabled );
+    SetDepthWrite( depthWriteWasEnabled );
+    SetDepthTest( depthTestWasEnabled );
+}
+
+
 uint32_t RenderBackendDX12::CreateInstancedMesh( const float* staticData,
                                                  int staticVertCount,
                                                  int staticFloatsPerVert,
