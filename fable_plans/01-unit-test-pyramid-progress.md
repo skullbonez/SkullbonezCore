@@ -178,14 +178,48 @@ item against plan 02 and pick the next.
 
 ## Phase 2 — physics primitives and stores
 
-- [ ] S1. DISCOVERY: list what PhysicsBodyStore/ColliderStore need for
+- [x] S1. DISCOVERY: list what PhysicsBodyStore/ColliderStore need for
   standalone construction: `rg -n "class PhysicsBodyStore" -A 30
   SkullbonezSource/Physics/PhysicsBodyStore.h` — record ctor + row-add API
   here. If rows can only be created through GameModelCollection append, `[B]`
   store tests against authoritative-plan-02 and test only the pure query
   paths reachable from a default-constructed store.
-- [ ] S2. `TestBounds.cpp` — BoundingSphere/BoundingBox overlap/containment
+
+  Evidence: CodeGraph mapped `PhysicsBodyStore` and `ColliderStore` creation,
+  destruction, lookup, and handle-model-index paths with no covering tests.
+  Confirmed public standalone construction is available:
+  `PhysicsBodyStore::PhysicsBodyStore()`, `CreateBodyRecord( const
+  PhysicsBodyRecord& )`, `CreateBodyRecord( const PhysicsBodyCreateDesc&, bool
+  sleepEnabled )`, `DestroyBodyRecord( PhysicsBodyHandle )`,
+  `HandleForModelIndex`, `ModelIndexForHandle`, `Contains`, `RecordForHandle`,
+  and row accessors in `SkullbonezSource/Physics/PhysicsBodyStore.h`.
+  Confirmed collider standalone construction is available:
+  `ColliderStore::ColliderStore()`, `CreateColliderRecord( const
+  ColliderRecord& )`, `DestroyColliderRecord( PhysicsColliderHandle )`,
+  `HandleForModelIndex`, `HandleForBodyHandle`, `HandleForSceneObjectId`,
+  `ModelIndexForHandle`, `Contains`, and `RecordForHandle` in
+  `SkullbonezSource/Physics/ColliderStore.h`. Handles are
+  index/generation pairs from `PhysicsHandles.h`; deletes close dense rows and
+  increment handle generations. Store tests do not need to route through
+  `GameModelCollection`.
+- [x] S2. `TestBounds.cpp` — BoundingSphere/BoundingBox overlap/containment
   truth tables including touching-surface cases.
+
+  Evidence: CodeGraph mapped `BoundingSphere` and `BoundingBox` as broadphase
+  swept collision helpers rather than exact containment predicates. Discovery
+  `rg -n "Cfg\(|Gfx\(|::Instance"
+  SkullbonezSource/Physics/BoundingSphere.cpp
+  SkullbonezSource/Physics/BoundingBox.cpp` returned no hits. Added
+  `SkullbonezTests/TestBounds.cpp` and compiled `BoundingSphere.cpp`,
+  `BoundingBox.cpp`, and required `ConvexHullShape.cpp` into
+  `SKULLBONEZ_TESTS`; the hull source is needed because the bounds translation
+  units define convex-hull overloads that reference hull accessors. Tests lock
+  sphere swept hit/miss/tangent times, sphere static overlap/touching returning
+  `NO_COLLISION`, box broadphase bounding-radius touching/miss/sweep behavior,
+  and sphere-box symmetry for a shared setup. Gate:
+  `tools\validate_tests.bat` passed in 3.748s with 19 doctest cases and
+  115 assertions all passing after fixing project filters and adding the real
+  hull dependency.
 - [ ] S3. `TestSpatialGrid.cpp` — insert/query round-trip, cell-boundary
   straddling, remove-then-query emptiness. (SpatialGrid.cpp has 13 invariant
   throws — trigger none; they become SB_FATAL under plan 05.)

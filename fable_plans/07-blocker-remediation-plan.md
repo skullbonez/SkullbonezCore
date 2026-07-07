@@ -227,3 +227,11 @@ else returns to the overnight machine as gated, verifiable slices.
   `tools\validate_tests.bat` (3.812s, 15 doctest cases, 105 assertions,
   0 warnings/errors) and `tools\validate_fast.bat` (33.651s, 0
   warnings/errors).
+- 2026-07-07: Completed fable-01 S1/S2 physics primitive discovery and bounds
+  tests. Confirmed `PhysicsBodyStore`/`ColliderStore` can be constructed and
+  populated standalone via direct create/destroy APIs. Added
+  `SkullbonezTests/TestBounds.cpp`, compiled `BoundingSphere.cpp`,
+  `BoundingBox.cpp`, and the required `ConvexHullShape.cpp` dependency into
+  `SKULLBONEZ_TESTS`, and covered broadphase sweep/overlap/touching contracts.
+  Gate passed: `tools\validate_tests.bat` (3.748s, 19 doctest cases,
+  115 assertions, 0 warnings/errors).

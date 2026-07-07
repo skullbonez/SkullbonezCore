@@ -19,8 +19,14 @@
     <Filter Include="Source Files\Maths">
       <UniqueIdentifier>{6FF6208D-1EF1-4B2A-8701-C60839C18552}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\Physics">
+      <UniqueIdentifier>{BB54C591-485D-4831-95BE-EC866F8F14C3}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="SkullbonezTests\TestBounds.cpp">
+      <Filter>Source Files\Tests</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezTests\TestGeometricMath.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
@@ -44,6 +50,15 @@
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Maths\GeometricMath.cpp">
       <Filter>Source Files\Maths</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Physics\BoundingBox.cpp">
+      <Filter>Source Files\Physics</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Physics\BoundingSphere.cpp">
+      <Filter>Source Files\Physics</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Physics\ConvexHullShape.cpp">
+      <Filter>Source Files\Physics</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Maths\Matrix4.cpp">
       <Filter>Source Files\Maths</Filter>
