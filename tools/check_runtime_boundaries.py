@@ -1626,7 +1626,6 @@ GLOBAL_RENDERER_SERVICE_ACCESS_CLASSIFICATIONS: dict[Path, str] = {
     Path("SkullbonezSource/Runtime/Run.cpp"): "runtime composition root",
     Path("SkullbonezSource/Runtime/RunFrame.cpp"): "runtime frame lifecycle",
     Path("SkullbonezSource/Runtime/RunInput.cpp"): "runtime input cinematic bridge",
-    Path("SkullbonezSource/Runtime/RunPasses.cpp"): "runtime render pass lifecycle",
     Path("SkullbonezSource/Runtime/RunRender.cpp"): "runtime render service composition",
     Path("SkullbonezSource/Runtime/RunStress.cpp"): "runtime stress harness bridge",
     Path("SkullbonezSource/Runtime/RunUiTextPass.cpp"): "UI text pass compatibility",
@@ -1656,7 +1655,7 @@ FROZEN_DIAGNOSTIC_SINGLETON_INSTANCE_CLASSES = {
 # profiler diagnostics receiving path resolves the singleton once in Init, and
 # Core profiler GPU timers now use a startup-bound IRenderDiagnostics borrow
 # instead of reopening Gfx().
-MAX_GLOBAL_SERVICE_ACCESS_CENSUS = 114
+MAX_GLOBAL_SERVICE_ACCESS_CENSUS = 113
 # RUN-001: current Run.h private `m_` field census on 2026-07-07.
 # This is not approval for growth. Run remains the composition root, but new
 # feature state should enter through one of the narrower owners below instead
@@ -1802,7 +1801,6 @@ GLOBAL_SERVICE_ACCESS_ALLOWLIST: Counter[tuple[Path, str]] = Counter(
             ( "SkullbonezSource/Runtime/Init.cpp", "Profiler::Instance()", 1 ),
             ( "SkullbonezSource/Runtime/Input.cpp", "g_*", 33 ),
             ( "SkullbonezSource/Runtime/RunInput.cpp", "IsGfxReady()", 1 ),
-            ( "SkullbonezSource/Runtime/RunPasses.cpp", "IsGfxReady()", 1 ),
         )
     }
 )

@@ -1437,7 +1437,9 @@ bool TornadoVisualPass::Render( const TornadoVisualPassInputs& inputs )
     assert( snapshot.visual && snapshot.tornadoSystem && snapshot.tornadoField &&
             "TornadoVisualPass requires tornado settings snapshot" );
     const TornadoVisualSettings& visual = *snapshot.visual;
-    if ( !visual.enabled || !IsGfxReady() )
+    // Why: backend readiness is already expressed as a frame-borrowed command
+    // context. The pass should not reopen the process-global renderer service.
+    if ( !visual.enabled || !inputs.frame.renderCommands )
     {
         return false;
     }

@@ -1,8 +1,8 @@
 # Progress: Global Service Retirement (plan 02)
 
 Source plan: `fable_plans/02-global-service-retirement-plan.md`
-Status: phase 4 L2 WorkerPool, Window, EngineConfig, UI profiler snapshot, profiler diagnostics receiving path, and Profiler renderer-diagnostics bind slices complete on 2026-07-07; Gfx accessor endgame pending.
-Last updated: 2026-07-07 (Profiler renderer-diagnostics bind)
+Status: phase 4 L2 WorkerPool, Window, EngineConfig, UI profiler snapshot, profiler diagnostics receiving path, Profiler renderer-diagnostics bind, and RunPasses readiness probe slices complete on 2026-07-07; Gfx accessor endgame pending.
+Last updated: 2026-07-07 (RunPasses readiness probe)
 
 ## How to work this file
 
@@ -14,7 +14,7 @@ Last updated: 2026-07-07 (Profiler renderer-diagnostics bind)
   unblock their blocked rows without reading the blocker reason.
 - Comment quality gate applies to touched source files.
 
-## Current facts (post-Profiler renderer-diagnostics bind, 2026-07-07)
+## Current facts (post-RunPasses readiness probe, 2026-07-07)
 
 - `Cfg()` no longer exists (0 call sites), and `EngineConfig::Instance()` has
   now been deleted. Runtime startup owns an `EngineConfig` value, loads and
@@ -33,17 +33,21 @@ Last updated: 2026-07-07 (Profiler renderer-diagnostics bind)
   `Profiler::Instance()` hits. Its draw trace, marker tree, and worker-core
   chart consume the bounded `ProfilerTab::FrameSnapshot` filled by
   `RunUiTextPass`.
+- `RunPasses.cpp` now has 0 `Gfx()` and 0 `IsGfxReady()` hits. The tornado
+  visual pass tests the frame-borrowed render command context instead of
+  reopening the process-global renderer readiness helper.
 - Singleton accessors known from the current census: Profiler::Instance and
   LockOrderValidator::Instance (SVC-034 frozen diagnostics exception), plus
   `s_gfxBackend`/`Gfx()`/`SetGfxBackend` in `Rendering/IRenderBackend.cpp`.
 - The checker `tools/check_runtime_boundaries.py` now carries
-  `MAX_GLOBAL_SERVICE_ACCESS_CENSUS = 114`, no EngineConfig allowlist rows, no
+  `MAX_GLOBAL_SERVICE_ACCESS_CENSUS = 113`, no EngineConfig allowlist rows, no
   `UITabProfiler.cpp` global-service allowlist rows, no
   `RuntimeDiagnostics.cpp` profiler allowlist rows, no
   `RunUiTextPass.cpp` profiler allowlist rows, no `Core\Profiler.cpp`
-  renderer-service rows, and `MAX_IRENDER_BACKEND_DEPENDENCY_CENSUS = 38`.
-  The remaining `Runtime\Init.cpp` `Profiler::Instance()` row is a
-  startup-only diagnostics bind.
+  renderer-service rows, no `RunPasses.cpp` readiness row, and
+  `MAX_IRENDER_BACKEND_DEPENDENCY_CENSUS = 38`. The remaining
+  `Runtime\Init.cpp` `Profiler::Instance()` row is a startup-only diagnostics
+  bind.
 
 ## Verified facts (as of 2026-07-07 takeover census — re-verify before later phases)
 
@@ -373,6 +377,18 @@ Phase 4 execution notes:
   and `Profile\SKULLBONEZ_CORE.exe --platform-profiler-markers --renderer dx12
   --vsync off --frames 2 --scene SkullbonezData\scenes\solver_smoke.scene.json`
   (1.879s, marker emission requested/enabled and exited cleanly).
+- 2026-07-07 G3 RunPasses readiness probe: `TornadoVisualPass::Render` now
+  treats the frame-borrowed `RenderFrameContext::renderCommands` pointer as the
+  readiness authority instead of calling `IsGfxReady()`. This removed the
+  `RunPasses.cpp` renderer-service classification and allowlist row, lowering
+  the checker global-service census from 114 to 113 without changing the
+  public renderer facade. Gates passed: boundary self-test
+  (`check_runtime_boundaries.py --self-test`, 0.316s), boundary scan
+  (`check_runtime_boundaries.py`, 15.353s, 0 errors),
+  `tools\validate_fast.bat` (39.808s, formatting/project filters/staged-size/
+  runtime-boundaries/Profile+Debug builds passed with 0 warnings/errors), and
+  `tools\validate_full.bat` (42.851s, DX12 validation errors 0, screenshots
+  matched committed baselines, `physics_regression_solver.csv` byte-exact).
 
 ## Closure
 
