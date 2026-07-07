@@ -11,6 +11,9 @@ Mental model:
 Glossary:
   Engine module: A source file with one focused responsibility inside the
   SkullbonezCore runtime.
+  Layering boundary: Compile-time dependency direction; Maths must stay below
+    World so math helpers can be tested and reused without terrain/runtime
+    ownership.
 
 Invariants:
   - Plane representation is dot(normal, point) = distance, with normal expected
@@ -26,7 +29,7 @@ Related:
 
 
 #include "../Core/Common.h"
-#include "../World/Terrain.h"
+#include "GeometricStructures.h"
 
 namespace SkullbonezCore
 {

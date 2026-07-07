@@ -1,8 +1,8 @@
 # Progress: Build Layering And Repo Hygiene (plan 04)
 
 Source plan: `fable_plans/04-build-layering-and-repo-hygiene-plan.md`
-Status: phase 1 complete on 2026-07-07; phase 2 not started
-Last updated: 2026-07-07
+Status: phase 1 complete on 2026-07-07; phase 2 L1 include break complete on 2026-07-08
+Last updated: 2026-07-08
 
 ## How to work this file
 
@@ -105,13 +105,28 @@ Last updated: 2026-07-07
 
 ## Phase 2 — SkullbonezMaths.lib extraction
 
-- [ ] L1. Break the one upward dep: open `Maths/GeometricMath.h`, find what
+- [x] L1. Break the one upward dep: open `Maths/GeometricMath.h`, find what
   it uses from `World/Terrain.h` (`rg -n "Terrain" SkullbonezSource/Maths/GeometricMath.*`).
   Expected shape: a terrain-collision helper that belongs on the World side.
   Move that function (decl+def) to the World/Terrain side (or a new
   `World/TerrainMath.h`) and update callers
   (`rg -n "<moved function>" SkullbonezSource`). Evidence: no `World/` include
   remains under `Maths/`; Profile build 0/0. Gate: `validate_fast`. Commit.
+
+  Evidence (2026-07-08): `GeometricMath.h` only needed `Geometry::Triangle`,
+  `Geometry::Plane`, and `Geometry::Ray`, all provided by
+  `Maths/GeometricStructures.h`; no terrain type or terrain member access was
+  present in the declaration. Replaced the `../World/Terrain.h` include with
+  `GeometricStructures.h` and added a header glossary note naming the layering
+  boundary. `rg -n "\.\./World|World/|World\\" SkullbonezSource\Maths`
+  returned no matches. Touched-file comment audit: 1 source-bearing file
+  inspected, 0 deferred.
+
+  Validation (2026-07-08): `tools\validate_fast.bat` passed; log:
+  `Agentic\Reports\2026-07-08\logs\fable-04-l1-validate-fast.log`
+  (log timestamp span 00:00:55). Key result lines: `PASS: Build
+  Debug|x64 succeeded.`, `PASS: Profile and Debug binaries are ready.`, and
+  `VALIDATE_FAST: ALL PASSED`.
 - [ ] L2. Give Maths its own minimal prelude so it stops needing Common.h:
   create `Maths/MathsCommon.h` containing ONLY: the CRT math includes
   (<cmath>, <cfloat>), `_PI/_2PI/_HALF_PI/FOUR_OVER_THREE/ONE_OVER_THREE`,
