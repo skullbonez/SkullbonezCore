@@ -1,7 +1,7 @@
 # Progress: Demo Director (plan 08)
 
 Source plan: `fable_plans/08-demo-director-plan.md`
-Status: phase 2 P2.1 Director camera mode complete; phase 2 runtime state next
+Status: phase 2 P2.2 Director runtime state complete; per-frame director tick next
 Last updated: 2026-07-07
 
 ## How to work this file
@@ -206,9 +206,30 @@ Last updated: 2026-07-07
     passed; runtime boundaries passed; Profile and Debug builds succeeded with
     0 warnings/0 errors; `SKULLBONEZ_TESTS` reported 44 test cases and 574
     assertions passed.
-- [ ] P2.2 Director runtime state on the Run side (fixed, in RunState.h near
+- [x] P2.2 Director runtime state on the Run side (fixed, in RunState.h near
   RunCameraState): active shot list, current phase index, phase elapsed time,
   blend timer, and a `grabbed` bool + the free-fly pose captured at grab.
+  Evidence recorded 2026-07-07:
+  - Added `DemoDirectorPlaybackState` in `RunState.h` with fixed
+    `DemoShotList activeShotList`, `hasActiveShotList`, `currentPhaseIndex`,
+    `phaseElapsedSeconds`, `blendElapsedSeconds`, `blendStartPose`, `grabbed`,
+    and `poseCapturedAtGrab`.
+  - Nested the state as `RunCameraState::director` so Director playback extends
+    the existing camera state shelf rather than increasing `Run`'s top-level
+    private member count.
+  - Initial `tools\validate_full.bat` caught the private-member ratchet when the
+    state was briefly placed as a new `Run` member (`Run.h` found 42, max 41);
+    the final diff keeps `Run.h` unchanged and passes the boundary checker.
+  - Comment-quality audit scope: `RunState.h` and `Run.h`. `RunState.h` gained
+    a `Director playback` glossary entry and a local concept comment for the
+    fixed-capacity playback state.
+  - Gate: `tools\validate_full.bat` passed on 2026-07-07 in 54.335s. Log:
+    `Agentic\Reports\2026-07-07\logs\fable-08-director-runtime-state-validate-full.log`.
+    Key lines: project filters passed; runtime boundaries passed; Profile and
+    Debug builds succeeded with 0 warnings/0 errors; DX12 InfoQueue reported 0
+    validation errors; DX12 screenshots matched committed baselines;
+    `physics_regression_solver.csv` matched byte-exactly; `VALIDATE_FULL:
+    DEFAULT GATE PASSED`.
 - [ ] P2.3 Per-frame director tick (new `RunDemoDirector.cpp`, `Run::` methods,
   called from the frame update near the other camera ticks — see
   `TickAttachedCamera` call site for where): if not grabbed, drive the rendered
