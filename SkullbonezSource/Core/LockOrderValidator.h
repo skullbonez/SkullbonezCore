@@ -18,6 +18,8 @@ Invariants:
   - TrackedMutex must match std::mutex lock/try_lock/unlock semantics for
     callers; validation is extra instrumentation, not a new locking policy.
   - Lock ids are stable for the lifetime of each TrackedMutex instance.
+  - The validator is a frozen diagnostics singleton: function-local storage, no
+    config reads, and no dependence on other singleton destruction order.
 
 Related:
   - Agentic/Plans/worker-system-plan.md
@@ -37,6 +39,9 @@ namespace Threading
 class LockOrderValidator
 {
   public:
+    // Frozen diagnostics singleton: this is intentionally not a runtime service
+    // locator. It is only the Debug lock-order instrumentation endpoint used by
+    // TrackedMutex and must stay independent of config and renderer lifetime.
     static LockOrderValidator& Instance();
 
     void RegisterLock( uint32_t lockId, const char* name );

@@ -116,6 +116,14 @@ Last updated: 2026-07-07 (early AM, mid-overnight-run)
   source-plan's definition-of-done tripwire; do NOT delete the row if any
   ordering-dependent singleton remains.
 
+Phase 4 execution notes:
+
+- 2026-07-07 SVC-034: `LockOrderValidator::Instance` was classified under the
+  L2 frozen diagnostics contract. The source now documents function-local
+  storage, no config reads, and no singleton teardown ordering dependency; the
+  global-service checker excludes this diagnostic singleton and carries
+  self-tests for both per-file guardrails and the total census.
+
 ## Closure
 
 - [ ] Z1. Ratchet budgets → allowlist-only bans; checker self-tests updated.

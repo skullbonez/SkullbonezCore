@@ -138,11 +138,6 @@ Single remaining blocker ledger for the 7 July nightrunner pass. Rows are groupe
   - Failure/reason: cluster reverted after two `validate_fast` formatting failures; the profiler singleton migration needs a narrower diagnostics snapshot.
   - Needed to unblock: explicit profiler snapshot model and formatting-safe UI slice.
 
-- **SVC-034** - `SkullbonezSource/Core/LockOrderValidator.cpp` / `LockOrderValidator::Instance`
-  - Attempted: same diagnostics singleton classification cluster as SVC-022.
-  - Failure/reason: cluster reverted under the two-attempt rule before classification could be safely retained.
-  - Needed to unblock: explicit diagnostic-singleton allowlist decision and formatting-safe checker/status slice.
-
 ## Plan 01 - Run Composition Root
 
 - **RUN-010** - `SkullbonezSource/Runtime/RunInput.cpp` / `Run::TakeInput`

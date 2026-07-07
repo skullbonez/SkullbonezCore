@@ -1625,10 +1625,17 @@ NAMED_GLOBAL_SERVICE_INSTANCE_CLASSES = {
 }
 PROCESS_GLOBAL_POINTER_PATTERN = re.compile(r"\bpInstance\b")
 MUTABLE_PROCESS_GLOBAL_PATTERN = re.compile(r"\bg_[A-Za-z_]\w*\b")
+# SVC-034: frozen diagnostics singletons are not normal service debt. They must
+# stay function-local, avoid config reads, and carry no destructor ordering
+# contract; otherwise they move back into the counted global-service surface.
+FROZEN_DIAGNOSTIC_SINGLETON_INSTANCE_CLASSES = {
+    "LockOrderValidator",
+}
+
 # SVC-035: current tracked-source global-service census on 2026-07-07.
 # Per-file rows classify remaining debt; this total blocks stale row slack from
 # approving growth while later rows drain the explicit-service surface.
-MAX_GLOBAL_SERVICE_ACCESS_CENSUS = 157
+MAX_GLOBAL_SERVICE_ACCESS_CENSUS = 152
 # RUN-001: current Run.h private `m_` field census on 2026-07-07.
 # This is not approval for growth. Run remains the composition root, but new
 # feature state should enter through one of the narrower owners below instead
@@ -1758,7 +1765,6 @@ GLOBAL_SERVICE_ACCESS_ALLOWLIST: Counter[tuple[Path, str]] = Counter(
         ( Path(path), label ): count
         for path, label, count in (
             ( "SkullbonezSource/Core/Config.cpp", "EngineConfig::Instance()", 1 ),
-            ( "SkullbonezSource/Core/LockOrderValidator.cpp", "LockOrderValidator::Instance()", 5 ),
             ( "SkullbonezSource/Core/LockOrderValidator.cpp", "g_*", 12 ),
             ( "SkullbonezSource/Core/PlatformProfiler.cpp", "g_*", 12 ),
             ( "SkullbonezSource/Core/Profiler.cpp", "Gfx()", 9 ),
@@ -7732,6 +7738,8 @@ def global_service_access_matches(stripped: str) -> list[tuple[int, str, str, st
         class_name = match.group("class_name")
         if class_name in NAMED_GLOBAL_SERVICE_INSTANCE_CLASSES:
             continue
+        if class_name in FROZEN_DIAGNOSTIC_SINGLETON_INSTANCE_CLASSES:
+            continue
         matches.append(
             (
                 match.start(),
@@ -9557,6 +9565,25 @@ def run_self_tests() -> list[str]:
 
     new_generic_instance_access = "void DeepConfigPath() { EngineConfig::Instance().workerThreads = 0; }"
     expect_error('new generic Instance synthetic surface was not rejected', check_global_service_access_guardrails_text( Path("SkullbonezSource/Runtime/NewConfigPath.cpp"), new_generic_instance_access, relative_path=Path("SkullbonezSource/Runtime/NewConfigPath.cpp"), ), 'generic singleton access is count-guarded')
+
+    frozen_diagnostic_singleton_access = (
+        'void DebugInstrumentation() { LockOrderValidator::Instance().RegisterLock( 7, "debug" ); }'
+    )
+    expect_clean(
+        'frozen diagnostics singleton synthetic surface was rejected',
+        check_global_service_access_guardrails_text(
+            Path("SkullbonezSource/Core/LockOrderValidator.cpp"),
+            frozen_diagnostic_singleton_access,
+            relative_path=Path("SkullbonezSource/Core/LockOrderValidator.cpp"),
+        ),
+    )
+    expect_clean(
+        'frozen diagnostics singleton synthetic surface was counted',
+        check_global_service_access_count_entries(
+            [( Path("SkullbonezSource/Core/LockOrderValidator.cpp"), frozen_diagnostic_singleton_access )],
+            max_allowed=0,
+        ),
+    )
 
     new_process_singleton_pointer = "class Service { static Service* pInstance; };"
     expect_error('new pInstance synthetic surface was not rejected', check_global_service_access_guardrails_text( Path("SkullbonezSource/Runtime/NewService.h"), new_process_singleton_pointer, relative_path=Path("SkullbonezSource/Runtime/NewService.h"), ), 'process singleton pointer access is count-guarded')

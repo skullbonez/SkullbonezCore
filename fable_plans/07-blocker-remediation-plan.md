@@ -1,7 +1,7 @@
 # Blocker Remediation Plan (overnight run, 2026-07-07)
 
 Date: 2026-07-07
-Status: Proposed
+Status: In progress
 Input: 31 blocked rows + 1 open row from the authoritative overnight run
 (127/160 done). Reasons read from the blocker commits (`git log --grep=block`).
 Validation for this document: none (documentation-only)
@@ -142,3 +142,12 @@ slice + `validate_full` + `validate_dx12_renderer`.
 
 Net: two half-day design sessions (A1, B1) are the real cost. Everything
 else returns to the overnight machine as gated, verifiable slices.
+
+## Execution log
+
+- 2026-07-07: Started quick-win D0 / SVC-034. Classified
+  `LockOrderValidator::Instance` as a frozen diagnostics singleton, documented
+  the no-config/no-ordering contract in source, removed it from the
+  global-service census, and lowered `MAX_GLOBAL_SERVICE_ACCESS_CENSUS` from
+  157 to 152. Gates passed: checker self-test, checker scan, and
+  `tools\validate_fast.bat` (37.164s, 0 warnings/errors).
