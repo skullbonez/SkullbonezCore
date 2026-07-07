@@ -124,9 +124,24 @@ item against plan 02 and pick the next.
   identities, and `VectorMag`/`VectorMagSquared` consistency. Gate:
   `tools\validate_tests.bat` passed in 4.049s with 5 doctest cases and
   16 assertions all passing.
-- [ ] M2. `TestQuaternion.cpp` — Maths/Quaternion: Normalise() idempotence,
+- [x] M2. `TestQuaternion.cpp` — Maths/Quaternion: Normalise() idempotence,
   axis-angle round-trip, slerp endpoints (t=0/t=1 exact), renormalization
   drift under repeated multiply (bound the error).
+
+  Evidence: discovery `rg -n "Cfg\(|Gfx\(|::Instance"
+  SkullbonezSource/Maths/Quaternion.cpp` returned no hits. Because Quaternion
+  links through orientation-matrix code, the same discovery check on
+  `SkullbonezSource/Maths/RotationMatrix.cpp` also returned no hits. Added
+  `SkullbonezTests/TestQuaternion.cpp` and compiled
+  `SkullbonezSource/Maths/Quaternion.cpp` plus
+  `SkullbonezSource/Maths/RotationMatrix.cpp` into `SKULLBONEZ_TESTS`. Tests
+  lock non-zero `Normalise()` idempotence, zero-quaternion reset to identity,
+  axis-angle component sign convention and round-trip behavior, and bounded
+  repeated-multiply drift followed by deterministic renormalization. Discovery
+  also found that the current Quaternion API has no Slerp endpoint; that
+  checklist subcase is not applicable until a Slerp API is introduced. Gate:
+  `tools\validate_tests.bat` passed in 4.121s with 9 doctest cases and
+  35 assertions all passing.
 - [ ] M3. `TestMatrix4.cpp` — inverse(identity)==identity, TRS compose vs
   manual, inverse(M)*M ≈ identity within epsilon.
 - [ ] M4. `TestGeometricMath.cpp` — ray/sphere hit+miss+tangent, ray/box

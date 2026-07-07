@@ -24,6 +24,9 @@
     <ClCompile Include="SkullbonezTests\TestMain.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezTests\TestQuaternion.cpp">
+      <Filter>Source Files\Tests</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezTests\TestSmoke.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
@@ -31,6 +34,12 @@
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Maths\Vector3.cpp">
+      <Filter>Source Files\Maths</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Maths\Quaternion.cpp">
+      <Filter>Source Files\Maths</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Maths\RotationMatrix.cpp">
       <Filter>Source Files\Maths</Filter>
     </ClCompile>
   </ItemGroup>

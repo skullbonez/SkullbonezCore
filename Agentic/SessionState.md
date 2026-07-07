@@ -9,12 +9,12 @@ audits when it is still useful.
 |-------|-------|
 | Branch | `nightrunner-7th-july` in worktree `C:\SkullbonezCore`. |
 | Active objective | 2026-07-07 overnight run complete: all five authoritative CSVs drained in order 04 -> 03 -> 05 -> 02 -> 01, including user-approved `overnight=defer` rows. |
-| Last documentation milestone | Fable-01 M1 complete: plan progress/report now record Vector3 test discovery, coverage, and validation evidence. |
-| Last source/data milestone | Fable-01 M1 complete: `SKULLBONEZ_TESTS` now compiles `Vector3.cpp` and runs focused Vector3 tests for zero normalization, non-zero normalization, dot/cross identities, and magnitude consistency. Current authoritative row totals are 131 done and 29 blocked. |
+| Last documentation milestone | Fable-01 M2 complete: plan progress/report now record Quaternion test discovery, coverage, validation evidence, and the missing Slerp API note. |
+| Last source/data milestone | Fable-01 M2 complete: `SKULLBONEZ_TESTS` now compiles `Quaternion.cpp`/`RotationMatrix.cpp` and runs focused Quaternion tests for normalization, zero reset, axis-angle sign/round-trip behavior, and repeated multiply drift. Current authoritative row totals are 131 done and 29 blocked. |
 | Pending work | Address the remaining 29 blocked rows in `Agentic/Plans/In_Progress/overnight-blockers-2026-07-07.md`; no pending rows remain in the five authoritative CSVs. |
 | Concurrent work warning | No unrelated dirty files were present before the fable-01 phase 0 slice. Still run `git status --short --branch` before editing. |
 | Blockers | `Agentic/Plans/In_Progress/overnight-blockers-2026-07-07.md`; Plan03 5 blocked, Plan05 9 blocked, Plan02 11 blocked, Plan01 4 blocked, Plan04 0 blocked. |
-| Validation | Latest gate passed on 2026-07-07 for fable-01 M1: `tools\validate_tests.bat` (4.049s, 5 doctest cases and 16 assertions passed, 0 warnings/errors). Fable-05 phase 1 also passed `tools\validate_fast.bat` (35.331s). |
+| Validation | Latest gate passed on 2026-07-07 for fable-01 M2: `tools\validate_tests.bat` (4.121s, 9 doctest cases and 35 assertions passed, 0 warnings/errors). Fable-05 phase 1 also passed `tools\validate_fast.bat` (35.331s). |
 
 ## Active Notes
 
@@ -51,7 +51,7 @@ audits when it is still useful.
 | Physics/GameModel authority | Active follow-up | `Agentic/Plans/To_Eval/physics-game-model-authority-plan.md`; 2026-07-05 endgame slice deleted the remaining physics-side GameModel compatibility import/writeback/API surface, removed render-host concrete collection reliance from production render surfaces, tightened tombstone guardrails, and moved the focused endgame plan to Done. |
 | Runtime static allocation policy | Complete; post-duck correction validated | Plan moved to `Agentic/Plans/Done/runtime-static-allocation-policy-plan.md`; post-duck source/data update converts replay prediction growth accounting to bytes, adds tracked F6/branch interaction proofs, and passed targeted proof plus `validate_perf`/`validate_full`. |
 | Architecture pass follow-up | Active reference | `Agentic/Plans/architecture_pass_2026-06-02.md` remains the broad checkpoint for runtime, physics data, assets, parser, water, and render graph boundaries. |
-| 2026-07-07 overnight remediation | Remediation pass active | Handoff: `Agentic/Reports/2026-07-07/overnight-run-handoff.md`; blockers: `Agentic/Plans/In_Progress/overnight-blockers-2026-07-07.md`; SVC-034, fable-01 phase 0/M1, PHYS-035/fable-03 prediction isolation, fable-04 phase 1, and fable-05 phase 1 are fixed. |
+| 2026-07-07 overnight remediation | Remediation pass active | Handoff: `Agentic/Reports/2026-07-07/overnight-run-handoff.md`; blockers: `Agentic/Plans/In_Progress/overnight-blockers-2026-07-07.md`; SVC-034, fable-01 phase 0/M1/M2, PHYS-035/fable-03 prediction isolation, fable-04 phase 1, and fable-05 phase 1 are fixed. |
 | Repo pack-size cleanup | User decision needed for history rewrite | `Agentic/Temp/` is ignored and empty in the tip tree, and `tools/check_staged_file_sizes.py` blocks new oversized staged files outside approved data roots. Existing pack size was recorded at 542 MiB; shrinking it requires a user-approved `git filter-repo` rewrite of historical `Agentic/Temp` blobs and coordinated re-clone. |
 
 ## Known Bugs

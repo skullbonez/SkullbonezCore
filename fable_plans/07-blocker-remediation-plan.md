@@ -204,3 +204,11 @@ else returns to the overnight machine as gated, verifiable slices.
   normalization, dot/cross basis identities, and magnitude consistency. Gate
   passed: `tools\validate_tests.bat` (4.049s, 5 doctest cases, 16 assertions,
   0 warnings/errors).
+- 2026-07-07: Completed fable-01 M2 Quaternion tests. Added
+  `SkullbonezTests/TestQuaternion.cpp`, compiled `Quaternion.cpp` and
+  `RotationMatrix.cpp` into `SKULLBONEZ_TESTS`, and covered normalization,
+  zero reset, axis-angle sign/round-trip behavior, and repeated multiply drift.
+  Discovery found no Slerp API on the current Quaternion surface, so that
+  subcase is recorded as not applicable until an API exists. Gate passed:
+  `tools\validate_tests.bat` (4.121s, 9 doctest cases, 35 assertions,
+  0 warnings/errors).

@@ -141,8 +141,11 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="SkullbonezTests\TestMain.cpp" />
+    <ClCompile Include="SkullbonezTests\TestQuaternion.cpp" />
     <ClCompile Include="SkullbonezTests\TestSmoke.cpp" />
     <ClCompile Include="SkullbonezTests\TestVector3.cpp" />
+    <ClCompile Include="SkullbonezSource\Maths\Quaternion.cpp" />
+    <ClCompile Include="SkullbonezSource\Maths\RotationMatrix.cpp" />
     <ClCompile Include="SkullbonezSource\Maths\Vector3.cpp" />
   </ItemGroup>
   <ItemGroup>
