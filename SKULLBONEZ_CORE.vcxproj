@@ -153,6 +153,7 @@
     <ClCompile Include="SkullbonezSource\Runtime\CaptureSystem.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Camera.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\CameraCollection.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\DemoDirector.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\Debug\CollisionVisualizer.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\ObjectContactManifold.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\TerrainContactManifold.cpp" />
@@ -316,6 +317,7 @@
     <ClInclude Include="SkullbonezSource\Runtime\CaptureSystem.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Camera.h" />
     <ClInclude Include="SkullbonezSource\Runtime\CameraCollection.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\DemoDirector.h" />
     <ClInclude Include="SkullbonezSource\Physics\Debug\CollisionVisualizer.h" />
     <ClInclude Include="SkullbonezSource\Physics\ObjectContactManifold.h" />
     <ClInclude Include="SkullbonezSource\Physics\TerrainContactManifold.h" />

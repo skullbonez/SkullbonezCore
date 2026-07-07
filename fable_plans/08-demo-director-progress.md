@@ -1,7 +1,7 @@
 # Progress: Demo Director (plan 08)
 
 Source plan: `fable_plans/08-demo-director-plan.md`
-Status: phase 0 discovery complete; phase 1 data model next
+Status: phase 1 data model/load-save complete; phase 2 Director camera mode next
 Last updated: 2026-07-07
 
 ## How to work this file
@@ -118,7 +118,7 @@ Last updated: 2026-07-07
 
 ## Phase 1 — data model + loader
 
-- [ ] P1.1 Add `Runtime/DemoDirector.h` with plain-data structs (no
+- [x] P1.1 Add `Runtime/DemoDirector.h` with plain-data structs (no
   inheritance, fixed-capacity per the allocation gate):
   ```cpp
   // Concept: a phase is one authored shot — a hand-placed camera pose plus a
@@ -143,7 +143,14 @@ Last updated: 2026-07-07
       int phaseCount = 0;
   };
   ```
-- [ ] P1.2 JSON load/save beside the style loader (reuse the repo's JSON path
+  Evidence recorded 2026-07-07:
+  - Added `SkullbonezSource/Runtime/DemoDirector.h` with fixed-capacity
+    `DemoShotList::MAX_PHASES = 32`, `DemoPhase`, `DemoCameraPose`, and
+    `PhaseAdvance`.
+  - Pose fields follow D1 exactly: eye/view/up `Vector3` values, no FOV field.
+  - Added `loop` on `DemoShotList` now because phase 4 already names the
+    hold-vs-loop behavior.
+- [x] P1.2 JSON load/save beside the style loader (reuse the repo's JSON path
   used by `TestSceneParser`/style loading — do NOT add a new JSON lib).
   `LoadDemoShotList(path, DemoShotList&) -> bool` (Lane R style: bool + logged
   reason, no throw). Save writes the same schema. File location convention:
@@ -152,6 +159,25 @@ Last updated: 2026-07-07
   Gate: `validate_fast`. Commit.
 
 ## Phase 2 — Director camera mode + grab/release
+
+  Evidence recorded 2026-07-07:
+  - Added `SkullbonezSource/Runtime/DemoDirector.cpp` using the same
+    `nlohmann::ordered_json` dependency as `TestSceneParser` and
+    `RuntimeFileWriter::OpenTextFile` for saves.
+  - Loader fills a temporary shot list and assigns `outShotList` only after the
+    whole document is valid; bad input logs `[demo-director] ...` and returns
+    false.
+  - Added `SkullbonezTests/TestDemoDirector.cpp` with a hand-written 2-phase
+    `.shot.json` fixture, save/load round-trip checks, and malformed-input
+    false-return coverage.
+  - Updated `SKULLBONEZ_CORE.vcxproj`, `SKULLBONEZ_TESTS.vcxproj`, filters, and
+    `tools/validate_project_filters.py` so the new runtime files are covered by
+    project metadata validation.
+  - Gate: `tools\validate_fast.bat` passed on 2026-07-07 in 41.311s. Key lines:
+    format passed; project filters passed; staged file size check passed;
+    runtime boundaries passed; Profile and Debug builds succeeded with 0
+    warnings/0 errors; `SKULLBONEZ_TESTS` reported 44 test cases and 574
+    assertions passed.
 
 - [ ] P2.1 Add `RunCameraMode::Director` to the enum (before `Count`); update
   every exhaustive switch the compiler flags (that is the checklist — build and

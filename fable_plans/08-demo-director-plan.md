@@ -1,7 +1,7 @@
 # Demo Director Plan (scene phases + hand-authored camera)
 
 Date: 2026-07-07
-Status: In progress; phase 0 discovery complete
+Status: In progress; phase 1 data model/load-save complete
 Impact area: runtime camera, live-style application, interaction, UI overlay;
 no physics change
 Validation for this document: none (documentation-only)

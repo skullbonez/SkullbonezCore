@@ -178,6 +178,7 @@ RUNTIME_PREFIXES = (
     "CameraCollection",
     "CaptureController",
     "CaptureSystem",
+    "DemoDirector",
     "DiagnosticsController",
     "EngineContext",
     "Init",

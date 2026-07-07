@@ -144,6 +144,7 @@
     <ClCompile Include="SkullbonezTests\TestConvexHull.cpp" />
     <ClCompile Include="SkullbonezTests\TestDeterminism.cpp" />
     <ClCompile Include="SkullbonezTests\TestDiagnosticsLinkStubs.cpp" />
+    <ClCompile Include="SkullbonezTests\TestDemoDirector.cpp" />
     <ClCompile Include="SkullbonezTests\TestGeometricMath.cpp" />
     <ClCompile Include="SkullbonezTests\TestMain.cpp" />
     <ClCompile Include="SkullbonezTests\TestMatrix4.cpp" />
@@ -180,6 +181,8 @@
     <ClCompile Include="SkullbonezSource\Physics\TornadoField.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Allocation\RuntimeReserveAllocator.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Allocation\RuntimeAllocationTracker.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\DemoDirector.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\RuntimeFileWriter.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayRecorder.cpp" />
     <ClCompile Include="SkullbonezSource\Rendering\RenderInstanceStore.cpp" />
     <ClCompile Include="SkullbonezSource\Scene\TestScene.cpp" />

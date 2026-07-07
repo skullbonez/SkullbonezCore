@@ -25,6 +25,9 @@
     <Filter Include="Source Files\Physics">
       <UniqueIdentifier>{BB54C591-485D-4831-95BE-EC866F8F14C3}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\Runtime">
+      <UniqueIdentifier>{B1E9B95C-2E68-4B0F-8EE6-EC0F5529E0BA}</UniqueIdentifier>
+    </Filter>
     <Filter Include="Source Files\Runtime\Allocation">
       <UniqueIdentifier>{D8F59F97-F421-4B8B-AD58-274C63075BB0}</UniqueIdentifier>
     </Filter>
@@ -49,6 +52,9 @@
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezTests\TestDiagnosticsLinkStubs.cpp">
+      <Filter>Source Files\Tests</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezTests\TestDemoDirector.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezTests\TestGeometricMath.cpp">
@@ -164,6 +170,12 @@
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Allocation\RuntimeAllocationTracker.cpp">
       <Filter>Source Files\Runtime\Allocation</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\DemoDirector.cpp">
+      <Filter>Source Files\Runtime</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\RuntimeFileWriter.cpp">
+      <Filter>Source Files\Runtime</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayRecorder.cpp">
       <Filter>Source Files\Runtime\Replay</Filter>

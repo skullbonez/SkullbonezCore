@@ -172,6 +172,9 @@
     <ClCompile Include="SkullbonezSource\Runtime\CameraCollection.cpp">
       <Filter>Source Files\Runtime</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\DemoDirector.cpp">
+      <Filter>Source Files\Runtime</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\GameObjects\GameModel.cpp">
       <Filter>Source Files\GameObjects</Filter>
     </ClCompile>
@@ -660,6 +663,9 @@
       <Filter>Header Files\Runtime</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\CameraCollection.h">
+      <Filter>Header Files\Runtime</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\DemoDirector.h">
       <Filter>Header Files\Runtime</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\CollisionShape.h">
