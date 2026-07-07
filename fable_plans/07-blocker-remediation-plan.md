@@ -286,3 +286,14 @@ else returns to the overnight machine as gated, verifiable slices.
   failed at link before those stubs; final gate passed:
   `tools\validate_tests.bat` (4.335s, 38 doctest cases, 397 assertions,
   0 warnings/errors).
+- 2026-07-07: Completed fable-01 E3 SceneParser tests. Added
+  `SkullbonezTests/TestSceneParserUnit.cpp`, compiled `TestScene.cpp` and
+  `TestSceneParser.cpp` into `SKULLBONEZ_TESTS`, and covered the smallest
+  committed scene `terrain_compare.scene.json` plus the current malformed JSON
+  throwing contract. The test file uses a Unit suffix to avoid MSVC object-name
+  collision with the production parser TU. Added
+  `SkullbonezTests/TestSceneParserLinkStubs.cpp` as a loud test-only stub for
+  uncalled `AssetSystem` asset-library lookup. The first gate failed on the
+  basename collision and uncalled asset-system symbol; final gate passed:
+  `tools\validate_tests.bat` (4.120s, 40 doctest cases, 417 assertions,
+  0 warnings/errors).

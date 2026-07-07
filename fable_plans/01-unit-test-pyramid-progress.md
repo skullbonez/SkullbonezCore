@@ -334,11 +334,31 @@ item against plan 02 and pick the next.
   link stubs now throw if a focused ring test crosses that boundary. Final
   gate: `tools\validate_tests.bat` passed in 4.335s with 38 doctest cases and
   397 assertions all passing.
-- [ ] E3. `TestSceneParser.cpp` — smallest committed scene from
+- [x] E3. `TestSceneParser.cpp` — smallest committed scene from
   `SkullbonezData/scenes/` parses ok; malformed JSON returns error (currently
   throws — assert the current contract; plan 05 converts it to SbResult and
   this test updates in the same commit).
   Commit phase (gate: `validate_tests`).
+
+  Evidence: CodeGraph mapped `TestScene::LoadFromFile` through
+  `LoadTestSceneFromFileImpl` into `TestSceneParser::LoadScene`. Discovery
+  `rg -n "Cfg\(|Gfx\(|::Instance" SkullbonezSource/Scene/TestScene.cpp
+  SkullbonezSource/Scene/TestSceneParser.cpp SkullbonezSource/Scene/TestScene.h`
+  returned no hits. The smallest committed scene is
+  `SkullbonezData/scenes/terrain_compare.scene.json` at 525 bytes. Added
+  `SkullbonezTests/TestSceneParserUnit.cpp`, compiled `TestScene.cpp` and
+  `TestSceneParser.cpp` into `SKULLBONEZ_TESTS`, and covered successful parsing
+  of the `main` camera, disabled physics/text flags, water-hidden debug flag,
+  screenshot frame/path, and empty body collections. The unit creates a
+  temporary malformed scene file and asserts the current `std::runtime_error`
+  message contains `Invalid JSON`, the path, and `TestScene::LoadFromFile`.
+  The test file uses the `TestSceneParserUnit.cpp` name because MSVC object
+  output collides by basename with the production parser TU. Added
+  `TestSceneParserLinkStubs.cpp` as a loud test-only stub for uncalled
+  `AssetSystem` asset-library lookup. The first gate failed on that basename
+  collision and the uncalled asset-system symbol; final gate:
+  `tools\validate_tests.bat` passed in 4.120s with 40 doctest cases and
+  417 assertions all passing.
 
 ## Phase 4 — fast determinism property
 
