@@ -157,7 +157,7 @@ hardest-to-unblock first inside each plan.
 
 - **SVC-001** - `SkullbonezSource/Rendering/IRenderBackend.cpp` / `s_gfxBackend`
   - Attempted: central renderer singleton migration assessment.
-  - Failure/reason: active renderer singleton cannot be startup-only while compatibility callers still exist in physics debug visualizers, window resize, input readiness checks, capture facade, and draw-call trace helpers. The profiler marker/timer dependency was removed by the 2026-07-07 Profiler renderer-diagnostics bind, and `RunPasses.cpp` no longer uses the global readiness helper.
+  - Failure/reason: active renderer singleton cannot be startup-only while compatibility callers still exist in physics debug visualizers, window resize, capture facade, and draw-call trace helpers. The profiler marker/timer dependency was removed by the 2026-07-07 Profiler renderer-diagnostics bind; `RunPasses.cpp` no longer uses the global readiness helper, and the stale `RunInput.cpp` readiness allowance has been deleted.
   - Needed to unblock: finish the remaining non-profiler renderer-service cleanup or approve a bounded compatibility decision.
 
 - **SVC-002** - `SkullbonezSource/Rendering/IRenderBackend.cpp` / `Gfx`
