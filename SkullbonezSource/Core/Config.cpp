@@ -528,15 +528,6 @@ const ConfigSetting* FindConfigSetting( const char* name )
 }
 } // anonymous namespace
 
-
-/* ---------------------------------------------------------------------------------*/
-EngineConfig& EngineConfig::Instance()
-{
-    static EngineConfig s_instance;
-    return s_instance;
-}
-
-
 /* ---------------------------------------------------------------------------------*/
 void EngineConfig::Load( const char* path )
 {

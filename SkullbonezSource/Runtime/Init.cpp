@@ -3292,7 +3292,7 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine
         return atlasExitCode;
     }
 
-    EngineConfig& cfg = EngineConfig::Instance();
+    EngineConfig cfg;
 
     ParsedArgs args;
     if ( !ParseCommandLine( commandLine, cfg, args ) )

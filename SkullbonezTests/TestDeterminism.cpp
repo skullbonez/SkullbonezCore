@@ -155,9 +155,9 @@ struct MicroWorldSnapshot
     std::array<BodyReplayState, kMicroBodyCount> bodies;
 };
 
-EngineConfig& DeterministicConfig()
+EngineConfig MakeDeterministicConfig()
 {
-    EngineConfig& config = EngineConfig::Instance();
+    EngineConfig config;
     config.physicsParallel = false;
     config.physicsParallelApplyForces = false;
     config.physicsParallelTornadoField = false;
@@ -187,10 +187,12 @@ PhysicsWorldForces DeterministicForces()
 Terrain& FlatTestTerrain()
 {
     // Lifetime: bodies borrow this Terrain pointer for every step. Static
-    // storage keeps the borrowed terrain valid across repeated engine resets.
+    // storage keeps the borrowed terrain and config valid across repeated
+    // engine resets without depending on process-global configuration.
+    static EngineConfig config = MakeDeterministicConfig();
     static SkullbonezCore::Assets::AssetSystem assets;
     static NullRenderResourceFactory resources;
-    static Terrain terrain( 0.0f, 0.0f, 0.0f, DeterministicConfig(), assets, resources );
+    static Terrain terrain( 0.0f, 0.0f, 0.0f, config, assets, resources );
     return terrain;
 }
 
@@ -230,7 +232,7 @@ void AddMicroBody( PhysicsEngine& engine,
 
 void SeedMicroWorld( PhysicsEngine& engine )
 {
-    EngineConfig& config = DeterministicConfig();
+    EngineConfig config = MakeDeterministicConfig();
     engine.Clear();
     engine.ApplyRuntimeConfig( config );
     engine.SetSleepEnabled( false );
@@ -243,7 +245,7 @@ void SeedMicroWorld( PhysicsEngine& engine )
 
 void StepMicroWorld( PhysicsEngine& engine, int ticks )
 {
-    EngineConfig& config = DeterministicConfig();
+    EngineConfig config = MakeDeterministicConfig();
     const PhysicsWorldForces forces = DeterministicForces();
     WorkerPool workerPool;
     for ( int tick = 0; tick < ticks; ++tick )

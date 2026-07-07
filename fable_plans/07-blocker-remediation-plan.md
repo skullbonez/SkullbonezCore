@@ -353,3 +353,15 @@ else returns to the overnight machine as gated, verifiable slices.
   `tools\validate_fast.bat` (48.314s, 0 warnings/errors), and
   `tools\validate_full.bat` (42.849s, DX12 validation errors 0, screenshots
   matched, physics CSV byte-exact).
+- 2026-07-07: Implemented fable-02 phase 4 L2 EngineConfig demotion. Deleted
+  `EngineConfig::Instance()`, runtime startup now owns a local
+  `EngineConfig cfg`, and the determinism unit fixture creates local config
+  values instead of mutating global state. Lowered
+  `MAX_GLOBAL_SERVICE_ACCESS_CENSUS` from 143 to 141 and removed the old
+  Config.cpp/Init.cpp allowlist rows. Gates passed:
+  `python tools\check_runtime_boundaries.py --self-test`,
+  `python tools\check_runtime_boundaries.py` (0 errors),
+  `tools\validate_tests.bat` (8.059s, 42 doctest cases, 527 assertions),
+  `tools\validate_fast.bat` (66.672s, 0 warnings/errors), and
+  `tools\validate_full.bat` (43.185s, DX12 validation errors 0, screenshots
+  matched, physics CSV byte-exact).

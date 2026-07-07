@@ -383,8 +383,8 @@ item against plan 02 and pick the next.
   `RegisterAuthoredBody`, `RegisterAuthoredCollider`, solver snapshot capture/
   restore, and replay body-state restore as the minimal engine path. The
   micro-world uses two default-constructed `PhysicsEngine` instances, three
-  authored dynamic sphere bodies/colliders, explicit deterministic
-  `EngineConfig::Instance()` settings, `PhysicsWorldForces`, `SetSleepEnabled(false)`,
+  authored dynamic sphere bodies/colliders, explicit local deterministic
+  `EngineConfig` settings, `PhysicsWorldForces`, `SetSleepEnabled(false)`,
   a local default `WorkerPool`, and a test-only flat Terrain fixture. Worker
   fan-out stays disabled because the three-body world sits far below the
   physics/replay parallel thresholds, including

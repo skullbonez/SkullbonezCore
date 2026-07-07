@@ -38,10 +38,10 @@ namespace Basics
 
 /*
     Process configuration loaded once from SkullbonezData/engine.cfg at startup.
-    Runtime startup owns the legacy singleton accessor; normal code should use
-    the EngineConfig reference or snapshot threaded from the composition root.
-    All fields carry defaults matching the original hard-coded values; the
-    config file is optional -- if absent, defaults apply.
+    Runtime startup owns the EngineConfig value and threads references or
+    snapshots through the composition root. All fields carry defaults matching
+    the original hard-coded values; the config file is optional -- if absent,
+    defaults apply.
 */
 struct WindowConfig
 {
@@ -253,7 +253,7 @@ struct CinematicRenderConfig
 class EngineConfig
 {
   public:
-    static EngineConfig& Instance();
+    EngineConfig() = default;
     void Load( const char* path );
     void Dump( FILE* out ) const;
 
@@ -378,9 +378,6 @@ class EngineConfig
     // Water
     float oceanWaveHeight = 4.0f;
     float oceanPerturbStrength = 0.002f;
-
-  private:
-    EngineConfig() = default;
 };
 
 } // namespace Basics

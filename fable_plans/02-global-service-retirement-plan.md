@@ -1,7 +1,7 @@
 # Global Service Retirement Plan
 
 Date: 2026-07-06
-Status: Phase 4 L2 WorkerPool and Window demotions complete on 2026-07-07; remaining singleton demotion/freezing pending
+Status: Phase 4 L2 WorkerPool, Window, and EngineConfig demotions complete on 2026-07-07; remaining profiler/Gfx singleton demotion/freezing pending
 Impact area: runtime, rendering, core services; behavior-preserving refactor
 Validation for this document: none (documentation-only)
 

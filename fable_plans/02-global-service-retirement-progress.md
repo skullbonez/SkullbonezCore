@@ -1,8 +1,8 @@
 # Progress: Global Service Retirement (plan 02)
 
 Source plan: `fable_plans/02-global-service-retirement-plan.md`
-Status: phase 4 L2 WorkerPool and Window demotions complete on 2026-07-07; remaining singleton demotion/freezing pending.
-Last updated: 2026-07-07 (takeover phase 4 WorkerPool/Window demotion)
+Status: phase 4 L2 WorkerPool, Window, and EngineConfig demotions complete on 2026-07-07; remaining profiler/Gfx singleton demotion/freezing pending.
+Last updated: 2026-07-07 (takeover phase 4 EngineConfig demotion)
 
 ## How to work this file
 
@@ -13,6 +13,25 @@ Last updated: 2026-07-07 (takeover phase 4 WorkerPool/Window demotion)
   phase, read that CSV's current row statuses — do not redo done rows, do not
   unblock their blocked rows without reading the blocker reason.
 - Comment quality gate applies to touched source files.
+
+## Current facts (post-L2 EngineConfig, 2026-07-07)
+
+- `Cfg()` no longer exists (0 call sites), and `EngineConfig::Instance()` has
+  now been deleted. Runtime startup owns an `EngineConfig` value, loads and
+  patches it, then threads references or snapshots from the composition root.
+- `EngineConfig::Instance` exact call sites: 0 in production source and tests.
+  The only remaining text is the runtime-boundary checker's synthetic regression
+  self-test that rejects reintroduced singleton config access.
+- Singleton-style source files from `::Instance()`/`GetInstance(` census:
+  6 files total (`Core` 3, `Runtime` 2, `UI` 1, `Rendering` 0, `Physics` 0):
+  `Core\Profiler.h`, `Core\Profiler.cpp`, `Core\LockOrderValidator.cpp`,
+  `Runtime\RuntimeDiagnostics.cpp`, `Runtime\RunUiTextPass.cpp`, and
+  `UI\UITabProfiler.cpp`.
+- Singleton accessors known from the current census: Profiler::Instance and
+  LockOrderValidator::Instance (SVC-034 frozen diagnostics exception), plus
+  `s_gfxBackend`/`Gfx()`/`SetGfxBackend` in `Rendering/IRenderBackend.cpp`.
+- The checker `tools/check_runtime_boundaries.py` now carries
+  `MAX_GLOBAL_SERVICE_ACCESS_CENSUS = 141` and no EngineConfig allowlist rows.
 
 ## Verified facts (as of 2026-07-07 takeover census — re-verify before later phases)
 
@@ -161,6 +180,9 @@ Phase 2 evidence (2026-07-07 takeover config cleanup):
 - Evidence command passed after the comment cleanup:
   `python tools\check_runtime_boundaries.py` (0 errors).
 - Repository validation was not run: this slice is comment/documentation-only.
+- Superseded by phase 4 L2 EngineConfig demotion: the startup/bootstrap
+  allowlist and singleton definition were removed, leaving 0
+  `EngineConfig::Instance` production/test hits.
 
 ## Phase 3 — Gfx() burn-down (25 exact sites; coordinate with plan-05 RGRAPH rows)
 
@@ -229,13 +251,14 @@ Phase 4 execution notes:
 
 - 2026-07-07 L1 discovery: the pre-L2 `rg -n "::Instance\(\)|GetInstance\("`
   census named `EngineConfig`, `WorkerPool`, `Window`, `Profiler`, and
-  `LockOrderValidator`. After the WorkerPool and Window L2 slices, the current
-  source census no longer names `WorkerPool` or `Window`; `TextureCollection`,
-  `CameraCollection`, and `SkyBox` also remain absent.
+  `LockOrderValidator`. After the WorkerPool, Window, and EngineConfig L2
+  slices, the current source census no longer names `EngineConfig`,
+  `WorkerPool`, or `Window`; `TextureCollection`, `CameraCollection`, and
+  `SkyBox` also remain absent.
 
   | Class | Construction site / storage | Teardown and ordering risk |
   |-------|-----------------------------|----------------------------|
-  | `EngineConfig` | `Core\Config.cpp:533-536`, function-local static; first runtime call is startup bootstrap `Runtime\Init.cpp:3296`. | Low current runtime risk because normal code now receives references from startup; still a global static whose `std::string` fields destruct at process exit, so final demotion waits for composition-root config ownership. |
+  | `EngineConfig` | Superseded by L2: `Runtime\Init.cpp:3295` now constructs `EngineConfig cfg` with automatic startup storage, then `Run` receives `EngineConfig&`. | Demoted from singleton. No process-static config or accessor remains; focused tests now build local deterministic config values instead of mutating global state. |
   | `WorkerPool` | Superseded by L2: `Runtime\Init.cpp:3330` now constructs `WorkerPool workerPool` with automatic startup storage, then `Run` receives `WorkerPool&`. | Demoted from singleton. Explicit `workerPool.Shutdown()` still runs at `Runtime\Init.cpp:3355`, and the destructor calls `Shutdown()` again after startup scope exit; no process-static worker-pool lifetime remains. |
   | `Window` | Superseded by L2: `Runtime\Init.cpp:3339-3340` now constructs `Window windowOwner` with automatic startup storage and passes `&windowOwner` to existing pointer-based startup helpers. | Demoted from singleton. `CleanupWindow()` still disarms input/backend state, releases the device context, restores fullscreen state, and unregisters the class; no `pInstance` cache or process-static Window remains. |
   | `Profiler` | `Core\Profiler.cpp:79-82`, function-local static reached by macros, diagnostics, UI, and runtime text pass. | Medium risk: no explicit destructor work, but GPU timer methods still read renderer globals and worker-sample paths query worker-thread state. Freeze/demotion depends on Cluster D diagnostics receiving path. |
@@ -267,6 +290,18 @@ Phase 4 execution notes:
   `tools\validate_fast.bat` (48.314s, 0 warnings/errors), and
   `tools\validate_full.bat` (42.849s, DX12 validation errors 0, screenshots
   matched, `physics_regression_solver.csv` byte-exact).
+- 2026-07-07 L2 EngineConfig: deleted `EngineConfig::Instance()` from
+  `Core\Config.h/.cpp`, changed runtime startup to own a local
+  `EngineConfig cfg`, and changed the determinism unit fixture to create local
+  deterministic config values. Lowered the checker global-service census from
+  143 to 141 by removing the old config allowlist entries; the existing generic
+  `EngineConfig::Instance()` synthetic self-test now guards the deleted shape.
+  Gates passed: `python tools\check_runtime_boundaries.py --self-test`,
+  `python tools\check_runtime_boundaries.py` (0 errors),
+  `tools\validate_tests.bat` (8.059s, 42 doctest cases, 527 assertions,
+  0 warnings/errors), `tools\validate_fast.bat` (66.672s, 0 warnings/errors),
+  and `tools\validate_full.bat` (43.185s, DX12 validation errors 0,
+  screenshots matched, `physics_regression_solver.csv` byte-exact).
 
 ## Closure
 
