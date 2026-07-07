@@ -1528,7 +1528,6 @@ RENDER_BACKEND_AGGREGATE_DEPENDENCY_ALLOWLIST: Counter[tuple[Path, str]] = Count
             ( "SkullbonezSource/Runtime/Window.cpp", "IRenderBackend", 2 ),
             ( "SkullbonezSource/Runtime/Window.h", "IRenderBackend", 3 ),
             ( "SkullbonezSource/UI/UI.cpp", "IRenderBackend", 1 ),
-            ( "SkullbonezSource/UI/UITabProfiler.cpp", "IRenderBackend", 1 ),
         )
     }
 )
@@ -1634,7 +1633,6 @@ GLOBAL_RENDERER_SERVICE_ACCESS_CLASSIFICATIONS: dict[Path, str] = {
     Path("SkullbonezSource/Runtime/RunStress.cpp"): "runtime stress harness bridge",
     Path("SkullbonezSource/Runtime/RunUiTextPass.cpp"): "UI text pass compatibility",
     Path("SkullbonezSource/Runtime/Window.cpp"): "window resize bridge",
-    Path("SkullbonezSource/UI/UITabProfiler.cpp"): "UI diagnostics compatibility",
 }
 GENERIC_INSTANCE_ACCESS_PATTERN = re.compile(r"\b(?P<class_name>[A-Za-z_]\w*)\s*::\s*Instance\s*\(")
 NAMED_GLOBAL_SERVICE_INSTANCE_CLASSES = {
@@ -1657,7 +1655,7 @@ FROZEN_DIAGNOSTIC_SINGLETON_INSTANCE_CLASSES = {
 # SVC-035: current tracked-source global-service census on 2026-07-07.
 # Per-file rows classify remaining debt; this total blocks stale row slack from
 # approving growth while later rows drain the explicit-service surface.
-MAX_GLOBAL_SERVICE_ACCESS_CENSUS = 141
+MAX_GLOBAL_SERVICE_ACCESS_CENSUS = 133
 # RUN-001: current Run.h private `m_` field census on 2026-07-07.
 # This is not approval for growth. Run remains the composition root, but new
 # feature state should enter through one of the narrower owners below instead
@@ -1807,9 +1805,6 @@ GLOBAL_SERVICE_ACCESS_ALLOWLIST: Counter[tuple[Path, str]] = Counter(
             ( "SkullbonezSource/Runtime/RunPasses.cpp", "IsGfxReady()", 1 ),
             ( "SkullbonezSource/Runtime/RunUiTextPass.cpp", "Profiler::Instance()", 1 ),
             ( "SkullbonezSource/Runtime/RuntimeDiagnostics.cpp", "Profiler::Instance()", 4 ),
-            ( "SkullbonezSource/UI/UITabProfiler.cpp", "Gfx()", 1 ),
-            ( "SkullbonezSource/UI/UITabProfiler.cpp", "IsGfxReady()", 1 ),
-            ( "SkullbonezSource/UI/UITabProfiler.cpp", "Profiler::Instance()", 6 ),
         )
     }
 )

@@ -1,7 +1,7 @@
 # Overnight Blockers - 2026-07-07
 
 Single remaining blocker ledger for the 7 July nightrunner pass. Current
-remaining blocker count: 29. Rows are grouped by plan and ordered
+remaining blocker count: 27. Rows are grouped by plan and ordered
 hardest-to-unblock first inside each plan.
 
 ## Resolved During Remediation
@@ -16,6 +16,24 @@ hardest-to-unblock first inside each plan.
     with `tools\validate_physics.bat`, the ragdoll prediction interaction
     proof, `tools\validate_perf.bat`, and `tools\validate_full.bat`; the phase
     4 checker self-test and repo scan passed in the follow-up slice.
+
+- **SVC-032** - `SkullbonezSource/UI/UITabProfiler.cpp` / `Gfx draw trace`
+  - Resolved 2026-07-07 through the fable-02 UI profiler snapshot slice.
+  - Result: `UITabProfiler` consumes draw-call trace rows from
+    `ProfilerTab::FrameSnapshot`, filled by `RunUiTextPass` through the explicit
+    `IRenderDiagnostics` borrow, and has 0 direct `Gfx()`/`IsGfxReady()` hits.
+  - Evidence: checker global-service census lowered from 141 to 133; boundary
+    self-test/scan, `tools\validate_fast.bat`, and `tools\validate_full.bat`
+    passed for the slice.
+
+- **SVC-033** - `SkullbonezSource/UI/UITabProfiler.cpp` / `Profiler::Instance`
+  - Resolved 2026-07-07 through the same fable-02 UI profiler snapshot slice.
+  - Result: `UITabProfiler` consumes marker rows, timeline data, expansion
+    state, and worker-core samples from `ProfilerTab::FrameSnapshot`, with 0
+    direct `Profiler::Instance()` hits remaining in the tab.
+  - Evidence: checker allowlist rows for `UITabProfiler.cpp` were removed;
+    boundary self-test/scan, `tools\validate_fast.bat`, and
+    `tools\validate_full.bat` passed for the slice.
 
 ## Plan 02 - Physics Store Authority
 
@@ -137,16 +155,6 @@ hardest-to-unblock first inside each plan.
   - Attempted: diagnostics/UI profiler snapshot cluster, then revert after failed gates.
   - Failure/reason: first `tools\validate_fast.bat` failed formatting for `RuntimeDiagnostics.cpp`, `RunUiTextPass.cpp`, and `UITabProfiler.cpp`; after targeted formatting, the second attempt failed because `RuntimeDiagnostics.h` still required the header formatting pipeline.
   - Needed to unblock: human-awake formatting/header pipeline pass and a smaller diagnostics snapshot slice.
-
-- **SVC-032** - `SkullbonezSource/UI/UITabProfiler.cpp` / `Gfx draw trace`
-  - Attempted: same diagnostics/UI profiler snapshot cluster as SVC-022.
-  - Failure/reason: cluster reverted after two `validate_fast` formatting failures; keeping work would violate the overnight two-attempt rule.
-  - Needed to unblock: isolated profiler tab render diagnostics snapshot slice with formatting gate first.
-
-- **SVC-033** - `SkullbonezSource/UI/UITabProfiler.cpp` / `Profiler::Instance`
-  - Attempted: same diagnostics/UI profiler snapshot cluster as SVC-022.
-  - Failure/reason: cluster reverted after two `validate_fast` formatting failures; the profiler singleton migration needs a narrower diagnostics snapshot.
-  - Needed to unblock: explicit profiler snapshot model and formatting-safe UI slice.
 
 ## Plan 01 - Run Composition Root
 

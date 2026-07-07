@@ -1,7 +1,7 @@
 # Blocker Remediation Plan (overnight run, 2026-07-07)
 
 Date: 2026-07-07
-Status: In progress
+Status: In progress; SVC-032/SVC-033 resolved by the UI profiler snapshot slice, 27 blockers remain
 Input: 31 blocked rows + 1 open row from the authoritative overnight run
 (127/160 done). Reasons read from the blocker commits (`git log --grep=block`).
 Validation for this document: none (documentation-only)
@@ -19,7 +19,7 @@ overnight-safe work.
 | A. World-ownership knot | PHYS-004, 009, 012, 016, 018, 020, 021, 022, 025, 026, 027 (11) | PhysicsEngine is owned by GameModelCollection; `GetPhysicsEngine` has ~124 callers; scene creation/load/reset pass collection+engine together. Circular: each row's safe version depends on the others. |
 | B. DX12 capability-split chain | RGRAPH-003, 004, 007, 010, 014, 022, 023, 024, 029 (9) | Everything chains to RGRAPH-003/004: narrow command-context and resource-factory capabilities don't exist yet, and the migration artifact gate (correctly) forbids bridge owners as a substitute. |
 | C. Run behavioral routers | RUN-009, 010, 011, 015 (4) | The gates cannot verify full routing/ordering equivalence for TakeInput, DrainRuntimeCommands, LoadScene, UpdateLogic. Needs decomposition + tests that make equivalence checkable, not braver refactoring. |
-| D. Diagnostics receiving path | SVC-022, 032, 033 (+034 decision) (4) | Plan-03's own non-goal: profiler/diagnostics reads can't move until a receiving diagnostics snapshot path exists. |
+| D. Diagnostics receiving path | SVC-022 remaining; SVC-032/SVC-033 resolved; SVC-034 decision done | Plan-03's own non-goal: profiler/diagnostics reads can't move until a receiving diagnostics snapshot path exists. |
 | E. Endgame deletions | SVC-001, 002 (2) | `Gfx()`/`s_gfxBackend` deletion waits on the caller census reaching the startup allowlist (44 sites remain; many are Cluster B rows). |
 | Stray | PHYS-035 (in A above, but see A0), RUN-027 (open) | See below — both have independent paths. |
 
@@ -111,11 +111,13 @@ equivalence checkable, then move code.
 
 ## Cluster D — diagnostics receiving path
 
-1. Build the small receiving path first: a diagnostics snapshot published
-   through RuntimeViewModel/DiagnosticsRuntime (the blocker rows' named
-   target). One slice, `validate_fast`/`validate_full` per area.
-2. Then SVC-022 (perf CSV via injected capability), SVC-032/033 (UI profiler
-   tab from snapshots) reopen as mechanical rows.
+1. UI profiler snapshot path is done for SVC-032/SVC-033: `RunUiTextPass`
+   fills `ProfilerTab::FrameSnapshot` from the explicit render diagnostics
+   borrow plus the remaining runtime-owned profiler access, and
+   `UITabProfiler` now consumes that snapshot.
+2. SVC-022 remains: build the diagnostics/perf CSV receiving path through
+   `RuntimeDiagnostics`/`DiagnosticsRuntime` without reopening direct UI
+   singleton reads. One slice, `validate_fast`/`validate_full` per area.
 3. SVC-023 note (done ledger says platform-profiler-markers gate): any
    profiler marker change must run
    `Profile\SKULLBONEZ_CORE.exe --platform-profiler-markers`.
@@ -177,6 +179,17 @@ else returns to the overnight machine as gated, verifiable slices.
   `python tools\check_runtime_boundaries.py --self-test`,
   `python tools\check_runtime_boundaries.py` (15.179s, 0 errors), and
   `tools\validate_fast.bat` (33.065s, 0 warnings/errors).
+- 2026-07-07: Completed Cluster D UI profiler snapshot slice and marked
+  SVC-032/SVC-033 resolved. `RunUiTextPass` now publishes bounded profiler
+  marker, worker-core, and draw-trace data through `InGameUIFrameData`, and
+  `UITabProfiler` renders/hit-tests from `ProfilerTab::FrameSnapshot` with no
+  direct `Gfx()`, `IsGfxReady()`, `Profiler::Instance()`, or `IRenderBackend`
+  dependency. Remaining blockers: 27. Gates passed:
+  `python tools\check_runtime_boundaries.py --self-test`,
+  `python tools\check_runtime_boundaries.py` (20.306s, 0 errors),
+  `tools\validate_fast.bat` (48.437s, 0 warnings/errors), and
+  `tools\validate_full.bat` (45.392s, DX12 validation errors 0, screenshots
+  matched, `physics_regression_solver.csv` byte-exact).
 - 2026-07-07: Started A0 / fable-03 prediction isolation and completed phase 1
   parameterization. Discovery recorded PhysicsEngine ownership, store reserve
   shape, PhysicsWorld snapshot coverage, zero physics singleton/global hits,

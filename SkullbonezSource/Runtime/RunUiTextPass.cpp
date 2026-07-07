@@ -432,14 +432,83 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
             1000.0f;
         UIData.cpuFrameMs = state.timers.cpuFrameWorkMs;
         UIData.gpuFrameMs = state.timers.gpuFrameWorkMs;
+        {
+            // Concept: render draw attribution is copied through UIData while
+            // the render diagnostics capability is already borrowed by Run. The
+            // profiler tab never needs the wide renderer facade to explain draw
+            // calls.
+            const auto drawTrace = inputs.renderDiagnostics.GetFrameDrawCallTrace();
+            const int sourceNodeCount = (std::max)( 0, drawTrace.nodeCount );
+            const int nodeCount = (std::min)( sourceNodeCount, SkullbonezCore::UI::ProfilerTab::MAX_MARKERS );
+            SkullbonezCore::UI::ProfilerTab::DrawTraceSnapshot& uiTrace = UIData.profiler.drawTrace;
+            uiTrace.nodeCount = nodeCount;
+            uiTrace.nodeOverflowCount = drawTrace.nodeOverflowCount + ( sourceNodeCount - nodeCount );
+            uiTrace.eventCount = drawTrace.eventCount;
+            uiTrace.eventOverflowCount = drawTrace.eventOverflowCount;
+            uiTrace.scopeMismatchCount = drawTrace.scopeMismatchCount;
+            if ( drawTrace.nodes )
+            {
+                for ( int nodeIndex = 0; nodeIndex < nodeCount; ++nodeIndex )
+                {
+                    const auto& source = drawTrace.nodes[nodeIndex];
+                    SkullbonezCore::UI::ProfilerTab::DrawTraceNodeSnapshot& target = uiTrace.nodes[nodeIndex];
+                    target.name = source.name ? source.name : "";
+                    target.leafName = source.leafName ? source.leafName : target.name;
+                    target.hash = source.hash;
+                    target.parentIndex = source.parentIndex;
+                    target.depth = source.depth;
+                    target.drawCallCount = source.drawCallCount;
+                    target.vertexCount = source.vertexCount;
+                    target.instanceCount = source.instanceCount;
+                }
+            }
+        }
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
         {
-            // Why: worker-core samples are committed at FrameEnd. Reading the
-            // last committed total here keeps the F5 chart a pure UI snapshot
-            // instead of reaching into profiler globals while drawing.
-            for ( int sampleIndex = 0; sampleIndex < profiler.WorkerCoreSampleCount(); ++sampleIndex )
+            static_assert( SkullbonezCore::UI::ProfilerTab::MAX_MARKERS == Profiler::MAX_MARKERS,
+                           "UI profiler snapshot capacity must match Profiler markers" );
+            static_assert( SkullbonezCore::UI::ProfilerTab::MAX_WORKER_CORE_SAMPLES == Profiler::MAX_WORKER_CORES,
+                           "UI worker sample snapshot capacity must match Profiler samples" );
+            SkullbonezCore::UI::ProfilerTab::FrameSnapshot& profilerFrame = UIData.profiler;
+            profilerFrame.markerCount =
+                (std::min)( profiler.MarkerCount(), SkullbonezCore::UI::ProfilerTab::MAX_MARKERS );
+            for ( int markerIndex = 0; markerIndex < profilerFrame.markerCount; ++markerIndex )
             {
-                UIData.workerCoreTotalMs += (std::max)( 0.0f, profiler.GetWorkerCoreSample( sampleIndex ).coreMs );
+                const Profiler::Marker& source = profiler.GetMarker( markerIndex );
+                const int paletteIndex = source.colorIndex >= 0 ? source.colorIndex % Profiler::BAR_PALETTE_SIZE : 0;
+                const Profiler::BarColor& color = Profiler::BAR_PALETTE[paletteIndex];
+                SkullbonezCore::UI::ProfilerTab::MarkerSnapshot& target = profilerFrame.markers[markerIndex];
+                target.name = source.name ? source.name : "";
+                target.leafName = source.leafName ? source.leafName : target.name;
+                target.hash = source.hash;
+                target.parentIndex = source.parentIndex;
+                target.depth = source.depth;
+                target.lastFrameMs = source.lastFrameMs;
+                target.lastSelfMs = source.lastSelfMs;
+                target.avgMs = source.avgMs;
+                target.selfAvgMs = source.selfAvgMs;
+                target.p50Ms = source.p50Ms;
+                target.p99Ms = source.p99Ms;
+                target.colorR = color.r;
+                target.colorG = color.g;
+                target.colorB = color.b;
+            }
+
+            profilerFrame.workerCoreSampleCount =
+                (std::min)( profiler.WorkerCoreSampleCount(),
+                            SkullbonezCore::UI::ProfilerTab::MAX_WORKER_CORE_SAMPLES );
+            for ( int sampleIndex = 0; sampleIndex < profilerFrame.workerCoreSampleCount; ++sampleIndex )
+            {
+                const Profiler::WorkerCoreSample& source = profiler.GetWorkerCoreSample( sampleIndex );
+                SkullbonezCore::UI::ProfilerTab::WorkerCoreSampleSnapshot& target =
+                    profilerFrame.workerCoreSamples[sampleIndex];
+                target.workerIndex = source.workerIndex;
+                target.jobCount = source.jobCount;
+                target.coreMs = source.coreMs;
+                target.avgCoreMs = source.avgCoreMs;
+                target.spanStartMs = source.spanStartMs;
+                target.spanEndMs = source.spanEndMs;
+                UIData.workerCoreTotalMs += (std::max)( 0.0f, target.coreMs );
             }
         }
 #endif

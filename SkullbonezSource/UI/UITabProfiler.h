@@ -41,8 +41,73 @@ namespace ProfilerTab
 {
 
 constexpr int MAX_MARKERS = 192;
+constexpr int MAX_WORKER_CORE_SAMPLES = 128;
 constexpr int HISTOGRAM_SAMPLE_COUNT = 120;
 constexpr int SLIDER_WORKER_THREADS = 19;
+
+// Concept: FrameSnapshot is the profiler tab's runtime boundary. RunUiTextPass
+// owns the live Profiler/renderer reads, copies fixed-capacity values here, and
+// the UI keeps this copy for drawing plus next-frame input hit tests.
+// Lifetime: name pointers are borrowed from profiler/render diagnostics storage
+// for immediate rendering; input paths only depend on counts, hashes, and depth.
+struct MarkerSnapshot
+{
+    const char* name = "";
+    const char* leafName = "";
+    uint32_t hash = 0;
+    int parentIndex = -1;
+    int depth = 0;
+    float lastFrameMs = 0.0f;
+    float lastSelfMs = 0.0f;
+    float avgMs = 0.0f;
+    float selfAvgMs = 0.0f;
+    float p50Ms = 0.0f;
+    float p99Ms = 0.0f;
+    float colorR = 0.0f;
+    float colorG = 0.0f;
+    float colorB = 0.0f;
+};
+
+struct WorkerCoreSampleSnapshot
+{
+    int workerIndex = -1;
+    int jobCount = 0;
+    float coreMs = 0.0f;
+    float avgCoreMs = 0.0f;
+    float spanStartMs = 0.0f;
+    float spanEndMs = 0.0f;
+};
+
+struct DrawTraceNodeSnapshot
+{
+    const char* name = "";
+    const char* leafName = "";
+    uint32_t hash = 0;
+    int parentIndex = -1;
+    int depth = 0;
+    int drawCallCount = 0;
+    int vertexCount = 0;
+    int instanceCount = 0;
+};
+
+struct DrawTraceSnapshot
+{
+    DrawTraceNodeSnapshot nodes[MAX_MARKERS] = {};
+    int nodeCount = 0;
+    int nodeOverflowCount = 0;
+    int eventCount = 0;
+    int eventOverflowCount = 0;
+    int scopeMismatchCount = 0;
+};
+
+struct FrameSnapshot
+{
+    MarkerSnapshot markers[MAX_MARKERS] = {};
+    int markerCount = 0;
+    WorkerCoreSampleSnapshot workerCoreSamples[MAX_WORKER_CORE_SAMPLES] = {};
+    int workerCoreSampleCount = 0;
+    DrawTraceSnapshot drawTrace;
+};
 
 struct TimelineSegment
 {
@@ -62,6 +127,7 @@ struct PerformanceHistogramSample
 
 struct UIProfilerTabState
 {
+    FrameSnapshot frame;                                 // Last bounded runtime snapshot used by layout and input hit tests.
     uint32_t expandedHashes[MAX_MARKERS] = {};
     int expandedHashCount = 0;
     uint32_t drawExpandedHashes[MAX_MARKERS] = {};
@@ -107,6 +173,7 @@ struct UIProfilerTabState
 bool TimelineEnabled( const UIProfilerTabState& state );
 bool PerformanceHistogramEnabled( const UIProfilerTabState& state );
 
+void SetFrameSnapshot( UIProfilerTabState& state, const FrameSnapshot& frame );
 void SetExpandAll( UIProfilerTabState& state, bool expandAll );
 void SetTimelineEnabled( UIProfilerTabState& state, bool enabled );
 void SetPerformanceHistogramEnabled( UIProfilerTabState& state, bool enabled );
