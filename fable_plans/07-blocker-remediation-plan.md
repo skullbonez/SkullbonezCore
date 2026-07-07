@@ -212,3 +212,9 @@ else returns to the overnight machine as gated, verifiable slices.
   subcase is recorded as not applicable until an API exists. Gate passed:
   `tools\validate_tests.bat` (4.121s, 9 doctest cases, 35 assertions,
   0 warnings/errors).
+- 2026-07-07: Completed fable-01 M3 Matrix4 tests. Added
+  `SkullbonezTests/TestMatrix4.cpp`, compiled `Matrix4.cpp` into
+  `SKULLBONEZ_TESTS`, and covered identity inversion, TRS composition against
+  manual column-major values, `Data()` storage aliasing, and inverse-original
+  identity composition. Gate passed: `tools\validate_tests.bat` (3.834s,
+  12 doctest cases, 86 assertions, 0 warnings/errors).

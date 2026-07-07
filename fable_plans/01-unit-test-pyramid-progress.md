@@ -142,8 +142,20 @@ item against plan 02 and pick the next.
   checklist subcase is not applicable until a Slerp API is introduced. Gate:
   `tools\validate_tests.bat` passed in 4.121s with 9 doctest cases and
   35 assertions all passing.
-- [ ] M3. `TestMatrix4.cpp` — inverse(identity)==identity, TRS compose vs
+- [x] M3. `TestMatrix4.cpp` — inverse(identity)==identity, TRS compose vs
   manual, inverse(M)*M ≈ identity within epsilon.
+
+  Evidence: CodeGraph mapped Matrix4 as currently uncovered and identified the
+  default constructor, `Translate`, `Scale`, `RotateAxis`, `operator*`,
+  `Data`, and `Inverse` as the pure-math surface to cover. Discovery
+  `rg -n "Cfg\(|Gfx\(|::Instance" SkullbonezSource/Maths/Matrix4.cpp`
+  returned no hits. Added `SkullbonezTests/TestMatrix4.cpp` and compiled
+  `SkullbonezSource/Maths/Matrix4.cpp` into `SKULLBONEZ_TESTS`. Tests lock
+  `Inverse()` of identity, TRS composition against manual column-major values,
+  `Data()` aliasing the public matrix storage, and `original.Inverse() *
+  original` returning identity within epsilon. Gate:
+  `tools\validate_tests.bat` passed in 3.834s with 12 doctest cases and
+  86 assertions all passing.
 - [ ] M4. `TestGeometricMath.cpp` — ray/sphere hit+miss+tangent, ray/box
   face/edge cases, the degenerate inputs near the file's 3 throw sites.
   Commit phase (gate: `validate_tests` + `validate_fast`).
