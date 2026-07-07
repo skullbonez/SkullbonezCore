@@ -208,7 +208,6 @@
     <ClCompile Include="SkullbonezSource\Runtime\RuntimePickService.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\RuntimeTuning.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\RuntimeViewModel.cpp" />
-    <ClCompile Include="SkullbonezSource\Maths\GeometricMath.cpp" />
     <ClCompile Include="SkullbonezSource\Rendering\Helper.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Init.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Input.cpp" />
@@ -218,8 +217,6 @@
     <ClCompile Include="SkullbonezSource\Runtime\Editor\EditorTools.cpp" />
     <ClCompile Include="SkullbonezSource\Core\LockOrderValidator.cpp" />
     <ClCompile Include="SkullbonezSource\Core\Log.cpp" />
-    <ClCompile Include="SkullbonezSource\Maths\Quaternion.cpp" />
-    <ClCompile Include="SkullbonezSource\Maths\RotationMatrix.cpp" />
     <ClCompile Include="SkullbonezSource\Core\Config.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\RunCapture.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Run.cpp" />
@@ -246,7 +243,6 @@
     <ClCompile Include="SkullbonezSource\Core\Timer.cpp" />
     <ClCompile Include="SkullbonezSource\Rendering\DrawCallTrace.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\TornadoField.cpp" />
-    <ClCompile Include="SkullbonezSource\Maths\Vector3.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Window.cpp" />
     <ClCompile Include="SkullbonezSource\Core\WorkerPool.cpp" />
     <ClCompile Include="SkullbonezSource\World\WorldEnvironment.cpp" />
@@ -278,7 +274,6 @@
     <ClCompile Include="SkullbonezSource\UI\UITabSky.cpp" />
     <ClCompile Include="SkullbonezSource\UI\UIWindowChrome.cpp" />
     <ClCompile Include="ThirdPtySource\stb\stb_image.cpp" />
-    <ClCompile Include="SkullbonezSource\Maths\Matrix4.cpp" />
     <ClCompile Include="SkullbonezSource\Scene\TestScene.cpp" />
     <ClCompile Include="SkullbonezSource\Scene\TestSceneParser.cpp" />
     <ClCompile Include="SkullbonezSource\Core\PlatformProfiler.cpp" />
@@ -360,9 +355,6 @@
     <ClInclude Include="SkullbonezSource\Scene\SceneSnapshotWriter.h" />
     <ClInclude Include="SkullbonezSource\Physics\SleepIslandSystem.h" />
     <ClInclude Include="SkullbonezSource\Core\SkullScope.h" />
-    <ClInclude Include="SkullbonezSource\Maths\GeometricMath.h" />
-    <ClInclude Include="SkullbonezSource\Maths\GeometricStructures.h" />
-    <ClInclude Include="SkullbonezSource\Maths\MathsCommon.h" />
     <ClInclude Include="SkullbonezSource\Rendering\Helper.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Input.h" />
     <ClInclude Include="SkullbonezSource\Runtime\InputController.h" />
@@ -372,8 +364,6 @@
     <ClInclude Include="SkullbonezSource\Core\Log.h" />
     <ClInclude Include="SkullbonezSource\Core\SbResult.h" />
     <ClInclude Include="SkullbonezSource\Rendering\PrimitiveMeshBuilder.h" />
-    <ClInclude Include="SkullbonezSource\Maths\Quaternion.h" />
-    <ClInclude Include="SkullbonezSource\Maths\RotationMatrix.h" />
     <ClInclude Include="SkullbonezSource\Core\Config.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Run.h" />
     <ClInclude Include="SkullbonezSource\Runtime\RunDemoDirector.h" />
@@ -435,7 +425,6 @@
     <ClInclude Include="SkullbonezSource\Assets\TextureCollection.h" />
     <ClInclude Include="SkullbonezSource\Core\Timer.h" />
     <ClInclude Include="SkullbonezSource\Physics\TornadoField.h" />
-    <ClInclude Include="SkullbonezSource\Maths\Vector3.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Window.h" />
     <ClInclude Include="SkullbonezSource\Core\WorkerPool.h" />
     <ClInclude Include="SkullbonezSource\World\WorldEnvironment.h" />
@@ -469,7 +458,6 @@
     <ClInclude Include="SkullbonezSource\UI\UITabSound.h" />
     <ClInclude Include="SkullbonezSource\UI\UITabSky.h" />
     <ClInclude Include="SkullbonezSource\UI\UIWindowChrome.h" />
-    <ClInclude Include="SkullbonezSource\Maths\Matrix4.h" />
     <ClInclude Include="SkullbonezSource\Scene\TestScene.h" />
     <ClInclude Include="SkullbonezSource\Core\PlatformProfiler.h" />
     <ClInclude Include="SkullbonezSource\Core\Profiler.h" />
@@ -502,6 +490,11 @@
     <ClInclude Include="SkullbonezSource\Rendering\DX12\TLASDX12.h" />
     <ClInclude Include="SkullbonezSource\Rendering\DX12\SBTDX12.h" />
     <ClInclude Include="ThirdPtySource\nlohmann\json.hpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="SKULLBONEZ_MATHS.vcxproj">
+      <Project>{5D4A47DA-54C6-4142-9FA9-1A63E976BA2D}</Project>
+    </ProjectReference>
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />

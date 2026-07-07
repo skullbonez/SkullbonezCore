@@ -1,7 +1,7 @@
 # Progress: Build Layering And Repo Hygiene (plan 04)
 
 Source plan: `fable_plans/04-build-layering-and-repo-hygiene-plan.md`
-Status: phase 1 complete on 2026-07-07; phase 2 L1 include break and L2 Maths prelude split complete on 2026-07-08
+Status: phase 1 complete on 2026-07-07; phase 2 L1-L4 Maths library extraction complete on 2026-07-08
 Last updated: 2026-07-08
 
 ## How to work this file
@@ -169,7 +169,7 @@ Last updated: 2026-07-08
   lines: `DX12 validation errors: 0`, `PASS: DX12 screenshots match committed
   baselines.`, `PASS: physics_regression_solver.csv (20001 lines, byte-exact
   match)`, and `VALIDATE_FULL: DEFAULT GATE PASSED`.
-- [ ] L3. Create `SKULLBONEZ_MATHS.vcxproj` (StaticLibrary, same
+- [x] L3. Create `SKULLBONEZ_MATHS.vcxproj` (StaticLibrary, same
   toolset/W4/stdcpp17/CRT — copy ItemDefinitionGroups from the main vcxproj),
   ItemGroup = the 11 Maths files; add to sln; remove those files from
   SKULLBONEZ_CORE.vcxproj ItemGroups and add a ProjectReference. Update BOTH
@@ -177,8 +177,55 @@ Last updated: 2026-07-08
   `msbuild SKULLBONEZ_CORE.sln /p:Configuration=Profile /p:Platform=x64`
   clean; `tools\validate_full.bat` green (build-system change = broad scope).
   Commit.
-- [ ] L4. Point SKULLBONEZ_TESTS (plan 01) at the lib via ProjectReference,
+
+  Evidence (2026-07-08): Added `SKULLBONEZ_MATHS.vcxproj` as a static library
+  and registered it in `SKULLBONEZ_CORE.sln`. The library owns the 12 current
+  Maths files (5 `.cpp`, 7 headers; the plan's older 11-file count predated
+  `MathsCommon.h`). Removed those Maths source/header items from
+  `SKULLBONEZ_CORE.vcxproj` and `SKULLBONEZ_CORE.vcxproj.filters`, then added a
+  native `ProjectReference` from the app project to `SKULLBONEZ_MATHS`.
+  Updated `tools\validate_project_filters.py` so default production validation
+  checks the app plus extracted libraries as one source-ownership set while
+  preserving explicit `--project` partial checks for auxiliary projects.
+  Focused checks passed:
+  ```bat
+  python tools\validate_project_filters.py --repo .
+  python tools\validate_project_filters.py --repo . --project SKULLBONEZ_MATHS.vcxproj --filters SKULLBONEZ_MATHS.vcxproj.filters --partial-project --json-out TestOutput\validation\project_filters\maths_summary.json
+  ```
+  Profile build evidence passed in `00:00:18.44`; log:
+  `Agentic\Reports\2026-07-08\logs\fable-04-l3-l4-profile-build.log`.
+  Key result lines: `SKULLBONEZ_MATHS.vcxproj -> ...\Profile\SKULLBONEZ_MATHS.lib`,
+  `SKULLBONEZ_CORE.vcxproj -> ...\Profile\SKULLBONEZ_CORE.exe`, and `PASS:
+  Build Profile|x64 succeeded.` Touched-file comment audit inspected
+  `tools\validate_project_filters.py`; 1 source-bearing tool file checked,
+  0 deferred.
+
+- [x] L4. Point SKULLBONEZ_TESTS (plan 01) at the lib via ProjectReference,
   removing its compiled-in Maths sources. Gate: `validate_tests`. Commit.
+
+  Evidence (2026-07-08): Removed the five Maths `.cpp` compile-in entries and
+  matching filter entries from `SKULLBONEZ_TESTS`, then added a native
+  `ProjectReference` to `SKULLBONEZ_MATHS`. `tools\validate_tests.bat` passed
+  in `00:00:01.8538541`; log:
+  `Agentic\Reports\2026-07-08\logs\fable-04-l4-validate-tests.log`. Key result
+  lines: `PASS: Project filter validation passed.`,
+  `SKULLBONEZ_MATHS.vcxproj -> ...\Profile\SKULLBONEZ_MATHS.lib`,
+  `SKULLBONEZ_TESTS.vcxproj -> ...\Profile\SKULLBONEZ_TESTS.exe`,
+  `[doctest] test cases: 44 | 44 passed | 0 failed | 0 skipped`, and
+  `VALIDATE_TESTS: ALL PASSED`.
+
+  Commit-gate validation (2026-07-08): `tools\validate_fast.bat` passed in
+  `00:00:49.2272698`; log:
+  `Agentic\Reports\2026-07-08\logs\fable-04-l3-l4-validate-fast.log`. Key
+  result lines: `PASS: Project filter validation passed.`, `PASS: Runtime
+  boundary validation passed.`, `PASS: Build Profile|x64 succeeded.`, `PASS:
+  Build Debug|x64 succeeded.`, `PASS: Profile and Debug binaries are ready.`,
+  and `VALIDATE_FAST: ALL PASSED`. `tools\validate_full.bat` passed in
+  `00:00:45.8862696`; log:
+  `Agentic\Reports\2026-07-08\logs\fable-04-l3-l4-validate-full.log`. Key
+  result lines: `DX12 validation errors: 0`, `PASS: DX12 screenshots match
+  committed baselines.`, `PASS: physics_regression_solver.csv (20001 lines,
+  byte-exact match)`, and `VALIDATE_FULL: DEFAULT GATE PASSED`.
 
 ## Phase 3 — Common.h split (after L2 proves the aliasing pattern)
 

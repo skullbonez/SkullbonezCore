@@ -295,9 +295,6 @@
     <ClCompile Include="SkullbonezSource\Core\SkullScope.cpp">
       <Filter>Source Files\Core</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Maths\GeometricMath.cpp">
-      <Filter>Source Files\Maths</Filter>
-    </ClCompile>
     <ClCompile Include="SkullbonezSource\Rendering\Helper.cpp">
       <Filter>Source Files\Rendering</Filter>
     </ClCompile>
@@ -310,14 +307,8 @@
     <ClCompile Include="SkullbonezSource\Core\Log.cpp">
       <Filter>Source Files\Core</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Maths\Quaternion.cpp">
-      <Filter>Source Files\Maths</Filter>
-    </ClCompile>
     <ClCompile Include="SkullbonezSource\Physics\PhysicsObjectPolicy.cpp">
       <Filter>Source Files\Physics</Filter>
-    </ClCompile>
-    <ClCompile Include="SkullbonezSource\Maths\RotationMatrix.cpp">
-      <Filter>Source Files\Maths</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Core\Config.cpp">
       <Filter>Source Files\Core</Filter>
@@ -430,9 +421,6 @@
     <ClCompile Include="SkullbonezSource\Physics\TornadoField.cpp">
       <Filter>Source Files\Physics</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Maths\Vector3.cpp">
-      <Filter>Source Files\Maths</Filter>
-    </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Window.cpp">
       <Filter>Source Files\Runtime</Filter>
     </ClCompile>
@@ -441,9 +429,6 @@
     </ClCompile>
     <ClCompile Include="SkullbonezSource\World\WorldEnvironment.cpp">
       <Filter>Source Files\World</Filter>
-    </ClCompile>
-    <ClCompile Include="SkullbonezSource\Maths\Matrix4.cpp">
-      <Filter>Source Files\Maths</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Scene\TestScene.cpp">
       <Filter>Source Files\Scene</Filter>
@@ -749,15 +734,6 @@
     <ClInclude Include="SkullbonezSource\Core\SkullScope.h">
       <Filter>Header Files\Core</Filter>
     </ClInclude>
-    <ClInclude Include="SkullbonezSource\Maths\GeometricMath.h">
-      <Filter>Header Files\Maths</Filter>
-    </ClInclude>
-    <ClInclude Include="SkullbonezSource\Maths\GeometricStructures.h">
-      <Filter>Header Files\Maths</Filter>
-    </ClInclude>
-    <ClInclude Include="SkullbonezSource\Maths\MathsCommon.h">
-      <Filter>Header Files\Maths</Filter>
-    </ClInclude>
     <ClInclude Include="SkullbonezSource\Rendering\Helper.h">
       <Filter>Header Files\Rendering</Filter>
     </ClInclude>
@@ -808,12 +784,6 @@
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Rendering\PrimitiveMeshBuilder.h">
       <Filter>Header Files\Rendering</Filter>
-    </ClInclude>
-    <ClInclude Include="SkullbonezSource\Maths\Quaternion.h">
-      <Filter>Header Files\Maths</Filter>
-    </ClInclude>
-    <ClInclude Include="SkullbonezSource\Maths\RotationMatrix.h">
-      <Filter>Header Files\Maths</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Core\Config.h">
       <Filter>Header Files\Core</Filter>
@@ -998,9 +968,6 @@
     <ClInclude Include="SkullbonezSource\Physics\TornadoField.h">
       <Filter>Header Files\Physics</Filter>
     </ClInclude>
-    <ClInclude Include="SkullbonezSource\Maths\Vector3.h">
-      <Filter>Header Files\Maths</Filter>
-    </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Window.h">
       <Filter>Header Files\Runtime</Filter>
     </ClInclude>
@@ -1009,9 +976,6 @@
     </ClInclude>
     <ClInclude Include="SkullbonezSource\World\WorldEnvironment.h">
       <Filter>Header Files\World</Filter>
-    </ClInclude>
-    <ClInclude Include="SkullbonezSource\Maths\Matrix4.h">
-      <Filter>Header Files\Maths</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Scene\TestScene.h">
       <Filter>Header Files\Scene</Filter>
