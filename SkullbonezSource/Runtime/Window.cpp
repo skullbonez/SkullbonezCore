@@ -62,23 +62,6 @@ Window::~Window()
 }
 
 
-Window* Window::Instance()
-{
-    if ( !Window::pInstance )
-    {
-        static Window instance;
-        Window::pInstance = &instance;
-    }
-    return Window::pInstance;
-}
-
-
-void Window::Destroy()
-{
-    Window::pInstance = nullptr;
-}
-
-
 void Window::SetWindowDimensions( int m_width, int m_height )
 {
     m_sWindowDimensions.x = m_width;

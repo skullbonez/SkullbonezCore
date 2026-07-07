@@ -1,8 +1,8 @@
 # Progress: Global Service Retirement (plan 02)
 
 Source plan: `fable_plans/02-global-service-retirement-plan.md`
-Status: phase 4 L2 WorkerPool demotion complete on 2026-07-07; remaining singleton demotion/freezing pending.
-Last updated: 2026-07-07 (takeover phase 4 WorkerPool demotion)
+Status: phase 4 L2 WorkerPool and Window demotions complete on 2026-07-07; remaining singleton demotion/freezing pending.
+Last updated: 2026-07-07 (takeover phase 4 WorkerPool/Window demotion)
 
 ## How to work this file
 
@@ -30,9 +30,9 @@ Last updated: 2026-07-07 (takeover phase 4 WorkerPool demotion)
   budget also covers related renderer service globals such as
   `GfxRayTracing()` and readiness probes.
 - Singleton-style source files from `::Instance()`/`GetInstance(` census:
-  9 files total (`Core` 4, `Runtime` 4, `UI` 1, `Rendering` 0, `Physics` 0).
+  8 files total (`Core` 4, `Runtime` 3, `UI` 1, `Rendering` 0, `Physics` 0).
 - Singleton accessors known from the current census: EngineConfig::Instance,
-  Window::Instance, Profiler::Instance,
+  Profiler::Instance,
   LockOrderValidator::Instance (SVC-034 frozen diagnostics exception), plus
   `s_gfxBackend`/`Gfx()`/`SetGfxBackend` in `Rendering/IRenderBackend.cpp`.
 - The checker `tools/check_runtime_boundaries.py` already carries the
@@ -40,7 +40,7 @@ Last updated: 2026-07-07 (takeover phase 4 WorkerPool demotion)
   entries including `EngineConfig::Instance()`, counted global-service
   patterns, generic `Class::Instance()` handling, reviewed renderer-service
   file classifications, frozen diagnostics singleton classification for
-  `LockOrderValidator`, and `MAX_GLOBAL_SERVICE_ACCESS_CENSUS = 150`.
+  `LockOrderValidator`, and `MAX_GLOBAL_SERVICE_ACCESS_CENSUS = 143`.
 - Sanctioned-global candidates per source plan: `Log()` (Common.h:116-119,
   documented as convenience accessor over EngineLog::Get()) and Profiler —
   frozen, not injected. Everything else is injection work.
@@ -80,11 +80,11 @@ Phase 1 evidence (2026-07-07 takeover census):
   - Total `EngineConfig::Instance` hits: 2 (`Core` 1, `Runtime` 1,
     `Rendering` 0, `UI` 0, `Physics` 0).
 - `rg -n "::Instance\(\)|GetInstance\(" SkullbonezSource --type-add 'src:*.{cpp,h,inl}' -tsrc -l`
-  - 9 source files: `Core\Profiler.h`, `Core\Profiler.cpp`,
+  - 8 source files: `Core\Profiler.h`, `Core\Profiler.cpp`,
     `Core\LockOrderValidator.cpp`, `Core\Config.cpp`, `Runtime\Init.cpp`,
     `Runtime\RuntimeDiagnostics.cpp`,
-    `Runtime\RunUiTextPass.cpp`, `Runtime\Window.cpp`, `UI\UITabProfiler.cpp`.
-  - Top-directory counts: `Core` 4, `Runtime` 4, `UI` 1, `Rendering` 0,
+    `Runtime\RunUiTextPass.cpp`, `UI\UITabProfiler.cpp`.
+  - Top-directory counts: `Core` 4, `Runtime` 3, `UI` 1, `Rendering` 0,
     `Physics` 0.
 - `python tools\check_runtime_boundaries.py` passed:
   `Runtime boundary summary: TestOutput\validation\runtime_boundaries\summary.json (0 errors)`.
@@ -105,7 +105,7 @@ Phase 1 evidence (2026-07-07 takeover census):
     renderer-global file.
   - `FROZEN_DIAGNOSTIC_SINGLETON_INSTANCE_CLASSES` contains
     `LockOrderValidator`.
-  - `MAX_GLOBAL_SERVICE_ACCESS_CENSUS = 150`.
+  - `MAX_GLOBAL_SERVICE_ACCESS_CENSUS = 143`.
   - Recent checker commits:
     `96580241 guard: close replay prediction isolation`,
     `e04d7fec fix: classify lock-order validator singleton`,
@@ -149,7 +149,7 @@ Phase 2 evidence (2026-07-07 takeover config cleanup):
   editor, Physics, or Rendering normal-path callers.
 - The only remaining exact hits are the singleton definition
   `SkullbonezSource\Core\Config.cpp:533` and startup bootstrap
-  `SkullbonezSource\Runtime\Init.cpp:3296`.
+  `SkullbonezSource\Runtime\Init.cpp:3295`.
 - `SkullbonezSource\Core\Config.h` had a stale comment teaching access through
   the static accessor from anywhere. That comment was changed to direct normal
   code to use the `EngineConfig` reference or snapshot threaded from the
@@ -229,15 +229,15 @@ Phase 4 execution notes:
 
 - 2026-07-07 L1 discovery: the pre-L2 `rg -n "::Instance\(\)|GetInstance\("`
   census named `EngineConfig`, `WorkerPool`, `Window`, `Profiler`, and
-  `LockOrderValidator`. After the WorkerPool L2 slice, the current source
-  census no longer names `WorkerPool`; `TextureCollection`, `CameraCollection`,
-  and `SkyBox` also remain absent.
+  `LockOrderValidator`. After the WorkerPool and Window L2 slices, the current
+  source census no longer names `WorkerPool` or `Window`; `TextureCollection`,
+  `CameraCollection`, and `SkyBox` also remain absent.
 
   | Class | Construction site / storage | Teardown and ordering risk |
   |-------|-----------------------------|----------------------------|
   | `EngineConfig` | `Core\Config.cpp:533-536`, function-local static; first runtime call is startup bootstrap `Runtime\Init.cpp:3296`. | Low current runtime risk because normal code now receives references from startup; still a global static whose `std::string` fields destruct at process exit, so final demotion waits for composition-root config ownership. |
   | `WorkerPool` | Superseded by L2: `Runtime\Init.cpp:3330` now constructs `WorkerPool workerPool` with automatic startup storage, then `Run` receives `WorkerPool&`. | Demoted from singleton. Explicit `workerPool.Shutdown()` still runs at `Runtime\Init.cpp:3355`, and the destructor calls `Shutdown()` again after startup scope exit; no process-static worker-pool lifetime remains. |
-  | `Window` | `Runtime\Window.cpp:65-72`, function-local static plus `Window::pInstance` cache; startup binds `Runtime\Init.cpp:3340`. | Medium risk: `CleanupWindow()` disarms input/backend state and calls `window->Destroy()` at `Runtime\Init.cpp:3249`, which only nulls `pInstance`; the static object itself remains until process exit. |
+  | `Window` | Superseded by L2: `Runtime\Init.cpp:3339-3340` now constructs `Window windowOwner` with automatic startup storage and passes `&windowOwner` to existing pointer-based startup helpers. | Demoted from singleton. `CleanupWindow()` still disarms input/backend state, releases the device context, restores fullscreen state, and unregisters the class; no `pInstance` cache or process-static Window remains. |
   | `Profiler` | `Core\Profiler.cpp:79-82`, function-local static reached by macros, diagnostics, UI, and runtime text pass. | Medium risk: no explicit destructor work, but GPU timer methods still read renderer globals and worker-sample paths query worker-thread state. Freeze/demotion depends on Cluster D diagnostics receiving path. |
   | `LockOrderValidator` | `Core\LockOrderValidator.cpp:114-120`, function-local static with header/source frozen-diagnostics comments from SVC-034. | Accepted frozen diagnostics exception: no config reads, no renderer/worker ownership, and no singleton teardown dependency. |
 
@@ -256,6 +256,16 @@ Phase 4 execution notes:
   `python tools\check_runtime_boundaries.py` (0 errors),
   `tools\validate_fast.bat` (65.975s, 0 warnings/errors), and
   `tools\validate_full.bat` (42.469s, DX12 validation errors 0, screenshots
+  matched, `physics_regression_solver.csv` byte-exact).
+- 2026-07-07 L2 Window: deleted `Window::Instance()`, `Window::Destroy()`, and
+  `Window::pInstance`, changed runtime startup to construct a local
+  `Window windowOwner`, and lowered the checker global-service census from 150
+  to 143 by removing the old Window/pInstance allowlist entries. Existing
+  Window and `pInstance` synthetic checker self-tests cover the deleted access
+  paths. Gates passed: `python tools\check_runtime_boundaries.py --self-test`,
+  `python tools\check_runtime_boundaries.py` (0 errors),
+  `tools\validate_fast.bat` (48.314s, 0 warnings/errors), and
+  `tools\validate_full.bat` (42.849s, DX12 validation errors 0, screenshots
   matched, `physics_regression_solver.csv` byte-exact).
 
 ## Closure

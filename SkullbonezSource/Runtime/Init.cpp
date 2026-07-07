@@ -3246,7 +3246,6 @@ void CleanupWindow( Window* window, HINSTANCE hInstance )
     }
 
     UnregisterClass( WINDOW_NAME, hInstance );
-    window->Destroy();
 }
 
 } // anonymous namespace
@@ -3337,7 +3336,8 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine
         return workersOk ? 0 : 1;
     }
 
-    Window* window = Window::Instance();
+    Window windowOwner;
+    Window* window = &windowOwner;
     window->SetStartupWindowSize( cfg.window.screenX, cfg.window.screenY );
     window->SetProjectionFrustum( cfg.frustumNear, cfg.frustumFar );
     window->CreateAppWindow( hInstance, cfg.window.fullscreen );

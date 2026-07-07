@@ -1657,7 +1657,7 @@ FROZEN_DIAGNOSTIC_SINGLETON_INSTANCE_CLASSES = {
 # SVC-035: current tracked-source global-service census on 2026-07-07.
 # Per-file rows classify remaining debt; this total blocks stale row slack from
 # approving growth while later rows drain the explicit-service surface.
-MAX_GLOBAL_SERVICE_ACCESS_CENSUS = 150
+MAX_GLOBAL_SERVICE_ACCESS_CENSUS = 143
 # RUN-001: current Run.h private `m_` field census on 2026-07-07.
 # This is not approval for growth. Run remains the composition root, but new
 # feature state should enter through one of the narrower owners below instead
@@ -1803,16 +1803,12 @@ GLOBAL_SERVICE_ACCESS_ALLOWLIST: Counter[tuple[Path, str]] = Counter(
             ( "SkullbonezSource/Rendering/IRenderBackend.h", "Gfx()", 3 ),
             ( "SkullbonezSource/Rendering/IRenderBackend.h", "IsGfxReady()", 2 ),
             ( "SkullbonezSource/Runtime/Init.cpp", "EngineConfig::Instance()", 1 ),
-            ( "SkullbonezSource/Runtime/Init.cpp", "Window::Instance()", 1 ),
             ( "SkullbonezSource/Runtime/Init.cpp", "g_*", 6 ),
             ( "SkullbonezSource/Runtime/Input.cpp", "g_*", 33 ),
             ( "SkullbonezSource/Runtime/RunInput.cpp", "IsGfxReady()", 1 ),
             ( "SkullbonezSource/Runtime/RunPasses.cpp", "IsGfxReady()", 1 ),
             ( "SkullbonezSource/Runtime/RunUiTextPass.cpp", "Profiler::Instance()", 1 ),
             ( "SkullbonezSource/Runtime/RuntimeDiagnostics.cpp", "Profiler::Instance()", 4 ),
-            ( "SkullbonezSource/Runtime/Window.cpp", "Window::Instance()", 1 ),
-            ( "SkullbonezSource/Runtime/Window.cpp", "pInstance", 4 ),
-            ( "SkullbonezSource/Runtime/Window.h", "pInstance", 1 ),
             ( "SkullbonezSource/UI/UITabProfiler.cpp", "Gfx()", 1 ),
             ( "SkullbonezSource/UI/UITabProfiler.cpp", "IsGfxReady()", 1 ),
             ( "SkullbonezSource/UI/UITabProfiler.cpp", "Profiler::Instance()", 6 ),
