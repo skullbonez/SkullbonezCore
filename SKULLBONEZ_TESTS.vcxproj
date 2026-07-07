@@ -145,11 +145,13 @@
     <ClCompile Include="SkullbonezTests\TestMain.cpp" />
     <ClCompile Include="SkullbonezTests\TestMatrix4.cpp" />
     <ClCompile Include="SkullbonezTests\TestQuaternion.cpp" />
+    <ClCompile Include="SkullbonezTests\TestSpatialGrid.cpp" />
     <ClCompile Include="SkullbonezTests\TestSmoke.cpp" />
     <ClCompile Include="SkullbonezTests\TestVector3.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\BoundingBox.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\BoundingSphere.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\ConvexHullShape.cpp" />
+    <ClCompile Include="SkullbonezSource\Physics\SpatialGrid.cpp" />
     <ClCompile Include="SkullbonezSource\Maths\GeometricMath.cpp" />
     <ClCompile Include="SkullbonezSource\Maths\Matrix4.cpp" />
     <ClCompile Include="SkullbonezSource\Maths\Quaternion.cpp" />

@@ -39,6 +39,9 @@
     <ClCompile Include="SkullbonezTests\TestQuaternion.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezTests\TestSpatialGrid.cpp">
+      <Filter>Source Files\Tests</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezTests\TestSmoke.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
@@ -58,6 +61,9 @@
       <Filter>Source Files\Physics</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Physics\ConvexHullShape.cpp">
+      <Filter>Source Files\Physics</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Physics\SpatialGrid.cpp">
       <Filter>Source Files\Physics</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Maths\Matrix4.cpp">

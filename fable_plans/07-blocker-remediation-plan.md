@@ -235,3 +235,11 @@ else returns to the overnight machine as gated, verifiable slices.
   `SKULLBONEZ_TESTS`, and covered broadphase sweep/overlap/touching contracts.
   Gate passed: `tools\validate_tests.bat` (3.748s, 19 doctest cases,
   115 assertions, 0 warnings/errors).
+- 2026-07-07: Completed fable-01 S3 SpatialGrid tests. Added
+  `SkullbonezTests/TestSpatialGrid.cpp`, compiled `SpatialGrid.cpp` into
+  `SKULLBONEZ_TESTS`, and covered insert/query, pair deduplication,
+  cell-boundary straddling, swept insertion, and `Clear()` emptiness. The
+  initial stack-overflowing local fixture was replaced with static storage to
+  match SpatialGrid's large fixed-buffer design. Gate passed:
+  `tools\validate_tests.bat` (3.710s, 23 doctest cases, 128 assertions,
+  0 warnings/errors).

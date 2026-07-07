@@ -220,9 +220,22 @@ item against plan 02 and pick the next.
   `tools\validate_tests.bat` passed in 3.748s with 19 doctest cases and
   115 assertions all passing after fixing project filters and adding the real
   hull dependency.
-- [ ] S3. `TestSpatialGrid.cpp` — insert/query round-trip, cell-boundary
+- [x] S3. `TestSpatialGrid.cpp` — insert/query round-trip, cell-boundary
   straddling, remove-then-query emptiness. (SpatialGrid.cpp has 13 invariant
   throws — trigger none; they become SB_FATAL under plan 05.)
+
+  Evidence: CodeGraph mapped `SpatialGrid` as an uncovered broadphase cell
+  index with fixed internal arrays and caller-owned pair output. Discovery
+  `rg -n "Cfg\(|Gfx\(|::Instance" SkullbonezSource/Physics/SpatialGrid.cpp`
+  returned no hits. Added `SkullbonezTests/TestSpatialGrid.cpp` and compiled
+  `SkullbonezSource/Physics/SpatialGrid.cpp` into `SKULLBONEZ_TESTS`. Tests
+  lock insert/query round-trip, pair deduplication, cell-boundary straddling,
+  swept insertion into a later cell, and `Clear()`-then-query emptiness. The
+  old "remove" wording maps to `Clear()` because the current public API has no
+  per-object remove. The first run stack-overflowed because `SpatialGrid` owns
+  large fixed arrays; the test fixture now uses static storage and resets by
+  `Clear()`/`SetCellSize()`. Gate: `tools\validate_tests.bat` passed in
+  3.710s with 23 doctest cases and 128 assertions all passing.
 - [ ] S4. `TestPhysicsHandles.cpp` — store handle semantics: fresh handle
   IsValid; ModelIndexForHandle(HandleForModelIndex(i)) == i for live rows;
   stale generation rejected after row removal (per S1 discovery);
