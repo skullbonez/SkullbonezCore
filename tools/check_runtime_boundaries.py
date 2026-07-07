@@ -34,6 +34,8 @@
 #     replace the wide facade.
 #   Physics collection census: Counted GameModelCollection mentions under
 #     Physics/ while debug and ragdoll rows migrate to explicit store views.
+#   Model-index member census: Counted stored `int *ModelIndex*` header fields
+#     that must shrink as stable handles, replay ids, and row-hint wrappers land.
 #
 # Invariants:
 #   - New deleted-artifact guards belong in DELETED_MIGRATION_ARTIFACT_PATTERNS.
@@ -50,6 +52,8 @@
 #     physics dependencies must choose body/collider/render stores or lower the ratchet.
 #   - Run private member budget records current Plan 01 composition-root debt;
 #     new subsystem state must choose an existing owner or lower the ratchet.
+#   - Model-index member budget records current Plan 06 identity debt; new
+#     stored identity must use stable handles/ids or deliberately lower debt.
 #   - Checker self-tests run before repo scans.
 #   - Comment-only historical mentions of deleted names are allowed; live code is
 #     scanned after comments and string literals are stripped where needed.
@@ -1661,6 +1665,14 @@ RUN_PRIVATE_METHOD_DECLARATION_PATTERN = re.compile(
     r"(?:=\s*(?:delete|default)\s*)?;",
     re.S,
 )
+# FABLE-06 I2: current persisted header member census on 2026-07-08.
+# Direct struct/class fields are counted; function default parameters and inline
+# locals are not. The budget is debt, not approval for new stored row identity.
+MAX_STORED_MODEL_INDEX_MEMBER_FIELDS = 28
+TYPE_WITH_BODY_PATTERN = re.compile(r"\b(?:struct|class)\s+[A-Za-z_]\w*(?:\s*:[^{;]+)?\s*\{")
+STORED_MODEL_INDEX_MEMBER_PATTERN = re.compile(
+    r"(?m)^[ \t]*int[ \t]+(?:modelIndex|[A-Za-z_]\w*ModelIndex)\w*[ \t]*(?:=[^,;]*)?;"
+)
 MAX_SOURCE_THROW_TOKENS = 355
 THROW_TOKEN_PATTERN = re.compile(r"\bthrow\b")
 MAX_RENDER_PASS_HOST_FIELD_ACCESSES = 109
@@ -2745,6 +2757,62 @@ def check_run_private_method_count_text(
             f"Found {method_count}; maximum is {max_allowed}. Move behavior to a subsystem or update the ratchet intentionally.",
         )
     ]
+
+
+def stored_model_index_member_offsets(stripped: str) -> list[int]:
+    offsets: list[int] = []
+    for type_match in TYPE_WITH_BODY_PATTERN.finditer(stripped):
+        open_brace_offset = stripped.find("{", type_match.start(), type_match.end())
+        if open_brace_offset < 0:
+            continue
+        close_brace_offset = find_matching_close_brace(stripped, open_brace_offset)
+        body_start = open_brace_offset + 1
+        body = stripped[body_start:close_brace_offset]
+        for member_match in STORED_MODEL_INDEX_MEMBER_PATTERN.finditer(body):
+            prefix = body[: member_match.start()]
+            # Invariant: only direct type members are identity debt. Nested
+            # structs are counted when their own type block is visited, and
+            # inline function locals/default parameters are ignored.
+            if prefix.count("{") != prefix.count("}"):
+                continue
+            offsets.append(body_start + member_match.start())
+    return sorted(offsets)
+
+
+def check_stored_model_index_member_count_entries(
+    entries: list[tuple[Path, str]],
+    max_allowed: int = MAX_STORED_MODEL_INDEX_MEMBER_FIELDS,
+) -> list[BoundaryError]:
+    total_count = 0
+    first_over_budget: tuple[Path, str, int] | None = None
+    for path, text in entries:
+        stripped = strip_cpp_comments_and_string_literals(text)
+        matches = stored_model_index_member_offsets(stripped)
+        if first_over_budget is None and total_count + len(matches) > max_allowed:
+            first_extra_index = max_allowed - total_count
+            first_over_budget = ( path, stripped, matches[first_extra_index] )
+        total_count += len(matches)
+
+    if total_count <= max_allowed:
+        return []
+
+    assert first_over_budget is not None
+    path, stripped, offset = first_over_budget
+    return [
+        BoundaryError(
+            path,
+            line_for_offset(stripped, offset),
+            "stored modelIndex member census exceeds ratchet",
+            f"Found {total_count}; maximum is {max_allowed}. Store stable PhysicsBodyHandle/ReplayBodyId/scene identity, or convert an existing row to ModelRowHint before adding another bare model index member.",
+        )
+    ]
+
+
+def check_stored_model_index_member_count(repo: Path) -> list[BoundaryError]:
+    entries: list[tuple[Path, str]] = []
+    for path in sorted((repo / SOURCE_ROOT).rglob("*.h")):
+        entries.append(( path, path.read_text(encoding="utf-8") ))
+    return check_stored_model_index_member_count_entries(entries)
 
 
 def check_throw_site_count_entries(
@@ -9633,6 +9701,50 @@ def run_self_tests() -> list[str]:
         "Run.h private method count exceeds ratchet",
     )
 
+    model_index_clean_entries = [
+        (
+            Path("synthetic/ExistingIdentityState.h"),
+            """
+            struct ExistingIdentityState
+            {
+                int modelIndex = -1;
+                int targetModelIndex = -1;
+                void Seed( int modelIndex = -1 ) {}
+            };
+            """,
+        ),
+    ]
+    expect_clean(
+        "budget-matched modelIndex member synthetic surface was rejected",
+        check_stored_model_index_member_count_entries(model_index_clean_entries, max_allowed=2),
+    )
+    model_index_grown_entries = [
+        (
+            Path("synthetic/ExistingIdentityState.h"),
+            """
+            struct ExistingIdentityState
+            {
+                int modelIndex = -1;
+                int targetModelIndex = -1;
+            };
+            """,
+        ),
+        (
+            Path("synthetic/NewIdentityDebt.h"),
+            """
+            struct NewIdentityDebt
+            {
+                int previousModelIndex = -1;
+            };
+            """,
+        ),
+    ]
+    expect_error(
+        "grown modelIndex member synthetic surface was not rejected",
+        check_stored_model_index_member_count_entries(model_index_grown_entries, max_allowed=2),
+        "stored modelIndex member census exceeds ratchet",
+    )
+
     throw_ratchet_clean_entries = [
         ( Path("synthetic/AlreadyOwnedThrow.cpp"), "void ExistingOwner() { throw std::runtime_error( \"owned\" ); }\n" ),
     ]
@@ -15922,6 +16034,7 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors = check_text_rules(run_header, run_header_text, RUN_HEADER_RULES)
     errors.extend(check_run_private_member_count_text(run_header, run_header_text))
     errors.extend(check_run_private_method_count_text(run_header, run_header_text))
+    errors.extend(check_stored_model_index_member_count(repo))
     errors.extend(check_throw_site_count(repo))
     errors.extend(check_run_internal_scrubber_guardrails(repo))
     errors.extend(check_run_internal_replay_layout_guardrails(repo))

@@ -1,8 +1,8 @@
 # Progress: Stable Identity (plan 06)
 
 Source plan: `fable_plans/06-stable-identity-plan.md`
-Status: not started
-Last updated: 2026-07-07
+Status: phase 1 inventory/ratchet complete on 2026-07-08
+Last updated: 2026-07-08
 
 ## How to work this file
 
@@ -29,40 +29,46 @@ Last updated: 2026-07-07
   - `TryResolveReplayBodyModelIndex( const PhysicsBodyStore&, ReplayBodyId,
     int hint, int modelCount, int& out )` — RunReplayTools.cpp:158 (replay-id
     → model-index with hint fast path).
-- Full persisted `= -1` model-index member inventory (26 members, 9 headers):
+- Current persisted model-index inventory (28 scalar members in 9 headers, plus
+  1 non-scalar drag-group row) was frozen on 2026-07-08. The checker excludes
+  function default parameters such as `Run.h:190`; those are not stored
+  identity.
 
 | # | File:Line | Member | Adjacent stable id? | Class |
 |---|-----------|--------|---------------------|-------|
-| 1 | GameObjects/GameModelCollection.h:134 | rootModelIndex | scene group data | recorded scene metadata — verify in I1 |
-| 2 | GameObjects/GameModelCollection.h:166 | rootModelIndex | scene group data | same |
-| 3 | Runtime/RunState.h:197 | modelIndex | comment: "UI/presentation hint; revalidated before use" | hint — wrap |
-| 4 | Runtime/RuntimeInteractionController.h:123 | modelIndex | check struct | classify in I1 |
-| 5 | Runtime/RuntimePickService.h:68 | modelIndex | pick result (frame-local?) | classify in I1 |
-| 6 | Runtime/RuntimeInteractionCommands.h:53 | modelIndex | command payload | replace with handle |
-| 7 | Runtime/RuntimeInteractionCommands.h:69 | previousModelIndex | command payload | replace with handle |
-| 8 | Runtime/RuntimeInteractionCommands.h:70 | modelIndex | command payload | replace with handle |
-| 9 | Runtime/Replay/ReplayRuntime.h:116 | RunReplayPathTraceNode.modelIndex | node has `id` (ReplayBodyId); comment: "Fast lookup hint; ReplayBodyId remains authority" | hint — wrap |
-| 10 | ReplayRuntime.h:117 | parentModelIndex | node has parentId | hint — wrap |
-| 11 | ReplayRuntime.h:128 | modelIndex | check struct | classify |
-| 12 | ReplayRuntime.h:170 | focusModelIndex | camera focus state | classify |
-| 13 | ReplayRuntime.h:171 | focusCounterpartModelIndex | camera focus state | classify |
-| 14 | ReplayRuntime.h:186 | modelIndex | cause-tree row (has id fields) | hint — wrap |
-| 15 | ReplayRuntime.h:187 | counterpartModelIndex | cause-tree row | hint — wrap |
-| 16 | ReplayRuntime.h:240 | RunReplayPathTarget.targetModelIndex | has targetId | hint — wrap |
-| 17 | ReplayRuntime.h:249 | modelIndex | check struct | classify |
-| 18 | ReplayRuntime.h:265 | RunReplayPredictionBodySample.modelIndex | sample has id | recorded data — keep, annotate |
-| 19 | ReplayRuntime.h:282 | ReplayPredictionGhostDrawRequest.modelIndex | render request (frame-local) | frame-local — keep, annotate |
-| 20 | ReplayRuntime.h:291 | modelIndex | check struct | classify |
-| 21 | ReplayRuntime.h:317 | RunReplayPredictionState.targetModelIndex | has targetId | hint — wrap |
-| 22 | Runtime/Replay/ReplayRecorder.h:114 | modelIndex | recorded sample row | recorded data — keep, annotate |
-| 23 | ReplayRecorder.h:153 | modelIndex | recorded sample row | recorded data — keep, annotate |
-| 24 | Runtime/Tools/RuntimeTools.h:163 | RunMousePickupState.modelIndex | struct also has `Physics::PhysicsBodyHandle body` | redundant-next-to-handle → wrap or delete |
-| 25 | RuntimeTools.h:196 | RunEditorPlacementState.selectedModelIndex | struct has selectedBody + selectedCollider; comment says "row hint" | hint — wrap |
-| 26 | (drag-group arrays etc. — see I1) | | | |
+| 1 | GameObjects/GameModelCollection.h:135 | SceneObjectGroupCreateDesc.rootModelIndex | scene group create metadata | recorded |
+| 2 | GameObjects/GameModelCollection.h:167 | SceneObjectGroupRecord.rootModelIndex | scene group sidecar | recorded |
+| 3 | Runtime/Replay/ReplayInteractionController.h:84 | ReplayVelocityEditDragStart.modelIndex | gesture-start packet; not retained by ReplayRuntime | frame-local |
+| 4 | Runtime/Replay/ReplayRecorder.h:114 | ReplayBodyPresentationSample.modelIndex | ReplayBodyId + recorded presentation row | recorded |
+| 5 | Runtime/Replay/ReplayRecorder.h:153 | ReplaySolverBodySample.modelIndex | ReplayBodyId + recorded solver row | recorded |
+| 6 | Runtime/Replay/ReplayRuntime.h:121 | RunReplayPathTraceNode.modelIndex | node id | hint |
+| 7 | Runtime/Replay/ReplayRuntime.h:122 | RunReplayPathTraceNode.parentModelIndex | parentId | hint |
+| 8 | Runtime/Replay/ReplayRuntime.h:133 | RunReplayPathTarget.modelIndex | target id | hint |
+| 9 | Runtime/Replay/ReplayRuntime.h:175 | RunReplayCameraState.focusModelIndex | focusedId | hint |
+| 10 | Runtime/Replay/ReplayRuntime.h:176 | RunReplayCameraState.focusCounterpartModelIndex | counterpartId | hint |
+| 11 | Runtime/Replay/ReplayRuntime.h:191 | RunReplayCauseTreeRow.modelIndex | row id | hint |
+| 12 | Runtime/Replay/ReplayRuntime.h:192 | RunReplayCauseTreeRow.counterpartModelIndex | counterpartId | hint |
+| 13 | Runtime/Replay/ReplayRuntime.h:245 | RunReplayPathVisualizerState.targetModelIndex | targetId | hint |
+| 14 | Runtime/Replay/ReplayRuntime.h:254 | RunReplayPredictionBodyBackup.modelIndex | ReplayBodyId | hint |
+| 15 | Runtime/Replay/ReplayRuntime.h:270 | RunReplayPredictionBodySample.modelIndex | ReplayBodyId + prediction sample row | recorded |
+| 16 | Runtime/Replay/ReplayRuntime.h:287 | ReplayPredictionGhostDrawRequest.modelIndex | render request only | frame-local |
+| 17 | Runtime/Replay/ReplayRuntime.h:300 | ReplayPredictionRetainedMarker.modelIndex | ReplayBodyId | hint |
+| 18 | Runtime/Replay/ReplayRuntime.h:321 | ReplayPredictionBaselineBodyPose.modelIndex | ReplayBodyId + retained baseline pose | recorded |
+| 19 | Runtime/Replay/ReplayRuntime.h:335 | ReplayPredictionBaselineSnapshot.rootModelIndex | rootId + retained baseline root path | recorded |
+| 20 | Runtime/Replay/ReplayRuntime.h:367 | RunReplayPredictionState.targetModelIndex | targetId | hint |
+| 21 | Runtime/RunState.h:233 | AttachedCameraTarget.modelIndex | body, collider, replayBodyId, name | hint |
+| 22 | Runtime/RuntimeInteractionCommands.h:53 | RuntimeInteractionCommand.modelIndex | body + collider | hint |
+| 23 | Runtime/RuntimeInteractionCommands.h:69 | RuntimeInteractionEvent.previousModelIndex | previousBody + previousCollider | hint |
+| 24 | Runtime/RuntimeInteractionCommands.h:70 | RuntimeInteractionEvent.modelIndex | body + collider | hint |
+| 25 | Runtime/RuntimeInteractionController.h:125 | RuntimeInteractionGesture.modelIndex | no stable id in gesture state | sole-identity |
+| 26 | Runtime/RuntimePickService.h:68 | RuntimePickResult.modelIndex | body + collider in same pick result | frame-local |
+| 27 | Runtime/Tools/RuntimeTools.h:165 | RunMousePickupState.modelIndex | body | hint |
+| 28 | Runtime/Tools/RuntimeTools.h:198 | RunEditorPlacementState.selectedModelIndex | selectedBody + selectedCollider | hint |
+| 29 | Runtime/Tools/RuntimeTools.h:226 | RunEditorPlacementState.gizmoDragGroupIndices[] | active gesture only | frame-local |
 
 ## Phase 1 — inventory freeze + ratchet
 
-- [ ] I1. Complete the table above: open each "classify/check struct" row,
+- [x] I1. Complete the table above: open each "classify/check struct" row,
   read the owning struct + comments, and fill the Class column with one of:
   `recorded` (replay/scene data keyed by row at record time — keep, annotate),
   `frame-local` (never crosses frames — keep, annotate),
@@ -72,7 +78,15 @@ Last updated: 2026-07-07
   `rg -n "int\s+\w*[mM]odelIndex" SkullbonezSource --type-add 'hdr:*.h' -thdr`
   and add any struct members found (e.g. gizmo drag-group arrays in
   RuntimeTools.h). Evidence: table complete, no row says "classify".
-- [ ] I2. Ratchet: in `tools/check_runtime_boundaries.py` add a census rule
+
+  Evidence (2026-07-08): CodeGraph was used first for the identity inventory.
+  The current scalar census is 28 direct stored `int *ModelIndex*` members in
+  `.h` type bodies; `Runtime/Replay/ReplayInteractionController.h:84` was added
+  to the seed table, and `Runtime/Tools/RuntimeTools.h:226`
+  `gizmoDragGroupIndices[]` was recorded as the non-scalar active-gesture row.
+  The checker census intentionally excludes `Run.h:190` because it is a
+  function default parameter, not stored identity.
+- [x] I2. Ratchet: in `tools/check_runtime_boundaries.py` add a census rule
   counting struct-scope `int *[mM]odelIndex*` declarations in `.h` files with
   the current total stored as the budget (count from I1). Follow the existing
   rule pattern in that script (find one rule + its self-test and imitate —
@@ -81,6 +95,31 @@ Last updated: 2026-07-07
   new member fails. Evidence: checker passes on HEAD; self-test demonstrates
   a failure on synthetic input. Gate: `tools\validate_fast.bat`, then run the
   checker. Commit.
+
+  Evidence (2026-07-08): added
+  `MAX_STORED_MODEL_INDEX_MEMBER_FIELDS = 28` plus a direct type-member scanner
+  and self-test. The self-test accepts a budget-matched synthetic header and
+  rejects a synthetic added `previousModelIndex` member with
+  `stored modelIndex member census exceeds ratchet`. Preliminary targeted
+  checks passed before the commit gate:
+  `python tools\check_runtime_boundaries.py --self-test` printed
+  `SELF_TEST_PASS: runtime boundary checker synthetic cases passed`;
+  `python tools\check_runtime_boundaries.py --max-errors 20` printed
+  `Runtime boundary summary: TestOutput\validation\runtime_boundaries\summary.json (0 errors)`
+  and `PASS: Runtime boundary validation passed.` Touched-file comment audit:
+  1 source-bearing file inspected (`tools/check_runtime_boundaries.py`), 0
+  deferred.
+
+  Commit-gate validation (2026-07-08):
+  `tools\validate_fast.bat` passed in 00:00:34.4710073; log:
+  `Agentic\Reports\2026-07-08\logs\fable-06-phase1-validate-fast.log`.
+  Key result lines: formatting, project filters, staged-size, runtime
+  boundaries, unit tests, and Profile/Debug builds passed with 0
+  warnings/errors; `VALIDATE_FAST: ALL PASSED`. The required post-gate checker
+  rerun passed in 00:00:17.2728378; log:
+  `Agentic\Reports\2026-07-08\logs\fable-06-phase1-boundary-check.log`, with
+  `Runtime boundary summary: TestOutput\validation\runtime_boundaries\summary.json (0 errors)`
+  and `PASS: Runtime boundary validation passed.`
 
 ## Phase 2 — the wrapper type + central resolvers
 
