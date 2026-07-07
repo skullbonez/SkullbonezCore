@@ -37,11 +37,11 @@ namespace Basics
 {
 
 /*
-    Singleton configuration loaded once from SkullbonezData/engine.cfg at startup.
-    Access via EngineConfig::Instance().fieldName (or grouped sub-structs) anywhere
-    Common.h is included.
-    All fields carry defaults matching the original hard-coded values; the config
-    file is optional -- if absent, defaults apply.
+    Process configuration loaded once from SkullbonezData/engine.cfg at startup.
+    Runtime startup owns the legacy singleton accessor; normal code should use
+    the EngineConfig reference or snapshot threaded from the composition root.
+    All fields carry defaults matching the original hard-coded values; the
+    config file is optional -- if absent, defaults apply.
 */
 struct WindowConfig
 {

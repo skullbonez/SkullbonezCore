@@ -314,3 +314,10 @@ else returns to the overnight machine as gated, verifiable slices.
   `MAX_GLOBAL_SERVICE_ACCESS_CENSUS = 152`, so no checker/source change was
   needed. Evidence command passed: `python tools\check_runtime_boundaries.py`
   (0 errors).
+- 2026-07-07: Completed fable-02 phase 2 config cleanup. Verified `Run` owns a
+  borrowed `EngineConfig& m_config` threaded from startup, confirmed exact
+  `EngineConfig::Instance` hits are now only the singleton definition
+  (`Core\Config.cpp`) and startup bootstrap (`Runtime\Init.cpp`), and changed
+  the stale `Config.h` comment that still taught normal code to use the global
+  accessor. No behavior changed; evidence command passed:
+  `python tools\check_runtime_boundaries.py` (0 errors).

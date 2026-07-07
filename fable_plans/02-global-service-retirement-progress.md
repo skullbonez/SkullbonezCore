@@ -1,8 +1,8 @@
 # Progress: Global Service Retirement (plan 02)
 
 Source plan: `fable_plans/02-global-service-retirement-plan.md`
-Status: phase 1 census complete on 2026-07-07; config/Gfx burn-down not started.
-Last updated: 2026-07-07 (takeover phase 1 census)
+Status: phase 2 config cleanup complete on 2026-07-07; Gfx burn-down not started.
+Last updated: 2026-07-07 (takeover phase 2 config cleanup)
 
 ## How to work this file
 
@@ -17,17 +17,20 @@ Last updated: 2026-07-07 (takeover phase 1 census)
 ## Verified facts (as of 2026-07-07 takeover census — re-verify before later phases)
 
 - `Cfg()` no longer exists (0 call sites). Config access is now
-  `EngineConfig::Instance()` — declared `Core/Config.h:256`, documented at
-  Config.h:40-41 ("Access via EngineConfig::Instance().fieldName ... anywhere").
-  The convenience accessor died; the GLOBAL did not. The target moved from
-  "delete Cfg()" to "retire EngineConfig::Instance() from normal paths".
-- `EngineConfig::Instance` exact call sites: 3 total (`Core` 2, `Runtime` 1).
+  `EngineConfig::Instance()` — declared `Core/Config.h:256`, with
+  `Config.h:40-42` now documenting startup ownership of the legacy singleton
+  accessor and directing normal code to use a threaded reference or snapshot.
+  The convenience accessor died; the GLOBAL remains only at bootstrap/definition
+  boundaries.
+- `EngineConfig::Instance` exact call sites: 2 total (`Core` 1, `Runtime` 1):
+  the singleton definition in `Core\Config.cpp` and startup bootstrap in
+  `Runtime\Init.cpp`.
 - Exact `Gfx()` call sites: 25 total by the Phase 1 command (`Core` 10,
   `Rendering` 13, `UI` 2, `Runtime` 0, `Physics` 0). The broader checker
   budget also covers related renderer service globals such as
   `GfxRayTracing()` and readiness probes.
 - Singleton-style source files from `::Instance()`/`GetInstance(` census:
-  11 files total (`Core` 6, `Runtime` 4, `UI` 1, `Rendering` 0, `Physics` 0).
+  10 files total (`Core` 5, `Runtime` 4, `UI` 1, `Rendering` 0, `Physics` 0).
 - Singleton accessors known from the current census: EngineConfig::Instance,
   WorkerPool::Instance, Window::Instance, Profiler::Instance,
   LockOrderValidator::Instance (SVC-034 frozen diagnostics exception), plus
@@ -73,16 +76,15 @@ Phase 1 evidence (2026-07-07 takeover census):
     `Runtime` 0, `Physics` 0).
 - `rg -c "EngineConfig::Instance" SkullbonezSource | sort`
   - `SkullbonezSource\Core\Config.cpp:1`
-  - `SkullbonezSource\Core\Config.h:1`
   - `SkullbonezSource\Runtime\Init.cpp:1`
-  - Total `EngineConfig::Instance` hits: 3 (`Core` 2, `Runtime` 1,
+  - Total `EngineConfig::Instance` hits: 2 (`Core` 1, `Runtime` 1,
     `Rendering` 0, `UI` 0, `Physics` 0).
 - `rg -n "::Instance\(\)|GetInstance\(" SkullbonezSource --type-add 'src:*.{cpp,h,inl}' -tsrc -l`
-  - 11 source files: `Core\WorkerPool.cpp`, `Core\Profiler.h`,
-    `Core\Profiler.cpp`, `Core\LockOrderValidator.cpp`, `Core\Config.h`,
-    `Core\Config.cpp`, `Runtime\Init.cpp`, `Runtime\RuntimeDiagnostics.cpp`,
+  - 10 source files: `Core\WorkerPool.cpp`, `Core\Profiler.h`,
+    `Core\Profiler.cpp`, `Core\LockOrderValidator.cpp`, `Core\Config.cpp`,
+    `Runtime\Init.cpp`, `Runtime\RuntimeDiagnostics.cpp`,
     `Runtime\RunUiTextPass.cpp`, `Runtime\Window.cpp`, `UI\UITabProfiler.cpp`.
-  - Top-directory counts: `Core` 6, `Runtime` 4, `UI` 1, `Rendering` 0,
+  - Top-directory counts: `Core` 5, `Runtime` 4, `UI` 1, `Rendering` 0,
     `Physics` 0.
 - `python tools\check_runtime_boundaries.py` passed:
   `Runtime boundary summary: TestOutput\validation\runtime_boundaries\summary.json (0 errors)`.
@@ -116,13 +118,13 @@ Phase 1 evidence (2026-07-07 takeover census):
 
 ## Phase 2 — config snapshots (the EngineConfig::Instance burn-down)
 
-- [ ] C1. DISCOVERY: how config reaches Run today — `rg -n "m_config|config"
+- [x] C1. DISCOVERY: how config reaches Run today — `rg -n "m_config|config"
   SkullbonezSource/Runtime/Run.h | head -20`; record whether Run holds
   `EngineConfig*`/reference and how frame code receives it (RunReplayTools
   passes `*m_systems.config` — verify the member name). The injection pattern
   for every conversion below is "pass the config reference the caller already
   has", NOT "add a new Instance() call higher up".
-- [ ] C2. Convert per directory, smallest first, one commit each. For each
+- [x] C2. Convert per directory, smallest first, one commit each. For each
   call site: replace `EngineConfig::Instance().field` with a `const
   EngineConfig& config` parameter threaded from the nearest owner that
   already has one. Order: (a) UI/ tabs, (b) Runtime/Audio, (c)
@@ -132,14 +134,39 @@ Phase 1 evidence (2026-07-07 takeover census):
   plan-04/composition-root work assigns ownership).
   Gate per commit: the touched area's validation-map row; ratchet budget
   decremented in the same commit.
-- [ ] C3. End state check: `rg -n "EngineConfig::Instance" SkullbonezSource`
+- [x] C3. End state check: `rg -n "EngineConfig::Instance" SkullbonezSource`
   hits only Init/startup + Config.cpp itself. Update the checker rule from
   budget to directory allowlist. Gate: `validate_full`. Commit.
 
-## Phase 3 — Gfx() burn-down (44 sites; coordinate with plan-05 RGRAPH rows)
+Phase 2 evidence (2026-07-07 takeover config cleanup):
 
-- [ ] G1. Classify the 44: `rg -n "\bGfx\(\)" SkullbonezSource` → tag each
-  line here as: (a) startup/teardown (Init.cpp SetGfxBackend region — keep,
+- Discovery: `rg -n "m_config|config" SkullbonezSource\Runtime\Run.h`
+  shows `Run` owns a borrowed `EngineConfig& m_config` at line 103 and its
+  constructor receives `EngineConfig& config` at line 365. Startup loads and
+  CLI-patches the config in `Runtime\Init.cpp` before constructing `Run`.
+- No directory conversion was needed in this slice: `rg -n
+  "EngineConfig::Instance" SkullbonezSource` found no UI, Runtime frame/audio,
+  editor, Physics, or Rendering normal-path callers.
+- The only remaining exact hits are the singleton definition
+  `SkullbonezSource\Core\Config.cpp:533` and startup bootstrap
+  `SkullbonezSource\Runtime\Init.cpp:3296`.
+- `SkullbonezSource\Core\Config.h` had a stale comment teaching access through
+  the static accessor from anywhere. That comment was changed to direct normal
+  code to use the `EngineConfig` reference or snapshot threaded from the
+  composition root. The diff is comment-only.
+- The current checker already uses `GLOBAL_SERVICE_ACCESS_ALLOWLIST` per-file
+  entries for the remaining `EngineConfig::Instance()` definition/startup
+  bootstrap and a total global-service budget of
+  `MAX_GLOBAL_SERVICE_ACCESS_CENSUS = 152`; no checker edit was needed.
+- Evidence command passed after the comment cleanup:
+  `python tools\check_runtime_boundaries.py` (0 errors).
+- Repository validation was not run: this slice is comment/documentation-only.
+
+## Phase 3 — Gfx() burn-down (25 exact sites; coordinate with plan-05 RGRAPH rows)
+
+- [ ] G1. Classify the 25 exact hits: `rg -n "\bGfx\(\)"
+  SkullbonezSource` → tag each line here as: (a) startup/teardown
+  (Init.cpp SetGfxBackend region — keep,
   allowlist), (b) covered by an authoritative SVC/RGRAPH row (cite row id —
   work it THERE, not here, or verify already done), (c) orphan (no row —
   convert here). Expected: most are (b).
