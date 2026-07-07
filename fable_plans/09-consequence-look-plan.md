@@ -1,8 +1,7 @@
 # Consequence Look Plan (butterfly-demo visual impact)
 
 Date: 2026-07-07
-Status: In progress; consequence grade and smooth replay-ribbon glow complete,
-two-tone baseline and divergence counter pending
+Status: Complete as of 2026-07-08
 Impact area: rendering (tonemap/grade, line rendering, prediction ghosts, HUD);
 no physics change
 Validation for this document: none (documentation-only)
@@ -24,10 +23,12 @@ overlay on a pretty world*. Four moves, in impact order:
    the old line-list path.
 3. **Two-tone butterfly** - the baseline future renders as cold cyan ghosts;
    the nudged future unfolds warm over it. Divergence is readable at a glance.
-   Pending.
+   Implemented with a retained `ReplayPredictionBaselineSnapshot`, cold ribbon
+   path/box overlays, and low-alpha cyan baseline ghost requests.
 4. **Divergence counter** - one big on-screen number (sum of
    baseline-vs-current rest-pose distances) that spins up as the trees split.
-   Journalists quote numbers. Pending.
+   Journalists quote numbers. Implemented in `RunUiTextPass` behind
+   `--hide-top-text` for clean demo captures.
 
 Pairs with the Demo Director (plan 08): the grade and reveal-rate are per-phase
 so the director choreographs the look, not just the camera.
@@ -68,8 +69,9 @@ existing screenshot baselines.
 - With a baseline captured, the old future renders cold/ghosted and the new
   future warm; a divergence number is displayed and grows as they separate.
 - No DX12 validation errors; committed screenshot baselines updated
-  intentionally if a validation-suite baseline changes (this is a deliberate
-  visual change, not a regression).
+  intentionally if a validation-suite baseline changes. The final 2026-07-08
+  gates matched existing committed DX12 baselines, so no baseline refresh was
+  needed.
 
 ## Non-goals
 

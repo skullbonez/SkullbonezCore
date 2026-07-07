@@ -69,7 +69,10 @@ namespace Basics
 struct ReplayV2SaveResult;
 
 inline constexpr std::size_t REPLAY_PREDICTION_GHOST_MAX_FRAMES = 24;
+inline constexpr std::size_t REPLAY_PREDICTION_GHOST_REQUEST_CAPACITY =
+    ( REPLAY_PREDICTION_GHOST_MAX_FRAMES + 2u ) * static_cast<std::size_t>( MAX_GAME_MODELS );
 inline constexpr std::size_t REPLAY_PREDICTION_MARKER_CAPACITY = static_cast<std::size_t>( MAX_GAME_MODELS );
+inline constexpr std::size_t REPLAY_PREDICTION_BASELINE_ROOT_POINT_CAPACITY = 261u;
 inline constexpr std::size_t REPLAY_CAUSE_TREE_CONTACT_CAPACITY = static_cast<std::size_t>( MAX_GAME_MODELS ) * 4u;
 inline constexpr std::size_t REPLAY_CAUSE_TREE_ROW_CAPACITY =
     1u + static_cast<std::size_t>( MAX_GAME_MODELS ) + REPLAY_CAUSE_TREE_CONTACT_CAPACITY * 3u;
@@ -285,6 +288,10 @@ struct ReplayPredictionGhostDrawRequest
     Math::Vector::Vector3 position = Math::Vector::ZERO_VECTOR;
     Math::Orientation::Quaternion orientation = Math::Orientation::IDENTITY_QUATERNION;
     float alpha = 1.0f;
+    float tintR = 1.0f;
+    float tintG = 1.0f;
+    float tintB = 1.0f;
+    float tintStrength = 0.0f;
 };
 
 struct ReplayPredictionRetainedMarker
@@ -300,6 +307,40 @@ struct ReplayPredictionRetainedMarker
     Math::Orientation::Quaternion restOrientation = Math::Orientation::IDENTITY_QUATERNION;
     Math::Vector::Vector3 horizonPosition = Math::Vector::ZERO_VECTOR;
     Math::Orientation::Quaternion horizonOrientation = Math::Orientation::IDENTITY_QUATERNION;
+};
+
+struct ReplayPredictionBaselineRootPoint
+{
+    ReplayFrameIndex frameIndex = 0;
+    Math::Vector::Vector3 position = Math::Vector::ZERO_VECTOR;
+};
+
+struct ReplayPredictionBaselineBodyPose
+{
+    ReplayBodyId id;
+    int modelIndex = -1;
+    bool hasEntryPose = false;
+    bool hasRestPose = false;
+    Math::Vector::Vector3 entryPosition = Math::Vector::ZERO_VECTOR;
+    Math::Orientation::Quaternion entryOrientation = Math::Orientation::IDENTITY_QUATERNION;
+    Math::Vector::Vector3 restPosition = Math::Vector::ZERO_VECTOR;
+    Math::Orientation::Quaternion restOrientation = Math::Orientation::IDENTITY_QUATERNION;
+};
+
+struct ReplayPredictionBaselineSnapshot
+{
+    bool valid = false;
+    bool comparisonActive = false;
+    ReplayBodyId rootId;
+    int rootModelIndex = -1;
+    ReplayFrameIndex lastFrame = 0;
+    // Runtime allocation policy: baseline vectors are captured only while replay
+    // prediction is active, reserved under replay_prediction_working_set, and
+    // bounded to one sampled root line plus one entry/rest pose per model.
+    std::vector<ReplayPredictionBaselineRootPoint> rootPolyline;
+    std::vector<ReplayPredictionBaselineBodyPose> bodyPoses;
+    bool divergenceValid = false;
+    float divergenceUnits = 0.0f;
 };
 
 struct RunReplayPredictionState
@@ -370,6 +411,11 @@ struct RunReplayPredictionState
     // marker poses until a new prediction/future cache resets the story.
     std::array<ReplayPredictionRetainedMarker, REPLAY_PREDICTION_MARKER_CAPACITY> retainedMarkers = {};
     std::size_t retainedMarkerCount = 0;
+    // Concept: the butterfly baseline is a retained presentation snapshot of
+    // the pre-nudge future. It is intentionally smaller than prediction.frames:
+    // one cold root polyline, two poses per affected body, and one divergence
+    // number, so the warm current prediction can unfold over it.
+    ReplayPredictionBaselineSnapshot baseline;
     // Concept: reveal anchor — wall-clock start of the causal-unfold animation.
     // The overlay clamps drawn prediction frames to a cursor derived from this
     // anchor so the tree unfolds over real time instead of popping in whole.

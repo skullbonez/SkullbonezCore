@@ -1,8 +1,8 @@
 # Progress: Consequence Look (plan 09)
 
 Source plan: `fable_plans/09-consequence-look-plan.md`
-Status: in progress; consequence grade and smooth replay-ribbon glow implemented
-Last updated: 2026-07-07 (Phase 0-2 visual slice)
+Status: complete
+Last updated: 2026-07-08 (Phase 3-4 baseline/divergence slice)
 
 ## How to work this file
 
@@ -33,6 +33,10 @@ Last updated: 2026-07-07 (Phase 0-2 visual slice)
   (ReplayRuntime.cpp, anchor `m_predictionGhostDrawRequests.clear()`),
   `ReplayPredictionGhostDrawRequest` struct (ReplayRuntime.h, has modelIndex,
   position, orientation, alpha).
+- Two-tone baseline: `ReplayPredictionBaselineSnapshot` stores a bounded cold
+  root polyline plus entry/rest body poses; ghost requests are pre-reserved by
+  `REPLAY_PREDICTION_GHOST_REQUEST_CAPACITY` at `ReplayRuntime` construction so
+  baseline ghost rendering does not grow vectors from the render path.
 - Prediction on/off + reveal: `RunReplayPredictionState.enabled` and
   `revealAnchor` (ReplayRuntime.h). Root/child colors are set inline in
   RunReplayPredictionVisualizer.inl (warm palette) - the two-tone work reads a
@@ -120,13 +124,19 @@ Last updated: 2026-07-07 (Phase 0-2 visual slice)
 
 ## Phase 3 - two-tone butterfly (depends on fable-plan-03 done + a baseline capture)
 
-- [ ] P3.1 Add a retained baseline snapshot: when the operator starts editing
+- [x] P3.1 Add a retained baseline snapshot: when the operator starts editing
   the root velocity, copy the current committed prediction's per-body
   entry/rest poses + a downsampled root polyline into a bounded, preallocated
   buffer (register under the replay reserve owner per the allocation gate).
   This is small because the two-box design stores two poses per body, not full
   trails.
-- [ ] P3.2 Render the baseline cold: draw the baseline root polyline and
+  Evidence: `ReplayPredictionBaselineSnapshot` in `ReplayRuntime.h` owns a
+  bounded root polyline and body-pose vector; capture uses
+  `ReserveReplayPredictionVector` under `replay_prediction_working_set`.
+  `TestOutput/interaction/fable09_baseline_divergence_report.json` passed with
+  `predictionBaselineRootPointCount=181` and
+  `predictionBaselineBodyPoseCount=174`.
+- [x] P3.2 Render the baseline cold: draw the baseline root polyline and
   entry/rest boxes in desaturated cyan (reuse `AddReplayPathSegment`/marker
   calls with a cold palette + lower intensity), and the baseline rest meshes
   via the existing ghost path (`BuildPredictionGhostDrawRequests`) pointed at
@@ -135,18 +145,31 @@ Last updated: 2026-07-07 (Phase 0-2 visual slice)
   Evidence: screenshot mid-nudge showing cold baseline + warm new tree.
   Gate: `validate_dx12_renderer` + `prediction_ragdoll_wall_200_predict`.
   Commit.
+  Evidence: `TestOutput/interaction/fable09_baseline_divergence.bmp` shows the
+  cold cyan baseline and warm rebuilt tree with smooth replay ribbons. The
+  proof report has `predictionBaselineVisible=true`; the named
+  `prediction_ragdoll_wall_200_predict` proof rerun passed with `ok=true`,
+  `predictionPathVisible=true`, and `liveSolverHashStableAcrossPrediction=true`.
 
 ## Phase 4 - divergence counter
 
-- [ ] P4.1 Compute a scalar: sum over matched bodies of
+- [x] P4.1 Compute a scalar: sum over matched bodies of
   `|baselineRestPose - currentRestPose|` (only bodies with a rest pose in both;
   reuse the resting-pose test from RunReplayPredictionHelpers.inl). Update it
   when a new prediction completes. Bounded, no per-frame cost beyond the sum.
-- [ ] P4.2 Draw it big via the existing UI text pass (`rg -n "RunUiTextPass"`),
+  Evidence: `UpdateReplayPredictionBaselineDivergence` reuses
+  `ReplayPredictionBodyRestingPose` after the rebuilt prediction swaps into
+  `prediction.frames`. The focused proof reported
+  `predictionDivergenceValid=true` and
+  `predictionDivergenceUnits=457.13067626953125`.
+- [x] P4.2 Draw it big via the existing UI text pass (`rg -n "RunUiTextPass"`),
   behind a clean-demo toggle so it can be the only HUD element on screen.
   Format for impact (e.g. "DIVERGENCE 1,240 u"). Evidence: screenshot with the
   counter; nudge the input smaller and show it grow. Gate:
   `validate_dx12_renderer`. Commit.
+  Evidence: `RunUiTextPass.cpp` draws `DIVERGENCE 457 u` when
+  `--hide-top-text` is active and baseline divergence is valid. Screenshot:
+  `TestOutput/interaction/fable09_baseline_divergence.bmp`.
 
 ## Closure
 
@@ -154,11 +177,39 @@ Last updated: 2026-07-07 (Phase 0-2 visual slice)
   director can bind it as a phase's render type as an alternative to the
   runtime grade override - whichever reads better.
   Evidence: `SkullbonezData/styles/consequence.style.json`.
-- [ ] Z2. Update baselines intentionally; note the deliberate visual change in
+- [x] Z2. Update baselines intentionally; note the deliberate visual change in
   `Agentic/SessionState.md`.
-  Note: no committed baseline image has been refreshed in this slice yet. Do
-  this only if the DX12 validation suite's committed baselines are deliberately
-  updated for the new consequence look.
+  Evidence: no committed validation baseline image needed a refresh in this
+  slice. `tools\validate_dx12_renderer.bat` and `tools\validate_full.bat`
+  matched the existing committed DX12 baselines.
 - [x] Z3. Update `fable_plans/09-consequence-look-plan.md` status + this file.
   Evidence: this progress file and `fable_plans/09-consequence-look-plan.md`
-  now describe the completed Phase 1/2 slice and remaining Phase 3/4 work.
+  now describe the completed consequence look.
+
+## Final Evidence - 2026-07-08
+
+- Touched-file comment audit inspected 11 source-bearing files with 0 deferred:
+  `RunEditorTracer.inl`, `ReplayRuntime.cpp/.h`,
+  `RunReplayPredictionHelpers.inl`, `RunReplayPredictionVisualizer.inl`,
+  `RunReplayVelocityEdit.cpp`, `RunInteractionAutomation.cpp`, `RunRender.cpp`,
+  `RunState.h`, `RunUiTextPass.cpp`, and `RuntimeTools.h`.
+- Independent subagent review found one blocking allocation-policy issue in
+  baseline ghost request reservation; it was fixed by pre-reserving
+  `REPLAY_PREDICTION_GHOST_REQUEST_CAPACITY` during `ReplayRuntime`
+  construction and failing closed if a draw request set exceeds that cap.
+- `Profile\SKULLBONEZ_CORE.exe --scene SkullbonezData\scenes\prediction_ragdoll_wall_200.scene.json --interaction-script Agentic\Temp\fable09_baseline_divergence_interaction.json --interaction-report TestOutput\interaction\fable09_baseline_divergence_report.json --frames 460 --replay on --replay-seconds 2 --fixed-step --vsync off --hide-top-text`
+  passed in 00:00:07.9960309 with `ok=true`,
+  `predictionBaselineVisible=true`, `predictionDivergenceMin >=1` actual
+  `457.131`, and screenshot
+  `TestOutput\interaction\fable09_baseline_divergence.bmp`.
+- `Profile\SKULLBONEZ_CORE.exe --scene SkullbonezData\scenes\prediction_ragdoll_wall_200.scene.json --interaction-script SkullbonezData\interaction\prediction_ragdoll_wall_200_predict.json --interaction-report TestOutput\interaction\fable09_prediction_ragdoll_current_report.json --frames 220 --replay on --replay-seconds 2 --fixed-step --vsync off`
+  passed in 00:00:03.9584789 on rerun with `ok=true`,
+  `predictionPathVisible=true`, and
+  `liveSolverHashStableAcrossPrediction=true`.
+- `tools\validate_dx12_renderer.bat` passed in 00:00:24.9698923:
+  formatting clean, Profile/Debug ready, DX12 validation errors 0, and DX12
+  screenshots matched committed baselines.
+- `tools\validate_full.bat` passed in 00:00:44.6889136:
+  project filters and runtime boundaries had 0 errors, Profile/Debug builds had
+  0 warnings/errors, DX12 screenshots matched baselines with validation errors
+  0, and `physics_regression_solver.csv` matched byte-exactly.

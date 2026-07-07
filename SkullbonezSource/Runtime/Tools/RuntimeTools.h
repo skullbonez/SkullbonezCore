@@ -338,6 +338,9 @@ class RunEditorTracer
                                       float r,
                                       float g,
                                       float b );
+    // Draws the cold baseline root path with smooth replay ribbons so old-vs-new
+    // butterfly-effect captures remain readable under bloom/glow.
+    void AddReplayBaselinePathSegment( const Math::Vector::Vector3& start, const Math::Vector::Vector3& end );
     void AddReplayContactMarker( const Math::Vector::Vector3& point,
                                  const Math::Vector::Vector3& normal,
                                  float r,
@@ -370,6 +373,14 @@ class RunEditorTracer
     void AddReplayCausalHorizonMarker( const Math::Vector::Vector3& position,
                                        const Math::Orientation::Quaternion& orientation,
                                        const Math::CollisionDetection::CollisionShape& shape );
+    // Draws cold baseline entry/rest outlines from the retained old future.
+    // Callers pass explicit pose/shape; live model state is not consulted.
+    void AddReplayBaselineEntryMarker( const Math::Vector::Vector3& position,
+                                       const Math::Orientation::Quaternion& orientation,
+                                       const Math::CollisionDetection::CollisionShape& shape );
+    void AddReplayBaselineRestMarker( const Math::Vector::Vector3& position,
+                                      const Math::Orientation::Quaternion& orientation,
+                                      const Math::CollisionDetection::CollisionShape& shape );
     // Draws a replay target marker from explicit store values. Replay may still
     // resolve identity by model order, but marker geometry must not read legacy
     // model-side body state.

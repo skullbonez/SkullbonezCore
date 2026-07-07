@@ -427,6 +427,16 @@ void RenderReplayPredictionGhosts( ReplayRuntime& replayRuntime,
         }
 
         Rendering::RenderMaterial material = renderInstances[modelIndex].material;
+        if ( request.tintStrength > 0.0f )
+        {
+            // Why: baseline ghosts reuse authored materials for shape/lighting,
+            // then tint toward cyan so the cold future separates from the warm
+            // live prediction without adding a second render path.
+            const float tint = std::clamp( request.tintStrength, 0.0f, 1.0f );
+            material.baseColor[0] = material.baseColor[0] * ( 1.0f - tint ) + request.tintR * tint;
+            material.baseColor[1] = material.baseColor[1] * ( 1.0f - tint ) + request.tintG * tint;
+            material.baseColor[2] = material.baseColor[2] * ( 1.0f - tint ) + request.tintB * tint;
+        }
         material.baseColor[3] = request.alpha;
         const Math::Transformation::Matrix4 modelMatrix =
             box->GetModelMatrix( request.position,

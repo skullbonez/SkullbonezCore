@@ -775,6 +775,21 @@ void RunEditorTracer::AddReplayCausalTrailSegment( const Vector3& start, const V
 }
 
 
+void RunEditorTracer::AddReplayBaselinePathSegment( const Vector3& start, const Vector3& end )
+{
+    const ReplayRibbonStyle glow = { 1.05f, 0.15f, 0.82f, 2.20f };
+    const ReplayRibbonStyle core = { 0.24f, 0.62f, 0.42f, 1.22f };
+    EmitReplayRibbonGlowPairTo( m_replayRibbonSegments,
+                                start,
+                                end,
+                                0.34f,
+                                0.82f,
+                                0.95f,
+                                glow,
+                                core );
+}
+
+
 void RunEditorTracer::AddReplayContactMarker( const Vector3& point, const Vector3& normal, float r, float g, float b )
 {
     constexpr float crossSize = 0.55f;
@@ -895,6 +910,31 @@ void RunEditorTracer::AddReplayCausalHorizonMarker( const Vector3& position,
                                     0.92f,
                                     1.0f,
                                     core );
+}
+
+
+void RunEditorTracer::AddReplayBaselineEntryMarker( const Vector3& position,
+                                                    const Quaternion& orientation,
+                                                    const CollisionShape& shape )
+{
+    // Concept: cold baseline markers are the old future's footprint. They use
+    // the same smooth ribbon shader as live causal boxes, but remain cyan and
+    // quieter so the warm nudged future can read on top.
+    const ReplayRibbonStyle glow = { 1.00f, 0.16f, 0.80f, 2.05f };
+    const ReplayRibbonStyle core = { 0.24f, 0.58f, 0.40f, 1.15f };
+    EmitReplayRibbonShapeOutlineTo( m_replayRibbonSegments, position, orientation, shape, 0.26f, 0.78f, 0.95f, glow );
+    EmitReplayRibbonShapeOutlineTo( m_replayRibbonSegments, position, orientation, shape, 0.26f, 0.78f, 0.95f, core );
+}
+
+
+void RunEditorTracer::AddReplayBaselineRestMarker( const Vector3& position,
+                                                   const Quaternion& orientation,
+                                                   const CollisionShape& shape )
+{
+    const ReplayRibbonStyle glow = { 0.90f, 0.13f, 0.78f, 1.70f };
+    const ReplayRibbonStyle core = { 0.22f, 0.50f, 0.38f, 0.95f };
+    EmitReplayRibbonShapeOutlineTo( m_replayRibbonSegments, position, orientation, shape, 0.18f, 0.62f, 0.78f, glow );
+    EmitReplayRibbonShapeOutlineTo( m_replayRibbonSegments, position, orientation, shape, 0.18f, 0.62f, 0.78f, core );
 }
 
 

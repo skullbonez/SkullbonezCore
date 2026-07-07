@@ -49,6 +49,7 @@ using namespace SkullbonezCore::Basics::ReplayOverlay;
 using namespace SkullbonezCore::GameObjects;
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Math::Vector;
+namespace Physics = SkullbonezCore::Physics;
 namespace RuntimeAllocation = SkullbonezCore::Runtime::Allocation;
 
 namespace
@@ -470,8 +471,12 @@ const char* ActionTypeName( RunInteractionAutomationActionType type )
         return "scrubReplaySolverTrack";
     case RunInteractionAutomationActionType::SetReplayPredictionEnabled:
         return "setReplayPredictionEnabled";
+    case RunInteractionAutomationActionType::SetReplayPredictionHorizonSeconds:
+        return "setReplayPredictionHorizonSeconds";
     case RunInteractionAutomationActionType::SetReplayPathTarget:
         return "setReplayPathTarget";
+    case RunInteractionAutomationActionType::NudgeReplayPathTargetVelocity:
+        return "nudgeReplayPathTargetVelocity";
     case RunInteractionAutomationActionType::ShowReplayScrubber:
         return "showReplayScrubber";
     case RunInteractionAutomationActionType::PressKey:
@@ -508,6 +513,10 @@ const char* AssertName( RunInteractionAutomationAssertKind kind )
         return "replayPathTarget";
     case RunInteractionAutomationAssertKind::PredictionPathVisible:
         return "predictionPathVisible";
+    case RunInteractionAutomationAssertKind::PredictionBaselineVisible:
+        return "predictionBaselineVisible";
+    case RunInteractionAutomationAssertKind::PredictionDivergenceMin:
+        return "predictionDivergenceMin";
     case RunInteractionAutomationAssertKind::ReplaySolverTrackAtPresent:
         return "replaySolverTrackAtPresent";
     case RunInteractionAutomationAssertKind::PredictionScrubFrameActive:
@@ -711,10 +720,29 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
         return true;
     }
 
+    if ( entry.contains( "setReplayPredictionHorizonSeconds" ) )
+    {
+        outAction.type = RunInteractionAutomationActionType::SetReplayPredictionHorizonSeconds;
+        outAction.numberValue = entry["setReplayPredictionHorizonSeconds"].get<float>();
+        return true;
+    }
+
     if ( entry.contains( "setReplayPathTarget" ) )
     {
         outAction.type = RunInteractionAutomationActionType::SetReplayPathTarget;
         CopyText( outAction.text, sizeof( outAction.text ), entry["setReplayPathTarget"].get<std::string>() );
+        return true;
+    }
+
+    if ( entry.contains( "nudgeReplayPathTargetVelocity" ) )
+    {
+        outAction.type = RunInteractionAutomationActionType::NudgeReplayPathTargetVelocity;
+        if ( !ReadAutomationVec3( entry["nudgeReplayPathTargetVelocity"], outAction.vectorValue ) )
+        {
+            outError = "nudgeReplayPathTargetVelocity must be a 3-number array";
+            return false;
+        }
+        CopyText( outAction.text, sizeof( outAction.text ), "path-target" );
         return true;
     }
 
@@ -820,6 +848,16 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
         {
             outAction.assertKind = RunInteractionAutomationAssertKind::PredictionPathVisible;
             outAction.boolValue = ReadBool( member.value() );
+        }
+        else if ( name == "predictionBaselineVisible" )
+        {
+            outAction.assertKind = RunInteractionAutomationAssertKind::PredictionBaselineVisible;
+            outAction.boolValue = ReadBool( member.value() );
+        }
+        else if ( name == "predictionDivergenceMin" )
+        {
+            outAction.assertKind = RunInteractionAutomationAssertKind::PredictionDivergenceMin;
+            outAction.numberValue = member.value().get<float>();
         }
         else if ( name == "replaySolverTrackAtPresent" )
         {
@@ -1262,6 +1300,80 @@ void Run::TickInteractionAutomationBeforeInput()
             action.processed = true;
             break;
         }
+        case RunInteractionAutomationActionType::SetReplayPredictionHorizonSeconds:
+        {
+            const float horizonSeconds =
+                std::clamp( action.numberValue, REPLAY_PREDICTION_MIN_SECONDS, REPLAY_PREDICTION_MAX_SECONDS );
+            // Why: automation should use the same bounded horizon value the
+            // replay UI exposes, while still forcing a rebuild when a script
+            // changes it before a proof.
+            m_replayRuntime.Prediction().horizonSeconds = horizonSeconds;
+            m_replayRuntime.MarkPredictionDirty();
+            std::ostringstream detail;
+            detail << "prediction horizon set to " << horizonSeconds << "s";
+            AppendReportAction( state, frame, action.type, "", nullptr, true, detail.str().c_str() );
+            action.processed = true;
+            break;
+        }
+        case RunInteractionAutomationActionType::NudgeReplayPathTargetVelocity:
+        {
+            Physics::PhysicsEngine& physics = m_cGameModelCollection.GetPhysicsEngine();
+            const Physics::PhysicsBodyStore& bodyStore = physics.BodyStore();
+            const Physics::PhysicsBodyHandle body = m_replayRuntime.ResolveVelocityEditBodyHandle( bodyStore );
+            const Physics::PhysicsBodyRecord* record = bodyStore.RecordForHandle( body );
+            const bool hasTarget =
+                m_replayRuntime.PathVisualizer().hasTarget && m_replayRuntime.PathVisualizer().targetId.value != 0;
+            bool applied = false;
+            if ( hasTarget && record )
+            {
+                RunReplayPredictionState& prediction = m_replayRuntime.Prediction();
+                if ( !prediction.complete || prediction.frames.size() < 2 )
+                {
+                    FailAutomation( state,
+                                    "replay path target velocity nudge requires a completed prediction baseline" );
+                }
+                else
+                {
+                    // Why: automation needs the same old-vs-new future proof as
+                    // a mouse drag, but without depending on pixel-perfect axis
+                    // hit testing. Capture is still deferred to the visualizer.
+                    prediction.baseline.valid = false;
+                    prediction.baseline.comparisonActive = true;
+                    prediction.baseline.divergenceValid = false;
+                    prediction.baseline.divergenceUnits = 0.0f;
+
+                    const Vector3 nextLinearVelocity = record->linearVelocity + action.vectorValue;
+                    applied = physics.SetBodyVelocity( body, nextLinearVelocity, record->angularVelocity, true );
+                    if ( applied )
+                    {
+                        m_replayRuntime.Prediction().enabled = true;
+                        m_replayRuntime.MarkPredictionDirty();
+                        m_replayRuntime.Scrubber().visible = true;
+                        m_replayRuntime.Scrubber().visibleUntil =
+                            m_timers.simulationTimer.GetTotalTime() + REPLAY_SCRUBBER_VISIBLE_SECONDS;
+                        SetWorldInteractionOwnerAfterInteractionTransition( WorldInteractionOwner::ReplayVelocityEdit,
+                                                                            InteractionExitReason::EnterReplay );
+                    }
+                }
+            }
+            else
+            {
+                FailAutomation( state, "failed to resolve replay path target for velocity nudge" );
+            }
+            if ( !applied && !state.failed )
+            {
+                FailAutomation( state, "failed to apply replay path target velocity nudge" );
+            }
+            AppendReportAction( state,
+                                frame,
+                                action.type,
+                                action.text,
+                                nullptr,
+                                applied,
+                                applied ? "path target velocity nudged" : "path target velocity nudge failed" );
+            action.processed = true;
+            break;
+        }
         case RunInteractionAutomationActionType::PressKey:
             // Why: key automation should still enter through Input and
             // RuntimeInputContext edge detection. This only supplies the
@@ -1668,6 +1780,31 @@ void Run::TickInteractionAutomationAfterRender()
             passed = visible == action.boolValue;
             break;
         }
+        case RunInteractionAutomationAssertKind::PredictionBaselineVisible:
+        {
+            const ReplayPredictionBaselineSnapshot& baseline = m_replayRuntime.Prediction().baseline;
+            const bool visible = baseline.valid && baseline.comparisonActive;
+            expected = BoolString( action.boolValue );
+            actual = BoolString( visible );
+            passed = visible == action.boolValue;
+            break;
+        }
+        case RunInteractionAutomationAssertKind::PredictionDivergenceMin:
+        {
+            const ReplayPredictionBaselineSnapshot& baseline = m_replayRuntime.Prediction().baseline;
+            {
+                std::ostringstream stream;
+                stream << ">=" << action.numberValue;
+                expected = stream.str();
+            }
+            {
+                std::ostringstream stream;
+                stream << ( baseline.divergenceValid ? baseline.divergenceUnits : 0.0f );
+                actual = stream.str();
+            }
+            passed = baseline.divergenceValid && baseline.divergenceUnits >= action.numberValue;
+            break;
+        }
         case RunInteractionAutomationAssertKind::ReplaySolverTrackAtPresent:
         {
             const float solverPosition = m_replayRuntime.TrackPosition( RunReplayTrack::Solver );
@@ -1852,6 +1989,8 @@ void Run::WriteInteractionAutomationReport()
                                                                          &predictionTargetFirst,
                                                                          &predictionTargetLast );
     const RunReplayPredictionState& predictionState = m_replayRuntime.Prediction();
+    const ReplayPredictionBaselineSnapshot& predictionBaseline = predictionState.baseline;
+    const bool predictionBaselineVisible = predictionBaseline.valid && predictionBaseline.comparisonActive;
     std::size_t predictionRetainedEntryMarkerCount = 0;
     std::size_t predictionRetainedRestMarkerCount = 0;
     std::size_t predictionRetainedHorizonMarkerCount = 0;
@@ -1929,11 +2068,17 @@ void Run::WriteInteractionAutomationReport()
               { "gizmoVisible", gizmoVisible },
               { "memoryOverlayEnabled", m_UI.IsMemoryOverlayEnabled() },
               { "replayPredictionEnabled", predictionState.enabled },
+              { "predictionHorizonSeconds", predictionState.horizonSeconds },
               { "predictionRevealSecondsPerSecond", predictionState.revealSecondsPerSecond },
               { "replayPathTarget",
                 m_replayRuntime.PathVisualizer().hasTarget ? m_replayRuntime.PathVisualizer().targetName : "" },
               { "replayPathTargetCount", static_cast<int>( m_replayRuntime.PathVisualizer().targets.size() ) },
               { "predictionPathVisible", predictionPathVisible },
+              { "predictionBaselineVisible", predictionBaselineVisible },
+              { "predictionBaselineRootPointCount", static_cast<int>( predictionBaseline.rootPolyline.size() ) },
+              { "predictionBaselineBodyPoseCount", static_cast<int>( predictionBaseline.bodyPoses.size() ) },
+              { "predictionDivergenceValid", predictionBaseline.divergenceValid },
+              { "predictionDivergenceUnits", predictionBaseline.divergenceUnits },
               { "liveSolverHashStableAcrossPrediction", liveSolverHashStableAcrossPrediction },
               { "predictionSourceSolverHash", predictionSourceSolverHash },
               { "liveSolverHash", liveSolverHash },

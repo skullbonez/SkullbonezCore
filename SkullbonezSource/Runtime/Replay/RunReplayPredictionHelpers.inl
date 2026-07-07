@@ -659,6 +659,208 @@ std::size_t ReplayPathStrideForSampleCount( std::size_t sampleCount )
     return ( sampleCount + REPLAY_PATH_MAX_SEGMENTS - 1 ) / REPLAY_PATH_MAX_SEGMENTS;
 }
 
+void ClearReplayPredictionBaseline( ReplayPredictionBaselineSnapshot& baseline )
+{
+    baseline.valid = false;
+    baseline.comparisonActive = false;
+    baseline.rootId = ReplayBodyId{};
+    baseline.rootModelIndex = -1;
+    baseline.lastFrame = 0;
+    baseline.rootPolyline.clear();
+    baseline.bodyPoses.clear();
+    baseline.divergenceValid = false;
+    baseline.divergenceUnits = 0.0f;
+}
+
+// Concept: baseline capture freezes the old committed future before a velocity
+// edit. It keeps a bounded root path plus completed entry/rest poses so the
+// renderer can contrast "what would have happened" against the nudged rebuild.
+bool CaptureReplayPredictionBaselineSnapshot( RunReplayPredictionState& prediction,
+                                              const std::vector<RunReplayPredictionFrame>& frames,
+                                              std::size_t frameCount,
+                                              ReplayBodyId rootId,
+                                              int rootModelIndex )
+{
+    frameCount = (std::min)( frameCount, frames.size() );
+    ClearReplayPredictionBaseline( prediction.baseline );
+    if ( frameCount < 2 || rootId.value == 0 )
+    {
+        return false;
+    }
+
+    const RunReplayPredictionFrame& firstFrame = frames.front();
+    const RunReplayPredictionFrame& lastFrame = frames[frameCount - 1];
+    const std::size_t bodyCapacity =
+        (std::min)( static_cast<std::size_t>( MAX_GAME_MODELS ), firstFrame.bodies.size() );
+    const int reserveFrame = static_cast<int>( lastFrame.frameIndex );
+    if ( !ReserveReplayPredictionVector( prediction.baseline.rootPolyline,
+                                         REPLAY_PREDICTION_BASELINE_ROOT_POINT_CAPACITY,
+                                         reserveFrame,
+                                         "ReplayPredictionBaselineRootPoint[]" ) ||
+         !ReserveReplayPredictionVector( prediction.baseline.bodyPoses,
+                                         bodyCapacity,
+                                         reserveFrame,
+                                         "ReplayPredictionBaselineBodyPose[]" ) )
+    {
+        ClearReplayPredictionBaseline( prediction.baseline );
+        return false;
+    }
+
+    prediction.baseline.rootId = rootId;
+    prediction.baseline.rootModelIndex = rootModelIndex;
+    prediction.baseline.lastFrame = lastFrame.frameIndex;
+
+    const std::size_t rootStride =
+        frameCount <= REPLAY_PREDICTION_BASELINE_ROOT_POINT_CAPACITY
+            ? 1u
+            : ( frameCount + REPLAY_PREDICTION_BASELINE_ROOT_POINT_CAPACITY - 1u ) /
+                  REPLAY_PREDICTION_BASELINE_ROOT_POINT_CAPACITY;
+    std::size_t ordinal = 0;
+    for ( std::size_t frameSlot = 0; frameSlot < frameCount; ++frameSlot )
+    {
+        const RunReplayPredictionFrame& frame = frames[frameSlot];
+        const bool endpointFrame = frameSlot == 0 || frameSlot + 1 == frameCount;
+        const std::size_t currentOrdinal = ordinal++;
+        if ( !endpointFrame && rootStride > 1u && ( currentOrdinal % rootStride ) != 0u )
+        {
+            continue;
+        }
+
+        const RunReplayPredictionBodySample* body = FindReplayPredictionBodyByIdWithHint( frame, rootId, rootModelIndex );
+        if ( !body )
+        {
+            continue;
+        }
+
+        ReplayPredictionBaselineRootPoint point;
+        point.frameIndex = frame.frameIndex;
+        point.position = body->position;
+        if ( prediction.baseline.rootPolyline.size() < REPLAY_PREDICTION_BASELINE_ROOT_POINT_CAPACITY )
+        {
+            prediction.baseline.rootPolyline.push_back( point );
+        }
+        else if ( endpointFrame && !prediction.baseline.rootPolyline.empty() )
+        {
+            prediction.baseline.rootPolyline.back() = point;
+        }
+    }
+
+    for ( const RunReplayPredictionBodySample& body : firstFrame.bodies )
+    {
+        if ( prediction.baseline.bodyPoses.size() >= bodyCapacity || body.id.value == 0 )
+        {
+            break;
+        }
+
+        Vector3 restPosition = SkullbonezCore::Math::Vector::ZERO_VECTOR;
+        Quaternion restOrientation = IDENTITY_QUATERNION;
+        if ( !ReplayPredictionBodyRestingPose( frames, frameCount, body.id, body.modelIndex, restPosition, restOrientation ) )
+        {
+            continue;
+        }
+
+        ReplayPredictionBaselineBodyPose pose;
+        pose.id = body.id;
+        pose.modelIndex = body.modelIndex;
+        pose.hasEntryPose = true;
+        pose.hasRestPose = true;
+        pose.entryPosition = body.position;
+        pose.entryOrientation = body.orientation;
+        pose.entryOrientation.Normalise();
+        pose.restPosition = restPosition;
+        pose.restOrientation = restOrientation;
+        pose.restOrientation.Normalise();
+        prediction.baseline.bodyPoses.push_back( pose );
+    }
+
+    prediction.baseline.valid =
+        prediction.baseline.rootPolyline.size() >= 2 || !prediction.baseline.bodyPoses.empty();
+    prediction.baseline.comparisonActive = prediction.baseline.valid;
+    return prediction.baseline.valid;
+}
+
+// Concept: divergence is a demo-facing separation metric, not physics authority.
+// It sums how far matched bodies' resting endpoints moved between the cold
+// baseline and the rebuilt prediction.
+void UpdateReplayPredictionBaselineDivergence( RunReplayPredictionState& prediction,
+                                               const std::vector<RunReplayPredictionFrame>& frames,
+                                               std::size_t frameCount )
+{
+    ReplayPredictionBaselineSnapshot& baseline = prediction.baseline;
+    baseline.divergenceValid = false;
+    baseline.divergenceUnits = 0.0f;
+    frameCount = (std::min)( frameCount, frames.size() );
+    if ( !baseline.valid || frameCount < 2 || baseline.bodyPoses.empty() )
+    {
+        return;
+    }
+
+    float divergence = 0.0f;
+    int matchedBodies = 0;
+    for ( const ReplayPredictionBaselineBodyPose& baselinePose : baseline.bodyPoses )
+    {
+        if ( !baselinePose.hasRestPose || baselinePose.id.value == 0 )
+        {
+            continue;
+        }
+
+        Vector3 restPosition = SkullbonezCore::Math::Vector::ZERO_VECTOR;
+        Quaternion restOrientation = IDENTITY_QUATERNION;
+        if ( !ReplayPredictionBodyRestingPose(
+                 frames, frameCount, baselinePose.id, baselinePose.modelIndex, restPosition, restOrientation ) )
+        {
+            continue;
+        }
+
+        divergence += VectorMag( restPosition - baselinePose.restPosition );
+        ++matchedBodies;
+    }
+
+    baseline.divergenceUnits = divergence;
+    baseline.divergenceValid = matchedBodies > 0;
+}
+
+const ColliderRecord* ReplayColliderRecordForModelIndex( const ColliderStore* colliderStore, int modelIndex );
+
+// Concept: cold baseline drawing deliberately reuses the smooth replay ribbon
+// path. It should read as the old future's ghost, never as jaggy debug wire.
+void DrawReplayPredictionBaselineSnapshot( const ReplayPredictionBaselineSnapshot& baseline,
+                                           const ColliderStore& colliderStore,
+                                           RunEditorTracer& tracer )
+{
+    if ( !baseline.valid )
+    {
+        return;
+    }
+
+    for ( std::size_t i = 1; i < baseline.rootPolyline.size(); ++i )
+    {
+        const Vector3& previous = baseline.rootPolyline[i - 1].position;
+        const Vector3& current = baseline.rootPolyline[i].position;
+        if ( VectorMagSquared( current - previous ) > REPLAY_PATH_MIN_SEGMENT_DISTANCE_SQ )
+        {
+            tracer.AddReplayBaselinePathSegment( previous, current );
+        }
+    }
+
+    for ( const ReplayPredictionBaselineBodyPose& pose : baseline.bodyPoses )
+    {
+        const ColliderRecord* collider = ReplayColliderRecordForModelIndex( &colliderStore, pose.modelIndex );
+        if ( !collider )
+        {
+            continue;
+        }
+        if ( pose.hasEntryPose )
+        {
+            tracer.AddReplayBaselineEntryMarker( pose.entryPosition, pose.entryOrientation, collider->shape );
+        }
+        if ( pose.hasRestPose )
+        {
+            tracer.AddReplayBaselineRestMarker( pose.restPosition, pose.restOrientation, collider->shape );
+        }
+    }
+}
+
 struct ReplayPathBoundsContext
 {
     bool hasSample = false;

@@ -308,6 +308,12 @@ bool StepReplayPredictionJob( ReplayRuntime& replayRuntime,
         replayRuntime.Prediction().frames.swap( replayRuntime.Prediction().buildFrames );
         replayRuntime.Prediction().buildFrames.clear();
         replayRuntime.Prediction().buildFrameCount = 0;
+        if ( replayRuntime.Prediction().baseline.valid )
+        {
+            UpdateReplayPredictionBaselineDivergence( replayRuntime.Prediction(),
+                                                      replayRuntime.Prediction().frames,
+                                                      replayRuntime.Prediction().frames.size() );
+        }
         if ( scrubberWasPinnedToPresent )
         {
             // Why: prediction extends the normalized solver track by moving the
@@ -360,6 +366,7 @@ bool DrawReplayPredictionOverlay( ReplayRuntime& replayRuntime,
     // Why: while the job is still building there is no authoritative ending,
     // so no grey resting box may be derived from the growing prefix.
     const bool bufferComplete = !usingBuildFrames;
+    DrawReplayPredictionBaselineSnapshot( replayRuntime.Prediction().baseline, colliderStore, tracer );
 
     if ( !replayRuntime.PathVisualizer().hasTarget || replayRuntime.PathVisualizer().targetId.value == 0 )
     {
@@ -720,6 +727,18 @@ void RenderReplayPredictionVisualizer( ReplayRuntime& replayRuntime,
         if ( ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ) )
         {
             return;
+        }
+        RunReplayPredictionState& prediction = replayRuntime.Prediction();
+        if ( prediction.baseline.comparisonActive && !prediction.baseline.valid && prediction.frames.size() >= 2 )
+        {
+            if ( !CaptureReplayPredictionBaselineSnapshot( prediction,
+                                                           prediction.frames,
+                                                           prediction.frames.size(),
+                                                           replayRuntime.PathVisualizer().targetId,
+                                                           replayRuntime.PathVisualizer().targetModelIndex ) )
+            {
+                prediction.baseline.comparisonActive = false;
+            }
         }
         BeginReplayPredictionJob( replayRuntime,
                                   modelCollection,

@@ -587,6 +587,10 @@ RunReplayPredictionState& RunReplayPredictionState::operator=( RunReplayPredicti
 ReplayRuntime::ReplayRuntime()
 {
     m_causeTree.rows.reserve( REPLAY_CAUSE_TREE_ROW_CAPACITY );
+    // Runtime allocation policy: prediction ghost requests are appended while
+    // rendering replay overlays. Reserve the worst-case live sample stride plus
+    // one baseline rest pose per model before steady gameplay.
+    m_predictionGhostDrawRequests.reserve( REPLAY_PREDICTION_GHOST_REQUEST_CAPACITY );
     // Runtime allocation policy: focus masks are rewritten during replay render
     // passes, so the byte vector owns its full model-capacity storage up front.
     m_focusModelMask.reserve( MAX_GAME_MODELS );
@@ -729,6 +733,7 @@ void ReplayRuntime::ClearPredictionCache()
     m_prediction.sourceSolverHash = 0;
     m_prediction.sourceSimulationSeconds = 0.0;
     m_prediction.lastBuildTime = 0.0;
+    m_prediction.baseline = ReplayPredictionBaselineSnapshot{};
 }
 
 void ReplayRuntime::MarkPredictionDirty()
@@ -2162,10 +2167,9 @@ bool ReplayRuntime::BuildPredictionGhostDrawRequests(
 {
     m_predictionGhostDrawRequests.clear();
     const std::vector<RunReplayPredictionFrame>& frames = ActivePredictionFrames();
-    if ( !m_prediction.enabled || !m_prediction.ragdollVisualsEnabled || frames.size() < 2 )
-    {
-        return false;
-    }
+    const bool drawLivePrediction = m_prediction.enabled && m_prediction.ragdollVisualsEnabled && frames.size() >= 2;
+    const bool drawBaseline = m_prediction.baseline.valid && m_prediction.baseline.comparisonActive &&
+                              m_prediction.ragdollVisualsEnabled && !m_prediction.baseline.bodyPoses.empty();
 
     bool hasRagdollPart = false;
     for ( int i = 0; i < static_cast<int>( presentationRecords.size() ); ++i )
@@ -2181,16 +2185,51 @@ bool ReplayRuntime::BuildPredictionGhostDrawRequests(
         return false;
     }
 
+    const std::size_t liveRequestCapacity =
+        drawLivePrediction
+            ? (std::min)( frames.size(), REPLAY_PREDICTION_GHOST_MAX_FRAMES + 1 ) * presentationRecords.size()
+            : 0u;
+    const std::size_t baselineRequestCapacity = drawBaseline ? m_prediction.baseline.bodyPoses.size() : 0u;
+    if ( liveRequestCapacity + baselineRequestCapacity > m_predictionGhostDrawRequests.capacity() )
+    {
+        return false;
+    }
+
+    if ( drawBaseline )
+    {
+        for ( const ReplayPredictionBaselineBodyPose& pose : m_prediction.baseline.bodyPoses )
+        {
+            if ( !pose.hasRestPose || pose.modelIndex < 0 ||
+                 pose.modelIndex >= static_cast<int>( presentationRecords.size() ) ||
+                 !ReplayRuntimeModelIsRagdollPart( presentationRecords, pose.modelIndex ) )
+            {
+                continue;
+            }
+
+            ReplayPredictionGhostDrawRequest request;
+            request.modelIndex = pose.modelIndex;
+            request.position = pose.restPosition;
+            request.orientation = pose.restOrientation;
+            request.orientation.Normalise();
+            request.alpha = 0.075f;
+            request.tintR = 0.28f;
+            request.tintG = 0.76f;
+            request.tintB = 1.0f;
+            request.tintStrength = 0.82f;
+            m_predictionGhostDrawRequests.push_back( request );
+        }
+    }
+
+    if ( !drawLivePrediction )
+    {
+        return !m_predictionGhostDrawRequests.empty();
+    }
+
     const std::size_t lastIndex = frames.size() - 1;
     const std::size_t stride =
         (std::max)( static_cast<std::size_t>( 1 ),
                     ( lastIndex + REPLAY_PREDICTION_GHOST_MAX_FRAMES - 1 ) / REPLAY_PREDICTION_GHOST_MAX_FRAMES );
     const ReplayFrameIndex lastFrame = frames.back().frameIndex;
-    // Concept: ghost requests are sparse future poses, not a second full replay
-    // render. Sample at a bounded stride so ragdoll prediction stays readable
-    // and cheap even when the future buffer contains many physics frames.
-    m_predictionGhostDrawRequests.reserve( (std::min)( frames.size(), REPLAY_PREDICTION_GHOST_MAX_FRAMES + 1 ) *
-                                           presentationRecords.size() );
 
     auto appendGhostFrame = [&]( std::size_t index )
     {
