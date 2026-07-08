@@ -1,8 +1,8 @@
 # Progress: Prediction Isolated World (plan 03)
 
 Source plan: `fable_plans/03-prediction-isolated-world-plan.md`
-Status: in progress
-Last updated: 2026-07-07
+Status: in progress; Phase 3 safety prep complete, worker-job stepping still deferred
+Last updated: 2026-07-08
 
 ## How to work this file
 
@@ -315,6 +315,35 @@ Last updated: 2026-07-07
 
 ## Phase 3 — worker-job stepping (optional; only after Phase 2 soaks)
 
+- [x] P3.0 Fence current build-prefix publication behind
+  `RunReplayPredictionState` helpers before introducing async stepping. Replace
+  direct external `buildFrameCount` reads/writes with
+  `PublishedBuildFrameCount`, `BuildPrefixShouldBePresented`,
+  `BuildFramesAreComplete`, `ResetBuildFramePublication`, and
+  `PublishBuildFrameSlot`; add cancellation/promotion hazard comments that any
+  future worker must stop or invalidate before scratch storage is cleared.
+
+  Evidence, 2026-07-08: source sweep now finds `buildFrameCount` only inside
+  `ReplayRuntime.h` state comments/helpers. Touched-file comment audit inspected
+  `ReplayRuntime.h`, `ReplayRuntime.cpp`, `RunReplayPredictionHelpers.inl`,
+  `RunReplayPredictionVisualizer.inl`, `RunReplayScrubberTools.inl`,
+  `RunDemoDirector.cpp`, and `RunInteractionAutomation.cpp` with 0 deferred.
+  `tools\validate_format.bat` passed after formatting the two locally touched
+  files named by the first gate attempt. `tools\validate_full.bat` rerun passed
+  in 00:00:51.2659145 with project filters/runtime boundaries at 0 errors,
+  Profile/Debug builds at 0 warnings/errors, DX12 validation errors 0,
+  screenshots matching committed baselines, and
+  `physics_regression_solver.csv` byte-exact. Focused proof
+  `Profile\SKULLBONEZ_CORE.exe --scene
+  SkullbonezData\scenes\prediction_ragdoll_wall_200.scene.json
+  --interaction-script
+  SkullbonezData\interaction\prediction_ragdoll_wall_200_predict.json
+  --interaction-report
+  TestOutput\interaction\fable03_p30_prediction_ragdoll_report.json --frames
+  220 --replay on --replay-seconds 2 --fixed-step --vsync off` passed in
+  00:00:03.9054389 with `ok=true`, `predictionPathVisible=true`,
+  `liveSolverHashStableAcrossPrediction=true`, and
+  `predictionBuildFrameCount=417`.
 - [ ] P3.1 Wrap the tick loop in `Core/AmortizedTask` (`SubmitTick(pool)`,
   `SetBudget(ticksPerSubmit)`), state owned by `RunReplayPredictionState`.
   The frame loop submits when `building`, consumes published `buildFrameCount`

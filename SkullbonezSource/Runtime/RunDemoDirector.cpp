@@ -186,12 +186,9 @@ void SetPredictionRevealRatePreservingCursor( RunReplayPredictionState& predicti
 
 bool ActivePredictionLastFrame( const RunReplayPredictionState& prediction, ReplayFrameIndex& outLastFrame )
 {
-    const bool usingBuildFrames =
-        prediction.building && prediction.buildFrameCount >= 2 &&
-        ( prediction.frames.empty() || prediction.buildFrameCount >= prediction.frames.size() );
+    const bool usingBuildFrames = prediction.BuildPrefixShouldBePresented();
     const auto& activeFrames = usingBuildFrames ? prediction.buildFrames : prediction.frames;
-    const std::size_t activeFrameCount =
-        usingBuildFrames ? (std::min)( prediction.buildFrameCount, activeFrames.size() ) : activeFrames.size();
+    const std::size_t activeFrameCount = usingBuildFrames ? prediction.PublishedBuildFrameCount() : activeFrames.size();
     if ( activeFrameCount < 2 )
     {
         outLastFrame = 0;

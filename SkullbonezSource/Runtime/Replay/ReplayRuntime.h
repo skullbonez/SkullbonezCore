@@ -28,6 +28,8 @@ Glossary:
     by Run while the subsystem is being separated.
   Prediction cache: Incremental future-path data built from predicted solver
     frames under a render-frame budget.
+  Published build prefix: Contiguous prediction frames whose rows are fully
+    written and safe for render, automation, or Director readers to inspect.
 
 Invariants:
   - Stored indices are hints; ReplayBodyId remains the identity check.
@@ -352,6 +354,16 @@ struct RunReplayPredictionState
     RunReplayPredictionState( RunReplayPredictionState&& ) noexcept;
     RunReplayPredictionState& operator=( RunReplayPredictionState&& ) noexcept;
 
+    // Concept: prediction builders fill buildFrames first, then publish a
+    // prefix count. Readers must ask these helpers for the visible range so a
+    // future async worker can tighten ownership without changing every overlay.
+    std::size_t PublishedBuildFrameCount() const noexcept;
+    bool HasPublishedBuildFramePrefix( std::size_t minFrameCount = 2u ) const noexcept;
+    bool BuildPrefixShouldBePresented() const noexcept;
+    bool BuildFramesAreComplete() const noexcept;
+    void ResetBuildFramePublication() noexcept;
+    void PublishBuildFrameSlot( std::size_t frameSlot ) noexcept;
+
     bool enabled = false;
     bool checkboxHovered = false;
     bool ragdollVisualsEnabled = false;
@@ -390,6 +402,9 @@ struct RunReplayPredictionState
     // Runtime allocation policy: prediction buildFrames can be pre-sized for a
     // whole horizon while only buildFrameCount rows are populated. Render reads
     // frames, not the pre-sized build vector, until completion swaps them.
+    // Invariant: buildFrameCount is the single published prefix cursor. Future
+    // async stepping must publish it only after the corresponding rows are
+    // complete, then cancel or invalidate that writer before clearing storage.
     std::vector<RunReplayPredictionFrame> buildFrames;
     std::size_t buildFrameCount = 0;
     // Renderable future-impact topology. Build work publishes coherent prefixes
@@ -425,6 +440,41 @@ struct RunReplayPredictionState
     std::chrono::steady_clock::time_point revealAnchor = {};
     bool revealAnchorValid = false;
 };
+
+inline std::size_t RunReplayPredictionState::PublishedBuildFrameCount() const noexcept
+{
+    return buildFrameCount < buildFrames.size() ? buildFrameCount : buildFrames.size();
+}
+
+inline bool RunReplayPredictionState::HasPublishedBuildFramePrefix( std::size_t minFrameCount ) const noexcept
+{
+    return building && PublishedBuildFrameCount() >= minFrameCount;
+}
+
+inline bool RunReplayPredictionState::BuildPrefixShouldBePresented() const noexcept
+{
+    const std::size_t publishedCount = PublishedBuildFrameCount();
+    return building && publishedCount >= 2u && ( frames.empty() || publishedCount >= frames.size() );
+}
+
+inline bool RunReplayPredictionState::BuildFramesAreComplete() const noexcept
+{
+    return BuildPrefixShouldBePresented() && PublishedBuildFrameCount() >= buildFrames.size();
+}
+
+inline void RunReplayPredictionState::ResetBuildFramePublication() noexcept
+{
+    buildFrameCount = 0;
+}
+
+inline void RunReplayPredictionState::PublishBuildFrameSlot( std::size_t frameSlot ) noexcept
+{
+    const std::size_t publishedCount = frameSlot < buildFrames.size() ? frameSlot + 1u : buildFrames.size();
+    if ( publishedCount > buildFrameCount )
+    {
+        buildFrameCount = publishedCount;
+    }
+}
 
 struct RunReplayVelocityEditState
 {

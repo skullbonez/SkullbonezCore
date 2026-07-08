@@ -191,9 +191,7 @@ float ReplayRuntimeScrubberRetainedPastSeconds( const ReplayRecorderStats& stats
 const std::vector<RunReplayPredictionFrame>&
 ReplayRuntimeActivePredictionFrames( const RunReplayPredictionState& prediction )
 {
-    if ( prediction.building && prediction.buildFrames.size() >= 2 &&
-         prediction.buildFrameCount >= prediction.buildFrames.size() &&
-         ( prediction.frames.empty() || prediction.buildFrames.size() >= prediction.frames.size() ) )
+    if ( prediction.BuildFramesAreComplete() )
     {
         return prediction.buildFrames;
     }
@@ -709,6 +707,9 @@ void ReplayRuntime::ClearPredictionFutureNodeCache()
 
 void ReplayRuntime::CancelPredictionJob( bool clearSamples )
 {
+    // Hazard: Phase 3 async stepping must stop or invalidate any worker that can
+    // still publish build frames before this clears the scratch prediction
+    // engine and resets the published-prefix cursor.
     m_prediction.building = false;
     m_prediction.complete = false;
     m_prediction.targetModelIndex = -1;
@@ -718,7 +719,7 @@ void ReplayRuntime::CancelPredictionJob( bool clearSamples )
     m_prediction.predictionBodies.clear();
     m_prediction.predictionWorld = ReplaySolverWorldSnapshot();
     m_prediction.buildFrames.clear();
-    m_prediction.buildFrameCount = 0;
+    m_prediction.ResetBuildFramePublication();
     if ( clearSamples )
     {
         m_prediction.frames.clear();
@@ -1687,8 +1688,9 @@ bool ReplayRuntime::BuildCauseTreeRows(
     // Why: ActivePredictionFrames() waits for a coherent full buffer, while the
     // prediction overlay exposes a populated build prefix so long jobs are
     // visible immediately. The cause tree must use the same readiness rule.
-    const bool predictionPrefixVisible =
-        ActivePredictionFrames().size() >= 2 || m_prediction.buildFrameCount >= 2 || !m_prediction.futureNodes.empty();
+    const bool predictionPrefixVisible = ActivePredictionFrames().size() >= 2 ||
+                                         m_prediction.HasPublishedBuildFramePrefix() ||
+                                         !m_prediction.futureNodes.empty();
     const bool usePrediction = m_prediction.enabled && predictionPrefixVisible &&
                                m_prediction.targetId.value == m_pathVisualizer.targetId.value;
     const std::vector<RunReplayPathTraceNode>& nodes =

@@ -136,7 +136,7 @@ bool BeginReplayPredictionJob( ReplayRuntime& replayRuntime,
         return false;
     }
     replayRuntime.Prediction().buildFrames.resize( buildFrameCapacity );
-    replayRuntime.Prediction().buildFrameCount = 0;
+    replayRuntime.Prediction().ResetBuildFramePublication();
     if ( !ReserveReplayPredictionFramePayloadVectors( replayRuntime.Prediction().buildFrames,
                                                       buildFrameCapacity,
                                                       static_cast<std::size_t>( modelCount ),
@@ -307,7 +307,7 @@ bool StepReplayPredictionJob( ReplayRuntime& replayRuntime,
         replayRuntime.Prediction().complete = true;
         replayRuntime.Prediction().frames.swap( replayRuntime.Prediction().buildFrames );
         replayRuntime.Prediction().buildFrames.clear();
-        replayRuntime.Prediction().buildFrameCount = 0;
+        replayRuntime.Prediction().ResetBuildFramePublication();
         if ( replayRuntime.Prediction().baseline.valid )
         {
             UpdateReplayPredictionBaselineDivergence( replayRuntime.Prediction(),
@@ -344,14 +344,11 @@ bool DrawReplayPredictionOverlay( ReplayRuntime& replayRuntime,
                                   double budgetMilliseconds )
 {
     const RunReplayPredictionState& prediction = replayRuntime.Prediction();
-    const bool usingBuildFrames =
-        prediction.building && prediction.buildFrameCount >= 2 &&
-        ( prediction.frames.empty() || prediction.buildFrameCount >= prediction.frames.size() );
+    const bool usingBuildFrames = prediction.BuildPrefixShouldBePresented();
     const std::vector<RunReplayPredictionFrame>& activePredictionFrames =
         usingBuildFrames ? prediction.buildFrames : prediction.frames;
     const std::size_t activePredictionFrameCount =
-        usingBuildFrames ? (std::min)( prediction.buildFrameCount, activePredictionFrames.size() )
-                         : activePredictionFrames.size();
+        usingBuildFrames ? prediction.PublishedBuildFrameCount() : activePredictionFrames.size();
     if ( activePredictionFrameCount < 2 )
     {
         return false;

@@ -2567,11 +2567,11 @@ bool CaptureReplayPredictionFrame( ReplayRuntime& replayRuntime,
                                                           &RunReplayPredictionFrame::debugContacts ) )
         {
             frame.debugContacts.clear();
-            prediction.buildFrameCount = (std::max)( prediction.buildFrameCount, frameSlot + 1 );
+            prediction.PublishBuildFrameSlot( frameSlot );
             return true;
         }
     }
     frame.debugContacts = debugContacts;
-    prediction.buildFrameCount = (std::max)( prediction.buildFrameCount, frameSlot + 1 );
+    prediction.PublishBuildFrameSlot( frameSlot );
     return true;
 }

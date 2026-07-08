@@ -92,10 +92,10 @@ bool TryPredictionTargetDisplacement( const ReplayRuntime& replayRuntime,
     const RunReplayPredictionState& prediction = replayRuntime.Prediction();
     const std::vector<RunReplayPredictionFrame>* activePredictionFrames = &replayRuntime.ActivePredictionFrames();
     std::size_t activeFrameCount = activePredictionFrames->size();
-    if ( activeFrameCount < 2 && prediction.building && prediction.buildFrameCount >= 2 )
+    if ( activeFrameCount < 2 && prediction.BuildPrefixShouldBePresented() )
     {
         activePredictionFrames = &prediction.buildFrames;
-        activeFrameCount = (std::min)( prediction.buildFrameCount, activePredictionFrames->size() );
+        activeFrameCount = prediction.PublishedBuildFrameCount();
     }
     const ReplayBodyId targetId = replayRuntime.PathVisualizer().targetId;
     if ( targetId.value == 0 || activeFrameCount < 2 )
@@ -133,7 +133,7 @@ std::size_t VisiblePredictionFrameCount( const ReplayRuntime& replayRuntime )
     }
     if ( prediction.building )
     {
-        return (std::min)( prediction.buildFrameCount, prediction.buildFrames.size() );
+        return prediction.PublishedBuildFrameCount();
     }
     return activePredictionFrames.size();
 }
@@ -2084,7 +2084,7 @@ void Run::WriteInteractionAutomationReport()
               { "liveSolverHash", liveSolverHash },
               { "predictionActiveFrameCount", static_cast<int>( predictionVisibleFrameCount ) },
               { "predictionFrameCount", static_cast<int>( predictionState.frames.size() ) },
-              { "predictionBuildFrameCount", static_cast<int>( predictionState.buildFrameCount ) },
+              { "predictionBuildFrameCount", static_cast<int>( predictionState.PublishedBuildFrameCount() ) },
               { "predictionTargetDisplacementValid", predictionTargetDisplacementValid },
               { "predictionTargetFirst", Vec3Json( predictionTargetFirst ) },
               { "predictionTargetLast", Vec3Json( predictionTargetLast ) },
