@@ -164,7 +164,10 @@ you finish any facade surface there, apply this checklist:
 - [ ] FAC-005 (public physics API exposes no `GameModel`/dense
   `modelIndex`/solver containers) has **no numbered owner plan yet** — flag to a
   human before acting.
-- [ ] FAC-006 is dropped (cosmetic).
+- [x] FAC-006 is dropped (cosmetic).
+  Completion note (2026-07-08): FAC-006 remains descoped per this plan's
+  Remaining Facade Surfaces table. `CameraCollection` is already the camera
+  owner, and there is no structural facade surface to graduate or delete.
 
 ## Validation
 
