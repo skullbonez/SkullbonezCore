@@ -2295,30 +2295,44 @@ void Run::TakeInput()
                                    m_UI.BlocksCameraMouse() || replayScrubberOwnsMouse || replayCauseTreeOwnsMouse ||
                                        replayVelocityEditOwnsMouse );
 
-        // ESC flicks the diagnostics window between minimized and expanded, with
-        // a very fast double-tap escape hatch for quitting interactive runs.
-        // Run it after UI input processing so focused controls keep their local ESC
-        // behavior first, such as closing the scene filter combo without also
-        // hiding the whole diagnostics surface on the same frame.
-        if ( InputController::CaptureKeyboardActionPress( m_runtimeInput,
-                                                          RuntimeInputAction::DismissOrExitUI,
-                                                          VK_ESCAPE ) &&
-             !uiCommands.ui.userInteracted )
+        auto dispatchAfterUIKeyboardAction = [this, &uiCommands]( const RuntimeInputKeyBinding& binding ) -> bool
         {
-            constexpr double ESC_QUICK_EXIT_SECONDS = 0.32;
-            const double UINow = m_timers.simulationTimer.GetTotalTime();
-            if ( UINow - m_inputLatches.lastEscapeTapTime <= ESC_QUICK_EXIT_SECONDS )
+            switch ( binding.action )
             {
-                PostQuitMessage( 0 );
+            case RuntimeInputAction::DismissOrExitUI:
+                if ( InputController::CaptureKeyboardActionPress( m_runtimeInput,
+                                                                  binding.action,
+                                                                  binding.virtualKey ) &&
+                     !uiCommands.ui.userInteracted )
+                {
+                    // ESC is intentionally after UI processing: focused controls
+                    // keep local ESC behavior before the diagnostics window reacts.
+                    constexpr double ESC_QUICK_EXIT_SECONDS = 0.32;
+                    const double UINow = m_timers.simulationTimer.GetTotalTime();
+                    if ( UINow - m_inputLatches.lastEscapeTapTime <= ESC_QUICK_EXIT_SECONDS )
+                    {
+                        PostQuitMessage( 0 );
+                    }
+                    else
+                    {
+                        EnterInteractiveSceneRun();
+                        m_UI.ToggleVisible( UINow );
+                        m_debug.overlayMode = OverlayMode::None;
+                        m_inputLatches.lastEscapeTapTime = UINow;
+                        ApplyCursorOwnership();
+                        ReleaseMouseToUI();
+                    }
+                }
+                return true;
+            default:
+                return false;
             }
-            else
+        };
+        for ( std::size_t i = 0; i < kTakeInputKeyboardBindingCount; ++i )
+        {
+            if ( ( kTakeInputKeyboardBindings[i].contexts & kAfterUIUpdateContext ) != 0 )
             {
-                EnterInteractiveSceneRun();
-                m_UI.ToggleVisible( UINow );
-                m_debug.overlayMode = OverlayMode::None;
-                m_inputLatches.lastEscapeTapTime = UINow;
-                ApplyCursorOwnership();
-                ReleaseMouseToUI();
+                dispatchAfterUIKeyboardAction( kTakeInputKeyboardBindings[i] );
             }
         }
 
