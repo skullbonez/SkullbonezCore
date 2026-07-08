@@ -402,6 +402,25 @@ every step. Commit per step.
 	    (18.5s) and
 	    `TestOutput\agent_logs\plan01_launcher_repro_owner_build_profile.log`
 	    (10.7s).
+	  - [x] Sound-tab UI command extraction moved contact-audio enable/disable,
+	    debug counter, flash-mode, simple-mode, sound-set, sound-band, sample preview,
+	    and sample-selection command handling out of `Run::TakeInput()` and into the
+	    `RuntimeTuning` UI-adapter boundary. `Run` now passes a borrowed
+	    `SoundUICommandContext` and only records the input-mode action when the
+	    tuning adapter reports a change. The touched-file comment audit updated
+	    `RuntimeTuning`'s learning headers so audio delegates to bounded service
+	    setters instead of claiming all helpers clamp directly. `TakeInput()` now
+	    spans 1,232 lines. Gate evidence:
+	    `TestOutput\agent_logs\plan01_step1_3_sound_ui_owner_interaction_clicks.log`
+	    (22.4s, both interaction reports `ok=1`) and
+	    `TestOutput\agent_logs\plan01_step1_3_sound_ui_owner_validate_full.log`
+	    (50.7s; project filters/runtime boundaries passed, Profile/Debug builds had
+	    0 warnings and 0 errors, DX12 InfoQueue errors = 0, screenshots matched
+	    baselines, and `physics_regression_solver.csv` matched byte-exactly).
+	    Targeted pre-gate checks also passed:
+	    `TestOutput\agent_logs\plan01_sound_ui_owner_runtime_boundaries.log`
+	    (17.4s) and
+	    `TestOutput\agent_logs\plan01_sound_ui_owner_build_profile.log` (8.4s).
 - [ ] **1.4** Confirm `TakeInput()` is under ~200 lines (setup + dispatch loop).
 
 ### Phase 2 — Move state shelves out of `RunState`
