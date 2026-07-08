@@ -376,6 +376,7 @@
     <ClInclude Include="SkullbonezSource\Runtime\RunReplayProbeState.h" />
     <ClInclude Include="SkullbonezSource\Runtime\RunState.h" />
     <ClInclude Include="SkullbonezSource\Runtime\RunStartupState.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\RunTimerState.h" />
     <ClInclude Include="SkullbonezSource\Runtime\RuntimeCameraMode.h" />
     <ClInclude Include="SkullbonezSource\Runtime\RuntimeCommandQueue.h" />
     <ClInclude Include="SkullbonezSource\Runtime\RuntimeInteractionCommands.h" />

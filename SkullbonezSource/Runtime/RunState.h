@@ -41,7 +41,6 @@ Related:
 #include "../Assets/TextureCollection.h"
 #include "../Core/Common.h"
 #include "../Core/Config.h"
-#include "../Core/Timer.h"
 #include "../Physics/Debug/PhysicsDebugVisualizer.h"
 #include "../Physics/PhysicsHandles.h"
 #include "../Physics/TornadoField.h"
@@ -122,29 +121,6 @@ struct RunRuntimeSettings
     TornadoVisualSettings tornadoVisual;                       // Render-only tornado art tuning outside deterministic physics state.
 
     void ApplyStartupConfig( const EngineConfig& config );     // Copies config-owned live toggles at process startup.
-};
-
-struct RunTimerState
-{
-    Environment::Timer frameTimer;
-    Environment::Timer workTimer;
-    Environment::Timer updateTimer;
-    Environment::Timer cameraTimer;
-    Environment::Timer simulationTimer;
-
-    float physicsTime = 0.0f;                                  // Last frame physics time (seconds)
-    float rollingPhysicsTime = 0.0f;                           // Smoothed physics time accumulator
-    float renderTime = 0.0f;                                   // Last frame render time (seconds)
-    float rollingRenderTime = 0.0f;                            // Smoothed render time accumulator
-    float rollingFpsTime = 0.0f;                               // Smoothed FPS time accumulator
-    float rollingSceneEnergy = 0.0f;                           // Half-second averaged kinetic energy
-    float cpuFrameWorkMs = 0.0f;                               // Last frame CPU work before Present/VSync
-    float gpuFrameWorkMs = 0.0f;                               // Last available GPU work before Present/VSync
-    float contactAudioStatsLogTime = 0.0f;                     // Seconds since the last optional contact-audio counter print.
-    float timeSinceLastRender = 0.0f;
-    double sceneEnergyAccumulator = 0.0;
-    int sceneEnergySampleCount = 0;
-    int lastUIDrawCalls = 0;                                   // Actual UI draw calls measured around Frame/UI last frame
 };
 
 struct RunSubsystemState

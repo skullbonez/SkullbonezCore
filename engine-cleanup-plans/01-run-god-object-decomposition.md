@@ -1061,6 +1061,30 @@ every step. Commit per step.
     (1.2s), and
     `TestOutput\agent_logs\plan01_startup_state_shelf_validate_fast.log`
     (43.1s).
+  - [x] Timer state shelf moved from `RunState.h` into
+    `RunTimerState.h`. The new header owns the process-lifetime frame,
+    simulation, render, rolling diagnostics, scene-energy, and UI draw-call
+    timing values borrowed by frame, input, render, HUD, and automation code.
+    `Run` still stores `m_timers`, but `RunState.h` no longer pulls in
+    `Timer.h` for unrelated shelves. The Visual Studio project/filter metadata
+    and `tools\validate_project_filters.py` guardrail now recognize the new
+    header. The touched-file comment audit added the new timing-state learning
+    header and aligned its inline comments. Gate evidence:
+    `TestOutput\agent_logs\plan01_timer_state_shelf_validate_full.log`
+    (47.0s; project filters/runtime boundaries passed, Profile/Debug builds had
+    0 warnings and 0 errors, DX12 InfoQueue errors = 0, screenshots matched
+    baselines, and `physics_regression_solver.csv` matched byte-exactly).
+    Targeted pre-gate checks also passed:
+    `TestOutput\agent_logs\plan01_timer_state_shelf_build_profile.log`
+    (10.4s),
+    `TestOutput\agent_logs\plan01_timer_state_shelf_validate_format.log`
+    (9.3s),
+    `TestOutput\agent_logs\plan01_timer_state_shelf_runtime_boundaries.log`
+    (17.5s),
+    `TestOutput\agent_logs\plan01_timer_state_shelf_project_filters.log`
+    (1.1s), and
+    `TestOutput\agent_logs\plan01_timer_state_shelf_validate_fast.log`
+    (42.8s).
 
 ### Phase 3 — Shrink `Run`
 
