@@ -11,6 +11,8 @@ Mental model:
 Glossary:
   Maths prelude: Math-only constants and CRT math includes owned by
     Maths/MathsCommon.h during the Common.h aliasing period.
+  Asset keys: Legacy string hashes owned by Assets/AssetKeys.h during the
+    Common.h aliasing period.
   Physics timestep: Fixed-step physics constants owned by
     Physics/PhysicsTimestep.h during the Common.h aliasing period.
   Scene capacity: Fixed model/camera/texture ceilings owned by
@@ -20,7 +22,7 @@ Glossary:
 
 Invariants:
   - Shared constants in this file are compile-time engine contracts; changing
-    capacities or hash keys changes validation scope.
+    capacities or runtime labels changes validation scope.
   - Log() is a convenience accessor only; ownership remains with the singleton
     type declared in its own subsystem header.
 
@@ -62,6 +64,7 @@ Related:
 #include <stdexcept> // std::runtime_error
 #include <memory>    // std::unique_ptr
 #include <algorithm> // std::clamp, std::min, std::max
+#include "../Assets/AssetKeys.h"
 #include "../Maths/MathsCommon.h"
 #include "../GameObjects/SceneCapacity.h"
 #include "../Physics/PhysicsTimestep.h"
@@ -90,24 +93,3 @@ inline SkullbonezCore::Basics::EngineLog& Log()
 {
     return SkullbonezCore::Basics::EngineLog::Get();
 }
-
-
-// FNV-1a 32-bit compile-time hash for string keys
-constexpr uint32_t HashStr( const char* s, uint32_t hash = 2166136261u )
-{
-    return ( *s == '\0' ) ? hash : HashStr( s + 1, ( hash ^ static_cast<uint32_t>( *s ) ) * 16777619u );
-}
-
-
-constexpr uint32_t TEXTURE_GROUND = HashStr( "Ground" );
-constexpr uint32_t TEXTURE_BOUNDING_SPHERE = HashStr( "BoundingSphere" );
-constexpr uint32_t TEXTURE_SKY_LEFT = HashStr( "SkyLeft" );
-constexpr uint32_t TEXTURE_SKY_RIGHT = HashStr( "SkyRight" );
-constexpr uint32_t TEXTURE_SKY_FRONT = HashStr( "SkyFront" );
-constexpr uint32_t TEXTURE_SKY_BACK = HashStr( "SkyBack" );
-constexpr uint32_t TEXTURE_SKY_UP = HashStr( "SkyUp" );
-constexpr uint32_t TEXTURE_SKY_DOWN = HashStr( "SkyDown" );
-
-constexpr uint32_t CAMERA_GAME_MODEL_1 = HashStr( "GameModel1" );
-constexpr uint32_t CAMERA_GAME_MODEL_2 = HashStr( "GameModel2" );
-constexpr uint32_t CAMERA_FREE = HashStr( "Free" );

@@ -632,6 +632,9 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="SkullbonezSource\Assets\AssetKeys.h">
+      <Filter>Header Files\Assets</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\Assets\AssetSystem.h">
       <Filter>Header Files\Assets</Filter>
     </ClInclude>

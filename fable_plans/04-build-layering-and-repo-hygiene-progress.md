@@ -1,7 +1,7 @@
 # Progress: Build Layering And Repo Hygiene (plan 04)
 
 Source plan: `fable_plans/04-build-layering-and-repo-hygiene-plan.md`
-Status: phase 1 complete on 2026-07-07; phase 2 L1-L4 Maths library extraction complete on 2026-07-08; phase 3 C1/C2 Common.h domain header splits complete
+Status: phase 1 complete on 2026-07-07; phase 2 L1-L4 Maths library extraction complete on 2026-07-08; phase 3 C1-C3 Common.h domain header splits complete
 Last updated: 2026-07-08
 
 ## How to work this file
@@ -29,15 +29,15 @@ Last updated: 2026-07-08
   `GeometricStructures.h` reaches it through `Vector3.h`; no Maths include
   directive pulls `../Core/Common.h`, `<windows.h>`, `Config.h`, `Log.h`, or
   `ZeroMemory`.
-- `Core/Common.h` (113 lines after C2) content map - it is included by
-  ~everything and still transitively drags `<windows.h>` (line 53, with
-  WIN32_LEAN_AND_MEAN), `Config.h` + `Log.h` (lines 80-81), and `<stdexcept>`
-  (line 58). It includes `../Maths/MathsCommon.h`,
+- `Core/Common.h` (95 lines after C3) content map - it is included by
+  ~everything and still transitively drags `<windows.h>` (line 59, with
+  WIN32_LEAN_AND_MEAN), `Config.h` + `Log.h` (lines 83-84), and `<stdexcept>`
+  (line 64). It includes `../Assets/AssetKeys.h`, `../Maths/MathsCommon.h`,
   `../GameObjects/SceneCapacity.h`, and `../Physics/PhysicsTimestep.h` during
   the aliasing period:
-  - Lines 51-68: windows.h + CRT/platform/domain includes + crtdbg - PLATFORM
+  - Lines 57-75: windows.h + CRT/platform/domain includes + crtdbg - PLATFORM
     or aliasing includes, not common.
-  - 70-73: WINDOW_NAME, TITLE_TEXT, DATA_ROOT - runtime/window.
+  - 77-80: WINDOW_NAME, TITLE_TEXT, DATA_ROOT - runtime/window.
   - `GameObjects/SceneCapacity.h` (38 lines) now owns TOTAL_CAMERA_COUNT,
     TOTAL_TEXTURE_COUNT, DEFAULT_GAME_MODEL_CAPACITY, MAX_GAME_MODELS, and
     DEFAULT_GAME_MODELS.
@@ -45,11 +45,12 @@ Last updated: 2026-07-08
     PHYSICS_MAX_STEPS_PER_FRAME.
   - `Maths/MathsCommon.h` (54 lines) now owns SKULLBONEZ_INTRINSICS,
     _PI/_2PI/_HALF_PI, fraction constants, and the math/collision tolerances.
-  - 80-81: `#include "Config.h"` + `#include "Log.h"` - the global-service
+  - `Assets/AssetKeys.h` (50 lines) now owns HashStr plus TEXTURE_* and
+    CAMERA_* hash constants.
+  - 83-84: `#include "Config.h"` + `#include "Log.h"` - the global-service
     leak (plan 02 owns deleting Cfg; this plan owns un-nesting the includes).
-  - 83-86: ActiveGameModelCapacity(config) - scene capacity policy.
-  - 88-92: Log() accessor - sanctioned global (plan 02).
-  - 95-113: HashStr + TEXTURE_*/CAMERA_* hash constants - assets/render.
+  - 86-89: ActiveGameModelCapacity(config) - scene capacity policy.
+  - 91-95: Log() accessor - sanctioned global (plan 02).
 - `RunInput.cpp` (3,580 lines) function inventory groups cleanly:
   - Input routing/commands: BuildRuntimeInputSnapshot(:564),
     RouteRuntimePointerInput(:613), ExecuteRuntimeInteractionCommand(:1009),
@@ -289,9 +290,31 @@ Last updated: 2026-07-08
   00:00:45.5548641 with runtime boundaries at 0 errors, Profile/Debug builds
   at 0 warnings/errors, DX12 validation errors 0, screenshots matching
   committed baselines, and `physics_regression_solver.csv` byte-exact.
-- [ ] C3. TEXTURE_*/CAMERA_* hash constants + HashStr → `Assets/AssetKeys.h`
+- [x] C3. TEXTURE_*/CAMERA_* hash constants + HashStr → `Assets/AssetKeys.h`
   (HashStr is used by profiler markers too — census first:
   `rg -ln "HashStr" SkullbonezSource`). Gate: `validate_fast`.
+
+  Evidence (2026-07-08): Added `SkullbonezSource/Assets/AssetKeys.h` for
+  `HashStr`, `TEXTURE_GROUND`, `TEXTURE_BOUNDING_SPHERE`, the sky texture hash
+  constants, and `CAMERA_GAME_MODEL_1`/`CAMERA_GAME_MODEL_2`/`CAMERA_FREE`.
+  `Core/Common.h` now keeps only the alias include during the Common.h split
+  period, and the moved names remain global so profiler macros and existing
+  call sites do not churn. `SKULLBONEZ_CORE.vcxproj` and `.filters` list the
+  new header under Assets, and `tools/validate_project_filters.py` recognizes
+  `AssetKeys` in the Assets rule set. Feynman, a read-only explorer subagent,
+  confirmed the exact move and warned not to move `WINDOW_NAME`, `TITLE_TEXT`,
+  or `DATA_ROOT` before C4. Touched-file comment audit inspected
+  `AssetKeys.h`, `Common.h`, and `tools/validate_project_filters.py` with 0
+  deferred; no separate checklist file was required for the touched-file pass.
+
+  Validation (2026-07-08): `python tools\validate_project_filters.py --repo .`
+  passed in 00:00:00.9300368 with 0 errors across 561 project/filter items.
+  `tools\validate_fast.bat` passed in 00:01:04.6590509 with
+  `VALIDATE_FAST: ALL PASSED`. Because `Common.h` changed,
+  `tools\validate_full.bat` was also run and passed in 00:00:45.9861865 with
+  runtime boundaries at 0 errors, Profile/Debug builds at 0 warnings/errors,
+  DX12 validation errors 0, screenshots matching committed baselines, and
+  `physics_regression_solver.csv` byte-exact.
 - [ ] C4. WINDOW_NAME/TITLE_TEXT/DATA_ROOT → `Runtime/WindowConstants.h`.
   Gate: `validate_fast`.
 - [ ] C5. End state: Common.h = platform includes + crtdbg + includes of the

@@ -84,6 +84,7 @@ MATH_PREFIXES = (
 )
 
 ASSET_PREFIXES = (
+    "AssetKeys",
     "AssetSystem",
     "TextureCollection",
 )

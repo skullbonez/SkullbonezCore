@@ -299,6 +299,7 @@
     <ClCompile Include="SkullbonezSource\Rendering\DX12\SBTDX12.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="SkullbonezSource\Assets\AssetKeys.h" />
     <ClInclude Include="SkullbonezSource\Assets\AssetSystem.h" />
     <ClInclude Include="SkullbonezSource\Physics\BoundingBox.h" />
     <ClInclude Include="SkullbonezSource\Physics\BoundingSphere.h" />
