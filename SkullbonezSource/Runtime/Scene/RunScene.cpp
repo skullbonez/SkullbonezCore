@@ -387,7 +387,7 @@ SbResult UseDefaultTerrain( RunSubsystemState& systems,
                                                                         15,
                                                                         config,
                                                                         systems.assets,
-                                                                        renderResources,
+                                                                        *renderResources,
                                                                         terrain );
         if ( !terrainResult.ok )
         {
