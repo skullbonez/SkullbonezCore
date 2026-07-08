@@ -761,6 +761,9 @@
     <ClInclude Include="SkullbonezSource\Rendering\Helper.h">
       <Filter>Header Files\Rendering</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\GraphicsStressController.h">
+      <Filter>Header Files\Runtime</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Input.h">
       <Filter>Header Files\Runtime</Filter>
     </ClInclude>

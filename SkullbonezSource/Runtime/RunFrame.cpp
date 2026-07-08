@@ -695,12 +695,12 @@ void Run::Execute()
         {
             if ( msg.message == WM_QUIT )
             {
-                if ( m_graphicsStress.enabled )
+                if ( m_graphicsStress.IsEnabled() )
                 {
                     printf( "[graphics-stress] WM_QUIT received at frame=%d scene_frame=%d scene_loads=%d\n",
-                            m_graphicsStress.framesRun,
+                            m_graphicsStress.FramesRun(),
                             SceneState().currentFrame,
-                            m_graphicsStress.sceneLoadsRequested );
+                            m_graphicsStress.SceneLoadsRequested() );
                     fflush( stdout );
                 }
                 break;

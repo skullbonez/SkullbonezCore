@@ -1156,13 +1156,9 @@ SbResult Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnCom
         // Invariant: scene reloads reset authored scene automation, but a
         // graphics-stress run is operator-owned and must keep running until the
         // launcher or timeout stops the process.
-        m_graphicsStress.enabled = true;
-        if ( m_graphicsStress.randomState == 0 )
-        {
-            m_graphicsStress.randomState = m_launchOptions.graphicsStressSeed;
-        }
-        m_graphicsStress.actionsPerFrame = m_launchOptions.graphicsStressActions;
-        m_graphicsStress.sceneIntervalFrames = m_launchOptions.graphicsStressSceneIntervalFrames;
+        m_graphicsStress.ResumeAfterSceneLoad( m_launchOptions.graphicsStressSeed,
+                                               m_launchOptions.graphicsStressActions,
+                                               m_launchOptions.graphicsStressSceneIntervalFrames );
         SceneState().isInteractiveRun = true;
         SceneState().targetFrameCount = 0;
         SceneState().isTestComplete = false;

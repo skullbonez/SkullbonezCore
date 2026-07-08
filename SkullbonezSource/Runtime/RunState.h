@@ -338,21 +338,6 @@ struct RunLaunchOptions
     float physicsDebugContactLingerOverride = 0.45f;
 };
 
-struct RunGraphicsStressState
-{
-    // Concept: Graphics stress is a deterministic runtime fuzzer. It mutates
-    // live render settings and scene-load state from one seed so DX12 crashes
-    // can be replayed without depending on human UI timing.
-    bool enabled = false;                                          // Active after --graphics-stress is applied
-    unsigned int randomState = 0;                                  // LCG state; 0 means uninitialized
-    int actionsPerFrame = 12;                                      // Render/state mutations per rendered frame
-    int sceneIntervalFrames = 45;                                  // Minimum frames between forced scene reloads
-    int memoryLogIntervalFrames = 1800;                            // Coarse memory-attribution log cadence (0 disables)
-    int framesRun = 0;                                             // Persistent across scene reloads
-    int sceneLoadsRequested = 0;                                   // Count of stress-driven LoadScene calls
-    int lastSceneLoadFrame = -1000000;                             // Frame index of the last stress scene load
-};
-
 struct RunStartupState
 {
     int gameModelCapacity = DEFAULT_GAME_MODEL_CAPACITY;

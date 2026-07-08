@@ -42,6 +42,7 @@ Related:
 #include "../Core/Common.h"
 #include "../Core/SbResult.h"
 #include "CameraCollection.h"
+#include "GraphicsStressController.h"
 #include "InputController.h"
 #include "LiveStyleController.h"
 #include "Diagnostics/DiagnosticsRuntime.h"
@@ -134,7 +135,7 @@ class Run
     LiveStyleController m_liveStyle;                                       // Owns live style tweak/capture harness file-watching state.
     UI::InGameUI m_UI;                                                     // Encapsulated in-game diagnostics window
     RunDebugState m_debug;                                                 // Runtime debug/overlay toggles
-    RunGraphicsStressState m_graphicsStress;                               // Deterministic graphics fuzzer state for overnight DX12 runs.
+    GraphicsStressController m_graphicsStress;                             // Deterministic graphics fuzzer state for overnight DX12 runs.
     RuntimeTools m_runtimeTools;                                           // Launcher, editor, manipulator state, and transient render feedback.
     std::vector<RunRequiredContactState> m_requiredSceneContacts;
     std::vector<RunRequiredBroadphaseXCellsState> m_requiredBroadphaseXCells;

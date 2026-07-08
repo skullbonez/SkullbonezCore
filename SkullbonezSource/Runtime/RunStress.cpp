@@ -94,165 +94,237 @@ class StressHarness
 };
 
 
-class GraphicsStressHarness
-{
-  public:
-    // Concept: graphics stress owns deterministic fuzz policy and cadence; Run
-    // stays the executor because it holds the live render, scene, and UI owners.
-    static int NextInt( RunGraphicsStressState& stress, int maxExclusive )
-    {
-        if ( maxExclusive <= 0 )
-        {
-            return 0;
-        }
-        return static_cast<int>( NextRandom( stress ) % static_cast<unsigned int>( maxExclusive ) );
-    }
-
-    static float NextFloat( RunGraphicsStressState& stress, float minValue, float maxValue )
-    {
-        const float unit = static_cast<float>( NextRandom( stress ) & 0xFFFFu ) / 65535.0f;
-        return minValue + ( maxValue - minValue ) * unit;
-    }
-
-    static int ActionCount( const RunGraphicsStressState& stress )
-    {
-        return std::clamp( stress.actionsPerFrame, 1, 64 );
-    }
-
-    static int NextAction( RunGraphicsStressState& stress )
-    {
-        return NextInt( stress, 32 );
-    }
-
-    static bool SceneLoadDue( const RunGraphicsStressState& stress )
-    {
-        return stress.framesRun - stress.lastSceneLoadFrame >= stress.sceneIntervalFrames;
-    }
-
-    static bool ShouldPrintFrameSummary( const RunGraphicsStressState& stress )
-    {
-        return stress.framesRun % 60 == 0;
-    }
-
-    static bool ShouldLogMemory( const RunGraphicsStressState& stress )
-    {
-        const int memoryInterval = stress.memoryLogIntervalFrames;
-        return memoryInterval > 0 && ( stress.framesRun == 1 || stress.framesRun % memoryInterval == 0 );
-    }
-
-    static float RandomCinematicParamValue( RunGraphicsStressState& stress, UICinematicParam param )
-    {
-        switch ( param )
-        {
-        case UICinematicParam::Exposure:
-            return NextFloat( stress, 0.05f, 3.00f );
-        case UICinematicParam::Gamma:
-            return NextFloat( stress, 1.00f, 3.00f );
-        case UICinematicParam::SkyMode:
-        case UICinematicParam::TerrainMode:
-        case UICinematicParam::ObjectStyle:
-            return NextFloat( stress, 0.0f, 32.0f );
-        case UICinematicParam::WaterMode:
-            return NextFloat( stress, 0.0f, 4.0f );
-        case UICinematicParam::StyleSaturation:
-        case UICinematicParam::StyleContrast:
-            return NextFloat( stress, 0.0f, 2.50f );
-        case UICinematicParam::StyleVignette:
-        case UICinematicParam::SunX:
-        case UICinematicParam::SunY:
-        case UICinematicParam::CloudCoverage:
-        case UICinematicParam::FogOpacity:
-        case UICinematicParam::BasinFeather:
-        case UICinematicParam::WaterAlpha:
-        case UICinematicParam::WaterReflection:
-            return NextFloat( stress, 0.0f, 1.0f );
-        case UICinematicParam::SunBrightness:
-            return NextFloat( stress, 0.0f, 40.0f );
-        case UICinematicParam::SunRed:
-        case UICinematicParam::SunGreen:
-        case UICinematicParam::SunBlue:
-            return NextFloat( stress, 0.0f, 2.0f );
-        case UICinematicParam::SkyGlow:
-            return NextFloat( stress, 0.0f, 8.0f );
-        case UICinematicParam::HorizonRed:
-        case UICinematicParam::HorizonGreen:
-        case UICinematicParam::HorizonBlue:
-        case UICinematicParam::ZenithRed:
-        case UICinematicParam::ZenithGreen:
-        case UICinematicParam::ZenithBlue:
-        case UICinematicParam::CloudIntensity:
-        case UICinematicParam::TerrainTintRed:
-        case UICinematicParam::TerrainTintGreen:
-        case UICinematicParam::TerrainTintBlue:
-        case UICinematicParam::TerrainAccentRed:
-        case UICinematicParam::TerrainAccentGreen:
-        case UICinematicParam::TerrainAccentBlue:
-        case UICinematicParam::WaterTintRed:
-        case UICinematicParam::WaterTintGreen:
-        case UICinematicParam::WaterTintBlue:
-        case UICinematicParam::FogRed:
-        case UICinematicParam::FogGreen:
-        case UICinematicParam::FogBlue:
-            return NextFloat( stress, 0.0f, 1.50f );
-        case UICinematicParam::CloudSoftness:
-            return NextFloat( stress, 0.01f, 0.65f );
-        case UICinematicParam::CloudScale:
-            return NextFloat( stress, 0.50f, 12.0f );
-        case UICinematicParam::ShaftStrength:
-            return NextFloat( stress, 0.0f, 3.0f );
-        case UICinematicParam::ShaftFalloff:
-            return NextFloat( stress, 0.25f, 5.0f );
-        case UICinematicParam::VolumetricStrength:
-            return NextFloat( stress, 0.0f, 2.0f );
-        case UICinematicParam::VolumetricDensity:
-            return NextFloat( stress, 0.0f, 2.50f );
-        case UICinematicParam::VolumetricDecay:
-            return NextFloat( stress, 0.800f, 0.995f );
-        case UICinematicParam::BloomThreshold:
-            return NextFloat( stress, 0.0f, 4.0f );
-        case UICinematicParam::BloomKnee:
-            return NextFloat( stress, 0.01f, 2.0f );
-        case UICinematicParam::BloomStrength:
-            return NextFloat( stress, 0.0f, 2.0f );
-        case UICinematicParam::BloomRadius:
-            return NextFloat( stress, 0.25f, 8.0f );
-        case UICinematicParam::TerrainRelief:
-            return NextFloat( stress, 0.0f, 1.50f );
-        case UICinematicParam::TerrainGridScale:
-            return NextFloat( stress, 0.10f, 120.0f );
-        case UICinematicParam::TerrainGridStrength:
-        case UICinematicParam::WaterGlint:
-            return NextFloat( stress, 0.0f, 4.0f );
-        case UICinematicParam::BasinCenterX:
-        case UICinematicParam::BasinCenterZ:
-            return NextFloat( stress, 0.0f, 1200.0f );
-        case UICinematicParam::BasinRadiusX:
-        case UICinematicParam::BasinRadiusZ:
-            return NextFloat( stress, 1.0f, 500.0f );
-        case UICinematicParam::BasinDepth:
-            return NextFloat( stress, 0.0f, 80.0f );
-        case UICinematicParam::BasinRimLift:
-            return NextFloat( stress, 0.0f, 60.0f );
-        case UICinematicParam::FogDensity:
-            return NextFloat( stress, 0.0f, 0.006f );
-        case UICinematicParam::FogStart:
-            return NextFloat( stress, 0.0f, 500.0f );
-        case UICinematicParam::FogEnd:
-            return NextFloat( stress, 100.0f, 4000.0f );
-        case UICinematicParam::None:
-        case UICinematicParam::Count:
-        default:
-            return 0.0f;
-        }
-    }
-
-  private:
-    static unsigned int NextRandom( RunGraphicsStressState& stress )
-    {
-        return NextStressRandom( stress.randomState );
-    }
-};
 } // namespace
+
+
+void GraphicsStressController::Configure( unsigned int seed,
+                                          int actionsPerFrame,
+                                          int sceneIntervalFrames,
+                                          int memoryLogIntervalFrames )
+{
+    m_enabled = true;
+    m_randomState = seed;
+    m_actionsPerFrame = actionsPerFrame;
+    m_sceneIntervalFrames = sceneIntervalFrames;
+    m_memoryLogIntervalFrames = memoryLogIntervalFrames;
+}
+
+
+void GraphicsStressController::ResumeAfterSceneLoad( unsigned int seed, int actionsPerFrame, int sceneIntervalFrames )
+{
+    m_enabled = true;
+    if ( m_randomState == 0 )
+    {
+        m_randomState = seed;
+    }
+    m_actionsPerFrame = actionsPerFrame;
+    m_sceneIntervalFrames = sceneIntervalFrames;
+}
+
+
+bool GraphicsStressController::IsEnabled() const
+{
+    return m_enabled;
+}
+
+
+unsigned int GraphicsStressController::RandomState() const
+{
+    return m_randomState;
+}
+
+
+int GraphicsStressController::ActionsPerFrame() const
+{
+    return m_actionsPerFrame;
+}
+
+
+int GraphicsStressController::SceneIntervalFrames() const
+{
+    return m_sceneIntervalFrames;
+}
+
+
+int GraphicsStressController::FramesRun() const
+{
+    return m_framesRun;
+}
+
+
+int GraphicsStressController::SceneLoadsRequested() const
+{
+    return m_sceneLoadsRequested;
+}
+
+
+void GraphicsStressController::BeginFrame()
+{
+    ++m_framesRun;
+}
+
+
+void GraphicsStressController::RecordSceneLoad()
+{
+    m_lastSceneLoadFrame = m_framesRun;
+    ++m_sceneLoadsRequested;
+}
+
+
+int GraphicsStressController::NextInt( int maxExclusive )
+{
+    if ( maxExclusive <= 0 )
+    {
+        return 0;
+    }
+    m_randomState = NextStressRandom( m_randomState );
+    return static_cast<int>( m_randomState % static_cast<unsigned int>( maxExclusive ) );
+}
+
+
+float GraphicsStressController::NextFloat( float minValue, float maxValue )
+{
+    m_randomState = NextStressRandom( m_randomState );
+    const float unit = static_cast<float>( m_randomState & 0xFFFFu ) / 65535.0f;
+    return minValue + ( maxValue - minValue ) * unit;
+}
+
+
+int GraphicsStressController::ActionCount() const
+{
+    return std::clamp( m_actionsPerFrame, 1, 64 );
+}
+
+
+int GraphicsStressController::NextAction()
+{
+    return NextInt( 32 );
+}
+
+
+bool GraphicsStressController::SceneLoadDue() const
+{
+    return m_framesRun - m_lastSceneLoadFrame >= m_sceneIntervalFrames;
+}
+
+
+bool GraphicsStressController::ShouldPrintFrameSummary() const
+{
+    return m_framesRun % 60 == 0;
+}
+
+
+bool GraphicsStressController::ShouldLogMemory() const
+{
+    return m_memoryLogIntervalFrames > 0 && ( m_framesRun == 1 || m_framesRun % m_memoryLogIntervalFrames == 0 );
+}
+
+
+float GraphicsStressController::RandomCinematicParamValue( UI::UICinematicParam param )
+{
+    switch ( param )
+    {
+    case UICinematicParam::Exposure:
+        return NextFloat( 0.05f, 3.00f );
+    case UICinematicParam::Gamma:
+        return NextFloat( 1.00f, 3.00f );
+    case UICinematicParam::SkyMode:
+    case UICinematicParam::TerrainMode:
+    case UICinematicParam::ObjectStyle:
+        return NextFloat( 0.0f, 32.0f );
+    case UICinematicParam::WaterMode:
+        return NextFloat( 0.0f, 4.0f );
+    case UICinematicParam::StyleSaturation:
+    case UICinematicParam::StyleContrast:
+        return NextFloat( 0.0f, 2.50f );
+    case UICinematicParam::StyleVignette:
+    case UICinematicParam::SunX:
+    case UICinematicParam::SunY:
+    case UICinematicParam::CloudCoverage:
+    case UICinematicParam::FogOpacity:
+    case UICinematicParam::BasinFeather:
+    case UICinematicParam::WaterAlpha:
+    case UICinematicParam::WaterReflection:
+        return NextFloat( 0.0f, 1.0f );
+    case UICinematicParam::SunBrightness:
+        return NextFloat( 0.0f, 40.0f );
+    case UICinematicParam::SunRed:
+    case UICinematicParam::SunGreen:
+    case UICinematicParam::SunBlue:
+        return NextFloat( 0.0f, 2.0f );
+    case UICinematicParam::SkyGlow:
+        return NextFloat( 0.0f, 8.0f );
+    case UICinematicParam::HorizonRed:
+    case UICinematicParam::HorizonGreen:
+    case UICinematicParam::HorizonBlue:
+    case UICinematicParam::ZenithRed:
+    case UICinematicParam::ZenithGreen:
+    case UICinematicParam::ZenithBlue:
+    case UICinematicParam::CloudIntensity:
+    case UICinematicParam::TerrainTintRed:
+    case UICinematicParam::TerrainTintGreen:
+    case UICinematicParam::TerrainTintBlue:
+    case UICinematicParam::TerrainAccentRed:
+    case UICinematicParam::TerrainAccentGreen:
+    case UICinematicParam::TerrainAccentBlue:
+    case UICinematicParam::WaterTintRed:
+    case UICinematicParam::WaterTintGreen:
+    case UICinematicParam::WaterTintBlue:
+    case UICinematicParam::FogRed:
+    case UICinematicParam::FogGreen:
+    case UICinematicParam::FogBlue:
+        return NextFloat( 0.0f, 1.50f );
+    case UICinematicParam::CloudSoftness:
+        return NextFloat( 0.01f, 0.65f );
+    case UICinematicParam::CloudScale:
+        return NextFloat( 0.50f, 12.0f );
+    case UICinematicParam::ShaftStrength:
+        return NextFloat( 0.0f, 3.0f );
+    case UICinematicParam::ShaftFalloff:
+        return NextFloat( 0.25f, 5.0f );
+    case UICinematicParam::VolumetricStrength:
+        return NextFloat( 0.0f, 2.0f );
+    case UICinematicParam::VolumetricDensity:
+        return NextFloat( 0.0f, 2.50f );
+    case UICinematicParam::VolumetricDecay:
+        return NextFloat( 0.800f, 0.995f );
+    case UICinematicParam::BloomThreshold:
+        return NextFloat( 0.0f, 4.0f );
+    case UICinematicParam::BloomKnee:
+        return NextFloat( 0.01f, 2.0f );
+    case UICinematicParam::BloomStrength:
+        return NextFloat( 0.0f, 2.0f );
+    case UICinematicParam::BloomRadius:
+        return NextFloat( 0.25f, 8.0f );
+    case UICinematicParam::TerrainRelief:
+        return NextFloat( 0.0f, 1.50f );
+    case UICinematicParam::TerrainGridScale:
+        return NextFloat( 0.10f, 120.0f );
+    case UICinematicParam::TerrainGridStrength:
+    case UICinematicParam::WaterGlint:
+        return NextFloat( 0.0f, 4.0f );
+    case UICinematicParam::BasinCenterX:
+    case UICinematicParam::BasinCenterZ:
+        return NextFloat( 0.0f, 1200.0f );
+    case UICinematicParam::BasinRadiusX:
+    case UICinematicParam::BasinRadiusZ:
+        return NextFloat( 1.0f, 500.0f );
+    case UICinematicParam::BasinDepth:
+        return NextFloat( 0.0f, 80.0f );
+    case UICinematicParam::BasinRimLift:
+        return NextFloat( 0.0f, 60.0f );
+    case UICinematicParam::FogDensity:
+        return NextFloat( 0.0f, 0.006f );
+    case UICinematicParam::FogStart:
+        return NextFloat( 0.0f, 500.0f );
+    case UICinematicParam::FogEnd:
+        return NextFloat( 100.0f, 4000.0f );
+    case UICinematicParam::None:
+    case UICinematicParam::Count:
+    default:
+        return 0.0f;
+    }
+}
 
 
 void Run::RunUIStressActions()
@@ -496,19 +568,19 @@ void Run::RunGraphicsStressActions( const Rendering::IRenderDiagnostics& renderD
     // cinematic controls, render-path toggles, and heavy generated-scene resets.
     // Keep every mutation reproducible from the launch seed so a crash line in
     // latest_stdout.txt can be replayed exactly under cdb.
-    RunGraphicsStressState& stress = m_graphicsStress;
-    if ( !stress.enabled || !m_systems.window )
+    GraphicsStressController& stress = m_graphicsStress;
+    if ( !stress.IsEnabled() || !m_systems.window )
     {
         return;
     }
 
-    ++stress.framesRun;
-    if ( stress.framesRun == 1 )
+    stress.BeginFrame();
+    if ( stress.FramesRun() == 1 )
     {
         printf( "[graphics-stress] Running seed=%u actions=%d scene_interval_frames=%d\n",
-                stress.randomState,
-                stress.actionsPerFrame,
-                stress.sceneIntervalFrames );
+                stress.RandomState(),
+                stress.ActionsPerFrame(),
+                stress.SceneIntervalFrames() );
         fflush( stdout );
     }
 
@@ -548,7 +620,7 @@ void Run::RunGraphicsStressActions( const Rendering::IRenderDiagnostics& renderD
         return false;
     };
 
-    if ( GraphicsStressHarness::SceneLoadDue( stress ) )
+    if ( stress.SceneLoadDue() )
     {
         // Hazard: suite order is the durable test contract. Browser fallback is
         // useful for manual app launches, but automated repros must prefer the
@@ -558,18 +630,14 @@ void Run::RunGraphicsStressActions( const Rendering::IRenderDiagnostics& renderD
         const char* selectedSceneSource = "none";
         if ( m_sceneController.QueueSize() > 0 )
         {
-            selectedSceneIndex = GraphicsStressHarness::NextInt( stress, m_sceneController.QueueSize() );
+            selectedSceneIndex = stress.NextInt( m_sceneController.QueueSize() );
             selectedSceneSource = "queue";
-            action = SceneRuntimeControlAction::LoadScene( selectedSceneIndex,
-                                                           true,
-                                                           true,
-                                                           GraphicsStressHarness::NextInt( stress, 2 ) != 0,
-                                                           true );
+            action =
+                SceneRuntimeControlAction::LoadScene( selectedSceneIndex, true, true, stress.NextInt( 2 ) != 0, true );
         }
         else if ( !m_sceneController.Browser().paths.empty() )
         {
-            selectedSceneIndex =
-                GraphicsStressHarness::NextInt( stress, static_cast<int>( m_sceneController.Browser().paths.size() ) );
+            selectedSceneIndex = stress.NextInt( static_cast<int>( m_sceneController.Browser().paths.size() ) );
             selectedSceneSource = "browser";
             action =
                 m_sceneCoordinator.LoadSceneFromBrowserIndex( selectedSceneIndex, m_sceneController.Browser().paths );
@@ -577,11 +645,10 @@ void Run::RunGraphicsStressActions( const Rendering::IRenderDiagnostics& renderD
 
         if ( executeSceneControlAction( action ) )
         {
-            stress.lastSceneLoadFrame = stress.framesRun;
-            ++stress.sceneLoadsRequested;
+            stress.RecordSceneLoad();
             printf( "[graphics-stress] scene_load=%d frame=%d source=%s selected_index=%d action_index=%d\n",
-                    stress.sceneLoadsRequested,
-                    stress.framesRun,
+                    stress.SceneLoadsRequested(),
+                    stress.FramesRun(),
                     selectedSceneSource,
                     selectedSceneIndex,
                     action.index );
@@ -590,7 +657,7 @@ void Run::RunGraphicsStressActions( const Rendering::IRenderDiagnostics& renderD
         else
         {
             printf( "[graphics-stress] scene_load_skipped frame=%d source=%s selected_index=%d\n",
-                    stress.framesRun,
+                    stress.FramesRun(),
                     selectedSceneSource,
                     selectedSceneIndex );
             fflush( stdout );
@@ -602,13 +669,13 @@ void Run::RunGraphicsStressActions( const Rendering::IRenderDiagnostics& renderD
     SceneState().isInteractiveRun = true;
     SceneState().isExitOnComplete = false;
 
-    const int actionCount = GraphicsStressHarness::ActionCount( stress );
+    const int actionCount = stress.ActionCount();
     // Invariant: random values stay inside the same broad ranges exposed by the
     // runtime UI. The stress test should crash bad DX12 lifetime/state tracking,
     // not manufacture impossible physics or render data.
     for ( int i = 0; i < actionCount; ++i )
     {
-        switch ( GraphicsStressHarness::NextAction( stress ) )
+        switch ( stress.NextAction() )
         {
         case 0:
         {
@@ -627,8 +694,8 @@ void Run::RunGraphicsStressActions( const Rendering::IRenderDiagnostics& renderD
         case 1:
         {
             CinematicRenderConfig& cinematic = RuntimeActiveCinematicConfig( SceneState(), m_config );
-            const UICinematicFeature feature = static_cast<UICinematicFeature>(
-                GraphicsStressHarness::NextInt( stress, static_cast<int>( UICinematicFeature::Count ) ) );
+            const UICinematicFeature feature =
+                static_cast<UICinematicFeature>( stress.NextInt( static_cast<int>( UICinematicFeature::Count ) ) );
             if ( feature == UICinematicFeature::Shadows )
             {
                 m_launchOptions.hasCinematicShadowsOverride = false;
@@ -639,20 +706,16 @@ void Run::RunGraphicsStressActions( const Rendering::IRenderDiagnostics& renderD
         case 2:
         {
             CinematicRenderConfig& cinematic = RuntimeActiveCinematicConfig( SceneState(), m_config );
-            const UICinematicParam param = static_cast<UICinematicParam>(
-                GraphicsStressHarness::NextInt( stress, static_cast<int>( UICinematicParam::Count ) ) );
-            ApplyCinematicUIParam( cinematic,
-                                   SceneState(),
-                                   param,
-                                   GraphicsStressHarness::RandomCinematicParamValue( stress, param ) );
+            const UICinematicParam param =
+                static_cast<UICinematicParam>( stress.NextInt( static_cast<int>( UICinematicParam::Count ) ) );
+            ApplyCinematicUIParam( cinematic, SceneState(), param, stress.RandomCinematicParamValue( param ) );
             break;
         }
         case 3:
         {
             const int browserCount = static_cast<int>( m_sceneController.Browser().paths.size() );
-            const int browserIndex = ( browserCount > 0 && GraphicsStressHarness::NextInt( stress, 5 ) != 0 )
-                                         ? GraphicsStressHarness::NextInt( stress, browserCount )
-                                         : -1;
+            const int browserIndex =
+                ( browserCount > 0 && stress.NextInt( 5 ) != 0 ) ? stress.NextInt( browserCount ) : -1;
             (void)ApplyCinematicModeFromBrowserIndex(
                 SceneRuntimeStyleContext{ m_launchOptions,
                                           SceneState(),
@@ -688,7 +751,7 @@ void Run::RunGraphicsStressActions( const Rendering::IRenderDiagnostics& renderD
             break;
         case 10:
         {
-            const int mode = GraphicsStressHarness::NextInt( stress, 3 );
+            const int mode = stress.NextInt( 3 );
             m_debug.isWaterRTReflect = mode == 1;
             m_debug.isWaterNoReflect = mode == 2;
             break;
@@ -709,18 +772,17 @@ void Run::RunGraphicsStressActions( const Rendering::IRenderDiagnostics& renderD
                 PHYSICS_DEBUG_ALL,
             };
             m_debug.physicsDebugFlags =
-                kFlags[GraphicsStressHarness::NextInt( stress,
-                                                       static_cast<int>( sizeof( kFlags ) / sizeof( kFlags[0] ) ) )];
+                kFlags[stress.NextInt( static_cast<int>( sizeof( kFlags ) / sizeof( kFlags[0] ) ) )];
             break;
         }
         case 14:
             m_debug.isPhysicsDebugTransparent = !m_debug.isPhysicsDebugTransparent;
-            m_debug.physicsDebugAlpha = GraphicsStressHarness::NextFloat( stress, 0.05f, 1.0f );
-            m_debug.physicsDebugContactLinger = GraphicsStressHarness::NextFloat( stress, 0.0f, 5.0f );
+            m_debug.physicsDebugAlpha = stress.NextFloat( 0.05f, 1.0f );
+            m_debug.physicsDebugContactLinger = stress.NextFloat( 0.0f, 5.0f );
             break;
         case 15:
         {
-            const float timeScale = GraphicsStressHarness::NextFloat( stress, 0.05f, 4.0f );
+            const float timeScale = stress.NextFloat( 0.05f, 4.0f );
             m_sceneController.UIOverrides().timeScaleOverride = timeScale;
             SceneState().timeScale = timeScale;
             m_simulation.Reset();
@@ -729,34 +791,33 @@ void Run::RunGraphicsStressActions( const Rendering::IRenderDiagnostics& renderD
         case 16:
             ApplyUIWorldOverride( m_cWorldEnvironment,
                                   m_replayRuntime,
-                                  -GraphicsStressHarness::NextFloat( stress, 0.0f, 80.0f ),
-                                  GraphicsStressHarness::NextFloat( stress, -80.0f, 160.0f ),
-                                  GraphicsStressHarness::NextFloat( stress, 0.0f, 5.0f ) );
+                                  -stress.NextFloat( 0.0f, 80.0f ),
+                                  stress.NextFloat( -80.0f, 160.0f ),
+                                  stress.NextFloat( 0.0f, 5.0f ) );
             break;
         case 17:
-            m_sceneController.UIOverrides().modelCountOverride = 32 + GraphicsStressHarness::NextInt( stress, 512 );
+            m_sceneController.UIOverrides().modelCountOverride = 32 + stress.NextInt( 512 );
             break;
         case 18:
             m_launchOptions.generatedObjectTypeOverride =
-                static_cast<GeneratedObjectTypeOverride>( GraphicsStressHarness::NextInt( stress, 3 ) );
+                static_cast<GeneratedObjectTypeOverride>( stress.NextInt( 3 ) );
             break;
         case 19:
-            m_runtimeSettings.tornadoField.enabled = GraphicsStressHarness::NextInt( stress, 2 ) != 0;
-            m_runtimeSettings.tornadoField.visualizeVelocityField = GraphicsStressHarness::NextInt( stress, 2 ) != 0;
-            m_runtimeSettings.tornadoVisual.enabled = GraphicsStressHarness::NextInt( stress, 2 ) != 0;
+            m_runtimeSettings.tornadoField.enabled = stress.NextInt( 2 ) != 0;
+            m_runtimeSettings.tornadoField.visualizeVelocityField = stress.NextInt( 2 ) != 0;
+            m_runtimeSettings.tornadoVisual.enabled = stress.NextInt( 2 ) != 0;
             SyncTornadoRuntimeSettingsToPhysics( m_cGameModelCollection, m_runtimeSettings );
             break;
         case 20:
-            m_runtimeSettings.tornadoVisual.shellAlpha = GraphicsStressHarness::NextFloat( stress, 0.02f, 0.40f );
-            m_runtimeSettings.tornadoVisual.dustAlpha = GraphicsStressHarness::NextFloat( stress, 0.02f, 0.55f );
-            m_runtimeSettings.tornadoVisual.ribbonWidth = GraphicsStressHarness::NextFloat( stress, 1.0f, 12.0f );
-            m_runtimeSettings.tornadoVisual.ribbonCount = 1 + GraphicsStressHarness::NextInt( stress, 10 );
-            m_runtimeSettings.tornadoVisual.particleCount = 16 + GraphicsStressHarness::NextInt( stress, 240 );
+            m_runtimeSettings.tornadoVisual.shellAlpha = stress.NextFloat( 0.02f, 0.40f );
+            m_runtimeSettings.tornadoVisual.dustAlpha = stress.NextFloat( 0.02f, 0.55f );
+            m_runtimeSettings.tornadoVisual.ribbonWidth = stress.NextFloat( 1.0f, 12.0f );
+            m_runtimeSettings.tornadoVisual.ribbonCount = 1 + stress.NextInt( 10 );
+            m_runtimeSettings.tornadoVisual.particleCount = 16 + stress.NextInt( 240 );
             break;
         case 21:
-            m_UI.SetActiveTab( static_cast<InGameUITab>(
-                GraphicsStressHarness::NextInt( stress, static_cast<int>( InGameUITab::Count ) ) ) );
-            m_UI.SetScrollY( GraphicsStressHarness::NextFloat( stress, 0.0f, 1200.0f ) );
+            m_UI.SetActiveTab( static_cast<InGameUITab>( stress.NextInt( static_cast<int>( InGameUITab::Count ) ) ) );
+            m_UI.SetScrollY( stress.NextFloat( 0.0f, 1200.0f ) );
             break;
         case 22:
             SceneState().isFixedStep = !SceneState().isFixedStep;
@@ -770,45 +831,45 @@ void Run::RunGraphicsStressActions( const Rendering::IRenderDiagnostics& renderD
             m_debug.isTopTextHidden = !m_debug.isTopTextHidden;
             break;
         case 25:
-            m_debug.overlayMode = static_cast<OverlayMode>( GraphicsStressHarness::NextInt( stress, 6 ) );
+            m_debug.overlayMode = static_cast<OverlayMode>( stress.NextInt( 6 ) );
             break;
         case 26:
             m_runtimeTools.Laser().Update( 0.0f );
             break;
         case 27:
-            m_camera.trackHeight = GraphicsStressHarness::NextFloat( stress, 8.0f, 500.0f );
+            m_camera.trackHeight = stress.NextFloat( 8.0f, 500.0f );
             break;
         case 28:
             m_launchOptions.generatedObjectTypeOverride =
-                static_cast<GeneratedObjectTypeOverride>( GraphicsStressHarness::NextInt( stress, 3 ) );
+                static_cast<GeneratedObjectTypeOverride>( stress.NextInt( 3 ) );
             break;
         case 29:
-            m_UI.SetProfilerTimelineEnabled( GraphicsStressHarness::NextInt( stress, 2 ) != 0 );
-            m_UI.SetPerformanceHistogramEnabled( GraphicsStressHarness::NextInt( stress, 2 ) != 0 );
+            m_UI.SetProfilerTimelineEnabled( stress.NextInt( 2 ) != 0 );
+            m_UI.SetPerformanceHistogramEnabled( stress.NextInt( 2 ) != 0 );
             break;
         case 30:
-            m_UI.SetRendererComboOpen( GraphicsStressHarness::NextInt( stress, 2 ) != 0 );
-            m_UI.SetWaterComboOpen( GraphicsStressHarness::NextInt( stress, 2 ) != 0 );
-            m_UI.SetSceneComboOpen( GraphicsStressHarness::NextInt( stress, 2 ) != 0 );
+            m_UI.SetRendererComboOpen( stress.NextInt( 2 ) != 0 );
+            m_UI.SetWaterComboOpen( stress.NextInt( 2 ) != 0 );
+            m_UI.SetSceneComboOpen( stress.NextInt( 2 ) != 0 );
             break;
         case 31:
-            m_debug.isUITestPattern = GraphicsStressHarness::NextInt( stress, 2 ) != 0;
+            m_debug.isUITestPattern = stress.NextInt( 2 ) != 0;
             break;
         default:
             break;
         }
     }
 
-    if ( GraphicsStressHarness::ShouldPrintFrameSummary( stress ) )
+    if ( stress.ShouldPrintFrameSummary() )
     {
         printf( "[graphics-stress] frame=%d scene_loads=%d rng=%u\n",
-                stress.framesRun,
-                stress.sceneLoadsRequested,
-                stress.randomState );
+                stress.FramesRun(),
+                stress.SceneLoadsRequested(),
+                stress.RandomState() );
         fflush( stdout );
     }
 
-    if ( GraphicsStressHarness::ShouldLogMemory( stress ) )
+    if ( stress.ShouldLogMemory() )
     {
         // Why: long stress runs need memory attribution before shutdown. If the
         // process is killed after a climb, this stdout line survives with the
@@ -828,8 +889,8 @@ void Run::RunGraphicsStressActions( const Rendering::IRenderDiagnostics& renderD
                 "textures=%zu texture_capacity=%zu psos=%zu graph_transients=%zu graph_transient_capacity=%zu "
                 "rtv_used=%u rtv_capacity=%u dsv_used=%u dsv_capacity=%u srv_static_used=%u srv_static_capacity=%u "
                 "srv_transient_used=%u srv_transient_capacity=%u srv_transient_peak=%u\n",
-                stress.framesRun,
-                stress.sceneLoadsRequested,
+                stress.FramesRun(),
+                stress.SceneLoadsRequested(),
                 static_cast<unsigned long long>( memoryStats.process.taskManagerBytes ),
                 static_cast<unsigned long long>( memoryStats.process.workingSetBytes ),
                 static_cast<unsigned long long>( memoryStats.process.privateWorkingSetBytes ),

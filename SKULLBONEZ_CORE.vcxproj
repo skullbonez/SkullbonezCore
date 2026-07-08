@@ -359,6 +359,7 @@
     <ClInclude Include="SkullbonezSource\Physics\SleepIslandSystem.h" />
     <ClInclude Include="SkullbonezSource\Core\SkullScope.h" />
     <ClInclude Include="SkullbonezSource\Rendering\Helper.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\GraphicsStressController.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Input.h" />
     <ClInclude Include="SkullbonezSource\Runtime\InputController.h" />
     <ClInclude Include="SkullbonezSource\Runtime\LiveStyleController.h" />

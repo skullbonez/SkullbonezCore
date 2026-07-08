@@ -198,6 +198,7 @@ RUNTIME_PREFIXES = (
     "CaptureSystem",
     "DemoDirector",
     "DiagnosticsController",
+    "GraphicsStressController",
     "Init",
     "Input",
     "InputController",

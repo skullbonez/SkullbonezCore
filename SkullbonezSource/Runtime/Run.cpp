@@ -476,11 +476,10 @@ void Run::SetGraphicsStressOverride( unsigned int seed,
     m_launchOptions.graphicsStressMemoryIntervalFrames = std::clamp( memoryLogIntervalFrames, 0, 36000 );
     m_launchOptions.interactiveSceneRun = true;
 
-    m_graphicsStress.enabled = true;
-    m_graphicsStress.randomState = resolvedSeed;
-    m_graphicsStress.actionsPerFrame = m_launchOptions.graphicsStressActions;
-    m_graphicsStress.sceneIntervalFrames = m_launchOptions.graphicsStressSceneIntervalFrames;
-    m_graphicsStress.memoryLogIntervalFrames = m_launchOptions.graphicsStressMemoryIntervalFrames;
+    m_graphicsStress.Configure( resolvedSeed,
+                                m_launchOptions.graphicsStressActions,
+                                m_launchOptions.graphicsStressSceneIntervalFrames,
+                                m_launchOptions.graphicsStressMemoryIntervalFrames );
 }
 
 

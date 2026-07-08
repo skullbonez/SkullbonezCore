@@ -967,6 +967,31 @@ every step. Commit per step.
     5.2s); the narrowed clang-format fix was applied and
     `TestOutput\agent_logs\plan01_live_style_controller_validate_format_rerun.log`
     passed in 9.2s.
+  - [x] Graphics stress shelf moved behind `GraphicsStressController`; deleted
+    `RunGraphicsStressState` from `RunState.h`. The controller now owns the
+    launch seed, deterministic random stream, action cadence, scene-load
+    cadence, memory-log cadence, and persistent frame/scene-load counters, while
+    `RunStress.cpp` remains the executor for scene, UI, render, and live runtime
+    mutations. Startup configuration, scene-load resume, WM_QUIT logging, and
+    graphics-stress actions now use controller methods instead of direct field
+    pokes. The touched-file comment audit added the new controller learning
+    header and kept graphics-stress random/cadence invariants local to the
+    owner. Gate evidence:
+    `TestOutput\agent_logs\plan01_graphics_stress_controller_validate_full.log`
+    (58.0s; project filters/runtime boundaries passed, Profile/Debug builds had
+    0 warnings and 0 errors, DX12 InfoQueue errors = 0, screenshots matched
+    baselines, and `physics_regression_solver.csv` matched byte-exactly).
+    Targeted pre-gate checks also passed:
+    `TestOutput\agent_logs\plan01_graphics_stress_controller_build_profile_rerun.log`
+    (10.0s),
+    `TestOutput\agent_logs\plan01_graphics_stress_controller_runtime_boundaries.log`
+    (17.6s), and
+    `TestOutput\agent_logs\plan01_graphics_stress_controller_project_filters.log`
+    (1.2s). The first format pass found `RunStress.cpp` after the refactor
+    (`TestOutput\agent_logs\plan01_graphics_stress_controller_validate_format.log`,
+    5.2s); the narrowed clang-format fix was applied and
+    `TestOutput\agent_logs\plan01_graphics_stress_controller_validate_format_rerun.log`
+    passed in 9.1s.
 
 ### Phase 3 — Shrink `Run`
 
