@@ -56,9 +56,37 @@ byte-exact gated.
 
 ### Phase 0 — Unweld `Log` from the prelude
 
-- [ ] **0.1** `rg -n "Log\(" SkullbonezSource --include=*.cpp --include=*.h` and
+- [x] **0.1** `rg -n "Log\(" SkullbonezSource --include=*.cpp --include=*.h` and
   note which files use `Log()` but do **not** already `#include "Log.h"` directly
   (they rely on `Common.h` pulling it in). No code change.
+
+  Inventory note (2026-07-08): this local `rg` does not support `--include`, so
+  the equivalent command used was
+  `rg -l -P "(?<![A-Za-z0-9_])Log\(\)" SkullbonezSource -g "*.cpp" -g "*.h"`.
+  Files with actual `Log()` calls and no direct `Log.h` include:
+  - `SkullbonezSource\Core\PlatformProfiler.cpp`
+  - `SkullbonezSource\Core\Profiler.cpp`
+  - `SkullbonezSource\Core\SkullScope.cpp`
+  - `SkullbonezSource\Physics\PhysicsDiagnosticsSink.cpp`
+  - `SkullbonezSource\Rendering\DX12\RenderBackendDX12.cpp`
+  - `SkullbonezSource\Rendering\DX12\RenderBackendDX12.DXR.cpp`
+  - `SkullbonezSource\Rendering\DX12\RenderBackendDX12.DynamicGeometry.cpp`
+  - `SkullbonezSource\Rendering\DX12\RenderBackendDX12.Pipeline.cpp`
+  - `SkullbonezSource\Rendering\DX12\RenderBackendDX12.Profiler.cpp`
+  - `SkullbonezSource\Rendering\DX12\RenderBackendDX12.Readback.cpp`
+  - `SkullbonezSource\Rendering\DX12\RenderBackendDX12.Resources.cpp`
+  - `SkullbonezSource\Rendering\DX12\RenderBackendDX12.Textures.cpp`
+  - `SkullbonezSource\Rendering\DX12\ShaderDX12.cpp`
+  - `SkullbonezSource\Runtime\Init.cpp`
+  - `SkullbonezSource\Runtime\Run.cpp`
+  - `SkullbonezSource\Runtime\RunInput.cpp`
+  - `SkullbonezSource\Runtime\RuntimeDiagnostics.cpp`
+  - `SkullbonezSource\Runtime\Scene\RunScene.cpp`
+  - `SkullbonezSource\Runtime\Scene\SceneRuntimeLoad.cpp`
+
+  Direct-include/non-action notes: `Common.h` currently owns the ambient include,
+  `Log.cpp` includes `Log.h`, `SceneRuntimeCreate.cpp` already includes
+  `../../Core/Log.h`, and `Log.h` only contains `Log()` usage examples.
 - [ ] **0.2** Remove `#include "Log.h"` from `Common.h`. Build
   (`validate_fast`). For each compile error, add an explicit `#include` of
   `Log.h` to that TU. Repeat until it builds. Commit.
