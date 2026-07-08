@@ -1,7 +1,7 @@
 # 08 — RenderHelper Global-State Removal
 
 Date: 2026-07-08
-Status: Proposed
+Status: Complete
 Priority: P2
 Owner: Rendering
 Source issue: audit iss-06 (severity 4)
@@ -46,7 +46,7 @@ scoped to a batch object rather than global flags.
   becomes impossible.
 - [x] **Phase 3 — Own the lifetime.** Resource creation/destruction moves to the
   owner's ctor/dtor; delete `ResetRenderResources()` and its manual ordering.
-- [ ] **Phase 4 — Reconcile `CollisionVisualizer`** scratch to match its own
+- [x] **Phase 4 — Reconcile `CollisionVisualizer`** scratch to match its own
   instance-member pattern.
 
 ## Risks / GPU safety
@@ -123,8 +123,15 @@ unchanged and `dx12_validation.txt` == 0 throughout** — this is a hard gate.
   reset calls in `RunRender.cpp` are gone. `tools\validate_dx12_renderer.bat`
   passed with DX12 InfoQueue errors = 0 and committed screenshot baselines
   unchanged.
-- [ ] **5.1** Reconcile `CollisionVisualizer`'s ~410 KB global scratch to match
+- [x] **5.1** Reconcile `CollisionVisualizer`'s ~410 KB global scratch to match
   its own instance-member stream pattern. Gate: `validate_dx12_renderer`. Commit.
+
+  Completion note (2026-07-08): `CollisionVisualizer` now owns its convex-hull
+  debug vertex scratch as `m_hullDebugVertexData`, beside its existing sphere and
+  box instance staging buffers. The file-scope mutable `sHullDebugVertexData`
+  was deleted, and a compile-time assertion keeps the fixed scratch capacity in
+  sync with `ConvexHullShape`. `tools\validate_dx12_renderer.bat` passed with
+  DX12 InfoQueue errors = 0 and committed screenshot baselines unchanged.
 
 ## Validation
 
@@ -137,4 +144,4 @@ unchanged and `dx12_validation.txt` == 0 throughout** — this is a hard gate.
 - [x] Batch state is scoped (RAII); no global batch-ready flags persist across
   frames.
 - [x] `ResetRenderResources()` manual-ordering call is removed.
-- [ ] DX12 screenshots unchanged; `dx12_validation.txt` == 0.
+- [x] DX12 screenshots unchanged; `dx12_validation.txt` == 0.

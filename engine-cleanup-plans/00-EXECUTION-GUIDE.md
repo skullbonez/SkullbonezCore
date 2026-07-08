@@ -103,7 +103,7 @@ fully `[x]`.
 - [x] 2. Plan 12 — Log/Profiler ambient coupling removed
 - [x] 3. Plan 06 — editor `.inl` promoted to real TUs
 - [ ] 4. Plan 13 + 10 — facade rule applied; EngineContext/IRenderBackend/aliases/SimulationController done
-- [ ] 5. Plan 08 — RenderHelper de-statised
+- [x] 5. Plan 08 — RenderHelper de-statised
 - [ ] 6. Plan 11 — render abstraction leaks closed
 - [ ] 7. Plan 01 — Run decomposed
 - [ ] 8. Plan 09 — replay right-sized

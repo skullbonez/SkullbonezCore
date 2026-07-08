@@ -62,7 +62,6 @@ Related:
 #include "../../Core/Common.h"
 
 #include <algorithm>
-#include <array>
 #include <variant>
 
 
@@ -71,12 +70,6 @@ using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Math::Vector;
 using namespace SkullbonezCore::Rendering;
-
-static constexpr int COLLISION_INSTANCE_FLOATS = 20;
-static constexpr int HULL_MAX_TRIANGLE_VERTICES =
-    ConvexHullShape::MAX_FACES * ( ConvexHullShape::MAX_FACE_VERTICES - 2 ) * 3;
-static constexpr int HULL_DYNAMIC_FLOATS_PER_VERTEX = 3 + 3 + COLLISION_INSTANCE_FLOATS;
-static std::array<float, HULL_MAX_TRIANGLE_VERTICES * HULL_DYNAMIC_FLOATS_PER_VERTEX> sHullDebugVertexData = {};
 
 namespace
 {
@@ -431,6 +424,9 @@ void CollisionVisualizer::DrawHullInstance( IRenderCommandContext& renderCommand
                                             const Matrix4& model,
                                             const Color& color )
 {
+    static_assert(
+        HULL_MAX_TRIANGLE_VERTICES == ConvexHullShape::MAX_FACES * ( ConvexHullShape::MAX_FACE_VERTICES - 2 ) * 3,
+        "CollisionVisualizer hull scratch must match ConvexHullShape capacity." );
     if ( m_hullDynamicVB == 0 )
     {
         return;
@@ -453,7 +449,7 @@ void CollisionVisualizer::DrawHullInstance( IRenderCommandContext& renderCommand
         }
 
         const Vector3 p = hull.GetPosition() + hull.GetVertex( index );
-        float* out = &sHullDebugVertexData[static_cast<size_t>( vertexCount ) * HULL_DYNAMIC_FLOATS_PER_VERTEX];
+        float* out = &m_hullDebugVertexData[static_cast<size_t>( vertexCount ) * HULL_DYNAMIC_FLOATS_PER_VERTEX];
         out[0] = p.x;
         out[1] = p.y;
         out[2] = p.z;
@@ -485,7 +481,7 @@ void CollisionVisualizer::DrawHullInstance( IRenderCommandContext& renderCommand
 
     if ( vertexCount > 0 )
     {
-        renderCommands.UploadAndDrawDynamicVB( m_hullDynamicVB, sHullDebugVertexData.data(), vertexCount );
+        renderCommands.UploadAndDrawDynamicVB( m_hullDynamicVB, m_hullDebugVertexData.data(), vertexCount );
     }
 }
 
