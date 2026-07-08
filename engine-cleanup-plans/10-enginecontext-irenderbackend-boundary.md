@@ -56,6 +56,8 @@ borrowed-alias dual ownership.
 - [x] **Phase 3 — Fix dual ownership.** `RenderBackendDX12` either borrows the
   device once through a single owner or refreshes its aliases on device
   recreation — no dangling on recreate.
+- [x] **Phase 4 — Collapse or graduate `SimulationController`.** Delete the
+  wrapper or make it own real timestep policy without `System()` reach-through.
 
 ## Risks
 
@@ -206,16 +208,36 @@ danger zone — run the renderer gate 3×.
 
 ### Phase 4 — Collapse or graduate `SimulationController` (FAC-004)
 
-- [ ] **4.1** Check whether `SimulationController` only forwards to
+- [x] **4.1** Check whether `SimulationController` only forwards to
   `SimulationSystem` (it exposes `System()`). If it is a pure delegate: delete it,
   call `SimulationSystem` directly, and remove the `System()` reach-through. If it
   must stay: move real timestep policy into it **and** remove `System()`. Gate:
   `validate_physics` (fixed-step determinism must not change). Commit.
 
+  Completion note (2026-07-08): `SimulationController` was a pure forwarding
+  wrapper over `SimulationSystem::Reset()` and `SimulationSystem::Tick()`, plus
+  the banned `System()` reach-through. Deleted `SimulationController.cpp/.h`,
+  made `Run` own `SimulationSystem` directly, passed `SimulationSystem&` into
+  generated-scene rebuild helpers, and removed the project/filter entries and
+  project-filter allowlist row. Added a deleted-artifact tombstone and self-test
+  for `SimulationController` / `SimulationController.h` /
+  `m_simulation.System()`. Structural greps found no source/project references
+  to `SimulationController` and no `SimulationController::System()` or
+  `.System()` reach-through under `SkullbonezSource`. Comment audit inspected
+  touched source-bearing files (`Run.h`, `SceneRuntimeGeneratedControls.h`,
+  `SceneRuntimeGeneratedControls.cpp`, `tools/check_runtime_boundaries.py`,
+  `tools/validate_project_filters.py`) with no deferred work. Validation:
+  `tools\validate_project_filters.bat` passed in 1.1s; `python -m py_compile
+  tools\check_runtime_boundaries.py` passed in 0.2s; runtime-boundary self-test
+  passed in 0.3s; runtime boundaries passed in 16.9s; `tools\validate_fast.bat`
+  passed in 50.0s; `tools\validate_physics.bat` passed in 16.4s with 0 build
+  warnings/errors and `physics_regression_solver.csv` byte-exact at 20001 lines.
+
 ## Validation
 
 `tools\validate_dx12_renderer.bat` (+ `dx12_validation.txt` == 0);
-`tools\validate_full.bat` for `Run` wiring changes.
+`tools\validate_full.bat` for `Run` wiring changes;
+`tools\validate_physics.bat` for `SimulationSystem` ownership changes.
 
 ## Acceptance (structural)
 
@@ -225,3 +247,5 @@ danger zone — run the renderer gate 3×.
 - [x] `EngineServices Services()` is removed or has real callers.
 - [x] `RenderBackendDX12` holds no device/swapchain/commandlist aliases that can
   dangle on recreation.
+- [x] `rg -n "SimulationController::System\(|\.System\(" SkullbonezSource`
+  finds no runtime reach-through, and `SimulationController` is deleted.

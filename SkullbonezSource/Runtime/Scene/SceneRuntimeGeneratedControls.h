@@ -48,7 +48,7 @@ class IRenderDeviceLifecycle;
 namespace Basics
 {
 class SceneController;
-class SimulationController;
+class SimulationSystem;
 class RuntimeTools;
 
 struct SceneRuntimeGeneratedControlContext
@@ -61,7 +61,7 @@ struct SceneRuntimeGeneratedControlContext
     Environment::WorldEnvironment& world;
     Geometry::Terrain* terrain = nullptr;
     GameObjects::GameModelCollection& models;
-    SimulationController& simulation;
+    SimulationSystem& simulation;
     RuntimeTools& tools;
     Rendering::IRenderDeviceLifecycle* renderLifecycle = nullptr;
     GeneratedObjectTypeOverride objectTypeOverride = GeneratedObjectTypeOverride::Mixed;

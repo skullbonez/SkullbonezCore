@@ -1053,6 +1053,15 @@ DELETED_MIGRATION_ARTIFACT_PATTERNS: tuple[tuple[str, re.Pattern[str], str], ...
         "Pass WorldEnvironmentSettings and other owner-specific settings instead of a catch-all runtime snapshot.",
     ),
     (
+        "SimulationController",
+        re.compile(
+            r"\bSimulationController\b"
+            r"|#\s*include\s+[<\"][^>\"]*SimulationController\.h[>\"]"
+            r"|\bm_simulation\s*\.\s*System\s*\("
+        ),
+        "SimulationSystem owns runtime tick policy directly; do not restore the forwarding SimulationController wrapper or its System() reach-through.",
+    ),
+    (
         "IRenderSceneView",
         re.compile(r"\bIRenderSceneView\b"),
         "Render passes should consume concrete render/model data paths, not a one-implementation migration interface.",
@@ -11240,6 +11249,20 @@ def run_self_tests() -> list[str]:
     expect_error('deleted GameModelRenderer collection input synthetic surface was not rejected', deleted_migration_artifact_errors, 'deleted migration artifact is blocked: GameModelRenderer concrete collection input')
     expect_error('deleted physics debug visualizer collection input synthetic surface was not rejected', deleted_migration_artifact_errors, 'deleted migration artifact is blocked: Physics debug visualizer GameModelCollection input')
     expect_error('deleted render instance compatibility handle synthetic surface was not rejected', deleted_migration_artifact_errors, 'deleted migration artifact is blocked: RenderInstanceStore compatibility handle name')
+
+    deleted_simulation_controller_text = """
+    #include "SimulationController.h"
+    class SimulationController
+    {
+    public:
+        SimulationSystem& System();
+    };
+    void ReachThrough()
+    {
+        m_simulation.System().Reset();
+    }
+    """
+    expect_error('deleted SimulationController synthetic surface was not rejected', check_deleted_migration_artifact_guardrails_text( Path("SkullbonezSource/Runtime/SimulationController.h"), deleted_simulation_controller_text, ), 'deleted migration artifact is blocked: SimulationController')
 
     deleted_rigid_body_text = """
     class RigidBody

@@ -225,7 +225,6 @@ RUNTIME_PREFIXES = (
     "RuntimePickService",
     "RuntimeTuning",
     "RuntimeViewModel",
-    "SimulationController",
     "WindowConstants",
     "Window",
 )

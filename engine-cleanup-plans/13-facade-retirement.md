@@ -122,9 +122,15 @@ only when the structure is actually gone:
   Completion note (2026-07-08): Plan 10 step 0.1 removed `EngineServices` and
   `EngineContext::Services()` after the required caller grep returned no
   matches; `tools\validate_full.bat` passed in 61.3s.
-- [ ] `rg -n "SimulationController::System\(|\.System\(\)" ` no longer exposes the
+- [x] `rg -n "SimulationController::System\(|\.System\(\)" ` no longer exposes the
   underlying `SimulationSystem` for reach-through; `SimulationController` is
   deleted or owns concrete timing policy.
+  Completion note (2026-07-08): Plan 10 step 4.1 deleted the forwarding
+  `SimulationController` wrapper and made `Run` own `SimulationSystem`
+  directly. Generated-scene rebuild helpers now take `SimulationSystem&`, and a
+  runtime-boundary tombstone rejects `SimulationController` resurrection and
+  `m_simulation.System()` reach-through. `tools\validate_physics.bat` passed in
+  16.4s with `physics_regression_solver.csv` byte-exact at 20001 lines.
 - [x] `RenderBackendDX12` holds no borrowed device/swapchain/commandlist aliases
   that duplicate `Dx12RenderDevice`-owned pointers (or they are provably
   refreshed on device recreation).
@@ -150,7 +156,7 @@ you finish any facade surface there, apply this checklist:
 - [ ] The surface reached **graduate or delete** (see Definition of Done above),
   not a rename. Verify with the FAC row's **structural** acceptance grep (for a
   type/accessor), never `rg "facad"`.
-- [ ] FAC-001 (aggregate), FAC-002 (context bag), FAC-004
+- [x] FAC-001 (aggregate), FAC-002 (context bag), FAC-004
   (`SimulationController`), FAC-007 (DX12 aliases) are executed by
   [plan 10](10-enginecontext-irenderbackend-boundary.md).
 - [ ] FAC-003 (`Run` shell) is executed by

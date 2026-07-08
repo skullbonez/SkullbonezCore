@@ -26,9 +26,9 @@ Related:
 */
 #include "SceneRuntimeGeneratedControls.h"
 #include "SceneController.h"
-#include "../SimulationController.h"
 #include "../Tools/RuntimeTools.h"
 #include "../../GameObjects/GameModelCollection.h"
+#include "../../Physics/SimulationSystem.h"
 #include "../../Rendering/IRenderDeviceLifecycle.h"
 
 #include <algorithm>

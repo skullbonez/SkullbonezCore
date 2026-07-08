@@ -60,7 +60,7 @@ Related:
 #include "Scene/SceneController.h"
 #include "Scene/SceneGeneratedSetup.h"
 #include "Scene/SceneRuntimeCoordinator.h"
-#include "SimulationController.h"
+#include "../Physics/SimulationSystem.h"
 #include "../Assets/TextureCollection.h"
 #include "Window.h"
 #include "../Rendering/Text.h"
@@ -126,7 +126,7 @@ class Run
         m_interactionAutomation;                                           // CLI harness that injects runtime mouse input for regression tests.
     RunCameraState m_camera;                                               // Camera/input state and ball-tracking settings
     AttachedCameraState m_attachedCamera;                                  // Non-serialized object-follow camera state for Attach mode.
-    SimulationController m_simulation;                                     // Simulation timestep policy and physics accumulators
+    SimulationSystem m_simulation;                                         // Simulation timestep policy and physics accumulators
     ReplayRuntime m_replayRuntime;                                         // Owns replay recorders, branch provenance, and replay interaction state.
     ReplayLauncherVisualSample
         m_replayLauncherVisualScratch;                                     // Reused replay capture payload; capacity is kept outside gameplay.

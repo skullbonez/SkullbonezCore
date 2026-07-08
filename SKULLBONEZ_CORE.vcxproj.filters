@@ -250,9 +250,6 @@
     <ClCompile Include="SkullbonezSource\Runtime\AttachedCameraController.cpp">
       <Filter>Source Files\Runtime</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Runtime\SimulationController.cpp">
-      <Filter>Source Files\Runtime</Filter>
-    </ClCompile>
     <ClCompile Include="SkullbonezSource\Physics\SimulationSystem.cpp">
       <Filter>Source Files\Physics</Filter>
     </ClCompile>
@@ -895,9 +892,6 @@
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneRuntimeUiOptions.h">
       <Filter>Header Files\Runtime\Scene</Filter>
-    </ClInclude>
-    <ClInclude Include="SkullbonezSource\Runtime\SimulationController.h">
-      <Filter>Header Files\Runtime</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\SimulationSystem.h">
       <Filter>Header Files\Physics</Filter>
