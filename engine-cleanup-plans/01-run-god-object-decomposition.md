@@ -1449,6 +1449,34 @@ every step. Commit per step.
     `TestOutput\agent_logs\plan01_interaction_before_input_director_camera_runtime_boundaries.log`
     (17.6s). The touched-file comment audit covered
     `RunInteractionAutomation.cpp`.
+  - [x] Interaction automation before-input replay-state split moved scrubber
+    visibility, prediction enable/target/horizon, and path-target velocity nudge
+    actions into source-local `ApplyInteractionAutomationReplayStateAction()`
+    with explicit automation, timer, replay, and model owner references plus
+    callback-only access to the remaining replay target lookup and world-owner
+    transition hooks. `Run::TickInteractionAutomationBeforeInput()` dropped from
+    247 measured lines to 150 measured lines without adding public or private
+    `Run` methods. The remaining measured large `Run::` targets are
+    `RestoreReplayV2ArtifactTargetState` (946), `TakeInput` (201),
+    `RunGraphicsStressActions` (199), `WriteInteractionAutomationReport` (197),
+    and `Execute` (196), so Phase 3 and the structural acceptance rows remain
+    open. Gate evidence:
+    `TestOutput\agent_logs\plan01_interaction_before_input_replay_state_validate_full.log`
+    (43.6s; project filters/runtime boundaries passed, Profile/Debug builds had
+    0 warnings and 0 errors, DX12 InfoQueue errors = 0, screenshots matched
+    baselines, and `physics_regression_solver.csv` matched byte-exactly).
+    Focused interaction/replay checks passed:
+    `TestOutput\agent_logs\plan01_interaction_before_input_replay_state_validate_interaction_clicks.log`
+    (16.4s) and
+    `TestOutput\agent_logs\plan01_interaction_before_input_replay_state_validate_replay_scrub.log`
+    (19.4s). Targeted pre-gate checks also passed:
+    `TestOutput\agent_logs\plan01_interaction_before_input_replay_state_build_profile.log`
+    (9.1s),
+    `TestOutput\agent_logs\plan01_interaction_before_input_replay_state_validate_format.log`
+    (9.2s), and
+    `TestOutput\agent_logs\plan01_interaction_before_input_replay_state_runtime_boundaries.log`
+    (18.1s). The touched-file comment audit covered
+    `RunInteractionAutomation.cpp`.
 
 ## Validation
 

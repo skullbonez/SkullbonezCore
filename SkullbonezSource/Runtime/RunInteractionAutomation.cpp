@@ -636,6 +636,14 @@ struct InteractionAutomationDirectorCameraContext
     RunCameraState& camera;
 };
 
+struct InteractionAutomationReplayStateContext
+{
+    RunInteractionAutomationState& state;
+    RunTimerState& timers;
+    ReplayRuntime& replayRuntime;
+    GameModelCollection& gameModels;
+};
+
 template <typename ApplyCameraMode>
 void ApplyInteractionAutomationDirectorCameraAction( InteractionAutomationDirectorCameraContext& context,
                                                      RunInteractionAutomationAction& action,
@@ -773,6 +781,139 @@ void ApplyInteractionAutomationDirectorCameraAction( InteractionAutomationDirect
         applyCameraMode( action.cameraMode );
         AppendReportAction( context.state, frame, action.type, action.text, nullptr, true, "camera mode applied" );
         break;
+    default:
+        break;
+    }
+}
+
+template <typename TrySetReplayPathTarget, typename SetWorldInteractionOwnerAfterTransition>
+void ApplyInteractionAutomationReplayStateAction( InteractionAutomationReplayStateContext& context,
+                                                  RunInteractionAutomationAction& action,
+                                                  int frame,
+                                                  TrySetReplayPathTarget trySetReplayPathTarget,
+                                                  SetWorldInteractionOwnerAfterTransition setWorldInteractionOwner )
+{
+    // Concept: replay state automation changes only harness-visible replay
+    // controls. Direct physics mutation is limited to the velocity-edit proof
+    // path and still marks prediction dirty so replay owners rebuild outputs.
+    switch ( action.type )
+    {
+    case RunInteractionAutomationActionType::ShowReplayScrubber:
+        context.replayRuntime.Scrubber().visible = action.boolValue;
+        if ( action.boolValue )
+        {
+            context.replayRuntime.Scrubber().visibleUntil = context.timers.simulationTimer.GetTotalTime() + 5.0;
+        }
+        AppendReportAction( context.state,
+                            frame,
+                            action.type,
+                            "",
+                            nullptr,
+                            true,
+                            action.boolValue ? "visible" : "hidden" );
+        break;
+    case RunInteractionAutomationActionType::SetReplayPredictionEnabled:
+        context.replayRuntime.Prediction().enabled = action.boolValue;
+        context.replayRuntime.Prediction().dirty = true;
+        setWorldInteractionOwner(
+            action.boolValue ? WorldInteractionOwner::ReplayPrediction : WorldInteractionOwner::None,
+            InteractionExitReason::EnterReplay );
+        AppendReportAction( context.state,
+                            frame,
+                            action.type,
+                            "",
+                            nullptr,
+                            true,
+                            action.boolValue ? "prediction enabled" : "prediction disabled" );
+        break;
+    case RunInteractionAutomationActionType::SetReplayPathTarget:
+    {
+        const bool targetSet = trySetReplayPathTarget( action.text );
+        if ( !targetSet )
+        {
+            FailAutomation( context.state, "failed to set replay path target" );
+        }
+        AppendReportAction( context.state,
+                            frame,
+                            action.type,
+                            action.text,
+                            nullptr,
+                            targetSet,
+                            targetSet ? "replay path target set" : "replay path target unavailable" );
+        break;
+    }
+    case RunInteractionAutomationActionType::SetReplayPredictionHorizonSeconds:
+    {
+        const float horizonSeconds =
+            std::clamp( action.numberValue, REPLAY_PREDICTION_MIN_SECONDS, REPLAY_PREDICTION_MAX_SECONDS );
+        // Why: automation should use the same bounded horizon value the replay UI
+        // exposes, while still forcing a rebuild when a script changes it before
+        // a proof.
+        context.replayRuntime.Prediction().horizonSeconds = horizonSeconds;
+        context.replayRuntime.MarkPredictionDirty();
+        std::ostringstream detail;
+        detail << "prediction horizon set to " << horizonSeconds << "s";
+        AppendReportAction( context.state, frame, action.type, "", nullptr, true, detail.str().c_str() );
+        break;
+    }
+    case RunInteractionAutomationActionType::NudgeReplayPathTargetVelocity:
+    {
+        Physics::PhysicsEngine& physics = context.gameModels.GetPhysicsEngine();
+        const Physics::PhysicsBodyStore& bodyStore = physics.BodyStore();
+        const Physics::PhysicsBodyHandle body = context.replayRuntime.ResolveVelocityEditBodyHandle( bodyStore );
+        const Physics::PhysicsBodyRecord* record = bodyStore.RecordForHandle( body );
+        const bool hasTarget = context.replayRuntime.PathVisualizer().hasTarget &&
+                               context.replayRuntime.PathVisualizer().targetId.value != 0;
+        bool applied = false;
+        if ( hasTarget && record )
+        {
+            RunReplayPredictionState& prediction = context.replayRuntime.Prediction();
+            if ( !prediction.complete || prediction.frames.size() < 2 )
+            {
+                FailAutomation( context.state,
+                                "replay path target velocity nudge requires a completed prediction baseline" );
+            }
+            else
+            {
+                // Why: automation needs the same old-vs-new future proof as a
+                // mouse drag, but without depending on pixel-perfect axis hit
+                // testing. Capture is still deferred to the visualizer.
+                prediction.baseline.valid = false;
+                prediction.baseline.comparisonActive = true;
+                prediction.baseline.divergenceValid = false;
+                prediction.baseline.divergenceUnits = 0.0f;
+
+                const Vector3 nextLinearVelocity = record->linearVelocity + action.vectorValue;
+                applied = physics.SetBodyVelocity( body, nextLinearVelocity, record->angularVelocity, true );
+                if ( applied )
+                {
+                    context.replayRuntime.Prediction().enabled = true;
+                    context.replayRuntime.MarkPredictionDirty();
+                    context.replayRuntime.Scrubber().visible = true;
+                    context.replayRuntime.Scrubber().visibleUntil =
+                        context.timers.simulationTimer.GetTotalTime() + REPLAY_SCRUBBER_VISIBLE_SECONDS;
+                    setWorldInteractionOwner( WorldInteractionOwner::ReplayVelocityEdit,
+                                              InteractionExitReason::EnterReplay );
+                }
+            }
+        }
+        else
+        {
+            FailAutomation( context.state, "failed to resolve replay path target for velocity nudge" );
+        }
+        if ( !applied && !context.state.failed )
+        {
+            FailAutomation( context.state, "failed to apply replay path target velocity nudge" );
+        }
+        AppendReportAction( context.state,
+                            frame,
+                            action.type,
+                            action.text,
+                            nullptr,
+                            applied,
+                            applied ? "path target velocity nudged" : "path target velocity nudge failed" );
+        break;
+    }
     default:
         break;
     }
@@ -1658,6 +1799,10 @@ void Run::TickInteractionAutomationBeforeInput()
                                                                     m_timers,
                                                                     m_replayRuntime };
     InteractionAutomationDirectorCameraContext directorCameraContext{ state, m_systems, m_camera };
+    InteractionAutomationReplayStateContext replayStateContext{ state,
+                                                                m_timers,
+                                                                m_replayRuntime,
+                                                                m_cGameModelCollection };
     if ( state.releaseLeftFrame == frame )
     {
         state.leftMouseDown = false;
@@ -1700,120 +1845,19 @@ void Run::TickInteractionAutomationBeforeInput()
             action.processed = true;
             break;
         case RunInteractionAutomationActionType::ShowReplayScrubber:
-            m_replayRuntime.Scrubber().visible = action.boolValue;
-            if ( action.boolValue )
-            {
-                m_replayRuntime.Scrubber().visibleUntil = m_timers.simulationTimer.GetTotalTime() + 5.0;
-            }
-            AppendReportAction( state, frame, action.type, "", nullptr, true, action.boolValue ? "visible" : "hidden" );
-            action.processed = true;
-            break;
         case RunInteractionAutomationActionType::SetReplayPredictionEnabled:
-            m_replayRuntime.Prediction().enabled = action.boolValue;
-            m_replayRuntime.Prediction().dirty = true;
-            SetWorldInteractionOwnerAfterInteractionTransition(
-                action.boolValue ? WorldInteractionOwner::ReplayPrediction : WorldInteractionOwner::None,
-                InteractionExitReason::EnterReplay );
-            AppendReportAction( state,
-                                frame,
-                                action.type,
-                                "",
-                                nullptr,
-                                true,
-                                action.boolValue ? "prediction enabled" : "prediction disabled" );
-            action.processed = true;
-            break;
         case RunInteractionAutomationActionType::SetReplayPathTarget:
-        {
-            const bool targetSet = TrySetInteractionAutomationReplayPathTarget( action.text );
-            if ( !targetSet )
-            {
-                FailAutomation( state, "failed to set replay path target" );
-            }
-            AppendReportAction( state,
-                                frame,
-                                action.type,
-                                action.text,
-                                nullptr,
-                                targetSet,
-                                targetSet ? "replay path target set" : "replay path target unavailable" );
-            action.processed = true;
-            break;
-        }
         case RunInteractionAutomationActionType::SetReplayPredictionHorizonSeconds:
-        {
-            const float horizonSeconds =
-                std::clamp( action.numberValue, REPLAY_PREDICTION_MIN_SECONDS, REPLAY_PREDICTION_MAX_SECONDS );
-            // Why: automation should use the same bounded horizon value the
-            // replay UI exposes, while still forcing a rebuild when a script
-            // changes it before a proof.
-            m_replayRuntime.Prediction().horizonSeconds = horizonSeconds;
-            m_replayRuntime.MarkPredictionDirty();
-            std::ostringstream detail;
-            detail << "prediction horizon set to " << horizonSeconds << "s";
-            AppendReportAction( state, frame, action.type, "", nullptr, true, detail.str().c_str() );
-            action.processed = true;
-            break;
-        }
         case RunInteractionAutomationActionType::NudgeReplayPathTargetVelocity:
-        {
-            Physics::PhysicsEngine& physics = m_cGameModelCollection.GetPhysicsEngine();
-            const Physics::PhysicsBodyStore& bodyStore = physics.BodyStore();
-            const Physics::PhysicsBodyHandle body = m_replayRuntime.ResolveVelocityEditBodyHandle( bodyStore );
-            const Physics::PhysicsBodyRecord* record = bodyStore.RecordForHandle( body );
-            const bool hasTarget =
-                m_replayRuntime.PathVisualizer().hasTarget && m_replayRuntime.PathVisualizer().targetId.value != 0;
-            bool applied = false;
-            if ( hasTarget && record )
-            {
-                RunReplayPredictionState& prediction = m_replayRuntime.Prediction();
-                if ( !prediction.complete || prediction.frames.size() < 2 )
-                {
-                    FailAutomation( state,
-                                    "replay path target velocity nudge requires a completed prediction baseline" );
-                }
-                else
-                {
-                    // Why: automation needs the same old-vs-new future proof as
-                    // a mouse drag, but without depending on pixel-perfect axis
-                    // hit testing. Capture is still deferred to the visualizer.
-                    prediction.baseline.valid = false;
-                    prediction.baseline.comparisonActive = true;
-                    prediction.baseline.divergenceValid = false;
-                    prediction.baseline.divergenceUnits = 0.0f;
-
-                    const Vector3 nextLinearVelocity = record->linearVelocity + action.vectorValue;
-                    applied = physics.SetBodyVelocity( body, nextLinearVelocity, record->angularVelocity, true );
-                    if ( applied )
-                    {
-                        m_replayRuntime.Prediction().enabled = true;
-                        m_replayRuntime.MarkPredictionDirty();
-                        m_replayRuntime.Scrubber().visible = true;
-                        m_replayRuntime.Scrubber().visibleUntil =
-                            m_timers.simulationTimer.GetTotalTime() + REPLAY_SCRUBBER_VISIBLE_SECONDS;
-                        SetWorldInteractionOwnerAfterInteractionTransition( WorldInteractionOwner::ReplayVelocityEdit,
-                                                                            InteractionExitReason::EnterReplay );
-                    }
-                }
-            }
-            else
-            {
-                FailAutomation( state, "failed to resolve replay path target for velocity nudge" );
-            }
-            if ( !applied && !state.failed )
-            {
-                FailAutomation( state, "failed to apply replay path target velocity nudge" );
-            }
-            AppendReportAction( state,
-                                frame,
-                                action.type,
-                                action.text,
-                                nullptr,
-                                applied,
-                                applied ? "path target velocity nudged" : "path target velocity nudge failed" );
+            ApplyInteractionAutomationReplayStateAction(
+                replayStateContext,
+                action,
+                frame,
+                [this]( const char* name ) { return TrySetInteractionAutomationReplayPathTarget( name ); },
+                [this]( WorldInteractionOwner owner, InteractionExitReason reason )
+                { SetWorldInteractionOwnerAfterInteractionTransition( owner, reason ); } );
             action.processed = true;
             break;
-        }
         case RunInteractionAutomationActionType::PressKey:
             // Why: key automation should still enter through Input and
             // RuntimeInputContext edge detection. This only supplies the
