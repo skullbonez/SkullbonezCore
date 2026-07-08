@@ -95,9 +95,14 @@ island-merge tie-breaks.
   Validation: `cmd.exe /c tools\validate_build.bat Profile` passed on
   2026-07-08 with 0 warnings and 0 errors; mirrored log:
   `Agentic\Logs\cleanup-02-step-0.2-validate-build-profile.log`.
-- [ ] **0.3** Replace copy 1 (`WakePointJointIsland`) with the helper over
+- [x] **0.3** Replace copy 1 (`WakePointJointIsland`) with the helper over
   `m_sleepIslandParent`/`m_sleepIslandRank`. Keep all surrounding logic
   identical. Gate: `validate_physics` byte-exact. Commit.
+
+  Validation: `cmd.exe /c tools\validate_physics.bat` passed on 2026-07-08;
+  `physics_regression_solver.csv` matched the baseline byte-exact
+  (20001 lines), with 0 warnings and 0 errors. Mirrored log:
+  `Agentic\Logs\cleanup-02-step-0.3-validate-physics.log`.
 - [ ] **0.4** Replace copy 2 (`WakePointJointConnectedBodies`). Gate:
   `validate_physics`. Commit.
 - [ ] **0.5** Replace copy 3 (narrowphase island builder) over

@@ -1858,41 +1858,7 @@ void PhysicsWorld::WakePointJointIsland( int bodyCount,
         m_sleepIslandParent[i] = i;
     }
 
-    auto findIsland = [&]( int bodyIndex ) -> int
-    {
-        int root = bodyIndex;
-        while ( m_sleepIslandParent[root] != root )
-        {
-            root = m_sleepIslandParent[root];
-        }
-        while ( m_sleepIslandParent[bodyIndex] != bodyIndex )
-        {
-            int parent = m_sleepIslandParent[bodyIndex];
-            m_sleepIslandParent[bodyIndex] = root;
-            bodyIndex = parent;
-        }
-        return root;
-    };
-
-    auto unionIslands = [&]( int a, int b )
-    {
-        int rootA = findIsland( a );
-        int rootB = findIsland( b );
-        if ( rootA == rootB )
-        {
-            return;
-        }
-
-        if ( m_sleepIslandRank[rootA] < m_sleepIslandRank[rootB] )
-        {
-            std::swap( rootA, rootB );
-        }
-        m_sleepIslandParent[rootB] = rootA;
-        if ( m_sleepIslandRank[rootA] == m_sleepIslandRank[rootB] )
-        {
-            ++m_sleepIslandRank[rootA];
-        }
-    };
+    DisjointSet sleepIslands( m_sleepIslandParent, m_sleepIslandRank, modelCount );
 
     for ( const PointJointConstraint& constraint : m_pointJointConstraints )
     {
@@ -1905,7 +1871,7 @@ void PhysicsWorld::WakePointJointIsland( int bodyCount,
 
         m_sleepPointJointBody[a] = 1;
         m_sleepPointJointBody[b] = 1;
-        unionIslands( a, b );
+        sleepIslands.Unite( a, b );
     }
 
     if ( m_sleepPointJointBody[index] == 0 )
@@ -1913,10 +1879,10 @@ void PhysicsWorld::WakePointJointIsland( int bodyCount,
         return;
     }
 
-    const int root = findIsland( index );
+    const int root = sleepIslands.Find( index );
     for ( int i = 0; i < modelCount; ++i )
     {
-        if ( m_sleepPointJointBody[i] == 0 || findIsland( i ) != root )
+        if ( m_sleepPointJointBody[i] == 0 || sleepIslands.Find( i ) != root )
         {
             continue;
         }

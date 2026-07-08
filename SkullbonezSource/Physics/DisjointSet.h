@@ -32,6 +32,7 @@ Related:
 
 #include <algorithm>
 #include <cstddef>
+#include <cstdint>
 #include <vector>
 
 namespace SkullbonezCore::Physics
@@ -40,7 +41,7 @@ namespace SkullbonezCore::Physics
 class DisjointSet
 {
 public:
-    DisjointSet( std::vector<int>& parent, std::vector<int>& rank, int count )
+    DisjointSet( std::vector<int>& parent, std::vector<uint8_t>& rank, int count )
         : m_parent( parent ), m_rank( rank ), m_count( count )
     {
     }
@@ -101,7 +102,7 @@ public:
 
 private:
     std::vector<int>& m_parent;
-    std::vector<int>& m_rank;
+    std::vector<uint8_t>& m_rank;
     int m_count;
 };
 
