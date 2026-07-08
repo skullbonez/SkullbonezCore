@@ -110,6 +110,7 @@ struct AttachedCameraPoseCommand
 class AttachedCameraController
 {
   public:
+    static void Reset( AttachedCameraState& state );
     static void ClearTarget( AttachedCameraState& state );
     static bool TryAttachTargetHandlesFromModelIndex( const GameObjects::GameModelCollection& collection,
                                                       int modelIndex,

@@ -201,6 +201,12 @@ Vector3 AttachedCameraOrbitOffset( float yaw, float pitch, float distance )
 } // namespace
 
 
+void AttachedCameraController::Reset( AttachedCameraState& state )
+{
+    state = AttachedCameraState{};
+}
+
+
 void AttachedCameraController::ClearTarget( AttachedCameraState& state )
 {
     state.target = AttachedCameraTarget{};

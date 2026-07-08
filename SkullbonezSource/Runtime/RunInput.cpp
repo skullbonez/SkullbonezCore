@@ -98,6 +98,32 @@ AttachedCameraPose AttachedCameraPoseFromCameras( SkullbonezCore::Environment::C
     return pose;
 }
 
+bool CaptureAttachedCameraFixedOffsetFromCurrentPose( AttachedCameraState& state,
+                                                      SkullbonezCore::Environment::CameraCollection* cameras,
+                                                      const AttachedCameraPhysicsTarget& target )
+{
+    if ( !cameras )
+    {
+        return false;
+    }
+
+    AttachedCameraController::CaptureFixedOffset( state, AttachedCameraPoseFromCameras( *cameras ), target );
+    return true;
+}
+
+bool CaptureAttachedCameraOrbitFromCurrentPose( AttachedCameraState& state,
+                                                SkullbonezCore::Environment::CameraCollection* cameras,
+                                                const AttachedCameraPhysicsTarget& target )
+{
+    if ( !cameras )
+    {
+        return false;
+    }
+
+    AttachedCameraController::CaptureOrbit( state, AttachedCameraPoseFromCameras( *cameras ), target );
+    return true;
+}
+
 
 RuntimeInputModeState BuildRuntimeInputModeState( RunCameraMode mode,
                                                   const RunEditorPlacementState& editor,
@@ -2079,12 +2105,6 @@ bool Run::IsAttachedCameraMode() const
 }
 
 
-void Run::ResetAttachedCamera()
-{
-    m_attachedCamera = AttachedCameraState{};
-}
-
-
 void Run::CaptureAttachedCameraReturnState( RunCameraMode previousMode )
 {
     previousMode = NormalizeCameraModeForCurrentScene( previousMode );
@@ -2137,12 +2157,6 @@ void Run::RestoreAttachedCameraReturnState()
 }
 
 
-void Run::ClearAttachedCameraTarget()
-{
-    AttachedCameraController::ClearTarget( m_attachedCamera );
-}
-
-
 bool Run::TryResolveAttachedCameraTarget( int& outModelIndex )
 {
     if ( AttachedCameraController::TryResolveTargetIdentity( m_cGameModelCollection,
@@ -2152,43 +2166,8 @@ bool Run::TryResolveAttachedCameraTarget( int& outModelIndex )
         return true;
     }
 
-    ClearAttachedCameraTarget();
+    AttachedCameraController::ClearTarget( m_attachedCamera );
     return false;
-}
-
-
-void Run::CaptureAttachedCameraFixedOffset( const Vector3& targetPosition,
-                                            const RotationMatrix& targetRotation,
-                                            float targetRadius )
-{
-    if ( !m_systems.cameras )
-    {
-        return;
-    }
-
-    AttachedCameraPhysicsTarget target;
-    target.position = targetPosition;
-    target.rotation = targetRotation;
-    target.radius = targetRadius;
-    AttachedCameraController::CaptureFixedOffset( m_attachedCamera,
-                                                  AttachedCameraPoseFromCameras( *m_systems.cameras ),
-                                                  target );
-}
-
-
-void Run::CaptureAttachedCameraOrbit( const Vector3& targetPosition, float targetRadius )
-{
-    if ( !m_systems.cameras )
-    {
-        return;
-    }
-
-    AttachedCameraPhysicsTarget target;
-    target.position = targetPosition;
-    target.radius = targetRadius;
-    AttachedCameraController::CaptureOrbit( m_attachedCamera,
-                                            AttachedCameraPoseFromCameras( *m_systems.cameras ),
-                                            target );
 }
 
 
@@ -2197,7 +2176,7 @@ void Run::SetAttachedCameraTarget( int modelIndex )
     const int modelCount = m_cGameModelCollection.GetPhysicsEngine().BodyStore().Count();
     if ( modelIndex < 0 || modelIndex >= modelCount )
     {
-        ClearAttachedCameraTarget();
+        AttachedCameraController::ClearTarget( m_attachedCamera );
         return;
     }
 
@@ -2209,7 +2188,7 @@ void Run::SetAttachedCameraTarget( int modelIndex )
                                                              m_attachedCamera.target,
                                                              targetState ) )
     {
-        ClearAttachedCameraTarget();
+        AttachedCameraController::ClearTarget( m_attachedCamera );
         return;
     }
 
@@ -2235,7 +2214,7 @@ void Run::SetAttachedCameraTarget( int modelIndex )
             m_attachedCamera.submode = AttachedCameraSubmode::FixedRelative;
         }
     }
-    CaptureAttachedCameraFixedOffset( targetState.position, targetState.rotation, targetState.radius );
+    CaptureAttachedCameraFixedOffsetFromCurrentPose( m_attachedCamera, m_systems.cameras, targetState );
     ApplyCursorOwnership();
 }
 
@@ -2247,7 +2226,7 @@ void Run::SeedAttachedCameraTargetFromSelection()
                                                             m_attachedCamera.target,
                                                             currentState ) )
     {
-        CaptureAttachedCameraFixedOffset( currentState.position, currentState.rotation, currentState.radius );
+        CaptureAttachedCameraFixedOffsetFromCurrentPose( m_attachedCamera, m_systems.cameras, currentState );
         m_attachedCamera.activeFollow = true;
         ApplyCursorOwnership();
         return;
@@ -2302,12 +2281,12 @@ bool Run::TryPickAttachedCameraTargetFromMouse()
         }
         else
         {
-            ClearAttachedCameraTarget();
+            AttachedCameraController::ClearTarget( m_attachedCamera );
         }
     }
     else
     {
-        ClearAttachedCameraTarget();
+        AttachedCameraController::ClearTarget( m_attachedCamera );
     }
     EnterInteractiveSceneRun();
     UpdateRuntimeInputModeAfterAction( RuntimeInputAction::SetCameraMode, RuntimeInputActionSource::Mouse );
@@ -2329,14 +2308,6 @@ bool Run::TickAttachedCameraWorldClick( const RuntimeMouseEdges& mouseEdges, boo
 }
 
 
-bool Run::TryResolveAttachedCameraRagdollHead( int selectedModelIndex, int& outHeadModelIndex ) const
-{
-    return AttachedCameraController::TryResolveRagdollHead( m_cGameModelCollection,
-                                                            selectedModelIndex,
-                                                            outHeadModelIndex );
-}
-
-
 void Run::CycleAttachedCameraSubmode()
 {
     if ( !IsAttachedCameraMode() )
@@ -2354,7 +2325,8 @@ void Run::CycleAttachedCameraSubmode()
     }
 
     int headIndex = -1;
-    const bool hasEyes = TryResolveAttachedCameraRagdollHead( modelIndex, headIndex );
+    const bool hasEyes =
+        AttachedCameraController::TryResolveRagdollHead( m_cGameModelCollection, modelIndex, headIndex );
     AttachedCameraSubmode next = AttachedCameraSubmode::FixedRelative;
     if ( m_attachedCamera.submode == AttachedCameraSubmode::FixedRelative )
     {
@@ -2369,7 +2341,7 @@ void Run::CycleAttachedCameraSubmode()
     m_attachedCamera.needsEntryTween = true;
     if ( next != AttachedCameraSubmode::RagdollEyes || !m_attachedCamera.hasFixedOffset )
     {
-        CaptureAttachedCameraFixedOffset( targetState.position, targetState.rotation, targetState.radius );
+        CaptureAttachedCameraFixedOffsetFromCurrentPose( m_attachedCamera, m_systems.cameras, targetState );
     }
     UpdateRuntimeInputModeAfterAction( RuntimeInputAction::CycleAttachedCameraSubmode,
                                        RuntimeInputActionSource::Keyboard );
@@ -2391,7 +2363,7 @@ void Run::ToggleAttachedCameraPin()
                                                                 m_attachedCamera.target,
                                                                 targetState ) )
         {
-            CaptureAttachedCameraFixedOffset( targetState.position, targetState.rotation, targetState.radius );
+            CaptureAttachedCameraFixedOffsetFromCurrentPose( m_attachedCamera, m_systems.cameras, targetState );
         }
         m_attachedCamera.needsEntryTween = true;
     }
@@ -2422,7 +2394,7 @@ void Run::TickAttachedCameraOrbitInput( int unhandledWheelDelta )
     }
     if ( !m_attachedCamera.hasOrbit )
     {
-        CaptureAttachedCameraOrbit( targetState.position, targetState.radius );
+        CaptureAttachedCameraOrbitFromCurrentPose( m_attachedCamera, m_systems.cameras, targetState );
     }
 
     if ( AttachedCameraController::ApplyOrbitWheel( m_attachedCamera, targetState, unhandledWheelDelta ) )

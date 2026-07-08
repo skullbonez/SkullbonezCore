@@ -243,13 +243,11 @@ class Run
     void ApplyCameraMode( RunCameraMode mode,
                           RuntimeInputActionSource source );            // Applies keyboard/UI camera-mode requests.
     void CycleCameraMode();                                             // Tab cycles through enabled explicit camera modes.
-    void ResetAttachedCamera();                                         // Clears non-serialized attach target and camera offsets.
     void CaptureAttachedCameraReturnState(
         RunCameraMode previousMode );                                   // Saves the camera mode/pose Attach should restore on exit.
     void RestoreAttachedCameraReturnState();                            // Smoothly restores the saved pre-Attach pose when returning to that mode.
     bool TryResolveAttachedCameraTarget( int& outModelIndex );          // Revalidates handle-owned target; model index is a UI hint.
     void SetAttachedCameraTarget( int modelIndex );                     // Stores exact clicked/seeded model identity and captures offset.
-    void ClearAttachedCameraTarget();                                   // Clears follow target but preserves current camera world pose.
     void SeedAttachedCameraTargetFromSelection();                       // Initializes Attach from replay/editor selection when possible.
     bool TryPickAttachedCameraTargetFromMouse();                        // Mouse ray pick through the shared runtime pick service.
     bool
@@ -259,12 +257,6 @@ class Run
     void ToggleAttachedCameraPin();                                     // Enter pins/unpins camera follow while in Attach.
     void TickAttachedCameraOrbitInput( int unhandledWheelDelta );       // Mouse wheel adjusts Attach orbit distance.
     void TickAttachedCamera();                                          // Applies the active follow solve to CameraCollection.
-    void CaptureAttachedCameraFixedOffset( const Math::Vector::Vector3& targetPosition,
-                                           const Math::Transformation::RotationMatrix& targetRotation,
-                                           float targetRadius );
-    void CaptureAttachedCameraOrbit( const Math::Vector::Vector3& targetPosition,
-                                     float targetRadius );              // Seeds upright Attach orbit from the current camera pose.
-    bool TryResolveAttachedCameraRagdollHead( int selectedModelIndex, int& outHeadModelIndex ) const;
     RuntimeRendererBindings BuildRuntimeRendererBindings( Profiler* profiler );
     void ReleaseBackendOwnedRenderResources(
         const char* phaseName );                                        // Ordered GPU-resource release hook while the backend is alive.

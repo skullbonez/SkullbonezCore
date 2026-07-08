@@ -1689,6 +1689,26 @@ every step. Commit per step.
     `TestOutput\agent_logs\plan01_asset_registry_owner_runtime_boundaries.log`
     (17.6s). The touched-file comment audit covered `AssetSystem.h/.cpp`,
     `Run.h/.cpp`, and `RunScene.cpp`.
+  - [x] Attach-camera target reset/capture passthroughs moved out of `Run`.
+    `AttachedCameraController` now owns state reset, while `RunInput.cpp`
+    routes fixed-offset/orbit capture directly through controller calls using
+    source-local current-pose adapters. `Run.h` dropped five private helpers:
+    `ResetAttachedCamera()`, `ClearAttachedCameraTarget()`,
+    `CaptureAttachedCameraFixedOffset()`, `CaptureAttachedCameraOrbit()`, and
+    `TryResolveAttachedCameraRagdollHead()`. Gate evidence:
+    `TestOutput\agent_logs\plan01_attached_camera_owner_validate_full.log`
+    (54.6s; project filters/runtime boundaries passed, Profile/Debug builds had
+    0 warnings and 0 errors, DX12 InfoQueue errors = 0, screenshots matched
+    baselines, and `physics_regression_solver.csv` matched byte-exactly).
+    Targeted pre-gate checks also passed:
+    `TestOutput\agent_logs\plan01_attached_camera_owner_build_profile.log`
+    (9.5s),
+    `TestOutput\agent_logs\plan01_attached_camera_owner_validate_format.log`
+    (9.2s), and
+    `TestOutput\agent_logs\plan01_attached_camera_owner_runtime_boundaries.log`
+    (17.6s). The touched-file comment audit covered
+    `AttachedCameraController.h/.cpp`, `Run.h`, `RunInput.cpp`, and
+    `RunScene.cpp`.
 
 ## Validation
 

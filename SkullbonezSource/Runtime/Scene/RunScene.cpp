@@ -510,7 +510,7 @@ SbResult Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnCom
     m_cGameModelCollection.Clear();
 
     CancelMousePickup();
-    ResetAttachedCamera();
+    AttachedCameraController::Reset( m_attachedCamera );
     {
         const RuntimeInteractionTransition transition = m_interaction.ResetForScene( InteractionExitReason::LoadScene );
         ClearRuntimeInteractionStateForTransition( transition );
