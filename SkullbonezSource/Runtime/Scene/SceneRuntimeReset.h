@@ -25,6 +25,7 @@ Related:
 */
 #pragma once
 
+#include "SceneControllerState.h"
 #include "../RunState.h"
 
 #include <cstdint>

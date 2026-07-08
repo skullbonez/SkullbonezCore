@@ -232,6 +232,7 @@ RUNTIME_PREFIXES = (
 RUNTIME_SCENE_PREFIXES = (
     "RunScene",
     "SceneController",
+    "SceneControllerState",
     "SceneAuthoredSetup",
     "SceneGeneratedSetup",
     "SceneRuntime",

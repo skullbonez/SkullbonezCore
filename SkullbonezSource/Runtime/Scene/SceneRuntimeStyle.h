@@ -27,6 +27,7 @@ Related:
 */
 #pragma once
 
+#include "SceneControllerState.h"
 #include "SceneRuntime.h"
 #include "../RunState.h"
 

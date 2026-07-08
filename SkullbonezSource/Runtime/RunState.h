@@ -368,22 +368,6 @@ struct RunGraphicsStressState
     int lastSceneLoadFrame = -1000000;                             // Frame index of the last stress scene load
 };
 
-struct RunSceneBrowserState
-{
-    std::vector<std::string> paths;
-    std::vector<std::string> names;
-    std::vector<const char*> namePtrs;
-    int selectedCineModeSceneIndex = -1;                           // -1=Demo/default look, otherwise scene-browser index of live cine/concept look
-};
-
-struct RunSceneUIOverrideState
-{
-    float timeScaleOverride = 0.0f;
-    int modelCountOverride = -1;
-    int solverBallCountOverride = -1;
-    int solverBoxCountOverride = -1;
-};
-
 struct RunStartupState
 {
     int gameModelCapacity = DEFAULT_GAME_MODEL_CAPACITY;

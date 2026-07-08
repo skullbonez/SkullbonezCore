@@ -24,6 +24,7 @@ Related:
 */
 #pragma once
 
+#include "SceneControllerState.h"
 #include "SceneRuntimeReset.h"
 
 #include <string>

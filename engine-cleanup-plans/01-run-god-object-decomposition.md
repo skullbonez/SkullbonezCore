@@ -900,6 +900,31 @@ every step. Commit per step.
     `TestOutput\agent_logs\plan01_input_latch_shelf_runtime_boundaries.log`
     (17.6s), and
     `TestOutput\agent_logs\plan01_input_latch_shelf_build_profile.log` (10.6s).
+  - [x] Scene browser/UI override shelf relocation moved `RunSceneBrowserState`
+    and `RunSceneUIOverrideState` out of `RunState.h` into
+    `Scene/SceneControllerState.h`, next to the `SceneController` owner that
+    already stores those fields. Scene helper headers now include the scene-owned
+    state header instead of relying on the Run state shelf, and the project-filter
+    rule table recognizes the new scene header. The touched-file comment audit
+    added the new scene state learning header and kept the borrowed scene
+    invariants local to the owner. Gate evidence:
+    `TestOutput\agent_logs\plan01_scene_controller_state_validate_full_rerun.log`
+    (46.5s; project filters/runtime boundaries passed, Profile/Debug builds had
+    0 warnings and 0 errors, DX12 InfoQueue errors = 0, screenshots matched
+    baselines, and `physics_regression_solver.csv` matched byte-exactly).
+    Targeted pre-gate checks also passed:
+    `TestOutput\agent_logs\plan01_scene_controller_state_validate_format.log`
+    (9.3s),
+    `TestOutput\agent_logs\plan01_scene_controller_state_runtime_boundaries.log`
+    (17.6s),
+    `TestOutput\agent_logs\plan01_scene_controller_state_build_profile.log`
+    (10.2s),
+    `TestOutput\agent_logs\plan01_scene_controller_state_project_filters.log`
+    (1.1s), and
+    `TestOutput\agent_logs\plan01_scene_controller_state_validate_fast.log`
+    (44.8s). An initial `validate_full` stopped on the missing project-filter
+    rule for the new header; `tools\validate_project_filters.py` was updated and
+    validated before the rerun.
 
 ### Phase 3 — Shrink `Run`
 
