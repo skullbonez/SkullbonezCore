@@ -41,6 +41,7 @@ Related:
 #include <array>
 #include <chrono>
 #include <cstdint>
+#include <optional>
 #include <vector>
 
 namespace SkullbonezCore
@@ -103,11 +104,13 @@ class RuntimeRenderer
     void RebuildRegisteredRenderResources( const RegisteredResourceRebuildContext& context );
     RenderHelper& Helper()
     {
-        return m_renderHelper;
+        assert( m_renderHelper.has_value() );
+        return *m_renderHelper;
     }
     const RenderHelper& Helper() const
     {
-        return m_renderHelper;
+        assert( m_renderHelper.has_value() );
+        return *m_renderHelper;
     }
 
     void EnsureUiTextResources( Rendering::IRenderResourceFactory& renderResources,
@@ -244,7 +247,7 @@ class RuntimeRenderer
     EngineConfig& m_config;                                // Process config that owns ordinary render style.
     RunRuntimeSettings& m_runtimeSettings;                 // Runtime-toggled render/physics presentation settings.
     Environment::WorldEnvironment& m_world;                // Fluid surface and gravity owner for pass contexts.
-    RenderHelper m_renderHelper;                           // Owned primitive render cache and batch scratch.
+    std::optional<RenderHelper> m_renderHelper;            // Backend-lifetime primitive render cache and batch scratch.
     Physics::CollisionVisualizer& m_collisionVisualizer;
     Physics::BroadphaseVisualizer& m_broadphaseVisualizer;
     Physics::PhysicsDebugVisualizer& m_physicsDebugVisualizer;

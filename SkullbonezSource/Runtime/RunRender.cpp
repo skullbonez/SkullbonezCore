@@ -1351,7 +1351,7 @@ RenderFrameContext RuntimeRenderer::BuildRenderFrameContext( const RuntimeRender
     frame.renderResources = &services.renderResources;
     frame.renderCommands = &services.renderCommands;
     frame.renderDiagnostics = &services.renderDiagnostics;
-    frame.renderHelper = &m_renderHelper;
+    frame.renderHelper = &Helper();
     frame.renderRayTracing = services.renderRayTracing;
     frame.windowWidth = (std::max)( 1, RuntimeWindowScreenWidth( m_systems, m_config ) );
     frame.windowHeight = (std::max)( 1, RuntimeWindowScreenHeight( m_systems, m_config ) );
@@ -1409,6 +1409,7 @@ RuntimeRenderer::RuntimeRenderer( const RuntimeRendererBindings& bindings,
       m_systems( *bindings.runtime.systems ), m_debug( *bindings.diagnostics.debug ),
       m_timers( *bindings.diagnostics.timers ), m_config( *bindings.runtime.config ),
       m_runtimeSettings( *bindings.runtime.runtimeSettings ), m_world( *bindings.world.worldEnvironment ),
+      m_renderHelper( std::in_place, bindings.backend.renderResources ),
       m_collisionVisualizer( *bindings.world.collisionVisualizer ),
       m_broadphaseVisualizer( *bindings.world.broadphaseVisualizer ),
       m_physicsDebugVisualizer( *bindings.world.physicsDebugVisualizer ), m_runtimeTools( *bindings.toolOverlay.tools ),
@@ -1553,8 +1554,8 @@ void RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
                                            services.renderDiagnostics,
                                            services.assets,
                                            m_config,
-                                           m_renderHelper };
-        m_renderHelper.EnsureShadowDepthPrimitiveResources( helperContext );
+                                           Helper() };
+        Helper().EnsureShadowDepthPrimitiveResources( helperContext );
         if ( services.terrain )
         {
             services.terrain->EnsureShadowDepthResources();
@@ -1801,7 +1802,7 @@ void RuntimeRenderer::ReleaseBackendOwnedRuntimeResources( const BackendResource
     enum class BackendResourceStep
     {
         WorldEnvironment,
-        HelperResources,
+        HelperOwner,
         GameModelResources,
         CollisionVisualizer,
         UIResources,
@@ -1822,7 +1823,7 @@ void RuntimeRenderer::ReleaseBackendOwnedRuntimeResources( const BackendResource
 
     const BackendResourcePhase releaseSteps[] = {
         { "world_environment", BackendResourceStep::WorldEnvironment, true },
-        { "helper_resources", BackendResourceStep::HelperResources, false },
+        { "helper_owner", BackendResourceStep::HelperOwner, false },
         { "game_model_resources", BackendResourceStep::GameModelResources, false },
         { "collision_visualizer", BackendResourceStep::CollisionVisualizer, false },
         { "ui_resources", BackendResourceStep::UIResources, false },
@@ -1852,8 +1853,8 @@ void RuntimeRenderer::ReleaseBackendOwnedRuntimeResources( const BackendResource
         case BackendResourceStep::WorldEnvironment:
             m_world.ReleaseRenderResources();
             break;
-        case BackendResourceStep::HelperResources:
-            m_renderHelper.ResetRenderResources( context.renderResources );
+        case BackendResourceStep::HelperOwner:
+            m_renderHelper.reset();
             break;
         case BackendResourceStep::GameModelResources:
             context.models.ResetRenderResources();
@@ -1913,7 +1914,7 @@ void RuntimeRenderer::RebuildRegisteredRenderResources( const RegisteredResource
 {
     enum class RebuildStep
     {
-        ResetHelperCache,
+        RecreateHelperOwner,
         RegisterBuiltInSources,
         RebuildTextures
     };
@@ -1925,7 +1926,7 @@ void RuntimeRenderer::RebuildRegisteredRenderResources( const RegisteredResource
     };
 
     const RebuildPhase rebuildSteps[] = {
-        { "reset_helper_cache", RebuildStep::ResetHelperCache },
+        { "recreate_helper_owner", RebuildStep::RecreateHelperOwner },
         { "register_builtin_source_records", RebuildStep::RegisterBuiltInSources },
         { "rebuild_textures_from_source_assets", RebuildStep::RebuildTextures },
     };
@@ -1939,8 +1940,8 @@ void RuntimeRenderer::RebuildRegisteredRenderResources( const RegisteredResource
 
         switch ( phase.step )
         {
-        case RebuildStep::ResetHelperCache:
-            m_renderHelper.ResetRenderResources( context.renderResources );
+        case RebuildStep::RecreateHelperOwner:
+            m_renderHelper.emplace( context.renderResources );
             break;
         case RebuildStep::RegisterBuiltInSources:
             context.assets.RegisterBuiltInSourceAssets( context.config );

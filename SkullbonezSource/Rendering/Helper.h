@@ -19,8 +19,8 @@ Glossary:
   commit or PR.
 
 Invariants:
-  - Helper-owned meshes and shaders are backend resources; reset paths must
-    drop them before the renderer device is destroyed.
+  - Helper-owned meshes and shaders are backend resources; the renderer owner
+    must destroy the helper before the backend device is destroyed.
   - Primitive batch scopes borrow RenderHelperContext until destruction and
     flush their queued instances exactly once.
 
@@ -69,9 +69,9 @@ class RenderHelper;
 
 struct RenderHelperContext
 {
-    // Lifetime: borrowed only for the draw/resource call receiving this context.
-    // RenderHelper owns primitive GPU handles and batch scratch; renderer
-    // services and trace diagnostics stay owned by the frame host.
+    // Lifetime: commands and diagnostics are borrowed only for the receiving
+    // call. RenderHelper may remember the resource factory until its owner
+    // destroys the helper for backend teardown/rebuild.
     Rendering::IRenderResourceFactory& renderResources;
     Rendering::IRenderCommandContext& renderCommands;
     Rendering::IRenderDiagnostics& renderDiagnostics;
@@ -113,6 +113,7 @@ struct RenderHelperState
     bool sphereBatchReady = false;
     bool boxBatchReady = false;
     bool pineBatchReady = false;
+    Rendering::IRenderResourceFactory* renderResources = nullptr;                       // Backend factory borrowed while helper handles are live.
     uint32_t materialTableTexture = 0;                                                  // Material defaults bound at shader slot t4.
     uint32_t convexHullDynamicVB = 0;                                                   // Dynamic vertex buffer used by immediate convex hull draws.
     std::array<float, HULL_MAX_TRIANGLE_VERTICES * HULL_DYNAMIC_FLOATS_PER_VERTEX> convexHullVertexData = {};
@@ -151,6 +152,11 @@ class RenderHelper
     void BuildPineMesh( const RenderHelperContext& context );                           // Generate unit low-poly pine tier mesh
 
   public:
+    explicit RenderHelper( Rendering::IRenderResourceFactory* renderResources = nullptr );
+    RenderHelper( const RenderHelper& ) = delete;
+    RenderHelper& operator=( const RenderHelper& ) = delete;
+    ~RenderHelper();
+
     class PrimitiveBatchScope
     {
       public:
@@ -235,14 +241,15 @@ class RenderHelper
                                          const Math::Transformation::Matrix4& model,
                                          const Math::Transformation::Matrix4& view,
                                          const Math::Transformation::Matrix4& proj );
-    void ResetRenderResources(
-        Rendering::IRenderResourceFactory* renderResources );                           // Invalidate cached backend-owned meshes and shaders
     void EnsureSphereMesh( const RenderHelperContext& context );                        // Create the shared sphere mesh before DXR BLAS
                                                                  // construction needs its vertex data.
     void EnsureShadowDepthPrimitiveResources(
         const RenderHelperContext& context );                                           // Prewarm primitive shadow meshes and the shared depth shader.
 
   private:
+    void BindRenderResourceFactory( Rendering::IRenderResourceFactory&
+                                        renderResources );                              // Remember the backend factory that owns raw helper handles.
+    void ReleaseOwnedRenderResources();                                                 // Destroy helper-owned backend handles before factory teardown.
     void DrawSphereBatchBegin( const RenderHelperContext& context,
                                const Math::Transformation::Matrix4& view,
                                const Math::Transformation::Matrix4& proj,

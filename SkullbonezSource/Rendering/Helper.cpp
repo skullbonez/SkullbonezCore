@@ -20,8 +20,8 @@ Glossary:
 Invariants:
   - C++ constant-buffer structs must match reflected HLSL cbuffer size and
     field order, or the draw that depends on them must be skipped.
-  - Helper-owned mesh/shader handles are backend resources and must be reset
-    before backend teardown or recreation.
+  - Helper-owned mesh/shader handles are backend resources and must be released
+    by the helper destructor before backend teardown or recreation.
 
 Related:
   - SkullbonezSource/Rendering/Helper.h
@@ -436,6 +436,18 @@ const float* RenderHelper::GetClipPlane() const
 }
 
 
+RenderHelper::RenderHelper( IRenderResourceFactory* renderResources )
+{
+    m_state.renderResources = renderResources;
+}
+
+
+RenderHelper::~RenderHelper()
+{
+    ReleaseOwnedRenderResources();
+}
+
+
 RenderHelper::PrimitiveBatchScope::PrimitiveBatchScope( RenderHelper& helper,
                                                         const RenderHelperContext& context,
                                                         PrimitiveBatchKind kind )
@@ -566,6 +578,7 @@ RenderHelper::PrimitiveBatchScope RenderHelper::BeginSphereBatch( const RenderHe
                                                                   const ShadowFrameData* shadow,
                                                                   float materialAlpha )
 {
+    BindRenderResourceFactory( context.renderResources );
     DrawSphereBatchBegin( context, view, proj, lightPos, isTransparent, cinematic, shadow, materialAlpha );
     return PrimitiveBatchScope( *this, context, PrimitiveBatchKind::Sphere );
 }
@@ -580,6 +593,7 @@ RenderHelper::PrimitiveBatchScope RenderHelper::BeginBoxBatch( const RenderHelpe
                                                                const ShadowFrameData* shadow,
                                                                float materialAlpha )
 {
+    BindRenderResourceFactory( context.renderResources );
     DrawBoxBatchBegin( context, view, proj, lightPos, isTransparent, cinematic, shadow, materialAlpha );
     return PrimitiveBatchScope( *this, context, PrimitiveBatchKind::Box );
 }
@@ -594,6 +608,7 @@ RenderHelper::PrimitiveBatchScope RenderHelper::BeginPineBatch( const RenderHelp
                                                                 const ShadowFrameData* shadow,
                                                                 float materialAlpha )
 {
+    BindRenderResourceFactory( context.renderResources );
     DrawPineBatchBegin( context, view, proj, lightPos, isTransparent, cinematic, shadow, materialAlpha );
     return PrimitiveBatchScope( *this, context, PrimitiveBatchKind::Pine );
 }
@@ -604,6 +619,7 @@ RenderHelper::PrimitiveBatchScope RenderHelper::BeginShadowDepthSphereBatch( con
                                                                              const Matrix4& proj,
                                                                              const CinematicRenderConfig* cinematic )
 {
+    BindRenderResourceFactory( context.renderResources );
     DrawShadowDepthSphereBatchBegin( context, view, proj, cinematic );
     return PrimitiveBatchScope( *this, context, PrimitiveBatchKind::ShadowSphere );
 }
@@ -612,6 +628,7 @@ RenderHelper::PrimitiveBatchScope RenderHelper::BeginShadowDepthSphereBatch( con
 RenderHelper::PrimitiveBatchScope
 RenderHelper::BeginShadowDepthBoxBatch( const RenderHelperContext& context, const Matrix4& view, const Matrix4& proj )
 {
+    BindRenderResourceFactory( context.renderResources );
     DrawShadowDepthBoxBatchBegin( context, view, proj );
     return PrimitiveBatchScope( *this, context, PrimitiveBatchKind::ShadowBox );
 }
@@ -620,13 +637,22 @@ RenderHelper::BeginShadowDepthBoxBatch( const RenderHelperContext& context, cons
 RenderHelper::PrimitiveBatchScope
 RenderHelper::BeginShadowDepthPineBatch( const RenderHelperContext& context, const Matrix4& view, const Matrix4& proj )
 {
+    BindRenderResourceFactory( context.renderResources );
     DrawShadowDepthPineBatchBegin( context, view, proj );
     return PrimitiveBatchScope( *this, context, PrimitiveBatchKind::ShadowPine );
 }
 
 
-void RenderHelper::ResetRenderResources( IRenderResourceFactory* renderResources )
+void RenderHelper::BindRenderResourceFactory( IRenderResourceFactory& renderResources )
 {
+    assert( !m_state.renderResources || m_state.renderResources == &renderResources );
+    m_state.renderResources = &renderResources;
+}
+
+
+void RenderHelper::ReleaseOwnedRenderResources()
+{
+    IRenderResourceFactory* renderResources = m_state.renderResources;
     m_state.sphereShader.reset();
     m_state.shadowDepthShader.reset();
     if ( m_state.sphereInstMesh != 0 )
@@ -679,6 +705,7 @@ void RenderHelper::ResetRenderResources( IRenderResourceFactory* renderResources
     }
     m_state.activeSphereInstMesh = 0;
     m_state.activeSphereVertexCount = 0;
+    m_state.renderResources = nullptr;
 }
 
 
@@ -713,6 +740,7 @@ void RenderHelper::EnsureShadowDepthShader( const RenderHelperContext& context )
 
 void RenderHelper::EnsureSphereMesh( const RenderHelperContext& context )
 {
+    BindRenderResourceFactory( context.renderResources );
     if ( m_state.sphereInstMesh == 0 )
     {
         BuildSphereMesh( context, 25, 25 );
@@ -723,6 +751,7 @@ void RenderHelper::EnsureSphereMesh( const RenderHelperContext& context )
 
 void RenderHelper::EnsureShadowDepthPrimitiveResources( const RenderHelperContext& context )
 {
+    BindRenderResourceFactory( context.renderResources );
     // Runtime allocation policy: the first shadowed frame must not compile the
     // shared depth shader or create primitive buffers. Build the primitive meshes
     // under backend init while command/resource services are explicitly borrowed.
@@ -1143,6 +1172,7 @@ void RenderHelper::DrawConvexHullModel( const RenderHelperContext& context,
                                         const ShadowFrameData* shadow,
                                         float materialAlpha )
 {
+    BindRenderResourceFactory( context.renderResources );
     EnsureConvexHullDynamicVB( context, m_state );
     const std::array<float, INSTANCE_FLOATS> instancePayload = BuildSingleMaterialInstancePayload( model, material );
     const int vertexCount = BuildConvexHullDynamicVertices( hull, instancePayload, m_state );
@@ -1180,6 +1210,7 @@ void RenderHelper::DrawShadowDepthConvexHullModel( const RenderHelperContext& co
                                                    const Matrix4& view,
                                                    const Matrix4& proj )
 {
+    BindRenderResourceFactory( context.renderResources );
     EnsureConvexHullDynamicVB( context, m_state );
     const std::array<float, INSTANCE_FLOATS> instancePayload = BuildSingleMatrixPayload( model );
     const int vertexCount = BuildConvexHullDynamicVertices( hull, instancePayload, m_state );

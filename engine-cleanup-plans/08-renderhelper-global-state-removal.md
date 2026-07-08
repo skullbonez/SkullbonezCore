@@ -44,7 +44,7 @@ scoped to a batch object rather than global flags.
 - [x] **Phase 2 — Scope batches with RAII.** Replace `Begin/Model/End` global
   flags with a batch scope object whose destructor flushes — a missed end
   becomes impossible.
-- [ ] **Phase 3 — Own the lifetime.** Resource creation/destruction moves to the
+- [x] **Phase 3 — Own the lifetime.** Resource creation/destruction moves to the
   owner's ctor/dtor; delete `ResetRenderResources()` and its manual ordering.
 - [ ] **Phase 4 — Reconcile `CollisionVisualizer`** scratch to match its own
   instance-member pattern.
@@ -110,10 +110,19 @@ unchanged and `dx12_validation.txt` == 0 throughout** — this is a hard gate.
   legacy Begin/Model/End methods private to `RenderHelper`. `tools\validate_dx12_renderer.bat`
   passed with DX12 InfoQueue errors = 0 and committed screenshot baselines
   unchanged.
-- [ ] **4.1** Tie resource creation/destruction to the owner's constructor/
+- [x] **4.1** Tie resource creation/destruction to the owner's constructor/
   destructor; delete `ResetRenderResources()` and its manual calls in
   `RunRender.cpp`. Gate: `validate_dx12_renderer` (`dx12_validation.txt` == 0).
   Commit.
+
+  Completion note (2026-07-08): `RuntimeRenderer` now owns `RenderHelper` as a
+  backend-lifetime optional object. Backend release destroys the helper, backend
+  rebuild constructs a fresh helper with the active resource factory, and
+  `RenderHelper` releases its own mesh/texture/dynamic-VB handles from its
+  destructor. The public `ResetRenderResources()` helper API and manual helper
+  reset calls in `RunRender.cpp` are gone. `tools\validate_dx12_renderer.bat`
+  passed with DX12 InfoQueue errors = 0 and committed screenshot baselines
+  unchanged.
 - [ ] **5.1** Reconcile `CollisionVisualizer`'s ~410 KB global scratch to match
   its own instance-member stream pattern. Gate: `validate_dx12_renderer`. Commit.
 
@@ -127,5 +136,5 @@ unchanged and `dx12_validation.txt` == 0 throughout** — this is a hard gate.
 - [x] `RenderHelper` has no static mutable members; it is instantiable and owned.
 - [x] Batch state is scoped (RAII); no global batch-ready flags persist across
   frames.
-- [ ] `ResetRenderResources()` manual-ordering call is removed.
+- [x] `ResetRenderResources()` manual-ordering call is removed.
 - [ ] DX12 screenshots unchanged; `dx12_validation.txt` == 0.
