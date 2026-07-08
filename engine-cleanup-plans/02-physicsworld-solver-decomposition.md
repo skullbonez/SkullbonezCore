@@ -160,7 +160,7 @@ island-merge tie-breaks.
   - [x] L2474 anonymous sleep/sleep `remove_if` predicate with trace emission.
 
   Wake and contact view helpers:
-  - [ ] L2499 `hasWakeEnergy`: awake-neighbor wake-energy test.
+  - [x] L2499 `hasWakeEnergy`: awake-neighbor wake-energy test.
   - [ ] L2508 `wakeSleepingModel`: sleep-state clear plus immediate force apply.
   - [ ] L2527 `contactBodyViewAtTime`: object contact pose view at candidate time.
   - [ ] L2536 `terrainContactBodyViewForIndex`: terrain contact pose/material view.
@@ -271,6 +271,14 @@ island-merge tie-breaks.
     `tools\validate_physics.bat` passed in
     `TestOutput\agent_logs\plan02_sleep_prune_predicate_validate_physics_20260709_0946.log`
     (28.1s shell runtime; Debug/Profile builds 0 warnings and 0 errors; final
+    `VALIDATE_PHYSICS: ALL PASSED`).
+  - Extracted the `hasWakeEnergy` lambda into `HasWakeEnergy`, threading the
+    locally computed squared sleep thresholds explicitly to preserve the
+    config-derived sleep policy. First gate attempt failed because the helper
+    could not see `RunSolverPhysics`-local threshold constants; attempt 2 fixed
+    the signature. Gate evidence: `tools\validate_physics.bat` passed in
+    `TestOutput\agent_logs\plan02_wake_energy_validate_physics_attempt2_20260709_0949.log`
+    (28.6s shell runtime; Debug/Profile builds 0 warnings and 0 errors; final
     `VALIDATE_PHYSICS: ALL PASSED`).
 - [ ] **1.3** `RunSolverPhysics` is now a short driver calling named stages;
   confirm it is under ~300 lines.

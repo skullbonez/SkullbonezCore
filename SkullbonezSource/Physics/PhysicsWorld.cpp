@@ -420,6 +420,21 @@ struct SleepPrunedCandidatePairPredicate
     }
 };
 
+// Concept: wake energy uses the same quietness thresholds as sleep eligibility.
+// A body with enough linear or angular motion can wake a sleeping neighbor
+// during persistent-contact handling.
+bool HasWakeEnergy( const PhysicsBodyRecordList& bodyRecords,
+                    int awakeIndex,
+                    float sleepLinearSq,
+                    float sleepAngularSq )
+{
+    const Vector3& vel = bodyRecords[static_cast<size_t>( awakeIndex )].linearVelocity;
+    const Vector3& omega = bodyRecords[static_cast<size_t>( awakeIndex )].angularVelocity;
+    float speedSq = vel.x * vel.x + vel.y * vel.y + vel.z * vel.z;
+    float omegaSq = omega.x * omega.x + omega.y * omega.y + omega.z * omega.z;
+    return speedSq >= sleepLinearSq || omegaSq >= sleepAngularSq;
+}
+
 void ApplyForcesForSolverBody( PhysicsBodyStore& bodyStore,
                                const ColliderStore& colliderStore,
                                const PhysicsWorldForces& worldForces,
@@ -2658,15 +2673,6 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
     }
     PROFILE_END( "Frame/Physics/Broadphase" );
 
-    auto hasWakeEnergy = [&]( int awakeIndex ) -> bool
-    {
-        const Vector3& vel = bodyRecords[static_cast<size_t>( awakeIndex )].linearVelocity;
-        const Vector3& omega = bodyRecords[static_cast<size_t>( awakeIndex )].angularVelocity;
-        float speedSq = vel.x * vel.x + vel.y * vel.y + vel.z * vel.z;
-        float omegaSq = omega.x * omega.x + omega.y * omega.y + omega.z * omega.z;
-        return speedSq >= SLEEP_LINEAR_SQ || omegaSq >= SLEEP_ANGULAR_SQ;
-    };
-
     auto wakeSleepingModel = [&]( int sleepingIndex )
     {
         // Waking re-enters the body into this frame rather than waiting for the
@@ -2989,7 +2995,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
             if ( m_sleepState[x] && !m_sleepState[y] )
             {
                 const bool sleepingLocked = IsUnderwaterSleepLocked( modelCount, x );
-                if ( !hasWakeEnergy( y ) )
+                if ( !HasWakeEnergy( bodyRecords, y, SLEEP_LINEAR_SQ, SLEEP_ANGULAR_SQ ) )
                 {
                     return;
                 }
@@ -3050,7 +3056,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
             else if ( m_sleepState[y] && !m_sleepState[x] )
             {
                 const bool sleepingLocked = IsUnderwaterSleepLocked( modelCount, y );
-                if ( !hasWakeEnergy( x ) )
+                if ( !HasWakeEnergy( bodyRecords, x, SLEEP_LINEAR_SQ, SLEEP_ANGULAR_SQ ) )
                 {
                     return;
                 }
