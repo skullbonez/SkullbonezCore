@@ -876,6 +876,366 @@ void ApplyPostMappedKeyboardShortcutState( PostMappedKeyboardShortcutContext con
     context.runtimeTools.Editor().tabShortcutWasDown = Input::IsKeyDown( VK_TAB );
 }
 
+struct RuntimeUIFrameContext
+{
+    // Lifetime: borrowed for one UI command frame. The helper applies decoded
+    // UI intents immediately and returns only the world-input arbitration facts.
+    RuntimeInputContext& runtimeInput;
+    RunCameraState& camera;
+    RuntimeTools& runtimeTools;
+    ReplayRuntime& replayRuntime;
+    RuntimeInteractionController& interaction;
+    RunTimerState& timers;
+    RunDebugState& debug;
+    RunLaunchOptions& launchOptions;
+    RunRuntimeSettings& runtimeSettings;
+    EngineConfig& config;
+    RunSceneState& sceneState;
+    SceneController& sceneController;
+    RunSubsystemState& systems;
+    SimulationSystem& simulation;
+    SkullbonezCore::Runtime::Audio::ContactAudioService& contactAudio;
+    SkullbonezCore::Environment::WorldEnvironment& worldEnvironment;
+    SkullbonezCore::GameObjects::GameModelCollection& gameModels;
+    RuntimeRenderBackendView& renderBackendView;
+    RuntimeCommandQueue& runtimeCommands;
+    CinematicRenderConfig& defaultCinematicRender;
+    SkullbonezCore::UI::InGameUI& ui;
+    int gameModelCapacity = 0;
+};
+
+struct RuntimeUIFrameResult
+{
+    bool suppressWorldActionThisFrame = false;
+    int editorUnhandledWheelDelta = 0;
+};
+
+template <typename CameraModeEnabledMask,
+          typename EnterInteractiveSceneRun,
+          typename TickReplayScrubberInput,
+          typename TickReplayCauseTreeInput,
+          typename TickReplayVelocityEditInput,
+          typename DispatchAfterUIKeyboardActions,
+          typename UpdateRuntimeInputModeAfterAction,
+          typename ApplyCameraMode,
+          typename ApplyEditorPlacementModeChange,
+          typename ApplyEditorModeToggle,
+          typename ApplyEditorPlacementModeToggle,
+          typename ResetReplayTimelineForActiveScene,
+          typename RunUIStressActions,
+          typename TickAttachedCameraOrbitInput,
+          typename TickEditorViewportAndPlacementScaleInput>
+RuntimeUIFrameResult
+ApplyRuntimeUIFrameCommands( const RuntimeUIFrameContext& context,
+                             bool suppressWorldActionThisFrame,
+                             bool keyboardToggleEditorMode,
+                             CameraModeEnabledMask cameraModeEnabledMask,
+                             EnterInteractiveSceneRun enterInteractiveSceneRun,
+                             TickReplayScrubberInput tickReplayScrubberInput,
+                             TickReplayCauseTreeInput tickReplayCauseTreeInput,
+                             TickReplayVelocityEditInput tickReplayVelocityEditInput,
+                             DispatchAfterUIKeyboardActions dispatchAfterUIKeyboardActions,
+                             UpdateRuntimeInputModeAfterAction updateRuntimeInputModeAfterAction,
+                             ApplyCameraMode applyCameraMode,
+                             ApplyEditorPlacementModeChange applyEditorPlacementModeChange,
+                             ApplyEditorModeToggle applyEditorModeToggle,
+                             ApplyEditorPlacementModeToggle applyEditorPlacementModeToggle,
+                             ResetReplayTimelineForActiveScene resetReplayTimelineForActiveScene,
+                             RunUIStressActions runUIStressActions,
+                             TickAttachedCameraOrbitInput tickAttachedCameraOrbitInput,
+                             TickEditorViewportAndPlacementScaleInput tickEditorViewportAndPlacementScaleInput )
+{
+    RuntimeUIFrameResult result;
+    result.suppressWorldActionThisFrame = suppressWorldActionThisFrame;
+    if ( !context.systems.window )
+    {
+        return result;
+    }
+
+    const int selectedSceneBrowserIndex =
+        CurrentSceneBrowserIndex( context.sceneController, context.sceneController.Browser() );
+    InGameUIInputResult UIResult = context.ui.UpdateInput(
+        context.systems.window->m_sWindow,
+        static_cast<int>( context.systems.window->m_sWindowDimensions.x ),
+        static_cast<int>( context.systems.window->m_sWindowDimensions.y ),
+        context.timers.simulationTimer.GetTotalTime(),
+        context.runtimeTools.Editor().editorModeEnabled,
+        context.runtimeTools.Editor().placementModeEnabled,
+        context.runtimeTools.Editor().placeStaticObject,
+        context.runtimeTools.Editor().autoTerrainAlign,
+        context.runtimeTools.Editor().objectType,
+        static_cast<int>( context.camera.mode ),
+        cameraModeEnabledMask(),
+        context.sceneController.Browser().namePtrs.empty() ? nullptr
+                                                           : context.sceneController.Browser().namePtrs.data(),
+        static_cast<int>( context.sceneController.Browser().namePtrs.size() ),
+        selectedSceneBrowserIndex );
+    result.editorUnhandledWheelDelta = UIResult.unhandledWheelDelta;
+    const InGameUICommands& uiCommands = UIResult.commands;
+    if ( uiCommands.ui.userInteracted )
+    {
+        enterInteractiveSceneRun();
+    }
+    result.suppressWorldActionThisFrame = result.suppressWorldActionThisFrame || uiCommands.ui.userInteracted;
+    const bool replayScrubberOwnsMouse =
+        tickReplayScrubberInput( context.systems.window->m_sWindow, context.ui.BlocksCameraMouse() );
+    const bool replayCauseTreeOwnsMouse =
+        tickReplayCauseTreeInput( context.systems.window->m_sWindow,
+                                  context.ui.BlocksCameraMouse() || replayScrubberOwnsMouse,
+                                  result.editorUnhandledWheelDelta );
+    const bool replayVelocityEditOwnsMouse = tickReplayVelocityEditInput(
+        context.systems.window->m_sWindow,
+        context.ui.BlocksCameraMouse() || replayScrubberOwnsMouse || replayCauseTreeOwnsMouse );
+    result.suppressWorldActionThisFrame = result.suppressWorldActionThisFrame || replayScrubberOwnsMouse ||
+                                          replayCauseTreeOwnsMouse || replayVelocityEditOwnsMouse;
+    context.runtimeInput.BeginFrame( true,
+                                     context.ui.BlocksKeyboard(),
+                                     context.ui.BlocksCameraMouse() || replayScrubberOwnsMouse ||
+                                         replayCauseTreeOwnsMouse || replayVelocityEditOwnsMouse );
+
+    dispatchAfterUIKeyboardActions( uiCommands.ui.userInteracted );
+
+    const auto recordUIAction = [&updateRuntimeInputModeAfterAction]( RuntimeInputAction action )
+    { updateRuntimeInputModeAfterAction( action, RuntimeInputActionSource::UI ); };
+
+    if ( ApplyRenderVsyncUICommand(
+             RenderDeviceUICommandContext{ context.runtimeSettings, context.renderBackendView.deviceLifecycle },
+             uiCommands.renderer ) )
+    {
+        recordUIAction( RuntimeInputAction::ToggleVsync );
+    }
+    const RunCameraModeUICommandResult cameraModeCommand = DecodeRunCameraModeUICommand( uiCommands.run );
+    if ( cameraModeCommand.accepted )
+    {
+        applyCameraMode( cameraModeCommand.mode, RuntimeInputActionSource::UI );
+    }
+    const RunInternal::EditorGizmoContext editorGizmoContext{ context.runtimeTools.Editor(),
+                                                              context.gameModels,
+                                                              context.interaction };
+    const RunInternal::EditorPlacementPreModeUICommandResult editorPreModeCommands =
+        RunInternal::ApplyEditorPlacementPreModeUICommands( editorGizmoContext, uiCommands.editor );
+    if ( editorPreModeCommands.setPlaceStatic )
+    {
+        enterInteractiveSceneRun();
+        recordUIAction( RuntimeInputAction::ToggleEditorStaticPlacement );
+    }
+    if ( editorPreModeCommands.enterPlacementMode )
+    {
+        applyEditorPlacementModeChange( RuntimeInputActionSource::UI, true, false );
+    }
+    if ( editorPreModeCommands.requestedObjectType )
+    {
+        recordUIAction( RuntimeInputAction::CycleEditorPlacementType );
+    }
+    if ( editorPreModeCommands.toggleEditorMode || keyboardToggleEditorMode )
+    {
+        applyEditorModeToggle( keyboardToggleEditorMode ? RuntimeInputActionSource::Keyboard
+                                                        : RuntimeInputActionSource::UI );
+    }
+    if ( editorPreModeCommands.togglePlacementMode )
+    {
+        applyEditorPlacementModeToggle( RuntimeInputActionSource::UI );
+    }
+    const RunInternal::EditorPlacementPostModeUICommandResult editorPostModeCommands =
+        RunInternal::ApplyEditorPlacementPostModeUICommands( context.runtimeTools.Editor(), uiCommands.editor );
+    if ( editorPostModeCommands.toggledPlaceStatic )
+    {
+        enterInteractiveSceneRun();
+        recordUIAction( RuntimeInputAction::ToggleEditorStaticPlacement );
+    }
+    if ( editorPostModeCommands.toggledTerrainAlign )
+    {
+        enterInteractiveSceneRun();
+        recordUIAction( RuntimeInputAction::ToggleEditorTerrainAlign );
+    }
+    const DiagnosticsPhysicsOverlayUICommandResult physicsDiagnosticsCommands =
+        ApplyDiagnosticsPhysicsOverlayUICommands( context.debug, uiCommands.physics );
+    if ( physicsDiagnosticsCommands.toggledCollisionVisualizer )
+    {
+        recordUIAction( RuntimeInputAction::ToggleCollisionVisualizer );
+    }
+    if ( ApplyPhysicsSleepPolicyUICommand(
+             PhysicsSleepPolicyUICommandContext{ context.runtimeSettings, context.gameModels },
+             uiCommands.physics ) )
+    {
+        recordUIAction( RuntimeInputAction::TogglePhysicsSleepPolicy );
+    }
+    RecordDiagnosticsPhysicsOverlayUIActions( physicsDiagnosticsCommands, recordUIAction );
+    const TornadoUICommandResult tornadoCommands =
+        ApplyTornadoUICommands( TornadoUICommandContext{ context.runtimeSettings, context.gameModels },
+                                uiCommands.physics );
+    RecordTornadoToggleUIActions( tornadoCommands, recordUIAction );
+    if ( context.runtimeTools.ApplyRayCastVisualizationUICommand( uiCommands.physics ) )
+    {
+        recordUIAction( RuntimeInputAction::ToggleRayCastVisualization );
+    }
+    RecordTornadoApplySettingsUIActions( tornadoCommands, recordUIAction );
+    if ( ApplyDiagnosticsTerrainContactProbeUICommand( context.debug, uiCommands.physics ) )
+    {
+        recordUIAction( RuntimeInputAction::ToggleTerrainContactProbe );
+    }
+    if ( ApplyRuntimeTextOnlyUICommand( context.debug, uiCommands.sceneOptions ) )
+    {
+        recordUIAction( RuntimeInputAction::ToggleTextOnly );
+    }
+    if ( ApplySceneFixedStepUICommand( SceneFixedStepUICommandContext{ context.sceneState, context.simulation },
+                                       uiCommands.sceneOptions ) )
+    {
+        recordUIAction( RuntimeInputAction::ToggleFixedStep );
+    }
+    const RuntimePresentationUICommandResult presentationCommands = ApplyRuntimePresentationUICommands(
+        RuntimePresentationUICommandContext{ context.debug,
+                                             context.sceneState,
+                                             context.config,
+                                             context.launchOptions,
+                                             context.runtimeCommands,
+                                             context.renderBackendView.deviceLifecycle != nullptr,
+                                             context.timers.simulationTimer.GetTimeSinceLastStart() },
+        uiCommands.sceneOptions,
+        uiCommands.renderTuning,
+        uiCommands.water );
+    RecordRuntimePresentationUIActions( presentationCommands, recordUIAction );
+    if ( ApplySoundUICommands( SoundUICommandContext{ context.contactAudio,
+                                                      context.runtimeSettings,
+                                                      context.launchOptions.noContactAudio },
+                               uiCommands.sound ) )
+    {
+        recordUIAction( RuntimeInputAction::ApplySoundTuning );
+    }
+    RecordRuntimePresentationWaterUIActions( presentationCommands, recordUIAction );
+    const RunSimulationUICommandResult runSimulationCommands =
+        ApplyRunSimulationUICommands( RunSimulationUICommandContext{ context.sceneState,
+                                                                     context.sceneController.UIOverrides(),
+                                                                     context.config,
+                                                                     *context.systems.workerPool },
+                                      uiCommands.sceneOptions,
+                                      uiCommands.run,
+                                      uiCommands.profiler );
+    RecordRunSimulationUIActions( runSimulationCommands, recordUIAction );
+    const DiagnosticsPhysicsDebugValueUICommandResult physicsDebugValueCommands =
+        ApplyDiagnosticsPhysicsDebugValueUICommands( context.debug, uiCommands.physics );
+    RecordDiagnosticsPhysicsDebugValueUIActions( physicsDebugValueCommands, recordUIAction );
+    const RayCastLauncherTuningUICommandResult rayCastLauncherCommands =
+        context.runtimeTools.ApplyRayCastLauncherTuningUICommands( uiCommands.physics );
+    if ( rayCastLauncherCommands.setImpulseStrength )
+    {
+        context.replayRuntime.RecordLauncherConfigEvent( rayCastLauncherCommands.impulseConfigChangedFlags,
+                                                         rayCastLauncherCommands.impulseConfigImpulseStrength,
+                                                         rayCastLauncherCommands.impulseConfigProjectileSpeed );
+        recordUIAction( RuntimeInputAction::SetRayCastImpulseStrength );
+    }
+    if ( rayCastLauncherCommands.setProjectileSpeed )
+    {
+        context.replayRuntime.RecordLauncherConfigEvent( rayCastLauncherCommands.projectileConfigChangedFlags,
+                                                         rayCastLauncherCommands.projectileConfigImpulseStrength,
+                                                         rayCastLauncherCommands.projectileConfigProjectileSpeed );
+        recordUIAction( RuntimeInputAction::SetLauncherProjectileSpeed );
+    }
+    EngineConfig& liveConfig = context.config;
+    const PhysicsFrictionUICommandResult physicsFrictionCommands =
+        ApplyPhysicsFrictionUICommands( PhysicsFrictionUICommandContext{ liveConfig, context.gameModels },
+                                        uiCommands.physics );
+    RecordPhysicsFrictionUIActions( physicsFrictionCommands, recordUIAction );
+    const auto makeSceneGeneratedControlContext = [&context, &liveConfig]() -> SceneRuntimeGeneratedControlContext
+    {
+        return SceneRuntimeGeneratedControlContext{ context.sceneState,
+                                                    context.sceneController.UIOverrides(),
+                                                    context.camera,
+                                                    context.sceneController,
+                                                    liveConfig,
+                                                    context.worldEnvironment,
+                                                    context.systems.terrain.get(),
+                                                    context.gameModels,
+                                                    context.simulation,
+                                                    context.runtimeTools,
+                                                    context.renderBackendView.deviceLifecycle,
+                                                    context.launchOptions.generatedObjectTypeOverride,
+                                                    context.gameModelCapacity };
+    };
+    const auto executeSceneGeneratedControlAction =
+        [&resetReplayTimelineForActiveScene]( const SceneRuntimeGeneratedControlAction& action )
+    {
+        if ( action.resetReplayTimeline )
+        {
+            resetReplayTimelineForActiveScene();
+        }
+        if ( action.scheduleProfileReset )
+        {
+            PROFILE_SCHEDULE_RESET();
+        }
+    };
+    const SceneGeneratedUICommandResult modelCountCommand =
+        ApplySceneGeneratedModelCountUICommand( makeSceneGeneratedControlContext(),
+                                                uiCommands.sceneOptions.requestedModelCount );
+    if ( modelCountCommand.accepted )
+    {
+        executeSceneGeneratedControlAction( modelCountCommand.action );
+        recordUIAction( RuntimeInputAction::SetModelCount );
+    }
+    if ( runSimulationCommands.setWorkerThreads )
+    {
+        recordUIAction( RuntimeInputAction::SetWorkerThreads );
+    }
+    const SceneGeneratedUICommandResult solverBallCountCommand =
+        ApplySceneGeneratedSolverBallCountUICommand( makeSceneGeneratedControlContext(),
+                                                     uiCommands.run.requestedSolverBallCount );
+    if ( solverBallCountCommand.accepted )
+    {
+        executeSceneGeneratedControlAction( solverBallCountCommand.action );
+        recordUIAction( RuntimeInputAction::SetSolverCounts );
+    }
+    const SceneGeneratedUICommandResult solverBoxCountCommand =
+        ApplySceneGeneratedSolverBoxCountUICommand( makeSceneGeneratedControlContext(),
+                                                    uiCommands.run.requestedSolverBoxCount );
+    if ( solverBoxCountCommand.accepted )
+    {
+        executeSceneGeneratedControlAction( solverBoxCountCommand.action );
+        recordUIAction( RuntimeInputAction::SetSolverCounts );
+    }
+    if ( ApplyWorldWaterUICommands( context.worldEnvironment, context.replayRuntime, uiCommands.water ) )
+    {
+        recordUIAction( RuntimeInputAction::ApplyWorldWaterSettings );
+    }
+    CinematicRenderConfig& activeCinematic = RuntimeActiveCinematicConfig( context.sceneState, context.config );
+    const CinematicUICommandContext cinematicUICommandContext{ context.launchOptions,
+                                                               context.sceneState,
+                                                               activeCinematic,
+                                                               context.runtimeCommands };
+    if ( ApplyCinematicRenderingToggleUICommand( cinematicUICommandContext, uiCommands.cinematic ) )
+    {
+        recordUIAction( RuntimeInputAction::ToggleCinematicRendering );
+    }
+    if ( QueueCinematicSkyDefaultsUICommand( cinematicUICommandContext, uiCommands.cinematic ) )
+    {
+        recordUIAction( RuntimeInputAction::SaveSkyDefaults );
+    }
+    if ( HasCinematicModeUICommand( uiCommands.cinematic ) )
+    {
+        enterInteractiveSceneRun();
+        ApplyCinematicModeUICommand( SceneRuntimeStyleContext{ context.launchOptions,
+                                                               context.sceneState,
+                                                               context.sceneController.Browser(),
+                                                               context.gameModels,
+                                                               context.systems.assets,
+                                                               activeCinematic,
+                                                               context.defaultCinematicRender },
+                                     uiCommands.cinematic );
+        recordUIAction( RuntimeInputAction::SelectCinematicScene );
+    }
+    const CinematicTuningUICommandResult cinematicTuningCommands =
+        ApplyCinematicTuningUICommands( cinematicUICommandContext, uiCommands.cinematic );
+    RecordCinematicTuningUIActions( cinematicTuningCommands, recordUIAction );
+    const SceneRuntimeUICommandResult sceneUICommands =
+        QueueSceneUIRuntimeCommands( context.runtimeCommands, uiCommands.scene );
+    RecordSceneRuntimeUIActions( sceneUICommands, recordUIAction );
+
+    runUIStressActions();
+
+    tickAttachedCameraOrbitInput( result.editorUnhandledWheelDelta );
+    tickEditorViewportAndPlacementScaleInput( result.editorUnhandledWheelDelta );
+    return result;
+}
+
 } // namespace
 
 void Run::UpdateRuntimeInputModeAfterAction( RuntimeInputAction action, RuntimeInputActionSource source )
@@ -2497,286 +2857,50 @@ void Run::TakeInput()
         m_runtimeTools.Editor().tildeShortcutWasDown = Input::IsKeyDown( VK_OEM_3 );
     }
 
-    bool suppressWorldActionThisFrame = UIBlocksKeyboardBeforeInput;
-    int editorUnhandledWheelDelta = 0;
-    if ( m_systems.window )
-    {
-        const int selectedSceneBrowserIndex =
-            CurrentSceneBrowserIndex( m_sceneController, m_sceneController.Browser() );
-        InGameUIInputResult UIResult = m_UI.UpdateInput(
-            m_systems.window->m_sWindow,
-            static_cast<int>( m_systems.window->m_sWindowDimensions.x ),
-            static_cast<int>( m_systems.window->m_sWindowDimensions.y ),
-            m_timers.simulationTimer.GetTotalTime(),
-            m_runtimeTools.Editor().editorModeEnabled,
-            m_runtimeTools.Editor().placementModeEnabled,
-            m_runtimeTools.Editor().placeStaticObject,
-            m_runtimeTools.Editor().autoTerrainAlign,
-            m_runtimeTools.Editor().objectType,
-            static_cast<int>( m_camera.mode ),
-            CameraModeEnabledMask(),
-            m_sceneController.Browser().namePtrs.empty() ? nullptr : m_sceneController.Browser().namePtrs.data(),
-            static_cast<int>( m_sceneController.Browser().namePtrs.size() ),
-            selectedSceneBrowserIndex );
-        editorUnhandledWheelDelta = UIResult.unhandledWheelDelta;
-        const InGameUICommands& uiCommands = UIResult.commands;
-        if ( uiCommands.ui.userInteracted )
-        {
-            EnterInteractiveSceneRun();
-        }
-        suppressWorldActionThisFrame = suppressWorldActionThisFrame || uiCommands.ui.userInteracted;
-        const bool replayScrubberOwnsMouse =
-            TickReplayScrubberInput( m_systems.window->m_sWindow, m_UI.BlocksCameraMouse() );
-        const bool replayCauseTreeOwnsMouse =
-            TickReplayCauseTreeInput( m_systems.window->m_sWindow,
-                                      m_UI.BlocksCameraMouse() || replayScrubberOwnsMouse,
-                                      editorUnhandledWheelDelta );
-        const bool replayVelocityEditOwnsMouse = TickReplayVelocityEditInput(
-            m_systems.window->m_sWindow,
-            m_UI.BlocksCameraMouse() || replayScrubberOwnsMouse || replayCauseTreeOwnsMouse );
-        suppressWorldActionThisFrame = suppressWorldActionThisFrame || replayScrubberOwnsMouse ||
-                                       replayCauseTreeOwnsMouse || replayVelocityEditOwnsMouse;
-        m_runtimeInput.BeginFrame( true,
-                                   m_UI.BlocksKeyboard(),
-                                   m_UI.BlocksCameraMouse() || replayScrubberOwnsMouse || replayCauseTreeOwnsMouse ||
-                                       replayVelocityEditOwnsMouse );
-
-        DispatchAfterUIKeyboardActions( uiCommands.ui.userInteracted );
-
-        const auto recordUIAction = [this]( RuntimeInputAction action )
-        { UpdateRuntimeInputModeAfterAction( action, RuntimeInputActionSource::UI ); };
-
-        if ( ApplyRenderVsyncUICommand(
-                 RenderDeviceUICommandContext{ m_runtimeSettings, m_renderBackendView.deviceLifecycle },
-                 uiCommands.renderer ) )
-        {
-            recordUIAction( RuntimeInputAction::ToggleVsync );
-        }
-        const RunCameraModeUICommandResult cameraModeCommand = DecodeRunCameraModeUICommand( uiCommands.run );
-        if ( cameraModeCommand.accepted )
-        {
-            ApplyCameraMode( cameraModeCommand.mode, RuntimeInputActionSource::UI );
-        }
-        const RunInternal::EditorPlacementPreModeUICommandResult editorPreModeCommands =
-            RunInternal::ApplyEditorPlacementPreModeUICommands( editorGizmoContext(), uiCommands.editor );
-        if ( editorPreModeCommands.setPlaceStatic )
-        {
-            EnterInteractiveSceneRun();
-            recordUIAction( RuntimeInputAction::ToggleEditorStaticPlacement );
-        }
-        if ( editorPreModeCommands.enterPlacementMode )
-        {
-            applyEditorPlacementModeChange( RuntimeInputActionSource::UI, true, false );
-        }
-        if ( editorPreModeCommands.requestedObjectType )
-        {
-            recordUIAction( RuntimeInputAction::CycleEditorPlacementType );
-        }
-        if ( editorPreModeCommands.toggleEditorMode || keyboardToggleEditorMode )
-        {
-            applyEditorModeToggle( keyboardToggleEditorMode ? RuntimeInputActionSource::Keyboard
-                                                            : RuntimeInputActionSource::UI );
-        }
-        if ( editorPreModeCommands.togglePlacementMode )
-        {
-            applyEditorPlacementModeToggle( RuntimeInputActionSource::UI );
-        }
-        const RunInternal::EditorPlacementPostModeUICommandResult editorPostModeCommands =
-            RunInternal::ApplyEditorPlacementPostModeUICommands( m_runtimeTools.Editor(), uiCommands.editor );
-        if ( editorPostModeCommands.toggledPlaceStatic )
-        {
-            EnterInteractiveSceneRun();
-            recordUIAction( RuntimeInputAction::ToggleEditorStaticPlacement );
-        }
-        if ( editorPostModeCommands.toggledTerrainAlign )
-        {
-            EnterInteractiveSceneRun();
-            recordUIAction( RuntimeInputAction::ToggleEditorTerrainAlign );
-        }
-        const DiagnosticsPhysicsOverlayUICommandResult physicsDiagnosticsCommands =
-            ApplyDiagnosticsPhysicsOverlayUICommands( m_debug, uiCommands.physics );
-        if ( physicsDiagnosticsCommands.toggledCollisionVisualizer )
-        {
-            recordUIAction( RuntimeInputAction::ToggleCollisionVisualizer );
-        }
-        if ( ApplyPhysicsSleepPolicyUICommand(
-                 PhysicsSleepPolicyUICommandContext{ m_runtimeSettings, m_cGameModelCollection },
-                 uiCommands.physics ) )
-        {
-            recordUIAction( RuntimeInputAction::TogglePhysicsSleepPolicy );
-        }
-        RecordDiagnosticsPhysicsOverlayUIActions( physicsDiagnosticsCommands, recordUIAction );
-        const TornadoUICommandResult tornadoCommands =
-            ApplyTornadoUICommands( TornadoUICommandContext{ m_runtimeSettings, m_cGameModelCollection },
-                                    uiCommands.physics );
-        RecordTornadoToggleUIActions( tornadoCommands, recordUIAction );
-        if ( m_runtimeTools.ApplyRayCastVisualizationUICommand( uiCommands.physics ) )
-        {
-            recordUIAction( RuntimeInputAction::ToggleRayCastVisualization );
-        }
-        RecordTornadoApplySettingsUIActions( tornadoCommands, recordUIAction );
-        if ( ApplyDiagnosticsTerrainContactProbeUICommand( m_debug, uiCommands.physics ) )
-        {
-            recordUIAction( RuntimeInputAction::ToggleTerrainContactProbe );
-        }
-        if ( ApplyRuntimeTextOnlyUICommand( m_debug, uiCommands.sceneOptions ) )
-        {
-            recordUIAction( RuntimeInputAction::ToggleTextOnly );
-        }
-        if ( ApplySceneFixedStepUICommand( SceneFixedStepUICommandContext{ SceneState(), m_simulation },
-                                           uiCommands.sceneOptions ) )
-        {
-            recordUIAction( RuntimeInputAction::ToggleFixedStep );
-        }
-        const RuntimePresentationUICommandResult presentationCommands = ApplyRuntimePresentationUICommands(
-            RuntimePresentationUICommandContext{ m_debug,
-                                                 SceneState(),
-                                                 m_config,
-                                                 m_launchOptions,
-                                                 m_runtimeCommands,
-                                                 m_renderBackendView.deviceLifecycle != nullptr,
-                                                 m_timers.simulationTimer.GetTimeSinceLastStart() },
-            uiCommands.sceneOptions,
-            uiCommands.renderTuning,
-            uiCommands.water );
-        RecordRuntimePresentationUIActions( presentationCommands, recordUIAction );
-        if ( ApplySoundUICommands(
-                 SoundUICommandContext{ m_contactAudio, m_runtimeSettings, m_launchOptions.noContactAudio },
-                 uiCommands.sound ) )
-        {
-            recordUIAction( RuntimeInputAction::ApplySoundTuning );
-        }
-        RecordRuntimePresentationWaterUIActions( presentationCommands, recordUIAction );
-        const RunSimulationUICommandResult runSimulationCommands =
-            ApplyRunSimulationUICommands( RunSimulationUICommandContext{ SceneState(),
-                                                                         m_sceneController.UIOverrides(),
-                                                                         m_config,
-                                                                         *m_systems.workerPool },
-                                          uiCommands.sceneOptions,
-                                          uiCommands.run,
-                                          uiCommands.profiler );
-        RecordRunSimulationUIActions( runSimulationCommands, recordUIAction );
-        const DiagnosticsPhysicsDebugValueUICommandResult physicsDebugValueCommands =
-            ApplyDiagnosticsPhysicsDebugValueUICommands( m_debug, uiCommands.physics );
-        RecordDiagnosticsPhysicsDebugValueUIActions( physicsDebugValueCommands, recordUIAction );
-        const RayCastLauncherTuningUICommandResult rayCastLauncherCommands =
-            m_runtimeTools.ApplyRayCastLauncherTuningUICommands( uiCommands.physics );
-        if ( rayCastLauncherCommands.setImpulseStrength )
-        {
-            m_replayRuntime.RecordLauncherConfigEvent( rayCastLauncherCommands.impulseConfigChangedFlags,
-                                                       rayCastLauncherCommands.impulseConfigImpulseStrength,
-                                                       rayCastLauncherCommands.impulseConfigProjectileSpeed );
-            recordUIAction( RuntimeInputAction::SetRayCastImpulseStrength );
-        }
-        if ( rayCastLauncherCommands.setProjectileSpeed )
-        {
-            m_replayRuntime.RecordLauncherConfigEvent( rayCastLauncherCommands.projectileConfigChangedFlags,
-                                                       rayCastLauncherCommands.projectileConfigImpulseStrength,
-                                                       rayCastLauncherCommands.projectileConfigProjectileSpeed );
-            recordUIAction( RuntimeInputAction::SetLauncherProjectileSpeed );
-        }
-        EngineConfig& liveConfig = m_config;
-        const PhysicsFrictionUICommandResult physicsFrictionCommands =
-            ApplyPhysicsFrictionUICommands( PhysicsFrictionUICommandContext{ liveConfig, m_cGameModelCollection },
-                                            uiCommands.physics );
-        RecordPhysicsFrictionUIActions( physicsFrictionCommands, recordUIAction );
-        const auto makeSceneGeneratedControlContext = [this, &liveConfig]() -> SceneRuntimeGeneratedControlContext
-        {
-            return SceneRuntimeGeneratedControlContext{ SceneState(),
-                                                        m_sceneController.UIOverrides(),
-                                                        m_camera,
-                                                        m_sceneController,
-                                                        liveConfig,
-                                                        m_cWorldEnvironment,
-                                                        m_systems.terrain.get(),
-                                                        m_cGameModelCollection,
-                                                        m_simulation,
-                                                        m_runtimeTools,
-                                                        m_renderBackendView.deviceLifecycle,
-                                                        m_launchOptions.generatedObjectTypeOverride,
-                                                        m_startup.gameModelCapacity };
-        };
-        const auto executeSceneGeneratedControlAction = [this]( const SceneRuntimeGeneratedControlAction& action )
-        {
-            if ( action.resetReplayTimeline )
-            {
-                ResetReplayTimelineForActiveScene();
-            }
-            if ( action.scheduleProfileReset )
-            {
-                PROFILE_SCHEDULE_RESET();
-            }
-        };
-        const SceneGeneratedUICommandResult modelCountCommand =
-            ApplySceneGeneratedModelCountUICommand( makeSceneGeneratedControlContext(),
-                                                    uiCommands.sceneOptions.requestedModelCount );
-        if ( modelCountCommand.accepted )
-        {
-            executeSceneGeneratedControlAction( modelCountCommand.action );
-            recordUIAction( RuntimeInputAction::SetModelCount );
-        }
-        if ( runSimulationCommands.setWorkerThreads )
-        {
-            recordUIAction( RuntimeInputAction::SetWorkerThreads );
-        }
-        const SceneGeneratedUICommandResult solverBallCountCommand =
-            ApplySceneGeneratedSolverBallCountUICommand( makeSceneGeneratedControlContext(),
-                                                         uiCommands.run.requestedSolverBallCount );
-        if ( solverBallCountCommand.accepted )
-        {
-            executeSceneGeneratedControlAction( solverBallCountCommand.action );
-            recordUIAction( RuntimeInputAction::SetSolverCounts );
-        }
-        const SceneGeneratedUICommandResult solverBoxCountCommand =
-            ApplySceneGeneratedSolverBoxCountUICommand( makeSceneGeneratedControlContext(),
-                                                        uiCommands.run.requestedSolverBoxCount );
-        if ( solverBoxCountCommand.accepted )
-        {
-            executeSceneGeneratedControlAction( solverBoxCountCommand.action );
-            recordUIAction( RuntimeInputAction::SetSolverCounts );
-        }
-        if ( ApplyWorldWaterUICommands( m_cWorldEnvironment, m_replayRuntime, uiCommands.water ) )
-        {
-            recordUIAction( RuntimeInputAction::ApplyWorldWaterSettings );
-        }
-        CinematicRenderConfig& activeCinematic = RuntimeActiveCinematicConfig( SceneState(), m_config );
-        const CinematicUICommandContext cinematicUICommandContext{ m_launchOptions,
-                                                                   SceneState(),
-                                                                   activeCinematic,
-                                                                   m_runtimeCommands };
-        if ( ApplyCinematicRenderingToggleUICommand( cinematicUICommandContext, uiCommands.cinematic ) )
-        {
-            recordUIAction( RuntimeInputAction::ToggleCinematicRendering );
-        }
-        if ( QueueCinematicSkyDefaultsUICommand( cinematicUICommandContext, uiCommands.cinematic ) )
-        {
-            recordUIAction( RuntimeInputAction::SaveSkyDefaults );
-        }
-        if ( HasCinematicModeUICommand( uiCommands.cinematic ) )
-        {
-            EnterInteractiveSceneRun();
-            ApplyCinematicModeUICommand( SceneRuntimeStyleContext{ m_launchOptions,
-                                                                   SceneState(),
-                                                                   m_sceneController.Browser(),
-                                                                   m_cGameModelCollection,
-                                                                   m_systems.assets,
-                                                                   activeCinematic,
-                                                                   m_defaultCinematicRender },
-                                         uiCommands.cinematic );
-            recordUIAction( RuntimeInputAction::SelectCinematicScene );
-        }
-        const CinematicTuningUICommandResult cinematicTuningCommands =
-            ApplyCinematicTuningUICommands( cinematicUICommandContext, uiCommands.cinematic );
-        RecordCinematicTuningUIActions( cinematicTuningCommands, recordUIAction );
-        const SceneRuntimeUICommandResult sceneUICommands =
-            QueueSceneUIRuntimeCommands( m_runtimeCommands, uiCommands.scene );
-        RecordSceneRuntimeUIActions( sceneUICommands, recordUIAction );
-
-        RunUIStressActions();
-
-        TickAttachedCameraOrbitInput( editorUnhandledWheelDelta );
-        TickEditorViewportAndPlacementScaleInput( editorUnhandledWheelDelta );
-    }
+    const RuntimeUIFrameResult uiFrameResult = ApplyRuntimeUIFrameCommands(
+        RuntimeUIFrameContext{ m_runtimeInput,
+                               m_camera,
+                               m_runtimeTools,
+                               m_replayRuntime,
+                               m_interaction,
+                               m_timers,
+                               m_debug,
+                               m_launchOptions,
+                               m_runtimeSettings,
+                               m_config,
+                               SceneState(),
+                               m_sceneController,
+                               m_systems,
+                               m_simulation,
+                               m_contactAudio,
+                               m_cWorldEnvironment,
+                               m_cGameModelCollection,
+                               m_renderBackendView,
+                               m_runtimeCommands,
+                               m_defaultCinematicRender,
+                               m_UI,
+                               m_startup.gameModelCapacity },
+        UIBlocksKeyboardBeforeInput,
+        keyboardToggleEditorMode,
+        [this]() { return CameraModeEnabledMask(); },
+        [this]() { EnterInteractiveSceneRun(); },
+        [this]( HWND window, bool blocksCameraMouse ) { return TickReplayScrubberInput( window, blocksCameraMouse ); },
+        [this]( HWND window, bool blocksCameraMouse, int editorWheelDelta )
+        { return TickReplayCauseTreeInput( window, blocksCameraMouse, editorWheelDelta ); },
+        [this]( HWND window, bool blocksCameraMouse )
+        { return TickReplayVelocityEditInput( window, blocksCameraMouse ); },
+        [this]( bool uiUserInteracted ) { DispatchAfterUIKeyboardActions( uiUserInteracted ); },
+        [this]( RuntimeInputAction action, RuntimeInputActionSource source )
+        { UpdateRuntimeInputModeAfterAction( action, source ); },
+        [this]( RunCameraMode mode, RuntimeInputActionSource source ) { ApplyCameraMode( mode, source ); },
+        applyEditorPlacementModeChange,
+        applyEditorModeToggle,
+        applyEditorPlacementModeToggle,
+        [this]() { ResetReplayTimelineForActiveScene(); },
+        [this]() { RunUIStressActions(); },
+        [this]( int editorWheelDelta ) { TickAttachedCameraOrbitInput( editorWheelDelta ); },
+        [this]( int editorWheelDelta ) { TickEditorViewportAndPlacementScaleInput( editorWheelDelta ); } );
+    const bool suppressWorldActionThisFrame = uiFrameResult.suppressWorldActionThisFrame;
 
     // Editor, replay, and launcher actions share world clicks. UI interaction
     // and capture suppress them so panel controls never mutate the scene.
