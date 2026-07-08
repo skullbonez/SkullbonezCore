@@ -187,9 +187,18 @@ every step. Commit per step.
 
 ### Phase 1 — Kill `TakeInput()` (the flagship)
 
-- [ ] **1.1** Define the binding types: `enum class InputAction` covering the ~38
+- [x] **1.1** Define the binding types: `enum class InputAction` covering the ~38
   keys `TakeInput()` branches on, and `struct KeyBinding { Key key; InputAction
   action; ContextMask contexts; }`. No behavior yet. Build. Commit.
+
+  Completion note (2026-07-08): `RuntimeInputAction` already carried the action
+  vocabulary, so the code slice added the reusable key/action/context metadata
+  around it: `RuntimeInputContextMask`, `RuntimeInputBindingContext`, and
+  `RuntimeInputKeyBinding`. The existing local key-memory table now uses the
+  shared binding shape but still only updates action-down state; no dispatch
+  behavior changed. Build log:
+  `TestOutput\agent_logs\plan01_step1_1_build_profile.log` (10.0s), 0 warnings,
+  0 errors.
 - [ ] **1.2** Build the static binding table (data) that reproduces the current
   key→action mapping **exactly**, including context conditions (fly/launcher/
   director/replay modes). No dispatch yet. Build. Commit.

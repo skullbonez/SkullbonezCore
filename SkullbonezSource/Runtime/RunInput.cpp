@@ -229,51 +229,45 @@ const char* RuntimeInteractionEventName( RuntimeInteractionEventType type )
     }
 }
 
-struct RuntimeInputKeyBinding
-{
-    RuntimeInputAction action;
-    int virtualKey;
-};
-
 void AdvanceTakeInputKeyboardActionMemories( RuntimeInputContext& input )
 {
-    static const RuntimeInputKeyBinding kBindings[] = { { RuntimeInputAction::ToggleFlyCamera, 'F' },
-                                                        { RuntimeInputAction::ToggleLauncher, 'N' },
-                                                        { RuntimeInputAction::CycleCameraMode, VK_TAB },
-                                                        { RuntimeInputAction::CycleAttachedCameraSubmode, VK_F1 },
-                                                        { RuntimeInputAction::ToggleAttachedCameraPin, VK_RETURN },
-                                                        { RuntimeInputAction::ToggleDirectorGrab, 'B' },
-                                                        { RuntimeInputAction::SetDirectorPhasePose, 'J' },
-                                                        { RuntimeInputAction::StepDirectorPhase, 'K' },
-                                                        { RuntimeInputAction::SaveDirectorShotList, 'L' },
-                                                        { RuntimeInputAction::ToggleEditor, VK_OEM_3 },
-                                                        { RuntimeInputAction::ToggleEditorTool, VK_MENU },
-                                                        { RuntimeInputAction::CycleLauncherFireMode, 'M' },
-                                                        { RuntimeInputAction::WriteLauncherReproSnapshot, VK_RETURN },
-                                                        { RuntimeInputAction::ToggleWaterFreeze, '1' },
-                                                        { RuntimeInputAction::CycleWaterReflection, '2' },
-                                                        { RuntimeInputAction::ToggleWaterFlat, '3' },
-                                                        { RuntimeInputAction::ToggleTerrainHidden, '4' },
-                                                        { RuntimeInputAction::ToggleWaterHidden, '5' },
-                                                        { RuntimeInputAction::ToggleCollisionVisualizer, 'V' },
-                                                        { RuntimeInputAction::CyclePhysicsDebugOverlay, 'C' },
-                                                        { RuntimeInputAction::ToggleTerrainContactProbe, 'O' },
-                                                        { RuntimeInputAction::StepPhysicsPipelinePrevious, VK_F7 },
-                                                        { RuntimeInputAction::StepPhysicsPipelineNext, VK_F8 },
-                                                        { RuntimeInputAction::TogglePhysicsDebugTransparent, '6' },
-                                                        { RuntimeInputAction::ReportRendererRuntimeRetired, 'Q' },
-                                                        { RuntimeInputAction::ToggleCrossScenePause, 'P' },
-                                                        { RuntimeInputAction::ToggleBroadphaseOverlay, 'G' },
-                                                        { RuntimeInputAction::ToggleUIVisibility, '0' },
-                                                        { RuntimeInputAction::TogglePerformanceHistogram, VK_F5 },
-                                                        { RuntimeInputAction::ToggleMemoryOverlay, VK_F6 },
-                                                        { RuntimeInputAction::NavigateScenePrevious, VK_LEFT },
-                                                        { RuntimeInputAction::NavigateSceneNext, VK_RIGHT },
-                                                        { RuntimeInputAction::DismissOrExitUI, VK_ESCAPE },
-                                                        { RuntimeInputAction::SaveSceneSnapshot, VK_F2 },
-                                                        { RuntimeInputAction::SaveScreenshot, VK_F3 },
-                                                        { RuntimeInputAction::ResetScene, 'R' },
-                                                        { RuntimeInputAction::ResetSceneFromBackspace, VK_BACK } };
+    static const RuntimeInputKeyBinding kBindings[] = { { 'F', RuntimeInputAction::ToggleFlyCamera },
+                                                        { 'N', RuntimeInputAction::ToggleLauncher },
+                                                        { VK_TAB, RuntimeInputAction::CycleCameraMode },
+                                                        { VK_F1, RuntimeInputAction::CycleAttachedCameraSubmode },
+                                                        { VK_RETURN, RuntimeInputAction::ToggleAttachedCameraPin },
+                                                        { 'B', RuntimeInputAction::ToggleDirectorGrab },
+                                                        { 'J', RuntimeInputAction::SetDirectorPhasePose },
+                                                        { 'K', RuntimeInputAction::StepDirectorPhase },
+                                                        { 'L', RuntimeInputAction::SaveDirectorShotList },
+                                                        { VK_OEM_3, RuntimeInputAction::ToggleEditor },
+                                                        { VK_MENU, RuntimeInputAction::ToggleEditorTool },
+                                                        { 'M', RuntimeInputAction::CycleLauncherFireMode },
+                                                        { VK_RETURN, RuntimeInputAction::WriteLauncherReproSnapshot },
+                                                        { '1', RuntimeInputAction::ToggleWaterFreeze },
+                                                        { '2', RuntimeInputAction::CycleWaterReflection },
+                                                        { '3', RuntimeInputAction::ToggleWaterFlat },
+                                                        { '4', RuntimeInputAction::ToggleTerrainHidden },
+                                                        { '5', RuntimeInputAction::ToggleWaterHidden },
+                                                        { 'V', RuntimeInputAction::ToggleCollisionVisualizer },
+                                                        { 'C', RuntimeInputAction::CyclePhysicsDebugOverlay },
+                                                        { 'O', RuntimeInputAction::ToggleTerrainContactProbe },
+                                                        { VK_F7, RuntimeInputAction::StepPhysicsPipelinePrevious },
+                                                        { VK_F8, RuntimeInputAction::StepPhysicsPipelineNext },
+                                                        { '6', RuntimeInputAction::TogglePhysicsDebugTransparent },
+                                                        { 'Q', RuntimeInputAction::ReportRendererRuntimeRetired },
+                                                        { 'P', RuntimeInputAction::ToggleCrossScenePause },
+                                                        { 'G', RuntimeInputAction::ToggleBroadphaseOverlay },
+                                                        { '0', RuntimeInputAction::ToggleUIVisibility },
+                                                        { VK_F5, RuntimeInputAction::TogglePerformanceHistogram },
+                                                        { VK_F6, RuntimeInputAction::ToggleMemoryOverlay },
+                                                        { VK_LEFT, RuntimeInputAction::NavigateScenePrevious },
+                                                        { VK_RIGHT, RuntimeInputAction::NavigateSceneNext },
+                                                        { VK_ESCAPE, RuntimeInputAction::DismissOrExitUI },
+                                                        { VK_F2, RuntimeInputAction::SaveSceneSnapshot },
+                                                        { VK_F3, RuntimeInputAction::SaveScreenshot },
+                                                        { 'R', RuntimeInputAction::ResetScene },
+                                                        { VK_BACK, RuntimeInputAction::ResetSceneFromBackspace } };
 
     for ( std::size_t i = 0; i < sizeof( kBindings ) / sizeof( kBindings[0] ); ++i )
     {

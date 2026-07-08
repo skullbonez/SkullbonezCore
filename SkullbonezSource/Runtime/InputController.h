@@ -27,6 +27,7 @@ Related:
 
 #include <array>
 #include <cstddef>
+#include <cstdint>
 
 #include "Input.h"
 
@@ -158,6 +159,42 @@ enum class RuntimeInputActionSource
     Mouse,
     FocusLost,
     Runtime
+};
+
+using RuntimeInputContextMask = uint32_t;
+
+enum class RuntimeInputBindingContext : RuntimeInputContextMask
+{
+    Always = 0u,
+    KeyboardUnblocked = 1u << 0,
+    Scene = 1u << 1,
+    GeneratedDemo = 1u << 2,
+    FlyCamera = 1u << 3,
+    Launcher = 1u << 4,
+    AttachedCamera = 1u << 5,
+    AttachedCameraActive = 1u << 6,
+    Director = 1u << 7,
+    DirectorAuthoring = 1u << 8,
+    Editor = 1u << 9,
+    EditorInactive = 1u << 10,
+    Replay = 1u << 11,
+    UI = 1u << 12,
+    DebugOnly = 1u << 13
+};
+
+constexpr RuntimeInputContextMask RuntimeInputContextBit( RuntimeInputBindingContext context )
+{
+    return static_cast<RuntimeInputContextMask>( context );
+}
+
+struct RuntimeInputKeyBinding
+{
+    // Concept: The table vocabulary is shared input metadata. Step 1.1 only
+    // names key/action/context records; later slices will move TakeInput's
+    // branch dispatch onto this data without changing command behavior here.
+    int virtualKey = 0;
+    RuntimeInputAction action = RuntimeInputAction::None;
+    RuntimeInputContextMask contexts = RuntimeInputContextBit( RuntimeInputBindingContext::KeyboardUnblocked );
 };
 
 struct RuntimeInputModeState
