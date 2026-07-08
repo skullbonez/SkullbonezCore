@@ -706,6 +706,26 @@ every step. Commit per step.
 	    `TestOutput\agent_logs\plan01_editor_mode_ui_runtime_boundaries.log`
 	    (17.7s), and
 	    `TestOutput\agent_logs\plan01_editor_mode_ui_build_profile.log` (9.8s).
+	  - [x] After-UI keyboard dispatch extraction moved the ESC/UI dismissal
+	    keyboard lambda and binding loop out of `Run::TakeInput()` into
+	    `Run::DispatchAfterUIKeyboardActions()`. UI controls still get first
+	    refusal, single ESC still toggles the diagnostics UI, and double ESC still
+	    posts quit through the same latch timing path. The touched-file comment
+	    audit kept the local ESC ordering comment and the Run.h helper summary.
+	    `TakeInput()` now spans 977 lines. Gate evidence:
+	    `TestOutput\agent_logs\plan01_after_ui_keyboard_interaction_clicks.log`
+	    (16.0s, both interaction reports `ok=1`) and
+	    `TestOutput\agent_logs\plan01_after_ui_keyboard_validate_full.log` (52.4s;
+	    project filters/runtime boundaries passed, Profile/Debug builds had 0
+	    warnings and 0 errors, DX12 InfoQueue errors = 0, screenshots matched
+	    baselines, and `physics_regression_solver.csv` matched byte-exactly).
+	    Targeted pre-gate checks also passed:
+	    `TestOutput\agent_logs\plan01_after_ui_keyboard_validate_format_rerun2.log`
+	    (9.0s),
+	    `TestOutput\agent_logs\plan01_after_ui_keyboard_runtime_boundaries_rerun.log`
+	    (17.8s), and
+	    `TestOutput\agent_logs\plan01_after_ui_keyboard_build_profile_rerun.log`
+	    (10.1s).
 - [ ] **1.4** Confirm `TakeInput()` is under ~200 lines (setup + dispatch loop).
 
 ### Phase 2 — Move state shelves out of `RunState`

@@ -1690,6 +1690,49 @@ void Run::DispatchPostUIKeyboardActions()
 }
 
 
+void Run::DispatchAfterUIKeyboardActions( bool uiUserInteracted )
+{
+    auto dispatchAfterUIKeyboardAction = [this, uiUserInteracted]( const RuntimeInputKeyBinding& binding ) -> bool
+    {
+        switch ( binding.action )
+        {
+        case RuntimeInputAction::DismissOrExitUI:
+            if ( InputController::CaptureKeyboardActionPress( m_runtimeInput, binding.action, binding.virtualKey ) &&
+                 !uiUserInteracted )
+            {
+                // ESC is intentionally after UI processing: focused controls
+                // keep local ESC behavior before the diagnostics window reacts.
+                constexpr double ESC_QUICK_EXIT_SECONDS = 0.32;
+                const double UINow = m_timers.simulationTimer.GetTotalTime();
+                if ( UINow - m_inputLatches.lastEscapeTapTime <= ESC_QUICK_EXIT_SECONDS )
+                {
+                    PostQuitMessage( 0 );
+                }
+                else
+                {
+                    EnterInteractiveSceneRun();
+                    m_UI.ToggleVisible( UINow );
+                    m_debug.overlayMode = OverlayMode::None;
+                    m_inputLatches.lastEscapeTapTime = UINow;
+                    ApplyCursorOwnership();
+                    ReleaseMouseToUI();
+                }
+            }
+            return true;
+        default:
+            return false;
+        }
+    };
+    for ( std::size_t i = 0; i < kTakeInputKeyboardBindingCount; ++i )
+    {
+        if ( ( kTakeInputKeyboardBindings[i].contexts & kAfterUIUpdateContext ) != 0 )
+        {
+            dispatchAfterUIKeyboardAction( kTakeInputKeyboardBindings[i] );
+        }
+    }
+}
+
+
 void Run::TakeInput()
 {
     if ( HandleUnfocusedInputFrame() )
@@ -2184,46 +2227,7 @@ void Run::TakeInput()
                                    m_UI.BlocksCameraMouse() || replayScrubberOwnsMouse || replayCauseTreeOwnsMouse ||
                                        replayVelocityEditOwnsMouse );
 
-        auto dispatchAfterUIKeyboardAction = [this, &uiCommands]( const RuntimeInputKeyBinding& binding ) -> bool
-        {
-            switch ( binding.action )
-            {
-            case RuntimeInputAction::DismissOrExitUI:
-                if ( InputController::CaptureKeyboardActionPress( m_runtimeInput,
-                                                                  binding.action,
-                                                                  binding.virtualKey ) &&
-                     !uiCommands.ui.userInteracted )
-                {
-                    // ESC is intentionally after UI processing: focused controls
-                    // keep local ESC behavior before the diagnostics window reacts.
-                    constexpr double ESC_QUICK_EXIT_SECONDS = 0.32;
-                    const double UINow = m_timers.simulationTimer.GetTotalTime();
-                    if ( UINow - m_inputLatches.lastEscapeTapTime <= ESC_QUICK_EXIT_SECONDS )
-                    {
-                        PostQuitMessage( 0 );
-                    }
-                    else
-                    {
-                        EnterInteractiveSceneRun();
-                        m_UI.ToggleVisible( UINow );
-                        m_debug.overlayMode = OverlayMode::None;
-                        m_inputLatches.lastEscapeTapTime = UINow;
-                        ApplyCursorOwnership();
-                        ReleaseMouseToUI();
-                    }
-                }
-                return true;
-            default:
-                return false;
-            }
-        };
-        for ( std::size_t i = 0; i < kTakeInputKeyboardBindingCount; ++i )
-        {
-            if ( ( kTakeInputKeyboardBindings[i].contexts & kAfterUIUpdateContext ) != 0 )
-            {
-                dispatchAfterUIKeyboardAction( kTakeInputKeyboardBindings[i] );
-            }
-        }
+        DispatchAfterUIKeyboardActions( uiCommands.ui.userInteracted );
 
         if ( ApplyRenderVsyncUICommand(
                  RenderDeviceUICommandContext{ m_runtimeSettings, m_renderBackendView.deviceLifecycle },
