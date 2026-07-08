@@ -1567,7 +1567,6 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
 }
 
 
-#include "RunEditorTracer.inl"
 bool Run::TryBuildMouseWorldRay( Vector3& outOrigin, Vector3& outDirection, bool clampToViewport ) const
 {
     if ( !m_systems.window || !m_systems.cameras )

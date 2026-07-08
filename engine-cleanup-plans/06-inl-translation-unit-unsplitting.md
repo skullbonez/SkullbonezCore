@@ -199,7 +199,32 @@ build.
     build warnings/errors, 0 DX12 validation errors, DX12 screenshots matched
     committed baselines, and `physics_regression_solver.csv` matched
     byte-exactly at 20001 lines.
-  - [ ] `RunEditorTracer.inl`
+  - [x] `RunEditorTracer.inl` -> `RunEditorTracer.cpp` (2026-07-08).
+    The promoted TU now includes `RunInternal.h`, `EditorTools.h`,
+    `EditorPlacementAssets.h`, runtime tool declarations, collision-shape,
+    ragdoll, render-command, and standard headers directly. Its former mid-file
+    include was removed from `RunEditorTools.cpp`, replay velocity helper
+    declarations moved to `EditorTools.h`, and `SKULLBONEZ_CORE.vcxproj` /
+    `.filters` now compile the new `.cpp`. Runtime-boundary guardrails that
+    scan editor tracer code now read the `.cpp` path. Related source-learning
+    links in `EditorPlacementAssets.h` and `RunEditorOverlayTools.cpp` now point
+    at the promoted tracer TU. Comment audit touched `RunEditorTracer.cpp`,
+    `EditorTools.h`, `EditorPlacementAssets.h`, `RunEditorTools.cpp`,
+    `RunEditorOverlayTools.cpp`, and `tools\check_runtime_boundaries.py`; all
+    have learning headers and required local `Concept`/`Why`/`Invariant` or
+    policy comments, with no deferred files.
+
+    Validation note: initial `tools\validate_fast.bat` runs failed on mechanical
+    promoted-file dependencies (`Json` alias and `Ragdoll` include/scope). After
+    fixes, `python tools\check_runtime_boundaries.py` passed in 16.8s and
+    `python tools\check_runtime_boundaries.py --self-test` passed in 0.5s.
+    `tools\validate_fast.bat` passed in 47.1s
+    (`Agentic\Logs\cleanup-06-step-0.2-tracer-validate-fast.log`), and
+    `tools\validate_full.bat` passed in 46.6s
+    (`Agentic\Logs\cleanup-06-step-0.2-tracer-validate-full.log`): 0 build
+    warnings/errors, 0 DX12 validation errors, DX12 screenshots matched
+    committed baselines, and `physics_regression_solver.csv` matched
+    byte-exactly at 20001 lines.
   - [x] `RunEditorOverlayTools.inl`
   - [ ] `RunEditorObjectPlacement.inl`
 - [ ] **0.3** `rg -n '#include ".*\.inl"' SkullbonezSource/Runtime/Editor` —

@@ -259,6 +259,16 @@ void ResetEditorModelMotionAndWake( GameObjects::GameModelCollection& collection
                                     int index,
                                     GameObjects::PhysicsBodyStateEdit edit,
                                     Physics::PhysicsColliderCreateDesc colliderDesc );
+// Concept: replay velocity gizmos share the editor axis/ring vocabulary so
+// scrub-time velocity edits and live editor gizmos draw comparable handles.
+float ReplayVelocityLinearBaseLength( float modelRadius );
+float ReplayVelocityLinearVisualAxisT( float modelRadius, float velocityComponent );
+float ReplayVelocityLinearUnitsPerWorld();
+float ReplayVelocityAngularBaseRadius( float modelRadius );
+float ReplayVelocityAngularVisualRadius( float modelRadius, float angularComponent );
+float ReplayVelocityAxisComponent( const Math::Vector::Vector3& value, int axis );
+void ReplayVelocitySetAxisComponent( Math::Vector::Vector3& value, int axis, float component );
+void ReplayVelocityAxisColor( int axis, float heat, bool hot, bool active, float& r, float& g, float& b );
 Math::Vector::Vector3 EditorRotationRingBasisA( int axis );
 Math::Vector::Vector3 EditorRotationRingBasisB( int axis );
 float WrapEditorAngleDelta( float delta );

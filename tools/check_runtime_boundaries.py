@@ -1600,7 +1600,7 @@ GLOBAL_RENDERER_SERVICE_LABELS = { "Gfx()", "GfxCapture()", "GfxRayTracing()", "
 GLOBAL_RENDERER_SERVICE_ACCESS_CLASSIFICATIONS: dict[Path, str] = {
     Path("SkullbonezSource/Physics/TornadoField.cpp"): "physics debug rendering compatibility",
     Path("SkullbonezSource/Runtime/Editor/LauncherLaser.cpp"): "editor transient geometry compatibility",
-    Path("SkullbonezSource/Runtime/Editor/RunEditorTracer.inl"): "editor debug tracing compatibility",
+    Path("SkullbonezSource/Runtime/Editor/RunEditorTracer.cpp"): "editor debug tracing compatibility",
     Path("SkullbonezSource/Runtime/Run.cpp"): "runtime composition root",
     Path("SkullbonezSource/Runtime/RunFrame.cpp"): "runtime frame lifecycle",
     Path("SkullbonezSource/Runtime/RunRender.cpp"): "runtime render service composition",
@@ -6350,7 +6350,7 @@ def check_attached_camera_overlay_store_authority_guardrails(repo: Path) -> list
     for relative_path in (
         EDITOR_OVERLAY_TOOLS_SOURCE,
         Path("SkullbonezSource/Runtime/Tools/RuntimeTools.h"),
-        Path("SkullbonezSource/Runtime/Editor/RunEditorTracer.inl"),
+        Path("SkullbonezSource/Runtime/Editor/RunEditorTracer.cpp"),
     ):
         path = repo / relative_path
         errors.extend(
@@ -6413,7 +6413,7 @@ def check_replay_target_marker_store_authority_guardrails(repo: Path) -> list[Bo
     for relative_path in (
         RUN_REPLAY_TOOLS_SOURCE,
         Path("SkullbonezSource/Runtime/Tools/RuntimeTools.h"),
-        Path("SkullbonezSource/Runtime/Editor/RunEditorTracer.inl"),
+        Path("SkullbonezSource/Runtime/Editor/RunEditorTracer.cpp"),
     ):
         path = repo / relative_path
         errors.extend(

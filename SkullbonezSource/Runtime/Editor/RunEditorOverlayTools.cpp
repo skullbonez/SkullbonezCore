@@ -19,7 +19,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/Editor/RunEditorTools.cpp
-  - SkullbonezSource/Runtime/Editor/RunEditorTracer.inl
+  - SkullbonezSource/Runtime/Editor/RunEditorTracer.cpp
 */
 #include "EditorOverlayTools.h"
 #include "EditorTools.h"

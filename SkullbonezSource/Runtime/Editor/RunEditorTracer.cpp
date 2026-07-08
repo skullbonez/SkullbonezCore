@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/Runtime/Editor/RunEditorTracer.inl
+File: SkullbonezSource/Runtime/Editor/RunEditorTracer.cpp
 Purpose:
   Implements runtime editor overlay tracer primitives and draw submission.
 
@@ -26,13 +26,39 @@ Invariants:
   - Trace generation must stay transient; line buffers are cleared every frame by the caller.
   - Replay causal entry/rest markers use priority ribbon storage so expensive
     prediction paths can degrade without erasing already-revealed boxes.
-  - This file must only be included from RunEditorTools.cpp after tracer helper math is declared.
+  - The tracer owns fixed-capacity overlay buffers and must not allocate while
+    building a frame.
 
 Related:
+  - SkullbonezSource/Runtime/Tools/RuntimeTools.h
   - SkullbonezSource/Runtime/Editor/EditorOverlayTools.h
+  - SkullbonezSource/Runtime/Editor/EditorPlacementAssets.h
+  - SkullbonezSource/Runtime/Editor/EditorTools.h
   - SkullbonezSource/Runtime/Editor/RunEditorTools.cpp
   - Agentic/Reference/comment-style-guide.md
 */
+#include "../RunInternal.h"
+#include "EditorPlacementAssets.h"
+#include "EditorTools.h"
+#include "../Tools/RuntimeTools.h"
+#include "../../Physics/CollisionShape.h"
+#include "../../Physics/Ragdoll.h"
+#include "../../Rendering/IRenderCommandContext.h"
+
+#include <algorithm>
+#include <cmath>
+#include <cstddef>
+#include <cstdint>
+#include <vector>
+
+using namespace SkullbonezCore::Basics;
+using namespace SkullbonezCore::Basics::RunInternal;
+using namespace SkullbonezCore::Math::CollisionDetection;
+using namespace SkullbonezCore::Math::Orientation;
+using namespace SkullbonezCore::Math::Transformation;
+using SkullbonezCore::Math::Vector::Vector3;
+using SkullbonezCore::Physics::Ragdoll;
+using Json = SkullbonezCore::Basics::RunInternal::EditorPlacementJson;
 
 namespace
 {
@@ -779,14 +805,7 @@ void RunEditorTracer::AddReplayBaselinePathSegment( const Vector3& start, const 
 {
     const ReplayRibbonStyle glow = { 1.05f, 0.15f, 0.82f, 2.20f };
     const ReplayRibbonStyle core = { 0.24f, 0.62f, 0.42f, 1.22f };
-    EmitReplayRibbonGlowPairTo( m_replayRibbonSegments,
-                                start,
-                                end,
-                                0.34f,
-                                0.82f,
-                                0.95f,
-                                glow,
-                                core );
+    EmitReplayRibbonGlowPairTo( m_replayRibbonSegments, start, end, 0.34f, 0.82f, 0.95f, glow, core );
 }
 
 
