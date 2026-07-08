@@ -1664,6 +1664,8 @@ void Run::TakeInput()
                                  UIBlocksKeyboardBeforeInput,
                                  m_UI.BlocksCameraMouse() );
     bool keyboardToggleEditorMode = false;
+    bool keyboardToggleEditorToolMapped = false;
+    RunInternal::EditorKeyboardShortcutResult keyboardEditorToolShortcut;
     auto editorGizmoContext = [this]()
     { return RunInternal::EditorGizmoContext{ m_runtimeTools.Editor(), m_cGameModelCollection, m_interaction }; };
     auto applyEditorPlacementModeChange =
@@ -1771,8 +1773,12 @@ void Run::TakeInput()
             return false;
         };
 
-        auto dispatchMappedKeyboardAction = [this, &executeSceneControlAction, &keyboardToggleEditorMode](
-                                                const RuntimeInputKeyBinding& binding ) -> bool
+        auto dispatchMappedKeyboardAction =
+            [this,
+             &executeSceneControlAction,
+             &keyboardToggleEditorMode,
+             &keyboardToggleEditorToolMapped,
+             &keyboardEditorToolShortcut]( const RuntimeInputKeyBinding& binding ) -> bool
         {
             switch ( binding.action )
             {
@@ -1781,6 +1787,13 @@ void Run::TakeInput()
                 // so keyboard and UI editor toggles share the same transition path.
                 keyboardToggleEditorMode =
                     InputController::CaptureKeyboardActionPress( m_runtimeInput, binding.action, binding.virtualKey );
+                return true;
+            case RuntimeInputAction::ToggleEditorTool:
+                keyboardEditorToolShortcut = RunInternal::HandleEditorKeyboardShortcut(
+                    binding.action,
+                    Input::IsKeyDown( binding.virtualKey ),
+                    InputController::CaptureKeyboardActionPress( m_runtimeInput, binding.action, binding.virtualKey ) );
+                keyboardToggleEditorToolMapped = true;
                 return true;
             case RuntimeInputAction::CycleCameraMode:
                 if ( InputController::CaptureKeyboardActionPress( m_runtimeInput, binding.action, binding.virtualKey ) )
@@ -2190,7 +2203,8 @@ void Run::TakeInput()
         if ( m_runtimeTools.Editor().editorModeEnabled )
         {
             const RunInternal::EditorKeyboardShortcutResult editorShortcuts =
-                RunInternal::HandleEditorKeyboardShortcuts( { m_runtimeInput } );
+                keyboardToggleEditorToolMapped ? keyboardEditorToolShortcut
+                                               : RunInternal::HandleEditorKeyboardShortcuts( { m_runtimeInput } );
             m_replayRuntime.SetVelocityEditAltKeyDown( editorShortcuts.altDown );
             if ( editorShortcuts.togglePlacementMode )
             {
@@ -2199,7 +2213,8 @@ void Run::TakeInput()
         }
         else
         {
-            const bool altDown = Input::IsKeyDown( VK_MENU );
+            const bool altDown =
+                keyboardToggleEditorToolMapped ? keyboardEditorToolShortcut.altDown : Input::IsKeyDown( VK_MENU );
             if ( altDown && !m_replayRuntime.VelocityEdit().keyboardAltWasDown )
             {
                 const bool enableVelocityEdit = !m_replayRuntime.VelocityEdit().enabled;

@@ -277,6 +277,7 @@ float DistanceRayToSegmentSquared( const Math::Vector::Vector3& rayOrigin,
                                    const Math::Vector::Vector3& segmentA,
                                    const Math::Vector::Vector3& segmentB );
 EditorKeyboardShortcutResult HandleEditorKeyboardShortcuts( EditorKeyboardShortcutContext context );
+EditorKeyboardShortcutResult HandleEditorKeyboardShortcut( RuntimeInputAction action, bool isDown, bool wasPressed );
 EditorPlacementModeChangeResult
 SetEditorPlacementMode( EditorGizmoContext context, bool enabled, bool clearManipulation );
 EditorPlacementModeChangeResult ToggleEditorPlacementMode( EditorGizmoContext context );

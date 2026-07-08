@@ -324,6 +324,17 @@ every step. Commit per step.
 	    `physics_regression_solver.csv` matched byte-exactly). An earlier
 	    `validate_full` attempt failed on `EditorTools.cpp` formatting only; the
 	    touched C++ files were formatted narrowly with clang-format before the rerun.
+	  - [x] Editor tool / replay Alt keyboard group now routes the `VK_MENU`
+	    `ToggleEditorTool` row through the same table loop. The dispatch pass captures
+	    the Alt down/press state from the table row, then the existing post-loop
+	    editor/replay branch consumes that state in its original order for editor
+	    placement toggles and replay velocity editing. Gate evidence:
+	    `TestOutput\agent_logs\plan01_step1_3_editor_tool_interaction_clicks.log`
+	    (23.0s, both interaction reports `ok=1`) and
+	    `TestOutput\agent_logs\plan01_step1_3_editor_tool_validate_full.log` (52.7s;
+	    project filters/runtime boundaries passed, Profile/Debug builds had 0 warnings
+	    and 0 errors, DX12 InfoQueue errors = 0, screenshots matched baselines, and
+	    `physics_regression_solver.csv` matched byte-exactly).
 - [ ] **1.4** Confirm `TakeInput()` is under ~200 lines (setup + dispatch loop).
 
 ### Phase 2 — Move state shelves out of `RunState`

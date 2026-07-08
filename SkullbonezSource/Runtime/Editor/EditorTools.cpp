@@ -262,11 +262,27 @@ void ClearEditorManipulationState( EditorGizmoContext context )
 
 EditorKeyboardShortcutResult HandleEditorKeyboardShortcuts( EditorKeyboardShortcutContext context )
 {
+    return HandleEditorKeyboardShortcut(
+        RuntimeInputAction::ToggleEditorTool,
+        Hardware::Input::IsKeyDown( VK_MENU ),
+        InputController::CaptureKeyboardActionPress( context.input, RuntimeInputAction::ToggleEditorTool, VK_MENU ) );
+}
+
+
+EditorKeyboardShortcutResult HandleEditorKeyboardShortcut( RuntimeInputAction action, bool isDown, bool wasPressed )
+{
     EditorKeyboardShortcutResult result;
-    result.altDown = Hardware::Input::IsKeyDown( VK_MENU );
-    result.togglePlacementMode =
-        InputController::CaptureKeyboardActionPress( context.input, RuntimeInputAction::ToggleEditorTool, VK_MENU );
-    return result;
+    switch ( action )
+    {
+    case RuntimeInputAction::ToggleEditorTool:
+        // Concept: Alt is both a level input for replay velocity editing and a
+        // press edge for editor placement-mode toggling.
+        result.altDown = isDown;
+        result.togglePlacementMode = wasPressed;
+        return result;
+    default:
+        return result;
+    }
 }
 
 
