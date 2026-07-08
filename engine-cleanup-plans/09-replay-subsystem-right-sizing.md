@@ -6,11 +6,22 @@ Priority: P2
 Owner: Runtime / Replay
 Source issue: audit iss-07 (severity 3)
 
+## Owner decision
+
+The shadow prediction engine, future-node visualization, replay ribbons, and
+cinematic reveal timing are required functionality for the Butterfly Effect
+demo. This plan may refactor, split, rename, and clarify ownership around those
+features, but it must not remove them, hide them behind a disabled-by-default
+flag, or treat them as speculative debug leftovers.
+
 ## Problem
 
-A debug replay feature grew into a ~17K-line product with a speculative what-if
-physics engine and wall-clock cinematic storytelling, poorly separated from the
-game loop.
+Replay grew into a ~17K-line feature area that serves both diagnostics and the
+Butterfly Effect demo: record/replay, what-if physics prediction, future-state
+visualization, replay ribbons, and wall-clock cinematic reveal timing. The
+problem is not that these capabilities exist; the problem is that their record,
+prediction, UI, presentation, and game-loop responsibilities are poorly
+separated.
 
 Verified evidence:
 
@@ -47,9 +58,10 @@ prediction, and presentation — and get replay code out of `RunFrame`.
   replay probes and `RestoreReplayV2ArtifactTargetState` out of `RunFrame` into
   `Replay/`. (Coordinates with plan 01's `RunFrame` shrink and plan 06's `.inl`
   work.)
-- [ ] **Phase 3 — Justify or cut speculation.** Decide whether the 256 MB shadow
-  prediction engine and cinematic reveal earn their complexity; gate behind a
-  build flag or remove the speculative parts.
+- [ ] **Phase 3 — Make Butterfly Effect ownership explicit.** Preserve the 256 MB
+  shadow prediction engine, future-node visualization, replay ribbons, and
+  cinematic reveal behavior, but give them clear owner types and contracts so
+  they are no longer blended into generic replay state or `RunFrame`.
 
 ## Risks / determinism
 
@@ -83,12 +95,14 @@ bit-exact — the replay scrub regression is the gate.
   Then promote the freed replay `.inl` to real TUs (this is plan 06 step 1.1).
   Gate: `validate_full` + replay scrub. Commit.
 
-### Phase 3 — Justify or cut speculation (DECIDE — stop for a human)
+### Phase 3 — Make Butterfly Effect ownership explicit
 
-- [ ] **3.1** Decide whether the 256 MB shadow prediction engine and cinematic
-  reveal earn their complexity: gate behind a build flag or remove. A smaller
-  model must **not** cut features alone — surface this to a human. Leave unchecked
-  until decided.
+- [ ] **3.1** Preserve the 256 MB shadow prediction engine, future-node cache,
+  replay ribbons, and cinematic reveal behavior as Butterfly Effect demo
+  functionality. Refactor them behind explicit replay prediction/presentation
+  owner types, add or update behavior coverage for the demo path, and keep
+  record/restore bit-exact. Gate: replay scrub + Butterfly Effect interaction or
+  demo regression + `validate_full`. Commit.
 
 ## Validation
 
@@ -100,4 +114,6 @@ bit-exact — the replay scrub regression is the gate.
 - [ ] `RunFrame.cpp` contains no replay-probe bodies (they live in `Replay/`).
 - [ ] `RunReplayPredictionState` is split into single-concern types.
 - [ ] The six twin helpers are one template.
+- [ ] Butterfly Effect prediction, future-node visualization, replay ribbons,
+  and cinematic reveal behavior are preserved and have explicit owner types.
 - [ ] Replay subsystem LOC is materially reduced; record/restore stays bit-exact.
