@@ -16,6 +16,8 @@ Glossary:
     feature, or parameter state.
   Presentation command: One-frame UI packet that edits debug visibility, render
     tuning, shadow, or water-reflection presentation state.
+  Run simulation command: One-frame UI packet that edits time scale, random seed,
+    or worker-thread count.
   Sound command: One-frame UI packet that edits contact-audio presentation state.
   Physics friction command: One-frame Physics-tab packet that edits live friction config.
   Physics sleep command: One-frame Physics-tab packet that toggles sleep policy.
@@ -153,9 +155,31 @@ struct CinematicTuningUICommandResult
     bool appliedParam = false;
 };
 
+struct RunSimulationUICommandContext
+{
+    // Lifetime: borrowed only while one UI command packet is applied. Time-scale
+    // edits persist through scene UI overrides, seed edits mutate scene RNG, and
+    // worker edits delegate immediately to WorkerPool.
+    RunSceneState& scene;
+    RunSceneUIOverrideState& uiOverrides;
+    EngineConfig& config;
+    Threading::WorkerPool& workerPool;
+};
+
+struct RunSimulationUICommandResult
+{
+    bool setTimeScale = false;
+    bool setRunSeed = false;
+    bool setWorkerThreads = false;
+};
+
 void ApplyWorkerThreadCountOverride( EngineConfig& config,
                                      Threading::WorkerPool& workerPool,
                                      int requestedWorkerThreads );
+RunSimulationUICommandResult ApplyRunSimulationUICommands( RunSimulationUICommandContext context,
+                                                           const UI::UISceneOptionCommands& sceneOptions,
+                                                           const UI::UIRunCommands& run,
+                                                           const UI::UIProfilerCommands& profiler );
 void ApplyUIWorldOverride( WorldEnvironment& world,
                            ReplayRuntime& replayRuntime,
                            float gravity,

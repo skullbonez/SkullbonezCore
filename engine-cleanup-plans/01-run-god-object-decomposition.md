@@ -539,6 +539,23 @@ every step. Commit per step.
 	    (9.3s), `TestOutput\agent_logs\plan01_world_water_ui_runtime_boundaries.log`
 	    (17.4s), and `TestOutput\agent_logs\plan01_world_water_ui_build_profile.log`
 	    (8.4s).
+	  - [x] Run-tab scalar UI command extraction moved time-scale, random-seed,
+	    and worker-thread request handling out of `Run::TakeInput()` and into
+	    `RuntimeTuning`. `RunInput` now only logs the accepted command flags, and
+	    the touched-file comment audit added the seed/rngState determinism
+	    invariant plus the borrowed context lifetime note. `TakeInput()` still
+	    spans 1,043 lines after formatter wrapping. Gate evidence:
+	    `TestOutput\agent_logs\plan01_run_sim_ui_interaction_clicks.log` (16.0s,
+	    both interaction reports `ok=1`) and
+	    `TestOutput\agent_logs\plan01_run_sim_ui_validate_full.log` (50.8s;
+	    project filters/runtime boundaries passed, Profile/Debug builds had 0
+	    warnings and 0 errors, DX12 InfoQueue errors = 0, screenshots matched
+	    baselines, and `physics_regression_solver.csv` matched byte-exactly).
+	    Targeted pre-gate checks also passed:
+	    `TestOutput\agent_logs\plan01_run_sim_ui_validate_format_rerun.log`
+	    (9.4s), `TestOutput\agent_logs\plan01_run_sim_ui_runtime_boundaries.log`
+	    (17.7s), and `TestOutput\agent_logs\plan01_run_sim_ui_build_profile.log`
+	    (8.5s).
 - [ ] **1.4** Confirm `TakeInput()` is under ~200 lines (setup + dispatch loop).
 
 ### Phase 2 — Move state shelves out of `RunState`

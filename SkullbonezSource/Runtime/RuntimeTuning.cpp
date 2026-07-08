@@ -260,6 +260,34 @@ void ApplyWorkerThreadCountOverride( EngineConfig& config,
     }
 }
 
+RunSimulationUICommandResult ApplyRunSimulationUICommands( RunSimulationUICommandContext context,
+                                                           const UI::UISceneOptionCommands& sceneOptions,
+                                                           const UI::UIRunCommands& run,
+                                                           const UI::UIProfilerCommands& profiler )
+{
+    RunSimulationUICommandResult result;
+    if ( sceneOptions.requestedTimeScale > 0.0f )
+    {
+        context.uiOverrides.timeScaleOverride = std::clamp( sceneOptions.requestedTimeScale, 0.10f, 10.00f );
+        context.scene.timeScale = context.uiOverrides.timeScaleOverride;
+        result.setTimeScale = true;
+    }
+    if ( run.requestedSeed > 0 )
+    {
+        // Invariant: seed edits reset rngState immediately so generated rebuilds
+        // and live frame code observe the same deterministic starting point.
+        context.scene.rngSeed = static_cast<unsigned int>( std::clamp( run.requestedSeed, 1, 999999 ) );
+        context.scene.rngState = context.scene.rngSeed;
+        result.setRunSeed = true;
+    }
+    if ( profiler.requestedWorkerThreads >= -1 )
+    {
+        ApplyWorkerThreadCountOverride( context.config, context.workerPool, profiler.requestedWorkerThreads );
+        result.setWorkerThreads = true;
+    }
+    return result;
+}
+
 void ApplyUIWorldOverride( WorldEnvironment& world,
                            ReplayRuntime& replayRuntime,
                            float gravity,

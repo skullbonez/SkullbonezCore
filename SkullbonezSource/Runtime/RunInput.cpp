@@ -2425,17 +2425,20 @@ void Run::TakeInput()
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::SetWaterReflectionMode,
                                                RuntimeInputActionSource::UI );
         }
-        if ( uiCommands.sceneOptions.requestedTimeScale > 0.0f )
+        const RunSimulationUICommandResult runSimulationCommands =
+            ApplyRunSimulationUICommands( RunSimulationUICommandContext{ SceneState(),
+                                                                         m_sceneController.UIOverrides(),
+                                                                         m_config,
+                                                                         *m_systems.workerPool },
+                                          uiCommands.sceneOptions,
+                                          uiCommands.run,
+                                          uiCommands.profiler );
+        if ( runSimulationCommands.setTimeScale )
         {
-            m_sceneController.UIOverrides().timeScaleOverride =
-                std::clamp( uiCommands.sceneOptions.requestedTimeScale, 0.10f, 10.00f );
-            SceneState().timeScale = m_sceneController.UIOverrides().timeScaleOverride;
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::SetTimeScale, RuntimeInputActionSource::UI );
         }
-        if ( uiCommands.run.requestedSeed > 0 )
+        if ( runSimulationCommands.setRunSeed )
         {
-            SceneState().rngSeed = static_cast<unsigned int>( std::clamp( uiCommands.run.requestedSeed, 1, 999999 ) );
-            SceneState().rngState = SceneState().rngSeed;
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::SetRunSeed, RuntimeInputActionSource::UI );
         }
         const DiagnosticsPhysicsDebugValueUICommandResult physicsDebugValueCommands =
@@ -2511,11 +2514,8 @@ void Run::TakeInput()
                                            uiCommands.sceneOptions.requestedModelCount ) );
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::SetModelCount, RuntimeInputActionSource::UI );
         }
-        if ( uiCommands.profiler.requestedWorkerThreads >= -1 )
+        if ( runSimulationCommands.setWorkerThreads )
         {
-            ApplyWorkerThreadCountOverride( m_config,
-                                            *m_systems.workerPool,
-                                            uiCommands.profiler.requestedWorkerThreads );
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::SetWorkerThreads, RuntimeInputActionSource::UI );
         }
         if ( uiCommands.run.requestedSolverBallCount >= 0 )
