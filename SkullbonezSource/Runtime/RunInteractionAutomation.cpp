@@ -629,6 +629,155 @@ struct InteractionAutomationReplayControlContext
     ReplayRuntime& replayRuntime;
 };
 
+struct InteractionAutomationDirectorCameraContext
+{
+    RunInteractionAutomationState& state;
+    RunSubsystemState& systems;
+    RunCameraState& camera;
+};
+
+template <typename ApplyCameraMode>
+void ApplyInteractionAutomationDirectorCameraAction( InteractionAutomationDirectorCameraContext& context,
+                                                     RunInteractionAutomationAction& action,
+                                                     int frame,
+                                                     ApplyCameraMode applyCameraMode )
+{
+    // Concept: director/camera automation seeds the same camera and director
+    // owners used by live authoring; Run only supplies the private camera-mode
+    // transition callback that still belongs to the composition root.
+    switch ( action.type )
+    {
+    case RunInteractionAutomationActionType::LoadShotList:
+    {
+        const bool loaded = DemoDirectorPlayback::LoadShotList( context.camera, context.systems, action.path );
+        if ( !loaded )
+        {
+            FailAutomation( context.state, "failed to load director shot list" );
+        }
+        AppendReportAction( context.state,
+                            frame,
+                            action.type,
+                            action.path,
+                            nullptr,
+                            loaded,
+                            loaded ? "shot list loaded" : "shot list unavailable" );
+        break;
+    }
+    case RunInteractionAutomationActionType::DirectorPlay:
+    {
+        const RunCameraMode targetMode = action.boolValue ? RunCameraMode::Director : RunCameraMode::Inspect;
+        applyCameraMode( targetMode );
+        const bool applied = context.camera.mode == targetMode;
+        if ( !applied )
+        {
+            FailAutomation( context.state, "failed to apply director play state" );
+        }
+        AppendReportAction( context.state,
+                            frame,
+                            action.type,
+                            action.text,
+                            nullptr,
+                            applied,
+                            applied ? "director play state applied" : "director play state failed" );
+        break;
+    }
+    case RunInteractionAutomationActionType::DirectorAdvance:
+    {
+        const bool advanced = DemoDirectorPlayback::AdvancePhase( context.camera, context.systems );
+        if ( !advanced )
+        {
+            FailAutomation( context.state, "failed to advance director phase" );
+        }
+        AppendReportAction( context.state,
+                            frame,
+                            action.type,
+                            "",
+                            nullptr,
+                            advanced,
+                            advanced ? "director phase advanced" : "director phase unavailable" );
+        break;
+    }
+    case RunInteractionAutomationActionType::DirectorGrab:
+    {
+        const bool grabbed = DemoDirectorPlayback::BeginGrab( context.camera, context.systems );
+        if ( !grabbed )
+        {
+            FailAutomation( context.state, "failed to grab director camera" );
+        }
+        AppendReportAction( context.state,
+                            frame,
+                            action.type,
+                            "",
+                            nullptr,
+                            grabbed,
+                            grabbed ? "director camera grabbed" : "director grab unavailable" );
+        break;
+    }
+    case RunInteractionAutomationActionType::DirectorRelease:
+    {
+        const bool released = DemoDirectorPlayback::EndGrab( context.camera, context.systems );
+        if ( !released )
+        {
+            FailAutomation( context.state, "failed to release director camera" );
+        }
+        AppendReportAction( context.state,
+                            frame,
+                            action.type,
+                            "",
+                            nullptr,
+                            released,
+                            released ? "director camera released" : "director release unavailable" );
+        break;
+    }
+    case RunInteractionAutomationActionType::SetPhaseStyle:
+    {
+        const bool applied = DemoDirectorPlayback::SetCurrentPhaseStyle( context.camera, action.path );
+        if ( !applied )
+        {
+            FailAutomation( context.state, "failed to set director phase style" );
+        }
+        AppendReportAction( context.state,
+                            frame,
+                            action.type,
+                            action.path,
+                            nullptr,
+                            applied,
+                            applied ? "director phase style set" : "director phase unavailable" );
+        break;
+    }
+    case RunInteractionAutomationActionType::SetCameraPose:
+    {
+        const bool applied = context.systems.cameras != nullptr;
+        if ( applied )
+        {
+            // Why: pose-authoring proofs seed the current camera, then use
+            // normal J/L key handling to write and save the shot list.
+            context.systems.cameras->SetPrimaryPose( action.cameraPose.eye,
+                                                     action.cameraPose.view,
+                                                     action.cameraPose.up );
+        }
+        else
+        {
+            FailAutomation( context.state, "failed to set camera pose" );
+        }
+        AppendReportAction( context.state,
+                            frame,
+                            action.type,
+                            "",
+                            nullptr,
+                            applied,
+                            applied ? "camera pose applied" : "camera unavailable" );
+        break;
+    }
+    case RunInteractionAutomationActionType::SetCameraMode:
+        applyCameraMode( action.cameraMode );
+        AppendReportAction( context.state, frame, action.type, action.text, nullptr, true, "camera mode applied" );
+        break;
+    default:
+        break;
+    }
+}
+
 void ShowInteractionAutomationReplayScrubber( InteractionAutomationReplayControlContext& context )
 {
     context.replayRuntime.Scrubber().visible = true;
@@ -1508,6 +1657,7 @@ void Run::TickInteractionAutomationBeforeInput()
                                                                     SceneState(),
                                                                     m_timers,
                                                                     m_replayRuntime };
+    InteractionAutomationDirectorCameraContext directorCameraContext{ state, m_systems, m_camera };
     if ( state.releaseLeftFrame == frame )
     {
         state.leftMouseDown = false;
@@ -1535,137 +1685,18 @@ void Run::TickInteractionAutomationBeforeInput()
         switch ( action.type )
         {
         case RunInteractionAutomationActionType::LoadShotList:
-        {
-            const bool loaded = DemoDirectorPlayback::LoadShotList( m_camera, m_systems, action.path );
-            if ( !loaded )
-            {
-                FailAutomation( state, "failed to load director shot list" );
-            }
-            AppendReportAction( state,
-                                frame,
-                                action.type,
-                                action.path,
-                                nullptr,
-                                loaded,
-                                loaded ? "shot list loaded" : "shot list unavailable" );
-            action.processed = true;
-            break;
-        }
         case RunInteractionAutomationActionType::DirectorPlay:
-        {
-            const RunCameraMode targetMode = action.boolValue ? RunCameraMode::Director : RunCameraMode::Inspect;
-            ApplyCameraMode( targetMode, RuntimeInputActionSource::Runtime );
-            const bool applied = m_camera.mode == targetMode;
-            if ( !applied )
-            {
-                FailAutomation( state, "failed to apply director play state" );
-            }
-            AppendReportAction( state,
-                                frame,
-                                action.type,
-                                action.text,
-                                nullptr,
-                                applied,
-                                applied ? "director play state applied" : "director play state failed" );
-            action.processed = true;
-            break;
-        }
         case RunInteractionAutomationActionType::DirectorAdvance:
-        {
-            const bool advanced = DemoDirectorPlayback::AdvancePhase( m_camera, m_systems );
-            if ( !advanced )
-            {
-                FailAutomation( state, "failed to advance director phase" );
-            }
-            AppendReportAction( state,
-                                frame,
-                                action.type,
-                                "",
-                                nullptr,
-                                advanced,
-                                advanced ? "director phase advanced" : "director phase unavailable" );
-            action.processed = true;
-            break;
-        }
         case RunInteractionAutomationActionType::DirectorGrab:
-        {
-            const bool grabbed = DemoDirectorPlayback::BeginGrab( m_camera, m_systems );
-            if ( !grabbed )
-            {
-                FailAutomation( state, "failed to grab director camera" );
-            }
-            AppendReportAction( state,
-                                frame,
-                                action.type,
-                                "",
-                                nullptr,
-                                grabbed,
-                                grabbed ? "director camera grabbed" : "director grab unavailable" );
-            action.processed = true;
-            break;
-        }
         case RunInteractionAutomationActionType::DirectorRelease:
-        {
-            const bool released = DemoDirectorPlayback::EndGrab( m_camera, m_systems );
-            if ( !released )
-            {
-                FailAutomation( state, "failed to release director camera" );
-            }
-            AppendReportAction( state,
-                                frame,
-                                action.type,
-                                "",
-                                nullptr,
-                                released,
-                                released ? "director camera released" : "director release unavailable" );
-            action.processed = true;
-            break;
-        }
         case RunInteractionAutomationActionType::SetPhaseStyle:
-        {
-            const bool applied = DemoDirectorPlayback::SetCurrentPhaseStyle( m_camera, action.path );
-            if ( !applied )
-            {
-                FailAutomation( state, "failed to set director phase style" );
-            }
-            AppendReportAction( state,
-                                frame,
-                                action.type,
-                                action.path,
-                                nullptr,
-                                applied,
-                                applied ? "director phase style set" : "director phase unavailable" );
-            action.processed = true;
-            break;
-        }
         case RunInteractionAutomationActionType::SetCameraPose:
-        {
-            const bool applied = m_systems.cameras != nullptr;
-            if ( applied )
-            {
-                // Why: pose-authoring proofs seed the current camera, then use
-                // normal J/L key handling to write and save the shot list.
-                m_systems.cameras->SetPrimaryPose( action.cameraPose.eye,
-                                                   action.cameraPose.view,
-                                                   action.cameraPose.up );
-            }
-            else
-            {
-                FailAutomation( state, "failed to set camera pose" );
-            }
-            AppendReportAction( state,
-                                frame,
-                                action.type,
-                                "",
-                                nullptr,
-                                applied,
-                                applied ? "camera pose applied" : "camera unavailable" );
-            action.processed = true;
-            break;
-        }
         case RunInteractionAutomationActionType::SetCameraMode:
-            ApplyCameraMode( action.cameraMode, RuntimeInputActionSource::Runtime );
-            AppendReportAction( state, frame, action.type, action.text, nullptr, true, "camera mode applied" );
+            ApplyInteractionAutomationDirectorCameraAction(
+                directorCameraContext,
+                action,
+                frame,
+                [this]( RunCameraMode mode ) { ApplyCameraMode( mode, RuntimeInputActionSource::Runtime ); } );
             action.processed = true;
             break;
         case RunInteractionAutomationActionType::ShowReplayScrubber:

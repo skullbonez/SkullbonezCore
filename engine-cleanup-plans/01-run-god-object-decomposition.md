@@ -1422,6 +1422,33 @@ every step. Commit per step.
     `TestOutput\agent_logs\plan01_interaction_before_input_replay_controls_runtime_boundaries.log`
     (17.7s). The touched-file comment audit covered
     `RunInteractionAutomation.cpp`.
+  - [x] Interaction automation before-input director/camera split moved
+    shot-list loading, director playback controls, phase style, camera pose,
+    and camera-mode actions into source-local
+    `ApplyInteractionAutomationDirectorCameraAction()` with explicit
+    automation, subsystem, and camera owner references plus callback-only access
+    to the remaining `Run::ApplyCameraMode()` transition. `Run::TickInteractionAutomationBeforeInput()`
+    dropped from 365 measured lines to 247 measured lines without adding public
+    or private `Run` methods. The remaining measured large `Run::` targets are
+    `RestoreReplayV2ArtifactTargetState` (946),
+    `TickInteractionAutomationBeforeInput` (247), `TakeInput` (201),
+    `RunGraphicsStressActions` (199), `WriteInteractionAutomationReport`
+    (197), and `Execute` (196), so Phase 3 and the structural acceptance rows
+    remain open. Gate evidence:
+    `TestOutput\agent_logs\plan01_interaction_before_input_director_camera_validate_full.log`
+    (52.5s; project filters/runtime boundaries passed, Profile/Debug builds
+    had 0 warnings and 0 errors, DX12 InfoQueue errors = 0, screenshots
+    matched baselines, and `physics_regression_solver.csv` matched
+    byte-exactly). Focused interaction check passed:
+    `TestOutput\agent_logs\plan01_interaction_before_input_director_camera_validate_interaction_clicks.log`
+    (16.1s). Targeted pre-gate checks also passed:
+    `TestOutput\agent_logs\plan01_interaction_before_input_director_camera_build_profile.log`
+    (9.1s),
+    `TestOutput\agent_logs\plan01_interaction_before_input_director_camera_validate_format.log`
+    (9.3s), and
+    `TestOutput\agent_logs\plan01_interaction_before_input_director_camera_runtime_boundaries.log`
+    (17.6s). The touched-file comment audit covered
+    `RunInteractionAutomation.cpp`.
 
 ## Validation
 
