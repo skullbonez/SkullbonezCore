@@ -770,6 +770,27 @@ every step. Commit per step.
 	    (17.5s), and
 	    `TestOutput\agent_logs\plan01_camera_input_frame_build_profile.log`
 	    (10.4s).
+	  - [x] UI action-recorder extraction moved repeated UI command-result to
+	    `RuntimeInputAction` transition mapping out of the middle of
+	    `Run::TakeInput()` into file-local recorder helpers. The command
+	    application order remains in `TakeInput()`, and the split tornado and
+	    presentation helpers preserve the original transition-history ordering
+	    around raycast visualization and sound/water reflection commands. The
+	    touched-file comment audit added the mapper ownership/order note.
+	    `TakeInput()` now spans 760 lines. Gate evidence:
+	    `TestOutput\agent_logs\plan01_ui_action_recorders_interaction_clicks.log`
+	    (16.3s, both interaction reports `ok=1`) and
+	    `TestOutput\agent_logs\plan01_ui_action_recorders_validate_full.log`
+	    (48.9s; project filters/runtime boundaries passed, Profile/Debug builds
+	    had 0 warnings and 0 errors, DX12 InfoQueue errors = 0, screenshots
+	    matched baselines, and `physics_regression_solver.csv` matched
+	    byte-exactly). Targeted pre-gate checks also passed:
+	    `TestOutput\agent_logs\plan01_ui_action_recorders_validate_format.log`
+	    (9.2s),
+	    `TestOutput\agent_logs\plan01_ui_action_recorders_runtime_boundaries.log`
+	    (17.5s), and
+	    `TestOutput\agent_logs\plan01_ui_action_recorders_build_profile.log`
+	    (6.3s).
 - [ ] **1.4** Confirm `TakeInput()` is under ~200 lines (setup + dispatch loop).
 
 ### Phase 2 — Move state shelves out of `RunState`

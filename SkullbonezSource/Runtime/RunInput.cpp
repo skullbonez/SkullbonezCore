@@ -285,6 +285,190 @@ void AdvanceTakeInputKeyboardActionMemories( RuntimeInputContext& input )
     }
 }
 
+// Concept: UI command domains return accepted-command facts. These mappers keep
+// RuntimeInput transition recording in the original order without forcing each
+// domain helper to know about Run's input-mode history.
+template <typename RecordAction>
+void RecordDiagnosticsPhysicsOverlayUIActions( const DiagnosticsPhysicsOverlayUICommandResult& commands,
+                                               RecordAction recordAction )
+{
+    if ( commands.toggledPhysicsDebugFlags )
+    {
+        recordAction( RuntimeInputAction::TogglePhysicsDebugFlags );
+    }
+    if ( commands.steppedPipelinePrevious )
+    {
+        recordAction( RuntimeInputAction::StepPhysicsPipelinePrevious );
+    }
+    if ( commands.steppedPipelineNext )
+    {
+        recordAction( RuntimeInputAction::StepPhysicsPipelineNext );
+    }
+    if ( commands.toggledPhysicsDebugTransparent )
+    {
+        recordAction( RuntimeInputAction::TogglePhysicsDebugTransparent );
+    }
+    if ( commands.toggledBroadphaseOverlay )
+    {
+        recordAction( RuntimeInputAction::ToggleBroadphaseOverlay );
+    }
+}
+
+template <typename RecordAction>
+void RecordTornadoToggleUIActions( const TornadoUICommandResult& commands, RecordAction recordAction )
+{
+    if ( commands.toggledTornado )
+    {
+        recordAction( RuntimeInputAction::ToggleTornado );
+    }
+    if ( commands.toggledVisualShell )
+    {
+        recordAction( RuntimeInputAction::ToggleTornadoVisualShell );
+    }
+    if ( commands.toggledFieldVectors )
+    {
+        recordAction( RuntimeInputAction::ToggleTornadoFieldVectors );
+    }
+}
+
+template <typename RecordAction>
+void RecordTornadoApplySettingsUIActions( const TornadoUICommandResult& commands, RecordAction recordAction )
+{
+    for ( int actionIndex = 0; actionIndex < commands.applySettingsActionCount; ++actionIndex )
+    {
+        recordAction( RuntimeInputAction::ApplyTornadoSettings );
+    }
+}
+
+template <typename RecordAction>
+void RecordRuntimePresentationUIActions( const RuntimePresentationUICommandResult& commands, RecordAction recordAction )
+{
+    if ( commands.toggledTerrainHidden )
+    {
+        recordAction( RuntimeInputAction::ToggleTerrainHidden );
+    }
+    if ( commands.toggledWaterHidden )
+    {
+        recordAction( RuntimeInputAction::ToggleWaterHidden );
+    }
+    if ( commands.toggledWaterFreeze )
+    {
+        recordAction( RuntimeInputAction::ToggleWaterFreeze );
+    }
+    if ( commands.toggledWaterFlat )
+    {
+        recordAction( RuntimeInputAction::ToggleWaterFlat );
+    }
+    if ( commands.toggledSceneShadows )
+    {
+        recordAction( RuntimeInputAction::ToggleShadows );
+    }
+    if ( commands.toggledRenderShadows )
+    {
+        recordAction( RuntimeInputAction::ToggleRenderShadows );
+    }
+    if ( commands.queuedRenderDefaultsSave )
+    {
+        recordAction( RuntimeInputAction::SaveRenderDefaults );
+    }
+    if ( commands.appliedRenderTuning )
+    {
+        recordAction( RuntimeInputAction::ApplyRenderTuning );
+    }
+}
+
+template <typename RecordAction>
+void RecordRuntimePresentationWaterUIActions( const RuntimePresentationUICommandResult& commands,
+                                              RecordAction recordAction )
+{
+    if ( commands.toggledWaterReflection )
+    {
+        recordAction( RuntimeInputAction::ToggleWaterReflection );
+    }
+    if ( commands.setWaterReflectionMode )
+    {
+        recordAction( RuntimeInputAction::SetWaterReflectionMode );
+    }
+}
+
+template <typename RecordAction>
+void RecordRunSimulationUIActions( const RunSimulationUICommandResult& commands, RecordAction recordAction )
+{
+    if ( commands.setTimeScale )
+    {
+        recordAction( RuntimeInputAction::SetTimeScale );
+    }
+    if ( commands.setRunSeed )
+    {
+        recordAction( RuntimeInputAction::SetRunSeed );
+    }
+}
+
+template <typename RecordAction>
+void RecordDiagnosticsPhysicsDebugValueUIActions( const DiagnosticsPhysicsDebugValueUICommandResult& commands,
+                                                  RecordAction recordAction )
+{
+    if ( commands.setAlpha )
+    {
+        recordAction( RuntimeInputAction::SetPhysicsDebugAlpha );
+    }
+    if ( commands.setContactLinger )
+    {
+        recordAction( RuntimeInputAction::SetPhysicsDebugContactLinger );
+    }
+}
+
+template <typename RecordAction>
+void RecordPhysicsFrictionUIActions( const PhysicsFrictionUICommandResult& commands, RecordAction recordAction )
+{
+    for ( int actionIndex = 0; actionIndex < commands.applySettingsActionCount; ++actionIndex )
+    {
+        recordAction( RuntimeInputAction::ApplyPhysicsFrictionSettings );
+    }
+}
+
+template <typename RecordAction>
+void RecordCinematicTuningUIActions( const CinematicTuningUICommandResult& commands, RecordAction recordAction )
+{
+    if ( commands.toggledFeature )
+    {
+        recordAction( RuntimeInputAction::ToggleCinematicFeature );
+    }
+    if ( commands.appliedParam )
+    {
+        recordAction( RuntimeInputAction::ApplyCinematicParam );
+    }
+}
+
+template <typename RecordAction>
+void RecordSceneRuntimeUIActions( const SceneRuntimeUICommandResult& commands, RecordAction recordAction )
+{
+    if ( commands.resetScene )
+    {
+        recordAction( RuntimeInputAction::ResetScene );
+    }
+    if ( commands.resetSceneDefaults )
+    {
+        recordAction( RuntimeInputAction::ResetSceneDefaults );
+    }
+    if ( commands.loadDemoScene )
+    {
+        recordAction( RuntimeInputAction::LoadDemoScene );
+    }
+    if ( commands.saveSceneDefaults )
+    {
+        recordAction( RuntimeInputAction::SaveSceneDefaults );
+    }
+    if ( commands.createScene )
+    {
+        recordAction( RuntimeInputAction::CreateScene );
+    }
+    if ( commands.selectScene )
+    {
+        recordAction( RuntimeInputAction::SelectScene );
+    }
+}
+
 } // namespace
 
 void Run::UpdateRuntimeInputModeAfterAction( RuntimeInputAction action, RuntimeInputActionSource source )
@@ -2215,11 +2399,14 @@ void Run::TakeInput()
 
         DispatchAfterUIKeyboardActions( uiCommands.ui.userInteracted );
 
+        const auto recordUIAction = [this]( RuntimeInputAction action )
+        { UpdateRuntimeInputModeAfterAction( action, RuntimeInputActionSource::UI ); };
+
         if ( ApplyRenderVsyncUICommand(
                  RenderDeviceUICommandContext{ m_runtimeSettings, m_renderBackendView.deviceLifecycle },
                  uiCommands.renderer ) )
         {
-            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleVsync, RuntimeInputActionSource::UI );
+            recordUIAction( RuntimeInputAction::ToggleVsync );
         }
         const RunCameraModeUICommandResult cameraModeCommand = DecodeRunCameraModeUICommand( uiCommands.run );
         if ( cameraModeCommand.accepted )
@@ -2231,8 +2418,7 @@ void Run::TakeInput()
         if ( editorPreModeCommands.setPlaceStatic )
         {
             EnterInteractiveSceneRun();
-            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleEditorStaticPlacement,
-                                               RuntimeInputActionSource::UI );
+            recordUIAction( RuntimeInputAction::ToggleEditorStaticPlacement );
         }
         if ( editorPreModeCommands.enterPlacementMode )
         {
@@ -2240,8 +2426,7 @@ void Run::TakeInput()
         }
         if ( editorPreModeCommands.requestedObjectType )
         {
-            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::CycleEditorPlacementType,
-                                               RuntimeInputActionSource::UI );
+            recordUIAction( RuntimeInputAction::CycleEditorPlacementType );
         }
         if ( editorPreModeCommands.toggleEditorMode || keyboardToggleEditorMode )
         {
@@ -2257,94 +2442,47 @@ void Run::TakeInput()
         if ( editorPostModeCommands.toggledPlaceStatic )
         {
             EnterInteractiveSceneRun();
-            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleEditorStaticPlacement,
-                                               RuntimeInputActionSource::UI );
+            recordUIAction( RuntimeInputAction::ToggleEditorStaticPlacement );
         }
         if ( editorPostModeCommands.toggledTerrainAlign )
         {
             EnterInteractiveSceneRun();
-            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleEditorTerrainAlign,
-                                               RuntimeInputActionSource::UI );
+            recordUIAction( RuntimeInputAction::ToggleEditorTerrainAlign );
         }
         const DiagnosticsPhysicsOverlayUICommandResult physicsDiagnosticsCommands =
             ApplyDiagnosticsPhysicsOverlayUICommands( m_debug, uiCommands.physics );
         if ( physicsDiagnosticsCommands.toggledCollisionVisualizer )
         {
-            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleCollisionVisualizer,
-                                               RuntimeInputActionSource::UI );
+            recordUIAction( RuntimeInputAction::ToggleCollisionVisualizer );
         }
         if ( ApplyPhysicsSleepPolicyUICommand(
                  PhysicsSleepPolicyUICommandContext{ m_runtimeSettings, m_cGameModelCollection },
                  uiCommands.physics ) )
         {
-            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::TogglePhysicsSleepPolicy,
-                                               RuntimeInputActionSource::UI );
+            recordUIAction( RuntimeInputAction::TogglePhysicsSleepPolicy );
         }
-        if ( physicsDiagnosticsCommands.toggledPhysicsDebugFlags )
-        {
-            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::TogglePhysicsDebugFlags,
-                                               RuntimeInputActionSource::UI );
-        }
-        if ( physicsDiagnosticsCommands.steppedPipelinePrevious )
-        {
-            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::StepPhysicsPipelinePrevious,
-                                               RuntimeInputActionSource::UI );
-        }
-        if ( physicsDiagnosticsCommands.steppedPipelineNext )
-        {
-            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::StepPhysicsPipelineNext,
-                                               RuntimeInputActionSource::UI );
-        }
-        if ( physicsDiagnosticsCommands.toggledPhysicsDebugTransparent )
-        {
-            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::TogglePhysicsDebugTransparent,
-                                               RuntimeInputActionSource::UI );
-        }
-        if ( physicsDiagnosticsCommands.toggledBroadphaseOverlay )
-        {
-            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleBroadphaseOverlay,
-                                               RuntimeInputActionSource::UI );
-        }
+        RecordDiagnosticsPhysicsOverlayUIActions( physicsDiagnosticsCommands, recordUIAction );
         const TornadoUICommandResult tornadoCommands =
             ApplyTornadoUICommands( TornadoUICommandContext{ m_runtimeSettings, m_cGameModelCollection },
                                     uiCommands.physics );
-        if ( tornadoCommands.toggledTornado )
-        {
-            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleTornado, RuntimeInputActionSource::UI );
-        }
-        if ( tornadoCommands.toggledVisualShell )
-        {
-            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleTornadoVisualShell,
-                                               RuntimeInputActionSource::UI );
-        }
-        if ( tornadoCommands.toggledFieldVectors )
-        {
-            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleTornadoFieldVectors,
-                                               RuntimeInputActionSource::UI );
-        }
+        RecordTornadoToggleUIActions( tornadoCommands, recordUIAction );
         if ( m_runtimeTools.ApplyRayCastVisualizationUICommand( uiCommands.physics ) )
         {
-            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleRayCastVisualization,
-                                               RuntimeInputActionSource::UI );
+            recordUIAction( RuntimeInputAction::ToggleRayCastVisualization );
         }
-        for ( int tornadoApplyAction = 0; tornadoApplyAction < tornadoCommands.applySettingsActionCount;
-              ++tornadoApplyAction )
-        {
-            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ApplyTornadoSettings, RuntimeInputActionSource::UI );
-        }
+        RecordTornadoApplySettingsUIActions( tornadoCommands, recordUIAction );
         if ( ApplyDiagnosticsTerrainContactProbeUICommand( m_debug, uiCommands.physics ) )
         {
-            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleTerrainContactProbe,
-                                               RuntimeInputActionSource::UI );
+            recordUIAction( RuntimeInputAction::ToggleTerrainContactProbe );
         }
         if ( ApplyRuntimeTextOnlyUICommand( m_debug, uiCommands.sceneOptions ) )
         {
-            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleTextOnly, RuntimeInputActionSource::UI );
+            recordUIAction( RuntimeInputAction::ToggleTextOnly );
         }
         if ( ApplySceneFixedStepUICommand( SceneFixedStepUICommandContext{ SceneState(), m_simulation },
                                            uiCommands.sceneOptions ) )
         {
-            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleFixedStep, RuntimeInputActionSource::UI );
+            recordUIAction( RuntimeInputAction::ToggleFixedStep );
         }
         const RuntimePresentationUICommandResult presentationCommands = ApplyRuntimePresentationUICommands(
             RuntimePresentationUICommandContext{ m_debug,
@@ -2357,54 +2495,14 @@ void Run::TakeInput()
             uiCommands.sceneOptions,
             uiCommands.renderTuning,
             uiCommands.water );
-        if ( presentationCommands.toggledTerrainHidden )
-        {
-            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleTerrainHidden, RuntimeInputActionSource::UI );
-        }
-        if ( presentationCommands.toggledWaterHidden )
-        {
-            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleWaterHidden, RuntimeInputActionSource::UI );
-        }
-        if ( presentationCommands.toggledWaterFreeze )
-        {
-            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleWaterFreeze, RuntimeInputActionSource::UI );
-        }
-        if ( presentationCommands.toggledWaterFlat )
-        {
-            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleWaterFlat, RuntimeInputActionSource::UI );
-        }
-        if ( presentationCommands.toggledSceneShadows )
-        {
-            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleShadows, RuntimeInputActionSource::UI );
-        }
-        if ( presentationCommands.toggledRenderShadows )
-        {
-            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleRenderShadows, RuntimeInputActionSource::UI );
-        }
-        if ( presentationCommands.queuedRenderDefaultsSave )
-        {
-            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::SaveRenderDefaults, RuntimeInputActionSource::UI );
-        }
-        if ( presentationCommands.appliedRenderTuning )
-        {
-            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ApplyRenderTuning, RuntimeInputActionSource::UI );
-        }
+        RecordRuntimePresentationUIActions( presentationCommands, recordUIAction );
         if ( ApplySoundUICommands(
                  SoundUICommandContext{ m_contactAudio, m_runtimeSettings, m_launchOptions.noContactAudio },
                  uiCommands.sound ) )
         {
-            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ApplySoundTuning, RuntimeInputActionSource::UI );
+            recordUIAction( RuntimeInputAction::ApplySoundTuning );
         }
-        if ( presentationCommands.toggledWaterReflection )
-        {
-            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleWaterReflection,
-                                               RuntimeInputActionSource::UI );
-        }
-        if ( presentationCommands.setWaterReflectionMode )
-        {
-            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::SetWaterReflectionMode,
-                                               RuntimeInputActionSource::UI );
-        }
+        RecordRuntimePresentationWaterUIActions( presentationCommands, recordUIAction );
         const RunSimulationUICommandResult runSimulationCommands =
             ApplyRunSimulationUICommands( RunSimulationUICommandContext{ SceneState(),
                                                                          m_sceneController.UIOverrides(),
@@ -2413,25 +2511,10 @@ void Run::TakeInput()
                                           uiCommands.sceneOptions,
                                           uiCommands.run,
                                           uiCommands.profiler );
-        if ( runSimulationCommands.setTimeScale )
-        {
-            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::SetTimeScale, RuntimeInputActionSource::UI );
-        }
-        if ( runSimulationCommands.setRunSeed )
-        {
-            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::SetRunSeed, RuntimeInputActionSource::UI );
-        }
+        RecordRunSimulationUIActions( runSimulationCommands, recordUIAction );
         const DiagnosticsPhysicsDebugValueUICommandResult physicsDebugValueCommands =
             ApplyDiagnosticsPhysicsDebugValueUICommands( m_debug, uiCommands.physics );
-        if ( physicsDebugValueCommands.setAlpha )
-        {
-            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::SetPhysicsDebugAlpha, RuntimeInputActionSource::UI );
-        }
-        if ( physicsDebugValueCommands.setContactLinger )
-        {
-            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::SetPhysicsDebugContactLinger,
-                                               RuntimeInputActionSource::UI );
-        }
+        RecordDiagnosticsPhysicsDebugValueUIActions( physicsDebugValueCommands, recordUIAction );
         const RayCastLauncherTuningUICommandResult rayCastLauncherCommands =
             m_runtimeTools.ApplyRayCastLauncherTuningUICommands( uiCommands.physics );
         if ( rayCastLauncherCommands.setImpulseStrength )
@@ -2439,27 +2522,20 @@ void Run::TakeInput()
             m_replayRuntime.RecordLauncherConfigEvent( rayCastLauncherCommands.impulseConfigChangedFlags,
                                                        rayCastLauncherCommands.impulseConfigImpulseStrength,
                                                        rayCastLauncherCommands.impulseConfigProjectileSpeed );
-            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::SetRayCastImpulseStrength,
-                                               RuntimeInputActionSource::UI );
+            recordUIAction( RuntimeInputAction::SetRayCastImpulseStrength );
         }
         if ( rayCastLauncherCommands.setProjectileSpeed )
         {
             m_replayRuntime.RecordLauncherConfigEvent( rayCastLauncherCommands.projectileConfigChangedFlags,
                                                        rayCastLauncherCommands.projectileConfigImpulseStrength,
                                                        rayCastLauncherCommands.projectileConfigProjectileSpeed );
-            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::SetLauncherProjectileSpeed,
-                                               RuntimeInputActionSource::UI );
+            recordUIAction( RuntimeInputAction::SetLauncherProjectileSpeed );
         }
         EngineConfig& liveConfig = m_config;
         const PhysicsFrictionUICommandResult physicsFrictionCommands =
             ApplyPhysicsFrictionUICommands( PhysicsFrictionUICommandContext{ liveConfig, m_cGameModelCollection },
                                             uiCommands.physics );
-        for ( int physicsFrictionAction = 0; physicsFrictionAction < physicsFrictionCommands.applySettingsActionCount;
-              ++physicsFrictionAction )
-        {
-            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ApplyPhysicsFrictionSettings,
-                                               RuntimeInputActionSource::UI );
-        }
+        RecordPhysicsFrictionUIActions( physicsFrictionCommands, recordUIAction );
         const auto makeSceneGeneratedControlContext = [this, &liveConfig]() -> SceneRuntimeGeneratedControlContext
         {
             return SceneRuntimeGeneratedControlContext{ SceneState(),
@@ -2493,11 +2569,11 @@ void Run::TakeInput()
         if ( modelCountCommand.accepted )
         {
             executeSceneGeneratedControlAction( modelCountCommand.action );
-            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::SetModelCount, RuntimeInputActionSource::UI );
+            recordUIAction( RuntimeInputAction::SetModelCount );
         }
         if ( runSimulationCommands.setWorkerThreads )
         {
-            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::SetWorkerThreads, RuntimeInputActionSource::UI );
+            recordUIAction( RuntimeInputAction::SetWorkerThreads );
         }
         const SceneGeneratedUICommandResult solverBallCountCommand =
             ApplySceneGeneratedSolverBallCountUICommand( makeSceneGeneratedControlContext(),
@@ -2505,7 +2581,7 @@ void Run::TakeInput()
         if ( solverBallCountCommand.accepted )
         {
             executeSceneGeneratedControlAction( solverBallCountCommand.action );
-            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::SetSolverCounts, RuntimeInputActionSource::UI );
+            recordUIAction( RuntimeInputAction::SetSolverCounts );
         }
         const SceneGeneratedUICommandResult solverBoxCountCommand =
             ApplySceneGeneratedSolverBoxCountUICommand( makeSceneGeneratedControlContext(),
@@ -2513,12 +2589,11 @@ void Run::TakeInput()
         if ( solverBoxCountCommand.accepted )
         {
             executeSceneGeneratedControlAction( solverBoxCountCommand.action );
-            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::SetSolverCounts, RuntimeInputActionSource::UI );
+            recordUIAction( RuntimeInputAction::SetSolverCounts );
         }
         if ( ApplyWorldWaterUICommands( m_cWorldEnvironment, m_replayRuntime, uiCommands.water ) )
         {
-            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ApplyWorldWaterSettings,
-                                               RuntimeInputActionSource::UI );
+            recordUIAction( RuntimeInputAction::ApplyWorldWaterSettings );
         }
         CinematicRenderConfig& activeCinematic = RuntimeActiveCinematicConfig( SceneState(), m_config );
         const CinematicUICommandContext cinematicUICommandContext{ m_launchOptions,
@@ -2527,12 +2602,11 @@ void Run::TakeInput()
                                                                    m_runtimeCommands };
         if ( ApplyCinematicRenderingToggleUICommand( cinematicUICommandContext, uiCommands.cinematic ) )
         {
-            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleCinematicRendering,
-                                               RuntimeInputActionSource::UI );
+            recordUIAction( RuntimeInputAction::ToggleCinematicRendering );
         }
         if ( QueueCinematicSkyDefaultsUICommand( cinematicUICommandContext, uiCommands.cinematic ) )
         {
-            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::SaveSkyDefaults, RuntimeInputActionSource::UI );
+            recordUIAction( RuntimeInputAction::SaveSkyDefaults );
         }
         if ( HasCinematicModeUICommand( uiCommands.cinematic ) )
         {
@@ -2545,45 +2619,14 @@ void Run::TakeInput()
                                                                    activeCinematic,
                                                                    m_defaultCinematicRender },
                                          uiCommands.cinematic );
-            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::SelectCinematicScene, RuntimeInputActionSource::UI );
+            recordUIAction( RuntimeInputAction::SelectCinematicScene );
         }
         const CinematicTuningUICommandResult cinematicTuningCommands =
             ApplyCinematicTuningUICommands( cinematicUICommandContext, uiCommands.cinematic );
-        if ( cinematicTuningCommands.toggledFeature )
-        {
-            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleCinematicFeature,
-                                               RuntimeInputActionSource::UI );
-        }
-        if ( cinematicTuningCommands.appliedParam )
-        {
-            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ApplyCinematicParam, RuntimeInputActionSource::UI );
-        }
+        RecordCinematicTuningUIActions( cinematicTuningCommands, recordUIAction );
         const SceneRuntimeUICommandResult sceneUICommands =
             QueueSceneUIRuntimeCommands( m_runtimeCommands, uiCommands.scene );
-        if ( sceneUICommands.resetScene )
-        {
-            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ResetScene, RuntimeInputActionSource::UI );
-        }
-        if ( sceneUICommands.resetSceneDefaults )
-        {
-            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ResetSceneDefaults, RuntimeInputActionSource::UI );
-        }
-        if ( sceneUICommands.loadDemoScene )
-        {
-            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::LoadDemoScene, RuntimeInputActionSource::UI );
-        }
-        if ( sceneUICommands.saveSceneDefaults )
-        {
-            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::SaveSceneDefaults, RuntimeInputActionSource::UI );
-        }
-        if ( sceneUICommands.createScene )
-        {
-            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::CreateScene, RuntimeInputActionSource::UI );
-        }
-        if ( sceneUICommands.selectScene )
-        {
-            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::SelectScene, RuntimeInputActionSource::UI );
-        }
+        RecordSceneRuntimeUIActions( sceneUICommands, recordUIAction );
 
         RunUIStressActions();
 
