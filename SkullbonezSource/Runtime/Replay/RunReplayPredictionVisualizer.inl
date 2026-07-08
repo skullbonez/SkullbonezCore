@@ -72,7 +72,7 @@ bool BeginReplayPredictionJob( ReplayRuntime& replayRuntime,
     // over samples that no longer exist.
     replayRuntime.Prediction().revealClock.anchor = std::chrono::steady_clock::now();
     replayRuntime.Prediction().revealClock.anchorValid = true;
-    replayRuntime.Prediction().targetId = replayRuntime.PathVisualizer().targetId;
+    replayRuntime.Prediction().simulation.targetId = replayRuntime.PathVisualizer().targetId;
     replayRuntime.Prediction().build.dirty = false;
 
     if ( !replayRuntime.Prediction().enabled || !scenePhysics )
@@ -80,15 +80,15 @@ bool BeginReplayPredictionJob( ReplayRuntime& replayRuntime,
         return false;
     }
 
-    replayRuntime.Prediction().sourceFrameIndex = sourceFrameIndex;
-    replayRuntime.Prediction().sourceSolverHash = sourceSolverHash;
+    replayRuntime.Prediction().simulation.sourceFrameIndex = sourceFrameIndex;
+    replayRuntime.Prediction().simulation.sourceSolverHash = sourceSolverHash;
     if ( const ReplaySolverFrameSample* latest = replayRuntime.Solver().LatestSample() )
     {
-        replayRuntime.Prediction().sourceSimulationSeconds = latest->simulationSeconds;
+        replayRuntime.Prediction().simulation.sourceSimulationSeconds = latest->simulationSeconds;
     }
     else
     {
-        replayRuntime.Prediction().sourceSimulationSeconds = fallbackSourceSimulationSeconds;
+        replayRuntime.Prediction().simulation.sourceSimulationSeconds = fallbackSourceSimulationSeconds;
     }
     replayRuntime.Prediction().build.lastBuildTime = simulationTotalSeconds;
 
@@ -119,15 +119,18 @@ bool BeginReplayPredictionJob( ReplayRuntime& replayRuntime,
             replayRuntime.PathVisualizer().targetModelIndex = targetHint.value;
             return false;
         }
-        replayRuntime.Prediction().targetModelIndex = targetIndex;
+        replayRuntime.Prediction().simulation.targetModelIndex = targetIndex;
         replayRuntime.PathVisualizer().targetModelIndex = targetHint.value;
     }
 
-    replayRuntime.Prediction().horizonSeconds = std::clamp( replayRuntime.Prediction().horizonSeconds,
-                                                            REPLAY_PREDICTION_MIN_SECONDS,
-                                                            REPLAY_PREDICTION_MAX_SECONDS );
+    replayRuntime.Prediction().simulation.horizonSeconds =
+        std::clamp( replayRuntime.Prediction().simulation.horizonSeconds,
+                    REPLAY_PREDICTION_MIN_SECONDS,
+                    REPLAY_PREDICTION_MAX_SECONDS );
     const int predictionTicks =
-        (std::max)( 1, static_cast<int>( std::ceil( replayRuntime.Prediction().horizonSeconds / PHYSICS_FIXED_DT ) ) );
+        (std::max)( 1,
+                    static_cast<int>(
+                        std::ceil( replayRuntime.Prediction().simulation.horizonSeconds / PHYSICS_FIXED_DT ) ) );
     replayRuntime.Prediction().build.targetTickCount = predictionTicks;
     replayRuntime.Prediction().build.nextTick = 1;
     const std::size_t buildFrameCapacity = static_cast<std::size_t>( predictionTicks + 1 );
@@ -181,13 +184,13 @@ bool BeginReplayPredictionJob( ReplayRuntime& replayRuntime,
     if ( !CaptureReplayPredictionBodyState( modelCollection,
                                             liveBodyStore,
                                             workerPool,
-                                            replayRuntime.Prediction().predictionBodies ) )
+                                            replayRuntime.Prediction().simulation.predictionBodies ) )
     {
         replayRuntime.CancelPredictionJob( true );
         return false;
     }
 
-    physicsEngine.CaptureReplaySolverSnapshot( replayRuntime.Prediction().predictionWorld, modelCount );
+    physicsEngine.CaptureReplaySolverSnapshot( replayRuntime.Prediction().simulation.predictionWorld, modelCount );
 
     if ( !SeedReplayPredictionEngine( replayRuntime.Prediction(), physicsEngine, config, worldForces, modelCount ) )
     {
@@ -196,10 +199,10 @@ bool BeginReplayPredictionJob( ReplayRuntime& replayRuntime,
         return false;
     }
 
-    if ( !replayRuntime.Prediction().predictionEngine ||
+    if ( !replayRuntime.Prediction().simulation.predictionEngine ||
          !CaptureReplayPredictionFrame( replayRuntime,
                                         modelCollection,
-                                        *replayRuntime.Prediction().predictionEngine,
+                                        *replayRuntime.Prediction().simulation.predictionEngine,
                                         workerPool,
                                         0 ) )
     {
@@ -232,13 +235,14 @@ bool StepReplayPredictionJob( ReplayRuntime& replayRuntime,
         return false;
     }
 
-    if ( !replayRuntime.Prediction().predictionEngineReady || !replayRuntime.Prediction().predictionEngine )
+    if ( !replayRuntime.Prediction().simulation.predictionEngineReady ||
+         !replayRuntime.Prediction().simulation.predictionEngine )
     {
         replayRuntime.CancelPredictionJob( true );
         replayRuntime.Prediction().build.dirty = true;
         return false;
     }
-    PhysicsEngine& predictionEngine = *replayRuntime.Prediction().predictionEngine;
+    PhysicsEngine& predictionEngine = *replayRuntime.Prediction().simulation.predictionEngine;
 
     bool progressed = false;
     bool predictionStepFailed = false;
@@ -260,7 +264,7 @@ bool StepReplayPredictionJob( ReplayRuntime& replayRuntime,
                 if ( !StepPredictionEngineTick( predictionEngine,
                                                 PHYSICS_FIXED_DT,
                                                 config,
-                                                replayRuntime.Prediction().predictionWorldForces,
+                                                replayRuntime.Prediction().simulation.predictionWorldForces,
                                                 workerPool ) )
                 {
                     predictionStepFailed = true;
@@ -292,7 +296,7 @@ bool StepReplayPredictionJob( ReplayRuntime& replayRuntime,
     if ( progressed )
     {
         PROFILE_SCOPED( "Frame/Replay/Prediction/CaptureJobState" );
-        predictionEngine.CaptureReplaySolverSnapshot( replayRuntime.Prediction().predictionWorld,
+        predictionEngine.CaptureReplaySolverSnapshot( replayRuntime.Prediction().simulation.predictionWorld,
                                                       predictionEngine.BodyStore().Count() );
     }
 
@@ -307,7 +311,7 @@ bool StepReplayPredictionJob( ReplayRuntime& replayRuntime,
     {
         const float previousPresentT = replayRuntime.SolverPresentTrackPosition();
         const float previousSolverPosition = replayRuntime.TrackPosition( RunReplayTrack::Solver );
-        const bool hadCommittedPredictionFrames = replayRuntime.Prediction().frames.size() >= 2;
+        const bool hadCommittedPredictionFrames = replayRuntime.Prediction().simulation.frames.size() >= 2;
         const bool solverWasOldLiveEdge =
             !hadCommittedPredictionFrames && ReplayRuntime::AtPresentTrackPosition( previousSolverPosition, 1.0f );
         const bool scrubberWasPinnedToPresent =
@@ -316,14 +320,14 @@ bool StepReplayPredictionJob( ReplayRuntime& replayRuntime,
 
         replayRuntime.Prediction().build.building = false;
         replayRuntime.Prediction().build.complete = true;
-        replayRuntime.Prediction().frames.swap( replayRuntime.Prediction().build.buildFrames );
+        replayRuntime.Prediction().simulation.frames.swap( replayRuntime.Prediction().build.buildFrames );
         replayRuntime.Prediction().build.buildFrames.clear();
         replayRuntime.Prediction().ResetBuildFramePublication();
         if ( replayRuntime.Prediction().baseline.valid )
         {
             UpdateReplayPredictionBaselineDivergence( replayRuntime.Prediction(),
-                                                      replayRuntime.Prediction().frames,
-                                                      replayRuntime.Prediction().frames.size() );
+                                                      replayRuntime.Prediction().simulation.frames,
+                                                      replayRuntime.Prediction().simulation.frames.size() );
         }
         if ( scrubberWasPinnedToPresent )
         {
@@ -357,7 +361,7 @@ bool DrawReplayPredictionOverlay( ReplayRuntime& replayRuntime,
     const RunReplayPredictionState& prediction = replayRuntime.Prediction();
     const bool usingBuildFrames = prediction.BuildPrefixShouldBePresented();
     const std::vector<RunReplayPredictionFrame>& activePredictionFrames =
-        usingBuildFrames ? prediction.build.buildFrames : prediction.frames;
+        usingBuildFrames ? prediction.build.buildFrames : prediction.simulation.frames;
     const std::size_t activePredictionFrameCount =
         usingBuildFrames ? prediction.PublishedBuildFrameCount() : activePredictionFrames.size();
     if ( activePredictionFrameCount < 2 )
@@ -720,12 +724,12 @@ void RenderReplayPredictionVisualizer( ReplayRuntime& replayRuntime,
     const uint64_t latestHash = latest ? latest->solverHash : 0;
     const double now = simulationTotalSeconds;
     const bool sourceChanged =
-        replayRuntime.Prediction().targetId.value != replayRuntime.PathVisualizer().targetId.value ||
-        replayRuntime.Prediction().sourceFrameIndex != latestFrame ||
-        replayRuntime.Prediction().sourceSolverHash != latestHash;
+        replayRuntime.Prediction().simulation.targetId.value != replayRuntime.PathVisualizer().targetId.value ||
+        replayRuntime.Prediction().simulation.sourceFrameIndex != latestFrame ||
+        replayRuntime.Prediction().simulation.sourceSolverHash != latestHash;
     const bool refreshDue =
         ( now - replayRuntime.Prediction().build.lastBuildTime ) >= REPLAY_PREDICTION_REFRESH_SECONDS;
-    const bool hasCommittedPrediction = replayRuntime.Prediction().frames.size() >= 2;
+    const bool hasCommittedPrediction = replayRuntime.Prediction().simulation.frames.size() >= 2;
     // Invariant: a committed prediction is a frozen future for the current
     // branch. Space-stepping the paused live scene changes solver frame/hash,
     // but must not redraw the preview; explicit dirty events such as branch,
@@ -739,11 +743,12 @@ void RenderReplayPredictionVisualizer( ReplayRuntime& replayRuntime,
             return;
         }
         RunReplayPredictionState& prediction = replayRuntime.Prediction();
-        if ( prediction.baseline.comparisonActive && !prediction.baseline.valid && prediction.frames.size() >= 2 )
+        if ( prediction.baseline.comparisonActive && !prediction.baseline.valid &&
+             prediction.simulation.frames.size() >= 2 )
         {
             if ( !CaptureReplayPredictionBaselineSnapshot( prediction,
-                                                           prediction.frames,
-                                                           prediction.frames.size(),
+                                                           prediction.simulation.frames,
+                                                           prediction.simulation.frames.size(),
                                                            replayRuntime.PathVisualizer().targetId,
                                                            replayRuntime.PathVisualizer().targetModelIndex ) )
             {

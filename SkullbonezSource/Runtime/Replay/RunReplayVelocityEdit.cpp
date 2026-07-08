@@ -594,7 +594,8 @@ bool Run::TickReplayVelocityEditInput( HWND hwnd, bool uiBlocksMouse )
     const auto armBaselineComparisonForDrag = [&]()
     {
         RunReplayPredictionState& prediction = m_replayRuntime.Prediction();
-        if ( prediction.build.complete && prediction.frames.size() >= 2 && m_replayRuntime.PathVisualizer().hasTarget )
+        if ( prediction.build.complete && prediction.simulation.frames.size() >= 2 &&
+             m_replayRuntime.PathVisualizer().hasTarget )
         {
             // Why: the old future must be retained before the first drag tick
             // dirties prediction. The visualizer owns the actual capture so it

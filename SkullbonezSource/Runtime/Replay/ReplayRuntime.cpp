@@ -195,7 +195,7 @@ ReplayRuntimeActivePredictionFrames( const RunReplayPredictionState& prediction 
     {
         return prediction.build.buildFrames;
     }
-    return prediction.frames;
+    return prediction.simulation.frames;
 }
 
 float ReplayRuntimePredictionAvailableFutureSeconds( const RunReplayPredictionState& prediction )
@@ -712,17 +712,17 @@ void ReplayRuntime::CancelPredictionJob( bool clearSamples )
     // engine and resets the published-prefix cursor.
     m_prediction.build.building = false;
     m_prediction.build.complete = false;
-    m_prediction.targetModelIndex = -1;
+    m_prediction.simulation.targetModelIndex = -1;
     m_prediction.build.nextTick = 1;
     m_prediction.build.targetTickCount = 0;
-    m_prediction.predictionEngineReady = false;
-    m_prediction.predictionBodies.clear();
-    m_prediction.predictionWorld = ReplaySolverWorldSnapshot();
+    m_prediction.simulation.predictionEngineReady = false;
+    m_prediction.simulation.predictionBodies.clear();
+    m_prediction.simulation.predictionWorld = ReplaySolverWorldSnapshot();
     m_prediction.build.buildFrames.clear();
     m_prediction.ResetBuildFramePublication();
     if ( clearSamples )
     {
-        m_prediction.frames.clear();
+        m_prediction.simulation.frames.clear();
         ClearPredictionFutureNodeCache();
     }
 }
@@ -730,10 +730,10 @@ void ReplayRuntime::CancelPredictionJob( bool clearSamples )
 void ReplayRuntime::ClearPredictionCache()
 {
     CancelPredictionJob( true );
-    m_prediction.targetId = ReplayBodyId{};
-    m_prediction.sourceFrameIndex = 0;
-    m_prediction.sourceSolverHash = 0;
-    m_prediction.sourceSimulationSeconds = 0.0;
+    m_prediction.simulation.targetId = ReplayBodyId{};
+    m_prediction.simulation.sourceFrameIndex = 0;
+    m_prediction.simulation.sourceSolverHash = 0;
+    m_prediction.simulation.sourceSimulationSeconds = 0.0;
     m_prediction.build.lastBuildTime = 0.0;
     m_prediction.baseline = ReplayPredictionBaselineSnapshot{};
 }
@@ -796,9 +796,9 @@ bool ReplayRuntime::SetVelocityEditEnabled( bool enabled )
     if ( enabled )
     {
         m_prediction.enabled = true;
-        m_prediction.horizonSeconds = std::clamp( m_prediction.horizonSeconds,
-                                                  ReplayOverlay::REPLAY_PREDICTION_MIN_SECONDS,
-                                                  ReplayOverlay::REPLAY_PREDICTION_MAX_SECONDS );
+        m_prediction.simulation.horizonSeconds = std::clamp( m_prediction.simulation.horizonSeconds,
+                                                             ReplayOverlay::REPLAY_PREDICTION_MIN_SECONDS,
+                                                             ReplayOverlay::REPLAY_PREDICTION_MAX_SECONDS );
         MarkPredictionDirty();
     }
 
@@ -1659,7 +1659,7 @@ bool ReplayRuntime::ResolveCauseTreeBodyPosition( ReplayBodyId id,
 
     const std::vector<RunReplayPredictionFrame>& activePredictionFrames = ActivePredictionFrames();
     if ( m_prediction.enabled && !activePredictionFrames.empty() &&
-         m_prediction.targetId.value == m_pathVisualizer.targetId.value )
+         m_prediction.simulation.targetId.value == m_pathVisualizer.targetId.value )
     {
         if ( const RunReplayPredictionBodySample* body =
                  FindReplayPredictionBodyById( activePredictionFrames.front(), id ) )
@@ -1745,7 +1745,7 @@ bool ReplayRuntime::BuildCauseTreeRows(
                                          m_prediction.HasPublishedBuildFramePrefix() ||
                                          !m_prediction.futureNodeCache.futureNodes.empty();
     const bool usePrediction = m_prediction.enabled && predictionPrefixVisible &&
-                               m_prediction.targetId.value == m_pathVisualizer.targetId.value;
+                               m_prediction.simulation.targetId.value == m_pathVisualizer.targetId.value;
     const std::vector<RunReplayPathTraceNode>& nodes =
         usePrediction ? m_prediction.futureNodeCache.futureNodes : m_pathVisualizer.futureNodes;
     const ReplaySolverFrameSample* solverSample = CurrentSolverScrubSample();
@@ -2468,17 +2468,17 @@ MainMemoryReplayStats ReplayRuntime::CollectMemoryStats() const
     stats.loadedReplaySamples = m_loadedPresentation.samples.size();
 
     stats.predictionBytes = static_cast<uint64_t>( sizeof( m_prediction ) );
-    if ( m_prediction.predictionEngine )
+    if ( m_prediction.simulation.predictionEngine )
     {
-        stats.predictionBytes += PredictionEngineMemoryBytes( *m_prediction.predictionEngine );
+        stats.predictionBytes += PredictionEngineMemoryBytes( *m_prediction.simulation.predictionEngine );
     }
-    stats.predictionBytes += SolverWorldSnapshotMemoryBytes( m_prediction.predictionWorld );
-    stats.predictionBytes += VectorCapacityBytes( m_prediction.predictionBodies );
-    stats.predictionBytes += VectorCapacityBytes( m_prediction.frames );
+    stats.predictionBytes += SolverWorldSnapshotMemoryBytes( m_prediction.simulation.predictionWorld );
+    stats.predictionBytes += VectorCapacityBytes( m_prediction.simulation.predictionBodies );
+    stats.predictionBytes += VectorCapacityBytes( m_prediction.simulation.frames );
     stats.predictionBytes += VectorCapacityBytes( m_prediction.build.buildFrames );
     stats.predictionBytes += VectorCapacityBytes( m_prediction.futureNodeCache.futureNodes );
     stats.predictionBytes += VectorCapacityBytes( m_prediction.futureNodeCache.futureNodeBuildScratch );
-    for ( const RunReplayPredictionFrame& frame : m_prediction.frames )
+    for ( const RunReplayPredictionFrame& frame : m_prediction.simulation.frames )
     {
         stats.predictionBytes += PredictionFrameMemoryBytes( frame );
     }
@@ -2486,7 +2486,7 @@ MainMemoryReplayStats ReplayRuntime::CollectMemoryStats() const
     {
         stats.predictionBytes += PredictionFrameMemoryBytes( frame );
     }
-    stats.predictionFrames = m_prediction.frames.size() + m_prediction.build.buildFrames.size();
+    stats.predictionFrames = m_prediction.simulation.frames.size() + m_prediction.build.buildFrames.size();
 
     stats.pathAndCauseBytes = static_cast<uint64_t>( sizeof( m_pathVisualizer ) + sizeof( m_causeTree ) );
     stats.pathAndCauseBytes += VectorCapacityBytes( m_pathVisualizer.futureNodes );

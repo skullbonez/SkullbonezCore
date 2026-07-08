@@ -409,6 +409,31 @@ struct RunReplayPredictionBuildState
     std::size_t buildFrameCount = 0;
 };
 
+struct RunReplayPredictionSimulationState
+{
+    float horizonSeconds = REPLAY_FUTURE_BUFFER_SECONDS;
+    int targetModelIndex = -1;
+    ReplayBodyId targetId;
+    ReplayFrameIndex sourceFrameIndex = 0;
+    uint64_t sourceSolverHash = 0;
+    double sourceSimulationSeconds = 0.0;
+    // Concept: prediction simulates the future in its own engine. Live stores
+    // are never written by prediction, so replay preview state stays isolated.
+    // Lifetime: constructed lazily on first prediction begin under the replay
+    // reserve owner, pre-sized by copying the current live physics facade, and
+    // reused across prediction builds so startup/perf-smoke memory stays flat.
+    // Runtime allocation policy: owner replay_prediction_working_set; reason:
+    // private prediction needs a bounded physics copy for exploratory replay;
+    // deletion condition: none, this is the end-state isolation boundary;
+    // checker budget: 256 MB hard cap registered by ReplayPredictionReserveOwner().
+    std::unique_ptr<Physics::PhysicsEngine> predictionEngine;
+    Physics::PhysicsWorldForces predictionWorldForces;
+    bool predictionEngineReady = false;
+    ReplaySolverWorldSnapshot predictionWorld;
+    std::vector<RunReplayPredictionBodyBackup> predictionBodies;
+    std::vector<RunReplayPredictionFrame> frames;
+};
+
 struct RunReplayPredictionState
 {
     RunReplayPredictionState();
@@ -431,33 +456,14 @@ struct RunReplayPredictionState
     bool enabled = false;
     bool ragdollVisualsEnabled = false;
     RunReplayPredictionUiState ui;
-    float horizonSeconds = REPLAY_FUTURE_BUFFER_SECONDS;
-    int targetModelIndex = -1;
-    ReplayBodyId targetId;
-    ReplayFrameIndex sourceFrameIndex = 0;
-    uint64_t sourceSolverHash = 0;
-    double sourceSimulationSeconds = 0.0;
     RunReplayPredictionBuildState build;
-    // Concept: prediction simulates the future in its own engine. Live stores
-    // are never written by prediction, so replay preview state stays isolated.
-    // Lifetime: constructed lazily on first prediction begin under the replay
-    // reserve owner, pre-sized by copying the current live physics facade, and
-    // reused across prediction builds so startup/perf-smoke memory stays flat.
-    // Runtime allocation policy: owner replay_prediction_working_set; reason:
-    // private prediction needs a bounded physics copy for exploratory replay;
-    // deletion condition: none, this is the end-state isolation boundary;
-    // checker budget: 256 MB hard cap registered by ReplayPredictionReserveOwner().
-    std::unique_ptr<Physics::PhysicsEngine> predictionEngine;
-    Physics::PhysicsWorldForces predictionWorldForces;
-    bool predictionEngineReady = false;
-    ReplaySolverWorldSnapshot predictionWorld;
-    std::vector<RunReplayPredictionBodyBackup> predictionBodies;
-    std::vector<RunReplayPredictionFrame> frames;
+    RunReplayPredictionSimulationState simulation;
     RunReplayPredictionFutureNodeCache futureNodeCache;
     // Concept: the butterfly baseline is a retained presentation snapshot of
-    // the pre-nudge future. It is intentionally smaller than prediction.frames:
-    // one cold root polyline, two poses per affected body, and one divergence
-    // number, so the warm current prediction can unfold over it.
+    // the pre-nudge future. It is intentionally smaller than the committed
+    // simulation frame list: one cold root polyline, two poses per affected
+    // body, and one divergence number, so the warm current prediction can
+    // unfold over it.
     ReplayPredictionBaselineSnapshot baseline;
     RunReplayPredictionRevealClock revealClock;
 };
@@ -475,7 +481,8 @@ inline bool RunReplayPredictionState::HasPublishedBuildFramePrefix( std::size_t 
 inline bool RunReplayPredictionState::BuildPrefixShouldBePresented() const noexcept
 {
     const std::size_t publishedCount = PublishedBuildFrameCount();
-    return build.building && publishedCount >= 2u && ( frames.empty() || publishedCount >= frames.size() );
+    return build.building && publishedCount >= 2u &&
+           ( simulation.frames.empty() || publishedCount >= simulation.frames.size() );
 }
 
 inline bool RunReplayPredictionState::BuildFramesAreComplete() const noexcept

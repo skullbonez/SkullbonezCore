@@ -48,7 +48,7 @@ prediction, and presentation — and get replay code out of `RunFrame`.
 
 ## Approach
 
-- [ ] **Phase 0 — Split `RunReplayPredictionState`** by concern: prediction sim /
+- [x] **Phase 0 — Split `RunReplayPredictionState`** by concern: prediction sim /
   UI hover / async build / render cache / reveal clock. Each becomes its own
   small type.
 - [ ] **Phase 1 — Template the twin helpers.** One template over sample type
@@ -76,7 +76,7 @@ bit-exact — the replay scrub regression is the gate.
 
 ### Phase 0 — Split `RunReplayPredictionState`
 
-- [ ] **0.1** Split `RunReplayPredictionState` (`ReplayRuntime.h`) by concern
+- [x] **0.1** Split `RunReplayPredictionState` (`ReplayRuntime.h`) by concern
   into separate small types: prediction sim (owned engine/world), UI hover flags,
   async build cursors, future-node render cache, reveal clock. Do **one concern
   at a time**. Gate: replay scrub regression + `validate_full`. Commit per split.
@@ -133,6 +133,19 @@ bit-exact — the replay scrub regression is the gate.
     `tools\validate_full.bat` passed in 44.9s with 0 build warnings/errors, 0
     DX12 validation errors, matching DX12 screenshots, and
     `physics_regression_solver.csv` byte-exact at 20001 lines.
+  - Completion note (2026-07-08, prediction simulation): split prediction horizon,
+    target/source identity, private prediction engine/world, solver snapshot,
+    body backups, and committed prediction frames into
+    `RunReplayPredictionSimulationState`. Phase 0 is complete: reveal timing,
+    UI hover/drag memory, async build state, future-node render cache, and
+    prediction simulation storage are each separate small types behind
+    `RunReplayPredictionState`. Comment audit inspected the ten touched source
+    files with no deferred wording work. Validation:
+    `tools\validate_format.bat` passed in 9.5s;
+    `tools\validate_replay_scrub.bat` passed in 28.3s;
+    `tools\validate_full.bat` passed in 44.9s with 0 build warnings/errors, 0
+    DX12 validation errors, matching DX12 screenshots, and
+    `physics_regression_solver.csv` byte-exact at 20001 lines.
 
 ### Phase 1 — Template the twin helpers
 
@@ -165,7 +178,7 @@ bit-exact — the replay scrub regression is the gate.
 ## Acceptance (structural)
 
 - [ ] `RunFrame.cpp` contains no replay-probe bodies (they live in `Replay/`).
-- [ ] `RunReplayPredictionState` is split into single-concern types.
+- [x] `RunReplayPredictionState` is split into single-concern types.
 - [ ] The six twin helpers are one template.
 - [ ] Butterfly Effect prediction, future-node visualization, replay ribbons,
   and cinematic reveal behavior are preserved and have explicit owner types.

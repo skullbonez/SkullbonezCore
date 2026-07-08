@@ -478,7 +478,7 @@ void RenderReplayScrubberOverlay( const ReplayOverlayRenderContext& context )
                                                           replayRuntime.Prediction().ui.horizonDragging );
     const bool predictEnabled = predictionToolsEnabled && replayRuntime.Prediction().enabled;
     const bool ragdollVisualsEnabled = predictionToolsEnabled && replayRuntime.Prediction().ragdollVisualsEnabled;
-    const float predictSeconds = std::clamp( replayRuntime.Prediction().horizonSeconds,
+    const float predictSeconds = std::clamp( replayRuntime.Prediction().simulation.horizonSeconds,
                                              REPLAY_PREDICTION_MIN_SECONDS,
                                              REPLAY_PREDICTION_MAX_SECONDS );
     const UI::Style::UIColor predictFill = predictionToolsEnabled && replayRuntime.Prediction().ui.checkboxHovered

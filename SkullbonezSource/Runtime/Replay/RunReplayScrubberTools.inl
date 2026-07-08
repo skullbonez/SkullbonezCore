@@ -424,8 +424,8 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
                 // Hazard: if prediction stepping moves to a worker, this helper
                 // must stay false while that worker can still write buildFrames.
                 const std::size_t promotedFrameCount = prediction.PublishedBuildFrameCount();
-                prediction.frames.swap( prediction.build.buildFrames );
-                prediction.frames.resize( promotedFrameCount );
+                prediction.simulation.frames.swap( prediction.build.buildFrames );
+                prediction.simulation.frames.resize( promotedFrameCount );
                 prediction.ResetBuildFramePublication();
             }
             m_replayRuntime.Prediction().enabled = false;
@@ -470,9 +470,9 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
                                                                 InteractionExitReason::EnterReplay );
         }
         const float nextSeconds = ReplayPredictionHorizonFromMouse( mouse.x, predictHorizon );
-        if ( nextSeconds != m_replayRuntime.Prediction().horizonSeconds )
+        if ( nextSeconds != m_replayRuntime.Prediction().simulation.horizonSeconds )
         {
-            m_replayRuntime.Prediction().horizonSeconds = nextSeconds;
+            m_replayRuntime.Prediction().simulation.horizonSeconds = nextSeconds;
             m_replayRuntime.MarkPredictionDirty();
         }
         m_replayRuntime.Scrubber().visibleUntil = now + REPLAY_SCRUBBER_VISIBLE_SECONDS;
@@ -547,9 +547,10 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
                                                                 ? WorldInteractionOwner::ReplayPrediction
                                                                 : WorldInteractionOwner::ReplayScrub,
                                                             InteractionExitReason::EnterReplay );
-        m_replayRuntime.Prediction().horizonSeconds = std::clamp( m_replayRuntime.Prediction().horizonSeconds,
-                                                                  REPLAY_PREDICTION_MIN_SECONDS,
-                                                                  REPLAY_PREDICTION_MAX_SECONDS );
+        m_replayRuntime.Prediction().simulation.horizonSeconds =
+            std::clamp( m_replayRuntime.Prediction().simulation.horizonSeconds,
+                        REPLAY_PREDICTION_MIN_SECONDS,
+                        REPLAY_PREDICTION_MAX_SECONDS );
         if ( !m_replayRuntime.Prediction().enabled )
         {
             const float currentPosition = m_replayRuntime.TrackPosition( RunReplayTrack::Solver );

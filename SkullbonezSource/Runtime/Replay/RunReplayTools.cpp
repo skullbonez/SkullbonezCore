@@ -328,8 +328,9 @@ void RenderReplayPathVisualizer( const ReplayPathVisualizerRenderContext& contex
                                       visualizerStart,
                                       REPLAY_PREDICTION_MAX_WORK_MILLISECONDS );
     const RunReplayPredictionState& prediction = context.replayRuntime.Prediction();
-    if ( !prediction.enabled && prediction.frames.size() >= 2 && context.replayRuntime.PathVisualizer().hasTarget &&
-         prediction.targetId.value == context.replayRuntime.PathVisualizer().targetId.value )
+    if ( !prediction.enabled && prediction.simulation.frames.size() >= 2 &&
+         context.replayRuntime.PathVisualizer().hasTarget &&
+         prediction.simulation.targetId.value == context.replayRuntime.PathVisualizer().targetId.value )
     {
         // Why: Play disables prediction but keeps the committed path preview.
         // Letting the retained visualizer continue here would rebuild child

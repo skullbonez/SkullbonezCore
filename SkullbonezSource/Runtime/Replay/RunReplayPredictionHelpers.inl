@@ -2437,9 +2437,10 @@ bool SeedReplayPredictionEngine( RunReplayPredictionState& prediction,
     {
         return false;
     }
-    const int currentBytes =
-        prediction.predictionEngine ? ReplayPredictionEngineReserveBytes( *prediction.predictionEngine ) : 0;
-    if ( prediction.predictionEngine && currentBytes <= 0 )
+    const int currentBytes = prediction.simulation.predictionEngine
+                                 ? ReplayPredictionEngineReserveBytes( *prediction.simulation.predictionEngine )
+                                 : 0;
+    if ( prediction.simulation.predictionEngine && currentBytes <= 0 )
     {
         return false;
     }
@@ -2450,13 +2451,14 @@ bool SeedReplayPredictionEngine( RunReplayPredictionState& prediction,
         // Why: the private engine is retained across prediction rebuilds. Only
         // real capacity increases should consume replay growth events; same-size
         // reseeds just reuse the previous bounded reservation.
-        const RuntimeAllocation::RuntimeReserveGrowthRequest request = { REPLAY_PREDICTION_RESERVE_OWNER,
-                                                                         "RunReplayPredictionState::predictionEngine",
-                                                                         RuntimeAllocation::RuntimeReservePhase::Replay,
-                                                                         0,
-                                                                         currentBytes,
-                                                                         requestedBytes,
-                                                                         1 };
+        const RuntimeAllocation::RuntimeReserveGrowthRequest request = {
+            REPLAY_PREDICTION_RESERVE_OWNER,
+            "RunReplayPredictionSimulationState::predictionEngine",
+            RuntimeAllocation::RuntimeReservePhase::Replay,
+            0,
+            currentBytes,
+            requestedBytes,
+            1 };
         result = RuntimeAllocation::RuntimeReserveAllocator::RequestGrowth( owner, request );
         if ( !result.granted )
         {
@@ -2470,25 +2472,25 @@ bool SeedReplayPredictionEngine( RunReplayPredictionState& prediction,
     RuntimeAllocation::RuntimeReserveGrowthScope growthScope( owner,
                                                               RuntimeAllocation::RuntimeReservePhase::Replay,
                                                               result );
-    prediction.predictionEngineReady = false;
-    if ( !prediction.predictionEngine )
+    prediction.simulation.predictionEngineReady = false;
+    if ( !prediction.simulation.predictionEngine )
     {
-        prediction.predictionEngine = std::make_unique<PhysicsEngine>();
+        prediction.simulation.predictionEngine = std::make_unique<PhysicsEngine>();
     }
 
     // Invariant: seeding starts from the live facade's topology and cold policy,
     // then restores the captured prediction values into the private engine. The
     // live engine is never passed to prediction stepping after this point.
-    PhysicsEngine& predictionEngine = *prediction.predictionEngine;
+    PhysicsEngine& predictionEngine = *prediction.simulation.predictionEngine;
     predictionEngine = liveEngine;
     predictionEngine.ApplyRuntimeConfig( config );
-    prediction.predictionWorldForces = worldForces;
-    if ( !ApplyReplayPredictionBodyState( predictionEngine, prediction.predictionBodies ) ||
-         !predictionEngine.RestoreReplaySolverSnapshot( prediction.predictionWorld, modelCount ) )
+    prediction.simulation.predictionWorldForces = worldForces;
+    if ( !ApplyReplayPredictionBodyState( predictionEngine, prediction.simulation.predictionBodies ) ||
+         !predictionEngine.RestoreReplaySolverSnapshot( prediction.simulation.predictionWorld, modelCount ) )
     {
         return false;
     }
-    prediction.predictionEngineReady = true;
+    prediction.simulation.predictionEngineReady = true;
     return true;
 }
 
@@ -2517,7 +2519,7 @@ bool CaptureReplayPredictionFrame( ReplayRuntime& replayRuntime,
 
     RunReplayPredictionFrame& frame = prediction.build.buildFrames[frameSlot];
     frame.frameIndex = frameIndex;
-    frame.simulationSeconds = prediction.sourceSimulationSeconds +
+    frame.simulationSeconds = prediction.simulation.sourceSimulationSeconds +
                               static_cast<double>( frameIndex ) * static_cast<double>( PHYSICS_FIXED_DT );
     frame.tornadoSystemElapsedSeconds = physicsEngine.GetTornadoSystemElapsedSeconds();
     if ( static_cast<std::size_t>( modelCount ) > frame.bodies.capacity() )

@@ -171,7 +171,7 @@ bool LiveSolverHashStableAcrossPrediction( const ReplayRuntime& replayRuntime,
     // the private prediction engine starts stepping; the live latest hash should
     // still match after prediction has produced visible frames.
     const ReplaySolverFrameSample* latest = replayRuntime.Solver().LatestSample();
-    const uint64_t sourceHash = replayRuntime.Prediction().sourceSolverHash;
+    const uint64_t sourceHash = replayRuntime.Prediction().simulation.sourceSolverHash;
     const uint64_t liveHash = latest ? latest->solverHash : 0;
     if ( outSourceHash )
     {
@@ -849,7 +849,7 @@ void ApplyInteractionAutomationReplayStateAction( InteractionAutomationReplaySta
         // Why: automation should use the same bounded horizon value the replay UI
         // exposes, while still forcing a rebuild when a script changes it before
         // a proof.
-        context.replayRuntime.Prediction().horizonSeconds = horizonSeconds;
+        context.replayRuntime.Prediction().simulation.horizonSeconds = horizonSeconds;
         context.replayRuntime.MarkPredictionDirty();
         std::ostringstream detail;
         detail << "prediction horizon set to " << horizonSeconds << "s";
@@ -868,7 +868,7 @@ void ApplyInteractionAutomationReplayStateAction( InteractionAutomationReplaySta
         if ( hasTarget && record )
         {
             RunReplayPredictionState& prediction = context.replayRuntime.Prediction();
-            if ( !prediction.build.complete || prediction.frames.size() < 2 )
+            if ( !prediction.build.complete || prediction.simulation.frames.size() < 2 )
             {
                 FailAutomation( context.state,
                                 "replay path target velocity nudge requires a completed prediction baseline" );
@@ -2172,7 +2172,7 @@ void Run::WriteInteractionAutomationReport()
               { "gizmoVisible", gizmoVisible },
               { "memoryOverlayEnabled", m_UI.IsMemoryOverlayEnabled() },
               { "replayPredictionEnabled", predictionState.enabled },
-              { "predictionHorizonSeconds", predictionState.horizonSeconds },
+              { "predictionHorizonSeconds", predictionState.simulation.horizonSeconds },
               { "predictionRevealSecondsPerSecond", predictionState.revealClock.secondsPerSecond },
               { "replayPathTarget",
                 m_replayRuntime.PathVisualizer().hasTarget ? m_replayRuntime.PathVisualizer().targetName : "" },
@@ -2187,7 +2187,7 @@ void Run::WriteInteractionAutomationReport()
               { "predictionSourceSolverHash", predictionSourceSolverHash },
               { "liveSolverHash", liveSolverHash },
               { "predictionActiveFrameCount", static_cast<int>( predictionVisibleFrameCount ) },
-              { "predictionFrameCount", static_cast<int>( predictionState.frames.size() ) },
+              { "predictionFrameCount", static_cast<int>( predictionState.simulation.frames.size() ) },
               { "predictionBuildFrameCount", static_cast<int>( predictionState.PublishedBuildFrameCount() ) },
               { "predictionTargetDisplacementValid", predictionTargetDisplacementValid },
               { "predictionTargetFirst", Vec3Json( predictionTargetFirst ) },
