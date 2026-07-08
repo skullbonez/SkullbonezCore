@@ -128,6 +128,21 @@ template <typename T> uint64_t VectorCapacityBytes( const std::vector<T>& values
     return static_cast<uint64_t>( values.capacity() ) * static_cast<uint64_t>( sizeof( T ) );
 }
 
+bool IsSolverBodyFixed( const PhysicsBodyRecordList& bodyRecords, int bodyIndex )
+{
+    return bodyRecords[static_cast<size_t>( bodyIndex )].isFixed;
+}
+
+const Vector3& SolverBodyPosition( const PhysicsBodyRecordList& bodyRecords, int bodyIndex )
+{
+    return bodyRecords[static_cast<size_t>( bodyIndex )].position;
+}
+
+float SolverBodyRadius( const ColliderRecordList& colliderRecords, int bodyIndex )
+{
+    return colliderRecords[static_cast<size_t>( bodyIndex )].boundingRadius;
+}
+
 void ApplyForcesForSolverBody( PhysicsBodyStore& bodyStore,
                                const ColliderStore& colliderStore,
                                const PhysicsWorldForces& worldForces,
@@ -140,7 +155,7 @@ void ApplyForcesForSolverBody( PhysicsBodyStore& bodyStore,
     // Invariant: this is the extracted body of the former applyForcesAt lambda.
     // Sleeping rows must keep their cached pose and consume no remaining time;
     // awake dynamic rows still receive the same force application call.
-    if ( bodyRecords[static_cast<size_t>( bodyIndex )].isFixed )
+    if ( IsSolverBodyFixed( bodyRecords, bodyIndex ) )
     {
         return;
     }
@@ -2172,11 +2187,6 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
     const int modelCount = (std::min)( { bodyStore.Count(),
                                          static_cast<int>( bodyRecords.size() ),
                                          static_cast<int>( colliderRecords.size() ) } );
-    auto bodyIsFixed = [&]( int index ) -> bool { return bodyRecords[static_cast<size_t>( index )].isFixed; };
-    auto bodyPosition = [&]( int index ) -> const Vector3&
-    { return bodyRecords[static_cast<size_t>( index )].position; };
-    auto bodyRadius = [&]( int index ) -> float
-    { return colliderRecords[static_cast<size_t>( index )].boundingRadius; };
 
     // Sleep thresholds are config-backed because they directly trade CPU cost
     // against visible settling behavior. Higher thresholds keep bodies awake
@@ -2306,7 +2316,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
         float largestBroadphaseRadius = 0.0f;
         for ( int i = 0; i < modelCount; ++i )
         {
-            const float radius = bodyRadius( i );
+            const float radius = SolverBodyRadius( colliderRecords, i );
             if ( std::isfinite( radius ) && radius > largestBroadphaseRadius )
             {
                 largestBroadphaseRadius = radius;
@@ -2327,16 +2337,16 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
         m_collisionCellKeys.clear();
         for ( int i = 0; i < modelCount; ++i )
         {
-            const float radius = bodyRadius( i ) + contactSkin;
+            const float radius = SolverBodyRadius( colliderRecords, i ) + contactSkin;
             const Vector3 displacement = bodyRecords[static_cast<size_t>( i )].linearVelocity * dt;
             const float displacementSq = Vector::VectorMagSquared( displacement );
-            if ( !bodyIsFixed( i ) && displacementSq > radius * radius )
+            if ( !IsSolverBodyFixed( bodyRecords, i ) && displacementSq > radius * radius )
             {
-                m_spatialGrid.InsertSwept( i, bodyPosition( i ), displacement, radius );
+                m_spatialGrid.InsertSwept( i, SolverBodyPosition( bodyRecords, i ), displacement, radius );
             }
             else
             {
-                m_spatialGrid.Insert( i, bodyPosition( i ), radius );
+                m_spatialGrid.Insert( i, SolverBodyPosition( bodyRecords, i ), radius );
             }
         }
         m_spatialGrid.GetCandidatePairs( candidatePairs,
@@ -2374,12 +2384,12 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
 
     auto isFastSmallSweepBody = [&]( int index ) -> bool
     {
-        if ( bodyIsFixed( index ) )
+        if ( IsSolverBodyFixed( bodyRecords, index ) )
         {
             return false;
         }
 
-        const float radius = bodyRadius( index );
+        const float radius = SolverBodyRadius( colliderRecords, index );
         if ( radius > PHYSICS_FAST_SWEEP_MAX_RADIUS )
         {
             return false;
@@ -2393,7 +2403,8 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
 
     auto sweptSegmentTouchesExpandedBody = [&]( int movingIndex, int targetIndex ) -> bool
     {
-        const Vector3 relativeStart = bodyPosition( movingIndex ) - bodyPosition( targetIndex );
+        const Vector3 relativeStart =
+            SolverBodyPosition( bodyRecords, movingIndex ) - SolverBodyPosition( bodyRecords, targetIndex );
         const Vector3 relativeDisplacement = ( bodyRecords[static_cast<size_t>( movingIndex )].linearVelocity -
                                                bodyRecords[static_cast<size_t>( targetIndex )].linearVelocity ) *
                                              dt;
@@ -2406,8 +2417,9 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
         float t = -( relativeStart * relativeDisplacement ) / relativeLengthSq;
         t = (std::max)( 0.0f, (std::min)( 1.0f, t ) );
         const Vector3 closestRelative = relativeStart + relativeDisplacement * t;
-        const float expandedRadius = bodyRadius( movingIndex ) + bodyRadius( targetIndex ) + config.contactEpsilon +
-                                     PHYSICS_FAST_SWEEP_PAIR_SLOP;
+        const float expandedRadius =
+            SolverBodyRadius( colliderRecords, movingIndex ) + SolverBodyRadius( colliderRecords, targetIndex ) +
+            config.contactEpsilon + PHYSICS_FAST_SWEEP_PAIR_SLOP;
         return Vector::VectorMagSquared( closestRelative ) <= expandedRadius * expandedRadius;
     };
 
@@ -2446,7 +2458,8 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
                                                   const int a = pair.first;
                                                   const int b = pair.second;
                                                   return a >= 0 && b >= 0 && a < modelCount && b < modelCount &&
-                                                         bodyIsFixed( a ) && bodyIsFixed( b );
+                                                         IsSolverBodyFixed( bodyRecords, a ) &&
+                                                             IsSolverBodyFixed( bodyRecords, b );
                                               } ),
                               candidatePairs.end() );
     }
@@ -2550,7 +2563,8 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
         // Waking re-enters the body into this frame rather than waiting for the
         // next tick. Applying forces immediately keeps gravity and other forces
         // consistent with an awake body that was never asleep.
-        if ( sleepingIndex < 0 || sleepingIndex >= modelCount || bodyIsFixed( sleepingIndex ) ||
+        if ( sleepingIndex < 0 || sleepingIndex >= modelCount ||
+             IsSolverBodyFixed( bodyRecords, sleepingIndex ) ||
              !m_sleepState[sleepingIndex] || IsUnderwaterSleepLocked( modelCount, sleepingIndex ) )
         {
             return;
@@ -2745,8 +2759,8 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
             return true;
         }
 
-        const float radiusA = bodyRadius( a );
-        const float radiusB = bodyRadius( b );
+        const float radiusA = SolverBodyRadius( colliderRecords, a );
+        const float radiusB = SolverBodyRadius( colliderRecords, b );
         if ( !std::isfinite( radiusA ) || !std::isfinite( radiusB ) || radiusA <= TOLERANCE || radiusB <= TOLERANCE )
         {
             return true;
@@ -3237,7 +3251,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
     auto detectTerrainAt = [&]( int x )
     {
         TerrainDetectionCandidate& candidate = m_terrainDetectionCandidates[static_cast<size_t>( x )];
-        if ( bodyIsFixed( x ) )
+        if ( IsSolverBodyFixed( bodyRecords, x ) )
         {
             return;
         }
@@ -3358,7 +3372,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
     PROFILE_BEGIN( "Frame/Physics/Integrate" );
     auto integrateRemainingAt = [&]( int x )
     {
-        if ( bodyIsFixed( x ) )
+        if ( IsSolverBodyFixed( bodyRecords, x ) )
         {
             return;
         }
@@ -3493,7 +3507,8 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
         // also valid anchors: fixed objects are immovable world geometry, and a
         // sleeping dynamic body could only have reached sleep after satisfying the
         // same support gate in an earlier frame.
-        if ( bodyIsFixed( x ) || ( x < static_cast<int>( m_sleepState.size() ) && m_sleepState[x] != 0 ) ||
+        if ( IsSolverBodyFixed( bodyRecords, x ) ||
+             ( x < static_cast<int>( m_sleepState.size() ) && m_sleepState[x] != 0 ) ||
              ( x < static_cast<int>( m_sleepSupportedThisFrame.size() ) && m_sleepSupportedThisFrame[x] != 0 ) )
         {
             m_sleepIslandHasSupportAnchor[root] = 1;
@@ -3531,7 +3546,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
 
     for ( int x = 0; x < modelCount; ++x )
     {
-        if ( bodyIsFixed( x ) )
+        if ( IsSolverBodyFixed( bodyRecords, x ) )
         {
             continue;
         }
@@ -3632,7 +3647,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
 
     for ( int x = 0; x < modelCount; ++x )
     {
-        if ( bodyIsFixed( x ) )
+        if ( IsSolverBodyFixed( bodyRecords, x ) )
         {
             continue;
         }
@@ -3657,7 +3672,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
 
     for ( int x = 0; x < modelCount; ++x )
     {
-        if ( bodyIsFixed( x ) )
+        if ( IsSolverBodyFixed( bodyRecords, x ) )
         {
             continue;
         }
@@ -3678,7 +3693,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
     m_sleepIslandAssignedVisualId.assign( modelCount, 0 );
     for ( int x = 0; x < modelCount; ++x )
     {
-        if ( bodyIsFixed( x ) )
+        if ( IsSolverBodyFixed( bodyRecords, x ) )
         {
             continue;
         }
@@ -3696,7 +3711,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
 
     for ( int x = 0; x < modelCount; ++x )
     {
-        if ( bodyIsFixed( x ) )
+        if ( IsSolverBodyFixed( bodyRecords, x ) )
         {
             continue;
         }

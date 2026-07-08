@@ -145,9 +145,9 @@ island-merge tie-breaks.
   inventory records the exact current set so extraction can preserve behavior.
 
   Driver accessors / force integration:
-  - [ ] L2131 `bodyIsFixed`: body fixed-state accessor.
-  - [ ] L2132 `bodyPosition`: body position accessor.
-  - [ ] L2134 `bodyRadius`: collider broadphase-radius accessor.
+  - [x] L2131 `bodyIsFixed`: body fixed-state accessor.
+  - [x] L2132 `bodyPosition`: body position accessor.
+  - [x] L2134 `bodyRadius`: collider broadphase-radius accessor.
   - [x] L2165 `applyForcesAt`: per-body force application.
 
   Broadphase candidate build and pruning:
@@ -215,6 +215,12 @@ island-merge tie-breaks.
     `TestOutput\agent_logs\plan02_apply_forces_stage_validate_tests_20260709_0924.log`
     (3.02s; project filters 0 errors, Profile test build 0 warnings and 0
     errors, 59/59 doctest cases and 1532/1532 assertions passed).
+  - Extracted the `bodyIsFixed`, `bodyPosition`, and `bodyRadius` accessors into
+    `IsSolverBodyFixed`, `SolverBodyPosition`, and `SolverBodyRadius`. Gate
+    evidence: `tools\validate_physics.bat` passed in
+    `TestOutput\agent_logs\plan02_solver_accessors_validate_physics_20260709_0928.log`
+    (43.88s; Debug/Profile builds 0 warnings and 0 errors; final
+    `VALIDATE_PHYSICS: ALL PASSED`).
 - [ ] **1.3** `RunSolverPhysics` is now a short driver calling named stages;
   confirm it is under ~300 lines.
 - [ ] **1.4** Add a unit test for at least one now-pure stage (e.g. broadphase
