@@ -1394,6 +1394,34 @@ every step. Commit per step.
     `TestOutput\agent_logs\plan01_interaction_after_render_split_runtime_boundaries.log`
     (17.6s). The touched-file comment audit covered
     `RunInteractionAutomation.cpp`.
+  - [x] Interaction automation before-input replay-control split moved the
+    replay scrubber control-click and solver-track scrub injection branches into
+    source-local helpers with explicit automation, subsystem, config, scene,
+    timer, and replay owner references. `Run::TickInteractionAutomationBeforeInput()`
+    dropped from 578 measured lines to 365 measured lines without adding public
+    or private `Run` methods. The remaining measured large `Run::` targets are
+    `RestoreReplayV2ArtifactTargetState` (946),
+    `TickInteractionAutomationBeforeInput` (365), `TakeInput` (201),
+    `RunGraphicsStressActions` (199), `WriteInteractionAutomationReport`
+    (197), and `Execute` (196), so Phase 3 and the structural acceptance rows
+    remain open. Gate evidence:
+    `TestOutput\agent_logs\plan01_interaction_before_input_replay_controls_validate_full.log`
+    (44.0s; project filters/runtime boundaries passed, Profile/Debug builds
+    had 0 warnings and 0 errors, DX12 InfoQueue errors = 0, screenshots
+    matched baselines, and `physics_regression_solver.csv` matched
+    byte-exactly). Focused interaction/replay checks passed:
+    `TestOutput\agent_logs\plan01_interaction_before_input_replay_controls_validate_interaction_clicks.log`
+    (17.4s) and
+    `TestOutput\agent_logs\plan01_interaction_before_input_replay_controls_validate_replay_scrub.log`
+    (21.0s). Targeted pre-gate checks also passed after an initial namespace
+    qualification build failure:
+    `TestOutput\agent_logs\plan01_interaction_before_input_replay_controls_build_profile_rerun.log`
+    (9.0s),
+    `TestOutput\agent_logs\plan01_interaction_before_input_replay_controls_validate_format.log`
+    (9.4s), and
+    `TestOutput\agent_logs\plan01_interaction_before_input_replay_controls_runtime_boundaries.log`
+    (17.7s). The touched-file comment audit covered
+    `RunInteractionAutomation.cpp`.
 
 ## Validation
 

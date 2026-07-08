@@ -619,6 +619,207 @@ void FailAutomation( RunInteractionAutomationState& state, const char* message )
     }
 }
 
+struct InteractionAutomationReplayControlContext
+{
+    RunInteractionAutomationState& state;
+    RunSubsystemState& systems;
+    const EngineConfig& config;
+    const RunSceneState& scene;
+    RunTimerState& timers;
+    ReplayRuntime& replayRuntime;
+};
+
+void ShowInteractionAutomationReplayScrubber( InteractionAutomationReplayControlContext& context )
+{
+    context.replayRuntime.Scrubber().visible = true;
+    context.replayRuntime.Scrubber().visibleUntil =
+        context.timers.simulationTimer.GetTotalTime() + REPLAY_SCRUBBER_VISIBLE_SECONDS;
+}
+
+void AppendInteractionAutomationReplayControlFailure( InteractionAutomationReplayControlContext& context,
+                                                      int frame,
+                                                      const RunInteractionAutomationAction& action,
+                                                      const char* failure,
+                                                      const char* detail )
+{
+    FailAutomation( context.state, failure );
+    AppendReportAction( context.state, frame, action.type, action.text, nullptr, false, detail );
+}
+
+void InjectInteractionAutomationReplayControlClick( InteractionAutomationReplayControlContext& context,
+                                                    RunInteractionAutomationAction& action,
+                                                    int frame,
+                                                    const SkullbonezCore::UI::UIRect& rect,
+                                                    const char* detail )
+{
+    InjectAutomationLeftMousePress( context.state, action, frame, rect );
+    ShowInteractionAutomationReplayScrubber( context );
+    AppendReportAction( context.state, frame, action.type, action.text, &action.mouse, true, detail );
+}
+
+void ApplyInteractionAutomationReplayControlClick( InteractionAutomationReplayControlContext& context,
+                                                   RunInteractionAutomationAction& action,
+                                                   int frame )
+{
+    // Concept: replay-control automation clicks the visible scrubber widgets
+    // instead of mutating replay state directly. Normal replay input remains the
+    // owner of prediction, pause/play, velocity-edit, and branch transitions.
+    if ( strcmp( action.text, "predict" ) == 0 )
+    {
+        const int screenW = RuntimeWindowScreenWidth( context.systems, context.config );
+        const int screenH = RuntimeWindowScreenHeight( context.systems, context.config );
+        const ReplayRecorderStats solverReplayStats = context.replayRuntime.Solver().GetStats();
+        // Why: interaction scripts should match the real UI: Predict can branch
+        // from the current live solver state even before a paused scene has
+        // accumulated two retained solver samples.
+        const bool predictionToolsEnabled = solverReplayStats.enabled && context.scene.isScenePhysics;
+        if ( screenW > 0 && screenH > 0 && predictionToolsEnabled )
+        {
+            InjectInteractionAutomationReplayControlClick( context,
+                                                           action,
+                                                           frame,
+                                                           ReplayScrubberPredictToggleRect( screenW, screenH ),
+                                                           "mouse press injected at predict toggle" );
+        }
+        else
+        {
+            AppendInteractionAutomationReplayControlFailure( context,
+                                                             frame,
+                                                             action,
+                                                             "replay predict control unavailable",
+                                                             "replay predict control unavailable" );
+        }
+        return;
+    }
+
+    if ( strcmp( action.text, "pause" ) == 0 || strcmp( action.text, "play" ) == 0 )
+    {
+        const int screenW = RuntimeWindowScreenWidth( context.systems, context.config );
+        const int screenH = RuntimeWindowScreenHeight( context.systems, context.config );
+        const ReplayRecorderStats solverReplayStats = context.replayRuntime.Solver().GetStats();
+        const bool solverToolsEnabled = solverReplayStats.enabled && solverReplayStats.sampleCount >= 2;
+        if ( screenW > 0 && screenH > 0 && solverToolsEnabled )
+        {
+            // Concept: the scrubber exposes one physical button whose label
+            // flips between pause and play. Automation clicks the real rectangle
+            // so replay input ownership does the state transition and
+            // prediction-freeze work.
+            InjectInteractionAutomationReplayControlClick( context,
+                                                           action,
+                                                           frame,
+                                                           ReplayScrubberPauseButtonRect( screenW, screenH ),
+                                                           "mouse press injected at pause/play toggle" );
+        }
+        else
+        {
+            AppendInteractionAutomationReplayControlFailure( context,
+                                                             frame,
+                                                             action,
+                                                             "replay pause/play control unavailable",
+                                                             "replay pause/play control unavailable" );
+        }
+        return;
+    }
+
+    if ( strcmp( action.text, "velocity" ) == 0 )
+    {
+        const int screenW = RuntimeWindowScreenWidth( context.systems, context.config );
+        const int screenH = RuntimeWindowScreenHeight( context.systems, context.config );
+        const ReplayRecorderStats solverReplayStats = context.replayRuntime.Solver().GetStats();
+        const bool solverToolsEnabled = solverReplayStats.enabled && solverReplayStats.sampleCount >= 2;
+        if ( screenW > 0 && screenH > 0 && solverToolsEnabled )
+        {
+            // Concept: velocity automation toggles the visible scrubber control,
+            // then lets the next scripted world click exercise replay velocity
+            // targeting through normal input ownership.
+            InjectInteractionAutomationReplayControlClick( context,
+                                                           action,
+                                                           frame,
+                                                           ReplayScrubberVelocityEditToggleRect( screenW, screenH ),
+                                                           "mouse press injected at velocity toggle" );
+        }
+        else
+        {
+            AppendInteractionAutomationReplayControlFailure( context,
+                                                             frame,
+                                                             action,
+                                                             "replay velocity control unavailable",
+                                                             "replay velocity control unavailable" );
+        }
+        return;
+    }
+
+    if ( strcmp( action.text, "branch" ) == 0 )
+    {
+        const int screenW = RuntimeWindowScreenWidth( context.systems, context.config );
+        const int screenH = RuntimeWindowScreenHeight( context.systems, context.config );
+        const ReplayRecorderStats solverReplayStats = context.replayRuntime.Solver().GetStats();
+        const bool branchTargetAvailable = context.replayRuntime.Scrubber().historicalSamplePaused &&
+                                           context.replayRuntime.Scrubber().activeTrack == RunReplayTrack::Solver &&
+                                           solverReplayStats.enabled && solverReplayStats.sampleCount >= 2 &&
+                                           context.replayRuntime.CurrentSolverScrubSample() != nullptr;
+        if ( screenW > 0 && screenH > 0 && branchTargetAvailable )
+        {
+            // Why: branch-restore proof clicks the visible Branch rectangle
+            // after a scripted scrub, so TickReplayScrubberInput remains the
+            // owner of the restore.
+            InjectInteractionAutomationReplayControlClick( context,
+                                                           action,
+                                                           frame,
+                                                           ReplayScrubberBranchButtonRect( screenW, screenH ),
+                                                           "mouse press injected at branch restore button" );
+        }
+        else
+        {
+            AppendInteractionAutomationReplayControlFailure( context,
+                                                             frame,
+                                                             action,
+                                                             "replay branch control unavailable",
+                                                             "replay branch control unavailable" );
+        }
+        return;
+    }
+
+    AppendInteractionAutomationReplayControlFailure( context,
+                                                     frame,
+                                                     action,
+                                                     "unsupported replay control in interaction script",
+                                                     "unsupported replay control" );
+}
+
+void ApplyInteractionAutomationSolverTrackScrub( InteractionAutomationReplayControlContext& context,
+                                                 RunInteractionAutomationAction& action,
+                                                 int frame )
+{
+    const int screenW = RuntimeWindowScreenWidth( context.systems, context.config );
+    const int screenH = RuntimeWindowScreenHeight( context.systems, context.config );
+    const ReplayRecorderStats solverReplayStats = context.replayRuntime.Solver().GetStats();
+    const bool solverToolsEnabled = solverReplayStats.enabled && solverReplayStats.sampleCount >= 2;
+    if ( screenW > 0 && screenH > 0 && solverToolsEnabled )
+    {
+        // Why: replay branch tests need a historical solver selection, but the
+        // selection still comes from the scrubber track hitbox and normal
+        // drag/release handling.
+        const SkullbonezCore::UI::UIRect track = ReplayScrubberTrackRect( screenW, screenH, RunReplayTrack::Solver );
+        SkullbonezCore::UI::UIRect target = track;
+        target.x = track.x + track.w * std::clamp( action.numberValue, 0.0f, 1.0f );
+        target.w = 1.0f;
+        InjectInteractionAutomationReplayControlClick( context,
+                                                       action,
+                                                       frame,
+                                                       target,
+                                                       "mouse press injected at solver replay track" );
+    }
+    else
+    {
+        AppendInteractionAutomationReplayControlFailure( context,
+                                                         frame,
+                                                         action,
+                                                         "replay solver scrub track unavailable",
+                                                         "replay solver scrub track unavailable" );
+    }
+}
+
 bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, std::string& outError )
 {
     if ( !entry.is_object() || !TryReadFrame( entry, outAction.frame ) )
@@ -1301,6 +1502,12 @@ void Run::TickInteractionAutomationBeforeInput()
     }
 
     const int frame = SceneState().currentFrame;
+    InteractionAutomationReplayControlContext replayControlContext{ state,
+                                                                    m_systems,
+                                                                    m_config,
+                                                                    SceneState(),
+                                                                    m_timers,
+                                                                    m_replayRuntime };
     if ( state.releaseLeftFrame == frame )
     {
         state.leftMouseDown = false;
@@ -1587,232 +1794,13 @@ void Run::TickInteractionAutomationBeforeInput()
             action.processed = true;
             break;
         case RunInteractionAutomationActionType::ClickReplayControl:
-            if ( strcmp( action.text, "predict" ) == 0 )
-            {
-                const int screenW = RuntimeWindowScreenWidth( m_systems, m_config );
-                const int screenH = RuntimeWindowScreenHeight( m_systems, m_config );
-                const ReplayRecorderStats solverReplayStats = m_replayRuntime.Solver().GetStats();
-                // Why: interaction scripts should match the real UI: Predict
-                // can branch from the current live solver state even before a
-                // paused scene has accumulated two retained solver samples.
-                const bool predictionToolsEnabled = solverReplayStats.enabled && SceneState().isScenePhysics;
-                if ( screenW > 0 && screenH > 0 && predictionToolsEnabled )
-                {
-                    const UI::UIRect predictToggle = ReplayScrubberPredictToggleRect( screenW, screenH );
-                    POINT mouse = {};
-                    mouse.x = static_cast<LONG>( predictToggle.x + predictToggle.w * 0.5f );
-                    mouse.y = static_cast<LONG>( predictToggle.y + predictToggle.h * 0.5f );
-                    state.mouseClientPosition = mouse;
-                    state.hasMouseClientPosition = true;
-                    state.leftMouseDown = true;
-                    state.releaseLeftFrame = frame + 1;
-                    action.mouse = mouse;
-                    action.hasMouse = true;
-                    m_replayRuntime.Scrubber().visible = true;
-                    m_replayRuntime.Scrubber().visibleUntil =
-                        m_timers.simulationTimer.GetTotalTime() + REPLAY_SCRUBBER_VISIBLE_SECONDS;
-                    AppendReportAction( state,
-                                        frame,
-                                        action.type,
-                                        action.text,
-                                        &mouse,
-                                        true,
-                                        "mouse press injected at predict toggle" );
-                }
-                else
-                {
-                    FailAutomation( state, "replay predict control unavailable" );
-                    AppendReportAction( state,
-                                        frame,
-                                        action.type,
-                                        action.text,
-                                        nullptr,
-                                        false,
-                                        "replay predict control unavailable" );
-                }
-            }
-            else if ( strcmp( action.text, "pause" ) == 0 || strcmp( action.text, "play" ) == 0 )
-            {
-                const int screenW = RuntimeWindowScreenWidth( m_systems, m_config );
-                const int screenH = RuntimeWindowScreenHeight( m_systems, m_config );
-                const ReplayRecorderStats solverReplayStats = m_replayRuntime.Solver().GetStats();
-                const bool solverToolsEnabled = solverReplayStats.enabled && solverReplayStats.sampleCount >= 2;
-                if ( screenW > 0 && screenH > 0 && solverToolsEnabled )
-                {
-                    // Concept: the scrubber exposes one physical button whose
-                    // label flips between pause and play. Automation clicks the
-                    // real rectangle so replay input ownership does the state
-                    // transition and prediction-freeze work.
-                    const UI::UIRect pauseButton = ReplayScrubberPauseButtonRect( screenW, screenH );
-                    POINT mouse = {};
-                    mouse.x = static_cast<LONG>( pauseButton.x + pauseButton.w * 0.5f );
-                    mouse.y = static_cast<LONG>( pauseButton.y + pauseButton.h * 0.5f );
-                    state.mouseClientPosition = mouse;
-                    state.hasMouseClientPosition = true;
-                    state.leftMouseDown = true;
-                    state.releaseLeftFrame = frame + 1;
-                    action.mouse = mouse;
-                    action.hasMouse = true;
-                    m_replayRuntime.Scrubber().visible = true;
-                    m_replayRuntime.Scrubber().visibleUntil =
-                        m_timers.simulationTimer.GetTotalTime() + REPLAY_SCRUBBER_VISIBLE_SECONDS;
-                    AppendReportAction( state,
-                                        frame,
-                                        action.type,
-                                        action.text,
-                                        &mouse,
-                                        true,
-                                        "mouse press injected at pause/play toggle" );
-                }
-                else
-                {
-                    FailAutomation( state, "replay pause/play control unavailable" );
-                    AppendReportAction( state,
-                                        frame,
-                                        action.type,
-                                        action.text,
-                                        nullptr,
-                                        false,
-                                        "replay pause/play control unavailable" );
-                }
-            }
-            else if ( strcmp( action.text, "velocity" ) == 0 )
-            {
-                const int screenW = RuntimeWindowScreenWidth( m_systems, m_config );
-                const int screenH = RuntimeWindowScreenHeight( m_systems, m_config );
-                const ReplayRecorderStats solverReplayStats = m_replayRuntime.Solver().GetStats();
-                const bool solverToolsEnabled = solverReplayStats.enabled && solverReplayStats.sampleCount >= 2;
-                if ( screenW > 0 && screenH > 0 && solverToolsEnabled )
-                {
-                    // Concept: velocity automation toggles the visible scrubber
-                    // control, then lets the next scripted world click exercise
-                    // replay velocity targeting through normal input ownership.
-                    const UI::UIRect velocityToggle = ReplayScrubberVelocityEditToggleRect( screenW, screenH );
-                    POINT mouse = {};
-                    mouse.x = static_cast<LONG>( velocityToggle.x + velocityToggle.w * 0.5f );
-                    mouse.y = static_cast<LONG>( velocityToggle.y + velocityToggle.h * 0.5f );
-                    state.mouseClientPosition = mouse;
-                    state.hasMouseClientPosition = true;
-                    state.leftMouseDown = true;
-                    state.releaseLeftFrame = frame + 1;
-                    action.mouse = mouse;
-                    action.hasMouse = true;
-                    m_replayRuntime.Scrubber().visible = true;
-                    m_replayRuntime.Scrubber().visibleUntil =
-                        m_timers.simulationTimer.GetTotalTime() + REPLAY_SCRUBBER_VISIBLE_SECONDS;
-                    AppendReportAction( state,
-                                        frame,
-                                        action.type,
-                                        action.text,
-                                        &mouse,
-                                        true,
-                                        "mouse press injected at velocity toggle" );
-                }
-                else
-                {
-                    FailAutomation( state, "replay velocity control unavailable" );
-                    AppendReportAction( state,
-                                        frame,
-                                        action.type,
-                                        action.text,
-                                        nullptr,
-                                        false,
-                                        "replay velocity control unavailable" );
-                }
-            }
-            else if ( strcmp( action.text, "branch" ) == 0 )
-            {
-                const int screenW = RuntimeWindowScreenWidth( m_systems, m_config );
-                const int screenH = RuntimeWindowScreenHeight( m_systems, m_config );
-                const ReplayRecorderStats solverReplayStats = m_replayRuntime.Solver().GetStats();
-                const bool branchTargetAvailable = m_replayRuntime.Scrubber().historicalSamplePaused &&
-                                                   m_replayRuntime.Scrubber().activeTrack == RunReplayTrack::Solver &&
-                                                   solverReplayStats.enabled && solverReplayStats.sampleCount >= 2 &&
-                                                   m_replayRuntime.CurrentSolverScrubSample() != nullptr;
-                if ( screenW > 0 && screenH > 0 && branchTargetAvailable )
-                {
-                    // Why: branch-restore proof clicks the visible Branch
-                    // rectangle after a scripted scrub, so
-                    // TickReplayScrubberInput remains the owner of the restore.
-                    const UI::UIRect branchButton = ReplayScrubberBranchButtonRect( screenW, screenH );
-                    InjectAutomationLeftMousePress( state, action, frame, branchButton );
-                    m_replayRuntime.Scrubber().visible = true;
-                    m_replayRuntime.Scrubber().visibleUntil =
-                        m_timers.simulationTimer.GetTotalTime() + REPLAY_SCRUBBER_VISIBLE_SECONDS;
-                    AppendReportAction( state,
-                                        frame,
-                                        action.type,
-                                        action.text,
-                                        &action.mouse,
-                                        true,
-                                        "mouse press injected at branch restore button" );
-                }
-                else
-                {
-                    FailAutomation( state, "replay branch control unavailable" );
-                    AppendReportAction( state,
-                                        frame,
-                                        action.type,
-                                        action.text,
-                                        nullptr,
-                                        false,
-                                        "replay branch control unavailable" );
-                }
-            }
-            else
-            {
-                FailAutomation( state, "unsupported replay control in interaction script" );
-                AppendReportAction( state,
-                                    frame,
-                                    action.type,
-                                    action.text,
-                                    nullptr,
-                                    false,
-                                    "unsupported replay control" );
-            }
+            ApplyInteractionAutomationReplayControlClick( replayControlContext, action, frame );
             action.processed = true;
             break;
         case RunInteractionAutomationActionType::ScrubReplaySolverTrack:
-        {
-            const int screenW = RuntimeWindowScreenWidth( m_systems, m_config );
-            const int screenH = RuntimeWindowScreenHeight( m_systems, m_config );
-            const ReplayRecorderStats solverReplayStats = m_replayRuntime.Solver().GetStats();
-            const bool solverToolsEnabled = solverReplayStats.enabled && solverReplayStats.sampleCount >= 2;
-            if ( screenW > 0 && screenH > 0 && solverToolsEnabled )
-            {
-                // Why: replay branch tests need a historical solver selection,
-                // but the selection still comes from the scrubber track hitbox
-                // and normal drag/release handling.
-                const UI::UIRect track = ReplayScrubberTrackRect( screenW, screenH, RunReplayTrack::Solver );
-                UI::UIRect target = track;
-                target.x = track.x + track.w * std::clamp( action.numberValue, 0.0f, 1.0f );
-                target.w = 1.0f;
-                InjectAutomationLeftMousePress( state, action, frame, target );
-                m_replayRuntime.Scrubber().visible = true;
-                m_replayRuntime.Scrubber().visibleUntil =
-                    m_timers.simulationTimer.GetTotalTime() + REPLAY_SCRUBBER_VISIBLE_SECONDS;
-                AppendReportAction( state,
-                                    frame,
-                                    action.type,
-                                    action.text,
-                                    &action.mouse,
-                                    true,
-                                    "mouse press injected at solver replay track" );
-            }
-            else
-            {
-                FailAutomation( state, "replay solver scrub track unavailable" );
-                AppendReportAction( state,
-                                    frame,
-                                    action.type,
-                                    action.text,
-                                    nullptr,
-                                    false,
-                                    "replay solver scrub track unavailable" );
-            }
+            ApplyInteractionAutomationSolverTrackScrub( replayControlContext, action, frame );
             action.processed = true;
             break;
-        }
         case RunInteractionAutomationActionType::ClickObject:
         {
             POINT mouse = {};
