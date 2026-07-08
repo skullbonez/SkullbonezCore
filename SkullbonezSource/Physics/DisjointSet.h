@@ -23,6 +23,8 @@ Invariants:
     validation behavior.
   - The helper borrows scratch buffers from PhysicsWorld; it owns no storage and
     depends on those buffers being pre-reserved before fixed-step gameplay.
+  - Callers finish sizing parent/rank buffers before constructing the helper and
+    do not resize those buffers while the helper is alive.
 
 Related:
   - PhysicsWorld.cpp owns the deterministic solver stages that use this helper.
@@ -42,7 +44,11 @@ class DisjointSet
 {
 public:
     DisjointSet( std::vector<int>& parent, std::vector<uint8_t>& rank, int count )
-        : m_parent( parent ), m_rank( rank ), m_count( count )
+        : m_parent( parent ),
+          m_rank( rank ),
+          m_parentRows( parent.data() ),
+          m_rankRows( rank.data() ),
+          m_count( count )
     {
     }
 
@@ -57,20 +63,21 @@ public:
         {
             m_parent[static_cast<std::size_t>( row )] = row;
         }
+        RebindRows();
     }
 
     int Find( int row )
     {
         int root = row;
-        while ( m_parent[static_cast<std::size_t>( root )] != root )
+        while ( m_parentRows[root] != root )
         {
-            root = m_parent[static_cast<std::size_t>( root )];
+            root = m_parentRows[root];
         }
 
-        while ( m_parent[static_cast<std::size_t>( row )] != row )
+        while ( m_parentRows[row] != row )
         {
-            const int parent = m_parent[static_cast<std::size_t>( row )];
-            m_parent[static_cast<std::size_t>( row )] = root;
+            const int parent = m_parentRows[row];
+            m_parentRows[row] = root;
             row = parent;
         }
 
@@ -86,23 +93,29 @@ public:
             return;
         }
 
-        if ( m_rank[static_cast<std::size_t>( rootA )] <
-             m_rank[static_cast<std::size_t>( rootB )] )
+        if ( m_rankRows[rootA] < m_rankRows[rootB] )
         {
             std::swap( rootA, rootB );
         }
 
-        m_parent[static_cast<std::size_t>( rootB )] = rootA;
-        if ( m_rank[static_cast<std::size_t>( rootA )] ==
-             m_rank[static_cast<std::size_t>( rootB )] )
+        m_parentRows[rootB] = rootA;
+        if ( m_rankRows[rootA] == m_rankRows[rootB] )
         {
-            ++m_rank[static_cast<std::size_t>( rootA )];
+            ++m_rankRows[rootA];
         }
     }
 
 private:
+    void RebindRows()
+    {
+        m_parentRows = m_parent.data();
+        m_rankRows = m_rank.data();
+    }
+
     std::vector<int>& m_parent;
     std::vector<uint8_t>& m_rank;
+    int* m_parentRows;
+    uint8_t* m_rankRows;
     int m_count;
 };
 

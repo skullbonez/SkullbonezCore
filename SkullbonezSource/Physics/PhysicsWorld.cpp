@@ -3025,43 +3025,9 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
             m_objectNarrowphaseParent[static_cast<size_t>( i )] = i;
         }
 
-        auto findObjectNarrowphaseRoot = [&]( int index ) -> int
-        {
-            int root = index;
-            while ( m_objectNarrowphaseParent[static_cast<size_t>( root )] != root )
-            {
-                root = m_objectNarrowphaseParent[static_cast<size_t>( root )];
-            }
-            while ( m_objectNarrowphaseParent[static_cast<size_t>( index )] != index )
-            {
-                const int next = m_objectNarrowphaseParent[static_cast<size_t>( index )];
-                m_objectNarrowphaseParent[static_cast<size_t>( index )] = root;
-                index = next;
-            }
-            return root;
-        };
-
-        auto unionObjectNarrowphaseRoots = [&]( int a, int b )
-        {
-            int rootA = findObjectNarrowphaseRoot( a );
-            int rootB = findObjectNarrowphaseRoot( b );
-            if ( rootA == rootB )
-            {
-                return;
-            }
-
-            if ( m_objectNarrowphaseRank[static_cast<size_t>( rootA )] <
-                 m_objectNarrowphaseRank[static_cast<size_t>( rootB )] )
-            {
-                std::swap( rootA, rootB );
-            }
-            m_objectNarrowphaseParent[static_cast<size_t>( rootB )] = rootA;
-            if ( m_objectNarrowphaseRank[static_cast<size_t>( rootA )] ==
-                 m_objectNarrowphaseRank[static_cast<size_t>( rootB )] )
-            {
-                ++m_objectNarrowphaseRank[static_cast<size_t>( rootA )];
-            }
-        };
+        DisjointSet objectNarrowphaseSets( m_objectNarrowphaseParent,
+                                           m_objectNarrowphaseRank,
+                                           modelCount );
 
         for ( int pairIndex = 0; pairIndex < candidatePairCount; ++pairIndex )
         {
@@ -3071,7 +3037,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
             {
                 continue;
             }
-            unionObjectNarrowphaseRoots( x, y );
+            objectNarrowphaseSets.Unite( x, y );
         }
 
         m_objectNarrowphaseIslands.clear();
@@ -3087,7 +3053,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
                 continue;
             }
 
-            const int root = findObjectNarrowphaseRoot( x );
+            const int root = objectNarrowphaseSets.Find( x );
             int islandIndex = m_objectNarrowphaseRootToIsland[static_cast<size_t>( root )];
             if ( islandIndex < 0 )
             {
@@ -3142,7 +3108,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
                 continue;
             }
 
-            const int root = findObjectNarrowphaseRoot( x );
+            const int root = objectNarrowphaseSets.Find( x );
             const int islandIndex = m_objectNarrowphaseRootToIsland[static_cast<size_t>( root )];
             if ( islandIndex < 0 )
             {

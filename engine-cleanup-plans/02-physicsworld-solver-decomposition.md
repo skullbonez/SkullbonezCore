@@ -110,8 +110,13 @@ island-merge tie-breaks.
   `physics_regression_solver.csv` matched the baseline byte-exact
   (20001 lines), with 0 warnings and 0 errors. Mirrored log:
   `Agentic\Logs\cleanup-02-step-0.4-validate-physics.log`.
-- [ ] **0.5** Replace copy 3 (narrowphase island builder) over
+- [x] **0.5** Replace copy 3 (narrowphase island builder) over
   `m_objectNarrowphaseParent`/`Rank`. Gate: `validate_physics`. Commit.
+
+  Validation: `cmd.exe /c tools\validate_physics.bat` passed on 2026-07-08;
+  `physics_regression_solver.csv` matched the baseline byte-exact
+  (20001 lines), with 0 warnings and 0 errors. Mirrored log:
+  `Agentic\Logs\cleanup-02-step-0.5-validate-physics.log`.
 - [ ] **0.6** `rg -n "= find|union.*Root|findIsland" SkullbonezSource/Physics` —
   confirm no inline union-find remains. Tick Phase 0.
 
