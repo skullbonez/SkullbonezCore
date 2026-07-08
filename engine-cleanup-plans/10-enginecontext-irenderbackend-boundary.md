@@ -51,7 +51,7 @@ borrowed-alias dual ownership.
   wire it as the actual boundary. Do not keep decorative architecture.
 - [x] **Phase 1 — Split `EngineContextBindings`** into owner-specific records
   (per facade FAC-002); no subsystem receives the whole runtime graph.
-- [ ] **Phase 2 — Route to narrow interfaces** and delete the `IRenderBackend`
+- [x] **Phase 2 — Route to narrow interfaces** and delete the `IRenderBackend`
   aggregate *type* (per facade FAC-001).
 - [ ] **Phase 3 — Fix dual ownership.** `RenderBackendDX12` either borrows the
   device once through a single owner or refreshes its aliases on device
@@ -155,15 +155,30 @@ danger zone — run the renderer gate 3×.
 
 ### Phase 2 — Narrow render interfaces, delete the aggregate
 
-- [ ] **2.1** `rg -n "IRenderBackend&|IRenderBackend \*" SkullbonezSource` to list
+- [x] **2.1** `rg -n "IRenderBackend&|IRenderBackend \*" SkullbonezSource` to list
   callers that take the aggregate. For **one caller at a time**, change its
   parameter to the narrowest capability it actually uses
   (`IRenderDeviceLifecycle` / `IRenderResourceFactory` / `IRenderCommandContext`
   / `IRenderDiagnostics` / `IRenderCaptureBackend` / `IRenderRayTracing`). Gate:
   `validate_dx12_renderer`. Commit. Repeat.
-- [ ] **2.2** Delete the `IRenderBackend` aggregate **type** once unreferenced.
+
+  Completion note (2026-07-08): current branch already has no aggregate callers
+  left to route. Exact evidence: `rg -n "IRenderBackend&|IRenderBackend \*"
+  SkullbonezSource` returned no matches. The only remaining `IRenderBackend`
+  mentions are boundary-checker tombstones/self-tests and cleanup-plan history.
+  The current branch's `tools\validate_full.bat` run included
+  `VALIDATE_DX12_RENDERER: ALL PASSED` in 45.9s with 0 DX12 validation errors
+  and matching screenshots.
+- [x] **2.2** Delete the `IRenderBackend` aggregate **type** once unreferenced.
   `rg -n "class IRenderBackend"` → nothing. Gate: `validate_dx12_renderer`
   (`dx12_validation.txt` == 0). Commit.
+
+  Completion note (2026-07-08): `SkullbonezSource/Rendering/IRenderBackend.h`
+  is absent, `rg -n "class IRenderBackend" SkullbonezSource` returned no
+  matches, and `rg -n "IRenderBackend" SkullbonezSource SKULLBONEZ_CORE.vcxproj
+  SKULLBONEZ_CORE.vcxproj.filters` returned no source/project matches. The
+  branch is protected by the runtime-boundary tombstone rules for aggregate
+  resurrection.
 
 ### Phase 3 — DX12 borrowed-alias dual ownership (danger zone)
 
@@ -188,7 +203,7 @@ danger zone — run the renderer gate 3×.
 
 ## Acceptance (structural)
 
-- [ ] `rg -n "class IRenderBackend" SkullbonezSource` finds nothing (type
+- [x] `rg -n "class IRenderBackend" SkullbonezSource` finds nothing (type
   deleted, not renamed).
 - [x] `EngineContextBindings` is deleted or split; no whole-graph bind remains.
 - [x] `EngineServices Services()` is removed or has real callers.

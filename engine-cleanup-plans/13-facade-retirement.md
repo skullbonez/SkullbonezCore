@@ -100,9 +100,15 @@ FAC-006 is dropped.
 These greps target **types and accessors**, not the word "facade". They pass
 only when the structure is actually gone:
 
-- [ ] `rg -n "class IRenderBackend|IRenderBackend&\s+Gfx" SkullbonezSource` finds
+- [x] `rg -n "class IRenderBackend|IRenderBackend&\s+Gfx" SkullbonezSource` finds
   nothing — the aggregate type and its global accessor are deleted (not
   renamed).
+  Completion note (2026-07-08): Plan 10 Phase 2 is structurally satisfied on the
+  current branch. `SkullbonezSource/Rendering/IRenderBackend.h` is deleted;
+  `rg -n "IRenderBackend&|IRenderBackend \*" SkullbonezSource`,
+  `rg -n "class IRenderBackend" SkullbonezSource`, and source/project metadata
+  greps all returned no matches. `tools\validate_full.bat` passed in 45.9s and
+  included a passing DX12 renderer gate with 0 validation errors.
 - [x] `rg -n "\bEngineContextBindings\b" SkullbonezSource` finds nothing, or every
   remaining consumer takes an owner-specific record; no subsystem is handed the
   whole graph.
