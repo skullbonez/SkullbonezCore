@@ -821,6 +821,9 @@
     <ClInclude Include="SkullbonezSource\Runtime\RunReplayProbeState.h">
       <Filter>Header Files\Runtime</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\RunRuntimeSettings.h">
+      <Filter>Header Files\Runtime</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\RunState.h">
       <Filter>Header Files\Runtime</Filter>
     </ClInclude>

@@ -217,6 +217,7 @@ RUNTIME_PREFIXES = (
     "RunLaunchOptions",
     "RunReplayProbeState",
     "RunRender",
+    "RunRuntimeSettings",
     "RunState",
     "RunStartupState",
     "RunTimerState",

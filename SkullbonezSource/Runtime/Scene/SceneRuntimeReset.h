@@ -27,6 +27,7 @@ Related:
 
 #include "SceneControllerState.h"
 #include "../RunDebugState.h"
+#include "../RunRuntimeSettings.h"
 #include "../RunState.h"
 
 #include <cstdint>

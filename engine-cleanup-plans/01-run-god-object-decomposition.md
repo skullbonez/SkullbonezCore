@@ -1137,6 +1137,31 @@ every step. Commit per step.
     (1.1s), and
     `TestOutput\agent_logs\plan01_debug_state_shelf_validate_fast.log`
     (44.2s).
+  - [x] Runtime settings shelf moved from `RunState.h` into
+    `RunRuntimeSettings.h`. The new header owns live render sync toggles, Catto
+    sleep policy, contact-audio debug/flash settings, tornado force schedules,
+    and tornado visual shell tuning. Runtime view-model, replay restore, and
+    scene reset code now include the runtime-settings header where they need
+    concrete fields, and `RunState.h` no longer pulls in tornado field
+    definitions for unrelated shelves. The Visual Studio project/filter metadata
+    and `tools\validate_project_filters.py` guardrail now recognize the new
+    header. The touched-file comment audit added the new runtime-settings
+    learning header and aligned its inline comments. Gate evidence:
+    `TestOutput\agent_logs\plan01_runtime_settings_shelf_validate_full.log`
+    (47.0s; project filters/runtime boundaries passed, Profile/Debug builds had
+    0 warnings and 0 errors, DX12 InfoQueue errors = 0, screenshots matched
+    baselines, and `physics_regression_solver.csv` matched byte-exactly).
+    Targeted pre-gate checks also passed:
+    `TestOutput\agent_logs\plan01_runtime_settings_shelf_build_profile.log`
+    (10.3s),
+    `TestOutput\agent_logs\plan01_runtime_settings_shelf_validate_format.log`
+    (9.4s),
+    `TestOutput\agent_logs\plan01_runtime_settings_shelf_runtime_boundaries.log`
+    (17.7s),
+    `TestOutput\agent_logs\plan01_runtime_settings_shelf_project_filters.log`
+    (1.1s), and
+    `TestOutput\agent_logs\plan01_runtime_settings_shelf_validate_fast.log`
+    (42.9s).
 
 ### Phase 3 — Shrink `Run`
 

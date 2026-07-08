@@ -42,7 +42,6 @@ Related:
 #include "../Core/Common.h"
 #include "../Core/Config.h"
 #include "../Physics/PhysicsHandles.h"
-#include "../Physics/TornadoField.h"
 #include "../World/SkyBox.h"
 #include "CameraCollection.h"
 #include "DemoDirector.h"
@@ -82,44 +81,6 @@ class WorkerPool;
 
 namespace Basics
 {
-struct TornadoVisualSettings
-{
-    bool enabled = true;                                       // Render-only sparse funnel shell; physics force state remains separate.
-    bool autoEnableWithTornado = true;                         // UI/CLI tornado toggles keep the production visual paired by default.
-    float shellAlpha = 0.14f;
-    float dustAlpha = 0.20f;
-    float ribbonWidth = 5.5f;
-    int ribbonCount = 7;
-    int ribbonSegments = 48;
-    int particleCount = 96;
-    float rotationSpeed = 1.25f;
-};
-
-enum class ContactAudioFlashMode
-{
-    Off = 0,
-    Emitted = 1,
-    Candidates = 2,
-    Rejected = 3,
-    Count
-};
-
-struct RunRuntimeSettings
-{
-    bool isVsyncEnabled = true;                                // Swap-chain sync interval (true = vsync)
-    bool isPipelineSyncEnabled = false;                        // Force CPU/GPU sync via Finish() before render
-    bool isPhysicsSleepEnabled =
-        true;                                                  // Live Catto sleep policy; false keeps bodies awake while leaving collision/solving active
-    bool contactAudioDebugCounters = false;                    // Live optional contact-audio counter logging toggle.
-    ContactAudioFlashMode contactAudioFlashMode =
-        ContactAudioFlashMode::Emitted;                        // Render-only contact-audio diagnostic flash mode.
-    Physics::TornadoFieldConfig tornadoField;                  // Live vortex force/debug vector field controlled by CLI/UI
-    Physics::TornadoSystemConfig tornadoSystem;                // Scene-authored multi-vortex schedule and motion.
-    TornadoVisualSettings tornadoVisual;                       // Render-only tornado art tuning outside deterministic physics state.
-
-    void ApplyStartupConfig( const EngineConfig& config );     // Copies config-owned live toggles at process startup.
-};
-
 struct RunSubsystemState
 {
     Assets::AssetSystem assets;
