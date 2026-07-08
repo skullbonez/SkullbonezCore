@@ -37,7 +37,7 @@ Related:
 #include "../Allocation/RuntimeAllocationTracker.h"
 #include "../InputController.h"
 #include "../Replay/ReplayRuntime.h"
-#include "../RunState.h"
+#include "../RunDebugState.h"
 #include "../Scene/SceneRuntime.h"
 #include "../../Physics/Debug/PhysicsDebugVisualizer.h"
 #include "../../Rendering/IRenderDiagnostics.h"

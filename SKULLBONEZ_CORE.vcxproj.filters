@@ -806,6 +806,9 @@
     <ClInclude Include="SkullbonezSource\Runtime\RunDemoDirector.h">
       <Filter>Header Files\Runtime</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\RunDebugState.h">
+      <Filter>Header Files\Runtime</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\RunInternal.h">
       <Filter>Header Files\Runtime</Filter>
     </ClInclude>

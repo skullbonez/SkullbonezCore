@@ -206,6 +206,7 @@ RUNTIME_PREFIXES = (
     "Run",
     "RunCapture",
     "RunDemoDirector",
+    "RunDebugState",
     "RunFrame",
     "RunInteractionAutomation",
     "RunInteractionAutomationState",

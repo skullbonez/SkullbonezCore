@@ -1111,6 +1111,32 @@ every step. Commit per step.
     (1.1s), and
     `TestOutput\agent_logs\plan01_launch_options_shelf_validate_fast.log`
     (43.0s).
+  - [x] Debug/overlay shelf moved from `RunState.h` into
+    `RunDebugState.h`. The new header owns `OverlayMode`, HUD/debug overlay
+    cycle state, water/terrain presentation toggles, physics visualization
+    flags, broadphase/collision visualizer toggles, cross-scene pause lock, and
+    debug repro HUD message timing. Diagnostics, replay restore, scene reset,
+    and scene UI-option code now include the debug-state header where they need
+    the concrete fields, and `RunState.h` no longer pulls in physics debug
+    visualizer definitions for unrelated shelves. The Visual Studio
+    project/filter metadata and `tools\validate_project_filters.py` guardrail
+    now recognize the new header. The touched-file comment audit added the new
+    debug-state learning header and aligned its inline comments. Gate evidence:
+    `TestOutput\agent_logs\plan01_debug_state_shelf_validate_full.log`
+    (46.8s; project filters/runtime boundaries passed, Profile/Debug builds had
+    0 warnings and 0 errors, DX12 InfoQueue errors = 0, screenshots matched
+    baselines, and `physics_regression_solver.csv` matched byte-exactly).
+    Targeted pre-gate checks also passed:
+    `TestOutput\agent_logs\plan01_debug_state_shelf_build_profile.log`
+    (10.2s),
+    `TestOutput\agent_logs\plan01_debug_state_shelf_validate_format.log`
+    (9.3s),
+    `TestOutput\agent_logs\plan01_debug_state_shelf_runtime_boundaries.log`
+    (17.5s),
+    `TestOutput\agent_logs\plan01_debug_state_shelf_project_filters.log`
+    (1.1s), and
+    `TestOutput\agent_logs\plan01_debug_state_shelf_validate_fast.log`
+    (44.2s).
 
 ### Phase 3 — Shrink `Run`
 
