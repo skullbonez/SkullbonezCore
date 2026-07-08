@@ -1,12 +1,13 @@
 /*
-File: SkullbonezData/shaders/replay_ribbon.hlsl
+File: SkullbonezData/shaders/soft_additive_ribbon.hlsl
 Purpose:
-  Draws smooth replay prediction ribbons for causal paths and marker outlines.
+  Draws smooth soft-additive ribbons for transient overlay paths and marker
+  outlines.
 
 Mental model:
   CPU code expands each world-space line segment into a camera-facing quad.
   This shader transforms the quad, then fades alpha near both ribbon edges so
-  prediction overlays read as soft energy strokes instead of jagged line lists.
+  overlays read as soft energy strokes instead of jagged line lists.
 
 Glossary:
   Ribbon: Camera-facing quad that replaces one debug line segment.
@@ -14,13 +15,13 @@ Glossary:
   HDR scale: Per-vertex brightness multiplier used to feed cinematic bloom.
 
 Invariants:
-  - Input layout is position, color, then replay style payload; CPU generation
+  - Input layout is position, color, then ribbon style payload; CPU generation
     in RunEditorTracer must keep the same 11-float vertex shape.
-  - Glow/emphasis is presentation-only. It must not alter replay prediction or
-    deterministic physics state.
+  - Glow/emphasis is presentation-only. It must not alter simulation or replay
+    state.
 
 Related:
-  - SkullbonezSource/Runtime/Editor/RunEditorTracer.inl
+  - SkullbonezSource/Runtime/Editor/RunEditorTracer.cpp
   - SkullbonezSource/Rendering/DX12/RenderBackendDX12.DynamicGeometry.cpp
 */
 #pragma pack_matrix( column_major )

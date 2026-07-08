@@ -244,7 +244,7 @@ class RunEditorTracer
     std::vector<float> m_replayRibbonSegments;                              // Packed 13-float replay segments before camera-facing expansion.
     std::vector<float>
         m_priorityReplayRibbonSegments;                                     // Retained causal marker segments that survive ordinary path overflow.
-    std::vector<float> m_replayRibbonVertexData;                            // Packed 11-float vertices consumed by replay_ribbon.hlsl.
+    std::vector<float> m_replayRibbonVertexData;                            // Packed 11-float vertices consumed by the soft-additive ribbon style.
 
     void EmitLineTo( std::vector<float>& lineData,
                      const Math::Vector::Vector3& a,

@@ -47,7 +47,7 @@ command interface.
 - [x] **Phase 1 — Real backbuffer state.** Replace `m_backBufferIsRT` with a
   tracked resource-state value reconciled at each transition point; ensure a
   frame that skips `Clear()` cannot emit a mismatched `Present` barrier.
-- [ ] **Phase 2 — De-leak the command interface.** Move `DrawReplayRibbons` /
+- [x] **Phase 2 — De-leak the command interface.** Move `DrawReplayRibbons` /
   `m_replayRibbonShader` into a replay-owned draw path built on generic
   primitives; `IRenderCommandContext` exposes only generic drawing.
 
@@ -85,11 +85,20 @@ Barriers are a GPU danger zone: run the renderer gate **3×** and confirm
     and `TestOutput\agent_logs\plan11_backbuffer_dx12_validation_pass3.log`
     (19.4s); each reported `DX12 validation errors: 0` and matched committed
     DX12 baselines.
-- [ ] **2.1** Move `DrawReplayRibbons` and `m_replayRibbonShader` out of
+- [x] **2.1** Move `DrawReplayRibbons` and `m_replayRibbonShader` out of
   `IRenderCommandContext` (`:122`) and the DX12 device into a replay-owned draw
   path built on the generic drawing primitives. `IRenderCommandContext` then
   exposes only generic draws. Gate: `validate_dx12_renderer`
   (`dx12_validation.txt` == 0). Commit.
+  - Completed 2026-07-08. `IRenderCommandContext` now exposes
+    `DrawTransientColoredTriangles` with generic `TransientTriangleStyle`
+    values only; `RunEditorTracer` owns the replay ribbon render-state override
+    and submits soft-additive ribbon triangles through that generic path. DX12
+    caches transient triangle shaders by generic style, and the shader asset is
+    now `soft_additive_ribbon` instead of a replay-named backend resource.
+    Validation log:
+    `TestOutput\agent_logs\plan11_replay_command_dx12_validation.log` (31.5s);
+    it reported `DX12 validation errors: 0` and matched committed DX12 baselines.
 
 ## Validation
 
@@ -98,7 +107,7 @@ Barriers are a GPU danger zone: run the renderer gate **3×** and confirm
 
 ## Acceptance (structural)
 
-- [ ] `IRenderCommandContext` has no replay-specific method; replay ribbons draw
+- [x] `IRenderCommandContext` has no replay-specific method; replay ribbons draw
   through a replay-owned path.
 - [x] Backbuffer state is a reconciled state value, not a lone bool; the
   skip-`Clear()` mismatch case cannot occur.

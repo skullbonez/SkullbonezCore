@@ -62,7 +62,7 @@ const char* BuiltInShaderBaseNameForLogicalName( const char* logicalName )
         { "shader.water_ocean", "shaders/water_ocean" },
         { "shader.collision_visualizer", "shaders/collision_visualizer" },
         { "shader.grid_line", "shaders/grid_line" },
-        { "shader.replay_ribbon", "shaders/replay_ribbon" },
+        { "shader.soft_additive_ribbon", "shaders/soft_additive_ribbon" },
         { "shader.launcher_laser", "shaders/launcher_laser" },
         { "shader.tornado_fx", "shaders/tornado_fx" },
         { "shader.ui_backdrop_blur", "shaders/UIBackdropBlur" },
@@ -197,8 +197,8 @@ void AssetSystem::RegisterBuiltInSourceAssets( const Basics::EngineConfig& confi
                                "shaders/grid_line",
                                ShaderProgramKind::DebugLine,
                                BuiltInShaderContract( false, false, false, false, false ) );
-    RegisterShaderSourceAsset( "shader.replay_ribbon",
-                               "shaders/replay_ribbon",
+    RegisterShaderSourceAsset( "shader.soft_additive_ribbon",
+                               "shaders/soft_additive_ribbon",
                                ShaderProgramKind::DebugLine,
                                BuiltInShaderContract( false, false, false, false, false ) );
     RegisterShaderSourceAsset( "shader.launcher_laser",

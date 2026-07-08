@@ -1749,7 +1749,8 @@ bool RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
     InitGenMipsPipeline();
     EnsureGridLinePipeline( DXGI_FORMAT_R8G8B8A8_UNORM );
     EnsureGridLinePipeline( DXGI_FORMAT_R16G16B16A16_FLOAT );
-    m_replayRibbonShader = CreateShader( "shaders/replay_ribbon" );
+    EnsureTransientTriangleShader( TransientTriangleStyle::Color );
+    EnsureTransientTriangleShader( TransientTriangleStyle::SoftAdditiveRibbon );
 
     // GPU timestamp query heap — used for GPU-side performance profiling. The GPU writes
     // timestamps at specific points in the command stream, which we later read back to
@@ -2129,8 +2130,10 @@ void RenderBackendDX12::Shutdown()
     }
     m_gridLinePSOCount = 0;
     m_gridLineShader.reset();
-    m_transientColorShader.reset();
-    m_replayRibbonShader.reset();
+    for ( std::unique_ptr<IShader>& shader : m_transientTriangleShaders )
+    {
+        shader.reset();
+    }
 
     // Instanced meshes
     for ( auto& im : m_instancedMeshes )

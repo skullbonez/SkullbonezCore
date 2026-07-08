@@ -251,6 +251,7 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     static constexpr size_t MAX_CACHED_GRAPHICS_PSOS = 96;
     static constexpr size_t MAX_GRID_LINE_PSOS = 4;
     static constexpr size_t MAX_LIVE_BARRIER_RECORDS = 4096;
+    static constexpr size_t TRANSIENT_TRIANGLE_STYLE_COUNT = 2;
 
     // CPU-side registries. These are not GPU resources by themselves; they are
     // lookup tables the backend uses to find cached GPU objects and descriptor
@@ -435,8 +436,10 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     std::array<GridLinePSODX12, MAX_GRID_LINE_PSOS> m_gridLinePSOs = {};
     size_t m_gridLinePSOCount = 0;
     int m_gridLineVBCapacity = 0;
-    std::unique_ptr<IShader> m_transientColorShader;
-    std::unique_ptr<IShader> m_replayRibbonShader;                 // Replay-only smooth debug stroke shader warmed at backend init.
+    // Runtime allocation policy: transient triangle shaders are warmed at
+    // backend init for each generic style so overlay draws do not compile HLSL
+    // while building a frame.
+    std::array<std::unique_ptr<IShader>, TRANSIENT_TRIANGLE_STYLE_COUNT> m_transientTriangleShaders;
 
     bool m_renderingToFBO = false;
     // Invariant: this is the graph-visible state for the current swap-chain
@@ -522,6 +525,7 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     void AssertPlatformProfilerGpuStackClosed( const char* reason ) const;
     int SuspendPlatformProfilerGpuStackForSubmit( const char* reason );
     void RestorePlatformProfilerGpuStackAfterSubmit( int suspendedDepth );
+    IShader* EnsureTransientTriangleShader( TransientTriangleStyle style );
 
     static void BuildInputLayout( VertexFormat12 format, D3D12_INPUT_ELEMENT_DESC* out, UINT& count );
     static void BuildInstancedInputLayout( const InstancedMeshDX12& im, D3D12_INPUT_ELEMENT_DESC* out, UINT& count );
@@ -676,8 +680,10 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     void DestroyDynamicVB( uint32_t handle ) override;
 
     void DrawLinesColored( const float* data, int vertCount, const float* viewProjMatrix16 ) override;
-    void DrawTransientColoredTriangles( const float* data, int vertexCount, const float* viewProjMatrix16 ) override;
-    void DrawReplayRibbons( const float* data, int vertexCount, const float* viewProjMatrix16 ) override;
+    void DrawTransientColoredTriangles( const float* data,
+                                        int vertexCount,
+                                        const float* viewProjMatrix16,
+                                        TransientTriangleStyle style ) override;
 
     uint32_t CreateInstancedMesh( const float* staticData,
                                   int staticVertCount,

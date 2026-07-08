@@ -36,6 +36,7 @@ Related:
 #include "../RenderGraph.h"
 #include "../../Core/Log.h"
 #include "../../Core/PlatformProfiler.h"
+#include <cstddef>
 #include <stdexcept>
 #include <cstdio>
 #include <cstring>
@@ -71,6 +72,45 @@ static inline void ThrowIfFailed( HRESULT hr, const char* msg )
         throw std::runtime_error( msg );
     }
 }
+
+namespace
+{
+std::size_t TransientTriangleStyleIndex( TransientTriangleStyle style )
+{
+    switch ( style )
+    {
+    case TransientTriangleStyle::SoftAdditiveRibbon:
+        return 1;
+    case TransientTriangleStyle::Color:
+    default:
+        return 0;
+    }
+}
+
+const char* TransientTriangleShaderBaseName( TransientTriangleStyle style )
+{
+    switch ( style )
+    {
+    case TransientTriangleStyle::SoftAdditiveRibbon:
+        return "shaders/soft_additive_ribbon";
+    case TransientTriangleStyle::Color:
+    default:
+        return "shaders/tornado_fx";
+    }
+}
+
+const char* TransientTriangleTraceLabel( TransientTriangleStyle style )
+{
+    switch ( style )
+    {
+    case TransientTriangleStyle::SoftAdditiveRibbon:
+        return "SoftAdditiveRibbon";
+    case TransientTriangleStyle::Color:
+    default:
+        return "TornadoVisual";
+    }
+}
+} // namespace
 
 // --- RenderBackendDX12 DynamicGeometry methods ---
 
@@ -274,7 +314,8 @@ void RenderBackendDX12::DrawLinesColored( const float* data, int vertCount, cons
 
 void RenderBackendDX12::DrawTransientColoredTriangles( const float* data,
                                                        int vertexCount,
-                                                       const float* viewProjMatrix16 )
+                                                       const float* viewProjMatrix16,
+                                                       TransientTriangleStyle style )
 {
     if ( vertexCount <= 0 || !data || !viewProjMatrix16 )
     {
@@ -283,11 +324,7 @@ void RenderBackendDX12::DrawTransientColoredTriangles( const float* data,
 
     EnsureCommandListOpen();
 
-    if ( !m_transientColorShader )
-    {
-        m_transientColorShader = CreateShader( "shaders/tornado_fx" );
-    }
-    ShaderDX12* shader = static_cast<ShaderDX12*>( m_transientColorShader.get() );
+    ShaderDX12* shader = static_cast<ShaderDX12*>( EnsureTransientTriangleShader( style ) );
     shader->Use();
     shader->SetMat4( "uViewProj", Matrix4( viewProjMatrix16 ) );
 
@@ -311,74 +348,23 @@ void RenderBackendDX12::DrawTransientColoredTriangles( const float* data,
     vbView.StrideInBytes = static_cast<UINT>( vertexLayout.stride );
     CommandList()->IASetVertexBuffers( 0, 1, &vbView );
 
-    RecordDrawCall( { DrawCallKind::DynamicVertexBuffer, "TornadoVisual", vertexCount, 1 } );
+    RecordDrawCall( { DrawCallKind::DynamicVertexBuffer, TransientTriangleTraceLabel( style ), vertexCount, 1 } );
     CommandList()->DrawInstanced( static_cast<UINT>( vertexCount ), 1, 0, 0 );
 }
 
 
-void RenderBackendDX12::DrawReplayRibbons( const float* data, int vertexCount, const float* viewProjMatrix16 )
+IShader* RenderBackendDX12::EnsureTransientTriangleShader( TransientTriangleStyle style )
 {
-    if ( vertexCount <= 0 || !data || !viewProjMatrix16 )
+    const std::size_t index = TransientTriangleStyleIndex( style );
+    std::unique_ptr<IShader>& shader = m_transientTriangleShaders[index];
+    if ( !shader )
     {
-        return;
+        // Runtime allocation policy: Init() warms every supported style. This
+        // fallback is for partial initialisation paths and keeps the mapping in
+        // one place instead of reintroducing owner-specific draw methods.
+        shader = CreateShader( TransientTriangleShaderBaseName( style ) );
     }
-
-    EnsureCommandListOpen();
-
-    if ( !m_replayRibbonShader )
-    {
-        m_replayRibbonShader = CreateShader( "shaders/replay_ribbon" );
-    }
-    ShaderDX12* shader = static_cast<ShaderDX12*>( m_replayRibbonShader.get() );
-
-    const bool depthTestWasEnabled = m_depthTestEnabled;
-    const bool depthWriteWasEnabled = m_depthWriteEnabled;
-    const bool blendWasEnabled = m_blendEnabled;
-    const bool cullWasEnabled = m_cullEnabled;
-    const BlendFactor blendSrc = m_blendSrc;
-    const BlendFactor blendDst = m_blendDst;
-
-    // Concept: replay ribbons replace jagged line-list prediction overlays with
-    // translucent camera-facing triangles. They draw over the world like the old
-    // debug lines, but use additive HDR color so cinematic bloom can catch only
-    // the authored causal-emphasis layers.
-    SetDepthTest( false );
-    SetDepthWrite( false );
-    SetBlend( true );
-    SetBlendFunc( BlendFactor::SrcAlpha, BlendFactor::One );
-    SetCullFace( false );
-
-    shader->Use();
-    shader->SetMat4( "uViewProj", Matrix4( viewProjMatrix16 ) );
-
-    DynamicVBDX12 vertexLayout = {};
-    vertexLayout.numAttribs = 3;
-    vertexLayout.attribComponents[0] = 3;
-    vertexLayout.attribComponents[1] = 4;
-    vertexLayout.attribComponents[2] = 4;
-    vertexLayout.floatsPerVertex = 11;
-    vertexLayout.stride = 11 * static_cast<int>( sizeof( float ) );
-
-    const UINT64 dataSize = static_cast<UINT64>( vertexCount ) * static_cast<UINT64>( vertexLayout.stride );
-    const D3D12_GPU_VIRTUAL_ADDRESS vbAddress = ReserveUpload( dataSize, 4 );
-    memcpy( GetUploadPtr( vbAddress ), data, static_cast<size_t>( dataSize ) );
-
-    PrepareDraw( VertexFormat12::Pos3, false, nullptr, &vertexLayout );
-
-    D3D12_VERTEX_BUFFER_VIEW vbView = {};
-    vbView.BufferLocation = vbAddress;
-    vbView.SizeInBytes = static_cast<UINT>( dataSize );
-    vbView.StrideInBytes = static_cast<UINT>( vertexLayout.stride );
-    CommandList()->IASetVertexBuffers( 0, 1, &vbView );
-
-    RecordDrawCall( { DrawCallKind::DynamicVertexBuffer, "ReplayRibbon", vertexCount, 1 } );
-    CommandList()->DrawInstanced( static_cast<UINT>( vertexCount ), 1, 0, 0 );
-
-    SetCullFace( cullWasEnabled );
-    SetBlendFunc( blendSrc, blendDst );
-    SetBlend( blendWasEnabled );
-    SetDepthWrite( depthWriteWasEnabled );
-    SetDepthTest( depthTestWasEnabled );
+    return shader.get();
 }
 
 

@@ -1161,10 +1161,35 @@ void RunEditorTracer::Render( const Matrix4& viewProjection,
         BuildReplayRibbonVertices( cameraEye, cameraUp );
         if ( !m_replayRibbonVertexData.empty() )
         {
-            renderCommands.DrawReplayRibbons(
+            Rendering::BlendFactor blendSrc = Rendering::BlendFactor::One;
+            Rendering::BlendFactor blendDst = Rendering::BlendFactor::Zero;
+            const bool depthTestWasEnabled = renderCommands.IsDepthTestEnabled();
+            const bool depthWriteWasEnabled = renderCommands.IsDepthWriteEnabled();
+            const bool blendWasEnabled = renderCommands.IsBlendEnabled();
+            const bool cullWasEnabled = renderCommands.IsCullFaceEnabled();
+            renderCommands.GetBlendFunc( blendSrc, blendDst );
+
+            // Concept: replay ribbons replace jagged line-list prediction
+            // overlays with translucent camera-facing triangles. The replay
+            // tracer owns that presentation policy and submits ordinary
+            // transient triangles to the renderer.
+            renderCommands.SetDepthTest( false );
+            renderCommands.SetDepthWrite( false );
+            renderCommands.SetBlend( true );
+            renderCommands.SetBlendFunc( Rendering::BlendFactor::SrcAlpha, Rendering::BlendFactor::One );
+            renderCommands.SetCullFace( false );
+
+            renderCommands.DrawTransientColoredTriangles(
                 m_replayRibbonVertexData.data(),
                 static_cast<int>( m_replayRibbonVertexData.size() / RUN_EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_VERTEX ),
-                viewProjection.Data() );
+                viewProjection.Data(),
+                Rendering::TransientTriangleStyle::SoftAdditiveRibbon );
+
+            renderCommands.SetCullFace( cullWasEnabled );
+            renderCommands.SetBlendFunc( blendSrc, blendDst );
+            renderCommands.SetBlend( blendWasEnabled );
+            renderCommands.SetDepthWrite( depthWriteWasEnabled );
+            renderCommands.SetDepthTest( depthTestWasEnabled );
         }
     }
 }

@@ -17,8 +17,8 @@ Glossary:
   Blend state: Rule for combining new pixel color with the target's old color.
   Dynamic vertex buffer: Backend-owned transient buffer used for text, overlays,
     and other per-frame geometry.
-  Replay ribbon: Camera-facing overlay stroke expanded from a replay debug line
-    segment so the shader can smooth and glow it.
+  Transient triangle style: Shader interpretation for packed position/color/fx
+    triangles submitted for one frame.
   Instanced mesh: Static mesh plus per-instance data drawn many times in one
     backend call.
 
@@ -50,6 +50,12 @@ enum class BlendFactor
     One,
     SrcAlpha,
     OneMinusSrcAlpha
+};
+
+enum class TransientTriangleStyle
+{
+    Color,
+    SoftAdditiveRibbon
 };
 
 class IRenderCommandContext
@@ -110,20 +116,15 @@ class IRenderCommandContext
         (void)vertCount;
         (void)viewProjMatrix16;
     }
-    virtual void DrawTransientColoredTriangles( const float* data, int vertexCount, const float* viewProjMatrix16 )
+    virtual void DrawTransientColoredTriangles( const float* data,
+                                                int vertexCount,
+                                                const float* viewProjMatrix16,
+                                                TransientTriangleStyle style = TransientTriangleStyle::Color )
     {
         (void)data;
         (void)vertexCount;
         (void)viewProjMatrix16;
-    }
-    // Draws replay-only ribbon vertices packed as position/color/style floats.
-    // Generic debug overlays stay on DrawLinesColored; this path is for
-    // camera-facing replay strokes that need shader-controlled edge falloff.
-    virtual void DrawReplayRibbons( const float* data, int vertexCount, const float* viewProjMatrix16 )
-    {
-        (void)data;
-        (void)vertexCount;
-        (void)viewProjMatrix16;
+        (void)style;
     }
 
     virtual void UploadInstanceData( uint32_t handle, const float* data, int floatCount ) = 0;
