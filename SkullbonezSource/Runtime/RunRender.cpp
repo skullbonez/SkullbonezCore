@@ -403,14 +403,14 @@ void RenderReplayPredictionGhosts( ReplayRuntime& replayRuntime,
                                              *frame.assets,
                                              config,
                                              *frame.renderHelper };
-    helperContext.helper.DrawBoxBatchBegin( helperContext,
-                                            frame.baseView,
-                                            frame.projection,
-                                            frame.lightPosition,
-                                            true,
-                                            cinematic,
-                                            shadow,
-                                            1.0f );
+    auto boxBatch = helperContext.helper.BeginBoxBatch( helperContext,
+                                                        frame.baseView,
+                                                        frame.projection,
+                                                        frame.lightPosition,
+                                                        true,
+                                                        cinematic,
+                                                        shadow,
+                                                        1.0f );
 
     for ( const ReplayPredictionGhostDrawRequest& request : replayRuntime.PredictionGhostDrawRequests() )
     {
@@ -444,10 +444,8 @@ void RenderReplayPredictionGhosts( ReplayRuntime& replayRuntime,
         const Math::Transformation::Matrix4 modelMatrix =
             box->GetModelMatrix( request.position,
                                  Math::Transformation::Matrix4::FromQuaternion( request.orientation ) );
-        helperContext.helper.DrawBoxBatchModel( modelMatrix, material );
+        boxBatch.DrawModel( modelMatrix, material );
     }
-
-    helperContext.helper.DrawBoxBatchEnd( helperContext );
 }
 
 void ExecuteReplayGhostGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& /*context*/,

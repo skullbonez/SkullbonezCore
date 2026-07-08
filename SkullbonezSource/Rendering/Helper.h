@@ -20,7 +20,9 @@ Glossary:
 
 Invariants:
   - Helper-owned meshes and shaders are backend resources; reset paths must
-  drop them before the renderer device is destroyed.
+    drop them before the renderer device is destroyed.
+  - Primitive batch scopes borrow RenderHelperContext until destruction and
+    flush their queued instances exactly once.
 
 Related:
   - SkullbonezSource/Rendering/Helper.cpp
@@ -127,6 +129,16 @@ class RenderHelper
 {
 
   private:
+    enum class PrimitiveBatchKind
+    {
+        Sphere,
+        Box,
+        Pine,
+        ShadowSphere,
+        ShadowBox,
+        ShadowPine
+    };
+
     RenderHelperState m_state;                                                          // Owned primitive render cache and batch scratch.
 
     void EnsureSphereShader( const RenderHelperContext& context );
@@ -139,9 +151,98 @@ class RenderHelper
     void BuildPineMesh( const RenderHelperContext& context );                           // Generate unit low-poly pine tier mesh
 
   public:
+    class PrimitiveBatchScope
+    {
+      public:
+        PrimitiveBatchScope( PrimitiveBatchScope&& other ) noexcept;
+        PrimitiveBatchScope& operator=( PrimitiveBatchScope&& other ) noexcept;
+        PrimitiveBatchScope( const PrimitiveBatchScope& ) = delete;
+        PrimitiveBatchScope& operator=( const PrimitiveBatchScope& ) = delete;
+        ~PrimitiveBatchScope();
+
+        void DrawModel( const Math::Transformation::Matrix4& model, const Rendering::RenderMaterial& material );
+        void DrawModel( const Math::Transformation::Matrix4& model,
+                        float tintR = 1.0f,
+                        float tintG = 1.0f,
+                        float tintB = 1.0f,
+                        float colorOverride = 0.0f );
+        void DrawShadowModel( const Math::Transformation::Matrix4& model );
+
+      private:
+        friend class RenderHelper;
+
+        PrimitiveBatchScope( RenderHelper& helper,
+                             const RenderHelperContext& context,
+                             PrimitiveBatchKind kind );                                 // Batch scopes borrow their context until destruction.
+        void EndIfActive();
+
+        RenderHelper* m_helper = nullptr;
+        const RenderHelperContext* m_context = nullptr;
+        PrimitiveBatchKind m_kind = PrimitiveBatchKind::Sphere;
+        bool m_active = false;
+    };
+
     void StateSetup();                                                                  // Extension point for helper-level setup after renderer init
     void SetClipPlane( float x, float y, float z, float w );
     const float* GetClipPlane() const;
+    PrimitiveBatchScope BeginSphereBatch( const RenderHelperContext& context,
+                                          const Math::Transformation::Matrix4& view,
+                                          const Math::Transformation::Matrix4& proj,
+                                          const float lightPos[4],
+                                          bool isTransparent = false,
+                                          const CinematicRenderConfig* cinematic = nullptr,
+                                          const Rendering::ShadowFrameData* shadow = nullptr,
+                                          float materialAlpha = 1.0f );
+    PrimitiveBatchScope BeginBoxBatch( const RenderHelperContext& context,
+                                       const Math::Transformation::Matrix4& view,
+                                       const Math::Transformation::Matrix4& proj,
+                                       const float lightPos[4],
+                                       bool isTransparent = false,
+                                       const CinematicRenderConfig* cinematic = nullptr,
+                                       const Rendering::ShadowFrameData* shadow = nullptr,
+                                       float materialAlpha = 1.0f );
+    PrimitiveBatchScope BeginPineBatch( const RenderHelperContext& context,
+                                        const Math::Transformation::Matrix4& view,
+                                        const Math::Transformation::Matrix4& proj,
+                                        const float lightPos[4],
+                                        bool isTransparent = false,
+                                        const CinematicRenderConfig* cinematic = nullptr,
+                                        const Rendering::ShadowFrameData* shadow = nullptr,
+                                        float materialAlpha = 1.0f );
+    PrimitiveBatchScope BeginShadowDepthSphereBatch( const RenderHelperContext& context,
+                                                     const Math::Transformation::Matrix4& view,
+                                                     const Math::Transformation::Matrix4& proj,
+                                                     const CinematicRenderConfig* cinematic = nullptr );
+    PrimitiveBatchScope BeginShadowDepthBoxBatch( const RenderHelperContext& context,
+                                                  const Math::Transformation::Matrix4& view,
+                                                  const Math::Transformation::Matrix4& proj );
+    PrimitiveBatchScope BeginShadowDepthPineBatch( const RenderHelperContext& context,
+                                                   const Math::Transformation::Matrix4& view,
+                                                   const Math::Transformation::Matrix4& proj );
+    void DrawConvexHullModel( const RenderHelperContext& context,
+                              const Math::CollisionDetection::ConvexHullShape& hull,
+                              const Math::Transformation::Matrix4& model,
+                              const Rendering::RenderMaterial& material,
+                              const Math::Transformation::Matrix4& view,
+                              const Math::Transformation::Matrix4& proj,
+                              const float lightPos[4],
+                              bool isTransparent = false,
+                              const CinematicRenderConfig* cinematic = nullptr,
+                              const Rendering::ShadowFrameData* shadow = nullptr,
+                              float materialAlpha = 1.0f );
+    void DrawShadowDepthConvexHullModel( const RenderHelperContext& context,
+                                         const Math::CollisionDetection::ConvexHullShape& hull,
+                                         const Math::Transformation::Matrix4& model,
+                                         const Math::Transformation::Matrix4& view,
+                                         const Math::Transformation::Matrix4& proj );
+    void ResetRenderResources(
+        Rendering::IRenderResourceFactory* renderResources );                           // Invalidate cached backend-owned meshes and shaders
+    void EnsureSphereMesh( const RenderHelperContext& context );                        // Create the shared sphere mesh before DXR BLAS
+                                                                 // construction needs its vertex data.
+    void EnsureShadowDepthPrimitiveResources(
+        const RenderHelperContext& context );                                           // Prewarm primitive shadow meshes and the shared depth shader.
+
+  private:
     void DrawSphereBatchBegin( const RenderHelperContext& context,
                                const Math::Transformation::Matrix4& view,
                                const Math::Transformation::Matrix4& proj,
@@ -176,17 +277,6 @@ class RenderHelper
                             float tintB = 1.0f,
                             float colorOverride = 0.0f );                               // Compatibility bridge for old tint/override callers
     void DrawBoxBatchEnd( const RenderHelperContext& context );
-    void DrawConvexHullModel( const RenderHelperContext& context,
-                              const Math::CollisionDetection::ConvexHullShape& hull,
-                              const Math::Transformation::Matrix4& model,
-                              const Rendering::RenderMaterial& material,
-                              const Math::Transformation::Matrix4& view,
-                              const Math::Transformation::Matrix4& proj,
-                              const float lightPos[4],
-                              bool isTransparent = false,
-                              const CinematicRenderConfig* cinematic = nullptr,
-                              const Rendering::ShadowFrameData* shadow = nullptr,
-                              float materialAlpha = 1.0f );
     void DrawPineBatchBegin( const RenderHelperContext& context,
                              const Math::Transformation::Matrix4& view,
                              const Math::Transformation::Matrix4& proj,
@@ -215,23 +305,13 @@ class RenderHelper
                                        const Math::Transformation::Matrix4& proj );
     void DrawShadowDepthBoxBatchModel( const Math::Transformation::Matrix4& model );
     void DrawShadowDepthBoxBatchEnd( const RenderHelperContext& context );
-    void DrawShadowDepthConvexHullModel( const RenderHelperContext& context,
-                                         const Math::CollisionDetection::ConvexHullShape& hull,
-                                         const Math::Transformation::Matrix4& model,
-                                         const Math::Transformation::Matrix4& view,
-                                         const Math::Transformation::Matrix4& proj );
     void DrawShadowDepthPineBatchBegin( const RenderHelperContext& context,
                                         const Math::Transformation::Matrix4& view,
                                         const Math::Transformation::Matrix4& proj );
     void DrawShadowDepthPineBatchModel( const Math::Transformation::Matrix4& model );
     void DrawShadowDepthPineBatchEnd( const RenderHelperContext& context );
-    void ResetRenderResources(
-        Rendering::IRenderResourceFactory* renderResources );                           // Invalidate cached backend-owned meshes and shaders
-    void EnsureSphereMesh( const RenderHelperContext& context );                        // Create the shared sphere mesh before DXR BLAS
-                                                                 // construction needs its vertex data.
-    void EnsureShadowDepthPrimitiveResources(
-        const RenderHelperContext& context );                                           // Prewarm primitive shadow meshes and the shared depth shader.
 
+  public:
     // DXR reflection reuses the same sphere vertex buffer as raster rendering.
     // The backend asks for the instanced mesh handle so it can find the static
     // vertex buffer and build the sphere BLAS.

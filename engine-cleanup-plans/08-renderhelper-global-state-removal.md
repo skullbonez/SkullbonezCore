@@ -41,7 +41,7 @@ scoped to a batch object rather than global flags.
   render host.
 - [x] **Phase 1 — Convert static methods to members**; thread the instance to
   call sites (or reach it through the render host).
-- [ ] **Phase 2 — Scope batches with RAII.** Replace `Begin/Model/End` global
+- [x] **Phase 2 — Scope batches with RAII.** Replace `Begin/Model/End` global
   flags with a batch scope object whose destructor flushes — a missed end
   becomes impossible.
 - [ ] **Phase 3 — Own the lifetime.** Resource creation/destruction moves to the
@@ -99,9 +99,17 @@ unchanged and `dx12_validation.txt` == 0 throughout** — this is a hard gate.
   sites remain outside the member definitions in `Helper.cpp`. Added a runtime
   boundary guardrail/self-test blocking new `RenderHelper::` primitive access
   outside the member-definition file.
-- [ ] **3.1** Replace the `Begin/Model/End` global batch flags with a batch scope
+- [x] **3.1** Replace the `Begin/Model/End` global batch flags with a batch scope
   object (RAII) whose destructor flushes — a missed `End` becomes impossible.
   Gate: `validate_dx12_renderer`. Commit.
+
+  Completion note (2026-07-08): `RenderHelper::PrimitiveBatchScope` is a
+  move-only RAII scope that borrows `RenderHelperContext` until destruction and
+  flushes visible or shadow primitive batches exactly once. `GameModelRenderer`
+  and replay ghost rendering now use scoped sphere/box/pine batches, leaving the
+  legacy Begin/Model/End methods private to `RenderHelper`. `tools\validate_dx12_renderer.bat`
+  passed with DX12 InfoQueue errors = 0 and committed screenshot baselines
+  unchanged.
 - [ ] **4.1** Tie resource creation/destruction to the owner's constructor/
   destructor; delete `ResetRenderResources()` and its manual calls in
   `RunRender.cpp`. Gate: `validate_dx12_renderer` (`dx12_validation.txt` == 0).
@@ -117,7 +125,7 @@ unchanged and `dx12_validation.txt` == 0 throughout** — this is a hard gate.
 ## Acceptance (structural)
 
 - [x] `RenderHelper` has no static mutable members; it is instantiable and owned.
-- [ ] Batch state is scoped (RAII); no global batch-ready flags persist across
+- [x] Batch state is scoped (RAII); no global batch-ready flags persist across
   frames.
 - [ ] `ResetRenderResources()` manual-ordering call is removed.
 - [ ] DX12 screenshots unchanged; `dx12_validation.txt` == 0.

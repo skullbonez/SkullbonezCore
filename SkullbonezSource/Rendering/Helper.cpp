@@ -20,8 +20,8 @@ Glossary:
 Invariants:
   - C++ constant-buffer structs must match reflected HLSL cbuffer size and
     field order, or the draw that depends on them must be skipped.
-  - Static mesh/shader handles are backend resources and must be reset before
-    backend teardown or recreation.
+  - Helper-owned mesh/shader handles are backend resources and must be reset
+    before backend teardown or recreation.
 
 Related:
   - SkullbonezSource/Rendering/Helper.h
@@ -433,6 +433,195 @@ void RenderHelper::SetClipPlane( float x, float y, float z, float w )
 const float* RenderHelper::GetClipPlane() const
 {
     return m_state.clipPlane;
+}
+
+
+RenderHelper::PrimitiveBatchScope::PrimitiveBatchScope( RenderHelper& helper,
+                                                        const RenderHelperContext& context,
+                                                        PrimitiveBatchKind kind )
+    : m_helper( &helper ), m_context( &context ), m_kind( kind ), m_active( true )
+{
+}
+
+
+RenderHelper::PrimitiveBatchScope::PrimitiveBatchScope( PrimitiveBatchScope&& other ) noexcept
+    : m_helper( other.m_helper ), m_context( other.m_context ), m_kind( other.m_kind ), m_active( other.m_active )
+{
+    other.m_active = false;
+}
+
+
+RenderHelper::PrimitiveBatchScope& RenderHelper::PrimitiveBatchScope::operator=( PrimitiveBatchScope&& other ) noexcept
+{
+    if ( this != &other )
+    {
+        EndIfActive();
+        m_helper = other.m_helper;
+        m_context = other.m_context;
+        m_kind = other.m_kind;
+        m_active = other.m_active;
+        other.m_active = false;
+    }
+    return *this;
+}
+
+
+RenderHelper::PrimitiveBatchScope::~PrimitiveBatchScope()
+{
+    EndIfActive();
+}
+
+
+void RenderHelper::PrimitiveBatchScope::DrawModel( const Matrix4& model, const RenderMaterial& material )
+{
+    assert( m_helper && m_active );
+    switch ( m_kind )
+    {
+    case PrimitiveBatchKind::Sphere:
+        m_helper->DrawSphereBatchModel( model, material );
+        break;
+    case PrimitiveBatchKind::Box:
+        m_helper->DrawBoxBatchModel( model, material );
+        break;
+    case PrimitiveBatchKind::Pine:
+        m_helper->DrawPineBatchModel( model, material );
+        break;
+    default:
+        assert( false && "DrawModel requires a visible primitive batch scope" );
+        break;
+    }
+}
+
+
+void RenderHelper::PrimitiveBatchScope::DrawModel( const Matrix4& model,
+                                                   float tintR,
+                                                   float tintG,
+                                                   float tintB,
+                                                   float colorOverride )
+{
+    DrawModel( model, MakeRenderMaterialFromLegacyTint( tintR, tintG, tintB, colorOverride ) );
+}
+
+
+void RenderHelper::PrimitiveBatchScope::DrawShadowModel( const Matrix4& model )
+{
+    assert( m_helper && m_active );
+    switch ( m_kind )
+    {
+    case PrimitiveBatchKind::ShadowSphere:
+        m_helper->DrawShadowDepthSphereBatchModel( model );
+        break;
+    case PrimitiveBatchKind::ShadowBox:
+        m_helper->DrawShadowDepthBoxBatchModel( model );
+        break;
+    case PrimitiveBatchKind::ShadowPine:
+        m_helper->DrawShadowDepthPineBatchModel( model );
+        break;
+    default:
+        assert( false && "DrawShadowModel requires a shadow primitive batch scope" );
+        break;
+    }
+}
+
+
+void RenderHelper::PrimitiveBatchScope::EndIfActive()
+{
+    if ( !m_active || !m_helper || !m_context )
+    {
+        return;
+    }
+
+    switch ( m_kind )
+    {
+    case PrimitiveBatchKind::Sphere:
+        m_helper->DrawSphereBatchEnd( *m_context );
+        break;
+    case PrimitiveBatchKind::Box:
+        m_helper->DrawBoxBatchEnd( *m_context );
+        break;
+    case PrimitiveBatchKind::Pine:
+        m_helper->DrawPineBatchEnd( *m_context );
+        break;
+    case PrimitiveBatchKind::ShadowSphere:
+        m_helper->DrawShadowDepthSphereBatchEnd( *m_context );
+        break;
+    case PrimitiveBatchKind::ShadowBox:
+        m_helper->DrawShadowDepthBoxBatchEnd( *m_context );
+        break;
+    case PrimitiveBatchKind::ShadowPine:
+        m_helper->DrawShadowDepthPineBatchEnd( *m_context );
+        break;
+    }
+
+    m_active = false;
+}
+
+
+RenderHelper::PrimitiveBatchScope RenderHelper::BeginSphereBatch( const RenderHelperContext& context,
+                                                                  const Matrix4& view,
+                                                                  const Matrix4& proj,
+                                                                  const float lightPos[4],
+                                                                  bool isTransparent,
+                                                                  const CinematicRenderConfig* cinematic,
+                                                                  const ShadowFrameData* shadow,
+                                                                  float materialAlpha )
+{
+    DrawSphereBatchBegin( context, view, proj, lightPos, isTransparent, cinematic, shadow, materialAlpha );
+    return PrimitiveBatchScope( *this, context, PrimitiveBatchKind::Sphere );
+}
+
+
+RenderHelper::PrimitiveBatchScope RenderHelper::BeginBoxBatch( const RenderHelperContext& context,
+                                                               const Matrix4& view,
+                                                               const Matrix4& proj,
+                                                               const float lightPos[4],
+                                                               bool isTransparent,
+                                                               const CinematicRenderConfig* cinematic,
+                                                               const ShadowFrameData* shadow,
+                                                               float materialAlpha )
+{
+    DrawBoxBatchBegin( context, view, proj, lightPos, isTransparent, cinematic, shadow, materialAlpha );
+    return PrimitiveBatchScope( *this, context, PrimitiveBatchKind::Box );
+}
+
+
+RenderHelper::PrimitiveBatchScope RenderHelper::BeginPineBatch( const RenderHelperContext& context,
+                                                                const Matrix4& view,
+                                                                const Matrix4& proj,
+                                                                const float lightPos[4],
+                                                                bool isTransparent,
+                                                                const CinematicRenderConfig* cinematic,
+                                                                const ShadowFrameData* shadow,
+                                                                float materialAlpha )
+{
+    DrawPineBatchBegin( context, view, proj, lightPos, isTransparent, cinematic, shadow, materialAlpha );
+    return PrimitiveBatchScope( *this, context, PrimitiveBatchKind::Pine );
+}
+
+
+RenderHelper::PrimitiveBatchScope RenderHelper::BeginShadowDepthSphereBatch( const RenderHelperContext& context,
+                                                                             const Matrix4& view,
+                                                                             const Matrix4& proj,
+                                                                             const CinematicRenderConfig* cinematic )
+{
+    DrawShadowDepthSphereBatchBegin( context, view, proj, cinematic );
+    return PrimitiveBatchScope( *this, context, PrimitiveBatchKind::ShadowSphere );
+}
+
+
+RenderHelper::PrimitiveBatchScope
+RenderHelper::BeginShadowDepthBoxBatch( const RenderHelperContext& context, const Matrix4& view, const Matrix4& proj )
+{
+    DrawShadowDepthBoxBatchBegin( context, view, proj );
+    return PrimitiveBatchScope( *this, context, PrimitiveBatchKind::ShadowBox );
+}
+
+
+RenderHelper::PrimitiveBatchScope
+RenderHelper::BeginShadowDepthPineBatch( const RenderHelperContext& context, const Matrix4& view, const Matrix4& proj )
+{
+    DrawShadowDepthPineBatchBegin( context, view, proj );
+    return PrimitiveBatchScope( *this, context, PrimitiveBatchKind::ShadowPine );
 }
 
 
