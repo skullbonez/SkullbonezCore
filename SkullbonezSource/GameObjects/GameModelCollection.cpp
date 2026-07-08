@@ -53,6 +53,7 @@ Related:
 */
 #include "GameModelCollection.h"
 
+#include "../Core/FatalError.h"
 #include "../Core/MainMemoryStats.h"
 #include "../Core/SkullScope.h"
 #include "../Physics/Debug/CollisionVisualizer.h"
@@ -424,7 +425,7 @@ PhysicsBodyHandle GameModelCollection::AppendGameModelAndPhysicsRows( GameModel 
     // the topology bug.
     if ( !RepairPhysicsBodyAndColliderTopology() )
     {
-        throw std::runtime_error( "Cannot append model while physics collider rows are missing." );
+        SB_FATAL( "GameObjects/GameModelCollection", "Cannot append model while physics collider rows are missing." );
     }
     bodyDesc.sceneObjectId = sceneObjectId;
     bodyDesc.fixedTreeReleaseRootIndex =
@@ -437,7 +438,10 @@ PhysicsBodyHandle GameModelCollection::AppendGameModelAndPhysicsRows( GameModel 
     assert( bodyRecord != nullptr );
     if ( !bodyRecord )
     {
-        throw std::runtime_error( "Failed to resolve newly authored physics body record." );
+        // Invariant: RegisterAuthoredBody returns the handle for the row it just
+        // appended. A failed immediate lookup means collection/body-store
+        // topology diverged after mutation.
+        SB_FATAL( "GameObjects/GameModelCollection", "Failed to resolve newly authored physics body record." );
     }
     // Owner: creation callers provide shape facts; PhysicsScene owns live
     // collider rows. Reason: radius/extents/hull values exist before append, so
@@ -452,7 +456,10 @@ PhysicsBodyHandle GameModelCollection::AppendGameModelAndPhysicsRows( GameModel 
     assert( colliderHandle.IsValid() );
     if ( !colliderHandle.IsValid() )
     {
-        throw std::runtime_error( "Failed to register newly authored physics collider record." );
+        // Invariant: collider registration is the second half of the append
+        // transaction. Reaching this point with no collider handle leaves a
+        // model/body row that cannot safely enter physics or render snapshots.
+        SB_FATAL( "GameObjects/GameModelCollection", "Failed to register newly authored physics collider record." );
     }
     return bodyHandle;
 }

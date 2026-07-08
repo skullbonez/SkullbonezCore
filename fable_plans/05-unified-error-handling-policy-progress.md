@@ -1,7 +1,7 @@
 # Progress: Unified Error Handling Policy (plan 05)
 
 Source plan: `fable_plans/05-unified-error-handling-policy-plan.md`
-Status: phase 1 complete on 2026-07-07; P2.1-P2.3 replay probe conversion and evidence complete on 2026-07-08; SpatialGrid and PhysicsWorld hot-path conversions complete; remaining hot-path conversions pending
+Status: phase 1 complete on 2026-07-07; P2.1-P2.3 replay probe conversion and evidence complete on 2026-07-08; SpatialGrid, PhysicsWorld, and GameModelCollection pure topology hot-path conversions complete; remaining GameModelCollection recoverable surfaces pending
 Last updated: 2026-07-08
 
 ## How to work this file
@@ -48,7 +48,8 @@ Last updated: 2026-07-08
   `check_throw_site_count`, and synthetic clean/grown self-tests. Phase 1
   recorded the pre-conversion budget at 355; P2.2/P2.3 lowered it to 294 after
   replacing the Debug replay probe throws. P3 SpatialGrid conversion lowered
-  the budget to 281, and P3 PhysicsWorld lowered it to 275.
+  the budget to 281, P3 PhysicsWorld lowered it to 275, and the pure
+  GameModelCollection topology slice lowered it to 272.
 
 ## Phase 1 — policy, primitives, ratchet (no conversions yet)
 
@@ -285,13 +286,28 @@ Last updated: 2026-07-08
   `tools\validate_physics.bat` passed in 00:00:26.2402259 with
   `VALIDATE_PHYSICS: ALL PASSED`. Touched-file comment audit inspected
   `PhysicsWorld.cpp` and `tools/check_runtime_boundaries.py` with 0 deferred.
-- [ ] P3.1c Convert GameModelCollection.cpp (8 current throw sites) according
-  to the P3.3 classification below. One file or narrow site-family per commit:
-  first pure Lane F post-append topology invariants, then Lane R append/camera
-  surfaces after their callers can report failure cleanly.
-- [ ] P3.2c Gate GameModelCollection commit: `tools\validate_physics.bat`
-  byte-exact, plus broader validation if the classification changes editor or
-  scene-load recovery behavior. Ratchet budget updated in the same commit.
+- [x] P3.1c Convert the pure Lane F GameModelCollection.cpp topology sites
+  (`Cannot append model while physics collider rows are missing.`, `Failed to
+  resolve newly authored physics body record.`, and `Failed to register newly
+  authored physics collider record.`) to `SB_FATAL(
+  "GameObjects/GameModelCollection", ... )` with the same message text. Leave
+  Lane R append/camera surfaces for separate caller-visible result/no-op slices.
+- [x] P3.2c Gate the pure Lane F GameModelCollection commit:
+  `tools\validate_physics.bat` byte-exact. Ratchet budget updated in the same
+  commit.
+
+  Evidence (2026-07-08): `GameModelCollection.cpp` now has 3 `SB_FATAL`
+  topology call sites and 5 intentionally remaining `throw` sites for the
+  Lane R/API cleanup work classified in P3.3. `MAX_SOURCE_THROW_TOKENS` lowered
+  from 275 to 272. `python tools\check_runtime_boundaries.py --self-test`
+  passed in 00:00:00.2995922; `python
+  tools\check_runtime_boundaries.py --max-errors 20` passed in
+  00:00:17.8867793 with 0 errors; `tools\validate_format.bat` passed on the
+  final source; `tools\validate_fast.bat` passed in 00:00:39.6990303; and
+  `tools\validate_physics.bat` passed in 00:00:15.2978504 with
+  `VALIDATE_PHYSICS: ALL PASSED`. Touched-file comment audit inspected
+  `GameModelCollection.cpp` and `tools/check_runtime_boundaries.py` with
+  0 deferred.
 - [x] P3.3 Audit before converting GameModelCollection: 3 of the 28 catch
   sites may be swallowing these (check ConvexHullShape's 12 catches and any
   caller catch of collection append — `rg -n "catch" SkullbonezSource/Scene
