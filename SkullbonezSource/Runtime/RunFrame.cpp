@@ -2009,6 +2009,149 @@ bool StepReplayRestoreTarget( ReplayRestoreStepContext& context,
     return true;
 }
 
+struct ReplayRestoreTargetHashResult
+{
+    uint64_t solverHash = 0;
+    uint64_t presentationHash = 0;
+    std::size_t bodyCount = 0;
+};
+
+struct ReplayRestoreTargetHashFailure
+{
+    char message[320] = {};
+    ReplayRestoreTargetHashResult restored;
+    bool hashCaptured = false;
+};
+
+template <typename CaptureCurrentReplaySolverHash>
+bool CaptureAndValidateReplayRestoreTargetHash( const ReplayV2SolverHashSample& target,
+                                                const ReplaySolverFrameSample& checkpoint,
+                                                uint32_t eventCursor,
+                                                ReplayRestoreTargetHashResult& result,
+                                                ReplayRestoreTargetHashFailure& failure,
+                                                CaptureCurrentReplaySolverHash captureCurrentReplaySolverHash )
+{
+    ReplaySolverFrameSample reference;
+    reference.frameIndex = target.frameIndex;
+    reference.branch = checkpoint.branch;
+    reference.eventCursor = eventCursor;
+    reference.sceneFrame = target.sceneFrame;
+    reference.simulationSeconds = target.simulationSeconds;
+    reference.physicsDt = PHYSICS_FIXED_DT;
+
+    if ( !captureCurrentReplaySolverHash( reference, result.solverHash, result.presentationHash, result.bodyCount ) )
+    {
+        strncpy_s( failure.message, "failed to capture target hash", _TRUNCATE );
+        failure.hashCaptured = false;
+        return false;
+    }
+    failure.restored = result;
+    failure.hashCaptured = true;
+    if ( result.bodyCount != target.bodyCount )
+    {
+        sprintf_s( failure.message,
+                   sizeof( failure.message ),
+                   "replay restore target probe body count mismatch: restored=%llu expected=%u",
+                   static_cast<unsigned long long>( result.bodyCount ),
+                   target.bodyCount );
+        return false;
+    }
+    if ( result.solverHash != target.solverHash )
+    {
+        sprintf_s( failure.message,
+                   sizeof( failure.message ),
+                   "replay restore target probe solver hash mismatch: restored=0x%016llX expected=0x%016llX",
+                   static_cast<unsigned long long>( result.solverHash ),
+                   static_cast<unsigned long long>( target.solverHash ) );
+        return false;
+    }
+    return true;
+}
+
+void PopulateReplayRestoreTargetResult( RunReplayV2TargetRestoreResult& outResult,
+                                        const ReplayRestoreArtifactData& artifact,
+                                        const ReplaySolverFrameSample& checkpoint,
+                                        const ReplayV2SolverHashSample& target,
+                                        const ReplayRestoreStepResult& stepResult,
+                                        const ReplayRestoreTargetHashResult& targetHash,
+                                        bool generatedTopologyRebuilt )
+{
+    outResult.checkpointCount = artifact.checkpointResult.checkpointCount;
+    outResult.eventCount = artifact.eventResult.eventCount;
+    outResult.hashCount = artifact.hashResult.hashCount;
+    outResult.eventsApplied = stepResult.eventsApplied;
+    outResult.bodyCount = targetHash.bodyCount;
+    outResult.fileBytes = artifact.hashResult.fileBytes;
+    outResult.checkpointFrame = checkpoint.frameIndex;
+    outResult.targetFrame = target.frameIndex;
+    outResult.eventCursor = stepResult.eventCursor;
+    outResult.solverHash = targetHash.solverHash;
+    outResult.presentationHash = targetHash.presentationHash;
+    outResult.generatedTopologyRebuilt = generatedTopologyRebuilt;
+}
+
+void LogReplayRestoreTargetSuccess( DiagnosticsRuntime& diagnosticsRuntime,
+                                    RunSceneState& scene,
+                                    const char* restoreSource,
+                                    ReplayFrameIndex requestedFrame,
+                                    ReplayFrameIndex latestNonCheckpointTarget,
+                                    const ReplayV2SolverHashSample& target,
+                                    const ReplaySolverFrameSample& checkpoint,
+                                    const ReplayRestoreTargetHashResult& targetHash )
+{
+    LogReplayV2TargetRestoreDiagnostic( diagnosticsRuntime,
+                                        scene,
+                                        restoreSource,
+                                        requestedFrame,
+                                        latestNonCheckpointTarget,
+                                        "",
+                                        &target,
+                                        &checkpoint,
+                                        targetHash.solverHash,
+                                        targetHash.presentationHash,
+                                        targetHash.bodyCount,
+                                        true,
+                                        true,
+                                        false,
+                                        false );
+}
+
+// Why: making a restored file state live still has one Run-owned side effect:
+// resetting the active timeline. Keep that as a caller callback while this
+// helper owns only branch metadata and event recording on ReplayRuntime.
+template <typename ResetReplayTimeline>
+void ApplyReplayRestoreLiveBranch( ReplayRuntime& replayRuntime,
+                                   const ReplaySolverFrameSample& checkpoint,
+                                   const ReplayV2SolverHashSample& target,
+                                   RunReplayV2TargetRestoreResult& outResult,
+                                   ResetReplayTimeline resetReplayTimeline )
+{
+    const uint32_t parentBranchId =
+        checkpoint.branch.branchId != 0
+            ? checkpoint.branch.branchId
+            : ( replayRuntime.Branch().branchId != 0 ? replayRuntime.Branch().branchId : 1u );
+    ReplayBranchInfo restoredBranch;
+    restoredBranch.branchId = (std::max)( replayRuntime.Branch().branchId, parentBranchId ) + 1u;
+    restoredBranch.parentBranchId = parentBranchId;
+    restoredBranch.startFrame = 0;
+    restoredBranch.sourceFrame = target.frameIndex;
+    restoredBranch.sourceSolverHash = target.solverHash;
+    replayRuntime.Branch() = restoredBranch;
+    resetReplayTimeline();
+    replayRuntime.RecordEvent( ReplayEventKind::BranchRestore,
+                               0,
+                               0,
+                               static_cast<int32_t>( parentBranchId ),
+                               target.sceneFrame,
+                               0,
+                               0,
+                               target.solverHash,
+                               "hash-verified v2 file restore" );
+    outResult.branchId = restoredBranch.branchId;
+    outResult.parentBranchId = parentBranchId;
+    outResult.madeLiveBranch = true;
+}
+
 struct ReplayGeneratedTopologyRestoreContext
 {
     RuntimeTools& runtimeTools;
@@ -3100,107 +3243,51 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
         return failAfterMutation( "encountered unsupported branch events before target", target );
     }
 
-    ReplaySolverFrameSample reference;
-    reference.frameIndex = target->frameIndex;
-    reference.branch = checkpoint->branch;
-    reference.eventCursor = stepResult.eventCursor;
-    reference.sceneFrame = target->sceneFrame;
-    reference.simulationSeconds = target->simulationSeconds;
-    reference.physicsDt = PHYSICS_FIXED_DT;
-
-    uint64_t restoredSolverHash = 0;
-    uint64_t restoredPresentationHash = 0;
-    std::size_t restoredBodyCount = 0;
-    if ( !CaptureCurrentReplaySolverHash( reference, restoredSolverHash, restoredPresentationHash, restoredBodyCount ) )
+    ReplayRestoreTargetHashResult targetHash;
+    ReplayRestoreTargetHashFailure targetHashFailure;
+    if ( !CaptureAndValidateReplayRestoreTargetHash(
+             *target,
+             *checkpoint,
+             stepResult.eventCursor,
+             targetHash,
+             targetHashFailure,
+             [this]( const ReplaySolverFrameSample& reference,
+                     uint64_t& solverHash,
+                     uint64_t& presentationHash,
+                     std::size_t& bodyCount )
+             { return CaptureCurrentReplaySolverHash( reference, solverHash, presentationHash, bodyCount ); } ) )
     {
-        return failAfterMutation( "failed to capture target hash", target );
-    }
-    if ( restoredBodyCount != target->bodyCount )
-    {
-        char message[256] = {};
-        sprintf_s( message,
-                   sizeof( message ),
-                   "replay restore target probe body count mismatch: restored=%llu expected=%u",
-                   static_cast<unsigned long long>( restoredBodyCount ),
-                   target->bodyCount );
-        return failAfterMutation( message,
+        return failAfterMutation( targetHashFailure.message,
                                   target,
-                                  restoredSolverHash,
-                                  restoredPresentationHash,
-                                  restoredBodyCount,
-                                  true );
-    }
-    if ( restoredSolverHash != target->solverHash )
-    {
-        char message[320] = {};
-        sprintf_s( message,
-                   sizeof( message ),
-                   "replay restore target probe solver hash mismatch: restored=0x%016llX expected=0x%016llX",
-                   static_cast<unsigned long long>( restoredSolverHash ),
-                   static_cast<unsigned long long>( target->solverHash ) );
-        return failAfterMutation( message,
-                                  target,
-                                  restoredSolverHash,
-                                  restoredPresentationHash,
-                                  restoredBodyCount,
-                                  true );
+                                  targetHashFailure.restored.solverHash,
+                                  targetHashFailure.restored.presentationHash,
+                                  targetHashFailure.restored.bodyCount,
+                                  targetHashFailure.hashCaptured );
     }
 
-    outResult.checkpointCount = artifact.checkpointResult.checkpointCount;
-    outResult.eventCount = artifact.eventResult.eventCount;
-    outResult.hashCount = artifact.hashResult.hashCount;
-    outResult.eventsApplied = stepResult.eventsApplied;
-    outResult.bodyCount = restoredBodyCount;
-    outResult.fileBytes = artifact.hashResult.fileBytes;
-    outResult.checkpointFrame = checkpoint->frameIndex;
-    outResult.targetFrame = target->frameIndex;
-    outResult.eventCursor = stepResult.eventCursor;
-    outResult.solverHash = restoredSolverHash;
-    outResult.presentationHash = restoredPresentationHash;
-    outResult.generatedTopologyRebuilt = generatedTopologyRebuilt;
-
-    LogReplayV2TargetRestoreDiagnostic( m_diagnosticsRuntime,
-                                        SceneState(),
-                                        restoreSource,
-                                        requestedFrame,
-                                        LATEST_NON_CHECKPOINT_TARGET,
-                                        "",
-                                        target,
-                                        checkpoint,
-                                        restoredSolverHash,
-                                        restoredPresentationHash,
-                                        restoredBodyCount,
-                                        true,
-                                        true,
-                                        false,
-                                        false );
+    PopulateReplayRestoreTargetResult( outResult,
+                                       artifact,
+                                       *checkpoint,
+                                       *target,
+                                       stepResult,
+                                       targetHash,
+                                       generatedTopologyRebuilt );
+    LogReplayRestoreTargetSuccess( m_diagnosticsRuntime,
+                                   SceneState(),
+                                   restoreSource,
+                                   requestedFrame,
+                                   LATEST_NON_CHECKPOINT_TARGET,
+                                   *target,
+                                   *checkpoint,
+                                   targetHash );
 
     if ( makeLiveBranch )
     {
-        const uint32_t parentBranchId =
-            checkpoint->branch.branchId != 0
-                ? checkpoint->branch.branchId
-                : ( m_replayRuntime.Branch().branchId != 0 ? m_replayRuntime.Branch().branchId : 1u );
-        ReplayBranchInfo restoredBranch;
-        restoredBranch.branchId = (std::max)( m_replayRuntime.Branch().branchId, parentBranchId ) + 1u;
-        restoredBranch.parentBranchId = parentBranchId;
-        restoredBranch.startFrame = 0;
-        restoredBranch.sourceFrame = target->frameIndex;
-        restoredBranch.sourceSolverHash = target->solverHash;
-        m_replayRuntime.Branch() = restoredBranch;
-        ResetReplayTimelineForActiveScene( true );
-        m_replayRuntime.RecordEvent( ReplayEventKind::BranchRestore,
-                                     0,
-                                     0,
-                                     static_cast<int32_t>( parentBranchId ),
-                                     target->sceneFrame,
-                                     0,
-                                     0,
-                                     target->solverHash,
-                                     "hash-verified v2 file restore" );
-        outResult.branchId = restoredBranch.branchId;
-        outResult.parentBranchId = parentBranchId;
-        outResult.madeLiveBranch = true;
+        ApplyReplayRestoreLiveBranch( m_replayRuntime,
+                                      *checkpoint,
+                                      *target,
+                                      outResult,
+                                      [this]() { ResetReplayTimelineForActiveScene( true ); } );
     }
 
     writeReason( "restored hash match" );

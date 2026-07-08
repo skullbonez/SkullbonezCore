@@ -1588,6 +1588,28 @@ every step. Commit per step.
     (9.4s), and
     `TestOutput\agent_logs\plan01_replay_restore_step_helpers_runtime_boundaries.log`
     (17.8s). The touched-file comment audit covered `RunFrame.cpp`.
+  - [x] Replay restore target-tail split moved final target hash validation,
+    result population, success diagnostic logging, and optional live-branch
+    metadata recording into source-local helpers. `Run::RestoreReplayV2ArtifactTargetState()`
+    dropped from 301 measured lines to 245 measured lines without adding public
+    or private `Run` methods. The remaining measured large `Run::` targets are
+    `RestoreReplayV2ArtifactTargetState` (245), `TakeInput` (199),
+    `RunGraphicsStressActions` (199), `WriteInteractionAutomationReport` (197),
+    and `Execute` (194), so Phase 3 and the structural acceptance rows remain
+    open. Gate evidence:
+    `TestOutput\agent_logs\plan01_replay_restore_target_tail_validate_full.log`
+    (45.2s; project filters/runtime boundaries passed, Profile/Debug builds had
+    0 warnings and 0 errors, DX12 InfoQueue errors = 0, screenshots matched
+    baselines, and `physics_regression_solver.csv` matched byte-exactly).
+    Focused replay v2 artifact validation passed:
+    `TestOutput\agent_logs\plan01_replay_restore_target_tail_validate_replay_v2_artifact.log`
+    (60.5s). Targeted pre-gate checks also passed:
+    `TestOutput\agent_logs\plan01_replay_restore_target_tail_build_profile_rerun.log`
+    (6.7s after a const-signature fix),
+    `TestOutput\agent_logs\plan01_replay_restore_target_tail_validate_format.log`
+    (9.4s), and
+    `TestOutput\agent_logs\plan01_replay_restore_target_tail_runtime_boundaries.log`
+    (17.9s). The touched-file comment audit covered `RunFrame.cpp`.
 
 ## Validation
 
