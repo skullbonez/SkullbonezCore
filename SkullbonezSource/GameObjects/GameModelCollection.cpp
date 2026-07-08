@@ -707,26 +707,29 @@ bool GameModelCollection::SaveSceneSnapshot( const char* path,
 }
 
 
-Vector3 GameModelCollection::GetModelPosition( int index )
+bool GameModelCollection::TryGetModelPosition( int index, Vector3& outPosition ) const
 {
     if ( index < 0 || index >= SceneEntityCount() )
     {
-        throw std::runtime_error(
-            "No game model exists at the specified index.  (GameModelCollection::GetModelPosition)" );
+        return false;
     }
 
     // Why: object-follow cameras should read the same store-owned pose that
     // physics, diagnostics, replay capture, and render snapshots consume. A
-    // topology mismatch must be repaired by the owning runtime/editor boundary
-    // before this read; same-count edits enter through explicit commit paths.
+    // missing model slot is a recoverable legacy-camera request, so callers
+    // keep their previous target instead of aborting the frame.
     const PhysicsBodyStore& bodyStore = GetPhysicsEngine().BodyStore();
     const PhysicsBodyRecord* record = bodyStore.RecordForModelIndex( index );
     if ( !record )
     {
-        throw std::runtime_error(
-            "No physics body exists at the specified index.  (GameModelCollection::GetModelPosition)" );
+        // Invariant: a live scene model must have a physics body row at the
+        // same slot. Missing rows are topology drift, not recoverable camera
+        // input, because rendering/replay snapshots would read divergent state.
+        SB_FATAL( "GameObjects/GameModelCollection",
+                  "No physics body exists at the specified index.  (GameModelCollection::TryGetModelPosition)" );
     }
-    return record->position;
+    outPosition = record->position;
+    return true;
 }
 
 

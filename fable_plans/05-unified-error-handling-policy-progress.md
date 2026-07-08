@@ -1,7 +1,7 @@
 # Progress: Unified Error Handling Policy (plan 05)
 
 Source plan: `fable_plans/05-unified-error-handling-policy-plan.md`
-Status: phase 1 complete on 2026-07-07; P2.1-P2.3 replay probe conversion and evidence complete on 2026-07-08; SpatialGrid, PhysicsWorld, and GameModelCollection pure topology hot-path conversions complete; remaining GameModelCollection recoverable surfaces pending
+Status: phase 1 complete on 2026-07-07; P2.1-P2.3 replay probe conversion and evidence complete on 2026-07-08; SpatialGrid, PhysicsWorld, GameModelCollection pure topology, and legacy camera pose-read conversions complete; remaining GameModelCollection append recoverable surfaces pending
 Last updated: 2026-07-08
 
 ## How to work this file
@@ -49,7 +49,8 @@ Last updated: 2026-07-08
   recorded the pre-conversion budget at 355; P2.2/P2.3 lowered it to 294 after
   replacing the Debug replay probe throws. P3 SpatialGrid conversion lowered
   the budget to 281, P3 PhysicsWorld lowered it to 275, and the pure
-  GameModelCollection topology slice lowered it to 272.
+  GameModelCollection topology slice lowered it to 272, and the legacy camera
+  pose-read cleanup lowered it to 270.
 
 ## Phase 1 — policy, primitives, ratchet (no conversions yet)
 
@@ -315,8 +316,8 @@ Last updated: 2026-07-08
   today is Lane R, not Lane F — convert those to SbResult instead. Record the
   classification inline here per site before editing.
 
-  Evidence (2026-07-08): GameModelCollection currently has 8 live throw sites,
-  not 9. The only direct caught-and-reported collection append path found was
+  Evidence (2026-07-08, pre-conversion): GameModelCollection had 8 live throw
+  sites, not 9. The only direct caught-and-reported collection append path found was
   `Init.cpp:798-805`, where `--physics-standalone-smoke` catches
   `RunPhysicsRuntimeHandleSmokeSample()`/`AddGameModel()` exceptions and records
   `runtimeMirror.errorMessage`. Scene setup and editor placement currently
@@ -349,6 +350,35 @@ Last updated: 2026-07-08
      and editor action behavior changes.
   3. Replace `GetModelPosition` with a non-throwing camera read/fallback, then
      decide whether the missing-body branch remains an internal fatal invariant.
+
+- [x] P3.1d Replace the legacy `GameModelCollection::GetModelPosition` throwing
+  camera read with `TryGetModelPosition`. Hardcoded object-follow cameras keep
+  their previous target when model slots 0/1 are absent; a present model slot
+  without a physics body remains a Lane F topology invariant via `SB_FATAL`.
+
+- [x] P3.2d Gate the legacy camera pose-read cleanup with the runtime boundary
+  checker, `validate_fast`, and `validate_full` because the slice touches
+  `RunRender.cpp`, `GameModelCollection`, and a checker ratchet.
+
+  Evidence (2026-07-08): `GameModelCollection.h/.cpp` now expose
+  `TryGetModelPosition( int, Vector3& ) const`; absent scene slots return
+  `false`, and a valid slot missing its `PhysicsBodyStore` row calls
+  `SB_FATAL( "GameObjects/GameModelCollection", ... )`. `RunRender.cpp` now
+  no-ops object-follow retargeting when the tracked slot is absent.
+  `tools/check_runtime_boundaries.py` lowered `MAX_SOURCE_THROW_TOKENS` from
+  272 to 270 and refreshed the GameModelCollection body-read guardrail for
+  `TryGetModelPosition`. Herschel, a read-only explorer subagent, confirmed
+  only the two object-follow camera calls were live callers and recommended the
+  no-op/fatal split. Touched-file comment audit inspected
+  `GameModelCollection.h`, `GameModelCollection.cpp`, `RunRender.cpp`, and
+  `tools/check_runtime_boundaries.py` with 0 deferred. `python
+  tools\check_runtime_boundaries.py --self-test` passed in 00:00:00.2679289;
+  `python tools\check_runtime_boundaries.py --max-errors 20` passed in
+  00:00:17.2286994 with 0 errors; `tools\validate_fast.bat` passed in
+  00:00:52.1451648 with `VALIDATE_FAST: ALL PASSED`; and
+  `tools\validate_full.bat` passed in 00:00:45.6008988 with DX12 validation
+  errors 0, screenshots matching committed baselines, and
+  `physics_regression_solver.csv` byte-exact.
 
 ## Phase 4 — loaders and editor surface (Lane R)
 

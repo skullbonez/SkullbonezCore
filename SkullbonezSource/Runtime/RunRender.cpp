@@ -2236,11 +2236,22 @@ void Run::SetViewingOrientation()
     // to the tracked model each frame.
     if ( m_systems.cameras->IsCameraSelected( CAMERA_GAME_MODEL_1 ) )
     {
-        m_systems.cameras->SetViewCoordinates( m_cGameModelCollection.GetModelPosition( 0 ) );
+        // Why: generated or empty scenes can expose object-follow camera slots
+        // before the tracked model exists; the last valid target is the
+        // recoverable fallback for that legacy UI state.
+        Vector3 targetPosition;
+        if ( m_cGameModelCollection.TryGetModelPosition( 0, targetPosition ) )
+        {
+            m_systems.cameras->SetViewCoordinates( targetPosition );
+        }
     }
     if ( m_systems.cameras->IsCameraSelected( CAMERA_GAME_MODEL_2 ) )
     {
-        m_systems.cameras->SetViewCoordinates( m_cGameModelCollection.GetModelPosition( 1 ) );
+        Vector3 targetPosition;
+        if ( m_cGameModelCollection.TryGetModelPosition( 1, targetPosition ) )
+        {
+            m_systems.cameras->SetViewCoordinates( targetPosition );
+        }
     }
 
     /*

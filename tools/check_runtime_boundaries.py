@@ -1673,10 +1673,11 @@ TYPE_WITH_BODY_PATTERN = re.compile(r"\b(?:struct|class)\s+[A-Za-z_]\w*(?:\s*:[^
 STORED_MODEL_INDEX_MEMBER_PATTERN = re.compile(
     r"(?m)^[ \t]*int[ \t]+(?:modelIndex|[A-Za-z_]\w*ModelIndex)\w*[ \t]*(?:=[^,;]*)?;"
 )
-# FABLE-05 P3.1: SpatialGrid, PhysicsWorld, and pure GameModelCollection
-# topology invariants now use SB_FATAL, lowering the tracked exception-site
-# budget by 22 without approving replacement throws.
-MAX_SOURCE_THROW_TOKENS = 272
+# FABLE-05 P3.1: SpatialGrid, PhysicsWorld, pure GameModelCollection
+# topology invariants, and legacy camera pose reads moved off throw paths,
+# lowering the tracked exception-site budget by 24 without approving
+# replacement throws.
+MAX_SOURCE_THROW_TOKENS = 270
 THROW_TOKEN_PATTERN = re.compile(r"\bthrow\b")
 MAX_RENDER_PASS_HOST_FIELD_ACCESSES = 109
 RENDER_PASS_HOST_FIELD_PATTERN = re.compile(r"\bm_host\.m_[A-Za-z_]\w*")
@@ -4183,8 +4184,8 @@ def check_game_model_collection_body_store_read_authority_guardrails_text(path: 
                 )
             )
 
-    for function_name in ( "GetModelPosition", "GetSceneKineticEnergy" ):
-        function_pattern = re.compile(rf"\b(?:Vector3|double)\s+GameModelCollection::{function_name}\s*\([^{{}}]*\)\s*\{{", re.S)
+    for function_name in ( "GetModelPosition", "TryGetModelPosition", "GetSceneKineticEnergy" ):
+        function_pattern = re.compile(rf"\b(?:Vector3|bool|double)\s+GameModelCollection::{function_name}\s*\([^{{}}]*\)\s*\{{", re.S)
         for function_match in function_pattern.finditer(stripped):
             open_brace = stripped.find("{", function_match.start(), function_match.end())
             if open_brace < 0:
@@ -12363,9 +12364,10 @@ def run_self_tests() -> list[str]:
     expect_clean('comment-only RunPhysics wrapper synthetic text was rejected', check_game_model_collection_run_physics_model_access_guardrails_text( Path("SkullbonezSource/Runtime/RunFrame.cpp"), commented_run_physics_wrapper, ))
 
     old_collection_body_model_reads = """
-    Vector3 GameModelCollection::GetModelPosition( int index )
+    bool GameModelCollection::TryGetModelPosition( int index, Vector3& outPosition ) const
     {
-        return m_gameModels[index].GetPosition();
+        outPosition = m_gameModels[index].GetPosition();
+        return true;
     }
 
     double GameModelCollection::GetSceneKineticEnergy()
@@ -12385,11 +12387,12 @@ def run_self_tests() -> list[str]:
     expect_error('old collection body model-read synthetic surface was not rejected', check_game_model_collection_body_store_read_authority_guardrails_text( Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"), old_collection_body_model_reads, ), 'GameModelCollection body read should use PhysicsBodyStore')
 
     allowed_collection_body_store_reads = """
-    Vector3 GameModelCollection::GetModelPosition( int index )
+    bool GameModelCollection::TryGetModelPosition( int index, Vector3& outPosition ) const
     {
         const PhysicsBodyStore& bodyStore = GetPhysicsBodyStore();
         const PhysicsBodyRecord* record = bodyStore.RecordForModelIndex( index );
-        return record->position;
+        outPosition = record->position;
+        return true;
     }
 
     double GameModelCollection::GetSceneKineticEnergy()

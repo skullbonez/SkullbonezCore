@@ -296,7 +296,10 @@ class GameModelCollection
                             float flatBaseY = 0.0f,
                             float flatSlopeX = 0.0f,
                             float flatSlopeZ = 0.0f );
-    Math::Vector::Vector3 GetModelPosition( int index );
+    // Legacy object-follow cameras can outlive the model slots they track.
+    // Returns false only for an absent slot; a present model without a body is
+    // store-topology drift and still fails through the fatal invariant lane.
+    bool TryGetModelPosition( int index, Math::Vector::Vector3& outPosition ) const;
     // Scene entity count is the stable model-slot count shared by scene files,
     // editor picks, replay streams, and cold owner-repair boundaries.
     int SceneEntityCount() const;
