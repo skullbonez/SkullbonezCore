@@ -39,10 +39,10 @@ Status legend: `Proposed` (drafted here) · `In Progress` · `Done`.
 | 07 | [Allocation-gate right-sizing](07-allocation-gate-right-sizing.md) | Repo-wide prose ban vs 2-file enforcement; ~1,400 lines of alloc infra | P2 | Proposed |
 | 08 | [RenderHelper global-state removal](08-renderhelper-global-state-removal.md) | Whole primitive-render layer is process-global static state | P2 | Proposed |
 | 09 | [Replay subsystem right-sizing](09-replay-subsystem-right-sizing.md) | ~17K-line replay; shadow physics engine; 50-field god-struct; twin helpers | P2 | Proposed |
-| 10 | [EngineContext / IRenderBackend boundary](10-enginecontext-irenderbackend-boundary.md) | 13-ptr context bag with unused `Services()`; aggregate backend + dangling aliases | P2 | Proposed |
+| 10 | [EngineContext / IRenderBackend boundary](10-enginecontext-irenderbackend-boundary.md) | 13-ptr context bag with unused `Services()`; aggregate backend + dangling aliases | P2 | In Progress |
 | 11 | [Render abstraction leaks](11-render-abstraction-leaks.md) | RenderGraph diagnostic-only; backbuffer state = 1 bool; replay call in generic interface | P2 | Proposed |
 | 12 | [Ambient singletons: Log / Profiler](12-ambient-singletons-log-profiler.md) | `Log()` welded into prelude; Profiler caches a dangling-prone borrowed pointer | P3 | Done |
-| 13 | [Facade retirement (cross-cutting rule)](13-facade-retirement.md) | "Graduate-or-delete; a rename is not done" — principle + FAC inventory; executed by plans 01/10 | rule | Proposed |
+| 13 | [Facade retirement (cross-cutting rule)](13-facade-retirement.md) | "Graduate-or-delete; a rename is not done" — principle + FAC inventory; executed by plans 01/10 | rule | In Progress |
 
 ## Related
 

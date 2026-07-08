@@ -1,7 +1,7 @@
 # Facade Retirement Plan
 
 Date: 2026-07-08
-Status: To Eval (revised 2026-07-08 — structural reframing)
+Status: In Progress (revised 2026-07-08 — structural reframing)
 Owner: Runtime, rendering, physics, and architecture cleanup agents
 
 ## Revision Note
@@ -106,8 +106,11 @@ only when the structure is actually gone:
 - [ ] `rg -n "\bEngineContextBindings\b" SkullbonezSource` finds nothing, or every
   remaining consumer takes an owner-specific record; no subsystem is handed the
   whole graph.
-- [ ] `EngineServices Services()` is either removed or has real, non-assertion
+- [x] `EngineServices Services()` is either removed or has real, non-assertion
   callers.
+  Completion note (2026-07-08): Plan 10 step 0.1 removed `EngineServices` and
+  `EngineContext::Services()` after the required caller grep returned no
+  matches; `tools\validate_full.bat` passed in 61.3s.
 - [ ] `rg -n "SimulationController::System\(|\.System\(\)" ` no longer exposes the
   underlying `SimulationSystem` for reach-through; `SimulationController` is
   deleted or owns concrete timing policy.
