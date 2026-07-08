@@ -91,7 +91,7 @@ std::vector<uint8_t> RenderBackendDX12::CaptureBackbuffer( int& outWidth, int& o
     UINT numRows = 0;
     UINT64 rowSizeBytes = 0;
     UINT64 totalBytes = 0;
-    m_device->GetCopyableFootprints( &bbDesc, 0, 1, 0, &footprint, &numRows, &rowSizeBytes, &totalBytes );
+    Device()->GetCopyableFootprints( &bbDesc, 0, 1, 0, &footprint, &numRows, &rowSizeBytes, &totalBytes );
 
     // Create a CPU-readable landing buffer for the screenshot. The back buffer
     // itself lives in GPU-only memory, so the CPU cannot read it directly. The
@@ -103,7 +103,7 @@ std::vector<uint8_t> RenderBackendDX12::CaptureBackbuffer( int& outWidth, int& o
     // READBACK buffers are accessed via CPU Map/Unmap — no GPU state barrier is needed.
     // Docs:
     // https://learn.microsoft.com/en-us/windows/win32/direct3d12/using-resource-barriers-to-synchronize-resource-states-in-direct3d-12
-    if ( !readbackBuffer.InitBuffer( m_device, totalBytes, L"Skullbonez DX12 Screenshot Readback Buffer" ) )
+    if ( !readbackBuffer.InitBuffer( Device(), totalBytes, L"Skullbonez DX12 Screenshot Readback Buffer" ) )
     {
         throw std::runtime_error( "CreateCommittedResource (screenshot readback) failed" );
     }
@@ -117,7 +117,7 @@ std::vector<uint8_t> RenderBackendDX12::CaptureBackbuffer( int& outWidth, int& o
     srcLoc.pResource = m_renderTargets[m_frameIndex];
     srcLoc.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
 
-    m_commandList->CopyTextureRegion( &dstLoc, 0, 0, 0, &srcLoc, nullptr );
+    CommandList()->CopyTextureRegion( &dstLoc, 0, 0, 0, &srcLoc, nullptr );
 
     // Restore the exact state we found before the capture.
     ExecuteGraphTransition( "BackbufferReadbackRestore",
@@ -128,9 +128,9 @@ std::vector<uint8_t> RenderBackendDX12::CaptureBackbuffer( int& outWidth, int& o
 
     // Execute and wait
     AssertPlatformProfilerGpuStackClosed( "CaptureBackbuffer" );
-    m_commandList->Close();
+    CommandList()->Close();
     m_commandListOpen = false;
-    ID3D12CommandList* ppCLs[] = { m_commandList };
+    ID3D12CommandList* ppCLs[] = { CommandList() };
     m_commandQueue->ExecuteCommandLists( 1, ppCLs );
     WaitForGpu();
 

@@ -53,7 +53,7 @@ borrowed-alias dual ownership.
   (per facade FAC-002); no subsystem receives the whole runtime graph.
 - [x] **Phase 2 — Route to narrow interfaces** and delete the `IRenderBackend`
   aggregate *type* (per facade FAC-001).
-- [ ] **Phase 3 — Fix dual ownership.** `RenderBackendDX12` either borrows the
+- [x] **Phase 3 — Fix dual ownership.** `RenderBackendDX12` either borrows the
   device once through a single owner or refreshes its aliases on device
   recreation — no dangling on recreate.
 
@@ -182,11 +182,27 @@ danger zone — run the renderer gate 3×.
 
 ### Phase 3 — DX12 borrowed-alias dual ownership (danger zone)
 
-- [ ] **3.1** In `RenderBackendDX12`, either remove the cached
+- [x] **3.1** In `RenderBackendDX12`, either remove the cached
   `m_device`/`m_swapChain`/`m_commandList` aliases and reach through
   `Dx12RenderDevice`, or refresh them on device recreation. Exercise device-lost
   / resize paths. Gate: `validate_dx12_renderer` **run 3×**, `dx12_validation.txt`
   == 0 each time. Commit.
+
+  Completion note (2026-07-08): removed the cached `m_device`,
+  `m_swapChain`, and `m_commandList` fields from `RenderBackendDX12`. The
+  backend now reaches those owner-owned objects through private
+  `Device()`/`SwapChain()`/`CommandList()` helpers backed by
+  `Dx12RenderDevice`, while the still-borrowed queue/allocator aliases remain
+  as explicit follow-up debt. Added a runtime-boundary tombstone with self-tests
+  to block reintroducing the deleted alias fields. Structural grep found no
+  `m_device`, `m_swapChain`, or `m_commandList` tokens in
+  `RenderBackendDX12.h` or `RenderBackendDX12*.cpp`. Comment audit inspected all
+  touched source-bearing files with no deferred work. Validation: Profile build
+  passed in 8.8s; `tools\validate_dx12_renderer.bat` passed 3 times in 25.9s,
+  19.4s, and 19.4s with `DX12 validation errors: 0` and matching screenshots;
+  `python -m py_compile tools\check_runtime_boundaries.py` passed in 0.2s;
+  runtime-boundary self-test passed in 0.3s; runtime boundaries passed in 16.8s;
+  `tools\validate_fast.bat` passed in 34.7s.
 
 ### Phase 4 — Collapse or graduate `SimulationController` (FAC-004)
 
@@ -207,5 +223,5 @@ danger zone — run the renderer gate 3×.
   deleted, not renamed).
 - [x] `EngineContextBindings` is deleted or split; no whole-graph bind remains.
 - [x] `EngineServices Services()` is removed or has real callers.
-- [ ] `RenderBackendDX12` holds no device/swapchain/commandlist aliases that can
+- [x] `RenderBackendDX12` holds no device/swapchain/commandlist aliases that can
   dangle on recreation.

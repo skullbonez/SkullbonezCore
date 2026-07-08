@@ -363,7 +363,7 @@ ID3D12PipelineState* RenderBackendDX12::CreatePSO( VertexFormat12 format,
     // across frames.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-creategraphicspipelinestate
     ID3D12PipelineState* pso = nullptr;
-    HRESULT hr = m_device->CreateGraphicsPipelineState( &psoDesc, IID_PPV_ARGS( &pso ) );
+    HRESULT hr = Device()->CreateGraphicsPipelineState( &psoDesc, IID_PPV_ARGS( &pso ) );
     if ( FAILED( hr ) )
     {
         throw std::runtime_error( "CreateGraphicsPipelineState failed" );
@@ -446,7 +446,7 @@ void RenderBackendDX12::PrepareDraw( VertexFormat12 format,
             D3D12_GPU_VIRTUAL_ADDRESS cbAddr = m_activeShader->FlushCB();
             if ( cbAddr )
             {
-                m_commandList->SetGraphicsRootConstantBufferView( 0, cbAddr );
+                CommandList()->SetGraphicsRootConstantBufferView( 0, cbAddr );
             }
         }
         return;
@@ -516,12 +516,12 @@ void RenderBackendDX12::PrepareDraw( VertexFormat12 format,
         // blend, depth, rasterizer, render-target formats) in one call.
         // Docs:
         // https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-setpipelinestate
-        m_commandList->SetPipelineState( pso );
+        CommandList()->SetPipelineState( pso );
 
         // Re-bind root signature after PSO change (required by DX12 spec).
         // Docs:
         // https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-setgraphicsrootsignature
-        m_commandList->SetGraphicsRootSignature( m_rootSignature );
+        CommandList()->SetGraphicsRootSignature( m_rootSignature );
         m_lastPSOHash = psoHash;
     }
 
@@ -534,7 +534,7 @@ void RenderBackendDX12::PrepareDraw( VertexFormat12 format,
         D3D12_GPU_VIRTUAL_ADDRESS cbAddr = m_activeShader->FlushCB();
         if ( cbAddr )
         {
-            m_commandList->SetGraphicsRootConstantBufferView( ROOT_PARAMETER_FRAME_CONSTANTS, cbAddr );
+            CommandList()->SetGraphicsRootConstantBufferView( ROOT_PARAMETER_FRAME_CONSTANTS, cbAddr );
         }
     }
 
@@ -575,11 +575,11 @@ void RenderBackendDX12::PrepareDraw( VertexFormat12 format,
                 // proves the GPU is done with them.
                 UINT transient = AllocateTransientSRV();
                 D3D12_CPU_DESCRIPTOR_HANDLE dstHandle = m_srvDescriptors.ShaderVisibleCpuHandle( transient );
-                m_device->CopyDescriptorsSimple( 1,
+                Device()->CopyDescriptorsSimple( 1,
                                                  dstHandle,
                                                  GetSRVStagingCpuHandle( srcIdx ),
                                                  D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV );
-                m_commandList->SetGraphicsRootDescriptorTable( ROOT_PARAMETER_FIRST_TEXTURE + static_cast<UINT>( slot ),
+                CommandList()->SetGraphicsRootDescriptorTable( ROOT_PARAMETER_FIRST_TEXTURE + static_cast<UINT>( slot ),
                                                                GetSRVGpuHandle( transient ) );
             }
         }
@@ -589,9 +589,9 @@ void RenderBackendDX12::PrepareDraw( VertexFormat12 format,
     // Avoid redundant OM/RS binds; target changes are tracked explicitly.
     if ( m_targetsDirty )
     {
-        m_commandList->RSSetViewports( 1, &m_viewport );
-        m_commandList->RSSetScissorRects( 1, &m_scissorRect );
-        m_commandList->OMSetRenderTargets( 1, &m_currentRTV, FALSE, &m_currentDSV );
+        CommandList()->RSSetViewports( 1, &m_viewport );
+        CommandList()->RSSetScissorRects( 1, &m_scissorRect );
+        CommandList()->OMSetRenderTargets( 1, &m_currentRTV, FALSE, &m_currentDSV );
         m_targetsDirty = false;
     }
 
@@ -599,7 +599,7 @@ void RenderBackendDX12::PrepareDraw( VertexFormat12 format,
     // TRIANGLELIST means every 3 vertices form an independent triangle.
     // Docs:
     // https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-iasetprimitivetopology
-    m_commandList->IASetPrimitiveTopology( D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST );
+    CommandList()->IASetPrimitiveTopology( D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST );
     m_psoDirty = false;
 }
 

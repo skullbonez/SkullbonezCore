@@ -159,7 +159,7 @@ RenderMemoryStats RenderBackendDX12::GetRenderMemoryStats() const
     // charging local or non-local video memory to this process.
     RenderMemoryStats stats;
     strcpy_s( stats.backendName, sizeof( stats.backendName ), "DirectX 12" );
-    stats.available = m_device != nullptr;
+    stats.available = Device() != nullptr;
     if ( !stats.available )
     {
         return stats;
@@ -207,7 +207,7 @@ RenderMemoryStats RenderBackendDX12::GetRenderMemoryStats() const
         // Why: multi-GPU machines can expose several adapters. Match the
         // device LUID instead of sampling adapter 0 so stress logs describe the
         // GPU actually backing this DX12 device.
-        const LUID deviceLuid = m_device->GetAdapterLuid();
+        const LUID deviceLuid = Device()->GetAdapterLuid();
         ComPtr<IDXGIAdapter3> activeAdapter;
         for ( UINT adapterIndex = 0;; ++adapterIndex )
         {
@@ -352,7 +352,7 @@ void RenderBackendDX12::RetireResource( ID3D12Resource* resource )
         return;
     }
 
-    if ( !m_device || !m_renderDevice.FrameFence().IsReady() )
+    if ( !Device() || !m_renderDevice.FrameFence().IsReady() )
     {
         resource->Release();
         return;
@@ -401,7 +401,7 @@ void RenderBackendDX12::AssertPlatformProfilerGpuStackClosed( const char* reason
 
 void RenderBackendDX12::EnsureCommandListOpen()
 {
-    if ( !m_commandList || !m_commandQueue || !m_renderDevice.FrameFence().IsReady() ||
+    if ( !CommandList() || !m_commandQueue || !m_renderDevice.FrameFence().IsReady() ||
          !m_commandAllocators[m_allocatorIndex] )
     {
         throw std::runtime_error( "DX12 backend is not fully initialised (command list/fence unavailable)." );
@@ -434,20 +434,20 @@ void RenderBackendDX12::EnsureCommandListOpen()
     // Reset the command list to start recording new commands. The command list is reused
     // every frame — Reset puts it back into the "recording" state with a fresh allocator.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-reset
-    m_commandList->Reset( m_commandAllocators[m_allocatorIndex], nullptr );
+    CommandList()->Reset( m_commandAllocators[m_allocatorIndex], nullptr );
 
     // Bind the shader-visible descriptor heap — required before any draw calls that reference
     // textures or CBVs. Only ONE CBV/SRV/UAV heap can be bound at a time in DX12.
     // Docs:
     // https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-setdescriptorheaps
     ID3D12DescriptorHeap* heaps[] = { m_srvHeap };
-    m_commandList->SetDescriptorHeaps( 1, heaps );
+    CommandList()->SetDescriptorHeaps( 1, heaps );
 
     // Bind the root signature — tells the GPU the layout of shader parameters (where to find
     // constant buffers, texture descriptors, etc.). Must match what the PSO was created with.
     // Docs:
     // https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-setgraphicsrootsignature
-    m_commandList->SetGraphicsRootSignature( m_rootSignature );
+    CommandList()->SetGraphicsRootSignature( m_rootSignature );
     m_commandListOpen = true;
 
     // The command allocator, upload arena, and transient descriptor range all
@@ -547,7 +547,7 @@ void RenderBackendDX12::ExecuteGraphTransition( const char* passName,
     }
 
     Dx12RenderGraphSingleTransitionDesc desc;
-    desc.commandList = m_commandList;
+    desc.commandList = CommandList();
     desc.resource = resource;
     desc.before = before;
     desc.after = after;
@@ -586,7 +586,7 @@ void RenderBackendDX12::ExecuteGraphUavBarrier( const char* passName,
     }
 
     Dx12RenderGraphUavBarrierDesc desc;
-    desc.commandList = m_commandList;
+    desc.commandList = CommandList();
     desc.resource = resource;
     const Dx12RenderGraphUavBarrierRecord record =
         ExecuteDx12RenderGraphUavBarrier( "GraphOwned", passName, resourceName, desc );
@@ -608,18 +608,18 @@ void RenderBackendDX12::FlushUploadBuffer()
     // Submit current work and wait for completion (mid-frame flush for upload exhaustion)
     const int suspendedPlatformGpuDepth = SuspendPlatformProfilerGpuStackForSubmit( "FlushUploadBuffer" );
     AssertPlatformProfilerGpuStackClosed( "FlushUploadBuffer" );
-    m_commandList->Close();
+    CommandList()->Close();
     m_commandListOpen = false;
-    ID3D12CommandList* ppCLs[] = { m_commandList };
+    ID3D12CommandList* ppCLs[] = { CommandList() };
     m_commandQueue->ExecuteCommandLists( 1, ppCLs );
     WaitForGpu();
 
     // Reopen with same allocator (WaitForGpu completed everything)
     m_commandAllocators[m_allocatorIndex]->Reset();
-    m_commandList->Reset( m_commandAllocators[m_allocatorIndex], nullptr );
+    CommandList()->Reset( m_commandAllocators[m_allocatorIndex], nullptr );
     ID3D12DescriptorHeap* heaps[] = { m_srvHeap };
-    m_commandList->SetDescriptorHeaps( 1, heaps );
-    m_commandList->SetGraphicsRootSignature( m_rootSignature );
+    CommandList()->SetDescriptorHeaps( 1, heaps );
+    CommandList()->SetGraphicsRootSignature( m_rootSignature );
     m_commandListOpen = true;
     RestorePlatformProfilerGpuStackAfterSubmit( suspendedPlatformGpuDepth );
 
@@ -749,7 +749,7 @@ RenderBackendDX12::MaterializeGraphTransientResources( const RenderGraph& graph,
         slot.usedThisCompile = false;
     }
 
-    if ( !m_device )
+    if ( !Device() )
     {
         throw std::runtime_error( "DX12 graph transient materialization requires an initialized device" );
     }
@@ -838,7 +838,7 @@ RenderBackendDX12::MaterializeGraphTransientResources( const RenderGraph& graph,
 
             D3D12_HEAP_PROPERTIES defaultHeap = {};
             defaultHeap.Type = D3D12_HEAP_TYPE_DEFAULT;
-            const HRESULT hr = m_device->CreateCommittedResource( &defaultHeap,
+            const HRESULT hr = Device()->CreateCommittedResource( &defaultHeap,
                                                                   D3D12_HEAP_FLAG_NONE,
                                                                   &textureDesc,
                                                                   initialState,
@@ -853,7 +853,7 @@ RenderBackendDX12::MaterializeGraphTransientResources( const RenderGraph& graph,
             if ( desc.descriptors.renderTarget )
             {
                 slot->rtv = AllocateRTV();
-                m_device->CreateRenderTargetView( slot->resource, nullptr, slot->rtv );
+                Device()->CreateRenderTargetView( slot->resource, nullptr, slot->rtv );
             }
             if ( desc.descriptors.depthStencil )
             {
@@ -861,7 +861,7 @@ RenderBackendDX12::MaterializeGraphTransientResources( const RenderGraph& graph,
                 D3D12_DEPTH_STENCIL_VIEW_DESC dsvDesc = {};
                 dsvDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
                 dsvDesc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
-                m_device->CreateDepthStencilView( slot->resource, &dsvDesc, slot->dsv );
+                Device()->CreateDepthStencilView( slot->resource, &dsvDesc, slot->dsv );
             }
             if ( desc.descriptors.shaderResource )
             {
@@ -871,7 +871,7 @@ RenderBackendDX12::MaterializeGraphTransientResources( const RenderGraph& graph,
                 srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
                 srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
                 srvDesc.Texture2D.MipLevels = desc.mipLevels;
-                m_device->CreateShaderResourceView( slot->resource,
+                Device()->CreateShaderResourceView( slot->resource,
                                                     &srvDesc,
                                                     GetSRVStagingCpuHandle( slot->srvIndex ) );
             }
@@ -881,7 +881,7 @@ RenderBackendDX12::MaterializeGraphTransientResources( const RenderGraph& graph,
                 D3D12_UNORDERED_ACCESS_VIEW_DESC uavDesc = {};
                 uavDesc.Format = ToDx12GraphColorFormat( desc.format );
                 uavDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
-                m_device->CreateUnorderedAccessView( slot->resource,
+                Device()->CreateUnorderedAccessView( slot->resource,
                                                      nullptr,
                                                      &uavDesc,
                                                      GetSRVStagingCpuHandle( slot->uavIndex ) );
@@ -1418,7 +1418,7 @@ void RenderBackendDX12::DumpFrameGraphSkeleton()
 
 void RenderBackendDX12::ReportDeviceLost( const char* context, HRESULT result ) const
 {
-    const HRESULT removedReason = m_device ? m_device->GetDeviceRemovedReason() : result;
+    const HRESULT removedReason = Device() ? Device()->GetDeviceRemovedReason() : result;
     Log().WriteEventf( "dx12_device_lost context=%s result=0x%08lX removed_reason=0x%08lX",
                        context ? context : "unknown",
                        static_cast<unsigned long>( result ),
@@ -1435,10 +1435,10 @@ void RenderBackendDX12::ReportDeviceLost( const char* context, HRESULT result ) 
                  static_cast<unsigned long>( removedReason ) );
     }
 
-    if ( m_device )
+    if ( Device() )
     {
         ID3D12DeviceRemovedExtendedData* dred = nullptr;
-        if ( SUCCEEDED( m_device->QueryInterface( IID_PPV_ARGS( &dred ) ) ) )
+        if ( SUCCEEDED( Device()->QueryInterface( IID_PPV_ARGS( &dred ) ) ) )
         {
             D3D12_DRED_AUTO_BREADCRUMBS_OUTPUT breadcrumbs = {};
             D3D12_DRED_PAGE_FAULT_OUTPUT pageFault = {};
@@ -1569,16 +1569,13 @@ bool RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
     deviceDesc.backBufferFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
     m_renderDevice.Init( deviceDesc );
 
-    // The render device now owns the DXGI/D3D12 platform objects: factory,
-    // device, graphics queue, swap chain, command allocators, command list, and
-    // frame fence. RenderBackendDX12 still owns the concrete capability
-    // implementations, so it borrows raw pointers from the device layer while
-    // the rest of the renderer is migrated in small slices.
+    // The render device owns the DXGI/D3D12 platform objects: factory, device,
+    // graphics queue, swap chain, command allocators, command list, and frame
+    // fence. The backend keeps only the queue/allocator aliases that still need
+    // follow-up migration; device, swap-chain, and command-list access stays
+    // owner-routed through Dx12RenderDevice.
     m_factory = m_renderDevice.Factory();
-    m_swapChain = m_renderDevice.SwapChain();
-    m_device = m_renderDevice.Device();
     m_commandQueue = m_renderDevice.GraphicsQueue();
-    m_commandList = m_renderDevice.CommandList();
     for ( int i = 0; i < FRAME_COUNT; ++i )
     {
         m_commandAllocators[i] = m_renderDevice.CommandAllocator( static_cast<UINT>( i ) );
@@ -1628,10 +1625,10 @@ bool RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
         D3D12_DESCRIPTOR_HEAP_DESC desc = {};
         desc.NumDescriptors = MAX_RTV_DESCRIPTORS;
         desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
-        ThrowIfFailed( m_device->CreateDescriptorHeap( &desc, IID_PPV_ARGS( &m_rtvHeap ) ),
+        ThrowIfFailed( Device()->CreateDescriptorHeap( &desc, IID_PPV_ARGS( &m_rtvHeap ) ),
                        "CreateDescriptorHeap (RTV) failed" );
         NameDx12Object( m_rtvHeap, L"Skullbonez DX12 RTV Heap" );
-        m_rtvDescSize = m_device->GetDescriptorHandleIncrementSize( D3D12_DESCRIPTOR_HEAP_TYPE_RTV );
+        m_rtvDescSize = Device()->GetDescriptorHandleIncrementSize( D3D12_DESCRIPTOR_HEAP_TYPE_RTV );
         m_rtvDescriptors.Init( m_rtvHeap, m_rtvDescSize, MAX_RTV_DESCRIPTORS, "RTV" );
     }
     // DSV rows describe depth/stencil targets: the main window depth buffer and
@@ -1641,10 +1638,10 @@ bool RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
         D3D12_DESCRIPTOR_HEAP_DESC desc = {};
         desc.NumDescriptors = MAX_DSV_DESCRIPTORS;
         desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV;
-        ThrowIfFailed( m_device->CreateDescriptorHeap( &desc, IID_PPV_ARGS( &m_dsvHeap ) ),
+        ThrowIfFailed( Device()->CreateDescriptorHeap( &desc, IID_PPV_ARGS( &m_dsvHeap ) ),
                        "CreateDescriptorHeap (DSV) failed" );
         NameDx12Object( m_dsvHeap, L"Skullbonez DX12 DSV Heap" );
-        m_dsvDescSize = m_device->GetDescriptorHandleIncrementSize( D3D12_DESCRIPTOR_HEAP_TYPE_DSV );
+        m_dsvDescSize = Device()->GetDescriptorHandleIncrementSize( D3D12_DESCRIPTOR_HEAP_TYPE_DSV );
         m_dsvDescriptors.Init( m_dsvHeap, m_dsvDescSize, MAX_DSV_DESCRIPTORS, "DSV" );
     }
     // SRV/CBV/UAV rows are shader-visible. "Shader-visible" means the GPU can
@@ -1658,10 +1655,10 @@ bool RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
         desc.NumDescriptors = MAX_STATIC_SRVS + ( MAX_TRANSIENT_SRVS * FRAME_COUNT );
         desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
         desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-        ThrowIfFailed( m_device->CreateDescriptorHeap( &desc, IID_PPV_ARGS( &m_srvHeap ) ),
+        ThrowIfFailed( Device()->CreateDescriptorHeap( &desc, IID_PPV_ARGS( &m_srvHeap ) ),
                        "CreateDescriptorHeap (SRV) failed" );
         NameDx12Object( m_srvHeap, L"Skullbonez DX12 Shader Visible SRV Heap" );
-        m_srvDescSize = m_device->GetDescriptorHandleIncrementSize( D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV );
+        m_srvDescSize = Device()->GetDescriptorHandleIncrementSize( D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV );
     }
     {
         // CPU-only staging heap — used as a persistent "source of truth" for descriptor copies.
@@ -1672,7 +1669,7 @@ bool RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
         desc.NumDescriptors = MAX_STATIC_SRVS;
         desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
         desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE; // CPU-only, can be read for copies
-        ThrowIfFailed( m_device->CreateDescriptorHeap( &desc, IID_PPV_ARGS( &m_srvStagingHeap ) ),
+        ThrowIfFailed( Device()->CreateDescriptorHeap( &desc, IID_PPV_ARGS( &m_srvStagingHeap ) ),
                        "CreateDescriptorHeap (staging) failed" );
         NameDx12Object( m_srvStagingHeap, L"Skullbonez DX12 SRV Staging Heap" );
     }
@@ -1698,7 +1695,7 @@ bool RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
     nullTextureSrv.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
     nullTextureSrv.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
     nullTextureSrv.Texture2D.MipLevels = 1;
-    m_device->CreateShaderResourceView( nullptr, &nullTextureSrv, GetSRVStagingCpuHandle( m_nullTextureSRVIndex ) );
+    Device()->CreateShaderResourceView( nullptr, &nullTextureSrv, GetSRVStagingCpuHandle( m_nullTextureSRVIndex ) );
 
     // Lifetime: swap-chain images are replaced on resize, but the engine keeps
     // one stable RTV descriptor row per back buffer index. ResizeBuffers swaps
@@ -1707,14 +1704,14 @@ bool RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createrendertargetview
     for ( int i = 0; i < FRAME_COUNT; ++i )
     {
-        ThrowIfFailed( m_swapChain->GetBuffer( (UINT)i, IID_PPV_ARGS( &m_renderTargets[i] ) ),
+        ThrowIfFailed( SwapChain()->GetBuffer( (UINT)i, IID_PPV_ARGS( &m_renderTargets[i] ) ),
                        "SwapChain GetBuffer failed" );
         NameDx12ObjectIndexed( m_renderTargets[i], L"Skullbonez DX12 Swapchain Backbuffer", (UINT)i );
         // Reserve one stable RTV row for each swap-chain buffer. ResizeBuffers
         // replaces the back-buffer resources later, but the descriptor rows stay
         // the same and are simply overwritten with new view records.
         m_backBufferRTVs[i] = m_rtvDescriptors.Allocate().cpuHandle;
-        m_device->CreateRenderTargetView( m_renderTargets[i], nullptr, m_backBufferRTVs[i] );
+        Device()->CreateRenderTargetView( m_renderTargets[i], nullptr, m_backBufferRTVs[i] );
     }
 
     // Depth stencil
@@ -1729,7 +1726,7 @@ bool RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
     // Dx12FrameUploadSystem owns the actual upload resources and their
     // persistent CPU Map() pointers. RenderBackendDX12 now asks for byte ranges
     // instead of owning the raw upload-buffer lifecycle itself.
-    m_uploadSystem.Init( m_device, FRAME_COUNT, UPLOAD_BUFFER_SIZE, L"Skullbonez DX12 Frame Upload Buffer" );
+    m_uploadSystem.Init( Device(), FRAME_COUNT, UPLOAD_BUFFER_SIZE, L"Skullbonez DX12 Frame Upload Buffer" );
 
     // Root signature
     CreateRootSignature();
@@ -1746,7 +1743,7 @@ bool RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
         D3D12_QUERY_HEAP_DESC qhDesc = {};
         qhDesc.Type = D3D12_QUERY_HEAP_TYPE_TIMESTAMP;
         qhDesc.Count = (UINT)TIMER_HEAP_SIZE;
-        if ( SUCCEEDED( m_device->CreateQueryHeap( &qhDesc, IID_PPV_ARGS( &m_gpuTimers.queryHeap ) ) ) )
+        if ( SUCCEEDED( Device()->CreateQueryHeap( &qhDesc, IID_PPV_ARGS( &m_gpuTimers.queryHeap ) ) ) )
         {
             NameDx12Object( m_gpuTimers.queryHeap, L"Skullbonez DX12 GPU Timer Query Heap" );
             // Readback buffer — CPU-readable memory where GPU timer results are copied to.
@@ -1763,7 +1760,7 @@ bool RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
             // quiet. CPU Map/Unmap access is independent of the GPU-visible resource state.
             // Docs:
             // https://learn.microsoft.com/en-us/windows/win32/direct3d12/using-resource-barriers-to-synchronize-resource-states-in-direct3d-12#implicit-state-transitions
-            if ( !m_gpuTimers.readback.InitBuffer( m_device,
+            if ( !m_gpuTimers.readback.InitBuffer( Device(),
                                                    timerReadbackBytes,
                                                    L"Skullbonez DX12 GPU Timer Readback Buffer" ) )
             {
@@ -1898,7 +1895,7 @@ void RenderBackendDX12::CreateRootSignature()
     // the application and shaders — it defines the layout of all shader-visible parameters.
     // Every PSO must reference a root signature, and every draw call must bind matching data.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createrootsignature
-    if ( FAILED( m_device->CreateRootSignature( 0,
+    if ( FAILED( Device()->CreateRootSignature( 0,
                                                 signature->GetBufferPointer(),
                                                 signature->GetBufferSize(),
                                                 IID_PPV_ARGS( &m_rootSignature ) ) ) )
@@ -1944,7 +1941,7 @@ void RenderBackendDX12::CreateDepthStencil( int w, int h )
     // Create the main depth/stencil buffer on the default (GPU-only) heap. This texture stores
     // per-pixel depth values (24-bit depth + 8-bit stencil) for the z-buffer algorithm.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createcommittedresource
-    m_device->CreateCommittedResource( &heapProps,
+    Device()->CreateCommittedResource( &heapProps,
                                        D3D12_HEAP_FLAG_NONE,
                                        &desc,
                                        D3D12_RESOURCE_STATE_DEPTH_WRITE,
@@ -1968,23 +1965,21 @@ void RenderBackendDX12::CreateDepthStencil( int w, int h )
         m_mainDSV = m_dsvDescriptors.Allocate().cpuHandle;
     }
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createdepthstencilview
-    m_device->CreateDepthStencilView( m_depthStencil, &dsvDesc, m_mainDSV );
+    Device()->CreateDepthStencilView( m_depthStencil, &dsvDesc, m_mainDSV );
 }
 
 
 void RenderBackendDX12::Shutdown()
 {
-    if ( !m_device )
+    if ( !Device() )
     {
         // Partial initialisation can fail inside Dx12RenderDevice before the
-        // backend has copied borrowed aliases such as m_device. Even in that
-        // state, the device owner may already hold factory/device/queue/swap
-        // chain objects, so always give it a chance to release them.
+        // backend has copied all remaining queue/allocator aliases. Even in
+        // that state, the device owner may already hold factory/device/queue/
+        // swap-chain objects, so always give it a chance to release them.
         m_renderDevice.Shutdown();
         m_factory = nullptr;
-        m_swapChain = nullptr;
         m_commandQueue = nullptr;
-        m_commandList = nullptr;
         for ( int i = 0; i < FRAME_COUNT; ++i )
         {
             m_commandAllocators[i] = nullptr;
@@ -1997,7 +1992,7 @@ void RenderBackendDX12::Shutdown()
     // RENDER_TARGET state after readback. Shutdown does one final DXGI Present()
     // below to drain the flip queue, and DX12 requires that resource to be in
     // PRESENT state first so the final DXGI Present() has a legal resource.
-    if ( !m_renderingToFBO && m_backBufferIsRT && m_swapChain && m_renderTargets[m_frameIndex] )
+    if ( !m_renderingToFBO && m_backBufferIsRT && SwapChain() && m_renderTargets[m_frameIndex] )
     {
         EnsureCommandListOpen();
         ExecuteGraphTransition( "ShutdownBackbufferPresent",
@@ -2012,9 +2007,9 @@ void RenderBackendDX12::Shutdown()
     if ( m_commandListOpen )
     {
         AssertPlatformProfilerGpuStackClosed( "Shutdown" );
-        m_commandList->Close();
+        CommandList()->Close();
         m_commandListOpen = false;
-        ID3D12CommandList* ppCLs[] = { m_commandList };
+        ID3D12CommandList* ppCLs[] = { CommandList() };
         m_commandQueue->ExecuteCommandLists( 1, ppCLs );
     }
 
@@ -2026,9 +2021,9 @@ void RenderBackendDX12::Shutdown()
     // hold references to this swap chain's backbuffers after Release(), delaying the
     // window/compositor surface cleanup.
     // Present an empty frame with sync-interval 0 to flush the flip queue, then wait again.
-    if ( m_swapChain )
+    if ( SwapChain() )
     {
-        m_swapChain->Present( 0, 0 );
+        SwapChain()->Present( 0, 0 );
         WaitForGpu();
     }
 
@@ -2064,7 +2059,7 @@ void RenderBackendDX12::Shutdown()
     // Report any accumulated D3D12 validation errors to dx12_validation.txt
     {
         ID3D12InfoQueue* infoQueue = nullptr;
-        if ( SUCCEEDED( m_device->QueryInterface( IID_PPV_ARGS( &infoQueue ) ) ) )
+        if ( SUCCEEDED( Device()->QueryInterface( IID_PPV_ARGS( &infoQueue ) ) ) )
         {
             UINT64 numMessages = infoQueue->GetNumStoredMessages();
             int errorCount = 0;
@@ -2191,10 +2186,7 @@ void RenderBackendDX12::Shutdown()
     }
     m_renderDevice.Shutdown();
     m_factory = nullptr;
-    m_swapChain = nullptr;
-    m_device = nullptr;
     m_commandQueue = nullptr;
-    m_commandList = nullptr;
     for ( int i = 0; i < FRAME_COUNT; ++i )
     {
         m_commandAllocators[i] = nullptr;
@@ -2239,7 +2231,7 @@ void RenderBackendDX12::Present()
                 ++i;
             }
             UINT byteOffset = (UINT)( start * sizeof( uint64_t ) );
-            m_commandList->ResolveQueryData( m_gpuTimers.queryHeap,
+            CommandList()->ResolveQueryData( m_gpuTimers.queryHeap,
                                              D3D12_QUERY_TYPE_TIMESTAMP,
                                              (UINT)start,
                                              (UINT)( i - start ),
@@ -2261,13 +2253,13 @@ void RenderBackendDX12::Present()
     // submitted to the GPU. No more commands can be recorded until Reset is called.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-close
     AssertPlatformProfilerGpuStackClosed( "Present" );
-    m_commandList->Close();
+    CommandList()->Close();
     m_commandListOpen = false;
 
     // Submit the completed command list to the GPU for execution. The GPU processes commands
     // asynchronously — this call returns immediately while the GPU works in the background.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12commandqueue-executecommandlists
-    ID3D12CommandList* ppCLs[] = { m_commandList };
+    ID3D12CommandList* ppCLs[] = { CommandList() };
     m_commandQueue->ExecuteCommandLists( 1, ppCLs );
 
     // Present the frame — flips the swap chain to show the just-rendered back buffer on screen.
@@ -2275,7 +2267,7 @@ void RenderBackendDX12::Present()
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/dxgi/nf-dxgi-idxgiswapchain-present
     const UINT syncInterval = m_isVsyncEnabled ? 1u : 0u;
     const UINT presentFlags = ( !m_isVsyncEnabled && m_allowTearing ) ? DXGI_PRESENT_ALLOW_TEARING : 0u;
-    const HRESULT presentResult = m_swapChain->Present( syncInterval, presentFlags );
+    const HRESULT presentResult = SwapChain()->Present( syncInterval, presentFlags );
     if ( IsDx12DeviceLostResult( presentResult ) )
     {
         ReportDeviceLost( "Present", presentResult );
@@ -2338,7 +2330,7 @@ bool RenderBackendDX12::IsVsyncEnabled() const
 
 void RenderBackendDX12::Finish()
 {
-    if ( !m_commandList || !m_commandQueue || !m_renderDevice.FrameFence().IsReady() ||
+    if ( !CommandList() || !m_commandQueue || !m_renderDevice.FrameFence().IsReady() ||
          !m_commandAllocators[m_allocatorIndex] )
     {
         WaitForGpu();
@@ -2349,9 +2341,9 @@ void RenderBackendDX12::Finish()
     if ( m_commandListOpen )
     {
         AssertPlatformProfilerGpuStackClosed( "Finish" );
-        m_commandList->Close();
+        CommandList()->Close();
         m_commandListOpen = false;
-        ID3D12CommandList* ppCLs[] = { m_commandList };
+        ID3D12CommandList* ppCLs[] = { CommandList() };
         m_commandQueue->ExecuteCommandLists( 1, ppCLs );
     }
     WaitForGpu();
@@ -2366,7 +2358,7 @@ void RenderBackendDX12::Finish()
 
 void RenderBackendDX12::FlushGPU()
 {
-    if ( !m_commandList || !m_commandQueue || !m_renderDevice.FrameFence().IsReady() ||
+    if ( !CommandList() || !m_commandQueue || !m_renderDevice.FrameFence().IsReady() ||
          !m_commandAllocators[m_allocatorIndex] )
     {
         WaitForGpu();
@@ -2376,9 +2368,9 @@ void RenderBackendDX12::FlushGPU()
     if ( m_commandListOpen )
     {
         AssertPlatformProfilerGpuStackClosed( "FlushGPU" );
-        m_commandList->Close();
+        CommandList()->Close();
         m_commandListOpen = false;
-        ID3D12CommandList* ppCLs[] = { m_commandList };
+        ID3D12CommandList* ppCLs[] = { CommandList() };
         m_commandQueue->ExecuteCommandLists( 1, ppCLs );
     }
     WaitForGpu();
@@ -2410,7 +2402,7 @@ void RenderBackendDX12::Resize( int width, int height )
 
     const UINT resizeFlags = m_allowTearing ? DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING : 0u;
     const HRESULT resizeResult =
-        m_swapChain->ResizeBuffers( FRAME_COUNT, (UINT)width, (UINT)height, DXGI_FORMAT_R8G8B8A8_UNORM, resizeFlags );
+        SwapChain()->ResizeBuffers( FRAME_COUNT, (UINT)width, (UINT)height, DXGI_FORMAT_R8G8B8A8_UNORM, resizeFlags );
     if ( IsDx12DeviceLostResult( resizeResult ) )
     {
         ReportDeviceLost( "ResizeBuffers", resizeResult );
@@ -2425,10 +2417,10 @@ void RenderBackendDX12::Resize( int width, int height )
 
     for ( int i = 0; i < FRAME_COUNT; ++i )
     {
-        ThrowIfFailed( m_swapChain->GetBuffer( (UINT)i, IID_PPV_ARGS( &m_renderTargets[i] ) ),
+        ThrowIfFailed( SwapChain()->GetBuffer( (UINT)i, IID_PPV_ARGS( &m_renderTargets[i] ) ),
                        "SwapChain GetBuffer after resize failed" );
         NameDx12ObjectIndexed( m_renderTargets[i], L"Skullbonez DX12 Swapchain Backbuffer", (UINT)i );
-        m_device->CreateRenderTargetView( m_renderTargets[i], nullptr, m_backBufferRTVs[i] );
+        Device()->CreateRenderTargetView( m_renderTargets[i], nullptr, m_backBufferRTVs[i] );
     }
 
     CreateDepthStencil( width, height );
@@ -2470,22 +2462,22 @@ void RenderBackendDX12::Clear( bool color, bool depth )
     // GPU where to write pixel colors and depth values for subsequent draw calls.
     // Docs:
     // https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-omsetrendertargets
-    m_commandList->OMSetRenderTargets( 1, &m_currentRTV, FALSE, &m_currentDSV );
+    CommandList()->OMSetRenderTargets( 1, &m_currentRTV, FALSE, &m_currentDSV );
 
     // Viewport defines where rendering appears, and the scissor rect clips pixels
     // (pixels outside the scissor are clipped/discarded). Both must be set every time in DX12.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-rssetviewports
     // Docs:
     // https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-rssetscissorrects
-    m_commandList->RSSetViewports( 1, &m_viewport );
-    m_commandList->RSSetScissorRects( 1, &m_scissorRect );
+    CommandList()->RSSetViewports( 1, &m_viewport );
+    CommandList()->RSSetScissorRects( 1, &m_scissorRect );
 
     if ( color )
     {
         // Clear the render target to a solid color (wipes the entire back buffer).
         // Docs:
         // https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-clearrendertargetview
-        m_commandList->ClearRenderTargetView( m_currentRTV, m_clearColor, 0, nullptr );
+        CommandList()->ClearRenderTargetView( m_currentRTV, m_clearColor, 0, nullptr );
     }
     if ( depth )
     {
@@ -2493,7 +2485,7 @@ void RenderBackendDX12::Clear( bool color, bool depth )
         // the depth test. This is done at the start of each frame or when switching render targets.
         // Docs:
         // https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-cleardepthstencilview
-        m_commandList->ClearDepthStencilView( m_currentDSV, D3D12_CLEAR_FLAG_DEPTH, m_clearDepth, 0, 0, nullptr );
+        CommandList()->ClearDepthStencilView( m_currentDSV, D3D12_CLEAR_FLAG_DEPTH, m_clearDepth, 0, 0, nullptr );
     }
 }
 

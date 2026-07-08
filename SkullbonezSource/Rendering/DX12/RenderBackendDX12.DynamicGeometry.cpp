@@ -126,7 +126,7 @@ ID3D12PipelineState* RenderBackendDX12::EnsureGridLinePipeline( DXGI_FORMAT rtvF
     psoDesc.SampleDesc.Count = 1;
 
     ID3D12PipelineState* gridLinePSO = nullptr;
-    HRESULT hr = m_device->CreateGraphicsPipelineState( &psoDesc, IID_PPV_ARGS( &gridLinePSO ) );
+    HRESULT hr = Device()->CreateGraphicsPipelineState( &psoDesc, IID_PPV_ARGS( &gridLinePSO ) );
     if ( FAILED( hr ) )
     {
         throw std::runtime_error( "CreateGraphicsPipelineState failed for debug lines" );
@@ -207,10 +207,10 @@ void RenderBackendDX12::UploadAndDrawDynamicVB( uint32_t handle, const float* da
     // is simpler but slightly slower for large batches.
     // Docs:
     // https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-iasetvertexbuffers
-    m_commandList->IASetVertexBuffers( 0, 1, &vbv );
+    CommandList()->IASetVertexBuffers( 0, 1, &vbv );
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-drawinstanced
     RecordDrawCall( { DrawCallKind::DynamicVertexBuffer, "DynamicVB", vertexCount, 1 } );
-    m_commandList->DrawInstanced( (UINT)vertexCount, 1, 0, 0 );
+    CommandList()->DrawInstanced( (UINT)vertexCount, 1, 0, 0 );
 }
 
 
@@ -238,9 +238,9 @@ void RenderBackendDX12::DrawLinesColored( const float* data, int vertCount, cons
     D3D12_GPU_VIRTUAL_ADDRESS vbAddress = ReserveUpload( dataSize, 4 );
     memcpy( GetUploadPtr( vbAddress ), data, (size_t)dataSize );
 
-    m_commandList->SetPipelineState( gridLinePSO );
-    m_commandList->SetGraphicsRootSignature( m_rootSignature );
-    m_commandList->IASetPrimitiveTopology( D3D_PRIMITIVE_TOPOLOGY_LINELIST );
+    CommandList()->SetPipelineState( gridLinePSO );
+    CommandList()->SetGraphicsRootSignature( m_rootSignature );
+    CommandList()->IASetPrimitiveTopology( D3D_PRIMITIVE_TOPOLOGY_LINELIST );
 
     // Grid lines use the same constant-buffer slot as ordinary shader constants
     // so the debug path can share the renderer root-signature contract.
@@ -253,22 +253,22 @@ void RenderBackendDX12::DrawLinesColored( const float* data, int vertCount, cons
     D3D12_GPU_VIRTUAL_ADDRESS cbAddr = shader->FlushCB();
     if ( cbAddr )
     {
-        m_commandList->SetGraphicsRootConstantBufferView( 0, cbAddr );
+        CommandList()->SetGraphicsRootConstantBufferView( 0, cbAddr );
     }
 
     D3D12_VERTEX_BUFFER_VIEW vbView = {};
     vbView.BufferLocation = vbAddress;
     vbView.SizeInBytes = (UINT)dataSize;
     vbView.StrideInBytes = 6 * sizeof( float );
-    m_commandList->IASetVertexBuffers( 0, 1, &vbView );
+    CommandList()->IASetVertexBuffers( 0, 1, &vbView );
 
     // Bind render targets (depth disabled in PSO)
-    m_commandList->OMSetRenderTargets( 1, &m_currentRTV, FALSE, &m_currentDSV );
-    m_commandList->RSSetViewports( 1, &m_viewport );
-    m_commandList->RSSetScissorRects( 1, &m_scissorRect );
+    CommandList()->OMSetRenderTargets( 1, &m_currentRTV, FALSE, &m_currentDSV );
+    CommandList()->RSSetViewports( 1, &m_viewport );
+    CommandList()->RSSetScissorRects( 1, &m_scissorRect );
 
     RecordDrawCall( { DrawCallKind::DebugLines, "DebugLines", vertCount, 1 } );
-    m_commandList->DrawInstanced( (UINT)vertCount, 1, 0, 0 );
+    CommandList()->DrawInstanced( (UINT)vertCount, 1, 0, 0 );
 }
 
 
@@ -309,10 +309,10 @@ void RenderBackendDX12::DrawTransientColoredTriangles( const float* data,
     vbView.BufferLocation = vbAddress;
     vbView.SizeInBytes = static_cast<UINT>( dataSize );
     vbView.StrideInBytes = static_cast<UINT>( vertexLayout.stride );
-    m_commandList->IASetVertexBuffers( 0, 1, &vbView );
+    CommandList()->IASetVertexBuffers( 0, 1, &vbView );
 
     RecordDrawCall( { DrawCallKind::DynamicVertexBuffer, "TornadoVisual", vertexCount, 1 } );
-    m_commandList->DrawInstanced( static_cast<UINT>( vertexCount ), 1, 0, 0 );
+    CommandList()->DrawInstanced( static_cast<UINT>( vertexCount ), 1, 0, 0 );
 }
 
 
@@ -369,10 +369,10 @@ void RenderBackendDX12::DrawReplayRibbons( const float* data, int vertexCount, c
     vbView.BufferLocation = vbAddress;
     vbView.SizeInBytes = static_cast<UINT>( dataSize );
     vbView.StrideInBytes = static_cast<UINT>( vertexLayout.stride );
-    m_commandList->IASetVertexBuffers( 0, 1, &vbView );
+    CommandList()->IASetVertexBuffers( 0, 1, &vbView );
 
     RecordDrawCall( { DrawCallKind::DynamicVertexBuffer, "ReplayRibbon", vertexCount, 1 } );
-    m_commandList->DrawInstanced( static_cast<UINT>( vertexCount ), 1, 0, 0 );
+    CommandList()->DrawInstanced( static_cast<UINT>( vertexCount ), 1, 0, 0 );
 
     SetCullFace( cullWasEnabled );
     SetBlendFunc( blendSrc, blendDst );
@@ -434,7 +434,7 @@ uint32_t RenderBackendDX12::CreateInstancedMesh( const float* staticData,
     // explicitly, then rely on implicit promotion to COPY_DEST when CopyBufferRegion executes.
     // Docs:
     // https://learn.microsoft.com/en-us/windows/win32/direct3d12/using-resource-barriers-to-synchronize-resource-states-in-direct3d-12#implicit-state-transitions
-    ThrowIfFailed( m_device->CreateCommittedResource( &defaultHeap,
+    ThrowIfFailed( Device()->CreateCommittedResource( &defaultHeap,
                                                       D3D12_HEAP_FLAG_NONE,
                                                       &bufDesc,
                                                       D3D12_RESOURCE_STATE_COMMON,
@@ -450,7 +450,7 @@ uint32_t RenderBackendDX12::CreateInstancedMesh( const float* staticData,
     // https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-copybufferregion
     D3D12_GPU_VIRTUAL_ADDRESS uploadAddr = ReserveUpload( dataSize, 4 );
     memcpy( GetUploadPtr( uploadAddr ), staticData, (size_t)dataSize );
-    m_commandList->CopyBufferRegion( im.staticVB,
+    CommandList()->CopyBufferRegion( im.staticVB,
                                      0,
                                      m_uploadSystem.Resource( m_allocatorIndex ),
                                      m_uploadSystem.OffsetFromAddress( m_allocatorIndex, uploadAddr ),
@@ -518,14 +518,14 @@ void RenderBackendDX12::DrawInstancedMesh( uint32_t handle, int staticVertCount,
     // and slot 1 once per instance, combining them in the vertex shader.
     // Docs:
     // https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-iasetvertexbuffers
-    m_commandList->IASetVertexBuffers( 0, 2, vbvs );
+    CommandList()->IASetVertexBuffers( 0, 2, vbvs );
 
     // Draw all instances in one call. This renders staticVertCount vertices
     // multiplied by instanceCount copies.
     // This is the key optimization: 300 balls drawn in a single GPU dispatch.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-drawinstanced
     RecordDrawCall( { DrawCallKind::InstancedMesh, "InstancedMesh", staticVertCount, instanceCount } );
-    m_commandList->DrawInstanced( (UINT)staticVertCount, (UINT)instanceCount, 0, 0 );
+    CommandList()->DrawInstanced( (UINT)staticVertCount, (UINT)instanceCount, 0, 0 );
 }
 
 

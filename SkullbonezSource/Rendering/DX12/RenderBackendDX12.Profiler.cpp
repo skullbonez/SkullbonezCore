@@ -134,7 +134,7 @@ void RenderBackendDX12::GpuTimerBegin( int markerIdx )
     }
     EnsureCommandListOpen();
     int slot = markerIdx * 2 + 0;
-    m_commandList->EndQuery( m_gpuTimers.queryHeap, D3D12_QUERY_TYPE_TIMESTAMP, (UINT)slot );
+    CommandList()->EndQuery( m_gpuTimers.queryHeap, D3D12_QUERY_TYPE_TIMESTAMP, (UINT)slot );
     m_gpuTimers.slotWritten[slot] = true;
 }
 
@@ -146,7 +146,7 @@ void RenderBackendDX12::GpuTimerEnd( int markerIdx )
         return;
     }
     int slot = markerIdx * 2 + 1;
-    m_commandList->EndQuery( m_gpuTimers.queryHeap, D3D12_QUERY_TYPE_TIMESTAMP, (UINT)slot );
+    CommandList()->EndQuery( m_gpuTimers.queryHeap, D3D12_QUERY_TYPE_TIMESTAMP, (UINT)slot );
     m_gpuTimers.slotWritten[slot] = true;
 }
 
@@ -192,7 +192,7 @@ int RenderBackendDX12::SuspendPlatformProfilerGpuStackForSubmit( const char* rea
     {
         return 0;
     }
-    if ( !m_commandList || !m_commandListOpen )
+    if ( !CommandList() || !m_commandListOpen )
     {
         Log().WriteEventf( "dx12_platform_profiler_gpu_suspend_without_open_command_list reason=%s depth=%d",
                            reason ? reason : "unknown",
@@ -206,7 +206,7 @@ int RenderBackendDX12::SuspendPlatformProfilerGpuStackForSubmit( const char* rea
                        suspendedDepth );
     for ( int i = suspendedDepth - 1; i >= 0; --i )
     {
-        PIXEndEvent( m_commandList );
+        PIXEndEvent( CommandList() );
     }
     m_platformProfilerGpuDepth = 0;
     return suspendedDepth;
@@ -224,7 +224,7 @@ void RenderBackendDX12::RestorePlatformProfilerGpuStackAfterSubmit( int suspende
     {
         return;
     }
-    if ( !m_commandList || !m_commandListOpen )
+    if ( !CommandList() || !m_commandListOpen )
     {
         Log().WriteEventf( "dx12_platform_profiler_gpu_restore_without_open_command_list depth=%d", suspendedDepth );
         return;
@@ -234,7 +234,7 @@ void RenderBackendDX12::RestorePlatformProfilerGpuStackAfterSubmit( int suspende
     {
         const PlatformProfilerGpuScopeDX12& scope = m_platformProfilerGpuStack[static_cast<std::size_t>( i )];
         const char* markerName = scope.name[0] != '\0' ? scope.name : "(null)";
-        PIXBeginEvent( m_commandList,
+        PIXBeginEvent( CommandList(),
                        SkullbonezCore::Basics::PlatformProfiler::ColorForMarker( markerName, scope.hash ),
                        "%s",
                        markerName );
@@ -254,7 +254,7 @@ void RenderBackendDX12::PlatformProfilerGpuBegin( const char* name, uint32_t has
     }
 
 #if SKULLBONEZ_PLATFORM_PROFILER_HAVE_PIX3
-    if ( !m_commandList )
+    if ( !CommandList() )
     {
         return;
     }
@@ -277,7 +277,7 @@ void RenderBackendDX12::PlatformProfilerGpuBegin( const char* name, uint32_t has
         m_platformProfilerGpuStack[static_cast<std::size_t>( m_platformProfilerGpuDepth )];
     _snprintf_s( scope.name, sizeof( scope.name ), _TRUNCATE, "%s", markerName ? markerName : "(null)" );
     scope.hash = hash;
-    PIXBeginEvent( m_commandList,
+    PIXBeginEvent( CommandList(),
                    SkullbonezCore::Basics::PlatformProfiler::ColorForMarker( markerName, hash ),
                    "%s",
                    markerName );
@@ -300,13 +300,13 @@ void RenderBackendDX12::PlatformProfilerGpuEnd()
         }
         return;
     }
-    if ( !m_commandList || !m_commandListOpen )
+    if ( !CommandList() || !m_commandListOpen )
     {
         Log().WriteEventf( "dx12_platform_profiler_gpu_end_without_open_command_list depth=%d",
                            m_platformProfilerGpuDepth );
         return;
     }
-    PIXEndEvent( m_commandList );
+    PIXEndEvent( CommandList() );
     --m_platformProfilerGpuDepth;
     m_platformProfilerGpuStack[static_cast<std::size_t>( m_platformProfilerGpuDepth )] = PlatformProfilerGpuScopeDX12();
 #endif
@@ -321,7 +321,7 @@ void RenderBackendDX12::PlatformProfilerGpuMarker( const char* name, uint32_t ha
     }
 
 #if SKULLBONEZ_PLATFORM_PROFILER_HAVE_PIX3
-    if ( !m_commandList )
+    if ( !CommandList() )
     {
         return;
     }
@@ -334,7 +334,7 @@ void RenderBackendDX12::PlatformProfilerGpuMarker( const char* name, uint32_t ha
                                                                             gpuMarkerName,
                                                                             sizeof( gpuMarkerName ) )
             : name;
-    PIXSetMarker( m_commandList,
+    PIXSetMarker( CommandList(),
                   SkullbonezCore::Basics::PlatformProfiler::ColorForMarker( markerName, hash ),
                   "%s",
                   markerName );

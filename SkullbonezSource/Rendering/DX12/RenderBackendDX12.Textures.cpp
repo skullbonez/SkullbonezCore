@@ -187,7 +187,7 @@ void RenderBackendDX12::InitGenMipsPipeline()
                    "GenerateMips root signature serialization failed" );
     errors.Reset();
 
-    ThrowIfFailed( m_device->CreateRootSignature( 0,
+    ThrowIfFailed( Device()->CreateRootSignature( 0,
                                                   rsBlob->GetBufferPointer(),
                                                   rsBlob->GetBufferSize(),
                                                   IID_PPV_ARGS( &m_genMipsRS ) ),
@@ -201,7 +201,7 @@ void RenderBackendDX12::InitGenMipsPipeline()
     psoDesc.pRootSignature = m_genMipsRS;
     psoDesc.CS.pShaderBytecode = csBlob->GetBufferPointer();
     psoDesc.CS.BytecodeLength = csBlob->GetBufferSize();
-    ThrowIfFailed( m_device->CreateComputePipelineState( &psoDesc, IID_PPV_ARGS( &m_genMipsPSO ) ),
+    ThrowIfFailed( Device()->CreateComputePipelineState( &psoDesc, IID_PPV_ARGS( &m_genMipsPSO ) ),
                    "CreateComputePipelineState (genMips) failed" );
     // A compute PSO is the compute-shader version of a pipeline object: it
     // stores the compiled CS bytecode plus the root signature describing which
@@ -221,12 +221,12 @@ void RenderBackendDX12::InitGenMipsPipeline()
 
     // The null resource means "nothing bound", but the descriptor row itself is
     // valid. Store the template in the CPU-only staging heap first.
-    m_device->CreateUnorderedAccessView( nullptr, nullptr, &nullUAVDesc, GetSRVStagingCpuHandle( m_genMipsNullUAV ) );
+    Device()->CreateUnorderedAccessView( nullptr, nullptr, &nullUAVDesc, GetSRVStagingCpuHandle( m_genMipsNullUAV ) );
 
     // Copy the null descriptor to a shader-visible row so dispatches can bind it
     // in the same table as real destination mips.
     D3D12_CPU_DESCRIPTOR_HANDLE svDst = m_srvDescriptors.ShaderVisibleCpuHandle( m_genMipsNullUAV );
-    m_device->CopyDescriptorsSimple( 1,
+    Device()->CopyDescriptorsSimple( 1,
                                      svDst,
                                      GetSRVStagingCpuHandle( m_genMipsNullUAV ),
                                      D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV );
@@ -280,7 +280,7 @@ void RenderBackendDX12::GenerateMipsGPU( ID3D12Resource* tex, DXGI_FORMAT fmt, U
             srvDesc.Texture2D.MipLevels = 1;
 
             D3D12_CPU_DESCRIPTOR_HANDLE cpuHandle = m_srvDescriptors.ShaderVisibleCpuHandle( srcSrvIdx );
-            m_device->CreateShaderResourceView( tex, &srvDesc, cpuHandle );
+            Device()->CreateShaderResourceView( tex, &srvDesc, cpuHandle );
         }
 
         // ------------------------------------------------------------------
@@ -306,13 +306,13 @@ void RenderBackendDX12::GenerateMipsGPU( ID3D12Resource* tex, DXGI_FORMAT fmt, U
                 uavDesc.Format = fmt;
                 uavDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
                 uavDesc.Texture2D.MipSlice = srcMip + 1 + i;
-                m_device->CreateUnorderedAccessView( tex, nullptr, &uavDesc, cpuHandle );
+                Device()->CreateUnorderedAccessView( tex, nullptr, &uavDesc, cpuHandle );
             }
             else
             {
                 // Pad with null UAV to keep the debug layer happy
                 D3D12_CPU_DESCRIPTOR_HANDLE nullSrc = GetSRVStagingCpuHandle( m_genMipsNullUAV );
-                m_device->CopyDescriptorsSimple( 1, cpuHandle, nullSrc, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV );
+                Device()->CopyDescriptorsSimple( 1, cpuHandle, nullSrc, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV );
             }
         }
 
@@ -342,15 +342,15 @@ void RenderBackendDX12::GenerateMipsGPU( ID3D12Resource* tex, DXGI_FORMAT fmt, U
         cb.TexelSizeX = 1.0f / static_cast<float>( dstW );
         cb.TexelSizeY = 1.0f / static_cast<float>( dstH );
 
-        m_commandList->SetComputeRootSignature( m_genMipsRS );
-        m_commandList->SetPipelineState( m_genMipsPSO );
-        m_commandList->SetComputeRoot32BitConstants( 0, 4, &cb, 0 );
-        m_commandList->SetComputeRootDescriptorTable( 1, GetSRVGpuHandle( srcSrvIdx ) );
-        m_commandList->SetComputeRootDescriptorTable( 2, GetSRVGpuHandle( uavBase ) );
+        CommandList()->SetComputeRootSignature( m_genMipsRS );
+        CommandList()->SetPipelineState( m_genMipsPSO );
+        CommandList()->SetComputeRoot32BitConstants( 0, 4, &cb, 0 );
+        CommandList()->SetComputeRootDescriptorTable( 1, GetSRVGpuHandle( srcSrvIdx ) );
+        CommandList()->SetComputeRootDescriptorTable( 2, GetSRVGpuHandle( uavBase ) );
 
         UINT groupsX = ( dstW + 7 ) / 8;
         UINT groupsY = ( dstH + 7 ) / 8;
-        m_commandList->Dispatch( groupsX, groupsY, 1 );
+        CommandList()->Dispatch( groupsX, groupsY, 1 );
 
         // Hazard: mip N may be written as a UAV in this dispatch and sampled as
         // an SRV in the next dispatch. The UAV barrier orders those writes
@@ -458,7 +458,7 @@ uint32_t RenderBackendDX12::CreateTexture2D( const uint8_t* data,
     texDesc.Flags = ( numMips > 1 ) ? D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS : D3D12_RESOURCE_FLAG_NONE;
 
     ID3D12Resource* texResource = nullptr;
-    ThrowIfFailed( m_device->CreateCommittedResource( &defaultHeap,
+    ThrowIfFailed( Device()->CreateCommittedResource( &defaultHeap,
                                                       D3D12_HEAP_FLAG_NONE,
                                                       &texDesc,
                                                       D3D12_RESOURCE_STATE_COPY_DEST,
@@ -474,7 +474,7 @@ uint32_t RenderBackendDX12::CreateTexture2D( const uint8_t* data,
     D3D12_PLACED_SUBRESOURCE_FOOTPRINT fp0 = {};
     UINT rowCount0;
     UINT64 rowSize0, mip0Bytes;
-    m_device->GetCopyableFootprints( &texDesc, 0, 1, 0, &fp0, &rowCount0, &rowSize0, &mip0Bytes );
+    Device()->GetCopyableFootprints( &texDesc, 0, 1, 0, &fp0, &rowCount0, &rowSize0, &mip0Bytes );
 
     D3D12_GPU_VIRTUAL_ADDRESS uploadBase = ReserveUpload( mip0Bytes, D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT );
     const UINT64 baseOffset = m_uploadSystem.OffsetFromAddress( m_allocatorIndex, uploadBase );
@@ -497,7 +497,7 @@ uint32_t RenderBackendDX12::CreateTexture2D( const uint8_t* data,
     srcLoc.PlacedFootprint = fp0;
     srcLoc.PlacedFootprint.Offset = baseOffset + fp0.Offset;
 
-    m_commandList->CopyTextureRegion( &dstLoc, 0, 0, 0, &srcLoc, nullptr );
+    CommandList()->CopyTextureRegion( &dstLoc, 0, 0, 0, &srcLoc, nullptr );
 
     // -------------------------------------------------------------------------
     // Generate remaining mips on the GPU (compute shader), or transition
@@ -527,7 +527,7 @@ uint32_t RenderBackendDX12::CreateTexture2D( const uint8_t* data,
     srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
     srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
     srvDesc.Texture2D.MipLevels = numMips;
-    m_device->CreateShaderResourceView( texResource, &srvDesc, GetSRVStagingCpuHandle( srvIdx ) );
+    Device()->CreateShaderResourceView( texResource, &srvDesc, GetSRVStagingCpuHandle( srvIdx ) );
 
     // Register in texture array (1-based handle)
     TextureEntryDX12 entry = {};

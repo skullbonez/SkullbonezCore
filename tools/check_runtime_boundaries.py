@@ -1502,6 +1502,9 @@ RENDER_BACKEND_AGGREGATE_DEPENDENCY_PATTERNS: tuple[tuple[str, re.Pattern[str], 
         "Pass a DX12 resource/context owner instead of using the static backend helper backdoor.",
     ),
 )
+RENDER_BACKEND_DX12_DELETED_ALIAS_FIELD_PATTERN = re.compile(
+    r"\b(?:IDXGISwapChain3|ID3D12Device|ID3D12GraphicsCommandList)\s*\*\s*(m_(?:swapChain|device|commandList))\b"
+)
 # RGRAPH-030 started as an include-aware census; FAC-001 retired the aggregate.
 # The IRenderBackend budget is now a tombstone and must stay at zero.
 MAX_IRENDER_BACKEND_DEPENDENCY_CENSUS = 0
@@ -7537,6 +7540,28 @@ def check_render_backend_aggregate_dependency_guardrails(repo: Path) -> list[Bou
     return errors
 
 
+def check_render_backend_dx12_deleted_alias_fields_text(path: Path, text: str) -> list[BoundaryError]:
+    stripped = strip_cpp_comments_and_string_literals(text)
+    errors: list[BoundaryError] = []
+    for match in RENDER_BACKEND_DX12_DELETED_ALIAS_FIELD_PATTERN.finditer(stripped):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start(1)),
+                "RenderBackendDX12 deleted device alias field is blocked",
+                "Device, swap-chain, and command-list access must route through Dx12RenderDevice helpers so backend-side aliases cannot dangle on resize or owner reset.",
+            )
+        )
+    return errors
+
+
+def check_render_backend_dx12_deleted_alias_fields(repo: Path) -> list[BoundaryError]:
+    path = repo / Path("SkullbonezSource/Rendering/DX12/RenderBackendDX12.h")
+    if not path.exists():
+        return []
+    return check_render_backend_dx12_deleted_alias_fields_text(path, path.read_text(encoding="utf-8"))
+
+
 def check_graph_owned_render_pass_scheduling_text(path: Path, text: str) -> list[BoundaryError]:
     stripped = strip_cpp_comments(text)
     errors: list[BoundaryError] = []
@@ -9422,6 +9447,40 @@ def run_self_tests() -> list[str]:
             max_render_backend_dx12_get=0,
         ),
         'render backend aggregate dependency census exceeds ratchet',
+    )
+
+    allowed_dx12_device_owner_accessors = """
+    class RenderBackendDX12
+    {
+        Dx12RenderDevice m_renderDevice;
+        ID3D12Device* Device() const { return m_renderDevice.Device(); }
+        IDXGISwapChain3* SwapChain() const { return m_renderDevice.SwapChain(); }
+        ID3D12GraphicsCommandList* CommandList() const { return m_renderDevice.CommandList(); }
+    };
+    """
+    expect_clean(
+        'allowed RenderBackendDX12 owner accessors were rejected',
+        check_render_backend_dx12_deleted_alias_fields_text(
+            Path("synthetic/RenderBackendDX12.h"),
+            allowed_dx12_device_owner_accessors,
+        ),
+    )
+
+    deleted_dx12_alias_fields = """
+    class RenderBackendDX12
+    {
+        IDXGISwapChain3* m_swapChain = nullptr;
+        ID3D12Device* m_device = nullptr;
+        ID3D12GraphicsCommandList* m_commandList = nullptr;
+    };
+    """
+    expect_error(
+        'deleted RenderBackendDX12 device alias fields were not rejected',
+        check_render_backend_dx12_deleted_alias_fields_text(
+            Path("synthetic/RenderBackendDX12.h"),
+            deleted_dx12_alias_fields,
+        ),
+        'RenderBackendDX12 deleted device alias field is blocked',
     )
 
     allowed_graph_owned_pass_scheduling = """
@@ -16153,6 +16212,7 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_run_scene_coordinator_callback_source_guardrails(repo))
     errors.extend(check_scene_runtime_coordinator_callback_guardrails(repo))
     errors.extend(check_run_ui_text_pass_replay_overlay_guardrails(repo))
+    errors.extend(check_render_backend_dx12_deleted_alias_fields(repo))
     errors.extend(check_interaction_guardrails(repo))
     errors.extend(check_add_game_model_collider_desc_guardrails(repo))
     errors.extend(check_physics_game_model_collection_guardrails(repo))

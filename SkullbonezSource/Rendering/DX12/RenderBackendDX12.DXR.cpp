@@ -94,7 +94,7 @@ void RenderBackendDX12::CheckDXRSupport()
     // DX12 hardware without raytracing, so failing any capability query simply
     // leaves m_dxrSupported false.
     D3D12_FEATURE_DATA_D3D12_OPTIONS5 opts5 = {};
-    if ( FAILED( m_device->CheckFeatureSupport( D3D12_FEATURE_D3D12_OPTIONS5, &opts5, sizeof( opts5 ) ) ) )
+    if ( FAILED( Device()->CheckFeatureSupport( D3D12_FEATURE_D3D12_OPTIONS5, &opts5, sizeof( opts5 ) ) ) )
     {
         return;
     }
@@ -105,7 +105,7 @@ void RenderBackendDX12::CheckDXRSupport()
 
     // Device5/command-list4 expose the DXR entry points. QueryInterface is the
     // COM way to ask whether this device object also supports that newer API.
-    if ( FAILED( m_device->QueryInterface( IID_PPV_ARGS( &m_device5 ) ) ) )
+    if ( FAILED( Device()->QueryInterface( IID_PPV_ARGS( &m_device5 ) ) ) )
     {
         return;
     }
@@ -195,7 +195,7 @@ void RenderBackendDX12::CreateRTRootSignature()
     // Create the DXR root signature from the serialized blob. Same concept as the raster root
     // signature, but this one defines bindings for raytracing shaders (TLAS, UAV output, CBV, textures).
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createrootsignature
-    if ( FAILED( m_device->CreateRootSignature( 0,
+    if ( FAILED( Device()->CreateRootSignature( 0,
                                                 signature->GetBufferPointer(),
                                                 signature->GetBufferSize(),
                                                 IID_PPV_ARGS( &m_rtRootSignature ) ) ) )
@@ -331,7 +331,7 @@ void RenderBackendDX12::CreateReflectionUAV( int width, int height )
     // Rays are cast from the water surface and the resulting reflections are written here.
     // The ALLOW_UNORDERED_ACCESS flag lets the ray generation shader write to arbitrary pixels.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createcommittedresource
-    if ( FAILED( m_device->CreateCommittedResource( &heapProps,
+    if ( FAILED( Device()->CreateCommittedResource( &heapProps,
                                                     D3D12_HEAP_FLAG_NONE,
                                                     &texDesc,
                                                     D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
@@ -348,13 +348,13 @@ void RenderBackendDX12::CreateReflectionUAV( int width, int height )
     D3D12_UNORDERED_ACCESS_VIEW_DESC uavDesc = {};
     uavDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
     uavDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
-    m_device->CreateUnorderedAccessView( m_reflectionUAV,
+    Device()->CreateUnorderedAccessView( m_reflectionUAV,
                                          nullptr,
                                          &uavDesc,
                                          GetSRVStagingCpuHandle( m_reflectionUAVIndex ) );
 
     D3D12_CPU_DESCRIPTOR_HANDLE srvHeapCpu = m_srvDescriptors.ShaderVisibleCpuHandle( m_reflectionUAVIndex );
-    m_device->CopyDescriptorsSimple( 1,
+    Device()->CopyDescriptorsSimple( 1,
                                      srvHeapCpu,
                                      GetSRVStagingCpuHandle( m_reflectionUAVIndex ),
                                      D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV );
@@ -367,12 +367,12 @@ void RenderBackendDX12::CreateReflectionUAV( int width, int height )
     srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
     srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
     srvDesc.Texture2D.MipLevels = 1;
-    m_device->CreateShaderResourceView( m_reflectionUAV, &srvDesc, GetSRVStagingCpuHandle( m_reflectionSRVIndex ) );
+    Device()->CreateShaderResourceView( m_reflectionUAV, &srvDesc, GetSRVStagingCpuHandle( m_reflectionSRVIndex ) );
 
     // Copy the SRV template into the shader-visible heap so raster draws can
     // sample the completed reflection texture.
     srvHeapCpu = m_srvDescriptors.ShaderVisibleCpuHandle( m_reflectionSRVIndex );
-    m_device->CopyDescriptorsSimple( 1,
+    Device()->CopyDescriptorsSimple( 1,
                                      srvHeapCpu,
                                      GetSRVStagingCpuHandle( m_reflectionSRVIndex ),
                                      D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV );
@@ -403,7 +403,7 @@ void RenderBackendDX12::InitDXR( uint64_t terrainVBVA,
 
     // Query the command list for the DXR-capable interface. If the runtime
     // cannot provide it, keep raster rendering alive and disable DXR reflection.
-    if ( FAILED( m_commandList->QueryInterface( IID_PPV_ARGS( &m_cmdList4 ) ) ) )
+    if ( FAILED( CommandList()->QueryInterface( IID_PPV_ARGS( &m_cmdList4 ) ) ) )
     {
         m_dxrSupported = false;
         return;
@@ -434,7 +434,7 @@ void RenderBackendDX12::InitDXR( uint64_t terrainVBVA,
         bufDesc.SampleDesc.Count = 1;
         bufDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
 
-        if ( FAILED( m_device->CreateCommittedResource( &heapProps,
+        if ( FAILED( Device()->CreateCommittedResource( &heapProps,
                                                         D3D12_HEAP_FLAG_NONE,
                                                         &bufDesc,
                                                         D3D12_RESOURCE_STATE_GENERIC_READ,
@@ -468,9 +468,9 @@ void RenderBackendDX12::InitDXR( uint64_t terrainVBVA,
 
     // Submit and wait for BLAS builds to complete
     AssertPlatformProfilerGpuStackClosed( "InitDXR" );
-    m_commandList->Close();
+    CommandList()->Close();
     m_commandListOpen = false;
-    ID3D12CommandList* ppCLs[] = { m_commandList };
+    ID3D12CommandList* ppCLs[] = { CommandList() };
     m_commandQueue->ExecuteCommandLists( 1, ppCLs );
     WaitForGpu();
 
@@ -488,7 +488,7 @@ void RenderBackendDX12::InitDXR( uint64_t terrainVBVA,
     // The SBT is the raytracing dispatch table. It maps the RayGen, Miss,
     // TerrainHitGroup, and SphereHitGroup shader identifiers into GPU-readable
     // records that DispatchRays can follow.
-    m_sbt.Build( m_device, m_rtPSOProps, L"RayGen", L"Miss", L"TerrainHitGroup", L"SphereHitGroup" );
+    m_sbt.Build( Device(), m_rtPSOProps, L"RayGen", L"Miss", L"TerrainHitGroup", L"SphereHitGroup" );
 }
 
 
@@ -689,7 +689,7 @@ void RenderBackendDX12::DispatchReflectionRays( const float* invViewProj,
         {
             D3D12_CPU_DESCRIPTOR_HANDLE dst = m_srvDescriptors.ShaderVisibleCpuHandle( slot0 + (UINT)i );
             UINT srcIdx = m_textures[texHandles[i] - 1].srvIndex;
-            m_device->CopyDescriptorsSimple( 1,
+            Device()->CopyDescriptorsSimple( 1,
                                              dst,
                                              GetSRVStagingCpuHandle( srcIdx ),
                                              D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV );

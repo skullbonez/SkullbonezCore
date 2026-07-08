@@ -279,18 +279,26 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     GpuTimerStateDX12 m_gpuTimers;
 
     // The render device owns the core D3D12 lifetime: factory, device, queue,
-    // swap chain, command allocators, command list, and frame fence. The raw
-    // pointers below are borrowed aliases kept only so the existing backend
-    // methods can be migrated in small slices without changing every call site
-    // at once.
+    // swap chain, command allocators, command list, and frame fence. Access the
+    // device, swap chain, and command list through these helpers so resize or
+    // device-owner work cannot leave backend-side aliases dangling.
     Dx12RenderDevice m_renderDevice;
+    ID3D12Device* Device() const
+    {
+        return m_renderDevice.Device();
+    }
+    IDXGISwapChain3* SwapChain() const
+    {
+        return m_renderDevice.SwapChain();
+    }
+    ID3D12GraphicsCommandList* CommandList() const
+    {
+        return m_renderDevice.CommandList();
+    }
 
-    // Borrowed core device aliases. Do not Release() these in the backend.
+    // Borrowed core queue/allocator aliases. Do not Release() these in the backend.
     IDXGIFactory4* m_factory = nullptr;
-    IDXGISwapChain3* m_swapChain = nullptr;
-    ID3D12Device* m_device = nullptr;
     ID3D12CommandQueue* m_commandQueue = nullptr;
-    ID3D12GraphicsCommandList* m_commandList = nullptr;
     ID3D12CommandAllocator* m_commandAllocators[FRAME_COUNT] = {};
     static constexpr int PLATFORM_PROFILER_GPU_SCOPE_STACK_MAX = 64;
     static constexpr std::size_t PLATFORM_PROFILER_GPU_MARKER_NAME_CHARS = 256;
@@ -689,11 +697,11 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     }
     ID3D12Device* GetDevice() const
     {
-        return m_renderDevice.Device();
+        return Device();
     }
     ID3D12GraphicsCommandList* GetCommandList() const
     {
-        return m_renderDevice.CommandList();
+        return CommandList();
     }
 
     void PrepareDraw( VertexFormat12 format,

@@ -106,7 +106,7 @@ RenderBackendDX12::CreateMesh( const float* data, int vertexCount, bool hasNorma
     uint8_t* uploadPtr = GetUploadPtr( uploadAddr );
 
     auto mesh = std::make_unique<MeshDX12>( *this );
-    mesh->Create( m_device, m_commandList, data, vertexCount, floatsPerVert, format, uploadAddr, uploadPtr );
+    mesh->Create( Device(), CommandList(), data, vertexCount, floatsPerVert, format, uploadAddr, uploadPtr );
     return mesh;
 }
 

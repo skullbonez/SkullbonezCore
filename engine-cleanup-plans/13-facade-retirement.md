@@ -125,9 +125,14 @@ only when the structure is actually gone:
 - [ ] `rg -n "SimulationController::System\(|\.System\(\)" ` no longer exposes the
   underlying `SimulationSystem` for reach-through; `SimulationController` is
   deleted or owns concrete timing policy.
-- [ ] `RenderBackendDX12` holds no borrowed device/swapchain/commandlist aliases
+- [x] `RenderBackendDX12` holds no borrowed device/swapchain/commandlist aliases
   that duplicate `Dx12RenderDevice`-owned pointers (or they are provably
   refreshed on device recreation).
+  Completion note (2026-07-08): Plan 10 step 3.1 deleted the cached
+  `m_device`, `m_swapChain`, and `m_commandList` fields and routes those objects
+  through `Dx12RenderDevice` helper accessors. A runtime-boundary tombstone now
+  rejects those deleted alias fields, and `tools\validate_dx12_renderer.bat`
+  passed 3 consecutive runs with `DX12 validation errors: 0`.
 - [ ] Public physics headers (`PhysicsApi.h`, `PhysicsEngine.h`) contain no
   `GameModel`, dense `modelIndex`, or solver-container types in public
   signatures.
