@@ -791,6 +791,27 @@ every step. Commit per step.
 	    (17.5s), and
 	    `TestOutput\agent_logs\plan01_ui_action_recorders_build_profile.log`
 	    (6.3s).
+	  - [x] Post-mapped keyboard shortcut extraction moved the editor-placement
+	    and replay velocity-edit ALT aftermath out of `Run::TakeInput()` into a
+	    file-local helper with explicit callbacks for the Run-owned transition
+	    edges. The helper preserves editor-mode ALT handling, replay velocity-edit
+	    enable/disable, live-advance/inspection-camera updates, scrubber
+	    visibility, and keyboard memory updates. The touched-file comment audit
+	    added the borrowed-context lifetime note. `TakeInput()` now spans 723
+	    lines. Gate evidence:
+	    `TestOutput\agent_logs\plan01_post_mapped_keyboard_shortcuts_interaction_clicks.log`
+	    (15.5s, both interaction reports `ok=1`) and
+	    `TestOutput\agent_logs\plan01_post_mapped_keyboard_shortcuts_validate_full.log`
+	    (48.9s; project filters/runtime boundaries passed, Profile/Debug builds
+	    had 0 warnings and 0 errors, DX12 InfoQueue errors = 0, screenshots
+	    matched baselines, and `physics_regression_solver.csv` matched
+	    byte-exactly). Targeted pre-gate checks also passed:
+	    `TestOutput\agent_logs\plan01_post_mapped_keyboard_shortcuts_validate_format.log`
+	    (9.2s),
+	    `TestOutput\agent_logs\plan01_post_mapped_keyboard_shortcuts_runtime_boundaries.log`
+	    (17.5s), and
+	    `TestOutput\agent_logs\plan01_post_mapped_keyboard_shortcuts_build_profile.log`
+	    (6.1s).
 - [ ] **1.4** Confirm `TakeInput()` is under ~200 lines (setup + dispatch loop).
 
 ### Phase 2 — Move state shelves out of `RunState`

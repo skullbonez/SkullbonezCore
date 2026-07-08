@@ -469,6 +469,82 @@ void RecordSceneRuntimeUIActions( const SceneRuntimeUICommandResult& commands, R
     }
 }
 
+struct PostMappedKeyboardShortcutContext
+{
+    // Lifetime: borrowed for one post-keyboard dispatch pass. The helper does
+    // not store owner references or callbacks past the current frame.
+    RuntimeTools& runtimeTools;
+    ReplayRuntime& replayRuntime;
+    RuntimeInputContext& runtimeInput;
+    RuntimeInteractionController& interaction;
+    RunTimerState& timers;
+};
+
+template <typename ApplyEditorPlacementModeToggle,
+          typename CancelReplayToolDragState,
+          typename EnterInteractiveSceneRun,
+          typename EnterReplayInspectionCamera,
+          typename ExitReplayInspectionCamera,
+          typename SetWorldInteractionOwner>
+void ApplyPostMappedKeyboardShortcutState( PostMappedKeyboardShortcutContext context,
+                                           const RunInternal::EditorKeyboardShortcutResult& shortcut,
+                                           ApplyEditorPlacementModeToggle applyEditorPlacementModeToggle,
+                                           CancelReplayToolDragState cancelReplayToolDragState,
+                                           EnterInteractiveSceneRun enterInteractiveSceneRun,
+                                           EnterReplayInspectionCamera enterReplayInspectionCamera,
+                                           ExitReplayInspectionCamera exitReplayInspectionCamera,
+                                           SetWorldInteractionOwner setWorldInteractionOwner )
+{
+    if ( context.runtimeTools.Editor().editorModeEnabled )
+    {
+        context.replayRuntime.SetVelocityEditAltKeyDown( shortcut.altDown );
+        if ( shortcut.togglePlacementMode )
+        {
+            applyEditorPlacementModeToggle( RuntimeInputActionSource::Keyboard );
+        }
+        return;
+    }
+
+    const bool altDown = shortcut.altDown;
+    if ( altDown && !context.replayRuntime.VelocityEdit().keyboardAltWasDown )
+    {
+        const bool enableVelocityEdit = !context.replayRuntime.VelocityEdit().enabled;
+        if ( context.replayRuntime.SetVelocityEditEnabled( enableVelocityEdit ) )
+        {
+            cancelReplayToolDragState();
+            if ( enableVelocityEdit )
+            {
+                enterInteractiveSceneRun();
+                if ( context.replayRuntime.SetLiveAdvanceHeld( true ) )
+                {
+                    if ( context.replayRuntime.ShouldUseInspectionCamera() )
+                    {
+                        enterReplayInspectionCamera();
+                    }
+                    else
+                    {
+                        exitReplayInspectionCamera();
+                    }
+                }
+                setWorldInteractionOwner( WorldInteractionOwner::ReplayVelocityEdit,
+                                          InteractionExitReason::EnterReplay );
+            }
+            else if ( context.interaction.Owner() == WorldInteractionOwner::ReplayVelocityEdit )
+            {
+                setWorldInteractionOwner( WorldInteractionOwner::ReplayScrub, InteractionExitReason::EnterReplay );
+            }
+        }
+        context.replayRuntime.Scrubber().visibleUntil =
+            context.timers.simulationTimer.GetTotalTime() + ReplayOverlay::REPLAY_SCRUBBER_VISIBLE_SECONDS;
+        context.replayRuntime.Scrubber().visible = true;
+    }
+    context.replayRuntime.VelocityEdit().keyboardAltWasDown = altDown;
+    context.runtimeInput.SetActionDown( RuntimeInputAction::ToggleEditorTool, altDown );
+    context.runtimeInput.SetActionDown( RuntimeInputAction::CycleCameraMode, Input::IsKeyDown( VK_TAB ) );
+    context.runtimeTools.Editor().altShortcutWasDown = altDown;
+    context.runtimeTools.Editor().tabShortcutWasDown = Input::IsKeyDown( VK_TAB );
+}
+
 } // namespace
 
 void Run::UpdateRuntimeInputModeAfterAction( RuntimeInputAction action, RuntimeInputActionSource source )
@@ -2290,57 +2366,20 @@ void Run::TakeInput()
             dispatchMappedKeyboardAction( kTakeInputKeyboardBindings[i] );
         }
 
-        if ( m_runtimeTools.Editor().editorModeEnabled )
-        {
-            const RunInternal::EditorKeyboardShortcutResult editorShortcuts = keyboardEditorToolShortcut;
-            m_replayRuntime.SetVelocityEditAltKeyDown( editorShortcuts.altDown );
-            if ( editorShortcuts.togglePlacementMode )
-            {
-                applyEditorPlacementModeToggle( RuntimeInputActionSource::Keyboard );
-            }
-        }
-        else
-        {
-            const bool altDown = keyboardEditorToolShortcut.altDown;
-            if ( altDown && !m_replayRuntime.VelocityEdit().keyboardAltWasDown )
-            {
-                const bool enableVelocityEdit = !m_replayRuntime.VelocityEdit().enabled;
-                if ( m_replayRuntime.SetVelocityEditEnabled( enableVelocityEdit ) )
-                {
-                    CancelReplayToolDragState();
-                    if ( enableVelocityEdit )
-                    {
-                        EnterInteractiveSceneRun();
-                        if ( m_replayRuntime.SetLiveAdvanceHeld( true ) )
-                        {
-                            if ( m_replayRuntime.ShouldUseInspectionCamera() )
-                            {
-                                EnterReplayInspectionCamera();
-                            }
-                            else
-                            {
-                                ExitReplayInspectionCamera();
-                            }
-                        }
-                        SetWorldInteractionOwnerAfterInteractionTransition( WorldInteractionOwner::ReplayVelocityEdit,
-                                                                            InteractionExitReason::EnterReplay );
-                    }
-                    else if ( m_interaction.Owner() == WorldInteractionOwner::ReplayVelocityEdit )
-                    {
-                        SetWorldInteractionOwnerAfterInteractionTransition( WorldInteractionOwner::ReplayScrub,
-                                                                            InteractionExitReason::EnterReplay );
-                    }
-                }
-                m_replayRuntime.Scrubber().visibleUntil =
-                    m_timers.simulationTimer.GetTotalTime() + ReplayOverlay::REPLAY_SCRUBBER_VISIBLE_SECONDS;
-                m_replayRuntime.Scrubber().visible = true;
-            }
-            m_replayRuntime.VelocityEdit().keyboardAltWasDown = altDown;
-            m_runtimeInput.SetActionDown( RuntimeInputAction::ToggleEditorTool, altDown );
-            m_runtimeInput.SetActionDown( RuntimeInputAction::CycleCameraMode, Input::IsKeyDown( VK_TAB ) );
-            m_runtimeTools.Editor().altShortcutWasDown = altDown;
-            m_runtimeTools.Editor().tabShortcutWasDown = Input::IsKeyDown( VK_TAB );
-        }
+        ApplyPostMappedKeyboardShortcutState(
+            PostMappedKeyboardShortcutContext{ m_runtimeTools,
+                                               m_replayRuntime,
+                                               m_runtimeInput,
+                                               m_interaction,
+                                               m_timers },
+            keyboardEditorToolShortcut,
+            applyEditorPlacementModeToggle,
+            [this]() { CancelReplayToolDragState(); },
+            [this]() { EnterInteractiveSceneRun(); },
+            [this]() { EnterReplayInspectionCamera(); },
+            [this]() { ExitReplayInspectionCamera(); },
+            [this]( WorldInteractionOwner owner, InteractionExitReason reason )
+            { SetWorldInteractionOwnerAfterInteractionTransition( owner, reason ); } );
     }
     else
     {
