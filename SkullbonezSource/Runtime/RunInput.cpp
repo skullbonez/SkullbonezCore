@@ -1738,7 +1738,7 @@ void Run::TakeInput()
         keyboardToggleEditorMode =
             InputController::CaptureKeyboardActionPress( m_runtimeInput, RuntimeInputAction::ToggleEditor, VK_OEM_3 );
 
-        auto dispatchCameraModeKeyboardAction = [this]( const RuntimeInputKeyBinding& binding ) -> bool
+        auto dispatchMappedKeyboardAction = [this]( const RuntimeInputKeyBinding& binding ) -> bool
         {
             switch ( binding.action )
             {
@@ -1804,76 +1804,80 @@ void Run::TakeInput()
                     ToggleAttachedCameraPin();
                 }
                 return true;
+            case RuntimeInputAction::ToggleDirectorGrab:
+                if ( InputController::CaptureKeyboardActionPress( m_runtimeInput,
+                                                                  binding.action,
+                                                                  binding.virtualKey ) &&
+                     m_camera.mode == RunCameraMode::Director )
+                {
+                    // B key: Director grab/release keeps the visible mode as Director while
+                    // temporarily letting the operator fly the selected camera.
+                    if ( m_camera.director.grabbed )
+                    {
+                        if ( DemoDirectorPlayback::EndGrab( m_camera, m_systems ) )
+                        {
+                            ExitFlyModeCamera();
+                            ApplyCursorOwnership();
+                            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleDirectorGrab,
+                                                               RuntimeInputActionSource::Keyboard );
+                        }
+                    }
+                    else if ( DemoDirectorPlayback::BeginGrab( m_camera, m_systems ) )
+                    {
+                        EnterFlyModeCamera();
+                        ApplyCursorOwnership();
+                        UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleDirectorGrab,
+                                                           RuntimeInputActionSource::Keyboard );
+                    }
+                }
+                return true;
+            case RuntimeInputAction::SetDirectorPhasePose:
+            {
+                const bool directorAuthoringAvailable = m_camera.mode == RunCameraMode::Director || IsFlyCameraMode();
+                if ( InputController::CaptureKeyboardActionPress( m_runtimeInput,
+                                                                  binding.action,
+                                                                  binding.virtualKey ) &&
+                     directorAuthoringAvailable && DemoDirectorPlayback::SetCurrentPhasePose( m_camera, m_systems ) )
+                {
+                    UpdateRuntimeInputModeAfterAction( RuntimeInputAction::SetDirectorPhasePose,
+                                                       RuntimeInputActionSource::Keyboard );
+                }
+                return true;
+            }
+            case RuntimeInputAction::StepDirectorPhase:
+            {
+                const bool directorAuthoringAvailable = m_camera.mode == RunCameraMode::Director || IsFlyCameraMode();
+                if ( InputController::CaptureKeyboardActionPress( m_runtimeInput,
+                                                                  binding.action,
+                                                                  binding.virtualKey ) &&
+                     directorAuthoringAvailable &&
+                     DemoDirectorPlayback::SelectNextPhaseForAuthoring( m_camera, m_systems ) )
+                {
+                    UpdateRuntimeInputModeAfterAction( RuntimeInputAction::StepDirectorPhase,
+                                                       RuntimeInputActionSource::Keyboard );
+                }
+                return true;
+            }
+            case RuntimeInputAction::SaveDirectorShotList:
+            {
+                const bool directorAuthoringAvailable = m_camera.mode == RunCameraMode::Director || IsFlyCameraMode();
+                if ( InputController::CaptureKeyboardActionPress( m_runtimeInput,
+                                                                  binding.action,
+                                                                  binding.virtualKey ) &&
+                     directorAuthoringAvailable && DemoDirectorPlayback::SaveShotList( m_camera ) )
+                {
+                    UpdateRuntimeInputModeAfterAction( RuntimeInputAction::SaveDirectorShotList,
+                                                       RuntimeInputActionSource::Keyboard );
+                }
+                return true;
+            }
             default:
                 return false;
             }
         };
         for ( std::size_t i = 0; i < kTakeInputKeyboardBindingCount; ++i )
         {
-            dispatchCameraModeKeyboardAction( kTakeInputKeyboardBindings[i] );
-        }
-
-        // B key: Director grab/release keeps the visible mode as Director while
-        // temporarily letting the operator fly the selected camera.
-        if ( InputController::CaptureKeyboardActionPress( m_runtimeInput,
-                                                          RuntimeInputAction::ToggleDirectorGrab,
-                                                          'B' ) &&
-             m_camera.mode == RunCameraMode::Director )
-        {
-            if ( m_camera.director.grabbed )
-            {
-                if ( DemoDirectorPlayback::EndGrab( m_camera, m_systems ) )
-                {
-                    ExitFlyModeCamera();
-                    ApplyCursorOwnership();
-                    UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleDirectorGrab,
-                                                       RuntimeInputActionSource::Keyboard );
-                }
-            }
-            else if ( DemoDirectorPlayback::BeginGrab( m_camera, m_systems ) )
-            {
-                EnterFlyModeCamera();
-                ApplyCursorOwnership();
-                UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleDirectorGrab,
-                                                   RuntimeInputActionSource::Keyboard );
-            }
-        }
-
-        // J/K/L: cold Director authoring keys. They edit the loaded shot list
-        // through the helper module and stay inert when no phase is selected.
-        const bool directorAuthoringAvailable = m_camera.mode == RunCameraMode::Director || IsFlyCameraMode();
-        if ( InputController::CaptureKeyboardActionPress( m_runtimeInput,
-                                                          RuntimeInputAction::SetDirectorPhasePose,
-                                                          'J' ) &&
-             directorAuthoringAvailable )
-        {
-            if ( DemoDirectorPlayback::SetCurrentPhasePose( m_camera, m_systems ) )
-            {
-                UpdateRuntimeInputModeAfterAction( RuntimeInputAction::SetDirectorPhasePose,
-                                                   RuntimeInputActionSource::Keyboard );
-            }
-        }
-        if ( InputController::CaptureKeyboardActionPress( m_runtimeInput,
-                                                          RuntimeInputAction::StepDirectorPhase,
-                                                          'K' ) &&
-             directorAuthoringAvailable )
-        {
-            if ( DemoDirectorPlayback::SelectNextPhaseForAuthoring( m_camera, m_systems ) )
-            {
-                UpdateRuntimeInputModeAfterAction( RuntimeInputAction::StepDirectorPhase,
-                                                   RuntimeInputActionSource::Keyboard );
-            }
-        }
-        if ( InputController::CaptureKeyboardActionPress( m_runtimeInput,
-                                                          RuntimeInputAction::SaveDirectorShotList,
-                                                          'L' ) &&
-             directorAuthoringAvailable )
-        {
-            if ( DemoDirectorPlayback::SaveShotList( m_camera ) )
-            {
-                UpdateRuntimeInputModeAfterAction( RuntimeInputAction::SaveDirectorShotList,
-                                                   RuntimeInputActionSource::Keyboard );
-            }
+            dispatchMappedKeyboardAction( kTakeInputKeyboardBindings[i] );
         }
 
 #ifdef _DEBUG

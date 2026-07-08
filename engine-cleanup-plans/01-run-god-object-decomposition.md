@@ -232,6 +232,16 @@ every step. Commit per step.
     baselines, and `physics_regression_solver.csv` matched byte-exactly). An
     earlier `validate_full` attempt failed on `RunInput.cpp` formatting only;
     the file was formatted narrowly with clang-format before the rerun.
+  - [x] Director keyboard group (B/J/K/L) now dispatches through the same table
+    loop for Director grab/release, phase pose capture, phase stepping, and shot
+    list save. Edge capture still happens before Director/authoring context checks,
+    and non-Director actions remain on existing branches. Gate evidence:
+    `TestOutput\agent_logs\plan01_step1_3_director_interaction_clicks.log`
+    (19.7s, both interaction reports `ok=1`) and
+    `TestOutput\agent_logs\plan01_step1_3_director_validate_full.log` (50.3s;
+    project filters/runtime boundaries passed, Profile/Debug builds had 0 warnings
+    and 0 errors, DX12 InfoQueue errors = 0, screenshots matched baselines, and
+    `physics_regression_solver.csv` matched byte-exactly).
 - [ ] **1.4** Confirm `TakeInput()` is under ~200 lines (setup + dispatch loop).
 
 ### Phase 2 — Move state shelves out of `RunState`
