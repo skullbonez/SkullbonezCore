@@ -466,6 +466,15 @@ void WakeSleepingSolverBody( PhysicsBodyStore& bodyStore,
     (void)bodyStore.ApplyForces( worldForces, colliderStore, sleepingIndex, dt );
 }
 
+ObjectContactBodyView ObjectContactBodyViewAtTime( const PhysicsBodyRecordList& bodyRecords, int index, float time )
+{
+    const PhysicsBodyRecord& record = bodyRecords[static_cast<size_t>( index )];
+    ObjectContactBodyView body;
+    body.position = record.position + record.linearVelocity * time;
+    body.orientation = record.orientation;
+    return body;
+}
+
 void ApplyForcesForSolverBody( PhysicsBodyStore& bodyStore,
                                const ColliderStore& colliderStore,
                                const PhysicsWorldForces& worldForces,
@@ -2704,15 +2713,6 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
     }
     PROFILE_END( "Frame/Physics/Broadphase" );
 
-    auto contactBodyViewAtTime = [&]( int index, float time ) -> ObjectContactBodyView
-    {
-        const PhysicsBodyRecord& record = bodyRecords[static_cast<size_t>( index )];
-        ObjectContactBodyView body;
-        body.position = record.position + record.linearVelocity * time;
-        body.orientation = record.orientation;
-        return body;
-    };
-
     auto terrainContactBodyViewForIndex = [&]( int index ) -> TerrainContactBodyView
     {
         const PhysicsBodyRecord& record = bodyRecords[static_cast<size_t>( index )];
@@ -2744,9 +2744,9 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
         }
 
         ObjectContactManifold manifold;
-        return BuildObjectContactManifold( contactBodyViewAtTime( awakeIndex, 0.0f ),
+        return BuildObjectContactManifold( ObjectContactBodyViewAtTime( bodyRecords, awakeIndex, 0.0f ),
                                            colliderRecords[static_cast<size_t>( awakeIndex )].shape,
-                                           contactBodyViewAtTime( sleepingIndex, 0.0f ),
+                                           ObjectContactBodyViewAtTime( bodyRecords, sleepingIndex, 0.0f ),
                                            colliderRecords[static_cast<size_t>( sleepingIndex )].shape,
                                            awakeIndex,
                                            sleepingIndex,
@@ -2768,9 +2768,9 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
         // owner-side presentation rows. CCD refinement only needs temporary pose
         // views plus the collider shape snapshots.
         ObjectContactManifold manifold;
-        return BuildObjectContactManifold( contactBodyViewAtTime( a, time ),
+        return BuildObjectContactManifold( ObjectContactBodyViewAtTime( bodyRecords, a, time ),
                                            colliderRecords[static_cast<size_t>( a )].shape,
-                                           contactBodyViewAtTime( b, time ),
+                                           ObjectContactBodyViewAtTime( bodyRecords, b, time ),
                                            colliderRecords[static_cast<size_t>( b )].shape,
                                            a,
                                            b,
@@ -2844,10 +2844,10 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
 
         const PhysicsBodyRecord& recordA = bodyRecords[static_cast<size_t>( a )];
         const PhysicsBodyRecord& recordB = bodyRecords[static_cast<size_t>( b )];
-        return SweepObjectContact( contactBodyViewAtTime( a, 0.0f ),
+        return SweepObjectContact( ObjectContactBodyViewAtTime( bodyRecords, a, 0.0f ),
                                    colliderRecords[static_cast<size_t>( a )].shape,
                                    recordA.linearVelocity,
-                                   contactBodyViewAtTime( b, 0.0f ),
+                                   ObjectContactBodyViewAtTime( bodyRecords, b, 0.0f ),
                                    colliderRecords[static_cast<size_t>( b )].shape,
                                    recordB.linearVelocity,
                                    availableTime );

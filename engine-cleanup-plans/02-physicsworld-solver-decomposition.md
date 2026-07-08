@@ -162,7 +162,7 @@ island-merge tie-breaks.
   Wake and contact view helpers:
   - [x] L2499 `hasWakeEnergy`: awake-neighbor wake-energy test.
   - [x] L2508 `wakeSleepingModel`: sleep-state clear plus immediate force apply.
-  - [ ] L2527 `contactBodyViewAtTime`: object contact pose view at candidate time.
+  - [x] L2527 `contactBodyViewAtTime`: object contact pose view at candidate time.
   - [ ] L2536 `terrainContactBodyViewForIndex`: terrain contact pose/material view.
   - [ ] L2552 `hasPersistentWakeContact`: exact persistent overlap wake test.
 
@@ -287,6 +287,14 @@ island-merge tie-breaks.
     `tools\validate_physics.bat` passed in
     `TestOutput\agent_logs\plan02_wake_sleeping_model_validate_physics_20260709_0951.log`
     (Debug/Profile builds 0 warnings and 0 errors; final
+    `VALIDATE_PHYSICS: ALL PASSED`).
+  - Extracted the `contactBodyViewAtTime` lambda into
+    `ObjectContactBodyViewAtTime`, threading `bodyRecords` explicitly and
+    preserving the candidate-time pose projection used by exact contact checks
+    and object/object sweep setup. Gate evidence: `tools\validate_physics.bat`
+    passed in
+    `TestOutput\agent_logs\plan02_contact_body_view_validate_physics_20260709_0958.log`
+    (28s shell runtime; Debug/Profile builds 0 warnings and 0 errors; final
     `VALIDATE_PHYSICS: ALL PASSED`).
 - [ ] **1.3** `RunSolverPhysics` is now a short driver calling named stages;
   confirm it is under ~300 lines.
