@@ -703,13 +703,6 @@ void Run::ResetReplayTimelineForActiveScene( bool preserveBranchMetadata )
     {
         ExitReplayInspectionCamera();
     }
-    if ( !replayResetFinish.timelineStarted )
-    {
-        return;
-    }
-
-    m_solverReplayMismatch.reports = 0;
-    m_solverReplayMismatch.suppressed = false;
 }
 
 

@@ -925,6 +925,26 @@ every step. Commit per step.
     (44.8s). An initial `validate_full` stopped on the missing project-filter
     rule for the new header; `tools\validate_project_filters.py` was updated and
     validated before the rerun.
+  - [x] Replay capture mismatch shelf moved into `ReplayRuntime`; deleted
+    `RunReplayMismatchState`, `Run::m_solverReplayMismatch`, and the
+    `RunFrame.cpp` `CompareLatestReplaySamples()` helper. `ReplayRuntime`
+    now owns paired solver/presentation mismatch comparison, per-timeline
+    diagnostic throttling, and the reset that happens when a new replay timeline
+    starts. The touched-file comment audit added the local replay diagnostic
+    ownership note. Gate evidence:
+    `TestOutput\agent_logs\plan01_replay_mismatch_shelf_validate_full.log`
+    (54.1s; project filters/runtime boundaries passed, Profile/Debug builds had
+    0 warnings and 0 errors, DX12 InfoQueue errors = 0, screenshots matched
+    baselines, and `physics_regression_solver.csv` matched byte-exactly).
+    Targeted pre-gate checks also passed:
+    `TestOutput\agent_logs\plan01_replay_mismatch_shelf_build_profile.log`
+    (10.5s),
+    `TestOutput\agent_logs\plan01_replay_mismatch_shelf_runtime_boundaries.log`
+    (17.6s), and
+    `TestOutput\agent_logs\plan01_replay_mismatch_shelf_validate_format.log`
+    (9.2s). A post-audit comment-only format rerun also passed:
+    `TestOutput\agent_logs\plan01_replay_mismatch_shelf_validate_format_rerun.log`
+    (9.1s).
 
 ### Phase 3 — Shrink `Run`
 

@@ -267,48 +267,6 @@ void StepRuntimePhysicsTick( SkullbonezCore::GameObjects::GameModelCollection& m
     }
 }
 
-void CompareLatestReplaySamples( ReplayRuntime& replayRuntime, RunReplayMismatchState& mismatchState )
-{
-    const ReplayPresentationSample* presentation = replayRuntime.Presentation().LatestSample();
-    const ReplaySolverFrameSample* solver = replayRuntime.Solver().LatestSample();
-    if ( !presentation || !solver )
-    {
-        return;
-    }
-
-    const bool matches = presentation->frameIndex == solver->frameIndex &&
-                         presentation->stateHash == solver->presentationHash &&
-                         presentation->bodies.size() == solver->bodies.size();
-    if ( matches )
-    {
-        return;
-    }
-
-    if ( mismatchState.reports < 8 )
-    {
-        ++mismatchState.reports;
-        fprintf( stderr,
-                 "[replay] Solver/presentation capture mismatch #%u: presentation_frame=%llu solver_frame=%llu "
-                 "presentation_hash=0x%016llX solver_presentation_hash=0x%016llX solver_hash=0x%016llX "
-                 "presentation_bodies=%llu solver_bodies=%llu\n",
-                 mismatchState.reports,
-                 static_cast<unsigned long long>( presentation->frameIndex ),
-                 static_cast<unsigned long long>( solver->frameIndex ),
-                 static_cast<unsigned long long>( presentation->stateHash ),
-                 static_cast<unsigned long long>( solver->presentationHash ),
-                 static_cast<unsigned long long>( solver->solverHash ),
-                 static_cast<unsigned long long>( presentation->bodies.size() ),
-                 static_cast<unsigned long long>( solver->bodies.size() ) );
-    }
-    else if ( !mismatchState.suppressed )
-    {
-        mismatchState.suppressed = true;
-        fprintf( stderr,
-                 "[replay] Further solver/presentation capture mismatch diagnostics suppressed for this replay "
-                 "timeline.\n" );
-    }
-}
-
 struct SimulationPostStepPipelineContext
 {
     SkullbonezCore::Runtime::Audio::ContactAudioService& contactAudio;
@@ -321,7 +279,6 @@ struct SimulationPostStepPipelineContext
     RuntimeTools& runtimeTools;
     ReplayRuntime& replayRuntime;
     ReplayLauncherVisualSample& replayLauncherVisualScratch;
-    RunReplayMismatchState& solverReplayMismatch;
     SkullbonezCore::Environment::WorldEnvironment& world;
     SkullbonezCore::GameObjects::GameModelCollection& models;
 };
@@ -510,7 +467,6 @@ class SimulationPostStepPipeline
         input.colliderStore = &context.models.GetPhysicsEngine().Colliders();
         input.launcherVisual = &context.replayLauncherVisualScratch;
         context.replayRuntime.CaptureFrame( input );
-        CompareLatestReplaySamples( context.replayRuntime, context.solverReplayMismatch );
     }
 };
 
@@ -1127,7 +1083,6 @@ void Run::AfterPhysicsStep()
                                                m_runtimeTools,
                                                m_replayRuntime,
                                                m_replayLauncherVisualScratch,
-                                               m_solverReplayMismatch,
                                                m_cWorldEnvironment,
                                                m_cGameModelCollection };
     const SimulationPostStepPipelineResult result = SimulationPostStepPipeline::Run( context );

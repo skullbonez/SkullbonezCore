@@ -748,6 +748,8 @@ class ReplayRuntime
     bool SavePresentationWithSolverHashes( const char* path, ReplayV2SaveResult* result = nullptr ) const;
 
   private:
+    void ReportLatestCaptureMismatch();
+
     ReplayRecorder m_presentation;                                    // Bounded replay presentation recorder for recent-frame inspection.
     ReplaySolverRecorder m_solver;                                    // Same-tick solver-state recorder kept in tandem with presentation replay.
     ReplayEventRecorder m_events;                                     // Bounded intent/event stream kept beside v2 replay tracks.
@@ -766,6 +768,8 @@ class ReplayRuntime
     // the live model budget. It must not allocate while scrub/prediction views
     // are applied during rendering.
     std::array<uint8_t, MAX_GAME_MODELS> m_renderPoseBodyMatched = {};
+    uint32_t m_captureMismatchReports = 0;                            // Process-lifetime throttle for paired presentation/solver capture diagnostics.
+    bool m_captureMismatchSuppressed = false;
     bool m_launcherVisualBackupActive = false;
 };
 } // namespace Basics

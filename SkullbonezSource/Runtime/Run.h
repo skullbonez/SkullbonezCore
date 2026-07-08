@@ -130,7 +130,6 @@ class Run
     ReplayLauncherVisualSample
         m_replayLauncherVisualScratch;                                     // Reused replay capture payload; capacity is kept outside gameplay.
     Runtime::Audio::ContactAudioService m_contactAudio;                    // Presentation-only material impact playback sink.
-    RunReplayMismatchState m_solverReplayMismatch;                         // Throttles repeated live-vs-solver replay mismatch reports.
     RunLiveStyleControlState m_liveStyle;                                  // Live style tweak/capture harness state
     UI::InGameUI m_UI;                                                     // Encapsulated in-game diagnostics window
     RunDebugState m_debug;                                                 // Runtime debug/overlay toggles

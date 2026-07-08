@@ -493,10 +493,5 @@ struct RunInteractionAutomationState
     int releaseKeyFrame = -1;
 };
 
-struct RunReplayMismatchState
-{
-    uint32_t reports = 0;
-    bool suppressed = false;
-};
 } // namespace Basics
 } // namespace SkullbonezCore

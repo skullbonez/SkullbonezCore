@@ -1172,6 +1172,10 @@ ReplayRuntime::SceneTimelineResetResult ReplayRuntime::FinishSceneTimelineReset(
     ResetTimeline( sceneLabel );
     RecordEvent( ReplayEventKind::TimelineStart, 0, 0, 0, 0, 0, 0, 0, sceneLabel );
     result.timelineStarted = true;
+    // Why: mismatch diagnostics are scoped to the active replay timeline so a
+    // noisy prior scene does not suppress the first useful report in this scene.
+    m_captureMismatchReports = 0;
+    m_captureMismatchSuppressed = false;
 
     if ( !( input.isSceneMode && input.solverBallCount <= 0 && input.solverBoxCount <= 0 ) )
     {
@@ -1242,6 +1246,53 @@ ReplayFrameIndex ReplayRuntime::NextEventFrameIndex() const
     return presentationStats.nextFrameIndex;
 }
 
+// Concept: capture mismatch diagnostics compare the newest paired presentation
+// and solver samples after ReplayRuntime records the current frame.
+//
+// Why: the throttle belongs to the replay timeline owner, so RunFrame can request
+// capture without carrying replay-specific diagnostic state.
+void ReplayRuntime::ReportLatestCaptureMismatch()
+{
+    const ReplayPresentationSample* presentation = m_presentation.LatestSample();
+    const ReplaySolverFrameSample* solver = m_solver.LatestSample();
+    if ( !presentation || !solver )
+    {
+        return;
+    }
+
+    const bool matches = presentation->frameIndex == solver->frameIndex &&
+                         presentation->stateHash == solver->presentationHash &&
+                         presentation->bodies.size() == solver->bodies.size();
+    if ( matches )
+    {
+        return;
+    }
+
+    if ( m_captureMismatchReports < 8 )
+    {
+        ++m_captureMismatchReports;
+        fprintf( stderr,
+                 "[replay] Solver/presentation capture mismatch #%u: presentation_frame=%llu solver_frame=%llu "
+                 "presentation_hash=0x%016llX solver_presentation_hash=0x%016llX solver_hash=0x%016llX "
+                 "presentation_bodies=%llu solver_bodies=%llu\n",
+                 m_captureMismatchReports,
+                 static_cast<unsigned long long>( presentation->frameIndex ),
+                 static_cast<unsigned long long>( solver->frameIndex ),
+                 static_cast<unsigned long long>( presentation->stateHash ),
+                 static_cast<unsigned long long>( solver->presentationHash ),
+                 static_cast<unsigned long long>( solver->solverHash ),
+                 static_cast<unsigned long long>( presentation->bodies.size() ),
+                 static_cast<unsigned long long>( solver->bodies.size() ) );
+    }
+    else if ( !m_captureMismatchSuppressed )
+    {
+        m_captureMismatchSuppressed = true;
+        fprintf( stderr,
+                 "[replay] Further solver/presentation capture mismatch diagnostics suppressed for this replay "
+                 "timeline.\n" );
+    }
+}
+
 void ReplayRuntime::CaptureFrame( ReplayCaptureInput input )
 {
     // Invariant: presentation, solver, and event timelines share the same
@@ -1260,11 +1311,13 @@ void ReplayRuntime::CaptureFrame( ReplayCaptureInput input )
             // field plus the already computed presentation hash. Reusing it
             // avoids a second per-body/contact pass in the frame tick.
             m_presentation.CaptureFrameFromSolverSample( *solverSample );
+            ReportLatestCaptureMismatch();
             return;
         }
     }
 
     m_presentation.CaptureFrame( input );
+    ReportLatestCaptureMismatch();
 }
 
 // Concept: render replay poses are temporary render-instance overrides.
