@@ -90,6 +90,36 @@ build.
   `.filters`; (e) give former anonymous-namespace symbols a proper namespace, or
   keep them `static` if genuinely file-local. Gate: `validate_fast` then
   `validate_full`. Commit. Repeat for each file.
+
+  Promotion progress:
+  - [x] `RunMousePickupTools.inl` -> `RunMousePickupTools.cpp` (2026-07-08).
+    This file only defines `Run` member functions already declared in `Run.h`,
+    so no duplicate matching header was added; the promoted TU includes
+    `RunInternal.h` like the other split `Run` implementation files. The old
+    mid-file include was removed from `RunEditorTools.cpp`; project and filter
+    metadata now compile the new `.cpp`; mouse-pickup-only tuning constants moved
+    with the implementation. `tools\check_runtime_boundaries.py` was updated so
+    its mouse-pickup guardrail and synthetic self-tests scan the new `.cpp` path.
+    Comment audit touched `RunMousePickupTools.cpp`, `RunEditorTools.cpp`, and
+    `tools\check_runtime_boundaries.py`; all already had learning headers and no
+    deferred files remain.
+
+    Validation note: initial `tools\validate_fast.bat` failed because the
+    runtime-boundary checker still scanned the old `.inl` path; after updating
+    the checker, `python tools\check_runtime_boundaries.py` and
+    `python tools\check_runtime_boundaries.py --self-test` passed. A second
+    `tools\validate_fast.bat` passed in 46.3s
+    (`Agentic\Logs\cleanup-06-step-0.2-mousepickup-validate-fast.log`), and
+    `tools\validate_full.bat` passed in 45.2s
+    (`Agentic\Logs\cleanup-06-step-0.2-mousepickup-validate-full.log`): 0 build
+    warnings/errors, 0 DX12 validation errors, DX12 screenshots matched
+    committed baselines, and `physics_regression_solver.csv` matched
+    byte-exactly at 20001 lines.
+  - [ ] `RunEditorPlacementAssets.inl`
+  - [ ] `RunEditorTracer.inl`
+  - [ ] `RunEditorGizmoTools.inl`
+  - [ ] `RunEditorOverlayTools.inl`
+  - [ ] `RunEditorObjectPlacement.inl`
 - [ ] **0.3** `rg -n '#include ".*\.inl"' SkullbonezSource/Runtime/Editor` —
   confirm no non-template `.inl` is included mid-`.cpp` in Editor/.
 

@@ -221,6 +221,7 @@
     <ClCompile Include="SkullbonezSource\Runtime\RunCapture.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Run.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Editor\RunEditorTools.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Editor\RunMousePickupTools.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\RunFrame.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\RunDemoDirector.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\RunInteractionAutomation.cpp" />
@@ -326,7 +327,6 @@
     <ClInclude Include="SkullbonezSource\Runtime\Editor\RunEditorObjectPlacement.inl" />
     <ClInclude Include="SkullbonezSource\Runtime\Editor\RunEditorOverlayTools.inl" />
     <ClInclude Include="SkullbonezSource\Runtime\Editor\RunEditorTracer.inl" />
-    <ClInclude Include="SkullbonezSource\Runtime\Editor\RunMousePickupTools.inl" />
     <ClInclude Include="SkullbonezSource\Runtime\Editor\LauncherLaser.h" />
     <ClInclude Include="SkullbonezSource\Core\AmortizedTask.h" />
     <ClInclude Include="SkullbonezSource\Physics\CollisionShape.h" />

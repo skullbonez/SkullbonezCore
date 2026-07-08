@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/Runtime/Editor/RunMousePickupTools.inl
+File: SkullbonezSource/Runtime/Editor/RunMousePickupTools.cpp
 Purpose:
   Implements manipulator-mode mouse pickup capture, target tracking, and physics impulse application.
 
@@ -19,13 +19,34 @@ Invariants:
   - Pointer capture and interaction gesture state must end whenever pickup is canceled.
   - Picked handles are revalidated through PhysicsBodyStore before every
     velocity edit or impulse.
-  - This file must only be included from RunEditorTools.cpp after terrain-placement helpers.
+  - Mouse pickup remains a standalone Run implementation file; shared editor
+    declarations stay on Run and RuntimeTools.
 
 Related:
   - SkullbonezSource/Runtime/Tools/RuntimeTools.h
   - SkullbonezSource/Runtime/Editor/RunEditorTools.cpp
   - Agentic/Reference/comment-style-guide.md
 */
+#include "../RunInternal.h"
+#include "../RuntimePickService.h"
+#include "../../Physics/PhysicsBodyStore.h"
+#include "../../Physics/PhysicsEngine.h"
+#include "../../UI/UIInput.h"
+
+namespace
+{
+constexpr float MOUSE_PICKUP_DEAD_ZONE = 0.04f;
+constexpr float MOUSE_PICKUP_STIFFNESS = 18.0f;
+constexpr float MOUSE_PICKUP_DAMPING = 1.35f;
+constexpr float MOUSE_PICKUP_MAX_IMPULSE = 260.0f;
+} // namespace
+
+namespace SkullbonezCore
+{
+namespace Basics
+{
+using Physics::PhysicsBodyRecord;
+using Physics::PhysicsBodyStore;
 
 void Run::CancelMousePickup()
 {
@@ -267,3 +288,5 @@ void Run::RestoreMousePickupAngularVelocity()
         CancelMousePickup();
     }
 }
+} // namespace Basics
+} // namespace SkullbonezCore

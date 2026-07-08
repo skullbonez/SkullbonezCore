@@ -117,7 +117,7 @@ EDITOR_TOOLS_SOURCE = Path("SkullbonezSource/Runtime/Editor/RunEditorTools.cpp")
 EDITOR_GIZMO_TOOLS_SOURCE = Path("SkullbonezSource/Runtime/Editor/RunEditorGizmoTools.inl")
 EDITOR_OVERLAY_TOOLS_SOURCE = Path("SkullbonezSource/Runtime/Editor/RunEditorOverlayTools.inl")
 LAUNCHER_TOOLS_SOURCE = Path("SkullbonezSource/Runtime/Editor/LauncherTools.cpp")
-MOUSE_PICKUP_TOOLS_SOURCE = Path("SkullbonezSource/Runtime/Editor/RunMousePickupTools.inl")
+MOUSE_PICKUP_TOOLS_SOURCE = Path("SkullbonezSource/Runtime/Editor/RunMousePickupTools.cpp")
 RUNTIME_TOOLS_SOURCE = Path("SkullbonezSource/Runtime/Tools/RuntimeTools.cpp")
 RUNTIME_TOOLS_HEADER = Path("SkullbonezSource/Runtime/Tools/RuntimeTools.h")
 RUN_REPLAY_TOOLS_SOURCE = Path("SkullbonezSource/Runtime/Replay/RunReplayTools.cpp")
@@ -14173,7 +14173,7 @@ def run_self_tests() -> list[str]:
         m_cGameModelCollection.TrySetModelAngularVelocity( modelIndex, angularVelocity );
     }
     """
-    expect_error('old mouse pickup model-index command synthetic surface was not rejected', check_mouse_pickup_model_index_physics_command_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunMousePickupTools.inl"), old_mouse_pickup_model_index_command, ), 'mouse pickup model-index physics command is blocked')
+    expect_error('old mouse pickup model-index command synthetic surface was not rejected', check_mouse_pickup_model_index_physics_command_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunMousePickupTools.cpp"), old_mouse_pickup_model_index_command, ), 'mouse pickup model-index physics command is blocked')
 
     allowed_mouse_pickup_handle_command = """
     void Run::ApplyMousePickupPhysicsStep()
@@ -14186,7 +14186,7 @@ def run_self_tests() -> list[str]:
         m_cGameModelCollection.GetPhysicsEngine().ApplyBodyImpulse( pickup.body, impulse, ZERO_VECTOR );
     }
     """
-    expect_clean('handle-keyed mouse pickup command synthetic surface was rejected', check_mouse_pickup_model_index_physics_command_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunMousePickupTools.inl"), allowed_mouse_pickup_handle_command, ))
+    expect_clean('handle-keyed mouse pickup command synthetic surface was rejected', check_mouse_pickup_model_index_physics_command_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunMousePickupTools.cpp"), allowed_mouse_pickup_handle_command, ))
 
     commented_mouse_pickup_model_index_command = """
     void DocumentOldMousePickupCommand()
@@ -14196,7 +14196,7 @@ def run_self_tests() -> list[str]:
         m_cGameModelCollection.GetPhysicsEngine().ApplyBodyImpulse( pickup.body, impulse, ZERO_VECTOR );
     }
     """
-    expect_clean('comment-only mouse pickup model-index command synthetic text was rejected', check_mouse_pickup_model_index_physics_command_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunMousePickupTools.inl"), commented_mouse_pickup_model_index_command, ))
+    expect_clean('comment-only mouse pickup model-index command synthetic text was rejected', check_mouse_pickup_model_index_physics_command_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunMousePickupTools.cpp"), commented_mouse_pickup_model_index_command, ))
 
     old_mouse_pickup_game_model_body_read = """
     void Run::ApplyMousePickupPhysicsStep()
@@ -14211,7 +14211,7 @@ def run_self_tests() -> list[str]:
         Vector3 impulse = pull - model->GetVelocity();
     }
     """
-    expect_error('old mouse pickup GameModel body read synthetic surface was not rejected', check_mouse_pickup_model_index_physics_command_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunMousePickupTools.inl"), old_mouse_pickup_game_model_body_read, ), 'mouse pickup GameModel body read is blocked')
+    expect_error('old mouse pickup GameModel body read synthetic surface was not rejected', check_mouse_pickup_model_index_physics_command_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunMousePickupTools.cpp"), old_mouse_pickup_game_model_body_read, ), 'mouse pickup GameModel body read is blocked')
 
     allowed_mouse_pickup_body_store_read = """
     void Run::ApplyMousePickupPhysicsStep()
@@ -14225,7 +14225,7 @@ def run_self_tests() -> list[str]:
         }
     }
     """
-    expect_clean('store-owned mouse pickup body read synthetic surface was rejected', check_mouse_pickup_model_index_physics_command_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunMousePickupTools.inl"), allowed_mouse_pickup_body_store_read, ))
+    expect_clean('store-owned mouse pickup body read synthetic surface was rejected', check_mouse_pickup_model_index_physics_command_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunMousePickupTools.cpp"), allowed_mouse_pickup_body_store_read, ))
 
     commented_mouse_pickup_game_model_body_read = """
     void DocumentOldMousePickupBodyRead()
@@ -14234,7 +14234,7 @@ def run_self_tests() -> list[str]:
         const Vector3 grabPoint = body->position + pickup.grabOffset;
     }
     """
-    expect_clean('comment-only mouse pickup GameModel body read synthetic text was rejected', check_mouse_pickup_model_index_physics_command_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunMousePickupTools.inl"), commented_mouse_pickup_game_model_body_read, ))
+    expect_clean('comment-only mouse pickup GameModel body read synthetic text was rejected', check_mouse_pickup_model_index_physics_command_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunMousePickupTools.cpp"), commented_mouse_pickup_game_model_body_read, ))
 
     old_mouse_pickup_overlay_model_body_read = """
     void BuildEditorToolOverlayTrace( EditorToolOverlayTraceContext context, const EditorToolOverlayTraceInput& input )

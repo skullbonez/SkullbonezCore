@@ -1018,10 +1018,6 @@ constexpr std::size_t REPLAY_PATH_MAX_FUTURE_NODES = 64;
 constexpr std::size_t REPLAY_PATH_MAX_ROOT_TARGETS = 12;
 constexpr std::size_t REPLAY_PATH_MAX_SEGMENTS = 260;
 constexpr float REPLAY_PATH_MIN_SEGMENT_DISTANCE_SQ = 0.0001f;
-constexpr float MOUSE_PICKUP_DEAD_ZONE = 0.04f;
-constexpr float MOUSE_PICKUP_STIFFNESS = 18.0f;
-constexpr float MOUSE_PICKUP_DAMPING = 1.35f;
-constexpr float MOUSE_PICKUP_MAX_IMPULSE = 260.0f;
 
 } // namespace
 
@@ -1968,7 +1964,6 @@ bool TryUpdateEditorPlacementPreview( EditorPlacementPreviewContext context,
 } // namespace SkullbonezCore
 
 
-#include "RunMousePickupTools.inl"
 #include "RunEditorGizmoTools.inl"
 #include "RunEditorOverlayTools.inl"
 #include "RunEditorObjectPlacement.inl"
