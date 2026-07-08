@@ -29,6 +29,8 @@ Related:
 */
 #pragma once
 
+#include "../../Core/SbResult.h"
+
 #include <vector>
 
 namespace SkullbonezCore
@@ -108,10 +110,14 @@ struct SceneSimpleRagdollAppendContext
 class SceneAuthoredSetup
 {
   public:
-    static void AppendSimpleRagdoll( SceneSimpleRagdollAppendContext context,
-                                     const Physics::RagdollBuildOptions& options );
+    // Returns a recoverable result because scene data and editor placement can
+    // fail capacity or identity constraints before the runtime loop owns them.
+    static SbResult AppendSimpleRagdoll( SceneSimpleRagdollAppendContext context,
+                                         const Physics::RagdollBuildOptions& options );
     static void SetUpCameras( SceneAuthoredCameraContext context, const TestScene& scene );
-    static void SetUpGameModels( SceneAuthoredModelContext context, const TestScene& scene );
+    // Returns failure before required gates are resolved when model population
+    // cannot append a requested scene object.
+    static SbResult SetUpGameModels( SceneAuthoredModelContext context, const TestScene& scene );
     static void SetUpRequiredContacts( SceneAuthoredModelContext context, const TestScene& scene );
     static void SetUpRequiredBroadphaseXCells( SceneAuthoredModelContext context, const TestScene& scene );
 };

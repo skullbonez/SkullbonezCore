@@ -194,7 +194,8 @@ bool RuntimeTools::HasLingeredRayCastLine( float maxAgeSeconds ) const
 
 bool RuntimeTools::HasSelectionOverlayWork( int modelCount, RunCameraMode cameraMode ) const
 {
-    const bool selectedModelValid = m_editor.selectedModelIndex >= 0 && m_editor.selectedModelIndex < modelCount;
+    const bool selectedModelValid =
+        m_editor.selectedBody.IsValid() && m_editor.selectedCollider.IsValid() && modelCount >= 0;
     const bool placementPreview =
         m_editor.editorModeEnabled && m_editor.placementModeEnabled && m_editor.placementPreviewVisible;
     const bool editorSelection = m_editor.editorModeEnabled && !m_editor.placementModeEnabled && selectedModelValid;
@@ -205,9 +206,9 @@ bool RuntimeTools::HasSelectionOverlayWork( int modelCount, RunCameraMode camera
     return placementPreview || editorSelection || inspectSelection || attachSelection;
 }
 
-bool RuntimeTools::HasMousePickupOverlayWork( int modelCount ) const
+bool RuntimeTools::HasMousePickupOverlayWork() const
 {
-    return m_mousePickup.active && m_mousePickup.modelIndex >= 0 && m_mousePickup.modelIndex < modelCount;
+    return m_mousePickup.active && m_mousePickup.body.IsValid();
 }
 
 bool RuntimeTools::HasLauncherShots() const
@@ -554,7 +555,7 @@ bool RuntimeTools::FireLauncherProjectile( GameObjects::GameModelCollection& col
     const Math::CollisionDetection::BoundingSphere projectileShape( LAUNCHER_PROJECTILE_RADIUS,
                                                                     Math::Vector::Vector3( 0.0f, 0.0f, 0.0f ) );
     const Physics::PhysicsSceneObjectId sceneObjectId = scene.AllocateSceneObjectId();
-    const Physics::PhysicsBodyHandle projectileBody = collection.AddGameModel(
+    const auto appendResult = collection.AddGameModel(
         std::move( projectile ),
         Physics::MakePhysicsBodyCreateDesc( sceneObjectId,
                                             projectileShape,
@@ -570,6 +571,12 @@ bool RuntimeTools::FireLauncherProjectile( GameObjects::GameModelCollection& col
                                             "launcher_projectile" ),
         Physics::MakeColliderCreateDesc( projectileShape, LAUNCHER_PROJECTILE_RESTITUTION, HashStr( "default" ) ),
         sceneObjectId );
+    if ( !appendResult.status.ok )
+    {
+        fprintf( stderr, "[runtime-tools] launcher projectile append failed: %s\n", appendResult.status.error.message );
+        return false;
+    }
+    const Physics::PhysicsBodyHandle projectileBody = appendResult.body;
     if ( projectileBody.IsValid() )
     {
         physics.WakeBody( projectileBody );

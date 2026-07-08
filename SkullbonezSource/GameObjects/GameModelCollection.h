@@ -35,7 +35,7 @@ Glossary:
   Replay body id: PhysicsBodyStore row identity saved in replay samples so
     restore paths can reject stale model slots.
   Validation gate: Repository script that proves a class of changes before
-  commit or PR.
+    commit or PR.
 
 Invariants:
   - SceneEntityStore is the stable scene-order owner; collaborators mirror or
@@ -66,6 +66,7 @@ Related:
 #include <vector>
 
 #include "GameModel.h"
+#include "../Core/SbResult.h"
 #include "../Maths/Matrix4.h"
 #include "../Physics/PhysicsApi.h"
 #include "../Physics/PhysicsEngine.h"
@@ -106,6 +107,7 @@ struct PhysicsColliderCreateDesc;
 namespace Rendering
 {
 class IRenderCommandContext;
+class IRenderDiagnostics;
 class IRenderResourceFactory;
 } // namespace Rendering
 
@@ -147,6 +149,16 @@ struct PhysicsBodyStateEdit
     Math::Vector::Vector3 linearVelocity;
     bool hasAngularVelocity = false;
     Math::Vector::Vector3 angularVelocity;
+};
+
+// Concept: append carries both the recoverable status and the created body
+// handle. Scene files, generated setup, editor placement, and runtime tools can
+// exceed capacity or supply invalid creation metadata; callers must check the
+// status before using the handle.
+struct GameModelAppendResult
+{
+    Basics::SbResult status;
+    Physics::PhysicsBodyHandle body;
 };
 
 /* -- Game Model Collection
@@ -215,9 +227,10 @@ class GameModelCollection
     bool m_renderCollisionVolumes = false;                       // Cached render debug toggle copied from EngineConfig.
     bool m_shadowParallelPrep = false;                           // Cached worker-prep toggle copied from EngineConfig.
     void ReserveForActiveGameModelCapacity();
-    SceneObjectGroupRecord BuildSceneObjectGroupForAppend( const GameModel& gameModel,
-                                                           int newModelIndex,
-                                                           SceneObjectGroupCreateDesc groupDesc );
+    Basics::SbResult BuildSceneObjectGroupForAppend( const GameModel& gameModel,
+                                                     int newModelIndex,
+                                                     SceneObjectGroupCreateDesc groupDesc,
+                                                     SceneObjectGroupRecord& outGroup );
     SceneObjectGroupRecord GroupRecordAt( int modelIndex ) const;
     // Owner boundary: fixed-tree grouping is collection metadata. Body-store
     // import receives only the scalar root, never collection-kind accessors.
@@ -230,11 +243,11 @@ class GameModelCollection
     bool RepairPhysicsBodyTopology();
     int FixedTreeReleaseRootForModelIndex( int modelIndex ) const;
     void RefreshRenderInstances();
-    Physics::PhysicsBodyHandle AppendGameModelAndPhysicsRows( GameModel gameModel,
-                                                              Physics::PhysicsBodyCreateDesc bodyDesc,
-                                                              Physics::PhysicsSceneObjectId sceneObjectId,
-                                                              Physics::PhysicsColliderCreateDesc colliderDesc,
-                                                              SceneObjectGroupCreateDesc groupDesc );
+    GameModelAppendResult AppendGameModelAndPhysicsRows( GameModel gameModel,
+                                                         Physics::PhysicsBodyCreateDesc bodyDesc,
+                                                         Physics::PhysicsSceneObjectId sceneObjectId,
+                                                         Physics::PhysicsColliderCreateDesc colliderDesc,
+                                                         SceneObjectGroupCreateDesc groupDesc );
 
   public:
     GameModelCollection();
@@ -247,11 +260,12 @@ class GameModelCollection
     Threading::WorkerPool* RenderWorkerPool() const;
     // Appends model storage while importing caller-owned collider shape/material
     // facts and any explicit scene-object grouping directly into owner stores.
-    Physics::PhysicsBodyHandle AddGameModel( GameModel gameModel,
-                                             Physics::PhysicsBodyCreateDesc bodyDesc,
-                                             Physics::PhysicsColliderCreateDesc colliderDesc,
-                                             Physics::PhysicsSceneObjectId sceneObjectId,
-                                             SceneObjectGroupCreateDesc groupDesc = {} );
+    // Callers must handle a failed status before using the returned body handle.
+    GameModelAppendResult AddGameModel( GameModel gameModel,
+                                        Physics::PhysicsBodyCreateDesc bodyDesc,
+                                        Physics::PhysicsColliderCreateDesc colliderDesc,
+                                        Physics::PhysicsSceneObjectId sceneObjectId,
+                                        SceneObjectGroupCreateDesc groupDesc = {} );
     void Clear();
     int CopyDxrModelMatrices( float* outMatrixFloats, int maxModelCount );
     void RenderModels( const Basics::RenderHelperContext& helperContext,
@@ -295,7 +309,10 @@ class GameModelCollection
                             float flatBaseY = 0.0f,
                             float flatSlopeX = 0.0f,
                             float flatSlopeZ = 0.0f );
-    Math::Vector::Vector3 GetModelPosition( int index );
+    // Legacy object-follow cameras can outlive the model slots they track.
+    // Returns false only for an absent slot; a present model without a body is
+    // store-topology drift and still fails through the fatal invariant lane.
+    bool TryGetModelPosition( int index, Math::Vector::Vector3& outPosition ) const;
     // Scene entity count is the stable model-slot count shared by scene files,
     // editor picks, replay streams, and cold owner-repair boundaries.
     int SceneEntityCount() const;
@@ -417,15 +434,23 @@ class GameModelCollection
     }
     void UpdateCollisionVisualizer( Physics::CollisionVisualizer& visualizer, float deltaSeconds );
     void UpdatePhysicsDebugVisualizer( Physics::PhysicsDebugVisualizer& visualizer, float deltaSeconds );
+    // Packages collision-store views for solid state rendering; caller supplies
+    // frame-owned renderer capabilities so debug drawing cannot reopen globals.
     void RenderCollisionStateSolids( Physics::CollisionVisualizer& visualizer,
                                      Assets::AssetSystem& assets,
                                      Rendering::IRenderResourceFactory& renderResources,
+                                     Rendering::IRenderCommandContext& renderCommands,
+                                     Rendering::IRenderDiagnostics& renderDiagnostics,
                                      const Math::Transformation::Matrix4& view,
                                      const Math::Transformation::Matrix4& proj,
                                      const float lightPos[4],
                                      float alphaOverride );
+    // Packages physics store views for debug drawing; caller supplies the
+    // frame-owned renderer command context and debug-line capability.
     void RenderPhysicsDebug( Physics::PhysicsDebugVisualizer& visualizer,
                              const Math::Transformation::Matrix4& viewProjection,
+                             Rendering::IRenderCommandContext& renderCommands,
+                             bool supportsDebugLines,
                              Geometry::Terrain* terrain );
     void RenderTornadoFieldVectors( const Math::Transformation::Matrix4& viewProj,
                                     Rendering::IRenderCommandContext& renderCommands,

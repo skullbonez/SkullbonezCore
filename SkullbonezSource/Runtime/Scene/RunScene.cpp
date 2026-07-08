@@ -13,6 +13,8 @@ Glossary:
   validation and tooling paths.
   DXR (DirectX Raytracing): DX12 API used for hardware ray traversal and
   reflection dispatch.
+  Lane R result: Recoverable scene-load failure carrying owner/message
+    diagnostics while the runtime stays alive.
   Required scene contact: Authored pair gate that marks a scenario objective
     once two bodies have produced an exact contact.
   Validation gate: Repository script that proves a class of changes before
@@ -40,6 +42,7 @@ Related:
 #include "../../Physics/ObjectContactManifold.h"
 #include "../../Physics/PhysicsBodyStore.h"
 #include "../../Physics/Ragdoll.h"
+#include "../../Core/SbResult.h"
 #include "../../Core/WorkerPool.h"
 #include "../../Rendering/IRenderBackend.h"
 #include "../../Rendering/IRenderRayTracing.h"
@@ -120,6 +123,21 @@ void ApplyEditorPlacedSphereMaterial( GameModel& model )
     {
         model.SetRenderTint( 1.0f, 1.0f, 1.0f, SCENE_EDITOR_TEXTURE_MODE_INVERTED );
     }
+}
+
+void LogSceneLoadFailure( const SbResult& result, const std::string& scenePath )
+{
+    // Why: scene setup is a recoverable load boundary. Logging the owner keeps
+    // automation and operators on a concrete failing subsystem without treating
+    // malformed scene/generated input as an engine invariant failure.
+    const char* owner = result.error.owner && result.error.owner[0] != '\0' ? result.error.owner : "Runtime/Scene";
+    const char* message =
+        result.error.message[0] != '\0' ? result.error.message : "scene setup failed without a message";
+    fprintf( stderr,
+             "[scene] scene_load_failed owner=%s path=\"%s\" reason=\"%s\"\n",
+             owner,
+             scenePath.empty() ? "<generated>" : scenePath.c_str(),
+             message );
 }
 
 bool IsCineScenePath( const std::string& path )
@@ -343,11 +361,11 @@ void ApplyNoWaterOverride( WorldEnvironment& world, Terrain* terrain, bool noWat
     world.SetFluidSurfaceHeight( terrain->GetMinHeight() - NO_WATER_TERRAIN_CLEARANCE );
 }
 
-void UseDefaultTerrain( RunSubsystemState& systems,
-                        WorldEnvironment& world,
-                        const EngineConfig& config,
-                        const std::string& terrainRawPath,
-                        IRenderBackend* renderer )
+SbResult UseDefaultTerrain( RunSubsystemState& systems,
+                            WorldEnvironment& world,
+                            const EngineConfig& config,
+                            const std::string& terrainRawPath,
+                            IRenderBackend* renderer )
 {
     assert( renderer );
     auto& renderResources = static_cast<SkullbonezCore::Rendering::IRenderResourceFactory&>( *renderer );
@@ -357,8 +375,22 @@ void UseDefaultTerrain( RunSubsystemState& systems,
         {
             renderer->FlushGPU();
         }
-        systems.terrain =
-            std::make_unique<Terrain>( terrainRawPath.c_str(), 256, 8, 15, config, systems.assets, renderResources );
+        std::unique_ptr<Terrain> terrain;
+        const SbResult terrainResult = Terrain::TryCreateFromHeightMap( terrainRawPath.c_str(),
+                                                                        256,
+                                                                        8,
+                                                                        15,
+                                                                        config,
+                                                                        systems.assets,
+                                                                        renderResources,
+                                                                        terrain );
+        if ( !terrainResult.ok )
+        {
+            // Why: RAW terrain is external scene/config input. Report the load
+            // failure before replacing the currently owned terrain.
+            return terrainResult;
+        }
+        systems.terrain = std::move( terrain );
         systems.isFlatSlopeTerrain = false;
     }
     else
@@ -367,6 +399,7 @@ void UseDefaultTerrain( RunSubsystemState& systems,
     }
 
     UpdateWorldTerrainBounds( world, systems.terrain.get() );
+    return SbResult::Success();
 }
 
 void UseFlatSlopeTerrain( RunSubsystemState& systems,
@@ -587,8 +620,9 @@ bool Run::RequiredSceneBroadphaseXCellsComplete() const
 }
 
 
-void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplete, bool preserveRuntimeState )
+SbResult Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplete, bool preserveRuntimeState )
 {
+    m_lastSceneLoadResult = SbResult::Success();
     RuntimeAllocation::RuntimeAllocationScope allocationScope( RuntimeAllocation::RuntimeAllocationPhase::SceneLoad );
     SceneController& runtime = m_sceneController;
     SceneRuntimeResetContext resetContext{ m_runtimeSettings,
@@ -611,7 +645,7 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
         BeginSceneRuntimeLoad( loadBeginContext, index, suppressExitOnComplete, preserveRuntimeState );
     if ( !loadBegin.shouldLoad )
     {
-        return;
+        return m_lastSceneLoadResult;
     }
 
     const bool suppressAutomationExit = loadBegin.suppressAutomationExit;
@@ -713,12 +747,18 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
         }
         SceneState().rngSeed = rngSeed;
         SceneState().rngState = rngSeed;
-        UseDefaultTerrain(
+        const SbResult terrainResult = UseDefaultTerrain(
             m_systems,
             m_cWorldEnvironment,
             m_config,
             ResolveSourceAssetPath( SkullbonezCore::Assets::AssetKind::Terrain, "terrain.raw", m_config.terrainRaw ),
             m_renderBackendView.renderBackend );
+        if ( !terrainResult.ok )
+        {
+            m_lastSceneLoadResult = terrainResult;
+            LogSceneLoadFailure( terrainResult, scenePath );
+            return m_lastSceneLoadResult;
+        }
         ApplyConfiguredWorldEnvironment( m_cWorldEnvironment, m_config, m_systems.terrain.get() );
         ApplyNoWaterOverride( m_cWorldEnvironment, m_systems.terrain.get(), m_launchOptions.noWater );
         if ( shouldPreserveRuntimeState )
@@ -734,7 +774,7 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
 
         SceneState().isSceneMode = false;
         SceneGeneratedSetup::SetUpCameras( BuildSceneGeneratedCameraContext( *m_systems.cameras, *m_systems.terrain ) );
-        SceneGeneratedSetup::TrySetUpRequestedModels(
+        const SceneGeneratedSetupResult generatedSetup = SceneGeneratedSetup::TrySetUpRequestedModels(
             BuildSceneGeneratedModelContext( SceneState(),
                                              m_config,
                                              m_cWorldEnvironment,
@@ -749,6 +789,12 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
                                              0,
                                              DEFAULT_GAME_MODELS },
             true );
+        if ( !generatedSetup.status.ok )
+        {
+            m_lastSceneLoadResult = generatedSetup.status;
+            LogSceneLoadFailure( generatedSetup.status, scenePath );
+            return m_lastSceneLoadResult;
+        }
         ApplyDemoHeroStyleOverride( SceneRuntimeStyleContext{ m_launchOptions,
                                                               SceneState(),
                                                               m_sceneController.Browser(),
@@ -766,7 +812,14 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
     else
     {
         SceneState().isSceneMode = true;
-        TestScene scene = TestScene::LoadFromFile( scenePath.c_str(), m_systems.assets );
+        TestScene scene;
+        const SbResult sceneLoad = TestScene::TryLoadFromFile( scenePath.c_str(), m_systems.assets, scene );
+        if ( !sceneLoad.ok )
+        {
+            m_lastSceneLoadResult = sceneLoad;
+            LogSceneLoadFailure( sceneLoad, scenePath );
+            return m_lastSceneLoadResult;
+        }
         hasSceneTornadoSystem = scene.HasTornadoSystem();
         if ( hasSceneTornadoSystem )
         {
@@ -875,13 +928,20 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
         else
         {
             SceneState().hasFlatSlope = false;
-            UseDefaultTerrain( m_systems,
-                               m_cWorldEnvironment,
-                               m_config,
-                               ResolveSourceAssetPath( SkullbonezCore::Assets::AssetKind::Terrain,
-                                                       "terrain.raw",
-                                                       m_config.terrainRaw ),
-                               m_renderBackendView.renderBackend );
+            const SbResult terrainResult =
+                UseDefaultTerrain( m_systems,
+                                   m_cWorldEnvironment,
+                                   m_config,
+                                   ResolveSourceAssetPath( SkullbonezCore::Assets::AssetKind::Terrain,
+                                                           "terrain.raw",
+                                                           m_config.terrainRaw ),
+                                   m_renderBackendView.renderBackend );
+            if ( !terrainResult.ok )
+            {
+                m_lastSceneLoadResult = terrainResult;
+                LogSceneLoadFailure( terrainResult, scenePath );
+                return m_lastSceneLoadResult;
+            }
         }
 
         ApplyConfiguredWorldEnvironment( m_cWorldEnvironment, m_config, m_systems.terrain.get() );
@@ -911,7 +971,7 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
         SceneAuthoredSetup::SetUpCameras( BuildSceneAuthoredCameraContext( *m_systems.cameras, *m_systems.terrain ),
                                           scene );
 
-        const bool generatedModelsApplied = SceneGeneratedSetup::TrySetUpRequestedModels(
+        const SceneGeneratedSetupResult generatedModels = SceneGeneratedSetup::TrySetUpRequestedModels(
             BuildSceneGeneratedModelContext( SceneState(),
                                              m_config,
                                              m_cWorldEnvironment,
@@ -926,9 +986,15 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
                                              scene.GetSolverBoxCount(),
                                              0 },
             false );
-        if ( !generatedModelsApplied )
+        if ( !generatedModels.status.ok )
         {
-            SceneAuthoredSetup::SetUpGameModels(
+            m_lastSceneLoadResult = generatedModels.status;
+            LogSceneLoadFailure( generatedModels.status, scenePath );
+            return m_lastSceneLoadResult;
+        }
+        if ( !generatedModels.applied )
+        {
+            const SbResult authoredSetup = SceneAuthoredSetup::SetUpGameModels(
                 BuildSceneAuthoredModelContext( SceneState(),
                                                 m_cWorldEnvironment,
                                                 m_systems.terrain.get(),
@@ -937,6 +1003,12 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
                                                 m_requiredSceneContacts,
                                                 m_requiredBroadphaseXCells ),
                 scene );
+            if ( !authoredSetup.ok )
+            {
+                m_lastSceneLoadResult = authoredSetup;
+                LogSceneLoadFailure( authoredSetup, scenePath );
+                return m_lastSceneLoadResult;
+            }
         }
         // Physics regression log: current-solver per-frame CSV enabled only by command line.
 #ifdef _DEBUG
@@ -1149,16 +1221,21 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
     SkullbonezCore::Rendering::IRenderRayTracing* rayTracing = m_renderBackendView.rayTracingBackend;
     SkullbonezCore::Rendering::IRenderResourceFactory* renderResources = m_renderBackendView.renderResources;
     SkullbonezCore::Rendering::IRenderCommandContext* renderCommands = m_renderBackendView.renderCommands;
+    SkullbonezCore::Rendering::IRenderDiagnostics* renderDiagnostics = m_renderBackendView.renderDiagnostics;
     const bool hasRayTracingReflection =
-        m_renderBackendView.renderDiagnostics &&
-        m_renderBackendView.renderDiagnostics->GetCapabilities().supportsDxrReflection && rayTracing;
+        renderDiagnostics && renderDiagnostics->GetCapabilities().supportsDxrReflection && rayTracing;
     if ( hasRayTracingReflection && RenderHelper::GetSphereInstMeshHandle() == 0 )
     {
-        if ( !renderResources || !renderCommands )
+        if ( !renderResources || !renderCommands || !renderDiagnostics )
         {
-            throw std::runtime_error( "DXR reflection initialization requires render resource and command facets" );
+            throw std::runtime_error(
+                "DXR reflection initialization requires render resource, command, and diagnostics facets" );
         }
-        const RenderHelperContext helperContext{ *renderResources, *renderCommands, m_systems.assets, m_config };
+        const RenderHelperContext helperContext{ *renderResources,
+                                                 *renderCommands,
+                                                 *renderDiagnostics,
+                                                 m_systems.assets,
+                                                 m_config };
         RenderHelper::EnsureSphereMesh( helperContext );
     }
     if ( hasRayTracingReflection && m_systems.terrain && m_systems.terrain->GetMesh() )
@@ -1185,6 +1262,8 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
         }
     }
     runtime.RecordLifecycleEvent( SceneRuntimeLifecycleEvent::AfterSceneActivated );
+    m_lastSceneLoadResult = SbResult::Success();
+    return m_lastSceneLoadResult;
 }
 
 

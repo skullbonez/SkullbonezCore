@@ -32,7 +32,7 @@ Related:
 #include "../ColliderStore.h"
 #include "../CollisionShape.h"
 #include "../PhysicsBodyStore.h"
-#include "../../Rendering/IRenderBackend.h"
+#include "../../Rendering/IRenderCommandContext.h"
 #include "../../Maths/Quaternion.h"
 #include "../../World/Terrain.h"
 
@@ -602,9 +602,11 @@ void PhysicsDebugVisualizer::Update( float dt, const PhysicsDebugFrameView& view
 
 void PhysicsDebugVisualizer::Render( const PhysicsDebugFrameView& view,
                                      const Matrix4& viewProj,
+                                     IRenderCommandContext& renderCommands,
+                                     bool supportsDebugLines,
                                      Geometry::Terrain* terrain )
 {
-    if ( m_flags == PHYSICS_DEBUG_NONE || view.modelCount <= 0 || !Gfx().GetCapabilities().supportsDebugLines )
+    if ( m_flags == PHYSICS_DEBUG_NONE || view.modelCount <= 0 || !supportsDebugLines )
     {
         return;
     }
@@ -637,6 +639,10 @@ void PhysicsDebugVisualizer::Render( const PhysicsDebugFrameView& view,
 
     if ( !m_lineData.empty() )
     {
-        Gfx().DrawLinesColored( m_lineData.data(), static_cast<int>( m_lineData.size() / 6 ), viewProj.Data() );
+        // Why: DebugOverlayPass resolves renderer readiness once per frame; this
+        // visualizer only owns physics diagnostic geometry.
+        renderCommands.DrawLinesColored( m_lineData.data(),
+                                         static_cast<int>( m_lineData.size() / 6 ),
+                                         viewProj.Data() );
     }
 }

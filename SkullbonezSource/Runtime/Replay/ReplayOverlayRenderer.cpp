@@ -31,6 +31,7 @@ Related:
 #include "ReplayOverlayLayout.h"
 #include "../../Core/Common.h"
 #include "../../Core/Profiler.h"
+#include "../../Physics/PhysicsTimestep.h"
 #include "../../Rendering/Text.h"
 #include "../../UI/UIDraw.h"
 #include "../../UI/UIStyle.h"

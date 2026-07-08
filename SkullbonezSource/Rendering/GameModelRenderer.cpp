@@ -35,7 +35,7 @@ Related:
 #include "../Core/Config.h"
 #include "../Physics/ColliderStore.h"
 #include "Helper.h"
-#include "IRenderBackend.h"
+#include "IRenderDiagnostics.h"
 #include "RenderInstanceStore.h"
 #include "../Core/Profiler.h"
 #include "../Core/WorkerPool.h"
@@ -64,13 +64,228 @@ namespace
 {
 constexpr int PINE_VISUAL_MATERIAL_MODE = 13;
 constexpr int SHADOW_PARALLEL_PREP_MIN_CASTERS = 512;
-constexpr bool SHADOW_PARALLEL_PREP_WORKER_ENABLED = false;
+constexpr bool SHADOW_PARALLEL_PREP_WORKER_ENABLED = true;
+
+enum class ShadowCasterStream : uint8_t
+{
+    None,
+    Sphere,
+    Box,
+    Pine,
+    ConvexHull
+};
+
+struct ShadowCasterStreamCounts
+{
+    int spheres = 0;
+    int boxes = 0;
+    int pines = 0;
+    int convexHulls = 0;
+};
 
 bool IsPineVisualMaterial( const RenderMaterial& material )
 {
     return material.kind == RenderMaterialKind::Pine ||
            ( material.textureMode > 1.25f &&
              static_cast<int>( std::floor( material.textureMode + 0.5f ) ) == PINE_VISUAL_MATERIAL_MODE );
+}
+
+ShadowCasterStream ResolveShadowCasterStream( const RenderInstanceRecord& instance,
+                                              int modelIndex,
+                                              const ColliderRecordList& colliders,
+                                              const ConvexHullShape*& outHull )
+{
+    outHull = nullptr;
+    if ( instance.shapeKind == RenderInstanceShapeKind::Sphere )
+    {
+        return ShadowCasterStream::Sphere;
+    }
+
+    if ( instance.shapeKind == RenderInstanceShapeKind::ConvexHull )
+    {
+        if ( modelIndex < 0 || static_cast<std::size_t>( modelIndex ) >= colliders.size() )
+        {
+            return ShadowCasterStream::None;
+        }
+        const ColliderRecord& collider = colliders[static_cast<std::size_t>( modelIndex )];
+        const ConvexHullShape* hull = std::get_if<ConvexHullShape>( &collider.shape );
+        if ( hull )
+        {
+            outHull = hull;
+            return ShadowCasterStream::ConvexHull;
+        }
+        return ShadowCasterStream::None;
+    }
+
+    return IsPineVisualMaterial( instance.material ) ? ShadowCasterStream::Pine : ShadowCasterStream::Box;
+}
+
+void IncrementShadowCasterCount( ShadowCasterStreamCounts& counts, ShadowCasterStream stream )
+{
+    switch ( stream )
+    {
+    case ShadowCasterStream::Sphere:
+        ++counts.spheres;
+        break;
+    case ShadowCasterStream::Box:
+        ++counts.boxes;
+        break;
+    case ShadowCasterStream::Pine:
+        ++counts.pines;
+        break;
+    case ShadowCasterStream::ConvexHull:
+        ++counts.convexHulls;
+        break;
+    case ShadowCasterStream::None:
+        break;
+    }
+}
+
+void AppendShadowCasterToBatches( const RenderInstanceRecord& instance,
+                                  int modelIndex,
+                                  const ColliderRecordList& colliders,
+                                  ShadowCasterBatches& batches )
+{
+    const ConvexHullShape* hull = nullptr;
+    switch ( ResolveShadowCasterStream( instance, modelIndex, colliders, hull ) )
+    {
+    case ShadowCasterStream::Sphere:
+        batches.spheres.push_back( instance.modelMatrix );
+        break;
+    case ShadowCasterStream::Box:
+        batches.boxes.push_back( instance.modelMatrix );
+        break;
+    case ShadowCasterStream::Pine:
+        batches.pines.push_back( instance.modelMatrix );
+        break;
+    case ShadowCasterStream::ConvexHull:
+        // Lifetime: convex hull casters borrow ColliderStore geometry and are
+        // submitted during this shadow pass before collider storage refreshes.
+        batches.convexHulls.push_back( { hull, instance.modelMatrix } );
+        break;
+    case ShadowCasterStream::None:
+        break;
+    }
+}
+
+void CountShadowCasterRange( const std::vector<RenderInstanceRecord>& instances,
+                             const ColliderRecordList& colliders,
+                             int begin,
+                             int end,
+                             ShadowCasterStreamCounts& counts )
+{
+    counts = ShadowCasterStreamCounts();
+    for ( int x = begin; x < end; ++x )
+    {
+        const RenderInstanceRecord& instance = instances[static_cast<std::size_t>( x )];
+        const ConvexHullShape* hull = nullptr;
+        IncrementShadowCasterCount( counts, ResolveShadowCasterStream( instance, x, colliders, hull ) );
+    }
+}
+
+void AddShadowCasterCounts( ShadowCasterStreamCounts& total, const ShadowCasterStreamCounts& add )
+{
+    total.spheres += add.spheres;
+    total.boxes += add.boxes;
+    total.pines += add.pines;
+    total.convexHulls += add.convexHulls;
+}
+
+void ResizeShadowCasterBatchesNoAlloc( ShadowCasterBatches& batches, const ShadowCasterStreamCounts& totals )
+{
+    batches.spheres.resize( static_cast<std::size_t>( totals.spheres ) );
+    batches.boxes.resize( static_cast<std::size_t>( totals.boxes ) );
+    batches.pines.resize( static_cast<std::size_t>( totals.pines ) );
+    batches.convexHulls.resize( static_cast<std::size_t>( totals.convexHulls ) );
+}
+
+void FillShadowCasterRange( const std::vector<RenderInstanceRecord>& instances,
+                            const ColliderRecordList& colliders,
+                            int begin,
+                            int end,
+                            const ShadowCasterStreamCounts& offsets,
+                            ShadowCasterBatches& batches )
+{
+    ShadowCasterStreamCounts write = offsets;
+    for ( int x = begin; x < end; ++x )
+    {
+        const RenderInstanceRecord& instance = instances[static_cast<std::size_t>( x )];
+        const ConvexHullShape* hull = nullptr;
+        switch ( ResolveShadowCasterStream( instance, x, colliders, hull ) )
+        {
+        case ShadowCasterStream::Sphere:
+            batches.spheres[static_cast<std::size_t>( write.spheres++ )] = instance.modelMatrix;
+            break;
+        case ShadowCasterStream::Box:
+            batches.boxes[static_cast<std::size_t>( write.boxes++ )] = instance.modelMatrix;
+            break;
+        case ShadowCasterStream::Pine:
+            batches.pines[static_cast<std::size_t>( write.pines++ )] = instance.modelMatrix;
+            break;
+        case ShadowCasterStream::ConvexHull:
+            batches.convexHulls[static_cast<std::size_t>( write.convexHulls++ )] = { hull, instance.modelMatrix };
+            break;
+        case ShadowCasterStream::None:
+            break;
+        }
+    }
+}
+
+bool BuildShadowCasterBatchesWithWorkers( const std::vector<RenderInstanceRecord>& instances,
+                                          const ColliderRecordList& colliders,
+                                          SkullbonezCore::Threading::WorkerPool& workerPool,
+                                          int modelCount,
+                                          ShadowCasterBatches& outBatches )
+{
+    // Concept: shadow prep uses count/prefix/fill instead of chunk-local
+    // vectors. Counting gives each worker a stable output range for every
+    // caster stream, so the fill pass can run in parallel without allocating or
+    // reordering the serial sphere/box/pine/hull stream order.
+    SkullbonezCore::Threading::WorkerChunkRange chunks[SkullbonezCore::Threading::WorkerPool::MAX_PARALLEL_TASKS];
+    const int chunkCount =
+        workerPool.BuildChunkRangesNoAlloc( 0,
+                                            modelCount,
+                                            SHADOW_PARALLEL_PREP_MIN_CASTERS,
+                                            chunks,
+                                            SkullbonezCore::Threading::WorkerPool::MAX_PARALLEL_TASKS );
+    if ( chunkCount <= 1 )
+    {
+        return false;
+    }
+
+    ShadowCasterStreamCounts counts[SkullbonezCore::Threading::WorkerPool::MAX_PARALLEL_TASKS] = {};
+    workerPool.ParallelForChunksNoAlloc(
+        chunks,
+        chunkCount,
+        [&]( int chunkIndex, int begin, int end )
+        {
+            PROFILE_WORKER_SCOPED( "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters/BuildBatches/"
+                                   "OrderedWorkerCollect/WorkerBuildBatches" );
+            CountShadowCasterRange( instances, colliders, begin, end, counts[chunkIndex] );
+        } );
+
+    ShadowCasterStreamCounts offsets[SkullbonezCore::Threading::WorkerPool::MAX_PARALLEL_TASKS] = {};
+    ShadowCasterStreamCounts totals;
+    for ( int chunkIndex = 0; chunkIndex < chunkCount; ++chunkIndex )
+    {
+        offsets[chunkIndex] = totals;
+        AddShadowCasterCounts( totals, counts[chunkIndex] );
+    }
+
+    ResizeShadowCasterBatchesNoAlloc( outBatches, totals );
+    // Invariant: the output vectors are fully sized before this worker fill.
+    // Each chunk writes a disjoint prefix-summed range, so no worker may call a
+    // vector growth API or touch another chunk's elements.
+    workerPool.ParallelForChunksNoAlloc(
+        chunks,
+        chunkCount,
+        [&]( int chunkIndex, int begin, int end )
+        {
+            PROFILE_WORKER_SCOPED( "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters/BuildBatches/"
+                                   "OrderedWorkerCollect/WorkerFillBatches" );
+            FillShadowCasterRange( instances, colliders, begin, end, offsets[chunkIndex], outBatches );
+        } );
+    return true;
 }
 
 RenderMaterial MaterialWithContactHighlights( const RenderInstanceRecord& instance, bool box )
@@ -151,7 +366,7 @@ void GameModelRenderer::RenderModels( const RenderHelperContext& helperContext,
     };
 
     {
-        DRAW_CALL_TRACE_SCOPE( "Spheres" );
+        DRAW_CALL_TRACE_SCOPE( helperContext.renderDiagnostics, "Spheres" );
         RenderHelper::DrawSphereBatchBegin( helperContext,
                                             view,
                                             proj,
@@ -211,7 +426,7 @@ void GameModelRenderer::RenderModels( const RenderHelperContext& helperContext,
     };
 
     {
-        DRAW_CALL_TRACE_SCOPE( "Boxes" );
+        DRAW_CALL_TRACE_SCOPE( helperContext.renderDiagnostics, "Boxes" );
         RenderHelper::DrawBoxBatchBegin( helperContext,
                                          view,
                                          proj,
@@ -226,7 +441,7 @@ void GameModelRenderer::RenderModels( const RenderHelperContext& helperContext,
 
     if ( hasPineVisualModels )
     {
-        DRAW_CALL_TRACE_SCOPE( "Pines" );
+        DRAW_CALL_TRACE_SCOPE( helperContext.renderDiagnostics, "Pines" );
         RenderHelper::DrawPineBatchBegin( helperContext,
                                           view,
                                           proj,
@@ -240,7 +455,7 @@ void GameModelRenderer::RenderModels( const RenderHelperContext& helperContext,
     }
 
     {
-        DRAW_CALL_TRACE_SCOPE( "ConvexHulls" );
+        DRAW_CALL_TRACE_SCOPE( helperContext.renderDiagnostics, "ConvexHulls" );
         const ColliderRecordList* colliders = nullptr;
         for ( int x = 0; x < modelCount; ++x )
         {
@@ -309,50 +524,13 @@ void GameModelRenderer::BuildShadowCasterBatches( const RenderInstanceStore& ren
         throw std::runtime_error( "Shadow caster batch reserve exhausted" );
     }
 
+    const ColliderRecordList& colliders = colliderStore.Records();
     auto appendRange = [&]( int begin, int end, ShadowCasterBatches& batches )
     {
-        batches.Clear();
-        const ColliderRecordList* colliders = nullptr;
         for ( int x = begin; x < end; ++x )
         {
             const RenderInstanceRecord& instance = instances[static_cast<std::size_t>( x )];
-            if ( instance.shapeKind == RenderInstanceShapeKind::Sphere )
-            {
-                batches.spheres.push_back( instance.modelMatrix );
-                continue;
-            }
-
-            if ( instance.shapeKind == RenderInstanceShapeKind::ConvexHull )
-            {
-                if ( !colliders )
-                {
-                    colliders = &colliderStore.Records();
-                }
-                if ( static_cast<std::size_t>( x ) >= colliders->size() )
-                {
-                    continue;
-                }
-                const ColliderRecord& collider = ( *colliders )[static_cast<std::size_t>( x )];
-                // Lifetime: shadow batches hold pointers into ColliderStore
-                // records and are submitted in the same frame before the store
-                // is refreshed or compacted.
-                const ConvexHullShape* hull = std::get_if<ConvexHullShape>( &collider.shape );
-                if ( hull )
-                {
-                    batches.convexHulls.push_back( { hull, instance.modelMatrix } );
-                }
-                continue;
-            }
-
-            const bool isPineVisual = IsPineVisualMaterial( instance.material );
-            if ( isPineVisual )
-            {
-                batches.pines.push_back( instance.modelMatrix );
-            }
-            else
-            {
-                batches.boxes.push_back( instance.modelMatrix );
-            }
+            AppendShadowCasterToBatches( instance, x, colliders, batches );
         }
     };
 
@@ -360,28 +538,10 @@ void GameModelRenderer::BuildShadowCasterBatches( const RenderInstanceStore& ren
          modelCount >= SHADOW_PARALLEL_PREP_MIN_CASTERS )
     {
         PROFILE_SCOPED( "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters/BuildBatches/OrderedWorkerCollect" );
-        std::vector<ShadowCasterBatches> chunkOutputs;
-        workerPool->ParallelCollectOrdered<ShadowCasterBatches>(
-            0,
-            modelCount,
-            chunkOutputs,
-            [&]( int, int begin, int end, ShadowCasterBatches& local )
-            {
-                PROFILE_WORKER_SCOPED( "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters/BuildBatches/"
-                                       "OrderedWorkerCollect/WorkerBuildBatches" );
-                appendRange( begin, end, local );
-            },
-            [&]( int, const ShadowCasterBatches& local )
-            {
-                outBatches.spheres.insert( outBatches.spheres.end(), local.spheres.begin(), local.spheres.end() );
-                outBatches.boxes.insert( outBatches.boxes.end(), local.boxes.begin(), local.boxes.end() );
-                outBatches.pines.insert( outBatches.pines.end(), local.pines.begin(), local.pines.end() );
-                outBatches.convexHulls.insert( outBatches.convexHulls.end(),
-                                               local.convexHulls.begin(),
-                                               local.convexHulls.end() );
-            },
-            SHADOW_PARALLEL_PREP_MIN_CASTERS );
-        return;
+        if ( BuildShadowCasterBatchesWithWorkers( instances, colliders, *workerPool, modelCount, outBatches ) )
+        {
+            return;
+        }
     }
 
     appendRange( 0, modelCount, outBatches );
@@ -401,7 +561,7 @@ void GameModelRenderer::SubmitShadowCasterBatches( const RenderHelperContext& he
 
     {
         PROFILE_SCOPED( "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters/SubmitBatches/Spheres" );
-        DRAW_CALL_TRACE_SCOPE( "Spheres" );
+        DRAW_CALL_TRACE_SCOPE( helperContext.renderDiagnostics, "Spheres" );
 
         RenderHelper::DrawShadowDepthSphereBatchBegin( helperContext, view, proj, cinematic );
         for ( const Matrix4& model : batches.spheres )
@@ -413,7 +573,7 @@ void GameModelRenderer::SubmitShadowCasterBatches( const RenderHelperContext& he
 
     {
         PROFILE_SCOPED( "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters/SubmitBatches/Boxes" );
-        DRAW_CALL_TRACE_SCOPE( "Boxes" );
+        DRAW_CALL_TRACE_SCOPE( helperContext.renderDiagnostics, "Boxes" );
 
         RenderHelper::DrawShadowDepthBoxBatchBegin( helperContext, view, proj );
         for ( const Matrix4& model : batches.boxes )
@@ -426,7 +586,7 @@ void GameModelRenderer::SubmitShadowCasterBatches( const RenderHelperContext& he
     if ( !batches.pines.empty() )
     {
         PROFILE_SCOPED( "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters/SubmitBatches/Pines" );
-        DRAW_CALL_TRACE_SCOPE( "Pines" );
+        DRAW_CALL_TRACE_SCOPE( helperContext.renderDiagnostics, "Pines" );
 
         RenderHelper::DrawShadowDepthPineBatchBegin( helperContext, view, proj );
         for ( const Matrix4& model : batches.pines )
@@ -439,7 +599,7 @@ void GameModelRenderer::SubmitShadowCasterBatches( const RenderHelperContext& he
     if ( !batches.convexHulls.empty() )
     {
         PROFILE_SCOPED( "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters/SubmitBatches/ConvexHulls" );
-        DRAW_CALL_TRACE_SCOPE( "ConvexHulls" );
+        DRAW_CALL_TRACE_SCOPE( helperContext.renderDiagnostics, "ConvexHulls" );
 
         for ( const auto& caster : batches.convexHulls )
         {
@@ -545,19 +705,34 @@ bool GameModelRenderer::GetObjectShadowBounds( const RenderInstanceStore& render
          modelCount >= SHADOW_PARALLEL_PREP_MIN_CASTERS )
     {
         PROFILE_SCOPED( "Frame/Shadows/ShadowMap/BuildObjectFrame/ObjectBounds/OrderedWorkerCollect" );
-        std::vector<BoundsAccumulator> chunkOutputs;
-        workerPool->ParallelCollectOrdered<BoundsAccumulator>(
-            0,
-            modelCount,
-            chunkOutputs,
-            [&]( int, int begin, int end, BoundsAccumulator& local )
+        SkullbonezCore::Threading::WorkerChunkRange chunks[SkullbonezCore::Threading::WorkerPool::MAX_PARALLEL_TASKS];
+        const int chunkCount =
+            workerPool->BuildChunkRangesNoAlloc( 0,
+                                                 modelCount,
+                                                 SHADOW_PARALLEL_PREP_MIN_CASTERS,
+                                                 chunks,
+                                                 SkullbonezCore::Threading::WorkerPool::MAX_PARALLEL_TASKS );
+        if ( chunkCount > 1 )
+        {
+            BoundsAccumulator chunkOutputs[SkullbonezCore::Threading::WorkerPool::MAX_PARALLEL_TASKS] = {};
+            workerPool->ParallelForChunksNoAlloc(
+                chunks,
+                chunkCount,
+                [&]( int chunkIndex, int begin, int end )
+                {
+                    PROFILE_WORKER_SCOPED( "Frame/Shadows/ShadowMap/BuildObjectFrame/ObjectBounds/"
+                                           "OrderedWorkerCollect/WorkerScanBounds" );
+                    scanBoundsRange( begin, end, chunkOutputs[chunkIndex] );
+                } );
+            for ( int chunkIndex = 0; chunkIndex < chunkCount; ++chunkIndex )
             {
-                PROFILE_WORKER_SCOPED(
-                    "Frame/Shadows/ShadowMap/BuildObjectFrame/ObjectBounds/OrderedWorkerCollect/WorkerScanBounds" );
-                scanBoundsRange( begin, end, local );
-            },
-            [&]( int, const BoundsAccumulator& local ) { mergeBounds( bounds, local ); },
-            SHADOW_PARALLEL_PREP_MIN_CASTERS );
+                mergeBounds( bounds, chunkOutputs[chunkIndex] );
+            }
+        }
+        else
+        {
+            scanBoundsRange( 0, modelCount, bounds );
+        }
     }
     else
     {

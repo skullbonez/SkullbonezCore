@@ -13,6 +13,8 @@ Glossary:
   RuntimeRenderer: Owner of pass instances and the frame pass order.
   Pass order: The stable sequence of sky, shadows, reflection, objects, terrain,
   water, post effects, and UI/text.
+  Consequence grade: Frame-local dark/cool presentation override used when
+    replay prediction wants causal overlays to dominate the image.
   Resource context: Creation/rebuild-only view of the renderer factory and
   resize-sensitive dimensions.
   Backend-owned resource: GPU object that must be released before backend
@@ -36,6 +38,7 @@ Related:
 #include "../../Rendering/RenderGraph.h"
 
 #include <array>
+#include <chrono>
 #include <cstdint>
 #include <vector>
 
@@ -81,6 +84,7 @@ class RuntimeRenderer
         UI::InGameUI& ui;
         const CinematicRenderConfig& cinematic;
         bool cinematicRequested = false;
+        bool consequenceGradeRequested = false;            // True while replay prediction should fade into the causality look.
     };
 
     RuntimeRenderer( const RuntimeRendererBindings& bindings,
@@ -237,7 +241,11 @@ class RuntimeRenderer
     RuntimeTools& m_runtimeTools;                          // Tool overlay owner used outside hot render loops.
     RunEditorPlacementState& m_editor;                     // Editor overlay state sampled once per frame.
     RunCameraState& m_camera;                              // Current camera mode needed by tool overlay wake-up checks.
+    Profiler* m_profiler = nullptr;                        // Startup-bound diagnostics source; null in non-profile builds.
     ReplayRuntime& m_replayRuntime;                        // Replay presentation owner for ghost/focus overlays.
+    float m_consequenceGradeStrength = 0.0f;               // Render-owned fade strength for the frame-local consequence grade.
+    std::chrono::steady_clock::time_point
+        m_consequenceGradeLastTick;                        // Wall-clock anchor for the grade crossfade; zero means uninitialized.
     std::array<float, MAX_GAME_MODELS * 16> m_dxrReflectionTransforms =
         {};                                                // Scratch matrices for DXR TLAS instance upload.
     FullscreenQuadPass m_fullscreenQuadPass;               // Shared full-screen vertex buffer pass used by sky/post effects.

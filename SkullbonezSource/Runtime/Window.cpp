@@ -12,7 +12,7 @@ Glossary:
   HWND (Window Handle): Win32 identifier for the native application window.
   HDC (Handle to Device Context): Win32 drawing context associated with the
   window.
-  Resize backend: Borrowed renderer capability used only to resize swap-chain
+  Resize lifecycle: Borrowed renderer capability used only to resize swap-chain
   and depth resources when Win32 reports a new client size.
   WndProc: Win32 callback used by the OS to deliver window, focus, cursor, and
   input messages.
@@ -22,7 +22,7 @@ Glossary:
 Invariants:
   - Window dimensions are client-area dimensions and drive both renderer resize
     and the perspective/text projections.
-  - The resize backend borrow is installed after renderer startup and cleared
+  - The resize lifecycle borrow is installed after renderer startup and cleared
     before backend teardown; Window never owns the renderer.
   - The singleton pointer is a legacy access shim around static storage; native
     HWND/HDC lifetime still follows CreateAppWindow and OS messages.
@@ -33,7 +33,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "Window.h"
-#include "../Rendering/IRenderBackend.h"
+#include "../Rendering/IRenderDeviceLifecycle.h"
 #include "Input.h"
 #include "../Rendering/Text.h"
 
@@ -53,7 +53,7 @@ Window::Window()
     m_projectionFarPlane = 5500.0f;
     m_startupWindowWidth = 1800;
     m_startupWindowHeight = 1000;
-    m_resizeRenderBackend = nullptr;
+    m_resizeRenderLifecycle = nullptr;
 }
 
 
@@ -90,9 +90,9 @@ void Window::SetStartupWindowSize( int width, int height )
 }
 
 
-void Window::SetResizeRenderBackend( IRenderBackend* renderBackend )
+void Window::SetResizeRenderLifecycle( IRenderDeviceLifecycle* deviceLifecycle )
 {
-    m_resizeRenderBackend = renderBackend;
+    m_resizeRenderLifecycle = deviceLifecycle;
 }
 
 
@@ -103,12 +103,12 @@ void Window::HandleScreenResize()
 
     // Hazard: minimized windows report zero client area; resizing the backend
     // to zero dimensions would invalidate swap-chain and projection state.
-    if ( w <= 0 || h <= 0 || !m_resizeRenderBackend )
+    if ( w <= 0 || h <= 0 || !m_resizeRenderLifecycle )
     {
         return;
     }
 
-    m_resizeRenderBackend->Resize( w, h );
+    m_resizeRenderLifecycle->Resize( w, h );
 
     // Recompute the 2D text ortho projection to match the new aspect ratio.
     // Without this, text stretches when the window is resized or maximized.

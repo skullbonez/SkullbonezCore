@@ -19,6 +19,8 @@ Glossary:
   commit or PR.
   Override mask: Bitfield that records which optional JSON fields were authored
     so unspecified values keep engine.cfg defaults.
+  Lane R result: Recoverable load outcome carrying owner/message diagnostics
+    instead of letting malformed authored input escape as an exception.
   Asset system: Runtime-owned registry that resolves logical asset-library names
     without requiring the parser to query process-global state.
   Scene object group: Parsed metadata that ties multi-part authored objects,
@@ -39,7 +41,9 @@ Related:
 #include "../Assets/AssetSystem.h"
 #include "../Core/Common.h"
 #include "../Core/Config.h"
+#include "../Core/SbResult.h"
 #include "../Physics/Debug/PhysicsDebugVisualizer.h"
+#include "../Physics/PhysicsTimestep.h"
 #include "../Physics/TornadoField.h"
 #include "../Rendering/RenderMaterial.h"
 #include "../Maths/Vector3.h"
@@ -470,15 +474,21 @@ class TestScene
   public:
     TestScene();
     static TestScene LoadFromFile( const char* path );
+    // Lane R: runtime scene/style callers use TryLoad* so malformed authored
+    // JSON returns owner/message diagnostics at the load boundary.
+    static SbResult TryLoadFromFile( const char* path, TestScene& outScene );
 
     // Runtime callers pass the owned asset registry so scene asset-library
     // tokens resolve through an explicit parser dependency.
     static TestScene LoadFromFile( const char* path, const Assets::AssetSystem& assets );
+    static SbResult TryLoadFromFile( const char* path, const Assets::AssetSystem& assets, TestScene& outScene );
     static TestScene LoadStyleFromFile( const char* path );
+    static SbResult TryLoadStyleFromFile( const char* path, TestScene& outScene );
 
     // Style scenes use the same parser and may include asset-library references
     // through shared scene snippets, so they accept the explicit registry too.
     static TestScene LoadStyleFromFile( const char* path, const Assets::AssetSystem& assets );
+    static SbResult TryLoadStyleFromFile( const char* path, const Assets::AssetSystem& assets, TestScene& outScene );
 
     bool IsPhysicsEnabled() const;
     bool IsTextEnabled() const;

@@ -34,7 +34,7 @@ namespace Basics
 struct SbError
 {
     const char* owner = "";
-    char message[192] = {};
+    char message[512] = {};
 };
 
 

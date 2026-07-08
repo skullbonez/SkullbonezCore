@@ -12,6 +12,8 @@ Glossary:
   Style scene: Authored scene used only as a material/cinematic style source.
   Cinematic override: Bitmask-selected render fields layered over defaults.
   Material override: Authored material/tint applied to matching live models.
+  Lane R result: Recoverable style-load failure that returns diagnostics instead
+    of crashing the active run.
 
 Invariants:
   - Style application mutates render-facing state only; it does not rebuild
@@ -67,6 +69,14 @@ bool IsCineScenePath( const std::string& path )
     const char* name = FileNameFromPath( path.c_str() );
     return strncmp( name, "concept_", 8 ) == 0 || strncmp( name, "cinematic_", 10 ) == 0 ||
            strstr( name, "_cine_" ) != nullptr || strstr( name, "cine_" ) == name;
+}
+
+void LogStyleSceneLoadFailure( const SbResult& result, const char* path )
+{
+    const char* owner = result.error.owner && result.error.owner[0] != '\0' ? result.error.owner : "Runtime/SceneStyle";
+    const char* message =
+        result.error.message[0] != '\0' ? result.error.message : "style scene load failed without a message";
+    std::fprintf( stderr, "[scene] scene_load_failed owner=%s path=\"%s\" reason=\"%s\"\n", owner, path, message );
 }
 
 bool IsBroadMaterialTarget( const char* target )
@@ -273,7 +283,14 @@ bool ApplyCinematicModeFromBrowserIndex( SceneRuntimeStyleContext context, int i
         return false;
     }
 
-    TestScene lookScene = TestScene::LoadFromFile( context.sceneBrowser.paths[index].c_str(), context.assets );
+    TestScene lookScene;
+    const SbResult loadResult =
+        TestScene::TryLoadFromFile( context.sceneBrowser.paths[index].c_str(), context.assets, lookScene );
+    if ( !loadResult.ok )
+    {
+        LogStyleSceneLoadFailure( loadResult, context.sceneBrowser.paths[index].c_str() );
+        return false;
+    }
     context.activeCinematic = context.defaultCinematic;
     ApplyCinematicSceneOverrides( context.activeCinematic,
                                   lookScene.GetCinematicOverrideMask(),
@@ -327,7 +344,13 @@ bool ApplyDemoHeroStyleOverride( SceneRuntimeStyleContext context )
     }
 
     const std::string stylePath = std::string( DATA_ROOT ) + "styles/low_poly_art_style.style.json";
-    const TestScene styleScene = TestScene::LoadStyleFromFile( stylePath.c_str(), context.assets );
+    TestScene styleScene;
+    const SbResult loadResult = TestScene::TryLoadStyleFromFile( stylePath.c_str(), context.assets, styleScene );
+    if ( !loadResult.ok )
+    {
+        LogStyleSceneLoadFailure( loadResult, stylePath.c_str() );
+        return false;
+    }
     ApplyLiveStyleScene( context, styleScene );
     printf( "[scene] Applied low-poly hero rendering mode to generated demo scene.\n" );
     return true;

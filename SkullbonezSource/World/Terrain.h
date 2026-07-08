@@ -39,6 +39,7 @@ Related:
 
 #include "../Core/Common.h"
 #include "../Core/Config.h"
+#include "../Core/SbResult.h"
 #include "../Maths/Vector3.h"
 #include "../Maths/Matrix4.h"
 #include "../Maths/GeometricStructures.h"
@@ -46,6 +47,7 @@ Related:
 #include "../Rendering/IMesh.h"
 #include "../Rendering/IShader.h"
 #include "../Rendering/Shadow.h"
+#include <memory>
 #include <vector>
 
 
@@ -81,14 +83,22 @@ class Terrain
   public:
     static constexpr float FLAT_SLOPE_EXTENT = 1000.0f;                    // XZ extent of the analytic flat slope play area
 
-    Terrain( const char* sFileName,
-             int iMapSize,
+    static Basics::SbResult
+    TryCreateFromHeightMap( const char* sFileName,
+                            int iMapSize,
+                            int iStepSize,
+                            int iTextureWrap,
+                            const Basics::EngineConfig& config,
+                            Assets::AssetSystem& assets,
+                            Rendering::IRenderResourceFactory& resources,
+                            std::unique_ptr<Terrain>& outTerrain );        // Lane R factory for external RAW height-map input.
+    Terrain( int iMapSize,
              int iStepSize,
              int iTextureWrap,
              const Basics::EngineConfig& config,
              Assets::AssetSystem& assets,
-             Rendering::IRenderResourceFactory& resources );               // RAW heightmap path plus authoring dimensions; step size
-                                                             // feeds both pixels and physics posts.
+             Rendering::IRenderResourceFactory& resources );               // Construction shell used by TryCreateFromHeightMap; step
+                                                             // size feeds both pixels and physics posts.
     Terrain( float slopeBaseY,
              float slopeX,
              float slopeZ,
@@ -197,7 +207,7 @@ class Terrain
     Plane m_flatSlopePlane;
     Math::Vector::Vector3 m_flatSlopeNormal;
 
-    void LoadTerrainData( const char* sFileName );                         // RAW byte load retained for render mesh rebuilds.
+    Basics::SbResult LoadTerrainData( const char* sFileName );             // RAW byte load retained for render mesh rebuilds.
     const Basics::EngineConfig& Config() const;                            // Runtime config must be bound before terrain queries or rebuilds.
     void InitialiseTerrainShader();                                        // Lit terrain shader setup for the active backend.
     void ConfigureRenderStepSize();                                        // Chooses a safe render-only terrain step size

@@ -28,6 +28,8 @@ Glossary:
     by Run while the subsystem is being separated.
   Prediction cache: Incremental future-path data built from predicted solver
     frames under a render-frame budget.
+  Published build prefix: Contiguous prediction frames whose rows are fully
+    written and safe for render, automation, or Director readers to inspect.
 
 Invariants:
   - Stored indices are hints; ReplayBodyId remains the identity check.
@@ -69,7 +71,10 @@ namespace Basics
 struct ReplayV2SaveResult;
 
 inline constexpr std::size_t REPLAY_PREDICTION_GHOST_MAX_FRAMES = 24;
+inline constexpr std::size_t REPLAY_PREDICTION_GHOST_REQUEST_CAPACITY =
+    ( REPLAY_PREDICTION_GHOST_MAX_FRAMES + 2u ) * static_cast<std::size_t>( MAX_GAME_MODELS );
 inline constexpr std::size_t REPLAY_PREDICTION_MARKER_CAPACITY = static_cast<std::size_t>( MAX_GAME_MODELS );
+inline constexpr std::size_t REPLAY_PREDICTION_BASELINE_ROOT_POINT_CAPACITY = 261u;
 inline constexpr std::size_t REPLAY_CAUSE_TREE_CONTACT_CAPACITY = static_cast<std::size_t>( MAX_GAME_MODELS ) * 4u;
 inline constexpr std::size_t REPLAY_CAUSE_TREE_ROW_CAPACITY =
     1u + static_cast<std::size_t>( MAX_GAME_MODELS ) + REPLAY_CAUSE_TREE_CONTACT_CAPACITY * 3u;
@@ -285,6 +290,10 @@ struct ReplayPredictionGhostDrawRequest
     Math::Vector::Vector3 position = Math::Vector::ZERO_VECTOR;
     Math::Orientation::Quaternion orientation = Math::Orientation::IDENTITY_QUATERNION;
     float alpha = 1.0f;
+    float tintR = 1.0f;
+    float tintG = 1.0f;
+    float tintB = 1.0f;
+    float tintStrength = 0.0f;
 };
 
 struct ReplayPredictionRetainedMarker
@@ -302,6 +311,40 @@ struct ReplayPredictionRetainedMarker
     Math::Orientation::Quaternion horizonOrientation = Math::Orientation::IDENTITY_QUATERNION;
 };
 
+struct ReplayPredictionBaselineRootPoint
+{
+    ReplayFrameIndex frameIndex = 0;
+    Math::Vector::Vector3 position = Math::Vector::ZERO_VECTOR;
+};
+
+struct ReplayPredictionBaselineBodyPose
+{
+    ReplayBodyId id;
+    int modelIndex = -1;
+    bool hasEntryPose = false;
+    bool hasRestPose = false;
+    Math::Vector::Vector3 entryPosition = Math::Vector::ZERO_VECTOR;
+    Math::Orientation::Quaternion entryOrientation = Math::Orientation::IDENTITY_QUATERNION;
+    Math::Vector::Vector3 restPosition = Math::Vector::ZERO_VECTOR;
+    Math::Orientation::Quaternion restOrientation = Math::Orientation::IDENTITY_QUATERNION;
+};
+
+struct ReplayPredictionBaselineSnapshot
+{
+    bool valid = false;
+    bool comparisonActive = false;
+    ReplayBodyId rootId;
+    int rootModelIndex = -1;
+    ReplayFrameIndex lastFrame = 0;
+    // Runtime allocation policy: baseline vectors are captured only while replay
+    // prediction is active, reserved under replay_prediction_working_set, and
+    // bounded to one sampled root line plus one entry/rest pose per model.
+    std::vector<ReplayPredictionBaselineRootPoint> rootPolyline;
+    std::vector<ReplayPredictionBaselineBodyPose> bodyPoses;
+    bool divergenceValid = false;
+    float divergenceUnits = 0.0f;
+};
+
 struct RunReplayPredictionState
 {
     RunReplayPredictionState();
@@ -310,6 +353,16 @@ struct RunReplayPredictionState
     RunReplayPredictionState& operator=( const RunReplayPredictionState& ) = delete;
     RunReplayPredictionState( RunReplayPredictionState&& ) noexcept;
     RunReplayPredictionState& operator=( RunReplayPredictionState&& ) noexcept;
+
+    // Concept: prediction builders fill buildFrames first, then publish a
+    // prefix count. Readers must ask these helpers for the visible range so a
+    // future async worker can tighten ownership without changing every overlay.
+    std::size_t PublishedBuildFrameCount() const noexcept;
+    bool HasPublishedBuildFramePrefix( std::size_t minFrameCount = 2u ) const noexcept;
+    bool BuildPrefixShouldBePresented() const noexcept;
+    bool BuildFramesAreComplete() const noexcept;
+    void ResetBuildFramePublication() noexcept;
+    void PublishBuildFrameSlot( std::size_t frameSlot ) noexcept;
 
     bool enabled = false;
     bool checkboxHovered = false;
@@ -349,6 +402,9 @@ struct RunReplayPredictionState
     // Runtime allocation policy: prediction buildFrames can be pre-sized for a
     // whole horizon while only buildFrameCount rows are populated. Render reads
     // frames, not the pre-sized build vector, until completion swaps them.
+    // Invariant: buildFrameCount is the single published prefix cursor. Future
+    // async stepping must publish it only after the corresponding rows are
+    // complete, then cancel or invalidate that writer before clearing storage.
     std::vector<RunReplayPredictionFrame> buildFrames;
     std::size_t buildFrameCount = 0;
     // Renderable future-impact topology. Build work publishes coherent prefixes
@@ -370,14 +426,55 @@ struct RunReplayPredictionState
     // marker poses until a new prediction/future cache resets the story.
     std::array<ReplayPredictionRetainedMarker, REPLAY_PREDICTION_MARKER_CAPACITY> retainedMarkers = {};
     std::size_t retainedMarkerCount = 0;
+    // Concept: the butterfly baseline is a retained presentation snapshot of
+    // the pre-nudge future. It is intentionally smaller than prediction.frames:
+    // one cold root polyline, two poses per affected body, and one divergence
+    // number, so the warm current prediction can unfold over it.
+    ReplayPredictionBaselineSnapshot baseline;
     // Concept: reveal anchor — wall-clock start of the causal-unfold animation.
     // The overlay clamps drawn prediction frames to a cursor derived from this
     // anchor so the tree unfolds over real time instead of popping in whole.
     // Overlay-only pacing state: it never feeds physics, replay samples, or
     // solver restores, so steady_clock here cannot affect determinism.
+    double revealSecondsPerSecond = 1.0;                              // Runtime-authored causal-unfold speed; 1.0 = real-time.
     std::chrono::steady_clock::time_point revealAnchor = {};
     bool revealAnchorValid = false;
 };
+
+inline std::size_t RunReplayPredictionState::PublishedBuildFrameCount() const noexcept
+{
+    return buildFrameCount < buildFrames.size() ? buildFrameCount : buildFrames.size();
+}
+
+inline bool RunReplayPredictionState::HasPublishedBuildFramePrefix( std::size_t minFrameCount ) const noexcept
+{
+    return building && PublishedBuildFrameCount() >= minFrameCount;
+}
+
+inline bool RunReplayPredictionState::BuildPrefixShouldBePresented() const noexcept
+{
+    const std::size_t publishedCount = PublishedBuildFrameCount();
+    return building && publishedCount >= 2u && ( frames.empty() || publishedCount >= frames.size() );
+}
+
+inline bool RunReplayPredictionState::BuildFramesAreComplete() const noexcept
+{
+    return BuildPrefixShouldBePresented() && PublishedBuildFrameCount() >= buildFrames.size();
+}
+
+inline void RunReplayPredictionState::ResetBuildFramePublication() noexcept
+{
+    buildFrameCount = 0;
+}
+
+inline void RunReplayPredictionState::PublishBuildFrameSlot( std::size_t frameSlot ) noexcept
+{
+    const std::size_t publishedCount = frameSlot < buildFrames.size() ? frameSlot + 1u : buildFrames.size();
+    if ( publishedCount > buildFrameCount )
+    {
+        buildFrameCount = publishedCount;
+    }
+}
 
 struct RunReplayVelocityEditState
 {

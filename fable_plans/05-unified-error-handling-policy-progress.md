@@ -1,8 +1,8 @@
 # Progress: Unified Error Handling Policy (plan 05)
 
 Source plan: `fable_plans/05-unified-error-handling-policy-plan.md`
-Status: phase 1 complete on 2026-07-07; conversions not started
-Last updated: 2026-07-07
+Status: phase 1 complete on 2026-07-07; P2.1-P2.3 replay probe conversion and evidence complete on 2026-07-08; SpatialGrid, PhysicsWorld, GameModelCollection pure topology, legacy camera pose-read conversions, GameModelCollection append Lane R cleanup, the scene/style TryLoad entry boundary, one direct missing-camera parser throw removal, and Terrain RAW Lane R cleanup are complete; deeper loader/asset, DX12, and closure work remain
+Last updated: 2026-07-08
 
 ## How to work this file
 
@@ -44,10 +44,14 @@ Last updated: 2026-07-07
 - Profile builds define `SKULLBONEZ_PROFILE_ENABLED` in
   `SKULLBONEZ_CORE.vcxproj`; Debug defines both `_DEBUG` and
   `SKULLBONEZ_PROFILE_ENABLED`.
-- `tools/check_runtime_boundaries.py` already includes the phase-1 throw
-  ratchet (`MAX_SOURCE_THROW_TOKENS = 355`), `check_throw_site_count`, and
-  synthetic clean/grown self-tests. This phase records and validates that
-  existing guard instead of duplicating it.
+- `tools/check_runtime_boundaries.py` includes the throw ratchet,
+  `check_throw_site_count`, and synthetic clean/grown self-tests. Phase 1
+  recorded the pre-conversion budget at 355; P2.2/P2.3 lowered it to 294 after
+  replacing the Debug replay probe throws. P3 SpatialGrid conversion lowered
+  the budget to 281, P3 PhysicsWorld lowered it to 275, the pure
+  GameModelCollection topology slice lowered it to 272, the legacy camera
+  pose-read cleanup lowered it to 270, and the append Lane R cleanup lowered it
+  to 266.
 
 ## Phase 1 — policy, primitives, ratchet (no conversions yet)
 
@@ -133,39 +137,249 @@ Last updated: 2026-07-07
 
 ## Phase 2 — probes (RunFrame.cpp, ~60 sites, lowest risk)
 
-- [ ] P2.1 Locate the probe entry points: `rg -n "probe" SkullbonezSource/Runtime/RunFrame.cpp`
+- [x] P2.1 Locate the probe entry points: `rg -n "probe" SkullbonezSource/Runtime/RunFrame.cpp`
   — record which functions contain the throw clusters (scrub probe, restore
   probe, etc.) and who calls them (frame loop under automation flags only?).
   Record: are probes reachable outside `--interaction-script`/stress runs?
-- [ ] P2.2 Convert each probe function: return `SbResult` (or bool + SbError
-  out-param if signatures forbid) instead of throwing; the probe driver calls
-  `FailAutomation( state, error.message )` so failures land in the
-  interaction report as `ok=false` + failure text instead of a
-  `fatal_exception` crash. Keep messages byte-identical to the old throw
+
+  Evidence (2026-07-08): CodeGraph was used first for the RunFrame probe
+  surface and `FailAutomation` report path. The RunFrame probe throw clusters
+  are Debug-only CLI probe surfaces, not ordinary gameplay and not direct
+  `--interaction-script` actions. Per-frame probes are called from
+  `Run::ExecuteFrame` only after replay capture (`RunFrame.cpp:1112-1114`) and
+  are enabled by Init wiring from command-line flags:
+  `--replay-scrub-probe`, `--replay-restore-probe`, and
+  `--replay-save-probe` (`Init.cpp:3080-3088`). File probes are invoked
+  directly from Init debug-probe options (`Init.cpp:3157-3177`). Non-Debug
+  guards reject those CLI options in `Init.cpp:2560-2688`.
+
+  Throw clusters counted in `RunFrame.cpp`:
+  `TickReplayScrubProbe:1121` has 11 throws;
+  `TickReplayRestoreProbe:1270` has 3;
+  `TickReplaySaveProbe:1319` has 22;
+  `VerifyLoadedReplayPresentationProbe:1629` has 13;
+  `VerifyReplaySolverCheckpointFileProbe:1772` has 5;
+  `VerifyReplaySolverTargetFileProbe:2755` has 1;
+  `VerifyReplaySolverFailureFileProbe:2794` has 2;
+  `VerifyReplaySolverBranchFileProbe:2819` has 3. The non-probe
+  `Run::Execute requires a render backend` throw at `RunFrame.cpp:746` is
+  outside P2 and belongs to a fatal-invariant lane. `FailAutomation` remains in
+  `RunInteractionAutomation.cpp:612`; interaction automation currently throws
+  after setting `state.failed` at `RunInteractionAutomation.cpp:1098` and
+  `:1916`, so the P2.2 conversion should separate CLI probe result reporting
+  from interaction-report failures instead of assuming every RunFrame probe is
+  already under an automation state.
+- [x] P2.2 Convert each probe function: return `SbResult` (or bool + SbError
+  out-param if signatures forbid) instead of throwing. P2.1 discovery corrected
+  the reporting boundary: these RunFrame probes are Debug-only CLI diagnostics,
+  not direct `--interaction-script` actions, so failures are recorded on
+  `RunReplayProbeState::failure` and surfaced by `RunApp` as
+  `replay_probe_failed`, stderr text, optional dialog, and process exit 1
+  instead of `fatal_exception`. Keep messages byte-identical to the old throw
   strings (they are assertion documentation).
-- [ ] P2.3 Evidence: run the tracked proofs
+
+  Evidence (2026-07-08): `TickReplayScrubProbe`,
+  `TickReplayRestoreProbe`, `TickReplaySaveProbe`,
+  `VerifyLoadedReplayPresentationProbe`,
+  `VerifyReplaySolverCheckpointFileProbe`,
+  `VerifyReplaySolverTargetFileProbe`,
+  `VerifyReplaySolverFailureFileProbe`, and
+  `VerifyReplaySolverBranchFileProbe` now return `SbResult`. Per-frame probe
+  failures are stored through `Run::RecordReplayProbeFailure()` so `Execute()`
+  can unwind normally; Init file probes return immediately through the same
+  CLI reporting helper. Old failure strings are preserved, including formatted
+  `... failed: %s` cases. The non-P2 throws called out by P2.1 remain:
+  `Run::Execute requires a render backend`, replay load failure, and
+  `SetReplaySaveProbe` missing-path validation.
+
+- [x] P2.3 Evidence: run the tracked proofs
   (`memory_overlay_f6_toggle`, `replay_branch_restore_live_edge`,
   `prediction_ragdoll_wall_200_predict`) — all `ok=1`; then force one probe
-  to fail locally (temporary sabotage) and confirm the report shows
-  `ok=false` with the message, no crash; revert the sabotage. Gate:
-  `validate_fast`. Ratchet budget drops by ~60 — update the stored number in
-  the same commit. Commit.
+  to fail locally and confirm the chosen machine-readable surface shows the old
+  message, no crash; revert any sabotage. Gate: `validate_fast`. Ratchet budget
+  drops by ~60 — update the stored number in the same commit. Commit.
+
+  Evidence (2026-07-08):
+  - `memory_overlay_f6_toggle`: `Profile\SKULLBONEZ_CORE.exe --renderer dx12
+    --scene SkullbonezData\scenes\interaction_inspect_gizmo_harness.scene.json
+    --interaction-script SkullbonezData\interaction\memory_overlay_f6_toggle.json
+    --interaction-report TestOutput\interaction\memory_overlay_f6_toggle_report.json
+    --frames 90 --vsync off --allocation-guard gameplay
+    --platform-profiler-markers` exited 0 in 10.095s; report `ok=true`.
+  - `replay_branch_restore_live_edge`: `Profile\SKULLBONEZ_CORE.exe --renderer
+    dx12 --scene SkullbonezData\scenes\interaction_replay_prediction_harness.scene.json
+    --interaction-script SkullbonezData\interaction\replay_branch_restore_live_edge.json
+    --interaction-report TestOutput\interaction\replay_branch_restore_live_edge_report.json
+    --frames 140 --replay on --replay-seconds 2 --fixed-step --vsync off
+    --platform-profiler-markers` exited 0 in 3.028s; report `ok=true`.
+  - `prediction_ragdoll_wall_200_predict`: `Profile\SKULLBONEZ_CORE.exe
+    --renderer dx12 --scene SkullbonezData\scenes\prediction_ragdoll_wall_200.scene.json
+    --interaction-script SkullbonezData\interaction\prediction_ragdoll_wall_200_predict.json
+    --interaction-report TestOutput\interaction\prediction_ragdoll_wall_200_predict_report.json
+    --frames 220 --replay on --replay-seconds 2 --fixed-step --vsync off`
+    exited 0 in 5.054s; report `ok=true`, `predictionPathVisible=true`, and
+    `liveSolverHashStableAcrossPrediction=true`. A prior run with the extra
+    `--allocation-guard gameplay` option also produced report `ok=true` but
+    exited 9 from unrelated existing render-phase allocation-guard violations,
+    so the accepted P2.3 proof uses the checklist's `ok=1` criterion.
+  - Forced local failure: `Debug\SKULLBONEZ_CORE.exe --renderer dx12 --scene
+    SkullbonezData\scenes\physics_roll.scene.json --frames 1 --vsync off
+    --shadows off --replay-restore-file-probe
+    TestOutput\interaction\missing_replay_probe_artifact.bin` intentionally
+    used a missing artifact and returned process exit 1 in 4.718s with
+    `[replay] Probe failed: replay restore file probe failed to load v2 solver checkpoints`
+    and no `fatal_exception`.
+  - Ratchet: `MAX_SOURCE_THROW_TOKENS` lowered from 355 to 294. `python
+    tools\check_runtime_boundaries.py --self-test` passed, and `python
+    tools\check_runtime_boundaries.py --max-errors 20` passed with 0 errors.
+  - Touched-file comment audit inspected 7 source-bearing files with 0
+    deferred: `Core/SbResult.h`, `Runtime/Init.cpp`, `Runtime/Run.cpp`,
+    `Runtime/Run.h`, `Runtime/RunFrame.cpp`,
+    `Runtime/RunReplayProbeState.h`, and `tools/check_runtime_boundaries.py`.
+  - Commit gates: `tools\validate_fast.bat` passed in 67.232s; conservative
+    runtime gate `tools\validate_full.bat` passed in 45.705s with DX12
+    validation errors 0, screenshots matching committed baselines, and
+    `physics_regression_solver.csv` byte-exact.
 
 ## Phase 3 — hot-path invariants (physics/stores)
 
-- [ ] P3.1 Convert SpatialGrid.cpp (13), PhysicsWorld.cpp (6),
-  GameModelCollection.cpp (9, anchors like
-  `Failed to resolve newly authored physics body record`) throws → `SB_FATAL(
-  "<subsystem>", ... )` with the same message text. One file per commit.
-- [ ] P3.2 Gate per commit: `tools\validate_physics.bat` byte-exact (the
-  mechanism swap must not reorder any math — SB_FATAL call sites must stay
-  exactly where the throws were). Ratchet budget updated per commit.
-- [ ] P3.3 Audit before converting GameModelCollection: 3 of the 28 catch
+- [x] P3.1a Convert SpatialGrid.cpp (13) throws to `SB_FATAL(
+  "Physics/SpatialGrid", ... )` with the same message text. One file per
+  commit.
+
+  Evidence (2026-07-08): `SkullbonezSource/Physics/SpatialGrid.cpp` now has
+  13 `SB_FATAL` call sites and no live `throw` or `<stdexcept>` use. The call
+  sites stayed in the same guard branches as the old exceptions, and the file
+  glossary/invariants now identify these capacity/index failures as Lane F
+  broadphase contract failures.
+
+- [x] P3.2a Gate SpatialGrid commit: `tools\validate_physics.bat` byte-exact
+  (the mechanism swap must not reorder any math). Ratchet budget updated in
+  the same commit.
+
+  Evidence (2026-07-08): `MAX_SOURCE_THROW_TOKENS` lowered from 294 to 281.
+  `python tools\check_runtime_boundaries.py --self-test` passed; `python
+  tools\check_runtime_boundaries.py --max-errors 20` passed with 0 errors;
+  focused `SKULLBONEZ_TESTS.vcxproj` project-filter validation passed with
+  48/48 items and 0 errors; `tools\validate_fast.bat` passed in
+  00:00:38.1202317; `tools\validate_physics.bat` passed in 00:00:15.2232463
+  with Profile/Debug binaries ready and `VALIDATE_PHYSICS: ALL PASSED`.
+  Touched-file comment audit inspected `SpatialGrid.cpp`,
+  `TestDiagnosticsLinkStubs.cpp`, and `tools/check_runtime_boundaries.py`
+  with 0 deferred.
+
+- [x] P3.1b Convert PhysicsWorld.cpp (6) throws to `SB_FATAL(
+  "Physics/PhysicsWorld", ... )` with the same message text. One file per
+  commit.
+- [x] P3.2b Gate PhysicsWorld commit: `tools\validate_physics.bat` byte-exact.
+  Ratchet budget updated in the same commit.
+
+  Evidence (2026-07-08): `SkullbonezSource/Physics/PhysicsWorld.cpp` now has
+  six `SB_FATAL` call sites and no live `throw` or `<stdexcept>` use. The sites
+  are fixed-capacity Lane F invariants in persistent-contact side effects,
+  resting-wake scratch, collision-cell keys, and object narrowphase island
+  staging. `MAX_SOURCE_THROW_TOKENS` lowered from 281 to 275. Hooke, a read-only
+  explorer subagent, independently classified all six sites as Lane F with no
+  recoverable/caught-path risk. `python tools\check_runtime_boundaries.py
+  --self-test` passed in 00:00:00.2918558; `python
+  tools\check_runtime_boundaries.py --max-errors 20` passed in
+  00:00:17.4556095 with 0 errors; `tools\validate_format.bat` passed on the
+  final source; `tools\validate_fast.bat` passed in 00:00:45.6318823; and
+  `tools\validate_physics.bat` passed in 00:00:26.2402259 with
+  `VALIDATE_PHYSICS: ALL PASSED`. Touched-file comment audit inspected
+  `PhysicsWorld.cpp` and `tools/check_runtime_boundaries.py` with 0 deferred.
+- [x] P3.1c Convert the pure Lane F GameModelCollection.cpp topology sites
+  (`Cannot append model while physics collider rows are missing.`, `Failed to
+  resolve newly authored physics body record.`, and `Failed to register newly
+  authored physics collider record.`) to `SB_FATAL(
+  "GameObjects/GameModelCollection", ... )` with the same message text. Leave
+  Lane R append/camera surfaces for separate caller-visible result/no-op slices.
+- [x] P3.2c Gate the pure Lane F GameModelCollection commit:
+  `tools\validate_physics.bat` byte-exact. Ratchet budget updated in the same
+  commit.
+
+  Evidence (2026-07-08): `GameModelCollection.cpp` now has 3 `SB_FATAL`
+  topology call sites and 5 intentionally remaining `throw` sites for the
+  Lane R/API cleanup work classified in P3.3. `MAX_SOURCE_THROW_TOKENS` lowered
+  from 275 to 272. `python tools\check_runtime_boundaries.py --self-test`
+  passed in 00:00:00.2995922; `python
+  tools\check_runtime_boundaries.py --max-errors 20` passed in
+  00:00:17.8867793 with 0 errors; `tools\validate_format.bat` passed on the
+  final source; `tools\validate_fast.bat` passed in 00:00:39.6990303; and
+  `tools\validate_physics.bat` passed in 00:00:15.2978504 with
+  `VALIDATE_PHYSICS: ALL PASSED`. Touched-file comment audit inspected
+  `GameModelCollection.cpp` and `tools/check_runtime_boundaries.py` with
+  0 deferred.
+- [x] P3.3 Audit before converting GameModelCollection: 3 of the 28 catch
   sites may be swallowing these (check ConvexHullShape's 12 catches and any
   caller catch of collection append — `rg -n "catch" SkullbonezSource/Scene
   SkullbonezSource/Runtime/Scene`). Any throw that IS caught-and-recovered
   today is Lane R, not Lane F — convert those to SbResult instead. Record the
   classification inline here per site before editing.
+
+  Evidence (2026-07-08, pre-conversion): GameModelCollection had 8 live throw
+  sites, not 9. The only direct caught-and-reported collection append path found was
+  `Init.cpp:798-805`, where `--physics-standalone-smoke` catches
+  `RunPhysicsRuntimeHandleSmokeSample()`/`AddGameModel()` exceptions and records
+  `runtimeMirror.errorMessage`. Scene setup and editor placement currently
+  bubble append exceptions toward the top-level `fatal_exception` catch; those
+  are still Lane R candidates because they are scene/config/editor-command
+  failures and should become load failure or UI no-op surfaces before conversion.
+  ConvexHullShape catches are hull loader-local and do not recover collection
+  append exceptions.
+
+  Classification table:
+
+  | Site | Function / message | Lane | Conversion note |
+  |------|--------------------|------|-----------------|
+  | `GameModelCollection.cpp:287` | `BuildSceneObjectGroupForAppend`: `Invalid scene-object group descriptor supplied during model append.` | Lane R at caller boundary | Authored scene metadata and editor-generated group descriptors can be bad external/action input. Validate or return `SbResult` before mutating rows. Do not make fatal until scene/editor callers can report the bad descriptor cleanly. |
+  | `GameModelCollection.cpp:409` | `AppendGameModelAndPhysicsRows`: `Exceeded active game model capacity; raise --model-capacity or game_model_capacity.` | Lane R | Capacity is scene/config/editor-action input. Scene load should fail with the message; editor placement/runtime tool append should no-op/report instead of aborting. |
+  | `GameModelCollection.cpp:416` | `AppendGameModelAndPhysicsRows`: `Cannot append model without a scene object id.` | Lane R | A missing/exhausted scene-object id is an authoring/allocation-boundary failure. Return/report before append instead of fatal. |
+  | `GameModelCollection.cpp:427` | `AppendGameModelAndPhysicsRows`: `Cannot append model while physics collider rows are missing.` | Lane F | Existing collection/store topology is already divergent before append. This is internal state corruption, not bad input. Convert with the pure invariant slice. |
+  | `GameModelCollection.cpp:440` | `AppendGameModelAndPhysicsRows`: `Failed to resolve newly authored physics body record.` | Lane F | `RegisterAuthoredBody` returned a handle that cannot resolve immediately. Convert with the pure invariant slice. |
+  | `GameModelCollection.cpp:455` | `AppendGameModelAndPhysicsRows`: `Failed to register newly authored physics collider record.` | Lane F | Collider registration failed after a valid body append/policy apply. Convert with the pure invariant slice. |
+  | `GameModelCollection.cpp:707` | `GetModelPosition`: `No game model exists at the specified index...` | Lane R/API cleanup | Only live caller is the legacy render camera fallback in `RunRender.cpp:2239/2243` using hardcoded indices 0/1. Replace with `TryGetModelPosition`/no-op or camera fallback; do not fatal for missing scene content. |
+  | `GameModelCollection.cpp:719` | `GetModelPosition`: `No physics body exists at the specified index...` | Split: Lane F after caller cleanup | A valid model without a body is topology drift, but the current throwing API is used by a camera read path. First split the API so invalid/missing selection returns false; then fatal only if a valid model row lacks its physics body. |
+
+  Safe follow-up order:
+  1. Convert the pure Lane F append topology sites (`427`, `440`, `455`) to
+     `SB_FATAL`, lower the ratchet by 3, and gate with `validate_fast` plus
+     `validate_physics`.
+  2. Add a recoverable append/result surface for `287`, `409`, and `416` and
+     update scene/editor/runtime-tool callers to report load failure, smoke
+     failure, or placement no-op. Gate with `validate_full` because scene load
+     and editor action behavior changes.
+  3. Replace `GetModelPosition` with a non-throwing camera read/fallback, then
+     decide whether the missing-body branch remains an internal fatal invariant.
+
+- [x] P3.1d Replace the legacy `GameModelCollection::GetModelPosition` throwing
+  camera read with `TryGetModelPosition`. Hardcoded object-follow cameras keep
+  their previous target when model slots 0/1 are absent; a present model slot
+  without a physics body remains a Lane F topology invariant via `SB_FATAL`.
+
+- [x] P3.2d Gate the legacy camera pose-read cleanup with the runtime boundary
+  checker, `validate_fast`, and `validate_full` because the slice touches
+  `RunRender.cpp`, `GameModelCollection`, and a checker ratchet.
+
+  Evidence (2026-07-08): `GameModelCollection.h/.cpp` now expose
+  `TryGetModelPosition( int, Vector3& ) const`; absent scene slots return
+  `false`, and a valid slot missing its `PhysicsBodyStore` row calls
+  `SB_FATAL( "GameObjects/GameModelCollection", ... )`. `RunRender.cpp` now
+  no-ops object-follow retargeting when the tracked slot is absent.
+  `tools/check_runtime_boundaries.py` lowered `MAX_SOURCE_THROW_TOKENS` from
+  272 to 270 and refreshed the GameModelCollection body-read guardrail for
+  `TryGetModelPosition`. Herschel, a read-only explorer subagent, confirmed
+  only the two object-follow camera calls were live callers and recommended the
+  no-op/fatal split. Touched-file comment audit inspected
+  `GameModelCollection.h`, `GameModelCollection.cpp`, `RunRender.cpp`, and
+  `tools/check_runtime_boundaries.py` with 0 deferred. `python
+  tools\check_runtime_boundaries.py --self-test` passed in 00:00:00.2679289;
+  `python tools\check_runtime_boundaries.py --max-errors 20` passed in
+  00:00:17.2286994 with 0 errors; `tools\validate_fast.bat` passed in
+  00:00:52.1451648 with `VALIDATE_FAST: ALL PASSED`; and
+  `tools\validate_full.bat` passed in 00:00:45.6008988 with DX12 validation
+  errors 0, screenshots matching committed baselines, and
+  `physics_regression_solver.csv` byte-exact.
 
 ## Phase 4 — loaders and editor surface (Lane R)
 
@@ -177,11 +391,104 @@ Last updated: 2026-07-07
   — reuse, don't invent). ConvexHullShape.cpp (41) is bake/load validation:
   its throws convert to SbResult, its 12 internal catches collapse as their
   matching throws disappear.
-- [ ] P4.2 Editor placement paths (GameModelCollection append callers): a
+
+  Entry-boundary evidence (2026-07-08): `TestScene::TryLoadFromFile` and
+  `TryLoadStyleFromFile` now catch parser/loader exceptions at the scene/style
+  boundary and return `SbResult` owner/message diagnostics. Runtime scene loads,
+  live-style reloads, cinematic browser styles, demo hero style, and demo
+  director phase styles consume the result path; `Run::LoadScene`,
+  `RunSceneLoadOnly`, and `Runtime/Init.cpp` now return nonzero for failed
+  startup/load-only scene loads instead of silently continuing after
+  `scene_load_failed`. Doctests cover success, malformed JSON, missing-camera,
+  and malformed style JSON through the TryLoad APIs. The standalone Agentic
+  scene-parser harness now checks TryLoad style failures and no longer compiles
+  the removed header-only `IRenderBackend.cpp`.
+
+  Follow-up parser evidence (2026-07-08): the direct missing-camera
+  `TestSceneParser.cpp` throw now routes through the parser's path-rich
+  `Fail(path, detail)` helper, preserving the `TryLoadFromFile` Lane R surface
+  and reducing `MAX_SOURCE_THROW_TOKENS` from 266 to 265. This fixes the
+  `TestSceneParser: missing camera reports recoverable load failure` unit-test
+  path assertion without marking P4.1 complete.
+
+  Terrain RAW evidence (2026-07-08): the two external height-map load throws in
+  `Terrain::LoadTerrainData` now return `SbResult` owner/message diagnostics
+  for empty, missing, truncated, or failed RAW reads. `Terrain::TryCreateFromHeightMap`
+  builds into a local `std::unique_ptr` and only publishes the terrain after
+  RAW load, post build, mesh build, and shader initialization succeed.
+  `Run::Initialise` reports startup terrain failure through
+  `LastSceneLoadResult`, while generated and authored `Run::LoadScene` paths
+  route terrain failures through `LogSceneLoadFailure`. This lowers
+  `MAX_SOURCE_THROW_TOKENS` from 265 to 263. The remaining Terrain throws are
+  non-loader bounds/invariant sites and were left for a separate Lane F/API
+  cleanup.
+
+  Remaining P4.1 work: thread Lane R deeper through parser internals for the
+  remaining `TestSceneParser.cpp` throw token, then convert the remaining
+  TextureCollection, AssetSystem, and ConvexHullShape loader clusters.
+
+  Gate evidence: first `tools\validate_full.bat` attempt failed before runtime
+  launch due to a namespace qualification error; the rerun failed only
+  formatting; the final `tools\validate_full.bat` passed with project
+  filters/runtime boundaries at 0 errors, Profile/Debug builds at 0
+  warnings/errors, DX12 validation errors 0, DX12 screenshots matching
+  committed baselines, and `physics_regression_solver.csv` byte-exact. The
+  dedicated `tools\validate_scene_parser_tests.bat` first exposed a stale
+  `IRenderBackend.cpp` project entry, then passed after that dead compile item
+  was removed. Logs:
+  `Agentic\Reports\2026-07-08\logs\fable-05-p4-1-scene-tryload-validate-full-final.log`
+  and
+  `Agentic\Reports\2026-07-08\logs\fable-05-p4-1-scene-parser-tests-final.log`.
+  Follow-up gate logs:
+  `Agentic\Reports\2026-07-08\logs\fable-05-06-scene-parser-tests.log` and
+  `Agentic\Reports\2026-07-08\logs\fable-05-06-mouse-pickup-validate-fast.log`.
+  Terrain RAW gate evidence: touched-file comment audit inspected
+  `Terrain.h`, `Terrain.cpp`, `Run.cpp`, `RunScene.cpp`, and
+  `tools/check_runtime_boundaries.py` with 0 deferred. `git diff --check`
+  passed; `python tools\check_runtime_boundaries.py --self-test` passed;
+  `python tools\check_runtime_boundaries.py --max-errors 20` passed with
+  0 errors; and `tools\validate_full.bat` passed in 00:01:04.5130906 with
+  project filters/runtime boundaries at 0 errors, Profile/Debug builds at
+  0 warnings/errors, DX12 validation errors 0, DX12 screenshots matching
+  committed baselines, and `physics_regression_solver.csv` byte-exact. Log:
+  `Agentic\Reports\2026-07-08\logs\fable-05-terrain-lane-r-validate-full.log`.
+- [x] P4.2 Editor placement paths (GameModelCollection append callers): a
   failed append becomes a UI-visible no-op (log event + skip), never a crash.
   Find callers: `rg -n "AppendGameModelAndPhysicsRows|AppendModel" SkullbonezSource/Runtime`.
-- [ ] P4.3 Gate: `tools\validate_full.bat` (scene/asset load is broad scope).
+- [x] P4.3 Gate: `tools\validate_full.bat` (scene/asset load is broad scope).
   Ratchet update. Commit per subsystem.
+
+  Evidence (2026-07-08): `GameModelCollection::AddGameModel` and
+  `AppendGameModelAndPhysicsRows` now return `GameModelAppendResult`, carrying
+  `SbResult` plus the new `PhysicsBodyHandle`. Recoverable append failures now
+  cover invalid scene-object group descriptors, active model capacity, and
+  missing scene object ids; collection topology divergence remains `SB_FATAL`.
+  Callers in generated scene setup, authored scene setup, editor placement,
+  launcher projectile creation, runtime handle smoke, scene load, and replay
+  generated-topology rebuild now check and report the failure status before using
+  the handle. `SceneGeneratedSetupResult` preserves the old "generated setup did
+  not apply" branch for authored scene population.
+
+  `tools/check_runtime_boundaries.py` lowered `MAX_SOURCE_THROW_TOKENS` from
+  270 to 266, widened the append authority regexes for
+  `GameModelAppendResult`, and added a GameModelCollection no-throw guardrail
+  with self-tests. Peirce and Halley, read-only explorer subagents, checked the
+  fable status/doc targets and the guardrail placement. Touched-file
+  comment-style audit inspected 13 source/tool files with 0 deferred:
+  `GameModelCollection.h`, `GameModelCollection.cpp`,
+  `RunEditorObjectPlacement.inl`, `Init.cpp`, `RunFrame.cpp`, `RunScene.cpp`,
+  `SceneAuthoredSetup.h`, `SceneAuthoredSetup.cpp`, `SceneGeneratedSetup.h`,
+  `SceneGeneratedSetup.cpp`, `SceneRuntimeGeneratedControls.cpp`,
+  `RuntimeTools.cpp`, and `tools/check_runtime_boundaries.py`.
+
+  Gate evidence: `git diff --check` passed; `tools\validate_format.bat` passed;
+  `python tools\check_runtime_boundaries.py --self-test` passed; `python
+  tools\check_runtime_boundaries.py --max-errors 20` passed with 0 errors; and
+  `tools\validate_full.bat` passed with project filters/runtime boundaries at 0
+  errors, Profile/Debug builds at 0 warnings/errors, DX12 validation errors 0,
+  DX12 screenshots matching committed baselines, and
+  `physics_regression_solver.csv` byte-exact. Full log:
+  `Agentic\Reports\2026-07-08\logs\fable-05-append-lane-r-validate-full.log`.
 
 ## Phase 5 — DX12 layer (last, most delicate)
 

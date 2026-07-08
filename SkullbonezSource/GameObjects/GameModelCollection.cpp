@@ -53,6 +53,7 @@ Related:
 */
 #include "GameModelCollection.h"
 
+#include "../Core/FatalError.h"
 #include "../Core/MainMemoryStats.h"
 #include "../Core/SkullScope.h"
 #include "../Physics/Debug/CollisionVisualizer.h"
@@ -69,7 +70,6 @@ Related:
 #include <cstddef>
 #include <cmath>
 #include <cstring>
-#include <stdexcept>
 #include <utility>
 #include <variant>
 
@@ -93,6 +93,8 @@ using SkullbonezCore::Rendering::ShadowFrameData;
 
 namespace
 {
+constexpr const char* GAME_MODEL_COLLECTION_APPEND_OWNER = "GameObjects/GameModelCollection";
+
 template <typename T> uint64_t VectorCapacityBytes( const T& values )
 {
     return static_cast<uint64_t>( values.capacity() ) * static_cast<uint64_t>( sizeof( typename T::value_type ) );
@@ -269,10 +271,10 @@ void GameModelCollection::ReserveForActiveGameModelCapacity()
 }
 
 
-GameModelCollection::SceneObjectGroupRecord
-GameModelCollection::BuildSceneObjectGroupForAppend( const GameModel&,
-                                                     int newModelIndex,
-                                                     SceneObjectGroupCreateDesc groupDesc )
+SbResult GameModelCollection::BuildSceneObjectGroupForAppend( const GameModel&,
+                                                              int newModelIndex,
+                                                              SceneObjectGroupCreateDesc groupDesc,
+                                                              SceneObjectGroupRecord& outGroup )
 {
     assert( m_sceneObjectGroupStore.Count() == SceneEntityCount() );
     SceneObjectGroupRecord group;
@@ -284,16 +286,19 @@ GameModelCollection::BuildSceneObjectGroupForAppend( const GameModel&,
         // an impossible group, so fail closed before rows diverge.
         if ( groupDesc.rootModelIndex < 0 || groupDesc.rootModelIndex > newModelIndex || groupDesc.partIndex < 0 )
         {
-            throw std::runtime_error( "Invalid scene-object group descriptor supplied during model append." );
+            return SbResult::Failure( GAME_MODEL_COLLECTION_APPEND_OWNER,
+                                      "Invalid scene-object group descriptor supplied during model append." );
         }
 
         group.kind = groupDesc.kind;
         group.rootModelIndex = groupDesc.rootModelIndex;
         group.partIndex = groupDesc.partIndex;
-        return group;
+        outGroup = group;
+        return SbResult::Success();
     }
 
-    return group;
+    outGroup = group;
+    return SbResult::Success();
 }
 
 
@@ -382,11 +387,11 @@ SkullbonezCore::Threading::WorkerPool* GameModelCollection::RenderWorkerPool() c
 }
 
 
-PhysicsBodyHandle GameModelCollection::AddGameModel( GameModel gameModel,
-                                                     PhysicsBodyCreateDesc bodyDesc,
-                                                     PhysicsColliderCreateDesc colliderDesc,
-                                                     PhysicsSceneObjectId sceneObjectId,
-                                                     SceneObjectGroupCreateDesc groupDesc )
+GameModelAppendResult GameModelCollection::AddGameModel( GameModel gameModel,
+                                                         PhysicsBodyCreateDesc bodyDesc,
+                                                         PhysicsColliderCreateDesc colliderDesc,
+                                                         PhysicsSceneObjectId sceneObjectId,
+                                                         SceneObjectGroupCreateDesc groupDesc )
 {
     return AppendGameModelAndPhysicsRows( std::move( gameModel ),
                                           std::move( bodyDesc ),
@@ -396,24 +401,33 @@ PhysicsBodyHandle GameModelCollection::AddGameModel( GameModel gameModel,
 }
 
 
-PhysicsBodyHandle GameModelCollection::AppendGameModelAndPhysicsRows( GameModel gameModel,
-                                                                      PhysicsBodyCreateDesc bodyDesc,
-                                                                      PhysicsSceneObjectId sceneObjectId,
-                                                                      PhysicsColliderCreateDesc colliderDesc,
-                                                                      SceneObjectGroupCreateDesc groupDesc )
+GameModelAppendResult GameModelCollection::AppendGameModelAndPhysicsRows( GameModel gameModel,
+                                                                          PhysicsBodyCreateDesc bodyDesc,
+                                                                          PhysicsSceneObjectId sceneObjectId,
+                                                                          PhysicsColliderCreateDesc colliderDesc,
+                                                                          SceneObjectGroupCreateDesc groupDesc )
 {
     const int activeCapacity = m_activeGameModelCapacity;
     assert( SceneEntityCount() < activeCapacity && "Exceeded active game model capacity" );
     if ( SceneEntityCount() >= activeCapacity )
     {
-        throw std::runtime_error(
-            "Exceeded active game model capacity; raise --model-capacity or game_model_capacity." );
+        return {
+            SbResult::Failure( GAME_MODEL_COLLECTION_APPEND_OWNER,
+                               "Exceeded active game model capacity; raise --model-capacity or game_model_capacity." ),
+            PhysicsBodyHandle{} };
     }
     const int modelIndex = SceneEntityCount();
-    const SceneObjectGroupRecord groupRecord = BuildSceneObjectGroupForAppend( gameModel, modelIndex, groupDesc );
+    SceneObjectGroupRecord groupRecord;
+    const SbResult groupResult = BuildSceneObjectGroupForAppend( gameModel, modelIndex, groupDesc, groupRecord );
+    if ( !groupResult.ok )
+    {
+        return { groupResult, PhysicsBodyHandle{} };
+    }
     if ( !sceneObjectId.IsValid() )
     {
-        throw std::runtime_error( "Cannot append model without a scene object id." );
+        return {
+            SbResult::Failure( GAME_MODEL_COLLECTION_APPEND_OWNER, "Cannot append model without a scene object id." ),
+            PhysicsBodyHandle{} };
     }
     // Invariant: creation identity is scene-owned. Collection appends the model
     // row and forwards the id once; body/collider/render stores then carry it
@@ -424,7 +438,7 @@ PhysicsBodyHandle GameModelCollection::AppendGameModelAndPhysicsRows( GameModel 
     // the topology bug.
     if ( !RepairPhysicsBodyAndColliderTopology() )
     {
-        throw std::runtime_error( "Cannot append model while physics collider rows are missing." );
+        SB_FATAL( "GameObjects/GameModelCollection", "Cannot append model while physics collider rows are missing." );
     }
     bodyDesc.sceneObjectId = sceneObjectId;
     bodyDesc.fixedTreeReleaseRootIndex =
@@ -437,7 +451,10 @@ PhysicsBodyHandle GameModelCollection::AppendGameModelAndPhysicsRows( GameModel 
     assert( bodyRecord != nullptr );
     if ( !bodyRecord )
     {
-        throw std::runtime_error( "Failed to resolve newly authored physics body record." );
+        // Invariant: RegisterAuthoredBody returns the handle for the row it just
+        // appended. A failed immediate lookup means collection/body-store
+        // topology diverged after mutation.
+        SB_FATAL( "GameObjects/GameModelCollection", "Failed to resolve newly authored physics body record." );
     }
     // Owner: creation callers provide shape facts; PhysicsScene owns live
     // collider rows. Reason: radius/extents/hull values exist before append, so
@@ -452,9 +469,12 @@ PhysicsBodyHandle GameModelCollection::AppendGameModelAndPhysicsRows( GameModel 
     assert( colliderHandle.IsValid() );
     if ( !colliderHandle.IsValid() )
     {
-        throw std::runtime_error( "Failed to register newly authored physics collider record." );
+        // Invariant: collider registration is the second half of the append
+        // transaction. Reaching this point with no collider handle leaves a
+        // model/body row that cannot safely enter physics or render snapshots.
+        SB_FATAL( "GameObjects/GameModelCollection", "Failed to register newly authored physics collider record." );
     }
-    return bodyHandle;
+    return { SbResult::Success(), bodyHandle };
 }
 
 
@@ -598,6 +618,8 @@ void GameModelCollection::UpdatePhysicsDebugVisualizer( Physics::PhysicsDebugVis
 void GameModelCollection::RenderCollisionStateSolids( Physics::CollisionVisualizer& visualizer,
                                                       Assets::AssetSystem& assets,
                                                       Rendering::IRenderResourceFactory& renderResources,
+                                                      Rendering::IRenderCommandContext& renderCommands,
+                                                      Rendering::IRenderDiagnostics& renderDiagnostics,
                                                       const Matrix4& view,
                                                       const Matrix4& proj,
                                                       const float lightPos[4],
@@ -613,13 +635,15 @@ void GameModelCollection::RenderCollisionStateSolids( Physics::CollisionVisualiz
         m_physicsEngine.BodyStore().Count(),
     };
     visualizer.SetAlphaOverride( alphaOverride );
-    visualizer.Render( assets, renderResources, frameView, view, proj, lightPos );
+    visualizer.Render( assets, renderResources, renderCommands, renderDiagnostics, frameView, view, proj, lightPos );
     visualizer.SetAlphaOverride( -1.0f );
 }
 
 
 void GameModelCollection::RenderPhysicsDebug( Physics::PhysicsDebugVisualizer& visualizer,
                                               const Matrix4& viewProjection,
+                                              Rendering::IRenderCommandContext& renderCommands,
+                                              bool supportsDebugLines,
                                               Geometry::Terrain* terrain )
 {
     const Physics::PhysicsDebugFrameView frameView{
@@ -632,7 +656,9 @@ void GameModelCollection::RenderPhysicsDebug( Physics::PhysicsDebugVisualizer& v
         m_physicsEngine.GetPhysicsPipelineTrace(),
         m_physicsEngine.BodyStore().Count(),
     };
-    visualizer.Render( frameView, viewProjection, terrain );
+    // Caller contract: runtime render passes own renderer readiness for the
+    // frame; this collection only packages the physics store view.
+    visualizer.Render( frameView, viewProjection, renderCommands, supportsDebugLines, terrain );
 }
 
 
@@ -694,26 +720,29 @@ bool GameModelCollection::SaveSceneSnapshot( const char* path,
 }
 
 
-Vector3 GameModelCollection::GetModelPosition( int index )
+bool GameModelCollection::TryGetModelPosition( int index, Vector3& outPosition ) const
 {
     if ( index < 0 || index >= SceneEntityCount() )
     {
-        throw std::runtime_error(
-            "No game model exists at the specified index.  (GameModelCollection::GetModelPosition)" );
+        return false;
     }
 
     // Why: object-follow cameras should read the same store-owned pose that
     // physics, diagnostics, replay capture, and render snapshots consume. A
-    // topology mismatch must be repaired by the owning runtime/editor boundary
-    // before this read; same-count edits enter through explicit commit paths.
+    // missing model slot is a recoverable legacy-camera request, so callers
+    // keep their previous target instead of aborting the frame.
     const PhysicsBodyStore& bodyStore = GetPhysicsEngine().BodyStore();
     const PhysicsBodyRecord* record = bodyStore.RecordForModelIndex( index );
     if ( !record )
     {
-        throw std::runtime_error(
-            "No physics body exists at the specified index.  (GameModelCollection::GetModelPosition)" );
+        // Invariant: a live scene model must have a physics body row at the
+        // same slot. Missing rows are topology drift, not recoverable camera
+        // input, because rendering/replay snapshots would read divergent state.
+        SB_FATAL( "GameObjects/GameModelCollection",
+                  "No physics body exists at the specified index.  (GameModelCollection::TryGetModelPosition)" );
     }
-    return record->position;
+    outPosition = record->position;
+    return true;
 }
 
 

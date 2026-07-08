@@ -9,8 +9,11 @@ Mental model:
   related files.
 
 Glossary:
-  Engine module: A source file with one focused responsibility inside the
-  SkullbonezCore runtime.
+  Broadphase: Cheap collision pass that finds object pairs worth testing more
+  precisely.
+  Debug line command: Frame-scoped renderer command that draws colored line
+  vertices for overlays after the owner has checked renderer capability.
+  Heat: Per-cell collision count used only to darken the debug color.
 
 Invariants:
   - This overlay reads broadphase/debug cell data only; it must not feed state
@@ -42,7 +45,7 @@ Related:
 
 
 #include "BroadphaseVisualizer.h"
-#include "../../Rendering/IRenderBackend.h"
+#include "../../Rendering/IRenderCommandContext.h"
 
 #include <algorithm>
 #include <cstring>
@@ -358,9 +361,11 @@ void BroadphaseVisualizer::Update( float dt,
 }
 
 
-void BroadphaseVisualizer::Render( const Matrix4& viewProj )
+void BroadphaseVisualizer::Render( const Matrix4& viewProj,
+                                   IRenderCommandContext& renderCommands,
+                                   bool supportsDebugLines )
 {
-    if ( !m_enabled || m_cellCount == 0 || !Gfx().GetCapabilities().supportsDebugLines )
+    if ( !m_enabled || m_cellCount == 0 || !supportsDebugLines )
     {
         return;
     }
@@ -380,6 +385,9 @@ void BroadphaseVisualizer::Render( const Matrix4& viewProj )
         return;
     }
 
+    // Why: DebugOverlayPass owns renderer readiness for the frame; this module
+    // owns only the physics overlay vertices, so it submits through the borrowed
+    // command context instead of reopening the global renderer service.
     int vertCount = static_cast<int>( m_lineData.size() / 6 );
-    Gfx().DrawLinesColored( m_lineData.data(), vertCount, viewProj.Data() );
+    renderCommands.DrawLinesColored( m_lineData.data(), vertCount, viewProj.Data() );
 }

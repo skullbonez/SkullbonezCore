@@ -16,6 +16,8 @@ Glossary:
     so buoyancy jitter does not repeatedly wake them.
   Inverse mass: Reciprocal mass value; zero means an immovable body.
   Replay body id: Stable per-scene id used by replay and diagnostics.
+  Model row hint: Caller-owned cached dense-row guess; the store may repair or
+    invalidate it while resolving stable identity.
   Fixed-tree release: Authored structure rule where one released fixed prop can
     release higher parts in the same tree group.
 
@@ -172,6 +174,9 @@ class PhysicsBodyStore
     // Resolves stable replay identity to the live body handle. modelIndexHint
     // is a fast path only; stale hints fall back to the handle replay-id table.
     PhysicsBodyHandle HandleForReplayBodyId( uint32_t replayBodyId, int modelIndexHint = -1 ) const;
+    // Resolves a stable body handle to the current dense row and refreshes the
+    // caller-owned cache. Returns -1 and invalidates the hint for stale handles.
+    int ResolveModelRow( PhysicsBodyHandle handle, ModelRowHint& hint ) const;
     int ModelIndexForHandle( PhysicsBodyHandle handle ) const;
     bool Contains( PhysicsBodyHandle handle ) const;
     const PhysicsBodyRecordList& Records() const;

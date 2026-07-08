@@ -82,6 +82,37 @@ void RenderReplayScrubberOverlayFromInputs( const UiTextPassInputs& inputs )
 {
     ReplayOverlay::RenderReplayScrubberOverlay( BuildReplayOverlayRenderContext( inputs ) );
 }
+
+void RenderReplayDivergenceCounter( const UiTextPassInputs& inputs )
+{
+    const ReplayPredictionBaselineSnapshot& baseline = inputs.replayRuntime.Prediction().baseline;
+    if ( !inputs.state.debug.isTopTextHidden || !baseline.divergenceValid )
+    {
+        return;
+    }
+
+    const int divergence = (std::max)( 0, static_cast<int>( baseline.divergenceUnits + 0.5f ) );
+    char value[32] = {};
+    if ( divergence >= 1000 )
+    {
+        sprintf_s( value, sizeof( value ), "%d,%03d", divergence / 1000, divergence % 1000 );
+    }
+    else
+    {
+        sprintf_s( value, sizeof( value ), "%d", divergence );
+    }
+
+    char label[64] = {};
+    sprintf_s( label, sizeof( label ), "DIVERGENCE %s u", value );
+    const float size = 0.034f;
+    const float textWidth = Text2d::MeasureText( size, label );
+    const float x = -textWidth * 0.5f;
+    const float y = Text2d::HalfH() - 0.115f;
+    // Why: clean demo captures hide ordinary HUD chrome, so this single number
+    // becomes the on-screen measure of how far the old and nudged futures split.
+    Text2d::Render2dTextColor( x + 0.002f, y - 0.002f, size, 0.0f, 0.0f, 0.0f, "%s", label );
+    Text2d::Render2dTextColor( x, y, size, 0.58f, 0.94f, 1.0f, "%s", label );
+}
 } // namespace
 
 void UiTextPass::EnsureGpuResources( Rendering::IRenderResourceFactory& renderResources,
@@ -118,7 +149,8 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
     assert( inputs.uiRender.IsReady() );
     Rendering::IRenderCommandContext& renderCommands = *inputs.uiRender.commands;
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
-    const Profiler& profiler = Profiler::Instance();
+    assert( inputs.profiler && "UiTextPass requires a startup-bound profiler in profile builds." );
+    const Profiler& profiler = *inputs.profiler;
 #endif
 
     // Invariant: rolling diagnostics update before any overlay early return so
@@ -175,7 +207,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         Text2d::Render2dTextColor( -0.46f, -0.38f, 0.015f, 0.60f, 0.60f, 0.60f, "renderer: %s", rendererName );
 
         {
-            DRAW_CALL_TRACE_SCOPE( "TextOnly" );
+            DRAW_CALL_TRACE_SCOPE( inputs.renderDiagnostics, "TextOnly" );
             Text2d::FlushText( renderCommands );
         }
         return;
@@ -358,6 +390,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
 
     renderScenePauseBadge();
     renderRuntimeModeBadge();
+    RenderReplayDivergenceCounter( inputs );
 
     // Crosshair - always visible when launcher mode is active, regardless of overlay state.
     // A tiny center gap keeps the target visible instead of covering it.
@@ -924,7 +957,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
 
         PROFILE_BEGIN( "Frame/UI/PreFlushText" );
         {
-            DRAW_CALL_TRACE_SCOPE( "PreFlushText" );
+            DRAW_CALL_TRACE_SCOPE( inputs.renderDiagnostics, "PreFlushText" );
             Text2d::FlushText( renderCommands );
         }
         PROFILE_END( "Frame/UI/PreFlushText" );
@@ -932,7 +965,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         state.ui.Draw( UIData, inputs.uiRender );
         PROFILE_BEGIN( "Frame/UI/PostFlushText" );
         {
-            DRAW_CALL_TRACE_SCOPE( "Frame/UI/PostFlushText" );
+            DRAW_CALL_TRACE_SCOPE( inputs.renderDiagnostics, "Frame/UI/PostFlushText" );
             Text2d::FlushText( renderCommands );
         }
         PROFILE_END( "Frame/UI/PostFlushText" );
@@ -948,7 +981,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
     {
         RenderReplayScrubberOverlayFromInputs( inputs );
         {
-            DRAW_CALL_TRACE_SCOPE( "HUD" );
+            DRAW_CALL_TRACE_SCOPE( inputs.renderDiagnostics, "HUD" );
             Text2d::FlushText( renderCommands );
         }
         return;
@@ -994,7 +1027,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
                                    sceneEnergyForDisplay );
         RenderReplayScrubberOverlayFromInputs( inputs );
         {
-            DRAW_CALL_TRACE_SCOPE( "SceneStats" );
+            DRAW_CALL_TRACE_SCOPE( inputs.renderDiagnostics, "SceneStats" );
             Text2d::FlushText( renderCommands );
         }
         return;
@@ -1015,7 +1048,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         profiler.RenderBarOverlay( renderCommands, panX, panY, panW, panH, absolute );
         RenderReplayScrubberOverlayFromInputs( inputs );
         {
-            DRAW_CALL_TRACE_SCOPE( "ProfilerBars" );
+            DRAW_CALL_TRACE_SCOPE( inputs.renderDiagnostics, "ProfilerBars" );
             Text2d::FlushText( renderCommands );
         }
         return;
@@ -1107,7 +1140,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
 
         RenderReplayScrubberOverlayFromInputs( inputs );
         {
-            DRAW_CALL_TRACE_SCOPE( "Keys" );
+            DRAW_CALL_TRACE_SCOPE( inputs.renderDiagnostics, "Keys" );
             Text2d::FlushText( renderCommands );
         }
         return;
@@ -1133,7 +1166,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
 
     RenderReplayScrubberOverlayFromInputs( inputs );
     {
-        DRAW_CALL_TRACE_SCOPE( "ProfilerOverlay" );
+        DRAW_CALL_TRACE_SCOPE( inputs.renderDiagnostics, "ProfilerOverlay" );
         Text2d::FlushText( renderCommands );
     }
 }

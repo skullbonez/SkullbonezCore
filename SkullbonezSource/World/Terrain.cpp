@@ -26,6 +26,7 @@ Related:
 */
 #include "Terrain.h"
 #include "../Assets/AssetSystem.h"
+#include "../Core/SbResult.h"
 #include "../Rendering/Helper.h"
 #include "../Rendering/IRenderResourceFactory.h"
 #include "../Core/Profiler.h"
@@ -41,6 +42,7 @@ using namespace SkullbonezCore::Math;
 using namespace SkullbonezCore::Math::Vector;
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Rendering;
+using SkullbonezCore::Basics::SbResult;
 
 namespace
 {
@@ -59,8 +61,7 @@ using FileHandle = std::unique_ptr<FILE, FileCloser>;
 } // namespace
 
 
-Terrain::Terrain( const char* sFileName,
-                  int iMapSize,
+Terrain::Terrain( int iMapSize,
                   int iStepSize,
                   int iTextureWrap,
                   const SkullbonezCore::Basics::EngineConfig& config,
@@ -87,11 +88,35 @@ Terrain::Terrain( const char* sFileName,
     m_postsPerSide = m_mapSize / m_stepSize;
     BindRenderContexts( config, assets, resources );
     ConfigureRenderStepSize();
+}
 
-    LoadTerrainData( sFileName );
-    BuildTerrain();
-    BuildMesh();
-    InitialiseTerrainShader();
+
+SbResult Terrain::TryCreateFromHeightMap( const char* sFileName,
+                                          int iMapSize,
+                                          int iStepSize,
+                                          int iTextureWrap,
+                                          const SkullbonezCore::Basics::EngineConfig& config,
+                                          SkullbonezCore::Assets::AssetSystem& assets,
+                                          IRenderResourceFactory& resources,
+                                          std::unique_ptr<Terrain>& outTerrain )
+{
+    // Concept: RAW terrain files are external asset input. The factory keeps
+    // a failed load out of RunSubsystemState and reports Lane R instead of
+    // letting constructor exceptions escape through scene startup.
+    outTerrain.reset();
+    std::unique_ptr<Terrain> terrain =
+        std::make_unique<Terrain>( iMapSize, iStepSize, iTextureWrap, config, assets, resources );
+    const SbResult loadResult = terrain->LoadTerrainData( sFileName );
+    if ( !loadResult.ok )
+    {
+        return loadResult;
+    }
+
+    terrain->BuildTerrain();
+    terrain->BuildMesh();
+    terrain->InitialiseTerrainShader();
+    outTerrain = std::move( terrain );
+    return SbResult::Success();
 }
 
 
@@ -533,26 +558,40 @@ TerrainPost Terrain::BuildRenderPost( float rawX, float rawZ ) const
 }
 
 
-void Terrain::LoadTerrainData( const char* sFileName )
+SbResult Terrain::LoadTerrainData( const char* sFileName )
 {
+    // Lane R: height-map files are config/scene-selected assets. Missing or
+    // truncated bytes report a recoverable load failure at the scene boundary.
+    if ( !sFileName || sFileName[0] == '\0' )
+    {
+        return SbResult::Failure( "World/Terrain", "Height map file path is empty." );
+    }
+
     FILE* rawFile = nullptr;
     fopen_s( &rawFile, sFileName, "rb" );
 
     if ( !rawFile )
     {
-        throw std::runtime_error( "Height map file not found.  (Terrain::LoadTerrain)" );
+        return SbResult::Failure( "World/Terrain", "Height map file not found: %s", sFileName );
     }
     FileHandle file( rawFile );
 
     m_terrainData.resize( m_mapSize * m_mapSize );
 
-    fread( m_terrainData.data(), 1, m_terrainData.size(), file.get() );
+    const std::size_t expectedBytes = m_terrainData.size();
+    const std::size_t bytesRead = fread( m_terrainData.data(), 1, m_terrainData.size(), file.get() );
 
-    if ( ferror( file.get() ) )
+    if ( bytesRead != expectedBytes || ferror( file.get() ) )
     {
         m_terrainData.clear();
-        throw std::runtime_error( "Failed to read m_height map.  (Terrain::LoadTerrain)" );
+        return SbResult::Failure( "World/Terrain",
+                                  "Failed to read height map '%s' (%zu/%zu bytes).",
+                                  sFileName,
+                                  bytesRead,
+                                  expectedBytes );
     }
+
+    return SbResult::Success();
 }
 
 

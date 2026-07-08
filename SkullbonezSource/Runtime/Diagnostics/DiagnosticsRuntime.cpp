@@ -110,6 +110,12 @@ const DiagnosticsController& DiagnosticsRuntime::Diagnostics() const
 }
 
 
+void DiagnosticsRuntime::BindProfiler( Profiler* profiler )
+{
+    m_diagnostics.BindProfiler( profiler );
+}
+
+
 RunPerfLogState& DiagnosticsRuntime::PerfLog()
 {
     return m_diagnostics.PerfLog();
@@ -200,6 +206,13 @@ void DiagnosticsRuntime::TickPerfLog( const RuntimePerfTickContext& context )
 {
     m_diagnostics.TickPerfLog( context );
 }
+
+
+RuntimeProfilerFrameTimes DiagnosticsRuntime::SampleProfilerFrameTimes() const
+{
+    return m_diagnostics.SampleProfilerFrameTimes();
+}
+
 
 const MainMemoryStats& DiagnosticsRuntime::RefreshMainMemoryStats( const ReplayRuntime& replay,
                                                                    const GameObjects::GameModelCollection& models,

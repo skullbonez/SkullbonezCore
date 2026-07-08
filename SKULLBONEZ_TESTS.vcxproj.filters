@@ -105,12 +105,6 @@
     <ClCompile Include="SkullbonezSource\Core\WorkerPool.cpp">
       <Filter>Source Files\Core</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Maths\Vector3.cpp">
-      <Filter>Source Files\Maths</Filter>
-    </ClCompile>
-    <ClCompile Include="SkullbonezSource\Maths\GeometricMath.cpp">
-      <Filter>Source Files\Maths</Filter>
-    </ClCompile>
     <ClCompile Include="SkullbonezSource\Physics\BoundingBox.cpp">
       <Filter>Source Files\Physics</Filter>
     </ClCompile>
@@ -188,15 +182,6 @@
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Scene\TestSceneParser.cpp">
       <Filter>Source Files\Scene</Filter>
-    </ClCompile>
-    <ClCompile Include="SkullbonezSource\Maths\Matrix4.cpp">
-      <Filter>Source Files\Maths</Filter>
-    </ClCompile>
-    <ClCompile Include="SkullbonezSource\Maths\Quaternion.cpp">
-      <Filter>Source Files\Maths</Filter>
-    </ClCompile>
-    <ClCompile Include="SkullbonezSource\Maths\RotationMatrix.cpp">
-      <Filter>Source Files\Maths</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

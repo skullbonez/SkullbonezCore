@@ -20,6 +20,13 @@
       "stages": ["hlsl"]
     },
     {
+      "name": "replay_ribbon",
+      "status": "active",
+      "stages": ["hlsl"],
+      "uniforms": ["uViewProj"],
+      "requiredSymbols": ["uViewProj"]
+    },
+    {
       "name": "lit_textured",
       "status": "active",
       "stages": ["hlsl"],

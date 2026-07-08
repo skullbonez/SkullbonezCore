@@ -1,7 +1,7 @@
 # Global Service Retirement Plan
 
 Date: 2026-07-06
-Status: Phase 4 L2 WorkerPool, Window, EngineConfig, and UI profiler snapshot slices complete on 2026-07-07; remaining profiler diagnostics/Gfx singleton demotion/freezing pending
+Status: Implemented 2026-07-08; service accessors deleted or frozen, and renderer-global owner/accessors removed
 Impact area: runtime, rendering, core services; behavior-preserving refactor
 Validation for this document: none (documentation-only)
 

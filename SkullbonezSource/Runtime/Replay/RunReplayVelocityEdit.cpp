@@ -591,6 +591,21 @@ bool Run::TickReplayVelocityEditInput( HWND hwnd, bool uiBlocksMouse )
         ( !hasHotBody || hotAngularAxis >= 0 ) ? -1 : HitReplayVelocityLinearAxis( hotBody, rayOrigin, rayDirection );
     replayInteraction.SetVelocityEditHoverAxes( m_replayRuntime, hotLinearAxis, hotAngularAxis );
 
+    const auto armBaselineComparisonForDrag = [&]()
+    {
+        RunReplayPredictionState& prediction = m_replayRuntime.Prediction();
+        if ( prediction.complete && prediction.frames.size() >= 2 && m_replayRuntime.PathVisualizer().hasTarget )
+        {
+            // Why: the old future must be retained before the first drag tick
+            // dirties prediction. The visualizer owns the actual capture so it
+            // can reuse the same rest-pose and replay-reserve rules as drawing.
+            prediction.baseline.valid = false;
+            prediction.baseline.comparisonActive = true;
+            prediction.baseline.divergenceValid = false;
+            prediction.baseline.divergenceUnits = 0.0f;
+        }
+    };
+
     if ( !uiBlocksMouse && leftPressed )
     {
         const POINT mouse = Input::GetClientMouseCoordinates();
@@ -635,6 +650,7 @@ bool Run::TickReplayVelocityEditInput( HWND hwnd, bool uiBlocksMouse )
                     dragStart.angle = startAngle;
                     dragStart.linearVelocity = body.linearVelocity;
                     dragStart.angularVelocity = body.angularVelocity;
+                    armBaselineComparisonForDrag();
                     replayInteraction.BeginVelocityEditDrag( m_replayRuntime, dragStart );
                     if ( !m_replayRuntime.VelocityEdit().mouseCaptured )
                     {
@@ -682,6 +698,7 @@ bool Run::TickReplayVelocityEditInput( HWND hwnd, bool uiBlocksMouse )
                     dragStart.axisT = axisT;
                     dragStart.linearVelocity = body.linearVelocity;
                     dragStart.angularVelocity = body.angularVelocity;
+                    armBaselineComparisonForDrag();
                     replayInteraction.BeginVelocityEditDrag( m_replayRuntime, dragStart );
                     if ( !m_replayRuntime.VelocityEdit().mouseCaptured )
                     {

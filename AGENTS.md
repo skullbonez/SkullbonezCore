@@ -351,7 +351,6 @@ run the specified targeted validation:
 | Coordinate conventions | Upside-down textures, clip-space bugs | `validate_dx12_renderer` |
 | Upload buffer / frame allocator | DX12 CPU overwrites in-flight GPU data | `validate_dx12_renderer` + run 3 consecutive times |
 | DX12 graphics stress memory growth | Resource or cache leak, descriptor pressure, GPU memory growth | bounded `tools\run_graphics_stress.bat` with memory artifacts; overnight only when requested |
-| Singleton lifecycle | Use-after-destroy, double-init crash | `validate_full` |
 | Broadphase spatial grid | Missed collisions, perf regression | `validate_physics` + `validate_perf` |
 
 ---

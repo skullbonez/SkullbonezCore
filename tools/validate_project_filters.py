@@ -8,17 +8,24 @@
 #   The .vcxproj controls what Visual Studio builds or displays, while the
 #   .vcxproj.filters file controls where those items appear in Solution
 #   Explorer. This check keeps source, headers, scenes, shaders, and style data
-#   in predictable filters so project edits do not slowly drift.
+#   in predictable filters so project edits do not slowly drift. The default
+#   production gate validates the app and any extracted production libraries as
+#   a set, because library layering deliberately moves files out of the app
+#   project without removing them from the solution build.
 #
 # Glossary:
 #   Filter: A Visual Studio virtual folder stored in .vcxproj.filters.
 #   Project item: A build or content entry such as ClCompile, ClInclude, or None.
+#   Production project set: The app plus extracted static libraries that
+#     together own SkullbonezSource build/header coverage.
 #   Validation gate: Repository script that proves a class of changes before
 #   commit or PR.
 #
 # Invariants:
 #   - Every project item that belongs in Solution Explorer has one expected
 #     filter entry.
+#   - Every SkullbonezSource build/header file appears in exactly one production
+#     project in default mode.
 #   - Source and header pairs stay in matching source/header filter categories.
 #   - Project paths use the exact casing of the file on disk.
 #
@@ -26,7 +33,7 @@
 #   - AGENTS.md
 #   - tools/README.md
 #
-"""Validate SKULLBONEZ_CORE.vcxproj item filters."""
+"""Validate Visual Studio project item filters."""
 
 from __future__ import annotations
 
@@ -51,6 +58,12 @@ PROJECT_FILTER = "Project Files"
 RESOURCE_FILTER = "Resource Files"
 SHADER_FILTER = "Resource Files\\HLSL"
 SOURCE_PROJECT_ROOT = "SkullbonezSource"
+# Invariant: the default production set excludes SKULLBONEZ_TESTS because tests
+# intentionally compile or reference focused engine slices for unit coverage.
+DEFAULT_PRODUCTION_PROJECTS = (
+    ("SKULLBONEZ_CORE.vcxproj", "SKULLBONEZ_CORE.vcxproj.filters"),
+    ("SKULLBONEZ_MATHS.vcxproj", "SKULLBONEZ_MATHS.vcxproj.filters"),
+)
 # Concept: `.inl` files are source-bearing include slices, not build units.
 # Keep them as ClInclude items so Visual Studio shows ownership splits while
 # the including `.cpp` preserves linkage and compile order.
@@ -63,6 +76,7 @@ SOURCE_PROJECT_SUFFIX_TYPES = {
 MATH_PREFIXES = (
     "GeometricMath",
     "GeometricStructures",
+    "MathsCommon",
     "Matrix4",
     "Quaternion",
     "RotationMatrix",
@@ -70,6 +84,7 @@ MATH_PREFIXES = (
 )
 
 ASSET_PREFIXES = (
+    "AssetKeys",
     "AssetSystem",
     "TextureCollection",
 )
@@ -79,6 +94,7 @@ GAME_OBJECT_PREFIXES = (
     "GameModelSoACache",
     "GameModelStreams",
     "GameModel",
+    "SceneCapacity",
 )
 
 PHYSICS_PREFIXES = (
@@ -100,6 +116,7 @@ PHYSICS_PREFIXES = (
     "PhysicsMass",
     "PhysicsModelAccess",
     "PhysicsObjectPolicy",
+    "PhysicsTimestep",
     "Ragdoll",
     "PhysicsScene",
     "PhysicsWorld",
@@ -209,6 +226,7 @@ RUNTIME_PREFIXES = (
     "RuntimeTuning",
     "RuntimeViewModel",
     "SimulationController",
+    "WindowConstants",
     "Window",
 )
 
@@ -339,6 +357,12 @@ class ProjectItem:
         return (self.item_type, normalize_path(self.include).lower())
 
 
+@dataclass(frozen=True)
+class ProjectValidationSpec:
+    project_path: Path
+    filters_path: Path
+
+
 def normalize_path(path: str) -> str:
     return path.replace("/", "\\")
 
@@ -408,6 +432,56 @@ def read_source_files_on_disk(repo: Path) -> list[ProjectItem]:
             continue
         items.append(ProjectItem(item_type, repo_relative(repo, path)))
     return items
+
+
+def default_production_project_specs(repo: Path) -> list[ProjectValidationSpec]:
+    specs: list[ProjectValidationSpec] = []
+    for project_name, filters_name in DEFAULT_PRODUCTION_PROJECTS:
+        project_path = repo / project_name
+        filters_path = repo / filters_name
+        if project_name == "SKULLBONEZ_CORE.vcxproj" or project_path.exists() or filters_path.exists():
+            specs.append(ProjectValidationSpec(project_path, filters_path))
+    return specs
+
+
+def read_project_items_from_path(project_path: Path) -> list[ProjectItem]:
+    project_root = load_xml(project_path)
+    project_namespace = namespace_for(project_root)
+    return read_project_items(project_root, project_namespace, include_filters=False)
+
+
+def production_source_coverage_errors(
+    repo: Path,
+    project_specs: list[ProjectValidationSpec],
+) -> tuple[list[str], dict[str, int]]:
+    errors: list[str] = []
+    owner_by_key: dict[tuple[str, str], list[str]] = {}
+    disk_items = read_source_files_on_disk(repo)
+
+    # Why: after Maths becomes a static library, "is every source in the app?"
+    # is the wrong question. Default validation now asks whether each tracked
+    # source-bearing file has one production owner across the solution slice.
+    for spec in project_specs:
+        project_name = repo_relative(repo, spec.project_path)
+        for item in read_project_items_from_path(spec.project_path):
+            if normalize_path(item.include).lower().startswith(f"{SOURCE_PROJECT_ROOT.lower()}\\"):
+                owner_by_key.setdefault(item.key, []).append(project_name)
+
+    for item in disk_items:
+        owners = owner_by_key.get(item.key, [])
+        if not owners:
+            errors.append(f"{item.include}: source/header file missing from production project set.")
+        elif len(owners) > 1:
+            errors.append(
+                f"{item.include}: source/header file listed in multiple production projects "
+                f"({', '.join(owners)})."
+            )
+
+    stats = {
+        "diskSourceItemCount": len(disk_items),
+        "productionSourceOwnerCount": len(owner_by_key),
+    }
+    return errors, stats
 
 
 def exact_path_on_disk(repo: Path, include: str) -> str | None:
@@ -636,6 +710,51 @@ def validate_project_filters(
     return errors, stats
 
 
+def validate_production_project_filters(
+    repo: Path,
+    project_specs: list[ProjectValidationSpec],
+) -> tuple[list[str], dict[str, int], list[dict[str, object]]]:
+    errors: list[str] = []
+    project_summaries: list[dict[str, object]] = []
+    project_item_count = 0
+    filter_item_count = 0
+    declared_filter_count = 0
+
+    for spec in project_specs:
+        project_errors, stats = validate_project_filters(
+            repo,
+            spec.project_path,
+            spec.filters_path,
+            require_all_source_files=False,
+        )
+        project_label = repo_relative(repo, spec.project_path)
+        project_summaries.append(
+            {
+                "project": project_label,
+                "filters": repo_relative(repo, spec.filters_path),
+                "status": "pass" if not project_errors else "fail",
+                **stats,
+            }
+        )
+        project_item_count += stats["projectItemCount"]
+        filter_item_count += stats["filterItemCount"]
+        declared_filter_count += stats["declaredFilterCount"]
+        errors.extend(f"{project_label}: {error}" for error in project_errors)
+
+    coverage_errors, coverage_stats = production_source_coverage_errors(repo, project_specs)
+    errors.extend(coverage_errors)
+
+    stats = {
+        "projectCount": len(project_specs),
+        "projectItemCount": project_item_count,
+        "filterItemCount": filter_item_count,
+        "declaredFilterCount": declared_filter_count,
+        **coverage_stats,
+        "errorCount": len(errors),
+    }
+    return errors, stats, project_summaries
+
+
 def write_summary(path: Path, payload: dict[str, object]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
@@ -656,24 +775,39 @@ def main() -> int:
     args = parser.parse_args()
 
     repo = args.repo.resolve()
-    project_path = args.project or repo / "SKULLBONEZ_CORE.vcxproj"
-    filters_path = args.filters or repo / "SKULLBONEZ_CORE.vcxproj.filters"
     summary_path = args.json_out or repo / "TestOutput" / "validation" / "project_filters" / "summary.json"
 
-    errors, stats = validate_project_filters(
-        repo,
-        project_path,
-        filters_path,
-        require_all_source_files=not args.partial_project,
-    )
-    summary = {
-        "generatedAtUtc": datetime.now(timezone.utc).isoformat(),
-        "project": repo_relative(repo, project_path),
-        "filters": repo_relative(repo, filters_path),
-        "status": "pass" if not errors else "fail",
-        **stats,
-        "errors": errors,
-    }
+    # Why: explicit project mode preserves targeted validation for auxiliary
+    # projects, while default mode proves full production source ownership.
+    explicit_project_mode = args.project is not None or args.filters is not None
+    if explicit_project_mode:
+        project_path = args.project or repo / "SKULLBONEZ_CORE.vcxproj"
+        filters_path = args.filters or repo / "SKULLBONEZ_CORE.vcxproj.filters"
+        errors, stats = validate_project_filters(
+            repo,
+            project_path,
+            filters_path,
+            require_all_source_files=not args.partial_project,
+        )
+        summary = {
+            "generatedAtUtc": datetime.now(timezone.utc).isoformat(),
+            "project": repo_relative(repo, project_path),
+            "filters": repo_relative(repo, filters_path),
+            "status": "pass" if not errors else "fail",
+            **stats,
+            "errors": errors,
+        }
+    else:
+        project_specs = default_production_project_specs(repo)
+        errors, stats, project_summaries = validate_production_project_filters(repo, project_specs)
+        summary = {
+            "generatedAtUtc": datetime.now(timezone.utc).isoformat(),
+            "projectSet": "production",
+            "projects": project_summaries,
+            "status": "pass" if not errors else "fail",
+            **stats,
+            "errors": errors,
+        }
     write_summary(summary_path, summary)
 
     for error in errors[: args.max_errors]:
@@ -681,11 +815,18 @@ def main() -> int:
     if len(errors) > args.max_errors:
         print(f"ERROR: suppressed {len(errors) - args.max_errors} additional project filter issue(s).")
 
-    print(
-        f"Project filter summary: {repo_relative(repo, summary_path)} "
-        f"({len(errors)} errors, {stats['projectItemCount']} project items, "
-        f"{stats['filterItemCount']} filter items)"
-    )
+    if explicit_project_mode:
+        print(
+            f"Project filter summary: {repo_relative(repo, summary_path)} "
+            f"({len(errors)} errors, {stats['projectItemCount']} project items, "
+            f"{stats['filterItemCount']} filter items)"
+        )
+    else:
+        print(
+            f"Project filter summary: {repo_relative(repo, summary_path)} "
+            f"({len(errors)} errors, {stats['projectItemCount']} project items, "
+            f"{stats['filterItemCount']} filter items across {stats['projectCount']} production projects)"
+        )
 
     if errors:
         print("FAIL: Project filter validation failed.")

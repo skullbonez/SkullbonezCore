@@ -1,7 +1,7 @@
 # Blocker Remediation Plan (overnight run, 2026-07-07)
 
 Date: 2026-07-07
-Status: In progress; SVC-032/SVC-033 resolved by the UI profiler snapshot slice, 27 blockers remain
+Status: In progress; SVC-001/SVC-002/SVC-022/SVC-032/SVC-033 resolved, draw-call trace helper migrated, 24 blockers remain
 Input: 31 blocked rows + 1 open row from the authoritative overnight run
 (127/160 done). Reasons read from the blocker commits (`git log --grep=block`).
 Validation for this document: none (documentation-only)
@@ -19,8 +19,8 @@ overnight-safe work.
 | A. World-ownership knot | PHYS-004, 009, 012, 016, 018, 020, 021, 022, 025, 026, 027 (11) | PhysicsEngine is owned by GameModelCollection; `GetPhysicsEngine` has ~124 callers; scene creation/load/reset pass collection+engine together. Circular: each row's safe version depends on the others. |
 | B. DX12 capability-split chain | RGRAPH-003, 004, 007, 010, 014, 022, 023, 024, 029 (9) | Everything chains to RGRAPH-003/004: narrow command-context and resource-factory capabilities don't exist yet, and the migration artifact gate (correctly) forbids bridge owners as a substitute. |
 | C. Run behavioral routers | RUN-009, 010, 011, 015 (4) | The gates cannot verify full routing/ordering equivalence for TakeInput, DrainRuntimeCommands, LoadScene, UpdateLogic. Needs decomposition + tests that make equivalence checkable, not braver refactoring. |
-| D. Diagnostics receiving path | SVC-022 remaining; SVC-032/SVC-033 resolved; SVC-034 decision done | Plan-03's own non-goal: profiler/diagnostics reads can't move until a receiving diagnostics snapshot path exists. |
-| E. Endgame deletions | SVC-001, 002 (2) | `Gfx()`/`s_gfxBackend` deletion waits on the caller census reaching the startup allowlist (44 sites remain; many are Cluster B rows). |
+| D. Diagnostics receiving path | SVC-022/SVC-032/SVC-033 resolved; SVC-034 decision done | Diagnostics snapshots and the runtime receiving path now carry profiler data without direct UI/runtime singleton reads outside the startup-bound profiler borrow. |
+| E. Endgame deletions | SVC-001, 002 resolved | `Gfx()`/`s_gfxBackend` deletion completed; startup owns the DX12 backend and draw-call tracing, CollisionVisualizer, and other debug visualizers are explicit-facet callers. |
 | Stray | PHYS-035 (in A above, but see A0), RUN-027 (open) | See below — both have independent paths. |
 
 ## Quick wins first (no design needed; overnight-safe)
@@ -115,19 +115,21 @@ equivalence checkable, then move code.
    fills `ProfilerTab::FrameSnapshot` from the explicit render diagnostics
    borrow plus the remaining runtime-owned profiler access, and
    `UITabProfiler` now consumes that snapshot.
-2. SVC-022 remains: build the diagnostics/perf CSV receiving path through
-   `RuntimeDiagnostics`/`DiagnosticsRuntime` without reopening direct UI
-   singleton reads. One slice, `validate_fast`/`validate_full` per area.
+2. SVC-022 is done: diagnostics/perf CSV and frame-time sampling now flow
+   through `RuntimeDiagnostics`/`DiagnosticsRuntime` using the startup-bound
+   `Profiler*` borrow instead of reopening direct runtime singleton reads.
 3. SVC-023 note (done ledger says platform-profiler-markers gate): any
    profiler marker change must run
    `Profile\SKULLBONEZ_CORE.exe --platform-profiler-markers`.
 
 ## Cluster E — endgame deletions (do not schedule yet)
 
-SVC-001/002 close themselves when the `Gfx()` census (44 today) reaches the
-startup allowlist — driven by Cluster B rows and fable-02 phase 3. Track the
-census number in the ratchet; when it equals the allowlist, one deletion
-slice + `validate_full` + `validate_dx12_renderer`.
+SVC-001/002 close themselves when the remaining renderer singleton surface is
+limited to startup/facade deletion mechanics. Draw-call tracing,
+CollisionVisualizer, and the other debug visualizers have moved to explicit
+render facets; the remaining work is the `IRenderBackend` aggregate facade plus
+startup accessor mechanics. Track the ratchets in the checker, then finish with
+one deletion slice plus `validate_full` and `validate_dx12_renderer`.
 
 ## Suggested calendar
 
@@ -339,7 +341,36 @@ else returns to the overnight machine as gated, verifiable slices.
   orphans: profiler/UI hits belong to Cluster D diagnostics, backend facade and
   tracing hits belong to SVC-001/SVC-002 plus plan-05 render capability cleanup,
   and the rest are comments/declarations. No local renderer conversion was
-  needed; G3 remains pending until those owned clusters drain.
+  needed in that slice; later G3 slices below continued the renderer caller
+  burn-down.
+- 2026-07-07: Continued fable-02 G3/SVC-001/SVC-002 cleanup through
+  CollisionVisualizer. `CollisionVisualizer` now uses `IRenderResourceFactory`
+  for create/destroy, `IRenderCommandContext` for upload/draw/blend/depth state,
+  and `IRenderDiagnostics` for child draw-trace scopes; it no longer references
+  `Gfx()`, `IsGfxReady()`, or `IRenderBackend`. The checker dropped
+  `MAX_GLOBAL_SERVICE_ACCESS_CENSUS` from 107 to 92,
+  `MAX_IRENDER_BACKEND_DEPENDENCY_CENSUS` from 31 to 30, and stale PHYS-034
+  `GameModelCollection` slack to `MAX_PHYSICS_GAME_MODEL_COLLECTION_CENSUS = 0`.
+  Remaining SVC-001/SVC-002 work is the facade/accessor deletion endgame.
+- 2026-07-07: Continued fable-02 G3/SVC-001/SVC-002 cleanup through the
+  draw-call trace diagnostics-facet migration. `DrawCallTraceScope` and
+  `DRAW_CALL_TRACE_SCOPE` now live on `IRenderDiagnostics.h` and require an
+  explicit diagnostics borrow from the frame/helper/UI context, so trace scopes
+  no longer reopen `Gfx()` or `IsGfxReady()` through `IRenderBackend.h`.
+  `GameModelRenderer.cpp` and `UI.cpp` dropped their aggregate
+  `IRenderBackend` includes, `RenderHelperContext` and `UIRenderContext` now
+  carry diagnostics explicitly, and the checker lowered
+  `MAX_GLOBAL_SERVICE_ACCESS_CENSUS` from 92 to 89 and
+  `MAX_IRENDER_BACKEND_DEPENDENCY_CENSUS` from 30 to 26. Comment audit:
+  touched-file pass inspected 12 source-bearing files, 0 deferred. Gates
+  passed: boundary self-test (`check_runtime_boundaries.py --self-test`, 0.326s),
+  boundary scan (`check_runtime_boundaries.py`, 15.498s, 0 errors),
+  `tools\validate_fast.bat` (45.818s, 0 warnings/errors),
+  `tools\validate_dx12_renderer.bat` (19.761s, DX12 validation errors 0,
+  screenshots matched), and `tools\validate_full.bat` (41.604s, DX12
+  validation errors 0, screenshots matched, physics CSV byte-exact). Remaining
+  SVC-001/SVC-002 work is the `IRenderBackend` aggregate facade/startup accessor
+  deletion.
 - 2026-07-07: Completed fable-02 phase 4 L1 singleton lifetime discovery.
   Recorded construction sites and teardown risk for `EngineConfig`,
   `WorkerPool`, `Window`, `Profiler`, and frozen diagnostics
@@ -378,3 +409,9 @@ else returns to the overnight machine as gated, verifiable slices.
   `tools\validate_fast.bat` (66.672s, 0 warnings/errors), and
   `tools\validate_full.bat` (43.185s, DX12 validation errors 0, screenshots
   matched, physics CSV byte-exact).
+- 2026-07-08: Completed fable-02 G3/L3/Z closure and resolved SVC-001/SVC-002.
+  Deleted the renderer-global backend owner/accessors, moved DX12 backend
+  ownership into startup scope, added boundary-checker tombstones for the
+  deleted symbols, and removed the AGENTS.md singleton-lifecycle danger-zone
+  row after frozen diagnostics remained the only singleton accessors. Remaining
+  blockers: 24.

@@ -18,6 +18,8 @@ Glossary:
     body-linear-energy path instead of the solver contact-row classifier.
   Attached-camera physics target: Body/collider handles plus a store-owned pose,
     velocity, and broad radius sampled for camera follow math.
+  Lane R result: Recoverable scene-control failure reported by a load action
+    without treating the command as successfully applied.
   Validation gate: Repository script that proves a class of changes before
     commit or PR.
 
@@ -752,7 +754,9 @@ bool Run::ExecuteRuntimeInteractionCommand( const RuntimeInteractionCommand& com
             return false;
         }
 
-        const int previousModelIndex = m_runtimeTools.Editor().selectedModelIndex;
+        const PhysicsBodyStore& bodyStore = m_cGameModelCollection.GetPhysicsEngine().BodyStore();
+        const ColliderStore& colliderStore = m_cGameModelCollection.GetPhysicsEngine().Colliders();
+        const int previousModelIndex = ResolveSelectedEditorModelIndex( m_runtimeTools.Editor(), bodyStore );
         const bool selectionHit = command.modelIndex >= 0;
         PhysicsBodyHandle selectedBody;
         PhysicsColliderHandle selectedCollider;
@@ -760,8 +764,6 @@ bool Run::ExecuteRuntimeInteractionCommand( const RuntimeInteractionCommand& com
         {
             // Invariant: positive selection commands prove identity with
             // handles. The model index only checks the paired UI row.
-            const PhysicsBodyStore& bodyStore = m_cGameModelCollection.GetPhysicsEngine().BodyStore();
-            const ColliderStore& colliderStore = m_cGameModelCollection.GetPhysicsEngine().Colliders();
             selectedBody = command.body;
             selectedCollider = command.collider;
             const PhysicsBodyRecord* body = bodyStore.RecordForHandle( selectedBody );
@@ -786,7 +788,7 @@ bool Run::ExecuteRuntimeInteractionCommand( const RuntimeInteractionCommand& com
                 inspectSelection ? InteractionExitReason::EnterInspect : InteractionExitReason::EnterEdit;
             SetWorldInteractionOwnerAfterInteractionTransition( owner, reason );
         }
-        m_runtimeTools.Editor().selectedModelIndex = command.modelIndex;
+        m_runtimeTools.Editor().selectedModelRow.value = command.modelIndex;
         m_runtimeTools.Editor().selectedBody = selectedBody;
         m_runtimeTools.Editor().selectedCollider = selectedCollider;
         if ( previousModelIndex != command.modelIndex || previousBody != selectedBody ||
@@ -1111,15 +1113,19 @@ void Run::SeedAttachedCameraTargetFromSelection()
 
     int seedIndex = -1;
     const RunReplayPathVisualizerState& path = m_replayRuntime.PathVisualizer();
-    const int modelCount = m_cGameModelCollection.GetPhysicsEngine().BodyStore().Count();
+    const PhysicsBodyStore& bodyStore = m_cGameModelCollection.GetPhysicsEngine().BodyStore();
+    const int modelCount = bodyStore.Count();
     if ( path.hasTarget && path.targetModelIndex >= 0 && path.targetModelIndex < modelCount )
     {
         seedIndex = path.targetModelIndex;
     }
-    else if ( m_runtimeTools.Editor().selectedModelIndex >= 0 &&
-              m_runtimeTools.Editor().selectedModelIndex < modelCount )
+    else
     {
-        seedIndex = m_runtimeTools.Editor().selectedModelIndex;
+        const int selectedModelIndex = ResolveSelectedEditorModelIndex( m_runtimeTools.Editor(), bodyStore );
+        if ( selectedModelIndex >= 0 && selectedModelIndex < modelCount )
+        {
+            seedIndex = selectedModelIndex;
+        }
     }
 
     if ( seedIndex >= 0 )
@@ -2180,11 +2186,11 @@ void Run::TakeInput()
                 m_diagnosticsRuntime.Capture().Screenshot().isScreenshotAndExit = false;
                 return true;
             case SceneRuntimeControlActionType::LoadScene:
-                LoadScene( action.index,
-                           action.preserveUIState,
-                           action.suppressExitOnComplete,
-                           action.preserveRuntimeState );
-                return true;
+                return LoadScene( action.index,
+                                  action.preserveUIState,
+                                  action.suppressExitOnComplete,
+                                  action.preserveRuntimeState )
+                    .ok;
             case SceneRuntimeControlActionType::ApplyCinematicModeFromBrowserIndex:
                 EnterInteractiveSceneRun();
                 return ApplyCinematicModeFromBrowserIndex(
@@ -3254,11 +3260,11 @@ bool Run::DrainRuntimeCommands()
             m_diagnosticsRuntime.Capture().Screenshot().isScreenshotAndExit = false;
             return true;
         case SceneRuntimeControlActionType::LoadScene:
-            LoadScene( action.index,
-                       action.preserveUIState,
-                       action.suppressExitOnComplete,
-                       action.preserveRuntimeState );
-            return true;
+            return LoadScene( action.index,
+                              action.preserveUIState,
+                              action.suppressExitOnComplete,
+                              action.preserveRuntimeState )
+                .ok;
         case SceneRuntimeControlActionType::ApplyCinematicModeFromBrowserIndex:
             EnterInteractiveSceneRun();
             return ApplyCinematicModeFromBrowserIndex(

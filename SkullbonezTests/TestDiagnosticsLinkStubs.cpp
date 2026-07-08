@@ -14,25 +14,40 @@
 //     keeping the focused test subject small.
 //   SkullScope: Runtime trace emitter for queryable physics diagnostics.
 //   EngineLog: Debug-only file logger used by diagnostics sinks.
+//   Lane F: Fatal invariant path for should-never-happen engine state.
 //
 // Invariants:
 //   - These stubs must not emit files or mutate runtime diagnostics state.
+//   - SbFatal must remain non-returning even in tests so code after SB_FATAL is
+//     still unreachable to callers and optimizers.
 //   - Focused unit tests that need real SkullScope output should link the real
 //     diagnostics implementation instead of extending this file.
 //
 // Related:
 //   - SkullbonezSource/Physics/PhysicsDiagnosticsSink.cpp
+//   - SkullbonezSource/Core/FatalError.h
 //   - SkullbonezSource/Core/SkullScope.h
 //   - SkullbonezSource/Core/Log.h
 //
 
+#include "../SkullbonezSource/Core/FatalError.h"
 #include "../SkullbonezSource/Core/Log.h"
 #include "../SkullbonezSource/Core/SkullScope.h"
+
+#include <cstdlib>
 
 namespace SkullbonezCore
 {
 namespace Basics
 {
+[[noreturn]] void SbFatal( const char*, const char*, ... )
+{
+    // Why: unit tests link only focused physics/runtime slices. Fatal branches
+    // are invariant-failure paths and should fail the process if reached, but
+    // the harness does not need the production logger dependency graph.
+    std::abort();
+}
+
 EngineLog& EngineLog::Get()
 {
     static EngineLog log;

@@ -16,10 +16,13 @@ Glossary:
   Narrowphase: Precise collision pass that computes contact points, normals,
   and penetration.
   Manifold: Set of contact points and normals describing one colliding pair.
+  Lane F: Fatal invariant lane for should-never-happen engine state.
 
 Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines
-  are the validation contract.
+    are the validation contract.
+  - SpatialGrid capacity and index failures are Lane F invariants: callers
+    cannot recover while preserving the frame's broadphase contract.
 
 Related:
   - SkullbonezSource/Physics/SpatialGrid.h
@@ -35,9 +38,9 @@ Related:
 
 
 #include "SpatialGrid.h"
+#include "../Core/FatalError.h"
 #include <algorithm>
 #include <cfloat>
-#include <stdexcept>
 
 
 using namespace SkullbonezCore::Math::CollisionDetection;
@@ -56,7 +59,7 @@ void SpatialGrid::SetCellSize( float fCellSize )
 {
     if ( fCellSize <= TOLERANCE || !std::isfinite( fCellSize ) )
     {
-        throw std::runtime_error( "SpatialGrid cell size must be finite and positive" );
+        SB_FATAL( "Physics/SpatialGrid", "SpatialGrid cell size must be finite and positive" );
     }
 
     cellSize = fCellSize;
@@ -99,7 +102,7 @@ int SpatialGrid::FindOrCreate( int64_t key, int16_t cx, int16_t cy, int16_t cz )
             assert( activeBucketCount < TABLE_SIZE && "activeBuckets overflow" );
             if ( activeBucketCount >= TABLE_SIZE )
             {
-                throw std::runtime_error( "SpatialGrid active bucket capacity exceeded" );
+                SB_FATAL( "Physics/SpatialGrid", "SpatialGrid active bucket capacity exceeded" );
             }
             activeBuckets[activeBucketCount++] = idx;
             return idx;
@@ -135,7 +138,7 @@ void SpatialGrid::InsertCell( int index, int ix, int iy, int iz )
         assert( cur >= 0 && cur < MAX_CELL_ENTRIES && "entry chain index OOB" );
         if ( cur < 0 || cur >= MAX_CELL_ENTRIES )
         {
-            throw std::runtime_error( "SpatialGrid entry chain index out of bounds" );
+            SB_FATAL( "Physics/SpatialGrid", "SpatialGrid entry chain index out of bounds" );
         }
         if ( entries[cur].objectIndex == index )
         {
@@ -146,7 +149,7 @@ void SpatialGrid::InsertCell( int index, int ix, int iy, int iz )
     if ( entryPoolUsed >= MAX_CELL_ENTRIES )
     {
         assert( false && "SpatialGrid cell entry capacity exceeded" );
-        throw std::runtime_error( "SpatialGrid cell entry capacity exceeded" );
+        SB_FATAL( "Physics/SpatialGrid", "SpatialGrid cell entry capacity exceeded" );
     }
 
     entries[entryPoolUsed].objectIndex = index;
@@ -164,7 +167,7 @@ void SpatialGrid::InsertBounds( int index, const Vector3& minBounds, const Vecto
     assert( index >= 0 && "Insert: negative object index" );
     if ( index < 0 || index >= MAX_GAME_MODELS )
     {
-        throw std::runtime_error( "SpatialGrid object index out of bounds" );
+        SB_FATAL( "Physics/SpatialGrid", "SpatialGrid object index out of bounds" );
     }
 
     if ( index >= objectCount )
@@ -341,7 +344,7 @@ void SpatialGrid::GetCandidatePairs( std::vector<std::pair<int, int>>& outPairs,
     assert( objectCount >= 0 && objectCount <= MAX_GAME_MODELS && "objectCount OOB" );
     if ( objectCount < 0 || objectCount > MAX_GAME_MODELS )
     {
-        throw std::runtime_error( "SpatialGrid object count out of bounds" );
+        SB_FATAL( "Physics/SpatialGrid", "SpatialGrid object count out of bounds" );
     }
     int pairBits = objectCount * ( objectCount - 1 ) / 2;
     int wordsNeeded = ( pairBits + 63 ) / 64;
@@ -358,7 +361,7 @@ void SpatialGrid::GetCandidatePairs( std::vector<std::pair<int, int>>& outPairs,
         assert( bi >= 0 && bi < TABLE_SIZE && "active bucket index OOB" );
         if ( bi < 0 || bi >= TABLE_SIZE )
         {
-            throw std::runtime_error( "SpatialGrid active bucket index out of bounds" );
+            SB_FATAL( "Physics/SpatialGrid", "SpatialGrid active bucket index out of bounds" );
         }
         Bucket& b = buckets[bi];
         if ( b.generation != generation || b.count < 2 )
@@ -375,13 +378,13 @@ void SpatialGrid::GetCandidatePairs( std::vector<std::pair<int, int>>& outPairs,
             assert( cur >= 0 && cur < MAX_CELL_ENTRIES && "entry chain index OOB" );
             if ( cur < 0 || cur >= MAX_CELL_ENTRIES )
             {
-                throw std::runtime_error( "SpatialGrid entry chain index out of bounds" );
+                SB_FATAL( "Physics/SpatialGrid", "SpatialGrid entry chain index out of bounds" );
             }
             int objIdx = entries[cur].objectIndex;
             assert( objIdx >= 0 && objIdx < MAX_GAME_MODELS && "objectIndex OOB in entry chain" );
             if ( objIdx < 0 || objIdx >= MAX_GAME_MODELS )
             {
-                throw std::runtime_error( "SpatialGrid object index out of bounds in entry chain" );
+                SB_FATAL( "Physics/SpatialGrid", "SpatialGrid object index out of bounds in entry chain" );
             }
             if ( cellCount < MAX_GAME_MODELS )
             {
@@ -390,7 +393,7 @@ void SpatialGrid::GetCandidatePairs( std::vector<std::pair<int, int>>& outPairs,
             else
             {
                 assert( false && "cell index staging overflow" );
-                throw std::runtime_error( "SpatialGrid cell index staging overflow" );
+                SB_FATAL( "Physics/SpatialGrid", "SpatialGrid cell index staging overflow" );
             }
             cur = entries[cur].next;
         }
@@ -419,14 +422,14 @@ void SpatialGrid::GetCandidatePairs( std::vector<std::pair<int, int>>& outPairs,
                 assert( a < bIdx && "pair ordering violated: a must be less than bIdx" );
                 if ( a >= bIdx )
                 {
-                    throw std::runtime_error( "SpatialGrid pair ordering violated" );
+                    SB_FATAL( "Physics/SpatialGrid", "SpatialGrid pair ordering violated" );
                 }
                 int pairIdx = bIdx * ( bIdx - 1 ) / 2 + a;
                 int word = pairIdx >> 6;
                 assert( word >= 0 && word < PAIR_WORDS && "pairSeen word index OOB" );
                 if ( word < 0 || word >= PAIR_WORDS )
                 {
-                    throw std::runtime_error( "SpatialGrid pair dedup index out of bounds" );
+                    SB_FATAL( "Physics/SpatialGrid", "SpatialGrid pair dedup index out of bounds" );
                 }
                 uint64_t bit = uint64_t( 1 ) << ( pairIdx & 63 );
 
@@ -440,7 +443,7 @@ void SpatialGrid::GetCandidatePairs( std::vector<std::pair<int, int>>& outPairs,
                     assert( outPairs.size() < outPairs.capacity() && "SpatialGrid candidate pair reserve exhausted" );
                     if ( outPairs.size() >= outPairs.capacity() )
                     {
-                        throw std::runtime_error( "SpatialGrid candidate pair reserve exhausted" );
+                        SB_FATAL( "Physics/SpatialGrid", "SpatialGrid candidate pair reserve exhausted" );
                     }
                     outPairs.emplace_back( a, bIdx );
                 }

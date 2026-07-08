@@ -49,6 +49,7 @@ class AssetSystem;
 namespace Rendering
 {
 class IRenderCommandContext;
+class IRenderDiagnostics;
 class IRenderResourceFactory;
 } // namespace Rendering
 namespace Math
@@ -65,9 +66,11 @@ struct CinematicRenderConfig;
 struct RenderHelperContext
 {
     // Lifetime: borrowed only for the draw/resource call receiving this context.
-    // RenderHelper keeps GPU handles, but renderer services stay owned by Run.
+    // RenderHelper keeps GPU handles and trace annotations, but renderer
+    // services stay owned by Run.
     Rendering::IRenderResourceFactory& renderResources;
     Rendering::IRenderCommandContext& renderCommands;
+    Rendering::IRenderDiagnostics& renderDiagnostics;
     const Assets::AssetSystem& assets;
     const EngineConfig& config;
 };

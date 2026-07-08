@@ -104,6 +104,7 @@ namespace Basics
 {
 class DiagnosticsRuntime;
 class EngineConfig;
+class Profiler;
 class RuntimeInputContext;
 struct CinematicScenePassResources;
 struct FullscreenPassResources;
@@ -367,6 +368,7 @@ struct UiTextPassInputs
     // so it borrows only the narrow render facets sampled by overlays.
     const UiTextPassState& state;
     Rendering::IRenderDiagnostics& renderDiagnostics;
+    Profiler* profiler = nullptr;           // UI snapshot source; null when profiling is compiled out.
     const UI::UIRenderContext& uiRender;
     const RuntimeRenderModelFrameView& models;
     DiagnosticsRuntime& diagnosticsRuntime;

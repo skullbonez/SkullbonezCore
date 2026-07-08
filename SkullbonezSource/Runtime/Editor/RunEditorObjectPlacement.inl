@@ -155,25 +155,33 @@ bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
     // existing multi-part object behavior while carrying store-owned identity.
     Physics::PhysicsBodyHandle lastPlacedBody;
     int lastPlacedModelIndex = -1;
+    bool appendFailed = false;
 
     auto addModel = [&]( GameModel model,
                          PhysicsBodyCreateDesc bodyDesc,
                          PhysicsColliderCreateDesc colliderDesc,
                          bool modelFixed,
                          bool modelStartsAsleep = false,
-                         GameObjects::SceneObjectGroupCreateDesc groupDesc = {} )
+                         GameObjects::SceneObjectGroupCreateDesc groupDesc = {} ) -> bool
     {
         // Lifetime: The new model becomes owned by GameModelCollection here.
         // Physics sleep state must be seeded immediately, while the returned
         // placement result reports only the before/after count.
         bodyDesc.motionKind = modelFixed ? PhysicsBodyMotionKind::Fixed : PhysicsBodyMotionKind::Dynamic;
         const int index = context.models.SceneEntityCount();
-        lastPlacedBody = context.models.AddGameModel(
+        const auto appendResult = context.models.AddGameModel(
             std::move( model ),
             std::move( bodyDesc ),
             std::move( colliderDesc ),
             context.scene.AllocateSceneObjectId(),
             groupDesc );
+        if ( !appendResult.status.ok )
+        {
+            appendFailed = true;
+            fprintf( stderr, "[editor] Cannot place object: %s\n", appendResult.status.error.message );
+            return false;
+        }
+        lastPlacedBody = appendResult.body;
         lastPlacedModelIndex = index;
         if ( !modelFixed )
         {
@@ -186,6 +194,7 @@ bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
                 WakeEditorPhysicsBody( context.models, index );
             }
         }
+        return true;
     };
 
     auto addSphere = [&]( const char* label, float radius, float restitution )
@@ -358,12 +367,15 @@ bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
                                                                  context.terrain );
             bodyDesc.releasesFromFixedOnContact = part.contactReleaseOnImpact;
             bodyDesc.contactReleaseImpulseThreshold = part.contactReleaseImpulseThreshold;
-            addModel( std::move( model ),
-                      std::move( bodyDesc ),
-                      MakeEditorColliderDesc( hull, part.restitution ),
-                      partFixed,
-                      treeDefinition.seedAsleep && !partFixed,
-                      groupDesc );
+            if ( !addModel( std::move( model ),
+                            std::move( bodyDesc ),
+                            MakeEditorColliderDesc( hull, part.restitution ),
+                            partFixed,
+                            treeDefinition.seedAsleep && !partFixed,
+                            groupDesc ) )
+            {
+                return;
+            }
         }
     };
 
@@ -383,20 +395,22 @@ bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
             sprintf_s( name, sizeof( name ), "%s_%s_%03d_%s", modePrefix, houseDefinition.label, serial, part.suffix );
             model.SetName( name );
             const BoundingBox shape( halfExtents, Vector3( 0.0f, 0.0f, 0.0f ) );
-            addModel(
-                std::move( model ),
-                MakeEditorBodyDesc( shape,
-                                    center,
-                                    placementOrientation,
-                                    Vector3( 0.0f, 0.0f, 0.0f ),
-                                    Vector3( 0.0f, 0.0f, 0.0f ),
-                                    inertia,
-                                    mass,
-                                    part.restitution,
-                                    context.terrain ),
-                MakeEditorColliderDesc( shape, part.restitution ),
-                placementFixed,
-                houseDefinition.seedAsleep && !placementFixed );
+            if ( !addModel( std::move( model ),
+                            MakeEditorBodyDesc( shape,
+                                                center,
+                                                placementOrientation,
+                                                Vector3( 0.0f, 0.0f, 0.0f ),
+                                                Vector3( 0.0f, 0.0f, 0.0f ),
+                                                inertia,
+                                                mass,
+                                                part.restitution,
+                                                context.terrain ),
+                            MakeEditorColliderDesc( shape, part.restitution ),
+                            placementFixed,
+                            houseDefinition.seedAsleep && !placementFixed ) )
+            {
+                return;
+            }
         }
     };
 
@@ -458,11 +472,14 @@ bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
                     bodyDesc.releasesFromFixedOnContact = EditorJsonBoolOr( part, "contactReleaseOnImpact", false );
                     bodyDesc.contactReleaseImpulseThreshold =
                         (std::max)( 0.0f, EditorJsonFloatOr( part, "contactReleaseImpulseThreshold", 1.0f ) );
-                    addModel( std::move( model ),
-                              std::move( bodyDesc ),
-                              std::move( colliderDesc ),
-                              partFixed,
-                              partSleeping && !partFixed );
+                    if ( !addModel( std::move( model ),
+                                    std::move( bodyDesc ),
+                                    std::move( colliderDesc ),
+                                    partFixed,
+                                    partSleeping && !partFixed ) )
+                    {
+                        failed = true;
+                    }
                 };
 
                 if ( primitiveType == "convexHull" )
@@ -572,7 +589,12 @@ bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
             context.models,
             context.models.GetPhysicsEngine(),
         };
-        SceneAuthoredSetup::AppendSimpleRagdoll( ragdollContext, options );
+        const SbResult appendResult = SceneAuthoredSetup::AppendSimpleRagdoll( ragdollContext, options );
+        if ( !appendResult.ok )
+        {
+            appendFailed = true;
+            fprintf( stderr, "[editor] Cannot place ragdoll: %s\n", appendResult.error.message );
+        }
     };
 
     switch ( type )
@@ -663,6 +685,12 @@ bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
         break;
     default:
         break;
+    }
+
+    if ( appendFailed )
+    {
+        outResult = EditorObjectPlacementResult{};
+        return false;
     }
 
     context.scene.modelCount = context.models.SceneEntityCount();

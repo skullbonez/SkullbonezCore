@@ -22,6 +22,8 @@ Glossary:
     neither box ever leaves until the prediction is rebuilt.
   Prediction engine: Replay-owned physics facade copied from the live scene at prediction begin
     and stepped forward without writing live body, collider, or solver stores.
+  Model row hint: Cached live body row paired with ReplayBodyId; prediction
+    begin resolves it through the store before copying live state.
   Reveal cursor: Wall-clock playhead that caps which prediction frames may draw this render
     frame. It makes the causal tree unfold over real time — root line first, child lines when
     their causing frame is revealed. Monotonic per prediction: it plays once, holds at the
@@ -100,6 +102,8 @@ bool BeginReplayPredictionJob( ReplayRuntime& replayRuntime,
     const PhysicsBodyStore& liveBodyStore = physicsEngine.BodyStore();
     if ( replayRuntime.PathVisualizer().hasTarget && replayRuntime.PathVisualizer().targetId.value != 0 )
     {
+        ModelRowHint targetHint;
+        targetHint.value = replayRuntime.PathVisualizer().targetModelIndex;
         int targetIndex = -1;
         if ( ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ) )
         {
@@ -108,14 +112,15 @@ bool BeginReplayPredictionJob( ReplayRuntime& replayRuntime,
         }
         if ( !TryResolveReplayBodyModelIndex( liveBodyStore,
                                               replayRuntime.PathVisualizer().targetId,
-                                              replayRuntime.PathVisualizer().targetModelIndex,
+                                              targetHint,
                                               modelCount,
                                               targetIndex ) )
         {
+            replayRuntime.PathVisualizer().targetModelIndex = targetHint.value;
             return false;
         }
         replayRuntime.Prediction().targetModelIndex = targetIndex;
-        replayRuntime.PathVisualizer().targetModelIndex = targetIndex;
+        replayRuntime.PathVisualizer().targetModelIndex = targetHint.value;
     }
 
     replayRuntime.Prediction().horizonSeconds = std::clamp( replayRuntime.Prediction().horizonSeconds,
@@ -136,7 +141,7 @@ bool BeginReplayPredictionJob( ReplayRuntime& replayRuntime,
         return false;
     }
     replayRuntime.Prediction().buildFrames.resize( buildFrameCapacity );
-    replayRuntime.Prediction().buildFrameCount = 0;
+    replayRuntime.Prediction().ResetBuildFramePublication();
     if ( !ReserveReplayPredictionFramePayloadVectors( replayRuntime.Prediction().buildFrames,
                                                       buildFrameCapacity,
                                                       static_cast<std::size_t>( modelCount ),
@@ -307,7 +312,13 @@ bool StepReplayPredictionJob( ReplayRuntime& replayRuntime,
         replayRuntime.Prediction().complete = true;
         replayRuntime.Prediction().frames.swap( replayRuntime.Prediction().buildFrames );
         replayRuntime.Prediction().buildFrames.clear();
-        replayRuntime.Prediction().buildFrameCount = 0;
+        replayRuntime.Prediction().ResetBuildFramePublication();
+        if ( replayRuntime.Prediction().baseline.valid )
+        {
+            UpdateReplayPredictionBaselineDivergence( replayRuntime.Prediction(),
+                                                      replayRuntime.Prediction().frames,
+                                                      replayRuntime.Prediction().frames.size() );
+        }
         if ( scrubberWasPinnedToPresent )
         {
             // Why: prediction extends the normalized solver track by moving the
@@ -338,14 +349,11 @@ bool DrawReplayPredictionOverlay( ReplayRuntime& replayRuntime,
                                   double budgetMilliseconds )
 {
     const RunReplayPredictionState& prediction = replayRuntime.Prediction();
-    const bool usingBuildFrames =
-        prediction.building && prediction.buildFrameCount >= 2 &&
-        ( prediction.frames.empty() || prediction.buildFrameCount >= prediction.frames.size() );
+    const bool usingBuildFrames = prediction.BuildPrefixShouldBePresented();
     const std::vector<RunReplayPredictionFrame>& activePredictionFrames =
         usingBuildFrames ? prediction.buildFrames : prediction.frames;
     const std::size_t activePredictionFrameCount =
-        usingBuildFrames ? (std::min)( prediction.buildFrameCount, activePredictionFrames.size() )
-                         : activePredictionFrames.size();
+        usingBuildFrames ? prediction.PublishedBuildFrameCount() : activePredictionFrames.size();
     if ( activePredictionFrameCount < 2 )
     {
         return false;
@@ -360,6 +368,7 @@ bool DrawReplayPredictionOverlay( ReplayRuntime& replayRuntime,
     // Why: while the job is still building there is no authoritative ending,
     // so no grey resting box may be derived from the growing prefix.
     const bool bufferComplete = !usingBuildFrames;
+    DrawReplayPredictionBaselineSnapshot( replayRuntime.Prediction().baseline, colliderStore, tracer );
 
     if ( !replayRuntime.PathVisualizer().hasTarget || replayRuntime.PathVisualizer().targetId.value == 0 )
     {
@@ -720,6 +729,18 @@ void RenderReplayPredictionVisualizer( ReplayRuntime& replayRuntime,
         if ( ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ) )
         {
             return;
+        }
+        RunReplayPredictionState& prediction = replayRuntime.Prediction();
+        if ( prediction.baseline.comparisonActive && !prediction.baseline.valid && prediction.frames.size() >= 2 )
+        {
+            if ( !CaptureReplayPredictionBaselineSnapshot( prediction,
+                                                           prediction.frames,
+                                                           prediction.frames.size(),
+                                                           replayRuntime.PathVisualizer().targetId,
+                                                           replayRuntime.PathVisualizer().targetModelIndex ) )
+            {
+                prediction.baseline.comparisonActive = false;
+            }
         }
         BeginReplayPredictionJob( replayRuntime,
                                   modelCollection,

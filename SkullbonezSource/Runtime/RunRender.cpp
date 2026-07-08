@@ -48,6 +48,8 @@ Related:
 #include "../Rendering/RenderGraph.h"
 #include "../Rendering/RenderPipeline.h"
 
+#include <algorithm>
+#include <chrono>
 #include <cstddef>
 #include <fstream>
 #include <stdexcept>
@@ -67,6 +69,66 @@ namespace RuntimeAllocation = SkullbonezCore::Runtime::Allocation;
 
 namespace
 {
+float LerpFloat( float from, float to, float t )
+{
+    return from + ( to - from ) * t;
+}
+
+float ApproachFloat( float current, float target, float dtSeconds, float secondsToTarget )
+{
+    if ( secondsToTarget <= 0.0f )
+    {
+        return target;
+    }
+    const float step = std::clamp( dtSeconds / secondsToTarget, 0.0f, 1.0f );
+    if ( current < target )
+    {
+        return (std::min)( target, current + step );
+    }
+    return (std::max)( target, current - step );
+}
+
+void ApplyConsequenceGrade( CinematicRenderConfig& cinematic, float strength )
+{
+    const float s = std::clamp( strength, 0.0f, 1.0f );
+    if ( s <= 0.0f )
+    {
+        return;
+    }
+
+    // Concept: the consequence grade is a frame-local presentation override.
+    // It pushes the world down into cool silhouettes while replay ribbon HDR
+    // values stay bright enough for tonemap bloom to make causality read first.
+    cinematic.enabled = true;
+    cinematic.exposure = LerpFloat( cinematic.exposure, (std::max)( 0.05f, cinematic.exposure * 0.36f ), s );
+    cinematic.styleSaturation = LerpFloat( cinematic.styleSaturation, 0.24f, s );
+    cinematic.styleContrast = LerpFloat( cinematic.styleContrast, 1.12f, s );
+    cinematic.styleVignette = LerpFloat( cinematic.styleVignette, (std::max)( cinematic.styleVignette, 0.62f ), s );
+    cinematic.bloomEnabled = true;
+    cinematic.bloomThreshold = LerpFloat( cinematic.bloomThreshold, 0.62f, s );
+    cinematic.bloomKnee = LerpFloat( cinematic.bloomKnee, 0.72f, s );
+    cinematic.bloomStrength = LerpFloat( cinematic.bloomStrength, (std::max)( cinematic.bloomStrength, 0.62f ), s );
+    cinematic.bloomRadius = LerpFloat( cinematic.bloomRadius, (std::max)( cinematic.bloomRadius, 4.8f ), s );
+    cinematic.fogEnabled = true;
+    cinematic.fogColorR = LerpFloat( cinematic.fogColorR, 0.18f, s );
+    cinematic.fogColorG = LerpFloat( cinematic.fogColorG, 0.24f, s );
+    cinematic.fogColorB = LerpFloat( cinematic.fogColorB, 0.34f, s );
+    cinematic.fogMaxOpacity = LerpFloat( cinematic.fogMaxOpacity, (std::max)( cinematic.fogMaxOpacity, 0.28f ), s );
+    cinematic.sunIntensity = LerpFloat( cinematic.sunIntensity, (std::max)( 0.0f, cinematic.sunIntensity * 0.42f ), s );
+    cinematic.skyHorizonR = LerpFloat( cinematic.skyHorizonR, 0.22f, s );
+    cinematic.skyHorizonG = LerpFloat( cinematic.skyHorizonG, 0.34f, s );
+    cinematic.skyHorizonB = LerpFloat( cinematic.skyHorizonB, 0.58f, s );
+    cinematic.skyZenithR = LerpFloat( cinematic.skyZenithR, 0.04f, s );
+    cinematic.skyZenithG = LerpFloat( cinematic.skyZenithG, 0.08f, s );
+    cinematic.skyZenithB = LerpFloat( cinematic.skyZenithB, 0.20f, s );
+    cinematic.terrainTintR = LerpFloat( cinematic.terrainTintR, 0.08f, s );
+    cinematic.terrainTintG = LerpFloat( cinematic.terrainTintG, 0.14f, s );
+    cinematic.terrainTintB = LerpFloat( cinematic.terrainTintB, 0.18f, s );
+    cinematic.terrainAccentR = LerpFloat( cinematic.terrainAccentR, 0.02f, s );
+    cinematic.terrainAccentG = LerpFloat( cinematic.terrainAccentG, 0.07f, s );
+    cinematic.terrainAccentB = LerpFloat( cinematic.terrainAccentB, 0.12f, s );
+}
+
 // Concept: RenderGraph callback payloads are RuntimeRenderer-owned one-frame
 // scratch records. The graph API invokes C-style callbacks, so each payload
 // carries only the pass object and frame/view borrows needed by that pass.
@@ -177,6 +239,7 @@ struct UiTextGraphCallbackData
 {
     UiTextPass* uiTextPass = nullptr;
     SkullbonezCore::Rendering::IRenderDiagnostics* renderDiagnostics = nullptr;
+    Profiler* profiler = nullptr;
     const SkullbonezCore::UI::UIRenderContext* uiRender = nullptr;
     const UiTextPassState* state = nullptr;
     const RuntimeRenderModelFrameView* models = nullptr;
@@ -331,8 +394,12 @@ void RenderReplayPredictionGhosts( ReplayRuntime& replayRuntime,
 
     assert( frame.textures && "RenderFrameContext requires a texture collection" );
     frame.textures->SelectTexture( TEXTURE_BOUNDING_SPHERE );
-    assert( frame.renderResources && frame.renderCommands && frame.assets );
-    const RenderHelperContext helperContext{ *frame.renderResources, *frame.renderCommands, *frame.assets, config };
+    assert( frame.renderResources && frame.renderCommands && frame.renderDiagnostics && frame.assets );
+    const RenderHelperContext helperContext{ *frame.renderResources,
+                                             *frame.renderCommands,
+                                             *frame.renderDiagnostics,
+                                             *frame.assets,
+                                             config };
     RenderHelper::DrawBoxBatchBegin( helperContext,
                                      frame.baseView,
                                      frame.projection,
@@ -360,6 +427,16 @@ void RenderReplayPredictionGhosts( ReplayRuntime& replayRuntime,
         }
 
         Rendering::RenderMaterial material = renderInstances[modelIndex].material;
+        if ( request.tintStrength > 0.0f )
+        {
+            // Why: baseline ghosts reuse authored materials for shape/lighting,
+            // then tint toward cyan so the cold future separates from the warm
+            // live prediction without adding a second render path.
+            const float tint = std::clamp( request.tintStrength, 0.0f, 1.0f );
+            material.baseColor[0] = material.baseColor[0] * ( 1.0f - tint ) + request.tintR * tint;
+            material.baseColor[1] = material.baseColor[1] * ( 1.0f - tint ) + request.tintG * tint;
+            material.baseColor[2] = material.baseColor[2] * ( 1.0f - tint ) + request.tintB * tint;
+        }
         material.baseColor[3] = request.alpha;
         const Math::Transformation::Matrix4 modelMatrix =
             box->GetModelMatrix( request.position,
@@ -412,6 +489,7 @@ void ExecuteUiTextGraphCallback( const SkullbonezCore::Rendering::RenderGraphPas
     }
     data->uiTextPass->Render( { *data->state,
                                 *data->renderDiagnostics,
+                                data->profiler,
                                 *data->uiRender,
                                 *data->models,
                                 *data->diagnosticsRuntime,
@@ -1082,7 +1160,7 @@ DebugOverlaySnapshot RuntimeRenderer::BuildDebugOverlaySnapshot( const RenderFra
     const float rayLinger = (std::max)( 0.0f, m_debug.physicsDebugContactLinger );
     snapshot.editorOverlayWorkVisible = m_runtimeTools.HasLingeredRayCastLine( rayLinger ) ||
                                         m_runtimeTools.HasSelectionOverlayWork( frame.modelCount, m_camera.mode ) ||
-                                        m_runtimeTools.HasMousePickupOverlayWork( frame.modelCount ) ||
+                                        m_runtimeTools.HasMousePickupOverlayWork() ||
                                         m_replayRuntime.HasPathVisualizerTarget() || m_replayRuntime.HasCameraFocus() ||
                                         ( m_replayRuntime.VelocityEditActive() && !m_editor.editorModeEnabled ) ||
                                         m_runtimeTools.HasLauncherShots();
@@ -1217,6 +1295,7 @@ bool RuntimeRenderer::ExecuteUiTextThroughRenderGraph( Rendering::IRenderDiagnos
     UiTextGraphCallbackData callbackData;
     callbackData.uiTextPass = &m_uiTextPass;
     callbackData.renderDiagnostics = &renderDiagnostics;
+    callbackData.profiler = m_profiler;
     callbackData.uiRender = &uiRender;
     callbackData.state = &state;
     callbackData.models = &models;
@@ -1331,7 +1410,7 @@ RuntimeRenderer::RuntimeRenderer( const RuntimeRendererBindings& bindings,
       m_collisionVisualizer( *bindings.world.collisionVisualizer ),
       m_broadphaseVisualizer( *bindings.world.broadphaseVisualizer ),
       m_physicsDebugVisualizer( *bindings.world.physicsDebugVisualizer ), m_runtimeTools( *bindings.toolOverlay.tools ),
-      m_editor( m_runtimeTools.Editor() ), m_camera( *bindings.ui.camera ),
+      m_editor( m_runtimeTools.Editor() ), m_camera( *bindings.ui.camera ), m_profiler( bindings.diagnostics.profiler ),
       m_replayRuntime( *bindings.replayOverlay.replayRuntime ),
       m_fullscreenQuadPass( m_systems.renderPasses.fullscreen ),
       m_skyPass( m_systems.renderPasses.sky, m_systems.renderPasses.fullscreen, m_systems.skyBox, m_config ),
@@ -1469,6 +1548,7 @@ void RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
             RuntimeAllocation::RuntimeAllocationPhase::BackendInit );
         RenderHelperContext helperContext{ services.renderResources,
                                            services.renderCommands,
+                                           services.renderDiagnostics,
                                            services.assets,
                                            m_config };
         RenderHelper::EnsureShadowDepthPrimitiveResources( helperContext );
@@ -1522,7 +1602,7 @@ void RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
     {
         PROFILE_GPU_BEGIN( "Frame/Render/Skybox" );
         {
-            DRAW_CALL_TRACE_SCOPE( "Frame/Render/Skybox" );
+            DRAW_CALL_TRACE_SCOPE( services.renderDiagnostics, "Frame/Render/Skybox" );
             skyboxCallbackOwned = ExecuteSkyboxThroughRenderGraph( frame );
         }
         PROFILE_GPU_END( "Frame/Render/Skybox" );
@@ -1776,7 +1856,7 @@ void RuntimeRenderer::ReleaseBackendOwnedRuntimeResources( const BackendResource
             context.models.ResetRenderResources();
             break;
         case BackendResourceStep::CollisionVisualizer:
-            m_collisionVisualizer.ResetResources();
+            m_collisionVisualizer.ResetResources( context.renderResources );
             break;
         case BackendResourceStep::UIResources:
             context.ui.ResetResources( context.renderResources );
@@ -1786,7 +1866,7 @@ void RuntimeRenderer::ReleaseBackendOwnedRuntimeResources( const BackendResource
             break;
         case BackendResourceStep::ProfilerQueries:
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
-            RuntimeDiagnostics::InvalidateProfilerGpuQueries();
+            RuntimeDiagnostics::InvalidateProfilerGpuQueries( m_profiler );
 #endif
             break;
         case BackendResourceStep::TextureCollection:
@@ -2014,7 +2094,23 @@ void RuntimeRenderer::RenderFrameEntry( const FrameEntryContext& context )
     PROFILE_END( "Frame/Render/PrepareModels" );
     applyReplayRenderStateForFrame();
 
-    const bool cinematicRender = context.cinematicRequested && renderReady && !m_debug.isTextOnly;
+    const auto gradeNow = std::chrono::steady_clock::now();
+    float gradeDtSeconds = 0.0f;
+    if ( m_consequenceGradeLastTick.time_since_epoch().count() != 0 )
+    {
+        gradeDtSeconds =
+            std::clamp( std::chrono::duration<float>( gradeNow - m_consequenceGradeLastTick ).count(), 0.0f, 0.10f );
+    }
+    m_consequenceGradeLastTick = gradeNow;
+    const float consequenceGradeTarget = context.consequenceGradeRequested ? 1.0f : 0.0f;
+    m_consequenceGradeStrength =
+        ApproachFloat( m_consequenceGradeStrength, consequenceGradeTarget, gradeDtSeconds, 1.0f );
+
+    CinematicRenderConfig frameCinematic = context.cinematic;
+    ApplyConsequenceGrade( frameCinematic, m_consequenceGradeStrength );
+
+    const bool cinematicRender =
+        ( context.cinematicRequested || m_consequenceGradeStrength > 0.01f ) && renderReady && !m_debug.isTextOnly;
     RenderFrame( BuildRuntimeRenderInputs( m_systems,
                                            context.renderModels,
                                            m_world,
@@ -2023,7 +2119,7 @@ void RuntimeRenderer::RenderFrameEntry( const FrameEntryContext& context )
                                            *renderResources,
                                            *renderDiagnostics,
                                            renderRayTracing,
-                                           context.cinematic,
+                                           frameCinematic,
                                            cinematicRender,
                                            renderReady ) );
     restoreReplayLauncherVisualForRender();
@@ -2059,7 +2155,8 @@ void Run::Render( const RuntimeRenderModelFrameView& renderModels )
                                                                      m_cGameModelCollection,
                                                                      m_UI,
                                                                      activeCinematic,
-                                                                     cinematicRequested } );
+                                                                     cinematicRequested,
+                                                                     m_replayRuntime.Prediction().enabled } );
 }
 
 
@@ -2139,11 +2236,22 @@ void Run::SetViewingOrientation()
     // to the tracked model each frame.
     if ( m_systems.cameras->IsCameraSelected( CAMERA_GAME_MODEL_1 ) )
     {
-        m_systems.cameras->SetViewCoordinates( m_cGameModelCollection.GetModelPosition( 0 ) );
+        // Why: generated or empty scenes can expose object-follow camera slots
+        // before the tracked model exists; the last valid target is the
+        // recoverable fallback for that legacy UI state.
+        Vector3 targetPosition;
+        if ( m_cGameModelCollection.TryGetModelPosition( 0, targetPosition ) )
+        {
+            m_systems.cameras->SetViewCoordinates( targetPosition );
+        }
     }
     if ( m_systems.cameras->IsCameraSelected( CAMERA_GAME_MODEL_2 ) )
     {
-        m_systems.cameras->SetViewCoordinates( m_cGameModelCollection.GetModelPosition( 1 ) );
+        Vector3 targetPosition;
+        if ( m_cGameModelCollection.TryGetModelPosition( 1, targetPosition ) )
+        {
+            m_systems.cameras->SetViewCoordinates( targetPosition );
+        }
     }
 
     /*

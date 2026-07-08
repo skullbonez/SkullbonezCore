@@ -11,6 +11,8 @@ Mental model:
 Glossary:
   FBO (Framebuffer Object): Engine shorthand for an off-screen render target
   exposed through the renderer abstraction.
+  Lane R result: Recoverable scene/load-only failure reported as an SbResult
+    so CLI automation can exit nonzero without a fatal exception.
   Validation gate: Repository script that proves a class of changes before
   commit or PR.
 
@@ -35,6 +37,7 @@ Related:
 #include "Allocation/RuntimeAllocationTracker.h"
 #include "Scene/SceneRuntimeLoad.h"
 #include "../UI/UIInput.h"
+#include "../Physics/PhysicsTimestep.h"
 
 #include <cmath>
 #include <cstdio>
@@ -96,8 +99,11 @@ void RunStartupState::ApplyStartupConfig( const EngineConfig& config )
 }
 
 
-RuntimeRendererBindings Run::BuildRuntimeRendererBindings()
+RuntimeRendererBindings Run::BuildRuntimeRendererBindings( Profiler* profiler )
 {
+    // Lifetime: Init resolves the optional profiler once, then Run wires that
+    // borrowed diagnostics source into the owners that sample it. Frame code
+    // should not reopen the global profiler accessor.
     RuntimeRendererBindings bindings;
     bindings.backend = m_renderBackendView;
     bindings.runtime.systems = &m_systems;
@@ -118,6 +124,7 @@ RuntimeRendererBindings Run::BuildRuntimeRendererBindings()
     bindings.ui.runtimeViewModel = &m_runtimeViewModel;
     bindings.diagnostics.debug = &m_debug;
     bindings.diagnostics.timers = &m_timers;
+    bindings.diagnostics.profiler = profiler;
     return bindings;
 }
 
@@ -129,11 +136,12 @@ Run::Run( Window& window,
           std::vector<std::string> sceneQueue,
           EngineConfig& config,
           Threading::WorkerPool& workerPool,
+          Profiler* profiler,
           RuntimeRenderBackendView renderBackendView )
     : m_config( config ), m_sceneController( std::move( sceneQueue ) ), m_sceneCoordinator( m_sceneController ),
       m_renderBackendView( renderBackendView ),
       m_renderer(
-          BuildRuntimeRendererBindings(),
+          BuildRuntimeRendererBindings( profiler ),
           []( void* user, const char* phase, const char* step )
           {
               if ( Run* run = static_cast<Run*>( user ) )
@@ -183,7 +191,7 @@ Run::Run( Window& window,
               run->RenderReplayPathVisualizer( tracer );
               run->RenderReplayCauseFocusOverlay( tracer );
               run->RenderReplayVelocityEditOverlay( tracer );
-              tracer.Render( viewProjection, renderCommands );
+              tracer.Render( viewProjection, cameraEye, cameraUp, renderCommands );
               run->m_runtimeTools.Laser().Render( viewProjection,
                                                   cameraEye,
                                                   cameraUp,
@@ -194,6 +202,7 @@ Run::Run( Window& window,
           this )
 {
     const EngineConfig& cfg = m_config;
+    m_diagnosticsRuntime.BindProfiler( profiler );
     m_systems.BindStartupServices( window, workerPool, cfg );
     BindEngineContext();
     RefreshRuntimeViewModel();
@@ -561,18 +570,18 @@ void Run::SetInteractionAutomation( const char* scriptPath, const char* reportPa
 #ifdef _DEBUG
 void Run::SetReplayScrubProbe( float normalized )
 {
-    m_replayScrubProbe.enabled = true;
-    m_replayScrubProbe.completed = false;
-    m_replayScrubProbe.normalized = std::clamp( normalized, 0.0f, 0.99f );
-    printf( "[replay] Scrub probe enabled: normalized=%.3f\n", m_replayScrubProbe.normalized );
+    m_replayProbes.scrub.enabled = true;
+    m_replayProbes.scrub.completed = false;
+    m_replayProbes.scrub.normalized = std::clamp( normalized, 0.0f, 0.99f );
+    printf( "[replay] Scrub probe enabled: normalized=%.3f\n", m_replayProbes.scrub.normalized );
 }
 
 void Run::SetReplayRestoreProbe( float normalized )
 {
-    m_replayRestoreProbe.enabled = true;
-    m_replayRestoreProbe.completed = false;
-    m_replayRestoreProbe.normalized = std::clamp( normalized, 0.0f, 0.99f );
-    printf( "[replay] Restore probe enabled: normalized=%.3f\n", m_replayRestoreProbe.normalized );
+    m_replayProbes.restore.enabled = true;
+    m_replayProbes.restore.completed = false;
+    m_replayProbes.restore.normalized = std::clamp( normalized, 0.0f, 0.99f );
+    printf( "[replay] Restore probe enabled: normalized=%.3f\n", m_replayProbes.restore.normalized );
 }
 
 void Run::SetReplaySaveProbe( const char* path )
@@ -582,10 +591,40 @@ void Run::SetReplaySaveProbe( const char* path )
         throw std::runtime_error( "replay save probe requires an output path" );
     }
 
-    m_replaySaveProbe.enabled = true;
-    m_replaySaveProbe.completed = false;
-    strcpy_s( m_replaySaveProbe.path, sizeof( m_replaySaveProbe.path ), path );
-    printf( "[replay] Save probe enabled: path=%s\n", m_replaySaveProbe.path );
+    m_replayProbes.save.enabled = true;
+    m_replayProbes.save.completed = false;
+    strcpy_s( m_replayProbes.save.path, sizeof( m_replayProbes.save.path ), path );
+    printf( "[replay] Save probe enabled: path=%s\n", m_replayProbes.save.path );
+}
+
+void Run::RecordReplayProbeFailure( const SbResult& result )
+{
+    if ( result.ok || m_replayProbes.failure.failed )
+    {
+        return;
+    }
+
+    const char* owner = result.error.owner && result.error.owner[0] != '\0' ? result.error.owner : "ReplayProbe";
+    const char* message =
+        result.error.message[0] != '\0' ? result.error.message : "replay probe failed without a failure message";
+    m_replayProbes.failure.failed = true;
+    strcpy_s( m_replayProbes.failure.owner, sizeof( m_replayProbes.failure.owner ), owner );
+    strcpy_s( m_replayProbes.failure.message, sizeof( m_replayProbes.failure.message ), message );
+}
+
+bool Run::ReplayProbeFailed() const
+{
+    return m_replayProbes.failure.failed;
+}
+
+const char* Run::ReplayProbeFailureOwner() const
+{
+    return m_replayProbes.failure.owner[0] != '\0' ? m_replayProbes.failure.owner : "ReplayProbe";
+}
+
+const char* Run::ReplayProbeFailureMessage() const
+{
+    return m_replayProbes.failure.message[0] != '\0' ? m_replayProbes.failure.message : "replay probe failed";
 }
 #endif
 
@@ -968,8 +1007,21 @@ void Run::Initialise()
 
     const std::string terrainRawPath =
         ResolveSourceAssetPath( SkullbonezCore::Assets::AssetKind::Terrain, "terrain.raw", cfg.terrainRaw );
-    m_systems.terrain =
-        std::make_unique<Terrain>( terrainRawPath.c_str(), 256, 8, 15, m_config, m_systems.assets, renderResources );
+    std::unique_ptr<Terrain> startupTerrain;
+    const SbResult startupTerrainResult = Terrain::TryCreateFromHeightMap( terrainRawPath.c_str(),
+                                                                           256,
+                                                                           8,
+                                                                           15,
+                                                                           m_config,
+                                                                           m_systems.assets,
+                                                                           renderResources,
+                                                                           startupTerrain );
+    if ( !startupTerrainResult.ok )
+    {
+        m_lastSceneLoadResult = startupTerrainResult;
+        return;
+    }
+    m_systems.terrain = std::move( startupTerrain );
     m_systems.isFlatSlopeTerrain = false;
 
     // Init SkyBox (m_xMin, m_xMax, yMin, yMax, m_zMin, m_zMax)
@@ -1008,24 +1060,34 @@ void Run::Initialise()
         m_contactAudio.SetEnabled( false );
     }
 
-    LoadScene( 0 );
+    m_lastSceneLoadResult = LoadScene( 0 );
 }
 
 
-void Run::RunSceneLoadOnly( const char* snapshotOutPath )
+const SbResult& Run::LastSceneLoadResult() const
+{
+    return m_lastSceneLoadResult;
+}
+
+
+SbResult Run::RunSceneLoadOnly( const char* snapshotOutPath )
 {
     const int sceneCount = m_sceneController.QueueSize();
     if ( sceneCount <= 0 )
     {
         printf( "[scene-load-only] Exiting because --scene-load-only was requested, but no scenes were queued.\n" );
         fflush( stdout );
-        return;
+        return SbResult::Success();
+    }
+    if ( !m_lastSceneLoadResult.ok )
+    {
+        return m_lastSceneLoadResult;
     }
 
     const bool writeSnapshot = snapshotOutPath && snapshotOutPath[0] != '\0';
     if ( writeSnapshot && sceneCount != 1 )
     {
-        throw std::runtime_error( "--scene-snapshot-out requires exactly one loaded scene." );
+        return SbResult::Failure( "Runtime/SceneLoadOnly", "--scene-snapshot-out requires exactly one loaded scene." );
     }
 
     printf( "[scene-load-only] Loaded 1/%d: %s\n",
@@ -1050,13 +1112,17 @@ void Run::RunSceneLoadOnly( const char* snapshotOutPath )
                                                                      SceneState().flatSlopeZ );
         if ( !saved )
         {
-            throw std::runtime_error( "Failed to write scene snapshot." );
+            return SbResult::Failure( "Runtime/SceneLoadOnly", "Failed to write scene snapshot." );
         }
         printf( "[scene-load-only] Snapshot written: %s\n", snapshotOutPath );
     }
     for ( int i = 1; i < sceneCount; ++i )
     {
-        LoadScene( i );
+        const SbResult loadResult = LoadScene( i );
+        if ( !loadResult.ok )
+        {
+            return loadResult;
+        }
         printf( "[scene-load-only] Loaded %d/%d: %s\n",
                 i + 1,
                 sceneCount,
@@ -1068,6 +1134,7 @@ void Run::RunSceneLoadOnly( const char* snapshotOutPath )
             "frames.\n",
             sceneCount );
     fflush( stdout );
+    return SbResult::Success();
 }
 
 

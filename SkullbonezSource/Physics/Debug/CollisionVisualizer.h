@@ -15,7 +15,11 @@ Glossary:
   and penetration.
   Manifold: Set of contact points and normals describing one colliding pair.
   Render resource factory: Renderer capability borrowed only while creating
-    debug-only shader resources.
+    or destroying debug-only shader resources.
+  Render command context: Renderer capability borrowed only while drawing a
+    collision-visualizer frame.
+  Render diagnostics: Renderer capability borrowed to name child draw-trace
+    scopes without reopening global renderer access.
   Sleep group: Connected set of bodies that can stop simulating together once
   the solver decides motion is stable.
 
@@ -46,6 +50,8 @@ class AssetSystem;
 } // namespace Assets
 namespace Rendering
 {
+class IRenderCommandContext;
+class IRenderDiagnostics;
 class IRenderResourceFactory;
 class RenderInstanceStore;
 } // namespace Rendering
@@ -117,14 +123,18 @@ class CollisionVisualizer
     std::vector<float> m_sphereInstanceData;   // CPU staging buffer for sphere instance matrices and colors.
     std::vector<float> m_boxInstanceData;      // CPU staging buffer for box instance matrices and colors.
 
-    void BuildSphereMesh();
-    void BuildBoxMesh();
+    void BuildSphereMesh( Rendering::IRenderResourceFactory& renderResources );
+    void BuildBoxMesh( Rendering::IRenderResourceFactory& renderResources );
     void EnsureResources( Assets::AssetSystem& assets, Rendering::IRenderResourceFactory& renderResources );
     void AppendInstance( std::vector<float>& out, const Math::Transformation::Matrix4& model, const Color& color );
     Color ComputeModelColor( int modelIndex, const CollisionVisualizerFrameView& view ) const;
     void BuildSleepGroupSizes( const CollisionVisualizerFrameView& view );
-    void DrawInstances( uint32_t mesh, int vertexCount, const std::vector<float>& instanceData );
-    void DrawHullInstance( const Math::CollisionDetection::ConvexHullShape& hull,
+    void DrawInstances( Rendering::IRenderCommandContext& renderCommands,
+                        uint32_t mesh,
+                        int vertexCount,
+                        const std::vector<float>& instanceData );
+    void DrawHullInstance( Rendering::IRenderCommandContext& renderCommands,
+                           const Math::CollisionDetection::ConvexHullShape& hull,
                            const Math::Transformation::Matrix4& model,
                            const Color& color );
 
@@ -146,10 +156,12 @@ class CollisionVisualizer
     }
     void SetClipPlane( float x, float y, float z, float w );
     void SetAlphaOverride( float alpha );
-    void ResetResources();
+    void ResetResources( Rendering::IRenderResourceFactory* renderResources );
     void Update( float dt, const CollisionVisualizerFrameView& view );
     void Render( Assets::AssetSystem& assets,
                  Rendering::IRenderResourceFactory& renderResources,
+                 Rendering::IRenderCommandContext& renderCommands,
+                 Rendering::IRenderDiagnostics& renderDiagnostics,
                  const CollisionVisualizerFrameView& view,
                  const Math::Transformation::Matrix4& cameraView,
                  const Math::Transformation::Matrix4& proj,

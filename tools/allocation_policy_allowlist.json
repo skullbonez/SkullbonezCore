@@ -28,13 +28,12 @@
     {
       "path": "SkullbonezSource/Runtime/Run.cpp",
       "patterns": [
-        "std::make_unique<Terrain>",
         "std::make_unique<SkyBox>"
       ],
       "owner": "Runtime world resource owner",
       "phase": "scene_load_backend_resource_init",
-      "reason": "Terrain and skybox owners are rebuilt during scene/resource initialization, not ordinary gameplay simulation.",
-      "cap": "One terrain owner and one skybox owner for the active scene/resource set.",
+      "reason": "The skybox owner is rebuilt during scene/resource initialization, not ordinary gameplay simulation.",
+      "cap": "One skybox owner for the active scene/resource set.",
       "removal_or_wrapper_plan": "If scene churn remains allocation-sensitive, move these owner objects into preallocated world-resource storage."
     },
     {

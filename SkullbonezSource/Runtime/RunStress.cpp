@@ -9,8 +9,10 @@ Mental model:
   when that state changes.
 
 Glossary:
+  Lane R result: Recoverable scene-load failure surfaced through the stress
+    action result instead of being counted as successful churn.
   Validation gate: Repository script that proves a class of changes before
-  commit or PR.
+    commit or PR.
 
 Invariants:
   - UI stress randomness is deterministic from UIStressState so crashes can be
@@ -524,11 +526,11 @@ void Run::RunGraphicsStressActions( const Rendering::IRenderDiagnostics& renderD
             m_diagnosticsRuntime.Capture().Screenshot().isScreenshotAndExit = false;
             return true;
         case SceneRuntimeControlActionType::LoadScene:
-            LoadScene( action.index,
-                       action.preserveUIState,
-                       action.suppressExitOnComplete,
-                       action.preserveRuntimeState );
-            return true;
+            return LoadScene( action.index,
+                              action.preserveUIState,
+                              action.suppressExitOnComplete,
+                              action.preserveRuntimeState )
+                .ok;
         case SceneRuntimeControlActionType::ApplyCinematicModeFromBrowserIndex:
             EnterInteractiveSceneRun();
             return ApplyCinematicModeFromBrowserIndex(

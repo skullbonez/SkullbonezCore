@@ -11,8 +11,9 @@ Mental model:
 Glossary:
   World click: Automation request that projects a screen-space click into the
   scene and routes it through the active runtime owner.
-  Director shot action: Automation request that loads or advances a fixed camera
-    shot list without taking ownership away from the runtime camera state.
+  Director shot action: Automation request that loads, plays, grabs, advances,
+    or retargets a fixed camera shot list without taking ownership away from
+    the runtime camera state.
   Prediction target: Replay body selected for future-path diagnostics.
   Automation report: JSON side-channel describing what the scripted interaction
   observed without mutating validation baselines directly.
@@ -30,6 +31,7 @@ Related:
 */
 #include "RunInternal.h"
 #include "Allocation/RuntimeAllocationTracker.h"
+#include "Editor/EditorTools.h"
 #include "Replay/ReplayOverlayLayout.h"
 #include "RunDemoDirector.h"
 #include "RuntimeFileWriter.h"
@@ -48,6 +50,7 @@ using namespace SkullbonezCore::Basics::ReplayOverlay;
 using namespace SkullbonezCore::GameObjects;
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Math::Vector;
+namespace Physics = SkullbonezCore::Physics;
 namespace RuntimeAllocation = SkullbonezCore::Runtime::Allocation;
 
 namespace
@@ -90,10 +93,10 @@ bool TryPredictionTargetDisplacement( const ReplayRuntime& replayRuntime,
     const RunReplayPredictionState& prediction = replayRuntime.Prediction();
     const std::vector<RunReplayPredictionFrame>* activePredictionFrames = &replayRuntime.ActivePredictionFrames();
     std::size_t activeFrameCount = activePredictionFrames->size();
-    if ( activeFrameCount < 2 && prediction.building && prediction.buildFrameCount >= 2 )
+    if ( activeFrameCount < 2 && prediction.BuildPrefixShouldBePresented() )
     {
         activePredictionFrames = &prediction.buildFrames;
-        activeFrameCount = (std::min)( prediction.buildFrameCount, activePredictionFrames->size() );
+        activeFrameCount = prediction.PublishedBuildFrameCount();
     }
     const ReplayBodyId targetId = replayRuntime.PathVisualizer().targetId;
     if ( targetId.value == 0 || activeFrameCount < 2 )
@@ -131,7 +134,7 @@ std::size_t VisiblePredictionFrameCount( const ReplayRuntime& replayRuntime )
     }
     if ( prediction.building )
     {
-        return (std::min)( prediction.buildFrameCount, prediction.buildFrames.size() );
+        return prediction.PublishedBuildFrameCount();
     }
     return activePredictionFrames.size();
 }
@@ -144,6 +147,20 @@ bool ReplayPredictionPathVisible( const ReplayRuntime& replayRuntime )
     return replayRuntime.PathVisualizer().hasTarget &&
            ( !replayRuntime.PathVisualizer().futureNodes.empty() || VisiblePredictionFrameCount( replayRuntime ) >= 2 ||
              !replayRuntime.Prediction().futureNodes.empty() );
+}
+
+const DemoPhase* ActiveDirectorPhase( const RunCameraState& camera )
+{
+    // Concept: phase assertions observe the same active phase that playback
+    // uses. They are report-only probes and must not advance or repair director
+    // state just to make a scripted screenshot line up.
+    const DemoDirectorPlaybackState& director = camera.director;
+    if ( !director.hasActiveShotList || director.currentPhaseIndex < 0 ||
+         director.currentPhaseIndex >= director.activeShotList.phaseCount )
+    {
+        return nullptr;
+    }
+    return &director.activeShotList.phases[static_cast<std::size_t>( director.currentPhaseIndex )];
 }
 
 bool LiveSolverHashStableAcrossPrediction( const ReplayRuntime& replayRuntime,
@@ -433,8 +450,16 @@ const char* ActionTypeName( RunInteractionAutomationActionType type )
     {
     case RunInteractionAutomationActionType::LoadShotList:
         return "loadShotList";
+    case RunInteractionAutomationActionType::DirectorPlay:
+        return "directorPlay";
     case RunInteractionAutomationActionType::DirectorAdvance:
         return "directorAdvance";
+    case RunInteractionAutomationActionType::DirectorGrab:
+        return "directorGrab";
+    case RunInteractionAutomationActionType::DirectorRelease:
+        return "directorRelease";
+    case RunInteractionAutomationActionType::SetPhaseStyle:
+        return "setPhaseStyle";
     case RunInteractionAutomationActionType::SetCameraPose:
         return "setCameraPose";
     case RunInteractionAutomationActionType::SetCameraMode:
@@ -447,8 +472,12 @@ const char* ActionTypeName( RunInteractionAutomationActionType type )
         return "scrubReplaySolverTrack";
     case RunInteractionAutomationActionType::SetReplayPredictionEnabled:
         return "setReplayPredictionEnabled";
+    case RunInteractionAutomationActionType::SetReplayPredictionHorizonSeconds:
+        return "setReplayPredictionHorizonSeconds";
     case RunInteractionAutomationActionType::SetReplayPathTarget:
         return "setReplayPathTarget";
+    case RunInteractionAutomationActionType::NudgeReplayPathTargetVelocity:
+        return "nudgeReplayPathTargetVelocity";
     case RunInteractionAutomationActionType::ShowReplayScrubber:
         return "showReplayScrubber";
     case RunInteractionAutomationActionType::PressKey:
@@ -473,12 +502,22 @@ const char* AssertName( RunInteractionAutomationAssertKind kind )
         return "cameraMode";
     case RunInteractionAutomationAssertKind::DirectorGrabbed:
         return "directorGrabbed";
+    case RunInteractionAutomationAssertKind::DirectorPhaseIndex:
+        return "directorPhaseIndex";
+    case RunInteractionAutomationAssertKind::DirectorPhaseName:
+        return "directorPhaseName";
+    case RunInteractionAutomationAssertKind::DirectorPhaseStylePath:
+        return "directorPhaseStylePath";
     case RunInteractionAutomationAssertKind::ReplayPredictionEnabled:
         return "replayPredictionEnabled";
     case RunInteractionAutomationAssertKind::ReplayPathTarget:
         return "replayPathTarget";
     case RunInteractionAutomationAssertKind::PredictionPathVisible:
         return "predictionPathVisible";
+    case RunInteractionAutomationAssertKind::PredictionBaselineVisible:
+        return "predictionBaselineVisible";
+    case RunInteractionAutomationAssertKind::PredictionDivergenceMin:
+        return "predictionDivergenceMin";
     case RunInteractionAutomationAssertKind::ReplaySolverTrackAtPresent:
         return "replaySolverTrackAtPresent";
     case RunInteractionAutomationAssertKind::PredictionScrubFrameActive:
@@ -608,9 +647,36 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
         return true;
     }
 
+    if ( entry.contains( "directorPlay" ) )
+    {
+        outAction.type = RunInteractionAutomationActionType::DirectorPlay;
+        outAction.boolValue = ReadBool( entry["directorPlay"] );
+        CopyText( outAction.text, sizeof( outAction.text ), outAction.boolValue ? "Director" : "Inspect" );
+        return true;
+    }
+
     if ( entry.contains( "directorAdvance" ) )
     {
         outAction.type = RunInteractionAutomationActionType::DirectorAdvance;
+        return true;
+    }
+
+    if ( entry.contains( "directorGrab" ) )
+    {
+        outAction.type = RunInteractionAutomationActionType::DirectorGrab;
+        return true;
+    }
+
+    if ( entry.contains( "directorRelease" ) )
+    {
+        outAction.type = RunInteractionAutomationActionType::DirectorRelease;
+        return true;
+    }
+
+    if ( entry.contains( "setPhaseStyle" ) )
+    {
+        outAction.type = RunInteractionAutomationActionType::SetPhaseStyle;
+        CopyText( outAction.path, sizeof( outAction.path ), entry["setPhaseStyle"].get<std::string>() );
         return true;
     }
 
@@ -655,10 +721,29 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
         return true;
     }
 
+    if ( entry.contains( "setReplayPredictionHorizonSeconds" ) )
+    {
+        outAction.type = RunInteractionAutomationActionType::SetReplayPredictionHorizonSeconds;
+        outAction.numberValue = entry["setReplayPredictionHorizonSeconds"].get<float>();
+        return true;
+    }
+
     if ( entry.contains( "setReplayPathTarget" ) )
     {
         outAction.type = RunInteractionAutomationActionType::SetReplayPathTarget;
         CopyText( outAction.text, sizeof( outAction.text ), entry["setReplayPathTarget"].get<std::string>() );
+        return true;
+    }
+
+    if ( entry.contains( "nudgeReplayPathTargetVelocity" ) )
+    {
+        outAction.type = RunInteractionAutomationActionType::NudgeReplayPathTargetVelocity;
+        if ( !ReadAutomationVec3( entry["nudgeReplayPathTargetVelocity"], outAction.vectorValue ) )
+        {
+            outError = "nudgeReplayPathTargetVelocity must be a 3-number array";
+            return false;
+        }
+        CopyText( outAction.text, sizeof( outAction.text ), "path-target" );
         return true;
     }
 
@@ -735,6 +820,21 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
             outAction.assertKind = RunInteractionAutomationAssertKind::DirectorGrabbed;
             outAction.boolValue = ReadBool( member.value() );
         }
+        else if ( name == "directorPhaseIndex" )
+        {
+            outAction.assertKind = RunInteractionAutomationAssertKind::DirectorPhaseIndex;
+            outAction.numberValue = static_cast<float>( member.value().get<int>() );
+        }
+        else if ( name == "directorPhaseName" )
+        {
+            outAction.assertKind = RunInteractionAutomationAssertKind::DirectorPhaseName;
+            CopyText( outAction.text, sizeof( outAction.text ), member.value().get<std::string>() );
+        }
+        else if ( name == "directorPhaseStylePath" )
+        {
+            outAction.assertKind = RunInteractionAutomationAssertKind::DirectorPhaseStylePath;
+            CopyText( outAction.path, sizeof( outAction.path ), member.value().get<std::string>() );
+        }
         else if ( name == "replayPredictionEnabled" )
         {
             outAction.assertKind = RunInteractionAutomationAssertKind::ReplayPredictionEnabled;
@@ -749,6 +849,16 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
         {
             outAction.assertKind = RunInteractionAutomationAssertKind::PredictionPathVisible;
             outAction.boolValue = ReadBool( member.value() );
+        }
+        else if ( name == "predictionBaselineVisible" )
+        {
+            outAction.assertKind = RunInteractionAutomationAssertKind::PredictionBaselineVisible;
+            outAction.boolValue = ReadBool( member.value() );
+        }
+        else if ( name == "predictionDivergenceMin" )
+        {
+            outAction.assertKind = RunInteractionAutomationAssertKind::PredictionDivergenceMin;
+            outAction.numberValue = member.value().get<float>();
         }
         else if ( name == "replaySolverTrackAtPresent" )
         {
@@ -1033,6 +1143,25 @@ void Run::TickInteractionAutomationBeforeInput()
             action.processed = true;
             break;
         }
+        case RunInteractionAutomationActionType::DirectorPlay:
+        {
+            const RunCameraMode targetMode = action.boolValue ? RunCameraMode::Director : RunCameraMode::Inspect;
+            ApplyCameraMode( targetMode, RuntimeInputActionSource::Runtime );
+            const bool applied = m_camera.mode == targetMode;
+            if ( !applied )
+            {
+                FailAutomation( state, "failed to apply director play state" );
+            }
+            AppendReportAction( state,
+                                frame,
+                                action.type,
+                                action.text,
+                                nullptr,
+                                applied,
+                                applied ? "director play state applied" : "director play state failed" );
+            action.processed = true;
+            break;
+        }
         case RunInteractionAutomationActionType::DirectorAdvance:
         {
             const bool advanced = DemoDirectorPlayback::AdvancePhase( m_camera, m_systems );
@@ -1047,6 +1176,57 @@ void Run::TickInteractionAutomationBeforeInput()
                                 nullptr,
                                 advanced,
                                 advanced ? "director phase advanced" : "director phase unavailable" );
+            action.processed = true;
+            break;
+        }
+        case RunInteractionAutomationActionType::DirectorGrab:
+        {
+            const bool grabbed = DemoDirectorPlayback::BeginGrab( m_camera, m_systems );
+            if ( !grabbed )
+            {
+                FailAutomation( state, "failed to grab director camera" );
+            }
+            AppendReportAction( state,
+                                frame,
+                                action.type,
+                                "",
+                                nullptr,
+                                grabbed,
+                                grabbed ? "director camera grabbed" : "director grab unavailable" );
+            action.processed = true;
+            break;
+        }
+        case RunInteractionAutomationActionType::DirectorRelease:
+        {
+            const bool released = DemoDirectorPlayback::EndGrab( m_camera, m_systems );
+            if ( !released )
+            {
+                FailAutomation( state, "failed to release director camera" );
+            }
+            AppendReportAction( state,
+                                frame,
+                                action.type,
+                                "",
+                                nullptr,
+                                released,
+                                released ? "director camera released" : "director release unavailable" );
+            action.processed = true;
+            break;
+        }
+        case RunInteractionAutomationActionType::SetPhaseStyle:
+        {
+            const bool applied = DemoDirectorPlayback::SetCurrentPhaseStyle( m_camera, action.path );
+            if ( !applied )
+            {
+                FailAutomation( state, "failed to set director phase style" );
+            }
+            AppendReportAction( state,
+                                frame,
+                                action.type,
+                                action.path,
+                                nullptr,
+                                applied,
+                                applied ? "director phase style set" : "director phase unavailable" );
             action.processed = true;
             break;
         }
@@ -1118,6 +1298,80 @@ void Run::TickInteractionAutomationBeforeInput()
                                 nullptr,
                                 targetSet,
                                 targetSet ? "replay path target set" : "replay path target unavailable" );
+            action.processed = true;
+            break;
+        }
+        case RunInteractionAutomationActionType::SetReplayPredictionHorizonSeconds:
+        {
+            const float horizonSeconds =
+                std::clamp( action.numberValue, REPLAY_PREDICTION_MIN_SECONDS, REPLAY_PREDICTION_MAX_SECONDS );
+            // Why: automation should use the same bounded horizon value the
+            // replay UI exposes, while still forcing a rebuild when a script
+            // changes it before a proof.
+            m_replayRuntime.Prediction().horizonSeconds = horizonSeconds;
+            m_replayRuntime.MarkPredictionDirty();
+            std::ostringstream detail;
+            detail << "prediction horizon set to " << horizonSeconds << "s";
+            AppendReportAction( state, frame, action.type, "", nullptr, true, detail.str().c_str() );
+            action.processed = true;
+            break;
+        }
+        case RunInteractionAutomationActionType::NudgeReplayPathTargetVelocity:
+        {
+            Physics::PhysicsEngine& physics = m_cGameModelCollection.GetPhysicsEngine();
+            const Physics::PhysicsBodyStore& bodyStore = physics.BodyStore();
+            const Physics::PhysicsBodyHandle body = m_replayRuntime.ResolveVelocityEditBodyHandle( bodyStore );
+            const Physics::PhysicsBodyRecord* record = bodyStore.RecordForHandle( body );
+            const bool hasTarget =
+                m_replayRuntime.PathVisualizer().hasTarget && m_replayRuntime.PathVisualizer().targetId.value != 0;
+            bool applied = false;
+            if ( hasTarget && record )
+            {
+                RunReplayPredictionState& prediction = m_replayRuntime.Prediction();
+                if ( !prediction.complete || prediction.frames.size() < 2 )
+                {
+                    FailAutomation( state,
+                                    "replay path target velocity nudge requires a completed prediction baseline" );
+                }
+                else
+                {
+                    // Why: automation needs the same old-vs-new future proof as
+                    // a mouse drag, but without depending on pixel-perfect axis
+                    // hit testing. Capture is still deferred to the visualizer.
+                    prediction.baseline.valid = false;
+                    prediction.baseline.comparisonActive = true;
+                    prediction.baseline.divergenceValid = false;
+                    prediction.baseline.divergenceUnits = 0.0f;
+
+                    const Vector3 nextLinearVelocity = record->linearVelocity + action.vectorValue;
+                    applied = physics.SetBodyVelocity( body, nextLinearVelocity, record->angularVelocity, true );
+                    if ( applied )
+                    {
+                        m_replayRuntime.Prediction().enabled = true;
+                        m_replayRuntime.MarkPredictionDirty();
+                        m_replayRuntime.Scrubber().visible = true;
+                        m_replayRuntime.Scrubber().visibleUntil =
+                            m_timers.simulationTimer.GetTotalTime() + REPLAY_SCRUBBER_VISIBLE_SECONDS;
+                        SetWorldInteractionOwnerAfterInteractionTransition( WorldInteractionOwner::ReplayVelocityEdit,
+                                                                            InteractionExitReason::EnterReplay );
+                    }
+                }
+            }
+            else
+            {
+                FailAutomation( state, "failed to resolve replay path target for velocity nudge" );
+            }
+            if ( !applied && !state.failed )
+            {
+                FailAutomation( state, "failed to apply replay path target velocity nudge" );
+            }
+            AppendReportAction( state,
+                                frame,
+                                action.type,
+                                action.text,
+                                nullptr,
+                                applied,
+                                applied ? "path target velocity nudged" : "path target velocity nudge failed" );
             action.processed = true;
             break;
         }
@@ -1462,7 +1716,9 @@ void Run::TickInteractionAutomationAfterRender()
         case RunInteractionAutomationAssertKind::SelectedObject:
         {
             expected = action.text;
-            const int selectedIndex = m_runtimeTools.Editor().selectedModelIndex;
+            const int selectedIndex =
+                PeekSelectedEditorModelIndex( m_runtimeTools.Editor(),
+                                              m_cGameModelCollection.GetPhysicsEngine().BodyStore() );
             if ( selectedIndex >= 0 && selectedIndex < m_cGameModelCollection.SceneEntityCount() )
             {
                 actual = m_cGameModelCollection.GetModelAtIndex( selectedIndex ).GetName();
@@ -1485,6 +1741,30 @@ void Run::TickInteractionAutomationAfterRender()
             actual = BoolString( m_camera.director.grabbed );
             passed = m_camera.director.grabbed == action.boolValue;
             break;
+        case RunInteractionAutomationAssertKind::DirectorPhaseIndex:
+        {
+            const int expectedPhase = static_cast<int>( action.numberValue );
+            expected = std::to_string( expectedPhase );
+            actual = std::to_string( m_camera.director.currentPhaseIndex );
+            passed = m_camera.director.currentPhaseIndex == expectedPhase;
+            break;
+        }
+        case RunInteractionAutomationAssertKind::DirectorPhaseName:
+        {
+            const DemoPhase* phase = ActiveDirectorPhase( m_camera );
+            expected = action.text;
+            actual = phase ? phase->name : "";
+            passed = actual == expected;
+            break;
+        }
+        case RunInteractionAutomationAssertKind::DirectorPhaseStylePath:
+        {
+            const DemoPhase* phase = ActiveDirectorPhase( m_camera );
+            expected = action.path;
+            actual = phase ? phase->stylePath : "";
+            passed = actual == expected;
+            break;
+        }
         case RunInteractionAutomationAssertKind::ReplayPredictionEnabled:
             expected = BoolString( action.boolValue );
             actual = BoolString( m_replayRuntime.Prediction().enabled );
@@ -1501,6 +1781,31 @@ void Run::TickInteractionAutomationAfterRender()
             expected = BoolString( action.boolValue );
             actual = BoolString( visible );
             passed = visible == action.boolValue;
+            break;
+        }
+        case RunInteractionAutomationAssertKind::PredictionBaselineVisible:
+        {
+            const ReplayPredictionBaselineSnapshot& baseline = m_replayRuntime.Prediction().baseline;
+            const bool visible = baseline.valid && baseline.comparisonActive;
+            expected = BoolString( action.boolValue );
+            actual = BoolString( visible );
+            passed = visible == action.boolValue;
+            break;
+        }
+        case RunInteractionAutomationAssertKind::PredictionDivergenceMin:
+        {
+            const ReplayPredictionBaselineSnapshot& baseline = m_replayRuntime.Prediction().baseline;
+            {
+                std::ostringstream stream;
+                stream << ">=" << action.numberValue;
+                expected = stream.str();
+            }
+            {
+                std::ostringstream stream;
+                stream << ( baseline.divergenceValid ? baseline.divergenceUnits : 0.0f );
+                actual = stream.str();
+            }
+            passed = baseline.divergenceValid && baseline.divergenceUnits >= action.numberValue;
             break;
         }
         case RunInteractionAutomationAssertKind::ReplaySolverTrackAtPresent:
@@ -1548,7 +1853,7 @@ void Run::TickInteractionAutomationAfterRender()
         }
         case RunInteractionAutomationAssertKind::GizmoVisible:
         {
-            const bool visible = m_runtimeTools.Editor().selectedModelIndex >= 0 &&
+            const bool visible = m_runtimeTools.Editor().selectedBody.IsValid() &&
                                  ( m_runtimeTools.Editor().editorModeEnabled || InspectGizmoInteractionActive() );
             expected = BoolString( action.boolValue );
             actual = BoolString( visible );
@@ -1659,7 +1964,8 @@ void Run::WriteInteractionAutomationReport()
         screenshots.push_back( screenshot );
     }
 
-    const int selectedIndex = m_runtimeTools.Editor().selectedModelIndex;
+    const int selectedIndex =
+        PeekSelectedEditorModelIndex( m_runtimeTools.Editor(), m_cGameModelCollection.GetPhysicsEngine().BodyStore() );
     const char* selectedName = "";
     if ( selectedIndex >= 0 && selectedIndex < m_cGameModelCollection.SceneEntityCount() )
     {
@@ -1687,6 +1993,8 @@ void Run::WriteInteractionAutomationReport()
                                                                          &predictionTargetFirst,
                                                                          &predictionTargetLast );
     const RunReplayPredictionState& predictionState = m_replayRuntime.Prediction();
+    const ReplayPredictionBaselineSnapshot& predictionBaseline = predictionState.baseline;
+    const bool predictionBaselineVisible = predictionBaseline.valid && predictionBaseline.comparisonActive;
     std::size_t predictionRetainedEntryMarkerCount = 0;
     std::size_t predictionRetainedRestMarkerCount = 0;
     std::size_t predictionRetainedHorizonMarkerCount = 0;
@@ -1712,6 +2020,7 @@ void Run::WriteInteractionAutomationReport()
     Json directorPhaseCameraEye = nullptr;
     Json directorPhaseCameraView = nullptr;
     Json directorPhaseCameraUp = nullptr;
+    Json directorPhaseRevealRate = nullptr;
     const char* directorPhaseName = "";
     const char* directorPhaseStylePath = "";
     const DemoDirectorPlaybackState& director = m_camera.director;
@@ -1724,6 +2033,7 @@ void Run::WriteInteractionAutomationReport()
         directorPhaseCameraEye = Vec3Json( phase.camera.eye );
         directorPhaseCameraView = Vec3Json( phase.camera.view );
         directorPhaseCameraUp = Vec3Json( phase.camera.up );
+        directorPhaseRevealRate = phase.revealRate;
     }
 
     const std::string* scenePath = m_sceneController.CurrentPath();
@@ -1745,9 +2055,13 @@ void Run::WriteInteractionAutomationReport()
               { "directorShotListPath", m_camera.director.activeShotListPath },
               { "directorPhaseName", directorPhaseName },
               { "directorPhaseStylePath", directorPhaseStylePath },
+              { "directorPhaseRevealRate", directorPhaseRevealRate },
               { "directorAppliedStylePhaseIndex", m_camera.director.appliedStylePhaseIndex },
               { "directorAppliedStylePath", m_camera.director.appliedStylePath },
               { "directorAppliedStyleCount", m_camera.director.appliedStyleCount },
+              { "directorAppliedRevealRatePhaseIndex", m_camera.director.appliedRevealRatePhaseIndex },
+              { "directorAppliedRevealRate", m_camera.director.appliedRevealRate },
+              { "directorAppliedRevealRateCount", m_camera.director.appliedRevealRateCount },
               { "directorPhaseCameraEye", directorPhaseCameraEye },
               { "directorPhaseCameraView", directorPhaseCameraView },
               { "directorPhaseCameraUp", directorPhaseCameraUp },
@@ -1758,16 +2072,23 @@ void Run::WriteInteractionAutomationReport()
               { "gizmoVisible", gizmoVisible },
               { "memoryOverlayEnabled", m_UI.IsMemoryOverlayEnabled() },
               { "replayPredictionEnabled", predictionState.enabled },
+              { "predictionHorizonSeconds", predictionState.horizonSeconds },
+              { "predictionRevealSecondsPerSecond", predictionState.revealSecondsPerSecond },
               { "replayPathTarget",
                 m_replayRuntime.PathVisualizer().hasTarget ? m_replayRuntime.PathVisualizer().targetName : "" },
               { "replayPathTargetCount", static_cast<int>( m_replayRuntime.PathVisualizer().targets.size() ) },
               { "predictionPathVisible", predictionPathVisible },
+              { "predictionBaselineVisible", predictionBaselineVisible },
+              { "predictionBaselineRootPointCount", static_cast<int>( predictionBaseline.rootPolyline.size() ) },
+              { "predictionBaselineBodyPoseCount", static_cast<int>( predictionBaseline.bodyPoses.size() ) },
+              { "predictionDivergenceValid", predictionBaseline.divergenceValid },
+              { "predictionDivergenceUnits", predictionBaseline.divergenceUnits },
               { "liveSolverHashStableAcrossPrediction", liveSolverHashStableAcrossPrediction },
               { "predictionSourceSolverHash", predictionSourceSolverHash },
               { "liveSolverHash", liveSolverHash },
               { "predictionActiveFrameCount", static_cast<int>( predictionVisibleFrameCount ) },
               { "predictionFrameCount", static_cast<int>( predictionState.frames.size() ) },
-              { "predictionBuildFrameCount", static_cast<int>( predictionState.buildFrameCount ) },
+              { "predictionBuildFrameCount", static_cast<int>( predictionState.PublishedBuildFrameCount() ) },
               { "predictionTargetDisplacementValid", predictionTargetDisplacementValid },
               { "predictionTargetFirst", Vec3Json( predictionTargetFirst ) },
               { "predictionTargetLast", Vec3Json( predictionTargetLast ) },

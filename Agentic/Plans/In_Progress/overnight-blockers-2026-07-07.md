@@ -1,7 +1,7 @@
 # Overnight Blockers - 2026-07-07
 
 Single remaining blocker ledger for the 7 July nightrunner pass. Current
-remaining blocker count: 27. Rows are grouped by plan and ordered
+remaining blocker count: 26. Rows are grouped by plan and ordered
 hardest-to-unblock first inside each plan.
 
 ## Resolved During Remediation
@@ -34,6 +34,20 @@ hardest-to-unblock first inside each plan.
   - Evidence: checker allowlist rows for `UITabProfiler.cpp` were removed;
     boundary self-test/scan, `tools\validate_fast.bat`, and
     `tools\validate_full.bat` passed for the slice.
+
+- **SVC-022** - `SkullbonezSource/Runtime/RuntimeDiagnostics.cpp` / `Profiler::Instance CSV`
+  - Resolved 2026-07-07 through the fable-02 profiler diagnostics receiving-path
+    slice.
+  - Result: `RuntimeDiagnostics.cpp` and `RunUiTextPass.cpp` now have 0 direct
+    `Profiler::Instance()` hits. Runtime startup resolves the sanctioned
+    profiler singleton once in `Init.cpp`, then diagnostics/perf CSV, frame-time
+    sampling, RuntimeRenderer, and the UI text pass consume the nullable
+    startup-bound `Profiler*`.
+  - Evidence: checker global-service census lowered from 133 to 129; boundary
+    self-test/scan passed, `tools\validate_fast.bat` passed after targeted
+    header formatting, and `tools\validate_full.bat` passed with DX12 validation
+    errors 0, screenshots matched, and `physics_regression_solver.csv`
+    byte-exact.
 
 ## Plan 02 - Physics Store Authority
 
@@ -143,18 +157,13 @@ hardest-to-unblock first inside each plan.
 
 - **SVC-001** - `SkullbonezSource/Rendering/IRenderBackend.cpp` / `s_gfxBackend`
   - Attempted: central renderer singleton migration assessment.
-  - Failure/reason: active renderer singleton cannot be startup-only while compatibility callers still exist in profiler marker/timer code, window resize, stress, input/readiness checks, UI profiler, and draw-call trace helpers.
-  - Needed to unblock: finish dependent renderer-service cleanup or approve a bounded compatibility decision.
+  - Failure/reason: active renderer singleton cannot be startup-only while the aggregate facade and public accessor are still live. The draw-call trace helper now uses explicit `IRenderDiagnostics`, the profiler marker/timer dependency was removed by the 2026-07-07 Profiler renderer-diagnostics bind, `RunPasses.cpp` no longer uses the global readiness helper, the stale `RunInput.cpp` readiness allowance has been deleted, `GfxCapture()` is gone, Broadphase/PhysicsDebug line overlays and CollisionVisualizer now use explicit render facets, and window resize now borrows only `IRenderDeviceLifecycle`.
+  - Needed to unblock: delete or strictly bound the remaining `IRenderBackend` aggregate facade/accessor startup mechanics.
 
 - **SVC-002** - `SkullbonezSource/Rendering/IRenderBackend.cpp` / `Gfx`
   - Attempted: service locator deletion assessment.
-  - Failure/reason: `Gfx()` still serves broad compatibility callers across the renderer service surface; the checker ratchet prevents growth but deletion needs dependent cleanup.
-  - Needed to unblock: migrate remaining callers to explicit render capabilities.
-
-- **SVC-022** - `SkullbonezSource/Runtime/RuntimeDiagnostics.cpp` / `Profiler::Instance CSV`
-  - Attempted: diagnostics/UI profiler snapshot cluster, then revert after failed gates.
-  - Failure/reason: first `tools\validate_fast.bat` failed formatting for `RuntimeDiagnostics.cpp`, `RunUiTextPass.cpp`, and `UITabProfiler.cpp`; after targeted formatting, the second attempt failed because `RuntimeDiagnostics.h` still required the header formatting pipeline.
-  - Needed to unblock: human-awake formatting/header pipeline pass and a smaller diagnostics snapshot slice.
+  - Failure/reason: `Gfx()` still serves the backend aggregate facade/accessor surface; the checker ratchet prevents growth but deletion needs dependent cleanup. Draw-call trace helpers now use explicit diagnostics, Core profiler no longer depends on it, the tornado visual pass plus Broadphase/PhysicsDebug visualizers and CollisionVisualizer now use explicit frame render context/facets, and capture uses the startup-bound `IRenderCaptureBackend` borrow.
+  - Needed to unblock: migrate or delete the remaining aggregate-facade callers, then delete the facade accessor.
 
 ## Plan 01 - Run Composition Root
 

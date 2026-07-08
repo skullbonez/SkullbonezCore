@@ -16,6 +16,8 @@ Glossary:
   HUD (Heads-Up Display): On-screen diagnostics and control overlay.
   CLI (Command-Line Interface): Text arguments or scripts used to launch
   validation and tooling paths.
+  Lane R result: Recoverable scene-load failure reported with owner/message
+    diagnostics instead of escaping through startup exceptions.
 
 Invariants:
   - Run is the composition root for process-lifetime runtime systems.
@@ -34,11 +36,11 @@ Related:
 #pragma once
 
 
-#include <chrono>
 #include <cstddef>
 #include <string>
 #include <vector>
 #include "../Core/Common.h"
+#include "../Core/SbResult.h"
 #include "CameraCollection.h"
 #include "InputController.h"
 #include "Diagnostics/DiagnosticsRuntime.h"
@@ -84,6 +86,7 @@ class IRenderDiagnostics;
 }
 namespace Basics
 {
+class Profiler;
 struct RuntimeInteractionCommand;
 struct RuntimeInteractionEvent;
 
@@ -103,6 +106,7 @@ class Run
     EngineConfig& m_config;                                                // Borrowed process config loaded and CLI-patched by Runtime/Init.cpp.
     SceneController m_sceneController;                                     // Owns scene queue and current scene-run state
     SceneRuntimeCoordinator m_sceneCoordinator;                            // Produces scene load/reset/advance control intents.
+    SbResult m_lastSceneLoadResult;                                        // Last queue load outcome observed by startup/load-only paths.
     RunInputLatchState m_inputLatches;                                     // Cross-frame key/mouse latches that are not semantic input state.
     RunLaunchOptions m_launchOptions;                                      // CLI/startup policy reapplied across scene loads.
     CinematicRenderConfig m_defaultCinematicRender;                        // engine.cfg cinematic baseline restored by the Demo Scene cine mode
@@ -112,9 +116,7 @@ class Run
     // and render-host bindings borrow from these objects; they do not own them.
     DiagnosticsRuntime m_diagnosticsRuntime;                               // Capture, perf, and queryable physics diagnostics owner.
 #ifdef _DEBUG
-    RunReplayScrubProbeState m_replayScrubProbe;                           // CLI-only SkullScope replay scrub self-test state.
-    RunReplayRestoreProbeState m_replayRestoreProbe;                       // CLI-only solver restore hash self-test state.
-    RunReplaySaveProbeState m_replaySaveProbe;                             // CLI-only v2 replay artifact save self-test state.
+    RunReplayProbeState m_replayProbes;                                    // CLI-only replay self-test state and non-throwing failures.
 #endif
     RunRuntimeSettings m_runtimeSettings;                                  // Scene/app runtime swap policy toggles
     RunTimerState m_timers;                                                // Frame/simulation timers and rolling timing values
@@ -270,7 +272,7 @@ class Run
                                         const char* logicalName,
                                         const std::string& relativePath ); // Resolves DATA_ROOT path while preserving
                                                                            // source asset identity for rebuilds.
-    RuntimeRendererBindings BuildRuntimeRendererBindings();
+    RuntimeRendererBindings BuildRuntimeRendererBindings( Profiler* profiler );
     void ReleaseBackendOwnedRenderResources(
         const char* phaseName );                                           // Ordered GPU-resource release hook while the backend is alive.
     void RebuildRegisteredRenderResources();                               // Recreates renderer resources from source asset records
@@ -282,7 +284,7 @@ class Run
     void EnterInteractiveSceneRun();                                       // Locks scene automation into non-quitting interactive mode
     bool CanSceneAutomationQuit() const;                                   // True for CLI suites/tests; false once the user owns scene flow
     void HoldCompletedInteractiveScene();                                  // Keep the current scene alive after interactive automation completes
-    void LoadScene(
+    SbResult LoadScene(
         int index,
         bool preserveUIState = false,
         bool suppressExitOnComplete = false,
@@ -353,9 +355,10 @@ class Run
 #ifdef _DEBUG
     void LogSceneFinished( const char* reason );
     void BeginPhysicsDiagnosticsRun( const char* scenePath );
-    void TickReplayScrubProbe();
-    void TickReplayRestoreProbe();
-    void TickReplaySaveProbe();
+    SbResult TickReplayScrubProbe();
+    SbResult TickReplayRestoreProbe();
+    SbResult TickReplaySaveProbe();
+    void RecordReplayProbeFailure( const SbResult& result );
     void EndPhysicsDiagnosticsRun( const char* status );
 #endif
 
@@ -364,10 +367,12 @@ class Run
          std::vector<std::string> sceneQueue,
          EngineConfig& config,
          Threading::WorkerPool& workerPool,
+         Profiler* profiler,
          RuntimeRenderBackendView renderBackendView );                     // sceneQueue empty string selects generated demo mode.
     ~Run();
     void Initialise();                                                     // Initialises shared resources and loads first scene
-    void RunSceneLoadOnly( const char* snapshotOutPath = nullptr );        // Scene-load smoke path; skips the frame loop.
+    const SbResult& LastSceneLoadResult() const;                           // Initialise scene-load result for CLI startup checks.
+    SbResult RunSceneLoadOnly( const char* snapshotOutPath = nullptr );    // Scene-load smoke path; skips the frame loop.
     void Execute();                                                        // Main message loop; sceneQueue decides generated demo versus suite playback.
     void SetTimeScaleOverride( float scale );                              // Override timeScale for every scene loaded (CLI --time-scale)
     void SetFixedStepOverride();                                           // Force fixed-step for every scene loaded (CLI --fixed-step)
@@ -419,14 +424,17 @@ class Run
     void SetReplayScrubProbe( float normalized );                          // Enable CLI-only replay scrub SkullScope probe.
     void SetReplayRestoreProbe( float normalized );                        // Enable CLI-only replay restore hash probe.
     void SetReplaySaveProbe( const char* path );                           // Enable CLI-only v2 replay save probe.
-    void VerifyLoadedReplayPresentationProbe( float normalized );          // Validate runtime scrubbing from a loaded v2 file.
-    void VerifyReplaySolverCheckpointFileProbe(
+    bool ReplayProbeFailed() const;                                        // True when a CLI replay probe failed without throwing.
+    const char* ReplayProbeFailureOwner() const;                           // Owner tag for the latest CLI replay probe failure.
+    const char* ReplayProbeFailureMessage() const;                         // Failure text for the latest CLI replay probe failure.
+    SbResult VerifyLoadedReplayPresentationProbe( float normalized );      // Validate runtime scrubbing from a loaded v2 file.
+    SbResult VerifyReplaySolverCheckpointFileProbe(
         const char* path );                                                // Validate hash-gated restore from a v2 solver checkpoint.
-    void VerifyReplaySolverTargetFileProbe(
+    SbResult VerifyReplaySolverTargetFileProbe(
         const char* path );                                                // Validate checkpoint-plus-event replay to a saved non-checkpoint target.
-    void VerifyReplaySolverBranchFileProbe(
+    SbResult VerifyReplaySolverBranchFileProbe(
         const char* path );                                                // Validate checkpoint-plus-event replay can become a live branch.
-    void VerifyReplaySolverFailureFileProbe(
+    SbResult VerifyReplaySolverFailureFileProbe(
         const char* path );                                                // Validate saved-file restore failures emit SkullScope diagnostics.
 #endif
 };

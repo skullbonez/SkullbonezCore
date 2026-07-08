@@ -187,14 +187,14 @@
     <ClCompile Include="SkullbonezSource\Rendering\RenderInstanceStore.cpp" />
     <ClCompile Include="SkullbonezSource\Scene\TestScene.cpp" />
     <ClCompile Include="SkullbonezSource\Scene\TestSceneParser.cpp" />
-    <ClCompile Include="SkullbonezSource\Maths\GeometricMath.cpp" />
-    <ClCompile Include="SkullbonezSource\Maths\Matrix4.cpp" />
-    <ClCompile Include="SkullbonezSource\Maths\Quaternion.cpp" />
-    <ClCompile Include="SkullbonezSource\Maths\RotationMatrix.cpp" />
-    <ClCompile Include="SkullbonezSource\Maths\Vector3.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ThirdPtySource\doctest\doctest.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="SKULLBONEZ_MATHS.vcxproj">
+      <Project>{5D4A47DA-54C6-4142-9FA9-1A63E976BA2D}</Project>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

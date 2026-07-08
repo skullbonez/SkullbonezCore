@@ -12,6 +12,8 @@
 //   Handle generation: Version counter incremented when a handle slot is
 //     retired, making old handles fail lookup after slot reuse.
 //   Dense row: Compact store array index used by hot simulation scans.
+//   Model row hint: Cached dense-row guess that a resolver can repair after
+//     deletion compacts the store.
 //   Replay body id: Stable id used by replay/diagnostics to find a body even
 //     when a model-index hint is stale.
 //
@@ -35,6 +37,7 @@ using SkullbonezCore::Math::Vector::Vector3;
 using SkullbonezCore::Physics::ColliderRecord;
 using SkullbonezCore::Physics::ColliderStore;
 using SkullbonezCore::Physics::MakePhysicsSceneObjectIdFromReplayBodyId;
+using SkullbonezCore::Physics::ModelRowHint;
 using SkullbonezCore::Physics::PhysicsBodyHandle;
 using SkullbonezCore::Physics::PhysicsBodyRecord;
 using SkullbonezCore::Physics::PhysicsBodyStore;
@@ -134,6 +137,35 @@ TEST_CASE( "Physics handles: body destroy moves dense rows and rejects stale gen
     CHECK( replacement.generation != middle.generation );
     CHECK( store.Contains( replacement ) );
     CHECK_FALSE( store.Contains( middle ) );
+}
+
+
+TEST_CASE( "Physics handles: body row hints self-heal and invalidate stale handles" )
+{
+    PhysicsBodyStore& store = TestBodyStore();
+    const PhysicsBodyHandle first =
+        store.CreateBodyRecord( MakeBodyRecord( 101u, Vector3( 1.0f, 0.0f, 0.0f ) ) );
+    const PhysicsBodyHandle middle =
+        store.CreateBodyRecord( MakeBodyRecord( 202u, Vector3( 2.0f, 0.0f, 0.0f ) ) );
+    const PhysicsBodyHandle last =
+        store.CreateBodyRecord( MakeBodyRecord( 303u, Vector3( 3.0f, 0.0f, 0.0f ) ) );
+
+    ModelRowHint wrongHint;
+    wrongHint.value = 2;
+    CHECK( store.ResolveModelRow( first, wrongHint ) == 0 );
+    CHECK( wrongHint.value == 0 );
+
+    ModelRowHint movedHint;
+    movedHint.value = 2;
+    CHECK( store.DestroyBodyRecord( middle ) );
+    CHECK( store.ResolveModelRow( last, movedHint ) == 1 );
+    CHECK( movedHint.value == 1 );
+
+    ModelRowHint staleHint;
+    staleHint.value = 0;
+    CHECK( store.DestroyBodyRecord( first ) );
+    CHECK( store.ResolveModelRow( first, staleHint ) == -1 );
+    CHECK( staleHint.value == -1 );
 }
 
 

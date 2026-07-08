@@ -56,6 +56,10 @@ namespace Geometry
 {
 class Terrain;
 }
+namespace Physics
+{
+class PhysicsBodyStore;
+}
 namespace Basics
 {
 class RuntimeInteractionController;
@@ -188,6 +192,10 @@ void EndEditorGizmoDragGesture( EditorGizmoContext context );
 void CancelEditorGizmoDragState( EditorGizmoContext context );
 void ResetEditorUnfocusedInputState( EditorGizmoContext context );
 void ClearEditorManipulationState( EditorGizmoContext context );
+// Concept: editor selection stores stable handles plus a row hint. Resolve at
+// the tool boundary before UI-only code needs a temporary model row.
+int ResolveSelectedEditorModelIndex( RunEditorPlacementState& editor, const Physics::PhysicsBodyStore& bodyStore );
+int PeekSelectedEditorModelIndex( const RunEditorPlacementState& editor, const Physics::PhysicsBodyStore& bodyStore );
 EditorKeyboardShortcutResult HandleEditorKeyboardShortcuts( EditorKeyboardShortcutContext context );
 EditorPlacementModeChangeResult
 SetEditorPlacementMode( EditorGizmoContext context, bool enabled, bool clearManipulation );

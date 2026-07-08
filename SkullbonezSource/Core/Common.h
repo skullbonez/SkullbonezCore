@@ -9,14 +9,34 @@ Mental model:
   when that state changes.
 
 Glossary:
+  Maths prelude: Math-only constants and CRT math includes owned by
+    Maths/MathsCommon.h during the Common.h aliasing period.
+  Asset keys: Legacy string hashes owned by Assets/AssetKeys.h during the
+    Common.h aliasing period.
+  Window constants: Process window labels and data-root string owned by
+    Runtime/WindowConstants.h during the Common.h aliasing period.
+  Physics timestep: Fixed-step physics constants owned by
+    Physics/PhysicsTimestep.h during the Common.h aliasing period.
+  Scene capacity: Fixed model/camera/texture ceilings owned by
+    GameObjects/SceneCapacity.h during the Common.h aliasing period.
   Validation gate: Repository script that proves a class of changes before
   commit or PR.
 
 Invariants:
   - Shared constants in this file are compile-time engine contracts; changing
-    capacities, tolerances, or fixed timestep values changes validation scope.
+    capacities or runtime labels changes validation scope.
   - Log() is a convenience accessor only; ownership remains with the singleton
     type declared in its own subsystem header.
+
+Alias deletion schedule:
+  - Remove AssetKeys.h after profiler, replay, runtime, scene, render, physics,
+    and asset callers include the hash-key owner directly.
+  - Remove WindowConstants.h after window/title and DATA_ROOT path users include
+    the runtime owner directly.
+  - Remove MathsCommon.h, SceneCapacity.h, and PhysicsTimestep.h after their
+    current direct-call users stop relying on Common.h for domain constants.
+  - Config.h and Log.h stay until the global-service cleanup plan finishes
+    deleting the remaining Common.h service compatibility path.
 
 Related:
   - Agentic/Reference/runtime-reference.md
@@ -52,57 +72,24 @@ Related:
 #include <cstdlib>   // std::atoi, std::atof, std::abs
 #include <cstdio>    // std::sprintf_s, std::sscanf_s, std::FILE
 #include <cstdarg>   // std::va_list, std::va_start, std::va_end
-#include <cmath>     // std::sqrtf, std::sinf, std::cosf, std::fabsf, std::acosf
-#include <cfloat>    // FLT_MAX
 #include <cassert>   // assert()
 #include <stdexcept> // std::runtime_error
 #include <memory>    // std::unique_ptr
 #include <algorithm> // std::clamp, std::min, std::max
+#include "../Assets/AssetKeys.h"
+#include "../Runtime/WindowConstants.h"
+#include "../Maths/MathsCommon.h"
+#include "../GameObjects/SceneCapacity.h"
+#include "../Physics/PhysicsTimestep.h"
 
 #ifdef _DEBUG
 #define CRTDBG_MAP_ALLOC // must precede crtdbg.h to redirect malloc → _malloc_dbg
 #include <crtdbg.h>
 #endif
 
-// SSE/SIMD intrinsics — enabled in Release/Profile by default.
-// Override to 0 here to force scalar fallback paths in any configuration.
-#ifndef SKULLBONEZ_INTRINSICS
-#ifndef _DEBUG
-#define SKULLBONEZ_INTRINSICS 1
-#else
-#define SKULLBONEZ_INTRINSICS 0
-#endif
-#endif
-
-// Array-sizing counts (must remain compile-time)
-constexpr int TOTAL_CAMERA_COUNT = 8;
-constexpr int TOTAL_TEXTURE_COUNT = 8;
-constexpr int DEFAULT_GAME_MODEL_CAPACITY = 4000;
-constexpr int MAX_GAME_MODELS = 8192;
-constexpr int DEFAULT_GAME_MODELS = 300;
-
-// Window labels
-constexpr const char* WINDOW_NAME = "SkullbonezWindow";
-constexpr const char* TITLE_TEXT = "::SKULLBONEZ CORE::";
-constexpr const char* DATA_ROOT = "SkullbonezData/";
-
-// Math constants
-constexpr float _PI = 3.14159265f;
-constexpr float _2PI = 6.2831853f;
-constexpr float _HALF_PI = 1.570796325f;
-constexpr float FOUR_OVER_THREE = 1.33333f;
-constexpr float ONE_OVER_THREE = 0.33333f;
-
-// Fixed physics timestep (120 Hz) — guarantees deterministic simulation
-constexpr float PHYSICS_FIXED_DT = 1.0f / 120.0f;
-constexpr int PHYSICS_MAX_STEPS_PER_FRAME = 8;
-
-// Numeric sentinels / tolerances
-constexpr float NO_COLLISION = 1e30f;
-constexpr float TOLERANCE = 0.00005f;
-constexpr float ONE_PLUS_TOLERANCE = 1.00005f;
-constexpr float ZERO_TAKE_TOLERANCE = -0.00005f;
-
+// Why: authoritative-plan-02 owns removing service-accessor compatibility from
+// Common.h. Keep these includes local until that plan deletes the remaining
+// Cfg()/Log() compatibility path and callers carry explicit owner includes.
 // All other engine parameters live in EngineConfig (loaded from engine.cfg).
 #include "Config.h"
 #include "Log.h"
@@ -117,24 +104,3 @@ inline SkullbonezCore::Basics::EngineLog& Log()
 {
     return SkullbonezCore::Basics::EngineLog::Get();
 }
-
-
-// FNV-1a 32-bit compile-time hash for string keys
-constexpr uint32_t HashStr( const char* s, uint32_t hash = 2166136261u )
-{
-    return ( *s == '\0' ) ? hash : HashStr( s + 1, ( hash ^ static_cast<uint32_t>( *s ) ) * 16777619u );
-}
-
-
-constexpr uint32_t TEXTURE_GROUND = HashStr( "Ground" );
-constexpr uint32_t TEXTURE_BOUNDING_SPHERE = HashStr( "BoundingSphere" );
-constexpr uint32_t TEXTURE_SKY_LEFT = HashStr( "SkyLeft" );
-constexpr uint32_t TEXTURE_SKY_RIGHT = HashStr( "SkyRight" );
-constexpr uint32_t TEXTURE_SKY_FRONT = HashStr( "SkyFront" );
-constexpr uint32_t TEXTURE_SKY_BACK = HashStr( "SkyBack" );
-constexpr uint32_t TEXTURE_SKY_UP = HashStr( "SkyUp" );
-constexpr uint32_t TEXTURE_SKY_DOWN = HashStr( "SkyDown" );
-
-constexpr uint32_t CAMERA_GAME_MODEL_1 = HashStr( "GameModel1" );
-constexpr uint32_t CAMERA_GAME_MODEL_2 = HashStr( "GameModel2" );
-constexpr uint32_t CAMERA_FREE = HashStr( "Free" );

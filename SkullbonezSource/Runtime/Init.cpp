@@ -22,6 +22,8 @@ Glossary:
   Runtime handle smoke: Early-exit validation mode that uses runtime
     GameModelCollection construction but proves returned physics handles stay
     aligned with body, collider, constraint, and render mirrors.
+  Lane R result: Recoverable CLI/startup failure that returns a process exit
+    code with owner/message diagnostics instead of using a fatal exception.
 
 Invariants:
   - DX12 is the only runtime renderer; retired renderer flags are parsed only
@@ -43,7 +45,6 @@ Related:
 #include "Window.h"
 #include "Input.h"
 #include "../Core/Timer.h"
-#include "../Rendering/IRenderBackend.h"
 #include "../Rendering/DX12/RenderBackendDX12.h"
 #include "../GameObjects/GameModel.h"
 #include "../GameObjects/GameModelCollection.h"
@@ -53,6 +54,7 @@ Related:
 #include "../Rendering/RenderInstanceStore.h"
 #include "../World/WorldEnvironment.h"
 #include "../Core/PlatformProfiler.h"
+#include "../Core/Profiler.h"
 #include "../Core/WorkerPool.h"
 #include <cerrno>
 #include <float.h>
@@ -629,6 +631,7 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
     // as a regular runtime launch.
     auto world = std::make_unique<SkullbonezCore::Environment::WorldEnvironment>();
     auto collection = std::make_unique<SkullbonezCore::GameObjects::GameModelCollection>();
+    PhysicsRuntimeHandleSmokeResult result;
     PhysicsBodyHandle createdBodies[2];
 
     for ( int i = 0; i < 2; ++i )
@@ -642,7 +645,7 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
         const SkullbonezCore::Math::CollisionDetection::BoundingSphere shape(
             0.75f,
             SkullbonezCore::Math::Vector::Vector3( 0.0f, 0.0f, 0.0f ) );
-        createdBodies[i] = collection->AddGameModel(
+        const auto appendResult = collection->AddGameModel(
             std::move( model ),
             MakePhysicsBodyCreateDesc(
                 sceneObjectId,
@@ -659,6 +662,12 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
                 name ),
             MakeColliderCreateDesc( shape, 0.0f, HashStr( "default" ) ),
             sceneObjectId );
+        if ( !appendResult.status.ok )
+        {
+            result.errorMessage = appendResult.status.error.message;
+            return result;
+        }
+        createdBodies[i] = appendResult.body;
     }
 
     const PhysicsBodyHandle bodyA = createdBodies[0];
@@ -765,7 +774,6 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
         fabsf( reorderedBodyARecord->pendingImpulse.y - pendingImpulse.y ) < 0.0001f &&
         fabsf( reorderedBodyARecord->pendingImpulseApplicationPoint.x - pendingImpulsePoint.x ) < 0.0001f;
 
-    PhysicsRuntimeHandleSmokeResult result;
     result.handlesMatchStores = handlesMatchStores;
     result.renderMirrorMatches = renderMirrorMatches;
     result.jointUsesHandles = jointUsesHandles;
@@ -2957,15 +2965,14 @@ bool ParseCommandLine( const CommandLineView& commandLine, EngineConfig& config,
 // Render backend
 // ---------------------------------------------------------------------------
 
-RuntimeRenderBackendView InitRenderBackend( Window* window )
+std::unique_ptr<RenderBackendDX12> InitRenderBackend( Window* window, RuntimeRenderBackendView& renderBackendView )
 {
     RuntimeAllocation::RuntimeAllocationScope allocationScope( RuntimeAllocation::RuntimeAllocationPhase::BackendInit );
     auto backend = std::make_unique<RenderBackendDX12>();
-    // Lifetime: SetGfxBackend takes ownership. Runtime render code keeps
-    // borrowed capability facets in RuntimeRenderBackendView instead of
-    // reopening renderer services through the global accessor.
+    // Lifetime: the process bootstrap owns the backend unique_ptr. Runtime
+    // render code keeps borrowed capability facets in RuntimeRenderBackendView
+    // and must let them die before shutdown resets the owner.
     RenderBackendDX12* renderBackend = backend.get();
-    RuntimeRenderBackendView renderBackendView;
     renderBackendView.renderBackend = renderBackend;
     renderBackendView.deviceLifecycle = renderBackend;
     renderBackendView.renderCommands = renderBackend;
@@ -2974,8 +2981,7 @@ RuntimeRenderBackendView InitRenderBackend( Window* window )
     renderBackendView.captureBackend = renderBackend;
     renderBackendView.rayTracingBackend = renderBackend;
     backend->Init( window->m_sWindow, window->m_sDevice, window->m_sWindowDimensions.x, window->m_sWindowDimensions.y );
-    SetGfxBackend( std::move( backend ) );
-    return renderBackendView;
+    return backend;
 }
 
 // ---------------------------------------------------------------------------
@@ -2988,11 +2994,12 @@ int RunApp( Window* window,
             ParsedArgs& args,
             EngineConfig& cfg,
             WorkerPool& workerPool,
+            Profiler* profiler,
             RuntimeRenderBackendView renderBackendView )
 {
     {
         std::unique_ptr<Run> cRun =
-            std::make_unique<Run>( *window, std::move( args.sceneList ), cfg, workerPool, renderBackendView );
+            std::make_unique<Run>( *window, std::move( args.sceneList ), cfg, workerPool, profiler, renderBackendView );
         cRun->SetAllocationGuardMode( args.allocationGuardMode );
         if ( args.timeScaleOverride > 0.0f )
         {
@@ -3135,9 +3142,52 @@ int RunApp( Window* window,
             cRun->SetPhysicsDiagnosticsPath( args.physicsDiagnosticsPath, args.fixedStepForcedByPhysicsDiagnostics );
         }
 #endif
+#ifdef _DEBUG
+        // Why: Debug replay probes are CLI diagnostics, not interaction
+        // automation actions. They report through the process exit code and log
+        // boundary so validation can fail without using fatal exceptions.
+        auto reportReplayProbeFailure = [&]( const char* owner, const char* message ) -> int
+        {
+            const char* safeOwner = owner && owner[0] != '\0' ? owner : "ReplayProbe";
+            const char* safeMessage = message && message[0] != '\0' ? message : "replay probe failed";
+            Log().WriteEventf( "replay_probe_failed owner=\"%s\" message=\"%s\"", safeOwner, safeMessage );
+            fprintf( stderr, "[replay] Probe failed: %s\n", safeMessage );
+            fflush( stderr );
+            Log().FlushAll();
+            if ( !args.isSuiteOrSceneMode && !args.suppressExitDialog )
+            {
+                window->MsgBox( safeMessage, "Replay Probe Failed", MB_OK );
+            }
+            return 1;
+        };
+
+        auto reportReplayProbeResult = [&]( const SbResult& result ) -> int
+        { return reportReplayProbeFailure( result.error.owner, result.error.message ); };
+#endif
+        auto reportRunResult = [&]( const SbResult& result ) -> int
+        {
+            const char* safeOwner =
+                result.error.owner && result.error.owner[0] != '\0' ? result.error.owner : "Runtime";
+            const char* safeMessage =
+                result.error.message[0] != '\0' ? result.error.message : "recoverable runtime operation failed";
+            Log().WriteEventf( "recoverable_failure owner=\"%s\" message=\"%s\"", safeOwner, safeMessage );
+            fprintf( stderr, "[runtime] Recoverable failure owner=%s reason=\"%s\"\n", safeOwner, safeMessage );
+            fflush( stderr );
+            Log().FlushAll();
+            if ( !args.isSuiteOrSceneMode && !args.suppressExitDialog )
+            {
+                window->MsgBox( safeMessage, "Runtime Failure", MB_OK );
+            }
+            return 1;
+        };
+
         try
         {
             cRun->Initialise();
+            if ( !cRun->LastSceneLoadResult().ok )
+            {
+                return reportRunResult( cRun->LastSceneLoadResult() );
+            }
             if ( args.interactionScriptPath[0] != '\0' )
             {
                 cRun->SetInteractionAutomation(
@@ -3155,27 +3205,51 @@ int RunApp( Window* window,
 #ifdef _DEBUG
             if ( args.replayLoadProbe )
             {
-                cRun->VerifyLoadedReplayPresentationProbe( 0.25f );
+                const SbResult probeResult = cRun->VerifyLoadedReplayPresentationProbe( 0.25f );
+                if ( !probeResult.ok )
+                {
+                    return reportReplayProbeResult( probeResult );
+                }
                 skipExecute = true;
             }
             if ( args.replayRestoreFileProbe )
             {
-                cRun->VerifyReplaySolverCheckpointFileProbe( args.replayRestoreFileProbePath );
+                const SbResult probeResult =
+                    cRun->VerifyReplaySolverCheckpointFileProbe( args.replayRestoreFileProbePath );
+                if ( !probeResult.ok )
+                {
+                    return reportReplayProbeResult( probeResult );
+                }
                 skipExecute = true;
             }
             if ( args.replayRestoreTargetFileProbe )
             {
-                cRun->VerifyReplaySolverTargetFileProbe( args.replayRestoreTargetFileProbePath );
+                const SbResult probeResult =
+                    cRun->VerifyReplaySolverTargetFileProbe( args.replayRestoreTargetFileProbePath );
+                if ( !probeResult.ok )
+                {
+                    return reportReplayProbeResult( probeResult );
+                }
                 skipExecute = true;
             }
             if ( args.replayRestoreBranchFileProbe )
             {
-                cRun->VerifyReplaySolverBranchFileProbe( args.replayRestoreBranchFileProbePath );
+                const SbResult probeResult =
+                    cRun->VerifyReplaySolverBranchFileProbe( args.replayRestoreBranchFileProbePath );
+                if ( !probeResult.ok )
+                {
+                    return reportReplayProbeResult( probeResult );
+                }
                 skipExecute = true;
             }
             if ( args.replayRestoreFailureFileProbe )
             {
-                cRun->VerifyReplaySolverFailureFileProbe( args.replayRestoreFailureFileProbePath );
+                const SbResult probeResult =
+                    cRun->VerifyReplaySolverFailureFileProbe( args.replayRestoreFailureFileProbePath );
+                if ( !probeResult.ok )
+                {
+                    return reportReplayProbeResult( probeResult );
+                }
                 skipExecute = true;
             }
 #endif
@@ -3185,11 +3259,23 @@ int RunApp( Window* window,
             }
             if ( args.sceneLoadOnly )
             {
-                cRun->RunSceneLoadOnly( args.sceneSnapshotOutPath[0] != '\0' ? args.sceneSnapshotOutPath : nullptr );
+                const SbResult sceneLoadOnlyResult = cRun->RunSceneLoadOnly(
+                    args.sceneSnapshotOutPath[0] != '\0' ? args.sceneSnapshotOutPath : nullptr );
+                if ( !sceneLoadOnlyResult.ok )
+                {
+                    return reportRunResult( sceneLoadOnlyResult );
+                }
             }
             else if ( !skipExecute )
             {
                 cRun->Execute();
+#ifdef _DEBUG
+                if ( cRun->ReplayProbeFailed() )
+                {
+                    return reportReplayProbeFailure( cRun->ReplayProbeFailureOwner(),
+                                                     cRun->ReplayProbeFailureMessage() );
+                }
+#endif
                 if ( args.graphicsStress )
                 {
                     printf( "[graphics-stress] Execute returned.\n" );
@@ -3222,7 +3308,7 @@ int RunApp( Window* window,
 // Cleanup
 // ---------------------------------------------------------------------------
 
-void CleanupWindow( Window* window, HINSTANCE hInstance )
+void CleanupWindow( Window* window, HINSTANCE hInstance, std::unique_ptr<RenderBackendDX12>& renderBackend )
 {
     // Lifetime: disarm callback-fed input queues while the HWND still names
     // the window that WndProc used, before backend/window class teardown.
@@ -3231,8 +3317,8 @@ void CleanupWindow( Window* window, HINSTANCE hInstance )
         Input::UnbindCallbackBridge( window->m_sWindow );
     }
     Input::UnbindWindow( *window );
-    window->SetResizeRenderBackend( nullptr );
-    DestroyGfxBackend();
+    window->SetResizeRenderLifecycle( nullptr );
+    renderBackend.reset();
 
     if ( window->m_sDevice )
     {
@@ -3343,17 +3429,29 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine
     window->CreateAppWindow( hInstance, cfg.window.fullscreen );
     window->m_sDevice = GetDC( window->m_sWindow );
 
-    const RuntimeRenderBackendView renderBackendView = InitRenderBackend( window );
-    window->SetResizeRenderBackend( renderBackendView.renderBackend );
+    RuntimeRenderBackendView renderBackendView;
+    std::unique_ptr<RenderBackendDX12> renderBackend = InitRenderBackend( window, renderBackendView );
+    window->SetResizeRenderLifecycle( renderBackendView.deviceLifecycle );
     window->HandleScreenResize();
 
-    const int runExitCode = RunApp( window, args, cfg, workerPool, renderBackendView );
+    Profiler* profiler = nullptr;
+#if defined( SKULLBONEZ_PROFILE_ENABLED )
+    // Why: Profiler remains the sanctioned diagnostics singleton, but runtime
+    // owners receive this startup borrow instead of resolving it mid-frame.
+    profiler = &Profiler::Instance();
+    profiler->BindRenderDiagnostics( renderBackendView.renderDiagnostics );
+#endif
+
+    const int runExitCode = RunApp( window, args, cfg, workerPool, profiler, renderBackendView );
 
     {
         RuntimeAllocation::RuntimeAllocationScope allocationScope(
             RuntimeAllocation::RuntimeAllocationPhase::Shutdown );
+#if defined( SKULLBONEZ_PROFILE_ENABLED )
+        profiler->BindRenderDiagnostics( nullptr );
+#endif
         workerPool.Shutdown();
-        CleanupWindow( window, hInstance );
+        CleanupWindow( window, hInstance, renderBackend );
     }
     RuntimeAllocation::PrintRuntimeAllocationSummary( stdout );
     int finalExitCode = runExitCode;

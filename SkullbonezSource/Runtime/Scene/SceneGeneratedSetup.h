@@ -16,6 +16,8 @@ Glossary:
     objects to all balls or all boxes.
   Solver object: Exact-count validation object used by deterministic physics
     scenes.
+  Population result: Recoverable setup status plus a flag that says whether
+    generated setup actually owned the model population for this load.
 
 Invariants:
   - The setup helpers preserve the existing MSVC-compatible RNG sequence.
@@ -30,6 +32,7 @@ Related:
 */
 #pragma once
 
+#include "../../Core/SbResult.h"
 #include "../../Core/Config.h"
 
 namespace SkullbonezCore
@@ -91,15 +94,21 @@ struct SceneGeneratedPopulationRequest
     int defaultModelCount = 0;
 };
 
+struct SceneGeneratedSetupResult
+{
+    SbResult status;
+    bool applied = false; // False means no generated request matched; authored scene setup should continue.
+};
+
 class SceneGeneratedSetup
 {
   public:
     static void SetUpCameras( SceneGeneratedCameraContext context );
-    static void SetUpGameModels( SceneGeneratedModelContext context, int count );
-    static void SetUpSolverObjects( SceneGeneratedModelContext context, int balls, int boxes );
-    static bool TrySetUpRequestedModels( SceneGeneratedModelContext context,
-                                         const SceneGeneratedPopulationRequest& request,
-                                         bool useDefaultWhenNoRequest );
+    static SbResult SetUpGameModels( SceneGeneratedModelContext context, int count );
+    static SbResult SetUpSolverObjects( SceneGeneratedModelContext context, int balls, int boxes );
+    static SceneGeneratedSetupResult TrySetUpRequestedModels( SceneGeneratedModelContext context,
+                                                              const SceneGeneratedPopulationRequest& request,
+                                                              bool useDefaultWhenNoRequest );
 };
 
 } // namespace Basics

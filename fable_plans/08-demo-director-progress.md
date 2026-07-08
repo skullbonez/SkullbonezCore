@@ -1,7 +1,7 @@
 # Progress: Demo Director (plan 08)
 
 Source plan: `fable_plans/08-demo-director-plan.md`
-Status: phase 3 P3.1 phase-entry style apply complete; P3.2 reveal-rate next
+Status: Phase 4 and closure implemented; commit-gate validation passed
 Last updated: 2026-07-07
 
 ## How to work this file
@@ -457,28 +457,85 @@ Last updated: 2026-07-07
     validation errors; DX12 screenshots matched committed baselines;
     `physics_regression_solver.csv` matched byte-exactly; `VALIDATE_FULL:
     DEFAULT GATE PASSED`.
-- [ ] P3.2 Phase-entry also sets the prediction reveal rate to
+- [x] P3.2 Phase-entry also sets the prediction reveal rate to
   `phase.revealRate` (write `REPLAY_PREDICTION_REVEAL_SECONDS_PER_SECOND`'s
   runtime equivalent — if it is currently a constexpr constant in
   RunReplayTools.cpp, promote it to a runtime field on
   `RunReplayPredictionState` first, defaulting to 1.0, so the director can
   slow the unfold for the money shot). Gate: `validate_dx12_renderer` +
   `prediction_ragdoll_wall_200_predict` proof (reveal still works). Commit.
+  Evidence recorded 2026-07-07:
+  - Promoted reveal pacing from the old
+    `REPLAY_PREDICTION_REVEAL_SECONDS_PER_SECOND` constant to
+    `RunReplayPredictionState::revealSecondsPerSecond`, defaulting to 1.0.
+  - `ReplayPredictionRevealFrameIndex(...)` now reads the runtime rate through
+    a non-positive fallback helper so malformed shot-list data cannot freeze
+    the reveal cursor or divide by zero while prediction builds catch up.
+  - `DemoDirectorPlayback::Tick(...)` now receives
+    `RunReplayPredictionState&` from both frame paths and applies the active
+    phase `revealRate` once per phase entry. Re-anchoring preserves already
+    revealed prediction seconds, so slowing a money-shot phase changes future
+    pacing without snapping the causal tree backward.
+  - `RunInteractionAutomation.cpp` reports `directorPhaseRevealRate`,
+    `directorAppliedRevealRatePhaseIndex`, `directorAppliedRevealRate`,
+    `directorAppliedRevealRateCount`, and
+    `predictionRevealSecondsPerSecond` for proof scripts.
+  - Runtime proof: `Profile\SKULLBONEZ_CORE.exe --scene
+    SkullbonezData\scenes\interaction_inspect_gizmo_harness.scene.json
+    --interaction-script Agentic\Temp\director_p3_2_reveal_rate_interaction.json
+    --interaction-report TestOutput\interaction\director_p3_2_reveal_rate_report.json
+    --frames 35 --vsync off` passed with report `ok=true`,
+    `directorAppliedRevealRate=0.25`, `directorAppliedRevealRateCount=1`, and
+    `predictionRevealSecondsPerSecond=0.25`. Screenshot:
+    `TestOutput\interaction\director_p3_2_reveal_rate.bmp`. Log:
+    `Agentic\Reports\2026-07-07\logs\fable-08-p3-2-reveal-rate-interaction.log`.
+  - Prediction reveal proof: `Profile\SKULLBONEZ_CORE.exe --scene
+    SkullbonezData\scenes\prediction_ragdoll_wall_200.scene.json
+    --interaction-script SkullbonezData\interaction\prediction_ragdoll_wall_200_predict.json
+    --interaction-report TestOutput\interaction\prediction_ragdoll_wall_200_predict_report.json
+    --frames 220 --replay on --replay-seconds 2 --fixed-step --vsync off
+    --allocation-guard gameplay` passed with report `ok=true`,
+    `predictionPathVisible=true`, `liveSolverHashStableAcrossPrediction=true`,
+    `predictionRevealSecondsPerSecond=1.0`, and allocation guard
+    `gameplay_violations=0`. Screenshot:
+    `TestOutput\interaction\prediction_ragdoll_wall_200_predict.bmp`. Log:
+    `Agentic\Reports\2026-07-07\logs\fable-08-p3-2-prediction-ragdoll-proof.log`.
+  - Comment-quality audit scope: `ReplayRuntime.h`,
+    `RunReplayPredictionHelpers.inl`, `RunReplayTools.cpp`,
+    `RunDemoDirector.h`, `RunDemoDirector.cpp`, `RunFrame.cpp`,
+    `RunInteractionAutomation.cpp`, and `RunState.h`. Checklist path: N/A for
+    touched-file pass; checked count 8, deferred count 0, unchecked files none.
+  - Gate: `tools\validate_fast.bat` passed after a targeted
+    `RunDemoDirector.cpp` clang-format fix. Log:
+    `Agentic\Reports\2026-07-07\logs\fable-08-p3-2-validate-fast.log`. Key
+    lines: source formatting passed, project filters passed, staged file size
+    check passed, runtime boundaries passed, unit tests passed, and
+    Profile/Debug builds succeeded with 0 warnings/0 errors.
+  - Gate: `tools\validate_dx12_renderer.bat` passed. Log:
+    `Agentic\Reports\2026-07-07\logs\fable-08-p3-2-validate-dx12-renderer.log`.
+    Key lines: DX12 InfoQueue reported 0 validation errors, DX12 screenshots
+    matched committed baselines, and `VALIDATE_DX12_RENDERER: ALL PASSED`.
+  - Gate: `tools\validate_full.bat` passed. Log:
+    `Agentic\Reports\2026-07-07\logs\fable-08-p3-2-validate-full.log`. Key
+    lines: runtime boundaries passed, Profile and Debug builds succeeded with
+    0 warnings/0 errors, DX12 validation errors 0, screenshots matched,
+    `physics_regression_solver.csv` matched byte-exactly, and `VALIDATE_FULL:
+    DEFAULT GATE PASSED`.
 
 ## Phase 4 — advance rules + automation + the demo shot list
 
-- [ ] P4.1 Implement the three advance rules in the director tick: Manual
+- [x] P4.1 Implement the three advance rules in the director tick: Manual
   (advance key), Timer (`phase elapsed >= timerSeconds`), RevealAtLeast
   (normalized reveal progress >= `revealThreshold` — read the reveal
   frame/lastFrame per the verified-facts source). On advance past the last
   phase: hold (do not loop) unless a shot-list `loop` flag says otherwise.
-- [ ] P4.2 Automation actions in `RunInteractionAutomation.cpp`:
+- [x] P4.2 Automation actions in `RunInteractionAutomation.cpp`:
   `loadShotList`, `directorPlay`, `directorAdvance`, `directorGrab`,
   `directorRelease`, `setPhaseStyle` — so a scripted take is reproducible and
   screenshots can be pinned to phases. Evidence: a `*.json` interaction script
   that loads the shot list, plays it, and screenshots each phase; report
   `ok=1`.
-- [ ] P4.3 Author `SkullbonezData/shots/butterfly.shot.json` for the 200-brick
+- [x] P4.3 Author `SkullbonezData/shots/butterfly.shot.json` for the 200-brick
   scene: e.g. phase 1 low behind the ball sighting the root line (dark style,
   RevealAtLeast 0.05), phase 2 dolly-up three-quarter as the wall blooms
   (RevealAtLeast 0.5, revealRate 0.5), phase 3 wide settle on the grey rest
@@ -488,6 +545,85 @@ Last updated: 2026-07-07
 
 ## Closure
 
-- [ ] Z1. Document the director keys + `.shot.json` schema in
+- [x] Z1. Document the director keys + `.shot.json` schema in
   `Agentic/Reference/runtime-reference.md`.
-- [ ] Z2. Update `fable_plans/08-demo-director-plan.md` status + this file.
+- [x] Z2. Update `fable_plans/08-demo-director-plan.md` status + this file.
+
+## Phase 4 evidence
+
+Evidence recorded 2026-07-07:
+
+P4.1:
+- `RunDemoDirector.cpp` now evaluates `Manual`, `Timer`, and `RevealAtLeast`
+  in `DemoDirectorPlayback::Tick`; reveal advance requires an active prediction
+  frame range and uses revealed frame / last frame.
+- Timer/hold/loop proof command:
+  `Profile\SKULLBONEZ_CORE.exe --scene SkullbonezData\scenes\interaction_inspect_gizmo_harness.scene.json --interaction-script Agentic\Temp\director_p4_1_timer_loop_interaction.json --interaction-report TestOutput\interaction\director_p4_1_timer_loop_report.json --frames 60 --vsync off`
+- Report `TestOutput\interaction\director_p4_1_timer_loop_report.json`:
+  `ok=true`; timer advanced to `directorPhaseIndex=1`, non-loop final phase
+  held at index 1 through frame 28, and a looped shot list wrapped back to
+  `directorPhaseIndex=0` after a second `directorAdvance`.
+- Screenshots: `TestOutput\interaction\director_p4_1_timer_hold.bmp` and
+  `TestOutput\interaction\director_p4_1_loop_wrap.bmp`.
+- Log:
+  `Agentic\Reports\2026-07-07\logs\fable-08-p4-1-timer-loop-interaction.log`.
+
+P4.2:
+- `RunInteractionAutomation.cpp` now parses and reports `directorPlay`,
+  `directorGrab`, `directorRelease`, and `setPhaseStyle`, plus phase
+  assertions `directorPhaseIndex`, `directorPhaseName`, and
+  `directorPhaseStylePath`.
+- Automation proof command:
+  `Profile\SKULLBONEZ_CORE.exe --scene SkullbonezData\scenes\interaction_inspect_gizmo_harness.scene.json --interaction-script Agentic\Temp\director_p4_2_automation_interaction.json --interaction-report TestOutput\interaction\director_p4_2_automation_report.json --frames 40 --vsync off`
+- Report `TestOutput\interaction\director_p4_2_automation_report.json`:
+  `ok=true`; camera mode was `Director`, `directorGrabbed` asserted true then
+  false, and `directorPhaseStylePath` asserted
+  `SkullbonezData/styles/neon_cyberpunk.style.json`.
+- Screenshot: `TestOutput\interaction\director_p4_2_automation.bmp`.
+- Log:
+  `Agentic\Reports\2026-07-07\logs\fable-08-p4-2-automation-interaction.log`.
+
+P4.3:
+- Authored `SkullbonezData/shots/butterfly.shot.json` with three phases:
+  `root-sighting` (`RevealAtLeast`, storm-front style, revealRate 0.30),
+  `chain-bloom` (`RevealAtLeast`, neon-cyberpunk style, revealRate 0.55), and
+  `settle-rest` (`Timer`, golden-hour style).
+- Butterfly take proof command:
+  `Profile\SKULLBONEZ_CORE.exe --scene SkullbonezData\scenes\prediction_ragdoll_wall_200.scene.json --interaction-script Agentic\Temp\butterfly_shot_take_interaction.json --interaction-report TestOutput\interaction\butterfly_shot_take_report.json --frames 430 --replay on --replay-seconds 2 --fixed-step --vsync off`
+- Report `TestOutput\interaction\butterfly_shot_take_report.json`:
+  `ok=true`; prediction target `prediction_striker_ball`,
+  `predictionPathVisible=true`, `liveSolverHashStableAcrossPrediction=true`,
+  and phase assertions reached indices 0/1/2 with names `root-sighting`,
+  `chain-bloom`, and `settle-rest`.
+- Screenshots: `TestOutput\interaction\butterfly_phase_0_root_sighting.bmp`,
+  `TestOutput\interaction\butterfly_phase_1_chain_bloom.bmp`, and
+  `TestOutput\interaction\butterfly_phase_2_settle_rest.bmp`.
+- Log:
+  `Agentic\Reports\2026-07-07\logs\fable-08-p4-3-butterfly-shot-take.log`.
+- Non-director prediction proof rerun:
+  `Profile\SKULLBONEZ_CORE.exe --scene SkullbonezData\scenes\prediction_ragdoll_wall_200.scene.json --interaction-script SkullbonezData\interaction\prediction_ragdoll_wall_200_predict.json --interaction-report TestOutput\interaction\prediction_ragdoll_wall_200_predict_report.json --frames 220 --replay on --replay-seconds 2 --fixed-step --vsync off --allocation-guard gameplay`
+  passed with report `ok=true`, `predictionPathVisible=true`,
+  `liveSolverHashStableAcrossPrediction=true`, and allocation guard
+  `gameplay_violations=0`.
+
+Closure:
+- `Agentic/Reference/runtime-reference.md` now documents the shot-list schema,
+  `Manual`/`Timer`/`RevealAtLeast`, `revealRate`, Director keys
+  `B`/`J`/`K`/`L`, automation actions, and phase assertions.
+- `08-demo-director-plan.md` and this file were updated to reflect completed
+  Phase 4 and closure work.
+
+Commit-gate validation recorded 2026-07-07:
+- Touched-file comment audit inspected 4 source-bearing files
+  (`RunDemoDirector.cpp`, `RunDemoDirector.h`, `RunInteractionAutomation.cpp`,
+  `RunState.h`) with 0 deferred.
+- `tools\validate_fast.bat` passed; source formatting, project filters,
+  staged-size, runtime boundaries, unit tests, and Profile/Debug builds passed
+  with 0 warnings/errors. Log:
+  `Agentic\Reports\2026-07-07\logs\fable-08-p4-validate-fast.log`.
+- `tools\validate_dx12_renderer.bat` passed; DX12 InfoQueue reported 0
+  validation errors and screenshots matched committed baselines. Log:
+  `Agentic\Reports\2026-07-07\logs\fable-08-p4-validate-dx12-renderer.log`.
+- `tools\validate_full.bat` passed; DX12 errors 0, screenshots matched, and
+  `physics_regression_solver.csv` matched byte-exactly. Log:
+  `Agentic\Reports\2026-07-07\logs\fable-08-p4-validate-full.log`.

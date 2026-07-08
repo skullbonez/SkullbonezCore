@@ -32,6 +32,7 @@ Related:
 #include "../../Rendering/IRenderBackend.h"
 
 #include <algorithm>
+#include <cstdio>
 
 namespace SkullbonezCore
 {
@@ -72,6 +73,18 @@ SceneGeneratedModelContext BuildGeneratedModelContext( SceneRuntimeGeneratedCont
                                        context.models.GetPhysicsEngine(),
                                        context.objectTypeOverride };
 }
+
+void LogGeneratedControlFailure( const SbResult& result )
+{
+    // Why: UI rebuild has already cleared mutable scene/model state. Report the
+    // recoverable owner and let the caller reset replay/profiler state around
+    // the now-current partial topology.
+    const char* owner =
+        result.error.owner && result.error.owner[0] != '\0' ? result.error.owner : "Runtime/SceneGeneratedControls";
+    const char* message =
+        result.error.message[0] != '\0' ? result.error.message : "generated-scene rebuild failed without a message";
+    fprintf( stderr, "[scene] generated_rebuild_failed owner=%s reason=\"%s\"\n", owner, message );
+}
 } // namespace
 
 SceneRuntimeGeneratedControlAction ApplyUIModelCountOverride( SceneRuntimeGeneratedControlContext context, int count )
@@ -96,8 +109,15 @@ SceneRuntimeGeneratedControlAction ApplyUIModelCountOverride( SceneRuntimeGenera
 
     const unsigned int seed = context.scene.rngSeed > 0 ? context.scene.rngSeed : 1u;
     context.scene.rngState = seed;
-    SceneGeneratedSetup::SetUpGameModels( BuildGeneratedModelContext( context ),
-                                          context.uiOverrides.modelCountOverride );
+    const SbResult setupResult = SceneGeneratedSetup::SetUpGameModels( BuildGeneratedModelContext( context ),
+                                                                       context.uiOverrides.modelCountOverride );
+    if ( !setupResult.ok )
+    {
+        LogGeneratedControlFailure( setupResult );
+        context.scene.modelCount = context.models.SceneEntityCount();
+        context.camera.trackBallIndex = context.scene.modelCount > 0 ? context.scene.modelCount - 1 : -1;
+        return RequestReplayAndProfileReset();
+    }
     if ( context.camera.trackBallIndex >= context.uiOverrides.modelCountOverride )
     {
         context.camera.trackBallIndex = context.uiOverrides.modelCountOverride - 1;
@@ -128,9 +148,16 @@ ApplyUISolverObjectCounts( SceneRuntimeGeneratedControlContext context, int ball
 
     const unsigned int seed = context.scene.rngSeed > 0 ? context.scene.rngSeed : 1u;
     context.scene.rngState = seed;
-    SceneGeneratedSetup::SetUpSolverObjects( BuildGeneratedModelContext( context ),
-                                             context.uiOverrides.solverBallCountOverride,
-                                             context.uiOverrides.solverBoxCountOverride );
+    const SbResult setupResult = SceneGeneratedSetup::SetUpSolverObjects( BuildGeneratedModelContext( context ),
+                                                                          context.uiOverrides.solverBallCountOverride,
+                                                                          context.uiOverrides.solverBoxCountOverride );
+    if ( !setupResult.ok )
+    {
+        LogGeneratedControlFailure( setupResult );
+        context.scene.modelCount = context.models.SceneEntityCount();
+        context.camera.trackBallIndex = context.scene.modelCount > 0 ? context.scene.modelCount - 1 : -1;
+        return RequestReplayAndProfileReset();
+    }
     if ( context.scene.modelCount <= 0 )
     {
         context.camera.trackBallIndex = -1;

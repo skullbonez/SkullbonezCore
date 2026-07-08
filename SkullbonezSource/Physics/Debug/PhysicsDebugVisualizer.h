@@ -40,6 +40,11 @@ namespace Geometry
 class Terrain;
 }
 
+namespace Rendering
+{
+class IRenderCommandContext;
+}
+
 namespace Physics
 {
 class ColliderStore;
@@ -185,8 +190,11 @@ class PhysicsDebugVisualizer
     void SetContactLingerSeconds( float seconds );
     void SetPipelineStageCursor( int cursor );
     void Update( float dt, const PhysicsDebugFrameView& view );
+    // The caller owns renderer readiness and debug-line capability for the frame.
     void Render( const PhysicsDebugFrameView& view,
                  const Math::Transformation::Matrix4& viewProj,
+                 Rendering::IRenderCommandContext& renderCommands,
+                 bool supportsDebugLines,
                  Geometry::Terrain* terrain = nullptr );
 };
 } // namespace Physics

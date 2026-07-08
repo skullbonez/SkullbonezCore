@@ -420,6 +420,7 @@ class RenderBackendDX12 : public IRenderBackend, public IRenderRayTracing
     size_t m_gridLinePSOCount = 0;
     int m_gridLineVBCapacity = 0;
     std::unique_ptr<IShader> m_transientColorShader;
+    std::unique_ptr<IShader> m_replayRibbonShader;                 // Replay-only smooth debug stroke shader warmed at backend init.
 
     bool m_renderingToFBO = false;
     bool m_backBufferIsRT = false;                                 // True if back buffer is in RENDER_TARGET state
@@ -656,6 +657,7 @@ class RenderBackendDX12 : public IRenderBackend, public IRenderRayTracing
 
     void DrawLinesColored( const float* data, int vertCount, const float* viewProjMatrix16 ) override;
     void DrawTransientColoredTriangles( const float* data, int vertexCount, const float* viewProjMatrix16 ) override;
+    void DrawReplayRibbons( const float* data, int vertexCount, const float* viewProjMatrix16 ) override;
 
     uint32_t CreateInstancedMesh( const float* staticData,
                                   int staticVertCount,

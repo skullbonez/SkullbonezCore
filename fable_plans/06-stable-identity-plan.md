@@ -1,7 +1,7 @@
 # Stable Identity Plan (modelIndex vs handle duality)
 
 Date: 2026-07-06
-Status: Proposed
+Status: Phase 1 inventory/ratchet, Phase 2 central resolvers, and C1 RuntimeTools cluster complete on 2026-07-08; subsystem conversions pending
 Impact area: runtime tools, replay, UI, physics stores; behavior-preserving
 Validation for this document: none (documentation-only)
 

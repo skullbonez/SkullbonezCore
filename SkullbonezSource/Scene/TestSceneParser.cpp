@@ -3140,7 +3140,7 @@ class TestSceneParser
         LoadDocumentIntoScene( path ? path : "", false, 0 );
         if ( m_scene.m_cameras.empty() )
         {
-            throw std::runtime_error( "Scene JSON must define at least one camera.  (TestScene::LoadFromFile)" );
+            Fail( path ? path : "", "Scene JSON must define at least one camera." );
         }
         return m_scene;
     }

@@ -25,6 +25,8 @@ Glossary:
     outward from a selected root body.
   ReplayBodyId: Stable runtime id used across retained samples even when vector
     indices are only local hints.
+  Model row hint: Cached live body row paired with ReplayBodyId; replay tools
+    may keep it only as a repairable lookup shortcut.
   Solver snapshot: Physics cache state that must be restored to make the next
     fixed step reproduce.
   WorkerPool: Persistent engine worker threads used only for large, independent
@@ -53,6 +55,7 @@ Related:
 #include "../../Physics/ColliderStore.h"
 #include "../../Physics/PhysicsBodyStore.h"
 #include "../../Physics/PhysicsMass.h"
+#include "../../Physics/PhysicsTimestep.h"
 #include "../RuntimeFileWriter.h"
 #include "../../Core/WorkerPool.h"
 #include "../../UI/UIInput.h"
@@ -164,6 +167,27 @@ bool TryResolveReplayBodyModelIndex( const PhysicsBodyStore& bodyStore,
 }
 
 
+bool TryResolveReplayBodyModelIndex( const PhysicsBodyStore& bodyStore,
+                                     ReplayBodyId id,
+                                     ModelRowHint& hint,
+                                     int modelCount,
+                                     int& outModelIndex )
+{
+    // Why: retained replay UI state still carries modelIndex integers until the
+    // fable-06 conversion rows are complete. Naming the cache as ModelRowHint
+    // keeps stable replay identity in ReplayBodyId while this resolver heals or
+    // invalidates the dense-row guess.
+    if ( !TryResolveReplayBodyModelIndex( bodyStore, id, hint.value, modelCount, outModelIndex ) )
+    {
+        hint.value = -1;
+        return false;
+    }
+
+    hint.value = outModelIndex;
+    return true;
+}
+
+
 bool TryAddReplayTargetMarkerFromStores( RunEditorTracer& tracer,
                                          const PhysicsBodyStore& bodyStore,
                                          const ColliderStore& colliderStore,
@@ -252,9 +276,8 @@ constexpr int REPLAY_PREDICTION_PARALLEL_BODY_MIN = 2048;
 // static plot. A wall-clock reveal cursor sweeps the predicted frames so the
 // root line grows first and each child line starts only when its causing frame
 // is revealed; after the sweep the finished tree holds until the prediction is
-// rebuilt. Rate is predicted seconds revealed per real second; 1.0 means the
-// future unfolds at the same pace it would actually happen.
-constexpr double REPLAY_PREDICTION_REVEAL_SECONDS_PER_SECOND = 1.0;
+// rebuilt. The per-run rate lives on RunReplayPredictionState so authored
+// director phases can slow the money-shot unfold without touching physics.
 // Why: "at rest" for the causal overlay is decided from the END of the
 // completed prediction, never from a momentary pause. A body rests only when
 // the final frame shows no visible motion and it has not drifted across the
@@ -466,18 +489,21 @@ void RenderReplayPathVisualizer( const ReplayPathVisualizerRenderContext& contex
                 return;
             }
 
+            ModelRowHint targetHint;
+            targetHint.value = target.modelIndex;
             int markerIndex = -1;
-            if ( TryResolveReplayBodyModelIndex( bodyStore,
-                                                 target.id,
-                                                 target.modelIndex,
-                                                 context.models.SceneEntityCount(),
-                                                 markerIndex ) )
+            const bool markerResolved = TryResolveReplayBodyModelIndex( bodyStore,
+                                                                        target.id,
+                                                                        targetHint,
+                                                                        context.models.SceneEntityCount(),
+                                                                        markerIndex );
+            target.modelIndex = targetHint.value;
+            if ( target.id.value == context.replayRuntime.PathVisualizer().targetId.value )
             {
-                target.modelIndex = markerIndex;
-                if ( target.id.value == context.replayRuntime.PathVisualizer().targetId.value )
-                {
-                    context.replayRuntime.PathVisualizer().targetModelIndex = markerIndex;
-                }
+                context.replayRuntime.PathVisualizer().targetModelIndex = targetHint.value;
+            }
+            if ( markerResolved )
+            {
                 TryAddReplayTargetMarkerFromStores( context.tracer, bodyStore, colliderStore, markerIndex );
             }
         }
@@ -516,17 +542,20 @@ void Run::RenderReplayCauseFocusOverlay( RunEditorTracer& tracer )
     {
         const PhysicsBodyStore& bodyStore = m_cGameModelCollection.GetPhysicsEngine().BodyStore();
         const ColliderStore& colliderStore = m_cGameModelCollection.GetPhysicsEngine().Colliders();
+        ModelRowHint focusHint;
+        focusHint.value = m_replayRuntime.Camera().focusModelIndex;
         int focusedModelIndex = -1;
         if ( TryResolveReplayBodyModelIndex( bodyStore,
                                              m_replayRuntime.Camera().focusedId,
-                                             m_replayRuntime.Camera().focusModelIndex,
+                                             focusHint,
                                              bodyStore.Count(),
                                              focusedModelIndex ) )
         {
-            m_replayRuntime.Camera().focusModelIndex = focusedModelIndex;
+            m_replayRuntime.Camera().focusModelIndex = focusHint.value;
             TryAddReplayTargetMarkerFromStores( tracer, bodyStore, colliderStore, focusedModelIndex );
             return;
         }
+        m_replayRuntime.Camera().focusModelIndex = focusHint.value;
     }
 
     if ( m_replayRuntime.Camera().focusKind == RunReplayCameraFocusKind::Manifold ||
