@@ -2733,7 +2733,7 @@ void Run::AfterPhysicsStep()
             {
                 return false;
             }
-            RecordReplayProbeFailure( probeResult );
+            m_replayProbes.RecordFailure( probeResult );
             PostQuitMessage( 0 );
             return true;
         };

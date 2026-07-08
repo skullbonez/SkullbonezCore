@@ -3225,10 +3225,10 @@ int RunApp( Window* window,
             {
                 cRun->Execute();
 #ifdef _DEBUG
-                if ( cRun->ReplayProbeFailed() )
+                if ( cRun->ReplayProbes().Failed() )
                 {
-                    return reportReplayProbeFailure( cRun->ReplayProbeFailureOwner(),
-                                                     cRun->ReplayProbeFailureMessage() );
+                    return reportReplayProbeFailure( cRun->ReplayProbes().FailureOwner(),
+                                                     cRun->ReplayProbes().FailureMessage() );
                 }
 #endif
                 if ( args.graphicsStress )

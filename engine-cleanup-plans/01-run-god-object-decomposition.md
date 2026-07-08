@@ -1729,6 +1729,25 @@ every step. Commit per step.
     (17.6s). The touched-file comment audit covered `RuntimeCameraMode.h`,
     `Run.h`, `RunInput.cpp`, `RunFrame.cpp`, `RunRender.cpp`,
     `RunReplayScrubberTools.inl`, and `RunMousePickupTools.cpp`.
+  - [x] Debug replay-probe failure ownership moved into `RunReplayProbeState`.
+    The state now owns failure recording/default owner/default message logic;
+    `Run` exposes one debug `ReplayProbes()` view instead of separate
+    `ReplayProbeFailed()`, `ReplayProbeFailureOwner()`, and
+    `ReplayProbeFailureMessage()` wrappers, and frame probe failures record
+    directly on the probe owner. Gate evidence:
+    `TestOutput\agent_logs\plan01_replay_probe_failure_owner_validate_full.log`
+    (62.2s; project filters/runtime boundaries passed, Profile/Debug builds had
+    0 warnings and 0 errors, DX12 InfoQueue errors = 0, screenshots matched
+    baselines, and `physics_regression_solver.csv` matched byte-exactly).
+    Targeted pre-gate checks also passed:
+    `TestOutput\agent_logs\plan01_replay_probe_failure_owner_build_profile.log`
+    (9.5s),
+    `TestOutput\agent_logs\plan01_replay_probe_failure_owner_validate_format_rerun.log`
+    (9.2s after narrowly formatting `RunReplayProbeState.h`),
+    and
+    `TestOutput\agent_logs\plan01_replay_probe_failure_owner_runtime_boundaries.log`
+    (17.7s). The touched-file comment audit covered
+    `RunReplayProbeState.h`, `Run.h/.cpp`, `RunFrame.cpp`, and `Init.cpp`.
 
 ## Validation
 

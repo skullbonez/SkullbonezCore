@@ -338,7 +338,6 @@ class Run
     SbResult TickReplayScrubProbe();
     SbResult TickReplayRestoreProbe();
     SbResult TickReplaySaveProbe();
-    void RecordReplayProbeFailure( const SbResult& result );
     void EndPhysicsDiagnosticsRun( const char* status );
 #endif
 
@@ -364,9 +363,7 @@ class Run
     void DumpTextureAssets( FILE* out ) const;
 
 #ifdef _DEBUG
-    bool ReplayProbeFailed() const;                                     // True when a CLI replay probe failed without throwing.
-    const char* ReplayProbeFailureOwner() const;                        // Owner tag for the latest CLI replay probe failure.
-    const char* ReplayProbeFailureMessage() const;                      // Failure text for the latest CLI replay probe failure.
+    const RunReplayProbeState& ReplayProbes() const;                    // Debug CLI replay probe state and failure accessors.
     SbResult VerifyLoadedReplayPresentationProbe( float normalized );   // Validate runtime scrubbing from a loaded v2 file.
     SbResult VerifyReplaySolverCheckpointFileProbe(
         const char* path );                                             // Validate hash-gated restore from a v2 solver checkpoint.

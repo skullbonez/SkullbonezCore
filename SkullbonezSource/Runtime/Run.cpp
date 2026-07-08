@@ -684,36 +684,12 @@ void Run::SetInteractionAutomation( const char* scriptPath, const char* reportPa
 
 
 #ifdef _DEBUG
-void Run::RecordReplayProbeFailure( const SbResult& result )
+const RunReplayProbeState& Run::ReplayProbes() const
 {
-    if ( result.ok || m_replayProbes.failure.failed )
-    {
-        return;
-    }
-
-    const char* owner = result.error.owner && result.error.owner[0] != '\0' ? result.error.owner : "ReplayProbe";
-    const char* message =
-        result.error.message[0] != '\0' ? result.error.message : "replay probe failed without a failure message";
-    m_replayProbes.failure.failed = true;
-    strcpy_s( m_replayProbes.failure.owner, sizeof( m_replayProbes.failure.owner ), owner );
-    strcpy_s( m_replayProbes.failure.message, sizeof( m_replayProbes.failure.message ), message );
-}
-
-bool Run::ReplayProbeFailed() const
-{
-    return m_replayProbes.failure.failed;
-}
-
-const char* Run::ReplayProbeFailureOwner() const
-{
-    return m_replayProbes.failure.owner[0] != '\0' ? m_replayProbes.failure.owner : "ReplayProbe";
-}
-
-const char* Run::ReplayProbeFailureMessage() const
-{
-    return m_replayProbes.failure.message[0] != '\0' ? m_replayProbes.failure.message : "replay probe failed";
+    return m_replayProbes;
 }
 #endif
+
 
 bool Run::LoadReplayPresentationArtifact( const char* path, bool activateScrubber )
 {
