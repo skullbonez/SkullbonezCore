@@ -12,6 +12,8 @@ Glossary:
   Capture controller: Screenshot trigger and automation state.
   Diagnostics controller: Perf CSV and queryable physics diagnostic state.
   Artifact path: Validation-facing output path that must stay stable.
+  Physics diagnostic command: One-frame key or UI request that changes debug
+    presentation state, not simulation state.
   Private working set: Resident process pages not shared with other processes;
     matching it requires a page-level OS query.
 
@@ -41,7 +43,8 @@ class IRenderDiagnostics;
 namespace UI
 {
 class InGameUI;
-}
+struct UIPhysicsCommands;
+} // namespace UI
 namespace Basics
 {
 class Profiler;
@@ -84,6 +87,22 @@ struct DiagnosticsUIKeyboardShortcutResult
     bool releaseMouseToUI = false;                  // True when Run should refresh cursor ownership and release capture.
 };
 
+struct DiagnosticsPhysicsOverlayUICommandResult
+{
+    bool toggledCollisionVisualizer = false;
+    bool toggledPhysicsDebugFlags = false;
+    bool steppedPipelinePrevious = false;
+    bool steppedPipelineNext = false;
+    bool toggledPhysicsDebugTransparent = false;
+    bool toggledBroadphaseOverlay = false;
+};
+
+struct DiagnosticsPhysicsDebugValueUICommandResult
+{
+    bool setAlpha = false;
+    bool setContactLinger = false;
+};
+
 void StepDiagnosticsPhysicsPipelineStage( RunDebugState& debug, int direction );
 bool HandleDiagnosticsKeyboardShortcut( DiagnosticsKeyboardShortcutContext context,
                                         RuntimeInputAction action,
@@ -91,6 +110,11 @@ bool HandleDiagnosticsKeyboardShortcut( DiagnosticsKeyboardShortcutContext conte
 DiagnosticsUIKeyboardShortcutResult HandleDiagnosticsUIKeyboardShortcut( DiagnosticsUIKeyboardShortcutContext context,
                                                                          RuntimeInputAction action,
                                                                          int virtualKey );
+DiagnosticsPhysicsOverlayUICommandResult
+ApplyDiagnosticsPhysicsOverlayUICommands( RunDebugState& debug, const UI::UIPhysicsCommands& commands );
+bool ApplyDiagnosticsTerrainContactProbeUICommand( RunDebugState& debug, const UI::UIPhysicsCommands& commands );
+DiagnosticsPhysicsDebugValueUICommandResult
+ApplyDiagnosticsPhysicsDebugValueUICommands( RunDebugState& debug, const UI::UIPhysicsCommands& commands );
 
 class DiagnosticsRuntime
 {

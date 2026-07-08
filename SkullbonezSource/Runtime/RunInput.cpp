@@ -2285,9 +2285,10 @@ void Run::TakeInput()
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleEditorTerrainAlign,
                                                RuntimeInputActionSource::UI );
         }
-        if ( uiCommands.physics.toggleCollisionVisualizer )
+        const DiagnosticsPhysicsOverlayUICommandResult physicsDiagnosticsCommands =
+            ApplyDiagnosticsPhysicsOverlayUICommands( m_debug, uiCommands.physics );
+        if ( physicsDiagnosticsCommands.toggledCollisionVisualizer )
         {
-            m_debug.isCollisionVisualizer = !m_debug.isCollisionVisualizer;
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleCollisionVisualizer,
                                                RuntimeInputActionSource::UI );
         }
@@ -2298,33 +2299,28 @@ void Run::TakeInput()
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::TogglePhysicsSleepPolicy,
                                                RuntimeInputActionSource::UI );
         }
-        if ( uiCommands.physics.togglePhysicsDebugFlags != 0 )
+        if ( physicsDiagnosticsCommands.toggledPhysicsDebugFlags )
         {
-            m_debug.physicsDebugFlags ^= ( uiCommands.physics.togglePhysicsDebugFlags & PHYSICS_DEBUG_ALL );
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::TogglePhysicsDebugFlags,
                                                RuntimeInputActionSource::UI );
         }
-        if ( uiCommands.physics.stepPhysicsPipelinePrevious )
+        if ( physicsDiagnosticsCommands.steppedPipelinePrevious )
         {
-            StepDiagnosticsPhysicsPipelineStage( m_debug, -1 );
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::StepPhysicsPipelinePrevious,
                                                RuntimeInputActionSource::UI );
         }
-        if ( uiCommands.physics.stepPhysicsPipelineNext )
+        if ( physicsDiagnosticsCommands.steppedPipelineNext )
         {
-            StepDiagnosticsPhysicsPipelineStage( m_debug, 1 );
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::StepPhysicsPipelineNext,
                                                RuntimeInputActionSource::UI );
         }
-        if ( uiCommands.physics.togglePhysicsDebugTransparent )
+        if ( physicsDiagnosticsCommands.toggledPhysicsDebugTransparent )
         {
-            m_debug.isPhysicsDebugTransparent = !m_debug.isPhysicsDebugTransparent;
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::TogglePhysicsDebugTransparent,
                                                RuntimeInputActionSource::UI );
         }
-        if ( uiCommands.physics.toggleBroadphaseOverlay )
+        if ( physicsDiagnosticsCommands.toggledBroadphaseOverlay )
         {
-            m_debug.isBroadphaseOverlay = !m_debug.isBroadphaseOverlay;
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleBroadphaseOverlay,
                                                RuntimeInputActionSource::UI );
         }
@@ -2356,9 +2352,8 @@ void Run::TakeInput()
         {
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ApplyTornadoSettings, RuntimeInputActionSource::UI );
         }
-        if ( uiCommands.physics.toggleTerrainContactProbe )
+        if ( ApplyDiagnosticsTerrainContactProbeUICommand( m_debug, uiCommands.physics ) )
         {
-            m_debug.physicsDebugFlags ^= PHYSICS_DEBUG_TERRAIN_CONTACT;
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleTerrainContactProbe,
                                                RuntimeInputActionSource::UI );
         }
@@ -2475,15 +2470,14 @@ void Run::TakeInput()
             SceneState().rngState = SceneState().rngSeed;
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::SetRunSeed, RuntimeInputActionSource::UI );
         }
-        if ( uiCommands.physics.requestedPhysicsDebugAlpha >= 0.0f )
+        const DiagnosticsPhysicsDebugValueUICommandResult physicsDebugValueCommands =
+            ApplyDiagnosticsPhysicsDebugValueUICommands( m_debug, uiCommands.physics );
+        if ( physicsDebugValueCommands.setAlpha )
         {
-            m_debug.physicsDebugAlpha = std::clamp( uiCommands.physics.requestedPhysicsDebugAlpha, 0.05f, 1.0f );
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::SetPhysicsDebugAlpha, RuntimeInputActionSource::UI );
         }
-        if ( uiCommands.physics.requestedPhysicsDebugContactLinger >= 0.0f )
+        if ( physicsDebugValueCommands.setContactLinger )
         {
-            m_debug.physicsDebugContactLinger =
-                std::clamp( uiCommands.physics.requestedPhysicsDebugContactLinger, 0.0f, 5.0f );
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::SetPhysicsDebugContactLinger,
                                                RuntimeInputActionSource::UI );
         }

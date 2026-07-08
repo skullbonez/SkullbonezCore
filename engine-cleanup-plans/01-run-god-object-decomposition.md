@@ -445,6 +445,26 @@ every step. Commit per step.
 	    (6.2s), and
 	    `TestOutput\agent_logs\plan01_tornado_ui_validate_format_after_fix.log`
 	    (9.1s).
+	  - [x] Physics diagnostic UI command extraction moved collision visualizer,
+	    debug-flag mask toggles, pipeline stage stepping, transparent debug bodies,
+	    broadphase overlay, terrain-contact probe, debug alpha, and contact-linger
+	    command handling out of `Run::TakeInput()` and into the diagnostics runtime
+	    boundary. `Run` keeps the original input-mode action ordering at the same
+	    call sites, while `DiagnosticsRuntime` now owns the debug presentation field
+	    mutations. The touched-file comment audit added the Physics diagnostic
+	    command glossary row to `DiagnosticsRuntime`'s learning headers. `TakeInput()`
+	    now spans 1,145 lines. Gate evidence:
+	    `TestOutput\agent_logs\plan01_step1_3_physics_debug_ui_interaction_clicks.log`
+	    (16.1s, both interaction reports `ok=1`) and
+	    `TestOutput\agent_logs\plan01_step1_3_physics_debug_ui_validate_full.log`
+	    (52.2s; project filters/runtime boundaries passed, Profile/Debug builds had
+	    0 warnings and 0 errors, DX12 InfoQueue errors = 0, screenshots matched
+	    baselines, and `physics_regression_solver.csv` matched byte-exactly).
+	    Targeted pre-gate checks also passed:
+	    `TestOutput\agent_logs\plan01_physics_debug_ui_validate_format.log` (9.2s),
+	    `TestOutput\agent_logs\plan01_physics_debug_ui_runtime_boundaries.log`
+	    (17.4s), and
+	    `TestOutput\agent_logs\plan01_physics_debug_ui_build_profile.log` (10.1s).
 - [ ] **1.4** Confirm `TakeInput()` is under ~200 lines (setup + dispatch loop).
 
 ### Phase 2 — Move state shelves out of `RunState`

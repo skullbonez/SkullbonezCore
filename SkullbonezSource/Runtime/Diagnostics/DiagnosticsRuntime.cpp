@@ -11,6 +11,8 @@ Mental model:
 Glossary:
   Artifact path: Stable validation/debug output path written for tools or
     command-line flags.
+  Physics diagnostic command: One-frame key or UI request that changes debug
+    presentation state, not simulation state.
   Reconciled memory: Tracked engine bytes plus any process memory not accounted
     for by replay or model collection snapshots.
   SkullScope: Queryable physics diagnostics trace owned by RuntimeDiagnostics.
@@ -41,6 +43,7 @@ Related:
 #include "../../Rendering/IRenderDiagnostics.h"
 #include "../../Scene/TestScene.h"
 #include "../../GameObjects/GameModelCollection.h"
+#include "../../UI/UICommands.h"
 #include "../../UI/UI.h"
 
 #include <algorithm>
@@ -306,6 +309,77 @@ DiagnosticsUIKeyboardShortcutResult HandleDiagnosticsUIKeyboardShortcut( Diagnos
     default:
         return result;
     }
+}
+
+
+DiagnosticsPhysicsOverlayUICommandResult
+ApplyDiagnosticsPhysicsOverlayUICommands( RunDebugState& debug, const UI::UIPhysicsCommands& commands )
+{
+    // Why: Physics-tab diagnostics mutate presentation/debug state only. Keeping
+    // them here prevents UI command application from reopening direct debug-field
+    // ownership in RunInput.
+    DiagnosticsPhysicsOverlayUICommandResult result;
+    if ( commands.toggleCollisionVisualizer )
+    {
+        debug.isCollisionVisualizer = !debug.isCollisionVisualizer;
+        result.toggledCollisionVisualizer = true;
+    }
+    if ( commands.togglePhysicsDebugFlags != 0 )
+    {
+        debug.physicsDebugFlags ^= ( commands.togglePhysicsDebugFlags & Physics::PHYSICS_DEBUG_ALL );
+        result.toggledPhysicsDebugFlags = true;
+    }
+    if ( commands.stepPhysicsPipelinePrevious )
+    {
+        StepDiagnosticsPhysicsPipelineStage( debug, -1 );
+        result.steppedPipelinePrevious = true;
+    }
+    if ( commands.stepPhysicsPipelineNext )
+    {
+        StepDiagnosticsPhysicsPipelineStage( debug, 1 );
+        result.steppedPipelineNext = true;
+    }
+    if ( commands.togglePhysicsDebugTransparent )
+    {
+        debug.isPhysicsDebugTransparent = !debug.isPhysicsDebugTransparent;
+        result.toggledPhysicsDebugTransparent = true;
+    }
+    if ( commands.toggleBroadphaseOverlay )
+    {
+        debug.isBroadphaseOverlay = !debug.isBroadphaseOverlay;
+        result.toggledBroadphaseOverlay = true;
+    }
+    return result;
+}
+
+
+bool ApplyDiagnosticsTerrainContactProbeUICommand( RunDebugState& debug, const UI::UIPhysicsCommands& commands )
+{
+    if ( !commands.toggleTerrainContactProbe )
+    {
+        return false;
+    }
+
+    debug.physicsDebugFlags ^= Physics::PHYSICS_DEBUG_TERRAIN_CONTACT;
+    return true;
+}
+
+
+DiagnosticsPhysicsDebugValueUICommandResult
+ApplyDiagnosticsPhysicsDebugValueUICommands( RunDebugState& debug, const UI::UIPhysicsCommands& commands )
+{
+    DiagnosticsPhysicsDebugValueUICommandResult result;
+    if ( commands.requestedPhysicsDebugAlpha >= 0.0f )
+    {
+        debug.physicsDebugAlpha = std::clamp( commands.requestedPhysicsDebugAlpha, 0.05f, 1.0f );
+        result.setAlpha = true;
+    }
+    if ( commands.requestedPhysicsDebugContactLinger >= 0.0f )
+    {
+        debug.physicsDebugContactLinger = std::clamp( commands.requestedPhysicsDebugContactLinger, 0.0f, 5.0f );
+        result.setContactLinger = true;
+    }
+    return result;
 }
 
 
