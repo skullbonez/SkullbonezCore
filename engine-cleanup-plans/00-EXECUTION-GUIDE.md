@@ -111,10 +111,11 @@ fully `[x]`.
 - [x] 8. Plan 09 — replay right-sized
 - [ ] 9. Plan 02 rest — solver decomposed
 - [ ] 10. Plan 04 — error handling reconciled
-- [ ] C1. Plan 05 — behavioral coverage added (continuous)
-  Note (2026-07-09): Phase 0 coverage map, Phase 1 input-binding tests, and
-  Phase 2 replay solver-sample restore tests, and Phase 3 physics invariants
-  are complete; stub removal remains open.
+- [x] C1. Plan 05 — behavioral coverage added (continuous)
+  Note (2026-07-09): Phase 0 coverage map, Phase 1 input-binding tests, Phase
+  2 replay solver-sample restore tests, Phase 3 physics invariants, and Phase 4
+  link-stub removal are complete. Current inventory: 59 `TEST_CASE`s across 19
+  test `.cpp` files and 0 `*LinkStubs.cpp` files.
 - [ ] C2. Plan 03 — regex governance apparatus removed (needs sign-off)
 - [ ] C3. Plan 07 — allocation gate right-sized (needs decision)
 

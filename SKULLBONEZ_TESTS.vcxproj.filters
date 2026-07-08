@@ -19,6 +19,9 @@
     <Filter Include="Source Files\Core">
       <UniqueIdentifier>{6D78E017-7C94-4395-8805-7D563854A025}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\Assets">
+      <UniqueIdentifier>{6A96B565-85DF-4E09-8F65-E5556EE490C5}</UniqueIdentifier>
+    </Filter>
     <Filter Include="Source Files\Maths">
       <UniqueIdentifier>{6FF6208D-1EF1-4B2A-8701-C60839C18552}</UniqueIdentifier>
     </Filter>
@@ -37,11 +40,17 @@
     <Filter Include="Source Files\Scene">
       <UniqueIdentifier>{B4027C52-533E-4F44-9B93-8775E7F77737}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\World">
+      <UniqueIdentifier>{A355119C-F0D3-4E53-B343-31D3C7E8D81B}</UniqueIdentifier>
+    </Filter>
     <Filter Include="Source Files\Rendering">
       <UniqueIdentifier>{8E9E77BA-E6E7-4C35-A9C6-8713679A3E3D}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="SkullbonezTests\TestAssetSystem.cpp">
+      <Filter>Source Files\Tests</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezTests\TestBounds.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
@@ -49,9 +58,6 @@
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezTests\TestDeterminism.cpp">
-      <Filter>Source Files\Tests</Filter>
-    </ClCompile>
-    <ClCompile Include="SkullbonezTests\TestDiagnosticsLinkStubs.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezTests\TestDemoDirector.cpp">
@@ -81,10 +87,7 @@
     <ClCompile Include="SkullbonezTests\TestReplayRecorder.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezTests\TestReplayRecorderLinkStubs.cpp">
-      <Filter>Source Files\Tests</Filter>
-    </ClCompile>
-    <ClCompile Include="SkullbonezTests\TestSceneParserLinkStubs.cpp">
+    <ClCompile Include="SkullbonezTests\TestReplayRecorderFullCaptureBoundary.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezTests\TestSceneParserUnit.cpp">
@@ -96,13 +99,22 @@
     <ClCompile Include="SkullbonezTests\TestSmoke.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezTests\TestTerrainLinkStubs.cpp">
+    <ClCompile Include="SkullbonezTests\TestTerrain.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezTests\TestVector3.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Assets\AssetSystem.cpp">
+      <Filter>Source Files\Assets</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Core\Config.cpp">
+      <Filter>Source Files\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Core\FatalError.cpp">
+      <Filter>Source Files\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Core\Log.cpp">
       <Filter>Source Files\Core</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Core\WorkerPool.cpp">
@@ -188,6 +200,9 @@
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Scene\TestSceneParser.cpp">
       <Filter>Source Files\Scene</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\World\Terrain.cpp">
+      <Filter>Source Files\World</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

@@ -1,7 +1,7 @@
 # 05 — Behavioral Test Coverage
 
 Date: 2026-07-08
-Status: In Progress
+Status: Complete
 Priority: P1
 Owner: Test / all subsystems
 Source issue: audit iss-10 (severity 4)
@@ -13,16 +13,18 @@ coverage, while enormous effort polices code *shape*.
 
 Verified evidence:
 
-- **55 `TEST_CASE`s across 20 files (~2,635 lines total)**, still clustered on
-  math / geometry / parser / focused physics storage checks.
+- **59 `TEST_CASE`s across 19 files (~2,537 lines total)**, still clustered on
+  math / geometry / parser / focused physics storage checks, but now including
+  input-binding, replay-restore, physics-invariant, asset-library, terrain, and
+  replay-boundary coverage.
 - Zero unit assertions reference `RunFrame` / `RunInput` / `RunRender` /
   `RenderBackendDX12` / `UI`; the ~18K-line replay tree has focused recorder
   and solver-snapshot coverage plus replay solver-sample restore and physics
   invariant micro-world tests, but not a full loaded-artifact/Run restore test.
-- **4 of 20** test files are pure link stubs
-  ([TestDiagnosticsLinkStubs.cpp](../SkullbonezTests/TestDiagnosticsLinkStubs.cpp),
-  `TestReplayRecorderLinkStubs.cpp`, `TestSceneParserLinkStubs.cpp`,
-  `TestTerrainLinkStubs.cpp`).
+- **0 of 19** test files are pure link stubs. The former diagnostics, replay,
+  scene-parser, and terrain link shims were deleted or replaced by real source
+  links, focused unit coverage, or an explicitly named replay full-capture test
+  boundary.
 - The DX12 net is 2 scenes / 2 PNG baselines; physics rests on byte-exact CSV
   baselines whose prescribed remedy ("regenerate, then re-run") structurally
   cannot distinguish an intended change from a regression — the regenerated
@@ -47,7 +49,7 @@ from bugs (not only byte-exact goldens).
   inter-penetration beyond tolerance, energy bounded under damping, sleep/wake
   transitions) *alongside* the byte-exact baselines, so a baseline change can be
   classified as intended vs regression.
-- [ ] **Phase 4 — Kill link stubs.** Convert each `*LinkStubs.cpp` into a real
+- [x] **Phase 4 — Kill link stubs.** Convert each `*LinkStubs.cpp` into a real
   test or delete it.
 
 ## Risks
@@ -65,7 +67,7 @@ lands. Adding a test file means editing `SKULLBONEZ_TESTS.vcxproj` and
 - [x] **0.1** Coverage map: rank subsystems by (risk × inverse-coverage) and
   write the target list here. No code change. Commit.
 
-  Completed 2026-07-09. Current inventory from tracked files:
+  Completed 2026-07-09. Inventory at coverage-map time:
   - 52 `TEST_CASE`s across 20 `SkullbonezTests/*.cpp` files.
   - Four link-stub files remain: `TestDiagnosticsLinkStubs.cpp`,
     `TestReplayRecorderLinkStubs.cpp`, `TestSceneParserLinkStubs.cpp`, and
@@ -88,8 +90,8 @@ lands. Adding a test file means editing `SKULLBONEZ_TESTS.vcxproj` and
   | 2 | Replay record -> restore behavior | Replay owns long-lived debugging and prediction state; regressions can look green in visual gates if state hashes are not compared. | `TestReplayRecorder` covers ring/cursor contracts; `TestDeterminism` now covers solver snapshot plus body restore and replay solver-sample restore of a recorded window. | Step 2.1 complete; full loaded-artifact/Run restore remains integration coverage. |
   | 3 | Physics solver invariants | `PhysicsWorld` and solver state remain determinism-critical and large; CSV baselines prove byte equality, not physical correctness. | `TestPhysicsHandles`, `TestSpatialGrid`, `TestBounds`, `TestConvexHull`, and `TestDeterminism` cover handles/broadphase/math/snapshot basics plus penetration tolerance, damping-energy, and sleep/wake invariant checks. | Step 3.1 complete; add future regression-specific invariants when solver behavior changes. |
   | 4 | DX12 render state / command abstraction | Barrier/resource-state regressions are high severity and mostly protected by screenshot/InfoQueue gates rather than unit behavior. | No unit reference to `RenderBackendDX12` or `IRenderCommandContext`; Plan 11 relies on `validate_dx12_renderer`. | Add a unit-testable resource-state/command-record helper only if a later render slice extracts one without initializing DX12. |
-  | 5 | Scene and asset load boundaries | Scene parsing is externally supplied data and now owns Lane R recoverable failures; asset-library lookup remains hidden behind a link stub. | `TestSceneParserUnit` has four parser tests. | Step 4.1: replace `TestSceneParserLinkStubs.cpp` with real asset lookup coverage or a narrow fixture owner. |
-  | 6 | Diagnostics, replay integration hooks, and terrain fixtures | Stubs satisfy linking and loudly fail, but they are not behavioral assertions. | `TestDiagnosticsLinkStubs.cpp`, `TestReplayRecorderLinkStubs.cpp`, and `TestTerrainLinkStubs.cpp` still exist. | Step 4.1: turn each stub into a real fixture/test boundary or delete it by narrowing dependencies. |
+  | 5 | Scene and asset load boundaries | Scene parsing is externally supplied data and now owns Lane R recoverable failures; asset-library lookup also needs direct behavioral coverage. | `TestSceneParserUnit` has four parser tests; `TestAssetSystem` covers source lookup, logical ids/names, path resolution, and built-in asset-library registration. | Step 4.1 complete; future scene/load coverage should target integration fixtures or newly extracted helpers. |
+  | 6 | Diagnostics, replay integration hooks, and terrain fixtures | Link-only shims hid missing test boundaries. Terrain and replay now have focused fixtures, and diagnostics link needs are satisfied by real source files. | `TestTerrain` covers the real flat-slope terrain contract; `TestReplayRecorderFullCaptureBoundary` covers solver mirror capture while naming the full-capture owner boundary; `FatalError.cpp` and `Log.cpp` are linked directly. | Step 4.1 complete; add behavior-specific diagnostics/replay/terrain tests when those paths change. |
   | 7 | Runtime allocation reserve policy | Allocation behavior is policy-sensitive but already has focused unit coverage. | `TestReserveAllocator` has five tests. | Maintain unless Plan 07 changes scope. |
   | 8 | Math, geometry, hulls, and simple bounds | Lower integration risk and comparatively well covered. | Vector, matrix, quaternion, geometric math, bounds, convex hull tests exist. | Add only regression-specific tests. |
 - [x] **1.1** (with plan 01) Add input command-table tests — key+context →
@@ -136,8 +138,22 @@ lands. Adding a test file means editing `SKULLBONEZ_TESTS.vcxproj` and
   (5.2s; project filters passed with 0 errors, `SKULLBONEZ_TESTS` Profile built
   with 0 warnings and 0 errors, and 55/55 doctest cases plus 1504/1504
   assertions passed).
-- [ ] **4.1** Convert each `*LinkStubs.cpp` into a real test or delete it. Gate:
+- [x] **4.1** Convert each `*LinkStubs.cpp` into a real test or delete it. Gate:
   `validate_tests`. Commit.
+
+  Completed 2026-07-09. Deleted `TestDiagnosticsLinkStubs.cpp`,
+  `TestReplayRecorderLinkStubs.cpp`, `TestSceneParserLinkStubs.cpp`, and
+  `TestTerrainLinkStubs.cpp`. Added focused coverage for asset-library source
+  lookup/registration, real flat-slope terrain behavior, and the replay recorder
+  solver-mirror/full-capture boundary. Shared render-resource doubles now let
+  terrain-dependent unit tests link the real `Terrain.cpp`, and the test project
+  links real `AssetSystem.cpp`, `Terrain.cpp`, `FatalError.cpp`, and `Log.cpp`
+  instead of shim files. Current inventory: 59 `TEST_CASE`s across 19 test
+  `.cpp` files, 0 `*LinkStubs.cpp` files. Gate evidence:
+  `TestOutput\agent_logs\plan05_link_stubs_validate_tests_attempt3_20260709_0906.log`
+  (5.09s; project filters passed with 0 errors, `SKULLBONEZ_TESTS` Profile
+  built with 0 warnings and 0 errors, and 59/59 doctest cases plus 1532/1532
+  assertions passed).
 
 ## Validation
 
@@ -148,5 +164,5 @@ lands. Adding a test file means editing `SKULLBONEZ_TESTS.vcxproj` and
 - [x] Unit tests exist that reference input dispatch, replay record/restore, and
   scene logic — not only math types.
 - [x] Physics has invariant/property tests in addition to byte-exact baselines.
-- [ ] `*LinkStubs.cpp` count is 0.
+- [x] `*LinkStubs.cpp` count is 0.
 - [x] The coverage map shows the top-risk subsystems moved off zero.

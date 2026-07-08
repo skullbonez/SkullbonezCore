@@ -140,10 +140,10 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="SkullbonezTests\TestAssetSystem.cpp" />
     <ClCompile Include="SkullbonezTests\TestBounds.cpp" />
     <ClCompile Include="SkullbonezTests\TestConvexHull.cpp" />
     <ClCompile Include="SkullbonezTests\TestDeterminism.cpp" />
-    <ClCompile Include="SkullbonezTests\TestDiagnosticsLinkStubs.cpp" />
     <ClCompile Include="SkullbonezTests\TestDemoDirector.cpp" />
     <ClCompile Include="SkullbonezTests\TestGeometricMath.cpp" />
     <ClCompile Include="SkullbonezTests\TestMain.cpp" />
@@ -153,14 +153,16 @@
     <ClCompile Include="SkullbonezTests\TestReserveAllocator.cpp" />
     <ClCompile Include="SkullbonezTests\TestRuntimeInputBindings.cpp" />
     <ClCompile Include="SkullbonezTests\TestReplayRecorder.cpp" />
-    <ClCompile Include="SkullbonezTests\TestReplayRecorderLinkStubs.cpp" />
-    <ClCompile Include="SkullbonezTests\TestSceneParserLinkStubs.cpp" />
+    <ClCompile Include="SkullbonezTests\TestReplayRecorderFullCaptureBoundary.cpp" />
     <ClCompile Include="SkullbonezTests\TestSceneParserUnit.cpp" />
     <ClCompile Include="SkullbonezTests\TestSpatialGrid.cpp" />
     <ClCompile Include="SkullbonezTests\TestSmoke.cpp" />
-    <ClCompile Include="SkullbonezTests\TestTerrainLinkStubs.cpp" />
+    <ClCompile Include="SkullbonezTests\TestTerrain.cpp" />
     <ClCompile Include="SkullbonezTests\TestVector3.cpp" />
+    <ClCompile Include="SkullbonezSource\Assets\AssetSystem.cpp" />
     <ClCompile Include="SkullbonezSource\Core\Config.cpp" />
+    <ClCompile Include="SkullbonezSource\Core\FatalError.cpp" />
+    <ClCompile Include="SkullbonezSource\Core\Log.cpp" />
     <ClCompile Include="SkullbonezSource\Core\WorkerPool.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\BoundingBox.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\BoundingSphere.cpp" />
@@ -189,6 +191,7 @@
     <ClCompile Include="SkullbonezSource\Rendering\RenderInstanceStore.cpp" />
     <ClCompile Include="SkullbonezSource\Scene\TestScene.cpp" />
     <ClCompile Include="SkullbonezSource\Scene\TestSceneParser.cpp" />
+    <ClCompile Include="SkullbonezSource\World\Terrain.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ThirdPtySource\doctest\doctest.h" />

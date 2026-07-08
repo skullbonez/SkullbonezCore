@@ -55,6 +55,7 @@
 #include "../SkullbonezSource/Rendering/IRenderResourceFactory.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayRecorder.h"
 #include "../SkullbonezSource/World/Terrain.h"
+#include "TestRenderResourceDoubles.h"
 
 #include <array>
 #include <cstdint>
@@ -93,65 +94,6 @@ constexpr int kReplaySampleWindowTicks = 30;
 constexpr int kTotalDeterminismTicks = 240;
 constexpr int kPenetrationSettleTicks = 480;
 constexpr float kDampingEnergyTolerance = 0.0001f;
-
-// Why: Terrain is still part of the real physics step, but the unit test only
-// needs its collision plane. Resource methods return inert handles because any
-// render call here would mean the fixture crossed out of its physics boundary.
-class NullRenderResourceFactory final : public SkullbonezCore::Rendering::IRenderResourceFactory
-{
-  public:
-    std::unique_ptr<SkullbonezCore::Rendering::IShader> CreateShader( const char* ) override
-    {
-        return nullptr;
-    }
-
-    std::unique_ptr<SkullbonezCore::Rendering::IMesh> CreateMesh( const float*, int, bool, bool ) override
-    {
-        return nullptr;
-    }
-
-    std::unique_ptr<SkullbonezCore::Rendering::IFramebuffer>
-    CreateFramebuffer( int, int, SkullbonezCore::Rendering::FramebufferColorFormat ) override
-    {
-        return nullptr;
-    }
-
-    uint32_t CreateTexture2D( const uint8_t*, int, int, int, bool, bool ) override
-    {
-        return 0u;
-    }
-
-    void DeleteTexture( uint32_t ) override
-    {
-    }
-
-    uint32_t CreateDynamicVB( const int*, int, int ) override
-    {
-        return 0u;
-    }
-
-    void DestroyDynamicVB( uint32_t ) override
-    {
-    }
-
-    uint32_t CreateInstancedMesh( const float*,
-                                  int,
-                                  int,
-                                  int,
-                                  int,
-                                  int,
-                                  const int*,
-                                  int,
-                                  const int*,
-                                  int ) override
-    {
-        return 0u;
-    }
-
-    void DestroyInstancedMesh( uint32_t ) override
-    {
-    }
-};
 
 struct BodyReplayState
 {
@@ -226,7 +168,7 @@ Terrain& FlatTestTerrain()
     // engine resets without depending on process-global configuration.
     static EngineConfig config = MakeDeterministicConfig();
     static SkullbonezCore::Assets::AssetSystem assets;
-    static NullRenderResourceFactory resources;
+    static SkullbonezTests::NullRenderResourceFactory resources;
     static Terrain terrain( 0.0f, 0.0f, 0.0f, config, assets, resources );
     return terrain;
 }
