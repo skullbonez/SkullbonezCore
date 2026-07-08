@@ -235,11 +235,6 @@ class Run
         const RuntimeInteractionEvent& event );                         // Emits observation-only command-result events after commands succeed.
     void ClearRuntimeInteractionStateForTransition(
         const RuntimeInteractionTransition& transition );               // Clears state owned by the interaction being exited.
-    bool IsManualCameraMode() const;                                    // True when passive generated-demo systems must not move the view.
-    bool IsFlyCameraMode() const;                                       // True when the current mode uses free-flight camera controls.
-    bool IsLauncherCameraMode() const;                                  // True when the current mode owns launcher firing semantics.
-    bool IsManipulatorCameraMode() const;                               // True when mouse pickup owns world left-drag semantics.
-    bool IsAttachedCameraMode() const;                                  // True when Attach owns follow/pin camera semantics.
     void ApplyCameraMode( RunCameraMode mode,
                           RuntimeInputActionSource source );            // Applies keyboard/UI camera-mode requests.
     void CycleCameraMode();                                             // Tab cycles through enabled explicit camera modes.

@@ -1709,6 +1709,26 @@ every step. Commit per step.
     (17.6s). The touched-file comment audit covered
     `AttachedCameraController.h/.cpp`, `Run.h`, `RunInput.cpp`, and
     `RunScene.cpp`.
+  - [x] Pure camera-mode predicates moved beside `RunCameraMode` in
+    `RuntimeCameraMode.h`. `Run` no longer owns `IsManualCameraMode()`,
+    `IsFlyCameraMode()`, `IsLauncherCameraMode()`, `IsManipulatorCameraMode()`,
+    or `IsAttachedCameraMode()` wrappers; input, render, replay-scrub restore,
+    mouse-pickup, frame, and overlay code now call the enum-owner helpers while
+    still passing active follow/director state where required. Gate evidence:
+    `TestOutput\agent_logs\plan01_camera_mode_predicates_validate_full.log`
+    (62.9s; project filters/runtime boundaries passed, Profile/Debug builds had
+    0 warnings and 0 errors, DX12 InfoQueue errors = 0, screenshots matched
+    baselines, and `physics_regression_solver.csv` matched byte-exactly).
+    Targeted pre-gate checks also passed:
+    `TestOutput\agent_logs\plan01_camera_mode_predicates_build_profile_rerun.log`
+    (7.1s after replacing a stale replay-scrubber include call),
+    `TestOutput\agent_logs\plan01_camera_mode_predicates_validate_format_rerun2.log`
+    (9.3s after narrowly formatting `RunFrame.cpp` and
+    `RuntimeCameraMode.h`), and
+    `TestOutput\agent_logs\plan01_camera_mode_predicates_runtime_boundaries.log`
+    (17.6s). The touched-file comment audit covered `RuntimeCameraMode.h`,
+    `Run.h`, `RunInput.cpp`, `RunFrame.cpp`, `RunRender.cpp`,
+    `RunReplayScrubberTools.inl`, and `RunMousePickupTools.cpp`.
 
 ## Validation
 

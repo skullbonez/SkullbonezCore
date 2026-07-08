@@ -135,7 +135,9 @@ void Run::ExitReplayInspectionCamera()
             if ( m_systems.terrain )
             {
                 const uint32_t activeCam = m_systems.cameras->GetSelectedCameraName();
-                if ( IsFlyCameraMode() )
+                if ( RunCameraModeUsesFlyControls( m_camera.mode,
+                                                   m_attachedCamera.activeFollow,
+                                                   m_camera.director.grabbed ) )
                 {
                     XZBounds unbounded;
                     unbounded.m_xMin = -99999.9f;

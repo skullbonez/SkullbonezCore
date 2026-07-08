@@ -65,19 +65,6 @@ using namespace SkullbonezCore::Basics::RunInternal;
 
 namespace
 {
-bool CameraModeUsesFlyControls( RunCameraMode mode, bool attachActiveFollow, bool directorGrabbed )
-{
-    return mode == RunCameraMode::Inspect || mode == RunCameraMode::Launcher || mode == RunCameraMode::Manipulator ||
-           ( mode == RunCameraMode::Attach && attachActiveFollow ) ||
-           ( mode == RunCameraMode::Director && directorGrabbed );
-}
-
-
-bool CameraModeUsesLauncher( RunCameraMode mode )
-{
-    return mode == RunCameraMode::Launcher;
-}
-
 const char* PresentationNameForModelIndex( const SkullbonezCore::GameObjects::GameModelCollection& collection,
                                            int modelIndex )
 {
@@ -131,9 +118,9 @@ RuntimeInputModeState BuildRuntimeInputModeState( RunCameraMode mode,
                                                   bool directorGrabbed )
 {
     RuntimeInputModeState state;
-    state.flyCamera = CameraModeUsesFlyControls( mode, attachActiveFollow, directorGrabbed );
-    state.launcher = CameraModeUsesLauncher( mode );
-    state.manipulator = mode == RunCameraMode::Manipulator;
+    state.flyCamera = RunCameraModeUsesFlyControls( mode, attachActiveFollow, directorGrabbed );
+    state.launcher = RunCameraModeUsesLauncher( mode );
+    state.manipulator = RunCameraModeIsManipulator( mode );
     state.editor = editor.editorModeEnabled;
     state.editorPlacement = editor.placementModeEnabled;
     state.editorViewportLook = editor.viewportLookActive;
@@ -1553,14 +1540,15 @@ bool Run::RouteRuntimePointerInput( const RuntimeInputSnapshot& inputSnapshot, c
         consumedWorldClick = TickAttachedCameraWorldClick( mouseEdges, suppressWorldAction );
     }
     if ( !consumedWorldClick && leftPressed && !suppressWorldAction && !m_runtimeTools.Editor().editorModeEnabled &&
-         !uiWantsNativeMouseCursor && ( inputSnapshot.pointer.controlDown || !IsLauncherCameraMode() ) )
+         !uiWantsNativeMouseCursor &&
+         ( inputSnapshot.pointer.controlDown || !RunCameraModeUsesLauncher( m_camera.mode ) ) )
     {
         const bool additiveReplayPick = inputSnapshot.pointer.shiftDown;
         TryPickReplayPathTargetFromMouse( additiveReplayPick, !additiveReplayPick );
         consumedWorldClick = true;
     }
 
-    if ( !consumedWorldClick && IsLauncherCameraMode() && leftPressed && !suppressWorldAction &&
+    if ( !consumedWorldClick && RunCameraModeUsesLauncher( m_camera.mode ) && leftPressed && !suppressWorldAction &&
          !uiWantsNativeMouseCursor )
     {
         EnterInteractiveSceneRun();
@@ -2075,36 +2063,6 @@ void Run::SetCameraModeLabelAfterInteractionTransition( RunCameraMode mode )
 }
 
 
-bool Run::IsFlyCameraMode() const
-{
-    return CameraModeUsesFlyControls( m_camera.mode, m_attachedCamera.activeFollow, m_camera.director.grabbed );
-}
-
-
-bool Run::IsManualCameraMode() const
-{
-    return IsFlyCameraMode() || IsAttachedCameraMode() || m_camera.mode == RunCameraMode::Director;
-}
-
-
-bool Run::IsLauncherCameraMode() const
-{
-    return CameraModeUsesLauncher( m_camera.mode );
-}
-
-
-bool Run::IsManipulatorCameraMode() const
-{
-    return m_camera.mode == RunCameraMode::Manipulator;
-}
-
-
-bool Run::IsAttachedCameraMode() const
-{
-    return m_camera.mode == RunCameraMode::Attach;
-}
-
-
 void Run::CaptureAttachedCameraReturnState( RunCameraMode previousMode )
 {
     previousMode = NormalizeCameraModeForCurrentScene( previousMode );
@@ -2296,7 +2254,7 @@ bool Run::TryPickAttachedCameraTargetFromMouse()
 
 bool Run::TickAttachedCameraWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppressWorldActionThisFrame )
 {
-    if ( !IsAttachedCameraMode() || !mouseEdges.leftPressed )
+    if ( !RunCameraModeIsAttached( m_camera.mode ) || !mouseEdges.leftPressed )
     {
         return false;
     }
@@ -2310,7 +2268,7 @@ bool Run::TickAttachedCameraWorldClick( const RuntimeMouseEdges& mouseEdges, boo
 
 void Run::CycleAttachedCameraSubmode()
 {
-    if ( !IsAttachedCameraMode() )
+    if ( !RunCameraModeIsAttached( m_camera.mode ) )
     {
         return;
     }
@@ -2350,7 +2308,7 @@ void Run::CycleAttachedCameraSubmode()
 
 void Run::ToggleAttachedCameraPin()
 {
-    if ( !IsAttachedCameraMode() )
+    if ( !RunCameraModeIsAttached( m_camera.mode ) )
     {
         return;
     }
@@ -2379,7 +2337,7 @@ void Run::ToggleAttachedCameraPin()
 
 void Run::TickAttachedCameraOrbitInput( int unhandledWheelDelta )
 {
-    if ( !IsAttachedCameraMode() || !m_attachedCamera.activeFollow ||
+    if ( !RunCameraModeIsAttached( m_camera.mode ) || !m_attachedCamera.activeFollow ||
          m_attachedCamera.submode == AttachedCameraSubmode::RagdollEyes || m_UI.BlocksCameraMouse() )
     {
         return;
@@ -2406,7 +2364,7 @@ void Run::TickAttachedCameraOrbitInput( int unhandledWheelDelta )
 
 void Run::TickAttachedCamera()
 {
-    if ( !IsAttachedCameraMode() || !m_attachedCamera.activeFollow || !m_systems.cameras )
+    if ( !RunCameraModeIsAttached( m_camera.mode ) || !m_attachedCamera.activeFollow || !m_systems.cameras )
     {
         return;
     }
@@ -2507,7 +2465,8 @@ void Run::ApplyCameraMode( RunCameraMode mode, RuntimeInputActionSource source )
     const RuntimeInteractionTransition transition = EnterInteractionForCameraMode( mode );
     ApplyRuntimeInteractionTransitionCleanup( transition );
 
-    const bool wasFlyMode = IsFlyCameraMode();
+    const bool wasFlyMode =
+        RunCameraModeUsesFlyControls( m_camera.mode, m_attachedCamera.activeFollow, m_camera.director.grabbed );
     if ( mode != RunCameraMode::Launcher )
     {
         m_camera.modeBeforeLauncher = mode == RunCameraMode::Manipulator ? RunCameraMode::Inspect : mode;
@@ -2531,7 +2490,8 @@ void Run::ApplyCameraMode( RunCameraMode mode, RuntimeInputActionSource source )
         CancelMousePickup();
     }
 
-    const bool isFlyMode = IsFlyCameraMode();
+    const bool isFlyMode =
+        RunCameraModeUsesFlyControls( m_camera.mode, m_attachedCamera.activeFollow, m_camera.director.grabbed );
     if ( wasFlyMode != isFlyMode )
     {
         if ( isFlyMode )
@@ -2893,7 +2853,13 @@ void Run::TakeInput()
         { return static_cast<Run*>( context )->EnterInteractionForCameraMode( mode ); },
         []( void* context, const RuntimeInteractionTransition& transition )
         { static_cast<Run*>( context )->ApplyRuntimeInteractionTransitionCleanup( transition ); },
-        []( void* context ) -> bool { return static_cast<Run*>( context )->IsFlyCameraMode(); },
+        []( void* context ) -> bool
+        {
+            const Run* run = static_cast<Run*>( context );
+            return RunCameraModeUsesFlyControls( run->m_camera.mode,
+                                                 run->m_attachedCamera.activeFollow,
+                                                 run->m_camera.director.grabbed );
+        },
         []( void* context, RunCameraMode mode ) -> RunCameraMode
         { return static_cast<Run*>( context )->NormalizeCameraModeForCurrentScene( mode ); },
         []( void* context ) { static_cast<Run*>( context )->CancelMousePickup(); },
@@ -2964,11 +2930,16 @@ void Run::TakeInput()
             keyboardEditorToolShortcut,
             [this]() { CycleCameraMode(); },
             [this]( RunCameraMode mode, RuntimeInputActionSource source ) { ApplyCameraMode( mode, source ); },
-            [this]() { return IsLauncherCameraMode(); },
-            [this]() { return IsAttachedCameraMode(); },
+            [this]() { return RunCameraModeUsesLauncher( m_camera.mode ); },
+            [this]() { return RunCameraModeIsAttached( m_camera.mode ); },
             [this]() { CycleAttachedCameraSubmode(); },
             [this]() { ToggleAttachedCameraPin(); },
-            [this]() { return IsFlyCameraMode(); },
+            [this]()
+            {
+                return RunCameraModeUsesFlyControls( m_camera.mode,
+                                                     m_attachedCamera.activeFollow,
+                                                     m_camera.director.grabbed );
+            },
             [this]() { EnterFlyModeCamera(); },
             [this]() { ExitFlyModeCamera(); },
             [this]() { ApplyCursorOwnership(); },
@@ -3167,10 +3138,11 @@ void Run::MoveCamera( float keyMovementQty, float mouseMovementQty )
 {
     const bool hasCameraTravelInput = m_camera.input.Get( InputState::Up ) || m_camera.input.Get( InputState::Down ) ||
                                       m_camera.input.Get( InputState::Left ) || m_camera.input.Get( InputState::Right );
-    const bool attachedOrbitOwnsCamera = IsAttachedCameraMode() && m_attachedCamera.activeFollow &&
+    const bool attachedOrbitOwnsCamera = RunCameraModeIsAttached( m_camera.mode ) && m_attachedCamera.activeFollow &&
                                          m_attachedCamera.submode != AttachedCameraSubmode::RagdollEyes;
-    if ( !attachedOrbitOwnsCamera && ( IsFlyCameraMode() || MouseLookOwnsCursor() ||
-                                       m_runtimeTools.Editor().viewportLookActive || hasCameraTravelInput ) )
+    if ( !attachedOrbitOwnsCamera &&
+         ( RunCameraModeUsesFlyControls( m_camera.mode, m_attachedCamera.activeFollow, m_camera.director.grabbed ) ||
+           MouseLookOwnsCursor() || m_runtimeTools.Editor().viewportLookActive || hasCameraTravelInput ) )
     {
         // Shift held = 3x speed
         float speedMult = Input::IsKeyDown( VK_SHIFT ) ? 3.0f : 1.0f;
@@ -3205,7 +3177,8 @@ void Run::MoveCamera( float keyMovementQty, float mouseMovementQty )
     }
 
     // Passive generated-demo camera bounds do not own manual or pinned follow views.
-    if ( !IsManualCameraMode() && !m_runtimeTools.Editor().viewportLookActive && !SceneState().isSceneMode )
+    if ( !RunCameraModeUsesManualControls( m_camera.mode, m_attachedCamera.activeFollow, m_camera.director.grabbed ) &&
+         !m_runtimeTools.Editor().viewportLookActive && !SceneState().isSceneMode )
     {
         Vector3 translatedCameraPosition = m_systems.cameras->GetCameraTranslation();
         float minY =

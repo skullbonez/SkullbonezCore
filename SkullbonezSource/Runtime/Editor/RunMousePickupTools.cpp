@@ -64,7 +64,8 @@ void Run::CancelMousePickup()
 
 bool Run::TickMousePickupInput( HWND hwnd, const RuntimeMouseEdges& mouseEdges, bool suppressWorldActionThisFrame )
 {
-    if ( !IsManipulatorCameraMode() || m_runtimeTools.Editor().editorModeEnabled || m_replayRuntime.InspectionActive() )
+    if ( !RunCameraModeIsManipulator( m_camera.mode ) || m_runtimeTools.Editor().editorModeEnabled ||
+         m_replayRuntime.InspectionActive() )
     {
         CancelMousePickup();
         return false;

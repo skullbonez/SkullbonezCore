@@ -2531,7 +2531,7 @@ void Run::Execute()
                                                           CameraModeEnabledMask(),
                                                           CameraModeLabel( m_camera.mode ),
                                                           m_runtimeTools.LauncherFireModeLabel(),
-                                                          IsLauncherCameraMode(),
+                                                          RunCameraModeUsesLauncher( m_camera.mode ),
                                                           secondsPerFrame };
             RenderExecuteUiTextFrame( uiTextFrameContext, [this]() { RefreshRuntimeViewModel(); } );
 
@@ -3802,7 +3802,9 @@ bool Run::TickSceneAdvance()
     }
 
     // Generated demo mode: restart every 20s to keep the sandbox moving indefinitely.
-    if ( !SceneState().isSceneMode && !IsManualCameraMode() && m_timers.simulationTimer.GetTimeSinceLastStart() > 20.0 )
+    if ( !SceneState().isSceneMode &&
+         !RunCameraModeUsesManualControls( m_camera.mode, m_attachedCamera.activeFollow, m_camera.director.grabbed ) &&
+         m_timers.simulationTimer.GetTimeSinceLastStart() > 20.0 )
     {
         const SbResult loadResult = LoadScene( SceneState().currentSceneIndex,
                                                SceneState().isInteractiveRun,

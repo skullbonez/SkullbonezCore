@@ -40,4 +40,34 @@ enum class RunCameraMode
     Director,
     Count
 };
+
+// Concept: pure mode predicates live beside the enum. Runtime owners still pass
+// their active follow/grab state when a mode's input ownership depends on it.
+inline bool RunCameraModeUsesFlyControls( RunCameraMode mode, bool attachActiveFollow, bool directorGrabbed )
+{
+    return mode == RunCameraMode::Inspect || mode == RunCameraMode::Launcher || mode == RunCameraMode::Manipulator ||
+           ( mode == RunCameraMode::Attach && attachActiveFollow ) ||
+           ( mode == RunCameraMode::Director && directorGrabbed );
+}
+
+inline bool RunCameraModeUsesManualControls( RunCameraMode mode, bool attachActiveFollow, bool directorGrabbed )
+{
+    return RunCameraModeUsesFlyControls( mode, attachActiveFollow, directorGrabbed ) || mode == RunCameraMode::Attach ||
+           mode == RunCameraMode::Director;
+}
+
+inline bool RunCameraModeUsesLauncher( RunCameraMode mode )
+{
+    return mode == RunCameraMode::Launcher;
+}
+
+inline bool RunCameraModeIsManipulator( RunCameraMode mode )
+{
+    return mode == RunCameraMode::Manipulator;
+}
+
+inline bool RunCameraModeIsAttached( RunCameraMode mode )
+{
+    return mode == RunCameraMode::Attach;
+}
 } // namespace SkullbonezCore::Basics

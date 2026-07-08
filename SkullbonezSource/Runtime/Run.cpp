@@ -447,7 +447,7 @@ Run::Run( Window& window,
               tracer.Clear();
 
               int attachedTargetIndex = -1;
-              if ( run->IsAttachedCameraMode() )
+              if ( RunCameraModeIsAttached( run->m_camera.mode ) )
               {
                   int targetIndex = -1;
                   if ( run->TryResolveAttachedCameraTarget( targetIndex ) )

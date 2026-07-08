@@ -2192,7 +2192,8 @@ void Run::SetViewingOrientation()
     }
 
     // Momentary right-mouse camera look should not fight generated camera cycling.
-    if ( IsFlyCameraMode() || MouseLookOwnsCursor() )
+    if ( RunCameraModeUsesFlyControls( m_camera.mode, m_attachedCamera.activeFollow, m_camera.director.grabbed ) ||
+         MouseLookOwnsCursor() )
     {
         m_camera.cameraTime = 0.0f;
         m_timers.cameraTimer.StopTimer();
