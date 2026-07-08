@@ -143,6 +143,7 @@ class AssetSystem
     std::string ResolvePath( const char* relativePath ) const;
 
     const SourceAssetRecord& RegisterSourceAsset( AssetKind kind, const char* logicalName, const char* relativePath );
+    std::string RegisterSourceAssetPath( AssetKind kind, const char* logicalName, const char* relativePath );
     const SourceAssetRecord* FindSourceAsset( const char* logicalName ) const;
     const SourceAssetRecord* FindSourceAssetById( AssetId id ) const;
 

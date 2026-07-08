@@ -279,6 +279,13 @@ AssetSystem::RegisterSourceAsset( AssetKind kind, const char* logicalName, const
     return m_sourceAssets.back();
 }
 
+std::string AssetSystem::RegisterSourceAssetPath( AssetKind kind, const char* logicalName, const char* relativePath )
+{
+    // Why: callers that only need a load path should not depend on the registry
+    // record layout; AssetSystem still owns source identity and resolution.
+    return RegisterSourceAsset( kind, logicalName, relativePath ).resolvedPath;
+}
+
 const SourceAssetRecord* AssetSystem::FindSourceAsset( const char* logicalName ) const
 {
     if ( !logicalName || logicalName[0] == '\0' )

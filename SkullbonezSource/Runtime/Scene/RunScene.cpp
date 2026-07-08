@@ -587,13 +587,15 @@ SbResult Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnCom
         }
         SceneState().rngSeed = rngSeed;
         SceneState().rngState = rngSeed;
-        const SbResult terrainResult = UseDefaultTerrain(
-            m_systems,
-            m_cWorldEnvironment,
-            m_config,
-            ResolveSourceAssetPath( SkullbonezCore::Assets::AssetKind::Terrain, "terrain.raw", m_config.terrainRaw ),
-            m_renderBackendView.deviceLifecycle,
-            m_renderBackendView.renderResources );
+        const SbResult terrainResult =
+            UseDefaultTerrain( m_systems,
+                               m_cWorldEnvironment,
+                               m_config,
+                               m_systems.assets.RegisterSourceAssetPath( SkullbonezCore::Assets::AssetKind::Terrain,
+                                                                         "terrain.raw",
+                                                                         m_config.terrainRaw.c_str() ),
+                               m_renderBackendView.deviceLifecycle,
+                               m_renderBackendView.renderResources );
         if ( !terrainResult.ok )
         {
             m_lastSceneLoadResult = terrainResult;
@@ -774,9 +776,9 @@ SbResult Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnCom
                 UseDefaultTerrain( m_systems,
                                    m_cWorldEnvironment,
                                    m_config,
-                                   ResolveSourceAssetPath( SkullbonezCore::Assets::AssetKind::Terrain,
-                                                           "terrain.raw",
-                                                           m_config.terrainRaw ),
+                                   m_systems.assets.RegisterSourceAssetPath( SkullbonezCore::Assets::AssetKind::Terrain,
+                                                                             "terrain.raw",
+                                                                             m_config.terrainRaw.c_str() ),
                                    m_renderBackendView.deviceLifecycle,
                                    m_renderBackendView.renderResources );
             if ( !terrainResult.ok )

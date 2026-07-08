@@ -590,22 +590,6 @@ void Run::ReleaseBackendOwnedRenderResources( const char* phaseName )
 }
 
 
-void Run::RegisterBuiltInAssets()
-{
-    m_systems.assets.RegisterBuiltInSourceAssets( m_config );
-}
-
-
-std::string Run::ResolveSourceAssetPath( SkullbonezCore::Assets::AssetKind kind,
-                                         const char* logicalName,
-                                         const std::string& relativePath )
-{
-    const SkullbonezCore::Assets::SourceAssetRecord& record =
-        m_systems.assets.RegisterSourceAsset( kind, logicalName, relativePath.c_str() );
-    return record.resolvedPath;
-}
-
-
 void Run::DumpTextureAssets( FILE* out ) const
 {
     if ( m_systems.textures )
@@ -1006,13 +990,15 @@ void Run::Initialise()
     m_systems.textures = &m_systems.textureCollection;
     m_systems.textures->BindAssetSystem( &m_systems.assets );
     m_systems.textures->BindRenderContexts( &renderResources, &renderCommands );
-    RegisterBuiltInAssets();
+    m_systems.assets.RegisterBuiltInSourceAssets( m_config );
 
     // Build renderer-owned resources from source asset records.
     RebuildRegisteredRenderResources();
 
     const std::string terrainRawPath =
-        ResolveSourceAssetPath( SkullbonezCore::Assets::AssetKind::Terrain, "terrain.raw", cfg.terrainRaw );
+        m_systems.assets.RegisterSourceAssetPath( SkullbonezCore::Assets::AssetKind::Terrain,
+                                                  "terrain.raw",
+                                                  cfg.terrainRaw.c_str() );
     std::unique_ptr<Terrain> startupTerrain;
     const SbResult startupTerrainResult = Terrain::TryCreateFromHeightMap( terrainRawPath.c_str(),
                                                                            256,

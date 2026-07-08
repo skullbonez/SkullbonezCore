@@ -1671,6 +1671,24 @@ every step. Commit per step.
     `TestOutput\agent_logs\plan01_scene_gate_logic_owner_runtime_boundaries.log`
     (18.2s). The touched-file comment audit covered `Run.h`, `RunFrame.cpp`,
     `RunScene.cpp`, `SceneController.h/.cpp`, and `SceneRuntime.h/.cpp`.
+  - [x] Asset source-path ownership moved behind `AssetSystem`: `Run` no longer
+    owns `RegisterBuiltInAssets()` or `ResolveSourceAssetPath()` wrappers, and
+    scene/startup terrain setup now asks the asset registry for a registered
+    resolved path through `RegisterSourceAssetPath()`. This removes two private
+    `Run` helpers and keeps source-asset identity/resolution inside the asset
+    subsystem. Gate evidence:
+    `TestOutput\agent_logs\plan01_asset_registry_owner_validate_full.log`
+    (65.4s; project filters/runtime boundaries passed, Profile/Debug builds had
+    0 warnings and 0 errors, DX12 InfoQueue errors = 0, screenshots matched
+    baselines, and `physics_regression_solver.csv` matched byte-exactly).
+    Targeted pre-gate checks also passed:
+    `TestOutput\agent_logs\plan01_asset_registry_owner_build_profile.log`
+    (14.3s),
+    `TestOutput\agent_logs\plan01_asset_registry_owner_validate_format_rerun.log`
+    (9.3s), and
+    `TestOutput\agent_logs\plan01_asset_registry_owner_runtime_boundaries.log`
+    (17.6s). The touched-file comment audit covered `AssetSystem.h/.cpp`,
+    `Run.h/.cpp`, and `RunScene.cpp`.
 
 ## Validation
 
