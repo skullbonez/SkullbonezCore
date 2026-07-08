@@ -35,7 +35,7 @@ Glossary:
   Replay body id: PhysicsBodyStore row identity saved in replay samples so
     restore paths can reject stale model slots.
   Validation gate: Repository script that proves a class of changes before
-  commit or PR.
+    commit or PR.
 
 Invariants:
   - SceneEntityStore is the stable scene-order owner; collaborators mirror or
@@ -66,6 +66,7 @@ Related:
 #include <vector>
 
 #include "GameModel.h"
+#include "../Core/SbResult.h"
 #include "../Maths/Matrix4.h"
 #include "../Physics/PhysicsApi.h"
 #include "../Physics/PhysicsEngine.h"
@@ -150,6 +151,16 @@ struct PhysicsBodyStateEdit
     Math::Vector::Vector3 angularVelocity;
 };
 
+// Concept: append carries both the recoverable status and the created body
+// handle. Scene files, generated setup, editor placement, and runtime tools can
+// exceed capacity or supply invalid creation metadata; callers must check the
+// status before using the handle.
+struct GameModelAppendResult
+{
+    Basics::SbResult status;
+    Physics::PhysicsBodyHandle body;
+};
+
 /* -- Game Model Collection
 --------------------------------------------------------------------------------------------------------------------------------------
 
@@ -216,9 +227,10 @@ class GameModelCollection
     bool m_renderCollisionVolumes = false;                       // Cached render debug toggle copied from EngineConfig.
     bool m_shadowParallelPrep = false;                           // Cached worker-prep toggle copied from EngineConfig.
     void ReserveForActiveGameModelCapacity();
-    SceneObjectGroupRecord BuildSceneObjectGroupForAppend( const GameModel& gameModel,
-                                                           int newModelIndex,
-                                                           SceneObjectGroupCreateDesc groupDesc );
+    Basics::SbResult BuildSceneObjectGroupForAppend( const GameModel& gameModel,
+                                                     int newModelIndex,
+                                                     SceneObjectGroupCreateDesc groupDesc,
+                                                     SceneObjectGroupRecord& outGroup );
     SceneObjectGroupRecord GroupRecordAt( int modelIndex ) const;
     // Owner boundary: fixed-tree grouping is collection metadata. Body-store
     // import receives only the scalar root, never collection-kind accessors.
@@ -231,11 +243,11 @@ class GameModelCollection
     bool RepairPhysicsBodyTopology();
     int FixedTreeReleaseRootForModelIndex( int modelIndex ) const;
     void RefreshRenderInstances();
-    Physics::PhysicsBodyHandle AppendGameModelAndPhysicsRows( GameModel gameModel,
-                                                              Physics::PhysicsBodyCreateDesc bodyDesc,
-                                                              Physics::PhysicsSceneObjectId sceneObjectId,
-                                                              Physics::PhysicsColliderCreateDesc colliderDesc,
-                                                              SceneObjectGroupCreateDesc groupDesc );
+    GameModelAppendResult AppendGameModelAndPhysicsRows( GameModel gameModel,
+                                                         Physics::PhysicsBodyCreateDesc bodyDesc,
+                                                         Physics::PhysicsSceneObjectId sceneObjectId,
+                                                         Physics::PhysicsColliderCreateDesc colliderDesc,
+                                                         SceneObjectGroupCreateDesc groupDesc );
 
   public:
     GameModelCollection();
@@ -248,11 +260,12 @@ class GameModelCollection
     Threading::WorkerPool* RenderWorkerPool() const;
     // Appends model storage while importing caller-owned collider shape/material
     // facts and any explicit scene-object grouping directly into owner stores.
-    Physics::PhysicsBodyHandle AddGameModel( GameModel gameModel,
-                                             Physics::PhysicsBodyCreateDesc bodyDesc,
-                                             Physics::PhysicsColliderCreateDesc colliderDesc,
-                                             Physics::PhysicsSceneObjectId sceneObjectId,
-                                             SceneObjectGroupCreateDesc groupDesc = {} );
+    // Callers must handle a failed status before using the returned body handle.
+    GameModelAppendResult AddGameModel( GameModel gameModel,
+                                        Physics::PhysicsBodyCreateDesc bodyDesc,
+                                        Physics::PhysicsColliderCreateDesc colliderDesc,
+                                        Physics::PhysicsSceneObjectId sceneObjectId,
+                                        SceneObjectGroupCreateDesc groupDesc = {} );
     void Clear();
     int CopyDxrModelMatrices( float* outMatrixFloats, int maxModelCount );
     void RenderModels( const Basics::RenderHelperContext& helperContext,

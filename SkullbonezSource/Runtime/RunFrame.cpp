@@ -2426,7 +2426,7 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
 
         if ( exactSolverCounts || uiSolverCounts )
         {
-            SceneGeneratedSetup::SetUpSolverObjects(
+            const SbResult setupResult = SceneGeneratedSetup::SetUpSolverObjects(
                 BuildSceneGeneratedModelContext( SceneState(),
                                                  m_config,
                                                  m_cWorldEnvironment,
@@ -2436,10 +2436,15 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
                                                  m_launchOptions.generatedObjectTypeOverride ),
                 event.value1,
                 event.value2 );
+            if ( !setupResult.ok )
+            {
+                WriteReplayProbeReason( rebuildReason, rebuildReasonSize, setupResult.error.message );
+                return false;
+            }
         }
         else
         {
-            SceneGeneratedSetup::SetUpGameModels(
+            const SbResult setupResult = SceneGeneratedSetup::SetUpGameModels(
                 BuildSceneGeneratedModelContext( SceneState(),
                                                  m_config,
                                                  m_cWorldEnvironment,
@@ -2448,6 +2453,11 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
                                                  m_cGameModelCollection.GetPhysicsEngine(),
                                                  m_launchOptions.generatedObjectTypeOverride ),
                 event.value0 );
+            if ( !setupResult.ok )
+            {
+                WriteReplayProbeReason( rebuildReason, rebuildReasonSize, setupResult.error.message );
+                return false;
+            }
         }
         if ( !checkpointTopologyMatchesLive() )
         {

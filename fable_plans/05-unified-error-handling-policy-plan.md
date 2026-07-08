@@ -1,7 +1,7 @@
 # Unified Error Handling Policy Plan
 
 Date: 2026-07-06
-Status: Phase 1 policy and ratchet complete on 2026-07-07; Phase 2 replay probe conversion/evidence complete on 2026-07-08; SpatialGrid, PhysicsWorld, and GameModelCollection pure topology hot-path conversions complete; remaining recoverable GameModelCollection, loader, and DX12 conversions pending
+Status: Phase 1 policy and ratchet complete on 2026-07-07; Phase 2 replay probe conversion/evidence complete on 2026-07-08; SpatialGrid, PhysicsWorld, GameModelCollection pure topology, legacy camera pose-read, and append Lane R conversions complete; remaining loader/asset and DX12 conversions pending
 Impact area: all subsystems, incrementally; policy + mechanical conversion
 Validation for this document: none (documentation-only)
 
@@ -88,10 +88,11 @@ codebase stops authoring throws.
 - Gate: `validate_physics` byte-exact (mechanism swap must not reorder math).
 
 SpatialGrid and PhysicsWorld are complete and validated as one-file commits in
-this phase. GameModelCollection classification is complete, and its pure
-post-append topology failures are now Lane F. Capacity, missing scene identity,
-scene group metadata, and legacy camera position reads still need Lane R/result
-or no-op surfaces before their throws disappear.
+this phase. GameModelCollection classification is complete: pure post-append
+topology failures are Lane F, legacy object-follow camera reads are a no-op/fatal
+split, and append capacity/missing-identity/group-descriptor failures are Lane R
+results. Authored scene group metadata still belongs to the loader/editor Lane R
+work below.
 
 ### Phase 4 — loaders and editor surface
 

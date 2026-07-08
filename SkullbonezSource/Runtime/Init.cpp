@@ -629,6 +629,7 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
     // as a regular runtime launch.
     auto world = std::make_unique<SkullbonezCore::Environment::WorldEnvironment>();
     auto collection = std::make_unique<SkullbonezCore::GameObjects::GameModelCollection>();
+    PhysicsRuntimeHandleSmokeResult result;
     PhysicsBodyHandle createdBodies[2];
 
     for ( int i = 0; i < 2; ++i )
@@ -642,7 +643,7 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
         const SkullbonezCore::Math::CollisionDetection::BoundingSphere shape(
             0.75f,
             SkullbonezCore::Math::Vector::Vector3( 0.0f, 0.0f, 0.0f ) );
-        createdBodies[i] = collection->AddGameModel(
+        const auto appendResult = collection->AddGameModel(
             std::move( model ),
             MakePhysicsBodyCreateDesc(
                 sceneObjectId,
@@ -659,6 +660,12 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
                 name ),
             MakeColliderCreateDesc( shape, 0.0f, HashStr( "default" ) ),
             sceneObjectId );
+        if ( !appendResult.status.ok )
+        {
+            result.errorMessage = appendResult.status.error.message;
+            return result;
+        }
+        createdBodies[i] = appendResult.body;
     }
 
     const PhysicsBodyHandle bodyA = createdBodies[0];
@@ -765,7 +772,6 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
         fabsf( reorderedBodyARecord->pendingImpulse.y - pendingImpulse.y ) < 0.0001f &&
         fabsf( reorderedBodyARecord->pendingImpulseApplicationPoint.x - pendingImpulsePoint.x ) < 0.0001f;
 
-    PhysicsRuntimeHandleSmokeResult result;
     result.handlesMatchStores = handlesMatchStores;
     result.renderMirrorMatches = renderMirrorMatches;
     result.jointUsesHandles = jointUsesHandles;

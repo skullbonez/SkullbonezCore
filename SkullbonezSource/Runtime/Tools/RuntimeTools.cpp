@@ -554,7 +554,7 @@ bool RuntimeTools::FireLauncherProjectile( GameObjects::GameModelCollection& col
     const Math::CollisionDetection::BoundingSphere projectileShape( LAUNCHER_PROJECTILE_RADIUS,
                                                                     Math::Vector::Vector3( 0.0f, 0.0f, 0.0f ) );
     const Physics::PhysicsSceneObjectId sceneObjectId = scene.AllocateSceneObjectId();
-    const Physics::PhysicsBodyHandle projectileBody = collection.AddGameModel(
+    const auto appendResult = collection.AddGameModel(
         std::move( projectile ),
         Physics::MakePhysicsBodyCreateDesc( sceneObjectId,
                                             projectileShape,
@@ -570,6 +570,12 @@ bool RuntimeTools::FireLauncherProjectile( GameObjects::GameModelCollection& col
                                             "launcher_projectile" ),
         Physics::MakeColliderCreateDesc( projectileShape, LAUNCHER_PROJECTILE_RESTITUTION, HashStr( "default" ) ),
         sceneObjectId );
+    if ( !appendResult.status.ok )
+    {
+        fprintf( stderr, "[runtime-tools] launcher projectile append failed: %s\n", appendResult.status.error.message );
+        return false;
+    }
+    const Physics::PhysicsBodyHandle projectileBody = appendResult.body;
     if ( projectileBody.IsValid() )
     {
         physics.WakeBody( projectileBody );

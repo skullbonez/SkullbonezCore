@@ -379,10 +379,10 @@ GAME_MODEL_COLLECTION_COLLIDER_STORE_COUNT_GATE_PATTERN = re.compile(
 # once. Falling back to body-only repair plus later collider snapshot refresh
 # reintroduces hidden model-order work for every scene/object spawn path.
 GAME_MODEL_COLLECTION_ADD_GAME_MODEL_FUNCTION_PATTERN = re.compile(
-    r"\bPhysicsBodyHandle\s+GameModelCollection::AddGameModel\s*\("
+    r"\b(?:PhysicsBodyHandle|GameModelAppendResult)\s+GameModelCollection::AddGameModel\s*\("
 )
 GAME_MODEL_COLLECTION_APPEND_MODEL_ROWS_FUNCTION_PATTERN = re.compile(
-    r"\bPhysicsBodyHandle\s+GameModelCollection::AppendGameModelAndPhysicsRows\s*\("
+    r"\b(?:PhysicsBodyHandle|GameModelAppendResult)\s+GameModelCollection::AppendGameModelAndPhysicsRows\s*\("
 )
 GAME_MODEL_COLLECTION_APPLY_RUNTIME_CONFIG_FUNCTION_PATTERN = re.compile(
     r"\bvoid\s+GameModelCollection::ApplyRuntimeConfig\s*\("
@@ -1677,7 +1677,7 @@ STORED_MODEL_INDEX_MEMBER_PATTERN = re.compile(
 # topology invariants, and legacy camera pose reads moved off throw paths,
 # lowering the tracked exception-site budget by 24 without approving
 # replacement throws.
-MAX_SOURCE_THROW_TOKENS = 270
+MAX_SOURCE_THROW_TOKENS = 266
 THROW_TOKEN_PATTERN = re.compile(r"\bthrow\b")
 MAX_RENDER_PASS_HOST_FIELD_ACCESSES = 109
 RENDER_PASS_HOST_FIELD_PATTERN = re.compile(r"\bm_host\.m_[A-Za-z_]\w*")
@@ -5010,6 +5010,32 @@ def check_game_model_collection_append_collider_authority_guardrails_text(path: 
 def check_game_model_collection_append_collider_authority_guardrails(repo: Path) -> list[BoundaryError]:
     path = repo / GAME_MODEL_COLLECTION_SOURCE
     return check_game_model_collection_append_collider_authority_guardrails_text(path, path.read_text(encoding="utf-8"))
+
+
+def check_game_model_collection_no_throw_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    if path.name != GAME_MODEL_COLLECTION_SOURCE.name:
+        return []
+
+    stripped = strip_cpp_comments_and_string_literals(text)
+    errors: list[BoundaryError] = []
+    for match in THROW_TOKEN_PATTERN.finditer(stripped):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "GameModelCollection must stay exception-free",
+                (
+                    "GameModelCollection append and topology faults use SbResult or SB_FATAL lanes; "
+                    "do not reintroduce exception paths in the collection owner."
+                ),
+            )
+        )
+    return errors
+
+
+def check_game_model_collection_no_throw_guardrails(repo: Path) -> list[BoundaryError]:
+    path = repo / GAME_MODEL_COLLECTION_SOURCE
+    return check_game_model_collection_no_throw_guardrails_text(path, path.read_text(encoding="utf-8"))
 
 
 def check_game_model_replay_id_mirror_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
@@ -13042,13 +13068,13 @@ def run_self_tests() -> list[str]:
     expect_error('old AddGameModel body-only repair synthetic surface was not rejected', old_add_model_errors, 'AddGameModel body-only topology repair is blocked')
 
     allowed_add_model_direct_collider_append = """
-    PhysicsBodyHandle GameModelCollection::AddGameModel( GameModel gameModel,
-                                                         PhysicsColliderCreateDesc colliderDesc,
-                                                         PhysicsSceneObjectId sceneObjectId )
+    GameModelAppendResult GameModelCollection::AddGameModel( GameModel gameModel,
+                                                             PhysicsColliderCreateDesc colliderDesc,
+                                                             PhysicsSceneObjectId sceneObjectId )
     {
         if ( !RepairPhysicsBodyAndColliderTopology() )
         {
-            throw std::runtime_error( "Cannot append model while physics collider rows are missing." );
+            SB_FATAL( "GameObjects/GameModelCollection", "Cannot append model while physics collider rows are missing." );
         }
         m_gameModels.push_back( std::move( gameModel ) );
         const PhysicsBodyHandle bodyHandle =
@@ -13056,10 +13082,22 @@ def run_self_tests() -> list[str]:
         const PhysicsBodyRecord* bodyRecord = m_physicsEngine.BodyStore().RecordForHandle( bodyHandle );
         colliderDesc.body = bodyRecord->handle;
         m_physicsEngine.RegisterAuthoredCollider( colliderDesc );
-        return bodyHandle;
+        return { SbResult::Success(), bodyHandle };
     }
     """
     expect_clean('direct AddGameModel collider registration synthetic surface was rejected', check_game_model_collection_append_collider_authority_guardrails_text( Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"), allowed_add_model_direct_collider_append, ))
+
+    old_append_model_rows_missing_collider = """
+    GameModelAppendResult GameModelCollection::AppendGameModelAndPhysicsRows( GameModel gameModel,
+                                                                              PhysicsBodyCreateDesc bodyDesc,
+                                                                              PhysicsSceneObjectId sceneObjectId )
+    {
+        m_gameModels.push_back( std::move( gameModel ) );
+        const PhysicsBodyHandle bodyHandle = m_physicsEngine.RegisterAuthoredBody( bodyDesc );
+        return { SbResult::Success(), bodyHandle };
+    }
+    """
+    expect_error('new AppendGameModelAndPhysicsRows missing collider registration synthetic surface was not rejected', check_game_model_collection_append_collider_authority_guardrails_text( Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"), old_append_model_rows_missing_collider, ), 'AddGameModel must register collider directly')
 
     old_game_model_replay_id_mirror = """
     class GameModel
@@ -15651,6 +15689,22 @@ def run_self_tests() -> list[str]:
     """
     expect_clean('comment-only collection group append display-name fallback synthetic text was rejected', check_collection_group_append_name_guardrails_text( Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"), commented_collection_group_append_name_fallback, ))
 
+    old_game_model_collection_exception_path = """
+    GameModelAppendResult GameModelCollection::AddGameModel()
+    {
+        throw std::runtime_error( "append failed" );
+    }
+    """
+    expect_error('GameModelCollection exception synthetic surface was not rejected', check_game_model_collection_no_throw_guardrails_text( Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"), old_game_model_collection_exception_path, ), 'GameModelCollection must stay exception-free')
+
+    allowed_game_model_collection_append_result = """
+    GameModelAppendResult GameModelCollection::AddGameModel()
+    {
+        return { SbResult::Failure( "GameObjects/GameModelCollection", "append failed" ), PhysicsBodyHandle{} };
+    }
+    """
+    expect_clean('GameModelCollection SbResult synthetic surface was rejected', check_game_model_collection_no_throw_guardrails_text( Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"), allowed_game_model_collection_append_result, ))
+
     expect_clean('fixed-tree release no-writeback synthetic surface was rejected', check_deleted_per_body_model_writeback_guardrails_text( Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"), allowed_game_model_collection_fixed_tree_store_release, ))
 
     old_normal_step_bulk_model_writeback = """
@@ -16146,6 +16200,7 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_collider_store_identity_authority_guardrails(repo))
     errors.extend(check_game_model_collection_collider_authoring_guardrails(repo))
     errors.extend(check_game_model_collection_append_collider_authority_guardrails(repo))
+    errors.extend(check_game_model_collection_no_throw_guardrails(repo))
     errors.extend(check_physics_body_store_model_index_command_guardrails(repo))
     errors.extend(check_replay_render_pose_value_override_guardrails(repo))
     errors.extend(check_run_frame_replay_probe_body_store_guardrails(repo))

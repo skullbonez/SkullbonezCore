@@ -133,7 +133,7 @@ void SceneGeneratedSetup::SetUpCameras( SceneGeneratedCameraContext context )
 }
 
 
-void SceneGeneratedSetup::SetUpGameModels( SceneGeneratedModelContext context, int count )
+SbResult SceneGeneratedSetup::SetUpGameModels( SceneGeneratedModelContext context, int count )
 {
     // Concept: Generated demos consume one deterministic RNG stream. Keep object
     // family decisions and per-object random draws in the same order unless
@@ -200,17 +200,21 @@ void SceneGeneratedSetup::SetUpGameModels( SceneGeneratedModelContext context, i
 
             const Physics::PhysicsSceneObjectId sceneObjectId = context.scene.AllocateSceneObjectId();
             const BoundingBox shape( Vector3( hx, hy, hz ), Vector3( 0.0f, 0.0f, 0.0f ) );
-            const PhysicsBodyHandle body =
-                context.models.AddGameModel( std::move( gameModel ),
-                                             MakeGeneratedBodyDesc( sceneObjectId,
-                                                                    shape,
-                                                                    Vector3( posX, posY, posZ ),
-                                                                    inertia,
-                                                                    mass,
-                                                                    restitution,
-                                                                    context.terrain ),
-                                             MakeGeneratedColliderDesc( shape, restitution ),
-                                             sceneObjectId );
+            const auto appendResult = context.models.AddGameModel( std::move( gameModel ),
+                                                                   MakeGeneratedBodyDesc( sceneObjectId,
+                                                                                          shape,
+                                                                                          Vector3( posX, posY, posZ ),
+                                                                                          inertia,
+                                                                                          mass,
+                                                                                          restitution,
+                                                                                          context.terrain ),
+                                                                   MakeGeneratedColliderDesc( shape, restitution ),
+                                                                   sceneObjectId );
+            if ( !appendResult.status.ok )
+            {
+                return appendResult.status;
+            }
+            const PhysicsBodyHandle body = appendResult.body;
             context.physics.SetPendingBodyImpulse( body, force, forcePos );
         }
         else
@@ -223,7 +227,7 @@ void SceneGeneratedSetup::SetUpGameModels( SceneGeneratedModelContext context, i
 
             const Physics::PhysicsSceneObjectId sceneObjectId = context.scene.AllocateSceneObjectId();
             const BoundingSphere shape( radius, Vector3( 0.0f, 0.0f, 0.0f ) );
-            const PhysicsBodyHandle body =
+            const auto appendResult =
                 context.models.AddGameModel( std::move( gameModel ),
                                              MakeGeneratedBodyDesc( sceneObjectId,
                                                                     shape,
@@ -234,13 +238,19 @@ void SceneGeneratedSetup::SetUpGameModels( SceneGeneratedModelContext context, i
                                                                     context.terrain ),
                                              MakeGeneratedColliderDesc( shape, restitution ),
                                              sceneObjectId );
+            if ( !appendResult.status.ok )
+            {
+                return appendResult.status;
+            }
+            const PhysicsBodyHandle body = appendResult.body;
             context.physics.SetPendingBodyImpulse( body, force, forcePos );
         }
     }
+    return SbResult::Success();
 }
 
 
-void SceneGeneratedSetup::SetUpSolverObjects( SceneGeneratedModelContext context, int balls, int boxes )
+SbResult SceneGeneratedSetup::SetUpSolverObjects( SceneGeneratedModelContext context, int balls, int boxes )
 {
     balls = (std::max)( 0, balls );
     boxes = (std::max)( 0, boxes );
@@ -291,17 +301,21 @@ void SceneGeneratedSetup::SetUpSolverObjects( SceneGeneratedModelContext context
         GameObjects::GameModel gameModel;
         const Physics::PhysicsSceneObjectId sceneObjectId = context.scene.AllocateSceneObjectId();
         const BoundingSphere shape( radius, Vector3( 0.0f, 0.0f, 0.0f ) );
-        const PhysicsBodyHandle body =
-            context.models.AddGameModel( std::move( gameModel ),
-                                         MakeGeneratedBodyDesc( sceneObjectId,
-                                                                shape,
-                                                                Vector3( posX, posY, posZ ),
-                                                                Vector3( moment, moment, moment ),
-                                                                mass,
-                                                                restitution,
-                                                                context.terrain ),
-                                         MakeGeneratedColliderDesc( shape, restitution ),
-                                         sceneObjectId );
+        const auto appendResult = context.models.AddGameModel( std::move( gameModel ),
+                                                               MakeGeneratedBodyDesc( sceneObjectId,
+                                                                                      shape,
+                                                                                      Vector3( posX, posY, posZ ),
+                                                                                      Vector3( moment, moment, moment ),
+                                                                                      mass,
+                                                                                      restitution,
+                                                                                      context.terrain ),
+                                                               MakeGeneratedColliderDesc( shape, restitution ),
+                                                               sceneObjectId );
+        if ( !appendResult.status.ok )
+        {
+            return appendResult.status;
+        }
+        const PhysicsBodyHandle body = appendResult.body;
         context.physics.SetPendingBodyImpulse( body, force, forcePos );
     }
 
@@ -336,57 +350,63 @@ void SceneGeneratedSetup::SetUpSolverObjects( SceneGeneratedModelContext context
         GameObjects::GameModel gameModel;
         const Physics::PhysicsSceneObjectId sceneObjectId = context.scene.AllocateSceneObjectId();
         const BoundingBox shape( Vector3( hx, hy, hz ), Vector3( 0.0f, 0.0f, 0.0f ) );
-        const PhysicsBodyHandle body = context.models.AddGameModel( std::move( gameModel ),
-                                                                    MakeGeneratedBodyDesc( sceneObjectId,
-                                                                                           shape,
-                                                                                           Vector3( posX, posY, posZ ),
-                                                                                           inertia,
-                                                                                           mass,
-                                                                                           restitution,
-                                                                                           context.terrain ),
-                                                                    MakeGeneratedColliderDesc( shape, restitution ),
-                                                                    sceneObjectId );
+        const auto appendResult = context.models.AddGameModel( std::move( gameModel ),
+                                                               MakeGeneratedBodyDesc( sceneObjectId,
+                                                                                      shape,
+                                                                                      Vector3( posX, posY, posZ ),
+                                                                                      inertia,
+                                                                                      mass,
+                                                                                      restitution,
+                                                                                      context.terrain ),
+                                                               MakeGeneratedColliderDesc( shape, restitution ),
+                                                               sceneObjectId );
+        if ( !appendResult.status.ok )
+        {
+            return appendResult.status;
+        }
+        const PhysicsBodyHandle body = appendResult.body;
         context.physics.SetPendingBodyImpulse( body, force, forcePos );
     }
 
     context.scene.modelCount = balls + boxes;
+    return SbResult::Success();
 }
 
 
-bool SceneGeneratedSetup::TrySetUpRequestedModels( SceneGeneratedModelContext context,
-                                                   const SceneGeneratedPopulationRequest& request,
-                                                   bool useDefaultWhenNoRequest )
+SceneGeneratedSetupResult SceneGeneratedSetup::TrySetUpRequestedModels( SceneGeneratedModelContext context,
+                                                                        const SceneGeneratedPopulationRequest& request,
+                                                                        bool useDefaultWhenNoRequest )
 {
     // Concept: Generated population policy belongs beside the deterministic
     // spawn algorithms. Run supplies state; this helper decides which generated
     // mode is authoritative for this load.
     if ( request.uiSolverBallCountOverride >= 0 || request.uiSolverBoxCountOverride >= 0 )
     {
-        SetUpSolverObjects( context,
-                            (std::max)( 0, request.uiSolverBallCountOverride ),
-                            (std::max)( 0, request.uiSolverBoxCountOverride ) );
-        return true;
+        return { SetUpSolverObjects( context,
+                                     (std::max)( 0, request.uiSolverBallCountOverride ),
+                                     (std::max)( 0, request.uiSolverBoxCountOverride ) ),
+                 true };
     }
 
     if ( request.uiModelCountOverride >= 0 )
     {
-        SetUpGameModels( context, request.uiModelCountOverride );
-        return true;
+        return { SetUpGameModels( context, request.uiModelCountOverride ), true };
     }
 
     if ( request.sceneSolverBallCount > 0 || request.sceneSolverBoxCount > 0 )
     {
-        SetUpSolverObjects( context, request.sceneSolverBallCount, request.sceneSolverBoxCount );
-        return true;
+        return { SetUpSolverObjects( context, request.sceneSolverBallCount, request.sceneSolverBoxCount ), true };
     }
 
     if ( useDefaultWhenNoRequest )
     {
-        SetUpGameModels( context, request.defaultModelCount );
-        return true;
+        return { SetUpGameModels( context, request.defaultModelCount ), true };
     }
 
-    return false;
+    // Why: authored scene loading asks generated setup first so UI/exact solver
+    // overrides can win. A successful "not applied" result hands population
+    // back to authored scene sections.
+    return { SbResult::Success(), false };
 }
 
 } // namespace Basics

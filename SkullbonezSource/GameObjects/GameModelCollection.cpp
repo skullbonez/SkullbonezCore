@@ -70,7 +70,6 @@ Related:
 #include <cstddef>
 #include <cmath>
 #include <cstring>
-#include <stdexcept>
 #include <utility>
 #include <variant>
 
@@ -94,6 +93,8 @@ using SkullbonezCore::Rendering::ShadowFrameData;
 
 namespace
 {
+constexpr const char* GAME_MODEL_COLLECTION_APPEND_OWNER = "GameObjects/GameModelCollection";
+
 template <typename T> uint64_t VectorCapacityBytes( const T& values )
 {
     return static_cast<uint64_t>( values.capacity() ) * static_cast<uint64_t>( sizeof( typename T::value_type ) );
@@ -270,10 +271,10 @@ void GameModelCollection::ReserveForActiveGameModelCapacity()
 }
 
 
-GameModelCollection::SceneObjectGroupRecord
-GameModelCollection::BuildSceneObjectGroupForAppend( const GameModel&,
-                                                     int newModelIndex,
-                                                     SceneObjectGroupCreateDesc groupDesc )
+SbResult GameModelCollection::BuildSceneObjectGroupForAppend( const GameModel&,
+                                                              int newModelIndex,
+                                                              SceneObjectGroupCreateDesc groupDesc,
+                                                              SceneObjectGroupRecord& outGroup )
 {
     assert( m_sceneObjectGroupStore.Count() == SceneEntityCount() );
     SceneObjectGroupRecord group;
@@ -285,16 +286,19 @@ GameModelCollection::BuildSceneObjectGroupForAppend( const GameModel&,
         // an impossible group, so fail closed before rows diverge.
         if ( groupDesc.rootModelIndex < 0 || groupDesc.rootModelIndex > newModelIndex || groupDesc.partIndex < 0 )
         {
-            throw std::runtime_error( "Invalid scene-object group descriptor supplied during model append." );
+            return SbResult::Failure( GAME_MODEL_COLLECTION_APPEND_OWNER,
+                                      "Invalid scene-object group descriptor supplied during model append." );
         }
 
         group.kind = groupDesc.kind;
         group.rootModelIndex = groupDesc.rootModelIndex;
         group.partIndex = groupDesc.partIndex;
-        return group;
+        outGroup = group;
+        return SbResult::Success();
     }
 
-    return group;
+    outGroup = group;
+    return SbResult::Success();
 }
 
 
@@ -383,11 +387,11 @@ SkullbonezCore::Threading::WorkerPool* GameModelCollection::RenderWorkerPool() c
 }
 
 
-PhysicsBodyHandle GameModelCollection::AddGameModel( GameModel gameModel,
-                                                     PhysicsBodyCreateDesc bodyDesc,
-                                                     PhysicsColliderCreateDesc colliderDesc,
-                                                     PhysicsSceneObjectId sceneObjectId,
-                                                     SceneObjectGroupCreateDesc groupDesc )
+GameModelAppendResult GameModelCollection::AddGameModel( GameModel gameModel,
+                                                         PhysicsBodyCreateDesc bodyDesc,
+                                                         PhysicsColliderCreateDesc colliderDesc,
+                                                         PhysicsSceneObjectId sceneObjectId,
+                                                         SceneObjectGroupCreateDesc groupDesc )
 {
     return AppendGameModelAndPhysicsRows( std::move( gameModel ),
                                           std::move( bodyDesc ),
@@ -397,24 +401,33 @@ PhysicsBodyHandle GameModelCollection::AddGameModel( GameModel gameModel,
 }
 
 
-PhysicsBodyHandle GameModelCollection::AppendGameModelAndPhysicsRows( GameModel gameModel,
-                                                                      PhysicsBodyCreateDesc bodyDesc,
-                                                                      PhysicsSceneObjectId sceneObjectId,
-                                                                      PhysicsColliderCreateDesc colliderDesc,
-                                                                      SceneObjectGroupCreateDesc groupDesc )
+GameModelAppendResult GameModelCollection::AppendGameModelAndPhysicsRows( GameModel gameModel,
+                                                                          PhysicsBodyCreateDesc bodyDesc,
+                                                                          PhysicsSceneObjectId sceneObjectId,
+                                                                          PhysicsColliderCreateDesc colliderDesc,
+                                                                          SceneObjectGroupCreateDesc groupDesc )
 {
     const int activeCapacity = m_activeGameModelCapacity;
     assert( SceneEntityCount() < activeCapacity && "Exceeded active game model capacity" );
     if ( SceneEntityCount() >= activeCapacity )
     {
-        throw std::runtime_error(
-            "Exceeded active game model capacity; raise --model-capacity or game_model_capacity." );
+        return {
+            SbResult::Failure( GAME_MODEL_COLLECTION_APPEND_OWNER,
+                               "Exceeded active game model capacity; raise --model-capacity or game_model_capacity." ),
+            PhysicsBodyHandle{} };
     }
     const int modelIndex = SceneEntityCount();
-    const SceneObjectGroupRecord groupRecord = BuildSceneObjectGroupForAppend( gameModel, modelIndex, groupDesc );
+    SceneObjectGroupRecord groupRecord;
+    const SbResult groupResult = BuildSceneObjectGroupForAppend( gameModel, modelIndex, groupDesc, groupRecord );
+    if ( !groupResult.ok )
+    {
+        return { groupResult, PhysicsBodyHandle{} };
+    }
     if ( !sceneObjectId.IsValid() )
     {
-        throw std::runtime_error( "Cannot append model without a scene object id." );
+        return {
+            SbResult::Failure( GAME_MODEL_COLLECTION_APPEND_OWNER, "Cannot append model without a scene object id." ),
+            PhysicsBodyHandle{} };
     }
     // Invariant: creation identity is scene-owned. Collection appends the model
     // row and forwards the id once; body/collider/render stores then carry it
@@ -461,7 +474,7 @@ PhysicsBodyHandle GameModelCollection::AppendGameModelAndPhysicsRows( GameModel 
         // model/body row that cannot safely enter physics or render snapshots.
         SB_FATAL( "GameObjects/GameModelCollection", "Failed to register newly authored physics collider record." );
     }
-    return bodyHandle;
+    return { SbResult::Success(), bodyHandle };
 }
 
 

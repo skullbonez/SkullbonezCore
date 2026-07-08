@@ -174,7 +174,7 @@ Vector3 ScaleSceneVector( const Vector3& value, float scale )
     return Vector3( value.x * scale, value.y * scale, value.z * scale );
 }
 
-void AppendAuthoredSimpleRagdoll( SceneSimpleRagdollAppendContext context, const RagdollBuildOptions& options )
+SbResult AppendAuthoredSimpleRagdoll( SceneSimpleRagdollAppendContext context, const RagdollBuildOptions& options )
 {
     const int firstBody = context.models.SceneEntityCount();
     const uint32_t groupId = static_cast<uint32_t>( firstBody + 1 );
@@ -188,7 +188,7 @@ void AppendAuthoredSimpleRagdoll( SceneSimpleRagdollAppendContext context, const
     // ragdoll parts append with deterministic, gap-free scene identity.
     if ( !options.firstSceneObjectId.IsValid() )
     {
-        throw std::runtime_error( "Ragdoll build requires a scene object id range." );
+        return SbResult::Failure( "Runtime/SceneAuthoredSetup", "Ragdoll build requires a scene object id range." );
     }
 
     for ( int i = 0; i < Ragdoll::SIMPLE_PART_COUNT; ++i )
@@ -213,22 +213,27 @@ void AppendAuthoredSimpleRagdoll( SceneSimpleRagdollAppendContext context, const
 
         // Invariant: ragdoll grouping is prefab metadata. Pass root/part facts
         // directly so collection append never parses display names to recover it.
-        context.models.AddGameModel( std::move( model ),
-                                     MakeSceneBodyDesc( partSceneObjectId,
-                                                        shape,
-                                                        position,
-                                                        orientation,
-                                                        Vector3( 0.0f, 0.0f, 0.0f ),
-                                                        Vector3( 0.0f, 0.0f, 0.0f ),
-                                                        inertia,
-                                                        mass,
-                                                        parts[i].restitution,
-                                                        options.fixed,
-                                                        context.terrain,
-                                                        name ),
-                                     MakeSceneColliderDesc( shape, parts[i].restitution, "default" ),
-                                     partSceneObjectId,
-                                     groupDesc );
+        const auto appendResult =
+            context.models.AddGameModel( std::move( model ),
+                                         MakeSceneBodyDesc( partSceneObjectId,
+                                                            shape,
+                                                            position,
+                                                            orientation,
+                                                            Vector3( 0.0f, 0.0f, 0.0f ),
+                                                            Vector3( 0.0f, 0.0f, 0.0f ),
+                                                            inertia,
+                                                            mass,
+                                                            parts[i].restitution,
+                                                            options.fixed,
+                                                            context.terrain,
+                                                            name ),
+                                         MakeSceneColliderDesc( shape, parts[i].restitution, "default" ),
+                                         partSceneObjectId,
+                                         groupDesc );
+        if ( !appendResult.status.ok )
+        {
+            return appendResult.status;
+        }
     }
 
     int jointCount = 0;
@@ -259,6 +264,7 @@ void AppendAuthoredSimpleRagdoll( SceneSimpleRagdollAppendContext context, const
             context.physics.SeedBodyAsleep( bodyStore.HandleForModelIndex( firstBody + i ) );
         }
     }
+    return SbResult::Success();
 }
 
 GameObjects::SceneObjectGroupCreateDesc MakeSceneObjectGroupCreateDesc( const SceneObjectGroupMetadata& group,
@@ -385,10 +391,10 @@ int FindModelByName( const GameModelCollection& models, const char* name )
 } // namespace
 
 
-void SceneAuthoredSetup::AppendSimpleRagdoll( SceneSimpleRagdollAppendContext context,
-                                              const RagdollBuildOptions& options )
+SbResult SceneAuthoredSetup::AppendSimpleRagdoll( SceneSimpleRagdollAppendContext context,
+                                                  const RagdollBuildOptions& options )
 {
-    AppendAuthoredSimpleRagdoll( context, options );
+    return AppendAuthoredSimpleRagdoll( context, options );
 }
 
 
@@ -422,7 +428,7 @@ void SceneAuthoredSetup::SetUpCameras( SceneAuthoredCameraContext context, const
 }
 
 
-void SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context, const TestScene& scene )
+SbResult SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context, const TestScene& scene )
 {
     // Invariant: Model insertion order follows scene schema sections. Runtime
     // validation, saved editable scenes, and point-joint name resolution all
@@ -448,7 +454,7 @@ void SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context, con
             !ball.isFixed && ( ball.forceX != 0.0f || ball.forceY != 0.0f || ball.forceZ != 0.0f );
         const Physics::PhysicsSceneObjectId sceneObjectId = context.sceneState.AllocateSceneObjectId();
         const BoundingSphere shape( ball.m_radius, Vector3( 0.0f, 0.0f, 0.0f ) );
-        const PhysicsBodyHandle body = context.models.AddGameModel(
+        const auto appendResult = context.models.AddGameModel(
             std::move( gameModel ),
             MakeSceneBodyDesc(
                 sceneObjectId,
@@ -465,6 +471,11 @@ void SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context, con
                 ball.name ),
             MakeSceneColliderDesc( shape, ball.restitution, ball.contactMaterial ),
             sceneObjectId );
+        if ( !appendResult.status.ok )
+        {
+            return appendResult.status;
+        }
+        const PhysicsBodyHandle body = appendResult.body;
         if ( hasInitialImpulse )
         {
             context.physics.SetPendingBodyImpulse( body,
@@ -485,7 +496,7 @@ void SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context, con
 
         const Physics::PhysicsSceneObjectId sceneObjectId = context.sceneState.AllocateSceneObjectId();
         const BoundingSphere shape( bs.radius, Vector3( 0.0f, 0.0f, 0.0f ) );
-        const PhysicsBodyHandle body = context.models.AddGameModel(
+        const auto appendResult = context.models.AddGameModel(
             std::move( gameModel ),
             MakeSceneBodyDesc( sceneObjectId,
                                shape,
@@ -501,6 +512,11 @@ void SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context, con
                                bs.name ),
             MakeSceneColliderDesc( shape, bs.restitution, bs.contactMaterial ),
             sceneObjectId );
+        if ( !appendResult.status.ok )
+        {
+            return appendResult.status;
+        }
+        const PhysicsBodyHandle body = appendResult.body;
         if ( bs.isSleeping && !bs.isFixed )
         {
             context.physics.SeedBodyAsleep( body );
@@ -525,7 +541,7 @@ void SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context, con
 
         const Physics::PhysicsSceneObjectId sceneObjectId = context.sceneState.AllocateSceneObjectId();
         const BoundingBox shape( Vector3( box.halfX, box.halfY, box.halfZ ), Vector3( 0.0f, 0.0f, 0.0f ) );
-        context.models.AddGameModel(
+        const auto appendResult = context.models.AddGameModel(
             std::move( gameModel ),
             MakeSceneBodyDesc(
                 sceneObjectId,
@@ -542,6 +558,10 @@ void SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context, con
                 box.name ),
             MakeSceneColliderDesc( shape, box.restitution, box.contactMaterial ),
             sceneObjectId );
+        if ( !appendResult.status.ok )
+        {
+            return appendResult.status;
+        }
     }
 
     // box_state entries: full dynamic state from an editable scene snapshot
@@ -555,7 +575,7 @@ void SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context, con
 
         const Physics::PhysicsSceneObjectId sceneObjectId = context.sceneState.AllocateSceneObjectId();
         const BoundingBox shape( Vector3( box.halfX, box.halfY, box.halfZ ), Vector3( 0.0f, 0.0f, 0.0f ) );
-        const PhysicsBodyHandle body = context.models.AddGameModel(
+        const auto appendResult = context.models.AddGameModel(
             std::move( gameModel ),
             MakeSceneBodyDesc( sceneObjectId,
                                shape,
@@ -571,6 +591,11 @@ void SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context, con
                                box.name ),
             MakeSceneColliderDesc( shape, box.restitution, box.contactMaterial ),
             sceneObjectId );
+        if ( !appendResult.status.ok )
+        {
+            return appendResult.status;
+        }
+        const PhysicsBodyHandle body = appendResult.body;
         if ( box.isSleeping && !box.isFixed )
         {
             context.physics.SeedBodyAsleep( body );
@@ -621,12 +646,17 @@ void SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context, con
             hullScene.name );
         bodyDesc.releasesFromFixedOnContact = hullScene.contactReleaseOnImpact;
         bodyDesc.contactReleaseImpulseThreshold = hullScene.contactReleaseImpulseThreshold;
-        const PhysicsBodyHandle body = context.models.AddGameModel(
+        const auto appendResult = context.models.AddGameModel(
             std::move( gameModel ),
             bodyDesc,
             MakeSceneHullColliderDesc( hull, hullScene.restitution, hullScene.contactMaterial ),
             sceneObjectId,
             groupDesc );
+        if ( !appendResult.status.ok )
+        {
+            return appendResult.status;
+        }
+        const PhysicsBodyHandle body = appendResult.body;
         if ( hullScene.isSleeping && !hullScene.isFixed )
         {
             context.physics.SeedBodyAsleep( body );
@@ -662,12 +692,17 @@ void SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context, con
                                hullScene.name );
         bodyDesc.releasesFromFixedOnContact = hullScene.contactReleaseOnImpact;
         bodyDesc.contactReleaseImpulseThreshold = hullScene.contactReleaseImpulseThreshold;
-        const PhysicsBodyHandle body = context.models.AddGameModel(
+        const auto appendResult = context.models.AddGameModel(
             std::move( gameModel ),
             bodyDesc,
             MakeSceneHullColliderDesc( hull, hullScene.restitution, hullScene.contactMaterial ),
             sceneObjectId,
             groupDesc );
+        if ( !appendResult.status.ok )
+        {
+            return appendResult.status;
+        }
+        const PhysicsBodyHandle body = appendResult.body;
         if ( hullScene.isSleeping && !hullScene.isFixed )
         {
             context.physics.SeedBodyAsleep( body );
@@ -696,7 +731,11 @@ void SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context, con
             context.models,
             context.physics,
         };
-        AppendSimpleRagdoll( ragdollContext, options );
+        const SbResult ragdollResult = AppendSimpleRagdoll( ragdollContext, options );
+        if ( !ragdollResult.ok )
+        {
+            return ragdollResult;
+        }
     }
 
     const PhysicsBodyStore& bodyStore = context.models.GetPhysicsEngine().BodyStore();
@@ -755,6 +794,7 @@ void SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context, con
 
     SetUpRequiredContacts( context, scene );
     SetUpRequiredBroadphaseXCells( context, scene );
+    return SbResult::Success();
 }
 
 

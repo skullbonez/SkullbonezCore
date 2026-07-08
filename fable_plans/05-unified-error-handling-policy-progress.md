@@ -1,7 +1,7 @@
 # Progress: Unified Error Handling Policy (plan 05)
 
 Source plan: `fable_plans/05-unified-error-handling-policy-plan.md`
-Status: phase 1 complete on 2026-07-07; P2.1-P2.3 replay probe conversion and evidence complete on 2026-07-08; SpatialGrid, PhysicsWorld, GameModelCollection pure topology, and legacy camera pose-read conversions complete; remaining GameModelCollection append recoverable surfaces pending
+Status: phase 1 complete on 2026-07-07; P2.1-P2.3 replay probe conversion and evidence complete on 2026-07-08; SpatialGrid, PhysicsWorld, GameModelCollection pure topology, legacy camera pose-read conversions, and GameModelCollection append Lane R cleanup complete; loader/asset, DX12, and closure work remain
 Last updated: 2026-07-08
 
 ## How to work this file
@@ -48,9 +48,10 @@ Last updated: 2026-07-08
   `check_throw_site_count`, and synthetic clean/grown self-tests. Phase 1
   recorded the pre-conversion budget at 355; P2.2/P2.3 lowered it to 294 after
   replacing the Debug replay probe throws. P3 SpatialGrid conversion lowered
-  the budget to 281, P3 PhysicsWorld lowered it to 275, and the pure
-  GameModelCollection topology slice lowered it to 272, and the legacy camera
-  pose-read cleanup lowered it to 270.
+  the budget to 281, P3 PhysicsWorld lowered it to 275, the pure
+  GameModelCollection topology slice lowered it to 272, the legacy camera
+  pose-read cleanup lowered it to 270, and the append Lane R cleanup lowered it
+  to 266.
 
 ## Phase 1 — policy, primitives, ratchet (no conversions yet)
 
@@ -390,11 +391,43 @@ Last updated: 2026-07-08
   — reuse, don't invent). ConvexHullShape.cpp (41) is bake/load validation:
   its throws convert to SbResult, its 12 internal catches collapse as their
   matching throws disappear.
-- [ ] P4.2 Editor placement paths (GameModelCollection append callers): a
+- [x] P4.2 Editor placement paths (GameModelCollection append callers): a
   failed append becomes a UI-visible no-op (log event + skip), never a crash.
   Find callers: `rg -n "AppendGameModelAndPhysicsRows|AppendModel" SkullbonezSource/Runtime`.
-- [ ] P4.3 Gate: `tools\validate_full.bat` (scene/asset load is broad scope).
+- [x] P4.3 Gate: `tools\validate_full.bat` (scene/asset load is broad scope).
   Ratchet update. Commit per subsystem.
+
+  Evidence (2026-07-08): `GameModelCollection::AddGameModel` and
+  `AppendGameModelAndPhysicsRows` now return `GameModelAppendResult`, carrying
+  `SbResult` plus the new `PhysicsBodyHandle`. Recoverable append failures now
+  cover invalid scene-object group descriptors, active model capacity, and
+  missing scene object ids; collection topology divergence remains `SB_FATAL`.
+  Callers in generated scene setup, authored scene setup, editor placement,
+  launcher projectile creation, runtime handle smoke, scene load, and replay
+  generated-topology rebuild now check and report the failure status before using
+  the handle. `SceneGeneratedSetupResult` preserves the old "generated setup did
+  not apply" branch for authored scene population.
+
+  `tools/check_runtime_boundaries.py` lowered `MAX_SOURCE_THROW_TOKENS` from
+  270 to 266, widened the append authority regexes for
+  `GameModelAppendResult`, and added a GameModelCollection no-throw guardrail
+  with self-tests. Peirce and Halley, read-only explorer subagents, checked the
+  fable status/doc targets and the guardrail placement. Touched-file
+  comment-style audit inspected 13 source/tool files with 0 deferred:
+  `GameModelCollection.h`, `GameModelCollection.cpp`,
+  `RunEditorObjectPlacement.inl`, `Init.cpp`, `RunFrame.cpp`, `RunScene.cpp`,
+  `SceneAuthoredSetup.h`, `SceneAuthoredSetup.cpp`, `SceneGeneratedSetup.h`,
+  `SceneGeneratedSetup.cpp`, `SceneRuntimeGeneratedControls.cpp`,
+  `RuntimeTools.cpp`, and `tools/check_runtime_boundaries.py`.
+
+  Gate evidence: `git diff --check` passed; `tools\validate_format.bat` passed;
+  `python tools\check_runtime_boundaries.py --self-test` passed; `python
+  tools\check_runtime_boundaries.py --max-errors 20` passed with 0 errors; and
+  `tools\validate_full.bat` passed with project filters/runtime boundaries at 0
+  errors, Profile/Debug builds at 0 warnings/errors, DX12 validation errors 0,
+  DX12 screenshots matching committed baselines, and
+  `physics_regression_solver.csv` byte-exact. Full log:
+  `Agentic\Reports\2026-07-08\logs\fable-05-append-lane-r-validate-full.log`.
 
 ## Phase 5 — DX12 layer (last, most delicate)
 

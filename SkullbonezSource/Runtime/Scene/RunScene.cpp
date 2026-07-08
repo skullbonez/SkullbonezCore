@@ -40,6 +40,7 @@ Related:
 #include "../../Physics/ObjectContactManifold.h"
 #include "../../Physics/PhysicsBodyStore.h"
 #include "../../Physics/Ragdoll.h"
+#include "../../Core/SbResult.h"
 #include "../../Core/WorkerPool.h"
 #include "../../Rendering/IRenderBackend.h"
 #include "../../Rendering/IRenderRayTracing.h"
@@ -120,6 +121,21 @@ void ApplyEditorPlacedSphereMaterial( GameModel& model )
     {
         model.SetRenderTint( 1.0f, 1.0f, 1.0f, SCENE_EDITOR_TEXTURE_MODE_INVERTED );
     }
+}
+
+void LogSceneLoadFailure( const SbResult& result, const std::string& scenePath )
+{
+    // Why: scene setup is a recoverable load boundary. Logging the owner keeps
+    // automation and operators on a concrete failing subsystem without treating
+    // malformed scene/generated input as an engine invariant failure.
+    const char* owner = result.error.owner && result.error.owner[0] != '\0' ? result.error.owner : "Runtime/Scene";
+    const char* message =
+        result.error.message[0] != '\0' ? result.error.message : "scene setup failed without a message";
+    fprintf( stderr,
+             "[scene] scene_load_failed owner=%s path=\"%s\" reason=\"%s\"\n",
+             owner,
+             scenePath.empty() ? "<generated>" : scenePath.c_str(),
+             message );
 }
 
 bool IsCineScenePath( const std::string& path )
@@ -734,7 +750,7 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
 
         SceneState().isSceneMode = false;
         SceneGeneratedSetup::SetUpCameras( BuildSceneGeneratedCameraContext( *m_systems.cameras, *m_systems.terrain ) );
-        SceneGeneratedSetup::TrySetUpRequestedModels(
+        const SceneGeneratedSetupResult generatedSetup = SceneGeneratedSetup::TrySetUpRequestedModels(
             BuildSceneGeneratedModelContext( SceneState(),
                                              m_config,
                                              m_cWorldEnvironment,
@@ -749,6 +765,11 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
                                              0,
                                              DEFAULT_GAME_MODELS },
             true );
+        if ( !generatedSetup.status.ok )
+        {
+            LogSceneLoadFailure( generatedSetup.status, scenePath );
+            return;
+        }
         ApplyDemoHeroStyleOverride( SceneRuntimeStyleContext{ m_launchOptions,
                                                               SceneState(),
                                                               m_sceneController.Browser(),
@@ -911,7 +932,7 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
         SceneAuthoredSetup::SetUpCameras( BuildSceneAuthoredCameraContext( *m_systems.cameras, *m_systems.terrain ),
                                           scene );
 
-        const bool generatedModelsApplied = SceneGeneratedSetup::TrySetUpRequestedModels(
+        const SceneGeneratedSetupResult generatedModels = SceneGeneratedSetup::TrySetUpRequestedModels(
             BuildSceneGeneratedModelContext( SceneState(),
                                              m_config,
                                              m_cWorldEnvironment,
@@ -926,9 +947,14 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
                                              scene.GetSolverBoxCount(),
                                              0 },
             false );
-        if ( !generatedModelsApplied )
+        if ( !generatedModels.status.ok )
         {
-            SceneAuthoredSetup::SetUpGameModels(
+            LogSceneLoadFailure( generatedModels.status, scenePath );
+            return;
+        }
+        if ( !generatedModels.applied )
+        {
+            const SbResult authoredSetup = SceneAuthoredSetup::SetUpGameModels(
                 BuildSceneAuthoredModelContext( SceneState(),
                                                 m_cWorldEnvironment,
                                                 m_systems.terrain.get(),
@@ -937,6 +963,11 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
                                                 m_requiredSceneContacts,
                                                 m_requiredBroadphaseXCells ),
                 scene );
+            if ( !authoredSetup.ok )
+            {
+                LogSceneLoadFailure( authoredSetup, scenePath );
+                return;
+            }
         }
         // Physics regression log: current-solver per-frame CSV enabled only by command line.
 #ifdef _DEBUG
