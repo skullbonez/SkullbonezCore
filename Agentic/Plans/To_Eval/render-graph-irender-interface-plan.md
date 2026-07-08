@@ -3,7 +3,8 @@
 Date: 2026-06-27
 Status: In progress
 Impact areas: DX12 renderer, render graph execution, render backend interface, runtime render host, tests
-Validation for this plan edit: Documentation-only. No repository validation required.
+Latest implementation validation: FAC-001 aggregate retirement passed
+`tools\validate_fast.bat` and `tools\validate_full.bat` on 2026-07-08.
 
 ## Completed Slices
 
@@ -17,6 +18,12 @@ Validation for this plan edit: Documentation-only. No repository validation requ
 - [x] 2026-06-27: Moved `DebugOverlayPass` scheduling into a render graph callback and recorded callback ownership in executed frame graph diagnostics.
 - [x] 2026-06-27: Moved `TornadoVisualPass` scheduling into a render graph callback while preserving the pass body's no-draw result.
 - [x] 2026-06-28: Moved `UiTextPass` scheduling into a render graph callback; scene frame-graph diagnostics remain separate from this late overlay graph.
+- [x] 2026-07-08: FAC-001 retired the renderer aggregate: deleted
+  `IRenderBackend.h`, removed the aggregate pointer from
+  `RuntimeRenderBackendView`, made `RenderBackendDX12` implement the narrow
+  lifecycle/resource/command/diagnostics/capture/raytracing interfaces directly,
+  rewired runtime/scene callers to those facets, and changed the boundary
+  checker to a zero-budget tombstone for the old aggregate.
 
 ## Goal
 
@@ -197,7 +204,7 @@ Interface split checklist:
 - [x] Add the smallest interface needed for one caller group.
 - [x] Back the new interface with the existing DX12 backend implementation.
 - [x] Migrate one caller group to the new capability.
-- [ ] Leave `IRenderBackend` forwarding or exposing compatibility until all callers move.
+- [x] Delete `IRenderBackend` after all callers moved to narrow capabilities.
 - [x] Keep DX12-only includes out of engine-facing headers unless the new interface is DX12-owned.
 - [ ] Convert optional no-op methods into explicit capability checks or remove them after callers migrate.
 - [ ] Avoid global access expansion; pass capability references through existing runtime ownership paths where practical.
@@ -206,8 +213,8 @@ Interface split checklist:
 
 Do-not-miss checklist:
 
-- [ ] `IRenderBackend.h` gets smaller over the full plan, not larger.
-- [ ] Callers no longer receive a full backend when they only need one capability.
+- [x] `IRenderBackend.h` is deleted.
+- [x] Callers no longer receive a full backend when they only need one capability.
 - [x] Runtime host and renderer lifetime still destroy capabilities in a safe order.
 - [ ] Capture/readback paths still work for validation artifacts.
 - [ ] GPU marker and profiler paths still work for `--platform-profiler-markers`.
@@ -225,14 +232,14 @@ Once graph execution and capability views exist, simplify the runtime path.
 - [x] Move DXR reflection state and helper declarations out of `Run.h`.
 - [x] Put DXR reflection ownership behind renderer/runtime render-host owned types with narrow inputs from gameplay/runtime state.
 - [x] Remove any `Run.h` includes that exist only for DXR reflection implementation details.
-- [ ] Remove stale compatibility methods from `IRenderBackend` after final callers migrate.
-- [ ] Remove stale include dependencies caused by the old wide backend interface.
+- [x] Remove stale compatibility methods from `IRenderBackend` after final callers migrate.
+- [x] Remove stale include dependencies caused by the old wide backend interface.
 - [ ] Update renderer diagnostics and frame graph outputs to match the new execution path.
 - [x] Add search guardrails for accidental new wide-backend dependencies, direct runtime pass scheduling regressions, and DXR reflection declarations returning to `Run.h`.
 
 Searches to run before declaring cleanup done:
 
-- [ ] `rg "IRenderBackend" SkullbonezSource`
+- [x] `rg "IRenderBackend" SkullbonezSource`
 - [ ] `rg "Gfx\(|GetRenderBackend|RenderBackendDX12" SkullbonezSource`
 - [x] `rg "Execute.*Pass|Run.*Pass|Render.*Pass" SkullbonezSource/Runtime SkullbonezSource/Rendering`
 - [ ] `rg "RenderGraph" SkullbonezSource/Runtime SkullbonezSource/Rendering`
@@ -278,8 +285,8 @@ Review checklist:
 - [x] The graph declares every read/write/imported/transient resource for migrated passes.
 - [ ] `Dx12RenderGraphExecutor` owns execution diagnostics and resource-state handling for migrated graph passes.
 - [ ] At least one low-risk transient resource is graph-owned before claiming resource lifetime migration.
-- [ ] `IRenderBackend` is reduced to a compatibility facade or deleted after callers migrate.
-- [ ] Narrow capability interfaces serve caller groups without exposing the full backend.
+- [x] `IRenderBackend` is reduced to a compatibility facade or deleted after callers migrate.
+- [x] Narrow capability interfaces serve caller groups without exposing the full backend.
 - [ ] DX12-specific details are isolated to DX12-owned headers or consciously named DX12 capabilities.
 - [ ] Runtime renderer and host wiring no longer route pass code through unnecessary global backend access.
 - [x] `Run.h` no longer owns or declares DXR reflection state or helpers.

@@ -301,9 +301,9 @@ Run::~Run()
     // Hazard: backend resources can still be referenced by queued GPU work.
     // Flush before releasing the runtime's owning pointers so teardown cannot
     // free memory while the device is still reading it.
-    if ( m_renderBackendView.renderBackend )
+    if ( m_renderBackendView.deviceLifecycle )
     {
-        m_renderBackendView.renderBackend->FlushGPU();
+        m_renderBackendView.deviceLifecycle->FlushGPU();
     }
 
     // Lifetime: clean up backend-owned render resources while the current
@@ -356,10 +356,10 @@ void Run::DumpTextureAssets( FILE* out ) const
 
 void Run::LogRenderResourceLifecycleStep( const char* phase, const char* step ) const
 {
-    const SkullbonezCore::Rendering::IRenderBackend* renderBackend = m_renderBackendView.renderBackend;
-    const bool gfxReady = renderBackend != nullptr;
-    const int backendWidth = renderBackend ? renderBackend->GetWidth() : 0;
-    const int backendHeight = renderBackend ? renderBackend->GetHeight() : 0;
+    const SkullbonezCore::Rendering::IRenderDeviceLifecycle* renderLifecycle = m_renderBackendView.deviceLifecycle;
+    const bool gfxReady = renderLifecycle != nullptr;
+    const int backendWidth = renderLifecycle ? renderLifecycle->GetWidth() : 0;
+    const int backendHeight = renderLifecycle ? renderLifecycle->GetHeight() : 0;
     Log().WriteEventf( "render_resource_lifecycle phase=%s step=%s gfx_ready=%d backend_width=%d backend_height=%d "
                        "scene_index=%d load=%d",
                        phase ? phase : "unknown",
@@ -986,12 +986,14 @@ void Run::Initialise()
 {
     assert( m_systems.window );
 
-    assert( m_renderBackendView.renderBackend && "Run requires a render backend before Initialise()" );
-    IRenderBackend& renderBackend = *m_renderBackendView.renderBackend;
-    auto& renderResources = static_cast<SkullbonezCore::Rendering::IRenderResourceFactory&>( renderBackend );
-    auto& renderCommands = static_cast<SkullbonezCore::Rendering::IRenderCommandContext&>( renderBackend );
+    assert( m_renderBackendView.renderResources && "Run requires render resources before Initialise()" );
+    assert( m_renderBackendView.renderCommands && "Run requires render commands before Initialise()" );
+    assert( m_renderBackendView.renderDiagnostics && "Run requires render diagnostics before Initialise()" );
+    auto& renderResources = *m_renderBackendView.renderResources;
+    auto& renderCommands = *m_renderBackendView.renderCommands;
+    const SkullbonezCore::Rendering::IRenderDiagnostics& renderDiagnostics = *m_renderBackendView.renderDiagnostics;
 
-    const char* rendererName = renderBackend.GetRendererName();
+    const char* rendererName = renderDiagnostics.GetRendererName();
     char titleText[256];
     sprintf_s( titleText, "%s [%s] -- LOADING!!!", TITLE_TEXT, rendererName );
     m_systems.window->SetTitleText( titleText );
@@ -1149,7 +1151,7 @@ void Run::LogSceneFinished( const char* reason )
     }
 
     const char* rendererName =
-        m_renderBackendView.renderBackend ? m_renderBackendView.renderBackend->GetRendererName() : "unknown";
+        m_renderBackendView.renderDiagnostics ? m_renderBackendView.renderDiagnostics->GetRendererName() : "unknown";
     m_diagnosticsRuntime.LogSceneFinished( SceneState(), scenePath, rendererName, reason );
 }
 
@@ -1161,7 +1163,7 @@ void Run::BeginPhysicsDiagnosticsRun( const char* scenePath )
         SceneState(),
         m_config,
         scenePath,
-        m_renderBackendView.renderBackend ? m_renderBackendView.renderBackend->GetRendererName() : "unknown" );
+        m_renderBackendView.renderDiagnostics ? m_renderBackendView.renderDiagnostics->GetRendererName() : "unknown" );
 }
 
 

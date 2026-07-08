@@ -29,9 +29,9 @@
 #     shrink as passes receive frame snapshots and narrow services.
 #   Service-global census: Counted access to process-global service helpers and
 #     singleton `Instance()` calls while explicit context rows remove them.
-#   Render-backend aggregate census: Counted use of IRenderBackend and
-#     RenderBackendDX12::Get helper backdoors while narrow render capabilities
-#     replace the wide facade.
+#   Render-backend aggregate tombstone: Blocks the retired IRenderBackend
+#     aggregate and RenderBackendDX12::Get helper backdoors so callers keep
+#     borrowing narrow render capabilities.
 #   Physics collection census: Counted GameModelCollection mentions under
 #     Physics/ while debug and ragdoll rows migrate to explicit store views.
 #   Model-index member census: Counted stored `int *ModelIndex*` header fields
@@ -46,8 +46,8 @@
 #     browsing is blocked while the plan rows remove old accesses.
 #   - Service-global budget records current explicit-service debt; stale
 #     per-file allowance must not approve net-new global lookups.
-#   - Render-backend aggregate budget records current Plan 05 debt; new aggregate
-#     dependencies must choose a narrow render capability or lower the ratchet.
+#   - Render-backend aggregate guardrails block the deleted Plan 05 aggregate;
+#     dependencies must choose a narrow render capability.
 #   - Physics GameModelCollection budget records current Plan 02 debt; new
 #     physics dependencies must choose body/collider/render stores or lower the ratchet.
 #   - Run private member budget records current Plan 01 composition-root debt;
@@ -1020,10 +1020,6 @@ SOURCE_BEARING_SUFFIXES = { ".cpp", ".h", ".hpp", ".inl" }
 # and validation/perf evidence. Everything else should be composition or values.
 APPROVED_INHERITANCE_DECLARATIONS: dict[tuple[Path, str], str] = {
     (
-        Path("SkullbonezSource/Rendering/IRenderBackend.h"),
-        "IRenderBackend",
-    ): "public IRenderDeviceLifecycle, public IRenderResourceFactory, public IRenderCommandContext, public IRenderDiagnostics, public IRenderCaptureBackend",
-    (
         Path("SkullbonezSource/Rendering/DX12/FramebufferDX12.h"),
         "FramebufferDX12",
     ): "public IFramebuffer",
@@ -1034,7 +1030,7 @@ APPROVED_INHERITANCE_DECLARATIONS: dict[tuple[Path, str], str] = {
     (
         Path("SkullbonezSource/Rendering/DX12/RenderBackendDX12.h"),
         "RenderBackendDX12",
-    ): "public IRenderBackend, public IRenderRayTracing",
+    ): "public IRenderDeviceLifecycle, public IRenderResourceFactory, public IRenderCommandContext, public IRenderDiagnostics, public IRenderCaptureBackend, public IRenderRayTracing",
     (
         Path("SkullbonezSource/Rendering/DX12/ShaderDX12.h"),
         "ShaderDX12",
@@ -1496,8 +1492,8 @@ RENDER_BACKEND_AGGREGATE_DEPENDENCY_PATTERNS: tuple[tuple[str, re.Pattern[str], 
     (
         "IRenderBackend",
         re.compile(r"\bIRenderBackend\b|#\s*include\s+[<\"][^>\"]*IRenderBackend\.h[>\"]"),
-        "render backend aggregate dependency is count-guarded",
-        "Pass IRenderCommandContext, IRenderResourceFactory, IRenderDiagnostics, capture, or IRenderRayTracing instead of adding another IRenderBackend dependency.",
+        "deleted render backend aggregate is blocked",
+        "IRenderBackend has been retired; pass IRenderCommandContext, IRenderResourceFactory, IRenderDiagnostics, capture, lifecycle, or IRenderRayTracing directly.",
     ),
     (
         "RenderBackendDX12::Get()",
@@ -1506,28 +1502,11 @@ RENDER_BACKEND_AGGREGATE_DEPENDENCY_PATTERNS: tuple[tuple[str, re.Pattern[str], 
         "Pass a DX12 resource/context owner instead of using the static backend helper backdoor.",
     ),
 )
-# RGRAPH-030: include-aware tracked-source census on 2026-07-07.
-# These budgets are not approval for growth; per-file rows classify remaining
-# render-backend aggregate debt while Plan 05 drains it.
-MAX_IRENDER_BACKEND_DEPENDENCY_CENSUS = 21
+# RGRAPH-030 started as an include-aware census; FAC-001 retired the aggregate.
+# The IRenderBackend budget is now a tombstone and must stay at zero.
+MAX_IRENDER_BACKEND_DEPENDENCY_CENSUS = 0
 MAX_RENDER_BACKEND_DX12_GET_CENSUS = 0
-RENDER_BACKEND_AGGREGATE_DEPENDENCY_ALLOWLIST: Counter[tuple[Path, str]] = Counter(
-    {
-        ( Path(path), label ): count
-        for path, label, count in (
-            ( "SkullbonezSource/Rendering/DX12/RenderBackendDX12.h", "IRenderBackend", 2 ),
-            ( "SkullbonezSource/Rendering/IRenderBackend.h", "IRenderBackend", 4 ),
-            ( "SkullbonezSource/Runtime/Render/RuntimeRenderHost.h", "IRenderBackend", 2 ),
-            ( "SkullbonezSource/Runtime/Run.cpp", "IRenderBackend", 2 ),
-            ( "SkullbonezSource/Runtime/RunInternal.h", "IRenderBackend", 2 ),
-            ( "SkullbonezSource/Runtime/Scene/RunScene.cpp", "IRenderBackend", 3 ),
-            ( "SkullbonezSource/Runtime/Scene/SceneRuntimeGeneratedControls.cpp", "IRenderBackend", 1 ),
-            ( "SkullbonezSource/Runtime/Scene/SceneRuntimeGeneratedControls.h", "IRenderBackend", 2 ),
-            ( "SkullbonezSource/Runtime/Scene/SceneRuntimeLoad.cpp", "IRenderBackend", 1 ),
-            ( "SkullbonezSource/Runtime/Scene/SceneRuntimeLoad.h", "IRenderBackend", 2 ),
-        )
-    }
-)
+RENDER_BACKEND_AGGREGATE_DEPENDENCY_ALLOWLIST: Counter[tuple[Path, str]] = Counter()
 GLOBAL_SERVICE_ACCESS_PATTERNS: tuple[tuple[str, re.Pattern[str], str, str], ...] = (
     (
         "Cfg()",
@@ -7404,6 +7383,8 @@ def check_irender_backend_raytracing_declarations_text(path: Path, text: str) ->
 
 def check_irender_backend_raytracing_declarations(repo: Path) -> list[BoundaryError]:
     path = repo / IRENDER_BACKEND_HEADER
+    if not path.exists():
+        return []
     return check_irender_backend_raytracing_declarations_text(path, path.read_text(encoding="utf-8"))
 
 
@@ -7444,6 +7425,8 @@ def check_irender_backend_aggregate_contract_text(path: Path, text: str) -> list
 
 def check_irender_backend_aggregate_contract(repo: Path) -> list[BoundaryError]:
     path = repo / IRENDER_BACKEND_HEADER
+    if not path.exists():
+        return []
     return check_irender_backend_aggregate_contract_text(path, path.read_text(encoding="utf-8"))
 
 
@@ -9319,7 +9302,7 @@ def run_self_tests() -> list[str]:
     """
     expect_error('IRenderBackend raytracing declaration synthetic surface was not rejected', check_irender_backend_raytracing_declarations_text( Path("synthetic/IRenderBackend.h"), old_irender_backend_raytracing_surface, ), 'raytracing declarations are blocked on IRenderBackend')
 
-    allowed_irender_backend_aggregate = """
+    deleted_irender_backend_aggregate = """
     class IRenderBackend : public IRenderDeviceLifecycle,
                            public IRenderResourceFactory,
                            public IRenderCommandContext,
@@ -9330,7 +9313,15 @@ def run_self_tests() -> list[str]:
         ~IRenderBackend() override = default;
     };
     """
-    expect_clean('allowed IRenderBackend aggregate synthetic surface failed', check_irender_backend_aggregate_contract_text( Path("synthetic/IRenderBackend.h"), allowed_irender_backend_aggregate, ))
+    expect_error(
+        'deleted IRenderBackend aggregate synthetic surface was not rejected',
+        check_render_backend_aggregate_dependency_guardrails_text(
+            Path("synthetic/IRenderBackend.h"),
+            deleted_irender_backend_aggregate,
+            allowlist=Counter(),
+        ),
+        'deleted render backend aggregate is blocked',
+    )
 
     old_irender_backend_raytracing_inheritance = """
     class IRenderBackend : public IRenderDeviceLifecycle,
@@ -9376,12 +9367,10 @@ def run_self_tests() -> list[str]:
     allowed_render_backend_dependency_path = Path("synthetic/AllowedRenderBackend.cpp")
     allowed_render_backend_dependency_allowlist: Counter[tuple[Path, str]] = Counter(
         {
-            ( allowed_render_backend_dependency_path, "IRenderBackend" ): 1,
             ( allowed_render_backend_dependency_path, "RenderBackendDX12::Get()" ): 1,
         }
     )
     allowed_render_backend_dependency = """
-    #include "../Rendering/IRenderBackend.h"
     auto* backend = RenderBackendDX12::Get();
     """
     expect_clean(
@@ -9393,15 +9382,15 @@ def run_self_tests() -> list[str]:
         ),
     )
 
-    duplicate_render_backend_dependency = allowed_render_backend_dependency + "\nIRenderBackend* second = nullptr;"
+    deleted_render_backend_dependency = "IRenderBackend* backend = nullptr;"
     expect_error(
-        'duplicate IRenderBackend synthetic dependency was not rejected',
+        'deleted IRenderBackend synthetic dependency was not rejected',
         check_render_backend_aggregate_dependency_guardrails_text(
             allowed_render_backend_dependency_path,
-            duplicate_render_backend_dependency,
+            deleted_render_backend_dependency,
             allowlist=allowed_render_backend_dependency_allowlist,
         ),
-        'render backend aggregate dependency is count-guarded',
+        'deleted render backend aggregate is blocked',
     )
 
     duplicate_render_backend_get = allowed_render_backend_dependency + "\nauto* second = RenderBackendDX12::Get();"
@@ -9422,14 +9411,14 @@ def run_self_tests() -> list[str]:
             "void Draw( IRenderBackend& backend );",
             allowlist=Counter(),
         ),
-        'render backend aggregate dependency is count-guarded',
+        'deleted render backend aggregate is blocked',
     )
 
     expect_error(
         'render backend aggregate census synthetic surface was not rejected',
         check_render_backend_aggregate_dependency_count_entries(
-            [( allowed_render_backend_dependency_path, "IRenderBackend* a; IRenderBackend* b;" )],
-            max_irender_backend=1,
+            [( allowed_render_backend_dependency_path, "IRenderBackend* a;" )],
+            max_irender_backend=0,
             max_render_backend_dx12_get=0,
         ),
         'render backend aggregate dependency census exceeds ratchet',
@@ -15910,15 +15899,16 @@ def run_self_tests() -> list[str]:
     expect_clean('comment-only PhysicsModelAccess inheritance synthetic text was rejected', check_physics_model_access_inheritance_guardrails_text( Path("SkullbonezSource/GameObjects/GameModelCollection.h"), commented_physics_model_access_inheritance, ))
 
     allowed_renderer_inheritance = """
-    class IRenderBackend : public IRenderDeviceLifecycle,
-                           public IRenderResourceFactory,
-                           public IRenderCommandContext,
-                           public IRenderDiagnostics,
-                           public IRenderCaptureBackend
+    class RenderBackendDX12 : public IRenderDeviceLifecycle,
+                              public IRenderResourceFactory,
+                              public IRenderCommandContext,
+                              public IRenderDiagnostics,
+                              public IRenderCaptureBackend,
+                              public IRenderRayTracing
     {
     };
     """
-    expect_clean('approved renderer inheritance synthetic surface was rejected', check_approved_inheritance_guardrails_text( Path("SkullbonezSource/Rendering/IRenderBackend.h"), allowed_renderer_inheritance, Path("SkullbonezSource/Rendering/IRenderBackend.h"), ))
+    expect_clean('approved renderer inheritance synthetic surface was rejected', check_approved_inheritance_guardrails_text( Path("SkullbonezSource/Rendering/DX12/RenderBackendDX12.h"), allowed_renderer_inheritance, Path("SkullbonezSource/Rendering/DX12/RenderBackendDX12.h"), ))
 
     unapproved_runtime_inheritance = """
     struct RuntimeCaptureSink : public IScreenshotSink

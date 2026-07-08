@@ -29,7 +29,7 @@ Invariants:
     resize.
 
 Related:
-  - SkullbonezSource/Rendering/IRenderBackend.h
+  - SkullbonezSource/Rendering/DX12/RenderBackendDX12.h
   - SkullbonezSource/Runtime/Init.cpp
 */
 #pragma once

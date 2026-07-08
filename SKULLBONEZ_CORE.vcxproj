@@ -468,7 +468,6 @@
     <ClInclude Include="SkullbonezSource\Rendering\IShader.h" />
     <ClInclude Include="SkullbonezSource\Rendering\IMesh.h" />
     <ClInclude Include="SkullbonezSource\Rendering\IFramebuffer.h" />
-    <ClInclude Include="SkullbonezSource\Rendering\IRenderBackend.h" />
     <ClInclude Include="SkullbonezSource\Rendering\IRenderCaptureBackend.h" />
     <ClInclude Include="SkullbonezSource\Rendering\IRenderCommandContext.h" />
     <ClInclude Include="SkullbonezSource\Rendering\IRenderDeviceLifecycle.h" />

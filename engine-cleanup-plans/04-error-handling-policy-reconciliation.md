@@ -1,0 +1,97 @@
+# 04 — Error-Handling Policy Reconciliation
+
+Date: 2026-07-08
+Status: Proposed
+Priority: P1
+Owner: Runtime / Physics / Rendering
+Source issue: audit iss-03 (severity 4)
+
+## Problem
+
+The documented error policy and the code disagree by two orders of magnitude.
+
+Verified evidence:
+
+- [`AGENTS.md`](../AGENTS.md) (Error Handling Policy) states *"Exceptions are
+  banned for new engine code… Any new `throw` is a review failure,"* mandating
+  three lanes: `SB_FATAL` (fatal invariant), `SbResult` (recoverable),
+  `FailAutomation` (probe).
+- Reality (verified greps): **2** `SB_FATAL(` call sites vs **283** `throw`
+  statements across source. The checker's ratchet
+  `MAX_SOURCE_THROW_TOKENS = 294`
+  ([check_runtime_boundaries.py](../tools/check_runtime_boundaries.py)) is frozen
+  at ~today's count — blessing every existing exception as permanent.
+- Throws are the failure path in the very subsystems the policy names first:
+  per-frame loops in `RunFrame`, physics capacity guards in `PhysicsWorld`,
+  `ThrowIfFailed` in the DX12 backend, and even `AllocateOrThrow` inside the
+  allocation-gate file. Unwinding through RAII profiling scopes and the Win32
+  message loop is exactly the robustness/determinism hazard `SB_FATAL` exists to
+  avoid.
+
+A rule contradicted 140:1 by its own code is worse than no rule.
+
+## Goal
+
+Make policy and code agree. Convert throws to the lane that actually fits. **Do
+not track a throw count** — the `MAX_SOURCE_THROW_TOKENS` regex ratchet is
+deleted by plan 03; progress is measured by throws actually converted, not by a
+frozen budget. Where exceptions are genuinely appropriate (external IO at a
+boundary), say so.
+
+## Approach
+
+- [ ] **Phase 0 — Categorize all 283 throws** by lane: F (should-never-happen
+  engine invariant), R (external input/environment: scene/asset/file IO), P
+  (probe/automation assertion).
+- [ ] **Phase 1 — F → `SB_FATAL`.** Convert physics capacity guards and
+  frame-loop invariants. This removes unwinding through the message loop and
+  profiling RAII — the core robustness win.
+- [ ] **Phase 2 — P → `FailAutomation`.** Route replay/interaction probe throws
+  to the machine-readable automation channel with `ok=false` + message.
+- [ ] **Phase 3 — R → `SbResult`.** Convert scene/asset/file IO failures to
+  value-carrying results reported at the boundary.
+- [ ] **Phase 4 — No throw count.** The `MAX_SOURCE_THROW_TOKENS` ratchet is
+  deleted by plan 03. Do not reinstate any budget; verify conversions by
+  `rg "throw "` + review.
+
+## Risks / determinism
+
+Physics throw conversions touch a determinism-critical path — the conversions
+must be behavior-preserving on the success path. Gate with byte-exact physics
+after Phase 1.
+
+## Step-by-step implementation
+
+Do steps in order; validate and commit per step. Physics conversions are
+byte-exact gated.
+
+- [ ] **0.1** `rg -n "throw " SkullbonezSource` and tag each of the ~283 sites in
+  a table as **F** (engine invariant), **R** (external input/IO), or **P**
+  (probe/automation). No code change. Commit the table.
+- [ ] **1.1** Convert **F** sites (physics capacity guards, frame-loop
+  invariants) to `SB_FATAL(owner, ...)`, **one subsystem at a time**. Gate:
+  `validate_physics` for physics, `validate_full` otherwise. Commit per
+  subsystem.
+- [ ] **2.1** Convert **P** sites (replay/interaction probes) to the
+  `FailAutomation(...)` channel with `ok=false` + message. Gate: `validate_full`
+  + replay scrub. Commit.
+- [ ] **3.1** Convert **R** sites (scene/asset/file IO) to `SbResult` reported at
+  the boundary, **one boundary at a time**. Gate: `validate_full`. Commit.
+- [ ] **4.1** Do **not** maintain any throw count. The `MAX_SOURCE_THROW_TOKENS`
+  ratchet is deleted by plan 03. Verify progress by re-running
+  `rg -n "throw " SkullbonezSource` and confirming the F/R/P sites are converted;
+  build + review are the gate. No regex budget is reinstated.
+
+## Validation
+
+`tools\validate_full.bat`; `tools\validate_physics.bat` for the physics
+conversions (byte-exact).
+
+## Acceptance (measurable)
+
+- [ ] `throw` count materially reduced from 283; `SB_FATAL` is the mechanism for
+  engine invariants (well above 2 sites).
+- [ ] No `throw` remains in per-frame hot loops or the DX12 present path.
+- [ ] No throw count is tracked anywhere (no regex ratchet reinstated);
+  conversions are verified by grep + review.
+- [ ] `AGENTS.md` describes the lanes the code actually uses.

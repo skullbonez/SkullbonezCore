@@ -44,8 +44,9 @@ Related:
 #include "../../Physics/Ragdoll.h"
 #include "../../Core/SbResult.h"
 #include "../../Core/WorkerPool.h"
-#include "../../Rendering/IRenderBackend.h"
+#include "../../Rendering/IRenderDeviceLifecycle.h"
 #include "../../Rendering/IRenderRayTracing.h"
+#include "../../Rendering/IRenderResourceFactory.h"
 
 #pragma warning( push, 0 )
 #include "../../../ThirdPtySource/nlohmann/json.hpp"
@@ -365,15 +366,19 @@ SbResult UseDefaultTerrain( RunSubsystemState& systems,
                             WorldEnvironment& world,
                             const EngineConfig& config,
                             const std::string& terrainRawPath,
-                            IRenderBackend* renderer )
+                            SkullbonezCore::Rendering::IRenderDeviceLifecycle* renderLifecycle,
+                            SkullbonezCore::Rendering::IRenderResourceFactory* renderResources )
 {
-    assert( renderer );
-    auto& renderResources = static_cast<SkullbonezCore::Rendering::IRenderResourceFactory&>( *renderer );
+    assert( renderResources );
+    if ( !renderResources )
+    {
+        return SbResult::Failure( "Runtime/RunScene", "Renderer resource factory unavailable for terrain load." );
+    }
     if ( !systems.terrain || systems.isFlatSlopeTerrain )
     {
-        if ( renderer )
+        if ( renderLifecycle )
         {
-            renderer->FlushGPU();
+            renderLifecycle->FlushGPU();
         }
         std::unique_ptr<Terrain> terrain;
         const SbResult terrainResult = Terrain::TryCreateFromHeightMap( terrainRawPath.c_str(),
@@ -395,7 +400,7 @@ SbResult UseDefaultTerrain( RunSubsystemState& systems,
     }
     else
     {
-        systems.terrain->BindRenderContexts( config, systems.assets, renderResources );
+        systems.terrain->BindRenderContexts( config, systems.assets, *renderResources );
     }
 
     UpdateWorldTerrainBounds( world, systems.terrain.get() );
@@ -408,15 +413,19 @@ void UseFlatSlopeTerrain( RunSubsystemState& systems,
                           float baseY,
                           float slopeX,
                           float slopeZ,
-                          IRenderBackend* renderer )
+                          SkullbonezCore::Rendering::IRenderDeviceLifecycle* renderLifecycle,
+                          SkullbonezCore::Rendering::IRenderResourceFactory* renderResources )
 {
-    assert( renderer );
-    auto& renderResources = static_cast<SkullbonezCore::Rendering::IRenderResourceFactory&>( *renderer );
-    if ( renderer )
+    assert( renderResources );
+    if ( !renderResources )
     {
-        renderer->FlushGPU();
+        return;
     }
-    systems.terrain = std::make_unique<Terrain>( baseY, slopeX, slopeZ, config, systems.assets, renderResources );
+    if ( renderLifecycle )
+    {
+        renderLifecycle->FlushGPU();
+    }
+    systems.terrain = std::make_unique<Terrain>( baseY, slopeX, slopeZ, config, systems.assets, *renderResources );
     systems.isFlatSlopeTerrain = true;
 
     UpdateWorldTerrainBounds( world, systems.terrain.get() );
@@ -635,7 +644,7 @@ SbResult Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnCom
     SceneRuntimeLoadBeginContext loadBeginContext{ runtime,
                                                    resetContext,
                                                    m_sceneController.Browser(),
-                                                   m_renderBackendView.renderBackend,
+                                                   m_renderBackendView.deviceLifecycle,
                                                    m_launchOptions.interactiveSceneRun };
 #ifdef _DEBUG
     EndPhysicsDiagnosticsRun( "scene_reload" );
@@ -752,7 +761,8 @@ SbResult Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnCom
             m_cWorldEnvironment,
             m_config,
             ResolveSourceAssetPath( SkullbonezCore::Assets::AssetKind::Terrain, "terrain.raw", m_config.terrainRaw ),
-            m_renderBackendView.renderBackend );
+            m_renderBackendView.deviceLifecycle,
+            m_renderBackendView.renderResources );
         if ( !terrainResult.ok )
         {
             m_lastSceneLoadResult = terrainResult;
@@ -923,7 +933,8 @@ SbResult Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnCom
                                  scene.GetFlatBaseY(),
                                  scene.GetFlatSlopeX(),
                                  scene.GetFlatSlopeZ(),
-                                 m_renderBackendView.renderBackend );
+                                 m_renderBackendView.deviceLifecycle,
+                                 m_renderBackendView.renderResources );
         }
         else
         {
@@ -935,7 +946,8 @@ SbResult Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnCom
                                    ResolveSourceAssetPath( SkullbonezCore::Assets::AssetKind::Terrain,
                                                            "terrain.raw",
                                                            m_config.terrainRaw ),
-                                   m_renderBackendView.renderBackend );
+                                   m_renderBackendView.deviceLifecycle,
+                                   m_renderBackendView.renderResources );
             if ( !terrainResult.ok )
             {
                 m_lastSceneLoadResult = terrainResult;

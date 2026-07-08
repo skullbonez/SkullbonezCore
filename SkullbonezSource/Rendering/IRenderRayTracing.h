@@ -7,7 +7,7 @@ Mental model:
   Most runtime rendering needs an ordinary raster device. DXR reflection is a
   separate capability with its own acceleration structures, writeable reflection
   texture, and mesh geometry addresses. Callers that only need reflection rays
-  should depend on this interface instead of the full render backend facade.
+  should depend on this interface instead of the concrete render backend owner.
 
 Glossary:
   DXR (DirectX Raytracing): DX12 API used for hardware ray traversal and reflection dispatch.
@@ -22,7 +22,7 @@ Invariants:
   - Texture handles returned here are engine texture handles, not native DX12 descriptors.
 
 Related:
-  - SkullbonezSource/Rendering/IRenderBackend.h
+  - SkullbonezSource/Rendering/IRenderDiagnostics.h
   - SkullbonezSource/Rendering/DX12/RenderBackendDX12.DXR.cpp
   - Agentic/Reference/comment-style-guide.md
 */
@@ -42,7 +42,7 @@ namespace Rendering
     Narrow renderer capability for the DXR-backed water reflection path.
     The method names intentionally retain the current DXR vocabulary while this
     subsystem is still DX12-only; the important boundary is that non-raytracing
-    callers no longer receive these functions through IRenderBackend.
+    callers receive these functions only through the optional raytracing facet.
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 class IRenderRayTracing
 {

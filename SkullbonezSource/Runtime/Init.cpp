@@ -2973,7 +2973,6 @@ std::unique_ptr<RenderBackendDX12> InitRenderBackend( Window* window, RuntimeRen
     // render code keeps borrowed capability facets in RuntimeRenderBackendView
     // and must let them die before shutdown resets the owner.
     RenderBackendDX12* renderBackend = backend.get();
-    renderBackendView.renderBackend = renderBackend;
     renderBackendView.deviceLifecycle = renderBackend;
     renderBackendView.renderCommands = renderBackend;
     renderBackendView.renderResources = renderBackend;

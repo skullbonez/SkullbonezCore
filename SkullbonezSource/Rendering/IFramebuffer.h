@@ -48,7 +48,7 @@ enum class FramebufferColorFormat
 
     Engine-facing off-screen render target interface. The DX12 implementation
     owns the RTV/DSV descriptors, while callers pass only opaque texture handles
-    back into IRenderBackend::BindTexture().
+    back into IRenderCommandContext::BindTexture().
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 class IFramebuffer
 {

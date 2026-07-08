@@ -43,7 +43,7 @@ class Terrain;
 }
 namespace Rendering
 {
-class IRenderBackend;
+class IRenderDeviceLifecycle;
 }
 namespace Basics
 {
@@ -63,7 +63,7 @@ struct SceneRuntimeGeneratedControlContext
     GameObjects::GameModelCollection& models;
     SimulationController& simulation;
     RuntimeTools& tools;
-    Rendering::IRenderBackend* renderer = nullptr;
+    Rendering::IRenderDeviceLifecycle* renderLifecycle = nullptr;
     GeneratedObjectTypeOverride objectTypeOverride = GeneratedObjectTypeOverride::Mixed;
     int modelCapacity = 0;
 };
