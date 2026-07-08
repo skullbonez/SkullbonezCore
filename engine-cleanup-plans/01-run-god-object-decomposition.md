@@ -242,6 +242,18 @@ every step. Commit per step.
     project filters/runtime boundaries passed, Profile/Debug builds had 0 warnings
     and 0 errors, DX12 InfoQueue errors = 0, screenshots matched baselines, and
     `physics_regression_solver.csv` matched byte-exactly).
+  - [x] Diagnostics/visualization keyboard group (1/2/3/4/5/6/C/G/O/P/Q/F7/F8/V)
+    now dispatches through the same table loop for water debug modes, terrain and
+    water visibility, collision visualization, physics debug overlays, physics
+    pipeline stepping, cross-scene pause lock, the retired renderer-switch report,
+    and broadphase overlay/track cycling. Non-diagnostics actions remain on
+    existing branches, so this does not complete step 1.3. Gate evidence:
+    `TestOutput\agent_logs\plan01_step1_3_diagnostics_interaction_clicks.log`
+    (14.4s, both interaction reports `ok=1`) and
+    `TestOutput\agent_logs\plan01_step1_3_diagnostics_validate_full.log` (50.6s;
+    project filters/runtime boundaries passed, Profile/Debug builds had 0 warnings
+    and 0 errors, DX12 InfoQueue errors = 0, screenshots matched baselines, and
+    `physics_regression_solver.csv` matched byte-exactly).
 - [ ] **1.4** Confirm `TakeInput()` is under ~200 lines (setup + dispatch loop).
 
 ### Phase 2 — Move state shelves out of `RunState`
