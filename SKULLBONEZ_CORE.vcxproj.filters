@@ -977,6 +977,9 @@
     <ClInclude Include="SkullbonezSource\Physics\TornadoField.h">
       <Filter>Header Files\Physics</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\WindowConstants.h">
+      <Filter>Header Files\Runtime</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Window.h">
       <Filter>Header Files\Runtime</Filter>
     </ClInclude>

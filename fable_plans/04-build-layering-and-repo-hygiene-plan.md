@@ -1,7 +1,7 @@
 # Build Layering And Repo Hygiene Plan
 
 Date: 2026-07-06
-Status: Phase 1 repo hygiene complete on 2026-07-07; Phase 2 L1-L4 Maths library extraction complete on 2026-07-08; Phase 3 C1-C3 domain header splits complete; remaining Common.h split and later library layering phases pending
+Status: Phase 1 repo hygiene complete on 2026-07-07; Phase 2 L1-L4 Maths library extraction complete on 2026-07-08; Phase 3 C1-C4 domain header splits complete; remaining Common.h split and later library layering phases pending
 Impact area: build system, file organization, git hygiene; no behavior change
 Validation for this document: none (documentation-only)
 

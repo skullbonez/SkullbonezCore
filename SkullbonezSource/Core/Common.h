@@ -13,6 +13,8 @@ Glossary:
     Maths/MathsCommon.h during the Common.h aliasing period.
   Asset keys: Legacy string hashes owned by Assets/AssetKeys.h during the
     Common.h aliasing period.
+  Window constants: Process window labels and data-root string owned by
+    Runtime/WindowConstants.h during the Common.h aliasing period.
   Physics timestep: Fixed-step physics constants owned by
     Physics/PhysicsTimestep.h during the Common.h aliasing period.
   Scene capacity: Fixed model/camera/texture ceilings owned by
@@ -65,6 +67,7 @@ Related:
 #include <memory>    // std::unique_ptr
 #include <algorithm> // std::clamp, std::min, std::max
 #include "../Assets/AssetKeys.h"
+#include "../Runtime/WindowConstants.h"
 #include "../Maths/MathsCommon.h"
 #include "../GameObjects/SceneCapacity.h"
 #include "../Physics/PhysicsTimestep.h"
@@ -73,11 +76,6 @@ Related:
 #define CRTDBG_MAP_ALLOC // must precede crtdbg.h to redirect malloc → _malloc_dbg
 #include <crtdbg.h>
 #endif
-
-// Window labels
-constexpr const char* WINDOW_NAME = "SkullbonezWindow";
-constexpr const char* TITLE_TEXT = "::SKULLBONEZ CORE::";
-constexpr const char* DATA_ROOT = "SkullbonezData/";
 
 // All other engine parameters live in EngineConfig (loaded from engine.cfg).
 #include "Config.h"

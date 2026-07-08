@@ -226,6 +226,7 @@ RUNTIME_PREFIXES = (
     "RuntimeTuning",
     "RuntimeViewModel",
     "SimulationController",
+    "WindowConstants",
     "Window",
 )
 

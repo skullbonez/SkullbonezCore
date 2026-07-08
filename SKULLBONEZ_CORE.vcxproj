@@ -428,6 +428,7 @@
     <ClInclude Include="SkullbonezSource\Assets\TextureCollection.h" />
     <ClInclude Include="SkullbonezSource\Core\Timer.h" />
     <ClInclude Include="SkullbonezSource\Physics\TornadoField.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\WindowConstants.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Window.h" />
     <ClInclude Include="SkullbonezSource\Core\WorkerPool.h" />
     <ClInclude Include="SkullbonezSource\World\WorldEnvironment.h" />

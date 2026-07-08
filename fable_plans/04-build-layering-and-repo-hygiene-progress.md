@@ -1,7 +1,7 @@
 # Progress: Build Layering And Repo Hygiene (plan 04)
 
 Source plan: `fable_plans/04-build-layering-and-repo-hygiene-plan.md`
-Status: phase 1 complete on 2026-07-07; phase 2 L1-L4 Maths library extraction complete on 2026-07-08; phase 3 C1-C3 Common.h domain header splits complete
+Status: phase 1 complete on 2026-07-07; phase 2 L1-L4 Maths library extraction complete on 2026-07-08; phase 3 C1-C4 Common.h domain header splits complete
 Last updated: 2026-07-08
 
 ## How to work this file
@@ -29,15 +29,15 @@ Last updated: 2026-07-08
   `GeometricStructures.h` reaches it through `Vector3.h`; no Maths include
   directive pulls `../Core/Common.h`, `<windows.h>`, `Config.h`, `Log.h`, or
   `ZeroMemory`.
-- `Core/Common.h` (95 lines after C3) content map - it is included by
-  ~everything and still transitively drags `<windows.h>` (line 59, with
-  WIN32_LEAN_AND_MEAN), `Config.h` + `Log.h` (lines 83-84), and `<stdexcept>`
-  (line 64). It includes `../Assets/AssetKeys.h`, `../Maths/MathsCommon.h`,
+- `Core/Common.h` (93 lines after C4) content map - it is included by
+  ~everything and still transitively drags `<windows.h>` (line 61, with
+  WIN32_LEAN_AND_MEAN), `Config.h` + `Log.h` (lines 81-82), and `<stdexcept>`
+  (line 66). It includes `../Assets/AssetKeys.h`,
+  `../Runtime/WindowConstants.h`, `../Maths/MathsCommon.h`,
   `../GameObjects/SceneCapacity.h`, and `../Physics/PhysicsTimestep.h` during
   the aliasing period:
-  - Lines 57-75: windows.h + CRT/platform/domain includes + crtdbg - PLATFORM
+  - Lines 59-78: windows.h + CRT/platform/domain includes + crtdbg - PLATFORM
     or aliasing includes, not common.
-  - 77-80: WINDOW_NAME, TITLE_TEXT, DATA_ROOT - runtime/window.
   - `GameObjects/SceneCapacity.h` (38 lines) now owns TOTAL_CAMERA_COUNT,
     TOTAL_TEXTURE_COUNT, DEFAULT_GAME_MODEL_CAPACITY, MAX_GAME_MODELS, and
     DEFAULT_GAME_MODELS.
@@ -47,10 +47,12 @@ Last updated: 2026-07-08
     _PI/_2PI/_HALF_PI, fraction constants, and the math/collision tolerances.
   - `Assets/AssetKeys.h` (50 lines) now owns HashStr plus TEXTURE_* and
     CAMERA_* hash constants.
-  - 83-84: `#include "Config.h"` + `#include "Log.h"` - the global-service
+  - `Runtime/WindowConstants.h` (33 lines) now owns WINDOW_NAME, TITLE_TEXT,
+    and DATA_ROOT.
+  - 81-82: `#include "Config.h"` + `#include "Log.h"` - the global-service
     leak (plan 02 owns deleting Cfg; this plan owns un-nesting the includes).
-  - 86-89: ActiveGameModelCapacity(config) - scene capacity policy.
-  - 91-95: Log() accessor - sanctioned global (plan 02).
+  - 84-87: ActiveGameModelCapacity(config) - scene capacity policy.
+  - 89-93: Log() accessor - sanctioned global (plan 02).
 - `RunInput.cpp` (3,580 lines) function inventory groups cleanly:
   - Input routing/commands: BuildRuntimeInputSnapshot(:564),
     RouteRuntimePointerInput(:613), ExecuteRuntimeInteractionCommand(:1009),
@@ -315,8 +317,27 @@ Last updated: 2026-07-08
   runtime boundaries at 0 errors, Profile/Debug builds at 0 warnings/errors,
   DX12 validation errors 0, screenshots matching committed baselines, and
   `physics_regression_solver.csv` byte-exact.
-- [ ] C4. WINDOW_NAME/TITLE_TEXT/DATA_ROOT → `Runtime/WindowConstants.h`.
+- [x] C4. WINDOW_NAME/TITLE_TEXT/DATA_ROOT → `Runtime/WindowConstants.h`.
   Gate: `validate_fast`.
+
+  Evidence (2026-07-08): Added
+  `SkullbonezSource/Runtime/WindowConstants.h` for `WINDOW_NAME`,
+  `TITLE_TEXT`, and `DATA_ROOT`. `Core/Common.h` now keeps only the alias
+  include during the Common.h split period. `SKULLBONEZ_CORE.vcxproj` and
+  `.filters` list the new header under Runtime, and
+  `tools/validate_project_filters.py` recognizes `WindowConstants` in the
+  Runtime header rule set. Touched-file comment audit inspected
+  `WindowConstants.h`, `Common.h`, and `tools/validate_project_filters.py` with
+  0 deferred; no separate checklist file was required for the touched-file pass.
+
+  Validation (2026-07-08): `python tools\validate_project_filters.py --repo .`
+  passed in 00:00:00.9377426 with 0 errors across 562 project/filter items.
+  `tools\validate_fast.bat` passed in 00:01:04.8565178 with
+  `VALIDATE_FAST: ALL PASSED`. Because `Common.h` changed,
+  `tools\validate_full.bat` was also run and passed in 00:00:45.3918458 with
+  runtime boundaries at 0 errors, Profile/Debug builds at 0 warnings/errors,
+  DX12 validation errors 0, screenshots matching committed baselines, and
+  `physics_regression_solver.csv` byte-exact.
 - [ ] C5. End state: Common.h = platform includes + crtdbg + includes of the
   new domain headers (alias period), with a header comment scheduling each
   alias's deletion. The `#include "Config.h"/"Log.h"` lines move OUT of
