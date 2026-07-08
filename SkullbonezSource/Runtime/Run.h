@@ -28,7 +28,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/Run.cpp
-  - SkullbonezSource/Runtime/RunState.h
+  - SkullbonezSource/Runtime/RunSubsystemState.h
   - SkullbonezSource/Runtime/Render/RuntimeRenderResources.h
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/comment-style-guide.md
@@ -60,7 +60,7 @@ Related:
 #include "RunReplayProbeState.h"
 #include "RunCameraState.h"
 #include "RunRuntimeSettings.h"
-#include "RunState.h"
+#include "RunSubsystemState.h"
 #include "RunInteractionAutomationState.h"
 #include "RunStartupState.h"
 #include "RunTimerState.h"

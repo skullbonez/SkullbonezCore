@@ -827,7 +827,7 @@
     <ClInclude Include="SkullbonezSource\Runtime\RunRuntimeSettings.h">
       <Filter>Header Files\Runtime</Filter>
     </ClInclude>
-    <ClInclude Include="SkullbonezSource\Runtime\RunState.h">
+    <ClInclude Include="SkullbonezSource\Runtime\RunSubsystemState.h">
       <Filter>Header Files\Runtime</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\RunStartupState.h">

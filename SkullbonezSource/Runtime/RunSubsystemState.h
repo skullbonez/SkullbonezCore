@@ -1,45 +1,45 @@
 /*
-File: SkullbonezSource/Runtime/RunState.h
+File: SkullbonezSource/Runtime/RunSubsystemState.h
 Purpose:
-  Defines the remaining Run-owned subsystem aggregate shared by split runtime files.
+  Owns Run's process-lifetime subsystem services and render pass resource shelf.
 
 Mental model:
-  Run remains the composition root, but this staging header is shrinking toward
-  empty as narrower owners claim their state shelves. New feature state should
-  go to the owner that mutates it instead of growing this shared boundary.
+  Run is still the composition root. This aggregate groups the long-lived
+  assets, cameras, textures, terrain, skybox, and render pass resources that
+  split runtime files borrow during frame, scene, and render work. The raw
+  pointers are aliases into the owned members or startup-owned services.
 
 Glossary:
-  State shelf: Run-owned aggregate that groups related fields while split
-  implementation files are being decomposed.
   Borrowed subsystem pointer: Non-owning pointer to state owned elsewhere in
-    the Run composition root.
+    Run or the startup layer; callers must not retain it past the owner.
   Render pass resources: Long-lived GPU/pass owner storage lazily recreated by
     the render host when size or shader contracts change.
+  Startup service: Window, worker pool, or config object supplied by Runtime/Init
+    and bound once before the frame loop starts.
 
 Invariants:
-  - Owning state should use value members or smart pointers; raw pointers here
-    are borrowed subsystem links and must be validated before use.
-  - Settings that affect deterministic physics must be synchronized through the
-    explicit helpers instead of being read independently by multiple owners.
+  - `cameraCollection`, `textureCollection`, `terrain`, `skyBoxOwner`, and
+    `renderPasses` are the owning members; pointer fields are aliases only.
+  - BindStartupServices must run before frame/update code samples window,
+    worker, config, or camera movement policy.
 
 Related:
   - SkullbonezSource/Runtime/Run.h
   - SkullbonezSource/Runtime/RunInternal.h
-  - Agentic/Plans/runtime-run-decomposition-plan.md
+  - SkullbonezSource/Runtime/Render/RuntimeRenderer.h
+  - engine-cleanup-plans/01-run-god-object-decomposition.md
 */
 #pragma once
 
 #include "../Assets/AssetSystem.h"
 #include "../Assets/TextureCollection.h"
-#include "../Core/Common.h"
 #include "../Core/Config.h"
 #include "../World/SkyBox.h"
+#include "../World/Terrain.h"
 #include "CameraCollection.h"
 #include "Render/RuntimeRenderResources.h"
 
 #include <memory>
-#include <string>
-#include <vector>
 
 namespace SkullbonezCore
 {

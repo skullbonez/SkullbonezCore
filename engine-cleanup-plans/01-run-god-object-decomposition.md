@@ -20,11 +20,10 @@ Verified evidence:
   L1576→~3240 (**~1,664 lines**; next member `DrainRuntimeCommands` at L3241),
   hand-branching every key and poking 25+ subsystem members with no
   keybinding/command table.
-- [`RunState.h`](../SkullbonezSource/Runtime/RunState.h) is a shared "state
-  shelf" whose own header (L9-10) concedes it is *"a staging boundary, not a
-  destination,"* aggregating 250+ mutable public fields reached directly from
-  across the Run files (e.g. `m_camera.autoCycleAccum += simulationDt` in
-  `RunFrame.cpp`).
+- The former `RunState.h` shared "state shelf" aggregated 250+ mutable public
+  fields reached directly from across the Run files (for example,
+  `m_camera.autoCycleAccum += simulationDt` in `RunFrame.cpp`). Phase 2 has now
+  deleted that staging header and moved its shelves into narrower owner headers.
 
 This is the flagship amateur symptom of the codebase.
 
@@ -44,7 +43,7 @@ hold their own state behind narrow APIs.
   contexts; }`. A single dispatch loop maps pressed keys → actions; each action
   handler lives in its owning subsystem. This one change removes the 1,664-line
   function.
-- [ ] **Phase 2 — Move state shelves out of `RunState`.** Relocate each shelf's
+- [x] **Phase 2 — Move state shelves out of `RunState`.** Relocate each shelf's
   fields into the owner that mutates them; `RunState` shrinks toward empty.
   Delete cross-subsystem field pokes.
 - [ ] **Phase 3 — Shrink `Run`.** Reduce it to `Initialise` / `Run` / `Shutdown`
@@ -1211,6 +1210,33 @@ every step. Commit per step.
     (42.8s), and
     `TestOutput\agent_logs\plan01_camera_state_shelf_diff_check.log`
     (0.3s; whitespace clean, with Git line-ending warnings for project XML).
+  - [x] Subsystem/render-resource shelf moved from `RunState.h` into
+    `RunSubsystemState.h`, and `RunState.h` was deleted. The new header owns the
+    process-lifetime asset, texture, camera, terrain, skybox, startup-service
+    borrows, and render pass resource shelf. `Run` still stores `m_systems`, but
+    there are no remaining source/project includes of `RunState.h`. The Visual
+    Studio project/filter metadata and `tools\validate_project_filters.py`
+    guardrail now recognize `RunSubsystemState.h`; source comments that pointed
+    at `RunState.h` now name the narrower headers. The touched-file comment
+    audit added the subsystem-state learning header and verified the edited
+    source/header comments. Gate evidence:
+    `TestOutput\agent_logs\plan01_subsystem_state_shelf_validate_full.log`
+    (48.1s; project filters/runtime boundaries passed, Profile/Debug builds had
+    0 warnings and 0 errors, DX12 InfoQueue errors = 0, screenshots matched
+    baselines, and `physics_regression_solver.csv` matched byte-exactly).
+    Targeted pre-gate checks also passed:
+    `TestOutput\agent_logs\plan01_subsystem_state_shelf_build_profile.log`
+    (10.6s),
+    `TestOutput\agent_logs\plan01_subsystem_state_shelf_validate_format.log`
+    (9.4s),
+    `TestOutput\agent_logs\plan01_subsystem_state_shelf_runtime_boundaries.log`
+    (17.7s),
+    `TestOutput\agent_logs\plan01_subsystem_state_shelf_project_filters_initial.log`
+    (1.1s),
+    `TestOutput\agent_logs\plan01_subsystem_state_shelf_validate_fast.log`
+    (43.2s), and
+    `TestOutput\agent_logs\plan01_subsystem_state_shelf_diff_check.log`
+    (0.2s; whitespace clean, with Git line-ending warnings for project XML).
 
 ### Phase 3 — Shrink `Run`
 
@@ -1229,6 +1255,6 @@ after each phase.
   dispatch loop.
 - [ ] `Run` public-method and owned-member counts drop materially from the
   audit baseline (~60 public methods, ~40 members).
-- [ ] `RunState` field count is measurably reduced; no external file mutates a
+- [x] `RunState` field count is measurably reduced; no external file mutates a
   `RunState` sub-field directly.
 - [ ] `Run` no longer implements subsystem logic — it coordinates owners.

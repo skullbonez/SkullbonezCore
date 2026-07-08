@@ -27,13 +27,13 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/RunDemoDirector.cpp
   - SkullbonezSource/Runtime/RunCameraState.h
-  - SkullbonezSource/Runtime/RunState.h
+  - SkullbonezSource/Runtime/RunSubsystemState.h
   - fable_plans/08-demo-director-progress.md
 */
 #pragma once
 
 #include "RunCameraState.h"
-#include "RunState.h"
+#include "RunSubsystemState.h"
 
 namespace SkullbonezCore
 {

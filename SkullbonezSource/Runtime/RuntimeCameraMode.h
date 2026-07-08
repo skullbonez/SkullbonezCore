@@ -22,7 +22,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/RunInput.cpp
-  - SkullbonezSource/Runtime/RunState.h
+  - SkullbonezSource/Runtime/RunCameraState.h
   - SkullbonezSource/Runtime/RuntimeInteractionController.h
 */
 #pragma once
