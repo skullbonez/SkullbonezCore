@@ -3138,12 +3138,31 @@ void Run::TakeInput()
         return;
     }
 
-    HandleEditorSaveHotkeys( { m_runtimeInput,
-                               m_cGameModelCollection,
-                               SceneState(),
-                               m_cWorldEnvironment,
-                               *m_systems.cameras,
-                               m_runtimeCommands } );
+    const RunInternal::EditorSaveHotkeyContext editorSaveHotkeyContext{ m_runtimeInput,
+                                                                        m_cGameModelCollection,
+                                                                        SceneState(),
+                                                                        m_cWorldEnvironment,
+                                                                        *m_systems.cameras,
+                                                                        m_runtimeCommands };
+    auto dispatchCaptureKeyboardAction = [&editorSaveHotkeyContext]( const RuntimeInputKeyBinding& binding ) -> bool
+    {
+        switch ( binding.action )
+        {
+        case RuntimeInputAction::SaveSceneSnapshot:
+        case RuntimeInputAction::SaveScreenshot:
+            RunInternal::HandleEditorSaveHotkey( editorSaveHotkeyContext, binding.action, binding.virtualKey );
+            return true;
+        default:
+            return false;
+        }
+    };
+    for ( std::size_t i = 0; i < kTakeInputKeyboardBindingCount; ++i )
+    {
+        if ( ( kTakeInputKeyboardBindings[i].contexts & kCaptureContext ) != 0 )
+        {
+            dispatchCaptureKeyboardAction( kTakeInputKeyboardBindings[i] );
+        }
+    }
 
     auto dispatchLateKeyboardAction = [this]( const RuntimeInputKeyBinding& binding ) -> bool
     {

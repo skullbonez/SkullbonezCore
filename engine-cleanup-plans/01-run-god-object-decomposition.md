@@ -303,15 +303,27 @@ every step. Commit per step.
     project filters/runtime boundaries passed, Profile/Debug builds had 0 warnings
     and 0 errors, DX12 InfoQueue errors = 0, screenshots matched baselines, and
     `physics_regression_solver.csv` matched byte-exactly).
-  - [x] Late reset keyboard group (R/Backspace) now dispatches through a
-    table-filtered late loop at the original post-save-hotkey location, preserving
-    the scene-mode-only Backspace alias. Gate evidence:
-    `TestOutput\agent_logs\plan01_step1_3_reset_interaction_clicks.log` (20.0s,
-    both interaction reports `ok=1`) and
-    `TestOutput\agent_logs\plan01_step1_3_reset_validate_full.log` (50.5s;
-    project filters/runtime boundaries passed, Profile/Debug builds had 0 warnings
-    and 0 errors, DX12 InfoQueue errors = 0, screenshots matched baselines, and
-    `physics_regression_solver.csv` matched byte-exactly).
+	  - [x] Late reset keyboard group (R/Backspace) now dispatches through a
+	    table-filtered late loop at the original post-save-hotkey location, preserving
+	    the scene-mode-only Backspace alias. Gate evidence:
+	    `TestOutput\agent_logs\plan01_step1_3_reset_interaction_clicks.log` (20.0s,
+	    both interaction reports `ok=1`) and
+	    `TestOutput\agent_logs\plan01_step1_3_reset_validate_full.log` (50.5s;
+	    project filters/runtime boundaries passed, Profile/Debug builds had 0 warnings
+	    and 0 errors, DX12 InfoQueue errors = 0, screenshots matched baselines, and
+	    `physics_regression_solver.csv` matched byte-exactly).
+	  - [x] Capture keyboard group (F2/F3) now dispatches through a capture-context
+	    table loop at the original post-UI location. The table supplies the key/action
+	    pair, while `EditorTools` still owns the scene-snapshot and screenshot command
+	    side effects through a single-action helper. Gate evidence:
+	    `TestOutput\agent_logs\plan01_step1_3_capture_interaction_clicks.log` (23.4s,
+	    both interaction reports `ok=1`) and
+	    `TestOutput\agent_logs\plan01_step1_3_capture_validate_full.log` (53.4s;
+	    project filters/runtime boundaries passed, Profile/Debug builds had 0 warnings
+	    and 0 errors, DX12 InfoQueue errors = 0, screenshots matched baselines, and
+	    `physics_regression_solver.csv` matched byte-exactly). An earlier
+	    `validate_full` attempt failed on `EditorTools.cpp` formatting only; the
+	    touched C++ files were formatted narrowly with clang-format before the rerun.
 - [ ] **1.4** Confirm `TakeInput()` is under ~200 lines (setup + dispatch loop).
 
 ### Phase 2 — Move state shelves out of `RunState`

@@ -368,10 +368,19 @@ SelectEditorObjectType( EditorGizmoContext context, int requestedObjectType, boo
 }
 
 
-void HandleEditorSaveHotkeys( EditorSaveHotkeyContext context )
+void HandleEditorSaveHotkey( EditorSaveHotkeyContext context, RuntimeInputAction action, int virtualKey )
 {
-    if ( InputController::CaptureKeyboardActionPress( context.input, RuntimeInputAction::SaveSceneSnapshot, VK_F2 ) )
+    // Why: the binding table owns the key/action pair, while editor tools keep
+    // numbered snapshot paths and screenshot commands behind the editor boundary.
+    switch ( action )
     {
+    case RuntimeInputAction::SaveSceneSnapshot:
+    {
+        if ( !InputController::CaptureKeyboardActionPress( context.input, action, virtualKey ) )
+        {
+            return;
+        }
+
         static int sSnapshotSeq = 0;
         char path[256] = {};
         if ( RuntimeFileWriter::NextNumberedPath( path,
@@ -390,10 +399,16 @@ void HandleEditorSaveHotkeys( EditorSaveHotkeyContext context )
                                               context.cameras.GetCameraView(),
                                               context.cameras.GetCameraUp() );
         }
+        return;
     }
 
-    if ( InputController::CaptureKeyboardActionPress( context.input, RuntimeInputAction::SaveScreenshot, VK_F3 ) )
+    case RuntimeInputAction::SaveScreenshot:
     {
+        if ( !InputController::CaptureKeyboardActionPress( context.input, action, virtualKey ) )
+        {
+            return;
+        }
+
         static int sScreenshotSeq = 0;
         char path[256] = {};
         if ( RuntimeFileWriter::NextNumberedPath( path,
@@ -408,7 +423,19 @@ void HandleEditorSaveHotkeys( EditorSaveHotkeyContext context )
             command.text = path;
             context.commands.Push( std::move( command ) );
         }
+        return;
     }
+
+    default:
+        return;
+    }
+}
+
+
+void HandleEditorSaveHotkeys( EditorSaveHotkeyContext context )
+{
+    HandleEditorSaveHotkey( context, RuntimeInputAction::SaveSceneSnapshot, VK_F2 );
+    HandleEditorSaveHotkey( context, RuntimeInputAction::SaveScreenshot, VK_F3 );
 }
 } // namespace RunInternal
 } // namespace Basics

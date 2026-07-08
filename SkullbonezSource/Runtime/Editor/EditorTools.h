@@ -323,6 +323,9 @@ void UpdateEditorGizmoHotAxes( EditorGizmoContext context,
                                const Math::Vector::Vector3& rayOrigin,
                                const Math::Vector::Vector3& rayDirection,
                                bool scaleMode );
+// Concept: RunInput owns keybinding data, but editor tools still own the cold
+// save and screenshot side effects behind this action boundary.
+void HandleEditorSaveHotkey( EditorSaveHotkeyContext context, RuntimeInputAction action, int virtualKey );
 void HandleEditorSaveHotkeys( EditorSaveHotkeyContext context );
 } // namespace RunInternal
 } // namespace Basics
