@@ -370,6 +370,56 @@ struct PointJointCandidatePairPredicate
     }
 };
 
+bool IsSleepPrunedCandidatePair( const std::vector<uint8_t>& sleepState, const std::pair<int, int>& pair )
+{
+    const int a = pair.first;
+    const int b = pair.second;
+    return a >= 0 && b >= 0 && a < static_cast<int>( sleepState.size() ) &&
+           b < static_cast<int>( sleepState.size() ) && sleepState[a] != 0 && sleepState[b] != 0;
+}
+
+void TryRecordSleepPrunedCandidatePair( std::vector<Physics::PhysicsPipelineRecord>& physicsPipelineTrace,
+                                        const PhysicsBodyRecordList& bodyRecords,
+                                        const std::pair<int, int>& pair )
+{
+    if ( physicsPipelineTrace.size() >= MAX_PIPELINE_TRACE_RECORDS )
+    {
+        return;
+    }
+
+    const int a = pair.first;
+    const int b = pair.second;
+    Physics::PhysicsPipelineRecord record;
+    record.stage = Physics::PhysicsPipelineStage::SleepPrunedPair;
+    record.bodyA = a;
+    record.bodyB = b;
+    record.point = ( bodyRecords[static_cast<size_t>( a )].position +
+                     bodyRecords[static_cast<size_t>( b )].position ) *
+                   0.5f;
+    record.scalarA = 1.0f;
+    physicsPipelineTrace.push_back( record );
+}
+
+// Invariant: trace emission is part of this predicate's current contract.
+// Append a SleepPrunedPair record only for pairs that remove_if will erase, and
+// respect the same capped trace budget used by RecordPhysicsPipelineStage().
+struct SleepPrunedCandidatePairPredicate
+{
+    const std::vector<uint8_t>& sleepState;
+    const PhysicsBodyRecordList& bodyRecords;
+    std::vector<Physics::PhysicsPipelineRecord>& physicsPipelineTrace;
+
+    bool operator()( const std::pair<int, int>& pair ) const
+    {
+        const bool prune = IsSleepPrunedCandidatePair( sleepState, pair );
+        if ( prune )
+        {
+            TryRecordSleepPrunedCandidatePair( physicsPipelineTrace, bodyRecords, pair );
+        }
+        return prune;
+    }
+};
+
 void ApplyForcesForSolverBody( PhysicsBodyStore& bodyStore,
                                const ColliderStore& colliderStore,
                                const PhysicsWorldForces& worldForces,
@@ -2603,27 +2653,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
         candidatePairs.erase(
             std::remove_if( candidatePairs.begin(),
                             candidatePairs.end(),
-                            [&]( const std::pair<int, int>& pair )
-                            {
-                                const int a = pair.first;
-                                const int b = pair.second;
-                                const bool prune = a >= 0 && b >= 0 && a < static_cast<int>( m_sleepState.size() ) &&
-                                                   b < static_cast<int>( m_sleepState.size() ) &&
-                                                   m_sleepState[a] != 0 && m_sleepState[b] != 0;
-                                if ( prune && CanRecordPhysicsPipelineStage() )
-                                {
-                                    Physics::PhysicsPipelineRecord record;
-                                    record.stage = Physics::PhysicsPipelineStage::SleepPrunedPair;
-                                    record.bodyA = a;
-                                    record.bodyB = b;
-                                    record.point = ( bodyRecords[static_cast<size_t>( a )].position +
-                                                     bodyRecords[static_cast<size_t>( b )].position ) *
-                                                   0.5f;
-                                    record.scalarA = 1.0f;
-                                    RecordPhysicsPipelineStage( record );
-                                }
-                                return prune;
-                            } ),
+                            SleepPrunedCandidatePairPredicate{ m_sleepState, bodyRecords, m_physicsPipelineTrace } ),
             candidatePairs.end() );
     }
     PROFILE_END( "Frame/Physics/Broadphase" );
