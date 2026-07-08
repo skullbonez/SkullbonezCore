@@ -68,12 +68,24 @@ island-merge tie-breaks.
 
 ### Phase 0 — DisjointSet (execution slot 1)
 
-- [ ] **0.1** Open `PhysicsWorld.cpp` and read the three union-find copies near
+- [x] **0.1** Open `PhysicsWorld.cpp` and read the three union-find copies near
   L1852-1900 (`WakePointJointIsland`), L2067-2119
   (`WakePointJointConnectedBodies`), and L3081-3117
   (`findObjectNarrowphaseRoot`/`unionObjectNarrowphaseRoots`). Write down the
   exact tie-break each uses (which root wins on equal rank) — it must be
   preserved. No code change.
+
+  Tie-break record (2026-07-08):
+  - `WakePointJointIsland`: `findIsland(a)` becomes `rootA` and
+    `findIsland(b)` becomes `rootB`; roots swap only when
+    `rank[rootA] < rank[rootB]`. Equal rank keeps `rootA` as the parent,
+    attaches `rootB` under it, then increments `rank[rootA]`.
+  - `WakePointJointConnectedBodies`: same parent/rank rule as above over
+    `m_sleepIslandParent` / `m_sleepIslandRank`; equal rank keeps the first
+    argument's root as parent.
+  - `buildObjectNarrowphaseIslands`: same parent/rank rule over
+    `m_objectNarrowphaseParent` / `m_objectNarrowphaseRank`; equal rank keeps
+    the first argument's root as parent.
 - [ ] **0.2** Add a `DisjointSet` helper (suggested: `Physics/DisjointSet.h`)
   operating on caller-supplied `parent`/`rank` buffers sized to a passed count:
   `find(i)` with path compression, `unite(a,b)` union-by-rank using the **same
