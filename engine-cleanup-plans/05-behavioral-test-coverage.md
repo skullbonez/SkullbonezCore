@@ -13,11 +13,12 @@ coverage, while enormous effort polices code *shape*.
 
 Verified evidence:
 
-- **51 `TEST_CASE`s across 20 files (~2,319 lines total)**, still clustered on
+- **52 `TEST_CASE`s across 20 files (~2,489 lines total)**, still clustered on
   math / geometry / parser / focused physics storage checks.
 - Zero unit assertions reference `RunFrame` / `RunInput` / `RunRender` /
   `RenderBackendDX12` / `UI`; the ~18K-line replay tree has focused recorder
-  and solver-snapshot coverage, but not a full record->restore behavioral test.
+  and solver-snapshot coverage plus a replay solver-sample restore test, but
+  not a full loaded-artifact/Run restore test.
 - **4 of 20** test files are pure link stubs
   ([TestDiagnosticsLinkStubs.cpp](../SkullbonezTests/TestDiagnosticsLinkStubs.cpp),
   `TestReplayRecorderLinkStubs.cpp`, `TestSceneParserLinkStubs.cpp`,
@@ -40,7 +41,7 @@ from bugs (not only byte-exact goldens).
   publish the target list.
 - [x] **Phase 1 — Input command table** (from plan 01) is directly unit-testable
   — add key→action mapping tests as that extraction lands.
-- [ ] **Phase 2 — Replay round-trip.** Record→restore determinism tests: a
+- [x] **Phase 2 — Replay round-trip.** Record→restore determinism tests: a
   restored state must reproduce the recorded frames bit-for-bit.
 - [ ] **Phase 3 — Physics invariants.** Add property tests (no
   inter-penetration beyond tolerance, energy bounded under damping, sleep/wake
@@ -65,12 +66,12 @@ lands. Adding a test file means editing `SKULLBONEZ_TESTS.vcxproj` and
   write the target list here. No code change. Commit.
 
   Completed 2026-07-09. Current inventory from tracked files:
-  - 51 `TEST_CASE`s across 20 `SkullbonezTests/*.cpp` files.
+  - 52 `TEST_CASE`s across 20 `SkullbonezTests/*.cpp` files.
   - Four link-stub files remain: `TestDiagnosticsLinkStubs.cpp`,
     `TestReplayRecorderLinkStubs.cpp`, `TestSceneParserLinkStubs.cpp`, and
     `TestTerrainLinkStubs.cpp`.
   - High-risk source size is still concentrated in unlaunched or lightly covered
-    runtime code: `Runtime` 146 files / 67,803 lines, `Runtime/Replay` 24 files /
+    runtime code: `Runtime` 148 files / 67,884 lines, `Runtime/Replay` 24 files /
     18,135 lines, `Physics` 53 files / 21,560 lines, `Rendering/DX12` 26 files /
     10,289 lines, `Scene` 5 files / 4,402 lines, and `Assets` 5 files /
     1,147 lines.
@@ -84,7 +85,7 @@ lands. Adding a test file means editing `SKULLBONEZ_TESTS.vcxproj` and
   | Rank | Target | Risk x inverse-coverage reason | Current tests | Next step |
   |------|--------|--------------------------------|---------------|-----------|
   | 1 | Runtime input/frame dispatch (`RunInput`, `RunFrame`, `TakeInput`) | Large user-facing coordinator path, historically god-object heavy, and zero direct unit references. | `TestRuntimeInputBindings` now covers the shared keyboard binding data; full `RunInput` frame dispatch remains untested. | Step 1.1 complete; deeper Run-frame behavior belongs in future extracted helpers. |
-  | 2 | Replay record -> restore behavior | Replay owns long-lived debugging and prediction state; regressions can look green in visual gates if state hashes are not compared. | `TestReplayRecorder` covers ring/cursor contracts; `TestDeterminism` covers solver snapshot plus body restore, not the full record -> restore frame path. | Step 2.1: record a small deterministic window, restore it, and compare reproduced frame/body hashes bit-for-bit. |
+  | 2 | Replay record -> restore behavior | Replay owns long-lived debugging and prediction state; regressions can look green in visual gates if state hashes are not compared. | `TestReplayRecorder` covers ring/cursor contracts; `TestDeterminism` now covers solver snapshot plus body restore and replay solver-sample restore of a recorded window. | Step 2.1 complete; full loaded-artifact/Run restore remains integration coverage. |
   | 3 | Physics solver invariants | `PhysicsWorld` and solver state remain determinism-critical and large; CSV baselines prove byte equality, not physical correctness. | `TestPhysicsHandles`, `TestSpatialGrid`, `TestBounds`, `TestConvexHull`, and `TestDeterminism` cover handles/broadphase/math/snapshot basics. | Step 3.1: add property-style micro-world checks for penetration tolerance, bounded damping energy, and sleep/wake transitions. |
   | 4 | DX12 render state / command abstraction | Barrier/resource-state regressions are high severity and mostly protected by screenshot/InfoQueue gates rather than unit behavior. | No unit reference to `RenderBackendDX12` or `IRenderCommandContext`; Plan 11 relies on `validate_dx12_renderer`. | Add a unit-testable resource-state/command-record helper only if a later render slice extracts one without initializing DX12. |
   | 5 | Scene and asset load boundaries | Scene parsing is externally supplied data and now owns Lane R recoverable failures; asset-library lookup remains hidden behind a link stub. | `TestSceneParserUnit` has four parser tests. | Step 4.1: replace `TestSceneParserLinkStubs.cpp` with real asset lookup coverage or a narrow fixture owner. |
@@ -108,9 +109,20 @@ lands. Adding a test file means editing `SKULLBONEZ_TESTS.vcxproj` and
   `TestOutput\agent_logs\plan05_input_bindings_validate_full_20260709_083509.log`
   (Profile/Debug builds passed, DX12 validation errors: 0, DX12 screenshots
   matched baselines, physics CSV matched byte-exactly).
-- [ ] **2.1** (with plan 09) Add replay record→restore determinism tests: a
+- [x] **2.1** (with plan 09) Add replay record→restore determinism tests: a
   restored state reproduces the recorded frames bit-for-bit. Gate:
   `validate_tests`. Commit.
+
+  Completed 2026-07-09. `TestDeterminism` now captures the micro-world into a
+  `ReplaySolverFrameSample`, restores from that recorded sample, advances the
+  same fixed-step window, recaptures the future sample, and compares replay body
+  fields plus selected solver-world vectors byte-for-byte. The window stays
+  pre-contact so this test isolates replay sample restore determinism; broader
+  contact-cache invariants remain Phase 3 work. Gate evidence:
+  `TestOutput\agent_logs\plan05_replay_restore_validate_tests_20260709_084459.log`
+  (5.2s; project filters passed with 0 errors, `SKULLBONEZ_TESTS` Profile built
+  with 0 warnings and 0 errors, and 52/52 doctest cases plus 1425/1425
+  assertions passed).
 - [ ] **3.1** (with plan 02) Add physics invariant/property tests (no
   inter-penetration beyond tolerance, bounded energy under damping, sleep/wake)
   **alongside** the byte-exact baselines. Gate: `validate_tests`. Commit.

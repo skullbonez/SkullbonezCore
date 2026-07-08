@@ -43,15 +43,20 @@
 #include "../SkullbonezSource/Physics/PhysicsEngine.h"
 #include "../SkullbonezSource/Physics/PhysicsWorldForces.h"
 #include "../SkullbonezSource/Rendering/IRenderResourceFactory.h"
-#include "../SkullbonezSource/Runtime/Replay/ReplaySolverSnapshot.h"
+#include "../SkullbonezSource/Runtime/Replay/ReplayRecorder.h"
 #include "../SkullbonezSource/World/Terrain.h"
 
 #include <array>
 #include <cstdint>
 #include <cstring>
 #include <memory>
+#include <vector>
 
 using SkullbonezCore::Basics::EngineConfig;
+using SkullbonezCore::Basics::ReplayBodyShapeKind;
+using SkullbonezCore::Basics::ReplayFrameIndex;
+using SkullbonezCore::Basics::ReplaySolverBodySample;
+using SkullbonezCore::Basics::ReplaySolverFrameSample;
 using SkullbonezCore::Basics::ReplaySolverWorldSnapshot;
 using SkullbonezCore::Geometry::Terrain;
 using SkullbonezCore::Math::CollisionDetection::BoundingSphere;
@@ -73,6 +78,8 @@ namespace
 constexpr int kMicroBodyCount = 3;
 constexpr int kSnapshotFrame = 120;
 constexpr int kReplayWindowTicks = 60;
+constexpr int kReplaySampleSnapshotFrame = 30;
+constexpr int kReplaySampleWindowTicks = 30;
 constexpr int kTotalDeterminismTicks = 240;
 
 // Why: Terrain is still part of the real physics step, but the unit test only
@@ -290,6 +297,67 @@ MicroWorldSnapshot CaptureMicroWorldSnapshot( const PhysicsEngine& engine )
     return snapshot;
 }
 
+ReplaySolverBodySample CaptureMicroWorldReplayBodySample( const PhysicsEngine& engine, int modelIndex )
+{
+    const PhysicsBodyRecord* record = engine.BodyStore().RecordForModelIndex( modelIndex );
+    REQUIRE( record != nullptr );
+
+    ReplaySolverBodySample body;
+    body.id.value = record->replayBodyId;
+    body.modelIndex = modelIndex;
+    body.shapeKind = ReplayBodyShapeKind::Sphere;
+    body.position = record->position;
+    body.linearVelocity = record->linearVelocity;
+    body.angularVelocity = record->angularVelocity;
+    record->orientation.GetComponents( body.orientation[0], body.orientation[1], body.orientation[2], body.orientation[3] );
+    body.mass = record->mass;
+    body.inverseMass = record->invMass;
+    body.rotationalInertia = record->rotationalInertia;
+    body.inverseRotationalInertia = record->invRotationalInertia;
+    body.fixed = record->isFixed;
+
+    const std::size_t bodyIndex = static_cast<std::size_t>( modelIndex );
+    const std::vector<uint8_t>& sleepStates = engine.GetSleepStates();
+    const std::vector<uint8_t>& sleepSupportedStates = engine.GetSleepSupportedStates();
+    const std::vector<uint8_t>& sleepInhibitedStates = engine.GetSleepInhibitedStates();
+    const std::vector<uint8_t>& collisionContacts = engine.GetCollisionVisualContacts();
+    const std::vector<int>& sleepIslandIds = engine.GetSleepIslandVisualIds();
+    body.sleeping = bodyIndex < sleepStates.size() && sleepStates[bodyIndex] != 0;
+    body.sleepSupported = bodyIndex < sleepSupportedStates.size() && sleepSupportedStates[bodyIndex] != 0;
+    body.sleepInhibited = bodyIndex < sleepInhibitedStates.size() && sleepInhibitedStates[bodyIndex] != 0;
+    body.collisionContact = bodyIndex < collisionContacts.size() && collisionContacts[bodyIndex] != 0;
+    body.sleepIslandVisualId = bodyIndex < sleepIslandIds.size() ? sleepIslandIds[bodyIndex] : 0;
+    return body;
+}
+
+ReplaySolverFrameSample CaptureMicroWorldReplaySample( const PhysicsEngine& engine, ReplayFrameIndex frameIndex )
+{
+    // Concept: the replay solver sample is the record under test. This fixture
+    // builds the body+world payload that restore consumes without depending on
+    // Run, GameModelCollection, cameras, or renderer-owned presentation state.
+    ReplaySolverFrameSample sample;
+    sample.frameIndex = frameIndex;
+    sample.sceneFrame = static_cast<int>( frameIndex );
+    sample.simulationSeconds = static_cast<double>( frameIndex ) * static_cast<double>( PHYSICS_FIXED_DT );
+    sample.physicsDt = PHYSICS_FIXED_DT;
+    sample.world.gravity = DeterministicForces().gravity;
+    sample.world.fluidHeight = DeterministicForces().fluidSurfaceHeight;
+    sample.world.fluidDensity = DeterministicForces().fluidDensity;
+    sample.world.fixedStep = true;
+    sample.world.scenePhysicsEnabled = true;
+    sample.world.sceneTextEnabled = true;
+    sample.contactCount = static_cast<uint16_t>( engine.GetPhysicsDebugContacts().size() );
+    sample.pipelineRecordCount = static_cast<uint16_t>( engine.GetPhysicsPipelineTrace().size() );
+    engine.CaptureReplaySolverSnapshot( sample.worldSnapshot, kMicroBodyCount );
+
+    sample.bodies.reserve( kMicroBodyCount );
+    for ( int i = 0; i < kMicroBodyCount; ++i )
+    {
+        sample.bodies.push_back( CaptureMicroWorldReplayBodySample( engine, i ) );
+    }
+    return sample;
+}
+
 void RestoreMicroWorldSnapshot( PhysicsEngine& engine, const MicroWorldSnapshot& snapshot )
 {
     REQUIRE( engine.RestoreReplaySolverSnapshot( snapshot.solver, kMicroBodyCount ) );
@@ -309,6 +377,31 @@ void RestoreMicroWorldSnapshot( PhysicsEngine& engine, const MicroWorldSnapshot&
     }
 }
 
+void RestoreMicroWorldReplaySample( PhysicsEngine& engine, const ReplaySolverFrameSample& sample )
+{
+    // Why: replay restore applies solver cache first, then body rows. The test
+    // mirrors that order so a future mismatch points at the same boundary Run uses.
+    REQUIRE( sample.worldSnapshot.modelCount == static_cast<int>( sample.bodies.size() ) );
+    REQUIRE( engine.RestoreReplaySolverSnapshot( sample.worldSnapshot, static_cast<int>( sample.bodies.size() ) ) );
+    for ( const ReplaySolverBodySample& body : sample.bodies )
+    {
+        const Quaternion orientation( body.orientation[0], body.orientation[1], body.orientation[2], body.orientation[3] );
+        const PhysicsBodyRecord* record = engine.BodyStore().RecordForModelIndex( body.modelIndex );
+        REQUIRE( record != nullptr );
+        REQUIRE( engine.RestoreReplayBodyState( record->handle,
+                                                body.id.value,
+                                                body.fixed,
+                                                body.position,
+                                                orientation,
+                                                body.linearVelocity,
+                                                body.angularVelocity,
+                                                body.mass,
+                                                body.inverseMass,
+                                                body.rotationalInertia,
+                                                body.inverseRotationalInertia ) );
+    }
+}
+
 void CheckVectorBytesEqual( const Vector3& lhs, const Vector3& rhs )
 {
     CHECK( std::memcmp( &lhs, &rhs, sizeof( Vector3 ) ) == 0 );
@@ -321,6 +414,72 @@ void CheckQuaternionBytesEqual( const Quaternion& lhs, const Quaternion& rhs )
     lhs.GetComponents( left[0], left[1], left[2], left[3] );
     rhs.GetComponents( right[0], right[1], right[2], right[3] );
     CHECK( std::memcmp( left, right, sizeof( left ) ) == 0 );
+}
+
+template <typename T>
+void CheckVectorContentsEqual( const std::vector<T>& lhs, const std::vector<T>& rhs )
+{
+    REQUIRE( lhs.size() == rhs.size() );
+    for ( std::size_t i = 0; i < lhs.size(); ++i )
+    {
+        CHECK( lhs[i] == rhs[i] );
+    }
+}
+
+void CheckReplayBodySamplesEqual( const ReplaySolverBodySample& lhs, const ReplaySolverBodySample& rhs )
+{
+    CHECK( lhs.id.value == rhs.id.value );
+    CHECK( lhs.modelIndex == rhs.modelIndex );
+    CHECK( lhs.shapeKind == rhs.shapeKind );
+    CheckVectorBytesEqual( lhs.position, rhs.position );
+    CheckVectorBytesEqual( lhs.linearVelocity, rhs.linearVelocity );
+    CheckVectorBytesEqual( lhs.angularVelocity, rhs.angularVelocity );
+    CHECK( std::memcmp( lhs.orientation, rhs.orientation, sizeof( lhs.orientation ) ) == 0 );
+    CHECK( std::memcmp( &lhs.mass, &rhs.mass, sizeof( lhs.mass ) ) == 0 );
+    CHECK( std::memcmp( &lhs.inverseMass, &rhs.inverseMass, sizeof( lhs.inverseMass ) ) == 0 );
+    CheckVectorBytesEqual( lhs.rotationalInertia, rhs.rotationalInertia );
+    CheckVectorBytesEqual( lhs.inverseRotationalInertia, rhs.inverseRotationalInertia );
+    CHECK( lhs.fixed == rhs.fixed );
+    CHECK( lhs.sleeping == rhs.sleeping );
+    CHECK( lhs.sleepSupported == rhs.sleepSupported );
+    CHECK( lhs.sleepInhibited == rhs.sleepInhibited );
+    CHECK( lhs.collisionContact == rhs.collisionContact );
+    CHECK( lhs.sleepIslandVisualId == rhs.sleepIslandVisualId );
+    CHECK( lhs.contactCount == rhs.contactCount );
+    CHECK( std::memcmp( &lhs.maxPenetration, &rhs.maxPenetration, sizeof( lhs.maxPenetration ) ) == 0 );
+    CHECK( std::memcmp( &lhs.normalImpulseSum, &rhs.normalImpulseSum, sizeof( lhs.normalImpulseSum ) ) == 0 );
+}
+
+void CheckReplaySamplesEqual( const ReplaySolverFrameSample& lhs, const ReplaySolverFrameSample& rhs )
+{
+    // Invariant: the recaptured future frame must match at the replay-sample
+    // boundary, not merely at live PhysicsBodyStore kinematics.
+    CHECK( lhs.frameIndex == rhs.frameIndex );
+    CHECK( lhs.sceneFrame == rhs.sceneFrame );
+    CHECK( std::memcmp( &lhs.simulationSeconds, &rhs.simulationSeconds, sizeof( lhs.simulationSeconds ) ) == 0 );
+    CHECK( std::memcmp( &lhs.physicsDt, &rhs.physicsDt, sizeof( lhs.physicsDt ) ) == 0 );
+    CHECK( std::memcmp( &lhs.world.gravity, &rhs.world.gravity, sizeof( lhs.world.gravity ) ) == 0 );
+    CHECK( std::memcmp( &lhs.world.fluidHeight, &rhs.world.fluidHeight, sizeof( lhs.world.fluidHeight ) ) == 0 );
+    CHECK( std::memcmp( &lhs.world.fluidDensity, &rhs.world.fluidDensity, sizeof( lhs.world.fluidDensity ) ) == 0 );
+    CHECK( lhs.world.fixedStep == rhs.world.fixedStep );
+    CHECK( lhs.world.scenePhysicsEnabled == rhs.world.scenePhysicsEnabled );
+    CHECK( lhs.world.sceneTextEnabled == rhs.world.sceneTextEnabled );
+    CHECK( lhs.worldSnapshot.version == rhs.worldSnapshot.version );
+    CHECK( lhs.worldSnapshot.modelCount == rhs.worldSnapshot.modelCount );
+    CHECK( lhs.worldSnapshot.sleepEnabled == rhs.worldSnapshot.sleepEnabled );
+    CheckVectorContentsEqual( lhs.worldSnapshot.timeRemaining, rhs.worldSnapshot.timeRemaining );
+    CheckVectorContentsEqual( lhs.worldSnapshot.sleepState, rhs.worldSnapshot.sleepState );
+    CheckVectorContentsEqual( lhs.worldSnapshot.sleepCounter, rhs.worldSnapshot.sleepCounter );
+    CheckVectorContentsEqual( lhs.worldSnapshot.collisionVisualContacts, rhs.worldSnapshot.collisionVisualContacts );
+    CheckVectorContentsEqual( lhs.worldSnapshot.sleepIslandParent, rhs.worldSnapshot.sleepIslandParent );
+    CheckVectorContentsEqual( lhs.worldSnapshot.sleepIslandRank, rhs.worldSnapshot.sleepIslandRank );
+    CHECK( lhs.contactCount == rhs.contactCount );
+    CHECK( lhs.pipelineRecordCount == rhs.pipelineRecordCount );
+    REQUIRE( lhs.bodies.size() == rhs.bodies.size() );
+    for ( std::size_t i = 0; i < lhs.bodies.size(); ++i )
+    {
+        CheckReplayBodySamplesEqual( lhs.bodies[i], rhs.bodies[i] );
+    }
 }
 
 void CheckEngineKinematicsEqual( const PhysicsEngine& lhs, const PhysicsEngine& rhs )
@@ -374,4 +533,34 @@ TEST_CASE( "PhysicsEngine determinism: solver snapshot plus body state restores 
     StepMicroWorld( restored, kReplayWindowTicks );
 
     CheckEngineKinematicsEqual( interrupted, restored );
+}
+
+
+TEST_CASE( "Replay solver sample restore: recorded frame reproduces future frame" )
+{
+    static PhysicsEngine expected;
+    static PhysicsEngine restored;
+    SeedMicroWorld( expected );
+    SeedMicroWorld( restored );
+
+    StepMicroWorld( expected, kReplaySampleSnapshotFrame );
+    StepMicroWorld( restored, kReplaySampleSnapshotFrame );
+    const ReplaySolverFrameSample restorePoint =
+        CaptureMicroWorldReplaySample( restored, static_cast<ReplayFrameIndex>( kReplaySampleSnapshotFrame ) );
+
+    StepMicroWorld( expected, kReplaySampleWindowTicks );
+    const ReplaySolverFrameSample expectedFuture =
+        CaptureMicroWorldReplaySample( expected,
+                                       static_cast<ReplayFrameIndex>( kReplaySampleSnapshotFrame +
+                                                                      kReplaySampleWindowTicks ) );
+
+    StepMicroWorld( restored, kReplaySampleWindowTicks );
+    RestoreMicroWorldReplaySample( restored, restorePoint );
+    StepMicroWorld( restored, kReplaySampleWindowTicks );
+    const ReplaySolverFrameSample restoredFuture =
+        CaptureMicroWorldReplaySample( restored,
+                                       static_cast<ReplayFrameIndex>( kReplaySampleSnapshotFrame +
+                                                                      kReplaySampleWindowTicks ) );
+
+    CheckReplaySamplesEqual( expectedFuture, restoredFuture );
 }
