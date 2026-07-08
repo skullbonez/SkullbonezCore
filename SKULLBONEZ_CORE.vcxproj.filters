@@ -971,12 +971,6 @@
     <ClInclude Include="SkullbonezSource\Runtime\Replay\RunReplayImportExport.h">
       <Filter>Header Files\Runtime\Replay</Filter>
     </ClInclude>
-    <ClInclude Include="SkullbonezSource\Runtime\Replay\RunReplayPredictionHelpers.inl">
-      <Filter>Header Files\Runtime\Replay</Filter>
-    </ClInclude>
-    <ClInclude Include="SkullbonezSource\Runtime\Replay\RunReplayPredictionVisualizer.inl">
-      <Filter>Header Files\Runtime\Replay</Filter>
-    </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Tools\RuntimeTools.h">
       <Filter>Header Files\Runtime\Tools</Filter>
     </ClInclude>

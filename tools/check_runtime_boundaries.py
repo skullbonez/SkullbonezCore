@@ -123,8 +123,8 @@ RUNTIME_TOOLS_HEADER = Path("SkullbonezSource/Runtime/Tools/RuntimeTools.h")
 RUN_REPLAY_TOOLS_SOURCE = Path("SkullbonezSource/Runtime/Replay/RunReplayTools.cpp")
 REPLAY_VELOCITY_EDIT_SOURCE = Path("SkullbonezSource/Runtime/Replay/RunReplayVelocityEdit.cpp")
 REPLAY_QUERY_TOOLS_SOURCE = Path("SkullbonezSource/Runtime/Replay/RunReplayQueryTools.cpp")
-REPLAY_PREDICTION_HELPERS_SOURCE = Path("SkullbonezSource/Runtime/Replay/RunReplayPredictionHelpers.inl")
-REPLAY_PREDICTION_VISUALIZER_SOURCE = Path("SkullbonezSource/Runtime/Replay/RunReplayPredictionVisualizer.inl")
+REPLAY_PREDICTION_HELPERS_SOURCE = RUN_REPLAY_TOOLS_SOURCE
+REPLAY_PREDICTION_VISUALIZER_SOURCE = RUN_REPLAY_TOOLS_SOURCE
 REPLAY_RECORDER_SOURCE = Path("SkullbonezSource/Runtime/Replay/ReplayRecorder.cpp")
 REPLAY_RUNTIME_SOURCE = Path("SkullbonezSource/Runtime/Replay/ReplayRuntime.cpp")
 REPLAY_RUNTIME_HEADER = Path("SkullbonezSource/Runtime/Replay/ReplayRuntime.h")
@@ -470,11 +470,7 @@ REPLAY_PREDICTION_PHYSICS_TICK_FUNCTION_PATTERN = re.compile(r"\bvoid\s+StepRepl
 REPLAY_PREDICTION_BULK_WRITEBACK_PATTERN = re.compile(
     r"\bmodelCollection\s*\.\s*WriteBackPhysicsBodies\s*\("
 )
-REPLAY_PREDICTION_PRIVATE_ENGINE_RESTORE_SOURCES = (
-    REPLAY_PREDICTION_HELPERS_SOURCE,
-    REPLAY_PREDICTION_VISUALIZER_SOURCE,
-    RUN_REPLAY_TOOLS_SOURCE,
-)
+REPLAY_PREDICTION_PRIVATE_ENGINE_RESTORE_SOURCES = (RUN_REPLAY_TOOLS_SOURCE,)
 # Why: PHYS-035 is closed only while prediction restore calls target the
 # replay-owned private engine. A live-engine restore here would silently reopen
 # the old determinism-risk mutation window.
@@ -4279,7 +4275,6 @@ def check_game_model_collection_run_physics_model_access_guardrails_text(
         "GameModelCollection.cpp",
         "GameModelCollection.h",
         "RunFrame.cpp",
-        "RunReplayPredictionVisualizer.inl",
         "RunReplayTools.cpp",
     }:
         return []
@@ -6498,8 +6493,6 @@ def check_replay_marker_radius_store_authority_guardrails(repo: Path) -> list[Bo
     for relative_path in (
         RUN_REPLAY_TOOLS_SOURCE,
         REPLAY_QUERY_TOOLS_SOURCE,
-        REPLAY_PREDICTION_HELPERS_SOURCE,
-        REPLAY_PREDICTION_VISUALIZER_SOURCE,
     ):
         path = repo / relative_path
         errors.extend(
@@ -6531,7 +6524,6 @@ def check_replay_path_target_identity_store_authority_guardrails(repo: Path) -> 
     for relative_path in (
         RUN_REPLAY_TOOLS_SOURCE,
         REPLAY_QUERY_TOOLS_SOURCE,
-        REPLAY_PREDICTION_VISUALIZER_SOURCE,
     ):
         path = repo / relative_path
         errors.extend(
@@ -12875,7 +12867,7 @@ def run_self_tests() -> list[str]:
         return true;
     }
     """
-    expect_error('old replay prediction model-state capture synthetic surface was not rejected', check_replay_prediction_body_capture_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Replay/RunReplayPredictionHelpers.inl"), old_prediction_model_state_capture, ), 'replay prediction model-state capture is blocked')
+    expect_error('old replay prediction model-state capture synthetic surface was not rejected', check_replay_prediction_body_capture_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Replay/RunReplayTools.cpp"), old_prediction_model_state_capture, ), 'replay prediction model-state capture is blocked')
 
     old_prediction_refreshing_body_store_capture = """
     bool CaptureReplayPredictionBodyState( GameModelCollection& modelCollection )
@@ -12885,7 +12877,7 @@ def run_self_tests() -> list[str]:
         return true;
     }
     """
-    expect_error('old replay prediction refreshing body-store synthetic surface was not rejected', check_replay_prediction_body_capture_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Replay/RunReplayPredictionHelpers.inl"), old_prediction_refreshing_body_store_capture, ), 'replay prediction model-state capture is blocked')
+    expect_error('old replay prediction refreshing body-store synthetic surface was not rejected', check_replay_prediction_body_capture_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Replay/RunReplayTools.cpp"), old_prediction_refreshing_body_store_capture, ), 'replay prediction model-state capture is blocked')
 
     store_owned_prediction_capture = """
     bool CaptureReplayPredictionBodyState( GameModelCollection& modelCollection )
@@ -12902,7 +12894,7 @@ def run_self_tests() -> list[str]:
         return true;
     }
     """
-    expect_clean('store-owned replay prediction capture synthetic surface was rejected', check_replay_prediction_body_capture_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Replay/RunReplayPredictionHelpers.inl"), store_owned_prediction_capture, ))
+    expect_clean('store-owned replay prediction capture synthetic surface was rejected', check_replay_prediction_body_capture_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Replay/RunReplayTools.cpp"), store_owned_prediction_capture, ))
 
     old_prediction_sample_model_state_capture = """
     void CaptureReplayPredictionFrame( ReplayRuntime& replayRuntime, GameModelCollection& modelCollection )
@@ -12913,7 +12905,7 @@ def run_self_tests() -> list[str]:
         body.orientation = model->GetOrientation();
     }
     """
-    expect_error('old replay prediction sample model-state capture synthetic surface was not rejected', check_replay_prediction_body_capture_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Replay/RunReplayPredictionHelpers.inl"), old_prediction_sample_model_state_capture, ), 'replay prediction model-state capture is blocked')
+    expect_error('old replay prediction sample model-state capture synthetic surface was not rejected', check_replay_prediction_body_capture_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Replay/RunReplayTools.cpp"), old_prediction_sample_model_state_capture, ), 'replay prediction model-state capture is blocked')
 
     store_owned_prediction_sample_capture = """
     void CaptureReplayPredictionFrame( ReplayRuntime& replayRuntime, GameModelCollection& modelCollection )
@@ -12925,7 +12917,7 @@ def run_self_tests() -> list[str]:
         body.orientation = source.orientation;
     }
     """
-    expect_clean('store-owned replay prediction sample capture synthetic surface was rejected', check_replay_prediction_body_capture_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Replay/RunReplayPredictionHelpers.inl"), store_owned_prediction_sample_capture, ))
+    expect_clean('store-owned replay prediction sample capture synthetic surface was rejected', check_replay_prediction_body_capture_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Replay/RunReplayTools.cpp"), store_owned_prediction_sample_capture, ))
 
     commented_prediction_model_state_capture = """
     bool CaptureReplayPredictionBodyState( GameModelCollection& modelCollection )
@@ -12936,7 +12928,7 @@ def run_self_tests() -> list[str]:
         return true;
     }
     """
-    expect_clean('comment-only replay prediction model-state synthetic text was rejected', check_replay_prediction_body_capture_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Replay/RunReplayPredictionHelpers.inl"), commented_prediction_model_state_capture, ))
+    expect_clean('comment-only replay prediction model-state synthetic text was rejected', check_replay_prediction_body_capture_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Replay/RunReplayTools.cpp"), commented_prediction_model_state_capture, ))
 
     old_replay_prediction_model_writeback = """
     void StepReplayPredictionPhysicsTick( GameModelCollection& modelCollection )

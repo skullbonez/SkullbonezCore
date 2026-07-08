@@ -426,8 +426,6 @@
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplaySolverSnapshot.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayV2Artifact.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\RunReplayImportExport.h" />
-    <ClInclude Include="SkullbonezSource\Runtime\Replay\RunReplayPredictionHelpers.inl" />
-    <ClInclude Include="SkullbonezSource\Runtime\Replay\RunReplayPredictionVisualizer.inl" />
     <ClInclude Include="SkullbonezSource\Runtime\Tools\RuntimeTools.h" />
     <ClInclude Include="SkullbonezSource\Runtime\RuntimeFileWriter.h" />
     <ClInclude Include="SkullbonezSource\World\SkyBox.h" />

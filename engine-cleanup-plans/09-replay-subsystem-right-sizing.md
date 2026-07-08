@@ -1,7 +1,7 @@
 # 09 — Replay Subsystem Right-Sizing
 
 Date: 2026-07-08
-Status: In Progress
+Status: Complete
 Priority: P2
 Owner: Runtime / Replay
 Source issue: audit iss-07 (severity 3)
@@ -32,7 +32,7 @@ Verified evidence:
   fields across UI hover bools, prediction engine/world, async build cursors, a
   future-node cache, retained markers, and an animation clock — one struct, six
   concerns.
-- Copy-paste twins differ only by sample type:
+- At plan start, copy-paste twins differed only by sample type:
   `FindReplayBodyById` vs `FindReplayPredictionBodyById`, plus
   `ByModelIndex`/`FutureDepth`/`AddFutureNode`/`BuildFutureNodes` pairs — a
   single template collapses all six and is the largest driver of the 2,577-line
@@ -54,11 +54,11 @@ prediction, and presentation — and get replay code out of `RunFrame`.
 - [x] **Phase 1 — Template the twin helpers.** One template over sample type
   collapses the six `Find*`/`*ByModelIndex`/`FutureDepth`/`AddFutureNode`/
   `BuildFutureNodes` pairs.
-- [ ] **Phase 2 — Evict replay from the game loop.** Move the ~1,800 lines of
+- [x] **Phase 2 — Evict replay from the game loop.** Move the ~1,800 lines of
   replay probes and `RestoreReplayV2ArtifactTargetState` out of `RunFrame` into
   `Replay/`. (Coordinates with plan 01's `RunFrame` shrink and plan 06's `.inl`
   work.)
-- [ ] **Phase 3 — Make Butterfly Effect ownership explicit.** Preserve the 256 MB
+- [x] **Phase 3 — Make Butterfly Effect ownership explicit.** Preserve the 256 MB
   shadow prediction engine, future-node visualization, replay ribbons, and
   cinematic reveal behavior, but give them clear owner types and contracts so
   they are no longer blended into generic replay state or `RunFrame`.
@@ -167,7 +167,7 @@ bit-exact — the replay scrub regression is the gate.
 
 ### Phase 2 — Evict replay from the game loop
 
-- [ ] **2.1** Move the ~1,800 lines of replay probes and
+- [x] **2.1** Move the ~1,800 lines of replay probes and
   `RestoreReplayV2ArtifactTargetState` out of `RunFrame.cpp` into `Replay/`.
   Then promote the freed replay `.inl` to real TUs (this is plan 06 step 1.1).
   Gate: `validate_full` + replay scrub. Commit.
@@ -244,15 +244,48 @@ bit-exact — the replay scrub regression is the gate.
     project filters and runtime boundaries clean, 0 build warnings/errors, 0
     DX12 validation errors, matching DX12 screenshots, and
     `physics_regression_solver.csv` byte-exact at 20001 lines.
+  - Completion note (2026-07-08, prediction helper fold-back): folded
+    `RunReplayPredictionHelpers.inl` and `RunReplayPredictionVisualizer.inl`
+    into `RunReplayTools.cpp` and deleted the two remaining replay prediction
+    text splices. Active project/filter metadata, runtime-boundary checker
+    paths, and allocation policy allowlist entries now point at
+    `RunReplayTools.cpp`; residue scans found no runtime `.inl` includes, no
+    tracked runtime `.inl` files, and no active source/project/tool references
+    to the deleted prediction `.inl` files. Validation:
+    `tools\validate_build.bat Profile` passed in 7.3s with 0 warnings/errors;
+    `tools\validate_project_filters.bat` passed in 1.2s; runtime-boundary
+    checker passed in 18.2s, self-test in 0.3s, and py_compile in 0.2s;
+    `tools\validate_format.bat` passed in 9.6s after narrow formatting;
+    `tools\validate_replay_scrub.bat` passed in 22.9s with Debug/Profile builds
+    at 0 warnings/errors; `tools\validate_full.bat` passed in 45.2s with
+    project filters and runtime boundaries clean, 0 build warnings/errors, 0
+    DX12 validation errors, matching DX12 screenshots, and
+    `physics_regression_solver.csv` byte-exact at 20001 lines.
 
 ### Phase 3 — Make Butterfly Effect ownership explicit
 
-- [ ] **3.1** Preserve the 256 MB shadow prediction engine, future-node cache,
+- [x] **3.1** Preserve the 256 MB shadow prediction engine, future-node cache,
   replay ribbons, and cinematic reveal behavior as Butterfly Effect demo
   functionality. Refactor them behind explicit replay prediction/presentation
   owner types, add or update behavior coverage for the demo path, and keep
   record/restore bit-exact. Gate: replay scrub + Butterfly Effect interaction or
   demo regression + `validate_full`. Commit.
+  - Completion note (2026-07-08): Phase 0 split the prediction simulation,
+    reveal clock, UI hover/drag state, build state, and future-node cache into
+    explicit owner types on `RunReplayPredictionState`; Phase 2 removed replay
+    probe bodies from `RunFrame` and deleted the replay text splices. Butterfly
+    behavior was proven on the current Profile build with
+    `Profile\SKULLBONEZ_CORE.exe --scene
+    SkullbonezData\scenes\prediction_ragdoll_wall_200.scene.json
+    --interaction-script Agentic\Temp\butterfly_shot_take_interaction.json
+    --interaction-report
+    TestOutput\interaction\engine_cleanup_butterfly_shot_take_report.json
+    --frames 430 --replay on --replay-seconds 2 --fixed-step --vsync off`, which
+    passed in 7.4s with `ok=true`, reached `root-sighting`, `chain-bloom`, and
+    `settle-rest`, kept `predictionPathVisible=true`, kept
+    `liveSolverHashStableAcrossPrediction=true`, and saved the three Butterfly
+    phase screenshots. Replay scrub and `validate_full` also passed on this
+    slice.
 
 ## Validation
 
@@ -264,6 +297,6 @@ bit-exact — the replay scrub regression is the gate.
 - [x] `RunFrame.cpp` contains no replay-probe bodies (they live in `Replay/`).
 - [x] `RunReplayPredictionState` is split into single-concern types.
 - [x] The six twin helpers are one template.
-- [ ] Butterfly Effect prediction, future-node visualization, replay ribbons,
+- [x] Butterfly Effect prediction, future-node visualization, replay ribbons,
   and cinematic reveal behavior are preserved and have explicit owner types.
-- [ ] Replay subsystem LOC is materially reduced; record/restore stays bit-exact.
+- [x] Replay subsystem LOC is materially reduced; record/restore stays bit-exact.

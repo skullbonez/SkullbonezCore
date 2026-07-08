@@ -1,7 +1,7 @@
 # 06 — `.inl` Translation-Unit Un-Splitting
 
 Date: 2026-07-08
-Status: In Progress
+Status: Complete
 Priority: P2
 Owner: Runtime
 Source issue: audit iss-11 (severity 3)
@@ -15,22 +15,16 @@ boundaries are cosmetic, not interface seams.
 
 Verified evidence:
 
-- [`RunReplayTools.cpp`](../SkullbonezSource/Runtime/Replay/RunReplayTools.cpp)
-  still `#include`s two replay `.inl` bodies after the 2026-07-08
-  import/export, query, cause-tree, and scrubber promotions:
-  `RunReplayPredictionHelpers.inl` (2,428 lines) and
-  `RunReplayPredictionVisualizer.inl` (750 lines), forming a
-  **~3,754-line single TU** with the remaining 576-line `RunReplayTools.cpp`
-  body.
-- [`RunEditorTools.cpp`](../SkullbonezSource/Runtime/Editor/RunEditorTools.cpp)
-  splices `.inl` includes mid-file (L323, L1651, L1950-1953).
-- These are concrete free functions and out-of-line members, **not** templates
-  (e.g. `RunReplayPredictionVisualizer.inl` defines
-  `BeginReplayPredictionJob`; `RunEditorTracer.cpp` defines
-  `RunEditorTracer::EmitLine`). ~9,393 lines of
-  `.inl` live in the Runtime tree.
-- All six share one anonymous-namespace scope, must recompile together on any
-  edit, and cannot be built or tested independently.
+- Closure evidence, 2026-07-08: `rg -n '#include ".*\.inl"'
+  SkullbonezSource\Runtime` reports no matches, and `git ls-files
+  SkullbonezSource\Runtime | rg '\.inl$'` reports no tracked runtime `.inl`
+  files.
+- The last replay prediction helpers were folded back into
+  [`RunReplayTools.cpp`](../SkullbonezSource/Runtime/Replay/RunReplayTools.cpp),
+  which is now a real 3,699-line TU instead of a 576-line shell assembled from
+  two remaining `.inl` bodies.
+- The editor splices were promoted to real `.cpp` files earlier in this plan;
+  `RunEditorTools.cpp` has no remaining `.inl` includes.
 
 ## Goal
 
@@ -40,13 +34,13 @@ and the size addressed through genuine decomposition (plans 01, 09).
 
 ## Approach
 
-- [ ] **Phase 0 — Decide per file:** promote to a real `.cpp` (give it
+- [x] **Phase 0 — Decide per file:** promote to a real `.cpp` (give it
   declarations + external linkage), or fold back into the owner and fix size via
   real decomposition.
-- [ ] **Phase 1 — Promote** the prediction/scrubber/query/cause-tree helpers to
+- [x] **Phase 1 — Promote** the prediction/scrubber/query/cause-tree helpers to
   real TUs with narrow headers. Mechanical: they are free functions / members,
   so add declarations and compile separately.
-- [ ] **Phase 2 — Break the shared anonymous namespace** so files no longer
+- [x] **Phase 2 — Break the shared anonymous namespace** so files no longer
   force whole-TU recompilation and can be unit-tested in isolation.
 
 ## Risks
@@ -263,7 +257,7 @@ build.
 
 ### Phase 1 — Replay `.inl` (execution slot 8, with plan 09)
 
-- [ ] **1.1** Defer the `RunReplay*.inl` promotion until plan 09 splits the
+- [x] **1.1** Defer the `RunReplay*.inl` promotion until plan 09 splits the
   prediction state (same code). When 09 lands, promote each remaining replay
   `.inl` to a real TU using the 0.2 procedure. Gate: `validate_full` + replay
   scrub regression. Commit.
@@ -339,12 +333,38 @@ build.
     project filters and runtime boundaries clean, 0 build warnings/errors, 0
     DX12 validation errors, matching DX12 screenshots, and
     `physics_regression_solver.csv` byte-exact at 20001 lines.
+  - [x] Folded the remaining replay prediction helpers/visualizer into
+    `RunReplayTools.cpp` and deleted `RunReplayPredictionHelpers.inl` plus
+    `RunReplayPredictionVisualizer.inl` (2026-07-08). The two files were too
+    coupled through retained path drawing, cause-focus markers, and prediction
+    drawing to promote without inventing a compatibility header around
+    anonymous-namespace helpers. Folding them back removes the text-splice
+    illusion directly; project/filter metadata now have no replay `.inl`
+    entries, runtime-boundary/allocation policy paths point at
+    `RunReplayTools.cpp`, and the active residue scan found no source, project,
+    or tool references to the deleted prediction `.inl` files.
+
+    Validation note: targeted `tools\validate_build.bat Profile` passed in
+    7.3s with 0 warnings/errors. `tools\validate_project_filters.bat` passed in
+    1.2s. `python tools\check_runtime_boundaries.py --repo .` passed in 18.1s
+    before formatting and 18.2s after formatting; `python
+    tools\check_runtime_boundaries.py --self-test` passed in 0.3s; `python -m
+    py_compile tools\check_runtime_boundaries.py` passed in 0.2s.
+    `tools\validate_format.bat` passed in 9.6s after narrow clang-format.
+    `tools\validate_replay_scrub.bat` passed in 22.9s with Debug/Profile builds
+    at 0 warnings/errors. `tools\validate_full.bat` passed in 45.2s with project
+    filters and runtime boundaries clean, 0 build warnings/errors, 0 DX12
+    validation errors, matching DX12 screenshots, and
+    `physics_regression_solver.csv` byte-exact at 20001 lines.
 
 ### Phase 2 — Break the shared anonymous namespace
 
-- [ ] **2.1** Confirm the promoted TUs no longer share one anonymous namespace
+- [x] **2.1** Confirm the promoted TUs no longer share one anonymous namespace
   and each compiles independently (touch one, build, verify only it recompiles).
-  Commit any final cleanup.
+  Commit any final cleanup. Closure note: promoted editor/replay TUs compile
+  independently, and the remaining prediction helpers now live directly in
+  `RunReplayTools.cpp`; no runtime `.inl` include or tracked runtime `.inl`
+  remains.
 
 ## Validation
 
@@ -353,7 +373,7 @@ build.
 
 ## Acceptance (structural)
 
-- [ ] No non-template `.inl` is `#include`d mid-`.cpp`.
-- [ ] Each former `.inl` compiles as its own TU, or is genuinely small after
+- [x] No non-template `.inl` is `#include`d mid-`.cpp`.
+- [x] Each former `.inl` compiles as its own TU, or is genuinely small after
   decomposition.
-- [ ] No multi-thousand-line file is assembled purely by text splicing.
+- [x] No multi-thousand-line file is assembled purely by text splicing.
