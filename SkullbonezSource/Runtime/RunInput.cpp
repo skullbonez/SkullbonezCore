@@ -239,36 +239,30 @@ constexpr RuntimeInputContextMask kCaptureContext = RuntimeInputContextBit( Inpu
 // today. Step 1.2 makes the mapping auditable data only; dispatch still follows
 // the existing hand-written branches until later action-group slices replace it.
 const RuntimeInputKeyBinding kTakeInputKeyboardBindings[] = {
+    { VK_OEM_3, RuntimeInputAction::ToggleEditor, kKeyboardUnblockedContext },
+    { VK_TAB, RuntimeInputAction::CycleCameraMode, kKeyboardUnblockedContext },
     { 'F', RuntimeInputAction::ToggleFlyCamera, kKeyboardUnblockedContext },
     { 'N', RuntimeInputAction::ToggleLauncher, kKeyboardUnblockedContext },
-    { VK_TAB, RuntimeInputAction::CycleCameraMode, kKeyboardUnblockedContext },
+    { 'M', RuntimeInputAction::CycleLauncherFireMode, kKeyboardUnblockedContext | InputBindingContext::Launcher },
     { VK_F1,
       RuntimeInputAction::CycleAttachedCameraSubmode,
       kKeyboardUnblockedContext | InputBindingContext::AttachedCamera },
     { VK_RETURN,
       RuntimeInputAction::ToggleAttachedCameraPin,
       kKeyboardUnblockedContext | InputBindingContext::AttachedCamera },
-    { 'B',
-      RuntimeInputAction::ToggleDirectorGrab,
-      kKeyboardUnblockedContext | InputBindingContext::Director },
+    { 'B', RuntimeInputAction::ToggleDirectorGrab, kKeyboardUnblockedContext | InputBindingContext::Director },
     { 'J',
       RuntimeInputAction::SetDirectorPhasePose,
       kKeyboardUnblockedContext | InputBindingContext::DirectorAuthoring },
-    { 'K',
-      RuntimeInputAction::StepDirectorPhase,
-      kKeyboardUnblockedContext | InputBindingContext::DirectorAuthoring },
+    { 'K', RuntimeInputAction::StepDirectorPhase, kKeyboardUnblockedContext | InputBindingContext::DirectorAuthoring },
     { 'L',
       RuntimeInputAction::SaveDirectorShotList,
       kKeyboardUnblockedContext | InputBindingContext::DirectorAuthoring },
-    { VK_OEM_3, RuntimeInputAction::ToggleEditor, kKeyboardUnblockedContext },
-    { VK_MENU, RuntimeInputAction::ToggleEditorTool, kKeyboardUnblockedContext },
-    { 'M',
-      RuntimeInputAction::CycleLauncherFireMode,
-      kKeyboardUnblockedContext | InputBindingContext::Launcher },
     { VK_RETURN,
       RuntimeInputAction::WriteLauncherReproSnapshot,
       kKeyboardUnblockedContext | InputBindingContext::Launcher | InputBindingContext::ReplayRestoreNotConsumed |
           InputBindingContext::DebugOnly },
+    { VK_MENU, RuntimeInputAction::ToggleEditorTool, kKeyboardUnblockedContext },
     { '1', RuntimeInputAction::ToggleWaterFreeze, kKeyboardUnblockedContext },
     { '2', RuntimeInputAction::CycleWaterReflection, kKeyboardUnblockedContext },
     { '3', RuntimeInputAction::ToggleWaterFlat, kKeyboardUnblockedContext },
@@ -288,20 +282,17 @@ const RuntimeInputKeyBinding kTakeInputKeyboardBindings[] = {
     { VK_F6, RuntimeInputAction::ToggleMemoryOverlay, kKeyboardUnblockedContext },
     { VK_LEFT, RuntimeInputAction::NavigateScenePrevious, kKeyboardUnblockedContext },
     { VK_RIGHT, RuntimeInputAction::NavigateSceneNext, kKeyboardUnblockedContext },
-    { VK_ESCAPE,
-      RuntimeInputAction::DismissOrExitUI,
-      kAfterUIUpdateContext | InputBindingContext::UINotInteracted },
+    { VK_ESCAPE, RuntimeInputAction::DismissOrExitUI, kAfterUIUpdateContext | InputBindingContext::UINotInteracted },
     { VK_F2, RuntimeInputAction::SaveSceneSnapshot, kCaptureContext },
     { VK_F3, RuntimeInputAction::SaveScreenshot, kCaptureContext },
     { 'R', RuntimeInputAction::ResetScene, kAfterUIUpdateContext },
-    { VK_BACK,
-      RuntimeInputAction::ResetSceneFromBackspace,
-      kAfterUIUpdateContext | InputBindingContext::Scene }
-};
+    { VK_BACK, RuntimeInputAction::ResetSceneFromBackspace, kAfterUIUpdateContext | InputBindingContext::Scene } };
+constexpr std::size_t kTakeInputKeyboardBindingCount =
+    sizeof( kTakeInputKeyboardBindings ) / sizeof( kTakeInputKeyboardBindings[0] );
 
 void AdvanceTakeInputKeyboardActionMemories( RuntimeInputContext& input )
 {
-    for ( std::size_t i = 0; i < sizeof( kTakeInputKeyboardBindings ) / sizeof( kTakeInputKeyboardBindings[0] ); ++i )
+    for ( std::size_t i = 0; i < kTakeInputKeyboardBindingCount; ++i )
     {
         input.SetActionDown( kTakeInputKeyboardBindings[i].action,
                              Input::IsKeyDown( kTakeInputKeyboardBindings[i].virtualKey ) );
@@ -1747,67 +1738,79 @@ void Run::TakeInput()
         keyboardToggleEditorMode =
             InputController::CaptureKeyboardActionPress( m_runtimeInput, RuntimeInputAction::ToggleEditor, VK_OEM_3 );
 
-        if ( InputController::CaptureKeyboardActionPress( m_runtimeInput,
-                                                          RuntimeInputAction::CycleCameraMode,
-                                                          VK_TAB ) )
+        auto dispatchCameraModeKeyboardAction = [this]( const RuntimeInputKeyBinding& binding ) -> bool
         {
-            CycleCameraMode();
-        }
-
-        // F enters Inspect, or returns to the passive camera mode when already inspecting.
-        if ( InputController::CaptureKeyboardActionPress( m_runtimeInput, RuntimeInputAction::ToggleFlyCamera, 'F' ) )
-        {
-            const RunCameraMode passiveMode = SceneState().isSceneMode ? RunCameraMode::Scene : RunCameraMode::Demo;
-            ApplyCameraMode( m_camera.mode == RunCameraMode::Inspect ? passiveMode : RunCameraMode::Inspect,
-                             RuntimeInputActionSource::Keyboard );
-        }
-
-        // N toggles launcher view with live simulation and returns to the previous non-launcher mode.
-        {
-            if ( InputController::CaptureKeyboardActionPress( m_runtimeInput,
-                                                              RuntimeInputAction::ToggleLauncher,
-                                                              'N' ) )
+            switch ( binding.action )
             {
-                if ( m_camera.mode == RunCameraMode::Launcher )
+            case RuntimeInputAction::CycleCameraMode:
+                if ( InputController::CaptureKeyboardActionPress( m_runtimeInput, binding.action, binding.virtualKey ) )
                 {
-                    ApplyCameraMode( m_camera.modeBeforeLauncher, RuntimeInputActionSource::Keyboard );
+                    CycleCameraMode();
                 }
-                else
+                return true;
+            case RuntimeInputAction::ToggleFlyCamera:
+                if ( InputController::CaptureKeyboardActionPress( m_runtimeInput, binding.action, binding.virtualKey ) )
                 {
-                    m_camera.modeBeforeLauncher =
-                        m_camera.mode == RunCameraMode::Manipulator ? RunCameraMode::Inspect : m_camera.mode;
-                    ApplyCameraMode( RunCameraMode::Launcher, RuntimeInputActionSource::Keyboard );
+                    // F enters Inspect, or returns to the passive camera mode when already inspecting.
+                    const RunCameraMode passiveMode =
+                        SceneState().isSceneMode ? RunCameraMode::Scene : RunCameraMode::Demo;
+                    ApplyCameraMode( m_camera.mode == RunCameraMode::Inspect ? passiveMode : RunCameraMode::Inspect,
+                                     RuntimeInputActionSource::Keyboard );
                 }
+                return true;
+            case RuntimeInputAction::ToggleLauncher:
+                if ( InputController::CaptureKeyboardActionPress( m_runtimeInput, binding.action, binding.virtualKey ) )
+                {
+                    // N toggles launcher view with live simulation and returns to the previous non-launcher mode.
+                    if ( m_camera.mode == RunCameraMode::Launcher )
+                    {
+                        ApplyCameraMode( m_camera.modeBeforeLauncher, RuntimeInputActionSource::Keyboard );
+                    }
+                    else
+                    {
+                        m_camera.modeBeforeLauncher =
+                            m_camera.mode == RunCameraMode::Manipulator ? RunCameraMode::Inspect : m_camera.mode;
+                        ApplyCameraMode( RunCameraMode::Launcher, RuntimeInputActionSource::Keyboard );
+                    }
+                }
+                return true;
+            case RuntimeInputAction::CycleLauncherFireMode:
+                if ( InputController::CaptureKeyboardActionPress( m_runtimeInput,
+                                                                  binding.action,
+                                                                  binding.virtualKey ) &&
+                     IsLauncherCameraMode() )
+                {
+                    m_runtimeTools.RayCastTest().fireMode =
+                        m_runtimeTools.RayCastTest().fireMode == RunLauncherFireMode::Laser
+                            ? RunLauncherFireMode::Projectile
+                            : RunLauncherFireMode::Laser;
+                }
+                return true;
+            case RuntimeInputAction::CycleAttachedCameraSubmode:
+                if ( InputController::CaptureKeyboardActionPress( m_runtimeInput,
+                                                                  binding.action,
+                                                                  binding.virtualKey ) &&
+                     IsAttachedCameraMode() )
+                {
+                    CycleAttachedCameraSubmode();
+                }
+                return true;
+            case RuntimeInputAction::ToggleAttachedCameraPin:
+                if ( InputController::CaptureKeyboardActionPress( m_runtimeInput,
+                                                                  binding.action,
+                                                                  binding.virtualKey ) &&
+                     IsAttachedCameraMode() )
+                {
+                    ToggleAttachedCameraPin();
+                }
+                return true;
+            default:
+                return false;
             }
-        }
-
+        };
+        for ( std::size_t i = 0; i < kTakeInputKeyboardBindingCount; ++i )
         {
-            if ( InputController::CaptureKeyboardActionPress( m_runtimeInput,
-                                                              RuntimeInputAction::CycleLauncherFireMode,
-                                                              'M' ) &&
-                 IsLauncherCameraMode() )
-            {
-                m_runtimeTools.RayCastTest().fireMode =
-                    m_runtimeTools.RayCastTest().fireMode == RunLauncherFireMode::Laser
-                        ? RunLauncherFireMode::Projectile
-                        : RunLauncherFireMode::Laser;
-            }
-        }
-
-        if ( InputController::CaptureKeyboardActionPress( m_runtimeInput,
-                                                          RuntimeInputAction::CycleAttachedCameraSubmode,
-                                                          VK_F1 ) &&
-             IsAttachedCameraMode() )
-        {
-            CycleAttachedCameraSubmode();
-        }
-
-        if ( InputController::CaptureKeyboardActionPress( m_runtimeInput,
-                                                          RuntimeInputAction::ToggleAttachedCameraPin,
-                                                          VK_RETURN ) &&
-             IsAttachedCameraMode() )
-        {
-            ToggleAttachedCameraPin();
+            dispatchCameraModeKeyboardAction( kTakeInputKeyboardBindings[i] );
         }
 
         // B key: Director grab/release keeps the visible mode as Director while

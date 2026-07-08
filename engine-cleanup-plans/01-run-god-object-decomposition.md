@@ -217,6 +217,21 @@ every step. Commit per step.
   **owning subsystem's** handler — do this **one action-group at a time**,
   keeping behavior identical. Gate: interaction-automation suite +
   `validate_full`. Commit per group. Repeat until `TakeInput()` is only the loop.
+
+  Partial progress:
+  - [x] Camera-mode keyboard group (Tab/F/N/M/F1/Enter) now dispatches by looping
+    over `kTakeInputKeyboardBindings`; the old branch bodies for camera cycling,
+    fly/launcher mode, launcher fire-mode cycling, and attached-camera submode/pin
+    were moved behind that table-driven group. Non-camera actions still use their
+    existing branches, so this does not complete step 1.3. Gate evidence:
+    `TestOutput\agent_logs\plan01_step1_3_camera_interaction_clicks_rerun.log`
+    (19.8s, both interaction reports `ok=1`) and
+    `TestOutput\agent_logs\plan01_step1_3_camera_validate_full_rerun.log`
+    (50.7s; project filters/runtime boundaries passed, Profile/Debug builds had
+    0 warnings and 0 errors, DX12 InfoQueue errors = 0, screenshots matched
+    baselines, and `physics_regression_solver.csv` matched byte-exactly). An
+    earlier `validate_full` attempt failed on `RunInput.cpp` formatting only;
+    the file was formatted narrowly with clang-format before the rerun.
 - [ ] **1.4** Confirm `TakeInput()` is under ~200 lines (setup + dispatch loop).
 
 ### Phase 2 — Move state shelves out of `RunState`
