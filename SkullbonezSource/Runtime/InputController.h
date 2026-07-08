@@ -16,7 +16,7 @@ Glossary:
 Invariants:
   - RuntimeInputAction order is shared by fixed-size arrays in
     RuntimeInputContext and should only grow by appending before Count.
-  - RuntimeInputFrameState contains resolved per-frame policy; it must not own
+  - RuntimeInputModeState contains resolved per-frame mode facts; it must not own
     persistent subsystem state.
 
 Related:
@@ -235,6 +235,22 @@ struct RuntimeMouseEdges
     bool rightReleased = false;
 };
 
+struct RuntimeCameraInputFrameContext
+{
+    // Concept: Run resolves high-level ownership first; InputController only
+    // consumes the camera-local facts needed to update mouse-look and WASD
+    // movement for this frame.
+    bool appFocused = true;
+    bool cameraMouseLookActive = false;
+    bool mouseLookOwnsCursor = false;
+    bool cameraKeyboardControlsActive = false;
+};
+
+struct RuntimeCameraInputFrameResult
+{
+    bool applyCursorOwnership = false;
+};
+
 struct RuntimeInputTransition
 {
     RuntimeInputMode from = RuntimeInputMode::Scene;
@@ -308,6 +324,8 @@ class InputController
     ResetUnfocusedInput( RunCameraState& camera, bool& leftSceneCycleWasDown, bool& rightSceneCycleWasDown );
     static void ResetMouseLook( RunCameraState& camera );
     static void SetMouseLookDelta( RunCameraState& camera, long rawX, long rawY );
+    static RuntimeCameraInputFrameResult ApplyCameraInputFrame( RunCameraState& camera,
+                                                                const RuntimeCameraInputFrameContext& context );
 };
 } // namespace Basics
 } // namespace SkullbonezCore

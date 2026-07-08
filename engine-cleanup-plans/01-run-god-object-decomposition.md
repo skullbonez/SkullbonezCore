@@ -749,6 +749,27 @@ every step. Commit per step.
 	    (17.5s), and
 	    `TestOutput\agent_logs\plan01_scene_control_executor_build_profile.log`
 	    (10.0s).
+	  - [x] Camera input-frame extraction moved the raw mouse-look delta path
+	    and WASD camera-key state application out of `Run::TakeInput()` and into
+	    `InputController::ApplyCameraInputFrame()`. `RunInput` still resolves
+	    frame policy, pointer ownership, and cursor-ownership cleanup, while
+	    `InputController` now owns the camera-local mouse delta and key-state
+	    mutation. The touched-file comment audit added the frame-context
+	    ownership note and kept the raw-mouse fallback `Why:` comment near the
+	    moved code. `TakeInput()` now spans 901 lines. Gate evidence:
+	    `TestOutput\agent_logs\plan01_camera_input_frame_interaction_clicks.log`
+	    (16.3s, both interaction reports `ok=1`) and
+	    `TestOutput\agent_logs\plan01_camera_input_frame_validate_full.log`
+	    (52.2s; project filters/runtime boundaries passed, Profile/Debug builds
+	    had 0 warnings and 0 errors, DX12 InfoQueue errors = 0, screenshots
+	    matched baselines, and `physics_regression_solver.csv` matched
+	    byte-exactly). Targeted pre-gate checks also passed:
+	    `TestOutput\agent_logs\plan01_camera_input_frame_validate_format.log`
+	    (9.2s),
+	    `TestOutput\agent_logs\plan01_camera_input_frame_runtime_boundaries.log`
+	    (17.5s), and
+	    `TestOutput\agent_logs\plan01_camera_input_frame_build_profile.log`
+	    (10.4s).
 - [ ] **1.4** Confirm `TakeInput()` is under ~200 lines (setup + dispatch loop).
 
 ### Phase 2 — Move state shelves out of `RunState`

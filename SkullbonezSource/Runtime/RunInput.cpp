@@ -2619,79 +2619,15 @@ void Run::TakeInput()
     const bool cameraMouseLookActive =
         inputPolicy.cameraMouseLookActive && mouseLookOwnsCursor && inputSnapshot.appFocused;
     const bool cameraKeyboardControlsActive = inputPolicy.cameraKeyboardControlsActive;
-    if ( cameraMouseLookActive )
+    const RuntimeCameraInputFrameResult cameraInputResult =
+        InputController::ApplyCameraInputFrame( m_camera,
+                                                RuntimeCameraInputFrameContext{ inputSnapshot.appFocused,
+                                                                                cameraMouseLookActive,
+                                                                                mouseLookOwnsCursor,
+                                                                                cameraKeyboardControlsActive } );
+    if ( cameraInputResult.applyCursorOwnership )
     {
-        // Diagnostics UI owns the native cursor; mouse-look hides it while
-        // consuming raw Win32 deltas, with cursor-position deltas as a
-        // remote-desktop friendly fallback when raw input is unavailable.
-        if ( !Input::IsAppFocused() )
-        {
-            InputController::ResetMouseLook( m_camera );
-        }
-        else if ( !MouseLookOwnsCursor() )
-        {
-            ApplyCursorOwnership();
-            InputController::ResetMouseLook( m_camera );
-        }
-        else
-        {
-            Input::SetSystemCursorVisible( false );
-            long rawX = 0;
-            long rawY = 0;
-            const bool hasRawDelta = Input::ConsumeRawMouseDelta( rawX, rawY );
-            POINT currentClient = Input::GetClientMouseCoordinates();
-
-            if ( m_camera.needsMouseLookReset )
-            {
-                m_camera.input.xMove = 0;
-                m_camera.input.yMove = 0;
-                m_camera.mouseLookLastClient = currentClient;
-                m_camera.hasMouseLookLastClient = true;
-                m_camera.needsMouseLookReset = false;
-            }
-            else if ( hasRawDelta )
-            {
-                InputController::SetMouseLookDelta( m_camera, rawX, rawY );
-                m_camera.mouseLookLastClient = currentClient;
-                m_camera.hasMouseLookLastClient = true;
-            }
-            else if ( !m_camera.hasMouseLookLastClient )
-            {
-                m_camera.input.xMove = 0;
-                m_camera.input.yMove = 0;
-                m_camera.mouseLookLastClient = currentClient;
-                m_camera.hasMouseLookLastClient = true;
-            }
-            else
-            {
-                InputController::SetMouseLookDelta( m_camera,
-                                                    currentClient.x - m_camera.mouseLookLastClient.x,
-                                                    currentClient.y - m_camera.mouseLookLastClient.y );
-                m_camera.mouseLookLastClient = currentClient;
-            }
-        }
-    }
-    else
-    {
-        InputController::ResetMouseLook( m_camera );
         ApplyCursorOwnership();
-    }
-
-    if ( cameraKeyboardControlsActive )
-    {
-        // WASD movement
-        m_camera.input.Set( InputState::Up, Input::IsKeyDown( 'W' ) );
-        m_camera.input.Set( InputState::Left, Input::IsKeyDown( 'A' ) );
-        m_camera.input.Set( InputState::Down, Input::IsKeyDown( 'S' ) );
-        m_camera.input.Set( InputState::Right, Input::IsKeyDown( 'D' ) );
-    }
-    else
-    {
-        InputController::ResetMouseLook( m_camera );
-        m_camera.input.Set( InputState::Up, false );
-        m_camera.input.Set( InputState::Down, false );
-        m_camera.input.Set( InputState::Left, false );
-        m_camera.input.Set( InputState::Right, false );
     }
 
     DrainRuntimeCommands();
