@@ -261,6 +261,36 @@ bool IsFastSmallSweepBody( const PhysicsBodyRecordList& bodyRecords,
     return displacementSq > minSweepDistance * minSweepDistance;
 }
 
+// Invariant: contactEpsilon is the raw config value used by the former lambda,
+// not the clamped broadphase contact skin. Changing that input changes which
+// conservative pairs reach CCD and must be treated as a physics behavior change.
+bool SweptSegmentTouchesExpandedBody( const PhysicsBodyRecordList& bodyRecords,
+                                      const ColliderRecordList& colliderRecords,
+                                      int movingIndex,
+                                      int targetIndex,
+                                      float dt,
+                                      float contactEpsilon )
+{
+    const Vector3 relativeStart =
+        SolverBodyPosition( bodyRecords, movingIndex ) - SolverBodyPosition( bodyRecords, targetIndex );
+    const Vector3 relativeDisplacement = ( bodyRecords[static_cast<size_t>( movingIndex )].linearVelocity -
+                                           bodyRecords[static_cast<size_t>( targetIndex )].linearVelocity ) *
+                                         dt;
+    const float relativeLengthSq = Vector::VectorMagSquared( relativeDisplacement );
+    if ( relativeLengthSq <= TOLERANCE * TOLERANCE )
+    {
+        return false;
+    }
+
+    float t = -( relativeStart * relativeDisplacement ) / relativeLengthSq;
+    t = (std::max)( 0.0f, (std::min)( 1.0f, t ) );
+    const Vector3 closestRelative = relativeStart + relativeDisplacement * t;
+    const float expandedRadius =
+        SolverBodyRadius( colliderRecords, movingIndex ) + SolverBodyRadius( colliderRecords, targetIndex ) +
+        contactEpsilon + PHYSICS_FAST_SWEEP_PAIR_SLOP;
+    return Vector::VectorMagSquared( closestRelative ) <= expandedRadius * expandedRadius;
+}
+
 void ApplyForcesForSolverBody( PhysicsBodyStore& bodyStore,
                                const ColliderStore& colliderStore,
                                const PhysicsWorldForces& worldForces,
@@ -2418,28 +2448,6 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
                                          &broadphaseCandidateFilterContext );
     }
 
-    auto sweptSegmentTouchesExpandedBody = [&]( int movingIndex, int targetIndex ) -> bool
-    {
-        const Vector3 relativeStart =
-            SolverBodyPosition( bodyRecords, movingIndex ) - SolverBodyPosition( bodyRecords, targetIndex );
-        const Vector3 relativeDisplacement = ( bodyRecords[static_cast<size_t>( movingIndex )].linearVelocity -
-                                               bodyRecords[static_cast<size_t>( targetIndex )].linearVelocity ) *
-                                             dt;
-        const float relativeLengthSq = Vector::VectorMagSquared( relativeDisplacement );
-        if ( relativeLengthSq <= TOLERANCE * TOLERANCE )
-        {
-            return false;
-        }
-
-        float t = -( relativeStart * relativeDisplacement ) / relativeLengthSq;
-        t = (std::max)( 0.0f, (std::min)( 1.0f, t ) );
-        const Vector3 closestRelative = relativeStart + relativeDisplacement * t;
-        const float expandedRadius =
-            SolverBodyRadius( colliderRecords, movingIndex ) + SolverBodyRadius( colliderRecords, targetIndex ) +
-            config.contactEpsilon + PHYSICS_FAST_SWEEP_PAIR_SLOP;
-        return Vector::VectorMagSquared( closestRelative ) <= expandedRadius * expandedRadius;
-    };
-
     // Tiny high-speed projectiles should not depend solely on cell overlap.
     // If the hash grid samples or capacity ever miss their path, this conservative
     // segment test still feeds the exact pair to narrowphase CCD.
@@ -2458,7 +2466,12 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
                 {
                     continue;
                 }
-                if ( sweptSegmentTouchesExpandedBody( movingIndex, targetIndex ) )
+                if ( SweptSegmentTouchesExpandedBody( bodyRecords,
+                                                      colliderRecords,
+                                                      movingIndex,
+                                                      targetIndex,
+                                                      dt,
+                                                      config.contactEpsilon ) )
                 {
                     AppendCandidatePairIfMissing( candidatePairs,
                                                   broadphaseCandidateFilterContext,
