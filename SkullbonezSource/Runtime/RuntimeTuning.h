@@ -13,6 +13,8 @@ Glossary:
   Ordinary render config: Non-cinematic renderer settings saved in engine.cfg.
   Override mask: Bitset recording which UI-touched scene values should persist.
   Sound command: One-frame UI packet that edits contact-audio presentation state.
+  Physics friction command: One-frame Physics-tab packet that edits live friction config.
+  Physics sleep command: One-frame Physics-tab packet that toggles sleep policy.
   Tornado command: One-frame Physics-tab packet that edits live vortex settings.
   Worker override: Runtime request for the worker-pool thread count.
 
@@ -20,6 +22,8 @@ Invariants:
   - Render and cinematic helpers clamp raw UI values before writing runtime config.
   - Scene override bits and the changed value must stay paired.
   - Sound commands delegate value limits to ContactAudioService setters.
+  - Physics config edits are mirrored into GameModelCollection immediately so
+    existing and newly added bodies share the same runtime policy.
   - Tornado commands sync runtime settings back to physics after field edits.
 
 Related:
@@ -63,11 +67,34 @@ struct TornadoUICommandContext
     GameObjects::GameModelCollection& modelCollection;
 };
 
+struct PhysicsSleepPolicyUICommandContext
+{
+    // Lifetime: borrowed only while one Physics-tab sleep-policy toggle is applied.
+    // The helper writes runtime settings and mirrors the policy into physics.
+    RunRuntimeSettings& runtimeSettings;
+    GameObjects::GameModelCollection& modelCollection;
+};
+
+struct PhysicsFrictionUICommandContext
+{
+    // Lifetime: borrowed only while one Physics-tab friction packet is applied.
+    // The helper writes live config and immediately reapplies physics runtime policy.
+    EngineConfig& config;
+    GameObjects::GameModelCollection& modelCollection;
+};
+
 struct TornadoUICommandResult
 {
     bool toggledTornado = false;
     bool toggledVisualShell = false;
     bool toggledFieldVectors = false;
+    int applySettingsActionCount = 0;
+};
+
+struct PhysicsFrictionUICommandResult
+{
+    // Invariant: count accepted requests, not changed values, so input action
+    // reporting still mirrors the UI packet that RunInput accepted.
     int applySettingsActionCount = 0;
 };
 
@@ -86,6 +113,10 @@ void ApplyCinematicUIParam( CinematicRenderConfig& cinematic,
 void SetCinematicShadowsEnabledFromUI( CinematicRenderConfig& cinematic, RunSceneState& scene, bool enabled );
 void ApplyOrdinaryRenderUIParam( OrdinaryRenderConfig& ordinary, UIRenderParam param, float rawValue );
 bool ApplySoundUICommands( SoundUICommandContext context, const UI::UISoundCommands& commands );
+bool ApplyPhysicsSleepPolicyUICommand( PhysicsSleepPolicyUICommandContext context,
+                                       const UI::UIPhysicsCommands& commands );
+PhysicsFrictionUICommandResult ApplyPhysicsFrictionUICommands( PhysicsFrictionUICommandContext context,
+                                                               const UI::UIPhysicsCommands& commands );
 TornadoUICommandResult ApplyTornadoUICommands( TornadoUICommandContext context, const UI::UIPhysicsCommands& commands );
 void ToggleCinematicUIFeature( CinematicRenderConfig& cinematic, RunSceneState& scene, UICinematicFeature feature );
 } // namespace RunInternal

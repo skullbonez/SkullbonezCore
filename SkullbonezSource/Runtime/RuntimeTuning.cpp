@@ -30,6 +30,7 @@ Related:
 #include "RuntimeTuning.h"
 
 #include "../Core/WorkerPool.h"
+#include "../GameObjects/GameModelCollection.h"
 #include "../UI/UILayout.h"
 #include "../World/WorldEnvironment.h"
 #include "Replay/ReplayRuntime.h"
@@ -467,6 +468,60 @@ bool ApplySoundUICommands( SoundUICommandContext context, const UI::UISoundComma
         soundTuningChanged = true;
     }
     return soundTuningChanged;
+}
+
+bool ApplyPhysicsSleepPolicyUICommand( PhysicsSleepPolicyUICommandContext context,
+                                       const UI::UIPhysicsCommands& commands )
+{
+    if ( !commands.togglePhysicsSleepPolicy )
+    {
+        return false;
+    }
+
+    RunRuntimeSettings& runtimeSettings = context.runtimeSettings;
+    runtimeSettings.isPhysicsSleepEnabled = !runtimeSettings.isPhysicsSleepEnabled;
+    context.modelCollection.SetPhysicsSleepEnabled( runtimeSettings.isPhysicsSleepEnabled );
+    return true;
+}
+
+PhysicsFrictionUICommandResult ApplyPhysicsFrictionUICommands( PhysicsFrictionUICommandContext context,
+                                                               const UI::UIPhysicsCommands& commands )
+{
+    PhysicsFrictionUICommandResult result;
+    EngineConfig& liveConfig = context.config;
+    bool runtimePhysicsConfigChanged = false;
+    if ( commands.requestTerrainFrictionCoeff )
+    {
+        liveConfig.frictionCoeff = std::clamp( commands.requestedTerrainFrictionCoeff,
+                                               UI::Layout::UI_FRICTION_COEFF_MIN,
+                                               UI::Layout::UI_FRICTION_COEFF_MAX );
+        runtimePhysicsConfigChanged = true;
+        ++result.applySettingsActionCount;
+    }
+    if ( commands.requestObjectFrictionCoeff )
+    {
+        liveConfig.objectFrictionCoeff = std::clamp( commands.requestedObjectFrictionCoeff,
+                                                     UI::Layout::UI_FRICTION_COEFF_MIN,
+                                                     UI::Layout::UI_FRICTION_COEFF_MAX );
+        runtimePhysicsConfigChanged = true;
+        ++result.applySettingsActionCount;
+    }
+    if ( commands.requestRollingFrictionCoeff )
+    {
+        liveConfig.rollingFrictionCoeff = std::clamp( commands.requestedRollingFrictionCoeff,
+                                                      UI::Layout::UI_ROLLING_FRICTION_COEFF_MIN,
+                                                      UI::Layout::UI_ROLLING_FRICTION_COEFF_MAX );
+        runtimePhysicsConfigChanged = true;
+        ++result.applySettingsActionCount;
+    }
+    if ( runtimePhysicsConfigChanged )
+    {
+        // Invariant: GameModelCollection caches per-model runtime tuning so
+        // existing bodies and newly added bodies must observe the same live
+        // physics settings immediately after UI config edits.
+        context.modelCollection.ApplyRuntimeConfig( liveConfig );
+    }
+    return result;
 }
 
 TornadoUICommandResult ApplyTornadoUICommands( TornadoUICommandContext context, const UI::UIPhysicsCommands& commands )

@@ -2292,10 +2292,10 @@ void Run::TakeInput()
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleCollisionVisualizer,
                                                RuntimeInputActionSource::UI );
         }
-        if ( uiCommands.physics.togglePhysicsSleepPolicy )
+        if ( ApplyPhysicsSleepPolicyUICommand(
+                 PhysicsSleepPolicyUICommandContext{ m_runtimeSettings, m_cGameModelCollection },
+                 uiCommands.physics ) )
         {
-            m_runtimeSettings.isPhysicsSleepEnabled = !m_runtimeSettings.isPhysicsSleepEnabled;
-            m_cGameModelCollection.SetPhysicsSleepEnabled( m_runtimeSettings.isPhysicsSleepEnabled );
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::TogglePhysicsSleepPolicy,
                                                RuntimeInputActionSource::UI );
         }
@@ -2341,9 +2341,8 @@ void Run::TakeInput()
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleTornadoFieldVectors,
                                                RuntimeInputActionSource::UI );
         }
-        if ( uiCommands.physics.toggleRayCastVisualization )
+        if ( m_runtimeTools.ApplyRayCastVisualizationUICommand( uiCommands.physics ) )
         {
-            m_runtimeTools.RayCastTest().visualizeRays = !m_runtimeTools.RayCastTest().visualizeRays;
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleRayCastVisualization,
                                                RuntimeInputActionSource::UI );
         }
@@ -2481,69 +2480,33 @@ void Run::TakeInput()
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::SetPhysicsDebugContactLinger,
                                                RuntimeInputActionSource::UI );
         }
-        if ( uiCommands.physics.requestRayCastImpulseStrength )
+        const RayCastLauncherTuningUICommandResult rayCastLauncherCommands =
+            m_runtimeTools.ApplyRayCastLauncherTuningUICommands( uiCommands.physics );
+        if ( rayCastLauncherCommands.setImpulseStrength )
         {
-            const float previousImpulse = m_runtimeTools.RayCastTest().impulseStrength;
-            m_runtimeTools.RayCastTest().impulseStrength =
-                std::clamp( uiCommands.physics.requestedRayCastImpulseStrength,
-                            UI_RAY_IMPULSE_MIN,
-                            UI_RAY_IMPULSE_MAX );
-            m_replayRuntime.RecordLauncherConfigEvent(
-                previousImpulse != m_runtimeTools.RayCastTest().impulseStrength ? 1u : 0u,
-                m_runtimeTools.RayCastTest().impulseStrength,
-                m_runtimeTools.RayCastTest().projectileSpeed );
+            m_replayRuntime.RecordLauncherConfigEvent( rayCastLauncherCommands.impulseConfigChangedFlags,
+                                                       rayCastLauncherCommands.impulseConfigImpulseStrength,
+                                                       rayCastLauncherCommands.impulseConfigProjectileSpeed );
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::SetRayCastImpulseStrength,
                                                RuntimeInputActionSource::UI );
         }
-        if ( uiCommands.physics.requestLauncherProjectileSpeed )
+        if ( rayCastLauncherCommands.setProjectileSpeed )
         {
-            const float previousProjectileSpeed = m_runtimeTools.RayCastTest().projectileSpeed;
-            m_runtimeTools.RayCastTest().projectileSpeed =
-                std::clamp( uiCommands.physics.requestedLauncherProjectileSpeed,
-                            UI_LAUNCHER_PROJECTILE_SPEED_MIN,
-                            UI_LAUNCHER_PROJECTILE_SPEED_MAX );
-            m_replayRuntime.RecordLauncherConfigEvent(
-                previousProjectileSpeed != m_runtimeTools.RayCastTest().projectileSpeed ? 2u : 0u,
-                m_runtimeTools.RayCastTest().impulseStrength,
-                m_runtimeTools.RayCastTest().projectileSpeed );
+            m_replayRuntime.RecordLauncherConfigEvent( rayCastLauncherCommands.projectileConfigChangedFlags,
+                                                       rayCastLauncherCommands.projectileConfigImpulseStrength,
+                                                       rayCastLauncherCommands.projectileConfigProjectileSpeed );
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::SetLauncherProjectileSpeed,
                                                RuntimeInputActionSource::UI );
         }
         EngineConfig& liveConfig = m_config;
-        bool runtimePhysicsConfigChanged = false;
-        if ( uiCommands.physics.requestTerrainFrictionCoeff )
+        const PhysicsFrictionUICommandResult physicsFrictionCommands =
+            ApplyPhysicsFrictionUICommands( PhysicsFrictionUICommandContext{ liveConfig, m_cGameModelCollection },
+                                            uiCommands.physics );
+        for ( int physicsFrictionAction = 0; physicsFrictionAction < physicsFrictionCommands.applySettingsActionCount;
+              ++physicsFrictionAction )
         {
-            liveConfig.frictionCoeff = std::clamp( uiCommands.physics.requestedTerrainFrictionCoeff,
-                                                   UI_FRICTION_COEFF_MIN,
-                                                   UI_FRICTION_COEFF_MAX );
-            runtimePhysicsConfigChanged = true;
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ApplyPhysicsFrictionSettings,
                                                RuntimeInputActionSource::UI );
-        }
-        if ( uiCommands.physics.requestObjectFrictionCoeff )
-        {
-            liveConfig.objectFrictionCoeff = std::clamp( uiCommands.physics.requestedObjectFrictionCoeff,
-                                                         UI_FRICTION_COEFF_MIN,
-                                                         UI_FRICTION_COEFF_MAX );
-            runtimePhysicsConfigChanged = true;
-            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ApplyPhysicsFrictionSettings,
-                                               RuntimeInputActionSource::UI );
-        }
-        if ( uiCommands.physics.requestRollingFrictionCoeff )
-        {
-            liveConfig.rollingFrictionCoeff = std::clamp( uiCommands.physics.requestedRollingFrictionCoeff,
-                                                          UI_ROLLING_FRICTION_COEFF_MIN,
-                                                          UI_ROLLING_FRICTION_COEFF_MAX );
-            runtimePhysicsConfigChanged = true;
-            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ApplyPhysicsFrictionSettings,
-                                               RuntimeInputActionSource::UI );
-        }
-        if ( runtimePhysicsConfigChanged )
-        {
-            // Invariant: GameModelCollection caches per-model runtime tuning so
-            // existing bodies and newly added bodies must observe the same live
-            // physics settings immediately after UI config edits.
-            m_cGameModelCollection.ApplyRuntimeConfig( liveConfig );
         }
         const auto makeSceneGeneratedControlContext = [this, &liveConfig]() -> SceneRuntimeGeneratedControlContext
         {

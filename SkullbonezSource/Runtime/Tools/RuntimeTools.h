@@ -30,6 +30,8 @@ Glossary:
     handles; resolve it before use because collection edits can move rows.
   Ring buffer: Fixed-size history where new launcher/raycast entries overwrite
     the oldest slots.
+  Launcher tuning command: One-frame Physics-tab packet that edits launcher
+    raycast visualization, impulse strength, or projectile speed.
 
 Invariants:
   - RuntimeTools owns transient tool state only; world, model, terrain, camera,
@@ -59,6 +61,7 @@ Related:
 
 #include <array>
 #include <cstddef>
+#include <cstdint>
 #include <string>
 #include <vector>
 
@@ -95,6 +98,11 @@ namespace SkullbonezCore::Rendering
 class IRenderCommandContext;
 } // namespace SkullbonezCore::Rendering
 
+namespace SkullbonezCore::UI
+{
+struct UIPhysicsCommands;
+} // namespace SkullbonezCore::UI
+
 namespace SkullbonezCore::Basics
 {
 struct RunDebugState;
@@ -130,6 +138,21 @@ struct RunRayCastTestState
     bool visualizeRays = false;
     float impulseStrength = 1800.0f;
     float projectileSpeed = 160.0f;
+};
+
+struct RayCastLauncherTuningUICommandResult
+{
+    bool setImpulseStrength = false;
+    bool setProjectileSpeed = false;
+    // Invariant: replay records one config event per accepted slider request.
+    // Each payload captures launcher values immediately after that request, so
+    // same-frame impulse and projectile edits replay in the original order.
+    uint32_t impulseConfigChangedFlags = 0;
+    float impulseConfigImpulseStrength = 0.0f;
+    float impulseConfigProjectileSpeed = 0.0f;
+    uint32_t projectileConfigChangedFlags = 0;
+    float projectileConfigImpulseStrength = 0.0f;
+    float projectileConfigProjectileSpeed = 0.0f;
 };
 
 #ifdef _DEBUG
@@ -427,6 +450,8 @@ class RuntimeTools
   public:
     RunRayCastTestState& RayCastTest();
     const RunRayCastTestState& RayCastTest() const;
+    bool ApplyRayCastVisualizationUICommand( const UI::UIPhysicsCommands& commands );
+    RayCastLauncherTuningUICommandResult ApplyRayCastLauncherTuningUICommands( const UI::UIPhysicsCommands& commands );
     void ClearRayCastTestLines();
     void AddRayCastTestLine( const Math::Vector::Vector3& start, const Math::Vector::Vector3& end, bool hit );
     void TickRayCastTestLines( float dt );

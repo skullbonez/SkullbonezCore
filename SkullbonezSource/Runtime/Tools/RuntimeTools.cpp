@@ -48,6 +48,8 @@ Related:
 #include "../../Physics/PhysicsApi.h"
 #include "../../Physics/PhysicsBodyStore.h"
 #include "../../Physics/PhysicsEngine.h"
+#include "../../UI/UICommands.h"
+#include "../../UI/UILayout.h"
 #include "../CameraCollection.h"
 #include "../Replay/ReplayRecorder.h"
 #include "../Scene/SceneRuntime.h"
@@ -132,6 +134,46 @@ RunRayCastTestState& RuntimeTools::RayCastTest()
 const RunRayCastTestState& RuntimeTools::RayCastTest() const
 {
     return m_rayCastTest;
+}
+
+bool RuntimeTools::ApplyRayCastVisualizationUICommand( const UI::UIPhysicsCommands& commands )
+{
+    if ( !commands.toggleRayCastVisualization )
+    {
+        return false;
+    }
+
+    m_rayCastTest.visualizeRays = !m_rayCastTest.visualizeRays;
+    return true;
+}
+
+RayCastLauncherTuningUICommandResult
+RuntimeTools::ApplyRayCastLauncherTuningUICommands( const UI::UIPhysicsCommands& commands )
+{
+    RayCastLauncherTuningUICommandResult result;
+    if ( commands.requestRayCastImpulseStrength )
+    {
+        const float previousImpulseStrength = m_rayCastTest.impulseStrength;
+        m_rayCastTest.impulseStrength = std::clamp( commands.requestedRayCastImpulseStrength,
+                                                    UI::Layout::UI_RAY_IMPULSE_MIN,
+                                                    UI::Layout::UI_RAY_IMPULSE_MAX );
+        result.setImpulseStrength = true;
+        result.impulseConfigChangedFlags = previousImpulseStrength != m_rayCastTest.impulseStrength ? 1u : 0u;
+        result.impulseConfigImpulseStrength = m_rayCastTest.impulseStrength;
+        result.impulseConfigProjectileSpeed = m_rayCastTest.projectileSpeed;
+    }
+    if ( commands.requestLauncherProjectileSpeed )
+    {
+        const float previousProjectileSpeed = m_rayCastTest.projectileSpeed;
+        m_rayCastTest.projectileSpeed = std::clamp( commands.requestedLauncherProjectileSpeed,
+                                                    UI::Layout::UI_LAUNCHER_PROJECTILE_SPEED_MIN,
+                                                    UI::Layout::UI_LAUNCHER_PROJECTILE_SPEED_MAX );
+        result.setProjectileSpeed = true;
+        result.projectileConfigChangedFlags = previousProjectileSpeed != m_rayCastTest.projectileSpeed ? 2u : 0u;
+        result.projectileConfigImpulseStrength = m_rayCastTest.impulseStrength;
+        result.projectileConfigProjectileSpeed = m_rayCastTest.projectileSpeed;
+    }
+    return result;
 }
 
 void RuntimeTools::ClearRayCastTestLines()

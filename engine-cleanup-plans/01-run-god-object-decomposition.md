@@ -465,6 +465,26 @@ every step. Commit per step.
 	    `TestOutput\agent_logs\plan01_physics_debug_ui_runtime_boundaries.log`
 	    (17.4s), and
 	    `TestOutput\agent_logs\plan01_physics_debug_ui_build_profile.log` (10.1s).
+	  - [x] Physics runtime/tool UI command extraction moved Physics-tab sleep
+	    policy, raycast visualization, launcher impulse/projectile-speed tuning,
+	    and terrain/object/rolling friction commands out of `Run::TakeInput()` and
+	    into `RuntimeTuning`/`RuntimeTools`. `RuntimeTools` returns replay payload
+	    snapshots so same-frame launcher slider edits still record config events in
+	    the original order, while `RuntimeTuning` owns live friction config syncing
+	    through `GameModelCollection`. The touched-file comment audit added the
+	    launcher replay-payload invariant and friction action-count invariant.
+	    `TakeInput()` now spans 1,108 lines. Gate evidence:
+	    `TestOutput\agent_logs\plan01_physics_runtime_tools_interaction_clicks.log`
+	    (15.7s, both interaction reports `ok=1`) and
+	    `TestOutput\agent_logs\plan01_physics_runtime_tools_validate_full.log`
+	    (52.2s; project filters/runtime boundaries passed, Profile/Debug builds had
+	    0 warnings and 0 errors, DX12 InfoQueue errors = 0, screenshots matched
+	    baselines, and `physics_regression_solver.csv` matched byte-exactly).
+	    Targeted pre-gate checks also passed:
+	    `TestOutput\agent_logs\plan01_physics_runtime_tools_validate_format_post_comments.log`
+	    (9.0s), `TestOutput\agent_logs\plan01_physics_runtime_tools_runtime_boundaries.log`
+	    (17.4s), and `TestOutput\agent_logs\plan01_physics_runtime_tools_build_profile.log`
+	    (10.0s).
 - [ ] **1.4** Confirm `TakeInput()` is under ~200 lines (setup + dispatch loop).
 
 ### Phase 2 — Move state shelves out of `RunState`
