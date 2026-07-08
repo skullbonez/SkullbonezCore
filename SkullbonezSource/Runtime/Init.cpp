@@ -2990,6 +2990,84 @@ std::unique_ptr<RenderBackendDX12> InitRenderBackend( Window* window, RuntimeRen
 // before the DX12 backend and the Win32 window are torn down.
 // ---------------------------------------------------------------------------
 
+RunStartupOverrides BuildRunStartupOverrides( const ParsedArgs& args )
+{
+    RunStartupOverrides overrides;
+    RunLaunchOptions& launch = overrides.launch;
+
+    launch.timeScaleOverride = args.timeScaleOverride;
+    launch.fixedStep = args.fixedStep;
+    launch.seedOverride = args.seedOverride;
+    launch.noWater = args.noWater;
+    launch.noSleep = args.noSleep;
+    launch.noContactAudio = args.noContactAudio;
+    launch.hasTornadoOverride = args.hasTornadoOverride;
+    launch.tornadoEnabled = args.tornadoEnabled;
+    launch.tornadoVectors = args.tornadoVectors;
+    launch.hasCinematicRenderingOverride = args.hasCinematicRenderingOverride;
+    launch.cinematicRendering = args.cinematicRendering;
+    launch.hasCinematicShadowsOverride = args.hasCinematicShadowsOverride;
+    launch.cinematicShadows = args.cinematicShadows;
+    launch.demoHeroStyle = args.demoHeroStyle;
+    launch.interactiveSceneRun = args.interactiveRun;
+    launch.frameCountOverride = args.frameCountOverride;
+    launch.uiStress = args.uiStress;
+    launch.uiStressSeed = args.uiStressSeed;
+    launch.uiStressActions = args.uiStressActions;
+    launch.graphicsStress = args.graphicsStress;
+    launch.graphicsStressSeed = args.graphicsStressSeed;
+    launch.graphicsStressActions = args.graphicsStressActions;
+    launch.graphicsStressSceneIntervalFrames = args.graphicsStressSceneIntervalFrames;
+    launch.graphicsStressMemoryIntervalFrames = args.graphicsStressMemoryIntervalFrames;
+    launch.allocationGuardMode = args.allocationGuardMode;
+    launch.generatedObjectTypeOverride = args.objectTypeOverride;
+    launch.hasPhysicsDebugFlagsOverride = args.hasPhysicsDebugFlagsOverride;
+    launch.physicsDebugFlagsOverride = args.physicsDebugFlagsOverride;
+    launch.hasPhysicsDebugTransparentOverride = args.hasPhysicsDebugTransparentOverride;
+    launch.physicsDebugTransparentOverride = args.physicsDebugTransparentOverride;
+    launch.hasPhysicsDebugAlphaOverride = args.hasPhysicsDebugAlphaOverride;
+    launch.physicsDebugAlphaOverride = args.physicsDebugAlphaOverride;
+    launch.hasPhysicsDebugContactLingerOverride = args.hasPhysicsDebugContactLingerOverride;
+    launch.physicsDebugContactLingerOverride = args.physicsDebugContactLingerOverride;
+
+    overrides.liveStyleControlDirectory = args.liveStyleControlDir[0] != '\0' ? args.liveStyleControlDir : nullptr;
+    overrides.mainMemoryDumpPath = args.memoryDumpPath[0] != '\0' ? args.memoryDumpPath : nullptr;
+
+    const bool replayDefaultAllowed =
+        !args.isSuiteOrSceneMode || args.interactiveRun || args.liveStyleControlDir[0] != '\0';
+    const bool replayEnabled =
+        args.replayExplicit ? args.replayRecording : ( args.replayRecording && replayDefaultAllowed );
+    overrides.configureReplayRecording = replayEnabled || args.replayHashLogPath[0] != '\0';
+    overrides.replayRecordingEnabled = true;
+    overrides.replayRetentionSeconds = args.replaySeconds;
+    overrides.replayHashLogPath = args.replayHashLogPath[0] != '\0' ? args.replayHashLogPath : nullptr;
+
+    overrides.hasInitialOverlayMode = args.showProfiler;
+    overrides.initialOverlayMode = args.showProfiler ? OverlayMode::Timers : OverlayMode::None;
+    overrides.hideTopText = args.hideTopText;
+    overrides.showBroadphaseVisualizer = args.showBroadphaseVisualizer;
+
+#ifdef _DEBUG
+    overrides.replayScrubProbe = args.replayScrubProbe;
+    overrides.replayScrubProbeNormalized = args.replayScrubProbeNormalized;
+    overrides.replayRestoreProbe = args.replayRestoreProbe;
+    overrides.replayRestoreProbeNormalized = args.replayRestoreProbeNormalized;
+    overrides.replaySaveProbe = args.replaySaveProbe;
+    overrides.replaySaveProbePath = args.replaySaveProbe ? args.replaySaveProbePath : nullptr;
+    overrides.physicsRegressionLogPath =
+        args.physicsRegressionLogOverride[0] != '\0' ? args.physicsRegressionLogOverride : nullptr;
+    overrides.physicsCollisionTimeLogPath =
+        args.physicsCollisionTimeLogOverride[0] != '\0' ? args.physicsCollisionTimeLogOverride : nullptr;
+    overrides.physicsDiagnosticsPath = args.physicsDiagnosticsPath[0] != '\0' ? args.physicsDiagnosticsPath : nullptr;
+    overrides.physicsDiagnosticsFixedStepForced = args.fixedStepForcedByPhysicsDiagnostics;
+#endif
+
+    return overrides;
+}
+
+
+// ---------------------------------------------------------------------------
+
 int RunApp( Window* window,
             ParsedArgs& args,
             EngineConfig& cfg,
@@ -3017,148 +3095,8 @@ int RunApp( Window* window,
         // backend-owned resources through the still-live DX12 backend.
         ProfilerRenderDiagnosticsLifetime profilerRenderDiagnosticsLifetime{ profiler };
 #endif
-        cRun->SetAllocationGuardMode( args.allocationGuardMode );
-        if ( args.timeScaleOverride > 0.0f )
-        {
-            cRun->SetTimeScaleOverride( args.timeScaleOverride );
-        }
-        if ( args.fixedStep )
-        {
-            cRun->SetFixedStepOverride();
-        }
-        if ( args.seedOverride > 0 )
-        {
-            cRun->SetSeedOverride( args.seedOverride );
-        }
-        if ( args.noWater )
-        {
-            cRun->SetNoWaterOverride();
-        }
-        if ( args.noSleep )
-        {
-            cRun->SetNoSleepOverride();
-        }
-        if ( args.noContactAudio )
-        {
-            cRun->SetNoContactAudioOverride();
-        }
-        if ( args.hasTornadoOverride )
-        {
-            cRun->SetTornadoOverride( args.tornadoEnabled );
-        }
-        if ( args.tornadoVectors )
-        {
-            cRun->SetTornadoVectorFieldOverride( true );
-        }
-        if ( args.hasCinematicRenderingOverride )
-        {
-            cRun->SetCinematicRenderingOverride( args.cinematicRendering );
-        }
-        if ( args.hasCinematicShadowsOverride )
-        {
-            cRun->SetCinematicShadowsOverride( args.cinematicShadows );
-        }
-        if ( args.demoHeroStyle )
-        {
-            cRun->SetDemoHeroStyleOverride();
-        }
-        if ( args.interactiveRun )
-        {
-            cRun->SetInteractiveRunOverride();
-        }
-        if ( args.liveStyleControlDir[0] != '\0' )
-        {
-            cRun->SetLiveStyleControlDirectory( args.liveStyleControlDir );
-        }
-        if ( args.frameCountOverride > 0 )
-        {
-            cRun->SetFrameCountOverride( args.frameCountOverride );
-        }
-        if ( args.uiStress )
-        {
-            cRun->SetUIStressOverride( args.uiStressSeed, args.uiStressActions );
-        }
-        if ( args.graphicsStress )
-        {
-            cRun->SetGraphicsStressOverride( args.graphicsStressSeed,
-                                             args.graphicsStressActions,
-                                             args.graphicsStressSceneIntervalFrames,
-                                             args.graphicsStressMemoryIntervalFrames );
-        }
-        if ( args.memoryDumpPath[0] != '\0' )
-        {
-            cRun->SetMainMemoryDumpPath( args.memoryDumpPath );
-        }
-        const bool replayDefaultAllowed =
-            !args.isSuiteOrSceneMode || args.interactiveRun || args.liveStyleControlDir[0] != '\0';
-        const bool replayEnabled =
-            args.replayExplicit ? args.replayRecording : ( args.replayRecording && replayDefaultAllowed );
-        if ( replayEnabled || args.replayHashLogPath[0] != '\0' )
-        {
-            cRun->SetReplayRecording( true,
-                                      args.replaySeconds,
-                                      args.replayHashLogPath[0] != '\0' ? args.replayHashLogPath : nullptr );
-        }
-#ifdef _DEBUG
-        if ( args.replayScrubProbe )
-        {
-            cRun->SetReplayScrubProbe( args.replayScrubProbeNormalized );
-        }
-        if ( args.replayRestoreProbe )
-        {
-            cRun->SetReplayRestoreProbe( args.replayRestoreProbeNormalized );
-        }
-        if ( args.replaySaveProbe )
-        {
-            cRun->SetReplaySaveProbe( args.replaySaveProbePath );
-        }
-#endif
-        if ( args.showProfiler )
-        {
-            cRun->SetInitialOverlayMode( OverlayMode::Timers );
-        }
-        if ( args.hideTopText )
-        {
-            cRun->SetTopTextHidden( true );
-        }
-        if ( args.showBroadphaseVisualizer )
-        {
-            cRun->SetBroadphaseVisualizerEnabled( true );
-        }
-        if ( args.objectTypeOverride != GeneratedObjectTypeOverride::Mixed )
-        {
-            cRun->SetGeneratedObjectTypeOverride( args.objectTypeOverride );
-        }
-        if ( args.hasPhysicsDebugFlagsOverride )
-        {
-            cRun->SetPhysicsDebugFlagsOverride( args.physicsDebugFlagsOverride );
-        }
-        if ( args.hasPhysicsDebugTransparentOverride )
-        {
-            cRun->SetPhysicsDebugTransparentOverride( args.physicsDebugTransparentOverride );
-        }
-        if ( args.hasPhysicsDebugAlphaOverride )
-        {
-            cRun->SetPhysicsDebugAlphaOverride( args.physicsDebugAlphaOverride );
-        }
-        if ( args.hasPhysicsDebugContactLingerOverride )
-        {
-            cRun->SetPhysicsDebugContactLingerOverride( args.physicsDebugContactLingerOverride );
-        }
-#ifdef _DEBUG
-        if ( args.physicsRegressionLogOverride[0] != '\0' )
-        {
-            cRun->SetPhysicsRegressionLogOverride( args.physicsRegressionLogOverride );
-        }
-        if ( args.physicsCollisionTimeLogOverride[0] != '\0' )
-        {
-            cRun->SetPhysicsCollisionTimeLogOverride( args.physicsCollisionTimeLogOverride );
-        }
-        if ( args.physicsDiagnosticsPath[0] != '\0' )
-        {
-            cRun->SetPhysicsDiagnosticsPath( args.physicsDiagnosticsPath, args.fixedStepForcedByPhysicsDiagnostics );
-        }
-#endif
+        const RunStartupOverrides startupOverrides = BuildRunStartupOverrides( args );
+        cRun->ApplyStartupOverrides( startupOverrides );
 #ifdef _DEBUG
         // Why: Debug replay probes are CLI diagnostics, not interaction
         // automation actions. They report through the process exit code and log

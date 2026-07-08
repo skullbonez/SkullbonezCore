@@ -1244,6 +1244,30 @@ every step. Commit per step.
   tick coordination that calls owners. It should no longer implement subsystem
   logic. Gate: `validate_full`. Commit.
 
+  Partial progress:
+  - [x] Startup override public-surface reduction collapsed the pre-`Initialise`
+    command-line setter script into `RunStartupOverrides` plus one public
+    `Run::ApplyStartupOverrides()` call. The old launch/debug/replay/overlay
+    startup setters were deleted from `Run`'s public API rather than moved to
+    private helpers, keeping the runtime-boundary private-method ratchet green.
+    `Init.cpp` now builds the startup packet from `ParsedArgs`, while `Run`
+    owns the same live side effects in the same order. This reduces `Run` by a
+    net 32 public methods for the startup surface; owned-member count is
+    unchanged, so Phase 3 and the public+member acceptance row remain open.
+    Gate evidence:
+    `TestOutput\agent_logs\plan01_startup_overrides_validate_full.log`
+    (54.3s; project filters/runtime boundaries passed, Profile/Debug builds
+    had 0 warnings and 0 errors, DX12 InfoQueue errors = 0, screenshots
+    matched baselines, and `physics_regression_solver.csv` matched
+    byte-exactly). Targeted pre-gate checks also passed:
+    `TestOutput\agent_logs\plan01_startup_overrides_build_profile_final.log`
+    (10.1s),
+    `TestOutput\agent_logs\plan01_startup_overrides_validate_format_final2.log`
+    (9.3s), and
+    `TestOutput\agent_logs\plan01_startup_overrides_runtime_boundaries_final.log`
+    (17.7s). The touched-file comment audit covered `Init.cpp`, `Run.cpp`,
+    `Run.h`, `RunLaunchOptions.h`, and `RunLiveStyle.cpp`.
+
 ## Validation
 
 `tools\validate_full.bat` (Run/Runtime changes). Interaction-automation suite

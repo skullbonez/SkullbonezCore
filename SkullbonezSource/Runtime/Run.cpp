@@ -353,153 +353,143 @@ void Run::LogRenderResourceLifecycleStep( const char* phase, const char* step ) 
 }
 
 
-void Run::SetTimeScaleOverride( float scale )
+void Run::ApplyStartupOverrides( const RunStartupOverrides& overrides )
 {
-    m_launchOptions.timeScaleOverride = scale;
-}
+    // Why: Runtime/Init owns CLI parsing, but Run owns the live side effects
+    // needed to make those startup policies active. Keep the public boundary as
+    // one launch packet and preserve the old setter order because several
+    // options update both reusable launch policy and already-constructed
+    // runtime services.
+    const RunLaunchOptions& launch = overrides.launch;
 
-
-void Run::SetFixedStepOverride()
-{
-    m_launchOptions.fixedStep = true;
-}
-
-
-void Run::SetSeedOverride( unsigned int seed )
-{
-    m_launchOptions.seedOverride = seed;
-}
-
-
-void Run::SetNoWaterOverride()
-{
-    m_launchOptions.noWater = true;
-}
-
-
-void Run::SetNoSleepOverride()
-{
-    m_launchOptions.noSleep = true;
-    m_runtimeSettings.isPhysicsSleepEnabled = false;
-    m_cGameModelCollection.SetPhysicsSleepEnabled( false );
-}
-
-
-void Run::SetNoContactAudioOverride()
-{
-    m_launchOptions.noContactAudio = true;
-    m_contactAudio.SetEnabled( false );
-}
-
-
-void Run::SetTornadoOverride( bool enabled )
-{
-    m_launchOptions.hasTornadoOverride = true;
-    m_launchOptions.tornadoEnabled = enabled;
-    m_runtimeSettings.tornadoField.enabled = enabled;
-    if ( m_runtimeSettings.tornadoVisual.autoEnableWithTornado )
+    m_launchOptions.allocationGuardMode = launch.allocationGuardMode;
+    if ( RuntimeAllocation::GetRuntimeAllocationGuardMode() != launch.allocationGuardMode )
     {
-        m_runtimeSettings.tornadoVisual.enabled = enabled;
+        RuntimeAllocation::SetRuntimeAllocationGuardMode( launch.allocationGuardMode );
     }
-    SyncTornadoRuntimeSettingsToPhysics( m_cGameModelCollection, m_runtimeSettings );
-}
-
-
-void Run::SetTornadoVectorFieldOverride( bool enabled )
-{
-    m_launchOptions.tornadoVectors = enabled;
-    m_runtimeSettings.tornadoField.visualizeVelocityField = enabled;
-    SyncTornadoRuntimeSettingsToPhysics( m_cGameModelCollection, m_runtimeSettings );
-}
-
-
-void Run::SetCinematicRenderingOverride( bool enabled )
-{
-    m_launchOptions.hasCinematicRenderingOverride = true;
-    m_launchOptions.cinematicRendering = enabled;
-}
-
-
-void Run::SetCinematicShadowsOverride( bool enabled )
-{
-    m_launchOptions.hasCinematicShadowsOverride = true;
-    m_launchOptions.cinematicShadows = enabled;
-}
-
-
-void Run::SetDemoHeroStyleOverride()
-{
-    m_launchOptions.demoHeroStyle = true;
-}
-
-
-void Run::SetInteractiveRunOverride()
-{
-    m_launchOptions.interactiveSceneRun = true;
-}
-
-
-void Run::SetFrameCountOverride( int frames )
-{
-    m_launchOptions.frameCountOverride = (std::max)( 1, frames );
-}
-
-
-void Run::SetAllocationGuardMode( RuntimeAllocation::RuntimeAllocationGuardMode mode )
-{
-    m_launchOptions.allocationGuardMode = mode;
-    if ( RuntimeAllocation::GetRuntimeAllocationGuardMode() != mode )
+    if ( launch.timeScaleOverride > 0.0f )
     {
-        RuntimeAllocation::SetRuntimeAllocationGuardMode( mode );
+        m_launchOptions.timeScaleOverride = launch.timeScaleOverride;
     }
-}
-
-
-void Run::SetUIStressOverride( unsigned int seed, int actionsPerFrame )
-{
-    m_launchOptions.uiStress = true;
-    m_launchOptions.uiStressSeed = seed > 0 ? seed : 0x7F4A7C15u;
-    m_launchOptions.uiStressActions = std::clamp( actionsPerFrame, 1, 32 );
-}
-
-
-void Run::SetGraphicsStressOverride( unsigned int seed,
-                                     int actionsPerFrame,
-                                     int sceneIntervalFrames,
-                                     int memoryLogIntervalFrames )
-{
-    const unsigned int resolvedSeed = seed > 0 ? seed : 0xC11E2026u;
-    m_launchOptions.graphicsStress = true;
-    m_launchOptions.graphicsStressSeed = resolvedSeed;
-    m_launchOptions.graphicsStressActions = std::clamp( actionsPerFrame, 1, 64 );
-    m_launchOptions.graphicsStressSceneIntervalFrames = std::clamp( sceneIntervalFrames, 1, 600 );
-    m_launchOptions.graphicsStressMemoryIntervalFrames = std::clamp( memoryLogIntervalFrames, 0, 36000 );
-    m_launchOptions.interactiveSceneRun = true;
-
-    m_graphicsStress.Configure( resolvedSeed,
-                                m_launchOptions.graphicsStressActions,
-                                m_launchOptions.graphicsStressSceneIntervalFrames,
-                                m_launchOptions.graphicsStressMemoryIntervalFrames );
-}
-
-
-void Run::SetReplayRecording( bool enabled, int retentionSeconds, const char* hashLogPath )
-{
-    // Runtime allocation policy: launcher replay visuals are copied every
-    // captured physics tick, so keep their scratch vectors reserved before the
-    // replay phase begins.
-    m_replayLauncherVisualScratch.rayLines.reserve( RunRayCastTestState::MAX_LINES );
-    m_replayLauncherVisualScratch.laserShots.reserve( REPLAY_LAUNCHER_LASER_SHOT_CAPACITY );
-
-    const ReplayRuntime::RecordingConfigResult replayConfig =
-        m_replayRuntime.ConfigureRecording( enabled, retentionSeconds, hashLogPath, m_startup.gameModelCapacity );
-    if ( m_replayRuntime.ResetScrubberState() )
+    if ( launch.fixedStep )
     {
-        ExitReplayInspectionCamera();
+        m_launchOptions.fixedStep = true;
     }
-    if ( replayConfig.presentationStats.enabled )
+    if ( launch.seedOverride > 0 )
     {
-        printf( "[replay] Capture enabled: retention_seconds=%d retention_frames=%llu checkpoint_interval_frames=%d "
+        m_launchOptions.seedOverride = launch.seedOverride;
+    }
+    if ( launch.noWater )
+    {
+        m_launchOptions.noWater = true;
+    }
+    if ( launch.noSleep )
+    {
+        m_launchOptions.noSleep = true;
+        m_runtimeSettings.isPhysicsSleepEnabled = false;
+        m_cGameModelCollection.SetPhysicsSleepEnabled( false );
+    }
+    if ( launch.noContactAudio )
+    {
+        m_launchOptions.noContactAudio = true;
+        m_contactAudio.SetEnabled( false );
+    }
+    if ( launch.hasTornadoOverride )
+    {
+        m_launchOptions.hasTornadoOverride = true;
+        m_launchOptions.tornadoEnabled = launch.tornadoEnabled;
+        m_runtimeSettings.tornadoField.enabled = launch.tornadoEnabled;
+        if ( m_runtimeSettings.tornadoVisual.autoEnableWithTornado )
+        {
+            m_runtimeSettings.tornadoVisual.enabled = launch.tornadoEnabled;
+        }
+        SyncTornadoRuntimeSettingsToPhysics( m_cGameModelCollection, m_runtimeSettings );
+    }
+    if ( launch.tornadoVectors )
+    {
+        m_launchOptions.tornadoVectors = true;
+        m_runtimeSettings.tornadoField.visualizeVelocityField = true;
+        SyncTornadoRuntimeSettingsToPhysics( m_cGameModelCollection, m_runtimeSettings );
+    }
+    if ( launch.hasCinematicRenderingOverride )
+    {
+        m_launchOptions.hasCinematicRenderingOverride = true;
+        m_launchOptions.cinematicRendering = launch.cinematicRendering;
+    }
+    if ( launch.hasCinematicShadowsOverride )
+    {
+        m_launchOptions.hasCinematicShadowsOverride = true;
+        m_launchOptions.cinematicShadows = launch.cinematicShadows;
+    }
+    if ( launch.demoHeroStyle )
+    {
+        m_launchOptions.demoHeroStyle = true;
+    }
+    if ( launch.interactiveSceneRun )
+    {
+        m_launchOptions.interactiveSceneRun = true;
+    }
+    if ( overrides.liveStyleControlDirectory && overrides.liveStyleControlDirectory[0] != '\0' )
+    {
+        if ( m_liveStyle.ConfigureDirectory( overrides.liveStyleControlDirectory ) )
+        {
+            m_launchOptions.interactiveSceneRun = true;
+            EnterInteractiveSceneRun();
+            m_liveStyle.MarkReady();
+        }
+    }
+    if ( launch.frameCountOverride > 0 )
+    {
+        m_launchOptions.frameCountOverride = (std::max)( 1, launch.frameCountOverride );
+    }
+    if ( launch.uiStress )
+    {
+        m_launchOptions.uiStress = true;
+        m_launchOptions.uiStressSeed = launch.uiStressSeed > 0 ? launch.uiStressSeed : 0x7F4A7C15u;
+        m_launchOptions.uiStressActions = std::clamp( launch.uiStressActions, 1, 32 );
+    }
+    if ( launch.graphicsStress )
+    {
+        const unsigned int resolvedSeed = launch.graphicsStressSeed > 0 ? launch.graphicsStressSeed : 0xC11E2026u;
+        m_launchOptions.graphicsStress = true;
+        m_launchOptions.graphicsStressSeed = resolvedSeed;
+        m_launchOptions.graphicsStressActions = std::clamp( launch.graphicsStressActions, 1, 64 );
+        m_launchOptions.graphicsStressSceneIntervalFrames =
+            std::clamp( launch.graphicsStressSceneIntervalFrames, 1, 600 );
+        m_launchOptions.graphicsStressMemoryIntervalFrames =
+            std::clamp( launch.graphicsStressMemoryIntervalFrames, 0, 36000 );
+        m_launchOptions.interactiveSceneRun = true;
+
+        m_graphicsStress.Configure( resolvedSeed,
+                                    m_launchOptions.graphicsStressActions,
+                                    m_launchOptions.graphicsStressSceneIntervalFrames,
+                                    m_launchOptions.graphicsStressMemoryIntervalFrames );
+    }
+    if ( overrides.mainMemoryDumpPath && overrides.mainMemoryDumpPath[0] != '\0' )
+    {
+        m_diagnosticsRuntime.SetMainMemoryDumpPath( overrides.mainMemoryDumpPath );
+    }
+    if ( overrides.configureReplayRecording )
+    {
+        // Runtime allocation policy: launcher replay visuals are copied every
+        // captured physics tick, so keep their scratch vectors reserved before
+        // the replay phase begins.
+        m_replayLauncherVisualScratch.rayLines.reserve( RunRayCastTestState::MAX_LINES );
+        m_replayLauncherVisualScratch.laserShots.reserve( REPLAY_LAUNCHER_LASER_SHOT_CAPACITY );
+
+        const ReplayRuntime::RecordingConfigResult replayConfig =
+            m_replayRuntime.ConfigureRecording( overrides.replayRecordingEnabled,
+                                                overrides.replayRetentionSeconds,
+                                                overrides.replayHashLogPath,
+                                                m_startup.gameModelCapacity );
+        if ( m_replayRuntime.ResetScrubberState() )
+        {
+            ExitReplayInspectionCamera();
+        }
+        if ( replayConfig.presentationStats.enabled )
+        {
+            printf(
+                "[replay] Capture enabled: retention_seconds=%d retention_frames=%llu checkpoint_interval_frames=%d "
                 "solver_retention_frames=%llu solver_checkpoint_interval_frames=%d event_capacity=%llu%s%s%s%s\n",
                 replayConfig.presentationConfig.retentionSeconds,
                 static_cast<unsigned long long>( replayConfig.presentationStats.sampleCapacity ),
@@ -513,14 +503,112 @@ void Run::SetReplayRecording( bool enabled, int retentionSeconds, const char* ha
                     : replayConfig.presentationConfig.hashLogPath.c_str(),
                 replayConfig.solverConfig.hashLogPath.empty() ? "" : " solver_hash_log=",
                 replayConfig.solverConfig.hashLogPath.empty() ? "" : replayConfig.solverConfig.hashLogPath.c_str() );
+        }
     }
+#ifdef _DEBUG
+    if ( overrides.replayScrubProbe )
+    {
+        m_replayProbes.scrub.enabled = true;
+        m_replayProbes.scrub.completed = false;
+        m_replayProbes.scrub.normalized = std::clamp( overrides.replayScrubProbeNormalized, 0.0f, 0.99f );
+        printf( "[replay] Scrub probe enabled: normalized=%.3f\n", m_replayProbes.scrub.normalized );
+    }
+    if ( overrides.replayRestoreProbe )
+    {
+        m_replayProbes.restore.enabled = true;
+        m_replayProbes.restore.completed = false;
+        m_replayProbes.restore.normalized = std::clamp( overrides.replayRestoreProbeNormalized, 0.0f, 0.99f );
+        printf( "[replay] Restore probe enabled: normalized=%.3f\n", m_replayProbes.restore.normalized );
+    }
+    if ( overrides.replaySaveProbe )
+    {
+        if ( !overrides.replaySaveProbePath || overrides.replaySaveProbePath[0] == '\0' )
+        {
+            throw std::runtime_error( "replay save probe requires an output path" );
+        }
+
+        m_replayProbes.save.enabled = true;
+        m_replayProbes.save.completed = false;
+        strcpy_s( m_replayProbes.save.path, sizeof( m_replayProbes.save.path ), overrides.replaySaveProbePath );
+        printf( "[replay] Save probe enabled: path=%s\n", m_replayProbes.save.path );
+    }
+#endif
+    if ( overrides.hasInitialOverlayMode )
+    {
+        m_debug.overlayMode = overrides.initialOverlayMode;
+        if ( overrides.initialOverlayMode != OverlayMode::None )
+        {
+            m_UI.SetVisible( true );
+        }
+        switch ( overrides.initialOverlayMode )
+        {
+        case OverlayMode::SceneStats:
+            m_UI.SetActiveTab( InGameUITab::Scene );
+            break;
+        case OverlayMode::Keys:
+            m_UI.SetActiveTab( InGameUITab::Keys );
+            break;
+        case OverlayMode::BarsNormalized:
+        case OverlayMode::BarsAbsolute:
+        case OverlayMode::Timers:
+            m_UI.SetActiveTab( InGameUITab::Profiler );
+            break;
+        default:
+            break;
+        }
+    }
+    if ( overrides.hideTopText )
+    {
+        m_debug.isTopTextHidden = true;
+    }
+    if ( overrides.showBroadphaseVisualizer )
+    {
+        m_debug.isBroadphaseOverlay = true;
+    }
+    if ( launch.generatedObjectTypeOverride != GeneratedObjectTypeOverride::Mixed )
+    {
+        m_launchOptions.generatedObjectTypeOverride = launch.generatedObjectTypeOverride;
+    }
+    if ( launch.hasPhysicsDebugFlagsOverride )
+    {
+        m_launchOptions.hasPhysicsDebugFlagsOverride = true;
+        m_launchOptions.physicsDebugFlagsOverride = launch.physicsDebugFlagsOverride & PHYSICS_DEBUG_ALL;
+    }
+    if ( launch.hasPhysicsDebugTransparentOverride )
+    {
+        m_launchOptions.hasPhysicsDebugTransparentOverride = true;
+        m_launchOptions.physicsDebugTransparentOverride = launch.physicsDebugTransparentOverride;
+    }
+    if ( launch.hasPhysicsDebugAlphaOverride )
+    {
+        m_launchOptions.hasPhysicsDebugAlphaOverride = true;
+        m_launchOptions.physicsDebugAlphaOverride =
+            (std::max)( 0.05f, (std::min)( launch.physicsDebugAlphaOverride, 1.0f ) );
+    }
+    if ( launch.hasPhysicsDebugContactLingerOverride )
+    {
+        m_launchOptions.hasPhysicsDebugContactLingerOverride = true;
+        m_launchOptions.physicsDebugContactLingerOverride =
+            (std::max)( 0.0f, (std::min)( launch.physicsDebugContactLingerOverride, 5.0f ) );
+    }
+#ifdef _DEBUG
+    if ( overrides.physicsRegressionLogPath && overrides.physicsRegressionLogPath[0] != '\0' )
+    {
+        m_diagnosticsRuntime.SetPhysicsRegressionLogOverride( overrides.physicsRegressionLogPath );
+    }
+    if ( overrides.physicsCollisionTimeLogPath && overrides.physicsCollisionTimeLogPath[0] != '\0' )
+    {
+        m_diagnosticsRuntime.SetPhysicsCollisionTimeLogOverride( overrides.physicsCollisionTimeLogPath );
+    }
+    if ( overrides.physicsDiagnosticsPath && overrides.physicsDiagnosticsPath[0] != '\0' )
+    {
+        m_diagnosticsRuntime.SetPhysicsDiagnosticsPath( m_cGameModelCollection,
+                                                        overrides.physicsDiagnosticsPath,
+                                                        overrides.physicsDiagnosticsFixedStepForced );
+    }
+#endif
 }
 
-
-void Run::SetMainMemoryDumpPath( const char* path )
-{
-    m_diagnosticsRuntime.SetMainMemoryDumpPath( path );
-}
 
 void Run::SetInteractionAutomation( const char* scriptPath, const char* reportPath )
 {
@@ -548,35 +636,6 @@ void Run::SetInteractionAutomation( const char* scriptPath, const char* reportPa
 
 
 #ifdef _DEBUG
-void Run::SetReplayScrubProbe( float normalized )
-{
-    m_replayProbes.scrub.enabled = true;
-    m_replayProbes.scrub.completed = false;
-    m_replayProbes.scrub.normalized = std::clamp( normalized, 0.0f, 0.99f );
-    printf( "[replay] Scrub probe enabled: normalized=%.3f\n", m_replayProbes.scrub.normalized );
-}
-
-void Run::SetReplayRestoreProbe( float normalized )
-{
-    m_replayProbes.restore.enabled = true;
-    m_replayProbes.restore.completed = false;
-    m_replayProbes.restore.normalized = std::clamp( normalized, 0.0f, 0.99f );
-    printf( "[replay] Restore probe enabled: normalized=%.3f\n", m_replayProbes.restore.normalized );
-}
-
-void Run::SetReplaySaveProbe( const char* path )
-{
-    if ( !path || path[0] == '\0' )
-    {
-        throw std::runtime_error( "replay save probe requires an output path" );
-    }
-
-    m_replayProbes.save.enabled = true;
-    m_replayProbes.save.completed = false;
-    strcpy_s( m_replayProbes.save.path, sizeof( m_replayProbes.save.path ), path );
-    printf( "[replay] Save probe enabled: path=%s\n", m_replayProbes.save.path );
-}
-
 void Run::RecordReplayProbeFailure( const SbResult& result )
 {
     if ( result.ok || m_replayProbes.failure.failed )
@@ -861,98 +920,6 @@ bool Run::RestoreReplaySolverSampleAsLive( const ReplaySolverFrameSample& sample
     writeReason( "restored hash match" );
     return true;
 }
-
-
-void Run::SetInitialOverlayMode( OverlayMode mode )
-{
-    m_debug.overlayMode = mode;
-    if ( mode != OverlayMode::None )
-    {
-        m_UI.SetVisible( true );
-    }
-    switch ( mode )
-    {
-    case OverlayMode::SceneStats:
-        m_UI.SetActiveTab( InGameUITab::Scene );
-        break;
-    case OverlayMode::Keys:
-        m_UI.SetActiveTab( InGameUITab::Keys );
-        break;
-    case OverlayMode::BarsNormalized:
-    case OverlayMode::BarsAbsolute:
-    case OverlayMode::Timers:
-        m_UI.SetActiveTab( InGameUITab::Profiler );
-        break;
-    default:
-        break;
-    }
-}
-
-
-void Run::SetTopTextHidden( bool hidden )
-{
-    m_debug.isTopTextHidden = hidden;
-}
-
-
-void Run::SetBroadphaseVisualizerEnabled( bool enabled )
-{
-    m_debug.isBroadphaseOverlay = enabled;
-}
-
-
-void Run::SetGeneratedObjectTypeOverride( GeneratedObjectTypeOverride objectTypeOverride )
-{
-    m_launchOptions.generatedObjectTypeOverride = objectTypeOverride;
-}
-
-
-void Run::SetPhysicsDebugFlagsOverride( uint32_t flags )
-{
-    m_launchOptions.hasPhysicsDebugFlagsOverride = true;
-    m_launchOptions.physicsDebugFlagsOverride = flags & PHYSICS_DEBUG_ALL;
-}
-
-
-void Run::SetPhysicsDebugTransparentOverride( bool transparent )
-{
-    m_launchOptions.hasPhysicsDebugTransparentOverride = true;
-    m_launchOptions.physicsDebugTransparentOverride = transparent;
-}
-
-
-void Run::SetPhysicsDebugAlphaOverride( float alpha )
-{
-    m_launchOptions.hasPhysicsDebugAlphaOverride = true;
-    m_launchOptions.physicsDebugAlphaOverride = (std::max)( 0.05f, (std::min)( alpha, 1.0f ) );
-}
-
-
-void Run::SetPhysicsDebugContactLingerOverride( float seconds )
-{
-    m_launchOptions.hasPhysicsDebugContactLingerOverride = true;
-    m_launchOptions.physicsDebugContactLingerOverride = (std::max)( 0.0f, (std::min)( seconds, 5.0f ) );
-}
-
-
-#ifdef _DEBUG
-void Run::SetPhysicsRegressionLogOverride( const char* path )
-{
-    m_diagnosticsRuntime.SetPhysicsRegressionLogOverride( path );
-}
-
-
-void Run::SetPhysicsCollisionTimeLogOverride( const char* path )
-{
-    m_diagnosticsRuntime.SetPhysicsCollisionTimeLogOverride( path );
-}
-
-
-void Run::SetPhysicsDiagnosticsPath( const char* path, bool fixedStepForcedByDiagnostics )
-{
-    m_diagnosticsRuntime.SetPhysicsDiagnosticsPath( m_cGameModelCollection, path, fixedStepForcedByDiagnostics );
-}
-#endif
 
 
 void Run::Initialise()

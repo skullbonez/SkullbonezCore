@@ -330,19 +330,6 @@ void LiveStyleController::MarkCaptureSaved()
 }
 
 
-void Run::SetLiveStyleControlDirectory( const char* path )
-{
-    if ( !m_liveStyle.ConfigureDirectory( path ) )
-    {
-        return;
-    }
-
-    m_launchOptions.interactiveSceneRun = true;
-    EnterInteractiveSceneRun();
-    m_liveStyle.MarkReady();
-}
-
-
 void Run::TickLiveStyleControl()
 {
     m_liveStyle.Tick( SceneRuntimeStyleContext{ m_launchOptions,

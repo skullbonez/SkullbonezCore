@@ -33,6 +33,7 @@ Related:
 
 #include "../Physics/Debug/PhysicsDebugVisualizer.h"
 #include "Allocation/RuntimeAllocationTracker.h"
+#include "RunDebugState.h"
 #include "Scene/SceneGeneratedSetup.h"
 
 #include <cstdint>
@@ -79,6 +80,38 @@ struct RunLaunchOptions
     float physicsDebugAlphaOverride = 0.28f;
     bool hasPhysicsDebugContactLingerOverride = false;
     float physicsDebugContactLingerOverride = 0.45f;
+};
+
+struct RunStartupOverrides
+{
+    // Concept: Init builds this packet from parsed CLI state and immediately
+    // hands it to Run. Path pointers borrow ParsedArgs storage only for that
+    // synchronous apply call; Run-owned systems copy or consume paths before it
+    // returns.
+    RunLaunchOptions launch;
+    const char* liveStyleControlDirectory = nullptr;          // CLI --live-style-control-dir
+    const char* mainMemoryDumpPath = nullptr;                 // CLI --memory-dump
+    bool configureReplayRecording = false;                    // True when replay capture or hash logging must be configured
+    bool replayRecordingEnabled = true;
+    int replayRetentionSeconds = 0;
+    const char* replayHashLogPath = nullptr;
+    bool hasInitialOverlayMode = false;
+    OverlayMode initialOverlayMode = OverlayMode::None;
+    bool hideTopText = false;
+    bool showBroadphaseVisualizer = false;
+
+#ifdef _DEBUG
+    bool replayScrubProbe = false;
+    float replayScrubProbeNormalized = 0.25f;
+    bool replayRestoreProbe = false;
+    float replayRestoreProbeNormalized = 0.25f;
+    bool replaySaveProbe = false;
+    const char* replaySaveProbePath = nullptr;
+    const char* physicsRegressionLogPath = nullptr;
+    const char* physicsCollisionTimeLogPath = nullptr;
+    const char* physicsDiagnosticsPath = nullptr;
+    bool physicsDiagnosticsFixedStepForced = false;
+#endif
 };
 
 } // namespace Basics

@@ -380,58 +380,18 @@ class Run
     ~Run();
     void Initialise();                                                     // Initialises shared resources and loads first scene
     const SbResult& LastSceneLoadResult() const;                           // Initialise scene-load result for CLI startup checks.
+    void ApplyStartupOverrides(
+        const RunStartupOverrides& overrides );                            // Apply parsed CLI/startup policy before Initialise().
     SbResult RunSceneLoadOnly( const char* snapshotOutPath = nullptr );    // Scene-load smoke path; skips the frame loop.
     void Execute();                                                        // Main message loop; sceneQueue decides generated demo versus suite playback.
-    void SetTimeScaleOverride( float scale );                              // Override timeScale for every scene loaded (CLI --time-scale)
-    void SetFixedStepOverride();                                           // Force fixed-step for every scene loaded (CLI --fixed-step)
-    void SetSeedOverride( unsigned int seed );                             // Override RNG seed for every scene loaded (CLI --seed)
-    void SetNoWaterOverride();                                             // Start scenes with fluid below terrain (CLI --no-water)
-    void SetNoSleepOverride();                                             // Disable physics sleeping for every scene loaded (CLI --no-sleep)
-    void SetNoContactAudioOverride();                                      // Disable presentation-only contact impact playback
-    void SetTornadoOverride( bool enabled );                               // Enable/disable tornado mode for loaded scenes (CLI --tornado)
-    void SetTornadoVectorFieldOverride( bool enabled );                    // Show/hide tornado velocity vectors at startup
-    void SetCinematicRenderingOverride( bool enabled );                    // Force cinematic HDR/post rendering on/off for every scene loaded
-    void SetCinematicShadowsOverride( bool enabled );                      // Force shadow maps on/off for every scene loaded
-    void SetDemoHeroStyleOverride();                                       // Run generated demo mode with the low-poly hero rendering style
-    void SetInteractiveRunOverride();                                      // Keep scene automation from quitting the app (CLI --interactive/--hold)
-    void SetLiveStyleControlDirectory( const char* path );                 // Enable live style/capture harness in a control folder
-    void SetFrameCountOverride( int frames );                              // Stop scene/demo automation after N frames (CLI --frames)
-    void SetAllocationGuardMode( Runtime::Allocation::RuntimeAllocationGuardMode
-                                     mode );                               // Record launch allocation evidence mode (CLI --allocation-guard).
-    void SetUIStressOverride( unsigned int seed, int actionsPerFrame );    // Enable deterministic UI stress from CLI
-    void
-    SetGraphicsStressOverride( unsigned int seed,
-                               int actionsPerFrame,
-                               int sceneIntervalFrames,
-                               int memoryLogIntervalFrames );              // Enable deterministic graphics/scene churn from CLI.
     void SetInteractionAutomation(
         const char* scriptPath,
         const char* reportPath );                                          // CLI harness for deterministic world-click interaction scripts.
-    void SetReplayRecording( bool enabled,
-                             int retentionSeconds,
-                             const char* hashLogPath );                    // Enable bounded replay capture from CLI.
-    void SetMainMemoryDumpPath( const char* path );                        // Write main-memory JSON at shutdown (CLI --memory-dump).
     bool LoadReplayPresentationArtifact( const char* path,
                                          bool activateScrubber );          // Load a v2 presentation artifact as a scrub source.
-    void SetInitialOverlayMode( OverlayMode mode );
-    void SetTopTextHidden( bool hidden );
-    void SetBroadphaseVisualizerEnabled( bool enabled );
-    void SetGeneratedObjectTypeOverride( GeneratedObjectTypeOverride objectTypeOverride );
-    void SetPhysicsDebugFlagsOverride( uint32_t flags );
-    void SetPhysicsDebugTransparentOverride( bool transparent );
-    void SetPhysicsDebugAlphaOverride( float alpha );
-    void SetPhysicsDebugContactLingerOverride( float seconds );
     void DumpTextureAssets( FILE* out ) const;
 
 #ifdef _DEBUG
-    void SetPhysicsRegressionLogOverride( const char* path );              // Override regression CSV path for all scenes
-    void SetPhysicsCollisionTimeLogOverride( const char* path );           // Override swept collision-time CSV path for all scenes
-    void SetPhysicsDiagnosticsPath(
-        const char* path,
-        bool fixedStepForcedByDiagnostics );                               // Enable queryable physics diagnostics (CLI --physics-diag)
-    void SetReplayScrubProbe( float normalized );                          // Enable CLI-only replay scrub SkullScope probe.
-    void SetReplayRestoreProbe( float normalized );                        // Enable CLI-only replay restore hash probe.
-    void SetReplaySaveProbe( const char* path );                           // Enable CLI-only v2 replay save probe.
     bool ReplayProbeFailed() const;                                        // True when a CLI replay probe failed without throwing.
     const char* ReplayProbeFailureOwner() const;                           // Owner tag for the latest CLI replay probe failure.
     const char* ReplayProbeFailureMessage() const;                         // Failure text for the latest CLI replay probe failure.
