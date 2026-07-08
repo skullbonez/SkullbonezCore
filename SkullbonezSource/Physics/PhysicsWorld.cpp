@@ -128,6 +128,50 @@ template <typename T> uint64_t VectorCapacityBytes( const std::vector<T>& values
     return static_cast<uint64_t>( values.capacity() ) * static_cast<uint64_t>( sizeof( T ) );
 }
 
+void ApplyForcesForSolverBody( PhysicsBodyStore& bodyStore,
+                               const ColliderStore& colliderStore,
+                               const PhysicsWorldForces& worldForces,
+                               const PhysicsBodyRecordList& bodyRecords,
+                               std::vector<uint8_t>& sleepState,
+                               std::vector<float>& timeRemaining,
+                               int bodyIndex,
+                               float dt )
+{
+    // Invariant: this is the extracted body of the former applyForcesAt lambda.
+    // Sleeping rows must keep their cached pose and consume no remaining time;
+    // awake dynamic rows still receive the same force application call.
+    if ( bodyRecords[static_cast<size_t>( bodyIndex )].isFixed )
+    {
+        return;
+    }
+    if ( sleepState[bodyIndex] )
+    {
+        timeRemaining[bodyIndex] = 0.0f;
+        return;
+    }
+    (void)bodyStore.ApplyForces( worldForces, colliderStore, bodyIndex, dt );
+}
+
+struct ApplyForcesStageContext
+{
+    // Lifetime: WorkerPool only borrows this callable during ParallelForNoAlloc.
+    // The references below are RunSolverPhysics inputs and scratch arrays whose
+    // lifetimes cover both the serial and worker-dispatch loops.
+    PhysicsBodyStore& bodyStore;
+    const ColliderStore& colliderStore;
+    const PhysicsWorldForces& worldForces;
+    const PhysicsBodyRecordList& bodyRecords;
+    std::vector<uint8_t>& sleepState;
+    std::vector<float>& timeRemaining;
+    float dt = 0.0f;
+
+    void operator()( int bodyIndex ) const
+    {
+        ApplyForcesForSolverBody(
+            bodyStore, colliderStore, worldForces, bodyRecords, sleepState, timeRemaining, bodyIndex, dt );
+    }
+};
+
 RuntimeAllocation::RuntimeReserveOwnerHandle ReplaySolverSnapshotReserveOwner()
 {
     static const RuntimeAllocation::RuntimeReserveOwnerHandle owner =
@@ -2162,25 +2206,21 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
     // Sleeping bodies keep cached state until a contact or scene change wakes
     // them, so force integration only runs for awake rows.
     PROFILE_BEGIN( "Frame/Physics/ApplyForces" );
-    auto applyForcesAt = [&]( int x )
-    {
-        if ( bodyIsFixed( x ) )
-        {
-            return;
-        }
-        if ( m_sleepState[x] )
-        {
-            m_timeRemaining[x] = 0.0f;
-            return;
-        }
-        (void)bodyStore.ApplyForces( worldForces, colliderStore, x, dt );
+    ApplyForcesStageContext applyForcesStage{
+        bodyStore,
+        colliderStore,
+        worldForces,
+        bodyRecords,
+        m_sleepState,
+        m_timeRemaining,
+        dt,
     };
 
     if ( config.physicsParallel && config.physicsParallelApplyForces )
     {
         workerPool.ParallelForNoAlloc( 0,
                                        modelCount,
-                                       applyForcesAt,
+                                       applyForcesStage,
                                        PHYSICS_PARALLEL_MIN_BODIES,
                                        "Frame/Physics/ApplyForces/WorkerBodies",
                                        PHYSICS_APPLY_FORCES_WORKER_HASH );
@@ -2189,7 +2229,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
     {
         for ( int x = 0; x < modelCount; ++x )
         {
-            applyForcesAt( x );
+            applyForcesStage( x );
         }
     }
     PROFILE_END( "Frame/Physics/ApplyForces" );

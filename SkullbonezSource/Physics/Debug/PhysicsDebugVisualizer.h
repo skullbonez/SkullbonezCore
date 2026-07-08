@@ -106,7 +106,49 @@ struct PhysicsPipelineRecord
     float scalarC = 0.0f;
 };
 
-const char* PhysicsPipelineStageName( PhysicsPipelineStage stage );
+// Caller contract: this is a stable diagnostics label for runtime overlays,
+// replay, and SkullScope output. It must not allocate or depend on debug
+// visualizer state.
+inline const char* PhysicsPipelineStageName( PhysicsPipelineStage stage )
+{
+    switch ( stage )
+    {
+    case PhysicsPipelineStage::BroadphaseCandidate:
+        return "broadphase_candidate";
+    case PhysicsPipelineStage::SleepPrunedPair:
+        return "sleep_pruned_pair";
+    case PhysicsPipelineStage::WakeDecision:
+        return "wake_decision";
+    case PhysicsPipelineStage::SweptObjectHit:
+        return "swept_object_hit";
+    case PhysicsPipelineStage::SweptObjectMiss:
+        return "swept_object_miss";
+    case PhysicsPipelineStage::TerrainHit:
+        return "terrain_hit";
+    case PhysicsPipelineStage::TerrainManifold:
+        return "terrain_manifold";
+    case PhysicsPipelineStage::TerrainRow:
+        return "terrain_row";
+    case PhysicsPipelineStage::ManifoldRow:
+        return "manifold_row";
+    case PhysicsPipelineStage::WarmStart:
+        return "warm_start";
+    case PhysicsPipelineStage::SolverIteration:
+        return "solver_iteration";
+    case PhysicsPipelineStage::VelocityWriteback:
+        return "velocity_writeback";
+    case PhysicsPipelineStage::PositionCorrection:
+        return "position_correction";
+    case PhysicsPipelineStage::CacheStore:
+        return "cache_store";
+    case PhysicsPipelineStage::SleepSupportEdge:
+        return "sleep_support_edge";
+    case PhysicsPipelineStage::SleepIslandDecision:
+        return "sleep_island_decision";
+    default:
+        return "unknown";
+    }
+}
 
 struct PhysicsDebugContact
 {

@@ -148,7 +148,7 @@ island-merge tie-breaks.
   - [ ] L2131 `bodyIsFixed`: body fixed-state accessor.
   - [ ] L2132 `bodyPosition`: body position accessor.
   - [ ] L2134 `bodyRadius`: collider broadphase-radius accessor.
-  - [ ] L2165 `applyForcesAt`: per-body force application.
+  - [x] L2165 `applyForcesAt`: per-body force application.
 
   Broadphase candidate build and pruning:
   - [ ] L2225 `broadphaseCandidateCanTouch`: swept bounding-sphere pair filter.
@@ -197,6 +197,24 @@ island-merge tie-breaks.
   `colliderStore`, `worldForces`, `dt`, plus the specific arrays it uses) instead
   of captures. Do not change computation order. Gate: `validate_physics`
   byte-exact. Commit. Repeat until all stages are extracted.
+
+  Progress 2026-07-09:
+  - Extracted the `applyForcesAt` lambda into `ApplyForcesForSolverBody` plus
+    `ApplyForcesStageContext`, preserving the serial and worker dispatch paths.
+  - Moved `PhysicsPipelineStageName` inline in
+    `Physics/Debug/PhysicsDebugVisualizer.h` so SkullScope and replay can use the
+    diagnostics label without depending on the debug visualizer `.cpp`.
+  - Added `SkullbonezSource\Core\SkullScope.cpp` to `SKULLBONEZ_TESTS.vcxproj`
+    because the Debug physics gate links `PhysicsDiagnosticsSink.cpp`.
+  - Gate evidence: `tools\validate_physics.bat` passed in
+    `TestOutput\agent_logs\plan02_apply_forces_stage_validate_physics_attempt3_20260709_0922.log`
+    (44.14s; Debug/Profile builds 0 warnings and 0 errors; final
+    `VALIDATE_PHYSICS: ALL PASSED`).
+  - Extra mapped gate for the test-project linkage update:
+    `tools\validate_tests.bat` passed in
+    `TestOutput\agent_logs\plan02_apply_forces_stage_validate_tests_20260709_0924.log`
+    (3.02s; project filters 0 errors, Profile test build 0 warnings and 0
+    errors, 59/59 doctest cases and 1532/1532 assertions passed).
 - [ ] **1.3** `RunSolverPhysics` is now a short driver calling named stages;
   confirm it is under ~300 lines.
 - [ ] **1.4** Add a unit test for at least one now-pure stage (e.g. broadphase
