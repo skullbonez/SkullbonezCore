@@ -2507,39 +2507,32 @@ void Run::TakeInput()
                 PROFILE_SCHEDULE_RESET();
             }
         };
-        if ( uiCommands.sceneOptions.requestedModelCount >= 0 )
+        const SceneGeneratedUICommandResult modelCountCommand =
+            ApplySceneGeneratedModelCountUICommand( makeSceneGeneratedControlContext(),
+                                                    uiCommands.sceneOptions.requestedModelCount );
+        if ( modelCountCommand.accepted )
         {
-            executeSceneGeneratedControlAction(
-                ApplyUIModelCountOverride( makeSceneGeneratedControlContext(),
-                                           uiCommands.sceneOptions.requestedModelCount ) );
+            executeSceneGeneratedControlAction( modelCountCommand.action );
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::SetModelCount, RuntimeInputActionSource::UI );
         }
         if ( runSimulationCommands.setWorkerThreads )
         {
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::SetWorkerThreads, RuntimeInputActionSource::UI );
         }
-        if ( uiCommands.run.requestedSolverBallCount >= 0 )
+        const SceneGeneratedUICommandResult solverBallCountCommand =
+            ApplySceneGeneratedSolverBallCountUICommand( makeSceneGeneratedControlContext(),
+                                                         uiCommands.run.requestedSolverBallCount );
+        if ( solverBallCountCommand.accepted )
         {
-            const int modelCapacity = m_startup.gameModelCapacity;
-            const int boxes = m_sceneController.UIOverrides().solverBoxCountOverride >= 0
-                                  ? m_sceneController.UIOverrides().solverBoxCountOverride
-                                  : SceneState().solverBoxCount;
-            executeSceneGeneratedControlAction( ApplyUISolverObjectCounts(
-                makeSceneGeneratedControlContext(),
-                std::clamp( uiCommands.run.requestedSolverBallCount, 0, (std::max)( 0, modelCapacity - boxes ) ),
-                boxes ) );
+            executeSceneGeneratedControlAction( solverBallCountCommand.action );
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::SetSolverCounts, RuntimeInputActionSource::UI );
         }
-        if ( uiCommands.run.requestedSolverBoxCount >= 0 )
+        const SceneGeneratedUICommandResult solverBoxCountCommand =
+            ApplySceneGeneratedSolverBoxCountUICommand( makeSceneGeneratedControlContext(),
+                                                        uiCommands.run.requestedSolverBoxCount );
+        if ( solverBoxCountCommand.accepted )
         {
-            const int modelCapacity = m_startup.gameModelCapacity;
-            const int balls = m_sceneController.UIOverrides().solverBallCountOverride >= 0
-                                  ? m_sceneController.UIOverrides().solverBallCountOverride
-                                  : SceneState().solverBallCount;
-            executeSceneGeneratedControlAction( ApplyUISolverObjectCounts(
-                makeSceneGeneratedControlContext(),
-                balls,
-                std::clamp( uiCommands.run.requestedSolverBoxCount, 0, (std::max)( 0, modelCapacity - balls ) ) ) );
+            executeSceneGeneratedControlAction( solverBoxCountCommand.action );
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::SetSolverCounts, RuntimeInputActionSource::UI );
         }
         if ( ApplyWorldWaterUICommands( m_cWorldEnvironment, m_replayRuntime, uiCommands.water ) )

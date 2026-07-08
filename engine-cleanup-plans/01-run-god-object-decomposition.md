@@ -556,6 +556,25 @@ every step. Commit per step.
 	    (9.4s), `TestOutput\agent_logs\plan01_run_sim_ui_runtime_boundaries.log`
 	    (17.7s), and `TestOutput\agent_logs\plan01_run_sim_ui_build_profile.log`
 	    (8.5s).
+	  - [x] Generated-scene count UI command extraction moved model-count and
+	    solver ball/box request handling out of `Run::TakeInput()` and into
+	    `SceneRuntimeGeneratedControls`. `RunInput` still applies the returned
+	    replay/profile follow-up action immediately after each accepted request,
+	    preserving the prior command order. The touched-file comment audit added
+	    generated UI command vocabulary and partial solver-slider invariants.
+	    `TakeInput()` now spans 1,036 lines. Gate evidence:
+	    `TestOutput\agent_logs\plan01_scene_generated_ui_interaction_clicks.log`
+	    (16.1s, both interaction reports `ok=1`) and
+	    `TestOutput\agent_logs\plan01_scene_generated_ui_validate_full.log`
+	    (49.3s; project filters/runtime boundaries passed, Profile/Debug builds
+	    had 0 warnings and 0 errors, DX12 InfoQueue errors = 0, screenshots
+	    matched baselines, and `physics_regression_solver.csv` matched
+	    byte-exactly). Targeted pre-gate checks also passed:
+	    `TestOutput\agent_logs\plan01_scene_generated_ui_validate_format.log`
+	    (9.3s), `TestOutput\agent_logs\plan01_scene_generated_ui_runtime_boundaries.log`
+	    (17.5s), and
+	    `TestOutput\agent_logs\plan01_scene_generated_ui_build_profile.log`
+	    (6.5s).
 - [ ] **1.4** Confirm `TakeInput()` is under ~200 lines (setup + dispatch loop).
 
 ### Phase 2 — Move state shelves out of `RunState`
