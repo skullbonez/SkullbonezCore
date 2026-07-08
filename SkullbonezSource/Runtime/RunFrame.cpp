@@ -1745,6 +1745,19 @@ const ReplayEventSample* FindReplayGeneratedSceneConfigBeforeCheckpoint( const s
     return generatedConfig;
 }
 
+class ScopedReplayProbeProfilerFrame
+{
+  public:
+    ScopedReplayProbeProfilerFrame()
+    {
+        PROFILE_FRAME_BEGIN();
+    }
+    ~ScopedReplayProbeProfilerFrame()
+    {
+        PROFILE_FRAME_END();
+    }
+};
+
 void FormatReplayRestoreDivergenceMessage( char* message,
                                            std::size_t messageSize,
                                            ReplayFrameIndex currentFrame,
@@ -1823,6 +1836,177 @@ void FormatReplayRestoreDivergenceMessage( char* message,
                    expectedHash.bodyCount,
                    static_cast<unsigned long long>( eventsApplied ) );
     }
+}
+
+struct ReplayRestoreStepContext
+{
+    RuntimeTools& runtimeTools;
+    RunSceneState& scene;
+    const EngineConfig& config;
+    RunSubsystemState& systems;
+    SkullbonezCore::Environment::WorldEnvironment& world;
+    SkullbonezCore::GameObjects::GameModelCollection& models;
+    ReplayRestoreEventContext& eventContext;
+    const ReplayRestoreArtifactData& artifact;
+    const ReplaySolverFrameSample& checkpoint;
+    const ReplayV2SolverHashSample& target;
+};
+
+struct ReplayRestoreStepResult
+{
+    ReplayFrameIndex currentFrame = 0;
+    int currentSceneFrame = 0;
+    uint32_t eventCursor = 0;
+    std::size_t eventsApplied = 0;
+    std::size_t unsupportedEvents = 0;
+};
+
+struct ReplayRestoreStepFailure
+{
+    char message[1024] = {};
+    const ReplayV2SolverHashSample* diagnosticTarget = nullptr;
+    uint64_t restoredSolverHash = 0;
+    uint64_t restoredPresentationHash = 0;
+    std::size_t restoredBodyCount = 0;
+    bool hashCaptured = false;
+};
+
+void WriteReplayRestoreStepFailure( ReplayRestoreStepFailure& failure,
+                                    const char* message,
+                                    const ReplayV2SolverHashSample* diagnosticTarget,
+                                    uint64_t restoredSolverHash = 0,
+                                    uint64_t restoredPresentationHash = 0,
+                                    std::size_t restoredBodyCount = 0,
+                                    bool hashCaptured = false )
+{
+    strncpy_s( failure.message, message ? message : "replay restore step failed", _TRUNCATE );
+    failure.diagnosticTarget = diagnosticTarget;
+    failure.restoredSolverHash = restoredSolverHash;
+    failure.restoredPresentationHash = restoredPresentationHash;
+    failure.restoredBodyCount = restoredBodyCount;
+    failure.hashCaptured = hashCaptured;
+}
+
+// Concept: replay target restore rebuilds solver state by starting from a
+// checkpoint and replaying only the saved branch events before each fixed
+// physics step. The helper reports failure facts back to Run so the live-state
+// fallback and diagnostic logging stay in the owning method.
+template <typename CaptureCurrentReplaySolverHash, typename EnterInteractiveSceneRun>
+bool StepReplayRestoreTarget( ReplayRestoreStepContext& context,
+                              ReplayRestoreStepResult& result,
+                              ReplayRestoreStepFailure& failure,
+                              CaptureCurrentReplaySolverHash captureCurrentReplaySolverHash,
+                              EnterInteractiveSceneRun enterInteractiveSceneRun )
+{
+    result.currentFrame = context.checkpoint.frameIndex;
+    result.currentSceneFrame = context.checkpoint.sceneFrame;
+    result.eventCursor = context.checkpoint.eventCursor;
+    result.eventsApplied = 0;
+    result.unsupportedEvents = 0;
+    context.scene.currentFrame = result.currentSceneFrame;
+
+    ScopedReplayProbeProfilerFrame profilerFrame;
+    while ( result.currentFrame < context.target.frameIndex )
+    {
+        const ReplayFrameIndex nextFrame = result.currentFrame + 1u;
+
+        for ( const ReplayEventSample& event : context.artifact.events )
+        {
+            if ( event.frameIndex != nextFrame || event.sequence < result.eventCursor )
+            {
+                continue;
+            }
+            if ( event.branch.branchId != context.checkpoint.branch.branchId )
+            {
+                ++result.unsupportedEvents;
+                continue;
+            }
+
+            char eventReason[160] = {};
+            if ( !ApplyReplayRestoreEventForTarget( context.eventContext,
+                                                    event,
+                                                    eventReason,
+                                                    sizeof( eventReason ),
+                                                    enterInteractiveSceneRun ) )
+            {
+                char message[320] = {};
+                sprintf_s( message,
+                           sizeof( message ),
+                           "replay restore target probe failed to apply event sequence %u at frame %llu: %s",
+                           event.sequence,
+                           static_cast<unsigned long long>( event.frameIndex ),
+                           eventReason[0] != '\0' ? eventReason : "unknown event replay failure" );
+                WriteReplayRestoreStepFailure( failure, message, &context.target );
+                return false;
+            }
+            result.eventCursor = (std::max)( result.eventCursor, event.sequence + 1u );
+            ++result.eventsApplied;
+        }
+
+        context.runtimeTools.TickRayCastTestLines( PHYSICS_FIXED_DT );
+        context.runtimeTools.Laser().Update( PHYSICS_FIXED_DT );
+        context.models.EndCollisionVisualFrame();
+        ++result.currentSceneFrame;
+        context.scene.currentFrame = result.currentSceneFrame;
+        context.models.BeginCollisionVisualFrame();
+
+        const auto physicsWorldForces = context.world.GetPhysicsWorldForces();
+        StepRuntimePhysicsTick( context.models,
+                                PHYSICS_FIXED_DT,
+                                context.config,
+                                physicsWorldForces,
+                                *context.systems.workerPool );
+        result.currentFrame = nextFrame;
+
+        const ReplayV2SolverHashSample* expectedHash =
+            FindReplaySolverHashForFrame( context.artifact.hashes, result.currentFrame );
+        if ( !expectedHash )
+        {
+            WriteReplayRestoreStepFailure( failure, "could not find stepped hash metadata", &context.target );
+            return false;
+        }
+
+        ReplaySolverFrameSample stepReference;
+        stepReference.frameIndex = expectedHash->frameIndex;
+        stepReference.branch = context.checkpoint.branch;
+        stepReference.eventCursor = result.eventCursor;
+        stepReference.sceneFrame = expectedHash->sceneFrame;
+        stepReference.simulationSeconds = expectedHash->simulationSeconds;
+        stepReference.physicsDt = PHYSICS_FIXED_DT;
+
+        uint64_t stepSolverHash = 0;
+        uint64_t stepPresentationHash = 0;
+        std::size_t stepBodyCount = 0;
+        if ( !captureCurrentReplaySolverHash( stepReference, stepSolverHash, stepPresentationHash, stepBodyCount ) )
+        {
+            WriteReplayRestoreStepFailure( failure, "failed to capture stepped hash", expectedHash );
+            return false;
+        }
+        if ( stepBodyCount != expectedHash->bodyCount || stepSolverHash != expectedHash->solverHash )
+        {
+            char message[1024] = {};
+            FormatReplayRestoreDivergenceMessage( message,
+                                                  sizeof( message ),
+                                                  result.currentFrame,
+                                                  stepSolverHash,
+                                                  stepPresentationHash,
+                                                  stepBodyCount,
+                                                  *expectedHash,
+                                                  context.artifact.presentationSamples,
+                                                  context.models,
+                                                  result.eventsApplied );
+            WriteReplayRestoreStepFailure( failure,
+                                           message,
+                                           expectedHash,
+                                           stepSolverHash,
+                                           stepPresentationHash,
+                                           stepBodyCount,
+                                           true );
+            return false;
+        }
+    }
+
+    return true;
 }
 
 struct ReplayGeneratedTopologyRestoreContext
@@ -1937,19 +2121,6 @@ bool RebuildReplayGeneratedSceneTopology( ReplayGeneratedTopologyRestoreContext&
     WriteReplayProbeReason( rebuildReason, rebuildReasonSize, "rebuilt generated topology" );
     return true;
 }
-
-class ScopedReplayProbeProfilerFrame
-{
-  public:
-    ScopedReplayProbeProfilerFrame()
-    {
-        PROFILE_FRAME_BEGIN();
-    }
-    ~ScopedReplayProbeProfilerFrame()
-    {
-        PROFILE_FRAME_END();
-    }
-};
 } // namespace
 
 void Run::Execute()
@@ -2887,118 +3058,44 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
     }
     stateMutated = true;
 
-    ReplayFrameIndex currentFrame = checkpoint->frameIndex;
-    int currentSceneFrame = checkpoint->sceneFrame;
-    uint32_t eventCursor = checkpoint->eventCursor;
-    std::size_t eventsApplied = 0;
-    std::size_t unsupportedEvents = 0;
-    SceneState().currentFrame = currentSceneFrame;
     ReplayRestoreEventContext restoreEventContext{ m_runtimeTools,
                                                    SceneState(),
                                                    m_systems,
                                                    m_cWorldEnvironment,
                                                    m_cGameModelCollection,
                                                    m_startup.gameModelCapacity };
-
+    ReplayRestoreStepContext stepContext{ m_runtimeTools,
+                                          SceneState(),
+                                          *m_systems.config,
+                                          m_systems,
+                                          m_cWorldEnvironment,
+                                          m_cGameModelCollection,
+                                          restoreEventContext,
+                                          artifact,
+                                          *checkpoint,
+                                          *target };
+    ReplayRestoreStepResult stepResult;
+    ReplayRestoreStepFailure stepFailure;
+    if ( !StepReplayRestoreTarget(
+             stepContext,
+             stepResult,
+             stepFailure,
+             [this]( const ReplaySolverFrameSample& reference,
+                     uint64_t& solverHash,
+                     uint64_t& presentationHash,
+                     std::size_t& bodyCount )
+             { return CaptureCurrentReplaySolverHash( reference, solverHash, presentationHash, bodyCount ); },
+             [this]() { EnterInteractiveSceneRun(); } ) )
     {
-        ScopedReplayProbeProfilerFrame profilerFrame;
-        while ( currentFrame < target->frameIndex )
-        {
-            const ReplayFrameIndex nextFrame = currentFrame + 1u;
-
-            for ( const ReplayEventSample& event : artifact.events )
-            {
-                if ( event.frameIndex != nextFrame || event.sequence < eventCursor )
-                {
-                    continue;
-                }
-                if ( event.branch.branchId != checkpoint->branch.branchId )
-                {
-                    ++unsupportedEvents;
-                    continue;
-                }
-
-                char eventReason[160] = {};
-                if ( !ApplyReplayRestoreEventForTarget( restoreEventContext,
-                                                        event,
-                                                        eventReason,
-                                                        sizeof( eventReason ),
-                                                        [this]() { EnterInteractiveSceneRun(); } ) )
-                {
-                    char message[320] = {};
-                    sprintf_s( message,
-                               sizeof( message ),
-                               "replay restore target probe failed to apply event sequence %u at frame %llu: %s",
-                               event.sequence,
-                               static_cast<unsigned long long>( event.frameIndex ),
-                               eventReason[0] != '\0' ? eventReason : "unknown event replay failure" );
-                    return failAfterMutation( message, target );
-                }
-                eventCursor = (std::max)( eventCursor, event.sequence + 1u );
-                ++eventsApplied;
-            }
-
-            m_runtimeTools.TickRayCastTestLines( PHYSICS_FIXED_DT );
-            m_runtimeTools.Laser().Update( PHYSICS_FIXED_DT );
-            m_cGameModelCollection.EndCollisionVisualFrame();
-            ++currentSceneFrame;
-            SceneState().currentFrame = currentSceneFrame;
-            m_cGameModelCollection.BeginCollisionVisualFrame();
-
-            const auto physicsWorldForces = m_cWorldEnvironment.GetPhysicsWorldForces();
-            StepRuntimePhysicsTick( m_cGameModelCollection,
-                                    PHYSICS_FIXED_DT,
-                                    *m_systems.config,
-                                    physicsWorldForces,
-                                    *m_systems.workerPool );
-            currentFrame = nextFrame;
-
-            const ReplayV2SolverHashSample* expectedHash =
-                FindReplaySolverHashForFrame( artifact.hashes, currentFrame );
-            if ( !expectedHash )
-            {
-                return failAfterMutation( "could not find stepped hash metadata", target );
-            }
-
-            ReplaySolverFrameSample stepReference;
-            stepReference.frameIndex = expectedHash->frameIndex;
-            stepReference.branch = checkpoint->branch;
-            stepReference.eventCursor = eventCursor;
-            stepReference.sceneFrame = expectedHash->sceneFrame;
-            stepReference.simulationSeconds = expectedHash->simulationSeconds;
-            stepReference.physicsDt = PHYSICS_FIXED_DT;
-
-            uint64_t stepSolverHash = 0;
-            uint64_t stepPresentationHash = 0;
-            std::size_t stepBodyCount = 0;
-            if ( !CaptureCurrentReplaySolverHash( stepReference, stepSolverHash, stepPresentationHash, stepBodyCount ) )
-            {
-                return failAfterMutation( "failed to capture stepped hash", expectedHash );
-            }
-            if ( stepBodyCount != expectedHash->bodyCount || stepSolverHash != expectedHash->solverHash )
-            {
-                char message[1024] = {};
-                FormatReplayRestoreDivergenceMessage( message,
-                                                      sizeof( message ),
-                                                      currentFrame,
-                                                      stepSolverHash,
-                                                      stepPresentationHash,
-                                                      stepBodyCount,
-                                                      *expectedHash,
-                                                      artifact.presentationSamples,
-                                                      m_cGameModelCollection,
-                                                      eventsApplied );
-                return failAfterMutation( message,
-                                          expectedHash,
-                                          stepSolverHash,
-                                          stepPresentationHash,
-                                          stepBodyCount,
-                                          true );
-            }
-        }
+        return failAfterMutation( stepFailure.message,
+                                  stepFailure.diagnosticTarget,
+                                  stepFailure.restoredSolverHash,
+                                  stepFailure.restoredPresentationHash,
+                                  stepFailure.restoredBodyCount,
+                                  stepFailure.hashCaptured );
     }
 
-    if ( unsupportedEvents != 0 )
+    if ( stepResult.unsupportedEvents != 0 )
     {
         return failAfterMutation( "encountered unsupported branch events before target", target );
     }
@@ -3006,7 +3103,7 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
     ReplaySolverFrameSample reference;
     reference.frameIndex = target->frameIndex;
     reference.branch = checkpoint->branch;
-    reference.eventCursor = eventCursor;
+    reference.eventCursor = stepResult.eventCursor;
     reference.sceneFrame = target->sceneFrame;
     reference.simulationSeconds = target->simulationSeconds;
     reference.physicsDt = PHYSICS_FIXED_DT;
@@ -3052,12 +3149,12 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
     outResult.checkpointCount = artifact.checkpointResult.checkpointCount;
     outResult.eventCount = artifact.eventResult.eventCount;
     outResult.hashCount = artifact.hashResult.hashCount;
-    outResult.eventsApplied = eventsApplied;
+    outResult.eventsApplied = stepResult.eventsApplied;
     outResult.bodyCount = restoredBodyCount;
     outResult.fileBytes = artifact.hashResult.fileBytes;
     outResult.checkpointFrame = checkpoint->frameIndex;
     outResult.targetFrame = target->frameIndex;
-    outResult.eventCursor = eventCursor;
+    outResult.eventCursor = stepResult.eventCursor;
     outResult.solverHash = restoredSolverHash;
     outResult.presentationHash = restoredPresentationHash;
     outResult.generatedTopologyRebuilt = generatedTopologyRebuilt;
