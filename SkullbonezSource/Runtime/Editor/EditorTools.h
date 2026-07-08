@@ -208,6 +208,7 @@ int PeekSelectedEditorModelIndex( const RunEditorPlacementState& editor, const P
 // placement commits do not rediscover pose or shape facts from GameModel.
 Math::Vector::Vector3 EditorAxisVector( int axis );
 float EditorShapeAxisExtent( const Math::CollisionDetection::CollisionShape& shape, int axis );
+float EditorColliderRadius( const Physics::ColliderRecord& collider );
 float EditorGizmoAxisLength( float modelRadius );
 float EditorGizmoRotationRadius( float modelRadius );
 const Physics::PhysicsBodyRecord* TryResolveEditorBodyRecord( const Physics::PhysicsBodyStore& bodyStore,

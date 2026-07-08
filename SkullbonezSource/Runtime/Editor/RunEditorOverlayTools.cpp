@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/Runtime/Editor/RunEditorOverlayTools.inl
+File: SkullbonezSource/Runtime/Editor/RunEditorOverlayTools.cpp
 Purpose:
   Builds editor hover, placement-preview, and gizmo overlay traces.
 
@@ -21,6 +21,21 @@ Related:
   - SkullbonezSource/Runtime/Editor/RunEditorTools.cpp
   - SkullbonezSource/Runtime/Editor/RunEditorTracer.inl
 */
+#include "EditorOverlayTools.h"
+#include "EditorTools.h"
+#include "../Tools/RuntimeTools.h"
+#include "../../GameObjects/GameModelCollection.h"
+#include "../../Physics/ColliderStore.h"
+#include "../../Physics/PhysicsBodyStore.h"
+
+#include <algorithm>
+
+using SkullbonezCore::Math::Vector::Vector3;
+using SkullbonezCore::Physics::ColliderRecord;
+using SkullbonezCore::Physics::PhysicsBodyHandle;
+using SkullbonezCore::Physics::PhysicsBodyRecord;
+using SkullbonezCore::Physics::PhysicsColliderHandle;
+
 namespace SkullbonezCore
 {
 namespace Basics

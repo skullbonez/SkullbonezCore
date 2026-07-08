@@ -1968,5 +1968,4 @@ bool TryUpdateEditorPlacementPreview( EditorPlacementPreviewContext context,
 } // namespace SkullbonezCore
 
 
-#include "RunEditorOverlayTools.inl"
 #include "RunEditorObjectPlacement.inl"

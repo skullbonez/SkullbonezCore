@@ -328,6 +328,9 @@
     <ClCompile Include="SkullbonezSource\Runtime\Editor\RunMousePickupTools.cpp">
       <Filter>Source Files\Runtime\Editor</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Editor\RunEditorOverlayTools.cpp">
+      <Filter>Source Files\Runtime\Editor</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Editor\EditorTools.cpp">
       <Filter>Source Files\Runtime\Editor</Filter>
     </ClCompile>
@@ -777,9 +780,6 @@
       <Filter>Header Files\Runtime\Editor</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Editor\RunEditorObjectPlacement.inl">
-      <Filter>Header Files\Runtime\Editor</Filter>
-    </ClInclude>
-    <ClInclude Include="SkullbonezSource\Runtime\Editor\RunEditorOverlayTools.inl">
       <Filter>Header Files\Runtime\Editor</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Editor\RunEditorTracer.inl">

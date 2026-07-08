@@ -115,7 +115,7 @@ SCENE_GENERATED_SETUP_SOURCE = Path("SkullbonezSource/Runtime/Scene/SceneGenerat
 EDITOR_OBJECT_PLACEMENT_SOURCE = Path("SkullbonezSource/Runtime/Editor/RunEditorObjectPlacement.inl")
 EDITOR_TOOLS_SOURCE = Path("SkullbonezSource/Runtime/Editor/RunEditorTools.cpp")
 EDITOR_GIZMO_TOOLS_SOURCE = Path("SkullbonezSource/Runtime/Editor/RunEditorGizmoTools.cpp")
-EDITOR_OVERLAY_TOOLS_SOURCE = Path("SkullbonezSource/Runtime/Editor/RunEditorOverlayTools.inl")
+EDITOR_OVERLAY_TOOLS_SOURCE = Path("SkullbonezSource/Runtime/Editor/RunEditorOverlayTools.cpp")
 LAUNCHER_TOOLS_SOURCE = Path("SkullbonezSource/Runtime/Editor/LauncherTools.cpp")
 MOUSE_PICKUP_TOOLS_SOURCE = Path("SkullbonezSource/Runtime/Editor/RunMousePickupTools.cpp")
 RUNTIME_TOOLS_SOURCE = Path("SkullbonezSource/Runtime/Tools/RuntimeTools.cpp")
@@ -5943,7 +5943,7 @@ def check_mouse_pickup_overlay_store_authority_guardrails(repo: Path) -> list[Bo
 
 
 def check_selection_overlay_store_authority_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
-    if path.name != "RunEditorOverlayTools.inl":
+    if path.name != "RunEditorOverlayTools.cpp":
         return []
     stripped = strip_cpp_comments_and_string_literals(text)
     errors: list[BoundaryError] = []
@@ -6323,7 +6323,7 @@ def check_attached_camera_overlay_store_authority_guardrails_text(path: Path, te
             )
         )
 
-    if path.name != "RunEditorOverlayTools.inl":
+    if path.name != "RunEditorOverlayTools.cpp":
         return errors
 
     bounds = _function_body_bounds(stripped, MOUSE_PICKUP_OVERLAY_FUNCTION_PATTERN)
@@ -14244,7 +14244,7 @@ def run_self_tests() -> list[str]:
         context.tracer.AddSelectionOutline( grabbed );
     }
     """
-    expect_error('old mouse pickup overlay GameModel body read synthetic surface was not rejected', check_mouse_pickup_overlay_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorOverlayTools.inl"), old_mouse_pickup_overlay_model_body_read, ), 'mouse pickup overlay GameModel body read is blocked')
+    expect_error('old mouse pickup overlay GameModel body read synthetic surface was not rejected', check_mouse_pickup_overlay_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorOverlayTools.cpp"), old_mouse_pickup_overlay_model_body_read, ), 'mouse pickup overlay GameModel body read is blocked')
 
     allowed_mouse_pickup_overlay_store_read = """
     void BuildEditorToolOverlayTrace( EditorToolOverlayTraceContext context, const EditorToolOverlayTraceInput& input )
@@ -14259,7 +14259,7 @@ def run_self_tests() -> list[str]:
         }
     }
     """
-    expect_clean('store-backed mouse pickup overlay synthetic surface was rejected', check_mouse_pickup_overlay_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorOverlayTools.inl"), allowed_mouse_pickup_overlay_store_read, ))
+    expect_clean('store-backed mouse pickup overlay synthetic surface was rejected', check_mouse_pickup_overlay_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorOverlayTools.cpp"), allowed_mouse_pickup_overlay_store_read, ))
 
     commented_mouse_pickup_overlay_model_body_read = """
     void DocumentOldMousePickupOverlay()
@@ -14268,7 +14268,7 @@ def run_self_tests() -> list[str]:
         // It now reads body->position and collider->shape.
     }
     """
-    expect_clean('comment-only mouse pickup overlay model read synthetic text was rejected', check_mouse_pickup_overlay_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorOverlayTools.inl"), commented_mouse_pickup_overlay_model_body_read, ))
+    expect_clean('comment-only mouse pickup overlay model read synthetic text was rejected', check_mouse_pickup_overlay_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorOverlayTools.cpp"), commented_mouse_pickup_overlay_model_body_read, ))
 
     old_selection_overlay_model_frame = """
     void BuildEditorToolOverlayTrace( EditorToolOverlayTraceContext context, const EditorToolOverlayTraceInput& input )
@@ -14282,7 +14282,7 @@ def run_self_tests() -> list[str]:
         }
     }
     """
-    expect_error('old selection overlay GameModel frame synthetic surface was not rejected', check_selection_overlay_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorOverlayTools.inl"), old_selection_overlay_model_frame, ), 'selection overlay GameModel frame read is blocked')
+    expect_error('old selection overlay GameModel frame synthetic surface was not rejected', check_selection_overlay_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorOverlayTools.cpp"), old_selection_overlay_model_frame, ), 'selection overlay GameModel frame read is blocked')
 
     allowed_selection_overlay_store_frame = """
     void BuildEditorToolOverlayTrace( EditorToolOverlayTraceContext context, const EditorToolOverlayTraceInput& input )
@@ -14301,7 +14301,7 @@ def run_self_tests() -> list[str]:
         }
     }
     """
-    expect_clean('store-backed selection overlay synthetic surface was rejected', check_selection_overlay_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorOverlayTools.inl"), allowed_selection_overlay_store_frame, ))
+    expect_clean('store-backed selection overlay synthetic surface was rejected', check_selection_overlay_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorOverlayTools.cpp"), allowed_selection_overlay_store_frame, ))
 
     commented_selection_overlay_model_frame = """
     void DocumentOldSelectionOverlay()
@@ -14310,7 +14310,7 @@ def run_self_tests() -> list[str]:
         // It now traces from body/collider store rows.
     }
     """
-    expect_clean('comment-only selection overlay synthetic text was rejected', check_selection_overlay_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorOverlayTools.inl"), commented_selection_overlay_model_frame, ))
+    expect_clean('comment-only selection overlay synthetic text was rejected', check_selection_overlay_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorOverlayTools.cpp"), commented_selection_overlay_model_frame, ))
 
     old_editor_selection_frame_model_reads = """
     bool TryGetEditorSelectionFrame( const std::vector<GameModel>& models,
@@ -14635,7 +14635,7 @@ def run_self_tests() -> list[str]:
         context.tracer.AddAttachedCameraTargetMarker( target, input.attachedCameraActiveFollow );
     }
     """
-    expect_error('old attached-camera overlay GameModel marker synthetic surface was not rejected', check_attached_camera_overlay_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorOverlayTools.inl"), old_attached_camera_overlay_marker, ), 'attached camera overlay marker must use store values')
+    expect_error('old attached-camera overlay GameModel marker synthetic surface was not rejected', check_attached_camera_overlay_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorOverlayTools.cpp"), old_attached_camera_overlay_marker, ), 'attached camera overlay marker must use store values')
 
     allowed_attached_camera_overlay_store_marker = """
     void BuildEditorToolOverlayTrace( EditorToolOverlayTraceContext context, const EditorToolOverlayTraceInput& input )
@@ -14652,7 +14652,7 @@ def run_self_tests() -> list[str]:
         }
     }
     """
-    expect_clean('store-backed attached-camera overlay marker synthetic surface was rejected', check_attached_camera_overlay_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorOverlayTools.inl"), allowed_attached_camera_overlay_store_marker, ))
+    expect_clean('store-backed attached-camera overlay marker synthetic surface was rejected', check_attached_camera_overlay_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorOverlayTools.cpp"), allowed_attached_camera_overlay_store_marker, ))
 
     commented_attached_camera_overlay_marker = """
     void DocumentOldAttachedCameraOverlay()
@@ -14661,7 +14661,7 @@ def run_self_tests() -> list[str]:
         // It now passes body->position, body->orientation, and collider->shape.
     }
     """
-    expect_clean('comment-only attached-camera overlay marker synthetic text was rejected', check_attached_camera_overlay_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorOverlayTools.inl"), commented_attached_camera_overlay_marker, ))
+    expect_clean('comment-only attached-camera overlay marker synthetic text was rejected', check_attached_camera_overlay_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorOverlayTools.cpp"), commented_attached_camera_overlay_marker, ))
 
     old_replay_target_marker_overload = """
     class RunEditorTracer

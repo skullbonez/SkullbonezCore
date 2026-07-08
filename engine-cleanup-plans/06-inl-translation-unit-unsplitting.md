@@ -145,9 +145,34 @@ build.
     warnings/errors, 0 DX12 validation errors, DX12 screenshots matched
     committed baselines, and `physics_regression_solver.csv` matched
     byte-exactly at 20001 lines.
+  - [x] `RunEditorOverlayTools.inl` -> `RunEditorOverlayTools.cpp` (2026-07-08).
+    The promoted TU now includes `EditorOverlayTools.h`, `EditorTools.h`,
+    runtime tool declarations, and the collection/body/collider store headers it
+    reads directly. Its former mid-file include was removed from
+    `RunEditorTools.cpp`, and `SKULLBONEZ_CORE.vcxproj` / `.filters` now compile
+    the new `.cpp`. `EditorColliderRadius` is declared through `EditorTools.h`
+    so overlay tracing can keep sharing the store-backed shape/radius helper
+    lifted during the gizmo split. `tools\check_runtime_boundaries.py` now scans
+    the `.cpp` path for mouse-pickup, selection, and attached-camera overlay
+    guardrails, and its synthetic self-tests were updated. Comment audit touched
+    `RunEditorOverlayTools.cpp`, `RunEditorTools.cpp`, `EditorTools.h`, and
+    `tools\check_runtime_boundaries.py`; all have learning headers and required
+    local `Concept`/`Why`/`Invariant` comments, with no deferred files.
+
+    Validation note: initial `tools\validate_fast.bat` failed because the
+    runtime-boundary checker still read the old `.inl` path. After fixes,
+    `python tools\check_runtime_boundaries.py` passed in 16.3s and
+    `python tools\check_runtime_boundaries.py --self-test` passed in 0.3s.
+    `tools\validate_fast.bat` passed in 47.9s
+    (`Agentic\Logs\cleanup-06-step-0.2-overlay-validate-fast.log`), and
+    `tools\validate_full.bat` passed in 45.2s
+    (`Agentic\Logs\cleanup-06-step-0.2-overlay-validate-full.log`): 0 build
+    warnings/errors, 0 DX12 validation errors, DX12 screenshots matched
+    committed baselines, and `physics_regression_solver.csv` matched
+    byte-exactly at 20001 lines.
   - [ ] `RunEditorPlacementAssets.inl`
   - [ ] `RunEditorTracer.inl`
-  - [ ] `RunEditorOverlayTools.inl`
+  - [x] `RunEditorOverlayTools.inl`
   - [ ] `RunEditorObjectPlacement.inl`
 - [ ] **0.3** `rg -n '#include ".*\.inl"' SkullbonezSource/Runtime/Editor` —
   confirm no non-template `.inl` is included mid-`.cpp` in Editor/.
