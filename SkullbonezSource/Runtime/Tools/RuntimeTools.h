@@ -482,6 +482,9 @@ class RuntimeTools
                                   float& outRayT,
                                   float& outCrosshairDistance ) const;
     LauncherReproSnapshotStatus WriteLauncherReproSnapshot( const LauncherReproSnapshotContext& context ) const;
+    LauncherReproSnapshotStatus
+    WriteLauncherReproSnapshotWithStatusMessage( const LauncherReproSnapshotContext& context,
+                                                 RunDebugState& debug ) const;
 #endif
 
     LauncherLaser& Laser();

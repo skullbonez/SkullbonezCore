@@ -1918,7 +1918,7 @@ void Run::TakeInput()
                     // Debug-only Enter writes a launcher repro snapshot unless a replay
                     // restore consumed Enter this frame; Profile keeps this table row inert.
                     const double simulationSeconds = m_timers.simulationTimer.GetTimeSinceLastStart();
-                    const LauncherReproSnapshotStatus snapshotStatus = m_runtimeTools.WriteLauncherReproSnapshot(
+                    m_runtimeTools.WriteLauncherReproSnapshotWithStatusMessage(
                         { m_cGameModelCollection,
                           m_systems.cameras,
                           m_systems.terrain.get(),
@@ -1933,27 +1933,8 @@ void Run::TakeInput()
                           m_renderBackendView.renderDiagnostics
                               ? m_renderBackendView.renderDiagnostics->GetRendererName()
                               : "DirectX 12",
-                          simulationSeconds } );
-                    const char* snapshotMessage = "Failed to write repro snapshot";
-                    if ( snapshotStatus == LauncherReproSnapshotStatus::Wrote )
-                    {
-                        sprintf_s( m_debug.reproSnapshotMessage,
-                                   sizeof( m_debug.reproSnapshotMessage ),
-                                   "Repro snapshot: %s",
-                                   LAUNCHER_REPRO_SNAPSHOT_PATH );
-                    }
-                    else if ( snapshotStatus == LauncherReproSnapshotStatus::NoTarget )
-                    {
-                        snapshotMessage = "No repro target under crosshair";
-                    }
-                    if ( snapshotStatus != LauncherReproSnapshotStatus::Wrote )
-                    {
-                        sprintf_s( m_debug.reproSnapshotMessage,
-                                   sizeof( m_debug.reproSnapshotMessage ),
-                                   "%s",
-                                   snapshotMessage );
-                    }
-                    m_debug.reproSnapshotMessageUntil = simulationSeconds + LAUNCHER_REPRO_MESSAGE_SECONDS;
+                          simulationSeconds },
+                        m_debug );
                 }
 #endif
                 return true;

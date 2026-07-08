@@ -384,6 +384,24 @@ every step. Commit per step.
 	    checks also passed:
 	    `TestOutput\agent_logs\plan01_ui_shortcut_runtime_boundaries.log` (19.3s) and
 	    `TestOutput\agent_logs\plan01_ui_shortcut_build_profile.log` (10.5s).
+	  - [x] Launcher repro ownership extraction moved the debug-only Enter status
+	    formatting and repro-snapshot feedback window out of `Run::TakeInput()` and
+	    into `RuntimeTools`, next to the snapshot writer. The input loop now keeps
+	    only the Debug/Profile, launcher-mode, and replay-restore guards before
+	    delegating to the launcher owner. The touched-file comment audit also fixed
+	    glossary wrapping in `LauncherTools.cpp`. `TakeInput()` now spans 1,423
+	    lines. Gate evidence:
+	    `TestOutput\agent_logs\plan01_step1_3_launcher_repro_owner_interaction_clicks.log`
+	    (19.2s, both interaction reports `ok=1`) and
+	    `TestOutput\agent_logs\plan01_step1_3_launcher_repro_owner_validate_full.log`
+	    (54.3s; project filters/runtime boundaries passed, Profile/Debug builds had
+	    0 warnings and 0 errors, DX12 InfoQueue errors = 0, screenshots matched
+	    baselines, and `physics_regression_solver.csv` matched byte-exactly).
+	    Targeted pre-gate checks also passed:
+	    `TestOutput\agent_logs\plan01_launcher_repro_owner_runtime_boundaries.log`
+	    (18.5s) and
+	    `TestOutput\agent_logs\plan01_launcher_repro_owner_build_profile.log`
+	    (10.7s).
 - [ ] **1.4** Confirm `TakeInput()` is under ~200 lines (setup + dispatch loop).
 
 ### Phase 2 — Move state shelves out of `RunState`
