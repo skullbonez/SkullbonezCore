@@ -83,7 +83,7 @@ build.
 
   Validation note: no repository validation required; documentation-only
   inventory.
-- [ ] **0.2** For **one `.inl` at a time**: (a) create a matching header
+- [x] **0.2** For **one `.inl` at a time**: (a) create a matching header
   declaring its free functions / out-of-line members; (b) rename the `.inl` to a
   real `.cpp` that includes that header; (c) remove the mid-file `#include` from
   `RunEditorTools.cpp`; (d) add the new `.cpp` to `SKULLBONEZ_CORE.vcxproj` and
@@ -226,9 +226,37 @@ build.
     committed baselines, and `physics_regression_solver.csv` matched
     byte-exactly at 20001 lines.
   - [x] `RunEditorOverlayTools.inl`
-  - [ ] `RunEditorObjectPlacement.inl`
-- [ ] **0.3** `rg -n '#include ".*\.inl"' SkullbonezSource/Runtime/Editor` —
-  confirm no non-template `.inl` is included mid-`.cpp` in Editor/.
+  - [x] `RunEditorObjectPlacement.inl` -> `RunEditorObjectPlacement.cpp`
+    (2026-07-08). The promoted TU now includes `RunInternal.h`,
+    `EditorTools.h`, `EditorPlacementAssets.h`, `EditorHullAssets.h`, scene
+    setup, model collection/model, terrain/world, physics, ragdoll, and editor
+    tab headers directly. Its former mid-file include was removed from
+    `RunEditorTools.cpp`, the placement spawn-material helper moved beside the
+    placement commit code, and `SKULLBONEZ_CORE.vcxproj` / `.filters` now
+    compile the new `.cpp`. Runtime-boundary guardrails and synthetic self-tests
+    now scan the `.cpp` path. Related source-learning links in
+    `EditorPlacementAssets.h` now point at the promoted placement TU. Comment
+    audit touched `RunEditorObjectPlacement.cpp`, `RunEditorTools.cpp`,
+    `EditorPlacementAssets.h`, and `tools\check_runtime_boundaries.py`; all have
+    learning headers and required local `Concept`/`Why`/`Invariant` or policy
+    comments, with no deferred files.
+
+    Validation note: `tools\validate_format.bat` passed. Before the build gate,
+    `tools\validate_project_filters.bat` passed in 1.1s, `python
+    tools\check_runtime_boundaries.py` passed in 16.6s, and `python
+    tools\check_runtime_boundaries.py --self-test` passed in 0.3s. Initial
+    `tools\validate_fast.bat` failed on a mechanical direct-include path
+    (`../../Geometry/Terrain.h`); after correcting it to `../../World/Terrain.h`,
+    `tools\validate_fast.bat` passed in 55.4s
+    (`Agentic\Logs\cleanup-06-step-0.2-objectplacement-validate-fast.log`), and
+    `tools\validate_full.bat` passed in 45.4s
+    (`Agentic\Logs\cleanup-06-step-0.2-objectplacement-validate-full.log`): 0
+    build warnings/errors, 0 DX12 validation errors, DX12 screenshots matched
+    committed baselines, and `physics_regression_solver.csv` matched
+    byte-exactly at 20001 lines.
+- [x] **0.3** `rg -n '#include ".*\.inl"' SkullbonezSource/Runtime/Editor` —
+  no matches on 2026-07-08; no non-template `.inl` remains included mid-`.cpp`
+  in `Runtime/Editor`.
 
 ### Phase 1 — Replay `.inl` (execution slot 8, with plan 09)
 

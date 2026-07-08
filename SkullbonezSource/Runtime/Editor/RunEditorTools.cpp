@@ -199,26 +199,6 @@ float HullVerticalSize( const ConvexHullShape& hull )
 }
 
 
-constexpr float EDITOR_TEXTURE_MODE_INVERTED = -2.0f;
-
-
-void ApplyEditorSpawnMaterial( GameModel& model, bool fixedObject, bool boxObject )
-{
-    if ( fixedObject )
-    {
-        model.SetRenderTint( 1.0f, 1.0f, 1.0f, 1.0f );
-    }
-    else if ( boxObject )
-    {
-        model.SetRenderTint( 1.0f, 1.0f, 1.0f, EDITOR_TEXTURE_MODE_INVERTED );
-    }
-    else
-    {
-        model.SetRenderTint( 0.42f, 0.50f, 1.0f, -1.0f );
-    }
-}
-
-
 float EditorPlacementAltitudeStepSize( int objectType,
                                        const Vector3& placementScale,
                                        const SkullbonezCore::Assets::AssetSystem& assets )
@@ -1863,6 +1843,3 @@ bool TryUpdateEditorPlacementPreview( EditorPlacementPreviewContext context,
 } // namespace RunInternal
 } // namespace Basics
 } // namespace SkullbonezCore
-
-
-#include "RunEditorObjectPlacement.inl"

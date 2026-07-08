@@ -26,7 +26,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Editor/RunEditorPlacementAssets.cpp
   - SkullbonezSource/Runtime/Editor/RunEditorTools.cpp
-  - SkullbonezSource/Runtime/Editor/RunEditorObjectPlacement.inl
+  - SkullbonezSource/Runtime/Editor/RunEditorObjectPlacement.cpp
   - SkullbonezSource/Runtime/Editor/RunEditorTracer.cpp
 */
 #pragma once

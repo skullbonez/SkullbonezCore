@@ -112,7 +112,7 @@ RUN_UI_TEXT_PASS_SOURCE = Path("SkullbonezSource/Runtime/RunUiTextPass.cpp")
 RUN_SCENE_SOURCE = Path("SkullbonezSource/Runtime/Scene/RunScene.cpp")
 SCENE_AUTHORED_SETUP_SOURCE = Path("SkullbonezSource/Runtime/Scene/SceneAuthoredSetup.cpp")
 SCENE_GENERATED_SETUP_SOURCE = Path("SkullbonezSource/Runtime/Scene/SceneGeneratedSetup.cpp")
-EDITOR_OBJECT_PLACEMENT_SOURCE = Path("SkullbonezSource/Runtime/Editor/RunEditorObjectPlacement.inl")
+EDITOR_OBJECT_PLACEMENT_SOURCE = Path("SkullbonezSource/Runtime/Editor/RunEditorObjectPlacement.cpp")
 EDITOR_TOOLS_SOURCE = Path("SkullbonezSource/Runtime/Editor/RunEditorTools.cpp")
 EDITOR_GIZMO_TOOLS_SOURCE = Path("SkullbonezSource/Runtime/Editor/RunEditorGizmoTools.cpp")
 EDITOR_OVERLAY_TOOLS_SOURCE = Path("SkullbonezSource/Runtime/Editor/RunEditorOverlayTools.cpp")
@@ -13980,7 +13980,7 @@ def run_self_tests() -> list[str]:
         lastPlacedBody = context.models.AddGameModel( std::move( model ) );
     }
     """
-    expect_error('old editor collider recapture synthetic surface was not rejected', check_add_game_model_collider_desc_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorObjectPlacement.inl"), old_editor_collider_recapture, ), 'AddGameModel collider descriptor import is required')
+    expect_error('old editor collider recapture synthetic surface was not rejected', check_add_game_model_collider_desc_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorObjectPlacement.cpp"), old_editor_collider_recapture, ), 'AddGameModel collider descriptor import is required')
 
     old_ragdoll_collider_recapture = """
     void Ragdoll::AddSimpleHumanoid( GameModelCollection& collection )
@@ -13999,7 +13999,7 @@ def run_self_tests() -> list[str]:
             context.scene.AllocateSceneObjectId() );
     }
     """
-    expect_clean('descriptor-owned AddGameModel synthetic surface was rejected', check_add_game_model_collider_desc_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorObjectPlacement.inl"), allowed_descriptor_append, ))
+    expect_clean('descriptor-owned AddGameModel synthetic surface was rejected', check_add_game_model_collider_desc_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorObjectPlacement.cpp"), allowed_descriptor_append, ))
 
     old_scene_setup_orientation_readback = """
     void SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context )
@@ -14050,7 +14050,7 @@ def run_self_tests() -> list[str]:
         return true;
     }
     """
-    expect_error('old editor placement model-index command synthetic surface was not rejected', check_editor_model_index_physics_command_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorObjectPlacement.inl"), old_editor_model_index_command, ), 'editor model-index physics command is blocked')
+    expect_error('old editor placement model-index command synthetic surface was not rejected', check_editor_model_index_physics_command_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorObjectPlacement.cpp"), old_editor_model_index_command, ), 'editor model-index physics command is blocked')
 
     old_editor_reset_model_index_command = """
     void ResetEditorModelMotionAndWake( GameModelCollection& collection, PhysicsEngine&, int index )
@@ -14134,7 +14134,7 @@ def run_self_tests() -> list[str]:
         WakeEditorPhysicsBody( context.models, context.models.GetPhysicsEngine(), modelIndex );
     }
     """
-    expect_clean('comment-only editor model-index command synthetic text was rejected', check_editor_model_index_physics_command_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorObjectPlacement.inl"), commented_editor_model_index_command, ))
+    expect_clean('comment-only editor model-index command synthetic text was rejected', check_editor_model_index_physics_command_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorObjectPlacement.cpp"), commented_editor_model_index_command, ))
 
     old_editor_adapter_command = """
     void WakeEditorPhysicsBody( GameModelCollection& collection, int modelIndex )
@@ -14440,7 +14440,7 @@ def run_self_tests() -> list[str]:
         };
     }
     """
-    expect_error('old editor tree ungrouped append synthetic surface was not rejected', check_editor_tree_group_descriptor_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorObjectPlacement.inl"), old_editor_tree_group_append, ), 'editor tree grouping descriptor is required')
+    expect_error('old editor tree ungrouped append synthetic surface was not rejected', check_editor_tree_group_descriptor_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorObjectPlacement.cpp"), old_editor_tree_group_append, ), 'editor tree grouping descriptor is required')
 
     allowed_editor_tree_group_descriptor = """
     void PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context )
@@ -14463,7 +14463,7 @@ def run_self_tests() -> list[str]:
         };
     }
     """
-    expect_clean('editor tree group descriptor synthetic surface was rejected', check_editor_tree_group_descriptor_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorObjectPlacement.inl"), allowed_editor_tree_group_descriptor, ))
+    expect_clean('editor tree group descriptor synthetic surface was rejected', check_editor_tree_group_descriptor_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorObjectPlacement.cpp"), allowed_editor_tree_group_descriptor, ))
 
     commented_editor_tree_group_append = """
     // Old tree placement used addModel(std::move(model), MakeEditorColliderDesc(hull, part.restitution), partFixed, treeDefinition.seedAsleep && !partFixed).
@@ -14477,7 +14477,7 @@ def run_self_tests() -> list[str]:
                   groupDesc );
     }
     """
-    expect_clean('comment-only editor tree ungrouped append synthetic text was rejected', check_editor_tree_group_descriptor_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorObjectPlacement.inl"), commented_editor_tree_group_append, ))
+    expect_clean('comment-only editor tree ungrouped append synthetic text was rejected', check_editor_tree_group_descriptor_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorObjectPlacement.cpp"), commented_editor_tree_group_append, ))
 
     old_editor_transform_group_name_parse = """
     bool TryGetEditorRagdollInstancePrefixLength( const GameModel& model, std::size_t& outPrefixLength )
