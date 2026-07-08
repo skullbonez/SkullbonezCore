@@ -2476,8 +2476,9 @@ void Run::Execute()
                 postPhysicsVisualizationContext,
                 secondsPerFrame,
                 [this]( const SpatialGrid::ActiveCell* activeCells, int activeCellCount )
-                { UpdateRequiredSceneBroadphaseXCells( activeCells, activeCellCount ); },
-                [this]() { UpdateRequiredSceneContacts(); } );
+                { m_sceneController.UpdateRequiredBroadphaseXCells( activeCells, activeCellCount ); },
+                [this]()
+                { m_sceneController.UpdateRequiredContacts( m_cGameModelCollection, m_config.contactEpsilon ); } );
 
             // Concept: graphics stress is render/runtime churn, not UI command
             // processing. Tick it once per rendered frame so headless and
@@ -3694,8 +3695,8 @@ bool Run::TickSceneAdvance()
     const bool hasRequiredContactGate = !requiredContacts.empty();
     const bool hasRequiredBroadphaseGate = !requiredBroadphaseXCells.empty();
     const bool hasRequiredSceneGate = hasRequiredContactGate || hasRequiredBroadphaseGate;
-    const bool requiredContactsComplete = RequiredSceneContactsComplete();
-    const bool requiredBroadphaseComplete = RequiredSceneBroadphaseXCellsComplete();
+    const bool requiredContactsComplete = m_sceneController.RequiredContactsComplete();
+    const bool requiredBroadphaseComplete = m_sceneController.RequiredBroadphaseXCellsComplete();
     const bool requiredSceneComplete = requiredContactsComplete && requiredBroadphaseComplete;
     if ( hasRequiredSceneGate && requiredSceneComplete && !SceneState().isTestComplete )
     {

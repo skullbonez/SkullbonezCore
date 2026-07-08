@@ -1653,6 +1653,24 @@ every step. Commit per step.
     `TestOutput\agent_logs\plan01_scene_gate_ownership_runtime_boundaries.log`
     (17.8s). The touched-file comment audit covered `Run.h`, `RunFrame.cpp`,
     `RunScene.cpp`, `SceneController.h/.cpp`, and `SceneRuntime.h/.cpp`.
+  - [x] Scene automation gate logic moved out of `Run` and behind
+    `SceneRuntime`/`SceneController`: required-contact sampling, broadphase
+    X-cell sampling, and completion checks now run on the scene owner. `Run.h`
+    dropped the four gate helper declarations, bringing the measured private
+    helper declarations from 126 to 123 while preserving the 18 public methods
+    and 35 direct member lines from the prior slice. Gate evidence:
+    `TestOutput\agent_logs\plan01_scene_gate_logic_owner_validate_full.log`
+    (62.5s; project filters/runtime boundaries passed, Profile/Debug builds had
+    0 warnings and 0 errors, DX12 InfoQueue errors = 0, screenshots matched
+    baselines, and `physics_regression_solver.csv` matched byte-exactly).
+    Targeted pre-gate checks also passed:
+    `TestOutput\agent_logs\plan01_scene_gate_logic_owner_build_profile.log`
+    (9.8s),
+    `TestOutput\agent_logs\plan01_scene_gate_logic_owner_validate_format_rerun.log`
+    (9.3s), and
+    `TestOutput\agent_logs\plan01_scene_gate_logic_owner_runtime_boundaries.log`
+    (18.2s). The touched-file comment audit covered `Run.h`, `RunFrame.cpp`,
+    `RunScene.cpp`, `SceneController.h/.cpp`, and `SceneRuntime.h/.cpp`.
 
 ## Validation
 

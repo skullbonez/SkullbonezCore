@@ -265,14 +265,6 @@ class Run
     void CaptureAttachedCameraOrbit( const Math::Vector::Vector3& targetPosition,
                                      float targetRadius );                 // Seeds upright Attach orbit from the current camera pose.
     bool TryResolveAttachedCameraRagdollHead( int selectedModelIndex, int& outHeadModelIndex ) const;
-    void UpdateRequiredSceneContacts();                                    // Scene automation waits for authored contact gates to appear in live physics
-                                        // contacts.
-    void UpdateRequiredSceneBroadphaseXCells(
-        const Math::CollisionDetection::SpatialGrid::ActiveCell* activeCells,
-        int activeCellCount );                                             // Scene automation waits for authored X-cell ranges to appear in the live grid.
-    bool RequiredSceneContactsComplete() const;                            // True when there are no gates or all gates have been touched
-    bool RequiredSceneBroadphaseXCellsComplete()
-        const;                                                             // True when there are no gates or all X-cell ranges have been activated
     void RegisterBuiltInAssets();                                          // Seeds source asset records before renderer-owned resources are rebuilt.
     std::string ResolveSourceAssetPath( Assets::AssetKind kind,
                                         const char* logicalName,

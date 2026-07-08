@@ -74,6 +74,11 @@ class SceneController
     std::vector<RunRequiredBroadphaseXCellsState>& RequiredBroadphaseXCells();
     const std::vector<RunRequiredBroadphaseXCellsState>& RequiredBroadphaseXCells() const;
     void ClearRequiredAutomationGates();
+    void UpdateRequiredContacts( GameObjects::GameModelCollection& models, float contactEpsilon );
+    bool RequiredContactsComplete() const;
+    void UpdateRequiredBroadphaseXCells( const Math::CollisionDetection::SpatialGrid::ActiveCell* activeCells,
+                                         int activeCellCount );
+    bool RequiredBroadphaseXCellsComplete() const;
 
     SceneRuntime& Runtime();
     const SceneRuntime& Runtime() const;

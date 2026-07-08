@@ -32,6 +32,7 @@ Related:
 #include "../../Core/Config.h"
 #include "../../Physics/PhysicsHandles.h"
 #include "../../Physics/PhysicsTimestep.h"
+#include "../../Physics/SpatialGrid.h"
 #include "SceneAuthoredSetup.h"
 
 #include <string>
@@ -42,6 +43,10 @@ namespace SkullbonezCore
 namespace Physics
 {
 class PhysicsBodyStore;
+}
+namespace GameObjects
+{
+class GameModelCollection;
 }
 namespace Basics
 {
@@ -142,6 +147,11 @@ class SceneRuntime
     std::vector<RunRequiredBroadphaseXCellsState>& RequiredBroadphaseXCells();
     const std::vector<RunRequiredBroadphaseXCellsState>& RequiredBroadphaseXCells() const;
     void ClearRequiredAutomationGates();
+    void UpdateRequiredContacts( GameObjects::GameModelCollection& models, float contactEpsilon );
+    bool RequiredContactsComplete() const;
+    void UpdateRequiredBroadphaseXCells( const Math::CollisionDetection::SpatialGrid::ActiveCell* activeCells,
+                                         int activeCellCount );
+    bool RequiredBroadphaseXCellsComplete() const;
 
   private:
     RunSceneState m_state;
