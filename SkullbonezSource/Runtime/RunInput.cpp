@@ -301,24 +301,6 @@ void AdvanceTakeInputKeyboardActionMemories( RuntimeInputContext& input )
 
 } // namespace
 
-void Run::StepPhysicsPipelineStage( int direction )
-{
-    const int stageCount = static_cast<int>( PhysicsPipelineStage::Count );
-    if ( stageCount <= 0 || direction == 0 )
-    {
-        return;
-    }
-
-    m_debug.physicsDebugFlags |= PHYSICS_DEBUG_PIPELINE;
-    int nextStage = ( m_debug.physicsDebugPipelineStageCursor + direction ) % stageCount;
-    if ( nextStage < 0 )
-    {
-        nextStage += stageCount;
-    }
-    m_debug.physicsDebugPipelineStageCursor = nextStage;
-}
-
-
 void Run::UpdateRuntimeInputModeAfterAction( RuntimeInputAction action, RuntimeInputActionSource source )
 {
     InputController::ApplyModeAction(
@@ -2045,160 +2027,31 @@ void Run::TakeInput()
                 return true;
             }
             case RuntimeInputAction::ToggleWaterFreeze:
-                if ( InputController::CaptureKeyboardActionPress( m_runtimeInput, binding.action, binding.virtualKey ) )
-                {
-                    // Numeric water and terrain toggles are visual diagnostics only;
-                    // they must not feed back into simulation or scene ownership.
-                    m_debug.isWaterFreezeDebug = !m_debug.isWaterFreezeDebug;
-                    if ( m_debug.isWaterFreezeDebug )
-                    {
-                        m_debug.frozenWaterTime =
-                            static_cast<float>( m_timers.simulationTimer.GetTimeSinceLastStart() );
-                    }
-                }
-                return true;
             case RuntimeInputAction::CycleWaterReflection:
-                if ( InputController::CaptureKeyboardActionPress( m_runtimeInput, binding.action, binding.virtualKey ) )
-                {
-                    // Key '2' cycles FBO mirror rendering, DXR reflection when supported,
-                    // no reflection, then back to FBO. Machines without DXR skip the
-                    // unsupported mode instead of leaving the toggle in a dead state.
-                    if ( !m_debug.isWaterRTReflect && !m_debug.isWaterNoReflect )
-                    {
-                        if ( m_renderBackendView.renderDiagnostics &&
-                             m_renderBackendView.renderDiagnostics->GetCapabilities().supportsDxrReflection )
-                        {
-                            m_debug.isWaterRTReflect = true;
-                        }
-                        else
-                        {
-                            m_debug.isWaterNoReflect = true;
-                        }
-                    }
-                    else if ( m_debug.isWaterRTReflect )
-                    {
-                        m_debug.isWaterRTReflect = false;
-                        m_debug.isWaterNoReflect = true;
-                    }
-                    else
-                    {
-                        m_debug.isWaterNoReflect = false;
-                    }
-                }
-                return true;
             case RuntimeInputAction::ToggleWaterFlat:
-                if ( InputController::CaptureKeyboardActionPress( m_runtimeInput, binding.action, binding.virtualKey ) )
-                {
-                    m_debug.isWaterFlatDebug = !m_debug.isWaterFlatDebug;
-                }
-                return true;
             case RuntimeInputAction::ToggleTerrainHidden:
-                if ( InputController::CaptureKeyboardActionPress( m_runtimeInput, binding.action, binding.virtualKey ) )
-                {
-                    m_debug.isTerrainHidden = !m_debug.isTerrainHidden;
-                }
-                return true;
             case RuntimeInputAction::ToggleWaterHidden:
-                if ( InputController::CaptureKeyboardActionPress( m_runtimeInput, binding.action, binding.virtualKey ) )
-                {
-                    m_debug.isWaterHidden = !m_debug.isWaterHidden;
-                }
-                return true;
             case RuntimeInputAction::ToggleCollisionVisualizer:
-                if ( InputController::CaptureKeyboardActionPress( m_runtimeInput, binding.action, binding.virtualKey ) )
-                {
-                    m_debug.isCollisionVisualizer = !m_debug.isCollisionVisualizer;
-                }
-                return true;
             case RuntimeInputAction::CyclePhysicsDebugOverlay:
-                if ( InputController::CaptureKeyboardActionPress( m_runtimeInput, binding.action, binding.virtualKey ) )
-                {
-                    // C key: None -> Axes -> Contacts -> Sleep -> All -> None.
-                    switch ( m_debug.physicsDebugFlags )
-                    {
-                    case PHYSICS_DEBUG_NONE:
-                        m_debug.physicsDebugFlags = PHYSICS_DEBUG_AXES;
-                        break;
-                    case PHYSICS_DEBUG_AXES:
-                        m_debug.physicsDebugFlags = PHYSICS_DEBUG_CONTACTS;
-                        break;
-                    case PHYSICS_DEBUG_CONTACTS:
-                        m_debug.physicsDebugFlags = PHYSICS_DEBUG_SLEEP;
-                        break;
-                    case PHYSICS_DEBUG_SLEEP:
-                        m_debug.physicsDebugFlags = PHYSICS_DEBUG_ALL;
-                        break;
-                    default:
-                        m_debug.physicsDebugFlags = PHYSICS_DEBUG_NONE;
-                        break;
-                    }
-                }
-                return true;
             case RuntimeInputAction::ToggleTerrainContactProbe:
-                if ( InputController::CaptureKeyboardActionPress( m_runtimeInput, binding.action, binding.virtualKey ) )
-                {
-                    // O key layers the terrain polygon/contact probe over the C-key
-                    // debug cycle, so it is toggled independently of the cycle state.
-                    m_debug.physicsDebugFlags ^= PHYSICS_DEBUG_TERRAIN_CONTACT;
-                }
-                return true;
             case RuntimeInputAction::StepPhysicsPipelinePrevious:
-                if ( InputController::CaptureKeyboardActionPress( m_runtimeInput, binding.action, binding.virtualKey ) )
-                {
-                    // F7/F8 inspect the bounded Catto stage trace captured by the
-                    // most recent physics tick; they do not advance simulation.
-                    StepPhysicsPipelineStage( -1 );
-                }
-                return true;
             case RuntimeInputAction::StepPhysicsPipelineNext:
-                if ( InputController::CaptureKeyboardActionPress( m_runtimeInput, binding.action, binding.virtualKey ) )
-                {
-                    StepPhysicsPipelineStage( 1 );
-                }
-                return true;
             case RuntimeInputAction::TogglePhysicsDebugTransparent:
-                if ( InputController::CaptureKeyboardActionPress( m_runtimeInput, binding.action, binding.virtualKey ) )
-                {
-                    // Transparent volumes make contact rows readable inside bodies
-                    // without changing the collision visualizer's solid debug pass.
-                    m_debug.isPhysicsDebugTransparent = !m_debug.isPhysicsDebugTransparent;
-                }
-                return true;
             case RuntimeInputAction::ReportRendererRuntimeRetired:
-                if ( InputController::CaptureKeyboardActionPress( m_runtimeInput, binding.action, binding.virtualKey ) )
-                {
-                    // Q used to cycle legacy renderers; keep the key as a bounded
-                    // diagnostic report because DX12 is now the sole runtime backend.
-                    fprintf( stderr, "Renderer switch ignored: DX12 is the only runtime renderer.\n" );
-                }
-                return true;
             case RuntimeInputAction::ToggleCrossScenePause:
-                if ( InputController::CaptureKeyboardActionPress( m_runtimeInput, binding.action, binding.virtualKey ) )
-                {
-                    // P locks automation between scenes without marking the scene
-                    // interactive, so clearing it resumes the original automation mode.
-                    m_debug.isCrossScenePauseLocked = !m_debug.isCrossScenePauseLocked;
-                }
-                return true;
             case RuntimeInputAction::ToggleBroadphaseOverlay:
-                if ( InputController::CaptureKeyboardActionPress( m_runtimeInput, binding.action, binding.virtualKey ) )
-                {
-                    // G cycles the tracked ball while the broadphase overlay is off;
-                    // once the overlay is active, the same key owns overlay visibility.
-                    if ( SceneState().isSceneMode && m_camera.trackBallIndex >= 0 && !m_debug.isBroadphaseOverlay )
-                    {
-                        int count = m_cGameModelCollection.SceneEntityCount();
-                        if ( count > 0 )
-                        {
-                            m_camera.trackBallIndex = ( m_camera.trackBallIndex + 1 ) % count;
-                        }
-                    }
-                    else
-                    {
-                        m_debug.isBroadphaseOverlay = !m_debug.isBroadphaseOverlay;
-                    }
-                }
-                return true;
+            {
+                return HandleDiagnosticsKeyboardShortcut(
+                    DiagnosticsKeyboardShortcutContext{ m_runtimeInput,
+                                                        m_debug,
+                                                        m_camera.trackBallIndex,
+                                                        m_cGameModelCollection,
+                                                        m_renderBackendView.renderDiagnostics,
+                                                        SceneState().isSceneMode,
+                                                        m_timers.simulationTimer.GetTimeSinceLastStart() },
+                    binding.action,
+                    binding.virtualKey );
+            }
             case RuntimeInputAction::ToggleUIVisibility:
                 if ( InputController::CaptureKeyboardActionPress( m_runtimeInput, binding.action, binding.virtualKey ) )
                 {
@@ -2499,13 +2352,13 @@ void Run::TakeInput()
         }
         if ( uiCommands.physics.stepPhysicsPipelinePrevious )
         {
-            StepPhysicsPipelineStage( -1 );
+            StepDiagnosticsPhysicsPipelineStage( m_debug, -1 );
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::StepPhysicsPipelinePrevious,
                                                RuntimeInputActionSource::UI );
         }
         if ( uiCommands.physics.stepPhysicsPipelineNext )
         {
-            StepPhysicsPipelineStage( 1 );
+            StepDiagnosticsPhysicsPipelineStage( m_debug, 1 );
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::StepPhysicsPipelineNext,
                                                RuntimeInputActionSource::UI );
         }

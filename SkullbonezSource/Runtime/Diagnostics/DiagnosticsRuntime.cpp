@@ -33,8 +33,12 @@ Related:
 #include "DiagnosticsRuntime.h"
 
 #include "../Allocation/RuntimeAllocationTracker.h"
+#include "../InputController.h"
 #include "../Replay/ReplayRuntime.h"
+#include "../RunState.h"
 #include "../Scene/SceneRuntime.h"
+#include "../../Physics/Debug/PhysicsDebugVisualizer.h"
+#include "../../Rendering/IRenderDiagnostics.h"
 #include "../../Scene/TestScene.h"
 #include "../../GameObjects/GameModelCollection.h"
 
@@ -85,6 +89,176 @@ void WriteJsonString( FILE* file, const char* value )
     fputc( '"', file );
 }
 } // namespace
+
+void StepDiagnosticsPhysicsPipelineStage( RunDebugState& debug, int direction )
+{
+    const int stageCount = static_cast<int>( Physics::PhysicsPipelineStage::Count );
+    if ( stageCount <= 0 || direction == 0 )
+    {
+        return;
+    }
+
+    debug.physicsDebugFlags |= Physics::PHYSICS_DEBUG_PIPELINE;
+    int nextStage = ( debug.physicsDebugPipelineStageCursor + direction ) % stageCount;
+    if ( nextStage < 0 )
+    {
+        nextStage += stageCount;
+    }
+    debug.physicsDebugPipelineStageCursor = nextStage;
+}
+
+
+bool HandleDiagnosticsKeyboardShortcut( DiagnosticsKeyboardShortcutContext context,
+                                        RuntimeInputAction action,
+                                        int virtualKey )
+{
+    if ( !InputController::CaptureKeyboardActionPress( context.input, action, virtualKey ) )
+    {
+        switch ( action )
+        {
+        case RuntimeInputAction::ToggleWaterFreeze:
+        case RuntimeInputAction::CycleWaterReflection:
+        case RuntimeInputAction::ToggleWaterFlat:
+        case RuntimeInputAction::ToggleTerrainHidden:
+        case RuntimeInputAction::ToggleWaterHidden:
+        case RuntimeInputAction::ToggleCollisionVisualizer:
+        case RuntimeInputAction::CyclePhysicsDebugOverlay:
+        case RuntimeInputAction::ToggleTerrainContactProbe:
+        case RuntimeInputAction::StepPhysicsPipelinePrevious:
+        case RuntimeInputAction::StepPhysicsPipelineNext:
+        case RuntimeInputAction::TogglePhysicsDebugTransparent:
+        case RuntimeInputAction::ReportRendererRuntimeRetired:
+        case RuntimeInputAction::ToggleCrossScenePause:
+        case RuntimeInputAction::ToggleBroadphaseOverlay:
+            return true;
+        default:
+            return false;
+        }
+    }
+
+    RunDebugState& debug = context.debug;
+    switch ( action )
+    {
+    case RuntimeInputAction::ToggleWaterFreeze:
+        // Numeric water and terrain toggles are visual diagnostics only; they
+        // must not feed back into simulation or scene ownership.
+        debug.isWaterFreezeDebug = !debug.isWaterFreezeDebug;
+        if ( debug.isWaterFreezeDebug )
+        {
+            debug.frozenWaterTime = static_cast<float>( context.simulationSeconds );
+        }
+        return true;
+    case RuntimeInputAction::CycleWaterReflection:
+    {
+        // Key '2' cycles FBO mirror rendering, DXR reflection when supported,
+        // no reflection, then back to FBO. Machines without DXR skip the
+        // unsupported mode instead of leaving the toggle in a dead state.
+        const bool dxrReflectionSupported =
+            context.renderDiagnostics && context.renderDiagnostics->GetCapabilities().supportsDxrReflection;
+        if ( !debug.isWaterRTReflect && !debug.isWaterNoReflect )
+        {
+            if ( dxrReflectionSupported )
+            {
+                debug.isWaterRTReflect = true;
+            }
+            else
+            {
+                debug.isWaterNoReflect = true;
+            }
+        }
+        else if ( debug.isWaterRTReflect )
+        {
+            debug.isWaterRTReflect = false;
+            debug.isWaterNoReflect = true;
+        }
+        else
+        {
+            debug.isWaterNoReflect = false;
+        }
+        return true;
+    }
+    case RuntimeInputAction::ToggleWaterFlat:
+        debug.isWaterFlatDebug = !debug.isWaterFlatDebug;
+        return true;
+    case RuntimeInputAction::ToggleTerrainHidden:
+        debug.isTerrainHidden = !debug.isTerrainHidden;
+        return true;
+    case RuntimeInputAction::ToggleWaterHidden:
+        debug.isWaterHidden = !debug.isWaterHidden;
+        return true;
+    case RuntimeInputAction::ToggleCollisionVisualizer:
+        debug.isCollisionVisualizer = !debug.isCollisionVisualizer;
+        return true;
+    case RuntimeInputAction::CyclePhysicsDebugOverlay:
+        // C key: None -> Axes -> Contacts -> Sleep -> All -> None.
+        switch ( debug.physicsDebugFlags )
+        {
+        case Physics::PHYSICS_DEBUG_NONE:
+            debug.physicsDebugFlags = Physics::PHYSICS_DEBUG_AXES;
+            break;
+        case Physics::PHYSICS_DEBUG_AXES:
+            debug.physicsDebugFlags = Physics::PHYSICS_DEBUG_CONTACTS;
+            break;
+        case Physics::PHYSICS_DEBUG_CONTACTS:
+            debug.physicsDebugFlags = Physics::PHYSICS_DEBUG_SLEEP;
+            break;
+        case Physics::PHYSICS_DEBUG_SLEEP:
+            debug.physicsDebugFlags = Physics::PHYSICS_DEBUG_ALL;
+            break;
+        default:
+            debug.physicsDebugFlags = Physics::PHYSICS_DEBUG_NONE;
+            break;
+        }
+        return true;
+    case RuntimeInputAction::ToggleTerrainContactProbe:
+        // O key layers the terrain polygon/contact probe over the C-key debug
+        // cycle, so it is toggled independently of the cycle state.
+        debug.physicsDebugFlags ^= Physics::PHYSICS_DEBUG_TERRAIN_CONTACT;
+        return true;
+    case RuntimeInputAction::StepPhysicsPipelinePrevious:
+        // F7/F8 inspect the bounded physics pipeline stage trace captured by
+        // the most recent physics tick; they do not advance simulation.
+        StepDiagnosticsPhysicsPipelineStage( debug, -1 );
+        return true;
+    case RuntimeInputAction::StepPhysicsPipelineNext:
+        StepDiagnosticsPhysicsPipelineStage( debug, 1 );
+        return true;
+    case RuntimeInputAction::TogglePhysicsDebugTransparent:
+        // Transparent volumes make contact rows readable inside bodies without
+        // changing the collision visualizer's solid debug pass.
+        debug.isPhysicsDebugTransparent = !debug.isPhysicsDebugTransparent;
+        return true;
+    case RuntimeInputAction::ReportRendererRuntimeRetired:
+        // Q used to cycle legacy renderers; keep the key as a bounded
+        // diagnostic report because DX12 is now the sole runtime backend.
+        fprintf( stderr, "Renderer switch ignored: DX12 is the only runtime renderer.\n" );
+        return true;
+    case RuntimeInputAction::ToggleCrossScenePause:
+        // P locks automation between scenes without marking the scene
+        // interactive, so clearing it resumes the original automation mode.
+        debug.isCrossScenePauseLocked = !debug.isCrossScenePauseLocked;
+        return true;
+    case RuntimeInputAction::ToggleBroadphaseOverlay:
+        // G cycles the tracked ball while the broadphase overlay is off; once
+        // the overlay is active, the same key owns overlay visibility.
+        if ( context.sceneMode && context.cameraTrackBallIndex >= 0 && !debug.isBroadphaseOverlay )
+        {
+            const int sceneEntityCount = context.sceneEntities.SceneEntityCount();
+            if ( sceneEntityCount > 0 )
+            {
+                context.cameraTrackBallIndex = ( context.cameraTrackBallIndex + 1 ) % sceneEntityCount;
+            }
+        }
+        else
+        {
+            debug.isBroadphaseOverlay = !debug.isBroadphaseOverlay;
+        }
+        return true;
+    default:
+        return false;
+    }
+}
+
 
 CaptureController& DiagnosticsRuntime::Capture()
 {

@@ -30,11 +30,40 @@ Related:
 
 namespace SkullbonezCore
 {
+namespace GameObjects
+{
+class GameModelCollection;
+}
+namespace Rendering
+{
+class IRenderDiagnostics;
+}
 namespace Basics
 {
 class Profiler;
 class ReplayRuntime;
 class TestScene;
+enum class RuntimeInputAction;
+class RuntimeInputContext;
+struct RunDebugState;
+
+struct DiagnosticsKeyboardShortcutContext
+{
+    // Lifetime: borrowed for one keyboard dispatch only; diagnostics mutates
+    // only debug presentation state and input-edge memory.
+    RuntimeInputContext& input;
+    RunDebugState& debug;
+    int& cameraTrackBallIndex;
+    const GameObjects::GameModelCollection& sceneEntities;
+    const Rendering::IRenderDiagnostics* renderDiagnostics = nullptr;
+    bool sceneMode = false;
+    double simulationSeconds = 0.0;
+};
+
+void StepDiagnosticsPhysicsPipelineStage( RunDebugState& debug, int direction );
+bool HandleDiagnosticsKeyboardShortcut( DiagnosticsKeyboardShortcutContext context,
+                                        RuntimeInputAction action,
+                                        int virtualKey );
 
 class DiagnosticsRuntime
 {

@@ -167,7 +167,6 @@ class Run
     bool TrySetInteractionAutomationReplayPathTarget( const char* name );
     bool TryProjectInteractionAutomationModel( const char* name, POINT& outMouse );
     bool DrainRuntimeCommands();                                           // Applies queued runtime/tool command intents at the frame boundary.
-    void StepPhysicsPipelineStage( int direction );                        // direction is a left/right cursor step for pipeline visualization.
     void UpdateRuntimeInputModeAfterAction(
         RuntimeInputAction action,
         RuntimeInputActionSource source );                                 // Records the mode transition caused by one runtime/tool action.

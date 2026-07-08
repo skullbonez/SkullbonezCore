@@ -354,6 +354,21 @@ every step. Commit per step.
 	    (54.1s; project filters/runtime boundaries passed, Profile/Debug builds had
 	    0 warnings and 0 errors, DX12 InfoQueue errors = 0, screenshots matched
 	    baselines, and `physics_regression_solver.csv` matched byte-exactly).
+	  - [x] Diagnostics ownership extraction moved the numeric/F-key diagnostics
+	    keyboard handlers and physics-pipeline cursor stepping out of `Run` and into
+	    the diagnostics runtime boundary. `Run::StepPhysicsPipelineStage` was deleted,
+	    so the private `Run` method count dropped by one while `TakeInput()` shrank to
+	    1,457 lines. Gate evidence:
+	    `TestOutput\agent_logs\plan01_step1_3_diagnostics_owner_interaction_clicks.log`
+	    (15.0s, both interaction reports `ok=1`) and
+	    `TestOutput\agent_logs\plan01_step1_3_diagnostics_owner_validate_full_rerun.log`
+	    (65.3s; project filters/runtime boundaries passed, Profile/Debug builds had
+	    0 warnings and 0 errors, DX12 InfoQueue errors = 0, screenshots matched
+	    baselines, and `physics_regression_solver.csv` matched byte-exactly). A
+	    superseded targeted Profile build caught a `RuntimeInputContext` forward
+	    declaration mismatch, and the first `validate_full` attempt failed only on the
+	    diagnostics header formatting post-pass; both were fixed before the final
+	    rerun.
 - [ ] **1.4** Confirm `TakeInput()` is under ~200 lines (setup + dispatch loop).
 
 ### Phase 2 — Move state shelves out of `RunState`
