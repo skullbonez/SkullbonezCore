@@ -1738,7 +1738,44 @@ void Run::TakeInput()
         keyboardToggleEditorMode =
             InputController::CaptureKeyboardActionPress( m_runtimeInput, RuntimeInputAction::ToggleEditor, VK_OEM_3 );
 
-        auto dispatchMappedKeyboardAction = [this]( const RuntimeInputKeyBinding& binding ) -> bool
+        auto executeSceneControlAction = [&]( const SceneRuntimeControlAction& action ) -> bool
+        {
+            if ( action.enterInteractiveSceneRun )
+            {
+                EnterInteractiveSceneRun();
+            }
+
+            switch ( action.type )
+            {
+            case SceneRuntimeControlActionType::ClearCurrentSceneAutomation:
+                SceneState().isExitOnComplete = false;
+                m_diagnosticsRuntime.Capture().Screenshot().isScreenshotAndExit = false;
+                return true;
+            case SceneRuntimeControlActionType::LoadScene:
+                return LoadScene( action.index,
+                                  action.preserveUIState,
+                                  action.suppressExitOnComplete,
+                                  action.preserveRuntimeState )
+                    .ok;
+            case SceneRuntimeControlActionType::ApplyCinematicModeFromBrowserIndex:
+                EnterInteractiveSceneRun();
+                return ApplyCinematicModeFromBrowserIndex(
+                    SceneRuntimeStyleContext{ m_launchOptions,
+                                              SceneState(),
+                                              m_sceneController.Browser(),
+                                              m_cGameModelCollection,
+                                              m_systems.assets,
+                                              RuntimeActiveCinematicConfig( SceneState(), m_config ),
+                                              m_defaultCinematicRender },
+                    action.index );
+            case SceneRuntimeControlActionType::None:
+                return false;
+            }
+            return false;
+        };
+
+        auto dispatchMappedKeyboardAction =
+            [this, &executeSceneControlAction]( const RuntimeInputKeyBinding& binding ) -> bool
         {
             switch ( binding.action )
             {
@@ -2113,6 +2150,31 @@ void Run::TakeInput()
                                                        RuntimeInputActionSource::Keyboard );
                 }
                 return true;
+            case RuntimeInputAction::NavigateScenePrevious:
+            case RuntimeInputAction::NavigateSceneNext:
+                if ( InputController::CaptureKeyboardActionPress( m_runtimeInput, binding.action, binding.virtualKey ) )
+                {
+                    const int direction = binding.action == RuntimeInputAction::NavigateScenePrevious ? -1 : 1;
+                    // Left/right first move through cinematic variants when that tab
+                    // owns context; otherwise they load the adjacent browser scene.
+                    EnterInteractiveSceneRun();
+                    const int currentSceneBrowserIndex =
+                        CurrentSceneBrowserIndex( m_sceneController, m_sceneController.Browser() );
+                    const bool isCinematicTabActive = m_UI.GetActiveTab() == InGameUITab::Cinematic;
+                    if ( !executeSceneControlAction( m_sceneCoordinator.ApplyAdjacentCinematicMode(
+                             direction,
+                             m_sceneController.Browser().paths,
+                             m_sceneController.Browser().selectedCineModeSceneIndex,
+                             currentSceneBrowserIndex,
+                             isCinematicTabActive ) ) )
+                    {
+                        executeSceneControlAction(
+                            m_sceneCoordinator.LoadAdjacentSceneFromBrowser( direction,
+                                                                             m_sceneController.Browser().paths,
+                                                                             currentSceneBrowserIndex ) );
+                    }
+                }
+                return true;
             default:
                 return false;
             }
@@ -2173,85 +2235,6 @@ void Run::TakeInput()
             m_runtimeInput.SetActionDown( RuntimeInputAction::CycleCameraMode, Input::IsKeyDown( VK_TAB ) );
             m_runtimeTools.Editor().altShortcutWasDown = altDown;
             m_runtimeTools.Editor().tabShortcutWasDown = Input::IsKeyDown( VK_TAB );
-        }
-
-        auto executeSceneControlAction = [&]( const SceneRuntimeControlAction& action ) -> bool
-        {
-            if ( action.enterInteractiveSceneRun )
-            {
-                EnterInteractiveSceneRun();
-            }
-
-            switch ( action.type )
-            {
-            case SceneRuntimeControlActionType::ClearCurrentSceneAutomation:
-                SceneState().isExitOnComplete = false;
-                m_diagnosticsRuntime.Capture().Screenshot().isScreenshotAndExit = false;
-                return true;
-            case SceneRuntimeControlActionType::LoadScene:
-                return LoadScene( action.index,
-                                  action.preserveUIState,
-                                  action.suppressExitOnComplete,
-                                  action.preserveRuntimeState )
-                    .ok;
-            case SceneRuntimeControlActionType::ApplyCinematicModeFromBrowserIndex:
-                EnterInteractiveSceneRun();
-                return ApplyCinematicModeFromBrowserIndex(
-                    SceneRuntimeStyleContext{ m_launchOptions,
-                                              SceneState(),
-                                              m_sceneController.Browser(),
-                                              m_cGameModelCollection,
-                                              m_systems.assets,
-                                              RuntimeActiveCinematicConfig( SceneState(), m_config ),
-                                              m_defaultCinematicRender },
-                    action.index );
-            case SceneRuntimeControlActionType::None:
-                return false;
-            }
-            return false;
-        };
-
-        if ( InputController::CaptureKeyboardActionPress( m_runtimeInput,
-                                                          RuntimeInputAction::NavigateScenePrevious,
-                                                          VK_LEFT ) )
-        {
-            EnterInteractiveSceneRun();
-            const int currentSceneBrowserIndex =
-                CurrentSceneBrowserIndex( m_sceneController, m_sceneController.Browser() );
-            const bool isCinematicTabActive = m_UI.GetActiveTab() == InGameUITab::Cinematic;
-            if ( !executeSceneControlAction( m_sceneCoordinator.ApplyAdjacentCinematicMode(
-                     -1,
-                     m_sceneController.Browser().paths,
-                     m_sceneController.Browser().selectedCineModeSceneIndex,
-                     currentSceneBrowserIndex,
-                     isCinematicTabActive ) ) )
-            {
-                executeSceneControlAction(
-                    m_sceneCoordinator.LoadAdjacentSceneFromBrowser( -1,
-                                                                     m_sceneController.Browser().paths,
-                                                                     currentSceneBrowserIndex ) );
-            }
-        }
-        if ( InputController::CaptureKeyboardActionPress( m_runtimeInput,
-                                                          RuntimeInputAction::NavigateSceneNext,
-                                                          VK_RIGHT ) )
-        {
-            EnterInteractiveSceneRun();
-            const int currentSceneBrowserIndex =
-                CurrentSceneBrowserIndex( m_sceneController, m_sceneController.Browser() );
-            const bool isCinematicTabActive = m_UI.GetActiveTab() == InGameUITab::Cinematic;
-            if ( !executeSceneControlAction( m_sceneCoordinator.ApplyAdjacentCinematicMode(
-                     1,
-                     m_sceneController.Browser().paths,
-                     m_sceneController.Browser().selectedCineModeSceneIndex,
-                     currentSceneBrowserIndex,
-                     isCinematicTabActive ) ) )
-            {
-                executeSceneControlAction(
-                    m_sceneCoordinator.LoadAdjacentSceneFromBrowser( 1,
-                                                                     m_sceneController.Browser().paths,
-                                                                     currentSceneBrowserIndex ) );
-            }
         }
     }
     else

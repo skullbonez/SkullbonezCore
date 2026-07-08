@@ -274,6 +274,16 @@ every step. Commit per step.
     (50.2s; project filters/runtime boundaries passed, Profile/Debug builds had
     0 warnings and 0 errors, DX12 InfoQueue errors = 0, screenshots matched
     baselines, and `physics_regression_solver.csv` matched byte-exactly).
+  - [x] Scene navigation keyboard group (Left/Right) now dispatches through the
+    same table loop. The shared scene-control helper was hoisted without changing
+    its body, and the new dispatch case preserves the cinematic-tab-first behavior
+    before falling back to adjacent scene loading. Gate evidence:
+    `TestOutput\agent_logs\plan01_step1_3_scene_nav_interaction_clicks.log`
+    (19.9s, both interaction reports `ok=1`) and
+    `TestOutput\agent_logs\plan01_step1_3_scene_nav_validate_full.log` (50.4s;
+    project filters/runtime boundaries passed, Profile/Debug builds had 0 warnings
+    and 0 errors, DX12 InfoQueue errors = 0, screenshots matched baselines, and
+    `physics_regression_solver.csv` matched byte-exactly).
 - [ ] **1.4** Confirm `TakeInput()` is under ~200 lines (setup + dispatch loop).
 
 ### Phase 2 — Move state shelves out of `RunState`
