@@ -291,6 +291,30 @@ bool SweptSegmentTouchesExpandedBody( const PhysicsBodyRecordList& bodyRecords,
     return Vector::VectorMagSquared( closestRelative ) <= expandedRadius * expandedRadius;
 }
 
+// Why: two fixed bodies cannot create solver impulses or wake events, so they
+// are dead broadphase work. Keep the bounds checks before body-record reads
+// because candidate pairs are still an externalized scratch buffer at this point.
+bool IsFixedSolverCandidatePair( const PhysicsBodyRecordList& bodyRecords,
+                                 int modelCount,
+                                 const std::pair<int, int>& pair )
+{
+    const int a = pair.first;
+    const int b = pair.second;
+    return a >= 0 && b >= 0 && a < modelCount && b < modelCount && IsSolverBodyFixed( bodyRecords, a ) &&
+           IsSolverBodyFixed( bodyRecords, b );
+}
+
+struct FixedSolverCandidatePairPredicate
+{
+    const PhysicsBodyRecordList& bodyRecords;
+    int modelCount = 0;
+
+    bool operator()( const std::pair<int, int>& pair ) const
+    {
+        return IsFixedSolverCandidatePair( bodyRecords, modelCount, pair );
+    }
+};
+
 void ApplyForcesForSolverBody( PhysicsBodyStore& bodyStore,
                                const ColliderStore& colliderStore,
                                const PhysicsWorldForces& worldForces,
@@ -2486,14 +2510,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
         PROFILE_SCOPED( "Frame/Physics/Broadphase/PruneFixedPairs" );
         candidatePairs.erase( std::remove_if( candidatePairs.begin(),
                                               candidatePairs.end(),
-                                              [&]( const std::pair<int, int>& pair )
-                                              {
-                                                  const int a = pair.first;
-                                                  const int b = pair.second;
-                                                  return a >= 0 && b >= 0 && a < modelCount && b < modelCount &&
-                                                         IsSolverBodyFixed( bodyRecords, a ) &&
-                                                             IsSolverBodyFixed( bodyRecords, b );
-                                              } ),
+                                              FixedSolverCandidatePairPredicate{ bodyRecords, modelCount } ),
                               candidatePairs.end() );
     }
 

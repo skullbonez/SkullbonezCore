@@ -155,7 +155,7 @@ island-merge tie-breaks.
   - [x] L2307 `appendCandidatePairIfMissing`: append unique conservative pair.
   - [x] L2335 `isFastSmallSweepBody`: fast-small-body classifier.
   - [x] L2354 `sweptSegmentTouchesExpandedBody`: conservative segment/body test.
-  - [ ] L2404 anonymous fixed/fixed `remove_if` predicate.
+  - [x] L2404 anonymous fixed/fixed `remove_if` predicate.
   - [ ] L2419 anonymous point-joint pair `remove_if` predicate.
   - [ ] L2474 anonymous sleep/sleep `remove_if` predicate with trace emission.
 
@@ -247,6 +247,13 @@ island-merge tie-breaks.
     evidence: `tools\validate_physics.bat` passed in
     `TestOutput\agent_logs\plan02_swept_segment_validate_physics_20260709_0940.log`
     (27.9s shell runtime; Debug/Profile builds 0 warnings and 0 errors; final
+    `VALIDATE_PHYSICS: ALL PASSED`).
+  - Extracted the anonymous fixed/fixed `remove_if` predicate into
+    `IsFixedSolverCandidatePair` plus `FixedSolverCandidatePairPredicate`,
+    preserving bounds checks before body-record reads. Gate evidence:
+    `tools\validate_physics.bat` passed in
+    `TestOutput\agent_logs\plan02_fixed_pair_predicate_validate_physics_20260709_0942.log`
+    (28.1s shell runtime; Debug/Profile builds 0 warnings and 0 errors; final
     `VALIDATE_PHYSICS: ALL PASSED`).
 - [ ] **1.3** `RunSolverPhysics` is now a short driver calling named stages;
   confirm it is under ~300 lines.
