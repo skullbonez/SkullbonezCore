@@ -15,50 +15,52 @@ Branch:
 
 Latest implementation commit before this handoff:
 
-- `8bcf6ed1 cleanup(02): extract broadphase candidate filter`
+- `98e06366 cleanup(02): extract sleeping wake helper`
 
-Recent Plan 02 cleanup commits:
-
-- `ed1fbf54 cleanup(02): physicsworld step 1.2 - extract solver accessors`
-- `d05119b5 cleanup(02): physicsworld step 1.2 - extract apply forces stage`
-- `37c43dcb cleanup(02): physicsworld step 1.1 - inventory solver lambdas`
-
-Recent completed Plan 05 commits:
-
-- `0200ec48 cleanup(05): behavioral coverage step 4 - kill link stubs`
-- `c2f80388 docs: update engine cleanup restart handoff`
+This document is the restart handoff committed after the implementation slice.
 
 ## What Just Landed
 
-Plan 02, Phase 1.2 broadphase filter slice:
+Plan 02, Phase 1.2 wake-sleep slice:
 
-- Moved the local `broadphaseCandidateCanTouch` lambda out of
+- Moved the local `wakeSleepingModel` lambda out of
   `PhysicsWorld::RunSolverPhysics`.
-- Added named anonymous-namespace helpers:
-  - `BroadphaseCandidateFilterContext`
-  - `BroadphaseCandidateCanTouch`
-- Reused the existing extracted solver accessors for position and radius reads:
-  - `SolverBodyPosition`
-  - `SolverBodyRadius`
-- Kept the same two behavior surfaces:
-  - `m_spatialGrid.GetCandidatePairs(...)` uses the filter callback.
-  - Manual conservative-pair insertion uses the same filter before appending.
+- Added the named anonymous-namespace helper `WakeSleepingSolverBody`.
+- Threaded explicit solver state into the helper:
+  `PhysicsBodyStore`, `ColliderStore`, `PhysicsWorldForces`, body records,
+  sleep state, sleep counters, sleep island visual IDs, remaining time,
+  underwater sleep locks, model count, body index, and `dt`.
+- Preserved the original immediate force application after waking a body so a
+  body re-entering the current frame receives the same force treatment as an
+  already-awake body.
+- Deliberately did not reuse `WakeDynamicBodyState`, because that existing path
+  also clears underwater sleep locks and persistent contact cache state. The
+  extracted solver helper preserves the narrower behavior of the original
+  lambda.
 
 Plan ledger updated:
 
 - `engine-cleanup-plans/02-physicsworld-solver-decomposition.md`
 
-The Plan 02 lambda inventory now has these items checked:
+The Plan 02 lambda inventory now has these Plan 1.2 items checked:
 
 - `bodyIsFixed`
 - `bodyPosition`
 - `bodyRadius`
 - `applyForcesAt`
 - `broadphaseCandidateCanTouch`
-
-Plan 02 Step 1.2 remains open. The next unchecked broadphase item is:
-
 - `appendCandidatePairIfMissing`
+- `isFastSmallSweepBody`
+- `sweptSegmentTouchesExpandedBody`
+- anonymous fixed/fixed `remove_if` predicate
+- anonymous point-joint pair `remove_if` predicate
+- anonymous sleep/sleep `remove_if` predicate with trace emission
+- `hasWakeEnergy`
+- `wakeSleepingModel`
+
+Plan 02 Step 1.2 remains open. The next unchecked wake/contact item is:
+
+- `contactBodyViewAtTime`
 
 ## Validation Evidence
 
@@ -69,22 +71,37 @@ Current slice:
 
 - `tools\validate_physics.bat`
 - Log:
-  `TestOutput\agent_logs\plan02_broadphase_candidate_filter_validate_physics_20260709_0929.log`
-- Shell runtime: 28.5 seconds.
+  `TestOutput\agent_logs\plan02_wake_sleeping_model_validate_physics_20260709_0951.log`
 - Result: Debug/Profile builds reported 0 warnings and 0 errors, and the script
   ended with `VALIDATE_PHYSICS: ALL PASSED`.
+- Logged build timings:
+  - Debug build: `00:00:06.04`
+  - Profile build: `00:00:08.77`
+  - final Debug build/smoke step: `00:00:01.38`
 
-Earlier Plan 02 validation from this same restart session:
+Recent Plan 02 validation from this same restart session:
 
-- Apply-forces extraction:
-  `TestOutput\agent_logs\plan02_apply_forces_stage_validate_physics_attempt3_20260709_0922.log`
-  passed in 44.14 seconds with `VALIDATE_PHYSICS: ALL PASSED`.
-- Test-project linkage gate:
-  `TestOutput\agent_logs\plan02_apply_forces_stage_validate_tests_20260709_0924.log`
-  passed in 3.02 seconds with 59/59 doctest cases and 1532/1532 assertions.
-- Solver accessors extraction:
-  `TestOutput\agent_logs\plan02_solver_accessors_validate_physics_20260709_0928.log`
-  passed in 43.88 seconds with `VALIDATE_PHYSICS: ALL PASSED`.
+- Candidate pair append extraction:
+  `TestOutput\agent_logs\plan02_append_candidate_pair_validate_physics_20260709_0934.log`
+  passed with `VALIDATE_PHYSICS: ALL PASSED`.
+- Fast-small-sweep classifier extraction:
+  `TestOutput\agent_logs\plan02_fast_small_sweep_validate_physics_20260709_0938.log`
+  passed with `VALIDATE_PHYSICS: ALL PASSED`.
+- Swept segment/body test extraction:
+  `TestOutput\agent_logs\plan02_swept_segment_validate_physics_20260709_0940.log`
+  passed with `VALIDATE_PHYSICS: ALL PASSED`.
+- Fixed/fixed prune predicate extraction:
+  `TestOutput\agent_logs\plan02_fixed_pair_predicate_validate_physics_20260709_0942.log`
+  passed with `VALIDATE_PHYSICS: ALL PASSED`.
+- Point-joint prune predicate extraction:
+  `TestOutput\agent_logs\plan02_point_joint_predicate_validate_physics_20260709_0944.log`
+  passed with `VALIDATE_PHYSICS: ALL PASSED`.
+- Sleep/sleep prune predicate extraction:
+  `TestOutput\agent_logs\plan02_sleep_prune_predicate_validate_physics_20260709_0946.log`
+  passed with `VALIDATE_PHYSICS: ALL PASSED`.
+- Wake-energy helper extraction:
+  `TestOutput\agent_logs\plan02_wake_energy_validate_physics_attempt2_20260709_0949.log`
+  passed with `VALIDATE_PHYSICS: ALL PASSED`.
 
 No SkullScope trace workflow was used in this slice.
 
@@ -106,10 +123,9 @@ Unchecked files: none.
 Result:
 
 - `PhysicsWorld.cpp` already has the required learning header.
-- The moved broadphase filter preserved the nearby `Why:` and `Invariant:`
-  comments explaining broadphase false positives, swept contact conservatism,
-  CCD, and determinism-sensitive behavior.
-- No extra comment-only churn was needed.
+- `WakeSleepingSolverBody` carries the local wake/force-application comment that
+  explains why waking applies forces in the same frame.
+- No unrelated comment-only churn was made.
 
 ## Current Open Work
 
@@ -135,17 +151,25 @@ Open cleanup items that remain in `engine-cleanup-plans/00-EXECUTION-GUIDE.md`:
 2. Read `engine-cleanup-plans/00-EXECUTION-GUIDE.md`.
 3. Read `engine-cleanup-plans/02-physicsworld-solver-decomposition.md`.
 4. Check `git status --short --branch`.
-5. Confirm the branch is at or after implementation commit `8bcf6ed1`.
-6. Continue Plan 02 Step 1.2 from the next unchecked item unless the user gives a
-   different instruction.
+5. Confirm the branch is at or after implementation commit `98e06366`.
+6. Continue Plan 02 Step 1.2 from the next unchecked item,
+   `contactBodyViewAtTime`, unless the user gives a different instruction.
 7. Do not continue Plan 11 until the human RenderGraph decision is made.
 8. Do not continue Plan 13 FAC-005, Plan 03, or Plan 07 without the required
    human decision/sign-off.
 
+## Goal Pause Note
+
+Codex goal state has no real pause status, only active/complete/blocked. The
+overall goal is still active and incomplete; this document is the manual pause
+point for the computer restart.
+
 ## Timing
 
-Current restart-session continuation began at approximately
-`2026-07-09T09:12:33+10:00`.
+Current restart-session continuation began at:
 
-This handoff was drafted at `2026-07-09T09:30:53+10:00`, after the implementation
-commit and push.
+- `2026-07-09T09:32:36.3405991+10:00`
+
+This handoff was drafted at:
+
+- `2026-07-09T09:52:28.5220228+10:00`
