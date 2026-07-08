@@ -1,7 +1,7 @@
 # 01 — Run God-Object Decomposition
 
 Date: 2026-07-08
-Status: In Progress
+Status: Complete
 Priority: P0
 Owner: Runtime
 Source issue: audit iss-01 (severity 5)
@@ -46,7 +46,7 @@ hold their own state behind narrow APIs.
 - [x] **Phase 2 — Move state shelves out of `RunState`.** Relocate each shelf's
   fields into the owner that mutates them; `RunState` shrinks toward empty.
   Delete cross-subsystem field pokes.
-- [ ] **Phase 3 — Shrink `Run`.** Reduce it to `Initialise` / `Run` / `Shutdown`
+- [x] **Phase 3 — Shrink `Run`.** Reduce it to `Initialise` / `Run` / `Shutdown`
   plus per-frame tick coordination that calls owners.
 
 ## Risks
@@ -1781,4 +1781,14 @@ after each phase.
   audit baseline (~60 public methods, ~40 members).
 - [x] `RunState` field count is measurably reduced; no external file mutates a
   `RunState` sub-field directly.
-- [ ] `Run` no longer implements subsystem logic — it coordinates owners.
+- [x] `Run` no longer implements subsystem logic — it coordinates owners.
+
+  Closure note (2026-07-08): Remaining `Run` methods are launcher/frame/input
+  coordination boundaries that call owner APIs for scene runtime, replay,
+  attach-camera state, camera-mode predicates, asset source resolution,
+  diagnostics, renderer resource rebuild, interaction automation, stress, and
+  capture side effects. The final closure slices after the rubber-duck review
+  moved attach-camera target/submode ownership into `AttachedCameraController`
+  and replay-probe failure ownership into `RunReplayProbeState`; all code slices
+  passed `tools\validate_full.bat` with zero DX12 validation errors and
+  byte-exact `physics_regression_solver.csv` matches.
