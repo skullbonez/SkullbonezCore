@@ -156,7 +156,7 @@ island-merge tie-breaks.
   - [x] L2335 `isFastSmallSweepBody`: fast-small-body classifier.
   - [x] L2354 `sweptSegmentTouchesExpandedBody`: conservative segment/body test.
   - [x] L2404 anonymous fixed/fixed `remove_if` predicate.
-  - [ ] L2419 anonymous point-joint pair `remove_if` predicate.
+  - [x] L2419 anonymous point-joint pair `remove_if` predicate.
   - [ ] L2474 anonymous sleep/sleep `remove_if` predicate with trace emission.
 
   Wake and contact view helpers:
@@ -254,6 +254,14 @@ island-merge tie-breaks.
     `tools\validate_physics.bat` passed in
     `TestOutput\agent_logs\plan02_fixed_pair_predicate_validate_physics_20260709_0942.log`
     (28.1s shell runtime; Debug/Profile builds 0 warnings and 0 errors; final
+    `VALIDATE_PHYSICS: ALL PASSED`).
+  - Extracted the anonymous point-joint `remove_if` predicate into
+    `IsPointJointBodyPair`, `IsPointJointCandidatePair`, and
+    `PointJointCandidatePairPredicate`; `PhysicsWorld::IsPointJointPair` now
+    delegates to the same helper. Gate evidence: `tools\validate_physics.bat`
+    passed in
+    `TestOutput\agent_logs\plan02_point_joint_predicate_validate_physics_20260709_0944.log`
+    (27.8s shell runtime; Debug/Profile builds 0 warnings and 0 errors; final
     `VALIDATE_PHYSICS: ALL PASSED`).
 - [ ] **1.3** `RunSolverPhysics` is now a short driver calling named stages;
   confirm it is under ~300 lines.

@@ -315,6 +315,61 @@ struct FixedSolverCandidatePairPredicate
     }
 };
 
+bool IsPointJointBodyPair( const PhysicsBodyStore& bodyStore,
+                           const std::vector<PointJointConstraint>& pointJointConstraints,
+                           int bodyA,
+                           int bodyB )
+{
+    if ( bodyA < 0 || bodyB < 0 || bodyA == bodyB )
+    {
+        return false;
+    }
+    if ( bodyA > bodyB )
+    {
+        std::swap( bodyA, bodyB );
+    }
+    for ( const PointJointConstraint& constraint : pointJointConstraints )
+    {
+        int jointA = constraint.BodyAIndex( bodyStore );
+        int jointB = constraint.BodyBIndex( bodyStore );
+        if ( jointA < 0 || jointB < 0 )
+        {
+            continue;
+        }
+        if ( jointA > jointB )
+        {
+            std::swap( jointA, jointB );
+        }
+        if ( jointA == bodyA && jointB == bodyB )
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+// Why: point-joint rows are solved by the constraint pass. Pruning their
+// object-contact candidates here prevents the narrowphase from doing duplicate
+// pair work while preserving the same normalized body-index comparison used by
+// the public query helper.
+bool IsPointJointCandidatePair( const PhysicsBodyStore& bodyStore,
+                                const std::vector<PointJointConstraint>& pointJointConstraints,
+                                const std::pair<int, int>& pair )
+{
+    return IsPointJointBodyPair( bodyStore, pointJointConstraints, pair.first, pair.second );
+}
+
+struct PointJointCandidatePairPredicate
+{
+    const PhysicsBodyStore& bodyStore;
+    const std::vector<PointJointConstraint>& pointJointConstraints;
+
+    bool operator()( const std::pair<int, int>& pair ) const
+    {
+        return IsPointJointCandidatePair( bodyStore, pointJointConstraints, pair );
+    }
+};
+
 void ApplyForcesForSolverBody( PhysicsBodyStore& bodyStore,
                                const ColliderStore& colliderStore,
                                const PhysicsWorldForces& worldForces,
@@ -2238,32 +2293,7 @@ void PhysicsWorld::WakeRestingContactIsland( int bodyCount,
 
 bool PhysicsWorld::IsPointJointPair( const PhysicsBodyStore& bodyStore, int bodyA, int bodyB ) const
 {
-    if ( bodyA < 0 || bodyB < 0 || bodyA == bodyB )
-    {
-        return false;
-    }
-    if ( bodyA > bodyB )
-    {
-        std::swap( bodyA, bodyB );
-    }
-    for ( const PointJointConstraint& constraint : m_pointJointConstraints )
-    {
-        int jointA = constraint.BodyAIndex( bodyStore );
-        int jointB = constraint.BodyBIndex( bodyStore );
-        if ( jointA < 0 || jointB < 0 )
-        {
-            continue;
-        }
-        if ( jointA > jointB )
-        {
-            std::swap( jointA, jointB );
-        }
-        if ( jointA == bodyA && jointB == bodyB )
-        {
-            return true;
-        }
-    }
-    return false;
+    return IsPointJointBodyPair( bodyStore, m_pointJointConstraints, bodyA, bodyB );
 }
 
 
@@ -2519,8 +2549,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
         PROFILE_SCOPED( "Frame/Physics/Broadphase/PruneJointPairs" );
         candidatePairs.erase( std::remove_if( candidatePairs.begin(),
                                               candidatePairs.end(),
-                                              [&]( const std::pair<int, int>& pair )
-                                              { return IsPointJointPair( bodyStore, pair.first, pair.second ); } ),
+                                              PointJointCandidatePairPredicate{ bodyStore, m_pointJointConstraints } ),
                               candidatePairs.end() );
     }
 
