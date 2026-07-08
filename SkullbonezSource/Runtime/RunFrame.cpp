@@ -1170,6 +1170,336 @@ void WriteReplayProbeReason( char* outReason, std::size_t reasonSize, const char
     }
 }
 
+void LogReplayV2TargetRestoreDiagnostic( DiagnosticsRuntime& diagnosticsRuntime,
+                                         RunSceneState& scene,
+                                         const char* restoreSource,
+                                         ReplayFrameIndex requestedFrame,
+                                         ReplayFrameIndex latestNonCheckpointTarget,
+                                         const char* failureReason,
+                                         const ReplayV2SolverHashSample* diagnosticTarget,
+                                         const ReplaySolverFrameSample* diagnosticCheckpoint,
+                                         uint64_t restoredSolverHash,
+                                         uint64_t restoredPresentationHash,
+                                         std::size_t restoredBodyCount,
+                                         bool hashCaptured,
+                                         bool hashMatched,
+                                         bool fallbackAttempted,
+                                         bool fallbackRestored )
+{
+#ifdef _DEBUG
+    const ReplayFrameIndex targetFrame = diagnosticTarget
+                                             ? diagnosticTarget->frameIndex
+                                             : ( requestedFrame == latestNonCheckpointTarget ? 0 : requestedFrame );
+    diagnosticsRuntime.LogReplayRestoreResult( scene,
+                                               restoreSource,
+                                               targetFrame,
+                                               diagnosticTarget ? diagnosticTarget->sceneFrame : scene.currentFrame,
+                                               diagnosticCheckpoint ? diagnosticCheckpoint->frameIndex : 0,
+                                               diagnosticTarget ? diagnosticTarget->solverHash : 0,
+                                               diagnosticTarget ? diagnosticTarget->presentationHash : 0,
+                                               diagnosticTarget ? diagnosticTarget->bodyCount : 0,
+                                               restoredSolverHash,
+                                               restoredPresentationHash,
+                                               restoredBodyCount,
+                                               diagnosticCheckpoint ? diagnosticCheckpoint->contactCount : 0,
+                                               diagnosticCheckpoint ? diagnosticCheckpoint->pipelineRecordCount : 0,
+                                               diagnosticCheckpoint ? diagnosticCheckpoint->checkpointBoundary : false,
+                                               hashCaptured,
+                                               hashMatched,
+                                               fallbackAttempted,
+                                               fallbackRestored,
+                                               failureReason );
+#else
+    (void)diagnosticsRuntime;
+    (void)scene;
+    (void)restoreSource;
+    (void)requestedFrame;
+    (void)latestNonCheckpointTarget;
+    (void)failureReason;
+    (void)diagnosticTarget;
+    (void)diagnosticCheckpoint;
+    (void)restoredSolverHash;
+    (void)restoredPresentationHash;
+    (void)restoredBodyCount;
+    (void)hashCaptured;
+    (void)hashMatched;
+    (void)fallbackAttempted;
+    (void)fallbackRestored;
+#endif
+}
+
+struct ReplayRestoreEventContext
+{
+    RuntimeTools& runtimeTools;
+    RunSceneState& scene;
+    RunSubsystemState& systems;
+    SkullbonezCore::Environment::WorldEnvironment& world;
+    SkullbonezCore::GameObjects::GameModelCollection& models;
+    int gameModelCapacity = 0;
+};
+
+bool TryApplyReplayRestoreWorldLauncherEvent( ReplayRestoreEventContext& context,
+                                              const ReplayEventSample& event,
+                                              char* eventOutReason,
+                                              std::size_t eventReasonSize,
+                                              bool& handled )
+{
+    handled = true;
+    switch ( event.kind )
+    {
+    case ReplayEventKind::WorldOverride:
+        if ( event.flags & REPLAY_WORLD_OVERRIDE_GRAVITY_CHANGED )
+        {
+            context.world.SetGravity( ReplayEventFloatFromBits( event.value0 ) );
+        }
+        if ( event.flags & REPLAY_WORLD_OVERRIDE_FLUID_HEIGHT_CHANGED )
+        {
+            context.world.SetFluidSurfaceHeight( ReplayEventFloatFromBits( event.value1 ) );
+        }
+        if ( event.flags & REPLAY_WORLD_OVERRIDE_FLUID_DENSITY_CHANGED )
+        {
+            context.world.SetFluidDensity( ReplayEventFloatFromBits( event.value2 ) );
+        }
+        WriteReplayProbeReason( eventOutReason, eventReasonSize, "applied world override" );
+        return true;
+    case ReplayEventKind::LauncherConfig:
+        context.runtimeTools.RayCastTest().impulseStrength = ReplayEventFloatFromBits( event.value0 );
+        context.runtimeTools.RayCastTest().projectileSpeed = ReplayEventFloatFromBits( event.value1 );
+        WriteReplayProbeReason( eventOutReason, eventReasonSize, "applied launcher config" );
+        return true;
+    case ReplayEventKind::LauncherFire:
+    {
+        Vector3 rayOrigin;
+        Vector3 rayDirection;
+        Vector3 cameraUp;
+        if ( !DecodeReplayRay9Payload( event, rayOrigin, rayDirection, cameraUp ) )
+        {
+            WriteReplayProbeReason( eventOutReason, eventReasonSize, "invalid launcher fire payload" );
+            return false;
+        }
+        context.runtimeTools.RayCastTest().fireMode = ( event.flags & REPLAY_LAUNCHER_FIRE_PROJECTILE ) != 0
+                                                          ? RunLauncherFireMode::Projectile
+                                                          : RunLauncherFireMode::Laser;
+        context.runtimeTools.RayCastTest().impulseStrength = ReplayEventFloatFromBits( event.value1 );
+        context.runtimeTools.RayCastTest().projectileSpeed = ReplayEventFloatFromBits( event.value2 );
+        // Why: RuntimeTools now fails closed unless Run has completed the cold
+        // collection-to-store topology repair at the owner boundary.
+        const bool launcherStoresReady = context.models.RepairPhysicsBodyAndColliderTopology();
+        if ( launcherStoresReady && context.runtimeTools.FireLauncherRay( context.models,
+                                                                          context.scene,
+                                                                          context.systems.terrain.get(),
+                                                                          context.gameModelCapacity,
+                                                                          rayOrigin,
+                                                                          rayDirection,
+                                                                          cameraUp ) )
+        {
+            context.scene.modelCount = context.models.SceneEntityCount();
+        }
+        WriteReplayProbeReason( eventOutReason, eventReasonSize, "applied launcher fire" );
+        return true;
+    }
+    case ReplayEventKind::GeneratedSceneConfig:
+        if ( context.scene.modelCount != event.value0 || context.scene.solverBallCount != event.value1 ||
+             context.scene.solverBoxCount != event.value2 ||
+             static_cast<int32_t>( context.scene.rngSeed ) != event.value3 )
+        {
+            WriteReplayProbeReason( eventOutReason,
+                                    eventReasonSize,
+                                    "generated scene config event does not match live state" );
+            return false;
+        }
+        WriteReplayProbeReason( eventOutReason, eventReasonSize, "verified generated scene config" );
+        return true;
+    default:
+        handled = false;
+        return false;
+    }
+}
+
+template <typename EnterInteractiveSceneRun>
+bool ApplyReplayRestoreEditorPlaceEvent( RuntimeTools& runtimeTools,
+                                         SkullbonezCore::GameObjects::GameModelCollection& models,
+                                         RunSceneState& scene,
+                                         SkullbonezCore::Environment::WorldEnvironment& world,
+                                         RunSubsystemState& systems,
+                                         int gameModelCapacity,
+                                         const ReplayEventSample& event,
+                                         char* eventOutReason,
+                                         std::size_t eventReasonSize,
+                                         EnterInteractiveSceneRun enterInteractiveSceneRun )
+{
+    Vector3 terrainPoint;
+    Vector3 placementScale;
+    float placementYawRadians = 0.0f;
+    if ( !DecodeReplayPlacePayload( event, terrainPoint, placementScale, placementYawRadians ) )
+    {
+        WriteReplayProbeReason( eventOutReason, eventReasonSize, "invalid editor placement payload" );
+        return false;
+    }
+
+    const int modelCountBefore = models.SceneEntityCount();
+    if ( event.value3 != modelCountBefore )
+    {
+        WriteReplayProbeReason( eventOutReason, eventReasonSize, "editor placement model count precondition mismatch" );
+        return false;
+    }
+
+    const Vector3 previousPlacementScale = runtimeTools.Editor().placementScale;
+    const bool previousTerrainAlign = runtimeTools.Editor().autoTerrainAlign;
+    const float previousPlacementYawRadians = runtimeTools.Editor().placementYawRadians;
+    runtimeTools.Editor().placementScale = placementScale;
+    runtimeTools.Editor().autoTerrainAlign = ( event.flags & REPLAY_EDITOR_PLACE_TERRAIN_ALIGN ) != 0;
+    runtimeTools.Editor().placementYawRadians = placementYawRadians;
+    EditorObjectPlacementContext placementContext{ runtimeTools.Editor(),
+                                                   models,
+                                                   scene,
+                                                   world,
+                                                   systems.terrain.get(),
+                                                   systems.assets,
+                                                   gameModelCapacity };
+    EditorObjectPlacementRequest placementRequest{ event.value0,
+                                                   ( event.flags & REPLAY_EDITOR_PLACE_FIXED ) != 0,
+                                                   terrainPoint };
+    EditorObjectPlacementResult placementResult;
+    bool placed = false;
+    if ( CanPlaceEditorObjectAtTerrainPoint( placementContext, placementRequest ) )
+    {
+        enterInteractiveSceneRun();
+        placed = PlaceEditorObjectAtTerrainPoint( placementContext, placementRequest, placementResult );
+    }
+    runtimeTools.Editor().placementScale = previousPlacementScale;
+    runtimeTools.Editor().autoTerrainAlign = previousTerrainAlign;
+    runtimeTools.Editor().placementYawRadians = previousPlacementYawRadians;
+    if ( !placed )
+    {
+        WriteReplayProbeReason( eventOutReason, eventReasonSize, "failed to replay editor placement" );
+        return false;
+    }
+    WriteReplayProbeReason( eventOutReason, eventReasonSize, "applied editor placement" );
+    return true;
+}
+
+bool ApplyReplayRestoreEditorTransformEvent( SkullbonezCore::GameObjects::GameModelCollection& models,
+                                             const ReplayEventSample& event,
+                                             char* eventOutReason,
+                                             std::size_t eventReasonSize )
+{
+    // Concept: v2 restore replays editor transforms by editing the authoritative
+    // PhysicsBodyStore and ColliderStore rows. Presentation samples are only
+    // validation targets; they are not allowed to become collision authority.
+    if ( event.flags == 0 || ( event.flags & ~REPLAY_EDITOR_TRANSFORM_SUPPORTED ) != 0 )
+    {
+        WriteReplayProbeReason( eventOutReason, eventReasonSize, "unsupported editor transform flags" );
+        return false;
+    }
+
+    Vector3 position;
+    Quaternion orientation;
+    float scaleFactor = 1.0f;
+    bool hasScaleFactor = false;
+    if ( !DecodeReplayTransformPayload( event, position, orientation, scaleFactor, hasScaleFactor ) )
+    {
+        WriteReplayProbeReason( eventOutReason, eventReasonSize, "invalid editor transform payload" );
+        return false;
+    }
+    if ( ( event.flags & REPLAY_EDITOR_TRANSFORM_SCALE ) != 0 &&
+         ( !hasScaleFactor || event.value3 < 0 || event.value3 > 2 || !std::isfinite( scaleFactor ) ||
+           scaleFactor <= 0.0f ) )
+    {
+        WriteReplayProbeReason( eventOutReason, eventReasonSize, "invalid editor transform scale payload" );
+        return false;
+    }
+
+    if ( event.value2 != models.SceneEntityCount() )
+    {
+        WriteReplayProbeReason( eventOutReason, eventReasonSize, "editor transform model count precondition mismatch" );
+        return false;
+    }
+    if ( event.value0 < 0 || event.value0 >= models.SceneEntityCount() )
+    {
+        WriteReplayProbeReason( eventOutReason, eventReasonSize, "editor transform model index is out of range" );
+        return false;
+    }
+
+    const PhysicsBodyStore& bodyStoreBeforeEdit = models.GetPhysicsEngine().BodyStore();
+    const PhysicsBodyHandle eventBody =
+        bodyStoreBeforeEdit.HandleForReplayBodyId( static_cast<uint32_t>( event.value1 ), event.value0 );
+    const PhysicsBodyRecord* eventBodyRecord = bodyStoreBeforeEdit.RecordForHandle( eventBody );
+    if ( !eventBodyRecord || bodyStoreBeforeEdit.ModelIndexForHandle( eventBody ) != event.value0 ||
+         eventBodyRecord->replayBodyId != static_cast<uint32_t>( event.value1 ) )
+    {
+        WriteReplayProbeReason( eventOutReason, eventReasonSize, "editor transform replay body id mismatch" );
+        return false;
+    }
+
+    SkullbonezCore::GameObjects::PhysicsBodyStateEdit bodyEdit;
+    if ( event.flags & REPLAY_EDITOR_TRANSFORM_TRANSLATE )
+    {
+        bodyEdit.hasPosition = true;
+        bodyEdit.position = position;
+    }
+    if ( event.flags & REPLAY_EDITOR_TRANSFORM_ROTATE )
+    {
+        bodyEdit.hasOrientation = true;
+        bodyEdit.orientation = orientation;
+    }
+    PhysicsColliderCreateDesc editedColliderDesc;
+    bool hasEditedColliderDesc = false;
+    if ( event.flags & REPLAY_EDITOR_TRANSFORM_SCALE )
+    {
+        const ColliderRecord* colliderBeforeScale =
+            TryGetEditorTransformColliderRecord( models,
+                                                 PhysicsColliderHandle{},
+                                                 event.value0,
+                                                 eventBodyRecord->replayBodyId );
+        if ( !colliderBeforeScale )
+        {
+            WriteReplayProbeReason( eventOutReason, eventReasonSize, "editor transform collider row missing" );
+            return false;
+        }
+        const CollisionShape baseShape = colliderBeforeScale->shape;
+        CollisionShape scaledShape;
+        if ( !ScaleShapeAxisFromBase( baseShape, event.value3, scaleFactor, scaledShape ) )
+        {
+            WriteReplayProbeReason( eventOutReason, eventReasonSize, "failed to replay editor transform scale" );
+            return false;
+        }
+        // Invariant: restore reuses the previous collider material and replaces
+        // only the decoded scale shape, keeping replay payload semantics
+        // independent from legacy model-side recapture.
+        editedColliderDesc = MakeColliderCreateDesc( std::move( scaledShape ),
+                                                     colliderBeforeScale->restitution,
+                                                     colliderBeforeScale->contactMaterialId );
+        hasEditedColliderDesc = true;
+    }
+    bodyEdit.hasLinearVelocity = true;
+    bodyEdit.linearVelocity = Vector3( 0.0f, 0.0f, 0.0f );
+    bodyEdit.hasAngularVelocity = true;
+    bodyEdit.angularVelocity = Vector3( 0.0f, 0.0f, 0.0f );
+    if ( hasEditedColliderDesc )
+    {
+        models.ApplyPhysicsBodyColliderEdit( event.value0, bodyEdit, std::move( editedColliderDesc ) );
+    }
+    else
+    {
+        models.ApplyPhysicsBodyEdit( event.value0, bodyEdit );
+    }
+    // Why: the edited-state commit has already refreshed the edited body row.
+    // The wake decision should read the committed PhysicsBodyStore record, not
+    // presentation/authored pose data.
+    PhysicsEngine& physics = models.GetPhysicsEngine();
+    const PhysicsBodyStore& bodyStore = physics.BodyStore();
+    const PhysicsBodyHandle body =
+        bodyStore.HandleForReplayBodyId( static_cast<uint32_t>( event.value1 ), event.value0 );
+    const PhysicsBodyRecord* bodyRecord = bodyStore.RecordForHandle( body );
+    if ( bodyRecord && !bodyRecord->isFixed )
+    {
+        physics.WakeBody( body );
+    }
+    WriteReplayProbeReason( eventOutReason, eventReasonSize, "applied editor transform" );
+    return true;
+}
+
 class ScopedReplayProbeProfilerFrame
 {
   public:
@@ -1978,60 +2308,8 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
     { WriteReplayProbeReason( outReason, reasonSize, reason ); };
     constexpr ReplayFrameIndex LATEST_NON_CHECKPOINT_TARGET = ( std::numeric_limits<ReplayFrameIndex>::max )();
     const char* restoreSource = makeLiveBranch ? "v2_file_branch" : "v2_file_target";
-#ifndef _DEBUG
-    (void)restoreSource;
-#endif
     const ReplayV2SolverHashSample* target = nullptr;
     const ReplaySolverFrameSample* checkpoint = nullptr;
-
-    auto logRestoreDiagnostic = [&]( const char* failureReason,
-                                     const ReplayV2SolverHashSample* diagnosticTarget,
-                                     const ReplaySolverFrameSample* diagnosticCheckpoint,
-                                     uint64_t restoredSolverHash,
-                                     uint64_t restoredPresentationHash,
-                                     std::size_t restoredBodyCount,
-                                     bool hashCaptured,
-                                     bool hashMatched,
-                                     bool fallbackAttempted,
-                                     bool fallbackRestored )
-    {
-#ifdef _DEBUG
-        const ReplayFrameIndex targetFrame =
-            diagnosticTarget ? diagnosticTarget->frameIndex
-                             : ( requestedFrame == LATEST_NON_CHECKPOINT_TARGET ? 0 : requestedFrame );
-        m_diagnosticsRuntime.LogReplayRestoreResult(
-            SceneState(),
-            restoreSource,
-            targetFrame,
-            diagnosticTarget ? diagnosticTarget->sceneFrame : SceneState().currentFrame,
-            diagnosticCheckpoint ? diagnosticCheckpoint->frameIndex : 0,
-            diagnosticTarget ? diagnosticTarget->solverHash : 0,
-            diagnosticTarget ? diagnosticTarget->presentationHash : 0,
-            diagnosticTarget ? diagnosticTarget->bodyCount : 0,
-            restoredSolverHash,
-            restoredPresentationHash,
-            restoredBodyCount,
-            diagnosticCheckpoint ? diagnosticCheckpoint->contactCount : 0,
-            diagnosticCheckpoint ? diagnosticCheckpoint->pipelineRecordCount : 0,
-            diagnosticCheckpoint ? diagnosticCheckpoint->checkpointBoundary : false,
-            hashCaptured,
-            hashMatched,
-            fallbackAttempted,
-            fallbackRestored,
-            failureReason );
-#else
-        (void)failureReason;
-        (void)diagnosticTarget;
-        (void)diagnosticCheckpoint;
-        (void)restoredSolverHash;
-        (void)restoredPresentationHash;
-        (void)restoredBodyCount;
-        (void)hashCaptured;
-        (void)hashMatched;
-        (void)fallbackAttempted;
-        (void)fallbackRestored;
-#endif
-    };
 
     auto failWithDiagnostic = [&]( const char* message,
                                    const ReplayV2SolverHashSample* diagnosticTarget,
@@ -2044,16 +2322,21 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
                                    bool fallbackAttempted = false,
                                    bool fallbackRestored = false ) -> bool
     {
-        logRestoreDiagnostic( message,
-                              diagnosticTarget,
-                              diagnosticCheckpoint,
-                              restoredSolverHash,
-                              restoredPresentationHash,
-                              restoredBodyCount,
-                              hashCaptured,
-                              hashMatched,
-                              fallbackAttempted,
-                              fallbackRestored );
+        LogReplayV2TargetRestoreDiagnostic( m_diagnosticsRuntime,
+                                            SceneState(),
+                                            restoreSource,
+                                            requestedFrame,
+                                            LATEST_NON_CHECKPOINT_TARGET,
+                                            message,
+                                            diagnosticTarget,
+                                            diagnosticCheckpoint,
+                                            restoredSolverHash,
+                                            restoredPresentationHash,
+                                            restoredBodyCount,
+                                            hashCaptured,
+                                            hashMatched,
+                                            fallbackAttempted,
+                                            fallbackRestored );
         writeReason( message );
         return false;
     };
@@ -2064,6 +2347,26 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
         if ( event.payloadVersion != 1 )
         {
             WriteReplayProbeReason( eventOutReason, eventReasonSize, "unsupported replay event payload version" );
+            return false;
+        }
+
+        ReplayRestoreEventContext restoreEventContext{ m_runtimeTools,
+                                                       SceneState(),
+                                                       m_systems,
+                                                       m_cWorldEnvironment,
+                                                       m_cGameModelCollection,
+                                                       m_startup.gameModelCapacity };
+        bool restoreEventHandled = false;
+        if ( TryApplyReplayRestoreWorldLauncherEvent( restoreEventContext,
+                                                      event,
+                                                      eventOutReason,
+                                                      eventReasonSize,
+                                                      restoreEventHandled ) )
+        {
+            return true;
+        }
+        if ( restoreEventHandled )
+        {
             return false;
         }
 
@@ -2100,245 +2403,22 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
         case ReplayEventKind::BranchRestore:
             WriteReplayProbeReason( eventOutReason, eventReasonSize, "unsupported timeline mutation event" );
             return false;
-        case ReplayEventKind::WorldOverride:
-            if ( event.flags & REPLAY_WORLD_OVERRIDE_GRAVITY_CHANGED )
-            {
-                m_cWorldEnvironment.SetGravity( ReplayEventFloatFromBits( event.value0 ) );
-            }
-            if ( event.flags & REPLAY_WORLD_OVERRIDE_FLUID_HEIGHT_CHANGED )
-            {
-                m_cWorldEnvironment.SetFluidSurfaceHeight( ReplayEventFloatFromBits( event.value1 ) );
-            }
-            if ( event.flags & REPLAY_WORLD_OVERRIDE_FLUID_DENSITY_CHANGED )
-            {
-                m_cWorldEnvironment.SetFluidDensity( ReplayEventFloatFromBits( event.value2 ) );
-            }
-            WriteReplayProbeReason( eventOutReason, eventReasonSize, "applied world override" );
-            return true;
-        case ReplayEventKind::LauncherConfig:
-            m_runtimeTools.RayCastTest().impulseStrength = ReplayEventFloatFromBits( event.value0 );
-            m_runtimeTools.RayCastTest().projectileSpeed = ReplayEventFloatFromBits( event.value1 );
-            WriteReplayProbeReason( eventOutReason, eventReasonSize, "applied launcher config" );
-            return true;
-        case ReplayEventKind::LauncherFire:
-        {
-            Vector3 rayOrigin;
-            Vector3 rayDirection;
-            Vector3 cameraUp;
-            if ( !DecodeReplayRay9Payload( event, rayOrigin, rayDirection, cameraUp ) )
-            {
-                WriteReplayProbeReason( eventOutReason, eventReasonSize, "invalid launcher fire payload" );
-                return false;
-            }
-            m_runtimeTools.RayCastTest().fireMode = ( event.flags & REPLAY_LAUNCHER_FIRE_PROJECTILE ) != 0
-                                                        ? RunLauncherFireMode::Projectile
-                                                        : RunLauncherFireMode::Laser;
-            m_runtimeTools.RayCastTest().impulseStrength = ReplayEventFloatFromBits( event.value1 );
-            m_runtimeTools.RayCastTest().projectileSpeed = ReplayEventFloatFromBits( event.value2 );
-            // Why: RuntimeTools now fails closed unless Run has completed the
-            // cold collection-to-store topology repair at the owner boundary.
-            const bool launcherStoresReady = m_cGameModelCollection.RepairPhysicsBodyAndColliderTopology();
-            if ( launcherStoresReady && m_runtimeTools.FireLauncherRay( m_cGameModelCollection,
-                                                                        SceneState(),
-                                                                        m_systems.terrain.get(),
-                                                                        m_startup.gameModelCapacity,
-                                                                        rayOrigin,
-                                                                        rayDirection,
-                                                                        cameraUp ) )
-            {
-                SceneState().modelCount = m_cGameModelCollection.SceneEntityCount();
-            }
-            WriteReplayProbeReason( eventOutReason, eventReasonSize, "applied launcher fire" );
-            return true;
-        }
-        case ReplayEventKind::GeneratedSceneConfig:
-            if ( SceneState().modelCount != event.value0 || SceneState().solverBallCount != event.value1 ||
-                 SceneState().solverBoxCount != event.value2 ||
-                 static_cast<int32_t>( SceneState().rngSeed ) != event.value3 )
-            {
-                WriteReplayProbeReason( eventOutReason,
-                                        eventReasonSize,
-                                        "generated scene config event does not match live state" );
-                return false;
-            }
-            WriteReplayProbeReason( eventOutReason, eventReasonSize, "verified generated scene config" );
-            return true;
         case ReplayEventKind::EditorPlace:
-        {
-            Vector3 terrainPoint;
-            Vector3 placementScale;
-            float placementYawRadians = 0.0f;
-            if ( !DecodeReplayPlacePayload( event, terrainPoint, placementScale, placementYawRadians ) )
-            {
-                WriteReplayProbeReason( eventOutReason, eventReasonSize, "invalid editor placement payload" );
-                return false;
-            }
-
-            const int modelCountBefore = m_cGameModelCollection.SceneEntityCount();
-            if ( event.value3 != modelCountBefore )
-            {
-                WriteReplayProbeReason( eventOutReason,
-                                        eventReasonSize,
-                                        "editor placement model count precondition mismatch" );
-                return false;
-            }
-
-            const Vector3 previousPlacementScale = m_runtimeTools.Editor().placementScale;
-            const bool previousTerrainAlign = m_runtimeTools.Editor().autoTerrainAlign;
-            const float previousPlacementYawRadians = m_runtimeTools.Editor().placementYawRadians;
-            m_runtimeTools.Editor().placementScale = placementScale;
-            m_runtimeTools.Editor().autoTerrainAlign = ( event.flags & REPLAY_EDITOR_PLACE_TERRAIN_ALIGN ) != 0;
-            m_runtimeTools.Editor().placementYawRadians = placementYawRadians;
-            EditorObjectPlacementContext placementContext{ m_runtimeTools.Editor(),
-                                                           m_cGameModelCollection,
-                                                           SceneState(),
-                                                           m_cWorldEnvironment,
-                                                           m_systems.terrain.get(),
-                                                           m_systems.assets,
-                                                           m_startup.gameModelCapacity };
-            EditorObjectPlacementRequest placementRequest{ event.value0,
-                                                           ( event.flags & REPLAY_EDITOR_PLACE_FIXED ) != 0,
-                                                           terrainPoint };
-            EditorObjectPlacementResult placementResult;
-            bool placed = false;
-            if ( CanPlaceEditorObjectAtTerrainPoint( placementContext, placementRequest ) )
-            {
-                EnterInteractiveSceneRun();
-                placed = PlaceEditorObjectAtTerrainPoint( placementContext, placementRequest, placementResult );
-            }
-            m_runtimeTools.Editor().placementScale = previousPlacementScale;
-            m_runtimeTools.Editor().autoTerrainAlign = previousTerrainAlign;
-            m_runtimeTools.Editor().placementYawRadians = previousPlacementYawRadians;
-            if ( !placed )
-            {
-                WriteReplayProbeReason( eventOutReason, eventReasonSize, "failed to replay editor placement" );
-                return false;
-            }
-            WriteReplayProbeReason( eventOutReason, eventReasonSize, "applied editor placement" );
-            return true;
-        }
+            return ApplyReplayRestoreEditorPlaceEvent( m_runtimeTools,
+                                                       m_cGameModelCollection,
+                                                       SceneState(),
+                                                       m_cWorldEnvironment,
+                                                       m_systems,
+                                                       m_startup.gameModelCapacity,
+                                                       event,
+                                                       eventOutReason,
+                                                       eventReasonSize,
+                                                       [this]() { EnterInteractiveSceneRun(); } );
         case ReplayEventKind::EditorTransform:
-        {
-            if ( event.flags == 0 || ( event.flags & ~REPLAY_EDITOR_TRANSFORM_SUPPORTED ) != 0 )
-            {
-                WriteReplayProbeReason( eventOutReason, eventReasonSize, "unsupported editor transform flags" );
-                return false;
-            }
-
-            Vector3 position;
-            Quaternion orientation;
-            float scaleFactor = 1.0f;
-            bool hasScaleFactor = false;
-            if ( !DecodeReplayTransformPayload( event, position, orientation, scaleFactor, hasScaleFactor ) )
-            {
-                WriteReplayProbeReason( eventOutReason, eventReasonSize, "invalid editor transform payload" );
-                return false;
-            }
-            if ( ( event.flags & REPLAY_EDITOR_TRANSFORM_SCALE ) != 0 &&
-                 ( !hasScaleFactor || event.value3 < 0 || event.value3 > 2 || !std::isfinite( scaleFactor ) ||
-                   scaleFactor <= 0.0f ) )
-            {
-                WriteReplayProbeReason( eventOutReason, eventReasonSize, "invalid editor transform scale payload" );
-                return false;
-            }
-
-            if ( event.value2 != m_cGameModelCollection.SceneEntityCount() )
-            {
-                WriteReplayProbeReason( eventOutReason,
-                                        eventReasonSize,
-                                        "editor transform model count precondition mismatch" );
-                return false;
-            }
-            if ( event.value0 < 0 || event.value0 >= m_cGameModelCollection.SceneEntityCount() )
-            {
-                WriteReplayProbeReason( eventOutReason,
-                                        eventReasonSize,
-                                        "editor transform model index is out of range" );
-                return false;
-            }
-
-            const PhysicsBodyStore& bodyStoreBeforeEdit = m_cGameModelCollection.GetPhysicsEngine().BodyStore();
-            const PhysicsBodyHandle eventBody =
-                bodyStoreBeforeEdit.HandleForReplayBodyId( static_cast<uint32_t>( event.value1 ), event.value0 );
-            const PhysicsBodyRecord* eventBodyRecord = bodyStoreBeforeEdit.RecordForHandle( eventBody );
-            if ( !eventBodyRecord || bodyStoreBeforeEdit.ModelIndexForHandle( eventBody ) != event.value0 ||
-                 eventBodyRecord->replayBodyId != static_cast<uint32_t>( event.value1 ) )
-            {
-                WriteReplayProbeReason( eventOutReason, eventReasonSize, "editor transform replay body id mismatch" );
-                return false;
-            }
-
-            SkullbonezCore::GameObjects::PhysicsBodyStateEdit bodyEdit;
-            if ( event.flags & REPLAY_EDITOR_TRANSFORM_TRANSLATE )
-            {
-                bodyEdit.hasPosition = true;
-                bodyEdit.position = position;
-            }
-            if ( event.flags & REPLAY_EDITOR_TRANSFORM_ROTATE )
-            {
-                bodyEdit.hasOrientation = true;
-                bodyEdit.orientation = orientation;
-            }
-            PhysicsColliderCreateDesc editedColliderDesc;
-            bool hasEditedColliderDesc = false;
-            if ( event.flags & REPLAY_EDITOR_TRANSFORM_SCALE )
-            {
-                const ColliderRecord* colliderBeforeScale =
-                    TryGetEditorTransformColliderRecord( m_cGameModelCollection,
-                                                         PhysicsColliderHandle{},
-                                                         event.value0,
-                                                         eventBodyRecord->replayBodyId );
-                if ( !colliderBeforeScale )
-                {
-                    WriteReplayProbeReason( eventOutReason, eventReasonSize, "editor transform collider row missing" );
-                    return false;
-                }
-                const CollisionShape baseShape = colliderBeforeScale->shape;
-                CollisionShape scaledShape;
-                if ( !ScaleShapeAxisFromBase( baseShape, event.value3, scaleFactor, scaledShape ) )
-                {
-                    WriteReplayProbeReason( eventOutReason,
-                                            eventReasonSize,
-                                            "failed to replay editor transform scale" );
-                    return false;
-                }
-                // Invariant: restore reuses the previous collider material and
-                // replaces only the decoded scale shape, keeping replay payload
-                // semantics independent from legacy model-side recapture.
-                editedColliderDesc = MakeColliderCreateDesc( std::move( scaledShape ),
-                                                             colliderBeforeScale->restitution,
-                                                             colliderBeforeScale->contactMaterialId );
-                hasEditedColliderDesc = true;
-            }
-            bodyEdit.hasLinearVelocity = true;
-            bodyEdit.linearVelocity = Vector3( 0.0f, 0.0f, 0.0f );
-            bodyEdit.hasAngularVelocity = true;
-            bodyEdit.angularVelocity = Vector3( 0.0f, 0.0f, 0.0f );
-            if ( hasEditedColliderDesc )
-            {
-                m_cGameModelCollection.ApplyPhysicsBodyColliderEdit( event.value0,
-                                                                     bodyEdit,
-                                                                     std::move( editedColliderDesc ) );
-            }
-            else
-            {
-                m_cGameModelCollection.ApplyPhysicsBodyEdit( event.value0, bodyEdit );
-            }
-            // Why: the edited-state commit has already refreshed the
-            // edited body row. The wake decision should read the committed
-            // PhysicsBodyStore record, not presentation/authored pose data.
-            PhysicsEngine& physics = m_cGameModelCollection.GetPhysicsEngine();
-            const PhysicsBodyStore& bodyStore = physics.BodyStore();
-            const PhysicsBodyHandle body =
-                bodyStore.HandleForReplayBodyId( static_cast<uint32_t>( event.value1 ), event.value0 );
-            const PhysicsBodyRecord* bodyRecord = bodyStore.RecordForHandle( body );
-            if ( bodyRecord && !bodyRecord->isFixed )
-            {
-                physics.WakeBody( body );
-            }
-            WriteReplayProbeReason( eventOutReason, eventReasonSize, "applied editor transform" );
-            return true;
-        }
+            return ApplyReplayRestoreEditorTransformEvent( m_cGameModelCollection,
+                                                           event,
+                                                           eventOutReason,
+                                                           eventReasonSize );
         default:
             WriteReplayProbeReason( eventOutReason, eventReasonSize, "unsupported replay event kind" );
             return false;
@@ -2531,6 +2611,11 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
         }
 
         m_cGameModelCollection.Clear();
+        // Invariant: a restore-side generated rebuild is a fresh scene
+        // population, even though it does not enter the full scene-load path.
+        // Reset the scene-owned id cursor after the clear so regenerated
+        // PhysicsSceneObjectId/replay ids match the checkpoint topology.
+        SceneState().ResetSceneObjectIdCursor( m_cGameModelCollection.GetPhysicsEngine().BodyStore() );
         m_runtimeTools.ClearRayCastTestLines();
         m_simulation.Reset();
         SceneState().rngSeed = static_cast<unsigned int>( event.value3 );
@@ -2868,16 +2953,21 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
     outResult.presentationHash = restoredPresentationHash;
     outResult.generatedTopologyRebuilt = generatedTopologyRebuilt;
 
-    logRestoreDiagnostic( "",
-                          target,
-                          checkpoint,
-                          restoredSolverHash,
-                          restoredPresentationHash,
-                          restoredBodyCount,
-                          true,
-                          true,
-                          false,
-                          false );
+    LogReplayV2TargetRestoreDiagnostic( m_diagnosticsRuntime,
+                                        SceneState(),
+                                        restoreSource,
+                                        requestedFrame,
+                                        LATEST_NON_CHECKPOINT_TARGET,
+                                        "",
+                                        target,
+                                        checkpoint,
+                                        restoredSolverHash,
+                                        restoredPresentationHash,
+                                        restoredBodyCount,
+                                        true,
+                                        true,
+                                        false,
+                                        false );
 
     if ( makeLiveBranch )
     {

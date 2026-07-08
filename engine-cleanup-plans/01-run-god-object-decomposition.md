@@ -1477,6 +1477,33 @@ every step. Commit per step.
     `TestOutput\agent_logs\plan01_interaction_before_input_replay_state_runtime_boundaries.log`
     (18.1s). The touched-file comment audit covered
     `RunInteractionAutomation.cpp`.
+  - [x] Replay restore event-helper split moved Debug restore diagnostics,
+    world/launcher/generated replay event handling, editor placement replay, and
+    editor transform replay into source-local helpers with explicit owner
+    references. `Run::RestoreReplayV2ArtifactTargetState()` dropped from 946
+    measured lines to 704 measured lines without adding public or private `Run`
+    methods. The slice also fixed the generated-topology restore path by
+    resetting `RunSceneState`'s scene-object id cursor after the restore-side
+    generated rebuild clears the live collection; otherwise restoring a generated
+    artifact from a mismatched live scene can regenerate bodies with shifted
+    replay ids. The remaining measured large `Run::` targets are
+    `RestoreReplayV2ArtifactTargetState` (704), `TakeInput` (199),
+    `RunGraphicsStressActions` (199), `WriteInteractionAutomationReport` (197),
+    and `Execute` (194), so Phase 3 and the structural acceptance rows remain
+    open. Gate evidence:
+    `TestOutput\agent_logs\plan01_replay_restore_event_helpers_validate_full_rerun.log`
+    (45.1s; project filters/runtime boundaries passed, Profile/Debug builds had
+    0 warnings and 0 errors, DX12 InfoQueue errors = 0, screenshots matched
+    baselines, and `physics_regression_solver.csv` matched byte-exactly).
+    Focused replay v2 artifact validation passed after an initial generated
+    topology restore failure exposed the scene-object id cursor bug:
+    `TestOutput\agent_logs\plan01_replay_restore_event_helpers_validate_replay_v2_artifact_rerun.log`
+    (59.2s; generated topology restore reported `generated_topology_rebuilt=1`
+    and `bodies=6`). Targeted pre-gate checks also passed:
+    `TestOutput\agent_logs\plan01_replay_restore_event_helpers_validate_format_rerun.log`
+    (9.3s) and
+    `TestOutput\agent_logs\plan01_replay_restore_event_helpers_runtime_boundaries_rerun.log`
+    (17.6s). The touched-file comment audit covered `RunFrame.cpp`.
 
 ## Validation
 
