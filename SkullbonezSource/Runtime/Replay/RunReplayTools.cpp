@@ -223,7 +223,6 @@ constexpr uint32_t REPLAY_PREDICTION_CAPTURE_SAMPLE_WORKER_HASH =
 } // namespace
 
 #include "RunReplayScrubberTools.inl"
-#include "RunReplayCauseTreeTools.inl"
 
 namespace
 {

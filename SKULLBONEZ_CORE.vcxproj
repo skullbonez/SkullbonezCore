@@ -199,6 +199,7 @@
     <ClCompile Include="SkullbonezSource\Runtime\Replay\RunReplayProbes.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayV2Artifact.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Replay\RunReplayImportExport.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Replay\RunReplayCauseTreeTools.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Replay\RunReplayQueryTools.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\RuntimeCommandQueue.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\RuntimeDiagnostics.cpp" />
@@ -426,7 +427,6 @@
     <ClInclude Include="SkullbonezSource\Runtime\Replay\RunReplayImportExport.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\RunReplayPredictionHelpers.inl" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\RunReplayPredictionVisualizer.inl" />
-    <ClInclude Include="SkullbonezSource\Runtime\Replay\RunReplayCauseTreeTools.inl" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\RunReplayScrubberTools.inl" />
     <ClInclude Include="SkullbonezSource\Runtime\Tools\RuntimeTools.h" />
     <ClInclude Include="SkullbonezSource\Runtime\RuntimeFileWriter.h" />

@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/Runtime/Replay/RunReplayCauseTreeTools.inl
+File: SkullbonezSource/Runtime/Replay/RunReplayCauseTreeTools.cpp
 Purpose:
   Contains replay cause-tree window input and focus behavior.
 
@@ -21,6 +21,45 @@ Related:
   - SkullbonezSource/Runtime/Replay/RunReplayTools.cpp
   - SkullbonezSource/Runtime/Replay/ReplayOverlayLayout.h
 */
+#include "../RunInternal.h"
+#include "../InputController.h"
+#include "ReplayOverlayLayout.h"
+#include "../../Physics/ColliderStore.h"
+#include "../../Physics/PhysicsBodyStore.h"
+#include "../../UI/UIInput.h"
+
+#include <algorithm>
+#include <cmath>
+
+using namespace SkullbonezCore::Basics;
+using namespace SkullbonezCore::Math::Vector;
+using namespace SkullbonezCore::Physics;
+using namespace SkullbonezCore::Basics::RunInternal;
+using namespace SkullbonezCore::Basics::ReplayOverlay;
+
+namespace
+{
+bool IsReplayCauseTreeToolOwner( WorldInteractionOwner owner )
+{
+    return owner == WorldInteractionOwner::ReplayScrub || owner == WorldInteractionOwner::ReplayVelocityEdit ||
+           owner == WorldInteractionOwner::ReplayPrediction || owner == WorldInteractionOwner::ReplayBranchTarget ||
+           owner == WorldInteractionOwner::ReplayCauseTree;
+}
+
+
+Vector3 ReplayCauseTreeNormalizeOr( Vector3 value, const Vector3& fallback )
+{
+    const float magSq = VectorMagSquared( value );
+    if ( magSq <= TOLERANCE * TOLERANCE )
+    {
+        return fallback;
+    }
+    value /= sqrtf( magSq );
+    return value;
+}
+} // namespace
+
+
 bool Run::TickReplayCauseTreeInput( HWND hwnd, bool uiBlocksMouse, int wheelDelta )
 {
     PROFILE_SCOPED( "Frame/Replay/CauseTree/Input" );
@@ -105,7 +144,7 @@ bool Run::TickReplayCauseTreeInput( HWND hwnd, bool uiBlocksMouse, int wheelDelt
         const bool hadReplayCameraFocus = m_replayRuntime.Camera().focusKind != RunReplayCameraFocusKind::None;
         if ( !m_replayRuntime.Scrubber().liveAdvanceHeld )
         {
-            if ( m_replayRuntime.SetLiveAdvanceHeld( true ) && !IsReplayToolOwner( m_interaction.Owner() ) )
+            if ( m_replayRuntime.SetLiveAdvanceHeld( true ) && !IsReplayCauseTreeToolOwner( m_interaction.Owner() ) )
             {
                 SetWorldInteractionOwnerAfterInteractionTransition( WorldInteractionOwner::ReplayScrub,
                                                                     InteractionExitReason::EnterReplay );
@@ -130,7 +169,7 @@ bool Run::TickReplayCauseTreeInput( HWND hwnd, bool uiBlocksMouse, int wheelDelt
         m_replayRuntime.Camera().focusFeatureId = row.featureId;
         m_replayRuntime.Camera().focusTerrain = row.terrain;
         m_replayRuntime.Camera().targetPoint = targetPosition;
-        m_replayRuntime.Camera().targetNormal = ReplayNormalizeOr( row.normal, Vector3( 0.0f, 1.0f, 0.0f ) );
+        m_replayRuntime.Camera().targetNormal = ReplayCauseTreeNormalizeOr( row.normal, Vector3( 0.0f, 1.0f, 0.0f ) );
         m_replayRuntime.Camera().impulseVector = row.impulse;
         m_replayRuntime.Camera().targetRadius = targetRadius;
         m_replayRuntime.CauseTree().focusedId = row.id;
@@ -139,8 +178,8 @@ bool Run::TickReplayCauseTreeInput( HWND hwnd, bool uiBlocksMouse, int wheelDelt
         if ( m_systems.cameras )
         {
             const Vector3 eye = m_systems.cameras->GetRenderCameraTranslation();
-            Vector3 direction = ReplayNormalizeOr( eye - targetPosition, Vector3( 0.45f, 0.28f, 0.85f ) );
-            direction = ReplayNormalizeOr( direction, Vector3( 0.45f, 0.28f, 0.85f ) );
+            Vector3 direction = ReplayCauseTreeNormalizeOr( eye - targetPosition, Vector3( 0.45f, 0.28f, 0.85f ) );
+            direction = ReplayCauseTreeNormalizeOr( direction, Vector3( 0.45f, 0.28f, 0.85f ) );
             const float distance = (std::max)( 12.0f, targetRadius * 5.5f );
             const Vector3 newEye = targetPosition + direction * distance + Vector3( 0.0f, targetRadius * 0.35f, 0.0f );
             m_systems.cameras->TweenPrimaryToPose( newEye, targetPosition, m_systems.cameras->GetRenderCameraUp() );

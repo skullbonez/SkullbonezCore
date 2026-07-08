@@ -16,11 +16,11 @@ boundaries are cosmetic, not interface seams.
 Verified evidence:
 
 - [`RunReplayTools.cpp`](../SkullbonezSource/Runtime/Replay/RunReplayTools.cpp)
-  still `#include`s four replay `.inl` bodies after the 2026-07-08 import/export
-  and query promotions: `RunReplayPredictionHelpers.inl` (2,428 lines),
-  `RunReplayScrubberTools.inl` (654 lines), `RunReplayCauseTreeTools.inl`
-  (269 lines), and `RunReplayPredictionVisualizer.inl` (750 lines), forming a
-  **~4,685-line single TU** with the remaining `RunReplayTools.cpp` body.
+  still `#include`s three replay `.inl` bodies after the 2026-07-08
+  import/export, query, and cause-tree promotions:
+  `RunReplayPredictionHelpers.inl` (2,428 lines), `RunReplayScrubberTools.inl`
+  (654 lines), and `RunReplayPredictionVisualizer.inl` (750 lines), forming a
+  **~4,415-line single TU** with the remaining `RunReplayTools.cpp` body.
 - [`RunEditorTools.cpp`](../SkullbonezSource/Runtime/Editor/RunEditorTools.cpp)
   splices `.inl` includes mid-file (L323, L1651, L1950-1953).
 - These are concrete free functions and out-of-line members, **not** templates
@@ -301,6 +301,24 @@ build.
     builds at 0 warnings/errors. `tools\validate_full.bat` passed in 44.9s with
     project filters and runtime boundaries clean, 0 build warnings/errors, 0
     DX12 validation errors, matching DX12 screenshots, and
+    `physics_regression_solver.csv` byte-exact at 20001 lines.
+  - [x] `RunReplayCauseTreeTools.inl` -> `RunReplayCauseTreeTools.cpp`
+    (2026-07-08). The promoted TU now owns cause-tree window input, row focus,
+    drag/resize gestures, and inspection-camera activation. Cause-tree-local
+    owner-classification and normalize-or helpers replace the hidden anonymous
+    namespace dependencies from `RunReplayTools.cpp`, so the cause tree builds
+    independently while preserving replay tool ownership behavior.
+    `RunReplayTools.cpp` no longer text-splices the cause-tree body, and
+    project/filter metadata compile the new `.cpp`.
+
+    Validation note: targeted `tools\validate_build.bat Profile` passed in
+    10.1s with 0 warnings/errors. `tools\validate_project_filters.bat` passed
+    in 1.2s. The first `tools\validate_format.bat` flagged only the new
+    cause-tree `.cpp`; after narrow clang-format, `tools\validate_format.bat`
+    passed in 9.4s. `tools\validate_replay_scrub.bat` passed in 25.7s with
+    Debug/Profile builds at 0 warnings/errors. `tools\validate_full.bat` passed
+    in 44.9s with project filters and runtime boundaries clean, 0 build
+    warnings/errors, 0 DX12 validation errors, matching DX12 screenshots, and
     `physics_regression_solver.csv` byte-exact at 20001 lines.
 
 ### Phase 2 — Break the shared anonymous namespace
