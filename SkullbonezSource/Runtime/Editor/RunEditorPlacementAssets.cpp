@@ -1,11 +1,12 @@
 /*
-File: SkullbonezSource/Runtime/Editor/RunEditorPlacementAssets.inl
+File: SkullbonezSource/Runtime/Editor/RunEditorPlacementAssets.cpp
 Purpose:
   Owns editor placeable asset recipes, authored hull/material lookup, and placement bounds helpers.
 
 Mental model:
-  This file is included inside RunEditorTools.cpp's anonymous namespace. It keeps
-  registered asset and hull recipe knowledge separate from input routing and gizmo mutation.
+  This file compiles the editor recipe tables once and exposes typed helpers
+  through EditorPlacementAssets.h. Input routing, tracer ghosts, and placement
+  commit all use this same source of recipe truth.
 
 Glossary:
   Asset system: Runtime-owned registry used to resolve editor asset-library
@@ -19,13 +20,77 @@ Invariants:
   - Preview bounds and placement commit must read the same asset recipe helpers.
   - Building-library path lookup borrows the runtime asset system; the parsed
     catalog cache is read-only after first load.
-  - This file must only be included from RunEditorTools.cpp inside the anonymous namespace.
+  - Header-visible declarations are the shared editor asset boundary; recipe
+    tables and caches stay local to this TU.
 
 Related:
+  - SkullbonezSource/Runtime/Editor/EditorPlacementAssets.h
   - SkullbonezSource/Runtime/Editor/RunEditorTools.cpp
   - SkullbonezSource/Runtime/Editor/EditorHullAssets.h
   - Agentic/Reference/comment-style-guide.md
 */
+#include "EditorPlacementAssets.h"
+#include "EditorTools.h"
+#include "../../Assets/AssetSystem.h"
+#include "../../UI/UITabEditor.h"
+
+#include <algorithm>
+#include <array>
+#include <cctype>
+#include <cfloat>
+#include <cmath>
+#include <cstdio>
+#include <fstream>
+#include <utility>
+#include <vector>
+
+using namespace SkullbonezCore::Math::CollisionDetection;
+using namespace SkullbonezCore::Math::Orientation;
+using namespace SkullbonezCore::Math::Transformation;
+using SkullbonezCore::Assets::EDITOR_HULL_ASSET_COUNT;
+using SkullbonezCore::Assets::EDITOR_HULL_ASSETS;
+using SkullbonezCore::Assets::EditorHullAsset;
+using SkullbonezCore::Assets::EditorHullAssetDefaultsToContactRelease;
+using SkullbonezCore::Assets::EditorHullAssetPath;
+using SkullbonezCore::Assets::ResolveEditorHullAssetPath;
+using SkullbonezCore::Math::Vector::Vector3;
+using Json = SkullbonezCore::Basics::RunInternal::EditorPlacementJson;
+
+namespace SkullbonezCore
+{
+namespace Basics
+{
+namespace RunInternal
+{
+
+constexpr EditorBuildingDefinition EDITOR_BUILDING_ASSETS[] = {
+    { SkullbonezCore::UI::EditorTab::OBJECT_BRICK_HOUSE_SLEEP, "building.brick_house_low", "bhl" },
+    { SkullbonezCore::UI::EditorTab::OBJECT_BRICK_HOUSE_HIGH_SLEEP, "building.brick_house_high", "bhh" },
+    { SkullbonezCore::UI::EditorTab::OBJECT_CUTE_HOUSE_SLEEP, "building.cute_house_low", "chl" },
+    { SkullbonezCore::UI::EditorTab::OBJECT_CUTE_HOUSE_HIGH_SLEEP, "building.cute_house_high", "chh" },
+    { SkullbonezCore::UI::EditorTab::OBJECT_TRIPLE_DECKER_SLEEP, "building.triple_decker_low", "tdl" },
+    { SkullbonezCore::UI::EditorTab::OBJECT_TRIPLE_DECKER_HIGH_SLEEP, "building.triple_decker_high", "tdh" },
+    { SkullbonezCore::UI::EditorTab::OBJECT_BRICK_WALL_200_SLEEP, "building.brick_wall_200", "bw200" },
+};
+
+
+Vector3 HullAuthoredLocalOffset( const ConvexHullShape& hull )
+{
+    return hull.GetPosition() + hull.GetAuthoredCenterOfMass();
+}
+
+
+float HullAuthoredBottomOffset( const ConvexHullShape& hull )
+{
+    float minY = FLT_MAX;
+    const Vector3 authoredOffset = HullAuthoredLocalOffset( hull );
+    for ( uint16_t i = 0; i < hull.GetVertexCount(); ++i )
+    {
+        minY = (std::min)( minY, authoredOffset.y + hull.GetVertex( i ).y );
+    }
+    return minY == FLT_MAX ? 0.0f : -minY;
+}
+
 
 const EditorBuildingDefinition* EditorBuildingDefinitionForType( int objectType )
 {
@@ -399,40 +464,6 @@ int EditorBuildingPartCount( int objectType, const SkullbonezCore::Assets::Asset
 }
 
 
-template <typename Fn>
-bool ForEachEditorBuildingPart( int objectType, const SkullbonezCore::Assets::AssetSystem& assets, Fn&& fn )
-{
-    // Invariant: Asset-library part order is the spawn order. Preview bounds,
-    // collision hull lookup, material selection, and actual placement must all
-    // visit parts through this helper to stay identical.
-    const Json* asset = CachedEditorBuildingAsset( objectType, assets );
-    if ( !asset )
-    {
-        return false;
-    }
-    const std::string type = EditorJsonStringOr( *asset, "type", "" );
-    if ( IsEditorAssetPrimitiveType( type ) )
-    {
-        fn( *asset );
-        return true;
-    }
-    const Json* parts = EditorJsonFindMember( *asset, "parts" );
-    if ( type != "compound" || !parts || !parts->is_array() )
-    {
-        return false;
-    }
-    for ( const Json& part : *parts )
-    {
-        if ( !part.is_object() )
-        {
-            return false;
-        }
-        fn( part );
-    }
-    return true;
-}
-
-
 const ConvexHullShape* CachedEditorBuildingHull( const std::string& hullPath )
 {
     static std::vector<std::pair<std::string, ConvexHullShape>> hulls;
@@ -551,9 +582,10 @@ bool TryComputeEditorBuildingWorldBounds( int objectType,
                 const Vector3 hullLocalOffset = HullAuthoredLocalOffset( *hull );
                 for ( uint16_t vertexIndex = 0; vertexIndex < hull->GetVertexCount(); ++vertexIndex )
                 {
-                    IncludeEditorBoundsPoint( partCenter + partRotation * ( hullLocalOffset + hull->GetVertex( vertexIndex ) ),
-                                              outMin,
-                                              outMax );
+                    IncludeEditorBoundsPoint(
+                        partCenter + partRotation * ( hullLocalOffset + hull->GetVertex( vertexIndex ) ),
+                        outMin,
+                        outMax );
                 }
                 return;
             }
@@ -2019,3 +2051,6 @@ bool TryBuildScaledEditorHullForType( int objectType, const Vector3& placementSc
     outHull.ScaleAxis( 2, scale.z );
     return true;
 }
+} // namespace RunInternal
+} // namespace Basics
+} // namespace SkullbonezCore

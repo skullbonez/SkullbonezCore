@@ -170,7 +170,35 @@ build.
     warnings/errors, 0 DX12 validation errors, DX12 screenshots matched
     committed baselines, and `physics_regression_solver.csv` matched
     byte-exactly at 20001 lines.
-  - [ ] `RunEditorPlacementAssets.inl`
+  - [x] `RunEditorPlacementAssets.inl` -> `RunEditorPlacementAssets.cpp` plus
+    `EditorPlacementAssets.h` (2026-07-08). The promoted TU now owns the editor
+    placement recipe tables, JSON asset-library cache, authored-hull cache, and
+    shared bounds/material helpers. The new header exposes the tree/house/building
+    recipe structs, typed helper declarations, placement surface constants, and
+    the one remaining template visitor, `ForEachEditorBuildingPart`, so tracer
+    and object-placement lambdas keep compiling without a text splice.
+    `RunEditorTools.cpp` no longer includes the placement `.inl`; project and
+    filter metadata now compile the `.cpp` and track the header. The project
+    filter validator now recognizes `EditorPlacementAssets` as a runtime editor
+    item. Comment audit touched `EditorPlacementAssets.h`,
+    `RunEditorPlacementAssets.cpp`, `RunEditorTools.cpp`,
+    `RunEditorObjectPlacement.inl`, and `tools\validate_project_filters.py`;
+    all have learning headers and required local `Concept`/`Why`/`Invariant` or
+    `Lifetime` comments, with no deferred files.
+
+    Validation note: initial `tools\validate_fast.bat` failed because the new
+    header lacked a project-filter rule; after updating
+    `tools\validate_project_filters.py`, `tools\validate_project_filters.bat`
+    passed in 1.1s. The next `validate_fast` reached compile and failed on two
+    mechanical include/namespace issues (`UITabEditor.h` and
+    `Math::Transformation::RotationMatrix`); after fixes,
+    `tools\validate_fast.bat` passed in 44.8s
+    (`Agentic\Logs\cleanup-06-step-0.2-placementassets-validate-fast.log`), and
+    `tools\validate_full.bat` passed in 46.0s
+    (`Agentic\Logs\cleanup-06-step-0.2-placementassets-validate-full.log`): 0
+    build warnings/errors, 0 DX12 validation errors, DX12 screenshots matched
+    committed baselines, and `physics_regression_solver.csv` matched
+    byte-exactly at 20001 lines.
   - [ ] `RunEditorTracer.inl`
   - [x] `RunEditorOverlayTools.inl`
   - [ ] `RunEditorObjectPlacement.inl`

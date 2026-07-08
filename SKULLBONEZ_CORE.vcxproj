@@ -221,6 +221,7 @@
     <ClCompile Include="SkullbonezSource\Runtime\RunCapture.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Run.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Editor\RunEditorTools.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Editor\RunEditorPlacementAssets.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Editor\RunEditorGizmoTools.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Editor\RunMousePickupTools.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Editor\RunEditorOverlayTools.cpp" />
@@ -322,9 +323,9 @@
     <ClInclude Include="SkullbonezSource\Physics\TerrainContactManifold.h" />
     <ClInclude Include="SkullbonezSource\Physics\Debug\PhysicsDebugVisualizer.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Editor\EditorTools.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Editor\EditorPlacementAssets.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Editor\EditorOverlayTools.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Editor\EditorHullAssets.h" />
-    <ClInclude Include="SkullbonezSource\Runtime\Editor\RunEditorPlacementAssets.inl" />
     <ClInclude Include="SkullbonezSource\Runtime\Editor\RunEditorObjectPlacement.inl" />
     <ClInclude Include="SkullbonezSource\Runtime\Editor\RunEditorTracer.inl" />
     <ClInclude Include="SkullbonezSource\Runtime\Editor\LauncherLaser.h" />

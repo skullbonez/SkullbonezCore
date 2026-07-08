@@ -33,6 +33,7 @@ Related:
 */
 #include "../RunInternal.h"
 #include "EditorOverlayTools.h"
+#include "EditorPlacementAssets.h"
 #include "EditorTools.h"
 #include "EditorHullAssets.h"
 #include "../../Assets/AssetSystem.h"
@@ -151,24 +152,6 @@ bool RecordEditorTransformEventFromBodyStore( ReplayRuntime& replayRuntime,
 }
 
 
-Vector3 HullAuthoredLocalOffset( const ConvexHullShape& hull )
-{
-    return hull.GetPosition() + hull.GetAuthoredCenterOfMass();
-}
-
-
-float HullAuthoredBottomOffset( const ConvexHullShape& hull )
-{
-    float minY = FLT_MAX;
-    const Vector3 authoredOffset = HullAuthoredLocalOffset( hull );
-    for ( uint16_t i = 0; i < hull.GetVertexCount(); ++i )
-    {
-        minY = (std::min)( minY, authoredOffset.y + hull.GetVertex( i ).y );
-    }
-    return minY == FLT_MAX ? 0.0f : -minY;
-}
-
-
 bool EditorPositionsDiffer( const Vector3& a, const Vector3& b )
 {
     return VectorMagSquared( a - b ) > 1.0e-8f;
@@ -236,91 +219,6 @@ void ApplyEditorSpawnMaterial( GameModel& model, bool fixedObject, bool boxObjec
 }
 
 
-constexpr float EDITOR_PLACEMENT_SURFACE_EPSILON = 0.02f;
-constexpr float EDITOR_PLACEMENT_SNAP = 2.0f;
-struct EditorTreePartDefinition
-{
-    EditorHullAsset hullAsset;
-    const char* suffix;
-    float offsetX;
-    float offsetY;
-    float offsetZ;
-    float restitution;
-    SkullbonezCore::Rendering::RenderMaterialKind materialKind;
-    const char* materialName;
-    float colorR;
-    float colorG;
-    float colorB;
-    float roughness;
-    float specular;
-    float stylization;
-    bool startsFixed = false;
-    bool contactReleaseOnImpact = false;
-    float contactReleaseImpulseThreshold = 1.0f;
-};
-
-
-struct EditorTreeDefinition
-{
-    const char* label;
-    const EditorTreePartDefinition* parts;
-    int partCount;
-    bool alignToTerrainNormal = false;
-    bool forceFixed = false;
-    bool seedAsleep = false;
-};
-
-
-struct EditorHousePartDefinition
-{
-    const char* suffix;
-    float offsetX;
-    float offsetY;
-    float offsetZ;
-    float halfX;
-    float halfY;
-    float halfZ;
-    float restitution;
-    SkullbonezCore::Rendering::RenderMaterialKind materialKind;
-    const char* materialName;
-    float colorR;
-    float colorG;
-    float colorB;
-    float roughness;
-    float specular;
-    float stylization;
-};
-
-
-struct EditorHouseDefinition
-{
-    const char* label;
-    const EditorHousePartDefinition* parts;
-    int partCount;
-    bool seedAsleep = true;
-};
-
-
-struct EditorBuildingDefinition
-{
-    int objectType;
-    const char* assetName;
-    const char* label;
-};
-
-
-constexpr EditorBuildingDefinition EDITOR_BUILDING_ASSETS[] = {
-    { SkullbonezCore::UI::EditorTab::OBJECT_BRICK_HOUSE_SLEEP, "building.brick_house_low", "bhl" },
-    { SkullbonezCore::UI::EditorTab::OBJECT_BRICK_HOUSE_HIGH_SLEEP, "building.brick_house_high", "bhh" },
-    { SkullbonezCore::UI::EditorTab::OBJECT_CUTE_HOUSE_SLEEP, "building.cute_house_low", "chl" },
-    { SkullbonezCore::UI::EditorTab::OBJECT_CUTE_HOUSE_HIGH_SLEEP, "building.cute_house_high", "chh" },
-    { SkullbonezCore::UI::EditorTab::OBJECT_TRIPLE_DECKER_SLEEP, "building.triple_decker_low", "tdl" },
-    { SkullbonezCore::UI::EditorTab::OBJECT_TRIPLE_DECKER_HIGH_SLEEP, "building.triple_decker_high", "tdh" },
-    { SkullbonezCore::UI::EditorTab::OBJECT_BRICK_WALL_200_SLEEP, "building.brick_wall_200", "bw200" },
-};
-
-
-#include "RunEditorPlacementAssets.inl"
 float EditorPlacementAltitudeStepSize( int objectType,
                                        const Vector3& placementScale,
                                        const SkullbonezCore::Assets::AssetSystem& assets )

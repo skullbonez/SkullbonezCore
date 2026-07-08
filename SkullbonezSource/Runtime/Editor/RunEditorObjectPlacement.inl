@@ -24,7 +24,8 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/Editor/RunEditorTools.cpp
-  - SkullbonezSource/Runtime/Editor/RunEditorPlacementAssets.inl
+  - SkullbonezSource/Runtime/Editor/EditorPlacementAssets.h
+  - SkullbonezSource/Runtime/Editor/RunEditorPlacementAssets.cpp
 */
 namespace SkullbonezCore
 {

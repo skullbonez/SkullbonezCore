@@ -285,6 +285,7 @@ RUNTIME_RENDER_PREFIXES = (
 )
 
 RUNTIME_EDITOR_PREFIXES = (
+    "EditorPlacementAssets",
     "EditorTools",
     "EditorOverlayTools",
     "EditorHullAssets",
