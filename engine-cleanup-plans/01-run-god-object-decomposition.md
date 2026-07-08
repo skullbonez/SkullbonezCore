@@ -1325,6 +1325,29 @@ every step. Commit per step.
     (9.2s), and
     `TestOutput\agent_logs\plan01_graphics_stress_split_runtime_boundaries.log`
     (17.6s). The touched-file comment audit covered `RunStress.cpp`.
+  - [x] Execute-frame UI/post-physics split moved UI text rendering and
+    post-physics visualizer updates into source-local helpers with explicit
+    owner references and callback-only access to the remaining `Run`-owned
+    bookkeeping. `Run::Execute()` dropped from 278 measured lines to 196
+    measured lines without adding public or private `Run` methods. The
+    remaining measured large `Run::` targets are
+    `RestoreReplayV2ArtifactTargetState` (946),
+    `TickInteractionAutomationBeforeInput` (578), `TickReplaySaveProbe` (311),
+    `TickInteractionAutomationAfterRender` (258), `TakeInput` (201),
+    `RunGraphicsStressActions` (199), and `WriteInteractionAutomationReport`
+    (197), so Phase 3 and the structural acceptance rows remain open. Gate
+    evidence:
+    `TestOutput\agent_logs\plan01_execute_split_validate_full.log` (56.9s;
+    project filters/runtime boundaries passed, Profile/Debug builds had 0
+    warnings and 0 errors, DX12 InfoQueue errors = 0, screenshots matched
+    baselines, and `physics_regression_solver.csv` matched byte-exactly).
+    Targeted pre-gate checks also passed:
+    `TestOutput\agent_logs\plan01_execute_postphysics_split_build_profile.log`
+    (6.6s),
+    `TestOutput\agent_logs\plan01_execute_split_validate_format_final.log`
+    (9.3s), and
+    `TestOutput\agent_logs\plan01_execute_split_runtime_boundaries.log`
+    (17.7s). The touched-file comment audit covered `RunFrame.cpp`.
 
 ## Validation
 

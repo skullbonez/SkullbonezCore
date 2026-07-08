@@ -119,6 +119,182 @@ bool ShouldFlashContactAudioDecision( ContactAudioFlashMode mode,
     }
 }
 
+
+struct ExecuteUiTextFrameContext
+{
+    RuntimeRenderer& renderer;
+    SkullbonezCore::Rendering::IRenderDiagnostics& renderDiagnostics;
+    const SkullbonezCore::UI::UIRenderContext& uiRender;
+    const RuntimeRenderModelFrameView& renderModels;
+    DiagnosticsRuntime& diagnosticsRuntime;
+    ReplayRuntime& replayRuntime;
+    RunTimerState& timers;
+    RunDebugState& debug;
+    RunSceneState& scene;
+    RunRuntimeSettings& runtimeSettings;
+    EngineConfig& config;
+    SkullbonezCore::Environment::WorldEnvironment& worldEnvironment;
+    RuntimeTools& runtimeTools;
+    SkullbonezCore::UI::InGameUI& ui;
+    RuntimeInputContext& runtimeInput;
+    RunCameraState& camera;
+    RuntimeViewModel& runtimeViewModel;
+    SceneController& sceneController;
+    RunSubsystemState& systems;
+    RunLaunchOptions& launchOptions;
+    uint32_t cameraModeEnabledMask = 0;
+    const char* cameraModeLabel = nullptr;
+    const char* launcherFireModeLabel = nullptr;
+    bool isLauncherCameraMode = false;
+    double secondsPerFrame = 0.0;
+};
+
+
+template <typename RefreshRuntimeViewModel>
+void RenderExecuteUiTextFrame( ExecuteUiTextFrameContext& context, RefreshRuntimeViewModel refreshRuntimeViewModel )
+{
+    // Concept: frame-loop UI text is a late render pass. Keep the state package
+    // rebuilt here and refresh the scalar view only after the renderer says the
+    // pass will execute, matching the previous Run::Execute ordering.
+    const RunSceneBrowserState& uiSceneBrowser = context.sceneController.Browser();
+    const std::string* uiScenePath = context.sceneController.CurrentPath();
+    const UiTextPassState uiTextState{
+        context.debug,
+        context.timers,
+        context.scene,
+        context.runtimeSettings,
+        context.config,
+        context.worldEnvironment,
+        context.runtimeTools.RayCastTest(),
+        context.runtimeTools.Editor(),
+        context.ui,
+        context.runtimeInput,
+        context.camera,
+        context.runtimeViewModel,
+        uiSceneBrowser,
+        context.systems.renderPasses,
+        context.systems.workerPool,
+        RuntimeWindowScreenWidth( context.systems, context.config ),
+        RuntimeWindowScreenHeight( context.systems, context.config ),
+        context.sceneController.QueueSize(),
+        context.sceneController.HasCurrentEntry(),
+        uiScenePath ? uiScenePath->c_str() : nullptr,
+        CurrentSceneBrowserIndex( context.sceneController, uiSceneBrowser ),
+        context.cameraModeEnabledMask,
+        context.cameraModeLabel,
+        context.launcherFireModeLabel,
+        context.isLauncherCameraMode,
+        context.replayRuntime.ShouldRenderScrubber( context.runtimeTools.Editor().editorModeEnabled,
+                                                    context.ui.IsVisible(),
+                                                    context.ui.IsMinimized() ),
+        context.replayRuntime.HasPathVisualizerTarget() };
+
+    if ( context.renderer.ShouldRenderUiText( uiTextState ) )
+    {
+        refreshRuntimeViewModel();
+        const CinematicRenderConfig& uiCinematic = RuntimeActiveCinematicConfig( context.scene, context.config );
+        const bool uiCinematicRendering = RuntimeCinematicRenderingEnabled( context.scene,
+                                                                            context.config,
+                                                                            context.launchOptions,
+                                                                            context.debug,
+                                                                            true );
+        const ReplayOverlayFrameState replayOverlay{
+            context.runtimeTools.Editor().editorModeEnabled,
+            context.ui.IsVisible(),
+            context.ui.IsMinimized(),
+            context.scene.isScenePhysics,
+            RuntimeWindowScreenWidth( context.systems, context.config ),
+            RuntimeWindowScreenHeight( context.systems, context.config ),
+            context.timers.simulationTimer.GetTotalTime(),
+        };
+        const int uiDrawCallStart = context.renderDiagnostics.GetFrameDrawCallCount();
+        PROFILE_BEGIN( "Frame/UI" );
+        {
+            RuntimeAllocation::RuntimeAllocationScope allocationScope(
+                RuntimeAllocation::RuntimeAllocationPhase::Render );
+            DRAW_CALL_TRACE_SCOPE( context.renderDiagnostics, "Frame/UI" );
+            context.renderer.RenderUiText( context.renderDiagnostics,
+                                           context.uiRender,
+                                           uiTextState,
+                                           context.renderModels,
+                                           context.diagnosticsRuntime,
+                                           context.replayRuntime,
+                                           replayOverlay,
+                                           uiCinematic,
+                                           uiCinematicRendering,
+                                           context.secondsPerFrame );
+        }
+        PROFILE_END( "Frame/UI" );
+        const int uiDrawCallEnd = context.renderDiagnostics.GetFrameDrawCallCount();
+        context.timers.lastUIDrawCalls = (std::max)( 0, uiDrawCallEnd - uiDrawCallStart );
+    }
+    else
+    {
+        context.timers.lastUIDrawCalls = 0;
+    }
+}
+
+
+struct ExecutePostPhysicsVisualizationContext
+{
+    RunDebugState& debug;
+    SkullbonezCore::GameObjects::GameModelCollection& models;
+    BroadphaseVisualizer& broadphaseVisualizer;
+    CollisionVisualizer& collisionVisualizer;
+    PhysicsDebugVisualizer& physicsDebugVisualizer;
+};
+
+
+template <typename UpdateRequiredBroadphaseXCells, typename UpdateRequiredContacts>
+void TickExecutePostPhysicsVisualizers( ExecutePostPhysicsVisualizationContext& context,
+                                        double secondsPerFrame,
+                                        UpdateRequiredBroadphaseXCells updateRequiredBroadphaseXCells,
+                                        UpdateRequiredContacts updateRequiredContacts )
+{
+    PROFILE_BEGIN( "Frame/PostPhysics" );
+
+    PROFILE_BEGIN( "Frame/PostPhysics/BroadphaseVisualizer" );
+    // Why: broadphase visualizer state runs even when the overlay is hidden so
+    // cell fades and scene-gate checks stay coherent across toggles.
+    {
+        context.broadphaseVisualizer.SetEnabled( context.debug.isBroadphaseOverlay );
+        context.broadphaseVisualizer.SetCellSize( context.models.GetSpatialGrid().GetCellSize() );
+        const SpatialGrid& grid = context.models.GetSpatialGrid();
+        SpatialGrid::ActiveCell activeCellBuf[SpatialGrid::MAX_BUCKETS];
+        int activeCellCount = grid.GetActiveCellCount();
+        grid.GetActiveCells( activeCellBuf, SpatialGrid::MAX_BUCKETS );
+        const std::vector<int64_t>& collisionKeys = context.models.GetCollisionCellKeys();
+        context.broadphaseVisualizer.Update( static_cast<float>( secondsPerFrame ),
+                                             activeCellBuf,
+                                             activeCellCount,
+                                             collisionKeys.data(),
+                                             static_cast<int>( collisionKeys.size() ) );
+        updateRequiredBroadphaseXCells( activeCellBuf, (std::min)( activeCellCount, SpatialGrid::MAX_BUCKETS ) );
+    }
+    PROFILE_END( "Frame/PostPhysics/BroadphaseVisualizer" );
+
+    PROFILE_BEGIN( "Frame/PostPhysics/CollisionVisualizer" );
+    context.collisionVisualizer.SetEnabled( context.debug.isCollisionVisualizer );
+    context.models.UpdateCollisionVisualizer( context.collisionVisualizer, static_cast<float>( secondsPerFrame ) );
+    PROFILE_END( "Frame/PostPhysics/CollisionVisualizer" );
+
+    PROFILE_BEGIN( "Frame/PostPhysics/PhysicsDebugVisualizer" );
+    context.physicsDebugVisualizer.SetFlags( context.debug.physicsDebugFlags );
+    context.physicsDebugVisualizer.SetContactLingerSeconds( context.debug.physicsDebugContactLinger );
+    context.physicsDebugVisualizer.SetPipelineStageCursor( context.debug.physicsDebugPipelineStageCursor );
+    context.models.UpdatePhysicsDebugVisualizer( context.physicsDebugVisualizer,
+                                                 static_cast<float>( secondsPerFrame ) );
+    updateRequiredContacts();
+    PROFILE_END( "Frame/PostPhysics/PhysicsDebugVisualizer" );
+
+    PROFILE_BEGIN( "Frame/PostPhysics/EndCollisionVisualFrame" );
+    context.models.EndCollisionVisualFrame();
+    PROFILE_END( "Frame/PostPhysics/EndCollisionVisualFrame" );
+
+    PROFILE_END( "Frame/PostPhysics" );
+}
+
+
 Vector3 RenderProbeMatrixTranslation( const Matrix4& matrix )
 {
     return Vector3( matrix.m[12], matrix.m[13], matrix.m[14] );
@@ -751,48 +927,17 @@ void Run::Execute()
                 TickPhysics( secondsPerFrame );
             }
 
-            PROFILE_BEGIN( "Frame/PostPhysics" );
-
-            PROFILE_BEGIN( "Frame/PostPhysics/BroadphaseVisualizer" );
-            // Update broadphase visualizer state (runs even when overlay is hidden so fades are correct)
-            {
-                m_broadphaseVisualizer.SetEnabled( m_debug.isBroadphaseOverlay );
-                m_broadphaseVisualizer.SetCellSize( m_cGameModelCollection.GetSpatialGrid().GetCellSize() );
-                const SpatialGrid& grid = m_cGameModelCollection.GetSpatialGrid();
-                SpatialGrid::ActiveCell activeCellBuf[SpatialGrid::MAX_BUCKETS];
-                int activeCellCount = grid.GetActiveCellCount();
-                grid.GetActiveCells( activeCellBuf, SpatialGrid::MAX_BUCKETS );
-                const std::vector<int64_t>& collisionKeys = m_cGameModelCollection.GetCollisionCellKeys();
-                m_broadphaseVisualizer.Update( static_cast<float>( secondsPerFrame ),
-                                               activeCellBuf,
-                                               activeCellCount,
-                                               collisionKeys.data(),
-                                               static_cast<int>( collisionKeys.size() ) );
-                UpdateRequiredSceneBroadphaseXCells( activeCellBuf,
-                                                     (std::min)( activeCellCount, SpatialGrid::MAX_BUCKETS ) );
-            }
-            PROFILE_END( "Frame/PostPhysics/BroadphaseVisualizer" );
-
-            PROFILE_BEGIN( "Frame/PostPhysics/CollisionVisualizer" );
-            m_collisionVisualizer.SetEnabled( m_debug.isCollisionVisualizer );
-            m_cGameModelCollection.UpdateCollisionVisualizer( m_collisionVisualizer,
-                                                              static_cast<float>( secondsPerFrame ) );
-            PROFILE_END( "Frame/PostPhysics/CollisionVisualizer" );
-
-            PROFILE_BEGIN( "Frame/PostPhysics/PhysicsDebugVisualizer" );
-            m_physicsDebugVisualizer.SetFlags( m_debug.physicsDebugFlags );
-            m_physicsDebugVisualizer.SetContactLingerSeconds( m_debug.physicsDebugContactLinger );
-            m_physicsDebugVisualizer.SetPipelineStageCursor( m_debug.physicsDebugPipelineStageCursor );
-            m_cGameModelCollection.UpdatePhysicsDebugVisualizer( m_physicsDebugVisualizer,
-                                                                 static_cast<float>( secondsPerFrame ) );
-            UpdateRequiredSceneContacts();
-            PROFILE_END( "Frame/PostPhysics/PhysicsDebugVisualizer" );
-
-            PROFILE_BEGIN( "Frame/PostPhysics/EndCollisionVisualFrame" );
-            m_cGameModelCollection.EndCollisionVisualFrame();
-            PROFILE_END( "Frame/PostPhysics/EndCollisionVisualFrame" );
-
-            PROFILE_END( "Frame/PostPhysics" );
+            ExecutePostPhysicsVisualizationContext postPhysicsVisualizationContext{ m_debug,
+                                                                                    m_cGameModelCollection,
+                                                                                    m_broadphaseVisualizer,
+                                                                                    m_collisionVisualizer,
+                                                                                    m_physicsDebugVisualizer };
+            TickExecutePostPhysicsVisualizers(
+                postPhysicsVisualizationContext,
+                secondsPerFrame,
+                [this]( const SpatialGrid::ActiveCell* activeCells, int activeCellCount )
+                { UpdateRequiredSceneBroadphaseXCells( activeCells, activeCellCount ); },
+                [this]() { UpdateRequiredSceneContacts(); } );
 
             // Concept: graphics stress is render/runtime churn, not UI command
             // processing. Tick it once per rendered frame so headless and
@@ -822,83 +967,32 @@ void Run::Execute()
             }
             PROFILE_END( "Frame/Render" );
 
-            // Lifetime: the UI text pass borrows these Run-owned objects for
-            // this late frame only. ShouldRender samples only flow/UI toggles;
-            // RefreshRuntimeViewModel below updates the referenced view before
-            // the pass builds draw data.
-            const RunSceneBrowserState& uiSceneBrowser = m_sceneController.Browser();
-            const std::string* uiScenePath = m_sceneController.CurrentPath();
-            const UiTextPassState uiTextState{
-                m_debug,
-                m_timers,
-                SceneState(),
-                m_runtimeSettings,
-                m_config,
-                m_cWorldEnvironment,
-                m_runtimeTools.RayCastTest(),
-                m_runtimeTools.Editor(),
-                m_UI,
-                m_runtimeInput,
-                m_camera,
-                m_runtimeViewModel,
-                uiSceneBrowser,
-                m_systems.renderPasses,
-                m_systems.workerPool,
-                RuntimeWindowScreenWidth( m_systems, m_config ),
-                RuntimeWindowScreenHeight( m_systems, m_config ),
-                m_sceneController.QueueSize(),
-                m_sceneController.HasCurrentEntry(),
-                uiScenePath ? uiScenePath->c_str() : nullptr,
-                CurrentSceneBrowserIndex( m_sceneController, uiSceneBrowser ),
-                CameraModeEnabledMask(),
-                CameraModeLabel( m_camera.mode ),
-                m_runtimeTools.LauncherFireModeLabel(),
-                IsLauncherCameraMode(),
-                m_replayRuntime.ShouldRenderScrubber( m_runtimeTools.Editor().editorModeEnabled,
-                                                      m_UI.IsVisible(),
-                                                      m_UI.IsMinimized() ),
-                m_replayRuntime.HasPathVisualizerTarget() };
-
-            if ( m_renderer.ShouldRenderUiText( uiTextState ) )
-            {
-                RefreshRuntimeViewModel();
-                const CinematicRenderConfig& uiCinematic = RuntimeActiveCinematicConfig( SceneState(), m_config );
-                const bool uiCinematicRendering =
-                    RuntimeCinematicRenderingEnabled( SceneState(), m_config, m_launchOptions, m_debug, true );
-                const ReplayOverlayFrameState replayOverlay{
-                    m_runtimeTools.Editor().editorModeEnabled,
-                    m_UI.IsVisible(),
-                    m_UI.IsMinimized(),
-                    SceneState().isScenePhysics,
-                    RuntimeWindowScreenWidth( m_systems, m_config ),
-                    RuntimeWindowScreenHeight( m_systems, m_config ),
-                    m_timers.simulationTimer.GetTotalTime(),
-                };
-                const int uiDrawCallStart = frameRenderDiagnostics.GetFrameDrawCallCount();
-                PROFILE_BEGIN( "Frame/UI" );
-                {
-                    RuntimeAllocation::RuntimeAllocationScope allocationScope(
-                        RuntimeAllocation::RuntimeAllocationPhase::Render );
-                    DRAW_CALL_TRACE_SCOPE( frameRenderDiagnostics, "Frame/UI" );
-                    m_renderer.RenderUiText( frameRenderDiagnostics,
-                                             uiRender,
-                                             uiTextState,
-                                             renderModels,
-                                             m_diagnosticsRuntime,
-                                             m_replayRuntime,
-                                             replayOverlay,
-                                             uiCinematic,
-                                             uiCinematicRendering,
-                                             secondsPerFrame );
-                }
-                PROFILE_END( "Frame/UI" );
-                const int uiDrawCallEnd = frameRenderDiagnostics.GetFrameDrawCallCount();
-                m_timers.lastUIDrawCalls = (std::max)( 0, uiDrawCallEnd - uiDrawCallStart );
-            }
-            else
-            {
-                m_timers.lastUIDrawCalls = 0;
-            }
+            ExecuteUiTextFrameContext uiTextFrameContext{ m_renderer,
+                                                          frameRenderDiagnostics,
+                                                          uiRender,
+                                                          renderModels,
+                                                          m_diagnosticsRuntime,
+                                                          m_replayRuntime,
+                                                          m_timers,
+                                                          m_debug,
+                                                          SceneState(),
+                                                          m_runtimeSettings,
+                                                          m_config,
+                                                          m_cWorldEnvironment,
+                                                          m_runtimeTools,
+                                                          m_UI,
+                                                          m_runtimeInput,
+                                                          m_camera,
+                                                          m_runtimeViewModel,
+                                                          m_sceneController,
+                                                          m_systems,
+                                                          m_launchOptions,
+                                                          CameraModeEnabledMask(),
+                                                          CameraModeLabel( m_camera.mode ),
+                                                          m_runtimeTools.LauncherFireModeLabel(),
+                                                          IsLauncherCameraMode(),
+                                                          secondsPerFrame };
+            RenderExecuteUiTextFrame( uiTextFrameContext, [this]() { RefreshRuntimeViewModel(); } );
 
             PROFILE_BEGIN( "Frame/PostDraw/LiveStyleCapture" );
             {
