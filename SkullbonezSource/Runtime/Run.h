@@ -41,6 +41,7 @@ Related:
 #include <vector>
 #include "../Core/Common.h"
 #include "../Core/SbResult.h"
+#include "AttachedCameraController.h"
 #include "CameraCollection.h"
 #include "GraphicsStressController.h"
 #include "InputController.h"

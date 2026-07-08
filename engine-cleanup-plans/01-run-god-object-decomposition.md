@@ -1162,6 +1162,28 @@ every step. Commit per step.
     (1.1s), and
     `TestOutput\agent_logs\plan01_runtime_settings_shelf_validate_fast.log`
     (42.9s).
+  - [x] Attached camera state shelf moved from `RunState.h` into
+    `AttachedCameraController.h`. The controller header now owns target
+    identity, follow/orbit submode, fixed-offset, entry-tween, and return-pose
+    state. `Run` still stores `m_attachedCamera`, but callers include the
+    attached-camera controller header for concrete fields, and `RunState.h` no
+    longer pulls in physics handle definitions for unrelated shelves. No project
+    or tool metadata changed for this header-only ownership move. The
+    touched-file comment audit kept the controller ownership header current and
+    verified the remaining `RunState.h` shelf comments. Gate evidence:
+    `TestOutput\agent_logs\plan01_attached_camera_state_shelf_validate_full.log`
+    (55.5s; project filters/runtime boundaries passed, Profile/Debug builds had
+    0 warnings and 0 errors, DX12 InfoQueue errors = 0, screenshots matched
+    baselines, and `physics_regression_solver.csv` matched byte-exactly).
+    Targeted pre-gate checks also passed:
+    `TestOutput\agent_logs\plan01_attached_camera_state_shelf_build_profile.log`
+    (10.1s),
+    `TestOutput\agent_logs\plan01_attached_camera_state_shelf_validate_format.log`
+    (9.4s),
+    `TestOutput\agent_logs\plan01_attached_camera_state_shelf_runtime_boundaries.log`
+    (17.7s), and
+    `TestOutput\agent_logs\plan01_attached_camera_state_shelf_diff_check.log`
+    (0.1s).
 
 ### Phase 3 — Shrink `Run`
 
