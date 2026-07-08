@@ -1288,6 +1288,22 @@ every step. Commit per step.
     (9.4s), and
     `TestOutput\agent_logs\plan01_startup_apply_split_runtime_boundaries.log`
     (17.6s). The touched-file comment audit covered `Run.cpp`.
+  - [x] UI stress action split moved the deterministic stress action switch
+    into source-local `ApplyUIStressAction()` with explicit owner references.
+    `Run::RunUIStressActions()` dropped from 235 measured lines to 85 measured
+    lines without adding public or private `Run` methods. `RunGraphicsStressActions()`
+    remains 365 measured lines, so Phase 3 stays open for the remaining large
+    `Run::` functions. Gate evidence:
+    `TestOutput\agent_logs\plan01_ui_stress_split_validate_full.log`
+    (~56s by log timestamps; project filters/runtime boundaries passed,
+    Profile/Debug builds had 0 warnings and 0 errors, DX12 InfoQueue errors =
+    0, screenshots matched baselines, and `physics_regression_solver.csv`
+    matched byte-exactly). Targeted pre-gate checks also passed:
+    `TestOutput\agent_logs\plan01_ui_stress_split_build_profile.log` (7.0s),
+    `TestOutput\agent_logs\plan01_ui_stress_split_validate_format_post_comment.log`
+    (9.3s), and
+    `TestOutput\agent_logs\plan01_ui_stress_split_runtime_boundaries.log`
+    (17.7s). The touched-file comment audit covered `RunStress.cpp`.
 
 ## Validation
 

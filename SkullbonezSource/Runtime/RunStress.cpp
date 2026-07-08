@@ -94,6 +94,190 @@ class StressHarness
 };
 
 
+// Concept: The extracted action helper still names every live owner explicitly
+// instead of growing Run's public/private method surface.
+struct UIStressActionContext
+{
+    SkullbonezCore::UI::InGameUI& ui;
+    RunRuntimeSettings& runtimeSettings;
+    RuntimeRenderBackendView& renderBackendView;
+    RunDebugState& debug;
+    RunSceneState& scene;
+    RunTimerState& timers;
+    SimulationSystem& simulation;
+    SceneController& sceneController;
+    SkullbonezCore::Environment::WorldEnvironment& world;
+    ReplayRuntime& replayRuntime;
+};
+
+
+void ApplyUIStressAction( UIStressActionContext& context, UIStressState& stress, bool allowRuntimeChurn )
+{
+    switch ( StressHarness::NextAction( stress ) )
+    {
+    case 0:
+        context.ui.SetActiveTab(
+            static_cast<InGameUITab>( StressHarness::NextInt( stress, static_cast<int>( InGameUITab::Count ) ) ) );
+        break;
+    case 1:
+        context.ui.SetScrollY( StressHarness::NextFloat( stress, 0.0f, 900.0f ) );
+        break;
+    case 2:
+        // Keep the PRNG sequence stable while leaving backdrop blur to validate_ui.bat.
+        // Stress runs churn control state; blur's DX12 readback path has its own pixel gate.
+        (void)StressHarness::NextInt( stress, 2 );
+        break;
+    case 3:
+        context.ui.SetProfilerTimelineEnabled( StressHarness::NextInt( stress, 2 ) != 0 );
+        break;
+    case 4:
+        context.ui.SetPerformanceHistogramEnabled( StressHarness::NextInt( stress, 2 ) != 0 );
+        break;
+    case 5:
+        context.ui.SetRendererComboOpen( StressHarness::NextInt( stress, 2 ) != 0 );
+        break;
+    case 6:
+        context.ui.SetWaterComboOpen( StressHarness::NextInt( stress, 2 ) != 0 );
+        break;
+    case 7:
+        context.ui.SetSceneComboOpen( StressHarness::NextInt( stress, 2 ) != 0 );
+        break;
+    case 8:
+        context.runtimeSettings.isVsyncEnabled = !context.runtimeSettings.isVsyncEnabled;
+        if ( context.renderBackendView.deviceLifecycle )
+        {
+            context.renderBackendView.deviceLifecycle->SetVsyncEnabled( context.runtimeSettings.isVsyncEnabled );
+        }
+        break;
+    case 9:
+        if ( allowRuntimeChurn )
+        {
+            context.debug.isCollisionVisualizer = !context.debug.isCollisionVisualizer;
+        }
+        break;
+    case 10:
+    {
+        static const uint32_t kFlags[] = { PHYSICS_DEBUG_AXES,
+                                           PHYSICS_DEBUG_CONTACTS,
+                                           PHYSICS_DEBUG_SLEEP,
+                                           PHYSICS_DEBUG_ALL };
+        const int flagIndex = StressHarness::NextInt( stress, 4 );
+        if ( allowRuntimeChurn )
+        {
+            context.debug.physicsDebugFlags = kFlags[flagIndex];
+        }
+        break;
+    }
+    case 11:
+        if ( allowRuntimeChurn )
+        {
+            context.debug.isPhysicsDebugTransparent = !context.debug.isPhysicsDebugTransparent;
+        }
+        break;
+    case 12:
+        if ( allowRuntimeChurn )
+        {
+            context.debug.isBroadphaseOverlay = !context.debug.isBroadphaseOverlay;
+        }
+        break;
+    case 13:
+        if ( allowRuntimeChurn )
+        {
+            context.scene.isFixedStep = !context.scene.isFixedStep;
+            context.simulation.Reset();
+        }
+        break;
+    case 14:
+        if ( allowRuntimeChurn )
+        {
+            context.debug.isTerrainHidden = !context.debug.isTerrainHidden;
+        }
+        break;
+    case 15:
+        if ( allowRuntimeChurn )
+        {
+            context.debug.isWaterHidden = !context.debug.isWaterHidden;
+        }
+        break;
+    case 16:
+        if ( allowRuntimeChurn )
+        {
+            context.debug.isWaterFreezeDebug = !context.debug.isWaterFreezeDebug;
+            if ( context.debug.isWaterFreezeDebug )
+            {
+                context.debug.frozenWaterTime =
+                    static_cast<float>( context.timers.simulationTimer.GetTimeSinceLastStart() );
+            }
+        }
+        break;
+    case 17:
+        if ( allowRuntimeChurn )
+        {
+            context.debug.isWaterFlatDebug = !context.debug.isWaterFlatDebug;
+        }
+        break;
+    case 18:
+    {
+        const int mode = StressHarness::NextInt( stress, 3 );
+        if ( allowRuntimeChurn )
+        {
+            context.debug.isWaterRTReflect = mode == 1;
+            context.debug.isWaterNoReflect = mode == 2;
+        }
+        break;
+    }
+    case 19:
+    {
+        const float timeScale = StressHarness::NextFloat( stress, 0.10f, 4.00f );
+        if ( allowRuntimeChurn )
+        {
+            // Concept: Scene-tab churn goes through the scene controller so
+            // reset preservation and generated-scene rebuilds see one owner.
+            context.sceneController.UIOverrides().timeScaleOverride = timeScale;
+            context.scene.timeScale = context.sceneController.UIOverrides().timeScaleOverride;
+            context.simulation.Reset();
+        }
+        break;
+    }
+    case 20:
+    {
+        const float alpha = StressHarness::NextFloat( stress, 0.05f, 1.00f );
+        if ( allowRuntimeChurn )
+        {
+            context.debug.physicsDebugAlpha = alpha;
+        }
+        break;
+    }
+    case 21:
+    {
+        const float contactLinger = StressHarness::NextFloat( stress, 0.00f, 5.00f );
+        if ( allowRuntimeChurn )
+        {
+            context.debug.physicsDebugContactLinger = contactLinger;
+        }
+        break;
+    }
+    case 22:
+    {
+        const float gravity = -StressHarness::NextFloat( stress, 0.0f, 80.0f );
+        const float fluidHeight = StressHarness::NextFloat( stress, -40.0f, 140.0f );
+        const float fluidDensity = StressHarness::NextFloat( stress, 0.0f, 5.0f );
+        if ( allowRuntimeChurn )
+        {
+            ApplyUIWorldOverride( context.world, context.replayRuntime, gravity, fluidHeight, fluidDensity );
+        }
+        break;
+    }
+    case 23:
+        context.ui.SetActiveTab(
+            static_cast<InGameUITab>( StressHarness::NextInt( stress, static_cast<int>( InGameUITab::Count ) ) ) );
+        break;
+    default:
+        break;
+    }
+}
+
+
 } // namespace
 
 
@@ -394,170 +578,20 @@ void Run::RunUIStressActions()
                 ApplyUISolverObjectCounts( makeSceneGeneratedControlContext(), balls, boxes ) );
         }
     }
+    UIStressActionContext actionContext{ m_UI,
+                                         m_runtimeSettings,
+                                         m_renderBackendView,
+                                         m_debug,
+                                         SceneState(),
+                                         m_timers,
+                                         m_simulation,
+                                         m_sceneController,
+                                         m_cWorldEnvironment,
+                                         m_replayRuntime };
     const int actionCount = StressHarness::ActionCount( stress );
     for ( int i = 0; i < actionCount; ++i )
     {
-        switch ( StressHarness::NextAction( stress ) )
-        {
-        case 0:
-            m_UI.SetActiveTab(
-                static_cast<InGameUITab>( StressHarness::NextInt( stress, static_cast<int>( InGameUITab::Count ) ) ) );
-            break;
-        case 1:
-            m_UI.SetScrollY( StressHarness::NextFloat( stress, 0.0f, 900.0f ) );
-            break;
-        case 2:
-            // Keep the PRNG sequence stable while leaving backdrop blur to validate_ui.bat.
-            // Stress runs churn control state; blur's DX12 readback path has its own pixel gate.
-            (void)StressHarness::NextInt( stress, 2 );
-            break;
-        case 3:
-            m_UI.SetProfilerTimelineEnabled( StressHarness::NextInt( stress, 2 ) != 0 );
-            break;
-        case 4:
-            m_UI.SetPerformanceHistogramEnabled( StressHarness::NextInt( stress, 2 ) != 0 );
-            break;
-        case 5:
-            m_UI.SetRendererComboOpen( StressHarness::NextInt( stress, 2 ) != 0 );
-            break;
-        case 6:
-            m_UI.SetWaterComboOpen( StressHarness::NextInt( stress, 2 ) != 0 );
-            break;
-        case 7:
-            m_UI.SetSceneComboOpen( StressHarness::NextInt( stress, 2 ) != 0 );
-            break;
-        case 8:
-            m_runtimeSettings.isVsyncEnabled = !m_runtimeSettings.isVsyncEnabled;
-            if ( m_renderBackendView.deviceLifecycle )
-            {
-                m_renderBackendView.deviceLifecycle->SetVsyncEnabled( m_runtimeSettings.isVsyncEnabled );
-            }
-            break;
-        case 9:
-            if ( allowRuntimeChurn )
-            {
-                m_debug.isCollisionVisualizer = !m_debug.isCollisionVisualizer;
-            }
-            break;
-        case 10:
-        {
-            static const uint32_t kFlags[] = { PHYSICS_DEBUG_AXES,
-                                               PHYSICS_DEBUG_CONTACTS,
-                                               PHYSICS_DEBUG_SLEEP,
-                                               PHYSICS_DEBUG_ALL };
-            const int flagIndex = StressHarness::NextInt( stress, 4 );
-            if ( allowRuntimeChurn )
-            {
-                m_debug.physicsDebugFlags = kFlags[flagIndex];
-            }
-            break;
-        }
-        case 11:
-            if ( allowRuntimeChurn )
-            {
-                m_debug.isPhysicsDebugTransparent = !m_debug.isPhysicsDebugTransparent;
-            }
-            break;
-        case 12:
-            if ( allowRuntimeChurn )
-            {
-                m_debug.isBroadphaseOverlay = !m_debug.isBroadphaseOverlay;
-            }
-            break;
-        case 13:
-            if ( allowRuntimeChurn )
-            {
-                SceneState().isFixedStep = !SceneState().isFixedStep;
-                m_simulation.Reset();
-            }
-            break;
-        case 14:
-            if ( allowRuntimeChurn )
-            {
-                m_debug.isTerrainHidden = !m_debug.isTerrainHidden;
-            }
-            break;
-        case 15:
-            if ( allowRuntimeChurn )
-            {
-                m_debug.isWaterHidden = !m_debug.isWaterHidden;
-            }
-            break;
-        case 16:
-            if ( allowRuntimeChurn )
-            {
-                m_debug.isWaterFreezeDebug = !m_debug.isWaterFreezeDebug;
-                if ( m_debug.isWaterFreezeDebug )
-                {
-                    m_debug.frozenWaterTime = static_cast<float>( m_timers.simulationTimer.GetTimeSinceLastStart() );
-                }
-            }
-            break;
-        case 17:
-            if ( allowRuntimeChurn )
-            {
-                m_debug.isWaterFlatDebug = !m_debug.isWaterFlatDebug;
-            }
-            break;
-        case 18:
-        {
-            const int mode = StressHarness::NextInt( stress, 3 );
-            if ( allowRuntimeChurn )
-            {
-                m_debug.isWaterRTReflect = mode == 1;
-                m_debug.isWaterNoReflect = mode == 2;
-            }
-            break;
-        }
-        case 19:
-        {
-            const float timeScale = StressHarness::NextFloat( stress, 0.10f, 4.00f );
-            if ( allowRuntimeChurn )
-            {
-                // Concept: Scene-tab churn goes through the scene controller so
-                // reset preservation and generated-scene rebuilds see one owner.
-                m_sceneController.UIOverrides().timeScaleOverride = timeScale;
-                SceneState().timeScale = m_sceneController.UIOverrides().timeScaleOverride;
-                m_simulation.Reset();
-            }
-            break;
-        }
-        case 20:
-        {
-            const float alpha = StressHarness::NextFloat( stress, 0.05f, 1.00f );
-            if ( allowRuntimeChurn )
-            {
-                m_debug.physicsDebugAlpha = alpha;
-            }
-            break;
-        }
-        case 21:
-        {
-            const float contactLinger = StressHarness::NextFloat( stress, 0.00f, 5.00f );
-            if ( allowRuntimeChurn )
-            {
-                m_debug.physicsDebugContactLinger = contactLinger;
-            }
-            break;
-        }
-        case 22:
-        {
-            const float gravity = -StressHarness::NextFloat( stress, 0.0f, 80.0f );
-            const float fluidHeight = StressHarness::NextFloat( stress, -40.0f, 140.0f );
-            const float fluidDensity = StressHarness::NextFloat( stress, 0.0f, 5.0f );
-            if ( allowRuntimeChurn )
-            {
-                ApplyUIWorldOverride( m_cWorldEnvironment, m_replayRuntime, gravity, fluidHeight, fluidDensity );
-            }
-            break;
-        }
-        case 23:
-            m_UI.SetActiveTab(
-                static_cast<InGameUITab>( StressHarness::NextInt( stress, static_cast<int>( InGameUITab::Count ) ) ) );
-            break;
-        default:
-            break;
-        }
+        ApplyUIStressAction( actionContext, stress, allowRuntimeChurn );
     }
 }
 
