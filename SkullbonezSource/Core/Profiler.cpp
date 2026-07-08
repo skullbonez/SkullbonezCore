@@ -16,10 +16,11 @@ Glossary:
     perf CSV rows while a scene/pass settles.
   Validation gate: Repository script that proves a class of changes before
   commit or PR.
+  Lane F: Fatal invariant path for should-never-happen engine state.
 
 Invariants:
-  - Marker identity is the full path plus hash; hash collisions abort because
-    merged timings would corrupt diagnostics.
+  - Marker identity is the full path plus hash; hash collisions are Lane F
+    failures because merged timings would corrupt diagnostics.
   - Begin/end nesting must balance before frame end for both CPU and GPU marker
     rings.
 
@@ -29,7 +30,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "Profiler.h"
-#include "Log.h"
+#include "FatalError.h"
 #include "../Rendering/IRenderDiagnostics.h"
 #include "WorkerPool.h"
 
@@ -38,7 +39,6 @@ Related:
 #include <algorithm>
 #include <cfloat>
 #include <cstring>
-#include <cstdlib>
 #include <cstdio>
 #include <mutex>
 #include "PlatformProfiler.h"
@@ -114,28 +114,26 @@ Profiler::Profiler()
 
 void Profiler::AbortMismatch( const char* msg, const char* details ) const
 {
+    const char* safeMessage = msg ? msg : "profiler invariant failed";
+    const char* safeDetails = details ? details : "";
     char buf[512];
-    if ( details )
+    if ( safeDetails[0] != '\0' )
     {
-        _snprintf_s( buf, sizeof( buf ), _TRUNCATE, "PROFILER: %s [%s]\n", msg, details );
+        _snprintf_s( buf, sizeof( buf ), _TRUNCATE, "PROFILER: %s [%s]\n", safeMessage, safeDetails );
     }
     else
     {
-        _snprintf_s( buf, sizeof( buf ), _TRUNCATE, "PROFILER: %s\n", msg );
+        _snprintf_s( buf, sizeof( buf ), _TRUNCATE, "PROFILER: %s\n", safeMessage );
     }
     OutputDebugStringA( buf );
-    // Hazard: CRT abort dialogs do not preserve OutputDebugString text for a
-    // later morning read. Flush the same reason into the debug event log before
-    // intentionally handing control to the debugger/CRT.
-    fprintf( stderr, "%s", buf );
-    fflush( stderr );
-    Log().WriteEventf( "profiler_abort message=\"%s\" details=\"%s\"", msg ? msg : "", details ? details : "" );
-    Log().FlushAll();
-    if ( IsDebuggerPresent() )
+    // Hazard: marker hash collisions and begin/end mismatches corrupt the
+    // profiler's nesting stack. Treat them as Lane F engine invariants so the
+    // fatal path owns stderr logging, event-log flushing, and termination.
+    if ( safeDetails[0] != '\0' )
     {
-        __debugbreak();
+        SB_FATAL( "Core/Profiler", "%s [%s]", safeMessage, safeDetails );
     }
-    std::abort();
+    SB_FATAL( "Core/Profiler", "%s", safeMessage );
 }
 
 

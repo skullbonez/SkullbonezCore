@@ -1,7 +1,7 @@
 # 12 — Ambient Singletons: Log / Profiler
 
 Date: 2026-07-08
-Status: Proposed
+Status: Done
 Priority: P3
 Owner: Core
 Source issue: audit iss-13 (severity 2)
@@ -41,7 +41,7 @@ dangle.
 - [x] **Phase 1 — Inject the physics diagnostics sink.** The byte-exact CSV
   output becomes an explicit sink passed into the physics step, not an ambient
   global — improves testability and makes the determinism-relevant IO explicit.
-- [ ] **Phase 2 — Make the profiler pointer safe.** Rebind
+- [x] **Phase 2 — Make the profiler pointer safe.** Rebind
   `m_renderDiagnostics` on backend recreation (or hold it through the owner);
   replace the `std::abort()` on hash mismatch with `SB_FATAL` (ties to plan 04).
 
@@ -156,8 +156,27 @@ byte-exact gated.
   had 0 warnings and 0 errors, DX12 InfoQueue reported 0 validation errors,
   DX12 screenshots matched committed baselines, and
   `physics_regression_solver.csv` matched byte-exactly at 20001 lines.
-- [ ] **2.2** Replace the `std::abort()` on hash / begin-end mismatch with
+- [x] **2.2** Replace the `std::abort()` on hash / begin-end mismatch with
   `SB_FATAL(owner, ...)` (aligns with plan 04). Gate: `validate_full`. Commit.
+
+  Completion note (2026-07-08): `Profiler::AbortMismatch` is still the single
+  hash/nesting mismatch funnel, but it now reports through
+  `SB_FATAL("Core/Profiler", ...)` instead of calling `std::abort()` directly.
+  `Profiler.cpp` no longer includes `Log.h` or reaches `Log()` for this fatal
+  path; `FatalError` owns stderr/event-log flushing and process termination.
+
+  Comment audit: `Core\Profiler.cpp` was inspected against
+  `Agentic\Skills\comment-style-audit\skill.md` and
+  `Agentic\Reference\comment-style-guide.md`. The file already had a learning
+  header; it now names Lane F in the glossary and keeps a nearby `Hazard:`
+  comment at the profiler mismatch invariant. Deferred count: 0.
+
+  Validation note: `tools\validate_full.bat` passed in 52.3s
+  (`Agentic\Logs\cleanup-12-step-2.2-validate-full.log`): project filters and
+  runtime boundaries passed, Profile/Debug builds had 0 warnings and 0 errors,
+  DX12 InfoQueue reported 0 validation errors, DX12 screenshots matched
+  committed baselines, and `physics_regression_solver.csv` matched byte-exactly
+  at 20001 lines.
 
 ## Validation
 
@@ -169,6 +188,6 @@ change (byte-exact).
 - [x] `Common.h` no longer force-includes `Log.h`; consumers include it
   explicitly.
 - [x] The physics diagnostics sink is passed in, not reached via a global.
-- [ ] The profiler's borrowed `IRenderDiagnostics*` cannot be used after backend
+- [x] The profiler's borrowed `IRenderDiagnostics*` cannot be used after backend
   recreation; process-abort is replaced by `SB_FATAL`.
 - [x] `tools\validate_physics.bat` byte-exact output unchanged.
