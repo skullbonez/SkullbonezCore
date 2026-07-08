@@ -278,6 +278,222 @@ void ApplyUIStressAction( UIStressActionContext& context, UIStressState& stress,
 }
 
 
+// Concept: Graphics stress mutates a wider slice of runtime state than UI
+// stress. The context keeps those owners named at the extraction boundary while
+// Run stays the frame coordinator.
+struct GraphicsStressActionContext
+{
+    RunLaunchOptions& launchOptions;
+    EngineConfig& config;
+    RunRuntimeSettings& runtimeSettings;
+    RunDebugState& debug;
+    RunSceneState& scene;
+    RunTimerState& timers;
+    RunCameraState& camera;
+    SkullbonezCore::UI::InGameUI& ui;
+    SceneController& sceneController;
+    const SkullbonezCore::Assets::AssetSystem& assets;
+    CinematicRenderConfig& defaultCinematicRender;
+    SimulationSystem& simulation;
+    RuntimeTools& runtimeTools;
+    SkullbonezCore::Environment::WorldEnvironment& world;
+    ReplayRuntime& replayRuntime;
+    SkullbonezCore::GameObjects::GameModelCollection& models;
+};
+
+
+SceneRuntimeStyleContext BuildGraphicsStressStyleContext( GraphicsStressActionContext& context )
+{
+    return SceneRuntimeStyleContext{ context.launchOptions,
+                                     context.scene,
+                                     context.sceneController.Browser(),
+                                     context.models,
+                                     context.assets,
+                                     RuntimeActiveCinematicConfig( context.scene, context.config ),
+                                     context.defaultCinematicRender };
+}
+
+
+void ApplyGraphicsStressAction( GraphicsStressActionContext& context, GraphicsStressController& stress )
+{
+    switch ( stress.NextAction() )
+    {
+    case 0:
+    {
+        CinematicRenderConfig& cinematic = RuntimeActiveCinematicConfig( context.scene, context.config );
+        cinematic.enabled = !cinematic.enabled;
+        context.launchOptions.hasCinematicRenderingOverride = false;
+        if ( context.scene.isSceneMode )
+        {
+            context.scene.hasCinematicRenderingOverride = true;
+            context.scene.isCinematicRenderingEnabled = cinematic.enabled;
+            context.scene.cinematicOverrideMask |= SCENE_CINE_RENDERING;
+            context.scene.uiCinematicOverrideMask |= SCENE_CINE_RENDERING;
+        }
+        break;
+    }
+    case 1:
+    {
+        CinematicRenderConfig& cinematic = RuntimeActiveCinematicConfig( context.scene, context.config );
+        const UICinematicFeature feature =
+            static_cast<UICinematicFeature>( stress.NextInt( static_cast<int>( UICinematicFeature::Count ) ) );
+        if ( feature == UICinematicFeature::Shadows )
+        {
+            context.launchOptions.hasCinematicShadowsOverride = false;
+        }
+        ToggleCinematicUIFeature( cinematic, context.scene, feature );
+        break;
+    }
+    case 2:
+    {
+        CinematicRenderConfig& cinematic = RuntimeActiveCinematicConfig( context.scene, context.config );
+        const UICinematicParam param =
+            static_cast<UICinematicParam>( stress.NextInt( static_cast<int>( UICinematicParam::Count ) ) );
+        ApplyCinematicUIParam( cinematic, context.scene, param, stress.RandomCinematicParamValue( param ) );
+        break;
+    }
+    case 3:
+    {
+        const int browserCount = static_cast<int>( context.sceneController.Browser().paths.size() );
+        const int browserIndex = ( browserCount > 0 && stress.NextInt( 5 ) != 0 ) ? stress.NextInt( browserCount ) : -1;
+        (void)ApplyCinematicModeFromBrowserIndex( BuildGraphicsStressStyleContext( context ), browserIndex );
+        break;
+    }
+    case 4:
+        context.runtimeSettings.isVsyncEnabled = !context.runtimeSettings.isVsyncEnabled;
+        break;
+    case 5:
+        context.runtimeSettings.isPipelineSyncEnabled = !context.runtimeSettings.isPipelineSyncEnabled;
+        break;
+    case 6:
+        context.debug.isTerrainHidden = !context.debug.isTerrainHidden;
+        break;
+    case 7:
+        context.debug.isWaterHidden = !context.debug.isWaterHidden;
+        break;
+    case 8:
+        context.debug.isWaterFreezeDebug = !context.debug.isWaterFreezeDebug;
+        if ( context.debug.isWaterFreezeDebug )
+        {
+            context.debug.frozenWaterTime =
+                static_cast<float>( context.timers.simulationTimer.GetTimeSinceLastStart() );
+        }
+        break;
+    case 9:
+        context.debug.isWaterFlatDebug = !context.debug.isWaterFlatDebug;
+        break;
+    case 10:
+    {
+        const int mode = stress.NextInt( 3 );
+        context.debug.isWaterRTReflect = mode == 1;
+        context.debug.isWaterNoReflect = mode == 2;
+        break;
+    }
+    case 11:
+        context.debug.isCollisionVisualizer = !context.debug.isCollisionVisualizer;
+        break;
+    case 12:
+        context.debug.isBroadphaseOverlay = !context.debug.isBroadphaseOverlay;
+        break;
+    case 13:
+    {
+        static const uint32_t kFlags[] = {
+            PHYSICS_DEBUG_NONE,
+            PHYSICS_DEBUG_AXES,
+            PHYSICS_DEBUG_CONTACTS,
+            PHYSICS_DEBUG_SLEEP,
+            PHYSICS_DEBUG_ALL,
+        };
+        context.debug.physicsDebugFlags =
+            kFlags[stress.NextInt( static_cast<int>( sizeof( kFlags ) / sizeof( kFlags[0] ) ) )];
+        break;
+    }
+    case 14:
+        context.debug.isPhysicsDebugTransparent = !context.debug.isPhysicsDebugTransparent;
+        context.debug.physicsDebugAlpha = stress.NextFloat( 0.05f, 1.0f );
+        context.debug.physicsDebugContactLinger = stress.NextFloat( 0.0f, 5.0f );
+        break;
+    case 15:
+    {
+        const float timeScale = stress.NextFloat( 0.05f, 4.0f );
+        context.sceneController.UIOverrides().timeScaleOverride = timeScale;
+        context.scene.timeScale = timeScale;
+        context.simulation.Reset();
+        break;
+    }
+    case 16:
+        ApplyUIWorldOverride( context.world,
+                              context.replayRuntime,
+                              -stress.NextFloat( 0.0f, 80.0f ),
+                              stress.NextFloat( -80.0f, 160.0f ),
+                              stress.NextFloat( 0.0f, 5.0f ) );
+        break;
+    case 17:
+        context.sceneController.UIOverrides().modelCountOverride = 32 + stress.NextInt( 512 );
+        break;
+    case 18:
+        context.launchOptions.generatedObjectTypeOverride =
+            static_cast<GeneratedObjectTypeOverride>( stress.NextInt( 3 ) );
+        break;
+    case 19:
+        context.runtimeSettings.tornadoField.enabled = stress.NextInt( 2 ) != 0;
+        context.runtimeSettings.tornadoField.visualizeVelocityField = stress.NextInt( 2 ) != 0;
+        context.runtimeSettings.tornadoVisual.enabled = stress.NextInt( 2 ) != 0;
+        SyncTornadoRuntimeSettingsToPhysics( context.models, context.runtimeSettings );
+        break;
+    case 20:
+        context.runtimeSettings.tornadoVisual.shellAlpha = stress.NextFloat( 0.02f, 0.40f );
+        context.runtimeSettings.tornadoVisual.dustAlpha = stress.NextFloat( 0.02f, 0.55f );
+        context.runtimeSettings.tornadoVisual.ribbonWidth = stress.NextFloat( 1.0f, 12.0f );
+        context.runtimeSettings.tornadoVisual.ribbonCount = 1 + stress.NextInt( 10 );
+        context.runtimeSettings.tornadoVisual.particleCount = 16 + stress.NextInt( 240 );
+        break;
+    case 21:
+        context.ui.SetActiveTab( static_cast<InGameUITab>( stress.NextInt( static_cast<int>( InGameUITab::Count ) ) ) );
+        context.ui.SetScrollY( stress.NextFloat( 0.0f, 1200.0f ) );
+        break;
+    case 22:
+        context.scene.isFixedStep = !context.scene.isFixedStep;
+        context.simulation.Reset();
+        break;
+    case 23:
+        context.runtimeSettings.isPhysicsSleepEnabled = !context.runtimeSettings.isPhysicsSleepEnabled;
+        context.models.SetPhysicsSleepEnabled( context.runtimeSettings.isPhysicsSleepEnabled );
+        break;
+    case 24:
+        context.debug.isTopTextHidden = !context.debug.isTopTextHidden;
+        break;
+    case 25:
+        context.debug.overlayMode = static_cast<OverlayMode>( stress.NextInt( 6 ) );
+        break;
+    case 26:
+        context.runtimeTools.Laser().Update( 0.0f );
+        break;
+    case 27:
+        context.camera.trackHeight = stress.NextFloat( 8.0f, 500.0f );
+        break;
+    case 28:
+        context.launchOptions.generatedObjectTypeOverride =
+            static_cast<GeneratedObjectTypeOverride>( stress.NextInt( 3 ) );
+        break;
+    case 29:
+        context.ui.SetProfilerTimelineEnabled( stress.NextInt( 2 ) != 0 );
+        context.ui.SetPerformanceHistogramEnabled( stress.NextInt( 2 ) != 0 );
+        break;
+    case 30:
+        context.ui.SetRendererComboOpen( stress.NextInt( 2 ) != 0 );
+        context.ui.SetWaterComboOpen( stress.NextInt( 2 ) != 0 );
+        context.ui.SetSceneComboOpen( stress.NextInt( 2 ) != 0 );
+        break;
+    case 31:
+        context.debug.isUITestPattern = stress.NextInt( 2 ) != 0;
+        break;
+    default:
+        break;
+    }
+}
+
+
 } // namespace
 
 
@@ -703,195 +919,29 @@ void Run::RunGraphicsStressActions( const Rendering::IRenderDiagnostics& renderD
     SceneState().isInteractiveRun = true;
     SceneState().isExitOnComplete = false;
 
+    GraphicsStressActionContext actionContext{ m_launchOptions,
+                                               m_config,
+                                               m_runtimeSettings,
+                                               m_debug,
+                                               SceneState(),
+                                               m_timers,
+                                               m_camera,
+                                               m_UI,
+                                               m_sceneController,
+                                               m_systems.assets,
+                                               m_defaultCinematicRender,
+                                               m_simulation,
+                                               m_runtimeTools,
+                                               m_cWorldEnvironment,
+                                               m_replayRuntime,
+                                               m_cGameModelCollection };
     const int actionCount = stress.ActionCount();
     // Invariant: random values stay inside the same broad ranges exposed by the
     // runtime UI. The stress test should crash bad DX12 lifetime/state tracking,
     // not manufacture impossible physics or render data.
     for ( int i = 0; i < actionCount; ++i )
     {
-        switch ( stress.NextAction() )
-        {
-        case 0:
-        {
-            CinematicRenderConfig& cinematic = RuntimeActiveCinematicConfig( SceneState(), m_config );
-            cinematic.enabled = !cinematic.enabled;
-            m_launchOptions.hasCinematicRenderingOverride = false;
-            if ( SceneState().isSceneMode )
-            {
-                SceneState().hasCinematicRenderingOverride = true;
-                SceneState().isCinematicRenderingEnabled = cinematic.enabled;
-                SceneState().cinematicOverrideMask |= SCENE_CINE_RENDERING;
-                SceneState().uiCinematicOverrideMask |= SCENE_CINE_RENDERING;
-            }
-            break;
-        }
-        case 1:
-        {
-            CinematicRenderConfig& cinematic = RuntimeActiveCinematicConfig( SceneState(), m_config );
-            const UICinematicFeature feature =
-                static_cast<UICinematicFeature>( stress.NextInt( static_cast<int>( UICinematicFeature::Count ) ) );
-            if ( feature == UICinematicFeature::Shadows )
-            {
-                m_launchOptions.hasCinematicShadowsOverride = false;
-            }
-            ToggleCinematicUIFeature( cinematic, SceneState(), feature );
-            break;
-        }
-        case 2:
-        {
-            CinematicRenderConfig& cinematic = RuntimeActiveCinematicConfig( SceneState(), m_config );
-            const UICinematicParam param =
-                static_cast<UICinematicParam>( stress.NextInt( static_cast<int>( UICinematicParam::Count ) ) );
-            ApplyCinematicUIParam( cinematic, SceneState(), param, stress.RandomCinematicParamValue( param ) );
-            break;
-        }
-        case 3:
-        {
-            const int browserCount = static_cast<int>( m_sceneController.Browser().paths.size() );
-            const int browserIndex =
-                ( browserCount > 0 && stress.NextInt( 5 ) != 0 ) ? stress.NextInt( browserCount ) : -1;
-            (void)ApplyCinematicModeFromBrowserIndex(
-                SceneRuntimeStyleContext{ m_launchOptions,
-                                          SceneState(),
-                                          m_sceneController.Browser(),
-                                          m_cGameModelCollection,
-                                          m_systems.assets,
-                                          RuntimeActiveCinematicConfig( SceneState(), m_config ),
-                                          m_defaultCinematicRender },
-                browserIndex );
-            break;
-        }
-        case 4:
-            m_runtimeSettings.isVsyncEnabled = !m_runtimeSettings.isVsyncEnabled;
-            break;
-        case 5:
-            m_runtimeSettings.isPipelineSyncEnabled = !m_runtimeSettings.isPipelineSyncEnabled;
-            break;
-        case 6:
-            m_debug.isTerrainHidden = !m_debug.isTerrainHidden;
-            break;
-        case 7:
-            m_debug.isWaterHidden = !m_debug.isWaterHidden;
-            break;
-        case 8:
-            m_debug.isWaterFreezeDebug = !m_debug.isWaterFreezeDebug;
-            if ( m_debug.isWaterFreezeDebug )
-            {
-                m_debug.frozenWaterTime = static_cast<float>( m_timers.simulationTimer.GetTimeSinceLastStart() );
-            }
-            break;
-        case 9:
-            m_debug.isWaterFlatDebug = !m_debug.isWaterFlatDebug;
-            break;
-        case 10:
-        {
-            const int mode = stress.NextInt( 3 );
-            m_debug.isWaterRTReflect = mode == 1;
-            m_debug.isWaterNoReflect = mode == 2;
-            break;
-        }
-        case 11:
-            m_debug.isCollisionVisualizer = !m_debug.isCollisionVisualizer;
-            break;
-        case 12:
-            m_debug.isBroadphaseOverlay = !m_debug.isBroadphaseOverlay;
-            break;
-        case 13:
-        {
-            static const uint32_t kFlags[] = {
-                PHYSICS_DEBUG_NONE,
-                PHYSICS_DEBUG_AXES,
-                PHYSICS_DEBUG_CONTACTS,
-                PHYSICS_DEBUG_SLEEP,
-                PHYSICS_DEBUG_ALL,
-            };
-            m_debug.physicsDebugFlags =
-                kFlags[stress.NextInt( static_cast<int>( sizeof( kFlags ) / sizeof( kFlags[0] ) ) )];
-            break;
-        }
-        case 14:
-            m_debug.isPhysicsDebugTransparent = !m_debug.isPhysicsDebugTransparent;
-            m_debug.physicsDebugAlpha = stress.NextFloat( 0.05f, 1.0f );
-            m_debug.physicsDebugContactLinger = stress.NextFloat( 0.0f, 5.0f );
-            break;
-        case 15:
-        {
-            const float timeScale = stress.NextFloat( 0.05f, 4.0f );
-            m_sceneController.UIOverrides().timeScaleOverride = timeScale;
-            SceneState().timeScale = timeScale;
-            m_simulation.Reset();
-            break;
-        }
-        case 16:
-            ApplyUIWorldOverride( m_cWorldEnvironment,
-                                  m_replayRuntime,
-                                  -stress.NextFloat( 0.0f, 80.0f ),
-                                  stress.NextFloat( -80.0f, 160.0f ),
-                                  stress.NextFloat( 0.0f, 5.0f ) );
-            break;
-        case 17:
-            m_sceneController.UIOverrides().modelCountOverride = 32 + stress.NextInt( 512 );
-            break;
-        case 18:
-            m_launchOptions.generatedObjectTypeOverride =
-                static_cast<GeneratedObjectTypeOverride>( stress.NextInt( 3 ) );
-            break;
-        case 19:
-            m_runtimeSettings.tornadoField.enabled = stress.NextInt( 2 ) != 0;
-            m_runtimeSettings.tornadoField.visualizeVelocityField = stress.NextInt( 2 ) != 0;
-            m_runtimeSettings.tornadoVisual.enabled = stress.NextInt( 2 ) != 0;
-            SyncTornadoRuntimeSettingsToPhysics( m_cGameModelCollection, m_runtimeSettings );
-            break;
-        case 20:
-            m_runtimeSettings.tornadoVisual.shellAlpha = stress.NextFloat( 0.02f, 0.40f );
-            m_runtimeSettings.tornadoVisual.dustAlpha = stress.NextFloat( 0.02f, 0.55f );
-            m_runtimeSettings.tornadoVisual.ribbonWidth = stress.NextFloat( 1.0f, 12.0f );
-            m_runtimeSettings.tornadoVisual.ribbonCount = 1 + stress.NextInt( 10 );
-            m_runtimeSettings.tornadoVisual.particleCount = 16 + stress.NextInt( 240 );
-            break;
-        case 21:
-            m_UI.SetActiveTab( static_cast<InGameUITab>( stress.NextInt( static_cast<int>( InGameUITab::Count ) ) ) );
-            m_UI.SetScrollY( stress.NextFloat( 0.0f, 1200.0f ) );
-            break;
-        case 22:
-            SceneState().isFixedStep = !SceneState().isFixedStep;
-            m_simulation.Reset();
-            break;
-        case 23:
-            m_runtimeSettings.isPhysicsSleepEnabled = !m_runtimeSettings.isPhysicsSleepEnabled;
-            m_cGameModelCollection.SetPhysicsSleepEnabled( m_runtimeSettings.isPhysicsSleepEnabled );
-            break;
-        case 24:
-            m_debug.isTopTextHidden = !m_debug.isTopTextHidden;
-            break;
-        case 25:
-            m_debug.overlayMode = static_cast<OverlayMode>( stress.NextInt( 6 ) );
-            break;
-        case 26:
-            m_runtimeTools.Laser().Update( 0.0f );
-            break;
-        case 27:
-            m_camera.trackHeight = stress.NextFloat( 8.0f, 500.0f );
-            break;
-        case 28:
-            m_launchOptions.generatedObjectTypeOverride =
-                static_cast<GeneratedObjectTypeOverride>( stress.NextInt( 3 ) );
-            break;
-        case 29:
-            m_UI.SetProfilerTimelineEnabled( stress.NextInt( 2 ) != 0 );
-            m_UI.SetPerformanceHistogramEnabled( stress.NextInt( 2 ) != 0 );
-            break;
-        case 30:
-            m_UI.SetRendererComboOpen( stress.NextInt( 2 ) != 0 );
-            m_UI.SetWaterComboOpen( stress.NextInt( 2 ) != 0 );
-            m_UI.SetSceneComboOpen( stress.NextInt( 2 ) != 0 );
-            break;
-        case 31:
-            m_debug.isUITestPattern = stress.NextInt( 2 ) != 0;
-            break;
-        default:
-            break;
-        }
+        ApplyGraphicsStressAction( actionContext, stress );
     }
 
     if ( stress.ShouldPrintFrameSummary() )

@@ -1304,6 +1304,27 @@ every step. Commit per step.
     (9.3s), and
     `TestOutput\agent_logs\plan01_ui_stress_split_runtime_boundaries.log`
     (17.7s). The touched-file comment audit covered `RunStress.cpp`.
+  - [x] Graphics stress action split moved the deterministic render/runtime
+    stress switch into source-local `ApplyGraphicsStressAction()` with explicit
+    owner references. `Run::RunGraphicsStressActions()` dropped from 365
+    measured lines to 199 measured lines without adding public or private `Run`
+    methods. The remaining measured large `Run::` targets are
+    `RestoreReplayV2ArtifactTargetState` (946),
+    `TickInteractionAutomationBeforeInput` (578), `TickReplaySaveProbe` (311),
+    `Execute` (278), `TickInteractionAutomationAfterRender` (258), `TakeInput`
+    (201), and `WriteInteractionAutomationReport` (197), so Phase 3 and the
+    structural acceptance rows remain open. Gate evidence:
+    `TestOutput\agent_logs\plan01_graphics_stress_split_validate_full.log`
+    (54.5s; project filters/runtime boundaries passed, Profile/Debug builds
+    had 0 warnings and 0 errors, DX12 InfoQueue errors = 0, screenshots
+    matched baselines, and `physics_regression_solver.csv` matched
+    byte-exactly). Targeted pre-gate checks also passed:
+    `TestOutput\agent_logs\plan01_graphics_stress_split_build_profile.log`
+    (6.2s),
+    `TestOutput\agent_logs\plan01_graphics_stress_split_validate_format_final.log`
+    (9.2s), and
+    `TestOutput\agent_logs\plan01_graphics_stress_split_runtime_boundaries.log`
+    (17.6s). The touched-file comment audit covered `RunStress.cpp`.
 
 ## Validation
 
