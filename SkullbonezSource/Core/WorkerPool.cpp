@@ -219,6 +219,16 @@ std::vector<WorkerChunkRange> WorkerPool::MakeChunks( int begin, int end, int mi
 }
 
 
+int WorkerPool::BuildChunkRangesNoAlloc( int begin,
+                                         int end,
+                                         int minParallelItems,
+                                         WorkerChunkRange* outChunks,
+                                         int outCapacity ) const
+{
+    return BuildChunks( begin, end, minParallelItems, outChunks, outCapacity );
+}
+
+
 int WorkerPool::BuildChunks( int begin,
                              int end,
                              int minParallelItems,

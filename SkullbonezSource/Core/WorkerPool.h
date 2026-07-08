@@ -63,6 +63,7 @@ class WorkerPool
     using Task = std::function<void()>;
     using IndexFunction = std::function<void( int )>;
     using ChunkFunction = std::function<void( int chunkIndex, int begin, int end )>;
+    static constexpr int MAX_PARALLEL_TASKS = 256;
 
     WorkerPool();
     ~WorkerPool();
@@ -91,6 +92,14 @@ class WorkerPool
     template <typename ChunkFunctionT>
     void ParallelForChunksNoAlloc( const WorkerChunkRange* chunks, int chunkCount, ChunkFunctionT&& fn );
     std::vector<WorkerChunkRange> MakeChunks( int begin, int end, int minParallelItems = 0 ) const;
+    // Returns deterministic chunk ranges in caller-owned storage. Use this for
+    // hot-path two-pass jobs that need prefix sums or fixed scratch before
+    // calling ParallelForChunksNoAlloc().
+    int BuildChunkRangesNoAlloc( int begin,
+                                 int end,
+                                 int minParallelItems,
+                                 WorkerChunkRange* outChunks,
+                                 int outCapacity ) const;
 
     int GetThreadCount() const;
     int GetMinParallelItems() const;
@@ -136,7 +145,7 @@ class WorkerPool
         WorkerChunkRange chunk;
     };
 
-    static constexpr int WORKER_PARALLEL_TASK_CAPACITY = 256;
+    static constexpr int WORKER_PARALLEL_TASK_CAPACITY = MAX_PARALLEL_TASKS;
 
     template <typename ChunkFunctionT> struct ParallelForChunksState
     {

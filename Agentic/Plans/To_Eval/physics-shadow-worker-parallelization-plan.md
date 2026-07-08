@@ -1,6 +1,7 @@
 # Physics And Shadow Worker Parallelization Plan
 
-Status: implemented with worker dispatch enabled by default and profiler-visible
+Status: implemented; physics worker dispatch enabled by default, shadow prep
+available through the `shadow_parallel_prep` opt-in and profiler-visible
 Created: 2026-06-17
 Scope: worker-system first-use jobs, deterministic physics parallelization, CPU-side shadow-map preparation, renderer stretch goals
 
@@ -76,6 +77,49 @@ behind compile-time deferrals.
 - Current acceptance prioritizes deterministic, controllable, profiler-visible
   worker execution over immediate speedup in every tested scene. Remaining
   same-machine regressions are tracked as follow-up optimization work.
+
+## Shadow Prep Completion Update: 2026-07-08
+
+The shadow-prep worker branch is no longer hard-disabled. The committed default
+remains conservative (`shadow_parallel_prep = 0`) because the 2026-06-17 probes
+did not prove a same-machine win for every scene, but the CLI/config toggle now
+selects a real worker path instead of dead code.
+
+- `GameModelRenderer::BuildShadowCasterBatches()` now uses a bounded two-pass
+  worker build when `shadow_parallel_prep` is enabled: workers count caster
+  stream membership by chunk, the main thread computes deterministic prefix
+  offsets, then workers fill pre-sized sphere/box/pine/convex-hull streams.
+- Object-shadow bounds use the same caller-owned chunk ranges and fixed stack
+  accumulators, so the opt-in path no longer allocates a temporary
+  `std::vector` for chunk outputs during the frame.
+- `WorkerPool::BuildChunkRangesNoAlloc()` exposes the existing deterministic
+  chunk partitioning to callers that need prefix sums or fixed scratch before
+  `ParallelForChunksNoAlloc()`.
+- A focused smoke launch exercised the live branch:
+  `Profile\SKULLBONEZ_CORE.exe --scene SkullbonezData\scenes\perf_1000.scene.json --frames 3 --shadows on --shadow-parallel-prep on --workers 2 --vsync off`.
+  The resulting `Profile\perf_1000_log.csv` contained
+  `WorkerBuildBatches`, `WorkerFillBatches`, and `WorkerScanBounds` profiler
+  rows.
+- A focused allocation-guard launch on the same opt-in branch,
+  `Profile\SKULLBONEZ_CORE.exe --renderer dx12 --vsync off --fixed-step --no-contact-audio --allocation-guard gameplay --frames 60 --scene SkullbonezData\scenes\perf_1000.scene.json --shadows on --shadow-parallel-prep on --workers 2`,
+  exited 0 with `gameplay_violations=0` and policy violations 0.
+- A DX12 on/off proof scene isolated shadow prep from animated water by using
+  pipeline sync and `debug.waterHidden=true`. The off/on launches both exited 0:
+  `Profile\SKULLBONEZ_CORE.exe --renderer dx12 --vsync off --fixed-step --scene Agentic\Temp\shadow_parallel_compare_*.scene.json --shadow-parallel-prep off|on --workers 2`.
+  `off_nowater.bmp` and `on_nowater.bmp` were byte-identical
+  (`5143326` bytes, SHA-256
+  `DCE3F4FEA913680F9E22BB72CB40539849E41AEF5D1758ACC0CE93B9DE946B61`).
+  The worker-on perf log emitted the expected opt-in rows:
+  `WorkerBuildBatches`, `WorkerFillBatches`, and `WorkerScanBounds`; the
+  worker-off log did not.
+- Independent rubber-duck review `shadow-prep-duck-01` found no implementation
+  blockers and asked for explicit opt-in visual/marker proof; the no-water DX12
+  comparison above closes that request.
+- Final gate evidence: `tools\validate_fast.bat` passed after a targeted
+  one-file `clang-format` fix, `tools\validate_full.bat` passed with DX12
+  validation errors 0 and byte-exact core physics, and `tools\validate_perf.bat`
+  completed with the allocation guard reporting no steady-gameplay allocation
+  violations.
 
 ## Current Constraints
 
