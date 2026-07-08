@@ -1007,8 +1007,21 @@ void Run::Initialise()
 
     const std::string terrainRawPath =
         ResolveSourceAssetPath( SkullbonezCore::Assets::AssetKind::Terrain, "terrain.raw", cfg.terrainRaw );
-    m_systems.terrain =
-        std::make_unique<Terrain>( terrainRawPath.c_str(), 256, 8, 15, m_config, m_systems.assets, renderResources );
+    std::unique_ptr<Terrain> startupTerrain;
+    const SbResult startupTerrainResult = Terrain::TryCreateFromHeightMap( terrainRawPath.c_str(),
+                                                                           256,
+                                                                           8,
+                                                                           15,
+                                                                           m_config,
+                                                                           m_systems.assets,
+                                                                           renderResources,
+                                                                           startupTerrain );
+    if ( !startupTerrainResult.ok )
+    {
+        m_lastSceneLoadResult = startupTerrainResult;
+        return;
+    }
+    m_systems.terrain = std::move( startupTerrain );
     m_systems.isFlatSlopeTerrain = false;
 
     // Init SkyBox (m_xMin, m_xMax, yMin, yMax, m_zMin, m_zMax)

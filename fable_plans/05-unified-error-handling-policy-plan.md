@@ -1,7 +1,7 @@
 # Unified Error Handling Policy Plan
 
 Date: 2026-07-06
-Status: Phase 1 policy and ratchet complete on 2026-07-07; Phase 2 replay probe conversion/evidence complete on 2026-07-08; SpatialGrid, PhysicsWorld, GameModelCollection pure topology, legacy camera pose-read, append Lane R conversions, scene/style TryLoad entry-boundary conversion, and one direct missing-camera parser throw removal complete; remaining deeper loader/asset and DX12 conversions pending
+Status: Phase 1 policy and ratchet complete on 2026-07-07; Phase 2 replay probe conversion/evidence complete on 2026-07-08; SpatialGrid, PhysicsWorld, GameModelCollection pure topology, legacy camera pose-read, append Lane R conversions, scene/style TryLoad entry-boundary conversion, one direct missing-camera parser throw removal, and Terrain RAW Lane R cleanup complete; remaining deeper loader/asset and DX12 conversions pending
 Impact area: all subsystems, incrementally; policy + mechanical conversion
 Validation for this document: none (documentation-only)
 
@@ -105,9 +105,10 @@ work below.
 
 2026-07-08 entry-boundary note: scene/style loading now has non-throwing
 `TestScene::TryLoadFromFile` and `TryLoadStyleFromFile` entry points, and
-runtime startup/load-only paths return nonzero on failed scene loads. The
-deeper parser throw tokens and Terrain, TextureCollection, AssetSystem, and
-ConvexHullShape loader clusters remain in this phase.
+runtime startup/load-only paths return nonzero on failed scene loads. Terrain
+RAW load failures now return `SbResult`; the deeper parser throw tokens and
+TextureCollection, AssetSystem, and ConvexHullShape loader clusters remain in
+this phase.
 
 ### Phase 5 — DX12 layer
 

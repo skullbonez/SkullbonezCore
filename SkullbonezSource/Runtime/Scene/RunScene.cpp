@@ -361,11 +361,11 @@ void ApplyNoWaterOverride( WorldEnvironment& world, Terrain* terrain, bool noWat
     world.SetFluidSurfaceHeight( terrain->GetMinHeight() - NO_WATER_TERRAIN_CLEARANCE );
 }
 
-void UseDefaultTerrain( RunSubsystemState& systems,
-                        WorldEnvironment& world,
-                        const EngineConfig& config,
-                        const std::string& terrainRawPath,
-                        IRenderBackend* renderer )
+SbResult UseDefaultTerrain( RunSubsystemState& systems,
+                            WorldEnvironment& world,
+                            const EngineConfig& config,
+                            const std::string& terrainRawPath,
+                            IRenderBackend* renderer )
 {
     assert( renderer );
     auto& renderResources = static_cast<SkullbonezCore::Rendering::IRenderResourceFactory&>( *renderer );
@@ -375,8 +375,22 @@ void UseDefaultTerrain( RunSubsystemState& systems,
         {
             renderer->FlushGPU();
         }
-        systems.terrain =
-            std::make_unique<Terrain>( terrainRawPath.c_str(), 256, 8, 15, config, systems.assets, renderResources );
+        std::unique_ptr<Terrain> terrain;
+        const SbResult terrainResult = Terrain::TryCreateFromHeightMap( terrainRawPath.c_str(),
+                                                                        256,
+                                                                        8,
+                                                                        15,
+                                                                        config,
+                                                                        systems.assets,
+                                                                        renderResources,
+                                                                        terrain );
+        if ( !terrainResult.ok )
+        {
+            // Why: RAW terrain is external scene/config input. Report the load
+            // failure before replacing the currently owned terrain.
+            return terrainResult;
+        }
+        systems.terrain = std::move( terrain );
         systems.isFlatSlopeTerrain = false;
     }
     else
@@ -385,6 +399,7 @@ void UseDefaultTerrain( RunSubsystemState& systems,
     }
 
     UpdateWorldTerrainBounds( world, systems.terrain.get() );
+    return SbResult::Success();
 }
 
 void UseFlatSlopeTerrain( RunSubsystemState& systems,
@@ -732,12 +747,18 @@ SbResult Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnCom
         }
         SceneState().rngSeed = rngSeed;
         SceneState().rngState = rngSeed;
-        UseDefaultTerrain(
+        const SbResult terrainResult = UseDefaultTerrain(
             m_systems,
             m_cWorldEnvironment,
             m_config,
             ResolveSourceAssetPath( SkullbonezCore::Assets::AssetKind::Terrain, "terrain.raw", m_config.terrainRaw ),
             m_renderBackendView.renderBackend );
+        if ( !terrainResult.ok )
+        {
+            m_lastSceneLoadResult = terrainResult;
+            LogSceneLoadFailure( terrainResult, scenePath );
+            return m_lastSceneLoadResult;
+        }
         ApplyConfiguredWorldEnvironment( m_cWorldEnvironment, m_config, m_systems.terrain.get() );
         ApplyNoWaterOverride( m_cWorldEnvironment, m_systems.terrain.get(), m_launchOptions.noWater );
         if ( shouldPreserveRuntimeState )
@@ -907,13 +928,20 @@ SbResult Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnCom
         else
         {
             SceneState().hasFlatSlope = false;
-            UseDefaultTerrain( m_systems,
-                               m_cWorldEnvironment,
-                               m_config,
-                               ResolveSourceAssetPath( SkullbonezCore::Assets::AssetKind::Terrain,
-                                                       "terrain.raw",
-                                                       m_config.terrainRaw ),
-                               m_renderBackendView.renderBackend );
+            const SbResult terrainResult =
+                UseDefaultTerrain( m_systems,
+                                   m_cWorldEnvironment,
+                                   m_config,
+                                   ResolveSourceAssetPath( SkullbonezCore::Assets::AssetKind::Terrain,
+                                                           "terrain.raw",
+                                                           m_config.terrainRaw ),
+                                   m_renderBackendView.renderBackend );
+            if ( !terrainResult.ok )
+            {
+                m_lastSceneLoadResult = terrainResult;
+                LogSceneLoadFailure( terrainResult, scenePath );
+                return m_lastSceneLoadResult;
+            }
         }
 
         ApplyConfiguredWorldEnvironment( m_cWorldEnvironment, m_config, m_systems.terrain.get() );

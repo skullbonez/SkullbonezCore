@@ -1,7 +1,7 @@
 # Progress: Unified Error Handling Policy (plan 05)
 
 Source plan: `fable_plans/05-unified-error-handling-policy-plan.md`
-Status: phase 1 complete on 2026-07-07; P2.1-P2.3 replay probe conversion and evidence complete on 2026-07-08; SpatialGrid, PhysicsWorld, GameModelCollection pure topology, legacy camera pose-read conversions, GameModelCollection append Lane R cleanup, the scene/style TryLoad entry boundary, and one direct missing-camera parser throw removal are complete; deeper loader/asset, DX12, and closure work remain
+Status: phase 1 complete on 2026-07-07; P2.1-P2.3 replay probe conversion and evidence complete on 2026-07-08; SpatialGrid, PhysicsWorld, GameModelCollection pure topology, legacy camera pose-read conversions, GameModelCollection append Lane R cleanup, the scene/style TryLoad entry boundary, one direct missing-camera parser throw removal, and Terrain RAW Lane R cleanup are complete; deeper loader/asset, DX12, and closure work remain
 Last updated: 2026-07-08
 
 ## How to work this file
@@ -411,9 +411,21 @@ Last updated: 2026-07-08
   `TestSceneParser: missing camera reports recoverable load failure` unit-test
   path assertion without marking P4.1 complete.
 
+  Terrain RAW evidence (2026-07-08): the two external height-map load throws in
+  `Terrain::LoadTerrainData` now return `SbResult` owner/message diagnostics
+  for empty, missing, truncated, or failed RAW reads. `Terrain::TryCreateFromHeightMap`
+  builds into a local `std::unique_ptr` and only publishes the terrain after
+  RAW load, post build, mesh build, and shader initialization succeed.
+  `Run::Initialise` reports startup terrain failure through
+  `LastSceneLoadResult`, while generated and authored `Run::LoadScene` paths
+  route terrain failures through `LogSceneLoadFailure`. This lowers
+  `MAX_SOURCE_THROW_TOKENS` from 265 to 263. The remaining Terrain throws are
+  non-loader bounds/invariant sites and were left for a separate Lane F/API
+  cleanup.
+
   Remaining P4.1 work: thread Lane R deeper through parser internals for the
   remaining `TestSceneParser.cpp` throw token, then convert the remaining
-  Terrain, TextureCollection, AssetSystem, and ConvexHullShape loader clusters.
+  TextureCollection, AssetSystem, and ConvexHullShape loader clusters.
 
   Gate evidence: first `tools\validate_full.bat` attempt failed before runtime
   launch due to a namespace qualification error; the rerun failed only
@@ -430,6 +442,16 @@ Last updated: 2026-07-08
   Follow-up gate logs:
   `Agentic\Reports\2026-07-08\logs\fable-05-06-scene-parser-tests.log` and
   `Agentic\Reports\2026-07-08\logs\fable-05-06-mouse-pickup-validate-fast.log`.
+  Terrain RAW gate evidence: touched-file comment audit inspected
+  `Terrain.h`, `Terrain.cpp`, `Run.cpp`, `RunScene.cpp`, and
+  `tools/check_runtime_boundaries.py` with 0 deferred. `git diff --check`
+  passed; `python tools\check_runtime_boundaries.py --self-test` passed;
+  `python tools\check_runtime_boundaries.py --max-errors 20` passed with
+  0 errors; and `tools\validate_full.bat` passed in 00:01:04.5130906 with
+  project filters/runtime boundaries at 0 errors, Profile/Debug builds at
+  0 warnings/errors, DX12 validation errors 0, DX12 screenshots matching
+  committed baselines, and `physics_regression_solver.csv` byte-exact. Log:
+  `Agentic\Reports\2026-07-08\logs\fable-05-terrain-lane-r-validate-full.log`.
 - [x] P4.2 Editor placement paths (GameModelCollection append callers): a
   failed append becomes a UI-visible no-op (log event + skip), never a crash.
   Find callers: `rg -n "AppendGameModelAndPhysicsRows|AppendModel" SkullbonezSource/Runtime`.
