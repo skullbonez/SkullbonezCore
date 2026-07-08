@@ -13,10 +13,14 @@ Glossary:
   Handle: Index plus generation pair used as opaque identity for physics-owned
   storage.
   Generation: Version counter that makes stale recycled handles detectable.
+  Dense row: Compact store array index used by hot simulation scans.
+  Model row hint: Cached dense-row guess paired with stable identity to avoid
+    scans when the row has not moved.
   Scene object id: Stable scene/replay correlation id independent of storage.
 
 Invariants:
   - Index/generation handles are identity only; they do not expose storage.
+  - ModelRowHint is never identity; stale hints must be repaired by store resolvers.
   - PhysicsSceneObjectId value 0 is reserved for "not assigned".
 
 Related:
@@ -75,6 +79,14 @@ struct PhysicsSceneObjectId
     {
         return value != 0;
     }
+};
+
+// Concept: a ModelRowHint is a cached dense-row guess, never identity.
+// Persistent state stores PhysicsBodyHandle, ReplayBodyId, or scene ids; the
+// hint only accelerates resolver fast paths and may be stale after compaction.
+struct ModelRowHint
+{
+    int value = -1;
 };
 
 inline PhysicsSceneObjectId MakePhysicsSceneObjectIdFromReplayBodyId( uint32_t replayBodyId )

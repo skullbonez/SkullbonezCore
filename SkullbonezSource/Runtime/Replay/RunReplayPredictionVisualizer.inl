@@ -22,6 +22,8 @@ Glossary:
     neither box ever leaves until the prediction is rebuilt.
   Prediction engine: Replay-owned physics facade copied from the live scene at prediction begin
     and stepped forward without writing live body, collider, or solver stores.
+  Model row hint: Cached live body row paired with ReplayBodyId; prediction
+    begin resolves it through the store before copying live state.
   Reveal cursor: Wall-clock playhead that caps which prediction frames may draw this render
     frame. It makes the causal tree unfold over real time — root line first, child lines when
     their causing frame is revealed. Monotonic per prediction: it plays once, holds at the
@@ -100,6 +102,8 @@ bool BeginReplayPredictionJob( ReplayRuntime& replayRuntime,
     const PhysicsBodyStore& liveBodyStore = physicsEngine.BodyStore();
     if ( replayRuntime.PathVisualizer().hasTarget && replayRuntime.PathVisualizer().targetId.value != 0 )
     {
+        ModelRowHint targetHint;
+        targetHint.value = replayRuntime.PathVisualizer().targetModelIndex;
         int targetIndex = -1;
         if ( ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ) )
         {
@@ -108,14 +112,15 @@ bool BeginReplayPredictionJob( ReplayRuntime& replayRuntime,
         }
         if ( !TryResolveReplayBodyModelIndex( liveBodyStore,
                                               replayRuntime.PathVisualizer().targetId,
-                                              replayRuntime.PathVisualizer().targetModelIndex,
+                                              targetHint,
                                               modelCount,
                                               targetIndex ) )
         {
+            replayRuntime.PathVisualizer().targetModelIndex = targetHint.value;
             return false;
         }
         replayRuntime.Prediction().targetModelIndex = targetIndex;
-        replayRuntime.PathVisualizer().targetModelIndex = targetIndex;
+        replayRuntime.PathVisualizer().targetModelIndex = targetHint.value;
     }
 
     replayRuntime.Prediction().horizonSeconds = std::clamp( replayRuntime.Prediction().horizonSeconds,

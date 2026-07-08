@@ -18,6 +18,8 @@ Glossary:
   Underwater sleep lock: Sleep policy that keeps fully submerged balls dormant
     so buoyancy jitter does not repeatedly wake them.
   Replay body id: Stable per-scene id used by replay and SkullScope traces.
+  Model row hint: Caller-owned dense-row cache that can be stale after deletion
+    compacts the store; resolver APIs repair or invalidate it.
 
 Invariants:
   - Runtime body records stay in scene/model slot order
@@ -1550,6 +1552,20 @@ int PhysicsBodyStore::ModelIndexForHandle( PhysicsBodyHandle handle ) const
     }
 
     return m_handleModelIndices[static_cast<std::size_t>( handle.index )];
+}
+
+
+int PhysicsBodyStore::ResolveModelRow( PhysicsBodyHandle handle, ModelRowHint& hint ) const
+{
+    const PhysicsBodyHandle hintedHandle = HandleForModelIndex( hint.value );
+    if ( hintedHandle == handle && Contains( hintedHandle ) )
+    {
+        return hint.value;
+    }
+
+    const int resolvedRow = ModelIndexForHandle( handle );
+    hint.value = resolvedRow;
+    return resolvedRow;
 }
 
 

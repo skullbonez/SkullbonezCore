@@ -1,7 +1,7 @@
 # Progress: Stable Identity (plan 06)
 
 Source plan: `fable_plans/06-stable-identity-plan.md`
-Status: phase 1 inventory/ratchet complete on 2026-07-08
+Status: phase 2 central resolvers complete on 2026-07-08; subsystem conversions pending
 Last updated: 2026-07-08
 
 ## How to work this file
@@ -123,7 +123,7 @@ Last updated: 2026-07-08
 
 ## Phase 2 — the wrapper type + central resolvers
 
-- [ ] R1. Add to `SkullbonezSource/Physics/PhysicsHandles.h`:
+- [x] R1. Add to `SkullbonezSource/Physics/PhysicsHandles.h`:
   ```cpp
   // Concept: a ModelRowHint is a cached dense-row guess, never identity.
   // Persistent state stores PhysicsBodyHandle/ReplayBodyId/scene ids; the
@@ -133,7 +133,7 @@ Last updated: 2026-07-08
       int value = -1;
   };
   ```
-- [ ] R2. Add hint-aware resolvers next to the stores (PhysicsBodyStore.h,
+- [x] R2. Add hint-aware resolvers next to the stores (PhysicsBodyStore.h,
   implementation in PhysicsBodyStore.cpp), reusing the existing
   `ResolveHandleForModelIndex`/`ModelIndexForHandle` internals:
   ```cpp
@@ -144,9 +144,35 @@ Last updated: 2026-07-08
   and the replay-id form in RunReplayTools.cpp beside
   `TryResolveReplayBodyModelIndex` (which stays the internal engine).
   Evidence: Profile build 0/0. Gate: `validate_fast`. Commit.
-- [ ] R3. Unit tests if `fable_plans/01` phase 0 has landed (stale handle →
+- [x] R3. Unit tests if `fable_plans/01` phase 0 has landed (stale handle →
   -1; post-edit remap → hint self-heals). Otherwise `[B]` on plan 01 and
   continue.
+
+  Evidence (2026-07-08): added `Physics::ModelRowHint` in
+  `PhysicsHandles.h`, `PhysicsBodyStore::ResolveModelRow` in
+  `PhysicsBodyStore.h/.cpp`, and a `ModelRowHint&` replay-id resolver overload
+  beside `TryResolveReplayBodyModelIndex` in `RunReplayTools.cpp`. The retained
+  replay marker, camera-focus, and prediction-begin paths now wrap their stored
+  model-index caches as `ModelRowHint` at lookup time and propagate repaired or
+  invalidated hint values back to retained UI state. `TestPhysicsHandles.cpp`
+  added the focused stale-handle and moved-row self-heal coverage. Euclid
+  performed a read-only implementation map before edits. Touched-file comment
+  audit inspected 6 source-bearing files (`PhysicsHandles.h`,
+  `PhysicsBodyStore.h`, `PhysicsBodyStore.cpp`, `RunReplayTools.cpp`,
+  `RunReplayPredictionVisualizer.inl`, `TestPhysicsHandles.cpp`) with 0
+  deferred.
+
+  Commit-gate validation (2026-07-08):
+  `tools\validate_fast.bat` passed in 00:00:52.8044; log:
+  `Agentic\Reports\2026-07-08\logs\fable-06-r1-r3-validate-fast.log`.
+  Key result lines: formatting, project filters, staged-size, runtime
+  boundaries, Profile/Debug builds, and doctests passed; doctest reported
+  `45 | 45 passed`, `582 | 582 passed`; Profile/Debug builds had 0
+  warnings/errors; `VALIDATE_FAST: ALL PASSED`. The required post-gate checker
+  rerun passed in 00:00:17.8207; log:
+  `Agentic\Reports\2026-07-08\logs\fable-06-r1-r3-runtime-boundaries.log`, with
+  `Runtime boundary summary: TestOutput\validation\runtime_boundaries\summary.json (0 errors)`
+  and `PASS: Runtime boundary validation passed.`
 
 ## Phase 3 — subsystem conversion (one commit per group)
 
