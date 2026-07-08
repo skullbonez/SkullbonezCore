@@ -2544,7 +2544,7 @@ void Run::TakeInput()
         {
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::SaveSkyDefaults, RuntimeInputActionSource::UI );
         }
-        if ( uiCommands.cinematic.requestedModeSceneIndex >= -1 )
+        if ( HasCinematicModeUICommand( uiCommands.cinematic ) )
         {
             EnterInteractiveSceneRun();
             ApplyCinematicModeUICommand( SceneRuntimeStyleContext{ m_launchOptions,

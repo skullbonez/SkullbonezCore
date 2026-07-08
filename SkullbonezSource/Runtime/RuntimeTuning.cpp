@@ -514,9 +514,16 @@ bool QueueCinematicSkyDefaultsUICommand( CinematicUICommandContext context, cons
     return true;
 }
 
+
+bool HasCinematicModeUICommand( const UI::UICinematicCommands& commands )
+{
+    return commands.requestedModeSceneIndex >= -1;
+}
+
+
 bool ApplyCinematicModeUICommand( SceneRuntimeStyleContext context, const UI::UICinematicCommands& commands )
 {
-    if ( commands.requestedModeSceneIndex < -1 )
+    if ( !HasCinematicModeUICommand( commands ) )
     {
         return false;
     }

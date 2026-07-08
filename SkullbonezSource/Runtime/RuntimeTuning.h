@@ -240,6 +240,7 @@ RuntimePresentationUICommandResult ApplyRuntimePresentationUICommands( RuntimePr
 bool ApplyCinematicRenderingToggleUICommand( CinematicUICommandContext context,
                                              const UI::UICinematicCommands& commands );
 bool QueueCinematicSkyDefaultsUICommand( CinematicUICommandContext context, const UI::UICinematicCommands& commands );
+bool HasCinematicModeUICommand( const UI::UICinematicCommands& commands );
 bool ApplyCinematicModeUICommand( SceneRuntimeStyleContext context, const UI::UICinematicCommands& commands );
 CinematicTuningUICommandResult ApplyCinematicTuningUICommands( CinematicUICommandContext context,
                                                                const UI::UICinematicCommands& commands );
