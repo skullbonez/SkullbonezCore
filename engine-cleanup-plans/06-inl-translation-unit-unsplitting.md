@@ -1,0 +1,102 @@
+# 06 — `.inl` Translation-Unit Un-Splitting
+
+Date: 2026-07-08
+Status: Proposed
+Priority: P2
+Owner: Runtime
+Source issue: audit iss-11 (severity 3)
+
+## Problem
+
+Ordinary (non-template) function definitions are textually pasted into whichever
+`.cpp` owns the anonymous namespace, giving all the downsides of one giant
+compile unit while defeating file-size tooling and navigation. The file
+boundaries are cosmetic, not interface seams.
+
+Verified evidence:
+
+- [`RunReplayTools.cpp`](../SkullbonezSource/Runtime/Replay/RunReplayTools.cpp)
+  `#include`s six `.inl` bodies at L271-281 —
+  `RunReplayPredictionHelpers.inl` (2,577 lines), `RunReplayScrubberTools.inl`,
+  `RunReplayCauseTreeTools.inl`, `RunReplayQueryTools.inl`,
+  `RunReplayPredictionVisualizer.inl` — forming a **~5,246-line single TU**.
+- [`RunEditorTools.cpp`](../SkullbonezSource/Runtime/Editor/RunEditorTools.cpp)
+  splices `.inl` includes mid-file (L323, L1651, L1950-1953).
+- These are concrete free functions and out-of-line members, **not** templates
+  (e.g. `RunReplayScrubberTools.inl` defines `Run::EnterReplayInspectionCamera`;
+  `RunEditorTracer.inl` defines `RunEditorTracer::EmitLine`). ~9,393 lines of
+  `.inl` live in the Runtime tree.
+- All six share one anonymous-namespace scope, must recompile together on any
+  edit, and cannot be built or tested independently.
+
+## Goal
+
+Stop the text-splice illusion. Each former `.inl` either becomes a real,
+independently-compiled translation unit with a narrow header, or is inlined back
+and the size addressed through genuine decomposition (plans 01, 09).
+
+## Approach
+
+- [ ] **Phase 0 — Decide per file:** promote to a real `.cpp` (give it
+  declarations + external linkage), or fold back into the owner and fix size via
+  real decomposition.
+- [ ] **Phase 1 — Promote** the prediction/scrubber/query/cause-tree helpers to
+  real TUs with narrow headers. Mechanical: they are free functions / members,
+  so add declarations and compile separately.
+- [ ] **Phase 2 — Break the shared anonymous namespace** so files no longer
+  force whole-TU recompilation and can be unit-tested in isolation.
+
+## Risks
+
+- Symbols currently in an anonymous namespace may collide once given external
+  linkage; give them a proper namespace and internal-linkage where still local.
+- Coordinate with plan 09 (replay) — much of this `.inl` mass is replay code that
+  plan 09 also restructures. Do 09's split first where they overlap.
+
+## Step-by-step implementation
+
+Do steps in order; build after each promotion and commit. Adding a `.cpp`
+requires editing both `SKULLBONEZ_CORE.vcxproj` **and**
+`SKULLBONEZ_CORE.vcxproj.filters` — do this carefully; a missing entry fails the
+build.
+
+### Phase 0 — Editor `.inl` first (execution slot 3)
+
+- [ ] **0.1** List the `.inl` files `RunEditorTools.cpp` splices mid-file (L323,
+  L1651, L1950-1953): `RunEditorPlacementAssets.inl`, `RunEditorTracer.inl`,
+  `RunMousePickupTools.inl`, `RunEditorGizmoTools.inl`,
+  `RunEditorOverlayTools.inl`, `RunEditorObjectPlacement.inl`. No code change.
+- [ ] **0.2** For **one `.inl` at a time**: (a) create a matching header
+  declaring its free functions / out-of-line members; (b) rename the `.inl` to a
+  real `.cpp` that includes that header; (c) remove the mid-file `#include` from
+  `RunEditorTools.cpp`; (d) add the new `.cpp` to `SKULLBONEZ_CORE.vcxproj` and
+  `.filters`; (e) give former anonymous-namespace symbols a proper namespace, or
+  keep them `static` if genuinely file-local. Gate: `validate_fast` then
+  `validate_full`. Commit. Repeat for each file.
+- [ ] **0.3** `rg -n '#include ".*\.inl"' SkullbonezSource/Runtime/Editor` —
+  confirm no non-template `.inl` is included mid-`.cpp` in Editor/.
+
+### Phase 1 — Replay `.inl` (execution slot 8, with plan 09)
+
+- [ ] **1.1** Defer the `RunReplay*.inl` promotion until plan 09 splits the
+  prediction state (same code). When 09 lands, promote each remaining replay
+  `.inl` to a real TU using the 0.2 procedure. Gate: `validate_full` + replay
+  scrub regression. Commit.
+
+### Phase 2 — Break the shared anonymous namespace
+
+- [ ] **2.1** Confirm the promoted TUs no longer share one anonymous namespace
+  and each compiles independently (touch one, build, verify only it recompiles).
+  Commit any final cleanup.
+
+## Validation
+
+`tools\validate_fast.bat` (build) then the area gate
+(`tools\validate_full.bat` for Runtime).
+
+## Acceptance (structural)
+
+- [ ] No non-template `.inl` is `#include`d mid-`.cpp`.
+- [ ] Each former `.inl` compiles as its own TU, or is genuinely small after
+  decomposition.
+- [ ] No multi-thousand-line file is assembled purely by text splicing.
