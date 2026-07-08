@@ -3000,6 +3000,23 @@ int RunApp( Window* window,
     {
         std::unique_ptr<Run> cRun =
             std::make_unique<Run>( *window, std::move( args.sceneList ), cfg, workerPool, profiler, renderBackendView );
+#if defined( SKULLBONEZ_PROFILE_ENABLED )
+        struct ProfilerRenderDiagnosticsLifetime
+        {
+            Profiler* profiler = nullptr;
+            ~ProfilerRenderDiagnosticsLifetime()
+            {
+                if ( profiler )
+                {
+                    profiler->BindRenderDiagnostics( nullptr );
+                }
+            }
+        };
+        // Lifetime: this guard is declared after cRun, so it clears Profiler's
+        // renderer-diagnostics borrow before Run's destructor releases
+        // backend-owned resources through the still-live DX12 backend.
+        ProfilerRenderDiagnosticsLifetime profilerRenderDiagnosticsLifetime{ profiler };
+#endif
         cRun->SetAllocationGuardMode( args.allocationGuardMode );
         if ( args.timeScaleOverride > 0.0f )
         {

@@ -1167,8 +1167,12 @@ void PhysicsWorld::EmitStepDiagnostics( const PhysicsBodyStore& bodyStore,
         {
             const PhysicsDiagnosticsNameView names{ diagnosticNames, diagnosticNameCount };
             const PhysicsDiagnosticsView diagnosticsView = GetDiagnosticsView();
-            const PhysicsDiagnosticsFrameInput frame{
-                diagnosticsView, bodyStore, colliderStore, names, diagnosticsCsvWriter, fChangeInTime };
+            const PhysicsDiagnosticsFrameInput frame{ diagnosticsView,
+                                                      bodyStore,
+                                                      colliderStore,
+                                                      names,
+                                                      diagnosticsCsvWriter,
+                                                      fChangeInTime };
             if ( regressionLogEnabled )
             {
                 m_diagnostics.EmitRegressionLog( frame );
@@ -1657,15 +1661,14 @@ void PhysicsWorld::EmitPhysicsCollisionTime( const char* const* diagnosticNames,
         return;
     }
 #endif
-    m_diagnostics
-        .EmitCollisionTime( diagnosticNames,
-                            diagnosticNameCount,
-                            diagnosticsCsvWriter,
-                            type,
-                            bodyA,
-                            bodyB,
-                            collisionTime,
-                            availableTime );
+    m_diagnostics.EmitCollisionTime( diagnosticNames,
+                                     diagnosticNameCount,
+                                     diagnosticsCsvWriter,
+                                     type,
+                                     bodyA,
+                                     bodyB,
+                                     collisionTime,
+                                     availableTime );
 }
 
 

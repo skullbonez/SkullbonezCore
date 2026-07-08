@@ -255,13 +255,8 @@ void StepRuntimePhysicsTick( SkullbonezCore::GameObjects::GameModelCollection& m
         diagnosticNameCount = static_cast<int>( physicsDiagnosticsModelNames.size() );
     }
 #endif
-    physicsEngine.Step( fixedDt,
-                        config,
-                        worldForces,
-                        workerPool,
-                        diagnosticNames,
-                        diagnosticNameCount,
-                        diagnosticsCsvWriter );
+    physicsEngine
+        .Step( fixedDt, config, worldForces, workerPool, diagnosticNames, diagnosticNameCount, diagnosticsCsvWriter );
 
     // Why: fixed-contact highlights are presentation feedback, not solver
     // state. Keeping this edge here leaves the normal step visibly store-owned

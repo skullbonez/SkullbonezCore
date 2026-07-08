@@ -134,9 +134,28 @@ byte-exact gated.
 
 ### Phase 2 — Make the profiler pointer safe
 
-- [ ] **2.1** In `Profiler.cpp`, guard the borrowed `m_renderDiagnostics`: rebind
+- [x] **2.1** In `Profiler.cpp`, guard the borrowed `m_renderDiagnostics`: rebind
   it on backend recreation, or null-check before use in `ReadPendingGpuResults`
   so a stale pointer cannot be dereferenced. Gate: `validate_full`. Commit.
+
+  Completion note (2026-07-08): `RunApp` now scopes a local
+  `ProfilerRenderDiagnosticsLifetime` guard after the owning `Run` instance so
+  the profiler's borrowed render-diagnostics pointer is cleared before `Run`
+  destructs backend-owned resources. The existing WinMain shutdown clear remains
+  as an idempotent final cleanup.
+
+  Comment audit: touched source files inspected against
+  `Agentic\Skills\comment-style-audit\skill.md` and
+  `Agentic\Reference\comment-style-guide.md`: `Runtime\Init.cpp`,
+  `Runtime\RunFrame.cpp`, and `Physics\PhysicsWorld.cpp`. All three already had
+  learning headers; the new lifetime-sensitive code has a nearby `Lifetime:`
+  comment. Deferred count: 0.
+
+  Validation note: `tools\validate_full.bat` passed
+  (`Agentic\Logs\cleanup-12-step-2.1-validate-full.log`): Profile/Debug builds
+  had 0 warnings and 0 errors, DX12 InfoQueue reported 0 validation errors,
+  DX12 screenshots matched committed baselines, and
+  `physics_regression_solver.csv` matched byte-exactly at 20001 lines.
 - [ ] **2.2** Replace the `std::abort()` on hash / begin-end mismatch with
   `SB_FATAL(owner, ...)` (aligns with plan 04). Gate: `validate_full`. Commit.
 
@@ -152,4 +171,4 @@ change (byte-exact).
 - [x] The physics diagnostics sink is passed in, not reached via a global.
 - [ ] The profiler's borrowed `IRenderDiagnostics*` cannot be used after backend
   recreation; process-abort is replaced by `SB_FATAL`.
-- [ ] `tools\validate_physics.bat` byte-exact output unchanged.
+- [x] `tools\validate_physics.bat` byte-exact output unchanged.
