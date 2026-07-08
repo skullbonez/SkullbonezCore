@@ -876,7 +876,7 @@ every step. Commit per step.
 
 ### Phase 2 — Move state shelves out of `RunState`
 
-- [ ] **2.1** For **one shelf at a time**, relocate its fields into the owner
+- [x] **2.1** For **one shelf at a time**, relocate its fields into the owner
   that mutates them and remove cross-file pokes (e.g. `m_camera.autoCycleAccum`
   from `RunFrame`). Gate: `validate_full`. Commit per shelf.
 
