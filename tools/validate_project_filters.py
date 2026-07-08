@@ -213,6 +213,7 @@ RUNTIME_PREFIXES = (
     "RunInternal",
     "RunLiveStyle",
     "RunPasses",
+    "RunLaunchOptions",
     "RunReplayProbeState",
     "RunRender",
     "RunState",

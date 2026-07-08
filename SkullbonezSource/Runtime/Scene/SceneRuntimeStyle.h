@@ -29,6 +29,7 @@ Related:
 
 #include "SceneControllerState.h"
 #include "SceneRuntime.h"
+#include "../RunLaunchOptions.h"
 #include "../RunState.h"
 
 #include <cstdint>

@@ -373,6 +373,7 @@
     <ClInclude Include="SkullbonezSource\Runtime\RunDemoDirector.h" />
     <ClInclude Include="SkullbonezSource\Runtime\RunInternal.h" />
     <ClInclude Include="SkullbonezSource\Runtime\RunInteractionAutomationState.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\RunLaunchOptions.h" />
     <ClInclude Include="SkullbonezSource\Runtime\RunReplayProbeState.h" />
     <ClInclude Include="SkullbonezSource\Runtime\RunState.h" />
     <ClInclude Include="SkullbonezSource\Runtime\RunStartupState.h" />
