@@ -103,9 +103,11 @@ fully `[x]`.
 - [x] 2. Plan 12 — Log/Profiler ambient coupling removed
 - [x] 3. Plan 06 — editor `.inl` promoted to real TUs
 - [ ] 4. Plan 13 + 10 — facade rule applied; EngineContext/IRenderBackend/aliases/SimulationController done
+  Note (2026-07-08): Plan 10 is complete; Plan 13 remains open only on FAC-005,
+  which needs a human-owned public physics API plan before acting.
 - [x] 5. Plan 08 — RenderHelper de-statised
 - [ ] 6. Plan 11 — render abstraction leaks closed
-- [ ] 7. Plan 01 — Run decomposed
+- [x] 7. Plan 01 — Run decomposed
 - [ ] 8. Plan 09 — replay right-sized
 - [ ] 9. Plan 02 rest — solver decomposed
 - [ ] 10. Plan 04 — error handling reconciled

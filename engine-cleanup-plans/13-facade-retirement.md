@@ -1,7 +1,7 @@
 # Facade Retirement Plan
 
 Date: 2026-07-08
-Status: In Progress (revised 2026-07-08 — structural reframing)
+Status: In Progress (FAC-005 needs a human-owned physics API plan)
 Owner: Runtime, rendering, physics, and architecture cleanup agents
 
 ## Revision Note
@@ -142,9 +142,17 @@ only when the structure is actually gone:
 - [ ] Public physics headers (`PhysicsApi.h`, `PhysicsEngine.h`) contain no
   `GameModel`, dense `modelIndex`, or solver-container types in public
   signatures.
-- [ ] `Run`'s owned-member and public-method counts have measurably dropped and
+- [x] `Run`'s owned-member and public-method counts have measurably dropped and
   it no longer implements lifecycle/scene/input/capture/diagnostics/render
   policy.
+
+  Completion note (2026-07-08): Plan 01 is closed. The final slices moved
+  attach-camera target/submode ownership into `AttachedCameraController`, moved
+  replay-probe failure ownership into `RunReplayProbeState`, routed asset source
+  resolution through `AssetSystem`, and kept remaining `Run` methods as
+  launcher/frame/input coordination boundaries. Each source slice passed
+  `tools\validate_full.bat` with zero DX12 validation errors and byte-exact
+  `physics_regression_solver.csv` matches.
 
 Naming of any surviving surface is out of scope for acceptance.
 
@@ -159,8 +167,10 @@ you finish any facade surface there, apply this checklist:
 - [x] FAC-001 (aggregate), FAC-002 (context bag), FAC-004
   (`SimulationController`), FAC-007 (DX12 aliases) are executed by
   [plan 10](10-enginecontext-irenderbackend-boundary.md).
-- [ ] FAC-003 (`Run` shell) is executed by
+- [x] FAC-003 (`Run` shell) is executed by
   [plan 01](01-run-god-object-decomposition.md).
+  Completion note (2026-07-08): Plan 01 is complete and records the final
+  structural closure evidence for the remaining `Run` coordination surface.
 - [ ] FAC-005 (public physics API exposes no `GameModel`/dense
   `modelIndex`/solver containers) has **no numbered owner plan yet** — flag to a
   human before acting.

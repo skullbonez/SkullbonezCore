@@ -24,23 +24,23 @@ Every plan follows two rules learned from the facade-retirement review:
    (`03`) *removes* that apparatus entirely — the regex linter and every frozen
    `MAX_*` ratchet are deleted, not trimmed.
 
-Status legend: `Proposed` (drafted here) · `In Progress` · `Done`.
+Status legend: `Proposed` (drafted here) · `In Progress` · `Complete` / `Done`.
 
 ## Priority index
 
 | # | Plan | Issue | Priority | Status |
 |---|------|-------|----------|--------|
-| 01 | [Run god-object decomposition](01-run-god-object-decomposition.md) | `Run` owns ~40 subsystems across 16 TUs; 1,664-line `TakeInput()` | P0 | Proposed |
+| 01 | [Run god-object decomposition](01-run-god-object-decomposition.md) | `Run` owns ~40 subsystems across 16 TUs; 1,664-line `TakeInput()` | P0 | Complete |
 | 02 | [PhysicsWorld solver decomposition](02-physicsworld-solver-decomposition.md) | 3,947-line class; 1,639-line `RunSolverPhysics()`; union-find pasted 3× | P0 | Proposed |
 | 03 | [Governance apparatus removal](03-governance-apparatus-reduction.md) | Delete the 16,090-line regex boundary linter + all frozen `MAX_*` ratchets; 275 docs (~42%); two plan trees | P1 | Proposed |
 | 04 | [Error-handling policy reconciliation](04-error-handling-policy-reconciliation.md) | Exceptions "banned" yet 283 `throw` vs 2 `SB_FATAL`; ratchet frozen | P1 | Proposed |
 | 05 | [Behavioral test coverage](05-behavioral-test-coverage.md) | 44 mostly-math tests + 2 PNGs guard 155K lines; 4 link-stub files | P1 | Proposed |
 | 06 | [`.inl` translation-unit un-splitting](06-inl-translation-unit-unsplitting.md) | Non-template `.inl` spliced mid-`.cpp` → ~5K-line pseudo-modules | P2 | In Progress |
 | 07 | [Allocation-gate right-sizing](07-allocation-gate-right-sizing.md) | Repo-wide prose ban vs 2-file enforcement; ~1,400 lines of alloc infra | P2 | Proposed |
-| 08 | [RenderHelper global-state removal](08-renderhelper-global-state-removal.md) | Whole primitive-render layer is process-global static state | P2 | Proposed |
+| 08 | [RenderHelper global-state removal](08-renderhelper-global-state-removal.md) | Whole primitive-render layer is process-global static state | P2 | Complete |
 | 09 | [Replay subsystem right-sizing](09-replay-subsystem-right-sizing.md) | ~17K-line replay; shadow physics engine; 50-field god-struct; twin helpers | P2 | Proposed |
-| 10 | [EngineContext / IRenderBackend boundary](10-enginecontext-irenderbackend-boundary.md) | 13-ptr context bag with unused `Services()`; aggregate backend + dangling aliases | P2 | In Progress |
-| 11 | [Render abstraction leaks](11-render-abstraction-leaks.md) | RenderGraph diagnostic-only; backbuffer state = 1 bool; replay call in generic interface | P2 | Proposed |
+| 10 | [EngineContext / IRenderBackend boundary](10-enginecontext-irenderbackend-boundary.md) | 13-ptr context bag with unused `Services()`; aggregate backend + dangling aliases | P2 | Complete |
+| 11 | [Render abstraction leaks](11-render-abstraction-leaks.md) | RenderGraph diagnostic-only; backbuffer state = 1 bool; replay call in generic interface | P2 | In Progress |
 | 12 | [Ambient singletons: Log / Profiler](12-ambient-singletons-log-profiler.md) | `Log()` welded into prelude; Profiler caches a dangling-prone borrowed pointer | P3 | Done |
 | 13 | [Facade retirement (cross-cutting rule)](13-facade-retirement.md) | "Graduate-or-delete; a rename is not done" — principle + FAC inventory; executed by plans 01/10 | rule | In Progress |
 
