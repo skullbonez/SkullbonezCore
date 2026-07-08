@@ -1665,6 +1665,86 @@ const ReplayEventSample* FindReplayGeneratedSceneConfigBeforeCheckpoint( const s
     return generatedConfig;
 }
 
+void FormatReplayRestoreDivergenceMessage( char* message,
+                                           std::size_t messageSize,
+                                           ReplayFrameIndex currentFrame,
+                                           uint64_t restoredSolverHash,
+                                           uint64_t restoredPresentationHash,
+                                           std::size_t restoredBodyCount,
+                                           const ReplayV2SolverHashSample& expectedHash,
+                                           const std::vector<ReplayPresentationSample>& presentationSamples,
+                                           const SkullbonezCore::GameObjects::GameModelCollection& models,
+                                           std::size_t eventsApplied )
+{
+    const ReplayPresentationSample* expectedPresentation =
+        FindReplayPresentationForFrame( presentationSamples, currentFrame );
+    const PhysicsBodyRecord* restoredBody = TryGetReplayProbeBodyRecord( models, 0 );
+    if ( expectedPresentation && !expectedPresentation->bodies.empty() && restoredBody )
+    {
+        const ReplayBodyPresentationSample& expectedBody = expectedPresentation->bodies[0];
+        const Vector3& restoredPosition = restoredBody->position;
+        const Vector3& restoredVelocity = restoredBody->linearVelocity;
+        float restoredQx = 0.0f;
+        float restoredQy = 0.0f;
+        float restoredQz = 0.0f;
+        float restoredQw = 1.0f;
+        restoredBody->orientation.GetComponents( restoredQx, restoredQy, restoredQz, restoredQw );
+
+        // Why: body 0 gives replay-restore failures a stable first mismatch to
+        // compare against the saved presentation track without dumping the full
+        // checkpoint payload into the validation log.
+        sprintf_s( message,
+                   messageSize,
+                   "replay restore target probe diverged at frame %llu: restored=0x%016llX "
+                   "expected=0x%016llX restored_presentation=0x%016llX expected_presentation=0x%016llX "
+                   "restored_pos=(%.6f,%.6f,%.6f) expected_pos=(%.6f,%.6f,%.6f) "
+                   "restored_vel=(%.6f,%.6f,%.6f) restored_q=(%.6f,%.6f,%.6f,%.6f) "
+                   "expected_q=(%.6f,%.6f,%.6f,%.6f) restored_body_id=%u expected_body_id=%u "
+                   "events_applied=%llu",
+                   static_cast<unsigned long long>( currentFrame ),
+                   static_cast<unsigned long long>( restoredSolverHash ),
+                   static_cast<unsigned long long>( expectedHash.solverHash ),
+                   static_cast<unsigned long long>( restoredPresentationHash ),
+                   static_cast<unsigned long long>( expectedHash.presentationHash ),
+                   restoredPosition.x,
+                   restoredPosition.y,
+                   restoredPosition.z,
+                   expectedBody.position.x,
+                   expectedBody.position.y,
+                   expectedBody.position.z,
+                   restoredVelocity.x,
+                   restoredVelocity.y,
+                   restoredVelocity.z,
+                   restoredQx,
+                   restoredQy,
+                   restoredQz,
+                   restoredQw,
+                   expectedBody.orientation[0],
+                   expectedBody.orientation[1],
+                   expectedBody.orientation[2],
+                   expectedBody.orientation[3],
+                   restoredBody->replayBodyId,
+                   expectedBody.id.value,
+                   static_cast<unsigned long long>( eventsApplied ) );
+    }
+    else
+    {
+        sprintf_s( message,
+                   messageSize,
+                   "replay restore target probe diverged at frame %llu: restored=0x%016llX "
+                   "expected=0x%016llX restored_presentation=0x%016llX expected_presentation=0x%016llX "
+                   "restored_bodies=%llu expected_bodies=%u events_applied=%llu",
+                   static_cast<unsigned long long>( currentFrame ),
+                   static_cast<unsigned long long>( restoredSolverHash ),
+                   static_cast<unsigned long long>( expectedHash.solverHash ),
+                   static_cast<unsigned long long>( restoredPresentationHash ),
+                   static_cast<unsigned long long>( expectedHash.presentationHash ),
+                   static_cast<unsigned long long>( restoredBodyCount ),
+                   expectedHash.bodyCount,
+                   static_cast<unsigned long long>( eventsApplied ) );
+    }
+}
+
 struct ReplayGeneratedTopologyRestoreContext
 {
     RuntimeTools& runtimeTools;
@@ -2892,70 +2972,16 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
             if ( stepBodyCount != expectedHash->bodyCount || stepSolverHash != expectedHash->solverHash )
             {
                 char message[1024] = {};
-                const ReplayPresentationSample* expectedPresentation =
-                    FindReplayPresentationForFrame( artifact.presentationSamples, currentFrame );
-                const PhysicsBodyRecord* restoredBody = TryGetReplayProbeBodyRecord( m_cGameModelCollection, 0 );
-                if ( expectedPresentation && !expectedPresentation->bodies.empty() && restoredBody )
-                {
-                    const ReplayBodyPresentationSample& expectedBody = expectedPresentation->bodies[0];
-                    const Vector3& restoredPosition = restoredBody->position;
-                    const Vector3& restoredVelocity = restoredBody->linearVelocity;
-                    float restoredQx = 0.0f;
-                    float restoredQy = 0.0f;
-                    float restoredQz = 0.0f;
-                    float restoredQw = 1.0f;
-                    restoredBody->orientation.GetComponents( restoredQx, restoredQy, restoredQz, restoredQw );
-
-                    sprintf_s( message,
-                               sizeof( message ),
-                               "replay restore target probe diverged at frame %llu: restored=0x%016llX "
-                               "expected=0x%016llX restored_presentation=0x%016llX expected_presentation=0x%016llX "
-                               "restored_pos=(%.6f,%.6f,%.6f) expected_pos=(%.6f,%.6f,%.6f) "
-                               "restored_vel=(%.6f,%.6f,%.6f) restored_q=(%.6f,%.6f,%.6f,%.6f) "
-                               "expected_q=(%.6f,%.6f,%.6f,%.6f) restored_body_id=%u expected_body_id=%u "
-                               "events_applied=%llu",
-                               static_cast<unsigned long long>( currentFrame ),
-                               static_cast<unsigned long long>( stepSolverHash ),
-                               static_cast<unsigned long long>( expectedHash->solverHash ),
-                               static_cast<unsigned long long>( stepPresentationHash ),
-                               static_cast<unsigned long long>( expectedHash->presentationHash ),
-                               restoredPosition.x,
-                               restoredPosition.y,
-                               restoredPosition.z,
-                               expectedBody.position.x,
-                               expectedBody.position.y,
-                               expectedBody.position.z,
-                               restoredVelocity.x,
-                               restoredVelocity.y,
-                               restoredVelocity.z,
-                               restoredQx,
-                               restoredQy,
-                               restoredQz,
-                               restoredQw,
-                               expectedBody.orientation[0],
-                               expectedBody.orientation[1],
-                               expectedBody.orientation[2],
-                               expectedBody.orientation[3],
-                               restoredBody->replayBodyId,
-                               expectedBody.id.value,
-                               static_cast<unsigned long long>( eventsApplied ) );
-                }
-                else
-                {
-                    sprintf_s( message,
-                               sizeof( message ),
-                               "replay restore target probe diverged at frame %llu: restored=0x%016llX "
-                               "expected=0x%016llX restored_presentation=0x%016llX expected_presentation=0x%016llX "
-                               "restored_bodies=%llu expected_bodies=%u events_applied=%llu",
-                               static_cast<unsigned long long>( currentFrame ),
-                               static_cast<unsigned long long>( stepSolverHash ),
-                               static_cast<unsigned long long>( expectedHash->solverHash ),
-                               static_cast<unsigned long long>( stepPresentationHash ),
-                               static_cast<unsigned long long>( expectedHash->presentationHash ),
-                               static_cast<unsigned long long>( stepBodyCount ),
-                               expectedHash->bodyCount,
-                               static_cast<unsigned long long>( eventsApplied ) );
-                }
+                FormatReplayRestoreDivergenceMessage( message,
+                                                      sizeof( message ),
+                                                      currentFrame,
+                                                      stepSolverHash,
+                                                      stepPresentationHash,
+                                                      stepBodyCount,
+                                                      *expectedHash,
+                                                      artifact.presentationSamples,
+                                                      m_cGameModelCollection,
+                                                      eventsApplied );
                 return failAfterMutation( message,
                                           expectedHash,
                                           stepSolverHash,
