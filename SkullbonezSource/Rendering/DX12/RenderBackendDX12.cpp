@@ -101,6 +101,7 @@ Related:
 #include "FramebufferDX12.h"
 #include "../RenderGraph.h"
 #include "Dx12RenderGraphExecutor.h"
+#include "../../Core/Log.h"
 #include "../../Core/PlatformProfiler.h"
 #include <stdexcept>
 #include <cstdio>

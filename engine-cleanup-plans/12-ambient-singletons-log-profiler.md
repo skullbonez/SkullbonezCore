@@ -12,14 +12,15 @@ Cross-cutting services are never injected but reached through global accessors
 welded into the shared prelude, creating hidden dependencies and lifecycle
 hazards.
 
-Verified evidence:
+Original evidence before Phase 0:
 
-- [`Common.h`](../SkullbonezSource/Core/Common.h:94) `#include`s `Log.h` and
-  defines `inline EngineLog& Log()` — a Meyers singleton over a heap-growing
-  `unordered_map<string, FILE*>`. Every TU that includes the prelude gets it
-  ambiently, and the determinism-critical physics loop writes byte-exact CSVs
-  straight through it (it compiles to a Release no-op, so the dependency is
-  invisible in shipping builds but real in the validated Debug builds).
+- Before Phase 0, [`Common.h`](../SkullbonezSource/Core/Common.h:94)
+  `#include`d `Log.h` and defined `inline EngineLog& Log()` — a Meyers singleton
+  over a heap-growing `unordered_map<string, FILE*>`. Every TU that included the
+  prelude got it ambiently, and the determinism-critical physics loop wrote
+  byte-exact CSVs straight through it (it compiles to a Release no-op, so the
+  dependency is invisible in shipping builds but real in the validated Debug
+  builds).
 - `Profiler::Instance()` caches a borrowed `IRenderDiagnostics*
   m_renderDiagnostics`, bound once at `Init` and nulled at shutdown with nothing
   rebinding — so any backend recreation that skips re-bind leaves a dangling
@@ -34,7 +35,7 @@ dangle.
 
 ## Approach
 
-- [ ] **Phase 0 — Unweld `Log` from the prelude.** Remove the forced `Log.h`
+- [x] **Phase 0 — Unweld `Log` from the prelude.** Remove the forced `Log.h`
   include from `Common.h`; include it explicitly where used, so the dependency is
   visible.
 - [ ] **Phase 1 — Inject the physics diagnostics sink.** The byte-exact CSV
@@ -87,9 +88,25 @@ byte-exact gated.
   Direct-include/non-action notes: `Common.h` currently owns the ambient include,
   `Log.cpp` includes `Log.h`, `SceneRuntimeCreate.cpp` already includes
   `../../Core/Log.h`, and `Log.h` only contains `Log()` usage examples.
-- [ ] **0.2** Remove `#include "Log.h"` from `Common.h`. Build
+- [x] **0.2** Remove `#include "Log.h"` from `Common.h`. Build
   (`validate_fast`). For each compile error, add an explicit `#include` of
   `Log.h` to that TU. Repeat until it builds. Commit.
+
+  Completion note (2026-07-08): removed the `Log.h` prelude include from
+  `Common.h`, moved the global `Log()` convenience accessor into `Log.h`, and
+  added explicit `Log.h` includes to the 0.1 inventory plus the existing
+  direct-include users. A structural check found only `Log.h` itself as a
+  `Log()` definition without a direct include, which is expected.
+
+  Validation note: `tools\validate_fast.bat` initially stopped on formatting
+  debt in the earlier DisjointSet slice (`PhysicsWorld.cpp`, then
+  `DisjointSet.h`) and then on the project-filter owner prefix for
+  `DisjointSet.h`; those metadata/layout issues were repaired in this slice.
+  Final `tools\validate_fast.bat` passed
+  (`Agentic\Logs\cleanup-12-step-0.2-validate-fast.log`). Because
+  `tools\validate_project_filters.py` was updated to recognize `DisjointSet`,
+  the focused `tools\validate_project_filters.bat` check was also run and
+  passed (`Agentic\Logs\cleanup-12-step-0.2-validate-project-filters.log`).
 
 ### Phase 1 — Inject the physics diagnostics sink
 
@@ -113,7 +130,7 @@ change (byte-exact).
 
 ## Acceptance (structural)
 
-- [ ] `Common.h` no longer force-includes `Log.h`; consumers include it
+- [x] `Common.h` no longer force-includes `Log.h`; consumers include it
   explicitly.
 - [ ] The physics diagnostics sink is passed in, not reached via a global.
 - [ ] The profiler's borrowed `IRenderDiagnostics*` cannot be used after backend

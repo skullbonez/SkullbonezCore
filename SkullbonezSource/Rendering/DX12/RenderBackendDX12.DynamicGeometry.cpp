@@ -34,6 +34,7 @@ Related:
 #include "MeshDX12.h"
 #include "FramebufferDX12.h"
 #include "../RenderGraph.h"
+#include "../../Core/Log.h"
 #include "../../Core/PlatformProfiler.h"
 #include <stdexcept>
 #include <cstdio>

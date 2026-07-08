@@ -29,6 +29,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "Profiler.h"
+#include "Log.h"
 #include "../Rendering/IRenderDiagnostics.h"
 #include "WorkerPool.h"
 

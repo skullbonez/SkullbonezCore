@@ -25,6 +25,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "PhysicsDiagnosticsSink.h"
+#include "../Core/Log.h"
 
 #ifdef _DEBUG
 #include "PhysicsDiagnosticsModel.h"

@@ -104,6 +104,7 @@ PHYSICS_PREFIXES = (
     "ColliderStore",
     "ContactSolverCommon",
     "ConvexHullShape",
+    "DisjointSet",
     "ObjectContactManifold",
     "PersistentContactSolver",
     "PhysicsApi",

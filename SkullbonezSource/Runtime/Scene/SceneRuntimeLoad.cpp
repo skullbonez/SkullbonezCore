@@ -31,6 +31,7 @@ Related:
 #include "SceneRuntimeLoad.h"
 #include "SceneController.h"
 #include "SceneRuntime.h"
+#include "../../Core/Log.h"
 #include "../../Rendering/IRenderDeviceLifecycle.h"
 
 #include <algorithm>

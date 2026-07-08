@@ -3025,9 +3025,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
             m_objectNarrowphaseParent[static_cast<size_t>( i )] = i;
         }
 
-        DisjointSet objectNarrowphaseSets( m_objectNarrowphaseParent,
-                                           m_objectNarrowphaseRank,
-                                           modelCount );
+        DisjointSet objectNarrowphaseSets( m_objectNarrowphaseParent, m_objectNarrowphaseRank, modelCount );
 
         for ( int pairIndex = 0; pairIndex < candidatePairCount; ++pairIndex )
         {

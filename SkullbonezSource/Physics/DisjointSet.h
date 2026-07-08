@@ -42,13 +42,9 @@ namespace SkullbonezCore::Physics
 
 class DisjointSet
 {
-public:
+  public:
     DisjointSet( std::vector<int>& parent, std::vector<uint8_t>& rank, int count )
-        : m_parent( parent ),
-          m_rank( rank ),
-          m_parentRows( parent.data() ),
-          m_rankRows( rank.data() ),
-          m_count( count )
+        : m_parent( parent ), m_rank( rank ), m_parentRows( parent.data() ), m_rankRows( rank.data() ), m_count( count )
     {
     }
 
@@ -105,7 +101,7 @@ public:
         }
     }
 
-private:
+  private:
     void RebindRows()
     {
         m_parentRows = m_parent.data();

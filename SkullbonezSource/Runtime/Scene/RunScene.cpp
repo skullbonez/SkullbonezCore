@@ -42,6 +42,7 @@ Related:
 #include "../../Physics/ObjectContactManifold.h"
 #include "../../Physics/PhysicsBodyStore.h"
 #include "../../Physics/Ragdoll.h"
+#include "../../Core/Log.h"
 #include "../../Core/SbResult.h"
 #include "../../Core/WorkerPool.h"
 #include "../../Rendering/IRenderDeviceLifecycle.h"

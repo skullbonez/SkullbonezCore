@@ -38,6 +38,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "../Core/Common.h"
+#include "../Core/Log.h"
 #include "Audio/ContactAudioService.h"
 #include "Run.h"
 #include "Allocation/RuntimeAllocationTracker.h"

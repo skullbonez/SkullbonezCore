@@ -45,7 +45,7 @@ namespace Basics
     In Release builds every method is an inline no-op and the class has no data members,
     so the compiler eliminates all call sites completely.
 
-    Usage (from anywhere — Log() is injected into Common.h):
+    Usage (include Log.h in each file that writes diagnostics):
 
         Log().Writef( "Debug/physics.csv", "terrain,%d,%.2f,%.2f\n", frame, x, y );
         Log().WriteEventf( "scene_started index=%d path=\"%s\"", index, path );
@@ -80,3 +80,10 @@ class EngineLog
 };
 } // namespace Basics
 } // namespace SkullbonezCore
+
+// Why: Log() stays as a tiny convenience wrapper, but callers now include this
+// owner header directly instead of receiving logging through Common.h.
+inline SkullbonezCore::Basics::EngineLog& Log()
+{
+    return SkullbonezCore::Basics::EngineLog::Get();
+}

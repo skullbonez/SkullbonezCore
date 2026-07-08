@@ -25,6 +25,7 @@ Related:
 #include "ShaderDX12.h"
 #include "RenderBackendDX12.h"
 #include "../ShaderContracts.h"
+#include "../../Core/Log.h"
 #include <d3d11shader.h>
 #include <stdexcept>
 #include <string>
