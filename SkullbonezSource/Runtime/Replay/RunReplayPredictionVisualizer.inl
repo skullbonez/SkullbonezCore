@@ -70,8 +70,8 @@ bool BeginReplayPredictionJob( ReplayRuntime& replayRuntime,
     // Why: a new job means a new future. Restart the reveal cursor so the
     // causal tree unfolds from the root again instead of resuming mid-sweep
     // over samples that no longer exist.
-    replayRuntime.Prediction().revealAnchor = std::chrono::steady_clock::now();
-    replayRuntime.Prediction().revealAnchorValid = true;
+    replayRuntime.Prediction().revealClock.anchor = std::chrono::steady_clock::now();
+    replayRuntime.Prediction().revealClock.anchorValid = true;
     replayRuntime.Prediction().targetId = replayRuntime.PathVisualizer().targetId;
     replayRuntime.Prediction().dirty = false;
 

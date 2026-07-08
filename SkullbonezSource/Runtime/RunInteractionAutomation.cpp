@@ -2173,7 +2173,7 @@ void Run::WriteInteractionAutomationReport()
               { "memoryOverlayEnabled", m_UI.IsMemoryOverlayEnabled() },
               { "replayPredictionEnabled", predictionState.enabled },
               { "predictionHorizonSeconds", predictionState.horizonSeconds },
-              { "predictionRevealSecondsPerSecond", predictionState.revealSecondsPerSecond },
+              { "predictionRevealSecondsPerSecond", predictionState.revealClock.secondsPerSecond },
               { "replayPathTarget",
                 m_replayRuntime.PathVisualizer().hasTarget ? m_replayRuntime.PathVisualizer().targetName : "" },
               { "replayPathTargetCount", static_cast<int>( m_replayRuntime.PathVisualizer().targets.size() ) },

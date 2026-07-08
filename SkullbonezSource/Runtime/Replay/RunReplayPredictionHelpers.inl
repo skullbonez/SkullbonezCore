@@ -58,7 +58,7 @@ double ReplayPredictionRevealSecondsPerSecond( const RunReplayPredictionState& p
     // Why: authored shot-list data is allowed to be imperfect. Non-positive
     // rates fall back to real-time pacing instead of freezing the reveal cursor
     // or dividing by zero while the prediction build catches up.
-    return prediction.revealSecondsPerSecond > 0.0 ? prediction.revealSecondsPerSecond : 1.0;
+    return prediction.revealClock.secondsPerSecond > 0.0 ? prediction.revealClock.secondsPerSecond : 1.0;
 }
 
 // Concept: reveal cursor — the wall-clock playhead of the causal-unfold animation.
@@ -76,22 +76,22 @@ ReplayFrameIndex ReplayPredictionRevealFrameIndex( RunReplayPredictionState& pre
                                                    ReplayFrameIndex lastAvailableFrame )
 {
     const auto now = std::chrono::steady_clock::now();
-    if ( !prediction.revealAnchorValid )
+    if ( !prediction.revealClock.anchorValid )
     {
-        prediction.revealAnchor = now;
-        prediction.revealAnchorValid = true;
+        prediction.revealClock.anchor = now;
+        prediction.revealClock.anchorValid = true;
         return 0;
     }
 
     const double availableSeconds = static_cast<double>( lastAvailableFrame ) * PHYSICS_FIXED_DT;
     const double elapsedSeconds =
-        (std::max)( 0.0, std::chrono::duration<double>( now - prediction.revealAnchor ).count() );
+        (std::max)( 0.0, std::chrono::duration<double>( now - prediction.revealClock.anchor ).count() );
     const double revealSecondsPerSecond = ReplayPredictionRevealSecondsPerSecond( prediction );
     double revealSeconds = elapsedSeconds * revealSecondsPerSecond;
     if ( prediction.building && revealSeconds > availableSeconds )
     {
         revealSeconds = availableSeconds;
-        prediction.revealAnchor =
+        prediction.revealClock.anchor =
             now - std::chrono::duration_cast<std::chrono::steady_clock::duration>(
                       std::chrono::duration<double>( availableSeconds / revealSecondsPerSecond ) );
     }

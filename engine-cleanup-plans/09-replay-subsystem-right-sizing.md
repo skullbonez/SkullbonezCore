@@ -1,7 +1,7 @@
 # 09 — Replay Subsystem Right-Sizing
 
 Date: 2026-07-08
-Status: Proposed
+Status: In Progress
 Priority: P2
 Owner: Runtime / Replay
 Source issue: audit iss-07 (severity 3)
@@ -80,6 +80,20 @@ bit-exact — the replay scrub regression is the gate.
   into separate small types: prediction sim (owned engine/world), UI hover flags,
   async build cursors, future-node render cache, reveal clock. Do **one concern
   at a time**. Gate: replay scrub regression + `validate_full`. Commit per split.
+  - Progress note (2026-07-08, reveal clock): split the wall-clock causal
+    reveal pacing fields into `RunReplayPredictionRevealClock`. Demo Director,
+    replay prediction helpers, visualization job start, and interaction
+    automation reporting now reach reveal timing through
+    `RunReplayPredictionState::revealClock`; prediction simulation, UI hover,
+    async build cursor, and future-node cache concerns remain in this step.
+    Comment audit inspected the five touched source files with no deferred
+    wording work. Validation: `tools\validate_format.bat` passed in 9.6s;
+    `tools\validate_replay_scrub.bat` passed in 28.1s; `tools\validate_full.bat`
+    passed in 44.9s with 0 build warnings/errors, 0 DX12 validation errors,
+    matching DX12 screenshots, and `physics_regression_solver.csv` byte-exact at
+    20001 lines. An initial `validate_full` attempt failed only on the
+    `ReplayRuntime.h` formatting precheck and passed after the touched header was
+    formatted narrowly.
 
 ### Phase 1 — Template the twin helpers
 

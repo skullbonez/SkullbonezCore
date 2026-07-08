@@ -345,6 +345,19 @@ struct ReplayPredictionBaselineSnapshot
     float divergenceUnits = 0.0f;
 };
 
+struct RunReplayPredictionRevealClock
+{
+    // Concept: reveal anchor is the wall-clock start of the causal-unfold
+    // animation. The overlay clamps drawn prediction frames to a cursor derived
+    // from this anchor so the tree unfolds over real time instead of popping in
+    // whole.
+    // Invariant: overlay pacing never feeds physics, replay samples, or solver
+    // restores, so steady_clock here cannot affect deterministic simulation.
+    double secondsPerSecond = 1.0;                                    // Runtime-authored causal-unfold speed; 1.0 = real-time.
+    std::chrono::steady_clock::time_point anchor = {};
+    bool anchorValid = false;
+};
+
 struct RunReplayPredictionState
 {
     RunReplayPredictionState();
@@ -431,14 +444,7 @@ struct RunReplayPredictionState
     // one cold root polyline, two poses per affected body, and one divergence
     // number, so the warm current prediction can unfold over it.
     ReplayPredictionBaselineSnapshot baseline;
-    // Concept: reveal anchor — wall-clock start of the causal-unfold animation.
-    // The overlay clamps drawn prediction frames to a cursor derived from this
-    // anchor so the tree unfolds over real time instead of popping in whole.
-    // Overlay-only pacing state: it never feeds physics, replay samples, or
-    // solver restores, so steady_clock here cannot affect determinism.
-    double revealSecondsPerSecond = 1.0;                              // Runtime-authored causal-unfold speed; 1.0 = real-time.
-    std::chrono::steady_clock::time_point revealAnchor = {};
-    bool revealAnchorValid = false;
+    RunReplayPredictionRevealClock revealClock;
 };
 
 inline std::size_t RunReplayPredictionState::PublishedBuildFrameCount() const noexcept
