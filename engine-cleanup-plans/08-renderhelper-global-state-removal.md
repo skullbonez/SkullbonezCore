@@ -37,7 +37,7 @@ scoped to a batch object rather than global flags.
 
 ## Approach
 
-- [ ] **Phase 0 — Gather statics** into a `RenderHelperState` struct owned by the
+- [x] **Phase 0 — Gather statics** into a `RenderHelperState` struct owned by the
   render host.
 - [ ] **Phase 1 — Convert static methods to members**; thread the instance to
   call sites (or reach it through the render host).
@@ -59,9 +59,31 @@ clear owner is the point, but validate barriers/validation errors carefully.
 Do steps in order; validate and commit per step. **Screenshots must stay
 unchanged and `dx12_validation.txt` == 0 throughout** — this is a hard gate.
 
-- [ ] **0.1** Enumerate every `static` member in `Helper.h` / `Helper.cpp`
+- [x] **0.1** Enumerate every `static` member in `Helper.h` / `Helper.cpp`
   (~54): shaders, meshes, material texture, clip plane, staging vectors, batch
   flags, scratch buffers. No code change.
+
+  Inventory note (2026-07-08): CodeGraph and `rg` found the mutable helper
+  state to migrate:
+  - Class-owned GPU/resource state in `Helper.h`: `sphereShader`,
+    `shadowDepthShader`, `sphereInstMesh`, `sphereVertexCount`,
+    `sphereInstanceData`, `lowPolySphereInstMesh`,
+    `lowPolySphereVertexCount`, `activeSphereInstMesh`,
+    `activeSphereVertexCount`, `boxInstMesh`, `boxVertexCount`,
+    `boxInstanceData`, `pineInstMesh`, `pineVertexCount`, `pineInstanceData`,
+    and `sClipPlane[4]`.
+  - File-scope mutable state in `Helper.cpp`: `sSphereBatchTransparent`,
+    `sBoxBatchTransparent`, `sPineBatchTransparent`, `sSphereBatchReady`,
+    `sBoxBatchReady`, `sPineBatchReady`, `sMaterialTableTexture`,
+    `sConvexHullDynamicVB`, and `sConvexHullVertexData`.
+  - File-scope constants/helpers stay static: instance-layout constants,
+    material-table constants, `Resources`/`Commands`/`AssetRegistry`/`Config`,
+    material packing, shader binding, and light/shadow constant helpers. These
+    are not owner state unless later slices need test seams.
+  - Static method call sites are concentrated in `GameModelRenderer.cpp`,
+    `RunRender.cpp`, `RunPasses.cpp`, and `RunScene.cpp`; raytracing uses
+    `EnsureSphereMesh`, `GetSphereInstMeshHandle`, and `GetSphereVertexCount`.
+  No repository validation required; documentation-only inventory.
 - [ ] **1.1** Create a `RenderHelperState` struct holding all of them as
   non-static members; give the render host one owned instance. Build. Commit.
 - [ ] **2.1** Convert static methods to members operating on that instance;
