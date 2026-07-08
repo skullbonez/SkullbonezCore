@@ -278,6 +278,7 @@ RUNTIME_REPLAY_PREFIXES = (
     "RunReplayImportExport",
     "RunReplayPredictionHelpers",
     "RunReplayPredictionVisualizer",
+    "RunReplayProbes",
     "RunReplayQueryTools",
     "RunReplayScrubberTools",
     "RunReplayTools",

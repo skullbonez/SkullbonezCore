@@ -33,6 +33,7 @@ Related:
 #include "Run.h"
 #include "../Rendering/Helper.h"
 #include "../Physics/BoundingSphere.h"
+#include "../Physics/PhysicsWorldForces.h"
 #include "../GameObjects/GameModel.h"
 #include "../Core/Profiler.h"
 #include "../Rendering/IRenderCommandContext.h"
@@ -105,6 +106,15 @@ inline constexpr float REPLAY_VELOCITY_EDIT_LINEAR_EXTRA = 36.0f;
 inline constexpr const char* LAUNCHER_REPRO_SNAPSHOT_PATH = "Debug/launcher_repro_snapshots.txt";
 inline constexpr double LAUNCHER_REPRO_MESSAGE_SECONDS = 3.0;
 #endif
+
+// Applies one fixed physics step plus Run-owned presentation/diagnostic edges.
+// Live frames and replay target restore use the same helper so hash validation
+// does not drift from normal gameplay stepping.
+void StepRuntimePhysicsTick( GameObjects::GameModelCollection& modelCollection,
+                             float fixedDt,
+                             const EngineConfig& config,
+                             const Physics::PhysicsWorldForces& worldForces,
+                             Threading::WorkerPool& workerPool );
 
 inline void SyncTornadoRuntimeSettingsToPhysics( GameObjects::GameModelCollection& modelCollection,
                                                  const RunRuntimeSettings& runtimeSettings )

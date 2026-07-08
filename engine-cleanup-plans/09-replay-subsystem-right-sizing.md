@@ -171,6 +171,22 @@ bit-exact — the replay scrub regression is the gate.
   `RestoreReplayV2ArtifactTargetState` out of `RunFrame.cpp` into `Replay/`.
   Then promote the freed replay `.inl` to real TUs (this is plan 06 step 1.1).
   Gate: `validate_full` + replay scrub. Commit.
+  - Progress note (2026-07-08, replay probe eviction): moved replay validation
+    probes and `RestoreReplayV2ArtifactTargetState` from `RunFrame.cpp` into
+    `Runtime/Replay/RunReplayProbes.cpp`, leaving `RunFrame` with replay probe
+    orchestration calls only. `StepRuntimePhysicsTick` is now a shared
+    Run-internal helper so target restore and live fixed-step simulation keep the
+    same hash-sensitive physics edge. The `.inl` promotion half of this step
+    remains open. Comment audit inspected `RunFrame.cpp`, `RunInternal.h`,
+    `RunReplayProbes.cpp`, and `tools/validate_project_filters.py` with no
+    deferred wording work. Validation: Debug build passed in 10.5s;
+    `tools\validate_format.bat` passed in 9.0s after narrow formatting of the
+    two touched C++ files; `tools\validate_replay_scrub.bat` passed in 29.1s;
+    `tools\validate_project_filters.bat` passed in 1.4s after adding the new
+    replay source owner stem; `tools\validate_fast.bat` passed in 39.1s;
+    `tools\validate_full.bat` passed in 45.9s with 0 build warnings/errors, 0
+    DX12 validation errors, matching DX12 screenshots, and
+    `physics_regression_solver.csv` byte-exact at 20001 lines.
 
 ### Phase 3 — Make Butterfly Effect ownership explicit
 
@@ -188,7 +204,7 @@ bit-exact — the replay scrub regression is the gate.
 
 ## Acceptance (structural)
 
-- [ ] `RunFrame.cpp` contains no replay-probe bodies (they live in `Replay/`).
+- [x] `RunFrame.cpp` contains no replay-probe bodies (they live in `Replay/`).
 - [x] `RunReplayPredictionState` is split into single-concern types.
 - [x] The six twin helpers are one template.
 - [ ] Butterfly Effect prediction, future-node visualization, replay ribbons,
