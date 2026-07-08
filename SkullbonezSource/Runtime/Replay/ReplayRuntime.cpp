@@ -356,9 +356,30 @@ bool ReplayRuntimePrepareBodyMatchedMask( std::array<uint8_t, MAX_GAME_MODELS>& 
 }
 
 
+// Concept: replay body lookup is sample-shaped, not subsystem-shaped.
+//
+// Solver samples and prediction frames both expose body rows keyed by
+// ReplayBodyId, while modelIndex remains only a fast hint into each row array.
+// Invariant: wrappers keep the old negative-modelIndex behavior for callers
+// that still distinguish solver samples from prediction samples.
+template <typename FrameSample, typename BodySample>
+const BodySample* FindReplayBodyByIdInSample( const FrameSample& sample, ReplayBodyId id );
+
+template <typename FrameSample, typename BodySample, bool AllowNegativeModelIndex>
+const BodySample* FindReplayBodyByModelIndexInSample( const FrameSample& sample, int modelIndex );
+
+template <typename FrameSample, typename BodySample, bool AllowNegativeModelIndex>
+ReplayBodyId ReplayBodyIdForModelIndexInSample( const FrameSample& sample, int modelIndex );
+
 const ReplaySolverBodySample* FindReplayBodyById( const ReplaySolverFrameSample& sample, ReplayBodyId id )
 {
-    for ( const ReplaySolverBodySample& body : sample.bodies )
+    return FindReplayBodyByIdInSample<ReplaySolverFrameSample, ReplaySolverBodySample>( sample, id );
+}
+
+template <typename FrameSample, typename BodySample>
+const BodySample* FindReplayBodyByIdInSample( const FrameSample& sample, ReplayBodyId id )
+{
+    for ( const BodySample& body : sample.bodies )
     {
         if ( body.id.value == id.value )
         {
@@ -371,14 +392,7 @@ const ReplaySolverBodySample* FindReplayBodyById( const ReplaySolverFrameSample&
 const RunReplayPredictionBodySample* FindReplayPredictionBodyById( const RunReplayPredictionFrame& frame,
                                                                    ReplayBodyId id )
 {
-    for ( const RunReplayPredictionBodySample& body : frame.bodies )
-    {
-        if ( body.id.value == id.value )
-        {
-            return &body;
-        }
-    }
-    return nullptr;
+    return FindReplayBodyByIdInSample<RunReplayPredictionFrame, RunReplayPredictionBodySample>( frame, id );
 }
 
 // Concept: cause-tree focus needs a display radius, not exact shape math.
@@ -422,29 +436,8 @@ float ReplayRuntimeColliderRadiusForBody( const ColliderStore& colliderStore,
 
 ReplayBodyId ReplayBodyIdForModelIndex( const ReplaySolverFrameSample& sample, int modelIndex )
 {
-    ReplayBodyId id;
-    if ( modelIndex < 0 )
-    {
-        return id;
-    }
-
-    if ( modelIndex < static_cast<int>( sample.bodies.size() ) )
-    {
-        const ReplaySolverBodySample& body = sample.bodies[static_cast<std::size_t>( modelIndex )];
-        if ( body.modelIndex == modelIndex )
-        {
-            return body.id;
-        }
-    }
-
-    for ( const ReplaySolverBodySample& body : sample.bodies )
-    {
-        if ( body.modelIndex == modelIndex )
-        {
-            return body.id;
-        }
-    }
-    return id;
+    return ReplayBodyIdForModelIndexInSample<ReplaySolverFrameSample, ReplaySolverBodySample, false>( sample,
+                                                                                                      modelIndex );
 }
 
 Vector3 ReplayNormalizeOr( Vector3 value, const Vector3& fallback )
@@ -460,16 +453,31 @@ Vector3 ReplayNormalizeOr( Vector3 value, const Vector3& fallback )
 
 const ReplaySolverBodySample* FindReplayBodyByModelIndex( const ReplaySolverFrameSample& sample, int modelIndex )
 {
+    return FindReplayBodyByModelIndexInSample<ReplaySolverFrameSample, ReplaySolverBodySample, true>( sample,
+                                                                                                      modelIndex );
+}
+
+template <typename FrameSample, typename BodySample, bool AllowNegativeModelIndex>
+const BodySample* FindReplayBodyByModelIndexInSample( const FrameSample& sample, int modelIndex )
+{
+    if constexpr ( !AllowNegativeModelIndex )
+    {
+        if ( modelIndex < 0 )
+        {
+            return nullptr;
+        }
+    }
+
     if ( modelIndex >= 0 && modelIndex < static_cast<int>( sample.bodies.size() ) )
     {
-        const ReplaySolverBodySample& body = sample.bodies[static_cast<std::size_t>( modelIndex )];
+        const BodySample& body = sample.bodies[static_cast<std::size_t>( modelIndex )];
         if ( body.modelIndex == modelIndex )
         {
             return &body;
         }
     }
 
-    for ( const ReplaySolverBodySample& body : sample.bodies )
+    for ( const BodySample& body : sample.bodies )
     {
         if ( body.modelIndex == modelIndex )
         {
@@ -477,6 +485,18 @@ const ReplaySolverBodySample* FindReplayBodyByModelIndex( const ReplaySolverFram
         }
     }
     return nullptr;
+}
+
+template <typename FrameSample, typename BodySample, bool AllowNegativeModelIndex>
+ReplayBodyId ReplayBodyIdForModelIndexInSample( const FrameSample& sample, int modelIndex )
+{
+    if ( const BodySample* body =
+             FindReplayBodyByModelIndexInSample<FrameSample, BodySample, AllowNegativeModelIndex>( sample,
+                                                                                                   modelIndex ) )
+    {
+        return body->id;
+    }
+    return ReplayBodyId{};
 }
 
 bool ReplayContactHasModelIndex( const ReplaySolverPersistentContactSample& contact, int modelIndex )

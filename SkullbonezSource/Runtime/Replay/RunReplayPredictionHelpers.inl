@@ -340,9 +340,15 @@ void ClearReplayPredictionFutureNodeCache( RunReplayPredictionState& prediction 
 }
 
 
-const ReplaySolverBodySample* FindReplayBodyById( const ReplaySolverFrameSample& sample, ReplayBodyId id )
+// Concept: retained replay and prediction samples share body identity rules.
+//
+// ReplayBodyId is authority; modelIndex is a cache hint into the current sample.
+// Invariant: solver lookup preserves its legacy negative-sentinel scan, while
+// prediction lookup rejects negative hints before scanning.
+template <typename FrameSample, typename BodySample>
+const BodySample* FindReplayBodyByIdInSample( const FrameSample& sample, ReplayBodyId id )
 {
-    for ( const ReplaySolverBodySample& body : sample.bodies )
+    for ( const BodySample& body : sample.bodies )
     {
         if ( body.id.value == id.value )
         {
@@ -352,74 +358,78 @@ const ReplaySolverBodySample* FindReplayBodyById( const ReplaySolverFrameSample&
     return nullptr;
 }
 
+template <typename FrameSample, typename BodySample, bool AllowNegativeModelIndex>
+const BodySample* FindReplayBodyByModelIndexInSample( const FrameSample& sample, int modelIndex )
+{
+    if constexpr ( !AllowNegativeModelIndex )
+    {
+        if ( modelIndex < 0 )
+        {
+            return nullptr;
+        }
+    }
+
+    if ( modelIndex >= 0 && modelIndex < static_cast<int>( sample.bodies.size() ) )
+    {
+        const BodySample& body = sample.bodies[static_cast<std::size_t>( modelIndex )];
+        if ( body.modelIndex == modelIndex )
+        {
+            return &body;
+        }
+    }
+
+    for ( const BodySample& body : sample.bodies )
+    {
+        if ( body.modelIndex == modelIndex )
+        {
+            return &body;
+        }
+    }
+    return nullptr;
+}
+
+template <typename FrameSample, typename BodySample, bool AllowNegativeModelIndex>
+ReplayBodyId ReplayBodyIdForModelIndexInSample( const FrameSample& sample, int modelIndex )
+{
+    if ( const BodySample* body =
+             FindReplayBodyByModelIndexInSample<FrameSample, BodySample, AllowNegativeModelIndex>( sample,
+                                                                                                   modelIndex ) )
+    {
+        return body->id;
+    }
+    return ReplayBodyId{};
+}
+
+const ReplaySolverBodySample* FindReplayBodyById( const ReplaySolverFrameSample& sample, ReplayBodyId id )
+{
+    return FindReplayBodyByIdInSample<ReplaySolverFrameSample, ReplaySolverBodySample>( sample, id );
+}
+
 ReplayBodyId ReplayBodyIdForModelIndex( const ReplaySolverFrameSample& sample, int modelIndex )
 {
-    ReplayBodyId id;
-    if ( modelIndex < 0 )
-    {
-        return id;
-    }
-
-    if ( modelIndex < static_cast<int>( sample.bodies.size() ) )
-    {
-        const ReplaySolverBodySample& body = sample.bodies[static_cast<std::size_t>( modelIndex )];
-        if ( body.modelIndex == modelIndex )
-        {
-            return body.id;
-        }
-    }
-
-    for ( const ReplaySolverBodySample& body : sample.bodies )
-    {
-        if ( body.modelIndex == modelIndex )
-        {
-            return body.id;
-        }
-    }
-    return id;
+    return ReplayBodyIdForModelIndexInSample<ReplaySolverFrameSample, ReplaySolverBodySample, false>( sample,
+                                                                                                      modelIndex );
 }
 
 const RunReplayPredictionBodySample* FindReplayPredictionBodyById( const RunReplayPredictionFrame& frame,
                                                                    ReplayBodyId id )
 {
-    for ( const RunReplayPredictionBodySample& body : frame.bodies )
-    {
-        if ( body.id.value == id.value )
-        {
-            return &body;
-        }
-    }
-    return nullptr;
+    return FindReplayBodyByIdInSample<RunReplayPredictionFrame, RunReplayPredictionBodySample>( frame, id );
 }
 
 const RunReplayPredictionBodySample* FindReplayPredictionBodyByModelIndex( const RunReplayPredictionFrame& frame,
                                                                            int modelIndex )
 {
-    if ( modelIndex < 0 )
-    {
-        return nullptr;
-    }
-
-    if ( modelIndex < static_cast<int>( frame.bodies.size() ) )
-    {
-        const RunReplayPredictionBodySample& body = frame.bodies[static_cast<std::size_t>( modelIndex )];
-        if ( body.modelIndex == modelIndex )
-        {
-            return &body;
-        }
-    }
-
-    for ( const RunReplayPredictionBodySample& body : frame.bodies )
-    {
-        if ( body.modelIndex == modelIndex )
-        {
-            return &body;
-        }
-    }
-    return nullptr;
+    return FindReplayBodyByModelIndexInSample<RunReplayPredictionFrame, RunReplayPredictionBodySample, false>(
+        frame,
+        modelIndex );
 }
 
-const ReplaySolverBodySample* FindReplayBodyByModelIndex( const ReplaySolverFrameSample& sample, int modelIndex );
+const ReplaySolverBodySample* FindReplayBodyByModelIndex( const ReplaySolverFrameSample& sample, int modelIndex )
+{
+    return FindReplayBodyByModelIndexInSample<ReplaySolverFrameSample, ReplaySolverBodySample, true>( sample,
+                                                                                                      modelIndex );
+}
 
 // Why: modelIndex is a cache hint, not identity. The replay id check protects
 // against stale hints after body lists are rebuilt or ragdoll parts are folded
@@ -439,17 +449,9 @@ FindReplayBodyByIdWithHint( const ReplaySolverFrameSample& sample, ReplayBodyId 
 
 ReplayBodyId ReplayPredictionBodyIdForModelIndex( const RunReplayPredictionFrame& frame, int modelIndex )
 {
-    ReplayBodyId id;
-    if ( modelIndex < 0 )
-    {
-        return id;
-    }
-
-    if ( const RunReplayPredictionBodySample* body = FindReplayPredictionBodyByModelIndex( frame, modelIndex ) )
-    {
-        return body->id;
-    }
-    return id;
+    return ReplayBodyIdForModelIndexInSample<RunReplayPredictionFrame, RunReplayPredictionBodySample, false>(
+        frame,
+        modelIndex );
 }
 
 bool ReplayModelIndexIsRagdollPart( const SkullbonezCore::GameObjects::GameModelCollection& collection, int modelIndex )
@@ -479,27 +481,6 @@ Quaternion ReplaySolverBodyOrientation( const ReplaySolverBodySample& body )
     Quaternion orientation( body.orientation[0], body.orientation[1], body.orientation[2], body.orientation[3] );
     orientation.Normalise();
     return orientation;
-}
-
-const ReplaySolverBodySample* FindReplayBodyByModelIndex( const ReplaySolverFrameSample& sample, int modelIndex )
-{
-    if ( modelIndex >= 0 && modelIndex < static_cast<int>( sample.bodies.size() ) )
-    {
-        const ReplaySolverBodySample& body = sample.bodies[static_cast<std::size_t>( modelIndex )];
-        if ( body.modelIndex == modelIndex )
-        {
-            return &body;
-        }
-    }
-
-    for ( const ReplaySolverBodySample& body : sample.bodies )
-    {
-        if ( body.modelIndex == modelIndex )
-        {
-            return &body;
-        }
-    }
-    return nullptr;
 }
 
 const RunReplayPredictionBodySample*
@@ -910,22 +891,32 @@ bool ReplayPathContextBudgetExpired( ReplayPathFutureContext& context )
     return context.budgetExpired;
 }
 
-bool TryGetReplayFutureDepth( const ReplayPathFutureContext& context,
-                              ReplayBodyId id,
-                              ReplayFrameIndex frame,
-                              int& outDepth )
+// Concept: retained replay and prediction use the same future-node tree rules.
+//
+// The owner boundary differs: retained replay writes to the visualizer cache,
+// while prediction can build into scratch and later replace a motion-inferred
+// child with a contact-derived child. These helpers keep that policy at the
+// wrapper edge instead of duplicating the contact traversal.
+template <typename NodeRange>
+bool TryGetReplayFutureDepthInNodes( const NodeRange& nodes,
+                                     ReplayBodyId rootId,
+                                     ReplayFrameIndex rootFrame,
+                                     bool requireRootFrame,
+                                     ReplayBodyId id,
+                                     ReplayFrameIndex frame,
+                                     int& outDepth )
 {
     if ( id.value == 0 )
     {
         return false;
     }
-    if ( id.value == context.rootId.value )
+    if ( id.value == rootId.value )
     {
         outDepth = 0;
-        return frame >= context.presentFrame;
+        return !requireRootFrame || frame >= rootFrame;
     }
 
-    for ( const RunReplayPathTraceNode& node : context.visualizer->futureNodes )
+    for ( const RunReplayPathTraceNode& node : nodes )
     {
         if ( node.id.value == id.value && frame >= node.firstFrame )
         {
@@ -936,16 +927,169 @@ bool TryGetReplayFutureDepth( const ReplayPathFutureContext& context,
     return false;
 }
 
-bool ReplayFutureNodeExists( const RunReplayPathVisualizerState& visualizer, ReplayBodyId id )
+template <typename NodeRange>
+RunReplayPathTraceNode* FindReplayFutureNodeInNodes( NodeRange& nodes, ReplayBodyId id )
 {
-    for ( const RunReplayPathTraceNode& node : visualizer.futureNodes )
+    for ( RunReplayPathTraceNode& node : nodes )
     {
         if ( node.id.value == id.value )
         {
-            return true;
+            return &node;
         }
     }
-    return false;
+    return nullptr;
+}
+
+void AssignReplayFutureNode( RunReplayPathTraceNode& node,
+                             ReplayBodyId parentId,
+                             int parentModelIndex,
+                             ReplayBodyId id,
+                             int modelIndex,
+                             ReplayFrameIndex firstFrame,
+                             const Vector3& contactPoint,
+                             const Vector3& contactNormal,
+                             int depth,
+                             bool contactDerived )
+{
+    node.id = id;
+    node.parentId = parentId;
+    node.modelIndex = modelIndex;
+    node.parentModelIndex = parentModelIndex;
+    node.firstFrame = firstFrame;
+    node.contactPoint = contactPoint;
+    node.contactNormal = contactNormal;
+    node.depth = depth;
+    node.contactDerived = contactDerived;
+}
+
+template <typename NodeContainer>
+void AddReplayFutureNodeToNodes( NodeContainer& nodes,
+                                 ReplayBodyId rootId,
+                                 ReplayBodyId parentId,
+                                 int parentModelIndex,
+                                 ReplayBodyId id,
+                                 int modelIndex,
+                                 ReplayFrameIndex firstFrame,
+                                 const Vector3& contactPoint,
+                                 const Vector3& contactNormal,
+                                 int depth,
+                                 bool contactDerived,
+                                 bool replaceMotionFallback )
+{
+    if ( id.value == 0 || id.value == rootId.value )
+    {
+        return;
+    }
+
+    if ( RunReplayPathTraceNode* existing = FindReplayFutureNodeInNodes( nodes, id ) )
+    {
+        if ( replaceMotionFallback && contactDerived && !existing->contactDerived )
+        {
+            AssignReplayFutureNode( *existing,
+                                    parentId,
+                                    parentModelIndex,
+                                    id,
+                                    modelIndex,
+                                    firstFrame,
+                                    contactPoint,
+                                    contactNormal,
+                                    depth,
+                                    true );
+        }
+        return;
+    }
+
+    if ( nodes.size() >= REPLAY_PATH_MAX_FUTURE_NODES )
+    {
+        return;
+    }
+
+    RunReplayPathTraceNode node;
+    AssignReplayFutureNode( node,
+                            parentId,
+                            parentModelIndex,
+                            id,
+                            modelIndex,
+                            firstFrame,
+                            contactPoint,
+                            contactNormal,
+                            depth,
+                            contactDerived );
+    nodes.push_back( node );
+}
+
+template <typename ContactRange, typename BodyIdResolver, typename DepthResolver, typename NodeAdder, typename BudgetExpired>
+bool BuildReplayFutureNodesFromContacts( const ContactRange& contacts,
+                                         ReplayFrameIndex frameIndex,
+                                         std::size_t startContactIndex,
+                                         const SkullbonezCore::GameObjects::GameModelCollection* collection,
+                                         bool includeRagdollVisuals,
+                                         BodyIdResolver bodyIdForModelIndex,
+                                         DepthResolver tryGetDepth,
+                                         NodeAdder addNode,
+                                         BudgetExpired budgetExpired,
+                                         std::size_t& outNextContactIndex )
+{
+    outNextContactIndex = (std::min)( startContactIndex, contacts.size() );
+    for ( std::size_t contactIndex = outNextContactIndex; contactIndex < contacts.size(); ++contactIndex )
+    {
+        // Invariant: callers that slice a frame on budget exhaustion must resume
+        // from this contact index before advancing the frame cursor.
+        if ( budgetExpired() )
+        {
+            return false;
+        }
+
+        const auto& contact = contacts[contactIndex];
+        const bool ragdollA = collection && ReplayModelIndexIsRagdollPart( *collection, contact.bodyA );
+        const bool ragdollB = collection && ReplayModelIndexIsRagdollPart( *collection, contact.bodyB );
+        const int modelIndexA = collection ? ReplayRagdollTorsoModelIndexForPart( *collection, contact.bodyA )
+                                           : contact.bodyA;
+        const int modelIndexB = collection ? ReplayRagdollTorsoModelIndexForPart( *collection, contact.bodyB )
+                                           : contact.bodyB;
+        const ReplayBodyId idA = bodyIdForModelIndex( modelIndexA );
+        const ReplayBodyId idB = bodyIdForModelIndex( modelIndexB );
+        int depthA = -1;
+        int depthB = -1;
+        const bool activeA = tryGetDepth( idA, frameIndex, depthA );
+        const bool activeB = tryGetDepth( idB, frameIndex, depthB );
+        if ( activeA && !activeB && ( includeRagdollVisuals || !ragdollB ) )
+        {
+            addNode( idA,
+                     modelIndexA,
+                     idB,
+                     modelIndexB,
+                     frameIndex,
+                     contact.point,
+                     contact.normal,
+                     depthA + 1,
+                     true );
+        }
+        else if ( activeB && !activeA && ( includeRagdollVisuals || !ragdollA ) )
+        {
+            addNode( idB,
+                     modelIndexB,
+                     idA,
+                     modelIndexA,
+                     frameIndex,
+                     contact.point,
+                     contact.normal * -1.0f,
+                     depthB + 1,
+                     true );
+        }
+        outNextContactIndex = contactIndex + 1;
+    }
+    outNextContactIndex = 0;
+    return true;
+}
+
+bool TryGetReplayFutureDepth( const ReplayPathFutureContext& context,
+                              ReplayBodyId id,
+                              ReplayFrameIndex frame,
+                              int& outDepth )
+{
+    return TryGetReplayFutureDepthInNodes(
+        context.visualizer->futureNodes, context.rootId, context.presentFrame, true, id, frame, outDepth );
 }
 
 RunReplayPathTarget* FindReplayPathTarget( RunReplayPathVisualizerState& visualizer, ReplayBodyId id )
@@ -985,22 +1129,18 @@ void AddReplayFutureNode( ReplayPathFutureContext& context,
                           const Vector3& contactNormal,
                           int depth )
 {
-    if ( id.value == 0 || id.value == context.rootId.value || ReplayFutureNodeExists( *context.visualizer, id ) ||
-         context.visualizer->futureNodes.size() >= REPLAY_PATH_MAX_FUTURE_NODES )
-    {
-        return;
-    }
-
-    RunReplayPathTraceNode node;
-    node.id = id;
-    node.parentId = parentId;
-    node.modelIndex = modelIndex;
-    node.parentModelIndex = parentModelIndex;
-    node.firstFrame = firstFrame;
-    node.contactPoint = contactPoint;
-    node.contactNormal = contactNormal;
-    node.depth = depth;
-    context.visualizer->futureNodes.push_back( node );
+    AddReplayFutureNodeToNodes( context.visualizer->futureNodes,
+                                context.rootId,
+                                parentId,
+                                parentModelIndex,
+                                id,
+                                modelIndex,
+                                firstFrame,
+                                contactPoint,
+                                contactNormal,
+                                depth,
+                                true,
+                                false );
 }
 
 void BuildReplayFutureNodes( const ReplaySolverFrameSample& sample, void* userData )
@@ -1011,52 +1151,32 @@ void BuildReplayFutureNodes( const ReplaySolverFrameSample& sample, void* userDa
         return;
     }
 
-    for ( const PhysicsDebugContact& contact : sample.worldSnapshot.debugContacts )
-    {
-        if ( ReplayPathContextBudgetExpired( context ) )
+    std::size_t nextContactIndex = 0;
+    (void)BuildReplayFutureNodesFromContacts(
+        sample.worldSnapshot.debugContacts,
+        sample.frameIndex,
+        0,
+        context.collection,
+        context.includeRagdollVisuals,
+        [&]( int modelIndex ) { return ReplayBodyIdForModelIndex( sample, modelIndex ); },
+        [&]( ReplayBodyId id, ReplayFrameIndex frameIndex, int& outDepth )
+        { return TryGetReplayFutureDepth( context, id, frameIndex, outDepth ); },
+        [&]( ReplayBodyId parentId,
+             int parentModelIndex,
+             ReplayBodyId id,
+             int modelIndex,
+             ReplayFrameIndex firstFrame,
+             const Vector3& contactPoint,
+             const Vector3& contactNormal,
+             int depth,
+             bool contactDerived )
         {
-            return;
-        }
-
-        const bool ragdollA = context.collection && ReplayModelIndexIsRagdollPart( *context.collection, contact.bodyA );
-        const bool ragdollB = context.collection && ReplayModelIndexIsRagdollPart( *context.collection, contact.bodyB );
-        const int modelIndexA = context.collection
-                                    ? ReplayRagdollTorsoModelIndexForPart( *context.collection, contact.bodyA )
-                                    : contact.bodyA;
-        const int modelIndexB = context.collection
-                                    ? ReplayRagdollTorsoModelIndexForPart( *context.collection, contact.bodyB )
-                                    : contact.bodyB;
-        const ReplayBodyId idA = ReplayBodyIdForModelIndex( sample, modelIndexA );
-        const ReplayBodyId idB = ReplayBodyIdForModelIndex( sample, modelIndexB );
-        int depthA = -1;
-        int depthB = -1;
-        const bool activeA = TryGetReplayFutureDepth( context, idA, sample.frameIndex, depthA );
-        const bool activeB = TryGetReplayFutureDepth( context, idB, sample.frameIndex, depthB );
-        if ( activeA && !activeB && ( context.includeRagdollVisuals || !ragdollB ) )
-        {
-            AddReplayFutureNode( context,
-                                 idA,
-                                 modelIndexA,
-                                 idB,
-                                 modelIndexB,
-                                 sample.frameIndex,
-                                 contact.point,
-                                 contact.normal,
-                                 depthA + 1 );
-        }
-        else if ( activeB && !activeA && ( context.includeRagdollVisuals || !ragdollA ) )
-        {
-            AddReplayFutureNode( context,
-                                 idB,
-                                 modelIndexB,
-                                 idA,
-                                 modelIndexA,
-                                 sample.frameIndex,
-                                 contact.point,
-                                 contact.normal * -1.0f,
-                                 depthB + 1 );
-        }
-    }
+            (void)contactDerived;
+            AddReplayFutureNode(
+                context, parentId, parentModelIndex, id, modelIndex, firstFrame, contactPoint, contactNormal, depth );
+        },
+        [&]() { return ReplayPathContextBudgetExpired( context ); },
+        nextContactIndex );
 }
 
 bool ShouldDrawReplayPathSample( std::size_t ordinal, std::size_t stride )
@@ -1976,39 +2096,9 @@ bool TryGetReplayPredictionFutureDepth( const ReplayPredictionFutureContext& con
                                         ReplayFrameIndex frame,
                                         int& outDepth )
 {
-    if ( id.value == 0 )
-    {
-        return false;
-    }
-    if ( id.value == context.rootId.value )
-    {
-        outDepth = 0;
-        return true;
-    }
-
     const std::vector<RunReplayPathTraceNode>& nodes =
         context.nodes ? *context.nodes : context.prediction->futureNodeCache.futureNodeBuildScratch;
-    for ( const RunReplayPathTraceNode& node : nodes )
-    {
-        if ( node.id.value == id.value && frame >= node.firstFrame )
-        {
-            outDepth = node.depth;
-            return true;
-        }
-    }
-    return false;
-}
-
-RunReplayPathTraceNode* FindReplayPredictionFutureNode( std::vector<RunReplayPathTraceNode>& nodes, ReplayBodyId id )
-{
-    for ( RunReplayPathTraceNode& node : nodes )
-    {
-        if ( node.id.value == id.value )
-        {
-            return &node;
-        }
-    }
-    return nullptr;
+    return TryGetReplayFutureDepthInNodes( nodes, context.rootId, 0, false, id, frame, outDepth );
 }
 
 void AddReplayPredictionFutureNode( ReplayPredictionFutureContext& context,
@@ -2027,37 +2117,18 @@ void AddReplayPredictionFutureNode( ReplayPredictionFutureContext& context,
         return;
     }
 
-    if ( RunReplayPathTraceNode* existing = FindReplayPredictionFutureNode( *context.nodes, id ) )
-    {
-        if ( contactDerived && !existing->contactDerived )
-        {
-            existing->parentId = parentId;
-            existing->parentModelIndex = parentModelIndex;
-            existing->modelIndex = modelIndex;
-            existing->firstFrame = firstFrame;
-            existing->contactPoint = contactPoint;
-            existing->contactNormal = contactNormal;
-            existing->depth = depth;
-            existing->contactDerived = true;
-        }
-        return;
-    }
-    if ( context.nodes->size() >= REPLAY_PATH_MAX_FUTURE_NODES )
-    {
-        return;
-    }
-
-    RunReplayPathTraceNode node;
-    node.id = id;
-    node.parentId = parentId;
-    node.modelIndex = modelIndex;
-    node.parentModelIndex = parentModelIndex;
-    node.firstFrame = firstFrame;
-    node.contactPoint = contactPoint;
-    node.contactNormal = contactNormal;
-    node.depth = depth;
-    node.contactDerived = contactDerived;
-    context.nodes->push_back( node );
+    AddReplayFutureNodeToNodes( *context.nodes,
+                                context.rootId,
+                                parentId,
+                                parentModelIndex,
+                                id,
+                                modelIndex,
+                                firstFrame,
+                                contactPoint,
+                                contactNormal,
+                                depth,
+                                contactDerived,
+                                true );
 }
 
 bool BuildReplayPredictionFutureNodes( const RunReplayPredictionFrame& frame,
@@ -2067,62 +2138,38 @@ bool BuildReplayPredictionFutureNodes( const RunReplayPredictionFrame& frame,
                                        double budgetMilliseconds,
                                        std::size_t& outNextContactIndex )
 {
-    outNextContactIndex = (std::min)( startContactIndex, frame.debugContacts.size() );
-    for ( std::size_t contactIndex = outNextContactIndex; contactIndex < frame.debugContacts.size(); ++contactIndex )
-    {
-        // Invariant: if the deadline lands in a contact-heavy frame, report the
-        // next contact index instead of advancing the frame cursor. The next
-        // render frame resumes inside this same prediction frame.
-        if ( ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ) )
-        {
-            return false;
-        }
-
-        const PhysicsDebugContact& contact = frame.debugContacts[contactIndex];
-        const bool ragdollA = context.collection && ReplayModelIndexIsRagdollPart( *context.collection, contact.bodyA );
-        const bool ragdollB = context.collection && ReplayModelIndexIsRagdollPart( *context.collection, contact.bodyB );
-        const int modelIndexA = context.collection
-                                    ? ReplayRagdollTorsoModelIndexForPart( *context.collection, contact.bodyA )
-                                    : contact.bodyA;
-        const int modelIndexB = context.collection
-                                    ? ReplayRagdollTorsoModelIndexForPart( *context.collection, contact.bodyB )
-                                    : contact.bodyB;
-        const ReplayBodyId idA = ReplayPredictionBodyIdForModelIndex( frame, modelIndexA );
-        const ReplayBodyId idB = ReplayPredictionBodyIdForModelIndex( frame, modelIndexB );
-        int depthA = -1;
-        int depthB = -1;
-        const bool activeA = TryGetReplayPredictionFutureDepth( context, idA, frame.frameIndex, depthA );
-        const bool activeB = TryGetReplayPredictionFutureDepth( context, idB, frame.frameIndex, depthB );
-        if ( activeA && !activeB && ( context.includeRagdollVisuals || !ragdollB ) )
+    return BuildReplayFutureNodesFromContacts(
+        frame.debugContacts,
+        frame.frameIndex,
+        startContactIndex,
+        context.collection,
+        context.includeRagdollVisuals,
+        [&]( int modelIndex ) { return ReplayPredictionBodyIdForModelIndex( frame, modelIndex ); },
+        [&]( ReplayBodyId id, ReplayFrameIndex frameIndex, int& outDepth )
+        { return TryGetReplayPredictionFutureDepth( context, id, frameIndex, outDepth ); },
+        [&]( ReplayBodyId parentId,
+             int parentModelIndex,
+             ReplayBodyId id,
+             int modelIndex,
+             ReplayFrameIndex firstFrame,
+             const Vector3& contactPoint,
+             const Vector3& contactNormal,
+             int depth,
+             bool contactDerived )
         {
             AddReplayPredictionFutureNode( context,
-                                           idA,
-                                           modelIndexA,
-                                           idB,
-                                           modelIndexB,
-                                           frame.frameIndex,
-                                           contact.point,
-                                           contact.normal,
-                                           depthA + 1,
-                                           true );
-        }
-        else if ( activeB && !activeA && ( context.includeRagdollVisuals || !ragdollA ) )
-        {
-            AddReplayPredictionFutureNode( context,
-                                           idB,
-                                           modelIndexB,
-                                           idA,
-                                           modelIndexA,
-                                           frame.frameIndex,
-                                           contact.point,
-                                           contact.normal * -1.0f,
-                                           depthB + 1,
-                                           true );
-        }
-        outNextContactIndex = contactIndex + 1;
-    }
-    outNextContactIndex = 0;
-    return true;
+                                           parentId,
+                                           parentModelIndex,
+                                           id,
+                                           modelIndex,
+                                           firstFrame,
+                                           contactPoint,
+                                           contactNormal,
+                                           depth,
+                                           contactDerived );
+        },
+        [&]() { return ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ); },
+        outNextContactIndex );
 }
 
 bool BuildReplayPredictionAffectedFutureNodes( const std::vector<RunReplayPredictionFrame>& frames,

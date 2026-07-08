@@ -51,7 +51,7 @@ prediction, and presentation — and get replay code out of `RunFrame`.
 - [x] **Phase 0 — Split `RunReplayPredictionState`** by concern: prediction sim /
   UI hover / async build / render cache / reveal clock. Each becomes its own
   small type.
-- [ ] **Phase 1 — Template the twin helpers.** One template over sample type
+- [x] **Phase 1 — Template the twin helpers.** One template over sample type
   collapses the six `Find*`/`*ByModelIndex`/`FutureDepth`/`AddFutureNode`/
   `BuildFutureNodes` pairs.
 - [ ] **Phase 2 — Evict replay from the game loop.** Move the ~1,800 lines of
@@ -149,10 +149,21 @@ bit-exact — the replay scrub regression is the gate.
 
 ### Phase 1 — Template the twin helpers
 
-- [ ] **1.1** Introduce a single template over sample type collapsing
+- [x] **1.1** Introduce a single template over sample type collapsing
   `FindReplayBodyById` / `FindReplayPredictionBodyById` and the
   `ByModelIndex` / `FutureDepth` / `AddFutureNode` / `BuildFutureNodes` pairs.
   Gate: replay scrub + `validate_full`. Commit.
+  - Completion note (2026-07-08): collapsed replay/prediction body lookup,
+    model-index lookup, future-depth lookup, future-node insertion, and contact
+    future-node building through shared typed helpers while preserving the
+    retained replay visualizer cache and prediction scratch/replacement policies
+    at the wrappers. Comment audit inspected `ReplayRuntime.cpp` and
+    `RunReplayPredictionHelpers.inl` with no deferred wording work. Validation:
+    `tools\validate_format.bat` passed in 9.4s, then passed again in 9.3s after
+    comment-only audit notes; `tools\validate_replay_scrub.bat` passed in 23.7s;
+    `tools\validate_full.bat` passed in 44.7s with 0 build warnings/errors, 0
+    DX12 validation errors, matching DX12 screenshots, and
+    `physics_regression_solver.csv` byte-exact at 20001 lines.
 
 ### Phase 2 — Evict replay from the game loop
 
@@ -179,7 +190,7 @@ bit-exact — the replay scrub regression is the gate.
 
 - [ ] `RunFrame.cpp` contains no replay-probe bodies (they live in `Replay/`).
 - [x] `RunReplayPredictionState` is split into single-concern types.
-- [ ] The six twin helpers are one template.
+- [x] The six twin helpers are one template.
 - [ ] Butterfly Effect prediction, future-node visualization, replay ribbons,
   and cinematic reveal behavior are preserved and have explicit owner types.
 - [ ] Replay subsystem LOC is materially reduced; record/restore stays bit-exact.
