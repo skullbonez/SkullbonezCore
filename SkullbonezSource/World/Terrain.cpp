@@ -27,7 +27,6 @@ Related:
 #include "Terrain.h"
 #include "../Assets/AssetSystem.h"
 #include "../Core/SbResult.h"
-#include "../Rendering/Helper.h"
 #include "../Rendering/IRenderResourceFactory.h"
 #include "../Core/Profiler.h"
 
@@ -599,6 +598,7 @@ void Terrain::Render( const Matrix4& view,
                       const Matrix4& projection,
                       IRenderCommandContext& commands,
                       const float* lightPosition,
+                      const float* clipPlane,
                       const SkullbonezCore::Basics::CinematicRenderConfig* cinematicOverride,
                       const ShadowFrameData* shadow )
 {
@@ -609,7 +609,7 @@ void Terrain::Render( const Matrix4& view,
     m_terrainShader->SetMat4( "uModel", model );
     m_terrainShader->SetMat4( "uView", view );
     m_terrainShader->SetMat4( "uProjection", projection );
-    const float* clipPlane = SkullbonezCore::Basics::RenderHelper::GetClipPlane();
+    assert( clipPlane );
     m_terrainShader->SetVec4( "uClipPlane", clipPlane[0], clipPlane[1], clipPlane[2], clipPlane[3] );
 
     // Transform light position to view space

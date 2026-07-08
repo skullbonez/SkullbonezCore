@@ -35,6 +35,7 @@ Related:
 #include "RuntimeRenderHost.h"
 #include "RuntimeRenderInputs.h"
 #include "RuntimeRenderPasses.h"
+#include "../../Rendering/Helper.h"
 #include "../../Rendering/RenderGraph.h"
 
 #include <array>
@@ -100,6 +101,14 @@ class RuntimeRenderer
     void ReleaseBackendOwnedResources( Rendering::IRenderResourceFactory* renderResources );
     void ReleaseBackendOwnedRuntimeResources( const BackendResourceReleaseContext& context );
     void RebuildRegisteredRenderResources( const RegisteredResourceRebuildContext& context );
+    RenderHelper& Helper()
+    {
+        return m_renderHelper;
+    }
+    const RenderHelper& Helper() const
+    {
+        return m_renderHelper;
+    }
 
     void EnsureUiTextResources( Rendering::IRenderResourceFactory& renderResources,
                                 const Assets::AssetSystem& assets,
@@ -157,7 +166,7 @@ class RuntimeRenderer
 
     RenderFrameContext BuildRenderFrameContext( const RuntimeRenderInputs& renderInputs,
                                                 bool cinematicRender,
-                                                const CinematicRenderConfig& renderConfig ) const;
+                                                const CinematicRenderConfig& renderConfig );
     RenderResourceContext BuildRenderResourceContext( const RuntimeRenderInputs& renderInputs,
                                                       bool cinematicRender ) const;
     Rendering::RenderGraph& BeginRenderPassGraph();
@@ -235,6 +244,7 @@ class RuntimeRenderer
     EngineConfig& m_config;                                // Process config that owns ordinary render style.
     RunRuntimeSettings& m_runtimeSettings;                 // Runtime-toggled render/physics presentation settings.
     Environment::WorldEnvironment& m_world;                // Fluid surface and gravity owner for pass contexts.
+    RenderHelper m_renderHelper;                           // Owned primitive render cache and batch scratch.
     Physics::CollisionVisualizer& m_collisionVisualizer;
     Physics::BroadphaseVisualizer& m_broadphaseVisualizer;
     Physics::PhysicsDebugVisualizer& m_physicsDebugVisualizer;

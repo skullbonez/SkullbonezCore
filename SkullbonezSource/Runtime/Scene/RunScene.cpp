@@ -1237,7 +1237,7 @@ SbResult Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnCom
     SkullbonezCore::Rendering::IRenderDiagnostics* renderDiagnostics = m_renderBackendView.renderDiagnostics;
     const bool hasRayTracingReflection =
         renderDiagnostics && renderDiagnostics->GetCapabilities().supportsDxrReflection && rayTracing;
-    if ( hasRayTracingReflection && RenderHelper::GetSphereInstMeshHandle() == 0 )
+    if ( hasRayTracingReflection && m_renderer.Helper().GetSphereInstMeshHandle() == 0 )
     {
         if ( !renderResources || !renderCommands || !renderDiagnostics )
         {
@@ -1248,8 +1248,9 @@ SbResult Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnCom
                                                  *renderCommands,
                                                  *renderDiagnostics,
                                                  m_systems.assets,
-                                                 m_config };
-        RenderHelper::EnsureSphereMesh( helperContext );
+                                                 m_config,
+                                                 m_renderer.Helper() };
+        m_renderer.Helper().EnsureSphereMesh( helperContext );
     }
     if ( hasRayTracingReflection && m_systems.terrain && m_systems.terrain->GetMesh() )
     {
@@ -1258,9 +1259,9 @@ SbResult Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnCom
         int terrainVertCount = terrainMesh->GetVertexCount();
         int terrainStride = terrainMesh->GetStride();
 
-        uint32_t sphereHandle = RenderHelper::GetSphereInstMeshHandle();
+        uint32_t sphereHandle = m_renderer.Helper().GetSphereInstMeshHandle();
         uint64_t sphereVBVA = rayTracing->GetInstancedMeshStaticVBVA( sphereHandle );
-        int sphereVertCount = RenderHelper::GetSphereVertexCount();
+        int sphereVertCount = m_renderer.Helper().GetSphereVertexCount();
         int sphereStride = rayTracing->GetInstancedMeshStaticStride( sphereHandle );
 
         if ( terrainVBVA != 0 && sphereVBVA != 0 )

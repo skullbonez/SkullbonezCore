@@ -326,7 +326,8 @@ void ExecuteTerrainGraphCallback( const SkullbonezCore::Rendering::RenderGraphPa
     {
         throw std::runtime_error( "TerrainPass graph callback missing execution data" );
     }
-    data->terrainPass->Render( { *data->frame, data->cinematic, data->shadow, data->terrainHidden } );
+    const float* clipPlane = data->frame->renderHelper ? data->frame->renderHelper->GetClipPlane() : nullptr;
+    data->terrainPass->Render( { *data->frame, data->cinematic, data->shadow, clipPlane, data->terrainHidden } );
 }
 
 void ExecuteWaterGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& /*context*/, void* userData )
@@ -394,20 +395,22 @@ void RenderReplayPredictionGhosts( ReplayRuntime& replayRuntime,
 
     assert( frame.textures && "RenderFrameContext requires a texture collection" );
     frame.textures->SelectTexture( TEXTURE_BOUNDING_SPHERE );
-    assert( frame.renderResources && frame.renderCommands && frame.renderDiagnostics && frame.assets );
+    assert( frame.renderResources && frame.renderCommands && frame.renderDiagnostics && frame.assets &&
+            frame.renderHelper );
     const RenderHelperContext helperContext{ *frame.renderResources,
                                              *frame.renderCommands,
                                              *frame.renderDiagnostics,
                                              *frame.assets,
-                                             config };
-    RenderHelper::DrawBoxBatchBegin( helperContext,
-                                     frame.baseView,
-                                     frame.projection,
-                                     frame.lightPosition,
-                                     true,
-                                     cinematic,
-                                     shadow,
-                                     1.0f );
+                                             config,
+                                             *frame.renderHelper };
+    helperContext.helper.DrawBoxBatchBegin( helperContext,
+                                            frame.baseView,
+                                            frame.projection,
+                                            frame.lightPosition,
+                                            true,
+                                            cinematic,
+                                            shadow,
+                                            1.0f );
 
     for ( const ReplayPredictionGhostDrawRequest& request : replayRuntime.PredictionGhostDrawRequests() )
     {
@@ -441,10 +444,10 @@ void RenderReplayPredictionGhosts( ReplayRuntime& replayRuntime,
         const Math::Transformation::Matrix4 modelMatrix =
             box->GetModelMatrix( request.position,
                                  Math::Transformation::Matrix4::FromQuaternion( request.orientation ) );
-        RenderHelper::DrawBoxBatchModel( modelMatrix, material );
+        helperContext.helper.DrawBoxBatchModel( modelMatrix, material );
     }
 
-    RenderHelper::DrawBoxBatchEnd( helperContext );
+    helperContext.helper.DrawBoxBatchEnd( helperContext );
 }
 
 void ExecuteReplayGhostGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& /*context*/,
@@ -1321,7 +1324,7 @@ bool RuntimeRenderer::ExecuteUiTextThroughRenderGraph( Rendering::IRenderDiagnos
 
 RenderFrameContext RuntimeRenderer::BuildRenderFrameContext( const RuntimeRenderInputs& renderInputs,
                                                              bool cinematicRender,
-                                                             const CinematicRenderConfig& renderConfig ) const
+                                                             const CinematicRenderConfig& renderConfig )
 {
     const RuntimeRenderServices& services = renderInputs.services;
     RenderFrameContext frame;
@@ -1350,6 +1353,7 @@ RenderFrameContext RuntimeRenderer::BuildRenderFrameContext( const RuntimeRender
     frame.renderResources = &services.renderResources;
     frame.renderCommands = &services.renderCommands;
     frame.renderDiagnostics = &services.renderDiagnostics;
+    frame.renderHelper = &m_renderHelper;
     frame.renderRayTracing = services.renderRayTracing;
     frame.windowWidth = (std::max)( 1, RuntimeWindowScreenWidth( m_systems, m_config ) );
     frame.windowHeight = (std::max)( 1, RuntimeWindowScreenHeight( m_systems, m_config ) );
@@ -1550,8 +1554,9 @@ void RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
                                            services.renderCommands,
                                            services.renderDiagnostics,
                                            services.assets,
-                                           m_config };
-        RenderHelper::EnsureShadowDepthPrimitiveResources( helperContext );
+                                           m_config,
+                                           m_renderHelper };
+        m_renderHelper.EnsureShadowDepthPrimitiveResources( helperContext );
         if ( services.terrain )
         {
             services.terrain->EnsureShadowDepthResources();
@@ -1850,7 +1855,7 @@ void RuntimeRenderer::ReleaseBackendOwnedRuntimeResources( const BackendResource
             m_world.ReleaseRenderResources();
             break;
         case BackendResourceStep::HelperResources:
-            RenderHelper::ResetRenderResources( context.renderResources );
+            m_renderHelper.ResetRenderResources( context.renderResources );
             break;
         case BackendResourceStep::GameModelResources:
             context.models.ResetRenderResources();
@@ -1937,7 +1942,7 @@ void RuntimeRenderer::RebuildRegisteredRenderResources( const RegisteredResource
         switch ( phase.step )
         {
         case RebuildStep::ResetHelperCache:
-            RenderHelper::ResetRenderResources( context.renderResources );
+            m_renderHelper.ResetRenderResources( context.renderResources );
             break;
         case RebuildStep::RegisterBuiltInSources:
             context.assets.RegisterBuiltInSourceAssets( context.config );

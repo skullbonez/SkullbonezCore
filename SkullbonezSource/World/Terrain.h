@@ -112,6 +112,7 @@ class Terrain
                  const Math::Transformation::Matrix4& projection,
                  Rendering::IRenderCommandContext& commands,
                  const float* lightPosition,
+                 const float* clipPlane,
                  const Basics::CinematicRenderConfig* cinematic = nullptr,
                  const Rendering::ShadowFrameData* shadow =
                      nullptr );                                            // Terrain color pass with optional cinematic and shadow inputs.

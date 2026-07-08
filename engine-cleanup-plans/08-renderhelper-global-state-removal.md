@@ -39,7 +39,7 @@ scoped to a batch object rather than global flags.
 
 - [x] **Phase 0 — Gather statics** into a `RenderHelperState` struct owned by the
   render host.
-- [ ] **Phase 1 — Convert static methods to members**; thread the instance to
+- [x] **Phase 1 — Convert static methods to members**; thread the instance to
   call sites (or reach it through the render host).
 - [ ] **Phase 2 — Scope batches with RAII.** Replace `Begin/Model/End` global
   flags with a batch scope object whose destructor flushes — a missed end
@@ -84,12 +84,21 @@ unchanged and `dx12_validation.txt` == 0 throughout** — this is a hard gate.
     `RunRender.cpp`, `RunPasses.cpp`, and `RunScene.cpp`; raytracing uses
     `EnsureSphereMesh`, `GetSphereInstMeshHandle`, and `GetSphereVertexCount`.
   No repository validation required; documentation-only inventory.
-- [ ] **1.1** Create a `RenderHelperState` struct holding all of them as
+- [x] **1.1** Create a `RenderHelperState` struct holding all of them as
   non-static members; give the render host one owned instance. Build. Commit.
-- [ ] **2.1** Convert static methods to members operating on that instance;
+- [x] **2.1** Convert static methods to members operating on that instance;
   thread the instance to call sites (in `RunRender.cpp`) via the render host. Do
   it in **one group at a time** (sphere batch, box batch, hull debug…). Gate:
   `validate_dx12_renderer`. Commit per group.
+
+  Completion note (2026-07-08): `RuntimeRenderer` now owns a `RenderHelper`
+  instance and publishes it through `RenderFrameContext` / `RenderHelperContext`.
+  Sphere, box, pine, convex-hull, shadow-depth, replay ghost, reflection clip
+  plane, terrain clip-plane, and DXR sphere-prewarm call sites now operate on
+  that instance. No static mutable `RenderHelper` state or static helper call
+  sites remain outside the member definitions in `Helper.cpp`. Added a runtime
+  boundary guardrail/self-test blocking new `RenderHelper::` primitive access
+  outside the member-definition file.
 - [ ] **3.1** Replace the `Begin/Model/End` global batch flags with a batch scope
   object (RAII) whose destructor flushes — a missed `End` becomes impossible.
   Gate: `validate_dx12_renderer`. Commit.
@@ -107,7 +116,7 @@ unchanged and `dx12_validation.txt` == 0 throughout** — this is a hard gate.
 
 ## Acceptance (structural)
 
-- [ ] `RenderHelper` has no static mutable members; it is instantiable and owned.
+- [x] `RenderHelper` has no static mutable members; it is instantiable and owned.
 - [ ] Batch state is scoped (RAII); no global batch-ready flags persist across
   frames.
 - [ ] `ResetRenderResources()` manual-ordering call is removed.

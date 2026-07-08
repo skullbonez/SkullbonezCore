@@ -47,6 +47,7 @@ Related:
 #include "../Rendering/IRenderRayTracing.h"
 #include "../Rendering/IRenderResourceFactory.h"
 #include "../Rendering/GameModelRenderer.h"
+#include "../Rendering/Helper.h"
 #include "../Rendering/RenderGraph.h"
 #include "../Rendering/RenderInstanceStore.h"
 #include "../Rendering/RenderRasterBindingContract.h"
@@ -189,11 +190,19 @@ SkullbonezCore::Rendering::IRenderResourceFactory& RenderResources( const Render
 RenderHelperContext RenderHelperServices( const RenderFrameContext& frame, const EngineConfig& config )
 {
     assert( frame.renderDiagnostics && "RenderFrameContext requires a render diagnostics context" );
+    assert( frame.renderHelper && "RenderFrameContext requires a primitive render helper" );
     return RenderHelperContext{ RenderResources( frame ),
                                 RenderCommands( frame ),
                                 *frame.renderDiagnostics,
                                 RenderAssets( frame ),
-                                config };
+                                config,
+                                *frame.renderHelper };
+}
+
+RenderHelper& RenderHelperOwner( const RenderFrameContext& frame )
+{
+    assert( frame.renderHelper && "RenderFrameContext requires a primitive render helper" );
+    return *frame.renderHelper;
 }
 
 SkullbonezCore::Rendering::IRenderDiagnostics& RenderDiagnostics( const RenderFrameContext& frame )
@@ -1154,7 +1163,7 @@ ReflectionPassOutput ReflectionPass::Render( const ReflectionPassInputs& inputs,
         PROFILE_GPU_BEGIN( "Frame/Render/Reflection/Balls" );
         DRAW_CALL_TRACE_SCOPE( RenderDiagnostics( inputs.frame ), "Frame/Render/Reflection/Balls" );
         renderCommands.SetClipPlane( 0, true );
-        RenderHelper::SetClipPlane( 0.0f, 1.0f, 0.0f, -inputs.frame.waterY );
+        RenderHelperOwner( inputs.frame ).SetClipPlane( 0.0f, 1.0f, 0.0f, -inputs.frame.waterY );
         m_collisionVisualizer.SetClipPlane( 0.0f, 1.0f, 0.0f, -inputs.frame.waterY );
         if ( inputs.collisionStateColorsVisible )
         {
@@ -1200,7 +1209,7 @@ ReflectionPassOutput ReflectionPass::Render( const ReflectionPassInputs& inputs,
             }
         }
         renderCommands.SetClipPlane( 0, false );
-        RenderHelper::SetClipPlane( 0.0f, 1.0f, 0.0f, 1.0e9f );
+        RenderHelperOwner( inputs.frame ).SetClipPlane( 0.0f, 1.0f, 0.0f, 1.0e9f );
         m_collisionVisualizer.SetClipPlane( 0.0f, 1.0f, 0.0f, 1.0e9f );
         PROFILE_GPU_END( "Frame/Render/Reflection/Balls" );
 
@@ -1306,6 +1315,7 @@ void TerrainPass::Render( const TerrainPassInputs& inputs )
                        inputs.frame.projection,
                        renderCommands,
                        inputs.frame.lightPosition,
+                       inputs.clipPlane,
                        inputs.cinematic,
                        inputs.shadow );
     PROFILE_GPU_END( "Frame/Render/Terrain" );

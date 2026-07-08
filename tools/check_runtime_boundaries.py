@@ -1400,6 +1400,11 @@ DELETED_MIGRATION_ARTIFACT_PATTERNS: tuple[tuple[str, re.Pattern[str], str], ...
         "RenderInstanceStore handles now use model-slot render identity; do not revive compatibility-named handle helpers.",
     ),
 )
+RENDER_HELPER_MEMBER_DEFINITION_SOURCE = Path("SkullbonezSource/Rendering/Helper.cpp")
+RENDER_HELPER_STATIC_ACCESS_PATTERN = re.compile(
+    r"\bRenderHelper\s*::\s*"
+    r"(?:StateSetup|SetClipPlane|GetClipPlane|ResetRenderResources|Ensure\w+|Build\w+|Draw\w+)\s*\("
+)
 PUBLIC_PHYSICS_FACADE_HEADERS = (
     Path("SkullbonezSource/Physics/PhysicsApi.h"),
     Path("SkullbonezSource/Physics/PhysicsEngine.h"),
@@ -3182,6 +3187,42 @@ def check_deleted_migration_artifact_guardrails(repo: Path) -> list[BoundaryErro
         path = repo / relative_path
         if path.exists():
             errors.extend(check_deleted_migration_artifact_guardrails_text(path, path.read_text(encoding="utf-8")))
+    return errors
+
+
+def check_render_helper_static_access_guardrails_text(
+    path: Path,
+    text: str,
+    relative_path: Path | None = None,
+) -> list[BoundaryError]:
+    scan_path = relative_path or path
+    if scan_path == RENDER_HELPER_MEMBER_DEFINITION_SOURCE:
+        return []
+
+    stripped = strip_cpp_comments_and_string_literals(text)
+    return [
+        BoundaryError(
+            path,
+            line_for_offset(stripped, match.start()),
+            "RenderHelper static primitive access is blocked",
+            "Use the RenderHelper instance carried by RuntimeRenderer/RenderHelperContext; only Helper.cpp may define RenderHelper member methods.",
+        )
+        for match in RENDER_HELPER_STATIC_ACCESS_PATTERN.finditer(stripped)
+    ]
+
+
+def check_render_helper_static_access_guardrails(repo: Path) -> list[BoundaryError]:
+    errors: list[BoundaryError] = []
+    for path in sorted((repo / Path("SkullbonezSource")).rglob("*")):
+        if path.suffix not in { ".cpp", ".h", ".hpp", ".inl" }:
+            continue
+        errors.extend(
+            check_render_helper_static_access_guardrails_text(
+                path,
+                path.read_text(encoding="utf-8"),
+                path.relative_to(repo),
+            )
+        )
     return errors
 
 
@@ -11264,6 +11305,43 @@ def run_self_tests() -> list[str]:
     """
     expect_error('deleted SimulationController synthetic surface was not rejected', check_deleted_migration_artifact_guardrails_text( Path("SkullbonezSource/Runtime/SimulationController.h"), deleted_simulation_controller_text, ), 'deleted migration artifact is blocked: SimulationController')
 
+    old_render_helper_static_call_text = """
+    void GameModelRenderer::RenderModels( const RenderHelperContext& helperContext )
+    {
+        RenderHelper::DrawSphereBatchBegin( helperContext, view, proj, lightPos );
+        RenderHelper::DrawSphereBatchModel( model, material );
+        RenderHelper::DrawSphereBatchEnd( helperContext );
+    }
+    """
+    expect_error('old RenderHelper static primitive call synthetic surface was not rejected', check_render_helper_static_access_guardrails_text( Path("SkullbonezSource/Rendering/GameModelRenderer.cpp"), old_render_helper_static_call_text, Path("SkullbonezSource/Rendering/GameModelRenderer.cpp"), ), 'RenderHelper static primitive access is blocked')
+
+    allowed_render_helper_instance_call_text = """
+    void GameModelRenderer::RenderModels( const RenderHelperContext& helperContext )
+    {
+        helperContext.helper.DrawSphereBatchBegin( helperContext, view, proj, lightPos );
+        helperContext.helper.DrawSphereBatchModel( model, material );
+        helperContext.helper.DrawSphereBatchEnd( helperContext );
+    }
+    """
+    expect_clean('RenderHelper instance primitive call synthetic surface was rejected', check_render_helper_static_access_guardrails_text( Path("SkullbonezSource/Rendering/GameModelRenderer.cpp"), allowed_render_helper_instance_call_text, Path("SkullbonezSource/Rendering/GameModelRenderer.cpp"), ))
+
+    allowed_render_helper_member_definition_text = """
+    void RenderHelper::DrawSphereBatchBegin( const RenderHelperContext& context )
+    {
+        m_state.sphereBatchReady = true;
+    }
+    """
+    expect_clean('RenderHelper member definition synthetic surface was rejected', check_render_helper_static_access_guardrails_text( Path("SkullbonezSource/Rendering/Helper.cpp"), allowed_render_helper_member_definition_text, RENDER_HELPER_MEMBER_DEFINITION_SOURCE, ))
+
+    commented_render_helper_static_call_text = """
+    void Notes()
+    {
+        // RenderHelper::DrawSphereBatchBegin(...) was the deleted static-call shape.
+        const char* oldCall = "RenderHelper::DrawSphereBatchEnd(helperContext)";
+    }
+    """
+    expect_clean('comment-only RenderHelper static call synthetic text was rejected', check_render_helper_static_access_guardrails_text( Path("SkullbonezSource/Rendering/GameModelRenderer.cpp"), commented_render_helper_static_call_text, Path("SkullbonezSource/Rendering/GameModelRenderer.cpp"), ))
+
     deleted_rigid_body_text = """
     class RigidBody
     {
@@ -16244,6 +16322,7 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_standalone_physics_implementation_game_object_guardrails(repo))
     errors.extend(check_runtime_handle_smoke_adapter_guardrails(repo))
     errors.extend(check_deleted_migration_artifact_guardrails(repo))
+    errors.extend(check_render_helper_static_access_guardrails(repo))
     errors.extend(check_persistent_solver_context_model_access_guardrails(repo))
     errors.extend(check_physics_world_solver_model_stream_guardrails(repo))
     errors.extend(check_physics_world_contact_highlight_tick_guardrails(repo))
