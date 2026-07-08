@@ -476,7 +476,8 @@ void ApplyTornadoDefaultsForActiveScene( RunRuntimeSettings& runtimeSettings,
 
 void Run::UpdateRequiredSceneContacts()
 {
-    if ( m_requiredSceneContacts.empty() )
+    std::vector<RunRequiredContactState>& requiredContacts = m_sceneController.RequiredContacts();
+    if ( requiredContacts.empty() )
     {
         return;
     }
@@ -487,7 +488,7 @@ void Run::UpdateRequiredSceneContacts()
     const auto& colliderRecords = colliderStore.Records();
     const int contactModelCount =
         (std::min)( bodyStore.Count(), static_cast<int>( (std::min)( bodyRecords.size(), colliderRecords.size() ) ) );
-    for ( RunRequiredContactState& required : m_requiredSceneContacts )
+    for ( RunRequiredContactState& required : requiredContacts )
     {
         if ( required.touched || required.bodyA < 0 || required.bodyB < 0 || required.bodyA >= contactModelCount ||
              required.bodyB >= contactModelCount )
@@ -520,7 +521,7 @@ void Run::UpdateRequiredSceneContacts()
         {
             continue;
         }
-        for ( RunRequiredContactState& required : m_requiredSceneContacts )
+        for ( RunRequiredContactState& required : requiredContacts )
         {
             if ( required.touched || required.bodyA < 0 || required.bodyB < 0 )
             {
@@ -540,7 +541,8 @@ void Run::UpdateRequiredSceneContacts()
 
 bool Run::RequiredSceneContactsComplete() const
 {
-    for ( const RunRequiredContactState& contact : m_requiredSceneContacts )
+    const std::vector<RunRequiredContactState>& requiredContacts = m_sceneController.RequiredContacts();
+    for ( const RunRequiredContactState& contact : requiredContacts )
     {
         if ( contact.bodyA < 0 || contact.bodyB < 0 || !contact.touched )
         {
@@ -553,12 +555,14 @@ bool Run::RequiredSceneContactsComplete() const
 
 void Run::UpdateRequiredSceneBroadphaseXCells( const SpatialGrid::ActiveCell* activeCells, int activeCellCount )
 {
-    if ( m_requiredBroadphaseXCells.empty() || !activeCells || activeCellCount <= 0 )
+    std::vector<RunRequiredBroadphaseXCellsState>& requiredBroadphaseXCells =
+        m_sceneController.RequiredBroadphaseXCells();
+    if ( requiredBroadphaseXCells.empty() || !activeCells || activeCellCount <= 0 )
     {
         return;
     }
 
-    for ( RunRequiredBroadphaseXCellsState& required : m_requiredBroadphaseXCells )
+    for ( RunRequiredBroadphaseXCellsState& required : requiredBroadphaseXCells )
     {
         if ( required.activated )
         {
@@ -619,7 +623,9 @@ void Run::UpdateRequiredSceneBroadphaseXCells( const SpatialGrid::ActiveCell* ac
 
 bool Run::RequiredSceneBroadphaseXCellsComplete() const
 {
-    for ( const RunRequiredBroadphaseXCellsState& required : m_requiredBroadphaseXCells )
+    const std::vector<RunRequiredBroadphaseXCellsState>& requiredBroadphaseXCells =
+        m_sceneController.RequiredBroadphaseXCells();
+    for ( const RunRequiredBroadphaseXCellsState& required : requiredBroadphaseXCells )
     {
         if ( !required.activated )
         {
@@ -674,7 +680,7 @@ SbResult Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnCom
     m_runtimeSettings.isVsyncEnabled = m_config.runtimeRender.vsyncEnabled;
     m_runtimeSettings.isPipelineSyncEnabled = m_config.runtimeRender.forcePipelineSync;
     m_diagnosticsRuntime.UIStress() = DiagnosticsRuntime::UIStressState{};
-    m_requiredSceneContacts.clear();
+    m_sceneController.ClearRequiredAutomationGates();
 
     m_systems.cameras->Reset();
     m_cGameModelCollection.Clear();
@@ -1013,8 +1019,8 @@ SbResult Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnCom
                                                 m_systems.terrain.get(),
                                                 m_cGameModelCollection,
                                                 m_cGameModelCollection.GetPhysicsEngine(),
-                                                m_requiredSceneContacts,
-                                                m_requiredBroadphaseXCells ),
+                                                m_sceneController.RequiredContacts(),
+                                                m_sceneController.RequiredBroadphaseXCells() ),
                 scene );
             if ( !authoredSetup.ok )
             {

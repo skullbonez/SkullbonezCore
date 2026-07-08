@@ -32,6 +32,7 @@ Related:
 #include "../../Core/Config.h"
 #include "../../Physics/PhysicsHandles.h"
 #include "../../Physics/PhysicsTimestep.h"
+#include "SceneAuthoredSetup.h"
 
 #include <string>
 #include <vector>
@@ -133,10 +134,20 @@ class SceneRuntime
     int Append( std::string path );
     bool CurrentQueueIsCinematicDeck() const;
     int AdjacentQueueIndex( int direction ) const;
+    // Concept: authored-scene completion gates are scene-run state. Setup fills
+    // them during load, while frame ticks mutate only their observed/completed
+    // flags until the next scene load clears them.
+    std::vector<RunRequiredContactState>& RequiredContacts();
+    const std::vector<RunRequiredContactState>& RequiredContacts() const;
+    std::vector<RunRequiredBroadphaseXCellsState>& RequiredBroadphaseXCells();
+    const std::vector<RunRequiredBroadphaseXCellsState>& RequiredBroadphaseXCells() const;
+    void ClearRequiredAutomationGates();
 
   private:
     RunSceneState m_state;
     std::vector<std::string> m_queue;
+    std::vector<RunRequiredContactState> m_requiredContacts;
+    std::vector<RunRequiredBroadphaseXCellsState> m_requiredBroadphaseXCells;
     SceneRuntimeLifecycleEvent m_lastLifecycleEvent = SceneRuntimeLifecycleEvent::None;
 };
 } // namespace Basics

@@ -333,3 +333,34 @@ int SceneRuntime::AdjacentQueueIndex( int direction ) const
     }
     return ( m_state.currentSceneIndex + ( direction < 0 ? -1 : 1 ) + queueCount ) % queueCount;
 }
+
+
+std::vector<RunRequiredContactState>& SceneRuntime::RequiredContacts()
+{
+    return m_requiredContacts;
+}
+
+
+const std::vector<RunRequiredContactState>& SceneRuntime::RequiredContacts() const
+{
+    return m_requiredContacts;
+}
+
+
+std::vector<RunRequiredBroadphaseXCellsState>& SceneRuntime::RequiredBroadphaseXCells()
+{
+    return m_requiredBroadphaseXCells;
+}
+
+
+const std::vector<RunRequiredBroadphaseXCellsState>& SceneRuntime::RequiredBroadphaseXCells() const
+{
+    return m_requiredBroadphaseXCells;
+}
+
+
+void SceneRuntime::ClearRequiredAutomationGates()
+{
+    m_requiredContacts.clear();
+    m_requiredBroadphaseXCells.clear();
+}

@@ -145,8 +145,6 @@ class Run
     RunDebugState m_debug;                                                 // Runtime debug/overlay toggles
     GraphicsStressController m_graphicsStress;                             // Deterministic graphics fuzzer state for overnight DX12 runs.
     RuntimeTools m_runtimeTools;                                           // Launcher, editor, manipulator state, and transient render feedback.
-    std::vector<RunRequiredContactState> m_requiredSceneContacts;
-    std::vector<RunRequiredBroadphaseXCellsState> m_requiredBroadphaseXCells;
     Physics::BroadphaseVisualizer m_broadphaseVisualizer;                  // Spatial grid debug overlay (G key toggle)
     Physics::CollisionVisualizer m_collisionVisualizer;                    // Solid collision/sleep model visualizer (V key toggle)
     Physics::PhysicsDebugVisualizer

@@ -69,6 +69,11 @@ class SceneController
     int Append( std::string path );
     bool CurrentQueueIsCinematicDeck() const;
     int AdjacentQueueIndex( int direction ) const;
+    std::vector<RunRequiredContactState>& RequiredContacts();
+    const std::vector<RunRequiredContactState>& RequiredContacts() const;
+    std::vector<RunRequiredBroadphaseXCellsState>& RequiredBroadphaseXCells();
+    const std::vector<RunRequiredBroadphaseXCellsState>& RequiredBroadphaseXCells() const;
+    void ClearRequiredAutomationGates();
 
     SceneRuntime& Runtime();
     const SceneRuntime& Runtime() const;

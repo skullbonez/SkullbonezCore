@@ -1633,6 +1633,26 @@ every step. Commit per step.
     (9.5s), and
     `TestOutput\agent_logs\plan01_replay_restore_prepare_helpers_runtime_boundaries.log`
     (17.7s). The touched-file comment audit covered `RunFrame.cpp`.
+  - [x] Scene automation gate ownership moved required-contact and required
+    broadphase-X-cell vectors out of `Run` and into `SceneRuntime`, with
+    `SceneController` as the access boundary used by scene load and frame
+    completion checks. The direct `Run` declaration count now measures 18 public
+    methods and 35 private member lines, down from the Phase 0 baseline of
+    roughly 60 public methods and 40 direct members. The public/member-count
+    acceptance row is complete; the remaining Phase 3 work is the broader
+    subsystem-logic row. Gate evidence:
+    `TestOutput\agent_logs\plan01_scene_gate_ownership_validate_full.log`
+    (61.8s; project filters/runtime boundaries passed, Profile/Debug builds had
+    0 warnings and 0 errors, DX12 InfoQueue errors = 0, screenshots matched
+    baselines, and `physics_regression_solver.csv` matched byte-exactly).
+    Targeted pre-gate checks also passed:
+    `TestOutput\agent_logs\plan01_scene_gate_ownership_build_profile_rerun.log`
+    (6.6s after replacing stale direct member reads),
+    `TestOutput\agent_logs\plan01_scene_gate_ownership_validate_format_rerun.log`
+    (9.3s), and
+    `TestOutput\agent_logs\plan01_scene_gate_ownership_runtime_boundaries.log`
+    (17.8s). The touched-file comment audit covered `Run.h`, `RunFrame.cpp`,
+    `RunScene.cpp`, `SceneController.h/.cpp`, and `SceneRuntime.h/.cpp`.
 
 ## Validation
 
@@ -1643,7 +1663,7 @@ after each phase.
 
 - [x] No single `Run` function exceeds ~200 lines; `TakeInput` is a table +
   dispatch loop.
-- [ ] `Run` public-method and owned-member counts drop materially from the
+- [x] `Run` public-method and owned-member counts drop materially from the
   audit baseline (~60 public methods, ~40 members).
 - [x] `RunState` field count is measurably reduced; no external file mutates a
   `RunState` sub-field directly.

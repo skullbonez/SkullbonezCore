@@ -3688,8 +3688,11 @@ bool Run::TickSceneAdvance()
 
     ++SceneState().currentFrame;
 
-    const bool hasRequiredContactGate = !m_requiredSceneContacts.empty();
-    const bool hasRequiredBroadphaseGate = !m_requiredBroadphaseXCells.empty();
+    const std::vector<RunRequiredContactState>& requiredContacts = m_sceneController.RequiredContacts();
+    const std::vector<RunRequiredBroadphaseXCellsState>& requiredBroadphaseXCells =
+        m_sceneController.RequiredBroadphaseXCells();
+    const bool hasRequiredContactGate = !requiredContacts.empty();
+    const bool hasRequiredBroadphaseGate = !requiredBroadphaseXCells.empty();
     const bool hasRequiredSceneGate = hasRequiredContactGate || hasRequiredBroadphaseGate;
     const bool requiredContactsComplete = RequiredSceneContactsComplete();
     const bool requiredBroadphaseComplete = RequiredSceneBroadphaseXCellsComplete();
@@ -3735,7 +3738,7 @@ bool Run::TickSceneAdvance()
                 LogSceneFinished( frameCountCompletesScene ? "frame_count" : "required_scene_gates_missing" );
                 if ( !frameCountCompletesScene )
                 {
-                    for ( const RunRequiredContactState& contact : m_requiredSceneContacts )
+                    for ( const RunRequiredContactState& contact : requiredContacts )
                     {
                         if ( contact.bodyA < 0 || contact.bodyB < 0 || !contact.touched )
                         {
@@ -3745,7 +3748,7 @@ bool Run::TickSceneAdvance()
                                      contact.nameB );
                         }
                     }
-                    for ( const RunRequiredBroadphaseXCellsState& cells : m_requiredBroadphaseXCells )
+                    for ( const RunRequiredBroadphaseXCellsState& cells : requiredBroadphaseXCells )
                     {
                         if ( !cells.activated )
                         {
