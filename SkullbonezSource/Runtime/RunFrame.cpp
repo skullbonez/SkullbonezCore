@@ -1702,6 +1702,33 @@ bool SelectReplayRestoreTargetAndCheckpoint( const ReplayRestoreArtifactData& ar
     return true;
 }
 
+bool PrepareReplayRestoreArtifactSelection( const char* path,
+                                            ReplayFrameIndex requestedFrame,
+                                            ReplayFrameIndex latestNonCheckpointTarget,
+                                            ReplayRestoreArtifactData& artifact,
+                                            const ReplayV2SolverHashSample*& outTarget,
+                                            const ReplaySolverFrameSample*& outCheckpoint,
+                                            char* outReason,
+                                            std::size_t reasonSize )
+{
+    if ( !path || path[0] == '\0' )
+    {
+        WriteReplayProbeReason( outReason, reasonSize, "replay v2 target restore requires a v2 artifact path" );
+        return false;
+    }
+    if ( !LoadReplayRestoreArtifactData( path, artifact, outReason, reasonSize ) )
+    {
+        return false;
+    }
+    return SelectReplayRestoreTargetAndCheckpoint( artifact,
+                                                   requestedFrame,
+                                                   latestNonCheckpointTarget,
+                                                   outTarget,
+                                                   outCheckpoint,
+                                                   outReason,
+                                                   reasonSize );
+}
+
 bool ReplayCheckpointTopologyMatchesLive( const ReplaySolverFrameSample& checkpoint,
                                           const SkullbonezCore::GameObjects::GameModelCollection& models )
 {
@@ -2152,7 +2179,7 @@ void ApplyReplayRestoreLiveBranch( ReplayRuntime& replayRuntime,
     outResult.madeLiveBranch = true;
 }
 
-struct ReplayGeneratedTopologyRestoreContext
+struct ReplayRestoreOwnerContext
 {
     RuntimeTools& runtimeTools;
     SimulationSystem& simulation;
@@ -2166,7 +2193,7 @@ struct ReplayGeneratedTopologyRestoreContext
     int gameModelCapacity = 0;
 };
 
-bool RebuildReplayGeneratedSceneTopology( ReplayGeneratedTopologyRestoreContext& context,
+bool RebuildReplayGeneratedSceneTopology( ReplayRestoreOwnerContext& context,
                                           const ReplayEventSample& event,
                                           const ReplaySolverFrameSample& checkpoint,
                                           char* rebuildReason,
@@ -2263,6 +2290,114 @@ bool RebuildReplayGeneratedSceneTopology( ReplayGeneratedTopologyRestoreContext&
     }
     WriteReplayProbeReason( rebuildReason, rebuildReasonSize, "rebuilt generated topology" );
     return true;
+}
+
+bool EnsureReplayRestoreCheckpointTopology( ReplayRestoreOwnerContext& context,
+                                            const ReplayRestoreArtifactData& artifact,
+                                            const ReplaySolverFrameSample& checkpoint,
+                                            bool& generatedTopologyRebuilt,
+                                            bool& stateMutated,
+                                            char* outReason,
+                                            std::size_t reasonSize )
+{
+    generatedTopologyRebuilt = false;
+    if ( ReplayCheckpointTopologyMatchesLive( checkpoint, context.models ) )
+    {
+        WriteReplayProbeReason( outReason, reasonSize, "" );
+        return true;
+    }
+
+    const ReplayEventSample* generatedConfig =
+        FindReplayGeneratedSceneConfigBeforeCheckpoint( artifact.events, checkpoint );
+    if ( !generatedConfig )
+    {
+        WriteReplayProbeReason( outReason,
+                                reasonSize,
+                                "checkpoint topology does not match live scene and no generated config was saved" );
+        return false;
+    }
+
+    char rebuildReason[160] = {};
+    stateMutated = true;
+    if ( !RebuildReplayGeneratedSceneTopology( context,
+                                               *generatedConfig,
+                                               checkpoint,
+                                               rebuildReason,
+                                               sizeof( rebuildReason ) ) )
+    {
+        sprintf_s( outReason,
+                   reasonSize,
+                   "failed to rebuild generated scene topology: %s",
+                   rebuildReason[0] != '\0' ? rebuildReason : "unknown rebuild failure" );
+        return false;
+    }
+    generatedTopologyRebuilt = true;
+    WriteReplayProbeReason( outReason, reasonSize, "" );
+    return true;
+}
+
+// Why: restore owns scene, world, and model side effects while stepping toward a
+// target. Keeping the event and step contexts here leaves Run's method as a
+// transaction coordinator instead of another replay loop owner.
+template <typename CaptureCurrentReplaySolverHash, typename EnterInteractiveSceneRun>
+bool RunReplayRestoreTargetStep( ReplayRestoreOwnerContext& context,
+                                 const ReplayRestoreArtifactData& artifact,
+                                 const ReplaySolverFrameSample& checkpoint,
+                                 const ReplayV2SolverHashSample& target,
+                                 ReplayRestoreStepResult& stepResult,
+                                 ReplayRestoreStepFailure& stepFailure,
+                                 CaptureCurrentReplaySolverHash captureCurrentReplaySolverHash,
+                                 EnterInteractiveSceneRun enterInteractiveSceneRun )
+{
+    ReplayRestoreEventContext restoreEventContext{ context.runtimeTools,
+                                                   context.scene,
+                                                   context.systems,
+                                                   context.world,
+                                                   context.models,
+                                                   context.gameModelCapacity };
+    ReplayRestoreStepContext stepContext{ context.runtimeTools,
+                                          context.scene,
+                                          context.config,
+                                          context.systems,
+                                          context.world,
+                                          context.models,
+                                          restoreEventContext,
+                                          artifact,
+                                          checkpoint,
+                                          target };
+    if ( !StepReplayRestoreTarget( stepContext,
+                                   stepResult,
+                                   stepFailure,
+                                   captureCurrentReplaySolverHash,
+                                   enterInteractiveSceneRun ) )
+    {
+        return false;
+    }
+    if ( stepResult.unsupportedEvents != 0 )
+    {
+        WriteReplayRestoreStepFailure( stepFailure, "encountered unsupported branch events before target", &target );
+        return false;
+    }
+    return true;
+}
+
+template <typename ApplyReplaySolverSampleState>
+bool ApplyReplayRestoreCheckpointSample( const ReplaySolverFrameSample& checkpoint,
+                                         char* outReason,
+                                         std::size_t reasonSize,
+                                         ApplyReplaySolverSampleState applyReplaySolverSampleState )
+{
+    char applyReason[192] = {};
+    if ( applyReplaySolverSampleState( checkpoint, applyReason, sizeof( applyReason ) ) )
+    {
+        WriteReplayProbeReason( outReason, reasonSize, "" );
+        return true;
+    }
+    sprintf_s( outReason,
+               reasonSize,
+               "failed to apply checkpoint: %s",
+               applyReason[0] != '\0' ? applyReason : "unknown restore failure" );
+    return false;
 }
 } // namespace
 
@@ -3093,24 +3228,16 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
         return false;
     };
 
-    if ( !path || path[0] == '\0' )
-    {
-        return failWithDiagnostic( "replay v2 target restore requires a v2 artifact path", target, checkpoint );
-    }
-
     ReplayRestoreArtifactData artifact;
     char restoreSetupReason[192] = {};
-    if ( !LoadReplayRestoreArtifactData( path, artifact, restoreSetupReason, sizeof( restoreSetupReason ) ) )
-    {
-        return failWithDiagnostic( restoreSetupReason, target, checkpoint );
-    }
-    if ( !SelectReplayRestoreTargetAndCheckpoint( artifact,
-                                                  requestedFrame,
-                                                  LATEST_NON_CHECKPOINT_TARGET,
-                                                  target,
-                                                  checkpoint,
-                                                  restoreSetupReason,
-                                                  sizeof( restoreSetupReason ) ) )
+    if ( !PrepareReplayRestoreArtifactSelection( path,
+                                                 requestedFrame,
+                                                 LATEST_NON_CHECKPOINT_TARGET,
+                                                 artifact,
+                                                 target,
+                                                 checkpoint,
+                                                 restoreSetupReason,
+                                                 sizeof( restoreSetupReason ) ) )
     {
         return failWithDiagnostic( restoreSetupReason, target, checkpoint );
     }
@@ -3151,84 +3278,57 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
     };
 
     bool generatedTopologyRebuilt = false;
-    if ( !ReplayCheckpointTopologyMatchesLive( *checkpoint, m_cGameModelCollection ) )
-    {
-        const ReplayEventSample* generatedConfig =
-            FindReplayGeneratedSceneConfigBeforeCheckpoint( artifact.events, *checkpoint );
-        if ( !generatedConfig )
-        {
-            return failAfterMutation( "checkpoint topology does not match live scene and no generated config was saved",
-                                      target );
-        }
-
-        char rebuildReason[160] = {};
-        stateMutated = true;
-        ReplayGeneratedTopologyRestoreContext generatedTopologyContext{ m_runtimeTools,
-                                                                        m_simulation,
-                                                                        m_sceneController,
-                                                                        SceneState(),
-                                                                        m_config,
-                                                                        m_systems,
-                                                                        m_cWorldEnvironment,
-                                                                        m_cGameModelCollection,
-                                                                        m_launchOptions.generatedObjectTypeOverride,
-                                                                        m_startup.gameModelCapacity };
-        if ( !RebuildReplayGeneratedSceneTopology( generatedTopologyContext,
-                                                   *generatedConfig,
-                                                   *checkpoint,
-                                                   rebuildReason,
-                                                   sizeof( rebuildReason ) ) )
-        {
-            char message[320] = {};
-            sprintf_s( message,
-                       sizeof( message ),
-                       "failed to rebuild generated scene topology: %s",
-                       rebuildReason[0] != '\0' ? rebuildReason : "unknown rebuild failure" );
-            return failAfterMutation( message, target );
-        }
-        generatedTopologyRebuilt = true;
-    }
-
-    char reason[192] = {};
-    if ( !ApplyReplaySolverSampleState( *checkpoint, reason, sizeof( reason ) ) )
-    {
-        char message[288] = {};
-        sprintf_s( message,
-                   sizeof( message ),
-                   "failed to apply checkpoint: %s",
-                   reason[0] != '\0' ? reason : "unknown restore failure" );
-        return failWithDiagnostic( message, target, checkpoint );
-    }
-    stateMutated = true;
-
-    ReplayRestoreEventContext restoreEventContext{ m_runtimeTools,
+    char topologyReason[320] = {};
+    ReplayRestoreOwnerContext restoreOwnerContext{ m_runtimeTools,
+                                                   m_simulation,
+                                                   m_sceneController,
                                                    SceneState(),
+                                                   m_config,
                                                    m_systems,
                                                    m_cWorldEnvironment,
                                                    m_cGameModelCollection,
+                                                   m_launchOptions.generatedObjectTypeOverride,
                                                    m_startup.gameModelCapacity };
-    ReplayRestoreStepContext stepContext{ m_runtimeTools,
-                                          SceneState(),
-                                          *m_systems.config,
-                                          m_systems,
-                                          m_cWorldEnvironment,
-                                          m_cGameModelCollection,
-                                          restoreEventContext,
-                                          artifact,
-                                          *checkpoint,
-                                          *target };
+    if ( !EnsureReplayRestoreCheckpointTopology( restoreOwnerContext,
+                                                 artifact,
+                                                 *checkpoint,
+                                                 generatedTopologyRebuilt,
+                                                 stateMutated,
+                                                 topologyReason,
+                                                 sizeof( topologyReason ) ) )
+    {
+        return failAfterMutation( topologyReason, target );
+    }
+
+    char checkpointReason[288] = {};
+    if ( !ApplyReplayRestoreCheckpointSample(
+             *checkpoint,
+             checkpointReason,
+             sizeof( checkpointReason ),
+             [this]( const ReplaySolverFrameSample& sample, char* reason, std::size_t reasonSize )
+             { return ApplyReplaySolverSampleState( sample, reason, reasonSize ); } ) )
+    {
+        return failWithDiagnostic( checkpointReason, target, checkpoint );
+    }
+    stateMutated = true;
+
+    auto captureCurrentReplaySolverHash = [this]( const ReplaySolverFrameSample& reference,
+                                                  uint64_t& solverHash,
+                                                  uint64_t& presentationHash,
+                                                  std::size_t& bodyCount )
+    { return CaptureCurrentReplaySolverHash( reference, solverHash, presentationHash, bodyCount ); };
+    auto enterInteractiveSceneRun = [this]() { EnterInteractiveSceneRun(); };
+
     ReplayRestoreStepResult stepResult;
     ReplayRestoreStepFailure stepFailure;
-    if ( !StepReplayRestoreTarget(
-             stepContext,
-             stepResult,
-             stepFailure,
-             [this]( const ReplaySolverFrameSample& reference,
-                     uint64_t& solverHash,
-                     uint64_t& presentationHash,
-                     std::size_t& bodyCount )
-             { return CaptureCurrentReplaySolverHash( reference, solverHash, presentationHash, bodyCount ); },
-             [this]() { EnterInteractiveSceneRun(); } ) )
+    if ( !RunReplayRestoreTargetStep( restoreOwnerContext,
+                                      artifact,
+                                      *checkpoint,
+                                      *target,
+                                      stepResult,
+                                      stepFailure,
+                                      captureCurrentReplaySolverHash,
+                                      enterInteractiveSceneRun ) )
     {
         return failAfterMutation( stepFailure.message,
                                   stepFailure.diagnosticTarget,
@@ -3238,24 +3338,14 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
                                   stepFailure.hashCaptured );
     }
 
-    if ( stepResult.unsupportedEvents != 0 )
-    {
-        return failAfterMutation( "encountered unsupported branch events before target", target );
-    }
-
     ReplayRestoreTargetHashResult targetHash;
     ReplayRestoreTargetHashFailure targetHashFailure;
-    if ( !CaptureAndValidateReplayRestoreTargetHash(
-             *target,
-             *checkpoint,
-             stepResult.eventCursor,
-             targetHash,
-             targetHashFailure,
-             [this]( const ReplaySolverFrameSample& reference,
-                     uint64_t& solverHash,
-                     uint64_t& presentationHash,
-                     std::size_t& bodyCount )
-             { return CaptureCurrentReplaySolverHash( reference, solverHash, presentationHash, bodyCount ); } ) )
+    if ( !CaptureAndValidateReplayRestoreTargetHash( *target,
+                                                     *checkpoint,
+                                                     stepResult.eventCursor,
+                                                     targetHash,
+                                                     targetHashFailure,
+                                                     captureCurrentReplaySolverHash ) )
     {
         return failAfterMutation( targetHashFailure.message,
                                   target,

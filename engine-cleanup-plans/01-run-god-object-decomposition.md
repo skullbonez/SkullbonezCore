@@ -1610,6 +1610,29 @@ every step. Commit per step.
     (9.4s), and
     `TestOutput\agent_logs\plan01_replay_restore_target_tail_runtime_boundaries.log`
     (17.9s). The touched-file comment audit covered `RunFrame.cpp`.
+  - [x] Replay restore preparation-helper split moved artifact path/load/target
+    selection, generated-topology readiness, checkpoint application, and
+    checkpoint-to-target context assembly into source-local helpers with explicit
+    owner references. `Run::RestoreReplayV2ArtifactTargetState()` dropped from
+    245 measured lines to exactly 200 measured lines without adding public or
+    private `Run` methods. A full `Run::` inventory now tops out at
+    `RestoreReplayV2ArtifactTargetState` (200), `TakeInput` (199),
+    `RunGraphicsStressActions` (199), `WriteInteractionAutomationReport` (197),
+    and `Execute` (194), so the structural line-length acceptance row is
+    complete while the public/member-count and subsystem-logic rows remain open.
+    Gate evidence:
+    `TestOutput\agent_logs\plan01_replay_restore_prepare_helpers_validate_full.log`
+    (45.1s; project filters/runtime boundaries passed, Profile/Debug builds had
+    0 warnings and 0 errors, DX12 InfoQueue errors = 0, screenshots matched
+    baselines, and `physics_regression_solver.csv` matched byte-exactly).
+    Focused replay v2 artifact validation passed:
+    `TestOutput\agent_logs\plan01_replay_restore_prepare_helpers_validate_replay_v2_artifact.log`
+    (60.8s). Targeted pre-gate checks also passed:
+    `TestOutput\agent_logs\plan01_replay_restore_prepare_helpers_build_profile.log`
+    (7.0s), `TestOutput\agent_logs\plan01_replay_restore_prepare_helpers_validate_format.log`
+    (9.5s), and
+    `TestOutput\agent_logs\plan01_replay_restore_prepare_helpers_runtime_boundaries.log`
+    (17.7s). The touched-file comment audit covered `RunFrame.cpp`.
 
 ## Validation
 
@@ -1618,7 +1641,7 @@ after each phase.
 
 ## Acceptance (structural)
 
-- [ ] No single `Run` function exceeds ~200 lines; `TakeInput` is a table +
+- [x] No single `Run` function exceeds ~200 lines; `TakeInput` is a table +
   dispatch loop.
 - [ ] `Run` public-method and owned-member counts drop materially from the
   audit baseline (~60 public methods, ~40 members).
