@@ -18,6 +18,8 @@ Glossary:
     body-linear-energy path instead of the solver contact-row classifier.
   Attached-camera physics target: Body/collider handles plus a store-owned pose,
     velocity, and broad radius sampled for camera follow math.
+  Lane R result: Recoverable scene-control failure reported by a load action
+    without treating the command as successfully applied.
   Validation gate: Repository script that proves a class of changes before
     commit or PR.
 
@@ -2180,11 +2182,11 @@ void Run::TakeInput()
                 m_diagnosticsRuntime.Capture().Screenshot().isScreenshotAndExit = false;
                 return true;
             case SceneRuntimeControlActionType::LoadScene:
-                LoadScene( action.index,
-                           action.preserveUIState,
-                           action.suppressExitOnComplete,
-                           action.preserveRuntimeState );
-                return true;
+                return LoadScene( action.index,
+                                  action.preserveUIState,
+                                  action.suppressExitOnComplete,
+                                  action.preserveRuntimeState )
+                    .ok;
             case SceneRuntimeControlActionType::ApplyCinematicModeFromBrowserIndex:
                 EnterInteractiveSceneRun();
                 return ApplyCinematicModeFromBrowserIndex(
@@ -3254,11 +3256,11 @@ bool Run::DrainRuntimeCommands()
             m_diagnosticsRuntime.Capture().Screenshot().isScreenshotAndExit = false;
             return true;
         case SceneRuntimeControlActionType::LoadScene:
-            LoadScene( action.index,
-                       action.preserveUIState,
-                       action.suppressExitOnComplete,
-                       action.preserveRuntimeState );
-            return true;
+            return LoadScene( action.index,
+                              action.preserveUIState,
+                              action.suppressExitOnComplete,
+                              action.preserveRuntimeState )
+                .ok;
         case SceneRuntimeControlActionType::ApplyCinematicModeFromBrowserIndex:
             EnterInteractiveSceneRun();
             return ApplyCinematicModeFromBrowserIndex(

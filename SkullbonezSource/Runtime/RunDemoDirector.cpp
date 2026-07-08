@@ -18,6 +18,8 @@ Glossary:
     authored phase without changing simulation ownership.
   Phase style: Optional `.style.json` applied through SceneRuntimeStyle when a
     phase becomes active.
+  Lane R result: Recoverable style-load failure that skips the phase style while
+    Director playback continues.
   Reveal rate: Authored multiplier for prediction seconds revealed per real
     second while this phase is active.
 
@@ -49,7 +51,6 @@ Related:
 #include <cstddef>
 #include <cstdio>
 #include <cstring>
-#include <exception>
 
 namespace SkullbonezCore
 {
@@ -311,9 +312,10 @@ void ApplyPhaseStyleIfNeeded( DemoDirectorPlaybackState& director, SceneRuntimeS
         return;
     }
 
-    try
+    TestScene styleScene;
+    const SbResult loadResult = TestScene::TryLoadStyleFromFile( phase.stylePath, styleContext.assets, styleScene );
+    if ( loadResult.ok )
     {
-        const TestScene styleScene = TestScene::LoadStyleFromFile( phase.stylePath, styleContext.assets );
         ApplyLiveStyleScene( styleContext, styleScene );
         ++director.appliedStyleCount;
         std::printf( "[demo-director] applied style %s for phase %d (%s)\n",
@@ -321,9 +323,10 @@ void ApplyPhaseStyleIfNeeded( DemoDirectorPlaybackState& director, SceneRuntimeS
                      director.currentPhaseIndex,
                      phase.name[0] ? phase.name : "<unnamed>" );
     }
-    catch ( const std::exception& e )
+    else
     {
-        std::fprintf( stderr, "[demo-director] style error for %s: %s\n", phase.stylePath, e.what() );
+        const char* message = loadResult.error.message[0] != '\0' ? loadResult.error.message : "style load failed";
+        std::fprintf( stderr, "[demo-director] style error for %s: %s\n", phase.stylePath, message );
     }
 }
 } // namespace

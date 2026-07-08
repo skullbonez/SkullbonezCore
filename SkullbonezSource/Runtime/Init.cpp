@@ -22,6 +22,8 @@ Glossary:
   Runtime handle smoke: Early-exit validation mode that uses runtime
     GameModelCollection construction but proves returned physics handles stay
     aligned with body, collider, constraint, and render mirrors.
+  Lane R result: Recoverable CLI/startup failure that returns a process exit
+    code with owner/message diagnostics instead of using a fatal exception.
 
 Invariants:
   - DX12 is the only runtime renderer; retired renderer flags are parsed only
@@ -3162,9 +3164,30 @@ int RunApp( Window* window,
         auto reportReplayProbeResult = [&]( const SbResult& result ) -> int
         { return reportReplayProbeFailure( result.error.owner, result.error.message ); };
 #endif
+        auto reportRunResult = [&]( const SbResult& result ) -> int
+        {
+            const char* safeOwner =
+                result.error.owner && result.error.owner[0] != '\0' ? result.error.owner : "Runtime";
+            const char* safeMessage =
+                result.error.message[0] != '\0' ? result.error.message : "recoverable runtime operation failed";
+            Log().WriteEventf( "recoverable_failure owner=\"%s\" message=\"%s\"", safeOwner, safeMessage );
+            fprintf( stderr, "[runtime] Recoverable failure owner=%s reason=\"%s\"\n", safeOwner, safeMessage );
+            fflush( stderr );
+            Log().FlushAll();
+            if ( !args.isSuiteOrSceneMode && !args.suppressExitDialog )
+            {
+                window->MsgBox( safeMessage, "Runtime Failure", MB_OK );
+            }
+            return 1;
+        };
+
         try
         {
             cRun->Initialise();
+            if ( !cRun->LastSceneLoadResult().ok )
+            {
+                return reportRunResult( cRun->LastSceneLoadResult() );
+            }
             if ( args.interactionScriptPath[0] != '\0' )
             {
                 cRun->SetInteractionAutomation(
@@ -3236,7 +3259,12 @@ int RunApp( Window* window,
             }
             if ( args.sceneLoadOnly )
             {
-                cRun->RunSceneLoadOnly( args.sceneSnapshotOutPath[0] != '\0' ? args.sceneSnapshotOutPath : nullptr );
+                const SbResult sceneLoadOnlyResult = cRun->RunSceneLoadOnly(
+                    args.sceneSnapshotOutPath[0] != '\0' ? args.sceneSnapshotOutPath : nullptr );
+                if ( !sceneLoadOnlyResult.ok )
+                {
+                    return reportRunResult( sceneLoadOnlyResult );
+                }
             }
             else if ( !skipExecute )
             {

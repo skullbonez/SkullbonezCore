@@ -1,21 +1,22 @@
 //
 // File: SkullbonezTests/TestSceneParserUnit.cpp
 // Purpose:
-//   Lock the smallest authored-scene parse path and current malformed JSON error contract.
+//   Lock the smallest authored-scene parse path and recoverable load-error contract.
 //
 // Mental model:
 //   TestScene::LoadFromFile is a data-boundary parser. It turns committed scene
-//   JSON into immutable setup records, and today parser failures are surfaced as
-//   std::runtime_error messages that include both the path and parse context.
+//   JSON into immutable setup records. Runtime callers use the Lane R TryLoad
+//   path so malformed files return owner/message diagnostics without escaping.
 //
 // Glossary:
 //   Authored scene: A committed `.scene.json` file used by runtime validation.
-//   Parser contract: The currently observable success data or failure message
-//     that callers depend on until plan 05 moves this lane to SbResult.
+//   Parser contract: The observable success data or Lane R failure message that
+//     callers depend on.
 //
 // Invariants:
 //   - Full scene files must define at least one camera.
-//   - Malformed JSON currently throws with path-rich TestScene::LoadFromFile context.
+//   - Malformed JSON returns a path-rich Scene/TestSceneParser failure through
+//     TestScene::TryLoadFromFile.
 //
 // Related:
 //   - SkullbonezSource/Scene/TestScene.h
@@ -32,6 +33,7 @@
 #include <stdexcept>
 #include <string>
 
+using SkullbonezCore::Basics::SbResult;
 using SkullbonezCore::Basics::SceneCamera;
 using SkullbonezCore::Basics::TestScene;
 
@@ -41,16 +43,16 @@ constexpr const char* kSmallestCommittedScenePath = "SkullbonezData/scenes/terra
 
 struct TemporaryMalformedSceneFile
 {
-    const char* path = "unit_scene_parser_malformed.scene.json";
+    const char* path = nullptr;
 
-    TemporaryMalformedSceneFile()
+    TemporaryMalformedSceneFile( const char* fixturePath, const char* contents ) : path( fixturePath )
     {
         std::ofstream output( path );
         if ( !output )
         {
             throw std::runtime_error( "TestSceneParser: failed to create malformed scene fixture" );
         }
-        output << "{ \"format\": \"skullbonez.scene.json\", \"cameras\": [";
+        output << contents;
     }
 
     ~TemporaryMalformedSceneFile()
@@ -59,22 +61,14 @@ struct TemporaryMalformedSceneFile
     }
 };
 
-void CheckMalformedJsonThrowsParserError( const char* path )
+void CheckLoadFailure( const SbResult& result, const char* path, const char* expectedMessage )
 {
-    bool threw = false;
-    try
-    {
-        (void)TestScene::LoadFromFile( path );
-    }
-    catch ( const std::runtime_error& e )
-    {
-        threw = true;
-        const std::string message = e.what();
-        CHECK( message.find( "Invalid JSON" ) != std::string::npos );
-        CHECK( message.find( path ) != std::string::npos );
-        CHECK( message.find( "TestScene::LoadFromFile" ) != std::string::npos );
-    }
-    CHECK( threw );
+    CHECK_FALSE( result.ok );
+    CHECK( std::string( result.error.owner ) == "Scene/TestSceneParser" );
+    const std::string message = result.error.message;
+    CHECK( message.find( expectedMessage ) != std::string::npos );
+    CHECK( message.find( path ) != std::string::npos );
+    CHECK( message.find( "TestScene::LoadFromFile" ) != std::string::npos );
 }
 } // namespace
 
@@ -82,6 +76,10 @@ void CheckMalformedJsonThrowsParserError( const char* path )
 TEST_CASE( "TestSceneParser: smallest committed scene parses expected records" )
 {
     const TestScene scene = TestScene::LoadFromFile( kSmallestCommittedScenePath );
+    TestScene tryScene;
+    const SbResult tryLoad = TestScene::TryLoadFromFile( kSmallestCommittedScenePath, tryScene );
+    CHECK( tryLoad.ok );
+    CHECK( tryScene.GetCameraCount() == 1 );
 
     CHECK( scene.GetCameraCount() == 1 );
     CHECK( scene.GetBallCount() == 0 );
@@ -104,10 +102,34 @@ TEST_CASE( "TestSceneParser: smallest committed scene parses expected records" )
 }
 
 
-TEST_CASE( "TestSceneParser: malformed JSON reports the current throwing contract" )
+TEST_CASE( "TestSceneParser: malformed JSON reports recoverable load failure" )
 {
-    // Why: plan 05 will update this expectation when parser failures move from
-    // exceptions to SbResult, so this test names the current behavior directly.
-    const TemporaryMalformedSceneFile malformed;
-    CheckMalformedJsonThrowsParserError( malformed.path );
+    const TemporaryMalformedSceneFile malformed( "unit_scene_parser_malformed.scene.json",
+                                                 "{ \"format\": \"skullbonez.scene.json\", \"cameras\": [" );
+    TestScene scene;
+    CheckLoadFailure( TestScene::TryLoadFromFile( malformed.path, scene ), malformed.path, "Invalid JSON" );
+}
+
+
+TEST_CASE( "TestSceneParser: missing camera reports recoverable load failure" )
+{
+    const TemporaryMalformedSceneFile missingCamera(
+        "unit_scene_parser_missing_camera.scene.json",
+        R"({"format":"skullbonez.scene.json","version":1,"physics":false,"text":false})" );
+    TestScene scene;
+    CheckLoadFailure( TestScene::TryLoadFromFile( missingCamera.path, scene ),
+                      missingCamera.path,
+                      "at least one camera" );
+}
+
+
+TEST_CASE( "TestSceneParser: malformed style JSON reports recoverable load failure" )
+{
+    const TemporaryMalformedSceneFile malformedStyle(
+        "unit_scene_parser_malformed_style.style.json",
+        "{ \"format\": \"skullbonez.style.json\", \"objectMaterials\": [" );
+    TestScene scene;
+    CheckLoadFailure( TestScene::TryLoadStyleFromFile( malformedStyle.path, scene ),
+                      malformedStyle.path,
+                      "Invalid JSON" );
 }

@@ -1,7 +1,7 @@
 # Progress: Unified Error Handling Policy (plan 05)
 
 Source plan: `fable_plans/05-unified-error-handling-policy-plan.md`
-Status: phase 1 complete on 2026-07-07; P2.1-P2.3 replay probe conversion and evidence complete on 2026-07-08; SpatialGrid, PhysicsWorld, GameModelCollection pure topology, legacy camera pose-read conversions, and GameModelCollection append Lane R cleanup complete; loader/asset, DX12, and closure work remain
+Status: phase 1 complete on 2026-07-07; P2.1-P2.3 replay probe conversion and evidence complete on 2026-07-08; SpatialGrid, PhysicsWorld, GameModelCollection pure topology, legacy camera pose-read conversions, GameModelCollection append Lane R cleanup, and the scene/style TryLoad entry boundary are complete; deeper loader/asset, DX12, and closure work remain
 Last updated: 2026-07-08
 
 ## How to work this file
@@ -391,6 +391,36 @@ Last updated: 2026-07-08
   — reuse, don't invent). ConvexHullShape.cpp (41) is bake/load validation:
   its throws convert to SbResult, its 12 internal catches collapse as their
   matching throws disappear.
+
+  Entry-boundary evidence (2026-07-08): `TestScene::TryLoadFromFile` and
+  `TryLoadStyleFromFile` now catch parser/loader exceptions at the scene/style
+  boundary and return `SbResult` owner/message diagnostics. Runtime scene loads,
+  live-style reloads, cinematic browser styles, demo hero style, and demo
+  director phase styles consume the result path; `Run::LoadScene`,
+  `RunSceneLoadOnly`, and `Runtime/Init.cpp` now return nonzero for failed
+  startup/load-only scene loads instead of silently continuing after
+  `scene_load_failed`. Doctests cover success, malformed JSON, missing-camera,
+  and malformed style JSON through the TryLoad APIs. The standalone Agentic
+  scene-parser harness now checks TryLoad style failures and no longer compiles
+  the removed header-only `IRenderBackend.cpp`.
+
+  Remaining P4.1 work: thread Lane R deeper through parser internals if/when
+  the two `TestSceneParser.cpp` throw tokens are removed, then convert the
+  remaining Terrain, TextureCollection, AssetSystem, and ConvexHullShape loader
+  clusters. No throw-ratchet drop was taken for this boundary-only slice.
+
+  Gate evidence: first `tools\validate_full.bat` attempt failed before runtime
+  launch due to a namespace qualification error; the rerun failed only
+  formatting; the final `tools\validate_full.bat` passed with project
+  filters/runtime boundaries at 0 errors, Profile/Debug builds at 0
+  warnings/errors, DX12 validation errors 0, DX12 screenshots matching
+  committed baselines, and `physics_regression_solver.csv` byte-exact. The
+  dedicated `tools\validate_scene_parser_tests.bat` first exposed a stale
+  `IRenderBackend.cpp` project entry, then passed after that dead compile item
+  was removed. Logs:
+  `Agentic\Reports\2026-07-08\logs\fable-05-p4-1-scene-tryload-validate-full-final.log`
+  and
+  `Agentic\Reports\2026-07-08\logs\fable-05-p4-1-scene-parser-tests-final.log`.
 - [x] P4.2 Editor placement paths (GameModelCollection append callers): a
   failed append becomes a UI-visible no-op (log event + skip), never a crash.
   Find callers: `rg -n "AppendGameModelAndPhysicsRows|AppendModel" SkullbonezSource/Runtime`.

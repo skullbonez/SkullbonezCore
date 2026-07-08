@@ -11,6 +11,8 @@ Mental model:
 Glossary:
   FBO (Framebuffer Object): Engine shorthand for an off-screen render target
   exposed through the renderer abstraction.
+  Lane R result: Recoverable scene/load-only failure reported as an SbResult
+    so CLI automation can exit nonzero without a fatal exception.
   Validation gate: Repository script that proves a class of changes before
   commit or PR.
 
@@ -1045,24 +1047,34 @@ void Run::Initialise()
         m_contactAudio.SetEnabled( false );
     }
 
-    LoadScene( 0 );
+    m_lastSceneLoadResult = LoadScene( 0 );
 }
 
 
-void Run::RunSceneLoadOnly( const char* snapshotOutPath )
+const SbResult& Run::LastSceneLoadResult() const
+{
+    return m_lastSceneLoadResult;
+}
+
+
+SbResult Run::RunSceneLoadOnly( const char* snapshotOutPath )
 {
     const int sceneCount = m_sceneController.QueueSize();
     if ( sceneCount <= 0 )
     {
         printf( "[scene-load-only] Exiting because --scene-load-only was requested, but no scenes were queued.\n" );
         fflush( stdout );
-        return;
+        return SbResult::Success();
+    }
+    if ( !m_lastSceneLoadResult.ok )
+    {
+        return m_lastSceneLoadResult;
     }
 
     const bool writeSnapshot = snapshotOutPath && snapshotOutPath[0] != '\0';
     if ( writeSnapshot && sceneCount != 1 )
     {
-        throw std::runtime_error( "--scene-snapshot-out requires exactly one loaded scene." );
+        return SbResult::Failure( "Runtime/SceneLoadOnly", "--scene-snapshot-out requires exactly one loaded scene." );
     }
 
     printf( "[scene-load-only] Loaded 1/%d: %s\n",
@@ -1087,13 +1099,17 @@ void Run::RunSceneLoadOnly( const char* snapshotOutPath )
                                                                      SceneState().flatSlopeZ );
         if ( !saved )
         {
-            throw std::runtime_error( "Failed to write scene snapshot." );
+            return SbResult::Failure( "Runtime/SceneLoadOnly", "Failed to write scene snapshot." );
         }
         printf( "[scene-load-only] Snapshot written: %s\n", snapshotOutPath );
     }
     for ( int i = 1; i < sceneCount; ++i )
     {
-        LoadScene( i );
+        const SbResult loadResult = LoadScene( i );
+        if ( !loadResult.ok )
+        {
+            return loadResult;
+        }
         printf( "[scene-load-only] Loaded %d/%d: %s\n",
                 i + 1,
                 sceneCount,
@@ -1105,6 +1121,7 @@ void Run::RunSceneLoadOnly( const char* snapshotOutPath )
             "frames.\n",
             sceneCount );
     fflush( stdout );
+    return SbResult::Success();
 }
 
 

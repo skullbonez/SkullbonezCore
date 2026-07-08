@@ -13,6 +13,8 @@ Glossary:
   validation and tooling paths.
   DXR (DirectX Raytracing): DX12 API used for hardware ray traversal and
   reflection dispatch.
+  Lane R result: Recoverable scene-load failure carrying owner/message
+    diagnostics while the runtime stays alive.
   Required scene contact: Authored pair gate that marks a scenario objective
     once two bodies have produced an exact contact.
   Validation gate: Repository script that proves a class of changes before
@@ -603,8 +605,9 @@ bool Run::RequiredSceneBroadphaseXCellsComplete() const
 }
 
 
-void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplete, bool preserveRuntimeState )
+SbResult Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplete, bool preserveRuntimeState )
 {
+    m_lastSceneLoadResult = SbResult::Success();
     RuntimeAllocation::RuntimeAllocationScope allocationScope( RuntimeAllocation::RuntimeAllocationPhase::SceneLoad );
     SceneController& runtime = m_sceneController;
     SceneRuntimeResetContext resetContext{ m_runtimeSettings,
@@ -627,7 +630,7 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
         BeginSceneRuntimeLoad( loadBeginContext, index, suppressExitOnComplete, preserveRuntimeState );
     if ( !loadBegin.shouldLoad )
     {
-        return;
+        return m_lastSceneLoadResult;
     }
 
     const bool suppressAutomationExit = loadBegin.suppressAutomationExit;
@@ -767,8 +770,9 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
             true );
         if ( !generatedSetup.status.ok )
         {
+            m_lastSceneLoadResult = generatedSetup.status;
             LogSceneLoadFailure( generatedSetup.status, scenePath );
-            return;
+            return m_lastSceneLoadResult;
         }
         ApplyDemoHeroStyleOverride( SceneRuntimeStyleContext{ m_launchOptions,
                                                               SceneState(),
@@ -787,7 +791,14 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
     else
     {
         SceneState().isSceneMode = true;
-        TestScene scene = TestScene::LoadFromFile( scenePath.c_str(), m_systems.assets );
+        TestScene scene;
+        const SbResult sceneLoad = TestScene::TryLoadFromFile( scenePath.c_str(), m_systems.assets, scene );
+        if ( !sceneLoad.ok )
+        {
+            m_lastSceneLoadResult = sceneLoad;
+            LogSceneLoadFailure( sceneLoad, scenePath );
+            return m_lastSceneLoadResult;
+        }
         hasSceneTornadoSystem = scene.HasTornadoSystem();
         if ( hasSceneTornadoSystem )
         {
@@ -949,8 +960,9 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
             false );
         if ( !generatedModels.status.ok )
         {
+            m_lastSceneLoadResult = generatedModels.status;
             LogSceneLoadFailure( generatedModels.status, scenePath );
-            return;
+            return m_lastSceneLoadResult;
         }
         if ( !generatedModels.applied )
         {
@@ -965,8 +977,9 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
                 scene );
             if ( !authoredSetup.ok )
             {
+                m_lastSceneLoadResult = authoredSetup;
                 LogSceneLoadFailure( authoredSetup, scenePath );
-                return;
+                return m_lastSceneLoadResult;
             }
         }
         // Physics regression log: current-solver per-frame CSV enabled only by command line.
@@ -1221,6 +1234,8 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
         }
     }
     runtime.RecordLifecycleEvent( SceneRuntimeLifecycleEvent::AfterSceneActivated );
+    m_lastSceneLoadResult = SbResult::Success();
+    return m_lastSceneLoadResult;
 }
 
 

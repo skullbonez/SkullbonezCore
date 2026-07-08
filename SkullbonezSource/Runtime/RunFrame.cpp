@@ -21,6 +21,8 @@ Glossary:
     state, and replay identity.
   ColliderStore: Physics-owned collider rows for exact shape variants, material
     parameters, and broadphase radius.
+  Lane R result: Recoverable scene-control failure that stops a reload action
+    from being reported as a successful frame transition.
   Replay event payload: Saved event data that must be decoded exactly so replay
     restore and validation compare the same floating-point bits.
   Validation gate: Repository script that proves a class of changes before
@@ -2951,11 +2953,11 @@ bool Run::TickScreenshots()
             m_diagnosticsRuntime.Capture().Screenshot().isScreenshotAndExit = false;
             return true;
         case SceneRuntimeControlActionType::LoadScene:
-            LoadScene( action.index,
-                       action.preserveUIState,
-                       action.suppressExitOnComplete,
-                       action.preserveRuntimeState );
-            return true;
+            return LoadScene( action.index,
+                              action.preserveUIState,
+                              action.suppressExitOnComplete,
+                              action.preserveRuntimeState )
+                .ok;
         case SceneRuntimeControlActionType::ApplyCinematicModeFromBrowserIndex:
             EnterInteractiveSceneRun();
             return ApplyCinematicModeFromBrowserIndex(
@@ -3099,11 +3101,11 @@ bool Run::TickSceneAdvance()
             m_diagnosticsRuntime.Capture().Screenshot().isScreenshotAndExit = false;
             return true;
         case SceneRuntimeControlActionType::LoadScene:
-            LoadScene( action.index,
-                       action.preserveUIState,
-                       action.suppressExitOnComplete,
-                       action.preserveRuntimeState );
-            return true;
+            return LoadScene( action.index,
+                              action.preserveUIState,
+                              action.suppressExitOnComplete,
+                              action.preserveRuntimeState )
+                .ok;
         case SceneRuntimeControlActionType::ApplyCinematicModeFromBrowserIndex:
             EnterInteractiveSceneRun();
             return ApplyCinematicModeFromBrowserIndex(
@@ -3237,10 +3239,14 @@ bool Run::TickSceneAdvance()
     // Generated demo mode: restart every 20s to keep the sandbox moving indefinitely.
     if ( !SceneState().isSceneMode && !IsManualCameraMode() && m_timers.simulationTimer.GetTimeSinceLastStart() > 20.0 )
     {
-        LoadScene( SceneState().currentSceneIndex,
-                   SceneState().isInteractiveRun,
-                   SceneState().isInteractiveRun,
-                   SceneState().isInteractiveRun );
+        const SbResult loadResult = LoadScene( SceneState().currentSceneIndex,
+                                               SceneState().isInteractiveRun,
+                                               SceneState().isInteractiveRun,
+                                               SceneState().isInteractiveRun );
+        if ( !loadResult.ok )
+        {
+            return false;
+        }
         m_timers.simulationTimer.StartTimer();
         return true;
     }

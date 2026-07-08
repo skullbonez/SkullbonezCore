@@ -9,6 +9,8 @@ Mental model:
   when that state changes.
 
 Glossary:
+  Lane R result: Recoverable style-load failure reported to the control status
+    file and stderr while the run stays alive.
   Validation gate: Repository script that proves a class of changes before
   commit or PR.
 
@@ -26,7 +28,6 @@ Related:
 #include "Scene/SceneRuntimeStyle.h"
 #include <cstdio>
 #include <cstring>
-#include <stdexcept>
 
 
 using namespace SkullbonezCore::Basics;
@@ -255,9 +256,11 @@ void Run::TickLiveStyleControl()
     if ( styleStamp != 0 && styleStamp != m_liveStyle.styleStamp )
     {
         m_liveStyle.styleStamp = styleStamp;
-        try
+        TestScene styleScene;
+        const SbResult loadResult =
+            TestScene::TryLoadStyleFromFile( m_liveStyle.stylePath, m_systems.assets, styleScene );
+        if ( loadResult.ok )
         {
-            const TestScene styleScene = TestScene::LoadStyleFromFile( m_liveStyle.stylePath, m_systems.assets );
             ApplyLiveStyleScene( SceneRuntimeStyleContext{ m_launchOptions,
                                                            SceneState(),
                                                            m_sceneController.Browser(),
@@ -270,10 +273,11 @@ void Run::TickLiveStyleControl()
             WriteStatus( m_liveStyle, "style_applied", m_liveStyle.stylePath );
             printf( "[style-harness] Applied %s\n", m_liveStyle.stylePath );
         }
-        catch ( const std::exception& e )
+        else
         {
-            WriteStatus( m_liveStyle, "style_error", e.what() );
-            fprintf( stderr, "[style-harness] Style error: %s\n", e.what() );
+            const char* message = loadResult.error.message[0] != '\0' ? loadResult.error.message : "style load failed";
+            WriteStatus( m_liveStyle, "style_error", message );
+            fprintf( stderr, "[style-harness] Style error: %s\n", message );
         }
     }
 

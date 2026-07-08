@@ -16,6 +16,8 @@ Glossary:
   HUD (Heads-Up Display): On-screen diagnostics and control overlay.
   CLI (Command-Line Interface): Text arguments or scripts used to launch
   validation and tooling paths.
+  Lane R result: Recoverable scene-load failure reported with owner/message
+    diagnostics instead of escaping through startup exceptions.
 
 Invariants:
   - Run is the composition root for process-lifetime runtime systems.
@@ -104,6 +106,7 @@ class Run
     EngineConfig& m_config;                                                // Borrowed process config loaded and CLI-patched by Runtime/Init.cpp.
     SceneController m_sceneController;                                     // Owns scene queue and current scene-run state
     SceneRuntimeCoordinator m_sceneCoordinator;                            // Produces scene load/reset/advance control intents.
+    SbResult m_lastSceneLoadResult;                                        // Last queue load outcome observed by startup/load-only paths.
     RunInputLatchState m_inputLatches;                                     // Cross-frame key/mouse latches that are not semantic input state.
     RunLaunchOptions m_launchOptions;                                      // CLI/startup policy reapplied across scene loads.
     CinematicRenderConfig m_defaultCinematicRender;                        // engine.cfg cinematic baseline restored by the Demo Scene cine mode
@@ -281,7 +284,7 @@ class Run
     void EnterInteractiveSceneRun();                                       // Locks scene automation into non-quitting interactive mode
     bool CanSceneAutomationQuit() const;                                   // True for CLI suites/tests; false once the user owns scene flow
     void HoldCompletedInteractiveScene();                                  // Keep the current scene alive after interactive automation completes
-    void LoadScene(
+    SbResult LoadScene(
         int index,
         bool preserveUIState = false,
         bool suppressExitOnComplete = false,
@@ -368,7 +371,8 @@ class Run
          RuntimeRenderBackendView renderBackendView );                     // sceneQueue empty string selects generated demo mode.
     ~Run();
     void Initialise();                                                     // Initialises shared resources and loads first scene
-    void RunSceneLoadOnly( const char* snapshotOutPath = nullptr );        // Scene-load smoke path; skips the frame loop.
+    const SbResult& LastSceneLoadResult() const;                           // Initialise scene-load result for CLI startup checks.
+    SbResult RunSceneLoadOnly( const char* snapshotOutPath = nullptr );    // Scene-load smoke path; skips the frame loop.
     void Execute();                                                        // Main message loop; sceneQueue decides generated demo versus suite playback.
     void SetTimeScaleOverride( float scale );                              // Override timeScale for every scene loaded (CLI --time-scale)
     void SetFixedStepOverride();                                           // Force fixed-step for every scene loaded (CLI --fixed-step)

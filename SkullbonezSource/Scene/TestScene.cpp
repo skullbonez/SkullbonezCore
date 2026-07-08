@@ -9,6 +9,8 @@ Mental model:
   when that state changes.
 
 Glossary:
+  Lane R result: Recoverable load outcome carrying owner/message diagnostics
+    for authored scene/style data failures.
   Validation gate: Repository script that proves a class of changes before
   commit or PR.
 
@@ -23,8 +25,30 @@ Related:
 */
 #include "TestScene.h"
 
+#include <exception>
+
 
 using namespace SkullbonezCore::Basics;
+
+namespace
+{
+SbResult
+TryLoadSceneFile( const char* path, SkullbonezCore::Assets::AssetContext assets, bool styleOnly, TestScene& outScene )
+{
+    try
+    {
+        outScene = styleOnly ? LoadStyleSceneFromFileImpl( path, assets ) : LoadTestSceneFromFileImpl( path, assets );
+        return SbResult::Success();
+    }
+    catch ( const std::exception& e )
+    {
+        // Why: the parser still uses exceptions internally until the remaining
+        // fable-05 P4.1 rows thread SbResult through every JSON helper. Runtime
+        // callers get Lane R diagnostics now instead of a process-level escape.
+        return SbResult::Failure( "Scene/TestSceneParser", "%s", e.what() );
+    }
+}
+} // namespace
 
 
 TestScene::TestScene()
@@ -38,9 +62,21 @@ TestScene TestScene::LoadFromFile( const char* path )
 }
 
 
+SbResult TestScene::TryLoadFromFile( const char* path, TestScene& outScene )
+{
+    return TryLoadSceneFile( path, Assets::AssetContext{}, false, outScene );
+}
+
+
 TestScene TestScene::LoadFromFile( const char* path, const Assets::AssetSystem& assets )
 {
     return LoadTestSceneFromFileImpl( path, Assets::AssetContext{ &assets } );
+}
+
+
+SbResult TestScene::TryLoadFromFile( const char* path, const Assets::AssetSystem& assets, TestScene& outScene )
+{
+    return TryLoadSceneFile( path, Assets::AssetContext{ &assets }, false, outScene );
 }
 
 
@@ -50,9 +86,21 @@ TestScene TestScene::LoadStyleFromFile( const char* path )
 }
 
 
+SbResult TestScene::TryLoadStyleFromFile( const char* path, TestScene& outScene )
+{
+    return TryLoadSceneFile( path, Assets::AssetContext{}, true, outScene );
+}
+
+
 TestScene TestScene::LoadStyleFromFile( const char* path, const Assets::AssetSystem& assets )
 {
     return LoadStyleSceneFromFileImpl( path, Assets::AssetContext{ &assets } );
+}
+
+
+SbResult TestScene::TryLoadStyleFromFile( const char* path, const Assets::AssetSystem& assets, TestScene& outScene )
+{
+    return TryLoadSceneFile( path, Assets::AssetContext{ &assets }, true, outScene );
 }
 
 

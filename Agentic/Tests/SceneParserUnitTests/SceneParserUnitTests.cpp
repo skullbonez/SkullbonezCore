@@ -13,6 +13,8 @@ Glossary:
   Contract test: Focused test that protects user-visible syntax and parsed
   output rather than renderer screenshots.
   Scene authoring JSON: Structured fields accepted by .scene.json and .style.json files.
+  Lane R result: Recoverable parser failure returned by TestScene::TryLoad*
+    entry points with owner/message diagnostics.
 
 Invariants:
   Fixtures are checked-in contract inputs and must stay small enough for unit tests.
@@ -44,8 +46,7 @@ namespace
 
 struct TestFailure : public std::runtime_error
 {
-    explicit TestFailure( const std::string& message )
-        : std::runtime_error( message )
+    explicit TestFailure( const std::string& message ) : std::runtime_error( message )
     {
     }
 };
@@ -65,64 +66,103 @@ void ExpectTrue( bool value, const char* expression, const char* file, int line 
     }
 }
 
-void ExpectIntEqual( int actual, int expected, const char* actualExpression, const char* expectedExpression, const char* file, int line )
+void ExpectIntEqual( int actual,
+                     int expected,
+                     const char* actualExpression,
+                     const char* expectedExpression,
+                     const char* file,
+                     int line )
 {
     if ( actual != expected )
     {
         std::ostringstream out;
-        out << "expected " << actualExpression << " == " << expectedExpression << ", actual " << actual << ", expected " << expected;
+        out << "expected " << actualExpression << " == " << expectedExpression << ", actual " << actual << ", expected "
+            << expected;
         Fail( file, line, out.str() );
     }
 }
 
-void ExpectUIntEqual( uint32_t actual, uint32_t expected, const char* actualExpression, const char* expectedExpression, const char* file, int line )
+void ExpectUIntEqual( uint32_t actual,
+                      uint32_t expected,
+                      const char* actualExpression,
+                      const char* expectedExpression,
+                      const char* file,
+                      int line )
 {
     if ( actual != expected )
     {
         std::ostringstream out;
-        out << "expected " << actualExpression << " == " << expectedExpression << ", actual " << actual << ", expected " << expected;
+        out << "expected " << actualExpression << " == " << expectedExpression << ", actual " << actual << ", expected "
+            << expected;
         Fail( file, line, out.str() );
     }
 }
 
-void ExpectStringEqual( const char* actual, const char* expected, const char* actualExpression, const char* expectedExpression, const char* file, int line )
+void ExpectStringEqual( const char* actual,
+                        const char* expected,
+                        const char* actualExpression,
+                        const char* expectedExpression,
+                        const char* file,
+                        int line )
 {
     if ( strcmp( actual, expected ) != 0 )
     {
         std::ostringstream out;
-        out << "expected " << actualExpression << " == " << expectedExpression << ", actual \"" << actual << "\", expected \"" << expected << "\"";
+        out << "expected " << actualExpression << " == " << expectedExpression << ", actual \"" << actual
+            << "\", expected \"" << expected << "\"";
         Fail( file, line, out.str() );
     }
 }
 
-void ExpectFloatNear( float actual, float expected, const char* actualExpression, const char* expectedExpression, const char* file, int line )
+void ExpectFloatNear( float actual,
+                      float expected,
+                      const char* actualExpression,
+                      const char* expectedExpression,
+                      const char* file,
+                      int line )
 {
     constexpr float epsilon = 0.0001f;
     if ( std::fabs( actual - expected ) > epsilon )
     {
         std::ostringstream out;
-        out << "expected " << actualExpression << " near " << expectedExpression << ", actual " << actual << ", expected " << expected;
+        out << "expected " << actualExpression << " near " << expectedExpression << ", actual " << actual
+            << ", expected " << expected;
         Fail( file, line, out.str() );
     }
 }
 
-void ExpectStringContains( const std::string& actual, const char* expected, const char* actualExpression, const char* expectedExpression, const char* file, int line )
+void ExpectStringContains( const std::string& actual,
+                           const char* expected,
+                           const char* actualExpression,
+                           const char* expectedExpression,
+                           const char* file,
+                           int line )
 {
     if ( actual.find( expected ) == std::string::npos )
     {
         std::ostringstream out;
-        out << "expected " << actualExpression << " to contain " << expectedExpression
-            << ", actual \"" << actual << "\", expected substring \"" << expected << "\"";
+        out << "expected " << actualExpression << " to contain " << expectedExpression << ", actual \"" << actual
+            << "\", expected substring \"" << expected << "\"";
         Fail( file, line, out.str() );
     }
 }
 
 #define EXPECT_TRUE( expression ) ExpectTrue( !!( expression ), #expression, __FILE__, __LINE__ )
-#define EXPECT_INT_EQ( actual, expected ) ExpectIntEqual( static_cast<int>( actual ), static_cast<int>( expected ), #actual, #expected, __FILE__, __LINE__ )
-#define EXPECT_UINT_EQ( actual, expected ) ExpectUIntEqual( static_cast<uint32_t>( actual ), static_cast<uint32_t>( expected ), #actual, #expected, __FILE__, __LINE__ )
-#define EXPECT_STREQ( actual, expected ) ExpectStringEqual( ( actual ), ( expected ), #actual, #expected, __FILE__, __LINE__ )
-#define EXPECT_NEAR( actual, expected ) ExpectFloatNear( ( actual ), ( expected ), #actual, #expected, __FILE__, __LINE__ )
-#define EXPECT_CONTAINS( actual, expected ) ExpectStringContains( ( actual ), ( expected ), #actual, #expected, __FILE__, __LINE__ )
+#define EXPECT_INT_EQ( actual, expected )                                                                              \
+    ExpectIntEqual( static_cast<int>( actual ), static_cast<int>( expected ), #actual, #expected, __FILE__, __LINE__ )
+#define EXPECT_UINT_EQ( actual, expected )                                                                             \
+    ExpectUIntEqual( static_cast<uint32_t>( actual ),                                                                  \
+                     static_cast<uint32_t>( expected ),                                                                \
+                     #actual,                                                                                          \
+                     #expected,                                                                                        \
+                     __FILE__,                                                                                         \
+                     __LINE__ )
+#define EXPECT_STREQ( actual, expected )                                                                               \
+    ExpectStringEqual( ( actual ), ( expected ), #actual, #expected, __FILE__, __LINE__ )
+#define EXPECT_NEAR( actual, expected )                                                                                \
+    ExpectFloatNear( ( actual ), ( expected ), #actual, #expected, __FILE__, __LINE__ )
+#define EXPECT_CONTAINS( actual, expected )                                                                            \
+    ExpectStringContains( ( actual ), ( expected ), #actual, #expected, __FILE__, __LINE__ )
 
 struct TestCase
 {
@@ -149,13 +189,12 @@ void WriteTextFile( const char* path, const char* contents )
 void ExpectStyleLoadFails( const char* path, const char* contents, const char* expectedMessage )
 {
     WriteTextFile( path, contents );
-    try
+    TestScene scene;
+    const SbResult result = TestScene::TryLoadStyleFromFile( path, scene );
+    if ( !result.ok )
     {
-        (void)TestScene::LoadStyleFromFile( path );
-    }
-    catch ( const std::runtime_error& ex )
-    {
-        const std::string message = ex.what();
+        EXPECT_STREQ( result.error.owner, "Scene/TestSceneParser" );
+        const std::string message = result.error.message;
         EXPECT_CONTAINS( message, expectedMessage );
         return;
     }
@@ -165,7 +204,8 @@ void ExpectStyleLoadFails( const char* path, const char* contents, const char* e
 
 void TestStyleMaterialAuthoringContract()
 {
-    const TestScene scene = TestScene::LoadStyleFromFile( "SkullbonezData/styles/material_authoring_contract.style.json" );
+    const TestScene scene =
+        TestScene::LoadStyleFromFile( "SkullbonezData/styles/material_authoring_contract.style.json" );
     EXPECT_INT_EQ( scene.GetObjectMaterialOverrideCount(), 4 );
 
     const SceneObjectMaterialOverride& metal = scene.GetObjectMaterialOverride( 0 );
@@ -237,21 +277,26 @@ void TestSceneCanLoadMaterialAuthoringSample()
 
 void TestMaterialAuthoringRejectsMalformedOptions()
 {
-    ExpectStyleLoadFails( "TestOutput/scene_parser_invalid_missing_mode.style.json",
-                          R"({"format":"skullbonez.style.json","version":1,"objectMaterials":[{"target":"bad","tint":[0.1,0.2,0.3]}]})",
-                          "objectMaterial is missing required field 'mode'" );
-    ExpectStyleLoadFails( "TestOutput/scene_parser_invalid_unknown_field.style.json",
-                          R"({"format":"skullbonez.style.json","version":1,"objectMaterials":[{"target":"bad","mode":"metal","tint":[0.1,0.2,0.3],"shininess":0.7}]})",
-                          "Unknown objectMaterial field: shininess" );
-    ExpectStyleLoadFails( "TestOutput/scene_parser_invalid_vec3.style.json",
-                          R"({"format":"skullbonez.style.json","version":1,"objectMaterials":[{"target":"bad","mode":"metal","tint":[0.1,0.2]}]})",
-                          "objectMaterial.color must contain exactly 3 numbers" );
-    ExpectStyleLoadFails( "TestOutput/scene_parser_invalid_vec3_extra.style.json",
-                          R"({"format":"skullbonez.style.json","version":1,"objectMaterials":[{"target":"bad","mode":"metal","tint":[0.1,0.2,0.3,0.4]}]})",
-                          "objectMaterial.color must contain exactly 3 numbers" );
-    ExpectStyleLoadFails( "TestOutput/scene_parser_invalid_vec3_type.style.json",
-                          R"({"format":"skullbonez.style.json","version":1,"objectMaterials":[{"target":"bad","mode":"metal","tint":"0.1,0.2,0.3"}]})",
-                          "objectMaterial.color must be an array" );
+    ExpectStyleLoadFails(
+        "TestOutput/scene_parser_invalid_missing_mode.style.json",
+        R"({"format":"skullbonez.style.json","version":1,"objectMaterials":[{"target":"bad","tint":[0.1,0.2,0.3]}]})",
+        "objectMaterial is missing required field 'mode'" );
+    ExpectStyleLoadFails(
+        "TestOutput/scene_parser_invalid_unknown_field.style.json",
+        R"({"format":"skullbonez.style.json","version":1,"objectMaterials":[{"target":"bad","mode":"metal","tint":[0.1,0.2,0.3],"shininess":0.7}]})",
+        "Unknown objectMaterial field: shininess" );
+    ExpectStyleLoadFails(
+        "TestOutput/scene_parser_invalid_vec3.style.json",
+        R"({"format":"skullbonez.style.json","version":1,"objectMaterials":[{"target":"bad","mode":"metal","tint":[0.1,0.2]}]})",
+        "objectMaterial.color must contain exactly 3 numbers" );
+    ExpectStyleLoadFails(
+        "TestOutput/scene_parser_invalid_vec3_extra.style.json",
+        R"({"format":"skullbonez.style.json","version":1,"objectMaterials":[{"target":"bad","mode":"metal","tint":[0.1,0.2,0.3,0.4]}]})",
+        "objectMaterial.color must contain exactly 3 numbers" );
+    ExpectStyleLoadFails(
+        "TestOutput/scene_parser_invalid_vec3_type.style.json",
+        R"({"format":"skullbonez.style.json","version":1,"objectMaterials":[{"target":"bad","mode":"metal","tint":"0.1,0.2,0.3"}]})",
+        "objectMaterial.color must be an array" );
 }
 
 const TestCase kTests[] = {
