@@ -2131,29 +2131,12 @@ bool Run::TryResolveAttachedCameraTarget( int& outModelIndex )
 
 void Run::SetAttachedCameraTarget( int modelIndex )
 {
-    const int modelCount = m_cGameModelCollection.GetPhysicsEngine().BodyStore().Count();
-    if ( modelIndex < 0 || modelIndex >= modelCount )
+    AttachedCameraTargetSelection selection;
+    if ( !AttachedCameraController::SelectTarget( m_cGameModelCollection, m_attachedCamera, modelIndex, selection ) )
     {
-        AttachedCameraController::ClearTarget( m_attachedCamera );
         return;
     }
 
-    AttachedCameraPhysicsTarget targetState;
-    if ( !AttachedCameraController::TryAttachTargetHandlesFromModelIndex( m_cGameModelCollection,
-                                                                          modelIndex,
-                                                                          m_attachedCamera.target ) ||
-         !AttachedCameraController::TryResolvePhysicsTarget( m_cGameModelCollection,
-                                                             m_attachedCamera.target,
-                                                             targetState ) )
-    {
-        AttachedCameraController::ClearTarget( m_attachedCamera );
-        return;
-    }
-
-    strncpy_s( m_attachedCamera.target.name,
-               sizeof( m_attachedCamera.target.name ),
-               PresentationNameForModelIndex( m_cGameModelCollection, modelIndex ),
-               _TRUNCATE );
     RuntimeInteractionCommand command;
     command.type = RuntimeInteractionCommandType::SetEditorSelection;
     command.modelIndex = modelIndex;
@@ -2162,17 +2145,7 @@ void Run::SetAttachedCameraTarget( int modelIndex )
     command.selectionScope = RuntimeInteractionSelectionScope::Inspect;
     command.claimSelectionOwner = false;
     ExecuteRuntimeInteractionCommand( command );
-    m_attachedCamera.activeFollow = true;
-    m_attachedCamera.needsEntryTween = true;
-    if ( m_attachedCamera.submode == AttachedCameraSubmode::RagdollEyes )
-    {
-        int headIndex = -1;
-        if ( !AttachedCameraController::TryResolveRagdollHead( m_cGameModelCollection, modelIndex, headIndex ) )
-        {
-            m_attachedCamera.submode = AttachedCameraSubmode::FixedRelative;
-        }
-    }
-    CaptureAttachedCameraFixedOffsetFromCurrentPose( m_attachedCamera, m_systems.cameras, targetState );
+    CaptureAttachedCameraFixedOffsetFromCurrentPose( m_attachedCamera, m_systems.cameras, selection.physics );
     ApplyCursorOwnership();
 }
 
@@ -2272,32 +2245,17 @@ void Run::CycleAttachedCameraSubmode()
     {
         return;
     }
-    int modelIndex = -1;
     AttachedCameraPhysicsTarget targetState;
-    if ( !AttachedCameraController::TryResolvePhysicsTarget( m_cGameModelCollection,
-                                                             m_attachedCamera.target,
-                                                             targetState,
-                                                             &modelIndex ) )
+    bool shouldCaptureFixedOffset = false;
+    if ( !AttachedCameraController::CycleSubmode( m_cGameModelCollection,
+                                                  m_attachedCamera,
+                                                  targetState,
+                                                  shouldCaptureFixedOffset ) )
     {
         return;
     }
 
-    int headIndex = -1;
-    const bool hasEyes =
-        AttachedCameraController::TryResolveRagdollHead( m_cGameModelCollection, modelIndex, headIndex );
-    AttachedCameraSubmode next = AttachedCameraSubmode::FixedRelative;
-    if ( m_attachedCamera.submode == AttachedCameraSubmode::FixedRelative )
-    {
-        next = AttachedCameraSubmode::VelocityForward;
-    }
-    else if ( m_attachedCamera.submode == AttachedCameraSubmode::VelocityForward && hasEyes )
-    {
-        next = AttachedCameraSubmode::RagdollEyes;
-    }
-
-    m_attachedCamera.submode = next;
-    m_attachedCamera.needsEntryTween = true;
-    if ( next != AttachedCameraSubmode::RagdollEyes || !m_attachedCamera.hasFixedOffset )
+    if ( shouldCaptureFixedOffset )
     {
         CaptureAttachedCameraFixedOffsetFromCurrentPose( m_attachedCamera, m_systems.cameras, targetState );
     }

@@ -107,6 +107,11 @@ struct AttachedCameraPoseCommand
     bool startEntryTween = false;
 };
 
+struct AttachedCameraTargetSelection
+{
+    AttachedCameraPhysicsTarget physics;
+};
+
 class AttachedCameraController
 {
   public:
@@ -125,6 +130,14 @@ class AttachedCameraController
     static bool TryResolveRagdollHead( const GameObjects::GameModelCollection& collection,
                                        int selectedModelIndex,
                                        int& outHeadModelIndex );
+    static bool SelectTarget( const GameObjects::GameModelCollection& collection,
+                              AttachedCameraState& state,
+                              int modelIndex,
+                              AttachedCameraTargetSelection& outSelection );
+    static bool CycleSubmode( const GameObjects::GameModelCollection& collection,
+                              AttachedCameraState& state,
+                              AttachedCameraPhysicsTarget& outTarget,
+                              bool& outShouldCaptureFixedOffset );
 
     static void CaptureFixedOffset( AttachedCameraState& state,
                                     const AttachedCameraPose& currentPose,

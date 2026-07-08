@@ -1748,6 +1748,25 @@ every step. Commit per step.
     `TestOutput\agent_logs\plan01_replay_probe_failure_owner_runtime_boundaries.log`
     (17.7s). The touched-file comment audit covered
     `RunReplayProbeState.h`, `Run.h/.cpp`, `RunFrame.cpp`, and `Init.cpp`.
+  - [x] Attach-camera target selection and submode cycling moved into
+    `AttachedCameraController`. The controller now owns target validation,
+    stable handle capture, target display-name storage, Ragdoll Eyes fallback,
+    and submode transition decisions; `RunInput.cpp` keeps only editor-selection
+    command forwarding, camera-pose capture, cursor updates, and action logging.
+    Gate evidence:
+    `TestOutput\agent_logs\plan01_attached_camera_selection_owner_validate_full.log`
+    (54.7s; project filters/runtime boundaries passed, Profile/Debug builds had
+    0 warnings and 0 errors, DX12 InfoQueue errors = 0, screenshots matched
+    baselines, and `physics_regression_solver.csv` matched byte-exactly).
+    Targeted pre-gate checks also passed:
+    `TestOutput\agent_logs\plan01_attached_camera_selection_owner_build_profile_rerun2.log`
+    (9.6s after tightening the cycle-submode API and preserving the
+    attach/inspect handle guardrail),
+    `TestOutput\agent_logs\plan01_attached_camera_selection_owner_validate_format_rerun2.log`
+    (9.3s), and
+    `TestOutput\agent_logs\plan01_attached_camera_selection_owner_runtime_boundaries_rerun2.log`
+    (17.6s). The touched-file comment audit covered
+    `AttachedCameraController.h/.cpp` and `RunInput.cpp`.
 
 ## Validation
 

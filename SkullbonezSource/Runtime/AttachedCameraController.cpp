@@ -390,6 +390,78 @@ bool AttachedCameraController::TryResolveRagdollHead( const GameModelCollection&
 }
 
 
+bool AttachedCameraController::SelectTarget( const GameModelCollection& collection,
+                                             AttachedCameraState& state,
+                                             int modelIndex,
+                                             AttachedCameraTargetSelection& outSelection )
+{
+    outSelection = AttachedCameraTargetSelection{};
+    const int modelCount = collection.GetPhysicsEngine().BodyStore().Count();
+    if ( modelIndex < 0 || modelIndex >= modelCount )
+    {
+        ClearTarget( state );
+        return false;
+    }
+
+    AttachedCameraPhysicsTarget targetState;
+    if ( !TryAttachTargetHandlesFromModelIndex( collection, modelIndex, state.target ) ||
+         !TryResolvePhysicsTarget( collection, state.target, targetState ) )
+    {
+        ClearTarget( state );
+        return false;
+    }
+
+    strncpy_s( state.target.name,
+               sizeof( state.target.name ),
+               PresentationNameForModelIndex( collection, modelIndex ),
+               _TRUNCATE );
+    state.activeFollow = true;
+    state.needsEntryTween = true;
+    if ( state.submode == AttachedCameraSubmode::RagdollEyes )
+    {
+        int headIndex = -1;
+        if ( !TryResolveRagdollHead( collection, modelIndex, headIndex ) )
+        {
+            state.submode = AttachedCameraSubmode::FixedRelative;
+        }
+    }
+
+    outSelection.physics = targetState;
+    return true;
+}
+
+
+bool AttachedCameraController::CycleSubmode( const GameModelCollection& collection,
+                                             AttachedCameraState& state,
+                                             AttachedCameraPhysicsTarget& outTarget,
+                                             bool& outShouldCaptureFixedOffset )
+{
+    outShouldCaptureFixedOffset = false;
+    int modelIndex = -1;
+    if ( !TryResolvePhysicsTarget( collection, state.target, outTarget, &modelIndex ) )
+    {
+        return false;
+    }
+
+    int headIndex = -1;
+    const bool hasEyes = TryResolveRagdollHead( collection, modelIndex, headIndex );
+    AttachedCameraSubmode next = AttachedCameraSubmode::FixedRelative;
+    if ( state.submode == AttachedCameraSubmode::FixedRelative )
+    {
+        next = AttachedCameraSubmode::VelocityForward;
+    }
+    else if ( state.submode == AttachedCameraSubmode::VelocityForward && hasEyes )
+    {
+        next = AttachedCameraSubmode::RagdollEyes;
+    }
+
+    state.submode = next;
+    state.needsEntryTween = true;
+    outShouldCaptureFixedOffset = next != AttachedCameraSubmode::RagdollEyes || !state.hasFixedOffset;
+    return true;
+}
+
+
 void AttachedCameraController::CaptureFixedOffset( AttachedCameraState& state,
                                                    const AttachedCameraPose& currentPose,
                                                    const AttachedCameraPhysicsTarget& target )
