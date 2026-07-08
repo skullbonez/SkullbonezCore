@@ -28,6 +28,16 @@ Invariants:
   - Log() is a convenience accessor only; ownership remains with the singleton
     type declared in its own subsystem header.
 
+Alias deletion schedule:
+  - Remove AssetKeys.h after profiler, replay, runtime, scene, render, physics,
+    and asset callers include the hash-key owner directly.
+  - Remove WindowConstants.h after window/title and DATA_ROOT path users include
+    the runtime owner directly.
+  - Remove MathsCommon.h, SceneCapacity.h, and PhysicsTimestep.h after their
+    current direct-call users stop relying on Common.h for domain constants.
+  - Config.h and Log.h stay until the global-service cleanup plan finishes
+    deleting the remaining Common.h service compatibility path.
+
 Related:
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/comment-style-guide.md
@@ -77,6 +87,9 @@ Related:
 #include <crtdbg.h>
 #endif
 
+// Why: authoritative-plan-02 owns removing service-accessor compatibility from
+// Common.h. Keep these includes local until that plan deletes the remaining
+// Cfg()/Log() compatibility path and callers carry explicit owner includes.
 // All other engine parameters live in EngineConfig (loaded from engine.cfg).
 #include "Config.h"
 #include "Log.h"

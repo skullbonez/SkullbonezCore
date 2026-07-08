@@ -1,7 +1,7 @@
 # Progress: Build Layering And Repo Hygiene (plan 04)
 
 Source plan: `fable_plans/04-build-layering-and-repo-hygiene-plan.md`
-Status: phase 1 complete on 2026-07-07; phase 2 L1-L4 Maths library extraction complete on 2026-07-08; phase 3 C1-C4 Common.h domain header splits complete
+Status: phase 1 complete on 2026-07-07; phase 2 L1-L4 Maths library extraction complete on 2026-07-08; phase 3 C1-C5 Common.h domain header splits complete
 Last updated: 2026-07-08
 
 ## How to work this file
@@ -29,14 +29,14 @@ Last updated: 2026-07-08
   `GeometricStructures.h` reaches it through `Vector3.h`; no Maths include
   directive pulls `../Core/Common.h`, `<windows.h>`, `Config.h`, `Log.h`, or
   `ZeroMemory`.
-- `Core/Common.h` (93 lines after C4) content map - it is included by
-  ~everything and still transitively drags `<windows.h>` (line 61, with
-  WIN32_LEAN_AND_MEAN), `Config.h` + `Log.h` (lines 81-82), and `<stdexcept>`
-  (line 66). It includes `../Assets/AssetKeys.h`,
+- `Core/Common.h` (106 lines after C5) content map - it is included by
+  ~everything and still transitively drags `<windows.h>` (line 71, with
+  WIN32_LEAN_AND_MEAN), `Config.h` + `Log.h` (lines 94-95), and `<stdexcept>`
+  (line 76). It includes `../Assets/AssetKeys.h`,
   `../Runtime/WindowConstants.h`, `../Maths/MathsCommon.h`,
   `../GameObjects/SceneCapacity.h`, and `../Physics/PhysicsTimestep.h` during
   the aliasing period:
-  - Lines 59-78: windows.h + CRT/platform/domain includes + crtdbg - PLATFORM
+  - Lines 69-88: windows.h + CRT/platform/domain includes + crtdbg - PLATFORM
     or aliasing includes, not common.
   - `GameObjects/SceneCapacity.h` (38 lines) now owns TOTAL_CAMERA_COUNT,
     TOTAL_TEXTURE_COUNT, DEFAULT_GAME_MODEL_CAPACITY, MAX_GAME_MODELS, and
@@ -49,10 +49,11 @@ Last updated: 2026-07-08
     CAMERA_* hash constants.
   - `Runtime/WindowConstants.h` (33 lines) now owns WINDOW_NAME, TITLE_TEXT,
     and DATA_ROOT.
-  - 81-82: `#include "Config.h"` + `#include "Log.h"` - the global-service
+  - The header now records the alias deletion schedule for each domain include.
+  - 94-95: `#include "Config.h"` + `#include "Log.h"` - the global-service
     leak (plan 02 owns deleting Cfg; this plan owns un-nesting the includes).
-  - 84-87: ActiveGameModelCapacity(config) - scene capacity policy.
-  - 89-93: Log() accessor - sanctioned global (plan 02).
+  - 97-100: ActiveGameModelCapacity(config) - scene capacity policy.
+  - 102-106: Log() accessor - sanctioned global (plan 02).
 - `RunInput.cpp` (3,580 lines) function inventory groups cleanly:
   - Input routing/commands: BuildRuntimeInputSnapshot(:564),
     RouteRuntimePointerInput(:613), ExecuteRuntimeInteractionCommand(:1009),
@@ -338,12 +339,23 @@ Last updated: 2026-07-08
   runtime boundaries at 0 errors, Profile/Debug builds at 0 warnings/errors,
   DX12 validation errors 0, screenshots matching committed baselines, and
   `physics_regression_solver.csv` byte-exact.
-- [ ] C5. End state: Common.h = platform includes + crtdbg + includes of the
+- [x] C5. End state: Common.h = platform includes + crtdbg + includes of the
   new domain headers (alias period), with a header comment scheduling each
   alias's deletion. The `#include "Config.h"/"Log.h"` lines move OUT of
   Common.h only when plan 02 phase 4 deletes Cfg() — add a `Why:` comment
   crosslinking. Gate: `validate_full` (Common.h row in the validation map).
   Commit per sub-item.
+
+  Evidence (2026-07-08): `Core/Common.h` now records the alias deletion
+  schedule for `AssetKeys.h`, `WindowConstants.h`, `MathsCommon.h`,
+  `SceneCapacity.h`, and `PhysicsTimestep.h`, and adds a nearby `Why:` comment
+  crosslinking `Config.h`/`Log.h` compatibility to authoritative-plan-02. The
+  diff is strictly comments/docs, so this source comment pass is
+  documentation-only. Touched-file comment audit inspected `Common.h` with 0
+  deferred; no separate checklist file was required for the touched-file pass.
+
+  Validation (2026-07-08): No repository validation required; diff is
+  comments/docs-only.
 
 ## Phase 4 — mega-file decomposition (one file per slice; sequence AFTER authoritative-plan-01 clusters land for Run* files)
 
