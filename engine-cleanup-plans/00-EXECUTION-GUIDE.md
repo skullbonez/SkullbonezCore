@@ -113,8 +113,8 @@ fully `[x]`.
 - [ ] 10. Plan 04 — error handling reconciled
 - [ ] C1. Plan 05 — behavioral coverage added (continuous)
   Note (2026-07-09): Phase 0 coverage map, Phase 1 input-binding tests, and
-  Phase 2 replay solver-sample restore tests are complete; physics invariants
-  and stub removal remain open.
+  Phase 2 replay solver-sample restore tests, and Phase 3 physics invariants
+  are complete; stub removal remains open.
 - [ ] C2. Plan 03 — regex governance apparatus removed (needs sign-off)
 - [ ] C3. Plan 07 — allocation gate right-sized (needs decision)
 

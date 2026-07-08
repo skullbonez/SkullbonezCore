@@ -1,7 +1,7 @@
 //
 // File: SkullbonezTests/TestDeterminism.cpp
 // Purpose:
-//   Lock a fast PhysicsEngine determinism property and replay snapshot restore contract.
+//   Lock fast PhysicsEngine determinism, replay restore, and physics invariant properties.
 //
 // Mental model:
 //   A minimal authored physics world can be seeded directly through
@@ -18,17 +18,27 @@
 //     PhysicsEngine::RestoreReplayBodyState.
 //   Null render resource factory: Inert backend capability needed only to
 //     satisfy the Terrain constructor signature in this focused harness.
+//   Property check: Tolerance-based unit assertion over a physics rule that
+//     should hold across implementation details, rather than a golden row match.
+//   Kinetic energy: Translational plus angular motion energy used here as a
+//     damping monotonicity signal.
+//   Sleep gate: Solver-owned optimization state that can pause integration until
+//     an explicit wake path receives motion again.
+//   Terrain manifold: Contact-point report between a body and the flat test
+//     terrain, sampled here as diagnostics rather than as the byte oracle.
 //
 // Invariants:
 //   - The micro-world stays serial; worker fan-out starts far above this body count.
 //   - Snapshot losslessness needs both solver state and body replay state.
 //   - Kinematic comparisons are byte-exact, not epsilon-based.
+//   - Invariant checks use explicit tolerances because they assert physical
+//     policy, not serialized replay bytes.
 //   - Terrain queries are real flat-plane queries; render resources must stay unused.
 //
 // Related:
 //   - SkullbonezSource/Physics/PhysicsEngine.h
-//   - SkullbonezSource/Runtime/Replay/ReplaySolverSnapshot.h
-//   - fable_plans/01-unit-test-pyramid-progress.md
+//   - SkullbonezSource/Runtime/Replay/ReplayRecorder.h
+//   - engine-cleanup-plans/05-behavioral-test-coverage.md
 //
 
 #include "../ThirdPtySource/doctest/doctest.h"
@@ -81,6 +91,8 @@ constexpr int kReplayWindowTicks = 60;
 constexpr int kReplaySampleSnapshotFrame = 30;
 constexpr int kReplaySampleWindowTicks = 30;
 constexpr int kTotalDeterminismTicks = 240;
+constexpr int kPenetrationSettleTicks = 480;
+constexpr float kDampingEnergyTolerance = 0.0001f;
 
 // Why: Terrain is still part of the real physics step, but the unit test only
 // needs its collision plane. Resource methods return inert handles because any
@@ -191,6 +203,22 @@ PhysicsWorldForces DeterministicForces()
     return forces;
 }
 
+PhysicsWorldForces NoGravityForces()
+{
+    PhysicsWorldForces forces = DeterministicForces();
+    forces.gravity = 0.0f;
+    return forces;
+}
+
+PhysicsWorldForces DampingForces()
+{
+    PhysicsWorldForces forces = NoGravityForces();
+    forces.fluidSurfaceHeight = 1000.0f;
+    forces.fluidDensity = 2.0f;
+    forces.angularDragMultiplier = 2.0f;
+    return forces;
+}
+
 Terrain& FlatTestTerrain()
 {
     // Lifetime: bodies borrow this Terrain pointer for every step. Static
@@ -250,10 +278,11 @@ void SeedMicroWorld( PhysicsEngine& engine )
     REQUIRE( engine.Colliders().Count() == kMicroBodyCount );
 }
 
-void StepMicroWorld( PhysicsEngine& engine, int ticks )
+void StepMicroWorldWith( PhysicsEngine& engine,
+                         int ticks,
+                         const EngineConfig& config,
+                         const PhysicsWorldForces& forces )
 {
-    EngineConfig config = MakeDeterministicConfig();
-    const PhysicsWorldForces forces = DeterministicForces();
     WorkerPool workerPool;
     for ( int tick = 0; tick < ticks; ++tick )
     {
@@ -264,6 +293,80 @@ void StepMicroWorld( PhysicsEngine& engine, int ticks )
                      nullptr,
                      0,
                      SkullbonezCore::Physics::PhysicsDiagnosticsCsvWriter{} );
+    }
+}
+
+void StepMicroWorld( PhysicsEngine& engine, int ticks )
+{
+    const EngineConfig config = MakeDeterministicConfig();
+    const PhysicsWorldForces forces = DeterministicForces();
+    StepMicroWorldWith( engine, ticks, config, forces );
+}
+
+const PhysicsBodyRecord& RequireBodyRecord( const PhysicsEngine& engine, int modelIndex )
+{
+    const PhysicsBodyRecord* record = engine.BodyStore().RecordForModelIndex( modelIndex );
+    REQUIRE( record != nullptr );
+    return *record;
+}
+
+PhysicsBodyHandle RequireBodyHandle( const PhysicsEngine& engine, int modelIndex )
+{
+    return RequireBodyRecord( engine, modelIndex ).handle;
+}
+
+float VectorMagnitudeSquared( const Vector3& value )
+{
+    return value.x * value.x + value.y * value.y + value.z * value.z;
+}
+
+float BodyKineticEnergy( const PhysicsBodyRecord& record )
+{
+    const float translational = 0.5f * record.mass * VectorMagnitudeSquared( record.linearVelocity );
+    const float angular = 0.5f *
+        ( record.rotationalInertia.x * record.angularVelocity.x * record.angularVelocity.x +
+          record.rotationalInertia.y * record.angularVelocity.y * record.angularVelocity.y +
+          record.rotationalInertia.z * record.angularVelocity.z * record.angularVelocity.z );
+    return translational + angular;
+}
+
+float TotalKineticEnergy( const PhysicsEngine& engine )
+{
+    float energy = 0.0f;
+    for ( int i = 0; i < engine.BodyStore().Count(); ++i )
+    {
+        energy += BodyKineticEnergy( RequireBodyRecord( engine, i ) );
+    }
+    return energy;
+}
+
+bool DiagnosticsSleepStateAt( const PhysicsEngine& engine, int modelIndex )
+{
+    const std::vector<uint8_t>& sleepStates = engine.GetSleepStates();
+    const std::size_t bodyIndex = static_cast<std::size_t>( modelIndex );
+    return bodyIndex < sleepStates.size() && sleepStates[bodyIndex] != 0;
+}
+
+void CheckTerrainPenetrationWithinTolerance( const PhysicsEngine& engine, const EngineConfig& config )
+{
+    // Concept: this is the fast invariant partner to byte-exact CSV baselines.
+    // It does not care about exact impulse history, only that settled body rows
+    // and terrain manifolds stay inside the configured contact envelope.
+    const float maxAllowedPenetration = config.terrainContactThreshold + config.contactEpsilon;
+    for ( int i = 0; i < engine.BodyStore().Count(); ++i )
+    {
+        const PhysicsBodyRecord& record = RequireBodyRecord( engine, i );
+        const float groundClearance = record.position.y - record.boundingRadius;
+        CHECK( groundClearance >= -maxAllowedPenetration );
+    }
+
+    const auto diagnostics = engine.GetDiagnosticsView();
+    for ( const SkullbonezCore::Physics::TerrainContactManifold& manifold : diagnostics.terrainContactManifolds )
+    {
+        for ( uint8_t i = 0; i < manifold.pointCount; ++i )
+        {
+            CHECK( manifold.points[i].penetration <= maxAllowedPenetration );
+        }
     }
 }
 
@@ -513,6 +616,73 @@ TEST_CASE( "PhysicsEngine determinism: micro-world matches at fixed tick interva
         StepMicroWorld( second, 60 );
         CheckEngineKinematicsEqual( first, second );
     }
+}
+
+
+TEST_CASE( "PhysicsEngine invariants: settled bodies stay within terrain penetration tolerance" )
+{
+    static PhysicsEngine settled;
+    SeedMicroWorld( settled );
+
+    const EngineConfig config = MakeDeterministicConfig();
+    const PhysicsWorldForces forces = DeterministicForces();
+    StepMicroWorldWith( settled, kPenetrationSettleTicks, config, forces );
+
+    CheckTerrainPenetrationWithinTolerance( settled, config );
+}
+
+
+TEST_CASE( "PhysicsEngine invariants: fluid damping does not add kinetic energy" )
+{
+    static PhysicsEngine damped;
+    SeedMicroWorld( damped );
+
+    EngineConfig config = MakeDeterministicConfig();
+    config.gravity = 0.0f;
+    config.fluidDensity = 2.0f;
+    config.fluidAngularDragMultiplier = 2.0f;
+    const PhysicsWorldForces forces = DampingForces();
+
+    const float initialEnergy = TotalKineticEnergy( damped );
+    REQUIRE( initialEnergy > 0.0f );
+
+    float previousEnergy = initialEnergy;
+    for ( int tick = 0; tick < 12; ++tick )
+    {
+        StepMicroWorldWith( damped, 1, config, forces );
+        const float currentEnergy = TotalKineticEnergy( damped );
+        CHECK( currentEnergy <= previousEnergy + kDampingEnergyTolerance );
+        previousEnergy = currentEnergy;
+    }
+    CHECK( previousEnergy < initialEnergy );
+}
+
+
+TEST_CASE( "PhysicsEngine invariants: authored velocity wakes a sleeping body" )
+{
+    static PhysicsEngine sleepWorld;
+    SeedMicroWorld( sleepWorld );
+    sleepWorld.SetSleepEnabled( true );
+
+    EngineConfig config = MakeDeterministicConfig();
+    config.gravity = 0.0f;
+    const PhysicsWorldForces forces = NoGravityForces();
+
+    const PhysicsBodyHandle body = RequireBodyHandle( sleepWorld, 0 );
+    sleepWorld.SeedBodyAsleep( body );
+    CHECK( RequireBodyRecord( sleepWorld, 0 ).isSleeping );
+    CHECK( DiagnosticsSleepStateAt( sleepWorld, 0 ) );
+
+    const Vector3 positionBeforeWake = RequireBodyRecord( sleepWorld, 0 ).position;
+    REQUIRE( sleepWorld.SetBodyVelocity( body,
+                                         Vector3( 2.0f, 0.0f, 0.0f ),
+                                         Vector3( 0.0f, 0.0f, 0.0f ),
+                                         true ) );
+    CHECK_FALSE( RequireBodyRecord( sleepWorld, 0 ).isSleeping );
+    CHECK_FALSE( DiagnosticsSleepStateAt( sleepWorld, 0 ) );
+
+    StepMicroWorldWith( sleepWorld, 1, config, forces );
+    CHECK( RequireBodyRecord( sleepWorld, 0 ).position.x > positionBeforeWake.x );
 }
 
 

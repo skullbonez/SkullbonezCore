@@ -13,12 +13,12 @@ coverage, while enormous effort polices code *shape*.
 
 Verified evidence:
 
-- **52 `TEST_CASE`s across 20 files (~2,489 lines total)**, still clustered on
+- **55 `TEST_CASE`s across 20 files (~2,635 lines total)**, still clustered on
   math / geometry / parser / focused physics storage checks.
 - Zero unit assertions reference `RunFrame` / `RunInput` / `RunRender` /
   `RenderBackendDX12` / `UI`; the ~18K-line replay tree has focused recorder
-  and solver-snapshot coverage plus a replay solver-sample restore test, but
-  not a full loaded-artifact/Run restore test.
+  and solver-snapshot coverage plus replay solver-sample restore and physics
+  invariant micro-world tests, but not a full loaded-artifact/Run restore test.
 - **4 of 20** test files are pure link stubs
   ([TestDiagnosticsLinkStubs.cpp](../SkullbonezTests/TestDiagnosticsLinkStubs.cpp),
   `TestReplayRecorderLinkStubs.cpp`, `TestSceneParserLinkStubs.cpp`,
@@ -43,7 +43,7 @@ from bugs (not only byte-exact goldens).
   — add key→action mapping tests as that extraction lands.
 - [x] **Phase 2 — Replay round-trip.** Record→restore determinism tests: a
   restored state must reproduce the recorded frames bit-for-bit.
-- [ ] **Phase 3 — Physics invariants.** Add property tests (no
+- [x] **Phase 3 — Physics invariants.** Add property tests (no
   inter-penetration beyond tolerance, energy bounded under damping, sleep/wake
   transitions) *alongside* the byte-exact baselines, so a baseline change can be
   classified as intended vs regression.
@@ -86,7 +86,7 @@ lands. Adding a test file means editing `SKULLBONEZ_TESTS.vcxproj` and
   |------|--------|--------------------------------|---------------|-----------|
   | 1 | Runtime input/frame dispatch (`RunInput`, `RunFrame`, `TakeInput`) | Large user-facing coordinator path, historically god-object heavy, and zero direct unit references. | `TestRuntimeInputBindings` now covers the shared keyboard binding data; full `RunInput` frame dispatch remains untested. | Step 1.1 complete; deeper Run-frame behavior belongs in future extracted helpers. |
   | 2 | Replay record -> restore behavior | Replay owns long-lived debugging and prediction state; regressions can look green in visual gates if state hashes are not compared. | `TestReplayRecorder` covers ring/cursor contracts; `TestDeterminism` now covers solver snapshot plus body restore and replay solver-sample restore of a recorded window. | Step 2.1 complete; full loaded-artifact/Run restore remains integration coverage. |
-  | 3 | Physics solver invariants | `PhysicsWorld` and solver state remain determinism-critical and large; CSV baselines prove byte equality, not physical correctness. | `TestPhysicsHandles`, `TestSpatialGrid`, `TestBounds`, `TestConvexHull`, and `TestDeterminism` cover handles/broadphase/math/snapshot basics. | Step 3.1: add property-style micro-world checks for penetration tolerance, bounded damping energy, and sleep/wake transitions. |
+  | 3 | Physics solver invariants | `PhysicsWorld` and solver state remain determinism-critical and large; CSV baselines prove byte equality, not physical correctness. | `TestPhysicsHandles`, `TestSpatialGrid`, `TestBounds`, `TestConvexHull`, and `TestDeterminism` cover handles/broadphase/math/snapshot basics plus penetration tolerance, damping-energy, and sleep/wake invariant checks. | Step 3.1 complete; add future regression-specific invariants when solver behavior changes. |
   | 4 | DX12 render state / command abstraction | Barrier/resource-state regressions are high severity and mostly protected by screenshot/InfoQueue gates rather than unit behavior. | No unit reference to `RenderBackendDX12` or `IRenderCommandContext`; Plan 11 relies on `validate_dx12_renderer`. | Add a unit-testable resource-state/command-record helper only if a later render slice extracts one without initializing DX12. |
   | 5 | Scene and asset load boundaries | Scene parsing is externally supplied data and now owns Lane R recoverable failures; asset-library lookup remains hidden behind a link stub. | `TestSceneParserUnit` has four parser tests. | Step 4.1: replace `TestSceneParserLinkStubs.cpp` with real asset lookup coverage or a narrow fixture owner. |
   | 6 | Diagnostics, replay integration hooks, and terrain fixtures | Stubs satisfy linking and loudly fail, but they are not behavioral assertions. | `TestDiagnosticsLinkStubs.cpp`, `TestReplayRecorderLinkStubs.cpp`, and `TestTerrainLinkStubs.cpp` still exist. | Step 4.1: turn each stub into a real fixture/test boundary or delete it by narrowing dependencies. |
@@ -123,9 +123,19 @@ lands. Adding a test file means editing `SKULLBONEZ_TESTS.vcxproj` and
   (5.2s; project filters passed with 0 errors, `SKULLBONEZ_TESTS` Profile built
   with 0 warnings and 0 errors, and 52/52 doctest cases plus 1425/1425
   assertions passed).
-- [ ] **3.1** (with plan 02) Add physics invariant/property tests (no
+- [x] **3.1** (with plan 02) Add physics invariant/property tests (no
   inter-penetration beyond tolerance, bounded energy under damping, sleep/wake)
   **alongside** the byte-exact baselines. Gate: `validate_tests`. Commit.
+
+  Completed 2026-07-09. `TestDeterminism` now checks a settled micro-world
+  against terrain penetration tolerance using both body bounds and terrain
+  manifold diagnostics, verifies kinetic energy does not increase under
+  no-gravity fluid damping, and proves an authored velocity wakes a sleeping
+  body before the next integration step. Gate evidence:
+  `TestOutput\agent_logs\plan05_physics_invariants_validate_tests_20260709_085357.log`
+  (5.2s; project filters passed with 0 errors, `SKULLBONEZ_TESTS` Profile built
+  with 0 warnings and 0 errors, and 55/55 doctest cases plus 1504/1504
+  assertions passed).
 - [ ] **4.1** Convert each `*LinkStubs.cpp` into a real test or delete it. Gate:
   `validate_tests`. Commit.
 
@@ -135,8 +145,8 @@ lands. Adding a test file means editing `SKULLBONEZ_TESTS.vcxproj` and
 
 ## Acceptance (measurable)
 
-- [ ] Unit tests exist that reference input dispatch, replay record/restore, and
+- [x] Unit tests exist that reference input dispatch, replay record/restore, and
   scene logic — not only math types.
-- [ ] Physics has invariant/property tests in addition to byte-exact baselines.
+- [x] Physics has invariant/property tests in addition to byte-exact baselines.
 - [ ] `*LinkStubs.cpp` count is 0.
-- [ ] The coverage map shows the top-risk subsystems moved off zero.
+- [x] The coverage map shows the top-risk subsystems moved off zero.
