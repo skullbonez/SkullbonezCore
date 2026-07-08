@@ -194,7 +194,8 @@ bool RuntimeTools::HasLingeredRayCastLine( float maxAgeSeconds ) const
 
 bool RuntimeTools::HasSelectionOverlayWork( int modelCount, RunCameraMode cameraMode ) const
 {
-    const bool selectedModelValid = m_editor.selectedModelIndex >= 0 && m_editor.selectedModelIndex < modelCount;
+    const bool selectedModelValid =
+        m_editor.selectedBody.IsValid() && m_editor.selectedCollider.IsValid() && modelCount >= 0;
     const bool placementPreview =
         m_editor.editorModeEnabled && m_editor.placementModeEnabled && m_editor.placementPreviewVisible;
     const bool editorSelection = m_editor.editorModeEnabled && !m_editor.placementModeEnabled && selectedModelValid;

@@ -1,7 +1,7 @@
 # Progress: Stable Identity (plan 06)
 
 Source plan: `fable_plans/06-stable-identity-plan.md`
-Status: phase 2 central resolvers complete on 2026-07-08; C1 mouse-pickup redundant-row sub-slice complete; subsystem conversions pending
+Status: phase 2 central resolvers and C1 RuntimeTools cluster complete on 2026-07-08; later subsystem conversions pending
 Last updated: 2026-07-08
 
 ## How to work this file
@@ -32,8 +32,8 @@ Last updated: 2026-07-08
 - Initial persisted model-index inventory (28 scalar members in 9 headers, plus
   1 non-scalar drag-group row) was frozen on 2026-07-08. The checker excludes
   function default parameters such as `Run.h:190`; those are not stored
-  identity. The current scalar ratchet is 27 after the C1 mouse-pickup
-  redundant row was removed.
+  identity. The current scalar ratchet is 26 after the C1 mouse-pickup row
+  removal and editor selection row-hint conversion.
 
 | # | File:Line | Member | Adjacent stable id? | Class |
 |---|-----------|--------|---------------------|-------|
@@ -64,7 +64,7 @@ Last updated: 2026-07-08
 | 25 | Runtime/RuntimeInteractionController.h:125 | RuntimeInteractionGesture.modelIndex | no stable id in gesture state | sole-identity |
 | 26 | Runtime/RuntimePickService.h:68 | RuntimePickResult.modelIndex | body + collider in same pick result | frame-local |
 | 27 | Runtime/Tools/RuntimeTools.h:165 | RunMousePickupState.modelIndex | body | removed 2026-07-08 |
-| 28 | Runtime/Tools/RuntimeTools.h:198 | RunEditorPlacementState.selectedModelIndex | selectedBody + selectedCollider | hint |
+| 28 | Runtime/Tools/RuntimeTools.h:198 | RunEditorPlacementState.selectedModelRow | selectedBody + selectedCollider | wrapped hint |
 | 29 | Runtime/Tools/RuntimeTools.h:226 | RunEditorPlacementState.gizmoDragGroupIndices[] | active gesture only | frame-local |
 
 ## Phase 1 — inventory freeze + ratchet
@@ -184,31 +184,61 @@ through R2 resolvers; if `redundant`, delete and use the adjacent handle; if
 demote the int to a hint. `recorded`/`frame-local` members get an explicit
 `// Lifetime:` comment naming their class instead of a conversion.
 
-- [ ] C1. `RuntimeTools.h` cluster (#27 mouse pickup — redundant next to
+- [x] C1. `RuntimeTools.h` cluster (#27 mouse pickup — redundant next to
   `body` handle; #28 selection — hint next to selectedBody/selectedCollider;
   any drag-group entries from I1). Gate: `validate_fast` + editor smoke
   (launch, click-select, drag gizmo via
   `tools\run_graphics_stress.bat 1` if selection code churned). Commit.
 
-  Partial evidence (2026-07-08): the mouse-pickup redundant stored row was
-  removed. `RunMousePickupState` now stores only `PhysicsBodyHandle` for live
-  pickup command paths; pickup physics and angular-velocity restore revalidate
-  the handle before writing, and editor overlay drawing resolves the current
-  model row locally from `PhysicsBodyStore::ModelIndexForHandle`. The
-  `RuntimeInteractionGesture::modelIndex`, selection hint, and drag-group rows
-  remain for later C1/C3 work, so C1 stays unchecked. `MAX_STORED_MODEL_INDEX_MEMBER_FIELDS`
-  dropped from 28 to 27 in `tools/check_runtime_boundaries.py`.
+  Evidence (2026-07-08): completed in two sub-slices. The mouse-pickup
+  redundant stored row was removed first. `RunMousePickupState` now stores only
+  `PhysicsBodyHandle` for live pickup command paths; pickup physics and
+  angular-velocity restore revalidate the handle before writing, and editor
+  overlay drawing resolves the current model row locally from
+  `PhysicsBodyStore::ModelIndexForHandle`.
 
-  Gate evidence: `python tools\check_runtime_boundaries.py --self-test`
-  passed; `python tools\check_runtime_boundaries.py --max-errors 20` passed
-  with 0 errors; `tools\validate_scene_parser_tests.bat` passed in
+  The selection half now stores `Physics::ModelRowHint selectedModelRow` next
+  to `selectedBody`/`selectedCollider`. `ResolveSelectedEditorModelIndex`
+  repairs the hint through `PhysicsBodyStore::ResolveModelRow` before gizmo,
+  overlay, input, attached-camera seed, and automation-report callers use a
+  temporary row. `PeekSelectedEditorModelIndex` gives const report/trace paths
+  the same resolver without mutating state. `gizmoDragGroupIndices[]` remains a
+  documented active-gesture row cache, guarded by its `Lifetime:` comment and
+  rebuilt at drag begin from the stable selection handle.
+  `MAX_STORED_MODEL_INDEX_MEMBER_FIELDS` dropped from 28 to 26 in
+  `tools/check_runtime_boundaries.py`.
+
+  First sub-slice gate evidence: `python tools\check_runtime_boundaries.py
+  --self-test` passed; `python tools\check_runtime_boundaries.py --max-errors
+  20` passed with 0 errors; `tools\validate_scene_parser_tests.bat` passed in
   00:00:06.4059333 after the companion fable-05 missing-camera parser fix; and
   `tools\validate_fast.bat` passed in 00:00:52.7932666 with formatting,
   project filters, staged-size, runtime boundaries, unit tests, and
   Profile/Debug builds all clean. Logs:
   `Agentic\Reports\2026-07-08\logs\fable-05-06-scene-parser-tests.log` and
   `Agentic\Reports\2026-07-08\logs\fable-05-06-mouse-pickup-validate-fast.log`.
-  Touched-file comment audit inspected 7 source-bearing files with 0 deferred.
+
+  Completion gate evidence: `git diff --check` passed. `python
+  tools\check_runtime_boundaries.py --self-test` printed `SELF_TEST_PASS:
+  runtime boundary checker synthetic cases passed`; `python
+  tools\check_runtime_boundaries.py --max-errors 20` passed with
+  `Runtime boundary summary: TestOutput\validation\runtime_boundaries\summary.json (0 errors)`
+  and `PASS: Runtime boundary validation passed.` The first
+  `tools\validate_fast.bat` attempt failed in 00:00:34.4708510 because
+  `RunInteractionAutomation.cpp` missed the new `EditorTools.h` declaration
+  include; after adding it, the rerun passed in 00:00:46.7919044 with
+  `VALIDATE_FAST: ALL PASSED` and `VALIDATE_FAST_EXIT=0`.
+  `tools\run_graphics_stress.bat 1` passed in 00:01:01.8077248 with
+  `GRAPHICS_STRESS_EXIT=0`. `tools\validate_full.bat` passed in
+  00:00:45.5179065 with `VALIDATE_FULL: DEFAULT GATE PASSED`,
+  `VALIDATE_FULL_EXIT=0`, DX12 validation errors 0, DX12 screenshots matching
+  baselines, and `physics_regression_solver.csv` byte-exact. Logs:
+  `Agentic\Reports\2026-07-08\logs\fable-06-c1-selection-validate-fast.log`,
+  `Agentic\Reports\2026-07-08\logs\fable-06-c1-selection-validate-fast-rerun.log`,
+  `Agentic\Reports\2026-07-08\logs\fable-06-c1-selection-graphics-stress.log`,
+  and `Agentic\Reports\2026-07-08\logs\fable-06-c1-selection-validate-full.log`.
+  Touched-file comment audit inspected 9 source-bearing/tool files with 0
+  deferred.
 - [ ] C2. `RuntimeInteractionCommands.h` payloads (#6–#8): commands must carry
   `PhysicsBodyHandle` (already resolvable at enqueue time — find enqueue sites
   with `rg -n "RuntimeInteractionCommands|modelIndex" SkullbonezSource/Runtime/RunInput.cpp`

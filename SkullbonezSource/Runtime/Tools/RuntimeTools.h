@@ -26,8 +26,8 @@ Glossary:
     hit-test bounds.
   Physics body handle: Generational id for a live simulation body row; runtime
     tools store it when they need to issue physics commands.
-  Model index: Dense model-order row used for UI, editor grouping, and replay
-    identity; retained rows are hints unless the owning plan says otherwise.
+  Model row hint: Cached dense model-order row paired with stable body/collider
+    handles; resolve it before use because collection edits can move rows.
   Ring buffer: Fixed-size history where new launcher/raycast entries overwrite
     the oldest slots.
 
@@ -35,8 +35,8 @@ Invariants:
   - RuntimeTools owns transient tool state only; world, model, terrain, camera,
     asset, and physics services are borrowed through method parameters.
   - Fixed-capacity arrays must stay bounded and replay-restorable.
-  - Stored model indices are frame-local references and must be validated or
-    resolved before use after model collection edits.
+  - Stored model-row hints must be resolved from stable handles/ids before use
+    after model collection edits.
   - Mouse pickup stores only a physics body handle for live command paths; any
     model row used for gestures or UI is resolved locally from that handle.
 
@@ -193,8 +193,8 @@ struct RunEditorPlacementState
     int objectType = UI::EditorTab::OBJECT_BOX;
     int placedObjectSerial = 0;
     // Lifetime: selectedBody/selectedCollider are live store identities. The
-    // model index is only the editor/UI row hint paired with those handles.
-    int selectedModelIndex = -1;
+    // row hint accelerates UI/report lookups but is repaired from selectedBody.
+    Physics::ModelRowHint selectedModelRow;
     Physics::PhysicsBodyHandle selectedBody;
     Physics::PhysicsColliderHandle selectedCollider;
     int hotGizmoAxis = -1;

@@ -1668,7 +1668,7 @@ RUN_PRIVATE_METHOD_DECLARATION_PATTERN = re.compile(
 # FABLE-06 I2/C1: current persisted header member census on 2026-07-08.
 # Direct struct/class fields are counted; function default parameters and inline
 # locals are not. The budget is debt, not approval for new stored row identity.
-MAX_STORED_MODEL_INDEX_MEMBER_FIELDS = 27
+MAX_STORED_MODEL_INDEX_MEMBER_FIELDS = 26
 TYPE_WITH_BODY_PATTERN = re.compile(r"\b(?:struct|class)\s+[A-Za-z_]\w*(?:\s*:[^{;]+)?\s*\{")
 STORED_MODEL_INDEX_MEMBER_PATTERN = re.compile(
     r"(?m)^[ \t]*int[ \t]+(?:modelIndex|[A-Za-z_]\w*ModelIndex)\w*[ \t]*(?:=[^,;]*)?;"

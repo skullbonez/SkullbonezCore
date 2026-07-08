@@ -31,6 +31,7 @@ Related:
 */
 #include "RunInternal.h"
 #include "Allocation/RuntimeAllocationTracker.h"
+#include "Editor/EditorTools.h"
 #include "Replay/ReplayOverlayLayout.h"
 #include "RunDemoDirector.h"
 #include "RuntimeFileWriter.h"
@@ -1715,7 +1716,9 @@ void Run::TickInteractionAutomationAfterRender()
         case RunInteractionAutomationAssertKind::SelectedObject:
         {
             expected = action.text;
-            const int selectedIndex = m_runtimeTools.Editor().selectedModelIndex;
+            const int selectedIndex =
+                PeekSelectedEditorModelIndex( m_runtimeTools.Editor(),
+                                              m_cGameModelCollection.GetPhysicsEngine().BodyStore() );
             if ( selectedIndex >= 0 && selectedIndex < m_cGameModelCollection.SceneEntityCount() )
             {
                 actual = m_cGameModelCollection.GetModelAtIndex( selectedIndex ).GetName();
@@ -1850,7 +1853,7 @@ void Run::TickInteractionAutomationAfterRender()
         }
         case RunInteractionAutomationAssertKind::GizmoVisible:
         {
-            const bool visible = m_runtimeTools.Editor().selectedModelIndex >= 0 &&
+            const bool visible = m_runtimeTools.Editor().selectedBody.IsValid() &&
                                  ( m_runtimeTools.Editor().editorModeEnabled || InspectGizmoInteractionActive() );
             expected = BoolString( action.boolValue );
             actual = BoolString( visible );
@@ -1961,7 +1964,8 @@ void Run::WriteInteractionAutomationReport()
         screenshots.push_back( screenshot );
     }
 
-    const int selectedIndex = m_runtimeTools.Editor().selectedModelIndex;
+    const int selectedIndex =
+        PeekSelectedEditorModelIndex( m_runtimeTools.Editor(), m_cGameModelCollection.GetPhysicsEngine().BodyStore() );
     const char* selectedName = "";
     if ( selectedIndex >= 0 && selectedIndex < m_cGameModelCollection.SceneEntityCount() )
     {
