@@ -54,7 +54,6 @@ Related:
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
-#include <utility>
 
 using namespace SkullbonezCore::Basics;
 using namespace SkullbonezCore::Math::CollisionDetection;
@@ -2574,41 +2573,30 @@ void Run::TakeInput()
         {
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ApplyCinematicParam, RuntimeInputActionSource::UI );
         }
-        if ( uiCommands.scene.resetScene )
+        const SceneRuntimeUICommandResult sceneUICommands =
+            QueueSceneUIRuntimeCommands( m_runtimeCommands, uiCommands.scene );
+        if ( sceneUICommands.resetScene )
         {
-            m_runtimeCommands.Push( RuntimeCommand{ RuntimeCommandType::ResetCurrentScene } );
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ResetScene, RuntimeInputActionSource::UI );
         }
-        if ( uiCommands.scene.resetSceneDefaults )
+        if ( sceneUICommands.resetSceneDefaults )
         {
-            RuntimeCommand command{ RuntimeCommandType::ResetCurrentScene };
-            command.preserveUIState = false;
-            command.preserveRuntimeState = false;
-            m_runtimeCommands.Push( std::move( command ) );
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ResetSceneDefaults, RuntimeInputActionSource::UI );
         }
-        if ( uiCommands.scene.requestDemoScene )
+        if ( sceneUICommands.loadDemoScene )
         {
-            m_runtimeCommands.Push( RuntimeCommand{ RuntimeCommandType::LoadDemoScene } );
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::LoadDemoScene, RuntimeInputActionSource::UI );
         }
-        if ( uiCommands.scene.saveSceneDefaults )
+        if ( sceneUICommands.saveSceneDefaults )
         {
-            m_runtimeCommands.Push( RuntimeCommand{ RuntimeCommandType::SaveSceneDefaults } );
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::SaveSceneDefaults, RuntimeInputActionSource::UI );
         }
-        if ( uiCommands.scene.createScene )
+        if ( sceneUICommands.createScene )
         {
-            RuntimeCommand command{ RuntimeCommandType::CreateScene };
-            command.text = uiCommands.scene.requestedSceneName;
-            m_runtimeCommands.Push( std::move( command ) );
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::CreateScene, RuntimeInputActionSource::UI );
         }
-        if ( uiCommands.scene.requestedSceneIndex >= 0 )
+        if ( sceneUICommands.selectScene )
         {
-            RuntimeCommand command{ RuntimeCommandType::LoadSceneIndex };
-            command.index = uiCommands.scene.requestedSceneIndex;
-            m_runtimeCommands.Push( command );
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::SelectScene, RuntimeInputActionSource::UI );
         }
 

@@ -609,6 +609,26 @@ every step. Commit per step.
 	    `TestOutput\agent_logs\plan01_fixed_step_ui_runtime_boundaries.log`
 	    (17.6s), and `TestOutput\agent_logs\plan01_fixed_step_ui_build_profile.log`
 	    (8.5s).
+	  - [x] Scene-tab runtime command queuing moved reset, defaults reset, demo
+	    load, save defaults, create scene, and browser index selection command
+	    construction out of `Run::TakeInput()` and into `SceneRuntimeCoordinator`.
+	    The helper appends the same deferred `RuntimeCommand` payloads in the
+	    same order and returns flags for `RunInput` action logging. The
+	    touched-file comment audit added scene UI command vocabulary and the
+	    queued-command order invariant. `TakeInput()` now spans 1,021 lines. Gate
+	    evidence:
+	    `TestOutput\agent_logs\plan01_scene_ui_commands_interaction_clicks.log`
+	    (17.2s, both interaction reports `ok=1`) and
+	    `TestOutput\agent_logs\plan01_scene_ui_commands_validate_full.log` (51.7s;
+	    project filters/runtime boundaries passed, Profile/Debug builds had 0
+	    warnings and 0 errors, DX12 InfoQueue errors = 0, screenshots matched
+	    baselines, and `physics_regression_solver.csv` matched byte-exactly).
+	    Targeted pre-gate checks also passed:
+	    `TestOutput\agent_logs\plan01_scene_ui_commands_validate_format.log`
+	    (10.2s),
+	    `TestOutput\agent_logs\plan01_scene_ui_commands_runtime_boundaries.log`
+	    (17.9s), and
+	    `TestOutput\agent_logs\plan01_scene_ui_commands_build_profile.log` (10.4s).
 - [ ] **1.4** Confirm `TakeInput()` is under ~200 lines (setup + dispatch loop).
 
 ### Phase 2 — Move state shelves out of `RunState`

@@ -12,6 +12,8 @@ Mental model:
 Glossary:
   Control action: Explicit request for Run to load, clear automation, or apply
     cinematic mode.
+  Scene UI command: One-frame Scene-tab request translated into deferred runtime
+    commands.
   Scene browser path: Path discovered from the scenes directory and shown in
     the UI browser.
   Interactive scene run: User-owned scene flow where automation should not exit
@@ -35,9 +37,14 @@ Related:
 
 namespace SkullbonezCore
 {
+namespace UI
+{
+struct UISceneCommands;
+}
 namespace Basics
 {
 class SceneController;
+class RuntimeCommandQueue;
 
 enum class SceneRuntimeControlActionType
 {
@@ -93,6 +100,21 @@ struct SceneRuntimeControlAction
         return action;
     }
 };
+
+struct SceneRuntimeUICommandResult
+{
+    // Invariant: flags report accepted UI commands for RunInput action logging;
+    // queued RuntimeCommand order remains the behavior contract.
+    bool resetScene = false;
+    bool resetSceneDefaults = false;
+    bool loadDemoScene = false;
+    bool saveSceneDefaults = false;
+    bool createScene = false;
+    bool selectScene = false;
+};
+
+SceneRuntimeUICommandResult QueueSceneUIRuntimeCommands( RuntimeCommandQueue& runtimeCommands,
+                                                         const UI::UISceneCommands& commands );
 
 class SceneRuntimeCoordinator
 {
