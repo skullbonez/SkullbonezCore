@@ -280,6 +280,107 @@ void ApplyUIWorldOverride( WorldEnvironment& world,
                                             fluidDensity );
 }
 
+bool ApplyRuntimeTextOnlyUICommand( RunDebugState& debug, const UI::UISceneOptionCommands& commands )
+{
+    if ( !commands.toggleTextOnly )
+    {
+        return false;
+    }
+
+    debug.isTextOnly = !debug.isTextOnly;
+    return true;
+}
+
+RuntimePresentationUICommandResult ApplyRuntimePresentationUICommands( RuntimePresentationUICommandContext context,
+                                                                       const UI::UISceneOptionCommands& sceneOptions,
+                                                                       const UI::UIRenderCommands& renderTuning,
+                                                                       const UI::UIWaterCommands& water )
+{
+    RuntimePresentationUICommandResult result;
+    RunDebugState& debug = context.debug;
+    EngineConfig& config = context.config;
+    if ( sceneOptions.toggleTerrainHidden )
+    {
+        debug.isTerrainHidden = !debug.isTerrainHidden;
+        result.toggledTerrainHidden = true;
+    }
+    if ( sceneOptions.toggleWaterHidden )
+    {
+        debug.isWaterHidden = !debug.isWaterHidden;
+        result.toggledWaterHidden = true;
+    }
+    if ( sceneOptions.toggleWaterFreeze )
+    {
+        debug.isWaterFreezeDebug = !debug.isWaterFreezeDebug;
+        if ( debug.isWaterFreezeDebug )
+        {
+            debug.frozenWaterTime = static_cast<float>( context.simulationSeconds );
+        }
+        result.toggledWaterFreeze = true;
+    }
+    if ( sceneOptions.toggleWaterFlat )
+    {
+        debug.isWaterFlatDebug = !debug.isWaterFlatDebug;
+        result.toggledWaterFlat = true;
+    }
+    if ( sceneOptions.toggleShadows )
+    {
+        if ( RuntimeCinematicRenderingEnabled( context.scene,
+                                               config,
+                                               context.launchOptions,
+                                               debug,
+                                               context.graphicsReady ) )
+        {
+            const bool shadowsActive = RuntimeActiveCinematicConfig( context.scene, config ).shadowsEnabled;
+            context.launchOptions.hasCinematicShadowsOverride = false;
+            SetCinematicShadowsEnabledFromUI( RuntimeActiveCinematicConfig( context.scene, config ),
+                                              context.scene,
+                                              !shadowsActive );
+        }
+        else
+        {
+            config.ordinaryRender.shadowsEnabled = !config.ordinaryRender.shadowsEnabled;
+        }
+        result.toggledSceneShadows = true;
+    }
+    if ( renderTuning.toggleShadows )
+    {
+        config.ordinaryRender.shadowsEnabled = !config.ordinaryRender.shadowsEnabled;
+        result.toggledRenderShadows = true;
+    }
+    if ( renderTuning.saveDefaults )
+    {
+        context.runtimeCommands.Push( RuntimeCommand{ RuntimeCommandType::SaveRenderDefaults } );
+        result.queuedRenderDefaultsSave = true;
+    }
+    if ( renderTuning.requestedParam != UIRenderParam::None )
+    {
+        ApplyOrdinaryRenderUIParam( config.ordinaryRender, renderTuning.requestedParam, renderTuning.requestedValue );
+        result.appliedRenderTuning = true;
+    }
+    if ( water.toggleWaterReflection )
+    {
+        if ( debug.isWaterNoReflect )
+        {
+            debug.isWaterNoReflect = false;
+        }
+        else
+        {
+            debug.isWaterNoReflect = true;
+            debug.isWaterRTReflect = false;
+        }
+        result.toggledWaterReflection = true;
+    }
+    if ( water.requestedWaterReflectionMode >= 0 )
+    {
+        const int mode = std::clamp( water.requestedWaterReflectionMode, 0, 2 );
+        debug.isWaterRTReflect = mode == 1;
+        debug.isWaterNoReflect = mode == 2;
+        result.setWaterReflectionMode = true;
+    }
+    return result;
+}
+
 bool ApplySoundUICommands( SoundUICommandContext context, const UI::UISoundCommands& commands )
 {
     // Why: contact audio is presentation-only and may be disabled at launch or

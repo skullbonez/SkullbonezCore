@@ -12,6 +12,8 @@ Glossary:
   Cinematic config: HDR/post-processing and style settings for the active look.
   Ordinary render config: Non-cinematic renderer settings saved in engine.cfg.
   Override mask: Bitset recording which UI-touched scene values should persist.
+  Presentation command: One-frame UI packet that edits debug visibility, render
+    tuning, shadow, or water-reflection presentation state.
   Sound command: One-frame UI packet that edits contact-audio presentation state.
   Physics friction command: One-frame Physics-tab packet that edits live friction config.
   Physics sleep command: One-frame Physics-tab packet that toggles sleep policy.
@@ -83,6 +85,20 @@ struct PhysicsFrictionUICommandContext
     GameObjects::GameModelCollection& modelCollection;
 };
 
+struct RuntimePresentationUICommandContext
+{
+    // Lifetime: borrowed only while one scene/render/water UI packet is applied.
+    // Simulation-step reset stays in RunInput; this helper owns presentation and
+    // render-config mutation plus queued render-default save intent.
+    RunDebugState& debug;
+    RunSceneState& scene;
+    EngineConfig& config;
+    RunLaunchOptions& launchOptions;
+    RuntimeCommandQueue& runtimeCommands;
+    bool graphicsReady = false;
+    double simulationSeconds = 0.0;
+};
+
 struct TornadoUICommandResult
 {
     bool toggledTornado = false;
@@ -96,6 +112,22 @@ struct PhysicsFrictionUICommandResult
     // Invariant: count accepted requests, not changed values, so input action
     // reporting still mirrors the UI packet that RunInput accepted.
     int applySettingsActionCount = 0;
+};
+
+struct RuntimePresentationUICommandResult
+{
+    // Invariant: flags report accepted UI commands for RunInput action logging;
+    // they are not change-detection flags for the underlying render/debug state.
+    bool toggledTerrainHidden = false;
+    bool toggledWaterHidden = false;
+    bool toggledWaterFreeze = false;
+    bool toggledWaterFlat = false;
+    bool toggledSceneShadows = false;
+    bool toggledRenderShadows = false;
+    bool queuedRenderDefaultsSave = false;
+    bool appliedRenderTuning = false;
+    bool toggledWaterReflection = false;
+    bool setWaterReflectionMode = false;
 };
 
 void ApplyWorkerThreadCountOverride( EngineConfig& config,
@@ -113,6 +145,11 @@ void ApplyCinematicUIParam( CinematicRenderConfig& cinematic,
 void SetCinematicShadowsEnabledFromUI( CinematicRenderConfig& cinematic, RunSceneState& scene, bool enabled );
 void ApplyOrdinaryRenderUIParam( OrdinaryRenderConfig& ordinary, UIRenderParam param, float rawValue );
 bool ApplySoundUICommands( SoundUICommandContext context, const UI::UISoundCommands& commands );
+bool ApplyRuntimeTextOnlyUICommand( RunDebugState& debug, const UI::UISceneOptionCommands& commands );
+RuntimePresentationUICommandResult ApplyRuntimePresentationUICommands( RuntimePresentationUICommandContext context,
+                                                                       const UI::UISceneOptionCommands& sceneOptions,
+                                                                       const UI::UIRenderCommands& renderTuning,
+                                                                       const UI::UIWaterCommands& water );
 bool ApplyPhysicsSleepPolicyUICommand( PhysicsSleepPolicyUICommandContext context,
                                        const UI::UIPhysicsCommands& commands );
 PhysicsFrictionUICommandResult ApplyPhysicsFrictionUICommands( PhysicsFrictionUICommandContext context,

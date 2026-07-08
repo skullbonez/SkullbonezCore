@@ -2356,9 +2356,8 @@ void Run::TakeInput()
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleTerrainContactProbe,
                                                RuntimeInputActionSource::UI );
         }
-        if ( uiCommands.sceneOptions.toggleTextOnly )
+        if ( ApplyRuntimeTextOnlyUICommand( m_debug, uiCommands.sceneOptions ) )
         {
-            m_debug.isTextOnly = !m_debug.isTextOnly;
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleTextOnly, RuntimeInputActionSource::UI );
         }
         if ( uiCommands.sceneOptions.toggleFixedStep )
@@ -2367,65 +2366,47 @@ void Run::TakeInput()
             m_simulation.Reset();
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleFixedStep, RuntimeInputActionSource::UI );
         }
-        if ( uiCommands.sceneOptions.toggleTerrainHidden )
+        const RuntimePresentationUICommandResult presentationCommands = ApplyRuntimePresentationUICommands(
+            RuntimePresentationUICommandContext{ m_debug,
+                                                 SceneState(),
+                                                 m_config,
+                                                 m_launchOptions,
+                                                 m_runtimeCommands,
+                                                 m_renderBackendView.deviceLifecycle != nullptr,
+                                                 m_timers.simulationTimer.GetTimeSinceLastStart() },
+            uiCommands.sceneOptions,
+            uiCommands.renderTuning,
+            uiCommands.water );
+        if ( presentationCommands.toggledTerrainHidden )
         {
-            m_debug.isTerrainHidden = !m_debug.isTerrainHidden;
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleTerrainHidden, RuntimeInputActionSource::UI );
         }
-        if ( uiCommands.sceneOptions.toggleWaterHidden )
+        if ( presentationCommands.toggledWaterHidden )
         {
-            m_debug.isWaterHidden = !m_debug.isWaterHidden;
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleWaterHidden, RuntimeInputActionSource::UI );
         }
-        if ( uiCommands.sceneOptions.toggleWaterFreeze )
+        if ( presentationCommands.toggledWaterFreeze )
         {
-            m_debug.isWaterFreezeDebug = !m_debug.isWaterFreezeDebug;
-            if ( m_debug.isWaterFreezeDebug )
-            {
-                m_debug.frozenWaterTime = static_cast<float>( m_timers.simulationTimer.GetTimeSinceLastStart() );
-            }
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleWaterFreeze, RuntimeInputActionSource::UI );
         }
-        if ( uiCommands.sceneOptions.toggleWaterFlat )
+        if ( presentationCommands.toggledWaterFlat )
         {
-            m_debug.isWaterFlatDebug = !m_debug.isWaterFlatDebug;
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleWaterFlat, RuntimeInputActionSource::UI );
         }
-        if ( uiCommands.sceneOptions.toggleShadows )
+        if ( presentationCommands.toggledSceneShadows )
         {
-            if ( RuntimeCinematicRenderingEnabled( SceneState(),
-                                                   m_config,
-                                                   m_launchOptions,
-                                                   m_debug,
-                                                   m_renderBackendView.deviceLifecycle != nullptr ) )
-            {
-                const bool shadowsActive = RuntimeActiveCinematicConfig( SceneState(), m_config ).shadowsEnabled;
-                m_launchOptions.hasCinematicShadowsOverride = false;
-                SetCinematicShadowsEnabledFromUI( RuntimeActiveCinematicConfig( SceneState(), m_config ),
-                                                  SceneState(),
-                                                  !shadowsActive );
-            }
-            else
-            {
-                m_config.ordinaryRender.shadowsEnabled = !m_config.ordinaryRender.shadowsEnabled;
-            }
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleShadows, RuntimeInputActionSource::UI );
         }
-        if ( uiCommands.renderTuning.toggleShadows )
+        if ( presentationCommands.toggledRenderShadows )
         {
-            m_config.ordinaryRender.shadowsEnabled = !m_config.ordinaryRender.shadowsEnabled;
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleRenderShadows, RuntimeInputActionSource::UI );
         }
-        if ( uiCommands.renderTuning.saveDefaults )
+        if ( presentationCommands.queuedRenderDefaultsSave )
         {
-            m_runtimeCommands.Push( RuntimeCommand{ RuntimeCommandType::SaveRenderDefaults } );
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::SaveRenderDefaults, RuntimeInputActionSource::UI );
         }
-        if ( uiCommands.renderTuning.requestedParam != UIRenderParam::None )
+        if ( presentationCommands.appliedRenderTuning )
         {
-            ApplyOrdinaryRenderUIParam( m_config.ordinaryRender,
-                                        uiCommands.renderTuning.requestedParam,
-                                        uiCommands.renderTuning.requestedValue );
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ApplyRenderTuning, RuntimeInputActionSource::UI );
         }
         if ( ApplySoundUICommands(
@@ -2434,25 +2415,13 @@ void Run::TakeInput()
         {
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ApplySoundTuning, RuntimeInputActionSource::UI );
         }
-        if ( uiCommands.water.toggleWaterReflection )
+        if ( presentationCommands.toggledWaterReflection )
         {
-            if ( m_debug.isWaterNoReflect )
-            {
-                m_debug.isWaterNoReflect = false;
-            }
-            else
-            {
-                m_debug.isWaterNoReflect = true;
-                m_debug.isWaterRTReflect = false;
-            }
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleWaterReflection,
                                                RuntimeInputActionSource::UI );
         }
-        if ( uiCommands.water.requestedWaterReflectionMode >= 0 )
+        if ( presentationCommands.setWaterReflectionMode )
         {
-            const int mode = std::clamp( uiCommands.water.requestedWaterReflectionMode, 0, 2 );
-            m_debug.isWaterRTReflect = mode == 1;
-            m_debug.isWaterNoReflect = mode == 2;
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::SetWaterReflectionMode,
                                                RuntimeInputActionSource::UI );
         }
