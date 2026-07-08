@@ -32,6 +32,7 @@ Related:
 #include "../Tools/RuntimeTools.h"
 #include "../../Core/Common.h"
 #include "../../GameObjects/GameModelCollection.h"
+#include "../../UI/UICommands.h"
 #include "../../UI/UITabEditor.h"
 #include "../../World/WorldEnvironment.h"
 
@@ -380,6 +381,43 @@ SelectEditorObjectType( EditorGizmoContext context, int requestedObjectType, boo
         ClearEditorManipulationState( context );
     }
     result.enterPlacementMode = enterPlacementMode && context.editor.editorModeEnabled;
+    return result;
+}
+
+
+EditorPlacementPreModeUICommandResult ApplyEditorPlacementPreModeUICommands( EditorGizmoContext context,
+                                                                             const UI::UIEditorCommands& commands )
+{
+    EditorPlacementPreModeUICommandResult result;
+    if ( commands.requestPlaceStatic && SetEditorPlaceStaticObject( context.editor, commands.requestedPlaceStatic ) )
+    {
+        result.setPlaceStatic = true;
+    }
+    if ( commands.requestedObjectType >= 0 )
+    {
+        const EditorObjectTypeRequestResult objectTypeRequest =
+            SelectEditorObjectType( context, commands.requestedObjectType, commands.enterPlacementMode );
+        result.requestedObjectType = true;
+        result.enterPlacementMode = objectTypeRequest.enterPlacementMode;
+    }
+    return result;
+}
+
+
+EditorPlacementPostModeUICommandResult ApplyEditorPlacementPostModeUICommands( RunEditorPlacementState& editor,
+                                                                               const UI::UIEditorCommands& commands )
+{
+    EditorPlacementPostModeUICommandResult result;
+    if ( commands.togglePlaceStatic )
+    {
+        ToggleEditorPlaceStaticObject( editor );
+        result.toggledPlaceStatic = true;
+    }
+    if ( commands.toggleTerrainAlign )
+    {
+        ToggleEditorTerrainAlign( editor );
+        result.toggledTerrainAlign = true;
+    }
     return result;
 }
 

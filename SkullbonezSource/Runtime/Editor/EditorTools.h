@@ -66,6 +66,10 @@ struct PhysicsBodyRecord;
 struct PhysicsColliderCreateDesc;
 class PhysicsBodyStore;
 } // namespace Physics
+namespace UI
+{
+struct UIEditorCommands;
+}
 namespace Basics
 {
 class RunEditorTracer;
@@ -163,6 +167,21 @@ struct EditorObjectTypeRequestResult
 {
     bool objectTypeChanged = false;
     bool enterPlacementMode = false;
+};
+
+struct EditorPlacementPreModeUICommandResult
+{
+    // Invariant: flags report accepted UI commands for RunInput action logging;
+    // enterPlacementMode still requires Run-owned camera/cursor transition work.
+    bool setPlaceStatic = false;
+    bool requestedObjectType = false;
+    bool enterPlacementMode = false;
+};
+
+struct EditorPlacementPostModeUICommandResult
+{
+    bool toggledPlaceStatic = false;
+    bool toggledTerrainAlign = false;
 };
 
 int EditorMouseWheelSteps( int wheelDelta );
@@ -288,6 +307,10 @@ void ToggleEditorPlaceStaticObject( RunEditorPlacementState& editor );
 void ToggleEditorTerrainAlign( RunEditorPlacementState& editor );
 EditorObjectTypeRequestResult
 SelectEditorObjectType( EditorGizmoContext context, int requestedObjectType, bool enterPlacementMode );
+EditorPlacementPreModeUICommandResult ApplyEditorPlacementPreModeUICommands( EditorGizmoContext context,
+                                                                             const UI::UIEditorCommands& commands );
+EditorPlacementPostModeUICommandResult ApplyEditorPlacementPostModeUICommands( RunEditorPlacementState& editor,
+                                                                               const UI::UIEditorCommands& commands );
 int HitEditorGizmoAxis( EditorGizmoContext context,
                         const Math::Vector::Vector3& rayOrigin,
                         const Math::Vector::Vector3& rayDirection );

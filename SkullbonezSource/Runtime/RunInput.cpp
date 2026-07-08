@@ -2237,24 +2237,20 @@ void Run::TakeInput()
             ApplyCameraMode( static_cast<RunCameraMode>( uiCommands.run.requestedCameraMode ),
                              RuntimeInputActionSource::UI );
         }
-        if ( uiCommands.editor.requestPlaceStatic &&
-             RunInternal::SetEditorPlaceStaticObject( m_runtimeTools.Editor(),
-                                                      uiCommands.editor.requestedPlaceStatic ) )
+        const RunInternal::EditorPlacementPreModeUICommandResult editorPreModeCommands =
+            RunInternal::ApplyEditorPlacementPreModeUICommands( editorGizmoContext(), uiCommands.editor );
+        if ( editorPreModeCommands.setPlaceStatic )
         {
             EnterInteractiveSceneRun();
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleEditorStaticPlacement,
                                                RuntimeInputActionSource::UI );
         }
-        if ( uiCommands.editor.requestedObjectType >= 0 )
+        if ( editorPreModeCommands.enterPlacementMode )
         {
-            const RunInternal::EditorObjectTypeRequestResult objectTypeRequest =
-                RunInternal::SelectEditorObjectType( editorGizmoContext(),
-                                                     uiCommands.editor.requestedObjectType,
-                                                     uiCommands.editor.enterPlacementMode );
-            if ( objectTypeRequest.enterPlacementMode )
-            {
-                applyEditorPlacementModeChange( RuntimeInputActionSource::UI, true, false );
-            }
+            applyEditorPlacementModeChange( RuntimeInputActionSource::UI, true, false );
+        }
+        if ( editorPreModeCommands.requestedObjectType )
+        {
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::CycleEditorPlacementType,
                                                RuntimeInputActionSource::UI );
         }
@@ -2267,17 +2263,17 @@ void Run::TakeInput()
         {
             applyEditorPlacementModeToggle( RuntimeInputActionSource::UI );
         }
-        if ( uiCommands.editor.togglePlaceStatic )
+        const RunInternal::EditorPlacementPostModeUICommandResult editorPostModeCommands =
+            RunInternal::ApplyEditorPlacementPostModeUICommands( m_runtimeTools.Editor(), uiCommands.editor );
+        if ( editorPostModeCommands.toggledPlaceStatic )
         {
             EnterInteractiveSceneRun();
-            RunInternal::ToggleEditorPlaceStaticObject( m_runtimeTools.Editor() );
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleEditorStaticPlacement,
                                                RuntimeInputActionSource::UI );
         }
-        if ( uiCommands.editor.toggleTerrainAlign )
+        if ( editorPostModeCommands.toggledTerrainAlign )
         {
             EnterInteractiveSceneRun();
-            RunInternal::ToggleEditorTerrainAlign( m_runtimeTools.Editor() );
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleEditorTerrainAlign,
                                                RuntimeInputActionSource::UI );
         }
