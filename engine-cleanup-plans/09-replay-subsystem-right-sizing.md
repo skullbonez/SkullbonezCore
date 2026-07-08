@@ -94,6 +94,18 @@ bit-exact — the replay scrub regression is the gate.
     20001 lines. An initial `validate_full` attempt failed only on the
     `ReplayRuntime.h` formatting precheck and passed after the touched header was
     formatted narrowly.
+  - Progress note (2026-07-08, UI hover state): split replay prediction overlay
+    hover/drag memory into `RunReplayPredictionUiState`. Input cancellation,
+    scrubber hit testing, overlay drawing, unavailable-scrubber reset, and loaded
+    presentation arm paths now route checkbox/ragdoll/horizon hover state and
+    horizon dragging through `RunReplayPredictionState::ui`; prediction
+    simulation, async build cursor, and future-node cache concerns remain in
+    this step. Comment audit inspected the five touched source files with no
+    deferred wording work. Validation: `tools\validate_format.bat` passed in
+    9.5s; `tools\validate_replay_scrub.bat` passed in 28.1s;
+    `tools\validate_full.bat` passed in 44.9s with 0 build warnings/errors, 0
+    DX12 validation errors, matching DX12 screenshots, and
+    `physics_regression_solver.csv` byte-exact at 20001 lines.
 
 ### Phase 1 — Template the twin helpers
 

@@ -1683,7 +1683,7 @@ void Run::CancelReplayToolDragState()
 
     m_replayRuntime.Scrubber().dragging = false;
     m_replayRuntime.Scrubber().mouseCaptured = false;
-    m_replayRuntime.Prediction().horizonDragging = false;
+    m_replayRuntime.Prediction().ui.horizonDragging = false;
     m_replayRuntime.VelocityEdit().dragging = false;
     m_replayRuntime.VelocityEdit().draggingAngular = false;
     m_replayRuntime.VelocityEdit().activeAxis = -1;
@@ -1705,7 +1705,7 @@ bool Run::HasActiveReplayInteractionState() const
            m_replayRuntime.Scrubber().dragging || m_replayRuntime.Scrubber().historicalSamplePaused ||
            m_replayRuntime.Scrubber().liveAdvanceHeld || m_replayRuntime.Scrubber().mouseCaptured ||
            m_replayRuntime.PathVisualizer().hasTarget || !m_replayRuntime.PathVisualizer().targets.empty() ||
-           m_replayRuntime.Prediction().enabled || m_replayRuntime.Prediction().horizonDragging ||
+           m_replayRuntime.Prediction().enabled || m_replayRuntime.Prediction().ui.horizonDragging ||
            m_replayRuntime.Prediction().building || m_replayRuntime.VelocityEdit().enabled ||
            m_replayRuntime.VelocityEdit().dragging || m_replayRuntime.VelocityEdit().mouseCaptured ||
            m_replayRuntime.CauseTree().draggingWindow || m_replayRuntime.CauseTree().resizingWindow ||
@@ -1754,11 +1754,11 @@ void Run::ClearReplayInteractionForRuntimeTransition()
     ExitReplayInspectionCamera();
     m_replayRuntime.ClearPathVisualizerState();
     m_replayRuntime.Prediction().enabled = false;
-    m_replayRuntime.Prediction().checkboxHovered = false;
-    m_replayRuntime.Prediction().decreaseHovered = false;
-    m_replayRuntime.Prediction().increaseHovered = false;
-    m_replayRuntime.Prediction().horizonHovered = false;
-    m_replayRuntime.Prediction().horizonDragging = false;
+    m_replayRuntime.Prediction().ui.checkboxHovered = false;
+    m_replayRuntime.Prediction().ui.decreaseHovered = false;
+    m_replayRuntime.Prediction().ui.increaseHovered = false;
+    m_replayRuntime.Prediction().ui.horizonHovered = false;
+    m_replayRuntime.Prediction().ui.horizonDragging = false;
     m_replayRuntime.ClearPredictionCache();
 
     m_replayRuntime.VelocityEdit() = RunReplayVelocityEditState{};
@@ -2627,11 +2627,11 @@ bool Run::HandleUnfocusedInputFrame()
     {
         ExitReplayInspectionCamera();
     }
-    m_replayRuntime.Prediction().checkboxHovered = false;
-    m_replayRuntime.Prediction().decreaseHovered = false;
-    m_replayRuntime.Prediction().increaseHovered = false;
-    m_replayRuntime.Prediction().horizonHovered = false;
-    m_replayRuntime.Prediction().horizonDragging = false;
+    m_replayRuntime.Prediction().ui.checkboxHovered = false;
+    m_replayRuntime.Prediction().ui.decreaseHovered = false;
+    m_replayRuntime.Prediction().ui.increaseHovered = false;
+    m_replayRuntime.Prediction().ui.horizonHovered = false;
+    m_replayRuntime.Prediction().ui.horizonDragging = false;
     m_replayRuntime.VelocityEdit().toggleHovered = false;
     m_replayRuntime.VelocityEdit().keyboardAltWasDown = false;
     m_replayRuntime.VelocityEdit().dragging = false;

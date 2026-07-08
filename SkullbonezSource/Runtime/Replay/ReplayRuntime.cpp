@@ -887,12 +887,12 @@ ReplayRuntime::ScrubberUnavailableResult ReplayRuntime::ResetUnavailableScrubber
     {
         result.exitInspectionCamera = ResetScrubberState();
     }
-    m_prediction.checkboxHovered = false;
-    m_prediction.ragdollVisualsHovered = false;
-    m_prediction.decreaseHovered = false;
-    m_prediction.increaseHovered = false;
-    m_prediction.horizonHovered = false;
-    m_prediction.horizonDragging = false;
+    m_prediction.ui.checkboxHovered = false;
+    m_prediction.ui.ragdollVisualsHovered = false;
+    m_prediction.ui.decreaseHovered = false;
+    m_prediction.ui.increaseHovered = false;
+    m_prediction.ui.horizonHovered = false;
+    m_prediction.ui.horizonDragging = false;
     m_velocityEdit.toggleHovered = false;
     m_scrubber.branchHovered = false;
     m_scrubber.loadHovered = false;
@@ -1046,7 +1046,7 @@ bool ReplayRuntime::ArmLoadedPresentationScrubber( float normalized, double now 
 
     ClearPathVisualizerState();
     m_prediction.enabled = false;
-    m_prediction.horizonDragging = false;
+    m_prediction.ui.horizonDragging = false;
     m_velocityEdit = RunReplayVelocityEditState{};
     m_scrubber.activeTrack = RunReplayTrack::Presentation;
     SetTrackPosition( RunReplayTrack::Presentation, normalized );

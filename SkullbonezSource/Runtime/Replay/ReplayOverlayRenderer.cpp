@@ -474,15 +474,16 @@ void RenderReplayScrubberOverlay( const ReplayOverlayRenderContext& context )
     const UI::UIRect predict = ReplayScrubberPredictControlRect( screenW, screenH );
     const UI::UIRect predictHorizon = ReplayScrubberPredictHorizonRect( screenW, screenH );
     const UI::UIRect ragdollVisualToggle = ReplayScrubberRagdollVisualToggleRect( screenW, screenH );
-    const bool predictHover = predictionToolsEnabled && ( replayRuntime.Prediction().horizonHovered ||
-                                                          replayRuntime.Prediction().horizonDragging );
+    const bool predictHover = predictionToolsEnabled && ( replayRuntime.Prediction().ui.horizonHovered ||
+                                                          replayRuntime.Prediction().ui.horizonDragging );
     const bool predictEnabled = predictionToolsEnabled && replayRuntime.Prediction().enabled;
     const bool ragdollVisualsEnabled = predictionToolsEnabled && replayRuntime.Prediction().ragdollVisualsEnabled;
     const float predictSeconds = std::clamp( replayRuntime.Prediction().horizonSeconds,
                                              REPLAY_PREDICTION_MIN_SECONDS,
                                              REPLAY_PREDICTION_MAX_SECONDS );
-    const UI::Style::UIColor predictFill =
-        predictionToolsEnabled && replayRuntime.Prediction().checkboxHovered ? palette.controlHover : palette.control;
+    const UI::Style::UIColor predictFill = predictionToolsEnabled && replayRuntime.Prediction().ui.checkboxHovered
+                                               ? palette.controlHover
+                                               : palette.control;
     const UI::Style::UIColor predictControlFill = predictHover ? palette.controlHover : palette.control;
     draw.RoundedRect( predictToggle.x,
                       predictToggle.y,
@@ -493,16 +494,16 @@ void RenderReplayScrubberOverlay( const ReplayOverlayRenderContext& context )
                       predictFill.g,
                       predictFill.b,
                       fadeA( predictionToolsEnabled ? 0.88f : 0.38f ) );
-    draw.Outline(
-        predictToggle.x,
-        predictToggle.y,
-        predictToggle.w,
-        predictToggle.h,
-        palette.accent.r,
-        palette.accent.g,
-        palette.accent.b,
-        fadeA( predictionToolsEnabled ? ( replayRuntime.Prediction().checkboxHovered || predictEnabled ? 0.72f : 0.34f )
-                                      : 0.14f ) );
+    draw.Outline( predictToggle.x,
+                  predictToggle.y,
+                  predictToggle.w,
+                  predictToggle.h,
+                  palette.accent.r,
+                  palette.accent.g,
+                  palette.accent.b,
+                  fadeA( predictionToolsEnabled
+                             ? ( replayRuntime.Prediction().ui.checkboxHovered || predictEnabled ? 0.72f : 0.34f )
+                             : 0.14f ) );
     const float checkX = predictToggle.x + 7.0f;
     const float checkY = predictToggle.y + 5.0f;
     draw.Outline( checkX,
@@ -602,12 +603,12 @@ void RenderReplayScrubberOverlay( const ReplayOverlayRenderContext& context )
         ragdollVisualToggle.w,
         ragdollVisualToggle.h,
         radii.smallButton,
-        predictionToolsEnabled && replayRuntime.Prediction().ragdollVisualsHovered ? palette.controlHover.r
-                                                                                   : palette.control.r,
-        predictionToolsEnabled && replayRuntime.Prediction().ragdollVisualsHovered ? palette.controlHover.g
-                                                                                   : palette.control.g,
-        predictionToolsEnabled && replayRuntime.Prediction().ragdollVisualsHovered ? palette.controlHover.b
-                                                                                   : palette.control.b,
+        predictionToolsEnabled && replayRuntime.Prediction().ui.ragdollVisualsHovered ? palette.controlHover.r
+                                                                                      : palette.control.r,
+        predictionToolsEnabled && replayRuntime.Prediction().ui.ragdollVisualsHovered ? palette.controlHover.g
+                                                                                      : palette.control.g,
+        predictionToolsEnabled && replayRuntime.Prediction().ui.ragdollVisualsHovered ? palette.controlHover.b
+                                                                                      : palette.control.b,
         fadeA( predictionToolsEnabled ? 0.88f : 0.38f ) );
     draw.Outline(
         ragdollVisualToggle.x,
@@ -618,7 +619,7 @@ void RenderReplayScrubberOverlay( const ReplayOverlayRenderContext& context )
         palette.accent.g,
         palette.accent.b,
         fadeA( predictionToolsEnabled
-                   ? ( replayRuntime.Prediction().ragdollVisualsHovered || ragdollVisualsEnabled ? 0.72f : 0.32f )
+                   ? ( replayRuntime.Prediction().ui.ragdollVisualsHovered || ragdollVisualsEnabled ? 0.72f : 0.32f )
                    : 0.14f ) );
     const float ragdollCheckX = ragdollVisualToggle.x + 7.0f;
     const float ragdollCheckY = ragdollVisualToggle.y + 5.0f;

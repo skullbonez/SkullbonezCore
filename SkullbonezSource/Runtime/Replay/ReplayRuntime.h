@@ -358,6 +358,19 @@ struct RunReplayPredictionRevealClock
     bool anchorValid = false;
 };
 
+struct RunReplayPredictionUiState
+{
+    // Concept: these fields are replay-overlay hit-test memory. Hover values are
+    // rewritten each input tick from panel geometry, while horizonDragging must
+    // persist across ticks until the mouse release clears the slider capture.
+    bool checkboxHovered = false;
+    bool ragdollVisualsHovered = false;
+    bool decreaseHovered = false;
+    bool increaseHovered = false;
+    bool horizonHovered = false;
+    bool horizonDragging = false;
+};
+
 struct RunReplayPredictionState
 {
     RunReplayPredictionState();
@@ -378,13 +391,8 @@ struct RunReplayPredictionState
     void PublishBuildFrameSlot( std::size_t frameSlot ) noexcept;
 
     bool enabled = false;
-    bool checkboxHovered = false;
     bool ragdollVisualsEnabled = false;
-    bool ragdollVisualsHovered = false;
-    bool decreaseHovered = false;
-    bool increaseHovered = false;
-    bool horizonHovered = false;
-    bool horizonDragging = false;
+    RunReplayPredictionUiState ui;
     bool dirty = true;
     bool building = false;
     bool complete = false;

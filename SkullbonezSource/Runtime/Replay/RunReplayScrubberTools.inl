@@ -265,7 +265,7 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
                                       mouse.x <= predictHorizon.x + predictHorizon.w ) );
     const RunReplayTrack hoveredTrack = scrubTrack;
     const bool canTakeMouse =
-        !uiBlocksMouse || m_replayRuntime.Scrubber().dragging || m_replayRuntime.Prediction().horizonDragging;
+        !uiBlocksMouse || m_replayRuntime.Scrubber().dragging || m_replayRuntime.Prediction().ui.horizonDragging;
     const bool hotZoneCanReveal = inHotZone && !uiBlocksMouse;
     const double now = m_timers.simulationTimer.GetTotalTime();
     auto promptLoadReplayPresentationArtifact = [&]() -> bool
@@ -337,7 +337,7 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
     // options window, should not wake the replay bar.
     if ( hotZoneCanReveal || overPanel || overSaveButton || overLoadButton || overBranchButton || overPauseButton ||
          overVelocityEditToggle || overPredictUi || m_replayRuntime.Scrubber().dragging ||
-         m_replayRuntime.Prediction().horizonDragging || m_replayRuntime.Scrubber().historicalSamplePaused ||
+         m_replayRuntime.Prediction().ui.horizonDragging || m_replayRuntime.Scrubber().historicalSamplePaused ||
          m_replayRuntime.Scrubber().liveAdvanceHeld )
     {
         m_replayRuntime.Scrubber().visibleUntil = now + REPLAY_SCRUBBER_VISIBLE_SECONDS;
@@ -356,26 +356,26 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
     const bool solverControlVisible =
         solverToolsEnabled &&
         ( m_replayRuntime.Scrubber().visibleUntil >= now || m_replayRuntime.Scrubber().dragging ||
-          m_replayRuntime.Prediction().horizonDragging || m_replayRuntime.Scrubber().historicalSamplePaused ||
+          m_replayRuntime.Prediction().ui.horizonDragging || m_replayRuntime.Scrubber().historicalSamplePaused ||
           m_replayRuntime.Scrubber().liveAdvanceHeld );
     const bool predictionControlVisible =
         predictionToolsEnabled &&
         ( m_replayRuntime.Scrubber().visibleUntil >= now || m_replayRuntime.Scrubber().dragging ||
-          m_replayRuntime.Prediction().horizonDragging || m_replayRuntime.Scrubber().historicalSamplePaused ||
+          m_replayRuntime.Prediction().ui.horizonDragging || m_replayRuntime.Scrubber().historicalSamplePaused ||
           m_replayRuntime.Scrubber().liveAdvanceHeld );
     m_replayRuntime.Scrubber().pauseHovered = solverToolsEnabled && overPauseButton && solverControlVisible;
     m_replayRuntime.VelocityEdit().toggleHovered = solverToolsEnabled && overVelocityEditToggle && solverControlVisible;
-    m_replayRuntime.Prediction().checkboxHovered =
+    m_replayRuntime.Prediction().ui.checkboxHovered =
         predictionToolsEnabled && overPredictToggle && predictionControlVisible;
-    m_replayRuntime.Prediction().ragdollVisualsHovered =
+    m_replayRuntime.Prediction().ui.ragdollVisualsHovered =
         predictionToolsEnabled && overRagdollVisualToggle && predictionControlVisible;
-    m_replayRuntime.Prediction().decreaseHovered = false;
-    m_replayRuntime.Prediction().increaseHovered = false;
-    m_replayRuntime.Prediction().horizonHovered =
+    m_replayRuntime.Prediction().ui.decreaseHovered = false;
+    m_replayRuntime.Prediction().ui.increaseHovered = false;
+    m_replayRuntime.Prediction().ui.horizonHovered =
         predictionToolsEnabled && overPredictHorizon && predictionControlVisible;
 
     bool consumesMouse =
-        canTakeMouse && ( m_replayRuntime.Scrubber().dragging || m_replayRuntime.Prediction().horizonDragging ||
+        canTakeMouse && ( m_replayRuntime.Scrubber().dragging || m_replayRuntime.Prediction().ui.horizonDragging ||
                           ( m_replayRuntime.Scrubber().visibleUntil >= now &&
                             ( hotZoneCanReveal || overPanel || overSaveButton || overBranchButton || overLoadButton ||
                               overPauseButton || overVelocityEditToggle || overPredictUi ) ) );
@@ -429,7 +429,7 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
                 prediction.ResetBuildFramePublication();
             }
             m_replayRuntime.Prediction().enabled = false;
-            m_replayRuntime.Prediction().horizonDragging = false;
+            m_replayRuntime.Prediction().ui.horizonDragging = false;
             m_replayRuntime.CancelPredictionJob( false );
             const float currentPosition = m_replayRuntime.TrackPosition( RunReplayTrack::Solver );
             if ( ReplayRuntime::TrackPositionIsFuture( currentPosition, previousPredictionPresentT ) )
@@ -524,7 +524,7 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
     else if ( predictionToolsEnabled && leftPressed && canTakeMouse && overPredictHorizon &&
               m_replayRuntime.Scrubber().visibleUntil >= now )
     {
-        m_replayRuntime.Prediction().horizonDragging = true;
+        m_replayRuntime.Prediction().ui.horizonDragging = true;
         BeginReplayToolGesture( RuntimeInteractionGestureKind::ReplayPredictionHorizonDrag,
                                 WorldInteractionOwner::ReplayPrediction,
                                 RuntimePointerButton::Left,
@@ -633,12 +633,12 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
             }
         }
     }
-    else if ( m_replayRuntime.Prediction().horizonDragging )
+    else if ( m_replayRuntime.Prediction().ui.horizonDragging )
     {
         setPredictionHorizonFromMouse( false );
         if ( leftReleased )
         {
-            m_replayRuntime.Prediction().horizonDragging = false;
+            m_replayRuntime.Prediction().ui.horizonDragging = false;
             EndReplayToolGesture( RuntimeInteractionGestureKind::ReplayPredictionHorizonDrag );
             if ( m_replayRuntime.Scrubber().mouseCaptured )
             {
@@ -653,7 +653,7 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
     }
 
     const bool scrubberTargetVisible =
-        m_replayRuntime.Scrubber().dragging || m_replayRuntime.Prediction().horizonDragging ||
+        m_replayRuntime.Scrubber().dragging || m_replayRuntime.Prediction().ui.horizonDragging ||
         m_replayRuntime.Scrubber().historicalSamplePaused || m_replayRuntime.Scrubber().liveAdvanceHeld ||
         m_replayRuntime.Scrubber().visibleUntil >= now;
     {
