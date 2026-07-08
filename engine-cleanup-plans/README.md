@@ -31,7 +31,7 @@ Status legend: `Proposed` (drafted here) · `In Progress` · `Complete` / `Done`
 | # | Plan | Issue | Priority | Status |
 |---|------|-------|----------|--------|
 | 01 | [Run god-object decomposition](01-run-god-object-decomposition.md) | `Run` owns ~40 subsystems across 16 TUs; 1,664-line `TakeInput()` | P0 | Complete |
-| 02 | [PhysicsWorld solver decomposition](02-physicsworld-solver-decomposition.md) | 3,947-line class; 1,639-line `RunSolverPhysics()`; union-find pasted 3× | P0 | Proposed |
+| 02 | [PhysicsWorld solver decomposition](02-physicsworld-solver-decomposition.md) | DisjointSet extraction complete; Phase 1 lambda inventory recorded; stage extraction remains open | P0 | In Progress |
 | 03 | [Governance apparatus removal](03-governance-apparatus-reduction.md) | Delete the 16,090-line regex boundary linter + all frozen `MAX_*` ratchets; 275 docs (~42%); two plan trees | P1 | Proposed |
 | 04 | [Error-handling policy reconciliation](04-error-handling-policy-reconciliation.md) | Exceptions "banned" yet 283 `throw` vs 2 `SB_FATAL`; ratchet frozen | P1 | Proposed |
 | 05 | [Behavioral test coverage](05-behavioral-test-coverage.md) | 59 tests cover input, replay restore, physics invariants, asset lookup, terrain, and replay boundary fixtures; link-stub count is 0 | P1 | Complete |

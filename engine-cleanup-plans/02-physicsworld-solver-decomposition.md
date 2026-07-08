@@ -1,7 +1,7 @@
 # 02 — PhysicsWorld Solver Decomposition
 
 Date: 2026-07-08
-Status: Proposed
+Status: In Progress
 Priority: P0
 Owner: Physics
 Source issue: audit iss-02 (severity 5) + iss-14 (union-find copy-paste)
@@ -134,10 +134,64 @@ island-merge tie-breaks.
 
 ### Phase 1 — Lift the 33 lambdas (execution slot 9)
 
-- [ ] **1.1** In `RunSolverPhysics` (L2156→~3793) list the 33 lambdas and group
+- [x] **1.1** In `RunSolverPhysics` (L2156→~3793) list the 33 lambdas and group
   them by stage (broadphase candidate / sweep pair / narrowphase island build /
   terrain detect / wake-sleep / integrate). Paste the grouped list here as a
   sub-checklist. No code change.
+
+  Completed 2026-07-09. A brace-bounded scan of the current
+  `PhysicsWorld::RunSolverPhysics` body found 35 lambda expressions in lines
+  2116-3699. The older 33-lambda count is stale against current source; this
+  inventory records the exact current set so extraction can preserve behavior.
+
+  Driver accessors / force integration:
+  - [ ] L2131 `bodyIsFixed`: body fixed-state accessor.
+  - [ ] L2132 `bodyPosition`: body position accessor.
+  - [ ] L2134 `bodyRadius`: collider broadphase-radius accessor.
+  - [ ] L2165 `applyForcesAt`: per-body force application.
+
+  Broadphase candidate build and pruning:
+  - [ ] L2225 `broadphaseCandidateCanTouch`: swept bounding-sphere pair filter.
+  - [ ] L2307 `appendCandidatePairIfMissing`: append unique conservative pair.
+  - [ ] L2335 `isFastSmallSweepBody`: fast-small-body classifier.
+  - [ ] L2354 `sweptSegmentTouchesExpandedBody`: conservative segment/body test.
+  - [ ] L2404 anonymous fixed/fixed `remove_if` predicate.
+  - [ ] L2419 anonymous point-joint pair `remove_if` predicate.
+  - [ ] L2474 anonymous sleep/sleep `remove_if` predicate with trace emission.
+
+  Wake and contact view helpers:
+  - [ ] L2499 `hasWakeEnergy`: awake-neighbor wake-energy test.
+  - [ ] L2508 `wakeSleepingModel`: sleep-state clear plus immediate force apply.
+  - [ ] L2527 `contactBodyViewAtTime`: object contact pose view at candidate time.
+  - [ ] L2536 `terrainContactBodyViewForIndex`: terrain contact pose/material view.
+  - [ ] L2552 `hasPersistentWakeContact`: exact persistent overlap wake test.
+
+  Object/object sweep and CCD:
+  - [ ] L2577 `hasObjectContactAtTime`: exact object contact query at time.
+  - [ ] L2601 `refineObjectSweepContactTime`: contact-window refinement search.
+  - [ ] L2654 `sweepObjectPair`: swept object contact query.
+  - [ ] L2676 `objectPairHasPersistentContactCache`: cache-prefix lookup.
+  - [ ] L2690 anonymous `lower_bound` cache-key comparator.
+  - [ ] L2696 `objectPairNeedsSweptCcd`: settled-pair CCD bypass decision.
+
+  Object narrowphase events and dispatch:
+  - [ ] L2739 `recordObjectNarrowphaseEvent`: stage-record copy into event buffer.
+  - [ ] L2749 `emitObjectCollisionTimeEvent`: collision-time event fields.
+  - [ ] L2758 `markObjectVisualEvent`: visual-contact event fields.
+  - [ ] L2765 `writeObjectCollisionCellEvent`: hashed collision-cell event fields.
+  - [ ] L2778 `commitObjectNarrowphaseEvent`: serial side-effect application.
+  - [ ] L2814 `processObjectNarrowphasePair`: pair CCD/wake processing.
+  - [ ] L3014 `processObjectNarrowphaseIsland`: island-local pair loop.
+  - [ ] L3025 `processObjectNarrowphasePairsSerial`: serial pair loop.
+  - [ ] L3036 `buildObjectNarrowphaseIslands`: pair island staging.
+  - [ ] L3138 anonymous island sort comparator.
+
+  Terrain detection:
+  - [ ] L3197 `detectTerrainAt`: per-body swept terrain candidate.
+  - [ ] L3220 `commitTerrainCandidate`: terrain hit/manifold side effects.
+
+  Remaining-time integration and sleep:
+  - [ ] L3319 `integrateRemainingAt`: per-body remaining-time integration.
 - [ ] **1.2** For **one stage at a time**: extract its lambda(s) into a named
   `static` free function taking explicit parameters (`bodyStore`,
   `colliderStore`, `worldForces`, `dt`, plus the specific arrays it uses) instead
