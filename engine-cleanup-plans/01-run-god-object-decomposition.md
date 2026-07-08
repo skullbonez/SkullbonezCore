@@ -1504,6 +1504,27 @@ every step. Commit per step.
     (9.3s) and
     `TestOutput\agent_logs\plan01_replay_restore_event_helpers_runtime_boundaries_rerun.log`
     (17.6s). The touched-file comment audit covered `RunFrame.cpp`.
+  - [x] Replay restore setup-helper split moved v2 artifact loading, target hash
+    selection, checkpoint selection, checkpoint/live topology matching,
+    generated config lookup, and generated-topology rebuild into source-local
+    helpers with explicit owner references. `Run::RestoreReplayV2ArtifactTargetState()`
+    dropped from 704 measured lines to 503 measured lines without adding public
+    or private `Run` methods. The remaining measured large `Run::` targets are
+    `RestoreReplayV2ArtifactTargetState` (503), `TakeInput` (199),
+    `RunGraphicsStressActions` (199), `WriteInteractionAutomationReport` (197),
+    and `Execute` (194), so Phase 3 and the structural acceptance rows remain
+    open. Gate evidence:
+    `TestOutput\agent_logs\plan01_replay_restore_setup_helpers_validate_full.log`
+    (45.2s; project filters/runtime boundaries passed, Profile/Debug builds had
+    0 warnings and 0 errors, DX12 InfoQueue errors = 0, screenshots matched
+    baselines, and `physics_regression_solver.csv` matched byte-exactly).
+    Focused replay v2 artifact validation passed:
+    `TestOutput\agent_logs\plan01_replay_restore_setup_helpers_validate_replay_v2_artifact.log`
+    (62.3s). Targeted pre-gate checks also passed:
+    `TestOutput\agent_logs\plan01_replay_restore_setup_helpers_validate_format_rerun.log`
+    (9.5s) and
+    `TestOutput\agent_logs\plan01_replay_restore_setup_helpers_runtime_boundaries.log`
+    (17.7s). The touched-file comment audit covered `RunFrame.cpp`.
 
 ## Validation
 
