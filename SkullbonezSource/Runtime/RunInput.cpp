@@ -229,49 +229,82 @@ const char* RuntimeInteractionEventName( RuntimeInteractionEventType type )
     }
 }
 
+using InputBindingContext = RuntimeInputBindingContext;
+constexpr RuntimeInputContextMask kKeyboardUnblockedContext =
+    RuntimeInputContextBit( InputBindingContext::KeyboardUnblocked );
+constexpr RuntimeInputContextMask kAfterUIUpdateContext = RuntimeInputContextBit( InputBindingContext::AfterUIUpdate );
+constexpr RuntimeInputContextMask kCaptureContext = RuntimeInputContextBit( InputBindingContext::Capture );
+
+// Invariant: This table mirrors the keyboard edges that TakeInput recognizes
+// today. Step 1.2 makes the mapping auditable data only; dispatch still follows
+// the existing hand-written branches until later action-group slices replace it.
+const RuntimeInputKeyBinding kTakeInputKeyboardBindings[] = {
+    { 'F', RuntimeInputAction::ToggleFlyCamera, kKeyboardUnblockedContext },
+    { 'N', RuntimeInputAction::ToggleLauncher, kKeyboardUnblockedContext },
+    { VK_TAB, RuntimeInputAction::CycleCameraMode, kKeyboardUnblockedContext },
+    { VK_F1,
+      RuntimeInputAction::CycleAttachedCameraSubmode,
+      kKeyboardUnblockedContext | InputBindingContext::AttachedCamera },
+    { VK_RETURN,
+      RuntimeInputAction::ToggleAttachedCameraPin,
+      kKeyboardUnblockedContext | InputBindingContext::AttachedCamera },
+    { 'B',
+      RuntimeInputAction::ToggleDirectorGrab,
+      kKeyboardUnblockedContext | InputBindingContext::Director },
+    { 'J',
+      RuntimeInputAction::SetDirectorPhasePose,
+      kKeyboardUnblockedContext | InputBindingContext::DirectorAuthoring },
+    { 'K',
+      RuntimeInputAction::StepDirectorPhase,
+      kKeyboardUnblockedContext | InputBindingContext::DirectorAuthoring },
+    { 'L',
+      RuntimeInputAction::SaveDirectorShotList,
+      kKeyboardUnblockedContext | InputBindingContext::DirectorAuthoring },
+    { VK_OEM_3, RuntimeInputAction::ToggleEditor, kKeyboardUnblockedContext },
+    { VK_MENU, RuntimeInputAction::ToggleEditorTool, kKeyboardUnblockedContext },
+    { 'M',
+      RuntimeInputAction::CycleLauncherFireMode,
+      kKeyboardUnblockedContext | InputBindingContext::Launcher },
+    { VK_RETURN,
+      RuntimeInputAction::WriteLauncherReproSnapshot,
+      kKeyboardUnblockedContext | InputBindingContext::Launcher | InputBindingContext::ReplayRestoreNotConsumed |
+          InputBindingContext::DebugOnly },
+    { '1', RuntimeInputAction::ToggleWaterFreeze, kKeyboardUnblockedContext },
+    { '2', RuntimeInputAction::CycleWaterReflection, kKeyboardUnblockedContext },
+    { '3', RuntimeInputAction::ToggleWaterFlat, kKeyboardUnblockedContext },
+    { '4', RuntimeInputAction::ToggleTerrainHidden, kKeyboardUnblockedContext },
+    { '5', RuntimeInputAction::ToggleWaterHidden, kKeyboardUnblockedContext },
+    { 'V', RuntimeInputAction::ToggleCollisionVisualizer, kKeyboardUnblockedContext },
+    { 'C', RuntimeInputAction::CyclePhysicsDebugOverlay, kKeyboardUnblockedContext },
+    { 'O', RuntimeInputAction::ToggleTerrainContactProbe, kKeyboardUnblockedContext },
+    { VK_F7, RuntimeInputAction::StepPhysicsPipelinePrevious, kKeyboardUnblockedContext },
+    { VK_F8, RuntimeInputAction::StepPhysicsPipelineNext, kKeyboardUnblockedContext },
+    { '6', RuntimeInputAction::TogglePhysicsDebugTransparent, kKeyboardUnblockedContext },
+    { 'Q', RuntimeInputAction::ReportRendererRuntimeRetired, kKeyboardUnblockedContext },
+    { 'P', RuntimeInputAction::ToggleCrossScenePause, kKeyboardUnblockedContext },
+    { 'G', RuntimeInputAction::ToggleBroadphaseOverlay, kKeyboardUnblockedContext },
+    { '0', RuntimeInputAction::ToggleUIVisibility, kKeyboardUnblockedContext },
+    { VK_F5, RuntimeInputAction::TogglePerformanceHistogram, kKeyboardUnblockedContext },
+    { VK_F6, RuntimeInputAction::ToggleMemoryOverlay, kKeyboardUnblockedContext },
+    { VK_LEFT, RuntimeInputAction::NavigateScenePrevious, kKeyboardUnblockedContext },
+    { VK_RIGHT, RuntimeInputAction::NavigateSceneNext, kKeyboardUnblockedContext },
+    { VK_ESCAPE,
+      RuntimeInputAction::DismissOrExitUI,
+      kAfterUIUpdateContext | InputBindingContext::UINotInteracted },
+    { VK_F2, RuntimeInputAction::SaveSceneSnapshot, kCaptureContext },
+    { VK_F3, RuntimeInputAction::SaveScreenshot, kCaptureContext },
+    { 'R', RuntimeInputAction::ResetScene, kAfterUIUpdateContext },
+    { VK_BACK,
+      RuntimeInputAction::ResetSceneFromBackspace,
+      kAfterUIUpdateContext | InputBindingContext::Scene }
+};
+
 void AdvanceTakeInputKeyboardActionMemories( RuntimeInputContext& input )
 {
-    static const RuntimeInputKeyBinding kBindings[] = { { 'F', RuntimeInputAction::ToggleFlyCamera },
-                                                        { 'N', RuntimeInputAction::ToggleLauncher },
-                                                        { VK_TAB, RuntimeInputAction::CycleCameraMode },
-                                                        { VK_F1, RuntimeInputAction::CycleAttachedCameraSubmode },
-                                                        { VK_RETURN, RuntimeInputAction::ToggleAttachedCameraPin },
-                                                        { 'B', RuntimeInputAction::ToggleDirectorGrab },
-                                                        { 'J', RuntimeInputAction::SetDirectorPhasePose },
-                                                        { 'K', RuntimeInputAction::StepDirectorPhase },
-                                                        { 'L', RuntimeInputAction::SaveDirectorShotList },
-                                                        { VK_OEM_3, RuntimeInputAction::ToggleEditor },
-                                                        { VK_MENU, RuntimeInputAction::ToggleEditorTool },
-                                                        { 'M', RuntimeInputAction::CycleLauncherFireMode },
-                                                        { VK_RETURN, RuntimeInputAction::WriteLauncherReproSnapshot },
-                                                        { '1', RuntimeInputAction::ToggleWaterFreeze },
-                                                        { '2', RuntimeInputAction::CycleWaterReflection },
-                                                        { '3', RuntimeInputAction::ToggleWaterFlat },
-                                                        { '4', RuntimeInputAction::ToggleTerrainHidden },
-                                                        { '5', RuntimeInputAction::ToggleWaterHidden },
-                                                        { 'V', RuntimeInputAction::ToggleCollisionVisualizer },
-                                                        { 'C', RuntimeInputAction::CyclePhysicsDebugOverlay },
-                                                        { 'O', RuntimeInputAction::ToggleTerrainContactProbe },
-                                                        { VK_F7, RuntimeInputAction::StepPhysicsPipelinePrevious },
-                                                        { VK_F8, RuntimeInputAction::StepPhysicsPipelineNext },
-                                                        { '6', RuntimeInputAction::TogglePhysicsDebugTransparent },
-                                                        { 'Q', RuntimeInputAction::ReportRendererRuntimeRetired },
-                                                        { 'P', RuntimeInputAction::ToggleCrossScenePause },
-                                                        { 'G', RuntimeInputAction::ToggleBroadphaseOverlay },
-                                                        { '0', RuntimeInputAction::ToggleUIVisibility },
-                                                        { VK_F5, RuntimeInputAction::TogglePerformanceHistogram },
-                                                        { VK_F6, RuntimeInputAction::ToggleMemoryOverlay },
-                                                        { VK_LEFT, RuntimeInputAction::NavigateScenePrevious },
-                                                        { VK_RIGHT, RuntimeInputAction::NavigateSceneNext },
-                                                        { VK_ESCAPE, RuntimeInputAction::DismissOrExitUI },
-                                                        { VK_F2, RuntimeInputAction::SaveSceneSnapshot },
-                                                        { VK_F3, RuntimeInputAction::SaveScreenshot },
-                                                        { 'R', RuntimeInputAction::ResetScene },
-                                                        { VK_BACK, RuntimeInputAction::ResetSceneFromBackspace } };
-
-    for ( std::size_t i = 0; i < sizeof( kBindings ) / sizeof( kBindings[0] ); ++i )
+    for ( std::size_t i = 0; i < sizeof( kTakeInputKeyboardBindings ) / sizeof( kTakeInputKeyboardBindings[0] ); ++i )
     {
-        input.SetActionDown( kBindings[i].action, Input::IsKeyDown( kBindings[i].virtualKey ) );
+        input.SetActionDown( kTakeInputKeyboardBindings[i].action,
+                             Input::IsKeyDown( kTakeInputKeyboardBindings[i].virtualKey ) );
     }
 }
 

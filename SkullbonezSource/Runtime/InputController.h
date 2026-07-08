@@ -179,12 +179,26 @@ enum class RuntimeInputBindingContext : RuntimeInputContextMask
     EditorInactive = 1u << 10,
     Replay = 1u << 11,
     UI = 1u << 12,
-    DebugOnly = 1u << 13
+    DebugOnly = 1u << 13,
+    AfterUIUpdate = 1u << 14,
+    UINotInteracted = 1u << 15,
+    ReplayRestoreNotConsumed = 1u << 16,
+    Capture = 1u << 17
 };
 
 constexpr RuntimeInputContextMask RuntimeInputContextBit( RuntimeInputBindingContext context )
 {
     return static_cast<RuntimeInputContextMask>( context );
+}
+
+constexpr RuntimeInputContextMask operator|( RuntimeInputBindingContext lhs, RuntimeInputBindingContext rhs )
+{
+    return RuntimeInputContextBit( lhs ) | RuntimeInputContextBit( rhs );
+}
+
+constexpr RuntimeInputContextMask operator|( RuntimeInputContextMask lhs, RuntimeInputBindingContext rhs )
+{
+    return lhs | RuntimeInputContextBit( rhs );
 }
 
 struct RuntimeInputKeyBinding

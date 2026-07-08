@@ -199,9 +199,19 @@ every step. Commit per step.
   behavior changed. Build log:
   `TestOutput\agent_logs\plan01_step1_1_build_profile.log` (10.0s), 0 warnings,
   0 errors.
-- [ ] **1.2** Build the static binding table (data) that reproduces the current
+- [x] **1.2** Build the static binding table (data) that reproduces the current
   key→action mapping **exactly**, including context conditions (fly/launcher/
   director/replay modes). No dispatch yet. Build. Commit.
+
+  Completion note (2026-07-08): `kTakeInputKeyboardBindings` now holds the
+  current key/action rows and context metadata for keyboard-unblocked actions,
+  launcher-only actions, attached-camera actions, director authoring, debug
+  launcher repro snapshots gated by replay restore state, UI-after-update ESC,
+  capture hotkeys, and the scene-only Backspace reset. The table is still only
+  used by the existing action-down memory sync; `TakeInput` dispatch remains the
+  old branch code. Build log:
+  `TestOutput\agent_logs\plan01_step1_2_build_profile.log` (11.4s), 0 warnings,
+  0 errors.
 - [ ] **1.3** Replace `TakeInput()`'s hand-branching with a dispatch loop over
   the table, calling one handler per action. Move each action's body into its
   **owning subsystem's** handler — do this **one action-group at a time**,
