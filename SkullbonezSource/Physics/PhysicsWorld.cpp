@@ -3356,46 +3356,9 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
         m_sleepIslandParent[i] = i;
     }
 
-    auto findIsland = [&]( int index ) -> int
-    {
-        // Union-find lookup with path compression. In plain terms: every body in
-        // a connected contact group points to the same representative root, so
-        // the sleep system can make one decision for the whole group.
-        int root = index;
-        while ( m_sleepIslandParent[root] != root )
-        {
-            root = m_sleepIslandParent[root];
-        }
-        while ( m_sleepIslandParent[index] != index )
-        {
-            int parent = m_sleepIslandParent[index];
-            m_sleepIslandParent[index] = root;
-            index = parent;
-        }
-        return root;
-    };
-
-    auto unionIslands = [&]( int a, int b )
-    {
-        // Merge two contact groups. Rank keeps the tree shallow so repeated
-        // findIsland calls stay cheap during large stacks.
-        int rootA = findIsland( a );
-        int rootB = findIsland( b );
-        if ( rootA == rootB )
-        {
-            return;
-        }
-
-        if ( m_sleepIslandRank[rootA] < m_sleepIslandRank[rootB] )
-        {
-            std::swap( rootA, rootB );
-        }
-        m_sleepIslandParent[rootB] = rootA;
-        if ( m_sleepIslandRank[rootA] == m_sleepIslandRank[rootB] )
-        {
-            ++m_sleepIslandRank[rootA];
-        }
-    };
+    // Concept: sleep island roots identify connected contact/joint groups, so
+    // the sleep system can make one deactivation decision for the whole group.
+    DisjointSet sleepIslands( m_sleepIslandParent, m_sleepIslandRank, modelCount );
 
     for ( const PersistentContact& c : m_persistentContacts )
     {
@@ -3405,7 +3368,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
         // eligibility and counter checks.
         if ( c.bodyA >= 0 && c.bodyA < modelCount && c.bodyB >= 0 && c.bodyB < modelCount )
         {
-            unionIslands( c.bodyA, c.bodyB );
+            sleepIslands.Unite( c.bodyA, c.bodyB );
         }
     }
 
@@ -3423,7 +3386,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
 
         m_sleepPointJointBody[a] = 1;
         m_sleepPointJointBody[b] = 1;
-        unionIslands( a, b );
+        sleepIslands.Unite( a, b );
     }
 
     m_sleepVisualIslandIds.clear();
@@ -3448,7 +3411,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
 
         if ( visualSlot >= 0 )
         {
-            unionIslands( m_sleepVisualIslandBodies[visualSlot], x );
+            sleepIslands.Unite( m_sleepVisualIslandBodies[visualSlot], x );
         }
         else
         {
@@ -3459,7 +3422,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
 
     for ( int x = 0; x < modelCount; ++x )
     {
-        const int root = findIsland( x );
+        const int root = sleepIslands.Find( x );
 
         // A support anchor is evidence that this island is not a free-floating
         // collection of bodies that merely became numerically quiet. Terrain
@@ -3499,7 +3462,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
                                            constraint.slack * POINT_JOINT_SLEEP_SLACK_TOLERANCE_SCALE );
         if ( distance > allowedDistance )
         {
-            m_sleepIslandPointJointsRelaxed[findIsland( a )] = 0;
+            m_sleepIslandPointJointsRelaxed[sleepIslands.Find( a )] = 0;
         }
     }
 
@@ -3514,7 +3477,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
             continue;
         }
 
-        const int root = findIsland( x );
+        const int root = sleepIslands.Find( x );
         m_sleepIslandHasAwake[root] = 1;
 
         const Vector3& vel = bodyRecords[static_cast<size_t>( x )].linearVelocity;
@@ -3615,7 +3578,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
             continue;
         }
 
-        const int root = findIsland( x );
+        const int root = sleepIslands.Find( x );
         if ( m_sleepIslandHasAwake[root] && m_sleepIslandEligible[root] )
         {
             if ( m_sleepCounter[x] < SLEEP_FRAMES )
@@ -3640,7 +3603,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
             continue;
         }
 
-        const int root = findIsland( x );
+        const int root = sleepIslands.Find( x );
         if ( m_sleepCounter[x] < SLEEP_FRAMES )
         {
             // Every awake body in an eligible island must accumulate the full
@@ -3661,7 +3624,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
             continue;
         }
 
-        const int root = findIsland( x );
+        const int root = sleepIslands.Find( x );
         if ( m_sleepIslandAssignedVisualId[root] == 0 )
         {
             m_sleepIslandAssignedVisualId[root] = m_sleepIslandVisualId[x];
@@ -3679,7 +3642,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
             continue;
         }
 
-        const int root = findIsland( x );
+        const int root = sleepIslands.Find( x );
         if ( m_sleepIslandHasAwake[root] && m_sleepIslandEligible[root] && m_sleepIslandCanSleep[root] )
         {
             if ( m_sleepIslandAssignedVisualId[root] == 0 )

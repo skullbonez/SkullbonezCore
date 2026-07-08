@@ -99,7 +99,7 @@ judgment/sign-off gated and can slot in whenever a human is available.
 Tick a plan here only when **both** its step list and its acceptance list are
 fully `[x]`.
 
-- [ ] 1. Plan 02 Phase 0 — DisjointSet extracted
+- [x] 1. Plan 02 Phase 0 — DisjointSet extracted
 - [ ] 2. Plan 12 — Log/Profiler ambient coupling removed
 - [ ] 3. Plan 06 — editor `.inl` promoted to real TUs
 - [ ] 4. Plan 13 + 10 — facade rule applied; EngineContext/IRenderBackend/aliases/SimulationController done

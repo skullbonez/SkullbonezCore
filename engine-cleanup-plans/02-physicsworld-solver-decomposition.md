@@ -38,7 +38,7 @@ exists once; replay snapshotting is table-driven.
 
 ## Approach
 
-- [ ] **Phase 0 — Extract `DisjointSet` (quick win).** One helper (path
+- [x] **Phase 0 — Extract `DisjointSet` (quick win).** One helper (path
   compression + union-by-rank) over a caller-supplied index range; replace all
   three copies. Removes ~90 duplicated lines. **Merge order is
   determinism-sensitive — preserve it exactly.**
@@ -117,8 +117,17 @@ island-merge tie-breaks.
   `physics_regression_solver.csv` matched the baseline byte-exact
   (20001 lines), with 0 warnings and 0 errors. Mirrored log:
   `Agentic\Logs\cleanup-02-step-0.5-validate-physics.log`.
-- [ ] **0.6** `rg -n "= find|union.*Root|findIsland" SkullbonezSource/Physics` —
+- [x] **0.6** `rg -n "= find|union.*Root|findIsland" SkullbonezSource/Physics` —
   confirm no inline union-find remains. Tick Phase 0.
+
+  Result: the first 0.6 search found one additional sleep-island inline copy in
+  `RunSolverPhysics`; it was replaced with `DisjointSet` under the same
+  equal-rank first-root tie-break. `cmd.exe /c tools\validate_physics.bat`
+  passed on 2026-07-08 after that replacement, with
+  `physics_regression_solver.csv` byte-exact (20001 lines), 0 warnings, and 0
+  errors. The final `rg -n "= find|union.*Root|findIsland"
+  SkullbonezSource\Physics` returned no matches. Mirrored log:
+  `Agentic\Logs\cleanup-02-step-0.6-validate-physics.log`.
 
 > After 0.6, STOP and move to the next plan in the run order (12). Return here for
 > Phase 1 at execution slot 9.
