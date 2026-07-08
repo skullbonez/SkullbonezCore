@@ -13,6 +13,7 @@ Glossary:
   Cinematic config: HDR/post-processing and style settings for the active look.
   Ordinary render config: Non-cinematic renderer settings saved in engine.cfg.
   Override mask: Bitset recording which UI-touched scene values should persist.
+  Run camera command: One-frame Run-tab packet that requests an operator camera mode.
   Sound command: One-frame UI packet that edits contact-audio presentation state.
   Tornado command: One-frame Physics-tab packet that edits live vortex settings.
   Worker override: Runtime request for the worker-pool thread count.
@@ -288,6 +289,21 @@ bool ApplySceneFixedStepUICommand( SceneFixedStepUICommandContext context, const
     context.simulation.Reset();
     return true;
 }
+
+
+RunCameraModeUICommandResult DecodeRunCameraModeUICommand( const UI::UIRunCommands& commands )
+{
+    RunCameraModeUICommandResult result;
+    if ( commands.requestedCameraMode < 0 || commands.requestedCameraMode >= static_cast<int>( RunCameraMode::Count ) )
+    {
+        return result;
+    }
+
+    result.accepted = true;
+    result.mode = static_cast<RunCameraMode>( commands.requestedCameraMode );
+    return result;
+}
+
 
 RunSimulationUICommandResult ApplyRunSimulationUICommands( RunSimulationUICommandContext context,
                                                            const UI::UISceneOptionCommands& sceneOptions,

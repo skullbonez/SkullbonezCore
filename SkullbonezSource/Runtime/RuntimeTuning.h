@@ -23,6 +23,7 @@ Glossary:
   Sound command: One-frame UI packet that edits contact-audio presentation state.
   Physics friction command: One-frame Physics-tab packet that edits live friction config.
   Physics sleep command: One-frame Physics-tab packet that toggles sleep policy.
+  Run camera command: One-frame Run-tab packet that requests an operator camera mode.
   Tornado command: One-frame Physics-tab packet that edits live vortex settings.
   World water command: One-frame Water-tab packet that edits gravity, fluid
     surface height, or fluid density.
@@ -181,6 +182,14 @@ struct RunSimulationUICommandResult
     bool setWorkerThreads = false;
 };
 
+struct RunCameraModeUICommandResult
+{
+    // Invariant: accepted means mode is a real enum value; RunInput still owns
+    // applying scene normalization, cursor transitions, and action logging.
+    bool accepted = false;
+    RunCameraMode mode = RunCameraMode::Demo;
+};
+
 struct RenderDeviceUICommandContext
 {
     // Lifetime: borrowed only while one renderer command packet is applied. The
@@ -203,6 +212,7 @@ void ApplyWorkerThreadCountOverride( EngineConfig& config,
                                      int requestedWorkerThreads );
 bool ApplyRenderVsyncUICommand( RenderDeviceUICommandContext context, const UI::UIRendererCommands& commands );
 bool ApplySceneFixedStepUICommand( SceneFixedStepUICommandContext context, const UI::UISceneOptionCommands& commands );
+RunCameraModeUICommandResult DecodeRunCameraModeUICommand( const UI::UIRunCommands& commands );
 RunSimulationUICommandResult ApplyRunSimulationUICommands( RunSimulationUICommandContext context,
                                                            const UI::UISceneOptionCommands& sceneOptions,
                                                            const UI::UIRunCommands& run,

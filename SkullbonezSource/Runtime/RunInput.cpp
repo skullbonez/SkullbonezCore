@@ -2231,11 +2231,10 @@ void Run::TakeInput()
         {
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleVsync, RuntimeInputActionSource::UI );
         }
-        if ( uiCommands.run.requestedCameraMode >= 0 &&
-             uiCommands.run.requestedCameraMode < static_cast<int>( RunCameraMode::Count ) )
+        const RunCameraModeUICommandResult cameraModeCommand = DecodeRunCameraModeUICommand( uiCommands.run );
+        if ( cameraModeCommand.accepted )
         {
-            ApplyCameraMode( static_cast<RunCameraMode>( uiCommands.run.requestedCameraMode ),
-                             RuntimeInputActionSource::UI );
+            ApplyCameraMode( cameraModeCommand.mode, RuntimeInputActionSource::UI );
         }
         const RunInternal::EditorPlacementPreModeUICommandResult editorPreModeCommands =
             RunInternal::ApplyEditorPlacementPreModeUICommands( editorGizmoContext(), uiCommands.editor );
