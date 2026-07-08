@@ -3145,20 +3145,36 @@ void Run::TakeInput()
                                *m_systems.cameras,
                                m_runtimeCommands } );
 
-    // R: reset/reload the current scene from scratch. Backspace remains as a scene-mode alias.
+    auto dispatchLateKeyboardAction = [this]( const RuntimeInputKeyBinding& binding ) -> bool
     {
-        if ( InputController::CaptureKeyboardActionPress( m_runtimeInput, RuntimeInputAction::ResetScene, 'R' ) )
+        switch ( binding.action )
         {
-            m_runtimeCommands.Push( RuntimeCommand{ RuntimeCommandType::ResetCurrentScene } );
+        case RuntimeInputAction::ResetScene:
+            if ( InputController::CaptureKeyboardActionPress( m_runtimeInput, binding.action, binding.virtualKey ) )
+            {
+                // R reloads the current scene after editor save hotkeys have had
+                // their chance to consume Ctrl-based persistence shortcuts.
+                m_runtimeCommands.Push( RuntimeCommand{ RuntimeCommandType::ResetCurrentScene } );
+            }
+            return true;
+        case RuntimeInputAction::ResetSceneFromBackspace:
+            if ( SceneState().isSceneMode &&
+                 InputController::CaptureKeyboardActionPress( m_runtimeInput, binding.action, binding.virtualKey ) )
+            {
+                // Backspace is only a scene-mode reset alias; generated demos keep
+                // the key free for future non-scene tools.
+                m_runtimeCommands.Push( RuntimeCommand{ RuntimeCommandType::ResetCurrentScene } );
+            }
+            return true;
+        default:
+            return false;
         }
-    }
-    if ( SceneState().isSceneMode )
+    };
+    for ( std::size_t i = 0; i < kTakeInputKeyboardBindingCount; ++i )
     {
-        if ( InputController::CaptureKeyboardActionPress( m_runtimeInput,
-                                                          RuntimeInputAction::ResetSceneFromBackspace,
-                                                          VK_BACK ) )
+        if ( ( kTakeInputKeyboardBindings[i].contexts & kAfterUIUpdateContext ) != 0 )
         {
-            m_runtimeCommands.Push( RuntimeCommand{ RuntimeCommandType::ResetCurrentScene } );
+            dispatchLateKeyboardAction( kTakeInputKeyboardBindings[i] );
         }
     }
 
