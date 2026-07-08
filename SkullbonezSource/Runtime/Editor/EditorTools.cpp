@@ -389,6 +389,8 @@ EditorPlacementPreModeUICommandResult ApplyEditorPlacementPreModeUICommands( Edi
                                                                              const UI::UIEditorCommands& commands )
 {
     EditorPlacementPreModeUICommandResult result;
+    result.toggleEditorMode = commands.toggleEditorMode;
+    result.togglePlacementMode = commands.togglePlacementMode;
     if ( commands.requestPlaceStatic && SetEditorPlaceStaticObject( context.editor, commands.requestedPlaceStatic ) )
     {
         result.setPlaceStatic = true;

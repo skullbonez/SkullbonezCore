@@ -688,6 +688,24 @@ every step. Commit per step.
 	    (17.8s), and
 	    `TestOutput\agent_logs\plan01_cinematic_mode_ui_build_profile.log`
 	    (8.6s).
+	  - [x] Editor mode-transition UI flag extraction moved the raw
+	    `toggleEditorMode` and `togglePlacementMode` field checks out of
+	    `Run::TakeInput()` and into the existing `EditorTools` pre-mode command
+	    result. `RunInput` still owns the keyboard/UI source decision and the
+	    camera/cursor transition lambdas. The touched-file comment audit kept the
+	    result invariant for Run-owned transitions. `TakeInput()` still spans
+	    1,016 lines. Gate evidence:
+	    `TestOutput\agent_logs\plan01_editor_mode_ui_interaction_clicks.log`
+	    (16.4s, both interaction reports `ok=1`) and
+	    `TestOutput\agent_logs\plan01_editor_mode_ui_validate_full.log` (51.1s;
+	    project filters/runtime boundaries passed, Profile/Debug builds had 0
+	    warnings and 0 errors, DX12 InfoQueue errors = 0, screenshots matched
+	    baselines, and `physics_regression_solver.csv` matched byte-exactly).
+	    Targeted pre-gate checks also passed:
+	    `TestOutput\agent_logs\plan01_editor_mode_ui_validate_format.log` (9.6s),
+	    `TestOutput\agent_logs\plan01_editor_mode_ui_runtime_boundaries.log`
+	    (17.7s), and
+	    `TestOutput\agent_logs\plan01_editor_mode_ui_build_profile.log` (9.8s).
 - [ ] **1.4** Confirm `TakeInput()` is under ~200 lines (setup + dispatch loop).
 
 ### Phase 2 — Move state shelves out of `RunState`

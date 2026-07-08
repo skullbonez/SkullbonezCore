@@ -172,10 +172,12 @@ struct EditorObjectTypeRequestResult
 struct EditorPlacementPreModeUICommandResult
 {
     // Invariant: flags report accepted UI commands for RunInput action logging;
-    // enterPlacementMode still requires Run-owned camera/cursor transition work.
+    // mode toggles still require Run-owned camera/cursor transition work.
     bool setPlaceStatic = false;
     bool requestedObjectType = false;
     bool enterPlacementMode = false;
+    bool toggleEditorMode = false;
+    bool togglePlacementMode = false;
 };
 
 struct EditorPlacementPostModeUICommandResult

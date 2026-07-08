@@ -2253,12 +2253,12 @@ void Run::TakeInput()
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::CycleEditorPlacementType,
                                                RuntimeInputActionSource::UI );
         }
-        if ( uiCommands.editor.toggleEditorMode || keyboardToggleEditorMode )
+        if ( editorPreModeCommands.toggleEditorMode || keyboardToggleEditorMode )
         {
             applyEditorModeToggle( keyboardToggleEditorMode ? RuntimeInputActionSource::Keyboard
                                                             : RuntimeInputActionSource::UI );
         }
-        if ( uiCommands.editor.togglePlacementMode )
+        if ( editorPreModeCommands.togglePlacementMode )
         {
             applyEditorPlacementModeToggle( RuntimeInputActionSource::UI );
         }
