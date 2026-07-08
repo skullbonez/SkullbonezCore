@@ -1804,6 +1804,55 @@ void Run::TakeInput()
                     ToggleAttachedCameraPin();
                 }
                 return true;
+            case RuntimeInputAction::WriteLauncherReproSnapshot:
+#ifdef _DEBUG
+                if ( InputController::CaptureKeyboardActionPress( m_runtimeInput,
+                                                                  binding.action,
+                                                                  binding.virtualKey ) &&
+                     IsLauncherCameraMode() && !m_replayRuntime.Scrubber().restoreConsumedThisFrame )
+                {
+                    // Debug-only Enter writes a launcher repro snapshot unless a replay
+                    // restore consumed Enter this frame; Profile keeps this table row inert.
+                    const double simulationSeconds = m_timers.simulationTimer.GetTimeSinceLastStart();
+                    const LauncherReproSnapshotStatus snapshotStatus = m_runtimeTools.WriteLauncherReproSnapshot(
+                        { m_cGameModelCollection,
+                          m_systems.cameras,
+                          m_systems.terrain.get(),
+                          m_cWorldEnvironment,
+                          SceneState(),
+                          m_sceneController.CurrentPath(),
+                          m_launchOptions,
+                          m_runtimeSettings,
+                          m_config.contactEpsilon,
+                          m_config.frictionCoeff,
+                          m_debug,
+                          m_renderBackendView.renderDiagnostics
+                              ? m_renderBackendView.renderDiagnostics->GetRendererName()
+                              : "DirectX 12",
+                          simulationSeconds } );
+                    const char* snapshotMessage = "Failed to write repro snapshot";
+                    if ( snapshotStatus == LauncherReproSnapshotStatus::Wrote )
+                    {
+                        sprintf_s( m_debug.reproSnapshotMessage,
+                                   sizeof( m_debug.reproSnapshotMessage ),
+                                   "Repro snapshot: %s",
+                                   LAUNCHER_REPRO_SNAPSHOT_PATH );
+                    }
+                    else if ( snapshotStatus == LauncherReproSnapshotStatus::NoTarget )
+                    {
+                        snapshotMessage = "No repro target under crosshair";
+                    }
+                    if ( snapshotStatus != LauncherReproSnapshotStatus::Wrote )
+                    {
+                        sprintf_s( m_debug.reproSnapshotMessage,
+                                   sizeof( m_debug.reproSnapshotMessage ),
+                                   "%s",
+                                   snapshotMessage );
+                    }
+                    m_debug.reproSnapshotMessageUntil = simulationSeconds + LAUNCHER_REPRO_MESSAGE_SECONDS;
+                }
+#endif
+                return true;
             case RuntimeInputAction::ToggleDirectorGrab:
                 if ( InputController::CaptureKeyboardActionPress( m_runtimeInput,
                                                                   binding.action,
@@ -2072,53 +2121,6 @@ void Run::TakeInput()
         {
             dispatchMappedKeyboardAction( kTakeInputKeyboardBindings[i] );
         }
-
-#ifdef _DEBUG
-        {
-            if ( InputController::CaptureKeyboardActionPress( m_runtimeInput,
-                                                              RuntimeInputAction::WriteLauncherReproSnapshot,
-                                                              VK_RETURN ) &&
-                 IsLauncherCameraMode() && !m_replayRuntime.Scrubber().restoreConsumedThisFrame )
-            {
-                const double simulationSeconds = m_timers.simulationTimer.GetTimeSinceLastStart();
-                const LauncherReproSnapshotStatus snapshotStatus = m_runtimeTools.WriteLauncherReproSnapshot(
-                    { m_cGameModelCollection,
-                      m_systems.cameras,
-                      m_systems.terrain.get(),
-                      m_cWorldEnvironment,
-                      SceneState(),
-                      m_sceneController.CurrentPath(),
-                      m_launchOptions,
-                      m_runtimeSettings,
-                      m_config.contactEpsilon,
-                      m_config.frictionCoeff,
-                      m_debug,
-                      m_renderBackendView.renderDiagnostics ? m_renderBackendView.renderDiagnostics->GetRendererName()
-                                                            : "DirectX 12",
-                      simulationSeconds } );
-                const char* snapshotMessage = "Failed to write repro snapshot";
-                if ( snapshotStatus == LauncherReproSnapshotStatus::Wrote )
-                {
-                    sprintf_s( m_debug.reproSnapshotMessage,
-                               sizeof( m_debug.reproSnapshotMessage ),
-                               "Repro snapshot: %s",
-                               LAUNCHER_REPRO_SNAPSHOT_PATH );
-                }
-                else if ( snapshotStatus == LauncherReproSnapshotStatus::NoTarget )
-                {
-                    snapshotMessage = "No repro target under crosshair";
-                }
-                if ( snapshotStatus != LauncherReproSnapshotStatus::Wrote )
-                {
-                    sprintf_s( m_debug.reproSnapshotMessage,
-                               sizeof( m_debug.reproSnapshotMessage ),
-                               "%s",
-                               snapshotMessage );
-                }
-                m_debug.reproSnapshotMessageUntil = simulationSeconds + LAUNCHER_REPRO_MESSAGE_SECONDS;
-            }
-        }
-#endif
 
         if ( m_runtimeTools.Editor().editorModeEnabled )
         {
