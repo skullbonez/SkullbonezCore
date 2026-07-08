@@ -216,6 +216,7 @@ RUNTIME_PREFIXES = (
     "RunReplayProbeState",
     "RunRender",
     "RunState",
+    "RunStartupState",
     "RunStress",
     "RunUiTextPass",
     "RuntimeCommandQueue",

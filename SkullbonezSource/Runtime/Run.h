@@ -57,6 +57,7 @@ Related:
 #include "RunReplayProbeState.h"
 #include "RunState.h"
 #include "RunInteractionAutomationState.h"
+#include "RunStartupState.h"
 #include "RuntimeViewModel.h"
 #include "Replay/ReplayRuntime.h"
 #include "Scene/SceneAuthoredSetup.h"

@@ -313,13 +313,5 @@ struct RunLaunchOptions
     float physicsDebugContactLingerOverride = 0.45f;
 };
 
-struct RunStartupState
-{
-    int gameModelCapacity = DEFAULT_GAME_MODEL_CAPACITY;
-    int workerThreads = -1;
-
-    void ApplyStartupConfig( const EngineConfig& config );     // Captures startup-only capacity/thread policy from config.
-};
-
 } // namespace Basics
 } // namespace SkullbonezCore

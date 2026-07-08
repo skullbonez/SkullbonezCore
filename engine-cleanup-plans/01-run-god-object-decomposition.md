@@ -1037,6 +1037,30 @@ every step. Commit per step.
     the new header
     (`TestOutput\agent_logs\plan01_interaction_automation_state_shelf_project_filters.log`,
     1.2s); the guardrail prefix was added before the rerun.
+  - [x] Startup state shelf moved from `RunState.h` into
+    `RunStartupState.h`. The new header owns the startup-only game-model
+    capacity and worker-thread baseline captured from `EngineConfig`; `Run`
+    still stores `m_startup`, and scene reload paths keep reading that
+    startup baseline through the existing owner field. The Visual Studio
+    project/filter metadata and `tools\validate_project_filters.py` guardrail
+    now recognize the new header. The touched-file comment audit added the new
+    startup-state learning header and kept the remaining `RunState.h` shelf
+    comments aligned. Gate evidence:
+    `TestOutput\agent_logs\plan01_startup_state_shelf_validate_full.log`
+    (47.1s; project filters/runtime boundaries passed, Profile/Debug builds had
+    0 warnings and 0 errors, DX12 InfoQueue errors = 0, screenshots matched
+    baselines, and `physics_regression_solver.csv` matched byte-exactly).
+    Targeted pre-gate checks also passed:
+    `TestOutput\agent_logs\plan01_startup_state_shelf_build_profile.log`
+    (10.4s),
+    `TestOutput\agent_logs\plan01_startup_state_shelf_validate_format.log`
+    (9.3s),
+    `TestOutput\agent_logs\plan01_startup_state_shelf_runtime_boundaries.log`
+    (17.7s),
+    `TestOutput\agent_logs\plan01_startup_state_shelf_project_filters.log`
+    (1.2s), and
+    `TestOutput\agent_logs\plan01_startup_state_shelf_validate_fast.log`
+    (43.1s).
 
 ### Phase 3 — Shrink `Run`
 

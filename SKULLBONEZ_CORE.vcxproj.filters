@@ -818,6 +818,9 @@
     <ClInclude Include="SkullbonezSource\Runtime\RunState.h">
       <Filter>Header Files\Runtime</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\RunStartupState.h">
+      <Filter>Header Files\Runtime</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\RuntimeCameraMode.h">
       <Filter>Header Files\Runtime</Filter>
     </ClInclude>
