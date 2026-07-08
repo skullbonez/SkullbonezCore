@@ -112,8 +112,8 @@ fully `[x]`.
 - [ ] 9. Plan 02 rest — solver decomposed
 - [ ] 10. Plan 04 — error handling reconciled
 - [ ] C1. Plan 05 — behavioral coverage added (continuous)
-  Note (2026-07-09): Phase 0 coverage map is complete; test implementation
-  rows remain open.
+  Note (2026-07-09): Phase 0 coverage map and Phase 1 input-binding tests are
+  complete; replay round-trip, physics invariants, and stub removal remain open.
 - [ ] C2. Plan 03 — regex governance apparatus removed (needs sign-off)
 - [ ] C3. Plan 07 — allocation gate right-sized (needs decision)
 

@@ -34,6 +34,7 @@ Related:
 #include "RunInternal.h"
 #include "AttachedCameraController.h"
 #include "Editor/EditorTools.h"
+#include "InputController.Bindings.h"
 #include "InputController.h"
 #include "Replay/ReplayOverlayLayout.h"
 #include "RunDemoDirector.h"
@@ -228,73 +229,16 @@ const char* RuntimeInteractionEventName( RuntimeInteractionEventType type )
     }
 }
 
-using InputBindingContext = RuntimeInputBindingContext;
-constexpr RuntimeInputContextMask kKeyboardUnblockedContext =
-    RuntimeInputContextBit( InputBindingContext::KeyboardUnblocked );
-constexpr RuntimeInputContextMask kAfterUIUpdateContext = RuntimeInputContextBit( InputBindingContext::AfterUIUpdate );
-constexpr RuntimeInputContextMask kCaptureContext = RuntimeInputContextBit( InputBindingContext::Capture );
-
-// Invariant: This table mirrors the keyboard edges that TakeInput recognizes
-// today. Step 1.2 makes the mapping auditable data only; dispatch still follows
-// the existing hand-written branches until later action-group slices replace it.
-const RuntimeInputKeyBinding kTakeInputKeyboardBindings[] = {
-    { VK_OEM_3, RuntimeInputAction::ToggleEditor, kKeyboardUnblockedContext },
-    { VK_TAB, RuntimeInputAction::CycleCameraMode, kKeyboardUnblockedContext },
-    { 'F', RuntimeInputAction::ToggleFlyCamera, kKeyboardUnblockedContext },
-    { 'N', RuntimeInputAction::ToggleLauncher, kKeyboardUnblockedContext },
-    { 'M', RuntimeInputAction::CycleLauncherFireMode, kKeyboardUnblockedContext | InputBindingContext::Launcher },
-    { VK_F1,
-      RuntimeInputAction::CycleAttachedCameraSubmode,
-      kKeyboardUnblockedContext | InputBindingContext::AttachedCamera },
-    { VK_RETURN,
-      RuntimeInputAction::ToggleAttachedCameraPin,
-      kKeyboardUnblockedContext | InputBindingContext::AttachedCamera },
-    { 'B', RuntimeInputAction::ToggleDirectorGrab, kKeyboardUnblockedContext | InputBindingContext::Director },
-    { 'J',
-      RuntimeInputAction::SetDirectorPhasePose,
-      kKeyboardUnblockedContext | InputBindingContext::DirectorAuthoring },
-    { 'K', RuntimeInputAction::StepDirectorPhase, kKeyboardUnblockedContext | InputBindingContext::DirectorAuthoring },
-    { 'L',
-      RuntimeInputAction::SaveDirectorShotList,
-      kKeyboardUnblockedContext | InputBindingContext::DirectorAuthoring },
-    { VK_RETURN,
-      RuntimeInputAction::WriteLauncherReproSnapshot,
-      kKeyboardUnblockedContext | InputBindingContext::Launcher | InputBindingContext::ReplayRestoreNotConsumed |
-          InputBindingContext::DebugOnly },
-    { VK_MENU, RuntimeInputAction::ToggleEditorTool, kKeyboardUnblockedContext },
-    { '1', RuntimeInputAction::ToggleWaterFreeze, kKeyboardUnblockedContext },
-    { '2', RuntimeInputAction::CycleWaterReflection, kKeyboardUnblockedContext },
-    { '3', RuntimeInputAction::ToggleWaterFlat, kKeyboardUnblockedContext },
-    { '4', RuntimeInputAction::ToggleTerrainHidden, kKeyboardUnblockedContext },
-    { '5', RuntimeInputAction::ToggleWaterHidden, kKeyboardUnblockedContext },
-    { 'V', RuntimeInputAction::ToggleCollisionVisualizer, kKeyboardUnblockedContext },
-    { 'C', RuntimeInputAction::CyclePhysicsDebugOverlay, kKeyboardUnblockedContext },
-    { 'O', RuntimeInputAction::ToggleTerrainContactProbe, kKeyboardUnblockedContext },
-    { VK_F7, RuntimeInputAction::StepPhysicsPipelinePrevious, kKeyboardUnblockedContext },
-    { VK_F8, RuntimeInputAction::StepPhysicsPipelineNext, kKeyboardUnblockedContext },
-    { '6', RuntimeInputAction::TogglePhysicsDebugTransparent, kKeyboardUnblockedContext },
-    { 'Q', RuntimeInputAction::ReportRendererRuntimeRetired, kKeyboardUnblockedContext },
-    { 'P', RuntimeInputAction::ToggleCrossScenePause, kKeyboardUnblockedContext },
-    { 'G', RuntimeInputAction::ToggleBroadphaseOverlay, kKeyboardUnblockedContext },
-    { '0', RuntimeInputAction::ToggleUIVisibility, kKeyboardUnblockedContext },
-    { VK_F5, RuntimeInputAction::TogglePerformanceHistogram, kKeyboardUnblockedContext },
-    { VK_F6, RuntimeInputAction::ToggleMemoryOverlay, kKeyboardUnblockedContext },
-    { VK_LEFT, RuntimeInputAction::NavigateScenePrevious, kKeyboardUnblockedContext },
-    { VK_RIGHT, RuntimeInputAction::NavigateSceneNext, kKeyboardUnblockedContext },
-    { VK_ESCAPE, RuntimeInputAction::DismissOrExitUI, kAfterUIUpdateContext | InputBindingContext::UINotInteracted },
-    { VK_F2, RuntimeInputAction::SaveSceneSnapshot, kCaptureContext },
-    { VK_F3, RuntimeInputAction::SaveScreenshot, kCaptureContext },
-    { 'R', RuntimeInputAction::ResetScene, kAfterUIUpdateContext },
-    { VK_BACK, RuntimeInputAction::ResetSceneFromBackspace, kAfterUIUpdateContext | InputBindingContext::Scene } };
-constexpr std::size_t kTakeInputKeyboardBindingCount =
-    sizeof( kTakeInputKeyboardBindings ) / sizeof( kTakeInputKeyboardBindings[0] );
+constexpr RuntimeInputContextMask kAfterUIUpdateContext =
+    RuntimeInputContextBit( RuntimeInputBindingContext::AfterUIUpdate );
+constexpr RuntimeInputContextMask kCaptureContext = RuntimeInputContextBit( RuntimeInputBindingContext::Capture );
 
 void AdvanceTakeInputKeyboardActionMemories( RuntimeInputContext& input )
 {
-    for ( std::size_t i = 0; i < kTakeInputKeyboardBindingCount; ++i )
+    const RuntimeInputKeyBindingView bindings = TakeInputKeyboardBindings();
+    for ( std::size_t i = 0; i < bindings.count; ++i )
     {
-        input.SetActionDown( kTakeInputKeyboardBindings[i].action,
-                             Input::IsKeyDown( kTakeInputKeyboardBindings[i].virtualKey ) );
+        input.SetActionDown( bindings.bindings[i].action, Input::IsKeyDown( bindings.bindings[i].virtualKey ) );
     }
 }
 
@@ -807,9 +751,10 @@ void DispatchMappedKeyboardActions( const MappedKeyboardDispatchContext& context
         }
     };
 
-    for ( std::size_t i = 0; i < kTakeInputKeyboardBindingCount; ++i )
+    const RuntimeInputKeyBindingView bindings = TakeInputKeyboardBindings();
+    for ( std::size_t i = 0; i < bindings.count; ++i )
     {
-        dispatchMappedKeyboardAction( kTakeInputKeyboardBindings[i] );
+        dispatchMappedKeyboardAction( bindings.bindings[i] );
     }
 }
 
@@ -2690,11 +2635,12 @@ void Run::DispatchPostUIKeyboardActions()
             return false;
         }
     };
-    for ( std::size_t i = 0; i < kTakeInputKeyboardBindingCount; ++i )
+    const RuntimeInputKeyBindingView captureBindings = TakeInputKeyboardBindings();
+    for ( std::size_t i = 0; i < captureBindings.count; ++i )
     {
-        if ( ( kTakeInputKeyboardBindings[i].contexts & kCaptureContext ) != 0 )
+        if ( ( captureBindings.bindings[i].contexts & kCaptureContext ) != 0 )
         {
-            dispatchCaptureKeyboardAction( kTakeInputKeyboardBindings[i] );
+            dispatchCaptureKeyboardAction( captureBindings.bindings[i] );
         }
     }
 
@@ -2723,11 +2669,12 @@ void Run::DispatchPostUIKeyboardActions()
             return false;
         }
     };
-    for ( std::size_t i = 0; i < kTakeInputKeyboardBindingCount; ++i )
+    const RuntimeInputKeyBindingView lateBindings = TakeInputKeyboardBindings();
+    for ( std::size_t i = 0; i < lateBindings.count; ++i )
     {
-        if ( ( kTakeInputKeyboardBindings[i].contexts & kAfterUIUpdateContext ) != 0 )
+        if ( ( lateBindings.bindings[i].contexts & kAfterUIUpdateContext ) != 0 )
         {
-            dispatchLateKeyboardAction( kTakeInputKeyboardBindings[i] );
+            dispatchLateKeyboardAction( lateBindings.bindings[i] );
         }
     }
 }
@@ -2766,11 +2713,12 @@ void Run::DispatchAfterUIKeyboardActions( bool uiUserInteracted )
             return false;
         }
     };
-    for ( std::size_t i = 0; i < kTakeInputKeyboardBindingCount; ++i )
+    const RuntimeInputKeyBindingView bindings = TakeInputKeyboardBindings();
+    for ( std::size_t i = 0; i < bindings.count; ++i )
     {
-        if ( ( kTakeInputKeyboardBindings[i].contexts & kAfterUIUpdateContext ) != 0 )
+        if ( ( bindings.bindings[i].contexts & kAfterUIUpdateContext ) != 0 )
         {
-            dispatchAfterUIKeyboardAction( kTakeInputKeyboardBindings[i] );
+            dispatchAfterUIKeyboardAction( bindings.bindings[i] );
         }
     }
 }

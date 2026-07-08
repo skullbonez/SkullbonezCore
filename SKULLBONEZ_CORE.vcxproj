@@ -215,6 +215,7 @@
     <ClCompile Include="SkullbonezSource\Rendering\Helper.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Init.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Input.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\InputController.Bindings.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\InputController.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\DiagnosticsController.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Editor\EditorTools.cpp" />
@@ -366,6 +367,7 @@
     <ClInclude Include="SkullbonezSource\Rendering\Helper.h" />
     <ClInclude Include="SkullbonezSource\Runtime\GraphicsStressController.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Input.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\InputController.Bindings.h" />
     <ClInclude Include="SkullbonezSource\Runtime\InputController.h" />
     <ClInclude Include="SkullbonezSource\Runtime\LiveStyleController.h" />
     <ClInclude Include="SkullbonezSource\Runtime\DiagnosticsController.h" />
