@@ -391,6 +391,24 @@ struct RunReplayPredictionFutureNodeCache
     std::size_t retainedMarkerCount = 0;
 };
 
+struct RunReplayPredictionBuildState
+{
+    bool dirty = true;
+    bool building = false;
+    bool complete = false;
+    int nextTick = 1;
+    int targetTickCount = 0;
+    double lastBuildTime = 0.0;
+    // Runtime allocation policy: prediction buildFrames can be pre-sized for a
+    // whole horizon while only buildFrameCount rows are populated. Render reads
+    // frames, not the pre-sized build vector, until completion swaps them.
+    // Invariant: buildFrameCount is the single published prefix cursor. Future
+    // async stepping must publish it only after the corresponding rows are
+    // complete, then cancel or invalidate that writer before clearing storage.
+    std::vector<RunReplayPredictionFrame> buildFrames;
+    std::size_t buildFrameCount = 0;
+};
+
 struct RunReplayPredictionState
 {
     RunReplayPredictionState();
@@ -413,18 +431,13 @@ struct RunReplayPredictionState
     bool enabled = false;
     bool ragdollVisualsEnabled = false;
     RunReplayPredictionUiState ui;
-    bool dirty = true;
-    bool building = false;
-    bool complete = false;
     float horizonSeconds = REPLAY_FUTURE_BUFFER_SECONDS;
     int targetModelIndex = -1;
-    int nextTick = 1;
-    int targetTickCount = 0;
     ReplayBodyId targetId;
     ReplayFrameIndex sourceFrameIndex = 0;
     uint64_t sourceSolverHash = 0;
     double sourceSimulationSeconds = 0.0;
-    double lastBuildTime = 0.0;
+    RunReplayPredictionBuildState build;
     // Concept: prediction simulates the future in its own engine. Live stores
     // are never written by prediction, so replay preview state stays isolated.
     // Lifetime: constructed lazily on first prediction begin under the replay
@@ -440,14 +453,6 @@ struct RunReplayPredictionState
     ReplaySolverWorldSnapshot predictionWorld;
     std::vector<RunReplayPredictionBodyBackup> predictionBodies;
     std::vector<RunReplayPredictionFrame> frames;
-    // Runtime allocation policy: prediction buildFrames can be pre-sized for a
-    // whole horizon while only buildFrameCount rows are populated. Render reads
-    // frames, not the pre-sized build vector, until completion swaps them.
-    // Invariant: buildFrameCount is the single published prefix cursor. Future
-    // async stepping must publish it only after the corresponding rows are
-    // complete, then cancel or invalidate that writer before clearing storage.
-    std::vector<RunReplayPredictionFrame> buildFrames;
-    std::size_t buildFrameCount = 0;
     RunReplayPredictionFutureNodeCache futureNodeCache;
     // Concept: the butterfly baseline is a retained presentation snapshot of
     // the pre-nudge future. It is intentionally smaller than prediction.frames:
@@ -459,36 +464,36 @@ struct RunReplayPredictionState
 
 inline std::size_t RunReplayPredictionState::PublishedBuildFrameCount() const noexcept
 {
-    return buildFrameCount < buildFrames.size() ? buildFrameCount : buildFrames.size();
+    return build.buildFrameCount < build.buildFrames.size() ? build.buildFrameCount : build.buildFrames.size();
 }
 
 inline bool RunReplayPredictionState::HasPublishedBuildFramePrefix( std::size_t minFrameCount ) const noexcept
 {
-    return building && PublishedBuildFrameCount() >= minFrameCount;
+    return build.building && PublishedBuildFrameCount() >= minFrameCount;
 }
 
 inline bool RunReplayPredictionState::BuildPrefixShouldBePresented() const noexcept
 {
     const std::size_t publishedCount = PublishedBuildFrameCount();
-    return building && publishedCount >= 2u && ( frames.empty() || publishedCount >= frames.size() );
+    return build.building && publishedCount >= 2u && ( frames.empty() || publishedCount >= frames.size() );
 }
 
 inline bool RunReplayPredictionState::BuildFramesAreComplete() const noexcept
 {
-    return BuildPrefixShouldBePresented() && PublishedBuildFrameCount() >= buildFrames.size();
+    return BuildPrefixShouldBePresented() && PublishedBuildFrameCount() >= build.buildFrames.size();
 }
 
 inline void RunReplayPredictionState::ResetBuildFramePublication() noexcept
 {
-    buildFrameCount = 0;
+    build.buildFrameCount = 0;
 }
 
 inline void RunReplayPredictionState::PublishBuildFrameSlot( std::size_t frameSlot ) noexcept
 {
-    const std::size_t publishedCount = frameSlot < buildFrames.size() ? frameSlot + 1u : buildFrames.size();
-    if ( publishedCount > buildFrameCount )
+    const std::size_t publishedCount = frameSlot < build.buildFrames.size() ? frameSlot + 1u : build.buildFrames.size();
+    if ( publishedCount > build.buildFrameCount )
     {
-        buildFrameCount = publishedCount;
+        build.buildFrameCount = publishedCount;
     }
 }
 

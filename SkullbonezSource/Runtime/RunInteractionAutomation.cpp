@@ -95,7 +95,7 @@ bool TryPredictionTargetDisplacement( const ReplayRuntime& replayRuntime,
     std::size_t activeFrameCount = activePredictionFrames->size();
     if ( activeFrameCount < 2 && prediction.BuildPrefixShouldBePresented() )
     {
-        activePredictionFrames = &prediction.buildFrames;
+        activePredictionFrames = &prediction.build.buildFrames;
         activeFrameCount = prediction.PublishedBuildFrameCount();
     }
     const ReplayBodyId targetId = replayRuntime.PathVisualizer().targetId;
@@ -132,7 +132,7 @@ std::size_t VisiblePredictionFrameCount( const ReplayRuntime& replayRuntime )
     {
         return activePredictionFrames.size();
     }
-    if ( prediction.building )
+    if ( prediction.build.building )
     {
         return prediction.PublishedBuildFrameCount();
     }
@@ -814,7 +814,7 @@ void ApplyInteractionAutomationReplayStateAction( InteractionAutomationReplaySta
         break;
     case RunInteractionAutomationActionType::SetReplayPredictionEnabled:
         context.replayRuntime.Prediction().enabled = action.boolValue;
-        context.replayRuntime.Prediction().dirty = true;
+        context.replayRuntime.Prediction().build.dirty = true;
         setWorldInteractionOwner(
             action.boolValue ? WorldInteractionOwner::ReplayPrediction : WorldInteractionOwner::None,
             InteractionExitReason::EnterReplay );
@@ -868,7 +868,7 @@ void ApplyInteractionAutomationReplayStateAction( InteractionAutomationReplaySta
         if ( hasTarget && record )
         {
             RunReplayPredictionState& prediction = context.replayRuntime.Prediction();
-            if ( !prediction.complete || prediction.frames.size() < 2 )
+            if ( !prediction.build.complete || prediction.frames.size() < 2 )
             {
                 FailAutomation( context.state,
                                 "replay path target velocity nudge requires a completed prediction baseline" );

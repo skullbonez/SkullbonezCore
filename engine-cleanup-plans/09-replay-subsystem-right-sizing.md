@@ -120,6 +120,19 @@ bit-exact — the replay scrub regression is the gate.
     passed in 44.8s with 0 build warnings/errors, 0 DX12 validation errors,
     matching DX12 screenshots, and `physics_regression_solver.csv` byte-exact at
     20001 lines.
+  - Progress note (2026-07-08, async build state): split prediction rebuild
+    dirtiness, active/completed flags, tick cursors, last-build timestamp,
+    build-frame scratch storage, and published-prefix count into
+    `RunReplayPredictionBuildState`. The parent `RunReplayPredictionState`
+    still exposes `PublishedBuildFrameCount()` and related helpers so readers
+    keep using intent-level queries while build storage is now a separate
+    concern; prediction simulation ownership remains in this step. Comment audit
+    inspected the nine touched source files with no deferred wording work.
+    Validation: `tools\validate_format.bat` passed in 9.5s;
+    `tools\validate_replay_scrub.bat` passed in 28.2s;
+    `tools\validate_full.bat` passed in 44.9s with 0 build warnings/errors, 0
+    DX12 validation errors, matching DX12 screenshots, and
+    `physics_regression_solver.csv` byte-exact at 20001 lines.
 
 ### Phase 1 — Template the twin helpers
 

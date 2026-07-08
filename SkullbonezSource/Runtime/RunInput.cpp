@@ -1706,7 +1706,7 @@ bool Run::HasActiveReplayInteractionState() const
            m_replayRuntime.Scrubber().liveAdvanceHeld || m_replayRuntime.Scrubber().mouseCaptured ||
            m_replayRuntime.PathVisualizer().hasTarget || !m_replayRuntime.PathVisualizer().targets.empty() ||
            m_replayRuntime.Prediction().enabled || m_replayRuntime.Prediction().ui.horizonDragging ||
-           m_replayRuntime.Prediction().building || m_replayRuntime.VelocityEdit().enabled ||
+           m_replayRuntime.Prediction().build.building || m_replayRuntime.VelocityEdit().enabled ||
            m_replayRuntime.VelocityEdit().dragging || m_replayRuntime.VelocityEdit().mouseCaptured ||
            m_replayRuntime.CauseTree().draggingWindow || m_replayRuntime.CauseTree().resizingWindow ||
            m_replayRuntime.CauseTree().selectedRow >= 0 || !m_replayRuntime.CauseTree().rows.empty();

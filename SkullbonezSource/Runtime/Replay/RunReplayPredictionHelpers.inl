@@ -88,7 +88,7 @@ ReplayFrameIndex ReplayPredictionRevealFrameIndex( RunReplayPredictionState& pre
         (std::max)( 0.0, std::chrono::duration<double>( now - prediction.revealClock.anchor ).count() );
     const double revealSecondsPerSecond = ReplayPredictionRevealSecondsPerSecond( prediction );
     double revealSeconds = elapsedSeconds * revealSecondsPerSecond;
-    if ( prediction.building && revealSeconds > availableSeconds )
+    if ( prediction.build.building && revealSeconds > availableSeconds )
     {
         revealSeconds = availableSeconds;
         prediction.revealClock.anchor =
@@ -2510,12 +2510,12 @@ bool CaptureReplayPredictionFrame( ReplayRuntime& replayRuntime,
 
     RunReplayPredictionState& prediction = replayRuntime.Prediction();
     const std::size_t frameSlot = static_cast<std::size_t>( frameIndex );
-    if ( frameSlot >= prediction.buildFrames.size() )
+    if ( frameSlot >= prediction.build.buildFrames.size() )
     {
         return false;
     }
 
-    RunReplayPredictionFrame& frame = prediction.buildFrames[frameSlot];
+    RunReplayPredictionFrame& frame = prediction.build.buildFrames[frameSlot];
     frame.frameIndex = frameIndex;
     frame.simulationSeconds = prediction.sourceSimulationSeconds +
                               static_cast<double>( frameIndex ) * static_cast<double>( PHYSICS_FIXED_DT );
@@ -2570,8 +2570,8 @@ bool CaptureReplayPredictionFrame( ReplayRuntime& replayRuntime,
         // than cancelling prediction.
         const std::size_t requestedDebugContactCapacity =
             ReplayPredictionNextDebugContactCapacity( frame.debugContacts.capacity(), debugContacts.size() );
-        if ( !ReserveReplayPredictionFramePayloadVectors( prediction.buildFrames,
-                                                          prediction.buildFrames.size(),
+        if ( !ReserveReplayPredictionFramePayloadVectors( prediction.build.buildFrames,
+                                                          prediction.build.buildFrames.size(),
                                                           requestedDebugContactCapacity,
                                                           static_cast<int>( frameIndex ),
                                                           "RunReplayPredictionFrame::debugContacts",

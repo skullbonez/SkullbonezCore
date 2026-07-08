@@ -193,7 +193,7 @@ ReplayRuntimeActivePredictionFrames( const RunReplayPredictionState& prediction 
 {
     if ( prediction.BuildFramesAreComplete() )
     {
-        return prediction.buildFrames;
+        return prediction.build.buildFrames;
     }
     return prediction.frames;
 }
@@ -710,15 +710,15 @@ void ReplayRuntime::CancelPredictionJob( bool clearSamples )
     // Hazard: Phase 3 async stepping must stop or invalidate any worker that can
     // still publish build frames before this clears the scratch prediction
     // engine and resets the published-prefix cursor.
-    m_prediction.building = false;
-    m_prediction.complete = false;
+    m_prediction.build.building = false;
+    m_prediction.build.complete = false;
     m_prediction.targetModelIndex = -1;
-    m_prediction.nextTick = 1;
-    m_prediction.targetTickCount = 0;
+    m_prediction.build.nextTick = 1;
+    m_prediction.build.targetTickCount = 0;
     m_prediction.predictionEngineReady = false;
     m_prediction.predictionBodies.clear();
     m_prediction.predictionWorld = ReplaySolverWorldSnapshot();
-    m_prediction.buildFrames.clear();
+    m_prediction.build.buildFrames.clear();
     m_prediction.ResetBuildFramePublication();
     if ( clearSamples )
     {
@@ -734,14 +734,14 @@ void ReplayRuntime::ClearPredictionCache()
     m_prediction.sourceFrameIndex = 0;
     m_prediction.sourceSolverHash = 0;
     m_prediction.sourceSimulationSeconds = 0.0;
-    m_prediction.lastBuildTime = 0.0;
+    m_prediction.build.lastBuildTime = 0.0;
     m_prediction.baseline = ReplayPredictionBaselineSnapshot{};
 }
 
 void ReplayRuntime::MarkPredictionDirty()
 {
     CancelPredictionJob( false );
-    m_prediction.dirty = true;
+    m_prediction.build.dirty = true;
 }
 
 void ReplayRuntime::ClearPathVisualizerState()
@@ -2475,18 +2475,18 @@ MainMemoryReplayStats ReplayRuntime::CollectMemoryStats() const
     stats.predictionBytes += SolverWorldSnapshotMemoryBytes( m_prediction.predictionWorld );
     stats.predictionBytes += VectorCapacityBytes( m_prediction.predictionBodies );
     stats.predictionBytes += VectorCapacityBytes( m_prediction.frames );
-    stats.predictionBytes += VectorCapacityBytes( m_prediction.buildFrames );
+    stats.predictionBytes += VectorCapacityBytes( m_prediction.build.buildFrames );
     stats.predictionBytes += VectorCapacityBytes( m_prediction.futureNodeCache.futureNodes );
     stats.predictionBytes += VectorCapacityBytes( m_prediction.futureNodeCache.futureNodeBuildScratch );
     for ( const RunReplayPredictionFrame& frame : m_prediction.frames )
     {
         stats.predictionBytes += PredictionFrameMemoryBytes( frame );
     }
-    for ( const RunReplayPredictionFrame& frame : m_prediction.buildFrames )
+    for ( const RunReplayPredictionFrame& frame : m_prediction.build.buildFrames )
     {
         stats.predictionBytes += PredictionFrameMemoryBytes( frame );
     }
-    stats.predictionFrames = m_prediction.frames.size() + m_prediction.buildFrames.size();
+    stats.predictionFrames = m_prediction.frames.size() + m_prediction.build.buildFrames.size();
 
     stats.pathAndCauseBytes = static_cast<uint64_t>( sizeof( m_pathVisualizer ) + sizeof( m_causeTree ) );
     stats.pathAndCauseBytes += VectorCapacityBytes( m_pathVisualizer.futureNodes );

@@ -424,7 +424,7 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
                 // Hazard: if prediction stepping moves to a worker, this helper
                 // must stay false while that worker can still write buildFrames.
                 const std::size_t promotedFrameCount = prediction.PublishedBuildFrameCount();
-                prediction.frames.swap( prediction.buildFrames );
+                prediction.frames.swap( prediction.build.buildFrames );
                 prediction.frames.resize( promotedFrameCount );
                 prediction.ResetBuildFramePublication();
             }
