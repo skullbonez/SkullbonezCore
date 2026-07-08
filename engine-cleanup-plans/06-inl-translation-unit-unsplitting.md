@@ -265,6 +265,25 @@ build.
   `.inl` to a real TU using the 0.2 procedure. Gate: `validate_full` + replay
   scrub regression. Commit.
 
+  Promotion progress:
+  - [x] `RunReplayImportExport.inl` -> `RunReplayImportExport.cpp` plus
+    `RunReplayImportExport.h` (2026-07-08). The promoted TU now owns the
+    scrubber save helper and exposes a narrow declaration to
+    `RunReplayScrubberTools.inl`; `RunReplayTools.cpp` no longer text-splices the
+    import/export body, and project/filter metadata compile the new `.cpp` while
+    tracking the new header. Comment audit inspected `RunReplayImportExport.cpp`,
+    `RunReplayImportExport.h`, and `RunReplayTools.cpp` with no deferred wording
+    work.
+
+    Validation note: targeted `tools\validate_build.bat Profile` passed in 7.5s
+    with 0 warnings/errors. The first `tools\validate_format.bat` flagged only
+    the new header; after narrow clang-format and header alignment,
+    `tools\validate_format.bat` passed in 9.4s. `tools\validate_replay_scrub.bat`
+    passed in 24.7s. `tools\validate_full.bat` passed in 44.4s with project
+    filters and runtime boundaries clean, 0 build warnings/errors, 0 DX12
+    validation errors, matching DX12 screenshots, and
+    `physics_regression_solver.csv` byte-exact at 20001 lines.
+
 ### Phase 2 — Break the shared anonymous namespace
 
 - [ ] **2.1** Confirm the promoted TUs no longer share one anonymous namespace

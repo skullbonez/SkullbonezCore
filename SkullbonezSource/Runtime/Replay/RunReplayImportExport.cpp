@@ -1,7 +1,7 @@
 /*
-File: SkullbonezSource/Runtime/Replay/RunReplayImportExport.inl
+File: SkullbonezSource/Runtime/Replay/RunReplayImportExport.cpp
 Purpose:
-  Contains replay save/load helper glue used by the scrubber controls.
+  Owns replay artifact save helper glue used by the scrubber controls.
 
 Mental model:
   Import/export work chooses artifact paths and reports user-facing status, but
@@ -17,9 +17,20 @@ Invariants:
   - Save messages update the active scrubber track that triggered the artifact.
 
 Related:
+  - SkullbonezSource/Runtime/Replay/RunReplayImportExport.h
   - SkullbonezSource/Runtime/Replay/RunReplayTools.cpp
-  - SkullbonezSource/Runtime/Replay/ReplayRuntime.h
 */
+#include "RunReplayImportExport.h"
+#include "ReplayOverlayLayout.h"
+#include "../RuntimeFileWriter.h"
+
+#include <cstdio>
+#include <cstring>
+
+namespace SkullbonezCore
+{
+namespace Basics
+{
 bool SaveReplayBufferFromScrubber( ReplayRuntime& replayRuntime, RunReplayTrack track, double now )
 {
     // Invariant: The scrubber owns transient save status, but ReplayRuntime owns
@@ -40,10 +51,10 @@ bool SaveReplayBufferFromScrubber( ReplayRuntime& replayRuntime, RunReplayTrack 
     replayRuntime.Scrubber().saveMessageTrack = track;
     if ( saved )
     {
-        const char* fileName = strrchr( path, '\\' );
+        const char* fileName = std::strrchr( path, '\\' );
         if ( !fileName )
         {
-            fileName = strrchr( path, '/' );
+            fileName = std::strrchr( path, '/' );
         }
         fileName = fileName ? fileName + 1 : path;
         sprintf_s( replayRuntime.Scrubber().saveMessage,
@@ -58,7 +69,9 @@ bool SaveReplayBufferFromScrubber( ReplayRuntime& replayRuntime, RunReplayTrack 
                    "REPLAY SAVE FAILED" );
     }
     replayRuntime.Scrubber().saveMessageUntil = now + 2.5;
-    replayRuntime.Scrubber().visibleUntil = now + REPLAY_SCRUBBER_VISIBLE_SECONDS;
+    replayRuntime.Scrubber().visibleUntil = now + ReplayOverlay::REPLAY_SCRUBBER_VISIBLE_SECONDS;
     replayRuntime.Scrubber().visible = true;
     return saved;
 }
+} // namespace Basics
+} // namespace SkullbonezCore

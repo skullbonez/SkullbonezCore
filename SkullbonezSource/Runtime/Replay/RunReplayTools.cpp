@@ -49,6 +49,7 @@ Related:
 #include "ReplayInteractionController.h"
 #include "ReplayOverlayLayout.h"
 #include "ReplayOverlayRenderer.h"
+#include "RunReplayImportExport.h"
 #include "../RuntimePickService.h"
 #include "../Allocation/RuntimeAllocationTracker.h"
 #include "../Allocation/RuntimeReserveAllocator.h"
@@ -293,7 +294,6 @@ constexpr uint32_t REPLAY_PREDICTION_CAPTURE_SAMPLE_WORKER_HASH =
     HashStr( "Frame/Replay/Prediction/CaptureSample/WorkerBodies" );
 
 #include "RunReplayPredictionHelpers.inl"
-#include "RunReplayImportExport.inl"
 } // namespace
 
 #include "RunReplayScrubberTools.inl"

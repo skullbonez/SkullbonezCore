@@ -187,6 +187,18 @@ bit-exact — the replay scrub regression is the gate.
     `tools\validate_full.bat` passed in 45.9s with 0 build warnings/errors, 0
     DX12 validation errors, matching DX12 screenshots, and
     `physics_regression_solver.csv` byte-exact at 20001 lines.
+  - Progress note (2026-07-08, first replay `.inl` promotion): promoted
+    `RunReplayImportExport.inl` into `RunReplayImportExport.cpp` plus
+    `RunReplayImportExport.h`, removing one replay body splice from
+    `RunReplayTools.cpp`. The remaining replay `.inl` promotions stay open under
+    plan 06 step 1.1. Comment audit inspected `RunReplayImportExport.cpp`,
+    `RunReplayImportExport.h`, and `RunReplayTools.cpp` with no deferred wording
+    work. Validation: `tools\validate_build.bat Profile` passed in 7.5s;
+    `tools\validate_format.bat` passed in 9.4s after narrow formatting;
+    `tools\validate_replay_scrub.bat` passed in 24.7s; `tools\validate_full.bat`
+    passed in 44.4s with 0 build warnings/errors, 0 DX12 validation errors,
+    matching DX12 screenshots, and `physics_regression_solver.csv` byte-exact at
+    20001 lines.
 
 ### Phase 3 — Make Butterfly Effect ownership explicit
 
