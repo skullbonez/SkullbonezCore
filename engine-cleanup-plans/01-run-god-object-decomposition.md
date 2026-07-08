@@ -1010,6 +1010,33 @@ every step. Commit per step.
     (9.3s), and
     `TestOutput\agent_logs\plan01_demo_director_state_shelf_runtime_boundaries.log`
     (17.6s).
+  - [x] Interaction automation state shelf moved from `RunState.h` into
+    `RunInteractionAutomationState.h`. The new header owns the CLI automation
+    action enums, script action records, report records, and injected input
+    frame state used by `RunInteractionAutomation.cpp`; `Run` still stores the
+    harness value until the automation owner is split further. The Visual Studio
+    project/filter metadata and `tools\validate_project_filters.py` guardrail
+    now recognize the new header. The touched-file comment audit added the new
+    automation learning header and preserved the required `RunState.h` inline
+    comment alignment after the shelf removal. Gate evidence:
+    `TestOutput\agent_logs\plan01_interaction_automation_state_shelf_validate_full.log`
+    (47.2s; project filters/runtime boundaries passed, Profile/Debug builds had
+    0 warnings and 0 errors, DX12 InfoQueue errors = 0, screenshots matched
+    baselines, and `physics_regression_solver.csv` matched byte-exactly).
+    Targeted pre-gate checks also passed:
+    `TestOutput\agent_logs\plan01_interaction_automation_state_shelf_build_profile.log`
+    (10.3s),
+    `TestOutput\agent_logs\plan01_interaction_automation_state_shelf_validate_format.log`
+    (9.4s),
+    `TestOutput\agent_logs\plan01_interaction_automation_state_shelf_runtime_boundaries.log`
+    (17.7s),
+    `TestOutput\agent_logs\plan01_interaction_automation_state_shelf_project_filters_rerun.log`
+    (1.1s), and
+    `TestOutput\agent_logs\plan01_interaction_automation_state_shelf_validate_fast.log`
+    (44.2s). The first project-filter pass caught the missing filter rule for
+    the new header
+    (`TestOutput\agent_logs\plan01_interaction_automation_state_shelf_project_filters.log`,
+    1.2s); the guardrail prefix was added before the rerun.
 
 ### Phase 3 — Shrink `Run`
 

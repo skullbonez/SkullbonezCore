@@ -208,6 +208,7 @@ RUNTIME_PREFIXES = (
     "RunDemoDirector",
     "RunFrame",
     "RunInteractionAutomation",
+    "RunInteractionAutomationState",
     "RunInput",
     "RunInternal",
     "RunLiveStyle",

@@ -56,6 +56,7 @@ Related:
 #include "Render/RuntimeRenderer.h"
 #include "RunReplayProbeState.h"
 #include "RunState.h"
+#include "RunInteractionAutomationState.h"
 #include "RuntimeViewModel.h"
 #include "Replay/ReplayRuntime.h"
 #include "Scene/SceneAuthoredSetup.h"
