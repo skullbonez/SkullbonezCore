@@ -1,7 +1,7 @@
 /*
 File: SkullbonezSource/Runtime/RuntimeTuning.h
 Purpose:
-  Declares runtime tuning helpers for UI-driven render, audio, and worker settings.
+  Declares runtime tuning helpers for UI-driven render, audio, physics, and worker settings.
 
 Mental model:
   UI emits raw parameter changes. Runtime tuning clamps those values or
@@ -13,12 +13,14 @@ Glossary:
   Ordinary render config: Non-cinematic renderer settings saved in engine.cfg.
   Override mask: Bitset recording which UI-touched scene values should persist.
   Sound command: One-frame UI packet that edits contact-audio presentation state.
+  Tornado command: One-frame Physics-tab packet that edits live vortex settings.
   Worker override: Runtime request for the worker-pool thread count.
 
 Invariants:
   - Render and cinematic helpers clamp raw UI values before writing runtime config.
   - Scene override bits and the changed value must stay paired.
   - Sound commands delegate value limits to ContactAudioService setters.
+  - Tornado commands sync runtime settings back to physics after field edits.
 
 Related:
   - SkullbonezSource/Runtime/RunInput.cpp
@@ -52,6 +54,23 @@ struct SoundUICommandContext
     bool contactAudioDisabledByLaunch = false;
 };
 
+struct TornadoUICommandContext
+{
+    // Lifetime: borrowed only while one Physics-tab tornado command packet is applied.
+    // The helper writes runtime settings and immediately mirrors deterministic field
+    // config into physics; it does not retain model or settings references.
+    RunRuntimeSettings& runtimeSettings;
+    GameObjects::GameModelCollection& modelCollection;
+};
+
+struct TornadoUICommandResult
+{
+    bool toggledTornado = false;
+    bool toggledVisualShell = false;
+    bool toggledFieldVectors = false;
+    int applySettingsActionCount = 0;
+};
+
 void ApplyWorkerThreadCountOverride( EngineConfig& config,
                                      Threading::WorkerPool& workerPool,
                                      int requestedWorkerThreads );
@@ -67,6 +86,7 @@ void ApplyCinematicUIParam( CinematicRenderConfig& cinematic,
 void SetCinematicShadowsEnabledFromUI( CinematicRenderConfig& cinematic, RunSceneState& scene, bool enabled );
 void ApplyOrdinaryRenderUIParam( OrdinaryRenderConfig& ordinary, UIRenderParam param, float rawValue );
 bool ApplySoundUICommands( SoundUICommandContext context, const UI::UISoundCommands& commands );
+TornadoUICommandResult ApplyTornadoUICommands( TornadoUICommandContext context, const UI::UIPhysicsCommands& commands );
 void ToggleCinematicUIFeature( CinematicRenderConfig& cinematic, RunSceneState& scene, UICinematicFeature feature );
 } // namespace RunInternal
 } // namespace Basics

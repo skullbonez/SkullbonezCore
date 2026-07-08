@@ -2,7 +2,7 @@
 File: SkullbonezSource/Runtime/RuntimeTuning.cpp
 Purpose:
   Owns UI-driven runtime tuning for cinematic rendering, ordinary rendering,
-  contact-audio presentation, and worker-thread overrides.
+  contact-audio presentation, tornado physics settings, and worker-thread overrides.
 
 Mental model:
   Runtime input decides when a UI command is accepted. This file decides how
@@ -14,12 +14,14 @@ Glossary:
   Ordinary render config: Non-cinematic renderer settings saved in engine.cfg.
   Override mask: Bitset recording which UI-touched scene values should persist.
   Sound command: One-frame UI packet that edits contact-audio presentation state.
+  Tornado command: One-frame Physics-tab packet that edits live vortex settings.
   Worker override: Runtime request for the worker-pool thread count.
 
 Invariants:
   - Render and cinematic UI values are clamped before they mutate live config.
   - Scene override masks must be updated with the value they describe.
   - Sound commands delegate value limits to ContactAudioService setters.
+  - Tornado commands sync runtime settings back to physics after field edits.
 
 Related:
   - SkullbonezSource/Runtime/RuntimeTuning.h
@@ -28,6 +30,7 @@ Related:
 #include "RuntimeTuning.h"
 
 #include "../Core/WorkerPool.h"
+#include "../UI/UILayout.h"
 #include "../World/WorldEnvironment.h"
 #include "Replay/ReplayRuntime.h"
 
@@ -64,6 +67,24 @@ bool EnsureContactAudioReady( SoundUICommandContext context )
     return context.contactAudio.IsAvailable() ||
            ( context.contactAudio.Initialize() &&
              context.contactAudio.LoadContactAudioMap( CONTACT_AUDIO_MATERIAL_MAP_PATH ) );
+}
+
+void ApplyTornadoFieldValue( RunRuntimeSettings& runtimeSettings,
+                             bool hasTornadoSystem,
+                             float Physics::TornadoFieldConfig::* field,
+                             float value )
+{
+    if ( hasTornadoSystem )
+    {
+        for ( Physics::TornadoVortexConfig& vortex : runtimeSettings.tornadoSystem.vortices )
+        {
+            vortex.field.*field = value;
+        }
+    }
+    else
+    {
+        runtimeSettings.tornadoField.*field = value;
+    }
 }
 } // namespace
 
@@ -446,6 +467,116 @@ bool ApplySoundUICommands( SoundUICommandContext context, const UI::UISoundComma
         soundTuningChanged = true;
     }
     return soundTuningChanged;
+}
+
+TornadoUICommandResult ApplyTornadoUICommands( TornadoUICommandContext context, const UI::UIPhysicsCommands& commands )
+{
+    // Why: RunInput owns input-mode bookkeeping, while this helper owns the
+    // physics-facing mutation and single sync point for accepted tornado edits.
+    TornadoUICommandResult result;
+    RunRuntimeSettings& runtimeSettings = context.runtimeSettings;
+    bool tornadoFieldChanged = false;
+    const bool hasTornadoSystem = !runtimeSettings.tornadoSystem.vortices.empty();
+
+    if ( commands.toggleTornado )
+    {
+        bool tornadoEnabled = false;
+        if ( hasTornadoSystem )
+        {
+            runtimeSettings.tornadoSystem.enabled = !runtimeSettings.tornadoSystem.enabled;
+            tornadoEnabled = runtimeSettings.tornadoSystem.enabled;
+        }
+        else
+        {
+            runtimeSettings.tornadoField.enabled = !runtimeSettings.tornadoField.enabled;
+            tornadoEnabled = runtimeSettings.tornadoField.enabled;
+        }
+        if ( runtimeSettings.tornadoVisual.autoEnableWithTornado )
+        {
+            runtimeSettings.tornadoVisual.enabled = tornadoEnabled;
+        }
+        tornadoFieldChanged = true;
+        result.toggledTornado = true;
+    }
+    if ( commands.toggleTornadoVisualShell )
+    {
+        runtimeSettings.tornadoVisual.enabled = !runtimeSettings.tornadoVisual.enabled;
+        result.toggledVisualShell = true;
+    }
+    if ( commands.toggleTornadoFieldVectors )
+    {
+        if ( hasTornadoSystem )
+        {
+            runtimeSettings.tornadoSystem.visualizeVelocityField =
+                !runtimeSettings.tornadoSystem.visualizeVelocityField;
+        }
+        else
+        {
+            runtimeSettings.tornadoField.visualizeVelocityField = !runtimeSettings.tornadoField.visualizeVelocityField;
+        }
+        tornadoFieldChanged = true;
+        result.toggledFieldVectors = true;
+    }
+    if ( commands.requestTornadoRadius )
+    {
+        ApplyTornadoFieldValue( runtimeSettings,
+                                hasTornadoSystem,
+                                &Physics::TornadoFieldConfig::radius,
+                                std::clamp( commands.requestedTornadoRadius,
+                                            UI::Layout::UI_TORNADO_RADIUS_MIN,
+                                            UI::Layout::UI_TORNADO_RADIUS_MAX ) );
+        tornadoFieldChanged = true;
+        ++result.applySettingsActionCount;
+    }
+    if ( commands.requestTornadoHeight )
+    {
+        ApplyTornadoFieldValue( runtimeSettings,
+                                hasTornadoSystem,
+                                &Physics::TornadoFieldConfig::height,
+                                std::clamp( commands.requestedTornadoHeight,
+                                            UI::Layout::UI_TORNADO_HEIGHT_MIN,
+                                            UI::Layout::UI_TORNADO_HEIGHT_MAX ) );
+        tornadoFieldChanged = true;
+        ++result.applySettingsActionCount;
+    }
+    if ( commands.requestTornadoInward )
+    {
+        ApplyTornadoFieldValue( runtimeSettings,
+                                hasTornadoSystem,
+                                &Physics::TornadoFieldConfig::inwardAcceleration,
+                                std::clamp( commands.requestedTornadoInward,
+                                            UI::Layout::UI_TORNADO_INWARD_MIN,
+                                            UI::Layout::UI_TORNADO_INWARD_MAX ) );
+        tornadoFieldChanged = true;
+        ++result.applySettingsActionCount;
+    }
+    if ( commands.requestTornadoSwirl )
+    {
+        ApplyTornadoFieldValue( runtimeSettings,
+                                hasTornadoSystem,
+                                &Physics::TornadoFieldConfig::swirlAcceleration,
+                                std::clamp( commands.requestedTornadoSwirl,
+                                            UI::Layout::UI_TORNADO_SWIRL_MIN,
+                                            UI::Layout::UI_TORNADO_SWIRL_MAX ) );
+        tornadoFieldChanged = true;
+        ++result.applySettingsActionCount;
+    }
+    if ( commands.requestTornadoLift )
+    {
+        ApplyTornadoFieldValue( runtimeSettings,
+                                hasTornadoSystem,
+                                &Physics::TornadoFieldConfig::liftAcceleration,
+                                std::clamp( commands.requestedTornadoLift,
+                                            UI::Layout::UI_TORNADO_LIFT_MIN,
+                                            UI::Layout::UI_TORNADO_LIFT_MAX ) );
+        tornadoFieldChanged = true;
+        ++result.applySettingsActionCount;
+    }
+    if ( tornadoFieldChanged )
+    {
+        SyncTornadoRuntimeSettingsToPhysics( context.modelCollection, runtimeSettings );
+    }
+    return result;
 }
 
 void ApplyCinematicUIParam( CinematicRenderConfig& cinematic,

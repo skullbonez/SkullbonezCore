@@ -421,6 +421,30 @@ every step. Commit per step.
 	    `TestOutput\agent_logs\plan01_sound_ui_owner_runtime_boundaries.log`
 	    (17.4s) and
 	    `TestOutput\agent_logs\plan01_sound_ui_owner_build_profile.log` (8.4s).
+	  - [x] Tornado Physics-tab UI command extraction moved tornado enable/disable,
+	    visual-shell, field-vector, and radius/height/inward/swirl/lift setting
+	    handling out of `Run::TakeInput()` and into the `RuntimeTuning` UI-adapter
+	    boundary. `Run` now passes a borrowed `TornadoUICommandContext` and only
+	    records the input-mode actions reported by `TornadoUICommandResult`, while
+	    the helper owns clamping and the single runtime-settings-to-physics sync.
+	    The touched-file comment audit updated `RuntimeTuning`'s learning headers
+	    and added the borrowed-context lifetime note. `TakeInput()` now spans 1,151
+	    lines. Gate evidence:
+	    `TestOutput\agent_logs\plan01_step1_3_tornado_ui_interaction_clicks.log`
+	    (16.0s, both interaction reports `ok=1`) and
+	    `TestOutput\agent_logs\plan01_step1_3_tornado_ui_validate_full_rerun.log`
+	    (58.1s; project filters/runtime boundaries passed, Profile/Debug builds had
+	    0 warnings and 0 errors, DX12 InfoQueue errors = 0, screenshots matched
+	    baselines, and `physics_regression_solver.csv` matched byte-exactly). A
+	    first targeted Profile build caught missing `UI::Layout` qualification for
+	    the clamp constants, and the first `validate_full` attempt failed only on
+	    formatting for the two touched `.cpp` files; both were fixed before the final
+	    reruns. Targeted pre-gate checks also passed:
+	    `TestOutput\agent_logs\plan01_tornado_ui_runtime_boundaries_rerun.log`
+	    (17.4s), `TestOutput\agent_logs\plan01_tornado_ui_build_profile_rerun.log`
+	    (6.2s), and
+	    `TestOutput\agent_logs\plan01_tornado_ui_validate_format_after_fix.log`
+	    (9.1s).
 - [ ] **1.4** Confirm `TakeInput()` is under ~200 lines (setup + dispatch loop).
 
 ### Phase 2 — Move state shelves out of `RunState`
