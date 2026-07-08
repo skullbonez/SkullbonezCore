@@ -358,6 +358,14 @@ float EditorPlacementAltitudeStepSize( int objectType,
 }
 
 
+} // namespace
+
+namespace SkullbonezCore
+{
+namespace Basics
+{
+namespace RunInternal
+{
 Vector3 EditorAxisVector( int axis )
 {
     switch ( axis )
@@ -540,9 +548,7 @@ bool TryGetEditorSelectionFrame( const GameModelCollection& collection,
                                  PhysicsColliderHandle selectedColliderHandle,
                                  int selectedIndex,
                                  Vector3& outOrigin,
-                                 float& outRadius,
-                                 EditorGizmoGroupIndices* outGroupIndices = nullptr,
-                                 int* outGroupCount = nullptr )
+                                 float& outRadius )
 {
     EditorGizmoGroupIndices indices = {};
     const int count = GatherSelectedEditorTransformGroup( collection, selectedIndex, indices );
@@ -593,14 +599,6 @@ bool TryGetEditorSelectionFrame( const GameModelCollection& collection,
 
     outOrigin = origin;
     outRadius = radius;
-    if ( outGroupIndices )
-    {
-        *outGroupIndices = indices;
-    }
-    if ( outGroupCount )
-    {
-        *outGroupCount = count;
-    }
     return true;
 }
 
@@ -1014,6 +1012,12 @@ float DistanceRayToSegmentSquared( const Vector3& rayOrigin,
 }
 
 
+} // namespace RunInternal
+} // namespace Basics
+} // namespace SkullbonezCore
+
+namespace
+{
 constexpr std::size_t REPLAY_PATH_MAX_FUTURE_NODES = 64;
 constexpr std::size_t REPLAY_PATH_MAX_ROOT_TARGETS = 12;
 constexpr std::size_t REPLAY_PATH_MAX_SEGMENTS = 260;
@@ -1964,6 +1968,5 @@ bool TryUpdateEditorPlacementPreview( EditorPlacementPreviewContext context,
 } // namespace SkullbonezCore
 
 
-#include "RunEditorGizmoTools.inl"
 #include "RunEditorOverlayTools.inl"
 #include "RunEditorObjectPlacement.inl"

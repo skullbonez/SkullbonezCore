@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/Runtime/Editor/RunEditorGizmoTools.inl
+File: SkullbonezSource/Runtime/Editor/RunEditorGizmoTools.cpp
 Purpose:
   Contains editor transform gizmo hit testing and drag mutation helpers.
 
@@ -23,6 +23,34 @@ Related:
   - SkullbonezSource/Runtime/Editor/RunEditorTools.cpp
   - SkullbonezSource/Runtime/RunInternal.h
 */
+#include "EditorTools.h"
+#include "../Tools/RuntimeTools.h"
+#include "../../GameObjects/GameModelCollection.h"
+#include "../../Maths/RotationMatrix.h"
+#include "../../Physics/ColliderStore.h"
+#include "../../Physics/CollisionShape.h"
+#include "../../Physics/PhysicsApi.h"
+#include "../../Physics/PhysicsBodyStore.h"
+#include "../../Physics/PhysicsEngine.h"
+
+#include <algorithm>
+#include <cfloat>
+#include <cmath>
+#include <utility>
+
+using SkullbonezCore::GameObjects::PhysicsBodyStateEdit;
+using SkullbonezCore::Math::CollisionDetection::CollisionShape;
+using SkullbonezCore::Math::CollisionDetection::ScaleShapeAxisFromBase;
+using SkullbonezCore::Math::Orientation::Quaternion;
+using SkullbonezCore::Math::Transformation::RotatePointAboutArbitrary;
+using SkullbonezCore::Math::Vector::Vector3;
+using SkullbonezCore::Math::Vector::VectorMagSquared;
+using SkullbonezCore::Physics::ColliderRecord;
+using SkullbonezCore::Physics::ColliderStore;
+using SkullbonezCore::Physics::MakeColliderCreateDesc;
+using SkullbonezCore::Physics::PhysicsBodyRecord;
+using SkullbonezCore::Physics::PhysicsBodyStore;
+
 namespace SkullbonezCore
 {
 namespace Basics

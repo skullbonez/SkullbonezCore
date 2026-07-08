@@ -221,6 +221,7 @@
     <ClCompile Include="SkullbonezSource\Runtime\RunCapture.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Run.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Editor\RunEditorTools.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Editor\RunEditorGizmoTools.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Editor\RunMousePickupTools.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\RunFrame.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\RunDemoDirector.cpp" />
@@ -323,7 +324,6 @@
     <ClInclude Include="SkullbonezSource\Runtime\Editor\EditorOverlayTools.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Editor\EditorHullAssets.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Editor\RunEditorPlacementAssets.inl" />
-    <ClInclude Include="SkullbonezSource\Runtime\Editor\RunEditorGizmoTools.inl" />
     <ClInclude Include="SkullbonezSource\Runtime\Editor\RunEditorObjectPlacement.inl" />
     <ClInclude Include="SkullbonezSource\Runtime\Editor\RunEditorOverlayTools.inl" />
     <ClInclude Include="SkullbonezSource\Runtime\Editor\RunEditorTracer.inl" />

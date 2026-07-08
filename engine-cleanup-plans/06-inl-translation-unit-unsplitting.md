@@ -115,9 +115,38 @@ build.
     warnings/errors, 0 DX12 validation errors, DX12 screenshots matched
     committed baselines, and `physics_regression_solver.csv` matched
     byte-exactly at 20001 lines.
+  - [x] `RunEditorGizmoTools.inl` -> `RunEditorGizmoTools.cpp` (2026-07-08).
+    The promoted TU now includes `EditorTools.h` plus the narrow runtime,
+    physics-store, collider, shape, and math headers it actually uses. Its
+    former mid-file include was removed from `RunEditorTools.cpp`, and
+    `SKULLBONEZ_CORE.vcxproj` / `.filters` now compile the new `.cpp`.
+    Store-backed gizmo helper declarations live under `RunInternal` in
+    `EditorTools.h`; the matching helper definitions were lifted out of the
+    anonymous namespace in `RunEditorTools.cpp` so gizmo math, overlay tracing,
+    and placement commits share one live body/collider authority path.
+    `TryGetEditorSelectionFrame` was narrowed to the actually used store-backed
+    query shape because no caller used the old hidden group-output parameters.
+    `tools\check_runtime_boundaries.py` now scans the new `.cpp` path for the
+    gizmo selection-frame guardrail, and its synthetic self-tests were updated.
+    Comment audit touched `RunEditorGizmoTools.cpp`, `RunEditorTools.cpp`,
+    `EditorTools.h`, and `tools\check_runtime_boundaries.py`; all have learning
+    headers and required local `Concept`/`Why`/`Invariant` comments, with no
+    deferred files.
+
+    Validation note: initial `tools\validate_fast.bat` failed once because the
+    runtime-boundary checker still read the old `.inl` path, then failed once in
+    the Profile build on a missing promoted-file `Quaternion` using declaration.
+    After fixes, `python tools\check_runtime_boundaries.py` passed in 16.3s and
+    `python tools\check_runtime_boundaries.py --self-test` passed in 0.3s.
+    `tools\validate_fast.bat` passed in 43.8s
+    (`Agentic\Logs\cleanup-06-step-0.2-gizmo-validate-fast.log`), and
+    `tools\validate_full.bat` passed in 45.4s
+    (`Agentic\Logs\cleanup-06-step-0.2-gizmo-validate-full.log`): 0 build
+    warnings/errors, 0 DX12 validation errors, DX12 screenshots matched
+    committed baselines, and `physics_regression_solver.csv` matched
+    byte-exactly at 20001 lines.
   - [ ] `RunEditorPlacementAssets.inl`
   - [ ] `RunEditorTracer.inl`
-  - [ ] `RunEditorGizmoTools.inl`
   - [ ] `RunEditorOverlayTools.inl`
   - [ ] `RunEditorObjectPlacement.inl`
 - [ ] **0.3** `rg -n '#include ".*\.inl"' SkullbonezSource/Runtime/Editor` —

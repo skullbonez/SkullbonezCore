@@ -114,7 +114,7 @@ SCENE_AUTHORED_SETUP_SOURCE = Path("SkullbonezSource/Runtime/Scene/SceneAuthored
 SCENE_GENERATED_SETUP_SOURCE = Path("SkullbonezSource/Runtime/Scene/SceneGeneratedSetup.cpp")
 EDITOR_OBJECT_PLACEMENT_SOURCE = Path("SkullbonezSource/Runtime/Editor/RunEditorObjectPlacement.inl")
 EDITOR_TOOLS_SOURCE = Path("SkullbonezSource/Runtime/Editor/RunEditorTools.cpp")
-EDITOR_GIZMO_TOOLS_SOURCE = Path("SkullbonezSource/Runtime/Editor/RunEditorGizmoTools.inl")
+EDITOR_GIZMO_TOOLS_SOURCE = Path("SkullbonezSource/Runtime/Editor/RunEditorGizmoTools.cpp")
 EDITOR_OVERLAY_TOOLS_SOURCE = Path("SkullbonezSource/Runtime/Editor/RunEditorOverlayTools.inl")
 LAUNCHER_TOOLS_SOURCE = Path("SkullbonezSource/Runtime/Editor/LauncherTools.cpp")
 MOUSE_PICKUP_TOOLS_SOURCE = Path("SkullbonezSource/Runtime/Editor/RunMousePickupTools.cpp")
@@ -12282,7 +12282,7 @@ def run_self_tests() -> list[str]:
         collection.CommitEditedModelPhysicsState( index, true );
     }
     """
-    expect_error('deleted edited-model physics bool commit synthetic surface was not rejected', check_deleted_edited_model_physics_state_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorGizmoTools.inl"), old_deleted_bool_edit_commit, ), 'deleted edited-model physics bool commit is blocked')
+    expect_error('deleted edited-model physics bool commit synthetic surface was not rejected', check_deleted_edited_model_physics_state_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorGizmoTools.cpp"), old_deleted_bool_edit_commit, ), 'deleted edited-model physics bool commit is blocked')
 
     allowed_split_edited_state_commit = """
     void ApplyEditorScale( GameModelCollection& collection, int index, PhysicsColliderCreateDesc desc )
@@ -12291,7 +12291,7 @@ def run_self_tests() -> list[str]:
         collection.CommitEditedModelColliderState( index, desc );
     }
     """
-    expect_clean('split edited-state commit synthetic surface was rejected', check_deleted_edited_model_physics_state_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorGizmoTools.inl"), allowed_split_edited_state_commit, ))
+    expect_clean('split edited-state commit synthetic surface was rejected', check_deleted_edited_model_physics_state_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorGizmoTools.cpp"), allowed_split_edited_state_commit, ))
 
     old_full_collider_edit_commit = """
     void GameModelCollection::CommitEditedModelColliderState( int modelIndex, PhysicsColliderCreateDesc colliderDesc )
@@ -14352,7 +14352,7 @@ def run_self_tests() -> list[str]:
         return 0;
     }
     """
-    expect_error('old editor gizmo model-only frame call synthetic surface was not rejected', check_editor_selection_frame_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorGizmoTools.inl"), old_editor_gizmo_model_only_call, ), 'editor selection frame must use store rows')
+    expect_error('old editor gizmo model-only frame call synthetic surface was not rejected', check_editor_selection_frame_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorGizmoTools.cpp"), old_editor_gizmo_model_only_call, ), 'editor selection frame must use store rows')
 
     old_editor_frame_store_without_handles = """
     bool TryGetEditorSelectionFrame( const std::vector<GameModel>& models,
@@ -14423,7 +14423,7 @@ def run_self_tests() -> list[str]:
     }
     """
     expect_clean('store-backed editor selection frame synthetic surface was rejected', check_editor_selection_frame_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorTools.cpp"), allowed_editor_selection_frame_store_reads, ))
-    expect_clean('store-backed editor gizmo selection frame call synthetic surface was rejected', check_editor_selection_frame_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorGizmoTools.inl"), allowed_editor_selection_frame_store_reads, ))
+    expect_clean('store-backed editor gizmo selection frame call synthetic surface was rejected', check_editor_selection_frame_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorGizmoTools.cpp"), allowed_editor_selection_frame_store_reads, ))
 
     old_editor_tree_group_append = """
     void PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context )
