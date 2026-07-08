@@ -25,6 +25,7 @@ Related:
 */
 #include "InputController.h"
 
+#include "RunCameraState.h"
 #include "RunInternal.h"
 
 #include <algorithm>

@@ -370,6 +370,7 @@
     <ClInclude Include="SkullbonezSource\Rendering\PrimitiveMeshBuilder.h" />
     <ClInclude Include="SkullbonezSource\Core\Config.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Run.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\RunCameraState.h" />
     <ClInclude Include="SkullbonezSource\Runtime\RunDemoDirector.h" />
     <ClInclude Include="SkullbonezSource\Runtime\RunDebugState.h" />
     <ClInclude Include="SkullbonezSource\Runtime\RunInternal.h" />

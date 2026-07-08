@@ -1184,6 +1184,33 @@ every step. Commit per step.
     (17.7s), and
     `TestOutput\agent_logs\plan01_attached_camera_state_shelf_diff_check.log`
     (0.1s).
+  - [x] Camera/input state shelf moved from `RunState.h` into
+    `RunCameraState.h`. The new header owns operator camera mode, input memory,
+    mouse-look reset state, track-ball/auto-screenshot timers, and Director
+    playback state. `Run` still stores `m_camera`, while concrete camera/input
+    helpers now include `RunCameraState.h`; `RunState.h` now only carries the
+    subsystem shelf. The Visual Studio project/filter metadata and
+    `tools\validate_project_filters.py` guardrail now recognize the new header.
+    The touched-file comment audit added the camera-state learning header,
+    refreshed the shrinking `RunState.h` header, and re-aligned inline comments.
+    Gate evidence:
+    `TestOutput\agent_logs\plan01_camera_state_shelf_validate_full.log`
+    (47.3s; project filters/runtime boundaries passed, Profile/Debug builds had
+    0 warnings and 0 errors, DX12 InfoQueue errors = 0, screenshots matched
+    baselines, and `physics_regression_solver.csv` matched byte-exactly).
+    Targeted pre-gate checks also passed:
+    `TestOutput\agent_logs\plan01_camera_state_shelf_build_profile.log`
+    (10.4s),
+    `TestOutput\agent_logs\plan01_camera_state_shelf_validate_format.log`
+    (9.3s),
+    `TestOutput\agent_logs\plan01_camera_state_shelf_runtime_boundaries.log`
+    (17.8s),
+    `TestOutput\agent_logs\plan01_camera_state_shelf_project_filters.log`
+    (1.1s),
+    `TestOutput\agent_logs\plan01_camera_state_shelf_validate_fast.log`
+    (42.8s), and
+    `TestOutput\agent_logs\plan01_camera_state_shelf_diff_check.log`
+    (0.3s; whitespace clean, with Git line-ending warnings for project XML).
 
 ### Phase 3 — Shrink `Run`
 

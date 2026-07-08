@@ -803,6 +803,9 @@
     <ClInclude Include="SkullbonezSource\Runtime\Run.h">
       <Filter>Header Files\Runtime</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\RunCameraState.h">
+      <Filter>Header Files\Runtime</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\RunDemoDirector.h">
       <Filter>Header Files\Runtime</Filter>
     </ClInclude>

@@ -28,6 +28,7 @@ Related:
 
 #include "SceneControllerState.h"
 #include "SceneGeneratedSetup.h"
+#include "../RunCameraState.h"
 #include "../RunState.h"
 
 namespace SkullbonezCore

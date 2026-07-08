@@ -1,28 +1,20 @@
 /*
 File: SkullbonezSource/Runtime/RunState.h
 Purpose:
-  Collects Run-owned state aggregates that are shared by split runtime files.
+  Defines the remaining Run-owned subsystem aggregate shared by split runtime files.
 
 Mental model:
-  Run remains the composition root, but its state shelves are named here so the
-  public Run facade is no longer a catalogue of every timer, toggle, and render
-  resource aggregate. Narrower owners should move state out of this file over
-  time; this header is a staging boundary, not a destination for new features.
+  Run remains the composition root, but this staging header is shrinking toward
+  empty as narrower owners claim their state shelves. New feature state should
+  go to the owner that mutates it instead of growing this shared boundary.
 
 Glossary:
   State shelf: Run-owned aggregate that groups related fields while split
   implementation files are being decomposed.
-  Runtime setting: Live toggle or tuning value applied while a scene is running.
-  Contact-audio flash mode: Render-only selector for which audio decisions get
-    a body flash after physics, independent of deterministic simulation.
-  Attached camera target: Camera-owned follow identity that stores physics
-    handles for live motion and keeps model-order facts only as UI fallback.
-  Director playback: Presentation-owned shot-list state that times authored
-    camera/style phases without changing deterministic physics state.
   Borrowed subsystem pointer: Non-owning pointer to state owned elsewhere in
     the Run composition root.
-  Interaction automation: CLI-driven validation state that injects bounded
-    input snapshots, then verifies runtime-owned state through JSON reports.
+  Render pass resources: Long-lived GPU/pass owner storage lazily recreated by
+    the render host when size or shader contracts change.
 
 Invariants:
   - Owning state should use value members or smart pointers; raw pointers here
@@ -43,10 +35,7 @@ Related:
 #include "../Core/Config.h"
 #include "../World/SkyBox.h"
 #include "CameraCollection.h"
-#include "DemoDirector.h"
-#include "Input.h"
 #include "Render/RuntimeRenderResources.h"
-#include "RuntimeCameraMode.h"
 
 #include <memory>
 #include <string>
@@ -93,37 +82,17 @@ struct RunSubsystemState
     // shader contracts.
     RunRenderPassResources renderPasses;
 
-    Environment::CameraCollection* cameras = nullptr;          // Borrowed alias of cameraCollection after Initialise wires services.
-    Textures::TextureCollection* textures = nullptr;           // Borrowed alias of textureCollection after Initialise wires services.
-    const EngineConfig* config = nullptr;                      // Borrowed process config sampled through the Run composition root.
-    Threading::WorkerPool* workerPool = nullptr;               // Borrowed worker service initialised and shut down by Runtime/Init.cpp.
+    Environment::CameraCollection* cameras = nullptr; // Borrowed alias of cameraCollection after Initialise wires services.
+    Textures::TextureCollection* textures = nullptr;  // Borrowed alias of textureCollection after Initialise wires services.
+    const EngineConfig* config = nullptr;             // Borrowed process config sampled through the Run composition root.
+    Threading::WorkerPool* workerPool = nullptr;      // Borrowed worker service initialised and shut down by Runtime/Init.cpp.
     Window* window = nullptr;
-    Geometry::SkyBox* skyBox = nullptr;                        // Borrowed alias of skyBoxOwner after Initialise wires services.
+    Geometry::SkyBox* skyBox = nullptr;               // Borrowed alias of skyBoxOwner after Initialise wires services.
 
     void BindStartupServices(
         Window& windowOwner,
         Threading::WorkerPool& workerPoolOwner,
-        const EngineConfig& configOwner );                     // Binds process-start services and config-derived camera policy.
-};
-
-struct RunCameraState
-{
-    Hardware::InputState input = {};                           // Snapshot consumed by camera controls for this frame.
-
-    int selectedCamera = 0;                                    // Keeps track of which camera is selected
-    RunCameraMode mode = RunCameraMode::Demo;                  // Explicit operator camera mode shown in the minimized HUD.
-    RunCameraMode modeBeforeLauncher = RunCameraMode::Inspect; // N returns to the last non-launcher workspace.
-    RunCameraMode modeBeforeAttach = RunCameraMode::Inspect;   // Pre-Attach workspace used by explicit attach-restore paths.
-    DemoDirectorPlaybackState director;                        // Fixed shot-list playback state for Director camera mode.
-    bool needsMouseLookReset = true;                           // Discard stale absolute mouse deltas after UI/focus/fly transitions
-    bool hasMouseLookLastClient = false;
-    POINT mouseLookLastClient = {};
-    float cameraTime = 0.0f;                                   // Camera helper clock
-    int trackBallIndex = -1;                                   // Index of ball to track with camera (-1 = no tracking)
-    float trackHeight = 300.0f;                                // Camera height above tracked ball
-    float autoCycleInterval = -1.0f;                           // Seconds between per-ball auto screenshots (-1 = disabled)
-    float autoCycleAccum = 0.0f;                               // Accumulated real-time seconds since last shot
-    int autoCycleShotsTaken = 0;                               // Number of per-ball screenshots taken so far
+        const EngineConfig& configOwner );            // Binds process-start services and config-derived camera policy.
 };
 
 } // namespace Basics

@@ -26,6 +26,7 @@ Related:
 #pragma once
 
 #include "SceneControllerState.h"
+#include "../RunCameraState.h"
 #include "../RunDebugState.h"
 #include "../RunRuntimeSettings.h"
 #include "../RunState.h"

@@ -212,6 +212,7 @@ RUNTIME_PREFIXES = (
     "RunInteractionAutomationState",
     "RunInput",
     "RunInternal",
+    "RunCameraState",
     "RunLiveStyle",
     "RunPasses",
     "RunLaunchOptions",
