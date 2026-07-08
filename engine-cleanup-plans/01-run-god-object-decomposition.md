@@ -504,6 +504,25 @@ every step. Commit per step.
 	    (9.1s), `TestOutput\agent_logs\plan01_presentation_ui_runtime_boundaries.log`
 	    (17.4s), and `TestOutput\agent_logs\plan01_presentation_ui_build_profile.log`
 	    (10.5s).
+	  - [x] Cinematic-tab UI command extraction moved cinematic rendering toggle,
+	    sky-default save intent, style-scene selection, feature toggles, and
+	    parameter sliders out of `Run::TakeInput()` and into `RuntimeTuning`.
+	    `RunInput` still owns the interactive-scene transition before mode
+	    selection so scene flow remains in the same order. The touched-file comment
+	    audit added the request-vs-load-result invariant for cinematic mode
+	    selection and the accepted-command result invariant. `TakeInput()` now
+	    spans 1,057 lines. Gate evidence:
+	    `TestOutput\agent_logs\plan01_cinematic_ui_interaction_clicks.log` (15.7s,
+	    both interaction reports `ok=1`) and
+	    `TestOutput\agent_logs\plan01_cinematic_ui_validate_full.log` (51.2s;
+	    project filters/runtime boundaries passed, Profile/Debug builds had 0 warnings
+	    and 0 errors, DX12 InfoQueue errors = 0, screenshots matched baselines, and
+	    `physics_regression_solver.csv` matched byte-exactly). Targeted pre-gate
+	    checks also passed:
+	    `TestOutput\agent_logs\plan01_cinematic_ui_validate_format_post_comments.log`
+	    (9.1s), `TestOutput\agent_logs\plan01_cinematic_ui_runtime_boundaries.log`
+	    (17.5s), and `TestOutput\agent_logs\plan01_cinematic_ui_build_profile.log`
+	    (8.3s).
 - [ ] **1.4** Confirm `TakeInput()` is under ~200 lines (setup + dispatch loop).
 
 ### Phase 2 — Move state shelves out of `RunState`

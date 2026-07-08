@@ -12,6 +12,8 @@ Glossary:
   Cinematic config: HDR/post-processing and style settings for the active look.
   Ordinary render config: Non-cinematic renderer settings saved in engine.cfg.
   Override mask: Bitset recording which UI-touched scene values should persist.
+  Cinematic command: One-frame UI packet that edits cinematic rendering, style,
+    feature, or parameter state.
   Presentation command: One-frame UI packet that edits debug visibility, render
     tuning, shadow, or water-reflection presentation state.
   Sound command: One-frame UI packet that edits contact-audio presentation state.
@@ -35,6 +37,7 @@ Related:
 #pragma once
 
 #include "RunInternal.h"
+#include "Scene/SceneRuntimeStyle.h"
 
 namespace SkullbonezCore
 {
@@ -99,6 +102,16 @@ struct RuntimePresentationUICommandContext
     double simulationSeconds = 0.0;
 };
 
+struct CinematicUICommandContext
+{
+    // Lifetime: borrowed only while one Cinematic-tab command packet is applied.
+    // The caller still owns entering interactive scene flow before mode selection.
+    RunLaunchOptions& launchOptions;
+    RunSceneState& scene;
+    CinematicRenderConfig& cinematic;
+    RuntimeCommandQueue& runtimeCommands;
+};
+
 struct TornadoUICommandResult
 {
     bool toggledTornado = false;
@@ -130,6 +143,14 @@ struct RuntimePresentationUICommandResult
     bool setWaterReflectionMode = false;
 };
 
+struct CinematicTuningUICommandResult
+{
+    // Invariant: flags report accepted UI commands for RunInput action logging;
+    // feature/param setters may clamp or no-op invalid enum values internally.
+    bool toggledFeature = false;
+    bool appliedParam = false;
+};
+
 void ApplyWorkerThreadCountOverride( EngineConfig& config,
                                      Threading::WorkerPool& workerPool,
                                      int requestedWorkerThreads );
@@ -150,6 +171,12 @@ RuntimePresentationUICommandResult ApplyRuntimePresentationUICommands( RuntimePr
                                                                        const UI::UISceneOptionCommands& sceneOptions,
                                                                        const UI::UIRenderCommands& renderTuning,
                                                                        const UI::UIWaterCommands& water );
+bool ApplyCinematicRenderingToggleUICommand( CinematicUICommandContext context,
+                                             const UI::UICinematicCommands& commands );
+bool QueueCinematicSkyDefaultsUICommand( CinematicUICommandContext context, const UI::UICinematicCommands& commands );
+bool ApplyCinematicModeUICommand( SceneRuntimeStyleContext context, const UI::UICinematicCommands& commands );
+CinematicTuningUICommandResult ApplyCinematicTuningUICommands( CinematicUICommandContext context,
+                                                               const UI::UICinematicCommands& commands );
 bool ApplyPhysicsSleepPolicyUICommand( PhysicsSleepPolicyUICommandContext context,
                                        const UI::UIPhysicsCommands& commands );
 PhysicsFrictionUICommandResult ApplyPhysicsFrictionUICommands( PhysicsFrictionUICommandContext context,

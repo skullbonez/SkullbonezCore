@@ -381,6 +381,77 @@ RuntimePresentationUICommandResult ApplyRuntimePresentationUICommands( RuntimePr
     return result;
 }
 
+bool ApplyCinematicRenderingToggleUICommand( CinematicUICommandContext context,
+                                             const UI::UICinematicCommands& commands )
+{
+    if ( !commands.toggleRendering )
+    {
+        return false;
+    }
+
+    // Master Cine switch. Clearing the launch override lets the runtime toggle
+    // become the new source of truth after launch arguments have been consumed.
+    const bool currentlyEnabled = context.launchOptions.hasCinematicRenderingOverride
+                                      ? context.launchOptions.cinematicRendering
+                                      : context.cinematic.enabled;
+    context.cinematic.enabled = !currentlyEnabled;
+    context.launchOptions.hasCinematicRenderingOverride = false;
+    if ( context.scene.isSceneMode )
+    {
+        context.scene.hasCinematicRenderingOverride = true;
+        context.scene.isCinematicRenderingEnabled = context.cinematic.enabled;
+        context.scene.cinematicOverrideMask |= SCENE_CINE_RENDERING;
+        context.scene.uiCinematicOverrideMask |= SCENE_CINE_RENDERING;
+    }
+    return true;
+}
+
+bool QueueCinematicSkyDefaultsUICommand( CinematicUICommandContext context, const UI::UICinematicCommands& commands )
+{
+    if ( !commands.saveSkyDefaults )
+    {
+        return false;
+    }
+
+    context.runtimeCommands.Push( RuntimeCommand{ RuntimeCommandType::SaveSkyDefaults } );
+    return true;
+}
+
+bool ApplyCinematicModeUICommand( SceneRuntimeStyleContext context, const UI::UICinematicCommands& commands )
+{
+    if ( commands.requestedModeSceneIndex < -1 )
+    {
+        return false;
+    }
+
+    // Invariant: input action reporting tracks the accepted UI request. The
+    // underlying style loader can fail closed for a bad/missing scene, but the
+    // previous RunInput path still recorded the selection action for the request.
+    (void)ApplyCinematicModeFromBrowserIndex( context, commands.requestedModeSceneIndex );
+    return true;
+}
+
+CinematicTuningUICommandResult ApplyCinematicTuningUICommands( CinematicUICommandContext context,
+                                                               const UI::UICinematicCommands& commands )
+{
+    CinematicTuningUICommandResult result;
+    if ( commands.requestedFeature != UICinematicFeature::None )
+    {
+        if ( commands.requestedFeature == UICinematicFeature::Shadows )
+        {
+            context.launchOptions.hasCinematicShadowsOverride = false;
+        }
+        ToggleCinematicUIFeature( context.cinematic, context.scene, commands.requestedFeature );
+        result.toggledFeature = true;
+    }
+    if ( commands.requestedParam != UICinematicParam::None )
+    {
+        ApplyCinematicUIParam( context.cinematic, context.scene, commands.requestedParam, commands.requestedValue );
+        result.appliedParam = true;
+    }
+    return result;
+}
+
 bool ApplySoundUICommands( SoundUICommandContext context, const UI::UISoundCommands& commands )
 {
     // Why: contact audio is presentation-only and may be disabled at launch or

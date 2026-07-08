@@ -2561,62 +2561,42 @@ void Run::TakeInput()
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ApplyWorldWaterSettings,
                                                RuntimeInputActionSource::UI );
         }
-        if ( uiCommands.cinematic.toggleRendering )
+        CinematicRenderConfig& activeCinematic = RuntimeActiveCinematicConfig( SceneState(), m_config );
+        const CinematicUICommandContext cinematicUICommandContext{ m_launchOptions,
+                                                                   SceneState(),
+                                                                   activeCinematic,
+                                                                   m_runtimeCommands };
+        if ( ApplyCinematicRenderingToggleUICommand( cinematicUICommandContext, uiCommands.cinematic ) )
         {
-            // Master Cine switch. Clearing m_launchOptions.hasCinematicRenderingOverride lets
-            // the runtime toggle become the new source of truth after launch.
-            CinematicRenderConfig& cinematic = RuntimeActiveCinematicConfig( SceneState(), m_config );
-            const bool currentlyEnabled =
-                m_launchOptions.hasCinematicRenderingOverride ? m_launchOptions.cinematicRendering : cinematic.enabled;
-            cinematic.enabled = !currentlyEnabled;
-            m_launchOptions.hasCinematicRenderingOverride = false;
-            if ( SceneState().isSceneMode )
-            {
-                SceneState().hasCinematicRenderingOverride = true;
-                SceneState().isCinematicRenderingEnabled = cinematic.enabled;
-                SceneState().cinematicOverrideMask |= SCENE_CINE_RENDERING;
-                SceneState().uiCinematicOverrideMask |= SCENE_CINE_RENDERING;
-            }
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleCinematicRendering,
                                                RuntimeInputActionSource::UI );
         }
-        if ( uiCommands.cinematic.saveSkyDefaults )
+        if ( QueueCinematicSkyDefaultsUICommand( cinematicUICommandContext, uiCommands.cinematic ) )
         {
-            m_runtimeCommands.Push( RuntimeCommand{ RuntimeCommandType::SaveSkyDefaults } );
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::SaveSkyDefaults, RuntimeInputActionSource::UI );
         }
         if ( uiCommands.cinematic.requestedModeSceneIndex >= -1 )
         {
             EnterInteractiveSceneRun();
-            ApplyCinematicModeFromBrowserIndex(
-                SceneRuntimeStyleContext{ m_launchOptions,
-                                          SceneState(),
-                                          m_sceneController.Browser(),
-                                          m_cGameModelCollection,
-                                          m_systems.assets,
-                                          RuntimeActiveCinematicConfig( SceneState(), m_config ),
-                                          m_defaultCinematicRender },
-                uiCommands.cinematic.requestedModeSceneIndex );
+            ApplyCinematicModeUICommand( SceneRuntimeStyleContext{ m_launchOptions,
+                                                                   SceneState(),
+                                                                   m_sceneController.Browser(),
+                                                                   m_cGameModelCollection,
+                                                                   m_systems.assets,
+                                                                   activeCinematic,
+                                                                   m_defaultCinematicRender },
+                                         uiCommands.cinematic );
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::SelectCinematicScene, RuntimeInputActionSource::UI );
         }
-        if ( uiCommands.cinematic.requestedFeature != UICinematicFeature::None )
+        const CinematicTuningUICommandResult cinematicTuningCommands =
+            ApplyCinematicTuningUICommands( cinematicUICommandContext, uiCommands.cinematic );
+        if ( cinematicTuningCommands.toggledFeature )
         {
-            CinematicRenderConfig& cinematic = RuntimeActiveCinematicConfig( SceneState(), m_config );
-            if ( uiCommands.cinematic.requestedFeature == UICinematicFeature::Shadows )
-            {
-                m_launchOptions.hasCinematicShadowsOverride = false;
-            }
-            ToggleCinematicUIFeature( cinematic, SceneState(), uiCommands.cinematic.requestedFeature );
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleCinematicFeature,
                                                RuntimeInputActionSource::UI );
         }
-        if ( uiCommands.cinematic.requestedParam != UICinematicParam::None )
+        if ( cinematicTuningCommands.appliedParam )
         {
-            CinematicRenderConfig& cinematic = RuntimeActiveCinematicConfig( SceneState(), m_config );
-            ApplyCinematicUIParam( cinematic,
-                                   SceneState(),
-                                   uiCommands.cinematic.requestedParam,
-                                   uiCommands.cinematic.requestedValue );
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ApplyCinematicParam, RuntimeInputActionSource::UI );
         }
         if ( uiCommands.scene.resetScene )
