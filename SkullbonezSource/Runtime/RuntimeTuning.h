@@ -12,6 +12,7 @@ Glossary:
   Cinematic config: HDR/post-processing and style settings for the active look.
   Ordinary render config: Non-cinematic renderer settings saved in engine.cfg.
   Override mask: Bitset recording which UI-touched scene values should persist.
+  Render device command: One-frame UI packet that edits live backend presentation policy.
   Cinematic command: One-frame UI packet that edits cinematic rendering, style,
     feature, or parameter state.
   Presentation command: One-frame UI packet that edits debug visibility, render
@@ -48,6 +49,10 @@ namespace SkullbonezCore
 namespace Threading
 {
 class WorkerPool;
+}
+namespace Rendering
+{
+class IRenderDeviceLifecycle;
 }
 
 namespace Basics
@@ -173,9 +178,18 @@ struct RunSimulationUICommandResult
     bool setWorkerThreads = false;
 };
 
+struct RenderDeviceUICommandContext
+{
+    // Lifetime: borrowed only while one renderer command packet is applied. The
+    // lifecycle pointer may be null while backend resources are not active.
+    RunRuntimeSettings& runtimeSettings;
+    Rendering::IRenderDeviceLifecycle* deviceLifecycle = nullptr;
+};
+
 void ApplyWorkerThreadCountOverride( EngineConfig& config,
                                      Threading::WorkerPool& workerPool,
                                      int requestedWorkerThreads );
+bool ApplyRenderVsyncUICommand( RenderDeviceUICommandContext context, const UI::UIRendererCommands& commands );
 RunSimulationUICommandResult ApplyRunSimulationUICommands( RunSimulationUICommandContext context,
                                                            const UI::UISceneOptionCommands& sceneOptions,
                                                            const UI::UIRunCommands& run,

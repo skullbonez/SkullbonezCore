@@ -31,6 +31,7 @@ Related:
 
 #include "../Core/WorkerPool.h"
 #include "../GameObjects/GameModelCollection.h"
+#include "../Rendering/IRenderDeviceLifecycle.h"
 #include "../UI/UILayout.h"
 #include "../World/WorldEnvironment.h"
 #include "Replay/ReplayRuntime.h"
@@ -258,6 +259,21 @@ void ApplyWorkerThreadCountOverride( EngineConfig& config,
     {
         workerPool.Initialise( clampedWorkerThreads );
     }
+}
+
+bool ApplyRenderVsyncUICommand( RenderDeviceUICommandContext context, const UI::UIRendererCommands& commands )
+{
+    if ( !commands.toggleVsync )
+    {
+        return false;
+    }
+
+    context.runtimeSettings.isVsyncEnabled = !context.runtimeSettings.isVsyncEnabled;
+    if ( context.deviceLifecycle )
+    {
+        context.deviceLifecycle->SetVsyncEnabled( context.runtimeSettings.isVsyncEnabled );
+    }
+    return true;
 }
 
 RunSimulationUICommandResult ApplyRunSimulationUICommands( RunSimulationUICommandContext context,

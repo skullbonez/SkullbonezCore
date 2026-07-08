@@ -2226,13 +2226,10 @@ void Run::TakeInput()
             }
         }
 
-        if ( uiCommands.renderer.toggleVsync )
+        if ( ApplyRenderVsyncUICommand(
+                 RenderDeviceUICommandContext{ m_runtimeSettings, m_renderBackendView.deviceLifecycle },
+                 uiCommands.renderer ) )
         {
-            m_runtimeSettings.isVsyncEnabled = !m_runtimeSettings.isVsyncEnabled;
-            if ( m_renderBackendView.deviceLifecycle )
-            {
-                m_renderBackendView.deviceLifecycle->SetVsyncEnabled( m_runtimeSettings.isVsyncEnabled );
-            }
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleVsync, RuntimeInputActionSource::UI );
         }
         if ( uiCommands.run.requestedCameraMode >= 0 &&
