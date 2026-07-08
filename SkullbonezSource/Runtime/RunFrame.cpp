@@ -1500,6 +1500,86 @@ bool ApplyReplayRestoreEditorTransformEvent( SkullbonezCore::GameObjects::GameMo
     return true;
 }
 
+// Concept: target restore replays only solver-relevant timeline events. Runtime
+// commands that would change scenes stay rejected here, while editor placement
+// borrows Run's interactive-mode transition through a narrow caller callback.
+template <typename EnterInteractiveSceneRun>
+bool ApplyReplayRestoreEventForTarget( ReplayRestoreEventContext& context,
+                                       const ReplayEventSample& event,
+                                       char* eventOutReason,
+                                       std::size_t eventReasonSize,
+                                       EnterInteractiveSceneRun enterInteractiveSceneRun )
+{
+    if ( event.payloadVersion != 1 )
+    {
+        WriteReplayProbeReason( eventOutReason, eventReasonSize, "unsupported replay event payload version" );
+        return false;
+    }
+
+    bool restoreEventHandled = false;
+    if ( TryApplyReplayRestoreWorldLauncherEvent( context,
+                                                  event,
+                                                  eventOutReason,
+                                                  eventReasonSize,
+                                                  restoreEventHandled ) )
+    {
+        return true;
+    }
+    if ( restoreEventHandled )
+    {
+        return false;
+    }
+
+    switch ( event.kind )
+    {
+    case ReplayEventKind::TimelineStart:
+        WriteReplayProbeReason( eventOutReason, eventReasonSize, "ignored" );
+        return true;
+    case ReplayEventKind::RuntimeCommand:
+    {
+        const RuntimeCommandType commandType = static_cast<RuntimeCommandType>( event.value0 );
+        switch ( commandType )
+        {
+        case RuntimeCommandType::SaveScreenshot:
+        case RuntimeCommandType::SaveSceneDefaults:
+        case RuntimeCommandType::SaveRenderDefaults:
+        case RuntimeCommandType::SaveSkyDefaults:
+        case RuntimeCommandType::Quit:
+        case RuntimeCommandType::None:
+            WriteReplayProbeReason( eventOutReason, eventReasonSize, "ignored non-solver runtime command" );
+            return true;
+        case RuntimeCommandType::ResetCurrentScene:
+        case RuntimeCommandType::LoadSceneIndex:
+        case RuntimeCommandType::LoadDemoScene:
+        case RuntimeCommandType::CreateScene:
+        case RuntimeCommandType::AdvanceScene:
+        default:
+            WriteReplayProbeReason( eventOutReason, eventReasonSize, "unsupported runtime timeline mutation event" );
+            return false;
+        }
+    }
+    case ReplayEventKind::BranchRestore:
+        WriteReplayProbeReason( eventOutReason, eventReasonSize, "unsupported timeline mutation event" );
+        return false;
+    case ReplayEventKind::EditorPlace:
+        return ApplyReplayRestoreEditorPlaceEvent( context.runtimeTools,
+                                                   context.models,
+                                                   context.scene,
+                                                   context.world,
+                                                   context.systems,
+                                                   context.gameModelCapacity,
+                                                   event,
+                                                   eventOutReason,
+                                                   eventReasonSize,
+                                                   enterInteractiveSceneRun );
+    case ReplayEventKind::EditorTransform:
+        return ApplyReplayRestoreEditorTransformEvent( context.models, event, eventOutReason, eventReasonSize );
+    default:
+        WriteReplayProbeReason( eventOutReason, eventReasonSize, "unsupported replay event kind" );
+        return false;
+    }
+}
+
 struct ReplayRestoreArtifactData
 {
     std::vector<ReplaySolverFrameSample> checkpoints;
@@ -2699,90 +2779,6 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
         return false;
     };
 
-    auto applyReplayEventForRestoreTarget =
-        [&]( const ReplayEventSample& event, char* eventOutReason, std::size_t eventReasonSize ) -> bool
-    {
-        if ( event.payloadVersion != 1 )
-        {
-            WriteReplayProbeReason( eventOutReason, eventReasonSize, "unsupported replay event payload version" );
-            return false;
-        }
-
-        ReplayRestoreEventContext restoreEventContext{ m_runtimeTools,
-                                                       SceneState(),
-                                                       m_systems,
-                                                       m_cWorldEnvironment,
-                                                       m_cGameModelCollection,
-                                                       m_startup.gameModelCapacity };
-        bool restoreEventHandled = false;
-        if ( TryApplyReplayRestoreWorldLauncherEvent( restoreEventContext,
-                                                      event,
-                                                      eventOutReason,
-                                                      eventReasonSize,
-                                                      restoreEventHandled ) )
-        {
-            return true;
-        }
-        if ( restoreEventHandled )
-        {
-            return false;
-        }
-
-        switch ( event.kind )
-        {
-        case ReplayEventKind::TimelineStart:
-            WriteReplayProbeReason( eventOutReason, eventReasonSize, "ignored" );
-            return true;
-        case ReplayEventKind::RuntimeCommand:
-        {
-            const RuntimeCommandType commandType = static_cast<RuntimeCommandType>( event.value0 );
-            switch ( commandType )
-            {
-            case RuntimeCommandType::SaveScreenshot:
-            case RuntimeCommandType::SaveSceneDefaults:
-            case RuntimeCommandType::SaveRenderDefaults:
-            case RuntimeCommandType::SaveSkyDefaults:
-            case RuntimeCommandType::Quit:
-            case RuntimeCommandType::None:
-                WriteReplayProbeReason( eventOutReason, eventReasonSize, "ignored non-solver runtime command" );
-                return true;
-            case RuntimeCommandType::ResetCurrentScene:
-            case RuntimeCommandType::LoadSceneIndex:
-            case RuntimeCommandType::LoadDemoScene:
-            case RuntimeCommandType::CreateScene:
-            case RuntimeCommandType::AdvanceScene:
-            default:
-                WriteReplayProbeReason( eventOutReason,
-                                        eventReasonSize,
-                                        "unsupported runtime timeline mutation event" );
-                return false;
-            }
-        }
-        case ReplayEventKind::BranchRestore:
-            WriteReplayProbeReason( eventOutReason, eventReasonSize, "unsupported timeline mutation event" );
-            return false;
-        case ReplayEventKind::EditorPlace:
-            return ApplyReplayRestoreEditorPlaceEvent( m_runtimeTools,
-                                                       m_cGameModelCollection,
-                                                       SceneState(),
-                                                       m_cWorldEnvironment,
-                                                       m_systems,
-                                                       m_startup.gameModelCapacity,
-                                                       event,
-                                                       eventOutReason,
-                                                       eventReasonSize,
-                                                       [this]() { EnterInteractiveSceneRun(); } );
-        case ReplayEventKind::EditorTransform:
-            return ApplyReplayRestoreEditorTransformEvent( m_cGameModelCollection,
-                                                           event,
-                                                           eventOutReason,
-                                                           eventReasonSize );
-        default:
-            WriteReplayProbeReason( eventOutReason, eventReasonSize, "unsupported replay event kind" );
-            return false;
-        }
-    };
-
     if ( !path || path[0] == '\0' )
     {
         return failWithDiagnostic( "replay v2 target restore requires a v2 artifact path", target, checkpoint );
@@ -2897,6 +2893,12 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
     std::size_t eventsApplied = 0;
     std::size_t unsupportedEvents = 0;
     SceneState().currentFrame = currentSceneFrame;
+    ReplayRestoreEventContext restoreEventContext{ m_runtimeTools,
+                                                   SceneState(),
+                                                   m_systems,
+                                                   m_cWorldEnvironment,
+                                                   m_cGameModelCollection,
+                                                   m_startup.gameModelCapacity };
 
     {
         ScopedReplayProbeProfilerFrame profilerFrame;
@@ -2917,7 +2919,11 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
                 }
 
                 char eventReason[160] = {};
-                if ( !applyReplayEventForRestoreTarget( event, eventReason, sizeof( eventReason ) ) )
+                if ( !ApplyReplayRestoreEventForTarget( restoreEventContext,
+                                                        event,
+                                                        eventReason,
+                                                        sizeof( eventReason ),
+                                                        [this]() { EnterInteractiveSceneRun(); } ) )
                 {
                     char message[320] = {};
                     sprintf_s( message,
