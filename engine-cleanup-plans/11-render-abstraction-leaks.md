@@ -1,7 +1,7 @@
 # 11 — Render Abstraction Leaks
 
 Date: 2026-07-08
-Status: Proposed
+Status: In Progress
 Priority: P2
 Owner: Rendering
 Source issue: audit iss-09 (severity 3)
@@ -44,7 +44,7 @@ command interface.
 - [ ] **Phase 0 — Decide RenderGraph's fate.** Either finish barrier derivation
   so the graph actually owns transitions, or delete the 2,000 lines and keep
   explicit hand-coded barriers *honestly* (no "future compiler" pretense).
-- [ ] **Phase 1 — Real backbuffer state.** Replace `m_backBufferIsRT` with a
+- [x] **Phase 1 — Real backbuffer state.** Replace `m_backBufferIsRT` with a
   tracked resource-state value reconciled at each transition point; ensure a
   frame that skips `Clear()` cannot emit a mismatched `Present` barrier.
 - [ ] **Phase 2 — De-leak the command interface.** Move `DrawReplayRibbons` /
@@ -67,11 +67,24 @@ Barriers are a GPU danger zone: run the renderer gate **3×** and confirm
   keep explicit hand-coded barriers honestly. A smaller model must **not** decide
   this alone. Leave unchecked with a note until a human chooses; the steps below
   do not depend on it.
-- [ ] **1.1** Replace the single bool `m_backBufferIsRT`
+  - Pending human decision as of 2026-07-08. The owner was asked whether to
+    finish RenderGraph barrier derivation or delete the diagnostic graph and keep
+    explicit barriers honestly; step 1.1 proceeded because this plan says later
+    steps do not depend on that choice.
+- [x] **1.1** Replace the single bool `m_backBufferIsRT`
   (`RenderBackendDX12.h:426`) with a tracked backbuffer resource-state value.
   Reconcile it at `Clear()`, `PrepareDraw()`, and `Present()` so a text-only
   frame that skips `Clear()` cannot emit a mismatched `Present` barrier. Gate:
   `validate_dx12_renderer` **×3**, `dx12_validation.txt` == 0 each time. Commit.
+  - Completed 2026-07-08. `RenderBackendDX12` now tracks `m_backBufferAccess`
+    and transitions the swap-chain image from the tracked state at `Clear()`,
+    `PrepareDraw()`, `Present()`, shutdown, resize, readback, and the frame-graph
+    skeleton. Validation logs:
+    `TestOutput\agent_logs\plan11_backbuffer_dx12_validation_pass1.log` (32.9s),
+    `TestOutput\agent_logs\plan11_backbuffer_dx12_validation_pass2.log` (19.4s),
+    and `TestOutput\agent_logs\plan11_backbuffer_dx12_validation_pass3.log`
+    (19.4s); each reported `DX12 validation errors: 0` and matched committed
+    DX12 baselines.
 - [ ] **2.1** Move `DrawReplayRibbons` and `m_replayRibbonShader` out of
   `IRenderCommandContext` (`:122`) and the DX12 device into a replay-owned draw
   path built on the generic drawing primitives. `IRenderCommandContext` then
@@ -87,8 +100,8 @@ Barriers are a GPU danger zone: run the renderer gate **3×** and confirm
 
 - [ ] `IRenderCommandContext` has no replay-specific method; replay ribbons draw
   through a replay-owned path.
-- [ ] Backbuffer state is a reconciled state value, not a lone bool; the
+- [x] Backbuffer state is a reconciled state value, not a lone bool; the
   skip-`Clear()` mismatch case cannot occur.
 - [ ] RenderGraph either owns barriers or is removed — no code claims a capability
   it does not have.
-- [ ] `dx12_validation.txt` == 0 across three consecutive runs.
+- [x] `dx12_validation.txt` == 0 across three consecutive runs.

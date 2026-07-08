@@ -439,7 +439,10 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     std::unique_ptr<IShader> m_replayRibbonShader;                 // Replay-only smooth debug stroke shader warmed at backend init.
 
     bool m_renderingToFBO = false;
-    bool m_backBufferIsRT = false;                                 // True if back buffer is in RENDER_TARGET state
+    // Invariant: this is the graph-visible state for the current swap-chain
+    // image in m_frameIndex. It resets to Present whenever DXGI gives us a new
+    // current backbuffer through resize or Present.
+    RenderGraphResourceAccess m_backBufferAccess = RenderGraphResourceAccess::Present;
 
     size_t m_lastPSOHash = 0;
     bool m_texBindingsDirty = true;
@@ -493,6 +496,7 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
                             D3D12_RESOURCE_STATES after,
                             UINT subresource );
     void RecordLiveUavBarrier( const char* source, const char* resourceName, ID3D12Resource* resource );
+    bool TransitionBackbuffer( const char* passName, RenderGraphResourceAccess after );
     // Keeps cached texture-slot state from pointing at an SRV descriptor row
     // whose owning resource is being deleted or unregistered.
     void ClearBoundTextureSlotsForSrv( UINT srvIndex );

@@ -571,6 +571,23 @@ void RenderBackendDX12::ExecuteGraphTransition( const char* passName,
 }
 
 
+bool RenderBackendDX12::TransitionBackbuffer( const char* passName, RenderGraphResourceAccess after )
+{
+    ID3D12Resource* backbuffer = m_renderTargets[m_frameIndex];
+    if ( !backbuffer || m_backBufferAccess == after )
+    {
+        return false;
+    }
+
+    // Hazard: text-only or diagnostic frames can reach Present() without
+    // Clear(), so the present barrier must start from the tracked state instead
+    // of assuming the swap-chain image was rendered this frame.
+    ExecuteGraphTransition( passName, "SwapchainBackbuffer", backbuffer, m_backBufferAccess, after );
+    m_backBufferAccess = after;
+    return true;
+}
+
+
 void RenderBackendDX12::ExecuteGraphUavBarrier( const char* passName,
                                                 const char* resourceName,
                                                 ID3D12Resource* resource )
@@ -1090,9 +1107,8 @@ void RenderBackendDX12::DumpFrameGraphSkeleton()
     // still being decomposed.
     RenderGraph graph;
 
-    const RenderGraphResourceHandle backbuffer = graph.AddExternalResource( "SwapchainBackbuffer",
-                                                                            RenderGraphResourceAccess::Present,
-                                                                            m_renderTargets[m_frameIndex] );
+    const RenderGraphResourceHandle backbuffer =
+        graph.AddExternalResource( "SwapchainBackbuffer", m_backBufferAccess, m_renderTargets[m_frameIndex] );
     const RenderGraphResourceHandle mainDepth =
         graph.AddExternalResource( "MainDepthStencil", RenderGraphResourceAccess::DepthWrite, m_depthStencil );
     const RenderGraphResourceHandle shadowDepth =
@@ -1992,15 +2008,11 @@ void RenderBackendDX12::Shutdown()
     // RENDER_TARGET state after readback. Shutdown does one final DXGI Present()
     // below to drain the flip queue, and DX12 requires that resource to be in
     // PRESENT state first so the final DXGI Present() has a legal resource.
-    if ( !m_renderingToFBO && m_backBufferIsRT && SwapChain() && m_renderTargets[m_frameIndex] )
+    if ( !m_renderingToFBO && m_backBufferAccess != RenderGraphResourceAccess::Present && SwapChain() &&
+         m_renderTargets[m_frameIndex] )
     {
         EnsureCommandListOpen();
-        ExecuteGraphTransition( "ShutdownBackbufferPresent",
-                                "SwapchainBackbuffer",
-                                m_renderTargets[m_frameIndex],
-                                RenderGraphResourceAccess::RenderTarget,
-                                RenderGraphResourceAccess::Present );
-        m_backBufferIsRT = false;
+        TransitionBackbuffer( "ShutdownBackbufferPresent", RenderGraphResourceAccess::Present );
     }
 
     // Ensure any open command list is closed and submitted before waiting.
@@ -2242,12 +2254,7 @@ void RenderBackendDX12::Present()
         std::memset( m_gpuTimers.slotWritten, 0, sizeof( m_gpuTimers.slotWritten ) );
     }
 
-    ExecuteGraphTransition( "PresentBackbuffer",
-                            "SwapchainBackbuffer",
-                            m_renderTargets[m_frameIndex],
-                            RenderGraphResourceAccess::RenderTarget,
-                            RenderGraphResourceAccess::Present );
-    m_backBufferIsRT = false;
+    TransitionBackbuffer( "PresentBackbuffer", RenderGraphResourceAccess::Present );
 
     // Close the command list — finalizes the recorded commands. A closed command list can be
     // submitted to the GPU. No more commands can be recorded until Reset is called.
@@ -2304,6 +2311,7 @@ void RenderBackendDX12::Present()
     m_allocatorIndex = m_renderDevice.AdvanceAllocatorIndex();
     m_frameIndex = m_renderDevice.RefreshFrameIndexFromSwapChain();
     m_currentRTV = m_backBufferRTVs[m_frameIndex];
+    m_backBufferAccess = RenderGraphResourceAccess::Present;
 
     // Charge allocator/upload/descriptor pacing to Present/VsyncWait instead of
     // letting the first render command of the next frame hit this wait mid-frame.
@@ -2411,9 +2419,9 @@ void RenderBackendDX12::Resize( int width, int height )
     ThrowIfFailed( resizeResult, "SwapChain ResizeBuffers failed" );
     m_frameIndex = m_renderDevice.RefreshFrameIndexFromSwapChain();
 
-    // ResizeBuffers puts all back buffers into PRESENT state — reset our tracking flag
-    // so the next Clear() correctly transitions to RENDER_TARGET before use.
-    m_backBufferIsRT = false;
+    // ResizeBuffers puts all back buffers into PRESENT state, so the next
+    // Clear()/PrepareDraw() must transition from that concrete state.
+    m_backBufferAccess = RenderGraphResourceAccess::Present;
 
     for ( int i = 0; i < FRAME_COUNT; ++i )
     {
@@ -2449,14 +2457,9 @@ void RenderBackendDX12::Clear( bool color, bool depth )
 {
     EnsureCommandListOpen();
 
-    if ( !m_renderingToFBO && !m_backBufferIsRT )
+    if ( !m_renderingToFBO )
     {
-        ExecuteGraphTransition( "ClearBackbuffer",
-                                "SwapchainBackbuffer",
-                                m_renderTargets[m_frameIndex],
-                                RenderGraphResourceAccess::Present,
-                                RenderGraphResourceAccess::RenderTarget );
-        m_backBufferIsRT = true;
+        TransitionBackbuffer( "ClearBackbuffer", RenderGraphResourceAccess::RenderTarget );
     }
     // Bind the render target and depth buffer to the Output Merger (OM) stage — this tells the
     // GPU where to write pixel colors and depth values for subsequent draw calls.

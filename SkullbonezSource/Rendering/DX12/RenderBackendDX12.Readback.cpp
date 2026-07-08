@@ -73,18 +73,14 @@ std::vector<uint8_t> RenderBackendDX12::CaptureBackbuffer( int& outWidth, int& o
     outWidth = m_width;
     outHeight = m_height;
 
-    // F3 screenshots are taken in input handling before Clear()/Render, so the backbuffer is
-    // usually still in PRESENT state at this point. Scene-driven captures can happen after render
-    // where the backbuffer is in RENDER_TARGET state. Preserve whichever state we're currently in.
-    const RenderGraphResourceAccess backBufferAccessBeforeCopy =
-        m_backBufferIsRT ? RenderGraphResourceAccess::RenderTarget : RenderGraphResourceAccess::Present;
+    // F3 screenshots are taken in input handling before Clear()/Render, so the
+    // backbuffer is usually still in PRESENT state. Scene-driven captures can
+    // happen after render where the backbuffer is in RENDER_TARGET state.
+    // Preserve whichever concrete graph-visible state we're currently in.
+    const RenderGraphResourceAccess backBufferAccessBeforeCopy = m_backBufferAccess;
 
     // Transition backbuffer to COPY_SOURCE for readback.
-    ExecuteGraphTransition( "BackbufferReadbackBegin",
-                            "SwapchainBackbuffer",
-                            m_renderTargets[m_frameIndex],
-                            backBufferAccessBeforeCopy,
-                            RenderGraphResourceAccess::CopySource );
+    TransitionBackbuffer( "BackbufferReadbackBegin", RenderGraphResourceAccess::CopySource );
 
     D3D12_RESOURCE_DESC bbDesc = m_renderTargets[m_frameIndex]->GetDesc();
     D3D12_PLACED_SUBRESOURCE_FOOTPRINT footprint = {};
@@ -120,11 +116,7 @@ std::vector<uint8_t> RenderBackendDX12::CaptureBackbuffer( int& outWidth, int& o
     CommandList()->CopyTextureRegion( &dstLoc, 0, 0, 0, &srcLoc, nullptr );
 
     // Restore the exact state we found before the capture.
-    ExecuteGraphTransition( "BackbufferReadbackRestore",
-                            "SwapchainBackbuffer",
-                            m_renderTargets[m_frameIndex],
-                            RenderGraphResourceAccess::CopySource,
-                            backBufferAccessBeforeCopy );
+    TransitionBackbuffer( "BackbufferReadbackRestore", backBufferAccessBeforeCopy );
 
     // Execute and wait
     AssertPlatformProfilerGpuStackClosed( "CaptureBackbuffer" );
