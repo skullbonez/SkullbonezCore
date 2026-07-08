@@ -610,6 +610,9 @@ ReplayRuntime::ReplayRuntime()
     // rendering replay overlays. Reserve the worst-case live sample stride plus
     // one baseline rest pose per model before steady gameplay.
     m_predictionGhostDrawRequests.reserve( REPLAY_PREDICTION_GHOST_REQUEST_CAPACITY );
+    // Runtime allocation policy: path target selection is a live replay UI
+    // action, so it rotates entries within a fixed pre-gameplay vector budget.
+    m_pathVisualizer.targets.reserve( REPLAY_PATH_MAX_ROOT_TARGETS );
     // Runtime allocation policy: focus masks are rewritten during replay render
     // passes, so the byte vector owns its full model-capacity storage up front.
     m_focusModelMask.reserve( MAX_GAME_MODELS );

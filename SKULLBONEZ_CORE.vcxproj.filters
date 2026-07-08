@@ -277,6 +277,9 @@
     <ClCompile Include="SkullbonezSource\Runtime\Replay\RunReplayImportExport.cpp">
       <Filter>Source Files\Runtime\Replay</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Replay\RunReplayQueryTools.cpp">
+      <Filter>Source Files\Runtime\Replay</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Tools\RuntimeTools.cpp">
       <Filter>Source Files\Runtime\Tools</Filter>
     </ClCompile>
@@ -969,9 +972,6 @@
       <Filter>Header Files\Runtime\Replay</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Replay\RunReplayCauseTreeTools.inl">
-      <Filter>Header Files\Runtime\Replay</Filter>
-    </ClInclude>
-    <ClInclude Include="SkullbonezSource\Runtime\Replay\RunReplayQueryTools.inl">
       <Filter>Header Files\Runtime\Replay</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Replay\RunReplayScrubberTools.inl">

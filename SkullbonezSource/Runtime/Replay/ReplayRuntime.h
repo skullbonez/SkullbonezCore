@@ -75,6 +75,9 @@ inline constexpr std::size_t REPLAY_PREDICTION_GHOST_REQUEST_CAPACITY =
     ( REPLAY_PREDICTION_GHOST_MAX_FRAMES + 2u ) * static_cast<std::size_t>( MAX_GAME_MODELS );
 inline constexpr std::size_t REPLAY_PREDICTION_MARKER_CAPACITY = static_cast<std::size_t>( MAX_GAME_MODELS );
 inline constexpr std::size_t REPLAY_PREDICTION_BASELINE_ROOT_POINT_CAPACITY = 261u;
+// Runtime allocation policy: live replay path-target picks rotate inside this
+// fixed vector budget instead of growing while gameplay is running.
+inline constexpr std::size_t REPLAY_PATH_MAX_ROOT_TARGETS = 100u;
 inline constexpr std::size_t REPLAY_CAUSE_TREE_CONTACT_CAPACITY = static_cast<std::size_t>( MAX_GAME_MODELS ) * 4u;
 inline constexpr std::size_t REPLAY_CAUSE_TREE_ROW_CAPACITY =
     1u + static_cast<std::size_t>( MAX_GAME_MODELS ) + REPLAY_CAUSE_TREE_CONTACT_CAPACITY * 3u;

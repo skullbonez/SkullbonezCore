@@ -100,51 +100,6 @@ bool IsReplayToolOwner( WorldInteractionOwner owner )
 }
 
 
-// Why: retained and predicted replay samples carry model-index hints, but
-// shape/radius facts are owned by ColliderStore. Keep overlay and query radii
-// on the live store row instead of forcing a GameModel mirror refresh.
-bool TryReplayColliderRadiusForModelIndex( const ColliderStore& colliderStore, int modelIndex, float& outRadius )
-{
-    // Why: retained replay rows may only carry a model-index sample. This helper
-    // is a display-radius fallback; live target markers resolve collider rows
-    // through PhysicsBodyHandle before drawing authored shapes.
-    const PhysicsColliderHandle colliderHandle = colliderStore.HandleForModelIndex( modelIndex );
-    const ColliderRecord* collider = colliderStore.RecordForHandle( colliderHandle );
-    if ( !collider || colliderStore.ModelIndexForHandle( colliderHandle ) != modelIndex )
-    {
-        return false;
-    }
-
-    outRadius = (std::max)( collider->boundingRadius > 0.0f ? collider->boundingRadius
-                                                            : GetShapeBoundingRadius( collider->shape ),
-                            1.0f );
-    return true;
-}
-
-
-float ReplayColliderRadiusForModelIndex( const ColliderStore& colliderStore, int modelIndex )
-{
-    float radius = 1.0f;
-    TryReplayColliderRadiusForModelIndex( colliderStore, modelIndex, radius );
-    return radius;
-}
-
-
-// Why: replay target UI code may still carry a model-index hint for names,
-// ragdoll grouping, or draw ordering, but stable replay identity belongs to the
-// body store. Keeping id recovery here prevents new GameModel replay-id scans in
-// the pick, prediction, and marker paths.
-ReplayBodyId ReplayBodyIdForModelIndex( const PhysicsBodyStore& bodyStore, int modelIndex )
-{
-    ReplayBodyId id;
-    if ( const PhysicsBodyRecord* body = bodyStore.RecordForModelIndex( modelIndex ) )
-    {
-        id.value = body->replayBodyId;
-    }
-    return id;
-}
-
-
 bool TryResolveReplayBodyModelIndex( const PhysicsBodyStore& bodyStore,
                                      ReplayBodyId id,
                                      int modelIndexHint,
@@ -229,38 +184,9 @@ bool StepPredictionEngineTick( PhysicsEngine& engine,
 }
 
 
-bool IntersectRaySphere( const Vector3& rayOrigin,
-                         const Vector3& rayDirection,
-                         const Vector3& center,
-                         float radius,
-                         float& outT )
-{
-    const Vector3 m = rayOrigin - center;
-    const float b = m * rayDirection;
-    const float c = ( m * m ) - radius * radius;
-    if ( c > 0.0f && b > 0.0f )
-    {
-        return false;
-    }
-
-    const float discriminant = b * b - c;
-    if ( discriminant < 0.0f )
-    {
-        return false;
-    }
-
-    outT = -b - sqrtf( discriminant );
-    if ( outT < 0.0f )
-    {
-        outT = 0.0f;
-    }
-    return true;
-}
-
 // Why: the 200-brick prediction scene needs more than the old 100-node cap to
 // show the full contact spread instead of clipping the visual explanation.
 constexpr std::size_t REPLAY_PATH_MAX_FUTURE_NODES = 240;
-constexpr std::size_t REPLAY_PATH_MAX_ROOT_TARGETS = 100;
 constexpr std::size_t REPLAY_PATH_MAX_SEGMENTS = 260;
 constexpr float REPLAY_PATH_MIN_SEGMENT_DISTANCE_SQ = 0.0001f;
 // Why: sleeping or contact-propagated bodies can wake without translating. Child
@@ -298,7 +224,6 @@ constexpr uint32_t REPLAY_PREDICTION_CAPTURE_SAMPLE_WORKER_HASH =
 
 #include "RunReplayScrubberTools.inl"
 #include "RunReplayCauseTreeTools.inl"
-#include "RunReplayQueryTools.inl"
 
 namespace
 {

@@ -199,6 +199,21 @@ bit-exact — the replay scrub regression is the gate.
     passed in 44.4s with 0 build warnings/errors, 0 DX12 validation errors,
     matching DX12 screenshots, and `physics_regression_solver.csv` byte-exact at
     20001 lines.
+  - Progress note (2026-07-08, query `.inl` promotion): promoted
+    `RunReplayQueryTools.inl` into `RunReplayQueryTools.cpp`, removing the
+    replay path-target picking body from the `RunReplayTools.cpp` text splice.
+    The promoted TU keeps query-local ray/radius/body-id helpers file-local, and
+    `ReplayRuntime` now pre-reserves the path-target vector so live replay target
+    selection stays inside a fixed UI storage budget. The remaining replay
+    `.inl` promotions stay open under plan 06 step 1.1. Validation:
+    `tools\validate_build.bat Profile` passed in 10.0s with 0 warnings/errors;
+    `tools\validate_project_filters.bat` passed in 1.2s;
+    `tools\validate_format.bat` passed in 9.4s after narrow clang-format;
+    `tools\validate_replay_scrub.bat` passed in 25.8s with Debug/Profile builds
+    at 0 warnings/errors; `tools\validate_full.bat` passed in 44.9s with
+    project filters and runtime boundaries clean, 0 build warnings/errors, 0
+    DX12 validation errors, matching DX12 screenshots, and
+    `physics_regression_solver.csv` byte-exact at 20001 lines.
 
 ### Phase 3 — Make Butterfly Effect ownership explicit
 
