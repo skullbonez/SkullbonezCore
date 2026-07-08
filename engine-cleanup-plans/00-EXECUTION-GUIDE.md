@@ -101,7 +101,7 @@ fully `[x]`.
 
 - [x] 1. Plan 02 Phase 0 — DisjointSet extracted
 - [x] 2. Plan 12 — Log/Profiler ambient coupling removed
-- [ ] 3. Plan 06 — editor `.inl` promoted to real TUs
+- [x] 3. Plan 06 — editor `.inl` promoted to real TUs
 - [ ] 4. Plan 13 + 10 — facade rule applied; EngineContext/IRenderBackend/aliases/SimulationController done
 - [ ] 5. Plan 08 — RenderHelper de-statised
 - [ ] 6. Plan 11 — render abstraction leaks closed
