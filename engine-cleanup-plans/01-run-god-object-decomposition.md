@@ -592,6 +592,23 @@ every step. Commit per step.
 	    (9.4s), `TestOutput\agent_logs\plan01_render_vsync_ui_runtime_boundaries.log`
 	    (17.6s), and `TestOutput\agent_logs\plan01_render_vsync_ui_build_profile.log`
 	    (8.6s).
+	  - [x] Scene fixed-step UI command extraction moved the fixed-step toggle
+	    and simulation reset out of `Run::TakeInput()` and into `RuntimeTuning`.
+	    The helper owns the scene tick-cadence mutation and immediate accumulator
+	    reset; `RunInput` only records the accepted action. The touched-file
+	    comment audit added scene fixed-step command vocabulary and the immediate
+	    reset invariant. `TakeInput()` now spans 1,032 lines. Gate evidence:
+	    `TestOutput\agent_logs\plan01_fixed_step_ui_interaction_clicks.log`
+	    (16.7s, both interaction reports `ok=1`) and
+	    `TestOutput\agent_logs\plan01_fixed_step_ui_validate_full.log` (51.1s;
+	    project filters/runtime boundaries passed, Profile/Debug builds had 0
+	    warnings and 0 errors, DX12 InfoQueue errors = 0, screenshots matched
+	    baselines, and `physics_regression_solver.csv` matched byte-exactly).
+	    Targeted pre-gate checks also passed:
+	    `TestOutput\agent_logs\plan01_fixed_step_ui_validate_format.log` (9.5s),
+	    `TestOutput\agent_logs\plan01_fixed_step_ui_runtime_boundaries.log`
+	    (17.6s), and `TestOutput\agent_logs\plan01_fixed_step_ui_build_profile.log`
+	    (8.5s).
 - [ ] **1.4** Confirm `TakeInput()` is under ~200 lines (setup + dispatch loop).
 
 ### Phase 2 — Move state shelves out of `RunState`

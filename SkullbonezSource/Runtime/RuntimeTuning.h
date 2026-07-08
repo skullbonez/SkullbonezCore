@@ -17,6 +17,7 @@ Glossary:
     feature, or parameter state.
   Presentation command: One-frame UI packet that edits debug visibility, render
     tuning, shadow, or water-reflection presentation state.
+  Scene fixed-step command: One-frame UI packet that changes physics tick cadence.
   Run simulation command: One-frame UI packet that edits time scale, random seed,
     or worker-thread count.
   Sound command: One-frame UI packet that edits contact-audio presentation state.
@@ -57,6 +58,8 @@ class IRenderDeviceLifecycle;
 
 namespace Basics
 {
+class SimulationSystem;
+
 namespace RunInternal
 {
 uint64_t CinematicOverrideMaskForUIParam( UICinematicParam param );
@@ -186,10 +189,20 @@ struct RenderDeviceUICommandContext
     Rendering::IRenderDeviceLifecycle* deviceLifecycle = nullptr;
 };
 
+struct SceneFixedStepUICommandContext
+{
+    // Lifetime: borrowed only while one Scene-tab fixed-step command is applied.
+    // The simulation reset is immediate so the next frame cannot retain old
+    // accumulator state under the new tick policy.
+    RunSceneState& scene;
+    SimulationSystem& simulation;
+};
+
 void ApplyWorkerThreadCountOverride( EngineConfig& config,
                                      Threading::WorkerPool& workerPool,
                                      int requestedWorkerThreads );
 bool ApplyRenderVsyncUICommand( RenderDeviceUICommandContext context, const UI::UIRendererCommands& commands );
+bool ApplySceneFixedStepUICommand( SceneFixedStepUICommandContext context, const UI::UISceneOptionCommands& commands );
 RunSimulationUICommandResult ApplyRunSimulationUICommands( RunSimulationUICommandContext context,
                                                            const UI::UISceneOptionCommands& sceneOptions,
                                                            const UI::UIRunCommands& run,

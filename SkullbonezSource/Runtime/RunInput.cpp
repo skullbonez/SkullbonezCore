@@ -2357,10 +2357,9 @@ void Run::TakeInput()
         {
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleTextOnly, RuntimeInputActionSource::UI );
         }
-        if ( uiCommands.sceneOptions.toggleFixedStep )
+        if ( ApplySceneFixedStepUICommand( SceneFixedStepUICommandContext{ SceneState(), m_simulation },
+                                           uiCommands.sceneOptions ) )
         {
-            SceneState().isFixedStep = !SceneState().isFixedStep;
-            m_simulation.Reset();
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleFixedStep, RuntimeInputActionSource::UI );
         }
         const RuntimePresentationUICommandResult presentationCommands = ApplyRuntimePresentationUICommands(

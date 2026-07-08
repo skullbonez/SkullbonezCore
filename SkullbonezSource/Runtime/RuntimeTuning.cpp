@@ -31,6 +31,7 @@ Related:
 
 #include "../Core/WorkerPool.h"
 #include "../GameObjects/GameModelCollection.h"
+#include "../Physics/SimulationSystem.h"
 #include "../Rendering/IRenderDeviceLifecycle.h"
 #include "../UI/UILayout.h"
 #include "../World/WorldEnvironment.h"
@@ -273,6 +274,18 @@ bool ApplyRenderVsyncUICommand( RenderDeviceUICommandContext context, const UI::
     {
         context.deviceLifecycle->SetVsyncEnabled( context.runtimeSettings.isVsyncEnabled );
     }
+    return true;
+}
+
+bool ApplySceneFixedStepUICommand( SceneFixedStepUICommandContext context, const UI::UISceneOptionCommands& commands )
+{
+    if ( !commands.toggleFixedStep )
+    {
+        return false;
+    }
+
+    context.scene.isFixedStep = !context.scene.isFixedStep;
+    context.simulation.Reset();
     return true;
 }
 
