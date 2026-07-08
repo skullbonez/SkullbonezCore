@@ -135,7 +135,8 @@ void BuildEditorToolOverlayTrace( EditorToolOverlayTraceContext context, const E
     }
 
     if ( ( context.editor.editorModeEnabled || input.inspectGizmoActive ) && !context.editor.placementModeEnabled &&
-         context.editor.selectedModelIndex >= 0 && context.editor.selectedModelIndex < context.models.SceneEntityCount() )
+         context.editor.selectedModelIndex >= 0 &&
+         context.editor.selectedModelIndex < context.models.SceneEntityCount() )
     {
         Vector3 gizmoOrigin;
         float radius = 1.0f;
@@ -161,15 +162,14 @@ void BuildEditorToolOverlayTrace( EditorToolOverlayTraceContext context, const E
         }
     }
 
-    if ( context.mousePickup.active && context.mousePickup.modelIndex >= 0 &&
-         context.mousePickup.modelIndex < context.models.SceneEntityCount() )
+    if ( context.mousePickup.active && context.mousePickup.body.IsValid() )
     {
         const PhysicsBodyRecord* body = context.bodyStore.RecordForHandle( context.mousePickup.body );
         const PhysicsColliderHandle colliderHandle =
             context.colliderStore.HandleForBodyHandle( context.mousePickup.body );
         const ColliderRecord* collider = context.colliderStore.RecordForHandle( colliderHandle );
-        if ( !body || !collider ||
-             context.bodyStore.ModelIndexForHandle( context.mousePickup.body ) != context.mousePickup.modelIndex ||
+        const int modelIndex = context.bodyStore.ModelIndexForHandle( context.mousePickup.body );
+        if ( !body || !collider || modelIndex < 0 || modelIndex >= context.models.SceneEntityCount() ||
              collider->body != context.mousePickup.body )
         {
             // Stale drag state can happen after editor deletion or scene reload.
@@ -197,8 +197,7 @@ void BuildEditorToolOverlayTrace( EditorToolOverlayTraceContext context, const E
     {
         const PhysicsBodyHandle bodyHandle = context.bodyStore.HandleForModelIndex( input.attachedCameraTargetIndex );
         const PhysicsBodyRecord* body = context.bodyStore.RecordForHandle( bodyHandle );
-        const PhysicsColliderHandle colliderHandle =
-            context.colliderStore.HandleForBodyHandle( bodyHandle );
+        const PhysicsColliderHandle colliderHandle = context.colliderStore.HandleForBodyHandle( bodyHandle );
         const ColliderRecord* collider = context.colliderStore.RecordForHandle( colliderHandle );
         if ( body && collider &&
              context.bodyStore.ModelIndexForHandle( bodyHandle ) == input.attachedCameraTargetIndex &&

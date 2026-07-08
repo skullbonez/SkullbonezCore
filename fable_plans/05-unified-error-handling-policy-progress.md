@@ -1,7 +1,7 @@
 # Progress: Unified Error Handling Policy (plan 05)
 
 Source plan: `fable_plans/05-unified-error-handling-policy-plan.md`
-Status: phase 1 complete on 2026-07-07; P2.1-P2.3 replay probe conversion and evidence complete on 2026-07-08; SpatialGrid, PhysicsWorld, GameModelCollection pure topology, legacy camera pose-read conversions, GameModelCollection append Lane R cleanup, and the scene/style TryLoad entry boundary are complete; deeper loader/asset, DX12, and closure work remain
+Status: phase 1 complete on 2026-07-07; P2.1-P2.3 replay probe conversion and evidence complete on 2026-07-08; SpatialGrid, PhysicsWorld, GameModelCollection pure topology, legacy camera pose-read conversions, GameModelCollection append Lane R cleanup, the scene/style TryLoad entry boundary, and one direct missing-camera parser throw removal are complete; deeper loader/asset, DX12, and closure work remain
 Last updated: 2026-07-08
 
 ## How to work this file
@@ -404,10 +404,16 @@ Last updated: 2026-07-08
   scene-parser harness now checks TryLoad style failures and no longer compiles
   the removed header-only `IRenderBackend.cpp`.
 
-  Remaining P4.1 work: thread Lane R deeper through parser internals if/when
-  the two `TestSceneParser.cpp` throw tokens are removed, then convert the
-  remaining Terrain, TextureCollection, AssetSystem, and ConvexHullShape loader
-  clusters. No throw-ratchet drop was taken for this boundary-only slice.
+  Follow-up parser evidence (2026-07-08): the direct missing-camera
+  `TestSceneParser.cpp` throw now routes through the parser's path-rich
+  `Fail(path, detail)` helper, preserving the `TryLoadFromFile` Lane R surface
+  and reducing `MAX_SOURCE_THROW_TOKENS` from 266 to 265. This fixes the
+  `TestSceneParser: missing camera reports recoverable load failure` unit-test
+  path assertion without marking P4.1 complete.
+
+  Remaining P4.1 work: thread Lane R deeper through parser internals for the
+  remaining `TestSceneParser.cpp` throw token, then convert the remaining
+  Terrain, TextureCollection, AssetSystem, and ConvexHullShape loader clusters.
 
   Gate evidence: first `tools\validate_full.bat` attempt failed before runtime
   launch due to a namespace qualification error; the rerun failed only
@@ -421,6 +427,9 @@ Last updated: 2026-07-08
   `Agentic\Reports\2026-07-08\logs\fable-05-p4-1-scene-tryload-validate-full-final.log`
   and
   `Agentic\Reports\2026-07-08\logs\fable-05-p4-1-scene-parser-tests-final.log`.
+  Follow-up gate logs:
+  `Agentic\Reports\2026-07-08\logs\fable-05-06-scene-parser-tests.log` and
+  `Agentic\Reports\2026-07-08\logs\fable-05-06-mouse-pickup-validate-fast.log`.
 - [x] P4.2 Editor placement paths (GameModelCollection append callers): a
   failed append becomes a UI-visible no-op (log event + skip), never a crash.
   Find callers: `rg -n "AppendGameModelAndPhysicsRows|AppendModel" SkullbonezSource/Runtime`.

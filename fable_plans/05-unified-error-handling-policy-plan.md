@@ -1,7 +1,7 @@
 # Unified Error Handling Policy Plan
 
 Date: 2026-07-06
-Status: Phase 1 policy and ratchet complete on 2026-07-07; Phase 2 replay probe conversion/evidence complete on 2026-07-08; SpatialGrid, PhysicsWorld, GameModelCollection pure topology, legacy camera pose-read, append Lane R conversions, and scene/style TryLoad entry-boundary conversion complete; remaining deeper loader/asset and DX12 conversions pending
+Status: Phase 1 policy and ratchet complete on 2026-07-07; Phase 2 replay probe conversion/evidence complete on 2026-07-08; SpatialGrid, PhysicsWorld, GameModelCollection pure topology, legacy camera pose-read, append Lane R conversions, scene/style TryLoad entry-boundary conversion, and one direct missing-camera parser throw removal complete; remaining deeper loader/asset and DX12 conversions pending
 Impact area: all subsystems, incrementally; policy + mechanical conversion
 Validation for this document: none (documentation-only)
 

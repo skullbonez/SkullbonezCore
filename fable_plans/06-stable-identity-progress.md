@@ -1,7 +1,7 @@
 # Progress: Stable Identity (plan 06)
 
 Source plan: `fable_plans/06-stable-identity-plan.md`
-Status: phase 2 central resolvers complete on 2026-07-08; subsystem conversions pending
+Status: phase 2 central resolvers complete on 2026-07-08; C1 mouse-pickup redundant-row sub-slice complete; subsystem conversions pending
 Last updated: 2026-07-08
 
 ## How to work this file
@@ -29,10 +29,11 @@ Last updated: 2026-07-08
   - `TryResolveReplayBodyModelIndex( const PhysicsBodyStore&, ReplayBodyId,
     int hint, int modelCount, int& out )` — RunReplayTools.cpp:158 (replay-id
     → model-index with hint fast path).
-- Current persisted model-index inventory (28 scalar members in 9 headers, plus
+- Initial persisted model-index inventory (28 scalar members in 9 headers, plus
   1 non-scalar drag-group row) was frozen on 2026-07-08. The checker excludes
   function default parameters such as `Run.h:190`; those are not stored
-  identity.
+  identity. The current scalar ratchet is 27 after the C1 mouse-pickup
+  redundant row was removed.
 
 | # | File:Line | Member | Adjacent stable id? | Class |
 |---|-----------|--------|---------------------|-------|
@@ -62,7 +63,7 @@ Last updated: 2026-07-08
 | 24 | Runtime/RuntimeInteractionCommands.h:70 | RuntimeInteractionEvent.modelIndex | body + collider | hint |
 | 25 | Runtime/RuntimeInteractionController.h:125 | RuntimeInteractionGesture.modelIndex | no stable id in gesture state | sole-identity |
 | 26 | Runtime/RuntimePickService.h:68 | RuntimePickResult.modelIndex | body + collider in same pick result | frame-local |
-| 27 | Runtime/Tools/RuntimeTools.h:165 | RunMousePickupState.modelIndex | body | hint |
+| 27 | Runtime/Tools/RuntimeTools.h:165 | RunMousePickupState.modelIndex | body | removed 2026-07-08 |
 | 28 | Runtime/Tools/RuntimeTools.h:198 | RunEditorPlacementState.selectedModelIndex | selectedBody + selectedCollider | hint |
 | 29 | Runtime/Tools/RuntimeTools.h:226 | RunEditorPlacementState.gizmoDragGroupIndices[] | active gesture only | frame-local |
 
@@ -183,11 +184,31 @@ through R2 resolvers; if `redundant`, delete and use the adjacent handle; if
 demote the int to a hint. `recorded`/`frame-local` members get an explicit
 `// Lifetime:` comment naming their class instead of a conversion.
 
-- [ ] C1. `RuntimeTools.h` cluster (#24 mouse pickup — redundant next to
-  `body` handle; #25 selection — hint next to selectedBody/selectedCollider;
+- [ ] C1. `RuntimeTools.h` cluster (#27 mouse pickup — redundant next to
+  `body` handle; #28 selection — hint next to selectedBody/selectedCollider;
   any drag-group entries from I1). Gate: `validate_fast` + editor smoke
   (launch, click-select, drag gizmo via
   `tools\run_graphics_stress.bat 1` if selection code churned). Commit.
+
+  Partial evidence (2026-07-08): the mouse-pickup redundant stored row was
+  removed. `RunMousePickupState` now stores only `PhysicsBodyHandle` for live
+  pickup command paths; pickup physics and angular-velocity restore revalidate
+  the handle before writing, and editor overlay drawing resolves the current
+  model row locally from `PhysicsBodyStore::ModelIndexForHandle`. The
+  `RuntimeInteractionGesture::modelIndex`, selection hint, and drag-group rows
+  remain for later C1/C3 work, so C1 stays unchecked. `MAX_STORED_MODEL_INDEX_MEMBER_FIELDS`
+  dropped from 28 to 27 in `tools/check_runtime_boundaries.py`.
+
+  Gate evidence: `python tools\check_runtime_boundaries.py --self-test`
+  passed; `python tools\check_runtime_boundaries.py --max-errors 20` passed
+  with 0 errors; `tools\validate_scene_parser_tests.bat` passed in
+  00:00:06.4059333 after the companion fable-05 missing-camera parser fix; and
+  `tools\validate_fast.bat` passed in 00:00:52.7932666 with formatting,
+  project filters, staged-size, runtime boundaries, unit tests, and
+  Profile/Debug builds all clean. Logs:
+  `Agentic\Reports\2026-07-08\logs\fable-05-06-scene-parser-tests.log` and
+  `Agentic\Reports\2026-07-08\logs\fable-05-06-mouse-pickup-validate-fast.log`.
+  Touched-file comment audit inspected 7 source-bearing files with 0 deferred.
 - [ ] C2. `RuntimeInteractionCommands.h` payloads (#6–#8): commands must carry
   `PhysicsBodyHandle` (already resolvable at enqueue time — find enqueue sites
   with `rg -n "RuntimeInteractionCommands|modelIndex" SkullbonezSource/Runtime/RunInput.cpp`

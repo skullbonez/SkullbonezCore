@@ -26,8 +26,8 @@ Glossary:
     hit-test bounds.
   Physics body handle: Generational id for a live simulation body row; runtime
     tools store it when they need to issue physics commands.
-  Model index: Dense model-order row used for UI and replay identity, validated
-    before use because collection edits can change it.
+  Model index: Dense model-order row used for UI, editor grouping, and replay
+    identity; retained rows are hints unless the owning plan says otherwise.
   Ring buffer: Fixed-size history where new launcher/raycast entries overwrite
     the oldest slots.
 
@@ -35,10 +35,10 @@ Invariants:
   - RuntimeTools owns transient tool state only; world, model, terrain, camera,
     asset, and physics services are borrowed through method parameters.
   - Fixed-capacity arrays must stay bounded and replay-restorable.
-  - Stored model indices are frame-local references and must be validated before
-    use after model collection edits.
-  - Mouse pickup stores a physics body handle for command paths; its model index
-    is interaction identity only.
+  - Stored model indices are frame-local references and must be validated or
+    resolved before use after model collection edits.
+  - Mouse pickup stores only a physics body handle for live command paths; any
+    model row used for gestures or UI is resolved locally from that handle.
 
 Related:
   - SkullbonezSource/Runtime/Tools/RuntimeTools.cpp
@@ -162,7 +162,6 @@ struct RunMousePickupState
 {
     bool active = false;
     bool mouseCaptured = false;
-    int modelIndex = -1;
     Physics::PhysicsBodyHandle body;
     Math::Vector::Vector3 planePoint = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 planeNormal = Math::Vector::Vector3( 0.0f, 0.0f, 1.0f );
@@ -433,7 +432,7 @@ class RuntimeTools
     void TickRayCastTestLines( float dt );
     bool HasLingeredRayCastLine( float maxAgeSeconds ) const;
     bool HasSelectionOverlayWork( int modelCount, RunCameraMode cameraMode ) const;
-    bool HasMousePickupOverlayWork( int modelCount ) const;
+    bool HasMousePickupOverlayWork() const;
     bool HasLauncherShots() const;
     const char* LauncherFireModeLabel() const;
     void BuildReplayLauncherVisualSample( ReplayLauncherVisualSample& outSample ) const;

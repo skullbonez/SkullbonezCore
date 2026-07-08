@@ -205,9 +205,9 @@ bool RuntimeTools::HasSelectionOverlayWork( int modelCount, RunCameraMode camera
     return placementPreview || editorSelection || inspectSelection || attachSelection;
 }
 
-bool RuntimeTools::HasMousePickupOverlayWork( int modelCount ) const
+bool RuntimeTools::HasMousePickupOverlayWork() const
 {
-    return m_mousePickup.active && m_mousePickup.modelIndex >= 0 && m_mousePickup.modelIndex < modelCount;
+    return m_mousePickup.active && m_mousePickup.body.IsValid();
 }
 
 bool RuntimeTools::HasLauncherShots() const

@@ -1665,19 +1665,18 @@ RUN_PRIVATE_METHOD_DECLARATION_PATTERN = re.compile(
     r"(?:=\s*(?:delete|default)\s*)?;",
     re.S,
 )
-# FABLE-06 I2: current persisted header member census on 2026-07-08.
+# FABLE-06 I2/C1: current persisted header member census on 2026-07-08.
 # Direct struct/class fields are counted; function default parameters and inline
 # locals are not. The budget is debt, not approval for new stored row identity.
-MAX_STORED_MODEL_INDEX_MEMBER_FIELDS = 28
+MAX_STORED_MODEL_INDEX_MEMBER_FIELDS = 27
 TYPE_WITH_BODY_PATTERN = re.compile(r"\b(?:struct|class)\s+[A-Za-z_]\w*(?:\s*:[^{;]+)?\s*\{")
 STORED_MODEL_INDEX_MEMBER_PATTERN = re.compile(
     r"(?m)^[ \t]*int[ \t]+(?:modelIndex|[A-Za-z_]\w*ModelIndex)\w*[ \t]*(?:=[^,;]*)?;"
 )
-# FABLE-05 P3.1: SpatialGrid, PhysicsWorld, pure GameModelCollection
-# topology invariants, and legacy camera pose reads moved off throw paths,
-# lowering the tracked exception-site budget by 24 without approving
+# FABLE-05 P3/P4: invariant conversions and the scene-parser missing-camera
+# result path lowered the tracked exception-site budget without approving
 # replacement throws.
-MAX_SOURCE_THROW_TOKENS = 266
+MAX_SOURCE_THROW_TOKENS = 265
 THROW_TOKEN_PATTERN = re.compile(r"\bthrow\b")
 MAX_RENDER_PASS_HOST_FIELD_ACCESSES = 109
 RENDER_PASS_HOST_FIELD_PATTERN = re.compile(r"\bm_host\.m_[A-Za-z_]\w*")

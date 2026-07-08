@@ -1160,7 +1160,7 @@ DebugOverlaySnapshot RuntimeRenderer::BuildDebugOverlaySnapshot( const RenderFra
     const float rayLinger = (std::max)( 0.0f, m_debug.physicsDebugContactLinger );
     snapshot.editorOverlayWorkVisible = m_runtimeTools.HasLingeredRayCastLine( rayLinger ) ||
                                         m_runtimeTools.HasSelectionOverlayWork( frame.modelCount, m_camera.mode ) ||
-                                        m_runtimeTools.HasMousePickupOverlayWork( frame.modelCount ) ||
+                                        m_runtimeTools.HasMousePickupOverlayWork() ||
                                         m_replayRuntime.HasPathVisualizerTarget() || m_replayRuntime.HasCameraFocus() ||
                                         ( m_replayRuntime.VelocityEditActive() && !m_editor.editorModeEnabled ) ||
                                         m_runtimeTools.HasLauncherShots();

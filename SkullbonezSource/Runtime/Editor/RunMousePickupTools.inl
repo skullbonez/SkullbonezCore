@@ -12,8 +12,8 @@ Glossary:
   Mouse pickup: Manipulator tool that drags a dynamic body toward a camera-facing target plane.
   Grab offset: World-space offset from body center to the point initially picked by the ray.
   Physics body handle: Generational id for the picked body-store row.
-  Model index: Transient interaction identity kept only to detect stale handle
-    and collection-row mismatches during a drag.
+  Gesture model row: Dense model row copied into RuntimeInteractionGesture when
+    the drag starts; live pickup state uses the physics body handle instead.
 
 Invariants:
   - Pointer capture and interaction gesture state must end whenever pickup is canceled.
@@ -154,7 +154,6 @@ bool Run::TickMousePickupInput( HWND hwnd, const RuntimeMouseEdges& mouseEdges, 
     }
     m_runtimeTools.MousePickup().active = true;
     m_runtimeTools.MousePickup().mouseCaptured = true;
-    m_runtimeTools.MousePickup().modelIndex = pickedIndex;
     m_runtimeTools.MousePickup().body = result.body;
     m_runtimeTools.MousePickup().planePoint = grabPoint;
     m_runtimeTools.MousePickup().planeNormal = cameraNormal;
@@ -187,12 +186,13 @@ void Run::ApplyMousePickupPhysicsStep()
         return;
     }
 
-    // Hazard: Pickup stores a frame-local handle and model index. Revalidate
-    // both so deleted/reused body slots cannot receive a stale tool impulse.
+    // Hazard: Pickup stores a live body handle. Revalidate it before every
+    // physics write so deleted/reused body slots cannot receive a stale tool
+    // impulse.
     RunMousePickupState& pickup = m_runtimeTools.MousePickup();
     const PhysicsBodyStore& bodyStore = m_cGameModelCollection.GetPhysicsEngine().BodyStore();
     const PhysicsBodyRecord* bodyRecord = bodyStore.RecordForHandle( pickup.body );
-    if ( !bodyRecord || bodyStore.ModelIndexForHandle( pickup.body ) != pickup.modelIndex )
+    if ( !bodyRecord )
     {
         CancelMousePickup();
         return;
@@ -247,7 +247,7 @@ void Run::RestoreMousePickupAngularVelocity()
     RunMousePickupState& pickup = m_runtimeTools.MousePickup();
     const PhysicsBodyStore& bodyStore = m_cGameModelCollection.GetPhysicsEngine().BodyStore();
     const PhysicsBodyRecord* bodyRecord = bodyStore.RecordForHandle( pickup.body );
-    if ( !bodyRecord || bodyStore.ModelIndexForHandle( pickup.body ) != pickup.modelIndex )
+    if ( !bodyRecord )
     {
         CancelMousePickup();
         return;
