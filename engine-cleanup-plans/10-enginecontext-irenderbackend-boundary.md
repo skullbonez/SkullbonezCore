@@ -121,9 +121,18 @@ danger zone — run the renderer gate 3×.
   - models: `GameModelCollection` (`m_cGameModelCollection`).
 
   No repository validation required; documentation-only inventory.
-- [ ] **1.2** For **one owner at a time**: create a narrow record holding only the
+- [x] **1.2** For **one owner at a time**: create a narrow record holding only the
   pointers that owner uses; pass it to that owner instead of the whole bag. Gate:
   `validate_full`. Commit. Repeat per owner.
+
+  Completion note (2026-07-08): no source owner consumes `EngineContext` or
+  receives `EngineContextBindings` after step 0.1, so there were no owner-specific
+  records to create in this slice. The only remaining broad-bag use is Run's
+  self-binding, which step 1.3 deletes. Validation:
+  `tools\validate_full.bat` passed in 42.3s
+  (`Agentic\Logs\cleanup-10-step-1.2-enginecontext-no-consumers-validate-full.log`)
+  with 0 build warnings/errors, 0 DX12 validation errors, matching DX12
+  screenshots, and `physics_regression_solver.csv` byte-exact at 20001 lines.
 - [ ] **1.3** Delete `EngineContextBindings` once no consumer needs the whole
   graph. `rg -n "EngineContextBindings"` → nothing. Build. Commit.
 
