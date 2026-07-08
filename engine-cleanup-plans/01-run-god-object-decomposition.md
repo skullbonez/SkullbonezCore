@@ -254,6 +254,17 @@ every step. Commit per step.
     project filters/runtime boundaries passed, Profile/Debug builds had 0 warnings
     and 0 errors, DX12 InfoQueue errors = 0, screenshots matched baselines, and
     `physics_regression_solver.csv` matched byte-exactly).
+  - [x] UI overlay keyboard group (0/F5/F6) now dispatches through the same table
+    loop for diagnostics-window visibility, marker histogram visibility, and memory
+    waterline visibility. The handlers preserve their cursor-ownership updates and
+    mode-action bookkeeping; remaining non-UI actions stay on existing branches.
+    Gate evidence:
+    `TestOutput\agent_logs\plan01_step1_3_ui_overlay_interaction_clicks.log`
+    (19.7s, both interaction reports `ok=1`) and
+    `TestOutput\agent_logs\plan01_step1_3_ui_overlay_validate_full.log` (50.4s;
+    project filters/runtime boundaries passed, Profile/Debug builds had 0 warnings
+    and 0 errors, DX12 InfoQueue errors = 0, screenshots matched baselines, and
+    `physics_regression_solver.csv` matched byte-exactly).
 - [ ] **1.4** Confirm `TakeInput()` is under ~200 lines (setup + dispatch loop).
 
 ### Phase 2 — Move state shelves out of `RunState`

@@ -2026,6 +2026,44 @@ void Run::TakeInput()
                     }
                 }
                 return true;
+            case RuntimeInputAction::ToggleUIVisibility:
+                if ( InputController::CaptureKeyboardActionPress( m_runtimeInput, binding.action, binding.virtualKey ) )
+                {
+                    // 0 toggles the in-game diagnostics window once per keypress
+                    // and clears legacy overlay text so the tabbed UI owns display.
+                    EnterInteractiveSceneRun();
+                    m_UI.ToggleVisible( m_timers.simulationTimer.GetTotalTime() );
+                    m_debug.overlayMode = OverlayMode::None;
+                    ApplyCursorOwnership();
+                    ReleaseMouseToUI();
+                    UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleUIVisibility,
+                                                       RuntimeInputActionSource::Keyboard );
+                }
+                return true;
+            case RuntimeInputAction::TogglePerformanceHistogram:
+                if ( InputController::CaptureKeyboardActionPress( m_runtimeInput, binding.action, binding.virtualKey ) )
+                {
+                    // F5 is a lightweight marker histogram toggle; it should not
+                    // implicitly open or close the broader diagnostics window.
+                    m_UI.TogglePerformanceHistogramEnabled();
+                    ApplyCursorOwnership();
+                    ReleaseMouseToUI();
+                    UpdateRuntimeInputModeAfterAction( RuntimeInputAction::TogglePerformanceHistogram,
+                                                       RuntimeInputActionSource::Keyboard );
+                }
+                return true;
+            case RuntimeInputAction::ToggleMemoryOverlay:
+                if ( InputController::CaptureKeyboardActionPress( m_runtimeInput, binding.action, binding.virtualKey ) )
+                {
+                    // F6 mirrors F5 for memory waterline inspection without
+                    // changing diagnostics-window visibility.
+                    m_UI.ToggleMemoryOverlayEnabled();
+                    ApplyCursorOwnership();
+                    ReleaseMouseToUI();
+                    UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleMemoryOverlay,
+                                                       RuntimeInputActionSource::Keyboard );
+                }
+                return true;
             default:
                 return false;
             }
@@ -2133,51 +2171,6 @@ void Run::TakeInput()
             m_runtimeInput.SetActionDown( RuntimeInputAction::CycleCameraMode, Input::IsKeyDown( VK_TAB ) );
             m_runtimeTools.Editor().altShortcutWasDown = altDown;
             m_runtimeTools.Editor().tabShortcutWasDown = Input::IsKeyDown( VK_TAB );
-        }
-
-        // 0 key: toggle the in-game diagnostics window. Tabs replace the old overlay cycle.
-        // Edge-detected in both scene and generated demo modes; one toggle per keypress.
-        {
-            if ( InputController::CaptureKeyboardActionPress( m_runtimeInput,
-                                                              RuntimeInputAction::ToggleUIVisibility,
-                                                              '0' ) )
-            {
-                EnterInteractiveSceneRun();
-                m_UI.ToggleVisible( m_timers.simulationTimer.GetTotalTime() );
-                m_debug.overlayMode = OverlayMode::None;
-                ApplyCursorOwnership();
-                ReleaseMouseToUI();
-                UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleUIVisibility,
-                                                   RuntimeInputActionSource::Keyboard );
-            }
-        }
-
-        // F5: toggle the standalone marker histogram without opening the full diagnostics window.
-        {
-            if ( InputController::CaptureKeyboardActionPress( m_runtimeInput,
-                                                              RuntimeInputAction::TogglePerformanceHistogram,
-                                                              VK_F5 ) )
-            {
-                m_UI.TogglePerformanceHistogramEnabled();
-                ApplyCursorOwnership();
-                ReleaseMouseToUI();
-                UpdateRuntimeInputModeAfterAction( RuntimeInputAction::TogglePerformanceHistogram,
-                                                   RuntimeInputActionSource::Keyboard );
-            }
-        }
-
-        // F6: toggle the standalone memory waterline without opening the full diagnostics window.
-        {
-            if ( InputController::CaptureKeyboardActionPress( m_runtimeInput,
-                                                              RuntimeInputAction::ToggleMemoryOverlay,
-                                                              VK_F6 ) )
-            {
-                m_UI.ToggleMemoryOverlayEnabled();
-                ApplyCursorOwnership();
-                ReleaseMouseToUI();
-                UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleMemoryOverlay,
-                                                   RuntimeInputActionSource::Keyboard );
-            }
         }
 
         auto executeSceneControlAction = [&]( const SceneRuntimeControlAction& action ) -> bool
