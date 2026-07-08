@@ -917,6 +917,207 @@ std::string BoolString( bool value )
     return value ? "true" : "false";
 }
 
+struct InteractionAutomationAssertContext
+{
+    RuntimeTools& runtimeTools;
+    ReplayRuntime& replayRuntime;
+    RuntimeInteractionController& interaction;
+    RunCameraState& camera;
+    GameModelCollection& gameModels;
+    SkullbonezCore::UI::InGameUI& ui;
+};
+
+struct InteractionAutomationAssertionEvaluation
+{
+    std::string expected;
+    std::string actual;
+    bool passed = false;
+};
+
+template <typename InspectGizmoInteractionActive>
+InteractionAutomationAssertionEvaluation
+EvaluateInteractionAutomationAssertion( InteractionAutomationAssertContext& context,
+                                        const RunInteractionAutomationAction& action,
+                                        InspectGizmoInteractionActive inspectGizmoInteractionActive )
+{
+    // Concept: after-render assertions are read-only probes over owner state.
+    // The context keeps that state explicit so the Run tick only schedules,
+    // reports, and fails automation work instead of owning assertion policy.
+    InteractionAutomationAssertionEvaluation evaluation;
+    switch ( action.assertKind )
+    {
+    case RunInteractionAutomationAssertKind::SelectedObject:
+    {
+        evaluation.expected = action.text;
+        const int selectedIndex = PeekSelectedEditorModelIndex( context.runtimeTools.Editor(),
+                                                                context.gameModels.GetPhysicsEngine().BodyStore() );
+        if ( selectedIndex >= 0 && selectedIndex < context.gameModels.SceneEntityCount() )
+        {
+            evaluation.actual = context.gameModels.GetModelAtIndex( selectedIndex ).GetName();
+        }
+        evaluation.passed = evaluation.actual == evaluation.expected;
+        break;
+    }
+    case RunInteractionAutomationAssertKind::Owner:
+        evaluation.expected = action.text;
+        evaluation.actual = OwnerName( context.interaction.Owner() );
+        evaluation.passed = evaluation.actual == evaluation.expected;
+        break;
+    case RunInteractionAutomationAssertKind::CameraMode:
+        evaluation.expected = CameraModeName( action.cameraMode );
+        evaluation.actual = CameraModeName( context.camera.mode );
+        evaluation.passed = context.camera.mode == action.cameraMode;
+        break;
+    case RunInteractionAutomationAssertKind::DirectorGrabbed:
+        evaluation.expected = BoolString( action.boolValue );
+        evaluation.actual = BoolString( context.camera.director.grabbed );
+        evaluation.passed = context.camera.director.grabbed == action.boolValue;
+        break;
+    case RunInteractionAutomationAssertKind::DirectorPhaseIndex:
+    {
+        const int expectedPhase = static_cast<int>( action.numberValue );
+        evaluation.expected = std::to_string( expectedPhase );
+        evaluation.actual = std::to_string( context.camera.director.currentPhaseIndex );
+        evaluation.passed = context.camera.director.currentPhaseIndex == expectedPhase;
+        break;
+    }
+    case RunInteractionAutomationAssertKind::DirectorPhaseName:
+    {
+        const DemoPhase* phase = ActiveDirectorPhase( context.camera );
+        evaluation.expected = action.text;
+        evaluation.actual = phase ? phase->name : "";
+        evaluation.passed = evaluation.actual == evaluation.expected;
+        break;
+    }
+    case RunInteractionAutomationAssertKind::DirectorPhaseStylePath:
+    {
+        const DemoPhase* phase = ActiveDirectorPhase( context.camera );
+        evaluation.expected = action.path;
+        evaluation.actual = phase ? phase->stylePath : "";
+        evaluation.passed = evaluation.actual == evaluation.expected;
+        break;
+    }
+    case RunInteractionAutomationAssertKind::ReplayPredictionEnabled:
+        evaluation.expected = BoolString( action.boolValue );
+        evaluation.actual = BoolString( context.replayRuntime.Prediction().enabled );
+        evaluation.passed = context.replayRuntime.Prediction().enabled == action.boolValue;
+        break;
+    case RunInteractionAutomationAssertKind::ReplayPathTarget:
+        evaluation.expected = action.text;
+        evaluation.actual =
+            context.replayRuntime.PathVisualizer().hasTarget ? context.replayRuntime.PathVisualizer().targetName : "";
+        evaluation.passed = evaluation.actual == evaluation.expected;
+        break;
+    case RunInteractionAutomationAssertKind::PredictionPathVisible:
+    {
+        const bool visible = ReplayPredictionPathVisible( context.replayRuntime );
+        evaluation.expected = BoolString( action.boolValue );
+        evaluation.actual = BoolString( visible );
+        evaluation.passed = visible == action.boolValue;
+        break;
+    }
+    case RunInteractionAutomationAssertKind::PredictionBaselineVisible:
+    {
+        const ReplayPredictionBaselineSnapshot& baseline = context.replayRuntime.Prediction().baseline;
+        const bool visible = baseline.valid && baseline.comparisonActive;
+        evaluation.expected = BoolString( action.boolValue );
+        evaluation.actual = BoolString( visible );
+        evaluation.passed = visible == action.boolValue;
+        break;
+    }
+    case RunInteractionAutomationAssertKind::PredictionDivergenceMin:
+    {
+        const ReplayPredictionBaselineSnapshot& baseline = context.replayRuntime.Prediction().baseline;
+        {
+            std::ostringstream stream;
+            stream << ">=" << action.numberValue;
+            evaluation.expected = stream.str();
+        }
+        {
+            std::ostringstream stream;
+            stream << ( baseline.divergenceValid ? baseline.divergenceUnits : 0.0f );
+            evaluation.actual = stream.str();
+        }
+        evaluation.passed = baseline.divergenceValid && baseline.divergenceUnits >= action.numberValue;
+        break;
+    }
+    case RunInteractionAutomationAssertKind::ReplaySolverTrackAtPresent:
+    {
+        const float solverPosition = context.replayRuntime.TrackPosition( RunReplayTrack::Solver );
+        const float presentT = context.replayRuntime.SolverPresentTrackPosition();
+        const bool atPresent = ReplayRuntime::AtPresentTrackPosition( solverPosition, presentT );
+        evaluation.expected = BoolString( action.boolValue );
+        evaluation.actual = BoolString( atPresent );
+        evaluation.passed = atPresent == action.boolValue;
+        break;
+    }
+    case RunInteractionAutomationAssertKind::PredictionScrubFrameActive:
+    {
+        const bool active = context.replayRuntime.CurrentPredictionScrubFrame() != nullptr;
+        evaluation.expected = BoolString( action.boolValue );
+        evaluation.actual = BoolString( active );
+        evaluation.passed = active == action.boolValue;
+        break;
+    }
+    case RunInteractionAutomationAssertKind::PredictionTargetDisplacementMin:
+    {
+        float displacement = 0.0f;
+        const bool valid = TryPredictionTargetDisplacement( context.replayRuntime, displacement );
+        {
+            std::ostringstream stream;
+            stream << ">=" << action.numberValue;
+            evaluation.expected = stream.str();
+        }
+        {
+            std::ostringstream stream;
+            stream << ( valid ? displacement : 0.0f );
+            evaluation.actual = stream.str();
+        }
+        evaluation.passed = valid && displacement >= action.numberValue;
+        break;
+    }
+    case RunInteractionAutomationAssertKind::LiveSolverHashStableAcrossPrediction:
+    {
+        const bool stable = LiveSolverHashStableAcrossPrediction( context.replayRuntime );
+        evaluation.expected = BoolString( action.boolValue );
+        evaluation.actual = BoolString( stable );
+        evaluation.passed = stable == action.boolValue;
+        break;
+    }
+    case RunInteractionAutomationAssertKind::GizmoVisible:
+    {
+        const bool visible = context.runtimeTools.Editor().selectedBody.IsValid() &&
+                             ( context.runtimeTools.Editor().editorModeEnabled || inspectGizmoInteractionActive() );
+        evaluation.expected = BoolString( action.boolValue );
+        evaluation.actual = BoolString( visible );
+        evaluation.passed = visible == action.boolValue;
+        break;
+    }
+    case RunInteractionAutomationAssertKind::ReplayActiveTrack:
+        evaluation.expected = action.text;
+        evaluation.actual = ReplayTrackName( context.replayRuntime.Scrubber().activeTrack );
+        evaluation.passed = evaluation.actual == evaluation.expected;
+        break;
+    case RunInteractionAutomationAssertKind::ReplayHistoricalSamplePaused:
+    {
+        const bool paused = context.replayRuntime.Scrubber().historicalSamplePaused;
+        evaluation.expected = BoolString( action.boolValue );
+        evaluation.actual = BoolString( paused );
+        evaluation.passed = paused == action.boolValue;
+        break;
+    }
+    case RunInteractionAutomationAssertKind::MemoryOverlayEnabled:
+    {
+        const bool enabled = context.ui.IsMemoryOverlayEnabled();
+        evaluation.expected = BoolString( action.boolValue );
+        evaluation.actual = BoolString( enabled );
+        evaluation.passed = enabled == action.boolValue;
+        break;
+    }
+    }
+    return evaluation;
+}
+
 bool LoadScript( RunInteractionAutomationState& state )
 {
     RuntimeAllocation::RuntimeAllocationScope diagnosticsScope(
@@ -1675,6 +1876,12 @@ void Run::TickInteractionAutomationAfterRender()
     RuntimeAllocation::RuntimeAllocationScope diagnosticsAllocationScope(
         RuntimeAllocation::RuntimeAllocationPhase::Diagnostics );
     const int frame = SceneState().currentFrame;
+    InteractionAutomationAssertContext assertContext{ m_runtimeTools,
+                                                      m_replayRuntime,
+                                                      m_interaction,
+                                                      m_camera,
+                                                      m_cGameModelCollection,
+                                                      m_UI };
     for ( RunInteractionAutomationAction& action : state.actions )
     {
         if ( action.processed || action.frame != frame )
@@ -1708,186 +1915,16 @@ void Run::TickInteractionAutomationAfterRender()
         assertion.frame = frame;
         strcpy_s( assertion.name, sizeof( assertion.name ), AssertName( action.assertKind ) );
 
-        std::string expected;
-        std::string actual;
-        bool passed = false;
-        switch ( action.assertKind )
-        {
-        case RunInteractionAutomationAssertKind::SelectedObject:
-        {
-            expected = action.text;
-            const int selectedIndex =
-                PeekSelectedEditorModelIndex( m_runtimeTools.Editor(),
-                                              m_cGameModelCollection.GetPhysicsEngine().BodyStore() );
-            if ( selectedIndex >= 0 && selectedIndex < m_cGameModelCollection.SceneEntityCount() )
-            {
-                actual = m_cGameModelCollection.GetModelAtIndex( selectedIndex ).GetName();
-            }
-            passed = actual == expected;
-            break;
-        }
-        case RunInteractionAutomationAssertKind::Owner:
-            expected = action.text;
-            actual = OwnerName( m_interaction.Owner() );
-            passed = actual == expected;
-            break;
-        case RunInteractionAutomationAssertKind::CameraMode:
-            expected = CameraModeName( action.cameraMode );
-            actual = CameraModeName( m_camera.mode );
-            passed = m_camera.mode == action.cameraMode;
-            break;
-        case RunInteractionAutomationAssertKind::DirectorGrabbed:
-            expected = BoolString( action.boolValue );
-            actual = BoolString( m_camera.director.grabbed );
-            passed = m_camera.director.grabbed == action.boolValue;
-            break;
-        case RunInteractionAutomationAssertKind::DirectorPhaseIndex:
-        {
-            const int expectedPhase = static_cast<int>( action.numberValue );
-            expected = std::to_string( expectedPhase );
-            actual = std::to_string( m_camera.director.currentPhaseIndex );
-            passed = m_camera.director.currentPhaseIndex == expectedPhase;
-            break;
-        }
-        case RunInteractionAutomationAssertKind::DirectorPhaseName:
-        {
-            const DemoPhase* phase = ActiveDirectorPhase( m_camera );
-            expected = action.text;
-            actual = phase ? phase->name : "";
-            passed = actual == expected;
-            break;
-        }
-        case RunInteractionAutomationAssertKind::DirectorPhaseStylePath:
-        {
-            const DemoPhase* phase = ActiveDirectorPhase( m_camera );
-            expected = action.path;
-            actual = phase ? phase->stylePath : "";
-            passed = actual == expected;
-            break;
-        }
-        case RunInteractionAutomationAssertKind::ReplayPredictionEnabled:
-            expected = BoolString( action.boolValue );
-            actual = BoolString( m_replayRuntime.Prediction().enabled );
-            passed = m_replayRuntime.Prediction().enabled == action.boolValue;
-            break;
-        case RunInteractionAutomationAssertKind::ReplayPathTarget:
-            expected = action.text;
-            actual = m_replayRuntime.PathVisualizer().hasTarget ? m_replayRuntime.PathVisualizer().targetName : "";
-            passed = actual == expected;
-            break;
-        case RunInteractionAutomationAssertKind::PredictionPathVisible:
-        {
-            const bool visible = ReplayPredictionPathVisible( m_replayRuntime );
-            expected = BoolString( action.boolValue );
-            actual = BoolString( visible );
-            passed = visible == action.boolValue;
-            break;
-        }
-        case RunInteractionAutomationAssertKind::PredictionBaselineVisible:
-        {
-            const ReplayPredictionBaselineSnapshot& baseline = m_replayRuntime.Prediction().baseline;
-            const bool visible = baseline.valid && baseline.comparisonActive;
-            expected = BoolString( action.boolValue );
-            actual = BoolString( visible );
-            passed = visible == action.boolValue;
-            break;
-        }
-        case RunInteractionAutomationAssertKind::PredictionDivergenceMin:
-        {
-            const ReplayPredictionBaselineSnapshot& baseline = m_replayRuntime.Prediction().baseline;
-            {
-                std::ostringstream stream;
-                stream << ">=" << action.numberValue;
-                expected = stream.str();
-            }
-            {
-                std::ostringstream stream;
-                stream << ( baseline.divergenceValid ? baseline.divergenceUnits : 0.0f );
-                actual = stream.str();
-            }
-            passed = baseline.divergenceValid && baseline.divergenceUnits >= action.numberValue;
-            break;
-        }
-        case RunInteractionAutomationAssertKind::ReplaySolverTrackAtPresent:
-        {
-            const float solverPosition = m_replayRuntime.TrackPosition( RunReplayTrack::Solver );
-            const float presentT = m_replayRuntime.SolverPresentTrackPosition();
-            const bool atPresent = ReplayRuntime::AtPresentTrackPosition( solverPosition, presentT );
-            expected = BoolString( action.boolValue );
-            actual = BoolString( atPresent );
-            passed = atPresent == action.boolValue;
-            break;
-        }
-        case RunInteractionAutomationAssertKind::PredictionScrubFrameActive:
-        {
-            const bool active = m_replayRuntime.CurrentPredictionScrubFrame() != nullptr;
-            expected = BoolString( action.boolValue );
-            actual = BoolString( active );
-            passed = active == action.boolValue;
-            break;
-        }
-        case RunInteractionAutomationAssertKind::PredictionTargetDisplacementMin:
-        {
-            float displacement = 0.0f;
-            const bool valid = TryPredictionTargetDisplacement( m_replayRuntime, displacement );
-            {
-                std::ostringstream stream;
-                stream << ">=" << action.numberValue;
-                expected = stream.str();
-            }
-            {
-                std::ostringstream stream;
-                stream << ( valid ? displacement : 0.0f );
-                actual = stream.str();
-            }
-            passed = valid && displacement >= action.numberValue;
-            break;
-        }
-        case RunInteractionAutomationAssertKind::LiveSolverHashStableAcrossPrediction:
-        {
-            const bool stable = LiveSolverHashStableAcrossPrediction( m_replayRuntime );
-            expected = BoolString( action.boolValue );
-            actual = BoolString( stable );
-            passed = stable == action.boolValue;
-            break;
-        }
-        case RunInteractionAutomationAssertKind::GizmoVisible:
-        {
-            const bool visible = m_runtimeTools.Editor().selectedBody.IsValid() &&
-                                 ( m_runtimeTools.Editor().editorModeEnabled || InspectGizmoInteractionActive() );
-            expected = BoolString( action.boolValue );
-            actual = BoolString( visible );
-            passed = visible == action.boolValue;
-            break;
-        }
-        case RunInteractionAutomationAssertKind::ReplayActiveTrack:
-            expected = action.text;
-            actual = ReplayTrackName( m_replayRuntime.Scrubber().activeTrack );
-            passed = actual == expected;
-            break;
-        case RunInteractionAutomationAssertKind::ReplayHistoricalSamplePaused:
-        {
-            const bool paused = m_replayRuntime.Scrubber().historicalSamplePaused;
-            expected = BoolString( action.boolValue );
-            actual = BoolString( paused );
-            passed = paused == action.boolValue;
-            break;
-        }
-        case RunInteractionAutomationAssertKind::MemoryOverlayEnabled:
-        {
-            const bool enabled = m_UI.IsMemoryOverlayEnabled();
-            expected = BoolString( action.boolValue );
-            actual = BoolString( enabled );
-            passed = enabled == action.boolValue;
-            break;
-        }
-        }
+        const InteractionAutomationAssertionEvaluation evaluation =
+            EvaluateInteractionAutomationAssertion( assertContext,
+                                                    action,
+                                                    [this]() { return InspectGizmoInteractionActive(); } );
 
-        strcpy_s( assertion.expected, sizeof( assertion.expected ), expected.c_str() );
-        strcpy_s( assertion.actual, sizeof( assertion.actual ), actual.c_str() );
-        assertion.passed = passed;
+        strcpy_s( assertion.expected, sizeof( assertion.expected ), evaluation.expected.c_str() );
+        strcpy_s( assertion.actual, sizeof( assertion.actual ), evaluation.actual.c_str() );
+        assertion.passed = evaluation.passed;
         state.assertionReports.push_back( assertion );
-        if ( !passed )
+        if ( !evaluation.passed )
         {
             char message[256] = {};
             sprintf_s( message,
