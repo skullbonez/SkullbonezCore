@@ -43,6 +43,7 @@ Related:
 #include "../Core/SbResult.h"
 #include "CameraCollection.h"
 #include "InputController.h"
+#include "LiveStyleController.h"
 #include "Diagnostics/DiagnosticsRuntime.h"
 #include "RuntimeInteractionController.h"
 #include "RuntimeCommandQueue.h"
@@ -130,7 +131,7 @@ class Run
     ReplayLauncherVisualSample
         m_replayLauncherVisualScratch;                                     // Reused replay capture payload; capacity is kept outside gameplay.
     Runtime::Audio::ContactAudioService m_contactAudio;                    // Presentation-only material impact playback sink.
-    RunLiveStyleControlState m_liveStyle;                                  // Live style tweak/capture harness state
+    LiveStyleController m_liveStyle;                                       // Owns live style tweak/capture harness file-watching state.
     UI::InGameUI m_UI;                                                     // Encapsulated in-game diagnostics window
     RunDebugState m_debug;                                                 // Runtime debug/overlay toggles
     RunGraphicsStressState m_graphicsStress;                               // Deterministic graphics fuzzer state for overnight DX12 runs.

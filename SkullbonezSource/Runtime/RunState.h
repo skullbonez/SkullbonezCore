@@ -258,21 +258,6 @@ struct AttachedCameraState
     Math::Vector::Vector3 returnUp = Math::Vector::Vector3( 0.0f, 1.0f, 0.0f );
 };
 
-struct RunLiveStyleControlState
-{
-    bool enabled = false;                                          // Polls a small control folder for live style JSON and screenshot requests
-    char directory[260] = {};                                      // Folder containing live.style.json, capture.txt, and status.txt
-    char stylePath[300] = {};                                      // Style descriptor applied without reloading the scene
-    char capturePath[300] = {};                                    // Text command file used to request one screenshot
-    char statusPath[300] = {};                                     // Latest harness status for scripts/humans
-    char pendingScreenshotPath[512] = {};                          // Screenshot path requested by capture.txt
-    uint64_t styleStamp = 0;                                       // Last applied live.style.json write stamp
-    uint64_t captureStamp = 0;                                     // Last consumed capture.txt write stamp
-    int styleApplyCount = 0;                                       // Successful live style applications
-    int captureCount = 0;                                          // Successful live screenshots
-    bool hasPendingScreenshot = false;                             // Capture should run after render/UI this frame
-};
-
 enum class OverlayMode
 {
     None,                                                          // Clean screen, nothing shown

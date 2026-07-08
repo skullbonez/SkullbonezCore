@@ -194,15 +194,18 @@ bool ReadCaptureRequest( const char* path, char* out, size_t outSize )
 }
 
 
-void WriteStatus( const RunLiveStyleControlState& state, const char* status, const char* detail )
+} // namespace
+
+
+void LiveStyleController::WriteStatus( const char* status, const char* detail ) const
 {
-    if ( !state.enabled || state.statusPath[0] == '\0' )
+    if ( !m_enabled || m_statusPath[0] == '\0' )
     {
         return;
     }
 
     FILE* file = nullptr;
-    const errno_t err = fopen_s( &file, state.statusPath, "w" );
+    const errno_t err = fopen_s( &file, m_statusPath, "w" );
     if ( err != 0 || !file )
     {
         return;
@@ -210,120 +213,155 @@ void WriteStatus( const RunLiveStyleControlState& state, const char* status, con
 
     fprintf( file, "status %s\n", status ? status : "unknown" );
     fprintf( file, "detail %s\n", detail ? detail : "" );
-    fprintf( file, "style_applies %d\n", state.styleApplyCount );
-    fprintf( file, "captures %d\n", state.captureCount );
-    fprintf( file, "live_style %s\n", state.stylePath );
-    fprintf( file, "capture_control %s\n", state.capturePath );
+    fprintf( file, "style_applies %d\n", m_styleApplyCount );
+    fprintf( file, "captures %d\n", m_captureCount );
+    fprintf( file, "live_style %s\n", m_stylePath );
+    fprintf( file, "capture_control %s\n", m_capturePath );
     fclose( file );
 }
-} // namespace
 
 
-void Run::SetLiveStyleControlDirectory( const char* path )
+bool LiveStyleController::ConfigureDirectory( const char* path )
 {
     if ( !path || path[0] == '\0' )
+    {
+        return false;
+    }
+
+    strcpy_s( m_directory, sizeof( m_directory ), path );
+    JoinControlPath( m_directory, "live.style.json", m_stylePath, sizeof( m_stylePath ) );
+    JoinControlPath( m_directory, "capture.txt", m_capturePath, sizeof( m_capturePath ) );
+    JoinControlPath( m_directory, "status.txt", m_statusPath, sizeof( m_statusPath ) );
+    m_styleStamp = 0;
+    m_captureStamp = FileStamp( m_capturePath );
+    m_pendingScreenshotPath[0] = '\0';
+    m_hasPendingScreenshot = false;
+    m_styleApplyCount = 0;
+    m_captureCount = 0;
+    m_enabled = true;
+    return true;
+}
+
+
+void LiveStyleController::MarkReady()
+{
+    WriteStatus( "ready", "watching live.style.json" );
+    printf( "[style-harness] Watching %s\n", m_directory );
+}
+
+
+void LiveStyleController::Tick( SceneRuntimeStyleContext context )
+{
+    if ( !m_enabled )
     {
         return;
     }
 
-    strcpy_s( m_liveStyle.directory, sizeof( m_liveStyle.directory ), path );
-    JoinControlPath( m_liveStyle.directory, "live.style.json", m_liveStyle.stylePath, sizeof( m_liveStyle.stylePath ) );
-    JoinControlPath( m_liveStyle.directory, "capture.txt", m_liveStyle.capturePath, sizeof( m_liveStyle.capturePath ) );
-    JoinControlPath( m_liveStyle.directory, "status.txt", m_liveStyle.statusPath, sizeof( m_liveStyle.statusPath ) );
-    m_liveStyle.styleStamp = 0;
-    m_liveStyle.captureStamp = FileStamp( m_liveStyle.capturePath );
-    m_liveStyle.pendingScreenshotPath[0] = '\0';
-    m_liveStyle.hasPendingScreenshot = false;
-    m_liveStyle.styleApplyCount = 0;
-    m_liveStyle.captureCount = 0;
-    m_liveStyle.enabled = true;
+    const uint64_t styleStamp = FileStamp( m_stylePath );
+    if ( styleStamp != 0 && styleStamp != m_styleStamp )
+    {
+        m_styleStamp = styleStamp;
+        TestScene styleScene;
+        const SbResult loadResult = TestScene::TryLoadStyleFromFile( m_stylePath, context.assets, styleScene );
+        if ( loadResult.ok )
+        {
+            ApplyLiveStyleScene( context, styleScene );
+            ++m_styleApplyCount;
+            WriteStatus( "style_applied", m_stylePath );
+            printf( "[style-harness] Applied %s\n", m_stylePath );
+        }
+        else
+        {
+            const char* message = loadResult.error.message[0] != '\0' ? loadResult.error.message : "style load failed";
+            WriteStatus( "style_error", message );
+            fprintf( stderr, "[style-harness] Style error: %s\n", message );
+        }
+    }
+
+    const uint64_t captureStamp = FileStamp( m_capturePath );
+    if ( captureStamp != 0 && captureStamp != m_captureStamp )
+    {
+        m_captureStamp = captureStamp;
+
+        char requestedPath[512] = {};
+        if ( ReadCaptureRequest( m_capturePath, requestedPath, sizeof( requestedPath ) ) )
+        {
+            if ( IsAbsolutePath( requestedPath ) )
+            {
+                strcpy_s( m_pendingScreenshotPath, sizeof( m_pendingScreenshotPath ), requestedPath );
+            }
+            else
+            {
+                JoinControlPath( m_directory,
+                                 requestedPath,
+                                 m_pendingScreenshotPath,
+                                 sizeof( m_pendingScreenshotPath ) );
+            }
+            m_hasPendingScreenshot = true;
+            WriteStatus( "capture_pending", m_pendingScreenshotPath );
+        }
+        else
+        {
+            WriteStatus( "capture_ignored", "capture.txt contains no screenshot path" );
+        }
+    }
+}
+
+
+bool LiveStyleController::HasPendingCapture() const
+{
+    return m_enabled && m_hasPendingScreenshot;
+}
+
+
+const char* LiveStyleController::PendingScreenshotPath() const
+{
+    return m_pendingScreenshotPath;
+}
+
+
+void LiveStyleController::MarkCaptureSaved()
+{
+    ++m_captureCount;
+    WriteStatus( "capture_saved", m_pendingScreenshotPath );
+    printf( "[style-harness] Captured %s\n", m_pendingScreenshotPath );
+    m_pendingScreenshotPath[0] = '\0';
+    m_hasPendingScreenshot = false;
+}
+
+
+void Run::SetLiveStyleControlDirectory( const char* path )
+{
+    if ( !m_liveStyle.ConfigureDirectory( path ) )
+    {
+        return;
+    }
 
     m_launchOptions.interactiveSceneRun = true;
     EnterInteractiveSceneRun();
-    WriteStatus( m_liveStyle, "ready", "watching live.style.json" );
-    printf( "[style-harness] Watching %s\n", m_liveStyle.directory );
+    m_liveStyle.MarkReady();
 }
 
 
 void Run::TickLiveStyleControl()
 {
-    if ( !m_liveStyle.enabled )
-    {
-        return;
-    }
-
-    const uint64_t styleStamp = FileStamp( m_liveStyle.stylePath );
-    if ( styleStamp != 0 && styleStamp != m_liveStyle.styleStamp )
-    {
-        m_liveStyle.styleStamp = styleStamp;
-        TestScene styleScene;
-        const SbResult loadResult =
-            TestScene::TryLoadStyleFromFile( m_liveStyle.stylePath, m_systems.assets, styleScene );
-        if ( loadResult.ok )
-        {
-            ApplyLiveStyleScene( SceneRuntimeStyleContext{ m_launchOptions,
-                                                           SceneState(),
-                                                           m_sceneController.Browser(),
-                                                           m_cGameModelCollection,
-                                                           m_systems.assets,
-                                                           RuntimeActiveCinematicConfig( SceneState(), m_config ),
-                                                           m_defaultCinematicRender },
-                                 styleScene );
-            ++m_liveStyle.styleApplyCount;
-            WriteStatus( m_liveStyle, "style_applied", m_liveStyle.stylePath );
-            printf( "[style-harness] Applied %s\n", m_liveStyle.stylePath );
-        }
-        else
-        {
-            const char* message = loadResult.error.message[0] != '\0' ? loadResult.error.message : "style load failed";
-            WriteStatus( m_liveStyle, "style_error", message );
-            fprintf( stderr, "[style-harness] Style error: %s\n", message );
-        }
-    }
-
-    const uint64_t captureStamp = FileStamp( m_liveStyle.capturePath );
-    if ( captureStamp != 0 && captureStamp != m_liveStyle.captureStamp )
-    {
-        m_liveStyle.captureStamp = captureStamp;
-
-        char requestedPath[512] = {};
-        if ( ReadCaptureRequest( m_liveStyle.capturePath, requestedPath, sizeof( requestedPath ) ) )
-        {
-            if ( IsAbsolutePath( requestedPath ) )
-            {
-                strcpy_s( m_liveStyle.pendingScreenshotPath,
-                          sizeof( m_liveStyle.pendingScreenshotPath ),
-                          requestedPath );
-            }
-            else
-            {
-                JoinControlPath( m_liveStyle.directory,
-                                 requestedPath,
-                                 m_liveStyle.pendingScreenshotPath,
-                                 sizeof( m_liveStyle.pendingScreenshotPath ) );
-            }
-            m_liveStyle.hasPendingScreenshot = true;
-            WriteStatus( m_liveStyle, "capture_pending", m_liveStyle.pendingScreenshotPath );
-        }
-        else
-        {
-            WriteStatus( m_liveStyle, "capture_ignored", "capture.txt contains no screenshot path" );
-        }
-    }
+    m_liveStyle.Tick( SceneRuntimeStyleContext{ m_launchOptions,
+                                                SceneState(),
+                                                m_sceneController.Browser(),
+                                                m_cGameModelCollection,
+                                                m_systems.assets,
+                                                RuntimeActiveCinematicConfig( SceneState(), m_config ),
+                                                m_defaultCinematicRender } );
 }
 
 
 void Run::TickLiveStyleControlCapture()
 {
-    if ( !m_liveStyle.enabled || !m_liveStyle.hasPendingScreenshot )
+    if ( !m_liveStyle.HasPendingCapture() )
     {
         return;
     }
 
-    SaveScreenshot( m_liveStyle.pendingScreenshotPath );
-    ++m_liveStyle.captureCount;
-    WriteStatus( m_liveStyle, "capture_saved", m_liveStyle.pendingScreenshotPath );
-    printf( "[style-harness] Captured %s\n", m_liveStyle.pendingScreenshotPath );
-    m_liveStyle.pendingScreenshotPath[0] = '\0';
-    m_liveStyle.hasPendingScreenshot = false;
+    SaveScreenshot( m_liveStyle.PendingScreenshotPath() );
+    m_liveStyle.MarkCaptureSaved();
 }

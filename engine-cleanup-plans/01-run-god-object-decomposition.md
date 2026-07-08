@@ -945,6 +945,28 @@ every step. Commit per step.
     (9.2s). A post-audit comment-only format rerun also passed:
     `TestOutput\agent_logs\plan01_replay_mismatch_shelf_validate_format_rerun.log`
     (9.1s).
+  - [x] Live style/capture harness shelf moved behind `LiveStyleController`;
+    deleted `RunLiveStyleControlState` from `RunState.h`. `RunLiveStyle.cpp`
+    now delegates control-folder stamps, status-file updates, and pending
+    screenshot state to the controller, while `Run` keeps the broader
+    interactive-run and screenshot-save side effects. The touched-file comment
+    audit added the new controller learning header and kept the harness
+    invariants local to the owner. Gate evidence:
+    `TestOutput\agent_logs\plan01_live_style_controller_validate_full.log`
+    (58.9s; project filters/runtime boundaries passed, Profile/Debug builds had
+    0 warnings and 0 errors, DX12 InfoQueue errors = 0, screenshots matched
+    baselines, and `physics_regression_solver.csv` matched byte-exactly).
+    Targeted pre-gate checks also passed:
+    `TestOutput\agent_logs\plan01_live_style_controller_build_profile.log`
+    (10.4s),
+    `TestOutput\agent_logs\plan01_live_style_controller_runtime_boundaries.log`
+    (17.6s), and
+    `TestOutput\agent_logs\plan01_live_style_controller_project_filters.log`
+    (1.2s). The first format pass found `RunLiveStyle.cpp` after the refactor
+    (`TestOutput\agent_logs\plan01_live_style_controller_validate_format.log`,
+    5.2s); the narrowed clang-format fix was applied and
+    `TestOutput\agent_logs\plan01_live_style_controller_validate_format_rerun.log`
+    passed in 9.2s.
 
 ### Phase 3 — Shrink `Run`
 
