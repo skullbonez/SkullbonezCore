@@ -1735,9 +1735,6 @@ void Run::TakeInput()
     };
     if ( !UIBlocksKeyboardBeforeInput )
     {
-        keyboardToggleEditorMode =
-            InputController::CaptureKeyboardActionPress( m_runtimeInput, RuntimeInputAction::ToggleEditor, VK_OEM_3 );
-
         auto executeSceneControlAction = [&]( const SceneRuntimeControlAction& action ) -> bool
         {
             if ( action.enterInteractiveSceneRun )
@@ -1774,11 +1771,17 @@ void Run::TakeInput()
             return false;
         };
 
-        auto dispatchMappedKeyboardAction =
-            [this, &executeSceneControlAction]( const RuntimeInputKeyBinding& binding ) -> bool
+        auto dispatchMappedKeyboardAction = [this, &executeSceneControlAction, &keyboardToggleEditorMode](
+                                                const RuntimeInputKeyBinding& binding ) -> bool
         {
             switch ( binding.action )
             {
+            case RuntimeInputAction::ToggleEditor:
+                // Backtick is captured early but applied after UI command processing
+                // so keyboard and UI editor toggles share the same transition path.
+                keyboardToggleEditorMode =
+                    InputController::CaptureKeyboardActionPress( m_runtimeInput, binding.action, binding.virtualKey );
+                return true;
             case RuntimeInputAction::CycleCameraMode:
                 if ( InputController::CaptureKeyboardActionPress( m_runtimeInput, binding.action, binding.virtualKey ) )
                 {

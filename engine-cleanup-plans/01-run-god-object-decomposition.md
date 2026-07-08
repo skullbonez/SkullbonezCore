@@ -284,6 +284,16 @@ every step. Commit per step.
     project filters/runtime boundaries passed, Profile/Debug builds had 0 warnings
     and 0 errors, DX12 InfoQueue errors = 0, screenshots matched baselines, and
     `physics_regression_solver.csv` matched byte-exactly).
+  - [x] Editor-mode keyboard group (backtick) now dispatches through the same
+    table loop while preserving the existing delayed merge with UI editor-toggle
+    commands. Alt/replay velocity edit handling remains on the existing branch.
+    Gate evidence:
+    `TestOutput\agent_logs\plan01_step1_3_editor_mode_interaction_clicks.log`
+    (19.2s, both interaction reports `ok=1`) and
+    `TestOutput\agent_logs\plan01_step1_3_editor_mode_validate_full.log` (50.3s;
+    project filters/runtime boundaries passed, Profile/Debug builds had 0 warnings
+    and 0 errors, DX12 InfoQueue errors = 0, screenshots matched baselines, and
+    `physics_regression_solver.csv` matched byte-exactly).
 - [ ] **1.4** Confirm `TakeInput()` is under ~200 lines (setup + dispatch loop).
 
 ### Phase 2 — Move state shelves out of `RunState`
