@@ -683,6 +683,9 @@
     <ClInclude Include="SkullbonezSource\GameObjects\GameModelCollection.h">
       <Filter>Header Files\GameObjects</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\GameObjects\SceneCapacity.h">
+      <Filter>Header Files\GameObjects</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\Rendering\GameModelRenderer.h">
       <Filter>Header Files\Rendering</Filter>
     </ClInclude>

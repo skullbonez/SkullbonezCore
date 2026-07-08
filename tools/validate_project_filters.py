@@ -93,6 +93,7 @@ GAME_OBJECT_PREFIXES = (
     "GameModelSoACache",
     "GameModelStreams",
     "GameModel",
+    "SceneCapacity",
 )
 
 PHYSICS_PREFIXES = (

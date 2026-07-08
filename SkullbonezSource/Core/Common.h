@@ -13,6 +13,8 @@ Glossary:
     Maths/MathsCommon.h during the Common.h aliasing period.
   Physics timestep: Fixed-step physics constants owned by
     Physics/PhysicsTimestep.h during the Common.h aliasing period.
+  Scene capacity: Fixed model/camera/texture ceilings owned by
+    GameObjects/SceneCapacity.h during the Common.h aliasing period.
   Validation gate: Repository script that proves a class of changes before
   commit or PR.
 
@@ -61,19 +63,13 @@ Related:
 #include <memory>    // std::unique_ptr
 #include <algorithm> // std::clamp, std::min, std::max
 #include "../Maths/MathsCommon.h"
+#include "../GameObjects/SceneCapacity.h"
 #include "../Physics/PhysicsTimestep.h"
 
 #ifdef _DEBUG
 #define CRTDBG_MAP_ALLOC // must precede crtdbg.h to redirect malloc → _malloc_dbg
 #include <crtdbg.h>
 #endif
-
-// Array-sizing counts (must remain compile-time)
-constexpr int TOTAL_CAMERA_COUNT = 8;
-constexpr int TOTAL_TEXTURE_COUNT = 8;
-constexpr int DEFAULT_GAME_MODEL_CAPACITY = 4000;
-constexpr int MAX_GAME_MODELS = 8192;
-constexpr int DEFAULT_GAME_MODELS = 300;
 
 // Window labels
 constexpr const char* WINDOW_NAME = "SkullbonezWindow";

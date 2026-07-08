@@ -1,7 +1,7 @@
 # Progress: Build Layering And Repo Hygiene (plan 04)
 
 Source plan: `fable_plans/04-build-layering-and-repo-hygiene-plan.md`
-Status: phase 1 complete on 2026-07-07; phase 2 L1-L4 Maths library extraction complete on 2026-07-08; phase 3 C1 physics timestep header split complete
+Status: phase 1 complete on 2026-07-07; phase 2 L1-L4 Maths library extraction complete on 2026-07-08; phase 3 C1/C2 Common.h domain header splits complete
 Last updated: 2026-07-08
 
 ## How to work this file
@@ -29,25 +29,27 @@ Last updated: 2026-07-08
   `GeometricStructures.h` reaches it through `Vector3.h`; no Maths include
   directive pulls `../Core/Common.h`, `<windows.h>`, `Config.h`, `Log.h`, or
   `ZeroMemory`.
-- `Core/Common.h` (117 lines after C1) content map - it is included by
+- `Core/Common.h` (113 lines after C2) content map - it is included by
   ~everything and still transitively drags `<windows.h>` (line 53, with
-  WIN32_LEAN_AND_MEAN), `Config.h` + `Log.h` (lines 84-85), and `<stdexcept>`
-  (line 58). It includes `../Maths/MathsCommon.h` and
-  `../Physics/PhysicsTimestep.h` during the aliasing period:
-  - Lines 51-67: windows.h + CRT/platform includes + crtdbg - PLATFORM, not
-    common.
-  - 68-73: TOTAL_CAMERA_COUNT, TOTAL_TEXTURE_COUNT, DEFAULT/MAX_GAME_MODELS -
-    scene/render capacities.
-  - 75-78: WINDOW_NAME, TITLE_TEXT, DATA_ROOT - runtime/window.
+  WIN32_LEAN_AND_MEAN), `Config.h` + `Log.h` (lines 80-81), and `<stdexcept>`
+  (line 58). It includes `../Maths/MathsCommon.h`,
+  `../GameObjects/SceneCapacity.h`, and `../Physics/PhysicsTimestep.h` during
+  the aliasing period:
+  - Lines 51-68: windows.h + CRT/platform/domain includes + crtdbg - PLATFORM
+    or aliasing includes, not common.
+  - 70-73: WINDOW_NAME, TITLE_TEXT, DATA_ROOT - runtime/window.
+  - `GameObjects/SceneCapacity.h` (38 lines) now owns TOTAL_CAMERA_COUNT,
+    TOTAL_TEXTURE_COUNT, DEFAULT_GAME_MODEL_CAPACITY, MAX_GAME_MODELS, and
+    DEFAULT_GAME_MODELS.
   - `Physics/PhysicsTimestep.h` (31 lines) now owns PHYSICS_FIXED_DT and
     PHYSICS_MAX_STEPS_PER_FRAME.
   - `Maths/MathsCommon.h` (54 lines) now owns SKULLBONEZ_INTRINSICS,
     _PI/_2PI/_HALF_PI, fraction constants, and the math/collision tolerances.
-  - 84-85: `#include "Config.h"` + `#include "Log.h"` - the global-service
+  - 80-81: `#include "Config.h"` + `#include "Log.h"` - the global-service
     leak (plan 02 owns deleting Cfg; this plan owns un-nesting the includes).
-  - 87-90: ActiveGameModelCapacity(config) - scene capacity policy.
-  - 92-96: Log() accessor - sanctioned global (plan 02).
-  - 99-117: HashStr + TEXTURE_*/CAMERA_* hash constants - assets/render.
+  - 83-86: ActiveGameModelCapacity(config) - scene capacity policy.
+  - 88-92: Log() accessor - sanctioned global (plan 02).
+  - 95-113: HashStr + TEXTURE_*/CAMERA_* hash constants - assets/render.
 - `RunInput.cpp` (3,580 lines) function inventory groups cleanly:
   - Input routing/commands: BuildRuntimeInputSnapshot(:564),
     RouteRuntimePointerInput(:613), ExecuteRuntimeInteractionCommand(:1009),
@@ -260,10 +262,33 @@ Last updated: 2026-07-08
   boundaries at 0 errors, Profile/Debug builds at 0 warnings/errors, DX12
   validation errors 0, screenshots matching committed baselines, and
   `physics_regression_solver.csv` byte-exact.
-- [ ] C2. Scene/render capacities (MAX_GAME_MODELS etc.) →
+- [x] C2. Scene/render capacities (MAX_GAME_MODELS etc.) →
   `GameObjects/SceneCapacity.h` (coordinate: authoritative-plan-02 PHYS-012
   owns capacity POLICY; this is only the constant's home). Gate:
   `validate_fast`.
+
+  Evidence (2026-07-08): Added `SkullbonezSource/GameObjects/SceneCapacity.h`
+  for `TOTAL_CAMERA_COUNT`, `TOTAL_TEXTURE_COUNT`,
+  `DEFAULT_GAME_MODEL_CAPACITY`, `MAX_GAME_MODELS`, and
+  `DEFAULT_GAME_MODELS`; `Core/Common.h` now includes it during the aliasing
+  period instead of defining those constants locally. `ActiveGameModelCapacity`
+  stays in `Common.h` for this slice so PHYS-012 capacity policy is not moved.
+  Epicurus, a read-only explorer subagent, confirmed the aggregate header is
+  acceptable for C2 as a compile-time capacity home, while noting camera and
+  texture counts may later deserve narrower owners if C5 breaks aliases
+  further. `SKULLBONEZ_CORE.vcxproj` and `.filters` list the new header, and
+  `tools/validate_project_filters.py` includes `SceneCapacity` in the
+  GameObjects header rule set. Touched-file comment audit inspected
+  `Common.h`, `SceneCapacity.h`, and `tools/validate_project_filters.py` with
+  0 deferred.
+
+  Validation (2026-07-08): `python tools\validate_project_filters.py --repo .`
+  passed in 00:00:00.9114220 with 0 errors across 560 project/filter items.
+  `tools\validate_fast.bat` passed in 00:01:04.6129410 with
+  `VALIDATE_FAST: ALL PASSED`. `tools\validate_full.bat` passed in
+  00:00:45.5548641 with runtime boundaries at 0 errors, Profile/Debug builds
+  at 0 warnings/errors, DX12 validation errors 0, screenshots matching
+  committed baselines, and `physics_regression_solver.csv` byte-exact.
 - [ ] C3. TEXTURE_*/CAMERA_* hash constants + HashStr → `Assets/AssetKeys.h`
   (HashStr is used by profiler markers too — census first:
   `rg -ln "HashStr" SkullbonezSource`). Gate: `validate_fast`.
