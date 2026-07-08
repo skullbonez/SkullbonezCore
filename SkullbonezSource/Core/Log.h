@@ -25,6 +25,8 @@ Related:
 #pragma once
 
 
+#include <cstdarg>
+
 #ifdef _DEBUG
 #include <cstdio>
 #include <unordered_map>
@@ -62,6 +64,9 @@ class EngineLog
     static EngineLog& Get();
 
     void Writef( const char* fileName, const char* fmt, ... );
+    // Caller contract: forwards one active va_list without taking ownership of
+    // its lifetime; the caller still owns va_end.
+    void WriteVf( const char* fileName, const char* fmt, va_list args );
     void WriteEventf( const char* fmt, ... );
     void FlushAll();
 

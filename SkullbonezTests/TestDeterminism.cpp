@@ -250,7 +250,13 @@ void StepMicroWorld( PhysicsEngine& engine, int ticks )
     WorkerPool workerPool;
     for ( int tick = 0; tick < ticks; ++tick )
     {
-        engine.Step( PHYSICS_FIXED_DT, config, forces, workerPool, nullptr, 0 );
+        engine.Step( PHYSICS_FIXED_DT,
+                     config,
+                     forces,
+                     workerPool,
+                     nullptr,
+                     0,
+                     SkullbonezCore::Physics::PhysicsDiagnosticsCsvWriter{} );
     }
 }
 

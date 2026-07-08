@@ -1056,7 +1056,8 @@ void PhysicsWorld::RunPhysics( PhysicsBodyStore& bodyStore,
                                const PhysicsWorldForces& worldForces,
                                Threading::WorkerPool& workerPool,
                                const char* const* diagnosticNames,
-                               int diagnosticNameCount )
+                               int diagnosticNameCount,
+                               const PhysicsDiagnosticsCsvWriter& diagnosticsCsvWriter )
 {
     // Concept: one fixed physics tick has a predictable data flow.
     //
@@ -1124,7 +1125,8 @@ void PhysicsWorld::RunPhysics( PhysicsBodyStore& bodyStore,
                       worldForces,
                       workerPool,
                       diagnosticNames,
-                      diagnosticNameCount );
+                      diagnosticNameCount,
+                      diagnosticsCsvWriter );
     bodyStore.CopySleepStatesFrom( m_sleepState );
 }
 
@@ -1153,7 +1155,8 @@ void PhysicsWorld::EmitStepDiagnostics( const PhysicsBodyStore& bodyStore,
                                         const ColliderStore& colliderStore,
                                         float fChangeInTime,
                                         const char* const* diagnosticNames,
-                                        int diagnosticNameCount )
+                                        int diagnosticNameCount,
+                                        const PhysicsDiagnosticsCsvWriter& diagnosticsCsvWriter )
 {
 #ifdef _DEBUG
     if ( !m_diagnosticsSuppressed )
@@ -1164,7 +1167,8 @@ void PhysicsWorld::EmitStepDiagnostics( const PhysicsBodyStore& bodyStore,
         {
             const PhysicsDiagnosticsNameView names{ diagnosticNames, diagnosticNameCount };
             const PhysicsDiagnosticsView diagnosticsView = GetDiagnosticsView();
-            const PhysicsDiagnosticsFrameInput frame{ diagnosticsView, bodyStore, colliderStore, names, fChangeInTime };
+            const PhysicsDiagnosticsFrameInput frame{
+                diagnosticsView, bodyStore, colliderStore, names, diagnosticsCsvWriter, fChangeInTime };
             if ( regressionLogEnabled )
             {
                 m_diagnostics.EmitRegressionLog( frame );
@@ -1182,6 +1186,7 @@ void PhysicsWorld::EmitStepDiagnostics( const PhysicsBodyStore& bodyStore,
     (void)fChangeInTime;
     (void)diagnosticNames;
     (void)diagnosticNameCount;
+    (void)diagnosticsCsvWriter;
 #endif
 }
 
@@ -1639,6 +1644,7 @@ bool PhysicsWorld::SetDiagnosticsSuppressed( bool suppressed )
 
 void PhysicsWorld::EmitPhysicsCollisionTime( const char* const* diagnosticNames,
                                              int diagnosticNameCount,
+                                             const PhysicsDiagnosticsCsvWriter& diagnosticsCsvWriter,
                                              const char* type,
                                              int bodyA,
                                              int bodyB,
@@ -1652,7 +1658,14 @@ void PhysicsWorld::EmitPhysicsCollisionTime( const char* const* diagnosticNames,
     }
 #endif
     m_diagnostics
-        .EmitCollisionTime( diagnosticNames, diagnosticNameCount, type, bodyA, bodyB, collisionTime, availableTime );
+        .EmitCollisionTime( diagnosticNames,
+                            diagnosticNameCount,
+                            diagnosticsCsvWriter,
+                            type,
+                            bodyA,
+                            bodyB,
+                            collisionTime,
+                            availableTime );
 }
 
 
@@ -2104,7 +2117,8 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
                                      const PhysicsWorldForces& worldForces,
                                      Threading::WorkerPool& workerPool,
                                      const char* const* diagnosticNames,
-                                     int diagnosticNameCount )
+                                     int diagnosticNameCount,
+                                     const PhysicsDiagnosticsCsvWriter& diagnosticsCsvWriter )
 {
     auto& bodyRecords = bodyStore.MutableRecords();
     const auto& colliderRecords = colliderStore.Records();
@@ -2768,6 +2782,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
         {
             EmitPhysicsCollisionTime( diagnosticNames,
                                       diagnosticNameCount,
+                                      diagnosticsCsvWriter,
                                       "object",
                                       event.collisionTimeBodyA,
                                       event.collisionTimeBodyB,
@@ -3225,7 +3240,14 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
             record.scalarB = hasManifold && manifold.supportsRestingPolicy ? 1.0f : 0.0f;
             record.scalarC = hasManifold ? static_cast<float>( manifold.pointCount ) : 0.0f;
             RecordPhysicsPipelineStage( record );
-            EmitPhysicsCollisionTime( diagnosticNames, diagnosticNameCount, "terrain", x, -1, colTime, availableTime );
+            EmitPhysicsCollisionTime( diagnosticNames,
+                                      diagnosticNameCount,
+                                      diagnosticsCsvWriter,
+                                      "terrain",
+                                      x,
+                                      -1,
+                                      colTime,
+                                      availableTime );
 
             if ( hasManifold )
             {

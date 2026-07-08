@@ -123,6 +123,15 @@ FILE* EngineLog::OpenLog( const char* fileName )
 
 void EngineLog::Writef( const char* fileName, const char* fmt, ... )
 {
+    va_list args;
+    va_start( args, fmt );
+    WriteVf( fileName, fmt, args );
+    va_end( args );
+}
+
+
+void EngineLog::WriteVf( const char* fileName, const char* fmt, va_list args )
+{
     FILE* f = OpenLog( fileName );
 
     if ( f )
@@ -131,10 +140,7 @@ void EngineLog::Writef( const char* fileName, const char* fmt, ... )
         // times per frame; flushing each row makes SkullScope trace generation
         // dominated by I/O. Callers that need durable output at a boundary use
         // FlushAll(), and the logger destructor flushes/closes every file.
-        va_list args;
-        va_start( args, fmt );
         vfprintf( f, fmt, args );
-        va_end( args );
     }
 }
 
@@ -200,6 +206,9 @@ EngineLog::~EngineLog()
 #else
 
 void EngineLog::Writef( const char*, const char*, ... )
+{
+}
+void EngineLog::WriteVf( const char*, const char*, va_list )
 {
 }
 void EngineLog::WriteEventf( const char*, ... )

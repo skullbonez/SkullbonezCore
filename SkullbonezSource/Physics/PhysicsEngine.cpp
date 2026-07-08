@@ -256,9 +256,16 @@ void PhysicsEngine::Step( float deltaSeconds,
                           const PhysicsWorldForces& worldForces,
                           Threading::WorkerPool& workerPool,
                           const char* const* diagnosticNames,
-                          int diagnosticNameCount )
+                          int diagnosticNameCount,
+                          const PhysicsDiagnosticsCsvWriter& diagnosticsCsvWriter )
 {
-    m_scene.RunPhysics( deltaSeconds, config, worldForces, workerPool, diagnosticNames, diagnosticNameCount );
+    m_scene.RunPhysics( deltaSeconds,
+                        config,
+                        worldForces,
+                        workerPool,
+                        diagnosticNames,
+                        diagnosticNameCount,
+                        diagnosticsCsvWriter );
 }
 
 

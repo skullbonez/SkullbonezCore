@@ -38,7 +38,7 @@ dangle.
 - [x] **Phase 0 — Unweld `Log` from the prelude.** Remove the forced `Log.h`
   include from `Common.h`; include it explicitly where used, so the dependency is
   visible.
-- [ ] **Phase 1 — Inject the physics diagnostics sink.** The byte-exact CSV
+- [x] **Phase 1 — Inject the physics diagnostics sink.** The byte-exact CSV
   output becomes an explicit sink passed into the physics step, not an ambient
   global — improves testability and makes the determinism-relevant IO explicit.
 - [ ] **Phase 2 — Make the profiler pointer safe.** Rebind
@@ -110,10 +110,27 @@ byte-exact gated.
 
 ### Phase 1 — Inject the physics diagnostics sink
 
-- [ ] **1.1** Find the physics CSV write path that currently goes through
+- [x] **1.1** Find the physics CSV write path that currently goes through
   `Log()`. Introduce an explicit sink (interface or function pointer) passed into
   the physics step and route the CSV writes through it. Output must be
   byte-identical. Gate: `validate_physics` byte-exact. Commit.
+
+  Completion note (2026-07-08): `PhysicsDiagnosticsSink` no longer includes
+  `Log.h` or calls `Log()` directly. Runtime now binds a plain
+  `PhysicsDiagnosticsCsvWriter` value in `RunFrame.cpp`, passes it through
+  `PhysicsEngine::Step` / `PhysicsScene::RunPhysics` / `PhysicsWorld`, and the
+  diagnostics sink formats the same CSV rows through that explicit writer.
+  `EngineLog::WriteVf` was added so the runtime writer can forward `va_list`
+  formatting without pre-buffering rows or changing byte output.
+
+  Structural check: `rg -n "Log\(\)|Core/Log\.h" SkullbonezSource\Physics`
+  finds no source dependency on the logger owner; the only remaining `Log()`
+  text is the explanatory comment on `PhysicsDiagnosticsCsvWriter`.
+
+  Validation note: `tools\validate_physics.bat` passed
+  (`Agentic\Logs\cleanup-12-step-1.1-validate-physics.log`):
+  `physics_regression_solver.csv` matched byte-exactly at 20001 lines, with
+  0 build warnings and 0 build errors.
 
 ### Phase 2 — Make the profiler pointer safe
 
@@ -132,7 +149,7 @@ change (byte-exact).
 
 - [x] `Common.h` no longer force-includes `Log.h`; consumers include it
   explicitly.
-- [ ] The physics diagnostics sink is passed in, not reached via a global.
+- [x] The physics diagnostics sink is passed in, not reached via a global.
 - [ ] The profiler's borrowed `IRenderDiagnostics*` cannot be used after backend
   recreation; process-abort is replaced by `SB_FATAL`.
 - [ ] `tools\validate_physics.bat` byte-exact output unchanged.

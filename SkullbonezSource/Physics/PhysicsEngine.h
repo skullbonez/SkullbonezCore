@@ -128,14 +128,16 @@ class PhysicsEngine
                                      const Math::Orientation::Quaternion& orientation );
     // Mutable only for replay/render presentation pose overrides.
     Rendering::RenderInstanceStore& MutableRenderInstances();
-    // Steps the owned stores. Model-order descriptor import lives with
-    // the collection owner so the solver path does not rebuild authoring values.
+    // Steps the owned stores. Model-order descriptor import lives with the
+    // collection owner, and diagnosticsCsvWriter carries cold Debug CSV output
+    // authority instead of letting physics reach through global logging.
     void Step( float deltaSeconds,
                const Basics::EngineConfig& config,
                const PhysicsWorldForces& worldForces,
                Threading::WorkerPool& workerPool,
                const char* const* diagnosticNames,
-               int diagnosticNameCount );
+               int diagnosticNameCount,
+               const PhysicsDiagnosticsCsvWriter& diagnosticsCsvWriter );
     // Runtime fixed-tree commands enter physics by handle; release, wake, and
     // sleep propagation stay inside the owned stores.
     bool ReleaseFixedBodyAndAttachedTreeParts( PhysicsBodyHandle sourceBody,

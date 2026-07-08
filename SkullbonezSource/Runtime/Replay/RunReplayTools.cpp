@@ -223,7 +223,7 @@ bool StepPredictionEngineTick( PhysicsEngine& engine,
 {
     RuntimeAllocation::RuntimeAllocationScope replayAllocationScope(
         RuntimeAllocation::RuntimeAllocationPhase::Replay );
-    engine.Step( fixedDt, config, worldForces, workerPool, nullptr, 0 );
+    engine.Step( fixedDt, config, worldForces, workerPool, nullptr, 0, PhysicsDiagnosticsCsvWriter{} );
     return true;
 }
 

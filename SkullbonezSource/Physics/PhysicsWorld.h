@@ -301,9 +301,11 @@ class PhysicsWorld
                            const PhysicsWorldForces& worldForces,
                            Threading::WorkerPool& workerPool,
                            const char* const* diagnosticNames,
-                           int diagnosticNameCount );
+                           int diagnosticNameCount,
+                           const PhysicsDiagnosticsCsvWriter& diagnosticsCsvWriter );
     void EmitPhysicsCollisionTime( const char* const* diagnosticNames,
                                    int diagnosticNameCount,
+                                   const PhysicsDiagnosticsCsvWriter& diagnosticsCsvWriter,
                                    const char* type,
                                    int bodyA,
                                    int bodyB,
@@ -393,8 +395,8 @@ class PhysicsWorld
     void ApplyRuntimeConfig( const Basics::EngineConfig& config );
     void Clear();
     // Runs one fixed world step over the stores. diagnosticNames is a cold
-    // Debug presentation overlay for collision-time rows; nullptr/zero means
-    // unnamed bodies, not a model-owner borrow.
+    // Debug presentation overlay for collision-time rows; diagnosticsCsvWriter
+    // is the cold CSV output edge supplied by runtime, not a solver service.
     void RunPhysics( PhysicsBodyStore& bodyStore,
                      const ColliderStore& colliderStore,
                      float fChangeInTime,
@@ -402,17 +404,20 @@ class PhysicsWorld
                      const PhysicsWorldForces& worldForces,
                      Threading::WorkerPool& workerPool,
                      const char* const* diagnosticNames,
-                     int diagnosticNameCount );
+                     int diagnosticNameCount,
+                     const PhysicsDiagnosticsCsvWriter& diagnosticsCsvWriter );
     // Emits Debug-only regression and SkullScope records from the stores the
-    // caller passes in. PhysicsScene owns the cold presentation-name overlay so
-    // diagnostics do not borrow the model owner from inside PhysicsWorld.
+    // caller passes in. PhysicsScene owns the cold presentation-name overlay and
+    // runtime owns the CSV writer, so diagnostics do not borrow model or logging
+    // globals from inside PhysicsWorld.
     bool ShouldEmitStepDiagnostics() const;
     bool ShouldEmitCollisionTimeDiagnostics() const;
     void EmitStepDiagnostics( const PhysicsBodyStore& bodyStore,
                               const ColliderStore& colliderStore,
                               float fChangeInTime,
                               const char* const* diagnosticNames,
-                              int diagnosticNameCount );
+                              int diagnosticNameCount,
+                              const PhysicsDiagnosticsCsvWriter& diagnosticsCsvWriter );
     // Wake and seed decisions read physics-owned fixed/sleep state before the
     // scene edge performs any owner-side cache invalidation.
     void WakeModel( PhysicsBodyStore& bodyStore, int index );

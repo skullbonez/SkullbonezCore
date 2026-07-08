@@ -58,6 +58,10 @@ void EngineLog::Writef( const char*, const char*, ... )
 {
 }
 
+void EngineLog::WriteVf( const char*, const char*, va_list )
+{
+}
+
 void EngineLog::WriteEventf( const char*, ... )
 {
 }

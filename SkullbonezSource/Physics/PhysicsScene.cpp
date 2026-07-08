@@ -464,7 +464,8 @@ void PhysicsScene::RunPhysics( float fChangeInTime,
                                const PhysicsWorldForces& worldForces,
                                Threading::WorkerPool& workerPool,
                                const char* const* diagnosticNames,
-                               int diagnosticNameCount )
+                               int diagnosticNameCount,
+                               const PhysicsDiagnosticsCsvWriter& diagnosticsCsvWriter )
 {
     m_lastWorldForces = worldForces;
     m_hasLastWorldForces = true;
@@ -476,11 +477,17 @@ void PhysicsScene::RunPhysics( float fChangeInTime,
                         worldForces,
                         workerPool,
                         diagnosticNames,
-                        diagnosticNameCount );
+                        diagnosticNameCount,
+                        diagnosticsCsvWriter );
 
     ApplyFixedTreeReleaseEvents( worldForces );
 
-    m_world.EmitStepDiagnostics( m_bodyStore, m_colliderStore, fChangeInTime, diagnosticNames, diagnosticNameCount );
+    m_world.EmitStepDiagnostics( m_bodyStore,
+                                 m_colliderStore,
+                                 fChangeInTime,
+                                 diagnosticNames,
+                                 diagnosticNameCount,
+                                 diagnosticsCsvWriter );
 
     m_bodyStore.CopySleepStatesFrom( m_world.GetSleepStates() );
 }

@@ -49,12 +49,15 @@ Related:
 #include "RuntimeTuning.h"
 #include "Scene/SceneRuntimeStyle.h"
 
+#include "../Core/Log.h"
 #include "../Physics/ColliderStore.h"
 #include "../Physics/PhysicsApi.h"
+#include "../Physics/PhysicsDiagnosticsSink.h"
 #include "../Physics/PhysicsTimestep.h"
 #include "../Rendering/RenderInstanceStore.h"
 
 #include <cmath>
+#include <cstdarg>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
@@ -88,6 +91,13 @@ constexpr const char* REPLAY_PROBE_OWNER = "ReplayProbe";
 SbResult ReplayProbeFailure( const char* message )
 {
     return SbResult::Failure( REPLAY_PROBE_OWNER, "%s", message );
+}
+
+void WriteRuntimePhysicsDiagnosticsCsv( void*, const char* fileName, const char* fmt, va_list args )
+{
+    // Why: Physics receives only a value writer; the runtime frame edge owns the
+    // decision to route that writer to the process debug log singleton.
+    Log().WriteVf( fileName, fmt, args );
 }
 #endif
 
@@ -231,7 +241,9 @@ void StepRuntimePhysicsTick( SkullbonezCore::GameObjects::GameModelCollection& m
     PhysicsEngine& physicsEngine = modelCollection.GetPhysicsEngine();
     const char* const* diagnosticNames = nullptr;
     int diagnosticNameCount = 0;
+    PhysicsDiagnosticsCsvWriter diagnosticsCsvWriter;
 #ifdef _DEBUG
+    diagnosticsCsvWriter.writeVf = WriteRuntimePhysicsDiagnosticsCsv;
     std::vector<const char*> physicsDiagnosticsModelNames;
     if ( physicsEngine.ShouldEmitStepDiagnostics() || physicsEngine.ShouldEmitCollisionTimeDiagnostics() )
     {
@@ -243,7 +255,13 @@ void StepRuntimePhysicsTick( SkullbonezCore::GameObjects::GameModelCollection& m
         diagnosticNameCount = static_cast<int>( physicsDiagnosticsModelNames.size() );
     }
 #endif
-    physicsEngine.Step( fixedDt, config, worldForces, workerPool, diagnosticNames, diagnosticNameCount );
+    physicsEngine.Step( fixedDt,
+                        config,
+                        worldForces,
+                        workerPool,
+                        diagnosticNames,
+                        diagnosticNameCount,
+                        diagnosticsCsvWriter );
 
     // Why: fixed-contact highlights are presentation feedback, not solver
     // state. Keeping this edge here leaves the normal step visibly store-owned
