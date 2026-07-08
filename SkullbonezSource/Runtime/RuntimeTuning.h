@@ -20,6 +20,8 @@ Glossary:
   Physics friction command: One-frame Physics-tab packet that edits live friction config.
   Physics sleep command: One-frame Physics-tab packet that toggles sleep policy.
   Tornado command: One-frame Physics-tab packet that edits live vortex settings.
+  World water command: One-frame Water-tab packet that edits gravity, fluid
+    surface height, or fluid density.
   Worker override: Runtime request for the worker-pool thread count.
 
 Invariants:
@@ -159,6 +161,9 @@ void ApplyUIWorldOverride( WorldEnvironment& world,
                            float gravity,
                            float fluidHeight,
                            float fluidDensity );
+bool ApplyWorldWaterUICommands( WorldEnvironment& world,
+                                ReplayRuntime& replayRuntime,
+                                const UI::UIWaterCommands& commands );
 void ApplyCinematicUIParam( CinematicRenderConfig& cinematic,
                             RunSceneState& scene,
                             UICinematicParam param,

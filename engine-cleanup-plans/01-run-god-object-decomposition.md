@@ -523,6 +523,22 @@ every step. Commit per step.
 	    (9.1s), `TestOutput\agent_logs\plan01_cinematic_ui_runtime_boundaries.log`
 	    (17.5s), and `TestOutput\agent_logs\plan01_cinematic_ui_build_profile.log`
 	    (8.3s).
+	  - [x] Water-tab world UI command extraction moved gravity, fluid-height,
+	    and fluid-density request/clamp/replay recording out of `Run::TakeInput()`
+	    and into `RuntimeTuning`. The touched-file comment audit added the partial
+	    request invariant so unedited fields keep their current world values.
+	    `TakeInput()` now spans 1,043 lines. Gate evidence:
+	    `TestOutput\agent_logs\plan01_world_water_ui_interaction_clicks.log`
+	    (15.5s, both interaction reports `ok=1`) and
+	    `TestOutput\agent_logs\plan01_world_water_ui_validate_full.log` (50.8s;
+	    project filters/runtime boundaries passed, Profile/Debug builds had 0
+	    warnings and 0 errors, DX12 InfoQueue errors = 0, screenshots matched
+	    baselines, and `physics_regression_solver.csv` matched byte-exactly).
+	    Targeted pre-gate checks also passed:
+	    `TestOutput\agent_logs\plan01_world_water_ui_validate_format_rerun.log`
+	    (9.3s), `TestOutput\agent_logs\plan01_world_water_ui_runtime_boundaries.log`
+	    (17.4s), and `TestOutput\agent_logs\plan01_world_water_ui_build_profile.log`
+	    (8.4s).
 - [ ] **1.4** Confirm `TakeInput()` is under ~200 lines (setup + dispatch loop).
 
 ### Phase 2 — Move state shelves out of `RunState`

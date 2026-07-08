@@ -2542,22 +2542,8 @@ void Run::TakeInput()
                 std::clamp( uiCommands.run.requestedSolverBoxCount, 0, (std::max)( 0, modelCapacity - balls ) ) ) );
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::SetSolverCounts, RuntimeInputActionSource::UI );
         }
-        if ( uiCommands.water.requestWorldGravity || uiCommands.water.requestWorldFluidHeight ||
-             uiCommands.water.requestWorldFluidDensity )
+        if ( ApplyWorldWaterUICommands( m_cWorldEnvironment, m_replayRuntime, uiCommands.water ) )
         {
-            const float gravity = uiCommands.water.requestWorldGravity ? uiCommands.water.requestedWorldGravity
-                                                                       : m_cWorldEnvironment.GetGravity();
-            const float fluidHeight = uiCommands.water.requestWorldFluidHeight
-                                          ? uiCommands.water.requestedWorldFluidHeight
-                                          : m_cWorldEnvironment.GetFluidSurfaceHeight();
-            const float fluidDensity = uiCommands.water.requestWorldFluidDensity
-                                           ? uiCommands.water.requestedWorldFluidDensity
-                                           : m_cWorldEnvironment.GetFluidDensity();
-            ApplyUIWorldOverride( m_cWorldEnvironment,
-                                  m_replayRuntime,
-                                  std::clamp( gravity, -100.0f, 0.0f ),
-                                  std::clamp( fluidHeight, -100.0f, 200.0f ),
-                                  std::clamp( fluidDensity, 0.0f, 5.0f ) );
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ApplyWorldWaterSettings,
                                                RuntimeInputActionSource::UI );
         }

@@ -280,6 +280,30 @@ void ApplyUIWorldOverride( WorldEnvironment& world,
                                             fluidDensity );
 }
 
+bool ApplyWorldWaterUICommands( WorldEnvironment& world,
+                                ReplayRuntime& replayRuntime,
+                                const UI::UIWaterCommands& commands )
+{
+    if ( !commands.requestWorldGravity && !commands.requestWorldFluidHeight && !commands.requestWorldFluidDensity )
+    {
+        return false;
+    }
+
+    // Invariant: Water-tab sliders are partial requests. Unspecified fields keep
+    // their current world values so a gravity edit does not rewrite fluid policy.
+    const float gravity = commands.requestWorldGravity ? commands.requestedWorldGravity : world.GetGravity();
+    const float fluidHeight =
+        commands.requestWorldFluidHeight ? commands.requestedWorldFluidHeight : world.GetFluidSurfaceHeight();
+    const float fluidDensity =
+        commands.requestWorldFluidDensity ? commands.requestedWorldFluidDensity : world.GetFluidDensity();
+    ApplyUIWorldOverride( world,
+                          replayRuntime,
+                          std::clamp( gravity, -100.0f, 0.0f ),
+                          std::clamp( fluidHeight, -100.0f, 200.0f ),
+                          std::clamp( fluidDensity, 0.0f, 5.0f ) );
+    return true;
+}
+
 bool ApplyRuntimeTextOnlyUICommand( RunDebugState& debug, const UI::UISceneOptionCommands& commands )
 {
     if ( !commands.toggleTextOnly )
