@@ -435,6 +435,37 @@ bool HasWakeEnergy( const PhysicsBodyRecordList& bodyRecords,
     return speedSq >= sleepLinearSq || omegaSq >= sleepAngularSq;
 }
 
+void WakeSleepingSolverBody( PhysicsBodyStore& bodyStore,
+                             const ColliderStore& colliderStore,
+                             const PhysicsWorldForces& worldForces,
+                             PhysicsBodyRecordList& bodyRecords,
+                             std::vector<uint8_t>& sleepState,
+                             std::vector<uint8_t>& sleepCounter,
+                             std::vector<int>& sleepIslandVisualId,
+                             std::vector<float>& timeRemaining,
+                             const std::vector<uint8_t>& underwaterSleepLocked,
+                             int modelCount,
+                             int sleepingIndex,
+                             float dt )
+{
+    // Waking re-enters the body into this frame rather than waiting for the
+    // next tick. Applying forces immediately keeps gravity and other forces
+    // consistent with an awake body that was never asleep.
+    if ( sleepingIndex < 0 || sleepingIndex >= modelCount ||
+         IsSolverBodyFixed( bodyRecords, sleepingIndex ) || !sleepState[sleepingIndex] ||
+         ( sleepingIndex < static_cast<int>( underwaterSleepLocked.size() ) && underwaterSleepLocked[sleepingIndex] ) )
+    {
+        return;
+    }
+
+    sleepState[sleepingIndex] = 0;
+    sleepCounter[sleepingIndex] = 0;
+    sleepIslandVisualId[sleepingIndex] = 0;
+    timeRemaining[sleepingIndex] = dt;
+    bodyRecords[static_cast<size_t>( sleepingIndex )].isSleeping = false;
+    (void)bodyStore.ApplyForces( worldForces, colliderStore, sleepingIndex, dt );
+}
+
 void ApplyForcesForSolverBody( PhysicsBodyStore& bodyStore,
                                const ColliderStore& colliderStore,
                                const PhysicsWorldForces& worldForces,
@@ -2673,26 +2704,6 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
     }
     PROFILE_END( "Frame/Physics/Broadphase" );
 
-    auto wakeSleepingModel = [&]( int sleepingIndex )
-    {
-        // Waking re-enters the body into this frame rather than waiting for the
-        // next tick. Applying forces immediately keeps gravity and other forces
-        // consistent with an awake body that was never asleep.
-        if ( sleepingIndex < 0 || sleepingIndex >= modelCount ||
-             IsSolverBodyFixed( bodyRecords, sleepingIndex ) ||
-             !m_sleepState[sleepingIndex] || IsUnderwaterSleepLocked( modelCount, sleepingIndex ) )
-        {
-            return;
-        }
-
-        m_sleepState[sleepingIndex] = 0;
-        m_sleepCounter[sleepingIndex] = 0;
-        m_sleepIslandVisualId[sleepingIndex] = 0;
-        m_timeRemaining[sleepingIndex] = dt;
-        bodyRecords[static_cast<size_t>( sleepingIndex )].isSleeping = false;
-        (void)bodyStore.ApplyForces( worldForces, colliderStore, sleepingIndex, dt );
-    };
-
     auto contactBodyViewAtTime = [&]( int index, float time ) -> ObjectContactBodyView
     {
         const PhysicsBodyRecord& record = bodyRecords[static_cast<size_t>( index )];
@@ -3025,7 +3036,18 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
                         m_timeRemaining[y] = (std::max)( 0.0f, m_timeRemaining[y] - colTime );
                         if ( !sleepingLocked )
                         {
-                            wakeSleepingModel( x );
+                            WakeSleepingSolverBody( bodyStore,
+                                                    colliderStore,
+                                                    worldForces,
+                                                    bodyRecords,
+                                                    m_sleepState,
+                                                    m_sleepCounter,
+                                                    m_sleepIslandVisualId,
+                                                    m_timeRemaining,
+                                                    m_underwaterSleepLocked,
+                                                    modelCount,
+                                                    x,
+                                                    dt );
                         }
                         wokeBySweptImpact = true;
                         markObjectVisualEvent( event, x, y );
@@ -3046,7 +3068,18 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
 
                     if ( !sleepingLocked )
                     {
-                        wakeSleepingModel( x );
+                        WakeSleepingSolverBody( bodyStore,
+                                                colliderStore,
+                                                worldForces,
+                                                bodyRecords,
+                                                m_sleepState,
+                                                m_sleepCounter,
+                                                m_sleepIslandVisualId,
+                                                m_timeRemaining,
+                                                m_underwaterSleepLocked,
+                                                modelCount,
+                                                x,
+                                                dt );
                     }
                     markObjectVisualEvent( event, x, y );
                     writeObjectCollisionCellEvent( event, x, y );
@@ -3084,7 +3117,18 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
                         m_timeRemaining[x] = (std::max)( 0.0f, m_timeRemaining[x] - colTime );
                         if ( !sleepingLocked )
                         {
-                            wakeSleepingModel( y );
+                            WakeSleepingSolverBody( bodyStore,
+                                                    colliderStore,
+                                                    worldForces,
+                                                    bodyRecords,
+                                                    m_sleepState,
+                                                    m_sleepCounter,
+                                                    m_sleepIslandVisualId,
+                                                    m_timeRemaining,
+                                                    m_underwaterSleepLocked,
+                                                    modelCount,
+                                                    y,
+                                                    dt );
                         }
                         wokeBySweptImpact = true;
                         markObjectVisualEvent( event, x, y );
@@ -3105,7 +3149,18 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
 
                     if ( !sleepingLocked )
                     {
-                        wakeSleepingModel( y );
+                        WakeSleepingSolverBody( bodyStore,
+                                                colliderStore,
+                                                worldForces,
+                                                bodyRecords,
+                                                m_sleepState,
+                                                m_sleepCounter,
+                                                m_sleepIslandVisualId,
+                                                m_timeRemaining,
+                                                m_underwaterSleepLocked,
+                                                modelCount,
+                                                y,
+                                                dt );
                     }
                     markObjectVisualEvent( event, x, y );
                     writeObjectCollisionCellEvent( event, x, y );
