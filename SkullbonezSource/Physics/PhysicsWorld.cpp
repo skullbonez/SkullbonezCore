@@ -199,6 +199,42 @@ bool BroadphaseCandidateCanTouch( const void* userData, int a, int b )
     return Vector::VectorMagSquared( closestRelative ) <= contactRadiusSq;
 }
 
+// Invariant: conservative fast-sweep augmentation appends only normalized pairs
+// not already emitted by the grid. The linear duplicate scan preserves the
+// existing first-seen pair order, which downstream island and event buffers use
+// as deterministic pair indices.
+void AppendCandidatePairIfMissing( std::vector<std::pair<int, int>>& candidatePairs,
+                                   const BroadphaseCandidateFilterContext& broadphaseCandidateFilterContext,
+                                   int a,
+                                   int b )
+{
+    if ( a == b || a < 0 || b < 0 || a >= broadphaseCandidateFilterContext.modelCount ||
+         b >= broadphaseCandidateFilterContext.modelCount )
+    {
+        return;
+    }
+
+    if ( a > b )
+    {
+        std::swap( a, b );
+    }
+
+    if ( !BroadphaseCandidateCanTouch( &broadphaseCandidateFilterContext, a, b ) )
+    {
+        return;
+    }
+
+    for ( const std::pair<int, int>& pair : candidatePairs )
+    {
+        if ( pair.first == a && pair.second == b )
+        {
+            return;
+        }
+    }
+
+    candidatePairs.emplace_back( a, b );
+}
+
 void ApplyForcesForSolverBody( PhysicsBodyStore& bodyStore,
                                const ColliderStore& colliderStore,
                                const PhysicsWorldForces& worldForces,
@@ -2356,34 +2392,6 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
                                          &broadphaseCandidateFilterContext );
     }
 
-    auto appendCandidatePairIfMissing = [&]( int a, int b )
-    {
-        if ( a == b || a < 0 || b < 0 || a >= modelCount || b >= modelCount )
-        {
-            return;
-        }
-
-        if ( a > b )
-        {
-            std::swap( a, b );
-        }
-
-        if ( !BroadphaseCandidateCanTouch( &broadphaseCandidateFilterContext, a, b ) )
-        {
-            return;
-        }
-
-        for ( const std::pair<int, int>& pair : candidatePairs )
-        {
-            if ( pair.first == a && pair.second == b )
-            {
-                return;
-            }
-        }
-
-        candidatePairs.emplace_back( a, b );
-    };
-
     auto isFastSmallSweepBody = [&]( int index ) -> bool
     {
         if ( IsSolverBodyFixed( bodyRecords, index ) )
@@ -2445,7 +2453,10 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
                 }
                 if ( sweptSegmentTouchesExpandedBody( movingIndex, targetIndex ) )
                 {
-                    appendCandidatePairIfMissing( movingIndex, targetIndex );
+                    AppendCandidatePairIfMissing( candidatePairs,
+                                                  broadphaseCandidateFilterContext,
+                                                  movingIndex,
+                                                  targetIndex );
                 }
             }
         }
