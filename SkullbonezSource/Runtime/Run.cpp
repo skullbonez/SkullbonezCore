@@ -68,6 +68,286 @@ SkullbonezCore::Environment::CameraMovementSettings BuildCameraMovementSettings(
     return settings;
 }
 
+
+// Concept: these source-local helpers keep startup policy grouping visible
+// without turning launch-only details back into `Run` public or private methods.
+// They mutate the owner references that `Run` passes to them synchronously from
+// `ApplyStartupOverrides()`, preserving the original command-line apply order.
+void ApplyRuntimeLaunchPolicy( const RunLaunchOptions& launch,
+                               RunLaunchOptions& target,
+                               RunRuntimeSettings& runtimeSettings,
+                               SkullbonezCore::GameObjects::GameModelCollection& models,
+                               SkullbonezCore::Runtime::Audio::ContactAudioService& contactAudio )
+{
+    target.allocationGuardMode = launch.allocationGuardMode;
+    if ( RuntimeAllocation::GetRuntimeAllocationGuardMode() != launch.allocationGuardMode )
+    {
+        RuntimeAllocation::SetRuntimeAllocationGuardMode( launch.allocationGuardMode );
+    }
+    if ( launch.timeScaleOverride > 0.0f )
+    {
+        target.timeScaleOverride = launch.timeScaleOverride;
+    }
+    if ( launch.fixedStep )
+    {
+        target.fixedStep = true;
+    }
+    if ( launch.seedOverride > 0 )
+    {
+        target.seedOverride = launch.seedOverride;
+    }
+    if ( launch.noWater )
+    {
+        target.noWater = true;
+    }
+    if ( launch.noSleep )
+    {
+        target.noSleep = true;
+        runtimeSettings.isPhysicsSleepEnabled = false;
+        models.SetPhysicsSleepEnabled( false );
+    }
+    if ( launch.noContactAudio )
+    {
+        target.noContactAudio = true;
+        contactAudio.SetEnabled( false );
+    }
+    if ( launch.hasTornadoOverride )
+    {
+        target.hasTornadoOverride = true;
+        target.tornadoEnabled = launch.tornadoEnabled;
+        runtimeSettings.tornadoField.enabled = launch.tornadoEnabled;
+        if ( runtimeSettings.tornadoVisual.autoEnableWithTornado )
+        {
+            runtimeSettings.tornadoVisual.enabled = launch.tornadoEnabled;
+        }
+        SyncTornadoRuntimeSettingsToPhysics( models, runtimeSettings );
+    }
+    if ( launch.tornadoVectors )
+    {
+        target.tornadoVectors = true;
+        runtimeSettings.tornadoField.visualizeVelocityField = true;
+        SyncTornadoRuntimeSettingsToPhysics( models, runtimeSettings );
+    }
+    if ( launch.hasCinematicRenderingOverride )
+    {
+        target.hasCinematicRenderingOverride = true;
+        target.cinematicRendering = launch.cinematicRendering;
+    }
+    if ( launch.hasCinematicShadowsOverride )
+    {
+        target.hasCinematicShadowsOverride = true;
+        target.cinematicShadows = launch.cinematicShadows;
+    }
+    if ( launch.demoHeroStyle )
+    {
+        target.demoHeroStyle = true;
+    }
+    if ( launch.interactiveSceneRun )
+    {
+        target.interactiveSceneRun = true;
+    }
+    if ( launch.frameCountOverride > 0 )
+    {
+        target.frameCountOverride = (std::max)( 1, launch.frameCountOverride );
+    }
+}
+
+
+void ApplyStressLaunchPolicy( const RunLaunchOptions& launch,
+                              RunLaunchOptions& target,
+                              GraphicsStressController& graphicsStress )
+{
+    if ( launch.uiStress )
+    {
+        target.uiStress = true;
+        target.uiStressSeed = launch.uiStressSeed > 0 ? launch.uiStressSeed : 0x7F4A7C15u;
+        target.uiStressActions = std::clamp( launch.uiStressActions, 1, 32 );
+    }
+    if ( !launch.graphicsStress )
+    {
+        return;
+    }
+
+    const unsigned int resolvedSeed = launch.graphicsStressSeed > 0 ? launch.graphicsStressSeed : 0xC11E2026u;
+    target.graphicsStress = true;
+    target.graphicsStressSeed = resolvedSeed;
+    target.graphicsStressActions = std::clamp( launch.graphicsStressActions, 1, 64 );
+    target.graphicsStressSceneIntervalFrames = std::clamp( launch.graphicsStressSceneIntervalFrames, 1, 600 );
+    target.graphicsStressMemoryIntervalFrames = std::clamp( launch.graphicsStressMemoryIntervalFrames, 0, 36000 );
+    target.interactiveSceneRun = true;
+
+    graphicsStress.Configure( resolvedSeed,
+                              target.graphicsStressActions,
+                              target.graphicsStressSceneIntervalFrames,
+                              target.graphicsStressMemoryIntervalFrames );
+}
+
+
+bool ConfigureStartupReplayRecording( const RunStartupOverrides& overrides,
+                                      ReplayRuntime& replayRuntime,
+                                      ReplayLauncherVisualSample& launcherVisualScratch,
+                                      int gameModelCapacity )
+{
+    if ( !overrides.configureReplayRecording )
+    {
+        return false;
+    }
+
+    // Runtime allocation policy: launcher replay visuals are copied every
+    // captured physics tick, so keep their scratch vectors reserved before the
+    // replay phase begins.
+    launcherVisualScratch.rayLines.reserve( RunRayCastTestState::MAX_LINES );
+    launcherVisualScratch.laserShots.reserve( REPLAY_LAUNCHER_LASER_SHOT_CAPACITY );
+
+    const ReplayRuntime::RecordingConfigResult replayConfig =
+        replayRuntime.ConfigureRecording( overrides.replayRecordingEnabled,
+                                          overrides.replayRetentionSeconds,
+                                          overrides.replayHashLogPath,
+                                          gameModelCapacity );
+    const bool resetScrubberState = replayRuntime.ResetScrubberState();
+    if ( replayConfig.presentationStats.enabled )
+    {
+        printf( "[replay] Capture enabled: retention_seconds=%d retention_frames=%llu checkpoint_interval_frames=%d "
+                "solver_retention_frames=%llu solver_checkpoint_interval_frames=%d event_capacity=%llu%s%s%s%s\n",
+                replayConfig.presentationConfig.retentionSeconds,
+                static_cast<unsigned long long>( replayConfig.presentationStats.sampleCapacity ),
+                replayConfig.presentationConfig.checkpointIntervalFrames,
+                static_cast<unsigned long long>( replayConfig.solverStats.sampleCapacity ),
+                replayConfig.solverConfig.checkpointIntervalFrames,
+                static_cast<unsigned long long>( replayConfig.eventStats.eventCapacity ),
+                replayConfig.presentationConfig.hashLogPath.empty() ? "" : " hash_log=",
+                replayConfig.presentationConfig.hashLogPath.empty()
+                    ? ""
+                    : replayConfig.presentationConfig.hashLogPath.c_str(),
+                replayConfig.solverConfig.hashLogPath.empty() ? "" : " solver_hash_log=",
+                replayConfig.solverConfig.hashLogPath.empty() ? "" : replayConfig.solverConfig.hashLogPath.c_str() );
+    }
+    return resetScrubberState;
+}
+
+
+#ifdef _DEBUG
+void ApplyReplayProbeStartup( const RunStartupOverrides& overrides, RunReplayProbeState& probes )
+{
+    if ( overrides.replayScrubProbe )
+    {
+        probes.scrub.enabled = true;
+        probes.scrub.completed = false;
+        probes.scrub.normalized = std::clamp( overrides.replayScrubProbeNormalized, 0.0f, 0.99f );
+        printf( "[replay] Scrub probe enabled: normalized=%.3f\n", probes.scrub.normalized );
+    }
+    if ( overrides.replayRestoreProbe )
+    {
+        probes.restore.enabled = true;
+        probes.restore.completed = false;
+        probes.restore.normalized = std::clamp( overrides.replayRestoreProbeNormalized, 0.0f, 0.99f );
+        printf( "[replay] Restore probe enabled: normalized=%.3f\n", probes.restore.normalized );
+    }
+    if ( overrides.replaySaveProbe )
+    {
+        if ( !overrides.replaySaveProbePath || overrides.replaySaveProbePath[0] == '\0' )
+        {
+            throw std::runtime_error( "replay save probe requires an output path" );
+        }
+
+        probes.save.enabled = true;
+        probes.save.completed = false;
+        strcpy_s( probes.save.path, sizeof( probes.save.path ), overrides.replaySaveProbePath );
+        printf( "[replay] Save probe enabled: path=%s\n", probes.save.path );
+    }
+}
+#endif
+
+
+void ApplyStartupPresentationPolicy( const RunStartupOverrides& overrides,
+                                     RunLaunchOptions& launchOptions,
+                                     RunDebugState& debug,
+                                     SkullbonezCore::UI::InGameUI& ui )
+{
+    const RunLaunchOptions& launch = overrides.launch;
+    if ( overrides.hasInitialOverlayMode )
+    {
+        debug.overlayMode = overrides.initialOverlayMode;
+        if ( overrides.initialOverlayMode != OverlayMode::None )
+        {
+            ui.SetVisible( true );
+        }
+        switch ( overrides.initialOverlayMode )
+        {
+        case OverlayMode::SceneStats:
+            ui.SetActiveTab( InGameUITab::Scene );
+            break;
+        case OverlayMode::Keys:
+            ui.SetActiveTab( InGameUITab::Keys );
+            break;
+        case OverlayMode::BarsNormalized:
+        case OverlayMode::BarsAbsolute:
+        case OverlayMode::Timers:
+            ui.SetActiveTab( InGameUITab::Profiler );
+            break;
+        default:
+            break;
+        }
+    }
+    if ( overrides.hideTopText )
+    {
+        debug.isTopTextHidden = true;
+    }
+    if ( overrides.showBroadphaseVisualizer )
+    {
+        debug.isBroadphaseOverlay = true;
+    }
+    if ( launch.generatedObjectTypeOverride != GeneratedObjectTypeOverride::Mixed )
+    {
+        launchOptions.generatedObjectTypeOverride = launch.generatedObjectTypeOverride;
+    }
+    if ( launch.hasPhysicsDebugFlagsOverride )
+    {
+        launchOptions.hasPhysicsDebugFlagsOverride = true;
+        launchOptions.physicsDebugFlagsOverride = launch.physicsDebugFlagsOverride & PHYSICS_DEBUG_ALL;
+    }
+    if ( launch.hasPhysicsDebugTransparentOverride )
+    {
+        launchOptions.hasPhysicsDebugTransparentOverride = true;
+        launchOptions.physicsDebugTransparentOverride = launch.physicsDebugTransparentOverride;
+    }
+    if ( launch.hasPhysicsDebugAlphaOverride )
+    {
+        launchOptions.hasPhysicsDebugAlphaOverride = true;
+        launchOptions.physicsDebugAlphaOverride =
+            (std::max)( 0.05f, (std::min)( launch.physicsDebugAlphaOverride, 1.0f ) );
+    }
+    if ( launch.hasPhysicsDebugContactLingerOverride )
+    {
+        launchOptions.hasPhysicsDebugContactLingerOverride = true;
+        launchOptions.physicsDebugContactLingerOverride =
+            (std::max)( 0.0f, (std::min)( launch.physicsDebugContactLingerOverride, 5.0f ) );
+    }
+}
+
+
+#ifdef _DEBUG
+void ApplyStartupDiagnosticsPolicy( const RunStartupOverrides& overrides,
+                                    DiagnosticsRuntime& diagnosticsRuntime,
+                                    SkullbonezCore::GameObjects::GameModelCollection& models )
+{
+    if ( overrides.physicsRegressionLogPath && overrides.physicsRegressionLogPath[0] != '\0' )
+    {
+        diagnosticsRuntime.SetPhysicsRegressionLogOverride( overrides.physicsRegressionLogPath );
+    }
+    if ( overrides.physicsCollisionTimeLogPath && overrides.physicsCollisionTimeLogPath[0] != '\0' )
+    {
+        diagnosticsRuntime.SetPhysicsCollisionTimeLogOverride( overrides.physicsCollisionTimeLogPath );
+    }
+    if ( overrides.physicsDiagnosticsPath && overrides.physicsDiagnosticsPath[0] != '\0' )
+    {
+        diagnosticsRuntime.SetPhysicsDiagnosticsPath( models,
+                                                      overrides.physicsDiagnosticsPath,
+                                                      overrides.physicsDiagnosticsFixedStepForced );
+    }
+}
+#endif
+
 } // namespace
 
 
@@ -362,73 +642,7 @@ void Run::ApplyStartupOverrides( const RunStartupOverrides& overrides )
     // runtime services.
     const RunLaunchOptions& launch = overrides.launch;
 
-    m_launchOptions.allocationGuardMode = launch.allocationGuardMode;
-    if ( RuntimeAllocation::GetRuntimeAllocationGuardMode() != launch.allocationGuardMode )
-    {
-        RuntimeAllocation::SetRuntimeAllocationGuardMode( launch.allocationGuardMode );
-    }
-    if ( launch.timeScaleOverride > 0.0f )
-    {
-        m_launchOptions.timeScaleOverride = launch.timeScaleOverride;
-    }
-    if ( launch.fixedStep )
-    {
-        m_launchOptions.fixedStep = true;
-    }
-    if ( launch.seedOverride > 0 )
-    {
-        m_launchOptions.seedOverride = launch.seedOverride;
-    }
-    if ( launch.noWater )
-    {
-        m_launchOptions.noWater = true;
-    }
-    if ( launch.noSleep )
-    {
-        m_launchOptions.noSleep = true;
-        m_runtimeSettings.isPhysicsSleepEnabled = false;
-        m_cGameModelCollection.SetPhysicsSleepEnabled( false );
-    }
-    if ( launch.noContactAudio )
-    {
-        m_launchOptions.noContactAudio = true;
-        m_contactAudio.SetEnabled( false );
-    }
-    if ( launch.hasTornadoOverride )
-    {
-        m_launchOptions.hasTornadoOverride = true;
-        m_launchOptions.tornadoEnabled = launch.tornadoEnabled;
-        m_runtimeSettings.tornadoField.enabled = launch.tornadoEnabled;
-        if ( m_runtimeSettings.tornadoVisual.autoEnableWithTornado )
-        {
-            m_runtimeSettings.tornadoVisual.enabled = launch.tornadoEnabled;
-        }
-        SyncTornadoRuntimeSettingsToPhysics( m_cGameModelCollection, m_runtimeSettings );
-    }
-    if ( launch.tornadoVectors )
-    {
-        m_launchOptions.tornadoVectors = true;
-        m_runtimeSettings.tornadoField.visualizeVelocityField = true;
-        SyncTornadoRuntimeSettingsToPhysics( m_cGameModelCollection, m_runtimeSettings );
-    }
-    if ( launch.hasCinematicRenderingOverride )
-    {
-        m_launchOptions.hasCinematicRenderingOverride = true;
-        m_launchOptions.cinematicRendering = launch.cinematicRendering;
-    }
-    if ( launch.hasCinematicShadowsOverride )
-    {
-        m_launchOptions.hasCinematicShadowsOverride = true;
-        m_launchOptions.cinematicShadows = launch.cinematicShadows;
-    }
-    if ( launch.demoHeroStyle )
-    {
-        m_launchOptions.demoHeroStyle = true;
-    }
-    if ( launch.interactiveSceneRun )
-    {
-        m_launchOptions.interactiveSceneRun = true;
-    }
+    ApplyRuntimeLaunchPolicy( launch, m_launchOptions, m_runtimeSettings, m_cGameModelCollection, m_contactAudio );
     if ( overrides.liveStyleControlDirectory && overrides.liveStyleControlDirectory[0] != '\0' )
     {
         if ( m_liveStyle.ConfigureDirectory( overrides.liveStyleControlDirectory ) )
@@ -438,174 +652,24 @@ void Run::ApplyStartupOverrides( const RunStartupOverrides& overrides )
             m_liveStyle.MarkReady();
         }
     }
-    if ( launch.frameCountOverride > 0 )
-    {
-        m_launchOptions.frameCountOverride = (std::max)( 1, launch.frameCountOverride );
-    }
-    if ( launch.uiStress )
-    {
-        m_launchOptions.uiStress = true;
-        m_launchOptions.uiStressSeed = launch.uiStressSeed > 0 ? launch.uiStressSeed : 0x7F4A7C15u;
-        m_launchOptions.uiStressActions = std::clamp( launch.uiStressActions, 1, 32 );
-    }
-    if ( launch.graphicsStress )
-    {
-        const unsigned int resolvedSeed = launch.graphicsStressSeed > 0 ? launch.graphicsStressSeed : 0xC11E2026u;
-        m_launchOptions.graphicsStress = true;
-        m_launchOptions.graphicsStressSeed = resolvedSeed;
-        m_launchOptions.graphicsStressActions = std::clamp( launch.graphicsStressActions, 1, 64 );
-        m_launchOptions.graphicsStressSceneIntervalFrames =
-            std::clamp( launch.graphicsStressSceneIntervalFrames, 1, 600 );
-        m_launchOptions.graphicsStressMemoryIntervalFrames =
-            std::clamp( launch.graphicsStressMemoryIntervalFrames, 0, 36000 );
-        m_launchOptions.interactiveSceneRun = true;
-
-        m_graphicsStress.Configure( resolvedSeed,
-                                    m_launchOptions.graphicsStressActions,
-                                    m_launchOptions.graphicsStressSceneIntervalFrames,
-                                    m_launchOptions.graphicsStressMemoryIntervalFrames );
-    }
+    ApplyStressLaunchPolicy( launch, m_launchOptions, m_graphicsStress );
     if ( overrides.mainMemoryDumpPath && overrides.mainMemoryDumpPath[0] != '\0' )
     {
         m_diagnosticsRuntime.SetMainMemoryDumpPath( overrides.mainMemoryDumpPath );
     }
-    if ( overrides.configureReplayRecording )
+    if ( ConfigureStartupReplayRecording( overrides,
+                                          m_replayRuntime,
+                                          m_replayLauncherVisualScratch,
+                                          m_startup.gameModelCapacity ) )
     {
-        // Runtime allocation policy: launcher replay visuals are copied every
-        // captured physics tick, so keep their scratch vectors reserved before
-        // the replay phase begins.
-        m_replayLauncherVisualScratch.rayLines.reserve( RunRayCastTestState::MAX_LINES );
-        m_replayLauncherVisualScratch.laserShots.reserve( REPLAY_LAUNCHER_LASER_SHOT_CAPACITY );
-
-        const ReplayRuntime::RecordingConfigResult replayConfig =
-            m_replayRuntime.ConfigureRecording( overrides.replayRecordingEnabled,
-                                                overrides.replayRetentionSeconds,
-                                                overrides.replayHashLogPath,
-                                                m_startup.gameModelCapacity );
-        if ( m_replayRuntime.ResetScrubberState() )
-        {
-            ExitReplayInspectionCamera();
-        }
-        if ( replayConfig.presentationStats.enabled )
-        {
-            printf(
-                "[replay] Capture enabled: retention_seconds=%d retention_frames=%llu checkpoint_interval_frames=%d "
-                "solver_retention_frames=%llu solver_checkpoint_interval_frames=%d event_capacity=%llu%s%s%s%s\n",
-                replayConfig.presentationConfig.retentionSeconds,
-                static_cast<unsigned long long>( replayConfig.presentationStats.sampleCapacity ),
-                replayConfig.presentationConfig.checkpointIntervalFrames,
-                static_cast<unsigned long long>( replayConfig.solverStats.sampleCapacity ),
-                replayConfig.solverConfig.checkpointIntervalFrames,
-                static_cast<unsigned long long>( replayConfig.eventStats.eventCapacity ),
-                replayConfig.presentationConfig.hashLogPath.empty() ? "" : " hash_log=",
-                replayConfig.presentationConfig.hashLogPath.empty()
-                    ? ""
-                    : replayConfig.presentationConfig.hashLogPath.c_str(),
-                replayConfig.solverConfig.hashLogPath.empty() ? "" : " solver_hash_log=",
-                replayConfig.solverConfig.hashLogPath.empty() ? "" : replayConfig.solverConfig.hashLogPath.c_str() );
-        }
+        ExitReplayInspectionCamera();
     }
 #ifdef _DEBUG
-    if ( overrides.replayScrubProbe )
-    {
-        m_replayProbes.scrub.enabled = true;
-        m_replayProbes.scrub.completed = false;
-        m_replayProbes.scrub.normalized = std::clamp( overrides.replayScrubProbeNormalized, 0.0f, 0.99f );
-        printf( "[replay] Scrub probe enabled: normalized=%.3f\n", m_replayProbes.scrub.normalized );
-    }
-    if ( overrides.replayRestoreProbe )
-    {
-        m_replayProbes.restore.enabled = true;
-        m_replayProbes.restore.completed = false;
-        m_replayProbes.restore.normalized = std::clamp( overrides.replayRestoreProbeNormalized, 0.0f, 0.99f );
-        printf( "[replay] Restore probe enabled: normalized=%.3f\n", m_replayProbes.restore.normalized );
-    }
-    if ( overrides.replaySaveProbe )
-    {
-        if ( !overrides.replaySaveProbePath || overrides.replaySaveProbePath[0] == '\0' )
-        {
-            throw std::runtime_error( "replay save probe requires an output path" );
-        }
-
-        m_replayProbes.save.enabled = true;
-        m_replayProbes.save.completed = false;
-        strcpy_s( m_replayProbes.save.path, sizeof( m_replayProbes.save.path ), overrides.replaySaveProbePath );
-        printf( "[replay] Save probe enabled: path=%s\n", m_replayProbes.save.path );
-    }
+    ApplyReplayProbeStartup( overrides, m_replayProbes );
 #endif
-    if ( overrides.hasInitialOverlayMode )
-    {
-        m_debug.overlayMode = overrides.initialOverlayMode;
-        if ( overrides.initialOverlayMode != OverlayMode::None )
-        {
-            m_UI.SetVisible( true );
-        }
-        switch ( overrides.initialOverlayMode )
-        {
-        case OverlayMode::SceneStats:
-            m_UI.SetActiveTab( InGameUITab::Scene );
-            break;
-        case OverlayMode::Keys:
-            m_UI.SetActiveTab( InGameUITab::Keys );
-            break;
-        case OverlayMode::BarsNormalized:
-        case OverlayMode::BarsAbsolute:
-        case OverlayMode::Timers:
-            m_UI.SetActiveTab( InGameUITab::Profiler );
-            break;
-        default:
-            break;
-        }
-    }
-    if ( overrides.hideTopText )
-    {
-        m_debug.isTopTextHidden = true;
-    }
-    if ( overrides.showBroadphaseVisualizer )
-    {
-        m_debug.isBroadphaseOverlay = true;
-    }
-    if ( launch.generatedObjectTypeOverride != GeneratedObjectTypeOverride::Mixed )
-    {
-        m_launchOptions.generatedObjectTypeOverride = launch.generatedObjectTypeOverride;
-    }
-    if ( launch.hasPhysicsDebugFlagsOverride )
-    {
-        m_launchOptions.hasPhysicsDebugFlagsOverride = true;
-        m_launchOptions.physicsDebugFlagsOverride = launch.physicsDebugFlagsOverride & PHYSICS_DEBUG_ALL;
-    }
-    if ( launch.hasPhysicsDebugTransparentOverride )
-    {
-        m_launchOptions.hasPhysicsDebugTransparentOverride = true;
-        m_launchOptions.physicsDebugTransparentOverride = launch.physicsDebugTransparentOverride;
-    }
-    if ( launch.hasPhysicsDebugAlphaOverride )
-    {
-        m_launchOptions.hasPhysicsDebugAlphaOverride = true;
-        m_launchOptions.physicsDebugAlphaOverride =
-            (std::max)( 0.05f, (std::min)( launch.physicsDebugAlphaOverride, 1.0f ) );
-    }
-    if ( launch.hasPhysicsDebugContactLingerOverride )
-    {
-        m_launchOptions.hasPhysicsDebugContactLingerOverride = true;
-        m_launchOptions.physicsDebugContactLingerOverride =
-            (std::max)( 0.0f, (std::min)( launch.physicsDebugContactLingerOverride, 5.0f ) );
-    }
+    ApplyStartupPresentationPolicy( overrides, m_launchOptions, m_debug, m_UI );
 #ifdef _DEBUG
-    if ( overrides.physicsRegressionLogPath && overrides.physicsRegressionLogPath[0] != '\0' )
-    {
-        m_diagnosticsRuntime.SetPhysicsRegressionLogOverride( overrides.physicsRegressionLogPath );
-    }
-    if ( overrides.physicsCollisionTimeLogPath && overrides.physicsCollisionTimeLogPath[0] != '\0' )
-    {
-        m_diagnosticsRuntime.SetPhysicsCollisionTimeLogOverride( overrides.physicsCollisionTimeLogPath );
-    }
-    if ( overrides.physicsDiagnosticsPath && overrides.physicsDiagnosticsPath[0] != '\0' )
-    {
-        m_diagnosticsRuntime.SetPhysicsDiagnosticsPath( m_cGameModelCollection,
-                                                        overrides.physicsDiagnosticsPath,
-                                                        overrides.physicsDiagnosticsFixedStepForced );
-    }
+    ApplyStartupDiagnosticsPolicy( overrides, m_diagnosticsRuntime, m_cGameModelCollection );
 #endif
 }
 

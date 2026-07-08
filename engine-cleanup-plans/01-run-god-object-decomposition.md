@@ -1267,6 +1267,27 @@ every step. Commit per step.
     `TestOutput\agent_logs\plan01_startup_overrides_runtime_boundaries_final.log`
     (17.7s). The touched-file comment audit covered `Init.cpp`, `Run.cpp`,
     `Run.h`, `RunLaunchOptions.h`, and `RunLiveStyle.cpp`.
+  - [x] Startup override apply-size split moved the cohesive launch-policy,
+    stress-policy, replay-recording, replay-probe, presentation/debug, and
+    diagnostics startup groups into file-local helpers that take explicit owner
+    references. `Run::ApplyStartupOverrides()` dropped from 257 measured lines
+    to 41 measured lines without adding public or private `Run` methods, so
+    the private-method runtime-boundary ratchet remains green. The remaining
+    >~200-line `Run::` functions are pre-existing Phase 3 targets:
+    `RestoreReplayV2ArtifactTargetState`, interaction automation ticks,
+    graphics/UI stress actions, replay save probe, `Execute`, and the
+    borderline 201-line `TakeInput` measurement. Gate evidence:
+    `TestOutput\agent_logs\plan01_startup_apply_split_validate_full.log`
+    (51.2s; project filters/runtime boundaries passed, Profile/Debug builds
+    had 0 warnings and 0 errors, DX12 InfoQueue errors = 0, screenshots
+    matched baselines, and `physics_regression_solver.csv` matched
+    byte-exactly). Targeted pre-gate checks also passed:
+    `TestOutput\agent_logs\plan01_startup_apply_split_build_profile.log`
+    (6.8s),
+    `TestOutput\agent_logs\plan01_startup_apply_split_validate_format.log`
+    (9.4s), and
+    `TestOutput\agent_logs\plan01_startup_apply_split_runtime_boundaries.log`
+    (17.6s). The touched-file comment audit covered `Run.cpp`.
 
 ## Validation
 
