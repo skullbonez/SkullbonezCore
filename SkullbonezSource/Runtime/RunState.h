@@ -173,31 +173,6 @@ struct RunSubsystemState
         const EngineConfig& configOwner );                         // Binds process-start services and config-derived camera policy.
 };
 
-struct DemoDirectorPlaybackState
-{
-    static constexpr int SHOT_LIST_PATH_BYTES = 260;
-
-    // Concept: Director playback is camera presentation state. The shot list is
-    // fixed-capacity authoring data, and these timers only decide which authored
-    // pose should drive the camera on later playback slices.
-    DemoShotList activeShotList;
-    bool hasActiveShotList = false;
-    char activeShotListPath[SHOT_LIST_PATH_BYTES] = {};            // Cold authoring save target captured from load.
-    int currentPhaseIndex = -1;                                    // -1 until a shot list chooses its first phase.
-    int appliedStylePhaseIndex = -1;                               // Phase index whose stylePath last updated the live scene look.
-    char appliedStylePath[DemoPhase::STYLE_PATH_BYTES] =
-        {};                                                        // Exact applied path; same-phase author edits can request a new look.
-    int appliedStyleCount = 0;                                     // Successful phase-entry style applications for automation proof.
-    int appliedRevealRatePhaseIndex = -1;                          // Phase index whose revealRate last updated replay presentation pacing.
-    float appliedRevealRate = 1.0f;                                // Normalized runtime rate applied from the active phase.
-    int appliedRevealRateCount = 0;                                // Successful phase-entry reveal-rate applications for automation proof.
-    float phaseElapsedSeconds = 0.0f;                              // Seconds spent in currentPhaseIndex.
-    float blendElapsedSeconds = 0.0f;                              // Seconds spent blending from blendStartPose.
-    DemoCameraPose blendStartPose;                                 // Pose captured when a phase/release blend starts.
-    bool grabbed = false;                                          // True while the operator temporarily owns free-fly framing.
-    DemoCameraPose poseCapturedAtGrab;                             // Authored pose used to seed no-pop free-fly grab.
-};
-
 struct RunCameraState
 {
     Hardware::InputState input = {};                               // Snapshot consumed by camera controls for this frame.

@@ -992,6 +992,24 @@ every step. Commit per step.
     5.2s); the narrowed clang-format fix was applied and
     `TestOutput\agent_logs\plan01_graphics_stress_controller_validate_format_rerun.log`
     passed in 9.1s.
+  - [x] Demo Director playback state shelf moved from `RunState.h` into
+    `DemoDirector.h`, beside the fixed-capacity shot-list, phase, and camera-pose
+    records it times. `RunCameraState` still stores the director playback value
+    for now, but the state type is no longer declared in the generic Run shelf
+    header. The touched-file comment audit expanded the Demo Director learning
+    header with playback-state ownership and presentation-only invariants. Gate
+    evidence:
+    `TestOutput\agent_logs\plan01_demo_director_state_shelf_validate_full.log`
+    (56.9s; project filters/runtime boundaries passed, Profile/Debug builds had
+    0 warnings and 0 errors, DX12 InfoQueue errors = 0, screenshots matched
+    baselines, and `physics_regression_solver.csv` matched byte-exactly).
+    Targeted pre-gate checks also passed:
+    `TestOutput\agent_logs\plan01_demo_director_state_shelf_build_profile.log`
+    (14.4s),
+    `TestOutput\agent_logs\plan01_demo_director_state_shelf_validate_format.log`
+    (9.3s), and
+    `TestOutput\agent_logs\plan01_demo_director_state_shelf_runtime_boundaries.log`
+    (17.6s).
 
 ### Phase 3 — Shrink `Run`
 
