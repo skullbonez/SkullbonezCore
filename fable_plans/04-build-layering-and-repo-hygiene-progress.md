@@ -1,7 +1,7 @@
 # Progress: Build Layering And Repo Hygiene (plan 04)
 
 Source plan: `fable_plans/04-build-layering-and-repo-hygiene-plan.md`
-Status: phase 1 complete on 2026-07-07; phase 2 L1-L4 Maths library extraction complete on 2026-07-08
+Status: phase 1 complete on 2026-07-07; phase 2 L1-L4 Maths library extraction complete on 2026-07-08; phase 3 C1 physics timestep header split complete
 Last updated: 2026-07-08
 
 ## How to work this file
@@ -29,24 +29,25 @@ Last updated: 2026-07-08
   `GeometricStructures.h` reaches it through `Vector3.h`; no Maths include
   directive pulls `../Core/Common.h`, `<windows.h>`, `Config.h`, `Log.h`, or
   `ZeroMemory`.
-- `Core/Common.h` (118 lines after L2) content map - it is included by
+- `Core/Common.h` (117 lines after C1) content map - it is included by
   ~everything and still transitively drags `<windows.h>` (line 53, with
-  WIN32_LEAN_AND_MEAN), `Config.h` + `Log.h` (lines 85-86), and `<stdexcept>`
-  (line 58). It includes `../Maths/MathsCommon.h` (line 61) during the aliasing
-  period:
-  - Lines 51-66: windows.h + CRT/platform includes + crtdbg - PLATFORM, not
+  WIN32_LEAN_AND_MEAN), `Config.h` + `Log.h` (lines 84-85), and `<stdexcept>`
+  (line 58). It includes `../Maths/MathsCommon.h` and
+  `../Physics/PhysicsTimestep.h` during the aliasing period:
+  - Lines 51-67: windows.h + CRT/platform includes + crtdbg - PLATFORM, not
     common.
   - 68-73: TOTAL_CAMERA_COUNT, TOTAL_TEXTURE_COUNT, DEFAULT/MAX_GAME_MODELS -
     scene/render capacities.
   - 75-78: WINDOW_NAME, TITLE_TEXT, DATA_ROOT - runtime/window.
-  - 80-82: PHYSICS_FIXED_DT, PHYSICS_MAX_STEPS_PER_FRAME - PHYSICS.
+  - `Physics/PhysicsTimestep.h` (31 lines) now owns PHYSICS_FIXED_DT and
+    PHYSICS_MAX_STEPS_PER_FRAME.
   - `Maths/MathsCommon.h` (54 lines) now owns SKULLBONEZ_INTRINSICS,
     _PI/_2PI/_HALF_PI, fraction constants, and the math/collision tolerances.
-  - 85-86: `#include "Config.h"` + `#include "Log.h"` - the global-service
+  - 84-85: `#include "Config.h"` + `#include "Log.h"` - the global-service
     leak (plan 02 owns deleting Cfg; this plan owns un-nesting the includes).
-  - 88-91: ActiveGameModelCapacity(config) - scene capacity policy.
-  - 93-97: Log() accessor - sanctioned global (plan 02).
-  - 100-118: HashStr + TEXTURE_*/CAMERA_* hash constants - assets/render.
+  - 87-90: ActiveGameModelCapacity(config) - scene capacity policy.
+  - 92-96: Log() accessor - sanctioned global (plan 02).
+  - 99-117: HashStr + TEXTURE_*/CAMERA_* hash constants - assets/render.
 - `RunInput.cpp` (3,580 lines) function inventory groups cleanly:
   - Input routing/commands: BuildRuntimeInputSnapshot(:564),
     RouteRuntimePointerInput(:613), ExecuteRuntimeInteractionCommand(:1009),
@@ -229,11 +230,36 @@ Last updated: 2026-07-08
 
 ## Phase 3 — Common.h split (after L2 proves the aliasing pattern)
 
-- [ ] C1. `Physics/PhysicsTimestep.h`: move PHYSICS_FIXED_DT +
+- [x] C1. `Physics/PhysicsTimestep.h`: move PHYSICS_FIXED_DT +
   PHYSICS_MAX_STEPS_PER_FRAME (Common.h includes it during alias period).
   Census first: `rg -ln "PHYSICS_FIXED_DT|PHYSICS_MAX_STEPS_PER_FRAME" SkullbonezSource | wc -l`
   — record count here; switch the top 10 physics/replay users to the new
   header directly. Gate: `validate_physics` (byte-exact proves nothing moved).
+
+  Evidence (2026-07-08): Added `SkullbonezSource/Physics/PhysicsTimestep.h`
+  with `PHYSICS_FIXED_DT` and `PHYSICS_MAX_STEPS_PER_FRAME`; `Core/Common.h`
+  now includes it during the aliasing period instead of defining those
+  constants locally. The source census returned 12 files with timestep tokens:
+  the new header plus 11 existing users. Direct includes were added to the
+  owning physics/replay/runtime users: `SimulationSystem.cpp`, `Run.cpp`,
+  `RunFrame.cpp`, `RunDemoDirector.cpp`, `ReplayRuntime.cpp`,
+  `ReplayOverlayRenderer.cpp`, `RunReplayTools.cpp`, `SceneRuntime.h`, and
+  `TestScene.h`; `RunReplayTools.cpp` owns the two prediction `.inl` users.
+  `SKULLBONEZ_CORE.vcxproj` and `.filters` list the new header, and
+  `tools/validate_project_filters.py` includes `PhysicsTimestep` in the
+  physics header rule set. Touched-file comment audit inspected the 12
+  source-bearing files touched by C1 with 0 deferred.
+
+  Validation (2026-07-08): first `tools\validate_full.bat` failed fast in
+  00:00:00.9373151 because the project-filter rule table did not cover the new
+  header. After adding the rule, `python tools\validate_project_filters.py
+  --repo .` passed in 00:00:00.9141078 with 0 errors across 559 project/filter
+  items. Final C1 gates after direct include updates: `tools\validate_fast.bat`
+  passed in 00:00:55.3766968 with `VALIDATE_FAST: ALL PASSED`, and
+  `tools\validate_full.bat` passed in 00:00:45.2586346 with runtime
+  boundaries at 0 errors, Profile/Debug builds at 0 warnings/errors, DX12
+  validation errors 0, screenshots matching committed baselines, and
+  `physics_regression_solver.csv` byte-exact.
 - [ ] C2. Scene/render capacities (MAX_GAME_MODELS etc.) →
   `GameObjects/SceneCapacity.h` (coordinate: authoritative-plan-02 PHYS-012
   owns capacity POLICY; this is only the constant's home). Gate:

@@ -35,6 +35,7 @@ Related:
 #include "Allocation/RuntimeAllocationTracker.h"
 #include "Scene/SceneRuntimeLoad.h"
 #include "../UI/UIInput.h"
+#include "../Physics/PhysicsTimestep.h"
 
 #include <cmath>
 #include <cstdio>

@@ -114,6 +114,7 @@ PHYSICS_PREFIXES = (
     "PhysicsMass",
     "PhysicsModelAccess",
     "PhysicsObjectPolicy",
+    "PhysicsTimestep",
     "Ragdoll",
     "PhysicsScene",
     "PhysicsWorld",

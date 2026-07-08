@@ -668,6 +668,9 @@
     <ClInclude Include="SkullbonezSource\Physics\ContactSolverCommon.h">
       <Filter>Header Files\Physics</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\Physics\PhysicsTimestep.h">
+      <Filter>Header Files\Physics</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\Rendering\DrawCallTrace.h">
       <Filter>Header Files\Rendering</Filter>
     </ClInclude>

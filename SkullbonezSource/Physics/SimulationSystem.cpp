@@ -27,6 +27,7 @@ Related:
   - Agentic/Reference/runtime-reference.md
 */
 #include "SimulationSystem.h"
+#include "PhysicsTimestep.h"
 
 #include "../Core/Common.h"
 

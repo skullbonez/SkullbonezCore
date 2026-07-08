@@ -40,6 +40,7 @@ Related:
 #include "../Core/Common.h"
 #include "../Core/Config.h"
 #include "../Physics/Debug/PhysicsDebugVisualizer.h"
+#include "../Physics/PhysicsTimestep.h"
 #include "../Physics/TornadoField.h"
 #include "../Rendering/RenderMaterial.h"
 #include "../Maths/Vector3.h"

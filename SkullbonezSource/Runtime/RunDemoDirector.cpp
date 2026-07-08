@@ -41,6 +41,7 @@ Related:
 #include "Replay/ReplayRuntime.h"
 #include "Scene/SceneRuntimeStyle.h"
 
+#include "../Physics/PhysicsTimestep.h"
 #include "../Scene/TestScene.h"
 
 #include <algorithm>

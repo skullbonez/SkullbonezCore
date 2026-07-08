@@ -11,12 +11,14 @@ Mental model:
 Glossary:
   Maths prelude: Math-only constants and CRT math includes owned by
     Maths/MathsCommon.h during the Common.h aliasing period.
+  Physics timestep: Fixed-step physics constants owned by
+    Physics/PhysicsTimestep.h during the Common.h aliasing period.
   Validation gate: Repository script that proves a class of changes before
   commit or PR.
 
 Invariants:
   - Shared constants in this file are compile-time engine contracts; changing
-    capacities, tolerances, or fixed timestep values changes validation scope.
+    capacities or hash keys changes validation scope.
   - Log() is a convenience accessor only; ownership remains with the singleton
     type declared in its own subsystem header.
 
@@ -59,6 +61,7 @@ Related:
 #include <memory>    // std::unique_ptr
 #include <algorithm> // std::clamp, std::min, std::max
 #include "../Maths/MathsCommon.h"
+#include "../Physics/PhysicsTimestep.h"
 
 #ifdef _DEBUG
 #define CRTDBG_MAP_ALLOC // must precede crtdbg.h to redirect malloc → _malloc_dbg
@@ -76,10 +79,6 @@ constexpr int DEFAULT_GAME_MODELS = 300;
 constexpr const char* WINDOW_NAME = "SkullbonezWindow";
 constexpr const char* TITLE_TEXT = "::SKULLBONEZ CORE::";
 constexpr const char* DATA_ROOT = "SkullbonezData/";
-
-// Fixed physics timestep (120 Hz) — guarantees deterministic simulation
-constexpr float PHYSICS_FIXED_DT = 1.0f / 120.0f;
-constexpr int PHYSICS_MAX_STEPS_PER_FRAME = 8;
 
 // All other engine parameters live in EngineConfig (loaded from engine.cfg).
 #include "Config.h"
