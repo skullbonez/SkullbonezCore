@@ -1359,13 +1359,10 @@ ApplyRuntimeUIFrameCommands( const RuntimeUIFrameContext& context,
 }
 
 void AdvanceKeyboardBlockedInputMemories( RuntimeInputContext& runtimeInput,
-                                          RunInputLatchState& inputLatches,
                                           ReplayRuntime& replayRuntime,
                                           RuntimeTools& runtimeTools )
 {
     AdvanceTakeInputKeyboardActionMemories( runtimeInput );
-    inputLatches.leftSceneCycleWasDown = Input::IsKeyDown( VK_LEFT );
-    inputLatches.rightSceneCycleWasDown = Input::IsKeyDown( VK_RIGHT );
     replayRuntime.VelocityEdit().keyboardAltWasDown = Input::IsKeyDown( VK_MENU );
     runtimeTools.Editor().altShortcutWasDown = Input::IsKeyDown( VK_MENU );
     runtimeTools.Editor().tabShortcutWasDown = Input::IsKeyDown( VK_TAB );
@@ -2765,9 +2762,7 @@ bool Run::HandleUnfocusedInputFrame()
         m_replayRuntime.CauseTree().resizingWindow = false;
     }
     RunInternal::ResetEditorUnfocusedInputState( { m_runtimeTools.Editor(), m_cGameModelCollection, m_interaction } );
-    InputController::ResetUnfocusedInput( m_camera,
-                                          m_inputLatches.leftSceneCycleWasDown,
-                                          m_inputLatches.rightSceneCycleWasDown );
+    InputController::ResetUnfocusedInput( m_camera );
     m_runtimeInput.ResetEdges();
     InputController::BeginFrame( m_runtimeInput,
                                  BuildRuntimeInputModeState( m_camera.mode,
@@ -2862,7 +2857,7 @@ void Run::DispatchAfterUIKeyboardActions( bool uiUserInteracted )
                 // keep local ESC behavior before the diagnostics window reacts.
                 constexpr double ESC_QUICK_EXIT_SECONDS = 0.32;
                 const double UINow = m_timers.simulationTimer.GetTotalTime();
-                if ( UINow - m_inputLatches.lastEscapeTapTime <= ESC_QUICK_EXIT_SECONDS )
+                if ( m_runtimeInput.IsEscapeQuickTap( UINow, ESC_QUICK_EXIT_SECONDS ) )
                 {
                     PostQuitMessage( 0 );
                 }
@@ -2871,7 +2866,7 @@ void Run::DispatchAfterUIKeyboardActions( bool uiUserInteracted )
                     EnterInteractiveSceneRun();
                     m_UI.ToggleVisible( UINow );
                     m_debug.overlayMode = OverlayMode::None;
-                    m_inputLatches.lastEscapeTapTime = UINow;
+                    m_runtimeInput.RecordEscapeTap( UINow );
                     ApplyCursorOwnership();
                     ReleaseMouseToUI();
                 }
@@ -3027,7 +3022,7 @@ void Run::TakeInput()
     }
     else
     {
-        AdvanceKeyboardBlockedInputMemories( m_runtimeInput, m_inputLatches, m_replayRuntime, m_runtimeTools );
+        AdvanceKeyboardBlockedInputMemories( m_runtimeInput, m_replayRuntime, m_runtimeTools );
     }
     const RuntimeUIFrameResult uiFrameResult = ApplyRuntimeUIFrameCommands(
         RuntimeUIFrameContext{ m_runtimeInput,

@@ -881,6 +881,26 @@ every step. Commit per step.
   that mutates them and remove cross-file pokes (e.g. `m_camera.autoCycleAccum`
   from `RunFrame`). Gate: `validate_full`. Commit per shelf.
 
+  Partial progress:
+  - [x] Input latch shelf removal deleted `RunInputLatchState` and
+    `Run::m_inputLatches`. The left/right scene-cycle latches were dead
+    write-only state after mapped keyboard dispatch and were removed instead of
+    renamed. ESC quick-tap timing moved into `RuntimeInputContext`, beside
+    semantic input edge memory, and `InputController::ResetUnfocusedInput()` no
+    longer mutates Run-owned latch refs. The touched-file comment audit added the
+    ESC timing ownership note. Gate evidence:
+    `TestOutput\agent_logs\plan01_input_latch_shelf_interaction_clicks.log`
+    (25.6s, both interaction reports `ok=1`) and
+    `TestOutput\agent_logs\plan01_input_latch_shelf_validate_full.log` (53.0s;
+    project filters/runtime boundaries passed, Profile/Debug builds had 0
+    warnings and 0 errors, DX12 InfoQueue errors = 0, screenshots matched
+    baselines, and `physics_regression_solver.csv` matched byte-exactly).
+    Targeted pre-gate checks also passed:
+    `TestOutput\agent_logs\plan01_input_latch_shelf_validate_format.log` (9.2s),
+    `TestOutput\agent_logs\plan01_input_latch_shelf_runtime_boundaries.log`
+    (17.6s), and
+    `TestOutput\agent_logs\plan01_input_latch_shelf_build_profile.log` (10.6s).
+
 ### Phase 3 — Shrink `Run`
 
 - [ ] **3.1** Reduce `Run` to `Initialise` / `Run` / `Shutdown` plus per-frame

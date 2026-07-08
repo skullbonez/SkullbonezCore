@@ -269,6 +269,8 @@ class RuntimeInputContext
     bool CaptureActionPress( RuntimeInputAction action, int virtualKey );
     void SetActionDown( RuntimeInputAction action, bool isDown );
     RuntimeMouseEdges CaptureMouseButtons( bool leftDown, bool rightDown );
+    bool IsEscapeQuickTap( double nowSeconds, double quickTapSeconds ) const;
+    void RecordEscapeTap( double nowSeconds );
     void SetMode( RuntimeInputMode mode, RuntimeInputAction action, RuntimeInputActionSource source );
 
     RuntimeInputMode CurrentMode() const;
@@ -294,6 +296,7 @@ class RuntimeInputContext
     std::array<bool, ACTION_COUNT> m_actionDown = {};
     bool m_leftMouseWasDown = false;
     bool m_rightMouseWasDown = false;
+    double m_lastEscapeTapTime = -1000.0; // Last ESC UI-dismiss tap; owned with semantic input edge memory.
     RuntimeInputTransition m_transitions[TRANSITION_HISTORY_COUNT] = {};
     int m_transitionWriteIndex = 0;
     int m_transitionCount = 0;
@@ -320,8 +323,7 @@ class InputController
     static const char* DescribeAction( RuntimeInputAction action );
     static const char* DescribeSource( RuntimeInputActionSource source );
     static void DescribeLastTransitions( const RuntimeInputContext& context, char* out, std::size_t outSize );
-    static void
-    ResetUnfocusedInput( RunCameraState& camera, bool& leftSceneCycleWasDown, bool& rightSceneCycleWasDown );
+    static void ResetUnfocusedInput( RunCameraState& camera );
     static void ResetMouseLook( RunCameraState& camera );
     static void SetMouseLookDelta( RunCameraState& camera, long rawX, long rawY );
     static RuntimeCameraInputFrameResult ApplyCameraInputFrame( RunCameraState& camera,

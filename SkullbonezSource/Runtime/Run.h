@@ -106,7 +106,6 @@ class Run
     SceneController m_sceneController;                                     // Owns scene queue and current scene-run state
     SceneRuntimeCoordinator m_sceneCoordinator;                            // Produces scene load/reset/advance control intents.
     SbResult m_lastSceneLoadResult;                                        // Last queue load outcome observed by startup/load-only paths.
-    RunInputLatchState m_inputLatches;                                     // Cross-frame key/mouse latches that are not semantic input state.
     RunLaunchOptions m_launchOptions;                                      // CLI/startup policy reapplied across scene loads.
     CinematicRenderConfig m_defaultCinematicRender;                        // engine.cfg cinematic baseline restored by the Demo Scene cine mode
     RunStartupState m_startup;                                             // engine.cfg startup capacity/thread defaults restored by demo resets.

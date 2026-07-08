@@ -117,6 +117,16 @@ RuntimeMouseEdges RuntimeInputContext::CaptureMouseButtons( bool leftDown, bool 
     return edges;
 }
 
+bool RuntimeInputContext::IsEscapeQuickTap( double nowSeconds, double quickTapSeconds ) const
+{
+    return nowSeconds - m_lastEscapeTapTime <= quickTapSeconds;
+}
+
+void RuntimeInputContext::RecordEscapeTap( double nowSeconds )
+{
+    m_lastEscapeTapTime = nowSeconds;
+}
+
 void RuntimeInputContext::SetMode( RuntimeInputMode mode, RuntimeInputAction action, RuntimeInputActionSource source )
 {
     if ( mode == m_currentMode )
@@ -542,15 +552,11 @@ void InputController::DescribeLastTransitions( const RuntimeInputContext& contex
     }
 }
 
-void InputController::ResetUnfocusedInput( RunCameraState& camera,
-                                           bool& leftSceneCycleWasDown,
-                                           bool& rightSceneCycleWasDown )
+void InputController::ResetUnfocusedInput( RunCameraState& camera )
 {
     camera.input = {};
     camera.hasMouseLookLastClient = false;
     camera.needsMouseLookReset = true;
-    leftSceneCycleWasDown = false;
-    rightSceneCycleWasDown = false;
     Hardware::Input::ResetMouseLookDeltas();
     Hardware::Input::ConsumeMouseWheelDelta();
 }

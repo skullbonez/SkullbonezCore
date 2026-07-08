@@ -392,13 +392,6 @@ struct RunStartupState
     void ApplyStartupConfig( const EngineConfig& config );         // Captures startup-only capacity/thread policy from config.
 };
 
-struct RunInputLatchState
-{
-    bool leftSceneCycleWasDown = false;
-    bool rightSceneCycleWasDown = false;
-    double lastEscapeTapTime = -1000.0;
-};
-
 enum class RunInteractionAutomationActionType
 {
     LoadShotList,
