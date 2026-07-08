@@ -39,7 +39,7 @@ hold their own state behind narrow APIs.
 - [x] **Phase 0 — Inventory.** List every `Run` member and method; classify each
   by owner (input / scene / camera / capture / diagnostics / replay / editor /
   stress / render-policy). Output a one-page ownership map.
-- [ ] **Phase 1 — Kill `TakeInput()`.** Replace hand-branching with a data-driven
+- [x] **Phase 1 — Kill `TakeInput()`.** Replace hand-branching with a data-driven
   binding table: `struct KeyBinding { Key key; InputAction action; ContextMask
   contexts; }`. A single dispatch loop maps pressed keys → actions; each action
   handler lives in its owning subsystem. This one change removes the 1,664-line
@@ -212,7 +212,7 @@ every step. Commit per step.
   old branch code. Build log:
   `TestOutput\agent_logs\plan01_step1_2_build_profile.log` (11.4s), 0 warnings,
   0 errors.
-- [ ] **1.3** Replace `TakeInput()`'s hand-branching with a dispatch loop over
+- [x] **1.3** Replace `TakeInput()`'s hand-branching with a dispatch loop over
   the table, calling one handler per action. Move each action's body into its
   **owning subsystem's** handler — do this **one action-group at a time**,
   keeping behavior identical. Gate: interaction-automation suite +
@@ -853,7 +853,27 @@ every step. Commit per step.
 	    (17.5s), and
 	    `TestOutput\agent_logs\plan01_ui_frame_helper_build_profile.log`
 	    (6.3s).
-- [ ] **1.4** Confirm `TakeInput()` is under ~200 lines (setup + dispatch loop).
+	  - [x] TakeInput size-target extraction moved editor placement/editor-mode
+	    transition bodies, blocked keyboard-memory updates, and the final
+	    pointer/camera frame tail out of `Run::TakeInput()` into file-local
+	    helpers with explicit Run-owned callback edges. `TakeInput()` now spans
+	    199 lines after formatting, completing the Phase 1 size target. The
+	    touched-file comment audit added borrowed-context lifetime notes for the
+	    new editor transition and pointer/camera helpers. Gate evidence:
+	    `TestOutput\agent_logs\plan01_takeinput_size_target_interaction_clicks.log`
+	    (16.9s, both interaction reports `ok=1`) and
+	    `TestOutput\agent_logs\plan01_takeinput_size_target_validate_full.log`
+	    (49.3s; project filters/runtime boundaries passed, Profile/Debug builds
+	    had 0 warnings and 0 errors, DX12 InfoQueue errors = 0, screenshots
+	    matched baselines, and `physics_regression_solver.csv` matched
+	    byte-exactly). Targeted pre-gate checks also passed:
+	    `TestOutput\agent_logs\plan01_takeinput_size_target_validate_format.log`
+	    (9.2s),
+	    `TestOutput\agent_logs\plan01_takeinput_size_target_runtime_boundaries.log`
+	    (17.6s), and
+	    `TestOutput\agent_logs\plan01_takeinput_size_target_build_profile.log`
+	    (6.3s).
+- [x] **1.4** Confirm `TakeInput()` is under ~200 lines (setup + dispatch loop).
 
 ### Phase 2 — Move state shelves out of `RunState`
 
