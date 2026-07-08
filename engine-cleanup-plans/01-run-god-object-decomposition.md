@@ -812,6 +812,27 @@ every step. Commit per step.
 	    (17.5s), and
 	    `TestOutput\agent_logs\plan01_post_mapped_keyboard_shortcuts_build_profile.log`
 	    (6.1s).
+	  - [x] Mapped keyboard dispatch extraction moved the remaining keyboard
+	    binding switch out of `Run::TakeInput()` into a file-local helper fed by
+	    borrowed runtime/input/scene context and explicit callbacks for private
+	    Run-owned transitions. The helper preserves camera mode cycling,
+	    launcher/attached/director shortcuts, diagnostics shortcuts, and
+	    left/right scene navigation order. The touched-file comment audit added
+	    the borrowed-context lifetime note. `TakeInput()` now spans 495 lines.
+	    Gate evidence:
+	    `TestOutput\agent_logs\plan01_mapped_keyboard_dispatch_interaction_clicks.log`
+	    (16.6s, both interaction reports `ok=1`) and
+	    `TestOutput\agent_logs\plan01_mapped_keyboard_dispatch_validate_full.log`
+	    (49.1s; project filters/runtime boundaries passed, Profile/Debug builds
+	    had 0 warnings and 0 errors, DX12 InfoQueue errors = 0, screenshots
+	    matched baselines, and `physics_regression_solver.csv` matched
+	    byte-exactly). Targeted pre-gate checks also passed:
+	    `TestOutput\agent_logs\plan01_mapped_keyboard_dispatch_validate_format.log`
+	    (9.3s),
+	    `TestOutput\agent_logs\plan01_mapped_keyboard_dispatch_runtime_boundaries.log`
+	    (17.6s), and
+	    `TestOutput\agent_logs\plan01_mapped_keyboard_dispatch_build_profile.log`
+	    (6.3s).
 - [ ] **1.4** Confirm `TakeInput()` is under ~200 lines (setup + dispatch loop).
 
 ### Phase 2 — Move state shelves out of `RunState`
