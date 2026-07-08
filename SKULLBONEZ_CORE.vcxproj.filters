@@ -349,9 +349,6 @@
     <ClCompile Include="SkullbonezSource\Runtime\DiagnosticsController.cpp">
       <Filter>Source Files\Runtime</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Runtime\EngineContext.cpp">
-      <Filter>Source Files\Runtime</Filter>
-    </ClCompile>
     <ClCompile Include="SkullbonezSource\Core\LockOrderValidator.cpp">
       <Filter>Source Files\Core</Filter>
     </ClCompile>
@@ -774,9 +771,6 @@
       <Filter>Header Files\Runtime</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\DiagnosticsController.h">
-      <Filter>Header Files\Runtime</Filter>
-    </ClInclude>
-    <ClInclude Include="SkullbonezSource\Runtime\EngineContext.h">
       <Filter>Header Files\Runtime</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Editor\EditorTools.h">

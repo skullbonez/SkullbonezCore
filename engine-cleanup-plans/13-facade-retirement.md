@@ -103,9 +103,14 @@ only when the structure is actually gone:
 - [ ] `rg -n "class IRenderBackend|IRenderBackend&\s+Gfx" SkullbonezSource` finds
   nothing — the aggregate type and its global accessor are deleted (not
   renamed).
-- [ ] `rg -n "\bEngineContextBindings\b" SkullbonezSource` finds nothing, or every
+- [x] `rg -n "\bEngineContextBindings\b" SkullbonezSource` finds nothing, or every
   remaining consumer takes an owner-specific record; no subsystem is handed the
   whole graph.
+  Completion note (2026-07-08): Plan 10 step 1.3 deleted the whole
+  `EngineContext` / `EngineContextBindings` bag instead of renaming it. The
+  structural grep found no source/tool/project references after removing the Run
+  member/bind call, the files, and project metadata. `tools\validate_fast.bat`
+  passed in 49.5s and `tools\validate_full.bat` passed in 45.9s.
 - [x] `EngineServices Services()` is either removed or has real, non-assertion
   callers.
   Completion note (2026-07-08): Plan 10 step 0.1 removed `EngineServices` and

@@ -198,7 +198,6 @@ RUNTIME_PREFIXES = (
     "CaptureSystem",
     "DemoDirector",
     "DiagnosticsController",
-    "EngineContext",
     "Init",
     "Input",
     "InputController",

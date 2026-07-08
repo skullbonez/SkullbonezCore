@@ -44,7 +44,6 @@ Related:
 #include "CameraCollection.h"
 #include "InputController.h"
 #include "Diagnostics/DiagnosticsRuntime.h"
-#include "EngineContext.h"
 #include "RuntimeInteractionController.h"
 #include "RuntimeCommandQueue.h"
 #include "RuntimeCameraMode.h"
@@ -112,8 +111,8 @@ class Run
     CinematicRenderConfig m_defaultCinematicRender;                        // engine.cfg cinematic baseline restored by the Demo Scene cine mode
     RunStartupState m_startup;                                             // engine.cfg startup capacity/thread defaults restored by demo resets.
 
-    // Subsystem owners below are ordered by lifetime dependency. EngineContext
-    // and render-host bindings borrow from these objects; they do not own them.
+    // Subsystem owners below are ordered by lifetime dependency. Render-host
+    // bindings borrow from these objects; they do not own them.
     DiagnosticsRuntime m_diagnosticsRuntime;                               // Capture, perf, and queryable physics diagnostics owner.
 #ifdef _DEBUG
     RunReplayProbeState m_replayProbes;                                    // CLI-only replay self-test state and non-throwing failures.
@@ -147,7 +146,6 @@ class Run
     Environment::WorldEnvironment m_cWorldEnvironment;                     // Fluid, gravity, and terrain bounds shared by physics and water.
     GameObjects::GameModelCollection m_cGameModelCollection;               // Scene bodies plus solver-visible object state.
     RuntimeCommandQueue m_runtimeCommands;                                 // Deferred runtime/tool command intent.
-    EngineContext m_engineContext;                                         // Bound view over runtime-owned systems.
     RuntimeViewModel m_runtimeViewModel;                                   // Scalar runtime snapshot for presentation/diagnostics.
     RuntimeRenderBackendView m_renderBackendView;                          // Borrowed active renderer capabilities for renderer users.
     RuntimeRenderer m_renderer;                                            // Owns runtime render passes and frame render ordering.
@@ -157,7 +155,6 @@ class Run
                      renderModels );                                       // Skips 3D in text-only runs, then records passes for the current camera state.
     RunSceneState& SceneState();                                           // Mutable scene-run state owned by SceneController
     const RunSceneState& SceneState() const;                               // Read-only scene-run state owned by SceneController
-    void BindEngineContext();                                              // Binds runtime-owned systems into EngineContext
     void RefreshRuntimeViewModel();                                        // Rebuilds scalar presentation state from narrow owner borrows
     void RelativeUpdateCamera( uint32_t hash );                            // Keeps non-selected relative cameras inside terrain height limits.
     void UpdateLogic( float simulationDt, float cameraDt );                // simulationDt drives physics; cameraDt is unscaled wall time.

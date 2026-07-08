@@ -205,7 +205,6 @@ Run::Run( Window& window,
     const EngineConfig& cfg = m_config;
     m_diagnosticsRuntime.BindProfiler( profiler );
     m_systems.BindStartupServices( window, workerPool, cfg );
-    BindEngineContext();
     RefreshRuntimeViewModel();
     RefreshSceneBrowserList( m_sceneController.Browser() );
     m_cGameModelCollection.BindWorkerPool( workerPool );
@@ -226,25 +225,6 @@ const RunSceneState& Run::SceneState() const
 {
     return m_sceneController.State();
 }
-
-
-void Run::BindEngineContext()
-{
-    m_engineContext.Bind( EngineContextBindings{ &m_sceneController,
-                                                 &m_simulation,
-                                                 &m_diagnosticsRuntime.Capture(),
-                                                 &m_diagnosticsRuntime.Diagnostics(),
-                                                 &m_runtimeCommands,
-                                                 &m_systems,
-                                                 &m_runtimeSettings,
-                                                 &m_runtimeInput,
-                                                 &m_camera,
-                                                 &m_debug,
-                                                 &m_cWorldEnvironment,
-                                                 &m_cGameModelCollection.GetPhysicsEngine(),
-                                                 &m_cGameModelCollection } );
-}
-
 
 void Run::RefreshRuntimeViewModel()
 {

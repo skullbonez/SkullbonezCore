@@ -2108,7 +2108,7 @@ RUN_STORAGE_RULE = (
     rf"(?:\b{RUN_CV_PATTERN}\s*(?:[&*]\s*(?:const\s*)?)?|"
     rf"\bstd::(?:reference_wrapper|unique_ptr|shared_ptr|weak_ptr|optional)<\s*{RUN_CV_PATTERN}\s*>\s*)"
     + FIELD_TAIL_PATTERN,
-    "Use EngineContext, RuntimeRenderHost, or a subsystem-specific service struct instead.",
+    "Use RuntimeRenderHost or a subsystem-specific service struct instead.",
 )
 
 CAMERA_MODE_WRITE_RULE = (

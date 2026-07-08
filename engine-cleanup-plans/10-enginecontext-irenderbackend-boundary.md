@@ -49,7 +49,7 @@ borrowed-alias dual ownership.
 
 - [x] **Phase 0 — Resolve `Services()`.** Confirm it is unused → delete it, or
   wire it as the actual boundary. Do not keep decorative architecture.
-- [ ] **Phase 1 — Split `EngineContextBindings`** into owner-specific records
+- [x] **Phase 1 — Split `EngineContextBindings`** into owner-specific records
   (per facade FAC-002); no subsystem receives the whole runtime graph.
 - [ ] **Phase 2 — Route to narrow interfaces** and delete the `IRenderBackend`
   aggregate *type* (per facade FAC-001).
@@ -133,8 +133,25 @@ danger zone — run the renderer gate 3×.
   (`Agentic\Logs\cleanup-10-step-1.2-enginecontext-no-consumers-validate-full.log`)
   with 0 build warnings/errors, 0 DX12 validation errors, matching DX12
   screenshots, and `physics_regression_solver.csv` byte-exact at 20001 lines.
-- [ ] **1.3** Delete `EngineContextBindings` once no consumer needs the whole
+- [x] **1.3** Delete `EngineContextBindings` once no consumer needs the whole
   graph. `rg -n "EngineContextBindings"` → nothing. Build. Commit.
+
+  Completion note (2026-07-08): deleted the dead `EngineContext` /
+  `EngineContextBindings` boundary instead of creating decorative owner records:
+  removed `EngineContext.cpp`, `EngineContext.h`, the `Run` member, the
+  `BindEngineContext()` startup call/definition, project/filter entries, and
+  stale tool allowlist/message references. Structural grep found no source/tool
+  or project references to `EngineContext` or `EngineContextBindings`:
+  `rg -n "\bEngineContextBindings\b|\bEngineContext\b" SkullbonezSource tools
+  SKULLBONEZ_CORE.vcxproj SKULLBONEZ_CORE.vcxproj.filters`. Comment audit
+  inspected touched source-bearing files (`Run.h`, `Run.cpp`,
+  `tools/check_runtime_boundaries.py`, `tools/validate_project_filters.py`) with
+  no deferred work; deleted EngineContext files needed no follow-up. Validation:
+  `tools\validate_project_filters.bat` passed in 1.1s, runtime boundaries passed
+  in 16.7s, runtime-boundary self-test passed in 0.3s, `tools\validate_fast.bat`
+  passed in 49.5s, and `tools\validate_full.bat` passed in 45.9s with 0 build
+  warnings/errors, 0 DX12 validation errors, matching DX12 screenshots, and
+  `physics_regression_solver.csv` byte-exact at 20001 lines.
 
 ### Phase 2 — Narrow render interfaces, delete the aggregate
 
@@ -173,7 +190,7 @@ danger zone — run the renderer gate 3×.
 
 - [ ] `rg -n "class IRenderBackend" SkullbonezSource` finds nothing (type
   deleted, not renamed).
-- [ ] `EngineContextBindings` is deleted or split; no whole-graph bind remains.
+- [x] `EngineContextBindings` is deleted or split; no whole-graph bind remains.
 - [x] `EngineServices Services()` is removed or has real callers.
 - [ ] `RenderBackendDX12` holds no device/swapchain/commandlist aliases that can
   dangle on recreation.
