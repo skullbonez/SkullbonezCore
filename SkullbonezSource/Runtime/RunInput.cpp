@@ -1598,63 +1598,139 @@ void Run::ExitFlyModeCamera()
 }
 
 
+bool Run::HandleUnfocusedInputFrame()
+{
+    if ( Input::IsAppFocused() )
+    {
+        return false;
+    }
+
+    // Invariant: focus loss releases every active tool capture and refreshes
+    // action memory so refocus cannot replay stale drag/key edges.
+    CancelCameraLookGesture();
+    CancelReplayToolDragState();
+    Input::SetSystemCursorVisible( true );
+    if ( m_replayRuntime.ResetScrubberState() )
+    {
+        ExitReplayInspectionCamera();
+    }
+    m_replayRuntime.Prediction().checkboxHovered = false;
+    m_replayRuntime.Prediction().decreaseHovered = false;
+    m_replayRuntime.Prediction().increaseHovered = false;
+    m_replayRuntime.Prediction().horizonHovered = false;
+    m_replayRuntime.Prediction().horizonDragging = false;
+    m_replayRuntime.VelocityEdit().toggleHovered = false;
+    m_replayRuntime.VelocityEdit().keyboardAltWasDown = false;
+    m_replayRuntime.VelocityEdit().dragging = false;
+    m_replayRuntime.VelocityEdit().draggingAngular = false;
+    m_replayRuntime.VelocityEdit().activeAxis = -1;
+    m_replayRuntime.VelocityEdit().hotLinearAxis = -1;
+    m_replayRuntime.VelocityEdit().hotAngularAxis = -1;
+    if ( m_replayRuntime.VelocityEdit().mouseCaptured )
+    {
+        UI::InputControl::EndMouseCapture();
+        m_replayRuntime.VelocityEdit().mouseCaptured = false;
+    }
+    CancelMousePickup();
+    if ( m_replayRuntime.CauseTree().draggingWindow || m_replayRuntime.CauseTree().resizingWindow )
+    {
+        UI::InputControl::EndMouseCapture();
+        m_replayRuntime.CauseTree().draggingWindow = false;
+        m_replayRuntime.CauseTree().resizingWindow = false;
+    }
+    RunInternal::ResetEditorUnfocusedInputState( { m_runtimeTools.Editor(), m_cGameModelCollection, m_interaction } );
+    InputController::ResetUnfocusedInput( m_camera,
+                                          m_inputLatches.leftSceneCycleWasDown,
+                                          m_inputLatches.rightSceneCycleWasDown );
+    m_runtimeInput.ResetEdges();
+    InputController::BeginFrame( m_runtimeInput,
+                                 BuildRuntimeInputModeState( m_camera.mode,
+                                                             m_runtimeTools.Editor(),
+                                                             m_attachedCamera.activeFollow,
+                                                             m_camera.director.grabbed ),
+                                 false,
+                                 true,
+                                 true );
+    m_UI.CancelInputCapture();
+    RunUIStressActions();
+    return true;
+}
+
+
+void Run::DispatchPostUIKeyboardActions()
+{
+    // Why: capture/reset shortcuts run after UI input so focused controls and
+    // panels get first refusal on keyboard ownership.
+    const RunInternal::EditorSaveHotkeyContext editorSaveHotkeyContext{ m_runtimeInput,
+                                                                        m_cGameModelCollection,
+                                                                        SceneState(),
+                                                                        m_cWorldEnvironment,
+                                                                        *m_systems.cameras,
+                                                                        m_runtimeCommands };
+    auto dispatchCaptureKeyboardAction = [&editorSaveHotkeyContext]( const RuntimeInputKeyBinding& binding ) -> bool
+    {
+        switch ( binding.action )
+        {
+        case RuntimeInputAction::SaveSceneSnapshot:
+        case RuntimeInputAction::SaveScreenshot:
+            RunInternal::HandleEditorSaveHotkey( editorSaveHotkeyContext, binding.action, binding.virtualKey );
+            return true;
+        default:
+            return false;
+        }
+    };
+    for ( std::size_t i = 0; i < kTakeInputKeyboardBindingCount; ++i )
+    {
+        if ( ( kTakeInputKeyboardBindings[i].contexts & kCaptureContext ) != 0 )
+        {
+            dispatchCaptureKeyboardAction( kTakeInputKeyboardBindings[i] );
+        }
+    }
+
+    auto dispatchLateKeyboardAction = [this]( const RuntimeInputKeyBinding& binding ) -> bool
+    {
+        switch ( binding.action )
+        {
+        case RuntimeInputAction::ResetScene:
+            if ( InputController::CaptureKeyboardActionPress( m_runtimeInput, binding.action, binding.virtualKey ) )
+            {
+                // R reloads the current scene after editor save hotkeys have had
+                // their chance to consume Ctrl-based persistence shortcuts.
+                m_runtimeCommands.Push( RuntimeCommand{ RuntimeCommandType::ResetCurrentScene } );
+            }
+            return true;
+        case RuntimeInputAction::ResetSceneFromBackspace:
+            if ( SceneState().isSceneMode &&
+                 InputController::CaptureKeyboardActionPress( m_runtimeInput, binding.action, binding.virtualKey ) )
+            {
+                // Backspace is only a scene-mode reset alias; generated demos keep
+                // the key free for future non-scene tools.
+                m_runtimeCommands.Push( RuntimeCommand{ RuntimeCommandType::ResetCurrentScene } );
+            }
+            return true;
+        default:
+            return false;
+        }
+    };
+    for ( std::size_t i = 0; i < kTakeInputKeyboardBindingCount; ++i )
+    {
+        if ( ( kTakeInputKeyboardBindings[i].contexts & kAfterUIUpdateContext ) != 0 )
+        {
+            dispatchLateKeyboardAction( kTakeInputKeyboardBindings[i] );
+        }
+    }
+}
+
+
 void Run::TakeInput()
 {
-    if ( !Input::IsAppFocused() )
+    if ( HandleUnfocusedInputFrame() )
     {
-        CancelCameraLookGesture();
-        CancelReplayToolDragState();
-        Input::SetSystemCursorVisible( true );
-        if ( m_replayRuntime.ResetScrubberState() )
-        {
-            ExitReplayInspectionCamera();
-        }
-        m_replayRuntime.Prediction().checkboxHovered = false;
-        m_replayRuntime.Prediction().decreaseHovered = false;
-        m_replayRuntime.Prediction().increaseHovered = false;
-        m_replayRuntime.Prediction().horizonHovered = false;
-        m_replayRuntime.Prediction().horizonDragging = false;
-        m_replayRuntime.VelocityEdit().toggleHovered = false;
-        m_replayRuntime.VelocityEdit().keyboardAltWasDown = false;
-        m_replayRuntime.VelocityEdit().dragging = false;
-        m_replayRuntime.VelocityEdit().draggingAngular = false;
-        m_replayRuntime.VelocityEdit().activeAxis = -1;
-        m_replayRuntime.VelocityEdit().hotLinearAxis = -1;
-        m_replayRuntime.VelocityEdit().hotAngularAxis = -1;
-        if ( m_replayRuntime.VelocityEdit().mouseCaptured )
-        {
-            UI::InputControl::EndMouseCapture();
-            m_replayRuntime.VelocityEdit().mouseCaptured = false;
-        }
-        CancelMousePickup();
-        if ( m_replayRuntime.CauseTree().draggingWindow || m_replayRuntime.CauseTree().resizingWindow )
-        {
-            UI::InputControl::EndMouseCapture();
-            m_replayRuntime.CauseTree().draggingWindow = false;
-            m_replayRuntime.CauseTree().resizingWindow = false;
-        }
-        RunInternal::ResetEditorUnfocusedInputState(
-            { m_runtimeTools.Editor(), m_cGameModelCollection, m_interaction } );
-        InputController::ResetUnfocusedInput( m_camera,
-                                              m_inputLatches.leftSceneCycleWasDown,
-                                              m_inputLatches.rightSceneCycleWasDown );
-        m_runtimeInput.ResetEdges();
-        InputController::BeginFrame( m_runtimeInput,
-                                     BuildRuntimeInputModeState( m_camera.mode,
-                                                                 m_runtimeTools.Editor(),
-                                                                 m_attachedCamera.activeFollow,
-                                                                 m_camera.director.grabbed ),
-                                     false,
-                                     true,
-                                     true );
-        m_UI.CancelInputCapture();
-        RunUIStressActions();
         return;
     }
 
-    ApplyCursorOwnership();
-
     const bool UIBlocksKeyboardBeforeInput = m_UI.BlocksKeyboard();
+    ApplyCursorOwnership();
     InputController::BeginFrame( m_runtimeInput,
                                  BuildRuntimeInputModeState( m_camera.mode,
                                                              m_runtimeTools.Editor(),
@@ -3145,64 +3221,7 @@ void Run::TakeInput()
         return;
     }
 
-    const RunInternal::EditorSaveHotkeyContext editorSaveHotkeyContext{ m_runtimeInput,
-                                                                        m_cGameModelCollection,
-                                                                        SceneState(),
-                                                                        m_cWorldEnvironment,
-                                                                        *m_systems.cameras,
-                                                                        m_runtimeCommands };
-    auto dispatchCaptureKeyboardAction = [&editorSaveHotkeyContext]( const RuntimeInputKeyBinding& binding ) -> bool
-    {
-        switch ( binding.action )
-        {
-        case RuntimeInputAction::SaveSceneSnapshot:
-        case RuntimeInputAction::SaveScreenshot:
-            RunInternal::HandleEditorSaveHotkey( editorSaveHotkeyContext, binding.action, binding.virtualKey );
-            return true;
-        default:
-            return false;
-        }
-    };
-    for ( std::size_t i = 0; i < kTakeInputKeyboardBindingCount; ++i )
-    {
-        if ( ( kTakeInputKeyboardBindings[i].contexts & kCaptureContext ) != 0 )
-        {
-            dispatchCaptureKeyboardAction( kTakeInputKeyboardBindings[i] );
-        }
-    }
-
-    auto dispatchLateKeyboardAction = [this]( const RuntimeInputKeyBinding& binding ) -> bool
-    {
-        switch ( binding.action )
-        {
-        case RuntimeInputAction::ResetScene:
-            if ( InputController::CaptureKeyboardActionPress( m_runtimeInput, binding.action, binding.virtualKey ) )
-            {
-                // R reloads the current scene after editor save hotkeys have had
-                // their chance to consume Ctrl-based persistence shortcuts.
-                m_runtimeCommands.Push( RuntimeCommand{ RuntimeCommandType::ResetCurrentScene } );
-            }
-            return true;
-        case RuntimeInputAction::ResetSceneFromBackspace:
-            if ( SceneState().isSceneMode &&
-                 InputController::CaptureKeyboardActionPress( m_runtimeInput, binding.action, binding.virtualKey ) )
-            {
-                // Backspace is only a scene-mode reset alias; generated demos keep
-                // the key free for future non-scene tools.
-                m_runtimeCommands.Push( RuntimeCommand{ RuntimeCommandType::ResetCurrentScene } );
-            }
-            return true;
-        default:
-            return false;
-        }
-    };
-    for ( std::size_t i = 0; i < kTakeInputKeyboardBindingCount; ++i )
-    {
-        if ( ( kTakeInputKeyboardBindings[i].contexts & kAfterUIUpdateContext ) != 0 )
-        {
-            dispatchLateKeyboardAction( kTakeInputKeyboardBindings[i] );
-        }
-    }
+    DispatchPostUIKeyboardActions();
 
     const RuntimeInteractionFramePolicy inputPolicy = m_interaction.BuildFramePolicy( inputSnapshot.frameInput );
     const bool mouseLookOwnsCursor = MouseLookOwnsCursor();
