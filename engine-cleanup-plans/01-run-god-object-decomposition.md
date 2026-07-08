@@ -1240,7 +1240,7 @@ every step. Commit per step.
 
 ### Phase 3 — Shrink `Run`
 
-- [ ] **3.1** Reduce `Run` to `Initialise` / `Run` / `Shutdown` plus per-frame
+- [x] **3.1** Reduce `Run` to `Initialise` / `Run` / `Shutdown` plus per-frame
   tick coordination that calls owners. It should no longer implement subsystem
   logic. Gate: `validate_full`. Commit.
 

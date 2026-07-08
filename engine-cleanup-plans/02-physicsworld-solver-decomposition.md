@@ -170,7 +170,10 @@ island-merge tie-breaks.
 
 ## Acceptance (structural)
 
-- [ ] `DisjointSet` appears exactly once; the three inline copies are gone.
+- [x] `DisjointSet` appears exactly once; the three inline copies are gone.
+  Evidence (2026-07-09): `Physics/DisjointSet.h` owns the helper; current source
+  greps show only `PhysicsWorld.cpp` call sites and no remaining inline
+  `findIsland` / `unionObjectNarrowphaseRoots` copies.
 - [ ] No physics function exceeds ~300 lines; `RunSolverPhysics` is a short
   driver calling named stages.
 - [ ] Solver stages have unit tests exercising them in isolation.

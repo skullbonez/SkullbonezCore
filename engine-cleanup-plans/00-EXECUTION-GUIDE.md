@@ -108,7 +108,7 @@ fully `[x]`.
 - [x] 5. Plan 08 — RenderHelper de-statised
 - [ ] 6. Plan 11 — render abstraction leaks closed
 - [x] 7. Plan 01 — Run decomposed
-- [ ] 8. Plan 09 — replay right-sized
+- [x] 8. Plan 09 — replay right-sized
 - [ ] 9. Plan 02 rest — solver decomposed
 - [ ] 10. Plan 04 — error handling reconciled
 - [ ] C1. Plan 05 — behavioral coverage added (continuous)
