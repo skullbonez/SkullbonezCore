@@ -1,7 +1,7 @@
 # 01 — Run God-Object Decomposition
 
 Date: 2026-07-08
-Status: Proposed
+Status: In Progress
 Priority: P0
 Owner: Runtime
 Source issue: audit iss-01 (severity 5)
@@ -36,7 +36,7 @@ hold their own state behind narrow APIs.
 
 ## Approach
 
-- [ ] **Phase 0 — Inventory.** List every `Run` member and method; classify each
+- [x] **Phase 0 — Inventory.** List every `Run` member and method; classify each
   by owner (input / scene / camera / capture / diagnostics / replay / editor /
   stress / render-policy). Output a one-page ownership map.
 - [ ] **Phase 1 — Kill `TakeInput()`.** Replace hand-branching with a data-driven
@@ -64,10 +64,126 @@ every step. Commit per step.
 
 ### Phase 0 — Inventory
 
-- [ ] **0.1** Produce the `Run` ownership map: list every `Run` member and method
+- [x] **0.1** Produce the `Run` ownership map: list every `Run` member and method
   and classify each by owner (input / scene / camera / capture / diagnostics /
   replay / editor / stress / render-policy). Save it here as a sub-list. No code
   change.
+
+  Ownership map completed 2026-07-08 from `Run.h` declarations and the current
+  `Run::` definition spread. `Run.h` declares 40 fields when the debug-only
+  `m_replayProbes` and static `sPerfPass` are included. Overloads are called out
+  when a shared method name has more than one declaration. No repository
+  validation required; documentation-only inventory.
+
+  - **Runtime shell / launch coordination.**
+    Members: `m_config`, `m_launchOptions`, `m_defaultCinematicRender`,
+    `m_startup`, `m_runtimeSettings`, `m_timers`, `m_runtimeCommands`,
+    `m_runtimeViewModel`, `sPerfPass`.
+    Methods: `Run`, `~Run`, `Initialise`, `Execute`, `LastSceneLoadResult`,
+    `RunSceneLoadOnly`, `SetTimeScaleOverride`, `SetFixedStepOverride`,
+    `SetSeedOverride`, `SetInteractiveRunOverride`, `SetFrameCountOverride`,
+    `SetAllocationGuardMode`, `SetInitialOverlayMode`, `SetTopTextHidden`,
+    `RefreshRuntimeViewModel`, `DrainRuntimeCommands`, `UpdateLogic`,
+    `TickScreenshots`, `TickAutoCycle`, `TickSceneAdvance`, `SetViewingOrientation`.
+  - **Scene / authored content / asset library.**
+    Members: `m_sceneController`, `m_sceneCoordinator`, `m_lastSceneLoadResult`,
+    `m_requiredSceneContacts`, `m_requiredBroadphaseXCells`.
+    Methods: `SceneState` (mutable and const overloads), `LoadScene`,
+    `SaveCurrentSceneDefaults`, `EnterInteractiveSceneRun`,
+    `CanSceneAutomationQuit`, `HoldCompletedInteractiveScene`,
+    `UpdateRequiredSceneContacts`, `UpdateRequiredSceneBroadphaseXCells`,
+    `RequiredSceneContactsComplete`, `RequiredSceneBroadphaseXCellsComplete`,
+    `RegisterBuiltInAssets`, `ResolveSourceAssetPath`,
+    `SetGeneratedObjectTypeOverride`.
+  - **Input / runtime interaction / cursor ownership.**
+    Members: `m_inputLatches`, `m_runtimeInput`, `m_interaction`,
+    `m_interactionAutomation`.
+    Methods: `TakeInput`, `TickInteractionAutomationBeforeInput`,
+    `TickInteractionAutomationAfterRender`, `ClearInteractionAutomationInput`,
+    `WriteInteractionAutomationReport`, `TryFindInteractionAutomationModel`,
+    `TrySetInteractionAutomationReplayPathTarget`,
+    `TryProjectInteractionAutomationModel`, `StepPhysicsPipelineStage`,
+    `UpdateRuntimeInputModeAfterAction`, `BuildRuntimeInputSnapshot`,
+    `RouteRuntimePointerInput`, `EnterInteractionForCameraMode`,
+    `ApplyRuntimeInteractionTransitionCleanup`,
+    `SetWorldInteractionOwnerAfterInteractionTransition`,
+    `ExecuteRuntimeInteractionCommand`, `PublishRuntimeInteractionEvent`,
+    `ClearRuntimeInteractionStateForTransition`, `MouseLookOwnsCursor`,
+    `ShouldHideNativeCursor`, `ApplyCursorOwnership`, `ReleaseMouseToUI`.
+  - **Camera / camera modes / attached follow.**
+    Members: `m_camera`, `m_attachedCamera`.
+    Methods: `RelativeUpdateCamera`, `MoveCamera`, `CancelCameraLookGesture`,
+    `SyncCameraLookGesture`, `EnterFlyModeCamera`, `ExitFlyModeCamera`,
+    `CameraModeLabel`, `CameraModeEnabledMask`, `IsDemoCameraModeAvailable`,
+    `NormalizeCameraModeForCurrentScene`,
+    `SetCameraModeLabelAfterInteractionTransition`, `IsManualCameraMode`,
+    `IsFlyCameraMode`, `IsLauncherCameraMode`, `IsManipulatorCameraMode`,
+    `IsAttachedCameraMode`, `ApplyCameraMode`, `CycleCameraMode`,
+    `ResetAttachedCamera`, `CaptureAttachedCameraReturnState`,
+    `RestoreAttachedCameraReturnState`, `TryResolveAttachedCameraTarget`,
+    `SetAttachedCameraTarget`, `ClearAttachedCameraTarget`,
+    `SeedAttachedCameraTargetFromSelection`, `TryPickAttachedCameraTargetFromMouse`,
+    `TickAttachedCameraWorldClick`, `CycleAttachedCameraSubmode`,
+    `ToggleAttachedCameraPin`, `TickAttachedCameraOrbitInput`,
+    `TickAttachedCamera`, `CaptureAttachedCameraFixedOffset`,
+    `CaptureAttachedCameraOrbit`, `TryResolveAttachedCameraRagdollHead`.
+  - **Replay / replay inspection / solver restore.**
+    Members: `m_replayRuntime`, `m_replayLauncherVisualScratch`,
+    `m_solverReplayMismatch`, `m_replayProbes` (debug only).
+    Methods: `SetReplayRecording`, `LoadReplayPresentationArtifact`,
+    `ResetReplayTimelineForActiveScene`, `BeginReplayToolGesture`,
+    `EndReplayToolGesture`, `CancelReplayToolGesture`,
+    `CancelReplayToolDragState`, `ClearReplayInteractionForRuntimeTransition`,
+    `HasActiveReplayInteractionState`, `TryPickReplayPathTargetFromMouse`,
+    `RenderReplayPathVisualizer`, `TickReplayCauseTreeInput`,
+    `RenderReplayCauseFocusOverlay`, `TickReplayVelocityEditInput`,
+    `RenderReplayVelocityEditOverlay`, `EnterReplayInspectionCamera`,
+    `ExitReplayInspectionCamera`, `TickReplayScrubberInput`,
+    `RestoreReplayScrubberSelectionAsLive`, `ApplyReplaySolverSampleState`,
+    `CaptureCurrentReplaySolverHash`, `RestoreReplayV2ArtifactTargetState`,
+    `RestoreReplaySolverSampleAsLive`, `SetReplayScrubProbe`,
+    `SetReplayRestoreProbe`, `SetReplaySaveProbe`, `TickReplayScrubProbe`,
+    `TickReplayRestoreProbe`, `TickReplaySaveProbe`, `RecordReplayProbeFailure`,
+    `ReplayProbeFailed`, `ReplayProbeFailureOwner`,
+    `ReplayProbeFailureMessage`, `VerifyLoadedReplayPresentationProbe`,
+    `VerifyReplaySolverCheckpointFileProbe`, `VerifyReplaySolverTargetFileProbe`,
+    `VerifyReplaySolverBranchFileProbe`, `VerifyReplaySolverFailureFileProbe`.
+  - **Editor tools / gizmos / mouse pickup.**
+    Members: `m_runtimeTools`.
+    Methods: `ClearEditorInteractionForRuntimeTransition`,
+    `HasActiveEditorInteractionState`, `InspectGizmoInteractionActive`,
+    `TryBuildMouseWorldRay`, `TickEditorViewportAndPlacementScaleInput`,
+    `TickEditorWorldClick`, `CancelMousePickup`, `TickMousePickupInput`,
+    `ApplyMousePickupPhysicsStep`, `RestoreMousePickupAngularVelocity`.
+  - **Render policy / backend resources / capture / live style.**
+    Members: `m_systems`, `m_renderBackendView`, `m_renderer`, `m_liveStyle`.
+    Methods: `BuildRuntimeRendererBindings`, `ReleaseBackendOwnedRenderResources`,
+    `RebuildRegisteredRenderResources`, `LogRenderResourceLifecycleStep`,
+    `Render`, `SaveScreenshot`, `SetCinematicRenderingOverride`,
+    `SetCinematicShadowsOverride`, `SetDemoHeroStyleOverride`,
+    `SetLiveStyleControlDirectory`, `TickLiveStyleControl`,
+    `TickLiveStyleControlCapture`, `DumpTextureAssets`.
+  - **Diagnostics / UI debug visualization.**
+    Members: `m_diagnosticsRuntime`, `m_UI`, `m_debug`,
+    `m_broadphaseVisualizer`, `m_collisionVisualizer`,
+    `m_physicsDebugVisualizer`.
+    Methods: `SetBroadphaseVisualizerEnabled`, `SetPhysicsDebugFlagsOverride`,
+    `SetPhysicsDebugTransparentOverride`, `SetPhysicsDebugAlphaOverride`,
+    `SetPhysicsDebugContactLingerOverride`, `SetPhysicsRegressionLogOverride`,
+    `SetPhysicsCollisionTimeLogOverride`, `SetPhysicsDiagnosticsPath`,
+    `LogSceneFinished`, `BeginPhysicsDiagnosticsRun`, `EndPhysicsDiagnosticsRun`,
+    `SetMainMemoryDumpPath`.
+  - **Stress / deterministic fuzzing.**
+    Members: `m_graphicsStress`.
+    Methods: `SetUIStressOverride`, `SetGraphicsStressOverride`,
+    `RunUIStressActions`, `RunGraphicsStressActions`.
+  - **Physics / world / contact audio.**
+    Members: `m_simulation`, `m_contactAudio`, `m_cWorldEnvironment`,
+    `m_cGameModelCollection`.
+    Methods: `SetNoWaterOverride`, `SetNoSleepOverride`,
+    `SetNoContactAudioOverride`, `SetTornadoOverride`,
+    `SetTornadoVectorFieldOverride`, `TickPhysics`, `AfterPhysicsStep`,
+    `UpdateWaterHeightControls`.
 
 ### Phase 1 — Kill `TakeInput()` (the flagship)
 
