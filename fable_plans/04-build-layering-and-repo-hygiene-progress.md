@@ -13,6 +13,19 @@ Last updated: 2026-07-07
 
 ## Verified facts (do not re-derive)
 
+- 2026-07-08 recount (line counts in the source plan have drifted): 165
+  tracked non-test `.cpp` files (was 156). `RunInput.cpp` 3,413 (extractions
+  landed), `RunFrame.cpp` 3,285, `UI.cpp` 3,330, `TestSceneParser.cpp` 3,165,
+  `Init.cpp` 3,374, and **`PhysicsWorld.cpp` 3,947 — grew from 3,050**; the
+  physics mega-file problem is worsening while phase 4 waits. The `RunInput.cpp`
+  function-inventory line spans below are from 2026-07-06 and are stale —
+  re-locate every anchor by search string before M1.
+- AGENTS.md says toolset v143; the vcxproj says **v145** (below is correct;
+  AGENTS.md is the stale document — do not "fix" the vcxproj to match it).
+- Census rule: inventories must use `git ls-files` + `grep`, never bare `rg`
+  (`.gitignore` `Debug/` hides tracked `SkullbonezSource/Physics/Debug/` from
+  `rg`). Never raise a ratchet budget to get green.
+
 - `.gitignore` ignores `Debug/ Release/ Profile/ *.obj *.pdb *.exe`
   etc. and now includes `Agentic/Temp/`. `git ls-files Agentic/Temp`
   returned no tracked tip paths on 2026-07-07. Historical junk still exists

@@ -313,8 +313,20 @@ Last updated: 2026-07-07
     `FABLE03_P2_POST_DUCK_VALIDATE_PHYSICS_EXIT=0` (13.519s), and
     `FABLE03_P2_POST_DUCK_VALIDATE_FULL_EXIT=0` (39.288s).
 
-## Phase 3 — worker-job stepping (optional; only after Phase 2 soaks)
+## Phase 3 — worker-job stepping (OPTIONAL; HUMAN-AWAKE; only after Phase 2 soaks)
 
+DO NOT run this phase unsupervised/overnight. It is the riskiest remaining
+slice and needs a design decision a human must sign off (P3.0).
+
+- [ ] P3.0 (Added 2026-07-08, human-awake design gate) Resolve the nested
+  worker-pool hazard BEFORE writing code: `PhysicsEngine::Step` takes a
+  `WorkerPool&` and parallelizes internally. Running the prediction tick loop
+  as a WorkerPool job that then submits into the SAME pool risks pool
+  starvation/deadlock (job occupies a pool thread while waiting on pool work)
+  and contention with the live physics step. Decide and document: dedicated
+  prediction thread vs. single-threaded `Step` for prediction (pass a
+  null/serial pool) vs. verified nested-submission support in `WorkerPool`.
+  STOP and ask the user if none of these is clearly safe.
 - [ ] P3.1 Wrap the tick loop in `Core/AmortizedTask` (`SubmitTick(pool)`,
   `SetBudget(ticksPerSubmit)`), state owned by `RunReplayPredictionState`.
   The frame loop submits when `building`, consumes published `buildFrameCount`
@@ -329,6 +341,8 @@ Last updated: 2026-07-07
   live stores (values only).
 - [ ] P3.4 PR gate: `tools\validate_full.bat` + 3 consecutive
   `tools\validate_dx12_renderer.bat` runs (frame pacing) +
+  3 consecutive `tools\validate_physics.bat` runs (a threading race can pass
+  a single byte-exact run; repetition is the cheap race detector) +
   `tools\validate_perf.bat` + both prediction proofs. Commit.
 
 ## Phase 4 — guardrails and closure

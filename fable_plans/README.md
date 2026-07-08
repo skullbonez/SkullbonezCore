@@ -10,6 +10,31 @@ These plans complement, and where noted defer to, the authoritative set in
 set does not: testing, error-handling policy, identity unification, prediction
 world isolation, and build/repo hygiene.
 
+## Status snapshot (2026-07-08, post PR #106 merge + independent review)
+
+| Plan | State | Remaining |
+|------|-------|-----------|
+| 01 unit-test pyramid | **DONE** (42 doctest cases; harness wired into `validate_fast`) | nothing |
+| 02 global-service retirement | Phases 1-2 done; `Cfg()`/`EngineConfig::Instance`/`WorkerPool::Instance`/`Window::Instance` deleted | G2b (19 Physics/Debug `Gfx()` sites the original census missed — see CENSUS CORRECTION in the progress file), G3 endgame, L2 Profiler freeze, L3, closure |
+| 03 prediction isolated world | Phases 1, 2, 4 done; mutation window deleted, guardrail live | Phase 3 (worker job) — OPTIONAL and **human-awake only**; do not run unsupervised |
+| 04 build layering / hygiene | Phase 1 (repo hygiene) done | Phases 2-4 (lib split), phase 5 (mega-files; `PhysicsWorld.cpp` has grown to 3,947 lines) |
+| 05 error-handling policy | Phase 1 (policy, `SB_FATAL`, `SbResult`, 355-throw ratchet) done | Phases 2-5 conversions (2-3 recommended; 4-5 are optional-value, DX12 last) |
+| 06 stable identity | Not started (inventory pre-verified) | All phases |
+| 07 blocker remediation | Quick wins + A0 + Cluster D UI slice done; 27 blockers remain | Clusters A1/B1 design docs are **human-awake**; do not attempt unsupervised |
+| 08 demo director | Phases 0-2 + P3.1 done | P3.2 (reveal rate), phase 4, closure |
+| 09 consequence look | Not started | All phases |
+
+Rules that apply to EVERY census/inventory in these files:
+
+- Use `git ls-files` + `grep -rn`, never bare `rg`. `.gitignore` contains
+  `Debug/`, which hides the TRACKED directory
+  `SkullbonezSource/Physics/Debug/` from `rg` — this already corrupted one
+  recorded census (since corrected in 02-progress).
+- Never raise a ratchet budget or add an allowlist row to make a checker
+  green. Budgets only go down; a red ratchet means stop and report.
+- New interaction proof scripts go in `SkullbonezData/interaction/`
+  (committed), never `Agentic/Temp/` (gitignored, unreproducible).
+
 ## Index
 
 Each plan has a paired `*-progress.md` — a checkbox-level implementation
@@ -29,11 +54,25 @@ from the progress file; the plan file is the rationale.
 | [08-demo-director-plan.md](08-demo-director-plan.md) | [progress](08-demo-director-progress.md) | Butterfly demo needs hand-authored "scene phases" — camera pose + render type per phase, easy grab/release of the camera | Reuses live-style system + free-fly camera + interaction automation |
 | [09-consequence-look-plan.md](09-consequence-look-plan.md) | [progress](09-consequence-look-progress.md) | Cinematic modes make the *world* pretty; the demo needs causality to be the light — grade, glowing lines, two-tone butterfly, divergence counter | Render-only; pairs with 08 (per-phase grade); phase 3 depends on plan 03 |
 
-## Suggested order
+## Suggested order (original, 2026-07-06 — steps 1-3 and 5 are now done)
 
-1. **04 slice 1 (repo hygiene)** — one sitting, stops the bleeding in git history.
-2. **05 slice 1 (policy doc + ratchet)** — cheap, freezes the error-handling drift.
-3. **01 phases 0–2** — the test harness pays for itself on every plan below.
+1. ~~**04 slice 1 (repo hygiene)**~~ — done 2026-07-07.
+2. ~~**05 slice 1 (policy doc + ratchet)**~~ — done 2026-07-07.
+3. ~~**01 phases 0–2**~~ — done 2026-07-07 (all phases, 0-4).
 4. **06** and **02** in parallel with the authoritative set.
-5. **03** once physics store authority (their plan-02) makes the step path
-   callable against explicit stores.
+5. ~~**03**~~ — phases 1, 2, 4 done 2026-07-07 (phase 3 optional, human-awake).
+
+## Remaining work order (2026-07-08)
+
+Unsupervised-safe, in value order:
+
+1. **08 P3.2 → phase 4 → closure** — demo-facing, small, well-anchored.
+2. **09** (all phases) — render-only; pairs with 08; plan-03 dependency is met.
+3. **06** (all phases) — not started, inventory pre-verified, real bug class.
+4. **02 G2b** (the 19 Physics/Debug `Gfx()` conversions) and **05 phases 2-3**.
+5. **04 phases 2-4** (lib split) — mechanical but merge-hostile; do when the
+   worktree is otherwise quiet.
+
+Human-awake only (STOP and involve the user before starting): plan-07
+Cluster A1/B1 design docs, plan-07 RUN-015, plan-03 phase 3, plan-04's
+history-rewrite decision, and 02 G3/SVC endgame deletions.

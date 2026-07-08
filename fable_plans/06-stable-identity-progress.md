@@ -9,6 +9,20 @@ Last updated: 2026-07-07
 - Do items in order; one checkbox = one verifiable action; tick only with the
   named evidence pasted under the box. `[B]` + reason if blocked twice.
 - Anchors are file + search string; locate with `rg -n "<anchor>" <file>`.
+  Line numbers in the inventory table below are from 2026-07-06 and have
+  drifted a few lines (2026-07-08 check: the six `ReplayRuntime.h` `= -1`
+  members now sit at :119, :172, :173, :189, :242, :326;
+  `TryResolveReplayBodyModelIndex` is at RunReplayTools.cpp:144). Anchor by
+  MEMBER NAME, never by the table's line number.
+- CENSUS RULE: the I1 sweep and the I2 ratchet count must use gitignore-blind
+  tools (`git ls-files` + `grep -rn`), never bare `rg` — `.gitignore` `Debug/`
+  hides tracked `SkullbonezSource/Physics/Debug/` from `rg`. (2026-07-08
+  check: no `= -1` model-index members live there today, but the ratchet must
+  count what grep counts.) Never raise the I2 budget to get green.
+- The acceptance test that matters is STRUCTURAL: persistent members use
+  `ModelRowHint`/handles and reads go through the R2 resolvers. Renaming a
+  bare `int fooModelIndex` to `int fooRow` to evade the I2 regex, or deleting
+  a glossary comment without the conversion behind it, is a review failure.
 - Comment quality gate applies to every touched source file.
 
 ## Verified facts (do not re-derive)

@@ -13,7 +13,15 @@ Last updated: 2026-07-07
 - Every item is render-only. Gate: `validate_dx12_renderer` + verify
   `dx12_validation.txt` = 0. Visual items intentionally change screenshot
   baselines — update them deliberately (see AGENTS.md baseline rules), never
-  as a silent side effect.
+  as a silent side effect. Update ONLY the baselines your change is supposed
+  to alter; if an unrelated baseline diffs, that is a regression to fix, not
+  a baseline to refresh. When a slice touches `Runtime/*` files, the AGENTS.md
+  file-to-validation map wins: run `validate_full` for that slice.
+- New interaction proof scripts must live in `SkullbonezData/interaction/`
+  (committed), never `Agentic/Temp/` (gitignored, unreproducible).
+- P3.x depends on fable-plan-03 phases 1-2, which are DONE (private
+  `predictionEngine` exists in `ReplayRuntime.h`); plan-03 phase 3 (worker
+  job) is NOT needed for this plan.
 - Comment quality gate applies to every touched source file.
 
 ## Verified facts (do not re-derive)

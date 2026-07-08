@@ -12,7 +12,43 @@ Last updated: 2026-07-07 (takeover UI profiler snapshot slice)
   (or its Done successor + the overnight blockers file). Before starting any
   phase, read that CSV's current row statuses — do not redo done rows, do not
   unblock their blocked rows without reading the blocker reason.
+- CENSUS RULE: all counts/inventories in this file must use gitignore-blind
+  tools (`git ls-files` + `grep -rn`), never bare `rg`. `.gitignore` contains
+  `Debug/`, so `rg` silently skips the TRACKED directory
+  `SkullbonezSource/Physics/Debug/` and undercounts (this already corrupted
+  one census below — see the 2026-07-08 correction).
+- Never raise a ratchet budget or add an allowlist row to get the checker
+  green. Budgets only go down; a red ratchet means stop and report.
 - Comment quality gate applies to touched source files.
+
+## CENSUS CORRECTION (2026-07-08, independent review)
+
+The `Gfx()` censuses below were taken with `rg`, which respects `.gitignore`
+and therefore SKIPPED the tracked directory `SkullbonezSource/Physics/Debug/`
+(ignored by the `Debug/` pattern). The true count via
+`grep -rn '\bGfx()' SkullbonezSource` is **43 text hits** (40 outside
+comments), not 25/24. The 19 hits `rg` missed are REAL backend calls:
+
+| File | `Gfx()` hits | Notes |
+|------|-------------|-------|
+| `Physics/Debug/CollisionVisualizer.cpp` | 14 | real calls (Create/Destroy InstancedMesh, DynamicVB, …) |
+| `Physics/Debug/PhysicsDebugVisualizer.cpp` | 2 | real calls |
+| `Physics/Debug/BroadphaseVisualizer.cpp` | 2 | real calls |
+| `Physics/Debug/BroadphaseVisualizer.h` | 1 | declaration/comment surface |
+
+Consequences for this file:
+
+- The G1 conclusion "0 orphan exact `Gfx()` hits" is WRONG. These 19 sites are
+  orphans in G1's sense: no authoritative SVC/RGRAPH row was cited for them.
+  They are debug-visualizer callers that must be converted (explicit
+  `IRenderBackend&`/render-context injection) before the SVC-001/SVC-002
+  `Gfx()`-deletion endgame can close.
+- The enforced ratchet is NOT affected: `tools/check_runtime_boundaries.py`
+  enumerates via `rglob` (gitignore-blind) and already fences these files as
+  "physics debug visualizer compatibility", and its census budget includes
+  them. Only the human-facing counts in this document were wrong.
+- Plan 07 Cluster E's figure ("44 sites") was the correct one; where this file
+  and plan 07 disagree on `Gfx()` counts, trust plan 07 / grep.
 
 ## Current facts (post-UI profiler snapshot, 2026-07-07)
 
@@ -217,6 +253,14 @@ fence for behavior-bearing uses.
 G1 result: 0 orphan exact `Gfx()` hits. G2 should not start by inventing local
 conversions here; it should consume the Cluster D diagnostics path, plan-05
 render capability rows, and SVC-001/SVC-002 endgame in that order.
+
+CORRECTED 2026-07-08: the G1 census above missed 19 hits in tracked
+`SkullbonezSource/Physics/Debug/` files (see the CENSUS CORRECTION block at
+the top of this file). Add this row to the classification table:
+
+| File / lines | Classification | Owner |
+|--------------|----------------|-------|
+| `Physics/Debug/CollisionVisualizer.cpp` (14), `PhysicsDebugVisualizer.cpp` (2), `BroadphaseVisualizer.cpp` (2), `BroadphaseVisualizer.h` (1) | (c) orphan — real debug-visualizer backend calls, no SVC/RGRAPH row cited | Convert in G2 via explicit `IRenderBackend&`/render-context injection; checker fence: "physics debug visualizer compatibility" |
 - [x] G2. Convert the orphans using the capability interfaces plan-05
   established (`IRenderCommandContext`, `IRenderResourceFactory`,
   `IRenderDiagnostics` — passed through RenderFrameContext or explicit
@@ -238,9 +282,21 @@ no renderer validation gate for this documentation-only classification slice.
   `tools\validate_fast.bat` (48.437s, 0 warnings/errors), and
   `tools\validate_full.bat` (45.392s, DX12 validation errors 0, screenshots
   matched, `physics_regression_solver.csv` byte-exact).
-- [ ] G3. Delete `Gfx()` + `s_gfxBackend` public accessor once N1-count
-  reaches the startup allowlist only (SVC-001/002/004 endgame — check their
-  status first). Gate: `validate_full` + `validate_dx12_renderer`. Commit.
+- [ ] G2b. (Added 2026-07-08) Convert the 19 Physics/Debug orphan sites the
+  original G1 census missed: thread `IRenderBackend&` (or the narrow render
+  capability plan-05 establishes) into `CollisionVisualizer`,
+  `PhysicsDebugVisualizer`, and `BroadphaseVisualizer` instead of calling
+  `Gfx()`. These are cold debug-visualization paths, not solver hot loops, but
+  they live in `Physics/` — gate: `validate_physics` + `validate_dx12_renderer`.
+  Census check afterwards must use `grep -rn '\bGfx()' SkullbonezSource`
+  (NOT `rg` — see CENSUS CORRECTION). Commit per visualizer.
+- [ ] G3. Delete `Gfx()` + `s_gfxBackend` public accessor once the
+  grep-based count reaches the startup allowlist only (SVC-001/002/004
+  endgame — check their status first). Acceptance is structural, not textual:
+  the `s_gfxBackend` static and the `Gfx()` free function no longer exist as
+  symbols, and NO renamed global accessor to the same backend was introduced
+  in their place (a rename is a review failure per the Migration Artifact
+  Gate). Gate: `validate_full` + `validate_dx12_renderer`. Commit.
 
 ## Phase 4 — singleton lifetime hardening
 

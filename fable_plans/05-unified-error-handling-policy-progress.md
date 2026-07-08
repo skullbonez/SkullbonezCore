@@ -13,6 +13,15 @@ Last updated: 2026-07-07
 
 ## Verified facts (do not re-derive)
 
+- 2026-07-08 recount: 355 `throw` tokens across 48 files; 30 `catch` sites in
+  13 files (drift from 47/28/11 is new files, not new throws in old code; the
+  `MAX_SOURCE_THROW_TOKENS = 355` ratchet is unchanged and green). Per-file
+  cluster counts below re-verified exact: RunFrame.cpp 61, ConvexHullShape.cpp
+  41, RenderDeviceDX12.cpp 38, SpatialGrid.cpp 13, PhysicsWorld.cpp 6.
+- Census rule: counts must use `git ls-files` + `grep`, never bare `rg`
+  (`.gitignore` `Debug/` hides tracked `SkullbonezSource/Physics/Debug/` from
+  `rg`; no throws live there today, but do not trust that stays true). Never
+  raise the throw ratchet budget to get green — it only goes down.
 - Throw census (2026-07-06): 355 sites across 47 files. Top clusters:
   RunFrame.cpp 60 (replay/scrub PROBE assertions, e.g. anchor
   `replay scrub probe mutated the live body`), ConvexHullShape.cpp 41 (data
@@ -146,10 +155,15 @@ Last updated: 2026-07-07
 - [ ] P2.3 Evidence: run the tracked proofs
   (`memory_overlay_f6_toggle`, `replay_branch_restore_live_edge`,
   `prediction_ragdoll_wall_200_predict`) — all `ok=1`; then force one probe
-  to fail locally (temporary sabotage) and confirm the report shows
-  `ok=false` with the message, no crash; revert the sabotage. Gate:
-  `validate_fast`. Ratchet budget drops by ~60 — update the stored number in
-  the same commit. Commit.
+  PER CONVERTED FUNCTION-CLUSTER to fail locally (temporary sabotage) and
+  confirm each report shows `ok=false` with the message, no crash; revert the
+  sabotage. One sabotage total is NOT enough: the failure mode this guards is
+  a converted probe whose caller forgets to propagate/early-exit, silently
+  turning "probe failure ends the run" into "probe failure is a log line" —
+  and every green-path proof still passes in that broken state. Verify the
+  early-exit semantics per cluster, not per phase. Gate: `validate_fast`.
+  Ratchet budget drops by ~60 — update the stored number in the same commit.
+  Commit.
 
 ## Phase 3 — hot-path invariants (physics/stores)
 

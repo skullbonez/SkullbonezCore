@@ -11,7 +11,13 @@ Last updated: 2026-07-07
 - Anchors are file + search string; locate with `rg -n "<anchor>" <file>`.
 - Comment quality gate applies to every touched source file. This is UI/render
   orchestration only — no physics; gate is `validate_dx12_renderer` unless a
-  box says otherwise.
+  box says otherwise. When a slice touches `Runtime/*` files (`ReplayRuntime.h`,
+  `RunState.h`, `RunInput.cpp`, …), the AGENTS.md file-to-validation map wins:
+  run `validate_full` for that slice even if the box names a lighter gate.
+- New interaction proof scripts must live in `SkullbonezData/interaction/`
+  (committed, reproducible), NOT `Agentic/Temp/` — that directory is
+  gitignored, so the P2.x/P3.1 proof scripts cited in the evidence below are
+  unreproducible; do not repeat that mistake.
 
 ## Verified facts (do not re-derive)
 
@@ -462,8 +468,11 @@ Last updated: 2026-07-07
   runtime equivalent — if it is currently a constexpr constant in
   RunReplayTools.cpp, promote it to a runtime field on
   `RunReplayPredictionState` first, defaulting to 1.0, so the director can
-  slow the unfold for the money shot). Gate: `validate_dx12_renderer` +
-  `prediction_ragdoll_wall_200_predict` proof (reveal still works). Commit.
+  slow the unfold for the money shot). Reveal rate is presentation-side only
+  (which frames are shown), it must not touch stepping. Gate:
+  `validate_full` (this touches `Runtime/Replay/*`, which the AGENTS.md
+  file-to-validation map routes to `validate_full`) + `validate_dx12_renderer`
+  + `prediction_ragdoll_wall_200_predict` proof (reveal still works). Commit.
 
 ## Phase 4 — advance rules + automation + the demo shot list
 
