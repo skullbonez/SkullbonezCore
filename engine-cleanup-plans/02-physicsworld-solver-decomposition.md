@@ -153,7 +153,7 @@ island-merge tie-breaks.
   Broadphase candidate build and pruning:
   - [x] L2225 `broadphaseCandidateCanTouch`: swept bounding-sphere pair filter.
   - [x] L2307 `appendCandidatePairIfMissing`: append unique conservative pair.
-  - [ ] L2335 `isFastSmallSweepBody`: fast-small-body classifier.
+  - [x] L2335 `isFastSmallSweepBody`: fast-small-body classifier.
   - [ ] L2354 `sweptSegmentTouchesExpandedBody`: conservative segment/body test.
   - [ ] L2404 anonymous fixed/fixed `remove_if` predicate.
   - [ ] L2419 anonymous point-joint pair `remove_if` predicate.
@@ -234,6 +234,12 @@ island-merge tie-breaks.
     Gate evidence: `tools\validate_physics.bat` passed in
     `TestOutput\agent_logs\plan02_append_candidate_pair_validate_physics_20260709_0934.log`
     (28.0s shell runtime; Debug/Profile builds 0 warnings and 0 errors; final
+    `VALIDATE_PHYSICS: ALL PASSED`).
+  - Extracted the `isFastSmallSweepBody` lambda into `IsFastSmallSweepBody`,
+    keeping the fixed-body rejection, radius threshold, and displacement
+    threshold unchanged. Gate evidence: `tools\validate_physics.bat` passed in
+    `TestOutput\agent_logs\plan02_fast_small_sweep_validate_physics_20260709_0938.log`
+    (28.2s shell runtime; Debug/Profile builds 0 warnings and 0 errors; final
     `VALIDATE_PHYSICS: ALL PASSED`).
 - [ ] **1.3** `RunSolverPhysics` is now a short driver calling named stages;
   confirm it is under ~300 lines.

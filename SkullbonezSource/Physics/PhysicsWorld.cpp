@@ -235,6 +235,32 @@ void AppendCandidatePairIfMissing( std::vector<std::pair<int, int>>& candidatePa
     candidatePairs.emplace_back( a, b );
 }
 
+// Concept: fast-small sweep augmentation is a broadphase safety net for tiny
+// bodies whose fixed-step displacement can skip ordinary cell sharing. Exact
+// CCD still runs later; this classifier only decides which moving bodies get
+// conservative extra pair candidates.
+bool IsFastSmallSweepBody( const PhysicsBodyRecordList& bodyRecords,
+                           const ColliderRecordList& colliderRecords,
+                           int bodyIndex,
+                           float dt )
+{
+    if ( IsSolverBodyFixed( bodyRecords, bodyIndex ) )
+    {
+        return false;
+    }
+
+    const float radius = SolverBodyRadius( colliderRecords, bodyIndex );
+    if ( radius > PHYSICS_FAST_SWEEP_MAX_RADIUS )
+    {
+        return false;
+    }
+
+    const Vector3 displacement = bodyRecords[static_cast<size_t>( bodyIndex )].linearVelocity * dt;
+    const float displacementSq = Vector::VectorMagSquared( displacement );
+    const float minSweepDistance = (std::max)( radius * 2.0f, PHYSICS_FAST_SWEEP_MIN_DISTANCE );
+    return displacementSq > minSweepDistance * minSweepDistance;
+}
+
 void ApplyForcesForSolverBody( PhysicsBodyStore& bodyStore,
                                const ColliderStore& colliderStore,
                                const PhysicsWorldForces& worldForces,
@@ -2392,25 +2418,6 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
                                          &broadphaseCandidateFilterContext );
     }
 
-    auto isFastSmallSweepBody = [&]( int index ) -> bool
-    {
-        if ( IsSolverBodyFixed( bodyRecords, index ) )
-        {
-            return false;
-        }
-
-        const float radius = SolverBodyRadius( colliderRecords, index );
-        if ( radius > PHYSICS_FAST_SWEEP_MAX_RADIUS )
-        {
-            return false;
-        }
-
-        const Vector3 displacement = bodyRecords[static_cast<size_t>( index )].linearVelocity * dt;
-        const float displacementSq = Vector::VectorMagSquared( displacement );
-        const float minSweepDistance = (std::max)( radius * 2.0f, PHYSICS_FAST_SWEEP_MIN_DISTANCE );
-        return displacementSq > minSweepDistance * minSweepDistance;
-    };
-
     auto sweptSegmentTouchesExpandedBody = [&]( int movingIndex, int targetIndex ) -> bool
     {
         const Vector3 relativeStart =
@@ -2440,7 +2447,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
         PROFILE_SCOPED( "Frame/Physics/Broadphase/FastSmallSweepAugment" );
         for ( int movingIndex = 0; movingIndex < modelCount; ++movingIndex )
         {
-            if ( !isFastSmallSweepBody( movingIndex ) )
+            if ( !IsFastSmallSweepBody( bodyRecords, colliderRecords, movingIndex, dt ) )
             {
                 continue;
             }
