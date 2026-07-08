@@ -1,7 +1,7 @@
 # 06 — `.inl` Translation-Unit Un-Splitting
 
 Date: 2026-07-08
-Status: Proposed
+Status: In Progress
 Priority: P2
 Owner: Runtime
 Source issue: audit iss-11 (severity 3)
@@ -62,10 +62,27 @@ build.
 
 ### Phase 0 — Editor `.inl` first (execution slot 3)
 
-- [ ] **0.1** List the `.inl` files `RunEditorTools.cpp` splices mid-file (L323,
+- [x] **0.1** List the `.inl` files `RunEditorTools.cpp` splices mid-file (L323,
   L1651, L1950-1953): `RunEditorPlacementAssets.inl`, `RunEditorTracer.inl`,
   `RunMousePickupTools.inl`, `RunEditorGizmoTools.inl`,
   `RunEditorOverlayTools.inl`, `RunEditorObjectPlacement.inl`. No code change.
+
+  Inventory note (2026-07-08): current splice points in
+  `SkullbonezSource\Runtime\Editor\RunEditorTools.cpp` are:
+  - line 323: `RunEditorPlacementAssets.inl` (80,984 bytes)
+  - line 1672: `RunEditorTracer.inl` (48,095 bytes)
+  - line 1971: `RunMousePickupTools.inl` (9,870 bytes)
+  - line 1972: `RunEditorGizmoTools.inl` (18,861 bytes)
+  - line 1973: `RunEditorOverlayTools.inl` (11,265 bytes)
+  - line 1974: `RunEditorObjectPlacement.inl` (33,893 bytes)
+
+  Project metadata note: all six are currently listed as `ClInclude` entries in
+  `SKULLBONEZ_CORE.vcxproj` and `SKULLBONEZ_CORE.vcxproj.filters`, so each
+  promotion in step 0.2 must remove the old include entry and add a real
+  `ClCompile` entry.
+
+  Validation note: no repository validation required; documentation-only
+  inventory.
 - [ ] **0.2** For **one `.inl` at a time**: (a) create a matching header
   declaring its free functions / out-of-line members; (b) rename the `.inl` to a
   real `.cpp` that includes that header; (c) remove the mid-file `#include` from

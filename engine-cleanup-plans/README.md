@@ -35,7 +35,7 @@ Status legend: `Proposed` (drafted here) · `In Progress` · `Done`.
 | 03 | [Governance apparatus removal](03-governance-apparatus-reduction.md) | Delete the 16,090-line regex boundary linter + all frozen `MAX_*` ratchets; 275 docs (~42%); two plan trees | P1 | Proposed |
 | 04 | [Error-handling policy reconciliation](04-error-handling-policy-reconciliation.md) | Exceptions "banned" yet 283 `throw` vs 2 `SB_FATAL`; ratchet frozen | P1 | Proposed |
 | 05 | [Behavioral test coverage](05-behavioral-test-coverage.md) | 44 mostly-math tests + 2 PNGs guard 155K lines; 4 link-stub files | P1 | Proposed |
-| 06 | [`.inl` translation-unit un-splitting](06-inl-translation-unit-unsplitting.md) | Non-template `.inl` spliced mid-`.cpp` → ~5K-line pseudo-modules | P2 | Proposed |
+| 06 | [`.inl` translation-unit un-splitting](06-inl-translation-unit-unsplitting.md) | Non-template `.inl` spliced mid-`.cpp` → ~5K-line pseudo-modules | P2 | In Progress |
 | 07 | [Allocation-gate right-sizing](07-allocation-gate-right-sizing.md) | Repo-wide prose ban vs 2-file enforcement; ~1,400 lines of alloc infra | P2 | Proposed |
 | 08 | [RenderHelper global-state removal](08-renderhelper-global-state-removal.md) | Whole primitive-render layer is process-global static state | P2 | Proposed |
 | 09 | [Replay subsystem right-sizing](09-replay-subsystem-right-sizing.md) | ~17K-line replay; shadow physics engine; 50-field god-struct; twin helpers | P2 | Proposed |
