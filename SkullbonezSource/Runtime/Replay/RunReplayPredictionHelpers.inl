@@ -328,15 +328,15 @@ bool ReserveReplayPredictionFramePayloadVectors( std::vector<RunReplayPrediction
 // full horizon. These cursors let each frame continue where the last frame stopped.
 void ClearReplayPredictionFutureNodeCache( RunReplayPredictionState& prediction )
 {
-    prediction.futureNodes.clear();
-    prediction.futureNodeBuildScratch.clear();
-    prediction.futureNodesBuiltFrameCount = 0;
-    prediction.futureNodesBuiltContactIndex = 0;
-    prediction.futureNodesBuiltTargetId = ReplayBodyId{};
-    prediction.futureNodesBuiltRagdollVisuals = prediction.ragdollVisualsEnabled;
-    prediction.futureNodesBuiltFromBuildFrames = false;
-    prediction.futureNodesCacheValid = false;
-    prediction.retainedMarkerCount = 0;
+    prediction.futureNodeCache.futureNodes.clear();
+    prediction.futureNodeCache.futureNodeBuildScratch.clear();
+    prediction.futureNodeCache.futureNodesBuiltFrameCount = 0;
+    prediction.futureNodeCache.futureNodesBuiltContactIndex = 0;
+    prediction.futureNodeCache.futureNodesBuiltTargetId = ReplayBodyId{};
+    prediction.futureNodeCache.futureNodesBuiltRagdollVisuals = prediction.ragdollVisualsEnabled;
+    prediction.futureNodeCache.futureNodesBuiltFromBuildFrames = false;
+    prediction.futureNodeCache.futureNodesCacheValid = false;
+    prediction.futureNodeCache.retainedMarkerCount = 0;
 }
 
 
@@ -710,11 +710,10 @@ bool CaptureReplayPredictionBaselineSnapshot( RunReplayPredictionState& predicti
     prediction.baseline.rootModelIndex = rootModelIndex;
     prediction.baseline.lastFrame = lastFrame.frameIndex;
 
-    const std::size_t rootStride =
-        frameCount <= REPLAY_PREDICTION_BASELINE_ROOT_POINT_CAPACITY
-            ? 1u
-            : ( frameCount + REPLAY_PREDICTION_BASELINE_ROOT_POINT_CAPACITY - 1u ) /
-                  REPLAY_PREDICTION_BASELINE_ROOT_POINT_CAPACITY;
+    const std::size_t rootStride = frameCount <= REPLAY_PREDICTION_BASELINE_ROOT_POINT_CAPACITY
+                                       ? 1u
+                                       : ( frameCount + REPLAY_PREDICTION_BASELINE_ROOT_POINT_CAPACITY - 1u ) /
+                                             REPLAY_PREDICTION_BASELINE_ROOT_POINT_CAPACITY;
     std::size_t ordinal = 0;
     for ( std::size_t frameSlot = 0; frameSlot < frameCount; ++frameSlot )
     {
@@ -726,7 +725,8 @@ bool CaptureReplayPredictionBaselineSnapshot( RunReplayPredictionState& predicti
             continue;
         }
 
-        const RunReplayPredictionBodySample* body = FindReplayPredictionBodyByIdWithHint( frame, rootId, rootModelIndex );
+        const RunReplayPredictionBodySample* body =
+            FindReplayPredictionBodyByIdWithHint( frame, rootId, rootModelIndex );
         if ( !body )
         {
             continue;
@@ -754,7 +754,12 @@ bool CaptureReplayPredictionBaselineSnapshot( RunReplayPredictionState& predicti
 
         Vector3 restPosition = SkullbonezCore::Math::Vector::ZERO_VECTOR;
         Quaternion restOrientation = IDENTITY_QUATERNION;
-        if ( !ReplayPredictionBodyRestingPose( frames, frameCount, body.id, body.modelIndex, restPosition, restOrientation ) )
+        if ( !ReplayPredictionBodyRestingPose( frames,
+                                               frameCount,
+                                               body.id,
+                                               body.modelIndex,
+                                               restPosition,
+                                               restOrientation ) )
         {
             continue;
         }
@@ -773,8 +778,7 @@ bool CaptureReplayPredictionBaselineSnapshot( RunReplayPredictionState& predicti
         prediction.baseline.bodyPoses.push_back( pose );
     }
 
-    prediction.baseline.valid =
-        prediction.baseline.rootPolyline.size() >= 2 || !prediction.baseline.bodyPoses.empty();
+    prediction.baseline.valid = prediction.baseline.rootPolyline.size() >= 2 || !prediction.baseline.bodyPoses.empty();
     prediction.baseline.comparisonActive = prediction.baseline.valid;
     return prediction.baseline.valid;
 }
@@ -806,8 +810,12 @@ void UpdateReplayPredictionBaselineDivergence( RunReplayPredictionState& predict
 
         Vector3 restPosition = SkullbonezCore::Math::Vector::ZERO_VECTOR;
         Quaternion restOrientation = IDENTITY_QUATERNION;
-        if ( !ReplayPredictionBodyRestingPose(
-                 frames, frameCount, baselinePose.id, baselinePose.modelIndex, restPosition, restOrientation ) )
+        if ( !ReplayPredictionBodyRestingPose( frames,
+                                               frameCount,
+                                               baselinePose.id,
+                                               baselinePose.modelIndex,
+                                               restPosition,
+                                               restOrientation ) )
         {
             continue;
         }
@@ -1208,9 +1216,9 @@ FindOrAddReplayPredictionRetainedMarker( RunReplayPredictionState& prediction, R
     {
         return nullptr;
     }
-    for ( std::size_t i = 0; i < prediction.retainedMarkerCount; ++i )
+    for ( std::size_t i = 0; i < prediction.futureNodeCache.retainedMarkerCount; ++i )
     {
-        ReplayPredictionRetainedMarker& marker = prediction.retainedMarkers[i];
+        ReplayPredictionRetainedMarker& marker = prediction.futureNodeCache.retainedMarkers[i];
         if ( marker.id.value == id.value )
         {
             if ( modelIndex >= 0 )
@@ -1220,12 +1228,13 @@ FindOrAddReplayPredictionRetainedMarker( RunReplayPredictionState& prediction, R
             return &marker;
         }
     }
-    if ( prediction.retainedMarkerCount >= prediction.retainedMarkers.size() )
+    if ( prediction.futureNodeCache.retainedMarkerCount >= prediction.futureNodeCache.retainedMarkers.size() )
     {
         return nullptr;
     }
 
-    ReplayPredictionRetainedMarker& marker = prediction.retainedMarkers[prediction.retainedMarkerCount++];
+    ReplayPredictionRetainedMarker& marker =
+        prediction.futureNodeCache.retainedMarkers[prediction.futureNodeCache.retainedMarkerCount++];
     marker = ReplayPredictionRetainedMarker{};
     marker.id = id;
     marker.modelIndex = modelIndex;
@@ -1383,9 +1392,9 @@ void DrawReplayPredictionRetainedMarkers( const RunReplayPredictionState& predic
     // Invariant: marker emission is bounded by MAX_GAME_MODELS and independent
     // of the visualizer budget. Lines may degrade under load; already-revealed
     // yellow/grey boxes must not.
-    for ( std::size_t i = 0; i < prediction.retainedMarkerCount; ++i )
+    for ( std::size_t i = 0; i < prediction.futureNodeCache.retainedMarkerCount; ++i )
     {
-        const ReplayPredictionRetainedMarker& marker = prediction.retainedMarkers[i];
+        const ReplayPredictionRetainedMarker& marker = prediction.futureNodeCache.retainedMarkers[i];
         const ColliderRecord* collider = ReplayColliderRecordForModelIndex( &colliderStore, marker.modelIndex );
         if ( !collider )
         {
@@ -1423,9 +1432,9 @@ void RetainReplayPredictionEndStateMarkers( RunReplayPredictionState& prediction
     // line scan can rediscover every brick. The stable end state is cheap to
     // prove from the final and grace frames. Resting bodies get grey boxes;
     // bodies still moving when the event horizon ends get a ghost endpoint.
-    for ( std::size_t i = 0; i < prediction.retainedMarkerCount; ++i )
+    for ( std::size_t i = 0; i < prediction.futureNodeCache.retainedMarkerCount; ++i )
     {
-        ReplayPredictionRetainedMarker& marker = prediction.retainedMarkers[i];
+        ReplayPredictionRetainedMarker& marker = prediction.futureNodeCache.retainedMarkers[i];
         if ( !marker.hasEntryPose || marker.hasRestPose || marker.hasHorizonPose )
         {
             continue;
@@ -1978,7 +1987,7 @@ bool TryGetReplayPredictionFutureDepth( const ReplayPredictionFutureContext& con
     }
 
     const std::vector<RunReplayPathTraceNode>& nodes =
-        context.nodes ? *context.nodes : context.prediction->futureNodeBuildScratch;
+        context.nodes ? *context.nodes : context.prediction->futureNodeCache.futureNodeBuildScratch;
     for ( const RunReplayPathTraceNode& node : nodes )
     {
         if ( node.id.value == id.value && frame >= node.firstFrame )
@@ -2204,31 +2213,33 @@ void UpdateReplayPredictionFutureNodeCache( RunReplayPredictionState& prediction
     // building would scan empty rows and mark the future-node cache complete
     // before contacts have been captured.
     frameCount = (std::min)( frameCount, frames.size() );
-    const bool completingBuildFrames = !usingBuildFrames && prediction.futureNodesBuiltFromBuildFrames &&
-                                       prediction.futureNodesBuiltFrameCount <= frameCount;
+    const bool completingBuildFrames = !usingBuildFrames &&
+                                       prediction.futureNodeCache.futureNodesBuiltFromBuildFrames &&
+                                       prediction.futureNodeCache.futureNodesBuiltFrameCount <= frameCount;
     const bool sourceMismatch =
-        prediction.futureNodesBuiltFromBuildFrames != usingBuildFrames && !completingBuildFrames;
+        prediction.futureNodeCache.futureNodesBuiltFromBuildFrames != usingBuildFrames && !completingBuildFrames;
     // Invariant: these inputs define the meaning of the cached tree. Any change
     // means old future nodes may point at the wrong root or include the wrong
     // ragdoll aggregation policy.
-    const bool cacheMismatch = !prediction.futureNodesCacheValid ||
-                               prediction.futureNodesBuiltTargetId.value != rootId.value ||
-                               prediction.futureNodesBuiltRagdollVisuals != prediction.ragdollVisualsEnabled ||
-                               sourceMismatch || prediction.futureNodesBuiltFrameCount > frameCount;
+    const bool cacheMismatch =
+        !prediction.futureNodeCache.futureNodesCacheValid ||
+        prediction.futureNodeCache.futureNodesBuiltTargetId.value != rootId.value ||
+        prediction.futureNodeCache.futureNodesBuiltRagdollVisuals != prediction.ragdollVisualsEnabled ||
+        sourceMismatch || prediction.futureNodeCache.futureNodesBuiltFrameCount > frameCount;
     if ( cacheMismatch )
     {
         ClearReplayPredictionFutureNodeCache( prediction );
-        prediction.futureNodesBuiltTargetId = rootId;
-        prediction.futureNodesBuiltRagdollVisuals = prediction.ragdollVisualsEnabled;
-        prediction.futureNodesBuiltFromBuildFrames = usingBuildFrames;
-        prediction.futureNodesCacheValid = rootId.value != 0;
+        prediction.futureNodeCache.futureNodesBuiltTargetId = rootId;
+        prediction.futureNodeCache.futureNodesBuiltRagdollVisuals = prediction.ragdollVisualsEnabled;
+        prediction.futureNodeCache.futureNodesBuiltFromBuildFrames = usingBuildFrames;
+        prediction.futureNodeCache.futureNodesCacheValid = rootId.value != 0;
     }
     else if ( completingBuildFrames )
     {
-        prediction.futureNodesBuiltFromBuildFrames = false;
+        prediction.futureNodeCache.futureNodesBuiltFromBuildFrames = false;
     }
 
-    if ( rootId.value == 0 || frameCount == 0 || !prediction.futureNodesCacheValid )
+    if ( rootId.value == 0 || frameCount == 0 || !prediction.futureNodeCache.futureNodesCacheValid )
     {
         return;
     }
@@ -2238,46 +2249,46 @@ void UpdateReplayPredictionFutureNodeCache( RunReplayPredictionState& prediction
         // Why: the renderer reads futureNodes only after this builder returns.
         // Copying the scratch prefix here lets cause/effect paths grow over
         // frames without exposing a vector while it is being mutated.
-        prediction.futureNodes = prediction.futureNodeBuildScratch;
+        prediction.futureNodeCache.futureNodes = prediction.futureNodeCache.futureNodeBuildScratch;
     };
 
-    if ( prediction.futureNodeBuildScratch.size() >= REPLAY_PATH_MAX_FUTURE_NODES )
+    if ( prediction.futureNodeCache.futureNodeBuildScratch.size() >= REPLAY_PATH_MAX_FUTURE_NODES )
     {
-        prediction.futureNodesBuiltFrameCount = frameCount;
-        prediction.futureNodesBuiltContactIndex = 0;
+        prediction.futureNodeCache.futureNodesBuiltFrameCount = frameCount;
+        prediction.futureNodeCache.futureNodesBuiltContactIndex = 0;
         publishScratch();
         return;
     }
 
     ReplayPredictionFutureContext futureContext;
     futureContext.prediction = &prediction;
-    futureContext.nodes = &prediction.futureNodeBuildScratch;
+    futureContext.nodes = &prediction.futureNodeCache.futureNodeBuildScratch;
     futureContext.collection = &collection;
     futureContext.rootId = rootId;
     futureContext.includeRagdollVisuals = prediction.ragdollVisualsEnabled;
 
-    while ( prediction.futureNodesBuiltFrameCount < frameCount )
+    while ( prediction.futureNodeCache.futureNodesBuiltFrameCount < frameCount )
     {
-        const std::size_t frameIndex = prediction.futureNodesBuiltFrameCount;
-        std::size_t nextContactIndex = prediction.futureNodesBuiltContactIndex;
+        const std::size_t frameIndex = prediction.futureNodeCache.futureNodesBuiltFrameCount;
+        std::size_t nextContactIndex = prediction.futureNodeCache.futureNodesBuiltContactIndex;
         if ( !BuildReplayPredictionFutureNodes( frames[frameIndex],
                                                 futureContext,
-                                                prediction.futureNodesBuiltContactIndex,
+                                                prediction.futureNodeCache.futureNodesBuiltContactIndex,
                                                 budgetStart,
                                                 budgetMilliseconds,
                                                 nextContactIndex ) )
         {
-            prediction.futureNodesBuiltContactIndex = nextContactIndex;
+            prediction.futureNodeCache.futureNodesBuiltContactIndex = nextContactIndex;
             publishScratch();
             return;
         }
-        prediction.futureNodesBuiltContactIndex = 0;
-        ++prediction.futureNodesBuiltFrameCount;
+        prediction.futureNodeCache.futureNodesBuiltContactIndex = 0;
+        ++prediction.futureNodeCache.futureNodesBuiltFrameCount;
 
-        if ( prediction.futureNodeBuildScratch.size() >= REPLAY_PATH_MAX_FUTURE_NODES )
+        if ( prediction.futureNodeCache.futureNodeBuildScratch.size() >= REPLAY_PATH_MAX_FUTURE_NODES )
         {
-            prediction.futureNodesBuiltFrameCount = frameCount;
-            prediction.futureNodesBuiltContactIndex = 0;
+            prediction.futureNodeCache.futureNodesBuiltFrameCount = frameCount;
+            prediction.futureNodeCache.futureNodesBuiltContactIndex = 0;
             break;
         }
 
@@ -2288,7 +2299,7 @@ void UpdateReplayPredictionFutureNodeCache( RunReplayPredictionState& prediction
         }
     }
 
-    if ( prediction.futureNodeBuildScratch.size() < REPLAY_PATH_MAX_FUTURE_NODES &&
+    if ( prediction.futureNodeCache.futureNodeBuildScratch.size() < REPLAY_PATH_MAX_FUTURE_NODES &&
          !BuildReplayPredictionAffectedFutureNodes( frames,
                                                     frameCount,
                                                     futureContext,

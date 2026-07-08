@@ -694,15 +694,15 @@ const std::vector<RunReplayPredictionFrame>& ReplayRuntime::ActivePredictionFram
 
 void ReplayRuntime::ClearPredictionFutureNodeCache()
 {
-    m_prediction.futureNodes.clear();
-    m_prediction.futureNodeBuildScratch.clear();
-    m_prediction.futureNodesBuiltFrameCount = 0;
-    m_prediction.futureNodesBuiltContactIndex = 0;
-    m_prediction.futureNodesBuiltTargetId = ReplayBodyId{};
-    m_prediction.futureNodesBuiltRagdollVisuals = m_prediction.ragdollVisualsEnabled;
-    m_prediction.futureNodesBuiltFromBuildFrames = false;
-    m_prediction.futureNodesCacheValid = false;
-    m_prediction.retainedMarkerCount = 0;
+    m_prediction.futureNodeCache.futureNodes.clear();
+    m_prediction.futureNodeCache.futureNodeBuildScratch.clear();
+    m_prediction.futureNodeCache.futureNodesBuiltFrameCount = 0;
+    m_prediction.futureNodeCache.futureNodesBuiltContactIndex = 0;
+    m_prediction.futureNodeCache.futureNodesBuiltTargetId = ReplayBodyId{};
+    m_prediction.futureNodeCache.futureNodesBuiltRagdollVisuals = m_prediction.ragdollVisualsEnabled;
+    m_prediction.futureNodeCache.futureNodesBuiltFromBuildFrames = false;
+    m_prediction.futureNodeCache.futureNodesCacheValid = false;
+    m_prediction.futureNodeCache.retainedMarkerCount = 0;
 }
 
 void ReplayRuntime::CancelPredictionJob( bool clearSamples )
@@ -1743,11 +1743,11 @@ bool ReplayRuntime::BuildCauseTreeRows(
     // visible immediately. The cause tree must use the same readiness rule.
     const bool predictionPrefixVisible = ActivePredictionFrames().size() >= 2 ||
                                          m_prediction.HasPublishedBuildFramePrefix() ||
-                                         !m_prediction.futureNodes.empty();
+                                         !m_prediction.futureNodeCache.futureNodes.empty();
     const bool usePrediction = m_prediction.enabled && predictionPrefixVisible &&
                                m_prediction.targetId.value == m_pathVisualizer.targetId.value;
     const std::vector<RunReplayPathTraceNode>& nodes =
-        usePrediction ? m_prediction.futureNodes : m_pathVisualizer.futureNodes;
+        usePrediction ? m_prediction.futureNodeCache.futureNodes : m_pathVisualizer.futureNodes;
     const ReplaySolverFrameSample* solverSample = CurrentSolverScrubSample();
     const std::size_t solverContactCount =
         solverSample ? solverSample->worldSnapshot.persistentContacts.size() : static_cast<std::size_t>( 0 );
@@ -2398,7 +2398,7 @@ bool ReplayRuntime::BuildFocusModelMask( const PhysicsBodyStore& bodyStore, int 
     }
 
     const std::vector<RunReplayPathTraceNode>& futureNodes =
-        m_prediction.enabled ? m_prediction.futureNodes : m_pathVisualizer.futureNodes;
+        m_prediction.enabled ? m_prediction.futureNodeCache.futureNodes : m_pathVisualizer.futureNodes;
     for ( const RunReplayPathTraceNode& node : futureNodes )
     {
         markByReplayId( node.id, node.modelIndex );
@@ -2476,8 +2476,8 @@ MainMemoryReplayStats ReplayRuntime::CollectMemoryStats() const
     stats.predictionBytes += VectorCapacityBytes( m_prediction.predictionBodies );
     stats.predictionBytes += VectorCapacityBytes( m_prediction.frames );
     stats.predictionBytes += VectorCapacityBytes( m_prediction.buildFrames );
-    stats.predictionBytes += VectorCapacityBytes( m_prediction.futureNodes );
-    stats.predictionBytes += VectorCapacityBytes( m_prediction.futureNodeBuildScratch );
+    stats.predictionBytes += VectorCapacityBytes( m_prediction.futureNodeCache.futureNodes );
+    stats.predictionBytes += VectorCapacityBytes( m_prediction.futureNodeCache.futureNodeBuildScratch );
     for ( const RunReplayPredictionFrame& frame : m_prediction.frames )
     {
         stats.predictionBytes += PredictionFrameMemoryBytes( frame );
@@ -2492,7 +2492,7 @@ MainMemoryReplayStats ReplayRuntime::CollectMemoryStats() const
     stats.pathAndCauseBytes += VectorCapacityBytes( m_pathVisualizer.futureNodes );
     stats.pathAndCauseBytes += VectorCapacityBytes( m_pathVisualizer.targets );
     stats.pathAndCauseBytes += VectorCapacityBytes( m_causeTree.rows );
-    stats.pathNodes = m_pathVisualizer.futureNodes.size() + m_prediction.futureNodes.size();
+    stats.pathNodes = m_pathVisualizer.futureNodes.size() + m_prediction.futureNodeCache.futureNodes.size();
     stats.causeRows = m_causeTree.rows.size();
 
     stats.renderScratchBytes = VectorCapacityBytes( m_predictionGhostDrawRequests );

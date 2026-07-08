@@ -106,6 +106,20 @@ bit-exact — the replay scrub regression is the gate.
     `tools\validate_full.bat` passed in 44.9s with 0 build warnings/errors, 0
     DX12 validation errors, matching DX12 screenshots, and
     `physics_regression_solver.csv` byte-exact at 20001 lines.
+  - Progress note (2026-07-08, future-node cache): split render-facing future
+    topology, scratch storage, build cursors, validity flags, and retained marker
+    storage into `RunReplayPredictionFutureNodeCache`. Replay runtime resets,
+    prediction visualizer reservations/draw decisions, future-node builders,
+    replay camera focus, and automation reporting now route through
+    `RunReplayPredictionState::futureNodeCache`; prediction simulation and async
+    build cursor concerns remain in this step. Comment audit inspected the six
+    touched source files with no deferred wording work. Validation:
+    `tools\validate_format.bat` passed in 9.5s;
+    `tools\validate_replay_scrub.bat` passed in 25.8s after fixing one wrapped
+    stale access caught by the first scrub build; `tools\validate_full.bat`
+    passed in 44.8s with 0 build warnings/errors, 0 DX12 validation errors,
+    matching DX12 screenshots, and `physics_regression_solver.csv` byte-exact at
+    20001 lines.
 
 ### Phase 1 — Template the twin helpers
 

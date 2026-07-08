@@ -625,11 +625,11 @@ void Run::RenderReplayCauseFocusOverlay( RunEditorTracer& tracer )
             }
             else if ( m_replayRuntime.Camera().focusContactIndex >= 0 &&
                       m_replayRuntime.Camera().focusContactIndex <
-                          static_cast<int>( m_replayRuntime.Prediction().futureNodes.size() ) )
+                          static_cast<int>( m_replayRuntime.Prediction().futureNodeCache.futureNodes.size() ) )
             {
                 const RunReplayPathTraceNode& node =
-                    m_replayRuntime.Prediction()
-                        .futureNodes[static_cast<std::size_t>( m_replayRuntime.Camera().focusContactIndex )];
+                    m_replayRuntime.Prediction().futureNodeCache.futureNodes[static_cast<std::size_t>(
+                        m_replayRuntime.Camera().focusContactIndex )];
                 if ( node.id.value == m_replayRuntime.Camera().focusedId.value && node.contactDerived )
                 {
                     focusFrame = node.firstFrame;

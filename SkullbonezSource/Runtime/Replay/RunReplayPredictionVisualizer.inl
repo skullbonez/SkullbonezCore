@@ -164,22 +164,24 @@ bool BeginReplayPredictionJob( ReplayRuntime& replayRuntime,
                                                       0,
                                                       "RunReplayPredictionFrame::debugContacts",
                                                       &RunReplayPredictionFrame::debugContacts );
-    if ( !ReserveReplayPredictionVector( replayRuntime.Prediction().futureNodes,
+    if ( !ReserveReplayPredictionVector( replayRuntime.Prediction().futureNodeCache.futureNodes,
                                          REPLAY_PATH_MAX_FUTURE_NODES,
                                          0,
-                                         "RunReplayPredictionState::futureNodes" ) ||
-         !ReserveReplayPredictionVector( replayRuntime.Prediction().futureNodeBuildScratch,
+                                         "RunReplayPredictionFutureNodeCache::futureNodes" ) ||
+         !ReserveReplayPredictionVector( replayRuntime.Prediction().futureNodeCache.futureNodeBuildScratch,
                                          REPLAY_PATH_MAX_FUTURE_NODES,
                                          0,
-                                         "RunReplayPredictionState::futureNodeBuildScratch" ) )
+                                         "RunReplayPredictionFutureNodeCache::futureNodeBuildScratch" ) )
     {
         replayRuntime.CancelPredictionJob( true );
         replayRuntime.Prediction().dirty = true;
         return false;
     }
 
-    if ( !CaptureReplayPredictionBodyState(
-             modelCollection, liveBodyStore, workerPool, replayRuntime.Prediction().predictionBodies ) )
+    if ( !CaptureReplayPredictionBodyState( modelCollection,
+                                            liveBodyStore,
+                                            workerPool,
+                                            replayRuntime.Prediction().predictionBodies ) )
     {
         replayRuntime.CancelPredictionJob( true );
         return false;
@@ -195,8 +197,11 @@ bool BeginReplayPredictionJob( ReplayRuntime& replayRuntime,
     }
 
     if ( !replayRuntime.Prediction().predictionEngine ||
-         !CaptureReplayPredictionFrame(
-             replayRuntime, modelCollection, *replayRuntime.Prediction().predictionEngine, workerPool, 0 ) )
+         !CaptureReplayPredictionFrame( replayRuntime,
+                                        modelCollection,
+                                        *replayRuntime.Prediction().predictionEngine,
+                                        workerPool,
+                                        0 ) )
     {
         replayRuntime.CancelPredictionJob( true );
         replayRuntime.Prediction().dirty = true;
@@ -480,15 +485,15 @@ bool DrawReplayPredictionOverlay( ReplayRuntime& replayRuntime,
                                                    replayRuntime.PathVisualizer().targetId,
                                                    buildBudgetStart,
                                                    budgetMilliseconds );
-            drawFutureTree =
-                replayRuntime.Prediction().futureNodesCacheValid && !replayRuntime.Prediction().futureNodes.empty();
+            drawFutureTree = replayRuntime.Prediction().futureNodeCache.futureNodesCacheValid &&
+                             !replayRuntime.Prediction().futureNodeCache.futureNodes.empty();
         }
         else
         {
             // Why: live play freezes prediction visualization. Keep drawing the
             // committed topology, but do not discover new child nodes while the
             // real simulation advances underneath the overlay.
-            drawFutureTree = !replayRuntime.Prediction().futureNodes.empty();
+            drawFutureTree = !replayRuntime.Prediction().futureNodeCache.futureNodes.empty();
         }
     }
     const auto childDrawBudgetStart = std::chrono::steady_clock::now();
@@ -502,10 +507,11 @@ bool DrawReplayPredictionOverlay( ReplayRuntime& replayRuntime,
         childDraw.presentFrame = 0;
         childDraw.lastFrame = lastFrame;
         childDraw.sampleStride = sampleStride;
-        childDraw.nodeCount = (std::min)( replayRuntime.Prediction().futureNodes.size(), REPLAY_PATH_MAX_FUTURE_NODES );
+        childDraw.nodeCount =
+            (std::min)( replayRuntime.Prediction().futureNodeCache.futureNodes.size(), REPLAY_PATH_MAX_FUTURE_NODES );
         for ( std::size_t i = 0; i < childDraw.nodeCount; ++i )
         {
-            childDraw.nodes[i].node = replayRuntime.Prediction().futureNodes[i];
+            childDraw.nodes[i].node = replayRuntime.Prediction().futureNodeCache.futureNodes[i];
         }
 
         // Why: budget exhaustion may stop line SCANNING, never the marker pass
@@ -643,7 +649,7 @@ bool DrawReplayPredictionOverlay( ReplayRuntime& replayRuntime,
                                                 bufferComplete,
                                                 replayRuntime.PathVisualizer().targetId,
                                                 replayRuntime.PathVisualizer().targetModelIndex,
-                                                replayRuntime.Prediction().futureNodes,
+                                                replayRuntime.Prediction().futureNodeCache.futureNodes,
                                                 modelCollection,
                                                 colliderStore,
                                                 tracer,

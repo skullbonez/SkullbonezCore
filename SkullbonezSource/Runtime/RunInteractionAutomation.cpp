@@ -146,7 +146,7 @@ bool ReplayPredictionPathVisible( const ReplayRuntime& replayRuntime )
     // and count that prefix as visible once it can draw at least one segment.
     return replayRuntime.PathVisualizer().hasTarget &&
            ( !replayRuntime.PathVisualizer().futureNodes.empty() || VisiblePredictionFrameCount( replayRuntime ) >= 2 ||
-             !replayRuntime.Prediction().futureNodes.empty() );
+             !replayRuntime.Prediction().futureNodeCache.futureNodes.empty() );
 }
 
 const DemoPhase* ActiveDirectorPhase( const RunCameraState& camera )
@@ -2100,9 +2100,9 @@ void Run::WriteInteractionAutomationReport()
     std::size_t predictionRetainedHorizonMarkerCount = 0;
     // Why: prediction visual regressions are often spatial, so the interaction
     // report records the retained marker inventory that backs screenshot proof.
-    for ( std::size_t i = 0; i < predictionState.retainedMarkerCount; ++i )
+    for ( std::size_t i = 0; i < predictionState.futureNodeCache.retainedMarkerCount; ++i )
     {
-        const ReplayPredictionRetainedMarker& marker = predictionState.retainedMarkers[i];
+        const ReplayPredictionRetainedMarker& marker = predictionState.futureNodeCache.retainedMarkers[i];
         if ( marker.hasEntryPose )
         {
             ++predictionRetainedEntryMarkerCount;
@@ -2193,8 +2193,9 @@ void Run::WriteInteractionAutomationReport()
               { "predictionTargetFirst", Vec3Json( predictionTargetFirst ) },
               { "predictionTargetLast", Vec3Json( predictionTargetLast ) },
               { "predictionTargetDisplacement", predictionTargetDisplacement },
-              { "predictionFutureNodeCount", static_cast<int>( predictionState.futureNodes.size() ) },
-              { "predictionFutureNodeBuildFrameCount", static_cast<int>( predictionState.futureNodesBuiltFrameCount ) },
+              { "predictionFutureNodeCount", static_cast<int>( predictionState.futureNodeCache.futureNodes.size() ) },
+              { "predictionFutureNodeBuildFrameCount",
+                static_cast<int>( predictionState.futureNodeCache.futureNodesBuiltFrameCount ) },
               { "predictionRetainedEntryMarkerCount", static_cast<int>( predictionRetainedEntryMarkerCount ) },
               { "predictionRetainedRestMarkerCount", static_cast<int>( predictionRetainedRestMarkerCount ) },
               { "predictionRetainedHorizonMarkerCount", static_cast<int>( predictionRetainedHorizonMarkerCount ) },

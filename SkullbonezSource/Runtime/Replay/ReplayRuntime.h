@@ -371,6 +371,26 @@ struct RunReplayPredictionUiState
     bool horizonDragging = false;
 };
 
+struct RunReplayPredictionFutureNodeCache
+{
+    // Concept: future-node cache is render-facing topology derived from
+    // prediction frames. Build work writes the scratch vector and cursor fields;
+    // draw code reads futureNodes only after a coherent prefix is published.
+    std::vector<RunReplayPathTraceNode> futureNodes;
+    std::vector<RunReplayPathTraceNode> futureNodeBuildScratch;
+    std::size_t futureNodesBuiltFrameCount = 0;
+    std::size_t futureNodesBuiltContactIndex = 0;
+    ReplayBodyId futureNodesBuiltTargetId;
+    bool futureNodesBuiltRagdollVisuals = false;
+    bool futureNodesBuiltFromBuildFrames = false;
+    bool futureNodesCacheValid = false;
+    // Invariant: once a causal yellow or grey box has been revealed, budgeted
+    // line scans may not make it disappear. This fixed cache redraws retained
+    // marker poses until a new prediction/future cache resets the story.
+    std::array<ReplayPredictionRetainedMarker, REPLAY_PREDICTION_MARKER_CAPACITY> retainedMarkers = {};
+    std::size_t retainedMarkerCount = 0;
+};
+
 struct RunReplayPredictionState
 {
     RunReplayPredictionState();
@@ -428,25 +448,7 @@ struct RunReplayPredictionState
     // complete, then cancel or invalidate that writer before clearing storage.
     std::vector<RunReplayPredictionFrame> buildFrames;
     std::size_t buildFrameCount = 0;
-    // Renderable future-impact topology. Build work publishes coherent prefixes
-    // here so the draw path never reads the scratch vector while it is mid-frame.
-    std::vector<RunReplayPathTraceNode> futureNodes;
-    // Scratch future-impact topology advanced under the visualizer budget.
-    std::vector<RunReplayPathTraceNode> futureNodeBuildScratch;
-    // Incremental tree cursors. Prediction can contain thousands of frames, so
-    // futureNodeBuildScratch is built over multiple render frames and copied to
-    // futureNodes only at coherent prefix boundaries.
-    std::size_t futureNodesBuiltFrameCount = 0;
-    std::size_t futureNodesBuiltContactIndex = 0;
-    ReplayBodyId futureNodesBuiltTargetId;
-    bool futureNodesBuiltRagdollVisuals = false;
-    bool futureNodesBuiltFromBuildFrames = false;
-    bool futureNodesCacheValid = false;
-    // Invariant: once a causal yellow or grey box has been revealed, budgeted
-    // line scans may not make it disappear. This fixed cache redraws retained
-    // marker poses until a new prediction/future cache resets the story.
-    std::array<ReplayPredictionRetainedMarker, REPLAY_PREDICTION_MARKER_CAPACITY> retainedMarkers = {};
-    std::size_t retainedMarkerCount = 0;
+    RunReplayPredictionFutureNodeCache futureNodeCache;
     // Concept: the butterfly baseline is a retained presentation snapshot of
     // the pre-nudge future. It is intentionally smaller than prediction.frames:
     // one cold root polyline, two poses per affected body, and one divergence
