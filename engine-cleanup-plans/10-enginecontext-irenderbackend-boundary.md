@@ -88,9 +88,39 @@ danger zone — run the renderer gate 3×.
 
 ### Phase 1 — Split `EngineContextBindings`
 
-- [ ] **1.1** Inventory every consumer of `EngineContext` / `EngineContextBindings`
+- [x] **1.1** Inventory every consumer of `EngineContext` / `EngineContextBindings`
   and classify by owner (scene / simulation / render / diagnostics / input /
   capture / world / physics / UI). No code change.
+
+  Inventory note (2026-07-08): `rg -n "\bEngineContext\b|\bEngineContextBindings\b"
+  SkullbonezSource` plus CodeGraph found only the declaration/definition files,
+  `Run.h`, and `Run.cpp`. There is no extracted subsystem consumer of the broad
+  context after step 0.1 removed `Services()`. Current source uses are:
+  - `EngineContext.h`: declares `EngineContextBindings`, `EngineContext`, and
+    stores `m_bindings`.
+  - `EngineContext.cpp`: implements `Bind()` and `IsBound()`.
+  - `Run.h`: includes `EngineContext.h`, stores `EngineContext m_engineContext`,
+    and declares `BindEngineContext()`.
+  - `Run.cpp`: `Run::Run()` calls `BindEngineContext()`;
+    `Run::BindEngineContext()` populates the whole bag once from Run-owned
+    members.
+
+  Field owner classification for the current bag:
+  - scene: `SceneController` (`m_sceneController`).
+  - simulation: `SimulationController` (`m_simulation`).
+  - capture: `CaptureController` (`m_diagnosticsRuntime.Capture()`).
+  - diagnostics: `DiagnosticsController` (`m_diagnosticsRuntime.Diagnostics()`).
+  - commands: `RuntimeCommandQueue` (`m_runtimeCommands`).
+  - systems: `RunSubsystemState` (`m_systems`).
+  - runtime settings: `RunRuntimeSettings` (`m_runtimeSettings`).
+  - input: `RuntimeInputContext` (`m_runtimeInput`).
+  - camera: `RunCameraState` (`m_camera`).
+  - debug: `RunDebugState` (`m_debug`).
+  - world: `WorldEnvironment` (`m_cWorldEnvironment`).
+  - physics: `PhysicsEngine` (`m_cGameModelCollection.GetPhysicsEngine()`).
+  - models: `GameModelCollection` (`m_cGameModelCollection`).
+
+  No repository validation required; documentation-only inventory.
 - [ ] **1.2** For **one owner at a time**: create a narrow record holding only the
   pointers that owner uses; pass it to that owner instead of the whole bag. Gate:
   `validate_full`. Commit. Repeat per owner.
