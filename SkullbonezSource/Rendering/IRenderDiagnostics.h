@@ -30,7 +30,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Rendering/DrawCallTrace.h
-  - SkullbonezSource/Rendering/IRenderBackend.h
+  - SkullbonezSource/Runtime/Render/RuntimeRenderHost.h
 */
 #pragma once
 

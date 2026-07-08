@@ -41,8 +41,9 @@ Related:
 #include "../../Physics/PhysicsBodyStore.h"
 #include "../../Physics/Ragdoll.h"
 #include "../../Core/WorkerPool.h"
-#include "../../Rendering/IRenderBackend.h"
+#include "../../Rendering/IRenderDeviceLifecycle.h"
 #include "../../Rendering/IRenderRayTracing.h"
+#include "../../Rendering/IRenderResourceFactory.h"
 
 #pragma warning( push, 0 )
 #include "../../../ThirdPtySource/nlohmann/json.hpp"
@@ -347,23 +348,27 @@ void UseDefaultTerrain( RunSubsystemState& systems,
                         WorldEnvironment& world,
                         const EngineConfig& config,
                         const std::string& terrainRawPath,
-                        IRenderBackend* renderer )
+                        SkullbonezCore::Rendering::IRenderDeviceLifecycle* renderLifecycle,
+                        SkullbonezCore::Rendering::IRenderResourceFactory* renderResources )
 {
-    assert( renderer );
-    auto& renderResources = static_cast<SkullbonezCore::Rendering::IRenderResourceFactory&>( *renderer );
+    assert( renderResources );
+    if ( !renderResources )
+    {
+        return;
+    }
     if ( !systems.terrain || systems.isFlatSlopeTerrain )
     {
-        if ( renderer )
+        if ( renderLifecycle )
         {
-            renderer->FlushGPU();
+            renderLifecycle->FlushGPU();
         }
         systems.terrain =
-            std::make_unique<Terrain>( terrainRawPath.c_str(), 256, 8, 15, config, systems.assets, renderResources );
+            std::make_unique<Terrain>( terrainRawPath.c_str(), 256, 8, 15, config, systems.assets, *renderResources );
         systems.isFlatSlopeTerrain = false;
     }
     else
     {
-        systems.terrain->BindRenderContexts( config, systems.assets, renderResources );
+        systems.terrain->BindRenderContexts( config, systems.assets, *renderResources );
     }
 
     UpdateWorldTerrainBounds( world, systems.terrain.get() );
@@ -375,15 +380,19 @@ void UseFlatSlopeTerrain( RunSubsystemState& systems,
                           float baseY,
                           float slopeX,
                           float slopeZ,
-                          IRenderBackend* renderer )
+                          SkullbonezCore::Rendering::IRenderDeviceLifecycle* renderLifecycle,
+                          SkullbonezCore::Rendering::IRenderResourceFactory* renderResources )
 {
-    assert( renderer );
-    auto& renderResources = static_cast<SkullbonezCore::Rendering::IRenderResourceFactory&>( *renderer );
-    if ( renderer )
+    assert( renderResources );
+    if ( !renderResources )
     {
-        renderer->FlushGPU();
+        return;
     }
-    systems.terrain = std::make_unique<Terrain>( baseY, slopeX, slopeZ, config, systems.assets, renderResources );
+    if ( renderLifecycle )
+    {
+        renderLifecycle->FlushGPU();
+    }
+    systems.terrain = std::make_unique<Terrain>( baseY, slopeX, slopeZ, config, systems.assets, *renderResources );
     systems.isFlatSlopeTerrain = true;
 
     UpdateWorldTerrainBounds( world, systems.terrain.get() );
@@ -601,7 +610,7 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
     SceneRuntimeLoadBeginContext loadBeginContext{ runtime,
                                                    resetContext,
                                                    m_sceneController.Browser(),
-                                                   m_renderBackendView.renderBackend,
+                                                   m_renderBackendView.deviceLifecycle,
                                                    m_launchOptions.interactiveSceneRun };
 #ifdef _DEBUG
     EndPhysicsDiagnosticsRun( "scene_reload" );
@@ -718,7 +727,8 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
             m_cWorldEnvironment,
             m_config,
             ResolveSourceAssetPath( SkullbonezCore::Assets::AssetKind::Terrain, "terrain.raw", m_config.terrainRaw ),
-            m_renderBackendView.renderBackend );
+            m_renderBackendView.deviceLifecycle,
+            m_renderBackendView.renderResources );
         ApplyConfiguredWorldEnvironment( m_cWorldEnvironment, m_config, m_systems.terrain.get() );
         ApplyNoWaterOverride( m_cWorldEnvironment, m_systems.terrain.get(), m_launchOptions.noWater );
         if ( shouldPreserveRuntimeState )
@@ -870,7 +880,8 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
                                  scene.GetFlatBaseY(),
                                  scene.GetFlatSlopeX(),
                                  scene.GetFlatSlopeZ(),
-                                 m_renderBackendView.renderBackend );
+                                 m_renderBackendView.deviceLifecycle,
+                                 m_renderBackendView.renderResources );
         }
         else
         {
@@ -881,7 +892,8 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
                                ResolveSourceAssetPath( SkullbonezCore::Assets::AssetKind::Terrain,
                                                        "terrain.raw",
                                                        m_config.terrainRaw ),
-                               m_renderBackendView.renderBackend );
+                               m_renderBackendView.deviceLifecycle,
+                               m_renderBackendView.renderResources );
         }
 
         ApplyConfiguredWorldEnvironment( m_cWorldEnvironment, m_config, m_systems.terrain.get() );

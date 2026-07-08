@@ -60,7 +60,6 @@
     <ClCompile Include="..\..\..\SkullbonezSource\Physics\BoundingSphere.cpp" />
     <ClCompile Include="..\..\..\SkullbonezSource\Core\Config.cpp" />
     <ClCompile Include="..\..\..\SkullbonezSource\Physics\ConvexHullShape.cpp" />
-    <ClCompile Include="..\..\..\SkullbonezSource\Rendering\IRenderBackend.cpp" />
     <ClCompile Include="..\..\..\SkullbonezSource\Maths\Matrix4.cpp" />
     <ClCompile Include="..\..\..\SkullbonezSource\Maths\Quaternion.cpp" />
     <ClCompile Include="..\..\..\SkullbonezSource\Maths\RotationMatrix.cpp" />

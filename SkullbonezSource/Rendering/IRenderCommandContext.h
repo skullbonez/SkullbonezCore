@@ -29,8 +29,8 @@ Invariants:
     restore temporary overlay changes without knowing native API state.
 
 Related:
-  - SkullbonezSource/Rendering/IRenderBackend.h
   - SkullbonezSource/Rendering/IRenderResourceFactory.h
+  - SkullbonezSource/Runtime/Render/RuntimeRenderInputs.h
 */
 #pragma once
 

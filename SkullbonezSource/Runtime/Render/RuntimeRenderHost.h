@@ -51,7 +51,6 @@ class PhysicsDebugVisualizer;
 } // namespace Physics
 namespace Rendering
 {
-class IRenderBackend;
 class IRenderCaptureBackend;
 class IRenderCommandContext;
 class IRenderDeviceLifecycle;
@@ -141,7 +140,6 @@ struct RenderDiagnosticsView
 
 struct RuntimeRenderBackendView
 {
-    Rendering::IRenderBackend* renderBackend = nullptr;           // Compatibility aggregate borrow for legacy runtime callers.
     Rendering::IRenderDeviceLifecycle* deviceLifecycle = nullptr; // Startup/present/resize/drain capability.
     Rendering::IRenderCommandContext* renderCommands = nullptr;   // Per-frame draw-state and submission capability.
     Rendering::IRenderResourceFactory* renderResources = nullptr; // Resource creation/rebuild capability.

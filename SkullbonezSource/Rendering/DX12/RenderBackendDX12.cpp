@@ -1570,9 +1570,9 @@ bool RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
 
     // The render device now owns the DXGI/D3D12 platform objects: factory,
     // device, graphics queue, swap chain, command allocators, command list, and
-    // frame fence. RenderBackendDX12 still acts as the IRenderBackend facade,
-    // so it borrows raw pointers from the device layer while the rest of the
-    // renderer is migrated in small slices.
+    // frame fence. RenderBackendDX12 still owns the concrete capability
+    // implementations, so it borrows raw pointers from the device layer while
+    // the rest of the renderer is migrated in small slices.
     m_factory = m_renderDevice.Factory();
     m_swapChain = m_renderDevice.SwapChain();
     m_device = m_renderDevice.Device();

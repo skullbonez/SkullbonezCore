@@ -32,7 +32,7 @@ namespace SkullbonezCore
 {
 namespace Rendering
 {
-class IRenderBackend;
+class IRenderDeviceLifecycle;
 }
 namespace Basics
 {
@@ -43,7 +43,7 @@ struct SceneRuntimeLoadBeginContext
     SceneController& controller;
     SceneRuntimeResetContext reset;
     RunSceneBrowserState& sceneBrowser;
-    Rendering::IRenderBackend* renderer = nullptr;
+    Rendering::IRenderDeviceLifecycle* renderLifecycle = nullptr;
     bool interactiveSceneRunRequested = false;
 };
 

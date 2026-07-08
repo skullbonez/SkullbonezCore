@@ -102,8 +102,8 @@ struct ShadowFrameData
     Math::Vector::Vector3 lightDirectionWorld;
 
     // Opaque texture handle for the framebuffer depth attachment. Render code
-    // passes this neutral handle back to IRenderBackend::BindTexture instead
-    // of seeing the native DX12 resource or descriptor row.
+    // passes this neutral handle back to IRenderCommandContext::BindTexture
+    // instead of seeing the native DX12 resource or descriptor row.
     uint32_t depthTextureHandle = 0;
 
     // Sampling controls copied from the active config for this frame. `texelSize`

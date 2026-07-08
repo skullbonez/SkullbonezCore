@@ -2935,7 +2935,7 @@ void Run::TakeInput()
                                                         m_cGameModelCollection,
                                                         m_simulation,
                                                         m_runtimeTools,
-                                                        m_renderBackendView.renderBackend,
+                                                        m_renderBackendView.deviceLifecycle,
                                                         m_launchOptions.generatedObjectTypeOverride,
                                                         m_startup.gameModelCapacity };
         };

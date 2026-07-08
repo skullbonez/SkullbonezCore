@@ -48,7 +48,11 @@ Related:
 #pragma once
 
 
-#include "../IRenderBackend.h"
+#include "../IRenderCaptureBackend.h"
+#include "../IRenderCommandContext.h"
+#include "../IRenderDeviceLifecycle.h"
+#include "../IRenderDiagnostics.h"
+#include "../IRenderResourceFactory.h"
 #include "../IRenderRayTracing.h"
 #include "../RenderRasterBindingContract.h"
 #include "RenderGraphTransientDX12.h"
@@ -212,15 +216,19 @@ struct DeferredResourceReleaseDX12
 // releases the graph pool. Descriptor rows come from the backend descriptor
 // allocators and are reused with the slot; they must not be mixed into
 // material/object texture ownership.
-// Concept: RenderBackendDX12 is the engine-facing facade over explicit DX12 state.
+// Concept: RenderBackendDX12 owns the concrete DX12 implementation behind the
+// engine-facing capability interfaces.
 //
-// The public IRenderBackend API uses engine verbs: set a shader, set textures,
-// draw meshes, present the frame. Internally, DX12 requires the backend to make
-// every hidden GPU concept explicit: descriptor table rows, command allocators,
-// resource states, fences, upload memory, and compiled pipeline state. This
-// class is the bridge between the simple engine contract and that explicit DX12
-// machinery.
-class RenderBackendDX12 : public IRenderBackend, public IRenderRayTracing
+// The public interfaces use engine verbs: set a shader, set textures, draw
+// meshes, present the frame. Internally, DX12 requires the backend to make every
+// hidden GPU concept explicit: descriptor table rows, command allocators,
+// resource states, fences, upload memory, and compiled pipeline state.
+class RenderBackendDX12 : public IRenderDeviceLifecycle,
+                          public IRenderResourceFactory,
+                          public IRenderCommandContext,
+                          public IRenderDiagnostics,
+                          public IRenderCaptureBackend,
+                          public IRenderRayTracing
 {
 
   private:

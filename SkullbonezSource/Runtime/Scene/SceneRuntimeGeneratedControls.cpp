@@ -29,7 +29,7 @@ Related:
 #include "../SimulationController.h"
 #include "../Tools/RuntimeTools.h"
 #include "../../GameObjects/GameModelCollection.h"
-#include "../../Rendering/IRenderBackend.h"
+#include "../../Rendering/IRenderDeviceLifecycle.h"
 
 #include <algorithm>
 
@@ -51,9 +51,9 @@ void ResetGeneratedRuntimeState( SceneRuntimeGeneratedControlContext context )
 {
     // Hazard: Generated rebuilds destroy model/render state. Flush GPU work
     // first, then clear objects and reset simulation/tool state together.
-    if ( context.renderer )
+    if ( context.renderLifecycle )
     {
-        context.renderer->FlushGPU();
+        context.renderLifecycle->FlushGPU();
     }
     context.models.Clear();
     context.tools.ClearRayCastTestLines();

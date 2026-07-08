@@ -22,7 +22,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Rendering/DrawCallTrace.cpp
-  - SkullbonezSource/Rendering/IRenderBackend.h
+  - SkullbonezSource/Rendering/IRenderDiagnostics.h
   - Agentic/Plans/draw-call-trace-tree-plan.md
 */
 #pragma once

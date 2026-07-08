@@ -35,7 +35,10 @@ Related:
 #include "../Physics/BoundingSphere.h"
 #include "../GameObjects/GameModel.h"
 #include "../Core/Profiler.h"
-#include "../Rendering/IRenderBackend.h"
+#include "../Rendering/IRenderCommandContext.h"
+#include "../Rendering/IRenderDeviceLifecycle.h"
+#include "../Rendering/IRenderDiagnostics.h"
+#include "../Rendering/IRenderResourceFactory.h"
 #include "../World/TerrainSupportClassifier.h"
 #include "../UI/UIDraw.h"
 
@@ -69,7 +72,6 @@ using SkullbonezCore::Math::Vector::Vector3;
 using SkullbonezCore::Physics::PhysicsPipelineStage;
 using SkullbonezCore::Physics::PhysicsPipelineStageName;
 using SkullbonezCore::Rendering::IMesh;
-using SkullbonezCore::Rendering::IRenderBackend;
 using SkullbonezCore::Text::Text2d;
 using SkullbonezCore::Textures::TextureCollection;
 using SkullbonezCore::UI::InGameUICommands;

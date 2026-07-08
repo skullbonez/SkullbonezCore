@@ -31,7 +31,7 @@ Related:
 #include "SceneRuntimeLoad.h"
 #include "SceneController.h"
 #include "SceneRuntime.h"
-#include "../../Rendering/IRenderBackend.h"
+#include "../../Rendering/IRenderDeviceLifecycle.h"
 
 #include <algorithm>
 #include <cstring>
@@ -208,11 +208,11 @@ SceneRuntimeLoadBeginResult BeginSceneRuntimeLoad( SceneRuntimeLoadBeginContext&
         ClearSceneRuntimeUIOverrides( context.reset );
     }
 
-    if ( context.renderer )
+    if ( context.renderLifecycle )
     {
         // Hazard: Old scene resources may still be referenced by in-flight GPU
         // work. Flush before the caller tears down models, buffers, or terrain.
-        context.renderer->FlushGPU();
+        context.renderLifecycle->FlushGPU();
     }
 
     context.controller.BeginLoad( index );

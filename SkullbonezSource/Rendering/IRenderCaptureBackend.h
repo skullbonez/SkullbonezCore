@@ -22,7 +22,6 @@ Invariants:
     startup wiring and must not be retained across backend teardown.
 
 Related:
-  - SkullbonezSource/Rendering/IRenderBackend.h
   - SkullbonezSource/Runtime/CaptureSystem.h
 */
 #pragma once

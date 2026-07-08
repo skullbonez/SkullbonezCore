@@ -663,10 +663,10 @@ struct Dx12RenderDeviceInitDesc
 
     Why split this out of RenderBackendDX12?
 
-    RenderBackendDX12 is the public IRenderBackend facade. It knows about engine
-    concepts such as textures, meshes, framebuffers, draw state, screenshots,
-    DXR reflection, and UI/debug drawing. The low-level DX12 device objects have
-    a different job: they establish and retire the GPU timeline.
+    RenderBackendDX12 owns the public render capability implementations. It
+    knows about engine concepts such as textures, meshes, framebuffers, draw
+    state, screenshots, DXR reflection, and UI/debug drawing. The low-level DX12
+    device objects have a different job: they establish and retire the GPU timeline.
 
     Keeping device ownership here gives the renderer a clear boundary:
 

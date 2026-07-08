@@ -1031,9 +1031,6 @@
     <ClInclude Include="SkullbonezSource\Rendering\IFramebuffer.h">
       <Filter>Header Files\Rendering</Filter>
     </ClInclude>
-    <ClInclude Include="SkullbonezSource\Rendering\IRenderBackend.h">
-      <Filter>Header Files\Rendering</Filter>
-    </ClInclude>
     <ClInclude Include="SkullbonezSource\Rendering\IRenderCaptureBackend.h">
       <Filter>Header Files\Rendering</Filter>
     </ClInclude>
