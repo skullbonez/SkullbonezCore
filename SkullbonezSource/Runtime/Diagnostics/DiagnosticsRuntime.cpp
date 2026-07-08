@@ -41,6 +41,7 @@ Related:
 #include "../../Rendering/IRenderDiagnostics.h"
 #include "../../Scene/TestScene.h"
 #include "../../GameObjects/GameModelCollection.h"
+#include "../../UI/UI.h"
 
 #include <algorithm>
 #include <cstdio>
@@ -256,6 +257,54 @@ bool HandleDiagnosticsKeyboardShortcut( DiagnosticsKeyboardShortcutContext conte
         return true;
     default:
         return false;
+    }
+}
+
+
+DiagnosticsUIKeyboardShortcutResult HandleDiagnosticsUIKeyboardShortcut( DiagnosticsUIKeyboardShortcutContext context,
+                                                                         RuntimeInputAction action,
+                                                                         int virtualKey )
+{
+    DiagnosticsUIKeyboardShortcutResult result;
+    switch ( action )
+    {
+    case RuntimeInputAction::ToggleUIVisibility:
+    case RuntimeInputAction::TogglePerformanceHistogram:
+    case RuntimeInputAction::ToggleMemoryOverlay:
+        result.handled = true;
+        break;
+    default:
+        return result;
+    }
+
+    if ( !InputController::CaptureKeyboardActionPress( context.input, action, virtualKey ) )
+    {
+        return result;
+    }
+
+    result.triggered = true;
+    result.releaseMouseToUI = true;
+    switch ( action )
+    {
+    case RuntimeInputAction::ToggleUIVisibility:
+        // Concept: The tabbed diagnostics UI owns overlay text once visible, so
+        // the legacy one-line overlay is cleared by the UI shortcut owner.
+        context.scene.isInteractiveRun = true;
+        context.scene.isExitOnComplete = false;
+        context.capture.Screenshot().isScreenshotAndExit = false;
+        context.ui.ToggleVisible( context.nowSeconds );
+        context.debug.overlayMode = OverlayMode::None;
+        return result;
+    case RuntimeInputAction::TogglePerformanceHistogram:
+        // F5/F6 are lightweight diagnostic overlays; they do not implicitly open
+        // or close the broader diagnostics window.
+        context.ui.TogglePerformanceHistogramEnabled();
+        return result;
+    case RuntimeInputAction::ToggleMemoryOverlay:
+        context.ui.ToggleMemoryOverlayEnabled();
+        return result;
+    default:
+        return result;
     }
 }
 

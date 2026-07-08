@@ -10,8 +10,6 @@ Mental model:
 Glossary:
   Attach return pose: The visible camera pose captured before Attach takes over
     so the operator can return to the same view later.
-  DXR (DirectX Raytracing): DX12 API used for hardware ray traversal and
-    reflection dispatch.
   Contact-audio flash command: One-frame UI request that cycles a render-only
     diagnostic selector; it does not change audio classification policy.
   Contact-audio simple command: One-frame UI request that switches audio to the
@@ -2053,43 +2051,29 @@ void Run::TakeInput()
                     binding.virtualKey );
             }
             case RuntimeInputAction::ToggleUIVisibility:
-                if ( InputController::CaptureKeyboardActionPress( m_runtimeInput, binding.action, binding.virtualKey ) )
-                {
-                    // 0 toggles the in-game diagnostics window once per keypress
-                    // and clears legacy overlay text so the tabbed UI owns display.
-                    EnterInteractiveSceneRun();
-                    m_UI.ToggleVisible( m_timers.simulationTimer.GetTotalTime() );
-                    m_debug.overlayMode = OverlayMode::None;
-                    ApplyCursorOwnership();
-                    ReleaseMouseToUI();
-                    UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleUIVisibility,
-                                                       RuntimeInputActionSource::Keyboard );
-                }
-                return true;
             case RuntimeInputAction::TogglePerformanceHistogram:
-                if ( InputController::CaptureKeyboardActionPress( m_runtimeInput, binding.action, binding.virtualKey ) )
-                {
-                    // F5 is a lightweight marker histogram toggle; it should not
-                    // implicitly open or close the broader diagnostics window.
-                    m_UI.TogglePerformanceHistogramEnabled();
-                    ApplyCursorOwnership();
-                    ReleaseMouseToUI();
-                    UpdateRuntimeInputModeAfterAction( RuntimeInputAction::TogglePerformanceHistogram,
-                                                       RuntimeInputActionSource::Keyboard );
-                }
-                return true;
             case RuntimeInputAction::ToggleMemoryOverlay:
-                if ( InputController::CaptureKeyboardActionPress( m_runtimeInput, binding.action, binding.virtualKey ) )
+            {
+                const DiagnosticsUIKeyboardShortcutResult shortcutResult = HandleDiagnosticsUIKeyboardShortcut(
+                    DiagnosticsUIKeyboardShortcutContext{ m_runtimeInput,
+                                                          m_UI,
+                                                          m_debug,
+                                                          SceneState(),
+                                                          m_diagnosticsRuntime.Capture(),
+                                                          m_timers.simulationTimer.GetTotalTime() },
+                    binding.action,
+                    binding.virtualKey );
+                if ( shortcutResult.triggered )
                 {
-                    // F6 mirrors F5 for memory waterline inspection without
-                    // changing diagnostics-window visibility.
-                    m_UI.ToggleMemoryOverlayEnabled();
-                    ApplyCursorOwnership();
-                    ReleaseMouseToUI();
-                    UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleMemoryOverlay,
-                                                       RuntimeInputActionSource::Keyboard );
+                    if ( shortcutResult.releaseMouseToUI )
+                    {
+                        ApplyCursorOwnership();
+                        ReleaseMouseToUI();
+                    }
+                    UpdateRuntimeInputModeAfterAction( binding.action, RuntimeInputActionSource::Keyboard );
                 }
-                return true;
+                return shortcutResult.handled;
+            }
             case RuntimeInputAction::NavigateScenePrevious:
             case RuntimeInputAction::NavigateSceneNext:
                 if ( InputController::CaptureKeyboardActionPress( m_runtimeInput, binding.action, binding.virtualKey ) )

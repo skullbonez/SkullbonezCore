@@ -38,6 +38,10 @@ namespace Rendering
 {
 class IRenderDiagnostics;
 }
+namespace UI
+{
+class InGameUI;
+}
 namespace Basics
 {
 class Profiler;
@@ -60,10 +64,33 @@ struct DiagnosticsKeyboardShortcutContext
     double simulationSeconds = 0.0;
 };
 
+struct DiagnosticsUIKeyboardShortcutContext
+{
+    // Lifetime: borrowed for one keyboard dispatch only; the handler mutates UI
+    // overlay visibility, automation flags, and debug presentation state, then
+    // reports any cursor/action bookkeeping still owned by the composition root.
+    RuntimeInputContext& input;
+    UI::InGameUI& ui;
+    RunDebugState& debug;
+    RunSceneState& scene;
+    CaptureController& capture;
+    double nowSeconds = 0.0;
+};
+
+struct DiagnosticsUIKeyboardShortcutResult
+{
+    bool handled = false;                           // True when the action belongs to the diagnostics UI keyboard group.
+    bool triggered = false;                         // True when this frame captured the shortcut edge.
+    bool releaseMouseToUI = false;                  // True when Run should refresh cursor ownership and release capture.
+};
+
 void StepDiagnosticsPhysicsPipelineStage( RunDebugState& debug, int direction );
 bool HandleDiagnosticsKeyboardShortcut( DiagnosticsKeyboardShortcutContext context,
                                         RuntimeInputAction action,
                                         int virtualKey );
+DiagnosticsUIKeyboardShortcutResult HandleDiagnosticsUIKeyboardShortcut( DiagnosticsUIKeyboardShortcutContext context,
+                                                                         RuntimeInputAction action,
+                                                                         int virtualKey );
 
 class DiagnosticsRuntime
 {

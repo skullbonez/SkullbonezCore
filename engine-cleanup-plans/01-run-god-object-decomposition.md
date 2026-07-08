@@ -369,6 +369,21 @@ every step. Commit per step.
 	    declaration mismatch, and the first `validate_full` attempt failed only on the
 	    diagnostics header formatting post-pass; both were fixed before the final
 	    rerun.
+	  - [x] Diagnostics UI ownership extraction moved the 0/F5/F6 diagnostics-window,
+	    marker histogram, and memory overlay keyboard state changes out of
+	    `Run::TakeInput()` and into the diagnostics runtime boundary. `Run` now keeps
+	    only the cursor refresh and runtime-input action bookkeeping for that group,
+	    and the touched-file comment audit removed a stale baseline-term glossary row
+	    from `RunInput.cpp`. `TakeInput()` now spans 1,442 lines. Gate evidence:
+	    `TestOutput\agent_logs\plan01_step1_3_ui_owner_interaction_clicks.log`
+	    (20.0s, both interaction reports `ok=1`) and
+	    `TestOutput\agent_logs\plan01_step1_3_ui_owner_validate_full.log` (53.6s;
+	    project filters/runtime boundaries passed, Profile/Debug builds had 0 warnings
+	    and 0 errors, DX12 InfoQueue errors = 0, screenshots matched baselines, and
+	    `physics_regression_solver.csv` matched byte-exactly). Targeted pre-gate
+	    checks also passed:
+	    `TestOutput\agent_logs\plan01_ui_shortcut_runtime_boundaries.log` (19.3s) and
+	    `TestOutput\agent_logs\plan01_ui_shortcut_build_profile.log` (10.5s).
 - [ ] **1.4** Confirm `TakeInput()` is under ~200 lines (setup + dispatch loop).
 
 ### Phase 2 — Move state shelves out of `RunState`
