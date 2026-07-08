@@ -1348,6 +1348,28 @@ every step. Commit per step.
     (9.3s), and
     `TestOutput\agent_logs\plan01_execute_split_runtime_boundaries.log`
     (17.7s). The touched-file comment audit covered `RunFrame.cpp`.
+  - [x] Replay save probe split moved Debug-only event coverage injection and
+    v2 artifact save/load validation into source-local helpers with explicit
+    owner references. `Run::TickReplaySaveProbe()` dropped from 311 measured
+    lines to 42 measured lines without adding public or private `Run` methods.
+    The remaining measured large `Run::` targets are
+    `RestoreReplayV2ArtifactTargetState` (946),
+    `TickInteractionAutomationBeforeInput` (578),
+    `TickInteractionAutomationAfterRender` (258), `TakeInput` (201),
+    `RunGraphicsStressActions` (199), `WriteInteractionAutomationReport`
+    (197), and `Execute` (196), so Phase 3 and the structural acceptance rows
+    remain open. Gate evidence:
+    `TestOutput\agent_logs\plan01_replay_save_probe_split_validate_full.log`
+    (57.1s; project filters/runtime boundaries passed, Profile/Debug builds
+    had 0 warnings and 0 errors, DX12 InfoQueue errors = 0, screenshots
+    matched baselines, and `physics_regression_solver.csv` matched
+    byte-exactly). Targeted pre-gate checks also passed:
+    `TestOutput\agent_logs\plan01_replay_save_probe_split_build_debug_final2.log`
+    (5.8s),
+    `TestOutput\agent_logs\plan01_replay_save_probe_split_validate_format_final.log`
+    (9.4s), and
+    `TestOutput\agent_logs\plan01_replay_save_probe_split_runtime_boundaries.log`
+    (17.6s). The touched-file comment audit covered `RunFrame.cpp`.
 
 ## Validation
 

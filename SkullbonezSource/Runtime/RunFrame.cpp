@@ -390,6 +390,329 @@ constexpr uint32_t REPLAY_GENERATED_SCENE_UI_SOLVER_COUNTS = 4u;
 constexpr uint32_t REPLAY_GENERATED_SCENE_OVERRIDE_SHIFT = 8u;
 constexpr uint32_t REPLAY_GENERATED_SCENE_OVERRIDE_MASK = 3u << REPLAY_GENERATED_SCENE_OVERRIDE_SHIFT;
 
+#ifdef _DEBUG
+float ReplaySaveProbeDistanceSquared( const Vector3& a, const Vector3& b )
+{
+    const Vector3 delta = a - b;
+    return delta.x * delta.x + delta.y * delta.y + delta.z * delta.z;
+}
+
+
+struct ReplaySaveProbeEventCoverageContext
+{
+    RunReplaySaveProbeState& saveProbe;
+    ReplayRuntime& replayRuntime;
+    RuntimeTools& runtimeTools;
+    RunSceneState& scene;
+    RunSubsystemState& systems;
+    SkullbonezCore::Environment::WorldEnvironment& world;
+    SkullbonezCore::GameObjects::GameModelCollection& models;
+    int gameModelCapacity = 0;
+};
+
+
+template <typename EnterInteractiveSceneRun>
+SbResult InjectReplaySaveProbeEventCoverage( ReplaySaveProbeEventCoverageContext& context,
+                                             EnterInteractiveSceneRun enterInteractiveSceneRun )
+{
+    context.saveProbe.eventCoverageInjected = true;
+    const float currentGravity = context.world.GetGravity();
+    const float probeGravity = currentGravity != 0.0f ? currentGravity * 0.95f : -0.25f;
+    ApplyUIWorldOverride( context.world,
+                          context.replayRuntime,
+                          probeGravity,
+                          context.world.GetFluidSurfaceHeight(),
+                          context.world.GetFluidDensity() );
+    context.runtimeTools.Editor().placementScale = Vector3( 2.0f, 2.0f, 2.0f );
+    context.runtimeTools.Editor().autoTerrainAlign = false;
+    const int modelCountBeforePlace = context.models.SceneEntityCount();
+    EditorObjectPlacementContext placementContext{ context.runtimeTools.Editor(),
+                                                   context.models,
+                                                   context.scene,
+                                                   context.world,
+                                                   context.systems.terrain.get(),
+                                                   context.systems.assets,
+                                                   context.gameModelCapacity };
+    EditorObjectPlacementRequest placementRequest{ SkullbonezCore::UI::EditorTab::OBJECT_BOX,
+                                                   true,
+                                                   Vector3( 18.0f, 0.0f, 18.0f ) };
+    EditorObjectPlacementResult placementResult;
+    if ( CanPlaceEditorObjectAtTerrainPoint( placementContext, placementRequest ) )
+    {
+        enterInteractiveSceneRun();
+        PlaceEditorObjectAtTerrainPoint( placementContext, placementRequest, placementResult );
+    }
+    if ( placementResult.placed )
+    {
+        context.replayRuntime.RecordEditorPlaceEvent( placementResult.objectType,
+                                                      placementResult.fixedObject,
+                                                      placementResult.autoTerrainAlign,
+                                                      placementResult.modelCountBefore,
+                                                      placementResult.terrainPoint,
+                                                      placementResult.placementScale,
+                                                      placementResult.placementYawRadians );
+        const PhysicsBodyRecord* placedBodyBeforeEdit =
+            context.models.GetPhysicsEngine().BodyStore().RecordForHandle( placementResult.placedBody );
+        if ( !placedBodyBeforeEdit )
+        {
+            return ReplayProbeFailure( "replay save probe failed to resolve placed body record" );
+        }
+        // Why: placement has already registered a PhysicsBodyHandle. Use the
+        // authoritative body row as the starting transform, then commit the
+        // edited descriptor back into the stores below.
+        SkullbonezCore::GameObjects::PhysicsBodyStateEdit placedBodyEdit;
+        placedBodyEdit.hasPosition = true;
+        placedBodyEdit.position = placedBodyBeforeEdit->position + Vector3( 4.0f, 0.0f, 0.0f );
+        Quaternion placedOrientation = placedBodyBeforeEdit->orientation;
+        placedOrientation.RotateAboutAxis( Vector3( 0.0f, 1.0f, 0.0f ), 0.25f );
+        placedBodyEdit.hasOrientation = true;
+        placedBodyEdit.orientation = placedOrientation;
+        const ColliderRecord* placedColliderBeforeEdit =
+            TryGetEditorTransformColliderRecord( context.models,
+                                                 placementResult.placedCollider,
+                                                 modelCountBeforePlace,
+                                                 placedBodyBeforeEdit->replayBodyId );
+        if ( !placedColliderBeforeEdit )
+        {
+            return ReplayProbeFailure( "replay save probe failed to resolve placed collider record" );
+        }
+        const CollisionShape placedShapeBeforeScale = placedColliderBeforeEdit->shape;
+        constexpr int PROBE_SCALE_AXIS = 0;
+        constexpr float PROBE_SCALE_FACTOR = 1.5f;
+        CollisionShape placedShapeAfterScale;
+        if ( !ScaleShapeAxisFromBase( placedShapeBeforeScale,
+                                      PROBE_SCALE_AXIS,
+                                      PROBE_SCALE_FACTOR,
+                                      placedShapeAfterScale ) )
+        {
+            return ReplayProbeFailure( "replay save probe failed to apply editor transform scale" );
+        }
+        placedBodyEdit.hasLinearVelocity = true;
+        placedBodyEdit.linearVelocity = Vector3( 0.0f, 0.0f, 0.0f );
+        placedBodyEdit.hasAngularVelocity = true;
+        placedBodyEdit.angularVelocity = Vector3( 0.0f, 0.0f, 0.0f );
+        // Invariant: the replay probe exercises the same explicit collider
+        // edit command as the editor instead of relying on a model recapture.
+        context.models.ApplyPhysicsBodyColliderEdit(
+            modelCountBeforePlace,
+            placedBodyEdit,
+            MakeColliderCreateDesc( std::move( placedShapeAfterScale ),
+                                    placedColliderBeforeEdit->restitution,
+                                    placedColliderBeforeEdit->contactMaterialId ) );
+        const PhysicsBodyRecord* placedBodyAfterEdit =
+            context.models.GetPhysicsEngine().BodyStore().RecordForModelIndex( modelCountBeforePlace );
+        if ( !placedBodyAfterEdit || placedBodyAfterEdit->replayBodyId == 0 )
+        {
+            return ReplayProbeFailure( "replay save probe failed to capture edited body record" );
+        }
+        context.replayRuntime.RecordEditorTransformEvent(
+            modelCountBeforePlace,
+            REPLAY_EDITOR_TRANSFORM_TRANSLATE | REPLAY_EDITOR_TRANSFORM_ROTATE | REPLAY_EDITOR_TRANSFORM_SCALE,
+            placedBodyAfterEdit->replayBodyId,
+            placedBodyAfterEdit->position,
+            placedBodyAfterEdit->orientation,
+            context.models.SceneEntityCount(),
+            PROBE_SCALE_AXIS,
+            PROBE_SCALE_FACTOR );
+    }
+    context.runtimeTools.RayCastTest().projectileSpeed += 1.0f;
+    context.replayRuntime.RecordLauncherConfigEvent( 2u,
+                                                     context.runtimeTools.RayCastTest().impulseStrength,
+                                                     context.runtimeTools.RayCastTest().projectileSpeed );
+    Vector3 rayOrigin;
+    Vector3 rayDirection;
+    Vector3 cameraUp;
+    if ( context.runtimeTools.TryBuildLauncherCameraRay( context.systems.cameras, rayOrigin, rayDirection, cameraUp ) )
+    {
+        context.replayRuntime.RecordLauncherFireEvent(
+            rayOrigin,
+            rayDirection,
+            cameraUp,
+            context.runtimeTools.RayCastTest().fireMode == RunLauncherFireMode::Projectile,
+            context.runtimeTools.RayCastTest().impulseStrength,
+            context.runtimeTools.RayCastTest().projectileSpeed,
+            context.models.SceneEntityCount() );
+        // Why: RuntimeTools now fails closed unless Run has completed the cold
+        // collection-to-store topology repair at the owner boundary.
+        const bool launcherStoresReady = context.models.RepairPhysicsBodyAndColliderTopology();
+        if ( launcherStoresReady && context.runtimeTools.FireLauncherRay( context.models,
+                                                                          context.scene,
+                                                                          context.systems.terrain.get(),
+                                                                          context.gameModelCapacity,
+                                                                          rayOrigin,
+                                                                          rayDirection,
+                                                                          cameraUp ) )
+        {
+            context.scene.modelCount = context.models.SceneEntityCount();
+        }
+    }
+    return SbResult::Success();
+}
+
+
+struct ReplaySaveProbeArtifactContext
+{
+    RunReplaySaveProbeState& saveProbe;
+    ReplayRuntime& replayRuntime;
+    SkullbonezCore::GameObjects::GameModelCollection& models;
+};
+
+
+SbResult ValidateReplaySaveProbeArtifact( ReplaySaveProbeArtifactContext& context )
+{
+    ReplayV2SaveResult result;
+    if ( !context.replayRuntime.SavePresentationWithSolverHashes( context.saveProbe.path, &result ) )
+    {
+        return ReplayProbeFailure( "replay save probe failed to write v2 presentation artifact" );
+    }
+    if ( result.solverHashCount < result.sampleCount )
+    {
+        return ReplayProbeFailure( "replay save probe wrote v2 artifact without a full solver hash track" );
+    }
+    if ( result.solverCheckpointCount == 0 )
+    {
+        return ReplayProbeFailure( "replay save probe wrote v2 artifact without solver checkpoint chunks" );
+    }
+    if ( result.eventCount == 0 )
+    {
+        return ReplayProbeFailure( "replay save probe wrote v2 artifact without event chunks" );
+    }
+    if ( result.eventCursorCount == 0 )
+    {
+        return ReplayProbeFailure( "replay save probe wrote v2 artifact without checkpoint event cursors" );
+    }
+
+    std::vector<ReplayPresentationSample> loadedSamples;
+    ReplayV2LoadResult loadResult;
+    if ( !ReplayV2Artifact::LoadPresentation( context.saveProbe.path, loadedSamples, &loadResult ) )
+    {
+        return ReplayProbeFailure( "replay save probe failed to reload v2 presentation artifact" );
+    }
+    if ( loadedSamples.size() < 2 )
+    {
+        return ReplayProbeFailure( "replay save probe loaded too few v2 presentation samples" );
+    }
+
+    const std::size_t selectedIndex = (std::min)( loadedSamples.size() / 4, loadedSamples.size() - 2 );
+    const ReplayPresentationSample& selected = loadedSamples[selectedIndex];
+    const ReplayPresentationSample& live = loadedSamples.back();
+    if ( selected.frameIndex >= live.frameIndex )
+    {
+        return ReplayProbeFailure( "replay save probe could not seek to an older loaded v2 sample" );
+    }
+
+    const ReplayBodyPresentationSample* selectedBody = nullptr;
+    const ReplayBodyPresentationSample* liveBody = nullptr;
+    float bestDistanceSquared = 0.0f;
+    for ( const ReplayBodyPresentationSample& candidate : selected.bodies )
+    {
+        for ( const ReplayBodyPresentationSample& liveCandidate : live.bodies )
+        {
+            if ( liveCandidate.id.value != candidate.id.value )
+            {
+                continue;
+            }
+
+            const float candidateDistanceSquared =
+                ReplaySaveProbeDistanceSquared( liveCandidate.position, candidate.position );
+            if ( candidateDistanceSquared > bestDistanceSquared )
+            {
+                bestDistanceSquared = candidateDistanceSquared;
+                selectedBody = &candidate;
+                liveBody = &liveCandidate;
+            }
+            break;
+        }
+    }
+    if ( !selectedBody || !liveBody || bestDistanceSquared < 0.0001f )
+    {
+        return ReplayProbeFailure( "replay save probe did not find a moved body in the loaded v2 artifact" );
+    }
+
+    const int probedModelIndex = liveBody->modelIndex;
+    const PhysicsBodyRecord* probedBody = TryGetReplayProbeBodyRecord( context.models, probedModelIndex );
+    if ( !probedBody )
+    {
+        return ReplayProbeFailure( "replay save probe loaded an invalid live body index" );
+    }
+
+    const Vector3 preApplyPosition = probedBody->position;
+    const float preLiveDeltaSquared = ReplaySaveProbeDistanceSquared( preApplyPosition, liveBody->position );
+    if ( preLiveDeltaSquared > 0.0001f )
+    {
+        return ReplayProbeFailure( "replay save probe live body did not match the loaded v2 live sample" );
+    }
+
+    const bool applied = ApplyReplayProbePresentationSampleForRender( context.models, context.replayRuntime, selected );
+    if ( !applied )
+    {
+        return ReplayProbeFailure( "replay save probe failed to apply the loaded v2 presentation sample" );
+    }
+    const PhysicsBodyRecord* appliedBody = TryGetReplayProbeBodyRecord( context.models, probedModelIndex );
+    if ( !appliedBody )
+    {
+        RestoreReplayProbeRenderInstances( context.models );
+        return ReplayProbeFailure( "replay save probe lost the selected live body after applying the v2 sample" );
+    }
+    const Vector3 liveAfterApplyPosition = appliedBody->position;
+    const float livePreservedDeltaSquared = ReplaySaveProbeDistanceSquared( liveAfterApplyPosition, preApplyPosition );
+    if ( livePreservedDeltaSquared > 0.0001f )
+    {
+        RestoreReplayProbeRenderInstances( context.models );
+        return ReplayProbeFailure( "replay save probe mutated the live body while applying the v2 sample" );
+    }
+
+    Vector3 appliedRenderPosition;
+    if ( !TryPrepareReplayProbeRenderPosition( context.models, probedModelIndex, appliedRenderPosition ) )
+    {
+        RestoreReplayProbeRenderInstances( context.models );
+        return ReplayProbeFailure( "replay save probe lost the selected render instance after applying the v2 sample" );
+    }
+    const float appliedDeltaSquared = ReplaySaveProbeDistanceSquared( appliedRenderPosition, selectedBody->position );
+    if ( appliedDeltaSquared > 0.0001f )
+    {
+        RestoreReplayProbeRenderInstances( context.models );
+        return ReplayProbeFailure( "replay save probe did not move the render instance to the loaded v2 sample" );
+    }
+
+    RestoreReplayProbeRenderInstances( context.models );
+    const PhysicsBodyRecord* restoredBody = TryGetReplayProbeBodyRecord( context.models, probedModelIndex );
+    if ( !restoredBody )
+    {
+        return ReplayProbeFailure( "replay save probe lost the selected live body after restoring the v2 sample" );
+    }
+    const Vector3 restoredPosition = restoredBody->position;
+    const float restoredDeltaSquared = ReplaySaveProbeDistanceSquared( restoredPosition, preApplyPosition );
+    if ( restoredDeltaSquared > 0.0001f )
+    {
+        return ReplayProbeFailure( "replay save probe live body changed after applying the loaded v2 sample" );
+    }
+
+    context.saveProbe.completed = true;
+    printf( "[replay] Save probe wrote: path=%s samples=%llu bodies=%llu solver_hashes=%llu "
+            "solver_checkpoints=%llu events=%llu event_cursors=%llu bytes=%llu\n",
+            context.saveProbe.path,
+            static_cast<unsigned long long>( result.sampleCount ),
+            static_cast<unsigned long long>( result.bodyDictionaryCount ),
+            static_cast<unsigned long long>( result.solverHashCount ),
+            static_cast<unsigned long long>( result.solverCheckpointCount ),
+            static_cast<unsigned long long>( result.eventCount ),
+            static_cast<unsigned long long>( result.eventCursorCount ),
+            static_cast<unsigned long long>( result.fileBytes ) );
+    printf( "[replay] Save probe loaded: samples=%llu bodies=%llu first_frame=%llu selected_frame=%llu "
+            "latest_frame=%llu body_id=%u distance_sq=%.6f\n",
+            static_cast<unsigned long long>( loadResult.sampleCount ),
+            static_cast<unsigned long long>( loadResult.bodyDictionaryCount ),
+            static_cast<unsigned long long>( loadResult.firstFrame ),
+            static_cast<unsigned long long>( selected.frameIndex ),
+            static_cast<unsigned long long>( live.frameIndex ),
+            selectedBody->id.value,
+            bestDistanceSquared );
+    PostQuitMessage( 0 );
+    return SbResult::Success();
+}
+#endif
+
 // Concept: replay flags are compact wire-format fields. Keep these masks local
 // to decode logic so new replay payload versions do not inherit accidental UI
 // or runtime enum values.
@@ -1414,12 +1737,6 @@ SbResult Run::TickReplayRestoreProbe()
 
 SbResult Run::TickReplaySaveProbe()
 {
-    auto distanceSquared = []( const Math::Vector::Vector3& a, const Math::Vector::Vector3& b ) -> float
-    {
-        const Math::Vector::Vector3 delta = a - b;
-        return delta.x * delta.x + delta.y * delta.y + delta.z * delta.z;
-    };
-
     if ( !m_replayProbes.save.enabled || m_replayProbes.save.completed )
     {
         return SbResult::Success();
@@ -1436,134 +1753,19 @@ SbResult Run::TickReplaySaveProbe()
 
     if ( !m_replayProbes.save.eventCoverageInjected && stats.sampleCount >= 4 )
     {
-        m_replayProbes.save.eventCoverageInjected = true;
-        const float currentGravity = m_cWorldEnvironment.GetGravity();
-        const float probeGravity = currentGravity != 0.0f ? currentGravity * 0.95f : -0.25f;
-        ApplyUIWorldOverride( m_cWorldEnvironment,
-                              m_replayRuntime,
-                              probeGravity,
-                              m_cWorldEnvironment.GetFluidSurfaceHeight(),
-                              m_cWorldEnvironment.GetFluidDensity() );
-        m_runtimeTools.Editor().placementScale = Vector3( 2.0f, 2.0f, 2.0f );
-        m_runtimeTools.Editor().autoTerrainAlign = false;
-        const int modelCountBeforePlace = m_cGameModelCollection.SceneEntityCount();
-        EditorObjectPlacementContext placementContext{ m_runtimeTools.Editor(),
-                                                       m_cGameModelCollection,
-                                                       SceneState(),
-                                                       m_cWorldEnvironment,
-                                                       m_systems.terrain.get(),
-                                                       m_systems.assets,
-                                                       m_startup.gameModelCapacity };
-        EditorObjectPlacementRequest placementRequest{ UI::EditorTab::OBJECT_BOX, true, Vector3( 18.0f, 0.0f, 18.0f ) };
-        EditorObjectPlacementResult placementResult;
-        if ( CanPlaceEditorObjectAtTerrainPoint( placementContext, placementRequest ) )
+        ReplaySaveProbeEventCoverageContext eventCoverageContext{ m_replayProbes.save,
+                                                                  m_replayRuntime,
+                                                                  m_runtimeTools,
+                                                                  SceneState(),
+                                                                  m_systems,
+                                                                  m_cWorldEnvironment,
+                                                                  m_cGameModelCollection,
+                                                                  m_startup.gameModelCapacity };
+        const SbResult eventCoverageResult =
+            InjectReplaySaveProbeEventCoverage( eventCoverageContext, [this]() { EnterInteractiveSceneRun(); } );
+        if ( !eventCoverageResult.ok )
         {
-            EnterInteractiveSceneRun();
-            PlaceEditorObjectAtTerrainPoint( placementContext, placementRequest, placementResult );
-        }
-        if ( placementResult.placed )
-        {
-            m_replayRuntime.RecordEditorPlaceEvent( placementResult.objectType,
-                                                    placementResult.fixedObject,
-                                                    placementResult.autoTerrainAlign,
-                                                    placementResult.modelCountBefore,
-                                                    placementResult.terrainPoint,
-                                                    placementResult.placementScale,
-                                                    placementResult.placementYawRadians );
-            const PhysicsBodyRecord* placedBodyBeforeEdit =
-                m_cGameModelCollection.GetPhysicsEngine().BodyStore().RecordForHandle( placementResult.placedBody );
-            if ( !placedBodyBeforeEdit )
-            {
-                return ReplayProbeFailure( "replay save probe failed to resolve placed body record" );
-            }
-            // Why: placement has already registered a PhysicsBodyHandle. Use the
-            // authoritative body row as the starting transform, then commit the
-            // edited descriptor back into the stores below.
-            SkullbonezCore::GameObjects::PhysicsBodyStateEdit placedBodyEdit;
-            placedBodyEdit.hasPosition = true;
-            placedBodyEdit.position = placedBodyBeforeEdit->position + Vector3( 4.0f, 0.0f, 0.0f );
-            Quaternion placedOrientation = placedBodyBeforeEdit->orientation;
-            placedOrientation.RotateAboutAxis( Vector3( 0.0f, 1.0f, 0.0f ), 0.25f );
-            placedBodyEdit.hasOrientation = true;
-            placedBodyEdit.orientation = placedOrientation;
-            const ColliderRecord* placedColliderBeforeEdit =
-                TryGetEditorTransformColliderRecord( m_cGameModelCollection,
-                                                     placementResult.placedCollider,
-                                                     modelCountBeforePlace,
-                                                     placedBodyBeforeEdit->replayBodyId );
-            if ( !placedColliderBeforeEdit )
-            {
-                return ReplayProbeFailure( "replay save probe failed to resolve placed collider record" );
-            }
-            const CollisionShape placedShapeBeforeScale = placedColliderBeforeEdit->shape;
-            constexpr int PROBE_SCALE_AXIS = 0;
-            constexpr float PROBE_SCALE_FACTOR = 1.5f;
-            CollisionShape placedShapeAfterScale;
-            if ( !ScaleShapeAxisFromBase( placedShapeBeforeScale,
-                                          PROBE_SCALE_AXIS,
-                                          PROBE_SCALE_FACTOR,
-                                          placedShapeAfterScale ) )
-            {
-                return ReplayProbeFailure( "replay save probe failed to apply editor transform scale" );
-            }
-            placedBodyEdit.hasLinearVelocity = true;
-            placedBodyEdit.linearVelocity = Vector3( 0.0f, 0.0f, 0.0f );
-            placedBodyEdit.hasAngularVelocity = true;
-            placedBodyEdit.angularVelocity = Vector3( 0.0f, 0.0f, 0.0f );
-            // Invariant: the replay probe exercises the same explicit collider
-            // edit command as the editor instead of relying on a model recapture.
-            m_cGameModelCollection.ApplyPhysicsBodyColliderEdit(
-                modelCountBeforePlace,
-                placedBodyEdit,
-                MakeColliderCreateDesc( std::move( placedShapeAfterScale ),
-                                        placedColliderBeforeEdit->restitution,
-                                        placedColliderBeforeEdit->contactMaterialId ) );
-            const PhysicsBodyRecord* placedBodyAfterEdit =
-                m_cGameModelCollection.GetPhysicsEngine().BodyStore().RecordForModelIndex( modelCountBeforePlace );
-            if ( !placedBodyAfterEdit || placedBodyAfterEdit->replayBodyId == 0 )
-            {
-                return ReplayProbeFailure( "replay save probe failed to capture edited body record" );
-            }
-            m_replayRuntime.RecordEditorTransformEvent(
-                modelCountBeforePlace,
-                REPLAY_EDITOR_TRANSFORM_TRANSLATE | REPLAY_EDITOR_TRANSFORM_ROTATE | REPLAY_EDITOR_TRANSFORM_SCALE,
-                placedBodyAfterEdit->replayBodyId,
-                placedBodyAfterEdit->position,
-                placedBodyAfterEdit->orientation,
-                m_cGameModelCollection.SceneEntityCount(),
-                PROBE_SCALE_AXIS,
-                PROBE_SCALE_FACTOR );
-        }
-        m_runtimeTools.RayCastTest().projectileSpeed += 1.0f;
-        m_replayRuntime.RecordLauncherConfigEvent( 2u,
-                                                   m_runtimeTools.RayCastTest().impulseStrength,
-                                                   m_runtimeTools.RayCastTest().projectileSpeed );
-        Vector3 rayOrigin;
-        Vector3 rayDirection;
-        Vector3 cameraUp;
-        if ( m_runtimeTools.TryBuildLauncherCameraRay( m_systems.cameras, rayOrigin, rayDirection, cameraUp ) )
-        {
-            m_replayRuntime.RecordLauncherFireEvent(
-                rayOrigin,
-                rayDirection,
-                cameraUp,
-                m_runtimeTools.RayCastTest().fireMode == RunLauncherFireMode::Projectile,
-                m_runtimeTools.RayCastTest().impulseStrength,
-                m_runtimeTools.RayCastTest().projectileSpeed,
-                m_cGameModelCollection.SceneEntityCount() );
-            // Why: RuntimeTools now fails closed unless Run has completed the
-            // cold collection-to-store topology repair at the owner boundary.
-            const bool launcherStoresReady = m_cGameModelCollection.RepairPhysicsBodyAndColliderTopology();
-            if ( launcherStoresReady && m_runtimeTools.FireLauncherRay( m_cGameModelCollection,
-                                                                        SceneState(),
-                                                                        m_systems.terrain.get(),
-                                                                        m_startup.gameModelCapacity,
-                                                                        rayOrigin,
-                                                                        rayDirection,
-                                                                        cameraUp ) )
-            {
-                SceneState().modelCount = m_cGameModelCollection.SceneEntityCount();
-            }
+            return eventCoverageResult;
         }
     }
     if ( stats.sampleCount < static_cast<std::size_t>( m_replayProbes.save.minSampleCount ) )
@@ -1571,156 +1773,8 @@ SbResult Run::TickReplaySaveProbe()
         return SbResult::Success();
     }
 
-    ReplayV2SaveResult result;
-    if ( !m_replayRuntime.SavePresentationWithSolverHashes( m_replayProbes.save.path, &result ) )
-    {
-        return ReplayProbeFailure( "replay save probe failed to write v2 presentation artifact" );
-    }
-    if ( result.solverHashCount < result.sampleCount )
-    {
-        return ReplayProbeFailure( "replay save probe wrote v2 artifact without a full solver hash track" );
-    }
-    if ( result.solverCheckpointCount == 0 )
-    {
-        return ReplayProbeFailure( "replay save probe wrote v2 artifact without solver checkpoint chunks" );
-    }
-    if ( result.eventCount == 0 )
-    {
-        return ReplayProbeFailure( "replay save probe wrote v2 artifact without event chunks" );
-    }
-    if ( result.eventCursorCount == 0 )
-    {
-        return ReplayProbeFailure( "replay save probe wrote v2 artifact without checkpoint event cursors" );
-    }
-
-    std::vector<ReplayPresentationSample> loadedSamples;
-    ReplayV2LoadResult loadResult;
-    if ( !ReplayV2Artifact::LoadPresentation( m_replayProbes.save.path, loadedSamples, &loadResult ) )
-    {
-        return ReplayProbeFailure( "replay save probe failed to reload v2 presentation artifact" );
-    }
-    if ( loadedSamples.size() < 2 )
-    {
-        return ReplayProbeFailure( "replay save probe loaded too few v2 presentation samples" );
-    }
-
-    const std::size_t selectedIndex = (std::min)( loadedSamples.size() / 4, loadedSamples.size() - 2 );
-    const ReplayPresentationSample& selected = loadedSamples[selectedIndex];
-    const ReplayPresentationSample& live = loadedSamples.back();
-    if ( selected.frameIndex >= live.frameIndex )
-    {
-        return ReplayProbeFailure( "replay save probe could not seek to an older loaded v2 sample" );
-    }
-
-    const ReplayBodyPresentationSample* selectedBody = nullptr;
-    const ReplayBodyPresentationSample* liveBody = nullptr;
-    float bestDistanceSquared = 0.0f;
-    for ( const ReplayBodyPresentationSample& candidate : selected.bodies )
-    {
-        for ( const ReplayBodyPresentationSample& liveCandidate : live.bodies )
-        {
-            if ( liveCandidate.id.value != candidate.id.value )
-            {
-                continue;
-            }
-
-            const float candidateDistanceSquared = distanceSquared( liveCandidate.position, candidate.position );
-            if ( candidateDistanceSquared > bestDistanceSquared )
-            {
-                bestDistanceSquared = candidateDistanceSquared;
-                selectedBody = &candidate;
-                liveBody = &liveCandidate;
-            }
-            break;
-        }
-    }
-    if ( !selectedBody || !liveBody || bestDistanceSquared < 0.0001f )
-    {
-        return ReplayProbeFailure( "replay save probe did not find a moved body in the loaded v2 artifact" );
-    }
-
-    const int probedModelIndex = liveBody->modelIndex;
-    const PhysicsBodyRecord* probedBody = TryGetReplayProbeBodyRecord( m_cGameModelCollection, probedModelIndex );
-    if ( !probedBody )
-    {
-        return ReplayProbeFailure( "replay save probe loaded an invalid live body index" );
-    }
-
-    const Math::Vector::Vector3 preApplyPosition = probedBody->position;
-    const float preLiveDeltaSquared = distanceSquared( preApplyPosition, liveBody->position );
-    if ( preLiveDeltaSquared > 0.0001f )
-    {
-        return ReplayProbeFailure( "replay save probe live body did not match the loaded v2 live sample" );
-    }
-
-    const bool applied =
-        ApplyReplayProbePresentationSampleForRender( m_cGameModelCollection, m_replayRuntime, selected );
-    if ( !applied )
-    {
-        return ReplayProbeFailure( "replay save probe failed to apply the loaded v2 presentation sample" );
-    }
-    const PhysicsBodyRecord* appliedBody = TryGetReplayProbeBodyRecord( m_cGameModelCollection, probedModelIndex );
-    if ( !appliedBody )
-    {
-        RestoreReplayProbeRenderInstances( m_cGameModelCollection );
-        return ReplayProbeFailure( "replay save probe lost the selected live body after applying the v2 sample" );
-    }
-    const Math::Vector::Vector3 liveAfterApplyPosition = appliedBody->position;
-    const float livePreservedDeltaSquared = distanceSquared( liveAfterApplyPosition, preApplyPosition );
-    if ( livePreservedDeltaSquared > 0.0001f )
-    {
-        RestoreReplayProbeRenderInstances( m_cGameModelCollection );
-        return ReplayProbeFailure( "replay save probe mutated the live body while applying the v2 sample" );
-    }
-
-    Math::Vector::Vector3 appliedRenderPosition;
-    if ( !TryPrepareReplayProbeRenderPosition( m_cGameModelCollection, probedModelIndex, appliedRenderPosition ) )
-    {
-        RestoreReplayProbeRenderInstances( m_cGameModelCollection );
-        return ReplayProbeFailure( "replay save probe lost the selected render instance after applying the v2 sample" );
-    }
-    const float appliedDeltaSquared = distanceSquared( appliedRenderPosition, selectedBody->position );
-    if ( appliedDeltaSquared > 0.0001f )
-    {
-        RestoreReplayProbeRenderInstances( m_cGameModelCollection );
-        return ReplayProbeFailure( "replay save probe did not move the render instance to the loaded v2 sample" );
-    }
-
-    RestoreReplayProbeRenderInstances( m_cGameModelCollection );
-    const PhysicsBodyRecord* restoredBody = TryGetReplayProbeBodyRecord( m_cGameModelCollection, probedModelIndex );
-    if ( !restoredBody )
-    {
-        return ReplayProbeFailure( "replay save probe lost the selected live body after restoring the v2 sample" );
-    }
-    const Math::Vector::Vector3 restoredPosition = restoredBody->position;
-    const float restoredDeltaSquared = distanceSquared( restoredPosition, preApplyPosition );
-    if ( restoredDeltaSquared > 0.0001f )
-    {
-        return ReplayProbeFailure( "replay save probe live body changed after applying the loaded v2 sample" );
-    }
-
-    m_replayProbes.save.completed = true;
-    printf( "[replay] Save probe wrote: path=%s samples=%llu bodies=%llu solver_hashes=%llu "
-            "solver_checkpoints=%llu events=%llu event_cursors=%llu bytes=%llu\n",
-            m_replayProbes.save.path,
-            static_cast<unsigned long long>( result.sampleCount ),
-            static_cast<unsigned long long>( result.bodyDictionaryCount ),
-            static_cast<unsigned long long>( result.solverHashCount ),
-            static_cast<unsigned long long>( result.solverCheckpointCount ),
-            static_cast<unsigned long long>( result.eventCount ),
-            static_cast<unsigned long long>( result.eventCursorCount ),
-            static_cast<unsigned long long>( result.fileBytes ) );
-    printf( "[replay] Save probe loaded: samples=%llu bodies=%llu first_frame=%llu selected_frame=%llu "
-            "latest_frame=%llu body_id=%u distance_sq=%.6f\n",
-            static_cast<unsigned long long>( loadResult.sampleCount ),
-            static_cast<unsigned long long>( loadResult.bodyDictionaryCount ),
-            static_cast<unsigned long long>( loadResult.firstFrame ),
-            static_cast<unsigned long long>( selected.frameIndex ),
-            static_cast<unsigned long long>( live.frameIndex ),
-            selectedBody->id.value,
-            bestDistanceSquared );
-    PostQuitMessage( 0 );
-    return SbResult::Success();
+    ReplaySaveProbeArtifactContext artifactContext{ m_replayProbes.save, m_replayRuntime, m_cGameModelCollection };
+    return ValidateReplaySaveProbeArtifact( artifactContext );
 }
 
 SbResult Run::VerifyLoadedReplayPresentationProbe( float normalized )
