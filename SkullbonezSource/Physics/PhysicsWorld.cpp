@@ -143,6 +143,62 @@ float SolverBodyRadius( const ColliderRecordList& colliderRecords, int bodyIndex
     return colliderRecords[static_cast<size_t>( bodyIndex )].boundingRadius;
 }
 
+// Why: sharing one spatial-grid cell is only a locality hint. Dense wall scenes
+// can put many small boxes in one cell, so reject pairs whose swept bounding
+// spheres never approach before appending them to the hot vector.
+//
+// Invariant: this is still a broadphase test. It may keep false positives, but
+// it must not reject a pair whose exact shapes could touch during this fixed
+// tick; the relative-motion segment covers CCD and wakeup cases.
+struct BroadphaseCandidateFilterContext
+{
+    const PhysicsBodyRecordList& bodyRecords;
+    const ColliderRecordList& colliderRecords;
+    int modelCount = 0;
+    float dt = 0.0f;
+    float contactSkin = 0.0f;
+};
+
+bool BroadphaseCandidateCanTouch( const void* userData, int a, int b )
+{
+    if ( userData == nullptr )
+    {
+        return true;
+    }
+
+    const BroadphaseCandidateFilterContext& context =
+        *static_cast<const BroadphaseCandidateFilterContext*>( userData );
+    if ( a < 0 || b < 0 || a >= context.modelCount || b >= context.modelCount )
+    {
+        return false;
+    }
+
+    const float radiusA = SolverBodyRadius( context.colliderRecords, a );
+    const float radiusB = SolverBodyRadius( context.colliderRecords, b );
+    if ( !std::isfinite( radiusA ) || !std::isfinite( radiusB ) || radiusA < 0.0f || radiusB < 0.0f )
+    {
+        return true;
+    }
+
+    const Vector3 relativeStart =
+        SolverBodyPosition( context.bodyRecords, a ) - SolverBodyPosition( context.bodyRecords, b );
+    const Vector3 relativeDisplacement = ( context.bodyRecords[static_cast<size_t>( a )].linearVelocity -
+                                           context.bodyRecords[static_cast<size_t>( b )].linearVelocity ) *
+                                         context.dt;
+    const float contactRadius = radiusA + radiusB + context.contactSkin;
+    const float contactRadiusSq = contactRadius * contactRadius;
+    const float relativeLengthSq = Vector::VectorMagSquared( relativeDisplacement );
+    if ( relativeLengthSq <= TOLERANCE * TOLERANCE )
+    {
+        return Vector::VectorMagSquared( relativeStart ) <= contactRadiusSq;
+    }
+
+    float t = -( relativeStart * relativeDisplacement ) / relativeLengthSq;
+    t = (std::max)( 0.0f, (std::min)( 1.0f, t ) );
+    const Vector3 closestRelative = relativeStart + relativeDisplacement * t;
+    return Vector::VectorMagSquared( closestRelative ) <= contactRadiusSq;
+}
+
 void ApplyForcesForSolverBody( PhysicsBodyStore& bodyStore,
                                const ColliderStore& colliderStore,
                                const PhysicsWorldForces& worldForces,
@@ -2250,66 +2306,12 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
     PROFILE_BEGIN( "Frame/Physics/Broadphase" );
     std::vector<std::pair<int, int>>& candidatePairs = m_candidatePairs;
     const float contactSkin = (std::max)( 0.0f, config.contactEpsilon );
-    // Why: sharing one spatial-grid cell is only a locality hint. Dense wall
-    // scenes can put many small boxes in one cell, so reject pairs whose swept
-    // bounding spheres never approach before appending them to the hot vector.
-    //
-    // Invariant: this is still a broadphase test. It may keep false positives,
-    // but it must not reject a pair whose exact shapes could touch during this
-    // fixed tick; the relative-motion segment covers CCD and wakeup cases.
-    struct BroadphaseCandidateFilterContext
-    {
-        const PhysicsBodyRecordList& bodyRecords;
-        const ColliderRecordList& colliderRecords;
-        int modelCount;
-        float dt;
-        float contactSkin;
-    };
     BroadphaseCandidateFilterContext broadphaseCandidateFilterContext{
         bodyRecords,
         colliderRecords,
         modelCount,
         dt,
         contactSkin,
-    };
-    const auto broadphaseCandidateCanTouch = []( const void* userData, int a, int b ) -> bool
-    {
-        if ( userData == nullptr )
-        {
-            return true;
-        }
-
-        const BroadphaseCandidateFilterContext& context =
-            *static_cast<const BroadphaseCandidateFilterContext*>( userData );
-        if ( a < 0 || b < 0 || a >= context.modelCount || b >= context.modelCount )
-        {
-            return false;
-        }
-
-        const float radiusA = context.colliderRecords[static_cast<size_t>( a )].boundingRadius;
-        const float radiusB = context.colliderRecords[static_cast<size_t>( b )].boundingRadius;
-        if ( !std::isfinite( radiusA ) || !std::isfinite( radiusB ) || radiusA < 0.0f || radiusB < 0.0f )
-        {
-            return true;
-        }
-
-        const Vector3 relativeStart = context.bodyRecords[static_cast<size_t>( a )].position -
-                                      context.bodyRecords[static_cast<size_t>( b )].position;
-        const Vector3 relativeDisplacement = ( context.bodyRecords[static_cast<size_t>( a )].linearVelocity -
-                                               context.bodyRecords[static_cast<size_t>( b )].linearVelocity ) *
-                                             context.dt;
-        const float contactRadius = radiusA + radiusB + context.contactSkin;
-        const float contactRadiusSq = contactRadius * contactRadius;
-        const float relativeLengthSq = Vector::VectorMagSquared( relativeDisplacement );
-        if ( relativeLengthSq <= TOLERANCE * TOLERANCE )
-        {
-            return Vector::VectorMagSquared( relativeStart ) <= contactRadiusSq;
-        }
-
-        float t = -( relativeStart * relativeDisplacement ) / relativeLengthSq;
-        t = (std::max)( 0.0f, (std::min)( 1.0f, t ) );
-        const Vector3 closestRelative = relativeStart + relativeDisplacement * t;
-        return Vector::VectorMagSquared( closestRelative ) <= contactRadiusSq;
     };
     {
         PROFILE_SCOPED( "Frame/Physics/Broadphase/GridBuild" );
@@ -2350,7 +2352,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
             }
         }
         m_spatialGrid.GetCandidatePairs( candidatePairs,
-                                         broadphaseCandidateCanTouch,
+                                         BroadphaseCandidateCanTouch,
                                          &broadphaseCandidateFilterContext );
     }
 
@@ -2366,7 +2368,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
             std::swap( a, b );
         }
 
-        if ( !broadphaseCandidateCanTouch( &broadphaseCandidateFilterContext, a, b ) )
+        if ( !BroadphaseCandidateCanTouch( &broadphaseCandidateFilterContext, a, b ) )
         {
             return;
         }

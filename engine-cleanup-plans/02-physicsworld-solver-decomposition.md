@@ -151,7 +151,7 @@ island-merge tie-breaks.
   - [x] L2165 `applyForcesAt`: per-body force application.
 
   Broadphase candidate build and pruning:
-  - [ ] L2225 `broadphaseCandidateCanTouch`: swept bounding-sphere pair filter.
+  - [x] L2225 `broadphaseCandidateCanTouch`: swept bounding-sphere pair filter.
   - [ ] L2307 `appendCandidatePairIfMissing`: append unique conservative pair.
   - [ ] L2335 `isFastSmallSweepBody`: fast-small-body classifier.
   - [ ] L2354 `sweptSegmentTouchesExpandedBody`: conservative segment/body test.
@@ -220,6 +220,13 @@ island-merge tie-breaks.
     evidence: `tools\validate_physics.bat` passed in
     `TestOutput\agent_logs\plan02_solver_accessors_validate_physics_20260709_0928.log`
     (43.88s; Debug/Profile builds 0 warnings and 0 errors; final
+    `VALIDATE_PHYSICS: ALL PASSED`).
+  - Extracted the `broadphaseCandidateCanTouch` lambda and its filter context
+    into `BroadphaseCandidateCanTouch` plus `BroadphaseCandidateFilterContext`,
+    sharing the existing solver body accessors for radius and position reads.
+    Gate evidence: `tools\validate_physics.bat` passed in
+    `TestOutput\agent_logs\plan02_broadphase_candidate_filter_validate_physics_20260709_0929.log`
+    (28.5s shell runtime; Debug/Profile builds 0 warnings and 0 errors; final
     `VALIDATE_PHYSICS: ALL PASSED`).
 - [ ] **1.3** `RunSolverPhysics` is now a short driver calling named stages;
   confirm it is under ~300 lines.
