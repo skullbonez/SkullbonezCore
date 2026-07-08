@@ -229,6 +229,21 @@ bit-exact — the replay scrub regression is the gate.
     project filters and runtime boundaries clean, 0 build warnings/errors, 0
     DX12 validation errors, matching DX12 screenshots, and
     `physics_regression_solver.csv` byte-exact at 20001 lines.
+  - Progress note (2026-07-08, scrubber `.inl` promotion): promoted
+    `RunReplayScrubberTools.inl` into `RunReplayScrubberTools.cpp`, removing
+    replay scrubber input, inspection camera activation, and live restore glue
+    from the `RunReplayTools.cpp` text splice. The promoted TU keeps
+    scrubber-specific replay tool owner classification file-local, preserving
+    interaction handoff behavior without sharing the old anonymous namespace.
+    The remaining replay `.inl` promotions stay open under plan 06 step 1.1.
+    Validation: `tools\validate_build.bat Profile` passed in 7.2s with 0
+    warnings/errors; `tools\validate_format.bat` passed in 9.4s;
+    `tools\validate_project_filters.bat` passed in 1.2s;
+    `tools\validate_replay_scrub.bat` passed in 19.4s with Debug/Profile builds
+    at 0 warnings/errors; `tools\validate_full.bat` passed in 45.1s with
+    project filters and runtime boundaries clean, 0 build warnings/errors, 0
+    DX12 validation errors, matching DX12 screenshots, and
+    `physics_regression_solver.csv` byte-exact at 20001 lines.
 
 ### Phase 3 — Make Butterfly Effect ownership explicit
 

@@ -16,16 +16,18 @@ boundaries are cosmetic, not interface seams.
 Verified evidence:
 
 - [`RunReplayTools.cpp`](../SkullbonezSource/Runtime/Replay/RunReplayTools.cpp)
-  still `#include`s three replay `.inl` bodies after the 2026-07-08
-  import/export, query, and cause-tree promotions:
-  `RunReplayPredictionHelpers.inl` (2,428 lines), `RunReplayScrubberTools.inl`
-  (654 lines), and `RunReplayPredictionVisualizer.inl` (750 lines), forming a
-  **~4,415-line single TU** with the remaining `RunReplayTools.cpp` body.
+  still `#include`s two replay `.inl` bodies after the 2026-07-08
+  import/export, query, cause-tree, and scrubber promotions:
+  `RunReplayPredictionHelpers.inl` (2,428 lines) and
+  `RunReplayPredictionVisualizer.inl` (750 lines), forming a
+  **~3,754-line single TU** with the remaining 576-line `RunReplayTools.cpp`
+  body.
 - [`RunEditorTools.cpp`](../SkullbonezSource/Runtime/Editor/RunEditorTools.cpp)
   splices `.inl` includes mid-file (L323, L1651, L1950-1953).
 - These are concrete free functions and out-of-line members, **not** templates
-  (e.g. `RunReplayScrubberTools.inl` defines `Run::EnterReplayInspectionCamera`;
-  `RunEditorTracer.inl` defines `RunEditorTracer::EmitLine`). ~9,393 lines of
+  (e.g. `RunReplayPredictionVisualizer.inl` defines
+  `BeginReplayPredictionJob`; `RunEditorTracer.cpp` defines
+  `RunEditorTracer::EmitLine`). ~9,393 lines of
   `.inl` live in the Runtime tree.
 - All six share one anonymous-namespace scope, must recompile together on any
   edit, and cannot be built or tested independently.
@@ -319,6 +321,23 @@ build.
     Debug/Profile builds at 0 warnings/errors. `tools\validate_full.bat` passed
     in 44.9s with project filters and runtime boundaries clean, 0 build
     warnings/errors, 0 DX12 validation errors, matching DX12 screenshots, and
+    `physics_regression_solver.csv` byte-exact at 20001 lines.
+  - [x] `RunReplayScrubberTools.inl` -> `RunReplayScrubberTools.cpp`
+    (2026-07-08). The promoted TU now owns replay scrubber input,
+    inspection-camera activation, and live restore glue. Scrubber-local replay
+    tool owner classification replaces the hidden anonymous-namespace helper
+    formerly shared through `RunReplayTools.cpp`, and related learning-header
+    links in `ReplayInteractionController.h` and `RunReplayImportExport.h` now
+    point at the real `.cpp`. `RunReplayTools.cpp` no longer text-splices the
+    scrubber body, and project/filter metadata compile the new `.cpp`.
+
+    Validation note: targeted `tools\validate_build.bat Profile` passed in
+    7.2s with 0 warnings/errors. `tools\validate_format.bat` passed in 9.4s.
+    `tools\validate_project_filters.bat` passed in 1.2s.
+    `tools\validate_replay_scrub.bat` passed in 19.4s with Debug/Profile builds
+    at 0 warnings/errors. `tools\validate_full.bat` passed in 45.1s with
+    project filters and runtime boundaries clean, 0 build warnings/errors, 0
+    DX12 validation errors, matching DX12 screenshots, and
     `physics_regression_solver.csv` byte-exact at 20001 lines.
 
 ### Phase 2 — Break the shared anonymous namespace

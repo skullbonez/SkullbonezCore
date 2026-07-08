@@ -20,7 +20,7 @@ Invariants:
     one place after every restore attempt.
 
 Related:
-  - SkullbonezSource/Runtime/Replay/RunReplayScrubberTools.inl
+  - SkullbonezSource/Runtime/Replay/RunReplayScrubberTools.cpp
   - SkullbonezSource/Runtime/Replay/ReplayRuntime.h
 */
 #pragma once

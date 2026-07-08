@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/Runtime/Replay/RunReplayScrubberTools.inl
+File: SkullbonezSource/Runtime/Replay/RunReplayScrubberTools.cpp
 Purpose:
   Contains replay scrubber input, inspection-camera, and live-restore glue.
 
@@ -24,6 +24,40 @@ Related:
   - SkullbonezSource/Runtime/Replay/RunReplayTools.cpp
   - SkullbonezSource/Runtime/Replay/ReplayRuntime.h
 */
+#include "../RunInternal.h"
+#include "../InputController.h"
+#include "ReplayInteractionController.h"
+#include "ReplayOverlayLayout.h"
+#include "RunReplayImportExport.h"
+#include "../../UI/UIInput.h"
+#include "../../World/Terrain.h"
+
+#include <algorithm>
+#include <cstddef>
+#include <cstdio>
+#include <cstring>
+
+#include <commdlg.h>
+
+using namespace SkullbonezCore::Basics;
+using namespace SkullbonezCore::Math::Vector;
+using namespace SkullbonezCore::Basics::RunInternal;
+using namespace SkullbonezCore::Basics::ReplayOverlay;
+
+namespace
+{
+// Why: entering scrubber inspection from sibling replay tools should preserve
+// replay-owned pointer/camera state. Non-replay owners still release through the
+// interaction controller before scrubber mode takes over.
+bool IsReplayScrubberToolOwner( WorldInteractionOwner owner )
+{
+    return owner == WorldInteractionOwner::ReplayScrub || owner == WorldInteractionOwner::ReplayVelocityEdit ||
+           owner == WorldInteractionOwner::ReplayPrediction || owner == WorldInteractionOwner::ReplayBranchTarget ||
+           owner == WorldInteractionOwner::ReplayCauseTree;
+}
+} // namespace
+
+
 void Run::EnterReplayInspectionCamera()
 {
     // Lifetime: Replay camera activation captures the current camera/mode so
@@ -77,7 +111,7 @@ void Run::EnterReplayInspectionCamera()
     m_systems.cameras->SetCameraXZBounds( CAMERA_FREE, unbounded );
     m_camera.cameraTime = 0.0f;
     CancelMousePickup();
-    if ( !IsReplayToolOwner( m_interaction.Owner() ) )
+    if ( !IsReplayScrubberToolOwner( m_interaction.Owner() ) )
     {
         SetWorldInteractionOwnerAfterInteractionTransition( WorldInteractionOwner::ReplayScrub,
                                                             InteractionExitReason::EnterReplay );
@@ -442,7 +476,7 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
         if ( held )
         {
             EnterInteractiveSceneRun();
-            if ( !IsReplayToolOwner( m_interaction.Owner() ) )
+            if ( !IsReplayScrubberToolOwner( m_interaction.Owner() ) )
             {
                 SetWorldInteractionOwnerAfterInteractionTransition( WorldInteractionOwner::ReplayScrub,
                                                                     InteractionExitReason::EnterReplay );

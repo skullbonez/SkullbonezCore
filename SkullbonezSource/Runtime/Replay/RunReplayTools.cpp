@@ -1,8 +1,8 @@
 /*
 File: SkullbonezSource/Runtime/Replay/RunReplayTools.cpp
 Purpose:
-  Owns live replay tools: scrubber input, cause-tree inspection, path
-  visualization, prediction previews, and velocity-edit overlays.
+  Owns replay path visualization and prediction-preview helpers that still share
+  one translation unit while the replay `.inl` split finishes.
 
 Mental model:
   Replay tools read two timelines. Retained solver samples describe what already
@@ -10,9 +10,6 @@ Mental model:
   The renderer only receives lightweight overlay geometry.
 
 Glossary:
-  Scrubber: UI control that maps mouse position to retained replay frames.
-  Cause tree: Contact, solver, and predicted-motion graph that explains how one
-    body influenced others.
   Path visualizer: Overlay that draws past/future body trajectories and contact
     handoffs.
   Replay target marker: Overlay outline/ring drawn around the replay-selected
@@ -40,6 +37,8 @@ Invariants:
   - Physics steps stay serial; only read-only body capture is parallelized.
 
 Related:
+  - SkullbonezSource/Runtime/Replay/RunReplayScrubberTools.cpp
+  - SkullbonezSource/Runtime/Replay/RunReplayCauseTreeTools.cpp
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/comment-style-guide.md
 */
@@ -92,14 +91,6 @@ namespace RuntimeAllocation = SkullbonezCore::Runtime::Allocation;
 
 namespace
 {
-bool IsReplayToolOwner( WorldInteractionOwner owner )
-{
-    return owner == WorldInteractionOwner::ReplayScrub || owner == WorldInteractionOwner::ReplayVelocityEdit ||
-           owner == WorldInteractionOwner::ReplayPrediction || owner == WorldInteractionOwner::ReplayBranchTarget ||
-           owner == WorldInteractionOwner::ReplayCauseTree;
-}
-
-
 bool TryResolveReplayBodyModelIndex( const PhysicsBodyStore& bodyStore,
                                      ReplayBodyId id,
                                      int modelIndexHint,
@@ -221,8 +212,6 @@ constexpr uint32_t REPLAY_PREDICTION_CAPTURE_SAMPLE_WORKER_HASH =
 
 #include "RunReplayPredictionHelpers.inl"
 } // namespace
-
-#include "RunReplayScrubberTools.inl"
 
 namespace
 {

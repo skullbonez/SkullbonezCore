@@ -17,7 +17,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/Replay/RunReplayImportExport.cpp
-  - SkullbonezSource/Runtime/Replay/RunReplayScrubberTools.inl
+  - SkullbonezSource/Runtime/Replay/RunReplayScrubberTools.cpp
 */
 #pragma once
 
