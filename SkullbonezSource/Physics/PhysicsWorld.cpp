@@ -43,6 +43,7 @@ Related:
 
 #include "../Core/Config.h"
 #include "../Core/FatalError.h"
+#include "DisjointSet.h"
 #include "PhysicsApi.h"
 #include "PhysicsBodyStore.h"
 #include "PhysicsWorldForces.h"

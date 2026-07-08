@@ -334,6 +334,7 @@
     <ClInclude Include="SkullbonezSource\Core\FatalError.h" />
     <ClInclude Include="SkullbonezSource\Core\MainMemoryStats.h" />
     <ClInclude Include="SkullbonezSource\Physics\ContactSolverCommon.h" />
+    <ClInclude Include="SkullbonezSource\Physics\DisjointSet.h" />
     <ClInclude Include="SkullbonezSource\Rendering\DrawCallTrace.h" />
     <ClInclude Include="SkullbonezSource\Core\Fence.h" />
     <ClInclude Include="SkullbonezSource\GameObjects\GameModel.h" />

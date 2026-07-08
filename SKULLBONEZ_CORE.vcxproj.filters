@@ -671,6 +671,9 @@
     <ClInclude Include="SkullbonezSource\Physics\ContactSolverCommon.h">
       <Filter>Header Files\Physics</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\Physics\DisjointSet.h">
+      <Filter>Header Files\Physics</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\PhysicsTimestep.h">
       <Filter>Header Files\Physics</Filter>
     </ClInclude>
