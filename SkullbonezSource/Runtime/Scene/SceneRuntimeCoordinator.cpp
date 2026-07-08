@@ -78,6 +78,43 @@ SceneRuntimeCoordinator::SceneRuntimeCoordinator( SceneController& sceneControll
 }
 
 
+bool ExecuteSceneRuntimeControlAction( SceneRuntimeControlExecutionContext context,
+                                       const SceneRuntimeControlAction& action )
+{
+    if ( action.enterInteractiveSceneRun && context.enterInteractiveSceneRun )
+    {
+        context.enterInteractiveSceneRun( context.context );
+    }
+
+    // Invariant: SceneRuntimeCoordinator produces intent only. The execution
+    // context names each Run-owned side effect until scene loading fully moves
+    // behind scene-owned APIs.
+    switch ( action.type )
+    {
+    case SceneRuntimeControlActionType::ClearCurrentSceneAutomation:
+        context.scene.isExitOnComplete = false;
+        context.screenshotAndExit = false;
+        return true;
+    case SceneRuntimeControlActionType::LoadScene:
+        return context.loadScene ? context.loadScene( context.context,
+                                                      action.index,
+                                                      action.preserveUIState,
+                                                      action.suppressExitOnComplete,
+                                                      action.preserveRuntimeState )
+                                 : false;
+    case SceneRuntimeControlActionType::ApplyCinematicModeFromBrowserIndex:
+        if ( context.enterInteractiveSceneRun )
+        {
+            context.enterInteractiveSceneRun( context.context );
+        }
+        return ApplyCinematicModeFromBrowserIndex( context.style, action.index );
+    case SceneRuntimeControlActionType::None:
+        return false;
+    }
+    return false;
+}
+
+
 SceneRuntimeControlAction
 SceneRuntimeCoordinator::LoadSceneFromBrowserIndex( int index, const std::vector<std::string>& sceneBrowserPaths )
 {

@@ -726,6 +726,29 @@ every step. Commit per step.
 	    (17.8s), and
 	    `TestOutput\agent_logs\plan01_after_ui_keyboard_build_profile_rerun.log`
 	    (10.1s).
+	  - [x] Scene-control executor extraction moved the duplicated
+	    `SceneRuntimeControlAction` switch out of `Run::TakeInput()`,
+	    `Run::DrainRuntimeCommands()`, `Run::TickScreenshots()`, and
+	    `Run::TickSceneAdvance()` into the scene-runtime execution helper beside
+	    the intent type. The helper preserves `enterInteractiveSceneRun`, clear
+	    automation, load-scene, and cinematic browser-style behavior, including
+	    the extra `EnterInteractiveSceneRun()` before cinematic mode. The
+	    touched-file comment audit added the execution-context lifetime note and
+	    kept the executor invariant explaining the remaining Run-owned side
+	    effects. `TakeInput()` now spans 965 lines. Gate evidence:
+	    `TestOutput\agent_logs\plan01_scene_control_executor_interaction_clicks.log`
+	    (16.5s, both interaction reports `ok=1`) and
+	    `TestOutput\agent_logs\plan01_scene_control_executor_validate_full.log`
+	    (53.0s; project filters/runtime boundaries passed, Profile/Debug builds
+	    had 0 warnings and 0 errors, DX12 InfoQueue errors = 0, screenshots
+	    matched baselines, and `physics_regression_solver.csv` matched
+	    byte-exactly). Targeted pre-gate checks also passed:
+	    `TestOutput\agent_logs\plan01_scene_control_executor_validate_format.log`
+	    (9.1s),
+	    `TestOutput\agent_logs\plan01_scene_control_executor_runtime_boundaries.log`
+	    (17.5s), and
+	    `TestOutput\agent_logs\plan01_scene_control_executor_build_profile.log`
+	    (10.0s).
 - [ ] **1.4** Confirm `TakeInput()` is under ~200 lines (setup + dispatch loop).
 
 ### Phase 2 — Move state shelves out of `RunState`

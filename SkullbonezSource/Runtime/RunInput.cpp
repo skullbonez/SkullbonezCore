@@ -1823,44 +1823,28 @@ void Run::TakeInput()
     };
     if ( !UIBlocksKeyboardBeforeInput )
     {
-        auto executeSceneControlAction = [&]( const SceneRuntimeControlAction& action ) -> bool
-        {
-            if ( action.enterInteractiveSceneRun )
+        SceneRuntimeControlExecutionContext sceneControlContext{
+            this,
+            []( void* context ) { static_cast<Run*>( context )->EnterInteractiveSceneRun(); },
+            []( void* context, int index, bool preserveUIState, bool suppressExitOnComplete, bool preserveRuntimeState )
+                -> bool
             {
-                EnterInteractiveSceneRun();
-            }
-
-            switch ( action.type )
-            {
-            case SceneRuntimeControlActionType::ClearCurrentSceneAutomation:
-                SceneState().isExitOnComplete = false;
-                m_diagnosticsRuntime.Capture().Screenshot().isScreenshotAndExit = false;
-                return true;
-            case SceneRuntimeControlActionType::LoadScene:
-                return LoadScene( action.index,
-                                  action.preserveUIState,
-                                  action.suppressExitOnComplete,
-                                  action.preserveRuntimeState )
+                return static_cast<Run*>( context )
+                    ->LoadScene( index, preserveUIState, suppressExitOnComplete, preserveRuntimeState )
                     .ok;
-            case SceneRuntimeControlActionType::ApplyCinematicModeFromBrowserIndex:
-                EnterInteractiveSceneRun();
-                return ApplyCinematicModeFromBrowserIndex(
-                    SceneRuntimeStyleContext{ m_launchOptions,
-                                              SceneState(),
-                                              m_sceneController.Browser(),
-                                              m_cGameModelCollection,
-                                              m_systems.assets,
-                                              RuntimeActiveCinematicConfig( SceneState(), m_config ),
-                                              m_defaultCinematicRender },
-                    action.index );
-            case SceneRuntimeControlActionType::None:
-                return false;
-            }
-            return false;
+            },
+            SceneState(),
+            m_diagnosticsRuntime.Capture().Screenshot().isScreenshotAndExit,
+            SceneRuntimeStyleContext{ m_launchOptions,
+                                      SceneState(),
+                                      m_sceneController.Browser(),
+                                      m_cGameModelCollection,
+                                      m_systems.assets,
+                                      RuntimeActiveCinematicConfig( SceneState(), m_config ),
+                                      m_defaultCinematicRender },
         };
-
         auto dispatchMappedKeyboardAction =
-            [this, &executeSceneControlAction, &keyboardToggleEditorMode, &keyboardEditorToolShortcut](
+            [this, &sceneControlContext, &keyboardToggleEditorMode, &keyboardEditorToolShortcut](
                 const RuntimeInputKeyBinding& binding ) -> bool
         {
             switch ( binding.action )
@@ -2097,14 +2081,16 @@ void Run::TakeInput()
                     const int currentSceneBrowserIndex =
                         CurrentSceneBrowserIndex( m_sceneController, m_sceneController.Browser() );
                     const bool isCinematicTabActive = m_UI.GetActiveTab() == InGameUITab::Cinematic;
-                    if ( !executeSceneControlAction( m_sceneCoordinator.ApplyAdjacentCinematicMode(
-                             direction,
-                             m_sceneController.Browser().paths,
-                             m_sceneController.Browser().selectedCineModeSceneIndex,
-                             currentSceneBrowserIndex,
-                             isCinematicTabActive ) ) )
+                    if ( !ExecuteSceneRuntimeControlAction( sceneControlContext,
+                                                            m_sceneCoordinator.ApplyAdjacentCinematicMode(
+                                                                direction,
+                                                                m_sceneController.Browser().paths,
+                                                                m_sceneController.Browser().selectedCineModeSceneIndex,
+                                                                currentSceneBrowserIndex,
+                                                                isCinematicTabActive ) ) )
                     {
-                        executeSceneControlAction(
+                        ExecuteSceneRuntimeControlAction(
+                            sceneControlContext,
                             m_sceneCoordinator.LoadAdjacentSceneFromBrowser( direction,
                                                                              m_sceneController.Browser().paths,
                                                                              currentSceneBrowserIndex ) );
@@ -2714,42 +2700,26 @@ void Run::TakeInput()
 
 bool Run::DrainRuntimeCommands()
 {
-    auto executeSceneControlAction = [&]( const SceneRuntimeControlAction& action ) -> bool
-    {
-        if ( action.enterInteractiveSceneRun )
+    SceneRuntimeControlExecutionContext sceneControlContext{
+        this,
+        []( void* context ) { static_cast<Run*>( context )->EnterInteractiveSceneRun(); },
+        []( void* context, int index, bool preserveUIState, bool suppressExitOnComplete, bool preserveRuntimeState )
+            -> bool
         {
-            EnterInteractiveSceneRun();
-        }
-
-        switch ( action.type )
-        {
-        case SceneRuntimeControlActionType::ClearCurrentSceneAutomation:
-            SceneState().isExitOnComplete = false;
-            m_diagnosticsRuntime.Capture().Screenshot().isScreenshotAndExit = false;
-            return true;
-        case SceneRuntimeControlActionType::LoadScene:
-            return LoadScene( action.index,
-                              action.preserveUIState,
-                              action.suppressExitOnComplete,
-                              action.preserveRuntimeState )
+            return static_cast<Run*>( context )
+                ->LoadScene( index, preserveUIState, suppressExitOnComplete, preserveRuntimeState )
                 .ok;
-        case SceneRuntimeControlActionType::ApplyCinematicModeFromBrowserIndex:
-            EnterInteractiveSceneRun();
-            return ApplyCinematicModeFromBrowserIndex(
-                SceneRuntimeStyleContext{ m_launchOptions,
-                                          SceneState(),
-                                          m_sceneController.Browser(),
-                                          m_cGameModelCollection,
-                                          m_systems.assets,
-                                          RuntimeActiveCinematicConfig( SceneState(), m_config ),
-                                          m_defaultCinematicRender },
-                action.index );
-        case SceneRuntimeControlActionType::None:
-            return false;
-        }
-        return false;
+        },
+        SceneState(),
+        m_diagnosticsRuntime.Capture().Screenshot().isScreenshotAndExit,
+        SceneRuntimeStyleContext{ m_launchOptions,
+                                  SceneState(),
+                                  m_sceneController.Browser(),
+                                  m_cGameModelCollection,
+                                  m_systems.assets,
+                                  RuntimeActiveCinematicConfig( SceneState(), m_config ),
+                                  m_defaultCinematicRender },
     };
-
     bool processed = false;
     RuntimeCommand command;
     while ( m_runtimeCommands.TryPop( command ) )
@@ -2758,20 +2728,23 @@ bool Run::DrainRuntimeCommands()
         switch ( command.type )
         {
         case RuntimeCommandType::LoadSceneIndex:
-            executeSceneControlAction(
+            ExecuteSceneRuntimeControlAction(
+                sceneControlContext,
                 m_sceneCoordinator.LoadSceneFromBrowserIndex( command.index, m_sceneController.Browser().paths ) );
             break;
         case RuntimeCommandType::LoadDemoScene:
-            executeSceneControlAction( m_sceneCoordinator.LoadDemoSceneFromUI() );
+            ExecuteSceneRuntimeControlAction( sceneControlContext, m_sceneCoordinator.LoadDemoSceneFromUI() );
             break;
         case RuntimeCommandType::ResetCurrentScene:
             EnterInteractiveSceneRun();
-            executeSceneControlAction( m_sceneCoordinator.ResetCurrentScene( command.preserveUIState,
-                                                                             command.suppressExitOnComplete,
-                                                                             command.preserveRuntimeState ) );
+            ExecuteSceneRuntimeControlAction( sceneControlContext,
+                                              m_sceneCoordinator.ResetCurrentScene( command.preserveUIState,
+                                                                                    command.suppressExitOnComplete,
+                                                                                    command.preserveRuntimeState ) );
             break;
         case RuntimeCommandType::CreateScene:
-            executeSceneControlAction(
+            ExecuteSceneRuntimeControlAction(
+                sceneControlContext,
                 CreateSceneFromUI( SceneRuntimeCreateContext{ m_sceneController, m_sceneController.Browser() },
                                    command.text.c_str() ) );
             break;
@@ -2791,9 +2764,11 @@ bool Run::DrainRuntimeCommands()
             SaveSkyDefaults( RuntimeActiveCinematicConfig( SceneState(), m_config ) );
             break;
         case RuntimeCommandType::AdvanceScene:
-            if ( !executeSceneControlAction( m_sceneCoordinator.AdvanceScene( m_diagnosticsRuntime.PerfTestActive(),
-                                                                              sPerfPass,
-                                                                              SceneState().isInteractiveRun ) ) )
+            if ( !ExecuteSceneRuntimeControlAction(
+                     sceneControlContext,
+                     m_sceneCoordinator.AdvanceScene( m_diagnosticsRuntime.PerfTestActive(),
+                                                      sPerfPass,
+                                                      SceneState().isInteractiveRun ) ) )
             {
                 PostQuitMessage( 0 );
             }
