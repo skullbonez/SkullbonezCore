@@ -68,7 +68,7 @@ Require owner approval before adding any new runtime allocation exception.
   replay special allocator path with registered owner, phase/cap policy,
   counters, and diagnostics. Gate: `validate_perf`; add `validate_physics` if
   physics runtime phases or allocation scopes change.
-- [ ] **Phase 3 - Right-size static/tool enforcement.** Remove frozen regex
+- [x] **Phase 3 - Right-size static/tool enforcement.** Remove frozen regex
   ratchets and narrow spelling checks, but keep broad enough pass/fail checks to
   catch unapproved runtime allocation APIs and unauthorized exception paths.
   Gate: `validate_fast`, then the changed allocation check or replacement.
@@ -134,10 +134,31 @@ the policy.
     `dynamic_stl_member_findings=0`, and `allowlist_errors=0`;
     `tools\validate_perf.bat` passed in 00:00:40.72 with allocation guard
     gameplay violations 0 and reserve policy violations 0.
-- [ ] **3.1** Simplify or replace static allocation enforcement so it remains a
+- [x] **3.1** Simplify or replace static allocation enforcement so it remains a
   pass/fail guard against unapproved runtime allocation APIs, not a frozen
   regex ratchet. Gate: `validate_fast`, then run the changed checker or
   replacement directly. Commit.
+
+  Completed 2026-07-10:
+  - `tools/check_allocation_policy.py` now scans all configured source roots for
+    owning dynamic STL members and STL growth calls (`reserve`, `resize`,
+    `push_back`, `emplace`, `insert`, `assign`, `append`,
+    `shrink_to_fit`) in addition to direct heap APIs and reserve-growth APIs.
+  - Dynamic STL member findings and STL growth findings now use the same
+    owner/phase/reason/cap/removal metadata allowlist as direct heap calls, so
+    new unreviewed files fail without adding a frozen count ratchet.
+  - Added 71 reviewed storage/growth allowlist rows covering the existing
+    source surface by subsystem; future fixed-storage conversions delete rows
+    as they retire each storage surface.
+  - Touched-source comment audit inspected 1 substantial tool script with 0
+    deferred.
+  - Validation: `python tools\check_allocation_policy.py --self-test` passed;
+    `python tools\check_allocation_policy.py --repo .` passed with
+    `scanned=296`, `direct_heap_findings=30`,
+    `dynamic_stl_member_findings=139`, `stl_growth_findings=625`, and
+    `allowlist_errors=0`; `tools\validate_fast.bat` passed in 00:00:20.67 with
+    formatting clean, project filters clean, staged-file sizes clean,
+    Profile/Debug builds passing, and unit tests passing.
 - [ ] **4.1** Update `AGENTS.md` allocation policy wording and the plan closure
   evidence to match the owner decision. Commit.
 

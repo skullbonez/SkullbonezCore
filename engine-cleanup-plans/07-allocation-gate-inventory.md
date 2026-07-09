@@ -25,7 +25,7 @@ The simplification target is the machinery, not the guarantee.
 |---------|------------------|------|-----------------------------|
 | `RuntimeAllocationTracker` (`.cpp` 715 lines, `.h` 77 lines) | Global C++ `operator new`/`delete` overloads, fixed allocation header, phase counters, gameplay violation counter, top callsite report, `--allocation-guard gameplay` fail path. | Keep the process-wide hook, phase scopes, fixed storage, pass/fail gameplay violation count, and end-of-process summary. | The 1024-slot callsite table, 5-frame `CaptureStackBackTrace`, image-base RVA normalization, and verbose per-callsite ranking are diagnostics-heavy for a gate whose product contract is pass/fail. Consider trimming to bounded owner/phase samples or making deep callsite capture opt-in. |
 | `RuntimeReserveAllocator` (`.cpp` 695 lines, `.h` 158 lines) | Fixed owner registry, replay growth request gate, owner/growth scopes, policy-violation count, 256-entry growth ring, owner summaries. | Keep registered owners, owner scopes, `RequestGrowth`, replay-only approval, hard caps, growth counters, and policy violations feeding `RuntimeAllocationGuardHasGameplayViolations()`. | Duplicate `RuntimeReservePhase`/`RuntimeAllocationPhase` plus manual index mapping can collapse. Registry capacity 160 and growth-event ring 256 are larger than current use. `atomic_flag` ring bookkeeping is more diagnostic ceremony than policy enforcement. |
-| `tools/check_allocation_policy.py` (429 lines) + `tools/allocation_policy_allowlist.json` (200 lines) | Scans 296 source files for direct heap APIs and reserve-growth calls; checks two hot store headers for dynamic STL members; enforces allowlist metadata and stale-pattern failures. | Keep direct heap API detection, reserve-growth call detection, metadata fields (`owner`, `phase`, `reason`, `cap`, `removal_or_wrapper_plan`), stale allowlist failures, and synthetic self-tests. | Dynamic STL/growth coverage is too narrow: current `DYNAMIC_STL_MEMBER_TARGETS` only names `PhysicsBodyStore.h` and `ColliderStore.h`. Static checker should become a broad pass/fail runtime allocation API/growth guard rather than a narrow spelling check or frozen count. |
+| `tools/check_allocation_policy.py` (569 lines) + `tools/allocation_policy_allowlist.json` (1,060 lines) | Scans 296 source files for direct heap APIs, reserve-growth calls, owning dynamic STL members across all configured source roots, and STL growth APIs; enforces allowlist metadata and stale-pattern failures. | Keep direct heap API detection, reserve-growth call detection, dynamic STL member and growth-call findings, metadata fields (`owner`, `phase`, `reason`, `cap`, `removal_or_wrapper_plan`), stale allowlist failures, and synthetic self-tests. | Future cleanup should retire allowlist rows as storage moves to fixed arrays, arenas, or typed owner wrappers; avoid turning the current finding counts into a frozen ratchet. |
 | `tools/validate_perf.bat` | Builds Profile, runs `check_allocation_policy.py`, runs `SKULLBONEZ_CORE.exe --allocation-guard gameplay --frames 180 --scene perf_1000`, requires `[allocation-guard] PASS:`, then runs DX12 and physics perf comparisons. | Keep `validate_perf` as the runtime allocation PR gate for allocation policy changes. The allocation guard launch is the only current end-to-end runtime enforcement run. | Consider isolating the allocation guard smoke into a smaller reusable helper if Step 2/3 needs faster iteration, while keeping `validate_perf` as the pre-commit gate. |
 | Memory UI / diagnostics (`UITabMemory`, `RunUiTextPass`) | Displays reserve growth count/recent events and memory diagnostics. | Keep user-visible evidence that replay growth is counted and capped. | If the growth ring is simplified, update UI to display the smaller evidence shape instead of preserving the ring solely for the UI. |
 
@@ -136,10 +136,19 @@ Step 2.1 completed on 2026-07-10:
 - `tools\validate_perf.bat` passed with allocation guard gameplay violations 0
   and reserve policy violations 0.
 
+Step 3.1 completed on 2026-07-10:
+
+- `tools/check_allocation_policy.py` now catches direct heap/reserve APIs,
+  owning dynamic STL members across all configured source roots, and STL growth
+  calls through one pass/fail allowlist path.
+- The repo scan reports `scanned=296`, `direct_heap_findings=30`,
+  `dynamic_stl_member_findings=139`, `stl_growth_findings=625`, and
+  `allowlist_errors=0`.
+- Added 71 reviewed storage/growth allowlist rows so new unreviewed files fail
+  while existing fixed-storage migration work can delete rows as owners convert.
+- `tools\validate_fast.bat` passed.
+
 Next ordered work:
 
-1. Step 3.1 should broaden static allocation enforcement so direct heap APIs,
-   reserve growth, and runtime STL growth are caught through pass/fail rules and
-   reviewed allowlist metadata.
-2. Step 4.1 should update `AGENTS.md`, this plan, and `Agentic/SessionState.md`
+1. Step 4.1 should update `AGENTS.md`, this plan, and `Agentic/SessionState.md`
    after the implementation proves the simplified shape.

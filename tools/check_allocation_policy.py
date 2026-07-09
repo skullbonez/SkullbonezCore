@@ -2,22 +2,24 @@
 """
 File: tools/check_allocation_policy.py
 Purpose:
-  Enforce the first static slice of the runtime allocation policy.
+  Enforce the static slice of the runtime allocation policy.
 
 Mental model:
-  This checker catches direct heap calls and hot-store dynamic container members
-  that are easy to detect textually. Direct new/delete/malloc/free use must
-  either disappear or carry allowlist metadata; dynamic STL ownership in the
-  body/collider stores is always a static policy failure.
+  This checker catches heap APIs, replay reserve-growth APIs, owning dynamic
+  STL members, and STL growth calls that are easy to detect textually. Findings
+  must either disappear or carry allowlist metadata naming the owner, phase,
+  cap, and removal/wrapper plan.
 
 Glossary:
   Allowlist row: Metadata explaining owner, phase, reason, cap, and the wrapper
-    or deletion plan for one direct allocation pattern.
-  Reserve bump: Future RuntimeReserveAllocator growth request. The checker
-    already knows the textual shape so self-tests cover the intended policy.
+    or deletion plan for one allocation-sensitive pattern.
+  Reserve bump: RuntimeReserveAllocator growth request. The checker knows the
+    textual shape so new request sites require explicit owner metadata.
   Dynamic STL (Standard Template Library) member: Store-owned
     std::vector/deque/map/string-style field whose capacity can grow outside the
     fixed runtime storage budget.
+  STL growth call: A reserve/resize/append/insert-style member call that can
+    allocate if capacity was not already prepared for the current phase.
 
 Invariants:
   - Comments and string literals do not count as source findings.
@@ -25,7 +27,7 @@ Invariants:
   - The tool does not mutate the repository.
 
 Related:
-  - Agentic/Plans/Done/runtime-static-allocation-policy-plan.md
+  - engine-cleanup-plans/07-allocation-gate-right-sizing.md
   - tools/allocation_policy_allowlist.json
 """
 
@@ -72,10 +74,17 @@ BANNED_PATTERNS = (
     ("make-unique", re.compile(r"\bstd::make_unique\s*<")),
     ("reserve-bump", re.compile(r"\bRuntimeReserveAllocator::Request(?:Replay)?Growth\s*\(")),
 )
-DYNAMIC_STL_MEMBER_TARGETS = {
-    "SkullbonezSource/Physics/PhysicsBodyStore.h",
-    "SkullbonezSource/Physics/ColliderStore.h",
-}
+STL_GROWTH_PATTERNS = (
+    ("stl-reserve", re.compile(r"\.\s*reserve\s*\(")),
+    ("stl-resize", re.compile(r"\.\s*resize\s*\(")),
+    ("stl-push-back", re.compile(r"\.\s*push_back\s*\(")),
+    ("stl-emplace-back", re.compile(r"\.\s*emplace_back\s*\(")),
+    ("stl-emplace", re.compile(r"\.\s*emplace\s*\(")),
+    ("stl-insert", re.compile(r"\.\s*insert\s*\(")),
+    ("stl-assign", re.compile(r"\.\s*assign\s*\(")),
+    ("stl-append", re.compile(r"\.\s*append\s*\(")),
+    ("stl-shrink-to-fit", re.compile(r"\.\s*shrink_to_fit\s*\(")),
+)
 DYNAMIC_STL_TYPE_PATTERN = (
     r"std::(?:vector|deque|list|map|multimap|unordered_map|unordered_multimap|set|multiset|unordered_set|"
     r"unordered_multiset|string)"
@@ -207,9 +216,6 @@ def find_banned_patterns(path: Path, repo: Path) -> list[Finding]:
 
 
 def find_dynamic_stl_member_patterns_in_text(relative_path: str, text: str) -> list[Finding]:
-    if relative_path not in DYNAMIC_STL_MEMBER_TARGETS:
-        return []
-
     stripped = strip_comments_and_strings(text)
     original_lines = text.splitlines()
     findings: list[Finding] = []
@@ -217,14 +223,16 @@ def find_dynamic_stl_member_patterns_in_text(relative_path: str, text: str) -> l
     def add_finding(match: re.Match[str]) -> None:
         line_number = stripped.count("\n", 0, match.start()) + 1
         original = original_lines[line_number - 1] if line_number <= len(original_lines) else match.group(0)
+        line_start = stripped.rfind("\n", 0, match.start()) + 1
+        column = max(0, match.start() - line_start)
         findings.append(
             Finding(
                 relative_path,
                 line_number,
                 "dynamic-stl-member",
                 original,
-                match.start(),
-                match.end(),
+                column,
+                max(column + 1, len(original)),
             )
         )
 
@@ -261,6 +269,32 @@ def find_dynamic_stl_members(path: Path, repo: Path) -> list[Finding]:
     relative_path = normalize_path(path.relative_to(repo))
     text = path.read_text(encoding="utf-8", errors="replace")
     return find_dynamic_stl_member_patterns_in_text(relative_path, text)
+
+
+def find_stl_growth_patterns_in_text(relative_path: str, text: str) -> list[Finding]:
+    stripped = strip_comments_and_strings(text)
+    original_lines = text.splitlines()
+    findings: list[Finding] = []
+    for line_number, line in enumerate(stripped.splitlines(), start=1):
+        for kind, pattern in STL_GROWTH_PATTERNS:
+            for match in pattern.finditer(line):
+                original = original_lines[line_number - 1] if line_number <= len(original_lines) else line
+                findings.append(
+                    Finding(
+                        relative_path,
+                        line_number,
+                        kind,
+                        original,
+                        match.start(),
+                        match.end(),
+                    )
+                )
+    return findings
+
+
+def find_stl_growth_patterns(path: Path, repo: Path) -> list[Finding]:
+    text = path.read_text(encoding="utf-8", errors="replace")
+    return find_stl_growth_patterns_in_text(normalize_path(path.relative_to(repo)), text)
 
 
 def load_allowlist(path: Path) -> tuple[dict[str, list[dict[str, object]]], list[str]]:
@@ -304,29 +338,38 @@ def pattern_overlaps_finding(finding: Finding, pattern: str) -> bool:
 
 
 def is_allowed(finding: Finding, rows_by_path: dict[str, list[dict[str, object]]], matched: set[tuple[str, str]]) -> bool:
+    allowed = False
     for row in rows_by_path.get(finding.path, []):
         for pattern in row.get("patterns", []):
             if isinstance(pattern, str) and pattern_overlaps_finding(finding, pattern):
                 matched.add((finding.path, pattern))
-                return True
-    return False
+                allowed = True
+    return allowed
 
 
-def check_sources(repo: Path, allowlist_path: Path) -> tuple[list[str], int, int, int]:
+def check_sources(repo: Path, allowlist_path: Path) -> tuple[list[str], int, int, int, int]:
     rows_by_path, errors = load_allowlist(allowlist_path)
     findings: list[Finding] = []
     dynamic_stl_member_findings: list[Finding] = []
+    stl_growth_findings: list[Finding] = []
     scanned = 0
     for path in iter_source_files(repo):
         scanned += 1
         findings.extend(find_banned_patterns(path, repo))
         dynamic_stl_member_findings.extend(find_dynamic_stl_members(path, repo))
+        stl_growth_findings.extend(find_stl_growth_patterns(path, repo))
 
     matched: set[tuple[str, str]] = set()
     unallowed = [finding for finding in findings if not is_allowed(finding, rows_by_path, matched)]
+    unallowed_dynamic_stl = [
+        finding for finding in dynamic_stl_member_findings if not is_allowed(finding, rows_by_path, matched)
+    ]
+    unallowed_stl_growth = [finding for finding in stl_growth_findings if not is_allowed(finding, rows_by_path, matched)]
     for finding in unallowed:
         errors.append(f"{finding.path}:{finding.line}: banned {finding.kind}: {finding.text.strip()}")
-    for finding in dynamic_stl_member_findings:
+    for finding in unallowed_dynamic_stl:
+        errors.append(f"{finding.path}:{finding.line}: banned {finding.kind}: {finding.text.strip()}")
+    for finding in unallowed_stl_growth:
         errors.append(f"{finding.path}:{finding.line}: banned {finding.kind}: {finding.text.strip()}")
 
     for path_key, rows in rows_by_path.items():
@@ -335,7 +378,7 @@ def check_sources(repo: Path, allowlist_path: Path) -> tuple[list[str], int, int
                 if isinstance(pattern, str) and (path_key, pattern) not in matched:
                     errors.append(f"{path_key}: stale allowlist pattern did not match a finding: {pattern}")
 
-    return errors, scanned, len(findings), len(dynamic_stl_member_findings)
+    return errors, scanned, len(findings), len(dynamic_stl_member_findings), len(stl_growth_findings)
 
 
 def run_self_tests() -> int:
@@ -361,6 +404,17 @@ def run_self_tests() -> int:
                 "reason": "synthetic registered replay growth",
                 "cap": "4096 bytes",
                 "removal_or_wrapper_plan": "route through RuntimeReserveAllocator",
+            }
+        ],
+        "SkullbonezSource/Physics/PhysicsBodyStore.h": [
+            {
+                "path": "SkullbonezSource/Physics/PhysicsBodyStore.h",
+                "patterns": ["std::vector<", ".reserve("],
+                "owner": "physics store synthetic",
+                "phase": "startup_preallocation",
+                "reason": "synthetic reviewed dynamic storage and reserve call",
+                "cap": "known store capacity",
+                "removal_or_wrapper_plan": "replace with fixed store arrays",
             }
         ],
     }
@@ -419,6 +473,9 @@ def run_self_tests() -> int:
     if len(dynamic_member) != 1 or dynamic_member[0].kind != "dynamic-stl-member":
         print("SELF_TEST_FAIL: hot-store dynamic STL member was not rejected", file=sys.stderr)
         return 1
+    if not is_allowed(dynamic_member[0], rows, matched):
+        print("SELF_TEST_FAIL: allowlisted dynamic STL member was rejected", file=sys.stderr)
+        return 1
 
     dynamic_member_multiline = find_dynamic_stl_member_patterns_in_text(
         "SkullbonezSource/Physics/PhysicsBodyStore.h",
@@ -448,13 +505,26 @@ def run_self_tests() -> int:
         "SkullbonezSource/Physics/PhysicsApi.h",
         "class Api { std::vector<int> m_debugCache; };\n",
     )
-    if cold_owner_file:
-        print("SELF_TEST_FAIL: dynamic STL member target scoping rejected the wrong file", file=sys.stderr)
+    if len(cold_owner_file) != 1 or is_allowed(cold_owner_file[0], rows, matched):
+        print("SELF_TEST_FAIL: unallowlisted dynamic STL member was accepted", file=sys.stderr)
         return 1
 
-    comment_source = "void f() { /* new int */ const char* s = \"malloc(\"; }\n"
-    if BANNED_PATTERNS[4][1].search(strip_comments_and_strings(comment_source)):
-        print("SELF_TEST_FAIL: comment/string stripping left a false new finding", file=sys.stderr)
+    growth_calls = find_stl_growth_patterns_in_text(
+        "SkullbonezSource/Physics/PhysicsBodyStore.h",
+        "m_rows.reserve(16); m_rows.push_back(value); m_text.append(\"x\"); m_rows.shrink_to_fit();\n",
+    )
+    if len(growth_calls) != 4:
+        print("SELF_TEST_FAIL: STL growth calls were not all rejected", file=sys.stderr)
+        return 1
+    if not is_allowed(growth_calls[0], rows, matched):
+        print("SELF_TEST_FAIL: allowlisted STL reserve growth was rejected", file=sys.stderr)
+        return 1
+
+    comment_source = "void f() { /* new int */ const char* s = \"malloc(\"; const char* g = \".reserve(\"; }\n"
+    if BANNED_PATTERNS[4][1].search(strip_comments_and_strings(comment_source)) or find_stl_growth_patterns_in_text(
+        "SkullbonezSource/Runtime/RunFrame.cpp", comment_source
+    ):
+        print("SELF_TEST_FAIL: comment/string stripping left a false allocation finding", file=sys.stderr)
         return 1
 
     print("SELF_TEST_PASS: allocation policy checker synthetic cases passed")
@@ -479,7 +549,7 @@ def main() -> int:
     allowlist_path = Path(args.allowlist)
     if not allowlist_path.is_absolute():
         allowlist_path = repo / allowlist_path
-    errors, scanned, findings, dynamic_stl_members = check_sources(repo, allowlist_path)
+    errors, scanned, findings, dynamic_stl_members, stl_growth_findings = check_sources(repo, allowlist_path)
     if errors:
         print(f"FAIL: runtime allocation policy found {len(errors)} issue(s).", file=sys.stderr)
         for error in errors:
@@ -489,6 +559,7 @@ def main() -> int:
     print(
         f"Runtime allocation policy summary: scanned={scanned} direct_heap_findings={findings} "
         f"dynamic_stl_member_findings={dynamic_stl_members} "
+        f"stl_growth_findings={stl_growth_findings} "
         "allowlist_errors=0"
     )
     return 0
