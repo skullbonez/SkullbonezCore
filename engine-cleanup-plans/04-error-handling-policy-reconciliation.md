@@ -354,6 +354,24 @@ byte-exact gated.
   - Required gate passed: `tools\validate_dx12_renderer.bat` exited 0 in
     00:00:27.3493942. Log:
     `Agentic/Reports/validate_dx12_renderer_plan04_dynamic_geometry_fatal_20260709.log`.
+
+  Progress 2026-07-09, RenderBackendDX12 pipeline-cache/descriptor-heap
+  fatal-invariant sub-slice:
+  - Converted three F sites from `throw std::runtime_error` to
+    `SB_FATAL("RenderBackendDX12", ...)`:
+    `RenderBackendDX12.Pipeline.cpp` rows 89 through 91 from the Step 0.1
+    inventory. The two DX12 device/shader creation throws in the same file
+    remain Lane R for the recoverable-result phase.
+  - Strict anchored source throw statement inventory now reports 138 sites,
+    down from the previous sub-slice count of 141. `SB_FATAL` macro invocations
+    now report 134 via `rg -n "SB_FATAL\s*\(" SkullbonezSource`.
+  - Comment-style audit scope:
+    `SkullbonezSource/Rendering/DX12/RenderBackendDX12.Pipeline.cpp`; checked
+    1, deferred 0. The learning header and local guards now name the fixed PSO
+    cache and framebuffer descriptor heap capacity invariants.
+  - Required gate passed: `tools\validate_dx12_renderer.bat` exited 0 in
+    00:00:27.3149044. Log:
+    `Agentic/Reports/validate_dx12_renderer_plan04_pipeline_fatals_20260709.log`.
 - [ ] **2.1** Convert **P** sites (replay/interaction probes) to the
   `FailAutomation(...)` channel with `ok=false` + message. Gate: `validate_full`
   + replay scrub. Commit.

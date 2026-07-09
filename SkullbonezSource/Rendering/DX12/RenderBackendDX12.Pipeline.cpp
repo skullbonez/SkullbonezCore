@@ -11,10 +11,14 @@ Mental model:
 Glossary:
   RTV (Render Target View): Descriptor row used when the GPU writes color
   pixels into a texture or back buffer.
+  DSV (Depth Stencil View): Descriptor row used when the GPU reads/writes depth
+  and stencil values during depth testing.
   SRV (Shader Resource View): Descriptor row used when shaders read textures
   or buffers.
   PSO (Pipeline State Object): Precompiled bundle of shaders and fixed render
   state that DX12 binds before drawing or dispatching.
+  FBO (Framebuffer Object): Engine term for an off-screen color/depth target
+  that can later be sampled as a texture.
   PIX: Microsoft GPU debugger/profiler that can read engine markers and DX12
   object names.
   Descriptor: Small binding record that tells a renderer how to interpret a
@@ -24,6 +28,9 @@ Glossary:
 Invariants:
   - DX12 object lifetime, resource states, descriptor rows, and fence ordering
   must stay explicit.
+  - The graphics PSO cache and framebuffer descriptor heaps are fixed backend
+    capacity. Exhaustion means renderer capacity planning failed; do not grow
+    them during draw submission or render-target allocation.
 
 Related:
   - Agentic/Reference/skullbonez-core-class-structure.md
@@ -34,10 +41,10 @@ Related:
 #include "MeshDX12.h"
 #include "FramebufferDX12.h"
 #include "../RenderGraph.h"
+#include "../../Core/FatalError.h"
 #include "../../Core/Log.h"
 #include "../../Core/PlatformProfiler.h"
 #include <stdexcept>
-#include <cstdio>
 #include <cstring>
 #include <algorithm>
 #include <string>
@@ -53,17 +60,6 @@ using Microsoft::WRL::ComPtr;
 
 
 // --- Helpers ---
-static void ReportDX12DescriptorHeapExhausted( const char* heapName, UINT nextIndex, UINT capacity )
-{
-    const char* name = heapName ? heapName : "unknown";
-    fprintf( stderr, "FATAL: DX12 %s heap exhausted (next=%u capacity=%u)\n", name, nextIndex, capacity );
-    fprintf( stdout, "FATAL: DX12 %s heap exhausted (next=%u capacity=%u)\n", name, nextIndex, capacity );
-    fflush( stderr );
-    fflush( stdout );
-    Log().WriteEventf( "dx12_descriptor_heap_exhausted heap=%s next=%u capacity=%u", name, nextIndex, capacity );
-    Log().FlushAll();
-}
-
 static inline void ThrowIfFailed( HRESULT hr, const char* msg )
 {
     if ( FAILED( hr ) )
@@ -484,21 +480,15 @@ void RenderBackendDX12::PrepareDraw( VertexFormat12 format,
                                static_cast<unsigned int>( key.rtvFormat ) );
             if ( m_psoCacheCount >= m_psoCache.size() )
             {
-                fprintf( stderr,
-                         "FATAL: DX12 graphics PSO cache exhausted (capacity=%zu hash=%llu format=%u instanced=%d)\n",
-                         m_psoCache.size(),
-                         static_cast<unsigned long long>( psoHash ),
-                         static_cast<unsigned int>( key.format ),
-                         key.isInstanced ? 1 : 0 );
-                fprintf( stdout,
-                         "FATAL: DX12 graphics PSO cache exhausted (capacity=%zu hash=%llu format=%u instanced=%d)\n",
-                         m_psoCache.size(),
-                         static_cast<unsigned long long>( psoHash ),
-                         static_cast<unsigned int>( key.format ),
-                         key.isInstanced ? 1 : 0 );
-                fflush( stderr );
-                fflush( stdout );
-                throw std::runtime_error( "DX12 graphics PSO cache exhausted" );
+                // Invariant: PSO variants are bounded by the fixed cache in the
+                // backend. A new draw-state family needs an intentional cache
+                // budget, not growth from the per-draw binding path.
+                SB_FATAL( "RenderBackendDX12",
+                          "DX12 graphics PSO cache exhausted. capacity=%zu hash=%llu format=%u instanced=%d",
+                          m_psoCache.size(),
+                          static_cast<unsigned long long>( psoHash ),
+                          static_cast<unsigned int>( key.format ),
+                          key.isInstanced ? 1 : 0 );
             }
             pso = CreatePSO( format, instanced, im, dvb );
             m_psoCache[m_psoCacheCount].hash = psoHash;
@@ -641,8 +631,13 @@ D3D12_CPU_DESCRIPTOR_HANDLE RenderBackendDX12::AllocateRTV()
     const Dx12CpuDescriptorAllocatorStats stats = m_rtvDescriptors.GetStats();
     if ( stats.used >= stats.capacity )
     {
-        ReportDX12DescriptorHeapExhausted( stats.heapName, stats.used, stats.capacity );
-        throw std::runtime_error( "DX12 RTV heap exhausted" );
+        // Invariant: RTV rows are fixed backend capacity and must be budgeted
+        // before render-target creation starts consuming them.
+        SB_FATAL( "RenderBackendDX12",
+                  "DX12 RTV heap exhausted. heap=%s used=%u capacity=%u",
+                  stats.heapName ? stats.heapName : "unknown",
+                  stats.used,
+                  stats.capacity );
     }
     return m_rtvDescriptors.Allocate().cpuHandle;
 }
@@ -653,8 +648,13 @@ D3D12_CPU_DESCRIPTOR_HANDLE RenderBackendDX12::AllocateDSV()
     const Dx12CpuDescriptorAllocatorStats stats = m_dsvDescriptors.GetStats();
     if ( stats.used >= stats.capacity )
     {
-        ReportDX12DescriptorHeapExhausted( stats.heapName, stats.used, stats.capacity );
-        throw std::runtime_error( "DX12 DSV heap exhausted" );
+        // Invariant: DSV rows are fixed backend capacity and must be budgeted
+        // before depth-target creation starts consuming them.
+        SB_FATAL( "RenderBackendDX12",
+                  "DX12 DSV heap exhausted. heap=%s used=%u capacity=%u",
+                  stats.heapName ? stats.heapName : "unknown",
+                  stats.used,
+                  stats.capacity );
     }
     return m_dsvDescriptors.Allocate().cpuHandle;
 }
