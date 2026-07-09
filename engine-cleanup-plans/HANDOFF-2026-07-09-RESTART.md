@@ -12,7 +12,7 @@ Branch:
 
 Latest implementation commit before this handoff:
 
-- `69b4f124 cleanup(02): extract collision time event helper`
+- `5991525a cleanup(02): extract collision cell event helper`
 
 This document is the restart handoff committed after the implementation slices.
 
@@ -62,6 +62,15 @@ Plan 02, Phase 1.2 wake/contact and object/object CCD helper slices:
   - Moved `emitObjectCollisionTimeEvent` into the private static
     `PhysicsWorld::EmitObjectCollisionTimeEvent`.
   - Preserved collision-time emission flag and field assignment behavior.
+- `9481cc17 cleanup(02): extract visual event helper`
+  - Moved `markObjectVisualEvent` into the private static
+    `PhysicsWorld::MarkObjectVisualEvent`.
+  - Preserved visual-contact flags and body-id assignment behavior.
+- `5991525a cleanup(02): extract collision cell event helper`
+  - Moved `writeObjectCollisionCellEvent` into the private static
+    `PhysicsWorld::WriteObjectCollisionCellEvent`.
+  - Preserved midpoint calculation, cell-floor coordinates, hash constants, and
+    `hasCollisionCellKey` assignment.
 
 Plan ledger updated:
 
@@ -93,10 +102,12 @@ The Plan 02 Phase 1.2 lambda inventory is now checked through:
 - `objectPairNeedsSweptCcd`
 - `recordObjectNarrowphaseEvent`
 - `emitObjectCollisionTimeEvent`
+- `markObjectVisualEvent`
+- `writeObjectCollisionCellEvent`
 
 Plan 02 Step 1.2 remains open. The next unchecked item is:
 
-- `markObjectVisualEvent`
+- `commitObjectNarrowphaseEvent`
 
 ## Validation Evidence
 
@@ -155,6 +166,16 @@ Current continuation gates:
     `TestOutput\agent_logs\plan02_emit_collision_time_event_validate_physics_20260709_1032.log`
   - Result: Debug/Profile builds reported 0 warnings and 0 errors; final
     `VALIDATE_PHYSICS: ALL PASSED`.
+- `tools\validate_physics.bat`
+  - Log:
+    `TestOutput\agent_logs\plan02_mark_visual_event_validate_physics_20260709_1035.log`
+  - Result: Debug/Profile builds reported 0 warnings and 0 errors; final
+    `VALIDATE_PHYSICS: ALL PASSED`.
+- `tools\validate_physics.bat`
+  - Log:
+    `TestOutput\agent_logs\plan02_collision_cell_event_validate_physics_20260709_1038.log`
+  - Result: Debug/Profile builds reported 0 warnings and 0 errors; final
+    `VALIDATE_PHYSICS: ALL PASSED`.
 
 No SkullScope trace workflow was used in these slices.
 
@@ -177,9 +198,9 @@ Unchecked files: none.
 Result:
 
 - `PhysicsWorld.cpp` already has the required learning header.
-- The moved exact-contact, refinement, sweep, cache-prefix, CCD bypass, and
-  event-field code stayed near named helpers without needing unrelated comment
-  churn.
+- The moved exact-contact, refinement, sweep, cache-prefix, CCD bypass,
+  event-field, visual-marker, and collision-cell code stayed near named helpers
+  without needing unrelated comment churn.
 - No unrelated comment-only churn was made.
 
 ## Current Open Work
@@ -206,9 +227,9 @@ Open cleanup items that remain in `engine-cleanup-plans/00-EXECUTION-GUIDE.md`:
 2. Read `engine-cleanup-plans/00-EXECUTION-GUIDE.md`.
 3. Read `engine-cleanup-plans/02-physicsworld-solver-decomposition.md`.
 4. Check `git status --short --branch`.
-5. Confirm the branch is at or after implementation commit `69b4f124`.
+5. Confirm the branch is at or after implementation commit `5991525a`.
 6. Continue Plan 02 Step 1.2 from the next unchecked item,
-   `markObjectVisualEvent`, unless the user gives a different
+   `commitObjectNarrowphaseEvent`, unless the user gives a different
    instruction.
 7. Do not continue Plan 11 until the human RenderGraph decision is made.
 8. Do not continue Plan 13 FAC-005, Plan 03, or Plan 07 without the required
@@ -234,4 +255,4 @@ Current continuation began at:
 
 This handoff was drafted at:
 
-- `2026-07-09T10:32:45.6239485+10:00`
+- `2026-07-09T10:39:43.1530031+10:00`

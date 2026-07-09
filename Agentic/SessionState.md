@@ -7,8 +7,8 @@ audits when it is still useful.
 
 | Field | Value |
 |-------|-------|
-| Branch | `main` in worktree `C:\Users\sesch\.codex\worktrees\0595\SkullbonezCore`. |
-| Active objective | Merge all July nightrunner work into `main` with merge commits and no squashing. Fable-03 P3.0, fable-04 L1-L4 and C1-C5, fable-05 P3 SpatialGrid/PhysicsWorld plus GameModelCollection classification/pure topology/legacy camera pose-read/append Lane R conversions, P4.1 scene/style TryLoad entry boundary, one direct missing-camera parser throw removal, and Terrain RAW Lane R cleanup are complete; fable-06 Phase 1, Phase 2 R1/R2/R3, and C1 RuntimeTools cluster are complete; fable-03 P3.1-P3.4, remaining fable-04, remaining fable-05, fable-06 C2-C5/closure, and fable-07 still have open work. |
+| Branch | `nightrunner-8th-july` in worktree `C:\SkullbonezCore`. |
+| Active objective | Engine cleanup Plan 02 PhysicsWorld solver decomposition is paused after implementation commit `5991525a`; resume Step 1.2 at `commitObjectNarrowphaseEvent`. The overall engine cleanup goal remains active and incomplete. |
 | Last documentation milestone | `fable_plans/HANDOFF-2026-07-07.md`, fable-05/fable-06 progress docs, `Agentic/Plans/In_Progress/shadow-edge-quality-plan.md`, `Agentic/Plans/In_Progress/shadow-edge-quality-progress.md`, the top-level `engine-cleanup-plans/` bundle, and `Agentic/Plans/To_Eval/render-graph-irender-interface-plan.md` document the latest fable, shadow-quality, engine-cleanup, and FAC-001 work. |
 | Last source/data milestone | FAC-001 renderer aggregate retirement and the new shadow plan slice are complete: `IRenderBackend.h` is deleted, runtime render wiring uses narrow lifecycle/resource/command/diagnostics/capture/raytracing facets, `tools/check_runtime_boundaries.py` blocks aggregate resurrection, `shadow_parallel_prep` is no longer hard-disabled, `GameModelRenderer::BuildShadowCasterBatches()` uses bounded count/prefix/fill worker prep, object-shadow bounds use fixed chunk accumulators, and `WorkerPool::BuildChunkRangesNoAlloc()` exposes deterministic caller-owned chunk ranges. Runtime allocation allowlist metadata was also corrected after the Terrain factory cleanup removed `Run.cpp`'s direct Terrain allocation. |
 | Pending work | Not all fable plans are complete. Open work remains in fable-03 P3.1-P3.4 worker-job stepping, remaining fable-04 mega-file decomposition, fable-05 remaining P4.1 TextureCollection/AssetSystem/ConvexHullShape/deeper parser conversion plus P5 DX12 and closure, fable-06 C2-C5 plus Z1-Z4 closure, and fable-07 per `fable_plans/HANDOFF-2026-07-07.md`; fable-01, fable-02, fable-08, and fable-09 are checklist complete. |
@@ -39,8 +39,8 @@ audits when it is still useful.
   answer or handoff.
 - Engine cleanup restart handoff for the current pause:
   `engine-cleanup-plans/HANDOFF-2026-07-09-RESTART.md`. Latest implementation
-  commit before the handoff is `69b4f124`; resume Plan 02 Step 1.2 from
-  `markObjectVisualEvent`.
+  commit before the handoff is `5991525a`; resume Plan 02 Step 1.2 from
+  `commitObjectNarrowphaseEvent`.
 
 ## Current Work Items
 
