@@ -896,7 +896,14 @@ bool DiagnosticsRuntime::WriteMainMemoryDump( const ReplayRuntime& replay,
              "    \"prediction_frames\": %llu,\n"
              "    \"path_nodes\": %llu,\n"
              "    \"cause_rows\": %llu,\n"
-             "    \"ghost_requests\": %llu,\n",
+             "    \"ghost_requests\": %llu,\n"
+             "    \"memory_preset\": %d,\n"
+             "    \"requested_retention_seconds\": %d,\n"
+             "    \"requested_budget_mib\": %d,\n"
+             "    \"presentation_retention_seconds\": %d,\n"
+             "    \"solver_retention_seconds\": %d,\n"
+             "    \"memory_budget_clamped\": %s,\n"
+             "    \"solver_window_reduced\": %s,\n",
              scene.currentFrame,
              stats.sampleTimeSeconds,
              stats.process.available ? "true" : "false",
@@ -921,7 +928,14 @@ bool DiagnosticsRuntime::WriteMainMemoryDump( const ReplayRuntime& replay,
              static_cast<unsigned long long>( stats.replay.predictionFrames ),
              static_cast<unsigned long long>( stats.replay.pathNodes ),
              static_cast<unsigned long long>( stats.replay.causeRows ),
-             static_cast<unsigned long long>( stats.replay.ghostRequests ) );
+             static_cast<unsigned long long>( stats.replay.ghostRequests ),
+             stats.replay.memoryPreset,
+             stats.replay.requestedRetentionSeconds,
+             stats.replay.requestedBudgetMiB,
+             stats.replay.presentationRetentionSeconds,
+             stats.replay.solverRetentionSeconds,
+             stats.replay.memoryBudgetClamped ? "true" : "false",
+             stats.replay.solverWindowReduced ? "true" : "false" );
     WriteReplayMemoryCategories( file, stats.replay );
     WriteReplayTrajectoryCounters( file, stats.replay.trajectory );
     fprintf( file,

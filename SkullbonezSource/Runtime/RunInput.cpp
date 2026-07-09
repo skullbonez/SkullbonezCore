@@ -1196,6 +1196,19 @@ ApplyRuntimeUIFrameCommands( const RuntimeUIFrameContext& context,
     {
         recordUIAction( RuntimeInputAction::ApplySoundTuning );
     }
+    if ( uiCommands.replayMemory.requestPolicy )
+    {
+        // Invariant: Memory-tab controls only request policy changes. ReplayRuntime
+        // owns the reset/reconfigure edge because it knows all recorder windows.
+        ReplayMemoryPolicyRequest request;
+        request.presetIndex = uiCommands.replayMemory.requestedPresetIndex;
+        request.retentionSeconds = uiCommands.replayMemory.requestedRetentionSeconds;
+        request.budgetMiB = uiCommands.replayMemory.requestedBudgetMiB;
+        if ( context.replayRuntime.ApplyMemoryPolicyRequest( request ) )
+        {
+            recordUIAction( RuntimeInputAction::SetReplayMemoryPolicy );
+        }
+    }
     RecordRuntimePresentationWaterUIActions( presentationCommands, recordUIAction );
     const RunSimulationUICommandResult runSimulationCommands =
         ApplyRunSimulationUICommands( RunSimulationUICommandContext{ context.sceneState,

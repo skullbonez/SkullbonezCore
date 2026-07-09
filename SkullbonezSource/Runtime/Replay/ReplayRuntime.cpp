@@ -1397,9 +1397,16 @@ ReplayRuntime::RecordingConfigResult ReplayRuntime::ConfigureRecording( bool ena
                                                                         const char* hashLogPath,
                                                                         int runtimeBodyCapacity )
 {
+    m_recordingConfigured = true;
+    m_recordingEnabled = enabled || ( hashLogPath && hashLogPath[0] != '\0' );
+    m_recordingRuntimeBodyCapacity = runtimeBodyCapacity;
+    m_recordingHashLogPath = hashLogPath ? hashLogPath : "";
+    m_memoryPolicy.requestedRetentionSeconds = (std::max)( 1, retentionSeconds );
+    m_memoryPolicy = ResolveReplayMemoryPolicy( m_memoryPolicy );
+
     ReplayRecorderConfig replayConfig;
     replayConfig.enabled = enabled || ( hashLogPath && hashLogPath[0] != '\0' );
-    replayConfig.retentionSeconds = (std::max)( 1, retentionSeconds );
+    replayConfig.retentionSeconds = m_memoryPolicy.presentationRetentionSeconds;
     replayConfig.checkpointIntervalFrames = 30;
     replayConfig.runtimeBodyCapacity = runtimeBodyCapacity;
     if ( hashLogPath && hashLogPath[0] != '\0' )
@@ -1408,6 +1415,7 @@ ReplayRuntime::RecordingConfigResult ReplayRuntime::ConfigureRecording( bool ena
     }
 
     ReplayRecorderConfig solverReplayConfig = replayConfig;
+    solverReplayConfig.retentionSeconds = m_memoryPolicy.solverRetentionSeconds;
     solverReplayConfig.checkpointIntervalFrames = 60;
     solverReplayConfig.hashLogPath = SolverReplayHashLogPath( replayConfig.hashLogPath );
 
@@ -1431,6 +1439,54 @@ ReplayRuntime::RecordingConfigResult ReplayRuntime::ConfigureRecording( bool ena
     result.solverStats = m_solver.GetStats();
     result.eventStats = m_events.GetStats();
     return result;
+}
+
+bool ReplayRuntime::ApplyMemoryPolicyRequest( const ReplayMemoryPolicyRequest& request )
+{
+    ReplayMemoryPolicy nextPolicy = m_memoryPolicy;
+    if ( request.presetIndex >= 0 )
+    {
+        nextPolicy = ReplayMemoryPresetPolicy( ReplayMemoryPresetFromIndex( request.presetIndex ) );
+    }
+    if ( request.retentionSeconds > 0 )
+    {
+        nextPolicy.requestedRetentionSeconds = request.retentionSeconds;
+    }
+    if ( request.budgetMiB > 0 )
+    {
+        nextPolicy.requestedBudgetMiB = request.budgetMiB;
+    }
+    nextPolicy = ResolveReplayMemoryPolicy( nextPolicy );
+    if ( nextPolicy.preset == m_memoryPolicy.preset &&
+         nextPolicy.requestedRetentionSeconds == m_memoryPolicy.requestedRetentionSeconds &&
+         nextPolicy.requestedBudgetMiB == m_memoryPolicy.requestedBudgetMiB &&
+         nextPolicy.presentationRetentionSeconds == m_memoryPolicy.presentationRetentionSeconds &&
+         nextPolicy.solverRetentionSeconds == m_memoryPolicy.solverRetentionSeconds )
+    {
+        return false;
+    }
+
+    m_memoryPolicy = nextPolicy;
+    if ( !m_recordingConfigured )
+    {
+        return true;
+    }
+
+    // Hazard: changing retention policy invalidates normalized scrub positions
+    // and retained samples, so replay resets the recorders and snaps tracks back
+    // to the live edge in one owner-controlled step.
+    ConfigureRecording( m_recordingEnabled,
+                        m_memoryPolicy.requestedRetentionSeconds,
+                        m_recordingHashLogPath.empty() ? nullptr : m_recordingHashLogPath.c_str(),
+                        m_recordingRuntimeBodyCapacity );
+    ResetScrubberState();
+    SetAllTrackPositions( 1.0f );
+    return true;
+}
+
+const ReplayMemoryPolicy& ReplayRuntime::MemoryPolicy() const
+{
+    return m_memoryPolicy;
 }
 
 void ReplayRuntime::FlushHashLogs()
@@ -2924,6 +2980,13 @@ MainMemoryReplayStats ReplayRuntime::CollectMemoryStats() const
     stats.presentationSamples = presentationStats.sampleCount;
     stats.solverSamples = solverStats.sampleCount;
     stats.eventSamples = eventStats.eventCount;
+    stats.memoryPreset = static_cast<int>( m_memoryPolicy.preset );
+    stats.requestedRetentionSeconds = m_memoryPolicy.requestedRetentionSeconds;
+    stats.requestedBudgetMiB = m_memoryPolicy.requestedBudgetMiB;
+    stats.presentationRetentionSeconds = m_memoryPolicy.presentationRetentionSeconds;
+    stats.solverRetentionSeconds = m_memoryPolicy.solverRetentionSeconds;
+    stats.memoryBudgetClamped = m_memoryPolicy.budgetClamped;
+    stats.solverWindowReduced = m_memoryPolicy.solverWindowReduced;
 
     MainMemoryAddReplayCategoryBytes( stats.categoryBytes,
                                       MainMemoryReplayByteCategory::LoadedOwner,

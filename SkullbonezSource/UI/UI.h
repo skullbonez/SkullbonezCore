@@ -211,6 +211,13 @@ struct InGameUIFrameData
     int reserveGrowthEventCount = 0;
     uint64_t reserveGrowthEventTotalCount = 0;
     uint64_t reserveGrowthEventDroppedCount = 0;
+    int replayMemoryPreset = 0;
+    int replayMemoryRequestedRetentionSeconds = 0;
+    int replayMemoryRequestedBudgetMiB = 0;
+    int replayMemoryPresentationRetentionSeconds = 0;
+    int replayMemorySolverRetentionSeconds = 0;
+    bool replayMemoryBudgetClamped = false;
+    bool replayMemorySolverWindowReduced = false;
     int modelCount = 0;
     int modelCapacity = DEFAULT_GAME_MODEL_CAPACITY;
     int workerThreadCount = 0;

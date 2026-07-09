@@ -33,6 +33,8 @@ Glossary:
   Trajectory record: Versioned polyline storage for one replay body and lane.
   Recorder eviction: Removal of the oldest bounded-ring sample when replay
     capture appends beyond the configured retention window.
+  Replay memory policy: Runtime-owned preset, retention, and budget request that
+    resolves to concrete presentation and solver recorder windows.
 
 Invariants:
   - Stored indices are hints; ReplayBodyId remains the identity check.
@@ -59,10 +61,12 @@ Related:
 #include "../../Physics/PhysicsWorldForces.h"
 #include "../../Rendering/RenderInstanceStore.h"
 
+#include <algorithm>
 #include <array>
 #include <atomic>
 #include <chrono>
 #include <memory>
+#include <string>
 
 namespace SkullbonezCore
 {
@@ -104,6 +108,126 @@ enum class RunReplayTrack
     Presentation,
     Solver
 };
+
+enum class ReplayMemoryPreset : int
+{
+    LosslessLook = 0,
+    Balanced = 1,
+    Compact = 2,
+    Count
+};
+
+struct ReplayMemoryPolicy
+{
+    // Concept: presets and sliders resolve to concrete recorder windows here so
+    // UI code never needs to know how presentation, solver, and event rings are
+    // sized or degraded.
+    ReplayMemoryPreset preset = ReplayMemoryPreset::LosslessLook;
+    int requestedRetentionSeconds = REPLAY_PAST_BUFFER_SECONDS;
+    int requestedBudgetMiB = 256;
+    int presentationRetentionSeconds = REPLAY_PAST_BUFFER_SECONDS;
+    int solverRetentionSeconds = REPLAY_PAST_BUFFER_SECONDS;
+    bool budgetClamped = false;
+    bool solverWindowReduced = false;
+};
+
+struct ReplayMemoryPolicyRequest
+{
+    // Sentinel -1 means "leave the current policy value unchanged"; UI controls
+    // can therefore emit one focused command without mirroring every slider.
+    int presetIndex = -1;
+    int retentionSeconds = -1;
+    int budgetMiB = -1;
+};
+
+inline constexpr int REPLAY_MEMORY_POLICY_MIN_SECONDS = 1;
+inline constexpr int REPLAY_MEMORY_POLICY_MAX_SECONDS = 600;
+inline constexpr int REPLAY_MEMORY_POLICY_MIN_BUDGET_MIB = 32;
+inline constexpr int REPLAY_MEMORY_POLICY_MAX_BUDGET_MIB = 512;
+
+inline ReplayMemoryPreset ReplayMemoryPresetFromIndex( int presetIndex )
+{
+    switch ( presetIndex )
+    {
+    case static_cast<int>( ReplayMemoryPreset::Balanced ):
+        return ReplayMemoryPreset::Balanced;
+    case static_cast<int>( ReplayMemoryPreset::Compact ):
+        return ReplayMemoryPreset::Compact;
+    case static_cast<int>( ReplayMemoryPreset::LosslessLook ):
+    default:
+        return ReplayMemoryPreset::LosslessLook;
+    }
+}
+
+inline ReplayMemoryPolicy ReplayMemoryPresetPolicy( ReplayMemoryPreset preset )
+{
+    ReplayMemoryPolicy policy;
+    policy.preset = preset;
+    switch ( preset )
+    {
+    case ReplayMemoryPreset::Balanced:
+        policy.requestedRetentionSeconds = 45;
+        policy.requestedBudgetMiB = 128;
+        break;
+    case ReplayMemoryPreset::Compact:
+        policy.requestedRetentionSeconds = 20;
+        policy.requestedBudgetMiB = 64;
+        break;
+    case ReplayMemoryPreset::LosslessLook:
+    default:
+        policy.requestedRetentionSeconds = REPLAY_PAST_BUFFER_SECONDS;
+        policy.requestedBudgetMiB = 256;
+        break;
+    }
+    return policy;
+}
+
+inline ReplayMemoryPolicy ResolveReplayMemoryPolicy( ReplayMemoryPolicy policy )
+{
+    policy.requestedRetentionSeconds = std::clamp( policy.requestedRetentionSeconds,
+                                                   REPLAY_MEMORY_POLICY_MIN_SECONDS,
+                                                   REPLAY_MEMORY_POLICY_MAX_SECONDS );
+    policy.requestedBudgetMiB = std::clamp( policy.requestedBudgetMiB,
+                                            REPLAY_MEMORY_POLICY_MIN_BUDGET_MIB,
+                                            REPLAY_MEMORY_POLICY_MAX_BUDGET_MIB );
+    policy.presentationRetentionSeconds = policy.requestedRetentionSeconds;
+    policy.solverRetentionSeconds = policy.requestedRetentionSeconds;
+
+    if ( policy.preset == ReplayMemoryPreset::Balanced )
+    {
+        policy.solverRetentionSeconds = (std::min)( policy.solverRetentionSeconds, 30 );
+    }
+    else if ( policy.preset == ReplayMemoryPreset::Compact )
+    {
+        policy.solverRetentionSeconds = (std::min)( policy.solverRetentionSeconds, 10 );
+    }
+
+    // Why: lower memory-budget requests keep the visual/presentation look as
+    // long as possible and shorten solver/debug inspection history first.
+    if ( policy.requestedBudgetMiB < 192 )
+    {
+        policy.solverRetentionSeconds = (std::min)( policy.solverRetentionSeconds, 30 );
+    }
+    if ( policy.requestedBudgetMiB < 128 )
+    {
+        policy.solverRetentionSeconds = (std::min)( policy.solverRetentionSeconds, 15 );
+    }
+    if ( policy.requestedBudgetMiB < 64 )
+    {
+        policy.solverRetentionSeconds = (std::min)( policy.solverRetentionSeconds, 5 );
+        policy.presentationRetentionSeconds = (std::min)( policy.presentationRetentionSeconds, 30 );
+    }
+
+    policy.solverRetentionSeconds =
+        std::clamp( policy.solverRetentionSeconds, REPLAY_MEMORY_POLICY_MIN_SECONDS, REPLAY_MEMORY_POLICY_MAX_SECONDS );
+    policy.presentationRetentionSeconds = std::clamp( policy.presentationRetentionSeconds,
+                                                      REPLAY_MEMORY_POLICY_MIN_SECONDS,
+                                                      REPLAY_MEMORY_POLICY_MAX_SECONDS );
+    policy.solverWindowReduced = policy.solverRetentionSeconds < policy.requestedRetentionSeconds;
+    policy.budgetClamped =
+        policy.solverWindowReduced || policy.presentationRetentionSeconds < policy.requestedRetentionSeconds;
+    return policy;
+}
 
 struct RunReplayScrubberState
 {
@@ -779,6 +903,12 @@ class ReplayRuntime
     // scene/run body cap known before capture so replay frames do not allocate.
     RecordingConfigResult
     ConfigureRecording( bool enabled, int retentionSeconds, const char* hashLogPath, int runtimeBodyCapacity );
+    // Applies a UI or tool policy request. A true return means recorder windows
+    // changed or queued policy state changed before recording was configured.
+    bool ApplyMemoryPolicyRequest( const ReplayMemoryPolicyRequest& request );
+    // Exposes the resolved policy for diagnostics/UI; callers must not infer
+    // recorder capacity from raw requested fields.
+    const ReplayMemoryPolicy& MemoryPolicy() const;
     void FlushHashLogs();
     void ResetBranch();
     void ResetTimeline( const char* sceneLabel );
@@ -887,6 +1017,7 @@ class ReplayRuntime
     ReplaySolverRecorder m_solver;                                    // Same-tick solver-state recorder kept in tandem with presentation replay.
     ReplayEventRecorder m_events;                                     // Bounded intent/event stream kept beside v2 replay tracks.
     ReplayBranchInfo m_branch;                                        // Current live replay branch provenance.
+    ReplayMemoryPolicy m_memoryPolicy;                                // Resolved recorder-window policy owned by ReplayRuntime.
     RunLoadedReplayPresentationState m_loadedPresentation;
     RunReplayScrubberState m_scrubber;
     RunReplayCameraState m_camera;
@@ -903,9 +1034,13 @@ class ReplayRuntime
     // the live model budget. It must not allocate while scrub/prediction views
     // are applied during rendering.
     std::array<uint8_t, MAX_GAME_MODELS> m_renderPoseBodyMatched = {};
+    std::string m_recordingHashLogPath;
+    int m_recordingRuntimeBodyCapacity = 0;
     uint32_t m_captureMismatchReports = 0;                            // Process-lifetime throttle for paired presentation/solver capture diagnostics.
     bool m_captureMismatchSuppressed = false;
     bool m_launcherVisualBackupActive = false;
+    bool m_recordingConfigured = false;
+    bool m_recordingEnabled = false;
 };
 } // namespace Basics
 } // namespace SkullbonezCore

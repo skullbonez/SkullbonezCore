@@ -196,6 +196,15 @@ struct MainMemoryReplayStats
     std::size_t pathNodes = 0;
     std::size_t causeRows = 0;
     std::size_t ghostRequests = 0;
+    // Replay policy fields report the requested knobs and the resolved recorder
+    // windows that were actually applied by ReplayRuntime.
+    int memoryPreset = 0;                                   // 0=lossless look, 1=balanced, 2=compact.
+    int requestedRetentionSeconds = 0;
+    int requestedBudgetMiB = 0;
+    int presentationRetentionSeconds = 0;
+    int solverRetentionSeconds = 0;
+    bool memoryBudgetClamped = false;
+    bool solverWindowReduced = false;
     MainMemoryReplayCategoryBytes categoryBytes;
     MainMemoryReplayTrajectoryStats trajectory;
 };

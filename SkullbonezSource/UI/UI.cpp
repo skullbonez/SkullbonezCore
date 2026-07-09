@@ -2150,6 +2150,28 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd,
             CinematicTab::CloseCombo( m_cinematicTab );
             m_editorTab.objectCombo.Close();
         }
+        else if ( inContent && m_activeTab == InGameUITab::Memory )
+        {
+            const float contentX = static_cast<float>( inputX + contentPad );
+            const float contentW = static_cast<float>( inputW ) - static_cast<float>( contentPad ) * 2.0f - 8.0f;
+            const float scrolledY = static_cast<float>( contentY ) - m_scrollY;
+            if ( MemoryTab::HandleContentClick( m_memoryOverlay,
+                                                result,
+                                                m_activeSlider,
+                                                m_mouseX,
+                                                m_mouseY,
+                                                contentX,
+                                                scrolledY,
+                                                contentW ) )
+            {
+                InputControl::BeginMouseCapture( hwnd );
+                m_scrollbarVisibleUntil = now + 1.2;
+            }
+            m_rendererCombo.Close();
+            CloseSceneCombo();
+            CinematicTab::CloseCombo( m_cinematicTab );
+            m_editorTab.objectCombo.Close();
+        }
         else if ( inContent && m_activeTab == InGameUITab::Scene )
         {
             const float contentX = static_cast<float>( inputX + contentPad );
@@ -2458,6 +2480,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd,
                                                m_mouseX,
                                                m_lastMaxWorkerThreadCount,
                                                result ) &&
+             !MemoryTab::UpdateActiveSlider( m_memoryOverlay, m_activeSlider, m_mouseX, result ) &&
              !OptionsTab::UpdateActiveSlider( m_optionsTab, m_activeSlider, m_mouseX, m_lastModelCapacity, result ) &&
              !PhysicsTab::UpdateActiveSlider( m_physicsTab, m_activeSlider, m_mouseX, result ) &&
              !SoundTab::UpdateActiveSlider( m_soundTab, m_activeSlider, m_mouseX, result ) )
@@ -2524,6 +2547,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd,
         // while still letting the drawn slider thumb track the user's drag.
         if ( !SceneTab::CommitActiveSlider( m_sceneTab, m_activeSlider, result ) &&
              !ProfilerTab::CommitActiveSlider( m_profilerTab, m_activeSlider, result ) &&
+             !MemoryTab::CommitActiveSlider( m_memoryOverlay, m_activeSlider, result ) &&
              !OptionsTab::CommitActiveSlider( m_optionsTab, m_activeSlider, result ) &&
              !PhysicsTab::CommitActiveSlider( m_physicsTab, m_activeSlider, result ) &&
              !SoundTab::CommitActiveSlider( m_soundTab, m_activeSlider, result ) )
@@ -2548,6 +2572,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd,
         m_activeSlider = 0;
         SceneTab::ResetPreviewState( m_sceneTab );
         ProfilerTab::ResetPreviewState( m_profilerTab );
+        MemoryTab::ResetPreviewState( m_memoryOverlay );
         OptionsTab::ResetPreviewState( m_optionsTab );
         PhysicsTab::ResetPreviewState( m_physicsTab );
         ControlsTab::ResetPreviewState( m_controlsTab );
@@ -2852,7 +2877,17 @@ void InGameUI::Draw( const InGameUIFrameData& data, const UIRenderContext& rende
     }
     else if ( m_activeTab == InGameUITab::Memory )
     {
-        MemoryTab::Draw( draw, data, contentX, contentY, contentW, contentH, scrolledY );
+        MemoryTab::Draw( draw,
+                         m_memoryOverlay,
+                         data,
+                         contentX,
+                         contentY,
+                         contentW,
+                         contentH,
+                         scrolledY,
+                         m_activeSlider,
+                         m_mouseX,
+                         m_mouseY );
     }
     else if ( m_activeTab == InGameUITab::Scene )
     {

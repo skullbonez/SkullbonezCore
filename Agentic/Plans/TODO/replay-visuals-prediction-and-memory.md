@@ -1,15 +1,16 @@
 # Replay: Trajectory Visuals, Prediction Job, Memory Quality, Code Size
 
 Date: 2026-07-09 (consolidated mega plan)
-Status: In progress - Stage 7 complete (prediction isolation, trajectory
+Status: In progress - Stage 8.4 complete (prediction isolation, trajectory
 visuals investigation, counters, memory accounting, draw-loop determinism,
 same-target refresh reveal preservation, past-path visibility, contact
 completeness reporting, the TrajectoryStore publication shell, the build-pass
 writer migration, store-backed draw reads, the default-off legacy draw fallback,
 frozen hierarchy topology/shared reveal clamp, contact-tick child activation,
 the twice-run prediction determinism probe, the prediction worker job, and the
-DX12 trajectory-ribbon renderer, and visual polish are complete; memory tuning,
-tooling cleanup, and code-size work remain open)
+DX12 trajectory-ribbon renderer, visual polish, and replay memory data-model
+tuning through presets/budget UI are complete; tooling cleanup and code-size
+work remain open)
 Impact area: replay runtime, replay prediction, trajectory overlay rendering,
 DX12 transient geometry, physics stepping, UI
 Consolidates: `replay-prediction-and-memory.md` (sections A/B/C — full text in
@@ -1012,7 +1013,7 @@ Stage 8 — Replay memory data-model tuning (old B2–B4; re-derive first)
 - [x] 8.2 Split body metadata from visual pose; add delta frames.
 - [x] 8.3 Compact solver keyframes/deltas; artifact compatibility for saved
   replays.
-- [ ] 8.4 Presets + budget enforcement + UI sliders.
+- [x] 8.4 Presets + budget enforcement + UI sliders.
 
   Complete 2026-07-10: re-derived the memory model from current Stage-7 code
   before implementing. The retired June draft's high-level intent still holds,
@@ -1143,6 +1144,53 @@ Stage 8 — Replay memory data-model tuning (old B2–B4; re-derive first)
     matched byte-exactly.
   - `tools\validate_replay_scrub.bat` passed in 41.02s
     (`Agentic\Reports\validate_replay_scrub_replay_stage8_3_final_20260710.log`).
+    Scrub trace command: `C:\SkullbonezCore\Debug\SKULLBONEZ_CORE.exe --renderer dx12 --vsync off --shadows off --scene SkullbonezData/scenes/physics_roll.scene.json --frames 120 --replay on --replay-seconds 1 --replay-scrub-test --physics-diag C:\SkullbonezCore\Debug\replay_scrub.physicsdiag.ndjson`.
+    Scrub query: `tools\physics_query.bat Debug\replay_scrub.physicsdiag.ndjson replay --limit 8`;
+    trace 54,932 bytes; SQLite cache 225,280 bytes; query output 1,512
+    bytes. Restore trace command: `C:\SkullbonezCore\Debug\SKULLBONEZ_CORE.exe --renderer dx12 --vsync off --shadows off --scene SkullbonezData/scenes/physics_roll.scene.json --frames 120 --replay on --replay-seconds 1 --replay-restore-test --physics-diag C:\SkullbonezCore\Debug\replay_restore.physicsdiag.ndjson`.
+    Restore query: `tools\physics_query.bat Debug\replay_restore.physicsdiag.ndjson restore --limit 8`;
+    trace 54,912 bytes; SQLite cache 225,280 bytes; query output 967 bytes.
+    Total model-read SkullScope query output: 2,479 bytes. Prediction
+    determinism fingerprint `0x0165312C5422A5F1` matched across two runs (402
+    records, 73,021 points, 361 active frames); reports were 4,615 bytes each,
+    bounded stdout outputs were 60,290 bytes each.
+
+  Complete 2026-07-10: replay memory policy is now owned by `ReplayRuntime`.
+  The policy exposes Lossless Look, Balanced, and Compact presets, plus
+  retention and memory-budget sliders from the Memory tab. UI code emits
+  one-frame commands only; `RunInput` applies them through
+  `ReplayRuntime::ApplyMemoryPolicyRequest()`, which reconfigures the replay
+  recorders and snaps scrub tracks back to the live edge when windows change.
+
+  Budget resolution keeps the default visual scrubber lossless, then shortens
+  solver/debug history before presentation history as requested budgets get
+  smaller. The focused policy test covers the compact 60s/48 MiB case: visual
+  retention resolves to 30s while solver retention resolves to 5s. Memory
+  diagnostics and `skullbonez.main_memory.v1` dumps now expose the requested
+  preset/retention/budget and the applied presentation/solver windows.
+
+  Validation:
+  - Touched-source comment audit inspected 14 source-bearing files with 0
+    deferred; no subsystem checklist was required for this touched-file pass.
+  - `git diff --check` passed.
+  - `tools\validate_format.bat` passed in 10.02s
+    (`Agentic\Reports\validate_format_replay_stage8_4_final_20260710.log`).
+  - `tools\validate_build.bat Profile` passed in 21.13s
+    (`Agentic\Reports\validate_build_profile_replay_stage8_4_final_20260710.log`):
+    Profile build 0 warnings/errors.
+  - Focused replay memory policy test passed in 1.91s:
+    `Profile\SKULLBONEZ_TESTS.exe --test-case='*replay*memory*'`
+    (`Agentic\Reports\replay_memory_policy_unit_stage8_4_final_20260710.log`).
+  - Focused replay recorder unit filter passed in 2.07s:
+    `Profile\SKULLBONEZ_TESTS.exe --test-case=ReplayRecorder*`
+    (`Agentic\Reports\replay_recorder_unit_stage8_4_final_20260710.log`).
+  - `tools\validate_full.bat` passed in 49.99s
+    (`Agentic\Reports\validate_full_replay_stage8_4_final_20260710.log`):
+    Profile and Debug builds were 0 warnings/errors, DX12 validation errors
+    were 0, screenshots matched baselines, and `physics_regression_solver.csv`
+    matched byte-exactly.
+  - `tools\validate_replay_scrub.bat` passed in 25.53s
+    (`Agentic\Reports\validate_replay_scrub_replay_stage8_4_final_20260710.log`).
     Scrub trace command: `C:\SkullbonezCore\Debug\SKULLBONEZ_CORE.exe --renderer dx12 --vsync off --shadows off --scene SkullbonezData/scenes/physics_roll.scene.json --frames 120 --replay on --replay-seconds 1 --replay-scrub-test --physics-diag C:\SkullbonezCore\Debug\replay_scrub.physicsdiag.ndjson`.
     Scrub query: `tools\physics_query.bat Debug\replay_scrub.physicsdiag.ndjson replay --limit 8`;
     trace 54,932 bytes; SQLite cache 225,280 bytes; query output 1,512

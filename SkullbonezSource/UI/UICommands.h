@@ -352,6 +352,16 @@ struct UISoundCommands
     int selectSampleIndex = -1;
 };
 
+struct UIReplayMemoryCommands
+{
+    // One-frame replay policy request from the Memory tab. RunInput translates
+    // these UI-facing values into ReplayRuntime's authoritative policy owner.
+    bool requestPolicy = false;
+    int requestedPresetIndex = -1;
+    int requestedRetentionSeconds = -1;
+    int requestedBudgetMiB = -1;
+};
+
 struct InGameUICommands
 {
     UIOnlyCommands ui;
@@ -366,6 +376,7 @@ struct InGameUICommands
     UIRenderCommands renderTuning;
     UISoundCommands sound;
     UICinematicCommands cinematic;
+    UIReplayMemoryCommands replayMemory;
 };
 
 struct InGameUIInputResult

@@ -29,6 +29,7 @@
 #include "../ThirdPtySource/doctest/doctest.h"
 
 #include "../SkullbonezSource/Runtime/Replay/ReplayRecorder.h"
+#include "../SkullbonezSource/Runtime/Replay/ReplayRuntime.h"
 
 #include <vector>
 
@@ -38,9 +39,14 @@ using SkullbonezCore::Basics::ReplayPresentationSample;
 using SkullbonezCore::Basics::ReplayRecorder;
 using SkullbonezCore::Basics::ReplayRecorderConfig;
 using SkullbonezCore::Basics::ReplayRecorderStats;
+using SkullbonezCore::Basics::ReplayMemoryPolicyRequest;
+using SkullbonezCore::Basics::ReplayMemoryPreset;
 using SkullbonezCore::Basics::ReplaySolverBodySample;
 using SkullbonezCore::Basics::ReplaySolverFrameSample;
 using SkullbonezCore::Basics::ReplaySolverRecorder;
+using SkullbonezCore::Basics::ResolveReplayMemoryPolicy;
+using SkullbonezCore::Basics::ReplayMemoryPolicy;
+using SkullbonezCore::Basics::ReplayMemoryPresetPolicy;
 using SkullbonezCore::Math::Vector::Vector3;
 
 namespace
@@ -143,6 +149,50 @@ TEST_CASE( "ReplayRecorder: Configure does not pre-reserve future sample payload
     constexpr uint64_t maxConfiguredBytes = 64ull * 1024ull * 1024ull;
     CHECK( presentation.CollectMemoryBytes() < maxConfiguredBytes );
     CHECK( solver.CollectMemoryBytes() < maxConfiguredBytes );
+}
+
+
+TEST_CASE( "ReplayRuntime: replay memory policy trims solver history before presentation" )
+{
+    ReplayMemoryPolicy defaultPolicy;
+    defaultPolicy.requestedRetentionSeconds = 60;
+    defaultPolicy = ResolveReplayMemoryPolicy( defaultPolicy );
+
+    CHECK( defaultPolicy.preset == ReplayMemoryPreset::LosslessLook );
+    CHECK( defaultPolicy.requestedRetentionSeconds == 60 );
+    CHECK( defaultPolicy.presentationRetentionSeconds == 60 );
+    CHECK( defaultPolicy.solverRetentionSeconds == 60 );
+    CHECK_FALSE( defaultPolicy.budgetClamped );
+
+    ReplayMemoryPolicyRequest request;
+    request.presetIndex = static_cast<int>( ReplayMemoryPreset::Compact );
+    request.retentionSeconds = 60;
+    request.budgetMiB = 48;
+
+    ReplayMemoryPolicy compactPolicy = ReplayMemoryPresetPolicy( ReplayMemoryPreset::Compact );
+    compactPolicy.requestedRetentionSeconds = request.retentionSeconds;
+    compactPolicy.requestedBudgetMiB = request.budgetMiB;
+    compactPolicy = ResolveReplayMemoryPolicy( compactPolicy );
+
+    CHECK( compactPolicy.preset == ReplayMemoryPreset::Compact );
+    CHECK( compactPolicy.requestedRetentionSeconds == 60 );
+    CHECK( compactPolicy.requestedBudgetMiB == 48 );
+    CHECK( compactPolicy.presentationRetentionSeconds == 30 );
+    CHECK( compactPolicy.solverRetentionSeconds == 5 );
+    CHECK( compactPolicy.budgetClamped );
+    CHECK( compactPolicy.solverWindowReduced );
+
+    ReplayRecorderConfig presentationConfig = SmallRecorderConfig();
+    presentationConfig.retentionSeconds = compactPolicy.presentationRetentionSeconds;
+    ReplayRecorderConfig solverConfig = SmallRecorderConfig();
+    solverConfig.retentionSeconds = compactPolicy.solverRetentionSeconds;
+
+    ReplayRecorder presentation;
+    ReplaySolverRecorder solver;
+    REQUIRE( presentation.Configure( presentationConfig ) );
+    REQUIRE( solver.Configure( solverConfig ) );
+    CHECK( presentation.GetStats().sampleCapacity == static_cast<std::size_t>( 30 * kReplayTicksPerSecond ) );
+    CHECK( solver.GetStats().sampleCapacity == static_cast<std::size_t>( 5 * kReplayTicksPerSecond ) );
 }
 
 
