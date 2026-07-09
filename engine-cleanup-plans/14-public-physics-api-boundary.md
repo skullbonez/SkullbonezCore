@@ -47,7 +47,7 @@ leaks. Do not restart the wider GameModel authority campaign from scratch.
   `PhysicsEngine.h` that mention `GameModel`, dense `modelIndex`, or solver
   container types. Record the exact signatures and proposed replacement
   identity/authority shape here. No code change; documentation-only.
-- [ ] **1.1** Introduce or reuse the narrow public physics identity types needed
+- [x] **1.1** Introduce or reuse the narrow public physics identity types needed
   to replace raw dense model-index authority. Keep the change scoped to the
   public boundary. Gate: `validate_physics`. Commit.
 - [ ] **1.2** Remove `GameModel` from public physics API signatures and update
@@ -117,6 +117,37 @@ Findings:
 | `PhysicsApi.h` | `#include "ColliderStore.h"` and `#include "PhysicsBodyStore.h"` | Remove public-header dependency on concrete stores after `PhysicsStandaloneWorld` storage is moved behind an internal implementation owner. |
 | `PhysicsApi.h` | `PhysicsBodyStore m_bodyStore;` and `ColliderStore m_colliderStore;` in private `PhysicsStandaloneWorld` storage | Move concrete store storage to an internal implementation header/type, preserving fixed/preallocated runtime behavior and exposing only public handles/views in `PhysicsApi.h`. |
 | `PhysicsApi.h` | Private `std::vector<...>` caches/scratch arrays in `PhysicsStandaloneWorld` | Keep as implementation detail outside the public header or replace with fixed/preallocated internal storage if a runtime path depends on it. |
+
+## Step 1.1 Implementation - 2026-07-10
+
+`PhysicsHandles.h` now carries the public boundary vocabulary needed for later
+signature replacements:
+
+- `PhysicsBodyCount`
+- `PhysicsColliderCount`
+- `PhysicsAuthoredBodyCount`
+- `ModelRowHint::IsValid()`
+
+The count wrappers intentionally describe topology or view size only. They do
+not identify bodies, colliders, or authoring rows; later source slices should
+pair them with `PhysicsBodyHandle`, `PhysicsColliderHandle`, `PhysicsSceneObjectId`,
+or `ModelRowHint` depending on whether the caller has identity or only a
+repairable presentation-row hint.
+
+Touched-source comment audit:
+
+- Inspected `SkullbonezSource/Physics/PhysicsHandles.h`.
+- Checklist path: not required for a touched-file pass.
+- Checked count: 1 source-bearing file.
+- Deferred count: 0.
+
+Validation:
+
+- `tools\validate_physics.bat` passed in 00:00:44.2320777.
+- Debug and Profile builds completed with 0 warnings and 0 errors.
+- `physics_regression_solver.csv` matched the committed baseline byte-for-byte
+  at 20001 lines.
+- Ignored log: `Agentic/Reports/validate_physics_plan14_identity_types_20260710.log`.
 
 ## Validation
 
