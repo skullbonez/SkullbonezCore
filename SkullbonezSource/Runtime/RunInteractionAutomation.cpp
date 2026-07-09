@@ -44,6 +44,8 @@ Related:
 #pragma warning( pop )
 
 #include <algorithm>
+#include <cstdint>
+#include <cstring>
 #include <sstream>
 
 using namespace SkullbonezCore::Basics;
@@ -70,6 +72,94 @@ void CopyText( char* destination, std::size_t destinationSize, const std::string
 Json Vec3Json( const Vector3& value )
 {
     return Json::array( { value.x, value.y, value.z } );
+}
+
+constexpr uint64_t INTERACTION_PREDICTION_FINGERPRINT_OFFSET = 1469598103934665603ull;
+constexpr uint64_t INTERACTION_PREDICTION_FINGERPRINT_PRIME = 1099511628211ull;
+
+struct PredictionTrajectoryFingerprint
+{
+    uint64_t hash = INTERACTION_PREDICTION_FINGERPRINT_OFFSET;
+    std::size_t recordCount = 0;
+    std::size_t pointCount = 0;
+
+    bool Ready() const
+    {
+        return recordCount > 0 && pointCount > 0;
+    }
+};
+
+void HashPredictionByte( uint64_t& hash, uint8_t value )
+{
+    hash ^= static_cast<uint64_t>( value );
+    hash *= INTERACTION_PREDICTION_FINGERPRINT_PRIME;
+}
+
+template <typename T> void HashPredictionScalar( uint64_t& hash, T value )
+{
+    const uint8_t* bytes = reinterpret_cast<const uint8_t*>( &value );
+    for ( std::size_t i = 0; i < sizeof( T ); ++i )
+    {
+        HashPredictionByte( hash, bytes[i] );
+    }
+}
+
+void HashPredictionFloat( uint64_t& hash, float value )
+{
+    uint32_t bits = 0;
+    std::memcpy( &bits, &value, sizeof( bits ) );
+    HashPredictionScalar( hash, bits );
+}
+
+void HashPredictionVector( uint64_t& hash, const Vector3& value )
+{
+    HashPredictionFloat( hash, value.x );
+    HashPredictionFloat( hash, value.y );
+    HashPredictionFloat( hash, value.z );
+}
+
+std::string FormatPredictionHash( uint64_t hash )
+{
+    char buffer[24] = {};
+    sprintf_s( buffer, sizeof( buffer ), "0x%016llX", static_cast<unsigned long long>( hash ) );
+    return buffer;
+}
+
+PredictionTrajectoryFingerprint BuildPredictionTrajectoryFingerprint( const ReplayRuntime& replayRuntime )
+{
+    PredictionTrajectoryFingerprint fingerprint;
+    const ReplayTrajectoryStore& store = replayRuntime.Prediction().trajectoryStore;
+    for ( const ReplayTrajectoryRecord& record : store.records )
+    {
+        const std::size_t publishedPointCount = (std::min)( record.publishedPointCount, record.points.size() );
+        if ( publishedPointCount == 0 )
+        {
+            continue;
+        }
+
+        // Invariant: this report hash intentionally ignores record versions and
+        // vector capacity. It fingerprints only the sampled polylines and draw
+        // hierarchy that should be byte-identical across two identical
+        // prediction runs.
+        HashPredictionScalar( fingerprint.hash, record.key.bodyId.value );
+        HashPredictionScalar( fingerprint.hash, static_cast<uint8_t>( record.key.lane ) );
+        HashPredictionScalar( fingerprint.hash, record.key.branchOrdinal );
+        HashPredictionScalar( fingerprint.hash, record.styleId );
+        HashPredictionScalar( fingerprint.hash, record.parentId.value );
+        HashPredictionScalar( fingerprint.hash, record.depth );
+        HashPredictionScalar( fingerprint.hash, record.firstFrame );
+        HashPredictionScalar( fingerprint.hash, static_cast<uint8_t>( record.contactDerived ? 1u : 0u ) );
+        HashPredictionScalar( fingerprint.hash, static_cast<uint64_t>( publishedPointCount ) );
+        for ( std::size_t i = 0; i < publishedPointCount; ++i )
+        {
+            const ReplayTrajectoryPoint& point = record.points[i];
+            HashPredictionScalar( fingerprint.hash, point.frameIndex );
+            HashPredictionVector( fingerprint.hash, point.position );
+        }
+        ++fingerprint.recordCount;
+        fingerprint.pointCount += publishedPointCount;
+    }
+    return fingerprint;
 }
 
 const RunReplayPredictionBodySample* FindPredictionBodyById( const RunReplayPredictionFrame& frame, ReplayBodyId id )
@@ -552,6 +642,8 @@ const char* AssertName( RunInteractionAutomationAssertKind kind )
         return "predictionTargetDisplacementMin";
     case RunInteractionAutomationAssertKind::LiveSolverHashStableAcrossPrediction:
         return "liveSolverHashStableAcrossPrediction";
+    case RunInteractionAutomationAssertKind::PredictionTrajectoryFingerprintReady:
+        return "predictionTrajectoryFingerprintReady";
     case RunInteractionAutomationAssertKind::GizmoVisible:
         return "gizmoVisible";
     case RunInteractionAutomationAssertKind::ReplayActiveTrack:
@@ -1423,6 +1515,11 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
             outAction.assertKind = RunInteractionAutomationAssertKind::LiveSolverHashStableAcrossPrediction;
             outAction.boolValue = ReadBool( member.value() );
         }
+        else if ( name == "predictionTrajectoryFingerprintReady" )
+        {
+            outAction.assertKind = RunInteractionAutomationAssertKind::PredictionTrajectoryFingerprintReady;
+            outAction.boolValue = ReadBool( member.value() );
+        }
         else if ( name == "gizmoVisible" )
         {
             outAction.assertKind = RunInteractionAutomationAssertKind::GizmoVisible;
@@ -1625,6 +1722,16 @@ EvaluateInteractionAutomationAssertion( InteractionAutomationAssertContext& cont
         evaluation.expected = BoolString( action.boolValue );
         evaluation.actual = BoolString( stable );
         evaluation.passed = stable == action.boolValue;
+        break;
+    }
+    case RunInteractionAutomationAssertKind::PredictionTrajectoryFingerprintReady:
+    {
+        const PredictionTrajectoryFingerprint fingerprint =
+            BuildPredictionTrajectoryFingerprint( context.replayRuntime );
+        const bool ready = fingerprint.Ready();
+        evaluation.expected = BoolString( action.boolValue );
+        evaluation.actual = BoolString( ready );
+        evaluation.passed = ready == action.boolValue;
         break;
     }
     case RunInteractionAutomationAssertKind::GizmoVisible:
@@ -2170,6 +2277,8 @@ void Run::WriteInteractionAutomationReport()
     const RunReplayPredictionState& predictionState = m_replayRuntime.Prediction();
     const ReplayPredictionBaselineSnapshot& predictionBaseline = predictionState.baseline;
     const bool predictionBaselineVisible = predictionBaseline.valid && predictionBaseline.comparisonActive;
+    const PredictionTrajectoryFingerprint predictionTrajectoryFingerprint =
+        BuildPredictionTrajectoryFingerprint( m_replayRuntime );
     std::size_t predictionRetainedEntryMarkerCount = 0;
     std::size_t predictionRetainedRestMarkerCount = 0;
     std::size_t predictionRetainedHorizonMarkerCount = 0;
@@ -2270,6 +2379,10 @@ void Run::WriteInteractionAutomationReport()
               { "predictionTargetFirst", Vec3Json( predictionTargetFirst ) },
               { "predictionTargetLast", Vec3Json( predictionTargetLast ) },
               { "predictionTargetDisplacement", predictionTargetDisplacement },
+              { "predictionTrajectoryFingerprintReady", predictionTrajectoryFingerprint.Ready() },
+              { "predictionTrajectoryFingerprint", FormatPredictionHash( predictionTrajectoryFingerprint.hash ) },
+              { "predictionTrajectoryRecordCount", static_cast<int>( predictionTrajectoryFingerprint.recordCount ) },
+              { "predictionTrajectoryPointCount", static_cast<int>( predictionTrajectoryFingerprint.pointCount ) },
               { "predictionFutureNodeCount", static_cast<int>( predictionState.futureNodeCache.futureNodes.size() ) },
               { "predictionFutureNodeBuildFrameCount",
                 static_cast<int>( predictionState.futureNodeCache.futureNodesBuiltFrameCount ) },

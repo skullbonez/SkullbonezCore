@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "actions": [
+    { "frame": 45, "showReplayScrubber": true },
+    { "frame": 60, "clickReplayControl": "predict" },
+    { "frame": 62, "setReplayPredictionHorizonSeconds": 3.0 },
+    { "frame": 78, "clickObject": "prediction_striker_ball", "button": "left" },
+    { "frame": 105, "assert": { "replayPredictionEnabled": true } },
+    { "frame": 105, "assert": { "replayPathTarget": "prediction_striker_ball" } },
+    { "frame": 165, "assert": { "predictionPathVisible": true } },
+    { "frame": 165, "assert": { "liveSolverHashStableAcrossPrediction": true } },
+    { "frame": 280, "assert": { "predictionTrajectoryFingerprintReady": true } }
+  ]
+}

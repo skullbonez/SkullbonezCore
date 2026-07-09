@@ -1,14 +1,14 @@
 # Replay: Trajectory Visuals, Prediction Job, Memory Quality, Code Size
 
 Date: 2026-07-09 (consolidated mega plan)
-Status: In progress - Stage 4.2 complete (prediction isolation, trajectory
+Status: In progress - Stage 4 complete (prediction isolation, trajectory
 visuals investigation, counters, memory accounting, draw-loop determinism,
 same-target refresh reveal preservation, past-path visibility, contact
 completeness reporting, the TrajectoryStore publication shell, and the
 build-pass writer migration, store-backed draw reads, the default-off legacy
 draw fallback, frozen hierarchy topology/shared reveal clamp, and contact-tick
-child activation are complete; determinism probe, worker job, memory tuning,
-renderer rewrite, and code-size work remain open)
+child activation, and the twice-run prediction determinism probe are complete;
+worker job, memory tuning, renderer rewrite, and code-size work remain open)
 Impact area: replay runtime, replay prediction, trajectory overlay rendering,
 DX12 transient geometry, physics stepping, UI
 Consolidates: `replay-prediction-and-memory.md` (sections A/B/C — full text in
@@ -736,7 +736,59 @@ Stage 4 — Lock-step hierarchy correctness
   - Restore query: `tools\physics_query.bat Debug\replay_restore.physicsdiag.ndjson restore --limit 8`; trace 54,912 bytes; SQLite cache 225,280 bytes; query output 967 bytes.
   - Total model-read query output: 2,479 bytes. Raw NDJSON/SQLite sizes above
     are artifact sizes, not model-ingested text.
-- [ ] 4.3 Twice-run prediction determinism automation probe.
+- [x] 4.3 Twice-run prediction determinism automation probe.
+  Complete 2026-07-10: interaction automation reports now emit
+  `predictionTrajectoryFingerprintReady`, `predictionTrajectoryFingerprint`,
+  `predictionTrajectoryRecordCount`, and `predictionTrajectoryPointCount`. The
+  fingerprint hashes published trajectory records, hierarchy metadata, and
+  point bytes while intentionally excluding transient record versions and vector
+  capacity. The new `predictionTrajectoryFingerprintReady` assertion lets
+  scripts fail cleanly if the visible prediction prefix is not populated.
+
+  Added `SkullbonezData/interaction/prediction_determinism_probe.json` and
+  `tools\check_replay_prediction_determinism.py`. The checker launches the
+  same fixed-step ragdoll-wall prediction script twice through
+  `Debug\SKULLBONEZ_CORE.exe`, compares the fingerprint plus active prefix
+  count, record count, point count, future-node count, and future-node build
+  frame count, and stores bounded stdout/stderr excerpts. It is wired into
+  `tools\validate_replay_scrub.bat` as the third replay probe.
+
+  Touched-source comment audit inspected 4 source-bearing/tool files with 0
+  deferred (`RunInteractionAutomation.cpp`, `RunInteractionAutomationState.h`,
+  `tools/check_replay_prediction_determinism.py`,
+  `tools/validate_replay_scrub.bat`); no subsystem checklist was required for
+  this touched-file pass. Focused checks passed: Python syntax check for
+  `tools/check_replay_prediction_determinism.py`; `tools\validate_format.bat`
+  in 9.92s (`Agentic/Reports/validate_format_replay_stage4_3_20260710.log`);
+  `tools\validate_build.bat Profile` in 9.76s with 0 warnings/errors
+  (`Agentic/Reports/validate_build_profile_replay_stage4_3_20260710.log`);
+  allocation policy self-test in 0.08s
+  (`Agentic/Reports/allocation_policy_self_test_replay_stage4_3_20260710.log`);
+  allocation scan in 3.10s
+  (`Agentic/Reports/allocation_policy_scan_replay_stage4_3_20260710.log`,
+  `scanned=296 direct_heap_findings=28 dynamic_stl_member_findings=0
+  allowlist_errors=0`); and `tools\validate_fast.bat` in 20.41s
+  (`Agentic/Reports/validate_fast_replay_stage4_3_20260710.log`). Required
+  validation passed: `tools\validate_full.bat` in 29.47s
+  (`Agentic/Reports/validate_full_replay_visuals_stage4_3_20260710.log`) with
+  formatting clean, Profile/Debug builds clean, DX12 validation errors 0, DX12
+  screenshots matching committed baselines, and `physics_regression_solver.csv`
+  byte-exact; `tools\validate_replay_scrub.bat` in 59.86s
+  (`Agentic/Reports/validate_replay_scrub_replay_visuals_stage4_3_20260710.log`)
+  with the new prediction trajectory fingerprint
+  `0x395F6E239C82A7B4` matching across two runs (401 records, 56,881 points,
+  281 active frames); and `tools\validate_physics.bat` in 13.49s
+  (`Agentic/Reports/validate_physics_replay_stage4_3_20260710.log`) with
+  `VALIDATE_PHYSICS: ALL PASSED` and byte-exact solver baseline.
+
+  SkullScope accounting from the replay scrub gate:
+  - Scrub trace command: `Debug\SKULLBONEZ_CORE.exe --renderer dx12 --vsync off --shadows off --scene SkullbonezData/scenes/physics_roll.scene.json --frames 120 --replay on --replay-seconds 1 --replay-scrub-test --physics-diag Debug\replay_scrub.physicsdiag.ndjson`
+  - Scrub query: `tools\physics_query.bat Debug\replay_scrub.physicsdiag.ndjson replay --limit 8`; trace 54,932 bytes; SQLite cache 225,280 bytes; query output 1,512 bytes.
+  - Restore trace command: `Debug\SKULLBONEZ_CORE.exe --renderer dx12 --vsync off --shadows off --scene SkullbonezData/scenes/physics_roll.scene.json --frames 120 --replay on --replay-seconds 1 --replay-restore-test --physics-diag Debug\replay_restore.physicsdiag.ndjson`
+  - Restore query: `tools\physics_query.bat Debug\replay_restore.physicsdiag.ndjson restore --limit 8`; trace 54,912 bytes; SQLite cache 225,280 bytes; query output 967 bytes.
+  - Prediction determinism reports: `TestOutput\validation\replay_prediction_determinism\prediction_determinism_a.json` and `prediction_determinism_b.json`, 4,612 bytes each; bounded stdout excerpts 60,297 bytes each.
+  - Total model-read SkullScope query output: 2,479 bytes. Raw NDJSON/SQLite
+    sizes above are artifact sizes, not model-ingested text.
 
 Stage 5 — Prediction worker job (old section A, adopts the store contract)
 - [ ] 5.1 Wrap the tick loop in `Core/AmortizedTask` (`SubmitTick(pool)`,
