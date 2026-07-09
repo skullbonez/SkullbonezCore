@@ -1,7 +1,7 @@
 # Facade Retirement Plan
 
 Date: 2026-07-08
-Status: In Progress (FAC-005 owned by Plan 14)
+Status: In Progress (FAC-005 complete via Plan 14)
 Owner: Runtime, rendering, physics, and architecture cleanup agents
 
 ## Revision Note
@@ -72,7 +72,7 @@ and the cross-cutting acceptance invariants below.
 | FAC-002 | `EngineContext` pointer-bag | `Runtime/EngineContext.h` — `EngineContextBindings` holds 13 subsystem pointers + `EngineServices` ~7 more; bound as one graph in `Run::BindEngineContext()` | `EngineContextBindings` is **deleted or split** into owner-specific records. No extracted system receives the whole runtime graph. If `EngineServices Services()` has no real callers, delete it rather than keep it as decorative architecture. | `Agentic/Plans/TODO/runtime-shell-decomposition.md` |
 | FAC-003 | `Run` composition shell | `Runtime/Run.h`, `Runtime/RunState.h` (self-described "staging boundary, not a destination") | `Run` retains only launcher + frame-coordination methods. Lifecycle, scene, input, capture, diagnostics, and render policy move to real owners. Measured by Run's method/member count dropping, not by comment edits. | `Agentic/Plans/TODO/runtime-shell-decomposition.md` (incl. `RunInternal.h` retirement) |
 | FAC-004 | `SimulationController` wrapper | `Runtime/SimulationController.h` — 97 lines total; exposes `System()` returning the underlying `SimulationSystem&` | **Delete** it and call `SimulationSystem` directly, **or** move real timestep policy into it *and* remove the `System()` reach-through. Keeping a forwarding wrapper with a passthrough accessor is not an allowed end state. | (needs an explicit owner — currently none) |
-| FAC-005 | Public physics API boundary | `Physics/PhysicsEngine.h`, `Physics/PhysicsApi.h` | The public physics API exposes **no** `GameModel`, no raw dense `modelIndex`, and no solver container types in its signatures. This is a type-level boundary check, independent of any wording in the headers. | `14-public-physics-api-boundary.md`, `Agentic/Plans/TODO/physics-authority-and-identity.md` |
+| FAC-005 | Public physics API boundary | `Physics/PhysicsEngine.h`, `Physics/PhysicsApi.h` | The public physics API exposes **no** `GameModel`, no raw dense `modelIndex`, and no solver container types in its signatures. This is a type-level boundary check, independent of any wording in the headers. | Complete (Plan 14, 2026-07-10; plan file deleted per MASTER convention). Broader authority follow-up remains in `Agentic/Plans/TODO/physics-authority-and-identity.md`. |
 | FAC-006 | Camera collection wording | `Runtime/Camera.h`, `Runtime/CameraCollection.h` | Cosmetic only — **descoped**. `CameraCollection` is already the camera owner; there is no structural change to make. Do not spend a work slice renaming comments. | none (drop) |
 | FAC-007 | `RenderBackendDX12` concrete owner | `Rendering/DX12/RenderBackendDX12.h` | Keep as the concrete DX12 backend owner. The only structural risk is its cached borrowed aliases (`m_device`/`m_swapChain`/`m_commandList`) duplicating pointers `Dx12RenderDevice` owns — fix dual ownership so device recreation cannot dangle them. Naming is not the issue here. | `Agentic/Plans/TODO/render-backend-decomposition.md` |
 
@@ -89,10 +89,10 @@ Do the surfaces in benefit order, each in its owning plan:
 3. **FAC-004** — collapse or graduate `SimulationController`; kill the `System()`
    passthrough either way.
 4. **FAC-007** — resolve the DX12 borrowed-alias dual ownership.
-5. **FAC-003 / FAC-005** — continue FAC-003 in its existing decomposition
-   plans and execute FAC-005 through the dedicated public physics API boundary
-   plan. This doc only contributes the "graduate-or-delete, rename is not done"
-   rule as their definition of done.
+5. **FAC-003 / FAC-005** — FAC-003 completed through the Run decomposition
+   plan, and FAC-005 completed through the dedicated public physics API boundary
+   plan on 2026-07-10. This doc only contributes the "graduate-or-delete, rename
+   is not done" rule as their definition of done.
 
 FAC-006 is dropped.
 
@@ -140,12 +140,19 @@ only when the structure is actually gone:
   through `Dx12RenderDevice` helper accessors. A runtime-boundary tombstone now
   rejects those deleted alias fields, and `tools\validate_dx12_renderer.bat`
   passed 3 consecutive runs with `DX12 validation errors: 0`.
-- [ ] Public physics headers (`PhysicsApi.h`, `PhysicsEngine.h`) contain no
+- [x] Public physics headers (`PhysicsApi.h`, `PhysicsEngine.h`) contain no
   `GameModel`, dense `modelIndex`, or solver-container types in public
   signatures.
-  Owner decision recorded 2026-07-09: execute this as a dedicated public physics
-  API boundary cleanup. See
-  [14-public-physics-api-boundary.md](14-public-physics-api-boundary.md).
+  Completion note (2026-07-10): Plan 14 removed raw row authority and public
+  `PhysicsEngine` solver-container signatures. Structural greps for
+  `GameModel`, `modelIndex`, `modelCount`, and `expectedModelCount` in
+  `PhysicsApi.h`/`PhysicsEngine.h` returned no matches; the public
+  `PhysicsEngine.h` solver-container/accessor grep also returned no matches.
+  `tools\validate_physics.bat` passed in 00:00:32.5087482 with Debug/Profile
+  builds at 0 warnings/errors and `physics_regression_solver.csv` byte-exact at
+  20001 lines. `PhysicsApi.h` still owns private `PhysicsStandaloneWorld`
+  storage; that is internal implementation storage, not a public-signature
+  FAC-005 blocker.
 - [x] `Run`'s owned-member and public-method counts have measurably dropped and
   it no longer implements lifecycle/scene/input/capture/diagnostics/render
   policy.
@@ -175,10 +182,11 @@ you finish any facade surface there, apply this checklist:
   [plan 01](01-run-god-object-decomposition.md).
   Completion note (2026-07-08): Plan 01 is complete and records the final
   structural closure evidence for the remaining `Run` coordination surface.
-- [ ] FAC-005 (public physics API exposes no `GameModel`/dense
+- [x] FAC-005 (public physics API exposes no `GameModel`/dense
   `modelIndex`/solver containers) is owned by
-  [plan 14](14-public-physics-api-boundary.md). The owner approved creating and
-  executing that dedicated plan on 2026-07-09.
+  plan 14. Completion note (2026-07-10): the dedicated plan finished, passed
+  `tools\validate_physics.bat`, and was deleted per MASTER's completed-plan
+  convention.
 - [x] FAC-006 is dropped (cosmetic).
   Completion note (2026-07-08): FAC-006 remains descoped per this plan's
   Remaining Facade Surfaces table. `CameraCollection` is already the camera

@@ -21,8 +21,7 @@ Owner decisions of 2026-07-09 are binding — see
 
 | Plan | Status | % | Remaining work |
 |------|--------|---|----------------|
-| [13 Facade retirement (rule)](../../engine-cleanup-plans/13-facade-retirement.md) | In Progress | 75% | Cross-cutting rule; FAC-005 executes via plan 14, FAC-004 needs an owner, FAC-007 executes via `TODO/render-backend-decomposition.md`. |
-| [14 Public physics API boundary](../../engine-cleanup-plans/14-public-physics-api-boundary.md) | In Progress | 80% | Public `PhysicsEngine` signatures no longer expose raw dense row authority or solver containers; remaining work is FAC-005 acceptance reconciliation. |
+| [13 Facade retirement (rule)](../../engine-cleanup-plans/13-facade-retirement.md) | In Progress | 80% | Cross-cutting rule; FAC-005 is complete, FAC-004 needs an owner, FAC-007 executes via `TODO/render-backend-decomposition.md`. |
 | [15 Review gaps (2026-07-09)](../../engine-cleanup-plans/15-review-gaps.md) | Proposed | 0% | Comment-boilerplate cleanup (15.4) lives here; 15.1/15.2/15.3 execute via TODO plans; 15.5/15.6 are small hygiene slices. |
 
 ## Consolidated active plans (`Agentic/Plans/TODO/`)
@@ -70,6 +69,13 @@ re-scoped. Constituent history is in git history of the deleted files.
   transient texture lifetime layer; DX12 explicit backend helpers own live
   transition and UAV barrier emission. The completed plan file was deleted per
   MASTER convention.
+- **FAC-005 public physics API boundary** — completed through engine-cleanup
+  plan 14 on 2026-07-10. Public physics signatures no longer expose `GameModel`,
+  raw dense `modelIndex`/`modelCount` authority, or public `PhysicsEngine`
+  solver-container accessors. Existing dense-row readers go through
+  `PhysicsEngineStoreQueries` until narrower handle/view queries replace them.
+  `tools\validate_physics.bat` passed with byte-exact physics output. The
+  completed plan file was deleted per MASTER convention.
 - **fable-07 blocker remediation + overnight blocker ledger** — the open
   PHYS-*/RGRAPH-*/RUN-* rows were absorbed into the three matching TODO plans
   as "known hard blockers"; clusters D/E and SVC rows were already resolved.
