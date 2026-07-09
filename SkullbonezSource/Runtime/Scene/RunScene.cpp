@@ -13,6 +13,9 @@ Glossary:
   validation and tooling paths.
   DXR (DirectX Raytracing): DX12 API used for hardware ray traversal and
   reflection dispatch.
+  Render backend facets: Narrow renderer interfaces for resources, commands,
+    diagnostics, and raytracing; scene setup receives them separately instead
+    of depending on a concrete backend.
   Lane R result: Recoverable scene-load failure carrying owner/message
     diagnostics while the runtime stays alive.
   Required scene contact: Authored pair gate that marks a scenario objective
@@ -23,6 +26,9 @@ Glossary:
 Invariants:
   - Command-line and scene-file spellings are user-facing compatibility
     surface.
+  - DXR reflection setup may run only after the runtime has bound the render
+    resource, command, diagnostics, and raytracing facets for the active
+    backend.
 Related:
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/comment-style-guide.md
@@ -36,6 +42,7 @@ Related:
 #include "SceneRuntimeUiOptions.h"
 #include "../Editor/EditorHullAssets.h"
 #include "../../Physics/Ragdoll.h"
+#include "../../Core/FatalError.h"
 #include "../../Core/Log.h"
 #include "../../Core/SbResult.h"
 #include "../../Core/WorkerPool.h"
@@ -1069,8 +1076,15 @@ SbResult Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnCom
     {
         if ( !renderResources || !renderCommands || !renderDiagnostics )
         {
-            throw std::runtime_error(
-                "DXR reflection initialization requires render resource, command, and diagnostics facets" );
+            // Invariant: DXR reflection warm-up builds helper meshes through
+            // the same resource/command/diagnostics facets used by rendering.
+            // A missing facet means runtime backend wiring is inconsistent.
+            SB_FATAL( "RunScene",
+                      "DXR reflection initialization requires render resource, command, and diagnostics facets. "
+                      "resources=%d commands=%d diagnostics=%d",
+                      renderResources ? 1 : 0,
+                      renderCommands ? 1 : 0,
+                      renderDiagnostics ? 1 : 0 );
         }
         const RenderHelperContext helperContext{ *renderResources,
                                                  *renderCommands,

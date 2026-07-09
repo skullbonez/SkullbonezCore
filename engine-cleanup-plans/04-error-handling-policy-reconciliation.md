@@ -397,6 +397,22 @@ byte-exact gated.
     `Profile\SKULLBONEZ_CORE.exe --platform-profiler-markers --frames 5 --vsync off`
     exited 0 in 00:00:09.1357466. Log:
     `Agentic/Reports/platform_profiler_markers_plan04_profiler_fatal_20260709.log`.
+
+  Progress 2026-07-09, RunScene DXR render-facet fatal-invariant sub-slice:
+  - Converted one F site from `throw std::runtime_error` to
+    `SB_FATAL("RunScene", ...)`: `RunScene.cpp` row 250 from the Step 0.1
+    inventory. The replacement covers missing render resource, command, or
+    diagnostics facets during DXR reflection helper-mesh warm-up.
+  - Strict anchored source throw statement inventory now reports 136 sites,
+    down from the previous sub-slice count of 137. `SB_FATAL` macro invocations
+    now report 136 via `rg -n "SB_FATAL\s*\(" SkullbonezSource`.
+  - Comment-style audit scope:
+    `SkullbonezSource/Runtime/Scene/RunScene.cpp`; checked 1, deferred 0. The
+    learning header and local guard now name render backend facets and the DXR
+    reflection facet-binding invariant.
+  - Required gate passed: `tools\validate_full.bat` exited 0 in
+    00:01:00.4684976. Log:
+    `Agentic/Reports/validate_full_plan04_runscene_fatal_20260709.log`.
 - [ ] **2.1** Convert **P** sites (replay/interaction probes) to the
   `FailAutomation(...)` channel with `ok=false` + message. Gate: `validate_full`
   + replay scrub. Commit.
