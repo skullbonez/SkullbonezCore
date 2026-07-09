@@ -387,6 +387,7 @@
     <ClInclude Include="SkullbonezSource\Runtime\RuntimeCommandQueue.h" />
     <ClInclude Include="SkullbonezSource\Runtime\RuntimeInteractionCommands.h" />
     <ClInclude Include="SkullbonezSource\Runtime\RuntimeDiagnostics.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\RunLaunchOptions.Renderer.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Diagnostics\DiagnosticsRuntime.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Audio\ContactAudioService.h" />
     <ClInclude Include="SkullbonezSource\Runtime\RuntimeTuning.h" />

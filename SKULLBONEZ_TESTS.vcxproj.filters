@@ -63,6 +63,9 @@
     <ClCompile Include="SkullbonezTests\TestDemoDirector.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezTests\TestDx12OnlyRuntime.cpp">
+      <Filter>Source Files\Tests</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezTests\TestGeometricMath.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>

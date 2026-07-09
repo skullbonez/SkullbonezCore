@@ -106,8 +106,30 @@ requires human sign-off before any deletion.
     wrappers. CodeGraph was attempted first for the checker survey but did not
     surface the large Python file cleanly, so the inventory used targeted text
     queries after that.
-- [ ] **1.1** *(after 0.1)* Re-express the DX12-only check as a standalone
+- [x] **1.1** *(after 0.1)* Re-express the DX12-only check as a standalone
   boolean check (or a `Dx12ArchUnitTests` case). Gate: `validate_tests`. Commit.
+
+  Completed 2026-07-09:
+  - Added `SkullbonezSource/Runtime/RunLaunchOptions.Renderer.h` as the single
+    runtime renderer option table used by launch parsing, so the invariant is a
+    concrete typed surface instead of a regex scan.
+  - Added `SkullbonezTests/TestDx12OnlyRuntime.cpp` to assert the runtime launch
+    table exposes exactly one renderer option, `dx12`, with only the `d3d12`
+    alias. This preserves DX12-only exclusivity while still allowing the
+    compatibility alias.
+  - Touched-file comment audit inspected 3 source-bearing files with 0 deferred:
+    `SkullbonezSource/Runtime/Init.cpp`,
+    `SkullbonezSource/Runtime/RunLaunchOptions.Renderer.h`, and
+    `SkullbonezTests/TestDx12OnlyRuntime.cpp`.
+  - Validation: `tools\validate_tests.bat` passed in 00:00:04.2783435
+    (`VALIDATE_TESTS: ALL PASSED`, 68/68 doctest cases and 1611/1611 assertions)
+    after the final header name. `tools\validate_full.bat` passed in
+    00:01:11.6163450 with project filters clean, runtime boundaries 0 errors,
+    Profile/Debug builds 0 warnings/errors, DX12 validation errors 0,
+    screenshots matching baselines, and `physics_regression_solver.csv`
+    byte-exact. A prior `validate_full` attempt failed only because the first
+    header name lacked a project-filter rule; renaming to
+    `RunLaunchOptions.Renderer.h` aligned with the existing project filters.
 - [ ] **1.2** Delete `tools/check_runtime_boundaries.py` and every invocation of
   it (`validate_fast.bat`, `.githooks/`, `.pre-commit-config.yaml`, CI). Build +
   run `validate_fast` to prove nothing depends on it. Commit.
@@ -121,8 +143,7 @@ requires human sign-off before any deletion.
   with deletion instead of archiving: Done/Failed/Rejected trees deleted;
   `fable_plans/`, `To_Eval/`, and `In_Progress/` consolidated into
   `Agentic/Plans/TODO/`; master inventory at `Agentic/Plans/MASTER-PLAN.md`.
-  Not yet committed (another agent active); commit rides with the next
-  documentation commit.
+  Recorded in the plan consolidation follow-up history.
 - [ ] **4.1** Relax the Comment Quality Gate in `AGENTS.md` so trivial wrappers,
   link stubs, and batch files are exempt from full learning-header requirements.
   Commit.

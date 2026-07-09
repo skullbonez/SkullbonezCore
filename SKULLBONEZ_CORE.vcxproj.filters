@@ -746,6 +746,9 @@
     <ClInclude Include="SkullbonezSource\Runtime\RuntimeDiagnostics.h">
       <Filter>Header Files\Runtime</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\RunLaunchOptions.Renderer.h">
+      <Filter>Header Files\Runtime</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Diagnostics\DiagnosticsRuntime.h">
       <Filter>Header Files\Runtime\Diagnostics</Filter>
     </ClInclude>

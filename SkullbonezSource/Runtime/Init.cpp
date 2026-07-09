@@ -47,6 +47,7 @@ Related:
 #include "Input.h"
 #include "../Core/Timer.h"
 #include "../Rendering/DX12/RenderBackendDX12.h"
+#include "RunLaunchOptions.Renderer.h"
 #include "../GameObjects/GameModel.h"
 #include "../GameObjects/GameModelCollection.h"
 #include "../Physics/ColliderStore.h"
@@ -897,12 +898,6 @@ bool HandlePhysicsStandaloneSmoke( const CommandLineView& commandLine, int& outE
 // Command-line parsing
 // ---------------------------------------------------------------------------
 
-struct RendererOption
-{
-    const char* name;
-    const char* alias;
-};
-
 struct ParsedArgs
 {
     // Parsed command-line state. Defaults here are part of startup behavior:
@@ -1692,10 +1687,6 @@ bool ParseSceneArgs( const CommandLineView& commandLine, std::vector<std::string
 
 bool ParseRendererArg( const CommandLineView& commandLine )
 {
-    static const RendererOption kRenderers[] = {
-        { "dx12", "d3d12" },
-    };
-
     const char* rendererArg = FindOptionValue( commandLine, "--renderer" );
     if ( !rendererArg )
     {
@@ -1707,7 +1698,8 @@ bool ParseRendererArg( const CommandLineView& commandLine )
         return FailCommandLineParse( "--renderer expects dx12. GL and DX11 are retired runtime choices." );
     }
 
-    for ( const RendererOption& renderer : kRenderers )
+    for ( const SkullbonezCore::Runtime::RuntimeRendererOption& renderer :
+          SkullbonezCore::Runtime::kRuntimeRendererOptions )
     {
         if ( _stricmp( rendererArg, renderer.name ) == 0 ||
              ( renderer.alias && _stricmp( rendererArg, renderer.alias ) == 0 ) )
