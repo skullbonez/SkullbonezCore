@@ -85,7 +85,7 @@ something whose prerequisite is unfinished.
 | 10 | 04 error handling policy reconciliation (completed; file deleted) | `throw` -> F/R/P lanes (no count - ratchet deleted per 03) | After physics (02) and profiler (12) are stable | `validate_full` + `validate_physics` |
 | — | [05](05-behavioral-test-coverage.md) | **Continuous** | Do its Phase 0 map first; then each plan above adds its own tests as it lands; kill link stubs anytime | `validate_tests` |
 | — | 03 governance apparatus removal (completed; file deleted per MASTER convention) | **Done** | Regex checker and all `MAX_*` ratchets deleted; `AGENTS.md` contract updated | Documentation-only closure |
-| — | [07](07-allocation-gate-right-sizing.md) | **Any time, owner decision recorded 2026-07-09** | Right-size allocation enforcement without weakening global runtime zero-allocation-by-default policy; replay is the only approved runtime exception | `validate_perf` |
+| - | 07 allocation-gate right-sizing (completed; file deleted per MASTER convention) | **Done** | Runtime guard diagnostics trimmed, replay remains the only approved runtime exception, and static enforcement covers direct heap/reserve APIs, owning dynamic STL members, and STL growth calls | `validate_perf` + `validate_fast`/checker evidence |
 
 Rationale for the shape: steps 1–3 are low-risk and build the validate-and-commit
 habit. Steps 4–6 decouple and clean the render/runtime wiring while its gate

@@ -174,11 +174,14 @@ polymorphic service objects, callback chains, handle lookups, scattered
 
 ## Runtime Static Allocation Policy
 
-Dynamically growing STL types and direct heap calls are banned in physics and
-gameplay runtime code. Gameplay storage must be fixed or preallocated before
-steady gameplay begins, and pool exhaustion must assert in Profile/Debug or
-fail fatally in Release with owner, capacity, high-water, and phase diagnostics;
-there is no gameplay growth fallback.
+Runtime allocation policy is global zero allocation by default. Dynamically
+growing STL types, STL growth calls, direct heap calls, `std::make_unique`,
+`std::make_shared`, and equivalent heap paths are banned in steady runtime code
+unless an owner-approved exception routes through the allocation policy path.
+Gameplay storage must be fixed or preallocated before steady gameplay begins,
+and pool exhaustion must assert in Profile/Debug or fail fatally in Release with
+owner, capacity, high-water, and phase diagnostics; there is no gameplay growth
+fallback.
 
 Replay is the only runtime subsystem allowed to grow after steady gameplay
 starts, and that growth must be approved by `RuntimeReserveAllocator` through a
@@ -190,8 +193,14 @@ policy comment. Unregistered replay allocations are allocation-guard failures.
 pre-gameplay phases, allocator/wrapper internals, and explicit cold utility
 actions such as screenshot/readback, file save/load, replay artifact IO,
 diagnostics dumps, and editor mutation actions. Violations are allocation-policy
-validation and review failures. Plan 07 owns right-sizing for the allocation
-checker; do not add ad-hoc regex gates or frozen budgets here.
+validation and review failures.
+
+Static enforcement lives in `tools/check_allocation_policy.py` and
+`tools/allocation_policy_allowlist.json`. The checker scans configured source
+roots for direct heap/reserve APIs, owning dynamic STL members, and STL growth
+calls. Allowlist rows must name the owner, phase, reason, cap, and
+removal/wrapper plan; do not add ad-hoc regex gates, frozen count ratchets, or
+new runtime allocation exceptions without an owner decision.
 
 ## Error Handling Policy
 
@@ -256,7 +265,8 @@ Profile\SKULLBONEZ_CORE.exe --platform-profiler-markers
 | Other physics CSV baselines or `TestOutput/baselines/physics_query*.json` | `validate_physics_deep` |
 | `Common.h` | `validate_full` |
 | `SkullbonezTests/*`, `SKULLBONEZ_TESTS.vcxproj`, `SKULLBONEZ_TESTS.vcxproj.filters` | `validate_tests` |
-| `Runtime/Allocation/*`, `tools/check_allocation_policy.py`, `tools/allocation_policy_allowlist.json` | `validate_perf` |
+| `Runtime/Allocation/*` | `validate_perf` |
+| `tools/check_allocation_policy.py`, `tools/allocation_policy_allowlist.json` | `validate_fast`, then `python tools\check_allocation_policy.py --self-test` and `python tools\check_allocation_policy.py --repo .`; add `validate_perf` if runtime guard or reserve semantics change |
 | `Run*`, `Runtime/*` | `validate_full` |
 | `Window*` | `validate_full` |
 | `Init*` | `validate_full` |

@@ -21,7 +21,6 @@ Owner decisions of 2026-07-09 are binding — see
 
 | Plan | Status | % | Remaining work |
 |------|--------|---|----------------|
-| [07 Allocation-gate right-sizing](../../engine-cleanup-plans/07-allocation-gate-right-sizing.md) | In Progress | 85% | Inventory, runtime guard/reserve simplification, and broadened static allocation enforcement complete. Remaining: close AGENTS/session evidence. |
 | [11 Render abstraction leaks](../../engine-cleanup-plans/11-render-abstraction-leaks.md) | In Progress | 80% | Retire the diagnostic RenderGraph path per owner decision; remove stale barrier-ownership claims. |
 | [13 Facade retirement (rule)](../../engine-cleanup-plans/13-facade-retirement.md) | In Progress | 75% | Cross-cutting rule; FAC-005 executes via plan 14, FAC-004 needs an owner, FAC-007 executes via `TODO/render-backend-decomposition.md`. |
 | [14 Public physics API boundary](../../engine-cleanup-plans/14-public-physics-api-boundary.md) | Proposed | 0% | No `GameModel`/raw `modelIndex`/solver containers in `PhysicsApi.h`/`PhysicsEngine.h`. |
@@ -57,6 +56,13 @@ re-scoped. Constituent history is in git history of the deleted files.
   on 2026-07-10. Strict source throws are now zero, no throw-count ratchet was
   reinstated, and the completed plan/inventory files were deleted per MASTER
   convention. Stale include/comment hygiene remains in plan 15.6.
+- **audit iss-05 allocation-gate right-sizing** — completed through
+  engine-cleanup plan 07 on 2026-07-10. Runtime guard diagnostics were trimmed
+  without weakening pass/fail enforcement, replay remains the only approved
+  runtime allocation exception, and the static checker now covers direct
+  heap/reserve APIs, owning dynamic STL members, and STL growth calls with
+  owner/phase/cap allowlist metadata. The completed plan/inventory files were
+  deleted per MASTER convention.
 - **fable-07 blocker remediation + overnight blocker ledger** — the open
   PHYS-*/RGRAPH-*/RUN-* rows were absorbed into the three matching TODO plans
   as "known hard blockers"; clusters D/E and SVC rows were already resolved.

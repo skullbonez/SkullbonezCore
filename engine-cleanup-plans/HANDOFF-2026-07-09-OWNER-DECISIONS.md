@@ -36,7 +36,8 @@ any further gated implementation.
 
 - `engine-cleanup-plans/03-governance-apparatus-reduction.md`
 - `engine-cleanup-plans/04-error-handling-policy-reconciliation.md`
-- `engine-cleanup-plans/07-allocation-gate-right-sizing.md`
+- Engine cleanup plan 07 allocation-gate right-sizing (completed and deleted
+  per MASTER convention on 2026-07-10)
 - `engine-cleanup-plans/11-render-abstraction-leaks.md`
 - `engine-cleanup-plans/13-facade-retirement.md`
 - `engine-cleanup-plans/14-public-physics-api-boundary.md`
