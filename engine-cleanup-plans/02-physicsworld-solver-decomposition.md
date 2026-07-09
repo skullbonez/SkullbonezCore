@@ -163,7 +163,7 @@ island-merge tie-breaks.
   - [x] L2499 `hasWakeEnergy`: awake-neighbor wake-energy test.
   - [x] L2508 `wakeSleepingModel`: sleep-state clear plus immediate force apply.
   - [x] L2527 `contactBodyViewAtTime`: object contact pose view at candidate time.
-  - [ ] L2536 `terrainContactBodyViewForIndex`: terrain contact pose/material view.
+  - [x] L2536 `terrainContactBodyViewForIndex`: terrain contact pose/material view.
   - [ ] L2552 `hasPersistentWakeContact`: exact persistent overlap wake test.
 
   Object/object sweep and CCD:
@@ -295,6 +295,14 @@ island-merge tie-breaks.
     passed in
     `TestOutput\agent_logs\plan02_contact_body_view_validate_physics_20260709_0958.log`
     (28s shell runtime; Debug/Profile builds 0 warnings and 0 errors; final
+    `VALIDATE_PHYSICS: ALL PASSED`).
+  - Extracted the `terrainContactBodyViewForIndex` lambda into
+    `TerrainContactBodyViewForIndex`, threading `bodyRecords` and `config`
+    explicitly while preserving the terrain pose, material, threshold, radius,
+    and fixed-body fields consumed by terrain sweep and manifold building. Gate
+    evidence: `tools\validate_physics.bat` passed in
+    `TestOutput\agent_logs\plan02_terrain_contact_view_validate_physics_20260709_1001.log`
+    (29.2s shell runtime; Debug/Profile builds 0 warnings and 0 errors; final
     `VALIDATE_PHYSICS: ALL PASSED`).
 - [ ] **1.3** `RunSolverPhysics` is now a short driver calling named stages;
   confirm it is under ~300 lines.

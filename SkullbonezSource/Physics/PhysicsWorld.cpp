@@ -475,6 +475,24 @@ ObjectContactBodyView ObjectContactBodyViewAtTime( const PhysicsBodyRecordList& 
     return body;
 }
 
+TerrainContactBodyView TerrainContactBodyViewForIndex( const PhysicsBodyRecordList& bodyRecords,
+                                                        const SkullbonezCore::Basics::EngineConfig& config,
+                                                        int index )
+{
+    const PhysicsBodyRecord& record = bodyRecords[static_cast<size_t>( index )];
+    TerrainContactBodyView body;
+    body.position = record.position;
+    body.orientation = record.orientation;
+    body.linearVelocity = record.linearVelocity;
+    body.terrain = record.terrain;
+    body.boundingRadius = record.boundingRadius;
+    body.contactEpsilon = record.contactEpsilon;
+    body.terrainContactThreshold = config.terrainContactThreshold;
+    body.restitutionThreshold = config.contactRestitutionThreshold;
+    body.isFixed = record.isFixed;
+    return body;
+}
+
 void ApplyForcesForSolverBody( PhysicsBodyStore& bodyStore,
                                const ColliderStore& colliderStore,
                                const PhysicsWorldForces& worldForces,
@@ -2713,22 +2731,6 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
     }
     PROFILE_END( "Frame/Physics/Broadphase" );
 
-    auto terrainContactBodyViewForIndex = [&]( int index ) -> TerrainContactBodyView
-    {
-        const PhysicsBodyRecord& record = bodyRecords[static_cast<size_t>( index )];
-        TerrainContactBodyView body;
-        body.position = record.position;
-        body.orientation = record.orientation;
-        body.linearVelocity = record.linearVelocity;
-        body.terrain = record.terrain;
-        body.boundingRadius = record.boundingRadius;
-        body.contactEpsilon = record.contactEpsilon;
-        body.terrainContactThreshold = config.terrainContactThreshold;
-        body.restitutionThreshold = config.contactRestitutionThreshold;
-        body.isFixed = record.isFixed;
-        return body;
-    };
-
     auto hasPersistentWakeContact = [&]( int awakeIndex, int sleepingIndex ) -> bool
     {
         PROFILE_SCOPED( "Frame/Physics/Narrowphase/WakePersistentContact" );
@@ -3435,7 +3437,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
         }
 
         candidate.availableTime = m_timeRemaining[x];
-        candidate.sweep = SweepTerrainContact( terrainContactBodyViewForIndex( x ),
+        candidate.sweep = SweepTerrainContact( TerrainContactBodyViewForIndex( bodyRecords, config, x ),
                                                colliderRecords[static_cast<size_t>( x )].shape,
                                                candidate.availableTime );
         candidate.tested = 1;
@@ -3450,7 +3452,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
             const float remainingTime = (std::max)( 0.0f, availableTime - colTime );
             Physics::TerrainContactManifold manifold;
             const bool hasManifold =
-                Physics::BuildTerrainContactManifold( terrainContactBodyViewForIndex( x ),
+                Physics::BuildTerrainContactManifold( TerrainContactBodyViewForIndex( bodyRecords, config, x ),
                                                       colliderRecords[static_cast<size_t>( x )].shape,
                                                       x,
                                                       sweep,
