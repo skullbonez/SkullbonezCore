@@ -25,6 +25,8 @@ Invariants:
     scene owner remains responsible for refreshing those stores before drawing.
   - Shadow caster preparation may run worker-side, but draw submission remains
     on the render thread through RenderHelper command/resource contexts.
+  - ShadowCasterBatches capacity is reserved before steady rendering; a larger
+    model count is a fixed-capacity render invariant failure.
 
 Related:
   - SkullbonezSource/Rendering/GameModelRenderer.h
@@ -33,12 +35,13 @@ Related:
 #include "GameModelRenderer.h"
 
 #include "../Core/Config.h"
+#include "../Core/FatalError.h"
+#include "../Core/Profiler.h"
+#include "../Core/WorkerPool.h"
 #include "../Physics/ColliderStore.h"
 #include "Helper.h"
 #include "IRenderDiagnostics.h"
 #include "RenderInstanceStore.h"
-#include "../Core/Profiler.h"
-#include "../Core/WorkerPool.h"
 
 #include <algorithm>
 #include <cfloat>
@@ -518,7 +521,14 @@ void GameModelRenderer::BuildShadowCasterBatches( const RenderInstanceStore& ren
     assert( outBatches.HasCapacityForModelCount( modelCount ) );
     if ( !outBatches.HasCapacityForModelCount( modelCount ) )
     {
-        throw std::runtime_error( "Shadow caster batch reserve exhausted" );
+        SB_FATAL( "GameModelRenderer",
+                  "Shadow caster batch reserve exhausted. modelCount=%d sphereCapacity=%zu boxCapacity=%zu "
+                  "pineCapacity=%zu hullCapacity=%zu",
+                  modelCount,
+                  outBatches.spheres.capacity(),
+                  outBatches.boxes.capacity(),
+                  outBatches.pines.capacity(),
+                  outBatches.convexHulls.capacity() );
     }
 
     const ColliderRecordList& colliders = colliderStore.Records();
