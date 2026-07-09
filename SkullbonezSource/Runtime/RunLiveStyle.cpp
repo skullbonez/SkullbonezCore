@@ -9,8 +9,8 @@ Mental model:
   when that state changes.
 
 Glossary:
-  Lane R result: Recoverable style-load failure reported to the control status
-    file and stderr while the run stays alive.
+  Lane R result: Recoverable style-load or capture failure reported to the
+    control status file and stderr while the run stays alive.
   Validation gate: Repository script that proves a class of changes before
   commit or PR.
 
@@ -330,6 +330,16 @@ void LiveStyleController::MarkCaptureSaved()
 }
 
 
+void LiveStyleController::MarkCaptureFailed( const char* message )
+{
+    const char* detail = message && message[0] != '\0' ? message : "capture failed";
+    WriteStatus( "capture_error", detail );
+    fprintf( stderr, "[style-harness] Capture error: %s\n", detail );
+    m_pendingScreenshotPath[0] = '\0';
+    m_hasPendingScreenshot = false;
+}
+
+
 void Run::TickLiveStyleControl()
 {
     m_liveStyle.Tick( SceneRuntimeStyleContext{ m_launchOptions,
@@ -349,6 +359,11 @@ void Run::TickLiveStyleControlCapture()
         return;
     }
 
-    SaveScreenshot( m_liveStyle.PendingScreenshotPath() );
+    const SbResult captureResult = SaveScreenshot( m_liveStyle.PendingScreenshotPath() );
+    if ( !captureResult.ok )
+    {
+        m_liveStyle.MarkCaptureFailed( captureResult.error.message );
+        return;
+    }
     m_liveStyle.MarkCaptureSaved();
 }

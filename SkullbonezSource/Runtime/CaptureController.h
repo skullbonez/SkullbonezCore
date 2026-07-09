@@ -47,8 +47,8 @@ class CaptureController
                                         int& trackBallIndex,
                                         const RuntimeCaptureSink& sink );
 
-    void SaveScreenshot( Rendering::IRenderCaptureBackend& backend, const char* path );
-    static void SaveBackbufferBmp( Rendering::IRenderCaptureBackend& backend, const char* path );
+    SbResult SaveScreenshot( Rendering::IRenderCaptureBackend& backend, const char* path );
+    static SbResult SaveBackbufferBmp( Rendering::IRenderCaptureBackend& backend, const char* path );
 
   private:
     RunScreenshotState m_screenshot; // Scene and CLI screenshot trigger state

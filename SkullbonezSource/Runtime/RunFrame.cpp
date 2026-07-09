@@ -21,8 +21,8 @@ Glossary:
     state, and replay identity.
   ColliderStore: Physics-owned collider rows for exact shape variants, material
     parameters, and broadphase radius.
-  Lane R result: Recoverable scene-control failure that stops a reload action
-    from being reported as a successful frame transition.
+  Lane R result: Recoverable scene-control or capture failure that prevents a
+    failed side effect from being reported as a successful frame transition.
   Validation gate: Repository script that proves a class of changes before
   commit or PR.
 
@@ -934,8 +934,8 @@ bool Run::TickScreenshots()
     }
 
     const RuntimeCaptureSink sink{ this,
-                                   []( void* context, const char* path )
-                                   { static_cast<Run*>( context )->SaveScreenshot( path ); } };
+                                   []( void* context, const char* path ) -> SbResult
+                                   { return static_cast<Run*>( context )->SaveScreenshot( path ); } };
     const std::string* scenePath = m_sceneController.CurrentPath();
     const RuntimeCaptureResult result = m_diagnosticsRuntime.Capture().TickScreenshots(
         RuntimeCaptureSceneContext{ SceneState().isSceneMode,
@@ -946,6 +946,17 @@ bool Run::TickScreenshots()
         sink );
 
     PROFILE_END( "Frame/PostDraw/Screenshots" );
+
+    if ( !result.captureResult.ok )
+    {
+        // Lane R: capture readback/file IO failed after rendering, so terminate
+        // automation with diagnostics instead of marking the scene complete.
+        fprintf( stderr, "%s: %s\n", result.captureResult.error.owner, result.captureResult.error.message );
+        fflush( stderr );
+        PrintRuntimeExitReason( "Exiting because screenshot capture failed." );
+        PostQuitMessage( 1 );
+        return false;
+    }
 
     if ( result.restartFrame )
     {
@@ -1031,8 +1042,8 @@ void Run::TickAutoCycle()
     }
 
     const RuntimeCaptureSink sink{ this,
-                                   []( void* context, const char* path )
-                                   { static_cast<Run*>( context )->SaveScreenshot( path ); } };
+                                   []( void* context, const char* path ) -> SbResult
+                                   { return static_cast<Run*>( context )->SaveScreenshot( path ); } };
     const RuntimeCaptureResult result =
         m_diagnosticsRuntime.Capture().TickAutoCycle( SceneState().isSceneMode,
                                                       SceneState().isInteractiveRun,
@@ -1042,6 +1053,17 @@ void Run::TickAutoCycle()
                                                       m_camera.autoCycleShotsTaken,
                                                       m_camera.trackBallIndex,
                                                       sink );
+
+    if ( !result.captureResult.ok )
+    {
+        // Lane R: auto-cycle captures are validation side effects; failed file
+        // output exits the run rather than recording a false capture success.
+        fprintf( stderr, "%s: %s\n", result.captureResult.error.owner, result.captureResult.error.message );
+        fflush( stderr );
+        PrintRuntimeExitReason( "Exiting because auto-cycle screenshot capture failed." );
+        PostQuitMessage( 1 );
+        return;
+    }
 
     if ( result.completion != RuntimeCaptureCompletion::AutoCycle )
     {

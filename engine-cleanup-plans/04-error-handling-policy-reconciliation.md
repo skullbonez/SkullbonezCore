@@ -588,6 +588,39 @@ byte-exact gated.
     validation errors 0, screenshots matching baselines, and
     `physics_regression_solver.csv` byte-exact. Final log:
     `Agentic/Reports/validate_full_plan04_window_create_result_20260709_rerun.log`.
+
+  Progress 2026-07-09, capture screenshot recoverable result sub-slice:
+  - Converted `SkullbonezSource/Runtime/CaptureSystem.cpp` rows 198 through
+    201 from screenshot readback/file-output exceptions to Lane R
+    `SbResult::Failure("Runtime/CaptureSystem", ...)` results.
+  - `CaptureSystem`, `CaptureController`, and `Run::SaveScreenshot` now return
+    `SbResult`. Frame screenshot automation and auto-cycle captures exit with
+    diagnostics on failed capture results instead of logging successful scene
+    completion; interaction automation writes report `ok=false`; live-style
+    capture writes `capture_error`; UI screenshot commands report to `stderr`.
+  - Strict anchored source throw statement inventory now reports 110 sites,
+    down from the previous sub-slice count of 114. `SB_FATAL` macro invocations
+    remain 151 via `rg -n "SB_FATAL\s*\(" SkullbonezSource`.
+  - Comment-style audit scope: `SkullbonezSource/Runtime/CaptureController.cpp`,
+    `SkullbonezSource/Runtime/CaptureController.h`,
+    `SkullbonezSource/Runtime/CaptureSystem.cpp`,
+    `SkullbonezSource/Runtime/CaptureSystem.h`,
+    `SkullbonezSource/Runtime/LiveStyleController.h`,
+    `SkullbonezSource/Runtime/Run.h`,
+    `SkullbonezSource/Runtime/RunCapture.cpp`,
+    `SkullbonezSource/Runtime/RunFrame.cpp`,
+    `SkullbonezSource/Runtime/RunInput.cpp`,
+    `SkullbonezSource/Runtime/RunInteractionAutomation.cpp`, and
+    `SkullbonezSource/Runtime/RunLiveStyle.cpp`; checked 11, deferred 0. This
+    was a touched-file audit, so no subsystem checklist plan was required.
+  - Focused build passed: `tools\validate_build.bat Profile` exited 0 in
+    00:00:10.8437565 with 0 warnings and 0 errors.
+  - Required gate passed: `tools\validate_full.bat` exited 0 in
+    00:01:04.6668478 with `VALIDATE_FULL: DEFAULT GATE PASSED`, project filters
+    0 errors, runtime boundaries 0 errors, DX12 validation errors 0,
+    screenshots matching baselines, and `physics_regression_solver.csv`
+    byte-exact. Final log:
+    `Agentic/Reports/validate_full_plan04_capture_result_20260709.log`.
 - [ ] **4.1** Do **not** maintain any throw count. The `MAX_SOURCE_THROW_TOKENS`
   ratchet is deleted by plan 03. Verify progress by re-running
   `rg -n "throw " SkullbonezSource` and confirming the F/R/P sites are converted;

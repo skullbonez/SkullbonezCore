@@ -76,18 +76,23 @@ RuntimeCaptureResult CaptureController::TickAutoCycle( bool isSceneMode,
 }
 
 
-void CaptureController::SaveScreenshot( Rendering::IRenderCaptureBackend& backend, const char* path )
+SbResult CaptureController::SaveScreenshot( Rendering::IRenderCaptureBackend& backend, const char* path )
 {
     RuntimeAllocation::RuntimeAllocationScope allocationScope( RuntimeAllocation::RuntimeAllocationPhase::Capture );
-    CaptureSystem::SaveBackbufferBmp( backend, path );
+    const SbResult captureResult = CaptureSystem::SaveBackbufferBmp( backend, path );
+    if ( !captureResult.ok )
+    {
+        return captureResult;
+    }
     printf( "[capture] Screenshot taken: %s\n", path );
     fflush( stdout );
+    return SbResult::Success();
 }
 
 
-void CaptureController::SaveBackbufferBmp( Rendering::IRenderCaptureBackend& backend, const char* path )
+SbResult CaptureController::SaveBackbufferBmp( Rendering::IRenderCaptureBackend& backend, const char* path )
 {
-    CaptureSystem::SaveBackbufferBmp( backend, path );
+    return CaptureSystem::SaveBackbufferBmp( backend, path );
 }
 } // namespace Basics
 } // namespace SkullbonezCore

@@ -16,8 +16,8 @@ Glossary:
     body-linear-energy path instead of the solver contact-row classifier.
   Attached-camera physics target: Body/collider handles plus a store-owned pose,
     velocity, and broad radius sampled for camera follow math.
-  Lane R result: Recoverable scene-control failure reported by a load action
-    without treating the command as successfully applied.
+  Lane R result: Recoverable scene-control or capture failure reported without
+    treating the command as successfully applied.
   Validation gate: Repository script that proves a class of changes before
     commit or PR.
 
@@ -54,6 +54,7 @@ Related:
 
 #include <cstddef>
 #include <cstdint>
+#include <cstdio>
 #include <cstring>
 
 using namespace SkullbonezCore::Basics;
@@ -2989,7 +2990,12 @@ bool Run::DrainRuntimeCommands()
         case RuntimeCommandType::SaveScreenshot:
             if ( !command.text.empty() )
             {
-                SaveScreenshot( command.text.c_str() );
+                const SbResult captureResult = SaveScreenshot( command.text.c_str() );
+                if ( !captureResult.ok )
+                {
+                    fprintf( stderr, "%s: %s\n", captureResult.error.owner, captureResult.error.message );
+                    fflush( stderr );
+                }
             }
             break;
         case RuntimeCommandType::SaveSceneDefaults:

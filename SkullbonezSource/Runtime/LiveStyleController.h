@@ -20,7 +20,8 @@ Invariants:
   - File paths are fixed when the controller directory is configured.
   - Style polling is style-only; it must not reload scene physics or replace
     runtime-owned bodies.
-  - Pending capture text is bounded and cleared immediately after Run saves it.
+  - Pending capture text is bounded and cleared after Run consumes the save
+    request, whether the screenshot succeeds or reports a Lane R failure.
 
 Related:
   - SkullbonezSource/Runtime/RunLiveStyle.cpp
@@ -46,6 +47,7 @@ class LiveStyleController
     bool HasPendingCapture() const;
     const char* PendingScreenshotPath() const;
     void MarkCaptureSaved();
+    void MarkCaptureFailed( const char* message );
 
   private:
     void WriteStatus( const char* status, const char* detail ) const;

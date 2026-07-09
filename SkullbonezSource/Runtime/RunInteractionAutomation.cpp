@@ -1964,9 +1964,19 @@ void Run::TickInteractionAutomationAfterRender()
         {
             if ( RuntimeFileWriter::EnsureParentDirectory( action.path ) )
             {
-                SaveScreenshot( action.path );
-                state.screenshots.emplace_back( action.path );
-                AppendReportAction( state, frame, action.type, action.path, nullptr, true, "screenshot saved" );
+                const SbResult captureResult = SaveScreenshot( action.path );
+                if ( captureResult.ok )
+                {
+                    state.screenshots.emplace_back( action.path );
+                    AppendReportAction( state, frame, action.type, action.path, nullptr, true, "screenshot saved" );
+                }
+                else
+                {
+                    const char* message = captureResult.error.message[0] != '\0' ? captureResult.error.message
+                                                                                 : "screenshot capture failed";
+                    FailAutomation( state, message );
+                    AppendReportAction( state, frame, action.type, action.path, nullptr, false, message );
+                }
             }
             else
             {

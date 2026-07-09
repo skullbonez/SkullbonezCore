@@ -16,8 +16,8 @@ Glossary:
   HUD (Heads-Up Display): On-screen diagnostics and control overlay.
   CLI (Command-Line Interface): Text arguments or scripts used to launch
   validation and tooling paths.
-  Lane R result: Recoverable scene-load failure reported with owner/message
-    diagnostics instead of escaping through startup exceptions.
+  Lane R result: Recoverable scene-load, capture, or automation failure reported
+    with owner/message diagnostics instead of escaping through exceptions.
   Probe failure: CLI validation failure reported as bounded result/report data
     so automation exits nonzero without throwing through the frame loop.
 
@@ -261,7 +261,7 @@ class Run
     void LogRenderResourceLifecycleStep( const char* phase, const char* step )
         const;                                                          // Debug event log record for a named resource-lifetime phase.
     void SetViewingOrientation();                                       // Camera-view setup for the current frame.
-    void SaveScreenshot( const char* path );                            // Backbuffer capture path; current encoder writes BMP files.
+    SbResult SaveScreenshot( const char* path );                        // Lane R backbuffer capture result; current encoder writes BMP files.
     bool SaveCurrentSceneDefaults();                                    // UI-controlled scene defaults persisted to the active scene file.
     void EnterInteractiveSceneRun();                                    // Locks scene automation into non-quitting interactive mode
     bool CanSceneAutomationQuit() const;                                // True for CLI suites/tests; false once the user owns scene flow
