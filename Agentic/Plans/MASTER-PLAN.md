@@ -46,13 +46,6 @@ re-scoped. Constituent history is in git history of the deleted files.
 | [shadow-edge-quality](TODO/shadow-edge-quality.md) | Planned | 5% | S0 baseline → tight-map terrain receivers → Poisson/PCSS filtering → presets. |
 | [fracture-replay-feature](TODO/fracture-replay-feature.md) | Backlog | 0% | Feature: GPU fracture with reversible replay; sequence after replay memory data-model decisions. |
 
-## Next fable plans (`Agentic/Plans/NEXT_FABLE_PLANS/` — protected; active agent works only here)
-
-| Plan | % |
-|------|---|
-| physics-vcxproj-split-plan | in flight (agent running) |
-| space-nbody-gravity-demo-plan | 0% |
-
 ## Retired in substance (no successor file)
 
 - **Global service retirement** — verified complete 2026-07-09: `Gfx()`,
@@ -75,8 +68,7 @@ re-scoped. Constituent history is in git history of the deleted files.
 
 ## Consolidation record (2026-07-09)
 
-Two owner-directed passes, no commits (another agent active on
-NEXT_FABLE_PLANS; do not touch that folder):
+Two owner-directed passes:
 
 1. Deleted `Agentic/Plans/Done|Failed|Rejected` (124 files),
    `engine-cleanup-plans/DONE/` (8), 13 superseded `To_Eval` plans, 42 stale

@@ -53,8 +53,7 @@ audits when it is still useful.
   percent-complete is `Agentic/Plans/MASTER-PLAN.md`; review findings are in
   `engine-cleanup-plans/15-review-gaps.md`. Completed plans are deleted, not
   archived — do not recreate Done/, Failed/, Rejected/, To_Eval/, or
-  In_Progress/ folders. `Agentic/Plans/NEXT_FABLE_PLANS/` is protected (active
-  agent stream).
+  In_Progress/ folders.
 - Engine cleanup latest handoff:
   `engine-cleanup-plans/HANDOFF-2026-07-09-OWNER-DECISIONS.md`.
   The latest Plan 04 source-slice handoff is

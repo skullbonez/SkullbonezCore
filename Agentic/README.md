@@ -13,7 +13,7 @@ Follow the Agent Startup Contract in `../AGENTS.md`. Load a skill from
 |------|---------|
 | `SessionState.md` | Current branch, active work, blockers, and next validation. Keep this short. |
 | `Skills/` | Concise task procedures and helper scripts. |
-| `Plans/` | `MASTER-PLAN.md` (inventory + percent-complete for every remaining plan), `TODO/` (consolidated active plans), and `NEXT_FABLE_PLANS/` (protected; active agent stream). Completed plans are deleted (git history is the archive); do not recreate `Done/`/`Failed/`/`Rejected/`/`To_Eval/`/`In_Progress/`. |
+| `Plans/` | `MASTER-PLAN.md` (inventory + percent-complete for every remaining plan) and `TODO/` (consolidated active plans). Completed plans are deleted (git history is the archive); do not recreate `Done/`/`Failed/`/`Rejected/`/`To_Eval/`/`In_Progress/`. |
 | `Audits/` | Renderer, physics, and process audits. Load on demand. |
 | `Bugs.md` | Persistent bug notes. |
 | `Reference/` | Runtime, physics, and external reference material. |
