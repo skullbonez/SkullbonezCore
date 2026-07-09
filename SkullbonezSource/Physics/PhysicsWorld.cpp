@@ -493,6 +493,35 @@ TerrainContactBodyView TerrainContactBodyViewForIndex( const PhysicsBodyRecordLi
     return body;
 }
 
+bool HasPersistentWakeContact( const PhysicsBodyRecordList& bodyRecords,
+                               const ColliderRecordList& colliderRecords,
+                               int awakeIndex,
+                               int sleepingIndex,
+                               float contactEpsilon )
+{
+    PROFILE_SCOPED( "Frame/Physics/Narrowphase/WakePersistentContact" );
+
+    // A swept test can miss a sleeper that is already overlapping after an
+    // awake body's correction step. This fresh manifold test catches that
+    // persistent contact so the sleeper cannot remain frozen inside the
+    // awake body until a later frame happens to generate a swept hit.
+    if ( awakeIndex < 0 || sleepingIndex < 0 || awakeIndex >= static_cast<int>( colliderRecords.size() ) ||
+         sleepingIndex >= static_cast<int>( colliderRecords.size() ) )
+    {
+        return false;
+    }
+
+    ObjectContactManifold manifold;
+    return BuildObjectContactManifold( ObjectContactBodyViewAtTime( bodyRecords, awakeIndex, 0.0f ),
+                                       colliderRecords[static_cast<size_t>( awakeIndex )].shape,
+                                       ObjectContactBodyViewAtTime( bodyRecords, sleepingIndex, 0.0f ),
+                                       colliderRecords[static_cast<size_t>( sleepingIndex )].shape,
+                                       awakeIndex,
+                                       sleepingIndex,
+                                       contactEpsilon,
+                                       manifold );
+}
+
 void ApplyForcesForSolverBody( PhysicsBodyStore& bodyStore,
                                const ColliderStore& colliderStore,
                                const PhysicsWorldForces& worldForces,
@@ -2731,31 +2760,6 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
     }
     PROFILE_END( "Frame/Physics/Broadphase" );
 
-    auto hasPersistentWakeContact = [&]( int awakeIndex, int sleepingIndex ) -> bool
-    {
-        PROFILE_SCOPED( "Frame/Physics/Narrowphase/WakePersistentContact" );
-
-        // A swept test can miss a sleeper that is already overlapping after an
-        // awake body's correction step. This fresh manifold test catches that
-        // persistent contact so the sleeper cannot remain frozen inside the
-        // awake body until a later frame happens to generate a swept hit.
-        if ( awakeIndex < 0 || sleepingIndex < 0 || awakeIndex >= static_cast<int>( colliderRecords.size() ) ||
-             sleepingIndex >= static_cast<int>( colliderRecords.size() ) )
-        {
-            return false;
-        }
-
-        ObjectContactManifold manifold;
-        return BuildObjectContactManifold( ObjectContactBodyViewAtTime( bodyRecords, awakeIndex, 0.0f ),
-                                           colliderRecords[static_cast<size_t>( awakeIndex )].shape,
-                                           ObjectContactBodyViewAtTime( bodyRecords, sleepingIndex, 0.0f ),
-                                           colliderRecords[static_cast<size_t>( sleepingIndex )].shape,
-                                           awakeIndex,
-                                           sleepingIndex,
-                                           config.contactEpsilon,
-                                           manifold );
-    };
-
     auto hasObjectContactAtTime = [&]( int a, int b, float time ) -> bool
     {
         PROFILE_SCOPED( "Frame/Physics/Narrowphase/ExactContactAtTime" );
@@ -3056,7 +3060,8 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
                         writeObjectCollisionCellEvent( event, x, y );
                     }
                 }
-                if ( !wokeBySweptImpact && hasPersistentWakeContact( y, x ) )
+                if ( !wokeBySweptImpact &&
+                     HasPersistentWakeContact( bodyRecords, colliderRecords, y, x, config.contactEpsilon ) )
                 {
                     Physics::PhysicsPipelineRecord record;
                     record.stage = Physics::PhysicsPipelineStage::WakeDecision;
@@ -3137,7 +3142,8 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
                         writeObjectCollisionCellEvent( event, x, y );
                     }
                 }
-                if ( !wokeBySweptImpact && hasPersistentWakeContact( x, y ) )
+                if ( !wokeBySweptImpact &&
+                     HasPersistentWakeContact( bodyRecords, colliderRecords, x, y, config.contactEpsilon ) )
                 {
                     Physics::PhysicsPipelineRecord record;
                     record.stage = Physics::PhysicsPipelineStage::WakeDecision;
