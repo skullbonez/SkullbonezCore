@@ -1,7 +1,7 @@
 # 04 — Error-Handling Policy Reconciliation
 
 Date: 2026-07-08
-Status: Proposed
+Status: In Progress
 Priority: P1
 Owner: Runtime / Physics / Rendering
 Source issue: audit iss-03 (severity 4)
@@ -40,7 +40,7 @@ boundary), say so.
 
 ## Approach
 
-- [ ] **Phase 0 — Categorize all 283 throws** by lane: F (should-never-happen
+- [x] **Phase 0 — Categorize all 283 throws** by lane: F (should-never-happen
   engine invariant), R (external input/environment: scene/asset/file IO), P
   (probe/automation assertion).
 - [ ] **Phase 1 — F → `SB_FATAL`.** Convert physics capacity guards and
@@ -65,9 +65,19 @@ after Phase 1.
 Do steps in order; validate and commit per step. Physics conversions are
 byte-exact gated.
 
-- [ ] **0.1** `rg -n "throw " SkullbonezSource` and tag each of the ~283 sites in
+- [x] **0.1** `rg -n "throw " SkullbonezSource` and tag each of the ~283 sites in
   a table as **F** (engine invariant), **R** (external input/IO), or **P**
   (probe/automation). No code change. Commit the table.
+
+  Completed 2026-07-09:
+  - Added `04-throw-site-lane-inventory.md` with one row per current throw
+    statement.
+  - Used strict inventory command `rg -n "^\s*throw\b" SkullbonezSource` so
+    comments mentioning `throw` do not inflate the count, while bare `throw;`
+    rethrows are included.
+  - Current source has 257 throw statements, down from the stale 283 count in
+    the original audit. Classification summary: F = 137, R = 116, P = 4.
+  - Documentation-only step; no repository validation required.
 - [ ] **1.1** Convert **F** sites (physics capacity guards, frame-loop
   invariants) to `SB_FATAL(owner, ...)`, **one subsystem at a time**. Gate:
   `validate_physics` for physics, `validate_full` otherwise. Commit per
