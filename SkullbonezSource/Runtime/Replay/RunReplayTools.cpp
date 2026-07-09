@@ -52,6 +52,7 @@ Related:
 #include "ReplayInteractionController.h"
 #include "ReplayOverlayLayout.h"
 #include "ReplayOverlayRenderer.h"
+#include "ReplayPredictionReserve.h"
 #include "RunReplayImportExport.h"
 #include "../RuntimePickService.h"
 #include "../Allocation/RuntimeAllocationTracker.h"
@@ -408,34 +409,12 @@ std::size_t ReplayPredictionBuildPresentationFrameCountForRefresh( RunReplayPred
     return (std::max)( std::size_t{ 2u }, static_cast<std::size_t>( revealFrame ) + 1u );
 }
 
-constexpr const char* REPLAY_PREDICTION_RESERVE_OWNER = "replay_prediction_working_set";
 constexpr int REPLAY_PREDICTION_FRAME_CAPACITY =
     static_cast<int>( REPLAY_PREDICTION_MAX_SECONDS / PHYSICS_FIXED_DT ) + 2;
 constexpr int REPLAY_PREDICTION_PATH_BUDGET = 100;
-constexpr int REPLAY_PREDICTION_RESERVE_HARD_BYTES = 256 * 1024 * 1024;
 constexpr std::size_t REPLAY_PREDICTION_DEBUG_CONTACT_INITIAL_MIN = 512u;
 constexpr std::size_t REPLAY_PREDICTION_DEBUG_CONTACT_INITIAL_MAX = 2048u;
 constexpr std::size_t REPLAY_PREDICTION_DEBUG_CONTACT_GROWTH_CHUNK = 4096u;
-// Runtime allocation policy: prediction scratch can grow as the user explores
-// larger retained paths. The registered hard cap is a real byte ceiling, not a
-// theoretical element-count product; growth count is telemetry so interactive
-// replay does not trip a per-run count fuse.
-constexpr int REPLAY_PREDICTION_RESERVE_GROWTH_LIMIT = RuntimeAllocation::RUNTIME_RESERVE_REPLAY_GROWTH_LIMIT_UNBOUNDED;
-
-RuntimeAllocation::RuntimeReserveOwnerHandle ReplayPredictionReserveOwner()
-{
-    static const RuntimeAllocation::RuntimeReserveOwnerHandle owner =
-        RuntimeAllocation::RuntimeReserveAllocator::RegisterOwner(
-            { REPLAY_PREDICTION_RESERVE_OWNER,
-              RuntimeAllocation::RuntimeReserveSubsystem::Replay,
-              RuntimeAllocation::RuntimeReservePhase::Replay,
-              0,
-              REPLAY_PREDICTION_RESERVE_HARD_BYTES,
-              REPLAY_PREDICTION_RESERVE_GROWTH_LIMIT,
-              true,
-              "replay prediction supports large retained path visualization under a hard byte budget" } );
-    return owner;
-}
 
 template <typename T> bool ReplayPredictionCapacityBytes( std::size_t capacity, uint64_t& outBytes )
 {
@@ -531,21 +510,18 @@ bool ReserveReplayPredictionVector( std::vector<T>& values,
         return false;
     }
 
-    const RuntimeAllocation::RuntimeReserveOwnerHandle owner = ReplayPredictionReserveOwner();
-    const RuntimeAllocation::RuntimeReserveGrowthRequest request = { REPLAY_PREDICTION_RESERVE_OWNER,
-                                                                     targetName,
-                                                                     RuntimeAllocation::RuntimeReservePhase::Replay,
-                                                                     frameNumber,
-                                                                     static_cast<int>( oldBytes ),
-                                                                     static_cast<int>( requestedBytes ),
-                                                                     1 };
-    const RuntimeAllocation::RuntimeReserveGrowthResult result =
-        RuntimeAllocation::RuntimeReserveAllocator::RequestGrowth( owner, request );
-    if ( !result.granted )
+    RuntimeAllocation::RuntimeReserveGrowthResult result = {};
+    if ( !RequestReplayPredictionReserveGrowth( targetName,
+                                                frameNumber,
+                                                static_cast<int>( oldBytes ),
+                                                static_cast<int>( requestedBytes ),
+                                                1,
+                                                result ) )
     {
         return false;
     }
 
+    const RuntimeAllocation::RuntimeReserveOwnerHandle owner = ReplayPredictionReserveOwner();
     RuntimeAllocation::RuntimeAllocationScope replayAllocationScope(
         RuntimeAllocation::RuntimeAllocationPhase::Replay );
     RuntimeAllocation::RuntimeReserveOwnerScope ownerScope( owner );
@@ -597,21 +573,18 @@ bool ReserveReplayPredictionFramePayloadVectors( std::vector<RunReplayPrediction
         return false;
     }
 
-    const RuntimeAllocation::RuntimeReserveOwnerHandle owner = ReplayPredictionReserveOwner();
-    const RuntimeAllocation::RuntimeReserveGrowthRequest request = { REPLAY_PREDICTION_RESERVE_OWNER,
-                                                                     targetName,
-                                                                     RuntimeAllocation::RuntimeReservePhase::Replay,
-                                                                     frameNumber,
-                                                                     static_cast<int>( oldBytes ),
-                                                                     static_cast<int>( requestedBytes ),
-                                                                     1 };
-    const RuntimeAllocation::RuntimeReserveGrowthResult result =
-        RuntimeAllocation::RuntimeReserveAllocator::RequestGrowth( owner, request );
-    if ( !result.granted )
+    RuntimeAllocation::RuntimeReserveGrowthResult result = {};
+    if ( !RequestReplayPredictionReserveGrowth( targetName,
+                                                frameNumber,
+                                                static_cast<int>( oldBytes ),
+                                                static_cast<int>( requestedBytes ),
+                                                1,
+                                                result ) )
     {
         return false;
     }
 
+    const RuntimeAllocation::RuntimeReserveOwnerHandle owner = ReplayPredictionReserveOwner();
     RuntimeAllocation::RuntimeAllocationScope replayAllocationScope(
         RuntimeAllocation::RuntimeAllocationPhase::Replay );
     RuntimeAllocation::RuntimeReserveOwnerScope ownerScope( owner );
@@ -2805,16 +2778,12 @@ bool SeedReplayPredictionEngine( RunReplayPredictionState& prediction,
         // Why: the private engine is retained across prediction rebuilds. Only
         // real capacity increases should consume replay growth events; same-size
         // reseeds just reuse the previous bounded reservation.
-        const RuntimeAllocation::RuntimeReserveGrowthRequest request = {
-            REPLAY_PREDICTION_RESERVE_OWNER,
-            "RunReplayPredictionSimulationState::predictionEngine",
-            RuntimeAllocation::RuntimeReservePhase::Replay,
-            0,
-            currentBytes,
-            requestedBytes,
-            1 };
-        result = RuntimeAllocation::RuntimeReserveAllocator::RequestGrowth( owner, request );
-        if ( !result.granted )
+        if ( !RequestReplayPredictionReserveGrowth( "RunReplayPredictionSimulationState::predictionEngine",
+                                                    0,
+                                                    currentBytes,
+                                                    requestedBytes,
+                                                    1,
+                                                    result ) )
         {
             return false;
         }

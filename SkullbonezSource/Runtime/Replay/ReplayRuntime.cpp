@@ -630,11 +630,6 @@ RunReplayPredictionState& RunReplayPredictionState::operator=( RunReplayPredicti
 
 ReplayRuntime::ReplayRuntime()
 {
-    m_causeTree.rows.reserve( REPLAY_CAUSE_TREE_ROW_CAPACITY );
-    // Runtime allocation policy: prediction ghost requests are appended while
-    // rendering replay overlays. Reserve the worst-case live sample stride plus
-    // one baseline rest pose per model before steady gameplay.
-    m_predictionGhostDrawRequests.reserve( REPLAY_PREDICTION_GHOST_REQUEST_CAPACITY );
     // Runtime allocation policy: path target selection is a live replay UI
     // action, so it rotates entries within a fixed pre-gameplay vector budget.
     m_pathVisualizer.targets.reserve( REPLAY_PATH_MAX_ROOT_TARGETS );
@@ -771,6 +766,7 @@ void ReplayRuntime::CancelPredictionJob( bool clearSamples )
     if ( clearSamples )
     {
         m_prediction.simulation.frames.clear();
+        m_prediction.trajectoryStore.Clear();
         ClearPredictionFutureNodeCache();
     }
 }
@@ -783,6 +779,7 @@ void ReplayRuntime::ClearPredictionCache()
     m_prediction.simulation.sourceSolverHash = 0;
     m_prediction.simulation.sourceSimulationSeconds = 0.0;
     m_prediction.build.lastBuildTime = 0.0;
+    m_prediction.trajectoryStore.Clear();
     m_prediction.baseline = ReplayPredictionBaselineSnapshot{};
 }
 
@@ -1157,6 +1154,15 @@ ReplayRuntime::RecordingConfigResult ReplayRuntime::ConfigureRecording( bool ena
     m_presentation.Configure( replayConfig );
     m_solver.Configure( solverReplayConfig );
     m_events.Configure( replayConfig );
+    if ( replayConfig.enabled )
+    {
+        // Runtime allocation policy: cause rows and prediction ghost requests are
+        // replay-only overlay buffers. Reserve them at startup replay
+        // configuration, not in the always-constructed runtime, so non-replay perf
+        // scenes do not carry 49 MB of dormant visualization capacity.
+        m_causeTree.rows.reserve( REPLAY_CAUSE_TREE_ROW_CAPACITY );
+        m_predictionGhostDrawRequests.reserve( REPLAY_PREDICTION_GHOST_REQUEST_CAPACITY );
+    }
 
     RecordingConfigResult result;
     result.presentationConfig = replayConfig;
@@ -2618,6 +2624,9 @@ MainMemoryReplayStats ReplayRuntime::CollectMemoryStats() const
     MainMemoryAddReplayCategoryBytes( stats.categoryBytes,
                                       MainMemoryReplayByteCategory::PathCauseRows,
                                       VectorCapacityBytes( m_causeTree.rows ) );
+    MainMemoryAddReplayCategoryBytes( stats.categoryBytes,
+                                      MainMemoryReplayByteCategory::TrajectoryStore,
+                                      m_prediction.trajectoryStore.CapacityBytes() );
     stats.pathAndCauseBytes = MainMemoryReplayCategoryRangeBytes( stats.categoryBytes,
                                                                   MainMemoryReplayByteCategory::PathOwner,
                                                                   MainMemoryReplayByteCategory::RenderGhostRequests );

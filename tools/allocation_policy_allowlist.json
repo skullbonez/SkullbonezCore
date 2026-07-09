@@ -84,26 +84,15 @@
       "removal_or_wrapper_plan": "Keep growth approval isolated here and reject any new reserve-bump callsite unless it routes through registered owner wrappers."
     },
     {
-      "path": "SkullbonezSource/Runtime/Replay/RunReplayTools.cpp",
+      "path": "SkullbonezSource/Runtime/Replay/ReplayPredictionReserve.cpp",
       "patterns": [
-        "RuntimeAllocation::RuntimeReserveAllocator::RequestGrowth( owner, request );"
+        "Runtime::Allocation::RuntimeReserveAllocator::RequestGrowth( owner, request );"
       ],
       "owner": "Replay prediction working set",
       "phase": "replay",
-      "reason": "Replay prediction uses this helper as the single registered growth gate for top-level prediction, path, and body-state vectors.",
-      "cap": "Registered owner replay_prediction_working_set, hard cap REPLAY_PREDICTION_FRAME_CAPACITY * MAX_GAME_MODELS, counted replay growth.",
-      "removal_or_wrapper_plan": "Keep prediction growth behind ReserveReplayPredictionVector or replace it with a fixed prediction arena; do not add direct vector reserve callsites."
-    },
-    {
-      "path": "SkullbonezSource/Runtime/Replay/RunReplayTools.cpp",
-      "patterns": [
-        "RuntimeAllocation::RuntimeReserveAllocator::RequestGrowth( owner, request );"
-      ],
-      "owner": "Replay prediction frame payload pool",
-      "phase": "replay",
-      "reason": "Batched prediction-frame payload reserves need one registered approval so validation does not see one growth request per future frame.",
-      "cap": "The requested payload capacity is frames times per-frame body/contact capacity and must stay within replay_prediction_working_set hard cap.",
-      "removal_or_wrapper_plan": "Move prediction frame payloads to a flat fixed arena if prediction memory is centralized; keep approvals batched until then."
+      "reason": "Prediction frames, frame payload pools, private prediction engine storage, and trajectory records share one registered replay growth gate.",
+      "cap": "Registered owner replay_prediction_working_set with a 256 MiB hard byte cap; callers pass byte capacities and must reserve under matching replay scopes.",
+      "removal_or_wrapper_plan": "Keep prediction growth behind RequestReplayPredictionReserveGrowth/ReserveReplayPredictionVector or replace the working set with a fixed prediction arena."
     },
     {
       "path": "SkullbonezSource/Runtime/Replay/RunReplayTools.cpp",

@@ -45,6 +45,7 @@ Related:
 #pragma once
 
 #include "ReplayRecorder.h"
+#include "TrajectoryStore.h"
 #include "../RuntimeCameraMode.h"
 #include "../../Core/MainMemoryStats.h"
 #include "../../Core/Common.h"
@@ -483,6 +484,10 @@ struct RunReplayPredictionState
     RunReplayPredictionBuildState build;
     RunReplayPredictionSimulationState simulation;
     RunReplayPredictionFutureNodeCache futureNodeCache;
+    // Concept: Stage-3 trajectory records are the publication layer between
+    // prediction/solver builders and overlay drawing. Existing draw paths still
+    // read legacy caches until the build/draw migration lands.
+    ReplayTrajectoryStore trajectoryStore;
     // Concept: the butterfly baseline is a retained presentation snapshot of
     // the pre-nudge future. It is intentionally smaller than the committed
     // simulation frame list: one cold root polyline, two poses per affected

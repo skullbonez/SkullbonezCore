@@ -1,11 +1,12 @@
 # Replay: Trajectory Visuals, Prediction Job, Memory Quality, Code Size
 
 Date: 2026-07-09 (consolidated mega plan)
-Status: In progress - Stage 2 complete (prediction isolation, trajectory
+Status: In progress - Stage 3.1 complete (prediction isolation, trajectory
 visuals investigation, counters, memory accounting, draw-loop determinism,
-same-target refresh reveal preservation, past-path visibility, and contact
-completeness reporting are complete; TrajectoryStore, worker job, memory
-tuning, and code-size work remain open)
+same-target refresh reveal preservation, past-path visibility, contact
+completeness reporting, and the TrajectoryStore publication shell are complete;
+build-pass migration, lock-step fixes, worker job, memory tuning, renderer
+rewrite, and code-size work remain open)
 Impact area: replay runtime, replay prediction, trajectory overlay rendering,
 DX12 transient geometry, physics stepping, UI
 Consolidates: `replay-prediction-and-memory.md` (sections A/B/C — full text in
@@ -450,8 +451,55 @@ Stage 2 — Rebuild/reveal churn + visibility controls
   output total 2,479 bytes.
 
 Stage 3 — TrajectoryStore + build pass
-- [ ] 3.1 Store records / versioning / published prefixes under
+- [x] 3.1 Store records / versioning / published prefixes under
   `replay_prediction_working_set`.
+  Complete 2026-07-10: added `ReplayPredictionReserve.h/.cpp` as the single
+  owner wrapper for `replay_prediction_working_set` growth requests and added
+  `TrajectoryStore.h/.cpp` with lane-keyed records, record versions,
+  published point prefixes, capacity-checked appends, point/record reserve
+  helpers, and store-byte accounting. `ReplayRuntime` now owns and clears the
+  store with prediction state, reports its capacity through replay memory
+  categories, and reserves large replay-only cause-row/ghost-request buffers
+  only when replay capture/hash logging is configured so non-replay perf scenes
+  do not carry dormant visualization capacity. Project/filter rules and the
+  allocation allowlist were updated for the new replay files. The perf baseline
+  JSONs were intentionally refreshed after `validate_perf` showed the old
+  branch baseline had a stale ~49 MB process working-set offset; absolute perf
+  budgets stayed clean, the allocation guard reported 0 gameplay violations,
+  and a final `validate_perf` pass proved the refreshed baselines.
+
+  Comment audit: inspected 8 touched source-bearing files with 0 deferred
+  (`ReplayPredictionReserve.h/.cpp`, `TrajectoryStore.h/.cpp`,
+  `ReplayRuntime.h/.cpp`, `RunReplayTools.cpp`,
+  `tools/validate_project_filters.py`). Focused checks: allocation policy
+  self-test passed, allocation scan passed
+  (`scanned=296 direct_heap_findings=28 dynamic_stl_member_findings=0
+  allowlist_errors=0`), `tools\validate_project_filters.bat` passed in 1.28s,
+  and focused `tools\validate_build.bat Profile` passed in 5.44s with 0
+  warnings/errors. Memory investigation showed non-replay perf-scene tracked
+  replay bytes drop from 49.37 MB to 0.77 MB after moving the large replay-only
+  reserves, and the allocation guard startup allocation bytes dropped from
+  ~248.4 MB to ~199.8 MB.
+
+  Required validation: `tools\validate_fast.bat` passed in 19.38s
+  (`Agentic/Reports/validate_fast_replay_stage3_1_20260710.log`);
+  `tools\validate_full.bat` passed in 31.89s
+  (`Agentic/Reports/validate_full_replay_visuals_stage3_1_20260710.log`) with
+  project filters clean, Profile/Debug builds clean, DX12 validation errors 0,
+  DX12 screenshots matching committed baselines, and
+  `physics_regression_solver.csv` byte-exact; `tools\validate_replay_scrub.bat`
+  passed in 11.09s
+  (`Agentic/Reports/validate_replay_scrub_replay_visuals_stage3_1_20260710.log`);
+  and `tools\validate_perf.bat` passed in 30.79s
+  (`Agentic/Reports/validate_perf_replay_stage3_1_20260710.log`).
+
+  SkullScope accounting from the final replay scrub gate:
+  - Scrub trace command: `Debug\SKULLBONEZ_CORE.exe --renderer dx12 --vsync off --shadows off --scene SkullbonezData/scenes/physics_roll.scene.json --frames 120 --replay on --replay-seconds 1 --replay-scrub-test --physics-diag Debug\replay_scrub.physicsdiag.ndjson`
+  - Scrub query: `tools\physics_query.bat Debug\replay_scrub.physicsdiag.ndjson replay --limit 8`; trace 54,932 bytes; SQLite cache 225,280 bytes; query output 1,512 bytes.
+  - Restore trace command: `Debug\SKULLBONEZ_CORE.exe --renderer dx12 --vsync off --shadows off --scene SkullbonezData/scenes/physics_roll.scene.json --frames 120 --replay on --replay-seconds 1 --replay-restore-test --physics-diag Debug\replay_restore.physicsdiag.ndjson`
+  - Restore query: `tools\physics_query.bat Debug\replay_restore.physicsdiag.ndjson restore --limit 8`; trace 54,912 bytes; SQLite cache 225,280 bytes; query output 967 bytes.
+  - Total model-read query output: 2,479 bytes. Raw NDJSON/SQLite sizes above
+    are artifact sizes, not model-ingested text.
 - [ ] 3.2 Build pass fed by prediction publish events + solver ring appends;
   incremental cursors preserved.
 - [ ] 3.3 Draw passes read the store only; delete per-frame `targetVisualizer`
