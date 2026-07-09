@@ -78,9 +78,34 @@ requires human sign-off before any deletion.
   inventory in 0.2.
   - Approved by owner steering on 2026-07-09. Continue from the current branch
     and worktree; do not ask again for this gate.
-- [ ] **0.2** Inventory: confirm which real product invariants (if any) the
+- [x] **0.2** Inventory: confirm which real product invariants (if any) the
   checker nominally protects that are worth re-expressing. Default outcome: only
   DX12-only exclusivity survives. No code change; record the list here.
+
+  Completed 2026-07-09:
+  - Survivor to re-express in step 1.1: **DX12-only runtime renderer
+    exclusivity**. The engine may keep accepting `--renderer dx12` and retired
+    compatibility wrappers such as `validate_renderers.bat`, but no OpenGL/DX11
+    runtime backend, runtime renderer choice, or validation launch should return.
+    This should be a small boolean pass/fail check, preferably in
+    `Agentic/Tests/Dx12ArchUnitTests`, not a frozen regex budget.
+  - Real policy owned elsewhere, not by this checker: runtime allocation policy
+    remains global zero-allocation-by-default with the replay-only allocator
+    exception, but Plan 07 and `tools/check_allocation_policy.py` own that gate.
+  - Do **not** preserve as checker invariants: source throw counts,
+    `Run` member/method counts, stored model-index counts, render-pass host field
+    counts, global-service census, `IRenderBackend`/`RenderBackendDX12::Get`
+    tombstones, `GameModelCollection` physics dependency census, RenderGraph
+    ownership vocabulary fences, migration-artifact spelling fences, source
+    inheritance budgets, replay/source-layout fences, and interaction-state
+    spelling checks. These are review/test/plan-follow-through concerns, not
+    product invariants, and should disappear with the regex apparatus.
+  - Evidence commands used: `rg` over `tools/check_runtime_boundaries.py` for
+    `MAX_*` constants/check functions, `rg` for checker invocations, and a
+    focused scan of existing DX12 architecture tests and renderer validation
+    wrappers. CodeGraph was attempted first for the checker survey but did not
+    surface the large Python file cleanly, so the inventory used targeted text
+    queries after that.
 - [ ] **1.1** *(after 0.1)* Re-express the DX12-only check as a standalone
   boolean check (or a `Dx12ArchUnitTests` case). Gate: `validate_tests`. Commit.
 - [ ] **1.2** Delete `tools/check_runtime_boundaries.py` and every invocation of
