@@ -18,6 +18,8 @@ Glossary:
     body handles.
   Hash log: Deterministic text stream that lets saved replay output be compared.
   Loaded presentation: Replay artifact data loaded from disk for scrub preview.
+  Prediction worker: Amortized task that fills replay-owned prediction build
+    frames outside the render thread.
   Ragdoll part: One body inside a multi-body SimpleRagdoll collection.
   Velocity edit: Replay tool state for selecting one path-target body and
     editing its linear or angular velocity vectors.
@@ -27,6 +29,8 @@ Invariants:
     ReplayRuntime lifetime.
   - Solver hash-log paths derive from the presentation path so paired artifacts
     stay beside each other.
+  - Scene and branch reset edges wait for prediction workers before clearing
+    replay-owned scratch.
 
 Related:
   - SkullbonezSource/Runtime/Replay/ReplayRuntime.h
@@ -37,6 +41,7 @@ Related:
 #include "ReplayExporter.h"
 #include "ReplayOverlayLayout.h"
 #include "ReplayV2Artifact.h"
+#include "../../Core/AmortizedTask.h"
 #include "../../Core/Profiler.h"
 #include "../../GameObjects/GameModelCollection.h"
 #include "../../Physics/ColliderStore.h"
@@ -50,6 +55,7 @@ Related:
 #include <cmath>
 #include <cstdio>
 #include <cstring>
+#include <thread>
 
 namespace SkullbonezCore::Basics
 {
@@ -421,6 +427,27 @@ const RunReplayPredictionBodySample* FindReplayPredictionBodyById( const RunRepl
     return FindReplayBodyByIdInSample<RunReplayPredictionFrame, RunReplayPredictionBodySample>( frame, id );
 }
 
+const RunReplayPredictionBodySample* FindReplayPredictionBodyByModelIndex( const RunReplayPredictionFrame& frame,
+                                                                           int modelIndex )
+{
+    return FindReplayBodyByModelIndexInSample<RunReplayPredictionFrame, RunReplayPredictionBodySample, true>(
+        frame,
+        modelIndex );
+}
+
+const RunReplayPredictionBodySample*
+FindReplayPredictionBodyByIdWithHint( const RunReplayPredictionFrame& frame, ReplayBodyId id, int modelIndex )
+{
+    if ( const RunReplayPredictionBodySample* hinted = FindReplayPredictionBodyByModelIndex( frame, modelIndex ) )
+    {
+        if ( hinted->id.value == id.value )
+        {
+            return hinted;
+        }
+    }
+    return FindReplayPredictionBodyById( frame, id );
+}
+
 // Concept: cause-tree focus needs a display radius, not exact shape math.
 // Replay samples carry model indices, while live fallback can use body-handle
 // pairing to stay off GameModel pose and shape mirrors.
@@ -513,6 +540,79 @@ ReplayTrajectoryRecordKey ReplayPastRootTrajectoryKey( ReplayBodyId targetId )
     key.lane = ReplayTrajectoryLane::PastRoot;
     key.branchOrdinal = 0;
     return key;
+}
+
+// Concept: committed prediction roots use trajectory branch 0.
+//
+// RunReplayTools writes in-progress worker output to branch 1 so render can draw
+// a published prefix without replacing the old future. Promotion and completion
+// republish the accepted root into branch 0, which is the frozen preview branch.
+ReplayTrajectoryRecordKey ReplayPredictionCommittedRootTrajectoryKey( ReplayBodyId targetId )
+{
+    ReplayTrajectoryRecordKey key;
+    key.bodyId = targetId;
+    key.lane = ReplayTrajectoryLane::FutureRoot;
+    key.branchOrdinal = 0;
+    return key;
+}
+
+ReplayTrajectoryRecord* BeginReplayPredictionCommittedRootTrajectoryRecord( ReplayTrajectoryStore& store,
+                                                                            ReplayBodyId targetId,
+                                                                            std::size_t pointCapacity )
+{
+    const ReplayTrajectoryRecordKey key = ReplayPredictionCommittedRootTrajectoryKey( targetId );
+    if ( !store.FindRecord( key ) && !store.ReserveRecords( store.RecordCount() + 1u, 0 ) )
+    {
+        return nullptr;
+    }
+
+    ReplayTrajectoryRecord* record = store.BeginReplaceRecord( key, 0, ReplayBodyId{}, 0, 0, false );
+    if ( !record || !store.ReserveRecordPoints( *record, pointCapacity, 0 ) )
+    {
+        return nullptr;
+    }
+    return record;
+}
+
+bool RebuildReplayRuntimePredictionCommittedRootTrajectory( RunReplayPredictionState& prediction )
+{
+    if ( prediction.simulation.targetId.value == 0 || prediction.simulation.frames.size() < 2u )
+    {
+        return true;
+    }
+
+    ReplayTrajectoryRecord* record =
+        BeginReplayPredictionCommittedRootTrajectoryRecord( prediction.trajectoryStore,
+                                                            prediction.simulation.targetId,
+                                                            prediction.simulation.frames.size() );
+    if ( !record )
+    {
+        prediction.trajectoryBuild.valid = false;
+        return false;
+    }
+
+    for ( const RunReplayPredictionFrame& frame : prediction.simulation.frames )
+    {
+        const RunReplayPredictionBodySample* body =
+            FindReplayPredictionBodyByIdWithHint( frame,
+                                                  prediction.simulation.targetId,
+                                                  prediction.simulation.targetModelIndex );
+        if ( body && !prediction.trajectoryStore.TryAppendPoint( *record, { frame.frameIndex, body->position } ) )
+        {
+            prediction.trajectoryBuild.valid = false;
+            return false;
+        }
+    }
+
+    prediction.trajectoryStore.PublishPrefix( *record, record->points.size() );
+    prediction.trajectoryBuild.rootId = prediction.simulation.targetId;
+    prediction.trajectoryBuild.usingBuildFrames = false;
+    prediction.trajectoryBuild.rootFrameCount = record->points.size();
+    prediction.trajectoryBuild.childFrameCount = 0;
+    prediction.trajectoryBuild.builtNodeCount = 0;
+    prediction.trajectoryBuild.topologyVersion = 0;
+    prediction.trajectoryBuild.valid = true;
+    return true;
 }
 
 ReplayTrajectoryRecord* BeginReplayPastRootTrajectoryRecord( ReplayTrajectoryStore& store,
@@ -719,19 +819,30 @@ std::string SolverReplayHashLogPath( const std::string& presentationPath )
     }
     return presentationPath + ".solver";
 }
+
+void WaitForReplayPredictionWorkerIdle( RunReplayPredictionState& prediction )
+{
+    while ( prediction.build.workerTask && prediction.build.workerTask->IsInFlight() )
+    {
+        // Hazard: cancellation is a scene/branch mutation edge. The worker task
+        // owns buildFrames and prediction trajectory slots until it drops
+        // in-flight, so clearing those arrays before this wait would let render
+        // read freed scratch.
+        std::this_thread::yield();
+    }
+}
 } // namespace
 
 
 RunReplayPredictionState::RunReplayPredictionState() = default;
 
 
-RunReplayPredictionState::~RunReplayPredictionState() = default;
-
-
-RunReplayPredictionState::RunReplayPredictionState( RunReplayPredictionState&& ) noexcept = default;
-
-
-RunReplayPredictionState& RunReplayPredictionState::operator=( RunReplayPredictionState&& ) noexcept = default;
+RunReplayPredictionState::~RunReplayPredictionState()
+{
+    // Hazard: WorkerPool tasks capture this replay state by reference. Destruct
+    // only after the in-flight slice has dropped ownership of build scratch.
+    WaitForReplayPredictionWorkerIdle( *this );
+}
 
 
 ReplayRuntime::ReplayRuntime()
@@ -856,11 +967,49 @@ void ReplayRuntime::ClearPredictionFutureNodeCache()
     m_prediction.trajectoryBuild.builtNodeCount = 0;
 }
 
+void ReplayRuntime::WaitForPredictionJobIdle()
+{
+    WaitForReplayPredictionWorkerIdle( m_prediction );
+}
+
+bool ReplayRuntime::PromotePredictionBuildPrefixToCommitted()
+{
+    if ( !m_prediction.BuildPrefixShouldBePresented() )
+    {
+        return false;
+    }
+
+    WaitForReplayPredictionWorkerIdle( m_prediction );
+    const std::size_t promotedFrameCount = m_prediction.PublishedBuildFrameCount();
+    if ( promotedFrameCount < 2u || promotedFrameCount > m_prediction.build.buildFrames.size() )
+    {
+        return false;
+    }
+
+    // Hazard: this is the Play-button ownership transfer. The worker has
+    // released buildFrames, so the frame loop can turn the visible prefix into
+    // committed replay samples before clearing private prediction scratch.
+    m_prediction.build.workerTask.reset();
+    m_prediction.build.building = false;
+    m_prediction.build.complete = true;
+    m_prediction.simulation.frames.swap( m_prediction.build.buildFrames );
+    m_prediction.simulation.frames.resize( promotedFrameCount );
+    m_prediction.build.buildFrames.clear();
+    m_prediction.ResetBuildFramePublication();
+    if ( !RebuildReplayRuntimePredictionCommittedRootTrajectory( m_prediction ) )
+    {
+        return false;
+    }
+    m_prediction.simulation.predictionEngineReady = false;
+    m_prediction.simulation.predictionBodies.clear();
+    m_prediction.simulation.predictionWorld = ReplaySolverWorldSnapshot();
+    return true;
+}
+
 void ReplayRuntime::CancelPredictionJob( bool clearSamples )
 {
-    // Hazard: Phase 3 async stepping must stop or invalidate any worker that can
-    // still publish build frames before this clears the scratch prediction
-    // engine and resets the published-prefix cursor.
+    WaitForReplayPredictionWorkerIdle( m_prediction );
+    m_prediction.build.workerTask.reset();
     m_prediction.build.building = false;
     m_prediction.build.complete = false;
     m_prediction.simulation.targetModelIndex = -1;
@@ -1306,6 +1455,10 @@ void ReplayRuntime::ResetTimeline( const char* sceneLabel )
 ReplayRuntime::SceneTimelineResetResult ReplayRuntime::BeginSceneTimelineReset( const SceneTimelineResetInput& input )
 {
     SceneTimelineResetResult result;
+    // Hazard: scene reset can rebuild live model, body, and collider storage.
+    // Prediction workers hold only replay-owned values, but cancellation still
+    // waits here before old private-engine snapshots are cleared or replaced.
+    CancelPredictionJob( true );
     if ( !input.preserveBranchMetadata )
     {
         ResetBranch();

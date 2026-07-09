@@ -27,7 +27,7 @@ Glossary:
   Runtime state: UI and tool state that belongs to replay but is still consumed
     by Run while the subsystem is being separated.
   Prediction cache: Incremental future-path data built from predicted solver
-    frames under a render-frame budget.
+    frames; a worker publishes build prefixes while render consumes them.
   Published build prefix: Contiguous prediction frames whose rows are fully
     written and safe for render, automation, or Director readers to inspect.
   Trajectory record: Versioned polyline storage for one replay body and lane.
@@ -40,6 +40,8 @@ Invariants:
     must not backup or mutate live GameModel pose for rendering.
   - Prediction cache cursors must be reset whenever target, ragdoll mode, or
     sample storage changes.
+  - Prediction worker tasks must be idle before build scratch, trajectory slots,
+    or private-engine state are cleared.
 
 Related:
   - SkullbonezSource/Runtime/Replay/RunReplayTools.cpp
@@ -58,6 +60,7 @@ Related:
 #include "../../Rendering/RenderInstanceStore.h"
 
 #include <array>
+#include <atomic>
 #include <chrono>
 #include <memory>
 
@@ -74,6 +77,11 @@ class ColliderStore;
 class PhysicsEngine;
 class PhysicsBodyStore;
 } // namespace Physics
+
+namespace Threading
+{
+class AmortizedTask;
+} // namespace Threading
 
 namespace Basics
 {
@@ -459,16 +467,23 @@ struct RunReplayPredictionBuildState
     // Runtime allocation policy: prediction buildFrames can be pre-sized for a
     // whole horizon while only buildFrameCount rows are populated. Render reads
     // frames, not the pre-sized build vector, until completion swaps them.
-    // Invariant: buildFrameCount is the single published prefix cursor. Future
-    // async stepping must publish it only after the corresponding rows are
-    // complete, then cancel or invalidate that writer before clearing storage.
+    // Invariant: buildFrameCount is the single published prefix cursor. Worker
+    // stepping publishes it with release ordering only after the
+    // corresponding frame rows and trajectory slots are complete. Readers use
+    // PublishedBuildFrameCount() as the acquire edge before inspecting rows.
     // Invariant: during a same-target refresh, the building prefix may replace
     // committed frames only after it reaches the reveal cursor captured at job
     // start. This prevents auto-refresh from replaying the causal unfold from
     // frame zero.
     std::vector<RunReplayPredictionFrame> buildFrames;
-    std::size_t buildFrameCount = 0;
+    std::atomic<std::size_t> buildFrameCount{ 0 };
     std::size_t buildPresentationFrameCount = 2u;
+    // Concept: the amortized task owns prediction physics/capture slices while
+    // the frame loop only submits ticks and consumes the published prefix.
+    // Hazard: cancellation must wait for an in-flight slice before clearing
+    // buildFrames, trajectory records, or the private prediction engine.
+    std::unique_ptr<Threading::AmortizedTask> workerTask;
+    std::atomic<bool> workerFailed{ false };
 };
 
 struct RunReplayPredictionSimulationState
@@ -502,12 +517,12 @@ struct RunReplayPredictionState
     ~RunReplayPredictionState();
     RunReplayPredictionState( const RunReplayPredictionState& ) = delete;
     RunReplayPredictionState& operator=( const RunReplayPredictionState& ) = delete;
-    RunReplayPredictionState( RunReplayPredictionState&& ) noexcept;
-    RunReplayPredictionState& operator=( RunReplayPredictionState&& ) noexcept;
+    RunReplayPredictionState( RunReplayPredictionState&& ) noexcept = delete;
+    RunReplayPredictionState& operator=( RunReplayPredictionState&& ) noexcept = delete;
 
     // Concept: prediction builders fill buildFrames first, then publish a
     // prefix count. Readers must ask these helpers for the visible range so a
-    // future async worker can tighten ownership without changing every overlay.
+    // worker-owned build can tighten ownership without changing every overlay.
     std::size_t PublishedBuildFrameCount() const noexcept;
     bool HasPublishedBuildFramePrefix( std::size_t minFrameCount = 2u ) const noexcept;
     bool BuildPrefixShouldBePresented() const noexcept;
@@ -521,7 +536,7 @@ struct RunReplayPredictionState
     RunReplayPredictionBuildState build;
     RunReplayPredictionSimulationState simulation;
     RunReplayPredictionFutureNodeCache futureNodeCache;
-    // Concept: Stage-3 trajectory records are the publication layer between
+    // Concept: trajectory records are the publication layer between
     // prediction/solver builders and overlay drawing. Main root/child ribbons
     // read these records; auxiliary marker/ragdoll paths keep using frame data
     // when they need orientation or velocity, not just trajectory points.
@@ -538,7 +553,8 @@ struct RunReplayPredictionState
 
 inline std::size_t RunReplayPredictionState::PublishedBuildFrameCount() const noexcept
 {
-    return build.buildFrameCount < build.buildFrames.size() ? build.buildFrameCount : build.buildFrames.size();
+    const std::size_t publishedCount = build.buildFrameCount.load( std::memory_order_acquire );
+    return publishedCount < build.buildFrames.size() ? publishedCount : build.buildFrames.size();
 }
 
 inline bool RunReplayPredictionState::HasPublishedBuildFramePrefix( std::size_t minFrameCount ) const noexcept
@@ -562,16 +578,17 @@ inline bool RunReplayPredictionState::BuildFramesAreComplete() const noexcept
 
 inline void RunReplayPredictionState::ResetBuildFramePublication() noexcept
 {
-    build.buildFrameCount = 0;
+    build.buildFrameCount.store( 0, std::memory_order_release );
     build.buildPresentationFrameCount = 2u;
+    build.workerFailed.store( false, std::memory_order_release );
 }
 
 inline void RunReplayPredictionState::PublishBuildFrameSlot( std::size_t frameSlot ) noexcept
 {
     const std::size_t publishedCount = frameSlot < build.buildFrames.size() ? frameSlot + 1u : build.buildFrames.size();
-    if ( publishedCount > build.buildFrameCount )
+    if ( publishedCount > build.buildFrameCount.load( std::memory_order_relaxed ) )
     {
-        build.buildFrameCount = publishedCount;
+        build.buildFrameCount.store( publishedCount, std::memory_order_release );
     }
 }
 
@@ -711,6 +728,12 @@ class ReplayRuntime
     const RunReplayPredictionState& Prediction() const;
     const std::vector<RunReplayPredictionFrame>& ActivePredictionFrames() const;
     void ClearPredictionFutureNodeCache();
+    void WaitForPredictionJobIdle();
+    // Promotes the currently visible worker-built prediction prefix into the
+    // committed preview and releases private build scratch. Returns false when
+    // no coherent prefix is available or the committed root trajectory cannot be
+    // published under the replay reserve budget.
+    bool PromotePredictionBuildPrefixToCommitted();
     void CancelPredictionJob( bool clearSamples );
     void ClearPredictionCache();
     void MarkPredictionDirty();

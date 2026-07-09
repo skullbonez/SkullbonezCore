@@ -106,6 +106,17 @@
       "removal_or_wrapper_plan": "Replace with a dedicated replay prediction arena/object factory if runtime allocation policy gains typed owner allocators; do not construct the private engine at startup."
     },
     {
+      "path": "SkullbonezSource/Runtime/Replay/RunReplayTools.cpp",
+      "patterns": [
+        "std::make_unique<SkullbonezCore::Threading::AmortizedTask>"
+      ],
+      "owner": "Replay prediction working set",
+      "phase": "replay",
+      "reason": "The prediction worker task is constructed lazily with the private replay prediction build and retained only until the build completes or is cancelled.",
+      "cap": "One AmortizedTask instance per active prediction build; construction runs under replay_prediction_working_set and is discarded by CancelPredictionJob or completion.",
+      "removal_or_wrapper_plan": "Replace with an embedded fixed task slot if AmortizedTask gains resettable no-heap storage; keep construction at prediction begin, never in per-tick worker slices."
+    },
+    {
       "path": "SkullbonezSource/Runtime/Replay/ReplayRecorder.cpp",
       "patterns": [
         "RuntimeAllocation::RuntimeReserveAllocator::RequestGrowth( owner, request );"

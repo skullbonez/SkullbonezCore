@@ -480,21 +480,23 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
             // Prediction can still be rebuilt explicitly, but the play button
             // must not let automatic refresh chase the moving live frame.
             RunReplayPredictionState& prediction = m_replayRuntime.Prediction();
+            bool promotedBuildPrefix = false;
             if ( prediction.BuildPrefixShouldBePresented() )
             {
                 // Why: the overlay may be drawing a build prefix before the
                 // full horizon finishes. Promote that visible prefix so Play
                 // freezes the lines the user saw instead of clearing them.
-                // Hazard: if prediction stepping moves to a worker, this helper
-                // must stay false while that worker can still write buildFrames.
-                const std::size_t promotedFrameCount = prediction.PublishedBuildFrameCount();
-                prediction.simulation.frames.swap( prediction.build.buildFrames );
-                prediction.simulation.frames.resize( promotedFrameCount );
-                prediction.ResetBuildFramePublication();
+                // Hazard: promotion swaps vector ownership and republishes the
+                // committed root trajectory, so it must own the worker wait and
+                // cleanup as one replay-runtime transition.
+                promotedBuildPrefix = m_replayRuntime.PromotePredictionBuildPrefixToCommitted();
             }
             m_replayRuntime.Prediction().enabled = false;
             m_replayRuntime.Prediction().ui.horizonDragging = false;
-            m_replayRuntime.CancelPredictionJob( false );
+            if ( !promotedBuildPrefix )
+            {
+                m_replayRuntime.CancelPredictionJob( false );
+            }
             const float currentPosition = m_replayRuntime.TrackPosition( RunReplayTrack::Solver );
             if ( ReplayRuntime::TrackPositionIsFuture( currentPosition, previousPredictionPresentT ) )
             {

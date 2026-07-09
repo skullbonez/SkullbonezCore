@@ -14,8 +14,8 @@ Glossary:
     handoffs.
   Replay target marker: Overlay outline/ring drawn around the replay-selected
     body from live body/collider store rows.
-  Prediction slice: Time-budgeted replay preview work performed inside a render
-    frame.
+  Prediction slice: Bounded worker chunk that advances the private prediction
+    engine and publishes a coherent frame prefix.
   Prediction physics tick: Replay-owned fixed step against the private
     prediction engine.
   Future node: Body discovered by following contacts or predicted movement
@@ -30,15 +30,16 @@ Glossary:
     may keep it only as a repairable lookup shortcut.
   Solver snapshot: Physics cache state that must be restored to make the next
     fixed step reproduce.
-  WorkerPool: Persistent engine worker threads used only for large, independent
-    fork-join loops.
+  WorkerPool: Persistent engine worker threads used for fork-join loops and
+    amortized replay prediction chunks.
 
 Invariants:
   - Prediction must never write live physics stores; private engine state owns
     all future ticks and samples.
-  - Prediction stepping and future-node discovery share a per-frame wall-clock
-    budget; visible path drawing spends the tracer's fixed ribbon quota.
-  - Physics steps stay serial; only read-only body capture is parallelized.
+  - Prediction stepping is single-writer worker work; the render frame consumes
+    only the published prefix and fixed trajectory slots.
+  - Physics steps stay serial per prediction engine; body capture may fan out
+    only after the step, and each worker writes a distinct pre-sized frame row.
 
 Related:
   - SkullbonezSource/Runtime/Replay/RunReplayScrubberTools.cpp
@@ -62,11 +63,13 @@ Related:
 #include "../../Physics/PhysicsMass.h"
 #include "../../Physics/PhysicsTimestep.h"
 #include "../RuntimeFileWriter.h"
+#include "../../Core/AmortizedTask.h"
 #include "../../Core/WorkerPool.h"
 #include "../../UI/UIInput.h"
 #include "../../UI/UILayout.h"
 
 #include <algorithm>
+#include <atomic>
 #include <chrono>
 #include <cfloat>
 #include <cmath>
@@ -75,6 +78,7 @@ Related:
 #include <cstdio>
 #include <cstring>
 #include <limits>
+#include <memory>
 
 #include <commdlg.h>
 
@@ -426,6 +430,7 @@ std::size_t ReplayPredictionBuildPresentationFrameCountForRefresh( RunReplayPred
 constexpr int REPLAY_PREDICTION_FRAME_CAPACITY =
     static_cast<int>( REPLAY_PREDICTION_MAX_SECONDS / PHYSICS_FIXED_DT ) + 2;
 constexpr int REPLAY_PREDICTION_PATH_BUDGET = 100;
+constexpr int REPLAY_PREDICTION_TICKS_PER_WORKER_SUBMIT = 8;
 constexpr std::size_t REPLAY_PREDICTION_DEBUG_CONTACT_INITIAL_MIN = 512u;
 constexpr std::size_t REPLAY_PREDICTION_DEBUG_CONTACT_INITIAL_MAX = 2048u;
 constexpr std::size_t REPLAY_PREDICTION_DEBUG_CONTACT_GROWTH_CHUNK = 4096u;
@@ -900,6 +905,7 @@ bool PrepareReplayPredictionTrajectoryBuild( RunReplayPredictionState& predictio
     {
         return false;
     }
+    rootRecord->points.resize( frameCapacity );
 
     // Invariant: branch 1 is the in-progress prediction record. Branch 0 stays
     // as the committed future until the build swap publishes the completed
@@ -924,7 +930,7 @@ bool PublishReplayPredictionRootTrajectoryFrame( RunReplayPredictionState& predi
         prediction.trajectoryStore.FindRecord( ReplayTrajectoryKey( prediction.trajectoryBuild.rootId,
                                                                     ReplayTrajectoryLane::FutureRoot,
                                                                     REPLAY_TRAJECTORY_BUILD_BRANCH ) );
-    if ( !record || record->points.size() != frameSlot )
+    if ( !record || frameSlot >= record->points.size() )
     {
         prediction.trajectoryBuild.valid = false;
         return false;
@@ -940,12 +946,8 @@ bool PublishReplayPredictionRootTrajectoryFrame( RunReplayPredictionState& predi
         return false;
     }
 
-    if ( !AppendReplayTrajectoryPoint( prediction.trajectoryStore, *record, frame.frameIndex, body->position ) )
-    {
-        prediction.trajectoryBuild.valid = false;
-        return false;
-    }
-    prediction.trajectoryBuild.rootFrameCount = record->points.size();
+    record->points[frameSlot] = { frame.frameIndex, body->position };
+    prediction.trajectoryBuild.rootFrameCount = frameSlot + 1u;
     return true;
 }
 
@@ -2906,8 +2908,10 @@ void DrawReplayPredictionRootTrajectoryFromStore( const RunReplayPredictionState
         return;
     }
 
+    const std::size_t pointCount =
+        usingBuildFrames ? prediction.PublishedBuildFrameCount() : ReplayTrajectoryPublishedPointCount( *record );
     DrawReplayTrajectoryRecordSegments( *record,
-                                        ReplayTrajectoryPublishedPointCount( *record ),
+                                        pointCount,
                                         0,
                                         revealFrame,
                                         revealFrame,
@@ -3719,6 +3723,16 @@ void UpdateReplayPredictionFutureNodeCache( RunReplayPredictionState& prediction
         return;
     }
 
+    if ( prediction.futureNodeCache.futureNodeBuildScratch.size() >= REPLAY_PATH_MAX_FUTURE_NODES )
+    {
+        // Invariant: once the fixed topology cap is saturated, later frames
+        // cannot publish additional nodes. Mark the cache complete for the
+        // visible prefix so reports do not encode the frame-budget slice that
+        // happened to discover the final retained node.
+        prediction.futureNodeCache.futureNodesBuiltFrameCount = frameCount;
+        prediction.futureNodeCache.futureNodesBuiltContactIndex = 0;
+    }
+
     publishScratch();
 }
 
@@ -3901,13 +3915,12 @@ bool SeedReplayPredictionEngine( RunReplayPredictionState& prediction,
 
 
 bool CaptureReplayPredictionFrame( ReplayRuntime& replayRuntime,
-                                   SkullbonezCore::GameObjects::GameModelCollection& modelCollection,
                                    const PhysicsEngine& physicsEngine,
                                    SkullbonezCore::Threading::WorkerPool& workerPool,
+                                   int modelCount,
                                    ReplayFrameIndex frameIndex )
 {
     PROFILE_SCOPED( "Frame/Replay/Prediction/CaptureSample" );
-    const int modelCount = modelCollection.SceneEntityCount();
     const PhysicsBodyStore& bodyStore = physicsEngine.BodyStore();
     const auto& bodyRecords = bodyStore.Records();
     if ( static_cast<int>( bodyRecords.size() ) < modelCount )
@@ -3987,15 +4000,21 @@ bool CaptureReplayPredictionFrame( ReplayRuntime& replayRuntime,
         {
             frame.debugContacts.clear();
             frame.contactsIncomplete = true;
+            if ( !PublishReplayPredictionRootTrajectoryFrame( prediction, frame, frameSlot ) )
+            {
+                return false;
+            }
             prediction.PublishBuildFrameSlot( frameSlot );
-            (void)PublishReplayPredictionRootTrajectoryFrame( prediction, frame, frameSlot );
             return true;
         }
     }
     frame.debugContacts = debugContacts;
     frame.contactsIncomplete = false;
+    if ( !PublishReplayPredictionRootTrajectoryFrame( prediction, frame, frameSlot ) )
+    {
+        return false;
+    }
     prediction.PublishBuildFrameSlot( frameSlot );
-    (void)PublishReplayPredictionRootTrajectoryFrame( prediction, frame, frameSlot );
     return true;
 }
 } // namespace
@@ -4007,6 +4026,123 @@ namespace
 // This block stays after the helper section so job setup, stepping, and drawing
 // can keep using the replay prediction helpers without a new compatibility
 // header.
+void MarkReplayPredictionWorkerFailed( RunReplayPredictionState& prediction )
+{
+    prediction.build.workerFailed.store( true, std::memory_order_release );
+}
+
+void RunReplayPredictionWorkerRange( ReplayRuntime& replayRuntime,
+                                     const EngineConfig& config,
+                                     SkullbonezCore::Threading::WorkerPool& workerPool,
+                                     int modelCount,
+                                     int beginTickIndex,
+                                     int endTickIndex )
+{
+    RunReplayPredictionState& prediction = replayRuntime.Prediction();
+    if ( prediction.build.workerFailed.load( std::memory_order_acquire ) ||
+         !prediction.simulation.predictionEngineReady || !prediction.simulation.predictionEngine )
+    {
+        MarkReplayPredictionWorkerFailed( prediction );
+        return;
+    }
+
+    PhysicsEngine& predictionEngine = *prediction.simulation.predictionEngine;
+    for ( int tickIndex = beginTickIndex; tickIndex < endTickIndex; ++tickIndex )
+    {
+        const int predictionTick = tickIndex + 1;
+        if ( predictionTick > prediction.build.targetTickCount )
+        {
+            break;
+        }
+
+        // Hazard: worker slices hold only replay-owned values: the private
+        // prediction engine, pre-sized build frames, and stable trajectory slots.
+        // Scene mutation paths must cancel and wait before live stores are
+        // reloaded, because this worker never borrows GameModel rows.
+        if ( !StepPredictionEngineTick( predictionEngine,
+                                        PHYSICS_FIXED_DT,
+                                        config,
+                                        prediction.simulation.predictionWorldForces,
+                                        workerPool ) ||
+             !CaptureReplayPredictionFrame( replayRuntime,
+                                            predictionEngine,
+                                            workerPool,
+                                            modelCount,
+                                            static_cast<ReplayFrameIndex>( predictionTick ) ) )
+        {
+            MarkReplayPredictionWorkerFailed( prediction );
+            return;
+        }
+        prediction.build.nextTick = predictionTick + 1;
+    }
+}
+
+bool CompleteReplayPredictionJobOnFrameThread( ReplayRuntime& replayRuntime, double simulationTotalSeconds )
+{
+    RunReplayPredictionState& prediction = replayRuntime.Prediction();
+    if ( prediction.build.workerFailed.load( std::memory_order_acquire ) )
+    {
+        const bool preserveCommittedFuture = prediction.simulation.frames.size() >= 2u;
+        replayRuntime.CancelPredictionJob( !preserveCommittedFuture );
+        replayRuntime.Prediction().build.dirty = true;
+        return false;
+    }
+
+    if ( !prediction.build.workerTask || !prediction.build.workerTask->IsComplete() ||
+         prediction.build.workerTask->IsInFlight() )
+    {
+        return false;
+    }
+
+    if ( prediction.simulation.predictionEngine )
+    {
+        prediction.simulation.predictionEngine->CaptureReplaySolverSnapshot(
+            prediction.simulation.predictionWorld,
+            prediction.simulation.predictionEngine->BodyStore().Count() );
+    }
+
+    const float previousPresentT = replayRuntime.SolverPresentTrackPosition();
+    const float previousSolverPosition = replayRuntime.TrackPosition( RunReplayTrack::Solver );
+    const bool hadCommittedPredictionFrames = prediction.simulation.frames.size() >= 2;
+    const bool solverWasOldLiveEdge =
+        !hadCommittedPredictionFrames && ReplayRuntime::AtPresentTrackPosition( previousSolverPosition, 1.0f );
+    const bool scrubberWasPinnedToPresent =
+        !replayRuntime.Scrubber().historicalSamplePaused ||
+        ReplayRuntime::AtPresentTrackPosition( previousSolverPosition, previousPresentT ) || solverWasOldLiveEdge;
+
+    prediction.build.workerTask.reset();
+    prediction.build.building = false;
+    prediction.build.complete = true;
+    prediction.simulation.frames.swap( prediction.build.buildFrames );
+    prediction.build.buildFrames.clear();
+    prediction.ResetBuildFramePublication();
+    (void)RebuildReplayPredictionCommittedRootTrajectory( prediction );
+    if ( prediction.baseline.valid )
+    {
+        UpdateReplayPredictionBaselineDivergence( prediction,
+                                                  prediction.simulation.frames,
+                                                  prediction.simulation.frames.size() );
+    }
+    if ( scrubberWasPinnedToPresent )
+    {
+        // Why: prediction extends the normalized solver track by moving the
+        // present marker left. A scrub value that meant "live/present" before
+        // the swap must remain present, or render will preview the far future and
+        // make the selected body appear to move.
+        replayRuntime.SetTrackPosition( RunReplayTrack::Solver, replayRuntime.SolverPresentTrackPosition() );
+        if ( replayRuntime.Scrubber().activeTrack == RunReplayTrack::Solver )
+        {
+            replayRuntime.Scrubber().historicalSamplePaused = false;
+        }
+    }
+    // Why: worker timing decides how much build-frame topology render had seen
+    // before the swap. Rebuild the child cache from the committed full buffer so
+    // the final trajectory store and automation fingerprint are scheduler-stable.
+    ClearReplayPredictionFutureNodeCache( prediction );
+    prediction.build.lastBuildTime = simulationTotalSeconds;
+    return true;
+}
+
 bool BeginReplayPredictionJob( ReplayRuntime& replayRuntime,
                                SkullbonezCore::GameObjects::GameModelCollection& modelCollection,
                                const EngineConfig& config,
@@ -4188,14 +4324,32 @@ bool BeginReplayPredictionJob( ReplayRuntime& replayRuntime,
 
     if ( !prediction.simulation.predictionEngine ||
          !CaptureReplayPredictionFrame( replayRuntime,
-                                        modelCollection,
                                         *prediction.simulation.predictionEngine,
                                         workerPool,
+                                        modelCount,
                                         0 ) )
     {
         replayRuntime.CancelPredictionJob( clearSamplesOnCancel );
         prediction.build.dirty = true;
         return false;
+    }
+    {
+        RuntimeAllocation::RuntimeAllocationScope replayAllocationScope(
+            RuntimeAllocation::RuntimeAllocationPhase::Replay );
+        RuntimeAllocation::RuntimeReserveOwnerScope ownerScope( ReplayPredictionReserveOwner() );
+        prediction.build.workerTask = std::make_unique<SkullbonezCore::Threading::AmortizedTask>(
+            prediction.build.targetTickCount,
+            REPLAY_PREDICTION_TICKS_PER_WORKER_SUBMIT,
+            [&replayRuntime, &config, &workerPool, modelCount]( int beginTickIndex, int endTickIndex )
+            {
+                RunReplayPredictionWorkerRange( replayRuntime,
+                                                config,
+                                                workerPool,
+                                                modelCount,
+                                                beginTickIndex,
+                                                endTickIndex );
+            } );
+        prediction.build.workerTask->SetBudget( REPLAY_PREDICTION_TICKS_PER_WORKER_SUBMIT );
     }
     prediction.build.building = true;
 
@@ -4204,8 +4358,6 @@ bool BeginReplayPredictionJob( ReplayRuntime& replayRuntime,
 
 
 bool StepReplayPredictionJob( ReplayRuntime& replayRuntime,
-                              SkullbonezCore::GameObjects::GameModelCollection& modelCollection,
-                              const EngineConfig& config,
                               SkullbonezCore::Threading::WorkerPool& workerPool,
                               double simulationTotalSeconds,
                               const std::chrono::steady_clock::time_point& budgetStart,
@@ -4225,128 +4377,67 @@ bool StepReplayPredictionJob( ReplayRuntime& replayRuntime,
         return false;
     }
 
-    if ( !replayRuntime.Prediction().simulation.predictionEngineReady ||
-         !replayRuntime.Prediction().simulation.predictionEngine )
+    RunReplayPredictionState& prediction = replayRuntime.Prediction();
+    if ( !prediction.simulation.predictionEngineReady || !prediction.simulation.predictionEngine ||
+         !prediction.build.workerTask )
     {
-        const bool preserveCommittedFuture = replayRuntime.Prediction().simulation.frames.size() >= 2u;
-        replayRuntime.CancelPredictionJob( !preserveCommittedFuture );
-        replayRuntime.Prediction().build.dirty = true;
-        return false;
-    }
-    PhysicsEngine& predictionEngine = *replayRuntime.Prediction().simulation.predictionEngine;
-
-    bool progressed = false;
-    bool predictionStepFailed = false;
-
-    {
-        PROFILE_SCOPED( "Frame/Replay/Prediction/Steps" );
-        while ( replayRuntime.Prediction().build.nextTick <= replayRuntime.Prediction().build.targetTickCount )
-        {
-            // Why: a large prediction can spend most of the slice on frame
-            // capture. Still take one tick per entered slice so the visible
-            // build prefix advances instead of stalling forever.
-            if ( progressed && ReplayPredictionBudgetExpiredForPass( replayRuntime,
-                                                                     MainMemoryReplayBudgetPass::PredictionStep,
-                                                                     budgetStart,
-                                                                     budgetMilliseconds ) )
-            {
-                break;
-            }
-
-            {
-                PROFILE_SCOPED( "Frame/Replay/Prediction/StepPhysics" );
-                if ( !StepPredictionEngineTick( predictionEngine,
-                                                PHYSICS_FIXED_DT,
-                                                config,
-                                                replayRuntime.Prediction().simulation.predictionWorldForces,
-                                                workerPool ) )
-                {
-                    predictionStepFailed = true;
-                    replayRuntime.Prediction().build.dirty = true;
-                    break;
-                }
-            }
-            if ( !CaptureReplayPredictionFrame(
-                     replayRuntime,
-                     modelCollection,
-                     predictionEngine,
-                     workerPool,
-                     static_cast<ReplayFrameIndex>( replayRuntime.Prediction().build.nextTick ) ) )
-            {
-                predictionStepFailed = true;
-                replayRuntime.Prediction().build.dirty = true;
-                break;
-            }
-            ++replayRuntime.Prediction().build.nextTick;
-            progressed = true;
-
-            if ( ReplayPredictionBudgetExpiredForPass( replayRuntime,
-                                                       MainMemoryReplayBudgetPass::PredictionStep,
-                                                       budgetStart,
-                                                       budgetMilliseconds ) )
-            {
-                break;
-            }
-        }
-    }
-
-    if ( progressed )
-    {
-        PROFILE_SCOPED( "Frame/Replay/Prediction/CaptureJobState" );
-        predictionEngine.CaptureReplaySolverSnapshot( replayRuntime.Prediction().simulation.predictionWorld,
-                                                      predictionEngine.BodyStore().Count() );
-    }
-
-    if ( predictionStepFailed )
-    {
-        const bool preserveCommittedFuture = replayRuntime.Prediction().simulation.frames.size() >= 2u;
+        const bool preserveCommittedFuture = prediction.simulation.frames.size() >= 2u;
         replayRuntime.CancelPredictionJob( !preserveCommittedFuture );
         replayRuntime.Prediction().build.dirty = true;
         return false;
     }
 
-    if ( replayRuntime.Prediction().build.nextTick > replayRuntime.Prediction().build.targetTickCount )
-    {
-        const float previousPresentT = replayRuntime.SolverPresentTrackPosition();
-        const float previousSolverPosition = replayRuntime.TrackPosition( RunReplayTrack::Solver );
-        const bool hadCommittedPredictionFrames = replayRuntime.Prediction().simulation.frames.size() >= 2;
-        const bool solverWasOldLiveEdge =
-            !hadCommittedPredictionFrames && ReplayRuntime::AtPresentTrackPosition( previousSolverPosition, 1.0f );
-        const bool scrubberWasPinnedToPresent =
-            !replayRuntime.Scrubber().historicalSamplePaused ||
-            ReplayRuntime::AtPresentTrackPosition( previousSolverPosition, previousPresentT ) || solverWasOldLiveEdge;
+    // Why: the frame loop submits at most one bounded worker chunk per render
+    // pass. The worker is the sole writer for buildFrames and the in-progress
+    // root trajectory; render consumes only the acquire-loaded prefix.
+    prediction.build.workerTask->SetBudget( REPLAY_PREDICTION_TICKS_PER_WORKER_SUBMIT );
+    prediction.build.workerTask->SubmitTick( workerPool );
 
-        replayRuntime.Prediction().build.building = false;
-        replayRuntime.Prediction().build.complete = true;
-        replayRuntime.Prediction().simulation.frames.swap( replayRuntime.Prediction().build.buildFrames );
-        replayRuntime.Prediction().build.buildFrames.clear();
-        replayRuntime.Prediction().ResetBuildFramePublication();
-        (void)RebuildReplayPredictionCommittedRootTrajectory( replayRuntime.Prediction() );
-        if ( replayRuntime.Prediction().baseline.valid )
-        {
-            UpdateReplayPredictionBaselineDivergence( replayRuntime.Prediction(),
-                                                      replayRuntime.Prediction().simulation.frames,
-                                                      replayRuntime.Prediction().simulation.frames.size() );
-        }
-        if ( scrubberWasPinnedToPresent )
-        {
-            // Why: prediction extends the normalized solver track by moving the
-            // present marker left. A scrub value that meant "live/present"
-            // before the swap must remain present, or render will preview the
-            // far future and make the selected body appear to move.
-            replayRuntime.SetTrackPosition( RunReplayTrack::Solver, replayRuntime.SolverPresentTrackPosition() );
-            if ( replayRuntime.Scrubber().activeTrack == RunReplayTrack::Solver )
-            {
-                replayRuntime.Scrubber().historicalSamplePaused = false;
-            }
-        }
-        // Why: future-node scratch was built from buildFrames. After this swap
-        // those samples are the final frames, so keeping the cache preserves
-        // progressively revealed child paths through the completion frame.
-        replayRuntime.Prediction().build.lastBuildTime = simulationTotalSeconds;
+    if ( CompleteReplayPredictionJobOnFrameThread( replayRuntime, simulationTotalSeconds ) )
+    {
+        return true;
     }
 
-    return progressed || replayRuntime.Prediction().build.complete;
+    if ( prediction.build.workerFailed.load( std::memory_order_acquire ) )
+    {
+        (void)CompleteReplayPredictionJobOnFrameThread( replayRuntime, simulationTotalSeconds );
+        return false;
+    }
+
+    return prediction.PublishedBuildFrameCount() >= 2u || prediction.build.complete;
+}
+
+
+void RebuildReplayPredictionCommittedTreeAfterWorkerCompletion(
+    ReplayRuntime& replayRuntime,
+    const SkullbonezCore::GameObjects::GameModelCollection& modelCollection )
+{
+    RunReplayPredictionState& prediction = replayRuntime.Prediction();
+    const ReplayBodyId rootId = replayRuntime.PathVisualizer().targetId;
+    if ( rootId.value == 0 || prediction.simulation.frames.size() < 2u )
+    {
+        return;
+    }
+
+    // Why: the worker publishes physics frames; the frame thread owns topology.
+    // Build the committed child tree once from the full finished buffer so
+    // automation and draw records do not depend on how many budgeted render
+    // passes ran before the worker completed.
+    ClearReplayPredictionFutureNodeCache( prediction );
+    const auto rebuildStart = std::chrono::steady_clock::now();
+    UpdateReplayPredictionFutureNodeCache( prediction,
+                                           prediction.simulation.frames,
+                                           prediction.simulation.frames.size(),
+                                           false,
+                                           modelCollection,
+                                           rootId,
+                                           rebuildStart,
+                                           0.0 );
+    UpdateReplayPredictionTrajectoryStore( prediction,
+                                           prediction.simulation.frames,
+                                           prediction.simulation.frames.size(),
+                                           false,
+                                           rootId );
 }
 
 
@@ -4439,19 +4530,23 @@ bool DrawReplayPredictionOverlay( ReplayRuntime& replayRuntime,
                                                    replayRuntime.PathVisualizer().targetId,
                                                    buildBudgetStart,
                                                    budgetMilliseconds );
-            UpdateReplayPredictionTrajectoryStore( replayRuntime.Prediction(),
-                                                   activePredictionFrames,
-                                                   activePredictionFrameCount,
-                                                   usingBuildFrames,
-                                                   replayRuntime.PathVisualizer().targetId );
+            if ( !usingBuildFrames )
+            {
+                UpdateReplayPredictionTrajectoryStore( replayRuntime.Prediction(),
+                                                       activePredictionFrames,
+                                                       activePredictionFrameCount,
+                                                       usingBuildFrames,
+                                                       replayRuntime.PathVisualizer().targetId );
+            }
             (void)ReplayPredictionBudgetExpiredForPass( replayRuntime,
                                                         MainMemoryReplayBudgetPass::PredictionBuildTree,
                                                         buildBudgetStart,
                                                         budgetMilliseconds );
-            drawFutureTree = ReplayPredictionFutureTreeReadyForDraw( replayRuntime.Prediction(),
-                                                                     replayRuntime.PathVisualizer().targetId,
-                                                                     usingBuildFrames,
-                                                                     activePredictionFrameCount );
+            drawFutureTree =
+                !usingBuildFrames && ReplayPredictionFutureTreeReadyForDraw( replayRuntime.Prediction(),
+                                                                             replayRuntime.PathVisualizer().targetId,
+                                                                             usingBuildFrames,
+                                                                             activePredictionFrameCount );
         }
         else
         {
@@ -4628,18 +4723,20 @@ void RenderReplayPredictionVisualizer( ReplayRuntime& replayRuntime,
         }
     }
     const ColliderStore& colliderStore = modelCollection.GetPhysicsEngine().Colliders();
+    bool predictionCompletedThisPass = false;
     if ( replayRuntime.Prediction().build.building )
     {
         const double remainingMilliseconds = ReplayPredictionRemainingMilliseconds( budgetStart, budgetMilliseconds );
         if ( remainingMilliseconds > 0.0 )
         {
+            const bool wasBuilding = replayRuntime.Prediction().build.building;
             StepReplayPredictionJob( replayRuntime,
-                                     modelCollection,
-                                     config,
                                      workerPool,
                                      simulationTotalSeconds,
                                      budgetStart,
                                      budgetMilliseconds );
+            predictionCompletedThisPass =
+                wasBuilding && replayRuntime.Prediction().build.complete && !replayRuntime.Prediction().build.building;
             (void)ReplayPredictionBudgetExpiredForPass( replayRuntime,
                                                         MainMemoryReplayBudgetPass::PredictionStep,
                                                         budgetStart,
@@ -4652,6 +4749,10 @@ void RenderReplayPredictionVisualizer( ReplayRuntime& replayRuntime,
                                                         budgetStart,
                                                         budgetMilliseconds );
         }
+    }
+    if ( predictionCompletedThisPass )
+    {
+        RebuildReplayPredictionCommittedTreeAfterWorkerCompletion( replayRuntime, modelCollection );
     }
 
     // Why: prediction stepping and future-node discovery still share the

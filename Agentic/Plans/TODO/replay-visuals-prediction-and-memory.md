@@ -1,14 +1,15 @@
 # Replay: Trajectory Visuals, Prediction Job, Memory Quality, Code Size
 
 Date: 2026-07-09 (consolidated mega plan)
-Status: In progress - Stage 4 complete (prediction isolation, trajectory
+Status: In progress - Stage 5 complete (prediction isolation, trajectory
 visuals investigation, counters, memory accounting, draw-loop determinism,
 same-target refresh reveal preservation, past-path visibility, contact
-completeness reporting, the TrajectoryStore publication shell, and the
-build-pass writer migration, store-backed draw reads, the default-off legacy
-draw fallback, frozen hierarchy topology/shared reveal clamp, and contact-tick
-child activation, and the twice-run prediction determinism probe are complete;
-worker job, memory tuning, renderer rewrite, and code-size work remain open)
+completeness reporting, the TrajectoryStore publication shell, the build-pass
+writer migration, store-backed draw reads, the default-off legacy draw fallback,
+frozen hierarchy topology/shared reveal clamp, contact-tick child activation,
+the twice-run prediction determinism probe, and the prediction worker job are
+complete; renderer rewrite, visual polish, memory tuning, tooling cleanup, and
+code-size work remain open)
 Impact area: replay runtime, replay prediction, trajectory overlay rendering,
 DX12 transient geometry, physics stepping, UI
 Consolidates: `replay-prediction-and-memory.md` (sections A/B/C — full text in
@@ -791,17 +792,82 @@ Stage 4 — Lock-step hierarchy correctness
     sizes above are artifact sizes, not model-ingested text.
 
 Stage 5 — Prediction worker job (old section A, adopts the store contract)
-- [ ] 5.1 Wrap the tick loop in `Core/AmortizedTask` (`SubmitTick(pool)`,
+- [x] 5.1 Wrap the tick loop in `Core/AmortizedTask` (`SubmitTick(pool)`,
   `SetBudget(ticksPerSubmit)`), state owned by `RunReplayPredictionState`.
   Single-writer rule: only the job writes build frames / store records; the
   frame loop consumes published prefixes.
-- [ ] 5.2 Cancellation: `CancelPredictionJob` waits for or invalidates an
+- [x] 5.2 Cancellation: `CancelPredictionJob` waits for or invalidates an
   in-flight task before clearing state.
-- [ ] 5.3 Scene-mutation guard: every begin/branch/scene-load path cancels
+- [x] 5.3 Scene-mutation guard: every begin/branch/scene-load path cancels
   the job; `Hazard:` comment that the prediction engine holds values only,
   never pointers into live stores.
-- [ ] 5.4 Gate: `validate_full` + 3 consecutive `validate_dx12_renderer`
+- [x] 5.4 Gate: `validate_full` + 3 consecutive `validate_dx12_renderer`
   runs (frame pacing) + `validate_perf` + both prediction proofs.
+
+  Complete 2026-07-10: prediction builds now run through an
+  `AmortizedTask` owned by `RunReplayPredictionBuildState`. The worker advances
+  the private prediction engine and writes only replay-owned build frames plus
+  pre-sized trajectory slots; the frame loop submits bounded chunks and reads
+  the acquire-loaded `buildFrameCount` prefix. `CancelPredictionJob` waits for
+  in-flight worker slices before clearing build frames, trajectory records, or
+  the private engine, and scene/timeline/restore mutation paths cancel the job
+  before touching live scene authority.
+
+  During validation, the first replay proof caught scheduler-sensitive
+  trajectory reporting: the physics frame counts were stable, but cached child
+  topology could encode how much budgeted draw work ran before the worker
+  completed. The completion handoff now clears build-frame topology and rebuilds
+  committed child topology plus child trajectory records once from the full
+  finished frame buffer on the frame thread. A saturated future-node cache also
+  publishes its prefix as complete for the visible buffer, so reports no longer
+  include the incidental frame where the fixed node cap was reached.
+
+  The replay allocation policy allowlist now documents the one replay-phase
+  `std::make_unique<Threading::AmortizedTask>` allocation under the
+  `replay_prediction_working_set` owner. Touched-source comment audit inspected
+  five source-bearing files (`ReplayInteractionController.cpp`,
+  `ReplayRuntime.cpp`, `ReplayRuntime.h`, `RunReplayScrubberTools.cpp`,
+  `RunReplayTools.cpp`) with 0 deferred; no subsystem checklist was required
+  because this was a touched-file pass.
+
+  Focused checks passed after the completion-handoff fix: `tools\validate_format.bat`
+  in 11.88s (`Agentic\Reports\validate_format_replay_stage5_completion_rebuild_after_fix_20260710.log`),
+  `tools\validate_build.bat Debug` in 19.15s
+  (`Agentic\Reports\validate_build_debug_replay_stage5_completion_rebuild_after_fix_20260710.log`),
+  and `python tools\check_replay_prediction_determinism.py` in 15.20s
+  (`Agentic\Reports\check_replay_prediction_determinism_stage5_completion_rebuild_20260710.log`).
+
+  Required final gates passed:
+  `tools\validate_full.bat` in 48.97s
+  (`Agentic\Reports\validate_full_replay_visuals_stage5_final_20260710.log`:
+  DX12 validation errors 0, screenshots matched baselines,
+  `physics_regression_solver.csv` byte-exact);
+  `tools\validate_dx12_renderer.bat` x3 in 22.63s, 22.55s, 22.61s
+  (`Agentic\Reports\validate_dx12_renderer_replay_stage5_final_run1_20260710.log`,
+  `...run2...`, `...run3...`; manifests
+  `TestOutput\validation\dx12_renderer\20260709T174917Z\manifest.json`,
+  `20260709T174939Z\manifest.json`, and
+  `20260709T175002Z\manifest.json`; every run had DX12 validation errors 0 and
+  screenshots matching baselines); `tools\validate_perf.bat` in 28.87s
+  (`Agentic\Reports\validate_perf_replay_stage5_final_20260710.log`:
+  `scanned=296 direct_heap_findings=29 dynamic_stl_member_findings=0
+  allowlist_errors=0`, allocation guard `gameplay_violations=0`);
+  and `tools\validate_replay_scrub.bat` in 23.74s
+  (`Agentic\Reports\validate_replay_scrub_replay_visuals_stage5_final_20260710.log`).
+
+  SkullScope accounting for the replay proof: scrub trace command
+  `Debug\SKULLBONEZ_CORE.exe --renderer dx12 --vsync off --shadows off --scene SkullbonezData/scenes/physics_roll.scene.json --frames 120 --replay on --replay-seconds 1 --replay-scrub-test --physics-diag Debug\replay_scrub.physicsdiag.ndjson`;
+  restore trace command
+  `Debug\SKULLBONEZ_CORE.exe --renderer dx12 --vsync off --shadows off --scene SkullbonezData/scenes/physics_roll.scene.json --frames 120 --replay on --replay-seconds 1 --replay-restore-test --physics-diag Debug\replay_restore.physicsdiag.ndjson`.
+  Queries were `tools\physics_query.bat Debug\replay_scrub.physicsdiag.ndjson replay --limit 8`
+  and `tools\physics_query.bat Debug\replay_restore.physicsdiag.ndjson restore --limit 8`.
+  Raw artifact sizes: scrub NDJSON 54,932 bytes, scrub SQLite 225,280 bytes,
+  restore NDJSON 54,912 bytes, restore SQLite 225,280 bytes. GPT-read query
+  output was 1,512 bytes for scrub and 967 bytes for restore, 2,479 bytes
+  total. Prediction reports were 4,614 and 4,615 bytes; bounded stdout excerpts
+  were 60,294 bytes each. Final prediction fingerprint
+  `0x0165312C5422A5F1` matched across two runs (402 records, 73,021 points,
+  361 active frames).
 
 Stage 6 — Rendering backend
 - [ ] 6.1 `trajectory_ribbon.hlsl` + vertex layout + registration; VS-welded
@@ -853,7 +919,7 @@ Stage 10 — Code-size right-sizing + cleanup (old C1–C3 + visuals P8)
 - [ ] Root/children/grandchildren draw from one shared predicted tick
   timeline; child points only at ticks ≥ `firstFrame`; frozen tree per
   version; trajectory lanes readable with ghost requests forced to 0.
-- [ ] Prediction stepping runs as a worker job; frame loop only consumes
+- [x] Prediction stepping runs as a worker job; frame loop only consumes
   published prefixes.
 - [ ] Zero per-frame heap allocations in the steady-state overlay path
   (`validate_perf` allocation guard, no replay growth events post-build).
@@ -863,7 +929,7 @@ Stage 10 — Code-size right-sizing + cleanup (old C1–C3 + visuals P8)
 - [ ] Clean visuals: welded joints, constant apparent width, depth-aware,
   single-pass glow; `validate_dx12_renderer` ×3 green on updated baselines,
   0 DX12 validation errors.
-- [ ] Determinism: `validate_physics` byte-exact; twice-run prediction probe
+- [x] Determinism: `validate_physics` byte-exact; twice-run prediction probe
   byte-identical; `validate_replay_scrub` green with new probes.
 - [ ] `Runtime/Replay/` line count materially down with scrub/restore probes
   passing.

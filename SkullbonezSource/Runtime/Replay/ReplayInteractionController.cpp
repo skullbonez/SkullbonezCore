@@ -17,6 +17,7 @@ Glossary:
 Invariants:
   - Successful restores always return the scrubber to the solver live edge.
   - Restore input is consumed whether the selected target succeeds or fails.
+  - Restore paths cancel prediction work before mutating live scene authority.
 
 Related:
   - SkullbonezSource/Runtime/Replay/ReplayInteractionController.h
@@ -49,6 +50,10 @@ bool ReplayInteractionController::RestoreScrubberSelectionAsLive( const ReplayLi
     if ( context.replayRuntime.HasLoadedPresentation() && context.replayRuntime.Scrubber().historicalSamplePaused &&
          context.replayRuntime.Scrubber().activeTrack == RunReplayTrack::Presentation )
     {
+        // Hazard: branch restore mutates live scene state through Run callbacks.
+        // Stop any prediction worker before the restore can replace body/store
+        // authority under the replay preview.
+        context.replayRuntime.CancelPredictionJob( false );
         if ( context.api.enterInteractiveSceneRun )
         {
             context.api.enterInteractiveSceneRun( context.api.user );
@@ -80,6 +85,9 @@ bool ReplayInteractionController::RestoreScrubberSelectionAsLive( const ReplayLi
     else if ( context.replayRuntime.Scrubber().historicalSamplePaused &&
               context.replayRuntime.Scrubber().activeTrack == RunReplayTrack::Solver )
     {
+        // Hazard: solver restore promotes a retained sample into the live
+        // timeline, so no prediction worker may keep publishing the old branch.
+        context.replayRuntime.CancelPredictionJob( false );
         if ( context.api.enterInteractiveSceneRun )
         {
             context.api.enterInteractiveSceneRun( context.api.user );
