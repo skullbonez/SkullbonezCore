@@ -373,12 +373,14 @@ void Dx12DescriptorAllocator::Init( ID3D12DescriptorHeap* shaderVisibleHeap,
     if ( !shaderVisibleHeap || !stagingHeap || descriptorSize == 0 || staticCapacity == 0 ||
          transientCapacityPerFrame == 0 || frameCount == 0 || shaderVisibleCapacity > 0xffffffffull )
     {
-        std::ostringstream msg;
-        msg << "Invalid DX12 descriptor allocator init description"
-            << " (descriptor_size=" << descriptorSize << " static_capacity=" << staticCapacity
-            << " transient_capacity_per_frame=" << transientCapacityPerFrame << " frame_count=" << frameCount
-            << " shader_visible_capacity=" << shaderVisibleCapacity << ")";
-        throw std::runtime_error( msg.str() );
+        SB_FATAL( "RenderDeviceDX12",
+                  "Invalid DX12 descriptor allocator init description. descriptor_size=%u static_capacity=%u "
+                  "transient_capacity_per_frame=%u frame_count=%u shader_visible_capacity=%llu",
+                  descriptorSize,
+                  staticCapacity,
+                  transientCapacityPerFrame,
+                  frameCount,
+                  static_cast<unsigned long long>( shaderVisibleCapacity ) );
     }
 
     // The allocator only stores borrowed heap pointers and the table geometry.
@@ -994,7 +996,10 @@ void* Dx12ReadbackBuffer::MapRead( UINT64 sizeBytes ) const
     }
     if ( sizeBytes > m_sizeBytes )
     {
-        throw std::runtime_error( "DX12 readback map range exceeds buffer size" );
+        SB_FATAL( "RenderDeviceDX12",
+                  "DX12 readback map range exceeds buffer size. requested=%llu capacity=%llu",
+                  static_cast<unsigned long long>( sizeBytes ),
+                  static_cast<unsigned long long>( m_sizeBytes ) );
     }
 
     void* mappedData = nullptr;

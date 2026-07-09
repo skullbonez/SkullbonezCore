@@ -756,7 +756,9 @@ static DXGI_FORMAT ToDx12GraphColorFormat( RenderGraphResourceFormat format )
     case RenderGraphResourceFormat::RGBA16F:
         return DXGI_FORMAT_R16G16B16A16_FLOAT;
     default:
-        throw std::runtime_error( "Unsupported render graph color transient format" );
+        SB_FATAL( "RenderBackendDX12",
+                  "Unsupported render graph color transient format. format=%d",
+                  static_cast<int>( format ) );
     }
 }
 

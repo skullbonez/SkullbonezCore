@@ -911,6 +911,36 @@ byte-exact gated.
     `Agentic/Reports/validate_dx12_renderer_plan04_descriptor_fatals_20260709_rerun.log`.
   - `tools\validate_full.bat` was not required for this sub-slice because the
     final diff only touched DX12 renderer code and Plan 04 documentation.
+
+  Progress 2026-07-09, DX12 invariant leftovers fatal batch:
+  - Converted three remaining DX12 owner-invariant throws to `SB_FATAL`: invalid
+    shader-visible descriptor allocator init geometry, readback map bounds that
+    exceed the allocated readback buffer, and unsupported render-graph color
+    transient formats.
+  - These rows were listed in the original inventory's R bucket with the note to
+    keep them recoverable unless the message identified an owner invariant. This
+    batch applies that exception because invalid allocator geometry, invalid
+    readback map ranges, and unsupported graph enum values are backend/caller
+    contract violations. D3D12 resource creation and fence/device failures remain
+    deferred to recoverable-result batches.
+  - Strict anchored source throw statement inventory now reports 72 sites, down
+    from the previous sub-slice count of 75. `SB_FATAL` macro invocations now
+    report 162 via `rg -n "SB_FATAL\s*\(" SkullbonezSource`.
+  - Comment-style audit scope:
+    `SkullbonezSource/Rendering/DX12/RenderBackendDX12.cpp` and
+    `SkullbonezSource/Rendering/DX12/RenderDeviceDX12.cpp`; checked 2, deferred
+    0. This was a touched-file audit, so no subsystem checklist plan was
+    required.
+  - Focused build passed: `tools\validate_build.bat Profile` exited 0 in
+    00:00:06.8697852 with 0 warnings and 0 errors. Log:
+    `Agentic/Reports/validate_build_profile_plan04_dx12_invariant_leftovers_20260709.log`.
+  - Required DX12 gate passed: `tools\validate_dx12_renderer.bat` exited 0 in
+    00:00:26.8442917 with `VALIDATE_DX12_RENDERER: ALL PASSED`, formatting
+    clean, DX12 validation errors 0, and screenshots matching committed
+    baselines. Log:
+    `Agentic/Reports/validate_dx12_renderer_plan04_dx12_invariant_leftovers_20260709.log`.
+  - `tools\validate_full.bat` was not required for this sub-slice because the
+    final diff only touched DX12 renderer code and Plan 04 documentation.
 - [ ] **4.1** Do **not** maintain any throw count. The `MAX_SOURCE_THROW_TOKENS`
   ratchet is deleted by plan 03. Verify progress by re-running
   `rg -n "throw " SkullbonezSource` and confirming the F/R/P sites are converted;

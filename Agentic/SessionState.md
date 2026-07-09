@@ -49,7 +49,7 @@ audits when it is still useful.
 - Engine cleanup latest handoff:
   `engine-cleanup-plans/HANDOFF-2026-07-09-OWNER-DECISIONS.md`.
   The latest Plan 04 source-slice handoff is
-  `engine-cleanup-plans/HANDOFF-2026-07-09-PLAN04-DESCRIPTOR-FATALS.md`.
+  `engine-cleanup-plans/HANDOFF-2026-07-09-PLAN04-DX12-INVARIANT-FATALS.md`.
   Resume Plan 04 with Phase 3 Lane R boundary conversions unless the remaining
   RuntimeAllocationTracker Lane F row has an allocator-safe fatal strategy and a
   clean/approved perf gate path.
