@@ -167,7 +167,7 @@ island-merge tie-breaks.
   - [x] L2552 `hasPersistentWakeContact`: exact persistent overlap wake test.
 
   Object/object sweep and CCD:
-  - [ ] L2577 `hasObjectContactAtTime`: exact object contact query at time.
+  - [x] L2577 `hasObjectContactAtTime`: exact object contact query at time.
   - [ ] L2601 `refineObjectSweepContactTime`: contact-window refinement search.
   - [ ] L2654 `sweepObjectPair`: swept object contact query.
   - [ ] L2676 `objectPairHasPersistentContactCache`: cache-prefix lookup.
@@ -311,6 +311,14 @@ island-merge tie-breaks.
     step. Gate evidence: `tools\validate_physics.bat` passed in
     `TestOutput\agent_logs\plan02_persistent_wake_contact_validate_physics_20260709_1004.log`
     (27.9s shell runtime; Debug/Profile builds 0 warnings and 0 errors; final
+    `VALIDATE_PHYSICS: ALL PASSED`).
+  - Extracted the `hasObjectContactAtTime` lambda into
+    `HasObjectContactAtTime`, threading `bodyRecords`, `colliderRecords`, and
+    `contactEpsilon` explicitly while preserving the non-mutating
+    candidate-time manifold query used by CCD refinement. Gate evidence:
+    `tools\validate_physics.bat` passed in
+    `TestOutput\agent_logs\plan02_object_contact_at_time_validate_physics_20260709_1007.log`
+    (28s shell runtime; Debug/Profile builds 0 warnings and 0 errors; final
     `VALIDATE_PHYSICS: ALL PASSED`).
 - [ ] **1.3** `RunSolverPhysics` is now a short driver calling named stages;
   confirm it is under ~300 lines.

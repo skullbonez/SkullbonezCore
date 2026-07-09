@@ -522,6 +522,35 @@ bool HasPersistentWakeContact( const PhysicsBodyRecordList& bodyRecords,
                                        manifold );
 }
 
+bool HasObjectContactAtTime( const PhysicsBodyRecordList& bodyRecords,
+                             const ColliderRecordList& colliderRecords,
+                             int bodyA,
+                             int bodyB,
+                             float time,
+                             float contactEpsilon )
+{
+    PROFILE_SCOPED( "Frame/Physics/Narrowphase/ExactContactAtTime" );
+
+    if ( bodyA < 0 || bodyB < 0 || bodyA >= static_cast<int>( colliderRecords.size() ) ||
+         bodyB >= static_cast<int>( colliderRecords.size() ) )
+    {
+        return false;
+    }
+
+    // Query at a candidate time without mutating PhysicsBodyStore or the
+    // owner-side presentation rows. CCD refinement only needs temporary pose
+    // views plus the collider shape snapshots.
+    ObjectContactManifold manifold;
+    return BuildObjectContactManifold( ObjectContactBodyViewAtTime( bodyRecords, bodyA, time ),
+                                       colliderRecords[static_cast<size_t>( bodyA )].shape,
+                                       ObjectContactBodyViewAtTime( bodyRecords, bodyB, time ),
+                                       colliderRecords[static_cast<size_t>( bodyB )].shape,
+                                       bodyA,
+                                       bodyB,
+                                       contactEpsilon,
+                                       manifold );
+}
+
 void ApplyForcesForSolverBody( PhysicsBodyStore& bodyStore,
                                const ColliderStore& colliderStore,
                                const PhysicsWorldForces& worldForces,
@@ -2760,30 +2789,6 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
     }
     PROFILE_END( "Frame/Physics/Broadphase" );
 
-    auto hasObjectContactAtTime = [&]( int a, int b, float time ) -> bool
-    {
-        PROFILE_SCOPED( "Frame/Physics/Narrowphase/ExactContactAtTime" );
-
-        if ( a < 0 || b < 0 || a >= static_cast<int>( colliderRecords.size() ) ||
-             b >= static_cast<int>( colliderRecords.size() ) )
-        {
-            return false;
-        }
-
-        // Query at a candidate time without mutating PhysicsBodyStore or the
-        // owner-side presentation rows. CCD refinement only needs temporary pose
-        // views plus the collider shape snapshots.
-        ObjectContactManifold manifold;
-        return BuildObjectContactManifold( ObjectContactBodyViewAtTime( bodyRecords, a, time ),
-                                           colliderRecords[static_cast<size_t>( a )].shape,
-                                           ObjectContactBodyViewAtTime( bodyRecords, b, time ),
-                                           colliderRecords[static_cast<size_t>( b )].shape,
-                                           a,
-                                           b,
-                                           config.contactEpsilon,
-                                           manifold );
-    };
-
     auto refineObjectSweepContactTime = [&]( int a, int b, float coarseTime, float availableTime ) -> float
     {
         PROFILE_SCOPED( "Frame/Physics/Narrowphase/RefineContactTime" );
@@ -2797,7 +2802,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
             return coarseTime;
         }
 
-        if ( hasObjectContactAtTime( a, b, coarseTime ) )
+        if ( HasObjectContactAtTime( bodyRecords, colliderRecords, a, b, coarseTime, config.contactEpsilon ) )
         {
             return coarseTime;
         }
@@ -2808,7 +2813,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
         for ( int step = 1; step <= 48; ++step )
         {
             const float t = coarseTime + ( availableTime - coarseTime ) * ( static_cast<float>( step ) / 48.0f );
-            if ( hasObjectContactAtTime( a, b, t ) )
+            if ( HasObjectContactAtTime( bodyRecords, colliderRecords, a, b, t, config.contactEpsilon ) )
             {
                 hi = t;
                 foundContactWindow = true;
@@ -2825,7 +2830,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
         for ( int iter = 0; iter < 12; ++iter )
         {
             const float mid = ( lo + hi ) * 0.5f;
-            if ( hasObjectContactAtTime( a, b, mid ) )
+            if ( HasObjectContactAtTime( bodyRecords, colliderRecords, a, b, mid, config.contactEpsilon ) )
             {
                 hi = mid;
             }
