@@ -440,11 +440,6 @@ class PhysicsWorld
     void RecordPhysicsPipelineStage( const PhysicsPipelineRecord& record );
     void EnsureCollisionVisualBuffers( int modelCount );
     void EnsureUnderwaterSleepLockBuffer( int modelCount );
-    bool IsFullySubmergedBall( const PhysicsBodyRecord& bodyRecord, const ColliderStore& colliderStore, int index );
-    bool RefreshUnderwaterSubmersionForBall( const PhysicsWorldForces& worldForces,
-                                             PhysicsBodyStore& bodyStore,
-                                             const ColliderStore& colliderStore,
-                                             int index );
     void LockUnderwaterSleeperIfReady( const PhysicsWorldForces& worldForces,
                                        PhysicsBodyStore& bodyStore,
                                        const ColliderStore& colliderStore,

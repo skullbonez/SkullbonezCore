@@ -43,6 +43,7 @@ Related:
 
 #include "../Core/Config.h"
 #include "../Core/FatalError.h"
+#include "BuoyancySystem.h"
 #include "DisjointSet.h"
 #include "PhysicsApi.h"
 #include "PhysicsBodyStore.h"
@@ -63,7 +64,6 @@ Related:
 #include <cstdlib>
 #include <cstdio>
 #include <cstring>
-#include <variant>
 
 using namespace SkullbonezCore::Physics;
 using SkullbonezCore::Basics::ReplaySolverContactCacheSample;
@@ -81,7 +81,6 @@ namespace
 {
 constexpr size_t MAX_PIPELINE_TRACE_RECORDS = 4096;
 constexpr int TERRAIN_BODY_INDEX = -1;
-constexpr float UNDERWATER_SLEEP_LOCK_SUBMERGED_PERCENT = 0.999f;
 constexpr float EXPLICIT_WAKE_NEIGHBOR_SLOP = 0.50f;
 constexpr float EXPLICIT_WAKE_VERTICAL_SLOP = 0.25f;
 // Why: worker fan-out is more expensive than the work for the validation-sized
@@ -1328,82 +1327,6 @@ void PhysicsWorld::EnsureUnderwaterSleepLockBuffer( int modelCount )
 }
 
 
-bool PhysicsWorld::IsFullySubmergedBall( const PhysicsBodyRecord& bodyRecord,
-                                         const ColliderStore& colliderStore,
-                                         int index )
-{
-    const auto& colliders = colliderStore.Records();
-    if ( index < 0 || index >= static_cast<int>( colliders.size() ) || bodyRecord.isFixed ||
-         colliders[static_cast<size_t>( index )].shapeKind != ColliderShapeKind::Sphere )
-    {
-        return false;
-    }
-
-    return bodyRecord.submergedVolumePercent >= UNDERWATER_SLEEP_LOCK_SUBMERGED_PERCENT;
-}
-
-
-bool PhysicsWorld::RefreshUnderwaterSubmersionForBall( const PhysicsWorldForces& worldForces,
-                                                       PhysicsBodyStore& bodyStore,
-                                                       const ColliderStore& colliderStore,
-                                                       int index )
-{
-    PhysicsBodyRecord* bodyRecord = bodyStore.MutableRecordForModelIndex( index );
-    if ( !bodyRecord )
-    {
-        return false;
-    }
-
-    bodyRecord->submergedVolumePercent = 0.0f;
-    const auto& colliders = colliderStore.Records();
-    if ( index < 0 || index >= static_cast<int>( colliders.size() ) )
-    {
-        return false;
-    }
-
-    const ColliderRecord& collider = colliders[static_cast<std::size_t>( index )];
-    if ( collider.shapeKind != ColliderShapeKind::Sphere )
-    {
-        return false;
-    }
-
-    const auto* sphere = std::get_if<Math::CollisionDetection::BoundingSphere>( &collider.shape );
-    if ( !sphere )
-    {
-        return false;
-    }
-
-    Math::Orientation::Quaternion orientation = bodyRecord->orientation;
-    const Math::Transformation::RotationMatrix rotation = orientation.GetOrientationMatrix();
-    const Vector3 center = bodyRecord->position + ( rotation * sphere->GetPosition() );
-    const float radius = sphere->GetRadius();
-    if ( radius <= TOLERANCE )
-    {
-        return false;
-    }
-
-    const float fluidHeightRelativeToCenter = worldForces.fluidSurfaceHeight - center.y;
-    if ( fluidHeightRelativeToCenter <= -radius )
-    {
-        return true;
-    }
-    if ( fluidHeightRelativeToCenter >= radius )
-    {
-        bodyRecord->submergedVolumePercent = 1.0f;
-        return true;
-    }
-
-    // Concept: use the analytic sphere-cap fraction, deriving the world-space
-    // sphere center from physics-owned body pose and collider shape.
-    const float yValue = fluidHeightRelativeToCenter + radius;
-    bodyRecord->submergedVolumePercent =
-        std::clamp( ( ONE_OVER_THREE * _PI * ( ( 3.0f * radius ) - yValue ) * yValue * yValue ) / sphere->GetVolume(),
-                    0.0f,
-                    1.0f );
-    return true;
-}
-
-
 void PhysicsWorld::LockUnderwaterSleeperIfReady( const PhysicsWorldForces& worldForces,
                                                  PhysicsBodyStore& bodyStore,
                                                  const ColliderStore& colliderStore,
@@ -1417,12 +1340,12 @@ void PhysicsWorld::LockUnderwaterSleeperIfReady( const PhysicsWorldForces& world
         return;
     }
 
-    if ( !RefreshUnderwaterSubmersionForBall( worldForces, bodyStore, colliderStore, index ) )
+    if ( !BuoyancySystem::RefreshUnderwaterSubmersionForBall( worldForces, bodyStore, colliderStore, index ) )
     {
         return;
     }
     PhysicsBodyRecord* record = bodyStore.MutableRecordForModelIndex( index );
-    if ( !record || !IsFullySubmergedBall( *record, colliderStore, index ) )
+    if ( !record || !BuoyancySystem::IsFullySubmergedBall( *record, colliderStore, index ) )
     {
         return;
     }
@@ -1823,13 +1746,15 @@ void PhysicsWorld::WakeModel( int bodyCount,
             bool refreshedSubmersion = false;
             if ( colliderStore && worldForces )
             {
-                refreshedSubmersion =
-                    RefreshUnderwaterSubmersionForBall( *worldForces, *bodyStore, *colliderStore, index );
+                refreshedSubmersion = BuoyancySystem::RefreshUnderwaterSubmersionForBall( *worldForces,
+                                                                                          *bodyStore,
+                                                                                          *colliderStore,
+                                                                                          index );
             }
             const PhysicsBodyRecord* record = bodyStore->RecordForModelIndex( index );
             if ( record && colliderStore && ( refreshedSubmersion || record->submergedVolumePercent > 0.0f ) )
             {
-                if ( IsFullySubmergedBall( *record, *colliderStore, index ) )
+                if ( BuoyancySystem::IsFullySubmergedBall( *record, *colliderStore, index ) )
                 {
                     m_underwaterSleepLocked[index] = 1;
                     if ( index < static_cast<int>( m_timeRemaining.size() ) )

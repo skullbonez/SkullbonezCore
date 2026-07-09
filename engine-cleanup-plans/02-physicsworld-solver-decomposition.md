@@ -46,7 +46,7 @@ exists once; replay snapshotting is table-driven.
   explicit inputs (`bodyStore`, `colliderStore`, `worldForces`, `dt`) and
   returning explicit outputs. No shared captured mutable state. Each stage
   becomes unit-testable.
-- [ ] **Phase 2 — Evict gameplay.** Move tornado capture/eject arrays and
+- [x] **Phase 2 — Evict gameplay.** Move tornado capture/eject arrays and
   analytic sphere-cap buoyancy into their own systems; `PhysicsWorld` stops
   owning gameplay state.
 - [ ] **Phase 3 — Table-drive replay snapshot.** Replace the ~250-line hand
@@ -547,8 +547,43 @@ island-merge tie-breaks.
       `Agentic\Reports\validate_physics_tornado_gameplay_2026-07-09.log`
       (14.37s shell runtime; `physics_regression_solver.csv` matched the
       baseline byte-exact, 20001 lines).
-- [ ] **2.2** Move analytic buoyancy (`RefreshUnderwaterSubmersionForBall`) into
+- [x] **2.2** Move analytic buoyancy (`RefreshUnderwaterSubmersionForBall`) into
   a buoyancy system. Gate: `validate_physics`. Commit.
+
+  Completed 2026-07-09:
+  - Added `SkullbonezSource/Physics/BuoyancySystem.h/.cpp` as the physics owner
+    for analytic sphere-cap submersion snapshots and fully-submerged ball
+    classification.
+  - Replaced `PhysicsWorld`'s shape-specific buoyancy helpers with
+    `BuoyancySystem::RefreshUnderwaterSubmersionForBall` and
+    `BuoyancySystem::IsFullySubmergedBall` calls from the existing underwater
+    sleep-lock and wake paths.
+  - Left the underwater sleep-lock vector/state in `PhysicsWorld` because it is
+    solver sleep-policy state; only the analytic buoyancy math moved.
+  - Wired `BuoyancySystem.cpp` into the app and test projects and added the
+    `BuoyancySystem` prefix to `tools/validate_project_filters.py`.
+  - Comment audit checked `BuoyancySystem.cpp`, `BuoyancySystem.h`,
+    `PhysicsWorld.cpp`, `PhysicsWorld.h`, and
+    `tools/validate_project_filters.py`; checked 5, deferred 0, unchecked none.
+  - Gate evidence:
+    - Focused compile: `tools\validate_build.bat Profile` passed in
+      `Agentic\Reports\validate_build_profile_buoyancy_system_2026-07-09.log`
+      (15.36s shell runtime; 0 warnings, 0 errors).
+    - Test-project gate: `tools\validate_tests.bat` passed in
+      `Agentic\Reports\validate_tests_buoyancy_system_2026-07-09.log`
+      (1.90s shell runtime; 61/61 doctest cases and 1539/1539 assertions
+      passed).
+    - Tool-change gate: `tools\validate_fast.bat` passed in
+      `Agentic\Reports\validate_fast_buoyancy_system_2026-07-09.log`
+      (53.42s shell runtime; formatting, project filters, runtime boundaries,
+      staged file sizes, and Profile/Debug builds passed).
+    - Changed-script gate: `tools\validate_project_filters.bat` passed in
+      `Agentic\Reports\validate_project_filters_buoyancy_system_2026-07-09.log`
+      (1.13s shell runtime; project filters 0 errors).
+    - Physics gate: `tools\validate_physics.bat` passed in
+      `Agentic\Reports\validate_physics_buoyancy_system_2026-07-09.log`
+      (16.07s shell runtime; `physics_regression_solver.csv` matched the
+      baseline byte-exact, 20001 lines).
 
 ### Phase 3 — Table-drive the replay snapshot
 

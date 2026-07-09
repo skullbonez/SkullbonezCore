@@ -100,6 +100,7 @@ GAME_OBJECT_PREFIXES = (
 PHYSICS_PREFIXES = (
     "BoundingBox",
     "BoundingSphere",
+    "BuoyancySystem",
     "CollisionShape",
     "ColliderStore",
     "ContactSolverCommon",

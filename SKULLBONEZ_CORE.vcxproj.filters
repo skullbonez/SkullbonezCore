@@ -454,6 +454,9 @@
     <ClCompile Include="SkullbonezSource\Physics\TornadoGameplay.cpp">
       <Filter>Source Files\Physics</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Physics\BuoyancySystem.cpp">
+      <Filter>Source Files\Physics</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Window.cpp">
       <Filter>Source Files\Runtime</Filter>
     </ClCompile>
@@ -993,6 +996,9 @@
       <Filter>Header Files\World</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\SpatialGrid.h">
+      <Filter>Header Files\Physics</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Physics\BuoyancySystem.h">
       <Filter>Header Files\Physics</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\World\Terrain.h">

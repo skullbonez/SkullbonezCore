@@ -182,6 +182,7 @@
     <ClCompile Include="SkullbonezSource\Physics\Ragdoll.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\SleepIslandSystem.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\SpatialGrid.cpp" />
+    <ClCompile Include="SkullbonezSource\Physics\BuoyancySystem.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\TerrainContactManifold.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\TornadoField.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\TornadoGameplay.cpp" />

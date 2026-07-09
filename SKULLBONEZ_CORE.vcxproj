@@ -247,6 +247,7 @@
     <ClCompile Include="SkullbonezSource\Runtime\RunUiTextPass.cpp" />
     <ClCompile Include="SkullbonezSource\World\SkyBox.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\SpatialGrid.cpp" />
+    <ClCompile Include="SkullbonezSource\Physics\BuoyancySystem.cpp" />
     <ClCompile Include="SkullbonezSource\World\Terrain.cpp" />
     <ClCompile Include="SkullbonezSource\Rendering\Text.cpp" />
     <ClCompile Include="SkullbonezSource\Assets\TextureCollection.cpp" />
@@ -434,6 +435,7 @@
     <ClInclude Include="SkullbonezSource\Runtime\RuntimeFileWriter.h" />
     <ClInclude Include="SkullbonezSource\World\SkyBox.h" />
     <ClInclude Include="SkullbonezSource\Physics\SpatialGrid.h" />
+    <ClInclude Include="SkullbonezSource\Physics\BuoyancySystem.h" />
     <ClInclude Include="SkullbonezSource\World\Terrain.h" />
     <ClInclude Include="SkullbonezSource\World\TerrainSupportClassifier.h" />
     <ClInclude Include="SkullbonezSource\Rendering\Text.h" />
