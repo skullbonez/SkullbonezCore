@@ -287,6 +287,22 @@ byte-exact gated.
   - Required gate then passed: `tools\validate_full.bat` exited 0 in
     00:00:57.1070909. Log:
     `Agentic/Reports/validate_full_plan04_assetsystem_fatals_20260709.log`.
+
+  Progress 2026-07-09, TLASDX12 instance-count fatal-invariant sub-slice:
+  - Converted one F site from `throw std::runtime_error` to
+    `SB_FATAL("TLAS", ...)`: `TLASDX12.cpp` row 197 from the Step 0.1
+    inventory. The remaining TLAS throws are DX12 resource-creation Lane R sites
+    and are intentionally left for the recoverable-result phase.
+  - Strict anchored source throw statement inventory now reports 144 sites,
+    down from the previous sub-slice count of 145. `SB_FATAL` macro invocations
+    now report 128 via `rg -n "SB_FATAL\s*\(" SkullbonezSource`.
+  - Comment-style audit scope:
+    `SkullbonezSource/Rendering/DX12/TLASDX12.cpp`; checked 1, deferred 0. The
+    learning header and local build guard now name the TLAS max-instance buffer
+    ownership invariant.
+  - Required gate passed: `tools\validate_dx12_renderer.bat` exited 0 in
+    00:00:25.7839246. Log:
+    `Agentic/Reports/validate_dx12_renderer_plan04_tlas_fatal_20260709.log`.
 - [ ] **2.1** Convert **P** sites (replay/interaction probes) to the
   `FailAutomation(...)` channel with `ok=false` + message. Gate: `validate_full`
   + replay scrub. Commit.
