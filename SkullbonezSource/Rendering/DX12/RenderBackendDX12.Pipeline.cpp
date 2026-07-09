@@ -60,14 +60,6 @@ using Microsoft::WRL::ComPtr;
 
 
 // --- Helpers ---
-static inline void ThrowIfFailed( HRESULT hr, const char* msg )
-{
-    if ( FAILED( hr ) )
-    {
-        throw std::runtime_error( msg );
-    }
-}
-
 // --- RenderBackendDX12 Pipeline methods ---
 
 

@@ -39,7 +39,6 @@ Related:
 #include "../../Core/FatalError.h"
 #include "../../Core/Log.h"
 #include "../../Core/PlatformProfiler.h"
-#include <stdexcept>
 #include <cstdio>
 #include <cstring>
 #include <algorithm>
@@ -56,14 +55,6 @@ using Microsoft::WRL::ComPtr;
 
 
 // --- Helpers ---
-static inline void ThrowIfFailed( HRESULT hr, const char* msg )
-{
-    if ( FAILED( hr ) )
-    {
-        throw std::runtime_error( msg );
-    }
-}
-
 // --- RenderBackendDX12 Profiler methods ---
 
 

@@ -56,14 +56,6 @@ static void ReportDX12DescriptorHeapExhausted( const char* heapName, UINT nextIn
     Log().FlushAll();
 }
 
-static inline void ThrowIfFailed( HRESULT hr, const char* msg )
-{
-    if ( FAILED( hr ) )
-    {
-        throw std::runtime_error( msg );
-    }
-}
-
 // --- RenderBackendDX12 Resources methods ---
 
 

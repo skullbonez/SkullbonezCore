@@ -941,6 +941,31 @@ byte-exact gated.
     `Agentic/Reports/validate_dx12_renderer_plan04_dx12_invariant_leftovers_20260709.log`.
   - `tools\validate_full.bat` was not required for this sub-slice because the
     final diff only touched DX12 renderer code and Plan 04 documentation.
+
+  Progress 2026-07-09, unused DX12 throw-helper cleanup:
+  - Removed three dead local `ThrowIfFailed` helpers from
+    `RenderBackendDX12.Resources.cpp`, `RenderBackendDX12.Profiler.cpp`, and
+    `RenderBackendDX12.Pipeline.cpp`. These helpers had no call sites but still
+    contributed strict throw statements.
+  - Strict anchored source throw statement inventory now reports 69 sites, down
+    from the previous sub-slice count of 72. `SB_FATAL` macro invocations remain
+    162 via `rg -n "SB_FATAL\s*\(" SkullbonezSource`.
+  - Comment-style audit scope:
+    `SkullbonezSource/Rendering/DX12/RenderBackendDX12.Resources.cpp`,
+    `SkullbonezSource/Rendering/DX12/RenderBackendDX12.Profiler.cpp`, and
+    `SkullbonezSource/Rendering/DX12/RenderBackendDX12.Pipeline.cpp`; checked 3,
+    deferred 0. This was a touched-file audit, so no subsystem checklist plan was
+    required.
+  - Focused build passed: `tools\validate_build.bat Profile` exited 0 in
+    00:00:05.7470693 with 0 warnings and 0 errors. Log:
+    `Agentic/Reports/validate_build_profile_plan04_unused_dx12_helpers_20260709.log`.
+  - Required DX12 gate passed: `tools\validate_dx12_renderer.bat` exited 0 in
+    00:00:24.5943424 with `VALIDATE_DX12_RENDERER: ALL PASSED`, formatting
+    clean, DX12 validation errors 0, and screenshots matching committed
+    baselines. Log:
+    `Agentic/Reports/validate_dx12_renderer_plan04_unused_dx12_helpers_20260709.log`.
+  - `tools\validate_full.bat` was not required for this sub-slice because the
+    final diff only touched DX12 renderer code and Plan 04 documentation.
 - [ ] **4.1** Do **not** maintain any throw count. The `MAX_SOURCE_THROW_TOKENS`
   ratchet is deleted by plan 03. Verify progress by re-running
   `rg -n "throw " SkullbonezSource` and confirming the F/R/P sites are converted;
