@@ -18,6 +18,9 @@ Glossary:
 Invariants:
   - DX12 object lifetime, resource states, descriptor rows, and fence ordering
   must stay explicit.
+  - Mesh uploads borrow the current frame upload arena from RenderBackendDX12;
+    a missing upload buffer means the backend frame resources were not
+    initialized before mesh creation.
 
 Related:
   - SkullbonezSource/Rendering/DX12/MeshDX12.h
@@ -25,6 +28,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "MeshDX12.h"
+#include "../../Core/FatalError.h"
 #include "RenderBackendDX12.h"
 #include <stdexcept>
 #include <cstring>
@@ -97,9 +101,11 @@ void MeshDX12::Create( ID3D12Device* device,
     memcpy( uploadPtr, data, (size_t)dataSize );
 
     ID3D12Resource* uploadBuffer = m_backend.GetUploadBuffer();
+    // Invariant: ReserveUpload and GetUploadPtr above are only valid when the
+    // frame upload system owns a backing resource for the current frame.
     if ( !uploadBuffer )
     {
-        throw std::runtime_error( "MeshDX12::Create: no DX12 upload buffer" );
+        SB_FATAL( "MeshDX12", "Create requires a DX12 upload buffer." );
     }
     UINT64 uploadOffset = uploadAddr - uploadBuffer->GetGPUVirtualAddress();
     // Record a GPU-side copy command: transfer vertex data from the upload buffer (CPU-visible staging
