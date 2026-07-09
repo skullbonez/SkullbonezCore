@@ -255,6 +255,11 @@ class PhysicsWorld
     static void RecordObjectNarrowphaseEvent( ObjectNarrowphaseEvent& event,
                                               ObjectNarrowphaseEventKind kind,
                                               const PhysicsPipelineRecord& record );
+    static void EmitObjectCollisionTimeEvent( ObjectNarrowphaseEvent& event,
+                                              int bodyA,
+                                              int bodyB,
+                                              float collisionTime,
+                                              float availableTime );
 
     struct ObjectNarrowphaseIsland
     {

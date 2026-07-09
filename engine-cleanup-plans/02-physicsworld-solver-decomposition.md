@@ -176,7 +176,7 @@ island-merge tie-breaks.
 
   Object narrowphase events and dispatch:
   - [x] L2739 `recordObjectNarrowphaseEvent`: stage-record copy into event buffer.
-  - [ ] L2749 `emitObjectCollisionTimeEvent`: collision-time event fields.
+  - [x] L2749 `emitObjectCollisionTimeEvent`: collision-time event fields.
   - [ ] L2758 `markObjectVisualEvent`: visual-contact event fields.
   - [ ] L2765 `writeObjectCollisionCellEvent`: hashed collision-cell event fields.
   - [ ] L2778 `commitObjectNarrowphaseEvent`: serial side-effect application.
@@ -360,6 +360,14 @@ island-merge tie-breaks.
     helper ownership. Gate evidence: `tools\validate_physics.bat` passed in
     `TestOutput\agent_logs\plan02_record_object_event_validate_physics_attempt2_20260709_1029.log`
     (39.9s shell runtime; Debug/Profile builds 0 warnings and 0 errors; final
+    `VALIDATE_PHYSICS: ALL PASSED`).
+  - Extracted the `emitObjectCollisionTimeEvent` lambda into the private static
+    `PhysicsWorld::EmitObjectCollisionTimeEvent`, preserving the collision-time
+    emission flag, body ids, collision time, and available-time fields while
+    keeping the private event type scoped to `PhysicsWorld`. Gate evidence:
+    `tools\validate_physics.bat` passed in
+    `TestOutput\agent_logs\plan02_emit_collision_time_event_validate_physics_20260709_1032.log`
+    (40.2s shell runtime; Debug/Profile builds 0 warnings and 0 errors; final
     `VALIDATE_PHYSICS: ALL PASSED`).
 - [ ] **1.3** `RunSolverPhysics` is now a short driver calling named stages;
   confirm it is under ~300 lines.
