@@ -3118,6 +3118,115 @@ void PhysicsWorld::ProcessObjectNarrowphasePairsSerial( const ObjectNarrowphaseP
 }
 
 
+void PhysicsWorld::BuildObjectNarrowphaseIslands( const std::vector<std::pair<int, int>>& candidatePairs,
+                                                  int candidatePairCount,
+                                                  int modelCount )
+{
+    PROFILE_SCOPED( "Frame/Physics/Narrowphase/BuildIslands" );
+    m_objectNarrowphaseParent.resize( static_cast<size_t>( modelCount ) );
+    m_objectNarrowphaseRank.assign( static_cast<size_t>( modelCount ), 0 );
+    for ( int i = 0; i < modelCount; ++i )
+    {
+        m_objectNarrowphaseParent[static_cast<size_t>( i )] = i;
+    }
+
+    DisjointSet objectNarrowphaseSets( m_objectNarrowphaseParent, m_objectNarrowphaseRank, modelCount );
+
+    for ( int pairIndex = 0; pairIndex < candidatePairCount; ++pairIndex )
+    {
+        const int x = candidatePairs[static_cast<size_t>( pairIndex )].first;
+        const int y = candidatePairs[static_cast<size_t>( pairIndex )].second;
+        if ( x < 0 || y < 0 || x >= modelCount || y >= modelCount )
+        {
+            continue;
+        }
+        objectNarrowphaseSets.Unite( x, y );
+    }
+
+    m_objectNarrowphaseIslands.clear();
+    m_objectNarrowphaseIslandPairIndices.clear();
+    m_objectNarrowphaseIslandWriteOffsets.clear();
+    m_objectNarrowphaseRootToIsland.assign( static_cast<size_t>( modelCount ), -1 );
+    for ( int pairIndex = 0; pairIndex < candidatePairCount; ++pairIndex )
+    {
+        const int x = candidatePairs[static_cast<size_t>( pairIndex )].first;
+        const int y = candidatePairs[static_cast<size_t>( pairIndex )].second;
+        if ( x < 0 || y < 0 || x >= modelCount || y >= modelCount )
+        {
+            continue;
+        }
+
+        const int root = objectNarrowphaseSets.Find( x );
+        int islandIndex = m_objectNarrowphaseRootToIsland[static_cast<size_t>( root )];
+        if ( islandIndex < 0 )
+        {
+            islandIndex = static_cast<int>( m_objectNarrowphaseIslands.size() );
+            m_objectNarrowphaseRootToIsland[static_cast<size_t>( root )] = islandIndex;
+            if ( m_objectNarrowphaseIslands.size() >= m_objectNarrowphaseIslands.capacity() )
+            {
+                assert( false && "Physics object narrowphase island capacity exceeded" );
+                // Invariant: object narrowphase island storage is bounded by the
+                // precomputed pair/model limits for this frame. Overflow would
+                // reorder or drop pair work.
+                SB_FATAL( "Physics/PhysicsWorld", "Physics object narrowphase island capacity exceeded" );
+            }
+            m_objectNarrowphaseIslands.push_back( ObjectNarrowphaseIsland() );
+            m_objectNarrowphaseIslands.back().minPairIndex = INT_MAX;
+        }
+
+        ObjectNarrowphaseIsland& island = m_objectNarrowphaseIslands[static_cast<size_t>( islandIndex )];
+        island.minPairIndex = (std::min)( island.minPairIndex, pairIndex );
+        ++island.pairCount;
+    }
+    if ( m_objectNarrowphaseIslandWriteOffsets.capacity() < m_objectNarrowphaseIslands.size() )
+    {
+        assert( false && "Physics object narrowphase island write-offset capacity exceeded" );
+        // Invariant: write offsets are one row per island. A short reserve would
+        // make worker writes overlap or depend on allocation order.
+        SB_FATAL( "Physics/PhysicsWorld", "Physics object narrowphase island write-offset capacity exceeded" );
+    }
+    m_objectNarrowphaseIslandWriteOffsets.assign( m_objectNarrowphaseIslands.size(), 0 );
+    size_t pairOffset = 0;
+    for ( size_t islandIndex = 0; islandIndex < m_objectNarrowphaseIslands.size(); ++islandIndex )
+    {
+        ObjectNarrowphaseIsland& island = m_objectNarrowphaseIslands[islandIndex];
+        island.firstPairOffset = pairOffset;
+        m_objectNarrowphaseIslandWriteOffsets[islandIndex] = pairOffset;
+        pairOffset += island.pairCount;
+    }
+    if ( pairOffset > m_objectNarrowphaseIslandPairIndices.capacity() )
+    {
+        assert( false && "Physics object narrowphase island pair capacity exceeded" );
+        // Invariant: pair-index staging owns the exact compacted pair set for the
+        // worker pass. Overflow would drop pairs from narrowphase.
+        SB_FATAL( "Physics/PhysicsWorld", "Physics object narrowphase island pair capacity exceeded" );
+    }
+    m_objectNarrowphaseIslandPairIndices.resize( pairOffset, 0 );
+    for ( int pairIndex = 0; pairIndex < candidatePairCount; ++pairIndex )
+    {
+        const int x = candidatePairs[static_cast<size_t>( pairIndex )].first;
+        const int y = candidatePairs[static_cast<size_t>( pairIndex )].second;
+        if ( x < 0 || y < 0 || x >= modelCount || y >= modelCount )
+        {
+            continue;
+        }
+
+        const int root = objectNarrowphaseSets.Find( x );
+        const int islandIndex = m_objectNarrowphaseRootToIsland[static_cast<size_t>( root )];
+        if ( islandIndex < 0 )
+        {
+            continue;
+        }
+        size_t& writeOffset = m_objectNarrowphaseIslandWriteOffsets[static_cast<size_t>( islandIndex )];
+        m_objectNarrowphaseIslandPairIndices[writeOffset++] = pairIndex;
+    }
+    std::sort( m_objectNarrowphaseIslands.begin(),
+               m_objectNarrowphaseIslands.end(),
+               []( const ObjectNarrowphaseIsland& a, const ObjectNarrowphaseIsland& b )
+               { return a.minPairIndex < b.minPairIndex; } );
+}
+
+
 void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
                                      const ColliderStore& colliderStore,
                                      float dt,
@@ -3380,112 +3489,6 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
 
     ObjectNarrowphaseIslandStage objectNarrowphaseIslandStage{ *this, objectNarrowphasePairContext };
 
-    auto buildObjectNarrowphaseIslands = [&]()
-    {
-        PROFILE_SCOPED( "Frame/Physics/Narrowphase/BuildIslands" );
-        m_objectNarrowphaseParent.resize( static_cast<size_t>( modelCount ) );
-        m_objectNarrowphaseRank.assign( static_cast<size_t>( modelCount ), 0 );
-        for ( int i = 0; i < modelCount; ++i )
-        {
-            m_objectNarrowphaseParent[static_cast<size_t>( i )] = i;
-        }
-
-        DisjointSet objectNarrowphaseSets( m_objectNarrowphaseParent, m_objectNarrowphaseRank, modelCount );
-
-        for ( int pairIndex = 0; pairIndex < candidatePairCount; ++pairIndex )
-        {
-            const int x = candidatePairs[static_cast<size_t>( pairIndex )].first;
-            const int y = candidatePairs[static_cast<size_t>( pairIndex )].second;
-            if ( x < 0 || y < 0 || x >= modelCount || y >= modelCount )
-            {
-                continue;
-            }
-            objectNarrowphaseSets.Unite( x, y );
-        }
-
-        m_objectNarrowphaseIslands.clear();
-        m_objectNarrowphaseIslandPairIndices.clear();
-        m_objectNarrowphaseIslandWriteOffsets.clear();
-        m_objectNarrowphaseRootToIsland.assign( static_cast<size_t>( modelCount ), -1 );
-        for ( int pairIndex = 0; pairIndex < candidatePairCount; ++pairIndex )
-        {
-            const int x = candidatePairs[static_cast<size_t>( pairIndex )].first;
-            const int y = candidatePairs[static_cast<size_t>( pairIndex )].second;
-            if ( x < 0 || y < 0 || x >= modelCount || y >= modelCount )
-            {
-                continue;
-            }
-
-            const int root = objectNarrowphaseSets.Find( x );
-            int islandIndex = m_objectNarrowphaseRootToIsland[static_cast<size_t>( root )];
-            if ( islandIndex < 0 )
-            {
-                islandIndex = static_cast<int>( m_objectNarrowphaseIslands.size() );
-                m_objectNarrowphaseRootToIsland[static_cast<size_t>( root )] = islandIndex;
-                if ( m_objectNarrowphaseIslands.size() >= m_objectNarrowphaseIslands.capacity() )
-                {
-                    assert( false && "Physics object narrowphase island capacity exceeded" );
-                    // Invariant: object narrowphase island storage is bounded
-                    // by the precomputed pair/model limits for this frame.
-                    // Overflow would reorder or drop pair work.
-                    SB_FATAL( "Physics/PhysicsWorld", "Physics object narrowphase island capacity exceeded" );
-                }
-                m_objectNarrowphaseIslands.push_back( ObjectNarrowphaseIsland() );
-                m_objectNarrowphaseIslands.back().minPairIndex = INT_MAX;
-            }
-
-            ObjectNarrowphaseIsland& island = m_objectNarrowphaseIslands[static_cast<size_t>( islandIndex )];
-            island.minPairIndex = (std::min)( island.minPairIndex, pairIndex );
-            ++island.pairCount;
-        }
-        if ( m_objectNarrowphaseIslandWriteOffsets.capacity() < m_objectNarrowphaseIslands.size() )
-        {
-            assert( false && "Physics object narrowphase island write-offset capacity exceeded" );
-            // Invariant: write offsets are one row per island. A short reserve
-            // would make worker writes overlap or depend on allocation order.
-            SB_FATAL( "Physics/PhysicsWorld", "Physics object narrowphase island write-offset capacity exceeded" );
-        }
-        m_objectNarrowphaseIslandWriteOffsets.assign( m_objectNarrowphaseIslands.size(), 0 );
-        size_t pairOffset = 0;
-        for ( size_t islandIndex = 0; islandIndex < m_objectNarrowphaseIslands.size(); ++islandIndex )
-        {
-            ObjectNarrowphaseIsland& island = m_objectNarrowphaseIslands[islandIndex];
-            island.firstPairOffset = pairOffset;
-            m_objectNarrowphaseIslandWriteOffsets[islandIndex] = pairOffset;
-            pairOffset += island.pairCount;
-        }
-        if ( pairOffset > m_objectNarrowphaseIslandPairIndices.capacity() )
-        {
-            assert( false && "Physics object narrowphase island pair capacity exceeded" );
-            // Invariant: pair-index staging owns the exact compacted pair set
-            // for the worker pass. Overflow would drop pairs from narrowphase.
-            SB_FATAL( "Physics/PhysicsWorld", "Physics object narrowphase island pair capacity exceeded" );
-        }
-        m_objectNarrowphaseIslandPairIndices.resize( pairOffset, 0 );
-        for ( int pairIndex = 0; pairIndex < candidatePairCount; ++pairIndex )
-        {
-            const int x = candidatePairs[static_cast<size_t>( pairIndex )].first;
-            const int y = candidatePairs[static_cast<size_t>( pairIndex )].second;
-            if ( x < 0 || y < 0 || x >= modelCount || y >= modelCount )
-            {
-                continue;
-            }
-
-            const int root = objectNarrowphaseSets.Find( x );
-            const int islandIndex = m_objectNarrowphaseRootToIsland[static_cast<size_t>( root )];
-            if ( islandIndex < 0 )
-            {
-                continue;
-            }
-            size_t& writeOffset = m_objectNarrowphaseIslandWriteOffsets[static_cast<size_t>( islandIndex )];
-            m_objectNarrowphaseIslandPairIndices[writeOffset++] = pairIndex;
-        }
-        std::sort( m_objectNarrowphaseIslands.begin(),
-                   m_objectNarrowphaseIslands.end(),
-                   []( const ObjectNarrowphaseIsland& a, const ObjectNarrowphaseIsland& b )
-                   { return a.minPairIndex < b.minPairIndex; } );
-    };
-
     m_objectNarrowphaseIslands.clear();
     m_objectNarrowphaseIslandPairIndices.clear();
     m_objectNarrowphaseIslandWriteOffsets.clear();
@@ -3497,7 +3500,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
         workerPool.GetThreadCount() > 0;
     if ( mayBenefitFromIslandDispatch )
     {
-        buildObjectNarrowphaseIslands();
+        BuildObjectNarrowphaseIslands( candidatePairs, candidatePairCount, modelCount );
 
         const int islandCount = static_cast<int>( m_objectNarrowphaseIslands.size() );
         const bool hasSpreadOutNarrowphaseIslands =

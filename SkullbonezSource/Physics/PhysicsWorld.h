@@ -305,6 +305,9 @@ class PhysicsWorld
                                               const char* const* diagnosticNames,
                                               int diagnosticNameCount,
                                               const PhysicsDiagnosticsCsvWriter& diagnosticsCsvWriter );
+    void BuildObjectNarrowphaseIslands( const std::vector<std::pair<int, int>>& candidatePairs,
+                                        int candidatePairCount,
+                                        int modelCount );
     struct ObjectNarrowphaseIslandStage
     {
         PhysicsWorld& world;
