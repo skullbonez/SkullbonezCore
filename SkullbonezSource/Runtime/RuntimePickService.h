@@ -4,16 +4,15 @@ Purpose:
   Defines explicit runtime picking requests for editor, tool, and replay input.
 
 Mental model:
-  Input routing should choose a pick purpose, borrow the current physics body
-  and collider stores, then ask one service for the selection result.
+  RuntimePickService.h defines explicit runtime picking requests for editor,
+  tool, and replay input. As a public header, keep edits anchored on local
+  owner boundaries and call direction and on the glossary/invariants below.
 
 Glossary:
   Pick purpose: The tool-specific policy for interpreting a mouse ray.
   Physics body handle: Generational id for a live row in `PhysicsBodyStore`.
   Model index: Dense model-order row used by UI/replay identity; it is not
     authority for physics commands once a body handle is available.
-  Validation gate: Repository script that proves a class of changes before
-  commit or PR.
 
 Invariants:
   - RuntimePickRequest borrows physics stores for one call; the service does

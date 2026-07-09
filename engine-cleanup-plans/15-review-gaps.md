@@ -1,7 +1,7 @@
 # 15 — Review Gaps (2026-07-09 External Review)
 
 Date: 2026-07-09
-Status: Proposed
+Status: In progress
 Owner: Architecture cleanup
 Source: external top-5 architecture review, measured against the worktree on
 2026-07-09. Captures findings **not already owned by an active plan**. Where an
@@ -70,7 +70,7 @@ forward*; this item cleans up the *existing* boilerplate.
 
 **Steps:**
 
-- [ ] 15.4.1 After plan 03 step 4.1 lands, sweep the 35+ duplicated headers:
+- [x] 15.4.1 After plan 03 step 4.1 lands, sweep the 35+ duplicated headers:
   delete paragraphs that state nothing file-specific; keep genuinely local
   `Concept:`/`Why:`/`Invariant:`/`Hazard:` comments.
 
@@ -79,6 +79,18 @@ repository validation required.
 
 **Acceptance:** no two source files share an identical learning-header
 paragraph; remaining headers name only file-specific concepts.
+
+**Completion note (2026-07-10):** created and completed
+`Agentic/Plans/TODO/comment-boilerplate-cleanup-15.4-checklist.md` for the
+186 scoped tracked source-bearing files that shared duplicate mental-model
+boilerplate or the generic `Validation gate` glossary entry. Duplicate
+mental-model paragraph groups are now 0, generic `Validation gate` glossary
+matches are 0, and checklist reconciliation found 186 modified source files,
+186 checklist entries, 0 missing, 0 extra, and 0 duplicates. The diff is
+comment-only: every zero-context changed hunk stays inside the top learning
+header; `git diff --check` passed. Repeated subsystem glossary entries such as
+descriptor, draw command, broadphase, and manifold were retained where they are
+local edit-contract vocabulary.
 
 ## 15.5 Encapsulation: public member fields crossed module boundaries (P3)
 

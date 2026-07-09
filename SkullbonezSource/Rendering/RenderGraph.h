@@ -5,8 +5,10 @@ Purpose:
   lifetime plans for the renderer.
 
 Mental model:
-  Renderer-facing code translates engine concepts into backend resources, draw
-  calls, shader bindings, and validation artifacts.
+  RenderGraph.h records render pass/resource intent, callback ordering, and
+  transient texture lifetime plans for the renderer. As a public header, keep
+  edits anchored on render submission and resource lifetime and on the
+  glossary/invariants below.
 
 Glossary:
   UAV (Unordered Access View): Descriptor row used when compute or raytracing

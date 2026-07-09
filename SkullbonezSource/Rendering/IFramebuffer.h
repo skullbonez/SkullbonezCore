@@ -4,8 +4,9 @@ Purpose:
   Declares the renderer-neutral off-screen framebuffer interface.
 
 Mental model:
-  Renderer-facing code translates engine concepts into backend resources, draw
-  calls, shader bindings, and validation artifacts.
+  IFramebuffer.h declares the renderer-neutral off-screen framebuffer
+  interface. As a public header, keep edits anchored on render submission and
+  resource lifetime and on the glossary/invariants below.
 
 Glossary:
   RTV (Render Target View): Descriptor row used when the GPU writes color

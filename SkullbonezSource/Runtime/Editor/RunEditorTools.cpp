@@ -4,8 +4,9 @@ Purpose:
   Owns runtime editor placement, selection, gizmos, and overlay tracing.
 
 Mental model:
-  Input asks for editor actions. This file performs editor math, picking,
-  placement, gizmos, and line visualization.
+  RunEditorTools.cpp owns runtime editor placement, selection, gizmos, and
+  overlay tracing. As an implementation unit, keep edits anchored on local
+  owner boundaries and call direction and on the glossary/invariants below.
 
 Glossary:
   Gizmo: World-space editor axes or rotation rings used to transform selected
@@ -16,8 +17,6 @@ Glossary:
     after a model-index selection has been validated.
   Topology drift: Temporary mismatch between editor model count and physics
     store rows after scene/editor construction or deletion.
-  Validation gate: Repository script that proves a class of changes before
-    commit or PR.
 
 Invariants:
   - Preview, preflight, and placement commit must use the same object-type,

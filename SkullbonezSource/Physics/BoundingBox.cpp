@@ -4,9 +4,10 @@ Purpose:
   Defines oriented-box collision geometry and its broadphase/render helper math.
 
 Mental model:
-  Physics is deterministic fixed-step state update. Units, contact ownership,
-  solver stages, sleep policy, and baseline-sensitive behavior are the key
-  reading anchors.
+  BoundingBox.cpp defines oriented-box collision geometry and its
+  broadphase/render helper math. As an implementation unit, keep edits
+  anchored on deterministic physics, diagnostics, or world-state flow and on
+  the glossary/invariants below.
 
 Glossary:
   OBB (Oriented Bounding Box): Box with rotation, used for exact object-space

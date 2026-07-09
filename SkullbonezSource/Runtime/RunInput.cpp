@@ -4,8 +4,9 @@ Purpose:
   Routes raw keyboard, mouse, and UI commands into runtime state changes.
 
 Mental model:
-  Input arbitration stays here.
-  Editor, launcher, and replay behavior live in dedicated runtime files.
+  RunInput.cpp routes raw keyboard, mouse, and UI commands into runtime state
+  changes. As an implementation unit, keep edits anchored on local owner
+  boundaries and call direction and on the glossary/invariants below.
 
 Glossary:
   Attach return pose: The visible camera pose captured before Attach takes over
@@ -18,8 +19,6 @@ Glossary:
     velocity, and broad radius sampled for camera follow math.
   Lane R result: Recoverable scene-control or capture failure reported without
     treating the command as successfully applied.
-  Validation gate: Repository script that proves a class of changes before
-    commit or PR.
 
 Invariants:
   - This file arbitrates ownership before mutating world state; UI, editor,

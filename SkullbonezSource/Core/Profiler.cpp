@@ -4,9 +4,10 @@ Purpose:
   Records hierarchical CPU/GPU timing markers for runtime diagnostics.
 
 Mental model:
-  Runtime code connects authored scene data, input, simulation, render
-  backends, and validation-oriented launch modes. Follow who owns state and
-  when that state changes.
+  Profiler.cpp records hierarchical CPU/GPU timing markers for runtime
+  diagnostics. As an implementation unit, keep edits anchored on process-wide
+  contracts, diagnostics, and validation-sensitive state and on the
+  glossary/invariants below.
 
 Glossary:
   Render diagnostics capability: Narrow renderer interface used here for GPU
@@ -14,8 +15,6 @@ Glossary:
     facade.
   Warmup frame: Completed frame intentionally excluded from profiler stats and
     perf CSV rows while a scene/pass settles.
-  Validation gate: Repository script that proves a class of changes before
-  commit or PR.
   Lane F: Fatal invariant path for should-never-happen engine state.
 
 Invariants:

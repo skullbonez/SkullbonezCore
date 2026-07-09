@@ -4,9 +4,9 @@ Purpose:
   Implements quaternion orientation math for rigid bodies and cameras.
 
 Mental model:
-  Math code is shared infrastructure. Coordinate conventions, units,
-  handedness, and simplifications matter because subtle assumptions spread
-  through rendering and physics.
+  Quaternion.cpp implements quaternion orientation math for rigid bodies and
+  cameras. As an implementation unit, keep edits anchored on units, basis
+  conventions, and numerical assumptions and on the glossary/invariants below.
 
 Glossary:
   Engine module: A source file with one focused responsibility inside the

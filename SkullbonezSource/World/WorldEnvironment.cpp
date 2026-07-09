@@ -4,9 +4,10 @@ Purpose:
   Stores world forces, fluid parameters, and water rendering resources.
 
 Mental model:
-  Physics is deterministic fixed-step state update. Units, contact ownership,
-  solver stages, sleep policy, and baseline-sensitive behavior are the key
-  reading anchors.
+  WorldEnvironment.cpp stores world forces, fluid parameters, and water
+  rendering resources. As an implementation unit, keep edits anchored on
+  world-state ownership, terrain/environment data, and physics/render handoff
+  and on the glossary/invariants below.
 
 Glossary:
   Buoyancy: Upward force from displaced water, applied through the center of

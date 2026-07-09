@@ -4,9 +4,9 @@ Purpose:
   Runs the water_ocean HLSL shader program used by the renderer.
 
 Mental model:
-  Shaders are GPU programs. Constant buffers provide per-frame data, shader
-  stages transform or shade inputs, and CPU-side renderer bindings must match
-  the declarations in this file.
+  water_ocean.hlsl is shader source for the renderer's water_ocean pass. Keep
+  edits anchored on shader inputs, bindings, and render-output contracts and
+  on the glossary/invariants below.
 
 Glossary:
   Descriptor: Small binding record that tells a renderer how to interpret a

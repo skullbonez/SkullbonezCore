@@ -4,9 +4,10 @@ Purpose:
   Defines compact physics diagnostics records emitted for SkullScope queries.
 
 Mental model:
-  This module is one piece of the engine contract. Read the glossary and
-  invariants first, then follow ownership and call direction through the
-  related files.
+  SkullScope.h defines compact physics diagnostics records emitted for
+  SkullScope queries. As a public header, keep edits anchored on process-wide
+  contracts, diagnostics, and validation-sensitive state and on the
+  glossary/invariants below.
 
 Glossary:
   SkullScope: Queryable physics diagnostics workflow backed by bounded trace

@@ -4,9 +4,9 @@ Purpose:
   Collects legacy helper routines that bridge engine subsystems.
 
 Mental model:
-  Runtime code connects authored scene data, input, simulation, render
-  backends, and validation-oriented launch modes. Follow who owns state and
-  when that state changes.
+  Helper.h collects legacy helper routines that bridge engine subsystems. As a
+  public header, keep edits anchored on render submission and resource
+  lifetime and on the glossary/invariants below.
 
 Glossary:
   DXR (DirectX Raytracing): DX12 API used for hardware ray traversal and
@@ -15,8 +15,6 @@ Glossary:
   mesh's triangles.
   Instance buffer: CPU-built per-object payload uploaded so one mesh can draw
   many objects with different transforms/materials.
-  Validation gate: Repository script that proves a class of changes before
-  commit or PR.
 
 Invariants:
   - Helper-owned meshes and shaders are backend resources; the renderer owner

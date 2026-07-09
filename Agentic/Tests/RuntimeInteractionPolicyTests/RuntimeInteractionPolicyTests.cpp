@@ -5,19 +5,16 @@ Purpose:
   a renderer launch.
 
 Mental model:
-  The runtime interaction controller is the authority for workspace, tool,
-  gesture, pointer capture, camera-look, and physics-advance policy. These
-  tests lock down ownership rules before they reach frame, editor, or replay
-  code. Exact picker tests exercise collision-shape ray math without loading a
-  scene or drawing a frame.
+  RuntimeInteractionPolicyTests.cpp verifies CPU-side runtime interaction and
+  picker rules that should not require a renderer launch. As an implementation
+  unit, keep edits anchored on the behavior under test and the regression
+  signal and on the glossary/invariants below.
 
 Glossary:
   Pointer capture: Exclusive owner for an in-progress mouse gesture.
   Pick ray: World-space line projected from a screen pointer into the scene.
   Collision shape: Authored sphere, oriented box, or convex hull used as the
     pickable geometry for a model.
-  Validation gate: Repository script that proves a class of changes before
-  commit or PR.
 
 Invariants:
   Tests exercise RuntimeInteractionController policy without editor, replay,

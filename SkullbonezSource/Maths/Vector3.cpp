@@ -4,9 +4,9 @@ Purpose:
   Implements the engine 3D vector type and vector math operations.
 
 Mental model:
-  Math code is shared infrastructure. Coordinate conventions, units,
-  handedness, and simplifications matter because subtle assumptions spread
-  through rendering and physics.
+  Vector3.cpp implements the engine 3D vector type and vector math operations.
+  As an implementation unit, keep edits anchored on units, basis conventions,
+  and numerical assumptions and on the glossary/invariants below.
 
 Glossary:
   Engine module: A source file with one focused responsibility inside the

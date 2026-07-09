@@ -4,9 +4,9 @@ Purpose:
   Loads, resets, and advances authored and generated scenes.
 
 Mental model:
-  Runtime code connects authored scene data, input, simulation, render
-  backends, and validation-oriented launch modes. Follow who owns state and
-  when that state changes.
+  RunScene.cpp loads, resets, and advances authored and generated scenes. As
+  an implementation unit, keep edits anchored on local owner boundaries and
+  call direction and on the glossary/invariants below.
 
 Glossary:
   CLI (Command-Line Interface): Text arguments or scripts used to launch
@@ -20,8 +20,6 @@ Glossary:
     diagnostics while the runtime stays alive.
   Required scene contact: Authored pair gate that marks a scenario objective
     once two bodies have produced an exact contact.
-  Validation gate: Repository script that proves a class of changes before
-  commit or PR.
 
 Invariants:
   - Command-line and scene-file spellings are user-facing compatibility

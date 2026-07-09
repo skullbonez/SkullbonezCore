@@ -4,8 +4,10 @@ Purpose:
   Builds and renders the skybox or sky backdrop for scene rendering.
 
 Mental model:
-  Renderer-facing code translates engine concepts into backend resources, draw
-  calls, shader bindings, and validation artifacts.
+  SkyBox.cpp builds and renders the skybox or sky backdrop for scene
+  rendering. As an implementation unit, keep edits anchored on world-state
+  ownership, terrain/environment data, and physics/render handoff and on the
+  glossary/invariants below.
 
 Glossary:
   Descriptor: Small binding record that tells a renderer how to interpret a

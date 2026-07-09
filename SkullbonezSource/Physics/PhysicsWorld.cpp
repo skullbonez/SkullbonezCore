@@ -4,9 +4,10 @@ Purpose:
   Owns per-scene physics working state shared by broadphase, solver, and diagnostics.
 
 Mental model:
-  Physics is deterministic fixed-step state update. Units, contact ownership,
-  solver stages, sleep policy, and baseline-sensitive behavior are the key
-  reading anchors.
+  PhysicsWorld.cpp owns per-scene physics working state shared by broadphase,
+  solver, and diagnostics. As an implementation unit, keep edits anchored on
+  deterministic physics, diagnostics, or world-state flow and on the
+  glossary/invariants below.
 
 Glossary:
   SoA (Structure of Arrays): Data layout that stores each field in a separate

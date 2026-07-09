@@ -4,8 +4,9 @@ Purpose:
   Builds and draws bitmap/SDF text for HUD and diagnostics.
 
 Mental model:
-  Renderer-facing code translates engine concepts into backend resources, draw
-  calls, shader bindings, and validation artifacts.
+  Text.h builds and draws bitmap/SDF text for HUD and diagnostics. As a public
+  header, keep edits anchored on render submission and resource lifetime and
+  on the glossary/invariants below.
 
 Glossary:
   SDF (Signed Distance Field): Texture representation used for crisp scalable

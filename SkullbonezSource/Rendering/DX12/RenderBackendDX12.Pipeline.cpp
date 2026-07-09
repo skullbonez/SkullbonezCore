@@ -4,9 +4,10 @@ Purpose:
   Builds and binds DX12 pipeline state, render targets, and descriptors.
 
 Mental model:
-  DX12 separates resource memory, descriptor rows, command recording, and GPU
-  execution. Ownership, state transitions, descriptor lifetime, and fence
-  ordering are the important ideas.
+  RenderBackendDX12.Pipeline.cpp builds and binds DX12 pipeline state, render
+  targets, and descriptors. As an implementation unit, keep edits anchored on
+  DX12 ownership, descriptors, resources, and command submission and on the
+  glossary/invariants below.
 
 Glossary:
   RTV (Render Target View): Descriptor row used when the GPU writes color

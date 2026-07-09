@@ -4,9 +4,10 @@ Purpose:
   Builds debug drawing for collision shapes and contact diagnostics.
 
 Mental model:
-  Physics is deterministic fixed-step state update. Units, contact ownership,
-  solver stages, sleep policy, and baseline-sensitive behavior are the key
-  reading anchors.
+  CollisionVisualizer.cpp builds debug drawing for collision shapes and
+  contact diagnostics. As an implementation unit, keep edits anchored on
+  deterministic physics, diagnostics, or world-state flow and on the
+  glossary/invariants below.
 
 Glossary:
   AABB (Axis-Aligned Bounding Box): Box aligned to world axes, used as a cheap

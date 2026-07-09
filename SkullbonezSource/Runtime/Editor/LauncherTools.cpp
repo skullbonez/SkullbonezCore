@@ -4,8 +4,9 @@ Purpose:
   Owns launcher-mode raycast, projectile, laser, and repro snapshot behavior.
 
 Mental model:
-  Input decides when launcher actions fire. This file turns those actions into
-  world queries, transient visuals, physics impulses, and debug repro output.
+  LauncherTools.cpp owns launcher-mode raycast, projectile, laser, and repro
+  snapshot behavior. As an implementation unit, keep edits anchored on local
+  owner boundaries and call direction and on the glossary/invariants below.
 
 Glossary:
   Body store: Physics-owned live body records used for pose and velocity
@@ -14,8 +15,6 @@ Glossary:
     body handles.
   Repro snapshot: Debug-only text dump of the object under the launcher
     crosshair, including enough scene and physics state to recreate the issue.
-  Validation gate: Repository script that proves a class of changes before
-    commit or PR.
 
 Invariants:
   - Launcher repro output is a debugging interface; key names and numeric

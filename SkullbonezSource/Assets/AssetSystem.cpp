@@ -4,9 +4,10 @@ Purpose:
   Loads, owns, and resolves reusable runtime assets for scenes and render code.
 
 Mental model:
-  Runtime code connects authored scene data, input, simulation, render
-  backends, and validation-oriented launch modes. Follow who owns state and
-  when that state changes.
+  AssetSystem.cpp loads, owns, and resolves reusable runtime assets for scenes
+  and render code. As an implementation unit, keep edits anchored on asset
+  lifetime, cache ownership, and load/fallback behavior and on the
+  glossary/invariants below.
 
 Glossary:
   Logical asset name: Stable engine-facing identifier such as
@@ -14,8 +15,6 @@ Glossary:
     knowing a disk path.
   Shader base name: Data-root-relative shader path without the backend-specific
     file extension.
-  Validation gate: Repository script that proves a class of changes before
-  commit or PR.
 
 Invariants:
   - Logical asset names are stable scene/runtime contracts; re-registering an

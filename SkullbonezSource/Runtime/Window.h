@@ -4,9 +4,9 @@ Purpose:
   Creates and owns the Win32 window and message pump integration.
 
 Mental model:
-  Runtime code connects authored scene data, input, simulation, render
-  backends, and validation-oriented launch modes. Follow who owns state and
-  when that state changes.
+  Window.h creates and owns the Win32 window and message pump integration. As
+  a public header, keep edits anchored on local owner boundaries and call
+  direction and on the glossary/invariants below.
 
 Glossary:
   HWND (Window Handle): Win32 identifier for the native application window.
@@ -18,8 +18,6 @@ Glossary:
     owner/message instead of throwing through WndProc.
   Projection frustum: Camera depth range used when rebuilding the perspective
   matrix after a client-size change.
-  Validation gate: Repository script that proves a class of changes before
-  commit or PR.
 
 Invariants:
   - m_sWindowDimensions stores client width/height, not monitor or full window

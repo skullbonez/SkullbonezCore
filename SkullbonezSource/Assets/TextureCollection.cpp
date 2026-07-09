@@ -4,8 +4,10 @@ Purpose:
   Loads texture files and hands renderer-neutral texture ids to draw code.
 
 Mental model:
-  Renderer-facing code translates engine concepts into backend resources, draw
-  calls, shader bindings, and validation artifacts.
+  TextureCollection.cpp loads texture files and hands renderer-neutral texture
+  ids to draw code. As an implementation unit, keep edits anchored on asset
+  lifetime, cache ownership, and load/fallback behavior and on the
+  glossary/invariants below.
 
 Glossary:
   Legacy hash: 32-bit texture key kept for old render callers while asset ids

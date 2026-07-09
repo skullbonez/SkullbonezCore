@@ -4,13 +4,11 @@ Purpose:
   Writes debug-only runtime, crash, and diagnostics logs.
 
 Mental model:
-  Runtime code connects authored scene data, input, simulation, render
-  backends, and validation-oriented launch modes. Follow who owns state and
-  when that state changes.
+  Log.h writes debug-only runtime, crash, and diagnostics logs. As a public
+  header, keep edits anchored on process-wide contracts, diagnostics, and
+  validation-sensitive state and on the glossary/invariants below.
 
 Glossary:
-  Validation gate: Repository script that proves a class of changes before
-  commit or PR.
 
 Invariants:
   - File handles are opened lazily and owned by EngineLog until process exit or

@@ -4,9 +4,10 @@ Purpose:
   Builds precise object/object contact manifolds for the persistent solver.
 
 Mental model:
-  Physics is deterministic fixed-step state update. Units, contact ownership,
-  solver stages, sleep policy, and baseline-sensitive behavior are the key
-  reading anchors.
+  ObjectContactManifold.h builds precise object/object contact manifolds for
+  the persistent solver. As a public header, keep edits anchored on
+  deterministic physics, diagnostics, or world-state flow and on the
+  glossary/invariants below.
 
 Glossary:
   OBB (Oriented Bounding Box): Box with rotation, used for exact object-space

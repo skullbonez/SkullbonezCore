@@ -4,9 +4,9 @@ Purpose:
   Loads JSON scene and style descriptions into TestScene data.
 
 Mental model:
-  Runtime code connects authored scene data, input, simulation, render
-  backends, and validation-oriented launch modes. Follow who owns state and
-  when that state changes.
+  TestSceneParser.cpp loads JSON scene and style descriptions into TestScene
+  data. As an implementation unit, keep edits anchored on scene-file parsing
+  or snapshot contracts and on the glossary/invariants below.
 
 Glossary:
   Asset system: Runtime-owned registry used to resolve logical asset-library
@@ -17,8 +17,6 @@ Glossary:
     sphere, or convex hull.
   Scene object group: Parsed metadata that ties multi-part authored objects,
     such as releasable trees, to one root object before runtime construction.
-  Validation gate: Repository script that proves a class of changes before
-    commit or PR.
 
 Invariants:
   - Scene, style, and suite files are JSON documents.

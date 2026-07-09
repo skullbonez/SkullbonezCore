@@ -4,9 +4,10 @@ Purpose:
   Owns low-level DX12 device objects, fences, command allocators, and frame pacing.
 
 Mental model:
-  DX12 separates resource memory, descriptor rows, command recording, and GPU
-  execution. Ownership, state transitions, descriptor lifetime, and fence
-  ordering are the important ideas.
+  RenderDeviceDX12.cpp owns low-level DX12 device objects, fences, command
+  allocators, and frame pacing. As an implementation unit, keep edits anchored
+  on DX12 ownership, descriptors, resources, and command submission and on the
+  glossary/invariants below.
 
 Glossary:
   RTV (Render Target View): Descriptor row used when the GPU writes color

@@ -4,9 +4,10 @@ Purpose:
   Solves object/object and object/terrain persistent contact rows.
 
 Mental model:
-  Physics is deterministic fixed-step state update. Units, contact ownership,
-  solver stages, sleep policy, and baseline-sensitive behavior are the key
-  reading anchors.
+  PersistentContactSolver.h solves object/object and object/terrain persistent
+  contact rows. As a public header, keep edits anchored on deterministic
+  physics, diagnostics, or world-state flow and on the glossary/invariants
+  below.
 
 Glossary:
   Broadphase: Cheap collision pass that finds object pairs worth testing more

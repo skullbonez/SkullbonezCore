@@ -4,9 +4,9 @@ Purpose:
   Stores parsed test-scene JSON and applies it to runtime scene state.
 
 Mental model:
-  Runtime code connects authored scene data, input, simulation, render
-  backends, and validation-oriented launch modes. Follow who owns state and
-  when that state changes.
+  TestScene.cpp stores parsed test-scene JSON and applies it to runtime scene
+  state. As an implementation unit, keep edits anchored on scene-file parsing
+  or snapshot contracts and on the glossary/invariants below.
 
 Glossary:
   Scene collection: Vector-backed parsed scene array for cameras, bodies,
@@ -16,8 +16,6 @@ Glossary:
     owner diagnostics before process termination.
   Lane R result: Recoverable load outcome carrying owner/message diagnostics
     for authored scene/style data failures.
-  Validation gate: Repository script that proves a class of changes before
-  commit or PR.
 
 Invariants:
   - Command-line and scene JSON spellings are user-facing compatibility

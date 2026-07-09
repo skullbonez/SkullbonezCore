@@ -4,9 +4,10 @@ Purpose:
   Owns per-scene physics working state shared by broadphase, solver, and diagnostics.
 
 Mental model:
-  Physics is deterministic fixed-step state update. Units, contact ownership,
-  solver stages, sleep policy, and baseline-sensitive behavior are the key
-  reading anchors.
+  PhysicsWorld.h owns per-scene physics working state shared by broadphase,
+  solver, and diagnostics. As a public header, keep edits anchored on
+  deterministic physics, diagnostics, or world-state flow and on the
+  glossary/invariants below.
 
 Glossary:
   SkullScope: Queryable physics diagnostics workflow backed by bounded trace

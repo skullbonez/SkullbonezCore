@@ -4,9 +4,10 @@ Purpose:
   Declares the production DX12 renderer and its frame, resource, and pipeline state.
 
 Mental model:
-  DX12 separates resource memory, descriptor rows, command recording, and GPU
-  execution. Ownership, state transitions, descriptor lifetime, and fence
-  ordering are the important ideas.
+  RenderBackendDX12.h declares the production DX12 renderer and its frame,
+  resource, and pipeline state. As a public header, keep edits anchored on
+  DX12 ownership, descriptors, resources, and command submission and on the
+  glossary/invariants below.
 
 Glossary:
   BLAS (Bottom-Level Acceleration Structure): Raytracing spatial index for one

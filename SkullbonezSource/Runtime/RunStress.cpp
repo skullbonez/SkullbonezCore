@@ -4,15 +4,13 @@ Purpose:
   Runs stress and automation paths for validation-oriented launches.
 
 Mental model:
-  Runtime code connects authored scene data, input, simulation, render
-  backends, and validation-oriented launch modes. Follow who owns state and
-  when that state changes.
+  RunStress.cpp runs stress and automation paths for validation-oriented
+  launches. As an implementation unit, keep edits anchored on local owner
+  boundaries and call direction and on the glossary/invariants below.
 
 Glossary:
   Lane R result: Recoverable scene-load failure surfaced through the stress
     action result instead of being counted as successful churn.
-  Validation gate: Repository script that proves a class of changes before
-    commit or PR.
 
 Invariants:
   - UI stress randomness is deterministic from UIStressState so crashes can be

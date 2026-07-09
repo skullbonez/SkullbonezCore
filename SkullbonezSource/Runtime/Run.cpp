@@ -4,9 +4,9 @@ Purpose:
   Coordinates the main game loop and high-level runtime lifecycle.
 
 Mental model:
-  Runtime code connects authored scene data, input, simulation, render
-  backends, and validation-oriented launch modes. Follow who owns state and
-  when that state changes.
+  Run.cpp coordinates the main game loop and high-level runtime lifecycle. As
+  an implementation unit, keep edits anchored on local owner boundaries and
+  call direction and on the glossary/invariants below.
 
 Glossary:
   FBO (Framebuffer Object): Engine shorthand for an off-screen render target
@@ -15,8 +15,6 @@ Glossary:
     so CLI automation can exit nonzero without a fatal exception.
   Probe failure: CLI validation failure reported as bounded result/report data
     so automation exits nonzero without throwing through the frame loop.
-  Validation gate: Repository script that proves a class of changes before
-  commit or PR.
 
 Invariants:
   - Backend-owned render resources must be released while the renderer backend

@@ -4,9 +4,10 @@ Purpose:
   Implements off-screen framebuffer resources and descriptor views for the DX12 renderer.
 
 Mental model:
-  DX12 separates resource memory, descriptor rows, command recording, and GPU
-  execution. Ownership, state transitions, descriptor lifetime, and fence
-  ordering are the important ideas.
+  FramebufferDX12.cpp implements off-screen framebuffer resources and
+  descriptor views for the DX12 renderer. As an implementation unit, keep
+  edits anchored on DX12 ownership, descriptors, resources, and command
+  submission and on the glossary/invariants below.
 
 Glossary:
   RTV (Render Target View): Descriptor row used when the GPU writes color

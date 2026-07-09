@@ -4,17 +4,15 @@ Purpose:
   Measures elapsed time for frame pacing and simulation updates.
 
 Mental model:
-  Runtime code connects authored scene data, input, simulation, render
-  backends, and validation-oriented launch modes. Follow who owns state and
-  when that state changes.
+  Timer.h measures elapsed time for frame pacing and simulation updates. As a
+  public header, keep edits anchored on process-wide contracts, diagnostics,
+  and validation-sensitive state and on the glossary/invariants below.
 
 Glossary:
   High-resolution counter: Windows performance counter used for sub-frame time
   measurement.
   Lane R result: Recoverable platform/environment startup failure reported
     through an owner/message result instead of an exception.
-  Validation gate: Repository script that proves a class of changes before
-  commit or PR.
 
 Invariants:
   - m_performanceFrequency is captured by Initialise() before any time sample.

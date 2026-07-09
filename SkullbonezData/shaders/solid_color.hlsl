@@ -4,9 +4,9 @@ Purpose:
   Runs the solid_color HLSL shader program used by the renderer.
 
 Mental model:
-  Shaders are GPU programs. Constant buffers provide per-frame data, shader
-  stages transform or shade inputs, and CPU-side renderer bindings must match
-  the declarations in this file.
+  solid_color.hlsl is shader source for the renderer's solid_color pass. Keep
+  edits anchored on shader inputs, bindings, and render-output contracts and
+  on the glossary/invariants below.
 
 Glossary:
   HUD (Heads-Up Display): On-screen diagnostics and control overlay.

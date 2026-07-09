@@ -4,9 +4,10 @@ Purpose:
   Draws physics contacts, axes, sleep state, and pipeline diagnostics.
 
 Mental model:
-  Physics is deterministic fixed-step state update. Units, contact ownership,
-  solver stages, sleep policy, and baseline-sensitive behavior are the key
-  reading anchors.
+  PhysicsDebugVisualizer.cpp draws physics contacts, axes, sleep state, and
+  pipeline diagnostics. As an implementation unit, keep edits anchored on
+  deterministic physics, diagnostics, or world-state flow and on the
+  glossary/invariants below.
 
 Glossary:
   Broadphase: Cheap collision pass that finds object pairs worth testing more

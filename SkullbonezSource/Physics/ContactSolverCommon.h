@@ -4,9 +4,10 @@ Purpose:
   Shares contact-row math helpers and data structures across physics solver code.
 
 Mental model:
-  Physics is deterministic fixed-step state update. Units, contact ownership,
-  solver stages, sleep policy, and baseline-sensitive behavior are the key
-  reading anchors.
+  ContactSolverCommon.h shares contact-row math helpers and data structures
+  across physics solver code. As a public header, keep edits anchored on
+  deterministic physics, diagnostics, or world-state flow and on the
+  glossary/invariants below.
 
 Glossary:
   Broadphase: Cheap collision pass that finds object pairs worth testing more

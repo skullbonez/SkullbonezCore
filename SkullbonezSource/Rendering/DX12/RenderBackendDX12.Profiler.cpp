@@ -4,9 +4,10 @@ Purpose:
   Implements DX12 GPU timestamp collection and profiler readback.
 
 Mental model:
-  DX12 separates resource memory, descriptor rows, command recording, and GPU
-  execution. Ownership, state transitions, descriptor lifetime, and fence
-  ordering are the important ideas.
+  RenderBackendDX12.Profiler.cpp implements DX12 GPU timestamp collection and
+  profiler readback. As an implementation unit, keep edits anchored on DX12
+  ownership, descriptors, resources, and command submission and on the
+  glossary/invariants below.
 
 Glossary:
   Descriptor: Small binding record that tells a renderer how to interpret a

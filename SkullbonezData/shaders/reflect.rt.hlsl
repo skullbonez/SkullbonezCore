@@ -4,9 +4,9 @@ Purpose:
   Runs the reflect.rt HLSL shader program used by the renderer.
 
 Mental model:
-  Shaders are GPU programs. Constant buffers provide per-frame data, shader
-  stages transform or shade inputs, and CPU-side renderer bindings must match
-  the declarations in this file.
+  reflect.rt.hlsl is shader source for the renderer's reflect.rt pass. Keep
+  edits anchored on shader inputs, bindings, and render-output contracts and
+  on the glossary/invariants below.
 
 Glossary:
   DXR (DirectX Raytracing): DX12 API used for hardware ray traversal and

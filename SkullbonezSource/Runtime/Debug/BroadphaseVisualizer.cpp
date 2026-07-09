@@ -4,9 +4,10 @@ Purpose:
   Draws the physics broadphase grid as an explanatory debug overlay.
 
 Mental model:
-  This module is one piece of the engine contract. Read the glossary and
-  invariants first, then follow ownership and call direction through the
-  related files.
+  BroadphaseVisualizer.cpp draws the physics broadphase grid as an explanatory
+  debug overlay. As an implementation unit, keep edits anchored on
+  deterministic physics, diagnostics, or world-state flow and on the
+  glossary/invariants below.
 
 Glossary:
   Broadphase: Cheap collision pass that finds object pairs worth testing more

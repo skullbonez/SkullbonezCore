@@ -4,15 +4,14 @@ Purpose:
   Loads, owns, and resolves reusable runtime assets for scenes and render code.
 
 Mental model:
-  Runtime code connects authored scene data, input, simulation, render
-  backends, and validation-oriented launch modes. Follow who owns state and
-  when that state changes.
+  AssetSystem.h loads, owns, and resolves reusable runtime assets for scenes
+  and render code. As a public header, keep edits anchored on asset lifetime,
+  cache ownership, and load/fallback behavior and on the glossary/invariants
+  below.
 
 Glossary:
   Asset context: Borrowed view that lets parsing or tool code resolve asset
     records without using the active process-global bridge.
-  Validation gate: Repository script that proves a class of changes before
-  commit or PR.
 
 Invariants:
   - AssetId values are AssetSystem-owned identities and must not be invented by

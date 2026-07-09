@@ -21,7 +21,7 @@ Owner decisions of 2026-07-09 are binding — see
 
 | Plan | Status | % | Remaining work |
 |------|--------|---|----------------|
-| [15 Review gaps (2026-07-09)](../../engine-cleanup-plans/15-review-gaps.md) | Proposed | 0% | Comment-boilerplate cleanup (15.4) lives here; 15.1/15.2/15.3 execute via TODO plans; 15.5/15.6 are small hygiene slices. |
+| [15 Review gaps (2026-07-09)](../../engine-cleanup-plans/15-review-gaps.md) | In progress | 25% | 15.4 comment-boilerplate cleanup is complete. Remaining: 15.5 Window encapsulation and 15.6 stale comment/Common.h hygiene. |
 
 ## Consolidated active plans (`Agentic/Plans/TODO/`)
 

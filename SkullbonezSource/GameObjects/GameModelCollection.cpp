@@ -4,9 +4,10 @@ Purpose:
   Owns all scene models and delegates rendering, physics, and snapshots.
 
 Mental model:
-  Runtime code connects authored scene data, input, simulation, render
-  backends, and validation-oriented launch modes. Follow who owns state and
-  when that state changes.
+  GameModelCollection.cpp owns all scene models and delegates rendering,
+  physics, and snapshots. As an implementation unit, keep edits anchored on
+  model ownership, dense-row identity, and render/physics handoff and on the
+  glossary/invariants below.
 
 Glossary:
   Physics material: Per-object friction and drag coefficients owned by
@@ -29,8 +30,6 @@ Glossary:
     when a related fixed part is hit strongly enough.
   Replay body id: PhysicsBodyStore-owned identity saved in replay samples so
     restore paths can reject stale model slots.
-  Validation gate: Repository script that proves a class of changes before
-    commit or PR.
 
 Invariants:
   - SceneEntityStore order remains the scene alignment key for physics stores,

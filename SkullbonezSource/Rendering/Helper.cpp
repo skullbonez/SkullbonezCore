@@ -4,9 +4,9 @@ Purpose:
   Collects legacy helper routines that bridge engine subsystems.
 
 Mental model:
-  Runtime code connects authored scene data, input, simulation, render
-  backends, and validation-oriented launch modes. Follow who owns state and
-  when that state changes.
+  Helper.cpp collects legacy helper routines that bridge engine subsystems. As
+  an implementation unit, keep edits anchored on render submission and
+  resource lifetime and on the glossary/invariants below.
 
 Glossary:
   Cbuffer (Constant Buffer): Shader constant block uploaded once before a draw.
@@ -14,8 +14,6 @@ Glossary:
   values for object shaders.
   Instance payload: Per-object data appended after the model matrix in an
   instanced draw stream.
-  Validation gate: Repository script that proves a class of changes before
-  commit or PR.
 
 Invariants:
   - C++ constant-buffer structs must match reflected HLSL cbuffer size and

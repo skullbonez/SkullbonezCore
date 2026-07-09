@@ -4,8 +4,9 @@ Purpose:
   Declares the renderer-neutral shader interface.
 
 Mental model:
-  Renderer-facing code translates engine concepts into backend resources, draw
-  calls, shader bindings, and validation artifacts.
+  IShader.h declares the renderer-neutral shader interface. As a public
+  header, keep edits anchored on render submission and resource lifetime and
+  on the glossary/invariants below.
 
 Glossary:
   Descriptor: Small binding record that tells a renderer how to interpret a

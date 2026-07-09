@@ -4,9 +4,10 @@ Purpose:
   Provides geometric helper functions for collision, projection, and intersection tests.
 
 Mental model:
-  Math code is shared infrastructure. Coordinate conventions, units,
-  handedness, and simplifications matter because subtle assumptions spread
-  through rendering and physics.
+  GeometricMath.cpp provides geometric helper functions for collision,
+  projection, and intersection tests. As an implementation unit, keep edits
+  anchored on units, basis conventions, and numerical assumptions and on the
+  glossary/invariants below.
 
 Glossary:
   Engine module: A source file with one focused responsibility inside the

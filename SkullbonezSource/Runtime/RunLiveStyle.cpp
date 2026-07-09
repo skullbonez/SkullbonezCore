@@ -4,15 +4,14 @@ Purpose:
   Applies live style-harness updates without restarting physics or scene state.
 
 Mental model:
-  Runtime code connects authored scene data, input, simulation, render
-  backends, and validation-oriented launch modes. Follow who owns state and
-  when that state changes.
+  RunLiveStyle.cpp applies live style-harness updates without restarting
+  physics or scene state. As an implementation unit, keep edits anchored on
+  local owner boundaries and call direction and on the glossary/invariants
+  below.
 
 Glossary:
   Lane R result: Recoverable style-load or capture failure reported to the
     control status file and stderr while the run stays alive.
-  Validation gate: Repository script that proves a class of changes before
-  commit or PR.
 
 Invariants:
   - Live style polling is opt-in and style-only; it must not reload scene

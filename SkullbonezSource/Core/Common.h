@@ -4,9 +4,10 @@ Purpose:
   Defines shared constants, enums, and small cross-subsystem engine types.
 
 Mental model:
-  Runtime code connects authored scene data, input, simulation, render
-  backends, and validation-oriented launch modes. Follow who owns state and
-  when that state changes.
+  Common.h defines shared constants, enums, and small cross-subsystem engine
+  types. As a public header, keep edits anchored on process-wide contracts,
+  diagnostics, and validation-sensitive state and on the glossary/invariants
+  below.
 
 Glossary:
   Maths prelude: Math-only constants and CRT math includes owned by
@@ -19,8 +20,6 @@ Glossary:
     Physics/PhysicsTimestep.h during the Common.h aliasing period.
   Scene capacity: Fixed model/camera/texture ceilings owned by
     GameObjects/SceneCapacity.h during the Common.h aliasing period.
-  Validation gate: Repository script that proves a class of changes before
-  commit or PR.
 
 Invariants:
   - Shared constants in this file are compile-time engine contracts; changing

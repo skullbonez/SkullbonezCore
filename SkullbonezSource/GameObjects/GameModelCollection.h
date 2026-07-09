@@ -4,9 +4,10 @@ Purpose:
   Owns all scene models and delegates rendering, physics, and snapshots.
 
 Mental model:
-  Runtime code connects authored scene data, input, simulation, render
-  backends, and validation-oriented launch modes. Follow who owns state and
-  when that state changes.
+  GameModelCollection.h owns all scene models and delegates rendering,
+  physics, and snapshots. As a public header, keep edits anchored on model
+  ownership, dense-row identity, and render/physics handoff and on the
+  glossary/invariants below.
 
 Glossary:
   SkullScope: Queryable physics diagnostics workflow backed by bounded trace
@@ -34,8 +35,6 @@ Glossary:
     scrubbing or prediction draws historical/future bodies without mutating physics.
   Replay body id: PhysicsBodyStore row identity saved in replay samples so
     restore paths can reject stale model slots.
-  Validation gate: Repository script that proves a class of changes before
-    commit or PR.
 
 Invariants:
   - SceneEntityStore is the stable scene-order owner; collaborators mirror or

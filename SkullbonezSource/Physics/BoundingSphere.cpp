@@ -4,9 +4,10 @@ Purpose:
   Defines sphere collision geometry, swept tests, volume facts, and render transforms.
 
 Mental model:
-  Physics is deterministic fixed-step state update. Units, contact ownership,
-  solver stages, sleep policy, and baseline-sensitive behavior are the key
-  reading anchors.
+  BoundingSphere.cpp defines sphere collision geometry, swept tests, volume
+  facts, and render transforms. As an implementation unit, keep edits anchored
+  on deterministic physics, diagnostics, or world-state flow and on the
+  glossary/invariants below.
 
 Glossary:
   OBB (Oriented Bounding Box): Box with rotation, used for exact object-space

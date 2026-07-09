@@ -4,9 +4,10 @@ Purpose:
   Declares mesh buffers, upload flow, and draw binding for the DX12 renderer.
 
 Mental model:
-  DX12 separates resource memory, descriptor rows, command recording, and GPU
-  execution. Ownership, state transitions, descriptor lifetime, and fence
-  ordering are the important ideas.
+  MeshDX12.h declares mesh buffers, upload flow, and draw binding for the DX12
+  renderer. As a public header, keep edits anchored on DX12 ownership,
+  descriptors, resources, and command submission and on the
+  glossary/invariants below.
 
 Glossary:
   PSO (Pipeline State Object): Precompiled bundle of shaders and fixed render

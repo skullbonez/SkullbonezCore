@@ -4,9 +4,9 @@ Purpose:
   Runs the sky_atmosphere HLSL shader program used by the renderer.
 
 Mental model:
-  Shaders are GPU programs. Constant buffers provide per-frame data, shader
-  stages transform or shade inputs, and CPU-side renderer bindings must match
-  the declarations in this file.
+  sky_atmosphere.hlsl is shader source for the renderer's sky_atmosphere pass.
+  Keep edits anchored on shader inputs, bindings, and render-output contracts
+  and on the glossary/invariants below.
 
 Glossary:
   Cinematic sky: Scene-authored sky pass driven by horizon, zenith, sun, cloud,

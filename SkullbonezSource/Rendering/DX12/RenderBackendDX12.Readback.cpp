@@ -4,9 +4,10 @@ Purpose:
   Reads GPU-rendered image data back to the CPU for screenshots and validation.
 
 Mental model:
-  DX12 separates resource memory, descriptor rows, command recording, and GPU
-  execution. Ownership, state transitions, descriptor lifetime, and fence
-  ordering are the important ideas.
+  RenderBackendDX12.Readback.cpp reads GPU-rendered image data back to the CPU
+  for screenshots and validation. As an implementation unit, keep edits
+  anchored on DX12 ownership, descriptors, resources, and command submission
+  and on the glossary/invariants below.
 
 Glossary:
   Descriptor: Small binding record that tells a renderer how to interpret a

@@ -4,9 +4,10 @@ Purpose:
   Loads, registers, and binds textures for the DX12 renderer.
 
 Mental model:
-  DX12 separates resource memory, descriptor rows, command recording, and GPU
-  execution. Ownership, state transitions, descriptor lifetime, and fence
-  ordering are the important ideas.
+  RenderBackendDX12.Textures.cpp loads, registers, and binds textures for the
+  DX12 renderer. As an implementation unit, keep edits anchored on DX12
+  ownership, descriptors, resources, and command submission and on the
+  glossary/invariants below.
 
 Glossary:
   SRV (Shader Resource View): Descriptor row used when shaders read textures

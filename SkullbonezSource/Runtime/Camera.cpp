@@ -4,13 +4,11 @@ Purpose:
   Stores camera pose and builds view/projection transforms for rendering.
 
 Mental model:
-  Runtime code connects authored scene data, input, simulation, render
-  backends, and validation-oriented launch modes. Follow who owns state and
-  when that state changes.
+  Camera.cpp stores camera pose and builds view/projection transforms for
+  rendering. As an implementation unit, keep edits anchored on local owner
+  boundaries and call direction and on the glossary/invariants below.
 
 Glossary:
-  Validation gate: Repository script that proves a class of changes before
-  commit or PR.
 
 Invariants:
   - m_view is a look-at target, not a direction vector; movement updates both

@@ -4,8 +4,10 @@ Purpose:
   Loads texture files and hands renderer-neutral texture ids to draw code.
 
 Mental model:
-  Renderer-facing code translates engine concepts into backend resources, draw
-  calls, shader bindings, and validation artifacts.
+  TextureCollection.h loads texture files and hands renderer-neutral texture
+  ids to draw code. As a public header, keep edits anchored on asset lifetime,
+  cache ownership, and load/fallback behavior and on the glossary/invariants
+  below.
 
 Glossary:
   Descriptor: Small binding record that tells a renderer how to interpret a

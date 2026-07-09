@@ -4,13 +4,12 @@ Purpose:
   Contains DX12 architecture checks that guard renderer ownership and dependency boundaries.
 
 Mental model:
-  This module is one piece of the engine contract. Read the glossary and
-  invariants first, then follow ownership and call direction through the
-  related files.
+  Dx12ArchUnitTests.cpp contains DX12 architecture checks that guard renderer
+  ownership and dependency boundaries. As an implementation unit, keep edits
+  anchored on the behavior under test and the regression signal and on the
+  glossary/invariants below.
 
 Glossary:
-  Validation gate: Repository script that proves a class of changes before
-  commit or PR.
 
 Invariants:
   Tests stay CPU-only and must not require a real D3D12 device or renderer launch.

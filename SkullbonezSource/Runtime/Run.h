@@ -4,9 +4,9 @@ Purpose:
   Coordinates the main game loop and high-level runtime lifecycle.
 
 Mental model:
-  Runtime code connects authored scene data, input, simulation, render
-  backends, and validation-oriented launch modes. Follow who owns state and
-  when that state changes.
+  Run.h coordinates the main game loop and high-level runtime lifecycle. As a
+  public header, keep edits anchored on local owner boundaries and call
+  direction and on the glossary/invariants below.
 
 Glossary:
   Attached camera target: Runtime follow selection where Run owns the selected

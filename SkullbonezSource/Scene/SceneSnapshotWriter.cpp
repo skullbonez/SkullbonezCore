@@ -4,9 +4,9 @@ Purpose:
   Serializes the current scene state back into a JSON scene file.
 
 Mental model:
-  Scene snapshots serialize a live, editable scene. Cold presentation metadata
-  still comes from GameModel order, while live physics state is sampled from the
-  physics stores that own the current simulation frame.
+  SceneSnapshotWriter.cpp serializes the current scene state back into a JSON
+  scene file. As an implementation unit, keep edits anchored on scene-file
+  parsing or snapshot contracts and on the glossary/invariants below.
 
 Glossary:
   Scene snapshot: JSON scene emitted from current runtime state rather than the
@@ -15,8 +15,6 @@ Glossary:
     objects but do not drive physics integration.
   Scene object group: JSON metadata that lets multi-part object grouping
     round-trip without parsing display-name suffixes at collection append time.
-  Validation gate: Repository script that proves a class of changes before
-    commit or PR.
 
 Invariants:
   - Command-line and scene-file spellings are user-facing compatibility

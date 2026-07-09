@@ -4,9 +4,9 @@ Purpose:
   Bootstraps the Windows process, parses command-line options, and starts the run loop.
 
 Mental model:
-  Runtime code connects authored scene data, input, simulation, render
-  backends, and validation-oriented launch modes. Follow who owns state and
-  when that state changes.
+  Init.cpp bootstraps the Windows process, parses command-line options, and
+  starts the run loop. As an implementation unit, keep edits anchored on local
+  owner boundaries and call direction and on the glossary/invariants below.
 
 Glossary:
   DX11/OpenGL: Retired runtime renderer choices. The parser names them only to
@@ -15,8 +15,6 @@ Glossary:
   and platform APIs through reference-counted objects.
   SDF (Signed Distance Field): Texture representation used for crisp scalable
   text rendering.
-  Validation gate: Repository script that proves a class of changes before
-    commit or PR.
   Standalone physics smoke: Early-exit validation mode that exercises public
     physics API construction without runtime/window/renderer ownership.
   Runtime handle smoke: Early-exit validation mode that uses runtime

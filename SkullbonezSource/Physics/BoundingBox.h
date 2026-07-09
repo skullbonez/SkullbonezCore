@@ -4,9 +4,10 @@ Purpose:
   Defines oriented-box collision geometry and its broadphase/render helper math.
 
 Mental model:
-  Physics is deterministic fixed-step state update. Units, contact ownership,
-  solver stages, sleep policy, and baseline-sensitive behavior are the key
-  reading anchors.
+  BoundingBox.h defines oriented-box collision geometry and its
+  broadphase/render helper math. As a public header, keep edits anchored on
+  deterministic physics, diagnostics, or world-state flow and on the
+  glossary/invariants below.
 
 Glossary:
   AABB (Axis-Aligned Bounding Box): Box aligned to world axes, often used for

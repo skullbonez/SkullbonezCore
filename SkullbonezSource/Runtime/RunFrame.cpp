@@ -4,9 +4,9 @@ Purpose:
   Runs one frame of input, simulation, rendering, profiling, and presentation.
 
 Mental model:
-  Runtime code connects authored scene data, input, simulation, render
-  backends, and validation-oriented launch modes. Follow who owns state and
-  when that state changes.
+  RunFrame.cpp runs one frame of input, simulation, rendering, profiling, and
+  presentation. As an implementation unit, keep edits anchored on local owner
+  boundaries and call direction and on the glossary/invariants below.
 
 Glossary:
   Simulation tick: One runtime decision about whether to advance logic, camera,
@@ -23,8 +23,6 @@ Glossary:
     parameters, and broadphase radius.
   Lane R result: Recoverable scene-control or capture failure that prevents a
     failed side effect from being reported as a successful frame transition.
-  Validation gate: Repository script that proves a class of changes before
-  commit or PR.
 
 Invariants:
   - Frame work updates input, simulation, capture, rendering, and diagnostics

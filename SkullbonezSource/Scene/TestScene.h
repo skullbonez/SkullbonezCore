@@ -4,9 +4,9 @@ Purpose:
   Stores parsed test-scene JSON and applies it to runtime scene state.
 
 Mental model:
-  Runtime code connects authored scene data, input, simulation, render
-  backends, and validation-oriented launch modes. Follow who owns state and
-  when that state changes.
+  TestScene.h stores parsed test-scene JSON and applies it to runtime scene
+  state. As a public header, keep edits anchored on scene-file parsing or
+  snapshot contracts and on the glossary/invariants below.
 
 Glossary:
   DXR (DirectX Raytracing): DX12 API used for hardware ray traversal and
@@ -15,8 +15,6 @@ Glossary:
   exposed through the renderer abstraction.
   CSV (Comma-Separated Values): Text table format used for byte-exact physics
   regression output.
-  Validation gate: Repository script that proves a class of changes before
-  commit or PR.
   Override mask: Bitfield that records which optional JSON fields were authored
     so unspecified values keep engine.cfg defaults.
   Lane R result: Recoverable load outcome carrying owner/message diagnostics
