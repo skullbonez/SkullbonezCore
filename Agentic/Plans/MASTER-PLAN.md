@@ -21,7 +21,6 @@ Owner decisions of 2026-07-09 are binding — see
 
 | Plan | Status | % | Remaining work |
 |------|--------|---|----------------|
-| [11 Render abstraction leaks](../../engine-cleanup-plans/11-render-abstraction-leaks.md) | In Progress | 80% | Retire the diagnostic RenderGraph path per owner decision; remove stale barrier-ownership claims. |
 | [13 Facade retirement (rule)](../../engine-cleanup-plans/13-facade-retirement.md) | In Progress | 75% | Cross-cutting rule; FAC-005 executes via plan 14, FAC-004 needs an owner, FAC-007 executes via `TODO/render-backend-decomposition.md`. |
 | [14 Public physics API boundary](../../engine-cleanup-plans/14-public-physics-api-boundary.md) | Proposed | 0% | No `GameModel`/raw `modelIndex`/solver containers in `PhysicsApi.h`/`PhysicsEngine.h`. |
 | [15 Review gaps (2026-07-09)](../../engine-cleanup-plans/15-review-gaps.md) | Proposed | 0% | Comment-boilerplate cleanup (15.4) lives here; 15.1/15.2/15.3 execute via TODO plans; 15.5/15.6 are small hygiene slices. |
@@ -63,6 +62,14 @@ re-scoped. Constituent history is in git history of the deleted files.
   heap/reserve APIs, owning dynamic STL members, and STL growth calls with
   owner/phase/cap allowlist metadata. The completed plan/inventory files were
   deleted per MASTER convention.
+- **audit iss-09 render abstraction leaks** — completed through engine-cleanup
+  plan 11 on 2026-07-10. Backbuffer state is tracked as an explicit resource
+  state, replay ribbons draw through generic transient triangles, and the
+  diagnostic RenderGraph skeleton/live-barrier comparison path was deleted.
+  RenderGraph remains a pass/resource declaration, callback scheduling, and
+  transient texture lifetime layer; DX12 explicit backend helpers own live
+  transition and UAV barrier emission. The completed plan file was deleted per
+  MASTER convention.
 - **fable-07 blocker remediation + overnight blocker ledger** — the open
   PHYS-*/RGRAPH-*/RUN-* rows were absorbed into the three matching TODO plans
   as "known hard blockers"; clusters D/E and SVC rows were already resolved.

@@ -1151,7 +1151,7 @@ bool RuntimeRenderer::ExecuteDebugOverlayThroughRenderGraph( const RenderFrameCo
                            "Frame/Render/DebugOverlay" );
 
     // Invariant: debug overlays are optional inside the pass body, but the pass
-    // scheduling itself is now graph-owned every frame so direct runtime calls
+    // scheduling itself is now graph-scheduled every frame so direct runtime calls
     // cannot creep back beside post-processing callbacks.
     CompileRenderPassGraph( graph );
     graph.ExecuteCallbacks( Rendering::RenderGraphCallbackExecutionMode::DryRun );
@@ -1264,7 +1264,7 @@ RuntimeRenderer::ExecuteCinematicPostThroughRenderGraph( const RenderFrameContex
             callbackData.volumetricLight = frame.renderCommands->ResolveGraphTextureBinding( volumetricLight );
             if ( !callbackData.volumetricLight.IsValid() )
             {
-                // Lane R: if the graph-owned texture allocation fails, the
+                // Lane R: if the graph-managed texture allocation fails, the
                 // volumetric callback can still render through its legacy
                 // framebuffer target. Keep the failure visible in logs/evidence.
                 Log().WriteEventf( "render_graph_volumetric_transient_unavailable materialization_failed=%d "

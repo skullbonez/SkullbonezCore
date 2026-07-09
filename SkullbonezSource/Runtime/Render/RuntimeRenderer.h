@@ -149,7 +149,7 @@ class RuntimeRenderer
         bool volumetricReady = false;                      // Volumetric target was produced and can be sampled by tonemap.
         bool volumetricCallbackOwned = false;              // Volumetric command recording ran through RenderGraph callback execution.
         bool tonemapCallbackOwned = false;                 // Tonemap command recording ran through RenderGraph callback execution.
-        uint32_t volumetricTextureHandle = 0;              // Renderer texture handle resolved from the graph-owned transient SRV.
+        uint32_t volumetricTextureHandle = 0;              // Renderer texture handle resolved from the graph-managed transient SRV.
         uint32_t volumetricWidth = 0;                      // Materialized graph transient width for diagnostics.
         uint32_t volumetricHeight = 0;                     // Materialized graph transient height for diagnostics.
     };

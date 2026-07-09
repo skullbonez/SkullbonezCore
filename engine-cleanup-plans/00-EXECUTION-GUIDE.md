@@ -78,7 +78,7 @@ something whose prerequisite is unfinished.
 | 3 | [06](06-inl-translation-unit-unsplitting.md) **editor files first** | Promote `RunEditor*.inl` to real TUs | Mechanical, build-gated; leave replay `.inl` for step 8 | `validate_fast` then `validate_full` |
 | 4 | [13](13-facade-retirement.md) + [10](10-enginecontext-irenderbackend-boundary.md) + [14](14-public-physics-api-boundary.md) | Narrow render interfaces, delete `IRenderBackend` aggregate, split `EngineContext`, fix DX12 aliases, collapse `SimulationController` (FAC-004), and close FAC-005 public physics API leaks | Enabling decoupling; 13 is the rule, 10/14 are execution | `validate_dx12_renderer` + `validate_full` + `validate_physics` |
 | 5 | [08](08-renderhelper-global-state-removal.md) | De-static `RenderHelper`; RAII batches | Removes global render state; DX12-gated | `validate_dx12_renderer` |
-| 6 | [11](11-render-abstraction-leaks.md) | Real backbuffer state; de-leak replay ribbons; RenderGraph honesty | Barrier danger zone — do after 08/10 stabilise the backend | `validate_dx12_renderer` ×3 |
+| 6 | 11 render abstraction leaks (completed; file deleted) | Real backbuffer state; de-leak replay ribbons; RenderGraph honesty | Completed 2026-07-10; diagnostic RenderGraph skeleton/live-barrier comparison path deleted | `validate_dx12_renderer` |
 | 7 | [01](01-run-god-object-decomposition.md) | Input command table → shrink `RunState` → shrink `Run` | Big; the flagship. Add its tests via plan 05 as you go | `validate_full` |
 | 8 | [09](09-replay-subsystem-right-sizing.md) | Split prediction state; template twins; evict replay from `RunFrame`; finish replay `.inl` from step 3 | Big; depends on 01's `RunFrame` shrink and 06 | replay scrub regression + `validate_full` |
 | 9 | [02](02-physicsworld-solver-decomposition.md) **rest** | Lift 33 lambdas to stages; evict gameplay; table-drive snapshot | Big, byte-exact; do after the DisjointSet warm-up | `validate_physics` per phase |
@@ -109,7 +109,10 @@ fully `[x]`.
   Note (2026-07-09): Plan 10 is complete; Plan 13 remains open only on FAC-005,
   now owned by dedicated Plan 14 after owner approval.
 - [x] 5. Plan 08 — RenderHelper de-statised
-- [ ] 6. Plan 11 — render abstraction leaks closed
+- [x] 6. Plan 11 — render abstraction leaks closed
+  Note (2026-07-10): `DumpFrameGraphSkeleton()`, live-barrier comparison
+  records, and stale barrier-ownership claims were removed. `validate_dx12_renderer`
+  passed with DX12 validation errors 0 and screenshots matching baselines.
 - [x] 7. Plan 01 — Run decomposed
 - [x] 8. Plan 09 — replay right-sized
 - [x] 9. Plan 02 rest — solver decomposed
@@ -127,7 +130,8 @@ fully `[x]`.
   link-stub removal are complete. Current inventory: 59 `TEST_CASE`s across 19
   test `.cpp` files and 0 `*LinkStubs.cpp` files.
 - [x] C2. Plan 03 — regex governance apparatus removed (owner-approved 2026-07-09)
-- [ ] C3. Plan 07 — allocation gate right-sized without weakening global zero-allocation policy (owner decision recorded 2026-07-09)
+- [x] C3. Plan 07 — allocation gate right-sized without weakening global zero-allocation policy (owner decision recorded 2026-07-09)
+  Note (2026-07-10): Completed and deleted per MASTER convention.
 
 When every box above is `[x]`, the campaign is complete.
 

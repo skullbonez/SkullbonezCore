@@ -10,15 +10,17 @@ Full completed-slice history in git history of those files.
 ## Scope decision (binding)
 
 The 2026-07-09 owner decision (recorded in
-`engine-cleanup-plans/HANDOFF-2026-07-09-OWNER-DECISIONS.md`, executed by
-`engine-cleanup-plans/11-render-abstraction-leaks.md`) **retires the
-diagnostic RenderGraph path**: no render-graph compiler, no graph-owned
-transient allocation, no further pass-family graph migration. DX12 explicit
-hand-coded barriers are the honest architecture.
+`engine-cleanup-plans/HANDOFF-2026-07-09-OWNER-DECISIONS.md`, executed by the
+completed/deleted engine-cleanup Plan 11) **retires the diagnostic RenderGraph
+barrier-comparison path**: no render-graph barrier compiler and no transition
+ownership outside the DX12 backend. Existing
+graph-scheduled callbacks and graph-managed transient texture materialization
+remain branch reality, but DX12 explicit hand-coded barriers are the honest
+architecture.
 
 Consequently the old plan's Phase 1 (graph contract hardening), remaining
-Phase 2 pass-family migrations, and Phase 3 (graph-owned transient resources)
-are **dropped, not pending**. Blocker rows RGRAPH-003, RGRAPH-014, and
+Phase 2 pass-family migrations, and Phase 3 graph buildout are **dropped, not
+pending**. Blocker rows RGRAPH-003, RGRAPH-014, and
 RGRAPH-029 are superseded by the same decision. What survives is backend
 *decomposition*: the concrete DX12 owner is still an aggregate.
 

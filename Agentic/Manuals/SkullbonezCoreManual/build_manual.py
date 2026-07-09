@@ -8,6 +8,12 @@ Mental model:
   figure plates, equation cards, and print geometry that are easier to keep
   consistent from code than by hand-editing Word paragraphs.
 
+Glossary:
+  DOCX: Office Open XML word-processing document used as the editable manual
+    master.
+  Render QA: Visual verification pass that renders document pages to inspect
+    pagination, image placement, and text fit.
+
 Invariants:
   - Output is documentation only; it must not modify engine source or runtime data.
   - Figures and equations are generated assets owned by the manual folder.
@@ -997,9 +1003,9 @@ def chapter_specs() -> list[ChapterSpec]:
                 SectionSpec(
                     "Render Graph Access",
                     [
-                        "RenderGraph is the API-neutral contract for resources, passes, uses, transitions, and transient lifetimes. The current compiler is deliberately simple: start at each resource initial access, walk passes in added order, process reads and writes, emit transitions when desired access differs, and remember the new access.",
+                        "RenderGraph is the API-neutral contract for resources, passes, access intent, callback scheduling, and transient lifetimes. The current compiler is deliberately simple: start at each resource initial access, walk passes in added order, process reads and writes, record advisory transitions when desired access differs, and remember the new access.",
                         "The graph does not execute arbitrary runtime behavior by itself. Callback-owned passes hold runtime-specific state; the graph passes them a small context with graph vocabulary and pass identity.",
-                        "For DX12, graph transition records become concrete resource barriers. If a graph-owned transition does not emit exactly one concrete barrier when it should, the backend throws rather than silently continuing.",
+                        "For DX12, live transition and UAV barriers remain explicit backend-owned calls. If an explicit DX12 helper call does not emit exactly one concrete barrier when it should, the backend fails fatally rather than silently continuing.",
                     ],
                     figure="render_graph",
                     equation="eq_graph_transition",
@@ -1043,7 +1049,7 @@ def chapter_specs() -> list[ChapterSpec]:
             ],
             [
                 "Keep moving pass resource ownership from Run-shaped aggregates into renderer/pass-owned boundaries.",
-                "Tighten render graph callback coverage until more passes can be fully graph-owned.",
+                "Keep render graph callback coverage honest without moving DX12 barrier ownership out of the backend.",
                 "Add diagrammed resource-state examples for shadow, reflection, water, and tonemap resources.",
                 "Continue DX12 validation gate improvements around InfoQueue errors and screenshot timing.",
                 "Preserve future portability vocabulary without adding new runtime dependency on retired backends.",

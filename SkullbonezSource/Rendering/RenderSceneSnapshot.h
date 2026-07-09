@@ -61,9 +61,9 @@ struct RenderSceneSnapshot
     bool volumetricCallbackOwned = false;        // Volumetric command recording ran through the executable render graph.
     bool volumetricReady = false;                // Volumetric light target was produced for tonemap.
     bool tonemapCallbackOwned = false;           // Tonemap command recording ran through the executable render graph.
-    uint32_t volumetricTextureHandle = 0;        // Graph-owned volumetric SRV handle sampled by tonemap.
-    uint32_t volumetricWidth = 0;                // Materialized graph-owned volumetric texture width.
-    uint32_t volumetricHeight = 0;               // Materialized graph-owned volumetric texture height.
+    uint32_t volumetricTextureHandle = 0;        // Graph-managed volumetric SRV handle sampled by tonemap.
+    uint32_t volumetricWidth = 0;                // Materialized graph-managed volumetric texture width.
+    uint32_t volumetricHeight = 0;               // Materialized graph-managed volumetric texture height.
 };
 
 } // namespace Rendering

@@ -55,6 +55,8 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="Dx12ArchUnitTests.cpp" />
+    <ClCompile Include="..\..\..\SkullbonezSource\Core\FatalError.cpp" />
+    <ClCompile Include="..\..\..\SkullbonezSource\Core\Log.cpp" />
     <ClCompile Include="..\..\..\SkullbonezSource\Rendering\DX12\RenderDeviceDX12.cpp" />
     <ClCompile Include="..\..\..\SkullbonezSource\Rendering\RenderGraph.cpp" />
     <ClCompile Include="..\..\..\SkullbonezSource\Rendering\DX12\Dx12RenderGraphExecutor.cpp" />

@@ -175,34 +175,6 @@ struct GpuTimerStateDX12
     bool slotWritten[DX12_TIMER_HEAP_SIZE] = {};                   // true for each timestamp slot that had EndQuery recorded this frame
 };
 
-// One live DX12 transition barrier emitted through the graph-owned helper while
-// the backend records commands.
-//
-// This is diagnostic data for the render-graph migration. It is deliberately a
-// small CPU-side record: resource pointer identity, resource name,
-// subresource/all-subresources, graph access, before/after DX12 states, and a
-// short source label. It does not affect command recording. The goal is to make
-// the actual graph-owned barrier path auditable without scattering DX12 policy
-// back into pass code.
-struct LiveBarrierRecordDX12
-{
-    const void* resource = nullptr;
-    char resourceName[64] = {};
-    RenderGraphResourceAccess beforeAccess = RenderGraphResourceAccess::Unknown;
-    RenderGraphResourceAccess afterAccess = RenderGraphResourceAccess::Unknown;
-    D3D12_RESOURCE_STATES before = D3D12_RESOURCE_STATE_COMMON;
-    D3D12_RESOURCE_STATES after = D3D12_RESOURCE_STATE_COMMON;
-    UINT subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-    char source[64] = {};
-};
-
-struct LiveUavBarrierRecordDX12
-{
-    const void* resource = nullptr;
-    char resourceName[64] = {};
-    char source[64] = {};
-};
-
 struct DeferredResourceReleaseDX12
 {
     ID3D12Resource* resource = nullptr;
@@ -251,7 +223,6 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     // runtime passes and the DX12 backend consume one shader/root-signature map.
     static constexpr size_t MAX_CACHED_GRAPHICS_PSOS = 96;
     static constexpr size_t MAX_GRID_LINE_PSOS = 4;
-    static constexpr size_t MAX_LIVE_BARRIER_RECORDS = 4096;
     static constexpr size_t TRANSIENT_TRIANGLE_STYLE_COUNT = 4;
 
     // CPU-side registries. These are not GPU resources by themselves; they are
@@ -400,8 +371,6 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     float m_clearColor[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
     float m_clearDepth = 1.0f;
     bool m_psoDirty = true;
-    RenderGraphFixedList<LiveBarrierRecordDX12, MAX_LIVE_BARRIER_RECORDS> m_liveBarrierRecords;
-    RenderGraphFixedList<LiveUavBarrierRecordDX12, MAX_LIVE_BARRIER_RECORDS> m_liveUavBarrierRecords;
     // Lifetime: resource owners transfer COM references here when a framebuffer
     // or texture is invalidated before the GPU has necessarily consumed the
     // command stream that mentioned it.
@@ -491,15 +460,6 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     D3D12_GPU_DESCRIPTOR_HANDLE GetSRVGpuHandle( UINT index );
     D3D12_CPU_DESCRIPTOR_HANDLE GetRTVHandle( UINT index );
     D3D12_CPU_DESCRIPTOR_HANDLE GetDSVHandle( UINT index );
-    void RecordLiveBarrier( const char* source,
-                            const char* resourceName,
-                            ID3D12Resource* resource,
-                            RenderGraphResourceAccess beforeAccess,
-                            RenderGraphResourceAccess afterAccess,
-                            D3D12_RESOURCE_STATES before,
-                            D3D12_RESOURCE_STATES after,
-                            UINT subresource );
-    void RecordLiveUavBarrier( const char* source, const char* resourceName, ID3D12Resource* resource );
     bool TransitionBackbuffer( const char* passName, RenderGraphResourceAccess after );
     // Keeps cached texture-slot state from pointing at an SRV descriptor row
     // whose owning resource is being deleted or unregistered.
@@ -508,7 +468,6 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     void FlushUploadBufferIfNeeded( UINT64 size, UINT64 alignment );
     D3D12_GPU_VIRTUAL_ADDRESS SubAllocateUpload( UINT64 size, UINT64 alignment );
     void ReportArchitectureStats( const char* reason ) const;
-    void DumpFrameGraphSkeleton();
     GraphTransientResourceDX12* FindGraphTransientSlot( RenderGraphResourceHandle resource );
     const GraphTransientResourceDX12* FindGraphTransientSlot( RenderGraphResourceHandle resource ) const;
     void ReleaseGraphTransientResources( const char* reason );

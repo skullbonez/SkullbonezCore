@@ -639,9 +639,9 @@ void TestDx12SingleTransitionExecutionProducesRecord()
     desc.subresource = 2u;
 
     const Dx12RenderGraphBarrierRecord record =
-        ExecuteDx12RenderGraphSingleTransition( "GraphOwned", "Draw", "Backbuffer", desc );
+        ExecuteDx12RenderGraphSingleTransition( "Dx12Explicit", "Draw", "Backbuffer", desc );
 
-    EXPECT_EQ( record.source, std::string( "GraphOwned:Draw" ) );
+    EXPECT_EQ( record.source, std::string( "Dx12Explicit:Draw" ) );
     EXPECT_EQ( record.passName, std::string( "Draw" ) );
     EXPECT_EQ( record.resourceName, std::string( "Backbuffer" ) );
     EXPECT_TRUE( record.nativeResource == desc.resource );
@@ -676,9 +676,9 @@ void TestDx12UavBarrierExecutionProducesRecord()
     desc.resource = reinterpret_cast<ID3D12Resource*>( static_cast<uintptr_t>( 0x5100u ) );
 
     const Dx12RenderGraphUavBarrierRecord record =
-        ExecuteDx12RenderGraphUavBarrier( "GraphOwned", "DispatchReflection", "Reflection", desc );
+        ExecuteDx12RenderGraphUavBarrier( "Dx12Explicit", "DispatchReflection", "Reflection", desc );
 
-    EXPECT_EQ( record.source, std::string( "GraphOwned:DispatchReflection" ) );
+    EXPECT_EQ( record.source, std::string( "Dx12Explicit:DispatchReflection" ) );
     EXPECT_EQ( record.resourceName, std::string( "Reflection" ) );
     EXPECT_TRUE( record.nativeResource == desc.resource );
     EXPECT_TRUE( record.hasNativeResource );

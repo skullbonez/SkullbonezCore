@@ -1,8 +1,8 @@
 /*
 File: SkullbonezSource/Rendering/RenderGraph.h
 Purpose:
-  Records render pass/resource intent and feeds DX12 graph-owned barrier
-  diagnostics.
+  Records render pass/resource intent, callback ordering, and transient texture
+  lifetime plans for the renderer.
 
 Mental model:
   Renderer-facing code translates engine concepts into backend resources, draw
@@ -20,9 +20,9 @@ Invariants:
     handles.
   - External resources are borrowed backend-owned resources; the graph records
     usage intent without taking lifetime ownership.
-  - Transient resources are graph-owned declarations. The graph compiler plans
-    aliasing and descriptor lifetime; a backend executor is the only layer that
-    may turn that plan into API objects.
+  - Transient resources are graph-declared texture requests. The graph compiler
+    plans aliasing and descriptor lifetime; a backend executor is the only layer
+    that may turn that plan into API objects.
 
 Related:
   - SkullbonezSource/Rendering/RenderGraph.cpp
@@ -70,13 +70,14 @@ inline constexpr size_t RENDER_GRAPH_MAX_TRANSIENT_ALLOCATIONS = 16;
     wants to sample it as a shader texture, the engine must insert a resource
     barrier between those uses.
 
-    Without a graph, barrier decisions get scattered across the codebase. Each
-    pass has to remember what state every texture was in before it starts. That
-    is fragile. The render graph changes the contract: every pass declares what
-    it reads and writes, and a future compiler can derive the needed barriers.
+    Without a shared declaration layer, resource intent gets scattered across
+    the codebase. Each pass has to remember what state every texture was in
+    before it starts. That is fragile. The render graph keeps the declarations
+    together, while the DX12 backend remains the explicit owner of live
+    transition and UAV barrier emission on this branch.
 
     This class is intentionally small. It can execute callback-owned pass
-    bodies and plan graph-owned transient resource lifetimes. It gives the
+    bodies and plan graph-managed transient resource lifetimes. It gives the
     engine a concrete place to name:
 
     - render resources,
@@ -86,10 +87,9 @@ inline constexpr size_t RENDER_GRAPH_MAX_TRANSIENT_ALLOCATIONS = 16;
     - what DX12-style access the pass expects,
     - whether a reviewed pass body is called by the graph.
 
-    The current renderer keeps pass bodies in the existing runtime order while
-    DX12 transition and UAV barriers route through graph-owned helper APIs.
-    Selected pass bodies can now move into the same pass/resource callback
-    model without changing the lower-level DX12 transition executor.
+    The current renderer keeps DX12 transitions explicit in the backend.
+    Selected pass bodies can use the same pass/resource callback model without
+    transferring barrier derivation to RenderGraph.
 ----------------------------------------------------------------------------------------------------------------------------------------------------------*/
 
 // A queue is a lane of GPU work.
@@ -116,10 +116,11 @@ enum class RenderGraphQueueType
     Copy
 };
 
-// Barrier policy names whether a pass is plain diagnostics or a reviewed
-// handoff marker. Live transition emission now goes through the DX12 graph
-// executor helpers. Callback execution ownership is tracked separately because
-// a pass can have reviewed barrier declarations before its body is graph-owned.
+// Barrier policy names whether a pass declaration is plain diagnostics or a
+// reviewed handoff marker. DX12 explicit backend helpers own live transition
+// emission; this marker only documents whether a declaration has been reviewed.
+// Callback execution ownership is tracked separately because a pass can have
+// reviewed resource declarations before its body is graph-scheduled.
 enum class RenderGraphBarrierPolicy
 {
     DiagnosticOnly,  // The graph documents intent; hand-written backend barriers still own execution.
@@ -217,7 +218,7 @@ struct RenderGraphDescriptorNeeds
     bool unorderedAccess = false;
 };
 
-// API-neutral description of a graph-owned transient resource. Width/height are
+// API-neutral description of a graph-declared transient resource. Width/height are
 // concrete because aliasing is only safe when descriptor shape is compatible.
 struct RenderGraphTransientResourceDesc
 {
@@ -275,7 +276,7 @@ struct RenderGraphTextureBinding
 //
 // For this first slice, resources are just names and "external" markers.
 // External means the object is owned outside the graph, such as the swap-chain
-// back buffer or an existing backend texture. Later graph-owned transient
+// back buffer or an existing backend texture. Later graph-declared transient
 // resources can use the same declaration shape but set external=false.
 //
 // Lifetime: nativeResource is optional diagnostic identity only. It is a

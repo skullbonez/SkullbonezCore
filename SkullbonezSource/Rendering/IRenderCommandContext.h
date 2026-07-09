@@ -79,9 +79,9 @@ class IRenderCommandContext
     virtual void SetClipPlane( int index, bool enable ) = 0;
 
     virtual void BindTexture( uint32_t handle, int slot ) = 0;
-    // Concept: graph-owned textures resolve through the command context so
-    // runtime passes can bind ordinary engine texture handles without learning
-    // native DX12 descriptor or resource ownership.
+    // Concept: graph-declared transient textures resolve through the command
+    // context so runtime passes can bind ordinary engine texture handles
+    // without learning native DX12 descriptor or resource ownership.
     virtual RenderGraphTransientMaterializationStats
     MaterializeGraphTransientResources( const RenderGraph& graph, const RenderGraphCompileResult& compiled )
     {
