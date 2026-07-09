@@ -37,6 +37,8 @@ Related:
 */
 #pragma once
 
+#include "../../Core/SbResult.h"
+
 #include <cstdint>
 #include <d3d12.h>
 #include <dxgi1_5.h>
@@ -691,7 +693,7 @@ class Dx12RenderDevice
     Dx12RenderDevice( const Dx12RenderDevice& ) = delete;
     Dx12RenderDevice& operator=( const Dx12RenderDevice& ) = delete;
 
-    bool Init( const Dx12RenderDeviceInitDesc& desc );
+    Basics::SbResult Init( const Dx12RenderDeviceInitDesc& desc );
     void Shutdown();
 
     bool IsReady() const

@@ -60,6 +60,22 @@ namespace SkullbonezCore
 namespace Rendering
 {
 
+static inline Basics::SbResult Dx12StartupResult( HRESULT hr, const char* msg )
+{
+    if ( FAILED( hr ) )
+    {
+        // Lane R: adapter, driver, swap-chain, and Win32 event creation can fail
+        // because of the host environment. Report the failing DX12 startup step
+        // to the process bootstrap instead of escaping through an exception.
+        return Basics::SbResult::Failure( "Rendering/DX12",
+                                          "%s (HRESULT 0x%08X)",
+                                          msg ? msg : "DX12 startup call failed",
+                                          static_cast<unsigned int>( hr ) );
+    }
+    return Basics::SbResult::Success();
+}
+
+
 static inline void ThrowIfFailed( HRESULT hr, const char* msg )
 {
     if ( FAILED( hr ) )
@@ -1012,7 +1028,7 @@ Dx12RenderDevice::~Dx12RenderDevice()
 }
 
 
-bool Dx12RenderDevice::Init( const Dx12RenderDeviceInitDesc& desc )
+Basics::SbResult Dx12RenderDevice::Init( const Dx12RenderDeviceInitDesc& desc )
 {
     Shutdown();
 
@@ -1049,7 +1065,12 @@ bool Dx12RenderDevice::Init( const Dx12RenderDeviceInitDesc& desc )
     // The DXGI factory is the Windows-facing graphics object. It creates the
     // swap chain and answers platform questions such as "can this swap chain
     // present without VSync tearing restrictions?"
-    ThrowIfFailed( CreateDXGIFactory2( factoryFlags, IID_PPV_ARGS( &m_factory ) ), "CreateDXGIFactory2 failed" );
+    Basics::SbResult startupResult = Dx12StartupResult( CreateDXGIFactory2( factoryFlags, IID_PPV_ARGS( &m_factory ) ),
+                                                        "CreateDXGIFactory2 failed" );
+    if ( !startupResult.ok )
+    {
+        return startupResult;
+    }
 
     {
         IDXGIFactory5* factory5 = nullptr;
@@ -1070,8 +1091,12 @@ bool Dx12RenderDevice::Init( const Dx12RenderDeviceInitDesc& desc )
     // The D3D12 device is the factory for GPU resources, descriptor heaps, root
     // signatures, PSOs, fences, and command objects. The backend borrows this
     // pointer, but this device layer owns its COM lifetime.
-    ThrowIfFailed( D3D12CreateDevice( nullptr, D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS( &m_device ) ),
-                   "D3D12CreateDevice failed" );
+    startupResult = Dx12StartupResult( D3D12CreateDevice( nullptr, D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS( &m_device ) ),
+                                       "D3D12CreateDevice failed" );
+    if ( !startupResult.ok )
+    {
+        return startupResult;
+    }
     NameDx12Object( m_device, L"Skullbonez DX12 Device" );
 
     {
@@ -1094,8 +1119,12 @@ bool Dx12RenderDevice::Init( const Dx12RenderDeviceInitDesc& desc )
     // records work into a command list; the queue is the doorway to the GPU.
     D3D12_COMMAND_QUEUE_DESC queueDesc = {};
     queueDesc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;
-    ThrowIfFailed( m_device->CreateCommandQueue( &queueDesc, IID_PPV_ARGS( &m_commandQueue ) ),
-                   "CreateCommandQueue failed" );
+    startupResult = Dx12StartupResult( m_device->CreateCommandQueue( &queueDesc, IID_PPV_ARGS( &m_commandQueue ) ),
+                                       "CreateCommandQueue failed" );
+    if ( !startupResult.ok )
+    {
+        return startupResult;
+    }
     NameDx12Object( m_commandQueue, L"Skullbonez DX12 Graphics Queue" );
 
     DXGI_SWAP_CHAIN_DESC1 scDesc = {};
@@ -1109,10 +1138,20 @@ bool Dx12RenderDevice::Init( const Dx12RenderDeviceInitDesc& desc )
     scDesc.Flags = m_allowTearing ? DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING : 0;
 
     IDXGISwapChain1* swapChain1 = nullptr;
-    ThrowIfFailed(
+    startupResult = Dx12StartupResult(
         m_factory->CreateSwapChainForHwnd( m_commandQueue, desc.hwnd, &scDesc, nullptr, nullptr, &swapChain1 ),
         "CreateSwapChainForHwnd failed" );
-    ThrowIfFailed( swapChain1->QueryInterface( IID_PPV_ARGS( &m_swapChain ) ), "SwapChain QueryInterface failed" );
+    if ( !startupResult.ok )
+    {
+        return startupResult;
+    }
+    startupResult = Dx12StartupResult( swapChain1->QueryInterface( IID_PPV_ARGS( &m_swapChain ) ),
+                                       "SwapChain QueryInterface failed" );
+    if ( !startupResult.ok )
+    {
+        swapChain1->Release();
+        return startupResult;
+    }
     swapChain1->Release();
     m_factory->MakeWindowAssociation( desc.hwnd, DXGI_MWA_NO_ALT_ENTER );
     m_frameIndex = m_swapChain->GetCurrentBackBufferIndex();
@@ -1122,32 +1161,45 @@ bool Dx12RenderDevice::Init( const Dx12RenderDeviceInitDesc& desc )
         // A command allocator is the memory backing one batch of recorded GPU
         // commands. It must not be reset until the frame fence proves the GPU
         // has finished executing commands recorded into it.
-        ThrowIfFailed(
+        startupResult = Dx12StartupResult(
             m_device->CreateCommandAllocator( D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS( &m_commandAllocators[i] ) ),
             "CreateCommandAllocator failed" );
+        if ( !startupResult.ok )
+        {
+            return startupResult;
+        }
         NameDx12ObjectIndexed( m_commandAllocators[i], L"Skullbonez DX12 Command Allocator", i );
     }
 
-    ThrowIfFailed( m_device->CreateCommandList( 0,
-                                                D3D12_COMMAND_LIST_TYPE_DIRECT,
-                                                m_commandAllocators[0],
-                                                nullptr,
-                                                IID_PPV_ARGS( &m_commandList ) ),
-                   "CreateCommandList failed" );
+    startupResult = Dx12StartupResult( m_device->CreateCommandList( 0,
+                                                                    D3D12_COMMAND_LIST_TYPE_DIRECT,
+                                                                    m_commandAllocators[0],
+                                                                    nullptr,
+                                                                    IID_PPV_ARGS( &m_commandList ) ),
+                                       "CreateCommandList failed" );
+    if ( !startupResult.ok )
+    {
+        return startupResult;
+    }
     NameDx12Object( m_commandList, L"Skullbonez DX12 Main Command List" );
     m_commandList->Close();
 
-    ThrowIfFailed( m_device->CreateFence( 0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS( &m_fence ) ), "CreateFence failed" );
+    startupResult = Dx12StartupResult( m_device->CreateFence( 0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS( &m_fence ) ),
+                                       "CreateFence failed" );
+    if ( !startupResult.ok )
+    {
+        return startupResult;
+    }
     NameDx12Object( m_fence, L"Skullbonez DX12 Frame Fence" );
     m_fenceEvent = CreateEvent( nullptr, FALSE, FALSE, nullptr );
     if ( !m_fenceEvent )
     {
-        throw std::runtime_error( "CreateEvent (frame fence) failed" );
+        return Basics::SbResult::Failure( "Rendering/DX12", "CreateEvent (frame fence) failed" );
     }
     m_frameFence.Init( m_commandQueue, m_fence, m_fenceEvent );
 
     rollback.Commit();
-    return true;
+    return Basics::SbResult::Success();
 }
 
 

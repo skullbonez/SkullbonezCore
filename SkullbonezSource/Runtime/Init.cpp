@@ -2966,22 +2966,37 @@ bool ParseCommandLine( const CommandLineView& commandLine, EngineConfig& config,
 // Render backend
 // ---------------------------------------------------------------------------
 
-std::unique_ptr<RenderBackendDX12> InitRenderBackend( Window* window, RuntimeRenderBackendView& renderBackendView )
+SbResult InitRenderBackend( Window* window,
+                            RuntimeRenderBackendView& renderBackendView,
+                            std::unique_ptr<RenderBackendDX12>& outBackend )
 {
     RuntimeAllocation::RuntimeAllocationScope allocationScope( RuntimeAllocation::RuntimeAllocationPhase::BackendInit );
     auto backend = std::make_unique<RenderBackendDX12>();
+    RenderBackendDX12* renderBackend = backend.get();
+    const SbResult renderInitResult = renderBackend->Init( window->m_sWindow,
+                                                           window->m_sDevice,
+                                                           window->m_sWindowDimensions.x,
+                                                           window->m_sWindowDimensions.y );
+    if ( !renderInitResult.ok )
+    {
+        // Lane R: render backend startup probes the host graphics environment.
+        // Failures are reported at process bootstrap before any runtime borrows
+        // are published into RuntimeRenderBackendView.
+        renderBackendView = RuntimeRenderBackendView();
+        return renderInitResult;
+    }
+
     // Lifetime: the process bootstrap owns the backend unique_ptr. Runtime
     // render code keeps borrowed capability facets in RuntimeRenderBackendView
     // and must let them die before shutdown resets the owner.
-    RenderBackendDX12* renderBackend = backend.get();
     renderBackendView.deviceLifecycle = renderBackend;
     renderBackendView.renderCommands = renderBackend;
     renderBackendView.renderResources = renderBackend;
     renderBackendView.renderDiagnostics = renderBackend;
     renderBackendView.captureBackend = renderBackend;
     renderBackendView.rayTracingBackend = renderBackend;
-    backend->Init( window->m_sWindow, window->m_sDevice, window->m_sWindowDimensions.x, window->m_sWindowDimensions.y );
-    return backend;
+    outBackend = std::move( backend );
+    return SbResult::Success();
 }
 
 // ---------------------------------------------------------------------------
@@ -3427,7 +3442,17 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine
     window->m_sDevice = GetDC( window->m_sWindow );
 
     RuntimeRenderBackendView renderBackendView;
-    std::unique_ptr<RenderBackendDX12> renderBackend = InitRenderBackend( window, renderBackendView );
+    std::unique_ptr<RenderBackendDX12> renderBackend;
+    const SbResult renderBackendResult = InitRenderBackend( window, renderBackendView, renderBackend );
+    if ( !renderBackendResult.ok )
+    {
+        fprintf( stderr, "%s: %s\n", renderBackendResult.error.owner, renderBackendResult.error.message );
+        fflush( stderr );
+        workerPool.Shutdown();
+        CleanupWindow( window, hInstance, renderBackend );
+        CoUninitialize();
+        return 1;
+    }
     window->SetResizeRenderLifecycle( renderBackendView.deviceLifecycle );
     window->HandleScreenResize();
 

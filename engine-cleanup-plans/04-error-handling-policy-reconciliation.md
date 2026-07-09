@@ -810,6 +810,50 @@ byte-exact gated.
     screenshots matching baselines, and `physics_regression_solver.csv`
     byte-exact. Final log:
     `Agentic/Reports/validate_full_plan04_dxr_init_result_20260709.log`.
+
+  Progress 2026-07-09, DX12 device/backend startup recoverable result batch:
+  - Converted the render startup boundary from boolean/exception flow to Lane R
+    results: `IRenderDeviceLifecycle::Init`, `RenderBackendDX12::Init`,
+    `Dx12RenderDevice::Init`, and `Runtime/Init.cpp` now use `SbResult` for
+    startup failure propagation.
+  - Device startup failures now return `SbResult::Failure("Rendering/DX12", ...)`
+    for factory/device/queue/swap-chain creation, swap-chain QI, command
+    allocator/list/fence creation, and frame fence event creation. Backend startup
+    also returns recoverable results for RTV/DSV/SRV/staging descriptor heap
+    creation and initial swap-chain back-buffer acquisition.
+  - `InitRenderBackend` publishes `RuntimeRenderBackendView` borrows only after a
+    successful backend init. `WinMain` reports render startup failures with the
+    existing owner/message stderr path before cleaning up the window.
+  - Strict anchored source throw statement inventory now reports 85 sites, down
+    from the previous sub-slice count of 86. Several converted startup rows were
+    helper-call sites, so the anchored statement drop is the frame-fence
+    `CreateEvent` row; remaining `ThrowIfFailed` helpers still cover non-startup
+    present/resize/upload/readback paths. `SB_FATAL` macro invocations remain 153
+    via `rg -n "SB_FATAL\s*\(" SkullbonezSource`.
+  - Comment-style audit scope:
+    `SkullbonezSource/Rendering/IRenderDeviceLifecycle.h`,
+    `SkullbonezSource/Rendering/DX12/RenderBackendDX12.h`,
+    `SkullbonezSource/Rendering/DX12/RenderBackendDX12.cpp`,
+    `SkullbonezSource/Rendering/DX12/RenderDeviceDX12.h`,
+    `SkullbonezSource/Rendering/DX12/RenderDeviceDX12.cpp`, and
+    `SkullbonezSource/Runtime/Init.cpp`; checked 6, deferred 0. This was a
+    touched-file audit, so no subsystem checklist plan was required.
+  - Focused build passed: `tools\validate_build.bat Profile` exited 0 in
+    00:00:06.8814348 with 0 warnings and 0 errors. Log:
+    `Agentic/Reports/validate_build_profile_plan04_device_backend_init_result_20260709.log`.
+  - Required DX12 gate passed after a targeted `clang-format` fix for
+    `RenderDeviceDX12.cpp`: `tools\validate_dx12_renderer.bat` exited 0 in
+    00:00:38.4244381 with `VALIDATE_DX12_RENDERER: ALL PASSED`, formatting clean,
+    DX12 validation errors 0, and screenshots matching committed baselines. Final
+    log:
+    `Agentic/Reports/validate_dx12_renderer_plan04_device_backend_init_result_20260709_rerun.log`.
+  - Required Runtime gate passed: `tools\validate_full.bat` exited 0 in
+    00:00:48.5940872 with `VALIDATE_FULL: DEFAULT GATE PASSED`, project filters
+    0 errors, runtime boundaries 0 errors, Profile/Debug builds 0
+    warnings/errors, source formatting clean, DX12 validation errors 0,
+    screenshots matching baselines, and `physics_regression_solver.csv`
+    byte-exact. Final log:
+    `Agentic/Reports/validate_full_plan04_device_backend_init_result_20260709.log`.
 - [ ] **4.1** Do **not** maintain any throw count. The `MAX_SOURCE_THROW_TOKENS`
   ratchet is deleted by plan 03. Verify progress by re-running
   `rg -n "throw " SkullbonezSource` and confirming the F/R/P sites are converted;

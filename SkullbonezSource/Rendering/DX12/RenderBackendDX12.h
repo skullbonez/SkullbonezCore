@@ -538,7 +538,7 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
         Shutdown();
     }
 
-    bool Init( HWND hwnd, HDC hdc, int width, int height ) override;
+    Basics::SbResult Init( HWND hwnd, HDC hdc, int width, int height ) override;
     void Shutdown() override;
     void Present() override;
     void SetVsyncEnabled( bool enabled ) override;

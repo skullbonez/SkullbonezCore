@@ -34,6 +34,8 @@ Related:
 */
 #pragma once
 
+#include "../Core/SbResult.h"
+
 #include <windows.h>
 
 namespace SkullbonezCore
@@ -46,7 +48,7 @@ class IRenderDeviceLifecycle
   public:
     virtual ~IRenderDeviceLifecycle() = default;
 
-    virtual bool Init( HWND hwnd, HDC hdc, int width, int height ) = 0;
+    virtual Basics::SbResult Init( HWND hwnd, HDC hdc, int width, int height ) = 0;
     virtual void Shutdown() = 0;
     virtual void Present() = 0;
     virtual void SetVsyncEnabled( bool enabled ) = 0;

@@ -139,6 +139,22 @@ static inline void ThrowIfFailed( HRESULT hr, const char* msg )
     }
 }
 
+
+static inline SkullbonezCore::Basics::SbResult Dx12BackendInitResult( HRESULT hr, const char* msg )
+{
+    if ( FAILED( hr ) )
+    {
+        // Lane R: renderer startup depends on the adapter, driver, window, and
+        // available descriptor resources. Return a bounded owner/message so the
+        // process bootstrap can report the environment failure cleanly.
+        return SkullbonezCore::Basics::SbResult::Failure( "Rendering/DX12",
+                                                          "%s (HRESULT 0x%08X)",
+                                                          msg ? msg : "DX12 backend startup call failed",
+                                                          static_cast<unsigned int>( hr ) );
+    }
+    return SkullbonezCore::Basics::SbResult::Success();
+}
+
 static bool IsDx12DeviceLostResult( HRESULT hr )
 {
     return hr == DXGI_ERROR_DEVICE_REMOVED || hr == DXGI_ERROR_DEVICE_RESET || hr == DXGI_ERROR_DRIVER_INTERNAL_ERROR;
@@ -1596,7 +1612,7 @@ D3D12_CPU_DESCRIPTOR_HANDLE RenderBackendDX12::GetDSVHandle( UINT index )
 // --- Init / Shutdown ---
 
 
-bool RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
+SkullbonezCore::Basics::SbResult RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
 {
     m_width = width;
     m_height = height;
@@ -1607,7 +1623,11 @@ bool RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
     deviceDesc.height = static_cast<UINT>( height );
     deviceDesc.frameCount = FRAME_COUNT;
     deviceDesc.backBufferFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
-    m_renderDevice.Init( deviceDesc );
+    const SkullbonezCore::Basics::SbResult deviceResult = m_renderDevice.Init( deviceDesc );
+    if ( !deviceResult.ok )
+    {
+        return deviceResult;
+    }
 
     // The render device owns the DXGI/D3D12 platform objects: factory, device,
     // graphics queue, swap chain, command allocators, command list, and frame
@@ -1665,8 +1685,13 @@ bool RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
         D3D12_DESCRIPTOR_HEAP_DESC desc = {};
         desc.NumDescriptors = MAX_RTV_DESCRIPTORS;
         desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
-        ThrowIfFailed( Device()->CreateDescriptorHeap( &desc, IID_PPV_ARGS( &m_rtvHeap ) ),
-                       "CreateDescriptorHeap (RTV) failed" );
+        const SkullbonezCore::Basics::SbResult rtvHeapResult =
+            Dx12BackendInitResult( Device()->CreateDescriptorHeap( &desc, IID_PPV_ARGS( &m_rtvHeap ) ),
+                                   "CreateDescriptorHeap (RTV) failed" );
+        if ( !rtvHeapResult.ok )
+        {
+            return rtvHeapResult;
+        }
         NameDx12Object( m_rtvHeap, L"Skullbonez DX12 RTV Heap" );
         m_rtvDescSize = Device()->GetDescriptorHandleIncrementSize( D3D12_DESCRIPTOR_HEAP_TYPE_RTV );
         m_rtvDescriptors.Init( m_rtvHeap, m_rtvDescSize, MAX_RTV_DESCRIPTORS, "RTV" );
@@ -1678,8 +1703,13 @@ bool RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
         D3D12_DESCRIPTOR_HEAP_DESC desc = {};
         desc.NumDescriptors = MAX_DSV_DESCRIPTORS;
         desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV;
-        ThrowIfFailed( Device()->CreateDescriptorHeap( &desc, IID_PPV_ARGS( &m_dsvHeap ) ),
-                       "CreateDescriptorHeap (DSV) failed" );
+        const SkullbonezCore::Basics::SbResult dsvHeapResult =
+            Dx12BackendInitResult( Device()->CreateDescriptorHeap( &desc, IID_PPV_ARGS( &m_dsvHeap ) ),
+                                   "CreateDescriptorHeap (DSV) failed" );
+        if ( !dsvHeapResult.ok )
+        {
+            return dsvHeapResult;
+        }
         NameDx12Object( m_dsvHeap, L"Skullbonez DX12 DSV Heap" );
         m_dsvDescSize = Device()->GetDescriptorHandleIncrementSize( D3D12_DESCRIPTOR_HEAP_TYPE_DSV );
         m_dsvDescriptors.Init( m_dsvHeap, m_dsvDescSize, MAX_DSV_DESCRIPTORS, "DSV" );
@@ -1695,8 +1725,13 @@ bool RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
         desc.NumDescriptors = MAX_STATIC_SRVS + ( MAX_TRANSIENT_SRVS * FRAME_COUNT );
         desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
         desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-        ThrowIfFailed( Device()->CreateDescriptorHeap( &desc, IID_PPV_ARGS( &m_srvHeap ) ),
-                       "CreateDescriptorHeap (SRV) failed" );
+        const SkullbonezCore::Basics::SbResult srvHeapResult =
+            Dx12BackendInitResult( Device()->CreateDescriptorHeap( &desc, IID_PPV_ARGS( &m_srvHeap ) ),
+                                   "CreateDescriptorHeap (SRV) failed" );
+        if ( !srvHeapResult.ok )
+        {
+            return srvHeapResult;
+        }
         NameDx12Object( m_srvHeap, L"Skullbonez DX12 Shader Visible SRV Heap" );
         m_srvDescSize = Device()->GetDescriptorHandleIncrementSize( D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV );
     }
@@ -1709,8 +1744,13 @@ bool RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
         desc.NumDescriptors = MAX_STATIC_SRVS;
         desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
         desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE; // CPU-only, can be read for copies
-        ThrowIfFailed( Device()->CreateDescriptorHeap( &desc, IID_PPV_ARGS( &m_srvStagingHeap ) ),
-                       "CreateDescriptorHeap (staging) failed" );
+        const SkullbonezCore::Basics::SbResult srvStagingHeapResult =
+            Dx12BackendInitResult( Device()->CreateDescriptorHeap( &desc, IID_PPV_ARGS( &m_srvStagingHeap ) ),
+                                   "CreateDescriptorHeap (staging) failed" );
+        if ( !srvStagingHeapResult.ok )
+        {
+            return srvStagingHeapResult;
+        }
         NameDx12Object( m_srvStagingHeap, L"Skullbonez DX12 SRV Staging Heap" );
     }
     // The descriptor allocator receives both heaps:
@@ -1744,8 +1784,13 @@ bool RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createrendertargetview
     for ( int i = 0; i < FRAME_COUNT; ++i )
     {
-        ThrowIfFailed( SwapChain()->GetBuffer( (UINT)i, IID_PPV_ARGS( &m_renderTargets[i] ) ),
-                       "SwapChain GetBuffer failed" );
+        const SkullbonezCore::Basics::SbResult backBufferResult =
+            Dx12BackendInitResult( SwapChain()->GetBuffer( (UINT)i, IID_PPV_ARGS( &m_renderTargets[i] ) ),
+                                   "SwapChain GetBuffer failed" );
+        if ( !backBufferResult.ok )
+        {
+            return backBufferResult;
+        }
         NameDx12ObjectIndexed( m_renderTargets[i], L"Skullbonez DX12 Swapchain Backbuffer", (UINT)i );
         // Reserve one stable RTV row for each swap-chain buffer. ResizeBuffers
         // replaces the back-buffer resources later, but the descriptor rows stay
@@ -1823,7 +1868,7 @@ bool RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
 
     DumpFrameGraphSkeleton();
 
-    return true;
+    return SkullbonezCore::Basics::SbResult::Success();
 }
 
 
