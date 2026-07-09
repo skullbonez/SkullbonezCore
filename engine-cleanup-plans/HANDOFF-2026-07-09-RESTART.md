@@ -12,7 +12,7 @@ Branch:
 
 Latest implementation commit before this handoff:
 
-- `448dcb4f cleanup(02): extract object sweep refinement helper`
+- `941c66d4 cleanup(02): extract object sweep query helper`
 
 This document is the restart handoff committed after the implementation slices.
 
@@ -41,6 +41,10 @@ Plan 02, Phase 1.2 wake/contact and object/object CCD helper slices:
     `RefineObjectSweepContactTime`.
   - Preserved the 48-step forward contact-window search and 12-iteration binary
     search.
+- `941c66d4 cleanup(02): extract object sweep query helper`
+  - Moved `sweepObjectPair` into `SweepObjectPair`.
+  - Preserved default collision-time initialization, bounds checks, and the
+    `SweepObjectContact` call shape.
 
 Plan ledger updated:
 
@@ -66,10 +70,11 @@ The Plan 02 Phase 1.2 lambda inventory is now checked through:
 - `hasPersistentWakeContact`
 - `hasObjectContactAtTime`
 - `refineObjectSweepContactTime`
+- `sweepObjectPair`
 
 Plan 02 Step 1.2 remains open. The next unchecked item is:
 
-- `sweepObjectPair`
+- `objectPairHasPersistentContactCache`
 
 ## Validation Evidence
 
@@ -103,6 +108,11 @@ Current continuation gates:
     `TestOutput\agent_logs\plan02_refine_object_sweep_validate_physics_20260709_1010.log`
   - Result: Debug/Profile builds reported 0 warnings and 0 errors; final
     `VALIDATE_PHYSICS: ALL PASSED`.
+- `tools\validate_physics.bat`
+  - Log:
+    `TestOutput\agent_logs\plan02_sweep_object_pair_validate_physics_20260709_1014.log`
+  - Result: Debug/Profile builds reported 0 warnings and 0 errors; final
+    `VALIDATE_PHYSICS: ALL PASSED`.
 
 No SkullScope trace workflow was used in these slices.
 
@@ -124,7 +134,8 @@ Unchecked files: none.
 Result:
 
 - `PhysicsWorld.cpp` already has the required learning header.
-- The moved exact-contact and refinement comments stayed near the named helpers.
+- The moved exact-contact, refinement, and sweep code stayed near the named
+  helpers without needing new explanatory comments.
 - No unrelated comment-only churn was made.
 
 ## Current Open Work
@@ -151,9 +162,10 @@ Open cleanup items that remain in `engine-cleanup-plans/00-EXECUTION-GUIDE.md`:
 2. Read `engine-cleanup-plans/00-EXECUTION-GUIDE.md`.
 3. Read `engine-cleanup-plans/02-physicsworld-solver-decomposition.md`.
 4. Check `git status --short --branch`.
-5. Confirm the branch is at or after implementation commit `448dcb4f`.
-6. Continue Plan 02 Step 1.2 from the next unchecked item, `sweepObjectPair`,
-   unless the user gives a different instruction.
+5. Confirm the branch is at or after implementation commit `941c66d4`.
+6. Continue Plan 02 Step 1.2 from the next unchecked item,
+   `objectPairHasPersistentContactCache`, unless the user gives a different
+   instruction.
 7. Do not continue Plan 11 until the human RenderGraph decision is made.
 8. Do not continue Plan 13 FAC-005, Plan 03, or Plan 07 without the required
    human decision/sign-off.
@@ -172,10 +184,10 @@ point for restart or handoff.
 
 ## Timing
 
-Current continuation began at:
+This pause continuation began at:
 
-- `2026-07-09T09:55:00.6201108+10:00`
+- `2026-07-09T10:12:15.5794862+10:00`
 
 This handoff was drafted at:
 
-- `2026-07-09T10:09:47.7243607+10:00`
+- `2026-07-09T10:17:17.1733369+10:00`
