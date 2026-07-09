@@ -673,31 +673,7 @@ uint64_t RuntimeReserveAllocator::PolicyViolationCount() noexcept
 
 const char* RuntimeReservePhaseName( RuntimeReservePhase phase ) noexcept
 {
-    switch ( phase )
-    {
-    case RuntimeReservePhase::Startup:
-        return "startup";
-    case RuntimeReservePhase::SceneLoad:
-        return "scene_load";
-    case RuntimeReservePhase::BackendInit:
-        return "backend_init";
-    case RuntimeReservePhase::SteadyGameplay:
-        return "steady_gameplay";
-    case RuntimeReservePhase::Physics:
-        return "physics";
-    case RuntimeReservePhase::Render:
-        return "render";
-    case RuntimeReservePhase::Replay:
-        return "replay";
-    case RuntimeReservePhase::Capture:
-        return "capture";
-    case RuntimeReservePhase::Diagnostics:
-        return "diagnostics";
-    case RuntimeReservePhase::Shutdown:
-        return "shutdown";
-    default:
-        return "unknown";
-    }
+    return RuntimeAllocationPhaseName( phase );
 }
 
 const char* RuntimeReserveSubsystemName( RuntimeReserveSubsystem subsystem ) noexcept
@@ -731,31 +707,11 @@ const char* RuntimeReserveSubsystemName( RuntimeReserveSubsystem subsystem ) noe
 
 RuntimeReservePhase RuntimeReservePhaseFromAllocationPhaseIndex( int phaseIndex ) noexcept
 {
-    switch ( phaseIndex )
+    if ( phaseIndex < 0 || phaseIndex >= static_cast<int>( RuntimeAllocationPhase::Count ) )
     {
-    case 0:
-        return RuntimeReservePhase::Startup;
-    case 1:
-        return RuntimeReservePhase::SceneLoad;
-    case 2:
-        return RuntimeReservePhase::BackendInit;
-    case 3:
-        return RuntimeReservePhase::SteadyGameplay;
-    case 4:
-        return RuntimeReservePhase::Physics;
-    case 5:
-        return RuntimeReservePhase::Render;
-    case 6:
-        return RuntimeReservePhase::Replay;
-    case 7:
-        return RuntimeReservePhase::Capture;
-    case 8:
-        return RuntimeReservePhase::Diagnostics;
-    case 9:
-        return RuntimeReservePhase::Shutdown;
-    default:
         return RuntimeReservePhase::SteadyGameplay;
     }
+    return static_cast<RuntimeReservePhase>( phaseIndex );
 }
 } // namespace Allocation
 } // namespace Runtime

@@ -63,7 +63,7 @@ Require owner approval before adding any new runtime allocation exception.
   `RuntimeReserveAllocator`, `check_allocation_policy.py`, validation scripts,
   and allowlist data enforce the global zero-allocation policy, and which parts
   are ceremony that can be removed without weakening coverage.
-- [ ] **Phase 2 - Right-size runtime enforcement.** Keep or replace the global
+- [x] **Phase 2 - Right-size runtime enforcement.** Keep or replace the global
   runtime allocation guard so unapproved runtime allocations fail. Preserve the
   replay special allocator path with registered owner, phase/cap policy,
   counters, and diagnostics. Gate: `validate_perf`; add `validate_physics` if
@@ -110,11 +110,30 @@ the policy.
     reserve growth gate, allowlist metadata, and `validate_perf`; simplify
     callsite/growth diagnostics and duplicate phase machinery; broaden static
     STL/growth enforcement without adding frozen counts.
-- [ ] **2.1** Simplify the runtime allocation apparatus without weakening global
+- [x] **2.1** Simplify the runtime allocation apparatus without weakening global
   runtime enforcement. Replay remains the only approved runtime allocation
   exception and must keep owner/phase/cap/counter/diagnostic reporting. Gate:
   `validate_perf`; add `validate_physics` if physics runtime scopes change.
   Commit.
+
+  Completed 2026-07-10:
+  - Collapsed `RuntimeReservePhase` onto `RuntimeAllocationPhase` so the
+    reserve ledger and global allocation guard use one phase vocabulary.
+  - Trimmed runtime allocation callsite diagnostics from five captured frames
+    to callsite plus parent frame while preserving fixed storage, phase/owner
+    counts, byte totals, and gameplay violation reporting.
+  - Preserved replay as the only approved runtime allocation exception:
+    registered owner scopes, replay phase, cap policy, growth counters, and
+    reserve policy violations still feed the allocation guard pass/fail result.
+  - Touched-source comment audit inspected 3 source-bearing files with 0
+    deferred.
+  - Validation: `tools\validate_build.bat Profile` passed in 00:00:15.86 with
+    0 warnings/errors; `python tools\check_allocation_policy.py --self-test`
+    passed; `python tools\check_allocation_policy.py --repo .` reported
+    `scanned=296`, `direct_heap_findings=30`,
+    `dynamic_stl_member_findings=0`, and `allowlist_errors=0`;
+    `tools\validate_perf.bat` passed in 00:00:40.72 with allocation guard
+    gameplay violations 0 and reserve policy violations 0.
 - [ ] **3.1** Simplify or replace static allocation enforcement so it remains a
   pass/fail guard against unapproved runtime allocation APIs, not a frozen
   regex ratchet. Gate: `validate_fast`, then run the changed checker or

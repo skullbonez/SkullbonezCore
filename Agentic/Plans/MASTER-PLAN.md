@@ -21,7 +21,7 @@ Owner decisions of 2026-07-09 are binding — see
 
 | Plan | Status | % | Remaining work |
 |------|--------|---|----------------|
-| [07 Allocation-gate right-sizing](../../engine-cleanup-plans/07-allocation-gate-right-sizing.md) | In Progress | 35% | Inventory complete. Remaining: simplify runtime guard/reserve internals, broaden static allocation enforcement, then close AGENTS/session evidence. |
+| [07 Allocation-gate right-sizing](../../engine-cleanup-plans/07-allocation-gate-right-sizing.md) | In Progress | 60% | Inventory and runtime guard/reserve simplification complete. Remaining: broaden static allocation enforcement, then close AGENTS/session evidence. |
 | [11 Render abstraction leaks](../../engine-cleanup-plans/11-render-abstraction-leaks.md) | In Progress | 80% | Retire the diagnostic RenderGraph path per owner decision; remove stale barrier-ownership claims. |
 | [13 Facade retirement (rule)](../../engine-cleanup-plans/13-facade-retirement.md) | In Progress | 75% | Cross-cutting rule; FAC-005 executes via plan 14, FAC-004 needs an owner, FAC-007 executes via `TODO/render-backend-decomposition.md`. |
 | [14 Public physics API boundary](../../engine-cleanup-plans/14-public-physics-api-boundary.md) | Proposed | 0% | No `GameModel`/raw `modelIndex`/solver containers in `PhysicsApi.h`/`PhysicsEngine.h`. |

@@ -125,11 +125,21 @@ Delete / avoid:
 
 ## Next Steps
 
-1. Step 2.1 should simplify runtime guard/reserve internals while preserving
-   `validate_perf` behavior: unapproved gameplay allocations and reserve policy
-   violations must still fail.
-2. Step 3.1 should broaden static allocation enforcement so direct heap APIs,
+Step 2.1 completed on 2026-07-10:
+
+- Runtime reserve phases now alias the allocation guard phase type, deleting the
+  duplicate enum and manual switch mapping.
+- Runtime allocation callsite diagnostics now capture callsite plus parent
+  frame only, deleting the extra grandparent/caller slots and verbose summary
+  columns while preserving fixed storage and pass/fail counters.
+- `ResetRuntimeAllocationCounters()` now resets per-callsite violation counts.
+- `tools\validate_perf.bat` passed with allocation guard gameplay violations 0
+  and reserve policy violations 0.
+
+Next ordered work:
+
+1. Step 3.1 should broaden static allocation enforcement so direct heap APIs,
    reserve growth, and runtime STL growth are caught through pass/fail rules and
    reviewed allowlist metadata.
-3. Step 4.1 should update `AGENTS.md`, this plan, and `Agentic/SessionState.md`
+2. Step 4.1 should update `AGENTS.md`, this plan, and `Agentic/SessionState.md`
    after the implementation proves the simplified shape.
