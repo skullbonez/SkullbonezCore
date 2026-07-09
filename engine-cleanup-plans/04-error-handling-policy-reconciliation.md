@@ -124,6 +124,19 @@ byte-exact gated.
   - Required gate passed: `tools\validate_full.bat` exited 0 in
     58.0382996 seconds. Log:
     `Agentic/Reports/validate_full_plan04_runframe_fatal_20260709.log`.
+
+  Progress 2026-07-09, RunRender graph-callback fatal-invariant sub-slice:
+  - Converted fourteen F sites from `throw std::runtime_error` to `SB_FATAL`:
+    all graph callback missing-execution-data guards in `RunRender.cpp` plus the
+    VolumetricLight graph transient materialization guard.
+  - Strict source throw statement inventory now reports 233 sites, down from the
+    previous sub-slice count of 247. `SB_FATAL` macro invocations now report 51
+    via `rg -n "SB_FATAL\s*\(" SkullbonezSource`.
+  - Comment-style audit scope: `SkullbonezSource/Runtime/RunRender.cpp`;
+    checked 1, deferred 0.
+  - Required gate passed: `tools\validate_full.bat` exited 0 in
+    57.9009828 seconds. Log:
+    `Agentic/Reports/validate_full_plan04_runrender_fatals_20260709.log`.
 - [ ] **2.1** Convert **P** sites (replay/interaction probes) to the
   `FailAutomation(...)` channel with `ok=false` + message. Gate: `validate_full`
   + replay scrub. Commit.

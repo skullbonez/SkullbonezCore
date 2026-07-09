@@ -41,6 +41,7 @@ Related:
 #include "Allocation/RuntimeAllocationTracker.h"
 #include "RuntimeTuning.h"
 #include "../Assets/TextureCollection.h"
+#include "../Core/FatalError.h"
 #include "../Physics/ColliderStore.h"
 #include "../Rendering/Helper.h"
 #include "../Rendering/IRenderDiagnostics.h"
@@ -52,7 +53,6 @@ Related:
 #include <chrono>
 #include <cstddef>
 #include <fstream>
-#include <stdexcept>
 #include <variant>
 #include <vector>
 
@@ -274,7 +274,7 @@ void ExecuteShadowGraphCallback( const SkullbonezCore::Rendering::RenderGraphPas
     auto* data = static_cast<ShadowGraphCallbackData*>( userData );
     if ( !data || !data->shadowPass || !data->frame )
     {
-        throw std::runtime_error( "ShadowMapPass graph callback missing execution data" );
+        SB_FATAL( "RunRender", "ShadowMapPass graph callback missing execution data." );
     }
     data->output = data->shadowPass->Render(
         { *data->frame, data->cinematic, data->terrainHidden, data->collisionVisualizerVisible } );
@@ -286,7 +286,7 @@ void ExecuteReflectionGraphCallback( const SkullbonezCore::Rendering::RenderGrap
     auto* data = static_cast<ReflectionGraphCallbackData*>( userData );
     if ( !data || !data->reflectionPass || !data->skyPass || !data->frame )
     {
-        throw std::runtime_error( "ReflectionPass graph callback missing execution data" );
+        SB_FATAL( "RunRender", "ReflectionPass graph callback missing execution data." );
     }
     data->output = data->reflectionPass->Render( { *data->frame,
                                                    data->cinematic,
@@ -306,7 +306,7 @@ void ExecuteObjectGraphCallback( const SkullbonezCore::Rendering::RenderGraphPas
     auto* data = static_cast<ObjectGraphCallbackData*>( userData );
     if ( !data || !data->objectPass || !data->frame )
     {
-        throw std::runtime_error( "ObjectPass graph callback missing execution data" );
+        SB_FATAL( "RunRender", "ObjectPass graph callback missing execution data." );
     }
     data->objectPass->Render( { *data->frame,
                                 data->mode,
@@ -324,7 +324,7 @@ void ExecuteTerrainGraphCallback( const SkullbonezCore::Rendering::RenderGraphPa
     auto* data = static_cast<TerrainGraphCallbackData*>( userData );
     if ( !data || !data->terrainPass || !data->frame )
     {
-        throw std::runtime_error( "TerrainPass graph callback missing execution data" );
+        SB_FATAL( "RunRender", "TerrainPass graph callback missing execution data." );
     }
     const float* clipPlane = data->frame->renderHelper ? data->frame->renderHelper->GetClipPlane() : nullptr;
     data->terrainPass->Render( { *data->frame, data->cinematic, data->shadow, clipPlane, data->terrainHidden } );
@@ -335,7 +335,7 @@ void ExecuteWaterGraphCallback( const SkullbonezCore::Rendering::RenderGraphPass
     auto* data = static_cast<WaterGraphCallbackData*>( userData );
     if ( !data || !data->waterPass || !data->frame || !data->reflection )
     {
-        throw std::runtime_error( "WaterPass graph callback missing execution data" );
+        SB_FATAL( "RunRender", "WaterPass graph callback missing execution data." );
     }
     data->waterPass->Render( { *data->frame,
                                *data->reflection,
@@ -354,7 +354,7 @@ void ExecuteTornadoVisualGraphCallback( const SkullbonezCore::Rendering::RenderG
     auto* data = static_cast<TornadoVisualGraphCallbackData*>( userData );
     if ( !data || !data->tornadoVisualPass || !data->frame || !data->snapshot )
     {
-        throw std::runtime_error( "TornadoVisualPass graph callback missing execution data" );
+        SB_FATAL( "RunRender", "TornadoVisualPass graph callback missing execution data." );
     }
     data->rendered = data->tornadoVisualPass->Render( { *data->frame, *data->snapshot } );
 }
@@ -365,7 +365,7 @@ void ExecuteDebugOverlayGraphCallback( const SkullbonezCore::Rendering::RenderGr
     auto* data = static_cast<DebugOverlayGraphCallbackData*>( userData );
     if ( !data || !data->debugOverlayPass || !data->frame || !data->snapshot )
     {
-        throw std::runtime_error( "DebugOverlayPass graph callback missing execution data" );
+        SB_FATAL( "RunRender", "DebugOverlayPass graph callback missing execution data." );
     }
     data->debugOverlayPass->Render( { *data->frame, *data->snapshot } );
 }
@@ -454,7 +454,7 @@ void ExecuteReplayGhostGraphCallback( const SkullbonezCore::Rendering::RenderGra
     auto* data = static_cast<ReplayGhostGraphCallbackData*>( userData );
     if ( !data || !data->replayRuntime || !data->frame || !data->config )
     {
-        throw std::runtime_error( "ReplayPredictionGhostPass graph callback missing execution data" );
+        SB_FATAL( "RunRender", "ReplayPredictionGhostPass graph callback missing execution data." );
     }
     RenderReplayPredictionGhosts( *data->replayRuntime, *data->frame, *data->config, data->cinematic, data->shadow );
 }
@@ -465,7 +465,7 @@ void ExecuteSceneTargetGraphCallback( const SkullbonezCore::Rendering::RenderGra
     auto* data = static_cast<SceneTargetGraphCallbackData*>( userData );
     if ( !data || !data->sceneTargetPass || !data->skyPass || !data->frame )
     {
-        throw std::runtime_error( "CinematicSceneBegin graph callback missing execution data" );
+        SB_FATAL( "RunRender", "CinematicSceneBegin graph callback missing execution data." );
     }
     data->sceneTargetPass->Begin( *data->frame, *data->skyPass );
 }
@@ -475,7 +475,7 @@ void ExecuteSkyboxGraphCallback( const SkullbonezCore::Rendering::RenderGraphPas
     auto* data = static_cast<SkyboxGraphCallbackData*>( userData );
     if ( !data || !data->skyPass || !data->frame )
     {
-        throw std::runtime_error( "SkyboxPass graph callback missing execution data" );
+        SB_FATAL( "RunRender", "SkyboxPass graph callback missing execution data." );
     }
     data->skyPass->Render( *data->frame, data->frame->baseView, SkyPassMode::CubemapOnly );
 }
@@ -486,7 +486,7 @@ void ExecuteUiTextGraphCallback( const SkullbonezCore::Rendering::RenderGraphPas
     if ( !data || !data->uiTextPass || !data->renderDiagnostics || !data->uiRender || !data->state || !data->models ||
          !data->diagnosticsRuntime || !data->replayRuntime || !data->replayOverlay || !data->cinematic )
     {
-        throw std::runtime_error( "UiTextPass graph callback missing execution data" );
+        SB_FATAL( "RunRender", "UiTextPass graph callback missing execution data." );
     }
     data->uiTextPass->Render( { *data->state,
                                 *data->renderDiagnostics,
@@ -508,7 +508,7 @@ void ExecuteVolumetricGraphCallback( const SkullbonezCore::Rendering::RenderGrap
     auto* data = static_cast<CinematicPostGraphCallbackData*>( userData );
     if ( !data || !data->volumetricPass || !data->frame )
     {
-        throw std::runtime_error( "VolumetricLightPass graph callback missing execution data" );
+        SB_FATAL( "RunRender", "VolumetricLightPass graph callback missing execution data." );
     }
     const SkullbonezCore::Rendering::RenderGraphTextureBinding* graphOutput =
         data->volumetricLight.IsValid() ? &data->volumetricLight : nullptr;
@@ -520,7 +520,7 @@ void ExecuteTonemapGraphCallback( const SkullbonezCore::Rendering::RenderGraphPa
     auto* data = static_cast<CinematicPostGraphCallbackData*>( userData );
     if ( !data || !data->tonemapPass || !data->frame )
     {
-        throw std::runtime_error( "ToneMapPass graph callback missing execution data" );
+        SB_FATAL( "RunRender", "ToneMapPass graph callback missing execution data." );
     }
     const SkullbonezCore::Rendering::RenderGraphTextureBinding* graphVolumetric =
         ( data->volumetricRendered && data->volumetricLight.IsValid() ) ? &data->volumetricLight : nullptr;
@@ -1248,7 +1248,7 @@ RuntimeRenderer::ExecuteCinematicPostThroughRenderGraph( const RenderFrameContex
             callbackData.volumetricLight = frame.renderCommands->ResolveGraphTextureBinding( volumetricLight );
             if ( !callbackData.volumetricLight.IsValid() )
             {
-                throw std::runtime_error( "VolumetricLight graph transient was not materialized" );
+                SB_FATAL( "RunRender", "VolumetricLight graph transient was not materialized." );
             }
         }
     }
