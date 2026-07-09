@@ -12,7 +12,7 @@ This folder collects the design artifacts for the calmer graphite direction.
 | `comparison-board.png` | Desktop render of the comparison board. |
 | `comparison-board-mobile.png` | Narrow viewport render of the comparison board. |
 | `design-tokens.json` | Palette, alpha, radius, and sizing values to translate into `UIStyle`. |
-| `../Plans/Done/new-ui-graphite-overlay-implementation-plan.md` | Completed implementation plan for the graphite UI in the C++ immediate-mode UI. |
+| (git history) `new-ui-graphite-overlay-implementation-plan.md` | Completed implementation plan for the graphite UI; the plan file was retired in the 2026-07-09 plan consolidation. |
 
 ## Current Scope
 

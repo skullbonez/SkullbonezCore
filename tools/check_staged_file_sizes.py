@@ -20,7 +20,8 @@
 #   - Self-tests run without touching the real git index.
 #
 # Related:
-#   - fable_plans/04-build-layering-and-repo-hygiene-progress.md
+#   - Agentic/Plans/TODO/runtime-shell-decomposition.md (repo-hygiene origin
+#     plan retired 2026-07-09; history in git)
 #   - tools/validate_fast.bat
 #
 """Check staged file sizes against the repo hygiene budget."""

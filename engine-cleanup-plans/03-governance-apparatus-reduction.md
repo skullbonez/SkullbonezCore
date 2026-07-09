@@ -11,8 +11,11 @@ Source issue: audit iss-04 + iss-12 (severity 4/3)
 **Remove the entire regex-based enforcement apparatus.** This is not a "trim it
 down" plan — the frozen-count linter goes away completely. The only survivor is
 one genuine product invariant (DX12-only renderer), re-expressed as a real
-pass/fail check with no frozen number. Everything else is deleted and replaced by
-code review plus the real behavioral tests from plan 05.
+pass/fail check with no frozen number. Everything else is deleted and replaced
+by code review plus the behavioral tests in
+`Agentic/Plans/TODO/behavioral-test-depth.md` (the successor to closed plan
+05 — **prerequisite:** its P1 and P4 tests should exist before step 2.1
+lands; its P5 injected-bug drill is the honest sign-off for the deletion).
 
 Rationale: a check whose value is a frozen count of today's debt
 (`MAX_SOURCE_THROW_TOKENS = 294`, `MAX_RUN_PRIVATE_MEMBER_FIELDS = 41`, …) is not
@@ -85,11 +88,16 @@ requires human sign-off before any deletion.
   run `validate_fast` to prove nothing depends on it. Commit.
 - [ ] **2.1** Strip the regex-enforced gates from `AGENTS.md` (Migration Artifact
   Gate, throw ratchet, hot-path inheritance count, unenforceable allocation
-  prose). Replace with: "enforced by code review + the tests in plan 05."
+  prose). Replace with: "enforced by code review + the tests in
+  `Agentic/Plans/TODO/behavioral-test-depth.md`." Do not land this step until
+  that plan's P1 (solver-stage tests) and P4 (replay round-trip test) exist.
   Commit.
-- [ ] **3.1** Merge `fable_plans/` into `Agentic/Plans/`; move
-  Done/Failed/Rejected out of the live working set into an archive folder. No
-  validation (doc moves). Commit.
+- [x] **3.1** Executed 2026-07-09 by the owner-directed plan consolidation,
+  with deletion instead of archiving: Done/Failed/Rejected trees deleted;
+  `fable_plans/`, `To_Eval/`, and `In_Progress/` consolidated into
+  `Agentic/Plans/TODO/`; master inventory at `Agentic/Plans/MASTER-PLAN.md`.
+  Not yet committed (another agent active); commit rides with the next
+  documentation commit.
 - [ ] **4.1** Relax the Comment Quality Gate in `AGENTS.md` so trivial wrappers,
   link stubs, and batch files are exempt from full learning-header requirements.
   Commit.
@@ -112,8 +120,8 @@ checker). Documentation moves need no validation.
 - [ ] `tools/check_runtime_boundaries.py` no longer exists.
 - [ ] No `MAX_*` frozen-count budget exists anywhere in `tools/`.
 - [ ] No validation script, git hook, or CI step invokes the deleted checker.
-- [ ] `AGENTS.md` describes no regex-enforced gate; enforcement is review + plan
-  05 tests + the two hard runtime gates.
+- [ ] `AGENTS.md` describes no regex-enforced gate; enforcement is review + the
+  `TODO/behavioral-test-depth.md` tests + the two hard runtime gates.
 - [ ] At most one survivor — the DX12-only check — and it is a boolean pass/fail
   with no frozen number.
 - [ ] Single live plan tree; archived plans separated from active ones.
