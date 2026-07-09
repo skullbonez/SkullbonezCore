@@ -1093,6 +1093,39 @@ byte-exact gated.
   - Runtime boundary checker passed: `python tools\check_runtime_boundaries.py`
     exited 0 in 00:00:19.6 with 0 errors. Log:
     `Agentic/Reports/check_runtime_boundaries_plan04_lifecycle_texture_20260709.log`.
+
+  Progress 2026-07-09, DX12 PSO/dynamic-geometry recoverable batch:
+  - Converted three strict DX12 rows from exception exits to Lane R logged
+    skip/neutral-handle paths: `RenderBackendDX12.DynamicGeometry.cpp` rows 49
+    and 50 plus `RenderBackendDX12.Pipeline.cpp` row 88 from the Step 0.1
+    inventory.
+  - `RenderBackendDX12::CreatePSO` logs PSO creation failures and returns
+    `nullptr`; `PrepareDraw` now returns `false` when no valid PSO can be bound,
+    and mesh/dynamic/instanced draw callers skip the affected draw. Graphics PSO
+    cache exhaustion remains `SB_FATAL` because it is a fixed-capacity backend
+    invariant.
+  - `EnsureGridLinePipeline` logs debug-line PSO creation failures and skips the
+    diagnostic overlay draw. `CreateInstancedMesh` logs failed static vertex
+    buffer creation and returns handle `0`, matching the existing upload/draw
+    no-op contract for invalid instanced mesh handles.
+  - Strict anchored source throw statement inventory now reports 14 sites, down
+    from the previous sub-slice count of 17. `SB_FATAL` macro invocations remain
+    165 via `rg -n "SB_FATAL\s*\(" SkullbonezSource`.
+  - Comment-style audit scope:
+    `SkullbonezSource/Rendering/DX12/RenderBackendDX12.DynamicGeometry.cpp`,
+    `SkullbonezSource/Rendering/DX12/RenderBackendDX12.Pipeline.cpp`,
+    `SkullbonezSource/Rendering/DX12/RenderBackendDX12.h`, and
+    `SkullbonezSource/Rendering/DX12/MeshDX12.cpp`; checked 4, deferred 0. This
+    was a touched-file audit, so no subsystem checklist plan was required.
+  - Required DX12 gate passed on the final source tree:
+    `tools\validate_dx12_renderer.bat` exited 0 in 00:00:34.3 with
+    `VALIDATE_DX12_RENDERER: ALL PASSED`, formatting clean, Profile/Debug builds
+    0 warnings/errors, DX12 validation errors 0, and screenshots matching
+    committed baselines. Log:
+    `Agentic/Reports/validate_dx12_renderer_plan04_pso_result_20260709.log`.
+  - Runtime boundary checker passed: `python tools\check_runtime_boundaries.py`
+    exited 0 in 00:00:19.5 with 0 errors. Log:
+    `Agentic/Reports/check_runtime_boundaries_plan04_pso_result_20260709.log`.
 - [ ] **4.1** Do **not** maintain any throw count. The `MAX_SOURCE_THROW_TOKENS`
   ratchet is deleted by plan 03. Verify progress by re-running
   `rg -n "throw " SkullbonezSource` and confirming the F/R/P sites are converted;

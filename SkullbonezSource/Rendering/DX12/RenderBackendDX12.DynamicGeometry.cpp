@@ -9,8 +9,6 @@ Mental model:
   ordering are the important ideas.
 
 Glossary:
-  DXR (DirectX Raytracing): DX12 API used for hardware ray traversal and
-  reflection dispatch.
   BLAS (Bottom-Level Acceleration Structure): Raytracing spatial index for one
   mesh's triangles.
   SRV (Shader Resource View): Descriptor row used when shaders read textures
@@ -67,14 +65,6 @@ static void ReportDX12DescriptorHeapExhausted( const char* heapName, UINT nextIn
     fflush( stdout );
     Log().WriteEventf( "dx12_descriptor_heap_exhausted heap=%s next=%u capacity=%u", name, nextIndex, capacity );
     Log().FlushAll();
-}
-
-static inline void ThrowIfFailed( HRESULT hr, const char* msg )
-{
-    if ( FAILED( hr ) )
-    {
-        throw std::runtime_error( msg );
-    }
 }
 
 namespace
@@ -171,9 +161,20 @@ ID3D12PipelineState* RenderBackendDX12::EnsureGridLinePipeline( DXGI_FORMAT rtvF
 
     ID3D12PipelineState* gridLinePSO = nullptr;
     HRESULT hr = Device()->CreateGraphicsPipelineState( &psoDesc, IID_PPV_ARGS( &gridLinePSO ) );
-    if ( FAILED( hr ) )
+    if ( FAILED( hr ) || !gridLinePSO )
     {
-        throw std::runtime_error( "CreateGraphicsPipelineState failed for debug lines" );
+        // Lane R: debug-line rendering is diagnostic overlay work. A failed
+        // line PSO should drop this overlay draw and report the device result,
+        // not unwind the frame; cache capacity failures below remain fatal.
+        Log().WriteEventf( "dx12_debug_line_pso_create_failed hresult=0x%08X rtv_format=%u",
+                           static_cast<unsigned int>( FAILED( hr ) ? hr : E_FAIL ),
+                           static_cast<unsigned int>( rtvFormat ) );
+        Log().FlushAll();
+        if ( gridLinePSO )
+        {
+            gridLinePSO->Release();
+        }
+        return nullptr;
     }
     NameDx12Object( gridLinePSO, L"Skullbonez DX12 Debug Line PSO" );
     // Invariant: grid-line PSO variants are bounded by the fixed cache in the
@@ -236,7 +237,10 @@ void RenderBackendDX12::UploadAndDrawDynamicVB( uint32_t handle, const float* da
         fmt = VertexFormat12::Pos2_Tex2;
     }
 
-    PrepareDraw( fmt, false, nullptr, &dvb );
+    if ( !PrepareDraw( fmt, false, nullptr, &dvb ) )
+    {
+        return;
+    }
 
     D3D12_VERTEX_BUFFER_VIEW vbv = {};
     vbv.BufferLocation = vbAddr;
@@ -270,6 +274,10 @@ void RenderBackendDX12::DrawLinesColored( const float* data, int vertCount, cons
     EnsureCommandListOpen();
 
     ID3D12PipelineState* gridLinePSO = EnsureGridLinePipeline( m_currentRTVFormat );
+    if ( !gridLinePSO )
+    {
+        return;
+    }
 
     // Upload vertex data to the shared upload buffer. Debug-line vertex data is
     // read as vertex-buffer bytes, so 4-byte alignment is sufficient here; the
@@ -340,7 +348,10 @@ void RenderBackendDX12::DrawTransientColoredTriangles( const float* data,
     const D3D12_GPU_VIRTUAL_ADDRESS vbAddress = ReserveUpload( dataSize, 4 );
     memcpy( GetUploadPtr( vbAddress ), data, static_cast<size_t>( dataSize ) );
 
-    PrepareDraw( VertexFormat12::Pos3, false, nullptr, &vertexLayout );
+    if ( !PrepareDraw( VertexFormat12::Pos3, false, nullptr, &vertexLayout ) )
+    {
+        return;
+    }
 
     D3D12_VERTEX_BUFFER_VIEW vbView = {};
     vbView.BufferLocation = vbAddress;
@@ -420,13 +431,29 @@ uint32_t RenderBackendDX12::CreateInstancedMesh( const float* staticData,
     // explicitly, then rely on implicit promotion to COPY_DEST when CopyBufferRegion executes.
     // Docs:
     // https://learn.microsoft.com/en-us/windows/win32/direct3d12/using-resource-barriers-to-synchronize-resource-states-in-direct3d-12#implicit-state-transitions
-    ThrowIfFailed( Device()->CreateCommittedResource( &defaultHeap,
-                                                      D3D12_HEAP_FLAG_NONE,
-                                                      &bufDesc,
-                                                      D3D12_RESOURCE_STATE_COMMON,
-                                                      nullptr,
-                                                      IID_PPV_ARGS( &im.staticVB ) ),
-                   "CreateCommittedResource (instanced static vertex buffer) failed" );
+    const HRESULT staticBufferResult = Device()->CreateCommittedResource( &defaultHeap,
+                                                                          D3D12_HEAP_FLAG_NONE,
+                                                                          &bufDesc,
+                                                                          D3D12_RESOURCE_STATE_COMMON,
+                                                                          nullptr,
+                                                                          IID_PPV_ARGS( &im.staticVB ) );
+    if ( FAILED( staticBufferResult ) || !im.staticVB )
+    {
+        // Lane R: instanced mesh handles already use 0 as "no backend mesh".
+        // Callers route uploads and draws through that handle, so creation can
+        // fail as a logged result without leaving a partially registered mesh.
+        Log().WriteEventf( "dx12_instanced_static_vertex_buffer_create_failed hresult=0x%08X vertices=%d stride=%d",
+                           static_cast<unsigned int>( FAILED( staticBufferResult ) ? staticBufferResult : E_FAIL ),
+                           staticVertCount,
+                           im.staticStride );
+        Log().FlushAll();
+        if ( im.staticVB )
+        {
+            im.staticVB->Release();
+            im.staticVB = nullptr;
+        }
+        return 0;
+    }
     NameDx12ObjectIndexed( im.staticVB,
                            L"Skullbonez DX12 Instanced Static Vertex Buffer",
                            static_cast<UINT>( m_instancedMeshes.size() + 1 ) );
@@ -442,7 +469,7 @@ uint32_t RenderBackendDX12::CreateInstancedMesh( const float* staticData,
                                      m_uploadSystem.OffsetFromAddress( m_allocatorIndex, uploadAddr ),
                                      dataSize );
     // Transition from COPY_DEST (implicit promotion after CopyBufferRegion) to the
-    // combined read state used for both vertex fetch and DXR BLAS build SRV access.
+    // combined read state used for both vertex fetch and raytracing BLAS build SRV access.
     ExecuteGraphTransition( "InstancedStaticVertexUploadFinal",
                             "InstancedStaticVertexBuffer",
                             im.staticVB,
@@ -490,7 +517,10 @@ void RenderBackendDX12::DrawInstancedMesh( uint32_t handle, int staticVertCount,
         return; // No instance data uploaded yet
     }
 
-    PrepareDraw( VertexFormat12::Pos3, true, &im, nullptr );
+    if ( !PrepareDraw( VertexFormat12::Pos3, true, &im, nullptr ) )
+    {
+        return;
+    }
 
     // Slot 0: static geometry, Slot 1: per-instance data
     D3D12_VERTEX_BUFFER_VIEW vbvs[2] = {};

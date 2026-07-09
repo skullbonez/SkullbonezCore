@@ -352,9 +352,22 @@ ID3D12PipelineState* RenderBackendDX12::CreatePSO( VertexFormat12 format,
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-creategraphicspipelinestate
     ID3D12PipelineState* pso = nullptr;
     HRESULT hr = Device()->CreateGraphicsPipelineState( &psoDesc, IID_PPV_ARGS( &pso ) );
-    if ( FAILED( hr ) )
+    if ( FAILED( hr ) || !pso )
     {
-        throw std::runtime_error( "CreateGraphicsPipelineState failed" );
+        // Lane R: a graphics PSO can fail because the active shader/input layout
+        // or device state is invalid. The draw path can skip this submission and
+        // keep the renderer alive; fixed cache-cap exhaustion above remains fatal.
+        Log().WriteEventf( "dx12_graphics_pso_create_failed hresult=0x%08X format=%u instanced=%d rtv_format=%u",
+                           static_cast<unsigned int>( FAILED( hr ) ? hr : E_FAIL ),
+                           static_cast<unsigned int>( format ),
+                           instanced ? 1 : 0,
+                           static_cast<unsigned int>( m_currentRTVFormat ) );
+        Log().FlushAll();
+        if ( pso )
+        {
+            pso->Release();
+        }
+        return nullptr;
     }
     // A graphics PSO is the compiled bundle of shaders plus fixed GPU state
     // such as blend, depth, rasterizer, render-target format, and vertex layout.
@@ -365,7 +378,7 @@ ID3D12PipelineState* RenderBackendDX12::CreatePSO( VertexFormat12 format,
 }
 
 
-void RenderBackendDX12::PrepareDraw( VertexFormat12 format,
+bool RenderBackendDX12::PrepareDraw( VertexFormat12 format,
                                      bool instanced,
                                      const InstancedMeshDX12* im,
                                      const DynamicVBDX12* dvb )
@@ -431,7 +444,7 @@ void RenderBackendDX12::PrepareDraw( VertexFormat12 format,
                 CommandList()->SetGraphicsRootConstantBufferView( 0, cbAddr );
             }
         }
-        return;
+        return true;
     }
 
     // Full state setup path: at least one expensive binding category changed,
@@ -483,6 +496,10 @@ void RenderBackendDX12::PrepareDraw( VertexFormat12 format,
                           key.isInstanced ? 1 : 0 );
             }
             pso = CreatePSO( format, instanced, im, dvb );
+            if ( !pso )
+            {
+                return false;
+            }
             m_psoCache[m_psoCacheCount].hash = psoHash;
             m_psoCache[m_psoCacheCount].pso = pso;
             ++m_psoCacheCount;
@@ -577,6 +594,7 @@ void RenderBackendDX12::PrepareDraw( VertexFormat12 format,
     // https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-iasetprimitivetopology
     CommandList()->IASetPrimitiveTopology( D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST );
     m_psoDirty = false;
+    return true;
 }
 
 

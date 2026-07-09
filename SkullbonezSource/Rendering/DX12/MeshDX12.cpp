@@ -9,8 +9,6 @@ Mental model:
   ordering are the important ideas.
 
 Glossary:
-  DXR (DirectX Raytracing): DX12 API used for hardware ray traversal and
-  reflection dispatch.
   Descriptor: Small binding record that tells a renderer how to interpret a
   resource.
   Back buffer: Swap-chain image that will be presented to the window.
@@ -116,7 +114,7 @@ void MeshDX12::Create( ID3D12Device* device,
     cmdList->CopyBufferRegion( m_vertexBuffer, 0, uploadBuffer, uploadOffset, dataSize );
 
     // Transition the vertex buffer from COMMON (implicitly promoted to COPY_DEST by CopyBufferRegion)
-    // to a combined read state that covers both normal drawing (VERTEX_AND_CONSTANT_BUFFER) and DXR
+    // to a combined read state that covers both normal drawing (VERTEX_AND_CONSTANT_BUFFER) and raytracing
     // acceleration structure builds (NON_PIXEL_SHADER_RESOURCE). Both are read-only states so they
     // can be combined per D3D12 spec.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/ne-d3d12-d3d12_resource_states
@@ -139,7 +137,10 @@ void MeshDX12::Draw() const
     {
         return;
     }
-    m_backend.PrepareDraw( m_format );
+    if ( !m_backend.PrepareDraw( m_format ) )
+    {
+        return;
+    }
     // Bind the vertex buffer to input slot 0 of the Input Assembler (IA) stage.
     // The IA is the very first stage of the GPU pipeline — it reads vertex data and feeds it
     // to the vertex shader. The view tells the GPU where the buffer is, how big it is, and the
@@ -164,7 +165,10 @@ void MeshDX12::DrawInstanced( int instanceCount ) const
     {
         return;
     }
-    m_backend.PrepareDraw( m_format );
+    if ( !m_backend.PrepareDraw( m_format ) )
+    {
+        return;
+    }
     // Instanced drawing renders many copies of one mesh with different
     // per-instance data in a single GPU draw call.
     // Docs:

@@ -9,13 +9,11 @@ Mental model:
   ordering are the important ideas.
 
 Glossary:
-  DXR (DirectX Raytracing): DX12 API used for hardware ray traversal and
-  reflection dispatch.
   BLAS (Bottom-Level Acceleration Structure): Raytracing spatial index for one
   mesh's triangles.
   TLAS (Top-Level Acceleration Structure): Raytracing spatial index for scene
   instances that point at BLAS geometry.
-  SBT (Shader Binding Table): DXR table that maps ray records to
+  SBT (Shader Binding Table): Raytracing table that maps ray records to
   ray-generation, miss, and hit shaders.
   RTV (Render Target View): Descriptor row used when the GPU writes color
   pixels into a texture or back buffer.
@@ -714,7 +712,7 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
         return CommandList();
     }
 
-    void PrepareDraw( VertexFormat12 format,
+    bool PrepareDraw( VertexFormat12 format,
                       bool instanced = false,
                       const InstancedMeshDX12* im = nullptr,
                       const DynamicVBDX12* dvb = nullptr );
