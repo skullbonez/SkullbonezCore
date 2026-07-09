@@ -39,8 +39,8 @@ audits when it is still useful.
   answer or handoff.
 - Engine cleanup restart handoff for the current pause:
   `engine-cleanup-plans/HANDOFF-2026-07-09-RESTART.md`. Latest implementation
-  commit before the handoff is `98e06366`; resume Plan 02 Step 1.2 from
-  `contactBodyViewAtTime` only after the user restarts and resumes.
+  commit before the handoff is `448dcb4f`; resume Plan 02 Step 1.2 from
+  `sweepObjectPair`.
 
 ## Current Work Items
 
