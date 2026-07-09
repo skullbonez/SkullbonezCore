@@ -1,14 +1,13 @@
 # Replay: Trajectory Visuals, Prediction Job, Memory Quality, Code Size
 
 Date: 2026-07-09 (consolidated mega plan)
-Status: In progress - Stage 3.3 complete (prediction isolation, trajectory
+Status: In progress - Stage 3.4 complete (prediction isolation, trajectory
 visuals investigation, counters, memory accounting, draw-loop determinism,
 same-target refresh reveal preservation, past-path visibility, contact
 completeness reporting, the TrajectoryStore publication shell, and the
-build-pass writer migration, and store-backed draw reads are complete; fallback
-cleanup, lock-step fixes, worker job, memory tuning, renderer rewrite, and
-code-size work remain
-open)
+build-pass writer migration, store-backed draw reads, and the default-off
+legacy draw fallback are complete; lock-step fixes, worker job, memory tuning,
+renderer rewrite, and code-size work remain open)
 Impact area: replay runtime, replay prediction, trajectory overlay rendering,
 DX12 transient geometry, physics stepping, UI
 Consolidates: `replay-prediction-and-memory.md` (sections A/B/C — full text in
@@ -601,7 +600,57 @@ Stage 3 — TrajectoryStore + build pass
   - Restore query: `tools\physics_query.bat Debug\replay_restore.physicsdiag.ndjson restore --limit 8`; trace 54,912 bytes; SQLite cache 225,280 bytes; query output 967 bytes.
   - Total model-read query output: 2,479 bytes. Raw NDJSON/SQLite sizes above
     are artifact sizes, not model-ingested text.
-- [ ] 3.4 Keep old draw path behind a compile-time fallback for one commit.
+- [x] 3.4 Keep old draw path behind a compile-time fallback for one commit.
+  Complete 2026-07-10: added
+  `SKULLBONEZ_REPLAY_LEGACY_TRAJECTORY_DRAW_FALLBACK`, defaulting to `0`, as
+  the one-commit rollback switch for the old retained solver-callback draw
+  route. The guarded legacy path restores the pre-store retained bounds scan,
+  stack-local `targetVisualizer` future-node rebuild, old root/child solver
+  visitors, future-node report copy, and target marker draw only when the macro
+  is deliberately enabled. The normal runtime path remains the Stage 3.3
+  store-backed route: with the macro off, retained drawing refreshes
+  `PastRoot` in `TrajectoryStore` and never compiles the legacy callbacks.
+
+  The owning source comment names the fallback owner, reason, deletion
+  condition, and checker budget. Delete the macro and every guarded helper after
+  the next replay checkpoint validates the store path; before closing Stage 4,
+  search for `SKULLBONEZ_REPLAY_LEGACY_TRAJECTORY_DRAW_FALLBACK` so the fallback
+  does not quietly become permanent.
+
+  Comment audit: inspected 1 touched source-bearing file with 0 deferred
+  (`RunReplayTools.cpp`). Focused checks passed: default
+  `tools\validate_build.bat Profile` in 6.99s with 0 warnings/errors
+  (`Agentic/Reports/validate_build_profile_replay_stage3_4_20260710.log`);
+  `tools\validate_format.bat` in 10.20s
+  (`Agentic/Reports/validate_format_replay_stage3_4_20260710.log`);
+  legacy-on Profile rebuild with
+  `CL=/DSKULLBONEZ_REPLAY_LEGACY_TRAJECTORY_DRAW_FALLBACK=1` in 21.85s
+  (`Agentic/Reports/rebuild_profile_replay_stage3_4_legacy_on_20260710.log`);
+  default macro-off Profile rebuild in 21.58s
+  (`Agentic/Reports/rebuild_profile_replay_stage3_4_default_20260710.log`);
+  allocation policy self-test passed; and allocation scan passed
+  (`scanned=296 direct_heap_findings=28 dynamic_stl_member_findings=0
+  allowlist_errors=0`). Required validation passed:
+  `tools\validate_full.bat` in 36.31s
+  (`Agentic/Reports/validate_full_replay_visuals_stage3_4_20260710.log`) with
+  project filters clean, Profile/Debug builds clean, formatting clean, DX12
+  validation errors 0, DX12 screenshots matching committed baselines, and
+  `physics_regression_solver.csv` byte-exact; `tools\validate_replay_scrub.bat`
+  in 10.80s
+  (`Agentic/Reports/validate_replay_scrub_replay_visuals_stage3_4_20260710.log`);
+  and `tools\validate_perf.bat` in 28.54s
+  (`Agentic/Reports/validate_perf_replay_stage3_4_20260710.log`) with
+  allocation guard PASS, `gameplay_violations=0`, runtime reserve
+  `policy_violations=0`, absolute DX12/PHYSICS_BENCH budgets clean, and no
+  perf regressions.
+
+  SkullScope accounting from the replay scrub gate:
+  - Scrub trace command: `Debug\SKULLBONEZ_CORE.exe --renderer dx12 --vsync off --shadows off --scene SkullbonezData/scenes/physics_roll.scene.json --frames 120 --replay on --replay-seconds 1 --replay-scrub-test --physics-diag Debug\replay_scrub.physicsdiag.ndjson`
+  - Scrub query: `tools\physics_query.bat Debug\replay_scrub.physicsdiag.ndjson replay --limit 8`; trace 54,932 bytes; SQLite cache 225,280 bytes; query output 1,512 bytes.
+  - Restore trace command: `Debug\SKULLBONEZ_CORE.exe --renderer dx12 --vsync off --shadows off --scene SkullbonezData/scenes/physics_roll.scene.json --frames 120 --replay on --replay-seconds 1 --replay-restore-test --physics-diag Debug\replay_restore.physicsdiag.ndjson`
+  - Restore query: `tools\physics_query.bat Debug\replay_restore.physicsdiag.ndjson restore --limit 8`; trace 54,912 bytes; SQLite cache 225,280 bytes; query output 967 bytes.
+  - Total model-read query output: 2,479 bytes. Raw NDJSON/SQLite sizes above
+    are artifact sizes, not model-ingested text.
 
 Stage 4 — Lock-step hierarchy correctness
 - [ ] 4.1 Frozen tree per version; shared `revealFrame` clamp invariant.

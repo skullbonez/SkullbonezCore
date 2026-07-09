@@ -94,6 +94,17 @@ using SkullbonezCore::Assets::EditorHullAssetPath;
 using SkullbonezCore::Assets::EditorHullAssetToken;
 namespace RuntimeAllocation = SkullbonezCore::Runtime::Allocation;
 
+#ifndef SKULLBONEZ_REPLAY_LEGACY_TRAJECTORY_DRAW_FALLBACK
+#define SKULLBONEZ_REPLAY_LEGACY_TRAJECTORY_DRAW_FALLBACK 0
+#endif
+
+// Migration fallback owner: replay visuals Stage 3.4. Reason: keep one
+// compile-time rollback switch for the pre-TrajectoryStore retained draw path
+// while Stage 4 verifies hierarchy/reveal correctness. Deletion condition:
+// remove this macro and every guarded legacy helper after the next replay
+// checkpoint validates the store path. Checker budget: search for
+// SKULLBONEZ_REPLAY_LEGACY_TRAJECTORY_DRAW_FALLBACK before closing Stage 4.
+
 namespace
 {
 bool TryResolveReplayBodyModelIndex( const PhysicsBodyStore& bodyStore,
@@ -703,6 +714,28 @@ const ReplaySolverBodySample* FindReplayBodyByModelIndex( const ReplaySolverFram
     return FindReplayBodyByModelIndexInSample<ReplaySolverFrameSample, ReplaySolverBodySample, true>( sample,
                                                                                                       modelIndex );
 }
+
+#if SKULLBONEZ_REPLAY_LEGACY_TRAJECTORY_DRAW_FALLBACK
+ReplayBodyId ReplayBodyIdForModelIndex( const ReplaySolverFrameSample& sample, int modelIndex )
+{
+    return ReplayBodyIdForModelIndexInSample<ReplaySolverFrameSample, ReplaySolverBodySample, false>( sample,
+                                                                                                      modelIndex );
+}
+
+
+const ReplaySolverBodySample*
+FindReplayBodyByIdWithHint( const ReplaySolverFrameSample& sample, ReplayBodyId id, int modelIndex )
+{
+    if ( const ReplaySolverBodySample* body = FindReplayBodyByModelIndex( sample, modelIndex ) )
+    {
+        if ( body->id.value == id.value )
+        {
+            return body;
+        }
+    }
+    return FindReplayBodyById( sample, id );
+}
+#endif
 
 ReplayBodyId ReplayPredictionBodyIdForModelIndex( const RunReplayPredictionFrame& frame, int modelIndex )
 {
@@ -1780,6 +1813,233 @@ bool ShouldDrawReplayPathFrame( ReplayFrameIndex frameIndex, std::size_t stride 
     return stride <= 1 || ( frameIndex % static_cast<ReplayFrameIndex>( stride ) ) == 0;
 }
 
+#if SKULLBONEZ_REPLAY_LEGACY_TRAJECTORY_DRAW_FALLBACK
+struct ReplayPathBoundsContext
+{
+    bool hasSample = false;
+    ReplayFrameIndex firstFrame = 0;
+    ReplayFrameIndex lastFrame = 0;
+};
+
+
+void CaptureReplayPathBounds( const ReplaySolverFrameSample& sample, void* userData )
+{
+    ReplayPathBoundsContext& context = *static_cast<ReplayPathBoundsContext*>( userData );
+    if ( !context.hasSample )
+    {
+        context.hasSample = true;
+        context.firstFrame = sample.frameIndex;
+    }
+    context.lastFrame = sample.frameIndex;
+}
+
+
+struct ReplayPathFutureContext
+{
+    RunReplayPathVisualizerState* visualizer = nullptr;
+    const SkullbonezCore::GameObjects::GameModelCollection* collection = nullptr;
+    const std::chrono::steady_clock::time_point* budgetStart = nullptr;
+    ReplayBodyId rootId;
+    ReplayFrameIndex presentFrame = 0;
+    double budgetMilliseconds = 0.0;
+    bool includeRagdollVisuals = true;
+    bool budgetExpired = false;
+};
+
+
+// Why: the recorder visitor API cannot early-out. The callback records budget
+// expiry in the context and turns later visits into cheap no-ops.
+bool ReplayPathContextBudgetExpired( ReplayPathFutureContext& context )
+{
+    if ( context.budgetStart && ReplayPredictionBudgetExpired( *context.budgetStart, context.budgetMilliseconds ) )
+    {
+        context.budgetExpired = true;
+    }
+    return context.budgetExpired;
+}
+
+
+bool TryGetReplayFutureDepth( const ReplayPathFutureContext& context,
+                              ReplayBodyId id,
+                              ReplayFrameIndex frame,
+                              int& outDepth )
+{
+    return TryGetReplayFutureDepthInNodes( context.visualizer->futureNodes,
+                                           context.rootId,
+                                           context.presentFrame,
+                                           true,
+                                           id,
+                                           frame,
+                                           outDepth );
+}
+
+
+void ApplyPrimaryReplayPathTarget( RunReplayPathVisualizerState& visualizer,
+                                   ReplayBodyId id,
+                                   int modelIndex,
+                                   const char* name )
+{
+    visualizer.hasTarget = id.value != 0;
+    visualizer.targetId = id;
+    visualizer.targetModelIndex = modelIndex;
+    visualizer.targetName[0] = '\0';
+    if ( name && name[0] != '\0' )
+    {
+        strncpy_s( visualizer.targetName, sizeof( visualizer.targetName ), name, _TRUNCATE );
+    }
+}
+
+
+void AddReplayFutureNode( ReplayPathFutureContext& context,
+                          ReplayBodyId parentId,
+                          int parentModelIndex,
+                          ReplayBodyId id,
+                          int modelIndex,
+                          ReplayFrameIndex firstFrame,
+                          const Vector3& contactPoint,
+                          const Vector3& contactNormal,
+                          int depth )
+{
+    AddReplayFutureNodeToNodes( context.visualizer->futureNodes,
+                                context.rootId,
+                                parentId,
+                                parentModelIndex,
+                                id,
+                                modelIndex,
+                                firstFrame,
+                                contactPoint,
+                                contactNormal,
+                                depth,
+                                true,
+                                false );
+}
+
+
+void BuildReplayFutureNodes( const ReplaySolverFrameSample& sample, void* userData )
+{
+    ReplayPathFutureContext& context = *static_cast<ReplayPathFutureContext*>( userData );
+    if ( !context.visualizer || sample.frameIndex < context.presentFrame || ReplayPathContextBudgetExpired( context ) )
+    {
+        return;
+    }
+
+    std::size_t nextContactIndex = 0;
+    (void)BuildReplayFutureNodesFromContacts(
+        sample.worldSnapshot.debugContacts,
+        sample.frameIndex,
+        0,
+        context.collection,
+        context.includeRagdollVisuals,
+        [&]( int modelIndex ) { return ReplayBodyIdForModelIndex( sample, modelIndex ); },
+        [&]( ReplayBodyId id, ReplayFrameIndex frameIndex, int& outDepth )
+        { return TryGetReplayFutureDepth( context, id, frameIndex, outDepth ); },
+        [&]( ReplayBodyId parentId,
+             int parentModelIndex,
+             ReplayBodyId id,
+             int modelIndex,
+             ReplayFrameIndex firstFrame,
+             const Vector3& contactPoint,
+             const Vector3& contactNormal,
+             int depth,
+             bool contactDerived )
+        {
+            (void)contactDerived;
+            AddReplayFutureNode( context,
+                                 parentId,
+                                 parentModelIndex,
+                                 id,
+                                 modelIndex,
+                                 firstFrame,
+                                 contactPoint,
+                                 contactNormal,
+                                 depth );
+        },
+        [&]() { return ReplayPathContextBudgetExpired( context ); },
+        nextContactIndex );
+}
+
+
+struct ReplayPathRootDrawContext
+{
+    RunEditorTracer* tracer = nullptr;
+    ReplayRibbonDrawQuota* ribbonQuota = nullptr;
+    ReplayBodyId rootId;
+    ReplayFrameIndex firstFrame = 0;
+    ReplayFrameIndex presentFrame = 0;
+    ReplayFrameIndex lastFrame = 0;
+    std::size_t sampleStride = 1;
+    bool hasPastPrevious = false;
+    bool hasFuturePrevious = false;
+    Vector3 pastPrevious = SkullbonezCore::Math::Vector::ZERO_VECTOR;
+    Vector3 futurePrevious = SkullbonezCore::Math::Vector::ZERO_VECTOR;
+};
+
+
+void DrawReplayRootPath( const ReplaySolverFrameSample& sample, void* userData )
+{
+    ReplayPathRootDrawContext& context = *static_cast<ReplayPathRootDrawContext*>( userData );
+    if ( ReplayRibbonDrawQuotaExhausted( context.ribbonQuota ) )
+    {
+        return;
+    }
+    if ( sample.frameIndex != context.presentFrame && sample.frameIndex != context.lastFrame &&
+         !ShouldDrawReplayPathFrame( sample.frameIndex, context.sampleStride ) )
+    {
+        return;
+    }
+
+    const ReplaySolverBodySample* body = FindReplayBodyById( sample, context.rootId );
+    if ( !body )
+    {
+        return;
+    }
+
+    if ( sample.frameIndex <= context.presentFrame )
+    {
+        if ( context.hasPastPrevious &&
+             VectorMagSquared( body->position - context.pastPrevious ) > REPLAY_PATH_MIN_SEGMENT_DISTANCE_SQ )
+        {
+            const float t = ReplayPathFrameT( sample.frameIndex, context.firstFrame, context.presentFrame );
+            if ( !TryAddReplayPathSegment( *context.tracer,
+                                           context.ribbonQuota,
+                                           context.pastPrevious,
+                                           body->position,
+                                           1.0f,
+                                           t,
+                                           t,
+                                           MainMemoryReplayTrajectoryLane::PastRoot ) )
+            {
+                return;
+            }
+        }
+        context.pastPrevious = body->position;
+        context.hasPastPrevious = true;
+    }
+
+    if ( sample.frameIndex >= context.presentFrame )
+    {
+        if ( context.hasFuturePrevious &&
+             VectorMagSquared( body->position - context.futurePrevious ) > REPLAY_PATH_MIN_SEGMENT_DISTANCE_SQ )
+        {
+            const float t = ReplayPathFrameT( sample.frameIndex, context.presentFrame, context.lastFrame );
+            if ( !TryAddReplayPathSegment( *context.tracer,
+                                           context.ribbonQuota,
+                                           context.futurePrevious,
+                                           body->position,
+                                           1.0f - t,
+                                           1.0f,
+                                           1.0f - t,
+                                           MainMemoryReplayTrajectoryLane::FutureRoot ) )
+            {
+                return;
+            }
+        }
+        context.futurePrevious = body->position;
+        context.hasFuturePrevious = true;
+    }
+}
+#endif
+
 std::size_t ReplayTrajectoryPublishedPointCount( const ReplayTrajectoryRecord& record )
 {
     return (std::min)( record.publishedPointCount, record.points.size() );
@@ -1861,6 +2121,16 @@ struct ReplayPathChildDrawState
 {
     RunReplayPathTraceNode node;
     bool active = false;
+#if SKULLBONEZ_REPLAY_LEGACY_TRAJECTORY_DRAW_FALLBACK
+    bool hasIncomingPrevious = false;
+    bool hasPrevious = false;
+    bool hasMarkerPose = false;
+    int markerModelIndex = -1;
+    Vector3 incomingPrevious = SkullbonezCore::Math::Vector::ZERO_VECTOR;
+    Vector3 previous = SkullbonezCore::Math::Vector::ZERO_VECTOR;
+    Vector3 markerPosition = SkullbonezCore::Math::Vector::ZERO_VECTOR;
+    Quaternion markerOrientation = IDENTITY_QUATERNION;
+#endif
     // Concept: the two-box causal story. Entry is the body's IN-PLACE pose
     // from prediction frame 0 — the wall exactly as the live scene knows it.
     // It is drawn yellow the moment the body visibly moves and never slides.
@@ -1874,8 +2144,18 @@ struct ReplayPathChildDrawState
 
 struct ReplayPathChildDrawContext
 {
+#if SKULLBONEZ_REPLAY_LEGACY_TRAJECTORY_DRAW_FALLBACK
+    RunEditorTracer* tracer = nullptr;
+    const ColliderStore* colliderStore = nullptr;
+    ReplayRibbonDrawQuota* ribbonQuota = nullptr;
+#endif
     std::array<ReplayPathChildDrawState, REPLAY_PATH_MAX_FUTURE_NODES> nodes = {};
     std::size_t nodeCount = 0;
+#if SKULLBONEZ_REPLAY_LEGACY_TRAJECTORY_DRAW_FALLBACK
+    ReplayFrameIndex presentFrame = 0;
+    ReplayFrameIndex lastFrame = 0;
+    std::size_t sampleStride = 1;
+#endif
 };
 
 // Why: downstream replay markers should show the collider's real authored
@@ -1898,6 +2178,44 @@ const ColliderRecord* ReplayColliderRecordForModelIndex( const ColliderStore* co
     }
     return collider;
 }
+
+#if SKULLBONEZ_REPLAY_LEGACY_TRAJECTORY_DRAW_FALLBACK
+void CaptureReplayChildMarkerPose( ReplayPathChildDrawState& drawState,
+                                   const Vector3& position,
+                                   const Quaternion& orientation,
+                                   int modelIndex )
+{
+    drawState.markerPosition = position;
+    drawState.markerOrientation = orientation;
+    drawState.markerModelIndex = modelIndex;
+    drawState.hasMarkerPose = true;
+}
+
+
+void DrawReplayChildFinalMarkers( ReplayPathChildDrawContext& context )
+{
+    // Why: downstream body markers summarize where each transferred body ends
+    // up in the visible prefix. Stamping contact-time poses made boxes look cut
+    // short while their gray future trails continued past the outline.
+    for ( std::size_t i = 0; i < context.nodeCount; ++i )
+    {
+        const ReplayPathChildDrawState& drawState = context.nodes[i];
+        if ( !drawState.hasMarkerPose )
+        {
+            continue;
+        }
+
+        if ( const ColliderRecord* collider =
+                 ReplayColliderRecordForModelIndex( context.colliderStore, drawState.markerModelIndex ) )
+        {
+            context.tracer->AddReplayFutureTargetMarker( drawState.markerPosition,
+                                                         drawState.markerOrientation,
+                                                         collider->shape,
+                                                         drawState.node.depth );
+        }
+    }
+}
+#endif
 
 ReplayPredictionRetainedMarker*
 FindOrAddReplayPredictionRetainedMarker( RunReplayPredictionState& prediction, ReplayBodyId id, int modelIndex )
@@ -2375,6 +2693,100 @@ void ReplayChildFutureColor( int depth, float t, float& r, float& g, float& b )
     g = shade;
     b = shade + 0.06f;
 }
+
+#if SKULLBONEZ_REPLAY_LEGACY_TRAJECTORY_DRAW_FALLBACK
+void DrawReplayChildPaths( const ReplaySolverFrameSample& sample, void* userData )
+{
+    ReplayPathChildDrawContext& context = *static_cast<ReplayPathChildDrawContext*>( userData );
+    if ( ReplayRibbonDrawQuotaExhausted( context.ribbonQuota ) )
+    {
+        return;
+    }
+    bool importantChildFrame = sample.frameIndex == context.presentFrame;
+    for ( std::size_t i = 0; i < context.nodeCount; ++i )
+    {
+        if ( sample.frameIndex == context.nodes[i].node.firstFrame )
+        {
+            importantChildFrame = true;
+            break;
+        }
+    }
+    const bool skipSample = sample.frameIndex < context.presentFrame ||
+                            ( sample.frameIndex != context.lastFrame && !importantChildFrame &&
+                              !ShouldDrawReplayPathFrame( sample.frameIndex, context.sampleStride ) );
+    if ( skipSample )
+    {
+        return;
+    }
+
+    for ( std::size_t i = 0; i < context.nodeCount; ++i )
+    {
+        ReplayPathChildDrawState& drawState = context.nodes[i];
+        const ReplaySolverBodySample* body =
+            FindReplayBodyByIdWithHint( sample, drawState.node.id, drawState.node.modelIndex );
+        if ( !body )
+        {
+            continue;
+        }
+
+        if ( sample.frameIndex <= drawState.node.firstFrame )
+        {
+            if ( drawState.hasIncomingPrevious &&
+                 VectorMagSquared( body->position - drawState.incomingPrevious ) > REPLAY_PATH_MIN_SEGMENT_DISTANCE_SQ )
+            {
+                const float t = ReplayPathFrameT( sample.frameIndex, context.presentFrame, drawState.node.firstFrame );
+                float r = 0.92f;
+                float g = 0.54f;
+                float b = 0.18f;
+                ReplayChildIncomingColor( drawState.node.depth, t, r, g, b );
+                if ( !TryAddReplayPathSegment( *context.tracer,
+                                               context.ribbonQuota,
+                                               drawState.incomingPrevious,
+                                               body->position,
+                                               r,
+                                               g,
+                                               b,
+                                               MainMemoryReplayTrajectoryLane::FutureChildIncoming ) )
+                {
+                    return;
+                }
+            }
+            drawState.incomingPrevious = body->position;
+            drawState.hasIncomingPrevious = true;
+        }
+
+        if ( sample.frameIndex >= drawState.node.firstFrame && drawState.hasPrevious &&
+             VectorMagSquared( body->position - drawState.previous ) > REPLAY_PATH_MIN_SEGMENT_DISTANCE_SQ )
+        {
+            const float t = ReplayPathFrameT( sample.frameIndex, drawState.node.firstFrame, context.lastFrame );
+            float r = 0.5f;
+            float g = 0.5f;
+            float b = 0.56f;
+            ReplayChildFutureColor( drawState.node.depth, t, r, g, b );
+            if ( !TryAddReplayPathSegment( *context.tracer,
+                                           context.ribbonQuota,
+                                           drawState.previous,
+                                           body->position,
+                                           r,
+                                           g,
+                                           b,
+                                           MainMemoryReplayTrajectoryLane::FutureChildOutgoing ) )
+            {
+                return;
+            }
+        }
+        if ( sample.frameIndex >= drawState.node.firstFrame )
+        {
+            CaptureReplayChildMarkerPose( drawState,
+                                          body->position,
+                                          ReplaySolverBodyOrientation( *body ),
+                                          body->modelIndex );
+            drawState.previous = body->position;
+            drawState.hasPrevious = true;
+        }
+    }
+}
+#endif
 
 uint16_t ReplayPredictionDrawBranch( bool usingBuildFrames )
 {
@@ -4120,6 +4532,169 @@ void RenderReplayPredictionVisualizer( ReplayRuntime& replayRuntime,
                                  ribbonQuota,
                                  budgetMilliseconds );
 }
+
+#if SKULLBONEZ_REPLAY_LEGACY_TRAJECTORY_DRAW_FALLBACK
+void RenderReplayPathVisualizerLegacyRetained( const ReplayPathVisualizerRenderContext& context,
+                                               ReplayRibbonDrawQuota& ribbonQuota,
+                                               const std::chrono::steady_clock::time_point& visualizerStart )
+{
+    // Hazard: this is the pre-TrajectoryStore retained path kept only as a
+    // compile-time rollback switch. It rebuilds retained child nodes from solver
+    // samples and copies futureNodes, so the default build must leave the macro
+    // disabled.
+    if ( context.replayRuntime.PathVisualizer().targets.empty() &&
+         context.replayRuntime.PathVisualizer().targetId.value != 0 )
+    {
+        if ( !ReserveReplayPredictionVector( context.replayRuntime.PathVisualizer().targets,
+                                             REPLAY_PATH_MAX_ROOT_TARGETS,
+                                             context.sceneCurrentFrame,
+                                             "RunReplayPathVisualizer::targets" ) )
+        {
+            return;
+        }
+        RunReplayPathTarget target;
+        target.id = context.replayRuntime.PathVisualizer().targetId;
+        target.modelIndex = context.replayRuntime.PathVisualizer().targetModelIndex;
+        if ( context.replayRuntime.PathVisualizer().targetName[0] != '\0' )
+        {
+            strncpy_s( target.name,
+                       sizeof( target.name ),
+                       context.replayRuntime.PathVisualizer().targetName,
+                       _TRUNCATE );
+        }
+        context.replayRuntime.PathVisualizer().targets.push_back( target );
+    }
+
+    const ReplaySolverFrameSample* presentSample = context.replayRuntime.CurrentSolverScrubSample();
+    if ( !presentSample )
+    {
+        presentSample = context.replayRuntime.Solver().LatestSample();
+    }
+    if ( !presentSample )
+    {
+        return;
+    }
+
+    ReplayPathBoundsContext bounds;
+    context.replayRuntime.Solver().ForEachSampleChronological( CaptureReplayPathBounds, &bounds );
+    if ( ReplayPredictionBudgetExpiredForPass( context.replayRuntime,
+                                               MainMemoryReplayBudgetPass::RetainedBounds,
+                                               visualizerStart,
+                                               REPLAY_PREDICTION_MAX_WORK_MILLISECONDS ) )
+    {
+        return;
+    }
+    if ( !bounds.hasSample )
+    {
+        return;
+    }
+
+    const ReplayFrameIndex presentFrame = std::clamp( presentSample->frameIndex, bounds.firstFrame, bounds.lastFrame );
+    const ReplayRecorderStats stats = context.replayRuntime.Solver().GetStats();
+    const std::size_t sampleStride = ReplayPathStrideForSampleCount( stats.sampleCount );
+
+    context.replayRuntime.PathVisualizer().futureNodes.clear();
+    const PhysicsBodyStore& bodyStore = context.models.GetPhysicsEngine().BodyStore();
+    const ColliderStore& colliderStore = context.models.GetPhysicsEngine().Colliders();
+    for ( RunReplayPathTarget& target : context.replayRuntime.PathVisualizer().targets )
+    {
+        if ( ReplayPredictionBudgetExpiredForPass( context.replayRuntime,
+                                                   MainMemoryReplayBudgetPass::RetainedBuildTree,
+                                                   visualizerStart,
+                                                   REPLAY_PREDICTION_MAX_WORK_MILLISECONDS ) )
+        {
+            return;
+        }
+
+        if ( target.id.value == 0 )
+        {
+            continue;
+        }
+
+        PROFILE_SCOPED( "Frame/Replay/PathVisualizer/LegacyRetainedTarget" );
+        RunReplayPathVisualizerState targetVisualizer;
+        ApplyPrimaryReplayPathTarget( targetVisualizer, target.id, target.modelIndex, target.name );
+
+        {
+            PROFILE_SCOPED( "Frame/Replay/PathVisualizer/LegacyRetainedTarget/BuildTree" );
+            ReplayPathFutureContext futureContext;
+            futureContext.visualizer = &targetVisualizer;
+            futureContext.collection = &context.models;
+            futureContext.budgetStart = &visualizerStart;
+            futureContext.rootId = target.id;
+            futureContext.presentFrame = presentFrame;
+            futureContext.budgetMilliseconds = REPLAY_PREDICTION_MAX_WORK_MILLISECONDS;
+            futureContext.includeRagdollVisuals = context.replayRuntime.Prediction().ragdollVisualsEnabled;
+            context.replayRuntime.Solver().ForEachSampleChronological( BuildReplayFutureNodes, &futureContext );
+        }
+        if ( ReplayPredictionBudgetExpiredForPass( context.replayRuntime,
+                                                   MainMemoryReplayBudgetPass::RetainedBuildTree,
+                                                   visualizerStart,
+                                                   REPLAY_PREDICTION_MAX_WORK_MILLISECONDS ) )
+        {
+            return;
+        }
+
+        {
+            PROFILE_SCOPED( "Frame/Replay/PathVisualizer/LegacyRetainedTarget/DrawRoot" );
+            ReplayPathRootDrawContext rootDraw;
+            rootDraw.tracer = &context.tracer;
+            rootDraw.ribbonQuota = &ribbonQuota;
+            rootDraw.rootId = target.id;
+            rootDraw.firstFrame = bounds.firstFrame;
+            rootDraw.presentFrame = presentFrame;
+            rootDraw.lastFrame = bounds.lastFrame;
+            rootDraw.sampleStride = sampleStride;
+            context.replayRuntime.Solver().ForEachSampleChronological( DrawReplayRootPath, &rootDraw );
+        }
+
+        ReplayPathChildDrawContext childDraw;
+        childDraw.tracer = &context.tracer;
+        childDraw.colliderStore = &colliderStore;
+        childDraw.ribbonQuota = &ribbonQuota;
+        childDraw.presentFrame = presentFrame;
+        childDraw.lastFrame = bounds.lastFrame;
+        childDraw.sampleStride = sampleStride;
+        childDraw.nodeCount = (std::min)( targetVisualizer.futureNodes.size(), REPLAY_PATH_MAX_FUTURE_NODES );
+        for ( std::size_t i = 0; i < childDraw.nodeCount; ++i )
+        {
+            childDraw.nodes[i].node = targetVisualizer.futureNodes[i];
+        }
+        if ( childDraw.nodeCount > 0 )
+        {
+            PROFILE_SCOPED( "Frame/Replay/PathVisualizer/LegacyRetainedTarget/DrawChildren" );
+            context.replayRuntime.Solver().ForEachSampleChronological( DrawReplayChildPaths, &childDraw );
+            DrawReplayChildFinalMarkers( childDraw );
+        }
+
+        if ( target.id.value == context.replayRuntime.PathVisualizer().targetId.value )
+        {
+            context.replayRuntime.PathVisualizer().futureNodes = targetVisualizer.futureNodes;
+        }
+
+        {
+            PROFILE_SCOPED( "Frame/Replay/PathVisualizer/LegacyRetainedTarget/DrawMarker" );
+            ModelRowHint targetHint;
+            targetHint.value = target.modelIndex;
+            int markerIndex = -1;
+            const bool markerResolved = TryResolveReplayBodyModelIndex( bodyStore,
+                                                                        target.id,
+                                                                        targetHint,
+                                                                        context.models.SceneEntityCount(),
+                                                                        markerIndex );
+            target.modelIndex = targetHint.value;
+            if ( target.id.value == context.replayRuntime.PathVisualizer().targetId.value )
+            {
+                context.replayRuntime.PathVisualizer().targetModelIndex = targetHint.value;
+            }
+            if ( markerResolved )
+            {
+                TryAddReplayTargetMarkerFromStores( context.tracer, bodyStore, colliderStore, markerIndex );
+            }
+        }
+    }
+}
+#endif
 } // namespace
 
 namespace SkullbonezCore::Basics::ReplayOverlay
@@ -4182,6 +4757,10 @@ void RenderReplayPathVisualizer( const ReplayPathVisualizerRenderContext& contex
     {
         return;
     }
+#if SKULLBONEZ_REPLAY_LEGACY_TRAJECTORY_DRAW_FALLBACK
+    RenderReplayPathVisualizerLegacyRetained( context, ribbonQuota, visualizerStart );
+    return;
+#endif
     context.replayRuntime.RefreshPastTrajectoryStoreFromSolverSamples();
 
     if ( context.replayRuntime.PathVisualizer().targets.empty() &&
