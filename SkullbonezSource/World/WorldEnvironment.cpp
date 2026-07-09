@@ -264,9 +264,13 @@ void WorldEnvironment::RenderFluid( const Matrix4& view,
                                     bool cinematic,
                                     const SkullbonezCore::Basics::CinematicRenderConfig* cinematicConfig )
 {
-    if ( !m_calmMesh )
+    if ( !m_calmMesh || !m_oceanMesh || !m_calmShader || !m_oceanShader )
     {
         ResetRenderResources();
+    }
+    if ( !m_calmMesh || !m_oceanMesh || !m_calmShader || !m_oceanShader )
+    {
+        return;
     }
     const SkullbonezCore::Basics::CinematicRenderConfig& cinematicStyle =
         cinematicConfig ? *cinematicConfig : m_waterStyle.cinematicFallback;
@@ -411,6 +415,10 @@ void WorldEnvironment::BuildFluidMesh()
     m_oceanMesh = m_resources->CreateMesh( oceanVerts.data(), oceanCount, false, false );
 
     m_calmShader = m_assets->CreateShader( *m_resources, "shader.water_calm" );
+    if ( !m_calmShader )
+    {
+        return;
+    }
     m_calmShader->Use();
     m_calmShader->SetMat4( "uModel", Matrix4() );
     m_calmShader->SetVec4( "uColorTint", 0.05f, 0.15f, 0.42f, 0.65f );
@@ -429,6 +437,10 @@ void WorldEnvironment::BuildFluidMesh()
     m_calmShader->SetFloat( "uBasinMaskFeather", 1.0f );
 
     m_oceanShader = m_assets->CreateShader( *m_resources, "shader.water_ocean" );
+    if ( !m_oceanShader )
+    {
+        return;
+    }
     m_oceanShader->Use();
     m_oceanShader->SetMat4( "uModel", Matrix4() );
     m_oceanShader->SetVec4( "uColorTint", 0.02f, 0.10f, 0.35f, 0.72f );

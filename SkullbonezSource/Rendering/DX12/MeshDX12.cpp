@@ -27,8 +27,8 @@ Related:
 */
 #include "MeshDX12.h"
 #include "../../Core/FatalError.h"
+#include "../../Core/Log.h"
 #include "RenderBackendDX12.h"
-#include <stdexcept>
 #include <cstring>
 
 
@@ -52,7 +52,7 @@ MeshDX12::~MeshDX12()
 }
 
 
-void MeshDX12::Create( ID3D12Device* device,
+bool MeshDX12::Create( ID3D12Device* device,
                        ID3D12GraphicsCommandList* cmdList,
                        const float* data,
                        int vertexCount,
@@ -92,7 +92,16 @@ void MeshDX12::Create( ID3D12Device* device,
                                                   IID_PPV_ARGS( &m_vertexBuffer ) );
     if ( FAILED( hr ) )
     {
-        throw std::runtime_error( "MeshDX12: CreateCommittedResource failed" );
+        // Lane R: mesh buffers are backend resources. Factory callers receive
+        // a null mesh and skip the dependent draw path while the DX12 gate keeps
+        // the HRESULT visible.
+        Log().WriteEventf( "dx12_mesh_vertex_buffer_create_failed hresult=0x%08X vertices=%d stride=%d bytes=%llu",
+                           static_cast<unsigned int>( hr ),
+                           vertexCount,
+                           m_stride,
+                           static_cast<unsigned long long>( dataSize ) );
+        Log().FlushAll();
+        return false;
     }
     NameDx12Object( m_vertexBuffer, L"Skullbonez DX12 Mesh Vertex Buffer" );
 
@@ -127,6 +136,7 @@ void MeshDX12::Create( ID3D12Device* device,
     m_vbView.BufferLocation = m_vertexBuffer->GetGPUVirtualAddress();
     m_vbView.SizeInBytes = (UINT)dataSize;
     m_vbView.StrideInBytes = (UINT)m_stride;
+    return true;
 }
 
 

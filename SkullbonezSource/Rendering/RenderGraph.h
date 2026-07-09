@@ -413,6 +413,13 @@ struct RenderGraphTransientMaterializationStats
     size_t reusedThisCompile = 0;
     size_t releasedAtFrameEnd = 0;
     size_t descriptorRowsOwned = 0;
+    // Lane R: backend materialization can fail because the device rejects an
+    // allocation. Keep fixed diagnostics here so frame reports can describe the
+    // skipped graph resource without allocating another string.
+    bool failed = false;
+    unsigned int failureHresult = 0;
+    char failureStage[64] = {};
+    char failureResource[64] = {};
 };
 
 template <typename T, size_t Capacity> struct RenderGraphFixedList

@@ -82,7 +82,7 @@ something whose prerequisite is unfinished.
 | 7 | [01](01-run-god-object-decomposition.md) | Input command table → shrink `RunState` → shrink `Run` | Big; the flagship. Add its tests via plan 05 as you go | `validate_full` |
 | 8 | [09](09-replay-subsystem-right-sizing.md) | Split prediction state; template twins; evict replay from `RunFrame`; finish replay `.inl` from step 3 | Big; depends on 01's `RunFrame` shrink and 06 | replay scrub regression + `validate_full` |
 | 9 | [02](02-physicsworld-solver-decomposition.md) **rest** | Lift 33 lambdas to stages; evict gameplay; table-drive snapshot | Big, byte-exact; do after the DisjointSet warm-up | `validate_physics` per phase |
-| 10 | [04](04-error-handling-policy-reconciliation.md) | `throw` → F/R/P lanes (no count — ratchet deleted per 03) | After physics (02) and profiler (12) are stable | `validate_full` + `validate_physics` |
+| 10 | 04 error handling policy reconciliation (completed; file deleted) | `throw` -> F/R/P lanes (no count - ratchet deleted per 03) | After physics (02) and profiler (12) are stable | `validate_full` + `validate_physics` |
 | — | [05](05-behavioral-test-coverage.md) | **Continuous** | Do its Phase 0 map first; then each plan above adds its own tests as it lands; kill link stubs anytime | `validate_tests` |
 | — | 03 governance apparatus removal (completed; file deleted per MASTER convention) | **Done** | Regex checker and all `MAX_*` ratchets deleted; `AGENTS.md` contract updated | Documentation-only closure |
 | — | [07](07-allocation-gate-right-sizing.md) | **Any time, owner decision recorded 2026-07-09** | Right-size allocation enforcement without weakening global runtime zero-allocation-by-default policy; replay is the only approved runtime exception | `validate_perf` |
@@ -118,7 +118,9 @@ fully `[x]`.
   `validate_physics_deep`; logs are listed in
   `02-physicsworld-solver-decomposition.md` and
   `HANDOFF-2026-07-09-PLAN02-REPLAY-SNAPSHOT.md`.
-- [ ] 10. Plan 04 — error handling reconciled
+- [x] 10. Plan 04 — error handling reconciled
+  Note (2026-07-10): Strict source throws are zero. Final gates passed:
+  `validate_build Profile`, `validate_dx12_renderer`, and `validate_full`.
 - [x] C1. Plan 05 — behavioral coverage added (continuous)
   Note (2026-07-09): Phase 0 coverage map, Phase 1 input-binding tests, Phase
   2 replay solver-sample restore tests, Phase 3 physics invariants, and Phase 4

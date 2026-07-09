@@ -1219,6 +1219,11 @@ ReflectionPassOutput ReflectionPass::Render( const ReflectionPassInputs& inputs,
     }
     else
     {
+        if ( !m_resources.target )
+        {
+            return output;
+        }
+
         // Invariant: the planar path binds only its own reflection target and
         // restores the viewport to the window size before water renders.
         Rendering::IRenderCommandContext& renderCommands = RenderCommands( inputs.frame );

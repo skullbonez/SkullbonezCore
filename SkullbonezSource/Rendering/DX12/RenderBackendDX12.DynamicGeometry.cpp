@@ -39,7 +39,6 @@ Related:
 #include "../../Core/Log.h"
 #include "../../Core/PlatformProfiler.h"
 #include <cstddef>
-#include <stdexcept>
 #include <cstdio>
 #include <cstring>
 #include <algorithm>
@@ -134,6 +133,10 @@ ID3D12PipelineState* RenderBackendDX12::EnsureGridLinePipeline( DXGI_FORMAT rtvF
     if ( !m_gridLineShader )
     {
         m_gridLineShader = CreateShader( "shaders/grid_line" );
+        if ( !m_gridLineShader )
+        {
+            return nullptr;
+        }
     }
 
     for ( size_t i = 0; i < m_gridLinePSOCount; ++i )
@@ -349,7 +352,12 @@ void RenderBackendDX12::DrawTransientColoredTriangles( const float* data,
 
     EnsureCommandListOpen();
 
-    ShaderDX12* shader = static_cast<ShaderDX12*>( EnsureTransientTriangleShader( style ) );
+    IShader* transientShader = EnsureTransientTriangleShader( style );
+    if ( !transientShader )
+    {
+        return;
+    }
+    ShaderDX12* shader = static_cast<ShaderDX12*>( transientShader );
     shader->Use();
     shader->SetMat4( "uViewProj", Matrix4( viewProjMatrix16 ) );
     if ( IsTrajectoryRibbonStyle( style ) )

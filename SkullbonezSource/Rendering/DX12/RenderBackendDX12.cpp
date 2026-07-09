@@ -104,7 +104,6 @@ Related:
 #include "../../Core/Log.h"
 #include "../../Core/PlatformProfiler.h"
 #include "../../Core/FatalError.h"
-#include <stdexcept>
 #include <cstdio>
 #include <cstring>
 #include <algorithm>
@@ -798,6 +797,24 @@ static size_t CountGraphDescriptorRows( const RenderGraphDescriptorNeeds& descri
            ( descriptors.shaderResource ? 1u : 0u ) + ( descriptors.unorderedAccess ? 1u : 0u );
 }
 
+static void MarkGraphTransientMaterializationFailure( RenderGraphTransientMaterializationStats& stats,
+                                                      HRESULT result,
+                                                      const RenderGraphResourceDesc& resource )
+{
+    stats.failed = true;
+    stats.failureHresult = static_cast<unsigned int>( result );
+    std::snprintf( stats.failureStage, sizeof( stats.failureStage ), "%s", "CreateCommittedResource" );
+    std::snprintf( stats.failureResource,
+                   sizeof( stats.failureResource ),
+                   "%s",
+                   ( resource.name && resource.name[0] != '\0' ) ? resource.name : "UnnamedGraphTransient" );
+    Log().WriteEventf( "dx12_graph_transient_materialize_failed stage=%s resource=%s hresult=0x%08X",
+                       stats.failureStage,
+                       stats.failureResource,
+                       stats.failureHresult );
+    Log().FlushAll();
+}
+
 
 RenderGraphTransientMaterializationStats
 RenderBackendDX12::MaterializeGraphTransientResources( const RenderGraph& graph,
@@ -918,7 +935,13 @@ RenderBackendDX12::MaterializeGraphTransientResources( const RenderGraph& graph,
                                                                   IID_PPV_ARGS( &slot->resource ) );
             if ( FAILED( hr ) )
             {
-                throw std::runtime_error( "DX12 graph transient materializer failed to create a texture" );
+                // Lane R: graph transients back optional post-process features.
+                // Report the failed resource and let the pass fall back to its
+                // older framebuffer target instead of unwinding the frame.
+                MarkGraphTransientMaterializationFailure( m_graphTransientStats, hr, resource );
+                m_graphTransientResources.pop_back();
+                m_graphTransientStats.poolSize = m_graphTransientResources.size();
+                return m_graphTransientStats;
             }
             NameDx12Object( slot->resource, L"Skullbonez DX12 RenderGraph Transient Texture" );
 

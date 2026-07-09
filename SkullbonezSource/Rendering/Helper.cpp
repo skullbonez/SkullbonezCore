@@ -715,6 +715,10 @@ void RenderHelper::EnsureSphereShader( const RenderHelperContext& context )
     {
         m_state.sphereShader =
             AssetRegistry( context ).CreateShader( Resources( context ), "shader.lit_textured_instanced" );
+        if ( !m_state.sphereShader )
+        {
+            return;
+        }
         m_state.sphereShader->Use();
         ApplySceneLightUniforms( context, *m_state.sphereShader );
         m_state.sphereShader->SetVec4( "uMaterialAmbient", 0.2f, 0.2f, 0.2f, 1.0f );
@@ -875,6 +879,11 @@ void RenderHelper::DrawSphereBatchBegin( const RenderHelperContext& context,
         m_state.activeSphereVertexCount = m_state.sphereVertexCount;
     }
     EnsureSphereShader( context );
+    if ( !m_state.sphereShader || m_state.activeSphereInstMesh == 0 )
+    {
+        m_state.sphereBatchTransparent = false;
+        return;
+    }
 
     BeginPrimitiveBatchTransparency( context, isTransparent );
 
@@ -966,6 +975,10 @@ void RenderHelper::DrawShadowDepthSphereBatchBegin( const RenderHelperContext& c
     }
 
     EnsureShadowDepthShader( context );
+    if ( !m_state.shadowDepthShader || m_state.activeSphereInstMesh == 0 )
+    {
+        return;
+    }
     m_state.shadowDepthShader->Use();
     InstancedShadowDepthConstants constants = {};
     constants.view = view;
@@ -1066,6 +1079,11 @@ void RenderHelper::DrawBoxBatchBegin( const RenderHelperContext& context,
 
     // Reuse sphere shader (same vertex layout, same lighting model).
     EnsureSphereShader( context );
+    if ( !m_state.sphereShader || m_state.boxInstMesh == 0 )
+    {
+        m_state.boxBatchTransparent = false;
+        return;
+    }
 
     BeginPrimitiveBatchTransparency( context, isTransparent );
 
@@ -1123,6 +1141,10 @@ void RenderHelper::DrawShadowDepthBoxBatchBegin( const RenderHelperContext& cont
         BuildBoxMesh( context );
     }
     EnsureShadowDepthShader( context );
+    if ( !m_state.shadowDepthShader || m_state.boxInstMesh == 0 )
+    {
+        return;
+    }
     m_state.shadowDepthShader->Use();
     InstancedShadowDepthConstants constants = {};
     constants.view = view;
@@ -1220,6 +1242,10 @@ void RenderHelper::DrawShadowDepthConvexHullModel( const RenderHelperContext& co
     }
 
     EnsureShadowDepthShader( context );
+    if ( !m_state.shadowDepthShader )
+    {
+        return;
+    }
     m_state.shadowDepthShader->Use();
     InstancedShadowDepthConstants constants = {};
     constants.view = view;
@@ -1287,6 +1313,11 @@ void RenderHelper::DrawPineBatchBegin( const RenderHelperContext& context,
     }
 
     EnsureSphereShader( context );
+    if ( !m_state.sphereShader || m_state.pineInstMesh == 0 )
+    {
+        m_state.pineBatchTransparent = false;
+        return;
+    }
 
     BeginPrimitiveBatchTransparency( context, isTransparent );
 
@@ -1348,6 +1379,10 @@ void RenderHelper::DrawShadowDepthPineBatchBegin( const RenderHelperContext& con
         BuildPineMesh( context );
     }
     EnsureShadowDepthShader( context );
+    if ( !m_state.shadowDepthShader || m_state.pineInstMesh == 0 )
+    {
+        return;
+    }
     m_state.shadowDepthShader->Use();
     InstancedShadowDepthConstants constants = {};
     constants.view = view;

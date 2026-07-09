@@ -195,9 +195,9 @@ checker; do not add ad-hoc regex gates or frozen budgets here.
 
 ## Error Handling Policy
 
-Exceptions are banned for new engine code. Existing `throw` sites are owned by
-engine-cleanup plan 04 and should only go down. Do not add a new throw-count
-ratchet or frozen budget; any new `throw` is a review failure.
+Exceptions are banned for engine code. The strict source throw inventory is
+zero as of 2026-07-10. Do not add a new throw-count ratchet or frozen budget;
+any new `throw` is a review failure.
 
 | Lane | Use For | Mechanism |
 |------|---------|-----------|

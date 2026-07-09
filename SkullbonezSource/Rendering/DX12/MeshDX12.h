@@ -72,7 +72,7 @@ class MeshDX12 : public IMesh
     explicit MeshDX12( RenderBackendDX12& backend );
     ~MeshDX12() override;
 
-    void Create( ID3D12Device* device,
+    bool Create( ID3D12Device* device,
                  ID3D12GraphicsCommandList* cmdList,
                  const float* data,
                  int vertexCount,

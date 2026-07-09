@@ -21,7 +21,6 @@ Owner decisions of 2026-07-09 are binding — see
 
 | Plan | Status | % | Remaining work |
 |------|--------|---|----------------|
-| [04 Error-handling reconciliation](../../engine-cleanup-plans/04-error-handling-policy-reconciliation.md) | In Progress | 92% | Strict throws 283 -> 5. Lane F is complete, including allocator-safe fatal handling for `RuntimeAllocationTracker`; `TestSceneParser` now reports recoverable Lane R parser failures. Remaining: DX12 resource/shader creation recoverable-result rows and no-throw-count closure. Also absorbs the remnants of fable-05 (see Retired below). |
 | [07 Allocation-gate right-sizing](../../engine-cleanup-plans/07-allocation-gate-right-sizing.md) | In Progress | 15% | Right-size the checker; keep global zero-alloc default, replay-only exception. |
 | [11 Render abstraction leaks](../../engine-cleanup-plans/11-render-abstraction-leaks.md) | In Progress | 80% | Retire the diagnostic RenderGraph path per owner decision; remove stale barrier-ownership claims. |
 | [13 Facade retirement (rule)](../../engine-cleanup-plans/13-facade-retirement.md) | In Progress | 75% | Cross-cutting rule; FAC-005 executes via plan 14, FAC-004 needs an owner, FAC-007 executes via `TODO/render-backend-decomposition.md`. |
@@ -54,11 +53,10 @@ re-scoped. Constituent history is in git history of the deleted files.
   compatibility include) is owned by `TODO/runtime-shell-decomposition.md`
   E3. `Log()` (662 sites) and the startup-bound `Profiler` borrow are the
   deliberate ambient survivors per the closed plan-12 decision.
-- **fable-05 unified error handling** — engine-cleanup plan 04 is the same
-  campaign and has executed most of fable-05's remaining rows (DX12 throw
-  conversions done; strict throws now 5). Its ratchet-to-zero closure step is
-  superseded by plan 03's ratchet deletion. Any remaining DX12 Lane R rows live
-  in plan 04's inventory.
+- **fable-05 unified error handling** — completed through engine-cleanup plan 04
+  on 2026-07-10. Strict source throws are now zero, no throw-count ratchet was
+  reinstated, and the completed plan/inventory files were deleted per MASTER
+  convention. Stale include/comment hygiene remains in plan 15.6.
 - **fable-07 blocker remediation + overnight blocker ledger** — the open
   PHYS-*/RGRAPH-*/RUN-* rows were absorbed into the three matching TODO plans
   as "known hard blockers"; clusters D/E and SVC rows were already resolved.

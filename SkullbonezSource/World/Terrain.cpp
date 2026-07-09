@@ -190,6 +190,10 @@ void Terrain::InitialiseTerrainShader()
     assert( m_assets );
     assert( m_resources );
     m_terrainShader = m_assets->CreateShader( *m_resources, "shader.lit_textured" );
+    if ( !m_terrainShader )
+    {
+        return;
+    }
     m_terrainShader->Use();
     const auto& ordinary = Config().ordinaryRender;
     m_terrainShader->SetVec4( "uLightAmbient",
@@ -612,6 +616,11 @@ void Terrain::Render( const Matrix4& view,
                       const SkullbonezCore::Basics::CinematicRenderConfig* cinematicOverride,
                       const ShadowFrameData* shadow )
 {
+    if ( !m_terrainShader || !m_terrainMesh )
+    {
+        return;
+    }
+
     m_terrainShader->Use();
 
     // Model matrix is identity (m_terrain vertices are in world space)
@@ -719,6 +728,10 @@ void Terrain::RenderShadowDepth( const Matrix4& lightView,
     if ( !m_shadowDepthShader )
     {
         EnsureShadowDepthResources();
+    }
+    if ( !m_shadowDepthShader || !m_terrainMesh )
+    {
+        return;
     }
 
     m_shadowDepthShader->Use();

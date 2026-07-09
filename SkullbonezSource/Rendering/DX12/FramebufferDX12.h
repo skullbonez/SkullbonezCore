@@ -82,7 +82,7 @@ class FramebufferDX12 : public IFramebuffer
                               FramebufferColorFormat colorFormat = FramebufferColorFormat::RGBA8 );
     ~FramebufferDX12() override;
 
-    void Create( int width, int height );
+    bool Create( int width, int height );
 
     void Bind() const override;
     void Unbind() const override;

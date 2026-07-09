@@ -542,8 +542,11 @@ SkullbonezCore::Basics::SbResult Text2d::BuildFont( IRenderResourceFactory& rend
 
     // Compile the text shader and bind the atlas sampler slot once.
     Text2d::pTextShader = assets.CreateShader( renderResources, "shader.text" );
-    Text2d::pTextShader->Use();
-    Text2d::pTextShader->SetInt( "uFontTexture", 0 );
+    if ( Text2d::pTextShader )
+    {
+        Text2d::pTextShader->Use();
+        Text2d::pTextShader->SetInt( "uFontTexture", 0 );
+    }
 
     // Compile the solid-colour HUD quad shader (used by Render2dQuad — immediate, one draw per call)
     Text2d::pSolidShader = assets.CreateShader( renderResources, "shader.solid_color" );

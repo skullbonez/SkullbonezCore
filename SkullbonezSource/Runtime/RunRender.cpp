@@ -42,6 +42,7 @@ Related:
 #include "RuntimeTuning.h"
 #include "../Assets/TextureCollection.h"
 #include "../Core/FatalError.h"
+#include "../Core/Log.h"
 #include "../Physics/ColliderStore.h"
 #include "../Rendering/Helper.h"
 #include "../Rendering/IRenderDiagnostics.h"
@@ -560,6 +561,10 @@ void WriteCinematicPostGraphEvidence(
     out << "  reused_this_compile=" << materialization.reusedThisCompile << "\n";
     out << "  descriptor_rows_owned=" << materialization.descriptorRowsOwned << "\n";
     out << "  released_at_frame_end=" << materialization.releasedAtFrameEnd << "\n";
+    out << "  materialization_failed=" << ( materialization.failed ? "true" : "false" ) << "\n";
+    out << "  materialization_failure_stage=" << materialization.failureStage << "\n";
+    out << "  materialization_failure_resource=" << materialization.failureResource << "\n";
+    out << "  materialization_failure_hresult=0x" << std::hex << materialization.failureHresult << std::dec << "\n";
     out << "  transient_allocation_count=" << compiled.transientAllocations.size() << "\n";
     for ( size_t i = 0; i < compiled.transientAllocations.size(); ++i )
     {
@@ -1259,7 +1264,15 @@ RuntimeRenderer::ExecuteCinematicPostThroughRenderGraph( const RenderFrameContex
             callbackData.volumetricLight = frame.renderCommands->ResolveGraphTextureBinding( volumetricLight );
             if ( !callbackData.volumetricLight.IsValid() )
             {
-                SB_FATAL( "RunRender", "VolumetricLight graph transient was not materialized." );
+                // Lane R: if the graph-owned texture allocation fails, the
+                // volumetric callback can still render through its legacy
+                // framebuffer target. Keep the failure visible in logs/evidence.
+                Log().WriteEventf( "render_graph_volumetric_transient_unavailable materialization_failed=%d "
+                                   "hresult=0x%08X resource=%s",
+                                   transientMaterialization.failed ? 1 : 0,
+                                   transientMaterialization.failureHresult,
+                                   transientMaterialization.failureResource );
+                Log().FlushAll();
             }
         }
     }

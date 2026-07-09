@@ -741,6 +741,10 @@ void EnsureRenderTargetPreviewResources( std::unique_ptr<IShader>& shader,
     if ( !shader )
     {
         shader = render.assets->CreateShader( *render.resources, "shader.ui_render_target_preview" );
+        if ( !shader )
+        {
+            return;
+        }
         shader->Use();
         shader->SetInt( "uTexture", 0 );
     }
