@@ -32,7 +32,9 @@ Glossary:
 
 Invariants:
   - DX12 object lifetime, resource states, descriptor rows, and fence ordering
-  must stay explicit.
+    must stay explicit.
+  - TLAS rebuilds may only consume the terrain instance plus the active model
+    instance capacity reserved during DXR initialization.
 
 Related:
   - Agentic/Reference/skullbonez-core-class-structure.md
@@ -43,6 +45,7 @@ Related:
 #include "MeshDX12.h"
 #include "FramebufferDX12.h"
 #include "../RenderGraph.h"
+#include "../../Core/FatalError.h"
 #include "../../Core/Log.h"
 #include "../../Core/PlatformProfiler.h"
 #include <stdexcept>
@@ -504,7 +507,15 @@ void RenderBackendDX12::BuildTLAS( const float* instanceTransforms,
     if ( instanceCount < 0 || instanceCount > MAX_GAME_MODELS ||
          ( m_dxrMaxInstances > 0 && instanceCount > m_dxrMaxInstances ) )
     {
-        throw std::runtime_error( "DX12 TLAS instance count exceeds active model capacity" );
+        // Invariant: the TLAS instance buffer was sized during InitDXR for one
+        // terrain instance plus the active model capacity. A larger rebuild
+        // would overwrite the fixed raytracing instance table.
+        SB_FATAL(
+            "RenderBackendDX12",
+            "DX12 TLAS instance count exceeds active model capacity. requested=%d activeCapacity=%d maxGameModels=%d",
+            instanceCount,
+            m_dxrMaxInstances,
+            MAX_GAME_MODELS );
     }
 
     // Concept: a TLAS is a scene-level table of instances.

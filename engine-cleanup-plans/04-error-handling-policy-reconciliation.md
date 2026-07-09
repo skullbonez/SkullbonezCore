@@ -435,6 +435,27 @@ byte-exact gated.
   - Required gate passed: `tools\validate_full.bat` exited 0 in
     00:00:54.6370293. Log:
     `Agentic/Reports/validate_full_plan04_texturecollection_fatals_20260709.log`.
+
+  Progress 2026-07-09, RenderBackendDX12 DXR TLAS-capacity
+  fatal-invariant sub-slice:
+  - Converted one F site from `throw std::runtime_error` to
+    `SB_FATAL("RenderBackendDX12", ...)`:
+    `RenderBackendDX12.DXR.cpp` row 86 from the Step 0.1 inventory. The
+    replacement covers a TLAS rebuild requesting more sphere/model instances
+    than the active DXR initialization reserved.
+  - The remaining `RenderBackendDX12.DXR.cpp` throws are Lane R DXR
+    shader/file/device/resource failures and are intentionally left for the
+    recoverable-result phase.
+  - Strict anchored source throw statement inventory now reports 129 sites,
+    down from the previous sub-slice count of 130. `SB_FATAL` macro invocations
+    now report 143 via `rg -n "SB_FATAL\s*\(" SkullbonezSource`.
+  - Comment-style audit scope:
+    `SkullbonezSource/Rendering/DX12/RenderBackendDX12.DXR.cpp`; checked 1,
+    deferred 0. The learning header and local guard now name the TLAS active
+    model instance capacity invariant.
+  - Required gate passed: `tools\validate_dx12_renderer.bat` exited 0 in
+    00:00:27.3583295. Log:
+    `Agentic/Reports/validate_dx12_renderer_plan04_dxr_tlas_fatal_20260709.log`.
 - [ ] **2.1** Convert **P** sites (replay/interaction probes) to the
   `FailAutomation(...)` channel with `ok=false` + message. Gate: `validate_full`
   + replay scrub. Commit.
