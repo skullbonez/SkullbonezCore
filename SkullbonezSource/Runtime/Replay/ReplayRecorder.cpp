@@ -122,6 +122,23 @@ std::size_t ReplayRecorderReserveCapacity( std::size_t currentCapacity, std::siz
     return (std::min)( reserveCapacity, static_cast<std::size_t>( MAX_GAME_MODELS ) );
 }
 
+std::size_t ReplayRecorderDeltaReserveCapacity( std::size_t currentCapacity, std::size_t requestedCapacity )
+{
+    // Why: solver-world deltas include contact/debug vectors whose natural
+    // capacity is not bounded by MAX_GAME_MODELS, so they use the byte-budget
+    // reserve gate without the body-vector element-count clamp.
+    if ( requestedCapacity <= currentCapacity )
+    {
+        return currentCapacity;
+    }
+
+    const std::size_t doubled = currentCapacity > 0u ? currentCapacity * 2u : REPLAY_RECORDER_SAMPLE_INITIAL_CAPACITY;
+    const std::size_t remainder = requestedCapacity % REPLAY_RECORDER_SAMPLE_GROWTH_CHUNK;
+    const std::size_t chunked =
+        remainder == 0u ? requestedCapacity : requestedCapacity + ( REPLAY_RECORDER_SAMPLE_GROWTH_CHUNK - remainder );
+    return (std::max)( doubled, chunked );
+}
+
 template <typename T> uint64_t ReplayRecorderVectorBytes( std::size_t capacity )
 {
     constexpr uint64_t elementBytes = static_cast<uint64_t>( sizeof( T ) );
@@ -213,6 +230,63 @@ void ReserveReplayRecorderSampleVector( std::vector<T>& values,
     }
 }
 
+template <typename T>
+void ReserveReplayRecorderDeltaVector( std::vector<T>& values,
+                                       std::size_t requestedCapacity,
+                                       ReplayFrameIndex frameIndex,
+                                       const char* targetName )
+{
+    if ( requestedCapacity <= values.capacity() )
+    {
+        return;
+    }
+
+    const std::size_t reserveCapacity = ReplayRecorderDeltaReserveCapacity( values.capacity(), requestedCapacity );
+    const uint64_t oldBytes = ReplayRecorderVectorBytes<T>( values.capacity() );
+    const uint64_t requestedBytes = ReplayRecorderVectorBytes<T>( reserveCapacity );
+    if ( requestedBytes > static_cast<uint64_t>( REPLAY_RECORDER_SAMPLE_RESERVE_HARD_BYTES ) ||
+         oldBytes > static_cast<uint64_t>( ( std::numeric_limits<int>::max )() ) ||
+         requestedBytes > static_cast<uint64_t>( ( std::numeric_limits<int>::max )() ) )
+    {
+        ReportReplayRecorderReserveFailure( targetName, reserveCapacity, requestedBytes );
+    }
+
+    if ( RuntimeAllocation::RuntimeAllocationGuardEnabled() )
+    {
+        const RuntimeAllocation::RuntimeReserveOwnerHandle owner = ReplayRecorderSampleReserveOwner();
+        const RuntimeAllocation::RuntimeReserveGrowthRequest request = { REPLAY_RECORDER_SAMPLE_RESERVE_OWNER,
+                                                                         targetName,
+                                                                         RuntimeAllocation::RuntimeReservePhase::Replay,
+                                                                         ReplayRecorderGrowthFrameNumber( frameIndex ),
+                                                                         static_cast<int>( oldBytes ),
+                                                                         static_cast<int>( requestedBytes ),
+                                                                         1 };
+        const RuntimeAllocation::RuntimeReserveGrowthResult result =
+            RuntimeAllocation::RuntimeReserveAllocator::RequestGrowth( owner, request );
+        if ( !result.granted )
+        {
+            ReportReplayRecorderReserveFailure( targetName, reserveCapacity, requestedBytes );
+        }
+
+        RuntimeAllocation::RuntimeAllocationScope replayAllocationScope(
+            RuntimeAllocation::RuntimeAllocationPhase::Replay );
+        RuntimeAllocation::RuntimeReserveOwnerScope ownerScope( owner );
+        RuntimeAllocation::RuntimeReserveGrowthScope growthScope( owner,
+                                                                  RuntimeAllocation::RuntimeReservePhase::Replay,
+                                                                  result );
+        values.reserve( reserveCapacity );
+    }
+    else
+    {
+        values.reserve( reserveCapacity );
+    }
+
+    if ( requestedCapacity > values.capacity() )
+    {
+        ReportReplayRecorderReserveFailure( targetName, requestedCapacity, requestedBytes );
+    }
+}
+
 void ReserveReplayLauncherVisualSample( ReplayLauncherVisualSample& visual )
 {
     // Runtime allocation policy: launcher rays and laser shots are fixed-size
@@ -243,6 +317,36 @@ template <typename T> uint64_t VectorCapacityBytes( const std::vector<T>& values
     return static_cast<uint64_t>( values.capacity() ) * static_cast<uint64_t>( sizeof( T ) );
 }
 
+// Invariant: this list mirrors ReplaySolverWorldSnapshot vector fields. Dense
+// artifact reconstruction, delta storage, and memory accounting all iterate the
+// same list so adding solver state cannot silently miss one path.
+#define REPLAY_SOLVER_WORLD_VECTOR_FIELDS( VISIT )                                                                     \
+    VISIT( timeRemaining )                                                                                             \
+    VISIT( sleepSupportedThisFrame )                                                                                   \
+    VISIT( sleepInhibitedThisFrame )                                                                                   \
+    VISIT( sleepState )                                                                                                \
+    VISIT( sleepCounter )                                                                                              \
+    VISIT( underwaterSleepLocked )                                                                                     \
+    VISIT( tornadoCaptureSeconds )                                                                                     \
+    VISIT( tornadoEjectCooldownSeconds )                                                                               \
+    VISIT( collisionVisualContacts )                                                                                   \
+    VISIT( sleepIslandVisualId )                                                                                       \
+    VISIT( sleepIslandAssignedVisualId )                                                                               \
+    VISIT( sleepSupportEdges )                                                                                         \
+    VISIT( sleepIslandParent )                                                                                         \
+    VISIT( sleepIslandRank )                                                                                           \
+    VISIT( sleepIslandHasAwake )                                                                                       \
+    VISIT( sleepIslandHasSupportAnchor )                                                                               \
+    VISIT( sleepIslandEligible )                                                                                       \
+    VISIT( sleepIslandCanSleep )                                                                                       \
+    VISIT( persistentContacts )                                                                                        \
+    VISIT( persistentContactCache )                                                                                    \
+    VISIT( persistentContactCounts )                                                                                   \
+    VISIT( persistentRestingContactCounts )                                                                            \
+    VISIT( debugContacts )                                                                                             \
+    VISIT( pipelineTrace )                                                                                             \
+    VISIT( collisionCellKeys )
+
 uint64_t ReplayRecorderScratchMemoryBytes( const std::vector<uint16_t>& contactCountScratch,
                                            const std::vector<float>& maxPenetrationScratch,
                                            const std::vector<float>& normalImpulseSumScratch )
@@ -259,6 +363,7 @@ uint64_t LauncherVisualMemoryBytes( const ReplayLauncherVisualSample& visual )
 uint64_t SolverWorldSnapshotMemoryBytes( const ReplaySolverWorldSnapshot& snapshot )
 {
     uint64_t bytes = 0;
+    bytes += VectorCapacityBytes( snapshot.tornadoSystemConfig.vortices );
     bytes += VectorCapacityBytes( snapshot.timeRemaining );
     bytes += VectorCapacityBytes( snapshot.sleepSupportedThisFrame );
     bytes += VectorCapacityBytes( snapshot.sleepInhibitedThisFrame );
@@ -287,6 +392,25 @@ uint64_t SolverWorldSnapshotMemoryBytes( const ReplaySolverWorldSnapshot& snapsh
     return bytes;
 }
 
+template <typename T> uint64_t SolverVectorDeltaMemoryBytes( const ReplaySolverVectorDelta<T>& delta )
+{
+    return VectorCapacityBytes( delta.fullValues ) + VectorCapacityBytes( delta.changedValues );
+}
+
+uint64_t SolverWorldScalarMemoryBytes( const ReplaySolverWorldScalarState& state )
+{
+    return VectorCapacityBytes( state.tornadoSystemConfig.vortices );
+}
+
+uint64_t SolverWorldDeltaFrameMemoryBytes( const ReplaySolverWorldDeltaFrame& frame )
+{
+    uint64_t bytes = SolverWorldScalarMemoryBytes( frame.scalarState );
+#define ADD_SOLVER_WORLD_DELTA_BYTES( field ) bytes += SolverVectorDeltaMemoryBytes( frame.field );
+    REPLAY_SOLVER_WORLD_VECTOR_FIELDS( ADD_SOLVER_WORLD_DELTA_BYTES )
+#undef ADD_SOLVER_WORLD_DELTA_BYTES
+    return bytes;
+}
+
 uint64_t PresentationSampleMemoryBytes( const ReplayPresentationSample& sample )
 {
     return VectorCapacityBytes( sample.bodies );
@@ -297,12 +421,28 @@ uint64_t VisualDeltaFrameMemoryBytes( const ReplayVisualDeltaFrame& frame )
     return VectorCapacityBytes( frame.bodyMetadataIndices ) + VectorCapacityBytes( frame.changedBodies );
 }
 
+uint64_t SolverDeltaFrameMemoryBytes( const ReplaySolverDeltaFrame& frame )
+{
+    return VectorCapacityBytes( frame.bodyMetadataIndices ) + VectorCapacityBytes( frame.changedBodies );
+}
+
 uint32_t CheckedVisualMetadataIndex( std::size_t index )
 {
     if ( index > static_cast<std::size_t>( ( std::numeric_limits<uint32_t>::max )() ) )
     {
         SB_FATAL( "Runtime/Replay",
                   "Replay visual metadata index overflow. index=%llu",
+                  static_cast<unsigned long long>( index ) );
+    }
+    return static_cast<uint32_t>( index );
+}
+
+uint32_t CheckedSolverMetadataIndex( std::size_t index )
+{
+    if ( index > static_cast<std::size_t>( ( std::numeric_limits<uint32_t>::max )() ) )
+    {
+        SB_FATAL( "Runtime/Replay",
+                  "Replay solver metadata index overflow. index=%llu",
                   static_cast<unsigned long long>( index ) );
     }
     return static_cast<uint32_t>( index );
@@ -424,6 +564,337 @@ void BuildPresentationBodyFromVisual( const ReplayVisualBodyMetadata& metadata,
     out.contactCount = state.contactCount;
     out.maxPenetration = state.maxPenetration;
     out.normalImpulseSum = state.normalImpulseSum;
+}
+
+ReplaySolverBodyMetadata SolverMetadataFromBody( const ReplaySolverBodySample& body )
+{
+    ReplaySolverBodyMetadata metadata;
+    metadata.id = body.id;
+    metadata.modelIndex = body.modelIndex;
+    std::memcpy( metadata.name, body.name, sizeof( metadata.name ) );
+    metadata.shapeKind = body.shapeKind;
+    metadata.mass = body.mass;
+    metadata.inverseMass = body.inverseMass;
+    metadata.rotationalInertia = body.rotationalInertia;
+    metadata.inverseRotationalInertia = body.inverseRotationalInertia;
+    return metadata;
+}
+
+ReplaySolverBodyState SolverStateFromBody( const ReplaySolverBodySample& body )
+{
+    ReplaySolverBodyState state;
+    state.position = body.position;
+    state.linearVelocity = body.linearVelocity;
+    state.angularVelocity = body.angularVelocity;
+    state.orientation[0] = body.orientation[0];
+    state.orientation[1] = body.orientation[1];
+    state.orientation[2] = body.orientation[2];
+    state.orientation[3] = body.orientation[3];
+    state.fixed = body.fixed;
+    state.sleeping = body.sleeping;
+    state.sleepSupported = body.sleepSupported;
+    state.sleepInhibited = body.sleepInhibited;
+    state.collisionContact = body.collisionContact;
+    state.sleepIslandVisualId = body.sleepIslandVisualId;
+    state.contactCount = body.contactCount;
+    state.maxPenetration = body.maxPenetration;
+    state.normalImpulseSum = body.normalImpulseSum;
+    return state;
+}
+
+bool SameSolverMetadata( const ReplaySolverBodyMetadata& a, const ReplaySolverBodyMetadata& b )
+{
+    return a.id.value == b.id.value && a.modelIndex == b.modelIndex && a.shapeKind == b.shapeKind &&
+           SameFloatBits( a.mass, b.mass ) && SameFloatBits( a.inverseMass, b.inverseMass ) &&
+           SameVectorBits( a.rotationalInertia, b.rotationalInertia ) &&
+           SameVectorBits( a.inverseRotationalInertia, b.inverseRotationalInertia ) &&
+           std::memcmp( a.name, b.name, sizeof( a.name ) ) == 0;
+}
+
+bool SameSolverState( const ReplaySolverBodyState& a, const ReplaySolverBodyState& b )
+{
+    return SameVectorBits( a.position, b.position ) && SameVectorBits( a.linearVelocity, b.linearVelocity ) &&
+           SameVectorBits( a.angularVelocity, b.angularVelocity ) &&
+           SameOrientationBits( a.orientation, b.orientation ) && a.fixed == b.fixed && a.sleeping == b.sleeping &&
+           a.sleepSupported == b.sleepSupported && a.sleepInhibited == b.sleepInhibited &&
+           a.collisionContact == b.collisionContact && a.sleepIslandVisualId == b.sleepIslandVisualId &&
+           a.contactCount == b.contactCount && SameFloatBits( a.maxPenetration, b.maxPenetration ) &&
+           SameFloatBits( a.normalImpulseSum, b.normalImpulseSum );
+}
+
+void BuildSolverBodyFromCompact( const ReplaySolverBodyMetadata& metadata,
+                                 const ReplaySolverBodyState& state,
+                                 ReplaySolverBodySample& out )
+{
+    out = ReplaySolverBodySample{};
+    out.id = metadata.id;
+    out.modelIndex = metadata.modelIndex;
+    std::memcpy( out.name, metadata.name, sizeof( out.name ) );
+    out.shapeKind = metadata.shapeKind;
+    out.position = state.position;
+    out.linearVelocity = state.linearVelocity;
+    out.angularVelocity = state.angularVelocity;
+    out.orientation[0] = state.orientation[0];
+    out.orientation[1] = state.orientation[1];
+    out.orientation[2] = state.orientation[2];
+    out.orientation[3] = state.orientation[3];
+    out.mass = metadata.mass;
+    out.inverseMass = metadata.inverseMass;
+    out.rotationalInertia = metadata.rotationalInertia;
+    out.inverseRotationalInertia = metadata.inverseRotationalInertia;
+    out.fixed = state.fixed;
+    out.sleeping = state.sleeping;
+    out.sleepSupported = state.sleepSupported;
+    out.sleepInhibited = state.sleepInhibited;
+    out.collisionContact = state.collisionContact;
+    out.sleepIslandVisualId = state.sleepIslandVisualId;
+    out.contactCount = state.contactCount;
+    out.maxPenetration = state.maxPenetration;
+    out.normalImpulseSum = state.normalImpulseSum;
+}
+
+void CopyTornadoSystemConfigWithReserve( Physics::TornadoSystemConfig& target,
+                                         const Physics::TornadoSystemConfig& source,
+                                         ReplayFrameIndex frameIndex,
+                                         const char* targetName )
+{
+    ReserveReplayRecorderDeltaVector( target.vortices, source.vortices.size(), frameIndex, targetName );
+    target = source;
+}
+
+void CopySolverWorldScalarsFromSnapshot( ReplaySolverWorldScalarState& target,
+                                         const ReplaySolverWorldSnapshot& source,
+                                         ReplayFrameIndex frameIndex,
+                                         const char* targetName )
+{
+    target.version = source.version;
+    target.modelCount = source.modelCount;
+    target.nextSleepIslandVisualId = source.nextSleepIslandVisualId;
+    target.sleepEnabled = source.sleepEnabled;
+    target.collisionVisualFrameActive = source.collisionVisualFrameActive;
+    target.tornadoConfig = source.tornadoConfig;
+    CopyTornadoSystemConfigWithReserve( target.tornadoSystemConfig,
+                                        source.tornadoSystemConfig,
+                                        frameIndex,
+                                        targetName );
+    target.tornadoSystemElapsedSeconds = source.tornadoSystemElapsedSeconds;
+    target.solverStats = source.solverStats;
+}
+
+void ApplySolverWorldScalarsToSnapshot( const ReplaySolverWorldScalarState& source,
+                                        ReplaySolverWorldSnapshot& target,
+                                        ReplayFrameIndex frameIndex,
+                                        const char* targetName )
+{
+    target.version = source.version;
+    target.modelCount = source.modelCount;
+    target.nextSleepIslandVisualId = source.nextSleepIslandVisualId;
+    target.sleepEnabled = source.sleepEnabled;
+    target.collisionVisualFrameActive = source.collisionVisualFrameActive;
+    target.tornadoConfig = source.tornadoConfig;
+    CopyTornadoSystemConfigWithReserve( target.tornadoSystemConfig,
+                                        source.tornadoSystemConfig,
+                                        frameIndex,
+                                        targetName );
+    target.tornadoSystemElapsedSeconds = source.tornadoSystemElapsedSeconds;
+    target.solverStats = source.solverStats;
+}
+
+template <typename T> bool SameSolverValueBytes( const T& a, const T& b )
+{
+    // Why: the solver hash treats these rows as exact replay state. Byte
+    // comparison may over-report changes when padding differs, but it never
+    // drops a restore-visible field from the delta stream.
+    return std::memcmp( &a, &b, sizeof( T ) ) == 0;
+}
+
+template <typename T> void ClearSolverVectorDelta( ReplaySolverVectorDelta<T>& delta )
+{
+    delta.full = false;
+    delta.fullValues.clear();
+    delta.changedValues.clear();
+}
+
+void ClearSolverWorldDeltaFrame( ReplaySolverWorldDeltaFrame& frame )
+{
+    frame.scalarState.version = 2;
+    frame.scalarState.modelCount = 0;
+    frame.scalarState.nextSleepIslandVisualId = 1;
+    frame.scalarState.sleepEnabled = true;
+    frame.scalarState.collisionVisualFrameActive = false;
+    frame.scalarState.tornadoConfig = Physics::TornadoFieldConfig{};
+    frame.scalarState.tornadoSystemConfig.enabled = false;
+    frame.scalarState.tornadoSystemConfig.visualizeVelocityField = false;
+    frame.scalarState.tornadoSystemConfig.vortices.clear();
+    frame.scalarState.tornadoSystemElapsedSeconds = 0.0f;
+    frame.scalarState.solverStats = ReplaySolverStatsSample{};
+#define CLEAR_SOLVER_WORLD_DELTA_FIELD( field ) ClearSolverVectorDelta( frame.field );
+    REPLAY_SOLVER_WORLD_VECTOR_FIELDS( CLEAR_SOLVER_WORLD_DELTA_FIELD )
+#undef CLEAR_SOLVER_WORLD_DELTA_FIELD
+}
+
+template <typename T>
+void StoreSolverVectorDelta( ReplaySolverVectorDelta<T>& delta,
+                             const std::vector<T>& source,
+                             const std::vector<T>& previous,
+                             bool forceFull,
+                             ReplayFrameIndex frameIndex,
+                             const char* targetName )
+{
+    ClearSolverVectorDelta( delta );
+    if ( forceFull || previous.size() != source.size() )
+    {
+        delta.full = true;
+        ReserveReplayRecorderDeltaVector( delta.fullValues, source.size(), frameIndex, targetName );
+        delta.fullValues = source;
+        return;
+    }
+
+    for ( std::size_t i = 0; i < source.size(); ++i )
+    {
+        if ( SameSolverValueBytes( source[i], previous[i] ) )
+        {
+            continue;
+        }
+        ReserveReplayRecorderDeltaVector( delta.changedValues,
+                                          delta.changedValues.size() + 1u,
+                                          frameIndex,
+                                          targetName );
+        ReplaySolverIndexedValue<T> changed;
+        changed.index = CheckedSolverMetadataIndex( i );
+        changed.value = source[i];
+        delta.changedValues.push_back( changed );
+    }
+}
+
+template <typename T>
+bool ApplySolverVectorDelta( const ReplaySolverVectorDelta<T>& delta,
+                             std::vector<T>& target,
+                             ReplayFrameIndex frameIndex,
+                             const char* targetName )
+{
+    if ( delta.full )
+    {
+        ReserveReplayRecorderDeltaVector( target, delta.fullValues.size(), frameIndex, targetName );
+        target = delta.fullValues;
+        return true;
+    }
+
+    for ( const ReplaySolverIndexedValue<T>& changed : delta.changedValues )
+    {
+        const std::size_t index = static_cast<std::size_t>( changed.index );
+        if ( index >= target.size() )
+        {
+            return false;
+        }
+        target[index] = changed.value;
+    }
+    return true;
+}
+
+void CopySolverWorldSnapshotWithReserve( ReplaySolverWorldSnapshot& target,
+                                         const ReplaySolverWorldSnapshot& source,
+                                         ReplayFrameIndex frameIndex,
+                                         const char* targetName )
+{
+    target.version = source.version;
+    target.modelCount = source.modelCount;
+    target.nextSleepIslandVisualId = source.nextSleepIslandVisualId;
+    target.sleepEnabled = source.sleepEnabled;
+    target.collisionVisualFrameActive = source.collisionVisualFrameActive;
+    target.tornadoConfig = source.tornadoConfig;
+    CopyTornadoSystemConfigWithReserve( target.tornadoSystemConfig,
+                                        source.tornadoSystemConfig,
+                                        frameIndex,
+                                        targetName );
+    target.tornadoSystemElapsedSeconds = source.tornadoSystemElapsedSeconds;
+    target.solverStats = source.solverStats;
+#define COPY_SOLVER_WORLD_VECTOR_FIELD( field )                                                                        \
+    ReserveReplayRecorderDeltaVector( target.field, source.field.size(), frameIndex, targetName );                     \
+    target.field = source.field;
+    REPLAY_SOLVER_WORLD_VECTOR_FIELDS( COPY_SOLVER_WORLD_VECTOR_FIELD )
+#undef COPY_SOLVER_WORLD_VECTOR_FIELD
+}
+
+void ClearSolverWorldSnapshotValues( ReplaySolverWorldSnapshot& snapshot )
+{
+    snapshot.version = 2;
+    snapshot.modelCount = 0;
+    snapshot.nextSleepIslandVisualId = 1;
+    snapshot.sleepEnabled = true;
+    snapshot.collisionVisualFrameActive = false;
+    snapshot.tornadoConfig = Physics::TornadoFieldConfig{};
+    snapshot.tornadoSystemConfig.enabled = false;
+    snapshot.tornadoSystemConfig.visualizeVelocityField = false;
+    snapshot.tornadoSystemConfig.vortices.clear();
+    snapshot.tornadoSystemElapsedSeconds = 0.0f;
+    snapshot.solverStats = ReplaySolverStatsSample{};
+#define CLEAR_SOLVER_WORLD_SNAPSHOT_FIELD( field ) snapshot.field.clear();
+    REPLAY_SOLVER_WORLD_VECTOR_FIELDS( CLEAR_SOLVER_WORLD_SNAPSHOT_FIELD )
+#undef CLEAR_SOLVER_WORLD_SNAPSHOT_FIELD
+}
+
+void StoreSolverWorldDeltaFrame( ReplaySolverWorldDeltaFrame& frame,
+                                 const ReplaySolverWorldSnapshot& snapshot,
+                                 const ReplaySolverWorldSnapshot& previous,
+                                 bool forceKeyframe,
+                                 ReplayFrameIndex frameIndex )
+{
+    // Concept: world-snapshot vectors are compacted independently. A solver
+    // frame can carry a full payload for one vector whose length changed while
+    // other vectors stay as sparse indexed edits.
+    ClearSolverWorldDeltaFrame( frame );
+    CopySolverWorldScalarsFromSnapshot( frame.scalarState, snapshot, frameIndex, "ReplaySolverWorldDelta::scalar" );
+#define STORE_SOLVER_WORLD_DELTA_FIELD( field )                                                                        \
+    StoreSolverVectorDelta( frame.field,                                                                               \
+                            snapshot.field,                                                                            \
+                            previous.field,                                                                            \
+                            forceKeyframe,                                                                             \
+                            frameIndex,                                                                                \
+                            "ReplaySolverWorldDelta::" #field );
+    REPLAY_SOLVER_WORLD_VECTOR_FIELDS( STORE_SOLVER_WORLD_DELTA_FIELD )
+#undef STORE_SOLVER_WORLD_DELTA_FIELD
+}
+
+bool ApplySolverWorldDeltaFrame( const ReplaySolverWorldDeltaFrame& frame,
+                                 ReplaySolverWorldSnapshot& snapshot,
+                                 ReplayFrameIndex frameIndex )
+{
+    ApplySolverWorldScalarsToSnapshot( frame.scalarState, snapshot, frameIndex, "ReplaySolverWorldResolve::scalar" );
+#define APPLY_SOLVER_WORLD_DELTA_FIELD( field )                                                                        \
+    if ( !ApplySolverVectorDelta( frame.field, snapshot.field, frameIndex, "ReplaySolverWorldResolve::" #field ) )     \
+    {                                                                                                                  \
+        return false;                                                                                                  \
+    }
+    REPLAY_SOLVER_WORLD_VECTOR_FIELDS( APPLY_SOLVER_WORLD_DELTA_FIELD )
+#undef APPLY_SOLVER_WORLD_DELTA_FIELD
+    return true;
+}
+
+void CopySolverHeader( const ReplaySolverFrameSample& source, ReplaySolverFrameSample& out )
+{
+    out.frameIndex = source.frameIndex;
+    out.branch = source.branch;
+    out.eventCursor = source.eventCursor;
+    out.sceneFrame = source.sceneFrame;
+    out.simulationSeconds = source.simulationSeconds;
+    out.physicsDt = source.physicsDt;
+    out.camera = source.camera;
+    out.world = source.world;
+    ReserveReplayRecorderDeltaVector( out.launcherVisual.rayLines,
+                                      source.launcherVisual.rayLines.size(),
+                                      source.frameIndex,
+                                      "ReplaySolverResolve::launcherRayLines" );
+    ReserveReplayRecorderDeltaVector( out.launcherVisual.laserShots,
+                                      source.launcherVisual.laserShots.size(),
+                                      source.frameIndex,
+                                      "ReplaySolverResolve::launcherLaserShots" );
+    out.launcherVisual = source.launcherVisual;
+    out.presentationHash = source.presentationHash;
+    out.solverHash = source.solverHash;
+    out.contactCount = source.contactCount;
+    out.pipelineRecordCount = source.pipelineRecordCount;
+    out.checkpointBoundary = source.checkpointBoundary;
 }
 
 uint64_t SolverFrameSampleMemoryBytes( const ReplaySolverFrameSample& sample )
@@ -1747,10 +2218,25 @@ bool ReplaySolverRecorder::Configure( const ReplayRecorderConfig& config )
 
     m_hashLog.close();
     m_samples.clear();
+    m_solverFrames.clear();
+    m_solverBodyMetadata.clear();
+    m_solverCarryStates.clear();
+    m_solverCarryActive.clear();
+    m_solverCarrySeenScratch.clear();
+    m_solverCaptureBodies.clear();
     m_checkpoints.clear();
     m_contactCountScratch.clear();
     m_maxPenetrationScratch.clear();
     m_normalImpulseSumScratch.clear();
+    ClearSolverWorldSnapshotValues( m_solverCaptureWorldSnapshot );
+    ClearSolverWorldSnapshotValues( m_solverWorldCarrySnapshot );
+    m_solverWorldCarryActive = false;
+    m_resolvedSolverSample.bodies.clear();
+    m_latestResolvedSolverSample.bodies.clear();
+    m_promotedSolverSample.bodies.clear();
+    m_solverResolveStateScratch.clear();
+    m_solverResolveActiveScratch.clear();
+    ClearSolverWorldSnapshotValues( m_solverResolveWorldScratch );
     m_sampleHead = 0;
     m_sampleCount = 0;
     m_checkpointHead = 0;
@@ -1766,6 +2252,7 @@ bool ReplaySolverRecorder::Configure( const ReplayRecorderConfig& config )
     }
 
     m_samples.resize( SampleCapacityFromConfig() );
+    m_solverFrames.resize( m_samples.size() );
     m_checkpoints.resize( CheckpointCapacityFromConfig() );
     ReserveReplayRecorderScratch( m_contactCountScratch,
                                   m_maxPenetrationScratch,
@@ -1802,6 +2289,27 @@ void ReplaySolverRecorder::ResetTimeline( const char* sceneLabel )
     m_checkpointCount = 0;
     m_nextFrameIndex = 0;
     m_latestSolverHash = 0;
+    m_solverBodyMetadata.clear();
+    m_solverCarryStates.clear();
+    m_solverCarryActive.clear();
+    m_solverCarrySeenScratch.clear();
+    m_solverCaptureBodies.clear();
+    ClearSolverWorldSnapshotValues( m_solverCaptureWorldSnapshot );
+    ClearSolverWorldSnapshotValues( m_solverWorldCarrySnapshot );
+    m_solverWorldCarryActive = false;
+    m_resolvedSolverSample.bodies.clear();
+    m_latestResolvedSolverSample.bodies.clear();
+    m_promotedSolverSample.bodies.clear();
+    m_solverResolveStateScratch.clear();
+    m_solverResolveActiveScratch.clear();
+    ClearSolverWorldSnapshotValues( m_solverResolveWorldScratch );
+    for ( ReplaySolverDeltaFrame& frame : m_solverFrames )
+    {
+        frame.keyframe = false;
+        frame.bodyMetadataIndices.clear();
+        frame.changedBodies.clear();
+        ClearSolverWorldDeltaFrame( frame.world );
+    }
     WriteHashLogHeader( sceneLabel );
 }
 
@@ -1812,7 +2320,10 @@ void ReplaySolverRecorder::CaptureFrame( const ReplayCaptureInput& input )
         return;
     }
 
-    ReplaySolverFrameSample& sample = AcquireSampleSlot();
+    const std::size_t sampleSlot = AcquireSampleSlotIndex();
+    ReplaySolverFrameSample& sample = m_samples[sampleSlot];
+    sample.bodies.clear();
+    ClearSolverWorldSnapshotValues( sample.worldSnapshot );
     sample.frameIndex = m_nextFrameIndex++;
     sample.branch = NormalizeBranchInfo( input.branch );
     sample.eventCursor = input.eventCursor;
@@ -1866,11 +2377,11 @@ void ReplaySolverRecorder::CaptureFrame( const ReplayCaptureInput& input )
     const Physics::ColliderStore& colliderStore = *input.colliderStore;
     const int modelCount = bodyStore.Count();
     const std::size_t modelCountSize = static_cast<std::size_t>( modelCount );
-    sample.bodies.clear();
-    ReserveReplayRecorderSampleVector( sample.bodies,
+    m_solverCaptureBodies.clear();
+    ReserveReplayRecorderSampleVector( m_solverCaptureBodies,
                                        modelCountSize,
                                        sample.frameIndex,
-                                       "ReplaySolverFrameSample::bodies" );
+                                       "ReplaySolverCapture::bodies" );
 
     m_contactCountScratch.assign( modelCountSize, 0 );
     m_maxPenetrationScratch.assign( modelCountSize, 0.0f );
@@ -1895,7 +2406,8 @@ void ReplaySolverRecorder::CaptureFrame( const ReplayCaptureInput& input )
     }
 
     sample.pipelineRecordCount = SaturatingUint16( models.GetPhysicsPipelineTrace().size() );
-    models.GetPhysicsEngine().CaptureReplaySolverSnapshot( sample.worldSnapshot, static_cast<int>( modelCount ) );
+    models.GetPhysicsEngine().CaptureReplaySolverSnapshot( m_solverCaptureWorldSnapshot,
+                                                           static_cast<int>( modelCount ) );
 
     const std::vector<uint8_t>& sleepStates = models.GetSleepStates();
     const std::vector<uint8_t>& sleepSupportedStates = models.GetSleepSupportedStates();
@@ -1915,7 +2427,7 @@ void ReplaySolverRecorder::CaptureFrame( const ReplayCaptureInput& input )
     solverHash = HashInt( solverHash, static_cast<int>( sample.contactCount ) );
     solverHash = HashInt( solverHash, static_cast<int>( sample.pipelineRecordCount ) );
     solverHash = HashLauncherControlState( solverHash, sample.launcherVisual );
-    solverHash = HashSolverWorldSnapshot( solverHash, sample.worldSnapshot );
+    solverHash = HashSolverWorldSnapshot( solverHash, m_solverCaptureWorldSnapshot );
 
     for ( int i = 0; i < modelCount; ++i )
     {
@@ -1937,19 +2449,26 @@ void ReplaySolverRecorder::CaptureFrame( const ReplayCaptureInput& input )
 
         presentationHash = HashSolverBodyPresentationFields( presentationHash, body );
         solverHash = HashSolverBodySample( solverHash, body );
-        sample.bodies.push_back( body );
+        m_solverCaptureBodies.push_back( body );
     }
 
     sample.presentationHash = presentationHash;
     sample.solverHash = solverHash;
+    const bool forceSolverKeyframe = sample.checkpointBoundary || m_sampleCount == 1u;
+    StoreSolverFramePayload( sampleSlot,
+                             sample,
+                             m_solverCaptureBodies,
+                             m_solverCaptureWorldSnapshot,
+                             forceSolverKeyframe,
+                             true );
     m_latestSolverHash = solverHash;
     ++m_totalFramesCaptured;
 
     if ( sample.checkpointBoundary )
     {
-        StoreCheckpointSummary( sample );
+        StoreCheckpointSummary( sample, m_solverCaptureBodies.size() );
     }
-    WriteHashLogRow( sample );
+    WriteHashLogRow( sample, m_solverCaptureBodies.size() );
 }
 
 void ReplaySolverRecorder::FlushHashLog()
@@ -1996,7 +2515,7 @@ void ReplaySolverRecorder::CollectMemoryCategoryBytes( MainMemoryReplayCategoryB
                                       static_cast<uint64_t>( sizeof( *this ) ) );
     MainMemoryAddReplayCategoryBytes( categories,
                                       MainMemoryReplayByteCategory::SolverSampleRecords,
-                                      VectorCapacityBytes( m_samples ) );
+                                      VectorCapacityBytes( m_samples ) + VectorCapacityBytes( m_solverFrames ) );
     MainMemoryAddReplayCategoryBytes( categories,
                                       MainMemoryReplayByteCategory::SolverCheckpoints,
                                       VectorCapacityBytes( m_checkpoints ) );
@@ -2016,6 +2535,37 @@ void ReplaySolverRecorder::CollectMemoryCategoryBytes( MainMemoryReplayCategoryB
                                           MainMemoryReplayByteCategory::SolverLauncherVisuals,
                                           LauncherVisualMemoryBytes( sample.launcherVisual ) );
     }
+    for ( const ReplaySolverDeltaFrame& frame : m_solverFrames )
+    {
+        MainMemoryAddReplayCategoryBytes( categories,
+                                          MainMemoryReplayByteCategory::SolverBodies,
+                                          SolverDeltaFrameMemoryBytes( frame ) );
+        MainMemoryAddReplayCategoryBytes( categories,
+                                          MainMemoryReplayByteCategory::SolverWorldState,
+                                          SolverWorldDeltaFrameMemoryBytes( frame.world ) );
+    }
+    MainMemoryAddReplayCategoryBytes(
+        categories,
+        MainMemoryReplayByteCategory::SolverBodies,
+        VectorCapacityBytes( m_solverBodyMetadata ) + VectorCapacityBytes( m_solverCarryStates ) +
+            VectorCapacityBytes( m_solverCarryActive ) + VectorCapacityBytes( m_solverCarrySeenScratch ) +
+            VectorCapacityBytes( m_solverCaptureBodies ) + VectorCapacityBytes( m_resolvedSolverSample.bodies ) +
+            VectorCapacityBytes( m_latestResolvedSolverSample.bodies ) +
+            VectorCapacityBytes( m_promotedSolverSample.bodies ) + VectorCapacityBytes( m_solverResolveStateScratch ) +
+            VectorCapacityBytes( m_solverResolveActiveScratch ) );
+    MainMemoryAddReplayCategoryBytes( categories,
+                                      MainMemoryReplayByteCategory::SolverWorldState,
+                                      SolverWorldSnapshotMemoryBytes( m_solverCaptureWorldSnapshot ) +
+                                          SolverWorldSnapshotMemoryBytes( m_solverWorldCarrySnapshot ) +
+                                          SolverWorldSnapshotMemoryBytes( m_solverResolveWorldScratch ) +
+                                          SolverWorldSnapshotMemoryBytes( m_resolvedSolverSample.worldSnapshot ) +
+                                          SolverWorldSnapshotMemoryBytes( m_latestResolvedSolverSample.worldSnapshot ) +
+                                          SolverWorldSnapshotMemoryBytes( m_promotedSolverSample.worldSnapshot ) );
+    MainMemoryAddReplayCategoryBytes( categories,
+                                      MainMemoryReplayByteCategory::SolverLauncherVisuals,
+                                      LauncherVisualMemoryBytes( m_resolvedSolverSample.launcherVisual ) +
+                                          LauncherVisualMemoryBytes( m_latestResolvedSolverSample.launcherVisual ) +
+                                          LauncherVisualMemoryBytes( m_promotedSolverSample.launcherVisual ) );
 }
 
 void ReplaySolverRecorder::CopySamplesChronological( std::vector<ReplaySolverFrameSample>& outSamples ) const
@@ -2029,8 +2579,11 @@ void ReplaySolverRecorder::CopySamplesChronological( std::vector<ReplaySolverFra
 
     for ( std::size_t i = 0; i < m_sampleCount; ++i )
     {
-        const std::size_t index = ( m_sampleHead + i ) % m_samples.size();
-        outSamples.push_back( m_samples[index] );
+        ReplaySolverFrameSample sample;
+        if ( ResolveSolverSampleAtOffset( i, sample ) )
+        {
+            outSamples.push_back( std::move( sample ) );
+        }
     }
 }
 
@@ -2043,8 +2596,10 @@ void ReplaySolverRecorder::ForEachSampleChronological( ReplaySolverSampleVisitor
 
     for ( std::size_t i = 0; i < m_sampleCount; ++i )
     {
-        const std::size_t index = ( m_sampleHead + i ) % m_samples.size();
-        visitor( m_samples[index], userData );
+        if ( ResolveSolverSampleAtOffset( i, m_resolvedSolverSample ) )
+        {
+            visitor( m_resolvedSolverSample, userData );
+        }
     }
 }
 
@@ -2055,8 +2610,9 @@ const ReplaySolverFrameSample* ReplaySolverRecorder::LatestSample() const
         return nullptr;
     }
 
-    const std::size_t index = ( m_sampleHead + m_sampleCount - 1 ) % m_samples.size();
-    return &m_samples[index];
+    const std::size_t offset = m_sampleCount - 1;
+    return ResolveSolverSampleAtOffset( offset, m_latestResolvedSolverSample ) ? &m_latestResolvedSolverSample
+                                                                               : nullptr;
 }
 
 const ReplaySolverFrameSample* ReplaySolverRecorder::SampleAtNormalized( float normalized ) const
@@ -2069,26 +2625,272 @@ const ReplaySolverFrameSample* ReplaySolverRecorder::SampleAtNormalized( float n
     const float t = std::clamp( normalized, 0.0f, 1.0f );
     const std::size_t maxOffset = m_sampleCount - 1;
     const std::size_t offset = static_cast<std::size_t>( static_cast<float>( maxOffset ) * t + 0.5f );
-    const std::size_t index = ( m_sampleHead + (std::min)( offset, maxOffset ) ) % m_samples.size();
-    return &m_samples[index];
+    const std::size_t resolvedOffset = (std::min)( offset, maxOffset );
+    return ResolveSolverSampleAtOffset( resolvedOffset, m_resolvedSolverSample ) ? &m_resolvedSolverSample : nullptr;
 }
 
-ReplaySolverFrameSample& ReplaySolverRecorder::AcquireSampleSlot()
+std::size_t ReplaySolverRecorder::AcquireSampleSlotIndex()
 {
+    // Lifetime: compact solver frames follow the same ring position as their
+    // public sample headers, so a slot index is the join key for reconstruction.
     if ( m_sampleCount < m_samples.size() )
     {
         const std::size_t index = ( m_sampleHead + m_sampleCount ) % m_samples.size();
         ++m_sampleCount;
-        return m_samples[index];
+        return index;
     }
 
-    ReplaySolverFrameSample& sample = m_samples[m_sampleHead];
+    // Invariant: after wrap, the new oldest solver frame must no longer depend
+    // on the evicted frame's body/world carry state.
+    if ( m_sampleCount > 1u )
+    {
+        PromoteSolverFrameToKeyframe( 1u );
+    }
+
+    const std::size_t index = m_sampleHead;
     m_sampleHead = ( m_sampleHead + 1 ) % m_samples.size();
     ++m_totalFramesEvicted;
-    return sample;
+    return index;
 }
 
-void ReplaySolverRecorder::StoreCheckpointSummary( const ReplaySolverFrameSample& sample )
+std::size_t ReplaySolverRecorder::FindOrAddSolverBodyMetadata( const ReplaySolverBodySample& body,
+                                                               ReplayFrameIndex frameIndex )
+{
+    const ReplaySolverBodyMetadata metadata = SolverMetadataFromBody( body );
+    for ( std::size_t i = 0; i < m_solverBodyMetadata.size(); ++i )
+    {
+        if ( SameSolverMetadata( m_solverBodyMetadata[i], metadata ) )
+        {
+            return i;
+        }
+    }
+
+    ReserveReplayRecorderSampleVector( m_solverBodyMetadata,
+                                       m_solverBodyMetadata.size() + 1u,
+                                       frameIndex,
+                                       "ReplaySolverBodyMetadata" );
+    m_solverBodyMetadata.push_back( metadata );
+
+    const std::size_t requiredSize = m_solverBodyMetadata.size();
+    ReserveReplayRecorderSampleVector( m_solverCarryStates, requiredSize, frameIndex, "ReplaySolverCarryStates" );
+    ReserveReplayRecorderSampleVector( m_solverCarryActive, requiredSize, frameIndex, "ReplaySolverCarryActive" );
+    ReserveReplayRecorderSampleVector( m_solverCarrySeenScratch, requiredSize, frameIndex, "ReplaySolverCarrySeen" );
+    ReserveReplayRecorderSampleVector( m_solverResolveStateScratch,
+                                       requiredSize,
+                                       frameIndex,
+                                       "ReplaySolverResolveStates" );
+    ReserveReplayRecorderSampleVector( m_solverResolveActiveScratch,
+                                       requiredSize,
+                                       frameIndex,
+                                       "ReplaySolverResolveActive" );
+    m_solverCarryStates.resize( requiredSize );
+    m_solverCarryActive.resize( requiredSize, static_cast<uint8_t>( 0 ) );
+    m_solverCarrySeenScratch.resize( requiredSize, static_cast<uint8_t>( 0 ) );
+    return requiredSize - 1u;
+}
+
+void ReplaySolverRecorder::StoreSolverFramePayload( std::size_t slotIndex,
+                                                    const ReplaySolverFrameSample& sample,
+                                                    const std::vector<ReplaySolverBodySample>& bodies,
+                                                    const ReplaySolverWorldSnapshot& worldSnapshot,
+                                                    bool forceKeyframe,
+                                                    bool updateCarry )
+{
+    // Invariant: slotIndex addresses both the retained sample header and the
+    // compact solver payload. Saved replay artifacts still see a dense sample
+    // because readers reconstruct through ResolveSolverSampleAtOffset().
+    if ( slotIndex >= m_solverFrames.size() )
+    {
+        return;
+    }
+
+    ReplaySolverDeltaFrame& frame = m_solverFrames[slotIndex];
+    frame.keyframe = forceKeyframe;
+    frame.bodyMetadataIndices.clear();
+    frame.changedBodies.clear();
+    ReserveReplayRecorderSampleVector( frame.bodyMetadataIndices,
+                                       bodies.size(),
+                                       sample.frameIndex,
+                                       "ReplaySolverFrame::bodyOrder" );
+
+    if ( updateCarry )
+    {
+        std::fill( m_solverCarrySeenScratch.begin(), m_solverCarrySeenScratch.end(), static_cast<uint8_t>( 0 ) );
+    }
+
+    for ( const ReplaySolverBodySample& body : bodies )
+    {
+        const std::size_t metadataIndex = FindOrAddSolverBodyMetadata( body, sample.frameIndex );
+        const uint32_t packedMetadataIndex = CheckedSolverMetadataIndex( metadataIndex );
+        frame.bodyMetadataIndices.push_back( packedMetadataIndex );
+
+        const ReplaySolverBodyState state = SolverStateFromBody( body );
+        const bool previousActive =
+            metadataIndex < m_solverCarryActive.size() && m_solverCarryActive[metadataIndex] != 0u;
+        const bool changed =
+            forceKeyframe || !previousActive || !SameSolverState( m_solverCarryStates[metadataIndex], state );
+        if ( changed )
+        {
+            ReserveReplayRecorderSampleVector( frame.changedBodies,
+                                               frame.changedBodies.size() + 1u,
+                                               sample.frameIndex,
+                                               "ReplaySolverFrame::bodyDeltas" );
+            ReplaySolverBodyDelta delta;
+            delta.metadataIndex = packedMetadataIndex;
+            delta.state = state;
+            frame.changedBodies.push_back( delta );
+        }
+
+        if ( updateCarry )
+        {
+            m_solverCarryStates[metadataIndex] = state;
+            m_solverCarryActive[metadataIndex] = static_cast<uint8_t>( 1 );
+            m_solverCarrySeenScratch[metadataIndex] = static_cast<uint8_t>( 1 );
+        }
+    }
+
+    if ( updateCarry )
+    {
+        for ( std::size_t i = 0; i < m_solverCarryActive.size(); ++i )
+        {
+            if ( m_solverCarrySeenScratch[i] == 0u )
+            {
+                m_solverCarryActive[i] = static_cast<uint8_t>( 0 );
+            }
+        }
+    }
+
+    const bool worldKeyframe = forceKeyframe || !m_solverWorldCarryActive;
+    StoreSolverWorldDeltaFrame( frame.world,
+                                worldSnapshot,
+                                m_solverWorldCarrySnapshot,
+                                worldKeyframe,
+                                sample.frameIndex );
+    if ( updateCarry )
+    {
+        CopySolverWorldSnapshotWithReserve( m_solverWorldCarrySnapshot,
+                                            worldSnapshot,
+                                            sample.frameIndex,
+                                            "ReplaySolverWorldCarry" );
+        m_solverWorldCarryActive = true;
+    }
+}
+
+bool ReplaySolverRecorder::ResolveSolverSampleAtOffset( std::size_t offset, ReplaySolverFrameSample& outSample ) const
+{
+    // Concept: public solver samples are a compatibility view over compact
+    // storage. Start from the nearest retained keyframe, replay sparse deltas,
+    // then rebuild the old dense body/world snapshot shape.
+    if ( offset >= m_sampleCount || m_samples.empty() || m_solverFrames.size() != m_samples.size() )
+    {
+        return false;
+    }
+
+    std::size_t keyOffset = offset;
+    for ( ;; )
+    {
+        const std::size_t keyIndex = ( m_sampleHead + keyOffset ) % m_samples.size();
+        if ( m_solverFrames[keyIndex].keyframe )
+        {
+            break;
+        }
+        if ( keyOffset == 0u )
+        {
+            return false;
+        }
+        --keyOffset;
+    }
+
+    m_solverResolveStateScratch.resize( m_solverBodyMetadata.size() );
+    m_solverResolveActiveScratch.resize( m_solverBodyMetadata.size(), static_cast<uint8_t>( 0 ) );
+    std::fill( m_solverResolveActiveScratch.begin(), m_solverResolveActiveScratch.end(), static_cast<uint8_t>( 0 ) );
+    ClearSolverWorldSnapshotValues( m_solverResolveWorldScratch );
+
+    for ( std::size_t frameOffset = keyOffset; frameOffset <= offset; ++frameOffset )
+    {
+        const std::size_t frameIndex = ( m_sampleHead + frameOffset ) % m_samples.size();
+        const ReplaySolverDeltaFrame& frame = m_solverFrames[frameIndex];
+        if ( frame.keyframe )
+        {
+            std::fill( m_solverResolveActiveScratch.begin(),
+                       m_solverResolveActiveScratch.end(),
+                       static_cast<uint8_t>( 0 ) );
+            ClearSolverWorldSnapshotValues( m_solverResolveWorldScratch );
+        }
+
+        for ( const ReplaySolverBodyDelta& delta : frame.changedBodies )
+        {
+            const std::size_t metadataIndex = static_cast<std::size_t>( delta.metadataIndex );
+            if ( metadataIndex >= m_solverResolveStateScratch.size() )
+            {
+                return false;
+            }
+            m_solverResolveStateScratch[metadataIndex] = delta.state;
+            m_solverResolveActiveScratch[metadataIndex] = static_cast<uint8_t>( 1 );
+        }
+
+        if ( !ApplySolverWorldDeltaFrame( frame.world, m_solverResolveWorldScratch, m_samples[frameIndex].frameIndex ) )
+        {
+            return false;
+        }
+    }
+
+    const std::size_t targetIndex = ( m_sampleHead + offset ) % m_samples.size();
+    const ReplaySolverFrameSample& source = m_samples[targetIndex];
+    const ReplaySolverDeltaFrame& targetFrame = m_solverFrames[targetIndex];
+    CopySolverHeader( source, outSample );
+    outSample.bodies.clear();
+    ReserveReplayRecorderSampleVector( outSample.bodies,
+                                       targetFrame.bodyMetadataIndices.size(),
+                                       source.frameIndex,
+                                       "ReplaySolverResolve::bodies" );
+    for ( uint32_t packedMetadataIndex : targetFrame.bodyMetadataIndices )
+    {
+        const std::size_t metadataIndex = static_cast<std::size_t>( packedMetadataIndex );
+        if ( metadataIndex >= m_solverBodyMetadata.size() || metadataIndex >= m_solverResolveActiveScratch.size() ||
+             m_solverResolveActiveScratch[metadataIndex] == 0u )
+        {
+            return false;
+        }
+
+        ReplaySolverBodySample body;
+        BuildSolverBodyFromCompact( m_solverBodyMetadata[metadataIndex],
+                                    m_solverResolveStateScratch[metadataIndex],
+                                    body );
+        outSample.bodies.push_back( body );
+    }
+    CopySolverWorldSnapshotWithReserve( outSample.worldSnapshot,
+                                        m_solverResolveWorldScratch,
+                                        source.frameIndex,
+                                        "ReplaySolverResolve::worldSnapshot" );
+    return true;
+}
+
+void ReplaySolverRecorder::PromoteSolverFrameToKeyframe( std::size_t offset )
+{
+    if ( offset >= m_sampleCount || m_samples.empty() )
+    {
+        return;
+    }
+
+    const std::size_t index = ( m_sampleHead + offset ) % m_samples.size();
+    if ( index >= m_solverFrames.size() || m_solverFrames[index].keyframe )
+    {
+        return;
+    }
+
+    if ( ResolveSolverSampleAtOffset( offset, m_promotedSolverSample ) )
+    {
+        StoreSolverFramePayload( index,
+                                 m_promotedSolverSample,
+                                 m_promotedSolverSample.bodies,
+                                 m_promotedSolverSample.worldSnapshot,
+                                 true,
+                                 false );
+    }
+}
+
+void ReplaySolverRecorder::StoreCheckpointSummary( const ReplaySolverFrameSample& sample, std::size_t bodyCount )
 {
     if ( m_checkpoints.empty() )
     {
@@ -2112,8 +2914,7 @@ void ReplaySolverRecorder::StoreCheckpointSummary( const ReplaySolverFrameSample
     checkpoint.eventCursor = sample.eventCursor;
     checkpoint.simulationSeconds = sample.simulationSeconds;
     checkpoint.stateHash = sample.solverHash;
-    checkpoint.bodyCount =
-        static_cast<uint32_t>( (std::min)( sample.bodies.size(), static_cast<std::size_t>( 0xffffffffu ) ) );
+    checkpoint.bodyCount = static_cast<uint32_t>( (std::min)( bodyCount, static_cast<std::size_t>( 0xffffffffu ) ) );
     checkpoint.contactCount = sample.contactCount;
     checkpoint.pipelineRecordCount = sample.pipelineRecordCount;
 }
@@ -2132,7 +2933,7 @@ void ReplaySolverRecorder::WriteHashLogHeader( const char* sceneLabel )
                  "presentation_hash,solver_hash\n";
 }
 
-void ReplaySolverRecorder::WriteHashLogRow( const ReplaySolverFrameSample& sample )
+void ReplaySolverRecorder::WriteHashLogRow( const ReplaySolverFrameSample& sample, std::size_t bodyCount )
 {
     if ( !m_hashLog.is_open() )
     {
@@ -2146,7 +2947,7 @@ void ReplaySolverRecorder::WriteHashLogRow( const ReplaySolverFrameSample& sampl
                static_cast<unsigned long long>( sample.frameIndex ),
                sample.sceneFrame,
                sample.simulationSeconds,
-               static_cast<unsigned long long>( sample.bodies.size() ),
+               static_cast<unsigned long long>( bodyCount ),
                static_cast<unsigned>( sample.contactCount ),
                static_cast<unsigned>( sample.pipelineRecordCount ),
                sample.checkpointBoundary ? 1u : 0u,

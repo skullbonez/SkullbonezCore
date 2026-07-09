@@ -18,6 +18,8 @@ Glossary:
   Solver sample: A same-tick physics-state record with extra mass and inertia
   inputs. It is still not a full restore checkpoint until persistent contacts,
   event streams, and hidden solver caches are captured.
+  Solver delta frame: Per-frame solver body order plus changed body/world state;
+    keyframes are self-contained so ring eviction never strands later deltas.
   Checkpoint summary: A replay boundary marker with hashes and counts. It is
   deliberately not an authoritative restore checkpoint yet.
   Ring buffer: Fixed-capacity circular array; newest captures evict the oldest
@@ -214,6 +216,118 @@ struct ReplaySolverBodySample
     uint16_t contactCount = 0;
     float maxPenetration = 0.0f;
     float normalImpulseSum = 0.0f;
+};
+
+// Concept: solver compaction keeps identity, shape, mass, and inertia in a
+// dictionary because these fields rarely change but every restored body needs
+// them byte-for-byte when reconstructing the public sample.
+struct ReplaySolverBodyMetadata
+{
+    ReplayBodyId id;
+    int modelIndex = -1;
+    char name[64] = {};
+    ReplayBodyShapeKind shapeKind = ReplayBodyShapeKind::Unknown;
+    float mass = 0.0f;
+    float inverseMass = 0.0f;
+    Math::Vector::Vector3 rotationalInertia = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 inverseRotationalInertia = Math::Vector::ZERO_VECTOR;
+};
+
+// Concept: solver body state is the per-frame portion of a body sample. Fixed,
+// sleep, and contact flags stay here because restore and solver hashes observe
+// them as frame-local state, not just display metadata.
+struct ReplaySolverBodyState
+{
+    Math::Vector::Vector3 position = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 linearVelocity = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 angularVelocity = Math::Vector::ZERO_VECTOR;
+    float orientation[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
+    bool fixed = false;
+    bool sleeping = false;
+    bool sleepSupported = false;
+    bool sleepInhibited = false;
+    bool collisionContact = false;
+    int sleepIslandVisualId = 0;
+    uint16_t contactCount = 0;
+    float maxPenetration = 0.0f;
+    float normalImpulseSum = 0.0f;
+};
+
+struct ReplaySolverBodyDelta
+{
+    uint32_t metadataIndex = 0;
+    ReplaySolverBodyState state;
+};
+
+struct ReplaySolverWorldScalarState
+{
+    uint32_t version = 2;
+    int modelCount = 0;
+    int nextSleepIslandVisualId = 1;
+    bool sleepEnabled = true;
+    bool collisionVisualFrameActive = false;
+    Physics::TornadoFieldConfig tornadoConfig;
+    Physics::TornadoSystemConfig tornadoSystemConfig;
+    float tornadoSystemElapsedSeconds = 0.0f;
+    ReplaySolverStatsSample solverStats;
+};
+
+// Invariant: a full vector payload is used for keyframes and size changes.
+// Otherwise changedValues patches the previous reconstructed vector by index.
+template <typename T> struct ReplaySolverIndexedValue
+{
+    uint32_t index = 0;
+    T value = {};
+};
+
+template <typename T> struct ReplaySolverVectorDelta
+{
+    bool full = false;
+    std::vector<T> fullValues;
+    std::vector<ReplaySolverIndexedValue<T>> changedValues;
+};
+
+// Snapshot vectors mirror ReplaySolverWorldSnapshot field names so artifact
+// save/load can still reconstruct the old dense checkpoint shape.
+struct ReplaySolverWorldDeltaFrame
+{
+    ReplaySolverWorldScalarState scalarState;
+    ReplaySolverVectorDelta<float> timeRemaining;
+    ReplaySolverVectorDelta<uint8_t> sleepSupportedThisFrame;
+    ReplaySolverVectorDelta<uint8_t> sleepInhibitedThisFrame;
+    ReplaySolverVectorDelta<uint8_t> sleepState;
+    ReplaySolverVectorDelta<uint8_t> sleepCounter;
+    ReplaySolverVectorDelta<uint8_t> underwaterSleepLocked;
+    ReplaySolverVectorDelta<float> tornadoCaptureSeconds;
+    ReplaySolverVectorDelta<float> tornadoEjectCooldownSeconds;
+    ReplaySolverVectorDelta<uint8_t> collisionVisualContacts;
+    ReplaySolverVectorDelta<int> sleepIslandVisualId;
+    ReplaySolverVectorDelta<int> sleepIslandAssignedVisualId;
+    ReplaySolverVectorDelta<std::pair<int, int>> sleepSupportEdges;
+    ReplaySolverVectorDelta<int> sleepIslandParent;
+    ReplaySolverVectorDelta<uint8_t> sleepIslandRank;
+    ReplaySolverVectorDelta<uint8_t> sleepIslandHasAwake;
+    ReplaySolverVectorDelta<uint8_t> sleepIslandHasSupportAnchor;
+    ReplaySolverVectorDelta<uint8_t> sleepIslandEligible;
+    ReplaySolverVectorDelta<uint8_t> sleepIslandCanSleep;
+    ReplaySolverVectorDelta<ReplaySolverPersistentContactSample> persistentContacts;
+    ReplaySolverVectorDelta<ReplaySolverContactCacheSample> persistentContactCache;
+    ReplaySolverVectorDelta<uint16_t> persistentContactCounts;
+    ReplaySolverVectorDelta<uint16_t> persistentRestingContactCounts;
+    ReplaySolverVectorDelta<Physics::PhysicsDebugContact> debugContacts;
+    ReplaySolverVectorDelta<Physics::PhysicsPipelineRecord> pipelineTrace;
+    ReplaySolverVectorDelta<int64_t> collisionCellKeys;
+};
+
+// Concept: one compact solver frame shares its ring slot with the public sample
+// header. Keyframes are self-contained; non-keyframes reuse prior body/world
+// state and only name the body order plus changed payloads for this frame.
+struct ReplaySolverDeltaFrame
+{
+    bool keyframe = false;
+    std::vector<uint32_t> bodyMetadataIndices;
+    std::vector<ReplaySolverBodyDelta> changedBodies;
+    ReplaySolverWorldDeltaFrame world;
 };
 
 enum class ReplayLauncherFireMode : uint8_t
@@ -458,20 +572,47 @@ class ReplaySolverRecorder
     const ReplaySolverFrameSample* SampleAtNormalized( float normalized ) const;
 
   private:
-    ReplaySolverFrameSample& AcquireSampleSlot();
-    void StoreCheckpointSummary( const ReplaySolverFrameSample& sample );
+    std::size_t AcquireSampleSlotIndex();
+    std::size_t FindOrAddSolverBodyMetadata( const ReplaySolverBodySample& body, ReplayFrameIndex frameIndex );
+    void StoreSolverFramePayload( std::size_t slotIndex,
+                                  const ReplaySolverFrameSample& sample,
+                                  const std::vector<ReplaySolverBodySample>& bodies,
+                                  const ReplaySolverWorldSnapshot& worldSnapshot,
+                                  bool forceKeyframe,
+                                  bool updateCarry );
+    bool ResolveSolverSampleAtOffset( std::size_t offset, ReplaySolverFrameSample& outSample ) const;
+    void PromoteSolverFrameToKeyframe( std::size_t offset );
+    void StoreCheckpointSummary( const ReplaySolverFrameSample& sample, std::size_t bodyCount );
     void WriteHashLogHeader( const char* sceneLabel );
-    void WriteHashLogRow( const ReplaySolverFrameSample& sample );
+    void WriteHashLogRow( const ReplaySolverFrameSample& sample, std::size_t bodyCount );
     std::size_t SampleCapacityFromConfig() const;
     std::size_t CheckpointCapacityFromConfig() const;
 
     ReplayRecorderConfig m_config;
     std::vector<ReplaySolverFrameSample> m_samples;
+    std::vector<ReplaySolverDeltaFrame> m_solverFrames;
+    std::vector<ReplaySolverBodyMetadata> m_solverBodyMetadata;
+    std::vector<ReplaySolverBodyState> m_solverCarryStates;
+    std::vector<uint8_t> m_solverCarryActive;
+    std::vector<uint8_t> m_solverCarrySeenScratch;
+    std::vector<ReplaySolverBodySample> m_solverCaptureBodies;
     std::vector<ReplayCheckpointSummary> m_checkpoints;
     std::vector<uint16_t> m_contactCountScratch;
     std::vector<float> m_maxPenetrationScratch;
     std::vector<float> m_normalImpulseSumScratch;
     std::ofstream m_hashLog;
+    ReplaySolverWorldSnapshot m_solverCaptureWorldSnapshot;
+    ReplaySolverWorldSnapshot m_solverWorldCarrySnapshot;
+    bool m_solverWorldCarryActive = false;
+    // Lifetime: historical scrub reads and "latest" reads can be compared by
+    // pointer-owning callers in the same tick, so they need separate dense
+    // reconstruction caches.
+    mutable ReplaySolverFrameSample m_resolvedSolverSample;
+    mutable ReplaySolverFrameSample m_latestResolvedSolverSample;
+    mutable ReplaySolverFrameSample m_promotedSolverSample;
+    mutable std::vector<ReplaySolverBodyState> m_solverResolveStateScratch;
+    mutable std::vector<uint8_t> m_solverResolveActiveScratch;
+    mutable ReplaySolverWorldSnapshot m_solverResolveWorldScratch;
     std::size_t m_sampleHead = 0;
     std::size_t m_sampleCount = 0;
     std::size_t m_checkpointHead = 0;

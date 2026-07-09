@@ -1010,7 +1010,7 @@ Stage 8 — Replay memory data-model tuning (old B2–B4; re-derive first)
 - [x] 8.1 Re-derive the data model against post-Stage-3 code (June draft in
   git history of `replay-memory-quality-tuning-plan.md`).
 - [x] 8.2 Split body metadata from visual pose; add delta frames.
-- [ ] 8.3 Compact solver keyframes/deltas; artifact compatibility for saved
+- [x] 8.3 Compact solver keyframes/deltas; artifact compatibility for saved
   replays.
 - [ ] 8.4 Presets + budget enforcement + UI sliders.
 
@@ -1087,6 +1087,72 @@ Stage 8 — Replay memory data-model tuning (old B2–B4; re-derive first)
     SkullScope query output 2,479 bytes. Prediction determinism fingerprint
     `0x0165312C5422A5F1` matched across two runs (402 records, 73,021 points,
     361 active frames).
+
+  Complete 2026-07-10: solver retention now stores compact
+  `ReplaySolverDeltaFrame` records instead of retaining dense body and world
+  snapshots in every ring slot. Body identity/display/mass/inertia fields live
+  in `ReplaySolverBodyMetadata`; per-frame pose, velocity, fixed/sleep/contact
+  flags, island id, penetration, and impulse summaries live in
+  `ReplaySolverBodyState` deltas. World scalar state is stored every frame,
+  while each `ReplaySolverWorldSnapshot` vector stores a full payload on
+  keyframes or size changes and sparse indexed edits otherwise. Ring eviction
+  promotes the new oldest solver frame to a keyframe before its predecessor is
+  overwritten, so retained history remains seekable after wrap.
+
+  Artifact compatibility is preserved through the old dense public solver sample
+  shape: `LatestSample()`, `SampleAtNormalized()`,
+  `ForEachSampleChronological()`, and `CopySamplesChronological()` reconstruct
+  from compact frames before callers observe samples. `ReplayV2Artifact` still
+  receives dense solver checkpoints for its SCHK payloads, and old dense saved
+  artifacts still load through the existing parser. A focused restore-probe
+  failure caught an early single-cache pointer regression; the final code keeps
+  separate latest and historical reconstruction caches so same-tick pointer
+  comparisons remain valid.
+
+  Solver field matrix:
+  - Metadata dictionary: `id`, `modelIndex`, `name`, `shapeKind`, `mass`,
+    `inverseMass`, `rotationalInertia`, and `inverseRotationalInertia` are
+    stable identity/shape/mass data required for dense reconstruction.
+  - Body state deltas: position, linear/angular velocity, orientation, fixed and
+    sleep flags, collision contact, sleep-island visual id, contact count,
+    max penetration, and normal impulse sum are frame-local hash/restore data.
+  - World scalar state: version, model count, next sleep-island visual id,
+    sleep/collision flags, tornado configs, elapsed tornado time, and solver
+    stats are stored every retained solver frame.
+  - World vector deltas: time/sleep/tornado/collision arrays, sleep-island
+    tables, persistent contacts/cache/counts, debug contacts, pipeline trace,
+    and collision-cell keys are full on keyframe/size change and sparse by
+    index otherwise.
+
+  Validation:
+  - Touched-source comment audit: `ReplayRecorder.h` and `ReplayRecorder.cpp`
+    inspected, 2 checked, 0 deferred; no subsystem checklist required.
+  - `git diff --check` passed.
+  - `tools\validate_format.bat` passed in 10.10s
+    (`Agentic\Reports\validate_format_replay_stage8_3_final_20260710.log`).
+  - `tools\validate_build.bat Profile` passed in 21.43s
+    (`Agentic\Reports\validate_build_profile_replay_stage8_3_final_20260710.log`):
+    Profile build 0 warnings/errors.
+  - Focused replay recorder unit filter passed in 1.41s:
+    `Profile\SKULLBONEZ_TESTS.exe --test-case=ReplayRecorder*`
+    (`Agentic\Reports\replay_recorder_unit_stage8_3_final_20260710.log`).
+  - `tools\validate_full.bat` passed in about 30s
+    (`Agentic\Reports\validate_full_replay_stage8_3_final_20260710.log`):
+    Profile and Debug builds were 0 warnings/errors, DX12 validation errors
+    were 0, screenshots matched baselines, and `physics_regression_solver.csv`
+    matched byte-exactly.
+  - `tools\validate_replay_scrub.bat` passed in 41.02s
+    (`Agentic\Reports\validate_replay_scrub_replay_stage8_3_final_20260710.log`).
+    Scrub trace command: `C:\SkullbonezCore\Debug\SKULLBONEZ_CORE.exe --renderer dx12 --vsync off --shadows off --scene SkullbonezData/scenes/physics_roll.scene.json --frames 120 --replay on --replay-seconds 1 --replay-scrub-test --physics-diag C:\SkullbonezCore\Debug\replay_scrub.physicsdiag.ndjson`.
+    Scrub query: `tools\physics_query.bat Debug\replay_scrub.physicsdiag.ndjson replay --limit 8`;
+    trace 54,932 bytes; SQLite cache 225,280 bytes; query output 1,512
+    bytes. Restore trace command: `C:\SkullbonezCore\Debug\SKULLBONEZ_CORE.exe --renderer dx12 --vsync off --shadows off --scene SkullbonezData/scenes/physics_roll.scene.json --frames 120 --replay on --replay-seconds 1 --replay-restore-test --physics-diag C:\SkullbonezCore\Debug\replay_restore.physicsdiag.ndjson`.
+    Restore query: `tools\physics_query.bat Debug\replay_restore.physicsdiag.ndjson restore --limit 8`;
+    trace 54,912 bytes; SQLite cache 225,280 bytes; query output 967 bytes.
+    Total model-read SkullScope query output: 2,479 bytes. Prediction
+    determinism fingerprint `0x0165312C5422A5F1` matched across two runs (402
+    records, 73,021 points, 361 active frames); reports were 4,615 bytes each,
+    bounded stdout outputs were 60,290 bytes each.
 
 Stage 9 — Debug tooling & tests
 - [ ] 9.1 Overlay debug readout (record count/bytes/version churn).
