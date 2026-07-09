@@ -23,6 +23,8 @@ Glossary:
   Sleep island: Connected body group that may deactivate only as a unit.
   Underwater sleep lock: Sleep policy that keeps fully submerged balls dormant
     so buoyancy jitter does not repeatedly wake them.
+  X-macro field list: Preprocessor list invoked by several tiny visitors so
+    replay capture and restore use the same ordered state inventory.
   PhysicsScene: Step owner that supplies stores and handles model-order
     writeback after compact physics work finishes.
   Lane F: Fatal invariant lane for should-never-happen engine state.
@@ -819,6 +821,91 @@ void ReserveReplaySolverSnapshotVector( std::vector<T>& values, std::size_t requ
 
 } // namespace
 
+// Invariant: replay solver state fields live in these X-macro lists so capture
+// clear/reserve/copy and restore copy cannot silently drift apart when solver
+// state grows.
+#define SB_REPLAY_SOLVER_DIRECT_VECTOR_FIELDS( VISIT )                                                                 \
+    VISIT( timeRemaining, m_timeRemaining, "timeRemaining" )                                                           \
+    VISIT( sleepSupportedThisFrame, m_sleepSupportedThisFrame, "sleepSupportedThisFrame" )                             \
+    VISIT( sleepInhibitedThisFrame, m_sleepInhibitedThisFrame, "sleepInhibitedThisFrame" )                             \
+    VISIT( sleepState, m_sleepState, "sleepState" )                                                                    \
+    VISIT( sleepCounter, m_sleepCounter, "sleepCounter" )                                                              \
+    VISIT( underwaterSleepLocked, m_underwaterSleepLocked, "underwaterSleepLocked" )                                   \
+    VISIT( collisionVisualContacts, m_collisionVisualContacts, "collisionVisualContacts" )                             \
+    VISIT( sleepIslandVisualId, m_sleepIslandVisualId, "sleepIslandVisualId" )                                         \
+    VISIT( sleepIslandAssignedVisualId, m_sleepIslandAssignedVisualId, "sleepIslandAssignedVisualId" )                 \
+    VISIT( sleepSupportEdges, m_sleepSupportEdges, "sleepSupportEdges" )                                               \
+    VISIT( sleepIslandParent, m_sleepIslandParent, "sleepIslandParent" )                                               \
+    VISIT( sleepIslandRank, m_sleepIslandRank, "sleepIslandRank" )                                                     \
+    VISIT( sleepIslandHasAwake, m_sleepIslandHasAwake, "sleepIslandHasAwake" )                                         \
+    VISIT( sleepIslandHasSupportAnchor, m_sleepIslandHasSupportAnchor, "sleepIslandHasSupportAnchor" )                 \
+    VISIT( sleepIslandEligible, m_sleepIslandEligible, "sleepIslandEligible" )                                         \
+    VISIT( sleepIslandCanSleep, m_sleepIslandCanSleep, "sleepIslandCanSleep" )                                         \
+    VISIT( persistentContactCounts, m_persistentContactCounts, "persistentContactCounts" )                             \
+    VISIT( persistentRestingContactCounts, m_persistentRestingContactCounts, "persistentRestingContactCounts" )        \
+    VISIT( debugContacts, m_physicsDebugContacts, "debugContacts" )                                                    \
+    VISIT( pipelineTrace, m_physicsPipelineTrace, "pipelineTrace" )                                                    \
+    VISIT( collisionCellKeys, m_collisionCellKeys, "collisionCellKeys" )
+
+#define SB_REPLAY_SOLVER_TORNADO_VECTOR_FIELDS( VISIT )                                                                \
+    VISIT( tornadoCaptureSeconds, m_tornadoGameplay.CaptureSeconds(), "tornadoCaptureSeconds" )                        \
+    VISIT( tornadoEjectCooldownSeconds, m_tornadoGameplay.EjectCooldownSeconds(), "tornadoEjectCooldownSeconds" )
+
+#define SB_REPLAY_SOLVER_CONVERTED_VECTOR_FIELDS( VISIT )                                                              \
+    VISIT( persistentContacts, m_persistentContacts, "persistentContacts" )                                            \
+    VISIT( persistentContactCache, m_persistentContactCache, "persistentContactCache" )
+
+#define SB_REPLAY_SOLVER_VECTOR_FIELDS( VISIT )                                                                        \
+    SB_REPLAY_SOLVER_DIRECT_VECTOR_FIELDS( VISIT )                                                                     \
+    SB_REPLAY_SOLVER_TORNADO_VECTOR_FIELDS( VISIT )                                                                    \
+    SB_REPLAY_SOLVER_CONVERTED_VECTOR_FIELDS( VISIT )
+
+#define SB_REPLAY_PERSISTENT_CONTACT_SAMPLE_FIELDS( VISIT )                                                            \
+    VISIT( bodyA )                                                                                                     \
+    VISIT( bodyB )                                                                                                     \
+    VISIT( featureId )                                                                                                 \
+    VISIT( key )                                                                                                       \
+    VISIT( normal )                                                                                                    \
+    VISIT( tangent1 )                                                                                                  \
+    VISIT( tangent2 )                                                                                                  \
+    VISIT( rA )                                                                                                        \
+    VISIT( rB )                                                                                                        \
+    VISIT( penetration )                                                                                               \
+    VISIT( normalMass )                                                                                                \
+    VISIT( tangentMass1 )                                                                                              \
+    VISIT( tangentMass2 )                                                                                              \
+    VISIT( bias )                                                                                                      \
+    VISIT( frictionLimit )                                                                                             \
+    VISIT( accN )                                                                                                      \
+    VISIT( accT1 )                                                                                                     \
+    VISIT( accT2 )                                                                                                     \
+    VISIT( warmStarted )                                                                                               \
+    VISIT( isTerrain )                                                                                                 \
+    VISIT( supportsRestingPolicy )                                                                                     \
+    VISIT( allowsTangentFriction )                                                                                     \
+    VISIT( normalCoupledFriction )                                                                                     \
+    VISIT( inhibitsSleep )                                                                                             \
+    VISIT( manifoldPointCount )                                                                                        \
+    VISIT( terrainNormal )                                                                                             \
+    VISIT( terrainWarmStart )
+
+#define SB_REPLAY_CONTACT_CACHE_SAMPLE_FIELDS( VISIT )                                                                 \
+    VISIT( key )                                                                                                       \
+    VISIT( accN )                                                                                                      \
+    VISIT( accT1 )                                                                                                     \
+    VISIT( accT2 )
+
+#define SB_REPLAY_SOLVER_STATS_FIELDS( VISIT )                                                                         \
+    VISIT( rowCount )                                                                                                  \
+    VISIT( cachePreviousRows )                                                                                         \
+    VISIT( cacheHits )                                                                                                 \
+    VISIT( cacheMisses )                                                                                               \
+    VISIT( warmStartedRows )                                                                                           \
+    VISIT( positionCorrectionRows )                                                                                    \
+    VISIT( solverIterations )                                                                                          \
+    VISIT( positionCorrectionTotal )                                                                                   \
+    VISIT( positionCorrectionMax )
+
 
 PhysicsWorld::PhysicsWorld()
     : m_spatialGrid( DEFAULT_BROADPHASE_CELL ), m_seedSleepFrameCount( DEFAULT_PHYSICS_SLEEP_FRAMES )
@@ -938,31 +1025,9 @@ void PhysicsWorld::CaptureReplaySolverSnapshot( ReplaySolverWorldSnapshot& outSn
     // Runtime allocation policy: replay recorder slots pre-reserve these
     // payload vectors outside gameplay. Capture clears the retained slot in
     // place so solver replay does not discard capacity and reallocate per tick.
-    outSnapshot.timeRemaining.clear();
-    outSnapshot.sleepSupportedThisFrame.clear();
-    outSnapshot.sleepInhibitedThisFrame.clear();
-    outSnapshot.sleepState.clear();
-    outSnapshot.sleepCounter.clear();
-    outSnapshot.underwaterSleepLocked.clear();
-    outSnapshot.tornadoCaptureSeconds.clear();
-    outSnapshot.tornadoEjectCooldownSeconds.clear();
-    outSnapshot.collisionVisualContacts.clear();
-    outSnapshot.sleepIslandVisualId.clear();
-    outSnapshot.sleepIslandAssignedVisualId.clear();
-    outSnapshot.sleepSupportEdges.clear();
-    outSnapshot.sleepIslandParent.clear();
-    outSnapshot.sleepIslandRank.clear();
-    outSnapshot.sleepIslandHasAwake.clear();
-    outSnapshot.sleepIslandHasSupportAnchor.clear();
-    outSnapshot.sleepIslandEligible.clear();
-    outSnapshot.sleepIslandCanSleep.clear();
-    outSnapshot.persistentContacts.clear();
-    outSnapshot.persistentContactCache.clear();
-    outSnapshot.persistentContactCounts.clear();
-    outSnapshot.persistentRestingContactCounts.clear();
-    outSnapshot.debugContacts.clear();
-    outSnapshot.pipelineTrace.clear();
-    outSnapshot.collisionCellKeys.clear();
+#define CLEAR_REPLAY_SOLVER_VECTOR_FIELD( snapshotField, worldValues, label ) outSnapshot.snapshotField.clear();
+    SB_REPLAY_SOLVER_VECTOR_FIELDS( CLEAR_REPLAY_SOLVER_VECTOR_FIELD )
+#undef CLEAR_REPLAY_SOLVER_VECTOR_FIELD
     outSnapshot.solverStats = ReplaySolverStatsSample();
 
     outSnapshot.version = 2;
@@ -985,97 +1050,17 @@ void PhysicsWorld::CaptureReplaySolverSnapshot( ReplaySolverWorldSnapshot& outSn
         requestedSnapshotBytes += ReplaySolverSnapshotRequestedBytes( values, requestedCapacity );
         snapshotNeedsGrowth = snapshotNeedsGrowth || requestedCapacity > values.capacity();
     };
-    includeSnapshotReserve( outSnapshot.timeRemaining, m_timeRemaining.size() );
-    includeSnapshotReserve( outSnapshot.sleepSupportedThisFrame, m_sleepSupportedThisFrame.size() );
-    includeSnapshotReserve( outSnapshot.sleepInhibitedThisFrame, m_sleepInhibitedThisFrame.size() );
-    includeSnapshotReserve( outSnapshot.sleepState, m_sleepState.size() );
-    includeSnapshotReserve( outSnapshot.sleepCounter, m_sleepCounter.size() );
-    includeSnapshotReserve( outSnapshot.underwaterSleepLocked, m_underwaterSleepLocked.size() );
-    includeSnapshotReserve( outSnapshot.tornadoCaptureSeconds, m_tornadoGameplay.CaptureSeconds().size() );
-    includeSnapshotReserve( outSnapshot.tornadoEjectCooldownSeconds, m_tornadoGameplay.EjectCooldownSeconds().size() );
-    includeSnapshotReserve( outSnapshot.collisionVisualContacts, m_collisionVisualContacts.size() );
-    includeSnapshotReserve( outSnapshot.sleepIslandVisualId, m_sleepIslandVisualId.size() );
-    includeSnapshotReserve( outSnapshot.sleepIslandAssignedVisualId, m_sleepIslandAssignedVisualId.size() );
-    includeSnapshotReserve( outSnapshot.sleepSupportEdges, m_sleepSupportEdges.size() );
-    includeSnapshotReserve( outSnapshot.sleepIslandParent, m_sleepIslandParent.size() );
-    includeSnapshotReserve( outSnapshot.sleepIslandRank, m_sleepIslandRank.size() );
-    includeSnapshotReserve( outSnapshot.sleepIslandHasAwake, m_sleepIslandHasAwake.size() );
-    includeSnapshotReserve( outSnapshot.sleepIslandHasSupportAnchor, m_sleepIslandHasSupportAnchor.size() );
-    includeSnapshotReserve( outSnapshot.sleepIslandEligible, m_sleepIslandEligible.size() );
-    includeSnapshotReserve( outSnapshot.sleepIslandCanSleep, m_sleepIslandCanSleep.size() );
-    includeSnapshotReserve( outSnapshot.persistentContactCounts, m_persistentContactCounts.size() );
-    includeSnapshotReserve( outSnapshot.persistentRestingContactCounts, m_persistentRestingContactCounts.size() );
-    includeSnapshotReserve( outSnapshot.debugContacts, m_physicsDebugContacts.size() );
-    includeSnapshotReserve( outSnapshot.pipelineTrace, m_physicsPipelineTrace.size() );
-    includeSnapshotReserve( outSnapshot.collisionCellKeys, m_collisionCellKeys.size() );
-    includeSnapshotReserve( outSnapshot.persistentContacts, m_persistentContacts.size() );
-    includeSnapshotReserve( outSnapshot.persistentContactCache, m_persistentContactCache.size() );
+#define INCLUDE_REPLAY_SOLVER_VECTOR_RESERVE( snapshotField, worldValues, label )                                      \
+    includeSnapshotReserve( outSnapshot.snapshotField, worldValues.size() );
+    SB_REPLAY_SOLVER_VECTOR_FIELDS( INCLUDE_REPLAY_SOLVER_VECTOR_RESERVE )
+#undef INCLUDE_REPLAY_SOLVER_VECTOR_RESERVE
 
     const auto reserveSnapshotVectors = [&]()
     {
-        ReserveReplaySolverSnapshotVector( outSnapshot.timeRemaining, m_timeRemaining.size(), "timeRemaining" );
-        ReserveReplaySolverSnapshotVector( outSnapshot.sleepSupportedThisFrame,
-                                           m_sleepSupportedThisFrame.size(),
-                                           "sleepSupportedThisFrame" );
-        ReserveReplaySolverSnapshotVector( outSnapshot.sleepInhibitedThisFrame,
-                                           m_sleepInhibitedThisFrame.size(),
-                                           "sleepInhibitedThisFrame" );
-        ReserveReplaySolverSnapshotVector( outSnapshot.sleepState, m_sleepState.size(), "sleepState" );
-        ReserveReplaySolverSnapshotVector( outSnapshot.sleepCounter, m_sleepCounter.size(), "sleepCounter" );
-        ReserveReplaySolverSnapshotVector( outSnapshot.underwaterSleepLocked,
-                                           m_underwaterSleepLocked.size(),
-                                           "underwaterSleepLocked" );
-        ReserveReplaySolverSnapshotVector( outSnapshot.tornadoCaptureSeconds,
-                                           m_tornadoGameplay.CaptureSeconds().size(),
-                                           "tornadoCaptureSeconds" );
-        ReserveReplaySolverSnapshotVector( outSnapshot.tornadoEjectCooldownSeconds,
-                                           m_tornadoGameplay.EjectCooldownSeconds().size(),
-                                           "tornadoEjectCooldownSeconds" );
-        ReserveReplaySolverSnapshotVector( outSnapshot.collisionVisualContacts,
-                                           m_collisionVisualContacts.size(),
-                                           "collisionVisualContacts" );
-        ReserveReplaySolverSnapshotVector( outSnapshot.sleepIslandVisualId,
-                                           m_sleepIslandVisualId.size(),
-                                           "sleepIslandVisualId" );
-        ReserveReplaySolverSnapshotVector( outSnapshot.sleepIslandAssignedVisualId,
-                                           m_sleepIslandAssignedVisualId.size(),
-                                           "sleepIslandAssignedVisualId" );
-        ReserveReplaySolverSnapshotVector( outSnapshot.sleepSupportEdges,
-                                           m_sleepSupportEdges.size(),
-                                           "sleepSupportEdges" );
-        ReserveReplaySolverSnapshotVector( outSnapshot.sleepIslandParent,
-                                           m_sleepIslandParent.size(),
-                                           "sleepIslandParent" );
-        ReserveReplaySolverSnapshotVector( outSnapshot.sleepIslandRank, m_sleepIslandRank.size(), "sleepIslandRank" );
-        ReserveReplaySolverSnapshotVector( outSnapshot.sleepIslandHasAwake,
-                                           m_sleepIslandHasAwake.size(),
-                                           "sleepIslandHasAwake" );
-        ReserveReplaySolverSnapshotVector( outSnapshot.sleepIslandHasSupportAnchor,
-                                           m_sleepIslandHasSupportAnchor.size(),
-                                           "sleepIslandHasSupportAnchor" );
-        ReserveReplaySolverSnapshotVector( outSnapshot.sleepIslandEligible,
-                                           m_sleepIslandEligible.size(),
-                                           "sleepIslandEligible" );
-        ReserveReplaySolverSnapshotVector( outSnapshot.sleepIslandCanSleep,
-                                           m_sleepIslandCanSleep.size(),
-                                           "sleepIslandCanSleep" );
-        ReserveReplaySolverSnapshotVector( outSnapshot.persistentContactCounts,
-                                           m_persistentContactCounts.size(),
-                                           "persistentContactCounts" );
-        ReserveReplaySolverSnapshotVector( outSnapshot.persistentRestingContactCounts,
-                                           m_persistentRestingContactCounts.size(),
-                                           "persistentRestingContactCounts" );
-        ReserveReplaySolverSnapshotVector( outSnapshot.debugContacts, m_physicsDebugContacts.size(), "debugContacts" );
-        ReserveReplaySolverSnapshotVector( outSnapshot.pipelineTrace, m_physicsPipelineTrace.size(), "pipelineTrace" );
-        ReserveReplaySolverSnapshotVector( outSnapshot.collisionCellKeys,
-                                           m_collisionCellKeys.size(),
-                                           "collisionCellKeys" );
-        ReserveReplaySolverSnapshotVector( outSnapshot.persistentContacts,
-                                           m_persistentContacts.size(),
-                                           "persistentContacts" );
-        ReserveReplaySolverSnapshotVector( outSnapshot.persistentContactCache,
-                                           m_persistentContactCache.size(),
-                                           "persistentContactCache" );
+#define RESERVE_REPLAY_SOLVER_VECTOR_FIELD( snapshotField, worldValues, label )                                        \
+    ReserveReplaySolverSnapshotVector( outSnapshot.snapshotField, worldValues.size(), label );
+        SB_REPLAY_SOLVER_VECTOR_FIELDS( RESERVE_REPLAY_SOLVER_VECTOR_FIELD )
+#undef RESERVE_REPLAY_SOLVER_VECTOR_FIELD
     };
     if ( snapshotNeedsGrowth )
     {
@@ -1111,82 +1096,32 @@ void PhysicsWorld::CaptureReplaySolverSnapshot( ReplaySolverWorldSnapshot& outSn
     {
         reserveSnapshotVectors();
     }
-    outSnapshot.timeRemaining = m_timeRemaining;
-    outSnapshot.sleepSupportedThisFrame = m_sleepSupportedThisFrame;
-    outSnapshot.sleepInhibitedThisFrame = m_sleepInhibitedThisFrame;
-    outSnapshot.sleepState = m_sleepState;
-    outSnapshot.sleepCounter = m_sleepCounter;
-    outSnapshot.underwaterSleepLocked = m_underwaterSleepLocked;
-    outSnapshot.tornadoCaptureSeconds = m_tornadoGameplay.CaptureSeconds();
-    outSnapshot.tornadoEjectCooldownSeconds = m_tornadoGameplay.EjectCooldownSeconds();
-    outSnapshot.collisionVisualContacts = m_collisionVisualContacts;
-    outSnapshot.sleepIslandVisualId = m_sleepIslandVisualId;
-    outSnapshot.sleepIslandAssignedVisualId = m_sleepIslandAssignedVisualId;
-    outSnapshot.sleepSupportEdges = m_sleepSupportEdges;
-    outSnapshot.sleepIslandParent = m_sleepIslandParent;
-    outSnapshot.sleepIslandRank = m_sleepIslandRank;
-    outSnapshot.sleepIslandHasAwake = m_sleepIslandHasAwake;
-    outSnapshot.sleepIslandHasSupportAnchor = m_sleepIslandHasSupportAnchor;
-    outSnapshot.sleepIslandEligible = m_sleepIslandEligible;
-    outSnapshot.sleepIslandCanSleep = m_sleepIslandCanSleep;
-    outSnapshot.persistentContactCounts = m_persistentContactCounts;
-    outSnapshot.persistentRestingContactCounts = m_persistentRestingContactCounts;
-    outSnapshot.debugContacts = m_physicsDebugContacts;
-    outSnapshot.pipelineTrace = m_physicsPipelineTrace;
-    outSnapshot.collisionCellKeys = m_collisionCellKeys;
+#define CAPTURE_REPLAY_SOLVER_VECTOR_FIELD( snapshotField, worldValues, label ) outSnapshot.snapshotField = worldValues;
+    SB_REPLAY_SOLVER_DIRECT_VECTOR_FIELDS( CAPTURE_REPLAY_SOLVER_VECTOR_FIELD )
+    SB_REPLAY_SOLVER_TORNADO_VECTOR_FIELDS( CAPTURE_REPLAY_SOLVER_VECTOR_FIELD )
+#undef CAPTURE_REPLAY_SOLVER_VECTOR_FIELD
 
     for ( const PersistentContact& contact : m_persistentContacts )
     {
         ReplaySolverPersistentContactSample sample;
-        sample.bodyA = contact.bodyA;
-        sample.bodyB = contact.bodyB;
-        sample.featureId = contact.featureId;
-        sample.key = contact.key;
-        sample.normal = contact.normal;
-        sample.tangent1 = contact.tangent1;
-        sample.tangent2 = contact.tangent2;
-        sample.rA = contact.rA;
-        sample.rB = contact.rB;
-        sample.penetration = contact.penetration;
-        sample.normalMass = contact.normalMass;
-        sample.tangentMass1 = contact.tangentMass1;
-        sample.tangentMass2 = contact.tangentMass2;
-        sample.bias = contact.bias;
-        sample.frictionLimit = contact.frictionLimit;
-        sample.accN = contact.accN;
-        sample.accT1 = contact.accT1;
-        sample.accT2 = contact.accT2;
-        sample.warmStarted = contact.warmStarted;
-        sample.isTerrain = contact.isTerrain;
-        sample.supportsRestingPolicy = contact.supportsRestingPolicy;
-        sample.allowsTangentFriction = contact.allowsTangentFriction;
-        sample.normalCoupledFriction = contact.normalCoupledFriction;
-        sample.inhibitsSleep = contact.inhibitsSleep;
-        sample.manifoldPointCount = contact.manifoldPointCount;
-        sample.terrainNormal = contact.terrainNormal;
-        sample.terrainWarmStart = contact.terrainWarmStart;
+#define CAPTURE_REPLAY_CONTACT_SAMPLE_FIELD( field ) sample.field = contact.field;
+        SB_REPLAY_PERSISTENT_CONTACT_SAMPLE_FIELDS( CAPTURE_REPLAY_CONTACT_SAMPLE_FIELD )
+#undef CAPTURE_REPLAY_CONTACT_SAMPLE_FIELD
         outSnapshot.persistentContacts.push_back( sample );
     }
 
     for ( const PersistentContactCacheEntry& cache : m_persistentContactCache )
     {
         ReplaySolverContactCacheSample sample;
-        sample.key = cache.key;
-        sample.accN = cache.accN;
-        sample.accT1 = cache.accT1;
-        sample.accT2 = cache.accT2;
+#define CAPTURE_REPLAY_CONTACT_CACHE_FIELD( field ) sample.field = cache.field;
+        SB_REPLAY_CONTACT_CACHE_SAMPLE_FIELDS( CAPTURE_REPLAY_CONTACT_CACHE_FIELD )
+#undef CAPTURE_REPLAY_CONTACT_CACHE_FIELD
         outSnapshot.persistentContactCache.push_back( sample );
     }
 
-    outSnapshot.solverStats.rowCount = m_persistentContactSolverStats.rowCount;
-    outSnapshot.solverStats.cachePreviousRows = m_persistentContactSolverStats.cachePreviousRows;
-    outSnapshot.solverStats.cacheHits = m_persistentContactSolverStats.cacheHits;
-    outSnapshot.solverStats.cacheMisses = m_persistentContactSolverStats.cacheMisses;
-    outSnapshot.solverStats.warmStartedRows = m_persistentContactSolverStats.warmStartedRows;
-    outSnapshot.solverStats.positionCorrectionRows = m_persistentContactSolverStats.positionCorrectionRows;
-    outSnapshot.solverStats.solverIterations = m_persistentContactSolverStats.solverIterations;
-    outSnapshot.solverStats.positionCorrectionTotal = m_persistentContactSolverStats.positionCorrectionTotal;
-    outSnapshot.solverStats.positionCorrectionMax = m_persistentContactSolverStats.positionCorrectionMax;
+#define CAPTURE_REPLAY_SOLVER_STAT_FIELD( field ) outSnapshot.solverStats.field = m_persistentContactSolverStats.field;
+    SB_REPLAY_SOLVER_STATS_FIELDS( CAPTURE_REPLAY_SOLVER_STAT_FIELD )
+#undef CAPTURE_REPLAY_SOLVER_STAT_FIELD
 }
 
 
@@ -1197,30 +1132,12 @@ bool PhysicsWorld::RestoreReplaySolverSnapshot( const ReplaySolverWorldSnapshot&
         return false;
     }
 
-    m_timeRemaining = snapshot.timeRemaining;
-    m_sleepSupportedThisFrame = snapshot.sleepSupportedThisFrame;
-    m_sleepInhibitedThisFrame = snapshot.sleepInhibitedThisFrame;
-    m_sleepState = snapshot.sleepState;
-    m_sleepCounter = snapshot.sleepCounter;
-    m_underwaterSleepLocked = snapshot.underwaterSleepLocked;
-    m_collisionVisualContacts = snapshot.collisionVisualContacts;
-    m_sleepIslandVisualId = snapshot.sleepIslandVisualId;
-    m_sleepIslandAssignedVisualId = snapshot.sleepIslandAssignedVisualId;
+#define RESTORE_REPLAY_SOLVER_VECTOR_FIELD( snapshotField, worldValues, label ) worldValues = snapshot.snapshotField;
+    SB_REPLAY_SOLVER_DIRECT_VECTOR_FIELDS( RESTORE_REPLAY_SOLVER_VECTOR_FIELD )
+#undef RESTORE_REPLAY_SOLVER_VECTOR_FIELD
     m_nextSleepIslandVisualId = snapshot.nextSleepIslandVisualId;
     m_sleepEnabled = snapshot.sleepEnabled;
     m_collisionVisualFrameActive = snapshot.collisionVisualFrameActive;
-    m_sleepSupportEdges = snapshot.sleepSupportEdges;
-    m_sleepIslandParent = snapshot.sleepIslandParent;
-    m_sleepIslandRank = snapshot.sleepIslandRank;
-    m_sleepIslandHasAwake = snapshot.sleepIslandHasAwake;
-    m_sleepIslandHasSupportAnchor = snapshot.sleepIslandHasSupportAnchor;
-    m_sleepIslandEligible = snapshot.sleepIslandEligible;
-    m_sleepIslandCanSleep = snapshot.sleepIslandCanSleep;
-    m_persistentContactCounts = snapshot.persistentContactCounts;
-    m_persistentRestingContactCounts = snapshot.persistentRestingContactCounts;
-    m_physicsDebugContacts = snapshot.debugContacts;
-    m_physicsPipelineTrace = snapshot.pipelineTrace;
-    m_collisionCellKeys = snapshot.collisionCellKeys;
     m_tornadoGameplay.SetReplayState( snapshot.tornadoCaptureSeconds,
                                       snapshot.tornadoEjectCooldownSeconds,
                                       snapshot.tornadoConfig,
@@ -1232,33 +1149,9 @@ bool PhysicsWorld::RestoreReplaySolverSnapshot( const ReplaySolverWorldSnapshot&
     for ( const ReplaySolverPersistentContactSample& sample : snapshot.persistentContacts )
     {
         PersistentContact contact;
-        contact.bodyA = sample.bodyA;
-        contact.bodyB = sample.bodyB;
-        contact.featureId = sample.featureId;
-        contact.key = sample.key;
-        contact.normal = sample.normal;
-        contact.tangent1 = sample.tangent1;
-        contact.tangent2 = sample.tangent2;
-        contact.rA = sample.rA;
-        contact.rB = sample.rB;
-        contact.penetration = sample.penetration;
-        contact.normalMass = sample.normalMass;
-        contact.tangentMass1 = sample.tangentMass1;
-        contact.tangentMass2 = sample.tangentMass2;
-        contact.bias = sample.bias;
-        contact.frictionLimit = sample.frictionLimit;
-        contact.accN = sample.accN;
-        contact.accT1 = sample.accT1;
-        contact.accT2 = sample.accT2;
-        contact.warmStarted = sample.warmStarted;
-        contact.isTerrain = sample.isTerrain;
-        contact.supportsRestingPolicy = sample.supportsRestingPolicy;
-        contact.allowsTangentFriction = sample.allowsTangentFriction;
-        contact.normalCoupledFriction = sample.normalCoupledFriction;
-        contact.inhibitsSleep = sample.inhibitsSleep;
-        contact.manifoldPointCount = sample.manifoldPointCount;
-        contact.terrainNormal = sample.terrainNormal;
-        contact.terrainWarmStart = sample.terrainWarmStart;
+#define RESTORE_REPLAY_CONTACT_SAMPLE_FIELD( field ) contact.field = sample.field;
+        SB_REPLAY_PERSISTENT_CONTACT_SAMPLE_FIELDS( RESTORE_REPLAY_CONTACT_SAMPLE_FIELD )
+#undef RESTORE_REPLAY_CONTACT_SAMPLE_FIELD
         m_persistentContacts.push_back( contact );
     }
 
@@ -1267,23 +1160,16 @@ bool PhysicsWorld::RestoreReplaySolverSnapshot( const ReplaySolverWorldSnapshot&
     for ( const ReplaySolverContactCacheSample& sample : snapshot.persistentContactCache )
     {
         PersistentContactCacheEntry cache;
-        cache.key = sample.key;
-        cache.accN = sample.accN;
-        cache.accT1 = sample.accT1;
-        cache.accT2 = sample.accT2;
+#define RESTORE_REPLAY_CONTACT_CACHE_FIELD( field ) cache.field = sample.field;
+        SB_REPLAY_CONTACT_CACHE_SAMPLE_FIELDS( RESTORE_REPLAY_CONTACT_CACHE_FIELD )
+#undef RESTORE_REPLAY_CONTACT_CACHE_FIELD
         m_persistentContactCache.push_back( cache );
     }
 
     m_persistentContactSolverStats = PersistentContactSolverStats();
-    m_persistentContactSolverStats.rowCount = snapshot.solverStats.rowCount;
-    m_persistentContactSolverStats.cachePreviousRows = snapshot.solverStats.cachePreviousRows;
-    m_persistentContactSolverStats.cacheHits = snapshot.solverStats.cacheHits;
-    m_persistentContactSolverStats.cacheMisses = snapshot.solverStats.cacheMisses;
-    m_persistentContactSolverStats.warmStartedRows = snapshot.solverStats.warmStartedRows;
-    m_persistentContactSolverStats.positionCorrectionRows = snapshot.solverStats.positionCorrectionRows;
-    m_persistentContactSolverStats.solverIterations = snapshot.solverStats.solverIterations;
-    m_persistentContactSolverStats.positionCorrectionTotal = snapshot.solverStats.positionCorrectionTotal;
-    m_persistentContactSolverStats.positionCorrectionMax = snapshot.solverStats.positionCorrectionMax;
+#define RESTORE_REPLAY_SOLVER_STAT_FIELD( field ) m_persistentContactSolverStats.field = snapshot.solverStats.field;
+    SB_REPLAY_SOLVER_STATS_FIELDS( RESTORE_REPLAY_SOLVER_STAT_FIELD )
+#undef RESTORE_REPLAY_SOLVER_STAT_FIELD
 
     m_candidatePairs.clear();
     m_solverBodies.clear();
@@ -1299,6 +1185,14 @@ bool PhysicsWorld::RestoreReplaySolverSnapshot( const ReplaySolverWorldSnapshot&
     m_spatialGrid.Clear();
     return true;
 }
+
+#undef SB_REPLAY_SOLVER_DIRECT_VECTOR_FIELDS
+#undef SB_REPLAY_SOLVER_TORNADO_VECTOR_FIELDS
+#undef SB_REPLAY_SOLVER_CONVERTED_VECTOR_FIELDS
+#undef SB_REPLAY_SOLVER_VECTOR_FIELDS
+#undef SB_REPLAY_PERSISTENT_CONTACT_SAMPLE_FIELDS
+#undef SB_REPLAY_CONTACT_CACHE_SAMPLE_FIELDS
+#undef SB_REPLAY_SOLVER_STATS_FIELDS
 
 
 void PhysicsWorld::EnsureCollisionVisualBuffers( int modelCount )
@@ -3448,6 +3342,28 @@ void PhysicsWorld::RunSleepIslandStage( PhysicsBodyStore& bodyStore,
         m_sleepIslandAssignedVisualId.assign( modelCount, 0 );
         return;
     }
+
+    ApplySleepIslandTransitions( bodyStore,
+                                 colliderStore,
+                                 worldForces,
+                                 bodyRecords,
+                                 sleepIslands,
+                                 modelCount,
+                                 sleepFrames );
+}
+
+
+void PhysicsWorld::ApplySleepIslandTransitions( PhysicsBodyStore& bodyStore,
+                                                const ColliderStore& colliderStore,
+                                                const PhysicsWorldForces& worldForces,
+                                                PhysicsBodyRecordList& bodyRecords,
+                                                DisjointSet& sleepIslands,
+                                                int modelCount,
+                                                uint8_t sleepFrames )
+{
+    // Invariant: RunSleepIslandStage has already populated the island eligibility
+    // and anchor arrays. This helper only applies counters, visual ids, and the
+    // final body sleep transition.
 
     for ( int x = 0; x < modelCount; ++x )
     {

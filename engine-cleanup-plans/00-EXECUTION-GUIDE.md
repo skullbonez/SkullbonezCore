@@ -109,7 +109,12 @@ fully `[x]`.
 - [ ] 6. Plan 11 — render abstraction leaks closed
 - [x] 7. Plan 01 — Run decomposed
 - [x] 8. Plan 09 — replay right-sized
-- [ ] 9. Plan 02 rest — solver decomposed
+- [x] 9. Plan 02 rest — solver decomposed
+  Note (2026-07-09): Phase 1, Phase 2, and Phase 3 are complete. Final Plan 02
+  gates passed: `validate_physics`, `validate_replay_scrub`, and
+  `validate_physics_deep`; logs are listed in
+  `02-physicsworld-solver-decomposition.md` and
+  `HANDOFF-2026-07-09-PLAN02-REPLAY-SNAPSHOT.md`.
 - [ ] 10. Plan 04 — error handling reconciled
 - [x] C1. Plan 05 — behavioral coverage added (continuous)
   Note (2026-07-09): Phase 0 coverage map, Phase 1 input-binding tests, Phase

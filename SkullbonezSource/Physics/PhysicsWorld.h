@@ -79,6 +79,7 @@ struct PhysicsWorldForces;
 struct PersistentContactSolverSideEffects;
 struct PersistentContactSolverContext;
 struct SleepSupportPropagationContext;
+class DisjointSet;
 
 struct PersistentContactSolverSideEffects
 {
@@ -278,6 +279,13 @@ class PhysicsWorld
                               float sleepLinearSq,
                               float sleepAngularSq,
                               uint8_t sleepFrames );
+    void ApplySleepIslandTransitions( PhysicsBodyStore& bodyStore,
+                                      const ColliderStore& colliderStore,
+                                      const PhysicsWorldForces& worldForces,
+                                      PhysicsBodyRecordList& bodyRecords,
+                                      DisjointSet& sleepIslands,
+                                      int modelCount,
+                                      uint8_t sleepFrames );
 
     enum class ObjectNarrowphaseEventKind : uint8_t
     {
