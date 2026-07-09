@@ -185,6 +185,23 @@ byte-exact gated.
   - Required gate passed: `tools\validate_full.bat` exited 0 in
     00:00:58.5526692. Log:
     `Agentic/Reports/validate_full_plan04_renderbackend_graph_fatals_20260709.log`.
+
+  Progress 2026-07-09, CameraCollection fatal-invariant sub-slice:
+  - Converted eight F sites from `throw std::runtime_error` to `SB_FATAL`:
+    `CameraCollection.cpp` rows 224 through 231 from the Step 0.1 inventory.
+    The replacements cover fixed camera-slot capacity, selected-camera
+    preconditions, missing tween terrain state, and missing camera-hash lookup
+    invariants.
+  - Strict anchored source throw statement inventory now reports 164 sites,
+    down from the previous sub-slice count of 172. `SB_FATAL` macro invocations
+    now report 120 via `rg -n "SB_FATAL\s*\(" SkullbonezSource`.
+  - Comment-style audit scope:
+    `SkullbonezSource/Runtime/CameraCollection.cpp`; checked 1, deferred 0.
+    The existing learning header already covers the camera-slot, selected-pose,
+    and render-pose invariants touched by this slice.
+  - Required gate passed: `tools\validate_full.bat` exited 0 in
+    00:00:55.0646955. Log:
+    `Agentic/Reports/validate_full_plan04_cameracollection_fatals_20260709.log`.
 - [ ] **2.1** Convert **P** sites (replay/interaction probes) to the
   `FailAutomation(...)` channel with `ok=false` + message. Gate: `validate_full`
   + replay scrub. Commit.
