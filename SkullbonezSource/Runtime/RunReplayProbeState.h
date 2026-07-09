@@ -31,6 +31,10 @@ Related:
 */
 #pragma once
 
+#include "../Core/SbResult.h"
+
+#include <cstring>
+
 namespace SkullbonezCore
 {
 namespace Basics
@@ -72,6 +76,37 @@ struct RunReplayProbeFailureState
 
 struct RunReplayProbeState
 {
+    void RecordFailure( const SbResult& result )
+    {
+        if ( result.ok || failure.failed )
+        {
+            return;
+        }
+
+        const char* failureOwner =
+            result.error.owner && result.error.owner[0] != '\0' ? result.error.owner : "ReplayProbe";
+        const char* failureMessage =
+            result.error.message[0] != '\0' ? result.error.message : "replay probe failed without a failure message";
+        failure.failed = true;
+        strcpy_s( failure.owner, sizeof( failure.owner ), failureOwner );
+        strcpy_s( failure.message, sizeof( failure.message ), failureMessage );
+    }
+
+    bool Failed() const
+    {
+        return failure.failed;
+    }
+
+    const char* FailureOwner() const
+    {
+        return failure.owner[0] != '\0' ? failure.owner : "ReplayProbe";
+    }
+
+    const char* FailureMessage() const
+    {
+        return failure.message[0] != '\0' ? failure.message : "replay probe failed";
+    }
+
     RunReplayScrubProbeState scrub;
     RunReplayRestoreProbeState restore;
     RunReplaySaveProbeState save;

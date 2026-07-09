@@ -33,6 +33,7 @@ Related:
 
 #include "../Core/Common.h"
 #include "../Core/Config.h"
+#include "../Core/Log.h"
 #include "../GameObjects/GameModelCollection.h"
 #include "../Core/Profiler.h"
 #include "Audio/ContactAudioService.h"

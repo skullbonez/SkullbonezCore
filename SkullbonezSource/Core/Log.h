@@ -25,6 +25,8 @@ Related:
 #pragma once
 
 
+#include <cstdarg>
+
 #ifdef _DEBUG
 #include <cstdio>
 #include <unordered_map>
@@ -45,7 +47,7 @@ namespace Basics
     In Release builds every method is an inline no-op and the class has no data members,
     so the compiler eliminates all call sites completely.
 
-    Usage (from anywhere — Log() is injected into Common.h):
+    Usage (include Log.h in each file that writes diagnostics):
 
         Log().Writef( "Debug/physics.csv", "terrain,%d,%.2f,%.2f\n", frame, x, y );
         Log().WriteEventf( "scene_started index=%d path=\"%s\"", index, path );
@@ -62,6 +64,9 @@ class EngineLog
     static EngineLog& Get();
 
     void Writef( const char* fileName, const char* fmt, ... );
+    // Caller contract: forwards one active va_list without taking ownership of
+    // its lifetime; the caller still owns va_end.
+    void WriteVf( const char* fileName, const char* fmt, va_list args );
     void WriteEventf( const char* fmt, ... );
     void FlushAll();
 
@@ -80,3 +85,10 @@ class EngineLog
 };
 } // namespace Basics
 } // namespace SkullbonezCore
+
+// Why: Log() stays as a tiny convenience wrapper, but callers now include this
+// owner header directly instead of receiving logging through Common.h.
+inline SkullbonezCore::Basics::EngineLog& Log()
+{
+    return SkullbonezCore::Basics::EngineLog::Get();
+}

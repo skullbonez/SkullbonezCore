@@ -9,6 +9,11 @@ Mental model:
   when that state changes.
 
 Glossary:
+  Scene collection: Vector-backed parsed scene array for cameras, bodies,
+    constraints, or validation expectations that authored setup later replays
+    into runtime owners.
+  Lane F fatal: Should-never-happen caller/scene-state invariant reported with
+    owner diagnostics before process termination.
   Lane R result: Recoverable load outcome carrying owner/message diagnostics
     for authored scene/style data failures.
   Validation gate: Repository script that proves a class of changes before
@@ -16,7 +21,10 @@ Glossary:
 
 Invariants:
   - Command-line and scene JSON spellings are user-facing compatibility
-  surface.
+    surface.
+  - Scene collection getters require indices produced from the matching count
+    API; out-of-range access means authored setup and parsed scene state have
+    diverged.
 
 Related:
   - SkullbonezSource/Scene/TestScene.h
@@ -25,6 +33,8 @@ Related:
 */
 #include "TestScene.h"
 
+#include "../Core/FatalError.h"
+
 #include <exception>
 
 
@@ -32,6 +42,24 @@ using namespace SkullbonezCore::Basics;
 
 namespace
 {
+[[noreturn]] void
+FatalSceneIndexOutOfRange( const char* collectionName, const char* functionName, int index, int count )
+{
+    // Concept: parsed scene getters are Lane F once parsing has succeeded.
+    //
+    // Scene JSON syntax/data failures are Lane R at TryLoadFromFile, but an
+    // internal caller asking for an index outside the paired count is a scene
+    // setup invariant failure. Fatal diagnostics keep the owner and collection
+    // visible without unwinding through runtime setup.
+    SB_FATAL( "TestScene",
+              "%s index out of range in %s. index=%d count=%d",
+              collectionName,
+              functionName,
+              index,
+              count );
+}
+
+
 SbResult
 TryLoadSceneFile( const char* path, SkullbonezCore::Assets::AssetContext assets, bool styleOnly, TestScene& outScene )
 {
@@ -443,7 +471,7 @@ const SceneCamera& TestScene::GetCamera( int index ) const
 {
     if ( index < 0 || index >= static_cast<int>( m_cameras.size() ) )
     {
-        throw std::runtime_error( "Camera index out of range.  (TestScene::GetCamera)" );
+        FatalSceneIndexOutOfRange( "Camera", "TestScene::GetCamera", index, static_cast<int>( m_cameras.size() ) );
     }
 
     return m_cameras[index];
@@ -454,7 +482,7 @@ const SceneBall& TestScene::GetBall( int index ) const
 {
     if ( index < 0 || index >= static_cast<int>( m_balls.size() ) )
     {
-        throw std::runtime_error( "Ball index out of range.  (TestScene::GetBall)" );
+        FatalSceneIndexOutOfRange( "Ball", "TestScene::GetBall", index, static_cast<int>( m_balls.size() ) );
     }
 
     return m_balls[index];
@@ -471,7 +499,10 @@ const SceneBallState& TestScene::GetBallState( int index ) const
 {
     if ( index < 0 || index >= static_cast<int>( m_ballStates.size() ) )
     {
-        throw std::runtime_error( "BallState index out of range.  (TestScene::GetBallState)" );
+        FatalSceneIndexOutOfRange( "BallState",
+                                   "TestScene::GetBallState",
+                                   index,
+                                   static_cast<int>( m_ballStates.size() ) );
     }
 
     return m_ballStates[index];
@@ -488,7 +519,10 @@ const SceneBoxState& TestScene::GetBoxState( int index ) const
 {
     if ( index < 0 || index >= static_cast<int>( m_boxStates.size() ) )
     {
-        throw std::runtime_error( "BoxState index out of range.  (TestScene::GetBoxState)" );
+        FatalSceneIndexOutOfRange( "BoxState",
+                                   "TestScene::GetBoxState",
+                                   index,
+                                   static_cast<int>( m_boxStates.size() ) );
     }
 
     return m_boxStates[index];
@@ -505,7 +539,7 @@ const SceneBox& TestScene::GetBox( int index ) const
 {
     if ( index < 0 || index >= static_cast<int>( m_boxes.size() ) )
     {
-        throw std::runtime_error( "Box index out of range.  (TestScene::GetBox)" );
+        FatalSceneIndexOutOfRange( "Box", "TestScene::GetBox", index, static_cast<int>( m_boxes.size() ) );
     }
 
     return m_boxes[index];
@@ -522,7 +556,10 @@ const SceneConvexHull& TestScene::GetConvexHull( int index ) const
 {
     if ( index < 0 || index >= static_cast<int>( m_convexHulls.size() ) )
     {
-        throw std::runtime_error( "ConvexHull index out of range.  (TestScene::GetConvexHull)" );
+        FatalSceneIndexOutOfRange( "ConvexHull",
+                                   "TestScene::GetConvexHull",
+                                   index,
+                                   static_cast<int>( m_convexHulls.size() ) );
     }
 
     return m_convexHulls[index];
@@ -539,7 +576,10 @@ const SceneConvexHullState& TestScene::GetConvexHullState( int index ) const
 {
     if ( index < 0 || index >= static_cast<int>( m_convexHullStates.size() ) )
     {
-        throw std::runtime_error( "ConvexHullState index out of range.  (TestScene::GetConvexHullState)" );
+        FatalSceneIndexOutOfRange( "ConvexHullState",
+                                   "TestScene::GetConvexHullState",
+                                   index,
+                                   static_cast<int>( m_convexHullStates.size() ) );
     }
 
     return m_convexHullStates[index];
@@ -556,7 +596,7 @@ const SceneRagdoll& TestScene::GetRagdoll( int index ) const
 {
     if ( index < 0 || index >= static_cast<int>( m_ragdolls.size() ) )
     {
-        throw std::runtime_error( "Ragdoll index out of range.  (TestScene::GetRagdoll)" );
+        FatalSceneIndexOutOfRange( "Ragdoll", "TestScene::GetRagdoll", index, static_cast<int>( m_ragdolls.size() ) );
     }
 
     return m_ragdolls[index];
@@ -573,7 +613,10 @@ const ScenePointJointConstraint& TestScene::GetPointJointConstraint( int index )
 {
     if ( index < 0 || index >= static_cast<int>( m_pointJointConstraints.size() ) )
     {
-        throw std::runtime_error( "PointJointConstraint index out of range.  (TestScene::GetPointJointConstraint)" );
+        FatalSceneIndexOutOfRange( "PointJointConstraint",
+                                   "TestScene::GetPointJointConstraint",
+                                   index,
+                                   static_cast<int>( m_pointJointConstraints.size() ) );
     }
 
     return m_pointJointConstraints[index];
@@ -590,7 +633,10 @@ const SceneRequiredContact& TestScene::GetRequiredContact( int index ) const
 {
     if ( index < 0 || index >= static_cast<int>( m_requiredContacts.size() ) )
     {
-        throw std::runtime_error( "RequiredContact index out of range.  (TestScene::GetRequiredContact)" );
+        FatalSceneIndexOutOfRange( "RequiredContact",
+                                   "TestScene::GetRequiredContact",
+                                   index,
+                                   static_cast<int>( m_requiredContacts.size() ) );
     }
 
     return m_requiredContacts[index];
@@ -607,8 +653,10 @@ const SceneRequiredBroadphaseXCells& TestScene::GetRequiredBroadphaseXCell( int 
 {
     if ( index < 0 || index >= static_cast<int>( m_requiredBroadphaseXCells.size() ) )
     {
-        throw std::runtime_error(
-            "RequiredBroadphaseXCell index out of range.  (TestScene::GetRequiredBroadphaseXCell)" );
+        FatalSceneIndexOutOfRange( "RequiredBroadphaseXCell",
+                                   "TestScene::GetRequiredBroadphaseXCell",
+                                   index,
+                                   static_cast<int>( m_requiredBroadphaseXCells.size() ) );
     }
 
     return m_requiredBroadphaseXCells[index];
@@ -625,8 +673,10 @@ const SceneObjectMaterialOverride& TestScene::GetObjectMaterialOverride( int ind
 {
     if ( index < 0 || index >= static_cast<int>( m_objectMaterials.size() ) )
     {
-        throw std::runtime_error(
-            "Object material override index out of range.  (TestScene::GetObjectMaterialOverride)" );
+        FatalSceneIndexOutOfRange( "ObjectMaterialOverride",
+                                   "TestScene::GetObjectMaterialOverride",
+                                   index,
+                                   static_cast<int>( m_objectMaterials.size() ) );
     }
 
     return m_objectMaterials[index];

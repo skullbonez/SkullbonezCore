@@ -12,6 +12,8 @@ Glossary:
   Descriptor: Small binding record that tells a renderer how to interpret a
   resource.
   Back buffer: Swap-chain image that will be presented to the window.
+  Lane R result: Recoverable device/readback failure returned to screenshot
+    automation instead of throwing through the render backend.
 
 Invariants:
   - DX12 object lifetime, resource states, descriptor rows, and fence ordering
@@ -26,6 +28,7 @@ Related:
 #include "MeshDX12.h"
 #include "FramebufferDX12.h"
 #include "../RenderGraph.h"
+#include "../../Core/Log.h"
 #include "../../Core/PlatformProfiler.h"
 #include <stdexcept>
 #include <cstdio>
@@ -41,6 +44,7 @@ Related:
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Rendering;
 using Microsoft::WRL::ComPtr;
+using SkullbonezCore::Basics::SbResult;
 
 
 // --- Helpers ---
@@ -55,42 +59,31 @@ static void ReportDX12DescriptorHeapExhausted( const char* heapName, UINT nextIn
     Log().FlushAll();
 }
 
-static inline void ThrowIfFailed( HRESULT hr, const char* msg )
-{
-    if ( FAILED( hr ) )
-    {
-        throw std::runtime_error( msg );
-    }
-}
-
 // --- RenderBackendDX12 Readback methods ---
 
 
-std::vector<uint8_t> RenderBackendDX12::CaptureBackbuffer( int& outWidth, int& outHeight )
+SbResult RenderBackendDX12::CaptureBackbuffer( std::vector<uint8_t>& outPixels, int& outWidth, int& outHeight )
 {
+    outPixels.clear();
     EnsureCommandListOpen();
     outWidth = m_width;
     outHeight = m_height;
 
-    // F3 screenshots are taken in input handling before Clear()/Render, so the backbuffer is
-    // usually still in PRESENT state at this point. Scene-driven captures can happen after render
-    // where the backbuffer is in RENDER_TARGET state. Preserve whichever state we're currently in.
-    const RenderGraphResourceAccess backBufferAccessBeforeCopy =
-        m_backBufferIsRT ? RenderGraphResourceAccess::RenderTarget : RenderGraphResourceAccess::Present;
+    // F3 screenshots are taken in input handling before Clear()/Render, so the
+    // backbuffer is usually still in PRESENT state. Scene-driven captures can
+    // happen after render where the backbuffer is in RENDER_TARGET state.
+    // Preserve whichever concrete graph-visible state we're currently in.
+    const RenderGraphResourceAccess backBufferAccessBeforeCopy = m_backBufferAccess;
 
     // Transition backbuffer to COPY_SOURCE for readback.
-    ExecuteGraphTransition( "BackbufferReadbackBegin",
-                            "SwapchainBackbuffer",
-                            m_renderTargets[m_frameIndex],
-                            backBufferAccessBeforeCopy,
-                            RenderGraphResourceAccess::CopySource );
+    TransitionBackbuffer( "BackbufferReadbackBegin", RenderGraphResourceAccess::CopySource );
 
     D3D12_RESOURCE_DESC bbDesc = m_renderTargets[m_frameIndex]->GetDesc();
     D3D12_PLACED_SUBRESOURCE_FOOTPRINT footprint = {};
     UINT numRows = 0;
     UINT64 rowSizeBytes = 0;
     UINT64 totalBytes = 0;
-    m_device->GetCopyableFootprints( &bbDesc, 0, 1, 0, &footprint, &numRows, &rowSizeBytes, &totalBytes );
+    Device()->GetCopyableFootprints( &bbDesc, 0, 1, 0, &footprint, &numRows, &rowSizeBytes, &totalBytes );
 
     // Create a CPU-readable landing buffer for the screenshot. The back buffer
     // itself lives in GPU-only memory, so the CPU cannot read it directly. The
@@ -102,9 +95,17 @@ std::vector<uint8_t> RenderBackendDX12::CaptureBackbuffer( int& outWidth, int& o
     // READBACK buffers are accessed via CPU Map/Unmap — no GPU state barrier is needed.
     // Docs:
     // https://learn.microsoft.com/en-us/windows/win32/direct3d12/using-resource-barriers-to-synchronize-resource-states-in-direct3d-12
-    if ( !readbackBuffer.InitBuffer( m_device, totalBytes, L"Skullbonez DX12 Screenshot Readback Buffer" ) )
+    if ( !readbackBuffer.InitBuffer( Device(), totalBytes, L"Skullbonez DX12 Screenshot Readback Buffer" ) )
     {
-        throw std::runtime_error( "CreateCommittedResource (screenshot readback) failed" );
+        // Why: screenshot readback is a Lane R device/resource boundary. Restore
+        // the backbuffer state before returning so the caller can report the
+        // failure without leaving the command stream in COPY_SOURCE.
+        TransitionBackbuffer( "BackbufferReadbackRestoreAfterFailure", backBufferAccessBeforeCopy );
+        outWidth = 0;
+        outHeight = 0;
+        return SbResult::Failure( "Rendering/DX12",
+                                  "CreateCommittedResource (screenshot readback) failed  "
+                                  "(RenderBackendDX12::CaptureBackbuffer)" );
     }
 
     D3D12_TEXTURE_COPY_LOCATION dstLoc = {};
@@ -116,20 +117,16 @@ std::vector<uint8_t> RenderBackendDX12::CaptureBackbuffer( int& outWidth, int& o
     srcLoc.pResource = m_renderTargets[m_frameIndex];
     srcLoc.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
 
-    m_commandList->CopyTextureRegion( &dstLoc, 0, 0, 0, &srcLoc, nullptr );
+    CommandList()->CopyTextureRegion( &dstLoc, 0, 0, 0, &srcLoc, nullptr );
 
     // Restore the exact state we found before the capture.
-    ExecuteGraphTransition( "BackbufferReadbackRestore",
-                            "SwapchainBackbuffer",
-                            m_renderTargets[m_frameIndex],
-                            RenderGraphResourceAccess::CopySource,
-                            backBufferAccessBeforeCopy );
+    TransitionBackbuffer( "BackbufferReadbackRestore", backBufferAccessBeforeCopy );
 
     // Execute and wait
     AssertPlatformProfilerGpuStackClosed( "CaptureBackbuffer" );
-    m_commandList->Close();
+    CommandList()->Close();
     m_commandListOpen = false;
-    ID3D12CommandList* ppCLs[] = { m_commandList };
+    ID3D12CommandList* ppCLs[] = { CommandList() };
     m_commandQueue->ExecuteCommandLists( 1, ppCLs );
     WaitForGpu();
 
@@ -156,5 +153,6 @@ std::vector<uint8_t> RenderBackendDX12::CaptureBackbuffer( int& outWidth, int& o
 
     readbackBuffer.UnmapNoWrite();
 
-    return result;
+    outPixels = std::move( result );
+    return SbResult::Success();
 }

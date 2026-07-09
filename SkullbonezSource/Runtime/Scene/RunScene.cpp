@@ -13,6 +13,9 @@ Glossary:
   validation and tooling paths.
   DXR (DirectX Raytracing): DX12 API used for hardware ray traversal and
   reflection dispatch.
+  Render backend facets: Narrow renderer interfaces for resources, commands,
+    diagnostics, and raytracing; scene setup receives them separately instead
+    of depending on a concrete backend.
   Lane R result: Recoverable scene-load failure carrying owner/message
     diagnostics while the runtime stays alive.
   Required scene contact: Authored pair gate that marks a scenario objective
@@ -23,9 +26,9 @@ Glossary:
 Invariants:
   - Command-line and scene-file spellings are user-facing compatibility
     surface.
-  - Required contact checks read PhysicsBodyStore and ColliderStore snapshots;
-    they must not require the post-step GameModel body mirror to be fresh.
-
+  - DXR reflection setup may run only after the runtime has bound the render
+    resource, command, diagnostics, and raytracing facets for the active
+    backend.
 Related:
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/comment-style-guide.md
@@ -38,10 +41,9 @@ Related:
 #include "SceneRuntimeStyle.h"
 #include "SceneRuntimeUiOptions.h"
 #include "../Editor/EditorHullAssets.h"
-#include "../../Physics/ColliderStore.h"
-#include "../../Physics/ObjectContactManifold.h"
-#include "../../Physics/PhysicsBodyStore.h"
 #include "../../Physics/Ragdoll.h"
+#include "../../Core/FatalError.h"
+#include "../../Core/Log.h"
 #include "../../Core/SbResult.h"
 #include "../../Core/WorkerPool.h"
 #include "../../Rendering/IRenderDeviceLifecycle.h"
@@ -65,14 +67,6 @@ namespace
 {
 using Json = nlohmann::ordered_json;
 constexpr float SCENE_EDITOR_TEXTURE_MODE_INVERTED = -2.0f;
-
-ObjectContactBodyView SceneContactBodyView( const PhysicsBodyRecord& body )
-{
-    ObjectContactBodyView view;
-    view.position = body.position;
-    view.orientation = body.orientation;
-    return view;
-}
 
 void ApplySceneWorkerThreadSetting( EngineConfig& config,
                                     SkullbonezCore::Threading::WorkerPool& workerPool,
@@ -473,162 +467,6 @@ void ApplyTornadoDefaultsForActiveScene( RunRuntimeSettings& runtimeSettings,
 }
 } // namespace
 
-void Run::UpdateRequiredSceneContacts()
-{
-    if ( m_requiredSceneContacts.empty() )
-    {
-        return;
-    }
-
-    const PhysicsBodyStore& bodyStore = m_cGameModelCollection.GetPhysicsEngine().BodyStore();
-    const ColliderStore& colliderStore = m_cGameModelCollection.GetPhysicsEngine().Colliders();
-    const auto& bodyRecords = bodyStore.Records();
-    const auto& colliderRecords = colliderStore.Records();
-    const int contactModelCount =
-        (std::min)( bodyStore.Count(), static_cast<int>( (std::min)( bodyRecords.size(), colliderRecords.size() ) ) );
-    for ( RunRequiredContactState& required : m_requiredSceneContacts )
-    {
-        if ( required.touched || required.bodyA < 0 || required.bodyB < 0 || required.bodyA >= contactModelCount ||
-             required.bodyB >= contactModelCount )
-        {
-            continue;
-        }
-
-        const PhysicsBodyRecord& bodyA = bodyRecords[static_cast<size_t>( required.bodyA )];
-        const PhysicsBodyRecord& bodyB = bodyRecords[static_cast<size_t>( required.bodyB )];
-        const ColliderRecord& colliderA = colliderRecords[static_cast<size_t>( required.bodyA )];
-        const ColliderRecord& colliderB = colliderRecords[static_cast<size_t>( required.bodyB )];
-        ObjectContactManifold manifold;
-        if ( BuildObjectContactManifold( SceneContactBodyView( bodyA ),
-                                         colliderA.shape,
-                                         SceneContactBodyView( bodyB ),
-                                         colliderB.shape,
-                                         required.bodyA,
-                                         required.bodyB,
-                                         m_config.contactEpsilon + 0.25f,
-                                         manifold ) )
-        {
-            required.touched = true;
-        }
-    }
-
-    const std::vector<PhysicsDebugContact>& contacts = m_cGameModelCollection.GetPhysicsDebugContacts();
-    for ( const PhysicsDebugContact& contact : contacts )
-    {
-        if ( contact.bodyA < 0 || contact.bodyB < 0 )
-        {
-            continue;
-        }
-        for ( RunRequiredContactState& required : m_requiredSceneContacts )
-        {
-            if ( required.touched || required.bodyA < 0 || required.bodyB < 0 )
-            {
-                continue;
-            }
-            const bool sameOrder = contact.bodyA == required.bodyA && contact.bodyB == required.bodyB;
-            const bool swappedOrder = contact.bodyA == required.bodyB && contact.bodyB == required.bodyA;
-            if ( sameOrder || swappedOrder )
-            {
-                required.touched = true;
-                break;
-            }
-        }
-    }
-}
-
-
-bool Run::RequiredSceneContactsComplete() const
-{
-    for ( const RunRequiredContactState& contact : m_requiredSceneContacts )
-    {
-        if ( contact.bodyA < 0 || contact.bodyB < 0 || !contact.touched )
-        {
-            return false;
-        }
-    }
-    return true;
-}
-
-
-void Run::UpdateRequiredSceneBroadphaseXCells( const SpatialGrid::ActiveCell* activeCells, int activeCellCount )
-{
-    if ( m_requiredBroadphaseXCells.empty() || !activeCells || activeCellCount <= 0 )
-    {
-        return;
-    }
-
-    for ( RunRequiredBroadphaseXCellsState& required : m_requiredBroadphaseXCells )
-    {
-        if ( required.activated )
-        {
-            continue;
-        }
-
-        required.lastActiveCellCount = activeCellCount;
-        required.lastMissingCellX = -1;
-        required.hasObservedXRange = false;
-        for ( int i = 0; i < activeCellCount; ++i )
-        {
-            const SpatialGrid::ActiveCell& active = activeCells[i];
-            if ( active.iy == required.cellY && active.iz == required.cellZ )
-            {
-                if ( !required.hasObservedXRange )
-                {
-                    required.lastObservedMinX = active.ix;
-                    required.lastObservedMaxX = active.ix;
-                    required.hasObservedXRange = true;
-                }
-                else
-                {
-                    required.lastObservedMinX = (std::min)( required.lastObservedMinX, static_cast<int>( active.ix ) );
-                    required.lastObservedMaxX = (std::max)( required.lastObservedMaxX, static_cast<int>( active.ix ) );
-                }
-            }
-        }
-
-        bool allActive = true;
-        for ( int x = required.minCellX; x <= required.maxCellX; ++x )
-        {
-            bool found = false;
-            for ( int i = 0; i < activeCellCount; ++i )
-            {
-                const SpatialGrid::ActiveCell& active = activeCells[i];
-                if ( active.ix == x && active.iy == required.cellY && active.iz == required.cellZ )
-                {
-                    found = true;
-                    break;
-                }
-            }
-
-            if ( !found )
-            {
-                allActive = false;
-                required.lastMissingCellX = x;
-                break;
-            }
-        }
-
-        if ( allActive )
-        {
-            required.activated = true;
-        }
-    }
-}
-
-
-bool Run::RequiredSceneBroadphaseXCellsComplete() const
-{
-    for ( const RunRequiredBroadphaseXCellsState& required : m_requiredBroadphaseXCells )
-    {
-        if ( !required.activated )
-        {
-            return false;
-        }
-    }
-    return true;
-}
-
-
 SbResult Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplete, bool preserveRuntimeState )
 {
     m_lastSceneLoadResult = SbResult::Success();
@@ -673,13 +511,13 @@ SbResult Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnCom
     m_runtimeSettings.isVsyncEnabled = m_config.runtimeRender.vsyncEnabled;
     m_runtimeSettings.isPipelineSyncEnabled = m_config.runtimeRender.forcePipelineSync;
     m_diagnosticsRuntime.UIStress() = DiagnosticsRuntime::UIStressState{};
-    m_requiredSceneContacts.clear();
+    m_sceneController.ClearRequiredAutomationGates();
 
     m_systems.cameras->Reset();
     m_cGameModelCollection.Clear();
 
     CancelMousePickup();
-    ResetAttachedCamera();
+    AttachedCameraController::Reset( m_attachedCamera );
     {
         const RuntimeInteractionTransition transition = m_interaction.ResetForScene( InteractionExitReason::LoadScene );
         ClearRuntimeInteractionStateForTransition( transition );
@@ -756,13 +594,15 @@ SbResult Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnCom
         }
         SceneState().rngSeed = rngSeed;
         SceneState().rngState = rngSeed;
-        const SbResult terrainResult = UseDefaultTerrain(
-            m_systems,
-            m_cWorldEnvironment,
-            m_config,
-            ResolveSourceAssetPath( SkullbonezCore::Assets::AssetKind::Terrain, "terrain.raw", m_config.terrainRaw ),
-            m_renderBackendView.deviceLifecycle,
-            m_renderBackendView.renderResources );
+        const SbResult terrainResult =
+            UseDefaultTerrain( m_systems,
+                               m_cWorldEnvironment,
+                               m_config,
+                               m_systems.assets.RegisterSourceAssetPath( SkullbonezCore::Assets::AssetKind::Terrain,
+                                                                         "terrain.raw",
+                                                                         m_config.terrainRaw.c_str() ),
+                               m_renderBackendView.deviceLifecycle,
+                               m_renderBackendView.renderResources );
         if ( !terrainResult.ok )
         {
             m_lastSceneLoadResult = terrainResult;
@@ -943,9 +783,9 @@ SbResult Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnCom
                 UseDefaultTerrain( m_systems,
                                    m_cWorldEnvironment,
                                    m_config,
-                                   ResolveSourceAssetPath( SkullbonezCore::Assets::AssetKind::Terrain,
-                                                           "terrain.raw",
-                                                           m_config.terrainRaw ),
+                                   m_systems.assets.RegisterSourceAssetPath( SkullbonezCore::Assets::AssetKind::Terrain,
+                                                                             "terrain.raw",
+                                                                             m_config.terrainRaw.c_str() ),
                                    m_renderBackendView.deviceLifecycle,
                                    m_renderBackendView.renderResources );
             if ( !terrainResult.ok )
@@ -1012,8 +852,8 @@ SbResult Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnCom
                                                 m_systems.terrain.get(),
                                                 m_cGameModelCollection,
                                                 m_cGameModelCollection.GetPhysicsEngine(),
-                                                m_requiredSceneContacts,
-                                                m_requiredBroadphaseXCells ),
+                                                m_sceneController.RequiredContacts(),
+                                                m_sceneController.RequiredBroadphaseXCells() ),
                 scene );
             if ( !authoredSetup.ok )
             {
@@ -1155,13 +995,9 @@ SbResult Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnCom
         // Invariant: scene reloads reset authored scene automation, but a
         // graphics-stress run is operator-owned and must keep running until the
         // launcher or timeout stops the process.
-        m_graphicsStress.enabled = true;
-        if ( m_graphicsStress.randomState == 0 )
-        {
-            m_graphicsStress.randomState = m_launchOptions.graphicsStressSeed;
-        }
-        m_graphicsStress.actionsPerFrame = m_launchOptions.graphicsStressActions;
-        m_graphicsStress.sceneIntervalFrames = m_launchOptions.graphicsStressSceneIntervalFrames;
+        m_graphicsStress.ResumeAfterSceneLoad( m_launchOptions.graphicsStressSeed,
+                                               m_launchOptions.graphicsStressActions,
+                                               m_launchOptions.graphicsStressSceneIntervalFrames );
         SceneState().isInteractiveRun = true;
         SceneState().targetFrameCount = 0;
         SceneState().isTestComplete = false;
@@ -1236,19 +1072,27 @@ SbResult Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnCom
     SkullbonezCore::Rendering::IRenderDiagnostics* renderDiagnostics = m_renderBackendView.renderDiagnostics;
     const bool hasRayTracingReflection =
         renderDiagnostics && renderDiagnostics->GetCapabilities().supportsDxrReflection && rayTracing;
-    if ( hasRayTracingReflection && RenderHelper::GetSphereInstMeshHandle() == 0 )
+    if ( hasRayTracingReflection && m_renderer.Helper().GetSphereInstMeshHandle() == 0 )
     {
         if ( !renderResources || !renderCommands || !renderDiagnostics )
         {
-            throw std::runtime_error(
-                "DXR reflection initialization requires render resource, command, and diagnostics facets" );
+            // Invariant: DXR reflection warm-up builds helper meshes through
+            // the same resource/command/diagnostics facets used by rendering.
+            // A missing facet means runtime backend wiring is inconsistent.
+            SB_FATAL( "RunScene",
+                      "DXR reflection initialization requires render resource, command, and diagnostics facets. "
+                      "resources=%d commands=%d diagnostics=%d",
+                      renderResources ? 1 : 0,
+                      renderCommands ? 1 : 0,
+                      renderDiagnostics ? 1 : 0 );
         }
         const RenderHelperContext helperContext{ *renderResources,
                                                  *renderCommands,
                                                  *renderDiagnostics,
                                                  m_systems.assets,
-                                                 m_config };
-        RenderHelper::EnsureSphereMesh( helperContext );
+                                                 m_config,
+                                                 m_renderer.Helper() };
+        m_renderer.Helper().EnsureSphereMesh( helperContext );
     }
     if ( hasRayTracingReflection && m_systems.terrain && m_systems.terrain->GetMesh() )
     {
@@ -1257,20 +1101,28 @@ SbResult Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnCom
         int terrainVertCount = terrainMesh->GetVertexCount();
         int terrainStride = terrainMesh->GetStride();
 
-        uint32_t sphereHandle = RenderHelper::GetSphereInstMeshHandle();
+        uint32_t sphereHandle = m_renderer.Helper().GetSphereInstMeshHandle();
         uint64_t sphereVBVA = rayTracing->GetInstancedMeshStaticVBVA( sphereHandle );
-        int sphereVertCount = RenderHelper::GetSphereVertexCount();
+        int sphereVertCount = m_renderer.Helper().GetSphereVertexCount();
         int sphereStride = rayTracing->GetInstancedMeshStaticStride( sphereHandle );
 
         if ( terrainVBVA != 0 && sphereVBVA != 0 )
         {
-            rayTracing->InitDXR( terrainVBVA,
-                                 terrainVertCount,
-                                 terrainStride,
-                                 sphereVBVA,
-                                 sphereVertCount,
-                                 sphereStride,
-                                 m_startup.gameModelCapacity );
+            const SbResult dxrInitResult = rayTracing->InitDXR( terrainVBVA,
+                                                                terrainVertCount,
+                                                                terrainStride,
+                                                                sphereVBVA,
+                                                                sphereVertCount,
+                                                                sphereStride,
+                                                                m_startup.gameModelCapacity );
+            if ( !dxrInitResult.ok )
+            {
+                // Lane R: DXR setup depends on device resource creation and
+                // checked-in shader bytecode, so scene load reports the owner
+                // message instead of unwinding through renderer startup.
+                m_lastSceneLoadResult = dxrInitResult;
+                return m_lastSceneLoadResult;
+            }
         }
     }
     runtime.RecordLifecycleEvent( SceneRuntimeLifecycleEvent::AfterSceneActivated );

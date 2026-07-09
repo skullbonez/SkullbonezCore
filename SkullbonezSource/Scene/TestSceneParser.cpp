@@ -94,10 +94,17 @@ Json Vector3ToJson( const Math::Vector::Vector3& value )
     return Json::array( { value.x, value.y, value.z } );
 }
 
+[[noreturn]] void Fail( const std::string& path, const std::string& detail );
+
 float LoadConvexHullDefaultMass( const char* hullPath )
 {
-    const Math::CollisionDetection::ConvexHullShape hull =
-        Math::CollisionDetection::ConvexHullShape::LoadFromFile( Assets::ResolveEditorHullAssetPath( hullPath ) );
+    const char* resolvedPath = Assets::ResolveEditorHullAssetPath( hullPath );
+    Math::CollisionDetection::ConvexHullShape hull;
+    const SbResult loadResult = Math::CollisionDetection::ConvexHullShape::TryLoadFromFile( resolvedPath, hull );
+    if ( !loadResult.ok )
+    {
+        Fail( resolvedPath ? resolvedPath : "", loadResult.error.message );
+    }
     return hull.GetDefaultMass();
 }
 

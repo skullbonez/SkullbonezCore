@@ -16,6 +16,8 @@ Glossary:
     validation run can complete.
   Collider descriptor: Value packet carrying parsed shape and contact material
     facts into the physics collider store.
+  Lane R: Recoverable result error lane for external input such as scene files
+    and authored asset metadata.
   Ragdoll part: One model body in the generated simple ragdoll assembly.
   Scene object group: Parsed metadata that ties multi-part authored objects,
     such as releasable trees, to a single root scene object.
@@ -54,7 +56,6 @@ Related:
 #include <cmath>
 #include <cstdio>
 #include <cstring>
-#include <stdexcept>
 #include <utility>
 
 namespace SkullbonezCore
@@ -267,23 +268,30 @@ SbResult AppendAuthoredSimpleRagdoll( SceneSimpleRagdollAppendContext context, c
     return SbResult::Success();
 }
 
-GameObjects::SceneObjectGroupCreateDesc MakeSceneObjectGroupCreateDesc( const SceneObjectGroupMetadata& group,
-                                                                        int sectionModelIndexBase )
+SbResult MakeSceneObjectGroupCreateDesc( const SceneObjectGroupMetadata& group,
+                                         int sectionModelIndexBase,
+                                         GameObjects::SceneObjectGroupCreateDesc& outDesc )
 {
+    outDesc = {};
     if ( group.kind == SceneObjectGroupKind::None )
     {
-        return {};
+        return SbResult::Success();
     }
     if ( group.kind != SceneObjectGroupKind::ReleasableTree || group.rootObjectIndex < 0 || group.partIndex < 0 )
     {
-        throw std::runtime_error( "Invalid authored scene object group metadata." );
+        // Lane R: authored scene metadata can become invalid when an include or
+        // editor save names a group root that cannot be resolved for this hull section.
+        return SbResult::Failure( "Runtime/SceneAuthoredSetup",
+                                  "Invalid authored scene object group metadata: kind=%u root=%d part=%d.",
+                                  static_cast<unsigned int>( group.kind ),
+                                  group.rootObjectIndex,
+                                  group.partIndex );
     }
 
-    GameObjects::SceneObjectGroupCreateDesc desc;
-    desc.kind = GameObjects::GameModelCollectionKind::ReleasableTree;
-    desc.rootModelIndex = sectionModelIndexBase + group.rootObjectIndex;
-    desc.partIndex = group.partIndex;
-    return desc;
+    outDesc.kind = GameObjects::GameModelCollectionKind::ReleasableTree;
+    outDesc.rootModelIndex = sectionModelIndexBase + group.rootObjectIndex;
+    outDesc.partIndex = group.partIndex;
+    return SbResult::Success();
 }
 
 bool SceneNameEndsWithPartSuffix( const char* name, const char* suffix )
@@ -606,7 +614,12 @@ SbResult SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context,
     for ( int i = 0; i < scene.GetConvexHullCount(); ++i )
     {
         const SceneConvexHull& hullScene = scene.GetConvexHull( i );
-        const ConvexHullShape hull = ConvexHullShape::LoadFromFile( ResolveEditorHullAssetPath( hullScene.hullPath ) );
+        ConvexHullShape hull;
+        SbResult hullLoad = ConvexHullShape::TryLoadFromFile( ResolveEditorHullAssetPath( hullScene.hullPath ), hull );
+        if ( !hullLoad.ok )
+        {
+            return hullLoad;
+        }
         const Vector3 inertia = hull.ComputeBoxApproxInertia( hullScene.mass );
         const Vector3 authoredPosition( hullScene.posX, hullScene.posY, hullScene.posZ );
 
@@ -626,8 +639,12 @@ SbResult SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context,
         // Invariant: parsed scene object grouping is converted once at the
         // authored construction edge. Collection append only copies the
         // descriptor into its dense sidecar.
-        const GameObjects::SceneObjectGroupCreateDesc groupDesc =
-            MakeSceneObjectGroupCreateDesc( hullScene.group, convexHullModelBase );
+        GameObjects::SceneObjectGroupCreateDesc groupDesc;
+        const SbResult groupResult = MakeSceneObjectGroupCreateDesc( hullScene.group, convexHullModelBase, groupDesc );
+        if ( !groupResult.ok )
+        {
+            return groupResult;
+        }
         const Physics::PhysicsSceneObjectId sceneObjectId = context.sceneState.AllocateSceneObjectId();
         PhysicsBodyCreateDesc bodyDesc = MakeSceneBodyDesc(
             sceneObjectId,
@@ -669,13 +686,23 @@ SbResult SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context,
     for ( int i = 0; i < scene.GetConvexHullStateCount(); ++i )
     {
         const SceneConvexHullState& hullScene = scene.GetConvexHullState( i );
-        const ConvexHullShape hull = ConvexHullShape::LoadFromFile( ResolveEditorHullAssetPath( hullScene.hullPath ) );
+        ConvexHullShape hull;
+        SbResult hullLoad = ConvexHullShape::TryLoadFromFile( ResolveEditorHullAssetPath( hullScene.hullPath ), hull );
+        if ( !hullLoad.ok )
+        {
+            return hullLoad;
+        }
 
         GameModel gameModel;
 
         gameModel.SetName( hullScene.name );
-        const GameObjects::SceneObjectGroupCreateDesc groupDesc =
-            MakeSceneObjectGroupCreateDesc( hullScene.group, convexHullStateModelBase );
+        GameObjects::SceneObjectGroupCreateDesc groupDesc;
+        const SbResult groupResult =
+            MakeSceneObjectGroupCreateDesc( hullScene.group, convexHullStateModelBase, groupDesc );
+        if ( !groupResult.ok )
+        {
+            return groupResult;
+        }
         const Physics::PhysicsSceneObjectId sceneObjectId = context.sceneState.AllocateSceneObjectId();
         PhysicsBodyCreateDesc bodyDesc =
             MakeSceneBodyDesc( sceneObjectId,

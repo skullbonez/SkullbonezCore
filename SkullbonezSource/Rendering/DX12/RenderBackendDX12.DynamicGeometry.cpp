@@ -9,8 +9,6 @@ Mental model:
   ordering are the important ideas.
 
 Glossary:
-  DXR (DirectX Raytracing): DX12 API used for hardware ray traversal and
-  reflection dispatch.
   BLAS (Bottom-Level Acceleration Structure): Raytracing spatial index for one
   mesh's triangles.
   SRV (Shader Resource View): Descriptor row used when shaders read textures
@@ -24,6 +22,9 @@ Glossary:
 Invariants:
   - DX12 object lifetime, resource states, descriptor rows, and fence ordering
   must stay explicit.
+  - Dynamic line PSOs are stored in a fixed cache by render-target format; cache
+    exhaustion is a renderer capacity invariant, not a recoverable shader/device
+    failure.
 
 Related:
   - Agentic/Reference/skullbonez-core-class-structure.md
@@ -34,7 +35,10 @@ Related:
 #include "MeshDX12.h"
 #include "FramebufferDX12.h"
 #include "../RenderGraph.h"
+#include "../../Core/FatalError.h"
+#include "../../Core/Log.h"
 #include "../../Core/PlatformProfiler.h"
+#include <cstddef>
 #include <stdexcept>
 #include <cstdio>
 #include <cstring>
@@ -63,13 +67,44 @@ static void ReportDX12DescriptorHeapExhausted( const char* heapName, UINT nextIn
     Log().FlushAll();
 }
 
-static inline void ThrowIfFailed( HRESULT hr, const char* msg )
+namespace
 {
-    if ( FAILED( hr ) )
+std::size_t TransientTriangleStyleIndex( TransientTriangleStyle style )
+{
+    switch ( style )
     {
-        throw std::runtime_error( msg );
+    case TransientTriangleStyle::SoftAdditiveRibbon:
+        return 1;
+    case TransientTriangleStyle::Color:
+    default:
+        return 0;
     }
 }
+
+const char* TransientTriangleShaderBaseName( TransientTriangleStyle style )
+{
+    switch ( style )
+    {
+    case TransientTriangleStyle::SoftAdditiveRibbon:
+        return "shaders/soft_additive_ribbon";
+    case TransientTriangleStyle::Color:
+    default:
+        return "shaders/tornado_fx";
+    }
+}
+
+const char* TransientTriangleTraceLabel( TransientTriangleStyle style )
+{
+    switch ( style )
+    {
+    case TransientTriangleStyle::SoftAdditiveRibbon:
+        return "SoftAdditiveRibbon";
+    case TransientTriangleStyle::Color:
+    default:
+        return "TornadoVisual";
+    }
+}
+} // namespace
 
 // --- RenderBackendDX12 DynamicGeometry methods ---
 
@@ -125,25 +160,32 @@ ID3D12PipelineState* RenderBackendDX12::EnsureGridLinePipeline( DXGI_FORMAT rtvF
     psoDesc.SampleDesc.Count = 1;
 
     ID3D12PipelineState* gridLinePSO = nullptr;
-    HRESULT hr = m_device->CreateGraphicsPipelineState( &psoDesc, IID_PPV_ARGS( &gridLinePSO ) );
-    if ( FAILED( hr ) )
+    HRESULT hr = Device()->CreateGraphicsPipelineState( &psoDesc, IID_PPV_ARGS( &gridLinePSO ) );
+    if ( FAILED( hr ) || !gridLinePSO )
     {
-        throw std::runtime_error( "CreateGraphicsPipelineState failed for debug lines" );
+        // Lane R: debug-line rendering is diagnostic overlay work. A failed
+        // line PSO should drop this overlay draw and report the device result,
+        // not unwind the frame; cache capacity failures below remain fatal.
+        Log().WriteEventf( "dx12_debug_line_pso_create_failed hresult=0x%08X rtv_format=%u",
+                           static_cast<unsigned int>( FAILED( hr ) ? hr : E_FAIL ),
+                           static_cast<unsigned int>( rtvFormat ) );
+        Log().FlushAll();
+        if ( gridLinePSO )
+        {
+            gridLinePSO->Release();
+        }
+        return nullptr;
     }
     NameDx12Object( gridLinePSO, L"Skullbonez DX12 Debug Line PSO" );
+    // Invariant: grid-line PSO variants are bounded by the fixed cache in the
+    // backend. A new RTV format should be added deliberately with cache budget,
+    // not by growing during draw-line submission.
     if ( m_gridLinePSOCount >= m_gridLinePSOs.size() )
     {
-        fprintf( stderr,
-                 "FATAL: DX12 grid-line PSO cache exhausted (capacity=%zu format=%u)\n",
-                 m_gridLinePSOs.size(),
-                 static_cast<unsigned int>( rtvFormat ) );
-        fprintf( stdout,
-                 "FATAL: DX12 grid-line PSO cache exhausted (capacity=%zu format=%u)\n",
-                 m_gridLinePSOs.size(),
-                 static_cast<unsigned int>( rtvFormat ) );
-        fflush( stderr );
-        fflush( stdout );
-        throw std::runtime_error( "DX12 grid-line PSO cache exhausted" );
+        SB_FATAL( "RenderBackendDX12",
+                  "DX12 grid-line PSO cache exhausted. capacity=%zu format=%u",
+                  m_gridLinePSOs.size(),
+                  static_cast<unsigned int>( rtvFormat ) );
     }
     m_gridLinePSOs[m_gridLinePSOCount].format = rtvFormat;
     m_gridLinePSOs[m_gridLinePSOCount].pso = gridLinePSO;
@@ -195,7 +237,10 @@ void RenderBackendDX12::UploadAndDrawDynamicVB( uint32_t handle, const float* da
         fmt = VertexFormat12::Pos2_Tex2;
     }
 
-    PrepareDraw( fmt, false, nullptr, &dvb );
+    if ( !PrepareDraw( fmt, false, nullptr, &dvb ) )
+    {
+        return;
+    }
 
     D3D12_VERTEX_BUFFER_VIEW vbv = {};
     vbv.BufferLocation = vbAddr;
@@ -206,10 +251,10 @@ void RenderBackendDX12::UploadAndDrawDynamicVB( uint32_t handle, const float* da
     // is simpler but slightly slower for large batches.
     // Docs:
     // https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-iasetvertexbuffers
-    m_commandList->IASetVertexBuffers( 0, 1, &vbv );
+    CommandList()->IASetVertexBuffers( 0, 1, &vbv );
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-drawinstanced
     RecordDrawCall( { DrawCallKind::DynamicVertexBuffer, "DynamicVB", vertexCount, 1 } );
-    m_commandList->DrawInstanced( (UINT)vertexCount, 1, 0, 0 );
+    CommandList()->DrawInstanced( (UINT)vertexCount, 1, 0, 0 );
 }
 
 
@@ -229,6 +274,10 @@ void RenderBackendDX12::DrawLinesColored( const float* data, int vertCount, cons
     EnsureCommandListOpen();
 
     ID3D12PipelineState* gridLinePSO = EnsureGridLinePipeline( m_currentRTVFormat );
+    if ( !gridLinePSO )
+    {
+        return;
+    }
 
     // Upload vertex data to the shared upload buffer. Debug-line vertex data is
     // read as vertex-buffer bytes, so 4-byte alignment is sufficient here; the
@@ -237,9 +286,9 @@ void RenderBackendDX12::DrawLinesColored( const float* data, int vertCount, cons
     D3D12_GPU_VIRTUAL_ADDRESS vbAddress = ReserveUpload( dataSize, 4 );
     memcpy( GetUploadPtr( vbAddress ), data, (size_t)dataSize );
 
-    m_commandList->SetPipelineState( gridLinePSO );
-    m_commandList->SetGraphicsRootSignature( m_rootSignature );
-    m_commandList->IASetPrimitiveTopology( D3D_PRIMITIVE_TOPOLOGY_LINELIST );
+    CommandList()->SetPipelineState( gridLinePSO );
+    CommandList()->SetGraphicsRootSignature( m_rootSignature );
+    CommandList()->IASetPrimitiveTopology( D3D_PRIMITIVE_TOPOLOGY_LINELIST );
 
     // Grid lines use the same constant-buffer slot as ordinary shader constants
     // so the debug path can share the renderer root-signature contract.
@@ -252,28 +301,29 @@ void RenderBackendDX12::DrawLinesColored( const float* data, int vertCount, cons
     D3D12_GPU_VIRTUAL_ADDRESS cbAddr = shader->FlushCB();
     if ( cbAddr )
     {
-        m_commandList->SetGraphicsRootConstantBufferView( 0, cbAddr );
+        CommandList()->SetGraphicsRootConstantBufferView( 0, cbAddr );
     }
 
     D3D12_VERTEX_BUFFER_VIEW vbView = {};
     vbView.BufferLocation = vbAddress;
     vbView.SizeInBytes = (UINT)dataSize;
     vbView.StrideInBytes = 6 * sizeof( float );
-    m_commandList->IASetVertexBuffers( 0, 1, &vbView );
+    CommandList()->IASetVertexBuffers( 0, 1, &vbView );
 
     // Bind render targets (depth disabled in PSO)
-    m_commandList->OMSetRenderTargets( 1, &m_currentRTV, FALSE, &m_currentDSV );
-    m_commandList->RSSetViewports( 1, &m_viewport );
-    m_commandList->RSSetScissorRects( 1, &m_scissorRect );
+    CommandList()->OMSetRenderTargets( 1, &m_currentRTV, FALSE, &m_currentDSV );
+    CommandList()->RSSetViewports( 1, &m_viewport );
+    CommandList()->RSSetScissorRects( 1, &m_scissorRect );
 
     RecordDrawCall( { DrawCallKind::DebugLines, "DebugLines", vertCount, 1 } );
-    m_commandList->DrawInstanced( (UINT)vertCount, 1, 0, 0 );
+    CommandList()->DrawInstanced( (UINT)vertCount, 1, 0, 0 );
 }
 
 
 void RenderBackendDX12::DrawTransientColoredTriangles( const float* data,
                                                        int vertexCount,
-                                                       const float* viewProjMatrix16 )
+                                                       const float* viewProjMatrix16,
+                                                       TransientTriangleStyle style )
 {
     if ( vertexCount <= 0 || !data || !viewProjMatrix16 )
     {
@@ -282,11 +332,7 @@ void RenderBackendDX12::DrawTransientColoredTriangles( const float* data,
 
     EnsureCommandListOpen();
 
-    if ( !m_transientColorShader )
-    {
-        m_transientColorShader = CreateShader( "shaders/tornado_fx" );
-    }
-    ShaderDX12* shader = static_cast<ShaderDX12*>( m_transientColorShader.get() );
+    ShaderDX12* shader = static_cast<ShaderDX12*>( EnsureTransientTriangleShader( style ) );
     shader->Use();
     shader->SetMat4( "uViewProj", Matrix4( viewProjMatrix16 ) );
 
@@ -302,82 +348,34 @@ void RenderBackendDX12::DrawTransientColoredTriangles( const float* data,
     const D3D12_GPU_VIRTUAL_ADDRESS vbAddress = ReserveUpload( dataSize, 4 );
     memcpy( GetUploadPtr( vbAddress ), data, static_cast<size_t>( dataSize ) );
 
-    PrepareDraw( VertexFormat12::Pos3, false, nullptr, &vertexLayout );
+    if ( !PrepareDraw( VertexFormat12::Pos3, false, nullptr, &vertexLayout ) )
+    {
+        return;
+    }
 
     D3D12_VERTEX_BUFFER_VIEW vbView = {};
     vbView.BufferLocation = vbAddress;
     vbView.SizeInBytes = static_cast<UINT>( dataSize );
     vbView.StrideInBytes = static_cast<UINT>( vertexLayout.stride );
-    m_commandList->IASetVertexBuffers( 0, 1, &vbView );
+    CommandList()->IASetVertexBuffers( 0, 1, &vbView );
 
-    RecordDrawCall( { DrawCallKind::DynamicVertexBuffer, "TornadoVisual", vertexCount, 1 } );
-    m_commandList->DrawInstanced( static_cast<UINT>( vertexCount ), 1, 0, 0 );
+    RecordDrawCall( { DrawCallKind::DynamicVertexBuffer, TransientTriangleTraceLabel( style ), vertexCount, 1 } );
+    CommandList()->DrawInstanced( static_cast<UINT>( vertexCount ), 1, 0, 0 );
 }
 
 
-void RenderBackendDX12::DrawReplayRibbons( const float* data, int vertexCount, const float* viewProjMatrix16 )
+IShader* RenderBackendDX12::EnsureTransientTriangleShader( TransientTriangleStyle style )
 {
-    if ( vertexCount <= 0 || !data || !viewProjMatrix16 )
+    const std::size_t index = TransientTriangleStyleIndex( style );
+    std::unique_ptr<IShader>& shader = m_transientTriangleShaders[index];
+    if ( !shader )
     {
-        return;
+        // Runtime allocation policy: Init() warms every supported style. This
+        // fallback is for partial initialisation paths and keeps the mapping in
+        // one place instead of reintroducing owner-specific draw methods.
+        shader = CreateShader( TransientTriangleShaderBaseName( style ) );
     }
-
-    EnsureCommandListOpen();
-
-    if ( !m_replayRibbonShader )
-    {
-        m_replayRibbonShader = CreateShader( "shaders/replay_ribbon" );
-    }
-    ShaderDX12* shader = static_cast<ShaderDX12*>( m_replayRibbonShader.get() );
-
-    const bool depthTestWasEnabled = m_depthTestEnabled;
-    const bool depthWriteWasEnabled = m_depthWriteEnabled;
-    const bool blendWasEnabled = m_blendEnabled;
-    const bool cullWasEnabled = m_cullEnabled;
-    const BlendFactor blendSrc = m_blendSrc;
-    const BlendFactor blendDst = m_blendDst;
-
-    // Concept: replay ribbons replace jagged line-list prediction overlays with
-    // translucent camera-facing triangles. They draw over the world like the old
-    // debug lines, but use additive HDR color so cinematic bloom can catch only
-    // the authored causal-emphasis layers.
-    SetDepthTest( false );
-    SetDepthWrite( false );
-    SetBlend( true );
-    SetBlendFunc( BlendFactor::SrcAlpha, BlendFactor::One );
-    SetCullFace( false );
-
-    shader->Use();
-    shader->SetMat4( "uViewProj", Matrix4( viewProjMatrix16 ) );
-
-    DynamicVBDX12 vertexLayout = {};
-    vertexLayout.numAttribs = 3;
-    vertexLayout.attribComponents[0] = 3;
-    vertexLayout.attribComponents[1] = 4;
-    vertexLayout.attribComponents[2] = 4;
-    vertexLayout.floatsPerVertex = 11;
-    vertexLayout.stride = 11 * static_cast<int>( sizeof( float ) );
-
-    const UINT64 dataSize = static_cast<UINT64>( vertexCount ) * static_cast<UINT64>( vertexLayout.stride );
-    const D3D12_GPU_VIRTUAL_ADDRESS vbAddress = ReserveUpload( dataSize, 4 );
-    memcpy( GetUploadPtr( vbAddress ), data, static_cast<size_t>( dataSize ) );
-
-    PrepareDraw( VertexFormat12::Pos3, false, nullptr, &vertexLayout );
-
-    D3D12_VERTEX_BUFFER_VIEW vbView = {};
-    vbView.BufferLocation = vbAddress;
-    vbView.SizeInBytes = static_cast<UINT>( dataSize );
-    vbView.StrideInBytes = static_cast<UINT>( vertexLayout.stride );
-    m_commandList->IASetVertexBuffers( 0, 1, &vbView );
-
-    RecordDrawCall( { DrawCallKind::DynamicVertexBuffer, "ReplayRibbon", vertexCount, 1 } );
-    m_commandList->DrawInstanced( static_cast<UINT>( vertexCount ), 1, 0, 0 );
-
-    SetCullFace( cullWasEnabled );
-    SetBlendFunc( blendSrc, blendDst );
-    SetBlend( blendWasEnabled );
-    SetDepthWrite( depthWriteWasEnabled );
-    SetDepthTest( depthTestWasEnabled );
+    return shader.get();
 }
 
 
@@ -433,13 +431,29 @@ uint32_t RenderBackendDX12::CreateInstancedMesh( const float* staticData,
     // explicitly, then rely on implicit promotion to COPY_DEST when CopyBufferRegion executes.
     // Docs:
     // https://learn.microsoft.com/en-us/windows/win32/direct3d12/using-resource-barriers-to-synchronize-resource-states-in-direct3d-12#implicit-state-transitions
-    ThrowIfFailed( m_device->CreateCommittedResource( &defaultHeap,
-                                                      D3D12_HEAP_FLAG_NONE,
-                                                      &bufDesc,
-                                                      D3D12_RESOURCE_STATE_COMMON,
-                                                      nullptr,
-                                                      IID_PPV_ARGS( &im.staticVB ) ),
-                   "CreateCommittedResource (instanced static vertex buffer) failed" );
+    const HRESULT staticBufferResult = Device()->CreateCommittedResource( &defaultHeap,
+                                                                          D3D12_HEAP_FLAG_NONE,
+                                                                          &bufDesc,
+                                                                          D3D12_RESOURCE_STATE_COMMON,
+                                                                          nullptr,
+                                                                          IID_PPV_ARGS( &im.staticVB ) );
+    if ( FAILED( staticBufferResult ) || !im.staticVB )
+    {
+        // Lane R: instanced mesh handles already use 0 as "no backend mesh".
+        // Callers route uploads and draws through that handle, so creation can
+        // fail as a logged result without leaving a partially registered mesh.
+        Log().WriteEventf( "dx12_instanced_static_vertex_buffer_create_failed hresult=0x%08X vertices=%d stride=%d",
+                           static_cast<unsigned int>( FAILED( staticBufferResult ) ? staticBufferResult : E_FAIL ),
+                           staticVertCount,
+                           im.staticStride );
+        Log().FlushAll();
+        if ( im.staticVB )
+        {
+            im.staticVB->Release();
+            im.staticVB = nullptr;
+        }
+        return 0;
+    }
     NameDx12ObjectIndexed( im.staticVB,
                            L"Skullbonez DX12 Instanced Static Vertex Buffer",
                            static_cast<UINT>( m_instancedMeshes.size() + 1 ) );
@@ -449,13 +463,13 @@ uint32_t RenderBackendDX12::CreateInstancedMesh( const float* staticData,
     // https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-copybufferregion
     D3D12_GPU_VIRTUAL_ADDRESS uploadAddr = ReserveUpload( dataSize, 4 );
     memcpy( GetUploadPtr( uploadAddr ), staticData, (size_t)dataSize );
-    m_commandList->CopyBufferRegion( im.staticVB,
+    CommandList()->CopyBufferRegion( im.staticVB,
                                      0,
                                      m_uploadSystem.Resource( m_allocatorIndex ),
                                      m_uploadSystem.OffsetFromAddress( m_allocatorIndex, uploadAddr ),
                                      dataSize );
     // Transition from COPY_DEST (implicit promotion after CopyBufferRegion) to the
-    // combined read state used for both vertex fetch and DXR BLAS build SRV access.
+    // combined read state used for both vertex fetch and raytracing BLAS build SRV access.
     ExecuteGraphTransition( "InstancedStaticVertexUploadFinal",
                             "InstancedStaticVertexBuffer",
                             im.staticVB,
@@ -503,7 +517,10 @@ void RenderBackendDX12::DrawInstancedMesh( uint32_t handle, int staticVertCount,
         return; // No instance data uploaded yet
     }
 
-    PrepareDraw( VertexFormat12::Pos3, true, &im, nullptr );
+    if ( !PrepareDraw( VertexFormat12::Pos3, true, &im, nullptr ) )
+    {
+        return;
+    }
 
     // Slot 0: static geometry, Slot 1: per-instance data
     D3D12_VERTEX_BUFFER_VIEW vbvs[2] = {};
@@ -517,14 +534,14 @@ void RenderBackendDX12::DrawInstancedMesh( uint32_t handle, int staticVertCount,
     // and slot 1 once per instance, combining them in the vertex shader.
     // Docs:
     // https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-iasetvertexbuffers
-    m_commandList->IASetVertexBuffers( 0, 2, vbvs );
+    CommandList()->IASetVertexBuffers( 0, 2, vbvs );
 
     // Draw all instances in one call. This renders staticVertCount vertices
     // multiplied by instanceCount copies.
     // This is the key optimization: 300 balls drawn in a single GPU dispatch.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-drawinstanced
     RecordDrawCall( { DrawCallKind::InstancedMesh, "InstancedMesh", staticVertCount, instanceCount } );
-    m_commandList->DrawInstanced( (UINT)staticVertCount, (UINT)instanceCount, 0, 0 );
+    CommandList()->DrawInstanced( (UINT)staticVertCount, (UINT)instanceCount, 0, 0 );
 }
 
 

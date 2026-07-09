@@ -139,7 +139,8 @@ class PhysicsScene
                      const PhysicsWorldForces& worldForces,
                      Threading::WorkerPool& workerPool,
                      const char* const* diagnosticNames,
-                     int diagnosticNameCount );
+                     int diagnosticNameCount,
+                     const PhysicsDiagnosticsCsvWriter& diagnosticsCsvWriter );
     // Releases an authored fixed body, then same-tree parts, using body-store
     // policy and waking touched rows without a per-release model-side body
     // projection.

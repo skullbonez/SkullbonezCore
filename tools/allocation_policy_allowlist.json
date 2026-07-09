@@ -84,7 +84,7 @@
       "removal_or_wrapper_plan": "Keep growth approval isolated here and reject any new reserve-bump callsite unless it routes through registered owner wrappers."
     },
     {
-      "path": "SkullbonezSource/Runtime/Replay/RunReplayPredictionHelpers.inl",
+      "path": "SkullbonezSource/Runtime/Replay/RunReplayTools.cpp",
       "patterns": [
         "RuntimeAllocation::RuntimeReserveAllocator::RequestGrowth( owner, request );"
       ],
@@ -95,7 +95,7 @@
       "removal_or_wrapper_plan": "Keep prediction growth behind ReserveReplayPredictionVector or replace it with a fixed prediction arena; do not add direct vector reserve callsites."
     },
     {
-      "path": "SkullbonezSource/Runtime/Replay/RunReplayPredictionHelpers.inl",
+      "path": "SkullbonezSource/Runtime/Replay/RunReplayTools.cpp",
       "patterns": [
         "RuntimeAllocation::RuntimeReserveAllocator::RequestGrowth( owner, request );"
       ],
@@ -106,7 +106,7 @@
       "removal_or_wrapper_plan": "Move prediction frame payloads to a flat fixed arena if prediction memory is centralized; keep approvals batched until then."
     },
     {
-      "path": "SkullbonezSource/Runtime/Replay/RunReplayPredictionHelpers.inl",
+      "path": "SkullbonezSource/Runtime/Replay/RunReplayTools.cpp",
       "patterns": [
         "std::make_unique<PhysicsEngine>"
       ],

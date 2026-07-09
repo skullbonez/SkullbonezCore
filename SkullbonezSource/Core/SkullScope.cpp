@@ -25,6 +25,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "SkullScope.h"
+#include "Log.h"
 
 #ifdef _DEBUG
 

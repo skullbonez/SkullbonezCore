@@ -15,6 +15,8 @@ Glossary:
   TLAS (Top-Level Acceleration Structure): Raytracing spatial index for scene instances that point at BLAS geometry.
   UAV (Unordered Access View): Descriptor row used when raytracing writes the reflection texture.
   GPU VA (GPU Virtual Address): Device address used by raytracing geometry records.
+  Lane R result: Recoverable DXR device/shader/resource failure returned to the
+    scene-load boundary instead of throwing through renderer setup.
 
 Invariants:
   - The capability is borrowed from the active renderer; callers must not cache it across backend teardown.
@@ -27,6 +29,8 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #pragma once
+
+#include "../Core/SbResult.h"
 
 #include <cstdint>
 
@@ -49,13 +53,13 @@ class IRenderRayTracing
   public:
     virtual ~IRenderRayTracing() = default;
 
-    virtual void InitDXR( uint64_t terrainVBVA,
-                          int terrainVertCount,
-                          int terrainStride,
-                          uint64_t sphereVBVA,
-                          int sphereVertCount,
-                          int sphereStride,
-                          int maxInstances ) = 0;
+    virtual Basics::SbResult InitDXR( uint64_t terrainVBVA,
+                                      int terrainVertCount,
+                                      int terrainStride,
+                                      uint64_t sphereVBVA,
+                                      int sphereVertCount,
+                                      int sphereStride,
+                                      int maxInstances ) = 0;
     virtual void DispatchReflectionRays( const float* invViewProj,
                                          const float* cameraPos,
                                          float waterY,

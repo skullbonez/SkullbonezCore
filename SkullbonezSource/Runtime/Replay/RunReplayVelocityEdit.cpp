@@ -594,7 +594,8 @@ bool Run::TickReplayVelocityEditInput( HWND hwnd, bool uiBlocksMouse )
     const auto armBaselineComparisonForDrag = [&]()
     {
         RunReplayPredictionState& prediction = m_replayRuntime.Prediction();
-        if ( prediction.complete && prediction.frames.size() >= 2 && m_replayRuntime.PathVisualizer().hasTarget )
+        if ( prediction.build.complete && prediction.simulation.frames.size() >= 2 &&
+             m_replayRuntime.PathVisualizer().hasTarget )
         {
             // Why: the old future must be retained before the first drag tick
             // dirties prediction. The visualizer owns the actual capture so it
@@ -608,10 +609,11 @@ bool Run::TickReplayVelocityEditInput( HWND hwnd, bool uiBlocksMouse )
 
     if ( !uiBlocksMouse && leftPressed )
     {
-        const POINT mouse = Input::GetClientMouseCoordinates();
+        const Input::MouseCoordinatesResult mouseResult = Input::GetClientMouseCoordinates();
         ReplayVelocityBodyView body;
-        if ( tryResolveVelocityBody( body ) && !body.fixed )
+        if ( mouseResult.result.ok && tryResolveVelocityBody( body ) && !body.fixed )
         {
+            const POINT mouse = mouseResult.coordinates;
             if ( m_replayRuntime.VelocityEdit().hotAngularAxis >= 0 )
             {
                 float startAngle = 0.0f;

@@ -35,7 +35,6 @@ Related:
 #include <cstdio>
 #include <cstring>
 #include <memory>
-#include <stdexcept>
 #include <vector>
 
 namespace SkullbonezCore
@@ -57,26 +56,24 @@ struct FileCloser
 
 using FileHandle = std::unique_ptr<FILE, FileCloser>;
 
-void WriteExact( FILE* file, const void* data, size_t size, const char* path )
+SbResult WriteExact( FILE* file, const void* data, size_t size, const char* path )
 {
     // Invariant: validation screenshots are binary artifacts; a short write is
     // a failed capture, not a partial success that downstream comparisons can
     // safely inspect.
     if ( size == 0 )
     {
-        return;
+        return SbResult::Success();
     }
 
     const size_t written = fwrite( data, 1, size, file );
     if ( written != size )
     {
-        char msg[512];
-        sprintf_s( msg,
-                   sizeof( msg ),
-                   "Failed to write screenshot file: %s  (CaptureSystem::SaveBackbufferBmp)",
-                   path );
-        throw std::runtime_error( msg );
+        return SbResult::Failure( "Runtime/CaptureSystem",
+                                  "Failed to write screenshot file: %s  (CaptureSystem::SaveBackbufferBmp)",
+                                  path );
     }
+    return SbResult::Success();
 }
 
 RuntimeCaptureAutomation CompletionAutomation( bool isInteractiveRun, RuntimeCaptureAutomation automationWhenHeadless )
@@ -103,33 +100,45 @@ void BuildScreenshotAndExitPath( const char* scenePath, char* outPath, size_t ou
 }
 } // namespace
 
-void CaptureSystem::SaveBackbufferBmp( Rendering::IRenderCaptureBackend& backend, const char* path )
+SbResult CaptureSystem::SaveBackbufferBmp( Rendering::IRenderCaptureBackend& backend, const char* path )
 {
+    // Lane R: capture support, readback dimensions, and file output can fail
+    // because of renderer/device/file-system environment state, so callers get
+    // an owner/message result instead of an exception unwind.
     if ( !backend.SupportsBackbufferCapture() )
     {
-        char msg[512];
-        sprintf_s( msg,
-                   sizeof( msg ),
-                   "Renderer does not support backbuffer capture for file: %s  (CaptureSystem::SaveBackbufferBmp)",
-                   path );
-        throw std::runtime_error( msg );
+        return SbResult::Failure(
+            "Runtime/CaptureSystem",
+            "Renderer does not support backbuffer capture for file: %s  (CaptureSystem::SaveBackbufferBmp)",
+            path );
     }
 
     int width = 0;
     int height = 0;
-    std::vector<uint8_t> pixels = backend.CaptureBackbuffer( width, height );
+    std::vector<uint8_t> pixels;
+    const SbResult readbackResult = backend.CaptureBackbuffer( pixels, width, height );
+    if ( !readbackResult.ok )
+    {
+        return readbackResult;
+    }
     if ( width <= 0 || height <= 0 )
     {
-        char msg[512];
-        sprintf_s( msg,
-                   sizeof( msg ),
-                   "Invalid screenshot dimensions for file: %s  (CaptureSystem::SaveBackbufferBmp)",
-                   path );
-        throw std::runtime_error( msg );
+        return SbResult::Failure( "Runtime/CaptureSystem",
+                                  "Invalid screenshot dimensions for file: %s  (CaptureSystem::SaveBackbufferBmp)",
+                                  path );
     }
 
     const int rowStride = ( width * 3 + 3 ) & ~3;
     const int imageSize = rowStride * height;
+    if ( pixels.size() < static_cast<size_t>( imageSize ) )
+    {
+        return SbResult::Failure(
+            "Runtime/CaptureSystem",
+            "Screenshot readback returned %zu byte(s), expected %d for file: %s  (CaptureSystem::SaveBackbufferBmp)",
+            pixels.size(),
+            imageSize,
+            path );
+    }
 
     unsigned char fileHeader[14] = {};
     const int fileSize = 14 + 40 + imageSize;
@@ -162,15 +171,28 @@ void CaptureSystem::SaveBackbufferBmp( Rendering::IRenderCaptureBackend& backend
     const errno_t err = fopen_s( &rawFile, path, "wb" );
     if ( err != 0 || !rawFile )
     {
-        char msg[512];
-        sprintf_s( msg, sizeof( msg ), "Failed to open screenshot file: %s  (CaptureSystem::SaveBackbufferBmp)", path );
-        throw std::runtime_error( msg );
+        return SbResult::Failure( "Runtime/CaptureSystem",
+                                  "Failed to open screenshot file: %s  (CaptureSystem::SaveBackbufferBmp)",
+                                  path );
     }
     FileHandle file( rawFile );
 
-    WriteExact( file.get(), fileHeader, sizeof( fileHeader ), path );
-    WriteExact( file.get(), infoHeader, sizeof( infoHeader ), path );
-    WriteExact( file.get(), pixels.data(), static_cast<size_t>( imageSize ), path );
+    SbResult writeResult = WriteExact( file.get(), fileHeader, sizeof( fileHeader ), path );
+    if ( !writeResult.ok )
+    {
+        return writeResult;
+    }
+    writeResult = WriteExact( file.get(), infoHeader, sizeof( infoHeader ), path );
+    if ( !writeResult.ok )
+    {
+        return writeResult;
+    }
+    writeResult = WriteExact( file.get(), pixels.data(), static_cast<size_t>( imageSize ), path );
+    if ( !writeResult.ok )
+    {
+        return writeResult;
+    }
+    return SbResult::Success();
 }
 
 RuntimeCaptureResult CaptureSystem::TickScreenshots( RunScreenshotState& screenshot,
@@ -186,7 +208,11 @@ RuntimeCaptureResult CaptureSystem::TickScreenshots( RunScreenshotState& screens
 
         char outPath[256];
         BuildScreenshotAndExitPath( context.currentScenePath, outPath, sizeof( outPath ) );
-        sink.SaveScreenshot( outPath );
+        const SbResult captureResult = sink.SaveScreenshot( outPath );
+        if ( !captureResult.ok )
+        {
+            return { false, RuntimeCaptureCompletion::None, RuntimeCaptureAutomation::None, captureResult };
+        }
         return { true,
                  RuntimeCaptureCompletion::ScreenshotAndExit,
                  CompletionAutomation( context.isInteractiveRun, RuntimeCaptureAutomation::Quit ) };
@@ -207,7 +233,11 @@ RuntimeCaptureResult CaptureSystem::TickScreenshots( RunScreenshotState& screens
 
         if ( shouldCapture )
         {
-            sink.SaveScreenshot( screenshot.screenshotPath );
+            const SbResult captureResult = sink.SaveScreenshot( screenshot.screenshotPath );
+            if ( !captureResult.ok )
+            {
+                return { false, RuntimeCaptureCompletion::None, RuntimeCaptureAutomation::None, captureResult };
+            }
             screenshot.isScreenshotSaved = true;
             return { true,
                      RuntimeCaptureCompletion::Screenshot,
@@ -226,7 +256,11 @@ RuntimeCaptureResult CaptureSystem::TickScreenshots( RunScreenshotState& screens
                        "%s/capture_%04d.bmp",
                        screenshot.screenshotDir,
                        screenshot.intervalCaptureCount );
-            sink.SaveScreenshot( intervalPath );
+            const SbResult captureResult = sink.SaveScreenshot( intervalPath );
+            if ( !captureResult.ok )
+            {
+                return { false, RuntimeCaptureCompletion::None, RuntimeCaptureAutomation::None, captureResult };
+            }
         }
     }
 
@@ -249,7 +283,11 @@ RuntimeCaptureResult CaptureSystem::TickAutoCycle( bool isSceneMode,
 
     char shotPath[256];
     sprintf_s( shotPath, sizeof( shotPath ), "Profile/cardinal_ball%d.bmp", autoCycleShotsTaken );
-    sink.SaveScreenshot( shotPath );
+    const SbResult captureResult = sink.SaveScreenshot( shotPath );
+    if ( !captureResult.ok )
+    {
+        return { false, RuntimeCaptureCompletion::None, RuntimeCaptureAutomation::None, captureResult };
+    }
     fprintf( stdout, "Auto-shot %d: ball index %d -> %s\n", autoCycleShotsTaken, trackBallIndex, shotPath );
     fflush( stdout );
 

@@ -13,9 +13,9 @@ Glossary:
   Collider store: Physics-owned shape, material, and radius records paired with
     body handles.
   Repro snapshot: Debug-only text dump of the object under the launcher
-  crosshair, including enough scene and physics state to recreate the issue.
+    crosshair, including enough scene and physics state to recreate the issue.
   Validation gate: Repository script that proves a class of changes before
-  commit or PR.
+    commit or PR.
 
 Invariants:
   - Launcher repro output is a debugging interface; key names and numeric
@@ -476,5 +476,36 @@ RuntimeTools::WriteLauncherReproSnapshot( const LauncherReproSnapshotContext& co
     fprintf( f, "=== END LAUNCHER REPRO SNAPSHOT ===\n" );
 
     return LauncherReproSnapshotStatus::Wrote;
+}
+
+
+LauncherReproSnapshotStatus
+RuntimeTools::WriteLauncherReproSnapshotWithStatusMessage( const LauncherReproSnapshotContext& context,
+                                                           RunDebugState& debug ) const
+{
+    // Why: the debug Enter shortcut should ask the launcher owner for both the
+    // cold snapshot artifact and the operator-facing status text, leaving Run to
+    // decide only whether the shortcut is currently allowed.
+    const LauncherReproSnapshotStatus snapshotStatus = WriteLauncherReproSnapshot( context );
+    const char* snapshotMessage = "Failed to write repro snapshot";
+    if ( snapshotStatus == LauncherReproSnapshotStatus::Wrote )
+    {
+        sprintf_s( debug.reproSnapshotMessage,
+                   sizeof( debug.reproSnapshotMessage ),
+                   "Repro snapshot: %s",
+                   LAUNCHER_REPRO_SNAPSHOT_PATH );
+    }
+    else if ( snapshotStatus == LauncherReproSnapshotStatus::NoTarget )
+    {
+        snapshotMessage = "No repro target under crosshair";
+    }
+
+    if ( snapshotStatus != LauncherReproSnapshotStatus::Wrote )
+    {
+        sprintf_s( debug.reproSnapshotMessage, sizeof( debug.reproSnapshotMessage ), "%s", snapshotMessage );
+    }
+
+    debug.reproSnapshotMessageUntil = context.simulationSeconds + LAUNCHER_REPRO_MESSAGE_SECONDS;
+    return snapshotStatus;
 }
 #endif

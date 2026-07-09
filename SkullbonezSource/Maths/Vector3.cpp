@@ -13,8 +13,8 @@ Glossary:
   SkullbonezCore runtime.
 
 Invariants:
-  - Normalise throws on an exact zero vector; callers handling optional
-    directions must test or provide a fallback first.
+  - Normalise and division treat zero magnitude/divisors as caller invariant
+    failures; optional directions must test or provide a fallback first.
   - Debug default construction poisons components with NaN to expose
     use-before-init bugs.
 
@@ -23,8 +23,8 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "Vector3.h"
+#include "../Core/FatalError.h"
 #include <limits>
-#include <stdexcept>
 
 
 using namespace SkullbonezCore::Math::Vector;
@@ -63,7 +63,7 @@ void Vector3::Normalise()
 
     if ( !magSq )
     {
-        throw std::runtime_error( "Division by zero.  (Vector3::Normalise)" );
+        SB_FATAL( "Vector3", "Normalise requires a non-zero vector." );
     }
     float oneOverMag = 1.0f / sqrtf( magSq );
 
@@ -145,7 +145,7 @@ Vector3 Vector3::operator/( float f ) const
 {
     if ( !f )
     {
-        throw std::runtime_error( "Division by zero.  (Vector3::Operator/)" );
+        SB_FATAL( "Vector3", "Scalar division requires a non-zero divisor." );
     }
     float oneOverA = 1.0f / f;
     return Vector3( x * oneOverA, y * oneOverA, z * oneOverA );
@@ -156,7 +156,7 @@ Vector3 Vector3::operator/( const Vector3& v ) const
 {
     if ( !v.x || !v.y || !v.z )
     {
-        throw std::runtime_error( "Division by zero.  (Vector3::Operator/)" );
+        SB_FATAL( "Vector3", "Component-wise division requires non-zero divisors. x=%f y=%f z=%f", v.x, v.y, v.z );
     }
 
     return Vector3( x / v.x, y / v.y, z / v.z );
@@ -211,7 +211,7 @@ Vector3& Vector3::operator/=( float f )
 {
     if ( !f )
     {
-        throw std::runtime_error( "Division by zero.  (Vector3::Operator/=)" );
+        SB_FATAL( "Vector3", "Scalar divide-assign requires a non-zero divisor." );
     }
     float oneOverA = 1.0f / f;
     x *= oneOverA;
@@ -225,7 +225,7 @@ Vector3& Vector3::operator/=( const Vector3& v )
 {
     if ( !v.x || !v.y || !v.z )
     {
-        throw std::runtime_error( "Division by zero.  (Vector3::Operator/=)" );
+        SB_FATAL( "Vector3", "Component-wise divide-assign requires non-zero divisors. x=%f y=%f z=%f", v.x, v.y, v.z );
     }
     x /= v.x;
     y /= v.y;

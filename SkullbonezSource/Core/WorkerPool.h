@@ -185,7 +185,8 @@ class WorkerPool
     // Runtime allocation policy:
     //   Preallocated as inline WorkerPool storage for worker-count bounded
     //   parallel dispatch. Steady gameplay must not grow task records; overflow
-    //   throws with the worker queue capacity instead of allocating.
+    //   fails through SB_FATAL with the worker queue capacity instead of
+    //   allocating.
     ParallelTaskRecord m_parallelTasks[WORKER_PARALLEL_TASK_CAPACITY];
     int m_parallelTaskHead;
     int m_parallelTaskCount;

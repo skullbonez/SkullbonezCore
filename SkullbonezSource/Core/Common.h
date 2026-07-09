@@ -25,8 +25,8 @@ Glossary:
 Invariants:
   - Shared constants in this file are compile-time engine contracts; changing
     capacities or runtime labels changes validation scope.
-  - Log() is a convenience accessor only; ownership remains with the singleton
-    type declared in its own subsystem header.
+  - Cfg() is a compatibility accessor only; ownership remains with the config
+    singleton type declared in its own subsystem header.
 
 Alias deletion schedule:
   - Remove AssetKeys.h after profiler, replay, runtime, scene, render, physics,
@@ -35,8 +35,8 @@ Alias deletion schedule:
     the runtime owner directly.
   - Remove MathsCommon.h, SceneCapacity.h, and PhysicsTimestep.h after their
     current direct-call users stop relying on Common.h for domain constants.
-  - Config.h and Log.h stay until the global-service cleanup plan finishes
-    deleting the remaining Common.h service compatibility path.
+  - Config.h stays until the global-service cleanup plan finishes deleting the
+    remaining Common.h service compatibility path.
 
 Related:
   - Agentic/Reference/runtime-reference.md
@@ -88,19 +88,12 @@ Related:
 #endif
 
 // Why: authoritative-plan-02 owns removing service-accessor compatibility from
-// Common.h. Keep these includes local until that plan deletes the remaining
-// Cfg()/Log() compatibility path and callers carry explicit owner includes.
+// Common.h. Keep this include local until that plan deletes the remaining
+// Cfg() compatibility path and callers carry explicit config-owner includes.
 // All other engine parameters live in EngineConfig (loaded from engine.cfg).
 #include "Config.h"
-#include "Log.h"
 
 inline int ActiveGameModelCapacity( const SkullbonezCore::Basics::EngineConfig& config )
 {
     return std::clamp( config.gameModelCapacity, 1, MAX_GAME_MODELS );
-}
-
-// Convenience accessor — use Log().Writef("file.csv", fmt, ...) anywhere (debug no-op in release).
-inline SkullbonezCore::Basics::EngineLog& Log()
-{
-    return SkullbonezCore::Basics::EngineLog::Get();
 }

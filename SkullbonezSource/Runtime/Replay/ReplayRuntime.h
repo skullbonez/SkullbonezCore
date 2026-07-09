@@ -75,6 +75,9 @@ inline constexpr std::size_t REPLAY_PREDICTION_GHOST_REQUEST_CAPACITY =
     ( REPLAY_PREDICTION_GHOST_MAX_FRAMES + 2u ) * static_cast<std::size_t>( MAX_GAME_MODELS );
 inline constexpr std::size_t REPLAY_PREDICTION_MARKER_CAPACITY = static_cast<std::size_t>( MAX_GAME_MODELS );
 inline constexpr std::size_t REPLAY_PREDICTION_BASELINE_ROOT_POINT_CAPACITY = 261u;
+// Runtime allocation policy: live replay path-target picks rotate inside this
+// fixed vector budget instead of growing while gameplay is running.
+inline constexpr std::size_t REPLAY_PATH_MAX_ROOT_TARGETS = 100u;
 inline constexpr std::size_t REPLAY_CAUSE_TREE_CONTACT_CAPACITY = static_cast<std::size_t>( MAX_GAME_MODELS ) * 4u;
 inline constexpr std::size_t REPLAY_CAUSE_TREE_ROW_CAPACITY =
     1u + static_cast<std::size_t>( MAX_GAME_MODELS ) + REPLAY_CAUSE_TREE_CONTACT_CAPACITY * 3u;
@@ -345,6 +348,95 @@ struct ReplayPredictionBaselineSnapshot
     float divergenceUnits = 0.0f;
 };
 
+struct RunReplayPredictionRevealClock
+{
+    // Concept: reveal anchor is the wall-clock start of the causal-unfold
+    // animation. The overlay clamps drawn prediction frames to a cursor derived
+    // from this anchor so the tree unfolds over real time instead of popping in
+    // whole.
+    // Invariant: overlay pacing never feeds physics, replay samples, or solver
+    // restores, so steady_clock here cannot affect deterministic simulation.
+    double secondsPerSecond = 1.0;                                    // Runtime-authored causal-unfold speed; 1.0 = real-time.
+    std::chrono::steady_clock::time_point anchor = {};
+    bool anchorValid = false;
+};
+
+struct RunReplayPredictionUiState
+{
+    // Concept: these fields are replay-overlay hit-test memory. Hover values are
+    // rewritten each input tick from panel geometry, while horizonDragging must
+    // persist across ticks until the mouse release clears the slider capture.
+    bool checkboxHovered = false;
+    bool ragdollVisualsHovered = false;
+    bool decreaseHovered = false;
+    bool increaseHovered = false;
+    bool horizonHovered = false;
+    bool horizonDragging = false;
+};
+
+struct RunReplayPredictionFutureNodeCache
+{
+    // Concept: future-node cache is render-facing topology derived from
+    // prediction frames. Build work writes the scratch vector and cursor fields;
+    // draw code reads futureNodes only after a coherent prefix is published.
+    std::vector<RunReplayPathTraceNode> futureNodes;
+    std::vector<RunReplayPathTraceNode> futureNodeBuildScratch;
+    std::size_t futureNodesBuiltFrameCount = 0;
+    std::size_t futureNodesBuiltContactIndex = 0;
+    ReplayBodyId futureNodesBuiltTargetId;
+    bool futureNodesBuiltRagdollVisuals = false;
+    bool futureNodesBuiltFromBuildFrames = false;
+    bool futureNodesCacheValid = false;
+    // Invariant: once a causal yellow or grey box has been revealed, budgeted
+    // line scans may not make it disappear. This fixed cache redraws retained
+    // marker poses until a new prediction/future cache resets the story.
+    std::array<ReplayPredictionRetainedMarker, REPLAY_PREDICTION_MARKER_CAPACITY> retainedMarkers = {};
+    std::size_t retainedMarkerCount = 0;
+};
+
+struct RunReplayPredictionBuildState
+{
+    bool dirty = true;
+    bool building = false;
+    bool complete = false;
+    int nextTick = 1;
+    int targetTickCount = 0;
+    double lastBuildTime = 0.0;
+    // Runtime allocation policy: prediction buildFrames can be pre-sized for a
+    // whole horizon while only buildFrameCount rows are populated. Render reads
+    // frames, not the pre-sized build vector, until completion swaps them.
+    // Invariant: buildFrameCount is the single published prefix cursor. Future
+    // async stepping must publish it only after the corresponding rows are
+    // complete, then cancel or invalidate that writer before clearing storage.
+    std::vector<RunReplayPredictionFrame> buildFrames;
+    std::size_t buildFrameCount = 0;
+};
+
+struct RunReplayPredictionSimulationState
+{
+    float horizonSeconds = REPLAY_FUTURE_BUFFER_SECONDS;
+    int targetModelIndex = -1;
+    ReplayBodyId targetId;
+    ReplayFrameIndex sourceFrameIndex = 0;
+    uint64_t sourceSolverHash = 0;
+    double sourceSimulationSeconds = 0.0;
+    // Concept: prediction simulates the future in its own engine. Live stores
+    // are never written by prediction, so replay preview state stays isolated.
+    // Lifetime: constructed lazily on first prediction begin under the replay
+    // reserve owner, pre-sized by copying the current live physics facade, and
+    // reused across prediction builds so startup/perf-smoke memory stays flat.
+    // Runtime allocation policy: owner replay_prediction_working_set; reason:
+    // private prediction needs a bounded physics copy for exploratory replay;
+    // deletion condition: none, this is the end-state isolation boundary;
+    // checker budget: 256 MB hard cap registered by ReplayPredictionReserveOwner().
+    std::unique_ptr<Physics::PhysicsEngine> predictionEngine;
+    Physics::PhysicsWorldForces predictionWorldForces;
+    bool predictionEngineReady = false;
+    ReplaySolverWorldSnapshot predictionWorld;
+    std::vector<RunReplayPredictionBodyBackup> predictionBodies;
+    std::vector<RunReplayPredictionFrame> frames;
+};
+
 struct RunReplayPredictionState
 {
     RunReplayPredictionState();
@@ -365,114 +457,53 @@ struct RunReplayPredictionState
     void PublishBuildFrameSlot( std::size_t frameSlot ) noexcept;
 
     bool enabled = false;
-    bool checkboxHovered = false;
     bool ragdollVisualsEnabled = false;
-    bool ragdollVisualsHovered = false;
-    bool decreaseHovered = false;
-    bool increaseHovered = false;
-    bool horizonHovered = false;
-    bool horizonDragging = false;
-    bool dirty = true;
-    bool building = false;
-    bool complete = false;
-    float horizonSeconds = REPLAY_FUTURE_BUFFER_SECONDS;
-    int targetModelIndex = -1;
-    int nextTick = 1;
-    int targetTickCount = 0;
-    ReplayBodyId targetId;
-    ReplayFrameIndex sourceFrameIndex = 0;
-    uint64_t sourceSolverHash = 0;
-    double sourceSimulationSeconds = 0.0;
-    double lastBuildTime = 0.0;
-    // Concept: prediction simulates the future in its own engine. Live stores
-    // are never written by prediction, so replay preview state stays isolated.
-    // Lifetime: constructed lazily on first prediction begin under the replay
-    // reserve owner, pre-sized by copying the current live physics facade, and
-    // reused across prediction builds so startup/perf-smoke memory stays flat.
-    // Runtime allocation policy: owner replay_prediction_working_set; reason:
-    // private prediction needs a bounded physics copy for exploratory replay;
-    // deletion condition: none, this is the end-state isolation boundary;
-    // checker budget: 256 MB hard cap registered by ReplayPredictionReserveOwner().
-    std::unique_ptr<Physics::PhysicsEngine> predictionEngine;
-    Physics::PhysicsWorldForces predictionWorldForces;
-    bool predictionEngineReady = false;
-    ReplaySolverWorldSnapshot predictionWorld;
-    std::vector<RunReplayPredictionBodyBackup> predictionBodies;
-    std::vector<RunReplayPredictionFrame> frames;
-    // Runtime allocation policy: prediction buildFrames can be pre-sized for a
-    // whole horizon while only buildFrameCount rows are populated. Render reads
-    // frames, not the pre-sized build vector, until completion swaps them.
-    // Invariant: buildFrameCount is the single published prefix cursor. Future
-    // async stepping must publish it only after the corresponding rows are
-    // complete, then cancel or invalidate that writer before clearing storage.
-    std::vector<RunReplayPredictionFrame> buildFrames;
-    std::size_t buildFrameCount = 0;
-    // Renderable future-impact topology. Build work publishes coherent prefixes
-    // here so the draw path never reads the scratch vector while it is mid-frame.
-    std::vector<RunReplayPathTraceNode> futureNodes;
-    // Scratch future-impact topology advanced under the visualizer budget.
-    std::vector<RunReplayPathTraceNode> futureNodeBuildScratch;
-    // Incremental tree cursors. Prediction can contain thousands of frames, so
-    // futureNodeBuildScratch is built over multiple render frames and copied to
-    // futureNodes only at coherent prefix boundaries.
-    std::size_t futureNodesBuiltFrameCount = 0;
-    std::size_t futureNodesBuiltContactIndex = 0;
-    ReplayBodyId futureNodesBuiltTargetId;
-    bool futureNodesBuiltRagdollVisuals = false;
-    bool futureNodesBuiltFromBuildFrames = false;
-    bool futureNodesCacheValid = false;
-    // Invariant: once a causal yellow or grey box has been revealed, budgeted
-    // line scans may not make it disappear. This fixed cache redraws retained
-    // marker poses until a new prediction/future cache resets the story.
-    std::array<ReplayPredictionRetainedMarker, REPLAY_PREDICTION_MARKER_CAPACITY> retainedMarkers = {};
-    std::size_t retainedMarkerCount = 0;
+    RunReplayPredictionUiState ui;
+    RunReplayPredictionBuildState build;
+    RunReplayPredictionSimulationState simulation;
+    RunReplayPredictionFutureNodeCache futureNodeCache;
     // Concept: the butterfly baseline is a retained presentation snapshot of
-    // the pre-nudge future. It is intentionally smaller than prediction.frames:
-    // one cold root polyline, two poses per affected body, and one divergence
-    // number, so the warm current prediction can unfold over it.
+    // the pre-nudge future. It is intentionally smaller than the committed
+    // simulation frame list: one cold root polyline, two poses per affected
+    // body, and one divergence number, so the warm current prediction can
+    // unfold over it.
     ReplayPredictionBaselineSnapshot baseline;
-    // Concept: reveal anchor — wall-clock start of the causal-unfold animation.
-    // The overlay clamps drawn prediction frames to a cursor derived from this
-    // anchor so the tree unfolds over real time instead of popping in whole.
-    // Overlay-only pacing state: it never feeds physics, replay samples, or
-    // solver restores, so steady_clock here cannot affect determinism.
-    double revealSecondsPerSecond = 1.0;                              // Runtime-authored causal-unfold speed; 1.0 = real-time.
-    std::chrono::steady_clock::time_point revealAnchor = {};
-    bool revealAnchorValid = false;
+    RunReplayPredictionRevealClock revealClock;
 };
 
 inline std::size_t RunReplayPredictionState::PublishedBuildFrameCount() const noexcept
 {
-    return buildFrameCount < buildFrames.size() ? buildFrameCount : buildFrames.size();
+    return build.buildFrameCount < build.buildFrames.size() ? build.buildFrameCount : build.buildFrames.size();
 }
 
 inline bool RunReplayPredictionState::HasPublishedBuildFramePrefix( std::size_t minFrameCount ) const noexcept
 {
-    return building && PublishedBuildFrameCount() >= minFrameCount;
+    return build.building && PublishedBuildFrameCount() >= minFrameCount;
 }
 
 inline bool RunReplayPredictionState::BuildPrefixShouldBePresented() const noexcept
 {
     const std::size_t publishedCount = PublishedBuildFrameCount();
-    return building && publishedCount >= 2u && ( frames.empty() || publishedCount >= frames.size() );
+    return build.building && publishedCount >= 2u &&
+           ( simulation.frames.empty() || publishedCount >= simulation.frames.size() );
 }
 
 inline bool RunReplayPredictionState::BuildFramesAreComplete() const noexcept
 {
-    return BuildPrefixShouldBePresented() && PublishedBuildFrameCount() >= buildFrames.size();
+    return BuildPrefixShouldBePresented() && PublishedBuildFrameCount() >= build.buildFrames.size();
 }
 
 inline void RunReplayPredictionState::ResetBuildFramePublication() noexcept
 {
-    buildFrameCount = 0;
+    build.buildFrameCount = 0;
 }
 
 inline void RunReplayPredictionState::PublishBuildFrameSlot( std::size_t frameSlot ) noexcept
 {
-    const std::size_t publishedCount = frameSlot < buildFrames.size() ? frameSlot + 1u : buildFrames.size();
-    if ( publishedCount > buildFrameCount )
+    const std::size_t publishedCount = frameSlot < build.buildFrames.size() ? frameSlot + 1u : build.buildFrames.size();
+    if ( publishedCount > build.buildFrameCount )
     {
-        buildFrameCount = publishedCount;
+        build.buildFrameCount = publishedCount;
     }
 }
 
@@ -748,6 +779,8 @@ class ReplayRuntime
     bool SavePresentationWithSolverHashes( const char* path, ReplayV2SaveResult* result = nullptr ) const;
 
   private:
+    void ReportLatestCaptureMismatch();
+
     ReplayRecorder m_presentation;                                    // Bounded replay presentation recorder for recent-frame inspection.
     ReplaySolverRecorder m_solver;                                    // Same-tick solver-state recorder kept in tandem with presentation replay.
     ReplayEventRecorder m_events;                                     // Bounded intent/event stream kept beside v2 replay tracks.
@@ -766,6 +799,8 @@ class ReplayRuntime
     // the live model budget. It must not allocate while scrub/prediction views
     // are applied during rendering.
     std::array<uint8_t, MAX_GAME_MODELS> m_renderPoseBodyMatched = {};
+    uint32_t m_captureMismatchReports = 0;                            // Process-lifetime throttle for paired presentation/solver capture diagnostics.
+    bool m_captureMismatchSuppressed = false;
     bool m_launcherVisualBackupActive = false;
 };
 } // namespace Basics

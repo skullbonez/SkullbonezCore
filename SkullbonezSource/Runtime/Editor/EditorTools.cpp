@@ -32,6 +32,7 @@ Related:
 #include "../Tools/RuntimeTools.h"
 #include "../../Core/Common.h"
 #include "../../GameObjects/GameModelCollection.h"
+#include "../../UI/UICommands.h"
 #include "../../UI/UITabEditor.h"
 #include "../../World/WorldEnvironment.h"
 
@@ -262,11 +263,27 @@ void ClearEditorManipulationState( EditorGizmoContext context )
 
 EditorKeyboardShortcutResult HandleEditorKeyboardShortcuts( EditorKeyboardShortcutContext context )
 {
+    return HandleEditorKeyboardShortcut(
+        RuntimeInputAction::ToggleEditorTool,
+        Hardware::Input::IsKeyDown( VK_MENU ),
+        InputController::CaptureKeyboardActionPress( context.input, RuntimeInputAction::ToggleEditorTool, VK_MENU ) );
+}
+
+
+EditorKeyboardShortcutResult HandleEditorKeyboardShortcut( RuntimeInputAction action, bool isDown, bool wasPressed )
+{
     EditorKeyboardShortcutResult result;
-    result.altDown = Hardware::Input::IsKeyDown( VK_MENU );
-    result.togglePlacementMode =
-        InputController::CaptureKeyboardActionPress( context.input, RuntimeInputAction::ToggleEditorTool, VK_MENU );
-    return result;
+    switch ( action )
+    {
+    case RuntimeInputAction::ToggleEditorTool:
+        // Concept: Alt is both a level input for replay velocity editing and a
+        // press edge for editor placement-mode toggling.
+        result.altDown = isDown;
+        result.togglePlacementMode = wasPressed;
+        return result;
+    default:
+        return result;
+    }
 }
 
 
@@ -368,10 +385,58 @@ SelectEditorObjectType( EditorGizmoContext context, int requestedObjectType, boo
 }
 
 
-void HandleEditorSaveHotkeys( EditorSaveHotkeyContext context )
+EditorPlacementPreModeUICommandResult ApplyEditorPlacementPreModeUICommands( EditorGizmoContext context,
+                                                                             const UI::UIEditorCommands& commands )
 {
-    if ( InputController::CaptureKeyboardActionPress( context.input, RuntimeInputAction::SaveSceneSnapshot, VK_F2 ) )
+    EditorPlacementPreModeUICommandResult result;
+    result.toggleEditorMode = commands.toggleEditorMode;
+    result.togglePlacementMode = commands.togglePlacementMode;
+    if ( commands.requestPlaceStatic && SetEditorPlaceStaticObject( context.editor, commands.requestedPlaceStatic ) )
     {
+        result.setPlaceStatic = true;
+    }
+    if ( commands.requestedObjectType >= 0 )
+    {
+        const EditorObjectTypeRequestResult objectTypeRequest =
+            SelectEditorObjectType( context, commands.requestedObjectType, commands.enterPlacementMode );
+        result.requestedObjectType = true;
+        result.enterPlacementMode = objectTypeRequest.enterPlacementMode;
+    }
+    return result;
+}
+
+
+EditorPlacementPostModeUICommandResult ApplyEditorPlacementPostModeUICommands( RunEditorPlacementState& editor,
+                                                                               const UI::UIEditorCommands& commands )
+{
+    EditorPlacementPostModeUICommandResult result;
+    if ( commands.togglePlaceStatic )
+    {
+        ToggleEditorPlaceStaticObject( editor );
+        result.toggledPlaceStatic = true;
+    }
+    if ( commands.toggleTerrainAlign )
+    {
+        ToggleEditorTerrainAlign( editor );
+        result.toggledTerrainAlign = true;
+    }
+    return result;
+}
+
+
+void HandleEditorSaveHotkey( EditorSaveHotkeyContext context, RuntimeInputAction action, int virtualKey )
+{
+    // Why: the binding table owns the key/action pair, while editor tools keep
+    // numbered snapshot paths and screenshot commands behind the editor boundary.
+    switch ( action )
+    {
+    case RuntimeInputAction::SaveSceneSnapshot:
+    {
+        if ( !InputController::CaptureKeyboardActionPress( context.input, action, virtualKey ) )
+        {
+            return;
+        }
+
         static int sSnapshotSeq = 0;
         char path[256] = {};
         if ( RuntimeFileWriter::NextNumberedPath( path,
@@ -390,10 +455,16 @@ void HandleEditorSaveHotkeys( EditorSaveHotkeyContext context )
                                               context.cameras.GetCameraView(),
                                               context.cameras.GetCameraUp() );
         }
+        return;
     }
 
-    if ( InputController::CaptureKeyboardActionPress( context.input, RuntimeInputAction::SaveScreenshot, VK_F3 ) )
+    case RuntimeInputAction::SaveScreenshot:
     {
+        if ( !InputController::CaptureKeyboardActionPress( context.input, action, virtualKey ) )
+        {
+            return;
+        }
+
         static int sScreenshotSeq = 0;
         char path[256] = {};
         if ( RuntimeFileWriter::NextNumberedPath( path,
@@ -408,7 +479,19 @@ void HandleEditorSaveHotkeys( EditorSaveHotkeyContext context )
             command.text = path;
             context.commands.Push( std::move( command ) );
         }
+        return;
     }
+
+    default:
+        return;
+    }
+}
+
+
+void HandleEditorSaveHotkeys( EditorSaveHotkeyContext context )
+{
+    HandleEditorSaveHotkey( context, RuntimeInputAction::SaveSceneSnapshot, VK_F2 );
+    HandleEditorSaveHotkey( context, RuntimeInputAction::SaveScreenshot, VK_F3 );
 }
 } // namespace RunInternal
 } // namespace Basics

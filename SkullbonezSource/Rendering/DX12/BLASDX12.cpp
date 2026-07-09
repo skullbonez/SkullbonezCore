@@ -49,10 +49,10 @@ Related:
 //
 #include "BLASDX12.h"
 #include "RenderDeviceDX12.h"
-#include <stdexcept>
 
 
 using namespace SkullbonezCore::Rendering;
+using SkullbonezCore::Basics::SbResult;
 
 
 BLAS::BLAS() : m_scratch( nullptr ), m_result( nullptr )
@@ -66,13 +66,13 @@ BLAS::~BLAS()
 }
 
 
-void BLAS::Build( ID3D12Device5* device,
-                  ID3D12GraphicsCommandList4* cmdList,
-                  D3D12_GPU_VIRTUAL_ADDRESS vbVA,
-                  int vertexCount,
-                  int vertexStride,
-                  DXGI_FORMAT vertexPosFormat,
-                  bool preferFastTrace )
+SbResult BLAS::Build( ID3D12Device5* device,
+                      ID3D12GraphicsCommandList4* cmdList,
+                      D3D12_GPU_VIRTUAL_ADDRESS vbVA,
+                      int vertexCount,
+                      int vertexStride,
+                      DXGI_FORMAT vertexPosFormat,
+                      bool preferFastTrace )
 {
     // Geometry description tells DXR where the triangle vertices live. This
     // engine path uses non-indexed triangles, so each consecutive group of
@@ -109,7 +109,8 @@ void BLAS::Build( ID3D12Device5* device,
 
     if ( prebuild.ResultDataMaxSizeInBytes == 0 )
     {
-        throw std::runtime_error( "BLAS: GetRaytracingAccelerationStructurePrebuildInfo returned zero" );
+        return SbResult::Failure( "Rendering/DX12",
+                                  "BLAS: GetRaytracingAccelerationStructurePrebuildInfo returned zero" );
     }
 
     // Scratch and result live in the default heap because the GPU builds and
@@ -139,7 +140,7 @@ void BLAS::Build( ID3D12Device5* device,
                                                   nullptr,
                                                   IID_PPV_ARGS( &m_scratch ) ) ) )
     {
-        throw std::runtime_error( "BLAS: Failed to create scratch buffer" );
+        return SbResult::Failure( "Rendering/DX12", "BLAS: Failed to create scratch buffer" );
     }
     NameDx12Object( m_scratch,
                     preferFastTrace ? L"Skullbonez DX12 Terrain BLAS Scratch Buffer"
@@ -162,7 +163,8 @@ void BLAS::Build( ID3D12Device5* device,
                                                   nullptr,
                                                   IID_PPV_ARGS( &m_result ) ) ) )
     {
-        throw std::runtime_error( "BLAS: Failed to create result buffer" );
+        ReleaseAfterBuild();
+        return SbResult::Failure( "Rendering/DX12", "BLAS: Failed to create result buffer" );
     }
     NameDx12Object(
         m_result,
@@ -192,6 +194,7 @@ void BLAS::Build( ID3D12Device5* device,
     barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_UAV;
     barrier.UAV.pResource = m_result;
     cmdList->ResourceBarrier( 1, &barrier );
+    return SbResult::Success();
 }
 
 

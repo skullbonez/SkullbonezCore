@@ -8,6 +8,15 @@ Mental model:
   calls, shader bindings, and validation artifacts.
 
 Glossary:
+  Legacy hash: 32-bit texture key kept for old render callers while asset ids
+  become the durable authoring identity.
+  Backend handle: Opaque texture id owned by the active render backend.
+  Render resource context: Borrowed renderer facet that creates and deletes
+  long-lived texture resources.
+  Render command context: Borrowed renderer facet used during a frame to bind a
+  texture handle to a shader slot.
+  Lane R result: Recoverable owner/message result used for missing or unreadable
+    texture files and backend texture-creation failures.
   Descriptor: Small binding record that tells a renderer how to interpret a
   resource.
   Back buffer: Swap-chain image that will be presented to the window.
@@ -16,23 +25,27 @@ Invariants:
   - Texture slots are fixed-size legacy storage keyed by legacy hash.
   - backendHandle values belong to the active renderer and must be deleted or
     rebuilt when the backend is destroyed or reset.
+  - Texture creation/deletion requires a bound render resource context; texture
+    selection requires a bound render command context.
+  - Legacy direct texture creation must receive a non-zero hash before it can
+    populate the fixed slot table.
 
 Related:
   - SkullbonezSource/Assets/TextureCollection.h
   - Agentic/Reference/comment-style-guide.md
 */
 #include "TextureCollection.h"
+#include "../Core/FatalError.h"
 #include "../Rendering/IRenderCommandContext.h"
 #include "../Rendering/IRenderResourceFactory.h"
 #include "stb_image.h"
 
 #include <memory>
-#include <stdexcept>
-#include <string>
 
 
 using namespace SkullbonezCore::Textures;
 using namespace SkullbonezCore::Rendering;
+namespace Basics = SkullbonezCore::Basics;
 
 
 int TextureCollection::FindIndex( uint32_t hash ) const
@@ -43,9 +56,10 @@ int TextureCollection::FindIndex( uint32_t hash ) const
         return index;
     }
 
-    char message[128];
-    sprintf_s( message, "Texture 0x%08X does not exist.  (TextureCollection::FindIndex)", hash );
-    throw std::runtime_error( message );
+    // Invariant: public residency/loading APIs return Lane R failures before a
+    // caller asks for an index. Reaching this point means an internal caller
+    // skipped the result contract.
+    SB_FATAL( "TextureCollection", "Texture hash lookup failed after residency check. hash=0x%08X", hash );
 }
 
 
@@ -78,7 +92,10 @@ int TextureCollection::FindFreeSlot() const
         }
     }
 
-    throw std::runtime_error( "Texture array full!  (TextureCollection::FindFreeSlot)" );
+    // Invariant: texture slots are fixed legacy storage. Runtime asset loading
+    // must fit the configured capacity instead of growing during draw/resource
+    // rebuild paths.
+    SB_FATAL( "TextureCollection", "Texture slot capacity exhausted. capacity=%zu", m_textures.size() );
 }
 
 
@@ -90,7 +107,13 @@ void TextureCollection::ReleaseTexture( GpuTextureRecord& texture )
     {
         if ( !m_renderResources )
         {
-            throw std::runtime_error( "TextureCollection::ReleaseTexture requires a bound render resource context." );
+            // Invariant: backend handles can only be destroyed by the resource
+            // factory that owns them. Releasing without that facet would leak or
+            // orphan the renderer resource.
+            SB_FATAL( "TextureCollection",
+                      "ReleaseTexture requires a bound render resource context. backendHandle=%u legacyHash=0x%08X",
+                      texture.backendHandle,
+                      texture.legacyHash );
         }
         m_renderResources->DeleteTexture( texture.backendHandle );
     }
@@ -109,7 +132,12 @@ void TextureCollection::DeleteAllTextures()
 
 void TextureCollection::DeleteTexture( uint32_t hash )
 {
-    ReleaseTexture( m_textures[FindIndex( hash )] );
+    const int index = FindIndexNoThrow( hash );
+    if ( index < 0 )
+    {
+        return;
+    }
+    ReleaseTexture( m_textures[index] );
 }
 
 
@@ -127,21 +155,34 @@ int TextureCollection::NumFreeTextureSpaces() const
 }
 
 
-void TextureCollection::SelectTexture( uint32_t hash )
+Basics::SbResult TextureCollection::SelectTexture( uint32_t hash )
 {
-    EnsureTexture( hash );
+    const Basics::SbResult ensureResult = EnsureTexture( hash );
+    if ( !ensureResult.ok )
+    {
+        return ensureResult;
+    }
     if ( !m_renderCommands )
     {
-        throw std::runtime_error( "TextureCollection::SelectTexture requires a bound render command context." );
+        // Invariant: selecting a texture mutates frame draw state and therefore
+        // requires the command facet for the active backend.
+        SB_FATAL( "TextureCollection", "SelectTexture requires a bound render command context. hash=0x%08X", hash );
     }
     m_renderCommands->BindTexture( m_textures[FindIndex( hash )].backendHandle, 0 );
+    return Basics::SbResult::Success();
 }
 
 
-uint32_t TextureCollection::GetTextureHandle( uint32_t hash )
+TextureCollection::TextureHandleResult TextureCollection::GetTextureHandle( uint32_t hash )
 {
-    EnsureTexture( hash );
-    return m_textures[FindIndex( hash )].backendHandle;
+    TextureHandleResult result;
+    result.result = EnsureTexture( hash );
+    if ( !result.result.ok )
+    {
+        return result;
+    }
+    result.handle = m_textures[FindIndex( hash )].backendHandle;
+    return result;
 }
 
 
@@ -168,11 +209,11 @@ bool TextureCollection::HasTexture( uint32_t hash ) const
 }
 
 
-void TextureCollection::EnsureTexture( uint32_t hash )
+Basics::SbResult TextureCollection::EnsureTexture( uint32_t hash )
 {
     if ( HasTexture( hash ) )
     {
-        return;
+        return Basics::SbResult::Success();
     }
 
     if ( m_assets )
@@ -180,41 +221,50 @@ void TextureCollection::EnsureTexture( uint32_t hash )
         const Assets::TextureSourceAsset* source = m_assets->FindTextureSourceAssetByLegacyHash( hash );
         if ( source )
         {
-            CreateTextureFromSourceAsset( *source );
-            return;
+            return CreateTextureFromSourceAsset( *source );
         }
     }
 
-    char message[160];
-    sprintf_s( message,
-               "Texture 0x%08X is not resident and has no registered source asset.  (TextureCollection::EnsureTexture)",
-               hash );
-    throw std::runtime_error( message );
+    return Basics::SbResult::Failure( "TextureCollection",
+                                      "Texture 0x%08X is not resident and has no registered source asset.",
+                                      hash );
 }
 
 
-void TextureCollection::LoadJpegTextureIntoSlot( int slot,
-                                                 const char* fileName,
-                                                 uint32_t hash,
-                                                 Assets::AssetId sourceId,
-                                                 bool generateMips,
-                                                 bool linearFilter,
-                                                 int channelsHint )
+Basics::SbResult TextureCollection::LoadJpegTextureIntoSlot( int slot,
+                                                             const char* fileName,
+                                                             uint32_t hash,
+                                                             Assets::AssetId sourceId,
+                                                             bool generateMips,
+                                                             bool linearFilter,
+                                                             int channelsHint )
 {
     if ( slot < 0 || slot >= static_cast<int>( m_textures.size() ) )
     {
-        throw std::runtime_error( "Invalid texture slot.  (TextureCollection::LoadJpegTextureIntoSlot)" );
+        // Invariant: callers reserve slots through FindFreeSlot or reuse an
+        // existing resident slot. A direct out-of-range slot would corrupt the
+        // fixed legacy texture table.
+        SB_FATAL( "TextureCollection",
+                  "Invalid texture slot. slot=%d capacity=%zu hash=0x%08X",
+                  slot,
+                  m_textures.size(),
+                  hash );
     }
     if ( !fileName || fileName[0] == '\0' )
     {
-        throw std::invalid_argument( "TextureCollection::LoadJpegTextureIntoSlot requires a file path." );
+        return Basics::SbResult::Failure( "TextureCollection", "Texture file path is empty. hash=0x%08X", hash );
     }
 
     const int requestedChannels = channelsHint > 0 ? channelsHint : 3;
     if ( !m_renderResources )
     {
-        throw std::runtime_error(
-            "TextureCollection::LoadJpegTextureIntoSlot requires a bound render resource context." );
+        // Invariant: texture file bytes become a backend resource immediately
+        // after decode, so the render resource facet must be bound first.
+        SB_FATAL( "TextureCollection",
+                  "LoadJpegTextureIntoSlot requires a bound render resource context. slot=%d hash=0x%08X path=\"%s\"",
+                  slot,
+                  hash,
+                  fileName ? fileName : "" );
     }
 
     int width = 0;
@@ -226,18 +276,20 @@ void TextureCollection::LoadJpegTextureIntoSlot( int slot,
 
     if ( !data )
     {
-        std::string message = "Image load failed: ";
-        message += fileName;
-        message += "  (TextureCollection::CreateJpegTexture)";
-        throw std::runtime_error( message );
+        return Basics::SbResult::Failure( "TextureCollection",
+                                          "Image load failed. path=\"%s\" hash=0x%08X",
+                                          fileName,
+                                          hash );
     }
 
     const uint32_t backendHandle =
         m_renderResources->CreateTexture2D( data.get(), width, height, requestedChannels, generateMips, linearFilter );
     if ( backendHandle == 0 )
     {
-        throw std::runtime_error(
-            "Backend returned an invalid texture handle.  (TextureCollection::LoadJpegTextureIntoSlot)" );
+        return Basics::SbResult::Failure( "TextureCollection",
+                                          "Backend returned an invalid texture handle. path=\"%s\" hash=0x%08X",
+                                          fileName,
+                                          hash );
     }
 
     GpuTextureRecord& texture = m_textures[slot];
@@ -247,15 +299,18 @@ void TextureCollection::LoadJpegTextureIntoSlot( int slot,
     texture.width = width;
     texture.height = height;
     texture.channels = requestedChannels;
+    return Basics::SbResult::Success();
 }
 
 
-void TextureCollection::CreateTextureFromSourceAsset( const Assets::TextureSourceAsset& source )
+Basics::SbResult TextureCollection::CreateTextureFromSourceAsset( const Assets::TextureSourceAsset& source )
 {
     if ( source.legacyHash == 0 )
     {
-        throw std::runtime_error(
-            "Texture source asset is missing a legacy hash.  (TextureCollection::CreateTextureFromSourceAsset)" );
+        return Basics::SbResult::Failure( "TextureCollection",
+                                          "Texture source asset is missing a legacy hash. source_id=%u logical=\"%s\"",
+                                          source.id,
+                                          source.logicalName.c_str() );
     }
     const int existingIndex = FindIndexNoThrow( source.legacyHash );
     if ( existingIndex >= 0 )
@@ -263,29 +318,32 @@ void TextureCollection::CreateTextureFromSourceAsset( const Assets::TextureSourc
         ReleaseTexture( m_textures[existingIndex] );
     }
 
-    LoadJpegTextureIntoSlot( FindFreeSlot(),
-                             source.resolvedPath.c_str(),
-                             source.legacyHash,
-                             source.id,
-                             source.generateMips,
-                             source.linearFilter,
-                             source.channelsHint );
+    return LoadJpegTextureIntoSlot( FindFreeSlot(),
+                                    source.resolvedPath.c_str(),
+                                    source.legacyHash,
+                                    source.id,
+                                    source.generateMips,
+                                    source.linearFilter,
+                                    source.channelsHint );
 }
 
 
-void TextureCollection::CreateJpegTexture( const char* cFileName, uint32_t hash )
+Basics::SbResult TextureCollection::CreateJpegTexture( const char* cFileName, uint32_t hash )
 {
     if ( hash == 0 )
     {
-        throw std::invalid_argument( "TextureCollection::CreateJpegTexture requires a non-zero legacy hash." );
+        // Invariant: legacy direct texture creation still indexes the fixed
+        // table by hash. Zero is the sentinel for "not addressable".
+        SB_FATAL( "TextureCollection",
+                  "CreateJpegTexture requires a non-zero legacy hash. path=\"%s\"",
+                  cFileName ? cFileName : "" );
     }
 
     const Assets::TextureSourceAsset* source =
         m_assets ? m_assets->FindTextureSourceAssetByLegacyHash( hash ) : nullptr;
     if ( source )
     {
-        CreateTextureFromSourceAsset( *source );
-        return;
+        return CreateTextureFromSourceAsset( *source );
     }
 
     const int existingIndex = FindIndexNoThrow( hash );
@@ -294,35 +352,40 @@ void TextureCollection::CreateJpegTexture( const char* cFileName, uint32_t hash 
         ReleaseTexture( m_textures[existingIndex] );
     }
 
-    LoadJpegTextureIntoSlot( FindFreeSlot(), cFileName, hash, 0, true, true, 3 );
+    return LoadJpegTextureIntoSlot( FindFreeSlot(), cFileName, hash, 0, true, true, 3 );
 }
 
 
-void TextureCollection::EnsureJpegTexture( const char* cFileName, uint32_t hash )
+Basics::SbResult TextureCollection::EnsureJpegTexture( const char* cFileName, uint32_t hash )
 {
     if ( HasTexture( hash ) )
     {
-        return;
+        return Basics::SbResult::Success();
     }
-    CreateJpegTexture( cFileName, hash );
+    return CreateJpegTexture( cFileName, hash );
 }
 
 
-void TextureCollection::RebuildTexturesFromSourceAssets()
+Basics::SbResult TextureCollection::RebuildTexturesFromSourceAssets()
 {
     DeleteAllTextures();
     if ( !m_assets )
     {
-        return;
+        return Basics::SbResult::Success();
     }
 
     for ( const Assets::TextureSourceAsset& source : m_assets->GetTextureSourceAssets() )
     {
         if ( source.legacyHash != 0 )
         {
-            CreateTextureFromSourceAsset( source );
+            const Basics::SbResult result = CreateTextureFromSourceAsset( source );
+            if ( !result.ok )
+            {
+                return result;
+            }
         }
     }
+    return Basics::SbResult::Success();
 }
 
 

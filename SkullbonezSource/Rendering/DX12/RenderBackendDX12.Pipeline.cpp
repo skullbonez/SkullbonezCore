@@ -11,10 +11,14 @@ Mental model:
 Glossary:
   RTV (Render Target View): Descriptor row used when the GPU writes color
   pixels into a texture or back buffer.
+  DSV (Depth Stencil View): Descriptor row used when the GPU reads/writes depth
+  and stencil values during depth testing.
   SRV (Shader Resource View): Descriptor row used when shaders read textures
   or buffers.
   PSO (Pipeline State Object): Precompiled bundle of shaders and fixed render
   state that DX12 binds before drawing or dispatching.
+  FBO (Framebuffer Object): Engine term for an off-screen color/depth target
+  that can later be sampled as a texture.
   PIX: Microsoft GPU debugger/profiler that can read engine markers and DX12
   object names.
   Descriptor: Small binding record that tells a renderer how to interpret a
@@ -24,6 +28,9 @@ Glossary:
 Invariants:
   - DX12 object lifetime, resource states, descriptor rows, and fence ordering
   must stay explicit.
+  - The graphics PSO cache and framebuffer descriptor heaps are fixed backend
+    capacity. Exhaustion means renderer capacity planning failed; do not grow
+    them during draw submission or render-target allocation.
 
 Related:
   - Agentic/Reference/skullbonez-core-class-structure.md
@@ -34,9 +41,10 @@ Related:
 #include "MeshDX12.h"
 #include "FramebufferDX12.h"
 #include "../RenderGraph.h"
+#include "../../Core/FatalError.h"
+#include "../../Core/Log.h"
 #include "../../Core/PlatformProfiler.h"
 #include <stdexcept>
-#include <cstdio>
 #include <cstring>
 #include <algorithm>
 #include <string>
@@ -52,25 +60,6 @@ using Microsoft::WRL::ComPtr;
 
 
 // --- Helpers ---
-static void ReportDX12DescriptorHeapExhausted( const char* heapName, UINT nextIndex, UINT capacity )
-{
-    const char* name = heapName ? heapName : "unknown";
-    fprintf( stderr, "FATAL: DX12 %s heap exhausted (next=%u capacity=%u)\n", name, nextIndex, capacity );
-    fprintf( stdout, "FATAL: DX12 %s heap exhausted (next=%u capacity=%u)\n", name, nextIndex, capacity );
-    fflush( stderr );
-    fflush( stdout );
-    Log().WriteEventf( "dx12_descriptor_heap_exhausted heap=%s next=%u capacity=%u", name, nextIndex, capacity );
-    Log().FlushAll();
-}
-
-static inline void ThrowIfFailed( HRESULT hr, const char* msg )
-{
-    if ( FAILED( hr ) )
-    {
-        throw std::runtime_error( msg );
-    }
-}
-
 // --- RenderBackendDX12 Pipeline methods ---
 
 
@@ -362,10 +351,23 @@ ID3D12PipelineState* RenderBackendDX12::CreatePSO( VertexFormat12 format,
     // across frames.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-creategraphicspipelinestate
     ID3D12PipelineState* pso = nullptr;
-    HRESULT hr = m_device->CreateGraphicsPipelineState( &psoDesc, IID_PPV_ARGS( &pso ) );
-    if ( FAILED( hr ) )
+    HRESULT hr = Device()->CreateGraphicsPipelineState( &psoDesc, IID_PPV_ARGS( &pso ) );
+    if ( FAILED( hr ) || !pso )
     {
-        throw std::runtime_error( "CreateGraphicsPipelineState failed" );
+        // Lane R: a graphics PSO can fail because the active shader/input layout
+        // or device state is invalid. The draw path can skip this submission and
+        // keep the renderer alive; fixed cache-cap exhaustion above remains fatal.
+        Log().WriteEventf( "dx12_graphics_pso_create_failed hresult=0x%08X format=%u instanced=%d rtv_format=%u",
+                           static_cast<unsigned int>( FAILED( hr ) ? hr : E_FAIL ),
+                           static_cast<unsigned int>( format ),
+                           instanced ? 1 : 0,
+                           static_cast<unsigned int>( m_currentRTVFormat ) );
+        Log().FlushAll();
+        if ( pso )
+        {
+            pso->Release();
+        }
+        return nullptr;
     }
     // A graphics PSO is the compiled bundle of shaders plus fixed GPU state
     // such as blend, depth, rasterizer, render-target format, and vertex layout.
@@ -376,21 +378,15 @@ ID3D12PipelineState* RenderBackendDX12::CreatePSO( VertexFormat12 format,
 }
 
 
-void RenderBackendDX12::PrepareDraw( VertexFormat12 format,
+bool RenderBackendDX12::PrepareDraw( VertexFormat12 format,
                                      bool instanced,
                                      const InstancedMeshDX12* im,
                                      const DynamicVBDX12* dvb )
 {
     EnsureCommandListOpen();
 
-    if ( !m_renderingToFBO && !m_backBufferIsRT )
+    if ( !m_renderingToFBO && TransitionBackbuffer( "PrepareDrawBackbuffer", RenderGraphResourceAccess::RenderTarget ) )
     {
-        ExecuteGraphTransition( "PrepareDrawBackbuffer",
-                                "SwapchainBackbuffer",
-                                m_renderTargets[m_frameIndex],
-                                RenderGraphResourceAccess::Present,
-                                RenderGraphResourceAccess::RenderTarget );
-        m_backBufferIsRT = true;
         m_targetsDirty = true;
     }
 
@@ -445,10 +441,10 @@ void RenderBackendDX12::PrepareDraw( VertexFormat12 format,
             D3D12_GPU_VIRTUAL_ADDRESS cbAddr = m_activeShader->FlushCB();
             if ( cbAddr )
             {
-                m_commandList->SetGraphicsRootConstantBufferView( 0, cbAddr );
+                CommandList()->SetGraphicsRootConstantBufferView( 0, cbAddr );
             }
         }
-        return;
+        return true;
     }
 
     // Full state setup path: at least one expensive binding category changed,
@@ -489,23 +485,21 @@ void RenderBackendDX12::PrepareDraw( VertexFormat12 format,
                                static_cast<unsigned int>( key.rtvFormat ) );
             if ( m_psoCacheCount >= m_psoCache.size() )
             {
-                fprintf( stderr,
-                         "FATAL: DX12 graphics PSO cache exhausted (capacity=%zu hash=%llu format=%u instanced=%d)\n",
-                         m_psoCache.size(),
-                         static_cast<unsigned long long>( psoHash ),
-                         static_cast<unsigned int>( key.format ),
-                         key.isInstanced ? 1 : 0 );
-                fprintf( stdout,
-                         "FATAL: DX12 graphics PSO cache exhausted (capacity=%zu hash=%llu format=%u instanced=%d)\n",
-                         m_psoCache.size(),
-                         static_cast<unsigned long long>( psoHash ),
-                         static_cast<unsigned int>( key.format ),
-                         key.isInstanced ? 1 : 0 );
-                fflush( stderr );
-                fflush( stdout );
-                throw std::runtime_error( "DX12 graphics PSO cache exhausted" );
+                // Invariant: PSO variants are bounded by the fixed cache in the
+                // backend. A new draw-state family needs an intentional cache
+                // budget, not growth from the per-draw binding path.
+                SB_FATAL( "RenderBackendDX12",
+                          "DX12 graphics PSO cache exhausted. capacity=%zu hash=%llu format=%u instanced=%d",
+                          m_psoCache.size(),
+                          static_cast<unsigned long long>( psoHash ),
+                          static_cast<unsigned int>( key.format ),
+                          key.isInstanced ? 1 : 0 );
             }
             pso = CreatePSO( format, instanced, im, dvb );
+            if ( !pso )
+            {
+                return false;
+            }
             m_psoCache[m_psoCacheCount].hash = psoHash;
             m_psoCache[m_psoCacheCount].pso = pso;
             ++m_psoCacheCount;
@@ -515,12 +509,12 @@ void RenderBackendDX12::PrepareDraw( VertexFormat12 format,
         // blend, depth, rasterizer, render-target formats) in one call.
         // Docs:
         // https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-setpipelinestate
-        m_commandList->SetPipelineState( pso );
+        CommandList()->SetPipelineState( pso );
 
         // Re-bind root signature after PSO change (required by DX12 spec).
         // Docs:
         // https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-setgraphicsrootsignature
-        m_commandList->SetGraphicsRootSignature( m_rootSignature );
+        CommandList()->SetGraphicsRootSignature( m_rootSignature );
         m_lastPSOHash = psoHash;
     }
 
@@ -533,7 +527,7 @@ void RenderBackendDX12::PrepareDraw( VertexFormat12 format,
         D3D12_GPU_VIRTUAL_ADDRESS cbAddr = m_activeShader->FlushCB();
         if ( cbAddr )
         {
-            m_commandList->SetGraphicsRootConstantBufferView( ROOT_PARAMETER_FRAME_CONSTANTS, cbAddr );
+            CommandList()->SetGraphicsRootConstantBufferView( ROOT_PARAMETER_FRAME_CONSTANTS, cbAddr );
         }
     }
 
@@ -574,11 +568,11 @@ void RenderBackendDX12::PrepareDraw( VertexFormat12 format,
                 // proves the GPU is done with them.
                 UINT transient = AllocateTransientSRV();
                 D3D12_CPU_DESCRIPTOR_HANDLE dstHandle = m_srvDescriptors.ShaderVisibleCpuHandle( transient );
-                m_device->CopyDescriptorsSimple( 1,
+                Device()->CopyDescriptorsSimple( 1,
                                                  dstHandle,
                                                  GetSRVStagingCpuHandle( srcIdx ),
                                                  D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV );
-                m_commandList->SetGraphicsRootDescriptorTable( ROOT_PARAMETER_FIRST_TEXTURE + static_cast<UINT>( slot ),
+                CommandList()->SetGraphicsRootDescriptorTable( ROOT_PARAMETER_FIRST_TEXTURE + static_cast<UINT>( slot ),
                                                                GetSRVGpuHandle( transient ) );
             }
         }
@@ -588,9 +582,9 @@ void RenderBackendDX12::PrepareDraw( VertexFormat12 format,
     // Avoid redundant OM/RS binds; target changes are tracked explicitly.
     if ( m_targetsDirty )
     {
-        m_commandList->RSSetViewports( 1, &m_viewport );
-        m_commandList->RSSetScissorRects( 1, &m_scissorRect );
-        m_commandList->OMSetRenderTargets( 1, &m_currentRTV, FALSE, &m_currentDSV );
+        CommandList()->RSSetViewports( 1, &m_viewport );
+        CommandList()->RSSetScissorRects( 1, &m_scissorRect );
+        CommandList()->OMSetRenderTargets( 1, &m_currentRTV, FALSE, &m_currentDSV );
         m_targetsDirty = false;
     }
 
@@ -598,8 +592,9 @@ void RenderBackendDX12::PrepareDraw( VertexFormat12 format,
     // TRIANGLELIST means every 3 vertices form an independent triangle.
     // Docs:
     // https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-iasetprimitivetopology
-    m_commandList->IASetPrimitiveTopology( D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST );
+    CommandList()->IASetPrimitiveTopology( D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST );
     m_psoDirty = false;
+    return true;
 }
 
 
@@ -646,8 +641,13 @@ D3D12_CPU_DESCRIPTOR_HANDLE RenderBackendDX12::AllocateRTV()
     const Dx12CpuDescriptorAllocatorStats stats = m_rtvDescriptors.GetStats();
     if ( stats.used >= stats.capacity )
     {
-        ReportDX12DescriptorHeapExhausted( stats.heapName, stats.used, stats.capacity );
-        throw std::runtime_error( "DX12 RTV heap exhausted" );
+        // Invariant: RTV rows are fixed backend capacity and must be budgeted
+        // before render-target creation starts consuming them.
+        SB_FATAL( "RenderBackendDX12",
+                  "DX12 RTV heap exhausted. heap=%s used=%u capacity=%u",
+                  stats.heapName ? stats.heapName : "unknown",
+                  stats.used,
+                  stats.capacity );
     }
     return m_rtvDescriptors.Allocate().cpuHandle;
 }
@@ -658,8 +658,13 @@ D3D12_CPU_DESCRIPTOR_HANDLE RenderBackendDX12::AllocateDSV()
     const Dx12CpuDescriptorAllocatorStats stats = m_dsvDescriptors.GetStats();
     if ( stats.used >= stats.capacity )
     {
-        ReportDX12DescriptorHeapExhausted( stats.heapName, stats.used, stats.capacity );
-        throw std::runtime_error( "DX12 DSV heap exhausted" );
+        // Invariant: DSV rows are fixed backend capacity and must be budgeted
+        // before depth-target creation starts consuming them.
+        SB_FATAL( "RenderBackendDX12",
+                  "DX12 DSV heap exhausted. heap=%s used=%u capacity=%u",
+                  stats.heapName ? stats.heapName : "unknown",
+                  stats.used,
+                  stats.capacity );
     }
     return m_dsvDescriptors.Allocate().cpuHandle;
 }

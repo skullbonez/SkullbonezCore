@@ -12,6 +12,8 @@ Glossary:
   Pass: Ordered unit of frame rendering owned by RuntimeRenderer.
   Frame context: Per-frame camera, projection, lighting, water, and store-backed
   render inputs shared by passes.
+  Lane R result: Recoverable resource setup failure reported through an
+    owner/message result at startup instead of throwing through the render owner.
   Resource context: Creation/rebuild-only render factory bundle used by
   EnsureGpuResources methods, not by draw methods.
   Pass resources: Backend-owned objects such as framebuffers, shaders, and
@@ -33,6 +35,7 @@ Related:
 */
 #pragma once
 
+#include "../../Core/SbResult.h"
 #include "../../Maths/Matrix4.h"
 #include "../../Maths/Vector3.h"
 #include "../../Physics/TornadoField.h"
@@ -105,6 +108,7 @@ namespace Basics
 class DiagnosticsRuntime;
 class EngineConfig;
 class Profiler;
+class RenderHelper;
 class RuntimeInputContext;
 struct CinematicScenePassResources;
 struct FullscreenPassResources;
@@ -222,6 +226,9 @@ struct RenderFrameContext
     // Lifetime: borrowed from RuntimeRenderInputs for capability checks and
     // tracing decisions in this frame only.
     Rendering::IRenderDiagnostics* renderDiagnostics = nullptr;
+    // Lifetime: owned by RuntimeRenderer for the active process. Passes borrow
+    // it for primitive batch scratch and helper-owned backend resource handles.
+    RenderHelper* renderHelper = nullptr;
     // Lifetime: optional DXR capability borrowed for this frame only. It stays
     // nullable so the reflection pass can fall back to planar rendering when
     // raytracing is unavailable.
@@ -266,6 +273,7 @@ struct TerrainPassInputs
     const RenderFrameContext& frame;
     const CinematicRenderConfig* cinematic;
     const Rendering::ShadowFrameData* shadow;
+    const float* clipPlane = nullptr;       // Borrowed from RenderHelper for this terrain draw.
     bool terrainHidden;                     // Frame snapshot of the debug/scene visibility flag.
 };
 
@@ -858,10 +866,10 @@ class UiTextPass
     {
     }
 
-    void EnsureGpuResources( Rendering::IRenderResourceFactory& renderResources,
-                             const Assets::AssetSystem& assets,
-                             int screenW,
-                             int screenH );
+    SbResult EnsureGpuResources( Rendering::IRenderResourceFactory& renderResources,
+                                 const Assets::AssetSystem& assets,
+                                 int screenW,
+                                 int screenH );
     void ReleaseGpuResources( Rendering::IRenderResourceFactory* renderResources );
     bool ShouldRender( const UiTextPassState& state ) const;
     void Render( const UiTextPassInputs& inputs );

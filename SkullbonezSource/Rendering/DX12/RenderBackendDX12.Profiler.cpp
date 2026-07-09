@@ -12,10 +12,20 @@ Glossary:
   Descriptor: Small binding record that tells a renderer how to interpret a
   resource.
   Back buffer: Swap-chain image that will be presented to the window.
+  GPU timer: Timestamp query pair written by the command list and read back
+  later to estimate GPU time for a profiler marker.
+  PIX: Microsoft GPU debugger/profiler that can read engine markers and DX12
+  event ranges.
+  Platform profiler GPU stack: Bounded mirror of nested GPU marker names that
+  lets PIX ranges be suspended around command-list submission and restored
+  afterward.
 
 Invariants:
   - DX12 object lifetime, resource states, descriptor rows, and fence ordering
   must stay explicit.
+  - Platform profiler GPU ranges are stack-shaped and bounded. Overflow means
+    marker nesting exceeded the backend contract, not a recoverable runtime
+    condition.
 
 Related:
   - Agentic/Reference/skullbonez-core-class-structure.md
@@ -26,8 +36,9 @@ Related:
 #include "MeshDX12.h"
 #include "FramebufferDX12.h"
 #include "../RenderGraph.h"
+#include "../../Core/FatalError.h"
+#include "../../Core/Log.h"
 #include "../../Core/PlatformProfiler.h"
-#include <stdexcept>
 #include <cstdio>
 #include <cstring>
 #include <algorithm>
@@ -44,25 +55,6 @@ using Microsoft::WRL::ComPtr;
 
 
 // --- Helpers ---
-static void ReportDX12DescriptorHeapExhausted( const char* heapName, UINT nextIndex, UINT capacity )
-{
-    const char* name = heapName ? heapName : "unknown";
-    fprintf( stderr, "FATAL: DX12 %s heap exhausted (next=%u capacity=%u)\n", name, nextIndex, capacity );
-    fprintf( stdout, "FATAL: DX12 %s heap exhausted (next=%u capacity=%u)\n", name, nextIndex, capacity );
-    fflush( stderr );
-    fflush( stdout );
-    Log().WriteEventf( "dx12_descriptor_heap_exhausted heap=%s next=%u capacity=%u", name, nextIndex, capacity );
-    Log().FlushAll();
-}
-
-static inline void ThrowIfFailed( HRESULT hr, const char* msg )
-{
-    if ( FAILED( hr ) )
-    {
-        throw std::runtime_error( msg );
-    }
-}
-
 // --- RenderBackendDX12 Profiler methods ---
 
 
@@ -133,7 +125,7 @@ void RenderBackendDX12::GpuTimerBegin( int markerIdx )
     }
     EnsureCommandListOpen();
     int slot = markerIdx * 2 + 0;
-    m_commandList->EndQuery( m_gpuTimers.queryHeap, D3D12_QUERY_TYPE_TIMESTAMP, (UINT)slot );
+    CommandList()->EndQuery( m_gpuTimers.queryHeap, D3D12_QUERY_TYPE_TIMESTAMP, (UINT)slot );
     m_gpuTimers.slotWritten[slot] = true;
 }
 
@@ -145,7 +137,7 @@ void RenderBackendDX12::GpuTimerEnd( int markerIdx )
         return;
     }
     int slot = markerIdx * 2 + 1;
-    m_commandList->EndQuery( m_gpuTimers.queryHeap, D3D12_QUERY_TYPE_TIMESTAMP, (UINT)slot );
+    CommandList()->EndQuery( m_gpuTimers.queryHeap, D3D12_QUERY_TYPE_TIMESTAMP, (UINT)slot );
     m_gpuTimers.slotWritten[slot] = true;
 }
 
@@ -191,7 +183,7 @@ int RenderBackendDX12::SuspendPlatformProfilerGpuStackForSubmit( const char* rea
     {
         return 0;
     }
-    if ( !m_commandList || !m_commandListOpen )
+    if ( !CommandList() || !m_commandListOpen )
     {
         Log().WriteEventf( "dx12_platform_profiler_gpu_suspend_without_open_command_list reason=%s depth=%d",
                            reason ? reason : "unknown",
@@ -205,7 +197,7 @@ int RenderBackendDX12::SuspendPlatformProfilerGpuStackForSubmit( const char* rea
                        suspendedDepth );
     for ( int i = suspendedDepth - 1; i >= 0; --i )
     {
-        PIXEndEvent( m_commandList );
+        PIXEndEvent( CommandList() );
     }
     m_platformProfilerGpuDepth = 0;
     return suspendedDepth;
@@ -223,7 +215,7 @@ void RenderBackendDX12::RestorePlatformProfilerGpuStackAfterSubmit( int suspende
     {
         return;
     }
-    if ( !m_commandList || !m_commandListOpen )
+    if ( !CommandList() || !m_commandListOpen )
     {
         Log().WriteEventf( "dx12_platform_profiler_gpu_restore_without_open_command_list depth=%d", suspendedDepth );
         return;
@@ -233,7 +225,7 @@ void RenderBackendDX12::RestorePlatformProfilerGpuStackAfterSubmit( int suspende
     {
         const PlatformProfilerGpuScopeDX12& scope = m_platformProfilerGpuStack[static_cast<std::size_t>( i )];
         const char* markerName = scope.name[0] != '\0' ? scope.name : "(null)";
-        PIXBeginEvent( m_commandList,
+        PIXBeginEvent( CommandList(),
                        SkullbonezCore::Basics::PlatformProfiler::ColorForMarker( markerName, scope.hash ),
                        "%s",
                        markerName );
@@ -253,15 +245,19 @@ void RenderBackendDX12::PlatformProfilerGpuBegin( const char* name, uint32_t has
     }
 
 #if SKULLBONEZ_PLATFORM_PROFILER_HAVE_PIX3
-    if ( !m_commandList )
+    if ( !CommandList() )
     {
         return;
     }
     EnsureCommandListOpen();
     if ( m_platformProfilerGpuDepth >= PLATFORM_PROFILER_GPU_SCOPE_STACK_MAX )
     {
-        Log().WriteEventf( "dx12_platform_profiler_gpu_stack_overflow depth=%d", m_platformProfilerGpuDepth );
-        throw std::runtime_error( "DX12 platform profiler GPU stack overflow" );
+        // Invariant: the stack mirrors nested PIX GPU ranges. Overflow means
+        // marker begin/end ownership has escaped the backend's fixed budget.
+        SB_FATAL( "RenderBackendDX12",
+                  "DX12 platform profiler GPU stack overflow. depth=%d capacity=%d",
+                  m_platformProfilerGpuDepth,
+                  PLATFORM_PROFILER_GPU_SCOPE_STACK_MAX );
     }
 
     char gpuMarkerName[SkullbonezCore::Basics::PlatformProfiler::MAX_DECORATED_MARKER_NAME_CHARS];
@@ -276,7 +272,7 @@ void RenderBackendDX12::PlatformProfilerGpuBegin( const char* name, uint32_t has
         m_platformProfilerGpuStack[static_cast<std::size_t>( m_platformProfilerGpuDepth )];
     _snprintf_s( scope.name, sizeof( scope.name ), _TRUNCATE, "%s", markerName ? markerName : "(null)" );
     scope.hash = hash;
-    PIXBeginEvent( m_commandList,
+    PIXBeginEvent( CommandList(),
                    SkullbonezCore::Basics::PlatformProfiler::ColorForMarker( markerName, hash ),
                    "%s",
                    markerName );
@@ -299,13 +295,13 @@ void RenderBackendDX12::PlatformProfilerGpuEnd()
         }
         return;
     }
-    if ( !m_commandList || !m_commandListOpen )
+    if ( !CommandList() || !m_commandListOpen )
     {
         Log().WriteEventf( "dx12_platform_profiler_gpu_end_without_open_command_list depth=%d",
                            m_platformProfilerGpuDepth );
         return;
     }
-    PIXEndEvent( m_commandList );
+    PIXEndEvent( CommandList() );
     --m_platformProfilerGpuDepth;
     m_platformProfilerGpuStack[static_cast<std::size_t>( m_platformProfilerGpuDepth )] = PlatformProfilerGpuScopeDX12();
 #endif
@@ -320,7 +316,7 @@ void RenderBackendDX12::PlatformProfilerGpuMarker( const char* name, uint32_t ha
     }
 
 #if SKULLBONEZ_PLATFORM_PROFILER_HAVE_PIX3
-    if ( !m_commandList )
+    if ( !CommandList() )
     {
         return;
     }
@@ -333,7 +329,7 @@ void RenderBackendDX12::PlatformProfilerGpuMarker( const char* name, uint32_t ha
                                                                             gpuMarkerName,
                                                                             sizeof( gpuMarkerName ) )
             : name;
-    PIXSetMarker( m_commandList,
+    PIXSetMarker( CommandList(),
                   SkullbonezCore::Basics::PlatformProfiler::ColorForMarker( markerName, hash ),
                   "%s",
                   markerName );

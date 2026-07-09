@@ -36,7 +36,7 @@ using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Physics;
 using namespace SkullbonezCore::Basics::RunInternal;
 
-void Run::SaveScreenshot( const char* path )
+SbResult Run::SaveScreenshot( const char* path )
 {
     // Why: screenshot save only needs readback capability, so keep the command
     // on the capture controller and pass the narrow backend facet explicitly.
@@ -47,5 +47,5 @@ void Run::SaveScreenshot( const char* path )
         // screenshot command can reach this path.
         SB_FATAL( "RunCapture", "Run::SaveScreenshot requires a startup-bound capture backend" );
     }
-    m_diagnosticsRuntime.Capture().SaveScreenshot( *captureBackend, path );
+    return m_diagnosticsRuntime.Capture().SaveScreenshot( *captureBackend, path );
 }

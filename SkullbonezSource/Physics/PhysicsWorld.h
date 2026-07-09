@@ -48,7 +48,7 @@ Related:
 #include "SleepIslandSystem.h"
 #include "SpatialGrid.h"
 #include "TerrainContactManifold.h"
-#include "TornadoField.h"
+#include "TornadoGameplay.h"
 
 namespace SkullbonezCore
 {
@@ -79,6 +79,7 @@ struct PhysicsWorldForces;
 struct PersistentContactSolverSideEffects;
 struct PersistentContactSolverContext;
 struct SleepSupportPropagationContext;
+class DisjointSet;
 
 struct PersistentContactSolverSideEffects
 {
@@ -119,11 +120,6 @@ class PhysicsWorld
     std::vector<uint8_t> m_sleepState;
     std::vector<uint8_t> m_sleepCounter;
     std::vector<uint8_t> m_underwaterSleepLocked;
-    std::vector<float> m_tornadoCaptureSeconds;
-    std::vector<float> m_tornadoEjectCooldownSeconds;
-    std::vector<int>
-        m_tornadoFixedTreeReleaseWakeBodies; // Reused tornado release wake list; avoids reload/allocation churn.
-
     // Debug visualization state. These arrays intentionally mirror scene/model
     // slot order so render/debug code can look up one byte/id without map
     // lookups in the overlay path.
@@ -226,6 +222,70 @@ class PhysicsWorld
         TerrainContactSweepResult sweep;
         uint8_t tested = 0;
     };
+    struct TerrainDetectionStageContext
+    {
+        // Lifetime: terrain detection may run in worker callbacks, but it only
+        // borrows the current solver pass records and writes one candidate row
+        // per body index.
+        const PhysicsBodyRecordList& bodyRecords;
+        const ColliderRecordList& colliderRecords;
+        const Basics::EngineConfig& config;
+        const std::vector<uint8_t>& sleepState;
+        const std::vector<float>& timeRemaining;
+        std::vector<TerrainDetectionCandidate>& candidates;
+    };
+    static void DetectTerrainAt( const TerrainDetectionStageContext& context, int bodyIndex );
+    struct TerrainDetectionStage
+    {
+        const TerrainDetectionStageContext& context;
+
+        void operator()( int bodyIndex ) const;
+    };
+    struct TerrainCandidateCommitContext
+    {
+        // Lifetime: terrain candidate commits run serially after detection, while
+        // the borrowed solver records and side-effect arrays still describe the
+        // current fixed-step terrain phase.
+        PhysicsBodyStore& bodyStore;
+        const ColliderStore& colliderStore;
+        const PhysicsBodyRecordList& bodyRecords;
+        const ColliderRecordList& colliderRecords;
+        const Basics::EngineConfig& config;
+        std::vector<TerrainContactManifold>& terrainContactManifolds;
+        std::vector<uint8_t>& sleepSupportedThisFrame;
+        std::vector<uint8_t>& sleepInhibitedThisFrame;
+        std::vector<float>& timeRemaining;
+        const char* const* diagnosticNames;
+        int diagnosticNameCount;
+        const PhysicsDiagnosticsCsvWriter& diagnosticsCsvWriter;
+    };
+    void CommitTerrainCandidate( const TerrainCandidateCommitContext& context,
+                                 int bodyIndex,
+                                 float availableTime,
+                                 const TerrainContactSweepResult& sweep );
+    void BuildSolverBroadphaseCandidatePairs( const PhysicsBodyStore& bodyStore,
+                                              const PhysicsBodyRecordList& bodyRecords,
+                                              const ColliderRecordList& colliderRecords,
+                                              const Basics::EngineConfig& config,
+                                              int modelCount,
+                                              float dt,
+                                              float contactSkin,
+                                              std::vector<std::pair<int, int>>& candidatePairs );
+    void RunSleepIslandStage( PhysicsBodyStore& bodyStore,
+                              const ColliderStore& colliderStore,
+                              const PhysicsWorldForces& worldForces,
+                              PhysicsBodyRecordList& bodyRecords,
+                              int modelCount,
+                              float sleepLinearSq,
+                              float sleepAngularSq,
+                              uint8_t sleepFrames );
+    void ApplySleepIslandTransitions( PhysicsBodyStore& bodyStore,
+                                      const ColliderStore& colliderStore,
+                                      const PhysicsWorldForces& worldForces,
+                                      PhysicsBodyRecordList& bodyRecords,
+                                      DisjointSet& sleepIslands,
+                                      int modelCount,
+                                      uint8_t sleepFrames );
 
     enum class ObjectNarrowphaseEventKind : uint8_t
     {
@@ -252,12 +312,78 @@ class PhysicsWorld
         uint8_t hasCollisionCellKey = 0;
     };
 
+    static void RecordObjectNarrowphaseEvent( ObjectNarrowphaseEvent& event,
+                                              ObjectNarrowphaseEventKind kind,
+                                              const PhysicsPipelineRecord& record );
+    static void EmitObjectCollisionTimeEvent( ObjectNarrowphaseEvent& event,
+                                              int bodyA,
+                                              int bodyB,
+                                              float collisionTime,
+                                              float availableTime );
+    static void MarkObjectVisualEvent( ObjectNarrowphaseEvent& event, int bodyA, int bodyB );
+    static void WriteObjectCollisionCellEvent( ObjectNarrowphaseEvent& event,
+                                               const PhysicsBodyRecordList& bodyRecords,
+                                               int bodyA,
+                                               int bodyB,
+                                               float invCellSize );
+    void CommitObjectNarrowphaseEvent( const ObjectNarrowphaseEvent& event,
+                                       const char* const* diagnosticNames,
+                                       int diagnosticNameCount,
+                                       const PhysicsDiagnosticsCsvWriter& diagnosticsCsvWriter );
+
+    struct ObjectNarrowphasePairStageContext
+    {
+        // Lifetime: this context borrows RunSolverPhysics inputs and scratch
+        // arrays only for the serial loop or the bounded worker dispatch that
+        // owns the current fixed-step narrowphase pass.
+        PhysicsBodyStore& bodyStore;
+        const ColliderStore& colliderStore;
+        const PhysicsWorldForces& worldForces;
+        PhysicsBodyRecordList& bodyRecords;
+        const ColliderRecordList& colliderRecords;
+        const std::vector<std::pair<int, int>>& candidatePairs;
+        std::vector<uint8_t>& sleepState;
+        std::vector<uint8_t>& sleepCounter;
+        std::vector<int>& sleepIslandVisualId;
+        std::vector<float>& timeRemaining;
+        const std::vector<uint8_t>& underwaterSleepLocked;
+        const std::vector<PersistentContactCacheEntry>& persistentContactCache;
+        int modelCount = 0;
+        float sleepLinearSq = 0.0f;
+        float sleepAngularSq = 0.0f;
+        float contactSkin = 0.0f;
+        float contactEpsilon = 0.0f;
+        float invCellSize = 0.0f;
+        float dt = 0.0f;
+    };
+    void ProcessObjectNarrowphasePair( const ObjectNarrowphasePairStageContext& context,
+                                       int pairIndex,
+                                       ObjectNarrowphaseEvent& event );
+    void ProcessObjectNarrowphaseIsland( const ObjectNarrowphasePairStageContext& context, int islandIndex );
+    void ProcessObjectNarrowphasePairsSerial( const ObjectNarrowphasePairStageContext& context,
+                                              int candidatePairCount,
+                                              const char* const* diagnosticNames,
+                                              int diagnosticNameCount,
+                                              const PhysicsDiagnosticsCsvWriter& diagnosticsCsvWriter );
+    void BuildObjectNarrowphaseIslands( const std::vector<std::pair<int, int>>& candidatePairs,
+                                        int candidatePairCount,
+                                        int modelCount );
+    struct ObjectNarrowphaseIslandStage
+    {
+        PhysicsWorld& world;
+        const ObjectNarrowphasePairStageContext& pairContext;
+
+        void operator()( int islandIndex ) const;
+    };
+
     struct ObjectNarrowphaseIsland
     {
         int minPairIndex = 0;
         size_t firstPairOffset = 0;
         size_t pairCount = 0;
     };
+    static bool ObjectNarrowphaseIslandPrecedesByMinPairIndex( const ObjectNarrowphaseIsland& a,
+                                                               const ObjectNarrowphaseIsland& b );
 
     // Persistent rows and diagnostics produced during the current fixed tick.
     // Terrain manifolds are appended into the same row solver as object/object
@@ -285,8 +411,7 @@ class PhysicsWorld
     std::vector<PointJointConstraint> m_pointJointConstraints;
     std::vector<int64_t> m_collisionCellKeys;
     std::array<uint8_t, MAX_GAME_MODELS> m_terrainRestApplied = {};
-    TornadoField m_tornadoField;
-    TornadoSystem m_tornadoSystem;
+    TornadoGameplay m_tornadoGameplay;
     PersistentContactSolver m_contactSolver;
     SleepIslandSystem m_sleepIslandSystem;
     PhysicsDiagnosticsSink m_diagnostics;
@@ -301,9 +426,11 @@ class PhysicsWorld
                            const PhysicsWorldForces& worldForces,
                            Threading::WorkerPool& workerPool,
                            const char* const* diagnosticNames,
-                           int diagnosticNameCount );
+                           int diagnosticNameCount,
+                           const PhysicsDiagnosticsCsvWriter& diagnosticsCsvWriter );
     void EmitPhysicsCollisionTime( const char* const* diagnosticNames,
                                    int diagnosticNameCount,
+                                   const PhysicsDiagnosticsCsvWriter& diagnosticsCsvWriter,
                                    const char* type,
                                    int bodyA,
                                    int bodyB,
@@ -320,25 +447,19 @@ class PhysicsWorld
     bool CanRecordPhysicsPipelineStage() const;
     void RecordPhysicsPipelineStage( const PhysicsPipelineRecord& record );
     void EnsureCollisionVisualBuffers( int modelCount );
-    void EnsureTornadoStateBuffers( int modelCount );
     void EnsureUnderwaterSleepLockBuffer( int modelCount );
-    bool IsFullySubmergedBall( const PhysicsBodyRecord& bodyRecord, const ColliderStore& colliderStore, int index );
-    bool RefreshUnderwaterSubmersionForBall( const PhysicsWorldForces& worldForces,
-                                             PhysicsBodyStore& bodyStore,
-                                             const ColliderStore& colliderStore,
-                                             int index );
     void LockUnderwaterSleeperIfReady( const PhysicsWorldForces& worldForces,
                                        PhysicsBodyStore& bodyStore,
                                        const ColliderStore& colliderStore,
                                        int index );
     bool IsUnderwaterSleepLocked( int bodyCount, int index );
     void MarkCollisionVisualContact( int index );
-    void ApplyTornadoField( PhysicsBodyStore& bodyStore,
-                            const ColliderStore& colliderStore,
-                            const PhysicsWorldForces& worldForces,
-                            float dt,
-                            const Basics::EngineConfig& runtimeConfig,
-                            Threading::WorkerPool& workerPool );
+    void ApplyTornadoGameplay( PhysicsBodyStore& bodyStore,
+                               const ColliderStore& colliderStore,
+                               const PhysicsWorldForces& worldForces,
+                               float dt,
+                               const Basics::EngineConfig& runtimeConfig,
+                               Threading::WorkerPool& workerPool );
     void PropagateSleepSupport( const PhysicsBodyRecordList& bodyRecords );
     void AppendPointJointSupportEdges( const PhysicsBodyStore& bodyStore, int modelCount );
     void ForgetPersistentContactCacheForBody( int bodyIndex );
@@ -393,8 +514,8 @@ class PhysicsWorld
     void ApplyRuntimeConfig( const Basics::EngineConfig& config );
     void Clear();
     // Runs one fixed world step over the stores. diagnosticNames is a cold
-    // Debug presentation overlay for collision-time rows; nullptr/zero means
-    // unnamed bodies, not a model-owner borrow.
+    // Debug presentation overlay for collision-time rows; diagnosticsCsvWriter
+    // is the cold CSV output edge supplied by runtime, not a solver service.
     void RunPhysics( PhysicsBodyStore& bodyStore,
                      const ColliderStore& colliderStore,
                      float fChangeInTime,
@@ -402,17 +523,20 @@ class PhysicsWorld
                      const PhysicsWorldForces& worldForces,
                      Threading::WorkerPool& workerPool,
                      const char* const* diagnosticNames,
-                     int diagnosticNameCount );
+                     int diagnosticNameCount,
+                     const PhysicsDiagnosticsCsvWriter& diagnosticsCsvWriter );
     // Emits Debug-only regression and SkullScope records from the stores the
-    // caller passes in. PhysicsScene owns the cold presentation-name overlay so
-    // diagnostics do not borrow the model owner from inside PhysicsWorld.
+    // caller passes in. PhysicsScene owns the cold presentation-name overlay and
+    // runtime owns the CSV writer, so diagnostics do not borrow model or logging
+    // globals from inside PhysicsWorld.
     bool ShouldEmitStepDiagnostics() const;
     bool ShouldEmitCollisionTimeDiagnostics() const;
     void EmitStepDiagnostics( const PhysicsBodyStore& bodyStore,
                               const ColliderStore& colliderStore,
                               float fChangeInTime,
                               const char* const* diagnosticNames,
-                              int diagnosticNameCount );
+                              int diagnosticNameCount,
+                              const PhysicsDiagnosticsCsvWriter& diagnosticsCsvWriter );
     // Wake and seed decisions read physics-owned fixed/sleep state before the
     // scene edge performs any owner-side cache invalidation.
     void WakeModel( PhysicsBodyStore& bodyStore, int index );

@@ -25,7 +25,10 @@ Related:
 */
 #pragma once
 
-#include "../RunState.h"
+#include "SceneControllerState.h"
+#include "../RunCameraState.h"
+#include "../RunDebugState.h"
+#include "../RunRuntimeSettings.h"
 
 #include <cstdint>
 

@@ -12,6 +12,8 @@ Glossary:
   Capture controller: Screenshot trigger and automation state.
   Diagnostics controller: Perf CSV and queryable physics diagnostic state.
   Artifact path: Validation-facing output path that must stay stable.
+  Physics diagnostic command: One-frame key or UI request that changes debug
+    presentation state, not simulation state.
   Private working set: Resident process pages not shared with other processes;
     matching it requires a page-level OS query.
 
@@ -30,11 +32,89 @@ Related:
 
 namespace SkullbonezCore
 {
+namespace GameObjects
+{
+class GameModelCollection;
+}
+namespace Rendering
+{
+class IRenderDiagnostics;
+}
+namespace UI
+{
+class InGameUI;
+struct UIPhysicsCommands;
+} // namespace UI
 namespace Basics
 {
 class Profiler;
 class ReplayRuntime;
 class TestScene;
+enum class RuntimeInputAction;
+class RuntimeInputContext;
+struct RunDebugState;
+
+struct DiagnosticsKeyboardShortcutContext
+{
+    // Lifetime: borrowed for one keyboard dispatch only; diagnostics mutates
+    // only debug presentation state and input-edge memory.
+    RuntimeInputContext& input;
+    RunDebugState& debug;
+    int& cameraTrackBallIndex;
+    const GameObjects::GameModelCollection& sceneEntities;
+    const Rendering::IRenderDiagnostics* renderDiagnostics = nullptr;
+    bool sceneMode = false;
+    double simulationSeconds = 0.0;
+};
+
+struct DiagnosticsUIKeyboardShortcutContext
+{
+    // Lifetime: borrowed for one keyboard dispatch only; the handler mutates UI
+    // overlay visibility, automation flags, and debug presentation state, then
+    // reports any cursor/action bookkeeping still owned by the composition root.
+    RuntimeInputContext& input;
+    UI::InGameUI& ui;
+    RunDebugState& debug;
+    RunSceneState& scene;
+    CaptureController& capture;
+    double nowSeconds = 0.0;
+};
+
+struct DiagnosticsUIKeyboardShortcutResult
+{
+    bool handled = false;                           // True when the action belongs to the diagnostics UI keyboard group.
+    bool triggered = false;                         // True when this frame captured the shortcut edge.
+    bool releaseMouseToUI = false;                  // True when Run should refresh cursor ownership and release capture.
+};
+
+struct DiagnosticsPhysicsOverlayUICommandResult
+{
+    bool toggledCollisionVisualizer = false;
+    bool toggledPhysicsDebugFlags = false;
+    bool steppedPipelinePrevious = false;
+    bool steppedPipelineNext = false;
+    bool toggledPhysicsDebugTransparent = false;
+    bool toggledBroadphaseOverlay = false;
+};
+
+struct DiagnosticsPhysicsDebugValueUICommandResult
+{
+    bool setAlpha = false;
+    bool setContactLinger = false;
+};
+
+void StepDiagnosticsPhysicsPipelineStage( RunDebugState& debug, int direction );
+bool HandleDiagnosticsKeyboardShortcut( DiagnosticsKeyboardShortcutContext context,
+                                        RuntimeInputAction action,
+                                        int virtualKey );
+DiagnosticsUIKeyboardShortcutResult HandleDiagnosticsUIKeyboardShortcut( DiagnosticsUIKeyboardShortcutContext context,
+                                                                         RuntimeInputAction action,
+                                                                         int virtualKey );
+DiagnosticsPhysicsOverlayUICommandResult
+ApplyDiagnosticsPhysicsOverlayUICommands( RunDebugState& debug, const UI::UIPhysicsCommands& commands );
+bool ApplyDiagnosticsTerrainContactProbeUICommand( RunDebugState& debug, const UI::UIPhysicsCommands& commands );
+DiagnosticsPhysicsDebugValueUICommandResult
+ApplyDiagnosticsPhysicsDebugValueUICommands( RunDebugState& debug, const UI::UIPhysicsCommands& commands );
 
 class DiagnosticsRuntime
 {

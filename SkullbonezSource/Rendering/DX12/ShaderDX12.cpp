@@ -9,6 +9,10 @@ Mental model:
   ordering are the important ideas.
 
 Glossary:
+  CBV (Constant Buffer View): Descriptor or root binding that lets shaders read
+  a packed block of constants.
+  PSO (Pipeline State Object): Precompiled bundle of shaders and fixed render
+  state that DX12 binds before drawing or dispatching.
   Descriptor: Small binding record that tells a renderer how to interpret a
   resource.
   Back buffer: Swap-chain image that will be presented to the window.
@@ -25,8 +29,8 @@ Related:
 #include "ShaderDX12.h"
 #include "RenderBackendDX12.h"
 #include "../ShaderContracts.h"
+#include "../../Core/Log.h"
 #include <d3d11shader.h>
-#include <stdexcept>
 #include <string>
 #include <fstream>
 #include <sstream>
@@ -98,7 +102,12 @@ bool ShaderDX12::Compile( const char* hlslPath )
     std::ifstream file( hlslPath, std::ios::binary );
     if ( !file.is_open() )
     {
-        throw std::runtime_error( std::string( "Cannot open HLSL: " ) + hlslPath );
+        // Lane R: authored shader files can be missing or unreadable. Keep the
+        // shader wrapper as a status-return boundary so the resource factory can
+        // decide how to report the failure to its caller.
+        Log().WriteEventf( "dx12_shader_file_open_failed path=%s", hlslPath ? hlslPath : "<null>" );
+        Log().FlushAll();
+        return false;
     }
     std::string source( ( std::istreambuf_iterator<char>( file ) ), std::istreambuf_iterator<char>() );
 
@@ -132,7 +141,12 @@ bool ShaderDX12::Compile( const char* hlslPath )
         {
             msg += static_cast<const char*>( errors->GetBufferPointer() );
         }
-        throw std::runtime_error( msg );
+        Log().WriteEventf( "dx12_shader_compile_failed stage=vs hresult=0x%08X path=%s message=%s",
+                           static_cast<unsigned int>( hr ),
+                           hlslPath ? hlslPath : "<null>",
+                           msg.c_str() );
+        Log().FlushAll();
+        return false;
     }
     errors.Reset();
     m_vsBytecodeHash = HashShaderBytecode( m_vsBlob.Get() );
@@ -158,14 +172,21 @@ bool ShaderDX12::Compile( const char* hlslPath )
         {
             msg += static_cast<const char*>( errors->GetBufferPointer() );
         }
-        throw std::runtime_error( msg );
+        Log().WriteEventf( "dx12_shader_compile_failed stage=ps hresult=0x%08X path=%s message=%s",
+                           static_cast<unsigned int>( hr ),
+                           hlslPath ? hlslPath : "<null>",
+                           msg.c_str() );
+        Log().FlushAll();
+        return false;
     }
     errors.Reset();
     m_psBytecodeHash = HashShaderBytecode( m_psBlob.Get() );
 
     // Reflect both stages so PS-only post/sky uniforms are visible to SetFloat/SetVec*.
-    ReflectCB( m_vsBlob.Get() );
-    ReflectCB( m_psBlob.Get() );
+    if ( !ReflectCB( m_vsBlob.Get(), hlslPath, "vs" ) || !ReflectCB( m_psBlob.Get(), hlslPath, "ps" ) )
+    {
+        return false;
+    }
 #ifdef _DEBUG
     if ( m_contract )
     {
@@ -179,20 +200,37 @@ bool ShaderDX12::Compile( const char* hlslPath )
 }
 
 
-void ShaderDX12::ReflectCB( ID3DBlob* blob )
+bool ShaderDX12::ReflectCB( ID3DBlob* blob, const char* hlslPath, const char* stageName )
 {
     // Use D3DReflect to inspect the compiled shader bytecode and discover constant buffer layouts.
     // Reflection tells us the name, offset, and size of each variable in the shader's cbuffer,
     // so we can write data at the correct byte offsets when setting uniforms from C++.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3dcompiler/nf-d3dcompiler-d3dreflect
     ComPtr<ID3D11ShaderReflection> reflect;
+    if ( !blob )
+    {
+        Log().WriteEventf( "dx12_shader_reflect_failed stage=%s hresult=0x%08X path=%s reason=missing_bytecode",
+                           stageName ? stageName : "unknown",
+                           static_cast<unsigned int>( E_POINTER ),
+                           hlslPath ? hlslPath : "<null>" );
+        Log().FlushAll();
+        return false;
+    }
     HRESULT hr = D3DReflect( blob->GetBufferPointer(),
                              blob->GetBufferSize(),
                              IID_ID3D11ShaderReflection,
                              reinterpret_cast<void**>( reflect.GetAddressOf() ) );
     if ( FAILED( hr ) || !reflect )
     {
-        throw std::runtime_error( "D3DReflect failed for DX12 shader." );
+        // Lane R: reflection depends on compiler output and device tooling. A
+        // failed reflection pass means this shader cannot expose a safe uniform
+        // contract, so report failure to Compile() instead of throwing.
+        Log().WriteEventf( "dx12_shader_reflect_failed stage=%s hresult=0x%08X path=%s",
+                           stageName ? stageName : "unknown",
+                           static_cast<unsigned int>( FAILED( hr ) ? hr : E_FAIL ),
+                           hlslPath ? hlslPath : "<null>" );
+        Log().FlushAll();
+        return false;
     }
 
     D3D11_SHADER_DESC shaderDesc = {};
@@ -232,6 +270,7 @@ void ShaderDX12::ReflectCB( ID3DBlob* blob )
     // Align CB size to 256 bytes (DX12 requirement)
     m_cbSize = ( m_cbReflectedSize + 255 ) & ~255u;
     m_cbData.resize( m_cbSize, 0 );
+    return true;
 }
 
 

@@ -24,6 +24,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "Common.h"
+#include "Log.h"
 #include "PlatformProfiler.h"
 
 #include <algorithm>

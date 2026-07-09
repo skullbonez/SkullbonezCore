@@ -31,7 +31,8 @@ Related:
 
 #include "ReplayRecorder.h"
 #include "../CameraCollection.h"
-#include "../RunState.h"
+#include "../RunDebugState.h"
+#include "../RunRuntimeSettings.h"
 #include "../Scene/SceneRuntime.h"
 #include "../Tools/RuntimeTools.h"
 #include "../../GameObjects/GameModelCollection.h"

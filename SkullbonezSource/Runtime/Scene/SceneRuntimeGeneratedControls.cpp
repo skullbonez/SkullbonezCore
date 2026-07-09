@@ -26,9 +26,9 @@ Related:
 */
 #include "SceneRuntimeGeneratedControls.h"
 #include "SceneController.h"
-#include "../SimulationController.h"
 #include "../Tools/RuntimeTools.h"
 #include "../../GameObjects/GameModelCollection.h"
+#include "../../Physics/SimulationSystem.h"
 #include "../../Rendering/IRenderDeviceLifecycle.h"
 
 #include <algorithm>
@@ -167,6 +167,62 @@ ApplyUISolverObjectCounts( SceneRuntimeGeneratedControlContext context, int ball
         context.camera.trackBallIndex = context.scene.modelCount - 1;
     }
     return RequestReplayAndProfileReset();
+}
+
+SceneGeneratedUICommandResult ApplySceneGeneratedModelCountUICommand( SceneRuntimeGeneratedControlContext context,
+                                                                      int requestedModelCount )
+{
+    SceneGeneratedUICommandResult result;
+    if ( requestedModelCount < 0 )
+    {
+        return result;
+    }
+
+    result.action = ApplyUIModelCountOverride( context, requestedModelCount );
+    result.accepted = true;
+    return result;
+}
+
+SceneGeneratedUICommandResult ApplySceneGeneratedSolverBallCountUICommand( SceneRuntimeGeneratedControlContext context,
+                                                                           int requestedSolverBallCount )
+{
+    SceneGeneratedUICommandResult result;
+    if ( requestedSolverBallCount < 0 )
+    {
+        return result;
+    }
+
+    // Invariant: solver count sliders are partial exact-count requests. The
+    // untouched shape count comes from the active override first, then scene state.
+    const int boxes = context.uiOverrides.solverBoxCountOverride >= 0 ? context.uiOverrides.solverBoxCountOverride
+                                                                      : context.scene.solverBoxCount;
+    result.action = ApplyUISolverObjectCounts(
+        context,
+        std::clamp( requestedSolverBallCount, 0, (std::max)( 0, context.modelCapacity - boxes ) ),
+        boxes );
+    result.accepted = true;
+    return result;
+}
+
+SceneGeneratedUICommandResult ApplySceneGeneratedSolverBoxCountUICommand( SceneRuntimeGeneratedControlContext context,
+                                                                          int requestedSolverBoxCount )
+{
+    SceneGeneratedUICommandResult result;
+    if ( requestedSolverBoxCount < 0 )
+    {
+        return result;
+    }
+
+    // Invariant: if the ball slider was handled earlier this frame, the override
+    // already holds its accepted value and must constrain the box slider max.
+    const int balls = context.uiOverrides.solverBallCountOverride >= 0 ? context.uiOverrides.solverBallCountOverride
+                                                                       : context.scene.solverBallCount;
+    result.action = ApplyUISolverObjectCounts(
+        context,
+        balls,
+        std::clamp( requestedSolverBoxCount, 0, (std::max)( 0, context.modelCapacity - balls ) ) );
+    result.accepted = true;
+    return result;
 }
 
 } // namespace Basics

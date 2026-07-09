@@ -9,13 +9,11 @@ Mental model:
   ordering are the important ideas.
 
 Glossary:
-  DXR (DirectX Raytracing): DX12 API used for hardware ray traversal and
-  reflection dispatch.
   BLAS (Bottom-Level Acceleration Structure): Raytracing spatial index for one
   mesh's triangles.
   TLAS (Top-Level Acceleration Structure): Raytracing spatial index for scene
   instances that point at BLAS geometry.
-  SBT (Shader Binding Table): DXR table that maps ray records to
+  SBT (Shader Binding Table): Raytracing table that maps ray records to
   ray-generation, miss, and hit shaders.
   RTV (Render Target View): Descriptor row used when the GPU writes color
   pixels into a texture or back buffer.
@@ -251,6 +249,7 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     static constexpr size_t MAX_CACHED_GRAPHICS_PSOS = 96;
     static constexpr size_t MAX_GRID_LINE_PSOS = 4;
     static constexpr size_t MAX_LIVE_BARRIER_RECORDS = 4096;
+    static constexpr size_t TRANSIENT_TRIANGLE_STYLE_COUNT = 2;
 
     // CPU-side registries. These are not GPU resources by themselves; they are
     // lookup tables the backend uses to find cached GPU objects and descriptor
@@ -279,18 +278,26 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     GpuTimerStateDX12 m_gpuTimers;
 
     // The render device owns the core D3D12 lifetime: factory, device, queue,
-    // swap chain, command allocators, command list, and frame fence. The raw
-    // pointers below are borrowed aliases kept only so the existing backend
-    // methods can be migrated in small slices without changing every call site
-    // at once.
+    // swap chain, command allocators, command list, and frame fence. Access the
+    // device, swap chain, and command list through these helpers so resize or
+    // device-owner work cannot leave backend-side aliases dangling.
     Dx12RenderDevice m_renderDevice;
+    ID3D12Device* Device() const
+    {
+        return m_renderDevice.Device();
+    }
+    IDXGISwapChain3* SwapChain() const
+    {
+        return m_renderDevice.SwapChain();
+    }
+    ID3D12GraphicsCommandList* CommandList() const
+    {
+        return m_renderDevice.CommandList();
+    }
 
-    // Borrowed core device aliases. Do not Release() these in the backend.
+    // Borrowed core queue/allocator aliases. Do not Release() these in the backend.
     IDXGIFactory4* m_factory = nullptr;
-    IDXGISwapChain3* m_swapChain = nullptr;
-    ID3D12Device* m_device = nullptr;
     ID3D12CommandQueue* m_commandQueue = nullptr;
-    ID3D12GraphicsCommandList* m_commandList = nullptr;
     ID3D12CommandAllocator* m_commandAllocators[FRAME_COUNT] = {};
     static constexpr int PLATFORM_PROFILER_GPU_SCOPE_STACK_MAX = 64;
     static constexpr std::size_t PLATFORM_PROFILER_GPU_MARKER_NAME_CHARS = 256;
@@ -427,11 +434,16 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     std::array<GridLinePSODX12, MAX_GRID_LINE_PSOS> m_gridLinePSOs = {};
     size_t m_gridLinePSOCount = 0;
     int m_gridLineVBCapacity = 0;
-    std::unique_ptr<IShader> m_transientColorShader;
-    std::unique_ptr<IShader> m_replayRibbonShader;                 // Replay-only smooth debug stroke shader warmed at backend init.
+    // Runtime allocation policy: transient triangle shaders are warmed at
+    // backend init for each generic style so overlay draws do not compile HLSL
+    // while building a frame.
+    std::array<std::unique_ptr<IShader>, TRANSIENT_TRIANGLE_STYLE_COUNT> m_transientTriangleShaders;
 
     bool m_renderingToFBO = false;
-    bool m_backBufferIsRT = false;                                 // True if back buffer is in RENDER_TARGET state
+    // Invariant: this is the graph-visible state for the current swap-chain
+    // image in m_frameIndex. It resets to Present whenever DXGI gives us a new
+    // current backbuffer through resize or Present.
+    RenderGraphResourceAccess m_backBufferAccess = RenderGraphResourceAccess::Present;
 
     size_t m_lastPSOHash = 0;
     bool m_texBindingsDirty = true;
@@ -469,8 +481,8 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     void AssignDeferredResourceReleaseFence( UINT64 fenceValue );
     void ReleaseCompletedDeferredResources( bool releaseUnfenced );
     void TryConsumeGpuTimerReadback( bool waitForFence );
-    void CreateRootSignature();
-    void CreateDepthStencil( int w, int h );
+    Basics::SbResult CreateRootSignature();
+    Basics::SbResult CreateDepthStencil( int w, int h );
     UINT AllocateTransientSRV();
     UINT AllocateTransientSRVRange( UINT count );
     D3D12_GPU_DESCRIPTOR_HANDLE GetSRVGpuHandle( UINT index );
@@ -485,6 +497,7 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
                             D3D12_RESOURCE_STATES after,
                             UINT subresource );
     void RecordLiveUavBarrier( const char* source, const char* resourceName, ID3D12Resource* resource );
+    bool TransitionBackbuffer( const char* passName, RenderGraphResourceAccess after );
     // Keeps cached texture-slot state from pointing at an SRV descriptor row
     // whose owning resource is being deleted or unregistered.
     void ClearBoundTextureSlotsForSrv( UINT srvIndex );
@@ -502,14 +515,15 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     CreatePSO( VertexFormat12 format, bool instanced, const InstancedMeshDX12* im, const DynamicVBDX12* dvb );
     ID3D12PipelineState* EnsureGridLinePipeline( DXGI_FORMAT rtvFormat );
     void CheckDXRSupport();
-    void CreateRTRootSignature();
-    void CreateRTPipeline();
-    void CreateReflectionUAV( int width, int height );
-    void InitGenMipsPipeline();
+    Basics::SbResult CreateRTRootSignature();
+    Basics::SbResult CreateRTPipeline();
+    Basics::SbResult CreateReflectionUAV( int width, int height );
+    Basics::SbResult InitGenMipsPipeline();
     void GenerateMipsGPU( ID3D12Resource* tex, DXGI_FORMAT fmt, UINT w, UINT h, UINT numMips );
     void AssertPlatformProfilerGpuStackClosed( const char* reason ) const;
     int SuspendPlatformProfilerGpuStackForSubmit( const char* reason );
     void RestorePlatformProfilerGpuStackAfterSubmit( int suspendedDepth );
+    IShader* EnsureTransientTriangleShader( TransientTriangleStyle style );
 
     static void BuildInputLayout( VertexFormat12 format, D3D12_INPUT_ELEMENT_DESC* out, UINT& count );
     static void BuildInstancedInputLayout( const InstancedMeshDX12& im, D3D12_INPUT_ELEMENT_DESC* out, UINT& count );
@@ -522,14 +536,14 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
         Shutdown();
     }
 
-    bool Init( HWND hwnd, HDC hdc, int width, int height ) override;
+    Basics::SbResult Init( HWND hwnd, HDC hdc, int width, int height ) override;
     void Shutdown() override;
-    void Present() override;
+    Basics::SbResult Present() override;
     void SetVsyncEnabled( bool enabled ) override;
     bool IsVsyncEnabled() const override;
     void Finish() override;
     void FlushGPU() override;
-    void Resize( int width, int height ) override;
+    Basics::SbResult Resize( int width, int height ) override;
 
     void SetViewport( int x, int y, int w, int h ) override;
     void Clear( bool color, bool depth ) override;
@@ -562,7 +576,7 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     void BeginGraphTextureRenderTarget( const RenderGraphTextureBinding& binding, const char* passName ) override;
     void EndGraphTextureRenderTarget( const RenderGraphTextureBinding& binding, const char* passName ) override;
 
-    std::vector<uint8_t> CaptureBackbuffer( int& outWidth, int& outHeight ) override;
+    Basics::SbResult CaptureBackbuffer( std::vector<uint8_t>& outPixels, int& outWidth, int& outHeight ) override;
     bool SupportsBackbufferCapture() const override
     {
         return true;
@@ -622,13 +636,13 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
         m_drawCallTrace.PopScope( hash );
     }
 
-    void InitDXR( uint64_t terrainVBVA,
-                  int terrainVertCount,
-                  int terrainStride,
-                  uint64_t sphereVBVA,
-                  int sphereVertCount,
-                  int sphereStride,
-                  int maxInstances ) override;
+    Basics::SbResult InitDXR( uint64_t terrainVBVA,
+                              int terrainVertCount,
+                              int terrainStride,
+                              uint64_t sphereVBVA,
+                              int sphereVertCount,
+                              int sphereStride,
+                              int maxInstances ) override;
     void DispatchReflectionRays( const float* invViewProj,
                                  const float* cameraPos,
                                  float waterY,
@@ -664,8 +678,10 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     void DestroyDynamicVB( uint32_t handle ) override;
 
     void DrawLinesColored( const float* data, int vertCount, const float* viewProjMatrix16 ) override;
-    void DrawTransientColoredTriangles( const float* data, int vertexCount, const float* viewProjMatrix16 ) override;
-    void DrawReplayRibbons( const float* data, int vertexCount, const float* viewProjMatrix16 ) override;
+    void DrawTransientColoredTriangles( const float* data,
+                                        int vertexCount,
+                                        const float* viewProjMatrix16,
+                                        TransientTriangleStyle style ) override;
 
     uint32_t CreateInstancedMesh( const float* staticData,
                                   int staticVertCount,
@@ -689,14 +705,14 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     }
     ID3D12Device* GetDevice() const
     {
-        return m_renderDevice.Device();
+        return Device();
     }
     ID3D12GraphicsCommandList* GetCommandList() const
     {
-        return m_renderDevice.CommandList();
+        return CommandList();
     }
 
-    void PrepareDraw( VertexFormat12 format,
+    bool PrepareDraw( VertexFormat12 format,
                       bool instanced = false,
                       const InstancedMeshDX12* im = nullptr,
                       const DynamicVBDX12* dvb = nullptr );

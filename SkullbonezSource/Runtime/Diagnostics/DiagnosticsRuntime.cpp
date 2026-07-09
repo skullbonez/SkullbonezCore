@@ -11,6 +11,8 @@ Mental model:
 Glossary:
   Artifact path: Stable validation/debug output path written for tools or
     command-line flags.
+  Physics diagnostic command: One-frame key or UI request that changes debug
+    presentation state, not simulation state.
   Reconciled memory: Tracked engine bytes plus any process memory not accounted
     for by replay or model collection snapshots.
   SkullScope: Queryable physics diagnostics trace owned by RuntimeDiagnostics.
@@ -33,10 +35,16 @@ Related:
 #include "DiagnosticsRuntime.h"
 
 #include "../Allocation/RuntimeAllocationTracker.h"
+#include "../InputController.h"
 #include "../Replay/ReplayRuntime.h"
+#include "../RunDebugState.h"
 #include "../Scene/SceneRuntime.h"
+#include "../../Physics/Debug/PhysicsDebugVisualizer.h"
+#include "../../Rendering/IRenderDiagnostics.h"
 #include "../../Scene/TestScene.h"
 #include "../../GameObjects/GameModelCollection.h"
+#include "../../UI/UICommands.h"
+#include "../../UI/UI.h"
 
 #include <algorithm>
 #include <cstdio>
@@ -85,6 +93,295 @@ void WriteJsonString( FILE* file, const char* value )
     fputc( '"', file );
 }
 } // namespace
+
+void StepDiagnosticsPhysicsPipelineStage( RunDebugState& debug, int direction )
+{
+    const int stageCount = static_cast<int>( Physics::PhysicsPipelineStage::Count );
+    if ( stageCount <= 0 || direction == 0 )
+    {
+        return;
+    }
+
+    debug.physicsDebugFlags |= Physics::PHYSICS_DEBUG_PIPELINE;
+    int nextStage = ( debug.physicsDebugPipelineStageCursor + direction ) % stageCount;
+    if ( nextStage < 0 )
+    {
+        nextStage += stageCount;
+    }
+    debug.physicsDebugPipelineStageCursor = nextStage;
+}
+
+
+bool HandleDiagnosticsKeyboardShortcut( DiagnosticsKeyboardShortcutContext context,
+                                        RuntimeInputAction action,
+                                        int virtualKey )
+{
+    if ( !InputController::CaptureKeyboardActionPress( context.input, action, virtualKey ) )
+    {
+        switch ( action )
+        {
+        case RuntimeInputAction::ToggleWaterFreeze:
+        case RuntimeInputAction::CycleWaterReflection:
+        case RuntimeInputAction::ToggleWaterFlat:
+        case RuntimeInputAction::ToggleTerrainHidden:
+        case RuntimeInputAction::ToggleWaterHidden:
+        case RuntimeInputAction::ToggleCollisionVisualizer:
+        case RuntimeInputAction::CyclePhysicsDebugOverlay:
+        case RuntimeInputAction::ToggleTerrainContactProbe:
+        case RuntimeInputAction::StepPhysicsPipelinePrevious:
+        case RuntimeInputAction::StepPhysicsPipelineNext:
+        case RuntimeInputAction::TogglePhysicsDebugTransparent:
+        case RuntimeInputAction::ReportRendererRuntimeRetired:
+        case RuntimeInputAction::ToggleCrossScenePause:
+        case RuntimeInputAction::ToggleBroadphaseOverlay:
+            return true;
+        default:
+            return false;
+        }
+    }
+
+    RunDebugState& debug = context.debug;
+    switch ( action )
+    {
+    case RuntimeInputAction::ToggleWaterFreeze:
+        // Numeric water and terrain toggles are visual diagnostics only; they
+        // must not feed back into simulation or scene ownership.
+        debug.isWaterFreezeDebug = !debug.isWaterFreezeDebug;
+        if ( debug.isWaterFreezeDebug )
+        {
+            debug.frozenWaterTime = static_cast<float>( context.simulationSeconds );
+        }
+        return true;
+    case RuntimeInputAction::CycleWaterReflection:
+    {
+        // Key '2' cycles FBO mirror rendering, DXR reflection when supported,
+        // no reflection, then back to FBO. Machines without DXR skip the
+        // unsupported mode instead of leaving the toggle in a dead state.
+        const bool dxrReflectionSupported =
+            context.renderDiagnostics && context.renderDiagnostics->GetCapabilities().supportsDxrReflection;
+        if ( !debug.isWaterRTReflect && !debug.isWaterNoReflect )
+        {
+            if ( dxrReflectionSupported )
+            {
+                debug.isWaterRTReflect = true;
+            }
+            else
+            {
+                debug.isWaterNoReflect = true;
+            }
+        }
+        else if ( debug.isWaterRTReflect )
+        {
+            debug.isWaterRTReflect = false;
+            debug.isWaterNoReflect = true;
+        }
+        else
+        {
+            debug.isWaterNoReflect = false;
+        }
+        return true;
+    }
+    case RuntimeInputAction::ToggleWaterFlat:
+        debug.isWaterFlatDebug = !debug.isWaterFlatDebug;
+        return true;
+    case RuntimeInputAction::ToggleTerrainHidden:
+        debug.isTerrainHidden = !debug.isTerrainHidden;
+        return true;
+    case RuntimeInputAction::ToggleWaterHidden:
+        debug.isWaterHidden = !debug.isWaterHidden;
+        return true;
+    case RuntimeInputAction::ToggleCollisionVisualizer:
+        debug.isCollisionVisualizer = !debug.isCollisionVisualizer;
+        return true;
+    case RuntimeInputAction::CyclePhysicsDebugOverlay:
+        // C key: None -> Axes -> Contacts -> Sleep -> All -> None.
+        switch ( debug.physicsDebugFlags )
+        {
+        case Physics::PHYSICS_DEBUG_NONE:
+            debug.physicsDebugFlags = Physics::PHYSICS_DEBUG_AXES;
+            break;
+        case Physics::PHYSICS_DEBUG_AXES:
+            debug.physicsDebugFlags = Physics::PHYSICS_DEBUG_CONTACTS;
+            break;
+        case Physics::PHYSICS_DEBUG_CONTACTS:
+            debug.physicsDebugFlags = Physics::PHYSICS_DEBUG_SLEEP;
+            break;
+        case Physics::PHYSICS_DEBUG_SLEEP:
+            debug.physicsDebugFlags = Physics::PHYSICS_DEBUG_ALL;
+            break;
+        default:
+            debug.physicsDebugFlags = Physics::PHYSICS_DEBUG_NONE;
+            break;
+        }
+        return true;
+    case RuntimeInputAction::ToggleTerrainContactProbe:
+        // O key layers the terrain polygon/contact probe over the C-key debug
+        // cycle, so it is toggled independently of the cycle state.
+        debug.physicsDebugFlags ^= Physics::PHYSICS_DEBUG_TERRAIN_CONTACT;
+        return true;
+    case RuntimeInputAction::StepPhysicsPipelinePrevious:
+        // F7/F8 inspect the bounded physics pipeline stage trace captured by
+        // the most recent physics tick; they do not advance simulation.
+        StepDiagnosticsPhysicsPipelineStage( debug, -1 );
+        return true;
+    case RuntimeInputAction::StepPhysicsPipelineNext:
+        StepDiagnosticsPhysicsPipelineStage( debug, 1 );
+        return true;
+    case RuntimeInputAction::TogglePhysicsDebugTransparent:
+        // Transparent volumes make contact rows readable inside bodies without
+        // changing the collision visualizer's solid debug pass.
+        debug.isPhysicsDebugTransparent = !debug.isPhysicsDebugTransparent;
+        return true;
+    case RuntimeInputAction::ReportRendererRuntimeRetired:
+        // Q used to cycle legacy renderers; keep the key as a bounded
+        // diagnostic report because DX12 is now the sole runtime backend.
+        fprintf( stderr, "Renderer switch ignored: DX12 is the only runtime renderer.\n" );
+        return true;
+    case RuntimeInputAction::ToggleCrossScenePause:
+        // P locks automation between scenes without marking the scene
+        // interactive, so clearing it resumes the original automation mode.
+        debug.isCrossScenePauseLocked = !debug.isCrossScenePauseLocked;
+        return true;
+    case RuntimeInputAction::ToggleBroadphaseOverlay:
+        // G cycles the tracked ball while the broadphase overlay is off; once
+        // the overlay is active, the same key owns overlay visibility.
+        if ( context.sceneMode && context.cameraTrackBallIndex >= 0 && !debug.isBroadphaseOverlay )
+        {
+            const int sceneEntityCount = context.sceneEntities.SceneEntityCount();
+            if ( sceneEntityCount > 0 )
+            {
+                context.cameraTrackBallIndex = ( context.cameraTrackBallIndex + 1 ) % sceneEntityCount;
+            }
+        }
+        else
+        {
+            debug.isBroadphaseOverlay = !debug.isBroadphaseOverlay;
+        }
+        return true;
+    default:
+        return false;
+    }
+}
+
+
+DiagnosticsUIKeyboardShortcutResult HandleDiagnosticsUIKeyboardShortcut( DiagnosticsUIKeyboardShortcutContext context,
+                                                                         RuntimeInputAction action,
+                                                                         int virtualKey )
+{
+    DiagnosticsUIKeyboardShortcutResult result;
+    switch ( action )
+    {
+    case RuntimeInputAction::ToggleUIVisibility:
+    case RuntimeInputAction::TogglePerformanceHistogram:
+    case RuntimeInputAction::ToggleMemoryOverlay:
+        result.handled = true;
+        break;
+    default:
+        return result;
+    }
+
+    if ( !InputController::CaptureKeyboardActionPress( context.input, action, virtualKey ) )
+    {
+        return result;
+    }
+
+    result.triggered = true;
+    result.releaseMouseToUI = true;
+    switch ( action )
+    {
+    case RuntimeInputAction::ToggleUIVisibility:
+        // Concept: The tabbed diagnostics UI owns overlay text once visible, so
+        // the legacy one-line overlay is cleared by the UI shortcut owner.
+        context.scene.isInteractiveRun = true;
+        context.scene.isExitOnComplete = false;
+        context.capture.Screenshot().isScreenshotAndExit = false;
+        context.ui.ToggleVisible( context.nowSeconds );
+        context.debug.overlayMode = OverlayMode::None;
+        return result;
+    case RuntimeInputAction::TogglePerformanceHistogram:
+        // F5/F6 are lightweight diagnostic overlays; they do not implicitly open
+        // or close the broader diagnostics window.
+        context.ui.TogglePerformanceHistogramEnabled();
+        return result;
+    case RuntimeInputAction::ToggleMemoryOverlay:
+        context.ui.ToggleMemoryOverlayEnabled();
+        return result;
+    default:
+        return result;
+    }
+}
+
+
+DiagnosticsPhysicsOverlayUICommandResult
+ApplyDiagnosticsPhysicsOverlayUICommands( RunDebugState& debug, const UI::UIPhysicsCommands& commands )
+{
+    // Why: Physics-tab diagnostics mutate presentation/debug state only. Keeping
+    // them here prevents UI command application from reopening direct debug-field
+    // ownership in RunInput.
+    DiagnosticsPhysicsOverlayUICommandResult result;
+    if ( commands.toggleCollisionVisualizer )
+    {
+        debug.isCollisionVisualizer = !debug.isCollisionVisualizer;
+        result.toggledCollisionVisualizer = true;
+    }
+    if ( commands.togglePhysicsDebugFlags != 0 )
+    {
+        debug.physicsDebugFlags ^= ( commands.togglePhysicsDebugFlags & Physics::PHYSICS_DEBUG_ALL );
+        result.toggledPhysicsDebugFlags = true;
+    }
+    if ( commands.stepPhysicsPipelinePrevious )
+    {
+        StepDiagnosticsPhysicsPipelineStage( debug, -1 );
+        result.steppedPipelinePrevious = true;
+    }
+    if ( commands.stepPhysicsPipelineNext )
+    {
+        StepDiagnosticsPhysicsPipelineStage( debug, 1 );
+        result.steppedPipelineNext = true;
+    }
+    if ( commands.togglePhysicsDebugTransparent )
+    {
+        debug.isPhysicsDebugTransparent = !debug.isPhysicsDebugTransparent;
+        result.toggledPhysicsDebugTransparent = true;
+    }
+    if ( commands.toggleBroadphaseOverlay )
+    {
+        debug.isBroadphaseOverlay = !debug.isBroadphaseOverlay;
+        result.toggledBroadphaseOverlay = true;
+    }
+    return result;
+}
+
+
+bool ApplyDiagnosticsTerrainContactProbeUICommand( RunDebugState& debug, const UI::UIPhysicsCommands& commands )
+{
+    if ( !commands.toggleTerrainContactProbe )
+    {
+        return false;
+    }
+
+    debug.physicsDebugFlags ^= Physics::PHYSICS_DEBUG_TERRAIN_CONTACT;
+    return true;
+}
+
+
+DiagnosticsPhysicsDebugValueUICommandResult
+ApplyDiagnosticsPhysicsDebugValueUICommands( RunDebugState& debug, const UI::UIPhysicsCommands& commands )
+{
+    DiagnosticsPhysicsDebugValueUICommandResult result;
+    if ( commands.requestedPhysicsDebugAlpha >= 0.0f )
+    {
+        debug.physicsDebugAlpha = std::clamp( commands.requestedPhysicsDebugAlpha, 0.05f, 1.0f );
+        result.setAlpha = true;
+    }
+    if ( commands.requestedPhysicsDebugContactLinger >= 0.0f )
+    {
+        debug.physicsDebugContactLinger = std::clamp( commands.requestedPhysicsDebugContactLinger, 0.0f, 5.0f );
+        result.setContactLinger = true;
+    }
+    return result;
+}
+
 
 CaptureController& DiagnosticsRuntime::Capture()
 {

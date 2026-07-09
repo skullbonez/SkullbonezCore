@@ -1,7 +1,7 @@
 # Facade Retirement Plan
 
 Date: 2026-07-08
-Status: To Eval (revised 2026-07-08 — structural reframing)
+Status: In Progress (FAC-005 owned by Plan 14)
 Owner: Runtime, rendering, physics, and architecture cleanup agents
 
 ## Revision Note
@@ -72,7 +72,7 @@ and the cross-cutting acceptance invariants below.
 | FAC-002 | `EngineContext` pointer-bag | `Runtime/EngineContext.h` — `EngineContextBindings` holds 13 subsystem pointers + `EngineServices` ~7 more; bound as one graph in `Run::BindEngineContext()` | `EngineContextBindings` is **deleted or split** into owner-specific records. No extracted system receives the whole runtime graph. If `EngineServices Services()` has no real callers, delete it rather than keep it as decorative architecture. | `run-shell-extraction-plan.md`, `engine-architecture-next-steps-plan.md` |
 | FAC-003 | `Run` composition shell | `Runtime/Run.h`, `Runtime/RunState.h` (self-described "staging boundary, not a destination") | `Run` retains only launcher + frame-coordination methods. Lifecycle, scene, input, capture, diagnostics, and render policy move to real owners. Measured by Run's method/member count dropping, not by comment edits. | `run-shell-extraction-plan.md`, `runtime-run-decomposition-plan.md` (Done — reopen if `Run` still owns these) |
 | FAC-004 | `SimulationController` wrapper | `Runtime/SimulationController.h` — 97 lines total; exposes `System()` returning the underlying `SimulationSystem&` | **Delete** it and call `SimulationSystem` directly, **or** move real timestep policy into it *and* remove the `System()` reach-through. Keeping a forwarding wrapper with a passthrough accessor is not an allowed end state. | (needs an explicit owner — currently none) |
-| FAC-005 | Public physics API boundary | `Physics/PhysicsEngine.h`, `Physics/PhysicsApi.h` | The public physics API exposes **no** `GameModel`, no raw dense `modelIndex`, and no solver container types in its signatures. This is a type-level boundary check, independent of any wording in the headers. | `physics-game-model-authority-plan.md`, `game-model-data-boundary-plan.md`, `fable_plans/06-stable-identity-plan.md` |
+| FAC-005 | Public physics API boundary | `Physics/PhysicsEngine.h`, `Physics/PhysicsApi.h` | The public physics API exposes **no** `GameModel`, no raw dense `modelIndex`, and no solver container types in its signatures. This is a type-level boundary check, independent of any wording in the headers. | `14-public-physics-api-boundary.md`, `physics-game-model-authority-plan.md`, `game-model-data-boundary-plan.md`, `fable_plans/06-stable-identity-plan.md` |
 | FAC-006 | Camera collection wording | `Runtime/Camera.h`, `Runtime/CameraCollection.h` | Cosmetic only — **descoped**. `CameraCollection` is already the camera owner; there is no structural change to make. Do not spend a work slice renaming comments. | none (drop) |
 | FAC-007 | `RenderBackendDX12` concrete owner | `Rendering/DX12/RenderBackendDX12.h` | Keep as the concrete DX12 backend owner. The only structural risk is its cached borrowed aliases (`m_device`/`m_swapChain`/`m_commandList`) duplicating pointers `Dx12RenderDevice` owns — fix dual ownership so device recreation cannot dangle them. Naming is not the issue here. | `dx12-final-architecture-next-steps.md` |
 
@@ -89,8 +89,9 @@ Do the surfaces in benefit order, each in its owning plan:
 3. **FAC-004** — collapse or graduate `SimulationController`; kill the `System()`
    passthrough either way.
 4. **FAC-007** — resolve the DX12 borrowed-alias dual ownership.
-5. **FAC-003 / FAC-005** — continue in their existing decomposition/authority
-   plans; this doc only contributes the "graduate-or-delete, rename is not done"
+5. **FAC-003 / FAC-005** — continue FAC-003 in its existing decomposition
+   plans and execute FAC-005 through the dedicated public physics API boundary
+   plan. This doc only contributes the "graduate-or-delete, rename is not done"
    rule as their definition of done.
 
 FAC-006 is dropped.
@@ -100,26 +101,62 @@ FAC-006 is dropped.
 These greps target **types and accessors**, not the word "facade". They pass
 only when the structure is actually gone:
 
-- [ ] `rg -n "class IRenderBackend|IRenderBackend&\s+Gfx" SkullbonezSource` finds
+- [x] `rg -n "class IRenderBackend|IRenderBackend&\s+Gfx" SkullbonezSource` finds
   nothing — the aggregate type and its global accessor are deleted (not
   renamed).
-- [ ] `rg -n "\bEngineContextBindings\b" SkullbonezSource` finds nothing, or every
+  Completion note (2026-07-08): Plan 10 Phase 2 is structurally satisfied on the
+  current branch. `SkullbonezSource/Rendering/IRenderBackend.h` is deleted;
+  `rg -n "IRenderBackend&|IRenderBackend \*" SkullbonezSource`,
+  `rg -n "class IRenderBackend" SkullbonezSource`, and source/project metadata
+  greps all returned no matches. `tools\validate_full.bat` passed in 45.9s and
+  included a passing DX12 renderer gate with 0 validation errors.
+- [x] `rg -n "\bEngineContextBindings\b" SkullbonezSource` finds nothing, or every
   remaining consumer takes an owner-specific record; no subsystem is handed the
   whole graph.
-- [ ] `EngineServices Services()` is either removed or has real, non-assertion
+  Completion note (2026-07-08): Plan 10 step 1.3 deleted the whole
+  `EngineContext` / `EngineContextBindings` bag instead of renaming it. The
+  structural grep found no source/tool/project references after removing the Run
+  member/bind call, the files, and project metadata. `tools\validate_fast.bat`
+  passed in 49.5s and `tools\validate_full.bat` passed in 45.9s.
+- [x] `EngineServices Services()` is either removed or has real, non-assertion
   callers.
-- [ ] `rg -n "SimulationController::System\(|\.System\(\)" ` no longer exposes the
+  Completion note (2026-07-08): Plan 10 step 0.1 removed `EngineServices` and
+  `EngineContext::Services()` after the required caller grep returned no
+  matches; `tools\validate_full.bat` passed in 61.3s.
+- [x] `rg -n "SimulationController::System\(|\.System\(\)" ` no longer exposes the
   underlying `SimulationSystem` for reach-through; `SimulationController` is
   deleted or owns concrete timing policy.
-- [ ] `RenderBackendDX12` holds no borrowed device/swapchain/commandlist aliases
+  Completion note (2026-07-08): Plan 10 step 4.1 deleted the forwarding
+  `SimulationController` wrapper and made `Run` own `SimulationSystem`
+  directly. Generated-scene rebuild helpers now take `SimulationSystem&`, and a
+  runtime-boundary tombstone rejects `SimulationController` resurrection and
+  `m_simulation.System()` reach-through. `tools\validate_physics.bat` passed in
+  16.4s with `physics_regression_solver.csv` byte-exact at 20001 lines.
+- [x] `RenderBackendDX12` holds no borrowed device/swapchain/commandlist aliases
   that duplicate `Dx12RenderDevice`-owned pointers (or they are provably
   refreshed on device recreation).
+  Completion note (2026-07-08): Plan 10 step 3.1 deleted the cached
+  `m_device`, `m_swapChain`, and `m_commandList` fields and routes those objects
+  through `Dx12RenderDevice` helper accessors. A runtime-boundary tombstone now
+  rejects those deleted alias fields, and `tools\validate_dx12_renderer.bat`
+  passed 3 consecutive runs with `DX12 validation errors: 0`.
 - [ ] Public physics headers (`PhysicsApi.h`, `PhysicsEngine.h`) contain no
   `GameModel`, dense `modelIndex`, or solver-container types in public
   signatures.
-- [ ] `Run`'s owned-member and public-method counts have measurably dropped and
+  Owner decision recorded 2026-07-09: execute this as a dedicated public physics
+  API boundary cleanup. See
+  [14-public-physics-api-boundary.md](14-public-physics-api-boundary.md).
+- [x] `Run`'s owned-member and public-method counts have measurably dropped and
   it no longer implements lifecycle/scene/input/capture/diagnostics/render
   policy.
+
+  Completion note (2026-07-08): Plan 01 is closed. The final slices moved
+  attach-camera target/submode ownership into `AttachedCameraController`, moved
+  replay-probe failure ownership into `RunReplayProbeState`, routed asset source
+  resolution through `AssetSystem`, and kept remaining `Run` methods as
+  launcher/frame/input coordination boundaries. Each source slice passed
+  `tools\validate_full.bat` with zero DX12 validation errors and byte-exact
+  `physics_regression_solver.csv` matches.
 
 Naming of any surviving surface is out of scope for acceptance.
 
@@ -131,15 +168,21 @@ you finish any facade surface there, apply this checklist:
 - [ ] The surface reached **graduate or delete** (see Definition of Done above),
   not a rename. Verify with the FAC row's **structural** acceptance grep (for a
   type/accessor), never `rg "facad"`.
-- [ ] FAC-001 (aggregate), FAC-002 (context bag), FAC-004
+- [x] FAC-001 (aggregate), FAC-002 (context bag), FAC-004
   (`SimulationController`), FAC-007 (DX12 aliases) are executed by
   [plan 10](10-enginecontext-irenderbackend-boundary.md).
-- [ ] FAC-003 (`Run` shell) is executed by
+- [x] FAC-003 (`Run` shell) is executed by
   [plan 01](01-run-god-object-decomposition.md).
+  Completion note (2026-07-08): Plan 01 is complete and records the final
+  structural closure evidence for the remaining `Run` coordination surface.
 - [ ] FAC-005 (public physics API exposes no `GameModel`/dense
-  `modelIndex`/solver containers) has **no numbered owner plan yet** — flag to a
-  human before acting.
-- [ ] FAC-006 is dropped (cosmetic).
+  `modelIndex`/solver containers) is owned by
+  [plan 14](14-public-physics-api-boundary.md). The owner approved creating and
+  executing that dedicated plan on 2026-07-09.
+- [x] FAC-006 is dropped (cosmetic).
+  Completion note (2026-07-08): FAC-006 remains descoped per this plan's
+  Remaining Facade Surfaces table. `CameraCollection` is already the camera
+  owner, and there is no structural facade surface to graduate or delete.
 
 ## Validation
 

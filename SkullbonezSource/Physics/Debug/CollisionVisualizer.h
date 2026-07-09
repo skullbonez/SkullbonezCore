@@ -35,6 +35,7 @@ Related:
 #pragma once
 
 
+#include <array>
 #include <cstdint>
 #include <memory>
 #include <vector>
@@ -106,6 +107,10 @@ class CollisionVisualizer
 
     static constexpr float FADE_DURATION = 0.5f;
     static constexpr int INSTANCE_FLOATS = 20; // mat4 + rgba
+    // Invariant: mirrors ConvexHullShape::MAX_FACES/MAX_FACE_VERTICES without
+    // including the hull definition in this debug visualizer header.
+    static constexpr int HULL_MAX_TRIANGLE_VERTICES = 96 * ( 16 - 2 ) * 3;
+    static constexpr int HULL_DYNAMIC_FLOATS_PER_VERTEX = 3 + 3 + INSTANCE_FLOATS;
 
     bool m_enabled = false;
     float m_alphaOverride = -1.0f;
@@ -122,6 +127,8 @@ class CollisionVisualizer
     std::vector<int> m_sleepGroupSizes;        // Per-island body counts used to color sleep/debug groups.
     std::vector<float> m_sphereInstanceData;   // CPU staging buffer for sphere instance matrices and colors.
     std::vector<float> m_boxInstanceData;      // CPU staging buffer for box instance matrices and colors.
+    std::array<float, HULL_MAX_TRIANGLE_VERTICES * HULL_DYNAMIC_FLOATS_PER_VERTEX> m_hullDebugVertexData =
+        {};                                    // CPU staging buffer for one convex-hull draw.
 
     void BuildSphereMesh( Rendering::IRenderResourceFactory& renderResources );
     void BuildBoxMesh( Rendering::IRenderResourceFactory& renderResources );

@@ -11,6 +11,8 @@ Glossary:
   Convex hull: Closed polytope whose faces enclose a volume with no concavity.
   Face: One planar polygon on the hull boundary.
   Edge: Undirected segment shared by exactly two faces.
+  Lane R: Recoverable result error lane for external input such as scene files
+    and baked hull assets.
 
 Invariants:
   - Hull topology is immutable after load-time validation.
@@ -26,6 +28,7 @@ Related:
 #include <array>
 #include <cstdint>
 #include "../Core/Common.h"
+#include "../Core/SbResult.h"
 #include "../Maths/GeometricStructures.h"
 #include "../Maths/Matrix4.h"
 #include "PhysicsMass.h"
@@ -87,6 +90,10 @@ class ConvexHullShape
   public:
     ConvexHullShape();
 
+    // Lane R: hull assets are external input. Callers that load scene/editor
+    // data should use this overload so malformed files report recoverable
+    // diagnostics instead of escaping through runtime code.
+    static SkullbonezCore::Basics::SbResult TryLoadFromFile( const char* path, ConvexHullShape& outHull );
     static ConvexHullShape LoadFromFile( const char* path );
 
     Transformation::Matrix4 GetModelMatrix( const Vector::Vector3& worldPos,

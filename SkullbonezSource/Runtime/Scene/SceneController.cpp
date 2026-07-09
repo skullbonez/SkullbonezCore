@@ -174,6 +174,63 @@ int SceneController::AdjacentQueueIndex( int direction ) const
 }
 
 
+std::vector<RunRequiredContactState>& SceneController::RequiredContacts()
+{
+    return m_runtime.RequiredContacts();
+}
+
+
+const std::vector<RunRequiredContactState>& SceneController::RequiredContacts() const
+{
+    return m_runtime.RequiredContacts();
+}
+
+
+std::vector<RunRequiredBroadphaseXCellsState>& SceneController::RequiredBroadphaseXCells()
+{
+    return m_runtime.RequiredBroadphaseXCells();
+}
+
+
+const std::vector<RunRequiredBroadphaseXCellsState>& SceneController::RequiredBroadphaseXCells() const
+{
+    return m_runtime.RequiredBroadphaseXCells();
+}
+
+
+void SceneController::ClearRequiredAutomationGates()
+{
+    m_runtime.ClearRequiredAutomationGates();
+}
+
+
+void SceneController::UpdateRequiredContacts( SkullbonezCore::GameObjects::GameModelCollection& models,
+                                              float contactEpsilon )
+{
+    m_runtime.UpdateRequiredContacts( models, contactEpsilon );
+}
+
+
+bool SceneController::RequiredContactsComplete() const
+{
+    return m_runtime.RequiredContactsComplete();
+}
+
+
+void SceneController::UpdateRequiredBroadphaseXCells(
+    const Math::CollisionDetection::SpatialGrid::ActiveCell* activeCells,
+    int activeCellCount )
+{
+    m_runtime.UpdateRequiredBroadphaseXCells( activeCells, activeCellCount );
+}
+
+
+bool SceneController::RequiredBroadphaseXCellsComplete() const
+{
+    return m_runtime.RequiredBroadphaseXCellsComplete();
+}
+
+
 SceneRuntime& SceneController::Runtime()
 {
     return m_runtime;

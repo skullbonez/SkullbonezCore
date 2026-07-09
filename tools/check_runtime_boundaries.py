@@ -112,19 +112,19 @@ RUN_UI_TEXT_PASS_SOURCE = Path("SkullbonezSource/Runtime/RunUiTextPass.cpp")
 RUN_SCENE_SOURCE = Path("SkullbonezSource/Runtime/Scene/RunScene.cpp")
 SCENE_AUTHORED_SETUP_SOURCE = Path("SkullbonezSource/Runtime/Scene/SceneAuthoredSetup.cpp")
 SCENE_GENERATED_SETUP_SOURCE = Path("SkullbonezSource/Runtime/Scene/SceneGeneratedSetup.cpp")
-EDITOR_OBJECT_PLACEMENT_SOURCE = Path("SkullbonezSource/Runtime/Editor/RunEditorObjectPlacement.inl")
+EDITOR_OBJECT_PLACEMENT_SOURCE = Path("SkullbonezSource/Runtime/Editor/RunEditorObjectPlacement.cpp")
 EDITOR_TOOLS_SOURCE = Path("SkullbonezSource/Runtime/Editor/RunEditorTools.cpp")
-EDITOR_GIZMO_TOOLS_SOURCE = Path("SkullbonezSource/Runtime/Editor/RunEditorGizmoTools.inl")
-EDITOR_OVERLAY_TOOLS_SOURCE = Path("SkullbonezSource/Runtime/Editor/RunEditorOverlayTools.inl")
+EDITOR_GIZMO_TOOLS_SOURCE = Path("SkullbonezSource/Runtime/Editor/RunEditorGizmoTools.cpp")
+EDITOR_OVERLAY_TOOLS_SOURCE = Path("SkullbonezSource/Runtime/Editor/RunEditorOverlayTools.cpp")
 LAUNCHER_TOOLS_SOURCE = Path("SkullbonezSource/Runtime/Editor/LauncherTools.cpp")
-MOUSE_PICKUP_TOOLS_SOURCE = Path("SkullbonezSource/Runtime/Editor/RunMousePickupTools.inl")
+MOUSE_PICKUP_TOOLS_SOURCE = Path("SkullbonezSource/Runtime/Editor/RunMousePickupTools.cpp")
 RUNTIME_TOOLS_SOURCE = Path("SkullbonezSource/Runtime/Tools/RuntimeTools.cpp")
 RUNTIME_TOOLS_HEADER = Path("SkullbonezSource/Runtime/Tools/RuntimeTools.h")
 RUN_REPLAY_TOOLS_SOURCE = Path("SkullbonezSource/Runtime/Replay/RunReplayTools.cpp")
 REPLAY_VELOCITY_EDIT_SOURCE = Path("SkullbonezSource/Runtime/Replay/RunReplayVelocityEdit.cpp")
-REPLAY_QUERY_TOOLS_SOURCE = Path("SkullbonezSource/Runtime/Replay/RunReplayQueryTools.inl")
-REPLAY_PREDICTION_HELPERS_SOURCE = Path("SkullbonezSource/Runtime/Replay/RunReplayPredictionHelpers.inl")
-REPLAY_PREDICTION_VISUALIZER_SOURCE = Path("SkullbonezSource/Runtime/Replay/RunReplayPredictionVisualizer.inl")
+REPLAY_QUERY_TOOLS_SOURCE = Path("SkullbonezSource/Runtime/Replay/RunReplayQueryTools.cpp")
+REPLAY_PREDICTION_HELPERS_SOURCE = RUN_REPLAY_TOOLS_SOURCE
+REPLAY_PREDICTION_VISUALIZER_SOURCE = RUN_REPLAY_TOOLS_SOURCE
 REPLAY_RECORDER_SOURCE = Path("SkullbonezSource/Runtime/Replay/ReplayRecorder.cpp")
 REPLAY_RUNTIME_SOURCE = Path("SkullbonezSource/Runtime/Replay/ReplayRuntime.cpp")
 REPLAY_RUNTIME_HEADER = Path("SkullbonezSource/Runtime/Replay/ReplayRuntime.h")
@@ -470,11 +470,7 @@ REPLAY_PREDICTION_PHYSICS_TICK_FUNCTION_PATTERN = re.compile(r"\bvoid\s+StepRepl
 REPLAY_PREDICTION_BULK_WRITEBACK_PATTERN = re.compile(
     r"\bmodelCollection\s*\.\s*WriteBackPhysicsBodies\s*\("
 )
-REPLAY_PREDICTION_PRIVATE_ENGINE_RESTORE_SOURCES = (
-    REPLAY_PREDICTION_HELPERS_SOURCE,
-    REPLAY_PREDICTION_VISUALIZER_SOURCE,
-    RUN_REPLAY_TOOLS_SOURCE,
-)
+REPLAY_PREDICTION_PRIVATE_ENGINE_RESTORE_SOURCES = (RUN_REPLAY_TOOLS_SOURCE,)
 # Why: PHYS-035 is closed only while prediction restore calls target the
 # replay-owned private engine. A live-engine restore here would silently reopen
 # the old determinism-risk mutation window.
@@ -1053,6 +1049,15 @@ DELETED_MIGRATION_ARTIFACT_PATTERNS: tuple[tuple[str, re.Pattern[str], str], ...
         "Pass WorldEnvironmentSettings and other owner-specific settings instead of a catch-all runtime snapshot.",
     ),
     (
+        "SimulationController",
+        re.compile(
+            r"\bSimulationController\b"
+            r"|#\s*include\s+[<\"][^>\"]*SimulationController\.h[>\"]"
+            r"|\bm_simulation\s*\.\s*System\s*\("
+        ),
+        "SimulationSystem owns runtime tick policy directly; do not restore the forwarding SimulationController wrapper or its System() reach-through.",
+    ),
+    (
         "IRenderSceneView",
         re.compile(r"\bIRenderSceneView\b"),
         "Render passes should consume concrete render/model data paths, not a one-implementation migration interface.",
@@ -1391,6 +1396,11 @@ DELETED_MIGRATION_ARTIFACT_PATTERNS: tuple[tuple[str, re.Pattern[str], str], ...
         "RenderInstanceStore handles now use model-slot render identity; do not revive compatibility-named handle helpers.",
     ),
 )
+RENDER_HELPER_MEMBER_DEFINITION_SOURCE = Path("SkullbonezSource/Rendering/Helper.cpp")
+RENDER_HELPER_STATIC_ACCESS_PATTERN = re.compile(
+    r"\bRenderHelper\s*::\s*"
+    r"(?:StateSetup|SetClipPlane|GetClipPlane|ResetRenderResources|Ensure\w+|Build\w+|Draw\w+)\s*\("
+)
 PUBLIC_PHYSICS_FACADE_HEADERS = (
     Path("SkullbonezSource/Physics/PhysicsApi.h"),
     Path("SkullbonezSource/Physics/PhysicsEngine.h"),
@@ -1502,6 +1512,9 @@ RENDER_BACKEND_AGGREGATE_DEPENDENCY_PATTERNS: tuple[tuple[str, re.Pattern[str], 
         "Pass a DX12 resource/context owner instead of using the static backend helper backdoor.",
     ),
 )
+RENDER_BACKEND_DX12_DELETED_ALIAS_FIELD_PATTERN = re.compile(
+    r"\b(?:IDXGISwapChain3|ID3D12Device|ID3D12GraphicsCommandList)\s*\*\s*(m_(?:swapChain|device|commandList))\b"
+)
 # RGRAPH-030 started as an include-aware census; FAC-001 retired the aggregate.
 # The IRenderBackend budget is now a tombstone and must stay at zero.
 MAX_IRENDER_BACKEND_DEPENDENCY_CENSUS = 0
@@ -1600,7 +1613,7 @@ GLOBAL_RENDERER_SERVICE_LABELS = { "Gfx()", "GfxCapture()", "GfxRayTracing()", "
 GLOBAL_RENDERER_SERVICE_ACCESS_CLASSIFICATIONS: dict[Path, str] = {
     Path("SkullbonezSource/Physics/TornadoField.cpp"): "physics debug rendering compatibility",
     Path("SkullbonezSource/Runtime/Editor/LauncherLaser.cpp"): "editor transient geometry compatibility",
-    Path("SkullbonezSource/Runtime/Editor/RunEditorTracer.inl"): "editor debug tracing compatibility",
+    Path("SkullbonezSource/Runtime/Editor/RunEditorTracer.cpp"): "editor debug tracing compatibility",
     Path("SkullbonezSource/Runtime/Run.cpp"): "runtime composition root",
     Path("SkullbonezSource/Runtime/RunFrame.cpp"): "runtime frame lifecycle",
     Path("SkullbonezSource/Runtime/RunRender.cpp"): "runtime render service composition",
@@ -2108,7 +2121,7 @@ RUN_STORAGE_RULE = (
     rf"(?:\b{RUN_CV_PATTERN}\s*(?:[&*]\s*(?:const\s*)?)?|"
     rf"\bstd::(?:reference_wrapper|unique_ptr|shared_ptr|weak_ptr|optional)<\s*{RUN_CV_PATTERN}\s*>\s*)"
     + FIELD_TAIL_PATTERN,
-    "Use EngineContext, RuntimeRenderHost, or a subsystem-specific service struct instead.",
+    "Use RuntimeRenderHost or a subsystem-specific service struct instead.",
 )
 
 CAMERA_MODE_WRITE_RULE = (
@@ -3173,6 +3186,42 @@ def check_deleted_migration_artifact_guardrails(repo: Path) -> list[BoundaryErro
     return errors
 
 
+def check_render_helper_static_access_guardrails_text(
+    path: Path,
+    text: str,
+    relative_path: Path | None = None,
+) -> list[BoundaryError]:
+    scan_path = relative_path or path
+    if scan_path == RENDER_HELPER_MEMBER_DEFINITION_SOURCE:
+        return []
+
+    stripped = strip_cpp_comments_and_string_literals(text)
+    return [
+        BoundaryError(
+            path,
+            line_for_offset(stripped, match.start()),
+            "RenderHelper static primitive access is blocked",
+            "Use the RenderHelper instance carried by RuntimeRenderer/RenderHelperContext; only Helper.cpp may define RenderHelper member methods.",
+        )
+        for match in RENDER_HELPER_STATIC_ACCESS_PATTERN.finditer(stripped)
+    ]
+
+
+def check_render_helper_static_access_guardrails(repo: Path) -> list[BoundaryError]:
+    errors: list[BoundaryError] = []
+    for path in sorted((repo / Path("SkullbonezSource")).rglob("*")):
+        if path.suffix not in { ".cpp", ".h", ".hpp", ".inl" }:
+            continue
+        errors.extend(
+            check_render_helper_static_access_guardrails_text(
+                path,
+                path.read_text(encoding="utf-8"),
+                path.relative_to(repo),
+            )
+        )
+    return errors
+
+
 def check_deleted_physics_model_view_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
     stripped = strip_cpp_comments(text)
     errors: list[BoundaryError] = []
@@ -4226,7 +4275,6 @@ def check_game_model_collection_run_physics_model_access_guardrails_text(
         "GameModelCollection.cpp",
         "GameModelCollection.h",
         "RunFrame.cpp",
-        "RunReplayPredictionVisualizer.inl",
         "RunReplayTools.cpp",
     }:
         return []
@@ -5943,7 +5991,7 @@ def check_mouse_pickup_overlay_store_authority_guardrails(repo: Path) -> list[Bo
 
 
 def check_selection_overlay_store_authority_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
-    if path.name != "RunEditorOverlayTools.inl":
+    if path.name != "RunEditorOverlayTools.cpp":
         return []
     stripped = strip_cpp_comments_and_string_literals(text)
     errors: list[BoundaryError] = []
@@ -6323,7 +6371,7 @@ def check_attached_camera_overlay_store_authority_guardrails_text(path: Path, te
             )
         )
 
-    if path.name != "RunEditorOverlayTools.inl":
+    if path.name != "RunEditorOverlayTools.cpp":
         return errors
 
     bounds = _function_body_bounds(stripped, MOUSE_PICKUP_OVERLAY_FUNCTION_PATTERN)
@@ -6350,7 +6398,7 @@ def check_attached_camera_overlay_store_authority_guardrails(repo: Path) -> list
     for relative_path in (
         EDITOR_OVERLAY_TOOLS_SOURCE,
         Path("SkullbonezSource/Runtime/Tools/RuntimeTools.h"),
-        Path("SkullbonezSource/Runtime/Editor/RunEditorTracer.inl"),
+        Path("SkullbonezSource/Runtime/Editor/RunEditorTracer.cpp"),
     ):
         path = repo / relative_path
         errors.extend(
@@ -6413,7 +6461,7 @@ def check_replay_target_marker_store_authority_guardrails(repo: Path) -> list[Bo
     for relative_path in (
         RUN_REPLAY_TOOLS_SOURCE,
         Path("SkullbonezSource/Runtime/Tools/RuntimeTools.h"),
-        Path("SkullbonezSource/Runtime/Editor/RunEditorTracer.inl"),
+        Path("SkullbonezSource/Runtime/Editor/RunEditorTracer.cpp"),
     ):
         path = repo / relative_path
         errors.extend(
@@ -6445,8 +6493,6 @@ def check_replay_marker_radius_store_authority_guardrails(repo: Path) -> list[Bo
     for relative_path in (
         RUN_REPLAY_TOOLS_SOURCE,
         REPLAY_QUERY_TOOLS_SOURCE,
-        REPLAY_PREDICTION_HELPERS_SOURCE,
-        REPLAY_PREDICTION_VISUALIZER_SOURCE,
     ):
         path = repo / relative_path
         errors.extend(
@@ -6478,7 +6524,6 @@ def check_replay_path_target_identity_store_authority_guardrails(repo: Path) -> 
     for relative_path in (
         RUN_REPLAY_TOOLS_SOURCE,
         REPLAY_QUERY_TOOLS_SOURCE,
-        REPLAY_PREDICTION_VISUALIZER_SOURCE,
     ):
         path = repo / relative_path
         errors.extend(
@@ -7535,6 +7580,28 @@ def check_render_backend_aggregate_dependency_guardrails(repo: Path) -> list[Bou
         )
     errors.extend(check_render_backend_aggregate_dependency_count_entries(entries))
     return errors
+
+
+def check_render_backend_dx12_deleted_alias_fields_text(path: Path, text: str) -> list[BoundaryError]:
+    stripped = strip_cpp_comments_and_string_literals(text)
+    errors: list[BoundaryError] = []
+    for match in RENDER_BACKEND_DX12_DELETED_ALIAS_FIELD_PATTERN.finditer(stripped):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start(1)),
+                "RenderBackendDX12 deleted device alias field is blocked",
+                "Device, swap-chain, and command-list access must route through Dx12RenderDevice helpers so backend-side aliases cannot dangle on resize or owner reset.",
+            )
+        )
+    return errors
+
+
+def check_render_backend_dx12_deleted_alias_fields(repo: Path) -> list[BoundaryError]:
+    path = repo / Path("SkullbonezSource/Rendering/DX12/RenderBackendDX12.h")
+    if not path.exists():
+        return []
+    return check_render_backend_dx12_deleted_alias_fields_text(path, path.read_text(encoding="utf-8"))
 
 
 def check_graph_owned_render_pass_scheduling_text(path: Path, text: str) -> list[BoundaryError]:
@@ -9424,6 +9491,40 @@ def run_self_tests() -> list[str]:
         'render backend aggregate dependency census exceeds ratchet',
     )
 
+    allowed_dx12_device_owner_accessors = """
+    class RenderBackendDX12
+    {
+        Dx12RenderDevice m_renderDevice;
+        ID3D12Device* Device() const { return m_renderDevice.Device(); }
+        IDXGISwapChain3* SwapChain() const { return m_renderDevice.SwapChain(); }
+        ID3D12GraphicsCommandList* CommandList() const { return m_renderDevice.CommandList(); }
+    };
+    """
+    expect_clean(
+        'allowed RenderBackendDX12 owner accessors were rejected',
+        check_render_backend_dx12_deleted_alias_fields_text(
+            Path("synthetic/RenderBackendDX12.h"),
+            allowed_dx12_device_owner_accessors,
+        ),
+    )
+
+    deleted_dx12_alias_fields = """
+    class RenderBackendDX12
+    {
+        IDXGISwapChain3* m_swapChain = nullptr;
+        ID3D12Device* m_device = nullptr;
+        ID3D12GraphicsCommandList* m_commandList = nullptr;
+    };
+    """
+    expect_error(
+        'deleted RenderBackendDX12 device alias fields were not rejected',
+        check_render_backend_dx12_deleted_alias_fields_text(
+            Path("synthetic/RenderBackendDX12.h"),
+            deleted_dx12_alias_fields,
+        ),
+        'RenderBackendDX12 deleted device alias field is blocked',
+    )
+
     allowed_graph_owned_pass_scheduling = """
     void RuntimeRenderer::RenderFrame()
     {
@@ -11182,6 +11283,57 @@ def run_self_tests() -> list[str]:
     expect_error('deleted physics debug visualizer collection input synthetic surface was not rejected', deleted_migration_artifact_errors, 'deleted migration artifact is blocked: Physics debug visualizer GameModelCollection input')
     expect_error('deleted render instance compatibility handle synthetic surface was not rejected', deleted_migration_artifact_errors, 'deleted migration artifact is blocked: RenderInstanceStore compatibility handle name')
 
+    deleted_simulation_controller_text = """
+    #include "SimulationController.h"
+    class SimulationController
+    {
+    public:
+        SimulationSystem& System();
+    };
+    void ReachThrough()
+    {
+        m_simulation.System().Reset();
+    }
+    """
+    expect_error('deleted SimulationController synthetic surface was not rejected', check_deleted_migration_artifact_guardrails_text( Path("SkullbonezSource/Runtime/SimulationController.h"), deleted_simulation_controller_text, ), 'deleted migration artifact is blocked: SimulationController')
+
+    old_render_helper_static_call_text = """
+    void GameModelRenderer::RenderModels( const RenderHelperContext& helperContext )
+    {
+        RenderHelper::DrawSphereBatchBegin( helperContext, view, proj, lightPos );
+        RenderHelper::DrawSphereBatchModel( model, material );
+        RenderHelper::DrawSphereBatchEnd( helperContext );
+    }
+    """
+    expect_error('old RenderHelper static primitive call synthetic surface was not rejected', check_render_helper_static_access_guardrails_text( Path("SkullbonezSource/Rendering/GameModelRenderer.cpp"), old_render_helper_static_call_text, Path("SkullbonezSource/Rendering/GameModelRenderer.cpp"), ), 'RenderHelper static primitive access is blocked')
+
+    allowed_render_helper_instance_call_text = """
+    void GameModelRenderer::RenderModels( const RenderHelperContext& helperContext )
+    {
+        helperContext.helper.DrawSphereBatchBegin( helperContext, view, proj, lightPos );
+        helperContext.helper.DrawSphereBatchModel( model, material );
+        helperContext.helper.DrawSphereBatchEnd( helperContext );
+    }
+    """
+    expect_clean('RenderHelper instance primitive call synthetic surface was rejected', check_render_helper_static_access_guardrails_text( Path("SkullbonezSource/Rendering/GameModelRenderer.cpp"), allowed_render_helper_instance_call_text, Path("SkullbonezSource/Rendering/GameModelRenderer.cpp"), ))
+
+    allowed_render_helper_member_definition_text = """
+    void RenderHelper::DrawSphereBatchBegin( const RenderHelperContext& context )
+    {
+        m_state.sphereBatchReady = true;
+    }
+    """
+    expect_clean('RenderHelper member definition synthetic surface was rejected', check_render_helper_static_access_guardrails_text( Path("SkullbonezSource/Rendering/Helper.cpp"), allowed_render_helper_member_definition_text, RENDER_HELPER_MEMBER_DEFINITION_SOURCE, ))
+
+    commented_render_helper_static_call_text = """
+    void Notes()
+    {
+        // RenderHelper::DrawSphereBatchBegin(...) was the deleted static-call shape.
+        const char* oldCall = "RenderHelper::DrawSphereBatchEnd(helperContext)";
+    }
+    """
+    expect_clean('comment-only RenderHelper static call synthetic text was rejected', check_render_helper_static_access_guardrails_text( Path("SkullbonezSource/Rendering/GameModelRenderer.cpp"), commented_render_helper_static_call_text, Path("SkullbonezSource/Rendering/GameModelRenderer.cpp"), ))
+
     deleted_rigid_body_text = """
     class RigidBody
     {
@@ -12282,7 +12434,7 @@ def run_self_tests() -> list[str]:
         collection.CommitEditedModelPhysicsState( index, true );
     }
     """
-    expect_error('deleted edited-model physics bool commit synthetic surface was not rejected', check_deleted_edited_model_physics_state_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorGizmoTools.inl"), old_deleted_bool_edit_commit, ), 'deleted edited-model physics bool commit is blocked')
+    expect_error('deleted edited-model physics bool commit synthetic surface was not rejected', check_deleted_edited_model_physics_state_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorGizmoTools.cpp"), old_deleted_bool_edit_commit, ), 'deleted edited-model physics bool commit is blocked')
 
     allowed_split_edited_state_commit = """
     void ApplyEditorScale( GameModelCollection& collection, int index, PhysicsColliderCreateDesc desc )
@@ -12291,7 +12443,7 @@ def run_self_tests() -> list[str]:
         collection.CommitEditedModelColliderState( index, desc );
     }
     """
-    expect_clean('split edited-state commit synthetic surface was rejected', check_deleted_edited_model_physics_state_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorGizmoTools.inl"), allowed_split_edited_state_commit, ))
+    expect_clean('split edited-state commit synthetic surface was rejected', check_deleted_edited_model_physics_state_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorGizmoTools.cpp"), allowed_split_edited_state_commit, ))
 
     old_full_collider_edit_commit = """
     void GameModelCollection::CommitEditedModelColliderState( int modelIndex, PhysicsColliderCreateDesc colliderDesc )
@@ -12715,7 +12867,7 @@ def run_self_tests() -> list[str]:
         return true;
     }
     """
-    expect_error('old replay prediction model-state capture synthetic surface was not rejected', check_replay_prediction_body_capture_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Replay/RunReplayPredictionHelpers.inl"), old_prediction_model_state_capture, ), 'replay prediction model-state capture is blocked')
+    expect_error('old replay prediction model-state capture synthetic surface was not rejected', check_replay_prediction_body_capture_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Replay/RunReplayTools.cpp"), old_prediction_model_state_capture, ), 'replay prediction model-state capture is blocked')
 
     old_prediction_refreshing_body_store_capture = """
     bool CaptureReplayPredictionBodyState( GameModelCollection& modelCollection )
@@ -12725,7 +12877,7 @@ def run_self_tests() -> list[str]:
         return true;
     }
     """
-    expect_error('old replay prediction refreshing body-store synthetic surface was not rejected', check_replay_prediction_body_capture_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Replay/RunReplayPredictionHelpers.inl"), old_prediction_refreshing_body_store_capture, ), 'replay prediction model-state capture is blocked')
+    expect_error('old replay prediction refreshing body-store synthetic surface was not rejected', check_replay_prediction_body_capture_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Replay/RunReplayTools.cpp"), old_prediction_refreshing_body_store_capture, ), 'replay prediction model-state capture is blocked')
 
     store_owned_prediction_capture = """
     bool CaptureReplayPredictionBodyState( GameModelCollection& modelCollection )
@@ -12742,7 +12894,7 @@ def run_self_tests() -> list[str]:
         return true;
     }
     """
-    expect_clean('store-owned replay prediction capture synthetic surface was rejected', check_replay_prediction_body_capture_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Replay/RunReplayPredictionHelpers.inl"), store_owned_prediction_capture, ))
+    expect_clean('store-owned replay prediction capture synthetic surface was rejected', check_replay_prediction_body_capture_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Replay/RunReplayTools.cpp"), store_owned_prediction_capture, ))
 
     old_prediction_sample_model_state_capture = """
     void CaptureReplayPredictionFrame( ReplayRuntime& replayRuntime, GameModelCollection& modelCollection )
@@ -12753,7 +12905,7 @@ def run_self_tests() -> list[str]:
         body.orientation = model->GetOrientation();
     }
     """
-    expect_error('old replay prediction sample model-state capture synthetic surface was not rejected', check_replay_prediction_body_capture_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Replay/RunReplayPredictionHelpers.inl"), old_prediction_sample_model_state_capture, ), 'replay prediction model-state capture is blocked')
+    expect_error('old replay prediction sample model-state capture synthetic surface was not rejected', check_replay_prediction_body_capture_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Replay/RunReplayTools.cpp"), old_prediction_sample_model_state_capture, ), 'replay prediction model-state capture is blocked')
 
     store_owned_prediction_sample_capture = """
     void CaptureReplayPredictionFrame( ReplayRuntime& replayRuntime, GameModelCollection& modelCollection )
@@ -12765,7 +12917,7 @@ def run_self_tests() -> list[str]:
         body.orientation = source.orientation;
     }
     """
-    expect_clean('store-owned replay prediction sample capture synthetic surface was rejected', check_replay_prediction_body_capture_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Replay/RunReplayPredictionHelpers.inl"), store_owned_prediction_sample_capture, ))
+    expect_clean('store-owned replay prediction sample capture synthetic surface was rejected', check_replay_prediction_body_capture_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Replay/RunReplayTools.cpp"), store_owned_prediction_sample_capture, ))
 
     commented_prediction_model_state_capture = """
     bool CaptureReplayPredictionBodyState( GameModelCollection& modelCollection )
@@ -12776,7 +12928,7 @@ def run_self_tests() -> list[str]:
         return true;
     }
     """
-    expect_clean('comment-only replay prediction model-state synthetic text was rejected', check_replay_prediction_body_capture_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Replay/RunReplayPredictionHelpers.inl"), commented_prediction_model_state_capture, ))
+    expect_clean('comment-only replay prediction model-state synthetic text was rejected', check_replay_prediction_body_capture_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Replay/RunReplayTools.cpp"), commented_prediction_model_state_capture, ))
 
     old_replay_prediction_model_writeback = """
     void StepReplayPredictionPhysicsTick( GameModelCollection& modelCollection )
@@ -13980,7 +14132,7 @@ def run_self_tests() -> list[str]:
         lastPlacedBody = context.models.AddGameModel( std::move( model ) );
     }
     """
-    expect_error('old editor collider recapture synthetic surface was not rejected', check_add_game_model_collider_desc_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorObjectPlacement.inl"), old_editor_collider_recapture, ), 'AddGameModel collider descriptor import is required')
+    expect_error('old editor collider recapture synthetic surface was not rejected', check_add_game_model_collider_desc_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorObjectPlacement.cpp"), old_editor_collider_recapture, ), 'AddGameModel collider descriptor import is required')
 
     old_ragdoll_collider_recapture = """
     void Ragdoll::AddSimpleHumanoid( GameModelCollection& collection )
@@ -13999,7 +14151,7 @@ def run_self_tests() -> list[str]:
             context.scene.AllocateSceneObjectId() );
     }
     """
-    expect_clean('descriptor-owned AddGameModel synthetic surface was rejected', check_add_game_model_collider_desc_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorObjectPlacement.inl"), allowed_descriptor_append, ))
+    expect_clean('descriptor-owned AddGameModel synthetic surface was rejected', check_add_game_model_collider_desc_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorObjectPlacement.cpp"), allowed_descriptor_append, ))
 
     old_scene_setup_orientation_readback = """
     void SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context )
@@ -14050,7 +14202,7 @@ def run_self_tests() -> list[str]:
         return true;
     }
     """
-    expect_error('old editor placement model-index command synthetic surface was not rejected', check_editor_model_index_physics_command_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorObjectPlacement.inl"), old_editor_model_index_command, ), 'editor model-index physics command is blocked')
+    expect_error('old editor placement model-index command synthetic surface was not rejected', check_editor_model_index_physics_command_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorObjectPlacement.cpp"), old_editor_model_index_command, ), 'editor model-index physics command is blocked')
 
     old_editor_reset_model_index_command = """
     void ResetEditorModelMotionAndWake( GameModelCollection& collection, PhysicsEngine&, int index )
@@ -14134,7 +14286,7 @@ def run_self_tests() -> list[str]:
         WakeEditorPhysicsBody( context.models, context.models.GetPhysicsEngine(), modelIndex );
     }
     """
-    expect_clean('comment-only editor model-index command synthetic text was rejected', check_editor_model_index_physics_command_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorObjectPlacement.inl"), commented_editor_model_index_command, ))
+    expect_clean('comment-only editor model-index command synthetic text was rejected', check_editor_model_index_physics_command_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorObjectPlacement.cpp"), commented_editor_model_index_command, ))
 
     old_editor_adapter_command = """
     void WakeEditorPhysicsBody( GameModelCollection& collection, int modelIndex )
@@ -14173,7 +14325,7 @@ def run_self_tests() -> list[str]:
         m_cGameModelCollection.TrySetModelAngularVelocity( modelIndex, angularVelocity );
     }
     """
-    expect_error('old mouse pickup model-index command synthetic surface was not rejected', check_mouse_pickup_model_index_physics_command_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunMousePickupTools.inl"), old_mouse_pickup_model_index_command, ), 'mouse pickup model-index physics command is blocked')
+    expect_error('old mouse pickup model-index command synthetic surface was not rejected', check_mouse_pickup_model_index_physics_command_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunMousePickupTools.cpp"), old_mouse_pickup_model_index_command, ), 'mouse pickup model-index physics command is blocked')
 
     allowed_mouse_pickup_handle_command = """
     void Run::ApplyMousePickupPhysicsStep()
@@ -14186,7 +14338,7 @@ def run_self_tests() -> list[str]:
         m_cGameModelCollection.GetPhysicsEngine().ApplyBodyImpulse( pickup.body, impulse, ZERO_VECTOR );
     }
     """
-    expect_clean('handle-keyed mouse pickup command synthetic surface was rejected', check_mouse_pickup_model_index_physics_command_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunMousePickupTools.inl"), allowed_mouse_pickup_handle_command, ))
+    expect_clean('handle-keyed mouse pickup command synthetic surface was rejected', check_mouse_pickup_model_index_physics_command_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunMousePickupTools.cpp"), allowed_mouse_pickup_handle_command, ))
 
     commented_mouse_pickup_model_index_command = """
     void DocumentOldMousePickupCommand()
@@ -14196,7 +14348,7 @@ def run_self_tests() -> list[str]:
         m_cGameModelCollection.GetPhysicsEngine().ApplyBodyImpulse( pickup.body, impulse, ZERO_VECTOR );
     }
     """
-    expect_clean('comment-only mouse pickup model-index command synthetic text was rejected', check_mouse_pickup_model_index_physics_command_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunMousePickupTools.inl"), commented_mouse_pickup_model_index_command, ))
+    expect_clean('comment-only mouse pickup model-index command synthetic text was rejected', check_mouse_pickup_model_index_physics_command_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunMousePickupTools.cpp"), commented_mouse_pickup_model_index_command, ))
 
     old_mouse_pickup_game_model_body_read = """
     void Run::ApplyMousePickupPhysicsStep()
@@ -14211,7 +14363,7 @@ def run_self_tests() -> list[str]:
         Vector3 impulse = pull - model->GetVelocity();
     }
     """
-    expect_error('old mouse pickup GameModel body read synthetic surface was not rejected', check_mouse_pickup_model_index_physics_command_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunMousePickupTools.inl"), old_mouse_pickup_game_model_body_read, ), 'mouse pickup GameModel body read is blocked')
+    expect_error('old mouse pickup GameModel body read synthetic surface was not rejected', check_mouse_pickup_model_index_physics_command_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunMousePickupTools.cpp"), old_mouse_pickup_game_model_body_read, ), 'mouse pickup GameModel body read is blocked')
 
     allowed_mouse_pickup_body_store_read = """
     void Run::ApplyMousePickupPhysicsStep()
@@ -14225,7 +14377,7 @@ def run_self_tests() -> list[str]:
         }
     }
     """
-    expect_clean('store-owned mouse pickup body read synthetic surface was rejected', check_mouse_pickup_model_index_physics_command_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunMousePickupTools.inl"), allowed_mouse_pickup_body_store_read, ))
+    expect_clean('store-owned mouse pickup body read synthetic surface was rejected', check_mouse_pickup_model_index_physics_command_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunMousePickupTools.cpp"), allowed_mouse_pickup_body_store_read, ))
 
     commented_mouse_pickup_game_model_body_read = """
     void DocumentOldMousePickupBodyRead()
@@ -14234,7 +14386,7 @@ def run_self_tests() -> list[str]:
         const Vector3 grabPoint = body->position + pickup.grabOffset;
     }
     """
-    expect_clean('comment-only mouse pickup GameModel body read synthetic text was rejected', check_mouse_pickup_model_index_physics_command_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunMousePickupTools.inl"), commented_mouse_pickup_game_model_body_read, ))
+    expect_clean('comment-only mouse pickup GameModel body read synthetic text was rejected', check_mouse_pickup_model_index_physics_command_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunMousePickupTools.cpp"), commented_mouse_pickup_game_model_body_read, ))
 
     old_mouse_pickup_overlay_model_body_read = """
     void BuildEditorToolOverlayTrace( EditorToolOverlayTraceContext context, const EditorToolOverlayTraceInput& input )
@@ -14244,7 +14396,7 @@ def run_self_tests() -> list[str]:
         context.tracer.AddSelectionOutline( grabbed );
     }
     """
-    expect_error('old mouse pickup overlay GameModel body read synthetic surface was not rejected', check_mouse_pickup_overlay_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorOverlayTools.inl"), old_mouse_pickup_overlay_model_body_read, ), 'mouse pickup overlay GameModel body read is blocked')
+    expect_error('old mouse pickup overlay GameModel body read synthetic surface was not rejected', check_mouse_pickup_overlay_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorOverlayTools.cpp"), old_mouse_pickup_overlay_model_body_read, ), 'mouse pickup overlay GameModel body read is blocked')
 
     allowed_mouse_pickup_overlay_store_read = """
     void BuildEditorToolOverlayTrace( EditorToolOverlayTraceContext context, const EditorToolOverlayTraceInput& input )
@@ -14259,7 +14411,7 @@ def run_self_tests() -> list[str]:
         }
     }
     """
-    expect_clean('store-backed mouse pickup overlay synthetic surface was rejected', check_mouse_pickup_overlay_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorOverlayTools.inl"), allowed_mouse_pickup_overlay_store_read, ))
+    expect_clean('store-backed mouse pickup overlay synthetic surface was rejected', check_mouse_pickup_overlay_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorOverlayTools.cpp"), allowed_mouse_pickup_overlay_store_read, ))
 
     commented_mouse_pickup_overlay_model_body_read = """
     void DocumentOldMousePickupOverlay()
@@ -14268,7 +14420,7 @@ def run_self_tests() -> list[str]:
         // It now reads body->position and collider->shape.
     }
     """
-    expect_clean('comment-only mouse pickup overlay model read synthetic text was rejected', check_mouse_pickup_overlay_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorOverlayTools.inl"), commented_mouse_pickup_overlay_model_body_read, ))
+    expect_clean('comment-only mouse pickup overlay model read synthetic text was rejected', check_mouse_pickup_overlay_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorOverlayTools.cpp"), commented_mouse_pickup_overlay_model_body_read, ))
 
     old_selection_overlay_model_frame = """
     void BuildEditorToolOverlayTrace( EditorToolOverlayTraceContext context, const EditorToolOverlayTraceInput& input )
@@ -14282,7 +14434,7 @@ def run_self_tests() -> list[str]:
         }
     }
     """
-    expect_error('old selection overlay GameModel frame synthetic surface was not rejected', check_selection_overlay_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorOverlayTools.inl"), old_selection_overlay_model_frame, ), 'selection overlay GameModel frame read is blocked')
+    expect_error('old selection overlay GameModel frame synthetic surface was not rejected', check_selection_overlay_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorOverlayTools.cpp"), old_selection_overlay_model_frame, ), 'selection overlay GameModel frame read is blocked')
 
     allowed_selection_overlay_store_frame = """
     void BuildEditorToolOverlayTrace( EditorToolOverlayTraceContext context, const EditorToolOverlayTraceInput& input )
@@ -14301,7 +14453,7 @@ def run_self_tests() -> list[str]:
         }
     }
     """
-    expect_clean('store-backed selection overlay synthetic surface was rejected', check_selection_overlay_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorOverlayTools.inl"), allowed_selection_overlay_store_frame, ))
+    expect_clean('store-backed selection overlay synthetic surface was rejected', check_selection_overlay_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorOverlayTools.cpp"), allowed_selection_overlay_store_frame, ))
 
     commented_selection_overlay_model_frame = """
     void DocumentOldSelectionOverlay()
@@ -14310,7 +14462,7 @@ def run_self_tests() -> list[str]:
         // It now traces from body/collider store rows.
     }
     """
-    expect_clean('comment-only selection overlay synthetic text was rejected', check_selection_overlay_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorOverlayTools.inl"), commented_selection_overlay_model_frame, ))
+    expect_clean('comment-only selection overlay synthetic text was rejected', check_selection_overlay_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorOverlayTools.cpp"), commented_selection_overlay_model_frame, ))
 
     old_editor_selection_frame_model_reads = """
     bool TryGetEditorSelectionFrame( const std::vector<GameModel>& models,
@@ -14352,7 +14504,7 @@ def run_self_tests() -> list[str]:
         return 0;
     }
     """
-    expect_error('old editor gizmo model-only frame call synthetic surface was not rejected', check_editor_selection_frame_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorGizmoTools.inl"), old_editor_gizmo_model_only_call, ), 'editor selection frame must use store rows')
+    expect_error('old editor gizmo model-only frame call synthetic surface was not rejected', check_editor_selection_frame_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorGizmoTools.cpp"), old_editor_gizmo_model_only_call, ), 'editor selection frame must use store rows')
 
     old_editor_frame_store_without_handles = """
     bool TryGetEditorSelectionFrame( const std::vector<GameModel>& models,
@@ -14423,7 +14575,7 @@ def run_self_tests() -> list[str]:
     }
     """
     expect_clean('store-backed editor selection frame synthetic surface was rejected', check_editor_selection_frame_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorTools.cpp"), allowed_editor_selection_frame_store_reads, ))
-    expect_clean('store-backed editor gizmo selection frame call synthetic surface was rejected', check_editor_selection_frame_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorGizmoTools.inl"), allowed_editor_selection_frame_store_reads, ))
+    expect_clean('store-backed editor gizmo selection frame call synthetic surface was rejected', check_editor_selection_frame_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorGizmoTools.cpp"), allowed_editor_selection_frame_store_reads, ))
 
     old_editor_tree_group_append = """
     void PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context )
@@ -14440,7 +14592,7 @@ def run_self_tests() -> list[str]:
         };
     }
     """
-    expect_error('old editor tree ungrouped append synthetic surface was not rejected', check_editor_tree_group_descriptor_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorObjectPlacement.inl"), old_editor_tree_group_append, ), 'editor tree grouping descriptor is required')
+    expect_error('old editor tree ungrouped append synthetic surface was not rejected', check_editor_tree_group_descriptor_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorObjectPlacement.cpp"), old_editor_tree_group_append, ), 'editor tree grouping descriptor is required')
 
     allowed_editor_tree_group_descriptor = """
     void PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context )
@@ -14463,7 +14615,7 @@ def run_self_tests() -> list[str]:
         };
     }
     """
-    expect_clean('editor tree group descriptor synthetic surface was rejected', check_editor_tree_group_descriptor_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorObjectPlacement.inl"), allowed_editor_tree_group_descriptor, ))
+    expect_clean('editor tree group descriptor synthetic surface was rejected', check_editor_tree_group_descriptor_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorObjectPlacement.cpp"), allowed_editor_tree_group_descriptor, ))
 
     commented_editor_tree_group_append = """
     // Old tree placement used addModel(std::move(model), MakeEditorColliderDesc(hull, part.restitution), partFixed, treeDefinition.seedAsleep && !partFixed).
@@ -14477,7 +14629,7 @@ def run_self_tests() -> list[str]:
                   groupDesc );
     }
     """
-    expect_clean('comment-only editor tree ungrouped append synthetic text was rejected', check_editor_tree_group_descriptor_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorObjectPlacement.inl"), commented_editor_tree_group_append, ))
+    expect_clean('comment-only editor tree ungrouped append synthetic text was rejected', check_editor_tree_group_descriptor_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorObjectPlacement.cpp"), commented_editor_tree_group_append, ))
 
     old_editor_transform_group_name_parse = """
     bool TryGetEditorRagdollInstancePrefixLength( const GameModel& model, std::size_t& outPrefixLength )
@@ -14635,7 +14787,7 @@ def run_self_tests() -> list[str]:
         context.tracer.AddAttachedCameraTargetMarker( target, input.attachedCameraActiveFollow );
     }
     """
-    expect_error('old attached-camera overlay GameModel marker synthetic surface was not rejected', check_attached_camera_overlay_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorOverlayTools.inl"), old_attached_camera_overlay_marker, ), 'attached camera overlay marker must use store values')
+    expect_error('old attached-camera overlay GameModel marker synthetic surface was not rejected', check_attached_camera_overlay_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorOverlayTools.cpp"), old_attached_camera_overlay_marker, ), 'attached camera overlay marker must use store values')
 
     allowed_attached_camera_overlay_store_marker = """
     void BuildEditorToolOverlayTrace( EditorToolOverlayTraceContext context, const EditorToolOverlayTraceInput& input )
@@ -14652,7 +14804,7 @@ def run_self_tests() -> list[str]:
         }
     }
     """
-    expect_clean('store-backed attached-camera overlay marker synthetic surface was rejected', check_attached_camera_overlay_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorOverlayTools.inl"), allowed_attached_camera_overlay_store_marker, ))
+    expect_clean('store-backed attached-camera overlay marker synthetic surface was rejected', check_attached_camera_overlay_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorOverlayTools.cpp"), allowed_attached_camera_overlay_store_marker, ))
 
     commented_attached_camera_overlay_marker = """
     void DocumentOldAttachedCameraOverlay()
@@ -14661,7 +14813,7 @@ def run_self_tests() -> list[str]:
         // It now passes body->position, body->orientation, and collider->shape.
     }
     """
-    expect_clean('comment-only attached-camera overlay marker synthetic text was rejected', check_attached_camera_overlay_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorOverlayTools.inl"), commented_attached_camera_overlay_marker, ))
+    expect_clean('comment-only attached-camera overlay marker synthetic text was rejected', check_attached_camera_overlay_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorOverlayTools.cpp"), commented_attached_camera_overlay_marker, ))
 
     old_replay_target_marker_overload = """
     class RunEditorTracer
@@ -16153,6 +16305,7 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_run_scene_coordinator_callback_source_guardrails(repo))
     errors.extend(check_scene_runtime_coordinator_callback_guardrails(repo))
     errors.extend(check_run_ui_text_pass_replay_overlay_guardrails(repo))
+    errors.extend(check_render_backend_dx12_deleted_alias_fields(repo))
     errors.extend(check_interaction_guardrails(repo))
     errors.extend(check_add_game_model_collider_desc_guardrails(repo))
     errors.extend(check_physics_game_model_collection_guardrails(repo))
@@ -16161,6 +16314,7 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_standalone_physics_implementation_game_object_guardrails(repo))
     errors.extend(check_runtime_handle_smoke_adapter_guardrails(repo))
     errors.extend(check_deleted_migration_artifact_guardrails(repo))
+    errors.extend(check_render_helper_static_access_guardrails(repo))
     errors.extend(check_persistent_solver_context_model_access_guardrails(repo))
     errors.extend(check_physics_world_solver_model_stream_guardrails(repo))
     errors.extend(check_physics_world_contact_highlight_tick_guardrails(repo))

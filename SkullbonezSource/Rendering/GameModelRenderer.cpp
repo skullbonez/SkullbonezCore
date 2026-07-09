@@ -25,6 +25,8 @@ Invariants:
     scene owner remains responsible for refreshing those stores before drawing.
   - Shadow caster preparation may run worker-side, but draw submission remains
     on the render thread through RenderHelper command/resource contexts.
+  - ShadowCasterBatches capacity is reserved before steady rendering; a larger
+    model count is a fixed-capacity render invariant failure.
 
 Related:
   - SkullbonezSource/Rendering/GameModelRenderer.h
@@ -33,12 +35,13 @@ Related:
 #include "GameModelRenderer.h"
 
 #include "../Core/Config.h"
+#include "../Core/FatalError.h"
+#include "../Core/Profiler.h"
+#include "../Core/WorkerPool.h"
 #include "../Physics/ColliderStore.h"
 #include "Helper.h"
 #include "IRenderDiagnostics.h"
 #include "RenderInstanceStore.h"
-#include "../Core/Profiler.h"
-#include "../Core/WorkerPool.h"
 
 #include <algorithm>
 #include <cfloat>
@@ -367,14 +370,14 @@ void GameModelRenderer::RenderModels( const RenderHelperContext& helperContext,
 
     {
         DRAW_CALL_TRACE_SCOPE( helperContext.renderDiagnostics, "Spheres" );
-        RenderHelper::DrawSphereBatchBegin( helperContext,
-                                            view,
-                                            proj,
-                                            lightPos,
-                                            alphaBlendedPass,
-                                            cinematic,
-                                            shadow,
-                                            clampedMaterialAlpha );
+        auto sphereBatch = helperContext.helper.BeginSphereBatch( helperContext,
+                                                                  view,
+                                                                  proj,
+                                                                  lightPos,
+                                                                  alphaBlendedPass,
+                                                                  cinematic,
+                                                                  shadow,
+                                                                  clampedMaterialAlpha );
         for ( int x = 0; x < modelCount; ++x )
         {
             if ( !shouldDrawModel( x ) )
@@ -385,14 +388,13 @@ void GameModelRenderer::RenderModels( const RenderHelperContext& helperContext,
             if ( instance.shapeKind == RenderInstanceShapeKind::Sphere )
             {
                 RenderMaterial material = MaterialWithContactHighlights( instance, false );
-                RenderHelper::DrawSphereBatchModel( instance.modelMatrix, material );
+                sphereBatch.DrawModel( instance.modelMatrix, material );
             }
         }
-        RenderHelper::DrawSphereBatchEnd( helperContext );
     }
 
     bool hasPineVisualModels = false;
-    auto appendBoxLikeModels = [&]( bool pineVisualPass )
+    auto appendBoxLikeModels = [&]( bool pineVisualPass, RenderHelper::PrimitiveBatchScope& batch )
     {
         for ( int x = 0; x < modelCount; ++x )
         {
@@ -415,11 +417,11 @@ void GameModelRenderer::RenderModels( const RenderHelperContext& helperContext,
                 }
                 if ( pineVisualPass )
                 {
-                    RenderHelper::DrawPineBatchModel( instance.modelMatrix, material );
+                    batch.DrawModel( instance.modelMatrix, material );
                 }
                 else
                 {
-                    RenderHelper::DrawBoxBatchModel( instance.modelMatrix, material );
+                    batch.DrawModel( instance.modelMatrix, material );
                 }
             }
         }
@@ -427,31 +429,29 @@ void GameModelRenderer::RenderModels( const RenderHelperContext& helperContext,
 
     {
         DRAW_CALL_TRACE_SCOPE( helperContext.renderDiagnostics, "Boxes" );
-        RenderHelper::DrawBoxBatchBegin( helperContext,
-                                         view,
-                                         proj,
-                                         lightPos,
-                                         alphaBlendedPass,
-                                         cinematic,
-                                         shadow,
-                                         clampedMaterialAlpha );
-        appendBoxLikeModels( false );
-        RenderHelper::DrawBoxBatchEnd( helperContext );
+        auto boxBatch = helperContext.helper.BeginBoxBatch( helperContext,
+                                                            view,
+                                                            proj,
+                                                            lightPos,
+                                                            alphaBlendedPass,
+                                                            cinematic,
+                                                            shadow,
+                                                            clampedMaterialAlpha );
+        appendBoxLikeModels( false, boxBatch );
     }
 
     if ( hasPineVisualModels )
     {
         DRAW_CALL_TRACE_SCOPE( helperContext.renderDiagnostics, "Pines" );
-        RenderHelper::DrawPineBatchBegin( helperContext,
-                                          view,
-                                          proj,
-                                          lightPos,
-                                          alphaBlendedPass,
-                                          cinematic,
-                                          shadow,
-                                          clampedMaterialAlpha );
-        appendBoxLikeModels( true );
-        RenderHelper::DrawPineBatchEnd( helperContext );
+        auto pineBatch = helperContext.helper.BeginPineBatch( helperContext,
+                                                              view,
+                                                              proj,
+                                                              lightPos,
+                                                              alphaBlendedPass,
+                                                              cinematic,
+                                                              shadow,
+                                                              clampedMaterialAlpha );
+        appendBoxLikeModels( true, pineBatch );
     }
 
     {
@@ -485,17 +485,17 @@ void GameModelRenderer::RenderModels( const RenderHelperContext& helperContext,
             }
 
             const RenderMaterial material = MaterialWithContactHighlights( instance, false );
-            RenderHelper::DrawConvexHullModel( helperContext,
-                                               *hull,
-                                               instance.modelMatrix,
-                                               material,
-                                               view,
-                                               proj,
-                                               lightPos,
-                                               alphaBlendedPass,
-                                               cinematic,
-                                               shadow,
-                                               clampedMaterialAlpha );
+            helperContext.helper.DrawConvexHullModel( helperContext,
+                                                      *hull,
+                                                      instance.modelMatrix,
+                                                      material,
+                                                      view,
+                                                      proj,
+                                                      lightPos,
+                                                      alphaBlendedPass,
+                                                      cinematic,
+                                                      shadow,
+                                                      clampedMaterialAlpha );
         }
     }
 }
@@ -521,7 +521,14 @@ void GameModelRenderer::BuildShadowCasterBatches( const RenderInstanceStore& ren
     assert( outBatches.HasCapacityForModelCount( modelCount ) );
     if ( !outBatches.HasCapacityForModelCount( modelCount ) )
     {
-        throw std::runtime_error( "Shadow caster batch reserve exhausted" );
+        SB_FATAL( "GameModelRenderer",
+                  "Shadow caster batch reserve exhausted. modelCount=%d sphereCapacity=%zu boxCapacity=%zu "
+                  "pineCapacity=%zu hullCapacity=%zu",
+                  modelCount,
+                  outBatches.spheres.capacity(),
+                  outBatches.boxes.capacity(),
+                  outBatches.pines.capacity(),
+                  outBatches.convexHulls.capacity() );
     }
 
     const ColliderRecordList& colliders = colliderStore.Records();
@@ -563,24 +570,22 @@ void GameModelRenderer::SubmitShadowCasterBatches( const RenderHelperContext& he
         PROFILE_SCOPED( "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters/SubmitBatches/Spheres" );
         DRAW_CALL_TRACE_SCOPE( helperContext.renderDiagnostics, "Spheres" );
 
-        RenderHelper::DrawShadowDepthSphereBatchBegin( helperContext, view, proj, cinematic );
+        auto sphereBatch = helperContext.helper.BeginShadowDepthSphereBatch( helperContext, view, proj, cinematic );
         for ( const Matrix4& model : batches.spheres )
         {
-            RenderHelper::DrawShadowDepthSphereBatchModel( model );
+            sphereBatch.DrawShadowModel( model );
         }
-        RenderHelper::DrawShadowDepthSphereBatchEnd( helperContext );
     }
 
     {
         PROFILE_SCOPED( "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters/SubmitBatches/Boxes" );
         DRAW_CALL_TRACE_SCOPE( helperContext.renderDiagnostics, "Boxes" );
 
-        RenderHelper::DrawShadowDepthBoxBatchBegin( helperContext, view, proj );
+        auto boxBatch = helperContext.helper.BeginShadowDepthBoxBatch( helperContext, view, proj );
         for ( const Matrix4& model : batches.boxes )
         {
-            RenderHelper::DrawShadowDepthBoxBatchModel( model );
+            boxBatch.DrawShadowModel( model );
         }
-        RenderHelper::DrawShadowDepthBoxBatchEnd( helperContext );
     }
 
     if ( !batches.pines.empty() )
@@ -588,12 +593,11 @@ void GameModelRenderer::SubmitShadowCasterBatches( const RenderHelperContext& he
         PROFILE_SCOPED( "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters/SubmitBatches/Pines" );
         DRAW_CALL_TRACE_SCOPE( helperContext.renderDiagnostics, "Pines" );
 
-        RenderHelper::DrawShadowDepthPineBatchBegin( helperContext, view, proj );
+        auto pineBatch = helperContext.helper.BeginShadowDepthPineBatch( helperContext, view, proj );
         for ( const Matrix4& model : batches.pines )
         {
-            RenderHelper::DrawShadowDepthPineBatchModel( model );
+            pineBatch.DrawShadowModel( model );
         }
-        RenderHelper::DrawShadowDepthPineBatchEnd( helperContext );
     }
 
     if ( !batches.convexHulls.empty() )
@@ -605,7 +609,11 @@ void GameModelRenderer::SubmitShadowCasterBatches( const RenderHelperContext& he
         {
             if ( caster.hull )
             {
-                RenderHelper::DrawShadowDepthConvexHullModel( helperContext, *caster.hull, caster.model, view, proj );
+                helperContext.helper.DrawShadowDepthConvexHullModel( helperContext,
+                                                                     *caster.hull,
+                                                                     caster.model,
+                                                                     view,
+                                                                     proj );
             }
         }
     }

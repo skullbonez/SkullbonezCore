@@ -25,14 +25,17 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/RunInput.cpp
-  - SkullbonezSource/Runtime/RunState.h
+  - SkullbonezSource/Runtime/Run.h
   - Agentic/Plans/In_Progress/authoritative-plan-01-run-composition-root.csv
 */
 #pragma once
 
-#include "RunState.h"
+#include "../Assets/AssetKeys.h"
 #include "../Maths/RotationMatrix.h"
 #include "../Maths/Vector3.h"
+#include "../Physics/PhysicsHandles.h"
+
+#include <cstdint>
 
 namespace SkullbonezCore
 {
@@ -43,6 +46,46 @@ class GameModelCollection;
 
 namespace Basics
 {
+enum class AttachedCameraSubmode
+{
+    FixedRelative,
+    VelocityForward,
+    RagdollEyes,
+    Count
+};
+
+struct AttachedCameraTarget
+{
+    Physics::PhysicsBodyHandle body;         // Primary live physics identity for follow/orbit sampling.
+    Physics::PhysicsColliderHandle collider; // Shape/radius identity paired with body.
+    int modelIndex = -1;                     // UI/presentation hint; revalidated before use.
+    uint32_t replayBodyId = 0;               // Stable scene-local identity used to recover stale indices.
+    char name[64] = {};                      // Human/debug fallback when replay id cannot recover the target.
+};
+
+struct AttachedCameraState
+{
+    AttachedCameraTarget target;             // Camera-owned target; replay/editor selections are only seeds.
+    AttachedCameraSubmode submode = AttachedCameraSubmode::FixedRelative;
+    bool activeFollow = true;                // false means pinned in world space with mouse released to UI.
+    bool hasFixedOffset = false;
+    bool hasOrbit = false;
+    bool hasLastLookDirection = false;
+    bool hasReturnCameraPose = false;
+    bool needsEntryTween = false;            // Next valid follow solve should glide from the visible pose.
+    uint32_t returnCameraHash = CAMERA_FREE; // Selected slot Attach should restore before applying returnEye/view/up.
+    float orbitYawRadians = 0.0f;
+    float orbitPitchRadians = 0.30f;
+    float orbitDistance = 8.0f;
+    Math::Vector::Vector3 localEyeOffset = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 localViewOffset = Math::Vector::Vector3( 0.0f, 0.0f, 1.0f );
+    Math::Vector::Vector3 localUp = Math::Vector::Vector3( 0.0f, 1.0f, 0.0f );
+    Math::Vector::Vector3 lastLookDirection = Math::Vector::Vector3( 0.0f, 0.0f, 1.0f );
+    Math::Vector::Vector3 returnEye = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 returnView = Math::Vector::Vector3( 0.0f, 0.0f, 1.0f );
+    Math::Vector::Vector3 returnUp = Math::Vector::Vector3( 0.0f, 1.0f, 0.0f );
+};
+
 struct AttachedCameraPose
 {
     Math::Vector::Vector3 eye = Math::Vector::ZERO_VECTOR;
@@ -64,9 +107,15 @@ struct AttachedCameraPoseCommand
     bool startEntryTween = false;
 };
 
+struct AttachedCameraTargetSelection
+{
+    AttachedCameraPhysicsTarget physics;
+};
+
 class AttachedCameraController
 {
   public:
+    static void Reset( AttachedCameraState& state );
     static void ClearTarget( AttachedCameraState& state );
     static bool TryAttachTargetHandlesFromModelIndex( const GameObjects::GameModelCollection& collection,
                                                       int modelIndex,
@@ -81,6 +130,14 @@ class AttachedCameraController
     static bool TryResolveRagdollHead( const GameObjects::GameModelCollection& collection,
                                        int selectedModelIndex,
                                        int& outHeadModelIndex );
+    static bool SelectTarget( const GameObjects::GameModelCollection& collection,
+                              AttachedCameraState& state,
+                              int modelIndex,
+                              AttachedCameraTargetSelection& outSelection );
+    static bool CycleSubmode( const GameObjects::GameModelCollection& collection,
+                              AttachedCameraState& state,
+                              AttachedCameraPhysicsTarget& outTarget,
+                              bool& outShouldCaptureFixedOffset );
 
     static void CaptureFixedOffset( AttachedCameraState& state,
                                     const AttachedCameraPose& currentPose,

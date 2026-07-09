@@ -35,6 +35,7 @@ Related:
 #include "../RuntimeInteractionController.h"
 #include "../../Maths/Quaternion.h"
 #include "../../Maths/Vector3.h"
+#include "../../Physics/CollisionShape.h"
 #include "../../Physics/PhysicsHandles.h"
 
 namespace SkullbonezCore
@@ -51,17 +52,27 @@ class WorldEnvironment;
 namespace GameObjects
 {
 class GameModelCollection;
-}
+struct PhysicsBodyStateEdit;
+} // namespace GameObjects
 namespace Geometry
 {
 class Terrain;
 }
 namespace Physics
 {
+class ColliderStore;
+struct ColliderRecord;
+struct PhysicsBodyRecord;
+struct PhysicsColliderCreateDesc;
 class PhysicsBodyStore;
+} // namespace Physics
+namespace UI
+{
+struct UIEditorCommands;
 }
 namespace Basics
 {
+class RunEditorTracer;
 class RuntimeInteractionController;
 class RuntimeCommandQueue;
 class RuntimeInputContext;
@@ -158,6 +169,23 @@ struct EditorObjectTypeRequestResult
     bool enterPlacementMode = false;
 };
 
+struct EditorPlacementPreModeUICommandResult
+{
+    // Invariant: flags report accepted UI commands for RunInput action logging;
+    // mode toggles still require Run-owned camera/cursor transition work.
+    bool setPlaceStatic = false;
+    bool requestedObjectType = false;
+    bool enterPlacementMode = false;
+    bool toggleEditorMode = false;
+    bool togglePlacementMode = false;
+};
+
+struct EditorPlacementPostModeUICommandResult
+{
+    bool toggledPlaceStatic = false;
+    bool toggledTerrainAlign = false;
+};
+
 int EditorMouseWheelSteps( int wheelDelta );
 Assets::EditorHullAsset EditorHullAssetForType( int objectType );
 bool EditorPlacementUsesUniformScale( int objectType );
@@ -196,7 +224,81 @@ void ClearEditorManipulationState( EditorGizmoContext context );
 // the tool boundary before UI-only code needs a temporary model row.
 int ResolveSelectedEditorModelIndex( RunEditorPlacementState& editor, const Physics::PhysicsBodyStore& bodyStore );
 int PeekSelectedEditorModelIndex( const RunEditorPlacementState& editor, const Physics::PhysicsBodyStore& bodyStore );
+// Concept: split editor tool translation units share this store-backed
+// transform vocabulary. Keep it narrow so gizmo math, overlay tracing, and
+// placement commits do not rediscover pose or shape facts from GameModel.
+Math::Vector::Vector3 EditorAxisVector( int axis );
+float EditorShapeAxisExtent( const Math::CollisionDetection::CollisionShape& shape, int axis );
+float EditorColliderRadius( const Physics::ColliderRecord& collider );
+float EditorGizmoAxisLength( float modelRadius );
+float EditorGizmoRotationRadius( float modelRadius );
+const Physics::PhysicsBodyRecord* TryResolveEditorBodyRecord( const Physics::PhysicsBodyStore& bodyStore,
+                                                              Physics::PhysicsBodyHandle bodyHandle,
+                                                              int modelIndex );
+const Physics::PhysicsBodyRecord* TryResolveEditorBodyRecord( const Physics::PhysicsBodyStore& bodyStore,
+                                                              int modelIndex );
+bool TryResolveEditorBodyCollider( const Physics::PhysicsBodyStore& bodyStore,
+                                   const Physics::ColliderStore& colliderStore,
+                                   Physics::PhysicsBodyHandle bodyHandle,
+                                   Physics::PhysicsColliderHandle colliderHandle,
+                                   int modelIndex,
+                                   const Physics::PhysicsBodyRecord*& outBody,
+                                   const Physics::ColliderRecord*& outCollider );
+bool TryResolveEditorBodyCollider( const Physics::PhysicsBodyStore& bodyStore,
+                                   const Physics::ColliderStore& colliderStore,
+                                   int modelIndex,
+                                   const Physics::PhysicsBodyRecord*& outBody,
+                                   const Physics::ColliderRecord*& outCollider );
+bool TryGetEditorSelectionFrame( const GameObjects::GameModelCollection& collection,
+                                 const Physics::PhysicsBodyStore& bodyStore,
+                                 const Physics::ColliderStore& colliderStore,
+                                 Physics::PhysicsBodyHandle selectedBodyHandle,
+                                 Physics::PhysicsColliderHandle selectedColliderHandle,
+                                 int selectedIndex,
+                                 Math::Vector::Vector3& outOrigin,
+                                 float& outRadius );
+bool TryTraceEditorSelectionOverlayFromStores( const GameObjects::GameModelCollection& collection,
+                                               const Physics::PhysicsBodyStore& bodyStore,
+                                               const Physics::ColliderStore& colliderStore,
+                                               Physics::PhysicsBodyHandle selectedBodyHandle,
+                                               Physics::PhysicsColliderHandle selectedColliderHandle,
+                                               int selectedIndex,
+                                               RunEditorTracer& tracer,
+                                               Math::Vector::Vector3& outOrigin,
+                                               float& outRadius );
+void CaptureEditorGizmoDragGroupState( RunEditorPlacementState& editor,
+                                       const GameObjects::GameModelCollection& collection,
+                                       const Physics::PhysicsBodyStore& bodyStore,
+                                       bool allowRagdollGroup );
+int ValidCapturedEditorGizmoGroupCount( const RunEditorPlacementState& editor, int modelCount );
+void WakeEditorPhysicsBody( GameObjects::GameModelCollection& collection, int modelIndex );
+void SeedEditorPhysicsBodyAsleep( GameObjects::GameModelCollection& collection, int modelIndex );
+void ResetEditorModelMotionAndWake( GameObjects::GameModelCollection& collection,
+                                    int index,
+                                    GameObjects::PhysicsBodyStateEdit edit );
+void ResetEditorModelMotionAndWake( GameObjects::GameModelCollection& collection,
+                                    int index,
+                                    GameObjects::PhysicsBodyStateEdit edit,
+                                    Physics::PhysicsColliderCreateDesc colliderDesc );
+// Concept: replay velocity gizmos share the editor axis/ring vocabulary so
+// scrub-time velocity edits and live editor gizmos draw comparable handles.
+float ReplayVelocityLinearBaseLength( float modelRadius );
+float ReplayVelocityLinearVisualAxisT( float modelRadius, float velocityComponent );
+float ReplayVelocityLinearUnitsPerWorld();
+float ReplayVelocityAngularBaseRadius( float modelRadius );
+float ReplayVelocityAngularVisualRadius( float modelRadius, float angularComponent );
+float ReplayVelocityAxisComponent( const Math::Vector::Vector3& value, int axis );
+void ReplayVelocitySetAxisComponent( Math::Vector::Vector3& value, int axis, float component );
+void ReplayVelocityAxisColor( int axis, float heat, bool hot, bool active, float& r, float& g, float& b );
+Math::Vector::Vector3 EditorRotationRingBasisA( int axis );
+Math::Vector::Vector3 EditorRotationRingBasisB( int axis );
+float WrapEditorAngleDelta( float delta );
+float DistanceRayToSegmentSquared( const Math::Vector::Vector3& rayOrigin,
+                                   const Math::Vector::Vector3& rayDirection,
+                                   const Math::Vector::Vector3& segmentA,
+                                   const Math::Vector::Vector3& segmentB );
 EditorKeyboardShortcutResult HandleEditorKeyboardShortcuts( EditorKeyboardShortcutContext context );
+EditorKeyboardShortcutResult HandleEditorKeyboardShortcut( RuntimeInputAction action, bool isDown, bool wasPressed );
 EditorPlacementModeChangeResult
 SetEditorPlacementMode( EditorGizmoContext context, bool enabled, bool clearManipulation );
 EditorPlacementModeChangeResult ToggleEditorPlacementMode( EditorGizmoContext context );
@@ -207,6 +309,10 @@ void ToggleEditorPlaceStaticObject( RunEditorPlacementState& editor );
 void ToggleEditorTerrainAlign( RunEditorPlacementState& editor );
 EditorObjectTypeRequestResult
 SelectEditorObjectType( EditorGizmoContext context, int requestedObjectType, bool enterPlacementMode );
+EditorPlacementPreModeUICommandResult ApplyEditorPlacementPreModeUICommands( EditorGizmoContext context,
+                                                                             const UI::UIEditorCommands& commands );
+EditorPlacementPostModeUICommandResult ApplyEditorPlacementPostModeUICommands( RunEditorPlacementState& editor,
+                                                                               const UI::UIEditorCommands& commands );
 int HitEditorGizmoAxis( EditorGizmoContext context,
                         const Math::Vector::Vector3& rayOrigin,
                         const Math::Vector::Vector3& rayDirection );
@@ -243,6 +349,9 @@ void UpdateEditorGizmoHotAxes( EditorGizmoContext context,
                                const Math::Vector::Vector3& rayOrigin,
                                const Math::Vector::Vector3& rayDirection,
                                bool scaleMode );
+// Concept: RunInput owns keybinding data, but editor tools still own the cold
+// save and screenshot side effects behind this action boundary.
+void HandleEditorSaveHotkey( EditorSaveHotkeyContext context, RuntimeInputAction action, int virtualKey );
 void HandleEditorSaveHotkeys( EditorSaveHotkeyContext context );
 } // namespace RunInternal
 } // namespace Basics

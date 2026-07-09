@@ -10,6 +10,8 @@ Mental model:
 Glossary:
   SDF (Signed Distance Field): Texture representation used for crisp scalable
   text rendering.
+  Lane R result: Recoverable asset/tooling failure reported at startup with an
+    owner and bounded message instead of an exception.
   Descriptor: Small binding record that tells a renderer how to interpret a
   resource.
   Back buffer: Swap-chain image that will be presented to the window.
@@ -493,11 +495,11 @@ bool Text2d::GenerateSdfAtlasToFile( const char* cFontName, const char* cOutPath
 }
 
 
-void Text2d::BuildFont( IRenderResourceFactory& renderResources,
-                        const SkullbonezCore::Assets::AssetSystem& assets,
-                        int screenW,
-                        int screenH,
-                        const char* cFontName )
+SkullbonezCore::Basics::SbResult Text2d::BuildFont( IRenderResourceFactory& renderResources,
+                                                    const SkullbonezCore::Assets::AssetSystem& assets,
+                                                    int screenW,
+                                                    int screenH,
+                                                    const char* cFontName )
 {
     // Load the pre-generated SDF atlas if available.  To regenerate, run:
     //   SKULLBONEZ_CORE.exe --gen-atlas
@@ -509,11 +511,15 @@ void Text2d::BuildFont( IRenderResourceFactory& renderResources,
         fprintf( stderr, "[Text2d] SDF atlas missing or stale — generating (one time)...\n" );
         if ( !Text2d::GenerateSdfAtlasToFile( cFontName, atlasPath.c_str() ) )
         {
-            throw std::runtime_error( "SDF atlas generation failed (Text2d::BuildFont)" );
+            return SkullbonezCore::Basics::SbResult::Failure( "Rendering/Text",
+                                                              "SDF atlas generation failed: %s",
+                                                              atlasPath.c_str() );
         }
         if ( !LoadSdfAtlasFromFile( renderResources, atlasPath.c_str() ) )
         {
-            throw std::runtime_error( "SDF atlas load-after-generate failed (Text2d::BuildFont)" );
+            return SkullbonezCore::Basics::SbResult::Failure( "Rendering/Text",
+                                                              "SDF atlas load-after-generate failed: %s",
+                                                              atlasPath.c_str() );
         }
         fprintf( stderr, "[Text2d] SDF atlas saved to %s\n", atlasPath.c_str() );
     }
@@ -548,6 +554,7 @@ void Text2d::BuildFont( IRenderResourceFactory& renderResources,
     // RebuildProjection() must be called whenever the window is resized so the
     // ortho extents stay matched to the actual viewport aspect ratio.
     Text2d::RebuildProjection( screenW, screenH );
+    return SkullbonezCore::Basics::SbResult::Success();
 }
 
 

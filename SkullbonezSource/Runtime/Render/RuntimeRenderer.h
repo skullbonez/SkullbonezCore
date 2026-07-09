@@ -12,7 +12,9 @@ Mental model:
 Glossary:
   RuntimeRenderer: Owner of pass instances and the frame pass order.
   Pass order: The stable sequence of sky, shadows, reflection, objects, terrain,
-  water, post effects, and UI/text.
+    water, post effects, and UI/text.
+  Lane R result: Recoverable resource setup failure reported through an
+    owner/message result at startup instead of throwing through the render owner.
   Consequence grade: Frame-local dark/cool presentation override used when
     replay prediction wants causal overlays to dominate the image.
   Resource context: Creation/rebuild-only view of the renderer factory and
@@ -35,11 +37,13 @@ Related:
 #include "RuntimeRenderHost.h"
 #include "RuntimeRenderInputs.h"
 #include "RuntimeRenderPasses.h"
+#include "../../Rendering/Helper.h"
 #include "../../Rendering/RenderGraph.h"
 
 #include <array>
 #include <chrono>
 #include <cstdint>
+#include <optional>
 #include <vector>
 
 namespace SkullbonezCore
@@ -99,12 +103,22 @@ class RuntimeRenderer
     void RenderFrame( const RuntimeRenderInputs& renderInputs );
     void ReleaseBackendOwnedResources( Rendering::IRenderResourceFactory* renderResources );
     void ReleaseBackendOwnedRuntimeResources( const BackendResourceReleaseContext& context );
-    void RebuildRegisteredRenderResources( const RegisteredResourceRebuildContext& context );
+    SbResult RebuildRegisteredRenderResources( const RegisteredResourceRebuildContext& context );
+    RenderHelper& Helper()
+    {
+        assert( m_renderHelper.has_value() );
+        return *m_renderHelper;
+    }
+    const RenderHelper& Helper() const
+    {
+        assert( m_renderHelper.has_value() );
+        return *m_renderHelper;
+    }
 
-    void EnsureUiTextResources( Rendering::IRenderResourceFactory& renderResources,
-                                const Assets::AssetSystem& assets,
-                                int screenW,
-                                int screenH );
+    SbResult EnsureUiTextResources( Rendering::IRenderResourceFactory& renderResources,
+                                    const Assets::AssetSystem& assets,
+                                    int screenW,
+                                    int screenH );
     bool ShouldRenderUiText( const UiTextPassState& state ) const;
     void SetUiTextRayTracingCapability( Rendering::IRenderRayTracing* renderRayTracing );
     void RenderUiText( Rendering::IRenderDiagnostics& renderDiagnostics,
@@ -157,7 +171,7 @@ class RuntimeRenderer
 
     RenderFrameContext BuildRenderFrameContext( const RuntimeRenderInputs& renderInputs,
                                                 bool cinematicRender,
-                                                const CinematicRenderConfig& renderConfig ) const;
+                                                const CinematicRenderConfig& renderConfig );
     RenderResourceContext BuildRenderResourceContext( const RuntimeRenderInputs& renderInputs,
                                                       bool cinematicRender ) const;
     Rendering::RenderGraph& BeginRenderPassGraph();
@@ -235,6 +249,7 @@ class RuntimeRenderer
     EngineConfig& m_config;                                // Process config that owns ordinary render style.
     RunRuntimeSettings& m_runtimeSettings;                 // Runtime-toggled render/physics presentation settings.
     Environment::WorldEnvironment& m_world;                // Fluid surface and gravity owner for pass contexts.
+    std::optional<RenderHelper> m_renderHelper;            // Backend-lifetime primitive render cache and batch scratch.
     Physics::CollisionVisualizer& m_collisionVisualizer;
     Physics::BroadphaseVisualizer& m_broadphaseVisualizer;
     Physics::PhysicsDebugVisualizer& m_physicsDebugVisualizer;

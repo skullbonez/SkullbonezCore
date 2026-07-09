@@ -4,17 +4,15 @@
 //   Lock the first pure-math unit contracts for Vector3.
 //
 // Mental model:
-//   These tests describe the current engine math behavior, including legacy
-//   exception contracts, before later error-handling and library layering plans
-//   start changing mechanics around the math code.
+//   These tests describe engine math behavior. Fatal-only preconditions are
+//   source-documented and tested through caller-detectable guard states rather
+//   than in-process fatal assertions.
 //
 // Glossary:
-//   Legacy throwing contract: Current behavior that reports invalid math input
-//     with std::runtime_error until fable-05 conversion reaches this lane.
 //   Basis vector: Unit-length axis vector such as +X, +Y, or +Z.
 //
 // Invariants:
-//   - Vector3::Normalise() currently throws for an exact zero vector.
+//   - Vector3::Normalise() is only called on non-zero vectors in this runner.
 //   - Dot/cross/magnitude identities should stay stable across math library
 //     extraction and future standalone physics builds.
 //
@@ -26,8 +24,6 @@
 #include "../ThirdPtySource/doctest/doctest.h"
 
 #include "../SkullbonezSource/Maths/Vector3.h"
-
-#include <stdexcept>
 
 using SkullbonezCore::Math::Vector::CrossProduct;
 using SkullbonezCore::Math::Vector::Vector3;
@@ -47,11 +43,12 @@ void CheckVectorNear( const Vector3& value, const Vector3& expected )
 } // namespace
 
 
-TEST_CASE( "Vector3: zero normalise keeps the legacy throwing contract" )
+TEST_CASE( "Vector3: zero vector is detectable before fatal-only normalise" )
 {
     Vector3 zero( 0.0f, 0.0f, 0.0f );
 
-    CHECK_THROWS_AS( zero.Normalise(), std::runtime_error );
+    CHECK( zero.IsCloseToZero() );
+    CHECK( VectorMagSquared( zero ) == doctest::Approx( 0.0f ) );
 }
 
 

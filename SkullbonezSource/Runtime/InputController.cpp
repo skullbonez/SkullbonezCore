@@ -25,6 +25,7 @@ Related:
 */
 #include "InputController.h"
 
+#include "RunCameraState.h"
 #include "RunInternal.h"
 
 #include <algorithm>
@@ -115,6 +116,16 @@ RuntimeMouseEdges RuntimeInputContext::CaptureMouseButtons( bool leftDown, bool 
     m_leftMouseWasDown = leftDown;
     m_rightMouseWasDown = rightDown;
     return edges;
+}
+
+bool RuntimeInputContext::IsEscapeQuickTap( double nowSeconds, double quickTapSeconds ) const
+{
+    return nowSeconds - m_lastEscapeTapTime <= quickTapSeconds;
+}
+
+void RuntimeInputContext::RecordEscapeTap( double nowSeconds )
+{
+    m_lastEscapeTapTime = nowSeconds;
 }
 
 void RuntimeInputContext::SetMode( RuntimeInputMode mode, RuntimeInputAction action, RuntimeInputActionSource source )
@@ -542,15 +553,11 @@ void InputController::DescribeLastTransitions( const RuntimeInputContext& contex
     }
 }
 
-void InputController::ResetUnfocusedInput( RunCameraState& camera,
-                                           bool& leftSceneCycleWasDown,
-                                           bool& rightSceneCycleWasDown )
+void InputController::ResetUnfocusedInput( RunCameraState& camera )
 {
     camera.input = {};
     camera.hasMouseLookLastClient = false;
     camera.needsMouseLookReset = true;
-    leftSceneCycleWasDown = false;
-    rightSceneCycleWasDown = false;
     Hardware::Input::ResetMouseLookDeltas();
     Hardware::Input::ConsumeMouseWheelDelta();
 }
@@ -580,6 +587,95 @@ void InputController::SetMouseLookDelta( RunCameraState& camera, long rawX, long
         std::clamp( rawX, -RunInternal::CAMERA_MOUSE_MAX_DELTA_PIXELS, RunInternal::CAMERA_MOUSE_MAX_DELTA_PIXELS );
     camera.input.yMove =
         std::clamp( rawY, -RunInternal::CAMERA_MOUSE_MAX_DELTA_PIXELS, RunInternal::CAMERA_MOUSE_MAX_DELTA_PIXELS );
+}
+
+RuntimeCameraInputFrameResult InputController::ApplyCameraInputFrame( RunCameraState& camera,
+                                                                      const RuntimeCameraInputFrameContext& context )
+{
+    RuntimeCameraInputFrameResult result;
+    if ( context.cameraMouseLookActive )
+    {
+        // Why: raw mouse input gives stable deltas during native mouse-look, and
+        // client-position deltas keep remote-desktop or automation paths usable
+        // when raw packets are unavailable.
+        if ( !context.appFocused )
+        {
+            ResetMouseLook( camera );
+        }
+        else if ( !context.mouseLookOwnsCursor )
+        {
+            result.applyCursorOwnership = true;
+            ResetMouseLook( camera );
+        }
+        else
+        {
+            Hardware::Input::SetSystemCursorVisible( false );
+            long rawX = 0;
+            long rawY = 0;
+            const bool hasRawDelta = Hardware::Input::ConsumeRawMouseDelta( rawX, rawY );
+            const Hardware::Input::MouseCoordinatesResult currentClientResult =
+                Hardware::Input::GetClientMouseCoordinates();
+            if ( !currentClientResult.result.ok )
+            {
+                ResetMouseLook( camera );
+                result.applyCursorOwnership = true;
+                result.cursorResult = currentClientResult.result;
+                return result;
+            }
+            const POINT currentClient = currentClientResult.coordinates;
+
+            if ( camera.needsMouseLookReset )
+            {
+                camera.input.xMove = 0;
+                camera.input.yMove = 0;
+                camera.mouseLookLastClient = currentClient;
+                camera.hasMouseLookLastClient = true;
+                camera.needsMouseLookReset = false;
+            }
+            else if ( hasRawDelta )
+            {
+                SetMouseLookDelta( camera, rawX, rawY );
+                camera.mouseLookLastClient = currentClient;
+                camera.hasMouseLookLastClient = true;
+            }
+            else if ( !camera.hasMouseLookLastClient )
+            {
+                camera.input.xMove = 0;
+                camera.input.yMove = 0;
+                camera.mouseLookLastClient = currentClient;
+                camera.hasMouseLookLastClient = true;
+            }
+            else
+            {
+                SetMouseLookDelta( camera,
+                                   currentClient.x - camera.mouseLookLastClient.x,
+                                   currentClient.y - camera.mouseLookLastClient.y );
+                camera.mouseLookLastClient = currentClient;
+            }
+        }
+    }
+    else
+    {
+        ResetMouseLook( camera );
+        result.applyCursorOwnership = true;
+    }
+
+    if ( context.cameraKeyboardControlsActive )
+    {
+        camera.input.Set( Hardware::InputState::Up, Hardware::Input::IsKeyDown( 'W' ) );
+        camera.input.Set( Hardware::InputState::Left, Hardware::Input::IsKeyDown( 'A' ) );
+        camera.input.Set( Hardware::InputState::Down, Hardware::Input::IsKeyDown( 'S' ) );
+        camera.input.Set( Hardware::InputState::Right, Hardware::Input::IsKeyDown( 'D' ) );
+    }
+    else
+    {
+        ResetMouseLook( camera );
+        camera.input.Set( Hardware::InputState::Up, false );
+        camera.input.Set( Hardware::InputState::Down, false );
+        camera.input.Set( Hardware::InputState::Left, false );
+        camera.input.Set( Hardware::InputState::Right, false );
+    }
+    return result;
 }
 } // namespace Basics
 } // namespace SkullbonezCore

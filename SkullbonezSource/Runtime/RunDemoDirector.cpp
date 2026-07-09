@@ -36,7 +36,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/RunDemoDirector.h
   - SkullbonezSource/Runtime/DemoDirector.h
-  - SkullbonezSource/Runtime/RunState.h
+  - SkullbonezSource/Runtime/RunSubsystemState.h
   - fable_plans/08-demo-director-progress.md
 */
 #include "RunDemoDirector.h"
@@ -172,23 +172,25 @@ void ResetPhaseEntryApplications( DemoDirectorPlaybackState& director )
 void SetPredictionRevealRatePreservingCursor( RunReplayPredictionState& prediction, double revealRate )
 {
     const double normalizedRevealRate = revealRate > 0.0 ? revealRate : 1.0;
-    const double previousRevealRate = prediction.revealSecondsPerSecond > 0.0 ? prediction.revealSecondsPerSecond : 1.0;
-    if ( prediction.revealAnchorValid )
+    const double previousRevealRate =
+        prediction.revealClock.secondsPerSecond > 0.0 ? prediction.revealClock.secondsPerSecond : 1.0;
+    if ( prediction.revealClock.anchorValid )
     {
         const auto now = std::chrono::steady_clock::now();
         const double elapsedSeconds =
-            (std::max)( 0.0, std::chrono::duration<double>( now - prediction.revealAnchor ).count() );
+            (std::max)( 0.0, std::chrono::duration<double>( now - prediction.revealClock.anchor ).count() );
         const double revealedSeconds = elapsedSeconds * previousRevealRate;
-        prediction.revealAnchor = now - std::chrono::duration_cast<std::chrono::steady_clock::duration>(
-                                            std::chrono::duration<double>( revealedSeconds / normalizedRevealRate ) );
+        prediction.revealClock.anchor =
+            now - std::chrono::duration_cast<std::chrono::steady_clock::duration>(
+                      std::chrono::duration<double>( revealedSeconds / normalizedRevealRate ) );
     }
-    prediction.revealSecondsPerSecond = normalizedRevealRate;
+    prediction.revealClock.secondsPerSecond = normalizedRevealRate;
 }
 
 bool ActivePredictionLastFrame( const RunReplayPredictionState& prediction, ReplayFrameIndex& outLastFrame )
 {
     const bool usingBuildFrames = prediction.BuildPrefixShouldBePresented();
-    const auto& activeFrames = usingBuildFrames ? prediction.buildFrames : prediction.frames;
+    const auto& activeFrames = usingBuildFrames ? prediction.build.buildFrames : prediction.simulation.frames;
     const std::size_t activeFrameCount = usingBuildFrames ? prediction.PublishedBuildFrameCount() : activeFrames.size();
     if ( activeFrameCount < 2 )
     {
@@ -203,7 +205,7 @@ bool ActivePredictionLastFrame( const RunReplayPredictionState& prediction, Repl
 ReplayFrameIndex PredictionRevealFrameForAdvance( const RunReplayPredictionState& prediction,
                                                   ReplayFrameIndex lastAvailableFrame )
 {
-    if ( !prediction.revealAnchorValid || lastAvailableFrame == 0 )
+    if ( !prediction.revealClock.anchorValid || lastAvailableFrame == 0 )
     {
         return 0;
     }
@@ -216,9 +218,9 @@ ReplayFrameIndex PredictionRevealFrameForAdvance( const RunReplayPredictionState
 
     const auto now = std::chrono::steady_clock::now();
     const double elapsedSeconds =
-        (std::max)( 0.0, std::chrono::duration<double>( now - prediction.revealAnchor ).count() );
+        (std::max)( 0.0, std::chrono::duration<double>( now - prediction.revealClock.anchor ).count() );
     const double revealSecondsPerSecond =
-        prediction.revealSecondsPerSecond > 0.0 ? prediction.revealSecondsPerSecond : 1.0;
+        prediction.revealClock.secondsPerSecond > 0.0 ? prediction.revealClock.secondsPerSecond : 1.0;
     const double revealedSeconds = (std::min)( availableSeconds, elapsedSeconds * revealSecondsPerSecond );
     const double revealFrame = revealedSeconds / static_cast<double>( PHYSICS_FIXED_DT );
     return (std::min)( lastAvailableFrame, static_cast<ReplayFrameIndex>( revealFrame ) );

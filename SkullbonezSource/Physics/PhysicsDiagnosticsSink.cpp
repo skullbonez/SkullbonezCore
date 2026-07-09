@@ -43,6 +43,25 @@ using SkullbonezCore::Math::Vector::Vector3;
 namespace Math = SkullbonezCore::Math;
 
 
+void PhysicsDiagnosticsCsvWriter::Writef( const char* fileName, const char* fmt, ... ) const
+{
+#ifdef _DEBUG
+    if ( writeVf == nullptr || fileName == nullptr || fmt == nullptr )
+    {
+        return;
+    }
+
+    va_list args;
+    va_start( args, fmt );
+    writeVf( userData, fileName, fmt, args );
+    va_end( args );
+#else
+    (void)fileName;
+    (void)fmt;
+#endif
+}
+
+
 #ifdef _DEBUG
 bool SkullbonezCore::Physics::TryBuildPhysicsDiagnosticsModelRecord( int index,
                                                                      const PhysicsBodyStore& bodyStore,
@@ -153,9 +172,9 @@ void PhysicsDiagnosticsSink::EmitRegressionLog( const PhysicsDiagnosticsFrameInp
     const int modelCount = frame.bodyStore.Count();
     if ( m_physicsRegressionLogFrame == 0 )
     {
-        Log().Writef( m_physicsRegressionLogPath,
-                      "frame,idx,name,posX,posY,posZ,velX,velY,velZ,speed,omegaX,omegaY,omegaZ,omegaMag,qX,qY,qZ,qW,"
-                      "grounded,sleeping,sleepInhibited\n" );
+        frame.csvWriter.Writef( m_physicsRegressionLogPath,
+                                "frame,idx,name,posX,posY,posZ,velX,velY,velZ,speed,omegaX,omegaY,omegaZ,omegaMag,qX,"
+                                "qY,qZ,qW,grounded,sleeping,sleepInhibited\n" );
     }
     for ( int i = 0; i < modelCount; ++i )
     {
@@ -174,29 +193,30 @@ void PhysicsDiagnosticsSink::EmitRegressionLog( const PhysicsDiagnosticsFrameInp
         int sleeping = ( i < static_cast<int>( m_sleepState.size() ) ) ? m_sleepState[i] : 0;
         int sleepInhibited =
             ( i < static_cast<int>( m_sleepInhibitedThisFrame.size() ) ) ? m_sleepInhibitedThisFrame[i] : 0;
-        Log().Writef( m_physicsRegressionLogPath,
-                      "%d,%d,%s,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.6f,%.6f,%.6f,%.6f,%d,%d,%d\n",
-                      m_physicsRegressionLogFrame,
-                      i,
-                      model.name,
-                      pos.x,
-                      pos.y,
-                      pos.z,
-                      vel.x,
-                      vel.y,
-                      vel.z,
-                      speed,
-                      omega.x,
-                      omega.y,
-                      omega.z,
-                      omegaMag,
-                      model.qx,
-                      model.qy,
-                      model.qz,
-                      model.qw,
-                      sleepSupported,
-                      sleeping,
-                      sleepInhibited );
+        frame.csvWriter.Writef(
+            m_physicsRegressionLogPath,
+            "%d,%d,%s,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.6f,%.6f,%.6f,%.6f,%d,%d,%d\n",
+            m_physicsRegressionLogFrame,
+            i,
+            model.name,
+            pos.x,
+            pos.y,
+            pos.z,
+            vel.x,
+            vel.y,
+            vel.z,
+            speed,
+            omega.x,
+            omega.y,
+            omega.z,
+            omegaMag,
+            model.qx,
+            model.qy,
+            model.qz,
+            model.qw,
+            sleepSupported,
+            sleeping,
+            sleepInhibited );
     }
     ++m_physicsRegressionLogFrame;
 }
@@ -226,6 +246,7 @@ void PhysicsDiagnosticsSink::EmitFrame( const PhysicsDiagnosticsFrameInput& fram
 
 void PhysicsDiagnosticsSink::EmitCollisionTime( const char* const* diagnosticNames,
                                                 int diagnosticNameCount,
+                                                const PhysicsDiagnosticsCsvWriter& csvWriter,
                                                 const char* type,
                                                 int bodyA,
                                                 int bodyB,
@@ -239,8 +260,8 @@ void PhysicsDiagnosticsSink::EmitCollisionTime( const char* const* diagnosticNam
     }
     if ( !m_physicsCollisionTimeHeaderWritten )
     {
-        Log().Writef( m_physicsCollisionTimeLogPath,
-                      "frame,type,bodyA,bodyB,nameA,nameB,collisionTime,availableTime\n" );
+        csvWriter.Writef( m_physicsCollisionTimeLogPath,
+                          "frame,type,bodyA,bodyB,nameA,nameB,collisionTime,availableTime\n" );
         m_physicsCollisionTimeHeaderWritten = true;
     }
     const PhysicsDiagnosticsNameView names{ diagnosticNames, diagnosticNameCount };
@@ -248,19 +269,20 @@ void PhysicsDiagnosticsSink::EmitCollisionTime( const char* const* diagnosticNam
     { return ( bodyIndex >= 0 && bodyIndex < names.count ) ? names.NameFor( bodyIndex ) : "terrain"; };
     const char* nameA = collisionNameFor( bodyA );
     const char* nameB = collisionNameFor( bodyB );
-    Log().Writef( m_physicsCollisionTimeLogPath,
-                  "%d,%s,%d,%d,%s,%s,%.6f,%.6f\n",
-                  m_physicsCollisionTimeLogFrame,
-                  type,
-                  bodyA,
-                  bodyB,
-                  nameA,
-                  nameB,
-                  collisionTime,
-                  availableTime );
+    csvWriter.Writef( m_physicsCollisionTimeLogPath,
+                      "%d,%s,%d,%d,%s,%s,%.6f,%.6f\n",
+                      m_physicsCollisionTimeLogFrame,
+                      type,
+                      bodyA,
+                      bodyB,
+                      nameA,
+                      nameB,
+                      collisionTime,
+                      availableTime );
 #else
     (void)diagnosticNames;
     (void)diagnosticNameCount;
+    (void)csvWriter;
     (void)type;
     (void)bodyA;
     (void)bodyB;

@@ -38,6 +38,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "../Core/Common.h"
+#include "../Core/Log.h"
 #include "Audio/ContactAudioService.h"
 #include "Run.h"
 #include "Allocation/RuntimeAllocationTracker.h"
@@ -2965,28 +2966,121 @@ bool ParseCommandLine( const CommandLineView& commandLine, EngineConfig& config,
 // Render backend
 // ---------------------------------------------------------------------------
 
-std::unique_ptr<RenderBackendDX12> InitRenderBackend( Window* window, RuntimeRenderBackendView& renderBackendView )
+SbResult InitRenderBackend( Window* window,
+                            RuntimeRenderBackendView& renderBackendView,
+                            std::unique_ptr<RenderBackendDX12>& outBackend )
 {
     RuntimeAllocation::RuntimeAllocationScope allocationScope( RuntimeAllocation::RuntimeAllocationPhase::BackendInit );
     auto backend = std::make_unique<RenderBackendDX12>();
+    RenderBackendDX12* renderBackend = backend.get();
+    const SbResult renderInitResult = renderBackend->Init( window->m_sWindow,
+                                                           window->m_sDevice,
+                                                           window->m_sWindowDimensions.x,
+                                                           window->m_sWindowDimensions.y );
+    if ( !renderInitResult.ok )
+    {
+        // Lane R: render backend startup probes the host graphics environment.
+        // Failures are reported at process bootstrap before any runtime borrows
+        // are published into RuntimeRenderBackendView.
+        renderBackendView = RuntimeRenderBackendView();
+        return renderInitResult;
+    }
+
     // Lifetime: the process bootstrap owns the backend unique_ptr. Runtime
     // render code keeps borrowed capability facets in RuntimeRenderBackendView
     // and must let them die before shutdown resets the owner.
-    RenderBackendDX12* renderBackend = backend.get();
     renderBackendView.deviceLifecycle = renderBackend;
     renderBackendView.renderCommands = renderBackend;
     renderBackendView.renderResources = renderBackend;
     renderBackendView.renderDiagnostics = renderBackend;
     renderBackendView.captureBackend = renderBackend;
     renderBackendView.rayTracingBackend = renderBackend;
-    backend->Init( window->m_sWindow, window->m_sDevice, window->m_sWindowDimensions.x, window->m_sWindowDimensions.y );
-    return backend;
+    outBackend = std::move( backend );
+    return SbResult::Success();
 }
 
 // ---------------------------------------------------------------------------
 // Main run
 // Run is scoped here so its destructor releases render-owned resources
 // before the DX12 backend and the Win32 window are torn down.
+// ---------------------------------------------------------------------------
+
+RunStartupOverrides BuildRunStartupOverrides( const ParsedArgs& args )
+{
+    RunStartupOverrides overrides;
+    RunLaunchOptions& launch = overrides.launch;
+
+    launch.timeScaleOverride = args.timeScaleOverride;
+    launch.fixedStep = args.fixedStep;
+    launch.seedOverride = args.seedOverride;
+    launch.noWater = args.noWater;
+    launch.noSleep = args.noSleep;
+    launch.noContactAudio = args.noContactAudio;
+    launch.hasTornadoOverride = args.hasTornadoOverride;
+    launch.tornadoEnabled = args.tornadoEnabled;
+    launch.tornadoVectors = args.tornadoVectors;
+    launch.hasCinematicRenderingOverride = args.hasCinematicRenderingOverride;
+    launch.cinematicRendering = args.cinematicRendering;
+    launch.hasCinematicShadowsOverride = args.hasCinematicShadowsOverride;
+    launch.cinematicShadows = args.cinematicShadows;
+    launch.demoHeroStyle = args.demoHeroStyle;
+    launch.interactiveSceneRun = args.interactiveRun;
+    launch.frameCountOverride = args.frameCountOverride;
+    launch.uiStress = args.uiStress;
+    launch.uiStressSeed = args.uiStressSeed;
+    launch.uiStressActions = args.uiStressActions;
+    launch.graphicsStress = args.graphicsStress;
+    launch.graphicsStressSeed = args.graphicsStressSeed;
+    launch.graphicsStressActions = args.graphicsStressActions;
+    launch.graphicsStressSceneIntervalFrames = args.graphicsStressSceneIntervalFrames;
+    launch.graphicsStressMemoryIntervalFrames = args.graphicsStressMemoryIntervalFrames;
+    launch.allocationGuardMode = args.allocationGuardMode;
+    launch.generatedObjectTypeOverride = args.objectTypeOverride;
+    launch.hasPhysicsDebugFlagsOverride = args.hasPhysicsDebugFlagsOverride;
+    launch.physicsDebugFlagsOverride = args.physicsDebugFlagsOverride;
+    launch.hasPhysicsDebugTransparentOverride = args.hasPhysicsDebugTransparentOverride;
+    launch.physicsDebugTransparentOverride = args.physicsDebugTransparentOverride;
+    launch.hasPhysicsDebugAlphaOverride = args.hasPhysicsDebugAlphaOverride;
+    launch.physicsDebugAlphaOverride = args.physicsDebugAlphaOverride;
+    launch.hasPhysicsDebugContactLingerOverride = args.hasPhysicsDebugContactLingerOverride;
+    launch.physicsDebugContactLingerOverride = args.physicsDebugContactLingerOverride;
+
+    overrides.liveStyleControlDirectory = args.liveStyleControlDir[0] != '\0' ? args.liveStyleControlDir : nullptr;
+    overrides.mainMemoryDumpPath = args.memoryDumpPath[0] != '\0' ? args.memoryDumpPath : nullptr;
+
+    const bool replayDefaultAllowed =
+        !args.isSuiteOrSceneMode || args.interactiveRun || args.liveStyleControlDir[0] != '\0';
+    const bool replayEnabled =
+        args.replayExplicit ? args.replayRecording : ( args.replayRecording && replayDefaultAllowed );
+    overrides.configureReplayRecording = replayEnabled || args.replayHashLogPath[0] != '\0';
+    overrides.replayRecordingEnabled = true;
+    overrides.replayRetentionSeconds = args.replaySeconds;
+    overrides.replayHashLogPath = args.replayHashLogPath[0] != '\0' ? args.replayHashLogPath : nullptr;
+
+    overrides.hasInitialOverlayMode = args.showProfiler;
+    overrides.initialOverlayMode = args.showProfiler ? OverlayMode::Timers : OverlayMode::None;
+    overrides.hideTopText = args.hideTopText;
+    overrides.showBroadphaseVisualizer = args.showBroadphaseVisualizer;
+
+#ifdef _DEBUG
+    overrides.replayScrubProbe = args.replayScrubProbe;
+    overrides.replayScrubProbeNormalized = args.replayScrubProbeNormalized;
+    overrides.replayRestoreProbe = args.replayRestoreProbe;
+    overrides.replayRestoreProbeNormalized = args.replayRestoreProbeNormalized;
+    overrides.replaySaveProbe = args.replaySaveProbe;
+    overrides.replaySaveProbePath = args.replaySaveProbe ? args.replaySaveProbePath : nullptr;
+    overrides.physicsRegressionLogPath =
+        args.physicsRegressionLogOverride[0] != '\0' ? args.physicsRegressionLogOverride : nullptr;
+    overrides.physicsCollisionTimeLogPath =
+        args.physicsCollisionTimeLogOverride[0] != '\0' ? args.physicsCollisionTimeLogOverride : nullptr;
+    overrides.physicsDiagnosticsPath = args.physicsDiagnosticsPath[0] != '\0' ? args.physicsDiagnosticsPath : nullptr;
+    overrides.physicsDiagnosticsFixedStepForced = args.fixedStepForcedByPhysicsDiagnostics;
+#endif
+
+    return overrides;
+}
+
+
 // ---------------------------------------------------------------------------
 
 int RunApp( Window* window,
@@ -2999,148 +3093,25 @@ int RunApp( Window* window,
     {
         std::unique_ptr<Run> cRun =
             std::make_unique<Run>( *window, std::move( args.sceneList ), cfg, workerPool, profiler, renderBackendView );
-        cRun->SetAllocationGuardMode( args.allocationGuardMode );
-        if ( args.timeScaleOverride > 0.0f )
+#if defined( SKULLBONEZ_PROFILE_ENABLED )
+        struct ProfilerRenderDiagnosticsLifetime
         {
-            cRun->SetTimeScaleOverride( args.timeScaleOverride );
-        }
-        if ( args.fixedStep )
-        {
-            cRun->SetFixedStepOverride();
-        }
-        if ( args.seedOverride > 0 )
-        {
-            cRun->SetSeedOverride( args.seedOverride );
-        }
-        if ( args.noWater )
-        {
-            cRun->SetNoWaterOverride();
-        }
-        if ( args.noSleep )
-        {
-            cRun->SetNoSleepOverride();
-        }
-        if ( args.noContactAudio )
-        {
-            cRun->SetNoContactAudioOverride();
-        }
-        if ( args.hasTornadoOverride )
-        {
-            cRun->SetTornadoOverride( args.tornadoEnabled );
-        }
-        if ( args.tornadoVectors )
-        {
-            cRun->SetTornadoVectorFieldOverride( true );
-        }
-        if ( args.hasCinematicRenderingOverride )
-        {
-            cRun->SetCinematicRenderingOverride( args.cinematicRendering );
-        }
-        if ( args.hasCinematicShadowsOverride )
-        {
-            cRun->SetCinematicShadowsOverride( args.cinematicShadows );
-        }
-        if ( args.demoHeroStyle )
-        {
-            cRun->SetDemoHeroStyleOverride();
-        }
-        if ( args.interactiveRun )
-        {
-            cRun->SetInteractiveRunOverride();
-        }
-        if ( args.liveStyleControlDir[0] != '\0' )
-        {
-            cRun->SetLiveStyleControlDirectory( args.liveStyleControlDir );
-        }
-        if ( args.frameCountOverride > 0 )
-        {
-            cRun->SetFrameCountOverride( args.frameCountOverride );
-        }
-        if ( args.uiStress )
-        {
-            cRun->SetUIStressOverride( args.uiStressSeed, args.uiStressActions );
-        }
-        if ( args.graphicsStress )
-        {
-            cRun->SetGraphicsStressOverride( args.graphicsStressSeed,
-                                             args.graphicsStressActions,
-                                             args.graphicsStressSceneIntervalFrames,
-                                             args.graphicsStressMemoryIntervalFrames );
-        }
-        if ( args.memoryDumpPath[0] != '\0' )
-        {
-            cRun->SetMainMemoryDumpPath( args.memoryDumpPath );
-        }
-        const bool replayDefaultAllowed =
-            !args.isSuiteOrSceneMode || args.interactiveRun || args.liveStyleControlDir[0] != '\0';
-        const bool replayEnabled =
-            args.replayExplicit ? args.replayRecording : ( args.replayRecording && replayDefaultAllowed );
-        if ( replayEnabled || args.replayHashLogPath[0] != '\0' )
-        {
-            cRun->SetReplayRecording( true,
-                                      args.replaySeconds,
-                                      args.replayHashLogPath[0] != '\0' ? args.replayHashLogPath : nullptr );
-        }
-#ifdef _DEBUG
-        if ( args.replayScrubProbe )
-        {
-            cRun->SetReplayScrubProbe( args.replayScrubProbeNormalized );
-        }
-        if ( args.replayRestoreProbe )
-        {
-            cRun->SetReplayRestoreProbe( args.replayRestoreProbeNormalized );
-        }
-        if ( args.replaySaveProbe )
-        {
-            cRun->SetReplaySaveProbe( args.replaySaveProbePath );
-        }
+            Profiler* profiler = nullptr;
+            ~ProfilerRenderDiagnosticsLifetime()
+            {
+                if ( profiler )
+                {
+                    profiler->BindRenderDiagnostics( nullptr );
+                }
+            }
+        };
+        // Lifetime: this guard is declared after cRun, so it clears Profiler's
+        // renderer-diagnostics borrow before Run's destructor releases
+        // backend-owned resources through the still-live DX12 backend.
+        ProfilerRenderDiagnosticsLifetime profilerRenderDiagnosticsLifetime{ profiler };
 #endif
-        if ( args.showProfiler )
-        {
-            cRun->SetInitialOverlayMode( OverlayMode::Timers );
-        }
-        if ( args.hideTopText )
-        {
-            cRun->SetTopTextHidden( true );
-        }
-        if ( args.showBroadphaseVisualizer )
-        {
-            cRun->SetBroadphaseVisualizerEnabled( true );
-        }
-        if ( args.objectTypeOverride != GeneratedObjectTypeOverride::Mixed )
-        {
-            cRun->SetGeneratedObjectTypeOverride( args.objectTypeOverride );
-        }
-        if ( args.hasPhysicsDebugFlagsOverride )
-        {
-            cRun->SetPhysicsDebugFlagsOverride( args.physicsDebugFlagsOverride );
-        }
-        if ( args.hasPhysicsDebugTransparentOverride )
-        {
-            cRun->SetPhysicsDebugTransparentOverride( args.physicsDebugTransparentOverride );
-        }
-        if ( args.hasPhysicsDebugAlphaOverride )
-        {
-            cRun->SetPhysicsDebugAlphaOverride( args.physicsDebugAlphaOverride );
-        }
-        if ( args.hasPhysicsDebugContactLingerOverride )
-        {
-            cRun->SetPhysicsDebugContactLingerOverride( args.physicsDebugContactLingerOverride );
-        }
-#ifdef _DEBUG
-        if ( args.physicsRegressionLogOverride[0] != '\0' )
-        {
-            cRun->SetPhysicsRegressionLogOverride( args.physicsRegressionLogOverride );
-        }
-        if ( args.physicsCollisionTimeLogOverride[0] != '\0' )
-        {
-            cRun->SetPhysicsCollisionTimeLogOverride( args.physicsCollisionTimeLogOverride );
-        }
-        if ( args.physicsDiagnosticsPath[0] != '\0' )
-        {
-            cRun->SetPhysicsDiagnosticsPath( args.physicsDiagnosticsPath, args.fixedStepForcedByPhysicsDiagnostics );
-        }
-#endif
+        const RunStartupOverrides startupOverrides = BuildRunStartupOverrides( args );
+        cRun->ApplyStartupOverrides( startupOverrides );
 #ifdef _DEBUG
         // Why: Debug replay probes are CLI diagnostics, not interaction
         // automation actions. They report through the process exit code and log
@@ -3179,9 +3150,33 @@ int RunApp( Window* window,
             }
             return 1;
         };
+        auto reportInteractionAutomationResult = [&]( const SbResult& result ) -> int
+        {
+            const char* safeMessage =
+                result.error.message[0] != '\0' ? result.error.message : "interaction automation failed";
+            Log().WriteEventf( "interaction_automation_failed message=\"%s\"", safeMessage );
+            fprintf( stderr, "[interaction] Automation failed: %s\n", safeMessage );
+            fflush( stderr );
+            Log().FlushAll();
+            if ( !args.isSuiteOrSceneMode && !args.suppressExitDialog )
+            {
+                window->MsgBox( safeMessage, "Interaction Automation Failed", MB_OK );
+            }
+            return 1;
+        };
 
         try
         {
+#ifdef _DEBUG
+            // Why: startup replay-probe configuration can fail before the frame
+            // loop exists, but validation still needs the same nonzero exit path
+            // as a frame-driven probe failure.
+            if ( cRun->ReplayProbes().Failed() )
+            {
+                return reportReplayProbeFailure( cRun->ReplayProbes().FailureOwner(),
+                                                 cRun->ReplayProbes().FailureMessage() );
+            }
+#endif
             cRun->Initialise();
             if ( !cRun->LastSceneLoadResult().ok )
             {
@@ -3189,16 +3184,21 @@ int RunApp( Window* window,
             }
             if ( args.interactionScriptPath[0] != '\0' )
             {
-                cRun->SetInteractionAutomation(
+                const SbResult automationSetupResult = cRun->SetInteractionAutomation(
                     args.interactionScriptPath,
                     args.interactionReportPath[0] != '\0' ? args.interactionReportPath : nullptr );
+                if ( !automationSetupResult.ok )
+                {
+                    return reportInteractionAutomationResult( automationSetupResult );
+                }
             }
             bool skipExecute = false;
             if ( args.replayLoad )
             {
                 if ( !cRun->LoadReplayPresentationArtifact( args.replayLoadPath, true ) )
                 {
-                    throw std::runtime_error( "failed to load replay v2 presentation artifact" );
+                    return reportRunResult(
+                        SbResult::Failure( "Runtime/ReplayLoad", "failed to load replay v2 presentation artifact" ) );
                 }
             }
 #ifdef _DEBUG
@@ -3267,14 +3267,23 @@ int RunApp( Window* window,
             }
             else if ( !skipExecute )
             {
-                cRun->Execute();
-#ifdef _DEBUG
-                if ( cRun->ReplayProbeFailed() )
+                const SbResult executeResult = cRun->Execute();
+                if ( !executeResult.ok )
                 {
-                    return reportReplayProbeFailure( cRun->ReplayProbeFailureOwner(),
-                                                     cRun->ReplayProbeFailureMessage() );
+                    return reportRunResult( executeResult );
+                }
+#ifdef _DEBUG
+                if ( cRun->ReplayProbes().Failed() )
+                {
+                    return reportReplayProbeFailure( cRun->ReplayProbes().FailureOwner(),
+                                                     cRun->ReplayProbes().FailureMessage() );
                 }
 #endif
+                const SbResult interactionAutomationResult = cRun->InteractionAutomationResult();
+                if ( !interactionAutomationResult.ok )
+                {
+                    return reportInteractionAutomationResult( interactionAutomationResult );
+                }
                 if ( args.graphicsStress )
                 {
                     printf( "[graphics-stress] Execute returned.\n" );
@@ -3425,13 +3434,40 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine
     Window* window = &windowOwner;
     window->SetStartupWindowSize( cfg.window.screenX, cfg.window.screenY );
     window->SetProjectionFrustum( cfg.frustumNear, cfg.frustumFar );
-    window->CreateAppWindow( hInstance, cfg.window.fullscreen );
+    const SbResult windowResult = window->CreateAppWindow( hInstance, cfg.window.fullscreen );
+    if ( !windowResult.ok )
+    {
+        fprintf( stderr, "%s: %s\n", windowResult.error.owner, windowResult.error.message );
+        fflush( stderr );
+        workerPool.Shutdown();
+        CoUninitialize();
+        return 1;
+    }
     window->m_sDevice = GetDC( window->m_sWindow );
 
     RuntimeRenderBackendView renderBackendView;
-    std::unique_ptr<RenderBackendDX12> renderBackend = InitRenderBackend( window, renderBackendView );
+    std::unique_ptr<RenderBackendDX12> renderBackend;
+    const SbResult renderBackendResult = InitRenderBackend( window, renderBackendView, renderBackend );
+    if ( !renderBackendResult.ok )
+    {
+        fprintf( stderr, "%s: %s\n", renderBackendResult.error.owner, renderBackendResult.error.message );
+        fflush( stderr );
+        workerPool.Shutdown();
+        CleanupWindow( window, hInstance, renderBackend );
+        CoUninitialize();
+        return 1;
+    }
     window->SetResizeRenderLifecycle( renderBackendView.deviceLifecycle );
-    window->HandleScreenResize();
+    const SbResult initialResizeResult = window->HandleScreenResize();
+    if ( !initialResizeResult.ok )
+    {
+        fprintf( stderr, "%s: %s\n", initialResizeResult.error.owner, initialResizeResult.error.message );
+        fflush( stderr );
+        workerPool.Shutdown();
+        CleanupWindow( window, hInstance, renderBackend );
+        CoUninitialize();
+        return 1;
+    }
 
     Profiler* profiler = nullptr;
 #if defined( SKULLBONEZ_PROFILE_ENABLED )

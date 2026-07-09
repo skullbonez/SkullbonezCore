@@ -46,10 +46,10 @@ Related:
 #include <cstdio>
 #include <cstdlib>
 #include <limits>
-#include <stdexcept>
 #include <type_traits>
 
 #include "../Core/Common.h"
+#include "../Core/FatalError.h"
 #include "../Core/Profiler.h"
 #include "../World/Terrain.h"
 #include "../World/TerrainSupportClassifier.h"
@@ -1027,7 +1027,9 @@ std::vector<uint32_t> PhysicsBodyStore::BuildReplayBodyIdsForReload( int sceneEn
         {
             if ( nextReplayBodyId == ( std::numeric_limits<uint32_t>::max )() )
             {
-                throw std::runtime_error( "Replay body id scratch range exhausted." );
+                SB_FATAL( "PhysicsBodyStore",
+                          "Replay body id scratch range exhausted while rebuilding %d scene rows.",
+                          sceneEntityCount );
             }
             replayBodyId = nextReplayBodyId++;
         }

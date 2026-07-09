@@ -1,7 +1,7 @@
 # 07 — Allocation-Gate Right-Sizing
 
 Date: 2026-07-08
-Status: Proposed
+Status: In Progress (owner decision recorded on 2026-07-09)
 Priority: P2
 Owner: Runtime / Allocation
 Source issue: audit iss-05 (severity 4)
@@ -34,60 +34,97 @@ Verified evidence:
 
 ## Goal
 
-Match the machinery to the actual requirement. Pick one: enforce zero-alloc
-where it genuinely matters (physics/solver hot loops) and delete the rest, or
-keep the ambition and make the checker actually enforce it. Recommendation:
-scope to physics/gameplay hot paths; delete the over-built global tracker.
+Right-size the machinery without weakening the requirement. The owner decision
+is explicit: runtime allocation policy is **global zero allocation by default**,
+not a physics/render-only hot-path policy. Runtime allocations are banned unless
+the owner explicitly greenlights an exception and that exception is routed
+through the project special allocator/approval path.
+
+Current approved runtime exception: replay only. Replay may allocate or grow at
+runtime only through the special allocator path with registered owner,
+phase/cap policy, counters, and diagnostics. No other runtime subsystem should
+allocate, reserve/grow STL storage, call `new`/`delete`/`malloc`/`free`, or use
+equivalent heap paths during runtime.
+
+## Owner Decision - 2026-07-09
+
+Do **not** weaken allocation enforcement to only physics/render hot paths. If
+the existing allocation apparatus is too heavy, simplify the implementation
+while preserving broad enforcement that catches unapproved runtime allocations.
+Require owner approval before adding any new runtime allocation exception.
 
 ## Approach
 
-- [ ] **Phase 0 — Decide the real requirement.** Is steady-state zero-alloc a
-  genuine target or aspiration? For a solo engine, scope it to the physics step
-  and per-frame render submission.
-- [ ] **Phase 1 — If scoped:** replace the global `new`/`delete` tracker +
-  256-entry growth ring + 160-owner registry with a simple assert-on-alloc guard
-  active only around the physics step.
-- [ ] **Phase 2 — Unwrap debug replay `reserve()`.** Remove the owner-handle /
-  growth-request ceremony from debug-only replay buffers (replay may grow by
-  policy).
-- [ ] **Phase 3 — Delete the regex allocation checker.** Remove
-  `check_allocation_policy.py`'s regex matching (STL-member-name targets, banned
-  patterns). Enforcement becomes the runtime assert-on-alloc guard from Phase 1
-  (real, not regex). Rewrite the `AGENTS.md` allocation section to match.
+- [x] **Phase 0 - Decide the real requirement.** The requirement is global
+  runtime zero allocation by default, with owner-approved special allocator
+  exceptions only. Replay is the only currently approved exception.
+- [ ] **Phase 1 - Inventory the current apparatus against the requirement.**
+  Identify which parts of `RuntimeAllocationTracker`,
+  `RuntimeReserveAllocator`, `check_allocation_policy.py`, validation scripts,
+  and allowlist data enforce the global zero-allocation policy, and which parts
+  are ceremony that can be removed without weakening coverage.
+- [ ] **Phase 2 - Right-size runtime enforcement.** Keep or replace the global
+  runtime allocation guard so unapproved runtime allocations fail. Preserve the
+  replay special allocator path with registered owner, phase/cap policy,
+  counters, and diagnostics. Gate: `validate_perf`; add `validate_physics` if
+  physics runtime phases or allocation scopes change.
+- [ ] **Phase 3 - Right-size static/tool enforcement.** Remove frozen regex
+  ratchets and narrow spelling checks, but keep broad enough pass/fail checks to
+  catch unapproved runtime allocation APIs and unauthorized exception paths.
+  Gate: `validate_fast`, then the changed allocation check or replacement.
+- [ ] **Phase 4 - Update `AGENTS.md` and closure evidence.** Make the repo
+  contract match the owner decision: global runtime zero allocation by default,
+  replay-only approved runtime exception through the special allocator path,
+  owner approval required for any new exception. Gate: documentation-only if no
+  code/tool changed in this step; otherwise use the smallest gate named above.
 
 ## Risks
 
-- The physics zero-alloc guarantee is real and valuable; do not weaken the
-  physics-step guard. This plan removes *ceremony around debug/replay paths*,
-  not the physics invariant.
+- The global runtime zero-allocation guarantee is intentional. Do not shrink it
+  to physics/render hot paths while simplifying the apparatus.
+- Replay is the only approved runtime allocation exception. Any broader
+  exception needs a new owner decision before implementation.
 
 ## Step-by-step implementation
 
-Step 0.1 is a judgment call — a smaller model must not decide it alone.
+Step 0.1 is decided by owner steering. Do not reopen it unless the owner changes
+the policy.
 
-- [ ] **0.1 (DECIDE — stop for a human).** Decide the real requirement: is
-  steady-state zero-alloc a genuine goal, or should it be scoped to the physics
-  step and per-frame render submission? Do no code changes until this is decided.
-- [ ] **1.1** *(if scoped)* Replace the global `new`/`delete` tracker, 256-entry
-  growth ring, and 160-owner registry with a simple assert-on-alloc guard active
-  only around the physics step. Gate: `validate_perf`. Commit.
-- [ ] **2.1** Unwrap the `RuntimeReserveOwnerHandle` / growth-request ceremony
-  around **debug-only** replay `reserve()` calls (replay may grow by policy).
-  Gate: `validate_perf` + replay scrub. Commit.
-- [ ] **3.1** Delete `check_allocation_policy.py`'s regex matching (and the file
-  if nothing real remains); the physics-step runtime assert-guard (1.1) is the
-  enforcement. Rewrite the `AGENTS.md` allocation section to match. Gate:
-  `validate_perf`. Commit.
+- [x] **0.1 (DECIDE - stop for a human).** Decide the real requirement: global
+  zero allocation by default, not a hot-path-only policy. Approved exception:
+  replay only, through the special allocator path with owner/phase/cap/counters
+  and diagnostics. No code changes in this decision step.
+- [ ] **1.1** Inventory current allocation enforcement against the global policy
+  and list the parts to keep, simplify, or delete. No code change; commit the
+  inventory. Documentation-only.
+- [ ] **2.1** Simplify the runtime allocation apparatus without weakening global
+  runtime enforcement. Replay remains the only approved runtime allocation
+  exception and must keep owner/phase/cap/counter/diagnostic reporting. Gate:
+  `validate_perf`; add `validate_physics` if physics runtime scopes change.
+  Commit.
+- [ ] **3.1** Simplify or replace static allocation enforcement so it remains a
+  pass/fail guard against unapproved runtime allocation APIs, not a frozen
+  regex ratchet. Gate: `validate_fast`, then run the changed checker or
+  replacement directly. Commit.
+- [ ] **4.1** Update `AGENTS.md` allocation policy wording and the plan closure
+  evidence to match the owner decision. Commit.
 
 ## Validation
 
-`tools\validate_perf.bat`; `tools\validate_physics.bat` if the physics-step
-guard changes.
+`tools\validate_perf.bat` for runtime allocation guard changes;
+`tools\validate_physics.bat` if physics runtime scopes change;
+`tools\validate_fast.bat` plus the changed checker/replacement for tool changes.
+Documentation-only steps need no repository validation.
 
 ## Acceptance (structural)
 
-- [ ] Allocation infrastructure LOC matches the enforced scope (no 1,400-line
-  tracker guarding a single 180-frame scene).
-- [ ] Debug-only replay `reserve()` is not wrapped in owner-registration.
-- [ ] No regex allocation checker remains; enforcement is the runtime
-  assert-guard; `AGENTS.md` allocation prose matches.
+- [ ] Allocation infrastructure LOC matches the enforced global runtime
+  zero-allocation policy.
+- [ ] Replay is the only approved runtime allocation exception and remains
+  routed through the special allocator path with registered owner, phase/cap
+  policy, counters, and diagnostics.
+- [ ] Unapproved runtime allocations, STL growth, heap calls, and equivalent
+  paths are still caught by pass/fail enforcement.
+- [ ] No frozen allocation `MAX_*` ratchet or vocabulary-policing checker
+  remains.
+- [ ] `AGENTS.md` allocation prose matches the global zero-allocation policy.

@@ -11,6 +11,8 @@ Glossary:
   SDF (Signed Distance Field): Texture representation used for crisp scalable
   text rendering.
   HUD (Heads-Up Display): On-screen diagnostics and control overlay.
+  Lane R result: Recoverable asset/tooling failure reported at startup with an
+    owner and bounded message instead of an exception.
   VB (Vertex Buffer): GPU buffer containing text or quad vertex attributes.
   RGBA (Red, Green, Blue, Alpha): Four-channel color payload used by HUD quads.
   UV (Texture Coordinates): Font-atlas coordinates used to sample glyphs.
@@ -33,6 +35,7 @@ Related:
 
 
 #include "../Core/Common.h"
+#include "../Core/SbResult.h"
 #include "IShader.h"
 #include "../Maths/Matrix4.h"
 
@@ -123,11 +126,12 @@ class Text2d
                                float a );                                // Queues a colored triangle in the shared HUD batch.
     static void FlushQuads(
         Rendering::IRenderCommandContext& renderCommands );              // Uploads queued quads/triangles once for the frame.
-    static void BuildFont( Rendering::IRenderResourceFactory& renderResources,
-                           const Assets::AssetSystem& assets,
-                           int screenW,
-                           int screenH,
-                           const char* cFontName );                      // Loads or generates SDF atlas resources for the active backend.
+    static Basics::SbResult
+    BuildFont( Rendering::IRenderResourceFactory& renderResources,
+               const Assets::AssetSystem& assets,
+               int screenW,
+               int screenH,
+               const char* cFontName );                                  // Loads or generates SDF atlas resources for the active backend.
     static bool GenerateSdfAtlasToFile( const char* cFontName,
                                         const char* cOutPath );          // Offline SDF atlas writer used by --gen-atlas tooling.
     static void DeleteFont( Rendering::IRenderResourceFactory*

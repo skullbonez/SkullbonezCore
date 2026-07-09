@@ -28,6 +28,7 @@ Related:
 #include "TerrainContactManifold.h"
 
 #include "../Core/Common.h"
+#include "../Core/FatalError.h"
 #include "../Core/Profiler.h"
 #include "../Maths/GeometricMath.h"
 #include "../World/Terrain.h"
@@ -35,7 +36,6 @@ Related:
 #include "ContactSolverCommon.h"
 
 #include <algorithm>
-#include <stdexcept>
 #include <type_traits>
 #include <variant>
 
@@ -367,7 +367,7 @@ TerrainContactSweepResult SkullbonezCore::Physics::SweepTerrainContact( const Te
     // and returns the hit plane directly for the solver row builder.
     if ( body.terrain == nullptr )
     {
-        throw std::runtime_error( "Terrain pointer not valid!  (SweepTerrainContact)" );
+        SB_FATAL( "TerrainContactManifold", "Terrain pointer not valid in SweepTerrainContact." );
     }
 
     TerrainContactSweepResult result;

@@ -17,14 +17,17 @@ Glossary:
 Invariants:
   - Screenshot state is per-run state; interval counters and one-shot flags are
     consumed by TickScreenshots rather than by render backends.
-  - RuntimeCaptureSink carries the actual write side effect so capture policy
-    can be tested without a renderer or a virtual callback object.
+  - RuntimeCaptureSink carries the actual write side effect and result so
+    capture policy can be tested without a renderer or a virtual callback
+    object.
 
 Related:
   - SkullbonezSource/Runtime/CaptureSystem.cpp
   - Agentic/Reference/comment-style-guide.md
 */
 #pragma once
+
+#include "../Core/SbResult.h"
 
 #include <cassert>
 
@@ -79,28 +82,30 @@ struct RuntimeCaptureResult
     bool restartFrame = false;
     RuntimeCaptureCompletion completion = RuntimeCaptureCompletion::None;
     RuntimeCaptureAutomation automation = RuntimeCaptureAutomation::None;
+    SbResult captureResult;           // Lane R result from screenshot readback/write side effects.
 };
 
 struct RuntimeCaptureSink
 {
-    using SaveScreenshotFn = void ( * )( void* context, const char* path );
+    using SaveScreenshotFn = SbResult ( * )( void* context, const char* path );
 
     void* context = nullptr;
     SaveScreenshotFn saveScreenshot = nullptr;
 
-    void SaveScreenshot( const char* path ) const
+    SbResult SaveScreenshot( const char* path ) const
     {
         // Concept: capture automation needs one explicit side-effect hook, not
-        // an inherited service object on the frame path.
+        // an inherited service object on the frame path. The hook returns the
+        // Lane R file/readback result so automation reports only real captures.
         assert( saveScreenshot != nullptr );
-        saveScreenshot( context, path );
+        return saveScreenshot( context, path );
     }
 };
 
 class CaptureSystem
 {
   public:
-    static void SaveBackbufferBmp( Rendering::IRenderCaptureBackend& backend, const char* path );
+    static SbResult SaveBackbufferBmp( Rendering::IRenderCaptureBackend& backend, const char* path );
     static RuntimeCaptureResult TickScreenshots( RunScreenshotState& screenshot,
                                                  const RuntimeCaptureSceneContext& context,
                                                  const RuntimeCaptureSink& sink );

@@ -11,15 +11,22 @@ Mental model:
 
 Glossary:
   Win32: Windows desktop API used for the app window, messages, and cursor
-  state.
+    state.
   WndProc: Win32 window callback that receives mouse wheel and raw mouse
-  packets before the frame loop polls input.
+    packets before the frame loop polls input.
+  Input window bridge: Borrowed pointer to the active runtime window used by
+    ordinary polling helpers that must translate cursor positions through the
+    current client area.
   Accumulator: Small process-local queue that stores callback data until the
-  frame loop consumes it.
+    frame loop consumes it.
+  Lane R result: Recoverable input/environment failure reported without
+    treating the cursor operation as a fatal engine invariant.
 
 Invariants:
   - Process-local Win32 input accumulators are drained into frame and UI
     snapshots; stale mouse deltas must not leak across focus/UI transitions.
+  - The input window bridge is bound by runtime startup before frame polling
+    helpers translate or center cursor coordinates.
   - ShowCursor is normalized through helper loops because Win32 exposes a
     reference counter, not a simple visible/hidden boolean.
 
@@ -30,6 +37,8 @@ Related:
 */
 #include "Input.h"
 #include "Window.h"
+
+#include "../Core/FatalError.h"
 
 #include <cassert>
 
@@ -72,6 +81,17 @@ long g_rawMouseLastAbsoluteY = 0;
 Input::AutomationState s_automationState;
 
 constexpr int RAW_MOUSE_ABSOLUTE_RANGE = 65535;
+
+[[noreturn]] void FatalInputWindowBridgeMissing( const char* functionName )
+{
+    SB_FATAL( "Input",
+              "%s requires a bound input window bridge. inputWindow=%p callbackWindow=%p automation=%d",
+              functionName,
+              static_cast<void*>( s_inputWindow ),
+              static_cast<void*>( s_callbackBridgeWindow ),
+              s_automationState.enabled ? 1 : 0 );
+}
+
 
 bool IsCallbackBridgeBoundForWindow( HWND window )
 {
@@ -374,53 +394,76 @@ void Input::ResetMouseLookDeltas()
 }
 
 
-POINT Input::GetMouseCoordinates()
+// Why: Win32 cursor queries can fail for environment reasons outside engine
+// ownership. Return a Lane R result so frame/UI owners can skip pointer input
+// without unwinding through WndProc or the run loop.
+Input::MouseCoordinatesResult Input::GetMouseCoordinates()
 {
-    POINT mousePos;
+    MouseCoordinatesResult result;
+    POINT mousePos = {};
     if ( !GetCursorPos( &mousePos ) ) // attempt to get the mouse m_position
     {
-        throw std::runtime_error( "Getting mouse coordinates failed (Input::GetMouseCoordinates)." );
+        result.result = SbResult::Failure( "Runtime/Input",
+                                           "GetCursorPos failed in Input::GetMouseCoordinates lastError=%lu",
+                                           static_cast<unsigned long>( GetLastError() ) );
+        return result;
     }
 
-    return mousePos;
+    result.coordinates = mousePos;
+    return result;
 }
 
 
-POINT Input::GetClientMouseCoordinates()
+Input::MouseCoordinatesResult Input::GetClientMouseCoordinates()
 {
+    MouseCoordinatesResult result;
     if ( s_automationState.enabled && s_automationState.hasMouseClientPosition )
     {
-        return s_automationState.mouseClientPosition;
+        result.coordinates = s_automationState.mouseClientPosition;
+        return result;
     }
 
-    POINT mousePos = GetMouseCoordinates();
+    MouseCoordinatesResult mousePos = GetMouseCoordinates();
+    if ( !mousePos.result.ok )
+    {
+        return mousePos;
+    }
     Window* m_cWindow = BoundInputWindow();
     assert( m_cWindow && "Input client mouse coordinates require a bound window" );
     if ( !m_cWindow )
     {
-        throw std::runtime_error( "Input window bridge is not bound (Input::GetClientMouseCoordinates)." );
+        FatalInputWindowBridgeMissing( "Input::GetClientMouseCoordinates" );
     }
-    if ( !ScreenToClient( m_cWindow->m_sWindow, &mousePos ) )
+    POINT clientCoordinates = mousePos.coordinates;
+    if ( !ScreenToClient( m_cWindow->m_sWindow, &clientCoordinates ) )
     {
-        throw std::runtime_error( "Converting mouse coordinates failed (Input::GetClientMouseCoordinates)." );
+        result.result = SbResult::Failure( "Runtime/Input",
+                                           "ScreenToClient failed in Input::GetClientMouseCoordinates lastError=%lu",
+                                           static_cast<unsigned long>( GetLastError() ) );
+        return result;
     }
 
-    return mousePos;
+    result.coordinates = clientCoordinates;
+    return result;
 }
 
 
-void Input::SetMouseCoordinates( const POINT& pNewCoordinates )
+SbResult Input::SetMouseCoordinates( const POINT& pNewCoordinates )
 {
     if ( !IsAppFocused() )
     {
-        return;
+        return SbResult::Success();
     }
 
     // attempt to set the mouse m_position
     if ( !SetCursorPos( pNewCoordinates.x, pNewCoordinates.y ) )
     {
-        throw std::runtime_error( "Setting mouse m_position failed (Input::SetMouseCoordinates)." );
+        return SbResult::Failure( "Runtime/Input",
+                                  "SetCursorPos failed in Input::SetMouseCoordinates lastError=%lu",
+                                  static_cast<unsigned long>( GetLastError() ) );
     }
+
+    return SbResult::Success();
 }
 
 
@@ -492,29 +535,35 @@ void Input::AccumulateMouseWheelDelta( HWND window, int delta )
 }
 
 
-void Input::CentreMouseCoordinates()
+SbResult Input::CentreMouseCoordinates()
 {
     if ( !IsAppFocused() )
     {
-        return;
+        return SbResult::Success();
     }
 
     Window* m_cWindow = BoundInputWindow();
     assert( m_cWindow && "Input mouse centering requires a bound window" );
     if ( !m_cWindow )
     {
-        throw std::runtime_error( "Input window bridge is not bound (Input::CentreMouseCoordinates)." );
+        FatalInputWindowBridgeMissing( "Input::CentreMouseCoordinates" );
     }
     POINT clientCenter = { m_cWindow->m_sWindowDimensions.x >> 1, m_cWindow->m_sWindowDimensions.y >> 1 };
     if ( !ClientToScreen( m_cWindow->m_sWindow, &clientCenter ) )
     {
-        throw std::runtime_error( "Converting mouse center failed (Input::CentreMouseCoordinates)." );
+        return SbResult::Failure( "Runtime/Input",
+                                  "ClientToScreen failed in Input::CentreMouseCoordinates lastError=%lu",
+                                  static_cast<unsigned long>( GetLastError() ) );
     }
 
     if ( !SetCursorPos( clientCenter.x, clientCenter.y ) )
     {
-        throw std::runtime_error( "Setting mouse center failed (Input::CentreMouseCoordinates)." );
+        return SbResult::Failure( "Runtime/Input",
+                                  "SetCursorPos failed in Input::CentreMouseCoordinates lastError=%lu",
+                                  static_cast<unsigned long>( GetLastError() ) );
     }
+
+    return SbResult::Success();
 }
 
 

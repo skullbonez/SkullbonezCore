@@ -26,10 +26,10 @@ Related:
 */
 #include "Terrain.h"
 #include "../Assets/AssetSystem.h"
-#include "../Core/SbResult.h"
-#include "../Rendering/Helper.h"
-#include "../Rendering/IRenderResourceFactory.h"
+#include "../Core/FatalError.h"
 #include "../Core/Profiler.h"
+#include "../Core/SbResult.h"
+#include "../Rendering/IRenderResourceFactory.h"
 
 #include <algorithm>
 #include <climits>
@@ -408,7 +408,14 @@ int Terrain::GetQuadCacheIndex( float xPosition, float zPosition, bool& isTriang
 
     if ( xPosting < 0 || zPosting < 0 || xPosting >= quadsPerSide || zPosting >= quadsPerSide )
     {
-        throw std::runtime_error( "Specified co-ordinates are out of m_terrain bounds.  (Terrain::GetQuadCacheIndex)" );
+        SB_FATAL( "Terrain",
+                  "Coordinates out of terrain bounds in GetQuadCacheIndex: x=%.3f z=%.3f xPosting=%d "
+                  "zPosting=%d quadsPerSide=%d.",
+                  xPosition,
+                  zPosition,
+                  xPosting,
+                  zPosting,
+                  quadsPerSide );
     }
 
     float localZ = zPosition - ( xPosting * scaledStepSize );
@@ -430,8 +437,10 @@ void Terrain::QueryCollisionData( float xPosition,
 {
     if ( !IsInBounds( xPosition, zPosition ) )
     {
-        throw std::runtime_error(
-            "Specified co-ordinates are out of m_terrain bounds.  (Terrain::QueryCollisionData)" );
+        SB_FATAL( "Terrain",
+                  "Coordinates out of terrain bounds in QueryCollisionData: x=%.3f z=%.3f.",
+                  xPosition,
+                  zPosition );
     }
 
     QueryCollisionDataUnchecked( xPosition, zPosition, outHeight, outNormal, outPlane );
@@ -599,6 +608,7 @@ void Terrain::Render( const Matrix4& view,
                       const Matrix4& projection,
                       IRenderCommandContext& commands,
                       const float* lightPosition,
+                      const float* clipPlane,
                       const SkullbonezCore::Basics::CinematicRenderConfig* cinematicOverride,
                       const ShadowFrameData* shadow )
 {
@@ -609,7 +619,7 @@ void Terrain::Render( const Matrix4& view,
     m_terrainShader->SetMat4( "uModel", model );
     m_terrainShader->SetMat4( "uView", view );
     m_terrainShader->SetMat4( "uProjection", projection );
-    const float* clipPlane = SkullbonezCore::Basics::RenderHelper::GetClipPlane();
+    assert( clipPlane );
     m_terrainShader->SetVec4( "uClipPlane", clipPlane[0], clipPlane[1], clipPlane[2], clipPlane[3] );
 
     // Transform light position to view space
@@ -849,8 +859,10 @@ Triangle Terrain::LocatePolygon( float xPosition, float zPosition )
 {
     if ( !IsInBounds( xPosition, zPosition ) )
     {
-        throw std::runtime_error(
-            "Specified co-ordinates are out of m_terrain bounds.  (Terrain::GetTerrainHeightAt)" );
+        SB_FATAL( "Terrain",
+                  "Coordinates out of terrain bounds in LocatePolygon: x=%.3f z=%.3f.",
+                  xPosition,
+                  zPosition );
     }
 
     if ( m_isFlatSlope )

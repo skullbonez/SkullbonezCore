@@ -1,7 +1,7 @@
 # 10 — EngineContext / IRenderBackend Boundary
 
 Date: 2026-07-08
-Status: Proposed
+Status: Complete
 Priority: P2
 Owner: Runtime / Rendering
 Source issue: audit iss-08 (severity 3)
@@ -47,15 +47,17 @@ borrowed-alias dual ownership.
 
 ## Approach
 
-- [ ] **Phase 0 — Resolve `Services()`.** Confirm it is unused → delete it, or
+- [x] **Phase 0 — Resolve `Services()`.** Confirm it is unused → delete it, or
   wire it as the actual boundary. Do not keep decorative architecture.
-- [ ] **Phase 1 — Split `EngineContextBindings`** into owner-specific records
+- [x] **Phase 1 — Split `EngineContextBindings`** into owner-specific records
   (per facade FAC-002); no subsystem receives the whole runtime graph.
-- [ ] **Phase 2 — Route to narrow interfaces** and delete the `IRenderBackend`
+- [x] **Phase 2 — Route to narrow interfaces** and delete the `IRenderBackend`
   aggregate *type* (per facade FAC-001).
-- [ ] **Phase 3 — Fix dual ownership.** `RenderBackendDX12` either borrows the
+- [x] **Phase 3 — Fix dual ownership.** `RenderBackendDX12` either borrows the
   device once through a single owner or refreshes its aliases on device
   recreation — no dangling on recreate.
+- [x] **Phase 4 — Collapse or graduate `SimulationController`.** Delete the
+  wrapper or make it own real timestep policy without `System()` reach-through.
 
 ## Risks
 
@@ -69,60 +71,181 @@ danger zone — run the renderer gate 3×.
 
 ### Phase 0 — Resolve `Services()`
 
-- [ ] **0.1** `rg -n "\.Services\(\)|->Services\(\)" SkullbonezSource` excluding
+- [x] **0.1** `rg -n "\.Services\(\)|->Services\(\)" SkullbonezSource` excluding
   `EngineContext.*`. If there are **no** real callers, delete
   `EngineServices Services()` and the unused `EngineServices` plumbing; build;
   commit. If there **are** callers, STOP — this is a "decide" case, surface it.
 
+  Completion note (2026-07-08): the required grep returned no matches, so there
+  were no real `Services()` callers to preserve. Deleted `EngineServices`,
+  `EngineContext::Services()`, the stale `RunState.h` include, and now-unused
+  service forward declarations. The `EngineContext.h` learning header now states
+  the no-reach-through contract and points future splits toward owner-specific
+  records. Comment audit touched `EngineContext.h` and `EngineContext.cpp`; both
+  have learning headers and no deferred comment work. Validation:
+  `tools\validate_format.bat` passed, `tools\validate_full.bat` passed in 61.3s
+  (`Agentic\Logs\cleanup-10-step-0.1-services-validate-full.log`) with 0 build
+  warnings/errors, 0 DX12 validation errors, matching DX12 screenshots, and
+  `physics_regression_solver.csv` byte-exact at 20001 lines.
+
 ### Phase 1 — Split `EngineContextBindings`
 
-- [ ] **1.1** Inventory every consumer of `EngineContext` / `EngineContextBindings`
+- [x] **1.1** Inventory every consumer of `EngineContext` / `EngineContextBindings`
   and classify by owner (scene / simulation / render / diagnostics / input /
   capture / world / physics / UI). No code change.
-- [ ] **1.2** For **one owner at a time**: create a narrow record holding only the
+
+  Inventory note (2026-07-08): `rg -n "\bEngineContext\b|\bEngineContextBindings\b"
+  SkullbonezSource` plus CodeGraph found only the declaration/definition files,
+  `Run.h`, and `Run.cpp`. There is no extracted subsystem consumer of the broad
+  context after step 0.1 removed `Services()`. Current source uses are:
+  - `EngineContext.h`: declares `EngineContextBindings`, `EngineContext`, and
+    stores `m_bindings`.
+  - `EngineContext.cpp`: implements `Bind()` and `IsBound()`.
+  - `Run.h`: includes `EngineContext.h`, stores `EngineContext m_engineContext`,
+    and declares `BindEngineContext()`.
+  - `Run.cpp`: `Run::Run()` calls `BindEngineContext()`;
+    `Run::BindEngineContext()` populates the whole bag once from Run-owned
+    members.
+
+  Field owner classification for the current bag:
+  - scene: `SceneController` (`m_sceneController`).
+  - simulation: `SimulationController` (`m_simulation`).
+  - capture: `CaptureController` (`m_diagnosticsRuntime.Capture()`).
+  - diagnostics: `DiagnosticsController` (`m_diagnosticsRuntime.Diagnostics()`).
+  - commands: `RuntimeCommandQueue` (`m_runtimeCommands`).
+  - systems: `RunSubsystemState` (`m_systems`).
+  - runtime settings: `RunRuntimeSettings` (`m_runtimeSettings`).
+  - input: `RuntimeInputContext` (`m_runtimeInput`).
+  - camera: `RunCameraState` (`m_camera`).
+  - debug: `RunDebugState` (`m_debug`).
+  - world: `WorldEnvironment` (`m_cWorldEnvironment`).
+  - physics: `PhysicsEngine` (`m_cGameModelCollection.GetPhysicsEngine()`).
+  - models: `GameModelCollection` (`m_cGameModelCollection`).
+
+  No repository validation required; documentation-only inventory.
+- [x] **1.2** For **one owner at a time**: create a narrow record holding only the
   pointers that owner uses; pass it to that owner instead of the whole bag. Gate:
   `validate_full`. Commit. Repeat per owner.
-- [ ] **1.3** Delete `EngineContextBindings` once no consumer needs the whole
+
+  Completion note (2026-07-08): no source owner consumes `EngineContext` or
+  receives `EngineContextBindings` after step 0.1, so there were no owner-specific
+  records to create in this slice. The only remaining broad-bag use is Run's
+  self-binding, which step 1.3 deletes. Validation:
+  `tools\validate_full.bat` passed in 42.3s
+  (`Agentic\Logs\cleanup-10-step-1.2-enginecontext-no-consumers-validate-full.log`)
+  with 0 build warnings/errors, 0 DX12 validation errors, matching DX12
+  screenshots, and `physics_regression_solver.csv` byte-exact at 20001 lines.
+- [x] **1.3** Delete `EngineContextBindings` once no consumer needs the whole
   graph. `rg -n "EngineContextBindings"` → nothing. Build. Commit.
+
+  Completion note (2026-07-08): deleted the dead `EngineContext` /
+  `EngineContextBindings` boundary instead of creating decorative owner records:
+  removed `EngineContext.cpp`, `EngineContext.h`, the `Run` member, the
+  `BindEngineContext()` startup call/definition, project/filter entries, and
+  stale tool allowlist/message references. Structural grep found no source/tool
+  or project references to `EngineContext` or `EngineContextBindings`:
+  `rg -n "\bEngineContextBindings\b|\bEngineContext\b" SkullbonezSource tools
+  SKULLBONEZ_CORE.vcxproj SKULLBONEZ_CORE.vcxproj.filters`. Comment audit
+  inspected touched source-bearing files (`Run.h`, `Run.cpp`,
+  `tools/check_runtime_boundaries.py`, `tools/validate_project_filters.py`) with
+  no deferred work; deleted EngineContext files needed no follow-up. Validation:
+  `tools\validate_project_filters.bat` passed in 1.1s, runtime boundaries passed
+  in 16.7s, runtime-boundary self-test passed in 0.3s, `tools\validate_fast.bat`
+  passed in 49.5s, and `tools\validate_full.bat` passed in 45.9s with 0 build
+  warnings/errors, 0 DX12 validation errors, matching DX12 screenshots, and
+  `physics_regression_solver.csv` byte-exact at 20001 lines.
 
 ### Phase 2 — Narrow render interfaces, delete the aggregate
 
-- [ ] **2.1** `rg -n "IRenderBackend&|IRenderBackend \*" SkullbonezSource` to list
+- [x] **2.1** `rg -n "IRenderBackend&|IRenderBackend \*" SkullbonezSource` to list
   callers that take the aggregate. For **one caller at a time**, change its
   parameter to the narrowest capability it actually uses
   (`IRenderDeviceLifecycle` / `IRenderResourceFactory` / `IRenderCommandContext`
   / `IRenderDiagnostics` / `IRenderCaptureBackend` / `IRenderRayTracing`). Gate:
   `validate_dx12_renderer`. Commit. Repeat.
-- [ ] **2.2** Delete the `IRenderBackend` aggregate **type** once unreferenced.
+
+  Completion note (2026-07-08): current branch already has no aggregate callers
+  left to route. Exact evidence: `rg -n "IRenderBackend&|IRenderBackend \*"
+  SkullbonezSource` returned no matches. The only remaining `IRenderBackend`
+  mentions are boundary-checker tombstones/self-tests and cleanup-plan history.
+  The current branch's `tools\validate_full.bat` run included
+  `VALIDATE_DX12_RENDERER: ALL PASSED` in 45.9s with 0 DX12 validation errors
+  and matching screenshots.
+- [x] **2.2** Delete the `IRenderBackend` aggregate **type** once unreferenced.
   `rg -n "class IRenderBackend"` → nothing. Gate: `validate_dx12_renderer`
   (`dx12_validation.txt` == 0). Commit.
 
+  Completion note (2026-07-08): `SkullbonezSource/Rendering/IRenderBackend.h`
+  is absent, `rg -n "class IRenderBackend" SkullbonezSource` returned no
+  matches, and `rg -n "IRenderBackend" SkullbonezSource SKULLBONEZ_CORE.vcxproj
+  SKULLBONEZ_CORE.vcxproj.filters` returned no source/project matches. The
+  branch is protected by the runtime-boundary tombstone rules for aggregate
+  resurrection.
+
 ### Phase 3 — DX12 borrowed-alias dual ownership (danger zone)
 
-- [ ] **3.1** In `RenderBackendDX12`, either remove the cached
+- [x] **3.1** In `RenderBackendDX12`, either remove the cached
   `m_device`/`m_swapChain`/`m_commandList` aliases and reach through
   `Dx12RenderDevice`, or refresh them on device recreation. Exercise device-lost
   / resize paths. Gate: `validate_dx12_renderer` **run 3×**, `dx12_validation.txt`
   == 0 each time. Commit.
 
+  Completion note (2026-07-08): removed the cached `m_device`,
+  `m_swapChain`, and `m_commandList` fields from `RenderBackendDX12`. The
+  backend now reaches those owner-owned objects through private
+  `Device()`/`SwapChain()`/`CommandList()` helpers backed by
+  `Dx12RenderDevice`, while the still-borrowed queue/allocator aliases remain
+  as explicit follow-up debt. Added a runtime-boundary tombstone with self-tests
+  to block reintroducing the deleted alias fields. Structural grep found no
+  `m_device`, `m_swapChain`, or `m_commandList` tokens in
+  `RenderBackendDX12.h` or `RenderBackendDX12*.cpp`. Comment audit inspected all
+  touched source-bearing files with no deferred work. Validation: Profile build
+  passed in 8.8s; `tools\validate_dx12_renderer.bat` passed 3 times in 25.9s,
+  19.4s, and 19.4s with `DX12 validation errors: 0` and matching screenshots;
+  `python -m py_compile tools\check_runtime_boundaries.py` passed in 0.2s;
+  runtime-boundary self-test passed in 0.3s; runtime boundaries passed in 16.8s;
+  `tools\validate_fast.bat` passed in 34.7s.
+
 ### Phase 4 — Collapse or graduate `SimulationController` (FAC-004)
 
-- [ ] **4.1** Check whether `SimulationController` only forwards to
+- [x] **4.1** Check whether `SimulationController` only forwards to
   `SimulationSystem` (it exposes `System()`). If it is a pure delegate: delete it,
   call `SimulationSystem` directly, and remove the `System()` reach-through. If it
   must stay: move real timestep policy into it **and** remove `System()`. Gate:
   `validate_physics` (fixed-step determinism must not change). Commit.
 
+  Completion note (2026-07-08): `SimulationController` was a pure forwarding
+  wrapper over `SimulationSystem::Reset()` and `SimulationSystem::Tick()`, plus
+  the banned `System()` reach-through. Deleted `SimulationController.cpp/.h`,
+  made `Run` own `SimulationSystem` directly, passed `SimulationSystem&` into
+  generated-scene rebuild helpers, and removed the project/filter entries and
+  project-filter allowlist row. Added a deleted-artifact tombstone and self-test
+  for `SimulationController` / `SimulationController.h` /
+  `m_simulation.System()`. Structural greps found no source/project references
+  to `SimulationController` and no `SimulationController::System()` or
+  `.System()` reach-through under `SkullbonezSource`. Comment audit inspected
+  touched source-bearing files (`Run.h`, `SceneRuntimeGeneratedControls.h`,
+  `SceneRuntimeGeneratedControls.cpp`, `tools/check_runtime_boundaries.py`,
+  `tools/validate_project_filters.py`) with no deferred work. Validation:
+  `tools\validate_project_filters.bat` passed in 1.1s; `python -m py_compile
+  tools\check_runtime_boundaries.py` passed in 0.2s; runtime-boundary self-test
+  passed in 0.3s; runtime boundaries passed in 16.9s; `tools\validate_fast.bat`
+  passed in 50.0s; `tools\validate_physics.bat` passed in 16.4s with 0 build
+  warnings/errors and `physics_regression_solver.csv` byte-exact at 20001 lines.
+
 ## Validation
 
 `tools\validate_dx12_renderer.bat` (+ `dx12_validation.txt` == 0);
-`tools\validate_full.bat` for `Run` wiring changes.
+`tools\validate_full.bat` for `Run` wiring changes;
+`tools\validate_physics.bat` for `SimulationSystem` ownership changes.
 
 ## Acceptance (structural)
 
-- [ ] `rg -n "class IRenderBackend" SkullbonezSource` finds nothing (type
+- [x] `rg -n "class IRenderBackend" SkullbonezSource` finds nothing (type
   deleted, not renamed).
-- [ ] `EngineContextBindings` is deleted or split; no whole-graph bind remains.
-- [ ] `EngineServices Services()` is removed or has real callers.
-- [ ] `RenderBackendDX12` holds no device/swapchain/commandlist aliases that can
+- [x] `EngineContextBindings` is deleted or split; no whole-graph bind remains.
+- [x] `EngineServices Services()` is removed or has real callers.
+- [x] `RenderBackendDX12` holds no device/swapchain/commandlist aliases that can
   dangle on recreation.
+- [x] `rg -n "SimulationController::System\(|\.System\(" SkullbonezSource`
+  finds no runtime reach-through, and `SimulationController` is deleted.

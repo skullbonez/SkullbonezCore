@@ -32,7 +32,9 @@ Glossary:
 
 Invariants:
   - DX12 object lifetime, resource states, descriptor rows, and fence ordering
-  must stay explicit.
+    must stay explicit.
+  - TLAS rebuilds may only consume the terrain instance plus the active model
+    instance capacity reserved during DXR initialization.
 
 Related:
   - Agentic/Reference/skullbonez-core-class-structure.md
@@ -43,8 +45,9 @@ Related:
 #include "MeshDX12.h"
 #include "FramebufferDX12.h"
 #include "../RenderGraph.h"
+#include "../../Core/FatalError.h"
+#include "../../Core/Log.h"
 #include "../../Core/PlatformProfiler.h"
-#include <stdexcept>
 #include <cstdio>
 #include <cstring>
 #include <algorithm>
@@ -58,6 +61,7 @@ Related:
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Rendering;
 using Microsoft::WRL::ComPtr;
+using SkullbonezCore::Basics::SbResult;
 
 
 // --- Helpers ---
@@ -70,14 +74,6 @@ static void ReportDX12DescriptorHeapExhausted( const char* heapName, UINT nextIn
     fflush( stdout );
     Log().WriteEventf( "dx12_descriptor_heap_exhausted heap=%s next=%u capacity=%u", name, nextIndex, capacity );
     Log().FlushAll();
-}
-
-static inline void ThrowIfFailed( HRESULT hr, const char* msg )
-{
-    if ( FAILED( hr ) )
-    {
-        throw std::runtime_error( msg );
-    }
 }
 
 // --- RenderBackendDX12 DXR methods ---
@@ -93,7 +89,7 @@ void RenderBackendDX12::CheckDXRSupport()
     // DX12 hardware without raytracing, so failing any capability query simply
     // leaves m_dxrSupported false.
     D3D12_FEATURE_DATA_D3D12_OPTIONS5 opts5 = {};
-    if ( FAILED( m_device->CheckFeatureSupport( D3D12_FEATURE_D3D12_OPTIONS5, &opts5, sizeof( opts5 ) ) ) )
+    if ( FAILED( Device()->CheckFeatureSupport( D3D12_FEATURE_D3D12_OPTIONS5, &opts5, sizeof( opts5 ) ) ) )
     {
         return;
     }
@@ -104,7 +100,7 @@ void RenderBackendDX12::CheckDXRSupport()
 
     // Device5/command-list4 expose the DXR entry points. QueryInterface is the
     // COM way to ask whether this device object also supports that newer API.
-    if ( FAILED( m_device->QueryInterface( IID_PPV_ARGS( &m_device5 ) ) ) )
+    if ( FAILED( Device()->QueryInterface( IID_PPV_ARGS( &m_device5 ) ) ) )
     {
         return;
     }
@@ -113,7 +109,7 @@ void RenderBackendDX12::CheckDXRSupport()
 }
 
 
-void RenderBackendDX12::CreateRTRootSignature()
+SbResult RenderBackendDX12::CreateRTRootSignature()
 {
     // Concept: the raytracing root signature is the binding contract for
     // reflect.rt.hlsl.
@@ -188,24 +184,25 @@ void RenderBackendDX12::CreateRTRootSignature()
     if ( FAILED(
              D3D12SerializeVersionedRootSignature( &rootSigDesc, signature.GetAddressOf(), error.GetAddressOf() ) ) )
     {
-        throw std::runtime_error( "RT root signature serialization failed" );
+        return SbResult::Failure( "Rendering/DX12", "RT root signature serialization failed" );
     }
 
     // Create the DXR root signature from the serialized blob. Same concept as the raster root
     // signature, but this one defines bindings for raytracing shaders (TLAS, UAV output, CBV, textures).
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createrootsignature
-    if ( FAILED( m_device->CreateRootSignature( 0,
+    if ( FAILED( Device()->CreateRootSignature( 0,
                                                 signature->GetBufferPointer(),
                                                 signature->GetBufferSize(),
                                                 IID_PPV_ARGS( &m_rtRootSignature ) ) ) )
     {
-        throw std::runtime_error( "CreateRootSignature (RT) failed" );
+        return SbResult::Failure( "Rendering/DX12", "CreateRootSignature (RT) failed" );
     }
     NameDx12Object( m_rtRootSignature, L"Skullbonez DX12 Raytracing Root Signature" );
+    return SbResult::Success();
 }
 
 
-void RenderBackendDX12::CreateRTPipeline()
+SbResult RenderBackendDX12::CreateRTPipeline()
 {
     // DXR reflection uses checked-in DXIL. Keep compilation in tools/build
     // workflows so runtime startup never shells out or depends on SDK paths.
@@ -215,7 +212,8 @@ void RenderBackendDX12::CreateRTPipeline()
     fopen_s( &dxilFile, dxilPath.c_str(), "rb" );
     if ( !dxilFile )
     {
-        throw std::runtime_error( "Missing SkullbonezData/shaders/reflect.rt.dxil; rebuild and commit the DXR shader "
+        return SbResult::Failure( "Rendering/DX12",
+                                  "Missing SkullbonezData/shaders/reflect.rt.dxil; rebuild and commit the DXR shader "
                                   "bytecode before using DXR reflection." );
     }
     fseek( dxilFile, 0, SEEK_END );
@@ -291,7 +289,7 @@ void RenderBackendDX12::CreateRTPipeline()
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device5-createstateobject
     if ( FAILED( m_device5->CreateStateObject( &stateObjDesc, IID_PPV_ARGS( &m_rtPSO ) ) ) )
     {
-        throw std::runtime_error( "CreateStateObject (RTPSO) failed" );
+        return SbResult::Failure( "Rendering/DX12", "CreateStateObject (RTPSO) failed" );
     }
     // A raytracing state object is the DXR equivalent of a pipeline. It groups
     // the ray-generation, miss, and hit shaders with their shared root binding
@@ -301,11 +299,15 @@ void RenderBackendDX12::CreateRTPipeline()
 
     // Query the state object for shader identifier lookup (used when building the SBT).
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nn-d3d12-id3d12stateobjectproperties
-    m_rtPSO->QueryInterface( IID_PPV_ARGS( &m_rtPSOProps ) );
+    if ( FAILED( m_rtPSO->QueryInterface( IID_PPV_ARGS( &m_rtPSOProps ) ) ) || !m_rtPSOProps )
+    {
+        return SbResult::Failure( "Rendering/DX12", "QueryInterface for RT pipeline shader identifiers failed" );
+    }
+    return SbResult::Success();
 }
 
 
-void RenderBackendDX12::CreateReflectionUAV( int width, int height )
+SbResult RenderBackendDX12::CreateReflectionUAV( int width, int height )
 {
     m_reflectionWidth = width;
     m_reflectionHeight = height;
@@ -330,14 +332,14 @@ void RenderBackendDX12::CreateReflectionUAV( int width, int height )
     // Rays are cast from the water surface and the resulting reflections are written here.
     // The ALLOW_UNORDERED_ACCESS flag lets the ray generation shader write to arbitrary pixels.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createcommittedresource
-    if ( FAILED( m_device->CreateCommittedResource( &heapProps,
+    if ( FAILED( Device()->CreateCommittedResource( &heapProps,
                                                     D3D12_HEAP_FLAG_NONE,
                                                     &texDesc,
                                                     D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
                                                     nullptr,
                                                     IID_PPV_ARGS( &m_reflectionUAV ) ) ) )
     {
-        throw std::runtime_error( "Failed to create DXR reflection UAV texture" );
+        return SbResult::Failure( "Rendering/DX12", "Failed to create DXR reflection UAV texture" );
     }
     NameDx12Object( m_reflectionUAV, L"Skullbonez DX12 Reflection UAV Texture" );
 
@@ -347,13 +349,13 @@ void RenderBackendDX12::CreateReflectionUAV( int width, int height )
     D3D12_UNORDERED_ACCESS_VIEW_DESC uavDesc = {};
     uavDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
     uavDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
-    m_device->CreateUnorderedAccessView( m_reflectionUAV,
+    Device()->CreateUnorderedAccessView( m_reflectionUAV,
                                          nullptr,
                                          &uavDesc,
                                          GetSRVStagingCpuHandle( m_reflectionUAVIndex ) );
 
     D3D12_CPU_DESCRIPTOR_HANDLE srvHeapCpu = m_srvDescriptors.ShaderVisibleCpuHandle( m_reflectionUAVIndex );
-    m_device->CopyDescriptorsSimple( 1,
+    Device()->CopyDescriptorsSimple( 1,
                                      srvHeapCpu,
                                      GetSRVStagingCpuHandle( m_reflectionUAVIndex ),
                                      D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV );
@@ -366,29 +368,30 @@ void RenderBackendDX12::CreateReflectionUAV( int width, int height )
     srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
     srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
     srvDesc.Texture2D.MipLevels = 1;
-    m_device->CreateShaderResourceView( m_reflectionUAV, &srvDesc, GetSRVStagingCpuHandle( m_reflectionSRVIndex ) );
+    Device()->CreateShaderResourceView( m_reflectionUAV, &srvDesc, GetSRVStagingCpuHandle( m_reflectionSRVIndex ) );
 
     // Copy the SRV template into the shader-visible heap so raster draws can
     // sample the completed reflection texture.
     srvHeapCpu = m_srvDescriptors.ShaderVisibleCpuHandle( m_reflectionSRVIndex );
-    m_device->CopyDescriptorsSimple( 1,
+    Device()->CopyDescriptorsSimple( 1,
                                      srvHeapCpu,
                                      GetSRVStagingCpuHandle( m_reflectionSRVIndex ),
                                      D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV );
+    return SbResult::Success();
 }
 
 
-void RenderBackendDX12::InitDXR( uint64_t terrainVBVA,
-                                 int terrainVertCount,
-                                 int terrainStride,
-                                 uint64_t sphereVBVA,
-                                 int sphereVertCount,
-                                 int sphereStride,
-                                 int maxInstances )
+SbResult RenderBackendDX12::InitDXR( uint64_t terrainVBVA,
+                                     int terrainVertCount,
+                                     int terrainStride,
+                                     uint64_t sphereVBVA,
+                                     int sphereVertCount,
+                                     int sphereStride,
+                                     int maxInstances )
 {
     if ( !m_dxrSupported )
     {
-        return;
+        return SbResult::Success();
     }
 
     // Skip re-initialisation if DXR is already set up (scene reload path). The terrain and sphere
@@ -397,25 +400,43 @@ void RenderBackendDX12::InitDXR( uint64_t terrainVBVA,
     // m_cmdList4 is null and we fall through to the full init below.
     if ( m_cmdList4 )
     {
-        return;
+        return SbResult::Success();
     }
 
     // Query the command list for the DXR-capable interface. If the runtime
     // cannot provide it, keep raster rendering alive and disable DXR reflection.
-    if ( FAILED( m_commandList->QueryInterface( IID_PPV_ARGS( &m_cmdList4 ) ) ) )
+    if ( FAILED( CommandList()->QueryInterface( IID_PPV_ARGS( &m_cmdList4 ) ) ) )
     {
         m_dxrSupported = false;
-        return;
+        return SbResult::Success();
     }
+
+    auto failDxrInit = [this]( const SbResult& result )
+    {
+        ShutdownDXR();
+        return result;
+    };
 
     // The binding contract and pipeline must exist before scene acceleration
     // structures can be used by reflection dispatch.
-    CreateRTRootSignature();
-    CreateRTPipeline();
+    SbResult setupResult = CreateRTRootSignature();
+    if ( !setupResult.ok )
+    {
+        return failDxrInit( setupResult );
+    }
+    setupResult = CreateRTPipeline();
+    if ( !setupResult.ok )
+    {
+        return failDxrInit( setupResult );
+    }
 
     // Render reflections at 2x viewport size so water distortion has extra
     // detail to sample before the final screen pass.
-    CreateReflectionUAV( m_width * 2, m_height * 2 );
+    setupResult = CreateReflectionUAV( m_width * 2, m_height * 2 );
+    if ( !setupResult.ok )
+    {
+        return failDxrInit( setupResult );
+    }
 
     // Create RT constant buffer on the upload heap — holds per-frame raytracing parameters
     // (inverse VP matrix, camera position, water height, light position, etc.). Persistently
@@ -433,14 +454,14 @@ void RenderBackendDX12::InitDXR( uint64_t terrainVBVA,
         bufDesc.SampleDesc.Count = 1;
         bufDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
 
-        if ( FAILED( m_device->CreateCommittedResource( &heapProps,
+        if ( FAILED( Device()->CreateCommittedResource( &heapProps,
                                                         D3D12_HEAP_FLAG_NONE,
                                                         &bufDesc,
                                                         D3D12_RESOURCE_STATE_GENERIC_READ,
                                                         nullptr,
                                                         IID_PPV_ARGS( &m_rtConstantBuffer ) ) ) )
         {
-            throw std::runtime_error( "Failed to create RT constant buffer" );
+            return failDxrInit( SbResult::Failure( "Rendering/DX12", "Failed to create RT constant buffer" ) );
         }
         NameDx12Object( m_rtConstantBuffer, L"Skullbonez DX12 Raytracing Constants Upload Buffer" );
         m_rtConstantBuffer->Map( 0, nullptr, (void**)&m_rtConstantBufferMapped );
@@ -450,26 +471,45 @@ void RenderBackendDX12::InitDXR( uint64_t terrainVBVA,
     // triangles; the sphere BLAS is reused by every moving sphere instance.
     EnsureCommandListOpen();
 
-    m_terrainBLAS.Build( m_device5,
-                         m_cmdList4,
-                         (D3D12_GPU_VIRTUAL_ADDRESS)terrainVBVA,
-                         terrainVertCount,
-                         terrainStride,
-                         DXGI_FORMAT_R32G32B32_FLOAT,
-                         true );
-    m_sphereBLAS.Build( m_device5,
-                        m_cmdList4,
-                        (D3D12_GPU_VIRTUAL_ADDRESS)sphereVBVA,
-                        sphereVertCount,
-                        sphereStride,
-                        DXGI_FORMAT_R32G32B32_FLOAT,
-                        false );
+    setupResult = m_terrainBLAS.Build( m_device5,
+                                       m_cmdList4,
+                                       (D3D12_GPU_VIRTUAL_ADDRESS)terrainVBVA,
+                                       terrainVertCount,
+                                       terrainStride,
+                                       DXGI_FORMAT_R32G32B32_FLOAT,
+                                       true );
+    if ( !setupResult.ok )
+    {
+        return failDxrInit( setupResult );
+    }
+    setupResult = m_sphereBLAS.Build( m_device5,
+                                      m_cmdList4,
+                                      (D3D12_GPU_VIRTUAL_ADDRESS)sphereVBVA,
+                                      sphereVertCount,
+                                      sphereStride,
+                                      DXGI_FORMAT_R32G32B32_FLOAT,
+                                      false );
+    if ( !setupResult.ok )
+    {
+        // Why: the terrain BLAS build command may already be recorded. Submit
+        // and drain that command before releasing DXR resources during failure
+        // cleanup so the command list does not retain references to freed BLAS
+        // memory.
+        AssertPlatformProfilerGpuStackClosed( "InitDXRFailure" );
+        CommandList()->Close();
+        m_commandListOpen = false;
+        ID3D12CommandList* ppCLs[] = { CommandList() };
+        m_commandQueue->ExecuteCommandLists( 1, ppCLs );
+        WaitForGpu();
+        m_terrainBLAS.ReleaseAfterBuild();
+        return failDxrInit( setupResult );
+    }
 
     // Submit and wait for BLAS builds to complete
     AssertPlatformProfilerGpuStackClosed( "InitDXR" );
-    m_commandList->Close();
+    CommandList()->Close();
     m_commandListOpen = false;
-    ID3D12CommandList* ppCLs[] = { m_commandList };
+    ID3D12CommandList* ppCLs[] = { CommandList() };
     m_commandQueue->ExecuteCommandLists( 1, ppCLs );
     WaitForGpu();
 
@@ -482,12 +522,21 @@ void RenderBackendDX12::InitDXR( uint64_t terrainVBVA,
     // TLAS capacity includes one terrain instance plus the active model buffer.
     // Individual spheres reuse the same sphere BLAS with different transforms.
     m_dxrMaxInstances = std::clamp( maxInstances, 1, MAX_GAME_MODELS );
-    m_tlas.Init( m_device5, m_dxrMaxInstances + 1 );
+    setupResult = m_tlas.Init( m_device5, m_dxrMaxInstances + 1 );
+    if ( !setupResult.ok )
+    {
+        return failDxrInit( setupResult );
+    }
 
     // The SBT is the raytracing dispatch table. It maps the RayGen, Miss,
     // TerrainHitGroup, and SphereHitGroup shader identifiers into GPU-readable
     // records that DispatchRays can follow.
-    m_sbt.Build( m_device, m_rtPSOProps, L"RayGen", L"Miss", L"TerrainHitGroup", L"SphereHitGroup" );
+    setupResult = m_sbt.Build( Device(), m_rtPSOProps, L"RayGen", L"Miss", L"TerrainHitGroup", L"SphereHitGroup" );
+    if ( !setupResult.ok )
+    {
+        return failDxrInit( setupResult );
+    }
+    return SbResult::Success();
 }
 
 
@@ -503,7 +552,15 @@ void RenderBackendDX12::BuildTLAS( const float* instanceTransforms,
     if ( instanceCount < 0 || instanceCount > MAX_GAME_MODELS ||
          ( m_dxrMaxInstances > 0 && instanceCount > m_dxrMaxInstances ) )
     {
-        throw std::runtime_error( "DX12 TLAS instance count exceeds active model capacity" );
+        // Invariant: the TLAS instance buffer was sized during InitDXR for one
+        // terrain instance plus the active model capacity. A larger rebuild
+        // would overwrite the fixed raytracing instance table.
+        SB_FATAL(
+            "RenderBackendDX12",
+            "DX12 TLAS instance count exceeds active model capacity. requested=%d activeCapacity=%d maxGameModels=%d",
+            instanceCount,
+            m_dxrMaxInstances,
+            MAX_GAME_MODELS );
     }
 
     // Concept: a TLAS is a scene-level table of instances.
@@ -688,7 +745,7 @@ void RenderBackendDX12::DispatchReflectionRays( const float* invViewProj,
         {
             D3D12_CPU_DESCRIPTOR_HANDLE dst = m_srvDescriptors.ShaderVisibleCpuHandle( slot0 + (UINT)i );
             UINT srcIdx = m_textures[texHandles[i] - 1].srvIndex;
-            m_device->CopyDescriptorsSimple( 1,
+            Device()->CopyDescriptorsSimple( 1,
                                              dst,
                                              GetSRVStagingCpuHandle( srcIdx ),
                                              D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV );

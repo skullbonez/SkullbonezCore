@@ -47,15 +47,19 @@ Related:
 #include "../Rendering/IRenderRayTracing.h"
 #include "../Rendering/IRenderResourceFactory.h"
 #include "../Rendering/GameModelRenderer.h"
+#include "../Rendering/Helper.h"
 #include "../Rendering/RenderGraph.h"
 #include "../Rendering/RenderInstanceStore.h"
 #include "../Rendering/RenderRasterBindingContract.h"
+
+#include <cstdio>
 
 using namespace SkullbonezCore::Basics;
 using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Physics;
 using namespace SkullbonezCore::Basics::RunInternal;
+namespace Textures = SkullbonezCore::Textures;
 
 namespace
 {
@@ -180,6 +184,42 @@ SkullbonezCore::Textures::TextureCollection& RenderTextures( const RenderFrameCo
     return *frame.textures;
 }
 
+bool ReportRenderTextureResult( const char* passName, const SbResult& result )
+{
+    if ( result.ok )
+    {
+        return true;
+    }
+
+    // Why: render passes are void frame steps, so recoverable texture failures
+    // surface at the pass boundary and the affected draw is skipped.
+    std::fprintf( stderr,
+                  "%s texture failure [%s]: %s\n",
+                  passName ? passName : "Frame/Render",
+                  result.error.owner,
+                  result.error.message );
+    return false;
+}
+
+bool SelectRenderTexture( const RenderFrameContext& frame, uint32_t hash, const char* passName )
+{
+    return ReportRenderTextureResult( passName, RenderTextures( frame ).SelectTexture( hash ) );
+}
+
+bool ResolveRenderTextureHandle( Textures::TextureCollection& textures,
+                                 uint32_t hash,
+                                 const char* passName,
+                                 uint32_t& outHandle )
+{
+    const Textures::TextureCollection::TextureHandleResult result = textures.GetTextureHandle( hash );
+    if ( !ReportRenderTextureResult( passName, result.result ) )
+    {
+        return false;
+    }
+    outHandle = result.handle;
+    return true;
+}
+
 SkullbonezCore::Rendering::IRenderResourceFactory& RenderResources( const RenderFrameContext& frame )
 {
     assert( frame.renderResources && "RenderFrameContext requires a render resource factory" );
@@ -189,11 +229,19 @@ SkullbonezCore::Rendering::IRenderResourceFactory& RenderResources( const Render
 RenderHelperContext RenderHelperServices( const RenderFrameContext& frame, const EngineConfig& config )
 {
     assert( frame.renderDiagnostics && "RenderFrameContext requires a render diagnostics context" );
+    assert( frame.renderHelper && "RenderFrameContext requires a primitive render helper" );
     return RenderHelperContext{ RenderResources( frame ),
                                 RenderCommands( frame ),
                                 *frame.renderDiagnostics,
                                 RenderAssets( frame ),
-                                config };
+                                config,
+                                *frame.renderHelper };
+}
+
+RenderHelper& RenderHelperOwner( const RenderFrameContext& frame )
+{
+    assert( frame.renderHelper && "RenderFrameContext requires a primitive render helper" );
+    return *frame.renderHelper;
 }
 
 SkullbonezCore::Rendering::IRenderDiagnostics& RenderDiagnostics( const RenderFrameContext& frame )
@@ -1041,7 +1089,7 @@ void SkyPass::Render( const RenderFrameContext& frame, const Math::Transformatio
     // water, post, or shadows must not leak into these six mesh draws.
     ClearRenderTextureSlotsExcept( RenderCommands( frame ), RENDER_TEXTURE_SLOT_0 );
     assert( m_skyBox && "SkyPass requires RunSubsystemState::skyBox after initialise" );
-    m_skyBox->Render( skyView, frame.projection );
+    ReportRenderTextureResult( "Frame/Render/Skybox", m_skyBox->Render( skyView, frame.projection ) );
 }
 
 
@@ -1103,14 +1151,35 @@ ReflectionPassOutput ReflectionPass::Render( const ReflectionPassInputs& inputs,
         float simTime = inputs.simulationTimeSeconds;
 
         Textures::TextureCollection& textures = RenderTextures( inputs.frame );
-        uint32_t sphereHandle = textures.GetTextureHandle( TEXTURE_BOUNDING_SPHERE );
-        uint32_t terrainHandle = textures.GetTextureHandle( TEXTURE_GROUND );
-        uint32_t skyUpHandle = textures.GetTextureHandle( TEXTURE_SKY_UP );
-        uint32_t skyDownHandle = textures.GetTextureHandle( TEXTURE_SKY_DOWN );
-        uint32_t skyRightHandle = textures.GetTextureHandle( TEXTURE_SKY_RIGHT );
-        uint32_t skyLeftHandle = textures.GetTextureHandle( TEXTURE_SKY_LEFT );
-        uint32_t skyFrontHandle = textures.GetTextureHandle( TEXTURE_SKY_FRONT );
-        uint32_t skyBackHandle = textures.GetTextureHandle( TEXTURE_SKY_BACK );
+        uint32_t sphereHandle = 0;
+        uint32_t terrainHandle = 0;
+        uint32_t skyUpHandle = 0;
+        uint32_t skyDownHandle = 0;
+        uint32_t skyRightHandle = 0;
+        uint32_t skyLeftHandle = 0;
+        uint32_t skyFrontHandle = 0;
+        uint32_t skyBackHandle = 0;
+        if ( !ResolveRenderTextureHandle( textures,
+                                          TEXTURE_BOUNDING_SPHERE,
+                                          "Frame/Render/Reflection/DXR",
+                                          sphereHandle ) ||
+             !ResolveRenderTextureHandle( textures, TEXTURE_GROUND, "Frame/Render/Reflection/DXR", terrainHandle ) ||
+             !ResolveRenderTextureHandle( textures, TEXTURE_SKY_UP, "Frame/Render/Reflection/DXR", skyUpHandle ) ||
+             !ResolveRenderTextureHandle( textures, TEXTURE_SKY_DOWN, "Frame/Render/Reflection/DXR", skyDownHandle ) ||
+             !ResolveRenderTextureHandle( textures,
+                                          TEXTURE_SKY_RIGHT,
+                                          "Frame/Render/Reflection/DXR",
+                                          skyRightHandle ) ||
+             !ResolveRenderTextureHandle( textures, TEXTURE_SKY_LEFT, "Frame/Render/Reflection/DXR", skyLeftHandle ) ||
+             !ResolveRenderTextureHandle( textures,
+                                          TEXTURE_SKY_FRONT,
+                                          "Frame/Render/Reflection/DXR",
+                                          skyFrontHandle ) ||
+             !ResolveRenderTextureHandle( textures, TEXTURE_SKY_BACK, "Frame/Render/Reflection/DXR", skyBackHandle ) )
+        {
+            PROFILE_GPU_END( "Frame/Render/Reflection" );
+            return output;
+        }
         rayTracing->DispatchReflectionRays( invVP.Data(),
                                             cameraPos,
                                             inputs.frame.waterY,
@@ -1154,7 +1223,7 @@ ReflectionPassOutput ReflectionPass::Render( const ReflectionPassInputs& inputs,
         PROFILE_GPU_BEGIN( "Frame/Render/Reflection/Balls" );
         DRAW_CALL_TRACE_SCOPE( RenderDiagnostics( inputs.frame ), "Frame/Render/Reflection/Balls" );
         renderCommands.SetClipPlane( 0, true );
-        RenderHelper::SetClipPlane( 0.0f, 1.0f, 0.0f, -inputs.frame.waterY );
+        RenderHelperOwner( inputs.frame ).SetClipPlane( 0.0f, 1.0f, 0.0f, -inputs.frame.waterY );
         m_collisionVisualizer.SetClipPlane( 0.0f, 1.0f, 0.0f, -inputs.frame.waterY );
         if ( inputs.collisionStateColorsVisible )
         {
@@ -1184,8 +1253,8 @@ ReflectionPassOutput ReflectionPass::Render( const ReflectionPassInputs& inputs,
                 renderCommands,
                 RENDER_TEXTURE_SLOT_0 |
                     ( inputs.objectShadow && inputs.objectShadow->valid ? RENDER_TEXTURE_SLOT_3 : 0u ) );
-            RenderTextures( inputs.frame ).SelectTexture( TEXTURE_BOUNDING_SPHERE );
-            if ( inputs.frame.renderInstances && inputs.frame.colliders )
+            if ( SelectRenderTexture( inputs.frame, TEXTURE_BOUNDING_SPHERE, "Frame/Render/Reflection/Balls" ) &&
+                 inputs.frame.renderInstances && inputs.frame.colliders )
             {
                 GameObjects::GameModelRenderer::RenderModels( RenderHelperServices( inputs.frame, m_config ),
                                                               *inputs.frame.renderInstances,
@@ -1200,7 +1269,7 @@ ReflectionPassOutput ReflectionPass::Render( const ReflectionPassInputs& inputs,
             }
         }
         renderCommands.SetClipPlane( 0, false );
-        RenderHelper::SetClipPlane( 0.0f, 1.0f, 0.0f, 1.0e9f );
+        RenderHelperOwner( inputs.frame ).SetClipPlane( 0.0f, 1.0f, 0.0f, 1.0e9f );
         m_collisionVisualizer.SetClipPlane( 0.0f, 1.0f, 0.0f, 1.0e9f );
         PROFILE_GPU_END( "Frame/Render/Reflection/Balls" );
 
@@ -1253,8 +1322,8 @@ void ObjectPass::Render( const ObjectPassInputs& inputs )
         ClearRenderTextureSlotsExcept(
             renderCommands,
             RENDER_TEXTURE_SLOT_0 | ( inputs.shadow && inputs.shadow->valid ? RENDER_TEXTURE_SLOT_3 : 0u ) );
-        RenderTextures( inputs.frame ).SelectTexture( TEXTURE_BOUNDING_SPHERE );
-        if ( inputs.frame.renderInstances && inputs.frame.colliders )
+        if ( SelectRenderTexture( inputs.frame, TEXTURE_BOUNDING_SPHERE, passName ) && inputs.frame.renderInstances &&
+             inputs.frame.colliders )
         {
             GameObjects::GameModelRenderer::RenderModels( RenderHelperServices( inputs.frame, m_config ),
                                                           *inputs.frame.renderInstances,
@@ -1301,13 +1370,16 @@ void TerrainPass::Render( const TerrainPassInputs& inputs )
     ClearRenderTextureSlotsExcept(
         renderCommands,
         RENDER_TEXTURE_SLOT_0 | ( inputs.shadow && inputs.shadow->valid ? RENDER_TEXTURE_SLOT_3 : 0u ) );
-    RenderTextures( inputs.frame ).SelectTexture( TEXTURE_GROUND );
-    m_terrain->Render( inputs.frame.baseView,
-                       inputs.frame.projection,
-                       renderCommands,
-                       inputs.frame.lightPosition,
-                       inputs.cinematic,
-                       inputs.shadow );
+    if ( SelectRenderTexture( inputs.frame, TEXTURE_GROUND, "Frame/Render/Terrain" ) )
+    {
+        m_terrain->Render( inputs.frame.baseView,
+                           inputs.frame.projection,
+                           renderCommands,
+                           inputs.frame.lightPosition,
+                           inputs.clipPlane,
+                           inputs.cinematic,
+                           inputs.shadow );
+    }
     PROFILE_GPU_END( "Frame/Render/Terrain" );
 }
 

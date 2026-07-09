@@ -7,7 +7,7 @@ Audience: the implementing agent (assume a smaller/less-capable model)
 
 This guide is the entry point for executing every plan in this folder. It gives
 (1) the working protocol you must follow, (2) the order to do the plans in, and
-(3) the campaign checklist. **The file numbers `01`–`13` are topics, NOT the
+(3) the campaign checklist. **The file numbers `01`–`14` are topics, NOT the
 order of work. Follow the order in section 2 of this guide.**
 
 ---
@@ -45,6 +45,9 @@ You are working through a checklist. Correctness and finishing beat speed.
    "decide the real allocation requirement", governance deletions). A smaller
    model must **not** guess these. Leave the box unchecked, write a one-line note
    under it, and surface it.
+   - Owner steering on 2026-07-09 resolved the pending Plan 03, Plan 07,
+     Plan 11, and FAC-005 decision gates. Use those plan notes instead of
+     asking again.
 8. **Stay in scope.** Do only what the step says. Do not "tidy" adjacent code,
    rename unrelated things, or reformat files — that creates noise and breaks the
    boundary checker's frozen counts.
@@ -73,7 +76,7 @@ something whose prerequisite is unfinished.
 | 1 | [02](02-physicsworld-solver-decomposition.md) **Phase 0 only** | Extract `DisjointSet`, replace 3 copies | ~90-line mechanical dedup, byte-exact gated — safest high-value start | `validate_physics` |
 | 2 | [12](12-ambient-singletons-log-profiler.md) | Unweld `Log` from prelude; make profiler pointer safe | Small, contained; sets up plan 04 | `validate_full` (+`validate_physics` for the sink step) |
 | 3 | [06](06-inl-translation-unit-unsplitting.md) **editor files first** | Promote `RunEditor*.inl` to real TUs | Mechanical, build-gated; leave replay `.inl` for step 8 | `validate_fast` then `validate_full` |
-| 4 | [13](13-facade-retirement.md) + [10](10-enginecontext-irenderbackend-boundary.md) | Narrow render interfaces, delete `IRenderBackend` aggregate, split `EngineContext`, fix DX12 aliases, collapse `SimulationController` (FAC-004) | Enabling decoupling; 13 is the rule, 10 is the execution | `validate_dx12_renderer` + `validate_full` |
+| 4 | [13](13-facade-retirement.md) + [10](10-enginecontext-irenderbackend-boundary.md) + [14](14-public-physics-api-boundary.md) | Narrow render interfaces, delete `IRenderBackend` aggregate, split `EngineContext`, fix DX12 aliases, collapse `SimulationController` (FAC-004), and close FAC-005 public physics API leaks | Enabling decoupling; 13 is the rule, 10/14 are execution | `validate_dx12_renderer` + `validate_full` + `validate_physics` |
 | 5 | [08](08-renderhelper-global-state-removal.md) | De-static `RenderHelper`; RAII batches | Removes global render state; DX12-gated | `validate_dx12_renderer` |
 | 6 | [11](11-render-abstraction-leaks.md) | Real backbuffer state; de-leak replay ribbons; RenderGraph honesty | Barrier danger zone — do after 08/10 stabilise the backend | `validate_dx12_renderer` ×3 |
 | 7 | [01](01-run-god-object-decomposition.md) | Input command table → shrink `RunState` → shrink `Run` | Big; the flagship. Add its tests via plan 05 as you go | `validate_full` |
@@ -81,8 +84,8 @@ something whose prerequisite is unfinished.
 | 9 | [02](02-physicsworld-solver-decomposition.md) **rest** | Lift 33 lambdas to stages; evict gameplay; table-drive snapshot | Big, byte-exact; do after the DisjointSet warm-up | `validate_physics` per phase |
 | 10 | [04](04-error-handling-policy-reconciliation.md) | `throw` → F/R/P lanes (no count — ratchet deleted per 03) | After physics (02) and profiler (12) are stable | `validate_full` + `validate_physics` |
 | — | [05](05-behavioral-test-coverage.md) | **Continuous** | Do its Phase 0 map first; then each plan above adds its own tests as it lands; kill link stubs anytime | `validate_tests` |
-| — | [03](03-governance-apparatus-reduction.md) | **Any time, needs human sign-off** | Delete the regex checker + all `MAX_*` ratchets entirely; contract change (edits `AGENTS.md`); independent of the code work | `validate_fast` |
-| — | [07](07-allocation-gate-right-sizing.md) | **Any time, needs a "decide" call** | Requires the allocation-scope decision (rule 7) before code changes | `validate_perf` |
+| — | [03](03-governance-apparatus-reduction.md) | **Any time, owner-approved 2026-07-09** | Delete the regex checker + all `MAX_*` ratchets entirely; contract change (edits `AGENTS.md`); independent of the code work | `validate_fast` |
+| — | [07](07-allocation-gate-right-sizing.md) | **Any time, owner decision recorded 2026-07-09** | Right-size allocation enforcement without weakening global runtime zero-allocation-by-default policy; replay is the only approved runtime exception | `validate_perf` |
 
 Rationale for the shape: steps 1–3 are low-risk and build the validate-and-commit
 habit. Steps 4–6 decouple and clean the render/runtime wiring while its gate
@@ -99,19 +102,30 @@ judgment/sign-off gated and can slot in whenever a human is available.
 Tick a plan here only when **both** its step list and its acceptance list are
 fully `[x]`.
 
-- [ ] 1. Plan 02 Phase 0 — DisjointSet extracted
-- [ ] 2. Plan 12 — Log/Profiler ambient coupling removed
-- [ ] 3. Plan 06 — editor `.inl` promoted to real TUs
-- [ ] 4. Plan 13 + 10 — facade rule applied; EngineContext/IRenderBackend/aliases/SimulationController done
-- [ ] 5. Plan 08 — RenderHelper de-statised
+- [x] 1. Plan 02 Phase 0 — DisjointSet extracted
+- [x] 2. Plan 12 — Log/Profiler ambient coupling removed
+- [x] 3. Plan 06 — editor `.inl` promoted to real TUs
+- [ ] 4. Plan 13 + 10 + 14 — facade rule applied; EngineContext/IRenderBackend/aliases/SimulationController done; FAC-005 public physics API boundary closed
+  Note (2026-07-09): Plan 10 is complete; Plan 13 remains open only on FAC-005,
+  now owned by dedicated Plan 14 after owner approval.
+- [x] 5. Plan 08 — RenderHelper de-statised
 - [ ] 6. Plan 11 — render abstraction leaks closed
-- [ ] 7. Plan 01 — Run decomposed
-- [ ] 8. Plan 09 — replay right-sized
-- [ ] 9. Plan 02 rest — solver decomposed
+- [x] 7. Plan 01 — Run decomposed
+- [x] 8. Plan 09 — replay right-sized
+- [x] 9. Plan 02 rest — solver decomposed
+  Note (2026-07-09): Phase 1, Phase 2, and Phase 3 are complete. Final Plan 02
+  gates passed: `validate_physics`, `validate_replay_scrub`, and
+  `validate_physics_deep`; logs are listed in
+  `02-physicsworld-solver-decomposition.md` and
+  `HANDOFF-2026-07-09-PLAN02-REPLAY-SNAPSHOT.md`.
 - [ ] 10. Plan 04 — error handling reconciled
-- [ ] C1. Plan 05 — behavioral coverage added (continuous)
-- [ ] C2. Plan 03 — regex governance apparatus removed (needs sign-off)
-- [ ] C3. Plan 07 — allocation gate right-sized (needs decision)
+- [x] C1. Plan 05 — behavioral coverage added (continuous)
+  Note (2026-07-09): Phase 0 coverage map, Phase 1 input-binding tests, Phase
+  2 replay solver-sample restore tests, Phase 3 physics invariants, and Phase 4
+  link-stub removal are complete. Current inventory: 59 `TEST_CASE`s across 19
+  test `.cpp` files and 0 `*LinkStubs.cpp` files.
+- [ ] C2. Plan 03 — regex governance apparatus removed (owner-approved 2026-07-09)
+- [ ] C3. Plan 07 — allocation gate right-sized without weakening global zero-allocation policy (owner decision recorded 2026-07-09)
 
 When every box above is `[x]`, the campaign is complete.
 

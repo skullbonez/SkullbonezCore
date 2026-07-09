@@ -10,6 +10,8 @@ Mental model:
 
 Glossary:
   Generated control: UI action that changes generated scene object counts.
+  Generated UI command: One-frame Scene/Run tab request for generated object
+    counts.
   Rebuild action: Returned flags for caller-owned replay/profiler cleanup.
   Model capacity: Active object capacity limit.
 
@@ -24,8 +26,9 @@ Related:
 */
 #pragma once
 
+#include "SceneControllerState.h"
 #include "SceneGeneratedSetup.h"
-#include "../RunState.h"
+#include "../RunCameraState.h"
 
 namespace SkullbonezCore
 {
@@ -48,7 +51,7 @@ class IRenderDeviceLifecycle;
 namespace Basics
 {
 class SceneController;
-class SimulationController;
+class SimulationSystem;
 class RuntimeTools;
 
 struct SceneRuntimeGeneratedControlContext
@@ -61,7 +64,7 @@ struct SceneRuntimeGeneratedControlContext
     Environment::WorldEnvironment& world;
     Geometry::Terrain* terrain = nullptr;
     GameObjects::GameModelCollection& models;
-    SimulationController& simulation;
+    SimulationSystem& simulation;
     RuntimeTools& tools;
     Rendering::IRenderDeviceLifecycle* renderLifecycle = nullptr;
     GeneratedObjectTypeOverride objectTypeOverride = GeneratedObjectTypeOverride::Mixed;
@@ -74,9 +77,21 @@ struct SceneRuntimeGeneratedControlAction
     bool scheduleProfileReset = false;
 };
 
+struct SceneGeneratedUICommandResult
+{
+    bool accepted = false;
+    SceneRuntimeGeneratedControlAction action;
+};
+
 SceneRuntimeGeneratedControlAction ApplyUIModelCountOverride( SceneRuntimeGeneratedControlContext context, int count );
 SceneRuntimeGeneratedControlAction
 ApplyUISolverObjectCounts( SceneRuntimeGeneratedControlContext context, int balls, int boxes );
+SceneGeneratedUICommandResult ApplySceneGeneratedModelCountUICommand( SceneRuntimeGeneratedControlContext context,
+                                                                      int requestedModelCount );
+SceneGeneratedUICommandResult ApplySceneGeneratedSolverBallCountUICommand( SceneRuntimeGeneratedControlContext context,
+                                                                           int requestedSolverBallCount );
+SceneGeneratedUICommandResult ApplySceneGeneratedSolverBoxCountUICommand( SceneRuntimeGeneratedControlContext context,
+                                                                          int requestedSolverBoxCount );
 
 } // namespace Basics
 } // namespace SkullbonezCore

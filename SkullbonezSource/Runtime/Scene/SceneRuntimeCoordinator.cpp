@@ -27,6 +27,8 @@ Related:
 */
 #include "SceneRuntimeCoordinator.h"
 #include "SceneController.h"
+#include "../RuntimeCommandQueue.h"
+#include "../../UI/UICommands.h"
 
 #include <algorithm>
 #include <cstring>
@@ -73,6 +75,43 @@ bool IsCineScenePath( const std::string& path )
 SceneRuntimeCoordinator::SceneRuntimeCoordinator( SceneController& sceneController )
     : m_sceneController( sceneController )
 {
+}
+
+
+bool ExecuteSceneRuntimeControlAction( SceneRuntimeControlExecutionContext context,
+                                       const SceneRuntimeControlAction& action )
+{
+    if ( action.enterInteractiveSceneRun && context.enterInteractiveSceneRun )
+    {
+        context.enterInteractiveSceneRun( context.context );
+    }
+
+    // Invariant: SceneRuntimeCoordinator produces intent only. The execution
+    // context names each Run-owned side effect until scene loading fully moves
+    // behind scene-owned APIs.
+    switch ( action.type )
+    {
+    case SceneRuntimeControlActionType::ClearCurrentSceneAutomation:
+        context.scene.isExitOnComplete = false;
+        context.screenshotAndExit = false;
+        return true;
+    case SceneRuntimeControlActionType::LoadScene:
+        return context.loadScene ? context.loadScene( context.context,
+                                                      action.index,
+                                                      action.preserveUIState,
+                                                      action.suppressExitOnComplete,
+                                                      action.preserveRuntimeState )
+                                 : false;
+    case SceneRuntimeControlActionType::ApplyCinematicModeFromBrowserIndex:
+        if ( context.enterInteractiveSceneRun )
+        {
+            context.enterInteractiveSceneRun( context.context );
+        }
+        return ApplyCinematicModeFromBrowserIndex( context.style, action.index );
+    case SceneRuntimeControlActionType::None:
+        return false;
+    }
+    return false;
 }
 
 
@@ -272,6 +311,51 @@ SceneRuntimeCoordinator::AdvanceScene( bool perfTestActive, int& perfPass, bool 
 
     return SceneRuntimeControlAction::LoadScene( nextIndex, preserveInteractiveUI, preserveInteractiveUI, false );
 }
+
+SceneRuntimeUICommandResult QueueSceneUIRuntimeCommands( RuntimeCommandQueue& runtimeCommands,
+                                                         const UI::UISceneCommands& commands )
+{
+    SceneRuntimeUICommandResult result;
+    if ( commands.resetScene )
+    {
+        runtimeCommands.Push( RuntimeCommand{ RuntimeCommandType::ResetCurrentScene } );
+        result.resetScene = true;
+    }
+    if ( commands.resetSceneDefaults )
+    {
+        RuntimeCommand command{ RuntimeCommandType::ResetCurrentScene };
+        command.preserveUIState = false;
+        command.preserveRuntimeState = false;
+        runtimeCommands.Push( command );
+        result.resetSceneDefaults = true;
+    }
+    if ( commands.requestDemoScene )
+    {
+        runtimeCommands.Push( RuntimeCommand{ RuntimeCommandType::LoadDemoScene } );
+        result.loadDemoScene = true;
+    }
+    if ( commands.saveSceneDefaults )
+    {
+        runtimeCommands.Push( RuntimeCommand{ RuntimeCommandType::SaveSceneDefaults } );
+        result.saveSceneDefaults = true;
+    }
+    if ( commands.createScene )
+    {
+        RuntimeCommand command{ RuntimeCommandType::CreateScene };
+        command.text = commands.requestedSceneName;
+        runtimeCommands.Push( command );
+        result.createScene = true;
+    }
+    if ( commands.requestedSceneIndex >= 0 )
+    {
+        RuntimeCommand command{ RuntimeCommandType::LoadSceneIndex };
+        command.index = commands.requestedSceneIndex;
+        runtimeCommands.Push( command );
+        result.selectScene = true;
+    }
+    return result;
+}
+
 
 } // namespace Basics
 } // namespace SkullbonezCore

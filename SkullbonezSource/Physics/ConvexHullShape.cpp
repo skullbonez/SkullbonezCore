@@ -29,23 +29,55 @@ Related:
 
 #include "BoundingBox.h"
 #include "BoundingSphere.h"
+#include "../Core/FatalError.h"
 
 #include <cerrno>
+#include <cstdarg>
 #include <cfloat>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
-#include <stdexcept>
 
 using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Math::Vector;
 using namespace SkullbonezCore::Geometry;
+using SkullbonezCore::Basics::SbResult;
 namespace Physics = SkullbonezCore::Physics;
 
 namespace
 {
 constexpr float COMPATIBILITY_HULL_DEFAULT_MASS = 24.0f;
+constexpr const char* HULL_LOAD_OWNER = "Physics/ConvexHullShape";
+
+struct HullFile
+{
+    FILE* handle = nullptr;
+
+    ~HullFile()
+    {
+        Close();
+    }
+
+    void Close()
+    {
+        if ( handle )
+        {
+            fclose( handle );
+            handle = nullptr;
+        }
+    }
+};
+
+SbResult HullLoadFailure( const char* format, ... )
+{
+    char message[512];
+    va_list args;
+    va_start( args, format );
+    std::vsnprintf( message, sizeof( message ), format ? format : "Convex hull load failed.", args );
+    va_end( args );
+    return SbResult::Failure( HULL_LOAD_OWNER, "%s", message );
+}
 
 float ClampPositive( float value, float fallback )
 {
@@ -78,17 +110,18 @@ void ScaleAxisComponent( Vector3& v, int axis, float factor )
     }
 }
 
-Vector3 NormalizedOrThrow( const Vector3& v, const char* context )
+SbResult TryNormalized( const Vector3& v, const char* context, Vector3& out )
 {
     const float magSq = VectorMagSquared( v );
     if ( magSq <= 1.0e-10f )
     {
-        throw std::runtime_error( context );
+        return HullLoadFailure( "%s", context );
     }
-    return v / sqrtf( magSq );
+    out = v / sqrtf( magSq );
+    return SbResult::Success();
 }
 
-float ParseFiniteFloatOrThrow( const char* value, const char* path, int lineNumber, const char* field )
+SbResult ParseFiniteFloat( const char* value, const char* path, int lineNumber, const char* field, float& out )
 {
     errno = 0;
     char* end = nullptr;
@@ -96,52 +129,37 @@ float ParseFiniteFloatOrThrow( const char* value, const char* path, int lineNumb
     if ( end == value || *end != '\0' || errno == ERANGE || !std::isfinite( parsed ) || parsed < -FLT_MAX ||
          parsed > FLT_MAX )
     {
-        char msg[384];
-        sprintf_s( msg,
-                   sizeof( msg ),
-                   "Invalid %s at %s:%d.  (ConvexHullShape::LoadFromFile)",
-                   field,
-                   path,
-                   lineNumber );
-        throw std::runtime_error( msg );
+        return HullLoadFailure( "Invalid %s at %s:%d.  (ConvexHullShape::LoadFromFile)", field, path, lineNumber );
     }
-    return static_cast<float>( parsed );
+    out = static_cast<float>( parsed );
+    return SbResult::Success();
 }
 
-uint16_t ParseUint16OrThrow( const char* value, const char* path, int lineNumber, const char* field )
+SbResult ParseUint16( const char* value, const char* path, int lineNumber, const char* field, uint16_t& out )
 {
     errno = 0;
     char* end = nullptr;
     const long parsed = strtol( value, &end, 10 );
     if ( end == value || *end != '\0' || errno == ERANGE || parsed < 0 || parsed > 65535 )
     {
-        char msg[384];
-        sprintf_s( msg,
-                   sizeof( msg ),
-                   "Invalid %s at %s:%d.  (ConvexHullShape::LoadFromFile)",
-                   field,
-                   path,
-                   lineNumber );
-        throw std::runtime_error( msg );
+        return HullLoadFailure( "Invalid %s at %s:%d.  (ConvexHullShape::LoadFromFile)", field, path, lineNumber );
     }
-    return static_cast<uint16_t>( parsed );
+    out = static_cast<uint16_t>( parsed );
+    return SbResult::Success();
 }
 
-void RequireNoExtraTokens( char* context, const char* path, int lineNumber, const char* directive )
+SbResult RequireNoExtraTokens( char* context, const char* path, int lineNumber, const char* directive )
 {
     // Hazard: hull files are deterministic physics inputs. Extra tokens usually
     // mean the bake format changed or the asset is corrupted, so fail loudly.
     if ( strtok_s( nullptr, " \t\r\n", &context ) )
     {
-        char msg[384];
-        sprintf_s( msg,
-                   sizeof( msg ),
-                   "Unexpected extra value in %s at %s:%d.  (ConvexHullShape::LoadFromFile)",
-                   directive,
-                   path,
-                   lineNumber );
-        throw std::runtime_error( msg );
+        return HullLoadFailure( "Unexpected extra value in %s at %s:%d.  (ConvexHullShape::LoadFromFile)",
+                                directive,
+                                path,
+                                lineNumber );
     }
+    return SbResult::Success();
 }
 
 void WarnMissingDefaultMassMetadata( const char* path )
@@ -200,25 +218,35 @@ void CopyHullName( char ( &out )[64], const char* path, const char* authoredName
     strncpy_s( out, base ? base : "convex_hull", _TRUNCATE );
 }
 
-Vector3 ParseVec3OrThrow( char*& context, const char* path, int lineNumber, const char* field )
+SbResult ParseVec3( char*& context, const char* path, int lineNumber, const char* field, Vector3& out )
 {
     char* sx = strtok_s( nullptr, " \t\r\n", &context );
     char* sy = strtok_s( nullptr, " \t\r\n", &context );
     char* sz = strtok_s( nullptr, " \t\r\n", &context );
     if ( !sx || !sy || !sz )
     {
-        char msg[384];
-        sprintf_s( msg,
-                   sizeof( msg ),
-                   "Invalid %s at %s:%d.  (ConvexHullShape::LoadFromFile)",
-                   field,
-                   path,
-                   lineNumber );
-        throw std::runtime_error( msg );
+        return HullLoadFailure( "Invalid %s at %s:%d.  (ConvexHullShape::LoadFromFile)", field, path, lineNumber );
     }
-    return Vector3( ParseFiniteFloatOrThrow( sx, path, lineNumber, field ),
-                    ParseFiniteFloatOrThrow( sy, path, lineNumber, field ),
-                    ParseFiniteFloatOrThrow( sz, path, lineNumber, field ) );
+    float x = 0.0f;
+    float y = 0.0f;
+    float z = 0.0f;
+    SbResult result = ParseFiniteFloat( sx, path, lineNumber, field, x );
+    if ( !result.ok )
+    {
+        return result;
+    }
+    result = ParseFiniteFloat( sy, path, lineNumber, field, y );
+    if ( !result.ok )
+    {
+        return result;
+    }
+    result = ParseFiniteFloat( sz, path, lineNumber, field, z );
+    if ( !result.ok )
+    {
+        return result;
+    }
+    out = Vector3( x, y, z );
+    return SbResult::Success();
 }
 } // namespace
 
@@ -227,19 +255,17 @@ ConvexHullShape::ConvexHullShape()
     strcpy_s( m_name, sizeof( m_name ), "convex_hull" );
 }
 
-ConvexHullShape ConvexHullShape::LoadFromFile( const char* path )
+SbResult ConvexHullShape::TryLoadFromFile( const char* path, ConvexHullShape& outHull )
 {
     if ( !path || path[0] == '\0' )
     {
-        throw std::runtime_error( "Convex hull path is empty.  (ConvexHullShape::LoadFromFile)" );
+        return HullLoadFailure( "Convex hull path is empty.  (ConvexHullShape::LoadFromFile)" );
     }
 
-    FILE* file = nullptr;
-    if ( fopen_s( &file, path, "r" ) != 0 || !file )
+    HullFile file;
+    if ( fopen_s( &file.handle, path, "r" ) != 0 || !file.handle )
     {
-        char msg[384];
-        sprintf_s( msg, sizeof( msg ), "Unable to open convex hull asset: %s  (ConvexHullShape::LoadFromFile)", path );
-        throw std::runtime_error( msg );
+        return HullLoadFailure( "Unable to open convex hull asset: %s  (ConvexHullShape::LoadFromFile)", path );
     }
 
     ConvexHullShape hull;
@@ -256,7 +282,7 @@ ConvexHullShape ConvexHullShape::LoadFromFile( const char* path )
     bool sawDefaultMass = false;
 
     char line[512];
-    while ( fgets( line, sizeof( line ), file ) )
+    while ( fgets( line, sizeof( line ), file.handle ) )
     {
         ++lineNumber;
         char* hash = strchr( line, '#' );
@@ -277,39 +303,26 @@ ConvexHullShape ConvexHullShape::LoadFromFile( const char* path )
             char* version = strtok_s( nullptr, " \t\r\n", &context );
             if ( !version || strcmp( version, "2" ) != 0 )
             {
-                char msg[384];
-                sprintf_s(
-                    msg,
-                    sizeof( msg ),
+                return HullLoadFailure(
                     "Convex hull asset must be serialized hull_version 2: %s:%d.  (ConvexHullShape::LoadFromFile)",
                     path,
                     lineNumber );
-                fclose( file );
-                throw std::runtime_error( msg );
             }
             sawVersion = true;
-            try
+            const SbResult extraResult = RequireNoExtraTokens( context, path, lineNumber, "hull_version" );
+            if ( !extraResult.ok )
             {
-                RequireNoExtraTokens( context, path, lineNumber, "hull_version" );
-            }
-            catch ( ... )
-            {
-                fclose( file );
-                throw;
+                return extraResult;
             }
             continue;
         }
 
         if ( !sawVersion )
         {
-            char msg[384];
-            sprintf_s( msg,
-                       sizeof( msg ),
-                       "Convex hull asset must start with hull_version 2: %s:%d.  (ConvexHullShape::LoadFromFile)",
-                       path,
-                       lineNumber );
-            fclose( file );
-            throw std::runtime_error( msg );
+            return HullLoadFailure(
+                "Convex hull asset must start with hull_version 2: %s:%d.  (ConvexHullShape::LoadFromFile)",
+                path,
+                lineNumber );
         }
 
         if ( strcmp( token, "name" ) == 0 )
@@ -319,14 +332,10 @@ ConvexHullShape ConvexHullShape::LoadFromFile( const char* path )
             {
                 strncpy_s( authoredName, sizeof( authoredName ), name, _TRUNCATE );
             }
-            try
+            const SbResult extraResult = RequireNoExtraTokens( context, path, lineNumber, "name" );
+            if ( !extraResult.ok )
             {
-                RequireNoExtraTokens( context, path, lineNumber, "name" );
-            }
-            catch ( ... )
-            {
-                fclose( file );
-                throw;
+                return extraResult;
             }
             continue;
         }
@@ -336,39 +345,31 @@ ConvexHullShape ConvexHullShape::LoadFromFile( const char* path )
             char* hashValue = strtok_s( nullptr, " \t\r\n", &context );
             if ( !hashValue || hashValue[0] == '\0' )
             {
-                char msg[384];
-                sprintf_s( msg,
-                           sizeof( msg ),
-                           "Invalid source_hash at %s:%d.  (ConvexHullShape::LoadFromFile)",
-                           path,
-                           lineNumber );
-                fclose( file );
-                throw std::runtime_error( msg );
+                return HullLoadFailure( "Invalid source_hash at %s:%d.  (ConvexHullShape::LoadFromFile)",
+                                        path,
+                                        lineNumber );
             }
             sawSourceHash = true;
-            try
+            const SbResult extraResult = RequireNoExtraTokens( context, path, lineNumber, "source_hash" );
+            if ( !extraResult.ok )
             {
-                RequireNoExtraTokens( context, path, lineNumber, "source_hash" );
-            }
-            catch ( ... )
-            {
-                fclose( file );
-                throw;
+                return extraResult;
             }
             continue;
         }
 
         if ( strcmp( token, "source_vertex" ) == 0 )
         {
-            try
+            Vector3 sourceVertex = ZERO_VECTOR;
+            SbResult parseResult = ParseVec3( context, path, lineNumber, "source_vertex", sourceVertex );
+            if ( !parseResult.ok )
             {
-                (void)ParseVec3OrThrow( context, path, lineNumber, "source_vertex" );
-                RequireNoExtraTokens( context, path, lineNumber, "source_vertex" );
+                return parseResult;
             }
-            catch ( ... )
+            parseResult = RequireNoExtraTokens( context, path, lineNumber, "source_vertex" );
+            if ( !parseResult.ok )
             {
-                fclose( file );
-                throw;
+                return parseResult;
             }
             continue;
         }
@@ -379,34 +380,36 @@ ConvexHullShape ConvexHullShape::LoadFromFile( const char* path )
             char* value = nullptr;
             while ( ( value = strtok_s( nullptr, " \t\r\n", &context ) ) != nullptr )
             {
-                (void)ParseUint16OrThrow( value, path, lineNumber, "source_face" );
+                uint16_t sourceIndex = 0;
+                const SbResult parseResult = ParseUint16( value, path, lineNumber, "source_face", sourceIndex );
+                if ( !parseResult.ok )
+                {
+                    return parseResult;
+                }
                 ++sourceFaceCount;
             }
             if ( sourceFaceCount < 3 )
             {
-                char msg[384];
-                sprintf_s( msg,
-                           sizeof( msg ),
-                           "source_face needs at least three vertices at %s:%d.  (ConvexHullShape::LoadFromFile)",
-                           path,
-                           lineNumber );
-                fclose( file );
-                throw std::runtime_error( msg );
+                return HullLoadFailure(
+                    "source_face needs at least three vertices at %s:%d.  (ConvexHullShape::LoadFromFile)",
+                    path,
+                    lineNumber );
             }
             continue;
         }
 
         if ( strcmp( token, "center_of_mass" ) == 0 )
         {
-            try
+            SbResult parseResult =
+                ParseVec3( context, path, lineNumber, "center_of_mass", hull.m_authoredCenterOfMass );
+            if ( !parseResult.ok )
             {
-                hull.m_authoredCenterOfMass = ParseVec3OrThrow( context, path, lineNumber, "center_of_mass" );
-                RequireNoExtraTokens( context, path, lineNumber, "center_of_mass" );
+                return parseResult;
             }
-            catch ( ... )
+            parseResult = RequireNoExtraTokens( context, path, lineNumber, "center_of_mass" );
+            if ( !parseResult.ok )
             {
-                fclose( file );
-                throw;
+                return parseResult;
             }
             sawCenterOfMass = true;
             continue;
@@ -417,44 +420,35 @@ ConvexHullShape ConvexHullShape::LoadFromFile( const char* path )
             char* value = strtok_s( nullptr, " \t\r\n", &context );
             if ( !value )
             {
-                char msg[384];
-                sprintf_s( msg,
-                           sizeof( msg ),
-                           "Invalid %s at %s:%d.  (ConvexHullShape::LoadFromFile)",
-                           token,
-                           path,
-                           lineNumber );
-                fclose( file );
-                throw std::runtime_error( msg );
+                return HullLoadFailure( "Invalid %s at %s:%d.  (ConvexHullShape::LoadFromFile)",
+                                        token,
+                                        path,
+                                        lineNumber );
             }
-            try
+            float parsed = 0.0f;
+            SbResult parseResult = ParseFiniteFloat( value, path, lineNumber, token, parsed );
+            if ( !parseResult.ok )
             {
-                const float parsed = ParseFiniteFloatOrThrow( value, path, lineNumber, token );
-                RequireNoExtraTokens( context, path, lineNumber, token );
-                if ( parsed <= 0.0f )
-                {
-                    char msg[384];
-                    sprintf_s( msg,
-                               sizeof( msg ),
-                               "%s must be positive at %s:%d.  (ConvexHullShape::LoadFromFile)",
-                               token,
-                               path,
-                               lineNumber );
-                    fclose( file );
-                    throw std::runtime_error( msg );
-                }
-                if ( strcmp( token, "default_mass" ) == 0 )
-                {
-                    hull.m_defaultMass = Physics::ClampPositiveMass( parsed );
-                    sawDefaultMass = true;
-                }
-                // default_density is accepted as baked provenance; default_mass is runtime-authoritative.
+                return parseResult;
             }
-            catch ( ... )
+            parseResult = RequireNoExtraTokens( context, path, lineNumber, token );
+            if ( !parseResult.ok )
             {
-                fclose( file );
-                throw;
+                return parseResult;
             }
+            if ( parsed <= 0.0f )
+            {
+                return HullLoadFailure( "%s must be positive at %s:%d.  (ConvexHullShape::LoadFromFile)",
+                                        token,
+                                        path,
+                                        lineNumber );
+            }
+            if ( strcmp( token, "default_mass" ) == 0 )
+            {
+                hull.m_defaultMass = Physics::ClampPositiveMass( parsed );
+                sawDefaultMass = true;
+            }
+            // default_density is accepted as baked provenance; default_mass is runtime-authoritative.
             continue;
         }
 
@@ -464,52 +458,43 @@ ConvexHullShape ConvexHullShape::LoadFromFile( const char* path )
             char* value = strtok_s( nullptr, " \t\r\n", &context );
             if ( !value )
             {
-                char msg[384];
-                sprintf_s( msg,
-                           sizeof( msg ),
-                           "Invalid %s at %s:%d.  (ConvexHullShape::LoadFromFile)",
-                           token,
-                           path,
-                           lineNumber );
-                fclose( file );
-                throw std::runtime_error( msg );
+                return HullLoadFailure( "Invalid %s at %s:%d.  (ConvexHullShape::LoadFromFile)",
+                                        token,
+                                        path,
+                                        lineNumber );
             }
-            try
+            float parsed = 0.0f;
+            SbResult parseResult = ParseFiniteFloat( value, path, lineNumber, token, parsed );
+            if ( !parseResult.ok )
             {
-                const float parsed = ParseFiniteFloatOrThrow( value, path, lineNumber, token );
-                RequireNoExtraTokens( context, path, lineNumber, token );
-                if ( parsed <= 0.0f )
-                {
-                    char msg[384];
-                    sprintf_s( msg,
-                               sizeof( msg ),
-                               "%s must be positive at %s:%d.  (ConvexHullShape::LoadFromFile)",
-                               token,
-                               path,
-                               lineNumber );
-                    fclose( file );
-                    throw std::runtime_error( msg );
-                }
-                if ( strcmp( token, "volume" ) == 0 )
-                {
-                    hull.m_volume = parsed;
-                    sawVolume = true;
-                }
-                else if ( strcmp( token, "bounding_radius" ) == 0 )
-                {
-                    hull.m_boundingRadius = parsed;
-                    sawBoundingRadius = true;
-                }
-                else
-                {
-                    hull.m_projectedSurfaceArea = parsed;
-                    sawProjectedSurfaceArea = true;
-                }
+                return parseResult;
             }
-            catch ( ... )
+            parseResult = RequireNoExtraTokens( context, path, lineNumber, token );
+            if ( !parseResult.ok )
             {
-                fclose( file );
-                throw;
+                return parseResult;
+            }
+            if ( parsed <= 0.0f )
+            {
+                return HullLoadFailure( "%s must be positive at %s:%d.  (ConvexHullShape::LoadFromFile)",
+                                        token,
+                                        path,
+                                        lineNumber );
+            }
+            if ( strcmp( token, "volume" ) == 0 )
+            {
+                hull.m_volume = parsed;
+                sawVolume = true;
+            }
+            else if ( strcmp( token, "bounding_radius" ) == 0 )
+            {
+                hull.m_boundingRadius = parsed;
+                sawBoundingRadius = true;
+            }
+            else
+            {
+                hull.m_projectedSurfaceArea = parsed;
+                sawProjectedSurfaceArea = true;
             }
             continue;
         }
@@ -517,36 +502,32 @@ ConvexHullShape ConvexHullShape::LoadFromFile( const char* path )
         if ( strcmp( token, "inertia_half_extents" ) == 0 || strcmp( token, "unit_inertia" ) == 0 )
         {
             const bool isHalfExtents = strcmp( token, "inertia_half_extents" ) == 0;
-            try
+            Vector3 parsed = ZERO_VECTOR;
+            SbResult parseResult = ParseVec3( context, path, lineNumber, token, parsed );
+            if ( !parseResult.ok )
             {
-                Vector3 parsed = ParseVec3OrThrow( context, path, lineNumber, token );
-                RequireNoExtraTokens( context, path, lineNumber, token );
-                if ( isHalfExtents )
-                {
-                    hull.m_inertiaHalfExtents = parsed;
-                }
-                else
-                {
-                    hull.m_unitInertia = parsed;
-                }
+                return parseResult;
             }
-            catch ( ... )
+            parseResult = RequireNoExtraTokens( context, path, lineNumber, token );
+            if ( !parseResult.ok )
             {
-                fclose( file );
-                throw;
+                return parseResult;
+            }
+            if ( isHalfExtents )
+            {
+                hull.m_inertiaHalfExtents = parsed;
+            }
+            else
+            {
+                hull.m_unitInertia = parsed;
             }
             const Vector3& checked = isHalfExtents ? hull.m_inertiaHalfExtents : hull.m_unitInertia;
             if ( checked.x <= 0.0f || checked.y <= 0.0f || checked.z <= 0.0f )
             {
-                char msg[384];
-                sprintf_s( msg,
-                           sizeof( msg ),
-                           "%s must be positive at %s:%d.  (ConvexHullShape::LoadFromFile)",
-                           token,
-                           path,
-                           lineNumber );
-                fclose( file );
-                throw std::runtime_error( msg );
+                return HullLoadFailure( "%s must be positive at %s:%d.  (ConvexHullShape::LoadFromFile)",
+                                        token,
+                                        path,
+                                        lineNumber );
             }
             if ( isHalfExtents )
             {
@@ -563,27 +544,24 @@ ConvexHullShape ConvexHullShape::LoadFromFile( const char* path )
         {
             if ( hull.m_vertexCount >= MAX_VERTICES )
             {
-                char msg[384];
-                sprintf_s( msg,
-                           sizeof( msg ),
-                           "Convex hull exceeds %u vertices at %s:%d.  (ConvexHullShape::LoadFromFile)",
-                           MAX_VERTICES,
-                           path,
-                           lineNumber );
-                fclose( file );
-                throw std::runtime_error( msg );
+                return HullLoadFailure( "Convex hull exceeds %u vertices at %s:%d.  (ConvexHullShape::LoadFromFile)",
+                                        MAX_VERTICES,
+                                        path,
+                                        lineNumber );
             }
 
-            try
+            SbResult parseResult =
+                ParseVec3( context, path, lineNumber, "vertex", hull.m_vertices[hull.m_vertexCount] );
+            if ( !parseResult.ok )
             {
-                hull.m_vertices[hull.m_vertexCount++] = ParseVec3OrThrow( context, path, lineNumber, "vertex" );
-                RequireNoExtraTokens( context, path, lineNumber, "vertex" );
+                return parseResult;
             }
-            catch ( ... )
+            parseResult = RequireNoExtraTokens( context, path, lineNumber, "vertex" );
+            if ( !parseResult.ok )
             {
-                fclose( file );
-                throw;
+                return parseResult;
             }
+            ++hull.m_vertexCount;
             continue;
         }
 
@@ -591,15 +569,10 @@ ConvexHullShape ConvexHullShape::LoadFromFile( const char* path )
         {
             if ( hull.m_faceCount >= MAX_FACES )
             {
-                char msg[384];
-                sprintf_s( msg,
-                           sizeof( msg ),
-                           "Convex hull exceeds %u faces at %s:%d.  (ConvexHullShape::LoadFromFile)",
-                           MAX_FACES,
-                           path,
-                           lineNumber );
-                fclose( file );
-                throw std::runtime_error( msg );
+                return HullLoadFailure( "Convex hull exceeds %u faces at %s:%d.  (ConvexHullShape::LoadFromFile)",
+                                        MAX_FACES,
+                                        path,
+                                        lineNumber );
             }
 
             char* nx = strtok_s( nullptr, " \t\r\n", &context );
@@ -608,29 +581,34 @@ ConvexHullShape ConvexHullShape::LoadFromFile( const char* path )
             char* offset = strtok_s( nullptr, " \t\r\n", &context );
             if ( !nx || !ny || !nz || !offset )
             {
-                char msg[384];
-                sprintf_s( msg,
-                           sizeof( msg ),
-                           "Invalid face at %s:%d.  (ConvexHullShape::LoadFromFile)",
-                           path,
-                           lineNumber );
-                fclose( file );
-                throw std::runtime_error( msg );
+                return HullLoadFailure( "Invalid face at %s:%d.  (ConvexHullShape::LoadFromFile)", path, lineNumber );
             }
 
             ConvexHullFace face;
-            try
+            float normalX = 0.0f;
+            float normalY = 0.0f;
+            float normalZ = 0.0f;
+            SbResult parseResult = ParseFiniteFloat( nx, path, lineNumber, "face.normal", normalX );
+            if ( !parseResult.ok )
             {
-                face.normalLocal = Vector3( ParseFiniteFloatOrThrow( nx, path, lineNumber, "face.normal" ),
-                                            ParseFiniteFloatOrThrow( ny, path, lineNumber, "face.normal" ),
-                                            ParseFiniteFloatOrThrow( nz, path, lineNumber, "face.normal" ) );
-                face.planeOffsetLocal = ParseFiniteFloatOrThrow( offset, path, lineNumber, "face.planeOffset" );
+                return parseResult;
             }
-            catch ( ... )
+            parseResult = ParseFiniteFloat( ny, path, lineNumber, "face.normal", normalY );
+            if ( !parseResult.ok )
             {
-                fclose( file );
-                throw;
+                return parseResult;
             }
+            parseResult = ParseFiniteFloat( nz, path, lineNumber, "face.normal", normalZ );
+            if ( !parseResult.ok )
+            {
+                return parseResult;
+            }
+            parseResult = ParseFiniteFloat( offset, path, lineNumber, "face.planeOffset", face.planeOffsetLocal );
+            if ( !parseResult.ok )
+            {
+                return parseResult;
+            }
+            face.normalLocal = Vector3( normalX, normalY, normalZ );
 
             face.firstIndex = hull.m_faceIndexCount;
             char* value = nullptr;
@@ -638,49 +616,34 @@ ConvexHullShape ConvexHullShape::LoadFromFile( const char* path )
             {
                 if ( face.indexCount >= MAX_FACE_VERTICES || hull.m_faceIndexCount >= MAX_FACE_INDICES )
                 {
-                    char msg[384];
-                    sprintf_s( msg,
-                               sizeof( msg ),
-                               "Convex hull face exceeds serialized limits at %s:%d.  (ConvexHullShape::LoadFromFile)",
-                               path,
-                               lineNumber );
-                    fclose( file );
-                    throw std::runtime_error( msg );
+                    return HullLoadFailure(
+                        "Convex hull face exceeds serialized limits at %s:%d.  (ConvexHullShape::LoadFromFile)",
+                        path,
+                        lineNumber );
                 }
-                try
+                uint16_t faceIndex = 0;
+                parseResult = ParseUint16( value, path, lineNumber, "face.index", faceIndex );
+                if ( !parseResult.ok )
                 {
-                    hull.m_faceIndices[hull.m_faceIndexCount++] =
-                        ParseUint16OrThrow( value, path, lineNumber, "face.index" );
+                    return parseResult;
                 }
-                catch ( ... )
-                {
-                    fclose( file );
-                    throw;
-                }
+                hull.m_faceIndices[hull.m_faceIndexCount++] = faceIndex;
                 ++face.indexCount;
             }
 
             if ( face.indexCount < 3 )
             {
-                char msg[384];
-                sprintf_s( msg,
-                           sizeof( msg ),
-                           "Convex hull face needs at least three vertices at %s:%d.  (ConvexHullShape::LoadFromFile)",
-                           path,
-                           lineNumber );
-                fclose( file );
-                throw std::runtime_error( msg );
+                return HullLoadFailure(
+                    "Convex hull face needs at least three vertices at %s:%d.  (ConvexHullShape::LoadFromFile)",
+                    path,
+                    lineNumber );
             }
             if ( VectorMagSquared( face.normalLocal ) <= 1.0e-10f )
             {
-                char msg[384];
-                sprintf_s( msg,
-                           sizeof( msg ),
-                           "Convex hull face normal is degenerate at %s:%d.  (ConvexHullShape::LoadFromFile)",
-                           path,
-                           lineNumber );
-                fclose( file );
-                throw std::runtime_error( msg );
+                return HullLoadFailure(
+                    "Convex hull face normal is degenerate at %s:%d.  (ConvexHullShape::LoadFromFile)",
+                    path,
+                    lineNumber );
             }
             hull.m_faces[hull.m_faceCount++] = face;
             continue;
@@ -690,15 +653,10 @@ ConvexHullShape ConvexHullShape::LoadFromFile( const char* path )
         {
             if ( hull.m_edgeCount >= MAX_EDGES )
             {
-                char msg[384];
-                sprintf_s( msg,
-                           sizeof( msg ),
-                           "Convex hull exceeds %u edges in %s:%d.  (ConvexHullShape::LoadFromFile)",
-                           MAX_EDGES,
-                           path,
-                           lineNumber );
-                fclose( file );
-                throw std::runtime_error( msg );
+                return HullLoadFailure( "Convex hull exceeds %u edges in %s:%d.  (ConvexHullShape::LoadFromFile)",
+                                        MAX_EDGES,
+                                        path,
+                                        lineNumber );
             }
 
             char* a = strtok_s( nullptr, " \t\r\n", &context );
@@ -707,57 +665,54 @@ ConvexHullShape ConvexHullShape::LoadFromFile( const char* path )
             char* faceB = strtok_s( nullptr, " \t\r\n", &context );
             if ( !a || !b || !faceA || !faceB )
             {
-                char msg[384];
-                sprintf_s( msg,
-                           sizeof( msg ),
-                           "Invalid edge at %s:%d.  (ConvexHullShape::LoadFromFile)",
-                           path,
-                           lineNumber );
-                fclose( file );
-                throw std::runtime_error( msg );
+                return HullLoadFailure( "Invalid edge at %s:%d.  (ConvexHullShape::LoadFromFile)", path, lineNumber );
             }
-            try
+
+            ConvexHullEdge edge;
+            SbResult parseResult = ParseUint16( a, path, lineNumber, "edge.vertexA", edge.vertexA );
+            if ( !parseResult.ok )
             {
-                ConvexHullEdge edge;
-                edge.vertexA = ParseUint16OrThrow( a, path, lineNumber, "edge.vertexA" );
-                edge.vertexB = ParseUint16OrThrow( b, path, lineNumber, "edge.vertexB" );
-                edge.faceA = ParseUint16OrThrow( faceA, path, lineNumber, "edge.faceA" );
-                edge.faceB = ParseUint16OrThrow( faceB, path, lineNumber, "edge.faceB" );
-                RequireNoExtraTokens( context, path, lineNumber, "edge" );
-                hull.m_edges[hull.m_edgeCount++] = edge;
+                return parseResult;
             }
-            catch ( ... )
+            parseResult = ParseUint16( b, path, lineNumber, "edge.vertexB", edge.vertexB );
+            if ( !parseResult.ok )
             {
-                fclose( file );
-                throw;
+                return parseResult;
             }
+            parseResult = ParseUint16( faceA, path, lineNumber, "edge.faceA", edge.faceA );
+            if ( !parseResult.ok )
+            {
+                return parseResult;
+            }
+            parseResult = ParseUint16( faceB, path, lineNumber, "edge.faceB", edge.faceB );
+            if ( !parseResult.ok )
+            {
+                return parseResult;
+            }
+            parseResult = RequireNoExtraTokens( context, path, lineNumber, "edge" );
+            if ( !parseResult.ok )
+            {
+                return parseResult;
+            }
+            hull.m_edges[hull.m_edgeCount++] = edge;
             continue;
         }
 
-        char msg[384];
-        sprintf_s( msg,
-                   sizeof( msg ),
-                   "Unknown hull directive '%s' at %s:%d.  (ConvexHullShape::LoadFromFile)",
-                   token,
-                   path,
-                   lineNumber );
-        fclose( file );
-        throw std::runtime_error( msg );
+        return HullLoadFailure( "Unknown hull directive '%s' at %s:%d.  (ConvexHullShape::LoadFromFile)",
+                                token,
+                                path,
+                                lineNumber );
     }
 
-    fclose( file );
+    file.Close();
 
     if ( !sawVersion || !sawSourceHash || !sawCenterOfMass || !sawVolume || !sawBoundingRadius ||
          !sawInertiaHalfExtents || !sawUnitInertia || !sawProjectedSurfaceArea || hull.m_vertexCount < 4 ||
          hull.m_faceCount < 4 || hull.m_edgeCount < 6 )
     {
-        char msg[384];
-        sprintf_s(
-            msg,
-            sizeof( msg ),
+        return HullLoadFailure(
             "Convex hull asset is missing required baked hull_version 2 data: %s  (ConvexHullShape::LoadFromFile)",
             path );
-        throw std::runtime_error( msg );
     }
 
     if ( !sawDefaultMass )
@@ -771,27 +726,21 @@ ConvexHullShape ConvexHullShape::LoadFromFile( const char* path )
         const ConvexHullFace& face = hull.m_faces[f];
         if ( face.firstIndex + face.indexCount > hull.m_faceIndexCount )
         {
-            char msg[384];
-            sprintf_s( msg,
-                       sizeof( msg ),
-                       "Convex hull face %u has invalid index range in %s.  (ConvexHullShape::LoadFromFile)",
-                       f,
-                       path );
-            throw std::runtime_error( msg );
+            return HullLoadFailure(
+                "Convex hull face %u has invalid index range in %s.  (ConvexHullShape::LoadFromFile)",
+                f,
+                path );
         }
         for ( uint8_t i = 0; i < face.indexCount; ++i )
         {
             const uint16_t index = hull.m_faceIndices[face.firstIndex + i];
             if ( index >= hull.m_vertexCount )
             {
-                char msg[384];
-                sprintf_s( msg,
-                           sizeof( msg ),
-                           "Convex hull face %u references invalid vertex %u in %s.  (ConvexHullShape::LoadFromFile)",
-                           f,
-                           index,
-                           path );
-                throw std::runtime_error( msg );
+                return HullLoadFailure(
+                    "Convex hull face %u references invalid vertex %u in %s.  (ConvexHullShape::LoadFromFile)",
+                    f,
+                    index,
+                    path );
             }
         }
     }
@@ -802,16 +751,25 @@ ConvexHullShape ConvexHullShape::LoadFromFile( const char* path )
         if ( edge.vertexA >= hull.m_vertexCount || edge.vertexB >= hull.m_vertexCount ||
              edge.faceA >= hull.m_faceCount || edge.faceB >= hull.m_faceCount )
         {
-            char msg[384];
-            sprintf_s( msg,
-                       sizeof( msg ),
-                       "Convex hull edge %u references invalid topology in %s.  (ConvexHullShape::LoadFromFile)",
-                       e,
-                       path );
-            throw std::runtime_error( msg );
+            return HullLoadFailure(
+                "Convex hull edge %u references invalid topology in %s.  (ConvexHullShape::LoadFromFile)",
+                e,
+                path );
         }
     }
     CopyHullName( hull.m_name, path, authoredName );
+    outHull = hull;
+    return SbResult::Success();
+}
+
+ConvexHullShape ConvexHullShape::LoadFromFile( const char* path )
+{
+    ConvexHullShape hull;
+    const SbResult result = TryLoadFromFile( path, hull );
+    if ( !result.ok )
+    {
+        SB_FATAL( HULL_LOAD_OWNER, "%s", result.error.message );
+    }
     return hull;
 }
 
@@ -925,8 +883,17 @@ void ConvexHullShape::ScaleAxis( int axis, float factor )
         const Vector3& a = m_vertices[m_faceIndices[face.firstIndex + 0]];
         const Vector3& b = m_vertices[m_faceIndices[face.firstIndex + 1]];
         const Vector3& c = m_vertices[m_faceIndices[face.firstIndex + 2]];
-        Vector3 normal = NormalizedOrThrow( CrossProduct( b - a, c - a ),
-                                            "Degenerate scaled convex hull face.  (ConvexHullShape::ScaleAxis)" );
+        Vector3 normal = ZERO_VECTOR;
+        const SbResult normalResult =
+            TryNormalized( CrossProduct( b - a, c - a ),
+                           "Degenerate scaled convex hull face.  (ConvexHullShape::ScaleAxis)",
+                           normal );
+        if ( !normalResult.ok )
+        {
+            // Invariant: positive finite copy-scale must preserve baked hull
+            // topology. Degeneration here is an engine/data bug, not user input.
+            SB_FATAL( HULL_LOAD_OWNER, "%s", normalResult.error.message );
+        }
         if ( ( normal * ( centroid - a ) ) > 0.0f )
         {
             normal = -normal;

@@ -16,7 +16,7 @@ Glossary:
 Invariants:
   - RuntimeInputAction order is shared by fixed-size arrays in
     RuntimeInputContext and should only grow by appending before Count.
-  - RuntimeInputFrameState contains resolved per-frame policy; it must not own
+  - RuntimeInputModeState contains resolved per-frame mode facts; it must not own
     persistent subsystem state.
 
 Related:
@@ -25,8 +25,11 @@ Related:
 */
 #pragma once
 
+#include "../Core/SbResult.h"
+
 #include <array>
 #include <cstddef>
+#include <cstdint>
 
 #include "Input.h"
 
@@ -160,6 +163,56 @@ enum class RuntimeInputActionSource
     Runtime
 };
 
+using RuntimeInputContextMask = uint32_t;
+
+enum class RuntimeInputBindingContext : RuntimeInputContextMask
+{
+    Always = 0u,
+    KeyboardUnblocked = 1u << 0,
+    Scene = 1u << 1,
+    GeneratedDemo = 1u << 2,
+    FlyCamera = 1u << 3,
+    Launcher = 1u << 4,
+    AttachedCamera = 1u << 5,
+    AttachedCameraActive = 1u << 6,
+    Director = 1u << 7,
+    DirectorAuthoring = 1u << 8,
+    Editor = 1u << 9,
+    EditorInactive = 1u << 10,
+    Replay = 1u << 11,
+    UI = 1u << 12,
+    DebugOnly = 1u << 13,
+    AfterUIUpdate = 1u << 14,
+    UINotInteracted = 1u << 15,
+    ReplayRestoreNotConsumed = 1u << 16,
+    Capture = 1u << 17
+};
+
+constexpr RuntimeInputContextMask RuntimeInputContextBit( RuntimeInputBindingContext context )
+{
+    return static_cast<RuntimeInputContextMask>( context );
+}
+
+constexpr RuntimeInputContextMask operator|( RuntimeInputBindingContext lhs, RuntimeInputBindingContext rhs )
+{
+    return RuntimeInputContextBit( lhs ) | RuntimeInputContextBit( rhs );
+}
+
+constexpr RuntimeInputContextMask operator|( RuntimeInputContextMask lhs, RuntimeInputBindingContext rhs )
+{
+    return lhs | RuntimeInputContextBit( rhs );
+}
+
+struct RuntimeInputKeyBinding
+{
+    // Concept: The table vocabulary is shared input metadata. Step 1.1 only
+    // names key/action/context records; later slices will move TakeInput's
+    // branch dispatch onto this data without changing command behavior here.
+    int virtualKey = 0;
+    RuntimeInputAction action = RuntimeInputAction::None;
+    RuntimeInputContextMask contexts = RuntimeInputContextBit( RuntimeInputBindingContext::KeyboardUnblocked );
+};
+
 struct RuntimeInputModeState
 {
     bool flyCamera = false;
@@ -184,6 +237,23 @@ struct RuntimeMouseEdges
     bool rightReleased = false;
 };
 
+struct RuntimeCameraInputFrameContext
+{
+    // Concept: Run resolves high-level ownership first; InputController only
+    // consumes the camera-local facts needed to update mouse-look and WASD
+    // movement for this frame.
+    bool appFocused = true;
+    bool cameraMouseLookActive = false;
+    bool mouseLookOwnsCursor = false;
+    bool cameraKeyboardControlsActive = false;
+};
+
+struct RuntimeCameraInputFrameResult
+{
+    bool applyCursorOwnership = false;
+    SbResult cursorResult;                // Recoverable cursor lookup failure for Run to report at the frame boundary.
+};
+
 struct RuntimeInputTransition
 {
     RuntimeInputMode from = RuntimeInputMode::Scene;
@@ -202,6 +272,8 @@ class RuntimeInputContext
     bool CaptureActionPress( RuntimeInputAction action, int virtualKey );
     void SetActionDown( RuntimeInputAction action, bool isDown );
     RuntimeMouseEdges CaptureMouseButtons( bool leftDown, bool rightDown );
+    bool IsEscapeQuickTap( double nowSeconds, double quickTapSeconds ) const;
+    void RecordEscapeTap( double nowSeconds );
     void SetMode( RuntimeInputMode mode, RuntimeInputAction action, RuntimeInputActionSource source );
 
     RuntimeInputMode CurrentMode() const;
@@ -227,6 +299,7 @@ class RuntimeInputContext
     std::array<bool, ACTION_COUNT> m_actionDown = {};
     bool m_leftMouseWasDown = false;
     bool m_rightMouseWasDown = false;
+    double m_lastEscapeTapTime = -1000.0; // Last ESC UI-dismiss tap; owned with semantic input edge memory.
     RuntimeInputTransition m_transitions[TRANSITION_HISTORY_COUNT] = {};
     int m_transitionWriteIndex = 0;
     int m_transitionCount = 0;
@@ -253,10 +326,11 @@ class InputController
     static const char* DescribeAction( RuntimeInputAction action );
     static const char* DescribeSource( RuntimeInputActionSource source );
     static void DescribeLastTransitions( const RuntimeInputContext& context, char* out, std::size_t outSize );
-    static void
-    ResetUnfocusedInput( RunCameraState& camera, bool& leftSceneCycleWasDown, bool& rightSceneCycleWasDown );
+    static void ResetUnfocusedInput( RunCameraState& camera );
     static void ResetMouseLook( RunCameraState& camera );
     static void SetMouseLookDelta( RunCameraState& camera, long rawX, long rawY );
+    static RuntimeCameraInputFrameResult ApplyCameraInputFrame( RunCameraState& camera,
+                                                                const RuntimeCameraInputFrameContext& context );
 };
 } // namespace Basics
 } // namespace SkullbonezCore
