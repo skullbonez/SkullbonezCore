@@ -11,6 +11,10 @@ Mental model:
 Glossary:
   Presentation sample: A compact, render-facing record of one committed physics
   tick. It is useful for inspection, but it is not enough to restore the solver.
+  Visual body metadata: Stable body identity/display fields stored once and
+    referenced by retained visual frames.
+  Visual delta frame: Per-frame body order plus changed dynamic body state; a
+    keyframe stores all active body states and ordinary frames carry forward.
   Solver sample: A same-tick physics-state record with extra mass and inertia
   inputs. It is still not a full restore checkpoint until persistent contacts,
   event streams, and hidden solver caches are captured.
@@ -129,6 +133,45 @@ struct ReplayBodyPresentationSample
     uint16_t contactCount = 0;
     float maxPenetration = 0.0f;
     float normalImpulseSum = 0.0f;
+};
+
+struct ReplayVisualBodyMetadata
+{
+    ReplayBodyId id;
+    int modelIndex = -1;
+    char name[64] = {};
+    ReplayBodyShapeKind shapeKind = ReplayBodyShapeKind::Unknown;
+    float mass = 0.0f;
+    bool fixed = false;
+};
+
+struct ReplayVisualBodyState
+{
+    Math::Vector::Vector3 position = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 linearVelocity = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 angularVelocity = Math::Vector::ZERO_VECTOR;
+    float orientation[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
+    bool sleeping = false;
+    bool sleepSupported = false;
+    bool sleepInhibited = false;
+    bool collisionContact = false;
+    int sleepIslandVisualId = 0;
+    uint16_t contactCount = 0;
+    float maxPenetration = 0.0f;
+    float normalImpulseSum = 0.0f;
+};
+
+struct ReplayVisualBodyDelta
+{
+    uint32_t metadataIndex = 0;
+    ReplayVisualBodyState state;
+};
+
+struct ReplayVisualDeltaFrame
+{
+    bool keyframe = false;
+    std::vector<uint32_t> bodyMetadataIndices;
+    std::vector<ReplayVisualBodyDelta> changedBodies;
 };
 
 struct ReplayPresentationSample
@@ -353,20 +396,38 @@ class ReplayRecorder
     const ReplayPresentationSample* SampleAtNormalized( float normalized ) const;
 
   private:
-    ReplayPresentationSample& AcquireSampleSlot();
-    void StoreCheckpointSummary( const ReplayPresentationSample& sample );
+    std::size_t AcquireSampleSlotIndex();
+    std::size_t FindOrAddVisualBodyMetadata( const ReplayBodyPresentationSample& body, ReplayFrameIndex frameIndex );
+    void StoreVisualFramePayload( std::size_t slotIndex,
+                                  const ReplayPresentationSample& sample,
+                                  const std::vector<ReplayBodyPresentationSample>& bodies,
+                                  bool forceKeyframe,
+                                  bool updateCarry );
+    bool ResolveSampleAtOffset( std::size_t offset, ReplayPresentationSample& outSample ) const;
+    void PromoteVisualFrameToKeyframe( std::size_t offset );
+    void StoreCheckpointSummary( const ReplayPresentationSample& sample, std::size_t bodyCount );
     void WriteHashLogHeader( const char* sceneLabel );
-    void WriteHashLogRow( const ReplayPresentationSample& sample );
+    void WriteHashLogRow( const ReplayPresentationSample& sample, std::size_t bodyCount );
     std::size_t SampleCapacityFromConfig() const;
     std::size_t CheckpointCapacityFromConfig() const;
 
     ReplayRecorderConfig m_config;
     std::vector<ReplayPresentationSample> m_samples;
+    std::vector<ReplayVisualDeltaFrame> m_visualFrames;
+    std::vector<ReplayVisualBodyMetadata> m_visualBodyMetadata;
+    std::vector<ReplayVisualBodyState> m_visualCarryStates;
+    std::vector<uint8_t> m_visualCarryActive;
+    std::vector<uint8_t> m_visualCarrySeenScratch;
+    std::vector<ReplayBodyPresentationSample> m_captureBodyScratch;
     std::vector<ReplayCheckpointSummary> m_checkpoints;
     std::vector<uint16_t> m_contactCountScratch;
     std::vector<float> m_maxPenetrationScratch;
     std::vector<float> m_normalImpulseSumScratch;
     std::ofstream m_hashLog;
+    mutable std::vector<ReplayPresentationSample> m_resolvedPresentationSamples;
+    mutable ReplayPresentationSample m_promotedPresentationSample;
+    mutable std::vector<ReplayVisualBodyState> m_resolveStateScratch;
+    mutable std::vector<uint8_t> m_resolveActiveScratch;
     std::size_t m_sampleHead = 0;
     std::size_t m_sampleCount = 0;
     std::size_t m_checkpointHead = 0;

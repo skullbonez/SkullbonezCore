@@ -1007,12 +1007,86 @@ Stage 7 — Visual polish
     361 active frames).
 
 Stage 8 — Replay memory data-model tuning (old B2–B4; re-derive first)
-- [ ] 8.1 Re-derive the data model against post-Stage-3 code (June draft in
+- [x] 8.1 Re-derive the data model against post-Stage-3 code (June draft in
   git history of `replay-memory-quality-tuning-plan.md`).
-- [ ] 8.2 Split body metadata from visual pose; add delta frames.
+- [x] 8.2 Split body metadata from visual pose; add delta frames.
 - [ ] 8.3 Compact solver keyframes/deltas; artifact compatibility for saved
   replays.
 - [ ] 8.4 Presets + budget enforcement + UI sliders.
+
+  Complete 2026-07-10: re-derived the memory model from current Stage-7 code
+  before implementing. The retired June draft's high-level intent still holds,
+  but the live code now has stronger constraints and better starting points:
+  trajectory memory is isolated in `ReplayTrajectoryStore`, per-category replay
+  memory accounting is live, saved V2 artifacts already dictionary-encode body
+  identity with 32-byte pose rows, and solver restore/hash paths are table-driven
+  through `ReplaySolverWorldSnapshot`.
+
+  Current resident shape:
+  - Presentation samples are still dense: each retained
+    `ReplayPresentationSample` owns a full `bodies` vector every tick. Body rows
+    mix stable metadata (`id`, `modelIndex`, `name`, `shapeKind`, `mass`,
+    `fixed`) with dynamic visual/debug state (`position`, `orientation`,
+    velocities, sleep flags, collision/contact summaries, island id).
+  - Solver samples are denser: each `ReplaySolverFrameSample` owns full solver
+    body rows, launcher visuals, and a `ReplaySolverWorldSnapshot` whose hash
+    and restore paths include body-state vectors, sleep/island vectors, tornado
+    timers, persistent contacts/cache, solver stats, debug contacts, pipeline
+    trace, and collision-cell keys.
+  - V2 artifacts prove a body dictionary is viable for saved presentation
+    preview, but their current presentation load path reconstructs only identity
+    plus pose. Live lossless scrub/hash must also preserve velocities, mass,
+    fixed/sleep/contact fields, and frame counters.
+
+  Revised implementation order:
+  - 8.2 first adds a runtime presentation compaction model that separates stable
+    visual body metadata from per-frame pose/debug deltas, while retaining a
+    lossless reconstruction path to the existing `ReplayPresentationSample`
+    public API. Default visual look and hashes must not change.
+  - 8.3 starts with a solver field matrix before any solver delta format. Fields
+    are classified as restore-critical, hash-critical, debug-only, or derived;
+    only then can keyframe/delta storage and saved-artifact compatibility be
+    implemented without weakening restore verification.
+  - 8.4 lands after real storage knobs exist: presets and UI sliders resolve
+    into one `ReplayRuntime` policy owner, then budget enforcement degrades
+    solver/debug detail before visual quality in the default Lossless Look path.
+
+  Documentation-only slice; no repository validation required.
+
+  Complete 2026-07-10: presentation retention now keeps body identity/display
+  metadata in `ReplayVisualBodyMetadata` and per-frame compact
+  `ReplayVisualDeltaFrame` records. Capture writes body rows through a scratch
+  list, stores per-frame body order plus changed dynamic state, and leaves
+  retained `ReplayPresentationSample::bodies` empty until a caller asks for a
+  full sample. `LatestSample()`, `SampleAtNormalized()`, and chronological
+  copies reconstruct lossless presentation samples from the nearest keyframe
+  plus deltas, with per-slot reconstruction cache preserving the old pointer
+  lifetime contract. Ring eviction promotes the new oldest visual frame to a
+  keyframe before overwriting its predecessor, so retained history remains
+  seekable after wrap.
+
+  Validation:
+  - Touched-source comment audit: `ReplayRecorder.h` and `ReplayRecorder.cpp`
+    inspected, 2 checked, 0 deferred; no subsystem checklist required.
+  - `git diff --check` passed.
+  - `tools\validate_format.bat` passed in 10.02s
+    (`Agentic\Reports\validate_format_replay_stage8_2_post_fix_20260710.log`).
+  - Focused replay recorder unit filter passed in 2.01s:
+    `Profile\SKULLBONEZ_TESTS.exe --test-case="ReplayRecorder*"`
+    (`Agentic\Reports\replay_recorder_unit_stage8_2_after_cache_20260710.log`).
+  - `tools\validate_full.bat` passed in 67.76s
+    (`Agentic\Reports\validate_full_replay_stage8_2_20260710.log`): Profile
+    and Debug builds were 0 warnings/errors, DX12 validation errors were 0,
+    screenshots matched baselines, and `physics_regression_solver.csv` matched
+    byte-exactly.
+  - `tools\validate_replay_scrub.bat` passed in 23.51s
+    (`Agentic\Reports\validate_replay_scrub_replay_stage8_2_20260710.log`).
+    SkullScope accounting: scrub trace 54,932 bytes, scrub SQLite 225,280
+    bytes, scrub query output 1,512 bytes; restore trace 54,912 bytes, restore
+    SQLite 225,280 bytes, restore query output 967 bytes; total model-read
+    SkullScope query output 2,479 bytes. Prediction determinism fingerprint
+    `0x0165312C5422A5F1` matched across two runs (402 records, 73,021 points,
+    361 active frames).
 
 Stage 9 — Debug tooling & tests
 - [ ] 9.1 Overlay debug readout (record count/bytes/version churn).
