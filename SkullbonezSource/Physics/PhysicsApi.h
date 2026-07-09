@@ -453,6 +453,16 @@ struct PhysicsIslandCollectionView
     uint32_t islandCount = 0;
 };
 
+// Borrowed descriptor-refresh inputs owned by the scene/model collection. The
+// physics facade reads these spans only for the duration of the refresh call.
+struct PhysicsAuthoredBodyRefreshView
+{
+    const uint32_t* replayBodyIds = nullptr;
+    const ModelRowHint* fixedTreeReleaseRoots = nullptr;
+    const char* const* diagnosticNames = nullptr;
+    PhysicsAuthoredBodyCount bodyCount;
+};
+
 struct PhysicsDiagnosticsSnapshot
 {
     const int64_t* collisionCellKeys = nullptr;

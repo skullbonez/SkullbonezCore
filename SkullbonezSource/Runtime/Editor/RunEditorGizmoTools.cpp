@@ -59,14 +59,14 @@ namespace RunInternal
 {
 int HitEditorGizmoAxis( EditorGizmoContext context, const Vector3& rayOrigin, const Vector3& rayDirection )
 {
-    const PhysicsBodyStore& bodyStore = context.models.GetPhysicsEngine().BodyStore();
+    const PhysicsBodyStore& bodyStore = context.models.BodyStore();
     const int selectedModelIndex = ResolveSelectedEditorModelIndex( context.editor, bodyStore );
     if ( selectedModelIndex < 0 || selectedModelIndex >= context.models.SceneEntityCount() )
     {
         return -1;
     }
 
-    const ColliderStore& colliderStore = context.models.GetPhysicsEngine().Colliders();
+    const ColliderStore& colliderStore = context.models.Colliders();
     Vector3 origin;
     float radius = 1.0f;
     if ( !TryGetEditorSelectionFrame( context.models,
@@ -103,14 +103,14 @@ int HitEditorGizmoAxis( EditorGizmoContext context, const Vector3& rayOrigin, co
 
 int HitEditorRotationGizmoAxis( EditorGizmoContext context, const Vector3& rayOrigin, const Vector3& rayDirection )
 {
-    const PhysicsBodyStore& bodyStore = context.models.GetPhysicsEngine().BodyStore();
+    const PhysicsBodyStore& bodyStore = context.models.BodyStore();
     const int selectedModelIndex = ResolveSelectedEditorModelIndex( context.editor, bodyStore );
     if ( selectedModelIndex < 0 || selectedModelIndex >= context.models.SceneEntityCount() )
     {
         return -1;
     }
 
-    const ColliderStore& colliderStore = context.models.GetPhysicsEngine().Colliders();
+    const ColliderStore& colliderStore = context.models.Colliders();
     Vector3 origin;
     float radius = 1.0f;
     if ( !TryGetEditorSelectionFrame( context.models,
@@ -164,7 +164,7 @@ bool TryEditorAxisRayParameter( EditorGizmoContext context,
                                 const Vector3& rayDirection,
                                 float& outAxisT )
 {
-    const PhysicsBodyStore& bodyStore = context.models.GetPhysicsEngine().BodyStore();
+    const PhysicsBodyStore& bodyStore = context.models.BodyStore();
     const int selectedModelIndex = ResolveSelectedEditorModelIndex( context.editor, bodyStore );
     if ( axis < 0 || axis > 2 || selectedModelIndex < 0 || selectedModelIndex >= context.models.SceneEntityCount() )
     {
@@ -173,7 +173,7 @@ bool TryEditorAxisRayParameter( EditorGizmoContext context,
 
     Vector3 axisOrigin;
     float radius = 1.0f;
-    const ColliderStore& colliderStore = context.models.GetPhysicsEngine().Colliders();
+    const ColliderStore& colliderStore = context.models.Colliders();
     if ( !TryGetEditorSelectionFrame( context.models,
                                       bodyStore,
                                       colliderStore,
@@ -266,7 +266,7 @@ bool TryEditorRotationRayAngle( EditorGizmoContext context,
                                 const Vector3& rayDirection,
                                 float& outAngle )
 {
-    const PhysicsBodyStore& bodyStore = context.models.GetPhysicsEngine().BodyStore();
+    const PhysicsBodyStore& bodyStore = context.models.BodyStore();
     const int selectedModelIndex = ResolveSelectedEditorModelIndex( context.editor, bodyStore );
     if ( axis < 0 || axis > 2 || selectedModelIndex < 0 || selectedModelIndex >= context.models.SceneEntityCount() )
     {
@@ -275,7 +275,7 @@ bool TryEditorRotationRayAngle( EditorGizmoContext context,
 
     Vector3 origin;
     float radius = 1.0f;
-    const ColliderStore& colliderStore = context.models.GetPhysicsEngine().Colliders();
+    const ColliderStore& colliderStore = context.models.Colliders();
     if ( !TryGetEditorSelectionFrame( context.models,
                                       bodyStore,
                                       colliderStore,
@@ -336,7 +336,7 @@ void MoveSelectedEditorObjectAlongAxis( EditorGizmoContext context,
         return;
     }
 
-    const PhysicsBodyStore& bodyStore = context.models.GetPhysicsEngine().BodyStore();
+    const PhysicsBodyStore& bodyStore = context.models.BodyStore();
     const int index = ResolveSelectedEditorModelIndex( context.editor, bodyStore );
     if ( index < 0 || index >= context.models.SceneEntityCount() )
     {
@@ -386,7 +386,7 @@ void ScaleSelectedEditorObjectAlongAxis( EditorGizmoContext context,
         return;
     }
 
-    const PhysicsBodyStore& bodyStore = context.models.GetPhysicsEngine().BodyStore();
+    const PhysicsBodyStore& bodyStore = context.models.BodyStore();
     const int index = ResolveSelectedEditorModelIndex( context.editor, bodyStore );
     if ( index < 0 || index >= context.models.SceneEntityCount() )
     {
@@ -402,7 +402,7 @@ void ScaleSelectedEditorObjectAlongAxis( EditorGizmoContext context,
     // Invariant: scale starts from the ColliderStore shape captured at drag
     // begin. The descriptor below preserves that store-owned material identity
     // while replacing only the edited shape facts.
-    const ColliderStore& colliderStore = context.models.GetPhysicsEngine().Colliders();
+    const ColliderStore& colliderStore = context.models.Colliders();
     const PhysicsBodyRecord* selectedBody = nullptr;
     const ColliderRecord* selectedCollider = nullptr;
     if ( !TryResolveEditorBodyCollider( bodyStore,
@@ -448,7 +448,7 @@ void RotateSelectedEditorObjectAroundAxis( EditorGizmoContext context,
         return;
     }
 
-    const PhysicsBodyStore& bodyStore = context.models.GetPhysicsEngine().BodyStore();
+    const PhysicsBodyStore& bodyStore = context.models.BodyStore();
     const int index = ResolveSelectedEditorModelIndex( context.editor, bodyStore );
     if ( index < 0 || index >= context.models.SceneEntityCount() )
     {

@@ -48,6 +48,7 @@ Related:
 #include "../Core/FatalError.h"
 #include "../Core/Log.h"
 #include "../Physics/ColliderStore.h"
+#include "../Physics/PhysicsEngineStoreQueries.h"
 #include "../Physics/PhysicsApi.h"
 #include "../Physics/PhysicsDiagnosticsSink.h"
 #include "../Physics/PhysicsTimestep.h"
@@ -320,7 +321,7 @@ void StepRuntimePhysicsTick( SkullbonezCore::GameObjects::GameModelCollection& m
         // Lifetime: Debug diagnostics borrow model name pointers only until
         // Step returns; physics never retains this presentation table after
         // emitting frame diagnostics.
-        modelCollection.FillPhysicsDiagnosticsNames( physicsEngine.BodyStore().Count(), physicsDiagnosticsModelNames );
+        modelCollection.FillPhysicsDiagnosticsNames( SkullbonezCore::Physics::PhysicsEngineStoreQueries::BodyStore( physicsEngine ).Count(), physicsDiagnosticsModelNames );
         diagnosticNames = physicsDiagnosticsModelNames.empty() ? nullptr : physicsDiagnosticsModelNames.data();
         diagnosticNameCount = static_cast<int>( physicsDiagnosticsModelNames.size() );
     }
@@ -331,7 +332,7 @@ void StepRuntimePhysicsTick( SkullbonezCore::GameObjects::GameModelCollection& m
     // Why: fixed-contact highlights are presentation feedback, not solver
     // state. Keeping this edge here leaves the normal step visibly store-owned
     // instead of hiding side effects in GameModelCollection.
-    for ( int index : physicsEngine.GetFixedContactHighlightBodies() )
+    for ( int index : SkullbonezCore::Physics::PhysicsEngineStoreQueries::FixedContactHighlightBodies( physicsEngine ) )
     {
         modelCollection.NotifyFixedContact( index, 0.5f );
     }
@@ -390,7 +391,7 @@ class SimulationPostStepPipeline
                                                                  : SkullbonezCore::Math::Vector::ZERO_VECTOR;
         context.contactAudio.BeginPhysicsStep( PHYSICS_FIXED_DT, listenerPosition );
 
-        const auto& colliderRecords = context.models.GetPhysicsEngine().Colliders().Records();
+        const auto& colliderRecords = context.models.Colliders().Records();
         auto materialForBody = [&]( int bodyIndex ) -> uint32_t
         {
             if ( bodyIndex >= 0 && bodyIndex < static_cast<int>( colliderRecords.size() ) )
@@ -406,7 +407,7 @@ class SimulationPostStepPipeline
             // did a dynamic body experience enough mass-scaled linear velocity
             // change to be heard? Motion comes from PhysicsBodyStore and contact
             // material comes from the paired ColliderStore row.
-            const auto& bodyRecords = context.models.GetPhysicsEngine().BodyStore().Records();
+            const auto& bodyRecords = context.models.BodyStore().Records();
             const int simpleBodyCount = static_cast<int>(
                 bodyRecords.size() < colliderRecords.size() ? bodyRecords.size() : colliderRecords.size() );
             context.contactAudio.BeginSimpleLinearStep( simpleBodyCount );
@@ -538,8 +539,8 @@ class SimulationPostStepPipeline
         input.cameras = context.systems.cameras;
         input.world = &context.world;
         input.models = &context.models;
-        input.bodyStore = &context.models.GetPhysicsEngine().BodyStore();
-        input.colliderStore = &context.models.GetPhysicsEngine().Colliders();
+        input.bodyStore = &context.models.BodyStore();
+        input.colliderStore = &context.models.Colliders();
         input.launcherVisual = &context.replayLauncherVisualScratch;
         context.replayRuntime.CaptureFrame( input );
     }

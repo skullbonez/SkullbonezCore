@@ -118,8 +118,8 @@ bool RuntimeTools::PickLauncherReproTarget( GameModelCollection& collection,
     // sphere around its current physics body position, then chooses the nearest
     // sphere pierced by the camera ray. GameModel remains only the cold identity
     // table for the eventual snapshot row.
-    const ColliderStore& colliderStore = collection.GetPhysicsEngine().Colliders();
-    const PhysicsBodyStore& bodyStore = collection.GetPhysicsEngine().BodyStore();
+    const ColliderStore& colliderStore = collection.Colliders();
+    const PhysicsBodyStore& bodyStore = collection.BodyStore();
     const auto& colliders = colliderStore.Records();
     for ( const ColliderRecord& collider : colliders )
     {
@@ -194,8 +194,8 @@ RuntimeTools::WriteLauncherReproSnapshot( const LauncherReproSnapshotContext& co
     }
 
     GameModel& model = context.collection.GetModelAtIndex( targetIndex );
-    const ColliderStore& colliderStore = context.collection.GetPhysicsEngine().Colliders();
-    const PhysicsBodyStore& bodyStore = context.collection.GetPhysicsEngine().BodyStore();
+    const ColliderStore& colliderStore = context.collection.Colliders();
+    const PhysicsBodyStore& bodyStore = context.collection.BodyStore();
     const ColliderRecord* collider = LauncherReproColliderForModelIndex( bodyStore, colliderStore, targetIndex );
     if ( !collider )
     {

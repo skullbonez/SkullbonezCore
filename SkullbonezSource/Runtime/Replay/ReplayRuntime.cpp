@@ -47,6 +47,7 @@ Related:
 #include "../../Physics/ColliderStore.h"
 #include "../../Physics/PhysicsApi.h"
 #include "../../Physics/PhysicsEngine.h"
+#include "../../Physics/PhysicsEngineStoreQueries.h"
 #include "../../Physics/PhysicsBodyStore.h"
 #include "../../Physics/PhysicsTimestep.h"
 
@@ -309,8 +310,8 @@ uint64_t PredictionEngineMemoryBytes( const PhysicsEngine& engine )
     uint64_t bytes = static_cast<uint64_t>( sizeof( engine ) );
     bytes += engine.CollectPhysicsWorldMemoryBytes();
     bytes += engine.CollectDebugAndBroadphaseMemoryBytes();
-    bytes += static_cast<uint64_t>( engine.BodyStore().Records().capacity() ) * sizeof( PhysicsBodyRecord );
-    bytes += static_cast<uint64_t>( engine.Colliders().Records().capacity() ) * sizeof( ColliderRecord );
+    bytes += static_cast<uint64_t>( SkullbonezCore::Physics::PhysicsEngineStoreQueries::BodyStore( engine ).Records().capacity() ) * sizeof( PhysicsBodyRecord );
+    bytes += static_cast<uint64_t>( SkullbonezCore::Physics::PhysicsEngineStoreQueries::Colliders( engine ).Records().capacity() ) * sizeof( ColliderRecord );
     return bytes;
 }
 
@@ -1808,7 +1809,7 @@ void ReplayRuntime::CaptureFrame( ReplayCaptureInput input )
 bool ReplayRuntime::ApplyPresentationSampleForRender( GameObjects::GameModelCollection& collection,
                                                       const ReplayPresentationSample& sample )
 {
-    const PhysicsBodyStore& bodyStore = collection.GetPhysicsEngine().BodyStore();
+    const PhysicsBodyStore& bodyStore = collection.BodyStore();
     const int modelCount = collection.RenderInstances().Count();
     if ( !ReplayRuntimePrepareBodyMatchedMask( m_renderPoseBodyMatched, modelCount ) )
     {
@@ -1873,7 +1874,7 @@ bool ReplayRuntime::ApplyPresentationSampleForRender( GameObjects::GameModelColl
 bool ReplayRuntime::ApplySolverSampleForRender( GameObjects::GameModelCollection& collection,
                                                 const ReplaySolverFrameSample& sample )
 {
-    const PhysicsBodyStore& bodyStore = collection.GetPhysicsEngine().BodyStore();
+    const PhysicsBodyStore& bodyStore = collection.BodyStore();
     const int modelCount = collection.RenderInstances().Count();
     if ( !ReplayRuntimePrepareBodyMatchedMask( m_renderPoseBodyMatched, modelCount ) )
     {
@@ -1935,7 +1936,7 @@ bool ReplayRuntime::ApplySolverSampleForRender( GameObjects::GameModelCollection
 bool ReplayRuntime::ApplyPredictionFrameForRender( GameObjects::GameModelCollection& collection,
                                                    const RunReplayPredictionFrame& frame )
 {
-    const PhysicsBodyStore& bodyStore = collection.GetPhysicsEngine().BodyStore();
+    const PhysicsBodyStore& bodyStore = collection.BodyStore();
     const int modelCount = collection.RenderInstances().Count();
     if ( !ReplayRuntimePrepareBodyMatchedMask( m_renderPoseBodyMatched, modelCount ) )
     {

@@ -32,6 +32,7 @@ Related:
 #include "ReplayOverlayLayout.h"
 #include "../../Physics/ColliderStore.h"
 #include "../../Physics/PhysicsBodyStore.h"
+#include "../../Physics/PhysicsEngineStoreQueries.h"
 #include "../../UI/UIInput.h"
 
 #include <algorithm>
@@ -482,8 +483,8 @@ bool Run::TickReplayVelocityEditInput( HWND hwnd, bool uiBlocksMouse )
     const auto tryResolveVelocityBody = [&]( ReplayVelocityBodyView& outBody )
     {
         return velocityStoresReady && TryResolveReplayVelocityBodyView( m_replayRuntime,
-                                                                        velocityPhysics.BodyStore(),
-                                                                        velocityPhysics.Colliders(),
+                                                                        SkullbonezCore::Physics::PhysicsEngineStoreQueries::BodyStore( velocityPhysics ),
+                                                                        SkullbonezCore::Physics::PhysicsEngineStoreQueries::Colliders( velocityPhysics ),
                                                                         outBody );
     };
 
@@ -751,8 +752,8 @@ void Run::RenderReplayVelocityEditOverlay( RunEditorTracer& tracer )
     }
     PhysicsEngine& velocityPhysics = m_cGameModelCollection.GetPhysicsEngine();
     if ( !TryResolveReplayVelocityBodyView( m_replayRuntime,
-                                            velocityPhysics.BodyStore(),
-                                            velocityPhysics.Colliders(),
+                                            SkullbonezCore::Physics::PhysicsEngineStoreQueries::BodyStore( velocityPhysics ),
+                                            SkullbonezCore::Physics::PhysicsEngineStoreQueries::Colliders( velocityPhysics ),
                                             body ) ||
          body.fixed || !body.shape )
     {

@@ -34,6 +34,7 @@ Related:
 
 #include "../../Physics/ColliderStore.h"
 #include "../../Physics/PhysicsApi.h"
+#include "../../Physics/PhysicsEngineStoreQueries.h"
 #include "../../Physics/PhysicsTimestep.h"
 
 #include <cmath>
@@ -101,7 +102,7 @@ void RestoreReplayProbeRenderInstances( SkullbonezCore::GameObjects::GameModelCo
 const PhysicsBodyRecord*
 TryGetReplayProbeBodyRecord( const SkullbonezCore::GameObjects::GameModelCollection& collection, int modelIndex )
 {
-    const PhysicsBodyStore& bodyStore = collection.GetPhysicsEngine().BodyStore();
+    const PhysicsBodyStore& bodyStore = collection.BodyStore();
     const PhysicsBodyHandle bodyHandle = bodyStore.HandleForModelIndex( modelIndex );
     const PhysicsBodyRecord* body = bodyStore.RecordForHandle( bodyHandle );
     if ( !body || bodyStore.ModelIndexForHandle( bodyHandle ) != modelIndex )
@@ -122,7 +123,7 @@ TryGetEditorTransformColliderRecord( const SkullbonezCore::GameObjects::GameMode
                                      uint32_t replayBodyId )
 {
     const ColliderStore& colliderStore = collection.Colliders();
-    const PhysicsBodyStore& bodyStore = collection.GetPhysicsEngine().BodyStore();
+    const PhysicsBodyStore& bodyStore = collection.BodyStore();
     const PhysicsBodyHandle bodyHandle = replayBodyId != 0u
                                              ? bodyStore.HandleForReplayBodyId( replayBodyId, modelIndex )
                                              : bodyStore.HandleForModelIndex( modelIndex );
@@ -219,7 +220,7 @@ SbResult InjectReplaySaveProbeEventCoverage( ReplaySaveProbeEventCoverageContext
                                                       placementResult.placementScale,
                                                       placementResult.placementYawRadians );
         const PhysicsBodyRecord* placedBodyBeforeEdit =
-            context.models.GetPhysicsEngine().BodyStore().RecordForHandle( placementResult.placedBody );
+            context.models.BodyStore().RecordForHandle( placementResult.placedBody );
         if ( !placedBodyBeforeEdit )
         {
             return ReplayProbeFailure( "replay save probe failed to resolve placed body record" );
@@ -267,7 +268,7 @@ SbResult InjectReplaySaveProbeEventCoverage( ReplaySaveProbeEventCoverageContext
                                     placedColliderBeforeEdit->restitution,
                                     placedColliderBeforeEdit->contactMaterialId ) );
         const PhysicsBodyRecord* placedBodyAfterEdit =
-            context.models.GetPhysicsEngine().BodyStore().RecordForModelIndex( modelCountBeforePlace );
+            context.models.BodyStore().RecordForModelIndex( modelCountBeforePlace );
         if ( !placedBodyAfterEdit || placedBodyAfterEdit->replayBodyId == 0 )
         {
             return ReplayProbeFailure( "replay save probe failed to capture edited body record" );
@@ -934,7 +935,7 @@ bool ApplyReplayRestoreEditorTransformEvent( SkullbonezCore::GameObjects::GameMo
         return false;
     }
 
-    const PhysicsBodyStore& bodyStoreBeforeEdit = models.GetPhysicsEngine().BodyStore();
+    const PhysicsBodyStore& bodyStoreBeforeEdit = models.BodyStore();
     const PhysicsBodyHandle eventBody =
         bodyStoreBeforeEdit.HandleForReplayBodyId( static_cast<uint32_t>( event.value1 ), event.value0 );
     const PhysicsBodyRecord* eventBodyRecord = bodyStoreBeforeEdit.RecordForHandle( eventBody );
@@ -1001,7 +1002,7 @@ bool ApplyReplayRestoreEditorTransformEvent( SkullbonezCore::GameObjects::GameMo
     // The wake decision should read the committed PhysicsBodyStore record, not
     // presentation/authored pose data.
     PhysicsEngine& physics = models.GetPhysicsEngine();
-    const PhysicsBodyStore& bodyStore = physics.BodyStore();
+    const PhysicsBodyStore& bodyStore = SkullbonezCore::Physics::PhysicsEngineStoreQueries::BodyStore( physics );
     const PhysicsBodyHandle body =
         bodyStore.HandleForReplayBodyId( static_cast<uint32_t>( event.value1 ), event.value0 );
     const PhysicsBodyRecord* bodyRecord = bodyStore.RecordForHandle( body );
@@ -1747,7 +1748,7 @@ bool RebuildReplayGeneratedSceneTopology( ReplayRestoreOwnerContext& context,
     // even though it does not enter the full scene-load path. Reset the
     // scene-owned id cursor after the clear so regenerated
     // PhysicsSceneObjectId/replay ids match the checkpoint topology.
-    context.scene.ResetSceneObjectIdCursor( context.models.GetPhysicsEngine().BodyStore() );
+    context.scene.ResetSceneObjectIdCursor( context.models.BodyStore() );
     context.runtimeTools.ClearRayCastTestLines();
     context.simulation.Reset();
     context.scene.rngSeed = static_cast<unsigned int>( event.value3 );

@@ -136,7 +136,7 @@ void ResetObjectMaterials( GameModelCollection& models )
 void ApplyObjectMaterials( GameModelCollection& models, const TestScene& styleScene )
 {
     ResetObjectMaterials( models );
-    const auto& colliders = models.GetPhysicsEngine().Colliders().Records();
+    const auto& colliders = models.Colliders().Records();
     for ( int materialIndex = 0; materialIndex < styleScene.GetObjectMaterialOverrideCount(); ++materialIndex )
     {
         const SceneObjectMaterialOverride& material = styleScene.GetObjectMaterialOverride( materialIndex );

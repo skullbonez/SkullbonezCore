@@ -29,14 +29,12 @@ Related:
 #include "PhysicsEngine.h"
 
 using SkullbonezCore::Basics::ReplaySolverWorldSnapshot;
-using SkullbonezCore::Physics::ColliderStore;
 using SkullbonezCore::Physics::ModelRowHint;
+using SkullbonezCore::Physics::PhysicsAuthoredBodyRefreshView;
 using SkullbonezCore::Physics::PhysicsAuthoredBodyCount;
 using SkullbonezCore::Physics::PhysicsBodyCreateDesc;
 using SkullbonezCore::Physics::PhysicsBodyCount;
 using SkullbonezCore::Physics::PhysicsBodyHandle;
-using SkullbonezCore::Physics::PhysicsBodyRecord;
-using SkullbonezCore::Physics::PhysicsBodyStore;
 using SkullbonezCore::Physics::PhysicsColliderCreateDesc;
 using SkullbonezCore::Physics::PhysicsColliderCount;
 using SkullbonezCore::Physics::PhysicsColliderHandle;
@@ -98,17 +96,9 @@ void PhysicsEngine::Clear()
 }
 
 
-bool PhysicsEngine::RefreshBodyStoreFromAuthoredDescriptors( const std::vector<uint32_t>& replayBodyIds,
-                                                             const std::vector<int>& fixedTreeReleaseRoots,
-                                                             const std::vector<const char*>& diagnosticNames )
+bool PhysicsEngine::RefreshBodyStoreFromAuthoredDescriptors( const PhysicsAuthoredBodyRefreshView& refreshView )
 {
-    return m_scene.RefreshBodyStoreFromAuthoredDescriptors( replayBodyIds, fixedTreeReleaseRoots, diagnosticNames );
-}
-
-
-void PhysicsEngine::RefreshBodyStore( const std::vector<PhysicsBodyCreateDesc>& bodyDescs )
-{
-    m_scene.RefreshBodyStore( bodyDescs );
+    return m_scene.RefreshBodyStoreFromAuthoredDescriptors( refreshView );
 }
 
 
@@ -144,15 +134,15 @@ void PhysicsEngine::ClearPendingBodyImpulses()
 }
 
 
-bool PhysicsEngine::TrimBodyStoreToCount( PhysicsBodyCount bodyCount )
+bool PhysicsEngine::TrimBodiesToCount( PhysicsBodyCount bodyCount )
 {
-    return m_scene.TrimBodyStoreToCount( bodyCount );
+    return m_scene.TrimBodiesToCount( bodyCount );
 }
 
 
-bool PhysicsEngine::TrimColliderStoreToCount( PhysicsColliderCount colliderCount )
+bool PhysicsEngine::TrimCollidersToCount( PhysicsColliderCount colliderCount )
 {
-    return m_scene.TrimColliderStoreToCount( colliderCount );
+    return m_scene.TrimCollidersToCount( colliderCount );
 }
 
 
@@ -353,84 +343,6 @@ bool PhysicsEngine::ShouldEmitStepDiagnostics() const
 bool PhysicsEngine::ShouldEmitCollisionTimeDiagnostics() const
 {
     return m_scene.ShouldEmitCollisionTimeDiagnostics();
-}
-
-
-const std::vector<int>& PhysicsEngine::GetFixedContactHighlightBodies() const
-{
-    return m_scene.GetFixedContactHighlightBodies();
-}
-
-
-const PhysicsBodyStore& PhysicsEngine::BodyStore() const
-{
-    return m_scene.BodyStore();
-}
-
-
-const ColliderStore& PhysicsEngine::Colliders() const
-{
-    return m_scene.Colliders();
-}
-
-
-const SkullbonezCore::Math::CollisionDetection::SpatialGrid& PhysicsEngine::GetSpatialGrid() const
-{
-    return m_scene.GetSpatialGrid();
-}
-
-
-const std::vector<int64_t>& PhysicsEngine::GetCollisionCellKeys() const
-{
-    return m_scene.GetCollisionCellKeys();
-}
-
-
-const std::vector<uint8_t>& PhysicsEngine::GetCollisionVisualContacts() const
-{
-    return m_scene.GetCollisionVisualContacts();
-}
-
-
-const std::vector<uint8_t>& PhysicsEngine::GetSleepStates() const
-{
-    return m_scene.GetSleepStates();
-}
-
-
-const std::vector<int>& PhysicsEngine::GetSleepIslandVisualIds() const
-{
-    return m_scene.GetSleepIslandVisualIds();
-}
-
-
-const std::vector<uint8_t>& PhysicsEngine::GetSleepSupportedStates() const
-{
-    return m_scene.GetSleepSupportedStates();
-}
-
-
-const std::vector<uint8_t>& PhysicsEngine::GetSleepInhibitedStates() const
-{
-    return m_scene.GetSleepInhibitedStates();
-}
-
-
-const std::vector<SkullbonezCore::Physics::PhysicsDebugContact>& PhysicsEngine::GetPhysicsDebugContacts() const
-{
-    return m_scene.GetPhysicsDebugContacts();
-}
-
-
-const std::vector<SkullbonezCore::Physics::PhysicsPipelineRecord>& PhysicsEngine::GetPhysicsPipelineTrace() const
-{
-    return m_scene.GetPhysicsPipelineTrace();
-}
-
-
-const std::vector<SkullbonezCore::Physics::PointJointConstraint>& PhysicsEngine::GetPointJointConstraints() const
-{
-    return m_scene.GetPointJointConstraints();
 }
 
 

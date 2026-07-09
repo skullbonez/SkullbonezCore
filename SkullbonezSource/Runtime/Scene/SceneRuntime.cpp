@@ -397,8 +397,8 @@ void SceneRuntime::UpdateRequiredContacts( SkullbonezCore::GameObjects::GameMode
         return;
     }
 
-    const PhysicsBodyStore& bodyStore = models.GetPhysicsEngine().BodyStore();
-    const ColliderStore& colliderStore = models.GetPhysicsEngine().Colliders();
+    const PhysicsBodyStore& bodyStore = models.BodyStore();
+    const ColliderStore& colliderStore = models.Colliders();
     const auto& bodyRecords = bodyStore.Records();
     const auto& colliderRecords = colliderStore.Records();
     const int contactModelCount =

@@ -60,6 +60,7 @@ Related:
 #include "../Allocation/RuntimeReserveAllocator.h"
 #include "../../Physics/ColliderStore.h"
 #include "../../Physics/PhysicsBodyStore.h"
+#include "../../Physics/PhysicsEngineStoreQueries.h"
 #include "../../Physics/PhysicsMass.h"
 #include "../../Physics/PhysicsTimestep.h"
 #include "../RuntimeFileWriter.h"
@@ -489,8 +490,8 @@ int ReplayPredictionEngineReserveBytes( const PhysicsEngine& engine )
     uint64_t bytes = static_cast<uint64_t>( sizeof( PhysicsEngine ) );
     bytes += engine.CollectPhysicsWorldMemoryBytes();
     bytes += engine.CollectDebugAndBroadphaseMemoryBytes();
-    bytes += static_cast<uint64_t>( engine.BodyStore().Records().capacity() ) * sizeof( PhysicsBodyRecord );
-    bytes += static_cast<uint64_t>( engine.Colliders().Records().capacity() ) * sizeof( ColliderRecord );
+    bytes += static_cast<uint64_t>( SkullbonezCore::Physics::PhysicsEngineStoreQueries::BodyStore( engine ).Records().capacity() ) * sizeof( PhysicsBodyRecord );
+    bytes += static_cast<uint64_t>( SkullbonezCore::Physics::PhysicsEngineStoreQueries::Colliders( engine ).Records().capacity() ) * sizeof( ColliderRecord );
     if ( bytes == 0 || bytes > static_cast<uint64_t>( REPLAY_PREDICTION_RESERVE_HARD_BYTES ) ||
          bytes > static_cast<uint64_t>( ( std::numeric_limits<int>::max )() ) )
     {
@@ -3468,7 +3469,7 @@ bool ApplyReplayPredictionBodyState( PhysicsEngine& physicsEngine,
                                      const std::vector<RunReplayPredictionBodyBackup>& bodies )
 {
     PROFILE_SCOPED( "Frame/Replay/Prediction/ApplyBodyState" );
-    const PhysicsBodyStore& bodyStore = physicsEngine.BodyStore();
+    const PhysicsBodyStore& bodyStore = SkullbonezCore::Physics::PhysicsEngineStoreQueries::BodyStore( physicsEngine );
     if ( bodies.size() != static_cast<std::size_t>( bodyStore.Count() ) )
     {
         return false;
@@ -3577,7 +3578,7 @@ bool CaptureReplayPredictionFrame( ReplayRuntime& replayRuntime,
                                    ReplayFrameIndex frameIndex )
 {
     PROFILE_SCOPED( "Frame/Replay/Prediction/CaptureSample" );
-    const PhysicsBodyStore& bodyStore = physicsEngine.BodyStore();
+    const PhysicsBodyStore& bodyStore = SkullbonezCore::Physics::PhysicsEngineStoreQueries::BodyStore( physicsEngine );
     const auto& bodyRecords = bodyStore.Records();
     if ( static_cast<int>( bodyRecords.size() ) < modelCount )
     {
@@ -3636,7 +3637,7 @@ bool CaptureReplayPredictionFrame( ReplayRuntime& replayRuntime,
             captureBody( i );
         }
     }
-    const std::vector<PhysicsDebugContact>& debugContacts = physicsEngine.GetPhysicsDebugContacts();
+    const std::vector<PhysicsDebugContact>& debugContacts = SkullbonezCore::Physics::PhysicsEngineStoreQueries::DebugContacts( physicsEngine );
     if ( debugContacts.size() > frame.debugContacts.capacity() )
     {
         // Why: debug contacts feed the optional future-impact tree; the root
@@ -3754,7 +3755,7 @@ bool CompleteReplayPredictionJobOnFrameThread( ReplayRuntime& replayRuntime, dou
     {
         prediction.simulation.predictionEngine->CaptureReplaySolverSnapshot(
             prediction.simulation.predictionWorld,
-            MakePhysicsBodyCountFromNonNegativeInt( prediction.simulation.predictionEngine->BodyStore().Count() ) );
+            MakePhysicsBodyCountFromNonNegativeInt( SkullbonezCore::Physics::PhysicsEngineStoreQueries::BodyStore( *prediction.simulation.predictionEngine ).Count() ) );
     }
 
     const float previousPresentT = replayRuntime.SolverPresentTrackPosition();
@@ -3870,8 +3871,8 @@ bool BeginReplayPredictionJob( ReplayRuntime& replayRuntime,
         return false;
     }
     PhysicsEngine& physicsEngine = modelCollection.GetPhysicsEngine();
-    const int modelCount = physicsEngine.BodyStore().Count();
-    const PhysicsBodyStore& liveBodyStore = physicsEngine.BodyStore();
+    const int modelCount = SkullbonezCore::Physics::PhysicsEngineStoreQueries::BodyStore( physicsEngine ).Count();
+    const PhysicsBodyStore& liveBodyStore = SkullbonezCore::Physics::PhysicsEngineStoreQueries::BodyStore( physicsEngine );
     if ( replayRuntime.PathVisualizer().hasTarget && replayRuntime.PathVisualizer().targetId.value != 0 )
     {
         ModelRowHint targetHint;
@@ -4302,7 +4303,7 @@ void RenderReplayPredictionVisualizer( ReplayRuntime& replayRuntime,
         {
             replayRuntime.CancelPredictionJob( false );
         }
-        const ColliderStore& colliderStore = modelCollection.GetPhysicsEngine().Colliders();
+        const ColliderStore& colliderStore = modelCollection.Colliders();
         DrawReplayPredictionOverlay( replayRuntime,
                                      modelCollection,
                                      colliderStore,
@@ -4379,7 +4380,7 @@ void RenderReplayPredictionVisualizer( ReplayRuntime& replayRuntime,
             return;
         }
     }
-    const ColliderStore& colliderStore = modelCollection.GetPhysicsEngine().Colliders();
+    const ColliderStore& colliderStore = modelCollection.Colliders();
     bool predictionCompletedThisPass = false;
     if ( replayRuntime.Prediction().build.building )
     {
@@ -4523,8 +4524,8 @@ void RenderReplayPathVisualizer( const ReplayPathVisualizerRenderContext& contex
 
     const ReplayFrameIndex presentFrame = presentSample->frameIndex;
     context.replayRuntime.PathVisualizer().futureNodes.clear();
-    const PhysicsBodyStore& bodyStore = context.models.GetPhysicsEngine().BodyStore();
-    const ColliderStore& colliderStore = context.models.GetPhysicsEngine().Colliders();
+    const PhysicsBodyStore& bodyStore = context.models.BodyStore();
+    const ColliderStore& colliderStore = context.models.Colliders();
     for ( RunReplayPathTarget& target : context.replayRuntime.PathVisualizer().targets )
     {
         if ( target.id.value == 0 )
@@ -4598,8 +4599,8 @@ void Run::RenderReplayCauseFocusOverlay( RunEditorTracer& tracer )
 
     if ( m_replayRuntime.Camera().focusKind == RunReplayCameraFocusKind::Body )
     {
-        const PhysicsBodyStore& bodyStore = m_cGameModelCollection.GetPhysicsEngine().BodyStore();
-        const ColliderStore& colliderStore = m_cGameModelCollection.GetPhysicsEngine().Colliders();
+        const PhysicsBodyStore& bodyStore = m_cGameModelCollection.BodyStore();
+        const ColliderStore& colliderStore = m_cGameModelCollection.Colliders();
         ModelRowHint focusHint;
         focusHint.value = m_replayRuntime.Camera().focusModelIndex;
         int focusedModelIndex = -1;

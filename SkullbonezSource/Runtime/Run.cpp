@@ -463,8 +463,8 @@ Run::Run( Window& window,
                                              run->m_runtimeTools.RayCastTest(),
                                              run->m_runtimeTools.MousePickup(),
                                              run->m_cGameModelCollection,
-                                             run->m_cGameModelCollection.GetPhysicsEngine().BodyStore(),
-                                             run->m_cGameModelCollection.GetPhysicsEngine().Colliders(),
+                                             run->m_cGameModelCollection.BodyStore(),
+                                             run->m_cGameModelCollection.Colliders(),
                                              run->m_systems.assets,
                                              tracer },
                                            { run->m_debug.physicsDebugContactLinger,
@@ -862,8 +862,8 @@ bool Run::CaptureCurrentReplaySolverHash( const ReplaySolverFrameSample& referen
     input.cameras = m_systems.cameras;
     input.world = &m_cWorldEnvironment;
     input.models = &m_cGameModelCollection;
-    input.bodyStore = &m_cGameModelCollection.GetPhysicsEngine().BodyStore();
-    input.colliderStore = &m_cGameModelCollection.GetPhysicsEngine().Colliders();
+    input.bodyStore = &m_cGameModelCollection.BodyStore();
+    input.colliderStore = &m_cGameModelCollection.Colliders();
     input.launcherVisual = &launcherVisual;
     verifier.CaptureFrame( input );
 

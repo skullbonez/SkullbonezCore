@@ -220,8 +220,8 @@ bool AttachedCameraController::TryAttachTargetHandlesFromModelIndex( const GameM
                                                                      int modelIndex,
                                                                      AttachedCameraTarget& target )
 {
-    const PhysicsBodyStore& bodyStore = collection.GetPhysicsEngine().BodyStore();
-    const ColliderStore& colliderStore = collection.GetPhysicsEngine().Colliders();
+    const PhysicsBodyStore& bodyStore = collection.BodyStore();
+    const ColliderStore& colliderStore = collection.Colliders();
     const PhysicsBodyRecord* body = bodyStore.RecordForModelIndex( modelIndex );
     const ColliderRecord* collider =
         body ? colliderStore.RecordForHandle( colliderStore.HandleForBodyHandle( body->handle ) ) : nullptr;
@@ -243,8 +243,8 @@ bool AttachedCameraController::TryResolveTargetIdentity( const GameModelCollecti
                                                          int& outModelIndex )
 {
     outModelIndex = -1;
-    const PhysicsBodyStore& bodyStore = collection.GetPhysicsEngine().BodyStore();
-    const ColliderStore& colliderStore = collection.GetPhysicsEngine().Colliders();
+    const PhysicsBodyStore& bodyStore = collection.BodyStore();
+    const ColliderStore& colliderStore = collection.Colliders();
 
     if ( target.body.IsValid() )
     {
@@ -338,8 +338,8 @@ bool AttachedCameraController::TryResolvePhysicsTarget( const GameModelCollectio
         *outModelIndex = modelIndex;
     }
 
-    const PhysicsBodyStore& bodyStore = collection.GetPhysicsEngine().BodyStore();
-    const ColliderStore& colliderStore = collection.GetPhysicsEngine().Colliders();
+    const PhysicsBodyStore& bodyStore = collection.BodyStore();
+    const ColliderStore& colliderStore = collection.Colliders();
     const PhysicsBodyRecord* body = bodyStore.RecordForHandle( target.body );
     const ColliderRecord* collider = colliderStore.RecordForHandle( target.collider );
     if ( !body || !collider || collider->body != body->handle )
@@ -360,7 +360,7 @@ bool AttachedCameraController::TryResolveRagdollHead( const GameModelCollection&
                                                       int& outHeadModelIndex )
 {
     outHeadModelIndex = -1;
-    const int modelCount = collection.GetPhysicsEngine().BodyStore().Count();
+    const int modelCount = collection.BodyStore().Count();
     if ( selectedModelIndex < 0 || selectedModelIndex >= modelCount )
     {
         return false;
@@ -396,7 +396,7 @@ bool AttachedCameraController::SelectTarget( const GameModelCollection& collecti
                                              AttachedCameraTargetSelection& outSelection )
 {
     outSelection = AttachedCameraTargetSelection{};
-    const int modelCount = collection.GetPhysicsEngine().BodyStore().Count();
+    const int modelCount = collection.BodyStore().Count();
     if ( modelIndex < 0 || modelIndex >= modelCount )
     {
         ClearTarget( state );

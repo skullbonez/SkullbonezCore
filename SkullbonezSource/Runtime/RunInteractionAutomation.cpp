@@ -39,6 +39,8 @@ Related:
 #include "RuntimeFileWriter.h"
 #include "RuntimePickService.h"
 
+#include "../Physics/PhysicsEngineStoreQueries.h"
+
 #pragma warning( push, 0 )
 #include "../../ThirdPtySource/nlohmann/json.hpp"
 #pragma warning( pop )
@@ -977,7 +979,7 @@ void ApplyInteractionAutomationReplayStateAction( InteractionAutomationReplaySta
     case RunInteractionAutomationActionType::NudgeReplayPathTargetVelocity:
     {
         Physics::PhysicsEngine& physics = context.gameModels.GetPhysicsEngine();
-        const Physics::PhysicsBodyStore& bodyStore = physics.BodyStore();
+        const Physics::PhysicsBodyStore& bodyStore = SkullbonezCore::Physics::PhysicsEngineStoreQueries::BodyStore( physics );
         const Physics::PhysicsBodyHandle body = context.replayRuntime.ResolveVelocityEditBodyHandle( bodyStore );
         const Physics::PhysicsBodyRecord* record = bodyStore.RecordForHandle( body );
         const bool hasTarget = context.replayRuntime.PathVisualizer().hasTarget &&
@@ -1590,7 +1592,7 @@ EvaluateInteractionAutomationAssertion( InteractionAutomationAssertContext& cont
     {
         evaluation.expected = action.text;
         const int selectedIndex = PeekSelectedEditorModelIndex( context.runtimeTools.Editor(),
-                                                                context.gameModels.GetPhysicsEngine().BodyStore() );
+                                                                context.gameModels.BodyStore() );
         if ( selectedIndex >= 0 && selectedIndex < context.gameModels.SceneEntityCount() )
         {
             evaluation.actual = context.gameModels.GetModelAtIndex( selectedIndex ).GetName();
@@ -1854,7 +1856,7 @@ bool Run::TrySetInteractionAutomationReplayPathTarget( const char* name )
         return false;
     }
 
-    const auto* body = m_cGameModelCollection.GetPhysicsEngine().BodyStore().RecordForModelIndex( modelIndex );
+    const auto* body = m_cGameModelCollection.BodyStore().RecordForModelIndex( modelIndex );
     if ( !body || body->replayBodyId == 0 )
     {
         return false;
@@ -1904,8 +1906,8 @@ bool Run::TryProjectInteractionAutomationModel( const char* name, POINT& outMous
                 {
                     RuntimePickRequest request;
                     request.purpose = RuntimePickPurpose::EditorSelection;
-                    request.bodyStore = &m_cGameModelCollection.GetPhysicsEngine().BodyStore();
-                    request.colliderStore = &m_cGameModelCollection.GetPhysicsEngine().Colliders();
+                    request.bodyStore = &m_cGameModelCollection.BodyStore();
+                    request.colliderStore = &m_cGameModelCollection.Colliders();
                     request.rayOrigin = rayOrigin;
                     request.rayDirection = rayDirection;
 
@@ -2254,7 +2256,7 @@ void Run::WriteInteractionAutomationReport()
     }
 
     const int selectedIndex =
-        PeekSelectedEditorModelIndex( m_runtimeTools.Editor(), m_cGameModelCollection.GetPhysicsEngine().BodyStore() );
+        PeekSelectedEditorModelIndex( m_runtimeTools.Editor(), m_cGameModelCollection.BodyStore() );
     const char* selectedName = "";
     if ( selectedIndex >= 0 && selectedIndex < m_cGameModelCollection.SceneEntityCount() )
     {

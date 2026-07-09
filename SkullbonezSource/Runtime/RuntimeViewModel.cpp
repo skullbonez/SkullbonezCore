@@ -27,6 +27,7 @@ Related:
 #include "RunRuntimeSettings.h"
 #include "Scene/SceneController.h"
 #include "../Physics/PhysicsEngine.h"
+#include "../Physics/PhysicsEngineStoreQueries.h"
 
 #include <algorithm>
 
@@ -117,7 +118,7 @@ RuntimeViewModel RuntimeViewModelBuilder::Build( const RuntimeViewModelContext& 
     // Why: the UI displays a runtime count, but physics body rows are the
     // simulation snapshot authority. Do not ask GameModelCollection to report a
     // model-order compatibility count for this presentation value.
-    view.modelCount = context.physics.BodyStore().Count();
+    view.modelCount = SkullbonezCore::Physics::PhysicsEngineStoreQueries::BodyStore( context.physics ).Count();
     view.timeScale = scene.timeScale;
     return view;
 }

@@ -70,6 +70,7 @@ Related:
 #include "../Maths/Matrix4.h"
 #include "../Physics/PhysicsApi.h"
 #include "../Physics/PhysicsEngine.h"
+#include "../Physics/PhysicsEngineStoreQueries.h"
 #include "../Rendering/RenderInstanceStore.h"
 #include "../Rendering/Shadow.h"
 #include "../Maths/Vector3.h"
@@ -235,7 +236,7 @@ class GameModelCollection
     SceneObjectGroupRecord GroupRecordAt( int modelIndex ) const;
     // Owner boundary: fixed-tree grouping is collection metadata. Body-store
     // import receives only the scalar root, never collection-kind accessors.
-    std::vector<int> BuildFixedTreeReleaseRootsForReload() const;
+    std::vector<Physics::ModelRowHint> BuildFixedTreeReleaseRootsForReload() const;
     std::vector<const char*> BuildDiagnosticNamesForReload() const;
     bool RefreshPhysicsBodyStoreFromAuthoredDescriptors();
     // Private body-only repair is reserved for collection-owned projection
@@ -379,6 +380,7 @@ class GameModelCollection
     bool RepairPhysicsBodyAndColliderTopology();
     // Current prepared collider snapshot. Hot render passes use this after
     // PrepareRenderInstances() instead of invoking topology repair mid-submit.
+    const Physics::PhysicsBodyStore& BodyStore() const;
     const Physics::ColliderStore& Colliders() const;
     // Current prepared render snapshot. Call PrepareRenderInstances() before frame
     // passes; cold callers that need an ensured snapshot use GetRenderInstanceStore().
@@ -461,45 +463,47 @@ class GameModelCollection
                              Rendering::IRenderCommandContext& renderCommands,
                              bool supportsDebugLines,
                              Geometry::Terrain* terrain );
+    // Borrowed debug/diagnostics views over physics-owned dense rows. Callers
+    // must not cache them beyond the frame/tool operation that requested them.
     const Math::CollisionDetection::SpatialGrid& GetSpatialGrid() const
     {
-        return m_physicsEngine.GetSpatialGrid();
+        return Physics::PhysicsEngineStoreQueries::SpatialGrid( m_physicsEngine );
     }
     const std::vector<int64_t>& GetCollisionCellKeys() const
     {
-        return m_physicsEngine.GetCollisionCellKeys();
+        return Physics::PhysicsEngineStoreQueries::CollisionCellKeys( m_physicsEngine );
     }
     const std::vector<uint8_t>& GetCollisionVisualContacts() const
     {
-        return m_physicsEngine.GetCollisionVisualContacts();
+        return Physics::PhysicsEngineStoreQueries::CollisionVisualContacts( m_physicsEngine );
     }
     const std::vector<uint8_t>& GetSleepStates() const
     {
-        return m_physicsEngine.GetSleepStates();
+        return Physics::PhysicsEngineStoreQueries::SleepStates( m_physicsEngine );
     }
     const std::vector<int>& GetSleepIslandVisualIds() const
     {
-        return m_physicsEngine.GetSleepIslandVisualIds();
+        return Physics::PhysicsEngineStoreQueries::SleepIslandVisualIds( m_physicsEngine );
     }
     const std::vector<uint8_t>& GetSleepSupportedStates() const
     {
-        return m_physicsEngine.GetSleepSupportedStates();
+        return Physics::PhysicsEngineStoreQueries::SleepSupportedStates( m_physicsEngine );
     }
     const std::vector<uint8_t>& GetSleepInhibitedStates() const
     {
-        return m_physicsEngine.GetSleepInhibitedStates();
+        return Physics::PhysicsEngineStoreQueries::SleepInhibitedStates( m_physicsEngine );
     }
     const std::vector<Physics::PhysicsDebugContact>& GetPhysicsDebugContacts() const
     {
-        return m_physicsEngine.GetPhysicsDebugContacts();
+        return Physics::PhysicsEngineStoreQueries::DebugContacts( m_physicsEngine );
     }
     const std::vector<Physics::PhysicsPipelineRecord>& GetPhysicsPipelineTrace() const
     {
-        return m_physicsEngine.GetPhysicsPipelineTrace();
+        return Physics::PhysicsEngineStoreQueries::PipelineTrace( m_physicsEngine );
     }
     const std::vector<Physics::PointJointConstraint>& GetPointJointConstraints() const
     {
-        return m_physicsEngine.GetPointJointConstraints();
+        return Physics::PhysicsEngineStoreQueries::PointJointConstraints( m_physicsEngine );
     }
 
 #ifdef _DEBUG

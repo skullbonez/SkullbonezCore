@@ -1888,8 +1888,8 @@ bool Run::ExecuteRuntimeInteractionCommand( const RuntimeInteractionCommand& com
             return false;
         }
 
-        const PhysicsBodyStore& bodyStore = m_cGameModelCollection.GetPhysicsEngine().BodyStore();
-        const ColliderStore& colliderStore = m_cGameModelCollection.GetPhysicsEngine().Colliders();
+        const PhysicsBodyStore& bodyStore = m_cGameModelCollection.BodyStore();
+        const ColliderStore& colliderStore = m_cGameModelCollection.Colliders();
         const int previousModelIndex = ResolveSelectedEditorModelIndex( m_runtimeTools.Editor(), bodyStore );
         const bool selectionHit = command.modelIndex >= 0;
         PhysicsBodyHandle selectedBody;
@@ -2143,7 +2143,7 @@ void Run::SeedAttachedCameraTargetFromSelection()
 
     int seedIndex = -1;
     const RunReplayPathVisualizerState& path = m_replayRuntime.PathVisualizer();
-    const PhysicsBodyStore& bodyStore = m_cGameModelCollection.GetPhysicsEngine().BodyStore();
+    const PhysicsBodyStore& bodyStore = m_cGameModelCollection.BodyStore();
     const int modelCount = bodyStore.Count();
     if ( path.hasTarget && path.targetModelIndex >= 0 && path.targetModelIndex < modelCount )
     {
@@ -2179,8 +2179,8 @@ bool Run::TryPickAttachedCameraTargetFromMouse()
     {
         RuntimePickRequest request;
         request.purpose = RuntimePickPurpose::AttachCameraTarget;
-        request.bodyStore = &m_cGameModelCollection.GetPhysicsEngine().BodyStore();
-        request.colliderStore = &m_cGameModelCollection.GetPhysicsEngine().Colliders();
+        request.bodyStore = &m_cGameModelCollection.BodyStore();
+        request.colliderStore = &m_cGameModelCollection.Colliders();
         request.rayOrigin = rayOrigin;
         request.rayDirection = rayDirection;
 

@@ -143,8 +143,8 @@ bool Run::TryPickReplayPathTargetFromMouse( bool additive, bool clearOnMiss )
         return false;
     }
 
-    const PhysicsBodyStore& bodyStore = m_cGameModelCollection.GetPhysicsEngine().BodyStore();
-    const ColliderStore& colliderStore = m_cGameModelCollection.GetPhysicsEngine().Colliders();
+    const PhysicsBodyStore& bodyStore = m_cGameModelCollection.BodyStore();
+    const ColliderStore& colliderStore = m_cGameModelCollection.Colliders();
     const auto& presentationRecords = m_cGameModelCollection.RenderPresentationRecords();
     const int modelCount = bodyStore.Count() < colliderStore.Count() ? bodyStore.Count() : colliderStore.Count();
     const auto copyPresentationName = [&]( int modelIndex, char* outName, std::size_t outSize )

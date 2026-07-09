@@ -53,7 +53,7 @@ leaks. Do not restart the wider GameModel authority campaign from scratch.
 - [x] **1.2** Remove `GameModel` from public physics API signatures and update
   callers to pass the new domain identity/context. Gate: `validate_physics`.
   Commit.
-- [ ] **1.3** Remove solver container types from public physics API signatures
+- [x] **1.3** Remove solver container types from public physics API signatures
   and keep solver storage behind physics-owned APIs. Gate: `validate_physics`.
   Commit.
 - [ ] **2.1** Reconcile FAC-005 acceptance in
@@ -192,6 +192,58 @@ Validation:
   at 20001 lines.
 - Ignored log: `Agentic/Reports/validate_physics_plan14_row_authority_20260710.log`.
 
+## Step 1.3 Implementation - 2026-07-10
+
+This source slice removed solver-container return types and owning STL
+parameters from the public `PhysicsEngine` facade:
+
+- `PhysicsEngine::RefreshBodyStoreFromAuthoredDescriptors()` now takes a
+  borrowed `PhysicsAuthoredBodyRefreshView` instead of three owning
+  `std::vector` references. Release roots use `ModelRowHint`, and the view
+  comment records the borrowed lifetime.
+- Direct public `PhysicsEngine` accessors for `PhysicsBodyStore`,
+  `ColliderStore`, `SpatialGrid`, collision/sleep/debug vectors, pipeline trace,
+  point-joint storage, and fixed-contact highlight rows were deleted.
+- `PhysicsEngineStoreQueries` is the bounded physics-owned internal query path
+  for existing renderer/editor/replay/test readers that still scan dense rows.
+  Its header names owner, reason, deletion condition, and checker budget.
+- `PhysicsScene` keeps dense-store/debug query methods private and grants access
+  only to `PhysicsEngineStoreQueries`.
+- `GameModelCollection` owns the remaining collection-level borrowed views used
+  by render/debug/replay code while direct `GetPhysicsEngine().BodyStore()` and
+  similar call sites were removed.
+
+Structural proof:
+
+- `rg -n "PhysicsBodyStore|ColliderStore|SpatialGrid|std::vector|GetCollision|GetSleep|GetPhysics|GetPointJoint|BodyStore\(|Colliders\(" SkullbonezSource/Physics/PhysicsEngine.h`
+  returned no matches.
+- `rg -n "GetPhysicsEngine\(\)\.(BodyStore|Colliders|GetSpatialGrid|GetCollision|GetSleep|GetPhysics|GetPointJoint|GetFixedContactHighlightBodies|TrimBodyStoreToCount|TrimColliderStoreToCount)|TrimBodyStoreToCount|TrimColliderStoreToCount|RefreshBodyStore\(" SkullbonezSource SkullbonezTests`
+  returned no matches.
+- `PhysicsApi.h` still contains concrete private `PhysicsStandaloneWorld`
+  storage and private view caches. That is no longer a public-signature leak for
+  FAC-005, but hiding it behind an internal implementation owner remains future
+  API-header hygiene if the owner wants a stricter public-header include cleanup.
+
+Touched-source comment audit:
+
+- Inspected 34 source-bearing files touched by this slice, including the new
+  `SkullbonezSource/Physics/PhysicsEngineStoreQueries.h`.
+- Checklist path: not required for a touched-file pass.
+- Checked count: 34 source-bearing files.
+- Deferred count: 0.
+
+Validation:
+
+- Focused `tools\validate_build.bat Debug` passed in 00:00:12.0367538 with
+  0 warnings and 0 errors after the final source shape.
+- `tools\validate_physics.bat` passed in 00:00:32.5087482.
+- Debug and Profile builds completed with 0 warnings and 0 errors.
+- `physics_regression_solver.csv` matched the committed baseline byte-for-byte
+  at 20001 lines.
+- Ignored logs:
+  `Agentic/Reports/build_plan14_step13_debug_after_inline_restore_20260710.log`,
+  `Agentic/Reports/validate_physics_plan14_step13_20260710.log`.
+
 ## Validation
 
 - Inventory/documentation-only steps: no repository validation required.
@@ -201,10 +253,10 @@ Validation:
 
 ## Acceptance
 
-- [ ] `PhysicsApi.h` exposes no `GameModel` in public signatures.
-- [ ] `PhysicsEngine.h` exposes no `GameModel` in public signatures.
-- [ ] Public physics API signatures expose no raw dense `modelIndex` authority.
-- [ ] Public physics API signatures expose no solver container types.
-- [ ] `tools\validate_physics.bat` passes after the final source slice.
+- [x] `PhysicsApi.h` exposes no `GameModel` in public signatures.
+- [x] `PhysicsEngine.h` exposes no `GameModel` in public signatures.
+- [x] Public physics API signatures expose no raw dense `modelIndex` authority.
+- [x] Public physics API signatures expose no solver container types.
+- [x] `tools\validate_physics.bat` passes after the final source slice.
 - [ ] FAC-005 in `13-facade-retirement.md` is checked only after the structural
   header checks and physics validation pass.

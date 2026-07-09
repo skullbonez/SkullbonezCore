@@ -31,8 +31,6 @@ Related:
 
 #include <cstddef>
 #include <cstdint>
-#include <vector>
-
 #include "PhysicsScene.h"
 
 namespace SkullbonezCore
@@ -49,7 +47,9 @@ class WorkerPool;
 
 namespace Physics
 {
+struct PhysicsAuthoredBodyRefreshView;
 struct PhysicsColliderCreateDesc;
+class PhysicsEngineStoreQueries;
 struct PhysicsMaterial;
 
 class PhysicsEngine
@@ -70,10 +70,7 @@ class PhysicsEngine
                                        PhysicsAuthoredBodyCount expectedBodyCount );
     bool TrimAuthoredBodyDescriptorsToCount( PhysicsAuthoredBodyCount bodyCount );
     void Clear();
-    bool RefreshBodyStoreFromAuthoredDescriptors( const std::vector<uint32_t>& replayBodyIds,
-                                                  const std::vector<int>& fixedTreeReleaseRoots,
-                                                  const std::vector<const char*>& diagnosticNames );
-    void RefreshBodyStore( const std::vector<PhysicsBodyCreateDesc>& bodyDescs );
+    bool RefreshBodyStoreFromAuthoredDescriptors( const PhysicsAuthoredBodyRefreshView& refreshView );
     // Owner passes a row hint and expected count so single-row descriptor commits
     // cannot paper over topology drift or treat the hint as identity.
     void RefreshBodyFromDescriptor( const PhysicsBodyCreateDesc& desc,
@@ -83,16 +80,16 @@ class PhysicsEngine
     // resolving the just-created row through a legacy adapter.
     PhysicsBodyHandle RegisterAuthoredBody( const PhysicsBodyCreateDesc& desc );
     // Scene/model construction submits a collider descriptor at the append
-    // edge; PhysicsScene owns conversion into the dense ColliderStore row.
+    // edge; PhysicsScene owns conversion into the dense collider row.
     PhysicsColliderHandle RegisterAuthoredCollider( const PhysicsColliderCreateDesc& desc );
     // Replaces one authored collider descriptor without moving its stable
-    // ColliderStore handle.
+    // collider handle.
     bool UpdateAuthoredCollider( PhysicsColliderHandle collider, const PhysicsColliderCreateDesc& desc );
     void ClearPendingBodyImpulses();
-    // Replay restore trims the authoritative body store directly; callers must
+    // Replay restore trims authoritative physics bodies directly; callers must
     // not force a model-to-store refresh after this succeeds.
-    bool TrimBodyStoreToCount( PhysicsBodyCount bodyCount );
-    bool TrimColliderStoreToCount( PhysicsColliderCount colliderCount );
+    bool TrimBodiesToCount( PhysicsBodyCount bodyCount );
+    bool TrimCollidersToCount( PhysicsColliderCount colliderCount );
     // Store-owned replay restore facade. Callers resolve a body handle at the
     // owner edge so physics does not accept transient model slots as authority.
     bool RestoreReplayBodyState( PhysicsBodyHandle body,
@@ -106,7 +103,7 @@ class PhysicsEngine
                                  float inverseMass,
                                  const Math::Vector::Vector3& rotationalInertia,
                                  const Math::Vector::Vector3& inverseRotationalInertia );
-    // Rebinds existing collider rows from PhysicsBodyStore. Missing collider
+    // Rebinds existing collider rows from physics body identity. Missing collider
     // rows are a topology bug, not a cue to rebuild shape facts from authoring
     // storage.
     bool RefreshColliderSnapshot();
@@ -167,20 +164,6 @@ class PhysicsEngine
     uint64_t CollectDebugAndBroadphaseMemoryBytes() const;
     bool ShouldEmitStepDiagnostics() const;
     bool ShouldEmitCollisionTimeDiagnostics() const;
-    const std::vector<int>& GetFixedContactHighlightBodies() const;
-
-    const PhysicsBodyStore& BodyStore() const;
-    const ColliderStore& Colliders() const;
-    const Math::CollisionDetection::SpatialGrid& GetSpatialGrid() const;
-    const std::vector<int64_t>& GetCollisionCellKeys() const;
-    const std::vector<uint8_t>& GetCollisionVisualContacts() const;
-    const std::vector<uint8_t>& GetSleepStates() const;
-    const std::vector<int>& GetSleepIslandVisualIds() const;
-    const std::vector<uint8_t>& GetSleepSupportedStates() const;
-    const std::vector<uint8_t>& GetSleepInhibitedStates() const;
-    const std::vector<PhysicsDebugContact>& GetPhysicsDebugContacts() const;
-    const std::vector<PhysicsPipelineRecord>& GetPhysicsPipelineTrace() const;
-    const std::vector<PointJointConstraint>& GetPointJointConstraints() const;
 
 #ifdef _DEBUG
     void SetPhysicsRegressionLogPath( const char* path );
@@ -191,6 +174,8 @@ class PhysicsEngine
 #endif
 
   private:
+    friend class PhysicsEngineStoreQueries;
+
     PhysicsScene m_scene;
 };
 } // namespace Physics

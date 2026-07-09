@@ -58,7 +58,9 @@ class WorkerPool;
 
 namespace Physics
 {
+struct PhysicsAuthoredBodyRefreshView;
 struct PhysicsColliderCreateDesc;
+class PhysicsEngineStoreQueries;
 struct PhysicsMaterial;
 
 class PhysicsScene
@@ -82,10 +84,7 @@ class PhysicsScene
                                        PhysicsAuthoredBodyCount expectedBodyCount );
     bool TrimAuthoredBodyDescriptorsToCount( PhysicsAuthoredBodyCount bodyCount );
     void Clear();
-    bool RefreshBodyStoreFromAuthoredDescriptors( const std::vector<uint32_t>& replayBodyIds,
-                                                  const std::vector<int>& fixedTreeReleaseRoots,
-                                                  const std::vector<const char*>& diagnosticNames );
-    void RefreshBodyStore( const std::vector<PhysicsBodyCreateDesc>& bodyDescs );
+    bool RefreshBodyStoreFromAuthoredDescriptors( const PhysicsAuthoredBodyRefreshView& refreshView );
     // Owner passes a row hint and expected count so one-row descriptor commits
     // stay a same-topology edit and cannot hide missing body rows.
     void RefreshBodyFromDescriptor( const PhysicsBodyCreateDesc& desc,
@@ -104,8 +103,8 @@ class PhysicsScene
     void ClearPendingBodyImpulses();
     // Replay restore trims the authoritative body store directly; callers must
     // not force a model-to-store refresh after this succeeds.
-    bool TrimBodyStoreToCount( PhysicsBodyCount bodyCount );
-    bool TrimColliderStoreToCount( PhysicsColliderCount colliderCount );
+    bool TrimBodiesToCount( PhysicsBodyCount bodyCount );
+    bool TrimCollidersToCount( PhysicsColliderCount colliderCount );
     // Store-owned replay restore facade used by runtime replay without
     // treating model-order slots as the source of truth for simulation state.
     bool RestoreReplayBodyState( PhysicsBodyHandle body,
@@ -173,8 +172,20 @@ class PhysicsScene
     uint64_t CollectDebugAndBroadphaseMemoryBytes() const;
     bool ShouldEmitStepDiagnostics() const;
     bool ShouldEmitCollisionTimeDiagnostics() const;
-    const std::vector<int>& GetFixedContactHighlightBodies() const;
 
+#ifdef _DEBUG
+    void SetPhysicsRegressionLogPath( const char* path );
+    void SetPhysicsCollisionTimeLogPath( const char* path );
+    void SetPhysicsDiagnosticsPath( const char* path );
+    void SetPhysicsDiagnosticsRunId( const char* runId );
+    bool SetDiagnosticsSuppressed( bool suppressed );
+#endif
+
+  private:
+    friend class PhysicsEngineStoreQueries;
+
+    void LoadBodyDescriptors( const std::vector<PhysicsBodyCreateDesc>& bodyDescs );
+    const std::vector<int>& GetFixedContactHighlightBodies() const;
     const PhysicsBodyStore& BodyStore() const;
     const ColliderStore& Colliders() const;
     const Math::CollisionDetection::SpatialGrid& GetSpatialGrid() const;
@@ -188,15 +199,6 @@ class PhysicsScene
     const std::vector<PhysicsPipelineRecord>& GetPhysicsPipelineTrace() const;
     const std::vector<PointJointConstraint>& GetPointJointConstraints() const;
 
-#ifdef _DEBUG
-    void SetPhysicsRegressionLogPath( const char* path );
-    void SetPhysicsCollisionTimeLogPath( const char* path );
-    void SetPhysicsDiagnosticsPath( const char* path );
-    void SetPhysicsDiagnosticsRunId( const char* runId );
-    bool SetDiagnosticsSuppressed( bool suppressed );
-#endif
-
-  private:
     void ApplyFixedTreeReleaseEvents( const PhysicsWorldForces& worldForces );
 #ifdef _DEBUG
     void ValidatePhysicsStoreMappings( int modelCount ) const;

@@ -44,6 +44,7 @@ Related:
 #include "../Core/FatalError.h"
 #include "../Core/Log.h"
 #include "../Physics/ColliderStore.h"
+#include "../Physics/PhysicsEngineStoreQueries.h"
 #include "../Rendering/Helper.h"
 #include "../Rendering/IRenderDiagnostics.h"
 #include "../Rendering/RenderInstanceStore.h"
@@ -2039,7 +2040,7 @@ RuntimeRenderer::BuildModelFrameView( SkullbonezCore::GameObjects::GameModelColl
     PhysicsEngine& physics = models.GetPhysicsEngine();
     return RuntimeRenderModelFrameView{ models.MutableRenderInstances(),
                                         models.Colliders(),
-                                        physics.BodyStore(),
+                                        SkullbonezCore::Physics::PhysicsEngineStoreQueries::BodyStore( physics ),
                                         physics,
                                         models.RenderPresentationRecords(),
                                         models.GetCollisionVisualContacts(),

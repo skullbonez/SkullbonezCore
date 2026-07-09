@@ -22,7 +22,7 @@ Owner decisions of 2026-07-09 are binding — see
 | Plan | Status | % | Remaining work |
 |------|--------|---|----------------|
 | [13 Facade retirement (rule)](../../engine-cleanup-plans/13-facade-retirement.md) | In Progress | 75% | Cross-cutting rule; FAC-005 executes via plan 14, FAC-004 needs an owner, FAC-007 executes via `TODO/render-backend-decomposition.md`. |
-| [14 Public physics API boundary](../../engine-cleanup-plans/14-public-physics-api-boundary.md) | In Progress | 60% | Raw dense row authority is gone from `PhysicsApi.h`/`PhysicsEngine.h`; remaining work is solver-container signature removal and FAC-005 reconciliation. |
+| [14 Public physics API boundary](../../engine-cleanup-plans/14-public-physics-api-boundary.md) | In Progress | 80% | Public `PhysicsEngine` signatures no longer expose raw dense row authority or solver containers; remaining work is FAC-005 acceptance reconciliation. |
 | [15 Review gaps (2026-07-09)](../../engine-cleanup-plans/15-review-gaps.md) | Proposed | 0% | Comment-boilerplate cleanup (15.4) lives here; 15.1/15.2/15.3 execute via TODO plans; 15.5/15.6 are small hygiene slices. |
 
 ## Consolidated active plans (`Agentic/Plans/TODO/`)
