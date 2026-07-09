@@ -267,6 +267,22 @@ class PhysicsWorld
                                  int bodyIndex,
                                  float availableTime,
                                  const TerrainContactSweepResult& sweep );
+    void BuildSolverBroadphaseCandidatePairs( const PhysicsBodyStore& bodyStore,
+                                              const PhysicsBodyRecordList& bodyRecords,
+                                              const ColliderRecordList& colliderRecords,
+                                              const Basics::EngineConfig& config,
+                                              int modelCount,
+                                              float dt,
+                                              float contactSkin,
+                                              std::vector<std::pair<int, int>>& candidatePairs );
+    void RunSleepIslandStage( PhysicsBodyStore& bodyStore,
+                              const ColliderStore& colliderStore,
+                              const PhysicsWorldForces& worldForces,
+                              PhysicsBodyRecordList& bodyRecords,
+                              int modelCount,
+                              float sleepLinearSq,
+                              float sleepAngularSq,
+                              uint8_t sleepFrames );
 
     enum class ObjectNarrowphaseEventKind : uint8_t
     {

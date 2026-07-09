@@ -464,8 +464,23 @@ island-merge tie-breaks.
     `PhysicsWorld::RunSolverPhysics` after the final extraction reported
     `LAMBDA_MATCH_COUNT=0`. The function body is still 745 lines, so Step 1.3
     remains open for driver shrink confirmation/work.
-- [ ] **1.3** `RunSolverPhysics` is now a short driver calling named stages;
+- [x] **1.3** `RunSolverPhysics` is now a short driver calling named stages;
   confirm it is under ~300 lines.
+  - Extracted broadphase candidate construction into
+    `PhysicsWorld::BuildSolverBroadphaseCandidatePairs`, preserving spatial-grid
+    build, fast-small sweep augmentation, fixed/joint/sleep pruning, and capped
+    broadphase trace recording order.
+  - Extracted the post-integration sleep island block into
+    `PhysicsWorld::RunSleepIslandStage`, preserving contact/joint/visual-id
+    island unions, support-anchor classification, quiet/sleep eligibility
+    records, sleep-disabled reset behavior, counter updates, visual-id reuse,
+    sleep transition records, velocity zeroing, and underwater lock refresh.
+  - Structural evidence: a scoped scan of `PhysicsWorld::RunSolverPhysics`
+    reported `RUN_SOLVER_BODY_LINES=253` and `LAMBDA_MATCH_COUNT=0`.
+  - Gate evidence: `tools\validate_physics.bat` passed in
+    `TestOutput\agent_logs\plan02_run_solver_driver_shrink_validate_physics_20260709_1118.log`
+    (39.2s shell runtime; Debug/Profile builds 0 warnings and 0 errors; final
+    `VALIDATE_PHYSICS: ALL PASSED`).
 - [ ] **1.4** Add a unit test for at least one now-pure stage (e.g. broadphase
   candidate) — coordinate with plan 05. Gate: `validate_tests`. Commit.
 

@@ -3367,84 +3367,16 @@ void PhysicsWorld::CommitTerrainCandidate( const TerrainCandidateCommitContext& 
 }
 
 
-void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
-                                     const ColliderStore& colliderStore,
-                                     float dt,
-                                     const Basics::EngineConfig& config,
-                                     const PhysicsWorldForces& worldForces,
-                                     Threading::WorkerPool& workerPool,
-                                     const char* const* diagnosticNames,
-                                     int diagnosticNameCount,
-                                     const PhysicsDiagnosticsCsvWriter& diagnosticsCsvWriter )
+void PhysicsWorld::BuildSolverBroadphaseCandidatePairs( const PhysicsBodyStore& bodyStore,
+                                                        const PhysicsBodyRecordList& bodyRecords,
+                                                        const ColliderRecordList& colliderRecords,
+                                                        const Basics::EngineConfig& config,
+                                                        int modelCount,
+                                                        float dt,
+                                                        float contactSkin,
+                                                        std::vector<std::pair<int, int>>& candidatePairs )
 {
-    auto& bodyRecords = bodyStore.MutableRecords();
-    const auto& colliderRecords = colliderStore.Records();
-    const int modelCount = (std::min)( { bodyStore.Count(),
-                                         static_cast<int>( bodyRecords.size() ),
-                                         static_cast<int>( colliderRecords.size() ) } );
-
-    // Sleep thresholds are config-backed because they directly trade CPU cost
-    // against visible settling behavior. Higher thresholds keep bodies awake
-    // longer, which is useful while validating the solver but expensive in
-    // sleeping-heavy scenes. Lower thresholds save broadphase/narrowphase work
-    // sooner, but if set too aggressively they can freeze objects before the
-    // persistent contact solver has converged to a stable support impulse.
-    //
-    // The counter storage is still uint8_t, so physics_sleep_frames is clamped
-    // to 1..255 here. Widening that storage is a separate data-layout change and
-    // should be measured before doing it in a hot per-body array.
-    const float sleepLinear = (std::max)( 0.0f, config.physicsSleepLinearSpeed );
-    const float sleepAngular = (std::max)( 0.0f, config.physicsSleepAngularSpeed );
-    const float SLEEP_LINEAR_SQ = sleepLinear * sleepLinear;
-    const float SLEEP_ANGULAR_SQ = sleepAngular * sleepAngular;
-    const uint8_t SLEEP_FRAMES = static_cast<uint8_t>( (std::max)( 1, (std::min)( config.physicsSleepFrames, 255 ) ) );
-
-    EnsureUnderwaterSleepLockBuffer( modelCount );
-    for ( int x = 0; x < modelCount; ++x )
-    {
-        if ( m_sleepState[x] )
-        {
-            LockUnderwaterSleeperIfReady( worldForces, bodyStore, colliderStore, x );
-        }
-    }
-
-    // Sleeping bodies keep cached state until a contact or scene change wakes
-    // them, so force integration only runs for awake rows.
-    PROFILE_BEGIN( "Frame/Physics/ApplyForces" );
-    ApplyForcesStageContext applyForcesStage{
-        bodyStore,
-        colliderStore,
-        worldForces,
-        bodyRecords,
-        m_sleepState,
-        m_timeRemaining,
-        dt,
-    };
-
-    if ( config.physicsParallel && config.physicsParallelApplyForces )
-    {
-        workerPool.ParallelForNoAlloc( 0,
-                                       modelCount,
-                                       applyForcesStage,
-                                       PHYSICS_PARALLEL_MIN_BODIES,
-                                       "Frame/Physics/ApplyForces/WorkerBodies",
-                                       PHYSICS_APPLY_FORCES_WORKER_HASH );
-    }
-    else
-    {
-        for ( int x = 0; x < modelCount; ++x )
-        {
-            applyForcesStage( x );
-        }
-    }
-    PROFILE_END( "Frame/Physics/ApplyForces" );
-
-    ApplyTornadoField( bodyStore, colliderStore, worldForces, dt, config, workerPool );
-
-    // Broadphase: build spatial grid from all object positions (include sleeping for wake detection)
     PROFILE_BEGIN( "Frame/Physics/Broadphase" );
-    std::vector<std::pair<int, int>>& candidatePairs = m_candidatePairs;
-    const float contactSkin = (std::max)( 0.0f, config.contactEpsilon );
     BroadphaseCandidateFilterContext broadphaseCandidateFilterContext{
         bodyRecords,
         colliderRecords,
@@ -3600,6 +3532,445 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
             candidatePairs.end() );
     }
     PROFILE_END( "Frame/Physics/Broadphase" );
+}
+
+
+void PhysicsWorld::RunSleepIslandStage( PhysicsBodyStore& bodyStore,
+                                        const ColliderStore& colliderStore,
+                                        const PhysicsWorldForces& worldForces,
+                                        PhysicsBodyRecordList& bodyRecords,
+                                        int modelCount,
+                                        float sleepLinearSq,
+                                        float sleepAngularSq,
+                                        uint8_t sleepFrames )
+{
+    // Build sleep islands from the persistent contact graph. Sleep counters are
+    // tracked per body, but the final transition is island-level: connected awake
+    // bodies deactivate together only if the whole island is quiet and rooted in
+    // credible support.
+    //
+    // Important nuance:
+    //   "Supported" is an island property, not a demand that every body directly
+    //   touch terrain. A box can be quiet and physically constrained by the side
+    //   of a grounded pile. Requiring that specific box to also pass terrain
+    //   support classification creates the bad varied-scene wedge: terrain says
+    //   "not a stable footprint", object contacts keep the box from falling, and
+    //   the sleep gate has no way out. The anchor pass below keeps the original
+    //   safety rule for floating/mid-air islands: at least one member must still
+    //   be terrain-supported, fixed, or already sleeping from a previous proven
+    //   support state.
+    m_sleepIslandParent.assign( modelCount, 0 );
+    m_sleepIslandRank.assign( modelCount, 0 );
+    m_sleepIslandHasAwake.assign( modelCount, 0 );
+    m_sleepIslandHasSupportAnchor.assign( modelCount, 0 );
+    m_sleepIslandEligible.assign( modelCount, 1 );
+    m_sleepIslandCanSleep.assign( modelCount, 1 );
+    m_sleepPointJointBody.assign( modelCount, 0 );
+    m_sleepIslandHasPointJoint.assign( modelCount, 0 );
+    m_sleepIslandPointJointsRelaxed.assign( modelCount, 1 );
+    for ( int i = 0; i < modelCount; ++i )
+    {
+        m_sleepIslandParent[i] = i;
+    }
+
+    // Concept: sleep island roots identify connected contact/joint groups, so
+    // the sleep system can make one deactivation decision for the whole group.
+    DisjointSet sleepIslands( m_sleepIslandParent, m_sleepIslandRank, modelCount );
+
+    for ( const PersistentContact& c : m_persistentContacts )
+    {
+        // Persistent contacts are the solver's current dynamic contact graph, so
+        // they are the natural edges for island sleep. Sleeping bodies still act
+        // as graph anchors, but only awake bodies below participate in the current
+        // eligibility and counter checks.
+        if ( c.bodyA >= 0 && c.bodyA < modelCount && c.bodyB >= 0 && c.bodyB < modelCount )
+        {
+            sleepIslands.Unite( c.bodyA, c.bodyB );
+        }
+    }
+
+    for ( const PointJointConstraint& constraint : m_pointJointConstraints )
+    {
+        // Hazard: low velocity is not enough to prove a constrained component is
+        // ready to sleep. A stretched joint can be numerically quiet for a frame,
+        // so block sleep until point anchors are back within a small tolerance.
+        const int a = constraint.BodyAIndex( bodyStore );
+        const int b = constraint.BodyBIndex( bodyStore );
+        if ( a < 0 || b < 0 || a == b || a >= modelCount || b >= modelCount )
+        {
+            continue;
+        }
+
+        m_sleepPointJointBody[a] = 1;
+        m_sleepPointJointBody[b] = 1;
+        sleepIslands.Unite( a, b );
+    }
+
+    m_sleepVisualIslandIds.clear();
+    m_sleepVisualIslandBodies.clear();
+    for ( int x = 0; x < modelCount; ++x )
+    {
+        const int visualId = x < static_cast<int>( m_sleepIslandVisualId.size() ) ? m_sleepIslandVisualId[x] : 0;
+        if ( visualId <= 0 )
+        {
+            continue;
+        }
+
+        int visualSlot = -1;
+        for ( int i = 0; i < static_cast<int>( m_sleepVisualIslandIds.size() ); ++i )
+        {
+            if ( m_sleepVisualIslandIds[i] == visualId )
+            {
+                visualSlot = i;
+                break;
+            }
+        }
+
+        if ( visualSlot >= 0 )
+        {
+            sleepIslands.Unite( m_sleepVisualIslandBodies[visualSlot], x );
+        }
+        else
+        {
+            m_sleepVisualIslandIds.push_back( visualId );
+            m_sleepVisualIslandBodies.push_back( x );
+        }
+    }
+
+    for ( int x = 0; x < modelCount; ++x )
+    {
+        const int root = sleepIslands.Find( x );
+
+        // A support anchor is evidence that this island is not a free-floating
+        // collection of bodies that merely became numerically quiet. Terrain
+        // support remains the usual anchor. Fixed objects and sleeping bodies are
+        // also valid anchors: fixed objects are immovable world geometry, and a
+        // sleeping dynamic body could only have reached sleep after satisfying the
+        // same support gate in an earlier frame.
+        if ( IsSolverBodyFixed( bodyRecords, x ) ||
+             ( x < static_cast<int>( m_sleepState.size() ) && m_sleepState[x] != 0 ) ||
+             ( x < static_cast<int>( m_sleepSupportedThisFrame.size() ) && m_sleepSupportedThisFrame[x] != 0 ) )
+        {
+            m_sleepIslandHasSupportAnchor[root] = 1;
+        }
+        if ( m_sleepPointJointBody[x] != 0 )
+        {
+            m_sleepIslandHasPointJoint[root] = 1;
+        }
+    }
+
+    for ( const PointJointConstraint& constraint : m_pointJointConstraints )
+    {
+        const int a = constraint.BodyAIndex( bodyStore );
+        const int b = constraint.BodyBIndex( bodyStore );
+        if ( a < 0 || b < 0 || a == b || a >= modelCount || b >= modelCount )
+        {
+            continue;
+        }
+
+        auto orientationA = bodyRecords[static_cast<size_t>( a )].orientation;
+        auto orientationB = bodyRecords[static_cast<size_t>( b )].orientation;
+        const auto rotA = orientationA.GetOrientationMatrix();
+        const auto rotB = orientationB.GetOrientationMatrix();
+        const Vector3 anchorA = bodyRecords[static_cast<size_t>( a )].position + rotA * constraint.localAnchorA;
+        const Vector3 anchorB = bodyRecords[static_cast<size_t>( b )].position + rotB * constraint.localAnchorB;
+        const float distance = Vector::VectorMag( anchorB - anchorA );
+        const float allowedDistance =
+            constraint.slack + (std::max)( POINT_JOINT_SLEEP_MIN_ERROR_TOLERANCE,
+                                           constraint.slack * POINT_JOINT_SLEEP_SLACK_TOLERANCE_SCALE );
+        if ( distance > allowedDistance )
+        {
+            m_sleepIslandPointJointsRelaxed[sleepIslands.Find( a )] = 0;
+        }
+    }
+
+    for ( int x = 0; x < modelCount; ++x )
+    {
+        if ( IsSolverBodyFixed( bodyRecords, x ) )
+        {
+            continue;
+        }
+        if ( m_sleepState[x] )
+        {
+            continue;
+        }
+
+        const int root = sleepIslands.Find( x );
+        m_sleepIslandHasAwake[root] = 1;
+
+        const Vector3& vel = bodyRecords[static_cast<size_t>( x )].linearVelocity;
+        const Vector3& omega = bodyRecords[static_cast<size_t>( x )].angularVelocity;
+        float speedSq = vel.x * vel.x + vel.y * vel.y + vel.z * vel.z;
+        float omegaSq = omega.x * omega.x + omega.y * omega.y + omega.z * omega.z;
+        bool supported = x < static_cast<int>( m_sleepSupportedThisFrame.size() ) && m_sleepSupportedThisFrame[x] != 0;
+        bool hasRestingObjectContact =
+            x < static_cast<int>( m_persistentRestingContactCounts.size() ) && m_persistentRestingContactCounts[x] > 0;
+        bool islandHasSupportAnchor = m_sleepIslandHasSupportAnchor[root] != 0;
+        bool pointJointMember = x < static_cast<int>( m_sleepPointJointBody.size() ) && m_sleepPointJointBody[x] != 0;
+        bool pointJointIsland = m_sleepIslandHasPointJoint[root] != 0;
+        float quietLinearSq = sleepLinearSq;
+        float quietAngularSq = sleepAngularSq;
+        if ( pointJointMember && pointJointIsland && islandHasSupportAnchor )
+        {
+            // Why: anchored ragdolls can keep feeding tiny contact and joint
+            // corrections into each other after they have visually settled.
+            // The relaxed gate is still island-wide and support/joint-error
+            // guarded, so unsupported or stretched ragdolls stay awake.
+            quietLinearSq *= POINT_JOINT_SLEEP_LINEAR_SPEED_SCALE * POINT_JOINT_SLEEP_LINEAR_SPEED_SCALE;
+            quietAngularSq *= POINT_JOINT_SLEEP_ANGULAR_SPEED_SCALE * POINT_JOINT_SLEEP_ANGULAR_SPEED_SCALE;
+        }
+        bool quiet = speedSq < quietLinearSq && omegaSq < quietAngularSq;
+        bool pointJointAnchoredSupport = quiet && pointJointMember && pointJointIsland && islandHasSupportAnchor;
+
+        // A quiet body in a grounded object-contact island is supported even if
+        // the body itself is side-wedged or touching terrain on an edge/point.
+        // This is deliberately narrower than "any contact means support":
+        //
+        //   * quiet keeps active impacts and real toppling awake;
+        //   * hasRestingObjectContact requires a real object-contact footprint;
+        //   * islandHasSupportAnchor keeps floating piles from becoming sleepers.
+        //
+        // Marking the body supported here also keeps SkullScope diagnostics honest:
+        // the body is not terrain-supported, but it is supported for deactivation
+        // by a contact island rooted in credible support.
+        if ( !supported && quiet && hasRestingObjectContact && islandHasSupportAnchor )
+        {
+            m_sleepSupportedThisFrame[x] = 1;
+            supported = true;
+        }
+        if ( !supported && pointJointAnchoredSupport )
+        {
+            m_sleepSupportedThisFrame[x] = 1;
+            supported = true;
+        }
+
+        // Terrain can still inhibit sleep for edge/point contacts when that
+        // contact is the only apparent support. In a quiet anchored island,
+        // though, the same terrain rejection must not be an infinite veto: the
+        // object solver may have wedged the body against neighbors so it cannot
+        // fall into a more stable footprint. The island anchor and object-contact
+        // checks above are the escape hatch for that exact low-energy state.
+        bool terrainInhibitBlocksSleep = m_sleepInhibitedThisFrame[x] != 0 &&
+                                         !( quiet && hasRestingObjectContact && islandHasSupportAnchor ) &&
+                                         !pointJointAnchoredSupport;
+        bool pointJointErrorBlocksSleep = pointJointMember &&
+                                          root < static_cast<int>( m_sleepIslandPointJointsRelaxed.size() ) &&
+                                          m_sleepIslandPointJointsRelaxed[root] == 0;
+
+        // Modern sleep is still velocity based, but Skullbonez also requires
+        // credible island support so unsupported gravity bodies cannot become
+        // numerically quiet for a few frames while visibly floating.
+        if ( !quiet || !supported || terrainInhibitBlocksSleep || pointJointErrorBlocksSleep )
+        {
+            m_sleepIslandEligible[root] = 0;
+        }
+
+        Physics::PhysicsPipelineRecord record;
+        record.stage = Physics::PhysicsPipelineStage::SleepIslandDecision;
+        record.bodyA = x;
+        record.bodyB = root;
+        record.point = bodyRecords[static_cast<size_t>( x )].position;
+        record.scalarA = quiet ? 1.0f : 0.0f;
+        record.scalarB = supported ? 1.0f : 0.0f;
+        record.scalarC = terrainInhibitBlocksSleep ? 1.0f : ( pointJointErrorBlocksSleep ? 2.0f : 0.0f );
+        RecordPhysicsPipelineStage( record );
+    }
+
+    if ( !m_sleepEnabled )
+    {
+        std::fill( m_sleepCounter.begin(), m_sleepCounter.end(), static_cast<uint8_t>( 0 ) );
+        m_sleepIslandCanSleep.assign( modelCount, 0 );
+        m_sleepIslandAssignedVisualId.assign( modelCount, 0 );
+        return;
+    }
+
+    for ( int x = 0; x < modelCount; ++x )
+    {
+        if ( IsSolverBodyFixed( bodyRecords, x ) )
+        {
+            continue;
+        }
+        if ( m_sleepState[x] )
+        {
+            continue;
+        }
+
+        const int root = sleepIslands.Find( x );
+        if ( m_sleepIslandHasAwake[root] && m_sleepIslandEligible[root] )
+        {
+            if ( m_sleepCounter[x] < sleepFrames )
+            {
+                ++m_sleepCounter[x];
+            }
+        }
+        else
+        {
+            m_sleepCounter[x] = 0;
+        }
+    }
+
+    for ( int x = 0; x < modelCount; ++x )
+    {
+        if ( IsSolverBodyFixed( bodyRecords, x ) )
+        {
+            continue;
+        }
+        if ( m_sleepState[x] )
+        {
+            continue;
+        }
+
+        const int root = sleepIslands.Find( x );
+        if ( m_sleepCounter[x] < sleepFrames )
+        {
+            // Every awake body in an eligible island must accumulate the full
+            // quiet-frame count before any body in that island is deactivated.
+            m_sleepIslandCanSleep[root] = 0;
+        }
+    }
+
+    m_sleepIslandAssignedVisualId.assign( modelCount, 0 );
+    for ( int x = 0; x < modelCount; ++x )
+    {
+        if ( IsSolverBodyFixed( bodyRecords, x ) )
+        {
+            continue;
+        }
+        if ( !m_sleepState[x] || m_sleepIslandVisualId[x] == 0 )
+        {
+            continue;
+        }
+
+        const int root = sleepIslands.Find( x );
+        if ( m_sleepIslandAssignedVisualId[root] == 0 )
+        {
+            m_sleepIslandAssignedVisualId[root] = m_sleepIslandVisualId[x];
+        }
+    }
+
+    for ( int x = 0; x < modelCount; ++x )
+    {
+        if ( IsSolverBodyFixed( bodyRecords, x ) )
+        {
+            continue;
+        }
+        if ( m_sleepState[x] )
+        {
+            continue;
+        }
+
+        const int root = sleepIslands.Find( x );
+        if ( m_sleepIslandHasAwake[root] && m_sleepIslandEligible[root] && m_sleepIslandCanSleep[root] )
+        {
+            if ( m_sleepIslandAssignedVisualId[root] == 0 )
+            {
+                m_sleepIslandAssignedVisualId[root] = m_nextSleepIslandVisualId++;
+                if ( m_nextSleepIslandVisualId <= 0 )
+                {
+                    m_nextSleepIslandVisualId = 1;
+                }
+            }
+            m_sleepState[x] = 1;
+            m_sleepIslandVisualId[x] = m_sleepIslandAssignedVisualId[root];
+            Physics::PhysicsPipelineRecord record;
+            record.stage = Physics::PhysicsPipelineStage::SleepIslandDecision;
+            record.bodyA = x;
+            record.bodyB = root;
+            record.point = bodyRecords[static_cast<size_t>( x )].position;
+            record.scalarA = 1.0f;
+            record.scalarB = static_cast<float>( m_sleepIslandAssignedVisualId[root] );
+            record.scalarC = static_cast<float>( m_sleepCounter[x] );
+            RecordPhysicsPipelineStage( record );
+            // Zeroing velocities at the island sleep transition prevents tiny
+            // residual solver drift from reappearing when the body later wakes.
+            bodyRecords[static_cast<size_t>( x )].linearVelocity = Math::Vector::ZERO_VECTOR;
+            bodyRecords[static_cast<size_t>( x )].angularVelocity = Math::Vector::ZERO_VECTOR;
+            bodyRecords[static_cast<size_t>( x )].isSleeping = true;
+            LockUnderwaterSleeperIfReady( worldForces, bodyStore, colliderStore, x );
+        }
+    }
+}
+
+
+void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
+                                     const ColliderStore& colliderStore,
+                                     float dt,
+                                     const Basics::EngineConfig& config,
+                                     const PhysicsWorldForces& worldForces,
+                                     Threading::WorkerPool& workerPool,
+                                     const char* const* diagnosticNames,
+                                     int diagnosticNameCount,
+                                     const PhysicsDiagnosticsCsvWriter& diagnosticsCsvWriter )
+{
+    auto& bodyRecords = bodyStore.MutableRecords();
+    const auto& colliderRecords = colliderStore.Records();
+    const int modelCount = (std::min)( { bodyStore.Count(),
+                                         static_cast<int>( bodyRecords.size() ),
+                                         static_cast<int>( colliderRecords.size() ) } );
+
+    // Sleep thresholds are config-backed because they directly trade CPU cost
+    // against visible settling behavior. Higher thresholds keep bodies awake
+    // longer, which is useful while validating the solver but expensive in
+    // sleeping-heavy scenes. Lower thresholds save broadphase/narrowphase work
+    // sooner, but if set too aggressively they can freeze objects before the
+    // persistent contact solver has converged to a stable support impulse.
+    //
+    // The counter storage is still uint8_t, so physics_sleep_frames is clamped
+    // to 1..255 here. Widening that storage is a separate data-layout change and
+    // should be measured before doing it in a hot per-body array.
+    const float sleepLinear = (std::max)( 0.0f, config.physicsSleepLinearSpeed );
+    const float sleepAngular = (std::max)( 0.0f, config.physicsSleepAngularSpeed );
+    const float SLEEP_LINEAR_SQ = sleepLinear * sleepLinear;
+    const float SLEEP_ANGULAR_SQ = sleepAngular * sleepAngular;
+    const uint8_t SLEEP_FRAMES = static_cast<uint8_t>( (std::max)( 1, (std::min)( config.physicsSleepFrames, 255 ) ) );
+
+    EnsureUnderwaterSleepLockBuffer( modelCount );
+    for ( int x = 0; x < modelCount; ++x )
+    {
+        if ( m_sleepState[x] )
+        {
+            LockUnderwaterSleeperIfReady( worldForces, bodyStore, colliderStore, x );
+        }
+    }
+
+    // Sleeping bodies keep cached state until a contact or scene change wakes
+    // them, so force integration only runs for awake rows.
+    PROFILE_BEGIN( "Frame/Physics/ApplyForces" );
+    ApplyForcesStageContext applyForcesStage{
+        bodyStore,
+        colliderStore,
+        worldForces,
+        bodyRecords,
+        m_sleepState,
+        m_timeRemaining,
+        dt,
+    };
+
+    if ( config.physicsParallel && config.physicsParallelApplyForces )
+    {
+        workerPool.ParallelForNoAlloc( 0,
+                                       modelCount,
+                                       applyForcesStage,
+                                       PHYSICS_PARALLEL_MIN_BODIES,
+                                       "Frame/Physics/ApplyForces/WorkerBodies",
+                                       PHYSICS_APPLY_FORCES_WORKER_HASH );
+    }
+    else
+    {
+        for ( int x = 0; x < modelCount; ++x )
+        {
+            applyForcesStage( x );
+        }
+    }
+    PROFILE_END( "Frame/Physics/ApplyForces" );
+
+    ApplyTornadoField( bodyStore, colliderStore, worldForces, dt, config, workerPool );
+
+    // Broadphase: build spatial grid from all object positions (include sleeping for wake detection)
+    std::vector<std::pair<int, int>>& candidatePairs = m_candidatePairs;
+    const float contactSkin = (std::max)( 0.0f, config.contactEpsilon );
+    BuildSolverBroadphaseCandidatePairs(
+        bodyStore, bodyRecords, colliderRecords, config, modelCount, dt, contactSkin, candidatePairs );
 
     // Object/object CCD front-end: wake sleepers and advance swept hits to a
     // contact candidate, but leave velocity response to the persistent rows.
@@ -3773,352 +4144,14 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
         }
     }
 
-    // Build sleep islands from the persistent contact graph. Sleep counters are
-    // tracked per body, but the final transition is island-level: connected awake
-    // bodies deactivate together only if the whole island is quiet and rooted in
-    // credible support.
-    //
-    // Important nuance:
-    //   "Supported" is an island property, not a demand that every body directly
-    //   touch terrain. A box can be quiet and physically constrained by the side
-    //   of a grounded pile. Requiring that specific box to also pass terrain
-    //   support classification creates the bad varied-scene wedge: terrain says
-    //   "not a stable footprint", object contacts keep the box from falling, and
-    //   the sleep gate has no way out. The anchor pass below keeps the original
-    //   safety rule for floating/mid-air islands: at least one member must still
-    //   be terrain-supported, fixed, or already sleeping from a previous proven
-    //   support state.
-    m_sleepIslandParent.assign( modelCount, 0 );
-    m_sleepIslandRank.assign( modelCount, 0 );
-    m_sleepIslandHasAwake.assign( modelCount, 0 );
-    m_sleepIslandHasSupportAnchor.assign( modelCount, 0 );
-    m_sleepIslandEligible.assign( modelCount, 1 );
-    m_sleepIslandCanSleep.assign( modelCount, 1 );
-    m_sleepPointJointBody.assign( modelCount, 0 );
-    m_sleepIslandHasPointJoint.assign( modelCount, 0 );
-    m_sleepIslandPointJointsRelaxed.assign( modelCount, 1 );
-    for ( int i = 0; i < modelCount; ++i )
-    {
-        m_sleepIslandParent[i] = i;
-    }
-
-    // Concept: sleep island roots identify connected contact/joint groups, so
-    // the sleep system can make one deactivation decision for the whole group.
-    DisjointSet sleepIslands( m_sleepIslandParent, m_sleepIslandRank, modelCount );
-
-    for ( const PersistentContact& c : m_persistentContacts )
-    {
-        // Persistent contacts are the solver's current dynamic contact graph, so
-        // they are the natural edges for island sleep. Sleeping bodies still act
-        // as graph anchors, but only awake bodies below participate in the current
-        // eligibility and counter checks.
-        if ( c.bodyA >= 0 && c.bodyA < modelCount && c.bodyB >= 0 && c.bodyB < modelCount )
-        {
-            sleepIslands.Unite( c.bodyA, c.bodyB );
-        }
-    }
-
-    for ( const PointJointConstraint& constraint : m_pointJointConstraints )
-    {
-        // Hazard: low velocity is not enough to prove a constrained component is
-        // ready to sleep. A stretched joint can be numerically quiet for a frame,
-        // so block sleep until point anchors are back within a small tolerance.
-        const int a = constraint.BodyAIndex( bodyStore );
-        const int b = constraint.BodyBIndex( bodyStore );
-        if ( a < 0 || b < 0 || a == b || a >= modelCount || b >= modelCount )
-        {
-            continue;
-        }
-
-        m_sleepPointJointBody[a] = 1;
-        m_sleepPointJointBody[b] = 1;
-        sleepIslands.Unite( a, b );
-    }
-
-    m_sleepVisualIslandIds.clear();
-    m_sleepVisualIslandBodies.clear();
-    for ( int x = 0; x < modelCount; ++x )
-    {
-        const int visualId = x < static_cast<int>( m_sleepIslandVisualId.size() ) ? m_sleepIslandVisualId[x] : 0;
-        if ( visualId <= 0 )
-        {
-            continue;
-        }
-
-        int visualSlot = -1;
-        for ( int i = 0; i < static_cast<int>( m_sleepVisualIslandIds.size() ); ++i )
-        {
-            if ( m_sleepVisualIslandIds[i] == visualId )
-            {
-                visualSlot = i;
-                break;
-            }
-        }
-
-        if ( visualSlot >= 0 )
-        {
-            sleepIslands.Unite( m_sleepVisualIslandBodies[visualSlot], x );
-        }
-        else
-        {
-            m_sleepVisualIslandIds.push_back( visualId );
-            m_sleepVisualIslandBodies.push_back( x );
-        }
-    }
-
-    for ( int x = 0; x < modelCount; ++x )
-    {
-        const int root = sleepIslands.Find( x );
-
-        // A support anchor is evidence that this island is not a free-floating
-        // collection of bodies that merely became numerically quiet. Terrain
-        // support remains the usual anchor. Fixed objects and sleeping bodies are
-        // also valid anchors: fixed objects are immovable world geometry, and a
-        // sleeping dynamic body could only have reached sleep after satisfying the
-        // same support gate in an earlier frame.
-        if ( IsSolverBodyFixed( bodyRecords, x ) ||
-             ( x < static_cast<int>( m_sleepState.size() ) && m_sleepState[x] != 0 ) ||
-             ( x < static_cast<int>( m_sleepSupportedThisFrame.size() ) && m_sleepSupportedThisFrame[x] != 0 ) )
-        {
-            m_sleepIslandHasSupportAnchor[root] = 1;
-        }
-        if ( m_sleepPointJointBody[x] != 0 )
-        {
-            m_sleepIslandHasPointJoint[root] = 1;
-        }
-    }
-
-    for ( const PointJointConstraint& constraint : m_pointJointConstraints )
-    {
-        const int a = constraint.BodyAIndex( bodyStore );
-        const int b = constraint.BodyBIndex( bodyStore );
-        if ( a < 0 || b < 0 || a == b || a >= modelCount || b >= modelCount )
-        {
-            continue;
-        }
-
-        auto orientationA = bodyRecords[static_cast<size_t>( a )].orientation;
-        auto orientationB = bodyRecords[static_cast<size_t>( b )].orientation;
-        const auto rotA = orientationA.GetOrientationMatrix();
-        const auto rotB = orientationB.GetOrientationMatrix();
-        const Vector3 anchorA = bodyRecords[static_cast<size_t>( a )].position + rotA * constraint.localAnchorA;
-        const Vector3 anchorB = bodyRecords[static_cast<size_t>( b )].position + rotB * constraint.localAnchorB;
-        const float distance = Vector::VectorMag( anchorB - anchorA );
-        const float allowedDistance =
-            constraint.slack + (std::max)( POINT_JOINT_SLEEP_MIN_ERROR_TOLERANCE,
-                                           constraint.slack * POINT_JOINT_SLEEP_SLACK_TOLERANCE_SCALE );
-        if ( distance > allowedDistance )
-        {
-            m_sleepIslandPointJointsRelaxed[sleepIslands.Find( a )] = 0;
-        }
-    }
-
-    for ( int x = 0; x < modelCount; ++x )
-    {
-        if ( IsSolverBodyFixed( bodyRecords, x ) )
-        {
-            continue;
-        }
-        if ( m_sleepState[x] )
-        {
-            continue;
-        }
-
-        const int root = sleepIslands.Find( x );
-        m_sleepIslandHasAwake[root] = 1;
-
-        const Vector3& vel = bodyRecords[static_cast<size_t>( x )].linearVelocity;
-        const Vector3& omega = bodyRecords[static_cast<size_t>( x )].angularVelocity;
-        float speedSq = vel.x * vel.x + vel.y * vel.y + vel.z * vel.z;
-        float omegaSq = omega.x * omega.x + omega.y * omega.y + omega.z * omega.z;
-        bool supported = x < static_cast<int>( m_sleepSupportedThisFrame.size() ) && m_sleepSupportedThisFrame[x] != 0;
-        bool hasRestingObjectContact =
-            x < static_cast<int>( m_persistentRestingContactCounts.size() ) && m_persistentRestingContactCounts[x] > 0;
-        bool islandHasSupportAnchor = m_sleepIslandHasSupportAnchor[root] != 0;
-        bool pointJointMember = x < static_cast<int>( m_sleepPointJointBody.size() ) && m_sleepPointJointBody[x] != 0;
-        bool pointJointIsland = m_sleepIslandHasPointJoint[root] != 0;
-        float quietLinearSq = SLEEP_LINEAR_SQ;
-        float quietAngularSq = SLEEP_ANGULAR_SQ;
-        if ( pointJointMember && pointJointIsland && islandHasSupportAnchor )
-        {
-            // Why: anchored ragdolls can keep feeding tiny contact and joint
-            // corrections into each other after they have visually settled.
-            // The relaxed gate is still island-wide and support/joint-error
-            // guarded, so unsupported or stretched ragdolls stay awake.
-            quietLinearSq *= POINT_JOINT_SLEEP_LINEAR_SPEED_SCALE * POINT_JOINT_SLEEP_LINEAR_SPEED_SCALE;
-            quietAngularSq *= POINT_JOINT_SLEEP_ANGULAR_SPEED_SCALE * POINT_JOINT_SLEEP_ANGULAR_SPEED_SCALE;
-        }
-        bool quiet = speedSq < quietLinearSq && omegaSq < quietAngularSq;
-        bool pointJointAnchoredSupport = quiet && pointJointMember && pointJointIsland && islandHasSupportAnchor;
-
-        // A quiet body in a grounded object-contact island is supported even if
-        // the body itself is side-wedged or touching terrain on an edge/point.
-        // This is deliberately narrower than "any contact means support":
-        //
-        //   * quiet keeps active impacts and real toppling awake;
-        //   * hasRestingObjectContact requires a real object-contact footprint;
-        //   * islandHasSupportAnchor keeps floating piles from becoming sleepers.
-        //
-        // Marking the body supported here also keeps SkullScope diagnostics honest:
-        // the body is not terrain-supported, but it is supported for deactivation
-        // by a contact island rooted in credible support.
-        if ( !supported && quiet && hasRestingObjectContact && islandHasSupportAnchor )
-        {
-            m_sleepSupportedThisFrame[x] = 1;
-            supported = true;
-        }
-        if ( !supported && pointJointAnchoredSupport )
-        {
-            m_sleepSupportedThisFrame[x] = 1;
-            supported = true;
-        }
-
-        // Terrain can still inhibit sleep for edge/point contacts when that
-        // contact is the only apparent support. In a quiet anchored island,
-        // though, the same terrain rejection must not be an infinite veto: the
-        // object solver may have wedged the body against neighbors so it cannot
-        // fall into a more stable footprint. The island anchor and object-contact
-        // checks above are the escape hatch for that exact low-energy state.
-        bool terrainInhibitBlocksSleep = m_sleepInhibitedThisFrame[x] != 0 &&
-                                         !( quiet && hasRestingObjectContact && islandHasSupportAnchor ) &&
-                                         !pointJointAnchoredSupport;
-        bool pointJointErrorBlocksSleep = pointJointMember &&
-                                          root < static_cast<int>( m_sleepIslandPointJointsRelaxed.size() ) &&
-                                          m_sleepIslandPointJointsRelaxed[root] == 0;
-
-        // Modern sleep is still velocity based, but Skullbonez also requires
-        // credible island support so unsupported gravity bodies cannot become
-        // numerically quiet for a few frames while visibly floating.
-        if ( !quiet || !supported || terrainInhibitBlocksSleep || pointJointErrorBlocksSleep )
-        {
-            m_sleepIslandEligible[root] = 0;
-        }
-
-        Physics::PhysicsPipelineRecord record;
-        record.stage = Physics::PhysicsPipelineStage::SleepIslandDecision;
-        record.bodyA = x;
-        record.bodyB = root;
-        record.point = bodyRecords[static_cast<size_t>( x )].position;
-        record.scalarA = quiet ? 1.0f : 0.0f;
-        record.scalarB = supported ? 1.0f : 0.0f;
-        record.scalarC = terrainInhibitBlocksSleep ? 1.0f : ( pointJointErrorBlocksSleep ? 2.0f : 0.0f );
-        RecordPhysicsPipelineStage( record );
-    }
-
-    if ( !m_sleepEnabled )
-    {
-        std::fill( m_sleepCounter.begin(), m_sleepCounter.end(), static_cast<uint8_t>( 0 ) );
-        m_sleepIslandCanSleep.assign( modelCount, 0 );
-        m_sleepIslandAssignedVisualId.assign( modelCount, 0 );
-        PROFILE_END( "Frame/Physics/Integrate" );
-        return;
-    }
-
-    for ( int x = 0; x < modelCount; ++x )
-    {
-        if ( IsSolverBodyFixed( bodyRecords, x ) )
-        {
-            continue;
-        }
-        if ( m_sleepState[x] )
-        {
-            continue;
-        }
-
-        const int root = sleepIslands.Find( x );
-        if ( m_sleepIslandHasAwake[root] && m_sleepIslandEligible[root] )
-        {
-            if ( m_sleepCounter[x] < SLEEP_FRAMES )
-            {
-                ++m_sleepCounter[x];
-            }
-        }
-        else
-        {
-            m_sleepCounter[x] = 0;
-        }
-    }
-
-    for ( int x = 0; x < modelCount; ++x )
-    {
-        if ( IsSolverBodyFixed( bodyRecords, x ) )
-        {
-            continue;
-        }
-        if ( m_sleepState[x] )
-        {
-            continue;
-        }
-
-        const int root = sleepIslands.Find( x );
-        if ( m_sleepCounter[x] < SLEEP_FRAMES )
-        {
-            // Every awake body in an eligible island must accumulate the full
-            // quiet-frame count before any body in that island is deactivated.
-            m_sleepIslandCanSleep[root] = 0;
-        }
-    }
-
-    m_sleepIslandAssignedVisualId.assign( modelCount, 0 );
-    for ( int x = 0; x < modelCount; ++x )
-    {
-        if ( IsSolverBodyFixed( bodyRecords, x ) )
-        {
-            continue;
-        }
-        if ( !m_sleepState[x] || m_sleepIslandVisualId[x] == 0 )
-        {
-            continue;
-        }
-
-        const int root = sleepIslands.Find( x );
-        if ( m_sleepIslandAssignedVisualId[root] == 0 )
-        {
-            m_sleepIslandAssignedVisualId[root] = m_sleepIslandVisualId[x];
-        }
-    }
-
-    for ( int x = 0; x < modelCount; ++x )
-    {
-        if ( IsSolverBodyFixed( bodyRecords, x ) )
-        {
-            continue;
-        }
-        if ( m_sleepState[x] )
-        {
-            continue;
-        }
-
-        const int root = sleepIslands.Find( x );
-        if ( m_sleepIslandHasAwake[root] && m_sleepIslandEligible[root] && m_sleepIslandCanSleep[root] )
-        {
-            if ( m_sleepIslandAssignedVisualId[root] == 0 )
-            {
-                m_sleepIslandAssignedVisualId[root] = m_nextSleepIslandVisualId++;
-                if ( m_nextSleepIslandVisualId <= 0 )
-                {
-                    m_nextSleepIslandVisualId = 1;
-                }
-            }
-            m_sleepState[x] = 1;
-            m_sleepIslandVisualId[x] = m_sleepIslandAssignedVisualId[root];
-            Physics::PhysicsPipelineRecord record;
-            record.stage = Physics::PhysicsPipelineStage::SleepIslandDecision;
-            record.bodyA = x;
-            record.bodyB = root;
-            record.point = bodyRecords[static_cast<size_t>( x )].position;
-            record.scalarA = 1.0f;
-            record.scalarB = static_cast<float>( m_sleepIslandAssignedVisualId[root] );
-            record.scalarC = static_cast<float>( m_sleepCounter[x] );
-            RecordPhysicsPipelineStage( record );
-            // Zeroing velocities at the island sleep transition prevents tiny
-            // residual solver drift from reappearing when the body later wakes.
-            bodyRecords[static_cast<size_t>( x )].linearVelocity = Math::Vector::ZERO_VECTOR;
-            bodyRecords[static_cast<size_t>( x )].angularVelocity = Math::Vector::ZERO_VECTOR;
-            bodyRecords[static_cast<size_t>( x )].isSleeping = true;
-            LockUnderwaterSleeperIfReady( worldForces, bodyStore, colliderStore, x );
-        }
-    }
+    RunSleepIslandStage( bodyStore,
+                         colliderStore,
+                         worldForces,
+                         bodyRecords,
+                         modelCount,
+                         SLEEP_LINEAR_SQ,
+                         SLEEP_ANGULAR_SQ,
+                         SLEEP_FRAMES );
     PROFILE_END( "Frame/Physics/Integrate" );
 }
 
