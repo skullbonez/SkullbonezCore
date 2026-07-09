@@ -42,9 +42,9 @@ boundary), say so.
 - [x] **Phase 0 — Categorize all 283 throws** by lane: F (should-never-happen
   engine invariant), R (external input/environment: scene/asset/file IO), P
   (probe/automation assertion).
-- [ ] **Phase 1 — F → `SB_FATAL`.** Convert physics capacity guards and
-  frame-loop invariants. This removes unwinding through the message loop and
-  profiling RAII — the core robustness win.
+- [x] **Phase 1 — F → `SB_FATAL` / allocator-safe fatal.** Convert physics
+  capacity guards and frame-loop invariants. This removes unwinding through the
+  message loop and profiling RAII — the core robustness win.
 - [x] **Phase 2 — P → `FailAutomation`.** Route replay/interaction probe throws
   to the machine-readable automation channel with `ok=false` + message.
 - [ ] **Phase 3 — R → `SbResult`.** Convert scene/asset/file IO failures to
@@ -85,10 +85,10 @@ byte-exact gated.
   - Current source has 257 throw statements, down from the stale 283 count in
     the original audit. Classification summary: F = 137, R = 116, P = 4.
   - Documentation-only step; no repository validation required.
-- [ ] **1.1** Convert **F** sites (physics capacity guards, frame-loop
-  invariants) to `SB_FATAL(owner, ...)`, **one subsystem at a time**. Gate:
-  `validate_physics` for physics, `validate_full` otherwise. Commit per
-  subsystem.
+- [x] **1.1** Convert **F** sites (physics capacity guards, frame-loop
+  invariants) to `SB_FATAL(owner, ...)` or an allocator-safe fatal for the
+  allocation hook, **one subsystem at a time**. Gate: `validate_physics` for
+  physics, `validate_full` otherwise. Commit per subsystem.
 
   Progress 2026-07-09, physics/terrain fatal-invariant sub-slice:
   - Converted five F sites from `throw std::runtime_error` to `SB_FATAL`:
@@ -1189,6 +1189,30 @@ byte-exact gated.
   - Runtime boundary checker passed: `python tools\check_runtime_boundaries.py`
     exited 0 in 00:00:18.3 with 0 errors. Log:
     `Agentic/Reports/check_runtime_boundaries_plan04_dx12_fence_result_20260709.log`.
+
+  Progress 2026-07-10, RuntimeAllocationTracker allocator-safe fatal sub-slice:
+  - Converted the final Lane F strict throw, `RuntimeAllocationTracker.cpp` row
+    393 from the Step 0.1 inventory, from `throw std::bad_alloc()` to a local
+    allocator-safe fatal path.
+  - `FatalAllocationFailure()` formats a bounded stack buffer, writes it to the
+    debugger/stderr, breaks in Debug/Profile, and aborts. It intentionally does
+    not call `SB_FATAL` because `SB_FATAL` uses `EngineLog`, which is unsafe
+    after `malloc` has already failed inside global `operator new`.
+  - Strict anchored source throw statement inventory now reports 6 sites, all
+    Lane R rows. The remaining rows are `TestSceneParser` recoverable scene
+    parse failure and DX12 resource/shader creation failures.
+  - Comment-style audit scope:
+    `SkullbonezSource/Runtime/Allocation/RuntimeAllocationTracker.cpp`; checked
+    1, deferred 0. The new local comment names the Lane F allocator-hook hazard.
+  - Focused build passed: `tools\validate_build.bat Profile` exited 0 in
+    00:00:05.53 with 0 warnings/errors. Log:
+    `Agentic/Reports/validate_build_profile_plan04_alloc_fatal_20260710.log`.
+  - Required gate passed: `tools\validate_perf.bat` completed with Profile and
+    Debug builds at 0 warnings/errors, allocation policy
+    `allowlist_errors=0`, allocation guard `gameplay_violations=0`, runtime
+    reserve `policy_violations=0`, DX12 perf no regressions, and physics_bench
+    no regressions. Log:
+    `Agentic/Reports/validate_perf_plan04_alloc_fatal_20260710.log`.
 - [ ] **4.1** Do **not** maintain any throw count. The `MAX_SOURCE_THROW_TOKENS`
   ratchet is deleted by plan 03. Verify progress by re-running
   `rg -n "throw " SkullbonezSource` and confirming the F/R/P sites are converted;
@@ -1197,12 +1221,14 @@ byte-exact gated.
 ## Validation
 
 `tools\validate_full.bat`; `tools\validate_physics.bat` for the physics
-conversions (byte-exact).
+conversions (byte-exact); `tools\validate_perf.bat` for runtime allocation
+policy code.
 
 ## Acceptance (measurable)
 
-- [ ] `throw` count materially reduced from 283; `SB_FATAL` is the mechanism for
-  engine invariants (well above 2 sites).
+- [ ] `throw` count materially reduced from 283; `SB_FATAL` or an
+  allocator-safe fatal is the mechanism for engine invariants (well above 2
+  sites).
 - [ ] No `throw` remains in per-frame hot loops or the DX12 present path.
 - [ ] No throw count is tracked anywhere (no regex ratchet reinstated);
   conversions are verified by grep + review.

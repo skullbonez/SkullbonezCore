@@ -21,7 +21,7 @@ Owner decisions of 2026-07-09 are binding — see
 
 | Plan | Status | % | Remaining work |
 |------|--------|---|----------------|
-| [04 Error-handling reconciliation](../../engine-cleanup-plans/04-error-handling-policy-reconciliation.md) | In Progress | 85% | Strict throws 283 → 7. Remaining: allocator-safe fatal for `RuntimeAllocationTracker`, math test contracts, closure (ratchet deletion with plan 03). Also absorbs the remnants of fable-05 (see Retired below). |
+| [04 Error-handling reconciliation](../../engine-cleanup-plans/04-error-handling-policy-reconciliation.md) | In Progress | 90% | Strict throws 283 → 6. Lane F is complete, including allocator-safe fatal handling for `RuntimeAllocationTracker`. Remaining: Lane R recoverable-result rows (`TestSceneParser`, DX12 resource/shader creation) and no-throw-count closure. Also absorbs the remnants of fable-05 (see Retired below). |
 | [07 Allocation-gate right-sizing](../../engine-cleanup-plans/07-allocation-gate-right-sizing.md) | In Progress | 15% | Right-size the checker; keep global zero-alloc default, replay-only exception. |
 | [11 Render abstraction leaks](../../engine-cleanup-plans/11-render-abstraction-leaks.md) | In Progress | 80% | Retire the diagnostic RenderGraph path per owner decision; remove stale barrier-ownership claims. |
 | [13 Facade retirement (rule)](../../engine-cleanup-plans/13-facade-retirement.md) | In Progress | 75% | Cross-cutting rule; FAC-005 executes via plan 14, FAC-004 needs an owner, FAC-007 executes via `TODO/render-backend-decomposition.md`. |

@@ -33,6 +33,7 @@ Related:
 
 #include <atomic>
 #include <cstddef>
+#include <cstdio>
 #include <cstdlib>
 #include <new>
 
@@ -384,13 +385,39 @@ void FreeTrackedMemory( void* pointer ) noexcept
     std::free( raw );
 }
 
-void* AllocateOrThrow( std::size_t size, std::size_t alignment, void* callsite )
+[[noreturn]] void FatalAllocationFailure( std::size_t size, std::size_t alignment ) noexcept
 {
-    if ( void* pointer = AllocateTrackedMemory( size, alignment, callsite ) )
+    char message[256] = {};
+    std::snprintf( message,
+                   sizeof( message ),
+                   "FATAL[Runtime/Allocation]: global operator new exhausted memory. size=%llu alignment=%llu\n",
+                   static_cast<unsigned long long>( size ),
+                   static_cast<unsigned long long>( alignment ) );
+
+#if defined( _WIN32 )
+    OutputDebugStringA( message );
+#endif
+    std::fputs( message, stderr );
+    std::fflush( stderr );
+
+#if ( defined( _DEBUG ) || defined( SKULLBONEZ_PROFILE_ENABLED ) ) && defined( _MSC_VER )
+    __debugbreak();
+#endif
+
+    std::abort();
+}
+
+void* AllocateOrFatal( std::size_t size, std::size_t alignment, void* callsite )
+{
+    const std::size_t normalizedAlignment = NormalizeAlignment( alignment );
+    if ( void* pointer = AllocateTrackedMemory( size, normalizedAlignment, callsite ) )
     {
         return pointer;
     }
-    throw std::bad_alloc();
+
+    // Lane F / Hazard: malloc has already failed inside the global allocation
+    // hook, so this path must not call SB_FATAL or any EngineLog-backed helper.
+    FatalAllocationFailure( size, normalizedAlignment );
 }
 } // namespace
 
@@ -668,12 +695,12 @@ void PrintRuntimeAllocationSummary( FILE* out ) noexcept
 // forms produce one phase-accounting path instead of partial blind spots.
 void* operator new( std::size_t size )
 {
-    return AllocateOrThrow( size, DEFAULT_ALIGNMENT, SKULLBONEZ_ALLOCATION_CALLSITE() );
+    return AllocateOrFatal( size, DEFAULT_ALIGNMENT, SKULLBONEZ_ALLOCATION_CALLSITE() );
 }
 
 void* operator new[]( std::size_t size )
 {
-    return AllocateOrThrow( size, DEFAULT_ALIGNMENT, SKULLBONEZ_ALLOCATION_CALLSITE() );
+    return AllocateOrFatal( size, DEFAULT_ALIGNMENT, SKULLBONEZ_ALLOCATION_CALLSITE() );
 }
 
 void* operator new( std::size_t size, const std::nothrow_t& ) noexcept
@@ -718,12 +745,12 @@ void operator delete[]( void* pointer, const std::nothrow_t& ) noexcept
 
 void* operator new( std::size_t size, std::align_val_t alignment )
 {
-    return AllocateOrThrow( size, static_cast<std::size_t>( alignment ), SKULLBONEZ_ALLOCATION_CALLSITE() );
+    return AllocateOrFatal( size, static_cast<std::size_t>( alignment ), SKULLBONEZ_ALLOCATION_CALLSITE() );
 }
 
 void* operator new[]( std::size_t size, std::align_val_t alignment )
 {
-    return AllocateOrThrow( size, static_cast<std::size_t>( alignment ), SKULLBONEZ_ALLOCATION_CALLSITE() );
+    return AllocateOrFatal( size, static_cast<std::size_t>( alignment ), SKULLBONEZ_ALLOCATION_CALLSITE() );
 }
 
 void* operator new( std::size_t size, std::align_val_t alignment, const std::nothrow_t& ) noexcept
