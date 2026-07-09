@@ -1620,6 +1620,49 @@ class TestSceneParser
         }
     }
 
+    Physics::MutualGravitySettings ReadMutualGravitySettings( const Json& mutualGravity, const std::string& path )
+    {
+        RequireObject( mutualGravity, path, "simulation.world.mutualGravity" );
+        Physics::MutualGravitySettings settings;
+        if ( const Json* enabled = FindMember( mutualGravity, "enabled" ) )
+        {
+            settings.enabled = ReadBool( *enabled, path, "simulation.world.mutualGravity.enabled" );
+        }
+
+        const Json* gravitationalConstant = FindMember( mutualGravity, "gravitationalConstant" );
+        if ( gravitationalConstant )
+        {
+            settings.gravitationalConstant =
+                ReadFloat( *gravitationalConstant, path, "simulation.world.mutualGravity.gravitationalConstant" );
+        }
+        else if ( settings.enabled )
+        {
+            Fail( path, "simulation.world.mutualGravity.gravitationalConstant is required when enabled" );
+        }
+
+        const Json* softeningLength = FindMember( mutualGravity, "softeningLength" );
+        if ( softeningLength )
+        {
+            settings.softeningLength =
+                ReadFloat( *softeningLength, path, "simulation.world.mutualGravity.softeningLength" );
+        }
+        else if ( settings.enabled )
+        {
+            Fail( path, "simulation.world.mutualGravity.softeningLength is required when enabled" );
+        }
+
+        if ( settings.enabled && settings.gravitationalConstant <= 0.0f )
+        {
+            Fail( path, "simulation.world.mutualGravity.gravitationalConstant must be > 0 when enabled" );
+        }
+        if ( settings.softeningLength <= 0.0f )
+        {
+            Fail( path, "simulation.world.mutualGravity.softeningLength must be > 0" );
+        }
+
+        return settings;
+    }
+
     void ApplySimulation( const Json& simulation, const std::string& path )
     {
         RequireObject( simulation, path, "simulation" );
@@ -1700,6 +1743,10 @@ class TestSceneParser
                 ReadFloat( RequireMember( *world, path, "simulation.world", "fluidDensity" ),
                            path,
                            "simulation.world.fluidDensity" );
+            if ( const Json* mutualGravity = FindMember( *world, "mutualGravity" ) )
+            {
+                m_scene.m_worldOverride.mutualGravity = ReadMutualGravitySettings( *mutualGravity, path );
+            }
         }
     }
 

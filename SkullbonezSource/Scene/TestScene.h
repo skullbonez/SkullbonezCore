@@ -45,6 +45,7 @@ Related:
 #include "../Physics/PhysicsDebugData.h"
 #include "../Physics/PhysicsTimestep.h"
 #include "../Physics/TornadoField.h"
+#include "../Physics/PhysicsWorldForces.h"
 #include "../Rendering/RenderMaterial.h"
 #include "../Maths/Vector3.h"
 #include <cstdint>
@@ -377,6 +378,7 @@ struct SceneWorldOverride
     float worldGravity = 0.0f;
     float worldFluidHeight = 0.0f;
     float worldFluidDensity = 0.0f;
+    Physics::MutualGravitySettings mutualGravity;             // Optional authored n-body attraction settings.
 };
 
 struct SceneTornadoSystem
@@ -572,6 +574,8 @@ class TestScene
     float GetWorldGravity() const;
     float GetWorldFluidHeight() const;
     float GetWorldFluidDensity() const;
+    const Physics::MutualGravitySettings& GetWorldMutualGravitySettings() const;
+    bool HasMutualGravityEnabled() const;
     bool HasTornadoSystem() const;
     const Physics::TornadoSystemConfig& GetTornadoSystemConfig() const;
     const SceneUIOptions& GetUIOptions() const;

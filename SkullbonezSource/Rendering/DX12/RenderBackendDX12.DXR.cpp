@@ -620,6 +620,8 @@ void RenderBackendDX12::DispatchReflectionRays( const float* invViewProj,
                                                 float waterY,
                                                 float time,
                                                 const float* lightPos,
+                                                const float* skyColorTop,
+                                                const float* skyColorBottom,
                                                 int width,
                                                 int height,
                                                 uint32_t sphereTexHandle,
@@ -678,12 +680,16 @@ void RenderBackendDX12::DispatchReflectionRays( const float* invViewProj,
     cb.lightPos[1] = lightPos[1];
     cb.lightPos[2] = lightPos[2];
     cb.time = time;
-    cb.skyColorTop[0] = 0.4f;
-    cb.skyColorTop[1] = 0.6f;
-    cb.skyColorTop[2] = 0.9f;
-    cb.skyColorBottom[0] = 0.7f;
-    cb.skyColorBottom[1] = 0.8f;
-    cb.skyColorBottom[2] = 0.95f;
+    static constexpr float DEFAULT_SKY_COLOR_TOP[3] = { 0.4f, 0.6f, 0.9f };
+    static constexpr float DEFAULT_SKY_COLOR_BOTTOM[3] = { 0.7f, 0.8f, 0.95f };
+    const float* resolvedSkyColorTop = skyColorTop ? skyColorTop : DEFAULT_SKY_COLOR_TOP;
+    const float* resolvedSkyColorBottom = skyColorBottom ? skyColorBottom : DEFAULT_SKY_COLOR_BOTTOM;
+    cb.skyColorTop[0] = resolvedSkyColorTop[0];
+    cb.skyColorTop[1] = resolvedSkyColorTop[1];
+    cb.skyColorTop[2] = resolvedSkyColorTop[2];
+    cb.skyColorBottom[0] = resolvedSkyColorBottom[0];
+    cb.skyColorBottom[1] = resolvedSkyColorBottom[1];
+    cb.skyColorBottom[2] = resolvedSkyColorBottom[2];
     memcpy( m_rtConstantBufferMapped, &cb, sizeof( cb ) );
 
     // Compute root signature path for raytracing. DXR uses the compute pipeline (not graphics)

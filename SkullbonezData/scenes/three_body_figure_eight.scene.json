@@ -1,0 +1,117 @@
+{
+  "format": "skullbonez.scene.json",
+  "version": 1,
+  "cinematic": {
+    "rendering": true,
+    "skyAtmosphere": true,
+    "clouds": false,
+    "godRays": false,
+    "volumetricLighting": false,
+    "bloom": false,
+    "fog": false,
+    "styleModes": [0, 3, 2, 0],
+    "exposure": 1.2,
+    "gamma": 1.25,
+    "sunScreenX": 0.56,
+    "sunScreenY": 0.64,
+    "sunColorR": 1.0,
+    "sunColorG": 0.98,
+    "sunColorB": 0.92,
+    "sunIntensity": 18.0,
+    "skyHorizonR": 0.0,
+    "skyHorizonG": 0.0,
+    "skyHorizonB": 0.0,
+    "skyZenithR": 0.0,
+    "skyZenithG": 0.0,
+    "skyZenithB": 0.0,
+    "skyGlowStrength": 0.0
+  },
+  "simulation": {
+    "seed": 8008,
+    "physics": true,
+    "text": false,
+    "modelCapacity": 16,
+    "world": {
+      "gravity": 0.0,
+      "fluidHeight": -100000.0,
+      "fluidDensity": 0.0,
+      "mutualGravity": {
+        "enabled": true,
+        "gravitationalConstant": 42.0,
+        "softeningLength": 2.5
+      }
+    }
+  },
+  "runtime": {
+    "vsync": false
+  },
+  "playback": {
+    "frames": 900,
+    "fixedStep": true,
+    "pauseSnapshotState": false,
+    "exitOnComplete": true
+  },
+  "debug": {
+    "waterHidden": true,
+    "terrainHidden": true
+  },
+  "terrain": {
+    "flatSlope": {
+      "baseY": -100000.0,
+      "slopeX": 0.0,
+      "slopeZ": 0.0
+    }
+  },
+  "cameras": [
+    {
+      "name": "main",
+      "position": [0.0, 190.0, 255.0],
+      "view": [0.0, 100.0, 0.0],
+      "up": [0.0, 1.0, 0.0]
+    }
+  ],
+  "objects": [
+    {
+      "type": "ballState",
+      "name": "orbit_a",
+      "position": [-67.9, 100.0, 17.0],
+      "velocity": [1.65, 0.0, 1.52],
+      "angularVelocity": [0.0, 0.0, 0.0],
+      "orientation": [0.0, 0.0, 0.0, 1.0],
+      "radius": 4.0,
+      "mass": 18.0,
+      "restitution": 0.05,
+      "inertia": [115.2, 115.2, 115.2],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "orbit_b",
+      "position": [67.9, 100.0, -17.0],
+      "velocity": [1.65, 0.0, 1.52],
+      "angularVelocity": [0.0, 0.0, 0.0],
+      "orientation": [0.0, 0.0, 0.0, 1.0],
+      "radius": 4.0,
+      "mass": 18.0,
+      "restitution": 0.05,
+      "inertia": [115.2, 115.2, 115.2],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "orbit_c",
+      "position": [0.0, 100.0, 0.0],
+      "velocity": [-3.3, 0.0, -3.04],
+      "angularVelocity": [0.0, 0.0, 0.0],
+      "orientation": [0.0, 0.0, 0.0, 1.0],
+      "radius": 4.0,
+      "mass": 18.0,
+      "restitution": 0.05,
+      "inertia": [115.2, 115.2, 115.2],
+      "fixed": false,
+      "sleeping": false
+    }
+  ]
+}

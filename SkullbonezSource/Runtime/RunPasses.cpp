@@ -1149,6 +1149,23 @@ ReflectionPassOutput ReflectionPass::Render( const ReflectionPassInputs& inputs,
         Matrix4 invVP = inputs.frame.viewProjection.Inverse();
         float cameraPos[3] = { inputs.frame.eye.x, inputs.frame.eye.y, inputs.frame.eye.z };
         float simTime = inputs.simulationTimeSeconds;
+        // Why: nullptr preserves the backend's legacy sky colors for ordinary
+        // water while cinematic scenes can make DXR misses match authored voids.
+        float cinematicSkyColorTop[3] = {};
+        float cinematicSkyColorBottom[3] = {};
+        const float* skyColorTop = nullptr;
+        const float* skyColorBottom = nullptr;
+        if ( inputs.cinematic && inputs.cinematic->enabled )
+        {
+            cinematicSkyColorTop[0] = inputs.cinematic->skyZenithR;
+            cinematicSkyColorTop[1] = inputs.cinematic->skyZenithG;
+            cinematicSkyColorTop[2] = inputs.cinematic->skyZenithB;
+            cinematicSkyColorBottom[0] = inputs.cinematic->skyHorizonR;
+            cinematicSkyColorBottom[1] = inputs.cinematic->skyHorizonG;
+            cinematicSkyColorBottom[2] = inputs.cinematic->skyHorizonB;
+            skyColorTop = cinematicSkyColorTop;
+            skyColorBottom = cinematicSkyColorBottom;
+        }
 
         Textures::TextureCollection& textures = RenderTextures( inputs.frame );
         uint32_t sphereHandle = 0;
@@ -1185,6 +1202,8 @@ ReflectionPassOutput ReflectionPass::Render( const ReflectionPassInputs& inputs,
                                             inputs.frame.waterY,
                                             simTime,
                                             inputs.frame.lightPosition,
+                                            skyColorTop,
+                                            skyColorBottom,
                                             inputs.frame.windowWidth * 2,
                                             inputs.frame.windowHeight * 2,
                                             sphereHandle,

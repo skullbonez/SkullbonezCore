@@ -220,6 +220,15 @@ bool SceneSnapshotWriter::Save( GameModelCollection& collection,
         { "fluidHeight", worldEnv.GetFluidSurfaceHeight() },
         { "fluidDensity", worldEnv.GetFluidDensity() },
     };
+    const auto& mutualGravity = worldEnv.GetMutualGravitySettings();
+    if ( mutualGravity.enabled )
+    {
+        scene["simulation"]["world"]["mutualGravity"] = {
+            { "enabled", true },
+            { "gravitationalConstant", mutualGravity.gravitationalConstant },
+            { "softeningLength", mutualGravity.softeningLength },
+        };
+    }
     scene["playback"] = Json::object();
     scene["playback"]["frames"] = "unlimited";
     scene["playback"]["fixedStep"] = fixedStep;

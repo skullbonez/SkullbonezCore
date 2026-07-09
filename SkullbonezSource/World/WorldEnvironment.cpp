@@ -489,6 +489,7 @@ SkullbonezCore::Physics::PhysicsWorldForces WorldEnvironment::GetPhysicsWorldFor
     forces.gasDensity = m_gasDensity;
     forces.gravity = m_gravity;
     forces.angularDragMultiplier = m_fluidForces.angularDragMultiplier;
+    forces.mutualGravity = m_mutualGravity;
     return forces;
 }
 
@@ -520,4 +521,16 @@ float WorldEnvironment::GetFluidDensity() const
 void WorldEnvironment::SetFluidDensity( float density )
 {
     m_fluidDensity = density;
+}
+
+
+const SkullbonezCore::Physics::MutualGravitySettings& WorldEnvironment::GetMutualGravitySettings() const
+{
+    return m_mutualGravity;
+}
+
+
+void WorldEnvironment::SetMutualGravitySettings( const SkullbonezCore::Physics::MutualGravitySettings& settings )
+{
+    m_mutualGravity = settings;
 }

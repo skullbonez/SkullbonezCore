@@ -70,6 +70,12 @@ SCENES = [
         "current": "dx12_solver_smoke.bmp",
         "baseline": "baseline_dx12_solver_smoke.png",
     },
+    {
+        "name": "space_three_body",
+        "scene": "SkullbonezData/scenes/three_body_chaos.scene.json",
+        "current": "dx12_space_three_body.bmp",
+        "baseline": "baseline_dx12_space_three_body.png",
+    },
 ]
 
 DX12_COMMAND = r"Profile\SKULLBONEZ_CORE.exe --renderer dx12 --vsync off --suite SkullbonezData/scenes/render_tests.suite.json"

@@ -152,6 +152,15 @@ PhysicsWorldForces NoGravityForces()
     return forces;
 }
 
+PhysicsWorldForces MutualGravityForces( float gravitationalConstant, float softeningLength )
+{
+    PhysicsWorldForces forces = NoGravityForces();
+    forces.mutualGravity.enabled = true;
+    forces.mutualGravity.gravitationalConstant = gravitationalConstant;
+    forces.mutualGravity.softeningLength = softeningLength;
+    return forces;
+}
+
 PhysicsWorldForces DampingForces()
 {
     PhysicsWorldForces forces = NoGravityForces();
@@ -207,6 +216,35 @@ void AddMicroBody( PhysicsEngine& engine,
     (void)engine.RegisterAuthoredCollider( colliderDesc );
 }
 
+void AddMutualGravityBody( PhysicsEngine& engine,
+                           uint32_t sceneObjectId,
+                           const Vector3& position,
+                           const Vector3& linearVelocity,
+                           float mass,
+                           float radius )
+{
+    const float inertia = 0.4f * mass * radius * radius;
+    const CollisionShape shape = MakeSphereShape( radius );
+    auto bodyDesc = MakePhysicsBodyCreateDesc( PhysicsSceneObjectId{ sceneObjectId },
+                                               shape,
+                                               position,
+                                               SkullbonezCore::Math::Orientation::IDENTITY_QUATERNION,
+                                               linearVelocity,
+                                               Vector3( 0.0f, 0.0f, 0.0f ),
+                                               Vector3( inertia, inertia, inertia ),
+                                               mass,
+                                               0.0f,
+                                               PhysicsBodyMotionKind::Dynamic,
+                                               &FlatTestTerrain(),
+                                               "unit-mutual-gravity-body" );
+    bodyDesc.angularVelocityLimit = 1000.0f;
+    const PhysicsBodyHandle body = engine.RegisterAuthoredBody( bodyDesc );
+    auto colliderDesc = MakeColliderCreateDesc( shape, 0.0f, 0u, "unit" );
+    colliderDesc.body = body;
+    colliderDesc.sceneObjectId = bodyDesc.sceneObjectId;
+    (void)engine.RegisterAuthoredCollider( colliderDesc );
+}
+
 void SeedMicroWorld( PhysicsEngine& engine )
 {
     EngineConfig config = MakeDeterministicConfig();
@@ -218,6 +256,26 @@ void SeedMicroWorld( PhysicsEngine& engine )
     AddMicroBody( engine, 103u, Vector3( 124.0f, 50.0f, 100.0f ), Vector3( -1.0f, 0.0f, 0.0f ) );
     REQUIRE( engine.BodyStore().Count() == kMicroBodyCount );
     REQUIRE( engine.Colliders().Count() == kMicroBodyCount );
+}
+
+void SeedTwoBodyGravityWorld( PhysicsEngine& engine,
+                              const Vector3& leftPosition,
+                              const Vector3& rightPosition,
+                              const Vector3& leftVelocity,
+                              const Vector3& rightVelocity,
+                              float mass,
+                              float radius )
+{
+    EngineConfig config = MakeDeterministicConfig();
+    config.gravity = 0.0f;
+    engine.Clear();
+    engine.ApplyRuntimeConfig( config );
+    engine.SetSleepEnabled( false );
+    engine.ReserveAuthoredBodyCapacity( 2 );
+    AddMutualGravityBody( engine, 201u, leftPosition, leftVelocity, mass, radius );
+    AddMutualGravityBody( engine, 202u, rightPosition, rightVelocity, mass, radius );
+    REQUIRE( engine.BodyStore().Count() == 2 );
+    REQUIRE( engine.Colliders().Count() == 2 );
 }
 
 void StepMicroWorldWith( PhysicsEngine& engine,
@@ -558,6 +616,126 @@ TEST_CASE( "PhysicsEngine determinism: micro-world matches at fixed tick interva
         StepMicroWorld( second, 60 );
         CheckEngineKinematicsEqual( first, second );
     }
+}
+
+
+TEST_CASE( "PhysicsEngine mutual gravity: pair force is antisymmetric" )
+{
+    static PhysicsEngine pairWorld;
+    SeedTwoBodyGravityWorld( pairWorld,
+                             Vector3( -12.0f, 80.0f, 0.0f ),
+                             Vector3( 12.0f, 80.0f, 0.0f ),
+                             Vector3( 0.0f, 0.0f, 0.0f ),
+                             Vector3( 0.0f, 0.0f, 0.0f ),
+                             5.0f,
+                             0.5f );
+
+    EngineConfig config = MakeDeterministicConfig();
+    config.gravity = 0.0f;
+    const PhysicsWorldForces forces = MutualGravityForces( 120.0f, 0.25f );
+
+    StepMicroWorldWith( pairWorld, 1, config, forces );
+    const PhysicsBodyRecord& left = RequireBodyRecord( pairWorld, 0 );
+    const PhysicsBodyRecord& right = RequireBodyRecord( pairWorld, 1 );
+    CHECK( left.linearVelocity.x > 0.0f );
+    CHECK( right.linearVelocity.x < 0.0f );
+    CHECK( left.linearVelocity.x == doctest::Approx( -right.linearVelocity.x ).epsilon( 0.0001 ) );
+    CHECK( left.linearVelocity.y == doctest::Approx( right.linearVelocity.y ).epsilon( 0.0001 ) );
+    CHECK( left.linearVelocity.z == doctest::Approx( right.linearVelocity.z ).epsilon( 0.0001 ) );
+}
+
+
+TEST_CASE( "PhysicsEngine mutual gravity: softening keeps near pairs finite" )
+{
+    static PhysicsEngine closeWorld;
+    SeedTwoBodyGravityWorld( closeWorld,
+                             Vector3( 0.0f, 80.0f, 0.0f ),
+                             Vector3( 0.03f, 80.0f, 0.0f ),
+                             Vector3( 0.0f, 0.0f, 0.0f ),
+                             Vector3( 0.0f, 0.0f, 0.0f ),
+                             3.0f,
+                             0.01f );
+
+    EngineConfig config = MakeDeterministicConfig();
+    config.gravity = 0.0f;
+    const PhysicsWorldForces forces = MutualGravityForces( 1000.0f, 5.0f );
+
+    StepMicroWorldWith( closeWorld, 1, config, forces );
+    const PhysicsBodyRecord& left = RequireBodyRecord( closeWorld, 0 );
+    const PhysicsBodyRecord& right = RequireBodyRecord( closeWorld, 1 );
+    CHECK( std::isfinite( left.linearVelocity.x ) );
+    CHECK( std::isfinite( right.linearVelocity.x ) );
+    CHECK( fabsf( left.linearVelocity.x ) < 1.0f );
+    CHECK( fabsf( right.linearVelocity.x ) < 1.0f );
+}
+
+
+TEST_CASE( "PhysicsEngine mutual gravity: equal-mass two-body orbit stays bounded" )
+{
+    static PhysicsEngine orbitWorld;
+    const float orbitRadius = 20.0f;
+    const float separation = orbitRadius * 2.0f;
+    const float mass = 20.0f;
+    const float gravitationalConstant = 20.0f;
+    const float softeningLength = 0.1f;
+    const float softenedDistanceSq = separation * separation + softeningLength * softeningLength;
+    const float acceleration =
+        gravitationalConstant * mass * separation / ( softenedDistanceSq * sqrtf( softenedDistanceSq ) );
+    const float orbitalSpeed = sqrtf( acceleration * orbitRadius );
+
+    SeedTwoBodyGravityWorld( orbitWorld,
+                             Vector3( -orbitRadius, 80.0f, 0.0f ),
+                             Vector3( orbitRadius, 80.0f, 0.0f ),
+                             Vector3( 0.0f, 0.0f, -orbitalSpeed ),
+                             Vector3( 0.0f, 0.0f, orbitalSpeed ),
+                             mass,
+                             0.5f );
+
+    EngineConfig config = MakeDeterministicConfig();
+    config.gravity = 0.0f;
+    const PhysicsWorldForces forces = MutualGravityForces( gravitationalConstant, softeningLength );
+
+    StepMicroWorldWith( orbitWorld, 300, config, forces );
+    const PhysicsBodyRecord& left = RequireBodyRecord( orbitWorld, 0 );
+    const PhysicsBodyRecord& right = RequireBodyRecord( orbitWorld, 1 );
+    const Vector3 barycenter = ( left.position + right.position ) * 0.5f;
+    const float finalSeparation = sqrtf( VectorMagnitudeSquared( right.position - left.position ) );
+    CHECK( barycenter.x == doctest::Approx( 0.0f ).epsilon( 0.001 ) );
+    CHECK( barycenter.y == doctest::Approx( 80.0f ).epsilon( 0.001 ) );
+    CHECK( barycenter.z == doctest::Approx( 0.0f ).epsilon( 0.001 ) );
+    CHECK( finalSeparation == doctest::Approx( separation ).epsilon( 0.10 ) );
+}
+
+
+TEST_CASE( "PhysicsEngine mutual gravity: chaotic triple is deterministic" )
+{
+    static PhysicsEngine first;
+    static PhysicsEngine second;
+    EngineConfig config = MakeDeterministicConfig();
+    config.gravity = 0.0f;
+
+    auto seedTriple = [&config]( PhysicsEngine& engine )
+    {
+        engine.Clear();
+        engine.ApplyRuntimeConfig( config );
+        engine.SetSleepEnabled( false );
+        engine.ReserveAuthoredBodyCapacity( 3 );
+        AddMutualGravityBody(
+            engine, 301u, Vector3( -18.0f, 90.0f, 0.0f ), Vector3( 0.8f, 0.0f, -1.0f ), 12.0f, 0.45f );
+        AddMutualGravityBody(
+            engine, 302u, Vector3( 16.0f, 90.0f, 4.0f ), Vector3( -0.4f, 0.0f, 1.1f ), 16.0f, 0.45f );
+        AddMutualGravityBody(
+            engine, 303u, Vector3( 2.0f, 90.0f, 24.0f ), Vector3( -0.2f, 0.0f, -0.8f ), 10.0f, 0.45f );
+        REQUIRE( engine.BodyStore().Count() == 3 );
+        REQUIRE( engine.Colliders().Count() == 3 );
+    };
+
+    seedTriple( first );
+    seedTriple( second );
+    const PhysicsWorldForces forces = MutualGravityForces( 45.0f, 0.35f );
+    StepMicroWorldWith( first, 240, config, forces );
+    StepMicroWorldWith( second, 240, config, forces );
+    CheckEngineKinematicsEqual( first, second );
 }
 
 

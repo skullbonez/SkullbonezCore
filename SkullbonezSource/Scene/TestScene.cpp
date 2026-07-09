@@ -707,6 +707,18 @@ float TestScene::GetWorldFluidDensity() const
 }
 
 
+const SkullbonezCore::Physics::MutualGravitySettings& TestScene::GetWorldMutualGravitySettings() const
+{
+    return m_worldOverride.mutualGravity;
+}
+
+
+bool TestScene::HasMutualGravityEnabled() const
+{
+    return m_worldOverride.mutualGravity.enabled;
+}
+
+
 bool TestScene::HasTornadoSystem() const
 {
     return m_tornadoSystem.hasTornadoSystem;

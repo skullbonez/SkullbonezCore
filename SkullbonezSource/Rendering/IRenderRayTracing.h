@@ -65,6 +65,8 @@ class IRenderRayTracing
                                          float waterY,
                                          float time,
                                          const float* lightPos,
+                                         const float* skyColorTop,
+                                         const float* skyColorBottom,
                                          int width,
                                          int height,
                                          uint32_t sphereTexHandle,

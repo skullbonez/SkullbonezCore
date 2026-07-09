@@ -578,6 +578,7 @@ SbResult Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnCom
         rngSeed = 1;
     }
     bool hasSceneTornadoSystem = false;
+    bool sceneMutualGravityEnabled = false;
     TornadoSystemConfig sceneTornadoSystem;
 
     runtime.RecordLifecycleEvent( SceneRuntimeLifecycleEvent::AfterSceneCleared );
@@ -671,6 +672,7 @@ SbResult Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnCom
             return m_lastSceneLoadResult;
         }
         hasSceneTornadoSystem = scene.HasTornadoSystem();
+        sceneMutualGravityEnabled = scene.HasMutualGravityEnabled();
         if ( hasSceneTornadoSystem )
         {
             sceneTornadoSystem = scene.GetTornadoSystemConfig();
@@ -804,6 +806,7 @@ SbResult Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnCom
                                                     scene.GetWorldFluidDensity(),
                                                     m_config.gasDensity,
                                                     scene.GetWorldGravity() );
+            m_cWorldEnvironment.SetMutualGravitySettings( scene.GetWorldMutualGravitySettings() );
             m_cWorldEnvironment.BindRuntimeConfig( m_config );
             UpdateWorldTerrainBounds( m_cWorldEnvironment, m_systems.terrain.get() );
         }
@@ -976,6 +979,12 @@ SbResult Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnCom
         m_runtimeSettings.tornadoSystem.visualizeVelocityField = true;
     }
     SyncTornadoRuntimeSettingsToPhysics( m_cGameModelCollection, m_runtimeSettings );
+    if ( sceneMutualGravityEnabled )
+    {
+        // Why: n-body space scenes have no contacts to wake quiet bodies later;
+        // authored mutual gravity owns sleep policy for the duration of setup.
+        m_runtimeSettings.isPhysicsSleepEnabled = false;
+    }
     m_cGameModelCollection.SetPhysicsSleepEnabled( m_runtimeSettings.isPhysicsSleepEnabled );
     if ( m_launchOptions.frameCountOverride > 0 )
     {
@@ -1233,6 +1242,19 @@ bool Run::SaveCurrentSceneDefaults()
     world["gravity"] = m_cWorldEnvironment.GetGravity();
     world["fluidHeight"] = m_cWorldEnvironment.GetFluidSurfaceHeight();
     world["fluidDensity"] = m_cWorldEnvironment.GetFluidDensity();
+    const MutualGravitySettings& mutualGravity = m_cWorldEnvironment.GetMutualGravitySettings();
+    if ( mutualGravity.enabled )
+    {
+        world["mutualGravity"] = {
+            { "enabled", true },
+            { "gravitationalConstant", mutualGravity.gravitationalConstant },
+            { "softeningLength", mutualGravity.softeningLength },
+        };
+    }
+    else
+    {
+        world.erase( "mutualGravity" );
+    }
     SetTouchedCinematicSceneProperties( root, SceneState().uiCinematicOverrideMask, SceneState().cinematicRender );
 
     if ( m_sceneController.UIOverrides().modelCountOverride >= 0 )

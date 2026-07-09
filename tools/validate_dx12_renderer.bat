@@ -72,8 +72,10 @@ if /I "%SKULLBONEZ_ASSUME_PROFILE_BUILT%"=="1" (
 echo [3/7] Cleaning old DX12 artifacts...
 del /q "%REPO%\Profile\screenshot.bmp" 2>nul
 del /q "%REPO%\Profile\solver_smoke.bmp" 2>nul
+del /q "%REPO%\Profile\space_three_body.bmp" 2>nul
 del /q "%REPO%\Profile\dx12_screenshot.bmp" 2>nul
 del /q "%REPO%\Profile\dx12_solver_smoke.bmp" 2>nul
+del /q "%REPO%\Profile\dx12_space_three_body.bmp" 2>nul
 del /q "%REPO%\Profile\dx12_stdout.txt" 2>nul
 del /q "%REPO%\Profile\dx12_stderr.txt" 2>nul
 del /q "%REPO%\dx12_validation.txt" 2>nul
@@ -87,10 +89,11 @@ if errorlevel 1 (
 )
 if exist "%REPO%\Profile\screenshot.bmp" rename "%REPO%\Profile\screenshot.bmp" dx12_screenshot.bmp
 if exist "%REPO%\Profile\solver_smoke.bmp" rename "%REPO%\Profile\solver_smoke.bmp" dx12_solver_smoke.bmp
+if exist "%REPO%\Profile\space_three_body.bmp" rename "%REPO%\Profile\space_three_body.bmp" dx12_space_three_body.bmp
 
 echo [5/7] Checking expected DX12 screenshot artifacts...
 set "MISSING=0"
-for %%f in (dx12_screenshot.bmp dx12_solver_smoke.bmp) do (
+for %%f in (dx12_screenshot.bmp dx12_solver_smoke.bmp dx12_space_three_body.bmp) do (
     if not exist "%REPO%\Profile\%%f" (
         echo   MISSING: %%f
         set /a MISSING+=1

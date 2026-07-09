@@ -50,6 +50,7 @@ DEEP_TESTS = [
     (os.path.join(REPO, "Debug", "bullet_sweep_object.csv"), "bullet_sweep_object.csv"),
     (os.path.join(REPO, "Debug", "bullet_sweep_terrain.csv"), "bullet_sweep_terrain.csv"),
     (os.path.join(REPO, "Debug", "shooting_reaction_volley.csv"), "shooting_reaction_volley.csv"),
+    (os.path.join(REPO, "Debug", "space_three_body_chaos.csv"), "space_three_body_chaos.csv"),
 ]
 
 

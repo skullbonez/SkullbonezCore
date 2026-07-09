@@ -770,7 +770,8 @@ void ApplyPendingImpulse( PhysicsBodyRecord& record )
 void ApplyWorldForces( PhysicsBodyRecord& record,
                        const ColliderRecord& collider,
                        const PhysicsWorldForces& worldForces,
-                       float deltaSeconds )
+                       float deltaSeconds,
+                       const Vector3* precomputedMutualGravityForce )
 {
     Vector3 worldForce = ZERO_VECTOR;
     Vector3 worldTorque = ZERO_VECTOR;
@@ -779,6 +780,12 @@ void ApplyWorldForces( PhysicsBodyRecord& record,
     const float submergedVolumePercent = buoyancySample.submergedVolumePercent;
 
     worldForce.y += CalculateGravityForce( worldForces, record.mass );
+    // Why: mutual gravity is accumulated in PhysicsWorld's serial pair pass,
+    // then injected per body so worker force integration stays order-neutral.
+    if ( precomputedMutualGravityForce )
+    {
+        worldForce += *precomputedMutualGravityForce;
+    }
 
     const float buoyancyForce = CalculateBuoyancyForce( worldForces, record.volume * submergedVolumePercent );
     const Vector3 buoyancyForceVector( 0.0f, buoyancyForce, 0.0f );
@@ -1753,7 +1760,8 @@ bool PhysicsBodyStore::IntegrateBodyPose( const ColliderStore& colliderStore, in
 bool PhysicsBodyStore::ApplyForces( const PhysicsWorldForces& worldForces,
                                     const ColliderStore& colliderStore,
                                     int modelIndex,
-                                    float deltaSeconds )
+                                    float deltaSeconds,
+                                    const Vector3* precomputedMutualGravityForce )
 {
     PhysicsBodyRecord* record = MutableRecordForModelIndex( modelIndex );
     const ColliderRecord* collider = ColliderRecordForModelIndex( colliderStore, modelIndex );
@@ -1769,7 +1777,7 @@ bool PhysicsBodyStore::ApplyForces( const PhysicsWorldForces& worldForces,
     }
 
     ThrottleAngularVelocity( *record );
-    ApplyWorldForces( *record, *collider, worldForces, deltaSeconds );
+    ApplyWorldForces( *record, *collider, worldForces, deltaSeconds, precomputedMutualGravityForce );
     ConsumePendingBodyImpulse( *record );
     return true;
 }

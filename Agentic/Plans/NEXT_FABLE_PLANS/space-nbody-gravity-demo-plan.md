@@ -1,8 +1,33 @@
 # Space N-Body Gravity Demo Plan (Three-Body Problem In A Void)
 
 Date: 2026-07-09
-Status: Proposed
+Status: Implemented through Phase 3 on 2026-07-09
 Owner: Physics / Demo look
+
+## Completion Update (2026-07-09)
+
+Implemented the opt-in mutual-gravity physics mode, authored the void-space
+demo scenes, added the DX12 visual baseline and chaotic-triple physics
+baseline, and wired both renderer/physics validation scripts to cover the new
+artifacts.
+
+Phase 4 remains a follow-up by design: director shots, prediction ghosts,
+divergence readout, and orbit-trail presentation are not part of this slice.
+
+Validation evidence from the final implementation state:
+
+- `tools\validate_format.bat`: PASS; 203 headers aligned and all source files formatted.
+- `tools\validate_tests.bat`: PASS; 65 test cases and 1588 assertions passed.
+- `tools\validate_physics.bat`: PASS; `physics_regression_solver.csv` matched 20001 lines byte-exact.
+- `tools\validate_physics_deep.bat`: PASS; `space_three_body_chaos.csv` matched 361 lines byte-exact along with the existing deep baselines.
+- `tools\validate_dx12_renderer.bat`: PASS; DX12 InfoQueue reported 0 validation errors, and `space_three_body` matched its screenshot baseline exactly.
+- `tools\validate_fast.bat`: PASS; format, project filters, staged size, runtime boundaries, Profile build, tests, and ready builds passed.
+- `tools\validate_perf.bat`: PASS on final rerun; allocation guard was clean, absolute budgets passed, and both DX12 and PHYSICS_BENCH reported no regressions. Earlier reruns had noisy relative render timing failures before the final clean run.
+
+Touched source-bearing files were inspected against the comment-style audit
+skill; local `Concept:`/`Why:` comments were added around the deterministic
+mutual-gravity pre-pass, force handoff, scene sleep policy, and DXR void-sky
+hook where the ownership or determinism rule was non-obvious.
 
 ## Goal
 

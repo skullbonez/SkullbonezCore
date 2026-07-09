@@ -152,6 +152,7 @@ void PhysicsScene::ApplyAuthoredColliderPolicy( PhysicsColliderCreateDesc& desc 
 void PhysicsScene::ReserveAuthoredBodyCapacity( std::size_t capacity )
 {
     m_authoredBodyDescs.reserve( capacity );
+    m_world.ReserveBodyScratchCapacity( capacity );
 }
 
 

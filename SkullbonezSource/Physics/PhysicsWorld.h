@@ -99,6 +99,7 @@ class PhysicsWorld
     Math::CollisionDetection::SpatialGrid m_spatialGrid;
     std::vector<std::pair<int, int>> m_candidatePairs;
     std::vector<float> m_timeRemaining;
+    std::vector<Math::Vector::Vector3> m_mutualGravityForces; // Model-order scratch forces, reserved before gameplay.
 
     // Sleep policy working state.
     //
@@ -423,6 +424,9 @@ class PhysicsWorld
                            const char* const* diagnosticNames,
                            int diagnosticNameCount,
                            const PhysicsDiagnosticsCsvWriter& diagnosticsCsvWriter );
+    const Math::Vector::Vector3* PrepareMutualGravityForces( const PhysicsBodyRecordList& bodyRecords,
+                                                             int modelCount,
+                                                             const PhysicsWorldForces& worldForces );
     void EmitPhysicsCollisionTime( const char* const* diagnosticNames,
                                    int diagnosticNameCount,
                                    const PhysicsDiagnosticsCsvWriter& diagnosticsCsvWriter,
@@ -508,6 +512,7 @@ class PhysicsWorld
 
     void ApplyRuntimeConfig( const Basics::EngineConfig& config );
     void Clear();
+    void ReserveBodyScratchCapacity( std::size_t capacity );
     // Runs one fixed world step over the stores. diagnosticNames is a cold
     // Debug presentation overlay for collision-time rows; diagnosticsCsvWriter
     // is the cold CSV output edge supplied by runtime, not a solver service.

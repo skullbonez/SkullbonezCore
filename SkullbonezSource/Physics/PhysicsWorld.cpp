@@ -655,6 +655,7 @@ void ApplyForcesForSolverBody( PhysicsBodyStore& bodyStore,
                                const PhysicsBodyRecordList& bodyRecords,
                                std::vector<uint8_t>& sleepState,
                                std::vector<float>& timeRemaining,
+                               const Vector3* mutualGravityForces,
                                int bodyIndex,
                                float dt )
 {
@@ -670,7 +671,8 @@ void ApplyForcesForSolverBody( PhysicsBodyStore& bodyStore,
         timeRemaining[bodyIndex] = 0.0f;
         return;
     }
-    (void)bodyStore.ApplyForces( worldForces, colliderStore, bodyIndex, dt );
+    const Vector3* mutualGravityForce = mutualGravityForces ? &mutualGravityForces[bodyIndex] : nullptr;
+    (void)bodyStore.ApplyForces( worldForces, colliderStore, bodyIndex, dt, mutualGravityForce );
 }
 
 struct ApplyForcesStageContext
@@ -684,6 +686,7 @@ struct ApplyForcesStageContext
     const PhysicsBodyRecordList& bodyRecords;
     std::vector<uint8_t>& sleepState;
     std::vector<float>& timeRemaining;
+    const Vector3* mutualGravityForces = nullptr;
     float dt = 0.0f;
 
     void operator()( int bodyIndex ) const
@@ -694,6 +697,7 @@ struct ApplyForcesStageContext
                                   bodyRecords,
                                   sleepState,
                                   timeRemaining,
+                                  mutualGravityForces,
                                   bodyIndex,
                                   dt );
     }
@@ -911,6 +915,7 @@ PhysicsWorld::PhysicsWorld()
     : m_spatialGrid( DEFAULT_BROADPHASE_CELL ), m_seedSleepFrameCount( DEFAULT_PHYSICS_SLEEP_FRAMES )
 {
     m_timeRemaining.reserve( MAX_GAME_MODELS );
+    m_mutualGravityForces.reserve( MAX_GAME_MODELS );
     // Runtime allocation policy: broadphase candidate-pair storage is sized at
     // setup and SpatialGrid asserts on cap exhaustion instead of growing during
     // the fixed-step physics pass.
@@ -974,6 +979,7 @@ void PhysicsWorld::ApplyRuntimeConfig( const Basics::EngineConfig& config )
 void PhysicsWorld::Clear()
 {
     m_timeRemaining.clear();
+    m_mutualGravityForces.clear();
     m_candidatePairs.clear();
     m_sleepSupportedThisFrame.clear();
     m_sleepInhibitedThisFrame.clear();
@@ -1017,6 +1023,12 @@ void PhysicsWorld::Clear()
     m_objectNarrowphaseRootToIsland.clear();
     m_pointJointConstraints.clear();
     m_collisionCellKeys.clear();
+}
+
+
+void PhysicsWorld::ReserveBodyScratchCapacity( std::size_t capacity )
+{
+    m_mutualGravityForces.reserve( capacity );
 }
 
 
@@ -3465,6 +3477,80 @@ void PhysicsWorld::ApplySleepIslandTransitions( PhysicsBodyStore& bodyStore,
 }
 
 
+const Vector3* PhysicsWorld::PrepareMutualGravityForces( const PhysicsBodyRecordList& bodyRecords,
+                                                         int modelCount,
+                                                         const PhysicsWorldForces& worldForces )
+{
+    const MutualGravitySettings& settings = worldForces.mutualGravity;
+    if ( !settings.enabled || settings.gravitationalConstant <= 0.0f || modelCount <= 0 )
+    {
+        return nullptr;
+    }
+
+    const std::size_t requiredCapacity = static_cast<std::size_t>( modelCount );
+    if ( m_mutualGravityForces.capacity() < requiredCapacity )
+    {
+        SB_FATAL( "Physics/MutualGravity",
+                  "Mutual gravity scratch capacity exhausted. capacity=%zu required=%zu",
+                  m_mutualGravityForces.capacity(),
+                  requiredCapacity );
+    }
+
+    // Concept: this serial pre-pass accumulates Newton-pair forces in model
+    // order before the ordinary per-body force stage. The triangular loop keeps
+    // equal-and-opposite forces bitwise paired and avoids worker scheduling
+    // becoming part of deterministic physics state.
+    m_mutualGravityForces.assign( requiredCapacity, ZERO_VECTOR );
+    const float softeningLength = (std::max)( settings.softeningLength, TOLERANCE );
+    const float softenedDistanceSq = softeningLength * softeningLength;
+    const float gravitationalConstant = settings.gravitationalConstant;
+
+    for ( int i = 0; i < modelCount; ++i )
+    {
+        const PhysicsBodyRecord& bodyA = bodyRecords[static_cast<std::size_t>( i )];
+        if ( bodyA.mass <= TOLERANCE )
+        {
+            continue;
+        }
+
+        const bool bodyAReceives = !bodyA.isFixed && bodyA.invMass > 0.0f &&
+                                   ( i >= static_cast<int>( m_sleepState.size() ) || m_sleepState[i] == 0 );
+        for ( int j = i + 1; j < modelCount; ++j )
+        {
+            const PhysicsBodyRecord& bodyB = bodyRecords[static_cast<std::size_t>( j )];
+            if ( bodyB.mass <= TOLERANCE )
+            {
+                continue;
+            }
+
+            const bool bodyBReceives = !bodyB.isFixed && bodyB.invMass > 0.0f &&
+                                       ( j >= static_cast<int>( m_sleepState.size() ) || m_sleepState[j] == 0 );
+            if ( !bodyAReceives && !bodyBReceives )
+            {
+                continue;
+            }
+
+            const Vector3 displacement = bodyB.position - bodyA.position;
+            const float distanceSq = Vector::VectorMagSquared( displacement ) + softenedDistanceSq;
+            const float invDistance = 1.0f / sqrtf( distanceSq );
+            const float invDistanceCubed = invDistance * invDistance * invDistance;
+            const Vector3 force = displacement * ( gravitationalConstant * bodyA.mass * bodyB.mass * invDistanceCubed );
+
+            if ( bodyAReceives )
+            {
+                m_mutualGravityForces[static_cast<std::size_t>( i )] += force;
+            }
+            if ( bodyBReceives )
+            {
+                m_mutualGravityForces[static_cast<std::size_t>( j )] -= force;
+            }
+        }
+    }
+
+    return m_mutualGravityForces.data();
+}
+
+
 void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
                                      const ColliderStore& colliderStore,
                                      float dt,
@@ -3508,6 +3594,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
 
     // Sleeping bodies keep cached state until a contact or scene change wakes
     // them, so force integration only runs for awake rows.
+    const Vector3* mutualGravityForces = PrepareMutualGravityForces( bodyRecords, modelCount, worldForces );
     PROFILE_BEGIN( "Frame/Physics/ApplyForces" );
     ApplyForcesStageContext applyForcesStage{
         bodyStore,
@@ -3516,6 +3603,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
         bodyRecords,
         m_sleepState,
         m_timeRemaining,
+        mutualGravityForces,
         dt,
     };
 
@@ -3764,6 +3852,7 @@ uint64_t PhysicsWorld::CollectMemoryBytes() const
     uint64_t bytes = static_cast<uint64_t>( sizeof( *this ) );
     bytes += VectorCapacityBytes( m_candidatePairs );
     bytes += VectorCapacityBytes( m_timeRemaining );
+    bytes += VectorCapacityBytes( m_mutualGravityForces );
     bytes += VectorCapacityBytes( m_sleepSupportedThisFrame );
     bytes += VectorCapacityBytes( m_sleepInhibitedThisFrame );
     bytes += VectorCapacityBytes( m_sleepState );
