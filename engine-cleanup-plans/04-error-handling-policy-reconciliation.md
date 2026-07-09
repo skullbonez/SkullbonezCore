@@ -517,6 +517,25 @@ byte-exact gated.
     `Agentic/Reports/validate_interaction_clicks_plan04_probe_failures_20260709.log`.
 - [ ] **3.1** Convert **R** sites (scene/asset/file IO) to `SbResult` reported at
   the boundary, **one boundary at a time**. Gate: `validate_full`. Commit.
+
+  Progress 2026-07-09, replay-load recoverable boundary sub-slice:
+  - Converted the command-line replay v2 presentation artifact load failure in
+    `SkullbonezSource/Runtime/Init.cpp` row 232 from an exception exit to
+    `SbResult::Failure("Runtime/ReplayLoad", ...)` returned through the
+    existing `reportRunResult` process-boundary reporter.
+  - Strict anchored source throw statement inventory now reports 116 sites,
+    down from the previous sub-slice count of 117. `SB_FATAL` macro invocations
+    remain 151 via `rg -n "SB_FATAL\s*\(" SkullbonezSource`.
+  - Comment-style audit scope: `SkullbonezSource/Runtime/Init.cpp`; checked 1,
+    deferred 0. This was a touched-file audit, so no subsystem checklist plan
+    was required.
+  - Required gates passed: `tools\validate_full.bat` exited 0 with
+    `VALIDATE_FULL: DEFAULT GATE PASSED` (log timestamp delta
+    00:01:02.4353853), and the focused replay boundary gate
+    `tools\validate_replay_v2_artifact.bat` exited 0 in 00:00:57.3068451 with
+    `VALIDATE_REPLAY_V2_ARTIFACT: ALL PASSED`. Logs:
+    `Agentic/Reports/validate_full_plan04_replay_load_result_20260709.log` and
+    `Agentic/Reports/validate_replay_v2_artifact_plan04_replay_load_result_20260709.log`.
 - [ ] **4.1** Do **not** maintain any throw count. The `MAX_SOURCE_THROW_TOKENS`
   ratchet is deleted by plan 03. Verify progress by re-running
   `rg -n "throw " SkullbonezSource` and confirming the F/R/P sites are converted;

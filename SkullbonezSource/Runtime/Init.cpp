@@ -3182,7 +3182,8 @@ int RunApp( Window* window,
             {
                 if ( !cRun->LoadReplayPresentationArtifact( args.replayLoadPath, true ) )
                 {
-                    throw std::runtime_error( "failed to load replay v2 presentation artifact" );
+                    return reportRunResult(
+                        SbResult::Failure( "Runtime/ReplayLoad", "failed to load replay v2 presentation artifact" ) );
                 }
             }
 #ifdef _DEBUG
