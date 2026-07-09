@@ -58,7 +58,7 @@ Require owner approval before adding any new runtime allocation exception.
 - [x] **Phase 0 - Decide the real requirement.** The requirement is global
   runtime zero allocation by default, with owner-approved special allocator
   exceptions only. Replay is the only currently approved exception.
-- [ ] **Phase 1 - Inventory the current apparatus against the requirement.**
+- [x] **Phase 1 - Inventory the current apparatus against the requirement.**
   Identify which parts of `RuntimeAllocationTracker`,
   `RuntimeReserveAllocator`, `check_allocation_policy.py`, validation scripts,
   and allowlist data enforce the global zero-allocation policy, and which parts
@@ -94,9 +94,22 @@ the policy.
   zero allocation by default, not a hot-path-only policy. Approved exception:
   replay only, through the special allocator path with owner/phase/cap/counters
   and diagnostics. No code changes in this decision step.
-- [ ] **1.1** Inventory current allocation enforcement against the global policy
+- [x] **1.1** Inventory current allocation enforcement against the global policy
   and list the parts to keep, simplify, or delete. No code change; commit the
   inventory. Documentation-only.
+
+  Completed 2026-07-10:
+  - Added `07-allocation-gate-inventory.md`.
+  - Current apparatus is 2,274 lines across the runtime allocation tracker,
+    runtime reserve allocator, static checker, and allowlist.
+  - `check_allocation_policy.py --repo .` scans 296 source files and reports
+    30 direct heap/reserve findings, all allowlisted, with 0 dynamic STL member
+    findings.
+  - `check_allocation_policy.py --self-test` passed.
+  - Inventory conclusion: keep the global runtime allocation guard, replay-only
+    reserve growth gate, allowlist metadata, and `validate_perf`; simplify
+    callsite/growth diagnostics and duplicate phase machinery; broaden static
+    STL/growth enforcement without adding frozen counts.
 - [ ] **2.1** Simplify the runtime allocation apparatus without weakening global
   runtime enforcement. Replay remains the only approved runtime allocation
   exception and must keep owner/phase/cap/counter/diagnostic reporting. Gate:
