@@ -1,9 +1,9 @@
 # Replay: Trajectory Visuals, Prediction Job, Memory Quality, Code Size
 
 Date: 2026-07-09 (consolidated mega plan)
-Status: In progress — ~20% complete (prediction isolation done; trajectory
-visuals investigation complete with plan; worker job, visuals repair, memory
-tuning, and code-size work open)
+Status: In progress - Stage 0 complete (prediction isolation done; trajectory
+visuals investigation complete with plan and repro evidence; worker job,
+visuals repair, memory tuning, and code-size work open)
 Impact area: replay runtime, replay prediction, trajectory overlay rendering,
 DX12 transient geometry, physics stepping, UI
 Consolidates: `replay-prediction-and-memory.md` (sections A/B/C — full text in
@@ -252,7 +252,72 @@ Stage 0 — Instrument & document (merges old B1)
   category table exposed in the memory dump JSON and Memory tab category rows.
   Validation: `tools\validate_fast.bat` passed
   (`Agentic/Reports/validate_fast_replay_visuals_stage0_2_20260709.log`).
-- [ ] 0.3 Manual repro session: confirm or kill H1–H5; record results here.
+- [x] 0.3 Manual repro session: confirm or kill H1-H5; record results here.
+  Complete 2026-07-09: ran three focused Profile interaction launches plus one
+  cinematic A/B pass. Local generated artifacts live under ignored
+  `Agentic/Temp/replay_visuals_stage0_3_20260709/`; the tracked repro script is
+  `Agentic/Reports/replay_visuals_stage0_3_rebuild_repro_20260709.json`.
+  Documentation-only/repro-only slice, so no repository validation gate was
+  required.
+
+  Launch evidence:
+  - Wall build repro:
+    `Profile\SKULLBONEZ_CORE.exe --scene SkullbonezData\scenes\prediction_ragdoll_wall_200.scene.json --interaction-script SkullbonezData\interaction\prediction_ragdoll_wall_200_predict.json --interaction-report Agentic\Reports\replay_visuals_stage0_3_wall_existing_report_20260709.json --frames 240 --replay on --replay-seconds 3 --fixed-step --vsync off --memory-dump Agentic\Reports\replay_visuals_stage0_3_wall_existing_memory_20260709.json`
+    passed in 00:00:05.015. Prediction path visible, live solver hash stable,
+    active prefix 343 frames, future nodes 45, target displacement 197.886u.
+    Counters: `prediction_step=224`, `retained_bounds=113`, dirty rebuilds 1,
+    prediction bytes 185,731,324, render ghost request reserve 11,075,584 bytes.
+  - Simple complete-build repro:
+    `Profile\SKULLBONEZ_CORE.exe --scene SkullbonezData\scenes\replay_prediction_simple.scene.json --interaction-script SkullbonezData\interaction\replay_prediction_simple_verify.json --interaction-report Agentic\Reports\replay_visuals_stage0_3_simple_existing_report_20260709.json --frames 160 --replay on --replay-seconds 4 --fixed-step --vsync off --memory-dump Agentic\Reports\replay_visuals_stage0_3_simple_existing_memory_20260709.json`
+    passed in 00:00:03.024. Final state had committed prediction frames
+    (`predictionFrameCount=2401`, `predictionBuildFrameCount=0`), future nodes
+    3, target displacement 86.38u. Counters: `prediction_step=2`,
+    `retained_bounds=2`, dirty rebuilds 1.
+  - Wall cinematic A/B:
+    same wall script with `--cinematic off` passed in 00:00:04.024. The saved
+    frame stayed visually/photometrically equivalent to the cinematic-on frame:
+    mean RGB 51.74/54.81/52.22 vs 51.74/54.81/52.21, bright pixels 9,317 vs
+    9,294, white-ish pixels 11,384 vs 11,365.
+  - Rebuild/nudge repro:
+    `Profile\SKULLBONEZ_CORE.exe --scene SkullbonezData\scenes\replay_prediction_simple.scene.json --interaction-script Agentic\Reports\replay_visuals_stage0_3_rebuild_repro_20260709.json --interaction-report Agentic\Reports\replay_visuals_stage0_3_rebuild_repro_report_20260709.json --frames 180 --replay on --replay-seconds 4 --fixed-step --vsync off --memory-dump Agentic\Reports\replay_visuals_stage0_3_rebuild_repro_memory_20260709.json`
+    passed in 00:00:03.096. The scripted velocity nudge captured a baseline
+    (`predictionBaselineVisible=true`, 181 baseline root points, 4 baseline
+    body poses) and forced a second dirty rebuild. Final counters:
+    `dirty=2`, `prediction_begin=1`, `retained_bounds=1`,
+    `baseline_root` emitted segments 115,656, future-root emitted segments
+    4,326, dropped segments 0.
+
+  Hypothesis decisions:
+  - H1 killed for the small complete-build repro. The simple scene reached the
+    committed simulation-frame path (`predictionBuildFrameCount=0`) and the
+    frame 42/70/120 captures did not show a one-frame root-line reshape. The
+    wall scene did not complete its long 20s horizon inside 240 frames, so there
+    is no heavy-wall commit-swap proof yet; Stage 9's planned geometry hash is
+    the right strict detector.
+  - H2 killed as a cinematic-bloom-specific root cause. The wall impact remains
+    blown out, but `--cinematic off` produced essentially the same brightness
+    and white-pixel counts. Treat the visible flash as additive ribbon/marker
+    overdraw plus draw/build churn, not something Stage 6 can solve merely by
+    disabling cinematic bloom.
+  - H3 confirmed. The rebuild/nudge run captured the old baseline, then drew the
+    shifted future immediately after the dirty rebuild. The early/mid/late
+    captures show the old baseline marker/line and new future line coexisting
+    while the dirty rebuild publishes, which matches the old-to-new snap
+    described by `BuildPrefixShouldBePresented`.
+  - H4 killed for the default repro and left as a ragdoll-toggle-only follow-up.
+    Both wall and rebuild runs kept `RAGDOLL` off; final queued
+    `ghost_requests=0` while the reserve remained 11,075,584 bytes. Source
+    review confirms `BuildPredictionGhostDrawRequests()` returns false unless
+    `ragdollVisualsEnabled` is true and the interaction automation currently has
+    no `clickReplayControl: "ragdoll"` hook. Stage 9 should add that hook before
+    promoting ghost-pop evidence into validation.
+  - H5 confirmed as frame-budget pressure, with self-time still to be isolated.
+    The wall run recorded 224 prediction-step budget expiries and 113 retained
+    bounds expiries, and source review shows those checks route through
+    `ReplayPredictionElapsedMilliseconds()` / `steady_clock::now()` from
+    per-sample/per-frame draw and build loops. This is enough to justify Stage
+    1 removing draw-loop wall-clock checks; a later perf probe can isolate the
+    clock-call self-cost if needed.
 
 Stage 1 — Deterministic drawing
 - [ ] 1.1 Remove wall-clock budget checks from *draw* loops (keep on

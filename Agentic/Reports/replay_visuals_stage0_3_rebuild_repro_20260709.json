@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "actions": [
+    { "frame": 10, "showReplayScrubber": true },
+    { "frame": 12, "setReplayPredictionHorizonSeconds": 3.0 },
+    { "frame": 14, "clickReplayControl": "predict" },
+    { "frame": 20, "clickObject": "prediction_striker", "button": "left" },
+    { "frame": 42, "assert": { "replayPredictionEnabled": true } },
+    { "frame": 42, "assert": { "replayPathTarget": "prediction_striker" } },
+    { "frame": 54, "assert": { "predictionPathVisible": true } },
+    { "frame": 64, "screenshot": "Agentic/Reports/replay_visuals_stage0_3_rebuild_before_nudge_20260709.bmp" },
+    { "frame": 80, "nudgeReplayPathTargetVelocity": [40.0, 0.0, 0.0] },
+    { "frame": 82, "assert": { "predictionBaselineVisible": true } },
+    { "frame": 84, "screenshot": "Agentic/Reports/replay_visuals_stage0_3_rebuild_early_20260709.bmp" },
+    { "frame": 100, "screenshot": "Agentic/Reports/replay_visuals_stage0_3_rebuild_mid_20260709.bmp" },
+    { "frame": 130, "assert": { "predictionPathVisible": true } },
+    { "frame": 140, "screenshot": "Agentic/Reports/replay_visuals_stage0_3_rebuild_late_20260709.bmp" }
+  ]
+}
