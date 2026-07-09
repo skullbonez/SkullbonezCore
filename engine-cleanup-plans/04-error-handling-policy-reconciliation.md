@@ -97,6 +97,21 @@ byte-exact gated.
   - Required gate passed: `tools\validate_physics.bat` exited 0 in
     25.9732165 seconds. Log:
     `Agentic/Reports/validate_physics_plan04_fatal_invariants_20260709.log`.
+
+  Progress 2026-07-09, WorkerPool fatal-invariant sub-slice:
+  - Converted four F sites from `throw std::runtime_error` to `SB_FATAL`:
+    `WorkerPool::Submit`, `WorkerPool::BuildChunks`, and both
+    `WorkerPool::SubmitParallelChunk` lifetime/capacity guards.
+  - Updated the fixed parallel task queue comment to describe fatal capacity
+    failure instead of exception unwinding.
+  - Strict source throw statement inventory now reports 248 sites, down from the
+    previous sub-slice count of 252. `SB_FATAL` macro invocations now report 36
+    via `rg -n "SB_FATAL\s*\(" SkullbonezSource`.
+  - Comment-style audit scope: `SkullbonezSource/Core/WorkerPool.cpp` and
+    `SkullbonezSource/Core/WorkerPool.h`; checked 2, deferred 0.
+  - Required gate passed: `tools\validate_full.bat` exited 0 in
+    68.1528472 seconds. Log:
+    `Agentic/Reports/validate_full_plan04_workerpool_fatals_20260709.log`.
 - [ ] **2.1** Convert **P** sites (replay/interaction probes) to the
   `FailAutomation(...)` channel with `ok=false` + message. Gate: `validate_full`
   + replay scrub. Commit.

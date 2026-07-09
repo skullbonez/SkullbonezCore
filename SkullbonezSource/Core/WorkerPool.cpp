@@ -26,11 +26,11 @@ Related:
 */
 
 #include "WorkerPool.h"
+#include "FatalError.h"
 #include "Profiler.h"
 
 #include <algorithm>
 #include <atomic>
-#include <stdexcept>
 #include <utility>
 
 namespace SkullbonezCore
@@ -165,7 +165,7 @@ void WorkerPool::Submit( Task task )
         std::lock_guard<std::mutex> lock( m_mutex );
         if ( m_stopping )
         {
-            throw std::runtime_error( "WorkerPool::Submit called while shutting down." );
+            SB_FATAL( "WorkerPool", "Submit called while shutting down." );
         }
         m_tasks.push_back( std::move( task ) );
     }
@@ -251,7 +251,12 @@ int WorkerPool::BuildChunks( int begin,
     const int chunkCount = (std::max)( 1, (std::min)( workerCount, itemCount ) );
     if ( chunkCount > outCapacity )
     {
-        throw std::runtime_error( "WorkerPool parallel chunk capacity exceeded." );
+        SB_FATAL( "WorkerPool",
+                  "Parallel chunk capacity exceeded: chunks=%d capacity=%d items=%d workers=%d.",
+                  chunkCount,
+                  outCapacity,
+                  itemCount,
+                  workerCount );
     }
 
     const int baseChunkSize = itemCount / chunkCount;
@@ -286,11 +291,14 @@ void WorkerPool::SubmitParallelChunk( void* dispatchState,
         std::lock_guard<std::mutex> lock( m_mutex );
         if ( m_stopping )
         {
-            throw std::runtime_error( "WorkerPool::SubmitParallelChunk called while shutting down." );
+            SB_FATAL( "WorkerPool", "SubmitParallelChunk called while shutting down." );
         }
         if ( m_parallelTaskCount >= WORKER_PARALLEL_TASK_CAPACITY )
         {
-            throw std::runtime_error( "WorkerPool fixed parallel task queue exhausted." );
+            SB_FATAL( "WorkerPool",
+                      "Fixed parallel task queue exhausted: count=%d capacity=%d.",
+                      m_parallelTaskCount,
+                      WORKER_PARALLEL_TASK_CAPACITY );
         }
 
         const int tail = ( m_parallelTaskHead + m_parallelTaskCount ) % WORKER_PARALLEL_TASK_CAPACITY;
