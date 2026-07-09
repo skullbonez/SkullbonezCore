@@ -75,18 +75,22 @@ class PhysicsScene
     // keyed by model order. Collection may supply replay/grouping scalars, but
     // it must not keep a competing body descriptor sidecar.
     void ReserveAuthoredBodyCapacity( std::size_t capacity );
-    int AuthoredBodyDescriptorCount() const;
-    bool TryGetAuthoredBodyDescriptor( int modelIndex, PhysicsBodyCreateDesc& outDesc ) const;
-    bool UpdateAuthoredBodyDescriptor( int modelIndex, PhysicsBodyCreateDesc& desc, int expectedModelCount );
-    bool TrimAuthoredBodyDescriptorsToCount( int bodyCount );
+    PhysicsAuthoredBodyCount AuthoredBodyDescriptorCount() const;
+    bool TryGetAuthoredBodyDescriptor( ModelRowHint bodyRow, PhysicsBodyCreateDesc& outDesc ) const;
+    bool UpdateAuthoredBodyDescriptor( ModelRowHint bodyRow,
+                                       PhysicsBodyCreateDesc& desc,
+                                       PhysicsAuthoredBodyCount expectedBodyCount );
+    bool TrimAuthoredBodyDescriptorsToCount( PhysicsAuthoredBodyCount bodyCount );
     void Clear();
     bool RefreshBodyStoreFromAuthoredDescriptors( const std::vector<uint32_t>& replayBodyIds,
                                                   const std::vector<int>& fixedTreeReleaseRoots,
                                                   const std::vector<const char*>& diagnosticNames );
     void RefreshBodyStore( const std::vector<PhysicsBodyCreateDesc>& bodyDescs );
-    // Owner passes the expected count so one-row descriptor commits stay a
-    // same-topology edit and cannot hide missing body rows.
-    void RefreshBodyFromDescriptor( const PhysicsBodyCreateDesc& desc, int modelIndex, int expectedModelCount );
+    // Owner passes a row hint and expected count so one-row descriptor commits
+    // stay a same-topology edit and cannot hide missing body rows.
+    void RefreshBodyFromDescriptor( const PhysicsBodyCreateDesc& desc,
+                                    ModelRowHint bodyRow,
+                                    PhysicsBodyCount expectedBodyCount );
     // Construction edge: registers one newly authored body value without a full
     // full descriptor reload. Owner is the scene/model creation edge.
     PhysicsBodyHandle RegisterAuthoredBody( const PhysicsBodyCreateDesc& desc );
@@ -100,8 +104,8 @@ class PhysicsScene
     void ClearPendingBodyImpulses();
     // Replay restore trims the authoritative body store directly; callers must
     // not force a model-to-store refresh after this succeeds.
-    bool TrimBodyStoreToCount( int bodyCount );
-    bool TrimColliderStoreToCount( int colliderCount );
+    bool TrimBodyStoreToCount( PhysicsBodyCount bodyCount );
+    bool TrimColliderStoreToCount( PhysicsColliderCount colliderCount );
     // Store-owned replay restore facade used by runtime replay without
     // treating model-order slots as the source of truth for simulation state.
     bool RestoreReplayBodyState( PhysicsBodyHandle body,
@@ -153,7 +157,7 @@ class PhysicsScene
                            const Math::Vector::Vector3& impulse,
                            const Math::Vector::Vector3& localApplicationPoint );
     void SetPhysicsSleepEnabled( bool enabled );
-    void BeginCollisionVisualFrame( int modelCount );
+    void BeginCollisionVisualFrame( PhysicsBodyCount bodyCount );
     void EndCollisionVisualFrame();
     void ClearPointJointConstraints();
     PhysicsConstraintHandle CreatePointJoint( const PhysicsPointJointCreateDesc& desc );
@@ -162,8 +166,8 @@ class PhysicsScene
     void SetTornadoSystemConfig( const TornadoSystemConfig& config );
     const TornadoSystemConfig& GetTornadoSystemConfig() const;
     float GetTornadoSystemElapsedSeconds() const;
-    void CaptureReplaySolverSnapshot( Basics::ReplaySolverWorldSnapshot& outSnapshot, int modelCount ) const;
-    bool RestoreReplaySolverSnapshot( const Basics::ReplaySolverWorldSnapshot& snapshot, int modelCount );
+    void CaptureReplaySolverSnapshot( Basics::ReplaySolverWorldSnapshot& outSnapshot, PhysicsBodyCount bodyCount ) const;
+    bool RestoreReplaySolverSnapshot( const Basics::ReplaySolverWorldSnapshot& snapshot, PhysicsBodyCount bodyCount );
     PhysicsDiagnosticsView GetDiagnosticsView() const;
     uint64_t CollectPhysicsWorldMemoryBytes() const;
     uint64_t CollectDebugAndBroadphaseMemoryBytes() const;

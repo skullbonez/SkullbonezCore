@@ -50,7 +50,7 @@ leaks. Do not restart the wider GameModel authority campaign from scratch.
 - [x] **1.1** Introduce or reuse the narrow public physics identity types needed
   to replace raw dense model-index authority. Keep the change scoped to the
   public boundary. Gate: `validate_physics`. Commit.
-- [ ] **1.2** Remove `GameModel` from public physics API signatures and update
+- [x] **1.2** Remove `GameModel` from public physics API signatures and update
   callers to pass the new domain identity/context. Gate: `validate_physics`.
   Commit.
 - [ ] **1.3** Remove solver container types from public physics API signatures
@@ -148,6 +148,49 @@ Validation:
 - `physics_regression_solver.csv` matched the committed baseline byte-for-byte
   at 20001 lines.
 - Ignored log: `Agentic/Reports/validate_physics_plan14_identity_types_20260710.log`.
+
+## Step 1.2 Implementation - 2026-07-10
+
+Step 0.1 already proved there were no `GameModel` names in `PhysicsApi.h` or
+`PhysicsEngine.h`, so this source slice removed the remaining raw dense row
+authority from the public physics boundary:
+
+- `PhysicsEngine` and `PhysicsScene` now take `ModelRowHint` for repairable
+  authoring-row lookups instead of `int modelIndex`.
+- Public body, collider, authored-body, collision-visual, and replay snapshot
+  counts now use `PhysicsBodyCount`, `PhysicsColliderCount`, or
+  `PhysicsAuthoredBodyCount`.
+- `PhysicsReplaySolverSnapshotView` exposes `bodyCount` as a typed physics body
+  count.
+- Game-model, replay recorder/restore, replay prediction, and determinism-test
+  callers convert signed scene/replay counts at their owner edge with the
+  public helper functions in `PhysicsHandles.h`.
+
+Structural proof:
+
+- `rg -n "\bmodelIndex\b|\bmodelCount\b|\bexpectedModelCount\b|GameModel" SkullbonezSource/Physics/PhysicsApi.h SkullbonezSource/Physics/PhysicsEngine.h`
+  returned no matches.
+
+Touched-source comment audit:
+
+- Inspected 11 source-bearing files:
+  `GameModelCollection.cpp`, `PhysicsApi.h`, `PhysicsEngine.cpp`,
+  `PhysicsEngine.h`, `PhysicsHandles.h`, `PhysicsScene.cpp`,
+  `PhysicsScene.h`, `ReplayRecorder.cpp`, `ReplayRestoreService.h`,
+  `RunReplayTools.cpp`, and `TestDeterminism.cpp`.
+- Checklist path: not required for a touched-file pass.
+- Checked count: 11 source-bearing files.
+- Deferred count: 0.
+
+Validation:
+
+- Focused `tools\validate_build.bat Debug` passed in 00:00:14.9914381 with
+  0 warnings and 0 errors.
+- `tools\validate_physics.bat` passed in 00:00:43.4524087.
+- Debug and Profile builds completed with 0 warnings and 0 errors.
+- `physics_regression_solver.csv` matched the committed baseline byte-for-byte
+  at 20001 lines.
+- Ignored log: `Agentic/Reports/validate_physics_plan14_row_authority_20260710.log`.
 
 ## Validation
 

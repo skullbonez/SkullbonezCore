@@ -38,6 +38,7 @@ Related:
 #include "../../GameObjects/GameModelCollection.h"
 #include "../../Maths/Quaternion.h"
 #include "../../Physics/PhysicsBodyStore.h"
+#include "../../Physics/PhysicsHandles.h"
 #include "../../World/WorldEnvironment.h"
 
 #include <cstddef>
@@ -140,8 +141,9 @@ class ReplayRestoreService
         }
         context.models.GetPhysicsEngine().ClearPendingBodyImpulses();
 
-        if ( !context.models.GetPhysicsEngine().RestoreReplaySolverSnapshot( sample.worldSnapshot,
-                                                                             context.models.SceneEntityCount() ) )
+        if ( !context.models.GetPhysicsEngine().RestoreReplaySolverSnapshot(
+                 sample.worldSnapshot,
+                 Physics::MakePhysicsBodyCountFromNonNegativeInt( context.models.SceneEntityCount() ) ) )
         {
             WriteReason( outReason, reasonSize, "failed to restore solver world snapshot" );
             return false;

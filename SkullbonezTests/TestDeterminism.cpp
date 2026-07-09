@@ -76,6 +76,7 @@ using SkullbonezCore::Math::Orientation::Quaternion;
 using SkullbonezCore::Math::Vector::Vector3;
 using SkullbonezCore::Physics::MakeColliderCreateDesc;
 using SkullbonezCore::Physics::MakePhysicsBodyCreateDesc;
+using SkullbonezCore::Physics::MakePhysicsBodyCountFromNonNegativeInt;
 using SkullbonezCore::Physics::PhysicsBodyHandle;
 using SkullbonezCore::Physics::PhysicsBodyMotionKind;
 using SkullbonezCore::Physics::PhysicsBodyRecord;
@@ -518,7 +519,7 @@ uint64_t HashReplaySampleForTest( const ReplaySolverFrameSample& sample )
 MicroWorldSnapshot CaptureMicroWorldSnapshot( const PhysicsEngine& engine )
 {
     MicroWorldSnapshot snapshot;
-    engine.CaptureReplaySolverSnapshot( snapshot.solver, kMicroBodyCount );
+    engine.CaptureReplaySolverSnapshot( snapshot.solver, MakePhysicsBodyCountFromNonNegativeInt( kMicroBodyCount ) );
     for ( int i = 0; i < kMicroBodyCount; ++i )
     {
         const PhysicsBodyRecord* record = engine.BodyStore().RecordForModelIndex( i );
@@ -579,7 +580,7 @@ ReplaySolverFrameSample CaptureMicroWorldReplaySample( const PhysicsEngine& engi
     sample.world.sceneTextEnabled = true;
     sample.contactCount = static_cast<uint16_t>( engine.GetPhysicsDebugContacts().size() );
     sample.pipelineRecordCount = static_cast<uint16_t>( engine.GetPhysicsPipelineTrace().size() );
-    engine.CaptureReplaySolverSnapshot( sample.worldSnapshot, kMicroBodyCount );
+    engine.CaptureReplaySolverSnapshot( sample.worldSnapshot, MakePhysicsBodyCountFromNonNegativeInt( kMicroBodyCount ) );
 
     sample.bodies.reserve( kMicroBodyCount );
     for ( int i = 0; i < kMicroBodyCount; ++i )
@@ -593,7 +594,7 @@ ReplaySolverFrameSample CaptureMicroWorldReplaySample( const PhysicsEngine& engi
 
 void RestoreMicroWorldSnapshot( PhysicsEngine& engine, const MicroWorldSnapshot& snapshot )
 {
-    REQUIRE( engine.RestoreReplaySolverSnapshot( snapshot.solver, kMicroBodyCount ) );
+    REQUIRE( engine.RestoreReplaySolverSnapshot( snapshot.solver, MakePhysicsBodyCountFromNonNegativeInt( kMicroBodyCount ) ) );
     for ( const BodyReplayState& state : snapshot.bodies )
     {
         REQUIRE( engine.RestoreReplayBodyState( state.handle,
@@ -615,7 +616,9 @@ void RestoreMicroWorldReplaySample( PhysicsEngine& engine, const ReplaySolverFra
     // Why: replay restore applies solver cache first, then body rows. The test
     // mirrors that order so a future mismatch points at the same boundary Run uses.
     REQUIRE( sample.worldSnapshot.modelCount == static_cast<int>( sample.bodies.size() ) );
-    REQUIRE( engine.RestoreReplaySolverSnapshot( sample.worldSnapshot, static_cast<int>( sample.bodies.size() ) ) );
+    REQUIRE( engine.RestoreReplaySolverSnapshot(
+        sample.worldSnapshot,
+        MakePhysicsBodyCountFromNonNegativeInt( static_cast<int>( sample.bodies.size() ) ) ) );
     for ( const ReplaySolverBodySample& body : sample.bodies )
     {
         const Quaternion orientation( body.orientation[0], body.orientation[1], body.orientation[2], body.orientation[3] );

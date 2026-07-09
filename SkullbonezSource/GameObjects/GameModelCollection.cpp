@@ -81,12 +81,20 @@ using SkullbonezCore::Math::Transformation::Matrix4;
 using SkullbonezCore::Math::Vector::Vector3;
 using SkullbonezCore::Physics::ColliderRecord;
 using SkullbonezCore::Physics::ColliderStore;
+using SkullbonezCore::Physics::MakeModelRowHint;
+using SkullbonezCore::Physics::MakePhysicsAuthoredBodyCountFromNonNegativeInt;
+using SkullbonezCore::Physics::MakePhysicsBodyCountFromNonNegativeInt;
+using SkullbonezCore::Physics::MakePhysicsColliderCountFromNonNegativeInt;
+using SkullbonezCore::Physics::ModelRowHint;
+using SkullbonezCore::Physics::PhysicsAuthoredBodyCount;
 using SkullbonezCore::Physics::PhysicsBodyCreateDesc;
+using SkullbonezCore::Physics::PhysicsBodyCount;
 using SkullbonezCore::Physics::PhysicsBodyHandle;
 using SkullbonezCore::Physics::PhysicsBodyMotionKind;
 using SkullbonezCore::Physics::PhysicsBodyRecord;
 using SkullbonezCore::Physics::PhysicsBodyStore;
 using SkullbonezCore::Physics::PhysicsColliderCreateDesc;
+using SkullbonezCore::Physics::PhysicsColliderCount;
 using SkullbonezCore::Physics::PhysicsColliderHandle;
 using SkullbonezCore::Physics::PhysicsSceneObjectId;
 using SkullbonezCore::Rendering::ShadowFrameData;
@@ -962,7 +970,8 @@ bool GameModelCollection::TryRestoreReplayBodyState( int index,
     }
 
     PhysicsBodyCreateDesc desc;
-    if ( m_physicsEngine.TryGetAuthoredBodyDescriptor( index, desc ) )
+    const ModelRowHint bodyRow = MakeModelRowHint( index );
+    if ( m_physicsEngine.TryGetAuthoredBodyDescriptor( bodyRow, desc ) )
     {
         desc.sceneObjectId = bodyRecord->sceneObjectId;
         desc.position = position;
@@ -974,7 +983,9 @@ bool GameModelCollection::TryRestoreReplayBodyState( int index,
         desc.motionKind = fixed ? PhysicsBodyMotionKind::Fixed : PhysicsBodyMotionKind::Dynamic;
         desc.diagnosticName = m_sceneEntities.Records()[static_cast<std::size_t>( index )].GetName();
         desc.fixedTreeReleaseRootIndex = FixedTreeReleaseRootForModelIndex( index );
-        if ( !m_physicsEngine.UpdateAuthoredBodyDescriptor( index, desc, SceneEntityCount() ) )
+        const PhysicsAuthoredBodyCount expectedBodyCount =
+            MakePhysicsAuthoredBodyCountFromNonNegativeInt( SceneEntityCount() );
+        if ( !m_physicsEngine.UpdateAuthoredBodyDescriptor( bodyRow, desc, expectedBodyCount ) )
         {
             return false;
         }
@@ -1084,15 +1095,18 @@ bool GameModelCollection::TrimModelsForReplayRestore( int modelCount )
         return false;
     }
 
-    if ( !m_physicsEngine.TrimBodyStoreToCount( modelCount ) )
+    const PhysicsBodyCount bodyCount = MakePhysicsBodyCountFromNonNegativeInt( modelCount );
+    const PhysicsColliderCount colliderCount = MakePhysicsColliderCountFromNonNegativeInt( modelCount );
+    const PhysicsAuthoredBodyCount authoredBodyCount = MakePhysicsAuthoredBodyCountFromNonNegativeInt( modelCount );
+    if ( !m_physicsEngine.TrimBodyStoreToCount( bodyCount ) )
     {
         return false;
     }
-    if ( m_physicsEngine.Colliders().Count() > modelCount && !m_physicsEngine.TrimColliderStoreToCount( modelCount ) )
+    if ( m_physicsEngine.Colliders().Count() > modelCount && !m_physicsEngine.TrimColliderStoreToCount( colliderCount ) )
     {
         return false;
     }
-    if ( !m_physicsEngine.TrimAuthoredBodyDescriptorsToCount( modelCount ) )
+    if ( !m_physicsEngine.TrimAuthoredBodyDescriptorsToCount( authoredBodyCount ) )
     {
         return false;
     }
@@ -1110,13 +1124,15 @@ bool GameModelCollection::TrimModelsForReplayRestore( int modelCount )
 
 void GameModelCollection::CaptureReplaySolverWorldSnapshot( ReplaySolverWorldSnapshot& outSnapshot ) const
 {
-    m_physicsEngine.CaptureReplaySolverSnapshot( outSnapshot, SceneEntityCount() );
+    m_physicsEngine.CaptureReplaySolverSnapshot( outSnapshot,
+                                                 MakePhysicsBodyCountFromNonNegativeInt( SceneEntityCount() ) );
 }
 
 
 bool GameModelCollection::RestoreReplaySolverWorldSnapshot( const ReplaySolverWorldSnapshot& snapshot )
 {
-    return m_physicsEngine.RestoreReplaySolverSnapshot( snapshot, SceneEntityCount() );
+    return m_physicsEngine.RestoreReplaySolverSnapshot( snapshot,
+                                                        MakePhysicsBodyCountFromNonNegativeInt( SceneEntityCount() ) );
 }
 
 
@@ -1368,7 +1384,11 @@ bool GameModelCollection::ApplyPhysicsBodyEdit( int modelIndex, const PhysicsBod
 
     // Invariant: cold editor/replay commands provide the changed body values.
     // Unchanged fields come from PhysicsBodyStore, not the presentation row.
-    if ( m_physicsEngine.AuthoredBodyDescriptorCount() != modelCount )
+    const PhysicsAuthoredBodyCount expectedAuthoredBodyCount =
+        MakePhysicsAuthoredBodyCountFromNonNegativeInt( modelCount );
+    const PhysicsBodyCount expectedBodyCount = MakePhysicsBodyCountFromNonNegativeInt( modelCount );
+    const ModelRowHint bodyRow = MakeModelRowHint( modelIndex );
+    if ( static_cast<int>( m_physicsEngine.AuthoredBodyDescriptorCount().value ) != modelCount )
     {
         return false;
     }
@@ -1388,16 +1408,16 @@ bool GameModelCollection::ApplyPhysicsBodyEdit( int modelIndex, const PhysicsBod
     }
 
     PhysicsBodyCreateDesc bodyDesc;
-    if ( !m_physicsEngine.TryGetAuthoredBodyDescriptor( modelIndex, bodyDesc ) )
+    if ( !m_physicsEngine.TryGetAuthoredBodyDescriptor( bodyRow, bodyDesc ) )
     {
         return false;
     }
     RefreshBodyDescFromStoreBodyState( *bodyRecord, edit, bodyDesc, FixedTreeReleaseRootForModelIndex( modelIndex ) );
-    if ( !m_physicsEngine.UpdateAuthoredBodyDescriptor( modelIndex, bodyDesc, modelCount ) )
+    if ( !m_physicsEngine.UpdateAuthoredBodyDescriptor( bodyRow, bodyDesc, expectedAuthoredBodyCount ) )
     {
         return false;
     }
-    m_physicsEngine.RefreshBodyFromDescriptor( bodyDesc, modelIndex, modelCount );
+    m_physicsEngine.RefreshBodyFromDescriptor( bodyDesc, bodyRow, expectedBodyCount );
 
     // Why: body edits now stop at PhysicsBodyStore and PhysicsScene authored
     // descriptors. Render, replay, snapshots, and editor wake checks read those
@@ -1420,7 +1440,11 @@ bool GameModelCollection::ApplyPhysicsBodyColliderEdit( int modelIndex,
     // body row first, then replace exactly one collider row by stable handle.
     // Count drift still goes through topology repair because missing rows cannot
     // be patched by a single descriptor.
-    if ( m_physicsEngine.AuthoredBodyDescriptorCount() != modelCount )
+    const PhysicsAuthoredBodyCount expectedAuthoredBodyCount =
+        MakePhysicsAuthoredBodyCountFromNonNegativeInt( modelCount );
+    const PhysicsBodyCount expectedBodyCount = MakePhysicsBodyCountFromNonNegativeInt( modelCount );
+    const ModelRowHint bodyRow = MakeModelRowHint( modelIndex );
+    if ( static_cast<int>( m_physicsEngine.AuthoredBodyDescriptorCount().value ) != modelCount )
     {
         return false;
     }
@@ -1439,7 +1463,7 @@ bool GameModelCollection::ApplyPhysicsBodyColliderEdit( int modelIndex,
         return false;
     }
     PhysicsBodyCreateDesc bodyDesc;
-    if ( !m_physicsEngine.TryGetAuthoredBodyDescriptor( modelIndex, bodyDesc ) )
+    if ( !m_physicsEngine.TryGetAuthoredBodyDescriptor( bodyRow, bodyDesc ) )
     {
         return false;
     }
@@ -1450,11 +1474,11 @@ bool GameModelCollection::ApplyPhysicsBodyColliderEdit( int modelIndex,
     bodyDesc.projectedSurfaceArea = Math::CollisionDetection::GetShapeProjectedSurfaceArea( bodyDesc.shape );
     bodyDesc.dragCoefficient = Math::CollisionDetection::GetShapeDragCoefficient( bodyDesc.shape );
     bodyDesc.usesWorldInertia = !std::holds_alternative<BoundingSphere>( bodyDesc.shape );
-    if ( !m_physicsEngine.UpdateAuthoredBodyDescriptor( modelIndex, bodyDesc, modelCount ) )
+    if ( !m_physicsEngine.UpdateAuthoredBodyDescriptor( bodyRow, bodyDesc, expectedAuthoredBodyCount ) )
     {
         return false;
     }
-    m_physicsEngine.RefreshBodyFromDescriptor( bodyDesc, modelIndex, modelCount );
+    m_physicsEngine.RefreshBodyFromDescriptor( bodyDesc, bodyRow, expectedBodyCount );
 
     const bool colliderBindingsReady = m_physicsEngine.RefreshColliderSnapshot();
 
@@ -1593,7 +1617,7 @@ void GameModelCollection::ClearPointJointConstraints()
 
 void GameModelCollection::BeginCollisionVisualFrame()
 {
-    m_physicsEngine.BeginCollisionVisualFrame( SceneEntityCount() );
+    m_physicsEngine.BeginCollisionVisualFrame( MakePhysicsBodyCountFromNonNegativeInt( SceneEntityCount() ) );
 }
 
 

@@ -3560,7 +3560,8 @@ bool SeedReplayPredictionEngine( RunReplayPredictionState& prediction,
     predictionEngine.ApplyRuntimeConfig( config );
     prediction.simulation.predictionWorldForces = worldForces;
     if ( !ApplyReplayPredictionBodyState( predictionEngine, prediction.simulation.predictionBodies ) ||
-         !predictionEngine.RestoreReplaySolverSnapshot( prediction.simulation.predictionWorld, modelCount ) )
+         !predictionEngine.RestoreReplaySolverSnapshot( prediction.simulation.predictionWorld,
+                                                        MakePhysicsBodyCountFromNonNegativeInt( modelCount ) ) )
     {
         return false;
     }
@@ -3753,7 +3754,7 @@ bool CompleteReplayPredictionJobOnFrameThread( ReplayRuntime& replayRuntime, dou
     {
         prediction.simulation.predictionEngine->CaptureReplaySolverSnapshot(
             prediction.simulation.predictionWorld,
-            prediction.simulation.predictionEngine->BodyStore().Count() );
+            MakePhysicsBodyCountFromNonNegativeInt( prediction.simulation.predictionEngine->BodyStore().Count() ) );
     }
 
     const float previousPresentT = replayRuntime.SolverPresentTrackPosition();
@@ -3968,7 +3969,8 @@ bool BeginReplayPredictionJob( ReplayRuntime& replayRuntime,
         return false;
     }
 
-    physicsEngine.CaptureReplaySolverSnapshot( prediction.simulation.predictionWorld, modelCount );
+    physicsEngine.CaptureReplaySolverSnapshot( prediction.simulation.predictionWorld,
+                                               MakePhysicsBodyCountFromNonNegativeInt( modelCount ) );
 
     if ( !SeedReplayPredictionEngine( prediction, physicsEngine, config, worldForces, modelCount ) )
     {

@@ -116,6 +116,37 @@ struct ModelRowHint
     }
 };
 
+// Why: owner edges still receive signed scene or replay counts from legacy
+// call chains. Converting at the edge keeps the public physics API typed while
+// the caller remains responsible for rejecting impossible negative counts.
+inline PhysicsBodyCount MakePhysicsBodyCountFromNonNegativeInt( int value )
+{
+    PhysicsBodyCount count;
+    count.value = value > 0 ? static_cast<uint32_t>( value ) : 0u;
+    return count;
+}
+
+inline PhysicsColliderCount MakePhysicsColliderCountFromNonNegativeInt( int value )
+{
+    PhysicsColliderCount count;
+    count.value = value > 0 ? static_cast<uint32_t>( value ) : 0u;
+    return count;
+}
+
+inline PhysicsAuthoredBodyCount MakePhysicsAuthoredBodyCountFromNonNegativeInt( int value )
+{
+    PhysicsAuthoredBodyCount count;
+    count.value = value > 0 ? static_cast<uint32_t>( value ) : 0u;
+    return count;
+}
+
+inline ModelRowHint MakeModelRowHint( int value )
+{
+    ModelRowHint hint;
+    hint.value = value;
+    return hint;
+}
+
 inline PhysicsSceneObjectId MakePhysicsSceneObjectIdFromReplayBodyId( uint32_t replayBodyId )
 {
     PhysicsSceneObjectId id;

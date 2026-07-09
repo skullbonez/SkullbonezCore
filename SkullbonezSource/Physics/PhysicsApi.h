@@ -476,7 +476,7 @@ struct PhysicsDiagnosticsSnapshot
 struct PhysicsReplaySolverSnapshotView
 {
     const Basics::ReplaySolverWorldSnapshot* snapshot = nullptr;
-    uint32_t modelCount = 0;
+    PhysicsBodyCount bodyCount;
 };
 
 struct PhysicsStandaloneSmokeResult
