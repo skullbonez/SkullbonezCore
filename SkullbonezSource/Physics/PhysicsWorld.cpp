@@ -1308,10 +1308,13 @@ bool PhysicsWorld::CanRecordPhysicsPipelineStage() const
 }
 
 
-PersistentContactSolverContext PhysicsWorld::CreatePersistentContactSolverContext( PhysicsBodyStore& bodyStore,
-                                                                                   const ColliderStore& colliderStore,
-                                                                                   const Basics::EngineConfig& config )
+PersistentContactSolverContext
+PhysicsWorld::CreatePersistentContactSolverContext( PhysicsBodyStore& bodyStore,
+                                                    const ColliderStore& colliderStore,
+                                                    const Basics::EngineConfig& config,
+                                                    const PhysicsWorldForces& worldForces )
 {
+    const bool elasticCollisions = worldForces.mutualGravity.enabled && worldForces.mutualGravity.elasticCollisions;
     return PersistentContactSolverContext{ m_candidatePairs,
                                            m_sleepState,
                                            m_sleepSupportEdges,
@@ -1332,6 +1335,7 @@ PersistentContactSolverContext PhysicsWorld::CreatePersistentContactSolverContex
                                            (std::max)( 0,
                                                        static_cast<int>( MAX_PIPELINE_TRACE_RECORDS ) -
                                                            static_cast<int>( m_physicsPipelineTrace.size() ) ),
+                                           elasticCollisions,
                                            config };
 }
 
@@ -3779,7 +3783,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
 
     PreparePersistentContactSideEffects( modelCount );
     PersistentContactSolverContext solverContext =
-        CreatePersistentContactSolverContext( bodyStore, colliderStore, config );
+        CreatePersistentContactSolverContext( bodyStore, colliderStore, config, worldForces );
     m_contactSolver.Solve( solverContext, dt );
     ApplyPersistentContactSideEffects( bodyStore, colliderStore, worldForces );
     WakePointJointConnectedBodies( bodyStore, colliderStore, worldForces, dt );

@@ -1249,6 +1249,7 @@ bool Run::SaveCurrentSceneDefaults()
             { "enabled", true },
             { "gravitationalConstant", mutualGravity.gravitationalConstant },
             { "softeningLength", mutualGravity.softeningLength },
+            { "elasticCollisions", mutualGravity.elasticCollisions },
         };
     }
     else

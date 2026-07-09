@@ -14,6 +14,8 @@ Glossary:
   Gas density: Density of the air-like medium above the fluid surface.
   Angular drag multiplier: Fluid damping scale applied to submerged spin.
   Mutual gravity: Optional pairwise body attraction used by zero-g space scenes.
+  Elastic collision: Space contact policy that preserves closing speed instead
+    of damping bodies together.
 
 Invariants:
   - Values are copied at the runtime/physics boundary and treated as immutable
@@ -33,9 +35,10 @@ namespace Physics
 {
 struct MutualGravitySettings
 {
-    bool enabled = false;                // Opt-in O(N^2) pairwise attraction pass.
-    float gravitationalConstant = 0.0f;  // Scene-scale G in engine units.
-    float softeningLength = 1.0f;        // Distance softening length that keeps near-zero pairs finite.
+    bool enabled = false;               // Opt-in O(N^2) pairwise attraction pass.
+    float gravitationalConstant = 0.0f; // Scene-scale G in engine units.
+    float softeningLength = 1.0f;       // Distance softening length that keeps near-zero pairs finite.
+    bool elasticCollisions = true;      // Space-mode contacts preserve closing speed.
 };
 
 struct PhysicsWorldForces

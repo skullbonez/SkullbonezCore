@@ -1651,6 +1651,12 @@ class TestSceneParser
             Fail( path, "simulation.world.mutualGravity.softeningLength is required when enabled" );
         }
 
+        if ( const Json* elasticCollisions = FindMember( mutualGravity, "elasticCollisions" ) )
+        {
+            settings.elasticCollisions =
+                ReadBool( *elasticCollisions, path, "simulation.world.mutualGravity.elasticCollisions" );
+        }
+
         if ( settings.enabled && settings.gravitationalConstant <= 0.0f )
         {
             Fail( path, "simulation.world.mutualGravity.gravitationalConstant must be > 0 when enabled" );

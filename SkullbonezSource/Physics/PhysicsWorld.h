@@ -437,7 +437,8 @@ class PhysicsWorld
                                    float availableTime );
     PersistentContactSolverContext CreatePersistentContactSolverContext( PhysicsBodyStore& bodyStore,
                                                                          const ColliderStore& colliderStore,
-                                                                         const Basics::EngineConfig& config );
+                                                                         const Basics::EngineConfig& config,
+                                                                         const PhysicsWorldForces& worldForces );
     void PreparePersistentContactSideEffects( int modelCount );
     void ApplyPersistentContactSideEffects( PhysicsBodyStore& bodyStore,
                                             const ColliderStore& colliderStore,
@@ -626,6 +627,7 @@ struct PersistentContactSolverContext
     const ColliderRecordList& colliderRecords;
     int bodyStoreCount = 0;
     int pipelineRecordCapacity = 0;
+    bool elasticCollisions = false;
     const Basics::EngineConfig& config;
 };
 

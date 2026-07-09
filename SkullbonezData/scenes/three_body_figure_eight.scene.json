@@ -38,7 +38,8 @@
       "mutualGravity": {
         "enabled": true,
         "gravitationalConstant": 42.0,
-        "softeningLength": 2.5
+        "softeningLength": 2.5,
+        "elasticCollisions": true
       }
     }
   },

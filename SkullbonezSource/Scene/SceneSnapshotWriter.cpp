@@ -227,6 +227,7 @@ bool SceneSnapshotWriter::Save( GameModelCollection& collection,
             { "enabled", true },
             { "gravitationalConstant", mutualGravity.gravitationalConstant },
             { "softeningLength", mutualGravity.softeningLength },
+            { "elasticCollisions", mutualGravity.elasticCollisions },
         };
     }
     scene["playback"] = Json::object();

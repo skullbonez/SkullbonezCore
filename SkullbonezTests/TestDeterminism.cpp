@@ -722,8 +722,7 @@ TEST_CASE( "PhysicsEngine mutual gravity: chaotic triple is deterministic" )
         engine.ReserveAuthoredBodyCapacity( 3 );
         AddMutualGravityBody(
             engine, 301u, Vector3( -18.0f, 90.0f, 0.0f ), Vector3( 0.8f, 0.0f, -1.0f ), 12.0f, 0.45f );
-        AddMutualGravityBody(
-            engine, 302u, Vector3( 16.0f, 90.0f, 4.0f ), Vector3( -0.4f, 0.0f, 1.1f ), 16.0f, 0.45f );
+        AddMutualGravityBody( engine, 302u, Vector3( 16.0f, 90.0f, 4.0f ), Vector3( -0.4f, 0.0f, 1.1f ), 16.0f, 0.45f );
         AddMutualGravityBody(
             engine, 303u, Vector3( 2.0f, 90.0f, 24.0f ), Vector3( -0.2f, 0.0f, -0.8f ), 10.0f, 0.45f );
         REQUIRE( engine.BodyStore().Count() == 3 );
@@ -736,6 +735,37 @@ TEST_CASE( "PhysicsEngine mutual gravity: chaotic triple is deterministic" )
     StepMicroWorldWith( first, 240, config, forces );
     StepMicroWorldWith( second, 240, config, forces );
     CheckEngineKinematicsEqual( first, second );
+}
+
+
+TEST_CASE( "PhysicsEngine mutual gravity: elastic space collision preserves closing speed" )
+{
+    static PhysicsEngine collisionWorld;
+    const float mass = 2.0f;
+    const float radius = 1.0f;
+    const float speed = 4.0f;
+    SeedTwoBodyGravityWorld( collisionWorld,
+                             Vector3( -0.9f, 80.0f, 0.0f ),
+                             Vector3( 0.9f, 80.0f, 0.0f ),
+                             Vector3( speed, 0.0f, 0.0f ),
+                             Vector3( -speed, 0.0f, 0.0f ),
+                             mass,
+                             radius );
+
+    EngineConfig config = MakeDeterministicConfig();
+    config.gravity = 0.0f;
+    PhysicsWorldForces forces = MutualGravityForces( 0.001f, 1.0f );
+    REQUIRE( forces.mutualGravity.elasticCollisions );
+
+    const float initialEnergy = TotalKineticEnergy( collisionWorld );
+    StepMicroWorldWith( collisionWorld, 1, config, forces );
+    const PhysicsBodyRecord& left = RequireBodyRecord( collisionWorld, 0 );
+    const PhysicsBodyRecord& right = RequireBodyRecord( collisionWorld, 1 );
+    const float finalEnergy = TotalKineticEnergy( collisionWorld );
+
+    CHECK( left.linearVelocity.x < -speed * 0.98f );
+    CHECK( right.linearVelocity.x > speed * 0.98f );
+    CHECK( finalEnergy == doctest::Approx( initialEnergy ).epsilon( 0.01 ) );
 }
 
 
