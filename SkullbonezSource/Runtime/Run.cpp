@@ -1001,7 +1001,12 @@ void Run::Initialise()
     m_systems.assets.RegisterBuiltInSourceAssets( m_config );
 
     // Build renderer-owned resources from source asset records.
-    RebuildRegisteredRenderResources();
+    const SbResult rebuildResourcesResult = RebuildRegisteredRenderResources();
+    if ( !rebuildResourcesResult.ok )
+    {
+        m_lastSceneLoadResult = rebuildResourcesResult;
+        return;
+    }
 
     const std::string terrainRawPath =
         m_systems.assets.RegisterSourceAssetPath( SkullbonezCore::Assets::AssetKind::Terrain,
@@ -1029,7 +1034,12 @@ void Run::Initialise()
     m_systems.skyBox = m_systems.skyBoxOwner.get();
     m_systems.skyBox->BindTextures( *m_systems.textures );
     m_systems.skyBox->BindRenderContexts( m_config, m_systems.assets, renderResources );
-    m_systems.skyBox->ResetRenderResources();
+    const SbResult skyBoxResourceResult = m_systems.skyBox->ResetRenderResources();
+    if ( !skyBoxResourceResult.ok )
+    {
+        m_lastSceneLoadResult = skyBoxResourceResult;
+        return;
+    }
 
     m_cWorldEnvironment = WorldEnvironment( cfg.fluidHeight, cfg.fluidDensity, cfg.gasDensity, cfg.gravity );
     m_cWorldEnvironment.BindRenderContexts( m_config, m_systems.assets, renderResources );

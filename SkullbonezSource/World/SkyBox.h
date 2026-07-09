@@ -28,6 +28,7 @@ Related:
 
 
 #include "../Core/Common.h"
+#include "../Core/SbResult.h"
 #include "../Assets/TextureCollection.h"
 #include "../Maths/Vector3.h"
 #include "../Maths/GeometricStructures.h"
@@ -71,7 +72,7 @@ class SkyBox
     std::array<std::unique_ptr<Rendering::IMesh>, 6> m_faceMeshes; // One renderer-owned quad mesh per cube face.
     std::array<uint32_t, 6> m_faceTextures;                        // Texture hash selected for each cube face.
 
-    void LoadTextures( const Basics::EngineConfig& config );
+    Basics::SbResult LoadTextures( const Basics::EngineConfig& config );
     void BuildMeshes( const Basics::EngineConfig& config,
                       Assets::AssetSystem& assets,
                       Rendering::IRenderResourceFactory& resources );
@@ -88,8 +89,8 @@ class SkyBox
         Assets::AssetSystem& assets,
         Rendering::IRenderResourceFactory& resources );            // Borrow rebuild-only services for sky resources.
     void ReleaseRenderResources();                                 // Releases backend-owned sky meshes/shader and clears service borrows.
-    void Render( const Math::Transformation::Matrix4& view, const Math::Transformation::Matrix4& proj );
-    void ResetRenderResources();                                   // Rebuild meshes/shader after renderer reset/switch
+    Basics::SbResult Render( const Math::Transformation::Matrix4& view, const Math::Transformation::Matrix4& proj );
+    Basics::SbResult ResetRenderResources();                       // Rebuild meshes/shader after renderer reset/switch
 };
 } // namespace Geometry
 } // namespace SkullbonezCore

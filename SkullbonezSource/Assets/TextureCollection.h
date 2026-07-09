@@ -18,6 +18,8 @@ Invariants:
   - m_assets is borrowed and may be null for legacy direct texture loads.
   - Texture creation/deletion uses a borrowed render-resource context; texture
     selection uses a borrowed command context.
+  - Texture file and backend creation failures are Lane R results; fixed slot
+    capacity and missing renderer facets remain fatal owner invariants.
 
 Related:
   - SkullbonezSource/Assets/TextureCollection.cpp
@@ -28,6 +30,7 @@ Related:
 
 #include "AssetSystem.h"
 #include "../Core/Common.h"
+#include "../Core/SbResult.h"
 
 #include <array>
 
@@ -65,18 +68,26 @@ class TextureCollection
     Rendering::IRenderResourceFactory* m_renderResources = nullptr;
     Rendering::IRenderCommandContext* m_renderCommands = nullptr;
 
+  public:
+    struct TextureHandleResult
+    {
+        Basics::SbResult result; // Lane R texture residency/load result before the backend handle can be used.
+        uint32_t handle = 0;     // Opaque renderer texture handle; 0 means no usable texture.
+    };
+
+  private:
     int FindIndex( uint32_t hash ) const;
     int FindIndexNoThrow( uint32_t hash ) const;
     int FindFreeSlot() const;
     void ReleaseTexture( GpuTextureRecord& texture );
-    void LoadJpegTextureIntoSlot( int slot,
-                                  const char* fileName,
-                                  uint32_t hash,
-                                  Assets::AssetId sourceId,
-                                  bool generateMips,
-                                  bool linearFilter,
-                                  int channelsHint );
-    void CreateTextureFromSourceAsset( const Assets::TextureSourceAsset& source );
+    Basics::SbResult LoadJpegTextureIntoSlot( int slot,
+                                              const char* fileName,
+                                              uint32_t hash,
+                                              Assets::AssetId sourceId,
+                                              bool generateMips,
+                                              bool linearFilter,
+                                              int channelsHint );
+    Basics::SbResult CreateTextureFromSourceAsset( const Assets::TextureSourceAsset& source );
 
   public:
     TextureCollection() = default;
@@ -88,15 +99,15 @@ class TextureCollection
     void BindRenderContexts( Rendering::IRenderResourceFactory* renderResources,
                              Rendering::IRenderCommandContext* renderCommands );
     bool HasTexture( uint32_t hash ) const;
-    void EnsureTexture( uint32_t hash );
-    void SelectTexture( uint32_t hash );
-    uint32_t GetTextureHandle( uint32_t hash );
+    Basics::SbResult EnsureTexture( uint32_t hash );
+    Basics::SbResult SelectTexture( uint32_t hash );
+    TextureHandleResult GetTextureHandle( uint32_t hash );
     int NumFreeTextureSpaces() const;
     void DeleteTexture( uint32_t hash );
     void DeleteAllTextures();
-    void CreateJpegTexture( const char* cFileName, uint32_t hash );
-    void EnsureJpegTexture( const char* cFileName, uint32_t hash );
-    void RebuildTexturesFromSourceAssets();
+    Basics::SbResult CreateJpegTexture( const char* cFileName, uint32_t hash );
+    Basics::SbResult EnsureJpegTexture( const char* cFileName, uint32_t hash );
+    Basics::SbResult RebuildTexturesFromSourceAssets();
     void DumpTextureAssets( FILE* out ) const;
 };
 } // namespace Textures

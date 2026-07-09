@@ -966,6 +966,48 @@ byte-exact gated.
     `Agentic/Reports/validate_dx12_renderer_plan04_unused_dx12_helpers_20260709.log`.
   - `tools\validate_full.bat` was not required for this sub-slice because the
     final diff only touched DX12 renderer code and Plan 04 documentation.
+
+  Progress 2026-07-09, TextureCollection recoverable texture-load boundary:
+  - Converted six texture asset/file/backend failure rows from exception exits to
+    Lane R results: `TextureCollection.cpp` rows 211, 215, 217, 219, 220, and
+    221 from the Step 0.1 inventory.
+  - `TextureCollection` now returns `SbResult` for lazy texture residency,
+    JPEG/source-asset loading, texture selection, and source-asset rebuilds.
+    `GetTextureHandle` returns a small handle result so DXR reflection can skip
+    dispatch when required textures are unavailable.
+  - Startup texture rebuild and skybox resource reset now report failures
+    through `Run::Initialise` / `m_lastSceneLoadResult`. Per-frame skybox,
+    object, terrain, replay-ghost, and reflection pass texture failures are
+    reported at the pass boundary and skip the affected draw/dispatch.
+  - The former missing-index throw is now guarded behind the public result
+    contract and treated as a fatal owner invariant if an internal caller skips
+    that contract. `TextureCollection::DeleteTexture` no-ops for nonresident
+    hashes instead of entering the fatal index path.
+  - Strict anchored source throw statement inventory now reports 63 sites, down
+    from the previous sub-slice count of 69. `SB_FATAL` macro invocations now
+    report 163 via `rg -n "SB_FATAL\s*\(" SkullbonezSource`.
+  - Comment-style audit scope:
+    `SkullbonezSource/Assets/TextureCollection.cpp`,
+    `SkullbonezSource/Assets/TextureCollection.h`,
+    `SkullbonezSource/Runtime/Render/RuntimeRenderer.h`,
+    `SkullbonezSource/Runtime/Run.cpp`,
+    `SkullbonezSource/Runtime/Run.h`,
+    `SkullbonezSource/Runtime/RunPasses.cpp`,
+    `SkullbonezSource/Runtime/RunRender.cpp`,
+    `SkullbonezSource/World/SkyBox.cpp`, and
+    `SkullbonezSource/World/SkyBox.h`; checked 9, deferred 0. This was a
+    touched-file audit, so no subsystem checklist plan was required.
+  - Focused build passed: `tools\validate_build.bat Profile` exited 0 in
+    00:00:06.7432938 with 0 warnings and 0 errors. Log:
+    `Agentic/Reports/validate_build_profile_plan04_texture_result_20260709.log`.
+  - Required DX12 gate passed on the final tree: `tools\validate_dx12_renderer.bat`
+    exited 0 in 00:00:36.5685613 with `VALIDATE_DX12_RENDERER: ALL PASSED`,
+    formatting clean, DX12 validation errors 0, and screenshots matching
+    committed baselines. Log:
+    `Agentic/Reports/validate_dx12_renderer_plan04_texture_result_20260709.log`.
+  - `tools\validate_full.bat` was not required for this sub-slice because the
+    behavioral surface is renderer texture/resource handling and the required
+    DX12 renderer gate passed.
 - [ ] **4.1** Do **not** maintain any throw count. The `MAX_SOURCE_THROW_TOKENS`
   ratchet is deleted by plan 03. Verify progress by re-running
   `rg -n "throw " SkullbonezSource` and confirming the F/R/P sites are converted;

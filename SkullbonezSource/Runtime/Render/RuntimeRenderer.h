@@ -103,7 +103,7 @@ class RuntimeRenderer
     void RenderFrame( const RuntimeRenderInputs& renderInputs );
     void ReleaseBackendOwnedResources( Rendering::IRenderResourceFactory* renderResources );
     void ReleaseBackendOwnedRuntimeResources( const BackendResourceReleaseContext& context );
-    void RebuildRegisteredRenderResources( const RegisteredResourceRebuildContext& context );
+    SbResult RebuildRegisteredRenderResources( const RegisteredResourceRebuildContext& context );
     RenderHelper& Helper()
     {
         assert( m_renderHelper.has_value() );

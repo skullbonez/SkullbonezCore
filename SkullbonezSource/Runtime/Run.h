@@ -257,7 +257,7 @@ class Run
     RuntimeRendererBindings BuildRuntimeRendererBindings( Profiler* profiler );
     void ReleaseBackendOwnedRenderResources(
         const char* phaseName );                                        // Ordered GPU-resource release hook while the backend is alive.
-    void RebuildRegisteredRenderResources();                            // Recreates renderer resources from source asset records
+    SbResult RebuildRegisteredRenderResources();                        // Recreates renderer resources from source asset records.
     void LogRenderResourceLifecycleStep( const char* phase, const char* step )
         const;                                                          // Debug event log record for a named resource-lifetime phase.
     void SetViewingOrientation();                                       // Camera-view setup for the current frame.

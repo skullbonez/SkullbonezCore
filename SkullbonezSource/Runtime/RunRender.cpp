@@ -51,6 +51,7 @@ Related:
 
 #include <algorithm>
 #include <chrono>
+#include <cstdio>
 #include <cstddef>
 #include <fstream>
 #include <variant>
@@ -394,7 +395,15 @@ void RenderReplayPredictionGhosts( ReplayRuntime& replayRuntime,
     const std::vector<Rendering::RenderInstanceRecord>& renderInstances = frame.renderInstances->Records();
 
     assert( frame.textures && "RenderFrameContext requires a texture collection" );
-    frame.textures->SelectTexture( TEXTURE_BOUNDING_SPHERE );
+    const SbResult textureResult = frame.textures->SelectTexture( TEXTURE_BOUNDING_SPHERE );
+    if ( !textureResult.ok )
+    {
+        std::fprintf( stderr,
+                      "Frame/Render/ReplayPredictionGhosts texture failure [%s]: %s\n",
+                      textureResult.error.owner,
+                      textureResult.error.message );
+        return;
+    }
     assert( frame.renderResources && frame.renderCommands && frame.renderDiagnostics && frame.assets &&
             frame.renderHelper );
     const RenderHelperContext helperContext{ *frame.renderResources,
@@ -1910,7 +1919,7 @@ void RuntimeRenderer::ReleaseBackendOwnedRuntimeResources( const BackendResource
 }
 
 
-void RuntimeRenderer::RebuildRegisteredRenderResources( const RegisteredResourceRebuildContext& context )
+SbResult RuntimeRenderer::RebuildRegisteredRenderResources( const RegisteredResourceRebuildContext& context )
 {
     enum class RebuildStep
     {
@@ -1948,10 +1957,17 @@ void RuntimeRenderer::RebuildRegisteredRenderResources( const RegisteredResource
             break;
         case RebuildStep::RebuildTextures:
             // Recreate backend texture handles from stable source asset records.
-            context.textures.RebuildTexturesFromSourceAssets();
+            {
+                const SbResult textureResult = context.textures.RebuildTexturesFromSourceAssets();
+                if ( !textureResult.ok )
+                {
+                    return textureResult;
+                }
+            }
             break;
         }
     }
+    return SbResult::Success();
 }
 
 
@@ -2164,9 +2180,9 @@ void Run::Render( const RuntimeRenderModelFrameView& renderModels )
 }
 
 
-void Run::RebuildRegisteredRenderResources()
+SbResult Run::RebuildRegisteredRenderResources()
 {
-    m_renderer.RebuildRegisteredRenderResources(
+    return m_renderer.RebuildRegisteredRenderResources(
         RuntimeRenderer::RegisteredResourceRebuildContext{ m_renderBackendView.renderResources,
                                                            m_systems.assets,
                                                            *m_systems.textures,
