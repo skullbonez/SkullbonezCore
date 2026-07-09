@@ -82,6 +82,21 @@ byte-exact gated.
   invariants) to `SB_FATAL(owner, ...)`, **one subsystem at a time**. Gate:
   `validate_physics` for physics, `validate_full` otherwise. Commit per
   subsystem.
+
+  Progress 2026-07-09, physics/terrain fatal-invariant sub-slice:
+  - Converted five F sites from `throw std::runtime_error` to `SB_FATAL`:
+    `Terrain::GetQuadCacheIndex`, `Terrain::QueryCollisionData`,
+    `Terrain::LocatePolygon`, `SweepTerrainContact`, and
+    `PhysicsBodyStore::BuildReplayBodyIdsForReload`.
+  - Strict source throw statement inventory now reports 252 sites, down from the
+    Step 0.1 baseline of 257. `SB_FATAL` call sites now report 35.
+  - Comment-style audit scope:
+    `SkullbonezSource/Physics/PhysicsBodyStore.cpp`,
+    `SkullbonezSource/Physics/TerrainContactManifold.cpp`, and
+    `SkullbonezSource/World/Terrain.cpp`; checked 3, deferred 0.
+  - Required gate passed: `tools\validate_physics.bat` exited 0 in
+    25.9732165 seconds. Log:
+    `Agentic/Reports/validate_physics_plan04_fatal_invariants_20260709.log`.
 - [ ] **2.1** Convert **P** sites (replay/interaction probes) to the
   `FailAutomation(...)` channel with `ok=false` + message. Gate: `validate_full`
   + replay scrub. Commit.

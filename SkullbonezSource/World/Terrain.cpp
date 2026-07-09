@@ -26,9 +26,10 @@ Related:
 */
 #include "Terrain.h"
 #include "../Assets/AssetSystem.h"
+#include "../Core/FatalError.h"
+#include "../Core/Profiler.h"
 #include "../Core/SbResult.h"
 #include "../Rendering/IRenderResourceFactory.h"
-#include "../Core/Profiler.h"
 
 #include <algorithm>
 #include <climits>
@@ -407,7 +408,14 @@ int Terrain::GetQuadCacheIndex( float xPosition, float zPosition, bool& isTriang
 
     if ( xPosting < 0 || zPosting < 0 || xPosting >= quadsPerSide || zPosting >= quadsPerSide )
     {
-        throw std::runtime_error( "Specified co-ordinates are out of m_terrain bounds.  (Terrain::GetQuadCacheIndex)" );
+        SB_FATAL( "Terrain",
+                  "Coordinates out of terrain bounds in GetQuadCacheIndex: x=%.3f z=%.3f xPosting=%d "
+                  "zPosting=%d quadsPerSide=%d.",
+                  xPosition,
+                  zPosition,
+                  xPosting,
+                  zPosting,
+                  quadsPerSide );
     }
 
     float localZ = zPosition - ( xPosting * scaledStepSize );
@@ -429,8 +437,10 @@ void Terrain::QueryCollisionData( float xPosition,
 {
     if ( !IsInBounds( xPosition, zPosition ) )
     {
-        throw std::runtime_error(
-            "Specified co-ordinates are out of m_terrain bounds.  (Terrain::QueryCollisionData)" );
+        SB_FATAL( "Terrain",
+                  "Coordinates out of terrain bounds in QueryCollisionData: x=%.3f z=%.3f.",
+                  xPosition,
+                  zPosition );
     }
 
     QueryCollisionDataUnchecked( xPosition, zPosition, outHeight, outNormal, outPlane );
@@ -849,8 +859,10 @@ Triangle Terrain::LocatePolygon( float xPosition, float zPosition )
 {
     if ( !IsInBounds( xPosition, zPosition ) )
     {
-        throw std::runtime_error(
-            "Specified co-ordinates are out of m_terrain bounds.  (Terrain::GetTerrainHeightAt)" );
+        SB_FATAL( "Terrain",
+                  "Coordinates out of terrain bounds in LocatePolygon: x=%.3f z=%.3f.",
+                  xPosition,
+                  zPosition );
     }
 
     if ( m_isFlatSlope )
