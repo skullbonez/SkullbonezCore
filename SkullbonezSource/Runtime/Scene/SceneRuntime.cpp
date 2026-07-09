@@ -21,6 +21,8 @@ Invariants:
     helpers.
   - Required contact checks read PhysicsBodyStore and ColliderStore snapshots;
     they must not require the post-step GameModel body mirror to be fresh.
+  - Scene object id 0 is reserved as "not assigned"; live allocations must never
+    wrap or cross the uint32 id ceiling.
 
 Related:
   - SkullbonezSource/Runtime/Scene/SceneRuntime.h
@@ -28,6 +30,7 @@ Related:
 */
 #include "SceneRuntime.h"
 
+#include "../../Core/FatalError.h"
 #include "../../GameObjects/GameModelCollection.h"
 #include "../../Physics/ColliderStore.h"
 #include "../../Physics/ObjectContactManifold.h"
@@ -37,7 +40,6 @@ Related:
 #include <algorithm>
 #include <cstring>
 #include <limits>
-#include <stdexcept>
 #include <utility>
 
 using namespace SkullbonezCore::Basics;
@@ -164,7 +166,11 @@ SkullbonezCore::Physics::PhysicsSceneObjectId RunSceneState::AllocateSceneObject
     if ( nextSceneObjectId == 0 || nextSceneObjectId == maxSceneObjectId ||
          countValue > maxSceneObjectId - nextSceneObjectId )
     {
-        throw std::runtime_error( "Scene object id range exhausted." );
+        SB_FATAL( "SceneRuntime",
+                  "Scene object id range exhausted. next=%u requested=%u max=%u",
+                  nextSceneObjectId,
+                  countValue,
+                  maxSceneObjectId );
     }
 
     SkullbonezCore::Physics::PhysicsSceneObjectId first;

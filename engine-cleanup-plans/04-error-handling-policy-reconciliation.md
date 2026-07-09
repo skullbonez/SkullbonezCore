@@ -250,6 +250,23 @@ byte-exact gated.
   - Required gate passed: `tools\validate_full.bat` exited 0 in
     00:00:55.5201577. Log:
     `Agentic/Reports/validate_full_plan04_gamemodelrenderer_fatals_20260709.log`.
+
+  Progress 2026-07-09, SceneRuntime scene-object-id fatal-invariant sub-slice:
+  - Converted one F site from `throw std::runtime_error` to
+    `SB_FATAL("SceneRuntime", ...)`: `SceneRuntime.cpp` row 254 from the Step
+    0.1 inventory. The replacement covers scene object id range exhaustion;
+    id 0 remains reserved as "not assigned" and live allocations must not wrap
+    or cross the uint32 ceiling.
+  - Strict anchored source throw statement inventory now reports 148 sites,
+    down from the previous sub-slice count of 149. `SB_FATAL` macro invocations
+    now report 124 via `rg -n "SB_FATAL\s*\(" SkullbonezSource`.
+  - Comment-style audit scope:
+    `SkullbonezSource/Runtime/Scene/SceneRuntime.cpp`; checked 1, deferred 0.
+    The learning header and local allocation comment now name the scene object
+    id cursor invariant.
+  - Required gate passed: `tools\validate_full.bat` exited 0 in
+    00:00:54.4774207. Log:
+    `Agentic/Reports/validate_full_plan04_sceneruntime_fatals_20260709.log`.
 - [ ] **2.1** Convert **P** sites (replay/interaction probes) to the
   `FailAutomation(...)` channel with `ok=false` + message. Gate: `validate_full`
   + replay scrub. Commit.
