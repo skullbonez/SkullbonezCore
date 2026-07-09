@@ -1,7 +1,7 @@
 # Replay: Trajectory Visuals, Prediction Job, Memory Quality, Code Size
 
 Date: 2026-07-09 (consolidated mega plan)
-Status: In progress - Stage 8.4 complete (prediction isolation, trajectory
+Status: In progress - Stage 9 complete (prediction isolation, trajectory
 visuals investigation, counters, memory accounting, draw-loop determinism,
 same-target refresh reveal preservation, past-path visibility, contact
 completeness reporting, the TrajectoryStore publication shell, the build-pass
@@ -9,8 +9,8 @@ writer migration, store-backed draw reads, the default-off legacy draw fallback,
 frozen hierarchy topology/shared reveal clamp, contact-tick child activation,
 the twice-run prediction determinism probe, the prediction worker job, and the
 DX12 trajectory-ribbon renderer, visual polish, and replay memory data-model
-tuning through presets/budget UI are complete; tooling cleanup and code-size
-work remain open)
+tuning through presets/budget UI are complete; Stage 9 debug tooling/tests are
+complete; code-size right-sizing remains open)
 Impact area: replay runtime, replay prediction, trajectory overlay rendering,
 DX12 transient geometry, physics stepping, UI
 Consolidates: `replay-prediction-and-memory.md` (sections A/B/C — full text in
@@ -1203,11 +1203,53 @@ Stage 8 — Replay memory data-model tuning (old B2–B4; re-derive first)
     bounded stdout outputs were 60,290 bytes each.
 
 Stage 9 — Debug tooling & tests
-- [ ] 9.1 Overlay debug readout (record count/bytes/version churn).
-- [ ] 9.2 Flicker probe: frozen inputs → hash submitted trajectory vertex
+- [x] 9.1 Overlay debug readout (record count/bytes/version churn).
+- [x] 9.2 Flicker probe: frozen inputs → hash submitted trajectory vertex
   bytes for 120 frames, all identical; promote into `validate_replay_scrub`.
-- [ ] 9.3 Lock-step probe (Stage 4) + no-allocation steady-state assertion
+- [x] 9.3 Lock-step probe (Stage 4) + no-allocation steady-state assertion
   promoted into `validate_replay_scrub`.
+
+  Complete 2026-07-10: memory diagnostics now expose live
+  `TrajectoryStore` record count, stored/published point counts, max resident
+  record version, and version churn in the Memory tab and
+  `skullbonez.main_memory.v1` dumps. `RunEditorTracer` hashes the exact
+  replay-ribbon vertex byte stream submitted to the transient trajectory
+  renderer, and `ReplayRuntime` records a steady-window probe that requires the
+  submitted hash and replay reserve-growth counter to stay fixed.
+
+  The prediction determinism validation script now hides the live past lane,
+  keeps the interaction run alive through frame 460, and requires: prediction
+  path visible, live solver hash stable across prediction, store fingerprint
+  ready, 120+ identical submitted-geometry frames, and no replay reserve growth
+  during the steady submitted-geometry window. Final proof from Run A:
+  submitted hash `0xB127A5094FB0F18F`, 186 stable frames (frames 275-460),
+  6,729,216 submitted vertex bytes, 129,408 vertices, 21,568 segments, and
+  reserve-growth counter fixed at 414. Store fingerprint remained
+  `0x0165312C5422A5F1` across two runs (402 records, 73,021 points, 361 active
+  frames).
+
+  Validation:
+  - Touched-source comment audit inspected 11 source/tool files with 0
+    deferred; no subsystem checklist was required for this touched-file pass.
+  - `git diff --check` passed.
+  - Focused compile check `tools\validate_build.bat Profile` passed in 14.48s
+    with 0 warnings/errors
+    (`Agentic\Reports\validate_build_profile_replay_stage9_compile_20260710.log`).
+  - `tools\validate_fast.bat` passed
+    (`Agentic\Reports\validate_fast_replay_stage9_final_20260710.log`):
+    formatting clean, project filters 0 errors, staged-size check 0
+    violations, Profile/Debug builds 0 warnings/errors.
+  - `tools\validate_replay_scrub.bat` passed
+    (`Agentic\Reports\validate_replay_scrub_replay_stage9_final_20260710.log`).
+    Scrub trace command: `C:\SkullbonezCore\Debug\SKULLBONEZ_CORE.exe --renderer dx12 --vsync off --shadows off --scene SkullbonezData/scenes/physics_roll.scene.json --frames 120 --replay on --replay-seconds 1 --replay-scrub-test --physics-diag C:\SkullbonezCore\Debug\replay_scrub.physicsdiag.ndjson`.
+    Scrub query: `tools\physics_query.bat Debug\replay_scrub.physicsdiag.ndjson replay --limit 8`;
+    trace 54,932 bytes; SQLite cache 225,280 bytes; query output 1,512
+    bytes. Restore trace command: `C:\SkullbonezCore\Debug\SKULLBONEZ_CORE.exe --renderer dx12 --vsync off --shadows off --scene SkullbonezData/scenes/physics_roll.scene.json --frames 120 --replay on --replay-seconds 1 --replay-restore-test --physics-diag C:\SkullbonezCore\Debug\replay_restore.physicsdiag.ndjson`.
+    Restore query: `tools\physics_query.bat Debug\replay_restore.physicsdiag.ndjson restore --limit 8`;
+    trace 54,912 bytes; SQLite cache 225,280 bytes; query output 967 bytes.
+    Total model-read SkullScope query output: 2,479 bytes. Prediction
+    determinism reports were 5,712 bytes each; bounded stdout outputs were
+    60,290 bytes each.
 
 Stage 10 — Code-size right-sizing + cleanup (old C1–C3 + visuals P8)
 - [ ] 10.1 Per-file responsibility inventory of `Runtime/Replay/` (what
@@ -1225,7 +1267,7 @@ Stage 10 — Code-size right-sizing + cleanup (old C1–C3 + visuals P8)
 
 ## Acceptance
 
-- [ ] No flicker: 120-frame frozen-input geometry hash identical; geometry
+- [x] No flicker: 120-frame frozen-input geometry hash identical; geometry
   is a pure function of (data version, presentFrame, revealFrame).
 - [ ] Past path renders only when enabled; changes only at its ends; age
   fade, no pops.

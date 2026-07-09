@@ -210,9 +210,14 @@ void WriteReplayMemoryCategories( FILE* file, const MainMemoryReplayStats& repla
              static_cast<unsigned long long>(
                  ReplayMemoryCategoryCounter( replay, MainMemoryReplayByteCategory::RenderLauncherBackup ) ) );
     fprintf( file,
-             "      \"trajectory\": { \"store\": %llu }\n",
+             "      \"trajectory\": { \"store\": %llu, \"records\": %llu, \"points\": %llu, "
+             "\"published_points\": %llu, \"version_churn\": %llu }\n",
              static_cast<unsigned long long>(
-                 ReplayMemoryCategoryCounter( replay, MainMemoryReplayByteCategory::TrajectoryStore ) ) );
+                 ReplayMemoryCategoryCounter( replay, MainMemoryReplayByteCategory::TrajectoryStore ) ),
+             static_cast<unsigned long long>( replay.trajectory.recordCount ),
+             static_cast<unsigned long long>( replay.trajectory.pointCount ),
+             static_cast<unsigned long long>( replay.trajectory.publishedPointCount ),
+             static_cast<unsigned long long>( replay.trajectory.versionChurn ) );
     fputs( "    },\n", file );
 }
 
@@ -222,6 +227,11 @@ void WriteReplayTrajectoryCounters( FILE* file, const MainMemoryReplayTrajectory
         file,
         "    \"trajectory\": {\n"
         "      \"store_bytes\": %llu,\n"
+        "      \"record_count\": %llu,\n"
+        "      \"point_count\": %llu,\n"
+        "      \"published_point_count\": %llu,\n"
+        "      \"version_churn\": %llu,\n"
+        "      \"max_record_version\": %u,\n"
         "      \"segments_emitted\": {\n"
         "        \"past_root\": %llu,\n"
         "        \"future_root\": %llu,\n"
@@ -262,6 +272,11 @@ void WriteReplayTrajectoryCounters( FILE* file, const MainMemoryReplayTrajectory
         "      }\n"
         "    }\n",
         static_cast<unsigned long long>( trajectory.storeBytes ),
+        static_cast<unsigned long long>( trajectory.recordCount ),
+        static_cast<unsigned long long>( trajectory.pointCount ),
+        static_cast<unsigned long long>( trajectory.publishedPointCount ),
+        static_cast<unsigned long long>( trajectory.versionChurn ),
+        trajectory.maxRecordVersion,
         static_cast<unsigned long long>(
             ReplayTrajectoryLaneCounter( trajectory.emittedSegments, MainMemoryReplayTrajectoryLane::PastRoot ) ),
         static_cast<unsigned long long>(

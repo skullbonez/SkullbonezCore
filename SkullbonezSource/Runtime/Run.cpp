@@ -37,6 +37,7 @@ Related:
 #include "Replay/ReplayV2Artifact.h"
 #include "RuntimeFileWriter.h"
 #include "Allocation/RuntimeAllocationTracker.h"
+#include "Allocation/RuntimeReserveAllocator.h"
 #include "Scene/SceneRuntimeLoad.h"
 #include "../UI/UIInput.h"
 #include "../Core/Log.h"
@@ -475,6 +476,10 @@ Run::Run( Window& window,
               run->RenderReplayCauseFocusOverlay( tracer );
               run->RenderReplayVelocityEditOverlay( tracer );
               tracer.Render( viewProjection, cameraEye, cameraUp, renderCommands );
+              run->m_replayRuntime.RecordReplayTrajectorySubmissionFrame(
+                  tracer.ReplaySubmissionStats(),
+                  run->SceneState().currentFrame,
+                  RuntimeAllocation::RuntimeReserveAllocator::GrowthEventCount() );
               run->m_runtimeTools.Laser().Render( viewProjection,
                                                   cameraEye,
                                                   cameraUp,

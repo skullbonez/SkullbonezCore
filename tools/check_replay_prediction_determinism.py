@@ -13,16 +13,24 @@
 #   Prediction fingerprint: FNV-1a (Fowler-Noll-Vo variant) hash of published
 #     trajectory records and points, excluding transient record versions and
 #     vector capacity.
+#   Submission fingerprint: FNV-1a hash of the exact replay-ribbon vertex bytes
+#     submitted by the tracer after the reveal/build path reaches a steady
+#     window.
 #   Interaction report: JSON artifact written by --interaction-report after a
 #     scripted validation launch finishes.
+#   Steady window: Consecutive rendered frames where submitted geometry and the
+#     replay reserve-growth counter remain unchanged.
+#   Replay reserve growth: Approved runtime capacity increase for replay-owned
+#     buffers, counted by RuntimeReserveAllocator.
 #
 # Invariants:
 #   - Both launches must use the same scene, script, fixed-step policy, and frame
 #     count before their fingerprints are compared.
 #   - The probe fails if the prediction did not become visible or if the
 #     fingerprint was not ready in either run.
-#   - The active published prefix count is part of the compared summary, so a
-#     timing drift that exposes one extra prediction frame still fails.
+#   - The submitted geometry probe must find a 120-frame steady window with no
+#     replay reserve growth, so draw-side flicker and steady-state allocation
+#     regressions fail the scrub gate.
 #
 # Related:
 #   - SkullbonezSource/Runtime/RunInteractionAutomation.cpp
@@ -48,6 +56,7 @@ MAX_LOG_CHARS = 60000
 LOG_HEAD_CHARS = 20000
 LOG_TAIL_CHARS = MAX_LOG_CHARS - LOG_HEAD_CHARS
 MIN_ACTIVE_PREDICTION_FRAMES = 260
+MIN_SUBMISSION_STABLE_FRAMES = 120
 
 
 def remove_if_exists(path):
@@ -104,7 +113,7 @@ def run_prediction_probe(label, report, stdout_log, stderr_log):
         "--interaction-report",
         str(report),
         "--frames",
-        "320",
+        "500",
         "--replay",
         "on",
         "--replay-seconds",
@@ -142,6 +151,8 @@ def require_final_state(label, payload):
         "predictionPathVisible": True,
         "liveSolverHashStableAcrossPrediction": True,
         "predictionTrajectoryFingerprintReady": True,
+        "predictionTrajectorySubmissionStable": True,
+        "predictionTrajectorySteadyStateNoReserveGrowth": True,
     }
     for key, expected in required_bools.items():
         actual = final.get(key)
@@ -161,6 +172,27 @@ def require_final_state(label, payload):
             f"{label} reported only {active_frame_count} active prediction frames; "
             f"expected at least {MIN_ACTIVE_PREDICTION_FRAMES}"
         )
+    submission_hash = final.get("predictionTrajectorySubmissionHash")
+    submission_frame_count = int(final.get("predictionTrajectorySubmissionFrameCount") or 0)
+    submission_vertex_bytes = int(final.get("predictionTrajectorySubmissionVertexBytes") or 0)
+    submission_vertex_count = int(final.get("predictionTrajectorySubmissionVertexCount") or 0)
+    submission_segment_count = int(final.get("predictionTrajectorySubmissionSegmentCount") or 0)
+    reserve_growth_start = int(final.get("predictionTrajectoryReserveGrowthEventsAtStart") or 0)
+    reserve_growth_end = int(final.get("predictionTrajectoryReserveGrowthEventsAtEnd") or 0)
+    if submission_frame_count < MIN_SUBMISSION_STABLE_FRAMES:
+        raise RuntimeError(
+            f"{label} reported only {submission_frame_count} stable submitted-geometry frames; "
+            f"expected at least {MIN_SUBMISSION_STABLE_FRAMES}"
+        )
+    if not isinstance(submission_hash, str) or not submission_hash.startswith("0x"):
+        raise RuntimeError(f"{label} missing predictionTrajectorySubmissionHash")
+    if submission_vertex_bytes <= 0 or submission_vertex_count <= 0 or submission_segment_count <= 0:
+        raise RuntimeError(f"{label} produced empty submitted-geometry probe counts")
+    if reserve_growth_start != reserve_growth_end:
+        raise RuntimeError(
+            f"{label} replay reserve growth changed during steady window: "
+            f"{reserve_growth_start} -> {reserve_growth_end}"
+        )
     return {
         "fingerprint": fingerprint,
         "record_count": record_count,
@@ -168,6 +200,10 @@ def require_final_state(label, payload):
         "future_node_count": int(final.get("predictionFutureNodeCount") or 0),
         "future_node_build_frame_count": int(final.get("predictionFutureNodeBuildFrameCount") or 0),
         "active_frame_count": active_frame_count,
+        "submission_hash": submission_hash,
+        "submission_vertex_bytes": submission_vertex_bytes,
+        "submission_vertex_count": submission_vertex_count,
+        "submission_segment_count": submission_segment_count,
     }
 
 
@@ -185,11 +221,14 @@ def main():
 
         print(
             "  PASS: prediction trajectory fingerprint {fingerprint} matched across two runs "
-            "({records} records, {points} points, {frames} active frames)".format(
+            "({records} records, {points} points, {frames} active frames); "
+            "submitted geometry {submission_hash} held for >= {stable_frames} frames".format(
                 fingerprint=first_summary["fingerprint"],
                 records=first_summary["record_count"],
                 points=first_summary["point_count"],
                 frames=first_summary["active_frame_count"],
+                submission_hash=first_summary["submission_hash"],
+                stable_frames=MIN_SUBMISSION_STABLE_FRAMES,
             )
         )
         print(f"  Report A bytes: {REPORTS[0].stat().st_size}")

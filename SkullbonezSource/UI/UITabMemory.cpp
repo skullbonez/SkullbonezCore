@@ -46,7 +46,7 @@ using namespace SkullbonezCore::Basics;
 
 namespace
 {
-constexpr float MEMORY_SUMMARY_BLOCK_H = 232.0f;
+constexpr float MEMORY_SUMMARY_BLOCK_H = 246.0f;
 constexpr float MEMORY_REPLAY_POLICY_BLOCK_H = 154.0f;
 constexpr float MEMORY_PANEL_GAP = 14.0f;
 constexpr float MEMORY_EVENT_HEADER_H = 62.0f;
@@ -897,6 +897,16 @@ void DrawMainMemoryPanel( const SkullbonezCore::UI::UIDrawContext& draw,
     snprintf( text, sizeof( text ), "%s  %s  %s  %s", retainedPair, baselinePair, markerPair, auxiliaryPair );
     draw.Text( x, row0 + 126.0f, 8.0f, 0.48f, 0.66f, 0.68f, text );
 
+    snprintf( text,
+              sizeof( text ),
+              "traj store rec %llu  pts %llu/%llu  ver max %u churn %llu",
+              static_cast<unsigned long long>( memory.replay.trajectory.recordCount ),
+              static_cast<unsigned long long>( memory.replay.trajectory.publishedPointCount ),
+              static_cast<unsigned long long>( memory.replay.trajectory.pointCount ),
+              memory.replay.trajectory.maxRecordVersion,
+              static_cast<unsigned long long>( memory.replay.trajectory.versionChurn ) );
+    draw.Text( x, row0 + 140.0f, 8.0f, 0.48f, 0.66f, 0.68f, text );
+
     const uint64_t predictionDrawExpiries =
         memory.replay.trajectory
             .budgetExpiries[static_cast<std::size_t>( MainMemoryReplayBudgetPass::PredictionDrawRoot )] +
@@ -927,7 +937,7 @@ void DrawMainMemoryPanel( const SkullbonezCore::UI::UIDrawContext& draw,
             memory.replay.trajectory.rebuildCauses[static_cast<std::size_t>( MainMemoryReplayRebuildCause::Dirty )] ),
         static_cast<unsigned long long>( memory.replay.trajectory.rebuildCauses[static_cast<std::size_t>(
             MainMemoryReplayRebuildCause::AutomaticRefresh )] ) );
-    draw.Text( x, row0 + 140.0f, 8.0f, 0.48f, 0.66f, 0.68f, text );
+    draw.Text( x, row0 + 154.0f, 8.0f, 0.48f, 0.66f, 0.68f, text );
 
     // Why: the category rows make memory-model tradeoffs visible during manual
     // replay repros without opening the full JSON dump.
@@ -944,7 +954,7 @@ void DrawMainMemoryPanel( const SkullbonezCore::UI::UIDrawContext& draw,
                      d,
                      sizeof( d ) );
     snprintf( text, sizeof( text ), "cat bodies p %s  s %s  pred %s  load %s", a, b, c, d );
-    draw.Text( x, row0 + 154.0f, 8.0f, 0.50f, 0.64f, 0.66f, text );
+    draw.Text( x, row0 + 168.0f, 8.0f, 0.50f, 0.64f, 0.66f, text );
 
     FormatMemoryMiB( ReplayMemoryCategoryCounter( memory.replay, MainMemoryReplayByteCategory::SolverWorldState ),
                      a,
@@ -959,7 +969,7 @@ void DrawMainMemoryPanel( const SkullbonezCore::UI::UIDrawContext& draw,
                      d,
                      sizeof( d ) );
     snprintf( text, sizeof( text ), "cat state sw %s  pw %s  eng %s  tree %s", a, b, c, d );
-    draw.Text( x, row0 + 168.0f, 8.0f, 0.50f, 0.64f, 0.66f, text );
+    draw.Text( x, row0 + 182.0f, 8.0f, 0.50f, 0.64f, 0.66f, text );
 
     const uint64_t recordBytes =
         ReplayMemoryCategoryCounter( memory.replay, MainMemoryReplayByteCategory::PresentationSampleRecords ) +
@@ -979,7 +989,7 @@ void DrawMainMemoryPanel( const SkullbonezCore::UI::UIDrawContext& draw,
                      d,
                      sizeof( d ) );
     snprintf( text, sizeof( text ), "cat records %s  check %s  scratch %s  events %s", a, b, c, d );
-    draw.Text( x, row0 + 182.0f, 8.0f, 0.50f, 0.64f, 0.66f, text );
+    draw.Text( x, row0 + 196.0f, 8.0f, 0.50f, 0.64f, 0.66f, text );
 
     const uint64_t visualPathBytes =
         ReplayMemoryCategoryCounter( memory.replay, MainMemoryReplayByteCategory::PathTargets ) +
@@ -996,7 +1006,7 @@ void DrawMainMemoryPanel( const SkullbonezCore::UI::UIDrawContext& draw,
                      sizeof( c ) );
     FormatMemoryMiB( launcherVisualBytes, d, sizeof( d ) );
     snprintf( text, sizeof( text ), "cat visual path %s  cause %s  ghost %s  launch %s", a, b, c, d );
-    draw.Text( x, row0 + 196.0f, 8.0f, 0.50f, 0.64f, 0.66f, text );
+    draw.Text( x, row0 + 210.0f, 8.0f, 0.50f, 0.64f, 0.66f, text );
 }
 
 void DrawReserveGrowthEvents( const SkullbonezCore::UI::UIDrawContext& draw,

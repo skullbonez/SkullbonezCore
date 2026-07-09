@@ -10,20 +10,26 @@
 @rem   can select an older presentation sample, retained restore can hash-
 @rem   verify an older solver sample through bounded SkullScope queries, and
 @rem   identical prediction interaction runs produce the same sampled trajectory
-@rem   fingerprint.
+@rem   fingerprint, a 120-frame submitted-geometry hash window, and no replay
+@rem   reserve growth during that steady window.
 @rem
 @rem Glossary:
 @rem   SkullScope: Queryable physics diagnostics workflow backed by bounded
 @rem   trace output and local queries.
 @rem   Validation gate: Repository script that proves a class of changes before
 @rem   commit or PR.
+@rem   Steady window: Consecutive rendered frames where submitted replay geometry
+@rem   and the replay reserve-growth counter remain unchanged.
+@rem   Replay reserve growth: Approved runtime capacity increase for replay-owned
+@rem   buffers, counted by RuntimeReserveAllocator.
 @rem
 @rem Invariants:
 @rem   - The Debug executable is rebuilt before replay scrub probes run.
 @rem   - Validation passes only after check_replay_scrub_regression.py verifies
 @rem   the generated SkullScope traces.
 @rem   - Prediction determinism passes only when two identical interaction
-@rem   launches produce the same sampled trajectory fingerprint.
+@rem   launches produce the same sampled trajectory fingerprint and the submitted
+@rem   draw bytes stay stable for the no-growth steady-state window.
 @rem
 @rem Related:
 @rem   - AGENTS.md
@@ -61,10 +67,10 @@ if errorlevel 1 (
     exit /b 2
 )
 
-echo [3/3] Checking replay prediction trajectory determinism...
+echo [3/3] Checking replay prediction trajectory determinism and submitted-geometry stability...
 "%PYTHON_EXE%" "%~dp0check_replay_prediction_determinism.py"
 if errorlevel 1 (
-    echo FAIL: replay prediction determinism probe detected drift.
+    echo FAIL: replay prediction determinism/stability probe detected drift.
     echo       Reports: TestOutput\validation\replay_prediction_determinism
     popd
     exit /b 4

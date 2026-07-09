@@ -716,6 +716,24 @@ inline void RunReplayPredictionState::PublishBuildFrameSlot( std::size_t frameSl
     }
 }
 
+struct ReplayTrajectorySubmissionProbeStats
+{
+    bool hasSubmission = false;
+    bool stableWindowReady = false;
+    bool noReserveGrowth = true;
+    int observedFrameCount = 0;
+    int stableFrameCount = 0;
+    int stableWindowTargetFrameCount = 120;
+    int firstFrame = -1;
+    int lastFrame = -1;
+    uint64_t stableHash = 0;
+    uint64_t vertexBytes = 0;
+    uint32_t vertexCount = 0;
+    uint32_t segmentCount = 0;
+    uint64_t reserveGrowthEventsAtStart = 0;
+    uint64_t reserveGrowthEventsAtEnd = 0;
+};
+
 struct RunReplayVelocityEditState
 {
     bool enabled = false;
@@ -963,6 +981,10 @@ class ReplayRuntime
     // Accumulates one rendered replay overlay pass into the repro-session
     // trajectory counters exposed through memory diagnostics.
     void RecordReplayTrajectoryFrameStats( const MainMemoryReplayTrajectoryStats& frameStats );
+    void RecordReplayTrajectorySubmissionFrame( const MainMemoryReplayTrajectorySubmissionStats& submissionStats,
+                                                int frameNumber,
+                                                uint64_t reserveGrowthEventCount );
+    const ReplayTrajectorySubmissionProbeStats& ReplayTrajectorySubmissionProbe() const;
     void RecordReplayTrajectoryBudgetExpiry( MainMemoryReplayBudgetPass pass );
     void RecordReplayTrajectoryRebuildCause( MainMemoryReplayRebuildCause cause );
     MainMemoryReplayStats CollectMemoryStats() const;
@@ -1025,6 +1047,8 @@ class ReplayRuntime
     RunReplayPredictionState m_prediction;
     MainMemoryReplayTrajectoryStats
         m_trajectoryVisualStats;                                      // Cumulative replay trajectory diagnostics for the current process.
+    ReplayTrajectorySubmissionProbeStats
+        m_trajectorySubmissionProbe;                                  // Submitted replay-ribbon stability window for validation reports.
     RunReplayCauseTreeState m_causeTree;
     RunReplayVelocityEditState m_velocityEdit;
     std::vector<ReplayPredictionGhostDrawRequest> m_predictionGhostDrawRequests;

@@ -161,10 +161,24 @@ inline uint64_t MainMemoryReplayCategoryRangeBytes( const MainMemoryReplayCatego
 struct MainMemoryReplayTrajectoryStats
 {
     uint64_t storeBytes = 0;                                // Current TrajectoryStore allocation; 0 until the store lands.
+    uint64_t recordCount = 0;                               // Live TrajectoryStore record count visible to replay tooling.
+    uint64_t pointCount = 0;                                // Total stored trajectory points, including unpublished build slack.
+    uint64_t publishedPointCount = 0;                       // Points currently exposed through record published prefixes.
+    uint64_t versionChurn = 0;                              // Number of allocated record versions since the store was reset.
+    uint32_t maxRecordVersion = 0;                          // Highest version still resident in the store.
     uint64_t emittedSegments[MAIN_MEMORY_REPLAY_TRAJECTORY_LANE_COUNT] = {};
     uint64_t droppedSegments[MAIN_MEMORY_REPLAY_TRAJECTORY_LANE_COUNT] = {};
     uint64_t budgetExpiries[MAIN_MEMORY_REPLAY_BUDGET_PASS_COUNT] = {};
     uint64_t rebuildCauses[MAIN_MEMORY_REPLAY_REBUILD_CAUSE_COUNT] = {};
+};
+
+struct MainMemoryReplayTrajectorySubmissionStats
+{
+    bool hasGeometry = false;                               // True when the tracer submitted replay ribbon vertices this frame.
+    uint64_t vertexHash = 0;                                // FNV hash of the exact submitted replay ribbon vertex byte stream.
+    uint64_t vertexBytes = 0;                               // Submitted replay ribbon byte count for the frame.
+    uint32_t vertexCount = 0;                               // Submitted replay ribbon vertex count for the frame.
+    uint32_t segmentCount = 0;                              // Source replay ribbon segment count expanded into vertices.
 };
 
 struct MainMemoryProcessStats

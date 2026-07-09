@@ -19,6 +19,8 @@ Glossary:
     the latest visible predicted/retained pose, never from a broadphase radius substitute.
   Replay ribbon: Screen-space-width strip generated from replay path segments
     and the yellow causal entry marker so the shader can apply smooth glow.
+  FNV (Fowler-Noll-Vo): Small deterministic byte-stream hash used here for
+    validation evidence, not for security.
   Placement ghost: Preview outline drawn before an editor placement commit; it
     must match the primitive bodies that placement will actually spawn.
 
@@ -75,6 +77,18 @@ constexpr std::size_t RUN_EDITOR_TRACER_REPLAY_RIBBON_VERTEX_FLOAT_CAPACITY =
     RUN_EDITOR_TRACER_REPLAY_RIBBON_SEGMENT_CAPACITY * 2 * RUN_EDITOR_TRACER_REPLAY_RIBBON_VERTICES_PER_SEGMENT *
     RUN_EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_VERTEX;
 constexpr float RUN_EDITOR_TRACER_REPLAY_LINE_OPACITY = 0.5f;
+constexpr uint64_t REPLAY_TRAJECTORY_SUBMISSION_FNV_OFFSET = 1469598103934665603ull;
+constexpr uint64_t REPLAY_TRAJECTORY_SUBMISSION_FNV_PRIME = 1099511628211ull;
+
+void HashReplaySubmissionBytes( uint64_t& hash, const void* data, std::size_t byteCount )
+{
+    const uint8_t* bytes = static_cast<const uint8_t*>( data );
+    for ( std::size_t i = 0; i < byteCount; ++i )
+    {
+        hash ^= static_cast<uint64_t>( bytes[i] );
+        hash *= REPLAY_TRAJECTORY_SUBMISSION_FNV_PRIME;
+    }
+}
 
 void AppendReplayRibbonVertex( std::vector<float>& vertexData,
                                const Vector3& start,
@@ -127,6 +141,7 @@ void RunEditorTracer::Clear()
     m_priorityReplayRibbonSegments.clear();
     m_replayRibbonVertexData.clear();
     ClearReplayTrajectoryStats();
+    m_replaySubmissionStats = MainMemoryReplayTrajectorySubmissionStats{};
 }
 
 void RunEditorTracer::ClearReplayTrajectoryStats()
@@ -138,6 +153,11 @@ void RunEditorTracer::ClearReplayTrajectoryStats()
 const MainMemoryReplayTrajectoryStats& RunEditorTracer::ReplayTrajectoryStats() const
 {
     return m_replayTrajectoryStats;
+}
+
+const MainMemoryReplayTrajectorySubmissionStats& RunEditorTracer::ReplaySubmissionStats() const
+{
+    return m_replaySubmissionStats;
 }
 
 
@@ -600,6 +620,27 @@ void RunEditorTracer::BuildReplayRibbonVertices( const Vector3& cameraEye, const
     // remains on this ribbon path while rest/horizon boxes use priority lines.
     appendRibbonData( m_replayRibbonSegments );
     appendRibbonData( m_priorityReplayRibbonSegments );
+
+    m_replaySubmissionStats = MainMemoryReplayTrajectorySubmissionStats{};
+    if ( !m_replayRibbonVertexData.empty() )
+    {
+        // Invariant: Stage-9 flicker validation hashes the exact float payload
+        // submitted to DrawTransientColoredTriangles. It deliberately ignores
+        // vector capacity and camera data because the trajectory-ribbon shader
+        // performs camera-facing expansion from this stable segment payload.
+        const std::size_t byteCount = m_replayRibbonVertexData.size() * sizeof( float );
+        uint64_t hash = REPLAY_TRAJECTORY_SUBMISSION_FNV_OFFSET;
+        const uint64_t floatCount = static_cast<uint64_t>( m_replayRibbonVertexData.size() );
+        HashReplaySubmissionBytes( hash, &floatCount, sizeof( floatCount ) );
+        HashReplaySubmissionBytes( hash, m_replayRibbonVertexData.data(), byteCount );
+        m_replaySubmissionStats.hasGeometry = true;
+        m_replaySubmissionStats.vertexHash = hash;
+        m_replaySubmissionStats.vertexBytes = static_cast<uint64_t>( byteCount );
+        m_replaySubmissionStats.vertexCount = static_cast<uint32_t>(
+            m_replayRibbonVertexData.size() / RUN_EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_VERTEX );
+        m_replaySubmissionStats.segmentCount = static_cast<uint32_t>(
+            m_replaySubmissionStats.vertexCount / RUN_EDITOR_TRACER_REPLAY_RIBBON_VERTICES_PER_SEGMENT );
+    }
 }
 
 

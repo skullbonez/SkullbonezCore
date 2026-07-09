@@ -269,6 +269,8 @@ class RunEditorTracer
     std::vector<float> m_priorityReplayRibbonSegments;                      // Retained yellow entry ribbon segments that survive path overflow.
     std::vector<float>
         m_replayRibbonVertexData;                                           // Packed 13-float segment vertices consumed by the trajectory ribbon style.
+    MainMemoryReplayTrajectorySubmissionStats
+        m_replaySubmissionStats;                                            // Frame-local submitted replay ribbon hash sampled after tracer render.
 
     void EmitLineTo( std::vector<float>& lineData,
                      const Math::Vector::Vector3& a,
@@ -351,6 +353,8 @@ class RunEditorTracer
     void ClearReplayTrajectoryStats();
     // Returns the current replay-pass counters without taking ownership.
     const MainMemoryReplayTrajectoryStats& ReplayTrajectoryStats() const;
+    // Returns the post-build replay ribbon submission hash for validation probes.
+    const MainMemoryReplayTrajectorySubmissionStats& ReplaySubmissionStats() const;
     // Invariant: replay path drawing budgets against ordinary ribbon slots
     // before emitting segments, so the tracer's fixed reserve remains the
     // single source of capacity truth.

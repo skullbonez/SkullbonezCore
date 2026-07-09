@@ -79,6 +79,7 @@ constexpr uint32_t REPLAY_GENERATED_SCENE_OVERRIDE_SHIFT = 8u;
 constexpr uint32_t REPLAY_GENERATED_SCENE_OVERRIDE_MASK = 3u << REPLAY_GENERATED_SCENE_OVERRIDE_SHIFT;
 constexpr uint64_t REPLAY_EVENT_FNV_OFFSET = 14695981039346656037ull;
 constexpr uint64_t REPLAY_EVENT_FNV_PRIME = 1099511628211ull;
+constexpr int REPLAY_TRAJECTORY_SUBMISSION_STEADY_FRAME_TARGET = 120;
 
 using Math::Vector::Vector3;
 using Math::Vector::VectorMagSquared;
@@ -2937,6 +2938,59 @@ void ReplayRuntime::RecordReplayTrajectoryFrameStats( const MainMemoryReplayTraj
     }
 }
 
+void ReplayRuntime::RecordReplayTrajectorySubmissionFrame(
+    const MainMemoryReplayTrajectorySubmissionStats& submissionStats,
+    int frameNumber,
+    uint64_t reserveGrowthEventCount )
+{
+    if ( !submissionStats.hasGeometry || submissionStats.vertexBytes == 0 || submissionStats.vertexCount == 0 )
+    {
+        return;
+    }
+
+    ++m_trajectorySubmissionProbe.observedFrameCount;
+    m_trajectorySubmissionProbe.hasSubmission = true;
+    m_trajectorySubmissionProbe.stableWindowTargetFrameCount = REPLAY_TRAJECTORY_SUBMISSION_STEADY_FRAME_TARGET;
+
+    const bool sameSubmittedBytes = m_trajectorySubmissionProbe.stableFrameCount > 0 &&
+                                    m_trajectorySubmissionProbe.stableHash == submissionStats.vertexHash &&
+                                    m_trajectorySubmissionProbe.vertexBytes == submissionStats.vertexBytes &&
+                                    m_trajectorySubmissionProbe.vertexCount == submissionStats.vertexCount &&
+                                    m_trajectorySubmissionProbe.segmentCount == submissionStats.segmentCount;
+    const bool sameReserveWindow = reserveGrowthEventCount == m_trajectorySubmissionProbe.reserveGrowthEventsAtEnd;
+
+    if ( !sameSubmittedBytes || !sameReserveWindow )
+    {
+        // Invariant: reveal growth and prediction build reserves are allowed
+        // before the steady window. The acceptance proof starts at the first
+        // frame whose submitted bytes and replay reserve counter remain fixed.
+        m_trajectorySubmissionProbe.stableFrameCount = 1;
+        m_trajectorySubmissionProbe.firstFrame = frameNumber;
+        m_trajectorySubmissionProbe.stableHash = submissionStats.vertexHash;
+        m_trajectorySubmissionProbe.vertexBytes = submissionStats.vertexBytes;
+        m_trajectorySubmissionProbe.vertexCount = submissionStats.vertexCount;
+        m_trajectorySubmissionProbe.segmentCount = submissionStats.segmentCount;
+        m_trajectorySubmissionProbe.reserveGrowthEventsAtStart = reserveGrowthEventCount;
+    }
+    else
+    {
+        ++m_trajectorySubmissionProbe.stableFrameCount;
+    }
+
+    m_trajectorySubmissionProbe.lastFrame = frameNumber;
+    m_trajectorySubmissionProbe.reserveGrowthEventsAtEnd = reserveGrowthEventCount;
+    m_trajectorySubmissionProbe.noReserveGrowth =
+        m_trajectorySubmissionProbe.reserveGrowthEventsAtStart == m_trajectorySubmissionProbe.reserveGrowthEventsAtEnd;
+    m_trajectorySubmissionProbe.stableWindowReady =
+        m_trajectorySubmissionProbe.stableFrameCount >= REPLAY_TRAJECTORY_SUBMISSION_STEADY_FRAME_TARGET &&
+        m_trajectorySubmissionProbe.noReserveGrowth;
+}
+
+const ReplayTrajectorySubmissionProbeStats& ReplayRuntime::ReplayTrajectorySubmissionProbe() const
+{
+    return m_trajectorySubmissionProbe;
+}
+
 void ReplayRuntime::RecordReplayTrajectoryBudgetExpiry( MainMemoryReplayBudgetPass pass )
 {
     const std::size_t passIndex = static_cast<std::size_t>( pass );
@@ -3079,6 +3133,17 @@ MainMemoryReplayStats ReplayRuntime::CollectMemoryStats() const
     stats.trajectory = m_trajectoryVisualStats;
     stats.trajectory.storeBytes =
         MainMemoryReplayCategoryByte( stats.categoryBytes, MainMemoryReplayByteCategory::TrajectoryStore );
+    stats.trajectory.recordCount = static_cast<uint64_t>( m_prediction.trajectoryStore.RecordCount() );
+    stats.trajectory.pointCount = static_cast<uint64_t>( m_prediction.trajectoryStore.PointCount() );
+    stats.trajectory.versionChurn = m_prediction.trajectoryStore.nextVersion > 0u
+                                        ? static_cast<uint64_t>( m_prediction.trajectoryStore.nextVersion - 1u )
+                                        : 0u;
+    for ( const ReplayTrajectoryRecord& record : m_prediction.trajectoryStore.records )
+    {
+        stats.trajectory.publishedPointCount +=
+            static_cast<uint64_t>( (std::min)( record.publishedPointCount, record.points.size() ) );
+        stats.trajectory.maxRecordVersion = (std::max)( stats.trajectory.maxRecordVersion, record.version );
+    }
 
     stats.totalBytes = stats.presentationBytes + stats.solverBytes + stats.eventsBytes + stats.loadedReplayBytes +
                        stats.predictionBytes + stats.pathAndCauseBytes + stats.renderScratchBytes +
