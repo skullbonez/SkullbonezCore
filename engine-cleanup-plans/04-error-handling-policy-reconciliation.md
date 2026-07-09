@@ -561,6 +561,33 @@ byte-exact gated.
     validation errors 0, screenshots matching baselines, and
     `physics_regression_solver.csv` byte-exact. Final log:
     `Agentic/Reports/validate_full_plan04_scene_group_result_20260709_rerun.log`.
+
+  Progress 2026-07-09, Window creation recoverable startup boundary sub-slice:
+  - Converted `SkullbonezSource/Runtime/Window.cpp` row 210 from
+    `throw std::runtime_error` to `SbResult::Failure("Runtime/Window", ...)`
+    returned through `Window::CreateAppWindow`.
+  - `WinMain` now reports that startup failure to `stderr`, shuts down
+    `WorkerPool`, calls `CoUninitialize()`, and exits 1 before `GetDC` or
+    render-backend startup.
+  - Strict anchored source throw statement inventory now reports 114 sites,
+    down from the previous sub-slice count of 115. `SB_FATAL` macro invocations
+    remain 151 via `rg -n "SB_FATAL\s*\(" SkullbonezSource`.
+  - Comment-style audit scope: `SkullbonezSource/Runtime/Init.cpp`,
+    `SkullbonezSource/Runtime/Window.cpp`, and
+    `SkullbonezSource/Runtime/Window.h`; checked 3, deferred 0. This was a
+    touched-file audit, so no subsystem checklist plan was required.
+  - Focused build passed: `tools\validate_build.bat Profile` exited 0 in
+    00:00:10.2404826 with 0 warnings and 0 errors.
+  - First `tools\validate_full.bat` attempt failed formatting after
+    00:00:40.4021576. The touched header was fixed with
+    `tools\align_header_inline_comments.py --repo . --write
+    .\SkullbonezSource\Runtime\Window.h`, and `tools\validate_format.bat` then
+    exited 0 in 00:00:09.3233037.
+  - Required gate then passed: `tools\validate_full.bat` exited 0 in
+    00:01:05.6535012 with `VALIDATE_FULL: DEFAULT GATE PASSED`, DX12
+    validation errors 0, screenshots matching baselines, and
+    `physics_regression_solver.csv` byte-exact. Final log:
+    `Agentic/Reports/validate_full_plan04_window_create_result_20260709_rerun.log`.
 - [ ] **4.1** Do **not** maintain any throw count. The `MAX_SOURCE_THROW_TOKENS`
   ratchet is deleted by plan 03. Verify progress by re-running
   `rg -n "throw " SkullbonezSource` and confirming the F/R/P sites are converted;

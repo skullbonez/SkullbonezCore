@@ -267,7 +267,7 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT iMsg, WPARAM wParam, LPARAM lParam )
 }
 
 
-void Window::CreateAppWindow( HINSTANCE hInstance, bool isFullScreenMode )
+SbResult Window::CreateAppWindow( HINSTANCE hInstance, bool isFullScreenMode )
 {
     HWND hWnd = nullptr;       // Handle to our window
     WNDCLASS wndclass = { 0 }; // Window class struct
@@ -330,7 +330,9 @@ void Window::CreateAppWindow( HINSTANCE hInstance, bool isFullScreenMode )
 
     if ( !hWnd )
     {
-        throw std::runtime_error( "Window creation failed" ); // Throw exception on failure
+        // Lane R: native window creation can fail because of the host desktop
+        // environment, so startup reports the result instead of unwinding.
+        return SbResult::Failure( "Runtime/Window", "Window creation failed." );
     }
     m_sWindow = hWnd;
     Input::BindWindow( *this );
@@ -342,6 +344,7 @@ void Window::CreateAppWindow( HINSTANCE hInstance, bool isFullScreenMode )
     SetFocus( hWnd );
     Input::SetSystemCursorVisible( false );
     (void)Input::RegisterRawMouseInput( hWnd );
+    return SbResult::Success();
 }
 
 

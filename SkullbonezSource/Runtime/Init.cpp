@@ -3415,7 +3415,15 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine
     Window* window = &windowOwner;
     window->SetStartupWindowSize( cfg.window.screenX, cfg.window.screenY );
     window->SetProjectionFrustum( cfg.frustumNear, cfg.frustumFar );
-    window->CreateAppWindow( hInstance, cfg.window.fullscreen );
+    const SbResult windowResult = window->CreateAppWindow( hInstance, cfg.window.fullscreen );
+    if ( !windowResult.ok )
+    {
+        fprintf( stderr, "%s: %s\n", windowResult.error.owner, windowResult.error.message );
+        fflush( stderr );
+        workerPool.Shutdown();
+        CoUninitialize();
+        return 1;
+    }
     window->m_sDevice = GetDC( window->m_sWindow );
 
     RuntimeRenderBackendView renderBackendView;

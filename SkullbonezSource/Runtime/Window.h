@@ -36,6 +36,7 @@ Related:
 
 
 #include "../Core/Common.h"
+#include "../Core/SbResult.h"
 #include "../Maths/Matrix4.h"
 
 namespace SkullbonezCore
@@ -85,8 +86,8 @@ class Window
     } // Projection matrix currently used by render passes.
     void SetWindowDimensions( const RECT dimensions );                    // Caches dimensions from a Win32 RECT.
     void SetWindowDimensions( int width, int height );                    // Caches dimensions from explicit client width/height.
-    void CreateAppWindow( HINSTANCE hInstance,
-                          bool isFullScreenMode );                        // Creates the native window and stores the HWND/HDC pair.
+    SbResult CreateAppWindow( HINSTANCE hInstance,
+                              bool isFullScreenMode );                    // Creates the native window or reports Lane R startup failure.
     void ChangeToFullScreen( int xResolution, int yResolution );          // Applies fullscreen display mode dimensions.
     int MsgBox( const char* cMsgBoxText,
                 const char* cMsgBoxTitle,
