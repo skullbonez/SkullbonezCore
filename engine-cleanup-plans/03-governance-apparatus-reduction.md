@@ -156,7 +156,7 @@ requires human sign-off before any deletion.
     project filters clean, Profile/Debug builds 0 warnings/errors, DX12
     validation errors 0, screenshots matching baselines, and
     `physics_regression_solver.csv` byte-exact.
-- [ ] **2.1** Strip the regex-enforced gates from `AGENTS.md` (Migration Artifact
+- [x] **2.1** Strip the regex-enforced gates from `AGENTS.md` (Migration Artifact
   Gate, throw ratchet, hot-path inheritance count, unenforceable allocation
   prose). Replace with: "enforced by code review + the tests in
   `Agentic/Plans/TODO/behavioral-test-depth.md`." Do not land this step until
@@ -171,14 +171,24 @@ requires human sign-off before any deletion.
     hash equality check in the unit runner.
   - `tools\validate_tests.bat` passed in 00:00:05.3128576 with 72/72 cases and
     1643/1643 assertions.
+  - Completed 2026-07-09: `AGENTS.md` now states the deleted regex checker is
+    not enforcement, routes migration/hot-path/throw policy to review,
+    behavioral tests, and targeted validation, and keeps allocation policy
+    under Plan 07 rather than frozen regex budgets.
 - [x] **3.1** Executed 2026-07-09 by the owner-directed plan consolidation,
   with deletion instead of archiving: Done/Failed/Rejected trees deleted;
   `fable_plans/`, `To_Eval/`, and `In_Progress/` consolidated into
   `Agentic/Plans/TODO/`; master inventory at `Agentic/Plans/MASTER-PLAN.md`.
   Recorded in the plan consolidation follow-up history.
-- [ ] **4.1** Relax the Comment Quality Gate in `AGENTS.md` so trivial wrappers,
+- [x] **4.1** Relax the Comment Quality Gate in `AGENTS.md` so trivial wrappers,
   link stubs, and batch files are exempt from full learning-header requirements.
   Commit.
+
+  Completed 2026-07-09:
+  - `AGENTS.md` exempts trivial wrappers, link stubs, one-line forwarding files,
+    and tiny batch/PowerShell helpers from full learning-header requirements
+    when the diff is self-explanatory. Non-obvious validation purpose, shell
+    hazards, ownership, and runtime behavior still need local comments.
 
 ## Risks
 
@@ -198,7 +208,7 @@ checker). Documentation moves need no validation.
 - [x] `tools/check_runtime_boundaries.py` no longer exists.
 - [x] No `MAX_*` frozen-count budget exists anywhere in `tools/`.
 - [x] No validation script, git hook, or CI step invokes the deleted checker.
-- [ ] `AGENTS.md` describes no regex-enforced gate; enforcement is review + the
+- [x] `AGENTS.md` describes no regex-enforced gate; enforcement is review + the
   `TODO/behavioral-test-depth.md` tests + the two hard runtime gates.
 - [x] At most one survivor — the DX12-only check — and it is a boolean pass/fail
   with no frozen number.
