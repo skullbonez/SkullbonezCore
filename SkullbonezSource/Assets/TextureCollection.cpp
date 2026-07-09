@@ -8,6 +8,13 @@ Mental model:
   calls, shader bindings, and validation artifacts.
 
 Glossary:
+  Legacy hash: 32-bit texture key kept for old render callers while asset ids
+  become the durable authoring identity.
+  Backend handle: Opaque texture id owned by the active render backend.
+  Render resource context: Borrowed renderer facet that creates and deletes
+  long-lived texture resources.
+  Render command context: Borrowed renderer facet used during a frame to bind a
+  texture handle to a shader slot.
   Descriptor: Small binding record that tells a renderer how to interpret a
   resource.
   Back buffer: Swap-chain image that will be presented to the window.
@@ -16,12 +23,17 @@ Invariants:
   - Texture slots are fixed-size legacy storage keyed by legacy hash.
   - backendHandle values belong to the active renderer and must be deleted or
     rebuilt when the backend is destroyed or reset.
+  - Texture creation/deletion requires a bound render resource context; texture
+    selection requires a bound render command context.
+  - Legacy direct texture creation must receive a non-zero hash before it can
+    populate the fixed slot table.
 
 Related:
   - SkullbonezSource/Assets/TextureCollection.h
   - Agentic/Reference/comment-style-guide.md
 */
 #include "TextureCollection.h"
+#include "../Core/FatalError.h"
 #include "../Rendering/IRenderCommandContext.h"
 #include "../Rendering/IRenderResourceFactory.h"
 #include "stb_image.h"
@@ -78,7 +90,10 @@ int TextureCollection::FindFreeSlot() const
         }
     }
 
-    throw std::runtime_error( "Texture array full!  (TextureCollection::FindFreeSlot)" );
+    // Invariant: texture slots are fixed legacy storage. Runtime asset loading
+    // must fit the configured capacity instead of growing during draw/resource
+    // rebuild paths.
+    SB_FATAL( "TextureCollection", "Texture slot capacity exhausted. capacity=%zu", m_textures.size() );
 }
 
 
@@ -90,7 +105,13 @@ void TextureCollection::ReleaseTexture( GpuTextureRecord& texture )
     {
         if ( !m_renderResources )
         {
-            throw std::runtime_error( "TextureCollection::ReleaseTexture requires a bound render resource context." );
+            // Invariant: backend handles can only be destroyed by the resource
+            // factory that owns them. Releasing without that facet would leak or
+            // orphan the renderer resource.
+            SB_FATAL( "TextureCollection",
+                      "ReleaseTexture requires a bound render resource context. backendHandle=%u legacyHash=0x%08X",
+                      texture.backendHandle,
+                      texture.legacyHash );
         }
         m_renderResources->DeleteTexture( texture.backendHandle );
     }
@@ -132,7 +153,9 @@ void TextureCollection::SelectTexture( uint32_t hash )
     EnsureTexture( hash );
     if ( !m_renderCommands )
     {
-        throw std::runtime_error( "TextureCollection::SelectTexture requires a bound render command context." );
+        // Invariant: selecting a texture mutates frame draw state and therefore
+        // requires the command facet for the active backend.
+        SB_FATAL( "TextureCollection", "SelectTexture requires a bound render command context. hash=0x%08X", hash );
     }
     m_renderCommands->BindTexture( m_textures[FindIndex( hash )].backendHandle, 0 );
 }
@@ -203,7 +226,14 @@ void TextureCollection::LoadJpegTextureIntoSlot( int slot,
 {
     if ( slot < 0 || slot >= static_cast<int>( m_textures.size() ) )
     {
-        throw std::runtime_error( "Invalid texture slot.  (TextureCollection::LoadJpegTextureIntoSlot)" );
+        // Invariant: callers reserve slots through FindFreeSlot or reuse an
+        // existing resident slot. A direct out-of-range slot would corrupt the
+        // fixed legacy texture table.
+        SB_FATAL( "TextureCollection",
+                  "Invalid texture slot. slot=%d capacity=%zu hash=0x%08X",
+                  slot,
+                  m_textures.size(),
+                  hash );
     }
     if ( !fileName || fileName[0] == '\0' )
     {
@@ -213,8 +243,13 @@ void TextureCollection::LoadJpegTextureIntoSlot( int slot,
     const int requestedChannels = channelsHint > 0 ? channelsHint : 3;
     if ( !m_renderResources )
     {
-        throw std::runtime_error(
-            "TextureCollection::LoadJpegTextureIntoSlot requires a bound render resource context." );
+        // Invariant: texture file bytes become a backend resource immediately
+        // after decode, so the render resource facet must be bound first.
+        SB_FATAL( "TextureCollection",
+                  "LoadJpegTextureIntoSlot requires a bound render resource context. slot=%d hash=0x%08X path=\"%s\"",
+                  slot,
+                  hash,
+                  fileName ? fileName : "" );
     }
 
     int width = 0;
@@ -277,7 +312,11 @@ void TextureCollection::CreateJpegTexture( const char* cFileName, uint32_t hash 
 {
     if ( hash == 0 )
     {
-        throw std::invalid_argument( "TextureCollection::CreateJpegTexture requires a non-zero legacy hash." );
+        // Invariant: legacy direct texture creation still indexes the fixed
+        // table by hash. Zero is the sentinel for "not addressable".
+        SB_FATAL( "TextureCollection",
+                  "CreateJpegTexture requires a non-zero legacy hash. path=\"%s\"",
+                  cFileName ? cFileName : "" );
     }
 
     const Assets::TextureSourceAsset* source =

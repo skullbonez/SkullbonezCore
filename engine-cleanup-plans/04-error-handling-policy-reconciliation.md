@@ -413,6 +413,28 @@ byte-exact gated.
   - Required gate passed: `tools\validate_full.bat` exited 0 in
     00:01:00.4684976. Log:
     `Agentic/Reports/validate_full_plan04_runscene_fatal_20260709.log`.
+
+  Progress 2026-07-09, TextureCollection capacity/context/hash
+  fatal-invariant sub-slice:
+  - Converted six F sites from `throw std::runtime_error` /
+    `throw std::invalid_argument` to `SB_FATAL("TextureCollection", ...)`:
+    `TextureCollection.cpp` rows 212 through 214, 216, 218, and 222 from the
+    Step 0.1 inventory. The replacements cover fixed texture-slot capacity,
+    render resource/command context preconditions, invalid fixed-table slot
+    access, and the non-zero legacy hash precondition.
+  - The remaining `TextureCollection.cpp` throws are Lane R asset/file/backend
+    failures and are intentionally left for the recoverable-result phase.
+  - Strict anchored source throw statement inventory now reports 130 sites,
+    down from the previous sub-slice count of 136. `SB_FATAL` macro invocations
+    now report 142 via `rg -n "SB_FATAL\s*\(" SkullbonezSource`.
+  - Comment-style audit scope:
+    `SkullbonezSource/Assets/TextureCollection.cpp`; checked 1, deferred 0.
+    The learning header and local guards now name legacy hashes, backend
+    handles, render resource/command contexts, fixed texture-slot capacity, and
+    legacy direct-create hash invariants.
+  - Required gate passed: `tools\validate_full.bat` exited 0 in
+    00:00:54.6370293. Log:
+    `Agentic/Reports/validate_full_plan04_texturecollection_fatals_20260709.log`.
 - [ ] **2.1** Convert **P** sites (replay/interaction probes) to the
   `FailAutomation(...)` channel with `ok=false` + message. Gate: `validate_full`
   + replay scrub. Commit.
