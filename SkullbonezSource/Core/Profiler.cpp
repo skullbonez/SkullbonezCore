@@ -34,19 +34,27 @@ Related:
 #include "../Rendering/IRenderDiagnostics.h"
 #include "WorkerPool.h"
 
-#if defined( SKULLBONEZ_PROFILE_ENABLED )
-
-#include <algorithm>
-#include <cfloat>
 #include <cstring>
-#include <cstdio>
-#include <mutex>
-#include "PlatformProfiler.h"
-#include "../Rendering/Text.h"
 
 
 using namespace SkullbonezCore::Basics;
 using namespace SkullbonezCore::Rendering;
+
+
+Profiler& Profiler::Instance()
+{
+    static Profiler instance;
+    return instance;
+}
+
+#if defined( SKULLBONEZ_PROFILE_ENABLED )
+
+#include <algorithm>
+#include <cfloat>
+#include <cstdio>
+#include <mutex>
+#include "PlatformProfiler.h"
+#include "../Rendering/Text.h"
 
 
 namespace
@@ -79,13 +87,6 @@ const char* FindLeafName( const char* fullPath )
     return leaf;
 }
 } // namespace
-
-Profiler& Profiler::Instance()
-{
-    static Profiler instance;
-    return instance;
-}
-
 
 Profiler::Profiler()
     : m_markerCount( 0 ), m_workerCoreSampleCount( 0 ), m_stackTop( 0 ), m_qpcFrequency( 0 ), m_frameStartTicks( 0 ),
@@ -1542,6 +1543,120 @@ void Profiler::RenderBarOverlay( SkullbonezCore::Rendering::IRenderCommandContex
     // Flush all batched quads in one draw call before the text labels are flushed by the caller.
     // This gives the full bar overlay exactly 2 draw calls: one for all quads, one for all text.
     Text2d::FlushQuads( renderCommands );
+}
+
+
+#else // SKULLBONEZ_PROFILE_ENABLED
+
+// Why: unprofiled tools/tests can link against profiled static libraries after
+// project splits. These definitions preserve the public no-op contract without
+// dragging render text or platform-profiler code into non-profiling binaries.
+Profiler::Profiler()
+    : m_markerCount( 0 ), m_workerCoreSampleCount( 0 ), m_stackTop( 0 ), m_qpcFrequency( 1 ), m_frameStartTicks( 0 ),
+      m_lastAvgTicks( 0 ), m_inFrame( false ), m_warmupFrames( WARMUP_FRAMES + 1 ), m_resetPending( false ),
+      m_nextColorIndex( 0 ), m_renderDiagnostics( nullptr )
+{
+    std::memset( m_markers, 0, sizeof( m_markers ) );
+    std::memset( m_workerCoreAccumulators, 0, sizeof( m_workerCoreAccumulators ) );
+    std::memset( m_workerCoreAverageWindows, 0, sizeof( m_workerCoreAverageWindows ) );
+    std::memset( m_workerCoreSamples, 0, sizeof( m_workerCoreSamples ) );
+    std::memset( m_stackIndices, 0, sizeof( m_stackIndices ) );
+    std::memset( m_platformProfilerCpuOpen, 0, sizeof( m_platformProfilerCpuOpen ) );
+    std::memset( m_platformProfilerGpuRecordOpen, 0, sizeof( m_platformProfilerGpuRecordOpen ) );
+    std::memset( m_platformProfilerGpuEventOpen, 0, sizeof( m_platformProfilerGpuEventOpen ) );
+}
+
+
+void Profiler::Begin( const char*, uint32_t )
+{
+}
+
+
+void Profiler::End( const char*, uint32_t )
+{
+}
+
+
+void Profiler::RecordWorkerSample( const char*, uint32_t, int, int64_t, int64_t )
+{
+}
+
+
+void Profiler::GpuBegin( const char*, uint32_t )
+{
+}
+
+
+void Profiler::GpuEnd( const char*, uint32_t )
+{
+}
+
+
+void Profiler::FrameBegin()
+{
+}
+
+
+void Profiler::FrameEnd()
+{
+}
+
+
+void Profiler::BindRenderDiagnostics( Rendering::IRenderDiagnostics* )
+{
+}
+
+
+void Profiler::InvalidateGpuQueries()
+{
+}
+
+
+void Profiler::ScheduleReset()
+{
+}
+
+
+float Profiler::LastFrameMsByHash( uint32_t ) const
+{
+    return 0.0f;
+}
+
+
+float Profiler::LastGpuFrameMsByHash( uint32_t ) const
+{
+    return 0.0f;
+}
+
+
+void Profiler::WritePerfCSVHeader( FILE* ) const
+{
+}
+
+
+void Profiler::WritePerfCSVRow( FILE*, int, int ) const
+{
+}
+
+
+void Profiler::RenderOverlay( Rendering::IRenderCommandContext&, float, float, float, float, float, bool ) const
+{
+}
+
+
+void Profiler::RenderBarOverlay( Rendering::IRenderCommandContext&, float, float, float, float, bool ) const
+{
+}
+
+
+WorkerProfilerScope::WorkerProfilerScope( const char* fullPath, uint32_t hash )
+    : m_fullPath( fullPath ), m_hash( hash ), m_workerIndex( -1 ), m_startTicks( 0 ), m_platformProfilerOpen( false )
+{
+}
+
+
+WorkerProfilerScope::~WorkerProfilerScope()
+{
 }
 
 

@@ -1,7 +1,7 @@
 # Physics VCXPROJ Split Plan
 
 Date: 2026-07-09 (revised; original 2026-07-08)
-Status: Proposed
+Status: Completed 2026-07-09
 Owner: Build / Physics architecture
 
 ## Goal
@@ -409,6 +409,67 @@ Flags (Phase 6):
 - [ ] No `Debug|x64` or `Profile|x64` compiler or linker setting changed
   (verified by diff and by tlog flag comparison).
 - [ ] Profile-WPO is referenced by no validation script, gate, or baseline.
+
+## Completion Handoff (2026-07-09)
+
+Implemented in the current branch. The split now has `SKULLBONEZ_PHYSICS` as a
+static-library project, CORE and TESTS link the library, and project/filter
+validation treats Physics as a production project. Physics owns the simulation
+sources and headers, while runtime owns render-instance presentation, replay
+render overrides, tornado vector drawing, and debug visualizer submission.
+
+Phase 1 boundary notes:
+
+- Tornado simulation stayed in physics; tornado vector drawing moved into the
+  runtime debug overlay. The deleted pass-through tower no longer exposes
+  `RenderVectors` or `RenderTornadoFieldVectors` from physics/model owners.
+- Render instance storage moved to `GameModelCollection`; replay render samples
+  now queue through `TryQueueReplayRenderPoseOverride`, which validates
+  physics replay body identity before mutating the render snapshot.
+- Physics debug draw files moved to `SkullbonezSource/Runtime/Debug`; the shared
+  pipeline/contact debug records live in `PhysicsDebugData.h`.
+
+Project/flag proof:
+
+- `Profile\SKULLBONEZ_PHYSICS\SKULLBON.2CC512B8.tlog\CL.command.1.tlog`
+  confirmed physics TUs compile with `/O2 /D NDEBUG /D _WINDOWS
+  /D SKULLBONEZ_PROFILE_ENABLED /D SKULLBONEZ_PLATFORM_PROFILER_PIX /D USE_PIX
+  /D _HAS_STD_BYTE=0 /EHsc /MT /fp:precise /GR- /std:c++17`.
+- Release and Profile-WPO compile with `/GL` and link CORE/TESTS with `/LTCG`.
+  Debug and normal Profile validation flows remain on their existing non-WPO
+  configurations.
+- `Profile-WPO/` is ignored alongside Debug/Profile/Release build outputs.
+
+Guardrails and audit:
+
+- `tools/check_runtime_boundaries.py` now blocks direct physics `.cpp` compile
+  entries in CORE or TESTS and keeps mutable render-instance access owner-bound.
+- `tools/validate_project_filters.py` validates `SKULLBONEZ_PHYSICS` and the
+  runtime-debug visualizer filter ownership.
+- Touched-file comment audit inspected the source-bearing files in this slice;
+  no subsystem checklist was required and no files were deferred.
+
+Validation evidence:
+
+```text
+python -m py_compile tools\check_runtime_boundaries.py tools\validate_project_filters.py
+python tools\check_runtime_boundaries.py --self-test
+python tools\check_runtime_boundaries.py --max-errors 20
+cmd /c tools\validate_project_filters.bat
+tools\validate_build.bat Profile
+tools\validate_tests.bat
+tools\validate_physics.bat
+tools\validate_fast.bat
+tools\validate_full.bat
+tools\validate_build.bat Release
+tools\validate_build.bat Profile-WPO
+Release\SKULLBONEZ_CORE.exe --renderer dx12 --vsync off --fixed-step --shadows off --scene SkullbonezData/scenes/physics_regression_solver.scene.json --frames 120
+```
+
+Results: all listed gates passed. `validate_full` reported 0 DX12 validation
+errors, screenshots matching committed baselines, and
+`physics_regression_solver.csv` byte-exact. The Release smoke exited 0 after 120
+frames. Logs are under `Agentic/Reports/physics_vcxproj_split_*_20260709.log`.
 
 ## Notes For Implementer
 

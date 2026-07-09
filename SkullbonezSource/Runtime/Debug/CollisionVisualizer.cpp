@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/Physics/Debug/CollisionVisualizer.cpp
+File: SkullbonezSource/Runtime/Debug/CollisionVisualizer.cpp
 Purpose:
   Builds debug drawing for collision shapes and contact diagnostics.
 
@@ -28,7 +28,7 @@ Invariants:
   are the validation contract.
 
 Related:
-  - SkullbonezSource/Physics/Debug/CollisionVisualizer.h
+  - SkullbonezSource/Runtime/Debug/CollisionVisualizer.h
   - Agentic/Reference/physics-overview.md
   - Agentic/Reference/comment-style-guide.md
 */
@@ -55,9 +55,9 @@ Related:
 #include "../../Rendering/IRenderDiagnostics.h"
 #include "../../Rendering/IRenderResourceFactory.h"
 #include "../../Rendering/RenderInstanceStore.h"
-#include "../ColliderStore.h"
-#include "../ConvexHullShape.h"
-#include "../PhysicsBodyStore.h"
+#include "../../Physics/ColliderStore.h"
+#include "../../Physics/ConvexHullShape.h"
+#include "../../Physics/PhysicsBodyStore.h"
 #include "../../Rendering/PrimitiveMeshBuilder.h"
 #include "../../Core/Common.h"
 

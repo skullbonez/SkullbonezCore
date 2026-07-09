@@ -207,7 +207,6 @@ void PhysicsScene::Clear()
     m_authoredBodyDescs.clear();
     m_bodyStore.Clear();
     m_colliderStore.Clear();
-    m_renderInstanceStore.Clear();
 }
 
 
@@ -338,79 +337,7 @@ bool PhysicsScene::RefreshColliderSnapshot()
 }
 
 
-bool PhysicsScene::PrepareRenderStoreRefresh( int expectedModelCount )
-{
-    if ( m_bodyStore.Count() != expectedModelCount )
-    {
-        m_renderInstanceStore.Clear();
-        return false;
-    }
-    if ( !RefreshColliderSnapshot() )
-    {
-        // Hazard: render rows consume collider shape/material data. If topology
-        // drift has removed collider rows, do not manufacture a partial render
-        // snapshot from stale model-owned shape fields.
-        m_renderInstanceStore.Clear();
-        return false;
-    }
-    if ( m_bodyStore.Count() != expectedModelCount || m_colliderStore.Count() != expectedModelCount )
-    {
-        m_renderInstanceStore.Clear();
-        return false;
-    }
 #ifdef _DEBUG
-    ValidatePhysicsStoreMappings( expectedModelCount );
-#endif
-    return true;
-}
-
-
-void PhysicsScene::ReserveRenderPresentationCapacity( std::size_t capacity )
-{
-    m_renderInstanceStore.ReservePresentationCapacity( capacity );
-}
-
-
-bool PhysicsScene::ResizeRenderPresentationRecords( int presentationCount )
-{
-    return m_renderInstanceStore.ResizePresentationRecords( presentationCount );
-}
-
-
-SkullbonezCore::Rendering::RenderInstancePresentationRecord*
-PhysicsScene::MutableRenderPresentationRecordForModelIndex( int modelIndex )
-{
-    return m_renderInstanceStore.MutablePresentationRecordForModelIndex( modelIndex );
-}
-
-
-const std::vector<SkullbonezCore::Rendering::RenderInstancePresentationRecord>&
-PhysicsScene::RenderPresentationRecords() const
-{
-    return m_renderInstanceStore.PresentationRecords();
-}
-
-
-bool PhysicsScene::RefreshRenderInstancesFromPresentation()
-{
-    m_renderInstanceStore.Refresh( m_bodyStore, m_colliderStore );
-    return m_renderInstanceStore.Count() == m_bodyStore.Count();
-}
-
-
-SkullbonezCore::Rendering::RenderInstanceStore& PhysicsScene::MutableRenderInstances()
-{
-    return m_renderInstanceStore;
-}
-
-
-#ifdef _DEBUG
-void PhysicsScene::ValidateRenderStore( int expectedModelCount ) const
-{
-    ValidateRenderStoreMappings( expectedModelCount );
-}
-
-
 void PhysicsScene::ValidatePhysicsStoreMappings( int modelCount ) const
 {
     assert( m_bodyStore.Count() == modelCount );
@@ -435,25 +362,6 @@ void PhysicsScene::ValidatePhysicsStoreMappings( int modelCount ) const
         assert( m_colliderStore.ModelIndexForHandle( colliderHandle ) == i );
         assert( body.replayBodyId == collider.replayBodyId );
         assert( body.sceneObjectId == collider.sceneObjectId );
-    }
-}
-
-
-void PhysicsScene::ValidateRenderStoreMappings( int modelCount ) const
-{
-    assert( m_renderInstanceStore.Count() == modelCount );
-
-    const std::vector<SkullbonezCore::Rendering::RenderInstanceRecord>& instances = m_renderInstanceStore.Records();
-    for ( int i = 0; i < modelCount; ++i )
-    {
-        const std::size_t index = static_cast<std::size_t>( i );
-        const SkullbonezCore::Rendering::RenderInstanceRecord& instance = instances[index];
-        const SkullbonezCore::Rendering::RenderInstanceHandle renderHandle =
-            m_renderInstanceStore.HandleForModelIndex( i );
-
-        assert( renderHandle.IsValid() );
-        assert( instance.handle == renderHandle );
-        assert( m_renderInstanceStore.ModelIndexForHandle( renderHandle ) == i );
     }
 }
 #endif
@@ -744,14 +652,6 @@ float PhysicsScene::GetTornadoSystemElapsedSeconds() const
 }
 
 
-void PhysicsScene::RenderTornadoFieldVectors( const Math::Transformation::Matrix4& viewProj,
-                                              Rendering::IRenderCommandContext& renderCommands,
-                                              bool supportsDebugLines )
-{
-    m_world.RenderTornadoFieldVectors( viewProj, renderCommands, supportsDebugLines );
-}
-
-
 void PhysicsScene::CaptureReplaySolverSnapshot( ReplaySolverWorldSnapshot& outSnapshot, int modelCount ) const
 {
     m_world.CaptureReplaySolverSnapshot( outSnapshot, modelCount );
@@ -813,12 +713,6 @@ const PhysicsBodyStore& PhysicsScene::BodyStore() const
 const ColliderStore& PhysicsScene::Colliders() const
 {
     return m_colliderStore;
-}
-
-
-const SkullbonezCore::Rendering::RenderInstanceStore& PhysicsScene::RenderInstances() const
-{
-    return m_renderInstanceStore;
 }
 
 

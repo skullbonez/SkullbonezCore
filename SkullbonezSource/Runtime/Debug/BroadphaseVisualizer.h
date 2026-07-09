@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/Physics/Debug/BroadphaseVisualizer.h
+File: SkullbonezSource/Runtime/Debug/BroadphaseVisualizer.h
 Purpose:
   Draws the physics broadphase grid as an explanatory debug overlay.
 
@@ -22,7 +22,7 @@ Invariants:
     unbounded per-frame allocation.
 
 Related:
-  - SkullbonezSource/Physics/Debug/BroadphaseVisualizer.cpp
+  - SkullbonezSource/Runtime/Debug/BroadphaseVisualizer.cpp
   - Agentic/Reference/comment-style-guide.md
 */
 #pragma once
@@ -31,7 +31,7 @@ Related:
 #include <cstdint>
 #include <vector>
 #include "../../Core/Common.h"
-#include "../SpatialGrid.h"
+#include "../../Physics/SpatialGrid.h"
 #include "../../Maths/Matrix4.h"
 
 namespace SkullbonezCore

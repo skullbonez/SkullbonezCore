@@ -27,7 +27,7 @@ Related:
 */
 #include "SceneRuntimeReset.h"
 #include "SceneRuntime.h"
-#include "../../Physics/Debug/PhysicsDebugVisualizer.h"
+#include "../Debug/PhysicsDebugVisualizer.h"
 #include "../../World/WorldEnvironment.h"
 
 namespace SkullbonezCore

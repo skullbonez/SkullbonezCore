@@ -1,55 +1,43 @@
 /*
-File: SkullbonezSource/Physics/Debug/PhysicsDebugVisualizer.h
+File: SkullbonezSource/Physics/PhysicsDebugData.h
 Purpose:
-  Draws physics contacts, axes, sleep state, and pipeline diagnostics.
+  Names the physics-owned debug records emitted by solver and diagnostics code.
 
 Mental model:
-  Physics is deterministic fixed-step state update. Units, contact ownership,
-  solver stages, sleep policy, and baseline-sensitive behavior are the key
-  reading anchors.
+  Solver diagnostics are plain data snapshots. Physics writes these records
+  during deterministic fixed-step work, while runtime/rendering code decides
+  later whether and how to visualize them.
 
 Glossary:
-  SkullScope: Queryable physics diagnostics workflow backed by bounded trace
-  output and local queries.
   Broadphase: Cheap collision pass that finds object pairs worth testing more
   precisely.
   Narrowphase: Precise collision pass that computes contact points, normals,
   and penetration.
-  Manifold: Set of contact points and normals describing one colliding pair.
+  Contact row: Solver constraint row used to apply impulses at a contact point.
+  SkullScope: Queryable physics diagnostics trace workflow backed by bounded
+  trace output and local queries.
 
 Invariants:
-  - Physics-visible behavior must remain deterministic; byte-exact baselines
-  are the validation contract.
+  - These records must stay render-API-free so the physics library can emit
+    diagnostics without depending on debug overlay ownership.
+  - Field order and units are validation-sensitive because probes, replay, and
+    SkullScope summaries read these values.
 
 Related:
-  - SkullbonezSource/Physics/Debug/PhysicsDebugVisualizer.cpp
-  - Agentic/Reference/physics-overview.md
+  - SkullbonezSource/Runtime/Debug/PhysicsDebugVisualizer.h
+  - SkullbonezSource/Physics/PhysicsWorld.cpp
   - Agentic/Reference/comment-style-guide.md
 */
 #pragma once
 
 #include <cstdint>
-#include <vector>
-#include "../../Maths/Matrix4.h"
-#include "../../Maths/Vector3.h"
+
+#include "../Maths/Vector3.h"
 
 namespace SkullbonezCore
 {
-namespace Geometry
-{
-class Terrain;
-}
-
-namespace Rendering
-{
-class IRenderCommandContext;
-}
-
 namespace Physics
 {
-class ColliderStore;
-class PhysicsBodyStore;
-
 // Debug flags select which physics overlays are drawn. These are visualization
 // layers only; toggling them must never alter collision response, sleep policy,
 // or solver ordering.
@@ -68,7 +56,7 @@ enum PhysicsDebugFlags : uint32_t
 enum class PhysicsPipelineStage : uint8_t
 {
     // Ordered list of major physics pipeline events recorded during a tick.
-    // The visualizer can show one stage at a time so a reader can inspect the
+    // Runtime overlays can show one stage at a time so a reader can inspect the
     // broadphase, manifold, warm-start, solve, writeback, and sleep decisions.
     BroadphaseCandidate,
     SleepPrunedPair,
@@ -167,77 +155,6 @@ struct PhysicsDebugContact
     float preSolveNormalSpeed = 0.0f;
     float preSolveClosingSpeed = 0.0f;
     float preSolveSlipSpeed = 0.0f;
-};
-
-struct PhysicsDebugFrameView
-{
-    const PhysicsBodyStore& bodies;
-    const ColliderStore& colliders;
-    const std::vector<uint8_t>& sleepStates;
-    const std::vector<uint8_t>& sleepSupportedStates;
-    const std::vector<uint8_t>& sleepInhibitedStates;
-    const std::vector<PhysicsDebugContact>& debugContacts;
-    const std::vector<PhysicsPipelineRecord>& pipelineTrace;
-    int modelCount = 0;
-};
-
-class PhysicsDebugVisualizer
-{
-  private:
-    struct TrackedContact
-    {
-        // Contact visuals linger briefly after the solver row disappears so a
-        // human can actually see a one-frame impact. This is display-only state.
-        PhysicsDebugContact contact;
-        float remainingSeconds = 0.0f;
-        float lifetimeSeconds = 0.0f;
-    };
-
-    uint32_t m_flags = PHYSICS_DEBUG_NONE;
-    int m_pipelineStageCursor = 0;
-    float m_contactLingerSeconds = 0.45f;
-    std::vector<float> m_lineData;
-    std::vector<TrackedContact> m_trackedContacts;
-
-    TrackedContact* FindTrackedContact( const PhysicsDebugContact& contact );
-    float ContactFade( const TrackedContact& contact ) const;
-    void EmitLine( const Math::Vector::Vector3& a, const Math::Vector::Vector3& b, float r, float g, float bl );
-    void EmitCross( const Math::Vector::Vector3& p, float size, float r, float g, float bl );
-    void EmitArrow( const Math::Vector::Vector3& a, const Math::Vector::Vector3& b, float r, float g, float bl );
-    void EmitRingXZ( const Math::Vector::Vector3& center, float radius, float yOffset, float r, float g, float bl );
-    void EmitObjectAxes( const PhysicsDebugFrameView& view );
-    void EmitConvexHullWireframes( const PhysicsDebugFrameView& view );
-    void EmitContacts( const PhysicsDebugFrameView& view );
-    void EmitSleepState( const PhysicsDebugFrameView& view );
-    void EmitPipelineStage( const PhysicsDebugFrameView& view );
-    void EmitTerrainContactProbe( const PhysicsDebugFrameView& view, Geometry::Terrain* terrain );
-
-  public:
-    void SetFlags( uint32_t flags )
-    {
-        m_flags = flags & PHYSICS_DEBUG_ALL;
-        if ( ( m_flags & PHYSICS_DEBUG_CONTACTS ) == 0 )
-        {
-            m_trackedContacts.clear();
-        }
-    }
-    uint32_t GetFlags() const
-    {
-        return m_flags;
-    }
-    bool IsEnabled() const
-    {
-        return m_flags != PHYSICS_DEBUG_NONE;
-    }
-    void SetContactLingerSeconds( float seconds );
-    void SetPipelineStageCursor( int cursor );
-    void Update( float dt, const PhysicsDebugFrameView& view );
-    // The caller owns renderer readiness and debug-line capability for the frame.
-    void Render( const PhysicsDebugFrameView& view,
-                 const Math::Transformation::Matrix4& viewProj,
-                 Rendering::IRenderCommandContext& renderCommands,
-                 bool supportsDebugLines,
-                 Geometry::Terrain* terrain = nullptr );
 };
 } // namespace Physics
 } // namespace SkullbonezCore

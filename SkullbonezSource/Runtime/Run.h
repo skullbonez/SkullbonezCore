@@ -82,9 +82,9 @@ Related:
 #include "../GameObjects/GameModelCollection.h"
 #include "../World/WorldEnvironment.h"
 #include "../Scene/TestScene.h"
-#include "../Physics/Debug/BroadphaseVisualizer.h"
-#include "../Physics/Debug/CollisionVisualizer.h"
-#include "../Physics/Debug/PhysicsDebugVisualizer.h"
+#include "Debug/BroadphaseVisualizer.h"
+#include "Debug/CollisionVisualizer.h"
+#include "Debug/PhysicsDebugVisualizer.h"
 #include "Tools/RuntimeTools.h"
 #include "../UI/UI.h"
 

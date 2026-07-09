@@ -1832,19 +1832,14 @@ void DebugOverlayPass::Render( const DebugOverlayPassInputs& inputs )
         }
     }
 
-    if ( snapshot.tornadoVectorsVisible && inputs.frame.physicsEngine )
+    if ( snapshot.tornadoVectorsVisible )
     {
         if ( detailMarkers )
         {
             PROFILE_GPU_BEGIN( "Frame/Render/DebugOverlay/TornadoField" );
         }
         DRAW_CALL_TRACE_SCOPE( RenderDiagnostics( inputs.frame ), "TornadoField" );
-        // Pass contract: physics generates tornado vector geometry, but
-        // renderer capability/readiness remains owned by the debug overlay pass.
-        const bool supportsDebugLines = RenderDiagnostics( inputs.frame ).GetCapabilities().supportsDebugLines;
-        inputs.frame.physicsEngine->RenderTornadoFieldVectors( inputs.frame.viewProjection,
-                                                               RenderCommands( inputs.frame ),
-                                                               supportsDebugLines );
+        RenderTornadoVectorOverlay( inputs );
         if ( detailMarkers )
         {
             PROFILE_GPU_END( "Frame/Render/DebugOverlay/TornadoField" );
@@ -1902,7 +1897,7 @@ bool DebugOverlayPass::HasOverlayWork( const DebugOverlayPassInputs& inputs ) co
     {
         return true;
     }
-    if ( snapshot.tornadoOverlayWorkVisible && inputs.frame.physicsEngine )
+    if ( snapshot.tornadoOverlayWorkVisible || snapshot.tornadoVectorsVisible )
     {
         return true;
     }
@@ -1912,6 +1907,138 @@ bool DebugOverlayPass::HasOverlayWork( const DebugOverlayPassInputs& inputs ) co
     }
 
     return snapshot.editorOverlayWorkVisible;
+}
+
+
+void DebugOverlayPass::RenderTornadoVectorOverlay( const DebugOverlayPassInputs& inputs )
+{
+    const DebugOverlaySnapshot& snapshot = inputs.snapshot;
+    if ( !snapshot.tornadoField || !snapshot.tornadoSystem )
+    {
+        return;
+    }
+    const bool supportsDebugLines = RenderDiagnostics( inputs.frame ).GetCapabilities().supportsDebugLines;
+    if ( !supportsDebugLines )
+    {
+        return;
+    }
+
+    const Physics::TornadoSystemConfig& tornadoSystem = *snapshot.tornadoSystem;
+    const bool useTornadoSystem = tornadoSystem.enabled && !tornadoSystem.vortices.empty();
+    m_tornadoVectorVortices.clear();
+    if ( useTornadoSystem )
+    {
+        Physics::TornadoSystem::BuildActiveVortices( tornadoSystem,
+                                                     inputs.frame.tornadoElapsedSeconds,
+                                                     m_tornadoVectorVortices );
+    }
+    else
+    {
+        const Physics::TornadoFieldConfig& field = *snapshot.tornadoField;
+        if ( field.enabled )
+        {
+            Physics::TornadoActiveVortex active;
+            active.field = field;
+            active.strength = 1.0f;
+            active.ageSeconds = inputs.frame.tornadoElapsedSeconds;
+            active.sourceIndex = 0;
+            m_tornadoVectorVortices.push_back( active );
+        }
+    }
+
+    Rendering::IRenderCommandContext& renderCommands = RenderCommands( inputs.frame );
+    constexpr int ANGLE_STEPS = 12;
+    constexpr int RADIUS_STEPS = 4;
+    constexpr int HEIGHT_STEPS = 5;
+    constexpr float PI = 3.1415926535f;
+    for ( const Physics::TornadoActiveVortex& vortex : m_tornadoVectorVortices )
+    {
+        const Physics::TornadoFieldConfig& fieldConfig = vortex.field;
+        if ( !fieldConfig.visualizeVelocityField )
+        {
+            continue;
+        }
+
+        // Concept: the runtime overlay samples physics-owned tornado math, then
+        // submits line vertices through the frame command context. The solver
+        // still owns forces; rendering owns every draw call and scratch buffer.
+        m_tornadoVectorLineData.clear();
+        const float maxFieldSpeed = (std::max)( 1.0f,
+                                                sqrtf( fieldConfig.inwardAcceleration * fieldConfig.inwardAcceleration +
+                                                       fieldConfig.swirlAcceleration * fieldConfig.swirlAcceleration +
+                                                       fieldConfig.liftAcceleration * fieldConfig.liftAcceleration ) );
+        const auto emit = [&]( const Vector3& a, const Vector3& b, float r, float g, float bColor )
+        {
+            m_tornadoVectorLineData.push_back( a.x );
+            m_tornadoVectorLineData.push_back( a.y );
+            m_tornadoVectorLineData.push_back( a.z );
+            m_tornadoVectorLineData.push_back( r );
+            m_tornadoVectorLineData.push_back( g );
+            m_tornadoVectorLineData.push_back( bColor );
+            m_tornadoVectorLineData.push_back( b.x );
+            m_tornadoVectorLineData.push_back( b.y );
+            m_tornadoVectorLineData.push_back( b.z );
+            m_tornadoVectorLineData.push_back( r );
+            m_tornadoVectorLineData.push_back( g );
+            m_tornadoVectorLineData.push_back( bColor );
+        };
+
+        for ( int h = 0; h < HEIGHT_STEPS; ++h )
+        {
+            const float height01 = 0.12f + static_cast<float>( h ) * ( 0.78f / static_cast<float>( HEIGHT_STEPS - 1 ) );
+            const float y = fieldConfig.center.y + fieldConfig.height * height01;
+            for ( int rIndex = 0; rIndex < RADIUS_STEPS; ++rIndex )
+            {
+                const float radial01 =
+                    0.22f + static_cast<float>( rIndex ) * ( 0.72f / static_cast<float>( RADIUS_STEPS - 1 ) );
+                const float radius = fieldConfig.radius * radial01;
+                for ( int aIndex = 0; aIndex < ANGLE_STEPS; ++aIndex )
+                {
+                    const float angle =
+                        ( static_cast<float>( aIndex ) / static_cast<float>( ANGLE_STEPS ) ) * PI * 2.0f;
+                    Vector3 start( fieldConfig.center.x + cosf( angle ) * radius,
+                                   y,
+                                   fieldConfig.center.z + sinf( angle ) * radius );
+                    Vector3 field = Physics::TornadoField::SampleAccelerationForConfig( fieldConfig, start );
+                    const float speed = SkullbonezCore::Math::Vector::VectorMag( field );
+                    if ( speed <= TOLERANCE )
+                    {
+                        continue;
+                    }
+
+                    const float t = std::clamp( speed / maxFieldSpeed, 0.0f, 1.0f );
+                    const float red = t;
+                    const float green = 1.0f - t;
+                    const float arrowLength = 9.0f + 23.0f * t;
+                    Vector3 dir = field / speed;
+                    Vector3 end = start + dir * arrowLength;
+                    emit( start, end, red, green, 0.0f );
+
+                    Vector3 side( -dir.z, 0.0f, dir.x );
+                    const float sideMag = SkullbonezCore::Math::Vector::VectorMag( side );
+                    if ( sideMag > TOLERANCE )
+                    {
+                        side /= sideMag;
+                    }
+                    else
+                    {
+                        side = Vector3( 1.0f, 0.0f, 0.0f );
+                    }
+                    Vector3 headBase = end - dir * 4.4f;
+                    emit( end, headBase + side * 2.4f, red, green, 0.0f );
+                    emit( end, headBase - side * 2.4f, red, green, 0.0f );
+                }
+            }
+        }
+
+        if ( !m_tornadoVectorLineData.empty() )
+        {
+            const int vertCount = static_cast<int>( m_tornadoVectorLineData.size() / 6 );
+            renderCommands.DrawLinesColored( m_tornadoVectorLineData.data(),
+                                             vertCount,
+                                             inputs.frame.viewProjection.Data() );
+        }
+    }
 }
 
 

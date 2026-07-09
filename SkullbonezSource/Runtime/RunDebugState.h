@@ -29,7 +29,7 @@ Related:
 */
 #pragma once
 
-#include "../Physics/Debug/PhysicsDebugVisualizer.h"
+#include "../Physics/PhysicsDebugData.h"
 
 #include <cstdint>
 

@@ -59,6 +59,11 @@ Related:
 
 namespace SkullbonezCore
 {
+namespace GameObjects
+{
+class GameModelCollection;
+} // namespace GameObjects
+
 namespace Physics
 {
 class ColliderStore;
@@ -700,10 +705,12 @@ class ReplayRuntime
     ReplayEventRecorderStats EventStats() const;
     ReplayFrameIndex NextEventFrameIndex() const;
     void CaptureFrame( ReplayCaptureInput input );
-    bool ApplyPresentationSampleForRender( Physics::PhysicsEngine& physicsEngine,
+    bool ApplyPresentationSampleForRender( GameObjects::GameModelCollection& collection,
                                            const ReplayPresentationSample& sample );
-    bool ApplySolverSampleForRender( Physics::PhysicsEngine& physicsEngine, const ReplaySolverFrameSample& sample );
-    bool ApplyPredictionFrameForRender( Physics::PhysicsEngine& physicsEngine, const RunReplayPredictionFrame& frame );
+    bool ApplySolverSampleForRender( GameObjects::GameModelCollection& collection,
+                                     const ReplaySolverFrameSample& sample );
+    bool ApplyPredictionFrameForRender( GameObjects::GameModelCollection& collection,
+                                        const RunReplayPredictionFrame& frame );
     bool HasLoadedPresentation() const;
     const ReplayPresentationSample* LoadedPresentationSampleAtNormalized( float normalized ) const;
     const ReplayPresentationSample* LoadedPresentationLatestSample() const;

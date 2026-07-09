@@ -342,6 +342,8 @@ void RuntimeDiagnostics::OpenScenePerfLog( RunPerfLogState& perfLog, const char*
         {
             profiler->ScheduleReset();
         }
+#else
+        (void)profiler;
 #endif
         LogPerfMemory( perfLog, pass + 1, "start" );
     }

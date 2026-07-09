@@ -222,6 +222,7 @@ class GameModelCollection
     SceneEntityStore m_sceneEntities;
     SceneObjectGroupStore m_sceneObjectGroupStore;
     Physics::PhysicsEngine m_physicsEngine;
+    Rendering::RenderInstanceStore m_renderInstanceStore;        // Render snapshot in scene/model order, owned outside physics.
     Threading::WorkerPool* m_workerPool = nullptr;               // Borrowed startup worker pool for render/physics parallel helpers.
     int m_activeGameModelCapacity = DEFAULT_GAME_MODEL_CAPACITY; // Configured model cap used by append/reserve guards.
     bool m_renderCollisionVolumes = false;                       // Cached render debug toggle copied from EngineConfig.
@@ -381,10 +382,18 @@ class GameModelCollection
     const Physics::ColliderStore& Colliders() const;
     // Current prepared render snapshot. Call PrepareRenderInstances() before frame
     // passes; cold callers that need an ensured snapshot use GetRenderInstanceStore().
+    Rendering::RenderInstanceStore& MutableRenderInstances();
     const Rendering::RenderInstanceStore& RenderInstances() const;
+    // Replay presentation samples are one-frame render overrides. The collection
+    // validates replay body identity before mutating its render snapshot so scrub
+    // and prediction code cannot redirect stale model slots.
+    bool TryQueueReplayRenderPoseOverride( int modelIndex,
+                                           uint32_t replayBodyId,
+                                           const Math::Vector::Vector3& position,
+                                           const Math::Orientation::Quaternion& orientation );
     const std::vector<Rendering::RenderInstancePresentationRecord>& RenderPresentationRecords() const
     {
-        return m_physicsEngine.RenderPresentationRecords();
+        return m_renderInstanceStore.PresentationRecords();
     }
     const char* DisplayNameAt( int modelIndex ) const;
     int FindModelIndexByDisplayName( const char* name ) const;
@@ -452,10 +461,6 @@ class GameModelCollection
                              Rendering::IRenderCommandContext& renderCommands,
                              bool supportsDebugLines,
                              Geometry::Terrain* terrain );
-    void RenderTornadoFieldVectors( const Math::Transformation::Matrix4& viewProj,
-                                    Rendering::IRenderCommandContext& renderCommands,
-                                    bool supportsDebugLines );
-
     const Math::CollisionDetection::SpatialGrid& GetSpatialGrid() const
     {
         return m_physicsEngine.GetSpatialGrid();

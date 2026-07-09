@@ -27,7 +27,7 @@ Related:
 #include "../Rendering/IRenderDiagnostics.h"
 #include "../Rendering/IRenderResourceFactory.h"
 #include "../Maths/Matrix4.h"
-#include "../Physics/Debug/PhysicsDebugVisualizer.h"
+#include "../Runtime/Debug/PhysicsDebugVisualizer.h"
 #include "../Core/Profiler.h"
 #include "../Rendering/Text.h"
 #include "UIDraw.h"

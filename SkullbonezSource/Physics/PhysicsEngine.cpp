@@ -182,75 +182,6 @@ bool PhysicsEngine::RefreshColliderSnapshot()
 }
 
 
-bool PhysicsEngine::PrepareRenderStoreRefresh( int expectedModelCount )
-{
-    return m_scene.PrepareRenderStoreRefresh( expectedModelCount );
-}
-
-
-void PhysicsEngine::ReserveRenderPresentationCapacity( std::size_t capacity )
-{
-    m_scene.ReserveRenderPresentationCapacity( capacity );
-}
-
-
-bool PhysicsEngine::ResizeRenderPresentationRecords( int presentationCount )
-{
-    return m_scene.ResizeRenderPresentationRecords( presentationCount );
-}
-
-
-SkullbonezCore::Rendering::RenderInstancePresentationRecord*
-PhysicsEngine::MutableRenderPresentationRecordForModelIndex( int modelIndex )
-{
-    return m_scene.MutableRenderPresentationRecordForModelIndex( modelIndex );
-}
-
-
-const std::vector<SkullbonezCore::Rendering::RenderInstancePresentationRecord>&
-PhysicsEngine::RenderPresentationRecords() const
-{
-    return m_scene.RenderPresentationRecords();
-}
-
-
-bool PhysicsEngine::RefreshRenderInstancesFromPresentation()
-{
-    return m_scene.RefreshRenderInstancesFromPresentation();
-}
-
-
-bool PhysicsEngine::OverrideRenderInstancePose( int modelIndex,
-                                                uint32_t replayBodyId,
-                                                const Math::Vector::Vector3& position,
-                                                const Math::Orientation::Quaternion& orientation )
-{
-    const PhysicsBodyStore& bodyStore = m_scene.BodyStore();
-    const PhysicsBodyHandle body = bodyStore.HandleForModelIndex( modelIndex );
-    const PhysicsBodyRecord* bodyRecord = bodyStore.RecordForHandle( body );
-    // Invariant: render-pose overrides are keyed by the physics-owned body id.
-    // The model-index hint can lag during scrub/prediction presentation, so it
-    // is not allowed to approve which live render instance receives the pose.
-    if ( !bodyRecord || bodyStore.ModelIndexForHandle( body ) != modelIndex ||
-         bodyRecord->replayBodyId != replayBodyId )
-    {
-        return false;
-    }
-
-    return m_scene.MutableRenderInstances().OverridePose( modelIndex,
-                                                          replayBodyId,
-                                                          position,
-                                                          orientation,
-                                                          m_scene.Colliders() );
-}
-
-
-SkullbonezCore::Rendering::RenderInstanceStore& PhysicsEngine::MutableRenderInstances()
-{
-    return m_scene.MutableRenderInstances();
-}
-
-
 void PhysicsEngine::Step( float deltaSeconds,
                           const Basics::EngineConfig& config,
                           const PhysicsWorldForces& worldForces,
@@ -378,14 +309,6 @@ float PhysicsEngine::GetTornadoSystemElapsedSeconds() const
 }
 
 
-void PhysicsEngine::RenderTornadoFieldVectors( const Math::Transformation::Matrix4& viewProj,
-                                               Rendering::IRenderCommandContext& renderCommands,
-                                               bool supportsDebugLines )
-{
-    m_scene.RenderTornadoFieldVectors( viewProj, renderCommands, supportsDebugLines );
-}
-
-
 void PhysicsEngine::CaptureReplaySolverSnapshot( ReplaySolverWorldSnapshot& outSnapshot, int modelCount ) const
 {
     m_scene.CaptureReplaySolverSnapshot( outSnapshot, modelCount );
@@ -443,20 +366,6 @@ const ColliderStore& PhysicsEngine::Colliders() const
 {
     return m_scene.Colliders();
 }
-
-
-const SkullbonezCore::Rendering::RenderInstanceStore& PhysicsEngine::RenderInstances() const
-{
-    return m_scene.RenderInstances();
-}
-
-
-#ifdef _DEBUG
-void PhysicsEngine::ValidateRenderStore( int expectedModelCount ) const
-{
-    m_scene.ValidateRenderStore( expectedModelCount );
-}
-#endif
 
 
 const SkullbonezCore::Math::CollisionDetection::SpatialGrid& PhysicsEngine::GetSpatialGrid() const

@@ -35,7 +35,6 @@ Related:
 #include "../../Physics/ColliderStore.h"
 #include "../../Physics/PhysicsApi.h"
 #include "../../Physics/PhysicsTimestep.h"
-#include "../../Rendering/RenderInstanceStore.h"
 
 #include <cmath>
 #include <cstdint>
@@ -91,8 +90,7 @@ bool ApplyReplayProbePresentationSampleForRender( SkullbonezCore::GameObjects::G
     // them: after the live render snapshot refresh and before draw submission.
     // This proves presentation overrides do not mutate live body rows.
     collection.PrepareRenderInstances();
-    PhysicsEngine& physics = collection.GetPhysicsEngine();
-    return replayRuntime.ApplyPresentationSampleForRender( physics, sample );
+    return replayRuntime.ApplyPresentationSampleForRender( collection, sample );
 }
 
 void RestoreReplayProbeRenderInstances( SkullbonezCore::GameObjects::GameModelCollection& collection )

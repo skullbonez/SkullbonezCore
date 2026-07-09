@@ -378,10 +378,6 @@ int ReplayPredictionEngineReserveBytes( const PhysicsEngine& engine )
     bytes += engine.CollectDebugAndBroadphaseMemoryBytes();
     bytes += static_cast<uint64_t>( engine.BodyStore().Records().capacity() ) * sizeof( PhysicsBodyRecord );
     bytes += static_cast<uint64_t>( engine.Colliders().Records().capacity() ) * sizeof( ColliderRecord );
-    bytes += static_cast<uint64_t>( engine.RenderInstances().Records().capacity() ) *
-             sizeof( SkullbonezCore::Rendering::RenderInstanceRecord );
-    bytes += static_cast<uint64_t>( engine.RenderInstances().PresentationRecords().capacity() ) *
-             sizeof( SkullbonezCore::Rendering::RenderInstancePresentationRecord );
     if ( bytes == 0 || bytes > static_cast<uint64_t>( REPLAY_PREDICTION_RESERVE_HARD_BYTES ) ||
          bytes > static_cast<uint64_t>( ( std::numeric_limits<int>::max )() ) )
     {

@@ -31,7 +31,7 @@ Related:
 */
 #pragma once
 
-#include "../Physics/Debug/PhysicsDebugVisualizer.h"
+#include "../Physics/PhysicsDebugData.h"
 #include "Allocation/RuntimeAllocationTracker.h"
 #include "RunDebugState.h"
 #include "Scene/SceneGeneratedSetup.h"

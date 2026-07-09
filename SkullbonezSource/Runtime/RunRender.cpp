@@ -1164,6 +1164,8 @@ DebugOverlaySnapshot RuntimeRenderer::BuildDebugOverlaySnapshot( const RenderFra
                                      TornadoSystemVectorsVisible( m_runtimeSettings.tornadoSystem );
     snapshot.tornadoOverlayWorkVisible =
         m_runtimeSettings.tornadoField.visualizeVelocityField || m_runtimeSettings.tornadoSystem.visualizeVelocityField;
+    snapshot.tornadoSystem = &m_runtimeSettings.tornadoSystem;
+    snapshot.tornadoField = &m_runtimeSettings.tornadoField;
     snapshot.physicsDebugFlags = m_debug.physicsDebugFlags;
     snapshot.physicsDebugPipelineStageCursor = m_debug.physicsDebugPipelineStageCursor;
 
@@ -2022,7 +2024,7 @@ RuntimeRenderModelFrameView
 RuntimeRenderer::BuildModelFrameView( SkullbonezCore::GameObjects::GameModelCollection& models ) const
 {
     PhysicsEngine& physics = models.GetPhysicsEngine();
-    return RuntimeRenderModelFrameView{ models.RenderInstances(),
+    return RuntimeRenderModelFrameView{ models.MutableRenderInstances(),
                                         models.Colliders(),
                                         physics.BodyStore(),
                                         physics,
@@ -2078,15 +2080,15 @@ void RuntimeRenderer::RenderFrameEntry( const FrameEntryContext& context )
             RuntimeAllocation::RuntimeAllocationPhase::Replay );
         if ( const RunReplayPredictionFrame* predictionFrame = m_replayRuntime.CurrentPredictionScrubFrame() )
         {
-            m_replayRuntime.ApplyPredictionFrameForRender( context.renderModels.physicsEngine, *predictionFrame );
+            m_replayRuntime.ApplyPredictionFrameForRender( context.renderModelOwner, *predictionFrame );
         }
         else if ( const ReplayPresentationSample* replaySample = m_replayRuntime.CurrentScrubSample() )
         {
-            m_replayRuntime.ApplyPresentationSampleForRender( context.renderModels.physicsEngine, *replaySample );
+            m_replayRuntime.ApplyPresentationSampleForRender( context.renderModelOwner, *replaySample );
         }
         else if ( const ReplaySolverFrameSample* solverSample = m_replayRuntime.CurrentSolverScrubSample() )
         {
-            m_replayRuntime.ApplySolverSampleForRender( context.renderModels.physicsEngine, *solverSample );
+            m_replayRuntime.ApplySolverSampleForRender( context.renderModelOwner, *solverSample );
             applyReplayLauncherVisualSampleForRender( solverSample->launcherVisual );
         }
     };

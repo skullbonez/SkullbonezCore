@@ -1819,14 +1819,6 @@ float PhysicsWorld::GetTornadoSystemElapsedSeconds() const
 }
 
 
-void PhysicsWorld::RenderTornadoFieldVectors( const Math::Transformation::Matrix4& viewProj,
-                                              Rendering::IRenderCommandContext& renderCommands,
-                                              bool supportsDebugLines )
-{
-    m_tornadoGameplay.RenderVectors( viewProj, renderCommands, supportsDebugLines );
-}
-
-
 #ifdef _DEBUG
 void PhysicsWorld::SetPhysicsRegressionLogPath( const char* path )
 {

@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/Physics/Debug/PhysicsDebugVisualizer.cpp
+File: SkullbonezSource/Runtime/Debug/PhysicsDebugVisualizer.cpp
 Purpose:
   Draws physics contacts, axes, sleep state, and pipeline diagnostics.
 
@@ -20,7 +20,8 @@ Invariants:
   are the validation contract.
 
 Related:
-  - SkullbonezSource/Physics/Debug/PhysicsDebugVisualizer.h
+  - SkullbonezSource/Runtime/Debug/PhysicsDebugVisualizer.h
+  - SkullbonezSource/Physics/PhysicsDebugData.h
   - Agentic/Reference/physics-overview.md
   - Agentic/Reference/comment-style-guide.md
 */
@@ -29,9 +30,9 @@ Related:
 #include <algorithm>
 #include <cmath>
 #include <variant>
-#include "../ColliderStore.h"
-#include "../CollisionShape.h"
-#include "../PhysicsBodyStore.h"
+#include "../../Physics/ColliderStore.h"
+#include "../../Physics/CollisionShape.h"
+#include "../../Physics/PhysicsBodyStore.h"
 #include "../../Rendering/IRenderCommandContext.h"
 #include "../../Maths/Quaternion.h"
 #include "../../World/Terrain.h"

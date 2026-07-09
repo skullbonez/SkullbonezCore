@@ -63,6 +63,7 @@ SOURCE_PROJECT_ROOT = "SkullbonezSource"
 DEFAULT_PRODUCTION_PROJECTS = (
     ("SKULLBONEZ_CORE.vcxproj", "SKULLBONEZ_CORE.vcxproj.filters"),
     ("SKULLBONEZ_MATHS.vcxproj", "SKULLBONEZ_MATHS.vcxproj.filters"),
+    ("SKULLBONEZ_PHYSICS.vcxproj", "SKULLBONEZ_PHYSICS.vcxproj.filters"),
 )
 # Concept: `.inl` files are source-bearing include slices, not build units.
 # Keep them as ClInclude items so Visual Studio shows ownership splits while
@@ -111,6 +112,7 @@ PHYSICS_PREFIXES = (
     "PhysicsApi",
     "PhysicsBodyStore",
     "PhysicsDiagnosticsModel",
+    "PhysicsDebugData",
     "PhysicsDiagnosticsSink",
     "PhysicsEngine",
     "PhysicsFixedList",
@@ -139,6 +141,10 @@ PHYSICS_DEBUG_PREFIXES = (
     "CollisionVisualizer",
     "PhysicsDebugVisualizer",
 )
+
+# Why: the visualizer filenames still describe physics overlays, but render
+# submission now lives under Runtime\Debug after the physics project split.
+RUNTIME_DEBUG_PREFIXES = PHYSICS_DEBUG_PREFIXES
 
 DX12_RENDERING_PREFIXES = (
     "BLASDX12",
@@ -347,6 +353,7 @@ AREA_PREFIXES = (
     ("Runtime\\Editor", RUNTIME_EDITOR_PREFIXES),
     ("Runtime\\Tools", RUNTIME_TOOLS_PREFIXES),
     ("Runtime\\Diagnostics", RUNTIME_DIAGNOSTICS_PREFIXES),
+    ("Runtime\\Debug", RUNTIME_DEBUG_PREFIXES),
     ("Physics\\Debug", PHYSICS_DEBUG_PREFIXES),
     ("Rendering", RENDERING_PREFIXES),
     ("Physics", PHYSICS_PREFIXES),

@@ -42,7 +42,7 @@ Related:
 #include "../Core/Common.h"
 #include "../Core/Config.h"
 #include "../Core/SbResult.h"
-#include "../Physics/Debug/PhysicsDebugVisualizer.h"
+#include "../Physics/PhysicsDebugData.h"
 #include "../Physics/PhysicsTimestep.h"
 #include "../Physics/TornadoField.h"
 #include "../Rendering/RenderMaterial.h"

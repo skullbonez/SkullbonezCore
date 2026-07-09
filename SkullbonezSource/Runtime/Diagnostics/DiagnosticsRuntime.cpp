@@ -39,7 +39,7 @@ Related:
 #include "../Replay/ReplayRuntime.h"
 #include "../RunDebugState.h"
 #include "../Scene/SceneRuntime.h"
-#include "../../Physics/Debug/PhysicsDebugVisualizer.h"
+#include "../../Physics/PhysicsDebugData.h"
 #include "../../Rendering/IRenderDiagnostics.h"
 #include "../../Scene/TestScene.h"
 #include "../../GameObjects/GameModelCollection.h"

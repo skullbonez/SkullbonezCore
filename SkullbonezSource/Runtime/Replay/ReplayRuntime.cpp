@@ -38,6 +38,7 @@ Related:
 #include "ReplayOverlayLayout.h"
 #include "ReplayV2Artifact.h"
 #include "../../Core/Profiler.h"
+#include "../../GameObjects/GameModelCollection.h"
 #include "../../Physics/ColliderStore.h"
 #include "../../Physics/PhysicsApi.h"
 #include "../../Physics/PhysicsEngine.h"
@@ -276,8 +277,6 @@ uint64_t PredictionEngineMemoryBytes( const PhysicsEngine& engine )
     bytes += engine.CollectDebugAndBroadphaseMemoryBytes();
     bytes += static_cast<uint64_t>( engine.BodyStore().Records().capacity() ) * sizeof( PhysicsBodyRecord );
     bytes += static_cast<uint64_t>( engine.Colliders().Records().capacity() ) * sizeof( ColliderRecord );
-    bytes += VectorCapacityBytes( engine.RenderInstances().Records() );
-    bytes += VectorCapacityBytes( engine.RenderInstances().PresentationRecords() );
     return bytes;
 }
 
@@ -334,13 +333,13 @@ const PhysicsBodyRecord* ReplayRuntimeBodyRecordForModelIndex( const PhysicsBody
 }
 
 
-bool ReplayRuntimeQueueRenderPoseOverride( Physics::PhysicsEngine& physicsEngine,
+bool ReplayRuntimeQueueRenderPoseOverride( GameObjects::GameModelCollection& collection,
                                            int modelIndex,
                                            uint32_t replayBodyId,
                                            const Vector3& position,
                                            const Math::Orientation::Quaternion& orientation )
 {
-    return physicsEngine.OverrideRenderInstancePose( modelIndex, replayBodyId, position, orientation );
+    return collection.TryQueueReplayRenderPoseOverride( modelIndex, replayBodyId, position, orientation );
 }
 
 
@@ -1349,11 +1348,11 @@ void ReplayRuntime::CaptureFrame( ReplayCaptureInput input )
 // below apply replay or prediction poses to a freshly prepared render-instance
 // snapshot; live physics rows and authored presentation metadata are not
 // mutated and therefore need no restore.
-bool ReplayRuntime::ApplyPresentationSampleForRender( Physics::PhysicsEngine& physicsEngine,
+bool ReplayRuntime::ApplyPresentationSampleForRender( GameObjects::GameModelCollection& collection,
                                                       const ReplayPresentationSample& sample )
 {
-    const PhysicsBodyStore& bodyStore = physicsEngine.BodyStore();
-    const int modelCount = physicsEngine.RenderInstances().Count();
+    const PhysicsBodyStore& bodyStore = collection.GetPhysicsEngine().BodyStore();
+    const int modelCount = collection.RenderInstances().Count();
     if ( !ReplayRuntimePrepareBodyMatchedMask( m_renderPoseBodyMatched, modelCount ) )
     {
         return false;
@@ -1373,7 +1372,7 @@ bool ReplayRuntime::ApplyPresentationSampleForRender( Physics::PhysicsEngine& ph
                                                    body.orientation[2],
                                                    body.orientation[3] );
         orientation.Normalise();
-        if ( ReplayRuntimeQueueRenderPoseOverride( physicsEngine,
+        if ( ReplayRuntimeQueueRenderPoseOverride( collection,
                                                    resolvedModelIndex,
                                                    body.id.value,
                                                    body.position,
@@ -1402,7 +1401,7 @@ bool ReplayRuntime::ApplyPresentationSampleForRender( Physics::PhysicsEngine& ph
         // Why: loaded artifacts may not contain every live body. Move unmatched
         // bodies out of view instead of letting unrelated live geometry appear
         // inside the scrubbed replay frame.
-        if ( ReplayRuntimeQueueRenderPoseOverride( physicsEngine,
+        if ( ReplayRuntimeQueueRenderPoseOverride( collection,
                                                    i,
                                                    bodyRecord->replayBodyId,
                                                    hiddenReplayPosition,
@@ -1414,11 +1413,11 @@ bool ReplayRuntime::ApplyPresentationSampleForRender( Physics::PhysicsEngine& ph
     return queuedAny;
 }
 
-bool ReplayRuntime::ApplySolverSampleForRender( Physics::PhysicsEngine& physicsEngine,
+bool ReplayRuntime::ApplySolverSampleForRender( GameObjects::GameModelCollection& collection,
                                                 const ReplaySolverFrameSample& sample )
 {
-    const PhysicsBodyStore& bodyStore = physicsEngine.BodyStore();
-    const int modelCount = physicsEngine.RenderInstances().Count();
+    const PhysicsBodyStore& bodyStore = collection.GetPhysicsEngine().BodyStore();
+    const int modelCount = collection.RenderInstances().Count();
     if ( !ReplayRuntimePrepareBodyMatchedMask( m_renderPoseBodyMatched, modelCount ) )
     {
         return false;
@@ -1438,7 +1437,7 @@ bool ReplayRuntime::ApplySolverSampleForRender( Physics::PhysicsEngine& physicsE
                                                    body.orientation[2],
                                                    body.orientation[3] );
         orientation.Normalise();
-        if ( ReplayRuntimeQueueRenderPoseOverride( physicsEngine,
+        if ( ReplayRuntimeQueueRenderPoseOverride( collection,
                                                    resolvedModelIndex,
                                                    body.id.value,
                                                    body.position,
@@ -1464,7 +1463,7 @@ bool ReplayRuntime::ApplySolverSampleForRender( Physics::PhysicsEngine& physicsE
             continue;
         }
 
-        if ( ReplayRuntimeQueueRenderPoseOverride( physicsEngine,
+        if ( ReplayRuntimeQueueRenderPoseOverride( collection,
                                                    i,
                                                    bodyRecord->replayBodyId,
                                                    hiddenReplayPosition,
@@ -1476,11 +1475,11 @@ bool ReplayRuntime::ApplySolverSampleForRender( Physics::PhysicsEngine& physicsE
     return queuedAny;
 }
 
-bool ReplayRuntime::ApplyPredictionFrameForRender( Physics::PhysicsEngine& physicsEngine,
+bool ReplayRuntime::ApplyPredictionFrameForRender( GameObjects::GameModelCollection& collection,
                                                    const RunReplayPredictionFrame& frame )
 {
-    const PhysicsBodyStore& bodyStore = physicsEngine.BodyStore();
-    const int modelCount = physicsEngine.RenderInstances().Count();
+    const PhysicsBodyStore& bodyStore = collection.GetPhysicsEngine().BodyStore();
+    const int modelCount = collection.RenderInstances().Count();
     if ( !ReplayRuntimePrepareBodyMatchedMask( m_renderPoseBodyMatched, modelCount ) )
     {
         return false;
@@ -1497,7 +1496,7 @@ bool ReplayRuntime::ApplyPredictionFrameForRender( Physics::PhysicsEngine& physi
 
         Math::Orientation::Quaternion orientation = body.orientation;
         orientation.Normalise();
-        if ( ReplayRuntimeQueueRenderPoseOverride( physicsEngine,
+        if ( ReplayRuntimeQueueRenderPoseOverride( collection,
                                                    resolvedModelIndex,
                                                    body.id.value,
                                                    body.position,
@@ -1523,7 +1522,7 @@ bool ReplayRuntime::ApplyPredictionFrameForRender( Physics::PhysicsEngine& physi
             continue;
         }
 
-        if ( ReplayRuntimeQueueRenderPoseOverride( physicsEngine,
+        if ( ReplayRuntimeQueueRenderPoseOverride( collection,
                                                    i,
                                                    bodyRecord->replayBodyId,
                                                    hiddenReplayPosition,

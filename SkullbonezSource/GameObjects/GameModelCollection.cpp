@@ -56,8 +56,8 @@ Related:
 #include "../Core/FatalError.h"
 #include "../Core/MainMemoryStats.h"
 #include "../Core/SkullScope.h"
-#include "../Physics/Debug/CollisionVisualizer.h"
-#include "../Physics/Debug/PhysicsDebugVisualizer.h"
+#include "../Runtime/Debug/CollisionVisualizer.h"
+#include "../Runtime/Debug/PhysicsDebugVisualizer.h"
 #include "../Physics/ColliderStore.h"
 #include "../Physics/PhysicsApi.h"
 #include "../Physics/PhysicsBodyStore.h"
@@ -267,7 +267,7 @@ void GameModelCollection::ReserveForActiveGameModelCapacity()
     m_sceneEntities.Reserve( capacity );
     m_sceneObjectGroupStore.Reserve( capacity );
     m_physicsEngine.ReserveAuthoredBodyCapacity( capacity );
-    m_physicsEngine.ReserveRenderPresentationCapacity( capacity );
+    m_renderInstanceStore.ReservePresentationCapacity( capacity );
 }
 
 
@@ -503,7 +503,7 @@ int GameModelCollection::CopyDxrModelMatrices( float* outMatrixFloats, int maxMo
     }
 
     const int sceneEntityCount = SceneEntityCount();
-    if ( m_physicsEngine.RenderInstances().Count() != sceneEntityCount )
+    if ( m_renderInstanceStore.Count() != sceneEntityCount )
     {
         // Hazard: normal render frames call PrepareRenderInstances() first. This
         // cold path keeps standalone DXR callers on the render-instance
@@ -511,7 +511,7 @@ int GameModelCollection::CopyDxrModelMatrices( float* outMatrixFloats, int maxMo
         RefreshRenderInstances();
     }
 
-    const std::vector<Rendering::RenderInstanceRecord>& instances = m_physicsEngine.RenderInstances().Records();
+    const std::vector<Rendering::RenderInstanceRecord>& instances = m_renderInstanceStore.Records();
     const int modelCount = (std::min)( static_cast<int>( instances.size() ), maxModelCount );
     for ( int i = 0; i < modelCount; ++i )
     {
@@ -588,7 +588,7 @@ void GameModelCollection::UpdateCollisionVisualizer( Physics::CollisionVisualize
     const Physics::CollisionVisualizerFrameView view{
         m_physicsEngine.BodyStore(),
         m_physicsEngine.Colliders(),
-        m_physicsEngine.RenderInstances(),
+        m_renderInstanceStore,
         m_physicsEngine.GetCollisionVisualContacts(),
         m_physicsEngine.GetSleepStates(),
         m_physicsEngine.GetSleepIslandVisualIds(),
@@ -628,7 +628,7 @@ void GameModelCollection::RenderCollisionStateSolids( Physics::CollisionVisualiz
     const Physics::CollisionVisualizerFrameView frameView{
         m_physicsEngine.BodyStore(),
         m_physicsEngine.Colliders(),
-        m_physicsEngine.RenderInstances(),
+        m_renderInstanceStore,
         m_physicsEngine.GetCollisionVisualContacts(),
         m_physicsEngine.GetSleepStates(),
         m_physicsEngine.GetSleepIslandVisualIds(),
@@ -1057,7 +1057,7 @@ MainMemoryGameObjectStats GameModelCollection::CollectMemoryStats() const
     MainMemoryGameObjectStats stats;
     const Physics::PhysicsBodyStore& bodyStore = m_physicsEngine.BodyStore();
     const Physics::ColliderStore& colliderStore = m_physicsEngine.Colliders();
-    const Rendering::RenderInstanceStore& renderStore = m_physicsEngine.RenderInstances();
+    const Rendering::RenderInstanceStore& renderStore = m_renderInstanceStore;
 
     stats.modelCount = static_cast<std::size_t>( m_sceneEntities.Count() );
     stats.modelCapacity = m_sceneEntities.Capacity();
@@ -1176,7 +1176,38 @@ const SkullbonezCore::Physics::ColliderStore& GameModelCollection::Colliders() c
 
 const SkullbonezCore::Rendering::RenderInstanceStore& GameModelCollection::RenderInstances() const
 {
-    return m_physicsEngine.RenderInstances();
+    return m_renderInstanceStore;
+}
+
+
+SkullbonezCore::Rendering::RenderInstanceStore& GameModelCollection::MutableRenderInstances()
+{
+    return m_renderInstanceStore;
+}
+
+
+bool GameModelCollection::TryQueueReplayRenderPoseOverride( int modelIndex,
+                                                            uint32_t replayBodyId,
+                                                            const Math::Vector::Vector3& position,
+                                                            const Math::Orientation::Quaternion& orientation )
+{
+    const Physics::PhysicsBodyStore& bodyStore = m_physicsEngine.BodyStore();
+    const Physics::PhysicsBodyHandle body = bodyStore.HandleForModelIndex( modelIndex );
+    const Physics::PhysicsBodyRecord* bodyRecord = bodyStore.RecordForHandle( body );
+    // Invariant: render-pose overrides are keyed by the physics-owned body id.
+    // Model-index hints can lag during scrub/prediction presentation, so they
+    // cannot approve which live render instance receives the pose.
+    if ( !bodyRecord || bodyStore.ModelIndexForHandle( body ) != modelIndex ||
+         bodyRecord->replayBodyId != replayBodyId )
+    {
+        return false;
+    }
+
+    return m_renderInstanceStore.OverridePose( modelIndex,
+                                               replayBodyId,
+                                               position,
+                                               orientation,
+                                               m_physicsEngine.Colliders() );
 }
 
 
@@ -1210,7 +1241,7 @@ int GameModelCollection::FindModelIndexByDisplayName( const char* name ) const
 const SkullbonezCore::Rendering::RenderInstanceStore& GameModelCollection::GetRenderInstanceStore()
 {
     RefreshRenderInstances();
-    return m_physicsEngine.RenderInstances();
+    return m_renderInstanceStore;
 }
 
 
@@ -1258,24 +1289,45 @@ double GameModelCollection::GetSceneKineticEnergy()
 void GameModelCollection::RefreshRenderInstances()
 {
     const int modelCount = SceneEntityCount();
-    if ( !RepairPhysicsBodyTopology() || !m_physicsEngine.PrepareRenderStoreRefresh( modelCount ) )
+    if ( !RepairPhysicsBodyTopology() )
     {
+        m_renderInstanceStore.Clear();
         return;
     }
-    if ( !m_physicsEngine.ResizeRenderPresentationRecords( modelCount ) )
+    if ( m_physicsEngine.BodyStore().Count() != modelCount )
     {
+        m_renderInstanceStore.Clear();
+        return;
+    }
+    if ( !m_physicsEngine.RefreshColliderSnapshot() )
+    {
+        // Hazard: render rows consume collider shape/material data. If topology
+        // drift has removed collider rows, do not manufacture a partial render
+        // snapshot from stale model-owned shape fields.
+        m_renderInstanceStore.Clear();
+        return;
+    }
+    if ( m_physicsEngine.BodyStore().Count() != modelCount || m_physicsEngine.Colliders().Count() != modelCount )
+    {
+        m_renderInstanceStore.Clear();
+        return;
+    }
+    if ( !m_renderInstanceStore.ResizePresentationRecords( modelCount ) )
+    {
+        m_renderInstanceStore.Clear();
         return;
     }
     // Owner boundary: model material and highlight values still live in
     // GameModelCollection, but the render-facing presentation rows belong to
-    // RenderInstanceStore before physics/store projection creates draw records.
+    // RenderInstanceStore before store projection creates draw records.
     for ( int i = 0; i < modelCount; ++i )
     {
         const GameModel& model = m_sceneEntities.Records()[static_cast<std::size_t>( i )];
         Rendering::RenderInstancePresentationRecord* presentation =
-            m_physicsEngine.MutableRenderPresentationRecordForModelIndex( i );
+            m_renderInstanceStore.MutablePresentationRecordForModelIndex( i );
         if ( !presentation )
         {
+            m_renderInstanceStore.Clear();
             return;
         }
         presentation->material = model.GetRenderMaterial();
@@ -1284,12 +1336,24 @@ void GameModelCollection::RefreshRenderInstances()
         presentation->fixedContactAlpha = model.GetFixedContactHighlightAlpha();
         presentation->audioContactAlpha = model.GetAudioContactHighlightAlpha();
     }
-    if ( !m_physicsEngine.RefreshRenderInstancesFromPresentation() )
+    m_renderInstanceStore.Refresh( m_physicsEngine.BodyStore(), m_physicsEngine.Colliders() );
+    if ( m_renderInstanceStore.Count() != modelCount )
     {
+        m_renderInstanceStore.Clear();
         return;
     }
 #ifdef _DEBUG
-    m_physicsEngine.ValidateRenderStore( modelCount );
+    const std::vector<Rendering::RenderInstanceRecord>& instances = m_renderInstanceStore.Records();
+    for ( int i = 0; i < modelCount; ++i )
+    {
+        const std::size_t index = static_cast<std::size_t>( i );
+        const Rendering::RenderInstanceRecord& instance = instances[index];
+        const Rendering::RenderInstanceHandle renderHandle = m_renderInstanceStore.HandleForModelIndex( i );
+
+        assert( renderHandle.IsValid() );
+        assert( instance.handle == renderHandle );
+        assert( m_renderInstanceStore.ModelIndexForHandle( renderHandle ) == i );
+    }
 #endif
 }
 
@@ -1548,14 +1612,6 @@ void GameModelCollection::SetTornadoFieldConfig( const Physics::TornadoFieldConf
 void GameModelCollection::SetTornadoSystemConfig( const Physics::TornadoSystemConfig& config )
 {
     m_physicsEngine.SetTornadoSystemConfig( config );
-}
-
-
-void GameModelCollection::RenderTornadoFieldVectors( const Matrix4& viewProj,
-                                                     Rendering::IRenderCommandContext& renderCommands,
-                                                     bool supportsDebugLines )
-{
-    m_physicsEngine.RenderTornadoFieldVectors( viewProj, renderCommands, supportsDebugLines );
 }
 
 

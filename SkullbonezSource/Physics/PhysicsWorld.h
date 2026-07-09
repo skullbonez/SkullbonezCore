@@ -42,7 +42,7 @@ Related:
 #include "PersistentContactSolver.h"
 #include "PhysicsBodyStore.h"
 #include "PhysicsDiagnosticsSink.h"
-#include "Debug/PhysicsDebugVisualizer.h"
+#include "PhysicsDebugData.h"
 #include "Ragdoll.h"
 #include "../Runtime/Replay/ReplaySolverSnapshot.h"
 #include "SleepIslandSystem.h"
@@ -61,11 +61,6 @@ namespace Threading
 {
 class WorkerPool;
 } // namespace Threading
-
-namespace Rendering
-{
-class IRenderCommandContext;
-} // namespace Rendering
 
 namespace Physics
 {
@@ -557,11 +552,6 @@ class PhysicsWorld
     void SetTornadoSystemConfig( const TornadoSystemConfig& config );
     const TornadoSystemConfig& GetTornadoSystemConfig() const;
     float GetTornadoSystemElapsedSeconds() const;
-    // Debug overlay edge: world generates line vertices, while the runtime
-    // supplies renderer capability and draw submission.
-    void RenderTornadoFieldVectors( const Math::Transformation::Matrix4& viewProj,
-                                    Rendering::IRenderCommandContext& renderCommands,
-                                    bool supportsDebugLines );
     void CaptureReplaySolverSnapshot( Basics::ReplaySolverWorldSnapshot& outSnapshot, int modelCount ) const;
     bool RestoreReplaySolverSnapshot( const Basics::ReplaySolverWorldSnapshot& snapshot, int modelCount );
     PhysicsDiagnosticsView GetDiagnosticsView() const;

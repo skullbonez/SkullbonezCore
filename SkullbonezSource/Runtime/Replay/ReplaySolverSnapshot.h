@@ -29,7 +29,7 @@ Related:
 #include <utility>
 #include <vector>
 
-#include "../../Physics/Debug/PhysicsDebugVisualizer.h"
+#include "../../Physics/PhysicsDebugData.h"
 #include "../../Physics/TornadoField.h"
 #include "../../Maths/Vector3.h"
 

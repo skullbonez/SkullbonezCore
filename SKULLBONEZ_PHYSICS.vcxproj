@@ -19,9 +19,9 @@
     </ProjectConfiguration>
   </ItemGroup>
   <PropertyGroup Label="Globals">
-    <ProjectGuid>{5D4A47DA-54C6-4142-9FA9-1A63E976BA2D}</ProjectGuid>
+    <ProjectGuid>{2CC512B8-5A21-49F4-AE75-9982116F5B62}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
-    <RootNamespace>SKULLBONEZ_MATHS</RootNamespace>
+    <RootNamespace>SKULLBONEZ_PHYSICS</RootNamespace>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
@@ -41,7 +41,7 @@
     <CharacterSet>MultiByte</CharacterSet>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <OutDir>Profile-WPO\</OutDir>
-    <IntDir>Profile-WPO\SKULLBONEZ_MATHS\</IntDir>
+    <IntDir>Profile-WPO\SKULLBONEZ_PHYSICS\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>StaticLibrary</ConfigurationType>
@@ -68,15 +68,15 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <OutDir>Debug\</OutDir>
-    <IntDir>Debug\SKULLBONEZ_MATHS\</IntDir>
+    <IntDir>Debug\SKULLBONEZ_PHYSICS\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <OutDir>Release\</OutDir>
-    <IntDir>Release\SKULLBONEZ_MATHS\</IntDir>
+    <IntDir>Release\SKULLBONEZ_PHYSICS\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Profile|x64'">
     <OutDir>Profile\</OutDir>
-    <IntDir>Profile\SKULLBONEZ_MATHS\</IntDir>
+    <IntDir>Profile\SKULLBONEZ_PHYSICS\</IntDir>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
@@ -94,7 +94,7 @@
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
     </ClCompile>
     <Lib>
-      <OutputFile>$(OutDir)SKULLBONEZ_MATHS.lib</OutputFile>
+      <OutputFile>$(OutDir)SKULLBONEZ_PHYSICS.lib</OutputFile>
     </Lib>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -111,7 +111,7 @@
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
     </ClCompile>
     <Lib>
-      <OutputFile>$(OutDir)SKULLBONEZ_MATHS.lib</OutputFile>
+      <OutputFile>$(OutDir)SKULLBONEZ_PHYSICS.lib</OutputFile>
     </Lib>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Profile|x64'">
@@ -128,7 +128,7 @@
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
     </ClCompile>
     <Lib>
-      <OutputFile>$(OutDir)SKULLBONEZ_MATHS.lib</OutputFile>
+      <OutputFile>$(OutDir)SKULLBONEZ_PHYSICS.lib</OutputFile>
     </Lib>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Profile-WPO|x64'">
@@ -145,24 +145,70 @@
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
     </ClCompile>
     <Lib>
-      <OutputFile>$(OutDir)SKULLBONEZ_MATHS.lib</OutputFile>
+      <OutputFile>$(OutDir)SKULLBONEZ_PHYSICS.lib</OutputFile>
     </Lib>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="SkullbonezSource\Maths\GeometricMath.cpp" />
-    <ClCompile Include="SkullbonezSource\Maths\Matrix4.cpp" />
-    <ClCompile Include="SkullbonezSource\Maths\Quaternion.cpp" />
-    <ClCompile Include="SkullbonezSource\Maths\RotationMatrix.cpp" />
-    <ClCompile Include="SkullbonezSource\Maths\Vector3.cpp" />
+    <ClCompile Include="SkullbonezSource\Physics\BoundingBox.cpp" />
+    <ClCompile Include="SkullbonezSource\Physics\BoundingSphere.cpp" />
+    <ClCompile Include="SkullbonezSource\Physics\BuoyancySystem.cpp" />
+    <ClCompile Include="SkullbonezSource\Physics\ColliderStore.cpp" />
+    <ClCompile Include="SkullbonezSource\Physics\ConvexHullShape.cpp" />
+    <ClCompile Include="SkullbonezSource\Physics\ObjectContactManifold.cpp" />
+    <ClCompile Include="SkullbonezSource\Physics\PersistentContactSolver.cpp" />
+    <ClCompile Include="SkullbonezSource\Physics\PhysicsApi.cpp" />
+    <ClCompile Include="SkullbonezSource\Physics\PhysicsBodyStore.cpp" />
+    <ClCompile Include="SkullbonezSource\Physics\PhysicsDiagnosticsSink.cpp" />
+    <ClCompile Include="SkullbonezSource\Physics\PhysicsEngine.cpp" />
+    <ClCompile Include="SkullbonezSource\Physics\PhysicsObjectPolicy.cpp" />
+    <ClCompile Include="SkullbonezSource\Physics\PhysicsScene.cpp" />
+    <ClCompile Include="SkullbonezSource\Physics\PhysicsWorld.cpp" />
+    <ClCompile Include="SkullbonezSource\Physics\Ragdoll.cpp" />
+    <ClCompile Include="SkullbonezSource\Physics\SimulationSystem.cpp" />
+    <ClCompile Include="SkullbonezSource\Physics\SleepIslandSystem.cpp" />
+    <ClCompile Include="SkullbonezSource\Physics\SpatialGrid.cpp" />
+    <ClCompile Include="SkullbonezSource\Physics\TerrainContactManifold.cpp" />
+    <ClCompile Include="SkullbonezSource\Physics\TornadoField.cpp" />
+    <ClCompile Include="SkullbonezSource\Physics\TornadoGameplay.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="SkullbonezSource\Maths\GeometricMath.h" />
-    <ClInclude Include="SkullbonezSource\Maths\GeometricStructures.h" />
-    <ClInclude Include="SkullbonezSource\Maths\MathsCommon.h" />
-    <ClInclude Include="SkullbonezSource\Maths\Matrix4.h" />
-    <ClInclude Include="SkullbonezSource\Maths\Quaternion.h" />
-    <ClInclude Include="SkullbonezSource\Maths\RotationMatrix.h" />
-    <ClInclude Include="SkullbonezSource\Maths\Vector3.h" />
+    <ClInclude Include="SkullbonezSource\Physics\BoundingBox.h" />
+    <ClInclude Include="SkullbonezSource\Physics\BoundingSphere.h" />
+    <ClInclude Include="SkullbonezSource\Physics\BuoyancySystem.h" />
+    <ClInclude Include="SkullbonezSource\Physics\ColliderStore.h" />
+    <ClInclude Include="SkullbonezSource\Physics\CollisionShape.h" />
+    <ClInclude Include="SkullbonezSource\Physics\ContactSolverCommon.h" />
+    <ClInclude Include="SkullbonezSource\Physics\ConvexHullShape.h" />
+    <ClInclude Include="SkullbonezSource\Physics\DisjointSet.h" />
+    <ClInclude Include="SkullbonezSource\Physics\ObjectContactManifold.h" />
+    <ClInclude Include="SkullbonezSource\Physics\PersistentContactSolver.h" />
+    <ClInclude Include="SkullbonezSource\Physics\PhysicsApi.h" />
+    <ClInclude Include="SkullbonezSource\Physics\PhysicsBodyStore.h" />
+    <ClInclude Include="SkullbonezSource\Physics\PhysicsDebugData.h" />
+    <ClInclude Include="SkullbonezSource\Physics\PhysicsDiagnosticsModel.h" />
+    <ClInclude Include="SkullbonezSource\Physics\PhysicsDiagnosticsSink.h" />
+    <ClInclude Include="SkullbonezSource\Physics\PhysicsEngine.h" />
+    <ClInclude Include="SkullbonezSource\Physics\PhysicsFixedList.h" />
+    <ClInclude Include="SkullbonezSource\Physics\PhysicsHandles.h" />
+    <ClInclude Include="SkullbonezSource\Physics\PhysicsMass.h" />
+    <ClInclude Include="SkullbonezSource\Physics\PhysicsObjectPolicy.h" />
+    <ClInclude Include="SkullbonezSource\Physics\PhysicsScene.h" />
+    <ClInclude Include="SkullbonezSource\Physics\PhysicsTimestep.h" />
+    <ClInclude Include="SkullbonezSource\Physics\PhysicsWorld.h" />
+    <ClInclude Include="SkullbonezSource\Physics\PhysicsWorldForces.h" />
+    <ClInclude Include="SkullbonezSource\Physics\Ragdoll.h" />
+    <ClInclude Include="SkullbonezSource\Physics\SimulationSystem.h" />
+    <ClInclude Include="SkullbonezSource\Physics\SleepIslandSystem.h" />
+    <ClInclude Include="SkullbonezSource\Physics\SolverBroadphaseStage.h" />
+    <ClInclude Include="SkullbonezSource\Physics\SpatialGrid.h" />
+    <ClInclude Include="SkullbonezSource\Physics\TerrainContactManifold.h" />
+    <ClInclude Include="SkullbonezSource\Physics\TornadoField.h" />
+    <ClInclude Include="SkullbonezSource\Physics\TornadoGameplay.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="SKULLBONEZ_MATHS.vcxproj">
+      <Project>{5D4A47DA-54C6-4142-9FA9-1A63E976BA2D}</Project>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets"></ImportGroup>

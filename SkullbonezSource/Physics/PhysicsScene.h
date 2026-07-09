@@ -43,7 +43,6 @@ Related:
 #include "PhysicsObjectPolicy.h"
 #include "PhysicsWorld.h"
 #include "PhysicsWorldForces.h"
-#include "../Rendering/RenderInstanceStore.h"
 
 namespace SkullbonezCore
 {
@@ -56,11 +55,6 @@ namespace Threading
 {
 class WorkerPool;
 } // namespace Threading
-
-namespace Rendering
-{
-class IRenderCommandContext;
-} // namespace Rendering
 
 namespace Physics
 {
@@ -124,16 +118,6 @@ class PhysicsScene
     // Rebinds existing collider rows against the already-current body store.
     // Count drift must be fixed by the creator/editor path that owns shape data.
     bool RefreshColliderSnapshot();
-    // Prepares body/collider rows for the render-store projection refresh. The
-    // collection owner fills render presentation rows after this returns.
-    bool PrepareRenderStoreRefresh( int expectedModelCount );
-    void ReserveRenderPresentationCapacity( std::size_t capacity );
-    bool ResizeRenderPresentationRecords( int presentationCount );
-    Rendering::RenderInstancePresentationRecord* MutableRenderPresentationRecordForModelIndex( int modelIndex );
-    const std::vector<Rendering::RenderInstancePresentationRecord>& RenderPresentationRecords() const;
-    bool RefreshRenderInstancesFromPresentation();
-    // Mutable only for replay/render presentation pose overrides.
-    Rendering::RenderInstanceStore& MutableRenderInstances();
     void RunPhysics( float fChangeInTime,
                      const Basics::EngineConfig& config,
                      const PhysicsWorldForces& worldForces,
@@ -178,11 +162,6 @@ class PhysicsScene
     void SetTornadoSystemConfig( const TornadoSystemConfig& config );
     const TornadoSystemConfig& GetTornadoSystemConfig() const;
     float GetTornadoSystemElapsedSeconds() const;
-    // Debug overlay edge: renderer capability checks stay outside the
-    // deterministic physics scene.
-    void RenderTornadoFieldVectors( const Math::Transformation::Matrix4& viewProj,
-                                    Rendering::IRenderCommandContext& renderCommands,
-                                    bool supportsDebugLines );
     void CaptureReplaySolverSnapshot( Basics::ReplaySolverWorldSnapshot& outSnapshot, int modelCount ) const;
     bool RestoreReplaySolverSnapshot( const Basics::ReplaySolverWorldSnapshot& snapshot, int modelCount );
     PhysicsDiagnosticsView GetDiagnosticsView() const;
@@ -194,7 +173,6 @@ class PhysicsScene
 
     const PhysicsBodyStore& BodyStore() const;
     const ColliderStore& Colliders() const;
-    const Rendering::RenderInstanceStore& RenderInstances() const;
     const Math::CollisionDetection::SpatialGrid& GetSpatialGrid() const;
     const std::vector<int64_t>& GetCollisionCellKeys() const;
     const std::vector<uint8_t>& GetCollisionVisualContacts() const;
@@ -207,7 +185,6 @@ class PhysicsScene
     const std::vector<PointJointConstraint>& GetPointJointConstraints() const;
 
 #ifdef _DEBUG
-    void ValidateRenderStore( int expectedModelCount ) const;
     void SetPhysicsRegressionLogPath( const char* path );
     void SetPhysicsCollisionTimeLogPath( const char* path );
     void SetPhysicsDiagnosticsPath( const char* path );
@@ -219,14 +196,12 @@ class PhysicsScene
     void ApplyFixedTreeReleaseEvents( const PhysicsWorldForces& worldForces );
 #ifdef _DEBUG
     void ValidatePhysicsStoreMappings( int modelCount ) const;
-    void ValidateRenderStoreMappings( int modelCount ) const;
 #endif
 
     PhysicsWorld m_world;                                   // Deterministic solver and debug state over body-store records.
     std::vector<PhysicsBodyCreateDesc> m_authoredBodyDescs; // Cold body authoring descriptors keyed by scene/model order.
     PhysicsBodyStore m_bodyStore;                           // Mutable body state in model/replay order.
     ColliderStore m_colliderStore;                          // Collider snapshot in model/replay order.
-    Rendering::RenderInstanceStore m_renderInstanceStore;   // Render snapshot in model/replay order.
     PhysicsMaterial m_physicsMaterial;                      // Runtime material policy copied into body/collider descriptors.
     BodySimulationLimits m_bodySimulationLimits;            // Runtime body caps copied at authoring/import boundaries.
     ContactPolicy m_contactPolicy;                          // Runtime contact thresholds copied at authoring/import boundaries.

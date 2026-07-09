@@ -47,11 +47,6 @@ namespace Threading
 class WorkerPool;
 } // namespace Threading
 
-namespace Rendering
-{
-class IRenderCommandContext;
-} // namespace Rendering
-
 namespace Physics
 {
 struct PhysicsColliderCreateDesc;
@@ -111,23 +106,6 @@ class PhysicsEngine
     // rows are a topology bug, not a cue to rebuild shape facts from authoring
     // storage.
     bool RefreshColliderSnapshot();
-    // Prepares body/collider rows for the render-store projection refresh. The
-    // collection owner fills render presentation rows after this returns.
-    bool PrepareRenderStoreRefresh( int expectedModelCount );
-    void ReserveRenderPresentationCapacity( std::size_t capacity );
-    bool ResizeRenderPresentationRecords( int presentationCount );
-    Rendering::RenderInstancePresentationRecord* MutableRenderPresentationRecordForModelIndex( int modelIndex );
-    const std::vector<Rendering::RenderInstancePresentationRecord>& RenderPresentationRecords() const;
-    bool RefreshRenderInstancesFromPresentation();
-    // Applies a one-frame draw-pose override to the prepared render snapshot.
-    // Replay uses this after normal projection refresh so historical/future
-    // poses affect pixels without mutating body rows or authoring descriptors.
-    bool OverrideRenderInstancePose( int modelIndex,
-                                     uint32_t replayBodyId,
-                                     const Math::Vector::Vector3& position,
-                                     const Math::Orientation::Quaternion& orientation );
-    // Mutable only for replay/render presentation pose overrides.
-    Rendering::RenderInstanceStore& MutableRenderInstances();
     // Steps the owned stores. Model-order descriptor import lives with the
     // collection owner, and diagnosticsCsvWriter carries cold Debug CSV output
     // authority instead of letting physics reach through global logging.
@@ -178,11 +156,6 @@ class PhysicsEngine
     void SetTornadoSystemConfig( const TornadoSystemConfig& config );
     const TornadoSystemConfig& GetTornadoSystemConfig() const;
     float GetTornadoSystemElapsedSeconds() const;
-    // Debug overlay edge: caller owns renderer readiness/capabilities; physics
-    // only contributes tornado vector geometry.
-    void RenderTornadoFieldVectors( const Math::Transformation::Matrix4& viewProj,
-                                    Rendering::IRenderCommandContext& renderCommands,
-                                    bool supportsDebugLines );
     void CaptureReplaySolverSnapshot( Basics::ReplaySolverWorldSnapshot& outSnapshot, int modelCount ) const;
     bool RestoreReplaySolverSnapshot( const Basics::ReplaySolverWorldSnapshot& snapshot, int modelCount );
     PhysicsDiagnosticsView GetDiagnosticsView() const;
@@ -194,7 +167,6 @@ class PhysicsEngine
 
     const PhysicsBodyStore& BodyStore() const;
     const ColliderStore& Colliders() const;
-    const Rendering::RenderInstanceStore& RenderInstances() const;
     const Math::CollisionDetection::SpatialGrid& GetSpatialGrid() const;
     const std::vector<int64_t>& GetCollisionCellKeys() const;
     const std::vector<uint8_t>& GetCollisionVisualContacts() const;
@@ -207,7 +179,6 @@ class PhysicsEngine
     const std::vector<PointJointConstraint>& GetPointJointConstraints() const;
 
 #ifdef _DEBUG
-    void ValidateRenderStore( int expectedModelCount ) const;
     void SetPhysicsRegressionLogPath( const char* path );
     void SetPhysicsCollisionTimeLogPath( const char* path );
     void SetPhysicsDiagnosticsPath( const char* path );

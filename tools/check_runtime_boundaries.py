@@ -70,6 +70,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import xml.etree.ElementTree as ET
 from collections import Counter
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -85,6 +86,13 @@ RUN_INTERNAL_HEADER = Path("SkullbonezSource/Runtime/RunInternal.h")
 INIT_SOURCE = Path("SkullbonezSource/Runtime/Init.cpp")
 RUNTIME_ROOT = Path("SkullbonezSource/Runtime")
 PHYSICS_ROOT = Path("SkullbonezSource/Physics")
+CORE_PROJECT_FILE = Path("SKULLBONEZ_CORE.vcxproj")
+TESTS_PROJECT_FILE = Path("SKULLBONEZ_TESTS.vcxproj")
+# Invariant: core and tests may include physics headers, but physics
+# implementation files compile in SKULLBONEZ_PHYSICS so runtime and tests link
+# one owner-built object set.
+PROJECTS_FORBIDDEN_DIRECT_PHYSICS_COMPILE = (CORE_PROJECT_FILE, TESTS_PROJECT_FILE)
+MSBUILD_NAMESPACE = "{http://schemas.microsoft.com/developer/msbuild/2003}"
 SKULL_SCOPE_SOURCE = Path("SkullbonezSource/Core/SkullScope.cpp")
 PHYSICS_ENGINE_SOURCE = PHYSICS_ROOT / "PhysicsEngine.cpp"
 PHYSICS_ENGINE_HEADER = PHYSICS_ROOT / "PhysicsEngine.h"
@@ -234,10 +242,7 @@ RENDER_INSTANCE_MUTABLE_ACCESS_PATTERN = re.compile(
 )
 RENDER_INSTANCE_MUTABLE_ACCESS_ALLOWED_SOURCES = {
     GAME_MODEL_COLLECTION_SOURCE,
-    PHYSICS_ENGINE_SOURCE,
-    PHYSICS_ENGINE_HEADER,
-    PHYSICS_SCENE_SOURCE,
-    PHYSICS_SCENE_HEADER,
+    GAME_MODEL_COLLECTION_HEADER,
 }
 PHYSICS_WORLD_STORE_SEED_MODEL_ACCESS_PATTERN = re.compile(
     r"\b(?:GameModelBodyStream|GetBodyStream)\b|\bmodelAccess\s*\.\s*InvalidatePhysicsStreams\s*\("
@@ -2655,6 +2660,16 @@ def line_for_offset(text: str, offset: int) -> int:
     return text.count("\n", 0, offset) + 1
 
 
+def line_text_for_offset(text: str, offset: int) -> str:
+    if offset < 0:
+        return ""
+    line_start = text.rfind("\n", 0, offset) + 1
+    line_end = text.find("\n", offset)
+    if line_end < 0:
+        line_end = len(text)
+    return text[line_start:line_end]
+
+
 def extract_struct_body(stripped: str, struct_name: str) -> tuple[int, str] | None:
     match = re.search(rf"\bstruct\s+{re.escape(struct_name)}\s*\{{", stripped)
     if not match:
@@ -3664,15 +3679,19 @@ def check_render_instance_mutable_access_guardrails_text(
     stripped = strip_cpp_comments_and_string_literals(text)
     errors: list[BoundaryError] = []
     for match in RENDER_INSTANCE_MUTABLE_ACCESS_PATTERN.finditer(stripped):
+        if relative_path == RUN_RENDER_SOURCE and "models.MutableRenderInstances()" in line_text_for_offset(
+            stripped, match.start()
+        ):
+            continue
         errors.append(
             BoundaryError(
                 path,
                 line_for_offset(stripped, match.start()),
                 "mutable render-instance store access is owner-boundary only",
                 (
-                    "RenderInstanceStore mutation is restricted to PhysicsEngine/PhysicsScene forwarding and "
-                    "GameModelCollection's cold projection fill. Add a domain command instead of borrowing "
-                    "the mutable store elsewhere."
+                    "RenderInstanceStore mutation is restricted to GameModelCollection's cold projection fill "
+                    "and the RunRender frame-view borrow. Add a domain command instead of borrowing the mutable "
+                    "store elsewhere."
                 ),
             )
         )
@@ -3692,6 +3711,50 @@ def check_render_instance_mutable_access_guardrails(repo: Path) -> list[Boundary
                 relative_path,
             )
         )
+    return errors
+
+
+def check_project_physics_compile_boundary_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    errors: list[BoundaryError] = []
+    try:
+        # Why: MSBuild project files are structured XML; parsing them avoids
+        # false positives from comments while still catching direct ClCompile rows.
+        root = ET.fromstring(text)
+    except ET.ParseError as exc:
+        return [
+            BoundaryError(
+                path,
+                max(exc.position[0], 1),
+                "project file XML must be readable",
+                "The physics compile-boundary guardrail needs a valid MSBuild project file.",
+            )
+        ]
+    for compile_item in root.iter(f"{MSBUILD_NAMESPACE}ClCompile"):
+        include = compile_item.attrib.get("Include", "")
+        normalized_include = include.replace("/", "\\").lower()
+        if normalized_include.startswith("skullbonezsource\\physics\\") and normalized_include.endswith(".cpp"):
+            offset = text.find(include)
+            errors.append(
+                BoundaryError(
+                    path,
+                    line_for_offset(text, offset) if offset >= 0 else 1,
+                    "direct physics .cpp project compile entry is blocked",
+                    (
+                        "SKULLBONEZ_CORE and SKULLBONEZ_TESTS must link SKULLBONEZ_PHYSICS instead of "
+                        "compiling physics implementation files directly."
+                    ),
+                )
+            )
+    return errors
+
+
+def check_project_physics_compile_boundary_guardrails(repo: Path) -> list[BoundaryError]:
+    errors: list[BoundaryError] = []
+    for relative_path in PROJECTS_FORBIDDEN_DIRECT_PHYSICS_COMPILE:
+        path = repo / relative_path
+        if not path.exists():
+            continue
+        errors.extend(check_project_physics_compile_boundary_guardrails_text(path, path.read_text(encoding="utf-8")))
     return errors
 
 
@@ -11961,12 +12024,28 @@ def run_self_tests() -> list[str]:
     expect_error('old PhysicsModelAccess render refresh synthetic surface was not rejected', check_physics_model_access_deleted_step_facade_guardrails_text( Path("SkullbonezSource/Physics/PhysicsModelAccess.h"), old_physics_model_access_render_refresh, ), 'deleted PhysicsModelAccess render refresh facade is blocked')
 
     allowed_mutable_render_instances = """
+    Rendering::RenderInstanceStore& GameModelCollection::MutableRenderInstances()
+    {
+        return m_renderInstanceStore;
+    }
+    """
+    expect_clean('owner-boundary mutable render-instance synthetic surface was rejected', check_render_instance_mutable_access_guardrails_text( Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"), allowed_mutable_render_instances, Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"), ))
+
+    allowed_run_render_frame_borrow = """
+    RuntimeRenderModelFrameView BuildModelFrameView( GameModelCollection& models )
+    {
+        return RuntimeRenderModelFrameView{ models.MutableRenderInstances(), models.GetPhysicsBodyStore(), models.GetColliderStore() };
+    }
+    """
+    expect_clean('RunRender render-instance frame borrow synthetic surface was rejected', check_render_instance_mutable_access_guardrails_text( Path("SkullbonezSource/Runtime/RunRender.cpp"), allowed_run_render_frame_borrow, Path("SkullbonezSource/Runtime/RunRender.cpp"), ))
+
+    old_physics_engine_mutable_render_instances = """
     Rendering::RenderInstanceStore& PhysicsEngine::MutableRenderInstances()
     {
         return m_scene.MutableRenderInstances();
     }
     """
-    expect_clean('owner-boundary mutable render-instance synthetic surface was rejected', check_render_instance_mutable_access_guardrails_text( Path("SkullbonezSource/Physics/PhysicsEngine.cpp"), allowed_mutable_render_instances, Path("SkullbonezSource/Physics/PhysicsEngine.cpp"), ))
+    expect_error('old physics mutable render-instance owner synthetic surface was not rejected', check_render_instance_mutable_access_guardrails_text( Path("SkullbonezSource/Physics/PhysicsEngine.cpp"), old_physics_engine_mutable_render_instances, Path("SkullbonezSource/Physics/PhysicsEngine.cpp"), ), 'mutable render-instance store access is owner-boundary only')
 
     old_mutable_render_instances_caller = """
     void Run::Render()
@@ -11976,6 +12055,25 @@ def run_self_tests() -> list[str]:
     }
     """
     expect_error('outside mutable render-instance synthetic caller was not rejected', check_render_instance_mutable_access_guardrails_text( Path("SkullbonezSource/Runtime/RunRender.cpp"), old_mutable_render_instances_caller, Path("SkullbonezSource/Runtime/RunRender.cpp"), ), 'mutable render-instance store access is owner-boundary only')
+
+    direct_physics_compile_project = """
+    <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+      <ItemGroup>
+        <ClCompile Include="SkullbonezSource\\Physics\\PhysicsWorld.cpp" />
+      </ItemGroup>
+    </Project>
+    """
+    expect_error('direct physics compile project synthetic surface was not rejected', check_project_physics_compile_boundary_guardrails_text( Path("SKULLBONEZ_CORE.vcxproj"), direct_physics_compile_project, ), 'direct physics .cpp project compile entry is blocked')
+
+    linked_physics_project = """
+    <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+      <ItemGroup>
+        <ProjectReference Include="SKULLBONEZ_PHYSICS.vcxproj" />
+        <ClCompile Include="SkullbonezSource\\Runtime\\Run.cpp" />
+      </ItemGroup>
+    </Project>
+    """
+    expect_clean('physics-linked project synthetic surface was rejected', check_project_physics_compile_boundary_guardrails_text( Path("SKULLBONEZ_CORE.vcxproj"), linked_physics_project, ))
 
     old_physics_model_access_collider_refresh = """
     class PhysicsModelAccess
@@ -16327,6 +16425,7 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_physics_world_step_diagnostics_model_access_guardrails(repo))
     errors.extend(check_render_instance_store_authority_guardrails(repo))
     errors.extend(check_render_instance_mutable_access_guardrails(repo))
+    errors.extend(check_project_physics_compile_boundary_guardrails(repo))
     errors.extend(check_game_model_renderer_render_instance_authority_guardrails(repo))
     errors.extend(check_dxr_render_instance_matrix_authority_guardrails(repo))
     errors.extend(check_game_model_collection_body_store_read_authority_guardrails(repo))
