@@ -72,7 +72,7 @@ audits when it is still useful.
 | Physics authority + stable identity | Active plan (~55%) | `Agentic/Plans/TODO/physics-authority-and-identity.md`; next big slice needs the physics-owner design decision recorded in its blocker table. |
 | Render backend decomposition | Active plan (~50%) | `Agentic/Plans/TODO/render-backend-decomposition.md`; graph-buildout scope dropped per plan 11 owner decision. |
 | Interaction state machine | Active plan (~45%) | `Agentic/Plans/TODO/interaction-state-machine.md`; avoid while another agent is editing UI/replay/camera/input code. |
-| Replay prediction/memory/size | Active plan (~35%) | `Agentic/Plans/TODO/replay-prediction-and-memory.md`. |
+| Replay visuals/prediction/memory/size | Active plan (~20%) | `Agentic/Plans/TODO/replay-visuals-prediction-and-memory.md` — 2026-07-09 mega plan superseding `replay-prediction-and-memory.md`; adds the trajectory-visuals repair (investigation complete) ahead of the worker-job, memory, and code-size work. Do not run its stages concurrently in separate sessions. |
 | Runtime shell decomposition | Active plan (~25%) | `Agentic/Plans/TODO/runtime-shell-decomposition.md`; owns RunInternal.h retirement and Common.h slimming (the last global-service remnant). |
 | 2026-07-09 review gaps | Proposed plan | `engine-cleanup-plans/15-review-gaps.md`: comment-boilerplate cleanup (15.4) remains here; 15.1/15.2/15.3 execute via the TODO plans. |
 | 2026-07-07 overnight remediation | Closed into TODO plans | Handoff record: `Agentic/Reports/2026-07-07/overnight-run-handoff.md`. The blocker ledger and fable fix-lists were absorbed into `Agentic/Plans/TODO/` during the 2026-07-09 consolidation; unresolved rows live in each TODO plan's "Known hard blockers" section. |
