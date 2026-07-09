@@ -1108,13 +1108,21 @@ SbResult Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnCom
 
         if ( terrainVBVA != 0 && sphereVBVA != 0 )
         {
-            rayTracing->InitDXR( terrainVBVA,
-                                 terrainVertCount,
-                                 terrainStride,
-                                 sphereVBVA,
-                                 sphereVertCount,
-                                 sphereStride,
-                                 m_startup.gameModelCapacity );
+            const SbResult dxrInitResult = rayTracing->InitDXR( terrainVBVA,
+                                                                terrainVertCount,
+                                                                terrainStride,
+                                                                sphereVBVA,
+                                                                sphereVertCount,
+                                                                sphereStride,
+                                                                m_startup.gameModelCapacity );
+            if ( !dxrInitResult.ok )
+            {
+                // Lane R: DXR setup depends on device resource creation and
+                // checked-in shader bytecode, so scene load reports the owner
+                // message instead of unwinding through renderer startup.
+                m_lastSceneLoadResult = dxrInitResult;
+                return m_lastSceneLoadResult;
+            }
         }
     }
     runtime.RecordLifecycleEvent( SceneRuntimeLifecycleEvent::AfterSceneActivated );

@@ -29,6 +29,8 @@ Related:
 #pragma once
 
 
+#include "../../Core/SbResult.h"
+
 #include <d3d12.h>
 
 
@@ -55,7 +57,7 @@ class TLAS
     TLAS();
     ~TLAS();
 
-    void Init( ID3D12Device5* device, int maxInstances );
+    Basics::SbResult Init( ID3D12Device5* device, int maxInstances );
     void Build( ID3D12Device5* device,
                 ID3D12GraphicsCommandList4* cmdList,
                 const D3D12_RAYTRACING_INSTANCE_DESC* instances,

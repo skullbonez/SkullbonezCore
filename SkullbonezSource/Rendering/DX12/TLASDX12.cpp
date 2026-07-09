@@ -52,11 +52,11 @@ Related:
 #include "TLASDX12.h"
 #include "../../Core/FatalError.h"
 #include "RenderDeviceDX12.h"
-#include <stdexcept>
 #include <cstring>
 
 
 using namespace SkullbonezCore::Rendering;
+using SkullbonezCore::Basics::SbResult;
 
 
 TLAS::TLAS() : m_scratch( nullptr ), m_result( nullptr ), m_instanceDescs( nullptr ), m_maxInstances( 0 )
@@ -70,7 +70,7 @@ TLAS::~TLAS()
 }
 
 
-void TLAS::Init( ID3D12Device5* device, int maxInstances )
+SbResult TLAS::Init( ID3D12Device5* device, int maxInstances )
 {
     m_maxInstances = maxInstances;
 
@@ -100,7 +100,7 @@ void TLAS::Init( ID3D12Device5* device, int maxInstances )
                                                   nullptr,
                                                   IID_PPV_ARGS( &m_instanceDescs ) ) ) )
     {
-        throw std::runtime_error( "TLAS: Failed to create instance desc buffer" );
+        return SbResult::Failure( "Rendering/DX12", "TLAS: Failed to create instance desc buffer" );
     }
     NameDx12Object( m_instanceDescs, L"Skullbonez DX12 TLAS Instance Descriptors" );
 
@@ -134,7 +134,8 @@ void TLAS::Init( ID3D12Device5* device, int maxInstances )
                                                   nullptr,
                                                   IID_PPV_ARGS( &m_scratch ) ) ) )
     {
-        throw std::runtime_error( "TLAS: Failed to create scratch buffer" );
+        Reset();
+        return SbResult::Failure( "Rendering/DX12", "TLAS: Failed to create scratch buffer" );
     }
     NameDx12Object( m_scratch, L"Skullbonez DX12 TLAS Scratch Buffer" );
 
@@ -150,9 +151,11 @@ void TLAS::Init( ID3D12Device5* device, int maxInstances )
                                                   nullptr,
                                                   IID_PPV_ARGS( &m_result ) ) ) )
     {
-        throw std::runtime_error( "TLAS: Failed to create result buffer" );
+        Reset();
+        return SbResult::Failure( "Rendering/DX12", "TLAS: Failed to create result buffer" );
     }
     NameDx12Object( m_result, L"Skullbonez DX12 TLAS Result Buffer" );
+    return SbResult::Success();
 }
 
 

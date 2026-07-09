@@ -767,6 +767,49 @@ byte-exact gated.
     screenshots matching baselines, and `physics_regression_solver.csv`
     byte-exact. Final log:
     `Agentic/Reports/validate_full_plan04_dx12_readback_result_20260709.log`.
+
+  Progress 2026-07-09, DXR initialization recoverable result batch:
+  - Converted fourteen DXR setup/resource rows from exceptions to Lane R results:
+    `BLASDX12.cpp` rows 5 through 7, `RenderBackendDX12.DXR.cpp` rows 79
+    through 85, `SBTDX12.cpp` row 184, and `TLASDX12.cpp` rows 194 through
+    196 from the Step 0.1 inventory.
+  - `IRenderRayTracing::InitDXR`, `RenderBackendDX12::InitDXR`, DXR root
+    signature/pipeline/reflection-UAV helpers, `BLAS::Build`, `TLAS::Init`, and
+    `SBT::Build` now return `SbResult`. `Run::LoadScene` reports failed DXR
+    setup through the existing scene-load result path.
+  - The failure path that can occur after the terrain BLAS command has been
+    recorded now drains the command list before releasing DXR resources, so
+    cleanup does not leave recorded commands pointing at freed acceleration
+    structure memory.
+  - Strict anchored source throw statement inventory now reports 86 sites, down
+    from the previous sub-slice count of 100. `SB_FATAL` macro invocations
+    remain 153 via `rg -n "SB_FATAL\s*\(" SkullbonezSource`.
+  - Comment-style audit scope:
+    `SkullbonezSource/Rendering/IRenderRayTracing.h`,
+    `SkullbonezSource/Rendering/DX12/RenderBackendDX12.h`,
+    `SkullbonezSource/Rendering/DX12/RenderBackendDX12.DXR.cpp`,
+    `SkullbonezSource/Rendering/DX12/BLASDX12.h`,
+    `SkullbonezSource/Rendering/DX12/BLASDX12.cpp`,
+    `SkullbonezSource/Rendering/DX12/TLASDX12.h`,
+    `SkullbonezSource/Rendering/DX12/TLASDX12.cpp`,
+    `SkullbonezSource/Rendering/DX12/SBTDX12.h`,
+    `SkullbonezSource/Rendering/DX12/SBTDX12.cpp`, and
+    `SkullbonezSource/Runtime/Scene/RunScene.cpp`; checked 10, deferred 0. This
+    was a touched-file audit, so no subsystem checklist plan was required.
+  - Focused build passed: `tools\validate_build.bat Profile` exited 0 in
+    00:00:09.8573624 with 0 warnings and 0 errors. Log:
+    `Agentic/Reports/validate_build_profile_plan04_dxr_init_result_20260709.log`.
+  - Required DX12 gate passed: `tools\validate_dx12_renderer.bat` exited 0 in
+    00:00:36.2265314 with `VALIDATE_DX12_RENDERER: ALL PASSED`, DX12 validation
+    errors 0, and screenshots matching committed baselines. Log:
+    `Agentic/Reports/validate_dx12_renderer_plan04_dxr_init_result_20260709.log`.
+  - Required Runtime gate passed: `tools\validate_full.bat` exited 0 in
+    00:00:49.5630120 with `VALIDATE_FULL: DEFAULT GATE PASSED`, project filters
+    0 errors, runtime boundaries 0 errors, Profile/Debug builds 0
+    warnings/errors, source formatting clean, DX12 validation errors 0,
+    screenshots matching baselines, and `physics_regression_solver.csv`
+    byte-exact. Final log:
+    `Agentic/Reports/validate_full_plan04_dxr_init_result_20260709.log`.
 - [ ] **4.1** Do **not** maintain any throw count. The `MAX_SOURCE_THROW_TOKENS`
   ratchet is deleted by plan 03. Verify progress by re-running
   `rg -n "throw " SkullbonezSource` and confirming the F/R/P sites are converted;

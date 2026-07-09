@@ -517,9 +517,9 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     CreatePSO( VertexFormat12 format, bool instanced, const InstancedMeshDX12* im, const DynamicVBDX12* dvb );
     ID3D12PipelineState* EnsureGridLinePipeline( DXGI_FORMAT rtvFormat );
     void CheckDXRSupport();
-    void CreateRTRootSignature();
-    void CreateRTPipeline();
-    void CreateReflectionUAV( int width, int height );
+    Basics::SbResult CreateRTRootSignature();
+    Basics::SbResult CreateRTPipeline();
+    Basics::SbResult CreateReflectionUAV( int width, int height );
     void InitGenMipsPipeline();
     void GenerateMipsGPU( ID3D12Resource* tex, DXGI_FORMAT fmt, UINT w, UINT h, UINT numMips );
     void AssertPlatformProfilerGpuStackClosed( const char* reason ) const;
@@ -638,13 +638,13 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
         m_drawCallTrace.PopScope( hash );
     }
 
-    void InitDXR( uint64_t terrainVBVA,
-                  int terrainVertCount,
-                  int terrainStride,
-                  uint64_t sphereVBVA,
-                  int sphereVertCount,
-                  int sphereStride,
-                  int maxInstances ) override;
+    Basics::SbResult InitDXR( uint64_t terrainVBVA,
+                              int terrainVertCount,
+                              int terrainStride,
+                              uint64_t sphereVBVA,
+                              int sphereVertCount,
+                              int sphereStride,
+                              int maxInstances ) override;
     void DispatchReflectionRays( const float* invViewProj,
                                  const float* cameraPos,
                                  float waterY,

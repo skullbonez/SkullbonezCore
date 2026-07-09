@@ -31,6 +31,8 @@ Related:
 #pragma once
 
 
+#include "../../Core/SbResult.h"
+
 #include <d3d12.h>
 
 
@@ -55,13 +57,13 @@ class BLAS
     BLAS();
     ~BLAS();
 
-    void Build( ID3D12Device5* device,
-                ID3D12GraphicsCommandList4* cmdList,
-                D3D12_GPU_VIRTUAL_ADDRESS vbVA,
-                int vertexCount,
-                int vertexStride,
-                DXGI_FORMAT vertexPosFormat,
-                bool preferFastTrace );
+    Basics::SbResult Build( ID3D12Device5* device,
+                            ID3D12GraphicsCommandList4* cmdList,
+                            D3D12_GPU_VIRTUAL_ADDRESS vbVA,
+                            int vertexCount,
+                            int vertexStride,
+                            DXGI_FORMAT vertexPosFormat,
+                            bool preferFastTrace );
     D3D12_GPU_VIRTUAL_ADDRESS GetResultVA() const;
     // Release the temporary build workspace while keeping the finished BLAS
     // result buffer alive for TLAS instances and ray traversal.
