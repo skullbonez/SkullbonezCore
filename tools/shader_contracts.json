@@ -23,8 +23,8 @@
       "name": "trajectory_ribbon",
       "status": "active",
       "stages": ["hlsl"],
-      "uniforms": ["uViewProj", "uViewportPixels"],
-      "requiredSymbols": ["uViewProj", "uViewportPixels"]
+      "uniforms": ["uViewProj", "uViewportPixels", "uRibbonStyle"],
+      "requiredSymbols": ["uViewProj", "uViewportPixels", "uRibbonStyle"]
     },
     {
       "name": "lit_textured",

@@ -1371,6 +1371,68 @@ float ReplayPathFrameT( ReplayFrameIndex frame, ReplayFrameIndex start, ReplayFr
     return static_cast<float>( std::clamp( numerator / denominator, 0.0, 1.0 ) );
 }
 
+float ReplayColorLerp( float a, float b, float t )
+{
+    return a + ( b - a ) * std::clamp( t, 0.0f, 1.0f );
+}
+
+void ReplayPastRootColor( float t, float& r, float& g, float& b )
+{
+    const float ageT = std::clamp( t, 0.0f, 1.0f );
+    const float ageFade = 0.34f + ageT * 0.66f;
+    r = std::clamp( ReplayColorLerp( 0.76f, 1.00f, ageT ) * ageFade, 0.0f, 1.0f );
+    g = std::clamp( ReplayColorLerp( 0.18f, 0.92f, ageT ) * ageFade, 0.0f, 1.0f );
+    b = std::clamp( ReplayColorLerp( 0.28f, 0.96f, ageT ) * ageFade, 0.0f, 1.0f );
+}
+
+void ReplayFutureRootColor( float t, float& r, float& g, float& b )
+{
+    const float futureT = std::clamp( t, 0.0f, 1.0f );
+    r = std::clamp( ReplayColorLerp( 0.88f, 0.38f, futureT ), 0.0f, 1.0f );
+    g = std::clamp( ReplayColorLerp( 1.00f, 0.94f, futureT ), 0.0f, 1.0f );
+    b = std::clamp( ReplayColorLerp( 0.72f, 0.92f, futureT ), 0.0f, 1.0f );
+}
+
+void ReplayDepthPalette( int depth, float& r, float& g, float& b )
+{
+    // Concept: child depth is encoded as hue first and brightness second. This
+    // keeps grandchildren readable even when many branches overlap in the same
+    // prediction horizon.
+    switch ( std::clamp( depth - 1, 0, 4 ) )
+    {
+    case 0:
+        r = 1.00f;
+        g = 0.58f;
+        b = 0.18f;
+        break;
+    case 1:
+        r = 0.76f;
+        g = 0.92f;
+        b = 0.24f;
+        break;
+    case 2:
+        r = 0.26f;
+        g = 0.88f;
+        b = 0.96f;
+        break;
+    case 3:
+        r = 0.54f;
+        g = 0.62f;
+        b = 1.00f;
+        break;
+    default:
+        r = 0.96f;
+        g = 0.46f;
+        b = 0.76f;
+        break;
+    }
+
+    const float depthDim = std::clamp( static_cast<float>( depth - 1 ) * 0.055f, 0.0f, 0.28f );
+    r = std::clamp( r * ( 1.0f - depthDim ) + 0.18f * depthDim, 0.0f, 1.0f );
+    g = std::clamp( g * ( 1.0f - depthDim ) + 0.20f * depthDim, 0.0f, 1.0f );
+    b = std::clamp( b * ( 1.0f - depthDim ) + 0.24f * depthDim, 0.0f, 1.0f );
+}
+
 std::size_t ReplayPathStrideForSampleCount( std::size_t sampleCount )
 {
     if ( sampleCount <= REPLAY_PATH_MAX_SEGMENTS )
@@ -2096,13 +2158,17 @@ void DrawReplayRootPath( const ReplaySolverFrameSample& sample, void* userData )
              VectorMagSquared( body->position - context.pastPrevious ) > REPLAY_PATH_MIN_SEGMENT_DISTANCE_SQ )
         {
             const float t = ReplayPathFrameT( sample.frameIndex, context.firstFrame, context.presentFrame );
+            float r = 1.0f;
+            float g = 1.0f;
+            float b = 1.0f;
+            ReplayPastRootColor( t, r, g, b );
             if ( !TryAddReplayPathSegment( *context.tracer,
                                            context.ribbonQuota,
                                            context.pastPrevious,
                                            body->position,
-                                           1.0f,
-                                           t,
-                                           t,
+                                           r,
+                                           g,
+                                           b,
                                            MainMemoryReplayTrajectoryLane::PastRoot ) )
             {
                 return;
@@ -2118,13 +2184,17 @@ void DrawReplayRootPath( const ReplaySolverFrameSample& sample, void* userData )
              VectorMagSquared( body->position - context.futurePrevious ) > REPLAY_PATH_MIN_SEGMENT_DISTANCE_SQ )
         {
             const float t = ReplayPathFrameT( sample.frameIndex, context.presentFrame, context.lastFrame );
+            float r = 1.0f;
+            float g = 1.0f;
+            float b = 1.0f;
+            ReplayFutureRootColor( t, r, g, b );
             if ( !TryAddReplayPathSegment( *context.tracer,
                                            context.ribbonQuota,
                                            context.futurePrevious,
                                            body->position,
-                                           1.0f - t,
-                                           1.0f,
-                                           1.0f - t,
+                                           r,
+                                           g,
+                                           b,
                                            MainMemoryReplayTrajectoryLane::FutureRoot ) )
             {
                 return;
@@ -2775,19 +2845,30 @@ void RetainReplayPredictionRootRestMarker( RunReplayPredictionState& prediction,
 
 void ReplayChildIncomingColor( int depth, float t, float& r, float& g, float& b )
 {
-    const float depthFade = std::clamp( static_cast<float>( depth - 1 ) * 0.10f, 0.0f, 0.36f );
-    r = std::clamp( 0.96f - depthFade * 0.55f, 0.44f, 1.0f );
-    g = std::clamp( 0.48f + t * 0.34f - depthFade * 0.36f, 0.28f, 0.88f );
-    b = std::clamp( 0.16f + t * 0.20f - depthFade * 0.18f, 0.10f, 0.52f );
+    float baseR = 1.0f;
+    float baseG = 1.0f;
+    float baseB = 1.0f;
+    ReplayDepthPalette( depth, baseR, baseG, baseB );
+    const float arrivalT = std::clamp( t, 0.0f, 1.0f );
+    const float lift = 0.16f * ( 1.0f - arrivalT );
+    const float emphasis = 0.62f + arrivalT * 0.38f;
+    r = std::clamp( baseR * emphasis + lift, 0.10f, 1.0f );
+    g = std::clamp( baseG * emphasis + lift * 0.75f, 0.10f, 1.0f );
+    b = std::clamp( baseB * emphasis + lift * 0.55f, 0.10f, 1.0f );
 }
 
 void ReplayChildFutureColor( int depth, float t, float& r, float& g, float& b )
 {
-    const float depthFade = std::clamp( static_cast<float>( depth - 1 ) * 0.08f, 0.0f, 0.30f );
-    const float shade = std::clamp( 0.48f + t * 0.28f - depthFade, 0.25f, 0.78f );
-    r = shade;
-    g = shade;
-    b = shade + 0.06f;
+    float baseR = 1.0f;
+    float baseG = 1.0f;
+    float baseB = 1.0f;
+    ReplayDepthPalette( depth, baseR, baseG, baseB );
+    const float horizonT = std::clamp( t, 0.0f, 1.0f );
+    const float dim = 0.42f + horizonT * 0.24f;
+    const float grey = 0.18f + horizonT * 0.10f;
+    r = std::clamp( baseR * dim + grey, 0.12f, 0.92f );
+    g = std::clamp( baseG * dim + grey, 0.12f, 0.94f );
+    b = std::clamp( baseB * dim + grey + 0.04f, 0.16f, 0.98f );
 }
 
 #if SKULLBONEZ_REPLAY_LEGACY_TRAJECTORY_DRAW_FALLBACK
@@ -2922,9 +3003,7 @@ void DrawReplayPredictionRootTrajectoryFromStore( const RunReplayPredictionState
                                         [&]( ReplayFrameIndex frameIndex, float& r, float& g, float& b )
                                         {
                                             const float t = ReplayPathFrameT( frameIndex, 0, lastFrame );
-                                            r = 1.0f - t * 0.85f;
-                                            g = 1.0f;
-                                            b = 1.0f - t * 0.72f;
+                                            ReplayFutureRootColor( t, r, g, b );
                                         } );
 }
 
@@ -3105,9 +3184,7 @@ void DrawReplayPastRootTrajectoryFromStore( const RunReplayPredictionState& pred
                                         [&]( ReplayFrameIndex frameIndex, float& r, float& g, float& b )
                                         {
                                             const float t = ReplayPathFrameT( frameIndex, firstFrame, clampedPresent );
-                                            r = 1.0f;
-                                            g = t;
-                                            b = t;
+                                            ReplayPastRootColor( t, r, g, b );
                                         } );
     DrawReplayTrajectoryRecordSegments( *record,
                                         pointCount,
@@ -3121,9 +3198,7 @@ void DrawReplayPastRootTrajectoryFromStore( const RunReplayPredictionState& pred
                                         [&]( ReplayFrameIndex frameIndex, float& r, float& g, float& b )
                                         {
                                             const float t = ReplayPathFrameT( frameIndex, clampedPresent, lastFrame );
-                                            r = 1.0f - t;
-                                            g = 1.0f;
-                                            b = 1.0f - t;
+                                            ReplayFutureRootColor( t, r, g, b );
                                         } );
 }
 

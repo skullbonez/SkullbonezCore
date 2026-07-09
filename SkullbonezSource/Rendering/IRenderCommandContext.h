@@ -17,8 +17,8 @@ Glossary:
   Blend state: Rule for combining new pixel color with the target's old color.
   Dynamic vertex buffer: Backend-owned transient buffer used for text, overlays,
     and other per-frame geometry.
-  Transient triangle style: Shader interpretation for packed position/color/fx
-    triangles submitted for one frame.
+  Transient triangle style: Shader interpretation for packed overlay triangles
+    or replay segment payloads submitted for one frame.
   Instanced mesh: Static mesh plus per-instance data drawn many times in one
     backend call.
 
@@ -56,7 +56,8 @@ enum class TransientTriangleStyle
 {
     Color,
     SoftAdditiveRibbon,
-    TrajectoryRibbon
+    TrajectoryRibbon,
+    TrajectoryRibbonDepthHint
 };
 
 class IRenderCommandContext

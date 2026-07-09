@@ -69,7 +69,7 @@ constexpr std::size_t RUN_EDITOR_TRACER_REPLAY_RIBBON_SEGMENT_CAPACITY = 32768;
 constexpr std::size_t RUN_EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_SEGMENT = 13;
 constexpr std::size_t RUN_EDITOR_TRACER_REPLAY_RIBBON_FLOAT_CAPACITY =
     RUN_EDITOR_TRACER_REPLAY_RIBBON_SEGMENT_CAPACITY * RUN_EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_SEGMENT;
-constexpr std::size_t RUN_EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_VERTEX = 11;
+constexpr std::size_t RUN_EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_VERTEX = 13;
 constexpr std::size_t RUN_EDITOR_TRACER_REPLAY_RIBBON_VERTICES_PER_SEGMENT = 6;
 constexpr std::size_t RUN_EDITOR_TRACER_REPLAY_RIBBON_VERTEX_FLOAT_CAPACITY =
     RUN_EDITOR_TRACER_REPLAY_RIBBON_SEGMENT_CAPACITY * 2 * RUN_EDITOR_TRACER_REPLAY_RIBBON_VERTICES_PER_SEGMENT *
@@ -83,7 +83,9 @@ void AppendReplayRibbonVertex( std::vector<float>& vertexData,
                                float g,
                                float b,
                                float alpha,
-                               float width )
+                               float width,
+                               float edgeFeather,
+                               float hdrScale )
 {
     vertexData.push_back( start.x );
     vertexData.push_back( start.y );
@@ -96,6 +98,8 @@ void AppendReplayRibbonVertex( std::vector<float>& vertexData,
     vertexData.push_back( g );
     vertexData.push_back( b );
     vertexData.push_back( alpha );
+    vertexData.push_back( edgeFeather );
+    vertexData.push_back( hdrScale );
 }
 } // namespace
 
@@ -576,16 +580,18 @@ void RunEditorTracer::BuildReplayRibbonVertices( const Vector3& cameraEye, const
             const float bl = ribbonData[i + 8];
             const float width = (std::max)( 0.02f, ribbonData[i + 9] );
             const float alpha = std::clamp( ribbonData[i + 10], 0.0f, 1.0f );
+            const float edgeFeather = std::clamp( ribbonData[i + 11], 0.02f, 1.25f );
+            const float hdrScale = (std::max)( 0.0f, ribbonData[i + 12] );
 
             // Concept: each emitted vertex carries the same segment payload. The
             // trajectory-ribbon vertex shader uses SV_VertexID to choose
             // endpoint/edge and expand the ribbon at constant screen-space width.
-            AppendReplayRibbonVertex( m_replayRibbonVertexData, a, b, r, g, bl, alpha, width );
-            AppendReplayRibbonVertex( m_replayRibbonVertexData, a, b, r, g, bl, alpha, width );
-            AppendReplayRibbonVertex( m_replayRibbonVertexData, a, b, r, g, bl, alpha, width );
-            AppendReplayRibbonVertex( m_replayRibbonVertexData, a, b, r, g, bl, alpha, width );
-            AppendReplayRibbonVertex( m_replayRibbonVertexData, a, b, r, g, bl, alpha, width );
-            AppendReplayRibbonVertex( m_replayRibbonVertexData, a, b, r, g, bl, alpha, width );
+            AppendReplayRibbonVertex( m_replayRibbonVertexData, a, b, r, g, bl, alpha, width, edgeFeather, hdrScale );
+            AppendReplayRibbonVertex( m_replayRibbonVertexData, a, b, r, g, bl, alpha, width, edgeFeather, hdrScale );
+            AppendReplayRibbonVertex( m_replayRibbonVertexData, a, b, r, g, bl, alpha, width, edgeFeather, hdrScale );
+            AppendReplayRibbonVertex( m_replayRibbonVertexData, a, b, r, g, bl, alpha, width, edgeFeather, hdrScale );
+            AppendReplayRibbonVertex( m_replayRibbonVertexData, a, b, r, g, bl, alpha, width, edgeFeather, hdrScale );
+            AppendReplayRibbonVertex( m_replayRibbonVertexData, a, b, r, g, bl, alpha, width, edgeFeather, hdrScale );
         }
     };
 
@@ -886,7 +892,7 @@ void RunEditorTracer::AddReplayCausalEntryMarker( const Vector3& position,
     // Why: yellow always means "joined the causal tree here". Keep it as the
     // only marker on the ribbon shader, but emit one logical segment style so
     // marker outlines do not double the retained ribbon budget.
-    const ReplayRibbonStyle singlePass = { 1.65f, 0.95f, 0.80f, 3.45f };
+    const ReplayRibbonStyle singlePass = { 2.10f, 1.0f, 0.72f, 3.75f };
     EmitReplayRibbonShapeOutlineTo( m_priorityReplayRibbonSegments,
                                     position,
                                     orientation,
@@ -1148,16 +1154,23 @@ void RunEditorTracer::Render( const Matrix4& viewProjection,
             const bool cullWasEnabled = renderCommands.IsCullFaceEnabled();
             renderCommands.GetBlendFunc( blendSrc, blendDst );
 
-            // Concept: replay ribbons are transient segment payloads expanded
-            // by the renderer into screen-space-width ribbons. Depth testing
-            // keeps them seated in the scene; disabled depth writes prevent the
-            // overlay from occluding later transparent/debug work.
-            renderCommands.SetDepthTest( true );
+            // Concept: the first pass is a low-opacity depth hint with depth
+            // testing disabled; the normal pass is depth-tested, so visible
+            // strokes stay seated while occluded spans remain only faintly
+            // readable behind scene geometry.
+            renderCommands.SetDepthTest( false );
             renderCommands.SetDepthWrite( false );
             renderCommands.SetBlend( true );
             renderCommands.SetBlendFunc( Rendering::BlendFactor::SrcAlpha, Rendering::BlendFactor::One );
             renderCommands.SetCullFace( false );
 
+            renderCommands.DrawTransientColoredTriangles(
+                m_replayRibbonVertexData.data(),
+                static_cast<int>( m_replayRibbonVertexData.size() / RUN_EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_VERTEX ),
+                viewProjection.Data(),
+                Rendering::TransientTriangleStyle::TrajectoryRibbonDepthHint );
+
+            renderCommands.SetDepthTest( true );
             renderCommands.DrawTransientColoredTriangles(
                 m_replayRibbonVertexData.data(),
                 static_cast<int>( m_replayRibbonVertexData.size() / RUN_EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_VERTEX ),

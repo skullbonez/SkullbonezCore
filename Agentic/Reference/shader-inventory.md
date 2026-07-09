@@ -52,7 +52,7 @@ return without failing the draw.
 | `solid_color.hlsl` | HUD/background solid quads. |
 | `solid_color_batch.hlsl` | Batched colored UI/debug quads. |
 | `text.hlsl` | Batched font-atlas text rendering. |
-| `trajectory_ribbon.hlsl` | Replay trajectory ribbon overlay with shader-side screen-space expansion. |
+| `trajectory_ribbon.hlsl` | Replay trajectory ribbon overlay with shader-side screen-space expansion, style feathering, and depth-hint underlay. |
 | `UIBackdropBlur.hlsl` | UI backdrop blur sampling pass. |
 | `unlit_textured.hlsl` | Unlit textured skybox/simple textured pass. |
 | `water_calm.hlsl` | Inner flat reflective water zone. |

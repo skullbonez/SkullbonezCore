@@ -1,14 +1,14 @@
 # Replay: Trajectory Visuals, Prediction Job, Memory Quality, Code Size
 
 Date: 2026-07-09 (consolidated mega plan)
-Status: In progress - Stage 6 complete (prediction isolation, trajectory
+Status: In progress - Stage 7 complete (prediction isolation, trajectory
 visuals investigation, counters, memory accounting, draw-loop determinism,
 same-target refresh reveal preservation, past-path visibility, contact
 completeness reporting, the TrajectoryStore publication shell, the build-pass
 writer migration, store-backed draw reads, the default-off legacy draw fallback,
 frozen hierarchy topology/shared reveal clamp, contact-tick child activation,
 the twice-run prediction determinism probe, the prediction worker job, and the
-DX12 trajectory-ribbon renderer are complete; visual polish, memory tuning,
+DX12 trajectory-ribbon renderer, and visual polish are complete; memory tuning,
 tooling cleanup, and code-size work remain open)
 Impact area: replay runtime, replay prediction, trajectory overlay rendering,
 DX12 transient geometry, physics stepping, UI
@@ -949,8 +949,62 @@ Stage 6 — Rendering backend
     361 active frames).
 
 Stage 7 — Visual polish
-- [ ] 7.1 Age fade on past path; screen-space feather tuning; depth-behind
+- [x] 7.1 Age fade on past path; screen-space feather tuning; depth-behind
   dimming; per-depth gradient palette; entry-box emphasis.
+
+  Complete 2026-07-10: replay trajectory color is now draw-time palette math
+  instead of fixed inline RGB formulas. Past-root paths fade by retained-sample
+  age, future-root paths shift from near warm mint to cooler horizon color, and
+  child incoming/outgoing paths use a depth-indexed hue palette with brightness
+  dimming for deeper branches. The legacy fallback path uses the same helpers
+  so its behavior stays aligned while it remains default-off.
+
+  `RunEditorTracer` now repacks trajectory ribbons as 13-float segment vertices
+  carrying feather and HDR-emphasis style hints. The trajectory shader consumes
+  those hints, adds tuned edge/core/shoulder feathering, and exposes
+  `uRibbonStyle` so the DX12 backend can draw a faint depth-hint underlay before
+  the normal depth-tested pass. The yellow causal entry box is wider/brighter
+  for emphasis; rest/horizon/baseline markers remain on the Stage 6 line path.
+  No visual baseline files were updated because all three DX12 renderer passes
+  matched the committed baselines.
+
+  Touched-source comment audit inspected 8 source-bearing files with 0 deferred
+  (`RenderBackendDX12.DynamicGeometry.cpp`, `RenderBackendDX12.cpp`,
+  `RenderBackendDX12.h`, `IRenderCommandContext.h`, `RunEditorTracer.cpp`,
+  `RunReplayTools.cpp`, `RuntimeTools.h`, and `trajectory_ribbon.hlsl`). The
+  audit refreshed the transient-triangle glossary and stale 11-float ribbon
+  payload wording; no subsystem checklist was required for this touched-file
+  pass.
+
+  Focused checks passed: `tools\validate_format.bat` in 9.96s after the comment
+  audit (`Agentic\Reports\validate_format_replay_stage7_post_audit_20260710.log`);
+  `tools\validate_build.bat Profile` in 15.81s with 0 warnings/errors
+  (`Agentic\Reports\validate_build_profile_replay_stage7_initial_20260710.log`);
+  `python .\tools\validate_shaders.py` in 0.15s
+  (`Agentic\Reports\validate_shaders_replay_stage7_final_20260710.log`: 0
+  errors, 11 pre-existing warnings); and `git diff --check` passed.
+
+  Final gates passed: `tools\validate_replay_scrub.bat` in 50.55s
+  (`Agentic\Reports\validate_replay_scrub_replay_stage7_final_20260710.log`);
+  `tools\validate_dx12_renderer.bat` x3 in 23.61s, 22.62s, and 22.74s
+  (`Agentic\Reports\validate_dx12_renderer_replay_stage7_final_run1_20260710.log`,
+  `...run2...`, `...run3...`; manifests
+  `TestOutput\validation\dx12_renderer\20260709T185557Z\manifest.json`,
+  `20260709T185619Z\manifest.json`, and
+  `20260709T185642Z\manifest.json`; every run had DX12 validation errors 0 and
+  screenshots matching baselines).
+
+  SkullScope accounting from the replay scrub gate:
+  - Scrub trace command: `C:\SkullbonezCore\Debug\SKULLBONEZ_CORE.exe --renderer dx12 --vsync off --shadows off --scene SkullbonezData/scenes/physics_roll.scene.json --frames 120 --replay on --replay-seconds 1 --replay-scrub-test --physics-diag C:\SkullbonezCore\Debug\replay_scrub.physicsdiag.ndjson`
+  - Scrub query: `tools\physics_query.bat Debug\replay_scrub.physicsdiag.ndjson replay --limit 8`; trace 54,932 bytes; SQLite cache 225,280 bytes; query output 1,512 bytes.
+  - Restore trace command: `C:\SkullbonezCore\Debug\SKULLBONEZ_CORE.exe --renderer dx12 --vsync off --shadows off --scene SkullbonezData/scenes/physics_roll.scene.json --frames 120 --replay on --replay-seconds 1 --replay-restore-test --physics-diag C:\SkullbonezCore\Debug\replay_restore.physicsdiag.ndjson`
+  - Restore query: `tools\physics_query.bat Debug\replay_restore.physicsdiag.ndjson restore --limit 8`; trace 54,912 bytes; SQLite cache 225,280 bytes; query output 967 bytes.
+  - Total model-read SkullScope query output: 2,479 bytes. Raw NDJSON/SQLite
+    sizes above are artifact sizes, not model-ingested text.
+  - Prediction determinism reports were 4,614 bytes each; bounded stdout
+    excerpts were 60,294 bytes each. Final prediction fingerprint
+    `0x0165312C5422A5F1` matched across two runs (402 records, 73,021 points,
+    361 active frames).
 
 Stage 8 — Replay memory data-model tuning (old B2–B4; re-derive first)
 - [ ] 8.1 Re-derive the data model against post-Stage-3 code (June draft in

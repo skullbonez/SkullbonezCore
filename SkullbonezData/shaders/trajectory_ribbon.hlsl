@@ -10,13 +10,14 @@ Mental model:
   screen pixels instead of world units.
 
 Glossary:
-  Segment payload: start position, end position plus width, and rgba color.
+  Segment payload: start position, end position plus width, rgba color, and
+    feather/brightness style hints.
   Edge coordinate: Shader-derived -1/+1 value interpolated across the ribbon.
   Screen-space width: Ribbon width measured in pixels after projection.
 
 Invariants:
-  - Input layout is position, end/width, then color/alpha; CPU generation in
-    RunEditorTracer must keep the same 11-float vertex shape.
+  - Input layout is position, end/width, color/alpha, then style hints; CPU
+    generation in RunEditorTracer must keep the same 13-float vertex shape.
   - The shader changes only presentation. Replay simulation and prediction data
     remain owned by replay runtime code.
 
@@ -30,6 +31,7 @@ cbuffer Uniforms : register( b0 )
 {
     float4x4 uViewProj;
     float4 uViewportPixels;
+    float4 uRibbonStyle; // opacity scale, brightness scale, feather scale, unused
 };
 
 struct VS_IN
@@ -37,6 +39,7 @@ struct VS_IN
     float3 start : POSITION;
     float4 endAndWidth : TEXCOORD0; // end.xyz, width in replay-ribbon units
     float4 color : TEXCOORD1;       // rgb, alpha
+    float2 style : TEXCOORD2;       // edge feather, HDR emphasis
 };
 
 struct VS_OUT
@@ -44,6 +47,7 @@ struct VS_OUT
     float4 position : SV_POSITION;
     float4 color : COLOR0;
     float edgeCoord : TEXCOORD0;
+    float2 style : TEXCOORD1;
 };
 
 float SafeClipW( float w )
@@ -82,18 +86,25 @@ VS_OUT main_vs( VS_IN input, uint vertexId : SV_VertexID )
     output.position = baseClip;
     output.color = saturate( input.color );
     output.edgeCoord = side;
+    output.style = float2( max( input.style.x, 0.02 ), max( input.style.y, 0.0 ) );
     return output;
 }
 
 float4 main_ps( VS_OUT input ) : SV_TARGET
 {
     const float edge = saturate( abs( input.edgeCoord ) );
-    const float glow = 1.0 - smoothstep( 0.18, 1.0, edge );
-    const float core = 1.0 - smoothstep( 0.0, 0.38, edge );
-    const float coverage = saturate( glow * 0.36 + core * 0.88 );
-    const float alpha = saturate( input.color.a * coverage );
+    const float feather = clamp( input.style.x * max( uRibbonStyle.z, 0.25 ), 0.08, 1.25 );
+    const float glowStart = saturate( 0.96 - feather * 0.46 );
+    const float shoulderStart = saturate( 0.56 - feather * 0.22 );
+    const float coreEnd = saturate( 0.24 + feather * 0.18 );
+    const float glow = 1.0 - smoothstep( glowStart, 1.0, edge );
+    const float shoulder = 1.0 - smoothstep( shoulderStart, 1.0, edge );
+    const float core = 1.0 - smoothstep( 0.0, coreEnd, edge );
+    const float coverage = saturate( glow * 0.22 + shoulder * 0.28 + core * 0.72 );
+    const float alpha = saturate( input.color.a * max( uRibbonStyle.x, 0.0 ) * coverage );
     clip( alpha - 0.001 );
 
-    const float hdrScale = 1.35 + core * 1.75 + glow * 0.55;
+    const float hdrScale =
+        input.style.y * max( uRibbonStyle.y, 0.0 ) * ( 0.70 + core * 0.30 + shoulder * 0.12 + glow * 0.06 );
     return float4( max( input.color.rgb, 0.0 ) * hdrScale, alpha );
 }

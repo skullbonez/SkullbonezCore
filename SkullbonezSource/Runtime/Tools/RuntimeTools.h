@@ -258,8 +258,8 @@ class RunEditorTracer
     {
         float width = 0.25f;                                                // Replay-ribbon width unit expanded to pixels by the shader.
         float alpha = 0.80f;                                                // Blend weight before shader edge falloff.
-        float edgeFeather = 0.38f;                                          // Packed spare field; current shader uses fixed edge falloff.
-        float hdrScale = 1.0f;                                              // Packed spare field; current shader uses fixed brightness.
+        float edgeFeather = 0.38f;                                          // Edge fade width consumed by replay/legacy ribbon shaders.
+        float hdrScale = 1.0f;                                              // HDR emphasis hint consumed by ribbon pixel shaders.
     };
 
     std::vector<float> m_lineData;
@@ -268,7 +268,7 @@ class RunEditorTracer
     std::vector<float> m_replayRibbonSegments;                              // Packed 13-float replay segments before shader-side expansion.
     std::vector<float> m_priorityReplayRibbonSegments;                      // Retained yellow entry ribbon segments that survive path overflow.
     std::vector<float>
-        m_replayRibbonVertexData;                                           // Packed 11-float segment vertices consumed by the trajectory ribbon style.
+        m_replayRibbonVertexData;                                           // Packed 13-float segment vertices consumed by the trajectory ribbon style.
 
     void EmitLineTo( std::vector<float>& lineData,
                      const Math::Vector::Vector3& a,

@@ -73,6 +73,8 @@ std::size_t TransientTriangleStyleIndex( TransientTriangleStyle style )
 {
     switch ( style )
     {
+    case TransientTriangleStyle::TrajectoryRibbonDepthHint:
+        return 3;
     case TransientTriangleStyle::TrajectoryRibbon:
         return 2;
     case TransientTriangleStyle::SoftAdditiveRibbon:
@@ -87,6 +89,7 @@ const char* TransientTriangleShaderBaseName( TransientTriangleStyle style )
 {
     switch ( style )
     {
+    case TransientTriangleStyle::TrajectoryRibbonDepthHint:
     case TransientTriangleStyle::TrajectoryRibbon:
         return "shaders/trajectory_ribbon";
     case TransientTriangleStyle::SoftAdditiveRibbon:
@@ -101,6 +104,8 @@ const char* TransientTriangleTraceLabel( TransientTriangleStyle style )
 {
     switch ( style )
     {
+    case TransientTriangleStyle::TrajectoryRibbonDepthHint:
+        return "TrajectoryRibbonDepthHint";
     case TransientTriangleStyle::TrajectoryRibbon:
         return "TrajectoryRibbon";
     case TransientTriangleStyle::SoftAdditiveRibbon:
@@ -109,6 +114,12 @@ const char* TransientTriangleTraceLabel( TransientTriangleStyle style )
     default:
         return "TornadoVisual";
     }
+}
+
+bool IsTrajectoryRibbonStyle( TransientTriangleStyle style )
+{
+    return style == TransientTriangleStyle::TrajectoryRibbon ||
+           style == TransientTriangleStyle::TrajectoryRibbonDepthHint;
 }
 } // namespace
 
@@ -341,20 +352,34 @@ void RenderBackendDX12::DrawTransientColoredTriangles( const float* data,
     ShaderDX12* shader = static_cast<ShaderDX12*>( EnsureTransientTriangleShader( style ) );
     shader->Use();
     shader->SetMat4( "uViewProj", Matrix4( viewProjMatrix16 ) );
-    if ( style == TransientTriangleStyle::TrajectoryRibbon )
+    if ( IsTrajectoryRibbonStyle( style ) )
     {
         // Concept: the trajectory shader expands segment payloads in clip space.
         // The viewport lets it translate pixel width into stable NDC offsets.
         shader->SetVec4( "uViewportPixels", static_cast<float>( m_width ), static_cast<float>( m_height ), 0.0f, 0.0f );
+        const bool depthHint = style == TransientTriangleStyle::TrajectoryRibbonDepthHint;
+        shader->SetVec4( "uRibbonStyle",
+                         depthHint ? 0.20f : 1.0f,
+                         depthHint ? 0.36f : 1.0f,
+                         depthHint ? 1.25f : 1.0f,
+                         0.0f );
     }
 
     DynamicVBDX12 vertexLayout = {};
-    vertexLayout.numAttribs = 3;
+    vertexLayout.numAttribs = IsTrajectoryRibbonStyle( style ) ? 4 : 3;
     vertexLayout.attribComponents[0] = 3;
     vertexLayout.attribComponents[1] = 4;
     vertexLayout.attribComponents[2] = 4;
-    vertexLayout.floatsPerVertex = 11;
-    vertexLayout.stride = 11 * static_cast<int>( sizeof( float ) );
+    if ( IsTrajectoryRibbonStyle( style ) )
+    {
+        vertexLayout.attribComponents[3] = 2;
+        vertexLayout.floatsPerVertex = 13;
+    }
+    else
+    {
+        vertexLayout.floatsPerVertex = 11;
+    }
+    vertexLayout.stride = vertexLayout.floatsPerVertex * static_cast<int>( sizeof( float ) );
 
     const UINT64 dataSize = static_cast<UINT64>( vertexCount ) * static_cast<UINT64>( vertexLayout.stride );
     const D3D12_GPU_VIRTUAL_ADDRESS vbAddress = ReserveUpload( dataSize, 4 );
