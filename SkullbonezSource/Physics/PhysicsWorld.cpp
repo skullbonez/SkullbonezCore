@@ -749,6 +749,44 @@ struct ApplyForcesStageContext
     }
 };
 
+void IntegrateRemainingSolverBody( PhysicsBodyStore& bodyStore,
+                                   const ColliderStore& colliderStore,
+                                   const PhysicsBodyRecordList& bodyRecords,
+                                   const std::vector<uint8_t>& sleepState,
+                                   const std::vector<float>& timeRemaining,
+                                   int bodyIndex )
+{
+    if ( IsSolverBodyFixed( bodyRecords, bodyIndex ) )
+    {
+        return;
+    }
+    if ( sleepState[bodyIndex] )
+    {
+        return;
+    }
+
+    if ( timeRemaining[bodyIndex] > 0.0f )
+    {
+        (void)bodyStore.IntegrateBodyPose( colliderStore, bodyIndex, timeRemaining[bodyIndex] );
+    }
+}
+
+struct IntegrateRemainingStageContext
+{
+    // Lifetime: this callable borrows solver records for the final pose
+    // integration dispatch only; it owns no persistent body state.
+    PhysicsBodyStore& bodyStore;
+    const ColliderStore& colliderStore;
+    const PhysicsBodyRecordList& bodyRecords;
+    const std::vector<uint8_t>& sleepState;
+    const std::vector<float>& timeRemaining;
+
+    void operator()( int bodyIndex ) const
+    {
+        IntegrateRemainingSolverBody( bodyStore, colliderStore, bodyRecords, sleepState, timeRemaining, bodyIndex );
+    }
+};
+
 RuntimeAllocation::RuntimeReserveOwnerHandle ReplaySolverSnapshotReserveOwner()
 {
     static const RuntimeAllocation::RuntimeReserveOwnerHandle owner =
@@ -3712,28 +3750,17 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
 
     // Integrate remaining time for awake models
     PROFILE_BEGIN( "Frame/Physics/Integrate" );
-    auto integrateRemainingAt = [&]( int x )
-    {
-        if ( IsSolverBodyFixed( bodyRecords, x ) )
-        {
-            return;
-        }
-        if ( m_sleepState[x] )
-        {
-            return;
-        }
-
-        if ( m_timeRemaining[x] > 0.0f )
-        {
-            (void)bodyStore.IntegrateBodyPose( colliderStore, x, m_timeRemaining[x] );
-        }
-    };
+    IntegrateRemainingStageContext integrateRemainingStage{ bodyStore,
+                                                            colliderStore,
+                                                            bodyRecords,
+                                                            m_sleepState,
+                                                            m_timeRemaining };
 
     if ( config.physicsParallel && config.physicsParallelIntegrate )
     {
         workerPool.ParallelForNoAlloc( 0,
                                        modelCount,
-                                       integrateRemainingAt,
+                                       integrateRemainingStage,
                                        PHYSICS_PARALLEL_MIN_BODIES,
                                        "Frame/Physics/Integrate/WorkerBodies",
                                        PHYSICS_INTEGRATE_WORKER_HASH );
@@ -3742,7 +3769,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
     {
         for ( int x = 0; x < modelCount; ++x )
         {
-            integrateRemainingAt( x );
+            integrateRemainingStage( x );
         }
     }
 

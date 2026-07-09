@@ -191,8 +191,8 @@ island-merge tie-breaks.
   - [x] L3220 `commitTerrainCandidate`: terrain hit/manifold side effects.
 
   Remaining-time integration and sleep:
-  - [ ] L3319 `integrateRemainingAt`: per-body remaining-time integration.
-- [ ] **1.2** For **one stage at a time**: extract its lambda(s) into a named
+  - [x] L3319 `integrateRemainingAt`: per-body remaining-time integration.
+- [x] **1.2** For **one stage at a time**: extract its lambda(s) into a named
   `static` free function taking explicit parameters (`bodyStore`,
   `colliderStore`, `worldForces`, `dt`, plus the specific arrays it uses) instead
   of captures. Do not change computation order. Gate: `validate_physics`
@@ -452,6 +452,18 @@ island-merge tie-breaks.
     `TestOutput\agent_logs\plan02_commit_terrain_candidate_validate_physics_20260709_1109.log`
     (39.0s shell runtime; Debug/Profile builds 0 warnings and 0 errors; final
     `VALIDATE_PHYSICS: ALL PASSED`).
+  - Extracted the `integrateRemainingAt` lambda into
+    `IntegrateRemainingSolverBody` plus `IntegrateRemainingStageContext`,
+    preserving the fixed-body skip, sleeping-body skip, positive remaining-time
+    guard, and serial/parallel dispatch shape. Gate evidence:
+    `tools\validate_physics.bat` passed in
+    `TestOutput\agent_logs\plan02_integrate_remaining_at_validate_physics_20260709_1114.log`
+    (27.6s shell runtime; Debug/Profile builds 0 warnings and 0 errors; final
+    `VALIDATE_PHYSICS: ALL PASSED`).
+  - Step 1.2 closure evidence: a scoped scan of
+    `PhysicsWorld::RunSolverPhysics` after the final extraction reported
+    `LAMBDA_MATCH_COUNT=0`. The function body is still 745 lines, so Step 1.3
+    remains open for driver shrink confirmation/work.
 - [ ] **1.3** `RunSolverPhysics` is now a short driver calling named stages;
   confirm it is under ~300 lines.
 - [ ] **1.4** Add a unit test for at least one now-pure stage (e.g. broadphase
