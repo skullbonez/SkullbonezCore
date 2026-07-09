@@ -16,6 +16,8 @@ Glossary:
     validation run can complete.
   Collider descriptor: Value packet carrying parsed shape and contact material
     facts into the physics collider store.
+  Lane R: Recoverable result error lane for external input such as scene files
+    and authored asset metadata.
   Ragdoll part: One model body in the generated simple ragdoll assembly.
   Scene object group: Parsed metadata that ties multi-part authored objects,
     such as releasable trees, to a single root scene object.
@@ -612,7 +614,12 @@ SbResult SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context,
     for ( int i = 0; i < scene.GetConvexHullCount(); ++i )
     {
         const SceneConvexHull& hullScene = scene.GetConvexHull( i );
-        const ConvexHullShape hull = ConvexHullShape::LoadFromFile( ResolveEditorHullAssetPath( hullScene.hullPath ) );
+        ConvexHullShape hull;
+        SbResult hullLoad = ConvexHullShape::TryLoadFromFile( ResolveEditorHullAssetPath( hullScene.hullPath ), hull );
+        if ( !hullLoad.ok )
+        {
+            return hullLoad;
+        }
         const Vector3 inertia = hull.ComputeBoxApproxInertia( hullScene.mass );
         const Vector3 authoredPosition( hullScene.posX, hullScene.posY, hullScene.posZ );
 
@@ -679,7 +686,12 @@ SbResult SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context,
     for ( int i = 0; i < scene.GetConvexHullStateCount(); ++i )
     {
         const SceneConvexHullState& hullScene = scene.GetConvexHullState( i );
-        const ConvexHullShape hull = ConvexHullShape::LoadFromFile( ResolveEditorHullAssetPath( hullScene.hullPath ) );
+        ConvexHullShape hull;
+        SbResult hullLoad = ConvexHullShape::TryLoadFromFile( ResolveEditorHullAssetPath( hullScene.hullPath ), hull );
+        if ( !hullLoad.ok )
+        {
+            return hullLoad;
+        }
 
         GameModel gameModel;
 

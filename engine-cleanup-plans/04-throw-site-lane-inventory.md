@@ -20,6 +20,13 @@ Plan: `engine-cleanup-plans/04-error-handling-policy-reconciliation.md` Step 0.1
 | P | 4 |
 | R | 116 |
 
+## Resolved Progress
+
+- 2026-07-09 ConvexHullShape recoverable hull-load boundary: rows 143-183 are
+  converted from authored hull parse/load throws to `SbResult` results or the
+  bounded fatal wrapper/invariant path documented in Plan 04. Current strict
+  anchored source throw count: 22.
+
 ## Site Table
 
 | # | File | Line | Lane | Throw | Classification note |

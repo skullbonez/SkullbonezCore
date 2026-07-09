@@ -1008,6 +1008,48 @@ byte-exact gated.
   - `tools\validate_full.bat` was not required for this sub-slice because the
     behavioral surface is renderer texture/resource handling and the required
     DX12 renderer gate passed.
+
+  Progress 2026-07-09, ConvexHullShape recoverable hull-load boundary:
+  - Converted forty-one authored hull parse/load rows from exception exits to
+    Lane R results: `ConvexHullShape.cpp` rows 143 through 183 from the Step 0.1
+    inventory.
+  - `ConvexHullShape::TryLoadFromFile` now returns `SbResult` with bounded
+    owner/message diagnostics and uses an RAII file handle so parse failures do
+    not need rethrow blocks to close the file. `LoadFromFile` remains as a
+    legacy/test valid-path wrapper that turns an unexpected failure into
+    `SB_FATAL("Physics/ConvexHullShape", ...)`.
+  - Scene-authored hull setup returns hull-load failures through the existing
+    `SceneAuthoredSetup::SetUpGameModels` / `Run::LoadScene` result boundary.
+    Test-scene default-mass lookup feeds failures into the existing parser
+    `Fail` boundary. Editor placement and editor asset caches log and skip the
+    affected placement/cache entry instead of terminating the app.
+  - Scaled-hull face degeneration is now a fatal owner invariant because
+    positive finite copy-scale should preserve already validated baked hull
+    topology.
+  - Strict anchored source throw statement inventory now reports 22 sites, down
+    from the previous sub-slice count of 63. `SB_FATAL` macro invocations now
+    report 165 via `rg -n "SB_FATAL\s*\(" SkullbonezSource`.
+  - Comment-style audit scope:
+    `SkullbonezSource/Physics/ConvexHullShape.cpp`,
+    `SkullbonezSource/Physics/ConvexHullShape.h`,
+    `SkullbonezSource/Runtime/Editor/RunEditorObjectPlacement.cpp`,
+    `SkullbonezSource/Runtime/Editor/RunEditorPlacementAssets.cpp`,
+    `SkullbonezSource/Runtime/Scene/SceneAuthoredSetup.cpp`, and
+    `SkullbonezSource/Scene/TestSceneParser.cpp`; checked 6, deferred 0. This
+    was a touched-file audit, so no subsystem checklist plan was required.
+  - Focused build passed: `tools\validate_build.bat Profile` exited 0 in
+    00:00:18.2303251 with 0 warnings and 0 errors. Log:
+    `Agentic/Reports/validate_build_profile_plan04_convex_hull_result_20260709.log`.
+  - Runtime boundary checker passed: `python tools\check_runtime_boundaries.py
+    --repo . --json-out Agentic/Reports/check_runtime_boundaries_plan04_convex_hull_result_20260709.json`
+    exited 0 in 00:00:19.5329653 with 0 errors. The generated JSON summary was
+    removed from the worktree after the pass; log:
+    `Agentic/Reports/check_runtime_boundaries_plan04_convex_hull_result_20260709.log`.
+  - Required physics gate passed on the final source tree:
+    `tools\validate_physics.bat` exited 0 in 00:00:29.0767839 with
+    `VALIDATE_PHYSICS: ALL PASSED`, Debug/Profile builds 0 warnings/errors, and
+    deterministic physics output matching the committed baseline. Log:
+    `Agentic/Reports/validate_physics_plan04_convex_hull_result_20260709.log`.
 - [ ] **4.1** Do **not** maintain any throw count. The `MAX_SOURCE_THROW_TOKENS`
   ratchet is deleted by plan 03. Verify progress by re-running
   `rg -n "throw " SkullbonezSource` and confirming the F/R/P sites are converted;

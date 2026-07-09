@@ -5,6 +5,12 @@ Branch: `nightrunner-8th-july`
 Latest pushed commit: `e699437f docs(cleanup): record owner cleanup decisions`
 Worktree at handoff: clean and synced with `origin/nightrunner-8th-july`
 
+> Current continuation note: this restart handoff is historical. For the latest
+> Plan 04 source-slice state, read `Agentic/SessionState.md` and
+> `engine-cleanup-plans/HANDOFF-2026-07-09-PLAN04-CONVEX-HULL-RESULT.md`.
+> The strict anchored throw inventory is now 22 after the ConvexHullShape
+> hull-load result batch.
+
 ## Status
 
 The long-running goal was intentionally stopped by the owner so the machine can

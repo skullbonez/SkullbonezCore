@@ -324,7 +324,13 @@ bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
         {
             return;
         }
-        const ConvexHullShape hull = ConvexHullShape::LoadFromFile( path );
+        ConvexHullShape hull;
+        const SkullbonezCore::Basics::SbResult hullLoad = ConvexHullShape::TryLoadFromFile( path, hull );
+        if ( !hullLoad.ok )
+        {
+            fprintf( stderr, "[editor] Cannot place hull asset %s: %s\n", label, hullLoad.error.message );
+            return;
+        }
         ConvexHullShape scaledHull = hull;
         scaledHull.ScaleAxis( 0, placementScale.x );
         scaledHull.ScaleAxis( 1, placementScale.y );

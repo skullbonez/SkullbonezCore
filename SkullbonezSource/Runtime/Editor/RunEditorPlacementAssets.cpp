@@ -52,6 +52,7 @@ using SkullbonezCore::Assets::EDITOR_HULL_ASSETS;
 using SkullbonezCore::Assets::EditorHullAsset;
 using SkullbonezCore::Assets::EditorHullAssetDefaultsToContactRelease;
 using SkullbonezCore::Assets::EditorHullAssetPath;
+using SkullbonezCore::Assets::EditorHullAssetToken;
 using SkullbonezCore::Assets::ResolveEditorHullAssetPath;
 using SkullbonezCore::Math::Vector::Vector3;
 using Json = SkullbonezCore::Basics::RunInternal::EditorPlacementJson;
@@ -474,7 +475,15 @@ const ConvexHullShape* CachedEditorBuildingHull( const std::string& hullPath )
             return &entry.second;
         }
     }
-    hulls.emplace_back( hullPath, ConvexHullShape::LoadFromFile( ResolveEditorHullAssetPath( hullPath.c_str() ) ) );
+    ConvexHullShape hull;
+    const SkullbonezCore::Basics::SbResult hullLoad =
+        ConvexHullShape::TryLoadFromFile( ResolveEditorHullAssetPath( hullPath.c_str() ), hull );
+    if ( !hullLoad.ok )
+    {
+        fprintf( stderr, "[editor] Cannot cache building hull %s: %s\n", hullPath.c_str(), hullLoad.error.message );
+        return nullptr;
+    }
+    hulls.emplace_back( hullPath, hull );
     return &hulls.back().second;
 }
 
@@ -1766,7 +1775,17 @@ const ConvexHullShape* CachedEditorHullForAsset( EditorHullAsset asset )
         }
         if ( !loaded[i] )
         {
-            hulls[i] = ConvexHullShape::LoadFromFile( path );
+            ConvexHullShape hull;
+            const SkullbonezCore::Basics::SbResult hullLoad = ConvexHullShape::TryLoadFromFile( path, hull );
+            if ( !hullLoad.ok )
+            {
+                fprintf( stderr,
+                         "[editor] Cannot cache hull asset %s: %s\n",
+                         EditorHullAssetToken( asset ),
+                         hullLoad.error.message );
+                return nullptr;
+            }
+            hulls[i] = hull;
             loaded[i] = true;
         }
         return &hulls[i];
