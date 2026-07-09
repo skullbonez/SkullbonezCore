@@ -202,6 +202,23 @@ byte-exact gated.
   - Required gate passed: `tools\validate_full.bat` exited 0 in
     00:00:55.0646955. Log:
     `Agentic/Reports/validate_full_plan04_cameracollection_fatals_20260709.log`.
+
+  Progress 2026-07-09, TestScene collection fatal-invariant sub-slice:
+  - Converted twelve F sites from `throw std::runtime_error` to a local
+    `SB_FATAL("TestScene", ...)` helper: `TestScene.cpp` rows 10 through 21
+    from the Step 0.1 inventory. The replacements cover parsed scene collection
+    getter bounds for cameras, bodies, states, constraints, broadphase
+    expectations, and material overrides after scene parsing has succeeded.
+  - Strict anchored source throw statement inventory now reports 152 sites,
+    down from the previous sub-slice count of 164. `SB_FATAL` macro invocations
+    now report 121 via `rg -n "SB_FATAL\s*\(" SkullbonezSource`; this slice uses
+    one shared helper for twelve fatal getter paths.
+  - Comment-style audit scope: `SkullbonezSource/Scene/TestScene.cpp`;
+    checked 1, deferred 0. The learning header now calls out scene collection
+    getter invariants and the Lane F/Lane R split.
+  - Required gate passed: `tools\validate_full.bat` exited 0 in
+    00:00:57.7012411. Log:
+    `Agentic/Reports/validate_full_plan04_testscene_fatals_20260709.log`.
 - [ ] **2.1** Convert **P** sites (replay/interaction probes) to the
   `FailAutomation(...)` channel with `ok=false` + message. Gate: `validate_full`
   + replay scrub. Commit.
