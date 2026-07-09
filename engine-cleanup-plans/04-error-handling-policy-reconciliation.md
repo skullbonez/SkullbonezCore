@@ -881,6 +881,36 @@ byte-exact gated.
     `Agentic/Reports/validate_dx12_renderer_plan04_root_mips_result_20260709.log`.
   - `tools\validate_full.bat` was not required for this sub-slice because the
     final diff only touched DX12 renderer startup files and Plan 04 documentation.
+
+  Progress 2026-07-09, RenderDeviceDX12 descriptor fatal-invariant follow-up:
+  - Converted six shader-visible descriptor allocator capacity/index/caller
+    invariant throws to `SB_FATAL("RenderDeviceDX12", ...)`: static SRV heap
+    exhaustion, transient SRV heap exhaustion, zero-count transient range
+    requests, transient range exhaustion, shader-visible descriptor index
+    validation, and staging descriptor index validation.
+  - These rows were listed in the original inventory's R bucket with the note to
+    keep them recoverable unless the message identified an owner invariant. This
+    batch applies that exception because fixed descriptor capacity and invalid
+    descriptor-table indices are render-owner invariants.
+  - Strict anchored source throw statement inventory now reports 75 sites, down
+    from the previous sub-slice count of 81. `SB_FATAL` macro invocations now
+    report 159 via `rg -n "SB_FATAL\s*\(" SkullbonezSource`.
+  - Comment-style audit scope:
+    `SkullbonezSource/Rendering/DX12/RenderDeviceDX12.cpp`; checked 1, deferred
+    0. This was a touched-file audit, so no subsystem checklist plan was
+    required.
+  - Focused build passed: `tools\validate_build.bat Profile` exited 0 in
+    00:00:05.3974010 with 0 warnings and 0 errors. Log:
+    `Agentic/Reports/validate_build_profile_plan04_descriptor_fatals_20260709.log`.
+  - Required DX12 gate first failed formatting on
+    `SkullbonezSource/Rendering/DX12/RenderDeviceDX12.cpp`; a targeted
+    VS-bundled `clang-format` pass was applied to that file only. The rerun
+    passed: `tools\validate_dx12_renderer.bat` exited 0 in 00:00:27.1200192 with
+    `VALIDATE_DX12_RENDERER: ALL PASSED`, formatting clean, DX12 validation
+    errors 0, and screenshots matching committed baselines. Final log:
+    `Agentic/Reports/validate_dx12_renderer_plan04_descriptor_fatals_20260709_rerun.log`.
+  - `tools\validate_full.bat` was not required for this sub-slice because the
+    final diff only touched DX12 renderer code and Plan 04 documentation.
 - [ ] **4.1** Do **not** maintain any throw count. The `MAX_SOURCE_THROW_TOKENS`
   ratchet is deleted by plan 03. Verify progress by re-running
   `rg -n "throw " SkullbonezSource` and confirming the F/R/P sites are converted;

@@ -449,10 +449,10 @@ UINT Dx12DescriptorAllocator::AllocateStatic()
     // longer-lived engine record, such as TextureEntryDX12::srvIndex.
     if ( m_nextStatic >= m_staticCapacity )
     {
-        std::ostringstream msg;
-        msg << "DX12 static SRV heap exhausted"
-            << " (used=" << m_nextStatic << " capacity=" << m_staticCapacity << ")";
-        throw std::runtime_error( msg.str() );
+        SB_FATAL( "RenderDeviceDX12",
+                  "DX12 static SRV heap exhausted. used=%u capacity=%u",
+                  m_nextStatic,
+                  m_staticCapacity );
     }
     return m_nextStatic++;
 }
@@ -472,11 +472,12 @@ UINT Dx12DescriptorAllocator::AllocateTransient()
     // for the draw or dispatch being recorded.
     if ( m_nextTransientInFrame >= m_transientCapacityPerFrame )
     {
-        std::ostringstream msg;
-        msg << "DX12 transient SRV heap exhausted for current frame allocator"
-            << " (frame=" << m_currentFrame << " used=" << m_nextTransientInFrame
-            << " capacity_per_frame=" << m_transientCapacityPerFrame << ")";
-        throw std::runtime_error( msg.str() );
+        SB_FATAL(
+            "RenderDeviceDX12",
+            "DX12 transient SRV heap exhausted for current frame allocator. frame=%u used=%u capacity_per_frame=%u",
+            m_currentFrame,
+            m_nextTransientInFrame,
+            m_transientCapacityPerFrame );
     }
 
     const UINT index = m_staticCapacity + ( m_currentFrame * m_transientCapacityPerFrame ) + m_nextTransientInFrame;
@@ -490,7 +491,7 @@ UINT Dx12DescriptorAllocator::AllocateTransientRange( UINT count )
 {
     if ( count == 0 )
     {
-        throw std::runtime_error( "DX12 transient descriptor range count must be greater than zero" );
+        SB_FATAL( "RenderDeviceDX12", "DX12 transient descriptor range count must be greater than zero." );
     }
     if ( m_frameCount == 0 )
     {
@@ -498,11 +499,13 @@ UINT Dx12DescriptorAllocator::AllocateTransientRange( UINT count )
     }
     if ( count > m_transientCapacityPerFrame || m_nextTransientInFrame > m_transientCapacityPerFrame - count )
     {
-        std::ostringstream msg;
-        msg << "DX12 transient SRV range exhausted for current frame allocator"
-            << " (frame=" << m_currentFrame << " requested=" << count << " used=" << m_nextTransientInFrame
-            << " capacity_per_frame=" << m_transientCapacityPerFrame << ")";
-        throw std::runtime_error( msg.str() );
+        SB_FATAL( "RenderDeviceDX12",
+                  "DX12 transient SRV range exhausted for current frame allocator. frame=%u requested=%u used=%u "
+                  "capacity_per_frame=%u",
+                  m_currentFrame,
+                  count,
+                  m_nextTransientInFrame,
+                  m_transientCapacityPerFrame );
     }
 
     const UINT index = m_staticCapacity + ( m_currentFrame * m_transientCapacityPerFrame ) + m_nextTransientInFrame;
@@ -524,13 +527,15 @@ void Dx12DescriptorAllocator::ValidateShaderVisibleIndex( UINT index, const char
     const UINT capacity = ShaderVisibleCapacity();
     if ( index >= capacity )
     {
-        std::ostringstream msg;
-        msg << "DX12 shader-visible descriptor index out of range"
-            << " (context=" << ( context ? context : "unknown" ) << " index=" << index << " capacity=" << capacity
-            << " static_capacity=" << m_staticCapacity
-            << " transient_capacity_per_frame=" << m_transientCapacityPerFrame << " frame_count=" << m_frameCount
-            << ")";
-        throw std::runtime_error( msg.str() );
+        SB_FATAL( "RenderDeviceDX12",
+                  "DX12 shader-visible descriptor index out of range. context=%s index=%u capacity=%u "
+                  "static_capacity=%u transient_capacity_per_frame=%u frame_count=%u",
+                  context ? context : "unknown",
+                  index,
+                  capacity,
+                  m_staticCapacity,
+                  m_transientCapacityPerFrame,
+                  m_frameCount );
     }
 }
 
@@ -539,11 +544,11 @@ void Dx12DescriptorAllocator::ValidateStagingIndex( UINT index, const char* cont
 {
     if ( index >= m_staticCapacity )
     {
-        std::ostringstream msg;
-        msg << "DX12 staging descriptor index out of range"
-            << " (context=" << ( context ? context : "unknown" ) << " index=" << index
-            << " static_capacity=" << m_staticCapacity << ")";
-        throw std::runtime_error( msg.str() );
+        SB_FATAL( "RenderDeviceDX12",
+                  "DX12 staging descriptor index out of range. context=%s index=%u static_capacity=%u",
+                  context ? context : "unknown",
+                  index,
+                  m_staticCapacity );
     }
 }
 
