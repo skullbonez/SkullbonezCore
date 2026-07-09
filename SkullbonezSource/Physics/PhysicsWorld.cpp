@@ -2730,6 +2730,13 @@ void PhysicsWorld::EmitObjectCollisionTimeEvent( ObjectNarrowphaseEvent& event,
     event.availableTime = availableTime;
 }
 
+void PhysicsWorld::MarkObjectVisualEvent( ObjectNarrowphaseEvent& event, int bodyA, int bodyB )
+{
+    event.markVisualContact = 1;
+    event.visualBodyA = bodyA;
+    event.visualBodyB = bodyB;
+}
+
 
 void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
                                      const ColliderStore& colliderStore,
@@ -2971,13 +2978,6 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
     float invCellSize = 1.0f / m_spatialGrid.GetCellSize();
     const int candidatePairCount = static_cast<int>( candidatePairs.size() );
 
-    auto markObjectVisualEvent = []( ObjectNarrowphaseEvent& event, int bodyA, int bodyB )
-    {
-        event.markVisualContact = 1;
-        event.visualBodyA = bodyA;
-        event.visualBodyB = bodyB;
-    };
-
     auto writeObjectCollisionCellEvent = [&]( ObjectNarrowphaseEvent& event, int bodyA, int bodyB )
     {
         const Vector3 midpoint = ( bodyRecords[static_cast<size_t>( bodyA )].position +
@@ -3094,7 +3094,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
                                                     dt );
                         }
                         wokeBySweptImpact = true;
-                        markObjectVisualEvent( event, x, y );
+                        MarkObjectVisualEvent( event, x, y );
                         writeObjectCollisionCellEvent( event, x, y );
                     }
                 }
@@ -3126,7 +3126,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
                                                 x,
                                                 dt );
                     }
-                    markObjectVisualEvent( event, x, y );
+                    MarkObjectVisualEvent( event, x, y );
                     writeObjectCollisionCellEvent( event, x, y );
                 }
                 return;
@@ -3184,7 +3184,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
                                                     dt );
                         }
                         wokeBySweptImpact = true;
-                        markObjectVisualEvent( event, x, y );
+                        MarkObjectVisualEvent( event, x, y );
                         writeObjectCollisionCellEvent( event, x, y );
                     }
                 }
@@ -3216,7 +3216,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
                                                 y,
                                                 dt );
                     }
-                    markObjectVisualEvent( event, x, y );
+                    MarkObjectVisualEvent( event, x, y );
                     writeObjectCollisionCellEvent( event, x, y );
                 }
                 return;
@@ -3279,7 +3279,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
 
             // Object/object CCD only advances to the contact candidate. The
             // persistent Catto rows below own velocity response and cache storage.
-            markObjectVisualEvent( event, x, y );
+            MarkObjectVisualEvent( event, x, y );
             writeObjectCollisionCellEvent( event, x, y );
         }
         else
