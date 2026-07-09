@@ -9,6 +9,11 @@ Mental model:
   when that state changes.
 
 Glossary:
+  Logical asset name: Stable engine-facing identifier such as
+    "shader.lit_textured" that scenes and runtime code can reference without
+    knowing a disk path.
+  Shader base name: Data-root-relative shader path without the backend-specific
+    file extension.
   Validation gate: Repository script that proves a class of changes before
   commit or PR.
 
@@ -18,6 +23,8 @@ Invariants:
     identity.
   - Resolved paths are derived from the data root at registration time so
     callers do not mix relative and absolute asset lookup rules.
+  - Registry mutation APIs receive engine-authored names and paths. Blank
+    values are caller contract failures, not recoverable asset-file failures.
 
 Related:
   - SkullbonezSource/Assets/AssetSystem.h
@@ -26,10 +33,10 @@ Related:
 */
 #include "AssetSystem.h"
 #include "../Core/Config.h"
+#include "../Core/FatalError.h"
 #include "../Rendering/IRenderResourceFactory.h"
 
 #include <cstring>
-#include <stdexcept>
 #include <utility>
 
 namespace SkullbonezCore
@@ -247,13 +254,16 @@ std::string AssetSystem::ResolvePath( const char* relativePath ) const
 const SourceAssetRecord&
 AssetSystem::RegisterSourceAsset( AssetKind kind, const char* logicalName, const char* relativePath )
 {
+    // Invariant: registration is an engine-owned setup path. Authored asset
+    // file failures are Lane R elsewhere; a blank registry key means the caller
+    // violated the AssetSystem API contract.
     if ( !logicalName || logicalName[0] == '\0' )
     {
-        throw std::invalid_argument( "AssetSystem::RegisterSourceAsset requires a logical name." );
+        SB_FATAL( "AssetSystem", "RegisterSourceAsset requires a logical name." );
     }
     if ( !relativePath || relativePath[0] == '\0' )
     {
-        throw std::invalid_argument( "AssetSystem::RegisterSourceAsset requires a relative path." );
+        SB_FATAL( "AssetSystem", "RegisterSourceAsset requires a relative path. logical=%s", logicalName );
     }
 
     for ( SourceAssetRecord& record : m_sourceAssets )
@@ -472,9 +482,11 @@ const std::vector<ShaderSourceAsset>& AssetSystem::GetShaderSourceAssets() const
 std::unique_ptr<Rendering::IShader> AssetSystem::CreateShader( Rendering::IRenderResourceFactory& renderResources,
                                                                const char* logicalNameOrBaseName ) const
 {
+    // Invariant: empty shader keys are owner API violations. A non-empty miss
+    // can still use the built-in compatibility map or explicit base-name path.
     if ( !logicalNameOrBaseName || logicalNameOrBaseName[0] == '\0' )
     {
-        throw std::invalid_argument( "AssetSystem::CreateShader requires a logical name or base name." );
+        SB_FATAL( "AssetSystem", "CreateShader requires a logical name or base name." );
     }
 
     const ShaderSourceAsset* shader = FindShaderSourceAsset( logicalNameOrBaseName );

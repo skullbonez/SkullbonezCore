@@ -267,6 +267,26 @@ byte-exact gated.
   - Required gate passed: `tools\validate_full.bat` exited 0 in
     00:00:54.4774207. Log:
     `Agentic/Reports/validate_full_plan04_sceneruntime_fatals_20260709.log`.
+
+  Progress 2026-07-09, AssetSystem registration/shader-key
+  fatal-invariant sub-slice:
+  - Converted three F sites from `throw std::invalid_argument` to
+    `SB_FATAL("AssetSystem", ...)`: `AssetSystem.cpp` rows 251 through 253 from
+    the Step 0.1 inventory. The replacements cover blank logical asset names,
+    blank relative paths, and blank shader lookup keys as owner API contract
+    violations; non-empty asset file/path failures remain Lane R work.
+  - Strict anchored source throw statement inventory now reports 145 sites,
+    down from the previous sub-slice count of 148. `SB_FATAL` macro invocations
+    now report 127 via `rg -n "SB_FATAL\s*\(" SkullbonezSource`.
+  - Comment-style audit scope: `SkullbonezSource/Assets/AssetSystem.cpp`;
+    checked 1, deferred 0. The learning header now names logical asset names,
+    shader base names, and the registry precondition invariant.
+  - First required gate attempt failed at formatting because the touched file
+    needed clang-format. The file was formatted directly with the Visual Studio
+    LLVM `clang-format.exe`; no broad formatter was run.
+  - Required gate then passed: `tools\validate_full.bat` exited 0 in
+    00:00:57.1070909. Log:
+    `Agentic/Reports/validate_full_plan04_assetsystem_fatals_20260709.log`.
 - [ ] **2.1** Convert **P** sites (replay/interaction probes) to the
   `FailAutomation(...)` channel with `ok=false` + message. Gate: `validate_full`
   + replay scrub. Commit.
