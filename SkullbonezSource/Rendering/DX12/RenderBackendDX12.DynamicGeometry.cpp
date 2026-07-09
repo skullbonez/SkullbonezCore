@@ -24,6 +24,9 @@ Glossary:
 Invariants:
   - DX12 object lifetime, resource states, descriptor rows, and fence ordering
   must stay explicit.
+  - Dynamic line PSOs are stored in a fixed cache by render-target format; cache
+    exhaustion is a renderer capacity invariant, not a recoverable shader/device
+    failure.
 
 Related:
   - Agentic/Reference/skullbonez-core-class-structure.md
@@ -34,6 +37,7 @@ Related:
 #include "MeshDX12.h"
 #include "FramebufferDX12.h"
 #include "../RenderGraph.h"
+#include "../../Core/FatalError.h"
 #include "../../Core/Log.h"
 #include "../../Core/PlatformProfiler.h"
 #include <cstddef>
@@ -172,19 +176,15 @@ ID3D12PipelineState* RenderBackendDX12::EnsureGridLinePipeline( DXGI_FORMAT rtvF
         throw std::runtime_error( "CreateGraphicsPipelineState failed for debug lines" );
     }
     NameDx12Object( gridLinePSO, L"Skullbonez DX12 Debug Line PSO" );
+    // Invariant: grid-line PSO variants are bounded by the fixed cache in the
+    // backend. A new RTV format should be added deliberately with cache budget,
+    // not by growing during draw-line submission.
     if ( m_gridLinePSOCount >= m_gridLinePSOs.size() )
     {
-        fprintf( stderr,
-                 "FATAL: DX12 grid-line PSO cache exhausted (capacity=%zu format=%u)\n",
-                 m_gridLinePSOs.size(),
-                 static_cast<unsigned int>( rtvFormat ) );
-        fprintf( stdout,
-                 "FATAL: DX12 grid-line PSO cache exhausted (capacity=%zu format=%u)\n",
-                 m_gridLinePSOs.size(),
-                 static_cast<unsigned int>( rtvFormat ) );
-        fflush( stderr );
-        fflush( stdout );
-        throw std::runtime_error( "DX12 grid-line PSO cache exhausted" );
+        SB_FATAL( "RenderBackendDX12",
+                  "DX12 grid-line PSO cache exhausted. capacity=%zu format=%u",
+                  m_gridLinePSOs.size(),
+                  static_cast<unsigned int>( rtvFormat ) );
     }
     m_gridLinePSOs[m_gridLinePSOCount].format = rtvFormat;
     m_gridLinePSOs[m_gridLinePSOCount].pso = gridLinePSO;

@@ -336,6 +336,24 @@ byte-exact gated.
   - Required gate passed: `tools\validate_dx12_renderer.bat` exited 0 in
     00:00:26.3269250. Log:
     `Agentic/Reports/validate_dx12_renderer_plan04_mesh_fatal_20260709.log`.
+
+  Progress 2026-07-09, RenderBackendDX12 dynamic-geometry PSO-cache
+  fatal-invariant sub-slice:
+  - Converted one F site from `throw std::runtime_error` to
+    `SB_FATAL("RenderBackendDX12", ...)`:
+    `RenderBackendDX12.DynamicGeometry.cpp` row 51 from the Step 0.1 inventory.
+    The two DX12 device/shader creation throws in the same file remain Lane R
+    for the recoverable-result phase.
+  - Strict anchored source throw statement inventory now reports 141 sites,
+    down from the previous sub-slice count of 142. `SB_FATAL` macro invocations
+    now report 131 via `rg -n "SB_FATAL\s*\(" SkullbonezSource`.
+  - Comment-style audit scope:
+    `SkullbonezSource/Rendering/DX12/RenderBackendDX12.DynamicGeometry.cpp`;
+    checked 1, deferred 0. The learning header and local PSO-cache guard now
+    name the fixed render-target-format cache invariant.
+  - Required gate passed: `tools\validate_dx12_renderer.bat` exited 0 in
+    00:00:27.3493942. Log:
+    `Agentic/Reports/validate_dx12_renderer_plan04_dynamic_geometry_fatal_20260709.log`.
 - [ ] **2.1** Convert **P** sites (replay/interaction probes) to the
   `FailAutomation(...)` channel with `ok=false` + message. Gate: `validate_full`
   + replay scrub. Commit.
