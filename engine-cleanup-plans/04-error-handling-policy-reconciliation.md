@@ -854,6 +854,33 @@ byte-exact gated.
     screenshots matching baselines, and `physics_regression_solver.csv`
     byte-exact. Final log:
     `Agentic/Reports/validate_full_plan04_device_backend_init_result_20260709.log`.
+
+  Progress 2026-07-09, DX12 root-signature/gen-mips startup result batch:
+  - Converted startup-only `RenderBackendDX12::CreateRootSignature` and
+    `RenderBackendDX12::InitGenMipsPipeline` from throwing setup helpers to Lane R
+    `SbResult` returns propagated through `RenderBackendDX12::Init`.
+  - Main root-signature serialization/creation failures and generate-mips shader
+    file, compile, root-signature, and compute-PSO setup failures now report
+    `SbResult::Failure("Rendering/DX12", ...)`. The shared texture
+    `ThrowIfFailed` helper remains for non-startup texture upload paths.
+  - Strict anchored source throw statement inventory now reports 81 sites, down
+    from the previous sub-slice count of 85. `SB_FATAL` macro invocations remain
+    153 via `rg -n "SB_FATAL\s*\(" SkullbonezSource`.
+  - Comment-style audit scope:
+    `SkullbonezSource/Rendering/DX12/RenderBackendDX12.h`,
+    `SkullbonezSource/Rendering/DX12/RenderBackendDX12.cpp`, and
+    `SkullbonezSource/Rendering/DX12/RenderBackendDX12.Textures.cpp`; checked 3,
+    deferred 0. This was a touched-file audit, so no subsystem checklist plan was
+    required.
+  - Focused build passed: `tools\validate_build.bat Profile` exited 0 in
+    00:00:09.4761390 with 0 warnings and 0 errors. Log:
+    `Agentic/Reports/validate_build_profile_plan04_root_mips_result_20260709.log`.
+  - Required DX12 gate passed: `tools\validate_dx12_renderer.bat` exited 0 in
+    00:00:27.5943890 with `VALIDATE_DX12_RENDERER: ALL PASSED`, formatting clean,
+    DX12 validation errors 0, and screenshots matching committed baselines. Log:
+    `Agentic/Reports/validate_dx12_renderer_plan04_root_mips_result_20260709.log`.
+  - `tools\validate_full.bat` was not required for this sub-slice because the
+    final diff only touched DX12 renderer startup files and Plan 04 documentation.
 - [ ] **4.1** Do **not** maintain any throw count. The `MAX_SOURCE_THROW_TOKENS`
   ratchet is deleted by plan 03. Verify progress by re-running
   `rg -n "throw " SkullbonezSource` and confirming the F/R/P sites are converted;

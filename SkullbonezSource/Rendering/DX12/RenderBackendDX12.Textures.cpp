@@ -70,10 +70,26 @@ static inline void ThrowIfFailed( HRESULT hr, const char* msg )
     }
 }
 
+
+static inline SkullbonezCore::Basics::SbResult Dx12TextureStartupResult( HRESULT hr, const char* msg )
+{
+    if ( FAILED( hr ) )
+    {
+        // Lane R: generate-mips setup depends on shader files, compiler output,
+        // and driver resource creation. Startup reports that environment failure
+        // through the render lifecycle result path.
+        return SkullbonezCore::Basics::SbResult::Failure( "Rendering/DX12",
+                                                          "%s (HRESULT 0x%08X)",
+                                                          msg ? msg : "DX12 texture startup call failed",
+                                                          static_cast<unsigned int>( hr ) );
+    }
+    return SkullbonezCore::Basics::SbResult::Success();
+}
+
 // --- RenderBackendDX12 Textures methods ---
 
 
-void RenderBackendDX12::InitGenMipsPipeline()
+SkullbonezCore::Basics::SbResult RenderBackendDX12::InitGenMipsPipeline()
 {
     // Concept: mip generation is a tiny compute pipeline owned by the backend.
     //
@@ -84,7 +100,9 @@ void RenderBackendDX12::InitGenMipsPipeline()
     std::ifstream csFile( csPath, std::ios::binary );
     if ( !csFile.is_open() )
     {
-        throw std::runtime_error( "Cannot open generate_mips.hlsl: " + csPath );
+        return SkullbonezCore::Basics::SbResult::Failure( "Rendering/DX12",
+                                                          "Cannot open generate_mips.hlsl: %s",
+                                                          csPath.c_str() );
     }
     std::string csSource( ( std::istreambuf_iterator<char>( csFile ) ), std::istreambuf_iterator<char>() );
 
@@ -115,7 +133,7 @@ void RenderBackendDX12::InitGenMipsPipeline()
         {
             msg += reinterpret_cast<const char*>( errors->GetBufferPointer() );
         }
-        throw std::runtime_error( msg );
+        return SkullbonezCore::Basics::SbResult::Failure( "Rendering/DX12", "%s", msg.c_str() );
     }
     errors.Reset();
 
@@ -183,15 +201,24 @@ void RenderBackendDX12::InitGenMipsPipeline()
     rsDesc.Desc_1_1.Flags = D3D12_ROOT_SIGNATURE_FLAG_NONE;
 
     ComPtr<ID3DBlob> rsBlob;
-    ThrowIfFailed( D3D12SerializeVersionedRootSignature( &rsDesc, rsBlob.GetAddressOf(), errors.GetAddressOf() ),
-                   "GenerateMips root signature serialization failed" );
+    SkullbonezCore::Basics::SbResult startupResult = Dx12TextureStartupResult(
+        D3D12SerializeVersionedRootSignature( &rsDesc, rsBlob.GetAddressOf(), errors.GetAddressOf() ),
+        "GenerateMips root signature serialization failed" );
+    if ( !startupResult.ok )
+    {
+        return startupResult;
+    }
     errors.Reset();
 
-    ThrowIfFailed( Device()->CreateRootSignature( 0,
-                                                  rsBlob->GetBufferPointer(),
-                                                  rsBlob->GetBufferSize(),
-                                                  IID_PPV_ARGS( &m_genMipsRS ) ),
-                   "CreateRootSignature (genMips) failed" );
+    startupResult = Dx12TextureStartupResult( Device()->CreateRootSignature( 0,
+                                                                             rsBlob->GetBufferPointer(),
+                                                                             rsBlob->GetBufferSize(),
+                                                                             IID_PPV_ARGS( &m_genMipsRS ) ),
+                                              "CreateRootSignature (genMips) failed" );
+    if ( !startupResult.ok )
+    {
+        return startupResult;
+    }
     NameDx12Object( m_genMipsRS, L"Skullbonez DX12 Generate Mips Root Signature" );
 
     // Compute PSO: compiled compute shader plus the root signature above. It is
@@ -201,8 +228,13 @@ void RenderBackendDX12::InitGenMipsPipeline()
     psoDesc.pRootSignature = m_genMipsRS;
     psoDesc.CS.pShaderBytecode = csBlob->GetBufferPointer();
     psoDesc.CS.BytecodeLength = csBlob->GetBufferSize();
-    ThrowIfFailed( Device()->CreateComputePipelineState( &psoDesc, IID_PPV_ARGS( &m_genMipsPSO ) ),
-                   "CreateComputePipelineState (genMips) failed" );
+    startupResult =
+        Dx12TextureStartupResult( Device()->CreateComputePipelineState( &psoDesc, IID_PPV_ARGS( &m_genMipsPSO ) ),
+                                  "CreateComputePipelineState (genMips) failed" );
+    if ( !startupResult.ok )
+    {
+        return startupResult;
+    }
     // A compute PSO is the compute-shader version of a pipeline object: it
     // stores the compiled CS bytecode plus the root signature describing which
     // descriptors/constants the shader can access.
@@ -230,6 +262,7 @@ void RenderBackendDX12::InitGenMipsPipeline()
                                      svDst,
                                      GetSRVStagingCpuHandle( m_genMipsNullUAV ),
                                      D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV );
+    return SkullbonezCore::Basics::SbResult::Success();
 }
 
 

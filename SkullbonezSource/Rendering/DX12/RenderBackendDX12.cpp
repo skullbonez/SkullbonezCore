@@ -1813,9 +1813,16 @@ SkullbonezCore::Basics::SbResult RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/
     // instead of owning the raw upload-buffer lifecycle itself.
     m_uploadSystem.Init( Device(), FRAME_COUNT, UPLOAD_BUFFER_SIZE, L"Skullbonez DX12 Frame Upload Buffer" );
 
-    // Root signature
-    CreateRootSignature();
-    InitGenMipsPipeline();
+    const SkullbonezCore::Basics::SbResult rootSignatureResult = CreateRootSignature();
+    if ( !rootSignatureResult.ok )
+    {
+        return rootSignatureResult;
+    }
+    const SkullbonezCore::Basics::SbResult genMipsResult = InitGenMipsPipeline();
+    if ( !genMipsResult.ok )
+    {
+        return genMipsResult;
+    }
     EnsureGridLinePipeline( DXGI_FORMAT_R8G8B8A8_UNORM );
     EnsureGridLinePipeline( DXGI_FORMAT_R16G16B16A16_FLOAT );
     EnsureTransientTriangleShader( TransientTriangleStyle::Color );
@@ -1872,7 +1879,7 @@ SkullbonezCore::Basics::SbResult RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/
 }
 
 
-void RenderBackendDX12::CreateRootSignature()
+SkullbonezCore::Basics::SbResult RenderBackendDX12::CreateRootSignature()
 {
     // Root signature mental model:
     //
@@ -1974,7 +1981,7 @@ void RenderBackendDX12::CreateRootSignature()
             msg += ": ";
             msg += (const char*)error->GetBufferPointer();
         }
-        throw std::runtime_error( msg );
+        return SkullbonezCore::Basics::SbResult::Failure( "Rendering/DX12", "%s", msg.c_str() );
     }
 
     // Create the Root Signature object from the serialized blob. This is the "contract" between
@@ -1986,7 +1993,7 @@ void RenderBackendDX12::CreateRootSignature()
                                                 signature->GetBufferSize(),
                                                 IID_PPV_ARGS( &m_rootSignature ) ) ) )
     {
-        throw std::runtime_error( "CreateRootSignature failed" );
+        return SkullbonezCore::Basics::SbResult::Failure( "Rendering/DX12", "CreateRootSignature failed" );
     }
     NameDx12Object( m_rootSignature, L"Skullbonez DX12 Main Root Signature" );
 #ifdef _DEBUG
@@ -2002,6 +2009,7 @@ void RenderBackendDX12::CreateRootSignature()
         SAMPLER_REGISTER_SHADOW_POINT_CLAMP,
         TEXTURE_SLOT_COUNT );
 #endif
+    return SkullbonezCore::Basics::SbResult::Success();
 }
 
 

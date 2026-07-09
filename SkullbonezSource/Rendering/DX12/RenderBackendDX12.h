@@ -483,7 +483,7 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     void AssignDeferredResourceReleaseFence( UINT64 fenceValue );
     void ReleaseCompletedDeferredResources( bool releaseUnfenced );
     void TryConsumeGpuTimerReadback( bool waitForFence );
-    void CreateRootSignature();
+    Basics::SbResult CreateRootSignature();
     void CreateDepthStencil( int w, int h );
     UINT AllocateTransientSRV();
     UINT AllocateTransientSRVRange( UINT count );
@@ -520,7 +520,7 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     Basics::SbResult CreateRTRootSignature();
     Basics::SbResult CreateRTPipeline();
     Basics::SbResult CreateReflectionUAV( int width, int height );
-    void InitGenMipsPipeline();
+    Basics::SbResult InitGenMipsPipeline();
     void GenerateMipsGPU( ID3D12Resource* tex, DXGI_FORMAT fmt, UINT w, UINT h, UINT numMips );
     void AssertPlatformProfilerGpuStackClosed( const char* reason ) const;
     int SuspendPlatformProfilerGpuStackForSubmit( const char* reason );
