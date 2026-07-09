@@ -536,6 +536,31 @@ byte-exact gated.
     `VALIDATE_REPLAY_V2_ARTIFACT: ALL PASSED`. Logs:
     `Agentic/Reports/validate_full_plan04_replay_load_result_20260709.log` and
     `Agentic/Reports/validate_replay_v2_artifact_plan04_replay_load_result_20260709.log`.
+
+  Progress 2026-07-09, authored scene object-group metadata sub-slice:
+  - Converted `SkullbonezSource/Runtime/Scene/SceneAuthoredSetup.cpp` row 249
+    from `throw std::runtime_error` to a Lane R
+    `SbResult::Failure("Runtime/SceneAuthoredSetup", ...)` returned through
+    `SceneAuthoredSetup::SetUpGameModels` and the existing `Run::LoadScene`
+    scene-load reporter.
+  - Strict anchored source throw statement inventory now reports 115 sites,
+    down from the previous sub-slice count of 116. `SB_FATAL` macro invocations
+    remain 151 via `rg -n "SB_FATAL\s*\(" SkullbonezSource`.
+  - Comment-style audit scope:
+    `SkullbonezSource/Runtime/Scene/SceneAuthoredSetup.cpp`; checked 1,
+    deferred 0. This was a touched-file audit, so no subsystem checklist plan
+    was required.
+  - Focused build passed: `tools\validate_build.bat Profile` exited 0 in
+    00:00:05.4846485 with 0 warnings and 0 errors.
+  - First `tools\validate_full.bat` attempt failed formatting after
+    00:00:32.5653233. The touched file was formatted with the repo
+    `tools\find_clang_format.bat` locator, and `tools\validate_format.bat`
+    then exited 0 in 00:00:09.3112561.
+  - Required gate then passed: `tools\validate_full.bat` exited 0 in
+    00:00:56.0458616 with `VALIDATE_FULL: DEFAULT GATE PASSED`, DX12
+    validation errors 0, screenshots matching baselines, and
+    `physics_regression_solver.csv` byte-exact. Final log:
+    `Agentic/Reports/validate_full_plan04_scene_group_result_20260709_rerun.log`.
 - [ ] **4.1** Do **not** maintain any throw count. The `MAX_SOURCE_THROW_TOKENS`
   ratchet is deleted by plan 03. Verify progress by re-running
   `rg -n "throw " SkullbonezSource` and confirming the F/R/P sites are converted;

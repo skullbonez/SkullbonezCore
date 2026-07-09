@@ -54,7 +54,6 @@ Related:
 #include <cmath>
 #include <cstdio>
 #include <cstring>
-#include <stdexcept>
 #include <utility>
 
 namespace SkullbonezCore
@@ -267,23 +266,30 @@ SbResult AppendAuthoredSimpleRagdoll( SceneSimpleRagdollAppendContext context, c
     return SbResult::Success();
 }
 
-GameObjects::SceneObjectGroupCreateDesc MakeSceneObjectGroupCreateDesc( const SceneObjectGroupMetadata& group,
-                                                                        int sectionModelIndexBase )
+SbResult MakeSceneObjectGroupCreateDesc( const SceneObjectGroupMetadata& group,
+                                         int sectionModelIndexBase,
+                                         GameObjects::SceneObjectGroupCreateDesc& outDesc )
 {
+    outDesc = {};
     if ( group.kind == SceneObjectGroupKind::None )
     {
-        return {};
+        return SbResult::Success();
     }
     if ( group.kind != SceneObjectGroupKind::ReleasableTree || group.rootObjectIndex < 0 || group.partIndex < 0 )
     {
-        throw std::runtime_error( "Invalid authored scene object group metadata." );
+        // Lane R: authored scene metadata can become invalid when an include or
+        // editor save names a group root that cannot be resolved for this hull section.
+        return SbResult::Failure( "Runtime/SceneAuthoredSetup",
+                                  "Invalid authored scene object group metadata: kind=%u root=%d part=%d.",
+                                  static_cast<unsigned int>( group.kind ),
+                                  group.rootObjectIndex,
+                                  group.partIndex );
     }
 
-    GameObjects::SceneObjectGroupCreateDesc desc;
-    desc.kind = GameObjects::GameModelCollectionKind::ReleasableTree;
-    desc.rootModelIndex = sectionModelIndexBase + group.rootObjectIndex;
-    desc.partIndex = group.partIndex;
-    return desc;
+    outDesc.kind = GameObjects::GameModelCollectionKind::ReleasableTree;
+    outDesc.rootModelIndex = sectionModelIndexBase + group.rootObjectIndex;
+    outDesc.partIndex = group.partIndex;
+    return SbResult::Success();
 }
 
 bool SceneNameEndsWithPartSuffix( const char* name, const char* suffix )
@@ -626,8 +632,12 @@ SbResult SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context,
         // Invariant: parsed scene object grouping is converted once at the
         // authored construction edge. Collection append only copies the
         // descriptor into its dense sidecar.
-        const GameObjects::SceneObjectGroupCreateDesc groupDesc =
-            MakeSceneObjectGroupCreateDesc( hullScene.group, convexHullModelBase );
+        GameObjects::SceneObjectGroupCreateDesc groupDesc;
+        const SbResult groupResult = MakeSceneObjectGroupCreateDesc( hullScene.group, convexHullModelBase, groupDesc );
+        if ( !groupResult.ok )
+        {
+            return groupResult;
+        }
         const Physics::PhysicsSceneObjectId sceneObjectId = context.sceneState.AllocateSceneObjectId();
         PhysicsBodyCreateDesc bodyDesc = MakeSceneBodyDesc(
             sceneObjectId,
@@ -674,8 +684,13 @@ SbResult SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context,
         GameModel gameModel;
 
         gameModel.SetName( hullScene.name );
-        const GameObjects::SceneObjectGroupCreateDesc groupDesc =
-            MakeSceneObjectGroupCreateDesc( hullScene.group, convexHullStateModelBase );
+        GameObjects::SceneObjectGroupCreateDesc groupDesc;
+        const SbResult groupResult =
+            MakeSceneObjectGroupCreateDesc( hullScene.group, convexHullStateModelBase, groupDesc );
+        if ( !groupResult.ok )
+        {
+            return groupResult;
+        }
         const Physics::PhysicsSceneObjectId sceneObjectId = context.sceneState.AllocateSceneObjectId();
         PhysicsBodyCreateDesc bodyDesc =
             MakeSceneBodyDesc( sceneObjectId,
