@@ -187,7 +187,7 @@ island-merge tie-breaks.
   - [x] L3138 anonymous island sort comparator.
 
   Terrain detection:
-  - [ ] L3197 `detectTerrainAt`: per-body swept terrain candidate.
+  - [x] L3197 `detectTerrainAt`: per-body swept terrain candidate.
   - [ ] L3220 `commitTerrainCandidate`: terrain hit/manifold side effects.
 
   Remaining-time integration and sleep:
@@ -433,6 +433,14 @@ island-merge tie-breaks.
     evidence: `tools\validate_physics.bat` passed in
     `TestOutput\agent_logs\plan02_island_sort_comparator_validate_physics_20260709_1101.log`
     (39.5s shell runtime; Debug/Profile builds 0 warnings and 0 errors; final
+    `VALIDATE_PHYSICS: ALL PASSED`).
+  - Extracted the `detectTerrainAt` lambda into
+    `PhysicsWorld::DetectTerrainAt` plus `TerrainDetectionStageContext` and
+    `TerrainDetectionStage`, preserving fixed/sleep/time/bounds guards,
+    per-body candidate writes, and the swept terrain query inputs. Gate
+    evidence: `tools\validate_physics.bat` passed in
+    `TestOutput\agent_logs\plan02_detect_terrain_at_validate_physics_20260709_1106.log`
+    (39.1s shell runtime; Debug/Profile builds 0 warnings and 0 errors; final
     `VALIDATE_PHYSICS: ALL PASSED`).
 - [ ] **1.3** `RunSolverPhysics` is now a short driver calling named stages;
   confirm it is under ~300 lines.

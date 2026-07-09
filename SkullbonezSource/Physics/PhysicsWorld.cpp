@@ -3233,6 +3233,39 @@ void PhysicsWorld::BuildObjectNarrowphaseIslands( const std::vector<std::pair<in
 }
 
 
+void PhysicsWorld::DetectTerrainAt( const TerrainDetectionStageContext& context, int bodyIndex )
+{
+    TerrainDetectionCandidate& candidate = context.candidates[static_cast<size_t>( bodyIndex )];
+    if ( IsSolverBodyFixed( context.bodyRecords, bodyIndex ) )
+    {
+        return;
+    }
+    if ( context.sleepState[bodyIndex] || context.timeRemaining[bodyIndex] <= 0.0f )
+    {
+        return;
+    }
+    if ( bodyIndex >= static_cast<int>( context.bodyRecords.size() ) ||
+         bodyIndex >= static_cast<int>( context.colliderRecords.size() ) )
+    {
+        return;
+    }
+
+    candidate.availableTime = context.timeRemaining[bodyIndex];
+    candidate.sweep = SweepTerrainContact( TerrainContactBodyViewForIndex( context.bodyRecords,
+                                                                           context.config,
+                                                                           bodyIndex ),
+                                           context.colliderRecords[static_cast<size_t>( bodyIndex )].shape,
+                                           candidate.availableTime );
+    candidate.tested = 1;
+}
+
+
+void PhysicsWorld::TerrainDetectionStage::operator()( int bodyIndex ) const
+{
+    DetectTerrainAt( context, bodyIndex );
+}
+
+
 void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
                                      const ColliderStore& colliderStore,
                                      float dt,
@@ -3554,29 +3587,6 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
     //      the shared persistent contact rows below.
     PROFILE_BEGIN( "Frame/Physics/Terrain" );
     PROFILE_BEGIN( "Frame/Physics/Terrain/Detect" );
-    auto detectTerrainAt = [&]( int x )
-    {
-        TerrainDetectionCandidate& candidate = m_terrainDetectionCandidates[static_cast<size_t>( x )];
-        if ( IsSolverBodyFixed( bodyRecords, x ) )
-        {
-            return;
-        }
-        if ( m_sleepState[x] || m_timeRemaining[x] <= 0.0f )
-        {
-            return;
-        }
-        if ( x >= static_cast<int>( bodyRecords.size() ) || x >= static_cast<int>( colliderRecords.size() ) )
-        {
-            return;
-        }
-
-        candidate.availableTime = m_timeRemaining[x];
-        candidate.sweep = SweepTerrainContact( TerrainContactBodyViewForIndex( bodyRecords, config, x ),
-                                               colliderRecords[static_cast<size_t>( x )].shape,
-                                               candidate.availableTime );
-        candidate.tested = 1;
-    };
-
     auto commitTerrainCandidate = [&]( int x, float availableTime, const TerrainContactSweepResult& sweep )
     {
         if ( sweep.hit )
@@ -3634,11 +3644,18 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
     };
 
     m_terrainDetectionCandidates.assign( static_cast<size_t>( modelCount ), TerrainDetectionCandidate() );
+    TerrainDetectionStageContext terrainDetectionContext{ bodyRecords,
+                                                          colliderRecords,
+                                                          config,
+                                                          m_sleepState,
+                                                          m_timeRemaining,
+                                                          m_terrainDetectionCandidates };
+    TerrainDetectionStage terrainDetectionStage{ terrainDetectionContext };
     if ( config.physicsParallel && config.physicsParallelTerrainDetect )
     {
         workerPool.ParallelForNoAlloc( 0,
                                        modelCount,
-                                       detectTerrainAt,
+                                       terrainDetectionStage,
                                        PHYSICS_PARALLEL_MIN_BODIES,
                                        "Frame/Physics/Terrain/Detect/WorkerBodies",
                                        PHYSICS_TERRAIN_DETECT_WORKER_HASH );
@@ -3647,7 +3664,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
     {
         for ( int x = 0; x < modelCount; ++x )
         {
-            detectTerrainAt( x );
+            terrainDetectionStage( x );
         }
     }
 

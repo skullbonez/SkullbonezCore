@@ -226,6 +226,25 @@ class PhysicsWorld
         TerrainContactSweepResult sweep;
         uint8_t tested = 0;
     };
+    struct TerrainDetectionStageContext
+    {
+        // Lifetime: terrain detection may run in worker callbacks, but it only
+        // borrows the current solver pass records and writes one candidate row
+        // per body index.
+        const PhysicsBodyRecordList& bodyRecords;
+        const ColliderRecordList& colliderRecords;
+        const Basics::EngineConfig& config;
+        const std::vector<uint8_t>& sleepState;
+        const std::vector<float>& timeRemaining;
+        std::vector<TerrainDetectionCandidate>& candidates;
+    };
+    static void DetectTerrainAt( const TerrainDetectionStageContext& context, int bodyIndex );
+    struct TerrainDetectionStage
+    {
+        const TerrainDetectionStageContext& context;
+
+        void operator()( int bodyIndex ) const;
+    };
 
     enum class ObjectNarrowphaseEventKind : uint8_t
     {
