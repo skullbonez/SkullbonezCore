@@ -2708,6 +2708,15 @@ void PhysicsWorld::WakePointJointConnectedBodies( PhysicsBodyStore& bodyStore,
     }
 }
 
+void PhysicsWorld::RecordObjectNarrowphaseEvent( ObjectNarrowphaseEvent& event,
+                                                 ObjectNarrowphaseEventKind kind,
+                                                 const Physics::PhysicsPipelineRecord& record )
+{
+    event.kind = kind;
+    event.pipelineRecord = record;
+    event.hasPipelineRecord = 1;
+}
+
 
 void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
                                      const ColliderStore& colliderStore,
@@ -2949,15 +2958,6 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
     float invCellSize = 1.0f / m_spatialGrid.GetCellSize();
     const int candidatePairCount = static_cast<int>( candidatePairs.size() );
 
-    auto recordObjectNarrowphaseEvent = []( ObjectNarrowphaseEvent& event,
-                                            ObjectNarrowphaseEventKind kind,
-                                            const Physics::PhysicsPipelineRecord& record )
-    {
-        event.kind = kind;
-        event.pipelineRecord = record;
-        event.hasPipelineRecord = 1;
-    };
-
     auto emitObjectCollisionTimeEvent =
         []( ObjectNarrowphaseEvent& event, int bodyA, int bodyB, float collisionTime, float availableTime )
     {
@@ -3070,7 +3070,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
                                        0.5f;
                         record.scalarA = colTime;
                         record.scalarB = availableTime;
-                        recordObjectNarrowphaseEvent( event, ObjectNarrowphaseEventKind::SweptObjectHit, record );
+                        RecordObjectNarrowphaseEvent( event, ObjectNarrowphaseEventKind::SweptObjectHit, record );
                         emitObjectCollisionTimeEvent( event, y, x, colTime, availableTime );
 
                         (void)bodyStore.IntegrateBodyPose( colliderStore, y, colTime );
@@ -3106,7 +3106,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
                                      bodyRecords[static_cast<size_t>( x )].position ) *
                                    0.5f;
                     record.scalarA = sleepingLocked ? 0.0f : 1.0f;
-                    recordObjectNarrowphaseEvent( event, ObjectNarrowphaseEventKind::WakeDecision, record );
+                    RecordObjectNarrowphaseEvent( event, ObjectNarrowphaseEventKind::WakeDecision, record );
 
                     if ( !sleepingLocked )
                     {
@@ -3160,7 +3160,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
                                        0.5f;
                         record.scalarA = colTime;
                         record.scalarB = availableTime;
-                        recordObjectNarrowphaseEvent( event, ObjectNarrowphaseEventKind::SweptObjectHit, record );
+                        RecordObjectNarrowphaseEvent( event, ObjectNarrowphaseEventKind::SweptObjectHit, record );
                         emitObjectCollisionTimeEvent( event, x, y, colTime, availableTime );
 
                         (void)bodyStore.IntegrateBodyPose( colliderStore, x, colTime );
@@ -3196,7 +3196,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
                                      bodyRecords[static_cast<size_t>( y )].position ) *
                                    0.5f;
                     record.scalarA = sleepingLocked ? 0.0f : 1.0f;
-                    recordObjectNarrowphaseEvent( event, ObjectNarrowphaseEventKind::WakeDecision, record );
+                    RecordObjectNarrowphaseEvent( event, ObjectNarrowphaseEventKind::WakeDecision, record );
 
                     if ( !sleepingLocked )
                     {
@@ -3247,7 +3247,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
                 ( bodyRecords[static_cast<size_t>( x )].position + bodyRecords[static_cast<size_t>( y )].position ) *
                 0.5f;
             record.scalarA = availableTime;
-            recordObjectNarrowphaseEvent( event, ObjectNarrowphaseEventKind::SweptObjectMiss, record );
+            RecordObjectNarrowphaseEvent( event, ObjectNarrowphaseEventKind::SweptObjectMiss, record );
             return;
         }
 
@@ -3266,7 +3266,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
                 0.5f;
             record.scalarA = colTime;
             record.scalarB = availableTime;
-            recordObjectNarrowphaseEvent( event, ObjectNarrowphaseEventKind::SweptObjectHit, record );
+            RecordObjectNarrowphaseEvent( event, ObjectNarrowphaseEventKind::SweptObjectHit, record );
             emitObjectCollisionTimeEvent( event, x, y, colTime, availableTime );
 
             (void)bodyStore.IntegrateBodyPose( colliderStore, x, colTime );
@@ -3289,7 +3289,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
                 ( bodyRecords[static_cast<size_t>( x )].position + bodyRecords[static_cast<size_t>( y )].position ) *
                 0.5f;
             record.scalarA = availableTime;
-            recordObjectNarrowphaseEvent( event, ObjectNarrowphaseEventKind::SweptObjectMiss, record );
+            RecordObjectNarrowphaseEvent( event, ObjectNarrowphaseEventKind::SweptObjectMiss, record );
         }
     };
 

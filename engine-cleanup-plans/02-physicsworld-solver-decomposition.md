@@ -175,7 +175,7 @@ island-merge tie-breaks.
   - [x] L2696 `objectPairNeedsSweptCcd`: settled-pair CCD bypass decision.
 
   Object narrowphase events and dispatch:
-  - [ ] L2739 `recordObjectNarrowphaseEvent`: stage-record copy into event buffer.
+  - [x] L2739 `recordObjectNarrowphaseEvent`: stage-record copy into event buffer.
   - [ ] L2749 `emitObjectCollisionTimeEvent`: collision-time event fields.
   - [ ] L2758 `markObjectVisualEvent`: visual-contact event fields.
   - [ ] L2765 `writeObjectCollisionCellEvent`: hashed collision-cell event fields.
@@ -351,6 +351,15 @@ island-merge tie-breaks.
     Gate evidence: `tools\validate_physics.bat` passed in
     `TestOutput\agent_logs\plan02_object_pair_needs_ccd_validate_physics_20260709_1025.log`
     (30.8s shell runtime; Debug/Profile builds 0 warnings and 0 errors; final
+    `VALIDATE_PHYSICS: ALL PASSED`).
+  - Extracted the `recordObjectNarrowphaseEvent` lambda into the private static
+    `PhysicsWorld::RecordObjectNarrowphaseEvent`, preserving the event kind,
+    pipeline record copy, and `hasPipelineRecord` flag assignment without
+    widening the private event type. First gate attempt failed because a free
+    helper could not name the private nested event type; attempt 2 fixed the
+    helper ownership. Gate evidence: `tools\validate_physics.bat` passed in
+    `TestOutput\agent_logs\plan02_record_object_event_validate_physics_attempt2_20260709_1029.log`
+    (39.9s shell runtime; Debug/Profile builds 0 warnings and 0 errors; final
     `VALIDATE_PHYSICS: ALL PASSED`).
 - [ ] **1.3** `RunSolverPhysics` is now a short driver calling named stages;
   confirm it is under ~300 lines.

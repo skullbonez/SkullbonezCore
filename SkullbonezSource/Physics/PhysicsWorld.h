@@ -252,6 +252,10 @@ class PhysicsWorld
         uint8_t hasCollisionCellKey = 0;
     };
 
+    static void RecordObjectNarrowphaseEvent( ObjectNarrowphaseEvent& event,
+                                              ObjectNarrowphaseEventKind kind,
+                                              const PhysicsPipelineRecord& record );
+
     struct ObjectNarrowphaseIsland
     {
         int minPairIndex = 0;
