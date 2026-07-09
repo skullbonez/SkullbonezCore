@@ -54,16 +54,8 @@ enum class MainMemoryReplayBudgetPass : std::size_t
 {
     PredictionBegin,
     PredictionStep,
-    PredictionDrawRoot,
     PredictionBuildTree,
-    PredictionDrawChildren,
-    PredictionDrawAffectedBodies,
-    PredictionDrawRagdolls,
-    RetainedBounds,
-    RetainedBuildTree,
-    RetainedDrawRoot,
-    RetainedDrawChildren,
-    RetainedDrawMarker,
+    RetainedRefresh,
     Count
 };
 

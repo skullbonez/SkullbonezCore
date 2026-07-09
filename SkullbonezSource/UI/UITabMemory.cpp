@@ -907,32 +907,18 @@ void DrawMainMemoryPanel( const SkullbonezCore::UI::UIDrawContext& draw,
               static_cast<unsigned long long>( memory.replay.trajectory.versionChurn ) );
     draw.Text( x, row0 + 140.0f, 8.0f, 0.48f, 0.66f, 0.68f, text );
 
-    const uint64_t predictionDrawExpiries =
-        memory.replay.trajectory
-            .budgetExpiries[static_cast<std::size_t>( MainMemoryReplayBudgetPass::PredictionDrawRoot )] +
-        memory.replay.trajectory
-            .budgetExpiries[static_cast<std::size_t>( MainMemoryReplayBudgetPass::PredictionDrawChildren )] +
-        memory.replay.trajectory
-            .budgetExpiries[static_cast<std::size_t>( MainMemoryReplayBudgetPass::PredictionDrawAffectedBodies )] +
-        memory.replay.trajectory
-            .budgetExpiries[static_cast<std::size_t>( MainMemoryReplayBudgetPass::PredictionDrawRagdolls )];
-    const uint64_t retainedDrawExpiries =
-        memory.replay.trajectory
-            .budgetExpiries[static_cast<std::size_t>( MainMemoryReplayBudgetPass::RetainedDrawRoot )] +
-        memory.replay.trajectory
-            .budgetExpiries[static_cast<std::size_t>( MainMemoryReplayBudgetPass::RetainedDrawChildren )] +
-        memory.replay.trajectory
-            .budgetExpiries[static_cast<std::size_t>( MainMemoryReplayBudgetPass::RetainedDrawMarker )];
     snprintf(
         text,
         sizeof( text ),
-        "budget begin %llu step %llu pdraw %llu rdraw %llu rebuild d/a %llu/%llu",
+        "budget begin %llu step %llu tree %llu retained %llu rebuild d/a %llu/%llu",
         static_cast<unsigned long long>( memory.replay.trajectory.budgetExpiries[static_cast<std::size_t>(
             MainMemoryReplayBudgetPass::PredictionBegin )] ),
         static_cast<unsigned long long>( memory.replay.trajectory.budgetExpiries[static_cast<std::size_t>(
             MainMemoryReplayBudgetPass::PredictionStep )] ),
-        static_cast<unsigned long long>( predictionDrawExpiries ),
-        static_cast<unsigned long long>( retainedDrawExpiries ),
+        static_cast<unsigned long long>( memory.replay.trajectory.budgetExpiries[static_cast<std::size_t>(
+            MainMemoryReplayBudgetPass::PredictionBuildTree )] ),
+        static_cast<unsigned long long>( memory.replay.trajectory.budgetExpiries[static_cast<std::size_t>(
+            MainMemoryReplayBudgetPass::RetainedRefresh )] ),
         static_cast<unsigned long long>(
             memory.replay.trajectory.rebuildCauses[static_cast<std::size_t>( MainMemoryReplayRebuildCause::Dirty )] ),
         static_cast<unsigned long long>( memory.replay.trajectory.rebuildCauses[static_cast<std::size_t>(

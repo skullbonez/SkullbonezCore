@@ -255,16 +255,8 @@ void WriteReplayTrajectoryCounters( FILE* file, const MainMemoryReplayTrajectory
         "      \"budget_expiries\": {\n"
         "        \"prediction_begin\": %llu,\n"
         "        \"prediction_step\": %llu,\n"
-        "        \"prediction_draw_root\": %llu,\n"
         "        \"prediction_build_tree\": %llu,\n"
-        "        \"prediction_draw_children\": %llu,\n"
-        "        \"prediction_draw_affected_bodies\": %llu,\n"
-        "        \"prediction_draw_ragdolls\": %llu,\n"
-        "        \"retained_bounds\": %llu,\n"
-        "        \"retained_build_tree\": %llu,\n"
-        "        \"retained_draw_root\": %llu,\n"
-        "        \"retained_draw_children\": %llu,\n"
-        "        \"retained_draw_marker\": %llu\n"
+        "        \"retained_refresh\": %llu\n"
         "      },\n"
         "      \"rebuild_causes\": {\n"
         "        \"dirty\": %llu,\n"
@@ -318,25 +310,9 @@ void WriteReplayTrajectoryCounters( FILE* file, const MainMemoryReplayTrajectory
         static_cast<unsigned long long>(
             ReplayTrajectoryBudgetCounter( trajectory, MainMemoryReplayBudgetPass::PredictionStep ) ),
         static_cast<unsigned long long>(
-            ReplayTrajectoryBudgetCounter( trajectory, MainMemoryReplayBudgetPass::PredictionDrawRoot ) ),
-        static_cast<unsigned long long>(
             ReplayTrajectoryBudgetCounter( trajectory, MainMemoryReplayBudgetPass::PredictionBuildTree ) ),
         static_cast<unsigned long long>(
-            ReplayTrajectoryBudgetCounter( trajectory, MainMemoryReplayBudgetPass::PredictionDrawChildren ) ),
-        static_cast<unsigned long long>(
-            ReplayTrajectoryBudgetCounter( trajectory, MainMemoryReplayBudgetPass::PredictionDrawAffectedBodies ) ),
-        static_cast<unsigned long long>(
-            ReplayTrajectoryBudgetCounter( trajectory, MainMemoryReplayBudgetPass::PredictionDrawRagdolls ) ),
-        static_cast<unsigned long long>(
-            ReplayTrajectoryBudgetCounter( trajectory, MainMemoryReplayBudgetPass::RetainedBounds ) ),
-        static_cast<unsigned long long>(
-            ReplayTrajectoryBudgetCounter( trajectory, MainMemoryReplayBudgetPass::RetainedBuildTree ) ),
-        static_cast<unsigned long long>(
-            ReplayTrajectoryBudgetCounter( trajectory, MainMemoryReplayBudgetPass::RetainedDrawRoot ) ),
-        static_cast<unsigned long long>(
-            ReplayTrajectoryBudgetCounter( trajectory, MainMemoryReplayBudgetPass::RetainedDrawChildren ) ),
-        static_cast<unsigned long long>(
-            ReplayTrajectoryBudgetCounter( trajectory, MainMemoryReplayBudgetPass::RetainedDrawMarker ) ),
+            ReplayTrajectoryBudgetCounter( trajectory, MainMemoryReplayBudgetPass::RetainedRefresh ) ),
         static_cast<unsigned long long>(
             ReplayTrajectoryRebuildCounter( trajectory, MainMemoryReplayRebuildCause::Dirty ) ),
         static_cast<unsigned long long>(
