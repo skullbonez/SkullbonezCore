@@ -1,9 +1,10 @@
 # Behavioral Test Depth
 
 Date: 2026-07-09
-Status: Proposed — 0%. **Prerequisite for engine-cleanup plan 03 steps
-1.2/2.1** (the governance-apparatus deletion names "code review plus real
-behavioral tests" as its replacement enforcement — these are those tests).
+Status: In progress - 33%. **P1 and P4 complete; prerequisite for
+engine-cleanup plan 03 step 2.1 is now satisfied.** The
+governance-apparatus deletion names "code review plus real behavioral tests"
+as its replacement enforcement; these are those tests.
 Impact area: SkullbonezTests, physics solver, scene parser, replay
 Promoted from `engine-cleanup-plans/15-review-gaps.md` item 15.1.
 
@@ -38,12 +39,20 @@ unless noted. Tests live in `SkullbonezTests/` alongside the existing files
 and follow the runtime static-allocation rules only where they compile engine
 sources in.
 
-- [ ] **P1 Solver stages.** Deterministic fixtures for: warm-start reuse
+- [x] **P1 Solver stages.** Deterministic fixtures for: warm-start reuse
   (second solve of an identical manifold converges faster / starts from
   cached impulses), friction-cone clamp (tangential impulse never exceeds
   μ·normal), restitution bounce (post-solve separating velocity vs
   coefficient), and sleep thresholds (body below linear+angular thresholds
   for N ticks sleeps; impulse wakes it).
+  Completed 2026-07-09:
+  - Added `SkullbonezTests/TestPersistentContactSolver.cpp` with direct
+    terrain-manifold fixtures for warm-start cache hits, friction-cone clamp,
+    and restitution bounce.
+  - Extended `SkullbonezTests/TestDeterminism.cpp` with a quiet supported
+    body sleep-threshold test that wakes through `PhysicsEngine::ApplyBodyImpulse`.
+  - Comment audit inspected the two touched source-bearing test files with 0
+    deferred.
 - [ ] **P2 Manifold reduction.** Contact reduction keeps the deepest point;
   a 4-point box-on-box stack manifold stays stable (same points, stable ids)
   across 2 steps; degenerate/coplanar inputs do not produce NaN or empty
@@ -52,10 +61,17 @@ sources in.
   type, missing required key, unknown asset name) produces recoverable Lane R
   failures with messages — never a fatal; a scene using `assetInstances[]`
   round-trips load → save → load with identical object sets.
-- [ ] **P4 Replay snapshot round-trip.** Snapshot save → restore → solver
+- [x] **P4 Replay snapshot round-trip.** Snapshot save → restore → solver
   hash equality at a fixed frame, hosted in the test runner without launching
   the full exe (the replay-owned `PhysicsEngine` from the prediction
   isolation work is the natural host).
+  Completed 2026-07-09:
+  - Existing `Replay solver sample restore: recorded frame reproduces future
+    frame` test already captured, restored, stepped, and compared future solver
+    samples in the test runner.
+  - Added a nonzero unit-level solver hash over the retained replay sample and
+    asserted restored-future hash equality, keeping the fixture independent of
+    `Run` and `GameModelCollection`.
 - [ ] **P5 Injected-bug drill.** Locally break one solver clamp and one
   parser guard; confirm the new tests fail and name the defect, then revert.
   Record the drill result here — this is the acceptance evidence plan 03
@@ -75,6 +91,8 @@ sources in.
   the later phases but the P5 drill is the honest sign-off.
 - P4 pairs naturally with `TODO/replay-prediction-and-memory.md` A-phase
   work; coordinate so the snapshot API is hosted once.
+- P1 and P4 landed on 2026-07-09, so engine-cleanup plan 03 step 2.1
+  is unblocked.
 
 ## Acceptance
 
@@ -91,3 +109,9 @@ sources in.
 |-------|------|
 | Test-only additions | `tools\validate_tests.bat` |
 | Any engine-source change made to enable testability | per the file-to-validation map (`validate_physics` for solver/manifold hosts, `validate_full` for parser/replay hosts) |
+
+## Latest Evidence
+
+- `tools\validate_tests.bat` passed on 2026-07-09 in 00:00:05.3128576 with
+  `VALIDATE_TESTS: ALL PASSED`, 72/72 doctest cases, and 1643/1643 assertions.
+  Log: `Agentic/Reports/validate_tests_behavioral_p1_p4_hash_20260709.log`.

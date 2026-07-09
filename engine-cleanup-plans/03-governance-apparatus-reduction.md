@@ -14,8 +14,9 @@ one genuine product invariant (DX12-only renderer), re-expressed as a real
 pass/fail check with no frozen number. Everything else is deleted and replaced
 by code review plus the behavioral tests in
 `Agentic/Plans/TODO/behavioral-test-depth.md` (the successor to closed plan
-05 — **prerequisite:** its P1 and P4 tests should exist before step 2.1
-lands; its P5 injected-bug drill is the honest sign-off for the deletion).
+05 — **prerequisite satisfied 2026-07-09:** its P1 and P4 tests exist before
+step 2.1 lands; its P5 injected-bug drill is the honest sign-off for the
+deletion).
 
 Rationale: a check whose value is a frozen count of today's debt
 (`MAX_SOURCE_THROW_TOKENS = 294`, `MAX_RUN_PRIVATE_MEMBER_FIELDS = 41`, …) is not
@@ -161,6 +162,15 @@ requires human sign-off before any deletion.
   `Agentic/Plans/TODO/behavioral-test-depth.md`." Do not land this step until
   that plan's P1 (solver-stage tests) and P4 (replay round-trip test) exist.
   Commit.
+
+  Prerequisite completed 2026-07-09:
+  - `Agentic/Plans/TODO/behavioral-test-depth.md` P1 now has named
+    solver-stage tests for warm-start cache reuse, friction-cone clamp,
+    restitution bounce, and sleep threshold/wake behavior.
+  - P4 now has the existing replay snapshot restore test plus a nonzero solver
+    hash equality check in the unit runner.
+  - `tools\validate_tests.bat` passed in 00:00:05.3128576 with 72/72 cases and
+    1643/1643 assertions.
 - [x] **3.1** Executed 2026-07-09 by the owner-directed plan consolidation,
   with deletion instead of archiving: Done/Failed/Rejected trees deleted;
   `fable_plans/`, `To_Eval/`, and `In_Progress/` consolidated into

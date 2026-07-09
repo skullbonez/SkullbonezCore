@@ -21,7 +21,7 @@ Owner decisions of 2026-07-09 are binding — see
 
 | Plan | Status | % | Remaining work |
 |------|--------|---|----------------|
-| [03 Governance apparatus removal](../../engine-cleanup-plans/03-governance-apparatus-reduction.md) | In Progress | 60% | Steps 0.2, 1.1, and 1.2 complete: DX12-only runtime renderer exclusivity now lives in a typed launch option table plus a doctest, and the regex boundary checker plus validation invocations are deleted. Next: unblock step 2.1 by completing `TODO/behavioral-test-depth.md` P1+P4, then strip regex-enforced gates from `AGENTS.md`; relax comment gate. |
+| [03 Governance apparatus removal](../../engine-cleanup-plans/03-governance-apparatus-reduction.md) | In Progress | 70% | Steps 0.2, 1.1, 1.2, and the behavioral-test-depth P1/P4 prerequisite are complete. Next: Plan 03 step 2.1 AGENTS rewrite, then relax the comment gate. |
 | [04 Error-handling reconciliation](../../engine-cleanup-plans/04-error-handling-policy-reconciliation.md) | In Progress | 85% | Strict throws 283 → 7. Remaining: allocator-safe fatal for `RuntimeAllocationTracker`, math test contracts, closure (ratchet deletion with plan 03). Also absorbs the remnants of fable-05 (see Retired below). |
 | [07 Allocation-gate right-sizing](../../engine-cleanup-plans/07-allocation-gate-right-sizing.md) | In Progress | 15% | Right-size the checker; keep global zero-alloc default, replay-only exception. |
 | [11 Render abstraction leaks](../../engine-cleanup-plans/11-render-abstraction-leaks.md) | In Progress | 80% | Retire the diagnostic RenderGraph path per owner decision; remove stale barrier-ownership claims. |
@@ -37,7 +37,7 @@ re-scoped. Constituent history is in git history of the deleted files.
 
 | Plan | Status | % | Remaining work |
 |------|--------|---|----------------|
-| [behavioral-test-depth](TODO/behavioral-test-depth.md) | Proposed | 0% | **Highest-leverage plan in the inventory.** Solver-stage, manifold, parser, and replay round-trip unit tests; injected-bug drill; gates plan 03's enforcement switch. |
+| [behavioral-test-depth](TODO/behavioral-test-depth.md) | In progress | 33% | P1 solver-stage tests and P4 replay snapshot/hash round-trip are complete. Remaining: P2 manifold reduction, P3 parser error paths, P5 injected-bug drill, and P6 sustaining rule. |
 | [physics-authority-and-identity](TODO/physics-authority-and-identity.md) | In progress | 55% | Body/collider authority completion, scene/entity metadata split, stable-identity storage rule (handles, `ModelRowHint`), PHYS blocker knot (needs a physics-owner design decision). |
 | [render-backend-decomposition](TODO/render-backend-decomposition.md) | In progress | 50% | Concrete DX12 owner split (textures, PSO cache, DXR owner), resource-capability decision, FAC-007 dual-ownership fix. Graph-buildout scope dropped per owner decision. |
 | [interaction-state-machine](TODO/interaction-state-machine.md) | In progress | 45% | Phases P4–P10: camera capture, launcher/manipulator/editor/replay gesture migration, commands/events, bool-cluster deletion. |

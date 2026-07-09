@@ -75,6 +75,9 @@
     <ClCompile Include="SkullbonezTests\TestMatrix4.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezTests\TestPersistentContactSolver.cpp">
+      <Filter>Source Files\Tests</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezTests\TestPhysicsHandles.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>

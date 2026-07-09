@@ -216,6 +216,45 @@ void AddMicroBody( PhysicsEngine& engine,
     (void)engine.RegisterAuthoredCollider( colliderDesc );
 }
 
+void AddSupportedSleepBody( PhysicsEngine& engine, uint32_t sceneObjectId, const Vector3& position )
+{
+    const float radius = 1.0f;
+    const float mass = 2.0f;
+    const float inertia = 0.4f * mass * radius * radius;
+    const CollisionShape shape = MakeSphereShape( radius );
+    auto bodyDesc = MakePhysicsBodyCreateDesc( PhysicsSceneObjectId{ sceneObjectId },
+                                               shape,
+                                               position,
+                                               SkullbonezCore::Math::Orientation::IDENTITY_QUATERNION,
+                                               Vector3( 0.0f, 0.0f, 0.0f ),
+                                               Vector3( 0.0f, 0.0f, 0.0f ),
+                                               Vector3( inertia, inertia, inertia ),
+                                               mass,
+                                               0.0f,
+                                               PhysicsBodyMotionKind::Dynamic,
+                                               &FlatTestTerrain(),
+                                               "unit-sleep-threshold-body" );
+    bodyDesc.angularVelocityLimit = 1000.0f;
+    const PhysicsBodyHandle body = engine.RegisterAuthoredBody( bodyDesc );
+    auto colliderDesc = MakeColliderCreateDesc( shape, 0.0f, 0u, "unit" );
+    colliderDesc.body = body;
+    colliderDesc.sceneObjectId = bodyDesc.sceneObjectId;
+    (void)engine.RegisterAuthoredCollider( colliderDesc );
+}
+
+void SeedSupportedSleepWorld( PhysicsEngine& engine, const EngineConfig& config )
+{
+    // Why: the sleep-threshold test needs real terrain support but no inherited
+    // angular motion from SeedMicroWorld. One quiet sphere starts exactly on the
+    // flat terrain so the solver, not fixture surgery, earns the sleep state.
+    engine.Clear();
+    engine.ApplyRuntimeConfig( config );
+    engine.SetSleepEnabled( true );
+    AddSupportedSleepBody( engine, 401u, Vector3( 0.0f, 1.0f, 0.0f ) );
+    REQUIRE( engine.BodyStore().Count() == 1 );
+    REQUIRE( engine.Colliders().Count() == 1 );
+}
+
 void AddMutualGravityBody( PhysicsEngine& engine,
                            uint32_t sceneObjectId,
                            const Vector3& position,
@@ -387,6 +426,95 @@ BodyReplayState CaptureBodyReplayState( const PhysicsBodyRecord& record )
     return state;
 }
 
+void HashBytesForReplayTest( uint64_t& hash, const void* data, std::size_t byteCount )
+{
+    const uint8_t* bytes = static_cast<const uint8_t*>( data );
+    for ( std::size_t i = 0; i < byteCount; ++i )
+    {
+        hash ^= static_cast<uint64_t>( bytes[i] );
+        hash *= 1099511628211ull;
+    }
+}
+
+template <typename T>
+void HashValueForReplayTest( uint64_t& hash, const T& value )
+{
+    HashBytesForReplayTest( hash, &value, sizeof( T ) );
+}
+
+template <typename T>
+void HashVectorForReplayTest( uint64_t& hash, const std::vector<T>& values )
+{
+    const std::size_t count = values.size();
+    HashValueForReplayTest( hash, count );
+    for ( const T& value : values )
+    {
+        HashValueForReplayTest( hash, value );
+    }
+}
+
+void HashSolverBodyForReplayTest( uint64_t& hash, const ReplaySolverBodySample& body )
+{
+    HashValueForReplayTest( hash, body.id.value );
+    HashValueForReplayTest( hash, body.modelIndex );
+    HashValueForReplayTest( hash, body.shapeKind );
+    HashValueForReplayTest( hash, body.position );
+    HashValueForReplayTest( hash, body.linearVelocity );
+    HashValueForReplayTest( hash, body.angularVelocity );
+    HashBytesForReplayTest( hash, body.orientation, sizeof( body.orientation ) );
+    HashValueForReplayTest( hash, body.mass );
+    HashValueForReplayTest( hash, body.inverseMass );
+    HashValueForReplayTest( hash, body.rotationalInertia );
+    HashValueForReplayTest( hash, body.inverseRotationalInertia );
+    HashValueForReplayTest( hash, body.fixed );
+    HashValueForReplayTest( hash, body.sleeping );
+    HashValueForReplayTest( hash, body.sleepSupported );
+    HashValueForReplayTest( hash, body.sleepInhibited );
+    HashValueForReplayTest( hash, body.collisionContact );
+    HashValueForReplayTest( hash, body.sleepIslandVisualId );
+    HashValueForReplayTest( hash, body.contactCount );
+    HashValueForReplayTest( hash, body.maxPenetration );
+    HashValueForReplayTest( hash, body.normalImpulseSum );
+}
+
+uint64_t HashReplaySampleForTest( const ReplaySolverFrameSample& sample )
+{
+    // Concept: this is a unit-level solver replay hash. Production replay hashes
+    // are owned by ReplaySolverRecorder, which needs GameModelCollection. This
+    // micro-world fixture hashes the same retained solver sample it restores so
+    // the unit test can prove snapshot restore reaches an identical hash without
+    // launching Run or rebuilding presentation owners.
+    uint64_t hash = 1469598103934665603ull;
+    HashValueForReplayTest( hash, sample.frameIndex );
+    HashValueForReplayTest( hash, sample.sceneFrame );
+    HashValueForReplayTest( hash, sample.simulationSeconds );
+    HashValueForReplayTest( hash, sample.physicsDt );
+    HashValueForReplayTest( hash, sample.world.gravity );
+    HashValueForReplayTest( hash, sample.world.fluidHeight );
+    HashValueForReplayTest( hash, sample.world.fluidDensity );
+    HashValueForReplayTest( hash, sample.world.fixedStep );
+    HashValueForReplayTest( hash, sample.world.scenePhysicsEnabled );
+    HashValueForReplayTest( hash, sample.world.sceneTextEnabled );
+    HashValueForReplayTest( hash, sample.worldSnapshot.version );
+    HashValueForReplayTest( hash, sample.worldSnapshot.modelCount );
+    HashValueForReplayTest( hash, sample.worldSnapshot.sleepEnabled );
+    HashVectorForReplayTest( hash, sample.worldSnapshot.timeRemaining );
+    HashVectorForReplayTest( hash, sample.worldSnapshot.sleepState );
+    HashVectorForReplayTest( hash, sample.worldSnapshot.sleepCounter );
+    HashVectorForReplayTest( hash, sample.worldSnapshot.collisionVisualContacts );
+    HashVectorForReplayTest( hash, sample.worldSnapshot.sleepIslandParent );
+    HashVectorForReplayTest( hash, sample.worldSnapshot.sleepIslandRank );
+    HashValueForReplayTest( hash, sample.contactCount );
+    HashValueForReplayTest( hash, sample.pipelineRecordCount );
+    const std::size_t bodyCount = sample.bodies.size();
+    HashValueForReplayTest( hash, bodyCount );
+    for ( const ReplaySolverBodySample& body : sample.bodies )
+    {
+        HashSolverBodyForReplayTest( hash, body );
+    }
+    return hash != 0ull ? hash : 1ull;
+}
+
 MicroWorldSnapshot CaptureMicroWorldSnapshot( const PhysicsEngine& engine )
 {
     MicroWorldSnapshot snapshot;
@@ -458,6 +586,8 @@ ReplaySolverFrameSample CaptureMicroWorldReplaySample( const PhysicsEngine& engi
     {
         sample.bodies.push_back( CaptureMicroWorldReplayBodySample( engine, i ) );
     }
+    sample.solverHash = HashReplaySampleForTest( sample );
+    sample.presentationHash = sample.solverHash;
     return sample;
 }
 
@@ -578,6 +708,9 @@ void CheckReplaySamplesEqual( const ReplaySolverFrameSample& lhs, const ReplaySo
     CheckVectorContentsEqual( lhs.worldSnapshot.sleepIslandRank, rhs.worldSnapshot.sleepIslandRank );
     CHECK( lhs.contactCount == rhs.contactCount );
     CHECK( lhs.pipelineRecordCount == rhs.pipelineRecordCount );
+    CHECK( lhs.solverHash != 0u );
+    CHECK( lhs.solverHash == rhs.solverHash );
+    CHECK( lhs.presentationHash == rhs.presentationHash );
     REQUIRE( lhs.bodies.size() == rhs.bodies.size() );
     for ( std::size_t i = 0; i < lhs.bodies.size(); ++i )
     {
@@ -828,6 +961,33 @@ TEST_CASE( "PhysicsEngine invariants: authored velocity wakes a sleeping body" )
                                          Vector3( 2.0f, 0.0f, 0.0f ),
                                          Vector3( 0.0f, 0.0f, 0.0f ),
                                          true ) );
+    CHECK_FALSE( RequireBodyRecord( sleepWorld, 0 ).isSleeping );
+    CHECK_FALSE( DiagnosticsSleepStateAt( sleepWorld, 0 ) );
+
+    StepMicroWorldWith( sleepWorld, 1, config, forces );
+    CHECK( RequireBodyRecord( sleepWorld, 0 ).position.x > positionBeforeWake.x );
+}
+
+
+TEST_CASE( "PhysicsEngine sleep policy: quiet supported body sleeps after threshold frames" )
+{
+    static PhysicsEngine sleepWorld;
+
+    EngineConfig config = MakeDeterministicConfig();
+    config.physicsSleepFrames = 3;
+    config.physicsSleepLinearSpeed = 0.25f;
+    config.physicsSleepAngularSpeed = 0.25f;
+    const PhysicsWorldForces forces = DeterministicForces();
+
+    SeedSupportedSleepWorld( sleepWorld, config );
+    StepMicroWorldWith( sleepWorld, config.physicsSleepFrames + 24, config, forces );
+
+    CHECK( RequireBodyRecord( sleepWorld, 0 ).isSleeping );
+    CHECK( DiagnosticsSleepStateAt( sleepWorld, 0 ) );
+
+    const PhysicsBodyHandle body = RequireBodyHandle( sleepWorld, 0 );
+    const Vector3 positionBeforeWake = RequireBodyRecord( sleepWorld, 0 ).position;
+    sleepWorld.ApplyBodyImpulse( body, Vector3( 12.0f, 0.0f, 0.0f ), Vector3( 0.0f, 0.0f, 0.0f ) );
     CHECK_FALSE( RequireBodyRecord( sleepWorld, 0 ).isSleeping );
     CHECK_FALSE( DiagnosticsSleepStateAt( sleepWorld, 0 ) );
 
