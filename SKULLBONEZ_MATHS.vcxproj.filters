@@ -9,51 +9,45 @@
       <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
       <Extensions>h;hpp;hxx;hm;inl;inc;xsd</Extensions>
     </Filter>
-    <Filter Include="Source Files\Maths">
-      <UniqueIdentifier>{9D54DB4F-A0BB-4351-8CC6-F9F76CF3C4BB}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Header Files\Maths">
-      <UniqueIdentifier>{7A9FA734-4718-4E61-870D-F1683365AEB2}</UniqueIdentifier>
-    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="SkullbonezSource\Maths\GeometricMath.cpp">
-      <Filter>Source Files\Maths</Filter>
+      <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Maths\Matrix4.cpp">
-      <Filter>Source Files\Maths</Filter>
+      <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Maths\Quaternion.cpp">
-      <Filter>Source Files\Maths</Filter>
+      <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Maths\RotationMatrix.cpp">
-      <Filter>Source Files\Maths</Filter>
+      <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Maths\Vector3.cpp">
-      <Filter>Source Files\Maths</Filter>
+      <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="SkullbonezSource\Maths\GeometricMath.h">
-      <Filter>Header Files\Maths</Filter>
+      <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Maths\GeometricStructures.h">
-      <Filter>Header Files\Maths</Filter>
+      <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Maths\MathsCommon.h">
-      <Filter>Header Files\Maths</Filter>
+      <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Maths\Matrix4.h">
-      <Filter>Header Files\Maths</Filter>
+      <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Maths\Quaternion.h">
-      <Filter>Header Files\Maths</Filter>
+      <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Maths\RotationMatrix.h">
-      <Filter>Header Files\Maths</Filter>
+      <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Maths\Vector3.h">
-      <Filter>Header Files\Maths</Filter>
+      <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

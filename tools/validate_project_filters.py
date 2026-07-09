@@ -65,6 +65,13 @@ DEFAULT_PRODUCTION_PROJECTS = (
     ("SKULLBONEZ_MATHS.vcxproj", "SKULLBONEZ_MATHS.vcxproj.filters"),
     ("SKULLBONEZ_PHYSICS.vcxproj", "SKULLBONEZ_PHYSICS.vcxproj.filters"),
 )
+# Concept: extracted single-area libraries already name their subsystem at the
+# project node in Solution Explorer. Their filters should stay shallow instead
+# of nesting every item under Source Files\<same area>.
+FLATTENED_LIBRARY_PROJECT_AREAS = {
+    "SKULLBONEZ_MATHS.vcxproj": "Maths",
+    "SKULLBONEZ_PHYSICS.vcxproj": "Physics",
+}
 # Concept: `.inl` files are source-bearing include slices, not build units.
 # Keep them as ClInclude items so Visual Studio shows ownership splits while
 # the including `.cpp` preserves linkage and compile order.
@@ -465,6 +472,10 @@ def default_production_project_specs(repo: Path) -> list[ProjectValidationSpec]:
     return specs
 
 
+def flattened_library_area(project_path: Path) -> str | None:
+    return FLATTENED_LIBRARY_PROJECT_AREAS.get(project_path.name)
+
+
 def read_project_items_from_path(project_path: Path) -> list[ProjectItem]:
     project_root = load_xml(project_path)
     project_namespace = namespace_for(project_root)
@@ -537,7 +548,7 @@ def source_area(include: str) -> str | None:
     return None
 
 
-def expected_filter_for(item: ProjectItem) -> str | None:
+def expected_filter_for(item: ProjectItem, project_flat_area: str | None = None) -> str | None:
     include = normalize_path(item.include)
     lower = include.lower()
     suffix = PureWindowsPath(include).suffix.lower()
@@ -548,6 +559,8 @@ def expected_filter_for(item: ProjectItem) -> str | None:
             return None
         if area == EXTERNAL_FILTER:
             return EXTERNAL_FILTER
+        if area == project_flat_area:
+            return SOURCE_FILTER_ROOT
         return f"{SOURCE_FILTER_ROOT}\\{area}"
 
     if item.item_type == "ClInclude":
@@ -556,6 +569,8 @@ def expected_filter_for(item: ProjectItem) -> str | None:
             return None
         if area == EXTERNAL_FILTER:
             return EXTERNAL_FILTER
+        if area == project_flat_area:
+            return HEADER_FILTER_ROOT
         return f"{HEADER_FILTER_ROOT}\\{area}"
 
     if item.item_type == "None":
@@ -615,8 +630,8 @@ def pair_filter_errors(items_by_key: dict[tuple[str, str], ProjectItem]) -> list
         header = header_by_stem.get(stem_key)
         if not header or not source.filter_name or not header.filter_name:
             continue
-        source_suffix = source.filter_name.removeprefix(f"{SOURCE_FILTER_ROOT}\\")
-        header_suffix = header.filter_name.removeprefix(f"{HEADER_FILTER_ROOT}\\")
+        source_suffix = source_header_filter_suffix(source.filter_name, SOURCE_FILTER_ROOT)
+        header_suffix = source_header_filter_suffix(header.filter_name, HEADER_FILTER_ROOT)
         if source.filter_name == EXTERNAL_FILTER and header.filter_name == EXTERNAL_FILTER:
             continue
         if source_suffix != header_suffix:
@@ -625,6 +640,12 @@ def pair_filter_errors(items_by_key: dict[tuple[str, str], ProjectItem]) -> list
                 f"(found {source.filter_name} and {header.filter_name})."
             )
     return errors
+
+
+def source_header_filter_suffix(filter_name: str, root_filter: str) -> str:
+    if filter_name == root_filter:
+        return ""
+    return filter_name.removeprefix(f"{root_filter}\\")
 
 
 def validate_project_filters(
@@ -659,6 +680,7 @@ def validate_project_filters(
     project_items = read_project_items(project_root, project_namespace, include_filters=False)
     filter_items = read_project_items(filters_root, filters_namespace, include_filters=True)
     declared_filters = read_declared_filters(filters_root, filters_namespace)
+    project_flat_area = flattened_library_area(project_path)
 
     errors.extend(duplicate_item_errors("project", project_items))
     errors.extend(duplicate_item_errors("filters", filter_items))
@@ -696,7 +718,7 @@ def validate_project_filters(
                 f"{repo_relative(repo, filters_path)}."
             )
 
-        expected_filter = expected_filter_for(item)
+        expected_filter = expected_filter_for(item, project_flat_area)
         if expected_filter is None:
             errors.append(f"{item.include}: no project filter rule covers this item.")
         elif filter_item.filter_name != expected_filter:
