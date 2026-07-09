@@ -261,6 +261,11 @@ class PhysicsWorld
                                               float collisionTime,
                                               float availableTime );
     static void MarkObjectVisualEvent( ObjectNarrowphaseEvent& event, int bodyA, int bodyB );
+    static void WriteObjectCollisionCellEvent( ObjectNarrowphaseEvent& event,
+                                               const PhysicsBodyRecordList& bodyRecords,
+                                               int bodyA,
+                                               int bodyB,
+                                               float invCellSize );
 
     struct ObjectNarrowphaseIsland
     {

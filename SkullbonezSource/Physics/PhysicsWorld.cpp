@@ -2737,6 +2737,23 @@ void PhysicsWorld::MarkObjectVisualEvent( ObjectNarrowphaseEvent& event, int bod
     event.visualBodyB = bodyB;
 }
 
+void PhysicsWorld::WriteObjectCollisionCellEvent( ObjectNarrowphaseEvent& event,
+                                                  const PhysicsBodyRecordList& bodyRecords,
+                                                  int bodyA,
+                                                  int bodyB,
+                                                  float invCellSize )
+{
+    const Vector3 midpoint =
+        ( bodyRecords[static_cast<size_t>( bodyA )].position + bodyRecords[static_cast<size_t>( bodyB )].position ) *
+        0.5f;
+    const int16_t cx = static_cast<int16_t>( floorf( midpoint.x * invCellSize ) );
+    const int16_t cy = static_cast<int16_t>( floorf( midpoint.y * invCellSize ) );
+    const int16_t cz = static_cast<int16_t>( floorf( midpoint.z * invCellSize ) );
+    event.collisionCellKey = ( int64_t( cx ) * 73856093 ) ^ ( int64_t( cy ) * 19349663 ) ^
+                             ( int64_t( cz ) * 83492791 );
+    event.hasCollisionCellKey = 1;
+}
+
 
 void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
                                      const ColliderStore& colliderStore,
@@ -2978,19 +2995,6 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
     float invCellSize = 1.0f / m_spatialGrid.GetCellSize();
     const int candidatePairCount = static_cast<int>( candidatePairs.size() );
 
-    auto writeObjectCollisionCellEvent = [&]( ObjectNarrowphaseEvent& event, int bodyA, int bodyB )
-    {
-        const Vector3 midpoint = ( bodyRecords[static_cast<size_t>( bodyA )].position +
-                                   bodyRecords[static_cast<size_t>( bodyB )].position ) *
-                                 0.5f;
-        const int16_t cx = static_cast<int16_t>( floorf( midpoint.x * invCellSize ) );
-        const int16_t cy = static_cast<int16_t>( floorf( midpoint.y * invCellSize ) );
-        const int16_t cz = static_cast<int16_t>( floorf( midpoint.z * invCellSize ) );
-        event.collisionCellKey =
-            ( int64_t( cx ) * 73856093 ) ^ ( int64_t( cy ) * 19349663 ) ^ ( int64_t( cz ) * 83492791 );
-        event.hasCollisionCellKey = 1;
-    };
-
     auto commitObjectNarrowphaseEvent = [&]( const ObjectNarrowphaseEvent& event )
     {
         if ( event.hasPipelineRecord )
@@ -3095,7 +3099,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
                         }
                         wokeBySweptImpact = true;
                         MarkObjectVisualEvent( event, x, y );
-                        writeObjectCollisionCellEvent( event, x, y );
+                        WriteObjectCollisionCellEvent( event, bodyRecords, x, y, invCellSize );
                     }
                 }
                 if ( !wokeBySweptImpact &&
@@ -3127,7 +3131,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
                                                 dt );
                     }
                     MarkObjectVisualEvent( event, x, y );
-                    writeObjectCollisionCellEvent( event, x, y );
+                    WriteObjectCollisionCellEvent( event, bodyRecords, x, y, invCellSize );
                 }
                 return;
             }
@@ -3185,7 +3189,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
                         }
                         wokeBySweptImpact = true;
                         MarkObjectVisualEvent( event, x, y );
-                        writeObjectCollisionCellEvent( event, x, y );
+                        WriteObjectCollisionCellEvent( event, bodyRecords, x, y, invCellSize );
                     }
                 }
                 if ( !wokeBySweptImpact &&
@@ -3217,7 +3221,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
                                                 dt );
                     }
                     MarkObjectVisualEvent( event, x, y );
-                    writeObjectCollisionCellEvent( event, x, y );
+                    WriteObjectCollisionCellEvent( event, bodyRecords, x, y, invCellSize );
                 }
                 return;
             }
@@ -3280,7 +3284,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
             // Object/object CCD only advances to the contact candidate. The
             // persistent Catto rows below own velocity response and cache storage.
             MarkObjectVisualEvent( event, x, y );
-            writeObjectCollisionCellEvent( event, x, y );
+            WriteObjectCollisionCellEvent( event, bodyRecords, x, y, invCellSize );
         }
         else
         {
