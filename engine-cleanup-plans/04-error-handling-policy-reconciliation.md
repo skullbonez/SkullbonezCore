@@ -456,6 +456,34 @@ byte-exact gated.
   - Required gate passed: `tools\validate_dx12_renderer.bat` exited 0 in
     00:00:27.3583295. Log:
     `Agentic/Reports/validate_dx12_renderer_plan04_dxr_tlas_fatal_20260709.log`.
+
+  Progress 2026-07-09, pure math precondition fatal-invariant sub-slice:
+  - Converted eight F sites from `throw std::runtime_error` to `SB_FATAL`:
+    `GeometricMath.cpp` rows 40 through 42 and `Vector3.cpp` rows 74 through
+    78 from the Step 0.1 inventory. The replacements cover zero plane normals,
+    out-of-segment intersection points, collinear barycentric triangles, zero
+    vector normalization, scalar divide by zero, and component-wise divide by
+    zero.
+  - Updated `Vector3` and `GeometricMath` public comments to describe fatal
+    preconditions, and adjusted the unit tests to validate caller-detectable
+    guard states instead of catching fatal paths in-process.
+  - Strict anchored source throw statement inventory now reports 121 sites,
+    down from the previous sub-slice count of 129. `SB_FATAL` macro invocations
+    now report 151 via `rg -n "SB_FATAL\s*\(" SkullbonezSource`.
+  - Comment-style audit scope:
+    `SkullbonezSource/Maths/GeometricMath.cpp`,
+    `SkullbonezSource/Maths/GeometricMath.h`,
+    `SkullbonezSource/Maths/Vector3.cpp`,
+    `SkullbonezSource/Maths/Vector3.h`,
+    `SkullbonezTests/TestGeometricMath.cpp`, and
+    `SkullbonezTests/TestVector3.cpp`; checked 6, deferred 0. This was a
+    touched-file audit, so no subsystem checklist plan was required.
+  - Required gates passed: `tools\validate_tests.bat` exited 0 in
+    00:00:08.4134429 with 61 test cases and 1540 assertions passing, and
+    `tools\validate_fast.bat` exited 0 in 00:01:13.5353013 after applying the
+    targeted header-format alignment to `Vector3.h`. Logs:
+    `Agentic/Reports/validate_tests_plan04_math_fatals_20260709.log` and
+    `Agentic/Reports/validate_fast_plan04_math_fatals_20260709.log`.
 - [ ] **2.1** Convert **P** sites (replay/interaction probes) to the
   `FailAutomation(...)` channel with `ok=false` + message. Gate: `validate_full`
   + replay scrub. Commit.

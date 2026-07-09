@@ -53,7 +53,7 @@ class Vector3
     Vector3( const Vector3& v );
     Vector3( float fX, float fY, float fZ );
     void Zero();
-    void Normalise();                                         // Scales non-zero vectors to unit length for direction-only math.
+    void Normalise();                                         // Fatal if zero; scales direction vectors to unit length.
     void Absolute();                                          // Component-wise absolute value; mutates this vector.
     bool IsCloseToZero() const;                               // Tolerance check for float noise near zero.
     void Simplify();                                          // Components within the engine epsilon snap to 0.0f.
@@ -62,14 +62,14 @@ class Vector3
     Vector3& operator+=( const Vector3& v );                  // Component-wise addition into this vector.
     Vector3& operator-=( const Vector3& v );                  // Component-wise subtraction into this vector.
     Vector3& operator*=( float f );                           // Uniform scalar scale into this vector.
-    Vector3& operator/=( float f );                           // Uniform scalar divide into this vector.
-    Vector3& operator/=( const Vector3& );                    // Component-wise divide for axis-specific scaling.
+    Vector3& operator/=( float f );                           // Fatal on zero; uniform scalar divide into this vector.
+    Vector3& operator/=( const Vector3& );                    // Fatal on zero components; axis-specific divide.
     Vector3 operator-() const;                                // Unary minus returns the negative of the vector
     Vector3 operator+( const Vector3& v ) const;              // Binary add vectors
     Vector3 operator-( const Vector3& v ) const;              // Binary subtract vectors
     Vector3 operator*( float f ) const;                       // Multiplication by scalar
-    Vector3 operator/( float f ) const;                       // Division by scalar
-    Vector3 operator/( const Vector3& v ) const;              // Division by vector (individual component division)
+    Vector3 operator/( float f ) const;                       // Fatal on zero divisor; scalar divide
+    Vector3 operator/( const Vector3& v ) const;              // Fatal on zero components; component-wise divide
     bool operator==( const Vector3& v ) const;
     bool operator!=( const Vector3& v ) const;
     float operator*( const Vector3& v ) const;                // Vector dot product

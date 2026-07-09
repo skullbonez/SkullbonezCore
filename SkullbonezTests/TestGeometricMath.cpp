@@ -15,9 +15,8 @@
 //
 // Invariants:
 //   - Triangle winding controls the plane normal sign.
-//   - A zero plane normal still throws under the current error contract.
-//   - A plane hit outside the ray segment still throws through
-//     ComputeIntersectionPoint().
+//   - Degenerate fatal paths are not invoked by this in-process runner; callers
+//     must detect miss/precondition states before fatal-only APIs.
 //
 // Related:
 //   - SkullbonezSource/Maths/GeometricMath.h
@@ -31,13 +30,14 @@
 #include "../SkullbonezSource/Maths/GeometricStructures.h"
 
 #include <cmath>
-#include <stdexcept>
 
 using SkullbonezCore::Geometry::Plane;
 using SkullbonezCore::Geometry::Ray;
 using SkullbonezCore::Geometry::Triangle;
 using SkullbonezCore::Math::GeometricMath;
+using SkullbonezCore::Math::Vector::CrossProduct;
 using SkullbonezCore::Math::Vector::Vector3;
+using SkullbonezCore::Math::Vector::VectorMagSquared;
 
 namespace
 {
@@ -110,20 +110,20 @@ TEST_CASE( "GeometricMath: ray-plane segment hit, miss, and boundary times" )
 }
 
 
-TEST_CASE( "GeometricMath: degenerate inputs keep current throwing contracts" )
+TEST_CASE( "GeometricMath: degenerate fatal preconditions are caller-detectable" )
 {
     Plane zeroNormal;
     zeroNormal.m_normal = Vector3( 0.0f, 0.0f, 0.0f );
     zeroNormal.m_distance = 0.0f;
-    const Ray downward( Vector3( 0.0f, 2.0f, 0.0f ), Vector3( 0.0f, -2.0f, 0.0f ) );
-    CHECK_THROWS_AS( GeometricMath::CalculateIntersectionTime( zeroNormal, downward ), std::runtime_error );
+    CHECK( zeroNormal.m_normal == Vector3( 0.0f, 0.0f, 0.0f ) );
 
     const Plane plane = GeometricMath::ComputePlane( FlatTriangle() );
     const Ray awayFromPlane( Vector3( 0.0f, 2.0f, 0.0f ), Vector3( 0.0f, 1.0f, 0.0f ) );
-    CHECK_THROWS_AS( GeometricMath::ComputeIntersectionPoint( plane, awayFromPlane ), std::runtime_error );
+    CHECK( GeometricMath::CalculateIntersectionTime( plane, awayFromPlane ) < 0.0f );
 
-    CHECK_THROWS_AS( GeometricMath::ComputePlane( MakeTriangle( Vector3( 0.0f, 0.0f, 0.0f ),
-                                                               Vector3( 1.0f, 0.0f, 0.0f ),
-                                                               Vector3( 2.0f, 0.0f, 0.0f ) ) ),
-                     std::runtime_error );
+    const Triangle collinear =
+        MakeTriangle( Vector3( 0.0f, 0.0f, 0.0f ), Vector3( 1.0f, 0.0f, 0.0f ), Vector3( 2.0f, 0.0f, 0.0f ) );
+    const Vector3 edge1 = collinear.v2 - collinear.v1;
+    const Vector3 edge2 = collinear.v3 - collinear.v2;
+    CHECK( VectorMagSquared( CrossProduct( edge1, edge2 ) ) == doctest::Approx( 0.0f ) );
 }

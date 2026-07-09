@@ -17,13 +17,15 @@ Invariants:
     to be unit length.
   - Triangle normal direction follows the engine's counter-clockwise winding
     convention; callers depend on signed distance polarity.
+  - Degenerate planes, out-of-segment intersection points, and collinear
+    barycentric triangles are fatal caller invariant failures.
 
 Related:
   - SkullbonezSource/Maths/GeometricMath.h
   - Agentic/Reference/comment-style-guide.md
 */
 #include "GeometricMath.h"
-#include <stdexcept>
+#include "../Core/FatalError.h"
 
 
 using namespace SkullbonezCore::Math;
@@ -188,7 +190,7 @@ float GeometricMath::CalculateIntersectionTime( const Plane& plane, const Ray& r
     // ensure data is valid
     if ( plane.m_normal == ZERO_VECTOR )
     {
-        throw std::runtime_error( "Division by zero!  (GeometricMath::CalculateIntersectionTime)" );
+        SB_FATAL( "GeometricMath", "CalculateIntersectionTime requires a non-zero plane normal." );
     }
 
     // if the ray doesnt go anywhere then no collision will occur
@@ -222,8 +224,9 @@ Vector3 GeometricMath::ComputeIntersectionPoint( const Plane& plane, const Ray& 
     // ensure the ray intersects with the plane
     if ( collisionTime > 1.0f || collisionTime < 0.0f )
     {
-        throw std::runtime_error(
-            "Supplied ray will not intersect with this plane!  (GeometricMath::ComputeIntersectionPoint)" );
+        SB_FATAL( "GeometricMath",
+                  "ComputeIntersectionPoint requires a collision time in [0,1]. time=%f",
+                  collisionTime );
     }
 
     // translate from the origin of the ray along the ray until the collision
@@ -397,8 +400,7 @@ Vector3 GeometricMath::ComputeBarycentricCoordinates( const Triangle& triangle, 
     // was co-linear)
     if ( !denominator )
     {
-        throw std::runtime_error(
-            "Division by zero due to co-linear triangle.  (GeometricMath::ComputeBarycentricCoordinates)" );
+        SB_FATAL( "GeometricMath", "ComputeBarycentricCoordinates requires a non-collinear triangle." );
     }
 
     Vector3 barycentricResult = Vector3( ( v2_p_axis2 * v2_v1_axis1 - v2_v1_axis2 * v2_p_axis1 ) / denominator,
