@@ -30,10 +30,11 @@ Related:
 */
 #pragma once
 
+#include "../Core/FatalError.h"
+
 #include <array>
 #include <cstdint>
 #include <cstddef>
-#include <stdexcept>
 #include <string>
 
 namespace SkullbonezCore
@@ -435,7 +436,10 @@ template <typename T, size_t Capacity> struct RenderGraphFixedList
     {
         if ( requested > Capacity )
         {
-            throw std::runtime_error( "RenderGraph fixed-list reserve capacity exceeded" );
+            SB_FATAL( "RenderGraph",
+                      "Fixed-list reserve capacity exceeded. requested=%zu capacity=%zu",
+                      requested,
+                      Capacity );
         }
     }
 
@@ -452,7 +456,7 @@ template <typename T, size_t Capacity> struct RenderGraphFixedList
     {
         if ( count > Capacity )
         {
-            throw std::runtime_error( "RenderGraph fixed-list resize capacity exceeded" );
+            SB_FATAL( "RenderGraph", "Fixed-list resize capacity exceeded. count=%zu capacity=%zu", count, Capacity );
         }
         if ( count < m_count )
         {
@@ -475,7 +479,7 @@ template <typename T, size_t Capacity> struct RenderGraphFixedList
     {
         if ( m_count >= Capacity )
         {
-            throw std::runtime_error( "RenderGraph fixed-list push capacity exceeded" );
+            SB_FATAL( "RenderGraph", "Fixed-list push capacity exceeded. count=%zu capacity=%zu", m_count, Capacity );
         }
         m_values[m_count++] = value;
     }
