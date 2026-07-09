@@ -481,8 +481,31 @@ island-merge tie-breaks.
     `TestOutput\agent_logs\plan02_run_solver_driver_shrink_validate_physics_20260709_1118.log`
     (39.2s shell runtime; Debug/Profile builds 0 warnings and 0 errors; final
     `VALIDATE_PHYSICS: ALL PASSED`).
-- [ ] **1.4** Add a unit test for at least one now-pure stage (e.g. broadphase
+- [x] **1.4** Add a unit test for at least one now-pure stage (e.g. broadphase
   candidate) — coordinate with plan 05. Gate: `validate_tests`. Commit.
+
+  - Moved the pure broadphase candidate filter into
+    `SkullbonezSource/Physics/SolverBroadphaseStage.h` and kept
+    `PhysicsWorld::BuildSolverBroadphaseCandidatePairs` calling the same
+    predicate through the spatial-grid callback path.
+  - Added `SkullbonezTests/TestSolverBroadphaseStage.cpp` with direct coverage
+    for static overlap, static separation, swept approach, null-filter pass
+    through, out-of-range rejection, and invalid-radius conservative acceptance.
+  - First gate attempt built cleanly but failed because the new test allocated
+    fixed-capacity physics lists on the doctest stack:
+    `TestOutput\agent_logs\plan02_solver_broadphase_stage_validate_tests_20260709_1130.log`.
+    The fixture now uses the existing static-storage pattern from physics tests.
+  - Gate evidence: `tools\validate_tests.bat` passed in
+    `TestOutput\agent_logs\plan02_solver_broadphase_stage_validate_tests_20260709_1131.log`
+    (4.7s shell runtime; Profile build 0 warnings and 0 errors; 61/61 test
+    cases and 1539/1539 assertions passed; final `VALIDATE_TESTS: ALL PASSED`).
+  - Extra physics gate required by the `PhysicsWorld` source/header touch:
+    `tools\validate_physics.bat` passed in
+    `TestOutput\agent_logs\plan02_solver_broadphase_stage_validate_physics_20260709_1132.log`
+    (25.9s shell runtime; Debug/Profile builds 0 warnings and 0 errors; final
+    `VALIDATE_PHYSICS: ALL PASSED`).
+  - Comment audit checked `PhysicsWorld.cpp`, `SolverBroadphaseStage.h`, and
+    `TestSolverBroadphaseStage.cpp`; checked 3, deferred 0, unchecked none.
 
 ### Phase 2 — Evict gameplay
 

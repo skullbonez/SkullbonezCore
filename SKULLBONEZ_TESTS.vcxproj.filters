@@ -93,6 +93,9 @@
     <ClCompile Include="SkullbonezTests\TestSceneParserUnit.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezTests\TestSolverBroadphaseStage.cpp">
+      <Filter>Source Files\Tests</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezTests\TestSpatialGrid.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
