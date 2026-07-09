@@ -42,7 +42,7 @@ exists once; replay snapshotting is table-driven.
   compression + union-by-rank) over a caller-supplied index range; replace all
   three copies. Removes ~90 duplicated lines. **Merge order is
   determinism-sensitive — preserve it exactly.**
-- [ ] **Phase 1 — Lift the 33 lambdas** into named stage functions taking
+- [x] **Phase 1 — Lift the 33 lambdas** into named stage functions taking
   explicit inputs (`bodyStore`, `colliderStore`, `worldForces`, `dt`) and
   returning explicit outputs. No shared captured mutable state. Each stage
   becomes unit-testable.

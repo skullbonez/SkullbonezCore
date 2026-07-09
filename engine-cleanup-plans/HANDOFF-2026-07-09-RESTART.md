@@ -2,9 +2,9 @@
 
 ## Stop Point
 
-Paused after finishing, validating, committing, and pushing the current Plan 02
-solver-decomposition slice. This is a restart pause point only; the overall
-engine cleanup goal is still active and incomplete.
+Paused after finishing, validating, committing, and pushing Plan 02 Step 1.4.
+This is a restart pause point only; the overall engine cleanup goal remains
+active and incomplete.
 
 Branch:
 
@@ -12,138 +12,135 @@ Branch:
 
 Latest pushed implementation commit before this handoff:
 
-- `05c74196 cleanup(02): name object island sort comparator`
+- `7a4ab2bd cleanup(02): test solver broadphase predicate`
 
-The branch was pushed through `05c74196` before this handoff was written.
+The next unchecked Plan 02 item is:
+
+- `2.1` Move tornado capture/eject arrays and methods out of `PhysicsWorld`
+  into a `TornadoGameplay` system. Gate: `tools\validate_physics.bat`.
 
 ## What Landed Since The Prior Handoff
 
-Plan 02, Phase 1.2 object-narrowphase stage extraction continued after the
-older restart handoff that stopped at `5991525a`.
+The older restart handoff stopped after `05c74196`. This continuation completed
+the remaining Plan 02 Phase 1 solver-driver cleanup:
 
-New pushed commits:
-
-- `7978ebf6 cleanup(02): extract object event commit helper`
-  - Added `PhysicsWorld::CommitObjectNarrowphaseEvent`.
-  - Removed the local `commitObjectNarrowphaseEvent` lambda.
-  - Preserved pipeline record, collision-time diagnostic, visual contact, and
-    collision-cell event commit ordering.
-- `c58f973c cleanup(02): extract object narrowphase pair stage`
-  - Added `ObjectNarrowphasePairStageContext`.
-  - Added `PhysicsWorld::ProcessObjectNarrowphasePair`.
-  - Removed the local `processObjectNarrowphasePair` lambda.
-  - Preserved wake decisions, underwater sleep locks, object/object CCD timing,
-    staged event emission, and serial/parallel commit order.
-- `a0127b75 cleanup(02): extract object narrowphase island stage`
-  - Added `PhysicsWorld::ProcessObjectNarrowphaseIsland`.
-  - Added `ObjectNarrowphaseIslandStage` for
-    `WorkerPool::ParallelForNoAlloc`.
-  - Removed the local `processObjectNarrowphaseIsland` lambda.
-- `987ffbc2 cleanup(02): extract serial object narrowphase loop`
-  - Added `PhysicsWorld::ProcessObjectNarrowphasePairsSerial`.
-  - Removed the local `processObjectNarrowphasePairsSerial` lambda.
-  - Preserved candidate-pair order and immediate serial event commit behavior.
-- `a3349a5d cleanup(02): extract object island builder`
-  - Added `PhysicsWorld::BuildObjectNarrowphaseIslands`.
-  - Removed the local `buildObjectNarrowphaseIslands` lambda.
-  - Preserved union-find merge order, root-to-island staging, fixed-capacity
-    guards, and pair-index compaction.
-- `05c74196 cleanup(02): name object island sort comparator`
-  - Added `PhysicsWorld::ObjectNarrowphaseIslandPrecedesByMinPairIndex`.
-  - Replaced the anonymous island sort lambda.
-  - Preserved ascending `minPairIndex` order for deterministic island dispatch.
+- `2dd38817 cleanup(02): extract terrain detection stage`
+  - Added `TerrainDetectionStageContext`, `TerrainDetectionStage`, and
+    `PhysicsWorld::DetectTerrainAt`.
+  - Removed the `detectTerrainAt` lambda while preserving fixed, sleeping,
+    time, and terrain-query guards.
+- `e31b8bee cleanup(02): extract terrain candidate commit stage`
+  - Added `TerrainCandidateCommitContext` and
+    `PhysicsWorld::CommitTerrainCandidate`.
+  - Removed the `commitTerrainCandidate` lambda while preserving terrain
+    manifold construction, diagnostics, sleep support, visual contact marking,
+    and remaining-time writeback.
+- `827f86b0 cleanup(02): extract remaining integration stage`
+  - Added `IntegrateRemainingSolverBody` and
+    `IntegrateRemainingStageContext`.
+  - Removed the `integrateRemainingAt` lambda and recorded
+    `LAMBDA_MATCH_COUNT=0` for `RunSolverPhysics`.
+- `3b3f3620 cleanup(02): shrink solver driver stages`
+  - Added `PhysicsWorld::BuildSolverBroadphaseCandidatePairs`.
+  - Added `PhysicsWorld::RunSleepIslandStage`.
+  - Reduced `RunSolverPhysics` to a 253-line driver with no lambdas.
+- `7a4ab2bd cleanup(02): test solver broadphase predicate`
+  - Moved the pure broadphase candidate filter into
+    `SkullbonezSource/Physics/SolverBroadphaseStage.h`.
+  - Kept `PhysicsWorld::BuildSolverBroadphaseCandidatePairs` calling that
+    predicate through the spatial-grid callback path.
+  - Added `SkullbonezTests/TestSolverBroadphaseStage.cpp` with direct coverage
+    for static overlap, static separation, swept approach, null-filter pass
+    through, out-of-range rejection, and invalid-radius conservative acceptance.
 
 Plan ledger updated:
 
 - `engine-cleanup-plans/02-physicsworld-solver-decomposition.md`
 
-The Plan 02 Phase 1.2 lambda inventory is checked through:
-
-- `commitObjectNarrowphaseEvent`
-- `processObjectNarrowphasePair`
-- `processObjectNarrowphaseIsland`
-- `processObjectNarrowphasePairsSerial`
-- `buildObjectNarrowphaseIslands`
-- anonymous island sort comparator
-
-The next unchecked Plan 02 item is:
-
-- `detectTerrainAt`: per-body swept terrain candidate.
+Plan 02 Phase 1 is now checked complete. Phase 2 remains open.
 
 ## Validation Evidence
-
-All source slices ran `git diff --check` before commit and passed with no
-output.
 
 Current continuation gates:
 
 - `tools\validate_physics.bat`
   - Log:
-    `TestOutput\agent_logs\plan02_commit_object_event_validate_physics_20260709_1043.log`
-  - Runtime: 40.6s shell runtime.
-  - Result: Debug/Profile builds reported 0 warnings and 0 errors; final
+    `TestOutput\agent_logs\plan02_detect_terrain_at_validate_physics_20260709_1106.log`
+  - Runtime: 39.1s shell runtime.
+  - Result: Debug/Profile builds 0 warnings and 0 errors; final
     `VALIDATE_PHYSICS: ALL PASSED`.
 - `tools\validate_physics.bat`
   - Log:
-    `TestOutput\agent_logs\plan02_process_object_pair_validate_physics_20260709_1048.log`
-  - Runtime: 39.6s shell runtime.
-  - Result: Debug/Profile builds reported 0 warnings and 0 errors; final
+    `TestOutput\agent_logs\plan02_commit_terrain_candidate_validate_physics_20260709_1109.log`
+  - Runtime: 39.0s shell runtime.
+  - Result: Debug/Profile builds 0 warnings and 0 errors; final
     `VALIDATE_PHYSICS: ALL PASSED`.
 - `tools\validate_physics.bat`
   - Log:
-    `TestOutput\agent_logs\plan02_process_object_island_validate_physics_20260709_1052.log`
-  - Runtime: 39.7s shell runtime.
-  - Result: Debug/Profile builds reported 0 warnings and 0 errors; final
+    `TestOutput\agent_logs\plan02_integrate_remaining_at_validate_physics_20260709_1114.log`
+  - Runtime: 27.6s shell runtime.
+  - Result: Debug/Profile builds 0 warnings and 0 errors; final
     `VALIDATE_PHYSICS: ALL PASSED`.
 - `tools\validate_physics.bat`
   - Log:
-    `TestOutput\agent_logs\plan02_process_object_pairs_serial_validate_physics_20260709_1055.log`
-  - Runtime: 39.6s shell runtime.
-  - Result: Debug/Profile builds reported 0 warnings and 0 errors; final
+    `TestOutput\agent_logs\plan02_run_solver_driver_shrink_validate_physics_20260709_1118.log`
+  - Runtime: 39.2s shell runtime.
+  - Result: Debug/Profile builds 0 warnings and 0 errors; final
     `VALIDATE_PHYSICS: ALL PASSED`.
+- `tools\validate_tests.bat`
+  - First attempt log:
+    `TestOutput\agent_logs\plan02_solver_broadphase_stage_validate_tests_20260709_1130.log`
+  - Result: build succeeded with 0 warnings and 0 errors, then the new test
+    crashed from stack-allocating fixed-capacity physics lists. The fixture was
+    corrected to static storage.
+- `tools\validate_tests.bat`
+  - Passing log:
+    `TestOutput\agent_logs\plan02_solver_broadphase_stage_validate_tests_20260709_1131.log`
+  - Runtime: 4.7s shell runtime.
+  - Result: Profile build 0 warnings and 0 errors; 61/61 test cases and
+    1539/1539 assertions passed; final `VALIDATE_TESTS: ALL PASSED`.
 - `tools\validate_physics.bat`
   - Log:
-    `TestOutput\agent_logs\plan02_build_object_islands_validate_physics_20260709_1058.log`
-  - Runtime: 39.3s shell runtime.
-  - Result: Debug/Profile builds reported 0 warnings and 0 errors; final
-    `VALIDATE_PHYSICS: ALL PASSED`.
-- `tools\validate_physics.bat`
-  - Log:
-    `TestOutput\agent_logs\plan02_island_sort_comparator_validate_physics_20260709_1101.log`
-  - Runtime: 39.5s shell runtime.
-  - Result: Debug/Profile builds reported 0 warnings and 0 errors; final
+    `TestOutput\agent_logs\plan02_solver_broadphase_stage_validate_physics_20260709_1132.log`
+  - Runtime: 25.9s shell runtime.
+  - Result: Debug/Profile builds 0 warnings and 0 errors; final
     `VALIDATE_PHYSICS: ALL PASSED`.
 
 No SkullScope trace workflow was used in these slices.
 
 ## Comment Audit
 
-Comment audit skill loaded:
+Comment audit skill and guide were loaded:
 
 - `Agentic/Skills/comment-style-audit/skill.md`
 - `Agentic/Reference/comment-style-guide.md`
 
-Touched source-bearing files audited for each source slice:
+Touched source-bearing files audited in this continuation:
 
 - `SkullbonezSource/Physics/PhysicsWorld.cpp`
 - `SkullbonezSource/Physics/PhysicsWorld.h`
+- `SkullbonezSource/Physics/SolverBroadphaseStage.h`
+- `SkullbonezTests/TestSolverBroadphaseStage.cpp`
 
-Checked count: 2.
+Checked count: 4.
 Deferred count: 0.
 Unchecked files: none.
 
-The new source comments are intentionally narrow. The pair-stage context in
-`PhysicsWorld.h` received a `Lifetime:` comment because it carries references
-into worker callbacks. The named island comparator is a one-line ordering
-helper and did not need extra local prose.
+For Step 1.4 specifically, checked count was 3:
+
+- `PhysicsWorld.cpp`
+- `SolverBroadphaseStage.h`
+- `TestSolverBroadphaseStage.cpp`
 
 ## Current Open Work
 
 Plan 02 remains in progress:
 
-- Step 1.1 is complete.
-- Step 1.2 is open and should continue one lambda/stage at a time.
-- Step 1.3 and later closure work remain open.
+- Phase 0 complete.
+- Phase 1 complete.
+- Phase 2 open: evict tornado gameplay and analytic buoyancy from
+  `PhysicsWorld`.
+- Phase 3 open: table-drive replay snapshot capture/restore.
 
 Open cleanup items that remain in `engine-cleanup-plans/00-EXECUTION-GUIDE.md`:
 
@@ -161,9 +158,8 @@ Open cleanup items that remain in `engine-cleanup-plans/00-EXECUTION-GUIDE.md`:
 2. Read `engine-cleanup-plans/00-EXECUTION-GUIDE.md`.
 3. Read `engine-cleanup-plans/02-physicsworld-solver-decomposition.md`.
 4. Check `git status --short --branch`.
-5. Confirm the branch is at or after implementation commit `05c74196`.
-6. Continue Plan 02 Step 1.2 from the next unchecked item,
-   `detectTerrainAt`, unless the user gives a different instruction.
+5. Confirm the branch is at or after implementation commit `7a4ab2bd`.
+6. Continue Plan 02 Step 2.1 unless the user gives a different instruction.
 7. Do not continue Plan 11 until the human RenderGraph decision is made.
 8. Do not continue Plan 13 FAC-005, Plan 03, or Plan 07 without the required
    human decision/sign-off.
@@ -176,25 +172,27 @@ plan or major checkpoint, not one review per helper extraction.
 
 ## Goal Pause Note
 
-Codex goal state has no real pause status, only active, complete, or blocked.
-The overall goal is still active and incomplete; this document is the manual
-pause point for restart or handoff.
+Codex goal state has no pause status, only active, complete, or blocked. The
+overall goal is still active and incomplete; this document is the manual pause
+point for restart or handoff.
 
 ## Timing
 
 Current continuation began at:
 
-- `2026-07-09T10:41:33+10:00`
+- `2026-07-09T11:05:39+10:00`
 
 This handoff was drafted at:
 
-- `2026-07-09T11:03:14+10:00`
+- `2026-07-09T11:34:11+10:00`
 
 Substantial validation sub-runs in this continuation:
 
-- 40.6s for `plan02_commit_object_event_validate_physics_20260709_1043.log`
-- 39.6s for `plan02_process_object_pair_validate_physics_20260709_1048.log`
-- 39.7s for `plan02_process_object_island_validate_physics_20260709_1052.log`
-- 39.6s for `plan02_process_object_pairs_serial_validate_physics_20260709_1055.log`
-- 39.3s for `plan02_build_object_islands_validate_physics_20260709_1058.log`
-- 39.5s for `plan02_island_sort_comparator_validate_physics_20260709_1101.log`
+- 39.1s for `plan02_detect_terrain_at_validate_physics_20260709_1106.log`
+- 39.0s for `plan02_commit_terrain_candidate_validate_physics_20260709_1109.log`
+- 27.6s for `plan02_integrate_remaining_at_validate_physics_20260709_1114.log`
+- 39.2s for `plan02_run_solver_driver_shrink_validate_physics_20260709_1118.log`
+- 6.0s for the failed
+  `plan02_solver_broadphase_stage_validate_tests_20260709_1130.log`
+- 4.7s for `plan02_solver_broadphase_stage_validate_tests_20260709_1131.log`
+- 25.9s for `plan02_solver_broadphase_stage_validate_physics_20260709_1132.log`

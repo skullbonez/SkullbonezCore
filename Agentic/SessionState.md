@@ -8,13 +8,14 @@ audits when it is still useful.
 | Field | Value |
 |-------|-------|
 | Branch | `nightrunner-8th-july` in worktree `C:\SkullbonezCore`. |
-| Active objective | Engine cleanup Plan 02 PhysicsWorld solver decomposition is paused after implementation commit `05c74196`; resume Step 1.2 at `detectTerrainAt`. The overall engine cleanup goal remains active and incomplete. |
+| Active objective | Engine cleanup Plan 02 PhysicsWorld solver decomposition is paused after implementation commit `7a4ab2bd`; Phase 1 is complete. Resume Step 2.1, tornado gameplay extraction, unless the user gives a different instruction. The overall engine cleanup goal remains active and incomplete. |
 | Last documentation milestone | `fable_plans/HANDOFF-2026-07-07.md`, fable-05/fable-06 progress docs, `Agentic/Plans/In_Progress/shadow-edge-quality-plan.md`, `Agentic/Plans/In_Progress/shadow-edge-quality-progress.md`, the top-level `engine-cleanup-plans/` bundle, and `Agentic/Plans/To_Eval/render-graph-irender-interface-plan.md` document the latest fable, shadow-quality, engine-cleanup, and FAC-001 work. |
 | Last source/data milestone | FAC-001 renderer aggregate retirement and the new shadow plan slice are complete: `IRenderBackend.h` is deleted, runtime render wiring uses narrow lifecycle/resource/command/diagnostics/capture/raytracing facets, `tools/check_runtime_boundaries.py` blocks aggregate resurrection, `shadow_parallel_prep` is no longer hard-disabled, `GameModelRenderer::BuildShadowCasterBatches()` uses bounded count/prefix/fill worker prep, object-shadow bounds use fixed chunk accumulators, and `WorkerPool::BuildChunkRangesNoAlloc()` exposes deterministic caller-owned chunk ranges. Runtime allocation allowlist metadata was also corrected after the Terrain factory cleanup removed `Run.cpp`'s direct Terrain allocation. |
 | Pending work | Not all fable plans are complete. Open work remains in fable-03 P3.1-P3.4 worker-job stepping, remaining fable-04 mega-file decomposition, fable-05 remaining P4.1 TextureCollection/AssetSystem/ConvexHullShape/deeper parser conversion plus P5 DX12 and closure, fable-06 C2-C5 plus Z1-Z4 closure, and fable-07 per `fable_plans/HANDOFF-2026-07-07.md`; fable-01, fable-02, fable-08, and fable-09 are checklist complete. |
 | Concurrent work warning | The earlier detached duplicate fable-08 reveal-pacing diff was preserved in stash `codex-preserve-detached-reveal-pacing-duplicate-20260708`; do not drop it unless the user asks. |
 | Blockers | `Agentic/Plans/In_Progress/overnight-blockers-2026-07-07.md`; Plan03 2 blocked, Plan05 9 blocked, Plan02 11 blocked, Plan01 4 blocked, Plan04 0 blocked. |
 | Validation | Latest branch gates passed on 2026-07-08: FAC-001 touched-file comment audit inspected 24 source-bearing paths with 0 deferred, `python tools\check_runtime_boundaries.py --self-test` passed, `python tools\check_runtime_boundaries.py --max-errors 20` passed with 0 errors, targeted `tools\validate_build.bat Profile` passed in 14.80s with 0 warnings/errors, `tools\validate_fast.bat` passed, and `tools\validate_full.bat` passed with DX12 validation errors 0, screenshots matching baselines, and `physics_regression_solver.csv` byte-exact; shadow-prep opt-in audit inspected 3 source-bearing files with 0 deferred, `python tools\check_allocation_policy.py --self-test` passed, allocation policy passed with `allowlist_errors=0`, focused smoke emitted `WorkerBuildBatches`, `WorkerFillBatches`, and `WorkerScanBounds`, focused allocation guard exited 0 with `gameplay_violations=0`, isolated DX12 off/on proof produced byte-identical `off_nowater.bmp` / `on_nowater.bmp` (`5143326` bytes, SHA-256 `DCE3F4FEA913680F9E22BB72CB40539849E41AEF5D1758ACC0CE93B9DE946B61`), `tools\validate_full.bat` passed, and `tools\validate_perf.bat` completed with allocation guard PASS. Final merged-`main` gate `tools\validate_full.bat` rerun passed in 00:01:05.6465549 after resolving the Terrain resource-factory merge fix: project filters 0 errors, runtime boundaries 0 errors, Profile/Debug builds 0 warnings/errors, DX12 validation errors 0, DX12 screenshots matched committed baselines, and `physics_regression_solver.csv` was byte-exact. |
+| Current Plan 02 validation | 2026-07-09 Plan 02 Phase 1 completion passed `tools\validate_tests.bat` in `TestOutput\agent_logs\plan02_solver_broadphase_stage_validate_tests_20260709_1131.log` with 61/61 test cases and 1539/1539 assertions, then passed `tools\validate_physics.bat` in `TestOutput\agent_logs\plan02_solver_broadphase_stage_validate_physics_20260709_1132.log` with Debug/Profile builds at 0 warnings/errors and final `VALIDATE_PHYSICS: ALL PASSED`. |
 
 ## Active Notes
 
@@ -39,8 +40,8 @@ audits when it is still useful.
   answer or handoff.
 - Engine cleanup restart handoff for the current pause:
   `engine-cleanup-plans/HANDOFF-2026-07-09-RESTART.md`. Latest implementation
-  commit before the handoff is `05c74196`; resume Plan 02 Step 1.2 from
-  `detectTerrainAt`.
+  commit before the handoff is `7a4ab2bd`; resume Plan 02 Step 2.1 from
+  tornado gameplay extraction.
 
 ## Current Work Items
 
