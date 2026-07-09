@@ -609,10 +609,11 @@ bool Run::TickReplayVelocityEditInput( HWND hwnd, bool uiBlocksMouse )
 
     if ( !uiBlocksMouse && leftPressed )
     {
-        const POINT mouse = Input::GetClientMouseCoordinates();
+        const Input::MouseCoordinatesResult mouseResult = Input::GetClientMouseCoordinates();
         ReplayVelocityBodyView body;
-        if ( tryResolveVelocityBody( body ) && !body.fixed )
+        if ( mouseResult.result.ok && tryResolveVelocityBody( body ) && !body.fixed )
         {
+            const POINT mouse = mouseResult.coordinates;
             if ( m_replayRuntime.VelocityEdit().hotAngularAxis >= 0 )
             {
                 float startAngle = 0.0f;

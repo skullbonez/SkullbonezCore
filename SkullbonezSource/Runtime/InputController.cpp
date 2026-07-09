@@ -613,7 +613,16 @@ RuntimeCameraInputFrameResult InputController::ApplyCameraInputFrame( RunCameraS
             long rawX = 0;
             long rawY = 0;
             const bool hasRawDelta = Hardware::Input::ConsumeRawMouseDelta( rawX, rawY );
-            POINT currentClient = Hardware::Input::GetClientMouseCoordinates();
+            const Hardware::Input::MouseCoordinatesResult currentClientResult =
+                Hardware::Input::GetClientMouseCoordinates();
+            if ( !currentClientResult.result.ok )
+            {
+                ResetMouseLook( camera );
+                result.applyCursorOwnership = true;
+                result.cursorResult = currentClientResult.result;
+                return result;
+            }
+            const POINT currentClient = currentClientResult.coordinates;
 
             if ( camera.needsMouseLookReset )
             {

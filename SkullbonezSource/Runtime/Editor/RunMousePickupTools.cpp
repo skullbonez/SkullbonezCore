@@ -185,12 +185,18 @@ bool Run::TickMousePickupInput( HWND hwnd, const RuntimeMouseEdges& mouseEdges, 
     m_runtimeTools.MousePickup().preservedAngularVelocity = pickedBody->angularVelocity;
     m_runtimeTools.MousePickup().lastImpulse = SkullbonezCore::Math::Vector::ZERO_VECTOR;
     UI::InputControl::BeginMouseCapture( hwnd );
-    const POINT mouse = Input::GetClientMouseCoordinates();
+    const Input::MouseCoordinatesResult mouse = Input::GetClientMouseCoordinates();
+    if ( !mouse.result.ok )
+    {
+        UI::InputControl::EndMouseCapture();
+        CancelMousePickup();
+        return false;
+    }
     RuntimeInteractionGesture gesture;
     gesture.kind = RuntimeInteractionGestureKind::MousePickupDrag;
     gesture.button = RuntimePointerButton::Left;
-    gesture.startX = mouse.x;
-    gesture.startY = mouse.y;
+    gesture.startX = mouse.coordinates.x;
+    gesture.startY = mouse.coordinates.y;
     gesture.modelIndex = pickedIndex;
     m_interaction.BeginGesture( gesture,
                                 RuntimePointerCaptureOwner::ToolGesture,

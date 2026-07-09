@@ -36,13 +36,19 @@ UIInputSnapshot CaptureSnapshot( bool previousLeftDown, bool hasMouseOverride, i
     UIInputSnapshot snapshot;
     snapshot.wheelDelta = Hardware::Input::ConsumeMouseWheelDelta();
 
-    POINT mouse = Hardware::Input::GetClientMouseCoordinates();
-    snapshot.mouseX = static_cast<int>( mouse.x );
-    snapshot.mouseY = static_cast<int>( mouse.y );
     if ( hasMouseOverride )
     {
         snapshot.mouseX = overrideX;
         snapshot.mouseY = overrideY;
+    }
+    else
+    {
+        const Hardware::Input::MouseCoordinatesResult mouse = Hardware::Input::GetClientMouseCoordinates();
+        if ( mouse.result.ok )
+        {
+            snapshot.mouseX = static_cast<int>( mouse.coordinates.x );
+            snapshot.mouseY = static_cast<int>( mouse.coordinates.y );
+        }
     }
 
     snapshot.leftDown = Hardware::Input::IsLeftMouseDown();

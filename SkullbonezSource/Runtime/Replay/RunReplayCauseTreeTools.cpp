@@ -216,7 +216,13 @@ bool Run::TickReplayCauseTreeInput( HWND hwnd, bool uiBlocksMouse, int wheelDelt
     }
 
     EnsureReplayCauseWindowPlacement( m_replayRuntime.CauseTree(), screenW, screenH );
-    const POINT mouse = Input::GetClientMouseCoordinates();
+    const Input::MouseCoordinatesResult mouseResult = Input::GetClientMouseCoordinates();
+    if ( !mouseResult.result.ok )
+    {
+        endCauseTreeDragIfReleased();
+        return false;
+    }
+    const POINT mouse = mouseResult.coordinates;
     const UI::UIRect panel = ReplayCauseWindowRect( m_replayRuntime.CauseTree() );
     const UI::UIRect title = ReplayCauseWindowTitleRect( m_replayRuntime.CauseTree() );
     const UI::UIRect content = ReplayCauseWindowContentRect( m_replayRuntime.CauseTree() );

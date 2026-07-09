@@ -78,6 +78,19 @@ const char* PresentationNameForModelIndex( const SkullbonezCore::GameObjects::Ga
     return presentationRecords[static_cast<std::size_t>( modelIndex )].displayName;
 }
 
+void ReportRuntimeInputFailure( const SbResult& result )
+{
+    if ( result.ok )
+    {
+        return;
+    }
+
+    std::fprintf( stderr,
+                  "%s: %s\n",
+                  result.error.owner[0] != '\0' ? result.error.owner : "Runtime/Input",
+                  result.error.message[0] != '\0' ? result.error.message : "recoverable input operation failed" );
+}
+
 AttachedCameraPose AttachedCameraPoseFromCameras( SkullbonezCore::Environment::CameraCollection& cameras )
 {
     AttachedCameraPose pose;
@@ -1395,6 +1408,7 @@ void ProcessRuntimePointerCameraFrame( const RuntimePointerCameraFrameContext& c
     {
         applyCursorOwnership();
     }
+    ReportRuntimeInputFailure( cameraInputResult.cursorResult );
 
     drainRuntimeCommands();
 }
@@ -1417,15 +1431,19 @@ void Run::UpdateRuntimeInputModeAfterAction( RuntimeInputAction action, RuntimeI
 RuntimeInputSnapshot Run::BuildRuntimeInputSnapshot( const RuntimeMouseEdges& mouseEdges,
                                                      bool suppressWorldActionThisFrame ) const
 {
-    const POINT mouse = Input::GetClientMouseCoordinates();
+    const Input::MouseCoordinatesResult mouseResult = Input::GetClientMouseCoordinates();
+    ReportRuntimeInputFailure( mouseResult.result );
 
     RuntimeInputSnapshot snapshot;
     snapshot.appFocused = Input::IsAppFocused();
     snapshot.uiBlocksKeyboard = m_UI.BlocksKeyboard();
     snapshot.uiBlocksMouse = m_UI.BlocksCameraMouse();
 
-    snapshot.pointer.clientX = mouse.x;
-    snapshot.pointer.clientY = mouse.y;
+    if ( mouseResult.result.ok )
+    {
+        snapshot.pointer.clientX = mouseResult.coordinates.x;
+        snapshot.pointer.clientY = mouseResult.coordinates.y;
+    }
     snapshot.pointer.leftDown = mouseEdges.leftDown;
     snapshot.pointer.leftPressed = mouseEdges.leftPressed;
     snapshot.pointer.leftReleased = mouseEdges.leftReleased;

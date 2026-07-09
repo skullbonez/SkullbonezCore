@@ -255,7 +255,12 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
         return false;
     }
 
-    const POINT mouse = Input::GetClientMouseCoordinates();
+    const Input::MouseCoordinatesResult mouseResult = Input::GetClientMouseCoordinates();
+    if ( !mouseResult.result.ok )
+    {
+        return false;
+    }
+    const POINT mouse = mouseResult.coordinates;
     m_replayRuntime.Scrubber().mouseX = mouse.x;
     m_replayRuntime.Scrubber().mouseY = mouse.y;
 

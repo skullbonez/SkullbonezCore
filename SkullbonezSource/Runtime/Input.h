@@ -20,6 +20,8 @@ Glossary:
     while the normal runtime input controller still owns command edges.
   Input event buffer: Snapshot of callback-fed mouse accumulators for the bound
     native window.
+  Lane R result: Recoverable input/environment failure reported without
+    treating the cursor operation as a fatal engine invariant.
   Validation gate: Repository script that proves a class of changes before
   commit or PR.
 
@@ -40,6 +42,7 @@ Related:
 
 
 #include "../Core/Common.h"
+#include "../Core/SbResult.h"
 
 namespace SkullbonezCore
 {
@@ -140,6 +143,12 @@ class Input
         long rawMouseLastAbsoluteX = 0, rawMouseLastAbsoluteY = 0;
     };
 
+    struct MouseCoordinatesResult
+    {
+        Basics::SbResult result;                         // Lane R result for Win32 cursor/client-coordinate failures.
+        POINT coordinates = {};
+    };
+
     static bool IsAppFocused();                          // True when the game window owns foreground input
     static void BindWindow( Basics::Window& window );    // Binds the runtime-owned window used by polling helpers.
     static void UnbindWindow( Basics::Window& window );  // Clears the polling window before HWND teardown.
@@ -157,11 +166,12 @@ class Input
     static bool ConsumeRawMouseDelta( long& xMove,
                                       long& yMove );     // Moves queued raw deltas into caller outputs once per frame.
     static void ResetMouseLookDeltas();                  // Clears queued raw mouse movement and absolute tracking state
-    static POINT GetMouseCoordinates();                  // Screen-space cursor position for compatibility paths.
-    static POINT GetClientMouseCoordinates();            // Cursor position translated into the game window client area.
-    static void SetMouseCoordinates(
+    static MouseCoordinatesResult GetMouseCoordinates(); // Screen-space cursor position before client-area translation.
+    static MouseCoordinatesResult
+    GetClientMouseCoordinates();                         // Cursor position translated into the game window client area.
+    static Basics::SbResult SetMouseCoordinates(
         const POINT& pNewCoordinates );                  // Warps the OS cursor; used only by camera-control recentering.
-    static void CentreMouseCoordinates();                // Recenters the cursor in the current game window.
+    static Basics::SbResult CentreMouseCoordinates();    // Recenters the cursor in the current game window.
     static bool IsLeftMouseDown();                       // Polls left-button state without consuming it.
     static bool IsRightMouseDown();                      // Polls right-button state without consuming it.
     static bool IsMiddleMouseDown();                     // Polls middle-button state without consuming it.

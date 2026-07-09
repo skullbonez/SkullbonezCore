@@ -917,12 +917,16 @@ bool BeginEditorGizmoDragGesture( EditorGizmoContext context, int modelIndex, in
         return false;
     }
 
-    const POINT mouse = Input::GetClientMouseCoordinates();
+    const Input::MouseCoordinatesResult mouse = Input::GetClientMouseCoordinates();
+    if ( !mouse.result.ok )
+    {
+        return false;
+    }
     RuntimeInteractionGesture gesture;
     gesture.kind = RuntimeInteractionGestureKind::GizmoDrag;
     gesture.button = RuntimePointerButton::Left;
-    gesture.startX = mouse.x;
-    gesture.startY = mouse.y;
+    gesture.startX = mouse.coordinates.x;
+    gesture.startY = mouse.coordinates.y;
     gesture.modelIndex = modelIndex;
     gesture.axis = axis;
     gesture.angular = angular;
@@ -1016,17 +1020,20 @@ void Run::TickEditorViewportAndPlacementScaleInput( int unhandledWheelDelta )
             m_runtimeTools.Editor().placementScaleWheelSteps += placementWheelSteps;
         }
 
-        const POINT currentClient = Input::GetClientMouseCoordinates();
-        const float dragPixelsX =
-            static_cast<float>( currentClient.x - m_runtimeTools.Editor().placementScaleStartClient.x );
-        const float dragPixelsY =
-            static_cast<float>( currentClient.y - m_runtimeTools.Editor().placementScaleStartClient.y );
-        m_runtimeTools.Editor().placementScale =
-            EditorPlacementScaleFromGesture( m_runtimeTools.Editor().objectType,
-                                             m_runtimeTools.Editor().placementScaleStart,
-                                             dragPixelsX,
-                                             dragPixelsY,
-                                             m_runtimeTools.Editor().placementScaleWheelSteps );
+        const Input::MouseCoordinatesResult currentClient = Input::GetClientMouseCoordinates();
+        if ( currentClient.result.ok )
+        {
+            const float dragPixelsX =
+                static_cast<float>( currentClient.coordinates.x - m_runtimeTools.Editor().placementScaleStartClient.x );
+            const float dragPixelsY =
+                static_cast<float>( currentClient.coordinates.y - m_runtimeTools.Editor().placementScaleStartClient.y );
+            m_runtimeTools.Editor().placementScale =
+                EditorPlacementScaleFromGesture( m_runtimeTools.Editor().objectType,
+                                                 m_runtimeTools.Editor().placementScaleStart,
+                                                 dragPixelsX,
+                                                 dragPixelsY,
+                                                 m_runtimeTools.Editor().placementScaleWheelSteps );
+        }
     }
     else if ( placementWheelSteps != 0 && m_runtimeTools.Editor().editorModeEnabled &&
               m_runtimeTools.Editor().placementModeEnabled && !placementYawWheel &&
@@ -1490,17 +1497,22 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
                 consumedWorldClick = true;
                 if ( m_runtimeTools.Editor().placementPreviewVisible )
                 {
-                    m_runtimeTools.Editor().placementScaleActive = true;
-                    m_runtimeTools.Editor().placementScaleWheelSteps = 0;
-                    m_runtimeTools.Editor().placementScaleStart =
-                        EditorClampPlacementScale( m_runtimeTools.Editor().objectType,
-                                                   m_runtimeTools.Editor().placementScale );
-                    m_runtimeTools.Editor().placementScale = m_runtimeTools.Editor().placementScaleStart;
-                    m_runtimeTools.Editor().placementScaleStartClient = Input::GetClientMouseCoordinates();
-                    m_runtimeTools.Editor().placementScaleTerrainPoint = m_runtimeTools.Editor().placementTerrainPoint;
-                    m_runtimeTools.Editor().placementScaleRayOrigin = m_runtimeTools.Editor().placementRayOrigin;
-                    UpdateRuntimeInputModeAfterAction( RuntimeInputAction::BeginEditorPlacementScale,
-                                                       RuntimeInputActionSource::Mouse );
+                    const Input::MouseCoordinatesResult startClient = Input::GetClientMouseCoordinates();
+                    if ( startClient.result.ok )
+                    {
+                        m_runtimeTools.Editor().placementScaleActive = true;
+                        m_runtimeTools.Editor().placementScaleWheelSteps = 0;
+                        m_runtimeTools.Editor().placementScaleStart =
+                            EditorClampPlacementScale( m_runtimeTools.Editor().objectType,
+                                                       m_runtimeTools.Editor().placementScale );
+                        m_runtimeTools.Editor().placementScale = m_runtimeTools.Editor().placementScaleStart;
+                        m_runtimeTools.Editor().placementScaleStartClient = startClient.coordinates;
+                        m_runtimeTools.Editor().placementScaleTerrainPoint =
+                            m_runtimeTools.Editor().placementTerrainPoint;
+                        m_runtimeTools.Editor().placementScaleRayOrigin = m_runtimeTools.Editor().placementRayOrigin;
+                        UpdateRuntimeInputModeAfterAction( RuntimeInputAction::BeginEditorPlacementScale,
+                                                           RuntimeInputActionSource::Mouse );
+                    }
                 }
             }
             else
@@ -1554,7 +1566,12 @@ bool Run::TryBuildMouseWorldRay( Vector3& outOrigin, Vector3& outDirection, bool
         return false;
     }
 
-    POINT mouse = Input::GetClientMouseCoordinates();
+    Input::MouseCoordinatesResult mouseResult = Input::GetClientMouseCoordinates();
+    if ( !mouseResult.result.ok )
+    {
+        return false;
+    }
+    POINT mouse = mouseResult.coordinates;
     const int screenW = (std::max)( 1, static_cast<int>( m_systems.window->m_sWindowDimensions.x ) );
     const int screenH = (std::max)( 1, static_cast<int>( m_systems.window->m_sWindowDimensions.y ) );
     if ( clampToViewport )

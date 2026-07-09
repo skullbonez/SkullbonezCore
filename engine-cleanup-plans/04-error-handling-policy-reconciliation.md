@@ -629,6 +629,49 @@ byte-exact gated.
     screenshots matching baselines, and `physics_regression_solver.csv`
     byte-exact. Final log:
     `Agentic/Reports/validate_full_plan04_capture_result_20260709.log`.
+
+  Progress 2026-07-09, Input cursor/client-coordinate recoverable result
+  sub-slice:
+  - Converted `SkullbonezSource/Runtime/Input.cpp` rows 202, 204, 205, 207,
+    and 208 from Win32 cursor/client-coordinate exceptions to Lane R
+    `SbResult::Failure("Runtime/Input", ...)` results.
+  - `Input::GetMouseCoordinates` and `Input::GetClientMouseCoordinates` now
+    return `Input::MouseCoordinatesResult`; cursor warping and centering now
+    return `SbResult`. Run frame input reports recoverable cursor failures to
+    `stderr`, camera mouse-look resets without stale deltas, UI automation
+    overrides avoid Win32 cursor reads, and optional editor/replay gestures skip
+    the current frame when client coordinates are unavailable.
+  - Strict anchored source throw statement inventory now reports 105 sites,
+    down from the previous sub-slice count of 110. `SB_FATAL` macro invocations
+    remain 151 via `rg -n "SB_FATAL\s*\(" SkullbonezSource`.
+  - Comment-style audit scope:
+    `SkullbonezSource/Runtime/Editor/RunEditorTools.cpp`,
+    `SkullbonezSource/Runtime/Editor/RunMousePickupTools.cpp`,
+    `SkullbonezSource/Runtime/Input.cpp`,
+    `SkullbonezSource/Runtime/Input.h`,
+    `SkullbonezSource/Runtime/InputController.cpp`,
+    `SkullbonezSource/Runtime/InputController.h`,
+    `SkullbonezSource/Runtime/Replay/RunReplayCauseTreeTools.cpp`,
+    `SkullbonezSource/Runtime/Replay/RunReplayScrubberTools.cpp`,
+    `SkullbonezSource/Runtime/Replay/RunReplayVelocityEdit.cpp`,
+    `SkullbonezSource/Runtime/RunInput.cpp`, and
+    `SkullbonezSource/UI/UIInput.cpp`; checked 11, deferred 0. This was a
+    touched-file audit, so no subsystem checklist plan was required.
+  - Focused build passed: `tools\validate_build.bat Profile` exited 0 in
+    00:00:12.6993802 with 0 warnings and 0 errors. Log:
+    `Agentic/Reports/validate_build_profile_plan04_input_result_20260709.log`.
+  - First `tools\validate_full.bat` attempt failed formatting after
+    00:00:44.8937859 because `SkullbonezSource/Runtime/Input.h` needed the
+    header formatting pipeline. The touched headers were formatted directly
+    with clang-format plus `tools\align_header_inline_comments.py`, and
+    `tools\validate_format.bat` passed in 00:00:09.3041026.
+  - Required gate then passed on the final source state:
+    `tools\validate_full.bat` exited 0 in 00:01:06.3735933 with
+    `VALIDATE_FULL: DEFAULT GATE PASSED`, project filters 0 errors, runtime
+    boundaries 0 errors, source formatting clean, DX12 validation errors 0,
+    screenshots matching baselines, and `physics_regression_solver.csv`
+    byte-exact. Final log:
+    `Agentic/Reports/validate_full_plan04_input_result_20260709_final.log`.
 - [ ] **4.1** Do **not** maintain any throw count. The `MAX_SOURCE_THROW_TOKENS`
   ratchet is deleted by plan 03. Verify progress by re-running
   `rg -n "throw " SkullbonezSource` and confirming the F/R/P sites are converted;

@@ -25,6 +25,8 @@ Related:
 */
 #pragma once
 
+#include "../Core/SbResult.h"
+
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -249,6 +251,7 @@ struct RuntimeCameraInputFrameContext
 struct RuntimeCameraInputFrameResult
 {
     bool applyCursorOwnership = false;
+    SbResult cursorResult;                // Recoverable cursor lookup failure for Run to report at the frame boundary.
 };
 
 struct RuntimeInputTransition
