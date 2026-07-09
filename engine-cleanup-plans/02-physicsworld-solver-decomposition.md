@@ -179,7 +179,7 @@ island-merge tie-breaks.
   - [x] L2749 `emitObjectCollisionTimeEvent`: collision-time event fields.
   - [x] L2758 `markObjectVisualEvent`: visual-contact event fields.
   - [x] L2765 `writeObjectCollisionCellEvent`: hashed collision-cell event fields.
-  - [ ] L2778 `commitObjectNarrowphaseEvent`: serial side-effect application.
+  - [x] L2778 `commitObjectNarrowphaseEvent`: serial side-effect application.
   - [ ] L2814 `processObjectNarrowphasePair`: pair CCD/wake processing.
   - [ ] L3014 `processObjectNarrowphaseIsland`: island-local pair loop.
   - [ ] L3025 `processObjectNarrowphasePairsSerial`: serial pair loop.
@@ -383,6 +383,15 @@ island-merge tie-breaks.
     evidence: `tools\validate_physics.bat` passed in
     `TestOutput\agent_logs\plan02_collision_cell_event_validate_physics_20260709_1038.log`
     (39.9s shell runtime; Debug/Profile builds 0 warnings and 0 errors; final
+    `VALIDATE_PHYSICS: ALL PASSED`).
+  - Extracted the `commitObjectNarrowphaseEvent` lambda into the private member
+    `PhysicsWorld::CommitObjectNarrowphaseEvent`, threading diagnostic name and
+    CSV-writer inputs explicitly while preserving the serial application order
+    for pipeline records, object collision-time diagnostics, visual-contact
+    marks, and collision-cell keys. Gate evidence: `tools\validate_physics.bat`
+    passed in
+    `TestOutput\agent_logs\plan02_commit_object_event_validate_physics_20260709_1043.log`
+    (40.6s shell runtime; Debug/Profile builds 0 warnings and 0 errors; final
     `VALIDATE_PHYSICS: ALL PASSED`).
 - [ ] **1.3** `RunSolverPhysics` is now a short driver calling named stages;
   confirm it is under ~300 lines.

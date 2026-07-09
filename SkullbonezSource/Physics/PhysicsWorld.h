@@ -266,6 +266,10 @@ class PhysicsWorld
                                                int bodyA,
                                                int bodyB,
                                                float invCellSize );
+    void CommitObjectNarrowphaseEvent( const ObjectNarrowphaseEvent& event,
+                                       const char* const* diagnosticNames,
+                                       int diagnosticNameCount,
+                                       const PhysicsDiagnosticsCsvWriter& diagnosticsCsvWriter );
 
     struct ObjectNarrowphaseIsland
     {

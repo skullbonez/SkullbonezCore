@@ -2755,6 +2755,46 @@ void PhysicsWorld::WriteObjectCollisionCellEvent( ObjectNarrowphaseEvent& event,
 }
 
 
+void PhysicsWorld::CommitObjectNarrowphaseEvent( const ObjectNarrowphaseEvent& event,
+                                                 const char* const* diagnosticNames,
+                                                 int diagnosticNameCount,
+                                                 const PhysicsDiagnosticsCsvWriter& diagnosticsCsvWriter )
+{
+    if ( event.hasPipelineRecord )
+    {
+        RecordPhysicsPipelineStage( event.pipelineRecord );
+    }
+    if ( event.emitCollisionTime )
+    {
+        EmitPhysicsCollisionTime( diagnosticNames,
+                                  diagnosticNameCount,
+                                  diagnosticsCsvWriter,
+                                  "object",
+                                  event.collisionTimeBodyA,
+                                  event.collisionTimeBodyB,
+                                  event.collisionTime,
+                                  event.availableTime );
+    }
+    if ( event.markVisualContact )
+    {
+        MarkCollisionVisualContact( event.visualBodyA );
+        MarkCollisionVisualContact( event.visualBodyB );
+    }
+    if ( event.hasCollisionCellKey )
+    {
+        if ( m_collisionCellKeys.size() >= m_collisionCellKeys.capacity() )
+        {
+            assert( false && "Physics collision-cell key capacity exceeded" );
+            // Invariant: collision-cell diagnostics share the fixed narrowphase
+            // event budget. Overflow means the pass can no longer record the
+            // same deterministic evidence each run.
+            SB_FATAL( "Physics/PhysicsWorld", "Physics collision-cell key capacity exceeded" );
+        }
+        m_collisionCellKeys.push_back( event.collisionCellKey );
+    }
+}
+
+
 void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
                                      const ColliderStore& colliderStore,
                                      float dt,
@@ -2994,42 +3034,6 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
     PROFILE_BEGIN( "Frame/Physics/Narrowphase" );
     float invCellSize = 1.0f / m_spatialGrid.GetCellSize();
     const int candidatePairCount = static_cast<int>( candidatePairs.size() );
-
-    auto commitObjectNarrowphaseEvent = [&]( const ObjectNarrowphaseEvent& event )
-    {
-        if ( event.hasPipelineRecord )
-        {
-            RecordPhysicsPipelineStage( event.pipelineRecord );
-        }
-        if ( event.emitCollisionTime )
-        {
-            EmitPhysicsCollisionTime( diagnosticNames,
-                                      diagnosticNameCount,
-                                      diagnosticsCsvWriter,
-                                      "object",
-                                      event.collisionTimeBodyA,
-                                      event.collisionTimeBodyB,
-                                      event.collisionTime,
-                                      event.availableTime );
-        }
-        if ( event.markVisualContact )
-        {
-            MarkCollisionVisualContact( event.visualBodyA );
-            MarkCollisionVisualContact( event.visualBodyB );
-        }
-        if ( event.hasCollisionCellKey )
-        {
-            if ( m_collisionCellKeys.size() >= m_collisionCellKeys.capacity() )
-            {
-                assert( false && "Physics collision-cell key capacity exceeded" );
-                // Invariant: collision-cell diagnostics share the fixed
-                // narrowphase event budget. Overflow means the pass can no
-                // longer record the same deterministic evidence each run.
-                SB_FATAL( "Physics/PhysicsWorld", "Physics collision-cell key capacity exceeded" );
-            }
-            m_collisionCellKeys.push_back( event.collisionCellKey );
-        }
-    };
 
     auto processObjectNarrowphasePair = [&]( int pairIndex, ObjectNarrowphaseEvent& event )
     {
@@ -3318,7 +3322,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
         {
             ObjectNarrowphaseEvent event;
             processObjectNarrowphasePair( pairIndex, event );
-            commitObjectNarrowphaseEvent( event );
+            CommitObjectNarrowphaseEvent( event, diagnosticNames, diagnosticNameCount, diagnosticsCsvWriter );
         }
     };
 
@@ -3461,7 +3465,10 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
                 PROFILE_SCOPED( "Frame/Physics/Narrowphase/CommitEvents" );
                 for ( int pairIndex = 0; pairIndex < candidatePairCount; ++pairIndex )
                 {
-                    commitObjectNarrowphaseEvent( m_objectNarrowphaseEvents[static_cast<size_t>( pairIndex )] );
+                    CommitObjectNarrowphaseEvent( m_objectNarrowphaseEvents[static_cast<size_t>( pairIndex )],
+                                                  diagnosticNames,
+                                                  diagnosticNameCount,
+                                                  diagnosticsCsvWriter );
                 }
             }
             ranParallelNarrowphase = true;
