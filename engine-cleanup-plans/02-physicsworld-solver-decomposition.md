@@ -170,8 +170,8 @@ island-merge tie-breaks.
   - [x] L2577 `hasObjectContactAtTime`: exact object contact query at time.
   - [x] L2601 `refineObjectSweepContactTime`: contact-window refinement search.
   - [x] L2654 `sweepObjectPair`: swept object contact query.
-  - [ ] L2676 `objectPairHasPersistentContactCache`: cache-prefix lookup.
-  - [ ] L2690 anonymous `lower_bound` cache-key comparator.
+  - [x] L2676 `objectPairHasPersistentContactCache`: cache-prefix lookup.
+  - [x] L2690 anonymous `lower_bound` cache-key comparator.
   - [ ] L2696 `objectPairNeedsSweptCcd`: settled-pair CCD bypass decision.
 
   Object narrowphase events and dispatch:
@@ -334,6 +334,15 @@ island-merge tie-breaks.
     call shape. Gate evidence: `tools\validate_physics.bat` passed in
     `TestOutput\agent_logs\plan02_sweep_object_pair_validate_physics_20260709_1014.log`
     (28s shell runtime; Debug/Profile builds 0 warnings and 0 errors; final
+    `VALIDATE_PHYSICS: ALL PASSED`).
+  - Extracted the `objectPairHasPersistentContactCache` lambda into
+    `ObjectPairHasPersistentContactCache` and named its anonymous
+    `lower_bound` comparator as `PersistentContactCacheEntryPrecedesKey`,
+    preserving the object/object cache-key prefix, feature-id masking, sorted
+    cache search, and cache-hit result. Gate evidence:
+    `tools\validate_physics.bat` passed in
+    `TestOutput\agent_logs\plan02_persistent_cache_lookup_validate_physics_20260709_1021.log`
+    (28.9s shell runtime; Debug/Profile builds 0 warnings and 0 errors; final
     `VALIDATE_PHYSICS: ALL PASSED`).
 - [ ] **1.3** `RunSolverPhysics` is now a short driver calling named stages;
   confirm it is under ~300 lines.

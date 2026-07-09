@@ -636,6 +636,32 @@ ObjectContactSweepResult SweepObjectPair( const PhysicsBodyRecordList& bodyRecor
                                availableTime );
 }
 
+bool PersistentContactCacheEntryPrecedesKey( const PersistentContactCacheEntry& entry, int64_t lookupKey )
+{
+    return entry.key < lookupKey;
+}
+
+bool ObjectPairHasPersistentContactCache( const std::vector<PersistentContactCacheEntry>& persistentContactCache,
+                                          int bodyA,
+                                          int bodyB )
+{
+    constexpr uint64_t BODY_MASK = 0x7fffull;
+    const int lo = ( bodyA < bodyB ) ? bodyA : bodyB;
+    const int hi = ( bodyA < bodyB ) ? bodyB : bodyA;
+    // Invariant: this mirrors the object/object prefix of the persistent solver
+    // cache key. Feature ids occupy the low 32 bits, so masking those away
+    // answers whether any cached contact row existed for this pair.
+    const uint64_t pairPrefix = ( ( static_cast<uint64_t>( static_cast<uint32_t>( lo ) ) & BODY_MASK ) << 47 ) |
+                                ( ( static_cast<uint64_t>( static_cast<uint32_t>( hi ) ) & BODY_MASK ) << 32 );
+    const int64_t firstKey = static_cast<int64_t>( pairPrefix );
+    auto cachedIt = std::lower_bound( persistentContactCache.begin(),
+                                      persistentContactCache.end(),
+                                      firstKey,
+                                      PersistentContactCacheEntryPrecedesKey );
+    return cachedIt != persistentContactCache.end() &&
+           ( static_cast<uint64_t>( cachedIt->key ) & 0xffffffff00000000ull ) == pairPrefix;
+}
+
 void ApplyForcesForSolverBody( PhysicsBodyStore& bodyStore,
                                const ColliderStore& colliderStore,
                                const PhysicsWorldForces& worldForces,
@@ -2874,26 +2900,6 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
     }
     PROFILE_END( "Frame/Physics/Broadphase" );
 
-    auto objectPairHasPersistentContactCache = [&]( int a, int b ) -> bool
-    {
-        constexpr uint64_t BODY_MASK = 0x7fffull;
-        const int lo = ( a < b ) ? a : b;
-        const int hi = ( a < b ) ? b : a;
-        // Invariant: this mirrors the object/object prefix of the persistent
-        // solver cache key. Feature ids occupy the low 32 bits, so masking those
-        // away answers whether any cached contact row existed for this pair.
-        const uint64_t pairPrefix = ( ( static_cast<uint64_t>( static_cast<uint32_t>( lo ) ) & BODY_MASK ) << 47 ) |
-                                    ( ( static_cast<uint64_t>( static_cast<uint32_t>( hi ) ) & BODY_MASK ) << 32 );
-        const int64_t firstKey = static_cast<int64_t>( pairPrefix );
-        auto cachedIt = std::lower_bound( m_persistentContactCache.begin(),
-                                          m_persistentContactCache.end(),
-                                          firstKey,
-                                          []( const PersistentContactCacheEntry& entry, int64_t lookupKey )
-                                          { return entry.key < lookupKey; } );
-        return cachedIt != m_persistentContactCache.end() &&
-               ( static_cast<uint64_t>( cachedIt->key ) & 0xffffffff00000000ull ) == pairPrefix;
-    };
-
     auto objectPairNeedsSweptCcd = [&]( int a, int b, float availableTime ) -> bool
     {
         if ( availableTime <= TOLERANCE )
@@ -2901,7 +2907,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
             return false;
         }
 
-        if ( !objectPairHasPersistentContactCache( a, b ) )
+        if ( !ObjectPairHasPersistentContactCache( m_persistentContactCache, a, b ) )
         {
             return true;
         }
