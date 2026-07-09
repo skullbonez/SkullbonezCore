@@ -39,8 +39,8 @@ audits when it is still useful.
   answer or handoff.
 - Engine cleanup restart handoff for the current pause:
   `engine-cleanup-plans/HANDOFF-2026-07-09-RESTART.md`. Latest implementation
-  commit before the handoff is `cfa0905c`; resume Plan 02 Step 1.2 from
-  `recordObjectNarrowphaseEvent`.
+  commit before the handoff is `69b4f124`; resume Plan 02 Step 1.2 from
+  `markObjectVisualEvent`.
 
 ## Current Work Items
 
