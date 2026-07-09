@@ -1213,6 +1213,35 @@ byte-exact gated.
     reserve `policy_violations=0`, DX12 perf no regressions, and physics_bench
     no regressions. Log:
     `Agentic/Reports/validate_perf_plan04_alloc_fatal_20260710.log`.
+
+  Progress 2026-07-10, TestSceneParser recoverable parser boundary sub-slice:
+  - Converted `TestSceneParser.cpp` row 8 from exception unwinding to a
+    parser-local Lane R failure state returned through `TryLoadTestSceneFromFileImpl`
+    and `TryLoadStyleSceneFromFileImpl`.
+  - `Fail()` now records the first path-rich parser error, value helpers return
+    safe defaults after a failure, and parser sections stop mutating the scene
+    once `ParserFailed()` is set. Direct non-`TryLoad` callers now fatal at the
+    `Scene/TestSceneParser` owner boundary instead of receiving a C++ exception.
+  - Added behavioral coverage for wrong member types and unknown asset instance
+    names, extending the existing malformed JSON and missing-camera recoverable
+    parser failure tests.
+  - Strict anchored source throw statement inventory now reports 5 sites, all
+    remaining DX12 Lane R resource/shader creation rows.
+  - Comment-style audit scope:
+    `SkullbonezSource/Scene/TestScene.cpp`,
+    `SkullbonezSource/Scene/TestScene.h`,
+    `SkullbonezSource/Scene/TestSceneParser.cpp`, and
+    `SkullbonezTests/TestSceneParserUnit.cpp`; checked 4, deferred 0.
+  - Focused build passed: `tools\validate_build.bat Profile` exited 0 in
+    00:00:14.30 with 0 warnings/errors. Log:
+    `Agentic/Reports/validate_build_profile_plan04_parser_result_20260710.log`.
+  - Required gates passed: `tools\validate_tests.bat` reported 75/75 doctest
+    cases and 1669/1669 assertions, and `tools\validate_full.bat` passed with
+    project filters clean, Profile/Debug builds at 0 warnings/errors,
+    formatting clean, DX12 validation errors 0, screenshots matching baselines,
+    and `physics_regression_solver.csv` byte-exact. Logs:
+    `Agentic/Reports/validate_tests_plan04_parser_result_20260710.log` and
+    `Agentic/Reports/validate_full_plan04_parser_result_20260710.log`.
 - [ ] **4.1** Do **not** maintain any throw count. The `MAX_SOURCE_THROW_TOKENS`
   ratchet is deleted by plan 03. Verify progress by re-running
   `rg -n "throw " SkullbonezSource` and confirming the F/R/P sites are converted;

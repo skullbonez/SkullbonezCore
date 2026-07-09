@@ -21,7 +21,7 @@ Owner decisions of 2026-07-09 are binding — see
 
 | Plan | Status | % | Remaining work |
 |------|--------|---|----------------|
-| [04 Error-handling reconciliation](../../engine-cleanup-plans/04-error-handling-policy-reconciliation.md) | In Progress | 90% | Strict throws 283 → 6. Lane F is complete, including allocator-safe fatal handling for `RuntimeAllocationTracker`. Remaining: Lane R recoverable-result rows (`TestSceneParser`, DX12 resource/shader creation) and no-throw-count closure. Also absorbs the remnants of fable-05 (see Retired below). |
+| [04 Error-handling reconciliation](../../engine-cleanup-plans/04-error-handling-policy-reconciliation.md) | In Progress | 92% | Strict throws 283 -> 5. Lane F is complete, including allocator-safe fatal handling for `RuntimeAllocationTracker`; `TestSceneParser` now reports recoverable Lane R parser failures. Remaining: DX12 resource/shader creation recoverable-result rows and no-throw-count closure. Also absorbs the remnants of fable-05 (see Retired below). |
 | [07 Allocation-gate right-sizing](../../engine-cleanup-plans/07-allocation-gate-right-sizing.md) | In Progress | 15% | Right-size the checker; keep global zero-alloc default, replay-only exception. |
 | [11 Render abstraction leaks](../../engine-cleanup-plans/11-render-abstraction-leaks.md) | In Progress | 80% | Retire the diagnostic RenderGraph path per owner decision; remove stale barrier-ownership claims. |
 | [13 Facade retirement (rule)](../../engine-cleanup-plans/13-facade-retirement.md) | In Progress | 75% | Cross-cutting rule; FAC-005 executes via plan 14, FAC-004 needs an owner, FAC-007 executes via `TODO/render-backend-decomposition.md`. |
@@ -36,7 +36,7 @@ re-scoped. Constituent history is in git history of the deleted files.
 
 | Plan | Status | % | Remaining work |
 |------|--------|---|----------------|
-| [behavioral-test-depth](TODO/behavioral-test-depth.md) | In progress | 33% | P1 solver-stage tests and P4 replay snapshot/hash round-trip are complete. Remaining: P2 manifold reduction, P3 parser error paths, P5 injected-bug drill, and P6 sustaining rule. |
+| [behavioral-test-depth](TODO/behavioral-test-depth.md) | In progress | 42% | P1 solver-stage tests, P4 replay snapshot/hash round-trip, and most P3 parser failure cases are complete. Remaining: P2 manifold reduction, P3 `assetInstances[]` round-trip, P5 injected-bug drill, and P6 sustaining rule. |
 | [physics-authority-and-identity](TODO/physics-authority-and-identity.md) | In progress | 55% | Body/collider authority completion, scene/entity metadata split, stable-identity storage rule (handles, `ModelRowHint`), PHYS blocker knot (needs a physics-owner design decision). |
 | [render-backend-decomposition](TODO/render-backend-decomposition.md) | In progress | 50% | Concrete DX12 owner split (textures, PSO cache, DXR owner), resource-capability decision, FAC-007 dual-ownership fix. Graph-buildout scope dropped per owner decision. |
 | [interaction-state-machine](TODO/interaction-state-machine.md) | In progress | 45% | Phases P4–P10: camera capture, launcher/manipulator/editor/replay gesture migration, commands/events, bool-cluster deletion. |
@@ -56,9 +56,9 @@ re-scoped. Constituent history is in git history of the deleted files.
   deliberate ambient survivors per the closed plan-12 decision.
 - **fable-05 unified error handling** — engine-cleanup plan 04 is the same
   campaign and has executed most of fable-05's remaining rows (DX12 throw
-  conversions done; strict throws now 7). Its ratchet-to-zero closure step is
-  superseded by plan 03's ratchet deletion. Any remaining scene/asset Lane R
-  rows live in plan 04's inventory.
+  conversions done; strict throws now 5). Its ratchet-to-zero closure step is
+  superseded by plan 03's ratchet deletion. Any remaining DX12 Lane R rows live
+  in plan 04's inventory.
 - **fable-07 blocker remediation + overnight blocker ledger** — the open
   PHYS-*/RGRAPH-*/RUN-* rows were absorbed into the three matching TODO plans
   as "known hard blockers"; clusters D/E and SVC rows were already resolved.

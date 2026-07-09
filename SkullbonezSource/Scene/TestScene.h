@@ -59,6 +59,8 @@ class TestScene;
 class TestSceneParser;
 TestScene LoadTestSceneFromFileImpl( const char* path, Assets::AssetContext assets );
 TestScene LoadStyleSceneFromFileImpl( const char* path, Assets::AssetContext assets );
+SbResult TryLoadTestSceneFromFileImpl( const char* path, Assets::AssetContext assets, TestScene& outScene );
+SbResult TryLoadStyleSceneFromFileImpl( const char* path, Assets::AssetContext assets, TestScene& outScene );
 
 struct SceneCamera
 {

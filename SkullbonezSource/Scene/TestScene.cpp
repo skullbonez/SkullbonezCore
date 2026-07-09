@@ -35,9 +35,6 @@ Related:
 
 #include "../Core/FatalError.h"
 
-#include <exception>
-
-
 using namespace SkullbonezCore::Basics;
 
 namespace
@@ -63,18 +60,8 @@ FatalSceneIndexOutOfRange( const char* collectionName, const char* functionName,
 SbResult
 TryLoadSceneFile( const char* path, SkullbonezCore::Assets::AssetContext assets, bool styleOnly, TestScene& outScene )
 {
-    try
-    {
-        outScene = styleOnly ? LoadStyleSceneFromFileImpl( path, assets ) : LoadTestSceneFromFileImpl( path, assets );
-        return SbResult::Success();
-    }
-    catch ( const std::exception& e )
-    {
-        // Why: the parser still uses exceptions internally until the remaining
-        // fable-05 P4.1 rows thread SbResult through every JSON helper. Runtime
-        // callers get Lane R diagnostics now instead of a process-level escape.
-        return SbResult::Failure( "Scene/TestSceneParser", "%s", e.what() );
-    }
+    return styleOnly ? TryLoadStyleSceneFromFileImpl( path, assets, outScene )
+                     : TryLoadTestSceneFromFileImpl( path, assets, outScene );
 }
 } // namespace
 

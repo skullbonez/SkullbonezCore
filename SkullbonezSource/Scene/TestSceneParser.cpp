@@ -30,6 +30,7 @@ Related:
 */
 #include "TestScene.h"
 #include "../Assets/AssetSystem.h"
+#include "../Core/FatalError.h"
 #include "../Maths/Quaternion.h"
 #include "../Physics/ConvexHullShape.h"
 #include "../Physics/PhysicsMass.h"
@@ -39,11 +40,11 @@ Related:
 #include <cctype>
 #include <cmath>
 #include <cstring>
+#include <exception>
 #include <fstream>
 #include <iterator>
 #include <limits>
 #include <sstream>
-#include <stdexcept>
 #include <string>
 #include <thread>
 #include <vector>
@@ -62,6 +63,51 @@ using Json = nlohmann::ordered_json;
 
 constexpr int kMaxStyleIncludeDepth = 8;
 constexpr float kSceneDegreesToRadians = 3.14159265f / 180.0f;
+
+// Concept: parser helpers still use the old "record failure and stop" shape,
+// but the failure now becomes a Lane R SbResult at the TryLoad boundary instead
+// of a C++ exception escaping through scene-load code.
+struct ParserFailureState
+{
+    bool failed = false;
+    std::string message;
+};
+
+thread_local ParserFailureState* s_activeParserFailure = nullptr;
+
+class ParserFailureScope
+{
+  public:
+    explicit ParserFailureScope( ParserFailureState& state ) : m_previous( s_activeParserFailure )
+    {
+        s_activeParserFailure = &state;
+    }
+
+    ~ParserFailureScope()
+    {
+        s_activeParserFailure = m_previous;
+    }
+
+    ParserFailureScope( const ParserFailureScope& ) = delete;
+    ParserFailureScope& operator=( const ParserFailureScope& ) = delete;
+
+  private:
+    ParserFailureState* m_previous;
+};
+
+bool ParserFailed() noexcept
+{
+    return s_activeParserFailure && s_activeParserFailure->failed;
+}
+
+SbResult ParserFailureResult( const ParserFailureState& state )
+{
+    if ( !state.failed )
+    {
+        return SbResult::Success();
+    }
+    return SbResult::Failure( "Scene/TestSceneParser", "%s", state.message.c_str() );
+}
 
 Math::Orientation::Quaternion MakeSceneEulerQuaternion( float eulerXDeg, float eulerYDeg, float eulerZDeg )
 {
@@ -94,7 +140,7 @@ Json Vector3ToJson( const Math::Vector::Vector3& value )
     return Json::array( { value.x, value.y, value.z } );
 }
 
-[[noreturn]] void Fail( const std::string& path, const std::string& detail );
+void Fail( const std::string& path, const std::string& detail );
 
 float LoadConvexHullDefaultMass( const char* hullPath )
 {
@@ -408,13 +454,23 @@ std::string JsonTypeName( const Json& value )
     return "value";
 }
 
-[[noreturn]] void Fail( const std::string& path, const std::string& detail )
+const Json& EmptyJson()
+{
+    static const Json empty = Json::object();
+    return empty;
+}
+
+void Fail( const std::string& path, const std::string& detail )
 {
     // Concept: Parser failures include the file path and logical context because
     // scene JSON is edited by humans and validation scripts.
     std::ostringstream message;
     message << detail << " in " << path << "  (TestScene::LoadFromFile)";
-    throw std::runtime_error( message.str() );
+    if ( s_activeParserFailure && !s_activeParserFailure->failed )
+    {
+        s_activeParserFailure->failed = true;
+        s_activeParserFailure->message = message.str();
+    }
 }
 
 void RequireObject( const Json& value, const std::string& path, const char* context )
@@ -456,6 +512,7 @@ const Json& RequireMember( const Json& object, const std::string& path, const ch
         std::ostringstream message;
         message << context << " is missing required field '" << key << "'";
         Fail( path, message.str() );
+        return EmptyJson();
     }
     return *member;
 }
@@ -467,6 +524,7 @@ std::string ReadString( const Json& value, const std::string& path, const char* 
         std::ostringstream message;
         message << context << " must be a string, got " << JsonTypeName( value );
         Fail( path, message.str() );
+        return std::string();
     }
     return value.get<std::string>();
 }
@@ -478,6 +536,7 @@ float ReadFloat( const Json& value, const std::string& path, const char* context
         std::ostringstream message;
         message << context << " must be a number, got " << JsonTypeName( value );
         Fail( path, message.str() );
+        return 0.0f;
     }
     return value.get<float>();
 }
@@ -489,6 +548,7 @@ int ReadInt( const Json& value, const std::string& path, const char* context )
         std::ostringstream message;
         message << context << " must be an integer, got " << JsonTypeName( value );
         Fail( path, message.str() );
+        return 0;
     }
     return value.get<int>();
 }
@@ -500,6 +560,7 @@ unsigned int ReadUInt( const Json& value, const std::string& path, const char* c
         std::ostringstream message;
         message << context << " must be an unsigned integer, got " << JsonTypeName( value );
         Fail( path, message.str() );
+        return 0u;
     }
     if ( value.is_number_unsigned() )
     {
@@ -509,6 +570,7 @@ unsigned int ReadUInt( const Json& value, const std::string& path, const char* c
             std::ostringstream message;
             message << context << " must fit in uint32";
             Fail( path, message.str() );
+            return 0u;
         }
         return static_cast<unsigned int>( parsed );
     }
@@ -519,6 +581,7 @@ unsigned int ReadUInt( const Json& value, const std::string& path, const char* c
         std::ostringstream message;
         message << context << " must fit in uint32";
         Fail( path, message.str() );
+        return 0u;
     }
     return static_cast<unsigned int>( parsed );
 }
@@ -561,6 +624,7 @@ bool ReadBool( const Json& value, const std::string& path, const char* context )
     std::ostringstream message;
     message << context << " must be a bool, got " << JsonTypeName( value );
     Fail( path, message.str() );
+    return false;
 }
 
 template <size_t N> void CopyStringField( char ( &out )[N], const std::string& text )
@@ -590,6 +654,7 @@ SceneObjectGroupKind ReadSceneObjectGroupKind( const Json& value, const std::str
         return SceneObjectGroupKind::None;
     }
     Fail( path, "Unknown scene object group kind: " + kind );
+    return SceneObjectGroupKind::None;
 }
 
 void ReadOptionalSceneObjectGroup( SceneObjectGroupMetadata& group,
@@ -619,6 +684,7 @@ void ReadOptionalSceneObjectGroup( SceneObjectGroupMetadata& group,
     if ( group.rootObjectName[0] == '\0' )
     {
         Fail( path, std::string( objectContext ) + ".objectGroup.root must not be empty" );
+        return;
     }
 }
 
@@ -630,6 +696,7 @@ void ReadVec3( const Json& value, const std::string& path, const char* context, 
         std::ostringstream message;
         message << context << " must contain exactly 3 numbers";
         Fail( path, message.str() );
+        return;
     }
     x = ReadFloat( value[0], path, context );
     y = ReadFloat( value[1], path, context );
@@ -644,6 +711,7 @@ void ReadVec4( const Json& value, const std::string& path, const char* context, 
         std::ostringstream message;
         message << context << " must contain exactly 4 numbers";
         Fail( path, message.str() );
+        return;
     }
     x = ReadFloat( value[0], path, context );
     y = ReadFloat( value[1], path, context );
@@ -657,6 +725,7 @@ Json ReadJsonFile( const std::string& path )
     if ( !input )
     {
         Fail( path, "Failed to open JSON file" );
+        return Json::object();
     }
 
     try
@@ -668,6 +737,7 @@ Json ReadJsonFile( const std::string& path )
         std::ostringstream message;
         message << "Invalid JSON: " << e.what();
         Fail( path, message.str() );
+        return Json::object();
     }
 }
 
@@ -702,6 +772,7 @@ int ParseUITab( const Json& value, const std::string& path )
         return parsed;
     }
     Fail( path, "ui.tab has an unknown tab name: " + tab );
+    return 0;
 }
 
 int ParseWaterReflectionMode( const Json& value, const std::string& path )
@@ -728,6 +799,7 @@ int ParseWaterReflectionMode( const Json& value, const std::string& path )
         return parsed;
     }
     Fail( path, "debug.waterReflection must be fbo, dxr, or none" );
+    return 0;
 }
 
 uint32_t ParsePhysicsDebugMode( const Json& value, const std::string& path )
@@ -763,6 +835,7 @@ uint32_t ParsePhysicsDebugMode( const Json& value, const std::string& path )
         return Physics::PHYSICS_DEBUG_ALL;
     }
     Fail( path, "debug.physics.mode must be none, axes, contacts, sleep, pipeline, terrain, or all" );
+    return Physics::PHYSICS_DEBUG_NONE;
 }
 
 float ParseMaterialModeValue( const Json& value, const std::string& path, const char* context )
@@ -814,6 +887,7 @@ float ParseMaterialModeValue( const Json& value, const std::string& path, const 
         return static_cast<float>( mode );
     }
     Fail( path, std::string( context ) + " has an unknown material mode: " + token );
+    return 0.0f;
 }
 
 void SetObjectMaterialBaseColor( SceneObjectMaterialOverride& material, float r, float g, float b )
@@ -845,6 +919,7 @@ std::string ReadContactMaterialToken( const Json& value, const std::string& path
     if ( token.empty() || token.size() >= 32 )
     {
         Fail( path, std::string( context ) + " must be 1-31 characters" );
+        return std::string();
     }
     return token;
 }
@@ -899,6 +974,7 @@ class TestSceneParser
   private:
     TestScene m_scene;
     Assets::AssetContext m_assets;
+    ParserFailureState m_failure;
     std::vector<Json> m_assetDefinitions;
 
     std::string ResolveStylePath( const std::string& token ) const
@@ -958,6 +1034,7 @@ class TestSceneParser
         if ( !FindMember( material, "mode" ) && !FindMember( material, "kind" ) )
         {
             Fail( path, "asset.material is missing required field 'mode'" );
+            return;
         }
         if ( const Json* color = FindMember( material, "color" ) )
         {
@@ -987,6 +1064,7 @@ class TestSceneParser
             if ( value <= 0.0f )
             {
                 Fail( path, "asset.mass must be greater than zero" );
+                return;
             }
         }
         else if ( requireMass )
@@ -1046,12 +1124,14 @@ class TestSceneParser
                 return primitiveType;
             }
             Fail( path, "Unknown asset primitive type: " + primitiveType );
+            return std::string();
         }
         if ( FindMember( asset, "hull" ) )
         {
             return "convexHull";
         }
         Fail( path, std::string( context ) + " must declare type or hull" );
+        return std::string();
     }
 
     void ValidateAssetBoxFields( const Json& asset, const std::string& path, const char* context ) const
@@ -1068,6 +1148,7 @@ class TestSceneParser
         if ( halfX <= 0.0f || halfY <= 0.0f || halfZ <= 0.0f )
         {
             Fail( path, "asset.halfExtents values must be greater than zero" );
+            return;
         }
         ValidateAssetCommonPhysicsFields( asset, path, context, true );
     }
@@ -1078,6 +1159,7 @@ class TestSceneParser
         if ( radius <= 0.0f )
         {
             Fail( path, "asset.radius must be greater than zero" );
+            return;
         }
         if ( const Json* moment = FindMember( asset, "moment" ) )
         {
@@ -1085,6 +1167,7 @@ class TestSceneParser
             if ( value <= 0.0f )
             {
                 Fail( path, "asset.moment must be greater than zero" );
+                return;
             }
         }
         ValidateAssetCommonPhysicsFields( asset, path, context, true );
@@ -1115,6 +1198,7 @@ class TestSceneParser
             return;
         }
         Fail( path, "Unknown asset primitive type: " + primitiveType );
+        return;
     }
 
     void LoadAssetLibrary( const std::string& assetPath )
@@ -1128,22 +1212,33 @@ class TestSceneParser
             std::ostringstream message;
             message << "Expected format 'skullbonez.asset_library.json', got '" << actualFormat << "'";
             Fail( assetPath, message.str() );
+            return;
         }
 
         const Json& assets = RequireMember( root, assetPath, "asset library root", "assets" );
         RequireArray( assets, assetPath, "assets" );
+        if ( ParserFailed() )
+        {
+            return;
+        }
         for ( const Json& asset : assets )
         {
             RequireObject( asset, assetPath, "asset" );
+            if ( ParserFailed() )
+            {
+                return;
+            }
             const std::string name =
                 ReadString( RequireMember( asset, assetPath, "asset", "name" ), assetPath, "asset.name" );
             if ( name.empty() )
             {
                 Fail( assetPath, "asset.name must not be empty" );
+                return;
             }
             if ( FindAssetDefinition( name ) )
             {
                 Fail( assetPath, "Duplicate asset name: " + name );
+                return;
             }
 
             const std::string type =
@@ -1159,23 +1254,34 @@ class TestSceneParser
                 if ( parts.empty() )
                 {
                     Fail( assetPath, "asset.parts must not be empty" );
+                    return;
                 }
                 for ( const Json& part : parts )
                 {
                     RequireObject( part, assetPath, "asset.parts[]" );
+                    if ( ParserFailed() )
+                    {
+                        return;
+                    }
                     const std::string partName = ReadString( RequireMember( part, assetPath, "asset.parts[]", "name" ),
                                                              assetPath,
                                                              "asset.parts[].name" );
                     if ( partName.empty() )
                     {
                         Fail( assetPath, "asset.parts[].name must not be empty" );
+                        return;
                     }
                     ValidateAssetPrimitiveFields( part, assetPath, "asset.parts[]" );
+                    if ( ParserFailed() )
+                    {
+                        return;
+                    }
                 }
             }
             else
             {
                 Fail( assetPath, "Unknown asset type: " + type );
+                return;
             }
 
             m_assetDefinitions.push_back( asset );
@@ -1190,10 +1296,18 @@ class TestSceneParser
             return;
         }
         RequireArray( *libraries, path, "assetLibraries" );
+        if ( ParserFailed() )
+        {
+            return;
+        }
         for ( const Json& library : *libraries )
         {
             const std::string token = ReadString( library, path, "assetLibraries" );
             LoadAssetLibrary( ResolveAssetLibraryPath( token ) );
+            if ( ParserFailed() )
+            {
+                return;
+            }
         }
     }
 
@@ -1202,10 +1316,12 @@ class TestSceneParser
         if ( name.empty() )
         {
             Fail( path, std::string( context ) + " must not be empty" );
+            return;
         }
         if ( name.size() >= 64 )
         {
             Fail( path, std::string( context ) + " must be shorter than 64 characters" );
+            return;
         }
     }
 
@@ -1216,6 +1332,10 @@ class TestSceneParser
         name += "_";
         name += partName;
         CheckGeneratedSceneName( name, path, "asset part generated name" );
+        if ( ParserFailed() )
+        {
+            return std::string();
+        }
         return name;
     }
 
@@ -1224,6 +1344,10 @@ class TestSceneParser
         const Json& source = RequireMember( asset, path, "asset", "material" );
         Json material = source;
         RequireObject( material, path, "asset.material" );
+        if ( ParserFailed() )
+        {
+            return;
+        }
         material["target"] = target;
         ApplyObjectMaterial( material, path );
     }
@@ -1252,13 +1376,25 @@ class TestSceneParser
                                   float instanceAngVelZ )
     {
         CheckGeneratedSceneName( objectName, path, "asset instance name" );
+        if ( ParserFailed() )
+        {
+            return;
+        }
 
         const std::string primitiveType = ReadAssetPrimitiveType( asset, path, "asset" );
+        if ( ParserFailed() )
+        {
+            return;
+        }
 
         float offsetX = 0.0f, offsetY = 0.0f, offsetZ = 0.0f;
         if ( const Json* offset = FindMember( asset, "offset" ) )
         {
             ReadVec3( *offset, path, "asset.offset", offsetX, offsetY, offsetZ );
+            if ( ParserFailed() )
+            {
+                return;
+            }
         }
 
         float eulerX = instanceEulerX, eulerY = instanceEulerY, eulerZ = instanceEulerZ;
@@ -1267,6 +1403,10 @@ class TestSceneParser
         {
             float partX = 0.0f, partY = 0.0f, partZ = 0.0f;
             ReadVec3( *euler, path, "asset.euler", partX, partY, partZ );
+            if ( ParserFailed() )
+            {
+                return;
+            }
             eulerX += partX;
             eulerY += partY;
             eulerZ += partZ;
@@ -1279,6 +1419,10 @@ class TestSceneParser
         {
             float partX = 0.0f, partY = 0.0f, partZ = 0.0f;
             ReadVec3( *velocity, path, "asset.velocity", partX, partY, partZ );
+            if ( ParserFailed() )
+            {
+                return;
+            }
             velX += partX;
             velY += partY;
             velZ += partZ;
@@ -1291,6 +1435,10 @@ class TestSceneParser
         {
             float partX = 0.0f, partY = 0.0f, partZ = 0.0f;
             ReadVec3( *angularVelocity, path, "asset.angularVelocity", partX, partY, partZ );
+            if ( ParserFailed() )
+            {
+                return;
+            }
             angVelX += partX;
             angVelY += partY;
             angVelZ += partZ;
@@ -1301,6 +1449,10 @@ class TestSceneParser
         if ( const Json* fixedValue = FindMember( asset, "fixed" ) )
         {
             fixed = ReadBool( *fixedValue, path, "asset.fixed" );
+            if ( ParserFailed() )
+            {
+                return;
+            }
         }
         if ( hasFixedOverride )
         {
@@ -1311,6 +1463,10 @@ class TestSceneParser
         if ( const Json* sleepingValue = FindMember( asset, "sleeping" ) )
         {
             sleeping = ReadBool( *sleepingValue, path, "asset.sleeping" );
+            if ( ParserFailed() )
+            {
+                return;
+            }
         }
         if ( hasSleepingOverride )
         {
@@ -1326,21 +1482,41 @@ class TestSceneParser
         if ( primitiveType == "convexHull" )
         {
             object["hull"] = ReadString( RequireMember( asset, path, "asset", "hull" ), path, "asset.hull" );
+            if ( ParserFailed() )
+            {
+                return;
+            }
             if ( const Json* mass = FindMember( asset, "mass" ) )
             {
                 object["mass"] = ReadFloat( *mass, path, "asset.mass" );
+                if ( ParserFailed() )
+                {
+                    return;
+                }
             }
             object["restitution"] =
                 ReadFloat( RequireMember( asset, path, "asset", "restitution" ), path, "asset.restitution" );
+            if ( ParserFailed() )
+            {
+                return;
+            }
             object["sleeping"] = sleeping;
             if ( const Json* release = FindMember( asset, "contactReleaseOnImpact" ) )
             {
                 object["contactReleaseOnImpact"] = ReadBool( *release, path, "asset.contactReleaseOnImpact" );
+                if ( ParserFailed() )
+                {
+                    return;
+                }
             }
             if ( const Json* threshold = FindMember( asset, "contactReleaseImpulseThreshold" ) )
             {
                 object["contactReleaseImpulseThreshold"] =
                     (std::max)( 0.0f, ReadFloat( *threshold, path, "asset.contactReleaseImpulseThreshold" ) );
+                if ( ParserFailed() )
+                {
+                    return;
+                }
             }
             if ( hasEuler )
             {
@@ -1372,6 +1548,10 @@ class TestSceneParser
         object["mass"] = ReadFloat( RequireMember( asset, path, "asset", "mass" ), path, "asset.mass" );
         object["restitution"] =
             ReadFloat( RequireMember( asset, path, "asset", "restitution" ), path, "asset.restitution" );
+        if ( ParserFailed() )
+        {
+            return;
+        }
         object["sleeping"] = sleeping;
 
         if ( primitiveType == "box" )
@@ -1383,6 +1563,10 @@ class TestSceneParser
                       halfExtents.x,
                       halfExtents.y,
                       halfExtents.z );
+            if ( ParserFailed() )
+            {
+                return;
+            }
             const float mass = object["mass"].get<float>();
             object["halfExtents"] = Vector3ToJson( halfExtents );
             object["inertia"] = Vector3ToJson( Physics::CalculateBoxInertiaForHalfExtents( halfExtents, mass ) );
@@ -1394,6 +1578,10 @@ class TestSceneParser
         if ( primitiveType == "sphere" )
         {
             const float radius = ReadFloat( RequireMember( asset, path, "asset", "radius" ), path, "asset.radius" );
+            if ( ParserFailed() )
+            {
+                return;
+            }
             const float mass = object["mass"].get<float>();
             object["radius"] = radius;
             object["inertia"] = Vector3ToJson( Physics::CalculateSphereInertia( radius, mass ) );
@@ -1403,22 +1591,40 @@ class TestSceneParser
         }
 
         Fail( path, "Unknown asset primitive type: " + primitiveType );
+        return;
     }
 
     void ApplyAssetInstance( const Json& instance, const std::string& path )
     {
         RequireObject( instance, path, "assetInstance" );
+        if ( ParserFailed() )
+        {
+            return;
+        }
         const std::string assetName =
             ReadString( RequireMember( instance, path, "assetInstance", "asset" ), path, "assetInstance.asset" );
+        if ( ParserFailed() )
+        {
+            return;
+        }
         const Json* asset = FindAssetDefinition( assetName );
         if ( !asset )
         {
             Fail( path, "Unknown asset instance reference: " + assetName );
+            return;
         }
 
         const std::string instanceName =
             ReadString( RequireMember( instance, path, "assetInstance", "name" ), path, "assetInstance.name" );
+        if ( ParserFailed() )
+        {
+            return;
+        }
         CheckGeneratedSceneName( instanceName, path, "assetInstance.name" );
+        if ( ParserFailed() )
+        {
+            return;
+        }
 
         float baseX = 0.0f, baseY = 0.0f, baseZ = 0.0f;
         ReadVec3( RequireMember( instance, path, "assetInstance", "position" ),
@@ -1427,6 +1633,10 @@ class TestSceneParser
                   baseX,
                   baseY,
                   baseZ );
+        if ( ParserFailed() )
+        {
+            return;
+        }
 
         bool hasFixedOverride = false;
         bool fixedOverride = false;
@@ -1434,6 +1644,10 @@ class TestSceneParser
         {
             hasFixedOverride = true;
             fixedOverride = ReadBool( *fixed, path, "assetInstance.fixed" );
+            if ( ParserFailed() )
+            {
+                return;
+            }
         }
 
         bool hasSleepingOverride = false;
@@ -1442,6 +1656,10 @@ class TestSceneParser
         {
             hasSleepingOverride = true;
             sleepingOverride = ReadBool( *sleeping, path, "assetInstance.sleeping" );
+            if ( ParserFailed() )
+            {
+                return;
+            }
         }
 
         bool hasInstanceEuler = false;
@@ -1449,6 +1667,10 @@ class TestSceneParser
         if ( const Json* euler = FindMember( instance, "euler" ) )
         {
             ReadVec3( *euler, path, "assetInstance.euler", instanceEulerX, instanceEulerY, instanceEulerZ );
+            if ( ParserFailed() )
+            {
+                return;
+            }
             hasInstanceEuler = true;
         }
 
@@ -1457,6 +1679,10 @@ class TestSceneParser
         if ( const Json* velocity = FindMember( instance, "velocity" ) )
         {
             ReadVec3( *velocity, path, "assetInstance.velocity", instanceVelX, instanceVelY, instanceVelZ );
+            if ( ParserFailed() )
+            {
+                return;
+            }
             hasInstanceVelocity = true;
         }
 
@@ -1470,10 +1696,18 @@ class TestSceneParser
                       instanceAngVelX,
                       instanceAngVelY,
                       instanceAngVelZ );
+            if ( ParserFailed() )
+            {
+                return;
+            }
             hasInstanceAngularVelocity = true;
         }
 
         const std::string type = ReadString( RequireMember( *asset, path, "asset", "type" ), path, "asset.type" );
+        if ( ParserFailed() )
+        {
+            return;
+        }
         if ( type == "convexHull" || type == "box" || type == "sphere" )
         {
             ApplyAssetPrimitivePart( *asset,
@@ -1505,10 +1739,18 @@ class TestSceneParser
         {
             const Json& parts = RequireMember( *asset, path, "asset", "parts" );
             RequireArray( parts, path, "asset.parts" );
+            if ( ParserFailed() )
+            {
+                return;
+            }
             for ( const Json& part : parts )
             {
                 const std::string partName =
                     ReadString( RequireMember( part, path, "asset.parts[]", "name" ), path, "asset.parts[].name" );
+                if ( ParserFailed() )
+                {
+                    return;
+                }
                 ApplyAssetPrimitivePart( part,
                                          path,
                                          BuildAssetPartName( instanceName, partName, path ),
@@ -1531,11 +1773,16 @@ class TestSceneParser
                                          instanceAngVelX,
                                          instanceAngVelY,
                                          instanceAngVelZ );
+                if ( ParserFailed() )
+                {
+                    return;
+                }
             }
             return;
         }
 
         Fail( path, "Unknown asset type: " + type );
+        return;
     }
 
     void ApplyAssetInstances( const Json& root, const std::string& path )
@@ -1546,9 +1793,17 @@ class TestSceneParser
             return;
         }
         RequireArray( *instances, path, "assetInstances" );
+        if ( ParserFailed() )
+        {
+            return;
+        }
         for ( const Json& instance : *instances )
         {
             ApplyAssetInstance( instance, path );
+            if ( ParserFailed() )
+            {
+                return;
+            }
         }
     }
 
@@ -1560,11 +1815,23 @@ class TestSceneParser
             return;
         }
         RequireArray( *includes, path, memberName );
+        if ( ParserFailed() )
+        {
+            return;
+        }
         for ( const Json& include : *includes )
         {
             const std::string token = ReadString( include, path, memberName );
+            if ( ParserFailed() )
+            {
+                return;
+            }
             const std::string stylePath = ResolveStylePath( token );
             LoadDocumentIntoScene( stylePath, true, depth + 1 );
+            if ( ParserFailed() )
+            {
+                return;
+            }
         }
     }
 
@@ -3074,75 +3341,151 @@ class TestSceneParser
     void ApplySceneBody( const Json& root, const std::string& path )
     {
         LoadAssetLibraries( root, path );
+        if ( ParserFailed() )
+        {
+            return;
+        }
         if ( const Json* playback = FindMember( root, "playback" ) )
         {
             ApplyPlayback( *playback, path );
+            if ( ParserFailed() )
+            {
+                return;
+            }
         }
         if ( const Json* simulation = FindMember( root, "simulation" ) )
         {
             ApplySimulation( *simulation, path );
+            if ( ParserFailed() )
+            {
+                return;
+            }
         }
         if ( const Json* tornadoSystem = FindMember( root, "tornadoSystem" ) )
         {
             ApplyTornadoSystem( *tornadoSystem, path );
+            if ( ParserFailed() )
+            {
+                return;
+            }
         }
         if ( const Json* runtime = FindMember( root, "runtime" ) )
         {
             ApplyRuntime( *runtime, path );
+            if ( ParserFailed() )
+            {
+                return;
+            }
         }
         if ( const Json* capture = FindMember( root, "capture" ) )
         {
             ApplyCapture( *capture, path );
+            if ( ParserFailed() )
+            {
+                return;
+            }
         }
         if ( const Json* logging = FindMember( root, "logging" ) )
         {
             ApplyLogging( *logging, path );
+            if ( ParserFailed() )
+            {
+                return;
+            }
         }
         if ( const Json* debug = FindMember( root, "debug" ) )
         {
             ApplyDebug( *debug, path );
+            if ( ParserFailed() )
+            {
+                return;
+            }
         }
         if ( const Json* terrain = FindMember( root, "terrain" ) )
         {
             ApplyTerrain( *terrain, path );
+            if ( ParserFailed() )
+            {
+                return;
+            }
         }
         if ( const Json* editor = FindMember( root, "editor" ) )
         {
             ApplyEditor( *editor, path );
+            if ( ParserFailed() )
+            {
+                return;
+            }
         }
         if ( const Json* ui = FindMember( root, "ui" ) )
         {
             ApplyUI( *ui, path );
+            if ( ParserFailed() )
+            {
+                return;
+            }
         }
         if ( const Json* cinematic = FindMember( root, "cinematic" ) )
         {
             ApplyCinematic( *cinematic, path );
+            if ( ParserFailed() )
+            {
+                return;
+            }
         }
         if ( const Json* cameras = FindMember( root, "cameras" ) )
         {
             RequireArray( *cameras, path, "cameras" );
+            if ( ParserFailed() )
+            {
+                return;
+            }
             for ( const Json& camera : *cameras )
             {
                 ApplyCamera( camera, path );
+                if ( ParserFailed() )
+                {
+                    return;
+                }
             }
         }
         if ( const Json* objects = FindMember( root, "objects" ) )
         {
             RequireArray( *objects, path, "objects" );
+            if ( ParserFailed() )
+            {
+                return;
+            }
             for ( const Json& object : *objects )
             {
                 ApplyObject( object, path );
+                if ( ParserFailed() )
+                {
+                    return;
+                }
             }
         }
         if ( const Json* ragdollJoints = FindMember( root, "ragdollJoints" ) )
         {
             RequireArray( *ragdollJoints, path, "ragdollJoints" );
+            if ( ParserFailed() )
+            {
+                return;
+            }
             for ( const Json& joint : *ragdollJoints )
             {
                 ApplyPointJointConstraint( joint, path );
+                if ( ParserFailed() )
+                {
+                    return;
+                }
             }
         }
         ApplyAssetInstances( root, path );
+        if ( ParserFailed() )
+        {
+            return;
+        }
         ApplyRootedTreeCompatibilityClearanceToHulls( m_scene.m_convexHulls );
         ApplyRootedTreeCompatibilityClearanceToHulls( m_scene.m_convexHullStates );
         AssignReleasableTreeGroupsToHulls( m_scene.m_convexHulls );
@@ -3150,14 +3493,26 @@ class TestSceneParser
         if ( const Json* objectMaterials = FindMember( root, "objectMaterials" ) )
         {
             RequireArray( *objectMaterials, path, "objectMaterials" );
+            if ( ParserFailed() )
+            {
+                return;
+            }
             for ( const Json& objectMaterial : *objectMaterials )
             {
                 ApplyObjectMaterial( objectMaterial, path );
+                if ( ParserFailed() )
+                {
+                    return;
+                }
             }
         }
         if ( const Json* requirements = FindMember( root, "requirements" ) )
         {
             ApplyRequirements( *requirements, path );
+            if ( ParserFailed() )
+            {
+                return;
+            }
         }
     }
 
@@ -3166,24 +3521,46 @@ class TestSceneParser
         if ( depth > kMaxStyleIncludeDepth )
         {
             Fail( path, "Style include depth exceeded" );
+            return;
         }
 
         const Json root = ReadJsonFile( path );
+        if ( ParserFailed() )
+        {
+            return;
+        }
         RequireObject( root, path, "document root" );
+        if ( ParserFailed() )
+        {
+            return;
+        }
         const std::string expectedFormat = styleOnly ? "skullbonez.style.json" : "skullbonez.scene.json";
         const std::string actualFormat =
             ReadString( RequireMember( root, path, "document root", "format" ), path, "format" );
+        if ( ParserFailed() )
+        {
+            return;
+        }
         if ( actualFormat != expectedFormat )
         {
             std::ostringstream message;
             message << "Expected format '" << expectedFormat << "', got '" << actualFormat << "'";
             Fail( path, message.str() );
+            return;
         }
 
         LoadStyleIncludes( root, path, "includes", depth );
+        if ( ParserFailed() )
+        {
+            return;
+        }
         if ( !styleOnly )
         {
             LoadStyleIncludes( root, path, "styles", depth );
+            if ( ParserFailed() )
+            {
+                return;
+            }
         }
         ApplySceneBody( root, path );
     }
@@ -3195,20 +3572,61 @@ class TestSceneParser
     {
     }
 
+    SbResult TryLoadScene( const char* path, TestScene& outScene )
+    {
+        return TryLoadDocument( path, false, outScene );
+    }
+
+    SbResult TryLoadStyle( const char* path, TestScene& outScene )
+    {
+        return TryLoadDocument( path, true, outScene );
+    }
+
     TestScene LoadScene( const char* path )
     {
-        LoadDocumentIntoScene( path ? path : "", false, 0 );
-        if ( m_scene.m_cameras.empty() )
+        TestScene scene;
+        const SbResult result = TryLoadScene( path, scene );
+        if ( !result.ok )
         {
-            Fail( path ? path : "", "Scene JSON must define at least one camera." );
+            SB_FATAL( "Scene/TestSceneParser", "%s", result.error.message );
         }
-        return m_scene;
+        return scene;
     }
 
     TestScene LoadStyle( const char* path )
     {
-        LoadDocumentIntoScene( path ? path : "", true, 0 );
-        return m_scene;
+        TestScene scene;
+        const SbResult result = TryLoadStyle( path, scene );
+        if ( !result.ok )
+        {
+            SB_FATAL( "Scene/TestSceneParser", "%s", result.error.message );
+        }
+        return scene;
+    }
+
+  private:
+    SbResult TryLoadDocument( const char* path, bool styleOnly, TestScene& outScene )
+    {
+        m_scene = TestScene();
+        m_assetDefinitions.clear();
+        m_failure = ParserFailureState{};
+
+        {
+            ParserFailureScope failureScope( m_failure );
+            LoadDocumentIntoScene( path ? path : "", styleOnly, 0 );
+            if ( !ParserFailed() && !styleOnly && m_scene.m_cameras.empty() )
+            {
+                Fail( path ? path : "", "Scene JSON must define at least one camera." );
+            }
+        }
+
+        if ( m_failure.failed )
+        {
+            return ParserFailureResult( m_failure );
+        }
+
+        outScene = m_scene;
+        return SbResult::Success();
     }
 };
 
@@ -3220,6 +3638,16 @@ TestScene LoadTestSceneFromFileImpl( const char* path, Assets::AssetContext asse
 TestScene LoadStyleSceneFromFileImpl( const char* path, Assets::AssetContext assets )
 {
     return TestSceneParser( assets ).LoadStyle( path );
+}
+
+SbResult TryLoadTestSceneFromFileImpl( const char* path, Assets::AssetContext assets, TestScene& outScene )
+{
+    return TestSceneParser( assets ).TryLoadScene( path, outScene );
+}
+
+SbResult TryLoadStyleSceneFromFileImpl( const char* path, Assets::AssetContext assets, TestScene& outScene )
+{
+    return TestSceneParser( assets ).TryLoadStyle( path, outScene );
 }
 } // namespace Basics
 } // namespace SkullbonezCore

@@ -1,7 +1,8 @@
 # Behavioral Test Depth
 
 Date: 2026-07-09
-Status: In progress - 33%. **P1 and P4 complete; prerequisite for
+Status: In progress - 42%. **P1 and P4 complete; most P3 parser failure
+coverage is now in place; prerequisite for
 engine-cleanup plan 03 step 2.1 is now satisfied.** The
 governance-apparatus deletion names "code review plus real behavioral tests"
 as its replacement enforcement; these are those tests.
@@ -61,6 +62,13 @@ sources in.
   type, missing required key, unknown asset name) produces recoverable Lane R
   failures with messages — never a fatal; a scene using `assetInstances[]`
   round-trips load → save → load with identical object sets.
+  Progress 2026-07-10:
+  - Existing malformed JSON and missing-camera tests cover truncated input and
+    missing required scene fields.
+  - Added wrong-member-type and unknown-asset-instance tests while converting
+    `TestSceneParser` away from exception unwinding.
+  - Still open: a scene using `assetInstances[]` round-trips load -> save ->
+    load with identical object sets.
 - [x] **P4 Replay snapshot round-trip.** Snapshot save → restore → solver
   hash equality at a fixed frame, hosted in the test runner without launching
   the full exe (the replay-owned `PhysicsEngine` from the prediction
@@ -115,3 +123,7 @@ sources in.
 - `tools\validate_tests.bat` passed on 2026-07-09 in 00:00:05.3128576 with
   `VALIDATE_TESTS: ALL PASSED`, 72/72 doctest cases, and 1643/1643 assertions.
   Log: `Agentic/Reports/validate_tests_behavioral_p1_p4_hash_20260709.log`.
+- `tools\validate_tests.bat` passed on 2026-07-10 with
+  `VALIDATE_TESTS: ALL PASSED`, 75/75 doctest cases, and 1669/1669 assertions
+  after the parser Lane R tests were added. Log:
+  `Agentic/Reports/validate_tests_plan04_parser_result_20260710.log`.
