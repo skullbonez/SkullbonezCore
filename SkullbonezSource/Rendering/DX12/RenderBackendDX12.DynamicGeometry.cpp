@@ -73,6 +73,8 @@ std::size_t TransientTriangleStyleIndex( TransientTriangleStyle style )
 {
     switch ( style )
     {
+    case TransientTriangleStyle::TrajectoryRibbon:
+        return 2;
     case TransientTriangleStyle::SoftAdditiveRibbon:
         return 1;
     case TransientTriangleStyle::Color:
@@ -85,6 +87,8 @@ const char* TransientTriangleShaderBaseName( TransientTriangleStyle style )
 {
     switch ( style )
     {
+    case TransientTriangleStyle::TrajectoryRibbon:
+        return "shaders/trajectory_ribbon";
     case TransientTriangleStyle::SoftAdditiveRibbon:
         return "shaders/soft_additive_ribbon";
     case TransientTriangleStyle::Color:
@@ -97,6 +101,8 @@ const char* TransientTriangleTraceLabel( TransientTriangleStyle style )
 {
     switch ( style )
     {
+    case TransientTriangleStyle::TrajectoryRibbon:
+        return "TrajectoryRibbon";
     case TransientTriangleStyle::SoftAdditiveRibbon:
         return "SoftAdditiveRibbon";
     case TransientTriangleStyle::Color:
@@ -335,6 +341,12 @@ void RenderBackendDX12::DrawTransientColoredTriangles( const float* data,
     ShaderDX12* shader = static_cast<ShaderDX12*>( EnsureTransientTriangleShader( style ) );
     shader->Use();
     shader->SetMat4( "uViewProj", Matrix4( viewProjMatrix16 ) );
+    if ( style == TransientTriangleStyle::TrajectoryRibbon )
+    {
+        // Concept: the trajectory shader expands segment payloads in clip space.
+        // The viewport lets it translate pixel width into stable NDC offsets.
+        shader->SetVec4( "uViewportPixels", static_cast<float>( m_width ), static_cast<float>( m_height ), 0.0f, 0.0f );
+    }
 
     DynamicVBDX12 vertexLayout = {};
     vertexLayout.numAttribs = 3;

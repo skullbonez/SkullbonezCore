@@ -16,8 +16,8 @@ Glossary:
     scrubbing so debug feedback follows recorded frames.
   Replay target marker: Debug overlay outline/ring drawn around a replay body
     from live body/collider store values.
-  Replay ribbon: Camera-facing overlay stroke generated from replay path or
-    marker segments so the shader can apply smooth edges and glow.
+  Replay ribbon: Screen-space-width overlay stroke generated from replay path
+    segments and the yellow entry marker so the shader can apply smooth glow.
   Gizmo drag group: Bounded set of selected model indices transformed as one
     editor gesture.
   Body store: Physics-owned dense body rows borrowed by tool hit tests and
@@ -256,19 +256,19 @@ class RunEditorTracer
   private:
     struct ReplayRibbonStyle
     {
-        float width = 0.25f;                                                // World-space ribbon width.
+        float width = 0.25f;                                                // Replay-ribbon width unit expanded to pixels by the shader.
         float alpha = 0.80f;                                                // Blend weight before shader edge falloff.
-        float edgeFeather = 0.38f;                                          // Fraction of half-width used for antialias fading.
-        float hdrScale = 1.0f;                                              // Brightness multiplier for bloom/emphasis.
+        float edgeFeather = 0.38f;                                          // Packed spare field; current shader uses fixed edge falloff.
+        float hdrScale = 1.0f;                                              // Packed spare field; current shader uses fixed brightness.
     };
 
     std::vector<float> m_lineData;
     std::vector<float> m_priorityLineData;
     std::vector<float> m_renderLineData;
-    std::vector<float> m_replayRibbonSegments;                              // Packed 13-float replay segments before camera-facing expansion.
+    std::vector<float> m_replayRibbonSegments;                              // Packed 13-float replay segments before shader-side expansion.
+    std::vector<float> m_priorityReplayRibbonSegments;                      // Retained yellow entry ribbon segments that survive path overflow.
     std::vector<float>
-        m_priorityReplayRibbonSegments;                                     // Retained causal marker segments that survive ordinary path overflow.
-    std::vector<float> m_replayRibbonVertexData;                            // Packed 11-float vertices consumed by the soft-additive ribbon style.
+        m_replayRibbonVertexData;                                           // Packed 11-float segment vertices consumed by the trajectory ribbon style.
 
     void EmitLineTo( std::vector<float>& lineData,
                      const Math::Vector::Vector3& a,

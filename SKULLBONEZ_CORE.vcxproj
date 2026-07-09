@@ -557,6 +557,7 @@
     <None Include="SkullbonezData\audio\impacts\impact_thud_wood_alt_03.ogg" />
     <None Include="ThirdPtySource\stb\stb_vorbis.c" />
     <None Include="SkullbonezData\shaders\launcher_laser.hlsl" />
+    <None Include="SkullbonezData\shaders\trajectory_ribbon.hlsl" />
     <None Include="SkullbonezData\shaders\tornado_fx.hlsl" />
     <None Include="SkullbonezData\hulls\diamond.hull" />
     <None Include="SkullbonezData\hulls\hex_prism.hull" />

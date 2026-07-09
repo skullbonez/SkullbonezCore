@@ -20,8 +20,8 @@ Glossary:
     prediction engine.
   Future node: Body discovered by following contacts or predicted movement
     outward from a selected root body.
-  Replay ribbon: Camera-facing overlay stroke emitted through RunEditorTracer's
-    fixed-capacity ordinary or priority ribbon buffers.
+  Replay ribbon: Screen-space-width overlay stroke emitted through
+    RunEditorTracer's fixed-capacity ordinary or priority ribbon buffers.
   Ribbon quota: Frame-local count of ordinary replay ribbon records that path
     drawing may spend before it stops emitting trajectory segments.
   ReplayBodyId: Stable runtime id used across retained samples even when vector
@@ -199,7 +199,7 @@ bool StepPredictionEngineTick( PhysicsEngine& engine,
 // show the full contact spread instead of clipping the visual explanation.
 constexpr std::size_t REPLAY_PATH_MAX_FUTURE_NODES = 240;
 constexpr std::size_t REPLAY_PATH_MAX_SEGMENTS = 260;
-constexpr std::size_t REPLAY_RIBBON_SEGMENTS_PER_PATH_SEGMENT = 2;
+constexpr std::size_t REPLAY_RIBBON_SEGMENTS_PER_PATH_SEGMENT = 1;
 constexpr float REPLAY_PATH_MIN_SEGMENT_DISTANCE_SQ = 0.0001f;
 // Why: rest markers and auxiliary trails still need an instantaneous "moving"
 // test, but child activation below uses contact ticks plus accumulated
@@ -216,8 +216,8 @@ constexpr int REPLAY_PREDICTION_PARALLEL_BODY_MIN = 2048;
 
 struct ReplayRibbonDrawQuota
 {
-    // Counts internal ribbon records, not logical trajectory lines. Each
-    // AddReplayPathSegment call emits a glow and a core record.
+    // Counts internal ribbon records, not logical trajectory lines. The
+    // trajectory shader folds glow and core into one record per path segment.
     std::size_t remainingRibbonSegments = 0;
     bool exhausted = false;
 };

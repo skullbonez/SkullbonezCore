@@ -2186,6 +2186,16 @@ void Run::TickInteractionAutomationAfterRender()
 
     if ( allProcessed && frame >= lastFrame )
     {
+        if ( !state.failed && m_replayRuntime.Prediction().build.building )
+        {
+            // Why: prediction reports read committed topology, frame counts,
+            // and trajectory hashes. Let the normal render-frame replay path
+            // finish its worker swap/rebuild instead of draining physics under
+            // the post-draw automation profiler scope.
+            ClearInteractionAutomationInput();
+            return;
+        }
+
         state.finished = true;
         ClearInteractionAutomationInput();
         WriteInteractionAutomationReport();

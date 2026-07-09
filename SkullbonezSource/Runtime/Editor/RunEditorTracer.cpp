@@ -17,15 +17,15 @@ Glossary:
     body-store pose and collider-store shape/radius values.
   Replay future marker: Shape-accurate downstream collision outline drawn at
     the latest visible predicted/retained pose, never from a broadphase radius substitute.
-  Replay ribbon: Camera-facing quad strip generated from replay path or marker
-    segments so the shader can apply smooth edges and glow.
+  Replay ribbon: Screen-space-width strip generated from replay path segments
+    and the yellow causal entry marker so the shader can apply smooth glow.
   Placement ghost: Preview outline drawn before an editor placement commit; it
     must match the primitive bodies that placement will actually spawn.
 
 Invariants:
   - Trace generation must stay transient; line buffers are cleared every frame by the caller.
-  - Replay causal entry/rest markers use priority ribbon storage so expensive
-    prediction paths can degrade without erasing already-revealed boxes.
+  - Replay causal markers use priority overlay storage so expensive prediction
+    paths can degrade without erasing already-revealed boxes.
   - The tracer owns fixed-capacity overlay buffers and must not allocate while
     building a frame.
 
@@ -76,37 +76,26 @@ constexpr std::size_t RUN_EDITOR_TRACER_REPLAY_RIBBON_VERTEX_FLOAT_CAPACITY =
     RUN_EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_VERTEX;
 constexpr float RUN_EDITOR_TRACER_REPLAY_LINE_OPACITY = 0.5f;
 
-Vector3 NormalizeTracerVectorOr( const Vector3& value, const Vector3& fallback )
-{
-    const float length = VectorMag( value );
-    if ( length <= TOLERANCE )
-    {
-        return fallback;
-    }
-    return value / length;
-}
-
 void AppendReplayRibbonVertex( std::vector<float>& vertexData,
-                               const Vector3& position,
+                               const Vector3& start,
+                               const Vector3& end,
                                float r,
                                float g,
                                float b,
                                float alpha,
-                               float edgeCoord,
-                               float edgeFeather,
-                               float hdrScale )
+                               float width )
 {
-    vertexData.push_back( position.x );
-    vertexData.push_back( position.y );
-    vertexData.push_back( position.z );
+    vertexData.push_back( start.x );
+    vertexData.push_back( start.y );
+    vertexData.push_back( start.z );
+    vertexData.push_back( end.x );
+    vertexData.push_back( end.y );
+    vertexData.push_back( end.z );
+    vertexData.push_back( width );
     vertexData.push_back( r );
     vertexData.push_back( g );
     vertexData.push_back( b );
     vertexData.push_back( alpha );
-    vertexData.push_back( edgeCoord );
-    vertexData.push_back( edgeFeather );
-    vertexData.push_back( hdrScale );
-    vertexData.push_back( 0.0f );
 }
 } // namespace
 
@@ -442,8 +431,14 @@ void RunEditorTracer::EmitReplayRibbonGlowPairTo( std::vector<float>& ribbonData
                                                   const ReplayRibbonStyle& core,
                                                   MainMemoryReplayTrajectoryLane lane )
 {
-    EmitReplayRibbonSegmentTo( ribbonData, a, b, r, g, bl, glow, lane );
-    EmitReplayRibbonSegmentTo( ribbonData, a, b, r, g, bl, core, lane );
+    // Why: trajectory ribbons own their glow in one pixel shader pass. Keep the
+    // wider glow width, but carry the stronger core alpha so each logical path
+    // segment consumes one fixed-budget ribbon record.
+    ReplayRibbonStyle singlePass = glow;
+    singlePass.alpha = (std::max)( glow.alpha, core.alpha );
+    singlePass.edgeFeather = (std::max)( glow.edgeFeather, core.edgeFeather );
+    singlePass.hdrScale = (std::max)( glow.hdrScale, core.hdrScale );
+    EmitReplayRibbonSegmentTo( ribbonData, a, b, r, g, bl, singlePass, lane );
 }
 
 
@@ -557,9 +552,11 @@ void RunEditorTracer::EmitReplayRibbonShapeOutlineTo( std::vector<float>& ribbon
 
 void RunEditorTracer::BuildReplayRibbonVertices( const Vector3& cameraEye, const Vector3& cameraUp )
 {
+    static_cast<void>( cameraEye );
+    static_cast<void>( cameraUp );
+
     m_replayRibbonVertexData.clear();
 
-    const Vector3 safeCameraUp = NormalizeTracerVectorOr( cameraUp, Vector3( 0.0f, 1.0f, 0.0f ) );
     auto appendRibbonData = [&]( const std::vector<float>& ribbonData )
     {
         for ( std::size_t i = 0; i + RUN_EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_SEGMENT <= ribbonData.size();
@@ -579,48 +576,22 @@ void RunEditorTracer::BuildReplayRibbonVertices( const Vector3& cameraEye, const
             const float bl = ribbonData[i + 8];
             const float width = (std::max)( 0.02f, ribbonData[i + 9] );
             const float alpha = std::clamp( ribbonData[i + 10], 0.0f, 1.0f );
-            const float edgeFeather = std::clamp( ribbonData[i + 11], 0.02f, 0.95f );
-            const float hdrScale = (std::max)( 0.0f, ribbonData[i + 12] );
 
-            const Vector3 segment = b - a;
-            const float segmentLength = VectorMag( segment );
-            if ( segmentLength <= TOLERANCE )
-            {
-                continue;
-            }
-            const Vector3 dir = segment / segmentLength;
-            const Vector3 mid = ( a + b ) * 0.5f;
-            const Vector3 toCamera = NormalizeTracerVectorOr( cameraEye - mid, safeCameraUp );
-            Vector3 side = CrossProduct( dir, toCamera );
-            if ( VectorMagSquared( side ) <= TOLERANCE * TOLERANCE )
-            {
-                side = CrossProduct( dir, safeCameraUp );
-            }
-            if ( VectorMagSquared( side ) <= TOLERANCE * TOLERANCE )
-            {
-                side =
-                    CrossProduct( dir,
-                                  fabsf( dir.y ) < 0.8f ? Vector3( 0.0f, 1.0f, 0.0f ) : Vector3( 1.0f, 0.0f, 0.0f ) );
-            }
-            side = NormalizeTracerVectorOr( side, Vector3( 1.0f, 0.0f, 0.0f ) ) * ( width * 0.5f );
-
-            const Vector3 aLeft = a - side;
-            const Vector3 aRight = a + side;
-            const Vector3 bLeft = b - side;
-            const Vector3 bRight = b + side;
-
-            AppendReplayRibbonVertex( m_replayRibbonVertexData, aLeft, r, g, bl, alpha, -1.0f, edgeFeather, hdrScale );
-            AppendReplayRibbonVertex( m_replayRibbonVertexData, aRight, r, g, bl, alpha, 1.0f, edgeFeather, hdrScale );
-            AppendReplayRibbonVertex( m_replayRibbonVertexData, bRight, r, g, bl, alpha, 1.0f, edgeFeather, hdrScale );
-            AppendReplayRibbonVertex( m_replayRibbonVertexData, aLeft, r, g, bl, alpha, -1.0f, edgeFeather, hdrScale );
-            AppendReplayRibbonVertex( m_replayRibbonVertexData, bRight, r, g, bl, alpha, 1.0f, edgeFeather, hdrScale );
-            AppendReplayRibbonVertex( m_replayRibbonVertexData, bLeft, r, g, bl, alpha, -1.0f, edgeFeather, hdrScale );
+            // Concept: each emitted vertex carries the same segment payload. The
+            // trajectory-ribbon vertex shader uses SV_VertexID to choose
+            // endpoint/edge and expand the ribbon at constant screen-space width.
+            AppendReplayRibbonVertex( m_replayRibbonVertexData, a, b, r, g, bl, alpha, width );
+            AppendReplayRibbonVertex( m_replayRibbonVertexData, a, b, r, g, bl, alpha, width );
+            AppendReplayRibbonVertex( m_replayRibbonVertexData, a, b, r, g, bl, alpha, width );
+            AppendReplayRibbonVertex( m_replayRibbonVertexData, a, b, r, g, bl, alpha, width );
+            AppendReplayRibbonVertex( m_replayRibbonVertexData, a, b, r, g, bl, alpha, width );
+            AppendReplayRibbonVertex( m_replayRibbonVertexData, a, b, r, g, bl, alpha, width );
         }
     };
 
     // Invariant: ordinary replay paths may overflow without erasing causal
-    // evidence. Priority ribbons are appended second, matching the old priority
-    // line buffer contract for yellow entry and grey rest boxes.
+    // evidence. Priority ribbons are appended second; only the yellow entry box
+    // remains on this ribbon path while rest/horizon boxes use priority lines.
     appendRibbonData( m_replayRibbonSegments );
     appendRibbonData( m_priorityReplayRibbonSegments );
 }
@@ -912,11 +883,10 @@ void RunEditorTracer::AddReplayCausalEntryMarker( const Vector3& position,
                                                   const Quaternion& orientation,
                                                   const CollisionShape& shape )
 {
-    // Why: entry and rest form a fixed two-color vocabulary. Yellow always
-    // means "joined the causal tree here", so no depth fade is applied. Use
-    // priority ribbons so path overflow cannot erase already-revealed boxes.
-    const ReplayRibbonStyle glow = { 1.65f, 0.30f, 0.80f, 3.45f };
-    const ReplayRibbonStyle core = { 0.36f, 0.95f, 0.34f, 2.05f };
+    // Why: yellow always means "joined the causal tree here". Keep it as the
+    // only marker on the ribbon shader, but emit one logical segment style so
+    // marker outlines do not double the retained ribbon budget.
+    const ReplayRibbonStyle singlePass = { 1.65f, 0.95f, 0.80f, 3.45f };
     EmitReplayRibbonShapeOutlineTo( m_priorityReplayRibbonSegments,
                                     position,
                                     orientation,
@@ -924,16 +894,7 @@ void RunEditorTracer::AddReplayCausalEntryMarker( const Vector3& position,
                                     1.0f,
                                     0.85f,
                                     0.25f,
-                                    glow,
-                                    MainMemoryReplayTrajectoryLane::CausalMarker );
-    EmitReplayRibbonShapeOutlineTo( m_priorityReplayRibbonSegments,
-                                    position,
-                                    orientation,
-                                    shape,
-                                    1.0f,
-                                    0.85f,
-                                    0.25f,
-                                    core,
+                                    singlePass,
                                     MainMemoryReplayTrajectoryLane::CausalMarker );
 }
 
@@ -942,26 +903,7 @@ void RunEditorTracer::AddReplayCausalRestMarker( const Vector3& position,
                                                  const Quaternion& orientation,
                                                  const CollisionShape& shape )
 {
-    const ReplayRibbonStyle glow = { 1.10f, 0.18f, 0.72f, 1.85f };
-    const ReplayRibbonStyle core = { 0.28f, 0.82f, 0.34f, 1.22f };
-    EmitReplayRibbonShapeOutlineTo( m_priorityReplayRibbonSegments,
-                                    position,
-                                    orientation,
-                                    shape,
-                                    0.58f,
-                                    0.58f,
-                                    0.62f,
-                                    glow,
-                                    MainMemoryReplayTrajectoryLane::CausalMarker );
-    EmitReplayRibbonShapeOutlineTo( m_priorityReplayRibbonSegments,
-                                    position,
-                                    orientation,
-                                    shape,
-                                    0.58f,
-                                    0.58f,
-                                    0.62f,
-                                    core,
-                                    MainMemoryReplayTrajectoryLane::CausalMarker );
+    EmitShapeOutlineTo( m_priorityLineData, position, orientation, shape, 0.58f, 0.58f, 0.62f );
 }
 
 
@@ -972,26 +914,7 @@ void RunEditorTracer::AddReplayCausalHorizonMarker( const Vector3& position,
     // Concept: horizon ghosts are not landings. They mark "this is where the
     // prediction buffer ends" for a body still mid-flight, so the color stays
     // distinct from grey resting boxes.
-    const ReplayRibbonStyle glow = { 1.30f, 0.22f, 0.76f, 2.60f };
-    const ReplayRibbonStyle core = { 0.30f, 0.88f, 0.34f, 1.55f };
-    EmitReplayRibbonShapeOutlineTo( m_priorityReplayRibbonSegments,
-                                    position,
-                                    orientation,
-                                    shape,
-                                    0.45f,
-                                    0.92f,
-                                    1.0f,
-                                    glow,
-                                    MainMemoryReplayTrajectoryLane::CausalMarker );
-    EmitReplayRibbonShapeOutlineTo( m_priorityReplayRibbonSegments,
-                                    position,
-                                    orientation,
-                                    shape,
-                                    0.45f,
-                                    0.92f,
-                                    1.0f,
-                                    core,
-                                    MainMemoryReplayTrajectoryLane::CausalMarker );
+    EmitShapeOutlineTo( m_priorityLineData, position, orientation, shape, 0.45f, 0.92f, 1.0f );
 }
 
 
@@ -999,29 +922,9 @@ void RunEditorTracer::AddReplayBaselineEntryMarker( const Vector3& position,
                                                     const Quaternion& orientation,
                                                     const CollisionShape& shape )
 {
-    // Concept: cold baseline markers are the old future's footprint. They use
-    // the same smooth ribbon shader as live causal boxes, but remain cyan and
-    // quieter so the warm nudged future can read on top.
-    const ReplayRibbonStyle glow = { 1.00f, 0.16f, 0.80f, 2.05f };
-    const ReplayRibbonStyle core = { 0.24f, 0.58f, 0.40f, 1.15f };
-    EmitReplayRibbonShapeOutlineTo( m_replayRibbonSegments,
-                                    position,
-                                    orientation,
-                                    shape,
-                                    0.26f,
-                                    0.78f,
-                                    0.95f,
-                                    glow,
-                                    MainMemoryReplayTrajectoryLane::BaselineRoot );
-    EmitReplayRibbonShapeOutlineTo( m_replayRibbonSegments,
-                                    position,
-                                    orientation,
-                                    shape,
-                                    0.26f,
-                                    0.78f,
-                                    0.95f,
-                                    core,
-                                    MainMemoryReplayTrajectoryLane::BaselineRoot );
+    // Concept: cold baseline markers are the old future's footprint. They stay
+    // on the wire path so cyan boxes do not compete with trajectory glow.
+    EmitShapeOutline( position, orientation, shape, 0.26f, 0.78f, 0.95f );
 }
 
 
@@ -1029,26 +932,7 @@ void RunEditorTracer::AddReplayBaselineRestMarker( const Vector3& position,
                                                    const Quaternion& orientation,
                                                    const CollisionShape& shape )
 {
-    const ReplayRibbonStyle glow = { 0.90f, 0.13f, 0.78f, 1.70f };
-    const ReplayRibbonStyle core = { 0.22f, 0.50f, 0.38f, 0.95f };
-    EmitReplayRibbonShapeOutlineTo( m_replayRibbonSegments,
-                                    position,
-                                    orientation,
-                                    shape,
-                                    0.18f,
-                                    0.62f,
-                                    0.78f,
-                                    glow,
-                                    MainMemoryReplayTrajectoryLane::BaselineRoot );
-    EmitReplayRibbonShapeOutlineTo( m_replayRibbonSegments,
-                                    position,
-                                    orientation,
-                                    shape,
-                                    0.18f,
-                                    0.62f,
-                                    0.78f,
-                                    core,
-                                    MainMemoryReplayTrajectoryLane::BaselineRoot );
+    EmitShapeOutline( position, orientation, shape, 0.18f, 0.62f, 0.78f );
 }
 
 
@@ -1264,11 +1148,11 @@ void RunEditorTracer::Render( const Matrix4& viewProjection,
             const bool cullWasEnabled = renderCommands.IsCullFaceEnabled();
             renderCommands.GetBlendFunc( blendSrc, blendDst );
 
-            // Concept: replay ribbons replace jagged line-list prediction
-            // overlays with translucent camera-facing triangles. The replay
-            // tracer owns that presentation policy and submits ordinary
-            // transient triangles to the renderer.
-            renderCommands.SetDepthTest( false );
+            // Concept: replay ribbons are transient segment payloads expanded
+            // by the renderer into screen-space-width ribbons. Depth testing
+            // keeps them seated in the scene; disabled depth writes prevent the
+            // overlay from occluding later transparent/debug work.
+            renderCommands.SetDepthTest( true );
             renderCommands.SetDepthWrite( false );
             renderCommands.SetBlend( true );
             renderCommands.SetBlendFunc( Rendering::BlendFactor::SrcAlpha, Rendering::BlendFactor::One );
@@ -1278,7 +1162,7 @@ void RunEditorTracer::Render( const Matrix4& viewProjection,
                 m_replayRibbonVertexData.data(),
                 static_cast<int>( m_replayRibbonVertexData.size() / RUN_EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_VERTEX ),
                 viewProjection.Data(),
-                Rendering::TransientTriangleStyle::SoftAdditiveRibbon );
+                Rendering::TransientTriangleStyle::TrajectoryRibbon );
 
             renderCommands.SetCullFace( cullWasEnabled );
             renderCommands.SetBlendFunc( blendSrc, blendDst );

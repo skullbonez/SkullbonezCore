@@ -1,15 +1,15 @@
 # Replay: Trajectory Visuals, Prediction Job, Memory Quality, Code Size
 
 Date: 2026-07-09 (consolidated mega plan)
-Status: In progress - Stage 5 complete (prediction isolation, trajectory
+Status: In progress - Stage 6 complete (prediction isolation, trajectory
 visuals investigation, counters, memory accounting, draw-loop determinism,
 same-target refresh reveal preservation, past-path visibility, contact
 completeness reporting, the TrajectoryStore publication shell, the build-pass
 writer migration, store-backed draw reads, the default-off legacy draw fallback,
 frozen hierarchy topology/shared reveal clamp, contact-tick child activation,
-the twice-run prediction determinism probe, and the prediction worker job are
-complete; renderer rewrite, visual polish, memory tuning, tooling cleanup, and
-code-size work remain open)
+the twice-run prediction determinism probe, the prediction worker job, and the
+DX12 trajectory-ribbon renderer are complete; visual polish, memory tuning,
+tooling cleanup, and code-size work remain open)
 Impact area: replay runtime, replay prediction, trajectory overlay rendering,
 DX12 transient geometry, physics stepping, UI
 Consolidates: `replay-prediction-and-memory.md` (sections A/B/C — full text in
@@ -870,12 +870,83 @@ Stage 5 — Prediction worker job (old section A, adopts the store contract)
   361 active frames).
 
 Stage 6 — Rendering backend
-- [ ] 6.1 `trajectory_ribbon.hlsl` + vertex layout + registration; VS-welded
+- [x] 6.1 `trajectory_ribbon.hlsl` + vertex layout + registration; VS-welded
   expansion, single-pass glow, constant screen-space width.
-- [ ] 6.2 Depth test on / write off; optional dimmed depth-fail pass.
-- [ ] 6.3 Markers off the ribbon path (lines / ghost instances); yellow entry
+- [x] 6.2 Depth test on / write off; optional dimmed depth-fail pass.
+- [x] 6.3 Markers off the ribbon path (lines / ghost instances); yellow entry
   box keeps a single-pass ribbon outline.
-- [ ] 6.4 Old `soft_additive_ribbon` path retained until baselines approved.
+- [x] 6.4 Old `soft_additive_ribbon` path retained until baselines approved.
+
+  Complete 2026-07-10: added the DX12 `TrajectoryRibbon` transient triangle
+  style, warmed it at renderer init, registered `shader.trajectory_ribbon` in
+  the built-in shader asset table, added `SkullbonezData/shaders/trajectory_ribbon.hlsl`,
+  and added the shader to the project and filter manifests. The shader expands
+  compact start/end/width/color segment payloads with `SV_VertexID`, uses the
+  current viewport to convert replay-ribbon width units into stable screen
+  pixels, and folds glow/core into one pixel-shader pass.
+
+  `RunEditorTracer` now emits one fixed-budget ribbon record per logical path
+  segment, repacks each record into six identical 11-float segment vertices for
+  shader-side expansion, draws ribbons with depth test on / depth write off,
+  and keeps only the yellow causal entry marker on the ribbon path. Grey rest,
+  cyan baseline, and horizon markers route through line outlines. The replay
+  ribbon quota was reduced from two records to one record per logical path
+  segment to match the single-pass emitter. Interaction automation now waits
+  for the normal replay render-frame path to finish a prediction worker publish
+  before writing reports, so topology/count/hash reporting samples committed
+  prediction state without draining worker physics under the post-draw profiler
+  scope.
+
+  The old `soft_additive_ribbon` shader and style remain registered. No baseline
+  image artifacts were updated in this slice because the DX12 render suite still
+  matched the committed baselines; Stage 7 owns intentional visual-polish
+  baseline changes if the suite captures change.
+
+  Touched-source comment audit inspected 11 source-bearing files with 0
+  deferred (`AssetSystem.cpp`, `RenderBackendDX12.DynamicGeometry.cpp`,
+  `RenderBackendDX12.cpp`, `RenderBackendDX12.h`, `IRenderCommandContext.h`,
+  `RunEditorTracer.cpp`, `RunReplayTools.cpp`, `RunInteractionAutomation.cpp`,
+  `RuntimeTools.h`, and `trajectory_ribbon.hlsl`). `RunReplayTools.cpp` and
+  `RuntimeTools.h` glossary wording was refreshed after the audit so replay
+  ribbons are described as screen-space trajectory strokes, not camera-facing
+  marker strokes. No subsystem checklist was required for this touched-file
+  pass.
+
+  Focused checks passed: `tools\validate_format.bat` in 10.09s after the
+  final comment audit
+  (`Agentic\Reports\validate_format_replay_stage6_post_audit_20260710.log`);
+  `tools\validate_build.bat Profile` in 9.92s with 0 warnings/errors
+  (`Agentic\Reports\validate_build_profile_replay_stage6_marker_split_20260710.log`);
+  `python .\tools\validate_shaders.py` in 0.23s
+  (`Agentic\Reports\validate_shaders_replay_stage6_marker_split_20260710.log`:
+  0 errors, 11 pre-existing warnings); and `tools\validate_fast.bat` in
+  25.44s (`Agentic\Reports\validate_fast_replay_stage6_marker_split_20260710.log`).
+
+  Required final gates passed: `tools\validate_replay_scrub.bat` in 26.05s
+  (`Agentic\Reports\validate_replay_scrub_replay_stage6_marker_split_20260710.log`);
+  `tools\validate_dx12_renderer.bat` x3 in 23.91s, 22.73s, and 22.80s
+  (`Agentic\Reports\validate_dx12_renderer_replay_stage6_marker_split_run1_20260710.log`,
+  `...run2...`, `...run3...`; manifests
+  `TestOutput\validation\dx12_renderer\20260709T183522Z\manifest.json`,
+  `20260709T183552Z\manifest.json`, and
+  `20260709T183620Z\manifest.json`; every run had DX12 validation errors 0 and
+  screenshots matching baselines); and `tools\validate_full.bat` in 29.31s
+  (`Agentic\Reports\validate_full_replay_stage6_marker_split_20260710.log`:
+  project filters clean, Profile/Debug builds clean, DX12 validation errors 0,
+  screenshots matching baselines, and `physics_regression_solver.csv` 20,001
+  lines byte-exact).
+
+  SkullScope accounting from the replay scrub gate:
+  - Scrub trace command: `C:\SkullbonezCore\Debug\SKULLBONEZ_CORE.exe --renderer dx12 --vsync off --shadows off --scene SkullbonezData/scenes/physics_roll.scene.json --frames 120 --replay on --replay-seconds 1 --replay-scrub-test --physics-diag C:\SkullbonezCore\Debug\replay_scrub.physicsdiag.ndjson`
+  - Scrub query: `tools\physics_query.bat Debug\replay_scrub.physicsdiag.ndjson replay --limit 8`; trace 54,932 bytes; SQLite cache 225,280 bytes; query output 1,512 bytes.
+  - Restore trace command: `C:\SkullbonezCore\Debug\SKULLBONEZ_CORE.exe --renderer dx12 --vsync off --shadows off --scene SkullbonezData/scenes/physics_roll.scene.json --frames 120 --replay on --replay-seconds 1 --replay-restore-test --physics-diag C:\SkullbonezCore\Debug\replay_restore.physicsdiag.ndjson`
+  - Restore query: `tools\physics_query.bat Debug\replay_restore.physicsdiag.ndjson restore --limit 8`; trace 54,912 bytes; SQLite cache 225,280 bytes; query output 967 bytes.
+  - Total model-read SkullScope query output: 2,479 bytes. Raw NDJSON/SQLite
+    sizes above are artifact sizes, not model-ingested text.
+  - Prediction determinism reports were 4,614 bytes each; bounded stdout
+    excerpts were 60,294 bytes each. Final prediction fingerprint
+    `0x0165312C5422A5F1` matched across two runs (402 records, 73,021 points,
+    361 active frames).
 
 Stage 7 — Visual polish
 - [ ] 7.1 Age fade on past path; screen-space feather tuning; depth-behind

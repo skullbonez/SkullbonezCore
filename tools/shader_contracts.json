@@ -20,11 +20,11 @@
       "stages": ["hlsl"]
     },
     {
-      "name": "replay_ribbon",
+      "name": "trajectory_ribbon",
       "status": "active",
       "stages": ["hlsl"],
-      "uniforms": ["uViewProj"],
-      "requiredSymbols": ["uViewProj"]
+      "uniforms": ["uViewProj", "uViewportPixels"],
+      "requiredSymbols": ["uViewProj", "uViewportPixels"]
     },
     {
       "name": "lit_textured",

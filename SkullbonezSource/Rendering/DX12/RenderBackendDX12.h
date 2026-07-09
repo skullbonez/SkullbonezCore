@@ -252,7 +252,7 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     static constexpr size_t MAX_CACHED_GRAPHICS_PSOS = 96;
     static constexpr size_t MAX_GRID_LINE_PSOS = 4;
     static constexpr size_t MAX_LIVE_BARRIER_RECORDS = 4096;
-    static constexpr size_t TRANSIENT_TRIANGLE_STYLE_COUNT = 2;
+    static constexpr size_t TRANSIENT_TRIANGLE_STYLE_COUNT = 3;
 
     // CPU-side registries. These are not GPU resources by themselves; they are
     // lookup tables the backend uses to find cached GPU objects and descriptor

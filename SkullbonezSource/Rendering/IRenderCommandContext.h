@@ -55,7 +55,8 @@ enum class BlendFactor
 enum class TransientTriangleStyle
 {
     Color,
-    SoftAdditiveRibbon
+    SoftAdditiveRibbon,
+    TrajectoryRibbon
 };
 
 class IRenderCommandContext

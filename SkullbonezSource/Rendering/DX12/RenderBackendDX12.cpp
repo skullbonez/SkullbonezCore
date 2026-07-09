@@ -1852,6 +1852,7 @@ SkullbonezCore::Basics::SbResult RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/
     EnsureGridLinePipeline( DXGI_FORMAT_R16G16B16A16_FLOAT );
     EnsureTransientTriangleShader( TransientTriangleStyle::Color );
     EnsureTransientTriangleShader( TransientTriangleStyle::SoftAdditiveRibbon );
+    EnsureTransientTriangleShader( TransientTriangleStyle::TrajectoryRibbon );
 
     // GPU timestamp query heap — used for GPU-side performance profiling. The GPU writes
     // timestamps at specific points in the command stream, which we later read back to
