@@ -2876,6 +2876,7 @@ bool CaptureReplayPredictionFrame( ReplayRuntime& replayRuntime,
     frame.simulationSeconds = prediction.simulation.sourceSimulationSeconds +
                               static_cast<double>( frameIndex ) * static_cast<double>( PHYSICS_FIXED_DT );
     frame.tornadoSystemElapsedSeconds = physicsEngine.GetTornadoSystemElapsedSeconds();
+    frame.contactsIncomplete = false;
     if ( static_cast<std::size_t>( modelCount ) > frame.bodies.capacity() )
     {
         return false;
@@ -2934,11 +2935,13 @@ bool CaptureReplayPredictionFrame( ReplayRuntime& replayRuntime,
                                                           &RunReplayPredictionFrame::debugContacts ) )
         {
             frame.debugContacts.clear();
+            frame.contactsIncomplete = true;
             prediction.PublishBuildFrameSlot( frameSlot );
             return true;
         }
     }
     frame.debugContacts = debugContacts;
+    frame.contactsIncomplete = false;
     prediction.PublishBuildFrameSlot( frameSlot );
     return true;
 }
@@ -3801,12 +3804,12 @@ void RenderReplayPathVisualizer( const ReplayPathVisualizerRenderContext& contex
                                       REPLAY_PREDICTION_MAX_WORK_MILLISECONDS );
     const RunReplayPredictionState& prediction = context.replayRuntime.Prediction();
     if ( !prediction.enabled && prediction.simulation.frames.size() >= 2 &&
-         context.replayRuntime.PathVisualizer().hasTarget &&
+         context.replayRuntime.PathVisualizer().hasTarget && !context.replayRuntime.PathVisualizer().pastPathVisible &&
          prediction.simulation.targetId.value == context.replayRuntime.PathVisualizer().targetId.value )
     {
-        // Why: Play disables prediction but keeps the committed path preview.
-        // Letting the retained visualizer continue here would rebuild child
-        // paths from the advancing live timeline and make frozen lines drift.
+        // Why: Play disables prediction but keeps the committed path preview;
+        // when the user has hidden the past lane, do not rebuild retained child
+        // paths from the advancing live timeline behind that frozen preview.
         return;
     }
     if ( ReplayPredictionBudgetExpiredForPass( context.replayRuntime,
@@ -3819,6 +3822,15 @@ void RenderReplayPathVisualizer( const ReplayPathVisualizerRenderContext& contex
 
     if ( !context.replayRuntime.PathVisualizer().hasTarget )
     {
+        context.replayRuntime.PathVisualizer().futureNodes.clear();
+        return;
+    }
+
+    if ( !context.replayRuntime.PathVisualizer().pastPathVisible )
+    {
+        // Why: hiding the past lane must stop both drawing and the retained
+        // node report. Prediction keeps its separate future-node cache.
+        context.replayRuntime.PathVisualizer().futureNodes.clear();
         return;
     }
 

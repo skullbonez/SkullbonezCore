@@ -151,6 +151,30 @@ bool ReplayPredictionPathVisible( const ReplayRuntime& replayRuntime )
              !replayRuntime.Prediction().futureNodeCache.futureNodes.empty() );
 }
 
+bool ReplayPredictionContactsIncomplete( const ReplayRuntime& replayRuntime )
+{
+    // Concept: automation reports should distinguish a valid root prediction
+    // from a partial contact-derived tree, because contact reserve failures are
+    // intentionally non-fatal to prediction drawing.
+    const RunReplayPredictionState& prediction = replayRuntime.Prediction();
+    const std::vector<RunReplayPredictionFrame>* frames = &prediction.simulation.frames;
+    std::size_t frameCount = frames->size();
+    if ( prediction.BuildPrefixShouldBePresented() )
+    {
+        frames = &prediction.build.buildFrames;
+        frameCount = prediction.PublishedBuildFrameCount();
+    }
+    frameCount = (std::min)( frameCount, frames->size() );
+    for ( std::size_t i = 0; i < frameCount; ++i )
+    {
+        if ( ( *frames )[i].contactsIncomplete )
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
 const DemoPhase* ActiveDirectorPhase( const RunCameraState& camera )
 {
     // Concept: phase assertions observe the same active phase that playback
@@ -980,6 +1004,32 @@ void ApplyInteractionAutomationReplayControlClick( InteractionAutomationReplayCo
                                                              action,
                                                              "replay predict control unavailable",
                                                              "replay predict control unavailable" );
+        }
+        return;
+    }
+
+    if ( strcmp( action.text, "past" ) == 0 || strcmp( action.text, "pastPath" ) == 0 )
+    {
+        const int screenW = RuntimeWindowScreenWidth( context.systems, context.config );
+        const int screenH = RuntimeWindowScreenHeight( context.systems, context.config );
+        const ReplayRecorderStats solverReplayStats = context.replayRuntime.Solver().GetStats();
+        const bool pastPathControlEnabled = solverReplayStats.enabled && solverReplayStats.sampleCount >= 2 &&
+                                            context.replayRuntime.PathVisualizer().hasTarget;
+        if ( screenW > 0 && screenH > 0 && pastPathControlEnabled )
+        {
+            InjectInteractionAutomationReplayControlClick( context,
+                                                           action,
+                                                           frame,
+                                                           ReplayScrubberPastPathToggleRect( screenW, screenH ),
+                                                           "mouse press injected at past-path toggle" );
+        }
+        else
+        {
+            AppendInteractionAutomationReplayControlFailure( context,
+                                                             frame,
+                                                             action,
+                                                             "replay past-path control unavailable",
+                                                             "replay past-path control unavailable" );
         }
         return;
     }
@@ -2095,8 +2145,11 @@ void Run::WriteInteractionAutomationReport()
     }
     const bool gizmoVisible =
         selectedIndex >= 0 && ( m_runtimeTools.Editor().editorModeEnabled || InspectGizmoInteractionActive() );
+    const bool replayPastPathVisible =
+        m_replayRuntime.PathVisualizer().hasTarget && m_replayRuntime.PathVisualizer().pastPathVisible;
     const std::size_t predictionVisibleFrameCount = VisiblePredictionFrameCount( m_replayRuntime );
     const bool predictionPathVisible = ReplayPredictionPathVisible( m_replayRuntime );
+    const bool predictionContactsIncomplete = ReplayPredictionContactsIncomplete( m_replayRuntime );
     uint64_t predictionSourceSolverHash = 0;
     uint64_t liveSolverHash = 0;
     const bool liveSolverHashStableAcrossPrediction =
@@ -2199,7 +2252,9 @@ void Run::WriteInteractionAutomationReport()
               { "replayPathTarget",
                 m_replayRuntime.PathVisualizer().hasTarget ? m_replayRuntime.PathVisualizer().targetName : "" },
               { "replayPathTargetCount", static_cast<int>( m_replayRuntime.PathVisualizer().targets.size() ) },
+              { "replayPastPathVisible", replayPastPathVisible },
               { "predictionPathVisible", predictionPathVisible },
+              { "predictionContactsIncomplete", predictionContactsIncomplete },
               { "predictionBaselineVisible", predictionBaselineVisible },
               { "predictionBaselineRootPointCount", static_cast<int>( predictionBaseline.rootPolyline.size() ) },
               { "predictionBaselineBodyPoseCount", static_cast<int>( predictionBaseline.bodyPoses.size() ) },

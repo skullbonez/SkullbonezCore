@@ -45,6 +45,33 @@ namespace SkullbonezCore::Basics::ReplayOverlay
 {
 using Text::Text2d;
 
+namespace
+{
+bool ReplayPredictionContactsIncomplete( const ReplayRuntime& replayRuntime )
+{
+    // Concept: contact payloads are optional prediction evidence. The root path
+    // can still be correct when contact-tree rows are partial, but the overlay
+    // should label that loss instead of implying a complete causal tree.
+    const RunReplayPredictionState& prediction = replayRuntime.Prediction();
+    const std::vector<RunReplayPredictionFrame>* frames = &prediction.simulation.frames;
+    std::size_t frameCount = frames->size();
+    if ( prediction.BuildPrefixShouldBePresented() )
+    {
+        frames = &prediction.build.buildFrames;
+        frameCount = prediction.PublishedBuildFrameCount();
+    }
+    frameCount = (std::min)( frameCount, frames->size() );
+    for ( std::size_t i = 0; i < frameCount; ++i )
+    {
+        if ( ( *frames )[i].contactsIncomplete )
+        {
+            return true;
+        }
+    }
+    return false;
+}
+} // namespace
+
 // Concept: the replay overlay is a read-only projection of replay state.
 //
 // Input code owns mutations such as dragging, toggling prediction, and branch
@@ -477,10 +504,14 @@ void RenderReplayScrubberOverlay( const ReplayOverlayRenderContext& context )
     const UI::UIRect predict = ReplayScrubberPredictControlRect( screenW, screenH );
     const UI::UIRect predictHorizon = ReplayScrubberPredictHorizonRect( screenW, screenH );
     const UI::UIRect ragdollVisualToggle = ReplayScrubberRagdollVisualToggleRect( screenW, screenH );
+    const UI::UIRect pastPathToggle = ReplayScrubberPastPathToggleRect( screenW, screenH );
     const bool predictHover = predictionToolsEnabled && ( replayRuntime.Prediction().ui.horizonHovered ||
                                                           replayRuntime.Prediction().ui.horizonDragging );
     const bool predictEnabled = predictionToolsEnabled && replayRuntime.Prediction().enabled;
     const bool ragdollVisualsEnabled = predictionToolsEnabled && replayRuntime.Prediction().ragdollVisualsEnabled;
+    const bool pastPathToolsEnabled = solverToolsEnabled && replayRuntime.PathVisualizer().hasTarget;
+    const bool pastPathEnabled = pastPathToolsEnabled && replayRuntime.PathVisualizer().pastPathVisible;
+    const bool predictionContactsIncomplete = ReplayPredictionContactsIncomplete( replayRuntime );
     const float predictSeconds = std::clamp( replayRuntime.Prediction().simulation.horizonSeconds,
                                              REPLAY_PREDICTION_MIN_SECONDS,
                                              REPLAY_PREDICTION_MAX_SECONDS );
@@ -655,6 +686,70 @@ void RenderReplayScrubberOverlay( const ReplayOverlayRenderContext& context )
               !predictionToolsEnabled ? palette.textMuted.b
                                       : ( ragdollVisualsEnabled ? palette.accentStrong.b : palette.textSecondary.b ),
               "RAGDOLL" );
+
+    draw.RoundedRect( pastPathToggle.x,
+                      pastPathToggle.y,
+                      pastPathToggle.w,
+                      pastPathToggle.h,
+                      radii.smallButton,
+                      pastPathToolsEnabled && replayRuntime.PathVisualizer().pastPathHovered ? palette.controlHover.r
+                                                                                             : palette.control.r,
+                      pastPathToolsEnabled && replayRuntime.PathVisualizer().pastPathHovered ? palette.controlHover.g
+                                                                                             : palette.control.g,
+                      pastPathToolsEnabled && replayRuntime.PathVisualizer().pastPathHovered ? palette.controlHover.b
+                                                                                             : palette.control.b,
+                      fadeA( pastPathToolsEnabled ? 0.88f : 0.38f ) );
+    draw.Outline( pastPathToggle.x,
+                  pastPathToggle.y,
+                  pastPathToggle.w,
+                  pastPathToggle.h,
+                  palette.accent.r,
+                  palette.accent.g,
+                  palette.accent.b,
+                  fadeA( pastPathToolsEnabled
+                             ? ( replayRuntime.PathVisualizer().pastPathHovered || pastPathEnabled ? 0.72f : 0.32f )
+                             : 0.14f ) );
+    const float pastCheckX = pastPathToggle.x + 7.0f;
+    const float pastCheckY = pastPathToggle.y + 5.0f;
+    draw.Outline( pastCheckX,
+                  pastCheckY,
+                  10.0f,
+                  10.0f,
+                  palette.accent.r,
+                  palette.accent.g,
+                  palette.accent.b,
+                  fadeA( pastPathToolsEnabled ? 0.82f : 0.28f ) );
+    if ( pastPathEnabled )
+    {
+        draw.Rect( pastCheckX + 2.0f,
+                   pastCheckY + 2.0f,
+                   6.0f,
+                   6.0f,
+                   palette.accentStrong.r,
+                   palette.accentStrong.g,
+                   palette.accentStrong.b,
+                   fadeA( 0.95f ) );
+    }
+    drawText( pastPathToggle.x + 23.0f,
+              pastPathToggle.y + 4.5f,
+              9.0f,
+              !pastPathToolsEnabled ? palette.textMuted.r
+                                    : ( pastPathEnabled ? palette.accentStrong.r : palette.textSecondary.r ),
+              !pastPathToolsEnabled ? palette.textMuted.g
+                                    : ( pastPathEnabled ? palette.accentStrong.g : palette.textSecondary.g ),
+              !pastPathToolsEnabled ? palette.textMuted.b
+                                    : ( pastPathEnabled ? palette.accentStrong.b : palette.textSecondary.b ),
+              "PAST" );
+    if ( predictionContactsIncomplete )
+    {
+        drawText( predict.x,
+                  predict.y + 27.0f,
+                  8.0f,
+                  palette.warningAccent.r,
+                  palette.warningAccent.g,
+                  palette.warningAccent.b,
+                  "CONTACTS PARTIAL" );
+    }
 
     Text2d::FlushQuads( renderCommands );
     Text2d::FlushText( renderCommands );

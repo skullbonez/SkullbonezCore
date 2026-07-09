@@ -250,7 +250,13 @@ struct RunReplayCauseTreeState
 
 struct RunReplayPathVisualizerState
 {
+    // Concept: the retained/past lane is an operator-visible overlay choice.
+    // A selected target remains the authority for *what* could draw; this flag
+    // only answers whether the solver-history lane should be emitted this
+    // frame.
     bool hasTarget = false;
+    bool pastPathVisible = true;
+    bool pastPathHovered = false;
     ReplayBodyId targetId;
     int targetModelIndex = -1;
     char targetName[64] = {};
@@ -285,11 +291,16 @@ struct RunReplayPredictionBodySample
 
 struct RunReplayPredictionFrame
 {
+    // Concept: body samples are authoritative for the root trajectory, while
+    // debugContacts are optional evidence for the contact-derived cause tree.
+    // contactsIncomplete means the frame stayed usable after contact scratch
+    // reserve failed, so UI/reporting can label the tree as partial.
     ReplayFrameIndex frameIndex = 0;
     double simulationSeconds = 0.0;
     float tornadoSystemElapsedSeconds = 0.0f;
     std::vector<RunReplayPredictionBodySample> bodies;
     std::vector<Physics::PhysicsDebugContact> debugContacts;
+    bool contactsIncomplete = false;
 };
 
 struct ReplayPredictionGhostDrawRequest

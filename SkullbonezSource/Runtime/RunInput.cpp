@@ -1713,6 +1713,7 @@ void Run::ClearReplayInteractionForRuntimeTransition()
     m_replayRuntime.Scrubber().pauseHovered = false;
     m_replayRuntime.Scrubber().saveHovered = false;
     m_replayRuntime.Scrubber().loadHovered = false;
+    m_replayRuntime.PathVisualizer().pastPathHovered = false;
 
     m_replayRuntime.ClearCameraFocusForRestore();
     ExitReplayInspectionCamera();
@@ -2596,6 +2597,7 @@ bool Run::HandleUnfocusedInputFrame()
     m_replayRuntime.Prediction().ui.increaseHovered = false;
     m_replayRuntime.Prediction().ui.horizonHovered = false;
     m_replayRuntime.Prediction().ui.horizonDragging = false;
+    m_replayRuntime.PathVisualizer().pastPathHovered = false;
     m_replayRuntime.VelocityEdit().toggleHovered = false;
     m_replayRuntime.VelocityEdit().keyboardAltWasDown = false;
     m_replayRuntime.VelocityEdit().dragging = false;

@@ -138,6 +138,12 @@ UI::UIRect ReplayScrubberRagdollVisualToggleRect( int screenW, int screenH )
     return { predict.x + predict.w + 8.0f, predict.y, REPLAY_SCRUBBER_RAGDOLL_TOGGLE_WIDTH, predict.h };
 }
 
+UI::UIRect ReplayScrubberPastPathToggleRect( int screenW, int screenH )
+{
+    const UI::UIRect ragdoll = ReplayScrubberRagdollVisualToggleRect( screenW, screenH );
+    return { ragdoll.x + ragdoll.w + 8.0f, ragdoll.y, REPLAY_SCRUBBER_PAST_TOGGLE_WIDTH, ragdoll.h };
+}
+
 float ReplayPredictionHorizonT( float seconds )
 {
     return std::clamp(

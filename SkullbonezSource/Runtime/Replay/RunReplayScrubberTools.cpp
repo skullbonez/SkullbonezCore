@@ -274,6 +274,7 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
     const UI::UIRect predictToggle = ReplayScrubberPredictToggleRect( screenW, screenH );
     const UI::UIRect predictHorizon = ReplayScrubberPredictHorizonRect( screenW, screenH );
     const UI::UIRect ragdollVisualToggle = ReplayScrubberRagdollVisualToggleRect( screenW, screenH );
+    const UI::UIRect pastPathToggle = ReplayScrubberPastPathToggleRect( screenW, screenH );
     const RunReplayTrack scrubTrack = loadedPresentation ? RunReplayTrack::Presentation : RunReplayTrack::Solver;
     const UI::UIRect scrubTrackRect = ReplayScrubberTrackRect( screenW, screenH, scrubTrack );
     const UI::UIRect replayLoadButton = ReplayScrubberLoadButtonRect( screenW, screenH, scrubTrack );
@@ -282,6 +283,7 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
     // the current live solver state as long as scene physics is available.
     const bool solverToolsEnabled = !loadedPresentation && solverReplayAvailable;
     const bool predictionToolsEnabled = !loadedPresentation && solverReplayEnabled && SceneState().isScenePhysics;
+    const bool pastPathToolsEnabled = solverToolsEnabled && m_replayRuntime.PathVisualizer().hasTarget;
     // Why: forward prediction scrubbing needs a coherent prediction timeline,
     // not two retained solver samples. The visible build prefix is enough to
     // inspect while a fresh paused scene still lacks normal solver history.
@@ -305,6 +307,7 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
     const bool overPredictControl = predictionToolsEnabled && predictControl.Contains( mouse.x, mouse.y );
     const bool overPredictToggle = predictionToolsEnabled && predictToggle.Contains( mouse.x, mouse.y );
     const bool overRagdollVisualToggle = predictionToolsEnabled && ragdollVisualToggle.Contains( mouse.x, mouse.y );
+    const bool overPastPathToggle = pastPathToolsEnabled && pastPathToggle.Contains( mouse.x, mouse.y );
     const bool overPredictHorizon =
         predictionToolsEnabled && ( predictHorizon.Contains( mouse.x, mouse.y ) ||
                                     ( predictControl.Contains( mouse.x, mouse.y ) && mouse.x >= predictHorizon.x &&
@@ -320,7 +323,7 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
     const bool hotZoneCanReveal = inHotZone && !uiBlocksMouse;
     const bool pointerOverScrubberSurface = hotZoneCanReveal || overPanel || overScrubTrack;
     const bool pointerOverScrubberCommand = overSaveButton || overLoadButton || overBranchButton || overPauseButton;
-    const bool pointerOverReplayTool = overVelocityEditToggle || overPredictUi;
+    const bool pointerOverReplayTool = overVelocityEditToggle || overPredictUi || overPastPathToggle;
     const bool pointerRequestsReplayOverlay =
         pointerOverScrubberSurface || pointerOverScrubberCommand || pointerOverReplayTool;
     const bool replayDragInProgress =
@@ -426,6 +429,8 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
           m_replayRuntime.Scrubber().liveAdvanceHeld );
     m_replayRuntime.Scrubber().pauseHovered = solverToolsEnabled && overPauseButton && solverControlVisible;
     m_replayRuntime.VelocityEdit().toggleHovered = solverToolsEnabled && overVelocityEditToggle && solverControlVisible;
+    m_replayRuntime.PathVisualizer().pastPathHovered =
+        pastPathToolsEnabled && overPastPathToggle && solverControlVisible;
     m_replayRuntime.Prediction().ui.checkboxHovered =
         predictionToolsEnabled && overPredictToggle && predictionControlVisible;
     m_replayRuntime.Prediction().ui.ragdollVisualsHovered =
@@ -571,6 +576,21 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
         m_replayRuntime.Scrubber().visible = true;
         consumesMouse = true;
     }
+    else if ( pastPathToolsEnabled && leftPressed && canTakeMouse && overPastPathToggle &&
+              m_replayRuntime.Scrubber().visibleUntil >= now )
+    {
+        RunReplayPathVisualizerState& pathVisualizer = m_replayRuntime.PathVisualizer();
+        pathVisualizer.pastPathVisible = !pathVisualizer.pastPathVisible;
+        if ( !pathVisualizer.pastPathVisible )
+        {
+            // Why: the retained solver lane is now intentionally hidden, so the
+            // automation-facing node cache must not report stale past-path rows.
+            pathVisualizer.futureNodes.clear();
+        }
+        m_replayRuntime.Scrubber().visibleUntil = now + REPLAY_SCRUBBER_VISIBLE_SECONDS;
+        m_replayRuntime.Scrubber().visible = true;
+        consumesMouse = true;
+    }
     else if ( predictionToolsEnabled && leftPressed && canTakeMouse && overRagdollVisualToggle &&
               m_replayRuntime.Scrubber().visibleUntil >= now )
     {
@@ -640,7 +660,7 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
         consumesMouse = true;
     }
     else if ( scrubTrackDragEnabled && leftPressed && canTakeMouse && !overBranchButton && !overPauseButton &&
-              !overPredictUi && !overLoadButton && scrubTrackStartTarget )
+              !overPredictUi && !overPastPathToggle && !overLoadButton && scrubTrackStartTarget )
     {
         EnterInteractiveSceneRun();
         BeginReplayToolGesture( RuntimeInteractionGestureKind::ReplayScrubDrag,

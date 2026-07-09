@@ -798,6 +798,7 @@ void ReplayRuntime::ClearPathVisualizerState()
     m_pathVisualizer.targetId = ReplayBodyId{};
     m_pathVisualizer.targetModelIndex = -1;
     m_pathVisualizer.targetName[0] = '\0';
+    m_pathVisualizer.pastPathHovered = false;
     m_pathVisualizer.futureNodes.clear();
     m_pathVisualizer.targets.clear();
     m_causeTree.rows.clear();
@@ -941,6 +942,7 @@ ReplayRuntime::ScrubberUnavailableResult ReplayRuntime::ResetUnavailableScrubber
     m_prediction.ui.increaseHovered = false;
     m_prediction.ui.horizonHovered = false;
     m_prediction.ui.horizonDragging = false;
+    m_pathVisualizer.pastPathHovered = false;
     m_velocityEdit.toggleHovered = false;
     m_scrubber.branchHovered = false;
     m_scrubber.loadHovered = false;
