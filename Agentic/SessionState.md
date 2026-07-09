@@ -22,6 +22,10 @@ audits when it is still useful.
 
 - Follow the startup contract in `AGENTS.md` before editing: read the required
   docs, run `git status --short --branch`, and protect dirty worktrees.
+- Owner steering on 2026-07-09 resolved the Plan 03, Plan 07, Plan 11, and
+  FAC-005 decision gates. The record is
+  `engine-cleanup-plans/HANDOFF-2026-07-09-OWNER-DECISIONS.md`; do not reopen
+  those ask-human gates unless the owner changes direction again.
 - DX12 is the only runtime renderer. OpenGL and DX11 parity evidence is
   historical.
 - Repository validation scripts are pre-commit/PR gates, not routine iteration
@@ -40,9 +44,12 @@ audits when it is still useful.
 - Time user-requested work and report elapsed wall-clock time in the final
   answer or handoff.
 - Engine cleanup latest handoff:
+  `engine-cleanup-plans/HANDOFF-2026-07-09-OWNER-DECISIONS.md`.
+  The previous Plan 04 source-slice handoff is
   `engine-cleanup-plans/HANDOFF-2026-07-09-PLAN04-CAPTURE-RESULT.md`.
   Resume Plan 04 with Phase 3 Lane R boundary conversions unless the remaining
-  RuntimeAllocationTracker Lane F row has a clean/approved perf gate path.
+  RuntimeAllocationTracker Lane F row has an allocator-safe fatal strategy and a
+  clean/approved perf gate path.
 
 ## Current Work Items
 

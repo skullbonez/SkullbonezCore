@@ -1,7 +1,7 @@
 # 03 — Governance Apparatus Removal
 
 Date: 2026-07-08
-Status: Proposed (changes the project contract — needs owner sign-off to execute)
+Status: In Progress (owner approved deletion on 2026-07-09)
 Priority: P1
 Owner: Repo maintainer
 Source issue: audit iss-04 + iss-12 (severity 4/3)
@@ -19,6 +19,14 @@ Rationale: a check whose value is a frozen count of today's debt
 an invariant — it just says "don't change what exists," breaks on reformatting,
 and must be hand-edited every time guarded code moves. For a solo engine that is
 pure tax.
+
+## Owner Decision - 2026-07-09
+
+The owner approved this plan. Delete the regex boundary checker and the frozen
+`MAX_*` ratchet apparatus, and update `AGENTS.md` accordingly when the relevant
+implementation steps run. Keep real product safety checks as simple pass/fail
+validation where needed, especially DX12-only enforcement. Do not replace the
+old spelling/ratchet checker with new vocabulary policing.
 
 ## Problem (evidence)
 
@@ -62,9 +70,11 @@ exists anywhere in `tools/`.
 **This edits the project contract (`AGENTS.md`) and deletes tooling.** Step 0.1
 requires human sign-off before any deletion.
 
-- [ ] **0.1 (SIGN-OFF GATE — stop for a human).** Get explicit owner approval to
+- [x] **0.1 (SIGN-OFF GATE — stop for a human).** Get explicit owner approval to
   delete the checker and edit `AGENTS.md`. Until approved, do only the read-only
   inventory in 0.2.
+  - Approved by owner steering on 2026-07-09. Continue from the current branch
+    and worktree; do not ask again for this gate.
 - [ ] **0.2** Inventory: confirm which real product invariants (if any) the
   checker nominally protects that are worth re-expressing. Default outcome: only
   DX12-only exclusivity survives. No code change; record the list here.

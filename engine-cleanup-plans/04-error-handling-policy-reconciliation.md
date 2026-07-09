@@ -54,6 +54,14 @@ boundary), say so.
   deleted by plan 03. Do not reinstate any budget; verify conversions by
   `rg "throw "` + review.
 
+## Owner Decision - 2026-07-09
+
+Continue Plan 04 in lane order: convert Lane F throws to `SB_FATAL` where safe,
+then Lane P to probe/report failures, then Lane R to recoverable results.
+Allocator-hook fatal handling needs an allocator-safe strategy; do not blindly
+call `SB_FATAL` from allocation hooks if it can allocate or use unsafe engine
+logging. Math throw conversions may require coordinated test-contract changes.
+
 ## Risks / determinism
 
 Physics throw conversions touch a determinism-critical path — the conversions

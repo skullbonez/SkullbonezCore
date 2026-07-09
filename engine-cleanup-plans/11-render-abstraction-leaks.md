@@ -35,13 +35,23 @@ Verified evidence:
 
 ## Goal
 
-Make the render graph honest about what it owns, replace the backbuffer bool with
-a real resource-state machine, and remove replay-specific calls from the generic
-command interface.
+Make the render layer honest about what owns barriers, replace the backbuffer
+bool with a real resource-state machine, and remove replay-specific calls from
+the generic command interface. The owner decision is to retire/delete the
+diagnostic RenderGraph path rather than build a real compiler now; DX12 explicit
+hand-coded barriers are the honest architecture for this branch.
+
+## Owner Decision - 2026-07-09
+
+Retire/delete the diagnostic RenderGraph path. Do not build a real render-graph
+compiler now. Remove stale claims that RenderGraph owns, or will soon own,
+barrier derivation. The end state should not keep a large diagnostic graph
+pretending to be future architecture; DX12 explicit hand-coded barriers own
+transition correctness.
 
 ## Approach
 
-- [ ] **Phase 0 — Decide RenderGraph's fate.** Either finish barrier derivation
+- [x] **Phase 0 — Decide RenderGraph's fate.** Either finish barrier derivation
   so the graph actually owns transitions, or delete the 2,000 lines and keep
   explicit hand-coded barriers *honestly* (no "future compiler" pretense).
 - [x] **Phase 1 — Real backbuffer state.** Replace `m_backBufferIsRT` with a
@@ -62,7 +72,7 @@ errors after Phase 1.
 Barriers are a GPU danger zone: run the renderer gate **3×** and confirm
 `dx12_validation.txt` == 0 after any resource-state change.
 
-- [ ] **0.1 (DECIDE — stop for a human).** RenderGraph's fate — finish barrier
+- [x] **0.1 (DECIDE — stop for a human).** RenderGraph's fate — finish barrier
   derivation so the graph truly owns transitions, or delete the ~2,000 lines and
   keep explicit hand-coded barriers honestly. A smaller model must **not** decide
   this alone. Leave unchecked with a note until a human chooses; the steps below
@@ -71,6 +81,9 @@ Barriers are a GPU danger zone: run the renderer gate **3×** and confirm
     finish RenderGraph barrier derivation or delete the diagnostic graph and keep
     explicit barriers honestly; step 1.1 proceeded because this plan says later
     steps do not depend on that choice.
+  - Owner decision recorded 2026-07-09: delete/retire the diagnostic RenderGraph
+    path and make explicit DX12 hand-coded barriers the documented architecture.
+    Do not ask again for this gate.
 - [x] **1.1** Replace the single bool `m_backBufferIsRT`
   (`RenderBackendDX12.h:426`) with a tracked backbuffer resource-state value.
   Reconcile it at `Clear()`, `PrepareDraw()`, and `Present()` so a text-only
@@ -99,6 +112,11 @@ Barriers are a GPU danger zone: run the renderer gate **3×** and confirm
     Validation log:
     `TestOutput\agent_logs\plan11_replay_command_dx12_validation.log` (31.5s);
     it reported `DX12 validation errors: 0` and matched committed DX12 baselines.
+- [ ] **3.1** Delete or retire the diagnostic RenderGraph path and update
+  rendering docs/comments so no code claims RenderGraph owns, or is about to
+  own, barrier derivation. DX12 explicit hand-coded barriers remain the
+  architecture. Gate: `validate_dx12_renderer`; run three consecutive times if
+  any barrier/resource-state logic changes. Commit.
 
 ## Validation
 
