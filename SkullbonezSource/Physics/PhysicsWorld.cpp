@@ -3084,6 +3084,24 @@ void PhysicsWorld::ProcessObjectNarrowphasePair( const ObjectNarrowphasePairStag
 }
 
 
+void PhysicsWorld::ProcessObjectNarrowphaseIsland( const ObjectNarrowphasePairStageContext& context, int islandIndex )
+{
+    const ObjectNarrowphaseIsland& island = m_objectNarrowphaseIslands[static_cast<size_t>( islandIndex )];
+    const size_t pairEnd = island.firstPairOffset + island.pairCount;
+    for ( size_t pairCursor = island.firstPairOffset; pairCursor < pairEnd; ++pairCursor )
+    {
+        const int pairIndex = m_objectNarrowphaseIslandPairIndices[pairCursor];
+        ProcessObjectNarrowphasePair( context, pairIndex, m_objectNarrowphaseEvents[static_cast<size_t>( pairIndex )] );
+    }
+}
+
+
+void PhysicsWorld::ObjectNarrowphaseIslandStage::operator()( int islandIndex ) const
+{
+    world.ProcessObjectNarrowphaseIsland( pairContext, islandIndex );
+}
+
+
 void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
                                      const ColliderStore& colliderStore,
                                      float dt,
@@ -3344,17 +3362,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
                                                                     invCellSize,
                                                                     dt };
 
-    auto processObjectNarrowphaseIsland = [&]( int islandIndex )
-    {
-        const ObjectNarrowphaseIsland& island = m_objectNarrowphaseIslands[static_cast<size_t>( islandIndex )];
-        const size_t pairEnd = island.firstPairOffset + island.pairCount;
-        for ( size_t pairCursor = island.firstPairOffset; pairCursor < pairEnd; ++pairCursor )
-        {
-            const int pairIndex = m_objectNarrowphaseIslandPairIndices[pairCursor];
-            ProcessObjectNarrowphasePair(
-                objectNarrowphasePairContext, pairIndex, m_objectNarrowphaseEvents[static_cast<size_t>( pairIndex )] );
-        }
-    };
+    ObjectNarrowphaseIslandStage objectNarrowphaseIslandStage{ *this, objectNarrowphasePairContext };
 
     auto processObjectNarrowphasePairsSerial = [&]()
     {
@@ -3497,7 +3505,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
                 PROFILE_SCOPED( "Frame/Physics/Narrowphase/IslandWorkerDispatch" );
                 workerPool.ParallelForNoAlloc( 0,
                                                islandCount,
-                                               processObjectNarrowphaseIsland,
+                                               objectNarrowphaseIslandStage,
                                                PHYSICS_NARROWPHASE_PARALLEL_MIN_ISLANDS,
                                                "Frame/Physics/Narrowphase/IslandWorkerDispatch/WorkerIslands",
                                                PHYSICS_NARROWPHASE_ISLAND_WORKER_HASH );

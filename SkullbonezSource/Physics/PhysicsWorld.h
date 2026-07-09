@@ -299,6 +299,14 @@ class PhysicsWorld
     void ProcessObjectNarrowphasePair( const ObjectNarrowphasePairStageContext& context,
                                        int pairIndex,
                                        ObjectNarrowphaseEvent& event );
+    void ProcessObjectNarrowphaseIsland( const ObjectNarrowphasePairStageContext& context, int islandIndex );
+    struct ObjectNarrowphaseIslandStage
+    {
+        PhysicsWorld& world;
+        const ObjectNarrowphasePairStageContext& pairContext;
+
+        void operator()( int islandIndex ) const;
+    };
 
     struct ObjectNarrowphaseIsland
     {
