@@ -13,12 +13,16 @@ Glossary:
   Solver sample: Physics-facing state retained for rollback and diagnostics.
   Hash log: Deterministic per-sample digest stream used to compare replay output.
   Retention window: Maximum in-memory duration retained by the ring buffers.
+  Replay reserve owner: Runtime allocation-policy owner that permits replay-only
+    vector growth when captured samples outgrow their current payload capacity.
   UI (User Interface): Runtime controls and overlays; recorders observe state
     but never mutate UI state.
 
 Invariants:
   - Recording observes committed state and never advances simulation.
   - Hash packing must stay deterministic across machines and configurations.
+  - Configure must not multiply startup body capacity across every future sample;
+    retained body payloads grow only for captured frames under replay reserve gates.
 
 Related:
   - SkullbonezSource/Runtime/Replay/ReplayRecorder.h
@@ -27,7 +31,10 @@ Related:
 #include "ReplayRecorder.h"
 
 #include "../CameraCollection.h"
+#include "../Allocation/RuntimeAllocationTracker.h"
+#include "../Allocation/RuntimeReserveAllocator.h"
 #include "../../Core/Common.h"
+#include "../../Core/FatalError.h"
 #include "../../GameObjects/GameModelCollection.h"
 #include "../../Physics/ColliderStore.h"
 #include "../../Physics/PhysicsBodyStore.h"
@@ -37,6 +44,7 @@ Related:
 #include <cmath>
 #include <cstdio>
 #include <cstring>
+#include <limits>
 
 using namespace SkullbonezCore::Basics;
 using SkullbonezCore::Environment::CameraCollection;
@@ -47,6 +55,7 @@ using SkullbonezCore::Math::Vector::Vector3;
 using SkullbonezCore::Physics::ColliderRecord;
 using SkullbonezCore::Physics::PhysicsDebugContact;
 namespace Physics = SkullbonezCore::Physics;
+namespace RuntimeAllocation = SkullbonezCore::Runtime::Allocation;
 
 namespace
 {
@@ -55,7 +64,15 @@ constexpr int REPLAY_MIN_SECONDS = 1;
 constexpr int REPLAY_MAX_SECONDS = 600;
 constexpr std::size_t REPLAY_LAUNCHER_RAY_LINE_CAPACITY = 64;
 constexpr std::size_t REPLAY_LAUNCHER_LASER_SHOT_CAPACITY = 32;
-constexpr std::size_t REPLAY_PIPELINE_TRACE_CAPACITY = 4096;
+constexpr const char* REPLAY_RECORDER_SAMPLE_RESERVE_OWNER = "replay_recorder_samples";
+constexpr int REPLAY_RECORDER_SAMPLE_RESERVE_HARD_BYTES = 64 * 1024 * 1024;
+constexpr std::size_t REPLAY_RECORDER_SAMPLE_INITIAL_CAPACITY = 128u;
+constexpr std::size_t REPLAY_RECORDER_SAMPLE_GROWTH_CHUNK = 256u;
+// Runtime allocation policy: retained replay body payloads now grow per active
+// scene size instead of preallocating every future slot at game_model_capacity.
+// The hard byte cap is per vector reserve request and growth count is telemetry.
+constexpr int REPLAY_RECORDER_SAMPLE_RESERVE_GROWTH_LIMIT =
+    RuntimeAllocation::RUNTIME_RESERVE_REPLAY_GROWTH_LIMIT_UNBOUNDED;
 constexpr uint64_t FNV64_OFFSET = 14695981039346656037ull;
 constexpr uint64_t FNV64_PRIME = 1099511628211ull;
 
@@ -64,9 +81,134 @@ int ReplayRuntimeBodyCapacity( const ReplayRecorderConfig& config )
     return std::clamp( config.runtimeBodyCapacity, 1, MAX_GAME_MODELS );
 }
 
-std::size_t ReplayPairCapacity( int bodyCapacity )
+RuntimeAllocation::RuntimeReserveOwnerHandle ReplayRecorderSampleReserveOwner()
 {
-    return static_cast<std::size_t>( bodyCapacity ) * 4u;
+    static const RuntimeAllocation::RuntimeReserveOwnerHandle owner =
+        RuntimeAllocation::RuntimeReserveAllocator::RegisterOwner(
+            { REPLAY_RECORDER_SAMPLE_RESERVE_OWNER,
+              RuntimeAllocation::RuntimeReserveSubsystem::Replay,
+              RuntimeAllocation::RuntimeReservePhase::Replay,
+              0,
+              REPLAY_RECORDER_SAMPLE_RESERVE_HARD_BYTES,
+              REPLAY_RECORDER_SAMPLE_RESERVE_GROWTH_LIMIT,
+              true,
+              "replay recorder sample body vectors grow under the active scene size instead of startup capacity" } );
+    return owner;
+}
+
+int ReplayRecorderGrowthFrameNumber( ReplayFrameIndex frameIndex )
+{
+    constexpr ReplayFrameIndex maxFrame = static_cast<ReplayFrameIndex>( ( std::numeric_limits<int>::max )() );
+    return frameIndex > maxFrame ? ( std::numeric_limits<int>::max )() : static_cast<int>( frameIndex );
+}
+
+std::size_t ReplayRecorderReserveCapacity( std::size_t currentCapacity, std::size_t requestedCapacity )
+{
+    if ( requestedCapacity <= currentCapacity )
+    {
+        return currentCapacity;
+    }
+    if ( requestedCapacity > static_cast<std::size_t>( MAX_GAME_MODELS ) )
+    {
+        return requestedCapacity;
+    }
+
+    const std::size_t doubled =
+        currentCapacity > 0u ? currentCapacity * 2u : REPLAY_RECORDER_SAMPLE_INITIAL_CAPACITY;
+    const std::size_t remainder = requestedCapacity % REPLAY_RECORDER_SAMPLE_GROWTH_CHUNK;
+    const std::size_t chunked = remainder == 0u
+                                    ? requestedCapacity
+                                    : requestedCapacity + ( REPLAY_RECORDER_SAMPLE_GROWTH_CHUNK - remainder );
+    const std::size_t reserveCapacity = (std::max)( doubled, chunked );
+    return (std::min)( reserveCapacity, static_cast<std::size_t>( MAX_GAME_MODELS ) );
+}
+
+template <typename T> uint64_t ReplayRecorderVectorBytes( std::size_t capacity )
+{
+    constexpr uint64_t elementBytes = static_cast<uint64_t>( sizeof( T ) );
+    const uint64_t maxCapacity = ( std::numeric_limits<uint64_t>::max )() / elementBytes;
+    if ( capacity > maxCapacity )
+    {
+        // Lane F: a capacity arithmetic overflow means the replay retention
+        // contract can no longer bound its sample storage.
+        SB_FATAL( "Runtime/Replay",
+                  "Replay sample reserve byte overflow. capacity=%llu element_bytes=%llu",
+                  static_cast<unsigned long long>( capacity ),
+                  static_cast<unsigned long long>( elementBytes ) );
+    }
+    return static_cast<uint64_t>( capacity ) * elementBytes;
+}
+
+void ReportReplayRecorderReserveFailure( const char* targetName, std::size_t requestedCapacity, uint64_t requestedBytes )
+{
+    // Lane F: if a retained sample cannot fit inside the replay reserve budget,
+    // continuing would make scrub/restore state partial and nondeterministic.
+    SB_FATAL( "Runtime/Replay",
+              "Replay recorder reserve denied. target=%s requested_capacity=%llu requested_bytes=%llu hard_bytes=%d",
+              targetName ? targetName : "unknown",
+              static_cast<unsigned long long>( requestedCapacity ),
+              static_cast<unsigned long long>( requestedBytes ),
+              REPLAY_RECORDER_SAMPLE_RESERVE_HARD_BYTES );
+}
+
+template <typename T>
+void ReserveReplayRecorderSampleVector( std::vector<T>& values,
+                                        std::size_t requestedCapacity,
+                                        ReplayFrameIndex frameIndex,
+                                        const char* targetName )
+{
+    if ( requestedCapacity <= values.capacity() )
+    {
+        return;
+    }
+    if ( requestedCapacity > static_cast<std::size_t>( MAX_GAME_MODELS ) )
+    {
+        ReportReplayRecorderReserveFailure( targetName, requestedCapacity, 0u );
+    }
+
+    const std::size_t reserveCapacity = ReplayRecorderReserveCapacity( values.capacity(), requestedCapacity );
+    const uint64_t oldBytes = ReplayRecorderVectorBytes<T>( values.capacity() );
+    const uint64_t requestedBytes = ReplayRecorderVectorBytes<T>( reserveCapacity );
+    if ( requestedBytes > static_cast<uint64_t>( REPLAY_RECORDER_SAMPLE_RESERVE_HARD_BYTES ) ||
+         oldBytes > static_cast<uint64_t>( ( std::numeric_limits<int>::max )() ) ||
+         requestedBytes > static_cast<uint64_t>( ( std::numeric_limits<int>::max )() ) )
+    {
+        ReportReplayRecorderReserveFailure( targetName, reserveCapacity, requestedBytes );
+    }
+
+    if ( RuntimeAllocation::RuntimeAllocationGuardEnabled() )
+    {
+        const RuntimeAllocation::RuntimeReserveOwnerHandle owner = ReplayRecorderSampleReserveOwner();
+        const RuntimeAllocation::RuntimeReserveGrowthRequest request = { REPLAY_RECORDER_SAMPLE_RESERVE_OWNER,
+                                                                         targetName,
+                                                                         RuntimeAllocation::RuntimeReservePhase::Replay,
+                                                                         ReplayRecorderGrowthFrameNumber( frameIndex ),
+                                                                         static_cast<int>( oldBytes ),
+                                                                         static_cast<int>( requestedBytes ),
+                                                                         1 };
+        const RuntimeAllocation::RuntimeReserveGrowthResult result =
+            RuntimeAllocation::RuntimeReserveAllocator::RequestGrowth( owner, request );
+        if ( !result.granted )
+        {
+            ReportReplayRecorderReserveFailure( targetName, reserveCapacity, requestedBytes );
+        }
+
+        RuntimeAllocation::RuntimeAllocationScope replayAllocationScope( RuntimeAllocation::RuntimeAllocationPhase::Replay );
+        RuntimeAllocation::RuntimeReserveOwnerScope ownerScope( owner );
+        RuntimeAllocation::RuntimeReserveGrowthScope growthScope( owner,
+                                                                  RuntimeAllocation::RuntimeReservePhase::Replay,
+                                                                  result );
+        values.reserve( reserveCapacity );
+    }
+    else
+    {
+        values.reserve( reserveCapacity );
+    }
+
+    if ( requestedCapacity > values.capacity() )
+    {
+        ReportReplayRecorderReserveFailure( targetName, requestedCapacity, requestedBytes );
+    }
 }
 
 void ReserveReplayLauncherVisualSample( ReplayLauncherVisualSample& visual )
@@ -78,51 +220,9 @@ void ReserveReplayLauncherVisualSample( ReplayLauncherVisualSample& visual )
     visual.laserShots.reserve( REPLAY_LAUNCHER_LASER_SHOT_CAPACITY );
 }
 
-void ReserveReplaySolverWorldSnapshot( ReplaySolverWorldSnapshot& snapshot, int bodyCapacity )
-{
-    const std::size_t bodyCapacitySize = static_cast<std::size_t>( bodyCapacity );
-    const std::size_t pairCapacity = ReplayPairCapacity( bodyCapacity );
-
-    // Runtime allocation policy: retained solver snapshots are copied every
-    // replay frame, so every nested vector keeps scene-capacity storage from
-    // Configure() and capture only clears/refills it.
-    snapshot.timeRemaining.reserve( bodyCapacitySize );
-    snapshot.sleepSupportedThisFrame.reserve( bodyCapacitySize );
-    snapshot.sleepInhibitedThisFrame.reserve( bodyCapacitySize );
-    snapshot.sleepState.reserve( bodyCapacitySize );
-    snapshot.sleepCounter.reserve( bodyCapacitySize );
-    snapshot.underwaterSleepLocked.reserve( bodyCapacitySize );
-    snapshot.tornadoCaptureSeconds.reserve( bodyCapacitySize );
-    snapshot.tornadoEjectCooldownSeconds.reserve( bodyCapacitySize );
-    snapshot.collisionVisualContacts.reserve( bodyCapacitySize );
-    snapshot.sleepIslandVisualId.reserve( bodyCapacitySize );
-    snapshot.sleepIslandAssignedVisualId.reserve( bodyCapacitySize );
-    snapshot.sleepSupportEdges.reserve( pairCapacity );
-    snapshot.sleepIslandParent.reserve( bodyCapacitySize );
-    snapshot.sleepIslandRank.reserve( bodyCapacitySize );
-    snapshot.sleepIslandHasAwake.reserve( bodyCapacitySize );
-    snapshot.sleepIslandHasSupportAnchor.reserve( bodyCapacitySize );
-    snapshot.sleepIslandEligible.reserve( bodyCapacitySize );
-    snapshot.sleepIslandCanSleep.reserve( bodyCapacitySize );
-    snapshot.persistentContacts.reserve( pairCapacity );
-    snapshot.persistentContactCache.reserve( pairCapacity );
-    snapshot.persistentContactCounts.reserve( bodyCapacitySize );
-    snapshot.persistentRestingContactCounts.reserve( bodyCapacitySize );
-    snapshot.debugContacts.reserve( pairCapacity );
-    snapshot.pipelineTrace.reserve( REPLAY_PIPELINE_TRACE_CAPACITY );
-    snapshot.collisionCellKeys.reserve( pairCapacity );
-}
-
-void ReserveReplayPresentationSample( ReplayPresentationSample& sample, int bodyCapacity )
-{
-    sample.bodies.reserve( static_cast<std::size_t>( bodyCapacity ) );
-}
-
-void ReserveReplaySolverFrameSample( ReplaySolverFrameSample& sample, int bodyCapacity )
+void ReserveReplaySolverFrameSample( ReplaySolverFrameSample& sample )
 {
     ReserveReplayLauncherVisualSample( sample.launcherVisual );
-    ReserveReplaySolverWorldSnapshot( sample.worldSnapshot, bodyCapacity );
-    sample.bodies.reserve( static_cast<std::size_t>( bodyCapacity ) );
 }
 
 void ReserveReplayRecorderScratch( std::vector<uint16_t>& contactCountScratch,
@@ -791,10 +891,6 @@ bool ReplayRecorder::Configure( const ReplayRecorderConfig& config )
                                   m_maxPenetrationScratch,
                                   m_normalImpulseSumScratch,
                                   m_config.runtimeBodyCapacity );
-    for ( ReplayPresentationSample& sample : m_samples )
-    {
-        ReserveReplayPresentationSample( sample, m_config.runtimeBodyCapacity );
-    }
 
     if ( !m_config.hashLogPath.empty() )
     {
@@ -875,7 +971,10 @@ void ReplayRecorder::CaptureFrame( const ReplayCaptureInput& input )
     const int modelCount = bodyStore.Count();
     const std::size_t modelCountSize = static_cast<std::size_t>( modelCount );
     sample.bodies.clear();
-    sample.bodies.reserve( modelCountSize );
+    ReserveReplayRecorderSampleVector( sample.bodies,
+                                       modelCountSize,
+                                       sample.frameIndex,
+                                       "ReplayPresentationSample::bodies" );
 
     m_contactCountScratch.assign( modelCountSize, 0 );
     m_maxPenetrationScratch.assign( modelCountSize, 0.0f );
@@ -976,7 +1075,10 @@ void ReplayRecorder::CaptureFrameFromSolverSample( const ReplaySolverFrameSample
         ( sample.frameIndex % static_cast<ReplayFrameIndex>( m_config.checkpointIntervalFrames ) == 0 );
 
     sample.bodies.clear();
-    sample.bodies.reserve( solverSample.bodies.size() );
+    ReserveReplayRecorderSampleVector( sample.bodies,
+                                       solverSample.bodies.size(),
+                                       sample.frameIndex,
+                                       "ReplayPresentationMirror::bodies" );
     for ( const ReplaySolverBodySample& solverBody : solverSample.bodies )
     {
         ReplayBodyPresentationSample body;
@@ -1238,7 +1340,7 @@ bool ReplaySolverRecorder::Configure( const ReplayRecorderConfig& config )
                                   m_config.runtimeBodyCapacity );
     for ( ReplaySolverFrameSample& sample : m_samples )
     {
-        ReserveReplaySolverFrameSample( sample, m_config.runtimeBodyCapacity );
+        ReserveReplaySolverFrameSample( sample );
     }
 
     if ( !m_config.hashLogPath.empty() )
@@ -1332,7 +1434,10 @@ void ReplaySolverRecorder::CaptureFrame( const ReplayCaptureInput& input )
     const int modelCount = bodyStore.Count();
     const std::size_t modelCountSize = static_cast<std::size_t>( modelCount );
     sample.bodies.clear();
-    sample.bodies.reserve( modelCountSize );
+    ReserveReplayRecorderSampleVector( sample.bodies,
+                                       modelCountSize,
+                                       sample.frameIndex,
+                                       "ReplaySolverFrameSample::bodies" );
 
     m_contactCountScratch.assign( modelCountSize, 0 );
     m_maxPenetrationScratch.assign( modelCountSize, 0.0f );

@@ -1,7 +1,8 @@
 //
 // File: SkullbonezTests/TestReplayRecorder.cpp
 // Purpose:
-//   Lock focused ReplayRecorder ring-buffer and cursor contracts.
+//   Lock focused ReplayRecorder ring-buffer, cursor, and configure-time memory
+//   contracts.
 //
 // Mental model:
 //   ReplayRecorder is a bounded chronological view over circular storage. The
@@ -17,6 +18,7 @@
 //   - Chronological copy hides internal ring wrap from callers.
 //   - LatestSample() returns the newest retained frame after wrap.
 //   - ResetTimeline() clears samples and cursors without reallocating capacity.
+//   - Configure() does not pre-reserve body payloads for every future sample.
 //
 // Related:
 //   - SkullbonezSource/Runtime/Replay/ReplayRecorder.h
@@ -38,6 +40,7 @@ using SkullbonezCore::Basics::ReplayRecorderConfig;
 using SkullbonezCore::Basics::ReplayRecorderStats;
 using SkullbonezCore::Basics::ReplaySolverBodySample;
 using SkullbonezCore::Basics::ReplaySolverFrameSample;
+using SkullbonezCore::Basics::ReplaySolverRecorder;
 using SkullbonezCore::Math::Vector::Vector3;
 
 namespace
@@ -118,6 +121,28 @@ TEST_CASE( "ReplayRecorder: chronological copy hides presentation ring wrap" )
     CHECK( samples.front().bodies[0].id.value == 502u );
     CHECK( samples.back().frameIndex == capturedFrames - 1u );
     CHECK( samples.back().eventCursor == 1000u + static_cast<uint32_t>( capturedFrames - 1u ) );
+}
+
+
+TEST_CASE( "ReplayRecorder: Configure does not pre-reserve future sample payloads" )
+{
+    ReplayRecorderConfig config;
+    config.enabled = true;
+    config.retentionSeconds = 1;
+    config.checkpointIntervalFrames = 30;
+    config.runtimeBodyCapacity = 4000;
+
+    ReplayRecorder presentation;
+    ReplaySolverRecorder solver;
+    REQUIRE( presentation.Configure( config ) );
+    REQUIRE( solver.Configure( config ) );
+
+    CHECK( presentation.GetStats().sampleCapacity == static_cast<std::size_t>( kReplayTicksPerSecond ) );
+    CHECK( solver.GetStats().sampleCapacity == static_cast<std::size_t>( kReplayTicksPerSecond ) );
+
+    constexpr uint64_t maxConfiguredBytes = 64ull * 1024ull * 1024ull;
+    CHECK( presentation.CollectMemoryBytes() < maxConfiguredBytes );
+    CHECK( solver.CollectMemoryBytes() < maxConfiguredBytes );
 }
 
 

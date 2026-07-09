@@ -117,6 +117,17 @@
       "removal_or_wrapper_plan": "Replace with a dedicated replay prediction arena/object factory if runtime allocation policy gains typed owner allocators; do not construct the private engine at startup."
     },
     {
+      "path": "SkullbonezSource/Runtime/Replay/ReplayRecorder.cpp",
+      "patterns": [
+        "RuntimeAllocation::RuntimeReserveAllocator::RequestGrowth( owner, request );"
+      ],
+      "owner": "Replay recorder sample payloads",
+      "phase": "replay",
+      "reason": "Presentation and solver sample body vectors grow lazily under active scene size instead of startup game_model_capacity.",
+      "cap": "Registered owner replay_recorder_samples, hard cap REPLAY_RECORDER_SAMPLE_RESERVE_HARD_BYTES per retained sample body-vector reserve.",
+      "removal_or_wrapper_plan": "Replace retained body vectors with a flat replay arena/body dictionary when replay memory tuning lands; keep recorder growth behind ReserveReplayRecorderSampleVector until then."
+    },
+    {
       "path": "SkullbonezSource/Physics/PhysicsWorld.cpp",
       "patterns": [
         "RuntimeAllocation::RuntimeReserveAllocator::RequestGrowth( owner, request );"

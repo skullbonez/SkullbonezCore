@@ -301,7 +301,7 @@ struct ReplayRecorderConfig
     bool enabled = false;
     int retentionSeconds = REPLAY_PAST_BUFFER_SECONDS;
     int checkpointIntervalFrames = 30;
-    int runtimeBodyCapacity = 0; // Scene/run body cap used to pre-reserve replay hot-path sample storage.
+    int runtimeBodyCapacity = 0; // Scene/run body cap for scratch reserves and retained-sample growth checks.
     std::string hashLogPath;
 };
 
