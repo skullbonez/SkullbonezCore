@@ -41,8 +41,9 @@ Follow the Agent Startup Contract in `../AGENTS.md`. Load a skill from
 - New inheritance is banned unless an owning plan proves a stable
   runtime-polymorphic boundary is necessary and records the validation or perf
   evidence.
-- `tools/check_runtime_boundaries.py` is the ratchet for the approved source
-  inheritance budget; do not add a base class without updating that evidence.
+- Approved source-inheritance evidence belongs in the owning plan and review
+  record; do not add a base class without recording why value composition is
+  insufficient and what validation or perf evidence backs the boundary.
 
 ## Pre-Commit/PR Validation
 

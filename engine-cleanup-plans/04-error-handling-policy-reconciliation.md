@@ -17,9 +17,8 @@ Verified evidence:
   three lanes: `SB_FATAL` (fatal invariant), `SbResult` (recoverable),
   `FailAutomation` (probe).
 - Reality (verified greps): **2** `SB_FATAL(` call sites vs **283** `throw`
-  statements across source. The checker's ratchet
-  `MAX_SOURCE_THROW_TOKENS = 294`
-  ([check_runtime_boundaries.py](../tools/check_runtime_boundaries.py)) is frozen
+  statements across source. The now-deleted runtime-boundary checker had frozen
+  the ratchet `MAX_SOURCE_THROW_TOKENS = 294`
   at ~today's count — blessing every existing exception as permanent.
 - Throws are the failure path in the very subsystems the policy names first:
   per-frame loops in `RunFrame`, physics capacity guards in `PhysicsWorld`,
@@ -33,8 +32,8 @@ A rule contradicted 140:1 by its own code is worse than no rule.
 ## Goal
 
 Make policy and code agree. Convert throws to the lane that actually fits. **Do
-not track a throw count** — the `MAX_SOURCE_THROW_TOKENS` regex ratchet is
-deleted by plan 03; progress is measured by throws actually converted, not by a
+not track a throw count**: plan 03 deleted the `MAX_SOURCE_THROW_TOKENS`
+regex ratchet; progress is measured by throws actually converted, not by a
 frozen budget. Where exceptions are genuinely appropriate (external IO at a
 boundary), say so.
 

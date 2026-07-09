@@ -72,9 +72,6 @@ for %%A in (%*) do (
     ) else if /I "!ARG!"=="vcxproj-filters" (
         call "%ROOT%validate_project_filters.bat"
         if errorlevel 1 set "FAILED=1"
-    ) else if /I "!ARG!"=="runtime-boundaries" (
-        call "%ROOT%validate_runtime_boundaries.bat"
-        if errorlevel 1 set "FAILED=1"
     ) else if /I "!ARG!"=="runtime-interaction-policy" (
         call "%ROOT%validate_runtime_interaction_policy.bat"
         if errorlevel 1 set "FAILED=1"
@@ -164,7 +161,6 @@ echo   tools\validate_select.bat concept-core
 echo   tools\validate_select.bat concept-full
 echo   tools\validate_select.bat shaders
 echo   tools\validate_select.bat project-filters
-echo   tools\validate_select.bat runtime-boundaries
 echo   tools\validate_select.bat runtime-interaction-policy
 echo   tools\validate_select.bat dx12-arch-tests
 echo   tools\validate_select.bat ui

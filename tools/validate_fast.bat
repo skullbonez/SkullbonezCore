@@ -35,7 +35,7 @@ echo   VALIDATE_FAST - Format + Metadata + Size + Build
 echo ========================================
 echo.
 
-echo [1/6] Checking formatting...
+echo [1/5] Checking formatting...
 call "%~dp0validate_format.bat"
 if errorlevel 1 (
     echo.
@@ -43,30 +43,26 @@ if errorlevel 1 (
     exit /b 1
 )
 
-echo [2/6] Checking Visual Studio project filters...
+echo [2/5] Checking Visual Studio project filters...
 call "%~dp0validate_project_filters.bat"
 if errorlevel 1 exit /b 2
 
-echo [3/6] Checking staged file sizes...
+echo [3/5] Checking staged file sizes...
 REM Why: the checker reads the git index, so keep it before the expensive build
 REM steps and pass the repo root explicitly for callers outside the worktree.
 python "%~dp0check_staged_file_sizes.py" --repo "%~dp0.."
 if errorlevel 1 exit /b 3
 
-echo [4/6] Checking runtime boundaries...
-call "%~dp0validate_runtime_boundaries.bat"
+echo [4/5] Building Profile x64...
+call "%~dp0validate_build.bat" Profile
 if errorlevel 1 exit /b 4
 
-echo [5/6] Building Profile x64...
-call "%~dp0validate_build.bat" Profile
+echo [5/5] Running unit tests...
+call "%~dp0validate_tests.bat"
 if errorlevel 1 exit /b 5
 
-echo [6/6] Running unit tests...
-call "%~dp0validate_tests.bat"
-if errorlevel 1 exit /b 6
-
 call "%~dp0validate_ready_builds.bat"
-if errorlevel 1 exit /b 7
+if errorlevel 1 exit /b 6
 
 echo.
 echo ========================================

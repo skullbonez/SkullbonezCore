@@ -130,9 +130,31 @@ requires human sign-off before any deletion.
     byte-exact. A prior `validate_full` attempt failed only because the first
     header name lacked a project-filter rule; renaming to
     `RunLaunchOptions.Renderer.h` aligned with the existing project filters.
-- [ ] **1.2** Delete `tools/check_runtime_boundaries.py` and every invocation of
+- [x] **1.2** Delete `tools/check_runtime_boundaries.py` and every invocation of
   it (`validate_fast.bat`, `.githooks/`, `.pre-commit-config.yaml`, CI). Build +
   run `validate_fast` to prove nothing depends on it. Commit.
+
+  Completed 2026-07-09:
+  - Deleted `tools/check_runtime_boundaries.py` and
+    `tools/validate_runtime_boundaries.bat`.
+  - Removed the wrapper from `tools\validate_fast.bat`,
+    `tools\validate_full.bat`, and `tools\validate_select.bat`; removed the
+    deleted target from `tools\README.md`; updated `Agentic/README.md` so it no
+    longer describes the deleted checker as the live inheritance ratchet.
+  - Confirmed `.githooks`, `.pre-commit-config.yaml`, `.github`, and `tools/`
+    have no live `check_runtime_boundaries`, `validate_runtime_boundaries`,
+    `runtime-boundaries`, or `runtime_boundaries` references after the deletion.
+  - Touched-file comment audit inspected 3 edited source-bearing tool scripts
+    with 0 deferred: `tools\validate_fast.bat`, `tools\validate_full.bat`, and
+    `tools\validate_select.bat`. The old Python checker and wrapper script were
+    deleted rather than remediated.
+  - Validation: `tools\validate_fast.bat` passed in 00:00:18.9508581 after the
+    deletion (`VALIDATE_FAST: ALL PASSED`, Profile/Debug ready, unit tests
+    passed). `tools\validate_select.bat project-filters` passed in
+    00:00:05.3469357. `tools\validate_full.bat` passed in 00:00:28.5120019 with
+    project filters clean, Profile/Debug builds 0 warnings/errors, DX12
+    validation errors 0, screenshots matching baselines, and
+    `physics_regression_solver.csv` byte-exact.
 - [ ] **2.1** Strip the regex-enforced gates from `AGENTS.md` (Migration Artifact
   Gate, throw ratchet, hot-path inheritance count, unenforceable allocation
   prose). Replace with: "enforced by code review + the tests in
@@ -163,11 +185,11 @@ checker). Documentation moves need no validation.
 
 ## Acceptance (measurable)
 
-- [ ] `tools/check_runtime_boundaries.py` no longer exists.
-- [ ] No `MAX_*` frozen-count budget exists anywhere in `tools/`.
-- [ ] No validation script, git hook, or CI step invokes the deleted checker.
+- [x] `tools/check_runtime_boundaries.py` no longer exists.
+- [x] No `MAX_*` frozen-count budget exists anywhere in `tools/`.
+- [x] No validation script, git hook, or CI step invokes the deleted checker.
 - [ ] `AGENTS.md` describes no regex-enforced gate; enforcement is review + the
   `TODO/behavioral-test-depth.md` tests + the two hard runtime gates.
-- [ ] At most one survivor — the DX12-only check — and it is a boolean pass/fail
+- [x] At most one survivor — the DX12-only check — and it is a boolean pass/fail
   with no frozen number.
-- [ ] Single live plan tree; archived plans separated from active ones.
+- [x] Single live plan tree; archived plans separated from active ones.
