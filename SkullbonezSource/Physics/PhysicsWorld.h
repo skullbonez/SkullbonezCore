@@ -271,6 +271,35 @@ class PhysicsWorld
                                        int diagnosticNameCount,
                                        const PhysicsDiagnosticsCsvWriter& diagnosticsCsvWriter );
 
+    struct ObjectNarrowphasePairStageContext
+    {
+        // Lifetime: this context borrows RunSolverPhysics inputs and scratch
+        // arrays only for the serial loop or the bounded worker dispatch that
+        // owns the current fixed-step narrowphase pass.
+        PhysicsBodyStore& bodyStore;
+        const ColliderStore& colliderStore;
+        const PhysicsWorldForces& worldForces;
+        PhysicsBodyRecordList& bodyRecords;
+        const ColliderRecordList& colliderRecords;
+        const std::vector<std::pair<int, int>>& candidatePairs;
+        std::vector<uint8_t>& sleepState;
+        std::vector<uint8_t>& sleepCounter;
+        std::vector<int>& sleepIslandVisualId;
+        std::vector<float>& timeRemaining;
+        const std::vector<uint8_t>& underwaterSleepLocked;
+        const std::vector<PersistentContactCacheEntry>& persistentContactCache;
+        int modelCount = 0;
+        float sleepLinearSq = 0.0f;
+        float sleepAngularSq = 0.0f;
+        float contactSkin = 0.0f;
+        float contactEpsilon = 0.0f;
+        float invCellSize = 0.0f;
+        float dt = 0.0f;
+    };
+    void ProcessObjectNarrowphasePair( const ObjectNarrowphasePairStageContext& context,
+                                       int pairIndex,
+                                       ObjectNarrowphaseEvent& event );
+
     struct ObjectNarrowphaseIsland
     {
         int minPairIndex = 0;
