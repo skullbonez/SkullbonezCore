@@ -103,6 +103,7 @@ Related:
 #include "Dx12RenderGraphExecutor.h"
 #include "../../Core/Log.h"
 #include "../../Core/PlatformProfiler.h"
+#include "../../Core/FatalError.h"
 #include <stdexcept>
 #include <cstdio>
 #include <cstring>
@@ -395,7 +396,10 @@ void RenderBackendDX12::AssertPlatformProfilerGpuStackClosed( const char* reason
                        reason ? reason : "unknown",
                        m_platformProfilerGpuDepth );
     assert( m_platformProfilerGpuDepth == 0 );
-    throw std::runtime_error( "DX12 platform profiler GPU stack left open before command submission" );
+    SB_FATAL( "RenderBackendDX12",
+              "DX12 platform profiler GPU stack left open before command submission. reason=%s depth=%d",
+              reason ? reason : "unknown",
+              m_platformProfilerGpuDepth );
 }
 
 
@@ -404,7 +408,11 @@ void RenderBackendDX12::EnsureCommandListOpen()
     if ( !CommandList() || !m_commandQueue || !m_renderDevice.FrameFence().IsReady() ||
          !m_commandAllocators[m_allocatorIndex] )
     {
-        throw std::runtime_error( "DX12 backend is not fully initialised (command list/fence unavailable)." );
+        SB_FATAL( "RenderBackendDX12",
+                  "DX12 backend is not fully initialised. allocatorIndex=%u commandList=%p commandQueue=%p",
+                  m_allocatorIndex,
+                  static_cast<const void*>( CommandList() ),
+                  static_cast<const void*>( m_commandQueue ) );
     }
 
     if ( m_commandListOpen )
@@ -557,7 +565,10 @@ void RenderBackendDX12::ExecuteGraphTransition( const char* passName,
     if ( !record.hasConcreteStates || !record.hasNativeResource || record.missingCommandList ||
          record.beforeState == record.afterState || !record.emitted )
     {
-        throw std::runtime_error( "DX12 graph-owned transition did not emit exactly one concrete barrier" );
+        SB_FATAL( "RenderBackendDX12",
+                  "DX12 graph-owned transition did not emit exactly one concrete barrier. pass=%s resource=%s",
+                  passName ? passName : "unknown",
+                  resourceName ? resourceName : "unknown" );
     }
 
     RecordLiveBarrier( record.source,
@@ -609,7 +620,10 @@ void RenderBackendDX12::ExecuteGraphUavBarrier( const char* passName,
         ExecuteDx12RenderGraphUavBarrier( "GraphOwned", passName, resourceName, desc );
     if ( !record.hasNativeResource || record.missingCommandList || !record.emitted )
     {
-        throw std::runtime_error( "DX12 graph-owned UAV barrier did not emit exactly one concrete barrier" );
+        SB_FATAL( "RenderBackendDX12",
+                  "DX12 graph-owned UAV barrier did not emit exactly one concrete barrier. pass=%s resource=%s",
+                  passName ? passName : "unknown",
+                  resourceName ? resourceName : "unknown" );
     }
 
     RecordLiveUavBarrier( record.source, record.resourceName, resource );
@@ -768,29 +782,33 @@ RenderBackendDX12::MaterializeGraphTransientResources( const RenderGraph& graph,
 
     if ( !Device() )
     {
-        throw std::runtime_error( "DX12 graph transient materialization requires an initialized device" );
+        SB_FATAL( "RenderBackendDX12", "DX12 graph transient materialization requires an initialized device." );
     }
 
     for ( const RenderGraphTransientAllocationDesc& allocation : compiled.transientAllocations )
     {
         if ( allocation.resource.index >= graph.Resources().size() )
         {
-            throw std::runtime_error( "DX12 graph transient allocation references an invalid resource" );
+            SB_FATAL( "RenderBackendDX12",
+                      "DX12 graph transient allocation references an invalid resource. index=%u resourceCount=%zu",
+                      allocation.resource.index,
+                      graph.Resources().size() );
         }
 
         const RenderGraphResourceDesc& resource = graph.Resources()[allocation.resource.index];
         const RenderGraphTransientResourceDesc& desc = resource.transient;
         if ( desc.kind != RenderGraphResourceKind::Texture2D )
         {
-            throw std::runtime_error( "DX12 graph transient materializer currently supports Texture2D resources only" );
+            SB_FATAL( "RenderBackendDX12",
+                      "DX12 graph transient materializer currently supports Texture2D resources only." );
         }
         if ( desc.format == RenderGraphResourceFormat::Unknown )
         {
-            throw std::runtime_error( "DX12 graph transient materializer requires a concrete resource format" );
+            SB_FATAL( "RenderBackendDX12", "DX12 graph transient materializer requires a concrete resource format." );
         }
         if ( desc.descriptors.depthStencil && desc.descriptors.unorderedAccess )
         {
-            throw std::runtime_error( "DX12 graph transient depth resources cannot request UAV descriptors" );
+            SB_FATAL( "RenderBackendDX12", "DX12 graph transient depth resources cannot request UAV descriptors." );
         }
 
         GraphTransientResourceDX12* slot = nullptr;
@@ -997,16 +1015,19 @@ void RenderBackendDX12::BeginGraphTextureRenderTarget( const RenderGraphTextureB
 {
     if ( m_graphRenderTargetActive )
     {
-        throw std::runtime_error( "DX12 graph transient render target is already active" );
+        SB_FATAL( "RenderBackendDX12", "DX12 graph transient render target is already active." );
     }
     if ( !binding.IsValid() || !binding.renderTarget )
     {
-        throw std::runtime_error( "DX12 graph transient render target binding is invalid" );
+        SB_FATAL( "RenderBackendDX12",
+                  "DX12 graph transient render target binding is invalid. textureHandle=%u renderTarget=%d",
+                  binding.textureHandle,
+                  binding.renderTarget ? 1 : 0 );
     }
     GraphTransientResourceDX12* slot = FindGraphTransientSlot( binding.resource );
     if ( !slot || !slot->resource || slot->rtv.ptr == 0 )
     {
-        throw std::runtime_error( "DX12 graph transient render target was not materialized" );
+        SB_FATAL( "RenderBackendDX12", "DX12 graph transient render target was not materialized." );
     }
 
     // Lifetime: callback-owned graph passes borrow the active backbuffer/depth
@@ -1031,12 +1052,15 @@ void RenderBackendDX12::EndGraphTextureRenderTarget( const RenderGraphTextureBin
 {
     if ( !m_graphRenderTargetActive || m_activeGraphRenderTarget.index != binding.resource.index )
     {
-        throw std::runtime_error( "DX12 graph transient render target end does not match the active binding" );
+        SB_FATAL( "RenderBackendDX12",
+                  "DX12 graph transient render target end does not match the active binding. active=%u requested=%u",
+                  m_activeGraphRenderTarget.index,
+                  binding.resource.index );
     }
     GraphTransientResourceDX12* slot = FindGraphTransientSlot( binding.resource );
     if ( !slot || !slot->resource )
     {
-        throw std::runtime_error( "DX12 graph transient render target was lost before unbind" );
+        SB_FATAL( "RenderBackendDX12", "DX12 graph transient render target was lost before unbind." );
     }
 
     ExecuteGraphTransition( passName,
