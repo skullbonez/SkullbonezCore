@@ -12,7 +12,7 @@ Branch:
 
 Latest implementation commit before this handoff:
 
-- `941c66d4 cleanup(02): extract object sweep query helper`
+- `cfa0905c cleanup(02): extract object CCD bypass decision`
 
 This document is the restart handoff committed after the implementation slices.
 
@@ -45,6 +45,14 @@ Plan 02, Phase 1.2 wake/contact and object/object CCD helper slices:
   - Moved `sweepObjectPair` into `SweepObjectPair`.
   - Preserved default collision-time initialization, bounds checks, and the
     `SweepObjectContact` call shape.
+- `f333f1c7 cleanup(02): extract persistent cache lookup`
+  - Moved `objectPairHasPersistentContactCache` into
+    `ObjectPairHasPersistentContactCache`.
+  - Named the cache-key `lower_bound` comparator as
+    `PersistentContactCacheEntryPrecedesKey`.
+- `cfa0905c cleanup(02): extract object CCD bypass decision`
+  - Moved `objectPairNeedsSweptCcd` into `ObjectPairNeedsSweptCcd`.
+  - Preserved the settled-pair CCD bypass early returns and travel thresholds.
 
 Plan ledger updated:
 
@@ -71,10 +79,13 @@ The Plan 02 Phase 1.2 lambda inventory is now checked through:
 - `hasObjectContactAtTime`
 - `refineObjectSweepContactTime`
 - `sweepObjectPair`
+- `objectPairHasPersistentContactCache`
+- anonymous `lower_bound` cache-key comparator
+- `objectPairNeedsSweptCcd`
 
 Plan 02 Step 1.2 remains open. The next unchecked item is:
 
-- `objectPairHasPersistentContactCache`
+- `recordObjectNarrowphaseEvent`
 
 ## Validation Evidence
 
@@ -113,6 +124,16 @@ Current continuation gates:
     `TestOutput\agent_logs\plan02_sweep_object_pair_validate_physics_20260709_1014.log`
   - Result: Debug/Profile builds reported 0 warnings and 0 errors; final
     `VALIDATE_PHYSICS: ALL PASSED`.
+- `tools\validate_physics.bat`
+  - Log:
+    `TestOutput\agent_logs\plan02_persistent_cache_lookup_validate_physics_20260709_1021.log`
+  - Result: Debug/Profile builds reported 0 warnings and 0 errors; final
+    `VALIDATE_PHYSICS: ALL PASSED`.
+- `tools\validate_physics.bat`
+  - Log:
+    `TestOutput\agent_logs\plan02_object_pair_needs_ccd_validate_physics_20260709_1025.log`
+  - Result: Debug/Profile builds reported 0 warnings and 0 errors; final
+    `VALIDATE_PHYSICS: ALL PASSED`.
 
 No SkullScope trace workflow was used in these slices.
 
@@ -134,8 +155,8 @@ Unchecked files: none.
 Result:
 
 - `PhysicsWorld.cpp` already has the required learning header.
-- The moved exact-contact, refinement, and sweep code stayed near the named
-  helpers without needing new explanatory comments.
+- The moved exact-contact, refinement, sweep, cache-prefix, and CCD bypass code
+  stayed near named helpers without needing unrelated comment churn.
 - No unrelated comment-only churn was made.
 
 ## Current Open Work
@@ -162,9 +183,9 @@ Open cleanup items that remain in `engine-cleanup-plans/00-EXECUTION-GUIDE.md`:
 2. Read `engine-cleanup-plans/00-EXECUTION-GUIDE.md`.
 3. Read `engine-cleanup-plans/02-physicsworld-solver-decomposition.md`.
 4. Check `git status --short --branch`.
-5. Confirm the branch is at or after implementation commit `941c66d4`.
+5. Confirm the branch is at or after implementation commit `cfa0905c`.
 6. Continue Plan 02 Step 1.2 from the next unchecked item,
-   `objectPairHasPersistentContactCache`, unless the user gives a different
+   `recordObjectNarrowphaseEvent`, unless the user gives a different
    instruction.
 7. Do not continue Plan 11 until the human RenderGraph decision is made.
 8. Do not continue Plan 13 FAC-005, Plan 03, or Plan 07 without the required
@@ -184,10 +205,10 @@ point for restart or handoff.
 
 ## Timing
 
-This pause continuation began at:
+Current continuation began at:
 
-- `2026-07-09T10:12:15.5794862+10:00`
+- `2026-07-09T10:19:19.7450905+10:00`
 
 This handoff was drafted at:
 
-- `2026-07-09T10:17:17.1733369+10:00`
+- `2026-07-09T10:26:05.5077434+10:00`
