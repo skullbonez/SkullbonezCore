@@ -578,7 +578,7 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     void BeginGraphTextureRenderTarget( const RenderGraphTextureBinding& binding, const char* passName ) override;
     void EndGraphTextureRenderTarget( const RenderGraphTextureBinding& binding, const char* passName ) override;
 
-    std::vector<uint8_t> CaptureBackbuffer( int& outWidth, int& outHeight ) override;
+    Basics::SbResult CaptureBackbuffer( std::vector<uint8_t>& outPixels, int& outWidth, int& outHeight ) override;
     bool SupportsBackbufferCapture() const override
     {
         return true;

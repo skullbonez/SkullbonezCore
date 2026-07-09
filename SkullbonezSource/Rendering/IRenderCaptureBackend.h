@@ -12,6 +12,8 @@ Glossary:
   Back buffer: Swap-chain image that will be presented to the window.
   BGR (Blue, Green, Red): Capture byte order used by BMP files.
   BMP (Bitmap): Simple image file format used by validation backbuffer captures.
+  Lane R result: Recoverable device/readback failure returned with an
+    owner/message instead of unwinding through screenshot automation.
 
 Invariants:
   - This interface reports only capture/readback support. GPU timer, DXR, debug
@@ -26,6 +28,8 @@ Related:
 */
 #pragma once
 
+#include "../Core/SbResult.h"
+
 #include <cstdint>
 #include <vector>
 
@@ -39,7 +43,7 @@ class IRenderCaptureBackend
     virtual ~IRenderCaptureBackend() = default;
 
     virtual bool SupportsBackbufferCapture() const = 0;
-    virtual std::vector<uint8_t> CaptureBackbuffer( int& outWidth, int& outHeight ) = 0;
+    virtual Basics::SbResult CaptureBackbuffer( std::vector<uint8_t>& outPixels, int& outWidth, int& outHeight ) = 0;
 };
 
 } // namespace Rendering

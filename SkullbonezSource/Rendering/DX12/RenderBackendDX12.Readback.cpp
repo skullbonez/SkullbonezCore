@@ -12,6 +12,8 @@ Glossary:
   Descriptor: Small binding record that tells a renderer how to interpret a
   resource.
   Back buffer: Swap-chain image that will be presented to the window.
+  Lane R result: Recoverable device/readback failure returned to screenshot
+    automation instead of throwing through the render backend.
 
 Invariants:
   - DX12 object lifetime, resource states, descriptor rows, and fence ordering
@@ -42,6 +44,7 @@ Related:
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Rendering;
 using Microsoft::WRL::ComPtr;
+using SkullbonezCore::Basics::SbResult;
 
 
 // --- Helpers ---
@@ -56,19 +59,12 @@ static void ReportDX12DescriptorHeapExhausted( const char* heapName, UINT nextIn
     Log().FlushAll();
 }
 
-static inline void ThrowIfFailed( HRESULT hr, const char* msg )
-{
-    if ( FAILED( hr ) )
-    {
-        throw std::runtime_error( msg );
-    }
-}
-
 // --- RenderBackendDX12 Readback methods ---
 
 
-std::vector<uint8_t> RenderBackendDX12::CaptureBackbuffer( int& outWidth, int& outHeight )
+SbResult RenderBackendDX12::CaptureBackbuffer( std::vector<uint8_t>& outPixels, int& outWidth, int& outHeight )
 {
+    outPixels.clear();
     EnsureCommandListOpen();
     outWidth = m_width;
     outHeight = m_height;
@@ -101,7 +97,15 @@ std::vector<uint8_t> RenderBackendDX12::CaptureBackbuffer( int& outWidth, int& o
     // https://learn.microsoft.com/en-us/windows/win32/direct3d12/using-resource-barriers-to-synchronize-resource-states-in-direct3d-12
     if ( !readbackBuffer.InitBuffer( Device(), totalBytes, L"Skullbonez DX12 Screenshot Readback Buffer" ) )
     {
-        throw std::runtime_error( "CreateCommittedResource (screenshot readback) failed" );
+        // Why: screenshot readback is a Lane R device/resource boundary. Restore
+        // the backbuffer state before returning so the caller can report the
+        // failure without leaving the command stream in COPY_SOURCE.
+        TransitionBackbuffer( "BackbufferReadbackRestoreAfterFailure", backBufferAccessBeforeCopy );
+        outWidth = 0;
+        outHeight = 0;
+        return SbResult::Failure( "Rendering/DX12",
+                                  "CreateCommittedResource (screenshot readback) failed  "
+                                  "(RenderBackendDX12::CaptureBackbuffer)" );
     }
 
     D3D12_TEXTURE_COPY_LOCATION dstLoc = {};
@@ -149,5 +153,6 @@ std::vector<uint8_t> RenderBackendDX12::CaptureBackbuffer( int& outWidth, int& o
 
     readbackBuffer.UnmapNoWrite();
 
-    return result;
+    outPixels = std::move( result );
+    return SbResult::Success();
 }

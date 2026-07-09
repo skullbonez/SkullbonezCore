@@ -734,6 +734,39 @@ byte-exact gated.
     screenshots matching baselines, and `physics_regression_solver.csv`
     byte-exact. Final log:
     `Agentic/Reports/validate_full_plan04_text_result_20260709.log`.
+
+  Progress 2026-07-09, DX12 screenshot readback recoverable result sub-slice:
+  - Converted `SkullbonezSource/Rendering/DX12/RenderBackendDX12.Readback.cpp`
+    inventory rows 94 and 95 from readback exceptions to Lane R results returned
+    through `IRenderCaptureBackend::CaptureBackbuffer` and
+    `CaptureSystem::SaveBackbufferBmp`.
+  - Removed the unused readback `ThrowIfFailed` helper. Readback buffer creation
+    failure now restores the backbuffer state and returns
+    `SbResult::Failure("Rendering/DX12", ...)`; `CaptureSystem` propagates
+    readback failures and checks for short pixel buffers before BMP writes.
+  - Strict anchored source throw statement inventory now reports 100 sites,
+    down from the previous sub-slice count of 102. `SB_FATAL` macro
+    invocations remain 153 via `rg -n "SB_FATAL\s*\(" SkullbonezSource`.
+  - Comment-style audit scope:
+    `SkullbonezSource/Rendering/IRenderCaptureBackend.h`,
+    `SkullbonezSource/Rendering/DX12/RenderBackendDX12.h`,
+    `SkullbonezSource/Rendering/DX12/RenderBackendDX12.Readback.cpp`, and
+    `SkullbonezSource/Runtime/CaptureSystem.cpp`; checked 4, deferred 0. This
+    was a touched-file audit, so no subsystem checklist plan was required.
+  - Focused build passed: `tools\validate_build.bat Profile` exited 0 in
+    00:00:11.0128484 with 0 warnings and 0 errors. Log:
+    `Agentic/Reports/validate_build_profile_plan04_dx12_readback_result_20260709.log`.
+  - Required DX12 gate passed: `tools\validate_dx12_renderer.bat` exited 0 with
+    `VALIDATE_DX12_RENDERER: ALL PASSED`, DX12 validation errors 0, and
+    screenshots matching committed baselines. Log:
+    `Agentic/Reports/validate_dx12_renderer_plan04_readback_result_20260709_final.log`.
+  - Required Runtime gate passed: `tools\validate_full.bat` exited 0 in
+    00:00:47.7232961 with `VALIDATE_FULL: DEFAULT GATE PASSED`, project filters
+    0 errors, runtime boundaries 0 errors, Profile/Debug builds 0
+    warnings/errors, source formatting clean, DX12 validation errors 0,
+    screenshots matching baselines, and `physics_regression_solver.csv`
+    byte-exact. Final log:
+    `Agentic/Reports/validate_full_plan04_dx12_readback_result_20260709.log`.
 - [ ] **4.1** Do **not** maintain any throw count. The `MAX_SOURCE_THROW_TOKENS`
   ratchet is deleted by plan 03. Verify progress by re-running
   `rg -n "throw " SkullbonezSource` and confirming the F/R/P sites are converted;

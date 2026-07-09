@@ -115,7 +115,12 @@ SbResult CaptureSystem::SaveBackbufferBmp( Rendering::IRenderCaptureBackend& bac
 
     int width = 0;
     int height = 0;
-    std::vector<uint8_t> pixels = backend.CaptureBackbuffer( width, height );
+    std::vector<uint8_t> pixels;
+    const SbResult readbackResult = backend.CaptureBackbuffer( pixels, width, height );
+    if ( !readbackResult.ok )
+    {
+        return readbackResult;
+    }
     if ( width <= 0 || height <= 0 )
     {
         return SbResult::Failure( "Runtime/CaptureSystem",
@@ -125,6 +130,15 @@ SbResult CaptureSystem::SaveBackbufferBmp( Rendering::IRenderCaptureBackend& bac
 
     const int rowStride = ( width * 3 + 3 ) & ~3;
     const int imageSize = rowStride * height;
+    if ( pixels.size() < static_cast<size_t>( imageSize ) )
+    {
+        return SbResult::Failure(
+            "Runtime/CaptureSystem",
+            "Screenshot readback returned %zu byte(s), expected %d for file: %s  (CaptureSystem::SaveBackbufferBmp)",
+            pixels.size(),
+            imageSize,
+            path );
+    }
 
     unsigned char fileHeader[14] = {};
     const int fileSize = 14 + 40 + imageSize;
