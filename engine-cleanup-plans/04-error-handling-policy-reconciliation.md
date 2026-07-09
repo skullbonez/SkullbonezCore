@@ -372,6 +372,31 @@ byte-exact gated.
   - Required gate passed: `tools\validate_dx12_renderer.bat` exited 0 in
     00:00:27.3149044. Log:
     `Agentic/Reports/validate_dx12_renderer_plan04_pipeline_fatals_20260709.log`.
+
+  Progress 2026-07-09, RenderBackendDX12 platform-profiler GPU stack
+  fatal-invariant sub-slice:
+  - Converted one F site from `throw std::runtime_error` to
+    `SB_FATAL("RenderBackendDX12", ...)`:
+    `RenderBackendDX12.Profiler.cpp` row 101 from the Step 0.1 inventory. The
+    DX12 HRESULT helper throw in the same file remains Lane R for the
+    recoverable-result phase.
+  - Removed an unused local descriptor-heap fatal reporter from the profiler
+    split file while touching the helper area; it had no call sites in that
+    file.
+  - Strict anchored source throw statement inventory now reports 137 sites,
+    down from the previous sub-slice count of 138. `SB_FATAL` macro invocations
+    now report 135 via `rg -n "SB_FATAL\s*\(" SkullbonezSource`.
+  - Comment-style audit scope:
+    `SkullbonezSource/Rendering/DX12/RenderBackendDX12.Profiler.cpp`; checked
+    1, deferred 0. The learning header and local guard now name the GPU timer,
+    PIX, platform-profiler GPU stack, and fixed stack-depth invariants.
+  - Required renderer gate passed: `tools\validate_dx12_renderer.bat` exited 0
+    in 00:00:27.3000145. Log:
+    `Agentic/Reports/validate_dx12_renderer_plan04_profiler_fatal_20260709.log`.
+  - Required platform-profiler marker run passed:
+    `Profile\SKULLBONEZ_CORE.exe --platform-profiler-markers --frames 5 --vsync off`
+    exited 0 in 00:00:09.1357466. Log:
+    `Agentic/Reports/platform_profiler_markers_plan04_profiler_fatal_20260709.log`.
 - [ ] **2.1** Convert **P** sites (replay/interaction probes) to the
   `FailAutomation(...)` channel with `ok=false` + message. Gate: `validate_full`
   + replay scrub. Commit.

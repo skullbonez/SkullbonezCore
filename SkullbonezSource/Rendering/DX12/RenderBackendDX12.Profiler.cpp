@@ -12,10 +12,20 @@ Glossary:
   Descriptor: Small binding record that tells a renderer how to interpret a
   resource.
   Back buffer: Swap-chain image that will be presented to the window.
+  GPU timer: Timestamp query pair written by the command list and read back
+  later to estimate GPU time for a profiler marker.
+  PIX: Microsoft GPU debugger/profiler that can read engine markers and DX12
+  event ranges.
+  Platform profiler GPU stack: Bounded mirror of nested GPU marker names that
+  lets PIX ranges be suspended around command-list submission and restored
+  afterward.
 
 Invariants:
   - DX12 object lifetime, resource states, descriptor rows, and fence ordering
   must stay explicit.
+  - Platform profiler GPU ranges are stack-shaped and bounded. Overflow means
+    marker nesting exceeded the backend contract, not a recoverable runtime
+    condition.
 
 Related:
   - Agentic/Reference/skullbonez-core-class-structure.md
@@ -26,6 +36,7 @@ Related:
 #include "MeshDX12.h"
 #include "FramebufferDX12.h"
 #include "../RenderGraph.h"
+#include "../../Core/FatalError.h"
 #include "../../Core/Log.h"
 #include "../../Core/PlatformProfiler.h"
 #include <stdexcept>
@@ -45,17 +56,6 @@ using Microsoft::WRL::ComPtr;
 
 
 // --- Helpers ---
-static void ReportDX12DescriptorHeapExhausted( const char* heapName, UINT nextIndex, UINT capacity )
-{
-    const char* name = heapName ? heapName : "unknown";
-    fprintf( stderr, "FATAL: DX12 %s heap exhausted (next=%u capacity=%u)\n", name, nextIndex, capacity );
-    fprintf( stdout, "FATAL: DX12 %s heap exhausted (next=%u capacity=%u)\n", name, nextIndex, capacity );
-    fflush( stderr );
-    fflush( stdout );
-    Log().WriteEventf( "dx12_descriptor_heap_exhausted heap=%s next=%u capacity=%u", name, nextIndex, capacity );
-    Log().FlushAll();
-}
-
 static inline void ThrowIfFailed( HRESULT hr, const char* msg )
 {
     if ( FAILED( hr ) )
@@ -261,8 +261,12 @@ void RenderBackendDX12::PlatformProfilerGpuBegin( const char* name, uint32_t has
     EnsureCommandListOpen();
     if ( m_platformProfilerGpuDepth >= PLATFORM_PROFILER_GPU_SCOPE_STACK_MAX )
     {
-        Log().WriteEventf( "dx12_platform_profiler_gpu_stack_overflow depth=%d", m_platformProfilerGpuDepth );
-        throw std::runtime_error( "DX12 platform profiler GPU stack overflow" );
+        // Invariant: the stack mirrors nested PIX GPU ranges. Overflow means
+        // marker begin/end ownership has escaped the backend's fixed budget.
+        SB_FATAL( "RenderBackendDX12",
+                  "DX12 platform profiler GPU stack overflow. depth=%d capacity=%d",
+                  m_platformProfilerGpuDepth,
+                  PLATFORM_PROFILER_GPU_SCOPE_STACK_MAX );
     }
 
     char gpuMarkerName[SkullbonezCore::Basics::PlatformProfiler::MAX_DECORATED_MARKER_NAME_CHARS];
