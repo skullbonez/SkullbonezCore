@@ -172,7 +172,7 @@ island-merge tie-breaks.
   - [x] L2654 `sweepObjectPair`: swept object contact query.
   - [x] L2676 `objectPairHasPersistentContactCache`: cache-prefix lookup.
   - [x] L2690 anonymous `lower_bound` cache-key comparator.
-  - [ ] L2696 `objectPairNeedsSweptCcd`: settled-pair CCD bypass decision.
+  - [x] L2696 `objectPairNeedsSweptCcd`: settled-pair CCD bypass decision.
 
   Object narrowphase events and dispatch:
   - [ ] L2739 `recordObjectNarrowphaseEvent`: stage-record copy into event buffer.
@@ -343,6 +343,14 @@ island-merge tie-breaks.
     `tools\validate_physics.bat` passed in
     `TestOutput\agent_logs\plan02_persistent_cache_lookup_validate_physics_20260709_1021.log`
     (28.9s shell runtime; Debug/Profile builds 0 warnings and 0 errors; final
+    `VALIDATE_PHYSICS: ALL PASSED`).
+  - Extracted the `objectPairNeedsSweptCcd` lambda into
+    `ObjectPairNeedsSweptCcd`, threading `bodyRecords`, `colliderRecords`,
+    `m_persistentContactCache`, `availableTime`, and `contactSkin` explicitly
+    while preserving the settled-pair CCD bypass thresholds and early returns.
+    Gate evidence: `tools\validate_physics.bat` passed in
+    `TestOutput\agent_logs\plan02_object_pair_needs_ccd_validate_physics_20260709_1025.log`
+    (30.8s shell runtime; Debug/Profile builds 0 warnings and 0 errors; final
     `VALIDATE_PHYSICS: ALL PASSED`).
 - [ ] **1.3** `RunSolverPhysics` is now a short driver calling named stages;
   confirm it is under ~300 lines.

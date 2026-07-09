@@ -662,6 +662,49 @@ bool ObjectPairHasPersistentContactCache( const std::vector<PersistentContactCac
            ( static_cast<uint64_t>( cachedIt->key ) & 0xffffffff00000000ull ) == pairPrefix;
 }
 
+bool ObjectPairNeedsSweptCcd( const PhysicsBodyRecordList& bodyRecords,
+                              const ColliderRecordList& colliderRecords,
+                              const std::vector<PersistentContactCacheEntry>& persistentContactCache,
+                              int bodyAIndex,
+                              int bodyBIndex,
+                              float availableTime,
+                              float contactSkin )
+{
+    if ( availableTime <= TOLERANCE )
+    {
+        return false;
+    }
+
+    if ( !ObjectPairHasPersistentContactCache( persistentContactCache, bodyAIndex, bodyBIndex ) )
+    {
+        return true;
+    }
+
+    const float radiusA = SolverBodyRadius( colliderRecords, bodyAIndex );
+    const float radiusB = SolverBodyRadius( colliderRecords, bodyBIndex );
+    if ( !std::isfinite( radiusA ) || !std::isfinite( radiusB ) || radiusA <= TOLERANCE || radiusB <= TOLERANCE )
+    {
+        return true;
+    }
+
+    const PhysicsBodyRecord& bodyA = bodyRecords[static_cast<size_t>( bodyAIndex )];
+    const PhysicsBodyRecord& bodyB = bodyRecords[static_cast<size_t>( bodyBIndex )];
+    const Vector3 relativeLinearDisplacement = ( bodyA.linearVelocity - bodyB.linearVelocity ) * availableTime;
+    const float linearTravel = Vector::VectorMag( relativeLinearDisplacement );
+    const float angularTravel =
+        ( Vector::VectorMag( bodyA.angularVelocity ) * radiusA + Vector::VectorMag( bodyB.angularVelocity ) * radiusB ) *
+        availableTime;
+    const float sweptTravel = linearTravel + angularTravel;
+    const float smallerRadius = (std::min)( radiusA, radiusB );
+    const float ccdThreshold =
+        (std::max)( contactSkin * PHYSICS_OBJECT_CCD_SKIN_SCALE, smallerRadius * PHYSICS_OBJECT_CCD_RADIUS_FRACTION );
+
+    // Why: only already-persistent pairs may bypass the swept front-end. New
+    // contacts keep their old time-of-impact path; settled contacts rely on
+    // persistent manifolds unless motion is large enough to tunnel.
+    return sweptTravel > ccdThreshold;
+}
+
 void ApplyForcesForSolverBody( PhysicsBodyStore& bodyStore,
                                const ColliderStore& colliderStore,
                                const PhysicsWorldForces& worldForces,
@@ -2900,43 +2943,6 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
     }
     PROFILE_END( "Frame/Physics/Broadphase" );
 
-    auto objectPairNeedsSweptCcd = [&]( int a, int b, float availableTime ) -> bool
-    {
-        if ( availableTime <= TOLERANCE )
-        {
-            return false;
-        }
-
-        if ( !ObjectPairHasPersistentContactCache( m_persistentContactCache, a, b ) )
-        {
-            return true;
-        }
-
-        const float radiusA = SolverBodyRadius( colliderRecords, a );
-        const float radiusB = SolverBodyRadius( colliderRecords, b );
-        if ( !std::isfinite( radiusA ) || !std::isfinite( radiusB ) || radiusA <= TOLERANCE || radiusB <= TOLERANCE )
-        {
-            return true;
-        }
-
-        const PhysicsBodyRecord& bodyA = bodyRecords[static_cast<size_t>( a )];
-        const PhysicsBodyRecord& bodyB = bodyRecords[static_cast<size_t>( b )];
-        const Vector3 relativeLinearDisplacement = ( bodyA.linearVelocity - bodyB.linearVelocity ) * availableTime;
-        const float linearTravel = Vector::VectorMag( relativeLinearDisplacement );
-        const float angularTravel = ( Vector::VectorMag( bodyA.angularVelocity ) * radiusA +
-                                      Vector::VectorMag( bodyB.angularVelocity ) * radiusB ) *
-                                    availableTime;
-        const float sweptTravel = linearTravel + angularTravel;
-        const float smallerRadius = (std::min)( radiusA, radiusB );
-        const float ccdThreshold = (std::max)( contactSkin * PHYSICS_OBJECT_CCD_SKIN_SCALE,
-                                               smallerRadius * PHYSICS_OBJECT_CCD_RADIUS_FRACTION );
-
-        // Why: only already-persistent pairs may bypass the swept front-end. New
-        // contacts keep their old time-of-impact path; settled contacts rely on
-        // persistent manifolds unless motion is large enough to tunnel.
-        return sweptTravel > ccdThreshold;
-    };
-
     // Object/object CCD front-end: wake sleepers and advance swept hits to a
     // contact candidate, but leave velocity response to the persistent rows.
     PROFILE_BEGIN( "Frame/Physics/Narrowphase" );
@@ -3040,7 +3046,14 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
                 // Swept impact wakes immediately when time remains; persistent
                 // overlap wakes too so sleepers cannot stay frozen after a hit.
                 bool wokeBySweptImpact = false;
-                if ( m_timeRemaining[y] > 0.0f && objectPairNeedsSweptCcd( y, x, m_timeRemaining[y] ) )
+                if ( m_timeRemaining[y] > 0.0f &&
+                     ObjectPairNeedsSweptCcd( bodyRecords,
+                                              colliderRecords,
+                                              m_persistentContactCache,
+                                              y,
+                                              x,
+                                              m_timeRemaining[y],
+                                              contactSkin ) )
                 {
                     ObjectContactSweepResult sweep = SweepObjectPair( bodyRecords, colliderRecords, y, x, m_timeRemaining[y] );
                     if ( sweep.hit )
@@ -3123,7 +3136,14 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
                     return;
                 }
                 bool wokeBySweptImpact = false;
-                if ( m_timeRemaining[x] > 0.0f && objectPairNeedsSweptCcd( x, y, m_timeRemaining[x] ) )
+                if ( m_timeRemaining[x] > 0.0f &&
+                     ObjectPairNeedsSweptCcd( bodyRecords,
+                                              colliderRecords,
+                                              m_persistentContactCache,
+                                              x,
+                                              y,
+                                              m_timeRemaining[x],
+                                              contactSkin ) )
                 {
                     ObjectContactSweepResult sweep = SweepObjectPair( bodyRecords, colliderRecords, x, y, m_timeRemaining[x] );
                     if ( sweep.hit )
@@ -3211,7 +3231,13 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
         }
 
         float availableTime = (std::min)( m_timeRemaining[x], m_timeRemaining[y] );
-        if ( !objectPairNeedsSweptCcd( x, y, availableTime ) )
+        if ( !ObjectPairNeedsSweptCcd( bodyRecords,
+                                       colliderRecords,
+                                       m_persistentContactCache,
+                                       x,
+                                       y,
+                                       availableTime,
+                                       contactSkin ) )
         {
             Physics::PhysicsPipelineRecord record;
             record.stage = Physics::PhysicsPipelineStage::SweptObjectMiss;
