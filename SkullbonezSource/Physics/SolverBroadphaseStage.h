@@ -75,8 +75,7 @@ inline bool BroadphaseCandidateCanTouch( const void* userData, int a, int b )
         return true;
     }
 
-    const BroadphaseCandidateFilterContext& context =
-        *static_cast<const BroadphaseCandidateFilterContext*>( userData );
+    const BroadphaseCandidateFilterContext& context = *static_cast<const BroadphaseCandidateFilterContext*>( userData );
     if ( a < 0 || b < 0 || a >= context.modelCount || b >= context.modelCount )
     {
         return false;
@@ -89,9 +88,8 @@ inline bool BroadphaseCandidateCanTouch( const void* userData, int a, int b )
         return true;
     }
 
-    const Math::Vector::Vector3 relativeStart =
-        BroadphaseCandidateBodyPosition( context.bodyRecords, a ) -
-        BroadphaseCandidateBodyPosition( context.bodyRecords, b );
+    const Math::Vector::Vector3 relativeStart = BroadphaseCandidateBodyPosition( context.bodyRecords, a ) -
+                                                BroadphaseCandidateBodyPosition( context.bodyRecords, b );
     const Math::Vector::Vector3 relativeDisplacement =
         ( context.bodyRecords[static_cast<std::size_t>( a )].linearVelocity -
           context.bodyRecords[static_cast<std::size_t>( b )].linearVelocity ) *

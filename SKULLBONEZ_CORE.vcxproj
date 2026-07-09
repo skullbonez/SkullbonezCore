@@ -253,6 +253,7 @@
     <ClCompile Include="SkullbonezSource\Core\Timer.cpp" />
     <ClCompile Include="SkullbonezSource\Rendering\DrawCallTrace.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\TornadoField.cpp" />
+    <ClCompile Include="SkullbonezSource\Physics\TornadoGameplay.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Window.cpp" />
     <ClCompile Include="SkullbonezSource\Core\WorkerPool.cpp" />
     <ClCompile Include="SkullbonezSource\World\WorldEnvironment.cpp" />
@@ -358,6 +359,7 @@
     <ClInclude Include="SkullbonezSource\Physics\PhysicsObjectPolicy.h" />
     <ClInclude Include="SkullbonezSource\Physics\PhysicsTimestep.h" />
     <ClInclude Include="SkullbonezSource\Physics\PhysicsWorldForces.h" />
+    <ClInclude Include="SkullbonezSource\Physics\SolverBroadphaseStage.h" />
     <ClInclude Include="SkullbonezSource\Physics\PhysicsScene.h" />
     <ClInclude Include="SkullbonezSource\Physics\PhysicsWorld.h" />
     <ClInclude Include="SkullbonezSource\Physics\Ragdoll.h" />
@@ -438,6 +440,7 @@
     <ClInclude Include="SkullbonezSource\Assets\TextureCollection.h" />
     <ClInclude Include="SkullbonezSource\Core\Timer.h" />
     <ClInclude Include="SkullbonezSource\Physics\TornadoField.h" />
+    <ClInclude Include="SkullbonezSource\Physics\TornadoGameplay.h" />
     <ClInclude Include="SkullbonezSource\Runtime\WindowConstants.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Window.h" />
     <ClInclude Include="SkullbonezSource\Core\WorkerPool.h" />

@@ -126,9 +126,11 @@ PHYSICS_PREFIXES = (
     "RigidBody",
     "SimulationSystem",
     "SleepIslandSystem",
+    "SolverBroadphaseStage",
     "SpatialGrid",
     "TerrainContactManifold",
     "TornadoField",
+    "TornadoGameplay",
 )
 
 PHYSICS_DEBUG_PREFIXES = (

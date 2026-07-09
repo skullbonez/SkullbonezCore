@@ -451,6 +451,9 @@
     <ClCompile Include="SkullbonezSource\Physics\TornadoField.cpp">
       <Filter>Source Files\Physics</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Physics\TornadoGameplay.cpp">
+      <Filter>Source Files\Physics</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Window.cpp">
       <Filter>Source Files\Runtime</Filter>
     </ClCompile>
@@ -758,6 +761,9 @@
     <ClInclude Include="SkullbonezSource\Physics\PhysicsWorldForces.h">
       <Filter>Header Files\Physics</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\Physics\SolverBroadphaseStage.h">
+      <Filter>Header Files\Physics</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\PhysicsScene.h">
       <Filter>Header Files\Physics</Filter>
     </ClInclude>
@@ -1005,6 +1011,9 @@
       <Filter>Header Files\Core</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\TornadoField.h">
+      <Filter>Header Files\Physics</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Physics\TornadoGameplay.h">
       <Filter>Header Files\Physics</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\WindowConstants.h">

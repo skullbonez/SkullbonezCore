@@ -509,9 +509,44 @@ island-merge tie-breaks.
 
 ### Phase 2 — Evict gameplay
 
-- [ ] **2.1** Move tornado capture/eject arrays + methods out of `PhysicsWorld`
+- [x] **2.1** Move tornado capture/eject arrays + methods out of `PhysicsWorld`
   into a `TornadoGameplay` system that `PhysicsWorld` calls. Gate:
   `validate_physics`. Commit.
+
+  Completed 2026-07-09:
+  - Added `SkullbonezSource/Physics/TornadoGameplay.h/.cpp` as the owner for
+    tornado field/system config, capture timers, eject cooldowns, fixed-tree
+    release scratch, vector rendering, replay timer state, and tornado memory
+    accounting.
+  - Replaced `PhysicsWorld`'s direct tornado vectors/config methods with one
+    `TornadoGameplay` member and a narrow `ApplyTornadoGameplay` call before
+    broadphase, preserving the existing wake path through `WakeModel`.
+  - Wired `TornadoGameplay.cpp` into the app and test projects; added
+    `SolverBroadphaseStage.h` to the production project metadata and extended
+    `tools/validate_project_filters.py` prefixes for the new/previous physics
+    helper files found by the required metadata gate.
+  - Comment audit checked `PhysicsWorld.cpp`, `PhysicsWorld.h`,
+    `TornadoGameplay.cpp`, `TornadoGameplay.h`, `SolverBroadphaseStage.h`, and
+    `tools/validate_project_filters.py`; checked 6, deferred 0, unchecked none.
+  - Gate evidence:
+    - Focused compile: `tools\validate_build.bat Profile` passed in
+      `Agentic\Reports\validate_build_profile_tornado_gameplay_2026-07-09-rerun.log`
+      (14.90s shell runtime; 0 warnings, 0 errors).
+    - Test-project gate: `tools\validate_tests.bat` passed in
+      `Agentic\Reports\validate_tests_tornado_gameplay_2026-07-09-final.log`
+      (1.92s shell runtime; 61/61 doctest cases and 1539/1539 assertions
+      passed).
+    - Tool-change gate: `tools\validate_fast.bat` passed in
+      `Agentic\Reports\validate_fast_tornado_gameplay_2026-07-09-rerun4.log`
+      (57.34s shell runtime; formatting, project filters, runtime boundaries,
+      and Profile/Debug builds passed).
+    - Changed-script gate: `tools\validate_project_filters.bat` passed in
+      `Agentic\Reports\validate_project_filters_tornado_gameplay_2026-07-09.log`
+      (1.12s shell runtime; project filters 0 errors).
+    - Physics gate: `tools\validate_physics.bat` passed in
+      `Agentic\Reports\validate_physics_tornado_gameplay_2026-07-09.log`
+      (14.37s shell runtime; `physics_regression_solver.csv` matched the
+      baseline byte-exact, 20001 lines).
 - [ ] **2.2** Move analytic buoyancy (`RefreshUnderwaterSubmersionForBall`) into
   a buoyancy system. Gate: `validate_physics`. Commit.
 

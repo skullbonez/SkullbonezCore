@@ -184,6 +184,7 @@
     <ClCompile Include="SkullbonezSource\Physics\SpatialGrid.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\TerrainContactManifold.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\TornadoField.cpp" />
+    <ClCompile Include="SkullbonezSource\Physics\TornadoGameplay.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Allocation\RuntimeReserveAllocator.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Allocation\RuntimeAllocationTracker.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\DemoDirector.cpp" />

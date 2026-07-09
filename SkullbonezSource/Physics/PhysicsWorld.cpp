@@ -81,7 +81,6 @@ namespace
 {
 constexpr size_t MAX_PIPELINE_TRACE_RECORDS = 4096;
 constexpr int TERRAIN_BODY_INDEX = -1;
-constexpr float TORNADO_EJECTION_PHASE_HZ = 10.0f;
 constexpr float UNDERWATER_SLEEP_LOCK_SUBMERGED_PERCENT = 0.999f;
 constexpr float EXPLICIT_WAKE_NEIGHBOR_SLOP = 0.50f;
 constexpr float EXPLICIT_WAKE_VERTICAL_SLOP = 0.25f;
@@ -230,9 +229,9 @@ bool SweptSegmentTouchesExpandedBody( const PhysicsBodyRecordList& bodyRecords,
     float t = -( relativeStart * relativeDisplacement ) / relativeLengthSq;
     t = (std::max)( 0.0f, (std::min)( 1.0f, t ) );
     const Vector3 closestRelative = relativeStart + relativeDisplacement * t;
-    const float expandedRadius =
-        SolverBodyRadius( colliderRecords, movingIndex ) + SolverBodyRadius( colliderRecords, targetIndex ) +
-        contactEpsilon + PHYSICS_FAST_SWEEP_PAIR_SLOP;
+    const float expandedRadius = SolverBodyRadius( colliderRecords, movingIndex ) +
+                                 SolverBodyRadius( colliderRecords, targetIndex ) + contactEpsilon +
+                                 PHYSICS_FAST_SWEEP_PAIR_SLOP;
     return Vector::VectorMagSquared( closestRelative ) <= expandedRadius * expandedRadius;
 }
 
@@ -319,8 +318,8 @@ bool IsSleepPrunedCandidatePair( const std::vector<uint8_t>& sleepState, const s
 {
     const int a = pair.first;
     const int b = pair.second;
-    return a >= 0 && b >= 0 && a < static_cast<int>( sleepState.size() ) &&
-           b < static_cast<int>( sleepState.size() ) && sleepState[a] != 0 && sleepState[b] != 0;
+    return a >= 0 && b >= 0 && a < static_cast<int>( sleepState.size() ) && b < static_cast<int>( sleepState.size() ) &&
+           sleepState[a] != 0 && sleepState[b] != 0;
 }
 
 void TryRecordSleepPrunedCandidatePair( std::vector<Physics::PhysicsPipelineRecord>& physicsPipelineTrace,
@@ -338,9 +337,8 @@ void TryRecordSleepPrunedCandidatePair( std::vector<Physics::PhysicsPipelineReco
     record.stage = Physics::PhysicsPipelineStage::SleepPrunedPair;
     record.bodyA = a;
     record.bodyB = b;
-    record.point = ( bodyRecords[static_cast<size_t>( a )].position +
-                     bodyRecords[static_cast<size_t>( b )].position ) *
-                   0.5f;
+    record.point =
+        ( bodyRecords[static_cast<size_t>( a )].position + bodyRecords[static_cast<size_t>( b )].position ) * 0.5f;
     record.scalarA = 1.0f;
     physicsPipelineTrace.push_back( record );
 }
@@ -396,8 +394,8 @@ void WakeSleepingSolverBody( PhysicsBodyStore& bodyStore,
     // Waking re-enters the body into this frame rather than waiting for the
     // next tick. Applying forces immediately keeps gravity and other forces
     // consistent with an awake body that was never asleep.
-    if ( sleepingIndex < 0 || sleepingIndex >= modelCount ||
-         IsSolverBodyFixed( bodyRecords, sleepingIndex ) || !sleepState[sleepingIndex] ||
+    if ( sleepingIndex < 0 || sleepingIndex >= modelCount || IsSolverBodyFixed( bodyRecords, sleepingIndex ) ||
+         !sleepState[sleepingIndex] ||
          ( sleepingIndex < static_cast<int>( underwaterSleepLocked.size() ) && underwaterSleepLocked[sleepingIndex] ) )
     {
         return;
@@ -421,8 +419,8 @@ ObjectContactBodyView ObjectContactBodyViewAtTime( const PhysicsBodyRecordList& 
 }
 
 TerrainContactBodyView TerrainContactBodyViewForIndex( const PhysicsBodyRecordList& bodyRecords,
-                                                        const SkullbonezCore::Basics::EngineConfig& config,
-                                                        int index )
+                                                       const SkullbonezCore::Basics::EngineConfig& config,
+                                                       int index )
 {
     const PhysicsBodyRecord& record = bodyRecords[static_cast<size_t>( index )];
     TerrainContactBodyView body;
@@ -636,9 +634,9 @@ bool ObjectPairNeedsSweptCcd( const PhysicsBodyRecordList& bodyRecords,
     const PhysicsBodyRecord& bodyB = bodyRecords[static_cast<size_t>( bodyBIndex )];
     const Vector3 relativeLinearDisplacement = ( bodyA.linearVelocity - bodyB.linearVelocity ) * availableTime;
     const float linearTravel = Vector::VectorMag( relativeLinearDisplacement );
-    const float angularTravel =
-        ( Vector::VectorMag( bodyA.angularVelocity ) * radiusA + Vector::VectorMag( bodyB.angularVelocity ) * radiusB ) *
-        availableTime;
+    const float angularTravel = ( Vector::VectorMag( bodyA.angularVelocity ) * radiusA +
+                                  Vector::VectorMag( bodyB.angularVelocity ) * radiusB ) *
+                                availableTime;
     const float sweptTravel = linearTravel + angularTravel;
     const float smallerRadius = (std::min)( radiusA, radiusB );
     const float ccdThreshold =
@@ -689,8 +687,14 @@ struct ApplyForcesStageContext
 
     void operator()( int bodyIndex ) const
     {
-        ApplyForcesForSolverBody(
-            bodyStore, colliderStore, worldForces, bodyRecords, sleepState, timeRemaining, bodyIndex, dt );
+        ApplyForcesForSolverBody( bodyStore,
+                                  colliderStore,
+                                  worldForces,
+                                  bodyRecords,
+                                  sleepState,
+                                  timeRemaining,
+                                  bodyIndex,
+                                  dt );
     }
 };
 
@@ -814,22 +818,6 @@ void ReserveReplaySolverSnapshotVector( std::vector<T>& values, std::size_t requ
     }
 }
 
-Vector3 ClampVectorMagnitude( const Vector3& value, float maxMagnitude )
-{
-    if ( maxMagnitude <= TOLERANCE )
-    {
-        return ZERO_VECTOR;
-    }
-
-    const float magSq = value * value;
-    const float maxSq = maxMagnitude * maxMagnitude;
-    if ( magSq <= maxSq || magSq <= TOLERANCE * TOLERANCE )
-    {
-        return value;
-    }
-
-    return value * ( maxMagnitude / sqrtf( magSq ) );
-}
 } // namespace
 
 
@@ -846,8 +834,6 @@ PhysicsWorld::PhysicsWorld()
     m_sleepState.reserve( MAX_GAME_MODELS );
     m_sleepCounter.reserve( MAX_GAME_MODELS );
     m_underwaterSleepLocked.reserve( MAX_GAME_MODELS );
-    m_tornadoCaptureSeconds.reserve( MAX_GAME_MODELS );
-    m_tornadoEjectCooldownSeconds.reserve( MAX_GAME_MODELS );
     m_collisionVisualContacts.reserve( MAX_GAME_MODELS );
     m_sleepIslandVisualId.reserve( MAX_GAME_MODELS );
     m_sleepIslandAssignedVisualId.reserve( MAX_GAME_MODELS );
@@ -863,7 +849,6 @@ PhysicsWorld::PhysicsWorld()
     m_sleepIslandPointJointsRelaxed.reserve( MAX_GAME_MODELS );
     m_sleepVisualIslandIds.reserve( MAX_GAME_MODELS );
     m_sleepVisualIslandBodies.reserve( MAX_GAME_MODELS );
-    m_tornadoFixedTreeReleaseWakeBodies.reserve( MAX_GAME_MODELS );
     m_persistentContacts.reserve( MAX_GAME_MODELS * 4 );
     m_persistentContactCache.reserve( MAX_GAME_MODELS * 4 );
     m_persistentContactCounts.reserve( MAX_GAME_MODELS );
@@ -909,11 +894,7 @@ void PhysicsWorld::Clear()
     m_sleepState.clear();
     m_sleepCounter.clear();
     m_underwaterSleepLocked.clear();
-    m_tornadoCaptureSeconds.clear();
-    m_tornadoEjectCooldownSeconds.clear();
-    m_tornadoFixedTreeReleaseWakeBodies.clear();
-    m_tornadoSystem.SetConfig( TornadoSystemConfig() );
-    m_tornadoSystem.ResetElapsedSeconds();
+    m_tornadoGameplay.Clear();
     m_collisionVisualContacts.clear();
     m_sleepIslandVisualId.clear();
     m_sleepIslandAssignedVisualId.clear();
@@ -990,9 +971,9 @@ void PhysicsWorld::CaptureReplaySolverSnapshot( ReplaySolverWorldSnapshot& outSn
     outSnapshot.nextSleepIslandVisualId = m_nextSleepIslandVisualId;
     outSnapshot.sleepEnabled = m_sleepEnabled;
     outSnapshot.collisionVisualFrameActive = m_collisionVisualFrameActive;
-    outSnapshot.tornadoConfig = m_tornadoField.GetConfig();
-    outSnapshot.tornadoSystemConfig = m_tornadoSystem.GetConfig();
-    outSnapshot.tornadoSystemElapsedSeconds = m_tornadoSystem.GetElapsedSeconds();
+    outSnapshot.tornadoConfig = m_tornadoGameplay.GetFieldConfig();
+    outSnapshot.tornadoSystemConfig = m_tornadoGameplay.GetSystemConfig();
+    outSnapshot.tornadoSystemElapsedSeconds = m_tornadoGameplay.GetSystemElapsedSeconds();
     // Runtime allocation policy: a solver snapshot owns many typed vectors.
     // Batch their byte budget into one replay approval, then reserve individual
     // vectors inside that owner scope so replay diagnostics stay readable.
@@ -1011,8 +992,8 @@ void PhysicsWorld::CaptureReplaySolverSnapshot( ReplaySolverWorldSnapshot& outSn
     includeSnapshotReserve( outSnapshot.sleepState, m_sleepState.size() );
     includeSnapshotReserve( outSnapshot.sleepCounter, m_sleepCounter.size() );
     includeSnapshotReserve( outSnapshot.underwaterSleepLocked, m_underwaterSleepLocked.size() );
-    includeSnapshotReserve( outSnapshot.tornadoCaptureSeconds, m_tornadoCaptureSeconds.size() );
-    includeSnapshotReserve( outSnapshot.tornadoEjectCooldownSeconds, m_tornadoEjectCooldownSeconds.size() );
+    includeSnapshotReserve( outSnapshot.tornadoCaptureSeconds, m_tornadoGameplay.CaptureSeconds().size() );
+    includeSnapshotReserve( outSnapshot.tornadoEjectCooldownSeconds, m_tornadoGameplay.EjectCooldownSeconds().size() );
     includeSnapshotReserve( outSnapshot.collisionVisualContacts, m_collisionVisualContacts.size() );
     includeSnapshotReserve( outSnapshot.sleepIslandVisualId, m_sleepIslandVisualId.size() );
     includeSnapshotReserve( outSnapshot.sleepIslandAssignedVisualId, m_sleepIslandAssignedVisualId.size() );
@@ -1046,10 +1027,10 @@ void PhysicsWorld::CaptureReplaySolverSnapshot( ReplaySolverWorldSnapshot& outSn
                                            m_underwaterSleepLocked.size(),
                                            "underwaterSleepLocked" );
         ReserveReplaySolverSnapshotVector( outSnapshot.tornadoCaptureSeconds,
-                                           m_tornadoCaptureSeconds.size(),
+                                           m_tornadoGameplay.CaptureSeconds().size(),
                                            "tornadoCaptureSeconds" );
         ReserveReplaySolverSnapshotVector( outSnapshot.tornadoEjectCooldownSeconds,
-                                           m_tornadoEjectCooldownSeconds.size(),
+                                           m_tornadoGameplay.EjectCooldownSeconds().size(),
                                            "tornadoEjectCooldownSeconds" );
         ReserveReplaySolverSnapshotVector( outSnapshot.collisionVisualContacts,
                                            m_collisionVisualContacts.size(),
@@ -1137,8 +1118,8 @@ void PhysicsWorld::CaptureReplaySolverSnapshot( ReplaySolverWorldSnapshot& outSn
     outSnapshot.sleepState = m_sleepState;
     outSnapshot.sleepCounter = m_sleepCounter;
     outSnapshot.underwaterSleepLocked = m_underwaterSleepLocked;
-    outSnapshot.tornadoCaptureSeconds = m_tornadoCaptureSeconds;
-    outSnapshot.tornadoEjectCooldownSeconds = m_tornadoEjectCooldownSeconds;
+    outSnapshot.tornadoCaptureSeconds = m_tornadoGameplay.CaptureSeconds();
+    outSnapshot.tornadoEjectCooldownSeconds = m_tornadoGameplay.EjectCooldownSeconds();
     outSnapshot.collisionVisualContacts = m_collisionVisualContacts;
     outSnapshot.sleepIslandVisualId = m_sleepIslandVisualId;
     outSnapshot.sleepIslandAssignedVisualId = m_sleepIslandAssignedVisualId;
@@ -1223,8 +1204,6 @@ bool PhysicsWorld::RestoreReplaySolverSnapshot( const ReplaySolverWorldSnapshot&
     m_sleepState = snapshot.sleepState;
     m_sleepCounter = snapshot.sleepCounter;
     m_underwaterSleepLocked = snapshot.underwaterSleepLocked;
-    m_tornadoCaptureSeconds = snapshot.tornadoCaptureSeconds;
-    m_tornadoEjectCooldownSeconds = snapshot.tornadoEjectCooldownSeconds;
     m_collisionVisualContacts = snapshot.collisionVisualContacts;
     m_sleepIslandVisualId = snapshot.sleepIslandVisualId;
     m_sleepIslandAssignedVisualId = snapshot.sleepIslandAssignedVisualId;
@@ -1243,9 +1222,11 @@ bool PhysicsWorld::RestoreReplaySolverSnapshot( const ReplaySolverWorldSnapshot&
     m_physicsDebugContacts = snapshot.debugContacts;
     m_physicsPipelineTrace = snapshot.pipelineTrace;
     m_collisionCellKeys = snapshot.collisionCellKeys;
-    m_tornadoField.SetConfig( snapshot.tornadoConfig );
-    m_tornadoSystem.SetConfig( snapshot.tornadoSystemConfig );
-    m_tornadoSystem.SetElapsedSeconds( snapshot.tornadoSystemElapsedSeconds );
+    m_tornadoGameplay.SetReplayState( snapshot.tornadoCaptureSeconds,
+                                      snapshot.tornadoEjectCooldownSeconds,
+                                      snapshot.tornadoConfig,
+                                      snapshot.tornadoSystemConfig,
+                                      snapshot.tornadoSystemElapsedSeconds );
 
     m_persistentContacts.clear();
     m_persistentContacts.reserve( snapshot.persistentContacts.size() );
@@ -1330,19 +1311,6 @@ void PhysicsWorld::EnsureCollisionVisualBuffers( int modelCount )
     if ( static_cast<int>( m_sleepIslandVisualId.size() ) != modelCount )
     {
         m_sleepIslandVisualId.assign( modelCount, 0 );
-    }
-}
-
-
-void PhysicsWorld::EnsureTornadoStateBuffers( int modelCount )
-{
-    if ( static_cast<int>( m_tornadoCaptureSeconds.size() ) != modelCount )
-    {
-        m_tornadoCaptureSeconds.assign( modelCount, 0.0f );
-    }
-    if ( static_cast<int>( m_tornadoEjectCooldownSeconds.size() ) != modelCount )
-    {
-        m_tornadoEjectCooldownSeconds.assign( modelCount, 0.0f );
     }
 }
 
@@ -1964,240 +1932,71 @@ bool PhysicsWorld::IsPhysicsSleepEnabled() const
 }
 
 
-void PhysicsWorld::ApplyTornadoField( PhysicsBodyStore& bodyStore,
-                                      const ColliderStore& colliderStore,
-                                      const PhysicsWorldForces& worldForces,
-                                      float dt,
-                                      const Basics::EngineConfig& runtimeConfig,
-                                      Threading::WorkerPool& workerPool )
+void PhysicsWorld::ApplyTornadoGameplay( PhysicsBodyStore& bodyStore,
+                                         const ColliderStore& colliderStore,
+                                         const PhysicsWorldForces& worldForces,
+                                         float dt,
+                                         const Basics::EngineConfig& runtimeConfig,
+                                         Threading::WorkerPool& workerPool )
 {
-    const TornadoFieldConfig& config = m_tornadoField.GetConfig();
-    const float step = (std::max)( 0.0f, dt );
-    const bool useSystem = m_tornadoSystem.IsEnabled();
-    if ( useSystem )
-    {
-        m_tornadoSystem.Tick( step );
-    }
-    const std::vector<TornadoActiveVortex>& activeVortices = m_tornadoSystem.ActiveVortices();
-    if ( ( !useSystem && !config.enabled ) || ( useSystem && activeVortices.empty() ) )
+    const TornadoGameplayStepState stepState = m_tornadoGameplay.BeginStep( dt );
+    if ( !stepState.active )
     {
         return;
     }
 
     PROFILE_SCOPED( "Frame/Physics/TornadoField" );
-    auto& bodyRecords = bodyStore.MutableRecords();
-    auto sampleAcceleration =
-        [&]( const Vector3& position, TornadoFieldConfig& outBestConfig, float& outBestAccelerationSq ) -> Vector3
+    const std::vector<int>& releaseWakeBodies = m_tornadoGameplay.ReleaseFixedBodies( stepState, bodyStore );
+    for ( int releasedIndex : releaseWakeBodies )
     {
-        Vector3 acceleration = ZERO_VECTOR;
-        outBestConfig = config;
-        outBestAccelerationSq = 0.0f;
-        if ( useSystem )
-        {
-            for ( const TornadoActiveVortex& vortex : activeVortices )
-            {
-                const Vector3 sample = TornadoField::SampleAccelerationForConfig( vortex.field, position );
-                const float sampleSq = sample * sample;
-                acceleration += sample;
-                if ( sampleSq > outBestAccelerationSq )
-                {
-                    outBestAccelerationSq = sampleSq;
-                    outBestConfig = vortex.field;
-                }
-            }
-        }
-        else
-        {
-            acceleration = m_tornadoField.SampleAcceleration( position );
-            outBestAccelerationSq = acceleration * acceleration;
-        }
-        return acceleration;
-    };
-
-    if ( useSystem )
-    {
-        for ( int i = 0; i < bodyStore.Count(); ++i )
-        {
-            PhysicsBodyRecord& record = bodyRecords[static_cast<size_t>( i )];
-            if ( !record.isFixed || !record.releasesFromFixedOnContact )
-            {
-                continue;
-            }
-
-            TornadoFieldConfig bestConfig;
-            float bestAccelerationSq = 0.0f;
-            const Vector3 acceleration =
-                sampleAcceleration( bodyRecords[static_cast<size_t>( i )].position, bestConfig, bestAccelerationSq );
-            const float releaseAcceleration = (std::max)( 16.0f, record.contactReleaseImpulseThreshold * 32.0f );
-            if ( bestAccelerationSq < releaseAcceleration * releaseAcceleration )
-            {
-                continue;
-            }
-
-            const Vector3 seedLinearVelocity =
-                ClampVectorMagnitude( acceleration * 0.08f, (std::max)( 10.0f, bestConfig.maxDeltaVelocity * 1.5f ) );
-            const Vector3 seedAngularVelocity( seedLinearVelocity.z * 0.08f, 0.0f, -seedLinearVelocity.x * 0.08f );
-            // Why: tornado release runs before broadphase and the parallel
-            // tornado pass. Mutate the body store directly so later fixed
-            // checks see dynamic bodies from the authoritative row.
-            PhysicsBodyStore::ReleaseFixedRecord( record, seedLinearVelocity, seedAngularVelocity );
-            WakeModel( bodyStore, colliderStore, worldForces, i );
-            bodyStore.ReleaseAttachedFixedTreeParts(
-                PhysicsFixedTreeReleaseEvent{ i, seedLinearVelocity, seedAngularVelocity },
-                m_tornadoFixedTreeReleaseWakeBodies );
-            for ( int releasedIndex : m_tornadoFixedTreeReleaseWakeBodies )
-            {
-                WakeModel( bodyStore, colliderStore, worldForces, releasedIndex );
-            }
-        }
+        WakeModel( bodyStore, colliderStore, worldForces, releasedIndex );
     }
 
-    const int modelCount =
-        (std::min)( { bodyStore.Count(), static_cast<int>( bodyRecords.size() ), colliderStore.Count() } );
-    EnsureTornadoStateBuffers( modelCount );
-
-    auto applyTornadoAt = [&]( int i )
-    {
-        if ( bodyRecords[static_cast<size_t>( i )].isFixed || IsUnderwaterSleepLocked( modelCount, i ) )
-        {
-            m_tornadoCaptureSeconds[i] = 0.0f;
-            m_tornadoEjectCooldownSeconds[i] = 0.0f;
-            return;
-        }
-
-        const Vector3 position = bodyRecords[static_cast<size_t>( i )].position;
-        TornadoFieldConfig bestConfig;
-        float bestAccelerationSq = 0.0f;
-        Vector3 acceleration = sampleAcceleration( position, bestConfig, bestAccelerationSq );
-        const float dx = position.x - bestConfig.center.x;
-        const float dz = position.z - bestConfig.center.z;
-        const float horizontalSq = dx * dx + dz * dz;
-        const float horizontal = sqrtf( horizontalSq );
-        const float height = (std::max)( bestConfig.height, 1.0f );
-        const float height01 = ( position.y - bestConfig.center.y ) / height;
-        if ( bestAccelerationSq <= TOLERANCE * TOLERANCE )
-        {
-            m_tornadoCaptureSeconds[i] = 0.0f;
-            m_tornadoEjectCooldownSeconds[i] = (std::max)( 0.0f, m_tornadoEjectCooldownSeconds[i] - step );
-            return;
-        }
-
-        if ( m_sleepState[i] )
-        {
-            m_sleepState[i] = 0;
-            m_sleepCounter[i] = 0;
-            m_sleepIslandVisualId[i] = 0;
-            m_timeRemaining[i] = dt;
-            bodyRecords[static_cast<size_t>( i )].isSleeping = false;
-            (void)bodyStore.ApplyForces( worldForces, colliderStore, i, dt );
-        }
-
-        Vector3 velocity = bodyRecords[static_cast<size_t>( i )].linearVelocity;
-        m_tornadoCaptureSeconds[i] += step;
-        m_tornadoEjectCooldownSeconds[i] = (std::max)( 0.0f, m_tornadoEjectCooldownSeconds[i] - step );
-
-        const float ejectBand = std::clamp( bestConfig.ejectBand, 0.0f, 1.0f );
-        const float minCaptureSeconds = (std::max)( 0.0f, bestConfig.minCaptureSeconds );
-        const float cooldownSeconds = (std::max)( 0.0f, bestConfig.ejectCooldownSeconds );
-        const float maxDeltaVelocity = (std::max)( 1.0f, bestConfig.maxDeltaVelocity );
-        const float minTangentialSpeed = (std::max)( 18.0f, bestConfig.swirlAcceleration * 0.12f );
-        Vector3 outward;
-        if ( horizontal > TOLERANCE )
-        {
-            outward = Vector3( dx / horizontal, 0.0f, dz / horizontal );
-        }
-        else
-        {
-            switch ( i & 3 )
-            {
-            case 0:
-                outward = Vector3( 1.0f, 0.0f, 0.0f );
-                break;
-            case 1:
-                outward = Vector3( 0.0f, 0.0f, 1.0f );
-                break;
-            case 2:
-                outward = Vector3( -1.0f, 0.0f, 0.0f );
-                break;
-            default:
-                outward = Vector3( 0.0f, 0.0f, -1.0f );
-                break;
-            }
-        }
-
-        const Vector3 tangent( -outward.z, 0.0f, outward.x );
-        const float tangentialSpeed = fabsf( velocity * tangent );
-        const int captureBucket = static_cast<int>( m_tornadoCaptureSeconds[i] * TORNADO_EJECTION_PHASE_HZ );
-        const bool deterministicSlot = ( ( i + captureBucket ) % 3 ) == 0;
-        if ( height01 >= ejectBand && m_tornadoCaptureSeconds[i] >= minCaptureSeconds &&
-             m_tornadoEjectCooldownSeconds[i] <= 0.0f && tangentialSpeed >= minTangentialSpeed && deterministicSlot )
-        {
-            acceleration +=
-                outward * bestConfig.ejectAcceleration + Vector3( 0.0f, bestConfig.ejectUpAcceleration, 0.0f );
-            m_tornadoCaptureSeconds[i] = 0.0f;
-            m_tornadoEjectCooldownSeconds[i] = cooldownSeconds;
-        }
-
-        velocity += ClampVectorMagnitude( acceleration * step, maxDeltaVelocity );
-        bodyRecords[static_cast<size_t>( i )].linearVelocity = velocity;
-    };
-
-    if ( runtimeConfig.physicsParallel && runtimeConfig.physicsParallelTornadoField )
-    {
-        workerPool.ParallelForNoAlloc( 0,
-                                       modelCount,
-                                       applyTornadoAt,
-                                       PHYSICS_PARALLEL_MIN_BODIES,
-                                       "Frame/Physics/TornadoField/WorkerBodies",
-                                       PHYSICS_TORNADO_WORKER_HASH );
-    }
-    else
-    {
-        for ( int i = 0; i < modelCount; ++i )
-        {
-            applyTornadoAt( i );
-        }
-    }
+    TornadoBodyForceContext tornadoBodyForceContext{ bodyStore,
+                                                     colliderStore,
+                                                     worldForces,
+                                                     m_sleepState,
+                                                     m_sleepCounter,
+                                                     m_sleepIslandVisualId,
+                                                     m_timeRemaining,
+                                                     m_underwaterSleepLocked,
+                                                     dt,
+                                                     runtimeConfig,
+                                                     workerPool,
+                                                     PHYSICS_PARALLEL_MIN_BODIES,
+                                                     "Frame/Physics/TornadoField/WorkerBodies",
+                                                     PHYSICS_TORNADO_WORKER_HASH };
+    m_tornadoGameplay.ApplyBodyForces( stepState, tornadoBodyForceContext );
 }
 
 
 void PhysicsWorld::SetTornadoFieldConfig( const TornadoFieldConfig& config )
 {
-    m_tornadoField.SetConfig( config );
-    if ( !m_tornadoField.GetConfig().enabled )
-    {
-        m_tornadoCaptureSeconds.clear();
-        m_tornadoEjectCooldownSeconds.clear();
-    }
+    m_tornadoGameplay.SetFieldConfig( config );
 }
 
 
 const TornadoFieldConfig& PhysicsWorld::GetTornadoFieldConfig() const
 {
-    return m_tornadoField.GetConfig();
+    return m_tornadoGameplay.GetFieldConfig();
 }
 
 
 void PhysicsWorld::SetTornadoSystemConfig( const TornadoSystemConfig& config )
 {
-    m_tornadoSystem.SetConfig( config );
-    if ( !m_tornadoSystem.IsEnabled() && !m_tornadoField.GetConfig().enabled )
-    {
-        m_tornadoCaptureSeconds.clear();
-        m_tornadoEjectCooldownSeconds.clear();
-    }
+    m_tornadoGameplay.SetSystemConfig( config );
 }
 
 
 const TornadoSystemConfig& PhysicsWorld::GetTornadoSystemConfig() const
 {
-    return m_tornadoSystem.GetConfig();
+    return m_tornadoGameplay.GetSystemConfig();
 }
 
 
 float PhysicsWorld::GetTornadoSystemElapsedSeconds() const
 {
-    return m_tornadoSystem.GetElapsedSeconds();
+    return m_tornadoGameplay.GetSystemElapsedSeconds();
 }
 
 
@@ -2205,12 +2004,7 @@ void PhysicsWorld::RenderTornadoFieldVectors( const Math::Transformation::Matrix
                                               Rendering::IRenderCommandContext& renderCommands,
                                               bool supportsDebugLines )
 {
-    if ( m_tornadoSystem.IsEnabled() )
-    {
-        m_tornadoSystem.RenderVectors( viewProj, renderCommands, supportsDebugLines );
-        return;
-    }
-    m_tornadoField.RenderVectors( viewProj, renderCommands, supportsDebugLines );
+    m_tornadoGameplay.RenderVectors( viewProj, renderCommands, supportsDebugLines );
 }
 
 
@@ -2732,8 +2526,7 @@ void PhysicsWorld::WriteObjectCollisionCellEvent( ObjectNarrowphaseEvent& event,
     const int16_t cx = static_cast<int16_t>( floorf( midpoint.x * invCellSize ) );
     const int16_t cy = static_cast<int16_t>( floorf( midpoint.y * invCellSize ) );
     const int16_t cz = static_cast<int16_t>( floorf( midpoint.z * invCellSize ) );
-    event.collisionCellKey = ( int64_t( cx ) * 73856093 ) ^ ( int64_t( cy ) * 19349663 ) ^
-                             ( int64_t( cz ) * 83492791 );
+    event.collisionCellKey = ( int64_t( cx ) * 73856093 ) ^ ( int64_t( cy ) * 19349663 ) ^ ( int64_t( cz ) * 83492791 );
     event.hasCollisionCellKey = 1;
 }
 
@@ -2802,14 +2595,13 @@ void PhysicsWorld::ProcessObjectNarrowphasePair( const ObjectNarrowphasePairStag
             // Swept impact wakes immediately when time remains; persistent
             // overlap wakes too so sleepers cannot stay frozen after a hit.
             bool wokeBySweptImpact = false;
-            if ( context.timeRemaining[y] > 0.0f &&
-                 ObjectPairNeedsSweptCcd( context.bodyRecords,
-                                          context.colliderRecords,
-                                          context.persistentContactCache,
-                                          y,
-                                          x,
-                                          context.timeRemaining[y],
-                                          context.contactSkin ) )
+            if ( context.timeRemaining[y] > 0.0f && ObjectPairNeedsSweptCcd( context.bodyRecords,
+                                                                             context.colliderRecords,
+                                                                             context.persistentContactCache,
+                                                                             y,
+                                                                             x,
+                                                                             context.timeRemaining[y],
+                                                                             context.contactSkin ) )
             {
                 ObjectContactSweepResult sweep =
                     SweepObjectPair( context.bodyRecords, context.colliderRecords, y, x, context.timeRemaining[y] );
@@ -2857,8 +2649,11 @@ void PhysicsWorld::ProcessObjectNarrowphasePair( const ObjectNarrowphasePairStag
                     WriteObjectCollisionCellEvent( event, context.bodyRecords, x, y, context.invCellSize );
                 }
             }
-            if ( !wokeBySweptImpact &&
-                 HasPersistentWakeContact( context.bodyRecords, context.colliderRecords, y, x, context.contactEpsilon ) )
+            if ( !wokeBySweptImpact && HasPersistentWakeContact( context.bodyRecords,
+                                                                 context.colliderRecords,
+                                                                 y,
+                                                                 x,
+                                                                 context.contactEpsilon ) )
             {
                 Physics::PhysicsPipelineRecord record;
                 record.stage = Physics::PhysicsPipelineStage::WakeDecision;
@@ -2898,14 +2693,13 @@ void PhysicsWorld::ProcessObjectNarrowphasePair( const ObjectNarrowphasePairStag
                 return;
             }
             bool wokeBySweptImpact = false;
-            if ( context.timeRemaining[x] > 0.0f &&
-                 ObjectPairNeedsSweptCcd( context.bodyRecords,
-                                          context.colliderRecords,
-                                          context.persistentContactCache,
-                                          x,
-                                          y,
-                                          context.timeRemaining[x],
-                                          context.contactSkin ) )
+            if ( context.timeRemaining[x] > 0.0f && ObjectPairNeedsSweptCcd( context.bodyRecords,
+                                                                             context.colliderRecords,
+                                                                             context.persistentContactCache,
+                                                                             x,
+                                                                             y,
+                                                                             context.timeRemaining[x],
+                                                                             context.contactSkin ) )
             {
                 ObjectContactSweepResult sweep =
                     SweepObjectPair( context.bodyRecords, context.colliderRecords, x, y, context.timeRemaining[x] );
@@ -2953,8 +2747,11 @@ void PhysicsWorld::ProcessObjectNarrowphasePair( const ObjectNarrowphasePairStag
                     WriteObjectCollisionCellEvent( event, context.bodyRecords, x, y, context.invCellSize );
                 }
             }
-            if ( !wokeBySweptImpact &&
-                 HasPersistentWakeContact( context.bodyRecords, context.colliderRecords, x, y, context.contactEpsilon ) )
+            if ( !wokeBySweptImpact && HasPersistentWakeContact( context.bodyRecords,
+                                                                 context.colliderRecords,
+                                                                 x,
+                                                                 y,
+                                                                 context.contactEpsilon ) )
             {
                 Physics::PhysicsPipelineRecord record;
                 record.stage = Physics::PhysicsPipelineStage::WakeDecision;
@@ -3019,7 +2816,8 @@ void PhysicsWorld::ProcessObjectNarrowphasePair( const ObjectNarrowphasePairStag
         return;
     }
 
-    ObjectContactSweepResult sweep = SweepObjectPair( context.bodyRecords, context.colliderRecords, x, y, availableTime );
+    ObjectContactSweepResult sweep =
+        SweepObjectPair( context.bodyRecords, context.colliderRecords, x, y, availableTime );
 
     if ( sweep.hit )
     {
@@ -3034,9 +2832,9 @@ void PhysicsWorld::ProcessObjectNarrowphasePair( const ObjectNarrowphasePairStag
         record.stage = Physics::PhysicsPipelineStage::SweptObjectHit;
         record.bodyA = x;
         record.bodyB = y;
-        record.point =
-            ( context.bodyRecords[static_cast<size_t>( x )].position + context.bodyRecords[static_cast<size_t>( y )].position ) *
-            0.5f;
+        record.point = ( context.bodyRecords[static_cast<size_t>( x )].position +
+                         context.bodyRecords[static_cast<size_t>( y )].position ) *
+                       0.5f;
         record.scalarA = colTime;
         record.scalarB = availableTime;
         RecordObjectNarrowphaseEvent( event, ObjectNarrowphaseEventKind::SweptObjectHit, record );
@@ -3058,9 +2856,9 @@ void PhysicsWorld::ProcessObjectNarrowphasePair( const ObjectNarrowphasePairStag
         record.stage = Physics::PhysicsPipelineStage::SweptObjectMiss;
         record.bodyA = x;
         record.bodyB = y;
-        record.point =
-            ( context.bodyRecords[static_cast<size_t>( x )].position + context.bodyRecords[static_cast<size_t>( y )].position ) *
-            0.5f;
+        record.point = ( context.bodyRecords[static_cast<size_t>( x )].position +
+                         context.bodyRecords[static_cast<size_t>( y )].position ) *
+                       0.5f;
         record.scalarA = availableTime;
         RecordObjectNarrowphaseEvent( event, ObjectNarrowphaseEventKind::SweptObjectMiss, record );
     }
@@ -3234,11 +3032,10 @@ void PhysicsWorld::DetectTerrainAt( const TerrainDetectionStageContext& context,
     }
 
     candidate.availableTime = context.timeRemaining[bodyIndex];
-    candidate.sweep = SweepTerrainContact( TerrainContactBodyViewForIndex( context.bodyRecords,
-                                                                           context.config,
-                                                                           bodyIndex ),
-                                           context.colliderRecords[static_cast<size_t>( bodyIndex )].shape,
-                                           candidate.availableTime );
+    candidate.sweep =
+        SweepTerrainContact( TerrainContactBodyViewForIndex( context.bodyRecords, context.config, bodyIndex ),
+                             context.colliderRecords[static_cast<size_t>( bodyIndex )].shape,
+                             candidate.availableTime );
     candidate.tested = 1;
 }
 
@@ -3260,22 +3057,20 @@ void PhysicsWorld::CommitTerrainCandidate( const TerrainCandidateCommitContext& 
         (void)context.bodyStore.IntegrateBodyPose( context.colliderStore, bodyIndex, colTime );
         const float remainingTime = (std::max)( 0.0f, availableTime - colTime );
         Physics::TerrainContactManifold manifold;
-        const bool hasManifold =
-            Physics::BuildTerrainContactManifold( TerrainContactBodyViewForIndex( context.bodyRecords,
-                                                                                  context.config,
-                                                                                  bodyIndex ),
-                                                  context.colliderRecords[static_cast<size_t>( bodyIndex )].shape,
-                                                  bodyIndex,
-                                                  sweep,
-                                                  availableTime,
-                                                  manifold );
+        const bool hasManifold = Physics::BuildTerrainContactManifold(
+            TerrainContactBodyViewForIndex( context.bodyRecords, context.config, bodyIndex ),
+            context.colliderRecords[static_cast<size_t>( bodyIndex )].shape,
+            bodyIndex,
+            sweep,
+            availableTime,
+            manifold );
 
         Physics::PhysicsPipelineRecord record;
         record.stage = Physics::PhysicsPipelineStage::TerrainHit;
         record.bodyA = bodyIndex;
         record.bodyB = TERRAIN_BODY_INDEX;
-        record.point = hasManifold ? manifold.points[0].point
-                                   : context.bodyRecords[static_cast<size_t>( bodyIndex )].position;
+        record.point =
+            hasManifold ? manifold.points[0].point : context.bodyRecords[static_cast<size_t>( bodyIndex )].position;
         record.normal = hasManifold ? manifold.normal : ZERO_VECTOR;
         record.scalarA = colTime;
         record.scalarB = hasManifold && manifold.supportsRestingPolicy ? 1.0f : 0.0f;
@@ -3909,13 +3704,19 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
     }
     PROFILE_END( "Frame/Physics/ApplyForces" );
 
-    ApplyTornadoField( bodyStore, colliderStore, worldForces, dt, config, workerPool );
+    ApplyTornadoGameplay( bodyStore, colliderStore, worldForces, dt, config, workerPool );
 
     // Broadphase: build spatial grid from all object positions (include sleeping for wake detection)
     std::vector<std::pair<int, int>>& candidatePairs = m_candidatePairs;
     const float contactSkin = (std::max)( 0.0f, config.contactEpsilon );
-    BuildSolverBroadphaseCandidatePairs(
-        bodyStore, bodyRecords, colliderRecords, config, modelCount, dt, contactSkin, candidatePairs );
+    BuildSolverBroadphaseCandidatePairs( bodyStore,
+                                         bodyRecords,
+                                         colliderRecords,
+                                         config,
+                                         modelCount,
+                                         dt,
+                                         contactSkin,
+                                         candidatePairs );
 
     // Object/object CCD front-end: wake sleepers and advance swept hits to a
     // contact candidate, but leave velocity response to the persistent rows.
@@ -3990,8 +3791,11 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
 
     if ( !ranParallelNarrowphase )
     {
-        ProcessObjectNarrowphasePairsSerial(
-            objectNarrowphasePairContext, candidatePairCount, diagnosticNames, diagnosticNameCount, diagnosticsCsvWriter );
+        ProcessObjectNarrowphasePairsSerial( objectNarrowphasePairContext,
+                                             candidatePairCount,
+                                             diagnosticNames,
+                                             diagnosticNameCount,
+                                             diagnosticsCsvWriter );
     }
     PROFILE_END( "Frame/Physics/Narrowphase" );
 
@@ -4132,9 +3936,6 @@ uint64_t PhysicsWorld::CollectMemoryBytes() const
     bytes += VectorCapacityBytes( m_sleepState );
     bytes += VectorCapacityBytes( m_sleepCounter );
     bytes += VectorCapacityBytes( m_underwaterSleepLocked );
-    bytes += VectorCapacityBytes( m_tornadoCaptureSeconds );
-    bytes += VectorCapacityBytes( m_tornadoEjectCooldownSeconds );
-    bytes += VectorCapacityBytes( m_tornadoFixedTreeReleaseWakeBodies );
     bytes += VectorCapacityBytes( m_collisionVisualContacts );
     bytes += VectorCapacityBytes( m_sleepIslandVisualId );
     bytes += VectorCapacityBytes( m_sleepIslandAssignedVisualId );
@@ -4170,8 +3971,7 @@ uint64_t PhysicsWorld::CollectMemoryBytes() const
     bytes += VectorCapacityBytes( m_restingWakeQueueScratch );
     bytes += VectorCapacityBytes( m_pointJointConstraints );
     bytes += VectorCapacityBytes( m_collisionCellKeys );
-    bytes += static_cast<uint64_t>( m_tornadoField.DynamicMemoryBytes() );
-    bytes += static_cast<uint64_t>( m_tornadoSystem.DynamicMemoryBytes() );
+    bytes += m_tornadoGameplay.CollectMemoryBytes();
     return bytes;
 }
 
@@ -4184,7 +3984,7 @@ uint64_t PhysicsWorld::CollectDebugAndBroadphaseMemoryBytes() const
     bytes += VectorCapacityBytes( m_sleepIslandVisualId );
     bytes += VectorCapacityBytes( m_physicsDebugContacts );
     bytes += VectorCapacityBytes( m_physicsPipelineTrace );
-    bytes += static_cast<uint64_t>( m_tornadoField.DynamicMemoryBytes() );
+    bytes += m_tornadoGameplay.CollectDebugMemoryBytes();
     return bytes;
 }
 

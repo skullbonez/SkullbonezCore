@@ -48,7 +48,7 @@ Related:
 #include "SleepIslandSystem.h"
 #include "SpatialGrid.h"
 #include "TerrainContactManifold.h"
-#include "TornadoField.h"
+#include "TornadoGameplay.h"
 
 namespace SkullbonezCore
 {
@@ -119,11 +119,6 @@ class PhysicsWorld
     std::vector<uint8_t> m_sleepState;
     std::vector<uint8_t> m_sleepCounter;
     std::vector<uint8_t> m_underwaterSleepLocked;
-    std::vector<float> m_tornadoCaptureSeconds;
-    std::vector<float> m_tornadoEjectCooldownSeconds;
-    std::vector<int>
-        m_tornadoFixedTreeReleaseWakeBodies; // Reused tornado release wake list; avoids reload/allocation churn.
-
     // Debug visualization state. These arrays intentionally mirror scene/model
     // slot order so render/debug code can look up one byte/id without map
     // lookups in the overlay path.
@@ -408,8 +403,7 @@ class PhysicsWorld
     std::vector<PointJointConstraint> m_pointJointConstraints;
     std::vector<int64_t> m_collisionCellKeys;
     std::array<uint8_t, MAX_GAME_MODELS> m_terrainRestApplied = {};
-    TornadoField m_tornadoField;
-    TornadoSystem m_tornadoSystem;
+    TornadoGameplay m_tornadoGameplay;
     PersistentContactSolver m_contactSolver;
     SleepIslandSystem m_sleepIslandSystem;
     PhysicsDiagnosticsSink m_diagnostics;
@@ -445,7 +439,6 @@ class PhysicsWorld
     bool CanRecordPhysicsPipelineStage() const;
     void RecordPhysicsPipelineStage( const PhysicsPipelineRecord& record );
     void EnsureCollisionVisualBuffers( int modelCount );
-    void EnsureTornadoStateBuffers( int modelCount );
     void EnsureUnderwaterSleepLockBuffer( int modelCount );
     bool IsFullySubmergedBall( const PhysicsBodyRecord& bodyRecord, const ColliderStore& colliderStore, int index );
     bool RefreshUnderwaterSubmersionForBall( const PhysicsWorldForces& worldForces,
@@ -458,12 +451,12 @@ class PhysicsWorld
                                        int index );
     bool IsUnderwaterSleepLocked( int bodyCount, int index );
     void MarkCollisionVisualContact( int index );
-    void ApplyTornadoField( PhysicsBodyStore& bodyStore,
-                            const ColliderStore& colliderStore,
-                            const PhysicsWorldForces& worldForces,
-                            float dt,
-                            const Basics::EngineConfig& runtimeConfig,
-                            Threading::WorkerPool& workerPool );
+    void ApplyTornadoGameplay( PhysicsBodyStore& bodyStore,
+                               const ColliderStore& colliderStore,
+                               const PhysicsWorldForces& worldForces,
+                               float dt,
+                               const Basics::EngineConfig& runtimeConfig,
+                               Threading::WorkerPool& workerPool );
     void PropagateSleepSupport( const PhysicsBodyRecordList& bodyRecords );
     void AppendPointJointSupportEdges( const PhysicsBodyStore& bodyStore, int modelCount );
     void ForgetPersistentContactCacheForBody( int bodyIndex );
