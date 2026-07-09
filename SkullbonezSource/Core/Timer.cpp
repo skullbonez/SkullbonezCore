@@ -9,14 +9,16 @@ Mental model:
   when that state changes.
 
 Glossary:
+  Lane R result: Recoverable platform/environment startup failure reported
+    through an owner/message result instead of an exception.
   Validation gate: Repository script that proves a class of changes before
   commit or PR.
 
 Invariants:
-  - Timer construction fails fast when high-resolution counters are unavailable
-    because frame pacing and profiling depend on sub-frame timing.
+  - Timer startup returns a Lane R result when high-resolution counters are
+    unavailable because frame pacing and profiling depend on sub-frame timing.
   - Elapsed intervals use the last StartTimer/StopTimer pair; total time remains
-    relative to construction.
+    relative to successful startup.
 
 Related:
   - SkullbonezSource/Core/Timer.h
@@ -24,41 +26,52 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "Timer.h"
+#include "FatalError.h"
 
 
 using namespace SkullbonezCore::Environment;
 
 
-Timer::Timer()
+namespace
+{
+SkullbonezCore::Basics::SbResult NoPerformanceCounterSupport( const char* failedCall )
+{
+    return SkullbonezCore::Basics::SbResult::Failure(
+        "Core/Timer",
+        "This system does not support high resolution counters (%s failed).",
+        failedCall && failedCall[0] != '\0' ? failedCall : "counter query" );
+}
+} // namespace
+
+
+SkullbonezCore::Basics::SbResult Timer::Initialise()
 {
     LARGE_INTEGER tmpPerformanceFreq;
 
-    // get the frequency of the performance timer, if the function fails,
-    // throw an exception
     if ( !QueryPerformanceFrequency( &tmpPerformanceFreq ) )
     {
-        NoPerformanceCounterSupport();
+        return NoPerformanceCounterSupport( "QueryPerformanceFrequency" );
     }
 
-    // the platform SDK states that the above function can succeed, but set
-    // the argument to 0.  If this happens, the system also does not support
-    // the performance counter.  In this case, we also throw an exception
+    // The platform SDK allows a successful frequency query to report zero. The
+    // runtime treats that as the same startup environment failure as an API
+    // failure because all later time conversion would be undefined.
     if ( !tmpPerformanceFreq.QuadPart )
     {
-        NoPerformanceCounterSupport();
+        return NoPerformanceCounterSupport( "QueryPerformanceFrequency zero frequency" );
     }
 
     m_performanceFrequency = static_cast<double>( tmpPerformanceFreq.QuadPart );
 
-    // we now do one final test to ensure the system supports the performance
-    // counter.  If we succeed here, we know the CPU supports the performance
-    // counter and the class will work as expected
+    // Probe a current counter value before declaring the timer ready. After
+    // startup succeeds, per-frame timer reads are an engine invariant.
     LARGE_INTEGER currTimeTemp;
     if ( !QueryPerformanceCounter( &currTimeTemp ) )
     {
-        NoPerformanceCounterSupport();
+        return NoPerformanceCounterSupport( "QueryPerformanceCounter" );
     }
 
+    m_initialized = true;
     m_initialTime = GetCurrentTimeInSeconds();
 
     m_frameCountCurrentSecond = 0;
@@ -66,12 +79,7 @@ Timer::Timer()
     m_frameTimer = 0;
     m_startTime = 0;
     m_endTime = 0;
-}
-
-
-void Timer::NoPerformanceCounterSupport()
-{
-    throw std::runtime_error( "This system does not support high resolution counters (Timer::Timer)." );
+    return SkullbonezCore::Basics::SbResult::Success();
 }
 
 
@@ -107,8 +115,16 @@ double Timer::GetTotalTime()
 
 double Timer::GetCurrentTimeInSeconds()
 {
+    if ( !m_initialized || m_performanceFrequency <= 0.0 )
+    {
+        SB_FATAL( "Core/Timer", "Timer sampled before successful Initialise()." );
+    }
+
     LARGE_INTEGER currTimeTmp;
-    QueryPerformanceCounter( &currTimeTmp );
+    if ( !QueryPerformanceCounter( &currTimeTmp ) )
+    {
+        SB_FATAL( "Core/Timer", "QueryPerformanceCounter failed after timer startup succeeded." );
+    }
 
     return static_cast<double>( currTimeTmp.QuadPart ) / m_performanceFrequency;
 }

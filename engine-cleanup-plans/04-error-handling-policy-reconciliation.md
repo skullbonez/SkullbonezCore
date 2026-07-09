@@ -672,6 +672,37 @@ byte-exact gated.
     screenshots matching baselines, and `physics_regression_solver.csv`
     byte-exact. Final log:
     `Agentic/Reports/validate_full_plan04_input_result_20260709_final.log`.
+
+  Progress 2026-07-09, Timer high-resolution counter recoverable startup
+  boundary sub-slice:
+  - Converted `SkullbonezSource/Core/Timer.cpp` row 223 from a constructor-time
+    exception to a Lane R `SbResult::Failure("Core/Timer", ...)` returned by
+    explicit timer startup.
+  - `Timer` now default-constructs inert storage, `Timer::Initialise()` captures
+    the high-resolution counter, `RunTimerState::Initialise()` initializes the
+    five Run-owned timers together, and `Run::Initialise()` reports timer
+    startup failure through the existing process-boundary runtime result path.
+  - Timer sampling before successful startup, or a post-startup counter failure,
+    is now a `SB_FATAL("Core/Timer", ...)` owner invariant rather than a
+    recoverable environment error.
+  - Strict anchored source throw statement inventory now reports 104 sites,
+    down from the previous sub-slice count of 105. `SB_FATAL` macro invocations
+    now report 153 via `rg -n "SB_FATAL\s*\(" SkullbonezSource`.
+  - Comment-style audit scope: `SkullbonezSource/Core/Timer.cpp`,
+    `SkullbonezSource/Core/Timer.h`,
+    `SkullbonezSource/Runtime/Run.cpp`, and
+    `SkullbonezSource/Runtime/RunTimerState.h`; checked 4, deferred 0. This
+    was a touched-file audit, so no subsystem checklist plan was required.
+  - Focused build passed: `tools\validate_build.bat Profile` exited 0 in
+    00:00:10.9987094 with 0 warnings and 0 errors. Log:
+    `Agentic/Reports/validate_build_profile_plan04_timer_result_20260709.log`.
+  - Required gate passed: `tools\validate_full.bat` exited 0 in
+    00:01:06.2075778 with `VALIDATE_FULL: DEFAULT GATE PASSED`, project filters
+    0 errors, runtime boundaries 0 errors, Profile/Debug builds 0
+    warnings/errors, source formatting clean, DX12 validation errors 0,
+    screenshots matching baselines, and `physics_regression_solver.csv`
+    byte-exact. Final log:
+    `Agentic/Reports/validate_full_plan04_timer_result_20260709.log`.
 - [ ] **4.1** Do **not** maintain any throw count. The `MAX_SOURCE_THROW_TOKENS`
   ratchet is deleted by plan 03. Verify progress by re-running
   `rg -n "throw " SkullbonezSource` and confirming the F/R/P sites are converted;

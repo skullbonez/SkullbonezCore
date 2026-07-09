@@ -14,10 +14,14 @@ Glossary:
   single spike does not dominate display text.
   Scene energy sample: Half-second kinetic-energy bucket used by scene telemetry
   rather than physics authority.
+  Timer startup boundary: Explicit high-resolution counter check that can fail
+    from platform/environment limits before the frame loop begins.
 
 Invariants:
   - Timer members are process-lifetime values owned by Run; borrowers may sample
     or update them during one frame but must not retain pointers across owners.
+  - Run calls Initialise() once before scene loading starts; timer samples before
+    that boundary are fatal owner bugs.
   - All durations stored here are seconds unless the field name ends with `Ms`.
 
 Related:
@@ -36,6 +40,31 @@ namespace Basics
 {
 struct RunTimerState
 {
+    SbResult Initialise()
+    {
+        const SbResult frameTimerResult = frameTimer.Initialise();
+        if ( !frameTimerResult.ok )
+        {
+            return frameTimerResult;
+        }
+        const SbResult workTimerResult = workTimer.Initialise();
+        if ( !workTimerResult.ok )
+        {
+            return workTimerResult;
+        }
+        const SbResult updateTimerResult = updateTimer.Initialise();
+        if ( !updateTimerResult.ok )
+        {
+            return updateTimerResult;
+        }
+        const SbResult cameraTimerResult = cameraTimer.Initialise();
+        if ( !cameraTimerResult.ok )
+        {
+            return cameraTimerResult;
+        }
+        return simulationTimer.Initialise();
+    }
+
     Environment::Timer frameTimer;
     Environment::Timer workTimer;
     Environment::Timer updateTimer;

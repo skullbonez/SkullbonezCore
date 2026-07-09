@@ -972,6 +972,16 @@ void Run::Initialise()
 {
     assert( m_systems.window );
 
+    // Why: timers default to inert storage so Run construction cannot throw
+    // before the startup reporter exists. Initialise them at this boundary and
+    // return platform counter failures through the normal Lane R process path.
+    const SbResult timerStartupResult = m_timers.Initialise();
+    if ( !timerStartupResult.ok )
+    {
+        m_lastSceneLoadResult = timerStartupResult;
+        return;
+    }
+
     assert( m_renderBackendView.renderResources && "Run requires render resources before Initialise()" );
     assert( m_renderBackendView.renderCommands && "Run requires render commands before Initialise()" );
     assert( m_renderBackendView.renderDiagnostics && "Run requires render diagnostics before Initialise()" );
