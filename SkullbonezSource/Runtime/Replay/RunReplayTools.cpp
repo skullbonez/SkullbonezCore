@@ -361,7 +361,9 @@ double ReplayPredictionRevealSecondsPerSecond( const RunReplayPredictionState& p
 // forward the moment the job completes.
 // Invariant: the cursor is MONOTONIC per prediction. It plays 0 -> horizon
 // exactly once and then holds there, so every revealed line and causal box
-// stays on screen; only a rebuild (new future) resets it via the anchor.
+// stays on screen. A refresh with no committed same-target future resets the
+// anchor; same-target auto-refresh keeps the anchor and waits until the new
+// prefix reaches the visible cursor.
 ReplayFrameIndex ReplayPredictionRevealFrameIndex( RunReplayPredictionState& prediction,
                                                    ReplayFrameIndex lastAvailableFrame )
 {
@@ -388,6 +390,22 @@ ReplayFrameIndex ReplayPredictionRevealFrameIndex( RunReplayPredictionState& pre
 
     const double revealFrame = revealSeconds / static_cast<double>( PHYSICS_FIXED_DT );
     return (std::min)( lastAvailableFrame, static_cast<ReplayFrameIndex>( revealFrame ) );
+}
+
+std::size_t ReplayPredictionBuildPresentationFrameCountForRefresh( RunReplayPredictionState& prediction,
+                                                                   ReplayBodyId requestedTargetId )
+{
+    if ( requestedTargetId.value == 0 || prediction.simulation.targetId.value != requestedTargetId.value ||
+         prediction.simulation.frames.size() < 2u )
+    {
+        return 2u;
+    }
+
+    // Why: auto-refresh should replace the old future only after the rebuilding
+    // prefix catches the causal story the user can already see.
+    const ReplayFrameIndex lastCommittedFrame = prediction.simulation.frames.back().frameIndex;
+    const ReplayFrameIndex revealFrame = ReplayPredictionRevealFrameIndex( prediction, lastCommittedFrame );
+    return (std::max)( std::size_t{ 2u }, static_cast<std::size_t>( revealFrame ) + 1u );
 }
 
 constexpr const char* REPLAY_PREDICTION_RESERVE_OWNER = "replay_prediction_working_set";
@@ -2959,36 +2977,48 @@ bool BeginReplayPredictionJob( ReplayRuntime& replayRuntime,
         return false;
     }
 
-    replayRuntime.CancelPredictionJob( true );
-    replayRuntime.ClearPredictionFutureNodeCache();
-    // Why: a new job means a new future. Restart the reveal cursor so the
-    // causal tree unfolds from the root again instead of resuming mid-sweep
-    // over samples that no longer exist.
-    replayRuntime.Prediction().revealClock.anchor = std::chrono::steady_clock::now();
-    replayRuntime.Prediction().revealClock.anchorValid = true;
-    replayRuntime.Prediction().simulation.targetId = replayRuntime.PathVisualizer().targetId;
-    replayRuntime.Prediction().build.dirty = false;
+    RunReplayPredictionState& prediction = replayRuntime.Prediction();
+    const ReplayBodyId requestedTargetId = replayRuntime.PathVisualizer().targetId;
+    const bool preserveCommittedFuture = prediction.enabled && scenePhysics && requestedTargetId.value != 0 &&
+                                         prediction.simulation.targetId.value == requestedTargetId.value &&
+                                         prediction.simulation.frames.size() >= 2u;
+    const std::size_t buildPresentationFrameCount =
+        preserveCommittedFuture ? ReplayPredictionBuildPresentationFrameCountForRefresh( prediction, requestedTargetId )
+                                : 2u;
+    const bool clearSamplesOnCancel = !preserveCommittedFuture;
+    replayRuntime.CancelPredictionJob( clearSamplesOnCancel );
+    if ( clearSamplesOnCancel )
+    {
+        replayRuntime.ClearPredictionFutureNodeCache();
+        // Why: only a genuinely empty replacement should replay the causal
+        // story from the root. Same-target refreshes preserve the anchor and
+        // keep showing the committed future until the new prefix catches up.
+        prediction.revealClock.anchor = std::chrono::steady_clock::now();
+        prediction.revealClock.anchorValid = true;
+    }
+    prediction.simulation.targetId = requestedTargetId;
+    prediction.build.dirty = false;
 
-    if ( !replayRuntime.Prediction().enabled || !scenePhysics )
+    if ( !prediction.enabled || !scenePhysics )
     {
         return false;
     }
 
-    replayRuntime.Prediction().simulation.sourceFrameIndex = sourceFrameIndex;
-    replayRuntime.Prediction().simulation.sourceSolverHash = sourceSolverHash;
+    prediction.simulation.sourceFrameIndex = sourceFrameIndex;
+    prediction.simulation.sourceSolverHash = sourceSolverHash;
     if ( const ReplaySolverFrameSample* latest = replayRuntime.Solver().LatestSample() )
     {
-        replayRuntime.Prediction().simulation.sourceSimulationSeconds = latest->simulationSeconds;
+        prediction.simulation.sourceSimulationSeconds = latest->simulationSeconds;
     }
     else
     {
-        replayRuntime.Prediction().simulation.sourceSimulationSeconds = fallbackSourceSimulationSeconds;
+        prediction.simulation.sourceSimulationSeconds = fallbackSourceSimulationSeconds;
     }
-    replayRuntime.Prediction().build.lastBuildTime = simulationTotalSeconds;
+    prediction.build.lastBuildTime = simulationTotalSeconds;
 
     if ( !modelCollection.RepairPhysicsBodyAndColliderTopology() )
     {
-        replayRuntime.Prediction().build.dirty = true;
+        prediction.build.dirty = true;
         return false;
     }
     PhysicsEngine& physicsEngine = modelCollection.GetPhysicsEngine();
@@ -3004,7 +3034,7 @@ bool BeginReplayPredictionJob( ReplayRuntime& replayRuntime,
                                                    budgetStart,
                                                    budgetMilliseconds ) )
         {
-            replayRuntime.Prediction().build.dirty = true;
+            prediction.build.dirty = true;
             return false;
         }
         if ( !TryResolveReplayBodyModelIndex( liveBodyStore,
@@ -3016,41 +3046,39 @@ bool BeginReplayPredictionJob( ReplayRuntime& replayRuntime,
             replayRuntime.PathVisualizer().targetModelIndex = targetHint.value;
             return false;
         }
-        replayRuntime.Prediction().simulation.targetModelIndex = targetIndex;
+        prediction.simulation.targetModelIndex = targetIndex;
         replayRuntime.PathVisualizer().targetModelIndex = targetHint.value;
     }
 
-    replayRuntime.Prediction().simulation.horizonSeconds =
-        std::clamp( replayRuntime.Prediction().simulation.horizonSeconds,
-                    REPLAY_PREDICTION_MIN_SECONDS,
-                    REPLAY_PREDICTION_MAX_SECONDS );
+    prediction.simulation.horizonSeconds = std::clamp( prediction.simulation.horizonSeconds,
+                                                       REPLAY_PREDICTION_MIN_SECONDS,
+                                                       REPLAY_PREDICTION_MAX_SECONDS );
     const int predictionTicks =
-        (std::max)( 1,
-                    static_cast<int>(
-                        std::ceil( replayRuntime.Prediction().simulation.horizonSeconds / PHYSICS_FIXED_DT ) ) );
-    replayRuntime.Prediction().build.targetTickCount = predictionTicks;
-    replayRuntime.Prediction().build.nextTick = 1;
+        (std::max)( 1, static_cast<int>( std::ceil( prediction.simulation.horizonSeconds / PHYSICS_FIXED_DT ) ) );
+    prediction.build.targetTickCount = predictionTicks;
+    prediction.build.nextTick = 1;
     const std::size_t buildFrameCapacity = static_cast<std::size_t>( predictionTicks + 1 );
-    if ( !ReserveReplayPredictionVector( replayRuntime.Prediction().build.buildFrames,
+    if ( !ReserveReplayPredictionVector( prediction.build.buildFrames,
                                          buildFrameCapacity,
                                          0,
                                          "RunReplayPredictionBuildState::buildFrames" ) )
     {
-        replayRuntime.CancelPredictionJob( true );
-        replayRuntime.Prediction().build.dirty = true;
+        replayRuntime.CancelPredictionJob( clearSamplesOnCancel );
+        prediction.build.dirty = true;
         return false;
     }
-    replayRuntime.Prediction().build.buildFrames.resize( buildFrameCapacity );
-    replayRuntime.Prediction().ResetBuildFramePublication();
-    if ( !ReserveReplayPredictionFramePayloadVectors( replayRuntime.Prediction().build.buildFrames,
+    prediction.build.buildFrames.resize( buildFrameCapacity );
+    prediction.ResetBuildFramePublication();
+    prediction.build.buildPresentationFrameCount = buildPresentationFrameCount;
+    if ( !ReserveReplayPredictionFramePayloadVectors( prediction.build.buildFrames,
                                                       buildFrameCapacity,
                                                       static_cast<std::size_t>( modelCount ),
                                                       0,
                                                       "RunReplayPredictionFrame::bodies",
                                                       &RunReplayPredictionFrame::bodies ) )
     {
-        replayRuntime.CancelPredictionJob( true );
-        replayRuntime.Prediction().build.dirty = true;
+        replayRuntime.CancelPredictionJob( clearSamplesOnCancel );
+        prediction.build.dirty = true;
         return false;
     }
     // Why: replay prediction is exploratory UI, so the initial contact payload
@@ -3058,58 +3086,58 @@ bool BeginReplayPredictionJob( ReplayRuntime& replayRuntime,
     // chunks. The root trajectory still publishes even if optional contact-tree
     // payloads outgrow the reserve.
     const std::size_t initialDebugContactCapacity = ReplayPredictionInitialDebugContactCapacity( modelCount );
-    (void)ReserveReplayPredictionFramePayloadVectors( replayRuntime.Prediction().build.buildFrames,
+    (void)ReserveReplayPredictionFramePayloadVectors( prediction.build.buildFrames,
                                                       buildFrameCapacity,
                                                       initialDebugContactCapacity,
                                                       0,
                                                       "RunReplayPredictionFrame::debugContacts",
                                                       &RunReplayPredictionFrame::debugContacts );
-    if ( !ReserveReplayPredictionVector( replayRuntime.Prediction().futureNodeCache.futureNodes,
+    if ( !ReserveReplayPredictionVector( prediction.futureNodeCache.futureNodes,
                                          REPLAY_PATH_MAX_FUTURE_NODES,
                                          0,
                                          "RunReplayPredictionFutureNodeCache::futureNodes" ) ||
-         !ReserveReplayPredictionVector( replayRuntime.Prediction().futureNodeCache.futureNodeBuildScratch,
+         !ReserveReplayPredictionVector( prediction.futureNodeCache.futureNodeBuildScratch,
                                          REPLAY_PATH_MAX_FUTURE_NODES,
                                          0,
                                          "RunReplayPredictionFutureNodeCache::futureNodeBuildScratch" ) )
     {
-        replayRuntime.CancelPredictionJob( true );
-        replayRuntime.Prediction().build.dirty = true;
+        replayRuntime.CancelPredictionJob( clearSamplesOnCancel );
+        prediction.build.dirty = true;
         return false;
     }
 
     if ( !CaptureReplayPredictionBodyState( modelCollection,
                                             liveBodyStore,
                                             workerPool,
-                                            replayRuntime.Prediction().simulation.predictionBodies ) )
+                                            prediction.simulation.predictionBodies ) )
     {
-        replayRuntime.CancelPredictionJob( true );
+        replayRuntime.CancelPredictionJob( clearSamplesOnCancel );
         return false;
     }
 
-    physicsEngine.CaptureReplaySolverSnapshot( replayRuntime.Prediction().simulation.predictionWorld, modelCount );
+    physicsEngine.CaptureReplaySolverSnapshot( prediction.simulation.predictionWorld, modelCount );
 
-    if ( !SeedReplayPredictionEngine( replayRuntime.Prediction(), physicsEngine, config, worldForces, modelCount ) )
+    if ( !SeedReplayPredictionEngine( prediction, physicsEngine, config, worldForces, modelCount ) )
     {
-        replayRuntime.CancelPredictionJob( true );
-        replayRuntime.Prediction().build.dirty = true;
+        replayRuntime.CancelPredictionJob( clearSamplesOnCancel );
+        prediction.build.dirty = true;
         return false;
     }
 
-    if ( !replayRuntime.Prediction().simulation.predictionEngine ||
+    if ( !prediction.simulation.predictionEngine ||
          !CaptureReplayPredictionFrame( replayRuntime,
                                         modelCollection,
-                                        *replayRuntime.Prediction().simulation.predictionEngine,
+                                        *prediction.simulation.predictionEngine,
                                         workerPool,
                                         0 ) )
     {
-        replayRuntime.CancelPredictionJob( true );
-        replayRuntime.Prediction().build.dirty = true;
+        replayRuntime.CancelPredictionJob( clearSamplesOnCancel );
+        prediction.build.dirty = true;
         return false;
     }
-    replayRuntime.Prediction().build.building = true;
+    prediction.build.building = true;
 
-    return !replayRuntime.Prediction().build.buildFrames.empty();
+    return !prediction.build.buildFrames.empty();
 }
 
 
@@ -3138,7 +3166,8 @@ bool StepReplayPredictionJob( ReplayRuntime& replayRuntime,
     if ( !replayRuntime.Prediction().simulation.predictionEngineReady ||
          !replayRuntime.Prediction().simulation.predictionEngine )
     {
-        replayRuntime.CancelPredictionJob( true );
+        const bool preserveCommittedFuture = replayRuntime.Prediction().simulation.frames.size() >= 2u;
+        replayRuntime.CancelPredictionJob( !preserveCommittedFuture );
         replayRuntime.Prediction().build.dirty = true;
         return false;
     }
@@ -3208,7 +3237,8 @@ bool StepReplayPredictionJob( ReplayRuntime& replayRuntime,
 
     if ( predictionStepFailed )
     {
-        replayRuntime.CancelPredictionJob( true );
+        const bool preserveCommittedFuture = replayRuntime.Prediction().simulation.frames.size() >= 2u;
+        replayRuntime.CancelPredictionJob( !preserveCommittedFuture );
         replayRuntime.Prediction().build.dirty = true;
         return false;
     }

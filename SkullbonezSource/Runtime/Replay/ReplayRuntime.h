@@ -413,8 +413,13 @@ struct RunReplayPredictionBuildState
     // Invariant: buildFrameCount is the single published prefix cursor. Future
     // async stepping must publish it only after the corresponding rows are
     // complete, then cancel or invalidate that writer before clearing storage.
+    // Invariant: during a same-target refresh, the building prefix may replace
+    // committed frames only after it reaches the reveal cursor captured at job
+    // start. This prevents auto-refresh from replaying the causal unfold from
+    // frame zero.
     std::vector<RunReplayPredictionFrame> buildFrames;
     std::size_t buildFrameCount = 0;
+    std::size_t buildPresentationFrameCount = 2u;
 };
 
 struct RunReplayPredictionSimulationState
@@ -489,8 +494,10 @@ inline bool RunReplayPredictionState::HasPublishedBuildFramePrefix( std::size_t 
 inline bool RunReplayPredictionState::BuildPrefixShouldBePresented() const noexcept
 {
     const std::size_t publishedCount = PublishedBuildFrameCount();
-    return build.building && publishedCount >= 2u &&
-           ( simulation.frames.empty() || publishedCount >= simulation.frames.size() );
+    const std::size_t requiredFrameCount = simulation.frames.empty() || build.buildPresentationFrameCount < 2u
+                                               ? std::size_t{ 2u }
+                                               : build.buildPresentationFrameCount;
+    return build.building && publishedCount >= requiredFrameCount;
 }
 
 inline bool RunReplayPredictionState::BuildFramesAreComplete() const noexcept
@@ -501,6 +508,7 @@ inline bool RunReplayPredictionState::BuildFramesAreComplete() const noexcept
 inline void RunReplayPredictionState::ResetBuildFramePublication() noexcept
 {
     build.buildFrameCount = 0;
+    build.buildPresentationFrameCount = 2u;
 }
 
 inline void RunReplayPredictionState::PublishBuildFrameSlot( std::size_t frameSlot ) noexcept

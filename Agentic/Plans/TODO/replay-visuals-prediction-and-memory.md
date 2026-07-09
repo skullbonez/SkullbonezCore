@@ -1,10 +1,11 @@
 # Replay: Trajectory Visuals, Prediction Job, Memory Quality, Code Size
 
 Date: 2026-07-09 (consolidated mega plan)
-Status: In progress - Stage 1 deterministic drawing complete (prediction
-isolation, trajectory visuals investigation, counters, memory accounting, and
-draw-loop determinism are complete; worker job, visibility/reveal repair,
-memory tuning, and code-size work open)
+Status: In progress - Stage 2.1 rebuild/reveal churn complete (prediction
+isolation, trajectory visuals investigation, counters, memory accounting,
+draw-loop determinism, and same-target refresh reveal preservation are
+complete; visibility toggles, contact completeness, worker job, memory tuning,
+and code-size work open)
 Impact area: replay runtime, replay prediction, trajectory overlay rendering,
 DX12 transient geometry, physics stepping, UI
 Consolidates: `replay-prediction-and-memory.md` (sections A/B/C — full text in
@@ -364,10 +365,44 @@ Stage 1 — Deterministic drawing
   restore SQLite 225,280 bytes, restore query output 967 bytes.
 
 Stage 2 — Rebuild/reveal churn + visibility controls
-- [ ] 2.1 Auto-refresh keeps the previous committed future + reveal progress
+- [x] 2.1 Auto-refresh keeps the previous committed future + reveal progress
   until the new build's prefix reaches the current reveal cursor (no unfold
   restart on refresh). Preserve the demo-director
   `revealClock.secondsPerSecond` contract (`RunDemoDirector.cpp`).
+  Complete 2026-07-10: same-target prediction refreshes now capture the
+  currently revealed frame count before job reset, keep the committed future and
+  future-node cache visible, and present the rebuilding `buildFrames` prefix
+  only after the published prefix reaches that captured reveal cursor. Empty
+  replacement jobs, target changes, disabled prediction, and scene-physics-off
+  transitions still clear samples and restart the reveal anchor. The
+  demo-director pacing contract is preserved because refresh setup does not
+  mutate `revealClock.secondsPerSecond`. Prediction setup/step failure paths
+  keep committed samples when an auto-refresh already has a visible future.
+  Touched-file comment audit inspected 2 source-bearing files
+  (`ReplayRuntime.h`, `RunReplayTools.cpp`) with 0 deferred. Focused
+  `tools\validate_build.bat Profile` passed in 9.96s with 0 warnings/errors
+  (`Agentic/Reports/validate_build_profile_replay_stage2_1_20260710.log`).
+  Required Stage 2 gate: `tools\validate_full.bat` passed in 45.89s
+  (`Agentic/Reports/validate_full_replay_visuals_stage2_1_20260710.log`) with
+  project filters clean, Profile/Debug builds clean, formatting clean, DX12
+  validation errors 0, DX12 screenshots matching committed baselines, and
+  `physics_regression_solver.csv` byte-exact; `tools\validate_replay_scrub.bat`
+  passed in 10.78s
+  (`Agentic/Reports/validate_replay_scrub_replay_visuals_stage2_1_20260710.log`).
+  SkullScope scrub command: `Debug\SKULLBONEZ_CORE.exe --renderer dx12 --vsync
+  off --shadows off --scene SkullbonezData/scenes/physics_roll.scene.json
+  --frames 120 --replay on --replay-seconds 1 --replay-scrub-test
+  --physics-diag Debug\replay_scrub.physicsdiag.ndjson`; query:
+  `tools\physics_query.bat Debug\replay_scrub.physicsdiag.ndjson replay --limit
+  8`. Restore command: `Debug\SKULLBONEZ_CORE.exe --renderer dx12 --vsync off
+  --shadows off --scene SkullbonezData/scenes/physics_roll.scene.json --frames
+  120 --replay on --replay-seconds 1 --replay-restore-test --physics-diag
+  Debug\replay_restore.physicsdiag.ndjson`; restore query:
+  `tools\physics_query.bat Debug\replay_restore.physicsdiag.ndjson restore
+  --limit 8`. SkullScope data sizes: scrub trace 54,932 bytes, scrub SQLite
+  225,280 bytes, scrub query output 1,512 bytes; restore trace 54,912 bytes,
+  restore SQLite 225,280 bytes, restore query output 967 bytes; model-read query
+  output total 2,479 bytes.
 - [ ] 2.2 Explicit `pastPathVisible` toggle; past lane renders iff target +
   toggle.
 - [ ] 2.3 `contactsIncomplete` flag instead of silent `debugContacts.clear()`;
