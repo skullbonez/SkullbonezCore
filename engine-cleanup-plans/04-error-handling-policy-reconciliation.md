@@ -219,6 +219,21 @@ byte-exact gated.
   - Required gate passed: `tools\validate_full.bat` exited 0 in
     00:00:57.7012411. Log:
     `Agentic/Reports/validate_full_plan04_testscene_fatals_20260709.log`.
+
+  Progress 2026-07-09, Input window-bridge fatal-invariant sub-slice:
+  - Converted two F sites from `throw std::runtime_error` to a local
+    `SB_FATAL("Input", ...)` helper: `Input.cpp` rows 203 and 206 from the
+    Step 0.1 inventory. The neighboring Win32 cursor API failures in the same
+    file remain Lane R for the recoverable-result phase.
+  - Strict anchored source throw statement inventory now reports 150 sites,
+    down from the previous sub-slice count of 152. `SB_FATAL` macro invocations
+    now report 122 via `rg -n "SB_FATAL\s*\(" SkullbonezSource`.
+  - Comment-style audit scope: `SkullbonezSource/Runtime/Input.cpp`; checked 1,
+    deferred 0. The learning header now names the input window bridge and its
+    runtime startup binding invariant.
+  - Required gate passed: `tools\validate_full.bat` exited 0 in
+    00:00:55.3535461. Log:
+    `Agentic/Reports/validate_full_plan04_input_bridge_fatals_20260709.log`.
 - [ ] **2.1** Convert **P** sites (replay/interaction probes) to the
   `FailAutomation(...)` channel with `ok=false` + message. Gate: `validate_full`
   + replay scrub. Commit.

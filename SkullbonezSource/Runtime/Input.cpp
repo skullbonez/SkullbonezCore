@@ -11,15 +11,20 @@ Mental model:
 
 Glossary:
   Win32: Windows desktop API used for the app window, messages, and cursor
-  state.
+    state.
   WndProc: Win32 window callback that receives mouse wheel and raw mouse
-  packets before the frame loop polls input.
+    packets before the frame loop polls input.
+  Input window bridge: Borrowed pointer to the active runtime window used by
+    ordinary polling helpers that must translate cursor positions through the
+    current client area.
   Accumulator: Small process-local queue that stores callback data until the
-  frame loop consumes it.
+    frame loop consumes it.
 
 Invariants:
   - Process-local Win32 input accumulators are drained into frame and UI
     snapshots; stale mouse deltas must not leak across focus/UI transitions.
+  - The input window bridge is bound by runtime startup before frame polling
+    helpers translate or center cursor coordinates.
   - ShowCursor is normalized through helper loops because Win32 exposes a
     reference counter, not a simple visible/hidden boolean.
 
@@ -30,6 +35,8 @@ Related:
 */
 #include "Input.h"
 #include "Window.h"
+
+#include "../Core/FatalError.h"
 
 #include <cassert>
 
@@ -72,6 +79,17 @@ long g_rawMouseLastAbsoluteY = 0;
 Input::AutomationState s_automationState;
 
 constexpr int RAW_MOUSE_ABSOLUTE_RANGE = 65535;
+
+[[noreturn]] void FatalInputWindowBridgeMissing( const char* functionName )
+{
+    SB_FATAL( "Input",
+              "%s requires a bound input window bridge. inputWindow=%p callbackWindow=%p automation=%d",
+              functionName,
+              static_cast<void*>( s_inputWindow ),
+              static_cast<void*>( s_callbackBridgeWindow ),
+              s_automationState.enabled ? 1 : 0 );
+}
+
 
 bool IsCallbackBridgeBoundForWindow( HWND window )
 {
@@ -398,7 +416,7 @@ POINT Input::GetClientMouseCoordinates()
     assert( m_cWindow && "Input client mouse coordinates require a bound window" );
     if ( !m_cWindow )
     {
-        throw std::runtime_error( "Input window bridge is not bound (Input::GetClientMouseCoordinates)." );
+        FatalInputWindowBridgeMissing( "Input::GetClientMouseCoordinates" );
     }
     if ( !ScreenToClient( m_cWindow->m_sWindow, &mousePos ) )
     {
@@ -503,7 +521,7 @@ void Input::CentreMouseCoordinates()
     assert( m_cWindow && "Input mouse centering requires a bound window" );
     if ( !m_cWindow )
     {
-        throw std::runtime_error( "Input window bridge is not bound (Input::CentreMouseCoordinates)." );
+        FatalInputWindowBridgeMissing( "Input::CentreMouseCoordinates" );
     }
     POINT clientCenter = { m_cWindow->m_sWindowDimensions.x >> 1, m_cWindow->m_sWindowDimensions.y >> 1 };
     if ( !ClientToScreen( m_cWindow->m_sWindow, &clientCenter ) )
