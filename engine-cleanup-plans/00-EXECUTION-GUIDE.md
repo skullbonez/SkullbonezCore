@@ -76,7 +76,7 @@ something whose prerequisite is unfinished.
 | 1 | [02](02-physicsworld-solver-decomposition.md) **Phase 0 only** | Extract `DisjointSet`, replace 3 copies | ~90-line mechanical dedup, byte-exact gated — safest high-value start | `validate_physics` |
 | 2 | [12](12-ambient-singletons-log-profiler.md) | Unweld `Log` from prelude; make profiler pointer safe | Small, contained; sets up plan 04 | `validate_full` (+`validate_physics` for the sink step) |
 | 3 | [06](06-inl-translation-unit-unsplitting.md) **editor files first** | Promote `RunEditor*.inl` to real TUs | Mechanical, build-gated; leave replay `.inl` for step 8 | `validate_fast` then `validate_full` |
-| 4 | [13](13-facade-retirement.md) + [10](10-enginecontext-irenderbackend-boundary.md) + [14](14-public-physics-api-boundary.md) | Narrow render interfaces, delete `IRenderBackend` aggregate, split `EngineContext`, fix DX12 aliases, collapse `SimulationController` (FAC-004), and close FAC-005 public physics API leaks | Enabling decoupling; 13 is the rule, 10/14 are execution | `validate_dx12_renderer` + `validate_full` + `validate_physics` |
+| 4 | Facade boundary campaign (13 + 10 + 14, completed) | Narrow render interfaces, delete `IRenderBackend` aggregate, split `EngineContext`, fix DX12 aliases, collapse `SimulationController` (FAC-004), and close FAC-005 public physics API leaks | Completed 2026-07-10; plan files are git-history artifacts per MASTER convention | `validate_dx12_renderer` + `validate_full` + `validate_physics` |
 | 5 | [08](08-renderhelper-global-state-removal.md) | De-static `RenderHelper`; RAII batches | Removes global render state; DX12-gated | `validate_dx12_renderer` |
 | 6 | 11 render abstraction leaks (completed; file deleted) | Real backbuffer state; de-leak replay ribbons; RenderGraph honesty | Completed 2026-07-10; diagnostic RenderGraph skeleton/live-barrier comparison path deleted | `validate_dx12_renderer` |
 | 7 | [01](01-run-god-object-decomposition.md) | Input command table → shrink `RunState` → shrink `Run` | Big; the flagship. Add its tests via plan 05 as you go | `validate_full` |
@@ -105,9 +105,9 @@ fully `[x]`.
 - [x] 1. Plan 02 Phase 0 — DisjointSet extracted
 - [x] 2. Plan 12 — Log/Profiler ambient coupling removed
 - [x] 3. Plan 06 — editor `.inl` promoted to real TUs
-- [ ] 4. Plan 13 + 10 + 14 — facade rule applied; EngineContext/IRenderBackend/aliases/SimulationController done; FAC-005 public physics API boundary closed
-  Note (2026-07-09): Plan 10 is complete; Plan 13 remains open only on FAC-005,
-  now owned by dedicated Plan 14 after owner approval.
+- [x] 4. Plan 13 + 10 + 14 - facade rule applied; EngineContext/IRenderBackend/aliases/SimulationController done; FAC-005 public physics API boundary closed
+  Note (2026-07-10): FAC-005 completed through Plan 14; the completed Plan 13
+  and Plan 14 files were deleted per MASTER convention.
 - [x] 5. Plan 08 — RenderHelper de-statised
 - [x] 6. Plan 11 — render abstraction leaks closed
   Note (2026-07-10): `DumpFrameGraphSkeleton()`, live-barrier comparison

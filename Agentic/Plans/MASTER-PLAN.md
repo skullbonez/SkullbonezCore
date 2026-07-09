@@ -21,7 +21,6 @@ Owner decisions of 2026-07-09 are binding — see
 
 | Plan | Status | % | Remaining work |
 |------|--------|---|----------------|
-| [13 Facade retirement (rule)](../../engine-cleanup-plans/13-facade-retirement.md) | In Progress | 80% | Cross-cutting rule; FAC-005 is complete, FAC-004 needs an owner, FAC-007 executes via `TODO/render-backend-decomposition.md`. |
 | [15 Review gaps (2026-07-09)](../../engine-cleanup-plans/15-review-gaps.md) | Proposed | 0% | Comment-boilerplate cleanup (15.4) lives here; 15.1/15.2/15.3 execute via TODO plans; 15.5/15.6 are small hygiene slices. |
 
 ## Consolidated active plans (`Agentic/Plans/TODO/`)
@@ -76,6 +75,11 @@ re-scoped. Constituent history is in git history of the deleted files.
   `PhysicsEngineStoreQueries` until narrower handle/view queries replace them.
   `tools\validate_physics.bat` passed with byte-exact physics output. The
   completed plan file was deleted per MASTER convention.
+- **Facade retirement rule** - completed through engine-cleanup plans 10, 13,
+  and 14 on 2026-07-10. `IRenderBackend`, `EngineContext`, cached DX12 aliases,
+  `SimulationController`, and FAC-005 public physics API leaks reached the
+  structural graduate/delete end state. The completed plan 13 file was deleted
+  per MASTER convention.
 - **fable-07 blocker remediation + overnight blocker ledger** — the open
   PHYS-*/RGRAPH-*/RUN-* rows were absorbed into the three matching TODO plans
   as "known hard blockers"; clusters D/E and SVC rows were already resolved.

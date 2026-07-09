@@ -84,9 +84,11 @@ cluster stores handles; replay ids live on `PhysicsBodyStore` rows;
 
 ### E. Public physics API boundary
 
-Executes via `engine-cleanup-plans/14-public-physics-api-boundary.md`
-(FAC-005): `PhysicsApi.h`/`PhysicsEngine.h` expose no `GameModel`, no raw
-dense `modelIndex`, no solver containers.
+Completed via engine-cleanup Plan 14 on 2026-07-10; the plan file was deleted
+per MASTER convention. FAC-005 is closed: `PhysicsApi.h`/`PhysicsEngine.h`
+public signatures expose no `GameModel`, no raw dense `modelIndex`, and no
+public `PhysicsEngine` solver-container accessors. Broader physics authority
+work remains in sections A-D and the hard-blocker table below.
 
 ## Known hard blockers (from the 2026-07-07 overnight ledger)
 
