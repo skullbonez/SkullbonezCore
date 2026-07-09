@@ -245,6 +245,28 @@ class PhysicsWorld
 
         void operator()( int bodyIndex ) const;
     };
+    struct TerrainCandidateCommitContext
+    {
+        // Lifetime: terrain candidate commits run serially after detection, while
+        // the borrowed solver records and side-effect arrays still describe the
+        // current fixed-step terrain phase.
+        PhysicsBodyStore& bodyStore;
+        const ColliderStore& colliderStore;
+        const PhysicsBodyRecordList& bodyRecords;
+        const ColliderRecordList& colliderRecords;
+        const Basics::EngineConfig& config;
+        std::vector<TerrainContactManifold>& terrainContactManifolds;
+        std::vector<uint8_t>& sleepSupportedThisFrame;
+        std::vector<uint8_t>& sleepInhibitedThisFrame;
+        std::vector<float>& timeRemaining;
+        const char* const* diagnosticNames;
+        int diagnosticNameCount;
+        const PhysicsDiagnosticsCsvWriter& diagnosticsCsvWriter;
+    };
+    void CommitTerrainCandidate( const TerrainCandidateCommitContext& context,
+                                 int bodyIndex,
+                                 float availableTime,
+                                 const TerrainContactSweepResult& sweep );
 
     enum class ObjectNarrowphaseEventKind : uint8_t
     {

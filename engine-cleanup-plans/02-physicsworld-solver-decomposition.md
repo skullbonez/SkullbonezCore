@@ -188,7 +188,7 @@ island-merge tie-breaks.
 
   Terrain detection:
   - [x] L3197 `detectTerrainAt`: per-body swept terrain candidate.
-  - [ ] L3220 `commitTerrainCandidate`: terrain hit/manifold side effects.
+  - [x] L3220 `commitTerrainCandidate`: terrain hit/manifold side effects.
 
   Remaining-time integration and sleep:
   - [ ] L3319 `integrateRemainingAt`: per-body remaining-time integration.
@@ -441,6 +441,16 @@ island-merge tie-breaks.
     evidence: `tools\validate_physics.bat` passed in
     `TestOutput\agent_logs\plan02_detect_terrain_at_validate_physics_20260709_1106.log`
     (39.1s shell runtime; Debug/Profile builds 0 warnings and 0 errors; final
+    `VALIDATE_PHYSICS: ALL PASSED`).
+  - Extracted the `commitTerrainCandidate` lambda into
+    `PhysicsWorld::CommitTerrainCandidate` plus
+    `TerrainCandidateCommitContext`, preserving hit-only pose integration,
+    terrain manifold construction, pipeline and collision-time diagnostics,
+    terrain sleep support/inhibit flags, visual contact marking, and
+    remaining-time writeback. Gate evidence: `tools\validate_physics.bat`
+    passed in
+    `TestOutput\agent_logs\plan02_commit_terrain_candidate_validate_physics_20260709_1109.log`
+    (39.0s shell runtime; Debug/Profile builds 0 warnings and 0 errors; final
     `VALIDATE_PHYSICS: ALL PASSED`).
 - [ ] **1.3** `RunSolverPhysics` is now a short driver calling named stages;
   confirm it is under ~300 lines.

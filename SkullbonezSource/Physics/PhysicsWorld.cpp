@@ -3266,6 +3266,69 @@ void PhysicsWorld::TerrainDetectionStage::operator()( int bodyIndex ) const
 }
 
 
+void PhysicsWorld::CommitTerrainCandidate( const TerrainCandidateCommitContext& context,
+                                           int bodyIndex,
+                                           float availableTime,
+                                           const TerrainContactSweepResult& sweep )
+{
+    if ( sweep.hit )
+    {
+        const float colTime = sweep.collisionTime;
+        (void)context.bodyStore.IntegrateBodyPose( context.colliderStore, bodyIndex, colTime );
+        const float remainingTime = (std::max)( 0.0f, availableTime - colTime );
+        Physics::TerrainContactManifold manifold;
+        const bool hasManifold =
+            Physics::BuildTerrainContactManifold( TerrainContactBodyViewForIndex( context.bodyRecords,
+                                                                                  context.config,
+                                                                                  bodyIndex ),
+                                                  context.colliderRecords[static_cast<size_t>( bodyIndex )].shape,
+                                                  bodyIndex,
+                                                  sweep,
+                                                  availableTime,
+                                                  manifold );
+
+        Physics::PhysicsPipelineRecord record;
+        record.stage = Physics::PhysicsPipelineStage::TerrainHit;
+        record.bodyA = bodyIndex;
+        record.bodyB = TERRAIN_BODY_INDEX;
+        record.point = hasManifold ? manifold.points[0].point
+                                   : context.bodyRecords[static_cast<size_t>( bodyIndex )].position;
+        record.normal = hasManifold ? manifold.normal : ZERO_VECTOR;
+        record.scalarA = colTime;
+        record.scalarB = hasManifold && manifold.supportsRestingPolicy ? 1.0f : 0.0f;
+        record.scalarC = hasManifold ? static_cast<float>( manifold.pointCount ) : 0.0f;
+        RecordPhysicsPipelineStage( record );
+        EmitPhysicsCollisionTime( context.diagnosticNames,
+                                  context.diagnosticNameCount,
+                                  context.diagnosticsCsvWriter,
+                                  "terrain",
+                                  bodyIndex,
+                                  -1,
+                                  colTime,
+                                  availableTime );
+
+        if ( hasManifold )
+        {
+            context.terrainContactManifolds.push_back( manifold );
+            if ( manifold.supportsRestingPolicy )
+            {
+                context.sleepSupportedThisFrame[bodyIndex] = 1;
+            }
+            else
+            {
+                context.sleepInhibitedThisFrame[bodyIndex] = 1;
+            }
+        }
+        else
+        {
+            context.sleepInhibitedThisFrame[bodyIndex] = 1;
+        }
+        MarkCollisionVisualContact( bodyIndex );
+        context.timeRemaining[bodyIndex] = remainingTime;
+    }
+}
+
+
 void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
                                      const ColliderStore& colliderStore,
                                      float dt,
@@ -3587,62 +3650,6 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
     //      the shared persistent contact rows below.
     PROFILE_BEGIN( "Frame/Physics/Terrain" );
     PROFILE_BEGIN( "Frame/Physics/Terrain/Detect" );
-    auto commitTerrainCandidate = [&]( int x, float availableTime, const TerrainContactSweepResult& sweep )
-    {
-        if ( sweep.hit )
-        {
-            const float colTime = sweep.collisionTime;
-            (void)bodyStore.IntegrateBodyPose( colliderStore, x, colTime );
-            const float remainingTime = (std::max)( 0.0f, availableTime - colTime );
-            Physics::TerrainContactManifold manifold;
-            const bool hasManifold =
-                Physics::BuildTerrainContactManifold( TerrainContactBodyViewForIndex( bodyRecords, config, x ),
-                                                      colliderRecords[static_cast<size_t>( x )].shape,
-                                                      x,
-                                                      sweep,
-                                                      availableTime,
-                                                      manifold );
-
-            Physics::PhysicsPipelineRecord record;
-            record.stage = Physics::PhysicsPipelineStage::TerrainHit;
-            record.bodyA = x;
-            record.bodyB = TERRAIN_BODY_INDEX;
-            record.point = hasManifold ? manifold.points[0].point : bodyRecords[static_cast<size_t>( x )].position;
-            record.normal = hasManifold ? manifold.normal : ZERO_VECTOR;
-            record.scalarA = colTime;
-            record.scalarB = hasManifold && manifold.supportsRestingPolicy ? 1.0f : 0.0f;
-            record.scalarC = hasManifold ? static_cast<float>( manifold.pointCount ) : 0.0f;
-            RecordPhysicsPipelineStage( record );
-            EmitPhysicsCollisionTime( diagnosticNames,
-                                      diagnosticNameCount,
-                                      diagnosticsCsvWriter,
-                                      "terrain",
-                                      x,
-                                      -1,
-                                      colTime,
-                                      availableTime );
-
-            if ( hasManifold )
-            {
-                m_terrainContactManifolds.push_back( manifold );
-                if ( manifold.supportsRestingPolicy )
-                {
-                    m_sleepSupportedThisFrame[x] = 1;
-                }
-                else
-                {
-                    m_sleepInhibitedThisFrame[x] = 1;
-                }
-            }
-            else
-            {
-                m_sleepInhibitedThisFrame[x] = 1;
-            }
-            MarkCollisionVisualContact( x );
-            m_timeRemaining[x] = remainingTime;
-        }
-    };
-
     m_terrainDetectionCandidates.assign( static_cast<size_t>( modelCount ), TerrainDetectionCandidate() );
     TerrainDetectionStageContext terrainDetectionContext{ bodyRecords,
                                                           colliderRecords,
@@ -3651,6 +3658,18 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
                                                           m_timeRemaining,
                                                           m_terrainDetectionCandidates };
     TerrainDetectionStage terrainDetectionStage{ terrainDetectionContext };
+    TerrainCandidateCommitContext terrainCandidateCommitContext{ bodyStore,
+                                                                 colliderStore,
+                                                                 bodyRecords,
+                                                                 colliderRecords,
+                                                                 config,
+                                                                 m_terrainContactManifolds,
+                                                                 m_sleepSupportedThisFrame,
+                                                                 m_sleepInhibitedThisFrame,
+                                                                 m_timeRemaining,
+                                                                 diagnosticNames,
+                                                                 diagnosticNameCount,
+                                                                 diagnosticsCsvWriter };
     if ( config.physicsParallel && config.physicsParallelTerrainDetect )
     {
         workerPool.ParallelForNoAlloc( 0,
@@ -3673,7 +3692,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
         const TerrainDetectionCandidate& candidate = m_terrainDetectionCandidates[static_cast<size_t>( x )];
         if ( candidate.tested )
         {
-            commitTerrainCandidate( x, candidate.availableTime, candidate.sweep );
+            CommitTerrainCandidate( terrainCandidateCommitContext, x, candidate.availableTime, candidate.sweep );
         }
     }
     PROFILE_END( "Frame/Physics/Terrain/Detect" );
