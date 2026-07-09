@@ -112,6 +112,18 @@ byte-exact gated.
   - Required gate passed: `tools\validate_full.bat` exited 0 in
     68.1528472 seconds. Log:
     `Agentic/Reports/validate_full_plan04_workerpool_fatals_20260709.log`.
+
+  Progress 2026-07-09, RunFrame fatal-invariant sub-slice:
+  - Converted the frame-loop render-backend lifetime guard in
+    `Run::Execute` from `throw std::runtime_error` to `SB_FATAL`.
+  - Strict source throw statement inventory now reports 247 sites, down from the
+    previous sub-slice count of 248. `SB_FATAL` macro invocations now report 37
+    via `rg -n "SB_FATAL\s*\(" SkullbonezSource`.
+  - Comment-style audit scope: `SkullbonezSource/Runtime/RunFrame.cpp`;
+    checked 1, deferred 0.
+  - Required gate passed: `tools\validate_full.bat` exited 0 in
+    58.0382996 seconds. Log:
+    `Agentic/Reports/validate_full_plan04_runframe_fatal_20260709.log`.
 - [ ] **2.1** Convert **P** sites (replay/interaction probes) to the
   `FailAutomation(...)` channel with `ok=false` + message. Gate: `validate_full`
   + replay scrub. Commit.

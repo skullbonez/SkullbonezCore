@@ -45,6 +45,7 @@ Related:
 #include "RuntimeTuning.h"
 #include "Scene/SceneRuntimeStyle.h"
 
+#include "../Core/FatalError.h"
 #include "../Core/Log.h"
 #include "../Physics/ColliderStore.h"
 #include "../Physics/PhysicsApi.h"
@@ -58,7 +59,6 @@ Related:
 #include <cstdio>
 #include <cstring>
 #include <limits>
-#include <stdexcept>
 #include <utility>
 #include <vector>
 
@@ -586,7 +586,7 @@ void Run::Execute()
             if ( !m_renderBackendView.deviceLifecycle || !m_renderBackendView.renderDiagnostics ||
                  !m_renderBackendView.renderResources || !m_renderBackendView.renderCommands )
             {
-                throw std::runtime_error( "Run::Execute requires a render backend" );
+                SB_FATAL( "RunFrame", "Run::Execute requires a render backend." );
             }
             SkullbonezCore::Rendering::IRenderDiagnostics& frameRenderDiagnostics =
                 *m_renderBackendView.renderDiagnostics;

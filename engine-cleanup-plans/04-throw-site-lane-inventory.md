@@ -287,6 +287,7 @@ Plan: `engine-cleanup-plans/04-error-handling-policy-reconciliation.md` Step 0.1
 - Phase 1 should start with F rows in physics/runtime hot paths and fixed-capacity guards, especially `PhysicsBodyStore`, `TerrainContactManifold`, `WorkerPool`, `RunFrame`, `RunRender`, `RenderGraph`, and DX12 capacity/lifetime rows.
 - Phase 1 progress, 2026-07-09: converted rows 1, 2, 3, 185, and 209 to `SB_FATAL`; current strict source throw statement count is 252 and current `SB_FATAL` call-site count is 35. The table above remains the Step 0.1 baseline snapshot.
 - Phase 1 progress, 2026-07-09: converted WorkerPool rows 190, 191, 192, and 193 to `SB_FATAL`; current strict source throw statement count is 248 and `rg -n "SB_FATAL\s*\(" SkullbonezSource` reports 36 macro invocations. The table above remains the Step 0.1 baseline snapshot.
+- Phase 1 progress, 2026-07-09: converted RunFrame row 257 to `SB_FATAL`; current strict source throw statement count is 247 and `rg -n "SB_FATAL\s*\(" SkullbonezSource` reports 37 macro invocations. The table above remains the Step 0.1 baseline snapshot.
 - Phase 2 should convert the P rows in replay/interaction automation setup and `RunInteractionAutomation` to the existing automation failure channel.
 - Phase 3 should convert R rows one boundary at a time: authored scene/hull/texture/font/capture/window/input/DX12 environment failures should surface as recoverable results at their owners.
 - Phase 4 should not add a throw-count ratchet. Re-run the inventory command above and review remaining rows by lane.
