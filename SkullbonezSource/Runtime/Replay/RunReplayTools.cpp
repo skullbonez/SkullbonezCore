@@ -197,10 +197,13 @@ constexpr std::size_t REPLAY_PATH_MAX_FUTURE_NODES = 240;
 constexpr std::size_t REPLAY_PATH_MAX_SEGMENTS = 260;
 constexpr std::size_t REPLAY_RIBBON_SEGMENTS_PER_PATH_SEGMENT = 2;
 constexpr float REPLAY_PATH_MIN_SEGMENT_DISTANCE_SQ = 0.0001f;
-// Why: sleeping or contact-propagated bodies can wake without translating. Child
-// prediction outlines wait for real linear speed so the wall blooms outward
-// only when bricks are actually about to move.
+// Why: rest markers and auxiliary trails still need an instantaneous "moving"
+// test, but child activation below uses contact ticks plus accumulated
+// displacement so one-frame velocity spikes cannot reorder the cause tree.
 constexpr float REPLAY_PREDICTION_CHILD_LINEAR_SPEED_SQ = 8.0f * 8.0f;
+constexpr float REPLAY_PREDICTION_CHILD_ACTIVATION_DISTANCE = 0.05f;
+constexpr float REPLAY_PREDICTION_CHILD_ACTIVATION_DISTANCE_SQ =
+    REPLAY_PREDICTION_CHILD_ACTIVATION_DISTANCE * REPLAY_PREDICTION_CHILD_ACTIVATION_DISTANCE;
 
 // Invariant: Worker dispatch is only worth it for large body snapshots. Small
 // scenes stay serial so replay overlays do not pay thread wakeup cost to copy a
@@ -3497,6 +3500,21 @@ bool BuildReplayPredictionFutureNodes( const RunReplayPredictionFrame& frame,
         outNextContactIndex );
 }
 
+bool ReplayPredictionBodyReachedActivationDisplacement( const RunReplayPredictionBodySample& initialBody,
+                                                        const RunReplayPredictionBodySample& body,
+                                                        Vector3& previousPosition,
+                                                        float& accumulatedDisplacement,
+                                                        Vector3& outActivationDelta )
+{
+    const Vector3 frameDelta = body.position - previousPosition;
+    previousPosition = body.position;
+    accumulatedDisplacement += VectorMag( frameDelta );
+    outActivationDelta = body.position - initialBody.position;
+
+    return accumulatedDisplacement >= REPLAY_PREDICTION_CHILD_ACTIVATION_DISTANCE ||
+           VectorMagSquared( outActivationDelta ) >= REPLAY_PREDICTION_CHILD_ACTIVATION_DISTANCE_SQ;
+}
+
 bool BuildReplayPredictionAffectedFutureNodes( const std::vector<RunReplayPredictionFrame>& frames,
                                                std::size_t frameCount,
                                                ReplayPredictionFutureContext& context,
@@ -3513,9 +3531,11 @@ bool BuildReplayPredictionAffectedFutureNodes( const std::vector<RunReplayPredic
     const RunReplayPredictionBodySample* rootBody = FindReplayPredictionBodyById( firstFrame, context.rootId );
     const int rootModelIndex = rootBody ? rootBody->modelIndex : -1;
 
-    // Concept: motion-derived future nodes populate the cause window while the
-    // contact graph is still sparse. A later contact-derived node replaces this
-    // fallback, so the tree becomes more causal as solver contact data arrives.
+    // Concept: contact-derived nodes own the authoritative firstFrame whenever
+    // the solver captured a contact tick. This sparse-contact fallback waits
+    // for measured displacement from the first prediction sample instead of a
+    // one-frame speed spike, so slow-pushed bodies join on the tick they
+    // actually begin to move.
     for ( const RunReplayPredictionBodySample& initialBody : firstFrame.bodies )
     {
         if ( ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ) )
@@ -3536,6 +3556,8 @@ bool BuildReplayPredictionAffectedFutureNodes( const std::vector<RunReplayPredic
             continue;
         }
 
+        Vector3 previousPosition = initialBody.position;
+        float accumulatedDisplacement = 0.0f;
         for ( std::size_t frameSlot = 1; frameSlot < frameCount; ++frameSlot )
         {
             if ( ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ) )
@@ -3550,21 +3572,28 @@ bool BuildReplayPredictionAffectedFutureNodes( const std::vector<RunReplayPredic
                 continue;
             }
 
-            if ( !ReplayPredictionBodyHasVisibleLinearMotion( *body ) )
+            Vector3 activationDelta;
+            if ( !ReplayPredictionBodyReachedActivationDisplacement( initialBody,
+                                                                     *body,
+                                                                     previousPosition,
+                                                                     accumulatedDisplacement,
+                                                                     activationDelta ) )
             {
                 continue;
             }
 
-            AddReplayPredictionFutureNode( context,
-                                           context.rootId,
-                                           rootModelIndex,
-                                           initialBody.id,
-                                           body->modelIndex,
-                                           frames[frameSlot].frameIndex,
-                                           body->position,
-                                           ReplayNormalizeOr( body->linearVelocity, Vector3( 0.0f, 1.0f, 0.0f ) ),
-                                           1,
-                                           false );
+            AddReplayPredictionFutureNode(
+                context,
+                context.rootId,
+                rootModelIndex,
+                initialBody.id,
+                body->modelIndex,
+                frames[frameSlot].frameIndex,
+                body->position,
+                ReplayNormalizeOr( activationDelta,
+                                   ReplayNormalizeOr( body->linearVelocity, Vector3( 0.0f, 1.0f, 0.0f ) ) ),
+                1,
+                false );
             break;
         }
     }
