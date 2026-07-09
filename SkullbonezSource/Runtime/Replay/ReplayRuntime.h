@@ -514,8 +514,9 @@ struct RunReplayPredictionState
     RunReplayPredictionSimulationState simulation;
     RunReplayPredictionFutureNodeCache futureNodeCache;
     // Concept: Stage-3 trajectory records are the publication layer between
-    // prediction/solver builders and overlay drawing. Existing draw paths still
-    // read legacy caches until the build/draw migration lands.
+    // prediction/solver builders and overlay drawing. Main root/child ribbons
+    // read these records; auxiliary marker/ragdoll paths keep using frame data
+    // when they need orientation or velocity, not just trajectory points.
     ReplayTrajectoryStore trajectoryStore;
     RunReplayPredictionTrajectoryBuildState trajectoryBuild;
     // Concept: the butterfly baseline is a retained presentation snapshot of

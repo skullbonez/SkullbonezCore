@@ -1,12 +1,13 @@
 # Replay: Trajectory Visuals, Prediction Job, Memory Quality, Code Size
 
 Date: 2026-07-09 (consolidated mega plan)
-Status: In progress - Stage 3.2 complete (prediction isolation, trajectory
+Status: In progress - Stage 3.3 complete (prediction isolation, trajectory
 visuals investigation, counters, memory accounting, draw-loop determinism,
 same-target refresh reveal preservation, past-path visibility, contact
 completeness reporting, the TrajectoryStore publication shell, and the
-build-pass writer migration are complete; draw-pass store reads, lock-step
-fixes, worker job, memory tuning, renderer rewrite, and code-size work remain
+build-pass writer migration, and store-backed draw reads are complete; fallback
+cleanup, lock-step fixes, worker job, memory tuning, renderer rewrite, and
+code-size work remain
 open)
 Impact area: replay runtime, replay prediction, trajectory overlay rendering,
 DX12 transient geometry, physics stepping, UI
@@ -547,8 +548,59 @@ Stage 3 — TrajectoryStore + build pass
   - Restore query: `tools\physics_query.bat Debug\replay_restore.physicsdiag.ndjson restore --limit 8`; trace 54,912 bytes; SQLite cache 225,280 bytes; query output 967 bytes.
   - Total model-read query output: 2,479 bytes. Raw NDJSON/SQLite sizes above
     are artifact sizes, not model-ingested text.
-- [ ] 3.3 Draw passes read the store only; delete per-frame `targetVisualizer`
+- [x] 3.3 Draw passes read the store only; delete per-frame `targetVisualizer`
   rebuild + `futureNodes` copy (kills the per-frame allocation).
+  Complete 2026-07-10: main trajectory ribbons now read the published
+  `TrajectoryStore` records instead of walking prediction or solver frame
+  vectors at draw time. Prediction root uses the `FutureRoot` lane, child
+  incoming/outgoing ribbons use branch-separated `FutureChildIncoming` and
+  `FutureChildOutgoing` records, and retained past root drawing recolors the
+  selected `PastRoot` record around the current solver scrub frame. The
+  butterfly baseline root is mirrored into the `BaselineRoot` lane so the
+  baseline polyline follows the same draw contract; baseline entry/rest boxes
+  still use retained pose data because they need orientation, not just points.
+
+  The retained path visualizer no longer builds a per-frame
+  `targetVisualizer`, no longer rebuilds retained future nodes from solver
+  callbacks, and no longer copies `futureNodes` back into the live visualizer.
+  It clears the retained report, refreshes the past trajectory store from the
+  solver ring, draws the selected root from `PastRoot`, and resolves only the
+  live target marker from the body/collider stores. Retained causal marker
+  trails now look up matching `FutureChildOutgoing` records when available.
+  The remaining frame-vector readers are intentionally marker/auxiliary paths:
+  child/root rest and entry markers need orientation, while affected-body and
+  ragdoll trails need velocity/model semantics that the Stage-3 trajectory
+  lanes do not publish.
+
+  Comment audit: inspected 2 touched source-bearing files with 0 deferred
+  (`ReplayRuntime.h`, `RunReplayTools.cpp`). Focused checks passed:
+  `tools\validate_build.bat Profile` in ~9.6s with 0 warnings/errors
+  (`Agentic/Reports/validate_build_profile_replay_stage3_3_20260710.log`);
+  `tools\validate_format.bat` passed
+  (`Agentic/Reports/validate_format_replay_stage3_3_20260710.log`);
+  allocation policy self-test passed; allocation scan passed
+  (`scanned=296 direct_heap_findings=28 dynamic_stl_member_findings=0
+  allowlist_errors=0`); and `git diff --check` passed. Required validation
+  passed: `tools\validate_full.bat` in 39.58s
+  (`Agentic/Reports/validate_full_replay_visuals_stage3_3_20260710.log`) with
+  project filters clean, Profile/Debug builds clean, formatting clean, DX12
+  validation errors 0, DX12 screenshots matching committed baselines, and
+  `physics_regression_solver.csv` byte-exact; `tools\validate_replay_scrub.bat`
+  in 10.93s
+  (`Agentic/Reports/validate_replay_scrub_replay_visuals_stage3_3_20260710.log`);
+  and `tools\validate_perf.bat` in 28.46s
+  (`Agentic/Reports/validate_perf_replay_stage3_3_20260710.log`) with
+  allocation guard PASS, `gameplay_violations=0`, runtime reserve
+  `policy_violations=0`, absolute DX12/PHYSICS_BENCH budgets clean, and no
+  perf regressions.
+
+  SkullScope accounting from the replay scrub gate:
+  - Scrub trace command: `Debug\SKULLBONEZ_CORE.exe --renderer dx12 --vsync off --shadows off --scene SkullbonezData/scenes/physics_roll.scene.json --frames 120 --replay on --replay-seconds 1 --replay-scrub-test --physics-diag Debug\replay_scrub.physicsdiag.ndjson`
+  - Scrub query: `tools\physics_query.bat Debug\replay_scrub.physicsdiag.ndjson replay --limit 8`; trace 54,932 bytes; SQLite cache 225,280 bytes; query output 1,512 bytes.
+  - Restore trace command: `Debug\SKULLBONEZ_CORE.exe --renderer dx12 --vsync off --shadows off --scene SkullbonezData/scenes/physics_roll.scene.json --frames 120 --replay on --replay-seconds 1 --replay-restore-test --physics-diag Debug\replay_restore.physicsdiag.ndjson`
+  - Restore query: `tools\physics_query.bat Debug\replay_restore.physicsdiag.ndjson restore --limit 8`; trace 54,912 bytes; SQLite cache 225,280 bytes; query output 967 bytes.
+  - Total model-read query output: 2,479 bytes. Raw NDJSON/SQLite sizes above
+    are artifact sizes, not model-ingested text.
 - [ ] 3.4 Keep old draw path behind a compile-time fallback for one commit.
 
 Stage 4 — Lock-step hierarchy correctness
