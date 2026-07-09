@@ -356,7 +356,7 @@ class Run
     void ApplyStartupOverrides(
         const RunStartupOverrides& overrides );                         // Apply parsed CLI/startup policy before Initialise().
     SbResult RunSceneLoadOnly( const char* snapshotOutPath = nullptr ); // Scene-load smoke path; skips the frame loop.
-    void Execute();                                                     // Main message loop; sceneQueue decides generated demo versus suite playback.
+    SbResult Execute();                                                 // Main message loop; returns recoverable runtime failures.
     SbResult SetInteractionAutomation(
         const char* scriptPath,
         const char* reportPath );                                       // CLI harness for deterministic world-click interaction scripts.

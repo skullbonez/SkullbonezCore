@@ -14,6 +14,8 @@ Glossary:
   window.
   Resize lifecycle: Borrowed renderer capability used only to resize swap-chain
   and depth resources when Win32 reports a new client size.
+  Lane R result: Recoverable renderer/window failure returned with an
+    owner/message instead of throwing through WndProc.
   Projection frustum: Camera depth range used when rebuilding the perspective
   matrix after a client-size change.
   Validation gate: Repository script that proves a class of changes before
@@ -73,7 +75,7 @@ class Window
 
     Math::Transformation::Matrix4 projectionMatrix;                       // Perspective projection rebuilt after client-size changes.
 
-    void HandleScreenResize();                                            // Resize the active renderer and projection when the client area changes
+    SbResult HandleScreenResize();                                        // Resizes the renderer/projection or reports a Lane R resize failure.
     void SetTitleText( const char* cText );                               // Updates the native title bar without touching renderer text.
     void SetProjectionFrustum( float nearPlane,
                                float farPlane );                          // Stores projection depth planes used by later resize messages.

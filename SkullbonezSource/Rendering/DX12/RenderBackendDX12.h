@@ -484,7 +484,7 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     void ReleaseCompletedDeferredResources( bool releaseUnfenced );
     void TryConsumeGpuTimerReadback( bool waitForFence );
     Basics::SbResult CreateRootSignature();
-    void CreateDepthStencil( int w, int h );
+    Basics::SbResult CreateDepthStencil( int w, int h );
     UINT AllocateTransientSRV();
     UINT AllocateTransientSRVRange( UINT count );
     D3D12_GPU_DESCRIPTOR_HANDLE GetSRVGpuHandle( UINT index );
@@ -540,12 +540,12 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
 
     Basics::SbResult Init( HWND hwnd, HDC hdc, int width, int height ) override;
     void Shutdown() override;
-    void Present() override;
+    Basics::SbResult Present() override;
     void SetVsyncEnabled( bool enabled ) override;
     bool IsVsyncEnabled() const override;
     void Finish() override;
     void FlushGPU() override;
-    void Resize( int width, int height ) override;
+    Basics::SbResult Resize( int width, int height ) override;
 
     void SetViewport( int x, int y, int w, int h ) override;
     void Clear( bool color, bool depth ) override;

@@ -3267,7 +3267,11 @@ int RunApp( Window* window,
             }
             else if ( !skipExecute )
             {
-                cRun->Execute();
+                const SbResult executeResult = cRun->Execute();
+                if ( !executeResult.ok )
+                {
+                    return reportRunResult( executeResult );
+                }
 #ifdef _DEBUG
                 if ( cRun->ReplayProbes().Failed() )
                 {
@@ -3454,7 +3458,16 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine
         return 1;
     }
     window->SetResizeRenderLifecycle( renderBackendView.deviceLifecycle );
-    window->HandleScreenResize();
+    const SbResult initialResizeResult = window->HandleScreenResize();
+    if ( !initialResizeResult.ok )
+    {
+        fprintf( stderr, "%s: %s\n", initialResizeResult.error.owner, initialResizeResult.error.message );
+        fflush( stderr );
+        workerPool.Shutdown();
+        CleanupWindow( window, hInstance, renderBackend );
+        CoUninitialize();
+        return 1;
+    }
 
     Profiler* profiler = nullptr;
 #if defined( SKULLBONEZ_PROFILE_ENABLED )

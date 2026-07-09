@@ -1050,6 +1050,49 @@ byte-exact gated.
     `VALIDATE_PHYSICS: ALL PASSED`, Debug/Profile builds 0 warnings/errors, and
     deterministic physics output matching the committed baseline. Log:
     `Agentic/Reports/validate_physics_plan04_convex_hull_result_20260709.log`.
+
+  Progress 2026-07-09, DX12 lifecycle/depth-stencil/texture recoverable batch:
+  - Converted five strict DX12 rows from exception exits to Lane R result or
+    failure-handle reporting: `RenderBackendDX12.cpp` rows 52, 71, 72, and 73
+    plus `RenderBackendDX12.Textures.cpp` row 102 from the Step 0.1 inventory.
+  - `IRenderDeviceLifecycle::Present` and `Resize` now return `SbResult`.
+    `Run::Execute` returns `SbResult` so Present/device-loss failures flow to
+    the existing `reportRunResult` startup/frame boundary. `Window::HandleScreenResize`
+    returns `SbResult`; startup checks the initial resize result, and WndProc logs
+    resize failures before posting quit.
+  - `RenderBackendDX12::CreateDepthStencil` now returns `SbResult` through both
+    startup and resize. `RenderBackendDX12::CreateTexture2D` logs resource
+    creation failure and returns texture handle `0`, matching the existing
+    nonresident texture contract that `TextureCollection` reports at its Lane R
+    boundary.
+  - Strict anchored source throw statement inventory now reports 17 sites, down
+    from the previous sub-slice count of 22. `SB_FATAL` macro invocations remain
+    165 via `rg -n "SB_FATAL\s*\(" SkullbonezSource`.
+  - Comment-style audit scope:
+    `SkullbonezSource/Physics/ConvexHullShape.cpp`,
+    `SkullbonezSource/Rendering/DX12/RenderBackendDX12.Textures.cpp`,
+    `SkullbonezSource/Rendering/DX12/RenderBackendDX12.cpp`,
+    `SkullbonezSource/Rendering/DX12/RenderBackendDX12.h`,
+    `SkullbonezSource/Rendering/IRenderDeviceLifecycle.h`,
+    `SkullbonezSource/Runtime/Init.cpp`, `SkullbonezSource/Runtime/Run.h`,
+    `SkullbonezSource/Runtime/RunFrame.cpp`,
+    `SkullbonezSource/Runtime/Window.cpp`, and
+    `SkullbonezSource/Runtime/Window.h`; checked 10, deferred 0. The
+    `ConvexHullShape.cpp` entry was a one-file clang-format correction required
+    by the DX12 gate; it changed formatting only.
+  - Focused build passed: `tools\validate_build.bat Profile` exited 0 in
+    00:00:19.3 with 0 warnings and 0 errors. Log:
+    `Agentic/Reports/validate_build_profile_plan04_dx12_lifecycle_texture_20260709.log`.
+  - Required DX12 gate passed on the final source tree:
+    `tools\validate_dx12_renderer.bat` exited 0 in 00:00:47.1 with
+    `VALIDATE_DX12_RENDERER: ALL PASSED`, formatting clean, DX12 validation
+    errors 0, and screenshots matching committed baselines. The first attempt
+    stopped at formatting on `ConvexHullShape.cpp`; the final rerun passed after
+    a targeted one-file format fix. Log:
+    `Agentic/Reports/validate_dx12_renderer_plan04_lifecycle_texture_20260709.log`.
+  - Runtime boundary checker passed: `python tools\check_runtime_boundaries.py`
+    exited 0 in 00:00:19.6 with 0 errors. Log:
+    `Agentic/Reports/check_runtime_boundaries_plan04_lifecycle_texture_20260709.log`.
 - [ ] **4.1** Do **not** maintain any throw count. The `MAX_SOURCE_THROW_TOKENS`
   ratchet is deleted by plan 03. Verify progress by re-running
   `rg -n "throw " SkullbonezSource` and confirming the F/R/P sites are converted;

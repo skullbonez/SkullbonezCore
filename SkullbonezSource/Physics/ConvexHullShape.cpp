@@ -129,10 +129,7 @@ SbResult ParseFiniteFloat( const char* value, const char* path, int lineNumber, 
     if ( end == value || *end != '\0' || errno == ERANGE || !std::isfinite( parsed ) || parsed < -FLT_MAX ||
          parsed > FLT_MAX )
     {
-        return HullLoadFailure( "Invalid %s at %s:%d.  (ConvexHullShape::LoadFromFile)",
-                                field,
-                                path,
-                                lineNumber );
+        return HullLoadFailure( "Invalid %s at %s:%d.  (ConvexHullShape::LoadFromFile)", field, path, lineNumber );
     }
     out = static_cast<float>( parsed );
     return SbResult::Success();
@@ -145,10 +142,7 @@ SbResult ParseUint16( const char* value, const char* path, int lineNumber, const
     const long parsed = strtol( value, &end, 10 );
     if ( end == value || *end != '\0' || errno == ERANGE || parsed < 0 || parsed > 65535 )
     {
-        return HullLoadFailure( "Invalid %s at %s:%d.  (ConvexHullShape::LoadFromFile)",
-                                field,
-                                path,
-                                lineNumber );
+        return HullLoadFailure( "Invalid %s at %s:%d.  (ConvexHullShape::LoadFromFile)", field, path, lineNumber );
     }
     out = static_cast<uint16_t>( parsed );
     return SbResult::Success();
@@ -231,10 +225,7 @@ SbResult ParseVec3( char*& context, const char* path, int lineNumber, const char
     char* sz = strtok_s( nullptr, " \t\r\n", &context );
     if ( !sx || !sy || !sz )
     {
-        return HullLoadFailure( "Invalid %s at %s:%d.  (ConvexHullShape::LoadFromFile)",
-                                field,
-                                path,
-                                lineNumber );
+        return HullLoadFailure( "Invalid %s at %s:%d.  (ConvexHullShape::LoadFromFile)", field, path, lineNumber );
     }
     float x = 0.0f;
     float y = 0.0f;
@@ -409,7 +400,8 @@ SbResult ConvexHullShape::TryLoadFromFile( const char* path, ConvexHullShape& ou
 
         if ( strcmp( token, "center_of_mass" ) == 0 )
         {
-            SbResult parseResult = ParseVec3( context, path, lineNumber, "center_of_mass", hull.m_authoredCenterOfMass );
+            SbResult parseResult =
+                ParseVec3( context, path, lineNumber, "center_of_mass", hull.m_authoredCenterOfMass );
             if ( !parseResult.ok )
             {
                 return parseResult;
@@ -558,7 +550,8 @@ SbResult ConvexHullShape::TryLoadFromFile( const char* path, ConvexHullShape& ou
                                         lineNumber );
             }
 
-            SbResult parseResult = ParseVec3( context, path, lineNumber, "vertex", hull.m_vertices[hull.m_vertexCount] );
+            SbResult parseResult =
+                ParseVec3( context, path, lineNumber, "vertex", hull.m_vertices[hull.m_vertexCount] );
             if ( !parseResult.ok )
             {
                 return parseResult;
@@ -647,9 +640,10 @@ SbResult ConvexHullShape::TryLoadFromFile( const char* path, ConvexHullShape& ou
             }
             if ( VectorMagSquared( face.normalLocal ) <= 1.0e-10f )
             {
-                return HullLoadFailure( "Convex hull face normal is degenerate at %s:%d.  (ConvexHullShape::LoadFromFile)",
-                                        path,
-                                        lineNumber );
+                return HullLoadFailure(
+                    "Convex hull face normal is degenerate at %s:%d.  (ConvexHullShape::LoadFromFile)",
+                    path,
+                    lineNumber );
             }
             hull.m_faces[hull.m_faceCount++] = face;
             continue;
@@ -732,9 +726,10 @@ SbResult ConvexHullShape::TryLoadFromFile( const char* path, ConvexHullShape& ou
         const ConvexHullFace& face = hull.m_faces[f];
         if ( face.firstIndex + face.indexCount > hull.m_faceIndexCount )
         {
-            return HullLoadFailure( "Convex hull face %u has invalid index range in %s.  (ConvexHullShape::LoadFromFile)",
-                                    f,
-                                    path );
+            return HullLoadFailure(
+                "Convex hull face %u has invalid index range in %s.  (ConvexHullShape::LoadFromFile)",
+                f,
+                path );
         }
         for ( uint8_t i = 0; i < face.indexCount; ++i )
         {
@@ -756,9 +751,10 @@ SbResult ConvexHullShape::TryLoadFromFile( const char* path, ConvexHullShape& ou
         if ( edge.vertexA >= hull.m_vertexCount || edge.vertexB >= hull.m_vertexCount ||
              edge.faceA >= hull.m_faceCount || edge.faceB >= hull.m_faceCount )
         {
-            return HullLoadFailure( "Convex hull edge %u references invalid topology in %s.  (ConvexHullShape::LoadFromFile)",
-                                    e,
-                                    path );
+            return HullLoadFailure(
+                "Convex hull edge %u references invalid topology in %s.  (ConvexHullShape::LoadFromFile)",
+                e,
+                path );
         }
     }
     CopyHullName( hull.m_name, path, authoredName );
@@ -888,10 +884,10 @@ void ConvexHullShape::ScaleAxis( int axis, float factor )
         const Vector3& b = m_vertices[m_faceIndices[face.firstIndex + 1]];
         const Vector3& c = m_vertices[m_faceIndices[face.firstIndex + 2]];
         Vector3 normal = ZERO_VECTOR;
-        const SbResult normalResult = TryNormalized(
-            CrossProduct( b - a, c - a ),
-            "Degenerate scaled convex hull face.  (ConvexHullShape::ScaleAxis)",
-            normal );
+        const SbResult normalResult =
+            TryNormalized( CrossProduct( b - a, c - a ),
+                           "Degenerate scaled convex hull face.  (ConvexHullShape::ScaleAxis)",
+                           normal );
         if ( !normalResult.ok )
         {
             // Invariant: positive finite copy-scale must preserve baked hull

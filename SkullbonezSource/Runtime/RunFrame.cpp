@@ -547,7 +547,7 @@ class SimulationPostStepPipeline
 
 } // namespace
 
-void Run::Execute()
+SbResult Run::Execute()
 {
     MSG msg;
 
@@ -711,12 +711,19 @@ void Run::Execute()
                 static_cast<float>( std::clamp( m_timers.workTimer.GetElapsedTime(), 0.0, 0.25 ) * 1000.0 );
 
             PROFILE_BEGIN( "Frame/VsyncWait" );
+            SbResult presentResult = SbResult::Success();
             {
                 RuntimeAllocation::RuntimeAllocationScope allocationScope(
                     RuntimeAllocation::RuntimeAllocationPhase::Render );
-                renderLifecycle.Present();
+                presentResult = renderLifecycle.Present();
             }
             PROFILE_END( "Frame/VsyncWait" );
+            if ( !presentResult.ok )
+            {
+                m_timers.frameTimer.StopTimer();
+                PROFILE_FRAME_END();
+                return presentResult;
+            }
 
             m_timers.frameTimer.StopTimer();
             PROFILE_FRAME_END();
@@ -741,6 +748,7 @@ void Run::Execute()
             }
         }
     }
+    return SbResult::Success();
 }
 
 

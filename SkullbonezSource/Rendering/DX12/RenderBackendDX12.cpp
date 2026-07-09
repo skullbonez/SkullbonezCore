@@ -131,15 +131,6 @@ static void ReportDX12DescriptorHeapExhausted( const char* heapName, UINT nextIn
     Log().FlushAll();
 }
 
-static inline void ThrowIfFailed( HRESULT hr, const char* msg )
-{
-    if ( FAILED( hr ) )
-    {
-        throw std::runtime_error( msg );
-    }
-}
-
-
 static inline SkullbonezCore::Basics::SbResult Dx12BackendInitResult( HRESULT hr, const char* msg )
 {
     if ( FAILED( hr ) )
@@ -150,6 +141,21 @@ static inline SkullbonezCore::Basics::SbResult Dx12BackendInitResult( HRESULT hr
         return SkullbonezCore::Basics::SbResult::Failure( "Rendering/DX12",
                                                           "%s (HRESULT 0x%08X)",
                                                           msg ? msg : "DX12 backend startup call failed",
+                                                          static_cast<unsigned int>( hr ) );
+    }
+    return SkullbonezCore::Basics::SbResult::Success();
+}
+
+static inline SkullbonezCore::Basics::SbResult Dx12BackendOperationResult( HRESULT hr, const char* msg )
+{
+    if ( FAILED( hr ) )
+    {
+        // Lane R: runtime presentation, resize, and render-target creation
+        // depend on the active adapter/driver/window state. Report the device
+        // operation that failed instead of escaping through exception unwinding.
+        return SkullbonezCore::Basics::SbResult::Failure( "Rendering/DX12",
+                                                          "%s (HRESULT 0x%08X)",
+                                                          msg ? msg : "DX12 backend operation failed",
                                                           static_cast<unsigned int>( hr ) );
     }
     return SkullbonezCore::Basics::SbResult::Success();
@@ -1802,7 +1808,11 @@ SkullbonezCore::Basics::SbResult RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/
     }
 
     // Depth stencil
-    CreateDepthStencil( width, height );
+    const SkullbonezCore::Basics::SbResult depthStencilResult = CreateDepthStencil( width, height );
+    if ( !depthStencilResult.ok )
+    {
+        return depthStencilResult;
+    }
 
     // Create per-frame upload buffers — one per FRAME_COUNT allocator. Each holds CPU-writable,
     // GPU-readable memory for per-frame constant buffers, dynamic vertex buffers, and texture
@@ -2015,7 +2025,7 @@ SkullbonezCore::Basics::SbResult RenderBackendDX12::CreateRootSignature()
 }
 
 
-void RenderBackendDX12::CreateDepthStencil( int w, int h )
+SkullbonezCore::Basics::SbResult RenderBackendDX12::CreateDepthStencil( int w, int h )
 {
     D3D12_HEAP_PROPERTIES heapProps = {};
     heapProps.Type = D3D12_HEAP_TYPE_DEFAULT;
@@ -2037,15 +2047,16 @@ void RenderBackendDX12::CreateDepthStencil( int w, int h )
     // Create the main depth/stencil buffer on the default (GPU-only) heap. This texture stores
     // per-pixel depth values (24-bit depth + 8-bit stencil) for the z-buffer algorithm.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createcommittedresource
-    Device()->CreateCommittedResource( &heapProps,
-                                       D3D12_HEAP_FLAG_NONE,
-                                       &desc,
-                                       D3D12_RESOURCE_STATE_DEPTH_WRITE,
-                                       &clearValue,
-                                       IID_PPV_ARGS( &m_depthStencil ) );
-    if ( !m_depthStencil )
+    const HRESULT createResult = Device()->CreateCommittedResource( &heapProps,
+                                                                    D3D12_HEAP_FLAG_NONE,
+                                                                    &desc,
+                                                                    D3D12_RESOURCE_STATE_DEPTH_WRITE,
+                                                                    &clearValue,
+                                                                    IID_PPV_ARGS( &m_depthStencil ) );
+    if ( FAILED( createResult ) || !m_depthStencil )
     {
-        throw std::runtime_error( "CreateCommittedResource (depth stencil) failed" );
+        return Dx12BackendOperationResult( FAILED( createResult ) ? createResult : E_FAIL,
+                                           "CreateCommittedResource (depth stencil) failed" );
     }
     NameDx12Object( m_depthStencil, L"Skullbonez DX12 Main Depth Stencil" );
 
@@ -2062,6 +2073,7 @@ void RenderBackendDX12::CreateDepthStencil( int w, int h )
     }
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createdepthstencilview
     Device()->CreateDepthStencilView( m_depthStencil, &dsvDesc, m_mainDSV );
+    return SkullbonezCore::Basics::SbResult::Success();
 }
 
 
@@ -2296,7 +2308,7 @@ void RenderBackendDX12::Shutdown()
 // --- Frame Management ---
 
 
-void RenderBackendDX12::Present()
+SkullbonezCore::Basics::SbResult RenderBackendDX12::Present()
 {
     EnsureCommandListOpen();
 
@@ -2360,9 +2372,17 @@ void RenderBackendDX12::Present()
     if ( IsDx12DeviceLostResult( presentResult ) )
     {
         ReportDeviceLost( "Present", presentResult );
-        throw std::runtime_error( "DX12 device lost during Present; see dx12_device_lost.txt" );
+        return SkullbonezCore::Basics::SbResult::Failure( "Rendering/DX12",
+                                                          "DX12 device lost during Present; see dx12_device_lost.txt "
+                                                          "(HRESULT 0x%08X)",
+                                                          static_cast<unsigned int>( presentResult ) );
     }
-    ThrowIfFailed( presentResult, "SwapChain Present failed" );
+    const SkullbonezCore::Basics::SbResult presentFailure =
+        Dx12BackendOperationResult( presentResult, "SwapChain Present failed" );
+    if ( !presentFailure.ok )
+    {
+        return presentFailure;
+    }
 
     // Signal the fence with the current frame's value. When the GPU reaches
     // this point in its command stream, it updates the fence to that value.
@@ -2403,6 +2423,7 @@ void RenderBackendDX12::Present()
         m_renderDevice.FrameFence().WaitForValue( nextFrameFenceValue );
     }
     ReleaseCompletedDeferredResources( false );
+    return SkullbonezCore::Basics::SbResult::Success();
 }
 
 
@@ -2473,11 +2494,11 @@ void RenderBackendDX12::FlushGPU()
 }
 
 
-void RenderBackendDX12::Resize( int width, int height )
+SkullbonezCore::Basics::SbResult RenderBackendDX12::Resize( int width, int height )
 {
     if ( width <= 0 || height <= 0 )
     {
-        return;
+        return SkullbonezCore::Basics::SbResult::Success();
     }
 
     WaitForGpu();
@@ -2496,9 +2517,17 @@ void RenderBackendDX12::Resize( int width, int height )
     if ( IsDx12DeviceLostResult( resizeResult ) )
     {
         ReportDeviceLost( "ResizeBuffers", resizeResult );
-        throw std::runtime_error( "DX12 device lost during ResizeBuffers; see dx12_device_lost.txt" );
+        return SkullbonezCore::Basics::SbResult::Failure( "Rendering/DX12",
+                                                          "DX12 device lost during ResizeBuffers; see "
+                                                          "dx12_device_lost.txt (HRESULT 0x%08X)",
+                                                          static_cast<unsigned int>( resizeResult ) );
     }
-    ThrowIfFailed( resizeResult, "SwapChain ResizeBuffers failed" );
+    const SkullbonezCore::Basics::SbResult resizeFailure =
+        Dx12BackendOperationResult( resizeResult, "SwapChain ResizeBuffers failed" );
+    if ( !resizeFailure.ok )
+    {
+        return resizeFailure;
+    }
     m_frameIndex = m_renderDevice.RefreshFrameIndexFromSwapChain();
 
     // ResizeBuffers puts all back buffers into PRESENT state, so the next
@@ -2507,13 +2536,22 @@ void RenderBackendDX12::Resize( int width, int height )
 
     for ( int i = 0; i < FRAME_COUNT; ++i )
     {
-        ThrowIfFailed( SwapChain()->GetBuffer( (UINT)i, IID_PPV_ARGS( &m_renderTargets[i] ) ),
-                       "SwapChain GetBuffer after resize failed" );
+        const SkullbonezCore::Basics::SbResult backBufferResult =
+            Dx12BackendOperationResult( SwapChain()->GetBuffer( (UINT)i, IID_PPV_ARGS( &m_renderTargets[i] ) ),
+                                        "SwapChain GetBuffer after resize failed" );
+        if ( !backBufferResult.ok )
+        {
+            return backBufferResult;
+        }
         NameDx12ObjectIndexed( m_renderTargets[i], L"Skullbonez DX12 Swapchain Backbuffer", (UINT)i );
         Device()->CreateRenderTargetView( m_renderTargets[i], nullptr, m_backBufferRTVs[i] );
     }
 
-    CreateDepthStencil( width, height );
+    const SkullbonezCore::Basics::SbResult depthStencilResult = CreateDepthStencil( width, height );
+    if ( !depthStencilResult.ok )
+    {
+        return depthStencilResult;
+    }
 
     m_width = width;
     m_height = height;
@@ -2521,6 +2559,7 @@ void RenderBackendDX12::Resize( int width, int height )
     m_scissorRect = { 0, 0, (LONG)width, (LONG)height };
     m_currentRTV = m_backBufferRTVs[m_frameIndex];
     m_currentDSV = m_mainDSV;
+    return SkullbonezCore::Basics::SbResult::Success();
 }
 
 

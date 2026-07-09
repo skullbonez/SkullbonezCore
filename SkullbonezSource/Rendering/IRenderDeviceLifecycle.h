@@ -19,12 +19,16 @@ Glossary:
   GPU flush: CPU wait until submitted GPU work has completed.
   HWND (Window Handle): Win32 identifier for the native application window.
   HDC (Handle to Device Context): Win32 drawing context paired with an HWND.
+  Lane R result: Recoverable device, window, or driver failure reported with an
+    owner/message so startup or the frame loop can exit cleanly.
 
 Invariants:
   - Lifecycle methods are valid only on the thread/path that owns renderer
     startup and shutdown.
   - Finish/FlushGPU must complete submitted GPU work before resources they may
     reference are destroyed.
+  - Init, Present, and Resize return Lane R results for environment failures;
+    callers decide whether to show UI, write logs, or end the message loop.
   - Width and height describe the active backend surface after initialization or
     resize.
 
@@ -50,12 +54,12 @@ class IRenderDeviceLifecycle
 
     virtual Basics::SbResult Init( HWND hwnd, HDC hdc, int width, int height ) = 0;
     virtual void Shutdown() = 0;
-    virtual void Present() = 0;
+    virtual Basics::SbResult Present() = 0;
     virtual void SetVsyncEnabled( bool enabled ) = 0;
     virtual bool IsVsyncEnabled() const = 0;
     virtual void Finish() = 0;
     virtual void FlushGPU() = 0;
-    virtual void Resize( int width, int height ) = 0;
+    virtual Basics::SbResult Resize( int width, int height ) = 0;
     virtual int GetWidth() const = 0;
     virtual int GetHeight() const = 0;
 };

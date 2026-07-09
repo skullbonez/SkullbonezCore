@@ -18,6 +18,8 @@ Glossary:
   input messages.
   Callback bridge: Input's bound HWND gate that keeps late or foreign window
   callbacks from mutating frame input queues.
+  Lane R result: Recoverable renderer/window failure returned with an
+    owner/message instead of throwing through WndProc.
 
 Invariants:
   - Window dimensions are client-area dimensions and drive both renderer resize
@@ -35,9 +37,11 @@ Related:
 #include "Window.h"
 #include "../Rendering/IRenderDeviceLifecycle.h"
 #include "Input.h"
+#include "../Core/Log.h"
 #include "../Rendering/Text.h"
 
 #include <algorithm>
+#include <cstdio>
 
 
 using namespace SkullbonezCore::Basics;
@@ -96,7 +100,7 @@ void Window::SetResizeRenderLifecycle( IRenderDeviceLifecycle* deviceLifecycle )
 }
 
 
-void Window::HandleScreenResize()
+SbResult Window::HandleScreenResize()
 {
     int w = m_sWindowDimensions.x;
     int h = m_sWindowDimensions.y;
@@ -105,10 +109,14 @@ void Window::HandleScreenResize()
     // to zero dimensions would invalidate swap-chain and projection state.
     if ( w <= 0 || h <= 0 || !m_resizeRenderLifecycle )
     {
-        return;
+        return SbResult::Success();
     }
 
-    m_resizeRenderLifecycle->Resize( w, h );
+    const SbResult resizeResult = m_resizeRenderLifecycle->Resize( w, h );
+    if ( !resizeResult.ok )
+    {
+        return resizeResult;
+    }
 
     // Recompute the 2D text ortho projection to match the new aspect ratio.
     // Without this, text stretches when the window is resized or maximized.
@@ -123,6 +131,7 @@ void Window::HandleScreenResize()
                                                                             aspect,
                                                                             m_projectionNearPlane,
                                                                             m_projectionFarPlane );
+    return SbResult::Success();
 }
 
 
@@ -180,7 +189,19 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT iMsg, WPARAM wParam, LPARAM lParam )
             if ( m_cWindow )
             {
                 m_cWindow->SetWindowDimensions( LOWORD( lParam ), HIWORD( lParam ) );
-                m_cWindow->HandleScreenResize();
+                const SbResult resizeResult = m_cWindow->HandleScreenResize();
+                if ( !resizeResult.ok )
+                {
+                    const char* owner =
+                        resizeResult.error.owner[0] != '\0' ? resizeResult.error.owner : "Runtime/Window";
+                    const char* message =
+                        resizeResult.error.message[0] != '\0' ? resizeResult.error.message : "window resize failed";
+                    Log().WriteEventf( "window_resize_failed owner=\"%s\" message=\"%s\"", owner, message );
+                    std::fprintf( stderr, "[window] Resize failed owner=%s reason=\"%s\"\n", owner, message );
+                    std::fflush( stderr );
+                    Log().FlushAll();
+                    PostQuitMessage( 1 );
+                }
             }
             break;
 

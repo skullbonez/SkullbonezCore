@@ -34,7 +34,6 @@ Related:
 #include "../RenderGraph.h"
 #include "../../Core/Log.h"
 #include "../../Core/PlatformProfiler.h"
-#include <stdexcept>
 #include <cstdio>
 #include <cstring>
 #include <algorithm>
@@ -61,15 +60,6 @@ static void ReportDX12DescriptorHeapExhausted( const char* heapName, UINT nextIn
     Log().WriteEventf( "dx12_descriptor_heap_exhausted heap=%s next=%u capacity=%u", name, nextIndex, capacity );
     Log().FlushAll();
 }
-
-static inline void ThrowIfFailed( HRESULT hr, const char* msg )
-{
-    if ( FAILED( hr ) )
-    {
-        throw std::runtime_error( msg );
-    }
-}
-
 
 static inline SkullbonezCore::Basics::SbResult Dx12TextureStartupResult( HRESULT hr, const char* msg )
 {
@@ -491,13 +481,25 @@ uint32_t RenderBackendDX12::CreateTexture2D( const uint8_t* data,
     texDesc.Flags = ( numMips > 1 ) ? D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS : D3D12_RESOURCE_FLAG_NONE;
 
     ID3D12Resource* texResource = nullptr;
-    ThrowIfFailed( Device()->CreateCommittedResource( &defaultHeap,
-                                                      D3D12_HEAP_FLAG_NONE,
-                                                      &texDesc,
-                                                      D3D12_RESOURCE_STATE_COPY_DEST,
-                                                      nullptr,
-                                                      IID_PPV_ARGS( &texResource ) ),
-                   "CreateCommittedResource (texture) failed" );
+    const HRESULT textureResult = Device()->CreateCommittedResource( &defaultHeap,
+                                                                     D3D12_HEAP_FLAG_NONE,
+                                                                     &texDesc,
+                                                                     D3D12_RESOURCE_STATE_COPY_DEST,
+                                                                     nullptr,
+                                                                     IID_PPV_ARGS( &texResource ) );
+    if ( FAILED( textureResult ) || !texResource )
+    {
+        // Lane R: texture residency can fail because of the active device or
+        // memory budget. The renderer texture handle contract already uses 0
+        // for "no usable texture", which TextureCollection reports to callers.
+        Log().WriteEventf( "dx12_texture_create_failed width=%d height=%d mips=%u hresult=0x%08X",
+                           w,
+                           h,
+                           numMips,
+                           static_cast<unsigned int>( FAILED( textureResult ) ? textureResult : E_FAIL ) );
+        Log().FlushAll();
+        return 0;
+    }
 
     // -------------------------------------------------------------------------
     // Upload mip 0 only. GetCopyableFootprints for 1 subresource gives the
