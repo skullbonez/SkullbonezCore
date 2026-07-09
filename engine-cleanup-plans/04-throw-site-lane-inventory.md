@@ -32,6 +32,9 @@ Plan: `engine-cleanup-plans/04-error-handling-policy-reconciliation.md` Step 0.1
 - 2026-07-09 DX12 shader compile/reflection status batch: rows 186-189 are
   converted to logged `false` returns documented in Plan 04. Current strict
   anchored source throw count: 10.
+- 2026-07-09 DX12 fence/readback recoverable result batch: rows 106, 107, and
+  109 are converted to `SbResult`/neutral-return paths documented in Plan 04.
+  Current strict anchored source throw count: 7.
 
 ## Site Table
 
@@ -340,5 +343,6 @@ Plan: `engine-cleanup-plans/04-error-handling-policy-reconciliation.md` Step 0.1
 - Phase 3 progress, 2026-07-09: converted RenderBackendDX12 rows 52, 71, 72, and 73 plus RenderBackendDX12.Textures row 102 to `SbResult` or failure-handle reporting through the lifecycle/window/frame boundary and texture handle `0`; current strict anchored source throw statement count is 17 and `rg -n "SB_FATAL\s*\(" SkullbonezSource` reports 165 macro invocations. The table above remains the Step 0.1 baseline snapshot.
 - Phase 3 progress, 2026-07-09: converted RenderBackendDX12.DynamicGeometry rows 49 and 50 plus RenderBackendDX12.Pipeline row 88 to logged recoverable skip/neutral-handle paths; current strict anchored source throw statement count is 14 and `rg -n "SB_FATAL\s*\(" SkullbonezSource` reports 165 macro invocations. The table above remains the Step 0.1 baseline snapshot.
 - Phase 3 progress, 2026-07-09: converted ShaderDX12 rows 186 through 189 to logged `false` returns for shader file open, compile, and reflection failures; current strict anchored source throw statement count is 10 and `rg -n "SB_FATAL\s*\(" SkullbonezSource` reports 165 macro invocations. The table above remains the Step 0.1 baseline snapshot.
+- Phase 3 progress, 2026-07-09: converted RenderDeviceDX12 fence/readback rows 106, 107, and 109 to `SbResult`/neutral-return paths; current strict anchored source throw statement count is 7 and `rg -n "SB_FATAL\s*\(" SkullbonezSource` reports 165 macro invocations. The table above remains the Step 0.1 baseline snapshot.
 - Phase 3 should convert R rows one boundary at a time: authored scene/hull/texture/font/capture/window/input/DX12 environment failures should surface as recoverable results at their owners.
 - Phase 4 should not add a throw-count ratchet. Re-run the inventory command above and review remaining rows by lane.

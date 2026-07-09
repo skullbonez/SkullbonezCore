@@ -122,9 +122,9 @@ class Dx12FenceTimeline
     void Reset();
 
     bool IsReady() const;
-    UINT64 Signal();
-    UINT64 SignalAndWait();
-    void WaitForValue( UINT64 value ) const;
+    Basics::SbResult Signal( UINT64& outValue );
+    Basics::SbResult SignalAndWait();
+    Basics::SbResult WaitForValue( UINT64 value ) const;
 
     UINT64 CompletedValue() const;
     UINT64 LastSignaledValue() const

@@ -476,7 +476,7 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     UINT m_genMipsNullUAV = 0;                                     // Static SRV slot holding a null UAV (padding)
 
     // --- Internal helpers ---
-    void WaitForGpu();
+    Basics::SbResult WaitForGpu();
     void EnsureCommandListOpen();
     void AssignDeferredResourceReleaseFence( UINT64 fenceValue );
     void ReleaseCompletedDeferredResources( bool releaseUnfenced );

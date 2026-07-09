@@ -52,6 +52,7 @@ Related:
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Rendering;
 using Microsoft::WRL::ComPtr;
+using SkullbonezCore::Basics::SbResult;
 
 
 // --- Helpers ---
@@ -70,7 +71,15 @@ void RenderBackendDX12::TryConsumeGpuTimerReadback( bool waitForFence )
     // PipelineSync is disabled. Blocking mode is only used by Finish()/FlushGPU().
     if ( waitForFence )
     {
-        m_renderDevice.FrameFence().WaitForValue( m_gpuTimers.readFenceValue );
+        const SbResult waitResult = m_renderDevice.FrameFence().WaitForValue( m_gpuTimers.readFenceValue );
+        if ( !waitResult.ok )
+        {
+            Log().WriteEventf( "dx12_gpu_timer_wait_failed owner=%s message=%s",
+                               waitResult.error.owner,
+                               waitResult.error.message );
+            m_gpuTimers.readPending = false;
+            return;
+        }
     }
     else if ( m_renderDevice.FrameFence().CompletedValue() < m_gpuTimers.readFenceValue )
     {
@@ -95,6 +104,12 @@ void RenderBackendDX12::TryConsumeGpuTimerReadback( bool waitForFence )
 
     const UINT64 readbackBytes = static_cast<UINT64>( TIMER_HEAP_SIZE ) * sizeof( uint64_t );
     const uint64_t* pData = static_cast<const uint64_t*>( m_gpuTimers.readback.MapRead( readbackBytes ) );
+    if ( !pData )
+    {
+        Log().WriteEventf( "dx12_gpu_timer_map_failed" );
+        m_gpuTimers.readPending = false;
+        return;
+    }
 
     std::memset( m_gpuTimers.resultMs, 0, sizeof( m_gpuTimers.resultMs ) );
     std::memset( m_gpuTimers.resultValid, 0, sizeof( m_gpuTimers.resultValid ) );

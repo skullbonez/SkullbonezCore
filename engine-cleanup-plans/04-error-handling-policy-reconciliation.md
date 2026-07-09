@@ -1154,6 +1154,42 @@ byte-exact gated.
   - Runtime boundary checker passed: `python tools\check_runtime_boundaries.py`
     exited 0 in 00:00:19.5 with 0 errors. Log:
     `Agentic/Reports/check_runtime_boundaries_plan04_shader_status_20260709.log`.
+
+  Progress 2026-07-09, DX12 fence/readback recoverable result batch:
+  - Converted three strict `RenderDeviceDX12` rows from exception exits to Lane R
+    result/neutral-return paths: local `ThrowIfFailed`, command queue
+    `Signal`, and fence `SetEventOnCompletion` from the remaining Step 0.1
+    inventory.
+  - `Dx12FenceTimeline::Signal`, `SignalAndWait`, and `WaitForValue` now return
+    `SbResult`. `RenderBackendDX12::Present` propagates fence signal/wait
+    failures to the existing frame boundary, while profiler and allocator wait
+    maintenance paths log and skip unsafe readback or command-list reopen work.
+  - `Dx12ReadbackBuffer::MapRead` now returns `nullptr` on map failure; screenshot
+    capture converts that to `SbResult::Failure("Rendering/DX12", ...)`, and GPU
+    timer readback logs/drops the pending sample.
+  - Frame upload buffer creation/map failures now return `false` through the
+    existing upload-system startup contract instead of using the removed local
+    throw helper.
+  - Strict anchored source throw statement inventory now reports 7 sites, down
+    from the previous sub-slice count of 10. `SB_FATAL` macro invocations remain
+    165 via `rg -n "SB_FATAL\s*\(" SkullbonezSource`.
+  - Comment-style audit scope:
+    `SkullbonezSource/Rendering/DX12/RenderBackendDX12.cpp`,
+    `SkullbonezSource/Rendering/DX12/RenderBackendDX12.h`,
+    `SkullbonezSource/Rendering/DX12/RenderBackendDX12.Profiler.cpp`,
+    `SkullbonezSource/Rendering/DX12/RenderBackendDX12.Readback.cpp`,
+    `SkullbonezSource/Rendering/DX12/RenderDeviceDX12.cpp`, and
+    `SkullbonezSource/Rendering/DX12/RenderDeviceDX12.h`; checked 6, deferred 0.
+    This was a touched-file audit, so no subsystem checklist plan was required.
+  - Required DX12 gate passed on the final source tree:
+    `tools\validate_dx12_renderer.bat` exited 0 in 00:00:40.0 with
+    `VALIDATE_DX12_RENDERER: ALL PASSED`, formatting clean, Profile/Debug builds
+    0 warnings/errors, DX12 validation errors 0, and screenshots matching
+    committed baselines. Log:
+    `Agentic/Reports/validate_dx12_renderer_plan04_dx12_fence_result_20260709.log`.
+  - Runtime boundary checker passed: `python tools\check_runtime_boundaries.py`
+    exited 0 in 00:00:18.3 with 0 errors. Log:
+    `Agentic/Reports/check_runtime_boundaries_plan04_dx12_fence_result_20260709.log`.
 - [ ] **4.1** Do **not** maintain any throw count. The `MAX_SOURCE_THROW_TOKENS`
   ratchet is deleted by plan 03. Verify progress by re-running
   `rg -n "throw " SkullbonezSource` and confirming the F/R/P sites are converted;

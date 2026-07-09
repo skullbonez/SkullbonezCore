@@ -30,18 +30,18 @@ Status legend: `Proposed` (drafted here) · `In Progress` · `Complete` / `Done`
 
 | # | Plan | Issue | Priority | Status |
 |---|------|-------|----------|--------|
-| 01 | [Run god-object decomposition](01-run-god-object-decomposition.md) | `Run` owns ~40 subsystems across 16 TUs; 1,664-line `TakeInput()` | P0 | Complete |
-| 02 | [PhysicsWorld solver decomposition](02-physicsworld-solver-decomposition.md) | DisjointSet extraction complete; Phase 1 lambda inventory recorded; stage extraction remains open | P0 | In Progress |
+| 01 | [Run god-object decomposition](DONE/01-run-god-object-decomposition.md) | `Run` owns ~40 subsystems across 16 TUs; 1,664-line `TakeInput()` | P0 | Complete |
+| 02 | [PhysicsWorld solver decomposition](DONE/02-physicsworld-solver-decomposition.md) | DisjointSet extraction complete; solver stage extraction, gameplay eviction, and replay snapshot table-drive are complete | P0 | Complete |
 | 03 | [Governance apparatus removal](03-governance-apparatus-reduction.md) | Delete the 16,090-line regex boundary linter + all frozen `MAX_*` ratchets; 275 docs (~42%); two plan trees | P1 | In Progress |
 | 04 | [Error-handling policy reconciliation](04-error-handling-policy-reconciliation.md) | Exceptions "banned" yet 283 `throw` vs 2 `SB_FATAL`; ratchet frozen | P1 | In Progress |
-| 05 | [Behavioral test coverage](05-behavioral-test-coverage.md) | 59 tests cover input, replay restore, physics invariants, asset lookup, terrain, and replay boundary fixtures; link-stub count is 0 | P1 | Complete |
-| 06 | [`.inl` translation-unit un-splitting](06-inl-translation-unit-unsplitting.md) | Non-template `.inl` spliced mid-`.cpp` → ~5K-line pseudo-modules | P2 | Complete |
+| 05 | [Behavioral test coverage](DONE/05-behavioral-test-coverage.md) | 59 tests cover input, replay restore, physics invariants, asset lookup, terrain, and replay boundary fixtures; link-stub count is 0 | P1 | Complete |
+| 06 | [`.inl` translation-unit un-splitting](DONE/06-inl-translation-unit-unsplitting.md) | Non-template `.inl` spliced mid-`.cpp` → ~5K-line pseudo-modules | P2 | Complete |
 | 07 | [Allocation-gate right-sizing](07-allocation-gate-right-sizing.md) | Global zero-allocation-by-default policy; replay-only approved runtime exception; apparatus needs right-sizing without weaker coverage | P2 | In Progress |
-| 08 | [RenderHelper global-state removal](08-renderhelper-global-state-removal.md) | Whole primitive-render layer is process-global static state | P2 | Complete |
-| 09 | [Replay subsystem right-sizing](09-replay-subsystem-right-sizing.md) | ~17K-line replay; shadow physics engine; 50-field god-struct; twin helpers | P2 | Complete |
-| 10 | [EngineContext / IRenderBackend boundary](10-enginecontext-irenderbackend-boundary.md) | 13-ptr context bag with unused `Services()`; aggregate backend + dangling aliases | P2 | Complete |
+| 08 | [RenderHelper global-state removal](DONE/08-renderhelper-global-state-removal.md) | Whole primitive-render layer is process-global static state | P2 | Complete |
+| 09 | [Replay subsystem right-sizing](DONE/09-replay-subsystem-right-sizing.md) | ~17K-line replay; shadow physics engine; 50-field god-struct; twin helpers | P2 | Complete |
+| 10 | [EngineContext / IRenderBackend boundary](DONE/10-enginecontext-irenderbackend-boundary.md) | 13-ptr context bag with unused `Services()`; aggregate backend + dangling aliases | P2 | Complete |
 | 11 | [Render abstraction leaks](11-render-abstraction-leaks.md) | RenderGraph diagnostic-only; backbuffer state = 1 bool; replay call in generic interface | P2 | In Progress |
-| 12 | [Ambient singletons: Log / Profiler](12-ambient-singletons-log-profiler.md) | `Log()` welded into prelude; Profiler caches a dangling-prone borrowed pointer | P3 | Done |
+| 12 | [Ambient singletons: Log / Profiler](DONE/12-ambient-singletons-log-profiler.md) | `Log()` welded into prelude; Profiler caches a dangling-prone borrowed pointer | P3 | Done |
 | 13 | [Facade retirement (cross-cutting rule)](13-facade-retirement.md) | "Graduate-or-delete; a rename is not done" — principle + FAC inventory; executed by plans 01/10/14 | rule | In Progress |
 | 14 | [Public physics API boundary](14-public-physics-api-boundary.md) | FAC-005: public physics API exposes no `GameModel`, raw dense `modelIndex`, or solver containers | P1 | Proposed |
 

@@ -128,10 +128,18 @@ SbResult RenderBackendDX12::CaptureBackbuffer( std::vector<uint8_t>& outPixels, 
     m_commandListOpen = false;
     ID3D12CommandList* ppCLs[] = { CommandList() };
     m_commandQueue->ExecuteCommandLists( 1, ppCLs );
-    WaitForGpu();
+    const SbResult waitResult = WaitForGpu();
+    if ( !waitResult.ok )
+    {
+        return waitResult;
+    }
 
     // Map and read pixels
     const void* mappedData = readbackBuffer.MapRead( totalBytes );
+    if ( !mappedData )
+    {
+        return SbResult::Failure( "Rendering/DX12", "Map readback buffer failed" );
+    }
 
     // Convert RGBA top-down → BGR bottom-up (BMP format)
     int rowStride = ( m_width * 3 + 3 ) & ~3;

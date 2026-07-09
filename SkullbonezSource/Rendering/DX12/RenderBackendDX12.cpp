@@ -290,19 +290,23 @@ RenderMemoryStats RenderBackendDX12::GetRenderMemoryStats() const
 // --- Helpers ---
 
 
-void RenderBackendDX12::WaitForGpu()
+SkullbonezCore::Basics::SbResult RenderBackendDX12::WaitForGpu()
 {
     if ( !m_renderDevice.FrameFence().IsReady() )
     {
         ReleaseCompletedDeferredResources( !m_commandListOpen );
-        return;
+        return SkullbonezCore::Basics::SbResult::Success();
     }
 
     // Tell the GPU to mark the next fence value after all already-submitted
     // queue work, then block until that value is complete. In plain terms:
     // WaitForGpu() means "do not let the CPU continue until the GPU has caught
     // up to every command we submitted so far."
-    m_renderDevice.FrameFence().SignalAndWait();
+    const SkullbonezCore::Basics::SbResult waitResult = m_renderDevice.FrameFence().SignalAndWait();
+    if ( !waitResult.ok )
+    {
+        return waitResult;
+    }
 
     // After full GPU wait, all frame fences are implicitly completed
     for ( int i = 0; i < FRAME_COUNT; ++i )
@@ -311,6 +315,7 @@ void RenderBackendDX12::WaitForGpu()
     }
 
     ReleaseCompletedDeferredResources( !m_commandListOpen );
+    return SkullbonezCore::Basics::SbResult::Success();
 }
 
 
@@ -452,7 +457,15 @@ void RenderBackendDX12::EnsureCommandListOpen()
     UINT64 completedFence = m_renderDevice.FrameFence().CompletedValue();
     if ( m_frameFenceValues[m_allocatorIndex] > completedFence )
     {
-        m_renderDevice.FrameFence().WaitForValue( m_frameFenceValues[m_allocatorIndex] );
+        const SkullbonezCore::Basics::SbResult waitResult =
+            m_renderDevice.FrameFence().WaitForValue( m_frameFenceValues[m_allocatorIndex] );
+        if ( !waitResult.ok )
+        {
+            Log().WriteEventf( "dx12_frame_allocator_wait_failed owner=%s message=%s",
+                               waitResult.error.owner,
+                               waitResult.error.message );
+            return;
+        }
     }
     ReleaseCompletedDeferredResources( false );
 
@@ -2389,7 +2402,13 @@ SkullbonezCore::Basics::SbResult RenderBackendDX12::Present()
     // Later, EnsureCommandListOpen asks the timeline helper whether this value
     // has completed before reusing this frame's command allocator, upload arena,
     // and transient descriptor range.
-    m_frameFenceValues[m_allocatorIndex] = m_renderDevice.FrameFence().Signal();
+    UINT64 presentFenceValue = 0;
+    const SkullbonezCore::Basics::SbResult signalResult = m_renderDevice.FrameFence().Signal( presentFenceValue );
+    if ( !signalResult.ok )
+    {
+        return signalResult;
+    }
+    m_frameFenceValues[m_allocatorIndex] = presentFenceValue;
     AssignDeferredResourceReleaseFence( m_frameFenceValues[m_allocatorIndex] );
 
     // Timer readback can be mapped once this frame's signal fence is reached.
@@ -2420,7 +2439,12 @@ SkullbonezCore::Basics::SbResult RenderBackendDX12::Present()
     const UINT64 nextFrameFenceValue = m_frameFenceValues[m_allocatorIndex];
     if ( nextFrameFenceValue > m_renderDevice.FrameFence().CompletedValue() )
     {
-        m_renderDevice.FrameFence().WaitForValue( nextFrameFenceValue );
+        const SkullbonezCore::Basics::SbResult waitResult =
+            m_renderDevice.FrameFence().WaitForValue( nextFrameFenceValue );
+        if ( !waitResult.ok )
+        {
+            return waitResult;
+        }
     }
     ReleaseCompletedDeferredResources( false );
     return SkullbonezCore::Basics::SbResult::Success();
