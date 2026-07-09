@@ -199,14 +199,35 @@ ReplayRuntimeActivePredictionFrames( const RunReplayPredictionState& prediction 
     return prediction.simulation.frames;
 }
 
+const std::vector<RunReplayPredictionFrame>&
+ReplayRuntimeTimelinePredictionFrames( const RunReplayPredictionState& prediction, std::size_t& outFrameCount )
+{
+    if ( prediction.BuildPrefixShouldBePresented() )
+    {
+        outFrameCount = prediction.PublishedBuildFrameCount();
+        return prediction.build.buildFrames;
+    }
+
+    const std::vector<RunReplayPredictionFrame>& frames = ReplayRuntimeActivePredictionFrames( prediction );
+    outFrameCount = frames.size();
+    return frames;
+}
+
 float ReplayRuntimePredictionAvailableFutureSeconds( const RunReplayPredictionState& prediction )
 {
-    const std::vector<RunReplayPredictionFrame>& frames = ReplayRuntimeActivePredictionFrames( prediction );
-    if ( !prediction.enabled || frames.size() < 2 )
+    std::size_t frameCount = 0;
+    const std::vector<RunReplayPredictionFrame>& frames =
+        ReplayRuntimeTimelinePredictionFrames( prediction, frameCount );
+    if ( frameCount < 2 )
     {
         return 0.0f;
     }
-    return static_cast<float>( frames.back().frameIndex ) * PHYSICS_FIXED_DT;
+    // Why: prediction.enabled controls whether the future may rebuild, and
+    // BuildPrefixShouldBePresented controls whether the in-progress prefix is
+    // coherent enough to draw. The scrubber timeline follows that same prefix
+    // so the live marker drifts left while prediction unfolds instead of
+    // snapping only after the final frame vector swaps in.
+    return static_cast<float>( frames[frameCount - 1].frameIndex ) * PHYSICS_FIXED_DT;
 }
 
 float ReplayRuntimeScrubberPresentTrackPosition( const ReplayRecorderStats& stats,
@@ -1639,9 +1660,13 @@ const RunReplayPredictionFrame* ReplayRuntime::CurrentPredictionScrubFrame() con
 {
     // Concept: prediction frames extend the solver track past the present
     // marker. They are not retained history, so only the future side of the
-    // normalized track can resolve to a prediction frame.
-    if ( m_scrubber.activeTrack != RunReplayTrack::Solver || !m_scrubber.historicalSamplePaused ||
-         !m_prediction.enabled || ActivePredictionFrames().size() < 2 )
+    // normalized track can resolve to a prediction frame. Prediction.enabled is
+    // deliberately not checked here: Play can freeze rebuilds while keeping the
+    // committed future scrubbable.
+    std::size_t frameCount = 0;
+    const std::vector<RunReplayPredictionFrame>& frames =
+        ReplayRuntimeTimelinePredictionFrames( m_prediction, frameCount );
+    if ( m_scrubber.activeTrack != RunReplayTrack::Solver || !m_scrubber.historicalSamplePaused || frameCount < 2 )
     {
         return nullptr;
     }
@@ -1653,9 +1678,7 @@ const RunReplayPredictionFrame* ReplayRuntime::CurrentPredictionScrubFrame() con
         return nullptr;
     }
 
-    const std::vector<RunReplayPredictionFrame>& frames = ActivePredictionFrames();
     const float predictionT = PredictionNormalizedFromTrack( position, presentT );
-    const std::size_t frameCount = frames.size();
     const std::size_t frameIndex =
         (std::min)( frameCount - 1,
                     static_cast<std::size_t>( std::round( predictionT * static_cast<float>( frameCount - 1 ) ) ) );

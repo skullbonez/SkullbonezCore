@@ -35,10 +35,10 @@ namespace Physics
 {
 struct MutualGravitySettings
 {
-    bool enabled = false;               // Opt-in O(N^2) pairwise attraction pass.
-    float gravitationalConstant = 0.0f; // Scene-scale G in engine units.
-    float softeningLength = 1.0f;       // Distance softening length that keeps near-zero pairs finite.
-    bool elasticCollisions = true;      // Space-mode contacts preserve closing speed.
+    bool enabled = false;                // Opt-in O(N^2) pairwise attraction pass.
+    float gravitationalConstant = 0.0f;  // Scene-scale G in engine units.
+    float softeningLength = 1.0f;        // Distance softening length that keeps near-zero pairs finite.
+    bool elasticCollisions = true;       // Space-mode contacts preserve closing speed.
 };
 
 struct PhysicsWorldForces

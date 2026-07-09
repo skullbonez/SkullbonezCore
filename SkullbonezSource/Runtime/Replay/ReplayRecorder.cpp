@@ -113,12 +113,10 @@ std::size_t ReplayRecorderReserveCapacity( std::size_t currentCapacity, std::siz
         return requestedCapacity;
     }
 
-    const std::size_t doubled =
-        currentCapacity > 0u ? currentCapacity * 2u : REPLAY_RECORDER_SAMPLE_INITIAL_CAPACITY;
+    const std::size_t doubled = currentCapacity > 0u ? currentCapacity * 2u : REPLAY_RECORDER_SAMPLE_INITIAL_CAPACITY;
     const std::size_t remainder = requestedCapacity % REPLAY_RECORDER_SAMPLE_GROWTH_CHUNK;
-    const std::size_t chunked = remainder == 0u
-                                    ? requestedCapacity
-                                    : requestedCapacity + ( REPLAY_RECORDER_SAMPLE_GROWTH_CHUNK - remainder );
+    const std::size_t chunked =
+        remainder == 0u ? requestedCapacity : requestedCapacity + ( REPLAY_RECORDER_SAMPLE_GROWTH_CHUNK - remainder );
     const std::size_t reserveCapacity = (std::max)( doubled, chunked );
     return (std::min)( reserveCapacity, static_cast<std::size_t>( MAX_GAME_MODELS ) );
 }
@@ -139,7 +137,9 @@ template <typename T> uint64_t ReplayRecorderVectorBytes( std::size_t capacity )
     return static_cast<uint64_t>( capacity ) * elementBytes;
 }
 
-void ReportReplayRecorderReserveFailure( const char* targetName, std::size_t requestedCapacity, uint64_t requestedBytes )
+void ReportReplayRecorderReserveFailure( const char* targetName,
+                                         std::size_t requestedCapacity,
+                                         uint64_t requestedBytes )
 {
     // Lane F: if a retained sample cannot fit inside the replay reserve budget,
     // continuing would make scrub/restore state partial and nondeterministic.
@@ -193,7 +193,8 @@ void ReserveReplayRecorderSampleVector( std::vector<T>& values,
             ReportReplayRecorderReserveFailure( targetName, reserveCapacity, requestedBytes );
         }
 
-        RuntimeAllocation::RuntimeAllocationScope replayAllocationScope( RuntimeAllocation::RuntimeAllocationPhase::Replay );
+        RuntimeAllocation::RuntimeAllocationScope replayAllocationScope(
+            RuntimeAllocation::RuntimeAllocationPhase::Replay );
         RuntimeAllocation::RuntimeReserveOwnerScope ownerScope( owner );
         RuntimeAllocation::RuntimeReserveGrowthScope growthScope( owner,
                                                                   RuntimeAllocation::RuntimeReservePhase::Replay,

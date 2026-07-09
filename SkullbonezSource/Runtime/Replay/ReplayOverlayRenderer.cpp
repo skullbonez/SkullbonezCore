@@ -341,18 +341,6 @@ void RenderReplayScrubberOverlay( const ReplayOverlayRenderContext& context )
                           rowBack + 0.02f,
                           rowBack + 0.05f,
                           fadeA( inactiveDuringScrub ? 0.74f : 0.92f ) );
-        if ( trackName == RunReplayTrack::Solver && futureTimelineVisible )
-        {
-            const float presentX = track.x + track.w * solverPresentT;
-            draw.Rect( presentX,
-                       track.y,
-                       (std::max)( 0.0f, track.x + track.w - presentX ),
-                       track.h,
-                       0.09f,
-                       0.26f,
-                       0.20f,
-                       fadeA( inactiveDuringScrub ? 0.34f : 0.62f ) );
-        }
         draw.RoundedRect( track.x,
                           track.y,
                           fillW,
@@ -362,6 +350,21 @@ void RenderReplayScrubberOverlay( const ReplayOverlayRenderContext& context )
                           rowFillG,
                           rowFillB,
                           fadeA( rowFillA ) );
+        if ( trackName == RunReplayTrack::Solver && futureTimelineVisible )
+        {
+            const float presentX = track.x + track.w * solverPresentT;
+            // Why: future prediction is a different timeline region, not just a
+            // longer scrub value. Draw the right-hand side after the normal fill
+            // so it stays visibly blue even when the selected knob is in future.
+            draw.Rect( presentX,
+                       track.y,
+                       (std::max)( 0.0f, track.x + track.w - presentX ),
+                       track.h,
+                       0.08f,
+                       0.30f,
+                       0.92f,
+                       fadeA( inactiveDuringScrub ? 0.40f : 0.72f ) );
+        }
         draw.RoundedRect( knobX - 6.0f,
                           track.y - 5.0f,
                           12.0f,

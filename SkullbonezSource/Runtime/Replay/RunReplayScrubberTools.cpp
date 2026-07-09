@@ -275,12 +275,20 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
     const UI::UIRect predictHorizon = ReplayScrubberPredictHorizonRect( screenW, screenH );
     const UI::UIRect ragdollVisualToggle = ReplayScrubberRagdollVisualToggleRect( screenW, screenH );
     const RunReplayTrack scrubTrack = loadedPresentation ? RunReplayTrack::Presentation : RunReplayTrack::Solver;
+    const UI::UIRect scrubTrackRect = ReplayScrubberTrackRect( screenW, screenH, scrubTrack );
     const UI::UIRect replayLoadButton = ReplayScrubberLoadButtonRect( screenW, screenH, scrubTrack );
     // Why: paused scenes may not have accumulated two solver frames yet. Scrub,
     // save, and branch tools need retained history; prediction can start from
     // the current live solver state as long as scene physics is available.
     const bool solverToolsEnabled = !loadedPresentation && solverReplayAvailable;
     const bool predictionToolsEnabled = !loadedPresentation && solverReplayEnabled && SceneState().isScenePhysics;
+    // Why: forward prediction scrubbing needs a coherent prediction timeline,
+    // not two retained solver samples. The visible build prefix is enough to
+    // inspect while a fresh paused scene still lacks normal solver history.
+    const bool predictionTimelineAvailable =
+        predictionToolsEnabled && ( m_replayRuntime.ActivePredictionFrames().size() >= 2 ||
+                                    m_replayRuntime.Prediction().BuildPrefixShouldBePresented() );
+    const bool scrubTrackDragEnabled = loadedPresentation || solverToolsEnabled || predictionTimelineAvailable;
     const bool inHotZone = hotZone.Contains( mouse.x, mouse.y );
     const bool overPanel = panel.Contains( mouse.x, mouse.y );
     const bool overSaveButton = solverToolsEnabled && solverSaveButton.Contains( mouse.x, mouse.y );
@@ -297,15 +305,31 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
     const bool overPredictControl = predictionToolsEnabled && predictControl.Contains( mouse.x, mouse.y );
     const bool overPredictToggle = predictionToolsEnabled && predictToggle.Contains( mouse.x, mouse.y );
     const bool overRagdollVisualToggle = predictionToolsEnabled && ragdollVisualToggle.Contains( mouse.x, mouse.y );
-    const bool overPredictUi = overPredictControl || overPredictToggle || overRagdollVisualToggle;
     const bool overPredictHorizon =
         predictionToolsEnabled && ( predictHorizon.Contains( mouse.x, mouse.y ) ||
                                     ( predictControl.Contains( mouse.x, mouse.y ) && mouse.x >= predictHorizon.x &&
                                       mouse.x <= predictHorizon.x + predictHorizon.w ) );
+    const bool overPredictUi = overPredictControl || overPredictToggle || overRagdollVisualToggle || overPredictHorizon;
+    // Why: the visible track should claim mouse input directly. If only the
+    // bottom hot-zone or paused state opens the gesture, clicking an exposed
+    // forward-prediction segment can feel dead until Space changes the mode.
+    const bool overScrubTrack = scrubTrackDragEnabled && scrubTrackRect.Contains( mouse.x, mouse.y );
     const RunReplayTrack hoveredTrack = scrubTrack;
     const bool canTakeMouse =
         !uiBlocksMouse || m_replayRuntime.Scrubber().dragging || m_replayRuntime.Prediction().ui.horizonDragging;
     const bool hotZoneCanReveal = inHotZone && !uiBlocksMouse;
+    const bool pointerOverScrubberSurface = hotZoneCanReveal || overPanel || overScrubTrack;
+    const bool pointerOverScrubberCommand = overSaveButton || overLoadButton || overBranchButton || overPauseButton;
+    const bool pointerOverReplayTool = overVelocityEditToggle || overPredictUi;
+    const bool pointerRequestsReplayOverlay =
+        pointerOverScrubberSurface || pointerOverScrubberCommand || pointerOverReplayTool;
+    const bool replayDragInProgress =
+        m_replayRuntime.Scrubber().dragging || m_replayRuntime.Prediction().ui.horizonDragging;
+    const bool replayStateKeepsScrubberVisible = replayDragInProgress ||
+                                                 m_replayRuntime.Scrubber().historicalSamplePaused ||
+                                                 m_replayRuntime.Scrubber().liveAdvanceHeld;
+    const bool scrubTrackStartTarget =
+        inHotZone || overPanel || overScrubTrack || m_replayRuntime.Scrubber().historicalSamplePaused;
     const double now = m_timers.simulationTimer.GetTotalTime();
     auto promptLoadReplayPresentationArtifact = [&]() -> bool
     {
@@ -373,11 +397,9 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
     // Why: the replay reveal zone is mode-agnostic. Passive Scene/Demo cameras
     // do not own mouse tools, but moving to the bottom edge should still expose
     // retained replay controls. UI-owned mouse areas, such as the minimized
-    // options window, should not wake the replay bar.
-    if ( hotZoneCanReveal || overPanel || overSaveButton || overLoadButton || overBranchButton || overPauseButton ||
-         overVelocityEditToggle || overPredictUi || m_replayRuntime.Scrubber().dragging ||
-         m_replayRuntime.Prediction().ui.horizonDragging || m_replayRuntime.Scrubber().historicalSamplePaused ||
-         m_replayRuntime.Scrubber().liveAdvanceHeld )
+    // options window, should not wake the replay bar. Paused/held replay states
+    // pin the bar open without making empty screen space consume mouse input.
+    if ( pointerRequestsReplayOverlay || replayStateKeepsScrubberVisible )
     {
         m_replayRuntime.Scrubber().visibleUntil = now + REPLAY_SCRUBBER_VISIBLE_SECONDS;
     }
@@ -414,10 +436,8 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
         predictionToolsEnabled && overPredictHorizon && predictionControlVisible;
 
     bool consumesMouse =
-        canTakeMouse && ( m_replayRuntime.Scrubber().dragging || m_replayRuntime.Prediction().ui.horizonDragging ||
-                          ( m_replayRuntime.Scrubber().visibleUntil >= now &&
-                            ( hotZoneCanReveal || overPanel || overSaveButton || overBranchButton || overLoadButton ||
-                              overPauseButton || overVelocityEditToggle || overPredictUi ) ) );
+        canTakeMouse &&
+        ( replayDragInProgress || ( m_replayRuntime.Scrubber().visibleUntil >= now && pointerRequestsReplayOverlay ) );
 
     if ( branchTargetAvailable &&
          ( restorePressed || ( leftPressed && canTakeMouse && overBranchButton && branchControlVisible ) ) )
@@ -619,9 +639,8 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
         promptLoadReplayPresentationArtifact();
         consumesMouse = true;
     }
-    else if ( ( loadedPresentation || solverToolsEnabled ) && leftPressed && canTakeMouse && !overBranchButton &&
-              !overPauseButton && !overPredictUi && !overLoadButton &&
-              ( inHotZone || overPanel || m_replayRuntime.Scrubber().historicalSamplePaused ) )
+    else if ( scrubTrackDragEnabled && leftPressed && canTakeMouse && !overBranchButton && !overPauseButton &&
+              !overPredictUi && !overLoadButton && scrubTrackStartTarget )
     {
         EnterInteractiveSceneRun();
         BeginReplayToolGesture( RuntimeInteractionGestureKind::ReplayScrubDrag,

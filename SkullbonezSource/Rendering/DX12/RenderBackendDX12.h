@@ -240,7 +240,10 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     static const UINT MAX_DSV_DESCRIPTORS = 16;
     static const UINT MAX_STATIC_SRVS = 128;
     static const UINT MAX_TRANSIENT_SRVS = 2048;                   // per frame allocator
-    static const UINT64 UPLOAD_BUFFER_SIZE = 8 * 1024 * 1024;
+    // Hazard: replay prediction ribbons upload transient line geometry through
+    // this frame arena. Exhaustion is fatal, so keep this cap aligned with the
+    // largest expected debug/prediction overlay until the overlay is bounded.
+    static const UINT64 UPLOAD_BUFFER_SIZE = 32 * 1024 * 1024;
     static const int TIMER_HEAP_MARKERS = DX12_TIMER_HEAP_MARKERS; // must be >= Profiler::MAX_MARKERS
     static const int TIMER_HEAP_SIZE = DX12_TIMER_HEAP_SIZE;       // begin + end per marker
 
