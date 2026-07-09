@@ -17,6 +17,8 @@ Glossary:
   Prediction target: Replay body selected for future-path diagnostics.
   Automation report: JSON side-channel describing what the scripted interaction
   observed without mutating validation baselines directly.
+  Probe failure: CLI validation failure persisted as report `ok=false` and
+    returned to the process boundary after the frame loop exits.
 
 Invariants:
   - Scripts must exercise normal runtime routing, not bypass tool ownership or
@@ -1787,8 +1789,14 @@ void Run::TickInteractionAutomationBeforeInput()
     }
     if ( !state.scriptLoaded && !LoadScript( state ) )
     {
+        state.finished = true;
+        ClearInteractionAutomationInput();
         WriteInteractionAutomationReport();
-        throw std::runtime_error( state.failure[0] != '\0' ? state.failure : "interaction automation script failed" );
+        // Why: the process boundary reads InteractionAutomationResult() after
+        // Execute() returns, so failures quit the loop instead of throwing
+        // through render/frame cleanup.
+        PostQuitMessage( 0 );
+        return;
     }
 
     const int frame = SceneState().currentFrame;
@@ -2016,7 +2024,11 @@ void Run::TickInteractionAutomationAfterRender()
         WriteInteractionAutomationReport();
         if ( state.failed )
         {
-            throw std::runtime_error( state.failure[0] != '\0' ? state.failure : "interaction automation failed" );
+            // Why: assertions already wrote report ok=false; returning through
+            // the normal message-loop exit keeps cleanup behavior identical to a
+            // successful automation run.
+            PostQuitMessage( 0 );
+            return;
         }
         PostQuitMessage( 0 );
     }

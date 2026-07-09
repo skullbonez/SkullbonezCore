@@ -46,7 +46,7 @@ boundary), say so.
 - [ ] **Phase 1 — F → `SB_FATAL`.** Convert physics capacity guards and
   frame-loop invariants. This removes unwinding through the message loop and
   profiling RAII — the core robustness win.
-- [ ] **Phase 2 — P → `FailAutomation`.** Route replay/interaction probe throws
+- [x] **Phase 2 — P → `FailAutomation`.** Route replay/interaction probe throws
   to the machine-readable automation channel with `ok=false` + message.
 - [ ] **Phase 3 — R → `SbResult`.** Convert scene/asset/file IO failures to
   value-carrying results reported at the boundary.
@@ -484,9 +484,37 @@ byte-exact gated.
     targeted header-format alignment to `Vector3.h`. Logs:
     `Agentic/Reports/validate_tests_plan04_math_fatals_20260709.log` and
     `Agentic/Reports/validate_fast_plan04_math_fatals_20260709.log`.
-- [ ] **2.1** Convert **P** sites (replay/interaction probes) to the
+- [x] **2.1** Convert **P** sites (replay/interaction probes) to the
   `FailAutomation(...)` channel with `ok=false` + message. Gate: `validate_full`
   + replay scrub. Commit.
+
+  Completed 2026-07-09, probe/automation failure sub-slice:
+  - Converted all four P rows from exception exits to bounded failure reporting:
+    `Run.cpp` rows 247-248 now use `RunReplayProbeState::RecordFailure` or
+    `SbResult`, and `RunInteractionAutomation.cpp` rows 255-256 now write the
+    interaction report with `ok=false`, quit the message loop, and return the
+    failure through `Run::InteractionAutomationResult()` at the process
+    boundary.
+  - `Init.cpp` now reports startup replay-probe failures before `Initialise()`,
+    reports bad interaction automation setup through a non-throwing
+    `SbResult`, and returns exit code 1 after `Execute()` when interaction
+    automation has written a failed report.
+  - Strict anchored source throw statement inventory now reports 117 sites,
+    down from the previous sub-slice count of 121. `SB_FATAL` macro invocations
+    remain 151 via `rg -n "SB_FATAL\s*\(" SkullbonezSource`.
+  - Comment-style audit scope: `SkullbonezSource/Runtime/Init.cpp`,
+    `SkullbonezSource/Runtime/Run.cpp`, `SkullbonezSource/Runtime/Run.h`, and
+    `SkullbonezSource/Runtime/RunInteractionAutomation.cpp`; checked 4,
+    deferred 0. This was a touched-file audit, so no subsystem checklist plan
+    was required.
+  - Required gates passed: `tools\validate_full.bat` exited 0 in
+    00:01:05.7535614, `tools\validate_replay_scrub.bat` exited 0 in
+    00:00:11.1128721, and the added focused interaction gate
+    `tools\validate_interaction_clicks.bat` exited 0 in 00:00:14.1358083.
+    Logs: `Agentic/Reports/validate_full_plan04_probe_failures_20260709.log`,
+    `Agentic/Reports/validate_replay_scrub_plan04_probe_failures_20260709.log`,
+    and
+    `Agentic/Reports/validate_interaction_clicks_plan04_probe_failures_20260709.log`.
 - [ ] **3.1** Convert **R** sites (scene/asset/file IO) to `SbResult` reported at
   the boundary, **one boundary at a time**. Gate: `validate_full`. Commit.
 - [ ] **4.1** Do **not** maintain any throw count. The `MAX_SOURCE_THROW_TOKENS`

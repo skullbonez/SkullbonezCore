@@ -3135,9 +3135,33 @@ int RunApp( Window* window,
             }
             return 1;
         };
+        auto reportInteractionAutomationResult = [&]( const SbResult& result ) -> int
+        {
+            const char* safeMessage =
+                result.error.message[0] != '\0' ? result.error.message : "interaction automation failed";
+            Log().WriteEventf( "interaction_automation_failed message=\"%s\"", safeMessage );
+            fprintf( stderr, "[interaction] Automation failed: %s\n", safeMessage );
+            fflush( stderr );
+            Log().FlushAll();
+            if ( !args.isSuiteOrSceneMode && !args.suppressExitDialog )
+            {
+                window->MsgBox( safeMessage, "Interaction Automation Failed", MB_OK );
+            }
+            return 1;
+        };
 
         try
         {
+#ifdef _DEBUG
+            // Why: startup replay-probe configuration can fail before the frame
+            // loop exists, but validation still needs the same nonzero exit path
+            // as a frame-driven probe failure.
+            if ( cRun->ReplayProbes().Failed() )
+            {
+                return reportReplayProbeFailure( cRun->ReplayProbes().FailureOwner(),
+                                                 cRun->ReplayProbes().FailureMessage() );
+            }
+#endif
             cRun->Initialise();
             if ( !cRun->LastSceneLoadResult().ok )
             {
@@ -3145,9 +3169,13 @@ int RunApp( Window* window,
             }
             if ( args.interactionScriptPath[0] != '\0' )
             {
-                cRun->SetInteractionAutomation(
+                const SbResult automationSetupResult = cRun->SetInteractionAutomation(
                     args.interactionScriptPath,
                     args.interactionReportPath[0] != '\0' ? args.interactionReportPath : nullptr );
+                if ( !automationSetupResult.ok )
+                {
+                    return reportInteractionAutomationResult( automationSetupResult );
+                }
             }
             bool skipExecute = false;
             if ( args.replayLoad )
@@ -3231,6 +3259,11 @@ int RunApp( Window* window,
                                                      cRun->ReplayProbes().FailureMessage() );
                 }
 #endif
+                const SbResult interactionAutomationResult = cRun->InteractionAutomationResult();
+                if ( !interactionAutomationResult.ok )
+                {
+                    return reportInteractionAutomationResult( interactionAutomationResult );
+                }
                 if ( args.graphicsStress )
                 {
                     printf( "[graphics-stress] Execute returned.\n" );

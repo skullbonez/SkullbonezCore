@@ -13,6 +13,8 @@ Glossary:
   exposed through the renderer abstraction.
   Lane R result: Recoverable scene/load-only failure reported as an SbResult
     so CLI automation can exit nonzero without a fatal exception.
+  Probe failure: CLI validation failure reported as bounded result/report data
+    so automation exits nonzero without throwing through the frame loop.
   Validation gate: Repository script that proves a class of changes before
   commit or PR.
 
@@ -43,7 +45,6 @@ Related:
 #include <cmath>
 #include <cstdio>
 #include <cstring>
-#include <stdexcept>
 
 using namespace SkullbonezCore::Basics;
 using namespace SkullbonezCore::Math::CollisionDetection;
@@ -247,7 +248,8 @@ void ApplyReplayProbeStartup( const RunStartupOverrides& overrides, RunReplayPro
     {
         if ( !overrides.replaySaveProbePath || overrides.replaySaveProbePath[0] == '\0' )
         {
-            throw std::runtime_error( "replay save probe requires an output path" );
+            probes.RecordFailure( SbResult::Failure( "ReplayProbe", "replay save probe requires an output path" ) );
+            return;
         }
 
         probes.save.enabled = true;
@@ -658,15 +660,9 @@ void Run::ApplyStartupOverrides( const RunStartupOverrides& overrides )
 }
 
 
-void Run::SetInteractionAutomation( const char* scriptPath, const char* reportPath )
+SbResult Run::SetInteractionAutomation( const char* scriptPath, const char* reportPath )
 {
-    if ( !scriptPath || scriptPath[0] == '\0' )
-    {
-        throw std::runtime_error( "interaction automation requires a script path" );
-    }
-
     m_interactionAutomation = RunInteractionAutomationState{};
-    strcpy_s( m_interactionAutomation.scriptPath, sizeof( m_interactionAutomation.scriptPath ), scriptPath );
     if ( reportPath && reportPath[0] != '\0' )
     {
         strcpy_s( m_interactionAutomation.reportPath, sizeof( m_interactionAutomation.reportPath ), reportPath );
@@ -677,9 +673,35 @@ void Run::SetInteractionAutomation( const char* scriptPath, const char* reportPa
                   sizeof( m_interactionAutomation.reportPath ),
                   "TestOutput\\interaction\\interaction_report.json" );
     }
+
+    if ( !scriptPath || scriptPath[0] == '\0' )
+    {
+        m_interactionAutomation.failed = true;
+        m_interactionAutomation.finished = true;
+        strcpy_s( m_interactionAutomation.failure,
+                  sizeof( m_interactionAutomation.failure ),
+                  "interaction automation requires a script path" );
+        WriteInteractionAutomationReport();
+        return SbResult::Failure( "InteractionAutomation", m_interactionAutomation.failure );
+    }
+
+    strcpy_s( m_interactionAutomation.scriptPath, sizeof( m_interactionAutomation.scriptPath ), scriptPath );
     m_interactionAutomation.enabled = true;
     printf( "[interaction] Script: %s\n", m_interactionAutomation.scriptPath );
     printf( "[interaction] Report: %s\n", m_interactionAutomation.reportPath );
+    return SbResult::Success();
+}
+
+
+SbResult Run::InteractionAutomationResult() const
+{
+    if ( !m_interactionAutomation.failed )
+    {
+        return SbResult::Success();
+    }
+    const char* message =
+        m_interactionAutomation.failure[0] != '\0' ? m_interactionAutomation.failure : "interaction automation failed";
+    return SbResult::Failure( "InteractionAutomation", message );
 }
 
 

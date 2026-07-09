@@ -18,6 +18,8 @@ Glossary:
   validation and tooling paths.
   Lane R result: Recoverable scene-load failure reported with owner/message
     diagnostics instead of escaping through startup exceptions.
+  Probe failure: CLI validation failure reported as bounded result/report data
+    so automation exits nonzero without throwing through the frame loop.
 
 Invariants:
   - Run is the composition root for process-lifetime runtime systems.
@@ -355,9 +357,10 @@ class Run
         const RunStartupOverrides& overrides );                         // Apply parsed CLI/startup policy before Initialise().
     SbResult RunSceneLoadOnly( const char* snapshotOutPath = nullptr ); // Scene-load smoke path; skips the frame loop.
     void Execute();                                                     // Main message loop; sceneQueue decides generated demo versus suite playback.
-    void SetInteractionAutomation(
+    SbResult SetInteractionAutomation(
         const char* scriptPath,
         const char* reportPath );                                       // CLI harness for deterministic world-click interaction scripts.
+    SbResult InteractionAutomationResult() const;                       // Non-throwing CLI automation result after Execute().
     bool LoadReplayPresentationArtifact( const char* path,
                                          bool activateScrubber );       // Load a v2 presentation artifact as a scrub source.
     void DumpTextureAssets( FILE* out ) const;
