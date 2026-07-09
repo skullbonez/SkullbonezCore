@@ -551,6 +551,65 @@ bool HasObjectContactAtTime( const PhysicsBodyRecordList& bodyRecords,
                                        manifold );
 }
 
+float RefineObjectSweepContactTime( const PhysicsBodyRecordList& bodyRecords,
+                                    const ColliderRecordList& colliderRecords,
+                                    int bodyA,
+                                    int bodyB,
+                                    float coarseTime,
+                                    float availableTime,
+                                    float contactEpsilon )
+{
+    PROFILE_SCOPED( "Frame/Physics/Narrowphase/RefineContactTime" );
+
+    // The broad sweep can give a conservative first time. Refinement walks
+    // forward until exact manifold contact appears, then binary-searches the
+    // edge of that contact window. This keeps fast objects from advancing
+    // too far into each other before persistent rows solve the response.
+    if ( coarseTime <= 0.0f || coarseTime >= availableTime )
+    {
+        return coarseTime;
+    }
+
+    if ( HasObjectContactAtTime( bodyRecords, colliderRecords, bodyA, bodyB, coarseTime, contactEpsilon ) )
+    {
+        return coarseTime;
+    }
+
+    float lo = coarseTime;
+    float hi = coarseTime;
+    bool foundContactWindow = false;
+    for ( int step = 1; step <= 48; ++step )
+    {
+        const float t = coarseTime + ( availableTime - coarseTime ) * ( static_cast<float>( step ) / 48.0f );
+        if ( HasObjectContactAtTime( bodyRecords, colliderRecords, bodyA, bodyB, t, contactEpsilon ) )
+        {
+            hi = t;
+            foundContactWindow = true;
+            break;
+        }
+        lo = t;
+    }
+
+    if ( !foundContactWindow )
+    {
+        return coarseTime;
+    }
+
+    for ( int iter = 0; iter < 12; ++iter )
+    {
+        const float mid = ( lo + hi ) * 0.5f;
+        if ( HasObjectContactAtTime( bodyRecords, colliderRecords, bodyA, bodyB, mid, contactEpsilon ) )
+        {
+            hi = mid;
+        }
+        else
+        {
+            lo = mid;
+        }
+    }
+    return hi;
+}
+
 void ApplyForcesForSolverBody( PhysicsBodyStore& bodyStore,
                                const ColliderStore& colliderStore,
                                const PhysicsWorldForces& worldForces,
@@ -2789,59 +2848,6 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
     }
     PROFILE_END( "Frame/Physics/Broadphase" );
 
-    auto refineObjectSweepContactTime = [&]( int a, int b, float coarseTime, float availableTime ) -> float
-    {
-        PROFILE_SCOPED( "Frame/Physics/Narrowphase/RefineContactTime" );
-
-        // The broad sweep can give a conservative first time. Refinement walks
-        // forward until exact manifold contact appears, then binary-searches the
-        // edge of that contact window. This keeps fast objects from advancing
-        // too far into each other before persistent rows solve the response.
-        if ( coarseTime <= 0.0f || coarseTime >= availableTime )
-        {
-            return coarseTime;
-        }
-
-        if ( HasObjectContactAtTime( bodyRecords, colliderRecords, a, b, coarseTime, config.contactEpsilon ) )
-        {
-            return coarseTime;
-        }
-
-        float lo = coarseTime;
-        float hi = coarseTime;
-        bool foundContactWindow = false;
-        for ( int step = 1; step <= 48; ++step )
-        {
-            const float t = coarseTime + ( availableTime - coarseTime ) * ( static_cast<float>( step ) / 48.0f );
-            if ( HasObjectContactAtTime( bodyRecords, colliderRecords, a, b, t, config.contactEpsilon ) )
-            {
-                hi = t;
-                foundContactWindow = true;
-                break;
-            }
-            lo = t;
-        }
-
-        if ( !foundContactWindow )
-        {
-            return coarseTime;
-        }
-
-        for ( int iter = 0; iter < 12; ++iter )
-        {
-            const float mid = ( lo + hi ) * 0.5f;
-            if ( HasObjectContactAtTime( bodyRecords, colliderRecords, a, b, mid, config.contactEpsilon ) )
-            {
-                hi = mid;
-            }
-            else
-            {
-                lo = mid;
-            }
-        }
-        return hi;
-    };
-
     auto sweepObjectPair = [&]( int a, int b, float availableTime ) -> ObjectContactSweepResult
     {
         PROFILE_SCOPED( "Frame/Physics/Narrowphase/SweepPairs" );
@@ -3030,7 +3036,8 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
                     if ( sweep.hit )
                     {
                         const float availableTime = m_timeRemaining[y];
-                        float colTime = refineObjectSweepContactTime( y, x, sweep.collisionTime, availableTime );
+                        float colTime = RefineObjectSweepContactTime(
+                            bodyRecords, colliderRecords, y, x, sweep.collisionTime, availableTime, config.contactEpsilon );
                         Physics::PhysicsPipelineRecord record;
                         record.stage = Physics::PhysicsPipelineStage::SweptObjectHit;
                         record.bodyA = y;
@@ -3112,7 +3119,8 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
                     if ( sweep.hit )
                     {
                         const float availableTime = m_timeRemaining[x];
-                        float colTime = refineObjectSweepContactTime( x, y, sweep.collisionTime, availableTime );
+                        float colTime = RefineObjectSweepContactTime(
+                            bodyRecords, colliderRecords, x, y, sweep.collisionTime, availableTime, config.contactEpsilon );
                         Physics::PhysicsPipelineRecord record;
                         record.stage = Physics::PhysicsPipelineStage::SweptObjectHit;
                         record.bodyA = x;
@@ -3211,7 +3219,8 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
 
         if ( sweep.hit )
         {
-            float colTime = refineObjectSweepContactTime( x, y, sweep.collisionTime, availableTime );
+            float colTime = RefineObjectSweepContactTime(
+                bodyRecords, colliderRecords, x, y, sweep.collisionTime, availableTime, config.contactEpsilon );
             Physics::PhysicsPipelineRecord record;
             record.stage = Physics::PhysicsPipelineStage::SweptObjectHit;
             record.bodyA = x;
