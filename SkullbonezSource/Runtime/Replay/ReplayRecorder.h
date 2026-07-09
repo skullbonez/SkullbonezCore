@@ -37,9 +37,10 @@ Related:
 #include <string>
 #include <vector>
 
+#include "../../Core/MainMemoryStats.h"
+#include "../../Maths/Vector3.h"
 #include "../Editor/LauncherLaser.h"
 #include "ReplaySolverSnapshot.h"
-#include "../../Maths/Vector3.h"
 
 namespace SkullbonezCore
 {
@@ -344,6 +345,8 @@ class ReplayRecorder
     void FlushHashLog();
     bool IsEnabled() const;
     ReplayRecorderStats GetStats() const;
+    // Adds this track's fixed-capacity storage to the shared replay memory categories.
+    void CollectMemoryCategoryBytes( MainMemoryReplayCategoryBytes& categories ) const;
     uint64_t CollectMemoryBytes() const;
     void CopySamplesChronological( std::vector<ReplayPresentationSample>& outSamples ) const;
     const ReplayPresentationSample* LatestSample() const;
@@ -385,6 +388,8 @@ class ReplaySolverRecorder
     void FlushHashLog();
     bool IsEnabled() const;
     ReplayRecorderStats GetStats() const;
+    // Adds this track's fixed-capacity storage to the shared replay memory categories.
+    void CollectMemoryCategoryBytes( MainMemoryReplayCategoryBytes& categories ) const;
     uint64_t CollectMemoryBytes() const;
     void CopySamplesChronological( std::vector<ReplaySolverFrameSample>& outSamples ) const;
     void ForEachSampleChronological( ReplaySolverSampleVisitor visitor, void* userData ) const;
@@ -426,6 +431,8 @@ class ReplayEventRecorder
     void RecordEvent( const ReplayEventInput& input );
     bool IsEnabled() const;
     ReplayEventRecorderStats GetStats() const;
+    // Adds this track's fixed-capacity storage to the shared replay memory categories.
+    void CollectMemoryCategoryBytes( MainMemoryReplayCategoryBytes& categories ) const;
     uint64_t CollectMemoryBytes() const;
     void CopyEventsChronological( std::vector<ReplayEventSample>& outEvents ) const;
 

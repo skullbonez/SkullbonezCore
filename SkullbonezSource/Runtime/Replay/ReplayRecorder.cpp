@@ -242,6 +242,14 @@ template <typename T> uint64_t VectorCapacityBytes( const std::vector<T>& values
     return static_cast<uint64_t>( values.capacity() ) * static_cast<uint64_t>( sizeof( T ) );
 }
 
+uint64_t ReplayRecorderScratchMemoryBytes( const std::vector<uint16_t>& contactCountScratch,
+                                           const std::vector<float>& maxPenetrationScratch,
+                                           const std::vector<float>& normalImpulseSumScratch )
+{
+    return VectorCapacityBytes( contactCountScratch ) + VectorCapacityBytes( maxPenetrationScratch ) +
+           VectorCapacityBytes( normalImpulseSumScratch );
+}
+
 uint64_t LauncherVisualMemoryBytes( const ReplayLauncherVisualSample& visual )
 {
     return VectorCapacityBytes( visual.rayLines ) + VectorCapacityBytes( visual.laserShots );
@@ -1148,17 +1156,34 @@ ReplayRecorderStats ReplayRecorder::GetStats() const
 
 uint64_t ReplayRecorder::CollectMemoryBytes() const
 {
-    uint64_t bytes = static_cast<uint64_t>( sizeof( *this ) );
-    bytes += VectorCapacityBytes( m_samples );
-    bytes += VectorCapacityBytes( m_checkpoints );
-    bytes += VectorCapacityBytes( m_contactCountScratch );
-    bytes += VectorCapacityBytes( m_maxPenetrationScratch );
-    bytes += VectorCapacityBytes( m_normalImpulseSumScratch );
+    MainMemoryReplayCategoryBytes categories;
+    CollectMemoryCategoryBytes( categories );
+    return MainMemoryReplayCategoryRangeBytes( categories,
+                                               MainMemoryReplayByteCategory::PresentationOwner,
+                                               MainMemoryReplayByteCategory::SolverOwner );
+}
+
+void ReplayRecorder::CollectMemoryCategoryBytes( MainMemoryReplayCategoryBytes& categories ) const
+{
+    MainMemoryAddReplayCategoryBytes( categories,
+                                      MainMemoryReplayByteCategory::PresentationOwner,
+                                      static_cast<uint64_t>( sizeof( *this ) ) );
+    MainMemoryAddReplayCategoryBytes( categories,
+                                      MainMemoryReplayByteCategory::PresentationSampleRecords,
+                                      VectorCapacityBytes( m_samples ) );
+    MainMemoryAddReplayCategoryBytes( categories,
+                                      MainMemoryReplayByteCategory::PresentationCheckpoints,
+                                      VectorCapacityBytes( m_checkpoints ) );
+    MainMemoryAddReplayCategoryBytes(
+        categories,
+        MainMemoryReplayByteCategory::PresentationScratch,
+        ReplayRecorderScratchMemoryBytes( m_contactCountScratch, m_maxPenetrationScratch, m_normalImpulseSumScratch ) );
     for ( const ReplayPresentationSample& sample : m_samples )
     {
-        bytes += PresentationSampleMemoryBytes( sample );
+        MainMemoryAddReplayCategoryBytes( categories,
+                                          MainMemoryReplayByteCategory::PresentationBodies,
+                                          PresentationSampleMemoryBytes( sample ) );
     }
-    return bytes;
 }
 
 void ReplayRecorder::CopySamplesChronological( std::vector<ReplayPresentationSample>& outSamples ) const
@@ -1550,17 +1575,40 @@ ReplayRecorderStats ReplaySolverRecorder::GetStats() const
 
 uint64_t ReplaySolverRecorder::CollectMemoryBytes() const
 {
-    uint64_t bytes = static_cast<uint64_t>( sizeof( *this ) );
-    bytes += VectorCapacityBytes( m_samples );
-    bytes += VectorCapacityBytes( m_checkpoints );
-    bytes += VectorCapacityBytes( m_contactCountScratch );
-    bytes += VectorCapacityBytes( m_maxPenetrationScratch );
-    bytes += VectorCapacityBytes( m_normalImpulseSumScratch );
+    MainMemoryReplayCategoryBytes categories;
+    CollectMemoryCategoryBytes( categories );
+    return MainMemoryReplayCategoryRangeBytes( categories,
+                                               MainMemoryReplayByteCategory::SolverOwner,
+                                               MainMemoryReplayByteCategory::EventsOwner );
+}
+
+void ReplaySolverRecorder::CollectMemoryCategoryBytes( MainMemoryReplayCategoryBytes& categories ) const
+{
+    MainMemoryAddReplayCategoryBytes( categories,
+                                      MainMemoryReplayByteCategory::SolverOwner,
+                                      static_cast<uint64_t>( sizeof( *this ) ) );
+    MainMemoryAddReplayCategoryBytes( categories,
+                                      MainMemoryReplayByteCategory::SolverSampleRecords,
+                                      VectorCapacityBytes( m_samples ) );
+    MainMemoryAddReplayCategoryBytes( categories,
+                                      MainMemoryReplayByteCategory::SolverCheckpoints,
+                                      VectorCapacityBytes( m_checkpoints ) );
+    MainMemoryAddReplayCategoryBytes(
+        categories,
+        MainMemoryReplayByteCategory::SolverScratch,
+        ReplayRecorderScratchMemoryBytes( m_contactCountScratch, m_maxPenetrationScratch, m_normalImpulseSumScratch ) );
     for ( const ReplaySolverFrameSample& sample : m_samples )
     {
-        bytes += SolverFrameSampleMemoryBytes( sample );
+        MainMemoryAddReplayCategoryBytes( categories,
+                                          MainMemoryReplayByteCategory::SolverBodies,
+                                          VectorCapacityBytes( sample.bodies ) );
+        MainMemoryAddReplayCategoryBytes( categories,
+                                          MainMemoryReplayByteCategory::SolverWorldState,
+                                          SolverWorldSnapshotMemoryBytes( sample.worldSnapshot ) );
+        MainMemoryAddReplayCategoryBytes( categories,
+                                          MainMemoryReplayByteCategory::SolverLauncherVisuals,
+                                          LauncherVisualMemoryBytes( sample.launcherVisual ) );
     }
-    return bytes;
 }
 
 void ReplaySolverRecorder::CopySamplesChronological( std::vector<ReplaySolverFrameSample>& outSamples ) const
@@ -1793,7 +1841,21 @@ ReplayEventRecorderStats ReplayEventRecorder::GetStats() const
 
 uint64_t ReplayEventRecorder::CollectMemoryBytes() const
 {
-    return static_cast<uint64_t>( sizeof( *this ) ) + VectorCapacityBytes( m_events );
+    MainMemoryReplayCategoryBytes categories;
+    CollectMemoryCategoryBytes( categories );
+    return MainMemoryReplayCategoryRangeBytes( categories,
+                                               MainMemoryReplayByteCategory::EventsOwner,
+                                               MainMemoryReplayByteCategory::LoadedOwner );
+}
+
+void ReplayEventRecorder::CollectMemoryCategoryBytes( MainMemoryReplayCategoryBytes& categories ) const
+{
+    MainMemoryAddReplayCategoryBytes( categories,
+                                      MainMemoryReplayByteCategory::EventsOwner,
+                                      static_cast<uint64_t>( sizeof( *this ) ) );
+    MainMemoryAddReplayCategoryBytes( categories,
+                                      MainMemoryReplayByteCategory::Events,
+                                      VectorCapacityBytes( m_events ) );
 }
 
 void ReplayEventRecorder::CopyEventsChronological( std::vector<ReplayEventSample>& outEvents ) const

@@ -43,7 +43,7 @@ using namespace SkullbonezCore::Basics;
 
 namespace
 {
-constexpr float MEMORY_SUMMARY_BLOCK_H = 176.0f;
+constexpr float MEMORY_SUMMARY_BLOCK_H = 232.0f;
 constexpr float MEMORY_EVENT_HEADER_H = 62.0f;
 constexpr float MEMORY_EVENT_ROW_H = 22.0f;
 constexpr float MEMORY_EVENT_BOTTOM_PAD = 18.0f;
@@ -512,6 +512,11 @@ uint64_t ReplayTrajectoryLaneCounter( const uint64_t* counters, MainMemoryReplay
     return laneIndex < MAIN_MEMORY_REPLAY_TRAJECTORY_LANE_COUNT ? counters[laneIndex] : 0;
 }
 
+uint64_t ReplayMemoryCategoryCounter( const MainMemoryReplayStats& replay, MainMemoryReplayByteCategory category )
+{
+    return MainMemoryReplayCategoryByte( replay.categoryBytes, category );
+}
+
 // Concept: the memory tab prints emitted/dropped trajectory pairs compactly so
 // a manual flicker repro can watch which lane starts dropping segments.
 void FormatReplayTrajectoryPair( char* out,
@@ -553,6 +558,7 @@ void DrawMainMemoryPanel( const SkullbonezCore::UI::UIDrawContext& draw,
     char a[32] = {};
     char b[32] = {};
     char c[32] = {};
+    char d[32] = {};
     const SkullbonezCore::UI::Style::UIPalette& palette = SkullbonezCore::UI::Style::Palette();
 
     draw.Rect( panelX, panelY, panelW, panelH, 0.018f, 0.030f, 0.038f, 0.58f );
@@ -710,6 +716,75 @@ void DrawMainMemoryPanel( const SkullbonezCore::UI::UIDrawContext& draw,
         static_cast<unsigned long long>( memory.replay.trajectory.rebuildCauses[static_cast<std::size_t>(
             MainMemoryReplayRebuildCause::AutomaticRefresh )] ) );
     draw.Text( x, row0 + 140.0f, 8.0f, 0.48f, 0.66f, 0.68f, text );
+
+    // Why: the category rows make memory-model tradeoffs visible during manual
+    // replay repros without opening the full JSON dump.
+    FormatMemoryMiB( ReplayMemoryCategoryCounter( memory.replay, MainMemoryReplayByteCategory::PresentationBodies ),
+                     a,
+                     sizeof( a ) );
+    FormatMemoryMiB( ReplayMemoryCategoryCounter( memory.replay, MainMemoryReplayByteCategory::SolverBodies ),
+                     b,
+                     sizeof( b ) );
+    FormatMemoryMiB( ReplayMemoryCategoryCounter( memory.replay, MainMemoryReplayByteCategory::PredictionFrameBodies ),
+                     c,
+                     sizeof( c ) );
+    FormatMemoryMiB( ReplayMemoryCategoryCounter( memory.replay, MainMemoryReplayByteCategory::LoadedBodies ),
+                     d,
+                     sizeof( d ) );
+    snprintf( text, sizeof( text ), "cat bodies p %s  s %s  pred %s  load %s", a, b, c, d );
+    draw.Text( x, row0 + 154.0f, 8.0f, 0.50f, 0.64f, 0.66f, text );
+
+    FormatMemoryMiB( ReplayMemoryCategoryCounter( memory.replay, MainMemoryReplayByteCategory::SolverWorldState ),
+                     a,
+                     sizeof( a ) );
+    FormatMemoryMiB( ReplayMemoryCategoryCounter( memory.replay, MainMemoryReplayByteCategory::PredictionWorldState ),
+                     b,
+                     sizeof( b ) );
+    FormatMemoryMiB( ReplayMemoryCategoryCounter( memory.replay, MainMemoryReplayByteCategory::PredictionEngine ),
+                     c,
+                     sizeof( c ) );
+    FormatMemoryMiB( ReplayMemoryCategoryCounter( memory.replay, MainMemoryReplayByteCategory::PredictionFutureTree ),
+                     d,
+                     sizeof( d ) );
+    snprintf( text, sizeof( text ), "cat state sw %s  pw %s  eng %s  tree %s", a, b, c, d );
+    draw.Text( x, row0 + 168.0f, 8.0f, 0.50f, 0.64f, 0.66f, text );
+
+    const uint64_t recordBytes =
+        ReplayMemoryCategoryCounter( memory.replay, MainMemoryReplayByteCategory::PresentationSampleRecords ) +
+        ReplayMemoryCategoryCounter( memory.replay, MainMemoryReplayByteCategory::SolverSampleRecords ) +
+        ReplayMemoryCategoryCounter( memory.replay, MainMemoryReplayByteCategory::LoadedSampleRecords ) +
+        ReplayMemoryCategoryCounter( memory.replay, MainMemoryReplayByteCategory::PredictionFrameRecords );
+    const uint64_t checkpointBytes =
+        ReplayMemoryCategoryCounter( memory.replay, MainMemoryReplayByteCategory::PresentationCheckpoints ) +
+        ReplayMemoryCategoryCounter( memory.replay, MainMemoryReplayByteCategory::SolverCheckpoints );
+    const uint64_t scratchBytes =
+        ReplayMemoryCategoryCounter( memory.replay, MainMemoryReplayByteCategory::PresentationScratch ) +
+        ReplayMemoryCategoryCounter( memory.replay, MainMemoryReplayByteCategory::SolverScratch );
+    FormatMemoryMiB( recordBytes, a, sizeof( a ) );
+    FormatMemoryMiB( checkpointBytes, b, sizeof( b ) );
+    FormatMemoryMiB( scratchBytes, c, sizeof( c ) );
+    FormatMemoryMiB( ReplayMemoryCategoryCounter( memory.replay, MainMemoryReplayByteCategory::Events ),
+                     d,
+                     sizeof( d ) );
+    snprintf( text, sizeof( text ), "cat records %s  check %s  scratch %s  events %s", a, b, c, d );
+    draw.Text( x, row0 + 182.0f, 8.0f, 0.50f, 0.64f, 0.66f, text );
+
+    const uint64_t visualPathBytes =
+        ReplayMemoryCategoryCounter( memory.replay, MainMemoryReplayByteCategory::PathTargets ) +
+        ReplayMemoryCategoryCounter( memory.replay, MainMemoryReplayByteCategory::PathFutureNodes );
+    const uint64_t launcherVisualBytes =
+        ReplayMemoryCategoryCounter( memory.replay, MainMemoryReplayByteCategory::SolverLauncherVisuals ) +
+        ReplayMemoryCategoryCounter( memory.replay, MainMemoryReplayByteCategory::RenderLauncherBackup );
+    FormatMemoryMiB( visualPathBytes, a, sizeof( a ) );
+    FormatMemoryMiB( ReplayMemoryCategoryCounter( memory.replay, MainMemoryReplayByteCategory::PathCauseRows ),
+                     b,
+                     sizeof( b ) );
+    FormatMemoryMiB( ReplayMemoryCategoryCounter( memory.replay, MainMemoryReplayByteCategory::RenderGhostRequests ),
+                     c,
+                     sizeof( c ) );
+    FormatMemoryMiB( launcherVisualBytes, d, sizeof( d ) );
+    snprintf( text, sizeof( text ), "cat visual path %s  cause %s  ghost %s  launch %s", a, b, c, d );
+    draw.Text( x, row0 + 196.0f, 8.0f, 0.50f, 0.64f, 0.66f, text );
 }
 
 void DrawReserveGrowthEvents( const SkullbonezCore::UI::UIDrawContext& draw,

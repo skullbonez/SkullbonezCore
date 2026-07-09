@@ -242,8 +242,16 @@ Stage 0 — Instrument & document (merges old B1)
   the full per-lane/per-pass breakdown, and the Memory tab shows compact
   trajectory segment/budget/rebuild lines. Validation:
   `tools\validate_fast.bat` passed (`Agentic/Reports/validate_fast_replay_visuals_stage0_1_20260709.log`).
-- [ ] 0.2 Per-category replay memory byte accounting (old B1) — this
+- [x] 0.2 Per-category replay memory byte accounting (old B1) — this
   measurement decides how much of Stage 8 is worth building.
+  Complete 2026-07-09: added fixed replay byte categories for presentation,
+  solver, events, loaded replay, prediction, path/cause, render scratch, and
+  future trajectory-store bytes. Recorder owners now contribute their own
+  private ring/checkpoint/scratch/body/world/launcher/event storage, and
+  `ReplayRuntime::CollectMemoryStats()` derives the broad totals from the same
+  category table exposed in the memory dump JSON and Memory tab category rows.
+  Validation: `tools\validate_fast.bat` passed
+  (`Agentic/Reports/validate_fast_replay_visuals_stage0_2_20260709.log`).
 - [ ] 0.3 Manual repro session: confirm or kill H1–H5; record results here.
 
 Stage 1 — Deterministic drawing

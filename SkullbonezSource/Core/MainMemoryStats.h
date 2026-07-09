@@ -31,9 +31,9 @@ namespace SkullbonezCore
 {
 namespace Basics
 {
-// Concept: replay trajectory counters use enum-indexed POD arrays so diagnostics
-// can copy them into UI frames and JSON dumps without allocating or depending on
-// replay/runtime owner types.
+// Concept: replay diagnostics use enum-indexed POD arrays so memory dumps and UI
+// frames can copy counters and byte categories without allocating or depending
+// on replay owner types.
 enum class MainMemoryReplayTrajectoryLane : std::size_t
 {
     PastRoot,
@@ -80,6 +80,84 @@ enum class MainMemoryReplayRebuildCause : std::size_t
 inline constexpr std::size_t MAIN_MEMORY_REPLAY_REBUILD_CAUSE_COUNT =
     static_cast<std::size_t>( MainMemoryReplayRebuildCause::Count );
 
+enum class MainMemoryReplayByteCategory : std::size_t
+{
+    PresentationOwner,
+    PresentationSampleRecords,
+    PresentationCheckpoints,
+    PresentationScratch,
+    PresentationBodies,
+    SolverOwner,
+    SolverSampleRecords,
+    SolverCheckpoints,
+    SolverScratch,
+    SolverBodies,
+    SolverWorldState,
+    SolverLauncherVisuals,
+    EventsOwner,
+    Events,
+    LoadedOwner,
+    LoadedSampleRecords,
+    LoadedBodies,
+    PredictionOwner,
+    PredictionEngine,
+    PredictionWorldState,
+    PredictionBodyState,
+    PredictionFrameRecords,
+    PredictionFrameBodies,
+    PredictionDebugContacts,
+    PredictionFutureTree,
+    PathOwner,
+    PathTargets,
+    PathFutureNodes,
+    PathCauseRows,
+    RenderGhostRequests,
+    RenderFocusMask,
+    RenderLauncherBackup,
+    TrajectoryStore,
+    Count
+};
+
+inline constexpr std::size_t MAIN_MEMORY_REPLAY_BYTE_CATEGORY_COUNT =
+    static_cast<std::size_t>( MainMemoryReplayByteCategory::Count );
+
+struct MainMemoryReplayCategoryBytes
+{
+    uint64_t bytes[MAIN_MEMORY_REPLAY_BYTE_CATEGORY_COUNT] = {};
+};
+
+inline uint64_t MainMemoryReplayCategoryByte( const MainMemoryReplayCategoryBytes& categories,
+                                              MainMemoryReplayByteCategory category )
+{
+    const std::size_t categoryIndex = static_cast<std::size_t>( category );
+    return categoryIndex < MAIN_MEMORY_REPLAY_BYTE_CATEGORY_COUNT ? categories.bytes[categoryIndex] : 0;
+}
+
+inline void MainMemoryAddReplayCategoryBytes( MainMemoryReplayCategoryBytes& categories,
+                                              MainMemoryReplayByteCategory category,
+                                              uint64_t bytes )
+{
+    const std::size_t categoryIndex = static_cast<std::size_t>( category );
+    if ( categoryIndex < MAIN_MEMORY_REPLAY_BYTE_CATEGORY_COUNT )
+    {
+        categories.bytes[categoryIndex] += bytes;
+    }
+}
+
+inline uint64_t MainMemoryReplayCategoryRangeBytes( const MainMemoryReplayCategoryBytes& categories,
+                                                    MainMemoryReplayByteCategory first,
+                                                    MainMemoryReplayByteCategory end )
+{
+    const std::size_t firstIndex = static_cast<std::size_t>( first );
+    const std::size_t endIndex = static_cast<std::size_t>( end );
+    uint64_t total = 0;
+    for ( std::size_t i = firstIndex; i < endIndex && i < MAIN_MEMORY_REPLAY_BYTE_CATEGORY_COUNT; ++i )
+    {
+        total += categories.bytes[i];
+    }
+    return total;
+}
+
 struct MainMemoryReplayTrajectoryStats
 {
     uint64_t storeBytes = 0;                                // Current TrajectoryStore allocation; 0 until the store lands.
@@ -118,6 +196,7 @@ struct MainMemoryReplayStats
     std::size_t pathNodes = 0;
     std::size_t causeRows = 0;
     std::size_t ghostRequests = 0;
+    MainMemoryReplayCategoryBytes categoryBytes;
     MainMemoryReplayTrajectoryStats trajectory;
 };
 

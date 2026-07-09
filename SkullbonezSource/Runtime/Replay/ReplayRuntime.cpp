@@ -283,9 +283,14 @@ uint64_t PresentationSampleMemoryBytes( const ReplayPresentationSample& sample )
     return VectorCapacityBytes( sample.bodies );
 }
 
-uint64_t PredictionFrameMemoryBytes( const RunReplayPredictionFrame& frame )
+void AddPredictionFrameCategoryBytes( MainMemoryReplayCategoryBytes& categories, const RunReplayPredictionFrame& frame )
 {
-    return VectorCapacityBytes( frame.bodies ) + VectorCapacityBytes( frame.debugContacts );
+    MainMemoryAddReplayCategoryBytes( categories,
+                                      MainMemoryReplayByteCategory::PredictionFrameBodies,
+                                      VectorCapacityBytes( frame.bodies ) );
+    MainMemoryAddReplayCategoryBytes( categories,
+                                      MainMemoryReplayByteCategory::PredictionDebugContacts,
+                                      VectorCapacityBytes( frame.debugContacts ) );
 }
 
 uint64_t PredictionEngineMemoryBytes( const PhysicsEngine& engine )
@@ -2527,59 +2532,117 @@ MainMemoryReplayStats ReplayRuntime::CollectMemoryStats() const
     const ReplayRecorderStats solverStats = m_solver.GetStats();
     const ReplayEventRecorderStats eventStats = m_events.GetStats();
 
-    stats.presentationBytes = m_presentation.CollectMemoryBytes();
-    stats.solverBytes = m_solver.CollectMemoryBytes();
-    stats.eventsBytes = m_events.CollectMemoryBytes();
+    // Concept: the broad replay totals are sums of the same category table
+    // exposed to diagnostics. That keeps UI totals and memory-dump evidence in
+    // lockstep when later stages move storage between owners.
+    m_presentation.CollectMemoryCategoryBytes( stats.categoryBytes );
+    m_solver.CollectMemoryCategoryBytes( stats.categoryBytes );
+    m_events.CollectMemoryCategoryBytes( stats.categoryBytes );
+    stats.presentationBytes = MainMemoryReplayCategoryRangeBytes( stats.categoryBytes,
+                                                                  MainMemoryReplayByteCategory::PresentationOwner,
+                                                                  MainMemoryReplayByteCategory::SolverOwner );
+    stats.solverBytes = MainMemoryReplayCategoryRangeBytes( stats.categoryBytes,
+                                                            MainMemoryReplayByteCategory::SolverOwner,
+                                                            MainMemoryReplayByteCategory::EventsOwner );
+    stats.eventsBytes = MainMemoryReplayCategoryRangeBytes( stats.categoryBytes,
+                                                            MainMemoryReplayByteCategory::EventsOwner,
+                                                            MainMemoryReplayByteCategory::LoadedOwner );
     stats.presentationSamples = presentationStats.sampleCount;
     stats.solverSamples = solverStats.sampleCount;
     stats.eventSamples = eventStats.eventCount;
 
-    stats.loadedReplayBytes =
-        static_cast<uint64_t>( sizeof( m_loadedPresentation ) ) + VectorCapacityBytes( m_loadedPresentation.samples );
+    MainMemoryAddReplayCategoryBytes( stats.categoryBytes,
+                                      MainMemoryReplayByteCategory::LoadedOwner,
+                                      static_cast<uint64_t>( sizeof( m_loadedPresentation ) ) );
+    MainMemoryAddReplayCategoryBytes( stats.categoryBytes,
+                                      MainMemoryReplayByteCategory::LoadedSampleRecords,
+                                      VectorCapacityBytes( m_loadedPresentation.samples ) );
     for ( const ReplayPresentationSample& sample : m_loadedPresentation.samples )
     {
-        stats.loadedReplayBytes += PresentationSampleMemoryBytes( sample );
+        MainMemoryAddReplayCategoryBytes( stats.categoryBytes,
+                                          MainMemoryReplayByteCategory::LoadedBodies,
+                                          PresentationSampleMemoryBytes( sample ) );
     }
+    stats.loadedReplayBytes = MainMemoryReplayCategoryRangeBytes( stats.categoryBytes,
+                                                                  MainMemoryReplayByteCategory::LoadedOwner,
+                                                                  MainMemoryReplayByteCategory::PredictionOwner );
     stats.loadedReplaySamples = m_loadedPresentation.samples.size();
 
-    stats.predictionBytes = static_cast<uint64_t>( sizeof( m_prediction ) );
+    MainMemoryAddReplayCategoryBytes( stats.categoryBytes,
+                                      MainMemoryReplayByteCategory::PredictionOwner,
+                                      static_cast<uint64_t>( sizeof( m_prediction ) ) );
     if ( m_prediction.simulation.predictionEngine )
     {
-        stats.predictionBytes += PredictionEngineMemoryBytes( *m_prediction.simulation.predictionEngine );
+        MainMemoryAddReplayCategoryBytes( stats.categoryBytes,
+                                          MainMemoryReplayByteCategory::PredictionEngine,
+                                          PredictionEngineMemoryBytes( *m_prediction.simulation.predictionEngine ) );
     }
-    stats.predictionBytes += SolverWorldSnapshotMemoryBytes( m_prediction.simulation.predictionWorld );
-    stats.predictionBytes += VectorCapacityBytes( m_prediction.simulation.predictionBodies );
-    stats.predictionBytes += VectorCapacityBytes( m_prediction.simulation.frames );
-    stats.predictionBytes += VectorCapacityBytes( m_prediction.build.buildFrames );
-    stats.predictionBytes += VectorCapacityBytes( m_prediction.futureNodeCache.futureNodes );
-    stats.predictionBytes += VectorCapacityBytes( m_prediction.futureNodeCache.futureNodeBuildScratch );
+    MainMemoryAddReplayCategoryBytes( stats.categoryBytes,
+                                      MainMemoryReplayByteCategory::PredictionWorldState,
+                                      SolverWorldSnapshotMemoryBytes( m_prediction.simulation.predictionWorld ) );
+    MainMemoryAddReplayCategoryBytes( stats.categoryBytes,
+                                      MainMemoryReplayByteCategory::PredictionBodyState,
+                                      VectorCapacityBytes( m_prediction.simulation.predictionBodies ) );
+    MainMemoryAddReplayCategoryBytes(
+        stats.categoryBytes,
+        MainMemoryReplayByteCategory::PredictionFrameRecords,
+        VectorCapacityBytes( m_prediction.simulation.frames ) + VectorCapacityBytes( m_prediction.build.buildFrames ) );
+    MainMemoryAddReplayCategoryBytes( stats.categoryBytes,
+                                      MainMemoryReplayByteCategory::PredictionFutureTree,
+                                      VectorCapacityBytes( m_prediction.futureNodeCache.futureNodes ) +
+                                          VectorCapacityBytes( m_prediction.futureNodeCache.futureNodeBuildScratch ) );
     for ( const RunReplayPredictionFrame& frame : m_prediction.simulation.frames )
     {
-        stats.predictionBytes += PredictionFrameMemoryBytes( frame );
+        AddPredictionFrameCategoryBytes( stats.categoryBytes, frame );
     }
     for ( const RunReplayPredictionFrame& frame : m_prediction.build.buildFrames )
     {
-        stats.predictionBytes += PredictionFrameMemoryBytes( frame );
+        AddPredictionFrameCategoryBytes( stats.categoryBytes, frame );
     }
+    stats.predictionBytes = MainMemoryReplayCategoryRangeBytes( stats.categoryBytes,
+                                                                MainMemoryReplayByteCategory::PredictionOwner,
+                                                                MainMemoryReplayByteCategory::PathOwner );
     stats.predictionFrames = m_prediction.simulation.frames.size() + m_prediction.build.buildFrames.size();
 
-    stats.pathAndCauseBytes = static_cast<uint64_t>( sizeof( m_pathVisualizer ) + sizeof( m_causeTree ) );
-    stats.pathAndCauseBytes += VectorCapacityBytes( m_pathVisualizer.futureNodes );
-    stats.pathAndCauseBytes += VectorCapacityBytes( m_pathVisualizer.targets );
-    stats.pathAndCauseBytes += VectorCapacityBytes( m_causeTree.rows );
+    MainMemoryAddReplayCategoryBytes( stats.categoryBytes,
+                                      MainMemoryReplayByteCategory::PathOwner,
+                                      static_cast<uint64_t>( sizeof( m_pathVisualizer ) + sizeof( m_causeTree ) ) );
+    MainMemoryAddReplayCategoryBytes( stats.categoryBytes,
+                                      MainMemoryReplayByteCategory::PathFutureNodes,
+                                      VectorCapacityBytes( m_pathVisualizer.futureNodes ) );
+    MainMemoryAddReplayCategoryBytes( stats.categoryBytes,
+                                      MainMemoryReplayByteCategory::PathTargets,
+                                      VectorCapacityBytes( m_pathVisualizer.targets ) );
+    MainMemoryAddReplayCategoryBytes( stats.categoryBytes,
+                                      MainMemoryReplayByteCategory::PathCauseRows,
+                                      VectorCapacityBytes( m_causeTree.rows ) );
+    stats.pathAndCauseBytes = MainMemoryReplayCategoryRangeBytes( stats.categoryBytes,
+                                                                  MainMemoryReplayByteCategory::PathOwner,
+                                                                  MainMemoryReplayByteCategory::RenderGhostRequests );
     stats.pathNodes = m_pathVisualizer.futureNodes.size() + m_prediction.futureNodeCache.futureNodes.size();
     stats.causeRows = m_causeTree.rows.size();
 
-    stats.renderScratchBytes = VectorCapacityBytes( m_predictionGhostDrawRequests );
-    stats.renderScratchBytes += VectorCapacityBytes( m_focusModelMask );
-    stats.renderScratchBytes += static_cast<uint64_t>( sizeof( m_launcherVisualBackup ) );
-    stats.renderScratchBytes += LauncherVisualMemoryBytes( m_launcherVisualBackup );
+    MainMemoryAddReplayCategoryBytes( stats.categoryBytes,
+                                      MainMemoryReplayByteCategory::RenderGhostRequests,
+                                      VectorCapacityBytes( m_predictionGhostDrawRequests ) );
+    MainMemoryAddReplayCategoryBytes( stats.categoryBytes,
+                                      MainMemoryReplayByteCategory::RenderFocusMask,
+                                      VectorCapacityBytes( m_focusModelMask ) );
+    MainMemoryAddReplayCategoryBytes( stats.categoryBytes,
+                                      MainMemoryReplayByteCategory::RenderLauncherBackup,
+                                      static_cast<uint64_t>( sizeof( m_launcherVisualBackup ) ) +
+                                          LauncherVisualMemoryBytes( m_launcherVisualBackup ) );
+    stats.renderScratchBytes = MainMemoryReplayCategoryRangeBytes( stats.categoryBytes,
+                                                                   MainMemoryReplayByteCategory::RenderGhostRequests,
+                                                                   MainMemoryReplayByteCategory::TrajectoryStore );
     stats.ghostRequests = m_predictionGhostDrawRequests.size();
     stats.trajectory = m_trajectoryVisualStats;
-    stats.trajectory.storeBytes = 0;
+    stats.trajectory.storeBytes =
+        MainMemoryReplayCategoryByte( stats.categoryBytes, MainMemoryReplayByteCategory::TrajectoryStore );
 
     stats.totalBytes = stats.presentationBytes + stats.solverBytes + stats.eventsBytes + stats.loadedReplayBytes +
-                       stats.predictionBytes + stats.pathAndCauseBytes + stats.renderScratchBytes;
+                       stats.predictionBytes + stats.pathAndCauseBytes + stats.renderScratchBytes +
+                       stats.trajectory.storeBytes;
     return stats;
 }
 

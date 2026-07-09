@@ -114,6 +114,219 @@ uint64_t ReplayTrajectoryRebuildCounter( const MainMemoryReplayTrajectoryStats& 
     const std::size_t causeIndex = static_cast<std::size_t>( cause );
     return causeIndex < MAIN_MEMORY_REPLAY_REBUILD_CAUSE_COUNT ? stats.rebuildCauses[causeIndex] : 0;
 }
+
+uint64_t ReplayMemoryCategoryCounter( const MainMemoryReplayStats& replay, MainMemoryReplayByteCategory category )
+{
+    return MainMemoryReplayCategoryByte( replay.categoryBytes, category );
+}
+
+// Concept: byte categories are stored as fixed arrays in core stats; the dump
+// owns the stable JSON labels that scripts and manual investigations read.
+void WriteReplayMemoryCategories( FILE* file, const MainMemoryReplayStats& replay )
+{
+    fputs( "    \"memory_categories\": {\n", file );
+    fprintf( file,
+             "      \"presentation\": { \"owner\": %llu, \"sample_records\": %llu, \"checkpoints\": %llu, "
+             "\"scratch\": %llu, \"bodies\": %llu },\n",
+             static_cast<unsigned long long>(
+                 ReplayMemoryCategoryCounter( replay, MainMemoryReplayByteCategory::PresentationOwner ) ),
+             static_cast<unsigned long long>(
+                 ReplayMemoryCategoryCounter( replay, MainMemoryReplayByteCategory::PresentationSampleRecords ) ),
+             static_cast<unsigned long long>(
+                 ReplayMemoryCategoryCounter( replay, MainMemoryReplayByteCategory::PresentationCheckpoints ) ),
+             static_cast<unsigned long long>(
+                 ReplayMemoryCategoryCounter( replay, MainMemoryReplayByteCategory::PresentationScratch ) ),
+             static_cast<unsigned long long>(
+                 ReplayMemoryCategoryCounter( replay, MainMemoryReplayByteCategory::PresentationBodies ) ) );
+    fprintf( file,
+             "      \"solver\": { \"owner\": %llu, \"sample_records\": %llu, \"checkpoints\": %llu, "
+             "\"scratch\": %llu, \"bodies\": %llu, \"world_state\": %llu, \"launcher_visuals\": %llu },\n",
+             static_cast<unsigned long long>(
+                 ReplayMemoryCategoryCounter( replay, MainMemoryReplayByteCategory::SolverOwner ) ),
+             static_cast<unsigned long long>(
+                 ReplayMemoryCategoryCounter( replay, MainMemoryReplayByteCategory::SolverSampleRecords ) ),
+             static_cast<unsigned long long>(
+                 ReplayMemoryCategoryCounter( replay, MainMemoryReplayByteCategory::SolverCheckpoints ) ),
+             static_cast<unsigned long long>(
+                 ReplayMemoryCategoryCounter( replay, MainMemoryReplayByteCategory::SolverScratch ) ),
+             static_cast<unsigned long long>(
+                 ReplayMemoryCategoryCounter( replay, MainMemoryReplayByteCategory::SolverBodies ) ),
+             static_cast<unsigned long long>(
+                 ReplayMemoryCategoryCounter( replay, MainMemoryReplayByteCategory::SolverWorldState ) ),
+             static_cast<unsigned long long>(
+                 ReplayMemoryCategoryCounter( replay, MainMemoryReplayByteCategory::SolverLauncherVisuals ) ) );
+    fprintf( file,
+             "      \"events\": { \"owner\": %llu, \"events\": %llu },\n",
+             static_cast<unsigned long long>(
+                 ReplayMemoryCategoryCounter( replay, MainMemoryReplayByteCategory::EventsOwner ) ),
+             static_cast<unsigned long long>(
+                 ReplayMemoryCategoryCounter( replay, MainMemoryReplayByteCategory::Events ) ) );
+    fprintf( file,
+             "      \"loaded_replay\": { \"owner\": %llu, \"sample_records\": %llu, \"bodies\": %llu },\n",
+             static_cast<unsigned long long>(
+                 ReplayMemoryCategoryCounter( replay, MainMemoryReplayByteCategory::LoadedOwner ) ),
+             static_cast<unsigned long long>(
+                 ReplayMemoryCategoryCounter( replay, MainMemoryReplayByteCategory::LoadedSampleRecords ) ),
+             static_cast<unsigned long long>(
+                 ReplayMemoryCategoryCounter( replay, MainMemoryReplayByteCategory::LoadedBodies ) ) );
+    fprintf( file,
+             "      \"prediction\": { \"owner\": %llu, \"engine\": %llu, \"world_state\": %llu, "
+             "\"body_state\": %llu, \"frame_records\": %llu, \"frame_bodies\": %llu, "
+             "\"debug_contacts\": %llu, \"future_tree\": %llu },\n",
+             static_cast<unsigned long long>(
+                 ReplayMemoryCategoryCounter( replay, MainMemoryReplayByteCategory::PredictionOwner ) ),
+             static_cast<unsigned long long>(
+                 ReplayMemoryCategoryCounter( replay, MainMemoryReplayByteCategory::PredictionEngine ) ),
+             static_cast<unsigned long long>(
+                 ReplayMemoryCategoryCounter( replay, MainMemoryReplayByteCategory::PredictionWorldState ) ),
+             static_cast<unsigned long long>(
+                 ReplayMemoryCategoryCounter( replay, MainMemoryReplayByteCategory::PredictionBodyState ) ),
+             static_cast<unsigned long long>(
+                 ReplayMemoryCategoryCounter( replay, MainMemoryReplayByteCategory::PredictionFrameRecords ) ),
+             static_cast<unsigned long long>(
+                 ReplayMemoryCategoryCounter( replay, MainMemoryReplayByteCategory::PredictionFrameBodies ) ),
+             static_cast<unsigned long long>(
+                 ReplayMemoryCategoryCounter( replay, MainMemoryReplayByteCategory::PredictionDebugContacts ) ),
+             static_cast<unsigned long long>(
+                 ReplayMemoryCategoryCounter( replay, MainMemoryReplayByteCategory::PredictionFutureTree ) ) );
+    fprintf( file,
+             "      \"path_and_cause\": { \"owner\": %llu, \"targets\": %llu, \"future_nodes\": %llu, "
+             "\"cause_rows\": %llu },\n",
+             static_cast<unsigned long long>(
+                 ReplayMemoryCategoryCounter( replay, MainMemoryReplayByteCategory::PathOwner ) ),
+             static_cast<unsigned long long>(
+                 ReplayMemoryCategoryCounter( replay, MainMemoryReplayByteCategory::PathTargets ) ),
+             static_cast<unsigned long long>(
+                 ReplayMemoryCategoryCounter( replay, MainMemoryReplayByteCategory::PathFutureNodes ) ),
+             static_cast<unsigned long long>(
+                 ReplayMemoryCategoryCounter( replay, MainMemoryReplayByteCategory::PathCauseRows ) ) );
+    fprintf( file,
+             "      \"render_scratch\": { \"ghost_requests\": %llu, \"focus_mask\": %llu, "
+             "\"launcher_backup\": %llu },\n",
+             static_cast<unsigned long long>(
+                 ReplayMemoryCategoryCounter( replay, MainMemoryReplayByteCategory::RenderGhostRequests ) ),
+             static_cast<unsigned long long>(
+                 ReplayMemoryCategoryCounter( replay, MainMemoryReplayByteCategory::RenderFocusMask ) ),
+             static_cast<unsigned long long>(
+                 ReplayMemoryCategoryCounter( replay, MainMemoryReplayByteCategory::RenderLauncherBackup ) ) );
+    fprintf( file,
+             "      \"trajectory\": { \"store\": %llu }\n",
+             static_cast<unsigned long long>(
+                 ReplayMemoryCategoryCounter( replay, MainMemoryReplayByteCategory::TrajectoryStore ) ) );
+    fputs( "    },\n", file );
+}
+
+void WriteReplayTrajectoryCounters( FILE* file, const MainMemoryReplayTrajectoryStats& trajectory )
+{
+    fprintf(
+        file,
+        "    \"trajectory\": {\n"
+        "      \"store_bytes\": %llu,\n"
+        "      \"segments_emitted\": {\n"
+        "        \"past_root\": %llu,\n"
+        "        \"future_root\": %llu,\n"
+        "        \"future_child_incoming\": %llu,\n"
+        "        \"future_child_outgoing\": %llu,\n"
+        "        \"retained_trail\": %llu,\n"
+        "        \"baseline_root\": %llu,\n"
+        "        \"causal_marker\": %llu,\n"
+        "        \"auxiliary_trail\": %llu\n"
+        "      },\n"
+        "      \"segments_dropped\": {\n"
+        "        \"past_root\": %llu,\n"
+        "        \"future_root\": %llu,\n"
+        "        \"future_child_incoming\": %llu,\n"
+        "        \"future_child_outgoing\": %llu,\n"
+        "        \"retained_trail\": %llu,\n"
+        "        \"baseline_root\": %llu,\n"
+        "        \"causal_marker\": %llu,\n"
+        "        \"auxiliary_trail\": %llu\n"
+        "      },\n"
+        "      \"budget_expiries\": {\n"
+        "        \"prediction_begin\": %llu,\n"
+        "        \"prediction_step\": %llu,\n"
+        "        \"prediction_draw_root\": %llu,\n"
+        "        \"prediction_build_tree\": %llu,\n"
+        "        \"prediction_draw_children\": %llu,\n"
+        "        \"prediction_draw_affected_bodies\": %llu,\n"
+        "        \"prediction_draw_ragdolls\": %llu,\n"
+        "        \"retained_bounds\": %llu,\n"
+        "        \"retained_build_tree\": %llu,\n"
+        "        \"retained_draw_root\": %llu,\n"
+        "        \"retained_draw_children\": %llu,\n"
+        "        \"retained_draw_marker\": %llu\n"
+        "      },\n"
+        "      \"rebuild_causes\": {\n"
+        "        \"dirty\": %llu,\n"
+        "        \"automatic_refresh\": %llu\n"
+        "      }\n"
+        "    }\n",
+        static_cast<unsigned long long>( trajectory.storeBytes ),
+        static_cast<unsigned long long>(
+            ReplayTrajectoryLaneCounter( trajectory.emittedSegments, MainMemoryReplayTrajectoryLane::PastRoot ) ),
+        static_cast<unsigned long long>(
+            ReplayTrajectoryLaneCounter( trajectory.emittedSegments, MainMemoryReplayTrajectoryLane::FutureRoot ) ),
+        static_cast<unsigned long long>(
+            ReplayTrajectoryLaneCounter( trajectory.emittedSegments,
+                                         MainMemoryReplayTrajectoryLane::FutureChildIncoming ) ),
+        static_cast<unsigned long long>(
+            ReplayTrajectoryLaneCounter( trajectory.emittedSegments,
+                                         MainMemoryReplayTrajectoryLane::FutureChildOutgoing ) ),
+        static_cast<unsigned long long>(
+            ReplayTrajectoryLaneCounter( trajectory.emittedSegments, MainMemoryReplayTrajectoryLane::RetainedTrail ) ),
+        static_cast<unsigned long long>(
+            ReplayTrajectoryLaneCounter( trajectory.emittedSegments, MainMemoryReplayTrajectoryLane::BaselineRoot ) ),
+        static_cast<unsigned long long>(
+            ReplayTrajectoryLaneCounter( trajectory.emittedSegments, MainMemoryReplayTrajectoryLane::CausalMarker ) ),
+        static_cast<unsigned long long>(
+            ReplayTrajectoryLaneCounter( trajectory.emittedSegments, MainMemoryReplayTrajectoryLane::AuxiliaryTrail ) ),
+        static_cast<unsigned long long>(
+            ReplayTrajectoryLaneCounter( trajectory.droppedSegments, MainMemoryReplayTrajectoryLane::PastRoot ) ),
+        static_cast<unsigned long long>(
+            ReplayTrajectoryLaneCounter( trajectory.droppedSegments, MainMemoryReplayTrajectoryLane::FutureRoot ) ),
+        static_cast<unsigned long long>(
+            ReplayTrajectoryLaneCounter( trajectory.droppedSegments,
+                                         MainMemoryReplayTrajectoryLane::FutureChildIncoming ) ),
+        static_cast<unsigned long long>(
+            ReplayTrajectoryLaneCounter( trajectory.droppedSegments,
+                                         MainMemoryReplayTrajectoryLane::FutureChildOutgoing ) ),
+        static_cast<unsigned long long>(
+            ReplayTrajectoryLaneCounter( trajectory.droppedSegments, MainMemoryReplayTrajectoryLane::RetainedTrail ) ),
+        static_cast<unsigned long long>(
+            ReplayTrajectoryLaneCounter( trajectory.droppedSegments, MainMemoryReplayTrajectoryLane::BaselineRoot ) ),
+        static_cast<unsigned long long>(
+            ReplayTrajectoryLaneCounter( trajectory.droppedSegments, MainMemoryReplayTrajectoryLane::CausalMarker ) ),
+        static_cast<unsigned long long>(
+            ReplayTrajectoryLaneCounter( trajectory.droppedSegments, MainMemoryReplayTrajectoryLane::AuxiliaryTrail ) ),
+        static_cast<unsigned long long>(
+            ReplayTrajectoryBudgetCounter( trajectory, MainMemoryReplayBudgetPass::PredictionBegin ) ),
+        static_cast<unsigned long long>(
+            ReplayTrajectoryBudgetCounter( trajectory, MainMemoryReplayBudgetPass::PredictionStep ) ),
+        static_cast<unsigned long long>(
+            ReplayTrajectoryBudgetCounter( trajectory, MainMemoryReplayBudgetPass::PredictionDrawRoot ) ),
+        static_cast<unsigned long long>(
+            ReplayTrajectoryBudgetCounter( trajectory, MainMemoryReplayBudgetPass::PredictionBuildTree ) ),
+        static_cast<unsigned long long>(
+            ReplayTrajectoryBudgetCounter( trajectory, MainMemoryReplayBudgetPass::PredictionDrawChildren ) ),
+        static_cast<unsigned long long>(
+            ReplayTrajectoryBudgetCounter( trajectory, MainMemoryReplayBudgetPass::PredictionDrawAffectedBodies ) ),
+        static_cast<unsigned long long>(
+            ReplayTrajectoryBudgetCounter( trajectory, MainMemoryReplayBudgetPass::PredictionDrawRagdolls ) ),
+        static_cast<unsigned long long>(
+            ReplayTrajectoryBudgetCounter( trajectory, MainMemoryReplayBudgetPass::RetainedBounds ) ),
+        static_cast<unsigned long long>(
+            ReplayTrajectoryBudgetCounter( trajectory, MainMemoryReplayBudgetPass::RetainedBuildTree ) ),
+        static_cast<unsigned long long>(
+            ReplayTrajectoryBudgetCounter( trajectory, MainMemoryReplayBudgetPass::RetainedDrawRoot ) ),
+        static_cast<unsigned long long>(
+            ReplayTrajectoryBudgetCounter( trajectory, MainMemoryReplayBudgetPass::RetainedDrawChildren ) ),
+        static_cast<unsigned long long>(
+            ReplayTrajectoryBudgetCounter( trajectory, MainMemoryReplayBudgetPass::RetainedDrawMarker ) ),
+        static_cast<unsigned long long>(
+            ReplayTrajectoryRebuildCounter( trajectory, MainMemoryReplayRebuildCause::Dirty ) ),
+        static_cast<unsigned long long>(
+            ReplayTrajectoryRebuildCounter( trajectory, MainMemoryReplayRebuildCause::AutomaticRefresh ) ) );
+}
 } // namespace
 
 void StepDiagnosticsPhysicsPipelineStage( RunDebugState& debug, int direction )
@@ -655,220 +868,115 @@ bool DiagnosticsRuntime::WriteMainMemoryDump( const ReplayRuntime& replay,
     // Add fields compatibly or bump the schema if a consumer must change.
     fputs( "{\n  \"schema\": \"skullbonez.main_memory.v1\",\n  \"checkpoint\": ", file );
     WriteJsonString( file, checkpoint && checkpoint[0] != '\0' ? checkpoint : "shutdown" );
-    const MainMemoryReplayTrajectoryStats& trajectory = stats.replay.trajectory;
-    fprintf(
-        file,
-        ",\n  \"frame\": %d,\n"
-        "  \"sample_time_seconds\": %.6f,\n"
-        "  \"process\": {\n"
-        "    \"available\": %s,\n"
-        "    \"task_manager_metric_name\": \"%s\",\n"
-        "    \"task_manager_memory_bytes\": %llu,\n"
-        "    \"working_set_bytes\": %llu,\n"
-        "    \"private_working_set_bytes\": %llu,\n"
-        "    \"private_commit_bytes\": %llu,\n"
-        "    \"pagefile_usage_bytes\": %llu\n"
-        "  },\n"
-        "  \"replay\": {\n"
-        "    \"total_bytes\": %llu,\n"
-        "    \"presentation_bytes\": %llu,\n"
-        "    \"solver_bytes\": %llu,\n"
-        "    \"events_bytes\": %llu,\n"
-        "    \"loaded_replay_bytes\": %llu,\n"
-        "    \"prediction_bytes\": %llu,\n"
-        "    \"path_and_cause_bytes\": %llu,\n"
-        "    \"render_scratch_bytes\": %llu,\n"
-        "    \"presentation_samples\": %llu,\n"
-        "    \"solver_samples\": %llu,\n"
-        "    \"event_samples\": %llu,\n"
-        "    \"loaded_replay_samples\": %llu,\n"
-        "    \"prediction_frames\": %llu,\n"
-        "    \"path_nodes\": %llu,\n"
-        "    \"cause_rows\": %llu,\n"
-        "    \"ghost_requests\": %llu,\n"
-        "    \"trajectory\": {\n"
-        "      \"store_bytes\": %llu,\n"
-        "      \"segments_emitted\": {\n"
-        "        \"past_root\": %llu,\n"
-        "        \"future_root\": %llu,\n"
-        "        \"future_child_incoming\": %llu,\n"
-        "        \"future_child_outgoing\": %llu,\n"
-        "        \"retained_trail\": %llu,\n"
-        "        \"baseline_root\": %llu,\n"
-        "        \"causal_marker\": %llu,\n"
-        "        \"auxiliary_trail\": %llu\n"
-        "      },\n"
-        "      \"segments_dropped\": {\n"
-        "        \"past_root\": %llu,\n"
-        "        \"future_root\": %llu,\n"
-        "        \"future_child_incoming\": %llu,\n"
-        "        \"future_child_outgoing\": %llu,\n"
-        "        \"retained_trail\": %llu,\n"
-        "        \"baseline_root\": %llu,\n"
-        "        \"causal_marker\": %llu,\n"
-        "        \"auxiliary_trail\": %llu\n"
-        "      },\n"
-        "      \"budget_expiries\": {\n"
-        "        \"prediction_begin\": %llu,\n"
-        "        \"prediction_step\": %llu,\n"
-        "        \"prediction_draw_root\": %llu,\n"
-        "        \"prediction_build_tree\": %llu,\n"
-        "        \"prediction_draw_children\": %llu,\n"
-        "        \"prediction_draw_affected_bodies\": %llu,\n"
-        "        \"prediction_draw_ragdolls\": %llu,\n"
-        "        \"retained_bounds\": %llu,\n"
-        "        \"retained_build_tree\": %llu,\n"
-        "        \"retained_draw_root\": %llu,\n"
-        "        \"retained_draw_children\": %llu,\n"
-        "        \"retained_draw_marker\": %llu\n"
-        "      },\n"
-        "      \"rebuild_causes\": {\n"
-        "        \"dirty\": %llu,\n"
-        "        \"automatic_refresh\": %llu\n"
-        "      }\n"
-        "    }\n"
-        "  },\n"
-        "  \"game_objects\": {\n"
-        "    \"total_bytes\": %llu,\n"
-        "    \"model_bytes\": %llu,\n"
-        "    \"model_vector_bytes\": %llu,\n"
-        "    \"physics_store_bytes\": %llu,\n"
-        "    \"collider_store_bytes\": %llu,\n"
-        "    \"render_store_bytes\": %llu,\n"
-        "    \"physics_world_bytes\": %llu,\n"
-        "    \"debug_and_broadphase_bytes\": %llu,\n"
-        "    \"model_count\": %llu,\n"
-        "    \"model_capacity\": %llu,\n"
-        "    \"body_store_capacity\": %llu,\n"
-        "    \"collider_store_capacity\": %llu,\n"
-        "    \"render_store_capacity\": %llu\n"
-        "  },\n"
-        "  \"tracked_engine_bytes\": %llu,\n"
-        "  \"other_tracked_bytes\": %llu,\n"
-        "  \"unattributed_process_bytes\": %llu,\n"
-        "  \"tracked_overshoot_bytes\": %llu,\n"
-        "  \"reconciled_total_bytes\": %llu,\n"
-        "  \"reconciliation_delta_bytes\": %llu,\n"
-        "  \"scene\": {\n"
-        "    \"current_frame\": %d,\n"
-        "    \"target_frames\": %d,\n"
-        "    \"model_count\": %d,\n"
-        "    \"test_complete\": %s\n"
-        "  }\n"
-        "}\n",
-        scene.currentFrame,
-        stats.sampleTimeSeconds,
-        stats.process.available ? "true" : "false",
-        stats.process.taskManagerMetricName,
-        static_cast<unsigned long long>( stats.process.taskManagerBytes ),
-        static_cast<unsigned long long>( stats.process.workingSetBytes ),
-        static_cast<unsigned long long>( stats.process.privateWorkingSetBytes ),
-        static_cast<unsigned long long>( stats.process.privateCommitBytes ),
-        static_cast<unsigned long long>( stats.process.pagefileUsageBytes ),
-        static_cast<unsigned long long>( stats.replay.totalBytes ),
-        static_cast<unsigned long long>( stats.replay.presentationBytes ),
-        static_cast<unsigned long long>( stats.replay.solverBytes ),
-        static_cast<unsigned long long>( stats.replay.eventsBytes ),
-        static_cast<unsigned long long>( stats.replay.loadedReplayBytes ),
-        static_cast<unsigned long long>( stats.replay.predictionBytes ),
-        static_cast<unsigned long long>( stats.replay.pathAndCauseBytes ),
-        static_cast<unsigned long long>( stats.replay.renderScratchBytes ),
-        static_cast<unsigned long long>( stats.replay.presentationSamples ),
-        static_cast<unsigned long long>( stats.replay.solverSamples ),
-        static_cast<unsigned long long>( stats.replay.eventSamples ),
-        static_cast<unsigned long long>( stats.replay.loadedReplaySamples ),
-        static_cast<unsigned long long>( stats.replay.predictionFrames ),
-        static_cast<unsigned long long>( stats.replay.pathNodes ),
-        static_cast<unsigned long long>( stats.replay.causeRows ),
-        static_cast<unsigned long long>( stats.replay.ghostRequests ),
-        static_cast<unsigned long long>( trajectory.storeBytes ),
-        static_cast<unsigned long long>(
-            ReplayTrajectoryLaneCounter( trajectory.emittedSegments, MainMemoryReplayTrajectoryLane::PastRoot ) ),
-        static_cast<unsigned long long>(
-            ReplayTrajectoryLaneCounter( trajectory.emittedSegments, MainMemoryReplayTrajectoryLane::FutureRoot ) ),
-        static_cast<unsigned long long>(
-            ReplayTrajectoryLaneCounter( trajectory.emittedSegments,
-                                         MainMemoryReplayTrajectoryLane::FutureChildIncoming ) ),
-        static_cast<unsigned long long>(
-            ReplayTrajectoryLaneCounter( trajectory.emittedSegments,
-                                         MainMemoryReplayTrajectoryLane::FutureChildOutgoing ) ),
-        static_cast<unsigned long long>(
-            ReplayTrajectoryLaneCounter( trajectory.emittedSegments, MainMemoryReplayTrajectoryLane::RetainedTrail ) ),
-        static_cast<unsigned long long>(
-            ReplayTrajectoryLaneCounter( trajectory.emittedSegments, MainMemoryReplayTrajectoryLane::BaselineRoot ) ),
-        static_cast<unsigned long long>(
-            ReplayTrajectoryLaneCounter( trajectory.emittedSegments, MainMemoryReplayTrajectoryLane::CausalMarker ) ),
-        static_cast<unsigned long long>(
-            ReplayTrajectoryLaneCounter( trajectory.emittedSegments, MainMemoryReplayTrajectoryLane::AuxiliaryTrail ) ),
-        static_cast<unsigned long long>(
-            ReplayTrajectoryLaneCounter( trajectory.droppedSegments, MainMemoryReplayTrajectoryLane::PastRoot ) ),
-        static_cast<unsigned long long>(
-            ReplayTrajectoryLaneCounter( trajectory.droppedSegments, MainMemoryReplayTrajectoryLane::FutureRoot ) ),
-        static_cast<unsigned long long>(
-            ReplayTrajectoryLaneCounter( trajectory.droppedSegments,
-                                         MainMemoryReplayTrajectoryLane::FutureChildIncoming ) ),
-        static_cast<unsigned long long>(
-            ReplayTrajectoryLaneCounter( trajectory.droppedSegments,
-                                         MainMemoryReplayTrajectoryLane::FutureChildOutgoing ) ),
-        static_cast<unsigned long long>(
-            ReplayTrajectoryLaneCounter( trajectory.droppedSegments, MainMemoryReplayTrajectoryLane::RetainedTrail ) ),
-        static_cast<unsigned long long>(
-            ReplayTrajectoryLaneCounter( trajectory.droppedSegments, MainMemoryReplayTrajectoryLane::BaselineRoot ) ),
-        static_cast<unsigned long long>(
-            ReplayTrajectoryLaneCounter( trajectory.droppedSegments, MainMemoryReplayTrajectoryLane::CausalMarker ) ),
-        static_cast<unsigned long long>(
-            ReplayTrajectoryLaneCounter( trajectory.droppedSegments, MainMemoryReplayTrajectoryLane::AuxiliaryTrail ) ),
-        static_cast<unsigned long long>(
-            ReplayTrajectoryBudgetCounter( trajectory, MainMemoryReplayBudgetPass::PredictionBegin ) ),
-        static_cast<unsigned long long>(
-            ReplayTrajectoryBudgetCounter( trajectory, MainMemoryReplayBudgetPass::PredictionStep ) ),
-        static_cast<unsigned long long>(
-            ReplayTrajectoryBudgetCounter( trajectory, MainMemoryReplayBudgetPass::PredictionDrawRoot ) ),
-        static_cast<unsigned long long>(
-            ReplayTrajectoryBudgetCounter( trajectory, MainMemoryReplayBudgetPass::PredictionBuildTree ) ),
-        static_cast<unsigned long long>(
-            ReplayTrajectoryBudgetCounter( trajectory, MainMemoryReplayBudgetPass::PredictionDrawChildren ) ),
-        static_cast<unsigned long long>(
-            ReplayTrajectoryBudgetCounter( trajectory, MainMemoryReplayBudgetPass::PredictionDrawAffectedBodies ) ),
-        static_cast<unsigned long long>(
-            ReplayTrajectoryBudgetCounter( trajectory, MainMemoryReplayBudgetPass::PredictionDrawRagdolls ) ),
-        static_cast<unsigned long long>(
-            ReplayTrajectoryBudgetCounter( trajectory, MainMemoryReplayBudgetPass::RetainedBounds ) ),
-        static_cast<unsigned long long>(
-            ReplayTrajectoryBudgetCounter( trajectory, MainMemoryReplayBudgetPass::RetainedBuildTree ) ),
-        static_cast<unsigned long long>(
-            ReplayTrajectoryBudgetCounter( trajectory, MainMemoryReplayBudgetPass::RetainedDrawRoot ) ),
-        static_cast<unsigned long long>(
-            ReplayTrajectoryBudgetCounter( trajectory, MainMemoryReplayBudgetPass::RetainedDrawChildren ) ),
-        static_cast<unsigned long long>(
-            ReplayTrajectoryBudgetCounter( trajectory, MainMemoryReplayBudgetPass::RetainedDrawMarker ) ),
-        static_cast<unsigned long long>(
-            ReplayTrajectoryRebuildCounter( trajectory, MainMemoryReplayRebuildCause::Dirty ) ),
-        static_cast<unsigned long long>(
-            ReplayTrajectoryRebuildCounter( trajectory, MainMemoryReplayRebuildCause::AutomaticRefresh ) ),
-        static_cast<unsigned long long>( stats.gameObjects.totalBytes ),
-        static_cast<unsigned long long>( stats.gameObjects.modelVectorBytes ),
-        static_cast<unsigned long long>( stats.gameObjects.modelVectorBytes ),
-        static_cast<unsigned long long>( stats.gameObjects.physicsStoreBytes ),
-        static_cast<unsigned long long>( stats.gameObjects.colliderStoreBytes ),
-        static_cast<unsigned long long>( stats.gameObjects.renderStoreBytes ),
-        static_cast<unsigned long long>( stats.gameObjects.physicsWorldBytes ),
-        static_cast<unsigned long long>( stats.gameObjects.debugAndBroadphaseBytes ),
-        static_cast<unsigned long long>( stats.gameObjects.modelCount ),
-        static_cast<unsigned long long>( stats.gameObjects.modelCapacity ),
-        static_cast<unsigned long long>( stats.gameObjects.bodyStoreCapacity ),
-        static_cast<unsigned long long>( stats.gameObjects.colliderStoreCapacity ),
-        static_cast<unsigned long long>( stats.gameObjects.renderStoreCapacity ),
-        static_cast<unsigned long long>( stats.trackedEngineBytes ),
-        static_cast<unsigned long long>( stats.otherTrackedBytes ),
-        static_cast<unsigned long long>( stats.unattributedProcessBytes ),
-        static_cast<unsigned long long>( stats.trackedOvershootBytes ),
-        static_cast<unsigned long long>( stats.reconciledTotalBytes ),
-        static_cast<unsigned long long>( stats.reconciliationDeltaBytes ),
-        scene.currentFrame,
-        scene.targetFrameCount,
-        scene.modelCount,
-        scene.isTestComplete ? "true" : "false" );
+    fprintf( file,
+             ",\n  \"frame\": %d,\n"
+             "  \"sample_time_seconds\": %.6f,\n"
+             "  \"process\": {\n"
+             "    \"available\": %s,\n"
+             "    \"task_manager_metric_name\": \"%s\",\n"
+             "    \"task_manager_memory_bytes\": %llu,\n"
+             "    \"working_set_bytes\": %llu,\n"
+             "    \"private_working_set_bytes\": %llu,\n"
+             "    \"private_commit_bytes\": %llu,\n"
+             "    \"pagefile_usage_bytes\": %llu\n"
+             "  },\n"
+             "  \"replay\": {\n"
+             "    \"total_bytes\": %llu,\n"
+             "    \"presentation_bytes\": %llu,\n"
+             "    \"solver_bytes\": %llu,\n"
+             "    \"events_bytes\": %llu,\n"
+             "    \"loaded_replay_bytes\": %llu,\n"
+             "    \"prediction_bytes\": %llu,\n"
+             "    \"path_and_cause_bytes\": %llu,\n"
+             "    \"render_scratch_bytes\": %llu,\n"
+             "    \"presentation_samples\": %llu,\n"
+             "    \"solver_samples\": %llu,\n"
+             "    \"event_samples\": %llu,\n"
+             "    \"loaded_replay_samples\": %llu,\n"
+             "    \"prediction_frames\": %llu,\n"
+             "    \"path_nodes\": %llu,\n"
+             "    \"cause_rows\": %llu,\n"
+             "    \"ghost_requests\": %llu,\n",
+             scene.currentFrame,
+             stats.sampleTimeSeconds,
+             stats.process.available ? "true" : "false",
+             stats.process.taskManagerMetricName,
+             static_cast<unsigned long long>( stats.process.taskManagerBytes ),
+             static_cast<unsigned long long>( stats.process.workingSetBytes ),
+             static_cast<unsigned long long>( stats.process.privateWorkingSetBytes ),
+             static_cast<unsigned long long>( stats.process.privateCommitBytes ),
+             static_cast<unsigned long long>( stats.process.pagefileUsageBytes ),
+             static_cast<unsigned long long>( stats.replay.totalBytes ),
+             static_cast<unsigned long long>( stats.replay.presentationBytes ),
+             static_cast<unsigned long long>( stats.replay.solverBytes ),
+             static_cast<unsigned long long>( stats.replay.eventsBytes ),
+             static_cast<unsigned long long>( stats.replay.loadedReplayBytes ),
+             static_cast<unsigned long long>( stats.replay.predictionBytes ),
+             static_cast<unsigned long long>( stats.replay.pathAndCauseBytes ),
+             static_cast<unsigned long long>( stats.replay.renderScratchBytes ),
+             static_cast<unsigned long long>( stats.replay.presentationSamples ),
+             static_cast<unsigned long long>( stats.replay.solverSamples ),
+             static_cast<unsigned long long>( stats.replay.eventSamples ),
+             static_cast<unsigned long long>( stats.replay.loadedReplaySamples ),
+             static_cast<unsigned long long>( stats.replay.predictionFrames ),
+             static_cast<unsigned long long>( stats.replay.pathNodes ),
+             static_cast<unsigned long long>( stats.replay.causeRows ),
+             static_cast<unsigned long long>( stats.replay.ghostRequests ) );
+    WriteReplayMemoryCategories( file, stats.replay );
+    WriteReplayTrajectoryCounters( file, stats.replay.trajectory );
+    fprintf( file,
+             "  },\n"
+             "  \"game_objects\": {\n"
+             "    \"total_bytes\": %llu,\n"
+             "    \"model_bytes\": %llu,\n"
+             "    \"model_vector_bytes\": %llu,\n"
+             "    \"physics_store_bytes\": %llu,\n"
+             "    \"collider_store_bytes\": %llu,\n"
+             "    \"render_store_bytes\": %llu,\n"
+             "    \"physics_world_bytes\": %llu,\n"
+             "    \"debug_and_broadphase_bytes\": %llu,\n"
+             "    \"model_count\": %llu,\n"
+             "    \"model_capacity\": %llu,\n"
+             "    \"body_store_capacity\": %llu,\n"
+             "    \"collider_store_capacity\": %llu,\n"
+             "    \"render_store_capacity\": %llu\n"
+             "  },\n"
+             "  \"tracked_engine_bytes\": %llu,\n"
+             "  \"other_tracked_bytes\": %llu,\n"
+             "  \"unattributed_process_bytes\": %llu,\n"
+             "  \"tracked_overshoot_bytes\": %llu,\n"
+             "  \"reconciled_total_bytes\": %llu,\n"
+             "  \"reconciliation_delta_bytes\": %llu,\n"
+             "  \"scene\": {\n"
+             "    \"current_frame\": %d,\n"
+             "    \"target_frames\": %d,\n"
+             "    \"model_count\": %d,\n"
+             "    \"test_complete\": %s\n"
+             "  }\n"
+             "}\n",
+             static_cast<unsigned long long>( stats.gameObjects.totalBytes ),
+             static_cast<unsigned long long>( stats.gameObjects.modelVectorBytes ),
+             static_cast<unsigned long long>( stats.gameObjects.modelVectorBytes ),
+             static_cast<unsigned long long>( stats.gameObjects.physicsStoreBytes ),
+             static_cast<unsigned long long>( stats.gameObjects.colliderStoreBytes ),
+             static_cast<unsigned long long>( stats.gameObjects.renderStoreBytes ),
+             static_cast<unsigned long long>( stats.gameObjects.physicsWorldBytes ),
+             static_cast<unsigned long long>( stats.gameObjects.debugAndBroadphaseBytes ),
+             static_cast<unsigned long long>( stats.gameObjects.modelCount ),
+             static_cast<unsigned long long>( stats.gameObjects.modelCapacity ),
+             static_cast<unsigned long long>( stats.gameObjects.bodyStoreCapacity ),
+             static_cast<unsigned long long>( stats.gameObjects.colliderStoreCapacity ),
+             static_cast<unsigned long long>( stats.gameObjects.renderStoreCapacity ),
+             static_cast<unsigned long long>( stats.trackedEngineBytes ),
+             static_cast<unsigned long long>( stats.otherTrackedBytes ),
+             static_cast<unsigned long long>( stats.unattributedProcessBytes ),
+             static_cast<unsigned long long>( stats.trackedOvershootBytes ),
+             static_cast<unsigned long long>( stats.reconciledTotalBytes ),
+             static_cast<unsigned long long>( stats.reconciliationDeltaBytes ),
+             scene.currentFrame,
+             scene.targetFrameCount,
+             scene.modelCount,
+             scene.isTestComplete ? "true" : "false" );
 
     fclose( file );
     fprintf( stdout, "[memory] Wrote main memory dump: %s\n", m_mainMemoryDumpPath );
