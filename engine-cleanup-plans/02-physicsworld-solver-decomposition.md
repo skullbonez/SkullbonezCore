@@ -169,7 +169,7 @@ island-merge tie-breaks.
   Object/object sweep and CCD:
   - [x] L2577 `hasObjectContactAtTime`: exact object contact query at time.
   - [x] L2601 `refineObjectSweepContactTime`: contact-window refinement search.
-  - [ ] L2654 `sweepObjectPair`: swept object contact query.
+  - [x] L2654 `sweepObjectPair`: swept object contact query.
   - [ ] L2676 `objectPairHasPersistentContactCache`: cache-prefix lookup.
   - [ ] L2690 anonymous `lower_bound` cache-key comparator.
   - [ ] L2696 `objectPairNeedsSweptCcd`: settled-pair CCD bypass decision.
@@ -327,6 +327,13 @@ island-merge tie-breaks.
     search. Gate evidence: `tools\validate_physics.bat` passed in
     `TestOutput\agent_logs\plan02_refine_object_sweep_validate_physics_20260709_1010.log`
     (28.3s shell runtime; Debug/Profile builds 0 warnings and 0 errors; final
+    `VALIDATE_PHYSICS: ALL PASSED`).
+  - Extracted the `sweepObjectPair` lambda into `SweepObjectPair`, threading
+    `bodyRecords` and `colliderRecords` explicitly while preserving default
+    collision-time initialization, bounds checks, and the `SweepObjectContact`
+    call shape. Gate evidence: `tools\validate_physics.bat` passed in
+    `TestOutput\agent_logs\plan02_sweep_object_pair_validate_physics_20260709_1014.log`
+    (28s shell runtime; Debug/Profile builds 0 warnings and 0 errors; final
     `VALIDATE_PHYSICS: ALL PASSED`).
 - [ ] **1.3** `RunSolverPhysics` is now a short driver calling named stages;
   confirm it is under ~300 lines.

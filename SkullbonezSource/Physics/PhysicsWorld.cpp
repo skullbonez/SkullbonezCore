@@ -610,6 +610,32 @@ float RefineObjectSweepContactTime( const PhysicsBodyRecordList& bodyRecords,
     return hi;
 }
 
+ObjectContactSweepResult SweepObjectPair( const PhysicsBodyRecordList& bodyRecords,
+                                          const ColliderRecordList& colliderRecords,
+                                          int bodyA,
+                                          int bodyB,
+                                          float availableTime )
+{
+    PROFILE_SCOPED( "Frame/Physics/Narrowphase/SweepPairs" );
+    ObjectContactSweepResult result;
+    result.collisionTime = availableTime;
+    if ( bodyA < 0 || bodyB < 0 || bodyA >= static_cast<int>( colliderRecords.size() ) ||
+         bodyB >= static_cast<int>( colliderRecords.size() ) )
+    {
+        return result;
+    }
+
+    const PhysicsBodyRecord& recordA = bodyRecords[static_cast<size_t>( bodyA )];
+    const PhysicsBodyRecord& recordB = bodyRecords[static_cast<size_t>( bodyB )];
+    return SweepObjectContact( ObjectContactBodyViewAtTime( bodyRecords, bodyA, 0.0f ),
+                               colliderRecords[static_cast<size_t>( bodyA )].shape,
+                               recordA.linearVelocity,
+                               ObjectContactBodyViewAtTime( bodyRecords, bodyB, 0.0f ),
+                               colliderRecords[static_cast<size_t>( bodyB )].shape,
+                               recordB.linearVelocity,
+                               availableTime );
+}
+
 void ApplyForcesForSolverBody( PhysicsBodyStore& bodyStore,
                                const ColliderStore& colliderStore,
                                const PhysicsWorldForces& worldForces,
@@ -2848,28 +2874,6 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
     }
     PROFILE_END( "Frame/Physics/Broadphase" );
 
-    auto sweepObjectPair = [&]( int a, int b, float availableTime ) -> ObjectContactSweepResult
-    {
-        PROFILE_SCOPED( "Frame/Physics/Narrowphase/SweepPairs" );
-        ObjectContactSweepResult result;
-        result.collisionTime = availableTime;
-        if ( a < 0 || b < 0 || a >= static_cast<int>( colliderRecords.size() ) ||
-             b >= static_cast<int>( colliderRecords.size() ) )
-        {
-            return result;
-        }
-
-        const PhysicsBodyRecord& recordA = bodyRecords[static_cast<size_t>( a )];
-        const PhysicsBodyRecord& recordB = bodyRecords[static_cast<size_t>( b )];
-        return SweepObjectContact( ObjectContactBodyViewAtTime( bodyRecords, a, 0.0f ),
-                                   colliderRecords[static_cast<size_t>( a )].shape,
-                                   recordA.linearVelocity,
-                                   ObjectContactBodyViewAtTime( bodyRecords, b, 0.0f ),
-                                   colliderRecords[static_cast<size_t>( b )].shape,
-                                   recordB.linearVelocity,
-                                   availableTime );
-    };
-
     auto objectPairHasPersistentContactCache = [&]( int a, int b ) -> bool
     {
         constexpr uint64_t BODY_MASK = 0x7fffull;
@@ -3032,7 +3036,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
                 bool wokeBySweptImpact = false;
                 if ( m_timeRemaining[y] > 0.0f && objectPairNeedsSweptCcd( y, x, m_timeRemaining[y] ) )
                 {
-                    ObjectContactSweepResult sweep = sweepObjectPair( y, x, m_timeRemaining[y] );
+                    ObjectContactSweepResult sweep = SweepObjectPair( bodyRecords, colliderRecords, y, x, m_timeRemaining[y] );
                     if ( sweep.hit )
                     {
                         const float availableTime = m_timeRemaining[y];
@@ -3115,7 +3119,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
                 bool wokeBySweptImpact = false;
                 if ( m_timeRemaining[x] > 0.0f && objectPairNeedsSweptCcd( x, y, m_timeRemaining[x] ) )
                 {
-                    ObjectContactSweepResult sweep = sweepObjectPair( x, y, m_timeRemaining[x] );
+                    ObjectContactSweepResult sweep = SweepObjectPair( bodyRecords, colliderRecords, x, y, m_timeRemaining[x] );
                     if ( sweep.hit )
                     {
                         const float availableTime = m_timeRemaining[x];
@@ -3215,7 +3219,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
             return;
         }
 
-        ObjectContactSweepResult sweep = sweepObjectPair( x, y, availableTime );
+        ObjectContactSweepResult sweep = SweepObjectPair( bodyRecords, colliderRecords, x, y, availableTime );
 
         if ( sweep.hit )
         {
