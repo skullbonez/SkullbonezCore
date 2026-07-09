@@ -303,6 +303,23 @@ byte-exact gated.
   - Required gate passed: `tools\validate_dx12_renderer.bat` exited 0 in
     00:00:25.7839246. Log:
     `Agentic/Reports/validate_dx12_renderer_plan04_tlas_fatal_20260709.log`.
+
+  Progress 2026-07-09, FramebufferDX12 backend-lifetime fatal-invariant
+  sub-slice:
+  - Converted one F site from `throw std::runtime_error` to
+    `SB_FATAL("FramebufferDX12", ...)`: `FramebufferDX12.cpp` row 43 from the
+    Step 0.1 inventory. The color/depth texture creation throws in the same file
+    remain Lane R for the recoverable-result phase.
+  - Strict anchored source throw statement inventory now reports 143 sites,
+    down from the previous sub-slice count of 144. `SB_FATAL` macro invocations
+    now report 129 via `rg -n "SB_FATAL\s*\(" SkullbonezSource`.
+  - Comment-style audit scope:
+    `SkullbonezSource/Rendering/DX12/FramebufferDX12.cpp`; checked 1,
+    deferred 0. The learning header and local create guard now name the
+    initialized-backend lifetime invariant.
+  - Required gate passed: `tools\validate_dx12_renderer.bat` exited 0 in
+    00:00:26.4805520. Log:
+    `Agentic/Reports/validate_dx12_renderer_plan04_framebuffer_fatal_20260709.log`.
 - [ ] **2.1** Convert **P** sites (replay/interaction probes) to the
   `FailAutomation(...)` channel with `ok=false` + message. Gate: `validate_full`
   + replay scrub. Commit.

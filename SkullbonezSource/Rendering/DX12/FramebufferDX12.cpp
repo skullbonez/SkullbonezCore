@@ -24,6 +24,9 @@ Glossary:
 Invariants:
   - DX12 object lifetime, resource states, descriptor rows, and fence ordering
   must stay explicit.
+  - FramebufferDX12 is created from an initialized backend; missing device state
+    means the render owner lifetime contract was broken before resource
+    creation.
 
 Related:
   - SkullbonezSource/Rendering/DX12/FramebufferDX12.h
@@ -31,6 +34,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "FramebufferDX12.h"
+#include "../../Core/FatalError.h"
 #include "RenderBackendDX12.h"
 #include <stdexcept>
 
@@ -66,9 +70,12 @@ FramebufferDX12::~FramebufferDX12()
 
 void FramebufferDX12::Create( int width, int height )
 {
+    // Invariant: off-screen targets borrow descriptor allocators and device
+    // state from RenderBackendDX12. Without a device there is no recoverable
+    // framebuffer creation boundary inside this helper.
     if ( !m_backend.GetDevice() )
     {
-        throw std::runtime_error( "FramebufferDX12::Create: no DX12 backend" );
+        SB_FATAL( "FramebufferDX12", "Create requires an initialized DX12 backend." );
     }
 
     m_width = width;
