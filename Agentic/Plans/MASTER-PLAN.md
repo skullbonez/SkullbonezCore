@@ -21,7 +21,6 @@ Owner decisions of 2026-07-09 are binding — see
 
 | Plan | Status | % | Remaining work |
 |------|--------|---|----------------|
-| [03 Governance apparatus removal](../../engine-cleanup-plans/03-governance-apparatus-reduction.md) | In Progress | 70% | Steps 0.2, 1.1, 1.2, and the behavioral-test-depth P1/P4 prerequisite are complete. Next: Plan 03 step 2.1 AGENTS rewrite, then relax the comment gate. |
 | [04 Error-handling reconciliation](../../engine-cleanup-plans/04-error-handling-policy-reconciliation.md) | In Progress | 85% | Strict throws 283 → 7. Remaining: allocator-safe fatal for `RuntimeAllocationTracker`, math test contracts, closure (ratchet deletion with plan 03). Also absorbs the remnants of fable-05 (see Retired below). |
 | [07 Allocation-gate right-sizing](../../engine-cleanup-plans/07-allocation-gate-right-sizing.md) | In Progress | 15% | Right-size the checker; keep global zero-alloc default, replay-only exception. |
 | [11 Render abstraction leaks](../../engine-cleanup-plans/11-render-abstraction-leaks.md) | In Progress | 80% | Retire the diagnostic RenderGraph path per owner decision; remove stale barrier-ownership claims. |

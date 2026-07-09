@@ -100,7 +100,7 @@ sources in.
   tests runnable via `tools\validate_tests.bat`.
 - [ ] The P5 injected-bug drill is recorded with both failures caught by unit
   tests.
-- [ ] Plan 03's AGENTS.md rewrite cites this plan as the enforcement
+- [x] Plan 03's AGENTS.md rewrite cites this plan as the enforcement
   replacement.
 
 ## Validation map

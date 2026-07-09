@@ -84,7 +84,7 @@ something whose prerequisite is unfinished.
 | 9 | [02](02-physicsworld-solver-decomposition.md) **rest** | Lift 33 lambdas to stages; evict gameplay; table-drive snapshot | Big, byte-exact; do after the DisjointSet warm-up | `validate_physics` per phase |
 | 10 | [04](04-error-handling-policy-reconciliation.md) | `throw` → F/R/P lanes (no count — ratchet deleted per 03) | After physics (02) and profiler (12) are stable | `validate_full` + `validate_physics` |
 | — | [05](05-behavioral-test-coverage.md) | **Continuous** | Do its Phase 0 map first; then each plan above adds its own tests as it lands; kill link stubs anytime | `validate_tests` |
-| — | [03](03-governance-apparatus-reduction.md) | **Any time, owner-approved 2026-07-09** | Delete the regex checker + all `MAX_*` ratchets entirely; contract change (edits `AGENTS.md`); independent of the code work | `validate_fast` |
+| — | 03 governance apparatus removal (completed; file deleted per MASTER convention) | **Done** | Regex checker and all `MAX_*` ratchets deleted; `AGENTS.md` contract updated | Documentation-only closure |
 | — | [07](07-allocation-gate-right-sizing.md) | **Any time, owner decision recorded 2026-07-09** | Right-size allocation enforcement without weakening global runtime zero-allocation-by-default policy; replay is the only approved runtime exception | `validate_perf` |
 
 Rationale for the shape: steps 1–3 are low-risk and build the validate-and-commit
@@ -124,7 +124,7 @@ fully `[x]`.
   2 replay solver-sample restore tests, Phase 3 physics invariants, and Phase 4
   link-stub removal are complete. Current inventory: 59 `TEST_CASE`s across 19
   test `.cpp` files and 0 `*LinkStubs.cpp` files.
-- [ ] C2. Plan 03 — regex governance apparatus removed (owner-approved 2026-07-09)
+- [x] C2. Plan 03 — regex governance apparatus removed (owner-approved 2026-07-09)
 - [ ] C3. Plan 07 — allocation gate right-sized without weakening global zero-allocation policy (owner decision recorded 2026-07-09)
 
 When every box above is `[x]`, the campaign is complete.
