@@ -29,6 +29,9 @@ Plan: `engine-cleanup-plans/04-error-handling-policy-reconciliation.md` Step 0.1
 - 2026-07-09 DX12 PSO/dynamic-geometry recoverable batch: rows 49, 50, and 88
   are converted to logged recoverable skip/neutral-handle paths documented in
   Plan 04. Current strict anchored source throw count: 14.
+- 2026-07-09 DX12 shader compile/reflection status batch: rows 186-189 are
+  converted to logged `false` returns documented in Plan 04. Current strict
+  anchored source throw count: 10.
 
 ## Site Table
 
@@ -336,5 +339,6 @@ Plan: `engine-cleanup-plans/04-error-handling-policy-reconciliation.md` Step 0.1
 - Phase 3 progress, 2026-07-09: converted TextureCollection asset/file/backend rows 211, 215, 217, 219, 220, and 221 to `SbResult` texture-load/select/handle results propagated through startup rebuild, skybox reset/render, DXR reflection, object, terrain, and replay-ghost pass boundaries; current strict anchored source throw statement count is 63 and `rg -n "SB_FATAL\s*\(" SkullbonezSource` reports 163 macro invocations. Row 211's public missing-texture failure now returns a result before index lookup; a raw index miss after that result contract is a fatal owner invariant. The table above remains the Step 0.1 baseline snapshot.
 - Phase 3 progress, 2026-07-09: converted RenderBackendDX12 rows 52, 71, 72, and 73 plus RenderBackendDX12.Textures row 102 to `SbResult` or failure-handle reporting through the lifecycle/window/frame boundary and texture handle `0`; current strict anchored source throw statement count is 17 and `rg -n "SB_FATAL\s*\(" SkullbonezSource` reports 165 macro invocations. The table above remains the Step 0.1 baseline snapshot.
 - Phase 3 progress, 2026-07-09: converted RenderBackendDX12.DynamicGeometry rows 49 and 50 plus RenderBackendDX12.Pipeline row 88 to logged recoverable skip/neutral-handle paths; current strict anchored source throw statement count is 14 and `rg -n "SB_FATAL\s*\(" SkullbonezSource` reports 165 macro invocations. The table above remains the Step 0.1 baseline snapshot.
+- Phase 3 progress, 2026-07-09: converted ShaderDX12 rows 186 through 189 to logged `false` returns for shader file open, compile, and reflection failures; current strict anchored source throw statement count is 10 and `rg -n "SB_FATAL\s*\(" SkullbonezSource` reports 165 macro invocations. The table above remains the Step 0.1 baseline snapshot.
 - Phase 3 should convert R rows one boundary at a time: authored scene/hull/texture/font/capture/window/input/DX12 environment failures should surface as recoverable results at their owners.
 - Phase 4 should not add a throw-count ratchet. Re-run the inventory command above and review remaining rows by lane.

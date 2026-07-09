@@ -93,7 +93,7 @@ class ShaderDX12 : public IShader
     mutable std::vector<std::string> m_typeMismatchWarnings;
 #endif
 
-    void ReflectCB( ID3DBlob* blob );
+    bool ReflectCB( ID3DBlob* blob, const char* hlslPath, const char* stageName );
     const UniformInfo* FindUniformInfo( const char* name ) const;
 #ifdef _DEBUG
     void ResetContractActivation() const;

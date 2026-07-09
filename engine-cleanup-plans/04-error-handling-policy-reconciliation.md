@@ -1126,6 +1126,34 @@ byte-exact gated.
   - Runtime boundary checker passed: `python tools\check_runtime_boundaries.py`
     exited 0 in 00:00:19.5 with 0 errors. Log:
     `Agentic/Reports/check_runtime_boundaries_plan04_pso_result_20260709.log`.
+
+  Progress 2026-07-09, DX12 shader compile/reflection status batch:
+  - Converted four strict `ShaderDX12` rows from exception exits to logged
+    `false` returns: rows 186 through 189 from the Step 0.1 inventory.
+  - `ShaderDX12::Compile` now reports missing shader files, vertex shader
+    compile failures, and pixel shader compile failures with DX12 log events
+    before returning `false`.
+  - `ShaderDX12::ReflectCB` now returns `false` for missing bytecode or
+    `D3DReflect` failure after logging the stage/path/HRESULT. This keeps the
+    shader wrapper itself in Lane R status-return form while leaving the
+    outer `IRenderResourceFactory::CreateShader` failure contract for the
+    dedicated resource-factory batch.
+  - Strict anchored source throw statement inventory now reports 10 sites, down
+    from the previous sub-slice count of 14. `SB_FATAL` macro invocations remain
+    165 via `rg -n "SB_FATAL\s*\(" SkullbonezSource`.
+  - Comment-style audit scope:
+    `SkullbonezSource/Rendering/DX12/ShaderDX12.cpp` and
+    `SkullbonezSource/Rendering/DX12/ShaderDX12.h`; checked 2, deferred 0. This
+    was a touched-file audit, so no subsystem checklist plan was required.
+  - Required DX12 gate passed on the final source tree:
+    `tools\validate_dx12_renderer.bat` exited 0 in 00:00:34.5 with
+    `VALIDATE_DX12_RENDERER: ALL PASSED`, formatting clean, Profile/Debug builds
+    0 warnings/errors, DX12 validation errors 0, and screenshots matching
+    committed baselines. Log:
+    `Agentic/Reports/validate_dx12_renderer_plan04_shader_status_20260709.log`.
+  - Runtime boundary checker passed: `python tools\check_runtime_boundaries.py`
+    exited 0 in 00:00:19.5 with 0 errors. Log:
+    `Agentic/Reports/check_runtime_boundaries_plan04_shader_status_20260709.log`.
 - [ ] **4.1** Do **not** maintain any throw count. The `MAX_SOURCE_THROW_TOKENS`
   ratchet is deleted by plan 03. Verify progress by re-running
   `rg -n "throw " SkullbonezSource` and confirming the F/R/P sites are converted;
