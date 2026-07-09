@@ -151,6 +151,24 @@ byte-exact gated.
   - Required gate passed: `tools\validate_full.bat` exited 0 in
     00:01:15.7980914 after a touched-file clang-format fix. Log:
     `Agentic/Reports/validate_full_plan04_rendergraph_fatals_20260709.log`.
+
+  Progress 2026-07-09, RenderDeviceDX12 fatal-invariant sub-slice:
+  - Converted twenty-six F sites from `throw std::runtime_error` to `SB_FATAL`:
+    `RenderDeviceDX12.cpp` rows 106, 108, 110-114, 116-117, 121, 125-139,
+    and 141 from the Step 0.1 inventory. The remaining throws in this file are
+    the rows classified R and are intentionally left for the recoverable-result
+    phase.
+  - Strict source throw statement inventory now reports 186 sites, down from the
+    previous sub-slice count of 212. `SB_FATAL` macro invocations now report 98
+    via `rg -n "SB_FATAL\s*\(" SkullbonezSource`.
+  - Comment-style audit scope:
+    `SkullbonezSource/Rendering/DX12/RenderDeviceDX12.cpp`; checked 1,
+    deferred 0. The DX12 render-device learning header glossary was tightened
+    for descriptor heaps, shader-visible heaps, PSOs, root signatures, resource
+    states, and fences.
+  - Required gate passed: `tools\validate_full.bat` exited 0 in
+    00:00:56.3313673. Log:
+    `Agentic/Reports/validate_full_plan04_renderdevice_fatals_20260709.log`.
 - [ ] **2.1** Convert **P** sites (replay/interaction probes) to the
   `FailAutomation(...)` channel with `ok=false` + message. Gate: `validate_full`
   + replay scrub. Commit.

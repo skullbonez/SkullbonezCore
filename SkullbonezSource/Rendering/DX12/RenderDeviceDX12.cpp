@@ -23,8 +23,18 @@ Glossary:
   object names.
   COM (Component Object Model): Windows interface lifetime model used by DX12
   through reference-counted objects.
-  Descriptor: Small binding record that tells a renderer how to interpret a
-  resource.
+  Descriptor heap: Table of descriptor rows that tell the GPU how to interpret
+  resources for reads, writes, or render targets.
+  Shader-visible descriptor heap: Descriptor table the GPU can index from bound
+  root tables; rows must not be overwritten until the frame fence proves use is
+  complete.
+  PSO (Pipeline State Object): Compiled draw or raytracing state bundle.
+  Root signature: Binding contract that tells command lists where shaders find
+  descriptor tables and constants.
+  Resource state: DX12 usage mode for a resource, such as render target,
+  shader read, copy source, or present.
+  Fence: GPU timeline counter used to prove command allocators, upload bytes,
+  and transient descriptors are no longer in flight.
 
 Invariants:
   - DX12 object lifetime, resource states, descriptor rows, and fence ordering
@@ -36,6 +46,8 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "RenderDeviceDX12.h"
+
+#include "../../Core/FatalError.h"
 
 #include <algorithm>
 #include <cwchar>
@@ -168,7 +180,7 @@ UINT64 Dx12FenceTimeline::Signal()
 {
     if ( !IsReady() )
     {
-        throw std::runtime_error( "DX12 fence timeline used before Init" );
+        SB_FATAL( "RenderDeviceDX12", "DX12 fence timeline used before Init." );
     }
 
     // Signal creates the next completion marker on the GPU timeline. The queue
@@ -203,7 +215,7 @@ void Dx12FenceTimeline::WaitForValue( UINT64 value ) const
     }
     if ( !IsReady() )
     {
-        throw std::runtime_error( "DX12 fence timeline used before Init" );
+        SB_FATAL( "RenderDeviceDX12", "DX12 fence timeline used before Init." );
     }
 
     // GetCompletedValue is the non-blocking check. If the GPU has already
@@ -247,7 +259,10 @@ void Dx12CpuDescriptorAllocator::Init( ID3D12DescriptorHeap* heap,
 {
     if ( !heap || descriptorSize == 0 || capacity == 0 )
     {
-        throw std::runtime_error( "DX12 CPU descriptor allocator received invalid heap geometry" );
+        SB_FATAL( "RenderDeviceDX12",
+                  "DX12 CPU descriptor allocator received invalid heap geometry. descriptorSize=%u capacity=%u",
+                  descriptorSize,
+                  capacity );
     }
 
     // Concept: RTV and DSV descriptor heaps are CPU-side tables of view rows.
@@ -279,11 +294,15 @@ Dx12CpuDescriptorAllocation Dx12CpuDescriptorAllocator::Allocate()
 {
     if ( !m_heap || m_descriptorSize == 0 )
     {
-        throw std::runtime_error( "DX12 CPU descriptor allocator used before Init" );
+        SB_FATAL( "RenderDeviceDX12", "DX12 CPU descriptor allocator used before Init." );
     }
     if ( m_next >= m_capacity )
     {
-        throw std::runtime_error( "DX12 CPU descriptor heap exhausted" );
+        SB_FATAL( "RenderDeviceDX12",
+                  "DX12 CPU descriptor heap exhausted. heap=%s used=%u capacity=%u",
+                  m_heapName,
+                  m_next,
+                  m_capacity );
     }
 
     // Allocation means "reserve the next unused row in the descriptor table."
@@ -300,11 +319,14 @@ D3D12_CPU_DESCRIPTOR_HANDLE Dx12CpuDescriptorAllocator::CpuHandle( UINT index ) 
 {
     if ( !m_heap || m_descriptorSize == 0 )
     {
-        throw std::runtime_error( "DX12 CPU descriptor heap unavailable" );
+        SB_FATAL( "RenderDeviceDX12", "DX12 CPU descriptor heap unavailable." );
     }
     if ( index >= m_capacity )
     {
-        throw std::runtime_error( "DX12 CPU descriptor index out of range" );
+        SB_FATAL( "RenderDeviceDX12",
+                  "DX12 CPU descriptor index out of range. index=%u capacity=%u",
+                  index,
+                  m_capacity );
     }
 
     D3D12_CPU_DESCRIPTOR_HANDLE handle = m_heap->GetCPUDescriptorHandleForHeapStart();
@@ -379,11 +401,14 @@ void Dx12DescriptorAllocator::ResetFrame( UINT frameIndex )
 {
     if ( m_frameCount == 0 )
     {
-        throw std::runtime_error( "DX12 descriptor allocator used before Init" );
+        SB_FATAL( "RenderDeviceDX12", "DX12 descriptor allocator used before Init." );
     }
     if ( frameIndex >= m_frameCount )
     {
-        throw std::runtime_error( "DX12 descriptor allocator frame index out of range" );
+        SB_FATAL( "RenderDeviceDX12",
+                  "DX12 descriptor allocator frame index out of range. frameIndex=%u frameCount=%u",
+                  frameIndex,
+                  m_frameCount );
     }
     // The backend calls this only after the fence for this frame allocator has
     // completed. That means every command list that used this frame's transient
@@ -453,7 +478,7 @@ UINT Dx12DescriptorAllocator::AllocateTransientRange( UINT count )
     }
     if ( m_frameCount == 0 )
     {
-        throw std::runtime_error( "DX12 descriptor allocator used before Init" );
+        SB_FATAL( "RenderDeviceDX12", "DX12 descriptor allocator used before Init." );
     }
     if ( count > m_transientCapacityPerFrame || m_nextTransientInFrame > m_transientCapacityPerFrame - count )
     {
@@ -518,7 +543,7 @@ D3D12_CPU_DESCRIPTOR_HANDLE Dx12DescriptorAllocator::ShaderVisibleCpuHandle( UIN
     // CopyDescriptorsSimple into the shader-visible heap.
     if ( !m_shaderVisibleHeap || m_descriptorSize == 0 )
     {
-        throw std::runtime_error( "DX12 shader-visible descriptor heap unavailable" );
+        SB_FATAL( "RenderDeviceDX12", "DX12 shader-visible descriptor heap unavailable." );
     }
     ValidateShaderVisibleIndex( index, "shader-visible CPU handle" );
 
@@ -539,7 +564,7 @@ D3D12_GPU_DESCRIPTOR_HANDLE Dx12DescriptorAllocator::ShaderVisibleGpuHandle( UIN
     // be overwritten until the frame fence says that GPU work is complete.
     if ( !m_shaderVisibleHeap || m_descriptorSize == 0 )
     {
-        throw std::runtime_error( "DX12 shader-visible descriptor heap unavailable" );
+        SB_FATAL( "RenderDeviceDX12", "DX12 shader-visible descriptor heap unavailable." );
     }
     ValidateShaderVisibleIndex( index, "shader-visible GPU handle" );
 
@@ -557,7 +582,7 @@ D3D12_CPU_DESCRIPTOR_HANDLE Dx12DescriptorAllocator::StagingCpuHandle( UINT inde
     // every frame.
     if ( !m_stagingHeap || m_descriptorSize == 0 )
     {
-        throw std::runtime_error( "DX12 staging descriptor heap unavailable" );
+        SB_FATAL( "RenderDeviceDX12", "DX12 staging descriptor heap unavailable." );
     }
     ValidateStagingIndex( index, "staging CPU handle" );
 
@@ -633,7 +658,7 @@ D3D12_GPU_VIRTUAL_ADDRESS Dx12UploadArena::Allocate( UINT64 sizeBytes, UINT64 al
 {
     if ( !m_resource || !m_mappedPtr )
     {
-        throw std::runtime_error( "DX12 upload arena used before Init" );
+        SB_FATAL( "RenderDeviceDX12", "DX12 upload arena used before Init." );
     }
 
     // DX12 resources often require aligned addresses. For example, constant
@@ -646,7 +671,11 @@ D3D12_GPU_VIRTUAL_ADDRESS Dx12UploadArena::Allocate( UINT64 sizeBytes, UINT64 al
     const UINT64 alignedOffset = AlignOffset( m_currentOffset, alignment );
     if ( alignedOffset + sizeBytes > m_capacityBytes )
     {
-        throw std::runtime_error( "DX12 upload buffer exhausted" );
+        SB_FATAL( "RenderDeviceDX12",
+                  "DX12 upload buffer exhausted. requested=%llu alignedOffset=%llu capacity=%llu",
+                  static_cast<unsigned long long>( sizeBytes ),
+                  static_cast<unsigned long long>( alignedOffset ),
+                  static_cast<unsigned long long>( m_capacityBytes ) );
     }
 
     m_currentOffset = alignedOffset + sizeBytes;
@@ -659,7 +688,7 @@ uint8_t* Dx12UploadArena::GetMappedPtr( D3D12_GPU_VIRTUAL_ADDRESS address ) cons
 {
     if ( !m_resource || !m_mappedPtr )
     {
-        throw std::runtime_error( "DX12 upload arena used before Init" );
+        SB_FATAL( "RenderDeviceDX12", "DX12 upload arena used before Init." );
     }
 
     // Allocation returns a GPU virtual address because that is what command
@@ -672,13 +701,19 @@ uint8_t* Dx12UploadArena::GetMappedPtr( D3D12_GPU_VIRTUAL_ADDRESS address ) cons
     const D3D12_GPU_VIRTUAL_ADDRESS base = m_resource->GetGPUVirtualAddress();
     if ( address < base )
     {
-        throw std::runtime_error( "DX12 upload address outside current frame arena" );
+        SB_FATAL( "RenderDeviceDX12",
+                  "DX12 upload address outside current frame arena. address=%llu base=%llu",
+                  static_cast<unsigned long long>( address ),
+                  static_cast<unsigned long long>( base ) );
     }
 
     const UINT64 offset = address - base;
     if ( offset >= m_capacityBytes )
     {
-        throw std::runtime_error( "DX12 upload address outside current frame arena" );
+        SB_FATAL( "RenderDeviceDX12",
+                  "DX12 upload address outside current frame arena. offset=%llu capacity=%llu",
+                  static_cast<unsigned long long>( offset ),
+                  static_cast<unsigned long long>( m_capacityBytes ) );
     }
     return m_mappedPtr + offset;
 }
@@ -722,7 +757,10 @@ bool Dx12FrameUploadSystem::Init( ID3D12Device* device,
 
     if ( !device || frameCount == 0 || frameCount > MAX_FRAME_COUNT || capacityBytes == 0 )
     {
-        throw std::runtime_error( "Invalid DX12 frame upload system init description" );
+        SB_FATAL( "RenderDeviceDX12",
+                  "Invalid DX12 frame upload system init description. frameCount=%u capacityBytes=%llu",
+                  frameCount,
+                  static_cast<unsigned long long>( capacityBytes ) );
     }
 
     m_frameCount = frameCount;
@@ -817,18 +855,24 @@ UINT64 Dx12FrameUploadSystem::OffsetFromAddress( UINT frameIndex, D3D12_GPU_VIRT
     ID3D12Resource* resource = m_arenas[frameIndex].Resource();
     if ( !resource )
     {
-        throw std::runtime_error( "DX12 upload resource unavailable" );
+        SB_FATAL( "RenderDeviceDX12", "DX12 upload resource unavailable." );
     }
 
     const D3D12_GPU_VIRTUAL_ADDRESS base = resource->GetGPUVirtualAddress();
     if ( address < base )
     {
-        throw std::runtime_error( "DX12 upload address is before current frame resource" );
+        SB_FATAL( "RenderDeviceDX12",
+                  "DX12 upload address is before current frame resource. address=%llu base=%llu",
+                  static_cast<unsigned long long>( address ),
+                  static_cast<unsigned long long>( base ) );
     }
     const UINT64 offset = address - base;
     if ( offset >= m_capacityBytes )
     {
-        throw std::runtime_error( "DX12 upload address is outside current frame resource" );
+        SB_FATAL( "RenderDeviceDX12",
+                  "DX12 upload address is outside current frame resource. offset=%llu capacity=%llu",
+                  static_cast<unsigned long long>( offset ),
+                  static_cast<unsigned long long>( m_capacityBytes ) );
     }
     return offset;
 }
@@ -852,7 +896,10 @@ void Dx12FrameUploadSystem::ValidateFrameIndex( UINT frameIndex ) const
 {
     if ( frameIndex >= m_frameCount )
     {
-        throw std::runtime_error( "DX12 frame upload index out of range" );
+        SB_FATAL( "RenderDeviceDX12",
+                  "DX12 frame upload index out of range. frameIndex=%u frameCount=%u",
+                  frameIndex,
+                  m_frameCount );
     }
 }
 
@@ -869,7 +916,9 @@ bool Dx12ReadbackBuffer::InitBuffer( ID3D12Device* device, UINT64 sizeBytes, con
 
     if ( !device || sizeBytes == 0 )
     {
-        throw std::runtime_error( "Invalid DX12 readback buffer init description" );
+        SB_FATAL( "RenderDeviceDX12",
+                  "Invalid DX12 readback buffer init description. sizeBytes=%llu",
+                  static_cast<unsigned long long>( sizeBytes ) );
     }
 
     D3D12_HEAP_PROPERTIES heapProps = {};
@@ -920,7 +969,7 @@ void* Dx12ReadbackBuffer::MapRead( UINT64 sizeBytes ) const
 {
     if ( !m_resource )
     {
-        throw std::runtime_error( "DX12 readback buffer unavailable" );
+        SB_FATAL( "RenderDeviceDX12", "DX12 readback buffer unavailable." );
     }
     if ( sizeBytes > m_sizeBytes )
     {
@@ -970,7 +1019,11 @@ bool Dx12RenderDevice::Init( const Dx12RenderDeviceInitDesc& desc )
     if ( !desc.hwnd || desc.width == 0 || desc.height == 0 || desc.frameCount == 0 ||
          desc.frameCount > MAX_FRAME_COUNT )
     {
-        throw std::runtime_error( "Invalid DX12 render device init description" );
+        SB_FATAL( "RenderDeviceDX12",
+                  "Invalid DX12 render device init description. width=%u height=%u frameCount=%u",
+                  desc.width,
+                  desc.height,
+                  desc.frameCount );
     }
 
     Dx12RenderDeviceInitRollback rollback( *this );
