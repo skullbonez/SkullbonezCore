@@ -3102,6 +3102,22 @@ void PhysicsWorld::ObjectNarrowphaseIslandStage::operator()( int islandIndex ) c
 }
 
 
+void PhysicsWorld::ProcessObjectNarrowphasePairsSerial( const ObjectNarrowphasePairStageContext& context,
+                                                        int candidatePairCount,
+                                                        const char* const* diagnosticNames,
+                                                        int diagnosticNameCount,
+                                                        const PhysicsDiagnosticsCsvWriter& diagnosticsCsvWriter )
+{
+    PROFILE_SCOPED( "Frame/Physics/Narrowphase/SerialPairs" );
+    for ( int pairIndex = 0; pairIndex < candidatePairCount; ++pairIndex )
+    {
+        ObjectNarrowphaseEvent event;
+        ProcessObjectNarrowphasePair( context, pairIndex, event );
+        CommitObjectNarrowphaseEvent( event, diagnosticNames, diagnosticNameCount, diagnosticsCsvWriter );
+    }
+}
+
+
 void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
                                      const ColliderStore& colliderStore,
                                      float dt,
@@ -3364,17 +3380,6 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
 
     ObjectNarrowphaseIslandStage objectNarrowphaseIslandStage{ *this, objectNarrowphasePairContext };
 
-    auto processObjectNarrowphasePairsSerial = [&]()
-    {
-        PROFILE_SCOPED( "Frame/Physics/Narrowphase/SerialPairs" );
-        for ( int pairIndex = 0; pairIndex < candidatePairCount; ++pairIndex )
-        {
-            ObjectNarrowphaseEvent event;
-            ProcessObjectNarrowphasePair( objectNarrowphasePairContext, pairIndex, event );
-            CommitObjectNarrowphaseEvent( event, diagnosticNames, diagnosticNameCount, diagnosticsCsvWriter );
-        }
-    };
-
     auto buildObjectNarrowphaseIslands = [&]()
     {
         PROFILE_SCOPED( "Frame/Physics/Narrowphase/BuildIslands" );
@@ -3526,7 +3531,8 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
 
     if ( !ranParallelNarrowphase )
     {
-        processObjectNarrowphasePairsSerial();
+        ProcessObjectNarrowphasePairsSerial(
+            objectNarrowphasePairContext, candidatePairCount, diagnosticNames, diagnosticNameCount, diagnosticsCsvWriter );
     }
     PROFILE_END( "Frame/Physics/Narrowphase" );
 

@@ -300,6 +300,11 @@ class PhysicsWorld
                                        int pairIndex,
                                        ObjectNarrowphaseEvent& event );
     void ProcessObjectNarrowphaseIsland( const ObjectNarrowphasePairStageContext& context, int islandIndex );
+    void ProcessObjectNarrowphasePairsSerial( const ObjectNarrowphasePairStageContext& context,
+                                              int candidatePairCount,
+                                              const char* const* diagnosticNames,
+                                              int diagnosticNameCount,
+                                              const PhysicsDiagnosticsCsvWriter& diagnosticsCsvWriter );
     struct ObjectNarrowphaseIslandStage
     {
         PhysicsWorld& world;

@@ -182,7 +182,7 @@ island-merge tie-breaks.
   - [x] L2778 `commitObjectNarrowphaseEvent`: serial side-effect application.
   - [x] L2814 `processObjectNarrowphasePair`: pair CCD/wake processing.
   - [x] L3014 `processObjectNarrowphaseIsland`: island-local pair loop.
-  - [ ] L3025 `processObjectNarrowphasePairsSerial`: serial pair loop.
+  - [x] L3025 `processObjectNarrowphasePairsSerial`: serial pair loop.
   - [ ] L3036 `buildObjectNarrowphaseIslands`: pair island staging.
   - [ ] L3138 anonymous island sort comparator.
 
@@ -410,6 +410,14 @@ island-merge tie-breaks.
     `tools\validate_physics.bat` passed in
     `TestOutput\agent_logs\plan02_process_object_island_validate_physics_20260709_1052.log`
     (39.7s shell runtime; Debug/Profile builds 0 warnings and 0 errors; final
+    `VALIDATE_PHYSICS: ALL PASSED`).
+  - Extracted the `processObjectNarrowphasePairsSerial` lambda into
+    `PhysicsWorld::ProcessObjectNarrowphasePairsSerial`, preserving the stack
+    event per pair, immediate serial event commit, diagnostic inputs, and the
+    original candidate-pair iteration order. Gate evidence:
+    `tools\validate_physics.bat` passed in
+    `TestOutput\agent_logs\plan02_process_object_pairs_serial_validate_physics_20260709_1055.log`
+    (39.6s shell runtime; Debug/Profile builds 0 warnings and 0 errors; final
     `VALIDATE_PHYSICS: ALL PASSED`).
 - [ ] **1.3** `RunSolverPhysics` is now a short driver calling named stages;
   confirm it is under ~300 lines.
