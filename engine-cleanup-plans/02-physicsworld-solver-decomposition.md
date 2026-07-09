@@ -184,7 +184,7 @@ island-merge tie-breaks.
   - [x] L3014 `processObjectNarrowphaseIsland`: island-local pair loop.
   - [x] L3025 `processObjectNarrowphasePairsSerial`: serial pair loop.
   - [x] L3036 `buildObjectNarrowphaseIslands`: pair island staging.
-  - [ ] L3138 anonymous island sort comparator.
+  - [x] L3138 anonymous island sort comparator.
 
   Terrain detection:
   - [ ] L3197 `detectTerrainAt`: per-body swept terrain candidate.
@@ -426,6 +426,13 @@ island-merge tie-breaks.
     evidence: `tools\validate_physics.bat` passed in
     `TestOutput\agent_logs\plan02_build_object_islands_validate_physics_20260709_1058.log`
     (39.3s shell runtime; Debug/Profile builds 0 warnings and 0 errors; final
+    `VALIDATE_PHYSICS: ALL PASSED`).
+  - Replaced the anonymous island sort comparator with the private static
+    `PhysicsWorld::ObjectNarrowphaseIslandPrecedesByMinPairIndex`, preserving
+    ascending `minPairIndex` order for deterministic island dispatch. Gate
+    evidence: `tools\validate_physics.bat` passed in
+    `TestOutput\agent_logs\plan02_island_sort_comparator_validate_physics_20260709_1101.log`
+    (39.5s shell runtime; Debug/Profile builds 0 warnings and 0 errors; final
     `VALIDATE_PHYSICS: ALL PASSED`).
 - [ ] **1.3** `RunSolverPhysics` is now a short driver calling named stages;
   confirm it is under ~300 lines.

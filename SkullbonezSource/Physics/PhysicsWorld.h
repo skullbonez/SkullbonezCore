@@ -322,6 +322,8 @@ class PhysicsWorld
         size_t firstPairOffset = 0;
         size_t pairCount = 0;
     };
+    static bool ObjectNarrowphaseIslandPrecedesByMinPairIndex( const ObjectNarrowphaseIsland& a,
+                                                               const ObjectNarrowphaseIsland& b );
 
     // Persistent rows and diagnostics produced during the current fixed tick.
     // Terrain manifolds are appended into the same row solver as object/object

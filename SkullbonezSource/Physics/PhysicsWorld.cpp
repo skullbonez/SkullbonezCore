@@ -3118,6 +3118,13 @@ void PhysicsWorld::ProcessObjectNarrowphasePairsSerial( const ObjectNarrowphaseP
 }
 
 
+bool PhysicsWorld::ObjectNarrowphaseIslandPrecedesByMinPairIndex( const ObjectNarrowphaseIsland& a,
+                                                                  const ObjectNarrowphaseIsland& b )
+{
+    return a.minPairIndex < b.minPairIndex;
+}
+
+
 void PhysicsWorld::BuildObjectNarrowphaseIslands( const std::vector<std::pair<int, int>>& candidatePairs,
                                                   int candidatePairCount,
                                                   int modelCount )
@@ -3222,8 +3229,7 @@ void PhysicsWorld::BuildObjectNarrowphaseIslands( const std::vector<std::pair<in
     }
     std::sort( m_objectNarrowphaseIslands.begin(),
                m_objectNarrowphaseIslands.end(),
-               []( const ObjectNarrowphaseIsland& a, const ObjectNarrowphaseIsland& b )
-               { return a.minPairIndex < b.minPairIndex; } );
+               ObjectNarrowphaseIslandPrecedesByMinPairIndex );
 }
 
 
