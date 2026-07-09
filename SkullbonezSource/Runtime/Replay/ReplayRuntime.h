@@ -417,6 +417,11 @@ struct RunReplayPredictionFutureNodeCache
     std::size_t futureNodesBuiltFrameCount = 0;
     std::size_t futureNodesBuiltContactIndex = 0;
     ReplayBodyId futureNodesBuiltTargetId;
+    // Invariant: topologyVersion identifies the published node set/order and
+    // firstFrame values. The next counter survives cache clears so a same-root
+    // rebuild cannot masquerade as an older child trajectory version.
+    uint32_t futureNodesTopologyVersion = 0;
+    uint32_t nextFutureNodesTopologyVersion = 1;
     bool futureNodesBuiltRagdollVisuals = false;
     bool futureNodesBuiltFromBuildFrames = false;
     bool futureNodesCacheValid = false;
@@ -437,6 +442,9 @@ struct RunReplayPredictionTrajectoryBuildState
     std::size_t rootFrameCount = 0;
     std::size_t childFrameCount = 0;
     std::size_t builtNodeCount = 0;
+    // Invariant: child trajectory records are drawable only when this version
+    // matches the future-node cache version that selected their branch ordinals.
+    uint32_t topologyVersion = 0;
     bool valid = false;
 };
 

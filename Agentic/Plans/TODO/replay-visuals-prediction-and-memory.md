@@ -1,13 +1,14 @@
 # Replay: Trajectory Visuals, Prediction Job, Memory Quality, Code Size
 
 Date: 2026-07-09 (consolidated mega plan)
-Status: In progress - Stage 3.4 complete (prediction isolation, trajectory
+Status: In progress - Stage 4.1 complete (prediction isolation, trajectory
 visuals investigation, counters, memory accounting, draw-loop determinism,
 same-target refresh reveal preservation, past-path visibility, contact
 completeness reporting, the TrajectoryStore publication shell, and the
-build-pass writer migration, store-backed draw reads, and the default-off
-legacy draw fallback are complete; lock-step fixes, worker job, memory tuning,
-renderer rewrite, and code-size work remain open)
+build-pass writer migration, store-backed draw reads, the default-off legacy
+draw fallback, and the first lock-step hierarchy fix are complete; contact-tick
+activation, determinism probe, worker job, memory tuning, renderer rewrite, and
+code-size work remain open)
 Impact area: replay runtime, replay prediction, trajectory overlay rendering,
 DX12 transient geometry, physics stepping, UI
 Consolidates: `replay-prediction-and-memory.md` (sections A/B/C — full text in
@@ -653,7 +654,49 @@ Stage 3 — TrajectoryStore + build pass
     are artifact sizes, not model-ingested text.
 
 Stage 4 — Lock-step hierarchy correctness
-- [ ] 4.1 Frozen tree per version; shared `revealFrame` clamp invariant.
+- [x] 4.1 Frozen tree per version; shared `revealFrame` clamp invariant.
+  Complete 2026-07-10: future-node topology now publishes a monotonic
+  `futureNodesTopologyVersion` whenever the node set/order/`firstFrame` values
+  change. The next-version counter survives cache clears, so same-root rebuilds
+  cannot reuse an older topology identity. Child trajectory records store the
+  topology version they were built against, and prediction child drawing now
+  requires the cache version, trajectory-build version, root id, build/commit
+  branch, node count, and populated frame prefix to agree before any child lane
+  is emitted.
+
+  The prediction overlay now builds one `ReplayPredictionDrawFrameWindow` from
+  the selected active frame prefix. Root, child, marker, affected-body, ragdoll,
+  and retained-marker paths all consume that single `lastFrame` /
+  `revealFrame` / stride bundle, which makes the shared reveal-clamp invariant
+  explicit in source instead of relying on parallel locals.
+
+  Comment audit: inspected 2 touched source-bearing files with 0 deferred
+  (`ReplayRuntime.h`, `RunReplayTools.cpp`). Focused checks passed:
+  `tools\validate_build.bat Profile` in 10.05s with 0 warnings/errors
+  (`Agentic/Reports/validate_build_profile_replay_stage4_1_20260710.log`);
+  `tools\validate_format.bat` in 11.10s
+  (`Agentic/Reports/validate_format_replay_stage4_1_20260710.log`);
+  allocation policy self-test passed; and allocation scan passed
+  (`scanned=296 direct_heap_findings=28 dynamic_stl_member_findings=0
+  allowlist_errors=0`). Required validation passed:
+  `tools\validate_full.bat` in 38.46s
+  (`Agentic/Reports/validate_full_replay_visuals_stage4_1_20260710.log`) with
+  project filters clean, Profile/Debug builds clean, formatting clean, DX12
+  validation errors 0, DX12 screenshots matching committed baselines, and
+  `physics_regression_solver.csv` byte-exact; `tools\validate_replay_scrub.bat`
+  in 10.81s
+  (`Agentic/Reports/validate_replay_scrub_replay_visuals_stage4_1_20260710.log`);
+  and `tools\validate_physics.bat` in 13.36s
+  (`Agentic/Reports/validate_physics_replay_stage4_1_20260710.log`) with
+  `VALIDATE_PHYSICS: ALL PASSED` and byte-exact solver baseline.
+
+  SkullScope accounting from the replay scrub gate:
+  - Scrub trace command: `Debug\SKULLBONEZ_CORE.exe --renderer dx12 --vsync off --shadows off --scene SkullbonezData/scenes/physics_roll.scene.json --frames 120 --replay on --replay-seconds 1 --replay-scrub-test --physics-diag Debug\replay_scrub.physicsdiag.ndjson`
+  - Scrub query: `tools\physics_query.bat Debug\replay_scrub.physicsdiag.ndjson replay --limit 8`; trace 54,932 bytes; SQLite cache 225,280 bytes; query output 1,512 bytes.
+  - Restore trace command: `Debug\SKULLBONEZ_CORE.exe --renderer dx12 --vsync off --shadows off --scene SkullbonezData/scenes/physics_roll.scene.json --frames 120 --replay on --replay-seconds 1 --replay-restore-test --physics-diag Debug\replay_restore.physicsdiag.ndjson`
+  - Restore query: `tools\physics_query.bat Debug\replay_restore.physicsdiag.ndjson restore --limit 8`; trace 54,912 bytes; SQLite cache 225,280 bytes; query output 967 bytes.
+  - Total model-read query output: 2,479 bytes. Raw NDJSON/SQLite sizes above
+    are artifact sizes, not model-ingested text.
 - [ ] 4.2 Contact-tick child activation (replace 8 u/s gate).
 - [ ] 4.3 Twice-run prediction determinism automation probe.
 
