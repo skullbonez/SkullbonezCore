@@ -351,6 +351,10 @@ class RunEditorTracer
     void ClearReplayTrajectoryStats();
     // Returns the current replay-pass counters without taking ownership.
     const MainMemoryReplayTrajectoryStats& ReplayTrajectoryStats() const;
+    // Invariant: replay path drawing budgets against ordinary ribbon slots
+    // before emitting segments, so the tracer's fixed reserve remains the
+    // single source of capacity truth.
+    std::size_t ReplayPathRibbonSegmentCapacityRemaining() const;
     void AddPlacementRay( const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& hitPoint );
     void AddPlacementGhost( int objectType,
                             const Math::Vector::Vector3& center,

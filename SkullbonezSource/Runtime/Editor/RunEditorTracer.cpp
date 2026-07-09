@@ -148,6 +148,18 @@ const MainMemoryReplayTrajectoryStats& RunEditorTracer::ReplayTrajectoryStats() 
 }
 
 
+std::size_t RunEditorTracer::ReplayPathRibbonSegmentCapacityRemaining() const
+{
+    if ( m_replayRibbonSegments.size() >= m_replayRibbonSegments.capacity() )
+    {
+        return 0;
+    }
+
+    return ( m_replayRibbonSegments.capacity() - m_replayRibbonSegments.size() ) /
+           RUN_EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_SEGMENT;
+}
+
+
 void RunEditorTracer::EmitLineTo( std::vector<float>& lineData,
                                   const Vector3& a,
                                   const Vector3& b,

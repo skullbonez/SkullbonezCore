@@ -1,9 +1,10 @@
 # Replay: Trajectory Visuals, Prediction Job, Memory Quality, Code Size
 
 Date: 2026-07-09 (consolidated mega plan)
-Status: In progress - Stage 0 complete (prediction isolation done; trajectory
-visuals investigation complete with plan and repro evidence; worker job,
-visuals repair, memory tuning, and code-size work open)
+Status: In progress - Stage 1 deterministic drawing complete (prediction
+isolation, trajectory visuals investigation, counters, memory accounting, and
+draw-loop determinism are complete; worker job, visibility/reveal repair,
+memory tuning, and code-size work open)
 Impact area: replay runtime, replay prediction, trajectory overlay rendering,
 DX12 transient geometry, physics stepping, UI
 Consolidates: `replay-prediction-and-memory.md` (sections A/B/C — full text in
@@ -320,11 +321,47 @@ Stage 0 — Instrument & document (merges old B1)
     clock-call self-cost if needed.
 
 Stage 1 — Deterministic drawing
-- [ ] 1.1 Remove wall-clock budget checks from *draw* loops (keep on
+- [x] 1.1 Remove wall-clock budget checks from *draw* loops (keep on
   build/tree passes).
-- [ ] 1.2 Tick-anchored decimation replacing `ordinal % stride` everywhere
+  Complete 2026-07-10: removed retained and prediction draw-loop
+  `steady_clock`/budget-pass bailouts from root, child, affected-body, ragdoll,
+  marker, and baseline drawing. Kept wall-clock checks on prediction begin/step,
+  retained bounds, retained build-tree, and prediction future-node build work.
+- [x] 1.2 Tick-anchored decimation replacing `ordinal % stride` everywhere
   (260 / 96 / 261 sites).
-- [ ] 1.3 Overflow → build-time caps; draw can never overflow.
+  Complete 2026-07-10: replaced draw thinning that depended on visitor ordinal
+  or frame slot with `ReplayFrameIndex` anchored stride tests, including
+  retained root/child paths, prediction root/child paths, retained marker trails,
+  ragdoll torso trails, affected-body trails, and the baseline root capture.
+- [x] 1.3 Overflow → build-time caps; draw can never overflow.
+  Complete 2026-07-10: added a frame-local ordinary replay-ribbon quota backed
+  by `RunEditorTracer::ReplayPathRibbonSegmentCapacityRemaining()`. Ordinary
+  trajectory and baseline path segments now pre-check both the shared quota and
+  live tracer capacity before calling the tracer, so marker-outline consumption
+  cannot stale the cap and path drawing never relies on tracer overflow drops.
+  Touched-file comment audit inspected 3 source-bearing files
+  (`RunReplayTools.cpp`, `RunEditorTracer.cpp`, `RuntimeTools.h`) with 0
+  deferred. Validation: first `tools\validate_full.bat` attempt built Profile
+  and Debug with 0 warnings/errors but failed formatting on `RunReplayTools.cpp`;
+  after targeted clang-format, `tools\validate_full.bat` passed
+  (`Agentic/Reports/validate_full_replay_visuals_stage1_20260710_r2.log`) with
+  project filters clean, Profile/Debug builds clean, DX12 validation errors 0,
+  DX12 screenshots matching baselines, and `physics_regression_solver.csv`
+  byte-exact. `tools\validate_replay_scrub.bat` passed
+  (`Agentic/Reports/validate_replay_scrub_replay_visuals_stage1_20260710.log`):
+  scrub trace command `Debug\SKULLBONEZ_CORE.exe --renderer dx12 --vsync off
+  --shadows off --scene SkullbonezData/scenes/physics_roll.scene.json --frames
+  120 --replay on --replay-seconds 1 --replay-scrub-test --physics-diag
+  Debug\replay_scrub.physicsdiag.ndjson`; query
+  `tools\physics_query.bat Debug\replay_scrub.physicsdiag.ndjson replay --limit
+  8`; restore trace command `Debug\SKULLBONEZ_CORE.exe --renderer dx12 --vsync
+  off --shadows off --scene SkullbonezData/scenes/physics_roll.scene.json
+  --frames 120 --replay on --replay-seconds 1 --replay-restore-test
+  --physics-diag Debug\replay_restore.physicsdiag.ndjson`; restore query
+  `tools\physics_query.bat Debug\replay_restore.physicsdiag.ndjson restore
+  --limit 8`. SkullScope data sizes: scrub trace 54,932 bytes, scrub SQLite
+  225,280 bytes, scrub query output 1,512 bytes; restore trace 54,912 bytes,
+  restore SQLite 225,280 bytes, restore query output 967 bytes.
 
 Stage 2 — Rebuild/reveal churn + visibility controls
 - [ ] 2.1 Auto-refresh keeps the previous committed future + reveal progress

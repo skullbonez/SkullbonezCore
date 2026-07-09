@@ -20,6 +20,10 @@ Glossary:
     prediction engine.
   Future node: Body discovered by following contacts or predicted movement
     outward from a selected root body.
+  Replay ribbon: Camera-facing overlay stroke emitted through RunEditorTracer's
+    fixed-capacity ordinary or priority ribbon buffers.
+  Ribbon quota: Frame-local count of ordinary replay ribbon records that path
+    drawing may spend before it stops emitting trajectory segments.
   ReplayBodyId: Stable runtime id used across retained samples even when vector
     indices are only local hints.
   Model row hint: Cached live body row paired with ReplayBodyId; replay tools
@@ -32,8 +36,8 @@ Glossary:
 Invariants:
   - Prediction must never write live physics stores; private engine state owns
     all future ticks and samples.
-  - Path visualizer work shares one per-frame budget so replay overlays cannot
-    hide frame spikes under child profiler markers.
+  - Prediction stepping and future-node discovery share a per-frame wall-clock
+    budget; visible path drawing spends the tracer's fixed ribbon quota.
   - Physics steps stay serial; only read-only body capture is parallelized.
 
 Related:
@@ -179,6 +183,7 @@ bool StepPredictionEngineTick( PhysicsEngine& engine,
 // show the full contact spread instead of clipping the visual explanation.
 constexpr std::size_t REPLAY_PATH_MAX_FUTURE_NODES = 240;
 constexpr std::size_t REPLAY_PATH_MAX_SEGMENTS = 260;
+constexpr std::size_t REPLAY_RIBBON_SEGMENTS_PER_PATH_SEGMENT = 2;
 constexpr float REPLAY_PATH_MIN_SEGMENT_DISTANCE_SQ = 0.0001f;
 // Why: sleeping or contact-propagated bodies can wake without translating. Child
 // prediction outlines wait for real linear speed so the wall blooms outward
@@ -189,6 +194,93 @@ constexpr float REPLAY_PREDICTION_CHILD_LINEAR_SPEED_SQ = 8.0f * 8.0f;
 // scenes stay serial so replay overlays do not pay thread wakeup cost to copy a
 // few kilobytes.
 constexpr int REPLAY_PREDICTION_PARALLEL_BODY_MIN = 2048;
+
+struct ReplayRibbonDrawQuota
+{
+    // Counts internal ribbon records, not logical trajectory lines. Each
+    // AddReplayPathSegment call emits a glow and a core record.
+    std::size_t remainingRibbonSegments = 0;
+    bool exhausted = false;
+};
+
+ReplayRibbonDrawQuota BeginReplayRibbonDrawQuota( const RunEditorTracer& tracer )
+{
+    ReplayRibbonDrawQuota quota;
+    quota.remainingRibbonSegments = tracer.ReplayPathRibbonSegmentCapacityRemaining();
+    return quota;
+}
+
+bool ReplayRibbonDrawQuotaExhausted( const ReplayRibbonDrawQuota* quota )
+{
+    return quota && quota->exhausted;
+}
+
+bool TryReserveReplayPathRibbonSegment( ReplayRibbonDrawQuota* quota )
+{
+    if ( !quota )
+    {
+        return true;
+    }
+    if ( quota->remainingRibbonSegments < REPLAY_RIBBON_SEGMENTS_PER_PATH_SEGMENT )
+    {
+        quota->exhausted = true;
+        quota->remainingRibbonSegments = 0;
+        return false;
+    }
+
+    quota->remainingRibbonSegments -= REPLAY_RIBBON_SEGMENTS_PER_PATH_SEGMENT;
+    return true;
+}
+
+bool TryAddReplayPathSegment( RunEditorTracer& tracer,
+                              ReplayRibbonDrawQuota* quota,
+                              const Vector3& start,
+                              const Vector3& end,
+                              float r,
+                              float g,
+                              float b,
+                              MainMemoryReplayTrajectoryLane lane )
+{
+    if ( tracer.ReplayPathRibbonSegmentCapacityRemaining() < REPLAY_RIBBON_SEGMENTS_PER_PATH_SEGMENT )
+    {
+        if ( quota )
+        {
+            quota->exhausted = true;
+            quota->remainingRibbonSegments = 0;
+        }
+        return false;
+    }
+    if ( !TryReserveReplayPathRibbonSegment( quota ) )
+    {
+        return false;
+    }
+
+    tracer.AddReplayPathSegment( start, end, r, g, b, lane );
+    return true;
+}
+
+bool TryAddReplayBaselinePathSegment( RunEditorTracer& tracer,
+                                      ReplayRibbonDrawQuota* quota,
+                                      const Vector3& start,
+                                      const Vector3& end )
+{
+    if ( tracer.ReplayPathRibbonSegmentCapacityRemaining() < REPLAY_RIBBON_SEGMENTS_PER_PATH_SEGMENT )
+    {
+        if ( quota )
+        {
+            quota->exhausted = true;
+            quota->remainingRibbonSegments = 0;
+        }
+        return false;
+    }
+    if ( !TryReserveReplayPathRibbonSegment( quota ) )
+    {
+        return false;
+    }
+
+    tracer.AddReplayBaselinePathSegment( start, end );
+    return true;
+}
 
 // Concept: the prediction overlay is a play-once causal animation, not a
 // static plot. A wall-clock reveal cursor sweeps the predicted frames so the
@@ -889,13 +981,12 @@ bool CaptureReplayPredictionBaselineSnapshot( RunReplayPredictionState& predicti
                                        ? 1u
                                        : ( frameCount + REPLAY_PREDICTION_BASELINE_ROOT_POINT_CAPACITY - 1u ) /
                                              REPLAY_PREDICTION_BASELINE_ROOT_POINT_CAPACITY;
-    std::size_t ordinal = 0;
     for ( std::size_t frameSlot = 0; frameSlot < frameCount; ++frameSlot )
     {
         const RunReplayPredictionFrame& frame = frames[frameSlot];
         const bool endpointFrame = frameSlot == 0 || frameSlot + 1 == frameCount;
-        const std::size_t currentOrdinal = ordinal++;
-        if ( !endpointFrame && rootStride > 1u && ( currentOrdinal % rootStride ) != 0u )
+        if ( !endpointFrame && rootStride > 1u &&
+             ( frame.frameIndex % static_cast<ReplayFrameIndex>( rootStride ) ) != 0u )
         {
             continue;
         }
@@ -1009,7 +1100,8 @@ const ColliderRecord* ReplayColliderRecordForModelIndex( const ColliderStore* co
 // path. It should read as the old future's ghost, never as jaggy debug wire.
 void DrawReplayPredictionBaselineSnapshot( const ReplayPredictionBaselineSnapshot& baseline,
                                            const ColliderStore& colliderStore,
-                                           RunEditorTracer& tracer )
+                                           RunEditorTracer& tracer,
+                                           ReplayRibbonDrawQuota& ribbonQuota )
 {
     if ( !baseline.valid )
     {
@@ -1022,7 +1114,10 @@ void DrawReplayPredictionBaselineSnapshot( const ReplayPredictionBaselineSnapsho
         const Vector3& current = baseline.rootPolyline[i].position;
         if ( VectorMagSquared( current - previous ) > REPLAY_PATH_MIN_SEGMENT_DISTANCE_SQ )
         {
-            tracer.AddReplayBaselinePathSegment( previous, current );
+            if ( !TryAddReplayBaselinePathSegment( tracer, &ribbonQuota, previous, current ) )
+            {
+                break;
+            }
         }
     }
 
@@ -1380,51 +1475,38 @@ void BuildReplayFutureNodes( const ReplaySolverFrameSample& sample, void* userDa
         nextContactIndex );
 }
 
-bool ShouldDrawReplayPathSample( std::size_t ordinal, std::size_t stride )
+// Invariant: path thinning is anchored to solver frame indices, not visitor
+// ordinal. Partial scans may resume at different offsets, but the same replay
+// tick must always keep or drop the same visual segment.
+bool ShouldDrawReplayPathFrame( ReplayFrameIndex frameIndex, std::size_t stride )
 {
-    return stride <= 1 || ( ordinal % stride ) == 0;
+    return stride <= 1 || ( frameIndex % static_cast<ReplayFrameIndex>( stride ) ) == 0;
 }
 
 struct ReplayPathRootDrawContext
 {
     RunEditorTracer* tracer = nullptr;
-    const std::chrono::steady_clock::time_point* budgetStart = nullptr;
+    ReplayRibbonDrawQuota* ribbonQuota = nullptr;
     ReplayBodyId rootId;
     ReplayFrameIndex firstFrame = 0;
     ReplayFrameIndex presentFrame = 0;
     ReplayFrameIndex lastFrame = 0;
-    double budgetMilliseconds = 0.0;
-    std::size_t sampleOrdinal = 0;
     std::size_t sampleStride = 1;
-    bool budgetExpired = false;
     bool hasPastPrevious = false;
     bool hasFuturePrevious = false;
     Vector3 pastPrevious = SkullbonezCore::Math::Vector::ZERO_VECTOR;
     Vector3 futurePrevious = SkullbonezCore::Math::Vector::ZERO_VECTOR;
 };
 
-// Why: retained replay path drawing shares the same deadline as prediction so
-// the parent Frame/Replay/PathVisualizer marker is the true budget boundary.
-bool ReplayPathRootDrawBudgetExpired( ReplayPathRootDrawContext& context )
-{
-    if ( context.budgetStart && ReplayPredictionBudgetExpired( *context.budgetStart, context.budgetMilliseconds ) )
-    {
-        context.budgetExpired = true;
-    }
-    return context.budgetExpired;
-}
-
 void DrawReplayRootPath( const ReplaySolverFrameSample& sample, void* userData )
 {
     ReplayPathRootDrawContext& context = *static_cast<ReplayPathRootDrawContext*>( userData );
-    if ( ReplayPathRootDrawBudgetExpired( context ) )
+    if ( ReplayRibbonDrawQuotaExhausted( context.ribbonQuota ) )
     {
         return;
     }
-
-    const std::size_t ordinal = context.sampleOrdinal++;
     if ( sample.frameIndex != context.presentFrame && sample.frameIndex != context.lastFrame &&
-         !ShouldDrawReplayPathSample( ordinal, context.sampleStride ) )
+         !ShouldDrawReplayPathFrame( sample.frameIndex, context.sampleStride ) )
     {
         return;
     }
@@ -1441,12 +1523,17 @@ void DrawReplayRootPath( const ReplaySolverFrameSample& sample, void* userData )
              VectorMagSquared( body->position - context.pastPrevious ) > REPLAY_PATH_MIN_SEGMENT_DISTANCE_SQ )
         {
             const float t = ReplayPathFrameT( sample.frameIndex, context.firstFrame, context.presentFrame );
-            context.tracer->AddReplayPathSegment( context.pastPrevious,
-                                                  body->position,
-                                                  1.0f,
-                                                  t,
-                                                  t,
-                                                  MainMemoryReplayTrajectoryLane::PastRoot );
+            if ( !TryAddReplayPathSegment( *context.tracer,
+                                           context.ribbonQuota,
+                                           context.pastPrevious,
+                                           body->position,
+                                           1.0f,
+                                           t,
+                                           t,
+                                           MainMemoryReplayTrajectoryLane::PastRoot ) )
+            {
+                return;
+            }
         }
         context.pastPrevious = body->position;
         context.hasPastPrevious = true;
@@ -1458,12 +1545,17 @@ void DrawReplayRootPath( const ReplaySolverFrameSample& sample, void* userData )
              VectorMagSquared( body->position - context.futurePrevious ) > REPLAY_PATH_MIN_SEGMENT_DISTANCE_SQ )
         {
             const float t = ReplayPathFrameT( sample.frameIndex, context.presentFrame, context.lastFrame );
-            context.tracer->AddReplayPathSegment( context.futurePrevious,
-                                                  body->position,
-                                                  1.0f - t,
-                                                  1.0f,
-                                                  1.0f - t,
-                                                  MainMemoryReplayTrajectoryLane::FutureRoot );
+            if ( !TryAddReplayPathSegment( *context.tracer,
+                                           context.ribbonQuota,
+                                           context.futurePrevious,
+                                           body->position,
+                                           1.0f - t,
+                                           1.0f,
+                                           1.0f - t,
+                                           MainMemoryReplayTrajectoryLane::FutureRoot ) )
+            {
+                return;
+            }
         }
         context.futurePrevious = body->position;
         context.hasFuturePrevious = true;
@@ -1497,27 +1589,13 @@ struct ReplayPathChildDrawContext
 {
     RunEditorTracer* tracer = nullptr;
     const ColliderStore* colliderStore = nullptr;
-    const std::chrono::steady_clock::time_point* budgetStart = nullptr;
+    ReplayRibbonDrawQuota* ribbonQuota = nullptr;
     std::array<ReplayPathChildDrawState, REPLAY_PATH_MAX_FUTURE_NODES> nodes = {};
     std::size_t nodeCount = 0;
     ReplayFrameIndex presentFrame = 0;
     ReplayFrameIndex lastFrame = 0;
-    double budgetMilliseconds = 0.0;
-    std::size_t sampleOrdinal = 0;
     std::size_t sampleStride = 1;
-    bool budgetExpired = false;
 };
-
-// Why: child paths can multiply retained sample count by future-node count. The
-// budget check keeps that product from dominating a render frame.
-bool ReplayPathChildDrawBudgetExpired( ReplayPathChildDrawContext& context )
-{
-    if ( context.budgetStart && ReplayPredictionBudgetExpired( *context.budgetStart, context.budgetMilliseconds ) )
-    {
-        context.budgetExpired = true;
-    }
-    return context.budgetExpired;
-}
 
 // Why: downstream replay markers should show the collider's real authored
 // shape, not the broadphase radius used for cheap collision culling.
@@ -1687,7 +1765,7 @@ void DrawReplayPredictionRetainedMarkerTrail( const ReplayPredictionRetainedMark
         // direct entry-to-rest chord. Always include the visible reveal edge and
         // completed horizon endpoint, then thin the interior samples.
         const bool endpointFrame = frame.frameIndex == revealFrame || frame.frameIndex == lastFrame;
-        if ( !endpointFrame && ( frameSlot % sampleStride ) != 0 )
+        if ( !endpointFrame && !ShouldDrawReplayPathFrame( frame.frameIndex, sampleStride ) )
         {
             continue;
         }
@@ -1824,11 +1902,6 @@ void DrawReplayChildFinalMarkers( ReplayPathChildDrawContext& context )
     // short while their gray future trails continued past the outline.
     for ( std::size_t i = 0; i < context.nodeCount; ++i )
     {
-        if ( ReplayPathChildDrawBudgetExpired( context ) )
-        {
-            return;
-        }
-
         const ReplayPathChildDrawState& drawState = context.nodes[i];
         if ( !drawState.hasMarkerPose )
         {
@@ -1924,8 +1997,7 @@ void DrawReplayPredictionRagdollTorsoTrails( const std::vector<RunReplayPredicti
                                              ReplayFrameIndex revealFrame,
                                              const SkullbonezCore::GameObjects::GameModelCollection& collection,
                                              RunEditorTracer& tracer,
-                                             const std::chrono::steady_clock::time_point& budgetStart,
-                                             double budgetMilliseconds )
+                                             ReplayRibbonDrawQuota& ribbonQuota )
 {
     const int modelCount = collection.SceneEntityCount();
     frameCount = (std::min)( frameCount, frames.size() );
@@ -1938,11 +2010,10 @@ void DrawReplayPredictionRagdollTorsoTrails( const std::vector<RunReplayPredicti
     const std::size_t sampleStride = ReplayPathStrideForSampleCount( frameCount );
     for ( int modelIndex = 0; modelIndex < modelCount; ++modelIndex )
     {
-        if ( ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ) )
+        if ( ReplayRibbonDrawQuotaExhausted( &ribbonQuota ) )
         {
             return;
         }
-
         if ( !ReplayModelIsRagdollTorso( collection, modelIndex ) )
         {
             continue;
@@ -1950,7 +2021,6 @@ void DrawReplayPredictionRagdollTorsoTrails( const std::vector<RunReplayPredicti
 
         bool hasPrevious = false;
         Vector3 previous = SkullbonezCore::Math::Vector::ZERO_VECTOR;
-        std::size_t ordinal = 0;
         for ( std::size_t frameIndex = 0; frameIndex < frameCount; ++frameIndex )
         {
             const RunReplayPredictionFrame& frame = frames[frameIndex];
@@ -1958,16 +2028,11 @@ void DrawReplayPredictionRagdollTorsoTrails( const std::vector<RunReplayPredicti
             {
                 break;
             }
-            if ( ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ) )
-            {
-                return;
-            }
 
             // Why: the reveal-edge frame must always draw, or trail tips would
             // advance in visible stride-sized jumps instead of growing smoothly.
-            const std::size_t currentOrdinal = ordinal++;
             if ( frame.frameIndex != lastFrame && frame.frameIndex != revealFrame &&
-                 !ShouldDrawReplayPathSample( currentOrdinal, sampleStride ) )
+                 !ShouldDrawReplayPathFrame( frame.frameIndex, sampleStride ) )
             {
                 continue;
             }
@@ -1981,12 +2046,17 @@ void DrawReplayPredictionRagdollTorsoTrails( const std::vector<RunReplayPredicti
             if ( hasPrevious && VectorMagSquared( body->position - previous ) > REPLAY_PATH_MIN_SEGMENT_DISTANCE_SQ )
             {
                 const float t = ReplayPathFrameT( frame.frameIndex, 0, lastFrame );
-                tracer.AddReplayPathSegment( previous,
-                                             body->position,
-                                             0.50f + 0.28f * ( 1.0f - t ),
-                                             0.96f,
-                                             0.92f,
-                                             MainMemoryReplayTrajectoryLane::AuxiliaryTrail );
+                if ( !TryAddReplayPathSegment( tracer,
+                                               &ribbonQuota,
+                                               previous,
+                                               body->position,
+                                               0.50f + 0.28f * ( 1.0f - t ),
+                                               0.96f,
+                                               0.92f,
+                                               MainMemoryReplayTrajectoryLane::AuxiliaryTrail ) )
+                {
+                    return;
+                }
             }
             previous = body->position;
             hasPrevious = true;
@@ -2041,8 +2111,7 @@ void DrawReplayPredictionAffectedBodyTrails( const std::vector<RunReplayPredicti
                                              const SkullbonezCore::GameObjects::GameModelCollection& collection,
                                              const ColliderStore& colliderStore,
                                              RunEditorTracer& tracer,
-                                             const std::chrono::steady_clock::time_point& budgetStart,
-                                             double budgetMilliseconds )
+                                             ReplayRibbonDrawQuota& ribbonQuota )
 {
     frameCount = (std::min)( frameCount, frames.size() );
     if ( frameCount < 2 || rootId.value == 0 )
@@ -2058,20 +2127,11 @@ void DrawReplayPredictionAffectedBodyTrails( const std::vector<RunReplayPredicti
     // motion-derived nodes.
     std::array<ReplayPredictionAffectedBodyTrail, REPLAY_PATH_MAX_FUTURE_NODES> trails = {};
     std::size_t trailCount = 0;
-    // Why: budget exhaustion may stop SCANNING, never marker drawing. Bailing
-    // out of the whole pass made yellow boxes flicker under load; instead the
-    // scan stops early and whatever trails exist still get their markers.
-    bool scanBudgetExhausted = false;
     const RunReplayPredictionFrame& firstFrame = frames.front();
     for ( const RunReplayPredictionBodySample& initialBody : firstFrame.bodies )
     {
-        if ( scanBudgetExhausted || trailCount >= REPLAY_PATH_MAX_FUTURE_NODES )
+        if ( trailCount >= REPLAY_PATH_MAX_FUTURE_NODES )
         {
-            break;
-        }
-        if ( ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ) )
-        {
-            scanBudgetExhausted = true;
             break;
         }
         if ( initialBody.id.value == 0 || initialBody.id.value == rootId.value ||
@@ -2092,11 +2152,6 @@ void DrawReplayPredictionAffectedBodyTrails( const std::vector<RunReplayPredicti
             // outline from pre-spawning ahead of the causal unfold.
             if ( frames[frameSlot].frameIndex > revealFrame )
             {
-                break;
-            }
-            if ( ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ) )
-            {
-                scanBudgetExhausted = true;
                 break;
             }
 
@@ -2135,7 +2190,8 @@ void DrawReplayPredictionAffectedBodyTrails( const std::vector<RunReplayPredicti
 
     const ReplayFrameIndex lastFrame = frames[frameCount - 1].frameIndex;
     const std::size_t sampleStride = ReplayPathStrideForSampleCount( frameCount );
-    for ( std::size_t trailIndex = 0; trailIndex < trailCount && !scanBudgetExhausted; ++trailIndex )
+    for ( std::size_t trailIndex = 0; trailIndex < trailCount && !ReplayRibbonDrawQuotaExhausted( &ribbonQuota );
+          ++trailIndex )
     {
         ReplayPredictionAffectedBodyTrail& trail = trails[trailIndex];
         for ( std::size_t frameSlot = trail.firstFrameSlot + 1; frameSlot < frameCount; ++frameSlot )
@@ -2144,15 +2200,10 @@ void DrawReplayPredictionAffectedBodyTrails( const std::vector<RunReplayPredicti
             {
                 break;
             }
-            if ( ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ) )
-            {
-                scanBudgetExhausted = true;
-                break;
-            }
 
             const RunReplayPredictionFrame& frame = frames[frameSlot];
             if ( frame.frameIndex != lastFrame && frame.frameIndex != revealFrame &&
-                 !ShouldDrawReplayPathSample( frameSlot, sampleStride ) )
+                 !ShouldDrawReplayPathFrame( frame.frameIndex, sampleStride ) )
             {
                 continue;
             }
@@ -2171,12 +2222,17 @@ void DrawReplayPredictionAffectedBodyTrails( const std::vector<RunReplayPredicti
                 float g = 0.65f;
                 float b = 0.18f;
                 ReplayAffectedBodyTrailColor( trailIndex, t, r, g, b );
-                tracer.AddReplayPathSegment( trail.previous,
-                                             body->position,
-                                             r,
-                                             g,
-                                             b,
-                                             MainMemoryReplayTrajectoryLane::AuxiliaryTrail );
+                if ( !TryAddReplayPathSegment( tracer,
+                                               &ribbonQuota,
+                                               trail.previous,
+                                               body->position,
+                                               r,
+                                               g,
+                                               b,
+                                               MainMemoryReplayTrajectoryLane::AuxiliaryTrail ) )
+                {
+                    break;
+                }
             }
 
             if ( ReplayPredictionBodyHasVisibleLinearMotion( *body ) )
@@ -2188,9 +2244,8 @@ void DrawReplayPredictionAffectedBodyTrails( const std::vector<RunReplayPredicti
         }
     }
 
-    // Why: no budget check here — marker emission is bounded and cheap, and
-    // "once rendered, a causal box never leaves" outranks the budget. Only the
-    // frame scans above may be cut short.
+    // Why: marker emission is bounded and cheap, and "once rendered, a causal
+    // box never leaves" outranks draw-time degradation.
     for ( std::size_t trailIndex = 0; trailIndex < trailCount; ++trailIndex )
     {
         const ReplayPredictionAffectedBodyTrail& trail = trails[trailIndex];
@@ -2227,12 +2282,10 @@ void DrawReplayPredictionAffectedBodyTrails( const std::vector<RunReplayPredicti
 void DrawReplayChildPaths( const ReplaySolverFrameSample& sample, void* userData )
 {
     ReplayPathChildDrawContext& context = *static_cast<ReplayPathChildDrawContext*>( userData );
-    if ( ReplayPathChildDrawBudgetExpired( context ) )
+    if ( ReplayRibbonDrawQuotaExhausted( context.ribbonQuota ) )
     {
         return;
     }
-
-    const std::size_t ordinal = context.sampleOrdinal++;
     bool importantChildFrame = sample.frameIndex == context.presentFrame;
     for ( std::size_t i = 0; i < context.nodeCount; ++i )
     {
@@ -2242,9 +2295,9 @@ void DrawReplayChildPaths( const ReplaySolverFrameSample& sample, void* userData
             break;
         }
     }
-    const bool skipSample =
-        sample.frameIndex < context.presentFrame || ( sample.frameIndex != context.lastFrame && !importantChildFrame &&
-                                                      !ShouldDrawReplayPathSample( ordinal, context.sampleStride ) );
+    const bool skipSample = sample.frameIndex < context.presentFrame ||
+                            ( sample.frameIndex != context.lastFrame && !importantChildFrame &&
+                              !ShouldDrawReplayPathFrame( sample.frameIndex, context.sampleStride ) );
     if ( skipSample )
     {
         return;
@@ -2252,11 +2305,6 @@ void DrawReplayChildPaths( const ReplaySolverFrameSample& sample, void* userData
 
     for ( std::size_t i = 0; i < context.nodeCount; ++i )
     {
-        if ( ReplayPathChildDrawBudgetExpired( context ) )
-        {
-            return;
-        }
-
         ReplayPathChildDrawState& drawState = context.nodes[i];
         const ReplaySolverBodySample* body =
             FindReplayBodyByIdWithHint( sample, drawState.node.id, drawState.node.modelIndex );
@@ -2275,12 +2323,17 @@ void DrawReplayChildPaths( const ReplaySolverFrameSample& sample, void* userData
                 float g = 0.54f;
                 float b = 0.18f;
                 ReplayChildIncomingColor( drawState.node.depth, t, r, g, b );
-                context.tracer->AddReplayPathSegment( drawState.incomingPrevious,
-                                                      body->position,
-                                                      r,
-                                                      g,
-                                                      b,
-                                                      MainMemoryReplayTrajectoryLane::FutureChildIncoming );
+                if ( !TryAddReplayPathSegment( *context.tracer,
+                                               context.ribbonQuota,
+                                               drawState.incomingPrevious,
+                                               body->position,
+                                               r,
+                                               g,
+                                               b,
+                                               MainMemoryReplayTrajectoryLane::FutureChildIncoming ) )
+                {
+                    return;
+                }
             }
             drawState.incomingPrevious = body->position;
             drawState.hasIncomingPrevious = true;
@@ -2294,12 +2347,17 @@ void DrawReplayChildPaths( const ReplaySolverFrameSample& sample, void* userData
             float g = 0.5f;
             float b = 0.56f;
             ReplayChildFutureColor( drawState.node.depth, t, r, g, b );
-            context.tracer->AddReplayPathSegment( drawState.previous,
-                                                  body->position,
-                                                  r,
-                                                  g,
-                                                  b,
-                                                  MainMemoryReplayTrajectoryLane::FutureChildOutgoing );
+            if ( !TryAddReplayPathSegment( *context.tracer,
+                                           context.ribbonQuota,
+                                           drawState.previous,
+                                           body->position,
+                                           r,
+                                           g,
+                                           b,
+                                           MainMemoryReplayTrajectoryLane::FutureChildOutgoing ) )
+            {
+                return;
+            }
         }
         if ( sample.frameIndex >= drawState.node.firstFrame )
         {
@@ -3203,7 +3261,7 @@ bool DrawReplayPredictionOverlay( ReplayRuntime& replayRuntime,
                                   const SkullbonezCore::GameObjects::GameModelCollection& modelCollection,
                                   const ColliderStore& colliderStore,
                                   RunEditorTracer& tracer,
-                                  const std::chrono::steady_clock::time_point& budgetStart,
+                                  ReplayRibbonDrawQuota& ribbonQuota,
                                   double budgetMilliseconds )
 {
     const RunReplayPredictionState& prediction = replayRuntime.Prediction();
@@ -3226,7 +3284,7 @@ bool DrawReplayPredictionOverlay( ReplayRuntime& replayRuntime,
     // Why: while the job is still building there is no authoritative ending,
     // so no grey resting box may be derived from the growing prefix.
     const bool bufferComplete = !usingBuildFrames;
-    DrawReplayPredictionBaselineSnapshot( replayRuntime.Prediction().baseline, colliderStore, tracer );
+    DrawReplayPredictionBaselineSnapshot( replayRuntime.Prediction().baseline, colliderStore, tracer, ribbonQuota );
 
     if ( !replayRuntime.PathVisualizer().hasTarget || replayRuntime.PathVisualizer().targetId.value == 0 )
     {
@@ -3238,12 +3296,7 @@ bool DrawReplayPredictionOverlay( ReplayRuntime& replayRuntime,
                                                     revealFrame,
                                                     modelCollection,
                                                     tracer,
-                                                    budgetStart,
-                                                    budgetMilliseconds );
-            (void)ReplayPredictionBudgetExpiredForPass( replayRuntime,
-                                                        MainMemoryReplayBudgetPass::PredictionDrawRagdolls,
-                                                        budgetStart,
-                                                        budgetMilliseconds );
+                                                    ribbonQuota );
         }
         return true;
     }
@@ -3254,7 +3307,6 @@ bool DrawReplayPredictionOverlay( ReplayRuntime& replayRuntime,
         bool hasPrevious = false;
         Vector3 previous = SkullbonezCore::Math::Vector::ZERO_VECTOR;
         ReplayFrameIndex rootLastMotionFrame = 0;
-        std::size_t ordinal = 0;
         for ( std::size_t frameIndex = 0; frameIndex < activePredictionFrameCount; ++frameIndex )
         {
             const RunReplayPredictionFrame& frame = activePredictionFrames[frameIndex];
@@ -3262,19 +3314,11 @@ bool DrawReplayPredictionOverlay( ReplayRuntime& replayRuntime,
             {
                 break;
             }
-            if ( ReplayPredictionBudgetExpiredForPass( replayRuntime,
-                                                       MainMemoryReplayBudgetPass::PredictionDrawRoot,
-                                                       budgetStart,
-                                                       budgetMilliseconds ) )
-            {
-                break;
-            }
 
             // Why: the reveal-edge frame always draws so the line tip grows
             // smoothly instead of jumping ahead one stride at a time.
-            const std::size_t currentOrdinal = ordinal++;
             if ( frame.frameIndex != lastFrame && frame.frameIndex != revealFrame &&
-                 !ShouldDrawReplayPathSample( currentOrdinal, sampleStride ) )
+                 !ShouldDrawReplayPathFrame( frame.frameIndex, sampleStride ) )
             {
                 continue;
             }
@@ -3290,12 +3334,17 @@ bool DrawReplayPredictionOverlay( ReplayRuntime& replayRuntime,
             if ( hasPrevious && VectorMagSquared( body->position - previous ) > REPLAY_PATH_MIN_SEGMENT_DISTANCE_SQ )
             {
                 const float t = ReplayPathFrameT( frame.frameIndex, 0, lastFrame );
-                tracer.AddReplayPathSegment( previous,
-                                             body->position,
-                                             1.0f - t * 0.85f,
-                                             1.0f,
-                                             1.0f - t * 0.72f,
-                                             MainMemoryReplayTrajectoryLane::FutureRoot );
+                if ( !TryAddReplayPathSegment( tracer,
+                                               &ribbonQuota,
+                                               previous,
+                                               body->position,
+                                               1.0f - t * 0.85f,
+                                               1.0f,
+                                               1.0f - t * 0.72f,
+                                               MainMemoryReplayTrajectoryLane::FutureRoot ) )
+                {
+                    break;
+                }
             }
             previous = body->position;
             hasPrevious = true;
@@ -3365,14 +3414,13 @@ bool DrawReplayPredictionOverlay( ReplayRuntime& replayRuntime,
             drawFutureTree = !replayRuntime.Prediction().futureNodeCache.futureNodes.empty();
         }
     }
-    const auto childDrawBudgetStart = std::chrono::steady_clock::now();
-
     if ( drawFutureTree )
     {
         PROFILE_SCOPED( "Frame/Replay/Prediction/DrawChildren" );
         ReplayPathChildDrawContext childDraw;
         childDraw.tracer = &tracer;
         childDraw.colliderStore = &colliderStore;
+        childDraw.ribbonQuota = &ribbonQuota;
         childDraw.presentFrame = 0;
         childDraw.lastFrame = lastFrame;
         childDraw.sampleStride = sampleStride;
@@ -3383,28 +3431,21 @@ bool DrawReplayPredictionOverlay( ReplayRuntime& replayRuntime,
             childDraw.nodes[i].node = replayRuntime.Prediction().futureNodeCache.futureNodes[i];
         }
 
-        // Why: budget exhaustion may stop line SCANNING, never the marker pass
-        // below — bailing out before markers made causal boxes flicker off for
-        // a frame whenever the child scan ran long.
-        bool childScanBudgetExhausted = false;
-        std::size_t ordinal = 0;
-        for ( std::size_t frameIndex = 0; frameIndex < activePredictionFrameCount && !childScanBudgetExhausted;
-              ++frameIndex )
+        // Invariant: child drawing has no wall-clock bailout. The future-node
+        // cap and frame-index stride bound marker work, and a revealed causal
+        // segment must remain visible once it enters the overlay.
+        for ( std::size_t frameIndex = 0; frameIndex < activePredictionFrameCount; ++frameIndex )
         {
+            if ( ReplayRibbonDrawQuotaExhausted( &ribbonQuota ) )
+            {
+                break;
+            }
             const RunReplayPredictionFrame& frame = activePredictionFrames[frameIndex];
             if ( frame.frameIndex > revealFrame )
             {
                 break;
             }
-            if ( ReplayPredictionBudgetExpiredForPass( replayRuntime,
-                                                       MainMemoryReplayBudgetPass::PredictionDrawChildren,
-                                                       childDrawBudgetStart,
-                                                       budgetMilliseconds ) )
-            {
-                break;
-            }
 
-            const std::size_t currentOrdinal = ordinal++;
             bool importantChildFrame =
                 frame.frameIndex == 0 || frame.frameIndex == lastFrame || frame.frameIndex == revealFrame;
             for ( std::size_t i = 0; i < childDraw.nodeCount; ++i )
@@ -3415,22 +3456,13 @@ bool DrawReplayPredictionOverlay( ReplayRuntime& replayRuntime,
                     break;
                 }
             }
-            if ( !importantChildFrame && !ShouldDrawReplayPathSample( currentOrdinal, sampleStride ) )
+            if ( !importantChildFrame && !ShouldDrawReplayPathFrame( frame.frameIndex, sampleStride ) )
             {
                 continue;
             }
 
             for ( std::size_t i = 0; i < childDraw.nodeCount; ++i )
             {
-                if ( ReplayPredictionBudgetExpiredForPass( replayRuntime,
-                                                           MainMemoryReplayBudgetPass::PredictionDrawChildren,
-                                                           childDrawBudgetStart,
-                                                           budgetMilliseconds ) )
-                {
-                    childScanBudgetExhausted = true;
-                    break;
-                }
-
                 ReplayPathChildDrawState& drawState = childDraw.nodes[i];
                 const RunReplayPredictionBodySample* body =
                     FindReplayPredictionBodyByIdWithHint( frame, drawState.node.id, drawState.node.modelIndex );
@@ -3450,12 +3482,17 @@ bool DrawReplayPredictionOverlay( ReplayRuntime& replayRuntime,
                         float g = 0.54f;
                         float b = 0.18f;
                         ReplayChildIncomingColor( drawState.node.depth, t, r, g, b );
-                        tracer.AddReplayPathSegment( drawState.incomingPrevious,
-                                                     body->position,
-                                                     r,
-                                                     g,
-                                                     b,
-                                                     MainMemoryReplayTrajectoryLane::FutureChildIncoming );
+                        if ( !TryAddReplayPathSegment( tracer,
+                                                       &ribbonQuota,
+                                                       drawState.incomingPrevious,
+                                                       body->position,
+                                                       r,
+                                                       g,
+                                                       b,
+                                                       MainMemoryReplayTrajectoryLane::FutureChildIncoming ) )
+                        {
+                            break;
+                        }
                     }
                     drawState.incomingPrevious = body->position;
                     drawState.hasIncomingPrevious = true;
@@ -3498,12 +3535,17 @@ bool DrawReplayPredictionOverlay( ReplayRuntime& replayRuntime,
                     float g = 0.5f;
                     float b = 0.56f;
                     ReplayChildFutureColor( drawState.node.depth, t, r, g, b );
-                    tracer.AddReplayPathSegment( drawState.previous,
-                                                 body->position,
-                                                 r,
-                                                 g,
-                                                 b,
-                                                 MainMemoryReplayTrajectoryLane::FutureChildOutgoing );
+                    if ( !TryAddReplayPathSegment( tracer,
+                                                   &ribbonQuota,
+                                                   drawState.previous,
+                                                   body->position,
+                                                   r,
+                                                   g,
+                                                   b,
+                                                   MainMemoryReplayTrajectoryLane::FutureChildOutgoing ) )
+                    {
+                        break;
+                    }
                 }
                 if ( frame.frameIndex >= drawState.node.firstFrame && drawState.active )
                 {
@@ -3524,10 +3566,6 @@ bool DrawReplayPredictionOverlay( ReplayRuntime& replayRuntime,
                                            bufferComplete ? activePredictionFrameCount : 0 );
     }
 
-    if ( !ReplayPredictionBudgetExpiredForPass( replayRuntime,
-                                                MainMemoryReplayBudgetPass::PredictionDrawAffectedBodies,
-                                                childDrawBudgetStart,
-                                                budgetMilliseconds ) )
     {
         PROFILE_SCOPED( "Frame/Replay/Prediction/DrawAffectedBodies" );
         DrawReplayPredictionAffectedBodyTrails( activePredictionFrames,
@@ -3541,23 +3579,17 @@ bool DrawReplayPredictionOverlay( ReplayRuntime& replayRuntime,
                                                 modelCollection,
                                                 colliderStore,
                                                 tracer,
-                                                childDrawBudgetStart,
-                                                budgetMilliseconds );
+                                                ribbonQuota );
     }
 
-    if ( replayRuntime.Prediction().ragdollVisualsEnabled &&
-         !ReplayPredictionBudgetExpiredForPass( replayRuntime,
-                                                MainMemoryReplayBudgetPass::PredictionDrawRagdolls,
-                                                childDrawBudgetStart,
-                                                budgetMilliseconds ) )
+    if ( replayRuntime.Prediction().ragdollVisualsEnabled )
     {
         DrawReplayPredictionRagdollTorsoTrails( activePredictionFrames,
                                                 activePredictionFrameCount,
                                                 revealFrame,
                                                 modelCollection,
                                                 tracer,
-                                                childDrawBudgetStart,
-                                                budgetMilliseconds );
+                                                ribbonQuota );
     }
     if ( bufferComplete )
     {
@@ -3585,6 +3617,7 @@ void RenderReplayPredictionVisualizer( ReplayRuntime& replayRuntime,
                                        double fallbackSourceSimulationSeconds,
                                        double simulationTotalSeconds,
                                        RunEditorTracer& tracer,
+                                       ReplayRibbonDrawQuota& ribbonQuota,
                                        const std::chrono::steady_clock::time_point& budgetStart,
                                        double budgetMilliseconds )
 {
@@ -3600,7 +3633,7 @@ void RenderReplayPredictionVisualizer( ReplayRuntime& replayRuntime,
                                      modelCollection,
                                      colliderStore,
                                      tracer,
-                                     std::chrono::steady_clock::now(),
+                                     ribbonQuota,
                                      budgetMilliseconds );
         return;
     }
@@ -3699,15 +3732,15 @@ void RenderReplayPredictionVisualizer( ReplayRuntime& replayRuntime,
         }
     }
 
-    // Why: prediction stepping owns the private-engine budget, but visible replay
-    // lines need a draw chance even on frames where stepping consumes that
-    // budget. Start a fresh draw-only timer so the overlay degrades by detail
-    // instead of disappearing for a frame.
+    // Why: prediction stepping and future-node discovery still share the
+    // private-engine budget, but draw work is capped by frame-index strides and
+    // the fixed ribbon quota so visible trajectory lines do not flicker under
+    // load.
     DrawReplayPredictionOverlay( replayRuntime,
                                  modelCollection,
                                  colliderStore,
                                  tracer,
-                                 std::chrono::steady_clock::now(),
+                                 ribbonQuota,
                                  budgetMilliseconds );
 }
 } // namespace
@@ -3717,12 +3750,13 @@ namespace SkullbonezCore::Basics::ReplayOverlay
 void RenderReplayPathVisualizer( const ReplayPathVisualizerRenderContext& context )
 {
     PROFILE_SCOPED( "Frame/Replay/PathVisualizer" );
-    // Concept: this marker owns the replay visualizer frame budget.
+    // Concept: this marker owns replay visualizer budgeting.
     //
-    // Prediction, retained solver paths, future-node tree updates, and contact
-    // markers all share this deadline. Child functions receive the same start
-    // time so profiler nesting cannot hide extra replay work outside the cap.
+    // Prediction stepping plus retained/future-node build work share the
+    // wall-clock deadline. Visible trajectory drawing spends a fixed ribbon
+    // quota instead, so completed segments do not flicker under transient load.
     const auto visualizerStart = std::chrono::steady_clock::now();
+    ReplayRibbonDrawQuota ribbonQuota = BeginReplayRibbonDrawQuota( context.tracer );
     RenderReplayPredictionVisualizer( context.replayRuntime,
                                       context.models,
                                       context.config,
@@ -3732,6 +3766,7 @@ void RenderReplayPathVisualizer( const ReplayPathVisualizerRenderContext& contex
                                       context.simulationTimeSinceLastStart,
                                       context.simulationTotalTime,
                                       context.tracer,
+                                      ribbonQuota,
                                       visualizerStart,
                                       REPLAY_PREDICTION_MAX_WORK_MILLISECONDS );
     const RunReplayPredictionState& prediction = context.replayRuntime.Prediction();
@@ -3859,30 +3894,21 @@ void RenderReplayPathVisualizer( const ReplayPathVisualizerRenderContext& contex
             PROFILE_SCOPED( "Frame/Replay/PathVisualizer/RetainedTarget/DrawRoot" );
             ReplayPathRootDrawContext rootDraw;
             rootDraw.tracer = &context.tracer;
-            rootDraw.budgetStart = &visualizerStart;
+            rootDraw.ribbonQuota = &ribbonQuota;
             rootDraw.rootId = target.id;
             rootDraw.firstFrame = bounds.firstFrame;
             rootDraw.presentFrame = presentFrame;
             rootDraw.lastFrame = bounds.lastFrame;
-            rootDraw.budgetMilliseconds = REPLAY_PREDICTION_MAX_WORK_MILLISECONDS;
             rootDraw.sampleStride = sampleStride;
             context.replayRuntime.Solver().ForEachSampleChronological( DrawReplayRootPath, &rootDraw );
-        }
-        if ( ReplayPredictionBudgetExpiredForPass( context.replayRuntime,
-                                                   MainMemoryReplayBudgetPass::RetainedDrawRoot,
-                                                   visualizerStart,
-                                                   REPLAY_PREDICTION_MAX_WORK_MILLISECONDS ) )
-        {
-            return;
         }
 
         ReplayPathChildDrawContext childDraw;
         childDraw.tracer = &context.tracer;
         childDraw.colliderStore = &colliderStore;
-        childDraw.budgetStart = &visualizerStart;
+        childDraw.ribbonQuota = &ribbonQuota;
         childDraw.presentFrame = presentFrame;
         childDraw.lastFrame = bounds.lastFrame;
-        childDraw.budgetMilliseconds = REPLAY_PREDICTION_MAX_WORK_MILLISECONDS;
         childDraw.sampleStride = sampleStride;
         childDraw.nodeCount = (std::min)( targetVisualizer.futureNodes.size(), REPLAY_PATH_MAX_FUTURE_NODES );
         for ( std::size_t i = 0; i < childDraw.nodeCount; ++i )
@@ -3895,13 +3921,6 @@ void RenderReplayPathVisualizer( const ReplayPathVisualizerRenderContext& contex
             context.replayRuntime.Solver().ForEachSampleChronological( DrawReplayChildPaths, &childDraw );
             DrawReplayChildFinalMarkers( childDraw );
         }
-        if ( ReplayPredictionBudgetExpiredForPass( context.replayRuntime,
-                                                   MainMemoryReplayBudgetPass::RetainedDrawChildren,
-                                                   visualizerStart,
-                                                   REPLAY_PREDICTION_MAX_WORK_MILLISECONDS ) )
-        {
-            return;
-        }
 
         if ( target.id.value == context.replayRuntime.PathVisualizer().targetId.value )
         {
@@ -3910,14 +3929,6 @@ void RenderReplayPathVisualizer( const ReplayPathVisualizerRenderContext& contex
 
         {
             PROFILE_SCOPED( "Frame/Replay/PathVisualizer/RetainedTarget/DrawMarker" );
-            if ( ReplayPredictionBudgetExpiredForPass( context.replayRuntime,
-                                                       MainMemoryReplayBudgetPass::RetainedDrawMarker,
-                                                       visualizerStart,
-                                                       REPLAY_PREDICTION_MAX_WORK_MILLISECONDS ) )
-            {
-                return;
-            }
-
             ModelRowHint targetHint;
             targetHint.value = target.modelIndex;
             int markerIndex = -1;
