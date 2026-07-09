@@ -34,6 +34,7 @@ Related:
 
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
@@ -42,7 +43,7 @@ using namespace SkullbonezCore::Basics;
 
 namespace
 {
-constexpr float MEMORY_SUMMARY_BLOCK_H = 138.0f;
+constexpr float MEMORY_SUMMARY_BLOCK_H = 176.0f;
 constexpr float MEMORY_EVENT_HEADER_H = 62.0f;
 constexpr float MEMORY_EVENT_ROW_H = 22.0f;
 constexpr float MEMORY_EVENT_BOTTOM_PAD = 18.0f;
@@ -505,6 +506,28 @@ void DrawMemoryRow( const SkullbonezCore::UI::UIDrawContext& draw,
     draw.Text( x + labelW, y, 9.6f, r, g, b, value );
 }
 
+uint64_t ReplayTrajectoryLaneCounter( const uint64_t* counters, MainMemoryReplayTrajectoryLane lane )
+{
+    const std::size_t laneIndex = static_cast<std::size_t>( lane );
+    return laneIndex < MAIN_MEMORY_REPLAY_TRAJECTORY_LANE_COUNT ? counters[laneIndex] : 0;
+}
+
+// Concept: the memory tab prints emitted/dropped trajectory pairs compactly so
+// a manual flicker repro can watch which lane starts dropping segments.
+void FormatReplayTrajectoryPair( char* out,
+                                 std::size_t outSize,
+                                 const char* label,
+                                 const MainMemoryReplayTrajectoryStats& trajectory,
+                                 MainMemoryReplayTrajectoryLane lane )
+{
+    snprintf( out,
+              outSize,
+              "%s %llu/%llu",
+              label,
+              static_cast<unsigned long long>( ReplayTrajectoryLaneCounter( trajectory.emittedSegments, lane ) ),
+              static_cast<unsigned long long>( ReplayTrajectoryLaneCounter( trajectory.droppedSegments, lane ) ) );
+}
+
 void DrawMainMemoryPanel( const SkullbonezCore::UI::UIDrawContext& draw,
                           const SkullbonezCore::UI::InGameUIFrameData& data,
                           float contentX,
@@ -563,26 +586,32 @@ void DrawMainMemoryPanel( const SkullbonezCore::UI::UIDrawContext& draw,
     snprintf( text, sizeof( text ), "P %s  S %s  Pred %s", a, b, c );
     draw.Text( subX, row0 + 18.0f, 8.4f, 0.48f, 0.60f, 0.64f, text );
 
-    DrawMemoryRow( draw, x, row0 + 36.0f, labelW, "Objects", memory.gameObjects.totalBytes, 0.70f, 0.90f, 0.54f );
+    FormatMemoryMiB( memory.replay.pathAndCauseBytes, a, sizeof( a ) );
+    FormatMemoryMiB( memory.replay.renderScratchBytes, b, sizeof( b ) );
+    FormatMemoryMiB( memory.replay.trajectory.storeBytes, c, sizeof( c ) );
+    snprintf( text, sizeof( text ), "Path %s  Scratch %s  Store %s", a, b, c );
+    draw.Text( subX, row0 + 32.0f, 8.1f, 0.44f, 0.56f, 0.60f, text );
+
+    DrawMemoryRow( draw, x, row0 + 50.0f, labelW, "Objects", memory.gameObjects.totalBytes, 0.70f, 0.90f, 0.54f );
     const uint64_t gameObjectStoreBytes = memory.gameObjects.physicsStoreBytes + memory.gameObjects.colliderStoreBytes +
                                           memory.gameObjects.renderStoreBytes;
     FormatMemoryMiB( memory.gameObjects.modelVectorBytes, a, sizeof( a ) );
     FormatMemoryMiB( gameObjectStoreBytes, b, sizeof( b ) );
     FormatMemoryMiB( memory.gameObjects.physicsWorldBytes, c, sizeof( c ) );
     snprintf( text, sizeof( text ), "Models %s  Stores %s  World %s", a, b, c );
-    draw.Text( subX, row0 + 36.0f, 8.4f, 0.48f, 0.60f, 0.64f, text );
+    draw.Text( subX, row0 + 50.0f, 8.4f, 0.48f, 0.60f, 0.64f, text );
 
-    DrawMemoryRow( draw, x, row0 + 54.0f, labelW, "Unattrib", memory.unattributedProcessBytes, 0.82f, 0.74f, 0.55f );
+    DrawMemoryRow( draw, x, row0 + 68.0f, labelW, "Unattrib", memory.unattributedProcessBytes, 0.82f, 0.74f, 0.55f );
     FormatMemoryMiB( memory.trackedEngineBytes, a, sizeof( a ) );
     FormatMemoryMiB( memory.reconciledTotalBytes, b, sizeof( b ) );
     snprintf( text, sizeof( text ), "Tracked %s  Sum %s", a, b );
-    draw.Text( subX, row0 + 54.0f, 8.4f, 0.48f, 0.60f, 0.64f, text );
+    draw.Text( subX, row0 + 68.0f, 8.4f, 0.48f, 0.60f, 0.64f, text );
 
     if ( memory.trackedOvershootBytes > 0 )
     {
         FormatMemoryMiB( memory.trackedOvershootBytes, a, sizeof( a ) );
         snprintf( text, sizeof( text ), "Tracked exceeds process by %s", a );
-        draw.Text( x, row0 + 76.0f, 9.2f, 0.95f, 0.58f, 0.38f, text );
+        draw.Text( x, row0 + 92.0f, 9.2f, 0.95f, 0.58f, 0.38f, text );
     }
     else
     {
@@ -593,8 +622,94 @@ void DrawMainMemoryPanel( const SkullbonezCore::UI::UIDrawContext& draw,
                   static_cast<unsigned long long>( memory.gameObjects.modelCapacity ),
                   static_cast<unsigned long long>( memory.replay.presentationSamples ),
                   static_cast<unsigned long long>( memory.replay.solverSamples ) );
-        draw.Text( x, row0 + 76.0f, 8.8f, 0.48f, 0.60f, 0.64f, text );
+        draw.Text( x, row0 + 92.0f, 8.8f, 0.48f, 0.60f, 0.64f, text );
     }
+
+    char pastPair[36] = {};
+    char futurePair[36] = {};
+    char childInPair[40] = {};
+    char childOutPair[40] = {};
+    FormatReplayTrajectoryPair( pastPair,
+                                sizeof( pastPair ),
+                                "past",
+                                memory.replay.trajectory,
+                                MainMemoryReplayTrajectoryLane::PastRoot );
+    FormatReplayTrajectoryPair( futurePair,
+                                sizeof( futurePair ),
+                                "future",
+                                memory.replay.trajectory,
+                                MainMemoryReplayTrajectoryLane::FutureRoot );
+    FormatReplayTrajectoryPair( childInPair,
+                                sizeof( childInPair ),
+                                "child-in",
+                                memory.replay.trajectory,
+                                MainMemoryReplayTrajectoryLane::FutureChildIncoming );
+    FormatReplayTrajectoryPair( childOutPair,
+                                sizeof( childOutPair ),
+                                "child-out",
+                                memory.replay.trajectory,
+                                MainMemoryReplayTrajectoryLane::FutureChildOutgoing );
+    snprintf( text, sizeof( text ), "traj seg e/d  %s  %s  %s  %s", pastPair, futurePair, childInPair, childOutPair );
+    draw.Text( x, row0 + 112.0f, 8.0f, 0.48f, 0.66f, 0.68f, text );
+
+    char retainedPair[40] = {};
+    char baselinePair[40] = {};
+    char markerPair[40] = {};
+    char auxiliaryPair[40] = {};
+    FormatReplayTrajectoryPair( retainedPair,
+                                sizeof( retainedPair ),
+                                "retained",
+                                memory.replay.trajectory,
+                                MainMemoryReplayTrajectoryLane::RetainedTrail );
+    FormatReplayTrajectoryPair( baselinePair,
+                                sizeof( baselinePair ),
+                                "base",
+                                memory.replay.trajectory,
+                                MainMemoryReplayTrajectoryLane::BaselineRoot );
+    FormatReplayTrajectoryPair( markerPair,
+                                sizeof( markerPair ),
+                                "mark",
+                                memory.replay.trajectory,
+                                MainMemoryReplayTrajectoryLane::CausalMarker );
+    FormatReplayTrajectoryPair( auxiliaryPair,
+                                sizeof( auxiliaryPair ),
+                                "aux",
+                                memory.replay.trajectory,
+                                MainMemoryReplayTrajectoryLane::AuxiliaryTrail );
+    snprintf( text, sizeof( text ), "%s  %s  %s  %s", retainedPair, baselinePair, markerPair, auxiliaryPair );
+    draw.Text( x, row0 + 126.0f, 8.0f, 0.48f, 0.66f, 0.68f, text );
+
+    const uint64_t predictionDrawExpiries =
+        memory.replay.trajectory
+            .budgetExpiries[static_cast<std::size_t>( MainMemoryReplayBudgetPass::PredictionDrawRoot )] +
+        memory.replay.trajectory
+            .budgetExpiries[static_cast<std::size_t>( MainMemoryReplayBudgetPass::PredictionDrawChildren )] +
+        memory.replay.trajectory
+            .budgetExpiries[static_cast<std::size_t>( MainMemoryReplayBudgetPass::PredictionDrawAffectedBodies )] +
+        memory.replay.trajectory
+            .budgetExpiries[static_cast<std::size_t>( MainMemoryReplayBudgetPass::PredictionDrawRagdolls )];
+    const uint64_t retainedDrawExpiries =
+        memory.replay.trajectory
+            .budgetExpiries[static_cast<std::size_t>( MainMemoryReplayBudgetPass::RetainedDrawRoot )] +
+        memory.replay.trajectory
+            .budgetExpiries[static_cast<std::size_t>( MainMemoryReplayBudgetPass::RetainedDrawChildren )] +
+        memory.replay.trajectory
+            .budgetExpiries[static_cast<std::size_t>( MainMemoryReplayBudgetPass::RetainedDrawMarker )];
+    snprintf(
+        text,
+        sizeof( text ),
+        "budget begin %llu step %llu pdraw %llu rdraw %llu rebuild d/a %llu/%llu",
+        static_cast<unsigned long long>( memory.replay.trajectory.budgetExpiries[static_cast<std::size_t>(
+            MainMemoryReplayBudgetPass::PredictionBegin )] ),
+        static_cast<unsigned long long>( memory.replay.trajectory.budgetExpiries[static_cast<std::size_t>(
+            MainMemoryReplayBudgetPass::PredictionStep )] ),
+        static_cast<unsigned long long>( predictionDrawExpiries ),
+        static_cast<unsigned long long>( retainedDrawExpiries ),
+        static_cast<unsigned long long>(
+            memory.replay.trajectory.rebuildCauses[static_cast<std::size_t>( MainMemoryReplayRebuildCause::Dirty )] ),
+        static_cast<unsigned long long>( memory.replay.trajectory.rebuildCauses[static_cast<std::size_t>(
+            MainMemoryReplayRebuildCause::AutomaticRefresh )] ) );
+    draw.Text( x, row0 + 140.0f, 8.0f, 0.48f, 0.66f, 0.68f, text );
 }
 
 void DrawReserveGrowthEvents( const SkullbonezCore::UI::UIDrawContext& draw,

@@ -50,6 +50,7 @@ Related:
 #pragma once
 
 #include "../../Core/Common.h"
+#include "../../Core/MainMemoryStats.h"
 #include "../Editor/LauncherLaser.h"
 #include "../RuntimeCameraMode.h"
 #include "../../Maths/Matrix4.h"
@@ -319,7 +320,8 @@ class RunEditorTracer
                                     float r,
                                     float g,
                                     float bl,
-                                    const ReplayRibbonStyle& style );
+                                    const ReplayRibbonStyle& style,
+                                    MainMemoryReplayTrajectoryLane lane );
     void EmitReplayRibbonGlowPairTo( std::vector<float>& ribbonData,
                                      const Math::Vector::Vector3& a,
                                      const Math::Vector::Vector3& b,
@@ -327,7 +329,8 @@ class RunEditorTracer
                                      float g,
                                      float bl,
                                      const ReplayRibbonStyle& glow,
-                                     const ReplayRibbonStyle& core );
+                                     const ReplayRibbonStyle& core,
+                                     MainMemoryReplayTrajectoryLane lane );
     void EmitReplayRibbonShapeOutlineTo( std::vector<float>& ribbonData,
                                          const Math::Vector::Vector3& position,
                                          const Math::Orientation::Quaternion& orientation,
@@ -335,12 +338,19 @@ class RunEditorTracer
                                          float r,
                                          float g,
                                          float b,
-                                         const ReplayRibbonStyle& style );
+                                         const ReplayRibbonStyle& style,
+                                         MainMemoryReplayTrajectoryLane lane );
     void BuildReplayRibbonVertices( const Math::Vector::Vector3& cameraEye, const Math::Vector::Vector3& cameraUp );
+    MainMemoryReplayTrajectoryStats m_replayTrajectoryStats;                // Frame-local replay ribbon counters sampled by ReplayRuntime.
 
   public:
     RunEditorTracer();
     void Clear();
+    // Resets only the replay trajectory counters; callers use this before the
+    // replay pass so editor tool ribbons do not count as replay trajectory work.
+    void ClearReplayTrajectoryStats();
+    // Returns the current replay-pass counters without taking ownership.
+    const MainMemoryReplayTrajectoryStats& ReplayTrajectoryStats() const;
     void AddPlacementRay( const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& hitPoint );
     void AddPlacementGhost( int objectType,
                             const Math::Vector::Vector3& center,
@@ -354,7 +364,8 @@ class RunEditorTracer
                                const Math::Vector::Vector3& end,
                                float r,
                                float g,
-                               float b );
+                               float b,
+                               MainMemoryReplayTrajectoryLane lane = MainMemoryReplayTrajectoryLane::FutureRoot );
     void AddReplayCausalTrailSegment( const Math::Vector::Vector3& start,
                                       const Math::Vector::Vector3& end,
                                       float r,

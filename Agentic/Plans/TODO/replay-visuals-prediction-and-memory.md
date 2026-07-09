@@ -233,8 +233,15 @@ C) runs last, deleting code the rewrite has already orphaned.
 ### Stage checklists
 
 Stage 0 — Instrument & document (merges old B1)
-- [ ] 0.1 Counters: segments emitted/dropped per lane, budget expiries per
+- [x] 0.1 Counters: segments emitted/dropped per lane, budget expiries per
   pass, rebuild causes, store bytes; surface via memory stats/UI tab.
+  Complete 2026-07-09: added enum-indexed replay trajectory lanes, budget-pass
+  expiries, rebuild causes, and store-byte slot to `MainMemoryReplayStats`;
+  `RunEditorTracer` now counts emitted/dropped replay ribbon segments by lane,
+  `ReplayRuntime` accumulates pass/rebuild counters, memory dump JSON exposes
+  the full per-lane/per-pass breakdown, and the Memory tab shows compact
+  trajectory segment/budget/rebuild lines. Validation:
+  `tools\validate_fast.bat` passed (`Agentic/Reports/validate_fast_replay_visuals_stage0_1_20260709.log`).
 - [ ] 0.2 Per-category replay memory byte accounting (old B1) — this
   measurement decides how much of Stage 8 is worth building.
 - [ ] 0.3 Manual repro session: confirm or kill H1–H5; record results here.

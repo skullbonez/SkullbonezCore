@@ -741,6 +741,11 @@ class ReplayRuntime
     void StoreLauncherVisualBackup( const ReplayLauncherVisualSample& sample );
     const ReplayLauncherVisualSample& LauncherVisualBackup() const;
     void ClearLauncherVisualBackup();
+    // Accumulates one rendered replay overlay pass into the repro-session
+    // trajectory counters exposed through memory diagnostics.
+    void RecordReplayTrajectoryFrameStats( const MainMemoryReplayTrajectoryStats& frameStats );
+    void RecordReplayTrajectoryBudgetExpiry( MainMemoryReplayBudgetPass pass );
+    void RecordReplayTrajectoryRebuildCause( MainMemoryReplayRebuildCause cause );
     MainMemoryReplayStats CollectMemoryStats() const;
     void RecordEvent( ReplayEventKind kind,
                       ReplayFrameIndex frameIndex,
@@ -797,6 +802,8 @@ class ReplayRuntime
     RunReplayCameraState m_camera;
     RunReplayPathVisualizerState m_pathVisualizer;
     RunReplayPredictionState m_prediction;
+    MainMemoryReplayTrajectoryStats
+        m_trajectoryVisualStats;                                      // Cumulative replay trajectory diagnostics for the current process.
     RunReplayCauseTreeState m_causeTree;
     RunReplayVelocityEditState m_velocityEdit;
     std::vector<ReplayPredictionGhostDrawRequest> m_predictionGhostDrawRequests;

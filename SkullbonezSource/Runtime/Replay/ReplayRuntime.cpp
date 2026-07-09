@@ -2490,6 +2490,36 @@ void ReplayRuntime::ClearLauncherVisualBackup()
     m_launcherVisualBackupActive = false;
 }
 
+void ReplayRuntime::RecordReplayTrajectoryFrameStats( const MainMemoryReplayTrajectoryStats& frameStats )
+{
+    // Concept: trajectory segment counters are cumulative repro-session
+    // evidence. Store bytes remain a current snapshot and are refreshed by
+    // CollectMemoryStats once the TrajectoryStore exists.
+    for ( std::size_t i = 0; i < MAIN_MEMORY_REPLAY_TRAJECTORY_LANE_COUNT; ++i )
+    {
+        m_trajectoryVisualStats.emittedSegments[i] += frameStats.emittedSegments[i];
+        m_trajectoryVisualStats.droppedSegments[i] += frameStats.droppedSegments[i];
+    }
+}
+
+void ReplayRuntime::RecordReplayTrajectoryBudgetExpiry( MainMemoryReplayBudgetPass pass )
+{
+    const std::size_t passIndex = static_cast<std::size_t>( pass );
+    if ( passIndex < MAIN_MEMORY_REPLAY_BUDGET_PASS_COUNT )
+    {
+        ++m_trajectoryVisualStats.budgetExpiries[passIndex];
+    }
+}
+
+void ReplayRuntime::RecordReplayTrajectoryRebuildCause( MainMemoryReplayRebuildCause cause )
+{
+    const std::size_t causeIndex = static_cast<std::size_t>( cause );
+    if ( causeIndex < MAIN_MEMORY_REPLAY_REBUILD_CAUSE_COUNT )
+    {
+        ++m_trajectoryVisualStats.rebuildCauses[causeIndex];
+    }
+}
+
 MainMemoryReplayStats ReplayRuntime::CollectMemoryStats() const
 {
     MainMemoryReplayStats stats;
@@ -2545,6 +2575,8 @@ MainMemoryReplayStats ReplayRuntime::CollectMemoryStats() const
     stats.renderScratchBytes += static_cast<uint64_t>( sizeof( m_launcherVisualBackup ) );
     stats.renderScratchBytes += LauncherVisualMemoryBytes( m_launcherVisualBackup );
     stats.ghostRequests = m_predictionGhostDrawRequests.size();
+    stats.trajectory = m_trajectoryVisualStats;
+    stats.trajectory.storeBytes = 0;
 
     stats.totalBytes = stats.presentationBytes + stats.solverBytes + stats.eventsBytes + stats.loadedReplayBytes +
                        stats.predictionBytes + stats.pathAndCauseBytes + stats.renderScratchBytes;

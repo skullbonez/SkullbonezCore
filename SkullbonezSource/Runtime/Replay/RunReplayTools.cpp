@@ -225,6 +225,22 @@ bool ReplayPredictionBudgetExpired( const std::chrono::steady_clock::time_point&
     return budgetMilliseconds > 0.0 && ReplayPredictionElapsedMilliseconds( start ) >= budgetMilliseconds;
 }
 
+// Why: Stage-0 replay diagnostics need to know which visualizer pass lost work.
+// Keep the accounting beside the existing budget checks so later stages can
+// delete the budgets without hunting for a separate telemetry path.
+bool ReplayPredictionBudgetExpiredForPass( ReplayRuntime& replayRuntime,
+                                           MainMemoryReplayBudgetPass pass,
+                                           const std::chrono::steady_clock::time_point& start,
+                                           double budgetMilliseconds )
+{
+    if ( !ReplayPredictionBudgetExpired( start, budgetMilliseconds ) )
+    {
+        return false;
+    }
+    replayRuntime.RecordReplayTrajectoryBudgetExpiry( pass );
+    return true;
+}
+
 double ReplayPredictionRemainingMilliseconds( const std::chrono::steady_clock::time_point& start,
                                               double budgetMilliseconds )
 {
@@ -1425,7 +1441,12 @@ void DrawReplayRootPath( const ReplaySolverFrameSample& sample, void* userData )
              VectorMagSquared( body->position - context.pastPrevious ) > REPLAY_PATH_MIN_SEGMENT_DISTANCE_SQ )
         {
             const float t = ReplayPathFrameT( sample.frameIndex, context.firstFrame, context.presentFrame );
-            context.tracer->AddReplayPathSegment( context.pastPrevious, body->position, 1.0f, t, t );
+            context.tracer->AddReplayPathSegment( context.pastPrevious,
+                                                  body->position,
+                                                  1.0f,
+                                                  t,
+                                                  t,
+                                                  MainMemoryReplayTrajectoryLane::PastRoot );
         }
         context.pastPrevious = body->position;
         context.hasPastPrevious = true;
@@ -1437,7 +1458,12 @@ void DrawReplayRootPath( const ReplaySolverFrameSample& sample, void* userData )
              VectorMagSquared( body->position - context.futurePrevious ) > REPLAY_PATH_MIN_SEGMENT_DISTANCE_SQ )
         {
             const float t = ReplayPathFrameT( sample.frameIndex, context.presentFrame, context.lastFrame );
-            context.tracer->AddReplayPathSegment( context.futurePrevious, body->position, 1.0f - t, 1.0f, 1.0f - t );
+            context.tracer->AddReplayPathSegment( context.futurePrevious,
+                                                  body->position,
+                                                  1.0f - t,
+                                                  1.0f,
+                                                  1.0f - t,
+                                                  MainMemoryReplayTrajectoryLane::FutureRoot );
         }
         context.futurePrevious = body->position;
         context.hasFuturePrevious = true;
@@ -1955,7 +1981,12 @@ void DrawReplayPredictionRagdollTorsoTrails( const std::vector<RunReplayPredicti
             if ( hasPrevious && VectorMagSquared( body->position - previous ) > REPLAY_PATH_MIN_SEGMENT_DISTANCE_SQ )
             {
                 const float t = ReplayPathFrameT( frame.frameIndex, 0, lastFrame );
-                tracer.AddReplayPathSegment( previous, body->position, 0.50f + 0.28f * ( 1.0f - t ), 0.96f, 0.92f );
+                tracer.AddReplayPathSegment( previous,
+                                             body->position,
+                                             0.50f + 0.28f * ( 1.0f - t ),
+                                             0.96f,
+                                             0.92f,
+                                             MainMemoryReplayTrajectoryLane::AuxiliaryTrail );
             }
             previous = body->position;
             hasPrevious = true;
@@ -2140,7 +2171,12 @@ void DrawReplayPredictionAffectedBodyTrails( const std::vector<RunReplayPredicti
                 float g = 0.65f;
                 float b = 0.18f;
                 ReplayAffectedBodyTrailColor( trailIndex, t, r, g, b );
-                tracer.AddReplayPathSegment( trail.previous, body->position, r, g, b );
+                tracer.AddReplayPathSegment( trail.previous,
+                                             body->position,
+                                             r,
+                                             g,
+                                             b,
+                                             MainMemoryReplayTrajectoryLane::AuxiliaryTrail );
             }
 
             if ( ReplayPredictionBodyHasVisibleLinearMotion( *body ) )
@@ -2239,7 +2275,12 @@ void DrawReplayChildPaths( const ReplaySolverFrameSample& sample, void* userData
                 float g = 0.54f;
                 float b = 0.18f;
                 ReplayChildIncomingColor( drawState.node.depth, t, r, g, b );
-                context.tracer->AddReplayPathSegment( drawState.incomingPrevious, body->position, r, g, b );
+                context.tracer->AddReplayPathSegment( drawState.incomingPrevious,
+                                                      body->position,
+                                                      r,
+                                                      g,
+                                                      b,
+                                                      MainMemoryReplayTrajectoryLane::FutureChildIncoming );
             }
             drawState.incomingPrevious = body->position;
             drawState.hasIncomingPrevious = true;
@@ -2253,7 +2294,12 @@ void DrawReplayChildPaths( const ReplaySolverFrameSample& sample, void* userData
             float g = 0.5f;
             float b = 0.56f;
             ReplayChildFutureColor( drawState.node.depth, t, r, g, b );
-            context.tracer->AddReplayPathSegment( drawState.previous, body->position, r, g, b );
+            context.tracer->AddReplayPathSegment( drawState.previous,
+                                                  body->position,
+                                                  r,
+                                                  g,
+                                                  b,
+                                                  MainMemoryReplayTrajectoryLane::FutureChildOutgoing );
         }
         if ( sample.frameIndex >= drawState.node.firstFrame )
         {
@@ -2847,7 +2893,10 @@ bool BeginReplayPredictionJob( ReplayRuntime& replayRuntime,
     // us before setup starts, but once replay scratch and solver state are
     // reserved we must publish frame 0 so large predictions can draw progress
     // instead of thrashing a dirty begin job every render frame.
-    if ( ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ) )
+    if ( ReplayPredictionBudgetExpiredForPass( replayRuntime,
+                                               MainMemoryReplayBudgetPass::PredictionBegin,
+                                               budgetStart,
+                                               budgetMilliseconds ) )
     {
         return false;
     }
@@ -2892,7 +2941,10 @@ bool BeginReplayPredictionJob( ReplayRuntime& replayRuntime,
         ModelRowHint targetHint;
         targetHint.value = replayRuntime.PathVisualizer().targetModelIndex;
         int targetIndex = -1;
-        if ( ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ) )
+        if ( ReplayPredictionBudgetExpiredForPass( replayRuntime,
+                                                   MainMemoryReplayBudgetPass::PredictionBegin,
+                                                   budgetStart,
+                                                   budgetMilliseconds ) )
         {
             replayRuntime.Prediction().build.dirty = true;
             return false;
@@ -3017,7 +3069,10 @@ bool StepReplayPredictionJob( ReplayRuntime& replayRuntime,
         return replayRuntime.Prediction().build.complete;
     }
 
-    if ( ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ) )
+    if ( ReplayPredictionBudgetExpiredForPass( replayRuntime,
+                                               MainMemoryReplayBudgetPass::PredictionStep,
+                                               budgetStart,
+                                               budgetMilliseconds ) )
     {
         return false;
     }
@@ -3041,7 +3096,10 @@ bool StepReplayPredictionJob( ReplayRuntime& replayRuntime,
             // Why: a large prediction can spend most of the slice on frame
             // capture. Still take one tick per entered slice so the visible
             // build prefix advances instead of stalling forever.
-            if ( progressed && ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ) )
+            if ( progressed && ReplayPredictionBudgetExpiredForPass( replayRuntime,
+                                                                     MainMemoryReplayBudgetPass::PredictionStep,
+                                                                     budgetStart,
+                                                                     budgetMilliseconds ) )
             {
                 break;
             }
@@ -3073,7 +3131,10 @@ bool StepReplayPredictionJob( ReplayRuntime& replayRuntime,
             ++replayRuntime.Prediction().build.nextTick;
             progressed = true;
 
-            if ( ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ) )
+            if ( ReplayPredictionBudgetExpiredForPass( replayRuntime,
+                                                       MainMemoryReplayBudgetPass::PredictionStep,
+                                                       budgetStart,
+                                                       budgetMilliseconds ) )
             {
                 break;
             }
@@ -3179,6 +3240,10 @@ bool DrawReplayPredictionOverlay( ReplayRuntime& replayRuntime,
                                                     tracer,
                                                     budgetStart,
                                                     budgetMilliseconds );
+            (void)ReplayPredictionBudgetExpiredForPass( replayRuntime,
+                                                        MainMemoryReplayBudgetPass::PredictionDrawRagdolls,
+                                                        budgetStart,
+                                                        budgetMilliseconds );
         }
         return true;
     }
@@ -3197,7 +3262,10 @@ bool DrawReplayPredictionOverlay( ReplayRuntime& replayRuntime,
             {
                 break;
             }
-            if ( ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ) )
+            if ( ReplayPredictionBudgetExpiredForPass( replayRuntime,
+                                                       MainMemoryReplayBudgetPass::PredictionDrawRoot,
+                                                       budgetStart,
+                                                       budgetMilliseconds ) )
             {
                 break;
             }
@@ -3222,7 +3290,12 @@ bool DrawReplayPredictionOverlay( ReplayRuntime& replayRuntime,
             if ( hasPrevious && VectorMagSquared( body->position - previous ) > REPLAY_PATH_MIN_SEGMENT_DISTANCE_SQ )
             {
                 const float t = ReplayPathFrameT( frame.frameIndex, 0, lastFrame );
-                tracer.AddReplayPathSegment( previous, body->position, 1.0f - t * 0.85f, 1.0f, 1.0f - t * 0.72f );
+                tracer.AddReplayPathSegment( previous,
+                                             body->position,
+                                             1.0f - t * 0.85f,
+                                             1.0f,
+                                             1.0f - t * 0.72f,
+                                             MainMemoryReplayTrajectoryLane::FutureRoot );
             }
             previous = body->position;
             hasPrevious = true;
@@ -3277,6 +3350,10 @@ bool DrawReplayPredictionOverlay( ReplayRuntime& replayRuntime,
                                                    replayRuntime.PathVisualizer().targetId,
                                                    buildBudgetStart,
                                                    budgetMilliseconds );
+            (void)ReplayPredictionBudgetExpiredForPass( replayRuntime,
+                                                        MainMemoryReplayBudgetPass::PredictionBuildTree,
+                                                        buildBudgetStart,
+                                                        budgetMilliseconds );
             drawFutureTree = replayRuntime.Prediction().futureNodeCache.futureNodesCacheValid &&
                              !replayRuntime.Prediction().futureNodeCache.futureNodes.empty();
         }
@@ -3319,7 +3396,10 @@ bool DrawReplayPredictionOverlay( ReplayRuntime& replayRuntime,
             {
                 break;
             }
-            if ( ReplayPredictionBudgetExpired( childDrawBudgetStart, budgetMilliseconds ) )
+            if ( ReplayPredictionBudgetExpiredForPass( replayRuntime,
+                                                       MainMemoryReplayBudgetPass::PredictionDrawChildren,
+                                                       childDrawBudgetStart,
+                                                       budgetMilliseconds ) )
             {
                 break;
             }
@@ -3342,7 +3422,10 @@ bool DrawReplayPredictionOverlay( ReplayRuntime& replayRuntime,
 
             for ( std::size_t i = 0; i < childDraw.nodeCount; ++i )
             {
-                if ( ReplayPredictionBudgetExpired( childDrawBudgetStart, budgetMilliseconds ) )
+                if ( ReplayPredictionBudgetExpiredForPass( replayRuntime,
+                                                           MainMemoryReplayBudgetPass::PredictionDrawChildren,
+                                                           childDrawBudgetStart,
+                                                           budgetMilliseconds ) )
                 {
                     childScanBudgetExhausted = true;
                     break;
@@ -3367,7 +3450,12 @@ bool DrawReplayPredictionOverlay( ReplayRuntime& replayRuntime,
                         float g = 0.54f;
                         float b = 0.18f;
                         ReplayChildIncomingColor( drawState.node.depth, t, r, g, b );
-                        tracer.AddReplayPathSegment( drawState.incomingPrevious, body->position, r, g, b );
+                        tracer.AddReplayPathSegment( drawState.incomingPrevious,
+                                                     body->position,
+                                                     r,
+                                                     g,
+                                                     b,
+                                                     MainMemoryReplayTrajectoryLane::FutureChildIncoming );
                     }
                     drawState.incomingPrevious = body->position;
                     drawState.hasIncomingPrevious = true;
@@ -3410,7 +3498,12 @@ bool DrawReplayPredictionOverlay( ReplayRuntime& replayRuntime,
                     float g = 0.5f;
                     float b = 0.56f;
                     ReplayChildFutureColor( drawState.node.depth, t, r, g, b );
-                    tracer.AddReplayPathSegment( drawState.previous, body->position, r, g, b );
+                    tracer.AddReplayPathSegment( drawState.previous,
+                                                 body->position,
+                                                 r,
+                                                 g,
+                                                 b,
+                                                 MainMemoryReplayTrajectoryLane::FutureChildOutgoing );
                 }
                 if ( frame.frameIndex >= drawState.node.firstFrame && drawState.active )
                 {
@@ -3431,7 +3524,10 @@ bool DrawReplayPredictionOverlay( ReplayRuntime& replayRuntime,
                                            bufferComplete ? activePredictionFrameCount : 0 );
     }
 
-    if ( !ReplayPredictionBudgetExpired( childDrawBudgetStart, budgetMilliseconds ) )
+    if ( !ReplayPredictionBudgetExpiredForPass( replayRuntime,
+                                                MainMemoryReplayBudgetPass::PredictionDrawAffectedBodies,
+                                                childDrawBudgetStart,
+                                                budgetMilliseconds ) )
     {
         PROFILE_SCOPED( "Frame/Replay/Prediction/DrawAffectedBodies" );
         DrawReplayPredictionAffectedBodyTrails( activePredictionFrames,
@@ -3450,7 +3546,10 @@ bool DrawReplayPredictionOverlay( ReplayRuntime& replayRuntime,
     }
 
     if ( replayRuntime.Prediction().ragdollVisualsEnabled &&
-         !ReplayPredictionBudgetExpired( childDrawBudgetStart, budgetMilliseconds ) )
+         !ReplayPredictionBudgetExpiredForPass( replayRuntime,
+                                                MainMemoryReplayBudgetPass::PredictionDrawRagdolls,
+                                                childDrawBudgetStart,
+                                                budgetMilliseconds ) )
     {
         DrawReplayPredictionRagdollTorsoTrails( activePredictionFrames,
                                                 activePredictionFrameCount,
@@ -3525,11 +3624,22 @@ void RenderReplayPredictionVisualizer( ReplayRuntime& replayRuntime,
     if ( replayRuntime.Prediction().build.dirty ||
          ( allowAutomaticRefresh && !replayRuntime.Prediction().build.building && sourceChanged && refreshDue ) )
     {
-        if ( ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ) )
+        if ( ReplayPredictionBudgetExpiredForPass( replayRuntime,
+                                                   MainMemoryReplayBudgetPass::PredictionBegin,
+                                                   budgetStart,
+                                                   budgetMilliseconds ) )
         {
             return;
         }
         RunReplayPredictionState& prediction = replayRuntime.Prediction();
+        if ( prediction.build.dirty )
+        {
+            replayRuntime.RecordReplayTrajectoryRebuildCause( MainMemoryReplayRebuildCause::Dirty );
+        }
+        else
+        {
+            replayRuntime.RecordReplayTrajectoryRebuildCause( MainMemoryReplayRebuildCause::AutomaticRefresh );
+        }
         if ( prediction.baseline.comparisonActive && !prediction.baseline.valid &&
              prediction.simulation.frames.size() >= 2 )
         {
@@ -3554,7 +3664,10 @@ void RenderReplayPredictionVisualizer( ReplayRuntime& replayRuntime,
                                   latestHash,
                                   budgetStart,
                                   budgetMilliseconds );
-        if ( ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ) )
+        if ( ReplayPredictionBudgetExpiredForPass( replayRuntime,
+                                                   MainMemoryReplayBudgetPass::PredictionBegin,
+                                                   budgetStart,
+                                                   budgetMilliseconds ) )
         {
             return;
         }
@@ -3572,6 +3685,17 @@ void RenderReplayPredictionVisualizer( ReplayRuntime& replayRuntime,
                                      simulationTotalSeconds,
                                      budgetStart,
                                      budgetMilliseconds );
+            (void)ReplayPredictionBudgetExpiredForPass( replayRuntime,
+                                                        MainMemoryReplayBudgetPass::PredictionStep,
+                                                        budgetStart,
+                                                        budgetMilliseconds );
+        }
+        else
+        {
+            (void)ReplayPredictionBudgetExpiredForPass( replayRuntime,
+                                                        MainMemoryReplayBudgetPass::PredictionStep,
+                                                        budgetStart,
+                                                        budgetMilliseconds );
         }
     }
 
@@ -3620,7 +3744,10 @@ void RenderReplayPathVisualizer( const ReplayPathVisualizerRenderContext& contex
         // paths from the advancing live timeline and make frozen lines drift.
         return;
     }
-    if ( ReplayPredictionBudgetExpired( visualizerStart, REPLAY_PREDICTION_MAX_WORK_MILLISECONDS ) )
+    if ( ReplayPredictionBudgetExpiredForPass( context.replayRuntime,
+                                               MainMemoryReplayBudgetPass::RetainedBounds,
+                                               visualizerStart,
+                                               REPLAY_PREDICTION_MAX_WORK_MILLISECONDS ) )
     {
         return;
     }
@@ -3670,7 +3797,10 @@ void RenderReplayPathVisualizer( const ReplayPathVisualizerRenderContext& contex
 
     ReplayPathBoundsContext bounds;
     context.replayRuntime.Solver().ForEachSampleChronological( CaptureReplayPathBounds, &bounds );
-    if ( ReplayPredictionBudgetExpired( visualizerStart, REPLAY_PREDICTION_MAX_WORK_MILLISECONDS ) )
+    if ( ReplayPredictionBudgetExpiredForPass( context.replayRuntime,
+                                               MainMemoryReplayBudgetPass::RetainedBounds,
+                                               visualizerStart,
+                                               REPLAY_PREDICTION_MAX_WORK_MILLISECONDS ) )
     {
         return;
     }
@@ -3688,7 +3818,10 @@ void RenderReplayPathVisualizer( const ReplayPathVisualizerRenderContext& contex
     const ColliderStore& colliderStore = context.models.GetPhysicsEngine().Colliders();
     for ( RunReplayPathTarget& target : context.replayRuntime.PathVisualizer().targets )
     {
-        if ( ReplayPredictionBudgetExpired( visualizerStart, REPLAY_PREDICTION_MAX_WORK_MILLISECONDS ) )
+        if ( ReplayPredictionBudgetExpiredForPass( context.replayRuntime,
+                                                   MainMemoryReplayBudgetPass::RetainedBuildTree,
+                                                   visualizerStart,
+                                                   REPLAY_PREDICTION_MAX_WORK_MILLISECONDS ) )
         {
             return;
         }
@@ -3714,7 +3847,10 @@ void RenderReplayPathVisualizer( const ReplayPathVisualizerRenderContext& contex
             futureContext.includeRagdollVisuals = context.replayRuntime.Prediction().ragdollVisualsEnabled;
             context.replayRuntime.Solver().ForEachSampleChronological( BuildReplayFutureNodes, &futureContext );
         }
-        if ( ReplayPredictionBudgetExpired( visualizerStart, REPLAY_PREDICTION_MAX_WORK_MILLISECONDS ) )
+        if ( ReplayPredictionBudgetExpiredForPass( context.replayRuntime,
+                                                   MainMemoryReplayBudgetPass::RetainedBuildTree,
+                                                   visualizerStart,
+                                                   REPLAY_PREDICTION_MAX_WORK_MILLISECONDS ) )
         {
             return;
         }
@@ -3732,7 +3868,10 @@ void RenderReplayPathVisualizer( const ReplayPathVisualizerRenderContext& contex
             rootDraw.sampleStride = sampleStride;
             context.replayRuntime.Solver().ForEachSampleChronological( DrawReplayRootPath, &rootDraw );
         }
-        if ( ReplayPredictionBudgetExpired( visualizerStart, REPLAY_PREDICTION_MAX_WORK_MILLISECONDS ) )
+        if ( ReplayPredictionBudgetExpiredForPass( context.replayRuntime,
+                                                   MainMemoryReplayBudgetPass::RetainedDrawRoot,
+                                                   visualizerStart,
+                                                   REPLAY_PREDICTION_MAX_WORK_MILLISECONDS ) )
         {
             return;
         }
@@ -3756,7 +3895,10 @@ void RenderReplayPathVisualizer( const ReplayPathVisualizerRenderContext& contex
             context.replayRuntime.Solver().ForEachSampleChronological( DrawReplayChildPaths, &childDraw );
             DrawReplayChildFinalMarkers( childDraw );
         }
-        if ( ReplayPredictionBudgetExpired( visualizerStart, REPLAY_PREDICTION_MAX_WORK_MILLISECONDS ) )
+        if ( ReplayPredictionBudgetExpiredForPass( context.replayRuntime,
+                                                   MainMemoryReplayBudgetPass::RetainedDrawChildren,
+                                                   visualizerStart,
+                                                   REPLAY_PREDICTION_MAX_WORK_MILLISECONDS ) )
         {
             return;
         }
@@ -3768,7 +3910,10 @@ void RenderReplayPathVisualizer( const ReplayPathVisualizerRenderContext& contex
 
         {
             PROFILE_SCOPED( "Frame/Replay/PathVisualizer/RetainedTarget/DrawMarker" );
-            if ( ReplayPredictionBudgetExpired( visualizerStart, REPLAY_PREDICTION_MAX_WORK_MILLISECONDS ) )
+            if ( ReplayPredictionBudgetExpiredForPass( context.replayRuntime,
+                                                       MainMemoryReplayBudgetPass::RetainedDrawMarker,
+                                                       visualizerStart,
+                                                       REPLAY_PREDICTION_MAX_WORK_MILLISECONDS ) )
             {
                 return;
             }
@@ -3797,6 +3942,7 @@ void RenderReplayPathVisualizer( const ReplayPathVisualizerRenderContext& contex
 
 void Run::RenderReplayPathVisualizer( RunEditorTracer& tracer )
 {
+    tracer.ClearReplayTrajectoryStats();
     const auto physicsWorldForces = m_cWorldEnvironment.GetPhysicsWorldForces();
     // Lifetime: physicsWorldForces is a local value because the overlay context
     // borrows it by reference for the immediate delegate call.
@@ -3812,6 +3958,7 @@ void Run::RenderReplayPathVisualizer( RunEditorTracer& tracer )
         m_timers.simulationTimer.GetTimeSinceLastStart(),
         m_timers.simulationTimer.GetTotalTime() };
     SkullbonezCore::Basics::ReplayOverlay::RenderReplayPathVisualizer( context );
+    m_replayRuntime.RecordReplayTrajectoryFrameStats( tracer.ReplayTrajectoryStats() );
 }
 
 

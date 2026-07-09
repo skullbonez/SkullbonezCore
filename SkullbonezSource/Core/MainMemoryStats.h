@@ -31,6 +31,64 @@ namespace SkullbonezCore
 {
 namespace Basics
 {
+// Concept: replay trajectory counters use enum-indexed POD arrays so diagnostics
+// can copy them into UI frames and JSON dumps without allocating or depending on
+// replay/runtime owner types.
+enum class MainMemoryReplayTrajectoryLane : std::size_t
+{
+    PastRoot,
+    FutureRoot,
+    FutureChildIncoming,
+    FutureChildOutgoing,
+    RetainedTrail,
+    BaselineRoot,
+    CausalMarker,
+    AuxiliaryTrail,
+    Count
+};
+
+inline constexpr std::size_t MAIN_MEMORY_REPLAY_TRAJECTORY_LANE_COUNT =
+    static_cast<std::size_t>( MainMemoryReplayTrajectoryLane::Count );
+
+enum class MainMemoryReplayBudgetPass : std::size_t
+{
+    PredictionBegin,
+    PredictionStep,
+    PredictionDrawRoot,
+    PredictionBuildTree,
+    PredictionDrawChildren,
+    PredictionDrawAffectedBodies,
+    PredictionDrawRagdolls,
+    RetainedBounds,
+    RetainedBuildTree,
+    RetainedDrawRoot,
+    RetainedDrawChildren,
+    RetainedDrawMarker,
+    Count
+};
+
+inline constexpr std::size_t MAIN_MEMORY_REPLAY_BUDGET_PASS_COUNT =
+    static_cast<std::size_t>( MainMemoryReplayBudgetPass::Count );
+
+enum class MainMemoryReplayRebuildCause : std::size_t
+{
+    Dirty,
+    AutomaticRefresh,
+    Count
+};
+
+inline constexpr std::size_t MAIN_MEMORY_REPLAY_REBUILD_CAUSE_COUNT =
+    static_cast<std::size_t>( MainMemoryReplayRebuildCause::Count );
+
+struct MainMemoryReplayTrajectoryStats
+{
+    uint64_t storeBytes = 0;                                // Current TrajectoryStore allocation; 0 until the store lands.
+    uint64_t emittedSegments[MAIN_MEMORY_REPLAY_TRAJECTORY_LANE_COUNT] = {};
+    uint64_t droppedSegments[MAIN_MEMORY_REPLAY_TRAJECTORY_LANE_COUNT] = {};
+    uint64_t budgetExpiries[MAIN_MEMORY_REPLAY_BUDGET_PASS_COUNT] = {};
+    uint64_t rebuildCauses[MAIN_MEMORY_REPLAY_REBUILD_CAUSE_COUNT] = {};
+};
+
 struct MainMemoryProcessStats
 {
     bool available = false;                                 // False when the OS process-memory query failed.
@@ -60,6 +118,7 @@ struct MainMemoryReplayStats
     std::size_t pathNodes = 0;
     std::size_t causeRows = 0;
     std::size_t ghostRequests = 0;
+    MainMemoryReplayTrajectoryStats trajectory;
 };
 
 struct MainMemoryGameObjectStats

@@ -133,6 +133,18 @@ void RunEditorTracer::Clear()
     m_replayRibbonSegments.clear();
     m_priorityReplayRibbonSegments.clear();
     m_replayRibbonVertexData.clear();
+    ClearReplayTrajectoryStats();
+}
+
+void RunEditorTracer::ClearReplayTrajectoryStats()
+{
+    m_replayTrajectoryStats = MainMemoryReplayTrajectoryStats{};
+}
+
+
+const MainMemoryReplayTrajectoryStats& RunEditorTracer::ReplayTrajectoryStats() const
+{
+    return m_replayTrajectoryStats;
 }
 
 
@@ -367,12 +379,27 @@ void RunEditorTracer::EmitReplayRibbonSegmentTo( std::vector<float>& ribbonData,
                                                  float r,
                                                  float g,
                                                  float bl,
-                                                 const ReplayRibbonStyle& style )
+                                                 const ReplayRibbonStyle& style,
+                                                 MainMemoryReplayTrajectoryLane lane )
 {
-    if ( VectorMagSquared( b - a ) <= TOLERANCE * TOLERANCE ||
-         ribbonData.size() + RUN_EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_SEGMENT > ribbonData.capacity() )
+    if ( VectorMagSquared( b - a ) <= TOLERANCE * TOLERANCE )
     {
         return;
+    }
+
+    const std::size_t laneIndex = static_cast<std::size_t>( lane );
+    if ( ribbonData.size() + RUN_EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_SEGMENT > ribbonData.capacity() )
+    {
+        if ( laneIndex < MAIN_MEMORY_REPLAY_TRAJECTORY_LANE_COUNT )
+        {
+            ++m_replayTrajectoryStats.droppedSegments[laneIndex];
+        }
+        return;
+    }
+
+    if ( laneIndex < MAIN_MEMORY_REPLAY_TRAJECTORY_LANE_COUNT )
+    {
+        ++m_replayTrajectoryStats.emittedSegments[laneIndex];
     }
 
     // Invariant: replay ribbon storage is reserved during tracer construction.
@@ -400,10 +427,11 @@ void RunEditorTracer::EmitReplayRibbonGlowPairTo( std::vector<float>& ribbonData
                                                   float g,
                                                   float bl,
                                                   const ReplayRibbonStyle& glow,
-                                                  const ReplayRibbonStyle& core )
+                                                  const ReplayRibbonStyle& core,
+                                                  MainMemoryReplayTrajectoryLane lane )
 {
-    EmitReplayRibbonSegmentTo( ribbonData, a, b, r, g, bl, glow );
-    EmitReplayRibbonSegmentTo( ribbonData, a, b, r, g, bl, core );
+    EmitReplayRibbonSegmentTo( ribbonData, a, b, r, g, bl, glow, lane );
+    EmitReplayRibbonSegmentTo( ribbonData, a, b, r, g, bl, core, lane );
 }
 
 
@@ -414,7 +442,8 @@ void RunEditorTracer::EmitReplayRibbonShapeOutlineTo( std::vector<float>& ribbon
                                                       float r,
                                                       float g,
                                                       float b,
-                                                      const ReplayRibbonStyle& style )
+                                                      const ReplayRibbonStyle& style,
+                                                      MainMemoryReplayTrajectoryLane lane )
 {
     Quaternion outlineOrientation = orientation;
     const RotationMatrix rot = outlineOrientation.GetOrientationMatrix();
@@ -451,7 +480,7 @@ void RunEditorTracer::EmitReplayRibbonShapeOutlineTo( std::vector<float>& ribbon
 
                 if ( i > 0 )
                 {
-                    EmitReplayRibbonSegmentTo( ribbonData, previous, next, r, g, b, style );
+                    EmitReplayRibbonSegmentTo( ribbonData, previous, next, r, g, b, style, lane );
                 }
                 previous = next;
             }
@@ -491,7 +520,7 @@ void RunEditorTracer::EmitReplayRibbonShapeOutlineTo( std::vector<float>& ribbon
         };
         for ( const auto& edge : kEdges )
         {
-            EmitReplayRibbonSegmentTo( ribbonData, corners[edge[0]], corners[edge[1]], r, g, b, style );
+            EmitReplayRibbonSegmentTo( ribbonData, corners[edge[0]], corners[edge[1]], r, g, b, style, lane );
         }
         return;
     }
@@ -507,7 +536,8 @@ void RunEditorTracer::EmitReplayRibbonShapeOutlineTo( std::vector<float>& ribbon
                                        r,
                                        g,
                                        b,
-                                       style );
+                                       style,
+                                       lane );
         }
     }
 }
@@ -768,7 +798,12 @@ void RunEditorTracer::AddRayCastTestLine( const Vector3& start, const Vector3& e
     EmitLine( start, end, r * alpha, g * alpha, b * alpha );
 }
 
-void RunEditorTracer::AddReplayPathSegment( const Vector3& start, const Vector3& end, float r, float g, float b )
+void RunEditorTracer::AddReplayPathSegment( const Vector3& start,
+                                            const Vector3& end,
+                                            float r,
+                                            float g,
+                                            float b,
+                                            MainMemoryReplayTrajectoryLane lane )
 {
     const ReplayRibbonStyle glow = { 1.15f, 0.20f, 0.74f, 2.65f };
     const ReplayRibbonStyle core = { 0.28f, 0.86f, 0.36f, 1.55f };
@@ -779,7 +814,8 @@ void RunEditorTracer::AddReplayPathSegment( const Vector3& start, const Vector3&
                                 g * RUN_EDITOR_TRACER_REPLAY_LINE_OPACITY,
                                 b * RUN_EDITOR_TRACER_REPLAY_LINE_OPACITY,
                                 glow,
-                                core );
+                                core,
+                                lane );
 }
 
 
@@ -797,7 +833,8 @@ void RunEditorTracer::AddReplayCausalTrailSegment( const Vector3& start, const V
                                 g * RUN_EDITOR_TRACER_REPLAY_LINE_OPACITY,
                                 b * RUN_EDITOR_TRACER_REPLAY_LINE_OPACITY,
                                 glow,
-                                core );
+                                core,
+                                MainMemoryReplayTrajectoryLane::RetainedTrail );
 }
 
 
@@ -805,7 +842,15 @@ void RunEditorTracer::AddReplayBaselinePathSegment( const Vector3& start, const 
 {
     const ReplayRibbonStyle glow = { 1.05f, 0.15f, 0.82f, 2.20f };
     const ReplayRibbonStyle core = { 0.24f, 0.62f, 0.42f, 1.22f };
-    EmitReplayRibbonGlowPairTo( m_replayRibbonSegments, start, end, 0.34f, 0.82f, 0.95f, glow, core );
+    EmitReplayRibbonGlowPairTo( m_replayRibbonSegments,
+                                start,
+                                end,
+                                0.34f,
+                                0.82f,
+                                0.95f,
+                                glow,
+                                core,
+                                MainMemoryReplayTrajectoryLane::BaselineRoot );
 }
 
 
@@ -867,7 +912,8 @@ void RunEditorTracer::AddReplayCausalEntryMarker( const Vector3& position,
                                     1.0f,
                                     0.85f,
                                     0.25f,
-                                    glow );
+                                    glow,
+                                    MainMemoryReplayTrajectoryLane::CausalMarker );
     EmitReplayRibbonShapeOutlineTo( m_priorityReplayRibbonSegments,
                                     position,
                                     orientation,
@@ -875,7 +921,8 @@ void RunEditorTracer::AddReplayCausalEntryMarker( const Vector3& position,
                                     1.0f,
                                     0.85f,
                                     0.25f,
-                                    core );
+                                    core,
+                                    MainMemoryReplayTrajectoryLane::CausalMarker );
 }
 
 
@@ -892,7 +939,8 @@ void RunEditorTracer::AddReplayCausalRestMarker( const Vector3& position,
                                     0.58f,
                                     0.58f,
                                     0.62f,
-                                    glow );
+                                    glow,
+                                    MainMemoryReplayTrajectoryLane::CausalMarker );
     EmitReplayRibbonShapeOutlineTo( m_priorityReplayRibbonSegments,
                                     position,
                                     orientation,
@@ -900,7 +948,8 @@ void RunEditorTracer::AddReplayCausalRestMarker( const Vector3& position,
                                     0.58f,
                                     0.58f,
                                     0.62f,
-                                    core );
+                                    core,
+                                    MainMemoryReplayTrajectoryLane::CausalMarker );
 }
 
 
@@ -920,7 +969,8 @@ void RunEditorTracer::AddReplayCausalHorizonMarker( const Vector3& position,
                                     0.45f,
                                     0.92f,
                                     1.0f,
-                                    glow );
+                                    glow,
+                                    MainMemoryReplayTrajectoryLane::CausalMarker );
     EmitReplayRibbonShapeOutlineTo( m_priorityReplayRibbonSegments,
                                     position,
                                     orientation,
@@ -928,7 +978,8 @@ void RunEditorTracer::AddReplayCausalHorizonMarker( const Vector3& position,
                                     0.45f,
                                     0.92f,
                                     1.0f,
-                                    core );
+                                    core,
+                                    MainMemoryReplayTrajectoryLane::CausalMarker );
 }
 
 
@@ -941,8 +992,24 @@ void RunEditorTracer::AddReplayBaselineEntryMarker( const Vector3& position,
     // quieter so the warm nudged future can read on top.
     const ReplayRibbonStyle glow = { 1.00f, 0.16f, 0.80f, 2.05f };
     const ReplayRibbonStyle core = { 0.24f, 0.58f, 0.40f, 1.15f };
-    EmitReplayRibbonShapeOutlineTo( m_replayRibbonSegments, position, orientation, shape, 0.26f, 0.78f, 0.95f, glow );
-    EmitReplayRibbonShapeOutlineTo( m_replayRibbonSegments, position, orientation, shape, 0.26f, 0.78f, 0.95f, core );
+    EmitReplayRibbonShapeOutlineTo( m_replayRibbonSegments,
+                                    position,
+                                    orientation,
+                                    shape,
+                                    0.26f,
+                                    0.78f,
+                                    0.95f,
+                                    glow,
+                                    MainMemoryReplayTrajectoryLane::BaselineRoot );
+    EmitReplayRibbonShapeOutlineTo( m_replayRibbonSegments,
+                                    position,
+                                    orientation,
+                                    shape,
+                                    0.26f,
+                                    0.78f,
+                                    0.95f,
+                                    core,
+                                    MainMemoryReplayTrajectoryLane::BaselineRoot );
 }
 
 
@@ -952,8 +1019,24 @@ void RunEditorTracer::AddReplayBaselineRestMarker( const Vector3& position,
 {
     const ReplayRibbonStyle glow = { 0.90f, 0.13f, 0.78f, 1.70f };
     const ReplayRibbonStyle core = { 0.22f, 0.50f, 0.38f, 0.95f };
-    EmitReplayRibbonShapeOutlineTo( m_replayRibbonSegments, position, orientation, shape, 0.18f, 0.62f, 0.78f, glow );
-    EmitReplayRibbonShapeOutlineTo( m_replayRibbonSegments, position, orientation, shape, 0.18f, 0.62f, 0.78f, core );
+    EmitReplayRibbonShapeOutlineTo( m_replayRibbonSegments,
+                                    position,
+                                    orientation,
+                                    shape,
+                                    0.18f,
+                                    0.62f,
+                                    0.78f,
+                                    glow,
+                                    MainMemoryReplayTrajectoryLane::BaselineRoot );
+    EmitReplayRibbonShapeOutlineTo( m_replayRibbonSegments,
+                                    position,
+                                    orientation,
+                                    shape,
+                                    0.18f,
+                                    0.62f,
+                                    0.78f,
+                                    core,
+                                    MainMemoryReplayTrajectoryLane::BaselineRoot );
 }
 
 
