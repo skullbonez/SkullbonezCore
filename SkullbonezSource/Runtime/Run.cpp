@@ -1036,8 +1036,15 @@ void Run::Initialise()
     XZBounds tb = m_systems.terrain->GetXZBounds();
     m_cWorldEnvironment.SetTerrainBounds( tb.m_xMin, tb.m_xMax, tb.m_zMin, tb.m_zMax );
 
-    // Init font (HDC, font)
-    m_renderer.EnsureUiTextResources( renderResources, m_systems.assets, cfg.window.screenX, cfg.window.screenY );
+    // Why: SDF atlas generation is a startup asset/tooling boundary. Report it
+    // as Lane R before scene loading instead of throwing through Run startup.
+    const SbResult uiTextResourceResult =
+        m_renderer.EnsureUiTextResources( renderResources, m_systems.assets, cfg.window.screenX, cfg.window.screenY );
+    if ( !uiTextResourceResult.ok )
+    {
+        m_lastSceneLoadResult = uiTextResourceResult;
+        return;
+    }
 
     // Init cameras (shared across scenes, Reset() between loads)
     m_systems.cameras = &m_systems.cameraCollection;

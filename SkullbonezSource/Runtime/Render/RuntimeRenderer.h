@@ -12,7 +12,9 @@ Mental model:
 Glossary:
   RuntimeRenderer: Owner of pass instances and the frame pass order.
   Pass order: The stable sequence of sky, shadows, reflection, objects, terrain,
-  water, post effects, and UI/text.
+    water, post effects, and UI/text.
+  Lane R result: Recoverable resource setup failure reported through an
+    owner/message result at startup instead of throwing through the render owner.
   Consequence grade: Frame-local dark/cool presentation override used when
     replay prediction wants causal overlays to dominate the image.
   Resource context: Creation/rebuild-only view of the renderer factory and
@@ -113,10 +115,10 @@ class RuntimeRenderer
         return *m_renderHelper;
     }
 
-    void EnsureUiTextResources( Rendering::IRenderResourceFactory& renderResources,
-                                const Assets::AssetSystem& assets,
-                                int screenW,
-                                int screenH );
+    SbResult EnsureUiTextResources( Rendering::IRenderResourceFactory& renderResources,
+                                    const Assets::AssetSystem& assets,
+                                    int screenW,
+                                    int screenH );
     bool ShouldRenderUiText( const UiTextPassState& state ) const;
     void SetUiTextRayTracingCapability( Rendering::IRenderRayTracing* renderRayTracing );
     void RenderUiText( Rendering::IRenderDiagnostics& renderDiagnostics,

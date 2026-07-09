@@ -703,6 +703,37 @@ byte-exact gated.
     screenshots matching baselines, and `physics_regression_solver.csv`
     byte-exact. Final log:
     `Agentic/Reports/validate_full_plan04_timer_result_20260709.log`.
+
+  Progress 2026-07-09, text/font SDF atlas recoverable startup boundary
+  sub-slice:
+  - Converted `SkullbonezSource/Rendering/Text.cpp` inventory rows 96 and 97
+    from startup atlas generation/load-after-generate exceptions to Lane R
+    `SbResult::Failure("Rendering/Text", ...)` results.
+  - `Text2d::BuildFont`, `UiTextPass::EnsureGpuResources`, and
+    `RuntimeRenderer::EnsureUiTextResources` now return `SbResult`, and
+    `Run::Initialise()` reports atlas setup failure through
+    `m_lastSceneLoadResult` before scene loading begins.
+  - Strict anchored source throw statement inventory now reports 102 sites,
+    down from the previous sub-slice count of 104. `SB_FATAL` macro
+    invocations remain 153 via `rg -n "SB_FATAL\s*\(" SkullbonezSource`.
+  - Comment-style audit scope: `SkullbonezSource/Rendering/Text.cpp`,
+    `SkullbonezSource/Rendering/Text.h`,
+    `SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h`,
+    `SkullbonezSource/Runtime/Render/RuntimeRenderer.h`,
+    `SkullbonezSource/Runtime/Run.cpp`,
+    `SkullbonezSource/Runtime/RunRender.cpp`, and
+    `SkullbonezSource/Runtime/RunUiTextPass.cpp`; checked 7, deferred 0. This
+    was a touched-file audit, so no subsystem checklist plan was required.
+  - Focused build passed: `tools\validate_build.bat Profile` exited 0 in
+    00:00:10.8513394 with 0 warnings and 0 errors. Log:
+    `Agentic/Reports/validate_build_profile_plan04_text_result_20260709.log`.
+  - Required gate passed: `tools\validate_full.bat` exited 0 in
+    00:01:01.1972670 with `VALIDATE_FULL: DEFAULT GATE PASSED`, project filters
+    0 errors, runtime boundaries 0 errors, Profile/Debug builds 0
+    warnings/errors, source formatting clean, DX12 validation errors 0,
+    screenshots matching baselines, and `physics_regression_solver.csv`
+    byte-exact. Final log:
+    `Agentic/Reports/validate_full_plan04_text_result_20260709.log`.
 - [ ] **4.1** Do **not** maintain any throw count. The `MAX_SOURCE_THROW_TOKENS`
   ratchet is deleted by plan 03. Verify progress by re-running
   `rg -n "throw " SkullbonezSource` and confirming the F/R/P sites are converted;

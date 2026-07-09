@@ -115,12 +115,12 @@ void RenderReplayDivergenceCounter( const UiTextPassInputs& inputs )
 }
 } // namespace
 
-void UiTextPass::EnsureGpuResources( Rendering::IRenderResourceFactory& renderResources,
-                                     const Assets::AssetSystem& assets,
-                                     int screenW,
-                                     int screenH )
+SbResult UiTextPass::EnsureGpuResources( Rendering::IRenderResourceFactory& renderResources,
+                                         const Assets::AssetSystem& assets,
+                                         int screenW,
+                                         int screenH )
 {
-    Text2d::BuildFont( renderResources, assets, screenW, screenH, "Verdana" );
+    return Text2d::BuildFont( renderResources, assets, screenW, screenH, "Verdana" );
 }
 
 

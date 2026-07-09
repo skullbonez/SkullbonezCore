@@ -12,6 +12,8 @@ Glossary:
   Pass: Ordered unit of frame rendering owned by RuntimeRenderer.
   Frame context: Per-frame camera, projection, lighting, water, and store-backed
   render inputs shared by passes.
+  Lane R result: Recoverable resource setup failure reported through an
+    owner/message result at startup instead of throwing through the render owner.
   Resource context: Creation/rebuild-only render factory bundle used by
   EnsureGpuResources methods, not by draw methods.
   Pass resources: Backend-owned objects such as framebuffers, shaders, and
@@ -33,6 +35,7 @@ Related:
 */
 #pragma once
 
+#include "../../Core/SbResult.h"
 #include "../../Maths/Matrix4.h"
 #include "../../Maths/Vector3.h"
 #include "../../Physics/TornadoField.h"
@@ -863,10 +866,10 @@ class UiTextPass
     {
     }
 
-    void EnsureGpuResources( Rendering::IRenderResourceFactory& renderResources,
-                             const Assets::AssetSystem& assets,
-                             int screenW,
-                             int screenH );
+    SbResult EnsureGpuResources( Rendering::IRenderResourceFactory& renderResources,
+                                 const Assets::AssetSystem& assets,
+                                 int screenW,
+                                 int screenH );
     void ReleaseGpuResources( Rendering::IRenderResourceFactory* renderResources );
     bool ShouldRender( const UiTextPassState& state ) const;
     void Render( const UiTextPassInputs& inputs );

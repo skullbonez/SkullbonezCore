@@ -1955,13 +1955,13 @@ void RuntimeRenderer::RebuildRegisteredRenderResources( const RegisteredResource
 }
 
 
-void RuntimeRenderer::EnsureUiTextResources( Rendering::IRenderResourceFactory& renderResources,
-                                             const Assets::AssetSystem& assets,
-                                             int screenW,
-                                             int screenH )
+SbResult RuntimeRenderer::EnsureUiTextResources( Rendering::IRenderResourceFactory& renderResources,
+                                                 const Assets::AssetSystem& assets,
+                                                 int screenW,
+                                                 int screenH )
 {
     RuntimeAllocation::RuntimeAllocationScope allocationScope( RuntimeAllocation::RuntimeAllocationPhase::BackendInit );
-    m_uiTextPass.EnsureGpuResources( renderResources, assets, screenW, screenH );
+    return m_uiTextPass.EnsureGpuResources( renderResources, assets, screenW, screenH );
 }
 
 
