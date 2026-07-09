@@ -46,6 +46,7 @@ Related:
 #include "../../Physics/PhysicsTimestep.h"
 
 #include <algorithm>
+#include <climits>
 #include <cmath>
 #include <cstdio>
 #include <cstring>
@@ -482,6 +483,111 @@ const ReplaySolverBodySample* FindReplayBodyByModelIndex( const ReplaySolverFram
                                                                                                       modelIndex );
 }
 
+const ReplaySolverBodySample*
+FindReplayBodyByIdWithHint( const ReplaySolverFrameSample& sample, ReplayBodyId id, int modelIndex )
+{
+    if ( const ReplaySolverBodySample* hinted = FindReplayBodyByModelIndex( sample, modelIndex ) )
+    {
+        if ( hinted->id.value == id.value )
+        {
+            return hinted;
+        }
+    }
+    return FindReplayBodyById( sample, id );
+}
+
+ReplayFrameIndex ReplayOldestFrameFromStats( const ReplayRecorderStats& stats )
+{
+    return stats.nextFrameIndex > static_cast<ReplayFrameIndex>( stats.sampleCount )
+               ? stats.nextFrameIndex - static_cast<ReplayFrameIndex>( stats.sampleCount )
+               : 0;
+}
+
+// Concept: the past-root trajectory mirrors the solver recorder window. Rebuild
+// handles target changes and ring eviction; capture-time append handles the
+// ordinary newest-sample case without re-walking retained history.
+ReplayTrajectoryRecordKey ReplayPastRootTrajectoryKey( ReplayBodyId targetId )
+{
+    ReplayTrajectoryRecordKey key;
+    key.bodyId = targetId;
+    key.lane = ReplayTrajectoryLane::PastRoot;
+    key.branchOrdinal = 0;
+    return key;
+}
+
+ReplayTrajectoryRecord* BeginReplayPastRootTrajectoryRecord( ReplayTrajectoryStore& store,
+                                                             ReplayBodyId targetId,
+                                                             std::size_t pointCapacity,
+                                                             int frameNumber )
+{
+    const ReplayTrajectoryRecordKey key = ReplayPastRootTrajectoryKey( targetId );
+    if ( !store.FindRecord( key ) && !store.ReserveRecords( store.RecordCount() + 1u, frameNumber ) )
+    {
+        return nullptr;
+    }
+
+    ReplayTrajectoryRecord* record =
+        store.BeginReplaceRecord( key, 0, ReplayBodyId{}, 0, static_cast<ReplayFrameIndex>( frameNumber ), false );
+    if ( !record || !store.ReserveRecordPoints( *record, pointCapacity, frameNumber ) )
+    {
+        return nullptr;
+    }
+    return record;
+}
+
+bool AppendReplayPastRootTrajectoryPoint( ReplayTrajectoryStore& store,
+                                          ReplayTrajectoryRecord& record,
+                                          const ReplaySolverFrameSample& sample,
+                                          const ReplaySolverBodySample& body )
+{
+    if ( !store.TryAppendPoint( record, { sample.frameIndex, body.position } ) )
+    {
+        return false;
+    }
+    store.PublishPrefix( record, record.points.size() );
+    return true;
+}
+
+struct ReplayPastRootRebuildContext
+{
+    ReplayTrajectoryStore* store = nullptr;
+    ReplayTrajectoryRecord* record = nullptr;
+    ReplayBodyId targetId;
+    int targetModelIndex = -1;
+    ReplayFrameIndex firstFrame = 0;
+    ReplayFrameIndex builtThroughFrame = 0;
+    bool hasSample = false;
+    bool ok = true;
+};
+
+void RebuildReplayPastRootTrajectorySample( const ReplaySolverFrameSample& sample, void* userData )
+{
+    ReplayPastRootRebuildContext* context = static_cast<ReplayPastRootRebuildContext*>( userData );
+    if ( !context || !context->ok || !context->store || !context->record )
+    {
+        return;
+    }
+
+    const ReplaySolverBodySample* body =
+        FindReplayBodyByIdWithHint( sample, context->targetId, context->targetModelIndex );
+    if ( !body )
+    {
+        return;
+    }
+
+    context->ok = AppendReplayPastRootTrajectoryPoint( *context->store, *context->record, sample, *body );
+    if ( context->ok )
+    {
+        if ( !context->hasSample )
+        {
+            context->firstFrame = sample.frameIndex;
+            context->hasSample = true;
+        }
+        context->builtThroughFrame = sample.frameIndex;
+        context->targetModelIndex = body->modelIndex;
+    }
+}
+
 template <typename FrameSample, typename BodySample, bool AllowNegativeModelIndex>
 const BodySample* FindReplayBodyByModelIndexInSample( const FrameSample& sample, int modelIndex )
 {
@@ -746,6 +852,8 @@ void ReplayRuntime::ClearPredictionFutureNodeCache()
     m_prediction.futureNodeCache.futureNodesBuiltFromBuildFrames = false;
     m_prediction.futureNodeCache.futureNodesCacheValid = false;
     m_prediction.futureNodeCache.retainedMarkerCount = 0;
+    m_prediction.trajectoryBuild.childFrameCount = 0;
+    m_prediction.trajectoryBuild.builtNodeCount = 0;
 }
 
 void ReplayRuntime::CancelPredictionJob( bool clearSamples )
@@ -763,6 +871,7 @@ void ReplayRuntime::CancelPredictionJob( bool clearSamples )
     m_prediction.simulation.predictionWorld = ReplaySolverWorldSnapshot();
     m_prediction.build.buildFrames.clear();
     m_prediction.ResetBuildFramePublication();
+    m_prediction.trajectoryBuild = RunReplayPredictionTrajectoryBuildState{};
     if ( clearSamples )
     {
         m_prediction.simulation.frames.clear();
@@ -779,6 +888,7 @@ void ReplayRuntime::ClearPredictionCache()
     m_prediction.simulation.sourceSolverHash = 0;
     m_prediction.simulation.sourceSimulationSeconds = 0.0;
     m_prediction.build.lastBuildTime = 0.0;
+    m_prediction.trajectoryBuild = RunReplayPredictionTrajectoryBuildState{};
     m_prediction.trajectoryStore.Clear();
     m_prediction.baseline = ReplayPredictionBaselineSnapshot{};
 }
@@ -798,6 +908,7 @@ void ReplayRuntime::ClearPathVisualizerState()
     m_pathVisualizer.pastPathHovered = false;
     m_pathVisualizer.futureNodes.clear();
     m_pathVisualizer.targets.clear();
+    m_pathVisualizer.pastTrajectory = RunReplayPastTrajectoryBuildState{};
     m_causeTree.rows.clear();
     m_causeTree.hoveredRow = -1;
     m_causeTree.selectedRow = -1;
@@ -1302,6 +1413,65 @@ ReplayFrameIndex ReplayRuntime::NextEventFrameIndex() const
     return presentationStats.nextFrameIndex;
 }
 
+void ReplayRuntime::RefreshPastTrajectoryStoreFromSolverSamples()
+{
+    if ( !m_pathVisualizer.hasTarget || m_pathVisualizer.targetId.value == 0 )
+    {
+        m_pathVisualizer.pastTrajectory = RunReplayPastTrajectoryBuildState{};
+        return;
+    }
+
+    const ReplayRecorderStats stats = m_solver.GetStats();
+    if ( !stats.enabled || stats.sampleCount == 0 || stats.nextFrameIndex == 0 )
+    {
+        m_pathVisualizer.pastTrajectory = RunReplayPastTrajectoryBuildState{};
+        return;
+    }
+
+    const ReplayFrameIndex oldestFrame = ReplayOldestFrameFromStats( stats );
+    const ReplayFrameIndex newestFrame = stats.nextFrameIndex - 1u;
+    const bool needsRebuild = !m_pathVisualizer.pastTrajectory.valid ||
+                              m_pathVisualizer.pastTrajectory.targetId.value != m_pathVisualizer.targetId.value ||
+                              m_pathVisualizer.pastTrajectory.totalFramesEvicted != stats.totalFramesEvicted ||
+                              m_pathVisualizer.pastTrajectory.firstFrame != oldestFrame ||
+                              m_pathVisualizer.pastTrajectory.builtThroughFrame < newestFrame;
+    if ( !needsRebuild )
+    {
+        return;
+    }
+
+    const int frameNumber = static_cast<int>( (std::min)( newestFrame, static_cast<ReplayFrameIndex>( INT_MAX ) ) );
+    ReplayTrajectoryRecord* record = BeginReplayPastRootTrajectoryRecord( m_prediction.trajectoryStore,
+                                                                          m_pathVisualizer.targetId,
+                                                                          stats.sampleCount,
+                                                                          frameNumber );
+    if ( !record )
+    {
+        m_pathVisualizer.pastTrajectory = RunReplayPastTrajectoryBuildState{};
+        return;
+    }
+
+    ReplayPastRootRebuildContext rebuild;
+    rebuild.store = &m_prediction.trajectoryStore;
+    rebuild.record = record;
+    rebuild.targetId = m_pathVisualizer.targetId;
+    rebuild.targetModelIndex = m_pathVisualizer.targetModelIndex;
+    m_solver.ForEachSampleChronological( RebuildReplayPastRootTrajectorySample, &rebuild );
+    if ( !rebuild.ok || !rebuild.hasSample )
+    {
+        m_pathVisualizer.pastTrajectory = RunReplayPastTrajectoryBuildState{};
+        return;
+    }
+
+    record->firstFrame = rebuild.firstFrame;
+    m_pathVisualizer.targetModelIndex = rebuild.targetModelIndex;
+    m_pathVisualizer.pastTrajectory.targetId = m_pathVisualizer.targetId;
+    m_pathVisualizer.pastTrajectory.firstFrame = oldestFrame;
+    m_pathVisualizer.pastTrajectory.builtThroughFrame = rebuild.builtThroughFrame;
+    m_pathVisualizer.pastTrajectory.totalFramesEvicted = stats.totalFramesEvicted;
+    m_pathVisualizer.pastTrajectory.valid = true;
+}
+
 // Concept: capture mismatch diagnostics compare the newest paired presentation
 // and solver samples after ReplayRuntime records the current frame.
 //
@@ -1349,6 +1519,48 @@ void ReplayRuntime::ReportLatestCaptureMismatch()
     }
 }
 
+void ReplayRuntime::AppendSolverTrajectorySampleToStore( const ReplaySolverFrameSample& sample )
+{
+    if ( !m_pathVisualizer.hasTarget || m_pathVisualizer.targetId.value == 0 ||
+         !m_pathVisualizer.pastTrajectory.valid ||
+         m_pathVisualizer.pastTrajectory.targetId.value != m_pathVisualizer.targetId.value )
+    {
+        return;
+    }
+
+    const ReplayRecorderStats stats = m_solver.GetStats();
+    if ( m_pathVisualizer.pastTrajectory.totalFramesEvicted != stats.totalFramesEvicted ||
+         m_pathVisualizer.pastTrajectory.firstFrame != ReplayOldestFrameFromStats( stats ) ||
+         sample.frameIndex <= m_pathVisualizer.pastTrajectory.builtThroughFrame )
+    {
+        return;
+    }
+
+    ReplayTrajectoryRecord* record =
+        m_prediction.trajectoryStore.FindRecord( ReplayPastRootTrajectoryKey( m_pathVisualizer.targetId ) );
+    if ( !record )
+    {
+        m_pathVisualizer.pastTrajectory.valid = false;
+        return;
+    }
+
+    const ReplaySolverBodySample* body =
+        FindReplayBodyByIdWithHint( sample, m_pathVisualizer.targetId, m_pathVisualizer.targetModelIndex );
+    if ( !body )
+    {
+        return;
+    }
+
+    if ( !AppendReplayPastRootTrajectoryPoint( m_prediction.trajectoryStore, *record, sample, *body ) )
+    {
+        m_pathVisualizer.pastTrajectory.valid = false;
+        return;
+    }
+
+    m_pathVisualizer.targetModelIndex = body->modelIndex;
+    m_pathVisualizer.pastTrajectory.builtThroughFrame = sample.frameIndex;
+}
+
 void ReplayRuntime::CaptureFrame( ReplayCaptureInput input )
 {
     // Invariant: presentation, solver, and event timelines share the same
@@ -1367,6 +1579,7 @@ void ReplayRuntime::CaptureFrame( ReplayCaptureInput input )
             // field plus the already computed presentation hash. Reusing it
             // avoids a second per-body/contact pass in the frame tick.
             m_presentation.CaptureFrameFromSolverSample( *solverSample );
+            AppendSolverTrajectorySampleToStore( *solverSample );
             ReportLatestCaptureMismatch();
             return;
         }

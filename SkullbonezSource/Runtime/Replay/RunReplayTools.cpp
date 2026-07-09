@@ -614,6 +614,8 @@ void ClearReplayPredictionFutureNodeCache( RunReplayPredictionState& prediction 
     prediction.futureNodeCache.futureNodesBuiltFromBuildFrames = false;
     prediction.futureNodeCache.futureNodesCacheValid = false;
     prediction.futureNodeCache.retainedMarkerCount = 0;
+    prediction.trajectoryBuild.childFrameCount = 0;
+    prediction.trajectoryBuild.builtNodeCount = 0;
 }
 
 
@@ -771,6 +773,429 @@ FindReplayPredictionBodyByIdWithHint( const RunReplayPredictionFrame& frame, Rep
         }
     }
     return FindReplayPredictionBodyById( frame, id );
+}
+
+// Concept: TrajectoryStore records are the future draw-source, but this stage
+// still lets the legacy renderer draw from frame vectors. Branch ordinal 0 is
+// the committed prediction; branch 1 is the in-progress build preview; child
+// branches are offset by source so same-target refreshes do not overwrite the
+// old visible future before the published prefix catches up.
+constexpr uint16_t REPLAY_TRAJECTORY_COMMITTED_BRANCH = 0;
+constexpr uint16_t REPLAY_TRAJECTORY_BUILD_BRANCH = 1;
+
+int ReplayTrajectoryFrameNumberForReserve( ReplayFrameIndex frameIndex )
+{
+    return static_cast<int>(
+        (std::min)( frameIndex, static_cast<ReplayFrameIndex>( ( std::numeric_limits<int>::max )() ) ) );
+}
+
+ReplayTrajectoryRecordKey ReplayTrajectoryKey( ReplayBodyId bodyId, ReplayTrajectoryLane lane, uint16_t branchOrdinal )
+{
+    ReplayTrajectoryRecordKey key;
+    key.bodyId = bodyId;
+    key.lane = lane;
+    key.branchOrdinal = branchOrdinal;
+    return key;
+}
+
+bool ReserveReplayTrajectoryRecordSlot( ReplayTrajectoryStore& store,
+                                        const ReplayTrajectoryRecordKey& key,
+                                        int frameNumber )
+{
+    return store.FindRecord( key ) || store.ReserveRecords( store.RecordCount() + 1u, frameNumber );
+}
+
+ReplayTrajectoryRecord* BeginReplayTrajectoryRecord( ReplayTrajectoryStore& store,
+                                                     const ReplayTrajectoryRecordKey& key,
+                                                     uint16_t styleId,
+                                                     ReplayBodyId parentId,
+                                                     int depth,
+                                                     ReplayFrameIndex firstFrame,
+                                                     bool contactDerived,
+                                                     std::size_t pointCapacity )
+{
+    const int frameNumber = ReplayTrajectoryFrameNumberForReserve( firstFrame );
+    if ( !ReserveReplayTrajectoryRecordSlot( store, key, frameNumber ) )
+    {
+        return nullptr;
+    }
+
+    ReplayTrajectoryRecord* record =
+        store.BeginReplaceRecord( key, styleId, parentId, depth, firstFrame, contactDerived );
+    if ( !record || !store.ReserveRecordPoints( *record, pointCapacity, frameNumber ) )
+    {
+        return nullptr;
+    }
+    return record;
+}
+
+bool AppendReplayTrajectoryPoint( ReplayTrajectoryStore& store,
+                                  ReplayTrajectoryRecord& record,
+                                  ReplayFrameIndex frameIndex,
+                                  const Vector3& position )
+{
+    if ( !store.TryAppendPoint( record, { frameIndex, position } ) )
+    {
+        return false;
+    }
+    store.PublishPrefix( record, record.points.size() );
+    return true;
+}
+
+std::size_t ReplayPredictionTrajectoryRecordCapacity()
+{
+    return 2u + REPLAY_PATH_MAX_FUTURE_NODES * 4u + REPLAY_PATH_MAX_ROOT_TARGETS;
+}
+
+uint16_t ReplayPredictionChildTrajectoryBranch( std::size_t nodeIndex, bool usingBuildFrames )
+{
+    const std::size_t branchBase = usingBuildFrames ? REPLAY_PATH_MAX_FUTURE_NODES : 0u;
+    return static_cast<uint16_t>(
+        (std::min)( branchBase + nodeIndex, static_cast<std::size_t>( ( std::numeric_limits<uint16_t>::max )() ) ) );
+}
+
+bool PrepareReplayPredictionTrajectoryBuild( RunReplayPredictionState& prediction,
+                                             ReplayBodyId rootId,
+                                             std::size_t frameCapacity )
+{
+    prediction.trajectoryBuild = RunReplayPredictionTrajectoryBuildState{};
+    if ( rootId.value == 0 )
+    {
+        return true;
+    }
+
+    const std::size_t recordCapacity =
+        (std::max)( prediction.trajectoryStore.RecordCount(), ReplayPredictionTrajectoryRecordCapacity() );
+    if ( !prediction.trajectoryStore.ReserveRecords( recordCapacity, 0 ) )
+    {
+        return false;
+    }
+
+    ReplayTrajectoryRecord* rootRecord = BeginReplayTrajectoryRecord(
+        prediction.trajectoryStore,
+        ReplayTrajectoryKey( rootId, ReplayTrajectoryLane::FutureRoot, REPLAY_TRAJECTORY_BUILD_BRANCH ),
+        0,
+        ReplayBodyId{},
+        0,
+        0,
+        false,
+        frameCapacity );
+    if ( !rootRecord )
+    {
+        return false;
+    }
+
+    // Invariant: branch 1 is the in-progress prediction record. Branch 0 stays
+    // as the committed future until the build swap publishes the completed
+    // frame vector.
+    prediction.trajectoryBuild.rootId = rootId;
+    prediction.trajectoryBuild.usingBuildFrames = true;
+    prediction.trajectoryBuild.valid = true;
+    return true;
+}
+
+bool PublishReplayPredictionRootTrajectoryFrame( RunReplayPredictionState& prediction,
+                                                 const RunReplayPredictionFrame& frame,
+                                                 std::size_t frameSlot )
+{
+    if ( !prediction.trajectoryBuild.valid || prediction.trajectoryBuild.rootId.value == 0 ||
+         !prediction.trajectoryBuild.usingBuildFrames )
+    {
+        return true;
+    }
+
+    ReplayTrajectoryRecord* record =
+        prediction.trajectoryStore.FindRecord( ReplayTrajectoryKey( prediction.trajectoryBuild.rootId,
+                                                                    ReplayTrajectoryLane::FutureRoot,
+                                                                    REPLAY_TRAJECTORY_BUILD_BRANCH ) );
+    if ( !record || record->points.size() != frameSlot )
+    {
+        prediction.trajectoryBuild.valid = false;
+        return false;
+    }
+
+    const RunReplayPredictionBodySample* body =
+        FindReplayPredictionBodyByIdWithHint( frame,
+                                              prediction.trajectoryBuild.rootId,
+                                              prediction.simulation.targetModelIndex );
+    if ( !body )
+    {
+        prediction.trajectoryBuild.valid = false;
+        return false;
+    }
+
+    if ( !AppendReplayTrajectoryPoint( prediction.trajectoryStore, *record, frame.frameIndex, body->position ) )
+    {
+        prediction.trajectoryBuild.valid = false;
+        return false;
+    }
+    prediction.trajectoryBuild.rootFrameCount = record->points.size();
+    return true;
+}
+
+bool RebuildReplayPredictionCommittedRootTrajectory( RunReplayPredictionState& prediction )
+{
+    if ( prediction.simulation.targetId.value == 0 || prediction.simulation.frames.size() < 2u )
+    {
+        return true;
+    }
+
+    ReplayTrajectoryRecord* record =
+        BeginReplayTrajectoryRecord( prediction.trajectoryStore,
+                                     ReplayTrajectoryKey( prediction.simulation.targetId,
+                                                          ReplayTrajectoryLane::FutureRoot,
+                                                          REPLAY_TRAJECTORY_COMMITTED_BRANCH ),
+                                     0,
+                                     ReplayBodyId{},
+                                     0,
+                                     0,
+                                     false,
+                                     prediction.simulation.frames.size() );
+    if ( !record )
+    {
+        prediction.trajectoryBuild.valid = false;
+        return false;
+    }
+
+    for ( const RunReplayPredictionFrame& frame : prediction.simulation.frames )
+    {
+        const RunReplayPredictionBodySample* body =
+            FindReplayPredictionBodyByIdWithHint( frame,
+                                                  prediction.simulation.targetId,
+                                                  prediction.simulation.targetModelIndex );
+        if ( body &&
+             !AppendReplayTrajectoryPoint( prediction.trajectoryStore, *record, frame.frameIndex, body->position ) )
+        {
+            prediction.trajectoryBuild.valid = false;
+            return false;
+        }
+    }
+    prediction.trajectoryBuild.rootId = prediction.simulation.targetId;
+    prediction.trajectoryBuild.usingBuildFrames = false;
+    prediction.trajectoryBuild.rootFrameCount = record->points.size();
+    prediction.trajectoryBuild.childFrameCount = 0;
+    prediction.trajectoryBuild.builtNodeCount = 0;
+    prediction.trajectoryBuild.valid = true;
+    return true;
+}
+
+bool BuildReplayPredictionChildTrajectoryRecord( RunReplayPredictionState& prediction,
+                                                 const std::vector<RunReplayPredictionFrame>& frames,
+                                                 std::size_t frameCount,
+                                                 const RunReplayPathTraceNode& node,
+                                                 std::size_t nodeIndex,
+                                                 bool usingBuildFrames,
+                                                 ReplayTrajectoryLane lane,
+                                                 bool seedOutgoingEntry )
+{
+    if ( frameCount == 0 )
+    {
+        return true;
+    }
+
+    const uint16_t branchOrdinal = ReplayPredictionChildTrajectoryBranch( nodeIndex, usingBuildFrames );
+    ReplayTrajectoryRecord* record =
+        BeginReplayTrajectoryRecord( prediction.trajectoryStore,
+                                     ReplayTrajectoryKey( node.id, lane, branchOrdinal ),
+                                     static_cast<uint16_t>( std::clamp( node.depth, 0, 0xFFFF ) ),
+                                     node.parentId,
+                                     node.depth,
+                                     node.firstFrame,
+                                     node.contactDerived,
+                                     frameCount + ( seedOutgoingEntry ? 1u : 0u ) );
+    if ( !record )
+    {
+        prediction.trajectoryBuild.valid = false;
+        return false;
+    }
+
+    if ( seedOutgoingEntry )
+    {
+        const RunReplayPredictionBodySample* initial =
+            FindReplayPredictionBodyByIdWithHint( frames[0], node.id, node.modelIndex );
+        if ( initial && !AppendReplayTrajectoryPoint( prediction.trajectoryStore,
+                                                      *record,
+                                                      frames[0].frameIndex,
+                                                      initial->position ) )
+        {
+            prediction.trajectoryBuild.valid = false;
+            return false;
+        }
+    }
+
+    for ( std::size_t frameIndex = 0; frameIndex < frameCount; ++frameIndex )
+    {
+        const RunReplayPredictionFrame& frame = frames[frameIndex];
+        if ( seedOutgoingEntry && lane == ReplayTrajectoryLane::FutureChildOutgoing && frameIndex == 0u )
+        {
+            continue;
+        }
+        const bool includeFrame = lane == ReplayTrajectoryLane::FutureChildIncoming
+                                      ? frame.frameIndex <= node.firstFrame
+                                      : frame.frameIndex >= node.firstFrame;
+        if ( !includeFrame )
+        {
+            continue;
+        }
+
+        const RunReplayPredictionBodySample* body =
+            FindReplayPredictionBodyByIdWithHint( frame, node.id, node.modelIndex );
+        if ( body &&
+             !AppendReplayTrajectoryPoint( prediction.trajectoryStore, *record, frame.frameIndex, body->position ) )
+        {
+            prediction.trajectoryBuild.valid = false;
+            return false;
+        }
+    }
+    return true;
+}
+
+bool AppendReplayPredictionChildTrajectoryFrames( RunReplayPredictionState& prediction,
+                                                  const std::vector<RunReplayPredictionFrame>& frames,
+                                                  std::size_t beginFrame,
+                                                  std::size_t frameCount,
+                                                  const RunReplayPathTraceNode& node,
+                                                  std::size_t nodeIndex,
+                                                  bool usingBuildFrames,
+                                                  ReplayTrajectoryLane lane )
+{
+    const uint16_t branchOrdinal = ReplayPredictionChildTrajectoryBranch( nodeIndex, usingBuildFrames );
+    ReplayTrajectoryRecord* record =
+        prediction.trajectoryStore.FindRecord( ReplayTrajectoryKey( node.id, lane, branchOrdinal ) );
+    if ( !record )
+    {
+        return BuildReplayPredictionChildTrajectoryRecord( prediction,
+                                                           frames,
+                                                           frameCount,
+                                                           node,
+                                                           nodeIndex,
+                                                           usingBuildFrames,
+                                                           lane,
+                                                           lane == ReplayTrajectoryLane::FutureChildOutgoing );
+    }
+
+    const int frameNumber =
+        frameCount > 0u ? ReplayTrajectoryFrameNumberForReserve( frames[frameCount - 1u].frameIndex ) : 0;
+    if ( !prediction.trajectoryStore.ReserveRecordPoints( *record, frameCount + 1u, frameNumber ) )
+    {
+        prediction.trajectoryBuild.valid = false;
+        return false;
+    }
+
+    for ( std::size_t frameIndex = beginFrame; frameIndex < frameCount; ++frameIndex )
+    {
+        const RunReplayPredictionFrame& frame = frames[frameIndex];
+        const bool includeFrame = lane == ReplayTrajectoryLane::FutureChildIncoming
+                                      ? frame.frameIndex <= node.firstFrame
+                                      : frame.frameIndex >= node.firstFrame;
+        if ( !includeFrame )
+        {
+            continue;
+        }
+
+        const RunReplayPredictionBodySample* body =
+            FindReplayPredictionBodyByIdWithHint( frame, node.id, node.modelIndex );
+        if ( body &&
+             !AppendReplayTrajectoryPoint( prediction.trajectoryStore, *record, frame.frameIndex, body->position ) )
+        {
+            prediction.trajectoryBuild.valid = false;
+            return false;
+        }
+    }
+    return true;
+}
+
+void UpdateReplayPredictionTrajectoryStore( RunReplayPredictionState& prediction,
+                                            const std::vector<RunReplayPredictionFrame>& frames,
+                                            std::size_t frameCount,
+                                            bool usingBuildFrames,
+                                            ReplayBodyId rootId )
+{
+    frameCount = (std::min)( frameCount, frames.size() );
+    if ( rootId.value == 0 || frameCount < 2u )
+    {
+        prediction.trajectoryBuild.childFrameCount = 0;
+        prediction.trajectoryBuild.builtNodeCount = 0;
+        return;
+    }
+
+    const std::size_t nodeCount =
+        (std::min)( prediction.futureNodeCache.futureNodes.size(), REPLAY_PATH_MAX_FUTURE_NODES );
+    const bool sourceChanged = !prediction.trajectoryBuild.valid ||
+                               prediction.trajectoryBuild.rootId.value != rootId.value ||
+                               prediction.trajectoryBuild.usingBuildFrames != usingBuildFrames ||
+                               prediction.trajectoryBuild.childFrameCount > frameCount ||
+                               prediction.trajectoryBuild.builtNodeCount > nodeCount;
+    if ( !sourceChanged && prediction.trajectoryBuild.childFrameCount == frameCount &&
+         prediction.trajectoryBuild.builtNodeCount == nodeCount )
+    {
+        return;
+    }
+
+    // Hazard: child records depend on the frozen future-node order. When the
+    // source prefix or topology changes, replace the affected records instead
+    // of mutating already-published points under an old version.
+    if ( !sourceChanged && prediction.trajectoryBuild.childFrameCount < frameCount )
+    {
+        const std::size_t existingNodeCount = (std::min)( prediction.trajectoryBuild.builtNodeCount, nodeCount );
+        for ( std::size_t i = 0; i < existingNodeCount; ++i )
+        {
+            const RunReplayPathTraceNode& node = prediction.futureNodeCache.futureNodes[i];
+            if ( !AppendReplayPredictionChildTrajectoryFrames( prediction,
+                                                               frames,
+                                                               prediction.trajectoryBuild.childFrameCount,
+                                                               frameCount,
+                                                               node,
+                                                               i,
+                                                               usingBuildFrames,
+                                                               ReplayTrajectoryLane::FutureChildIncoming ) ||
+                 !AppendReplayPredictionChildTrajectoryFrames( prediction,
+                                                               frames,
+                                                               prediction.trajectoryBuild.childFrameCount,
+                                                               frameCount,
+                                                               node,
+                                                               i,
+                                                               usingBuildFrames,
+                                                               ReplayTrajectoryLane::FutureChildOutgoing ) )
+            {
+                return;
+            }
+        }
+    }
+
+    const std::size_t firstNode = sourceChanged ? 0u : prediction.trajectoryBuild.builtNodeCount;
+    for ( std::size_t i = firstNode; i < nodeCount; ++i )
+    {
+        const RunReplayPathTraceNode& node = prediction.futureNodeCache.futureNodes[i];
+        if ( !BuildReplayPredictionChildTrajectoryRecord( prediction,
+                                                          frames,
+                                                          frameCount,
+                                                          node,
+                                                          i,
+                                                          usingBuildFrames,
+                                                          ReplayTrajectoryLane::FutureChildIncoming,
+                                                          false ) ||
+             !BuildReplayPredictionChildTrajectoryRecord( prediction,
+                                                          frames,
+                                                          frameCount,
+                                                          node,
+                                                          i,
+                                                          usingBuildFrames,
+                                                          ReplayTrajectoryLane::FutureChildOutgoing,
+                                                          true ) )
+        {
+            return;
+        }
+    }
+
+    if ( sourceChanged )
+    {
+        prediction.trajectoryBuild.rootId = rootId;
+        prediction.trajectoryBuild.usingBuildFrames = usingBuildFrames;
+        prediction.trajectoryBuild.valid = true;
+    }
+    prediction.trajectoryBuild.childFrameCount = frameCount;
+    prediction.trajectoryBuild.builtNodeCount = nodeCount;
 }
 
 bool ReplayPredictionBodyHasVisibleLinearMotion( const RunReplayPredictionBodySample& body )
@@ -2906,12 +3331,14 @@ bool CaptureReplayPredictionFrame( ReplayRuntime& replayRuntime,
             frame.debugContacts.clear();
             frame.contactsIncomplete = true;
             prediction.PublishBuildFrameSlot( frameSlot );
+            (void)PublishReplayPredictionRootTrajectoryFrame( prediction, frame, frameSlot );
             return true;
         }
     }
     frame.debugContacts = debugContacts;
     frame.contactsIncomplete = false;
     prediction.PublishBuildFrameSlot( frameSlot );
+    (void)PublishReplayPredictionRootTrajectoryFrame( prediction, frame, frameSlot );
     return true;
 }
 } // namespace
@@ -3077,6 +3504,12 @@ bool BeginReplayPredictionJob( ReplayRuntime& replayRuntime,
         prediction.build.dirty = true;
         return false;
     }
+    if ( !PrepareReplayPredictionTrajectoryBuild( prediction, prediction.simulation.targetId, buildFrameCapacity ) )
+    {
+        replayRuntime.CancelPredictionJob( clearSamplesOnCancel );
+        prediction.build.dirty = true;
+        return false;
+    }
 
     if ( !CaptureReplayPredictionBodyState( modelCollection,
                                             liveBodyStore,
@@ -3231,6 +3664,7 @@ bool StepReplayPredictionJob( ReplayRuntime& replayRuntime,
         replayRuntime.Prediction().simulation.frames.swap( replayRuntime.Prediction().build.buildFrames );
         replayRuntime.Prediction().build.buildFrames.clear();
         replayRuntime.Prediction().ResetBuildFramePublication();
+        (void)RebuildReplayPredictionCommittedRootTrajectory( replayRuntime.Prediction() );
         if ( replayRuntime.Prediction().baseline.valid )
         {
             UpdateReplayPredictionBaselineDivergence( replayRuntime.Prediction(),
@@ -3401,6 +3835,11 @@ bool DrawReplayPredictionOverlay( ReplayRuntime& replayRuntime,
                                                    replayRuntime.PathVisualizer().targetId,
                                                    buildBudgetStart,
                                                    budgetMilliseconds );
+            UpdateReplayPredictionTrajectoryStore( replayRuntime.Prediction(),
+                                                   activePredictionFrames,
+                                                   activePredictionFrameCount,
+                                                   usingBuildFrames,
+                                                   replayRuntime.PathVisualizer().targetId );
             (void)ReplayPredictionBudgetExpiredForPass( replayRuntime,
                                                         MainMemoryReplayBudgetPass::PredictionBuildTree,
                                                         buildBudgetStart,
@@ -3807,6 +4246,7 @@ void RenderReplayPathVisualizer( const ReplayPathVisualizerRenderContext& contex
     {
         return;
     }
+    context.replayRuntime.RefreshPastTrajectoryStoreFromSolverSamples();
 
     if ( context.replayRuntime.PathVisualizer().targets.empty() &&
          context.replayRuntime.PathVisualizer().targetId.value != 0 )

@@ -30,6 +30,9 @@ Glossary:
     frames under a render-frame budget.
   Published build prefix: Contiguous prediction frames whose rows are fully
     written and safe for render, automation, or Director readers to inspect.
+  Trajectory record: Versioned polyline storage for one replay body and lane.
+  Recorder eviction: Removal of the oldest bounded-ring sample when replay
+    capture appends beyond the configured retention window.
 
 Invariants:
   - Stored indices are hints; ReplayBodyId remains the identity check.
@@ -143,6 +146,18 @@ struct RunReplayPathTarget
     ReplayBodyId id;
     int modelIndex = -1;
     char name[64] = {};
+};
+
+struct RunReplayPastTrajectoryBuildState
+{
+    // Concept: retained solver paths are built from the bounded solver ring and
+    // then appended as new samples arrive. The eviction counter keeps the store
+    // from outliving the recorder window it represents.
+    ReplayBodyId targetId;
+    ReplayFrameIndex firstFrame = 0;
+    ReplayFrameIndex builtThroughFrame = 0;
+    uint64_t totalFramesEvicted = 0;
+    bool valid = false;
 };
 
 enum class RunReplayCameraFocusKind
@@ -263,6 +278,7 @@ struct RunReplayPathVisualizerState
     char targetName[64] = {};
     std::vector<RunReplayPathTraceNode> futureNodes;
     std::vector<RunReplayPathTarget> targets;
+    RunReplayPastTrajectoryBuildState pastTrajectory;
 };
 
 struct RunReplayPredictionBodyBackup
@@ -411,6 +427,19 @@ struct RunReplayPredictionFutureNodeCache
     std::size_t retainedMarkerCount = 0;
 };
 
+struct RunReplayPredictionTrajectoryBuildState
+{
+    // Concept: prediction trajectory records follow the same published-prefix
+    // contract as buildFrames. Root points are appended when frames publish;
+    // child records catch up after the future-node cache publishes topology.
+    ReplayBodyId rootId;
+    bool usingBuildFrames = false;
+    std::size_t rootFrameCount = 0;
+    std::size_t childFrameCount = 0;
+    std::size_t builtNodeCount = 0;
+    bool valid = false;
+};
+
 struct RunReplayPredictionBuildState
 {
     bool dirty = true;
@@ -488,6 +517,7 @@ struct RunReplayPredictionState
     // prediction/solver builders and overlay drawing. Existing draw paths still
     // read legacy caches until the build/draw migration lands.
     ReplayTrajectoryStore trajectoryStore;
+    RunReplayPredictionTrajectoryBuildState trajectoryBuild;
     // Concept: the butterfly baseline is a retained presentation snapshot of
     // the pre-nudge future. It is intentionally smaller than the committed
     // simulation frame list: one cold root polyline, two poses per affected
@@ -728,6 +758,9 @@ class ReplayRuntime
     ReplayRecorderStats SolverStats() const;
     ReplayEventRecorderStats EventStats() const;
     ReplayFrameIndex NextEventFrameIndex() const;
+    // Refreshes the selected past-root trajectory from retained solver samples.
+    // The method is cheap when the cursor already matches the recorder window.
+    void RefreshPastTrajectoryStoreFromSolverSamples();
     void CaptureFrame( ReplayCaptureInput input );
     bool ApplyPresentationSampleForRender( GameObjects::GameModelCollection& collection,
                                            const ReplayPresentationSample& sample );
@@ -816,6 +849,7 @@ class ReplayRuntime
 
   private:
     void ReportLatestCaptureMismatch();
+    void AppendSolverTrajectorySampleToStore( const ReplaySolverFrameSample& sample );
 
     ReplayRecorder m_presentation;                                    // Bounded replay presentation recorder for recent-frame inspection.
     ReplaySolverRecorder m_solver;                                    // Same-tick solver-state recorder kept in tandem with presentation replay.
