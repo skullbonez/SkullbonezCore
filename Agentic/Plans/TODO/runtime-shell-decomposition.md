@@ -573,6 +573,21 @@ scenarios passed in 25.1s; and full passed in 54.3s with 129/129 doctest cases,
 screenshots, standalone topology smoke, and the 20,001-line byte-exact physics
 baseline. Comment audit: 2/2 touched source-bearing files.
 
+New editor transform and placement-scale gestures now start through
+`RuntimeTools`. Transform preparation captures immutable scale/rotate/translate
+geometry before InputRouter cleanup; commit owns pointer capture, durable gizmo
+state, and bounded group-start snapshots afterward. Placement-scale start is
+owner-local and returns only consumed/began facts. Run no longer computes gizmo
+drag planes, axis parameters, rotation angles, or start snapshots. B1f remains
+open for final editor-route composition and outer pointer/`TakeInput` deletion.
+
+Evidence: one Debug build caught the now-unused Run collider-store local; after
+deletion the zero-warning Debug build passed. All five interaction scenarios
+passed in 25.3s; and full passed in 54.0s with 129/129 doctest cases, 2,755
+assertions, zero warnings, zero DX12 InfoQueue errors, matching screenshots,
+standalone topology smoke, and the 20,001-line byte-exact physics baseline.
+Comment audit: 2/2 touched source-bearing files.
+
 ## Remaining Work
 
 ### A. Narrow the render host

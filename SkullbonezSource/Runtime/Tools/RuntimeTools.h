@@ -292,6 +292,46 @@ struct EditorGizmoDragPointerResult
     bool endedGesture = false;
 };
 
+enum class EditorGizmoGestureKind
+{
+    None,
+    Translate,
+    Rotate,
+    Scale
+};
+
+struct EditorGizmoGesturePlan
+{
+    // Invariant: preparation captures every value needed after InputRouter
+    // performs cross-owner cleanup; commit never reads a Run callback/context.
+    EditorGizmoGestureKind kind = EditorGizmoGestureKind::None;
+    WorldInteractionOwner owner;
+    InteractionExitReason reason;
+    int selectedModelIndex = -1;
+    int axis = -1;
+    int clientX = 0;
+    int clientY = 0;
+    float axisParameter = 0.0f;
+    Math::Vector::Vector3 startPosition = Math::Vector::ZERO_VECTOR;
+    Math::Orientation::Quaternion startOrientation;
+    Math::Vector::Vector3 dragPlaneNormal = Math::Vector::ZERO_VECTOR;
+    Math::CollisionDetection::CollisionShape startShape;
+};
+
+struct EditorGizmoGestureResult
+{
+    bool attempted = false;
+    bool consumed = false;
+    EditorGizmoGestureKind kind = EditorGizmoGestureKind::None;
+};
+
+struct EditorPlacementScaleStartResult
+{
+    // Composition publishes the semantic begin edge only for a started gesture.
+    bool consumed = false;
+    bool beganGesture = false;
+};
+
 struct MousePickupPointerResult
 {
     bool consumed = false;                                                  // Prevents later world owners from seeing this pointer gesture.
@@ -685,6 +725,24 @@ class RuntimeTools
                                                               Physics::PhysicsEngine& physics,
                                                               RuntimeInteractionController& interaction,
                                                               ReplayRuntime& replayRuntime );
+    bool PrepareEditorGizmoGesture( bool inspectGizmoActive,
+                                    bool scaleMode,
+                                    int selectedModelIndex,
+                                    bool hasWorldRay,
+                                    const Math::Vector::Vector3& rayOrigin,
+                                    const Math::Vector::Vector3& rayDirection,
+                                    int clientX,
+                                    int clientY,
+                                    GameObjects::GameModelCollection& collection,
+                                    Physics::PhysicsEngine& physics,
+                                    RuntimeInteractionController& interaction,
+                                    EditorGizmoGesturePlan& outPlan );
+    EditorGizmoGestureResult CommitEditorGizmoGesture( const EditorGizmoGesturePlan& plan,
+                                                       GameObjects::GameModelCollection& collection,
+                                                       Physics::PhysicsEngine& physics,
+                                                       RuntimeInteractionController& interaction );
+    EditorPlacementScaleStartResult
+    BeginEditorPlacementScalePointer( bool inspectGizmoActive, bool hasClientPosition, int clientX, int clientY );
     bool CommitSelectionCommand( const RuntimeInteractionSelectionPlan& plan, RuntimeInteractionEvent& outEvent );
     bool ApplySelectionCommand( const RuntimeInteractionCommand& command,
                                 const GameObjects::GameModelCollection& collection );
