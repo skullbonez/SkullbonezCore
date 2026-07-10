@@ -10,9 +10,9 @@ reports, and git history.
 | Field | Value |
 |---|---|
 | Branch | `engine-cleanup-10th-july`, tracking `origin/engine-cleanup-10th-july` |
-| Current pushed baseline | `92b2fda6 refactor: move terrain into scene owner` |
-| Current objective | Close the dependent B1f/C1 Run scene seam and promote SceneController lifecycle ownership |
-| Last broad local gate | `tools\validate_full.bat` passed the SceneController-owned cold load transaction with 127/127 doctest cases, 2,730 assertions, all CPU lanes, zero-warning builds, DX12 with zero InfoQueue errors/matching screenshots, standalone physics smoke, and 20,001-line byte-exact physics in 50.2s |
+| Current pushed baseline | `07c8fc6c refactor: promote scene load transaction` |
+| Current objective | Adversarially review the closed scene-owner milestone, then close B1f direct input/state remnants |
+| Last broad local gate | `tools\validate_full.bat` passed the SceneController-owned pending execution boundary with 127/127 doctest cases, 2,730 assertions, all CPU lanes, zero-warning builds, DX12 with zero InfoQueue errors/matching screenshots, standalone physics smoke, and 20,001-line byte-exact physics in 53.0s |
 | Native evidence | Injected heap-use-after-free caught; healthy ASan and five-file `/analyze` passed in 16.185s |
 
 ## Pushed Cleanup Commits
@@ -212,6 +212,15 @@ are deleted. The remaining C1 seam is the scene-only pending-request switch and
 its Run::DrainSceneRequests wrapper. Fast, CPU, interaction, replay scrub,
 one-minute graphics stress, all 135 scene loads, physics, and full gates pass;
 comment audit is 11/11.
+
+The SceneController C1-C3 milestone and owner-queue B2f are complete locally.
+`SceneController::ExecutePending` owns the fixed pending batch and scene-only
+operation switch, while `SceneController::Load` owns the ordered cold lifecycle
+transaction. `Run::LoadScene`, `DrainSceneRequests`, the scene callback/context
+packs, and collection scene wrappers are deleted; cold-operation dependencies
+are explicit per-call borrows and are never retained. Fast, CPU umbrella,
+interaction clicks, and full gates pass; comment audit is 3/3. The required
+milestone adversarial review is next, before B1f resumes.
 
 Scene provenance C1a is complete: parser-owned library/instance/ordered-part
 records retain exact shape sources, hierarchy transforms use rotated offsets

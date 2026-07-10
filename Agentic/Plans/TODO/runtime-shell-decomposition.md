@@ -1,7 +1,7 @@
 # Runtime Shell Decomposition
 
 Date: 2026-07-10 (reconciled)
-Status: In progress — 13/27 checklist items complete; earlier
+Status: In progress — 17/27 checklist items complete; earlier
 foundation work is summarized separately and is not mixed into this count
 Impact area: runtime architecture, scene lifecycle, input routing, render host
 Owner: application composition root
@@ -253,7 +253,7 @@ baseline. The comment-style audit covered all 35 touched source-bearing files.
   until C1 supplies concrete load/save authority.
 - [x] B2e. Replay records only accepted owner events with explicit stable event
   codes. Failed/rejected work and raw domain-enum ordinals are never serialized.
-- [ ] B2f. Close extraction 2 with C1: move scene execution to
+- [x] B2f. Close extraction 2 with C1: move scene execution to
   `SceneController`, then delete `DrainSceneRequests`, scene `void*` callbacks,
   and all remaining owner bypasses. The generic queue/type and dead
   zero-producer cases were already deleted under B2b-B2e; the scene `void*`
@@ -352,7 +352,7 @@ graphics stress, and request execution wire concrete owners directly. The load
 boundary retains no Run pointer/reference, callback, or mutable multi-domain
 context. `SceneRuntimeResetContext` and `SceneRuntimeLoadBeginContext` are also
 deleted; preserve/restore and checked GPU-drain inputs are explicit. C1/C3 and
-B2f remain open only for moving the scene-only pending-request switch into the
+B2f were closed by moving the scene-only pending-request switch into the
 controller and deleting `DrainSceneRequests`.
 
 Evidence from the load-owner promotion: the final staged fast gate passed in
@@ -392,8 +392,9 @@ explicit accepted/no-load result for selecting the already-active scene;
 cinematic deck selection is a separate browser-index query. Run sequencing no
 longer hands `void*`, load/interactive function pointers, mutable scene state,
 capture state, and style owners to a generic action dispatcher, and graphics
-stress consumes the same value request. B2f remains open only for deletion of
-`DrainSceneRequests` and the remaining Run load orchestration/owner bypasses.
+stress consumes the same value request. The final owner move deleted
+`DrainSceneRequests`; pending scene work now executes inside `SceneController`
+and records replay only after an accepted operation succeeds.
 
 Evidence from the callback-pack deletion: the final staged fast gate passed in
 41.2s with 11 candidates and no size violations; the CPU umbrella passed all
@@ -424,12 +425,32 @@ first full attempt stopped at formatting before build/runtime work; formatting
 the touched helper signature resolved it. Comment audit: 5/5 touched source
 and test files.
 
-- [ ] C1. Implement ownership extraction 3: `SceneController` owns the
+The scene-owner milestone is closed. `SceneController::ExecutePending` owns the
+fixed pending batch and its scene-only operation switch, calls the controller's
+load/create/save decisions directly, and publishes replay only after success.
+The caller supplies explicit cold-operation owners for the duration of the
+call; the controller retains no `Run` pointer/reference, callback pack, broad
+context, or authority over those consumers. The ordered lifecycle phases are
+enforced around the concrete-owner reset/populate/activation work inside
+`SceneController::Load`, so consumers cannot observe a phase label detached
+from its corresponding mutation. Deletion proof finds no `Run::LoadScene`,
+`DrainSceneRequests`, scene callback/context pack, or collection scene wrapper.
+
+Evidence from the pending-owner closure: the staged fast gate passed with
+three candidates, no size violations, 127/127 doctest cases, and 2,730
+assertions; the CPU umbrella passed all four lanes in 11.3s; interaction clicks
+passed on the native batch retry in 8.5s after the first PowerShell-hosted
+launch was denied by Device Guard; and full passed in 53.0s with zero warnings,
+zero DX12 InfoQueue errors, matching screenshots, standalone topology smoke,
+and the 20,001-line byte-exact physics baseline. Comment audit: 3/3 touched
+source-bearing files.
+
+- [x] C1. Implement ownership extraction 3: `SceneController` owns the
   preallocated scene/entity metadata store, scene-lifetime `PhysicsScene`,
   load/reset state, browser selection, adjacent load, and deck movement.
-- [ ] C2. Replace `Run` scene callbacks with explicit `BeforeSceneUnload`
+- [x] C2. Replace `Run` scene callbacks with explicit `BeforeSceneUnload`
   through `AfterSceneActivated` lifecycle events consumed by concrete owners.
-- [ ] C3. Move scene save/load orchestration behind `SceneController` and delete
+- [x] C3. Move scene save/load orchestration behind `SceneController` and delete
   `Run`/`GameModelCollection` scene business wrappers. The writer consumes a
   borrowed owner view, never `Run` callbacks or collection-order identity.
 

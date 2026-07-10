@@ -204,6 +204,33 @@ class SceneController
                    const RuntimeRenderBackendView& m_renderBackendView,
                    RuntimeRenderer& m_renderer,
                    int& sPerfPass );
+    // Executes the fixed pending batch inside the scene owner. Replay records
+    // only requests whose load/create/save operation completes successfully.
+    bool ExecutePending( EngineConfig& m_config,
+                         RunLaunchOptions& m_launchOptions,
+                         const CinematicRenderConfig& m_defaultCinematicRender,
+                         const RunStartupState& m_startup,
+                         DiagnosticsRuntime& m_diagnosticsRuntime,
+                         RunRuntimeSettings& m_runtimeSettings,
+                         RunTimerState& m_timers,
+                         Assets::AssetSystem& assets,
+                         Threading::WorkerPool& workerPool,
+                         Window& window,
+                         InputRouter& m_inputRouter,
+                         RuntimeInteractionController& m_interaction,
+                         RunCameraState& m_camera,
+                         AttachedCameraState& m_attachedCamera,
+                         SimulationSystem& m_simulation,
+                         ReplayRuntime& m_replayRuntime,
+                         Runtime::Audio::ContactAudioService& m_contactAudio,
+                         UI::InGameUI& m_UI,
+                         RunDebugState& m_debug,
+                         GraphicsStressController& m_graphicsStress,
+                         RuntimeTools& m_runtimeTools,
+                         Physics::PhysicsDebugVisualizer& m_physicsDebugVisualizer,
+                         const RuntimeRenderBackendView& m_renderBackendView,
+                         RuntimeRenderer& m_renderer,
+                         int& sPerfPass );
     SbResult SaveCurrentDefaults( const SceneDefaultsSaveView& view ) const;
 
     // Scene request submission stays owner-specific even while Run temporarily

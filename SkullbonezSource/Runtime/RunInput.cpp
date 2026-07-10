@@ -4,9 +4,9 @@ Purpose:
   Routes raw keyboard, mouse, and UI commands into runtime state changes.
 
 Mental model:
-  RunInput.cpp routes raw keyboard, mouse, and UI commands into runtime state
-  changes. As an implementation unit, keep edits anchored on local owner
-  boundaries and call direction and on the glossary/invariants below.
+  RunInput.cpp routes raw keyboard, mouse, and UI commands into concrete owners.
+  Scene requests are submitted and executed by SceneController; this file only
+  wires its cold dependencies at the post-input checkpoint.
 
 Glossary:
   Attach return pose: The visible camera pose captured before Attach takes over
@@ -2925,7 +2925,31 @@ void Run::TakeInput()
             // historical pre-render input checkpoint; automation remains post-render.
             const bool processedDefaults = DrainRenderDefaultRequests();
             const bool processedCapture = DrainCaptureRequests();
-            const bool processedScene = DrainSceneRequests();
+            const bool processedScene = m_sceneController.ExecutePending( m_config,
+                                                                          m_launchOptions,
+                                                                          m_defaultCinematicRender,
+                                                                          m_startup,
+                                                                          m_diagnosticsRuntime,
+                                                                          m_runtimeSettings,
+                                                                          m_timers,
+                                                                          m_systems.assets,
+                                                                          *m_systems.workerPool,
+                                                                          *m_systems.window,
+                                                                          m_inputRouter,
+                                                                          m_interaction,
+                                                                          m_camera,
+                                                                          m_attachedCamera,
+                                                                          m_simulation,
+                                                                          m_replayRuntime,
+                                                                          m_contactAudio,
+                                                                          m_UI,
+                                                                          m_debug,
+                                                                          m_graphicsStress,
+                                                                          m_runtimeTools,
+                                                                          m_physicsDebugVisualizer,
+                                                                          m_renderBackendView,
+                                                                          m_renderer,
+                                                                          sPerfPass );
             if ( processedCapture || processedDefaults || processedScene )
             {
                 RefreshRuntimeViewModel();
@@ -3008,13 +3032,44 @@ bool Run::DrainRenderDefaultRequests()
 }
 
 
-bool Run::DrainSceneRequests()
+bool SceneController::ExecutePending( EngineConfig& m_config,
+                                      RunLaunchOptions& m_launchOptions,
+                                      const CinematicRenderConfig& m_defaultCinematicRender,
+                                      const RunStartupState& m_startup,
+                                      DiagnosticsRuntime& m_diagnosticsRuntime,
+                                      RunRuntimeSettings& m_runtimeSettings,
+                                      RunTimerState& m_timers,
+                                      SkullbonezCore::Assets::AssetSystem& assets,
+                                      Threading::WorkerPool& workerPool,
+                                      Window& window,
+                                      InputRouter& m_inputRouter,
+                                      RuntimeInteractionController& m_interaction,
+                                      RunCameraState& m_camera,
+                                      AttachedCameraState& m_attachedCamera,
+                                      SimulationSystem& m_simulation,
+                                      ReplayRuntime& m_replayRuntime,
+                                      SkullbonezCore::Runtime::Audio::ContactAudioService& m_contactAudio,
+                                      SkullbonezCore::UI::InGameUI& m_UI,
+                                      RunDebugState& m_debug,
+                                      GraphicsStressController& m_graphicsStress,
+                                      RuntimeTools& m_runtimeTools,
+                                      Physics::PhysicsDebugVisualizer& m_physicsDebugVisualizer,
+                                      const RuntimeRenderBackendView& m_renderBackendView,
+                                      RuntimeRenderer& m_renderer,
+                                      int& sPerfPass )
 {
-    const auto executeSceneLoadRequest = [this]( const SceneLoadRequest& request )
+    SceneController& m_sceneController = *this;
+    const auto enterInteractiveSceneRun = [&]()
+    {
+        State().isInteractiveRun = true;
+        State().isExitOnComplete = false;
+        m_diagnosticsRuntime.Capture().Screenshot().isScreenshotAndExit = false;
+    };
+    const auto executeSceneLoadRequest = [&]( const SceneLoadRequest& request )
     {
         if ( request.enterInteractiveSceneRun )
         {
-            EnterInteractiveSceneRun();
+            enterInteractiveSceneRun();
         }
         if ( !request.accepted )
         {
@@ -3029,9 +3084,9 @@ bool Run::DrainSceneRequests()
                                                 m_diagnosticsRuntime,
                                                 m_runtimeSettings,
                                                 m_timers,
-                                                m_systems.assets,
-                                                *m_systems.workerPool,
-                                                *m_systems.window,
+                                                assets,
+                                                workerPool,
+                                                window,
                                                 m_inputRouter,
                                                 m_interaction,
                                                 m_camera,
@@ -3077,7 +3132,7 @@ bool Run::DrainSceneRequests()
             break;
         case SceneRequestType::ResetCurrentScene:
             eventCode = ReplayOwnerEventCode::SceneReset;
-            EnterInteractiveSceneRun();
+            enterInteractiveSceneRun();
             accepted = executeSceneLoadRequest( m_sceneController.ResetCurrentScene( request.preserveUIState,
                                                                                      request.suppressExitOnComplete,
                                                                                      request.preserveRuntimeState ) );

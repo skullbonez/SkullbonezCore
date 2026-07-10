@@ -172,7 +172,6 @@ class Run
     void WriteInteractionAutomationReport();                            // Writes JSON result for --interaction-report.
     bool TryFindInteractionAutomationModel( const char* name, int& outIndex ) const;
     bool TryProjectInteractionAutomationModel( const char* name, POINT& outMouse );
-    bool DrainSceneRequests();                                          // Temporary C1 execution seam for scene-owned deferred intent.
     bool DrainCaptureRequests();                                        // Executes capture-owned input requests against the active backend.
     bool DrainRenderDefaultRequests();                                  // Persists final frame-mutated render values at the input checkpoint.
     void UpdateRuntimeInputModeAfterAction(
