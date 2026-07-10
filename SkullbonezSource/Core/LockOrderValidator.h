@@ -22,7 +22,6 @@ Invariants:
     config reads, and no dependence on other singleton destruction order.
 
 Related:
-  - Agentic/Plans/worker-system-plan.md
   - SkullbonezSource/Core/WorkerPool.h
 */
 

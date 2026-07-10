@@ -44,7 +44,6 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/Audio/ContactAudioService.cpp
-  - Agentic/Plans/contact-impact-audio-plan.md
 */
 #pragma once
 

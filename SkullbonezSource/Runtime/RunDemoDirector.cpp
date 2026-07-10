@@ -37,7 +37,6 @@ Related:
   - SkullbonezSource/Runtime/RunDemoDirector.h
   - SkullbonezSource/Runtime/DemoDirector.h
   - SkullbonezSource/Runtime/RunSubsystemState.h
-  - fable_plans/08-demo-director-progress.md
 */
 #include "RunDemoDirector.h"
 #include "Replay/ReplayRuntime.h"

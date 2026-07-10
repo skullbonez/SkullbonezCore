@@ -24,7 +24,7 @@ Related:
   - SkullbonezSource/Runtime/RuntimeInteractionController.cpp
   - SkullbonezSource/Runtime/RunInput.cpp
   - SkullbonezSource/Runtime/RunFrame.cpp
-  - Agentic/Plans/runtime-interaction-controller-plan.md
+  - Agentic/Plans/TODO/interaction-state-machine.md
 */
 #pragma once
 

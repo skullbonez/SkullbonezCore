@@ -21,7 +21,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Scene/RunScene.cpp
   - SkullbonezSource/Runtime/Scene/SceneRuntime.cpp
-  - Agentic/Plans/run-composition-root-shrink-plan.md
+  - Agentic/Plans/TODO/runtime-shell-decomposition.md
 */
 #pragma once
 

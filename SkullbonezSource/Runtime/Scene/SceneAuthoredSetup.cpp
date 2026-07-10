@@ -31,7 +31,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Scene/SceneAuthoredSetup.h
   - SkullbonezSource/Runtime/Scene/RunScene.cpp
-  - Agentic/Plans/runtime-run-decomposition-plan.md
+  - Agentic/Plans/TODO/runtime-shell-decomposition.md
 */
 #include "SceneAuthoredSetup.h"
 #include "SceneRuntime.h"

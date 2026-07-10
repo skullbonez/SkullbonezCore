@@ -38,7 +38,7 @@
 // Related:
 //   - SkullbonezSource/Physics/PhysicsEngine.h
 //   - SkullbonezSource/Runtime/Replay/ReplayRecorder.h
-//   - engine-cleanup-plans/05-behavioral-test-coverage.md
+//   - Agentic/Plans/TODO/behavioral-test-depth.md
 //
 
 #include "../ThirdPtySource/doctest/doctest.h"

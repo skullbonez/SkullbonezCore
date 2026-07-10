@@ -23,7 +23,7 @@ Invariants:
     in the same store snapshot and frame that produced the result.
 
 Related:
-  - Agentic/Plans/runtime-interaction-state-machine-hardening-plan.md
+  - Agentic/Plans/TODO/interaction-state-machine.md
   - SkullbonezSource/Runtime/Editor/RunEditorTools.cpp
 */
 #pragma once

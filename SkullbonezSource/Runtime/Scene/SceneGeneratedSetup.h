@@ -28,7 +28,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Scene/RunScene.cpp
   - SkullbonezSource/Runtime/Scene/SceneRuntimeCoordinator.h
-  - Agentic/Plans/runtime-run-decomposition-plan.md
+  - Agentic/Plans/TODO/runtime-shell-decomposition.md
 */
 #pragma once
 

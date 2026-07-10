@@ -21,7 +21,7 @@
 @rem
 @rem Related:
 @rem   - tools/check_dx12_baselines.py
-@rem   - Agentic/Plans/dx12-only-renderer-retirement-plan.md
+@rem   - AGENTS.md
 @rem   - Agentic/Reference/comment-style-guide.md
 @rem
 @echo off

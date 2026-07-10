@@ -27,7 +27,7 @@ Related:
   - SkullbonezSource/Runtime/Run.h
   - SkullbonezSource/Runtime/RunInternal.h
   - SkullbonezSource/Runtime/Render/RuntimeRenderer.h
-  - engine-cleanup-plans/01-run-god-object-decomposition.md
+  - Agentic/Plans/TODO/runtime-shell-decomposition.md
 */
 #pragma once
 

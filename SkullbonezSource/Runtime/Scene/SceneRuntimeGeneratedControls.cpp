@@ -22,7 +22,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Scene/SceneRuntimeGeneratedControls.h
   - SkullbonezSource/Runtime/Scene/RunScene.cpp
-  - Agentic/Plans/run-composition-root-shrink-plan.md
+  - Agentic/Plans/TODO/runtime-shell-decomposition.md
 */
 #include "SceneRuntimeGeneratedControls.h"
 #include "SceneController.h"

@@ -23,8 +23,6 @@ Invariants:
     on the caller thread in chunk order.
 
 Related:
-  - Agentic/Plans/worker-system-plan.md
-  - Agentic/Plans/physics-shadow-worker-parallelization-plan.md
   - SkullbonezSource/Core/Fence.h
 */
 

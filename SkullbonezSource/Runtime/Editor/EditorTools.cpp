@@ -20,7 +20,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/Editor/EditorTools.h
-  - Agentic/Plans/physics-playground-refactor-and-file-prefix-cleanup-plan.md
+  - Agentic/Plans/TODO/interaction-state-machine.md
 */
 #include "EditorTools.h"
 

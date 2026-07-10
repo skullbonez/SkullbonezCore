@@ -25,7 +25,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/Allocation/RuntimeAllocationTracker.h
-  - engine-cleanup-plans/07-allocation-gate-right-sizing.md
+  - AGENTS.md (Runtime Static Allocation Policy)
 */
 #pragma once
 

@@ -20,7 +20,6 @@ Invariants:
     observes completion through the atomic remaining count.
 
 Related:
-  - Agentic/Plans/worker-system-plan.md
   - SkullbonezSource/Core/WorkerPool.h
 */
 

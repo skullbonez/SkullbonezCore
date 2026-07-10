@@ -20,7 +20,6 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/RuntimeDiagnostics.h
-  - Agentic/Plans/main-memory-profiling-plan.md
 */
 #pragma once
 

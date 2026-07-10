@@ -58,7 +58,7 @@ Invariants:
 Related:
   - SkullbonezSource/Physics/PhysicsHandles.h
   - SkullbonezSource/Physics/PhysicsScene.h
-  - Agentic/Plans/runtime-run-decomposition-plan.md
+  - Agentic/Plans/TODO/physics-authority-and-identity.md
 */
 #pragma once
 

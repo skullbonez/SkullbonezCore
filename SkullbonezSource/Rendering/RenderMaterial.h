@@ -31,7 +31,6 @@ Invariants:
 
 Related:
   - Agentic/Reference/shader-inventory.md
-  - Agentic/Plans/shader-architecture-cleanup-plan.md
 */
 #pragma once
 

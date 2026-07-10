@@ -24,7 +24,7 @@ Invariants:
 
 Related:
   - AGENTS.md
-  - Agentic/Plans/runtime-interaction-state-machine-hardening-plan.md
+  - Agentic/Plans/TODO/interaction-state-machine.md
   - SkullbonezSource/Runtime/RuntimeInteractionController.h
   - SkullbonezSource/Runtime/RuntimePickGeometry.h
 */

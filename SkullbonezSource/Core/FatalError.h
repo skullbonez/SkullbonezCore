@@ -21,7 +21,7 @@ Invariants:
 Related:
   - SkullbonezSource/Core/FatalError.cpp
   - SkullbonezSource/Core/SbResult.h
-  - fable_plans/05-unified-error-handling-policy-progress.md
+  - AGENTS.md (Error Handling Policy)
 */
 #pragma once
 

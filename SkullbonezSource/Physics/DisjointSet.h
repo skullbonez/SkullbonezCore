@@ -28,7 +28,6 @@ Invariants:
 
 Related:
   - PhysicsWorld.cpp owns the deterministic solver stages that use this helper.
-  - engine-cleanup-plans/02-physicsworld-solver-decomposition.md
 */
 #pragma once
 

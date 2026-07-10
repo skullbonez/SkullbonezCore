@@ -22,7 +22,7 @@
 # Related:
 #   - tools/validate_dx12_renderer.bat
 #   - TestOutput/baselines/
-#   - Agentic/Plans/dx12-only-renderer-retirement-plan.md
+#   - AGENTS.md
 #
 #!/usr/bin/env python3
 """

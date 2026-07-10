@@ -23,7 +23,7 @@
 // Related:
 //   - SkullbonezSource/Runtime/Allocation/RuntimeReserveAllocator.h
 //   - SkullbonezSource/Runtime/Allocation/RuntimeReserveAllocator.cpp
-//   - fable_plans/01-unit-test-pyramid-progress.md
+//   - Agentic/Plans/TODO/behavioral-test-depth.md
 //
 
 #include "../ThirdPtySource/doctest/doctest.h"

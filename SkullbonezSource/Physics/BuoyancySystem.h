@@ -24,7 +24,6 @@ Invariants:
 Related:
   - SkullbonezSource/Physics/BuoyancySystem.cpp
   - SkullbonezSource/Physics/PhysicsWorld.cpp
-  - engine-cleanup-plans/02-physicsworld-solver-decomposition.md
 */
 #pragma once
 

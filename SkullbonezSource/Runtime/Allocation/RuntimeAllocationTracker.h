@@ -22,7 +22,7 @@ Invariants:
     physics allocations cannot hide behind a default thread-local phase.
 
 Related:
-  - Agentic/Plans/Done/runtime-static-allocation-policy-plan.md
+  - AGENTS.md (Runtime Static Allocation Policy)
   - tools/check_allocation_policy.py
 */
 #pragma once

@@ -19,7 +19,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Core/FatalError.h
-  - fable_plans/05-unified-error-handling-policy-progress.md
+  - AGENTS.md (Error Handling Policy)
 */
 #pragma once
 

@@ -50,7 +50,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Physics/PhysicsApi.h
-  - Agentic/Plans/carmack-physics-standalone-boundary-plan.md
+  - Agentic/Plans/TODO/physics-authority-and-identity.md
 */
 #include "PhysicsApi.h"
 

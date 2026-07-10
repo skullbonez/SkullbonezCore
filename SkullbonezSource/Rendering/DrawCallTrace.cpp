@@ -23,7 +23,6 @@ Invariants:
 
 Related:
   - SkullbonezSource/Rendering/DrawCallTrace.h
-  - Agentic/Plans/draw-call-trace-tree-plan.md
 */
 #include "DrawCallTrace.h"
 

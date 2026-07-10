@@ -21,7 +21,6 @@ Invariants:
     current per-tick budget.
 
 Related:
-  - Agentic/Plans/worker-system-plan.md
   - SkullbonezSource/Core/WorkerPool.h
 */
 

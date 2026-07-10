@@ -23,7 +23,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/RuntimePickService.cpp
-  - Agentic/Plans/In_Progress/accurate-collision-shape-picker-plan.md
+  - Agentic/Plans/TODO/interaction-state-machine.md
 */
 #pragma once
 

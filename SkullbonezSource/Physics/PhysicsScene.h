@@ -30,7 +30,7 @@ Invariants:
 Related:
   - SkullbonezSource/Physics/PhysicsScene.cpp
   - SkullbonezSource/Physics/PhysicsWorld.h
-  - Agentic/Plans/physics-playground-refactor-and-file-prefix-cleanup-plan.md
+  - Agentic/Plans/TODO/physics-authority-and-identity.md
 */
 #pragma once
 

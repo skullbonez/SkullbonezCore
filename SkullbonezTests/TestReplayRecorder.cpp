@@ -23,7 +23,7 @@
 // Related:
 //   - SkullbonezSource/Runtime/Replay/ReplayRecorder.h
 //   - SkullbonezSource/Runtime/Replay/ReplayRecorder.cpp
-//   - fable_plans/01-unit-test-pyramid-progress.md
+//   - Agentic/Plans/TODO/behavioral-test-depth.md
 //
 
 #include "../ThirdPtySource/doctest/doctest.h"

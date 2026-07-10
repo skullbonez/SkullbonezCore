@@ -22,7 +22,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Scene/SceneRuntime.h
   - SkullbonezSource/Runtime/Scene/RunScene.cpp
-  - Agentic/Plans/physics-playground-refactor-and-file-prefix-cleanup-plan.md
+  - Agentic/Plans/TODO/runtime-shell-decomposition.md
 */
 #pragma once
 
