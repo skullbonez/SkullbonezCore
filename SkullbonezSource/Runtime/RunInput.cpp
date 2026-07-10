@@ -1073,6 +1073,44 @@ void InputRouter::ApplyInteractionTransition( const RuntimeInteractionTransition
     }
 }
 
+
+RuntimeInteractionTransition
+InputRouter::SetWorldInteractionOwner( WorldInteractionOwner owner,
+                                       InteractionExitReason reason,
+                                       ReplayRuntime& replayRuntime,
+                                       RuntimeTools& runtimeTools,
+                                       RuntimeInteractionController& interaction,
+                                       SkullbonezCore::Environment::CameraCollection& cameras,
+                                       SkullbonezCore::Geometry::Terrain* terrain,
+                                       SkullbonezCore::GameObjects::GameModelCollection& models,
+                                       PhysicsEngine& physics,
+                                       RunCameraState& camera,
+                                       RunCameraMode replayRestoreCameraMode,
+                                       bool attachedCameraFollow,
+                                       bool directorGrabbed )
+{
+    // Why: changing the logical owner can eject replay, editor, or camera gestures. InputRouter owns that
+    // cleanup because it also reconciles the corresponding capture and cursor state.
+    const RuntimeWorkspace workspace = WorkspaceForWorldInteractionOwner( interaction.Workspace(), owner );
+    const RuntimeInteractionTransition transition =
+        interaction.SetWorldInteractionOwnerInWorkspace( workspace, owner, reason );
+    ApplyInteractionTransitionCleanup( transition,
+                                       replayRuntime,
+                                       runtimeTools,
+                                       interaction,
+                                       cameras,
+                                       terrain,
+                                       models,
+                                       physics,
+                                       camera,
+                                       replayRestoreCameraMode,
+                                       attachedCameraFollow,
+                                       directorGrabbed );
+    // Invariant: cleanup may temporarily select a neutral owner; the requested owner is the final state.
+    interaction.SetWorldInteractionOwnerInWorkspace( workspace, owner, reason );
+    return transition;
+}
+
 void Run::UpdateRuntimeInputModeAfterAction( RuntimeInputAction action, RuntimeInputActionSource source )
 {
     InputController::ApplyModeAction(
@@ -1226,30 +1264,6 @@ bool Run::RouteRuntimePointerInput( const RuntimeInputSnapshot& inputSnapshot, c
 RuntimeInteractionTransition Run::EnterInteractionForCameraMode( RunCameraMode mode )
 {
     return m_interaction.EnterCameraMode( NormalizeCameraModeForCurrentScene( mode ) );
-}
-
-
-RuntimeInteractionTransition Run::SetWorldInteractionOwnerAfterInteractionTransition( WorldInteractionOwner owner,
-                                                                                      InteractionExitReason reason )
-{
-    const RuntimeWorkspace workspace = WorkspaceForWorldInteractionOwner( m_interaction.Workspace(), owner );
-    const RuntimeInteractionTransition transition =
-        m_interaction.SetWorldInteractionOwnerInWorkspace( workspace, owner, reason );
-    m_inputRouter.ApplyInteractionTransitionCleanup(
-        transition,
-        m_replayRuntime,
-        m_runtimeTools,
-        m_interaction,
-        m_sceneController.Cameras(),
-        m_sceneController.Terrain().Get(),
-        m_sceneController.Models(),
-        m_sceneController.Physics(),
-        m_camera,
-        NormalizeCameraModeForCurrentScene( m_replayRuntime.Camera().restoreCameraMode ),
-        m_attachedCamera.State().activeFollow,
-        m_camera.director.grabbed );
-    m_interaction.SetWorldInteractionOwnerInWorkspace( workspace, owner, reason );
-    return transition;
 }
 
 
@@ -1847,8 +1861,20 @@ void Run::TakeInput()
     auto completeEditorPlacementModeTransition =
         [this]( RuntimeInputActionSource source, const RunInternal::EditorPlacementModeChangeResult& placementMode )
     {
-        SetWorldInteractionOwnerAfterInteractionTransition( placementMode.worldOwner,
-                                                            InteractionExitReason::EnterEdit );
+        m_inputRouter.SetWorldInteractionOwner(
+            placementMode.worldOwner,
+            InteractionExitReason::EnterEdit,
+            m_replayRuntime,
+            m_runtimeTools,
+            m_interaction,
+            m_sceneController.Cameras(),
+            m_sceneController.Terrain().Get(),
+            m_sceneController.Models(),
+            m_sceneController.Physics(),
+            m_camera,
+            NormalizeCameraModeForCurrentScene( m_replayRuntime.Camera().restoreCameraMode ),
+            m_attachedCamera.State().activeFollow,
+            m_camera.director.grabbed );
         if ( m_inputRouter.ReleasePointerToUi(
                  EvaluateRuntimePointerPresentation( m_inputRouter, m_runtimeTools.Editor(), m_replayRuntime ) ) )
         {
@@ -2295,7 +2321,22 @@ void Run::TakeInput()
                 m_inputRouter );
         },
         [this]( WorldInteractionOwner owner, InteractionExitReason reason )
-        { SetWorldInteractionOwnerAfterInteractionTransition( owner, reason ); } );
+        {
+            m_inputRouter.SetWorldInteractionOwner(
+                owner,
+                reason,
+                m_replayRuntime,
+                m_runtimeTools,
+                m_interaction,
+                m_sceneController.Cameras(),
+                m_sceneController.Terrain().Get(),
+                m_sceneController.Models(),
+                m_sceneController.Physics(),
+                m_camera,
+                NormalizeCameraModeForCurrentScene( m_replayRuntime.Camera().restoreCameraMode ),
+                m_attachedCamera.State().activeFollow,
+                m_camera.director.grabbed );
+        } );
     ReplayRuntime::PathPickInput replayPointerRay;
     replayPointerRay.hasWorldRay = TryBuildMouseWorldRay( replayPointerRay.rayOrigin, replayPointerRay.rayDirection );
     const RuntimeUIFrameResult uiFrameResult = ApplyRuntimeUIFrameCommands(

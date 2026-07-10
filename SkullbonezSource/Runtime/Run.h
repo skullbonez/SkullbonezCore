@@ -195,9 +195,6 @@ class Run
         RunCameraMode mode ) const;                                     // Clamps passive camera modes to generated-demo vs authored-scene ownership.
     void SetCameraModeLabelAfterInteractionTransition(
         RunCameraMode mode );                                           // Applies the camera label after controller workspace/tool ownership is chosen.
-    RuntimeInteractionTransition SetWorldInteractionOwnerAfterInteractionTransition(
-        WorldInteractionOwner owner,
-        InteractionExitReason reason );                                 // Applies tool-owner transitions through runtime cleanup.
     void ApplyCameraMode( RunCameraMode mode,
                           RuntimeInputActionSource source );            // Applies keyboard/UI camera-mode requests.
     void CycleCameraMode();                                             // Tab cycles through enabled explicit camera modes.

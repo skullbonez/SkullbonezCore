@@ -46,7 +46,7 @@ Status: Authoritative inventory of every live repository plan
 | [validation-gate-integrity](TODO/validation-gate-integrity.md) | In progress | 4/6 | V3 CPU/runtime CI, then V4 sanitizer/static analysis |
 | [dx12-failure-propagation](TODO/dx12-failure-propagation.md) | Complete | 6/6 | Retain as closure evidence; failure propagation, transactional recreation, device-loss teardown, and fault injection are proven |
 | [behavioral-test-depth](TODO/behavioral-test-depth.md) | In progress | 3/6; P3/P5 partial | P3 with scene/entity ownership C1-C3; then remaining P5/P6 drills |
-| [runtime-shell-decomposition](TODO/runtime-shell-decomposition.md) | In progress | 17/27 completed items | Close B1f direct input/state remnants, then retire `RunInternal.h` and forwarding wrappers |
+| [runtime-shell-decomposition](TODO/runtime-shell-decomposition.md) | In progress | 17/27 completed items | Close B1f editor/outer pointer routing and `TakeInput`, then retire `RunInternal.h` and forwarding wrappers |
 | [runtime-ui-control-architecture-cleanup](TODO/runtime-ui-control-architecture-cleanup.md) | Planned | 0/7 | U0 tracked UI-surface inventory |
 | [interaction-state-machine](TODO/interaction-state-machine.md) | In progress | 0/6 remaining phases | I4 capture/focus behavior with CPU + interaction proof |
 | [replay-architecture-and-right-sizing](TODO/replay-architecture-and-right-sizing.md) | Complete | 6/6 | Retain as closure evidence; stable identity, bounded memory, named gates, rollback proof, and source-size justifications are complete |

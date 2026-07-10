@@ -1380,7 +1380,20 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
                     return consumedWorldClick;
                 }
                 EnterInteractiveSceneRun();
-                SetWorldInteractionOwnerAfterInteractionTransition( transformOwner, transformReason );
+                m_inputRouter.SetWorldInteractionOwner(
+                    transformOwner,
+                    transformReason,
+                    m_replayRuntime,
+                    m_runtimeTools,
+                    m_interaction,
+                    m_sceneController.Cameras(),
+                    m_sceneController.Terrain().Get(),
+                    m_sceneController.Models(),
+                    m_sceneController.Physics(),
+                    m_camera,
+                    NormalizeCameraModeForCurrentScene( m_replayRuntime.Camera().restoreCameraMode ),
+                    m_attachedCamera.State().activeFollow,
+                    m_camera.director.grabbed );
                 if ( !BeginEditorGizmoDragGesture( gizmoContext,
                                                    selectedModelIndex,
                                                    m_runtimeTools.Editor().hotGizmoAxis,
@@ -1426,7 +1439,20 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
                                             startAngle ) )
             {
                 EnterInteractiveSceneRun();
-                SetWorldInteractionOwnerAfterInteractionTransition( transformOwner, transformReason );
+                m_inputRouter.SetWorldInteractionOwner(
+                    transformOwner,
+                    transformReason,
+                    m_replayRuntime,
+                    m_runtimeTools,
+                    m_interaction,
+                    m_sceneController.Cameras(),
+                    m_sceneController.Terrain().Get(),
+                    m_sceneController.Models(),
+                    m_sceneController.Physics(),
+                    m_camera,
+                    NormalizeCameraModeForCurrentScene( m_replayRuntime.Camera().restoreCameraMode ),
+                    m_attachedCamera.State().activeFollow,
+                    m_camera.director.grabbed );
                 if ( !BeginEditorGizmoDragGesture( gizmoContext,
                                                    selectedModelIndex,
                                                    m_runtimeTools.Editor().hotRotationAxis,
@@ -1510,7 +1536,20 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
                                                      axisT ) )
                 {
                     EnterInteractiveSceneRun();
-                    SetWorldInteractionOwnerAfterInteractionTransition( transformOwner, transformReason );
+                    m_inputRouter.SetWorldInteractionOwner(
+                        transformOwner,
+                        transformReason,
+                        m_replayRuntime,
+                        m_runtimeTools,
+                        m_interaction,
+                        m_sceneController.Cameras(),
+                        m_sceneController.Terrain().Get(),
+                        m_sceneController.Models(),
+                        m_sceneController.Physics(),
+                        m_camera,
+                        NormalizeCameraModeForCurrentScene( m_replayRuntime.Camera().restoreCameraMode ),
+                        m_attachedCamera.State().activeFollow,
+                        m_camera.director.grabbed );
                     if ( !BeginEditorGizmoDragGesture( gizmoContext,
                                                        selectedModelIndex,
                                                        m_runtimeTools.Editor().hotGizmoAxis,
@@ -1597,7 +1636,20 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
                                                : WorldInteractionOwner::None;
                     const InteractionExitReason selectionReason =
                         inspectGizmoActive ? InteractionExitReason::EnterInspect : InteractionExitReason::EnterEdit;
-                    SetWorldInteractionOwnerAfterInteractionTransition( selectionOwner, selectionReason );
+                    m_inputRouter.SetWorldInteractionOwner(
+                        selectionOwner,
+                        selectionReason,
+                        m_replayRuntime,
+                        m_runtimeTools,
+                        m_interaction,
+                        m_sceneController.Cameras(),
+                        m_sceneController.Terrain().Get(),
+                        m_sceneController.Models(),
+                        m_sceneController.Physics(),
+                        m_camera,
+                        NormalizeCameraModeForCurrentScene( m_replayRuntime.Camera().restoreCameraMode ),
+                        m_attachedCamera.State().activeFollow,
+                        m_camera.director.grabbed );
                     RuntimeInteractionEvent event;
                     consumedWorldClick = m_runtimeTools.CommitSelectionCommand( plan, event );
                 }

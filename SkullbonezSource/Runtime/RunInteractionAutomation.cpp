@@ -2008,7 +2008,22 @@ void Run::TickInteractionAutomationBeforeInput()
                            m_replayRuntime.SetPathTarget( name, modelIndex, m_sceneController.Models().BodyStore() );
                 },
                 [this]( WorldInteractionOwner owner, InteractionExitReason reason )
-                { SetWorldInteractionOwnerAfterInteractionTransition( owner, reason ); } );
+                {
+                    m_inputRouter.SetWorldInteractionOwner(
+                        owner,
+                        reason,
+                        m_replayRuntime,
+                        m_runtimeTools,
+                        m_interaction,
+                        m_sceneController.Cameras(),
+                        m_sceneController.Terrain().Get(),
+                        m_sceneController.Models(),
+                        m_sceneController.Physics(),
+                        m_camera,
+                        NormalizeCameraModeForCurrentScene( m_replayRuntime.Camera().restoreCameraMode ),
+                        m_attachedCamera.State().activeFollow,
+                        m_camera.director.grabbed );
+                } );
             action.processed = true;
             break;
         case RunInteractionAutomationActionType::PressKey:

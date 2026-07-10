@@ -515,6 +515,22 @@ zero DX12 InfoQueue errors, matching screenshots, standalone topology smoke,
 and the 20,001-line byte-exact physics baseline. Comment audit: 3/3 touched
 source-bearing files.
 
+World-owner selection now enters through `InputRouter::SetWorldInteractionOwner`.
+The router derives the exact workspace, applies cross-owner cancellation, and
+reasserts the requested owner after cleanup; Run no longer owns or forwards this
+transition. All editor, replay-automation, and placement-mode callers invoke the
+router directly. B1f remains open for the editor pointer route,
+keyboard/camera helpers, and final pointer-route/`TakeInput` deletion.
+
+Evidence: the first two Debug builds exposed missing `WorldInteractionOwner`
+and `InteractionExitReason` forward declarations; both were added and the final
+Debug build passed in 9.8s with zero warnings. Fast passed in 31.0s; the CPU
+umbrella passed in 11.0s with 129/129 doctest cases and 2,755 assertions; all
+five interaction scenarios passed in 15.7s; perf completed in 32.7s; and full
+passed in 53.8s with zero warnings, zero DX12 InfoQueue errors, matching
+screenshots, standalone topology smoke, and the 20,001-line byte-exact physics
+baseline. Comment audit: 5/5 touched source-bearing files.
+
 ## Remaining Work
 
 ### A. Narrow the render host
