@@ -51,6 +51,7 @@ Related:
 #pragma once
 
 #include "InputController.Bindings.h"
+#include "../Maths/Vector3.h"
 
 #include <array>
 #include <cstddef>
@@ -61,6 +62,11 @@ namespace SkullbonezCore
 namespace Environment
 {
 class CameraCollection;
+class WorldEnvironment;
+} // namespace Environment
+namespace Assets
+{
+class AssetSystem;
 }
 namespace Geometry
 {
@@ -80,12 +86,53 @@ struct RuntimeInputSnapshot;
 struct RuntimeInteractionFrameInput;
 struct RuntimeInteractionTransition;
 struct RunCameraState;
+struct RunSceneState;
 enum class RunCameraMode;
 enum class WorldInteractionOwner;
 enum class InteractionExitReason;
 class ReplayRuntime;
 class RuntimeInteractionController;
 class RuntimeTools;
+
+enum class EditorPointerModeAction
+{
+    EndPlacementScale,
+    EndGizmoDrag,
+    BeginGizmoScale,
+    BeginGizmoRotate,
+    BeginGizmoTranslate,
+    BeginPlacementScale
+};
+
+struct EditorPointerRouteInput
+{
+    // Lifetime: one post-UI pointer frame. The world ray is sampled once by
+    // composition and remains immutable across preview, drag, and selection.
+    bool leftDown = false;
+    bool leftPressed = false;
+    bool leftReleased = false;
+    bool suppressWorldAction = false;
+    bool blocksCameraMouse = false;
+    bool controlDown = false;
+    bool hasClientPosition = false;
+    bool hasWorldRay = false;
+    bool replayInspectionActive = false;
+    int clientX = 0;
+    int clientY = 0;
+    int activeModelCapacity = 0;
+    RunCameraMode cameraMode;
+    Math::Vector::Vector3 rayOrigin = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 rayDirection = Math::Vector::ZERO_VECTOR;
+};
+
+struct EditorPointerRouteResult
+{
+    static constexpr std::size_t MAX_MODE_ACTIONS = 2;
+    bool consumed = false;
+    bool enteredInteractiveScene = false;
+    std::array<EditorPointerModeAction, MAX_MODE_ACTIONS> modeActions = {};
+    std::size_t modeActionCount = 0;
+};
 class InputKeySnapshot
 {
   public:
@@ -292,6 +339,21 @@ class InputRouter
                                                            RunCameraMode replayRestoreCameraMode,
                                                            bool attachedCameraFollow,
                                                            bool directorGrabbed );
+    EditorPointerRouteResult RouteEditorPointer( const EditorPointerRouteInput& input,
+                                                 RuntimeTools& runtimeTools,
+                                                 ReplayRuntime& replayRuntime,
+                                                 RuntimeInteractionController& interaction,
+                                                 GameObjects::GameModelCollection& models,
+                                                 Physics::PhysicsEngine& physics,
+                                                 RunSceneState& scene,
+                                                 Environment::WorldEnvironment& world,
+                                                 Geometry::Terrain* terrain,
+                                                 Assets::AssetSystem& assets,
+                                                 Environment::CameraCollection& cameras,
+                                                 RunCameraState& camera,
+                                                 RunCameraMode replayRestoreCameraMode,
+                                                 bool attachedCameraFollow,
+                                                 bool directorGrabbed );
 
     // Pointer presentation requests are reconciled here so UI/tools/camera do
     // not manipulate Win32 capture or cursor counters independently.

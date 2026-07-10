@@ -10,9 +10,9 @@ reports, and git history.
 | Field | Value |
 |---|---|
 | Branch | `engine-cleanup-10th-july`, tracking `origin/engine-cleanup-10th-july` |
-| Current pushed baseline | `7c388251 refactor: move active transform drags into tools` |
-| Current objective | Continue B1f by deleting final editor/outer pointer composition and TakeInput |
-| Last broad local gate | `tools\validate_full.bat` passed RuntimeTools-owned transform/placement gesture starts with 129/129 doctest cases, 2,755 assertions, zero-warning builds, DX12 with zero InfoQueue errors/matching screenshots, standalone physics smoke, and 20,001-line byte-exact physics in 54.0s |
+| Current pushed baseline | `402b6b87 refactor: move editor gesture starts into tools` |
+| Current objective | Continue B1f by deleting outer pointer composition, then TakeInput and remaining camera helpers |
+| Last broad local gate | `tools\validate_full.bat` passed InputRouter-owned editor pointer composition with 129/129 doctest cases, 2,755 assertions, zero-warning builds, DX12 with zero InfoQueue errors/matching screenshots, standalone physics smoke, and 20,001-line byte-exact physics in 52.2s |
 | Native evidence | Injected heap-use-after-free caught; healthy ASan and five-file `/analyze` passed in 16.185s |
 
 ## Pushed Cleanup Commits
@@ -359,6 +359,11 @@ New scale/rotate/translate and placement-scale gestures now prepare and commit
 inside `RuntimeTools`; immutable plans bridge InputRouter cleanup without a Run
 callback/context. Five interaction scenarios and full pass; comment audit is
 2/2. B1f continues with final editor and outer pointer composition deletion.
+
+InputRouter now sequences the entire editor pointer route from one immutable
+ray frame and returns bounded ordered semantic actions; Run's editor world-click
+method is deleted. Fast, CPU, five interaction scenarios, perf, and full pass;
+comment audit is 4/4. B1f continues with the outer pointer route.
 
 Scene provenance C1a is complete: parser-owned library/instance/ordered-part
 records retain exact shape sources, hierarchy transforms use rotated offsets

@@ -588,6 +588,24 @@ assertions, zero warnings, zero DX12 InfoQueue errors, matching screenshots,
 standalone topology smoke, and the 20,001-line byte-exact physics baseline.
 Comment audit: 2/2 touched source-bearing files.
 
+Editor world-pointer composition now belongs to `InputRouter::RouteEditorPointer`.
+The router consumes one immutable post-UI pointer/ray frame, sequences
+RuntimeTools preview/active/start/selection operations around its own transition
+cleanup, and returns a bounded ordered semantic-action result. Run's
+`TickEditorWorldClick` method and declaration are deleted; Run only samples the
+ray and applies composition-root interactive/input-mode results. B1f remains
+open for the outer attached/manipulator/replay/launcher pointer route and final
+`TakeInput`/camera helper deletion.
+
+Evidence: the first Debug compile found one bool return left from the former Run
+method; conversion to the typed route result restored the boundary and the
+zero-warning retry passed. Fast passed in 31.3s; the CPU umbrella passed in
+11.1s with 129/129 doctest cases and 2,755 assertions; all five interaction
+scenarios passed in 15.5s; perf completed in 32.5s; and full passed in 52.2s
+with zero warnings, zero DX12 InfoQueue errors, matching screenshots,
+standalone topology smoke, and the 20,001-line byte-exact physics baseline.
+Comment audit: 4/4 touched source-bearing files.
+
 ## Remaining Work
 
 ### A. Narrow the render host

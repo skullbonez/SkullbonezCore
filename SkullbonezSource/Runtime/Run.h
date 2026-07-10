@@ -234,9 +234,6 @@ class Run
         const;                                                          // Explicit-point variant for automation and owner-produced pointer values.
     void TickEditorViewportAndPlacementScaleInput(
         int unhandledWheelDelta );                                      // Updates viewport-look and placement scale/altitude gestures.
-    bool TickEditorWorldClick(
-        const RuntimeMouseEdges& mouseEdges,
-        bool suppressWorldActionThisFrame );                            // Handles editor placement, selection, and gizmo mouse ownership.
 #ifdef _DEBUG
     void LogSceneFinished( const char* reason );
     void BeginPhysicsDiagnosticsRun( const char* scenePath );

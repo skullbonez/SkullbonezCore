@@ -1135,7 +1135,68 @@ bool Run::RouteRuntimePointerInput( const RuntimeInputSnapshot& inputSnapshot, c
         return false;
     }
 
-    bool consumedWorldClick = TickEditorWorldClick( mouseEdges, suppressWorldAction );
+    const DeviceInputFrame& editorDevice = m_inputRouter.DeviceFrame();
+    EditorPointerRouteInput editorInput;
+    editorInput.leftDown = mouseEdges.leftDown;
+    editorInput.leftPressed = mouseEdges.leftPressed;
+    editorInput.leftReleased = mouseEdges.leftReleased;
+    editorInput.suppressWorldAction = suppressWorldAction;
+    editorInput.blocksCameraMouse = m_UI.BlocksCameraMouse();
+    editorInput.controlDown = inputSnapshot.pointer.controlDown;
+    editorInput.hasClientPosition = editorDevice.hasClientPosition;
+    editorInput.clientX = editorDevice.clientX;
+    editorInput.clientY = editorDevice.clientY;
+    editorInput.activeModelCapacity = m_startup.gameModelCapacity;
+    editorInput.cameraMode = m_camera.mode;
+    editorInput.replayInspectionActive = m_replayRuntime.InspectionActive();
+    editorInput.hasWorldRay = TryBuildMouseWorldRay( editorInput.rayOrigin, editorInput.rayDirection );
+    const EditorPointerRouteResult editorResult = m_inputRouter.RouteEditorPointer(
+        editorInput,
+        m_runtimeTools,
+        m_replayRuntime,
+        m_interaction,
+        m_sceneController.Models(),
+        m_sceneController.Physics(),
+        SceneState(),
+        m_sceneController.World(),
+        m_sceneController.Terrain().Get(),
+        m_systems.assets,
+        m_sceneController.Cameras(),
+        m_camera,
+        NormalizeCameraModeForCurrentScene( m_replayRuntime.Camera().restoreCameraMode ),
+        m_attachedCamera.State().activeFollow,
+        m_camera.director.grabbed );
+    if ( editorResult.enteredInteractiveScene )
+    {
+        EnterInteractiveSceneRun();
+    }
+    for ( std::size_t actionIndex = 0; actionIndex < editorResult.modeActionCount; ++actionIndex )
+    {
+        RuntimeInputAction action = RuntimeInputAction::EndEditorGizmoDrag;
+        switch ( editorResult.modeActions[actionIndex] )
+        {
+        case EditorPointerModeAction::EndPlacementScale:
+            action = RuntimeInputAction::EndEditorPlacementScale;
+            break;
+        case EditorPointerModeAction::EndGizmoDrag:
+            action = RuntimeInputAction::EndEditorGizmoDrag;
+            break;
+        case EditorPointerModeAction::BeginGizmoScale:
+            action = RuntimeInputAction::BeginEditorGizmoScale;
+            break;
+        case EditorPointerModeAction::BeginGizmoRotate:
+            action = RuntimeInputAction::BeginEditorGizmoRotate;
+            break;
+        case EditorPointerModeAction::BeginGizmoTranslate:
+            action = RuntimeInputAction::BeginEditorGizmoTranslate;
+            break;
+        case EditorPointerModeAction::BeginPlacementScale:
+            action = RuntimeInputAction::BeginEditorPlacementScale;
+            break;
+        }
+        UpdateRuntimeInputModeAfterAction( action, RuntimeInputActionSource::Mouse );
+    }
+    bool consumedWorldClick = editorResult.consumed;
     if ( !consumedWorldClick )
     {
         MousePickupPointerInput pickupInput;

@@ -1561,200 +1561,205 @@ EditorPlacementScaleStartResult RuntimeTools::BeginEditorPlacementScalePointer( 
 }
 
 
-bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppressWorldActionThisFrame )
+EditorPointerRouteResult InputRouter::RouteEditorPointer( const EditorPointerRouteInput& input,
+                                                          RuntimeTools& runtimeTools,
+                                                          ReplayRuntime& replayRuntime,
+                                                          RuntimeInteractionController& interaction,
+                                                          GameObjects::GameModelCollection& models,
+                                                          PhysicsEngine& physics,
+                                                          RunSceneState& scene,
+                                                          Environment::WorldEnvironment& world,
+                                                          Geometry::Terrain* terrain,
+                                                          Assets::AssetSystem& assets,
+                                                          Environment::CameraCollection& cameras,
+                                                          RunCameraState& camera,
+                                                          RunCameraMode replayRestoreCameraMode,
+                                                          bool attachedCameraFollow,
+                                                          bool directorGrabbed )
 {
-    const PhysicsBodyStore& editorBodyStore = m_sceneController.Models().BodyStore();
+    EditorPointerRouteResult routeResult;
+    auto appendModeAction = [&routeResult]( EditorPointerModeAction action )
+    {
+        if ( routeResult.modeActionCount >= routeResult.modeActions.size() )
+        {
+            SB_FATAL( "Runtime/InputRouter", "Editor pointer mode-action capacity exhausted." );
+        }
+        routeResult.modeActions[routeResult.modeActionCount++] = action;
+    };
+    const PhysicsBodyStore& editorBodyStore = models.BodyStore();
     const bool previewInspectGizmoActive =
-        m_runtimeTools.InspectGizmoInteractionActive( m_camera.mode, m_replayRuntime.InspectionActive() );
-    const bool previewCanUseMouseRay = !m_UI.BlocksCameraMouse() && !m_runtimeTools.Editor().viewportLookActive &&
-                                       ( m_runtimeTools.Editor().editorModeEnabled || previewInspectGizmoActive );
+        runtimeTools.InspectGizmoInteractionActive( input.cameraMode, input.replayInspectionActive );
+    const bool previewCanUseMouseRay = !input.blocksCameraMouse && !runtimeTools.Editor().viewportLookActive &&
+                                       ( runtimeTools.Editor().editorModeEnabled || previewInspectGizmoActive );
     const bool previewNeedsMouseRay =
         previewCanUseMouseRay &&
-        ( ( m_runtimeTools.Editor().editorModeEnabled && m_runtimeTools.Editor().placementModeEnabled &&
-            !m_runtimeTools.Editor().placementScaleActive ) ||
-          ( ResolveSelectedEditorModelIndex( m_runtimeTools.Editor(), editorBodyStore ) >= 0 &&
-            !m_runtimeTools.Editor().gizmoDragActive && !m_runtimeTools.Editor().placementModeEnabled ) );
-    Vector3 previewRayOrigin = SkullbonezCore::Math::Vector::ZERO_VECTOR;
-    Vector3 previewRayDirection = SkullbonezCore::Math::Vector::ZERO_VECTOR;
-    const bool hasPreviewMouseRay =
-        previewNeedsMouseRay && TryBuildMouseWorldRay( previewRayOrigin, previewRayDirection );
-    const int selectedModelIndex =
-        m_runtimeTools.RefreshEditorPointerPreview( { m_UI.BlocksCameraMouse(),
-                                                      previewInspectGizmoActive,
-                                                      hasPreviewMouseRay,
-                                                      m_inputRouter.DeviceFrame().keys.IsDown( VK_CONTROL ),
-                                                      previewRayOrigin,
-                                                      previewRayDirection },
-                                                    m_sceneController.Models(),
-                                                    m_sceneController.Physics(),
-                                                    m_interaction,
-                                                    m_sceneController.Terrain().Get(),
-                                                    m_systems.assets );
+        ( ( runtimeTools.Editor().editorModeEnabled && runtimeTools.Editor().placementModeEnabled &&
+            !runtimeTools.Editor().placementScaleActive ) ||
+          ( ResolveSelectedEditorModelIndex( runtimeTools.Editor(), editorBodyStore ) >= 0 &&
+            !runtimeTools.Editor().gizmoDragActive && !runtimeTools.Editor().placementModeEnabled ) );
+    const bool hasPreviewMouseRay = previewNeedsMouseRay && input.hasWorldRay;
+    const int selectedModelIndex = runtimeTools.RefreshEditorPointerPreview( { input.blocksCameraMouse,
+                                                                               previewInspectGizmoActive,
+                                                                               hasPreviewMouseRay,
+                                                                               input.controlDown,
+                                                                               input.rayOrigin,
+                                                                               input.rayDirection },
+                                                                             models,
+                                                                             physics,
+                                                                             interaction,
+                                                                             terrain,
+                                                                             assets );
 
-    const bool leftMouseNow = mouseEdges.leftDown;
-    const bool leftPressed = mouseEdges.leftPressed;
-    const bool leftReleased = mouseEdges.leftReleased;
+    const bool leftMouseNow = input.leftDown;
+    const bool leftPressed = input.leftPressed;
+    const bool leftReleased = input.leftReleased;
     bool consumedWorldClick = false;
 
     const EditorPlacementScalePointerResult placementScaleResult =
-        m_runtimeTools.RouteEditorPlacementScalePointer( leftReleased,
-                                                         suppressWorldActionThisFrame,
-                                                         m_sceneController.Models(),
-                                                         m_sceneController.Physics(),
-                                                         SceneState(),
-                                                         m_sceneController.World(),
-                                                         m_sceneController.Terrain().Get(),
-                                                         m_systems.assets,
-                                                         m_startup.gameModelCapacity,
-                                                         m_replayRuntime );
+        runtimeTools.RouteEditorPlacementScalePointer( leftReleased,
+                                                       input.suppressWorldAction,
+                                                       models,
+                                                       physics,
+                                                       scene,
+                                                       world,
+                                                       terrain,
+                                                       assets,
+                                                       input.activeModelCapacity,
+                                                       replayRuntime );
     if ( placementScaleResult.enteredInteractiveScene )
     {
-        EnterInteractiveSceneRun();
+        routeResult.enteredInteractiveScene = true;
     }
     if ( placementScaleResult.endedGesture )
     {
-        UpdateRuntimeInputModeAfterAction( RuntimeInputAction::EndEditorPlacementScale,
-                                           RuntimeInputActionSource::Mouse );
+        appendModeAction( EditorPointerModeAction::EndPlacementScale );
     }
     consumedWorldClick = placementScaleResult.consumed;
 
     Vector3 dragRayOrigin = SkullbonezCore::Math::Vector::ZERO_VECTOR;
     Vector3 dragRayDirection = SkullbonezCore::Math::Vector::ZERO_VECTOR;
-    const bool hasDragWorldRay = m_runtimeTools.Editor().gizmoDragActive && leftMouseNow &&
-                                 !suppressWorldActionThisFrame &&
-                                 TryBuildMouseWorldRay( dragRayOrigin, dragRayDirection );
+    const bool hasDragWorldRay =
+        runtimeTools.Editor().gizmoDragActive && leftMouseNow && !input.suppressWorldAction && input.hasWorldRay;
+    dragRayOrigin = input.rayOrigin;
+    dragRayDirection = input.rayDirection;
     const EditorGizmoDragPointerResult gizmoDragResult =
-        m_runtimeTools.RouteEditorGizmoDragPointer( { leftMouseNow,
-                                                      leftReleased,
-                                                      suppressWorldActionThisFrame,
-                                                      hasDragWorldRay,
-                                                      selectedModelIndex,
-                                                      dragRayOrigin,
-                                                      dragRayDirection },
-                                                    m_sceneController.Models(),
-                                                    m_sceneController.Physics(),
-                                                    m_interaction,
-                                                    m_replayRuntime );
+        runtimeTools.RouteEditorGizmoDragPointer( { leftMouseNow,
+                                                    leftReleased,
+                                                    input.suppressWorldAction,
+                                                    hasDragWorldRay,
+                                                    selectedModelIndex,
+                                                    dragRayOrigin,
+                                                    dragRayDirection },
+                                                  models,
+                                                  physics,
+                                                  interaction,
+                                                  replayRuntime );
     if ( gizmoDragResult.endedGesture )
     {
-        UpdateRuntimeInputModeAfterAction( RuntimeInputAction::EndEditorGizmoDrag, RuntimeInputActionSource::Mouse );
+        appendModeAction( EditorPointerModeAction::EndGizmoDrag );
     }
     consumedWorldClick = consumedWorldClick || gizmoDragResult.consumed;
 
-    if ( !consumedWorldClick && leftPressed && !suppressWorldActionThisFrame )
+    if ( !consumedWorldClick && leftPressed && !input.suppressWorldAction )
     {
         const bool inspectGizmoActive =
-            m_runtimeTools.InspectGizmoInteractionActive( m_camera.mode, m_replayRuntime.InspectionActive() );
-        Vector3 gestureRayOrigin = SkullbonezCore::Math::Vector::ZERO_VECTOR;
-        Vector3 gestureRayDirection = SkullbonezCore::Math::Vector::ZERO_VECTOR;
-        const bool hasGestureRay = TryBuildMouseWorldRay( gestureRayOrigin, gestureRayDirection );
+            runtimeTools.InspectGizmoInteractionActive( input.cameraMode, input.replayInspectionActive );
         EditorGizmoGesturePlan gesturePlan;
-        if ( m_runtimeTools.PrepareEditorGizmoGesture( inspectGizmoActive,
-                                                       m_inputRouter.DeviceFrame().keys.IsDown( VK_CONTROL ),
-                                                       selectedModelIndex,
-                                                       hasGestureRay,
-                                                       gestureRayOrigin,
-                                                       gestureRayDirection,
-                                                       m_inputRouter.DeviceFrame().clientX,
-                                                       m_inputRouter.DeviceFrame().clientY,
-                                                       m_sceneController.Models(),
-                                                       m_sceneController.Physics(),
-                                                       m_interaction,
-                                                       gesturePlan ) )
+        if ( runtimeTools.PrepareEditorGizmoGesture( inspectGizmoActive,
+                                                     input.controlDown,
+                                                     selectedModelIndex,
+                                                     input.hasWorldRay,
+                                                     input.rayOrigin,
+                                                     input.rayDirection,
+                                                     input.clientX,
+                                                     input.clientY,
+                                                     models,
+                                                     physics,
+                                                     interaction,
+                                                     gesturePlan ) )
         {
-            EnterInteractiveSceneRun();
-            m_inputRouter.SetWorldInteractionOwner(
-                gesturePlan.owner,
-                gesturePlan.reason,
-                m_replayRuntime,
-                m_runtimeTools,
-                m_interaction,
-                m_sceneController.Cameras(),
-                m_sceneController.Terrain().Get(),
-                m_sceneController.Models(),
-                m_sceneController.Physics(),
-                m_camera,
-                NormalizeCameraModeForCurrentScene( m_replayRuntime.Camera().restoreCameraMode ),
-                m_attachedCamera.State().activeFollow,
-                m_camera.director.grabbed );
+            routeResult.enteredInteractiveScene = true;
+            SetWorldInteractionOwner( gesturePlan.owner,
+                                      gesturePlan.reason,
+                                      replayRuntime,
+                                      runtimeTools,
+                                      interaction,
+                                      cameras,
+                                      terrain,
+                                      models,
+                                      physics,
+                                      camera,
+                                      replayRestoreCameraMode,
+                                      attachedCameraFollow,
+                                      directorGrabbed );
             const EditorGizmoGestureResult gestureResult =
-                m_runtimeTools.CommitEditorGizmoGesture( gesturePlan,
-                                                         m_sceneController.Models(),
-                                                         m_sceneController.Physics(),
-                                                         m_interaction );
+                runtimeTools.CommitEditorGizmoGesture( gesturePlan, models, physics, interaction );
             if ( gestureResult.attempted && !gestureResult.consumed )
             {
-                return consumedWorldClick;
+                routeResult.consumed = consumedWorldClick;
+                return routeResult;
             }
             consumedWorldClick = gestureResult.consumed;
             if ( gestureResult.kind == EditorGizmoGestureKind::Scale )
             {
-                UpdateRuntimeInputModeAfterAction( RuntimeInputAction::BeginEditorGizmoScale,
-                                                   RuntimeInputActionSource::Mouse );
+                appendModeAction( EditorPointerModeAction::BeginGizmoScale );
             }
             else if ( gestureResult.kind == EditorGizmoGestureKind::Rotate )
             {
-                UpdateRuntimeInputModeAfterAction( RuntimeInputAction::BeginEditorGizmoRotate,
-                                                   RuntimeInputActionSource::Mouse );
+                appendModeAction( EditorPointerModeAction::BeginGizmoRotate );
             }
             else if ( gestureResult.kind == EditorGizmoGestureKind::Translate )
             {
-                UpdateRuntimeInputModeAfterAction( RuntimeInputAction::BeginEditorGizmoTranslate,
-                                                   RuntimeInputActionSource::Mouse );
+                appendModeAction( EditorPointerModeAction::BeginGizmoTranslate );
             }
         }
 
-        if ( !consumedWorldClick && ( m_runtimeTools.Editor().editorModeEnabled || inspectGizmoActive ) )
+        if ( !consumedWorldClick && ( runtimeTools.Editor().editorModeEnabled || inspectGizmoActive ) )
         {
-            const DeviceInputFrame& deviceFrame = m_inputRouter.DeviceFrame();
             const EditorPlacementScaleStartResult placementStart =
-                m_runtimeTools.BeginEditorPlacementScalePointer( inspectGizmoActive,
-                                                                 deviceFrame.hasClientPosition,
-                                                                 deviceFrame.clientX,
-                                                                 deviceFrame.clientY );
+                runtimeTools.BeginEditorPlacementScalePointer( inspectGizmoActive,
+                                                               input.hasClientPosition,
+                                                               input.clientX,
+                                                               input.clientY );
             consumedWorldClick = placementStart.consumed;
             if ( placementStart.beganGesture )
             {
-                UpdateRuntimeInputModeAfterAction( RuntimeInputAction::BeginEditorPlacementScale,
-                                                   RuntimeInputActionSource::Mouse );
+                appendModeAction( EditorPointerModeAction::BeginPlacementScale );
             }
             if ( !consumedWorldClick )
             {
-                Vector3 rayOrigin = SkullbonezCore::Math::Vector::ZERO_VECTOR;
-                Vector3 rayDirection = SkullbonezCore::Math::Vector::ZERO_VECTOR;
-                const bool hasWorldRay = TryBuildMouseWorldRay( rayOrigin, rayDirection );
                 RuntimeInteractionSelectionPlan plan;
                 WorldInteractionOwner selectionOwner = WorldInteractionOwner::None;
                 InteractionExitReason selectionReason = InteractionExitReason::EnterEdit;
-                if ( m_runtimeTools.PrepareEditorPointerSelection(
-                         { inspectGizmoActive, hasWorldRay, rayOrigin, rayDirection },
-                         m_sceneController.Models(),
+                if ( runtimeTools.PrepareEditorPointerSelection(
+                         { inspectGizmoActive, input.hasWorldRay, input.rayOrigin, input.rayDirection },
+                         models,
                          plan,
                          selectionOwner,
                          selectionReason ) )
                 {
-                    m_inputRouter.SetWorldInteractionOwner(
-                        selectionOwner,
-                        selectionReason,
-                        m_replayRuntime,
-                        m_runtimeTools,
-                        m_interaction,
-                        m_sceneController.Cameras(),
-                        m_sceneController.Terrain().Get(),
-                        m_sceneController.Models(),
-                        m_sceneController.Physics(),
-                        m_camera,
-                        NormalizeCameraModeForCurrentScene( m_replayRuntime.Camera().restoreCameraMode ),
-                        m_attachedCamera.State().activeFollow,
-                        m_camera.director.grabbed );
+                    SetWorldInteractionOwner( selectionOwner,
+                                              selectionReason,
+                                              replayRuntime,
+                                              runtimeTools,
+                                              interaction,
+                                              cameras,
+                                              terrain,
+                                              models,
+                                              physics,
+                                              camera,
+                                              replayRestoreCameraMode,
+                                              attachedCameraFollow,
+                                              directorGrabbed );
                     RuntimeInteractionEvent event;
-                    consumedWorldClick = m_runtimeTools.CommitSelectionCommand( plan, event );
+                    consumedWorldClick = runtimeTools.CommitSelectionCommand( plan, event );
                 }
             }
         }
     }
 
-    return consumedWorldClick;
+    routeResult.consumed = consumedWorldClick;
+    return routeResult;
 }
 
 
