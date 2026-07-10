@@ -1,7 +1,7 @@
 # DX12 Failure Propagation And Command-State Safety
 
 Date: 2026-07-10
-Status: In progress — 4/6 phases complete
+Status: Complete — 6/6 phases complete
 Impact area: DX12 renderer, recoverable-result policy, device-loss handling,
 renderer tests
 Owner: DX12 backend
@@ -83,15 +83,56 @@ succeeds.
   failure. Three consecutive `tools\validate_dx12_renderer.bat` runs passed
   with zero InfoQueue errors and matching baselines, followed by a passing
   `tools\validate_full.bat` (including byte-exact physics output) on 2026-07-10.
-- [ ] **D4 — Cover partial initialisation and optional features.** Apply the same
+- [x] **D4 — Cover partial initialisation and optional features.** Apply the same
   rules to DXR, readback, textures, dynamic geometry, framebuffer, BLAS/TLAS,
   and SBT creation. Preserve optional-feature fallback only when all consumers
   are guarded. Acceptance: one owner/message is retained for each failure.
-- [ ] **D5 — Fault-injection and closure.** Add CPU-side fault-injection tests
+  Evidence: backend initialization now rejects frame-upload creation/Map and
+  required pipeline warmup failures before publishing dimensions; shader
+  reflection rejects every failed descriptor query; texture candidates are
+  retired instead of released while recorded work may reference them; TLAS
+  rejects unusable zero-sized prebuild output; readback and DXR check the one
+  centralized submission result; and optional DXR capability/interface
+  fallback retains and logs one bounded `Rendering/DX12Optional` result.
+  Resize stages depth and every back buffer before publishing dimensions,
+  frame index, access state, or recreation generation. Non-device
+  `ResizeBuffers` failure reacquires the old buffers; incomplete restoration
+  latches the first failure. Present/resize device removal is sticky across
+  command epochs and terminal release abandons canceled submitted work without
+  issuing another queue signal or Present.
+- [x] **D5 — Fault-injection and closure.** Add CPU-side fault-injection tests
   for command open/close/reset/wait state transitions and one Debug runtime
   probe that injects an operation failure before submission. Acceptance: the
   probe exits nonzero with a bounded diagnostic, emits zero subsequent command
   submissions, and produces no DX12 validation error before shutdown.
+  Evidence: CPU architecture coverage now exercises device-health reset and
+  first-failure retention, removed-device terminal release, recreation
+  publication/failure, and armed/unarmed submission accounting. The new
+  `tools\validate_dx12_fault_injection.bat` Debug probe injects immediately
+  before the only `ExecuteCommandLists` site and proved exit code 1, the exact
+  first owner/message, `submissions=0`, `blocked_after_failure=0`, one bounded
+  457-byte stderr diagnostic, and zero InfoQueue errors.
+
+## Closure Evidence
+
+- `tools\validate_fast.bat` passed in 28.0s with zero-warning Profile/Debug
+  builds and clean format/project metadata.
+- `tools\validate_dx12_arch_tests.bat` and
+  `tools\validate_dx12_fault_injection.bat` passed from final source.
+- Three consecutive final `tools\validate_dx12_renderer.bat` runs passed in
+  23.7s, 22.5s, and 22.5s with zero InfoQueue errors and matching screenshots.
+- Final `tools\validate_full.bat` passed in 49.5s, including the mandatory CPU
+  umbrella, renderer lane, standalone physics smoke, and byte-exact 20,001-line
+  physics baseline.
+- `python tools\check_allocation_policy.py --repo .` scanned 306 files with
+  zero allowlist errors.
+- Touched-file comment audit: 12/12 source/substantial-tool files checked,
+  zero deferred; no subsystem checklist was required for this bounded pass.
+- The plan-level adversarial review found a blocking device-loss teardown that
+  could issue a fence signal after removal and replace the Lane R exit with a
+  destructor fatal. Terminal removed-device release and bounded stderr evidence
+  were corrected, all owning gates were rerun, and the one required repeat
+  review found no remaining material issue.
 
 ## Dependencies And Sequencing
 

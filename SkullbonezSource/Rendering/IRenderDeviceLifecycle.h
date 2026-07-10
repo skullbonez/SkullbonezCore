@@ -17,6 +17,8 @@ Glossary:
   Vsync (Vertical Synchronization): Presentation pacing that waits for monitor
     refresh instead of presenting immediately.
   GPU flush: CPU wait until submitted GPU work has completed.
+  Terminal resource drain: Shutdown-only proof that previously submitted work
+    is complete without reopening or submitting a failed recording epoch.
   HWND (Window Handle): Win32 identifier for the native application window.
   HDC (Handle to Device Context): Win32 drawing context paired with an HWND.
   Lane R result: Recoverable device, window, or driver failure reported with an
@@ -28,6 +30,9 @@ Invariants:
   - Finish/FlushGPU must complete submitted GPU work before resources they may
     reference are destroyed. Both report recording, submission-drain, or reopen
     failures so callers cannot continue into unsafe resource mutation.
+  - DrainForResourceRelease is terminal: it may prove already-submitted work
+    complete after a retained recording failure, but it never reopens or submits
+    the failed recording epoch.
   - Shutdown is terminal: it must prove command-queue and present-queue drains
     before releasing resources, and uses Lane F when that proof cannot return
     safely to a caller.
@@ -64,6 +69,7 @@ class IRenderDeviceLifecycle
     virtual bool IsVsyncEnabled() const = 0;
     virtual Basics::SbResult Finish() = 0;
     virtual Basics::SbResult FlushGPU() = 0;
+    virtual Basics::SbResult DrainForResourceRelease() = 0;
     virtual Basics::SbResult Resize( int width, int height ) = 0;
     virtual int GetWidth() const = 0;
     virtual int GetHeight() const = 0;

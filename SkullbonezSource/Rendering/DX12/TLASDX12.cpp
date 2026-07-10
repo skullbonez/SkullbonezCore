@@ -121,6 +121,13 @@ SbResult TLAS::Init( ID3D12Device5* device, int maxInstances )
     // https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device5-getraytracingaccelerationstructureprebuildinfo
     D3D12_RAYTRACING_ACCELERATION_STRUCTURE_PREBUILD_INFO prebuild = {};
     device->GetRaytracingAccelerationStructurePrebuildInfo( &inputs, &prebuild );
+    // Hazard: this API has no HRESULT; zero capacity is its unusable-output
+    // signal. Reject it before creating nominal zero-byte build resources.
+    if ( prebuild.ScratchDataSizeInBytes == 0 || prebuild.ResultDataMaxSizeInBytes == 0 )
+    {
+        Reset();
+        return SbResult::Failure( "Rendering/DX12", "TLAS: prebuild info returned zero scratch or result capacity" );
+    }
 
     // Allocate scratch buffer
     D3D12_HEAP_PROPERTIES defaultHeap = {};

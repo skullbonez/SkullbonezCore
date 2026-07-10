@@ -83,6 +83,7 @@ static void ReportDX12DescriptorHeapExhausted( const char* heapName, UINT nextIn
 void RenderBackendDX12::CheckDXRSupport()
 {
     m_dxrSupported = false;
+    m_dxrFeatureResult = SbResult::Success();
     m_device5 = nullptr;
     m_cmdList4 = nullptr;
 
@@ -90,19 +91,40 @@ void RenderBackendDX12::CheckDXRSupport()
     // DX12 hardware without raytracing, so failing any capability query simply
     // leaves m_dxrSupported false.
     D3D12_FEATURE_DATA_D3D12_OPTIONS5 opts5 = {};
-    if ( FAILED( Device()->CheckFeatureSupport( D3D12_FEATURE_D3D12_OPTIONS5, &opts5, sizeof( opts5 ) ) ) )
+    const HRESULT featureResult =
+        Device()->CheckFeatureSupport( D3D12_FEATURE_D3D12_OPTIONS5, &opts5, sizeof( opts5 ) );
+    if ( FAILED( featureResult ) )
     {
+        m_dxrFeatureResult = SbResult::Failure( "Rendering/DX12Optional",
+                                                "DXR capability query failed (HRESULT 0x%08X); raster fallback active",
+                                                static_cast<unsigned int>( featureResult ) );
+        Log().WriteEventf( "dx12_optional_fallback owner=%s message=\"%s\"",
+                           m_dxrFeatureResult.error.owner,
+                           m_dxrFeatureResult.error.message );
         return;
     }
     if ( opts5.RaytracingTier < D3D12_RAYTRACING_TIER_1_0 )
     {
+        m_dxrFeatureResult =
+            SbResult::Failure( "Rendering/DX12Optional", "DXR tier 1.0 is unavailable; raster fallback active" );
+        Log().WriteEventf( "dx12_optional_fallback owner=%s message=\"%s\"",
+                           m_dxrFeatureResult.error.owner,
+                           m_dxrFeatureResult.error.message );
         return;
     }
 
     // Device5/command-list4 expose the DXR entry points. QueryInterface is the
     // COM way to ask whether this device object also supports that newer API.
-    if ( FAILED( Device()->QueryInterface( IID_PPV_ARGS( &m_device5 ) ) ) )
+    const HRESULT deviceInterfaceResult = Device()->QueryInterface( IID_PPV_ARGS( &m_device5 ) );
+    if ( FAILED( deviceInterfaceResult ) )
     {
+        m_dxrFeatureResult =
+            SbResult::Failure( "Rendering/DX12Optional",
+                               "DXR device interface query failed (HRESULT 0x%08X); raster fallback active",
+                               static_cast<unsigned int>( deviceInterfaceResult ) );
+        Log().WriteEventf( "dx12_optional_fallback owner=%s message=\"%s\"",
+                           m_dxrFeatureResult.error.owner,
+                           m_dxrFeatureResult.error.message );
         return;
     }
 
@@ -405,15 +427,25 @@ SbResult RenderBackendDX12::InitDXR( uint64_t terrainVBVA,
     }
 
     // Query the command list for the DXR-capable interface. If the runtime
-    // cannot provide it, keep raster rendering alive and disable DXR reflection.
-    if ( FAILED( CommandList()->QueryInterface( IID_PPV_ARGS( &m_cmdList4 ) ) ) )
+    // cannot provide it, keep raster rendering alive, disable DXR reflection,
+    // and retain one bounded reason so diagnostics can explain the fallback.
+    const HRESULT commandInterfaceResult = CommandList()->QueryInterface( IID_PPV_ARGS( &m_cmdList4 ) );
+    if ( FAILED( commandInterfaceResult ) )
     {
+        m_dxrFeatureResult =
+            SbResult::Failure( "Rendering/DX12Optional",
+                               "DXR command-list interface query failed (HRESULT 0x%08X); raster fallback active",
+                               static_cast<unsigned int>( commandInterfaceResult ) );
+        Log().WriteEventf( "dx12_optional_fallback owner=%s message=\"%s\"",
+                           m_dxrFeatureResult.error.owner,
+                           m_dxrFeatureResult.error.message );
         m_dxrSupported = false;
         return SbResult::Success();
     }
 
     auto failDxrInit = [this]( const SbResult& result )
     {
+        m_dxrFeatureResult = result;
         ShutdownDXR();
         return result;
     };
@@ -493,7 +525,11 @@ SbResult RenderBackendDX12::InitDXR( uint64_t terrainVBVA,
             return closeResult;
         }
 
-        SubmitClosedCommandList();
+        const SbResult submitResult = SubmitClosedCommandList();
+        if ( !submitResult.ok )
+        {
+            return submitResult;
+        }
         return m_commandRecording.CommitWait( WaitForGpu() );
     };
 

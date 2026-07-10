@@ -568,6 +568,10 @@ uint32_t RenderBackendDX12::CreateTexture2D( const uint8_t* data,
     {
         if ( !GenerateMipsGPU( texResource, fmt, static_cast<UINT>( w ), static_cast<UINT>( h ), numMips ) )
         {
+            // Lifetime: mip generation may already have recorded commands that
+            // reference this candidate. Quarantine it behind the normal fence
+            // path instead of releasing a command-list dependency immediately.
+            RetireResource( texResource );
             return 0;
         }
         // GenerateMipsGPU leaves all subresources in combined shader-resource read state.
@@ -580,6 +584,7 @@ uint32_t RenderBackendDX12::CreateTexture2D( const uint8_t* data,
                                       RenderGraphResourceAccess::CopyDest,
                                       RenderGraphResourceAccess::PixelShaderResource ) )
         {
+            RetireResource( texResource );
             return 0;
         }
     }

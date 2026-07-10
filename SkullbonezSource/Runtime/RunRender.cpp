@@ -1870,7 +1870,7 @@ SbResult RuntimeRenderer::ReleaseBackendOwnedRuntimeResources( const BackendReso
     if ( context.deviceLifecycle )
     {
         logLifecycleStep( "flush_before_resource_release" );
-        const SbResult flushResult = context.deviceLifecycle->FlushGPU();
+        const SbResult flushResult = context.deviceLifecycle->DrainForResourceRelease();
         if ( !flushResult.ok )
         {
             // Lane R: return before the first release. The destructor caller

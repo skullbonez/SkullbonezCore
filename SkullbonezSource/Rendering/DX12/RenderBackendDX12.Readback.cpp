@@ -154,7 +154,11 @@ SbResult RenderBackendDX12::CaptureBackbuffer( std::vector<uint8_t>& outPixels, 
             readbackBuffer.DetachAfterUncertainSubmission();
         return closeResult;
     }
-    SubmitClosedCommandList();
+    const SbResult submitResult = SubmitClosedCommandList();
+    if ( !submitResult.ok )
+    {
+        return submitResult;
+    }
     const SbResult waitResult = m_commandRecording.CommitWait( WaitForGpu() );
     if ( !waitResult.ok )
     {

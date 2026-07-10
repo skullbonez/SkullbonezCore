@@ -10,9 +10,9 @@ reports, and git history.
 | Field | Value |
 |---|---|
 | Branch | `engine-cleanup-10th-july`, tracking `origin/engine-cleanup-10th-july` |
-| Pushed baseline before C5 | `119b359c feat: preserve live asset scene snapshots` |
-| Current objective | Complete transactional DX12 recreation, fault injection, and device-loss behavior (D4-D5) |
-| Last broad local gate | `tools\validate_full.bat` passed C5 through 120 CPU tests/2,633 assertions, zero-warning builds, DX12 with zero InfoQueue errors/matching screenshots, atomic creation smoke, and byte-exact physics in 49.6s |
+| Pushed baseline before DX12 D4-D5 | `7fdd91d3 feat: stabilize scene behavior group roots` |
+| Current objective | Complete ReplayRuntime workspace ownership, then RuntimeRenderer composition ownership |
+| Last broad local gate | `tools\validate_full.bat` passed final DX12 D4-D5 source with zero-warning builds, the mandatory CPU umbrella, DX12 with zero InfoQueue errors/matching screenshots, standalone physics smoke, and byte-exact physics in 49.5s |
 | Native evidence | Injected heap-use-after-free caught; healthy ASan and five-file `/analyze` passed in 16.185s |
 
 ## Pushed Cleanup Commits
@@ -38,6 +38,7 @@ reports, and git history.
 - `28a8b205 feat: move scene entity metadata to scene owner`
 - `e147f9b8 feat: make scene creation transactional`
 - `119b359c feat: preserve live asset scene snapshots`
+- `7fdd91d3 feat: stabilize scene behavior group roots`
 
 ## Current Queue
 
@@ -59,11 +60,14 @@ The first perf run exposed eight duplicate names in the varied physics bench
 fixture after C1a made name collisions honest. The ball rows now have unique
 names; the final performance and full gates pass without relaxing validation.
 
-DX12 D1-D3 is complete: `SbResult` is non-discardable, command recording and
-submitted-work state fail closed, every D3 timestamp/map/present/resize/wait
-result is checked, 17 CPU architecture tests passed, three consecutive renderer
-gates reported zero InfoQueue errors with matching baselines, and the final full
-gate passed. D4-D5 remains in the owning plan.
+DX12 D1-D5 is complete. Required startup and optional-feature failure paths
+retain one result, resize publishes only complete replacement sets, device loss
+is sticky and tears down without later queue/present work, and the Debug fault
+probe exits 1 before the sole submission site with one 457-byte diagnostic and
+zero submissions/InfoQueue errors. The plan-level adversarial review found and
+fixed device-loss teardown issuing a later fence signal; the repeat review was
+clean. Final fast, architecture, fault, three consecutive renderer, allocation,
+and full gates passed.
 
 Scene provenance C1a is complete: parser-owned library/instance/ordered-part
 records retain exact shape sources, hierarchy transforms use rotated offsets
@@ -114,19 +118,16 @@ and full gates pass from the final source.
 
 ## Ten Workstreams To Prioritize
 
-1. Make DX12 resize/resource recreation transactional and define device-loss
-   recovery (D4-D5).
-2. Close the dependent B1f scene/input seam now that stable behavior roots are complete.
-3. Promote `SceneController` to own real load/reset/save lifecycle and delete
-   `Run` scene callbacks.
-4. Move replay workspace decisions and overlays into `ReplayRuntime`.
-5. Move render composition/bindings and overlay views into `RuntimeRenderer`.
-6. Finish physics stable-identity D1-D4 and the remaining interaction/UI work.
-7. Finish validation-gate V3-V4 and behavioral-test P3/P5/P6 evidence.
-8. Close remaining interaction/UI, replay sizing, and physics authority items.
-9. Close renderer decomposition and shadow quality after the five `Run`
+1. Move replay workspace decisions, tools, and overlays behind `ReplayRuntime`.
+2. Move render composition, bindings, and overlay views behind `RuntimeRenderer`.
+3. Close the dependent B1f scene/input seam and promote `SceneController` to
+   own real load/reset/save lifecycle and delete `Run` scene callbacks.
+4. Finish physics stable-identity D1-D4 and the remaining interaction/UI work.
+5. Finish validation-gate V3-V4 and behavioral-test P3/P5/P6 evidence.
+6. Close remaining interaction/UI, replay sizing, and physics authority items.
+7. Close renderer decomposition and shadow quality after the five `Run`
    ownership extractions establish their boundaries.
-10. Run the final ownership and campaign adversarial reviews, fixing every
+8. Run the final ownership and campaign adversarial reviews, fixing every
    credible finding before closure.
 
 ## Binding Decisions And External Blocker

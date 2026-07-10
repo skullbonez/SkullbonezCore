@@ -20,15 +20,23 @@ Glossary:
   Sticky failure: First recoverable error retained until a new device
     initialization establishes a fresh command-list lifetime.
   Mapped pointer: CPU address returned by a successful resource Map operation.
+  Recreation transaction: Staged replacement of swap-chain resources whose
+    public generation advances only after every candidate exists.
+  Fault injection: Debug-only synthetic failure used to prove that queue work
+    stops before the first unsafe submission.
 
 Invariants:
   - Failed Close or Reset operations never change the logical epoch.
   - A failed wait never changes the epoch and prevents allocator/resource reuse.
   - Submitted work without a successful covering fence can never be treated as
     complete merely because the command list is closed.
+  - Only confirmed device removal may abandon submitted-work tracking without
+    a covering fence, and only for terminal resource release.
   - A GPU drain exposes resource-mutation safety only after close, submission,
     wait, and reopen have committed in their legal order.
   - Only ResetForDevice clears a sticky failure.
+  - Device loss remains sticky across command epochs until ResetForDevice.
+  - Recreation failure never advances the published resource generation.
   - The type owns no heap memory and invokes no callbacks.
 
 Related:
@@ -40,6 +48,9 @@ Related:
 #include "../../Core/SbResult.h"
 
 #include <windows.h>
+
+#include <cstdint>
+#include <cstring>
 
 
 namespace SkullbonezCore
@@ -217,6 +228,15 @@ class Dx12SubmittedWorkState
         // A new queue submission is not covered by an older fence even if that
         // older marker is still pending, so discard the old proof immediately.
         m_phase = Dx12SubmittedWorkPhase::SubmittedUnfenced;
+        m_completionFence = 0;
+    }
+
+    void AbandonForRemovedDevice()
+    {
+        // Lifetime: device removal cancels the device lifetime itself, so no
+        // command from this queue can execute against resources after terminal
+        // COM teardown. This is not a reusable completion proof.
+        m_phase = Dx12SubmittedWorkPhase::Idle;
         m_completionFence = 0;
     }
 
@@ -429,6 +449,226 @@ ValidateDx12MappedPointer( HRESULT mapResult, void* mappedPointer, const char* o
     checked.pointer = mappedPointer;
     return checked;
 }
+
+
+// Concept: device health is separate from one command-list epoch. A removed
+// device invalidates every resource owner and must remain sticky until a full
+// backend initialization establishes a new device lifetime.
+class Dx12DeviceHealthState
+{
+  public:
+    void ResetForDevice()
+    {
+        m_lost = false;
+        m_firstFailure = Basics::SbResult::Success();
+    }
+
+    Basics::SbResult RetainDeviceLoss( const char* operation, HRESULT result )
+    {
+        if ( !m_lost )
+        {
+            m_lost = true;
+            m_firstFailure = Basics::SbResult::Failure( "Rendering/DX12",
+                                                        "DX12 device lost during %s (HRESULT 0x%08X)",
+                                                        operation ? operation : "unknown operation",
+                                                        static_cast<unsigned int>( result ) );
+        }
+        return m_firstFailure;
+    }
+
+    bool CanIssueDeviceWork() const
+    {
+        return !m_lost;
+    }
+
+    bool IsLost() const
+    {
+        return m_lost;
+    }
+
+    const Basics::SbResult& CurrentResult() const
+    {
+        return m_firstFailure;
+    }
+
+  private:
+    Basics::SbResult m_firstFailure = Basics::SbResult::Success();
+    bool m_lost = false;
+};
+
+
+enum class Dx12RecreationStage
+{
+    Idle,
+    CandidateReady,
+    OldReferencesReleased,
+    SwapChainResized,
+    BackBuffersReady,
+    Published,
+    Failed
+};
+
+
+// Concept: a recreation transaction separates native calls from publication.
+// The backend may have to release DXGI back-buffer references before resize,
+// but width/height/current-target state advances only after every replacement
+// resource exists.
+class Dx12RecreationTransaction
+{
+  public:
+    void Begin( uint64_t publishedGeneration )
+    {
+        m_stage = Dx12RecreationStage::Idle;
+        m_publishedGeneration = publishedGeneration;
+        m_firstFailure = Basics::SbResult::Success();
+    }
+
+    bool CommitCandidateReady()
+    {
+        return Advance( Dx12RecreationStage::Idle, Dx12RecreationStage::CandidateReady );
+    }
+
+    bool CommitOldReferencesReleased()
+    {
+        return Advance( Dx12RecreationStage::CandidateReady, Dx12RecreationStage::OldReferencesReleased );
+    }
+
+    bool CommitSwapChainResized()
+    {
+        return Advance( Dx12RecreationStage::OldReferencesReleased, Dx12RecreationStage::SwapChainResized );
+    }
+
+    bool CommitBackBuffersReady()
+    {
+        return Advance( Dx12RecreationStage::SwapChainResized, Dx12RecreationStage::BackBuffersReady );
+    }
+
+    bool CommitPublished( uint64_t generation )
+    {
+        if ( !Advance( Dx12RecreationStage::BackBuffersReady, Dx12RecreationStage::Published ) )
+        {
+            return false;
+        }
+        m_publishedGeneration = generation;
+        return true;
+    }
+
+    Basics::SbResult Fail( const Basics::SbResult& result )
+    {
+        if ( result.ok )
+        {
+            return Basics::SbResult::Failure( "Rendering/DX12", "Recreation failure requires a failed result" );
+        }
+        if ( m_stage != Dx12RecreationStage::Failed )
+        {
+            m_firstFailure = result;
+            m_stage = Dx12RecreationStage::Failed;
+        }
+        return m_firstFailure;
+    }
+
+    bool IsPublished() const
+    {
+        return m_stage == Dx12RecreationStage::Published;
+    }
+
+    bool HasFailed() const
+    {
+        return m_stage == Dx12RecreationStage::Failed;
+    }
+
+    uint64_t PublishedGeneration() const
+    {
+        return m_publishedGeneration;
+    }
+
+    Dx12RecreationStage Stage() const
+    {
+        return m_stage;
+    }
+
+  private:
+    bool Advance( Dx12RecreationStage expected, Dx12RecreationStage next )
+    {
+        if ( m_stage != expected || !m_firstFailure.ok )
+        {
+            return false;
+        }
+        m_stage = next;
+        return true;
+    }
+
+    Basics::SbResult m_firstFailure = Basics::SbResult::Success();
+    Dx12RecreationStage m_stage = Dx12RecreationStage::Idle;
+    uint64_t m_publishedGeneration = 0;
+};
+
+
+// Debug-only runtime fault injection uses this allocation-free state before
+// ExecuteCommandLists. The first injected error is sticky and every later
+// submission attempt is counted as blocked rather than reaching the queue.
+class Dx12FaultInjectionState
+{
+  public:
+    void Configure( const char* token )
+    {
+        m_armedBeforeFirstSubmission = token && std::strcmp( token, "before-first-submit" ) == 0;
+        m_injected = false;
+        m_submissionCount = 0;
+        m_blockedSubmissionCount = 0;
+        m_firstFailure = Basics::SbResult::Success();
+    }
+
+    Basics::SbResult BeforeSubmission()
+    {
+        if ( !m_armedBeforeFirstSubmission )
+        {
+            return Basics::SbResult::Success();
+        }
+        if ( m_injected )
+        {
+            ++m_blockedSubmissionCount;
+            return m_firstFailure;
+        }
+
+        m_injected = true;
+        m_firstFailure = Basics::SbResult::Failure( "Rendering/DX12FaultInjection",
+                                                    "Injected failure before first ExecuteCommandLists submission" );
+        return m_firstFailure;
+    }
+
+    void CommitSubmission()
+    {
+        ++m_submissionCount;
+    }
+
+    bool IsArmed() const
+    {
+        return m_armedBeforeFirstSubmission;
+    }
+
+    bool WasInjected() const
+    {
+        return m_injected;
+    }
+
+    uint32_t SubmissionCount() const
+    {
+        return m_submissionCount;
+    }
+
+    uint32_t BlockedSubmissionCount() const
+    {
+        return m_blockedSubmissionCount;
+    }
+
+  private:
+    Basics::SbResult m_firstFailure = Basics::SbResult::Success();
+    uint32_t m_submissionCount = 0;
+    uint32_t m_blockedSubmissionCount = 0;
+    bool m_armedBeforeFirstSubmission = false;
+    bool m_injected = false;
+};
 
 } // namespace Rendering
 } // namespace SkullbonezCore

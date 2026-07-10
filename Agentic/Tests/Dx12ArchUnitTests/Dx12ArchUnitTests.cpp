@@ -56,6 +56,9 @@ using SkullbonezCore::Basics::SbResult;
 
 static_assert( std::is_same<decltype( std::declval<IRenderDeviceLifecycle&>().FlushGPU() ), SbResult>::value,
                "FlushGPU must return a recoverable result to every resource-mutation caller." );
+static_assert(
+    std::is_same<decltype( std::declval<IRenderDeviceLifecycle&>().DrainForResourceRelease() ), SbResult>::value,
+    "Terminal resource release must use its own checked drain boundary." );
 static_assert( std::is_trivially_copyable<Dx12SubmittedWorkState>::value,
                "Submitted-work tracking must remain an allocation-free value record." );
 
@@ -260,8 +263,7 @@ void TestMapResultRejectsFailedHresult()
 {
     void* unexpectedPointer = reinterpret_cast<void*>( static_cast<uintptr_t>( 0x1234u ) );
 
-    const Dx12MappedPointerResult checked =
-        ValidateDx12MappedPointer( E_FAIL, unexpectedPointer, "test Map" );
+    const Dx12MappedPointerResult checked = ValidateDx12MappedPointer( E_FAIL, unexpectedPointer, "test Map" );
 
     EXPECT_TRUE( !checked.result.ok );
     EXPECT_TRUE( checked.pointer == nullptr );
@@ -400,6 +402,111 @@ void TestSubmittedWorkSuccessfulSignalAndWaitAllowsReuse()
     submittedWork.CommitWait( SbResult::Success(), 7 );
     EXPECT_TRUE( submittedWork.Phase() == Dx12SubmittedWorkPhase::Idle );
     EXPECT_TRUE( submittedWork.CanReleaseWithoutFence() );
+}
+
+void TestDeviceLossBlocksWorkAndRetainsFirstFailure()
+{
+    Dx12DeviceHealthState health;
+    health.ResetForDevice();
+
+    const SbResult first = health.RetainDeviceLoss( "Present", E_FAIL );
+    const SbResult second = health.RetainDeviceLoss( "ResizeBuffers", E_OUTOFMEMORY );
+
+    EXPECT_TRUE( !first.ok );
+    EXPECT_TRUE( health.IsLost() );
+    EXPECT_TRUE( !health.CanIssueDeviceWork() );
+    EXPECT_EQ( std::string( second.error.message ), std::string( first.error.message ) );
+}
+
+void TestDeviceHealthResetAllowsNewDeviceWork()
+{
+    Dx12DeviceHealthState health;
+    health.ResetForDevice();
+    EXPECT_TRUE( !health.RetainDeviceLoss( "Present", E_FAIL ).ok );
+
+    health.ResetForDevice();
+
+    EXPECT_TRUE( health.CanIssueDeviceWork() );
+    EXPECT_TRUE( !health.IsLost() );
+    EXPECT_TRUE( health.CurrentResult().ok );
+}
+
+void TestRemovedDeviceAllowsTerminalSubmittedWorkAbandon()
+{
+    Dx12DeviceHealthState health;
+    health.ResetForDevice();
+    Dx12SubmittedWorkState submittedWork;
+    submittedWork.ResetForDevice();
+    submittedWork.MarkSubmitted();
+
+    EXPECT_TRUE( !health.RetainDeviceLoss( "Present", DXGI_ERROR_DEVICE_REMOVED ).ok );
+    EXPECT_TRUE( submittedWork.HasSubmittedWork() );
+
+    submittedWork.AbandonForRemovedDevice();
+
+    EXPECT_TRUE( health.IsLost() );
+    EXPECT_TRUE( submittedWork.CanReleaseWithoutFence() );
+}
+
+void TestRecreationFailurePreservesPublishedGeneration()
+{
+    Dx12RecreationTransaction transaction;
+    transaction.Begin( 7 );
+    EXPECT_TRUE( transaction.CommitCandidateReady() );
+    EXPECT_TRUE( transaction.CommitOldReferencesReleased() );
+
+    const SbResult failure = transaction.Fail( SbResult::Failure( "TestResize", "ResizeBuffers failed" ) );
+
+    EXPECT_TRUE( !failure.ok );
+    EXPECT_TRUE( transaction.HasFailed() );
+    EXPECT_TRUE( !transaction.IsPublished() );
+    EXPECT_EQ( transaction.PublishedGeneration(), static_cast<uint64_t>( 7 ) );
+    EXPECT_TRUE( !transaction.CommitSwapChainResized() );
+}
+
+void TestRecreationPublishesOnlyAfterEveryCandidateIsReady()
+{
+    Dx12RecreationTransaction transaction;
+    transaction.Begin( 3 );
+
+    EXPECT_TRUE( !transaction.CommitPublished( 4 ) );
+    EXPECT_TRUE( transaction.CommitCandidateReady() );
+    EXPECT_TRUE( transaction.CommitOldReferencesReleased() );
+    EXPECT_TRUE( transaction.CommitSwapChainResized() );
+    EXPECT_TRUE( !transaction.IsPublished() );
+    EXPECT_TRUE( transaction.CommitBackBuffersReady() );
+    EXPECT_TRUE( transaction.CommitPublished( 4 ) );
+    EXPECT_TRUE( transaction.IsPublished() );
+    EXPECT_EQ( transaction.PublishedGeneration(), static_cast<uint64_t>( 4 ) );
+}
+
+void TestFaultInjectionBlocksFirstAndSubsequentSubmissions()
+{
+    Dx12FaultInjectionState fault;
+    fault.Configure( "before-first-submit" );
+
+    const SbResult first = fault.BeforeSubmission();
+    const SbResult second = fault.BeforeSubmission();
+
+    EXPECT_TRUE( !first.ok );
+    EXPECT_TRUE( !second.ok );
+    EXPECT_TRUE( fault.WasInjected() );
+    EXPECT_EQ( fault.SubmissionCount(), 0u );
+    EXPECT_EQ( fault.BlockedSubmissionCount(), 1u );
+    EXPECT_EQ( std::string( second.error.message ), std::string( first.error.message ) );
+}
+
+void TestUnarmedFaultInjectionAllowsSubmissionAccounting()
+{
+    Dx12FaultInjectionState fault;
+    fault.Configure( nullptr );
+
+    EXPECT_TRUE( fault.BeforeSubmission().ok );
+    fault.CommitSubmission();
+
+    EXPECT_TRUE( !fault.WasInjected() );
+    EXPECT_EQ( fault.SubmissionCount(), 1u );
+    EXPECT_EQ( fault.BlockedSubmissionCount(), 0u );
 }
 
 struct RenderGraphCallbackTrace
@@ -1015,12 +1122,18 @@ const TestCase kTests[] = {
     { "GPU drain close failure blocks submission", TestGpuDrainCloseFailureBlocksSubmission },
     { "GPU drain wait failure blocks reopen and mutation", TestGpuDrainWaitFailureBlocksReopenAndMutation },
     { "GPU drain success allows mutation only after reopen", TestGpuDrainSuccessAllowsMutationOnlyAfterReopen },
-    { "Submitted work signal failure blocks reuse and release",
-      TestSubmittedWorkSignalFailureBlocksReuseAndRelease },
-    { "Submitted work wait failure preserves completion fence",
-      TestSubmittedWorkWaitFailurePreservesCompletionFence },
-    { "Submitted work successful signal and wait allows reuse",
-      TestSubmittedWorkSuccessfulSignalAndWaitAllowsReuse },
+    { "Submitted work signal failure blocks reuse and release", TestSubmittedWorkSignalFailureBlocksReuseAndRelease },
+    { "Submitted work wait failure preserves completion fence", TestSubmittedWorkWaitFailurePreservesCompletionFence },
+    { "Submitted work successful signal and wait allows reuse", TestSubmittedWorkSuccessfulSignalAndWaitAllowsReuse },
+    { "Device loss blocks work and retains first failure", TestDeviceLossBlocksWorkAndRetainsFirstFailure },
+    { "Device health reset allows new device work", TestDeviceHealthResetAllowsNewDeviceWork },
+    { "Removed device allows terminal submitted-work abandon", TestRemovedDeviceAllowsTerminalSubmittedWorkAbandon },
+    { "Recreation failure preserves published generation", TestRecreationFailurePreservesPublishedGeneration },
+    { "Recreation publishes only after every candidate is ready",
+      TestRecreationPublishesOnlyAfterEveryCandidateIsReady },
+    { "Fault injection blocks first and subsequent submissions",
+      TestFaultInjectionBlocksFirstAndSubsequentSubmissions },
+    { "Unarmed fault injection allows submission accounting", TestUnarmedFaultInjectionAllowsSubmissionAccounting },
     { "Descriptor transient ranges are contiguous", TestDescriptorTransientRangeIsContiguous },
     { "Descriptor transient range failures are atomic", TestDescriptorTransientRangeFailureIsAtomic },
     { "Render graph skips Unknown initial transitions", TestRenderGraphSkipsUnknownInitialTransition },
