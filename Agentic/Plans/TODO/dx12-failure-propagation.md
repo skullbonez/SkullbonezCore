@@ -1,7 +1,7 @@
 # DX12 Failure Propagation And Command-State Safety
 
 Date: 2026-07-10
-Status: Planned — 0/6 phases complete
+Status: In progress — 1/6 phases complete
 Impact area: DX12 renderer, recoverable-result policy, device-loss handling,
 renderer tests
 Owner: DX12 backend
@@ -14,8 +14,8 @@ evidence that recoverable failures are handled. The 2026-07-10 review found:
 - `SbResult` is not `[[nodiscard]]`, so a failed operation can be discarded
   without a compiler diagnostic.
 - `RenderBackendDX12::WaitForGpu()` has ten ignored call results.
-- Eight command-list `Close()` calls and four allocator/list `Reset()` calls
-  ignore their HRESULT.
+- Nine command-list `Close()` calls (eight backend operations plus the device's
+  initial close) and four allocator/list `Reset()` calls ignore their HRESULT.
 - `EnsureCommandListOpen()` logs a fence-wait failure and returns `void`; callers
   can continue recording barriers, drawing, or presenting with a command list
   that was not reopened successfully.
@@ -45,10 +45,15 @@ succeeds.
 
 ## Phases
 
-- [ ] **D0 — Complete operation inventory.** Inventory every HRESULT-returning
+- [x] **D0 — Complete operation inventory.** Inventory every HRESULT-returning
   DX12 call and every `SbResult` call in `Rendering/DX12`. Classify each as
   checked, infallible-by-contract, Lane R, or Lane F. Record file, operation,
   owner, caller, and required test. Acceptance: zero unclassified rows.
+  Evidence: [the 2026-07-10 DX12 failure-surface inventory](../../Reports/dx12_failure_inventory_20260710.md)
+  reconciles 101 HRESULT call sites (70 captured/checked, 31 discarded), 115
+  `SbResult` construction/invocation expressions (10 discarded
+  `WaitForGpu()` calls), and 44 result-less API calls, with zero unclassified
+  rows.
 - [ ] **D1 — Make ignored results visible.** Mark `SbResult` `[[nodiscard]]`
   after inventorying intentional discards repository-wide. Add a named
   `IgnoreResultWithReason(...)` only where discard is genuinely harmless and
