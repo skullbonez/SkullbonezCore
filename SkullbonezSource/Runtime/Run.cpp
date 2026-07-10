@@ -472,9 +472,20 @@ Run::Run( Window& window,
                                              run->m_inputRouter.DeviceFrame().keys.IsDown( VK_CONTROL ),
                                              attachedTargetIndex,
                                              run->m_attachedCamera.activeFollow } );
-              run->RenderReplayPathVisualizer( tracer );
-              run->RenderReplayCauseFocusOverlay( tracer );
-              run->RenderReplayVelocityEditOverlay( tracer );
+              const auto replayWorldForces = run->m_cWorldEnvironment.GetPhysicsWorldForces();
+              run->m_replayRuntime.RenderPathVisualizer( run->m_cGameModelCollection,
+                                                         run->m_config,
+                                                         replayWorldForces,
+                                                         *run->m_systems.workerPool,
+                                                         tracer,
+                                                         run->SceneState().isScenePhysics,
+                                                         run->SceneState().currentFrame,
+                                                         run->m_timers.simulationTimer.GetTimeSinceLastStart(),
+                                                         run->m_timers.simulationTimer.GetTotalTime() );
+              run->m_replayRuntime.RenderCauseFocusOverlay( run->m_cGameModelCollection, tracer );
+              run->m_replayRuntime.RenderVelocityEditOverlay( run->m_cGameModelCollection,
+                                                              run->m_runtimeTools.Editor().editorModeEnabled,
+                                                              tracer );
               tracer.Render( viewProjection, cameraEye, cameraUp, renderCommands );
               run->m_replayRuntime.RecordReplayTrajectorySubmissionFrame(
                   tracer.ReplaySubmissionStats(),
@@ -654,10 +665,28 @@ void Run::ApplyStartupOverrides( const RunStartupOverrides& overrides )
                                           m_replayLauncherVisualScratch,
                                           m_startup.gameModelCapacity ) )
     {
-        ExitReplayInspectionCamera();
+        m_replayRuntime.ExitInspectionCamera(
+            m_systems.cameras,
+            m_systems.terrain.get(),
+            m_camera,
+            NormalizeCameraModeForCurrentScene( m_replayRuntime.Camera().restoreCameraMode ),
+            m_attachedCamera.activeFollow,
+            m_camera.director.grabbed,
+            m_interaction,
+            m_inputRouter );
     }
+    m_replayRuntime.ConfigureStartupWorkflows( ReplayRuntime::ReplayStartupRequest{
+        overrides.replayLoadPath,
+        overrides.replayLoadProbe,
 #ifdef _DEBUG
-    ApplyReplayProbeStartup( overrides, m_replayProbes );
+        overrides.replayRestoreFileProbePath,
+        overrides.replayRestoreTargetFileProbePath,
+        overrides.replayRestoreBranchFileProbePath,
+        overrides.replayRestoreFailureFileProbePath
+#endif
+    } );
+#ifdef _DEBUG
+    ApplyReplayProbeStartup( overrides, m_replayRuntime.Probes() );
 #endif
     ApplyStartupPresentationPolicy( overrides, m_launchOptions, m_debug, m_UI );
 #ifdef _DEBUG
@@ -712,128 +741,64 @@ SbResult Run::InteractionAutomationResult() const
 
 
 #ifdef _DEBUG
-const RunReplayProbeState& Run::ReplayProbes() const
+RunReplayProbeState& ReplayRuntime::Probes()
 {
-    return m_replayProbes;
+    return m_probes;
+}
+
+
+const RunReplayProbeState& ReplayRuntime::Probes() const
+{
+    return m_probes;
 }
 #endif
 
 
-bool Run::LoadReplayPresentationArtifact( const char* path, bool activateScrubber )
+ReplayRuntime::SceneTimelineResetInput ReplayRuntime::DescribeSceneTimeline( const SceneController& sceneController,
+                                                                             const RunSceneState& scene,
+                                                                             int gameModelCapacity,
+                                                                             uint32_t generatedObjectTypeOverride )
 {
-    if ( !path || path[0] == '\0' )
-    {
-        return false;
-    }
-
-    std::vector<ReplayPresentationSample> samples;
-    ReplayV2LoadResult result;
-    if ( !ReplayV2Artifact::LoadPresentation( path, samples, &result ) || samples.size() < 2 )
-    {
-        return false;
-    }
-
-    m_replayRuntime.LoadedPresentation() = RunLoadedReplayPresentationState{};
-    m_replayRuntime.LoadedPresentation().samples.swap( samples );
-    m_replayRuntime.LoadedPresentation().enabled = true;
-    m_replayRuntime.LoadedPresentation().bodyDictionaryCount = result.bodyDictionaryCount;
-    m_replayRuntime.LoadedPresentation().fileBytes = result.fileBytes;
-    m_replayRuntime.LoadedPresentation().firstFrame = result.firstFrame;
-    m_replayRuntime.LoadedPresentation().lastFrame = result.lastFrame;
-    strncpy_s( m_replayRuntime.LoadedPresentation().path,
-               sizeof( m_replayRuntime.LoadedPresentation().path ),
-               path,
-               _TRUNCATE );
-
-    if ( activateScrubber )
-    {
-        if ( m_replayRuntime.Scrubber().liveAdvanceHeld )
-        {
-            m_replayRuntime.SetLiveAdvanceHeld( false );
-        }
-        CancelReplayToolDragState();
-
-        m_replayRuntime.ClearCameraFocusForRestore();
-        ExitReplayInspectionCamera();
-        m_replayRuntime.ArmLoadedPresentationScrubber( 0.25f, m_timers.simulationTimer.GetTotalTime() );
-        SetWorldInteractionOwnerAfterInteractionTransition( WorldInteractionOwner::ReplayScrub,
-                                                            InteractionExitReason::EnterReplay );
-        if ( m_replayRuntime.ShouldUseInspectionCamera() )
-        {
-            EnterReplayInspectionCamera();
-        }
-        else
-        {
-            ExitReplayInspectionCamera();
-        }
-    }
-
-    printf( "[replay] Loaded v2 presentation artifact: path=%s samples=%llu bodies=%llu first_frame=%llu "
-            "last_frame=%llu bytes=%llu\n",
-            m_replayRuntime.LoadedPresentation().path,
-            static_cast<unsigned long long>( m_replayRuntime.LoadedPresentation().samples.size() ),
-            static_cast<unsigned long long>( m_replayRuntime.LoadedPresentation().bodyDictionaryCount ),
-            static_cast<unsigned long long>( m_replayRuntime.LoadedPresentation().firstFrame ),
-            static_cast<unsigned long long>( m_replayRuntime.LoadedPresentation().lastFrame ),
-            static_cast<unsigned long long>( m_replayRuntime.LoadedPresentation().fileBytes ) );
-    return true;
-}
-
-
-void Run::ResetReplayTimelineForActiveScene( bool preserveBranchMetadata )
-{
-    CancelReplayToolDragState();
-
-    const std::string* scenePath = m_sceneController.CurrentPath();
+    const std::string* scenePath = sceneController.CurrentPath();
     const char* sceneLabel = scenePath && !scenePath->empty() ? scenePath->c_str() : "generated";
-    ReplayRuntime::SceneTimelineResetInput replayReset;
+    SceneTimelineResetInput replayReset;
     replayReset.sceneLabel = sceneLabel;
-    replayReset.preserveBranchMetadata = preserveBranchMetadata;
-    replayReset.isSceneMode = SceneState().isSceneMode;
-    replayReset.modelCount = SceneState().modelCount;
-    replayReset.solverBallCount = SceneState().solverBallCount;
-    replayReset.solverBoxCount = SceneState().solverBoxCount;
-    replayReset.rngSeed = SceneState().rngSeed;
-    replayReset.gameModelCapacity = m_startup.gameModelCapacity;
-    replayReset.generatedObjectTypeOverride = static_cast<uint32_t>( m_launchOptions.generatedObjectTypeOverride );
-    replayReset.hasUiModelCountOverride = m_sceneController.UIOverrides().modelCountOverride >= 0;
-    replayReset.hasUiSolverCountOverride = m_sceneController.UIOverrides().solverBallCountOverride >= 0 ||
-                                           m_sceneController.UIOverrides().solverBoxCountOverride >= 0;
-
-    const ReplayRuntime::SceneTimelineResetResult replayResetBegin =
-        m_replayRuntime.BeginSceneTimelineReset( replayReset );
-    if ( replayResetBegin.exitInspectionCamera )
-    {
-        ExitReplayInspectionCamera();
-    }
-
-    const ReplayRuntime::SceneTimelineResetResult replayResetFinish =
-        m_replayRuntime.FinishSceneTimelineReset( replayReset );
-    if ( replayResetFinish.exitInspectionCamera )
-    {
-        ExitReplayInspectionCamera();
-    }
+    replayReset.isSceneMode = scene.isSceneMode;
+    replayReset.modelCount = scene.modelCount;
+    replayReset.solverBallCount = scene.solverBallCount;
+    replayReset.solverBoxCount = scene.solverBoxCount;
+    replayReset.rngSeed = scene.rngSeed;
+    replayReset.gameModelCapacity = gameModelCapacity;
+    replayReset.generatedObjectTypeOverride = generatedObjectTypeOverride;
+    replayReset.hasUiModelCountOverride = sceneController.UIOverrides().modelCountOverride >= 0;
+    replayReset.hasUiSolverCountOverride = sceneController.UIOverrides().solverBallCountOverride >= 0 ||
+                                           sceneController.UIOverrides().solverBoxCountOverride >= 0;
+    return replayReset;
 }
 
 
-bool Run::ApplyReplaySolverSampleState( const ReplaySolverFrameSample& sample, char* outReason, std::size_t reasonSize )
+bool ReplayRuntime::ApplySolverSampleState( const ReplayLiveWorld& liveWorld,
+                                            const ReplaySolverFrameSample& sample,
+                                            char* outReason,
+                                            std::size_t reasonSize )
 {
-    return ReplayRestoreService::ApplySolverSampleState( ReplaySolverSampleRestoreContext{ m_cGameModelCollection,
-                                                                                           m_cWorldEnvironment,
-                                                                                           SceneState(),
-                                                                                           m_runtimeSettings,
-                                                                                           m_debug,
-                                                                                           m_systems.cameras,
-                                                                                           m_runtimeTools },
+    return ReplayRestoreService::ApplySolverSampleState( ReplaySolverSampleRestoreContext{ liveWorld.models,
+                                                                                           liveWorld.world,
+                                                                                           liveWorld.scene,
+                                                                                           liveWorld.runtimeSettings,
+                                                                                           liveWorld.debug,
+                                                                                           liveWorld.cameras,
+                                                                                           liveWorld.runtimeTools },
                                                          sample,
                                                          outReason,
                                                          reasonSize );
 }
 
-bool Run::CaptureCurrentReplaySolverHash( const ReplaySolverFrameSample& reference,
-                                          uint64_t& outSolverHash,
-                                          uint64_t& outPresentationHash,
-                                          std::size_t& outBodyCount )
+bool ReplayRuntime::CaptureCurrentSolverHash( const ReplayLiveWorld& liveWorld,
+                                              const ReplaySolverFrameSample& reference,
+                                              uint64_t& outSolverHash,
+                                              uint64_t& outPresentationHash,
+                                              std::size_t& outBodyCount )
 {
     ReplayRecorderConfig config;
     config.enabled = true;
@@ -847,7 +812,7 @@ bool Run::CaptureCurrentReplaySolverHash( const ReplaySolverFrameSample& referen
     }
 
     ReplayLauncherVisualSample launcherVisual;
-    m_runtimeTools.BuildReplayLauncherVisualSample( launcherVisual );
+    liveWorld.runtimeTools.BuildReplayLauncherVisualSample( launcherVisual );
 
     ReplayCaptureInput input;
     input.branch = reference.branch;
@@ -855,17 +820,17 @@ bool Run::CaptureCurrentReplaySolverHash( const ReplaySolverFrameSample& referen
     input.sceneFrame = reference.sceneFrame;
     input.simulationSeconds = reference.simulationSeconds;
     input.physicsDt = reference.physicsDt > 0.0f ? reference.physicsDt : PHYSICS_FIXED_DT;
-    input.fixedStep = SceneState().isFixedStep;
-    input.scenePhysicsEnabled = SceneState().isScenePhysics;
-    input.sceneTextEnabled = SceneState().isSceneText;
-    input.waterHidden = m_debug.isWaterHidden;
-    input.terrainHidden = m_debug.isTerrainHidden;
-    input.cameras = m_systems.cameras;
-    input.world = &m_cWorldEnvironment;
-    input.models = &m_cGameModelCollection;
-    input.entities = &m_sceneController.Entities();
-    input.bodyStore = &m_cGameModelCollection.BodyStore();
-    input.colliderStore = &m_cGameModelCollection.Colliders();
+    input.fixedStep = liveWorld.scene.isFixedStep;
+    input.scenePhysicsEnabled = liveWorld.scene.isScenePhysics;
+    input.sceneTextEnabled = liveWorld.scene.isSceneText;
+    input.waterHidden = liveWorld.debug.isWaterHidden;
+    input.terrainHidden = liveWorld.debug.isTerrainHidden;
+    input.cameras = liveWorld.cameras;
+    input.world = &liveWorld.world;
+    input.models = &liveWorld.models;
+    input.entities = &liveWorld.sceneController.Entities();
+    input.bodyStore = &liveWorld.models.BodyStore();
+    input.colliderStore = &liveWorld.models.Colliders();
     input.launcherVisual = &launcherVisual;
     verifier.CaptureFrame( input );
 
@@ -881,9 +846,10 @@ bool Run::CaptureCurrentReplaySolverHash( const ReplaySolverFrameSample& referen
     return true;
 }
 
-bool Run::RestoreReplaySolverSampleAsLive( const ReplaySolverFrameSample& sample,
-                                           char* outReason,
-                                           std::size_t reasonSize )
+bool ReplayRuntime::RestoreSolverSampleAsLive( const ReplayLiveWorld& liveWorld,
+                                               const ReplaySolverFrameSample& sample,
+                                               char* outReason,
+                                               std::size_t reasonSize )
 {
     auto writeReason = [outReason, reasonSize]( const char* message )
     {
@@ -895,7 +861,7 @@ bool Run::RestoreReplaySolverSampleAsLive( const ReplaySolverFrameSample& sample
 
     ReplaySolverFrameSample liveBackup;
     bool hasLiveBackup = false;
-    if ( const ReplaySolverFrameSample* latest = m_replayRuntime.Solver().LatestSample() )
+    if ( const ReplaySolverFrameSample* latest = Solver().LatestSample() )
     {
         if ( latest->frameIndex != sample.frameIndex || latest->solverHash != sample.solverHash )
         {
@@ -905,7 +871,7 @@ bool Run::RestoreReplaySolverSampleAsLive( const ReplaySolverFrameSample& sample
     }
 
     char applyReason[128] = {};
-    if ( !ApplyReplaySolverSampleState( sample, applyReason, sizeof( applyReason ) ) )
+    if ( !ApplySolverSampleState( liveWorld, sample, applyReason, sizeof( applyReason ) ) )
     {
         writeReason( applyReason[0] != '\0' ? applyReason : "restore apply failed" );
         return false;
@@ -915,26 +881,26 @@ bool Run::RestoreReplaySolverSampleAsLive( const ReplaySolverFrameSample& sample
     uint64_t restoredPresentationHash = 0;
     std::size_t restoredBodyCount = 0;
     const bool hashCaptured =
-        CaptureCurrentReplaySolverHash( sample, restoredSolverHash, restoredPresentationHash, restoredBodyCount );
+        CaptureCurrentSolverHash( liveWorld, sample, restoredSolverHash, restoredPresentationHash, restoredBodyCount );
     const bool hashMatched = hashCaptured && restoredSolverHash == sample.solverHash;
     bool fallbackRestored = false;
 
     if ( !hashMatched && hasLiveBackup )
     {
         char fallbackReason[128] = {};
-        fallbackRestored = ApplyReplaySolverSampleState( liveBackup, fallbackReason, sizeof( fallbackReason ) );
+        fallbackRestored = ApplySolverSampleState( liveWorld, liveBackup, fallbackReason, sizeof( fallbackReason ) );
     }
 
 #ifdef _DEBUG
-    m_diagnosticsRuntime.LogReplayRestoreProbe( SceneState(),
-                                                sample,
-                                                restoredSolverHash,
-                                                restoredPresentationHash,
-                                                restoredBodyCount,
-                                                hashCaptured,
-                                                hashMatched,
-                                                !hashMatched && hasLiveBackup,
-                                                fallbackRestored );
+    liveWorld.diagnostics.LogReplayRestoreProbe( liveWorld.scene,
+                                                 sample,
+                                                 restoredSolverHash,
+                                                 restoredPresentationHash,
+                                                 restoredBodyCount,
+                                                 hashCaptured,
+                                                 hashMatched,
+                                                 !hashMatched && hasLiveBackup,
+                                                 fallbackRestored );
 #endif
 
     if ( !hashCaptured )
@@ -950,26 +916,26 @@ bool Run::RestoreReplaySolverSampleAsLive( const ReplaySolverFrameSample& sample
     }
 
     const uint32_t parentBranchId =
-        sample.branch.branchId != 0
-            ? sample.branch.branchId
-            : ( m_replayRuntime.Branch().branchId != 0 ? m_replayRuntime.Branch().branchId : 1u );
+        sample.branch.branchId != 0 ? sample.branch.branchId : ( Branch().branchId != 0 ? Branch().branchId : 1u );
     ReplayBranchInfo restoredBranch;
-    restoredBranch.branchId = (std::max)( m_replayRuntime.Branch().branchId, parentBranchId ) + 1u;
+    restoredBranch.branchId = (std::max)( Branch().branchId, parentBranchId ) + 1u;
     restoredBranch.parentBranchId = parentBranchId;
     restoredBranch.startFrame = 0;
     restoredBranch.sourceFrame = sample.frameIndex;
     restoredBranch.sourceSolverHash = sample.solverHash;
-    m_replayRuntime.Branch() = restoredBranch;
-    ResetReplayTimelineForActiveScene( true );
-    m_replayRuntime.RecordEvent( ReplayEventKind::BranchRestore,
-                                 0,
-                                 0,
-                                 static_cast<int32_t>( parentBranchId ),
-                                 sample.sceneFrame,
-                                 0,
-                                 0,
-                                 sample.solverHash,
-                                 "hash-verified solver restore" );
+    Branch() = restoredBranch;
+    SceneTimelineResetInput reset = liveWorld.timelineReset;
+    reset.preserveBranchMetadata = true;
+    ResetSceneTimeline( reset, liveWorld.timelineOwners );
+    RecordEvent( ReplayEventKind::BranchRestore,
+                 0,
+                 0,
+                 static_cast<int32_t>( parentBranchId ),
+                 sample.sceneFrame,
+                 0,
+                 0,
+                 sample.solverHash,
+                 "hash-verified solver restore" );
     writeReason( "restored hash match" );
     return true;
 }
@@ -1085,6 +1051,51 @@ void Run::Initialise()
     }
 
     m_lastSceneLoadResult = LoadScene( 0 );
+    if ( !m_lastSceneLoadResult.ok )
+    {
+        return;
+    }
+
+    const ReplayRuntime::SceneTimelineResetInput timelineReset =
+        ReplayRuntime::DescribeSceneTimeline( m_sceneController,
+                                              SceneState(),
+                                              m_startup.gameModelCapacity,
+                                              static_cast<uint32_t>( m_launchOptions.generatedObjectTypeOverride ) );
+    const ReplayRuntime::ReplayLiveWorld replayWorld{
+        m_cGameModelCollection,
+        m_cWorldEnvironment,
+        SceneState(),
+        m_runtimeSettings,
+        m_debug,
+        m_systems.cameras,
+        m_runtimeTools,
+        m_sceneController,
+        m_simulation,
+        m_config,
+        m_systems,
+        m_launchOptions.generatedObjectTypeOverride,
+        m_startup.gameModelCapacity,
+        m_diagnosticsRuntime,
+        m_runtimeTools.MousePickup(),
+        NormalizeCameraModeForCurrentScene( m_camera.mode ),
+        m_timers.simulationTimer.GetTotalTime(),
+        timelineReset,
+        ReplayRuntime::SceneTimelineResetOwners{
+            m_inputRouter,
+            m_interaction,
+            m_systems.cameras,
+            m_systems.terrain.get(),
+            m_camera,
+            NormalizeCameraModeForCurrentScene( m_replayRuntime.Camera().restoreCameraMode ),
+            m_attachedCamera.activeFollow,
+            m_camera.director.grabbed } };
+    const ReplayRuntime::ReplayStartupResult replayStartup = m_replayRuntime.RunStartupWorkflows( replayWorld );
+    if ( !replayStartup.status.ok )
+    {
+        m_lastSceneLoadResult = replayStartup.status;
+        return;
+    }
+    m_skipExecute = replayStartup.skipExecute;
 }
 
 

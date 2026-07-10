@@ -1,12 +1,12 @@
 /*
 File: SkullbonezSource/Runtime/Replay/RunReplayProbes.cpp
 Purpose:
-  Owns replay validation probes and v2 target restore work triggered by Run.
+  Owns replay validation probes and transactional v2 target restore work.
 
 Mental model:
-  Run still owns process-lifetime scene, input, physics, and replay state. This
-  file keeps replay-specific validation and restore transactions in the Replay
-  folder while borrowing the same owners through existing Run methods.
+  ReplayRuntime drives cold validation and restore workflows using a frame-scoped
+  live-owner view. It applies a checkpoint, replays supported events, verifies
+  the target hash, and rolls back the live state on any failed transaction.
 
 Glossary:
   Replay probe: CLI/debug validation path that proves scrub, save/load, or
@@ -30,6 +30,7 @@ Related:
 #include "../RunInternal.h"
 #include "../RuntimeTuning.h"
 #include "../Editor/EditorTools.h"
+#include "ReplayInteractionController.h"
 #include "ReplayV2Artifact.h"
 
 #include "../../Physics/ColliderStore.h"
@@ -152,11 +153,6 @@ constexpr uint32_t REPLAY_EDITOR_TRANSFORM_ROTATE = 2u;
 constexpr uint32_t REPLAY_EDITOR_TRANSFORM_SCALE = 4u;
 constexpr uint32_t REPLAY_EDITOR_TRANSFORM_SUPPORTED =
     REPLAY_EDITOR_TRANSFORM_TRANSLATE | REPLAY_EDITOR_TRANSFORM_ROTATE | REPLAY_EDITOR_TRANSFORM_SCALE;
-constexpr uint32_t REPLAY_GENERATED_SCENE_EXACT_SOLVER_COUNTS = 1u;
-constexpr uint32_t REPLAY_GENERATED_SCENE_UI_MODEL_COUNT = 2u;
-constexpr uint32_t REPLAY_GENERATED_SCENE_UI_SOLVER_COUNTS = 4u;
-constexpr uint32_t REPLAY_GENERATED_SCENE_OVERRIDE_SHIFT = 8u;
-constexpr uint32_t REPLAY_GENERATED_SCENE_OVERRIDE_MASK = 3u << REPLAY_GENERATED_SCENE_OVERRIDE_SHIFT;
 
 #ifdef _DEBUG
 float ReplaySaveProbeDistanceSquared( const Vector3& a, const Vector3& b )
@@ -179,9 +175,9 @@ struct ReplaySaveProbeEventCoverageContext
 };
 
 
-template <typename EnterInteractiveSceneRun>
+template <typename RequestInteractiveScene>
 SbResult InjectReplaySaveProbeEventCoverage( ReplaySaveProbeEventCoverageContext& context,
-                                             EnterInteractiveSceneRun enterInteractiveSceneRun )
+                                             RequestInteractiveScene requestInteractiveScene )
 {
     context.saveProbe.eventCoverageInjected = true;
     const float currentGravity = context.world.GetGravity();
@@ -207,7 +203,7 @@ SbResult InjectReplaySaveProbeEventCoverage( ReplaySaveProbeEventCoverageContext
     EditorObjectPlacementResult placementResult;
     if ( CanPlaceEditorObjectAtTerrainPoint( placementContext, placementRequest ) )
     {
-        enterInteractiveSceneRun();
+        requestInteractiveScene();
         PlaceEditorObjectAtTerrainPoint( placementContext, placementRequest, placementResult );
     }
     if ( placementResult.placed )
@@ -830,7 +826,7 @@ bool TryApplyReplayRestoreWorldLauncherEvent( ReplayRestoreEventContext& context
     }
 }
 
-template <typename EnterInteractiveSceneRun>
+template <typename RequestInteractiveScene>
 bool ApplyReplayRestoreEditorPlaceEvent( RuntimeTools& runtimeTools,
                                          SkullbonezCore::GameObjects::GameModelCollection& models,
                                          RunSceneState& scene,
@@ -840,7 +836,7 @@ bool ApplyReplayRestoreEditorPlaceEvent( RuntimeTools& runtimeTools,
                                          const ReplayEventSample& event,
                                          char* eventOutReason,
                                          std::size_t eventReasonSize,
-                                         EnterInteractiveSceneRun enterInteractiveSceneRun )
+                                         RequestInteractiveScene requestInteractiveScene )
 {
     Vector3 terrainPoint;
     Vector3 placementScale;
@@ -878,7 +874,7 @@ bool ApplyReplayRestoreEditorPlaceEvent( RuntimeTools& runtimeTools,
     bool placed = false;
     if ( CanPlaceEditorObjectAtTerrainPoint( placementContext, placementRequest ) )
     {
-        enterInteractiveSceneRun();
+        requestInteractiveScene();
         placed = PlaceEditorObjectAtTerrainPoint( placementContext, placementRequest, placementResult );
     }
     runtimeTools.Editor().placementScale = previousPlacementScale;
@@ -1016,13 +1012,13 @@ bool ApplyReplayRestoreEditorTransformEvent( SkullbonezCore::GameObjects::GameMo
 
 // Concept: target restore replays only solver-relevant timeline events. Runtime
 // commands that would change scenes stay rejected here, while editor placement
-// borrows Run's interactive-mode transition through a narrow caller callback.
-template <typename EnterInteractiveSceneRun>
+// emits an application-mode request to the owning replay transaction.
+template <typename RequestInteractiveScene>
 bool ApplyReplayRestoreEventForTarget( ReplayRestoreEventContext& context,
                                        const ReplayEventSample& event,
                                        char* eventOutReason,
                                        std::size_t eventReasonSize,
-                                       EnterInteractiveSceneRun enterInteractiveSceneRun )
+                                       RequestInteractiveScene requestInteractiveScene )
 {
     if ( event.payloadVersion != 1 )
     {
@@ -1082,7 +1078,7 @@ bool ApplyReplayRestoreEventForTarget( ReplayRestoreEventContext& context,
                                                    event,
                                                    eventOutReason,
                                                    eventReasonSize,
-                                                   enterInteractiveSceneRun );
+                                                   requestInteractiveScene );
     case ReplayEventKind::EditorTransform:
         return ApplyReplayRestoreEditorTransformEvent( context.models, event, eventOutReason, eventReasonSize );
     default:
@@ -1427,14 +1423,14 @@ void WriteReplayRestoreStepFailure( ReplayRestoreStepFailure& failure,
 
 // Concept: replay target restore rebuilds solver state by starting from a
 // checkpoint and replaying only the saved branch events before each fixed
-// physics step. The helper reports failure facts back to Run so the live-state
-// fallback and diagnostic logging stay in the owning method.
-template <typename CaptureCurrentReplaySolverHash, typename EnterInteractiveSceneRun>
+// physics step. The helper reports failure facts to ReplayRuntime so live-state
+// rollback and diagnostic logging stay in the owning transaction.
+template <typename CaptureCurrentReplaySolverHash, typename RequestInteractiveScene>
 bool StepReplayRestoreTarget( ReplayRestoreStepContext& context,
                               ReplayRestoreStepResult& result,
                               ReplayRestoreStepFailure& failure,
                               CaptureCurrentReplaySolverHash captureCurrentReplaySolverHash,
-                              EnterInteractiveSceneRun enterInteractiveSceneRun )
+                              RequestInteractiveScene requestInteractiveScene )
 {
     result.currentFrame = context.checkpoint.frameIndex;
     result.currentSceneFrame = context.checkpoint.sceneFrame;
@@ -1465,7 +1461,7 @@ bool StepReplayRestoreTarget( ReplayRestoreStepContext& context,
                                                     event,
                                                     eventReason,
                                                     sizeof( eventReason ),
-                                                    enterInteractiveSceneRun ) )
+                                                    requestInteractiveScene ) )
             {
                 char message[320] = {};
                 sprintf_s( message,
@@ -1654,9 +1650,8 @@ void LogReplayRestoreTargetSuccess( DiagnosticsRuntime& diagnosticsRuntime,
                                         false );
 }
 
-// Why: making a restored file state live still has one Run-owned side effect:
-// resetting the active timeline. Keep that as a caller callback while this
-// helper owns only branch metadata and event recording on ReplayRuntime.
+// Why: branch metadata must be installed before the replay-owned timeline reset
+// so preserveBranchMetadata keeps the new ancestry while clearing old samples.
 template <typename ResetReplayTimeline>
 void ApplyReplayRestoreLiveBranch( ReplayRuntime& replayRuntime,
                                    const ReplaySolverFrameSample& checkpoint,
@@ -1848,9 +1843,9 @@ bool EnsureReplayRestoreCheckpointTopology( ReplayRestoreOwnerContext& context,
 }
 
 // Why: restore owns scene, world, and model side effects while stepping toward a
-// target. Keeping the event and step contexts here leaves Run's method as a
-// transaction coordinator instead of another replay loop owner.
-template <typename CaptureCurrentReplaySolverHash, typename EnterInteractiveSceneRun>
+// target. ReplayRuntime remains the transaction coordinator and these borrowed
+// contexts exist only for the duration of that cold restore command.
+template <typename CaptureCurrentReplaySolverHash, typename RequestInteractiveScene>
 bool RunReplayRestoreTargetStep( ReplayRestoreOwnerContext& context,
                                  const ReplayRestoreArtifactData& artifact,
                                  const ReplaySolverFrameSample& checkpoint,
@@ -1858,7 +1853,7 @@ bool RunReplayRestoreTargetStep( ReplayRestoreOwnerContext& context,
                                  ReplayRestoreStepResult& stepResult,
                                  ReplayRestoreStepFailure& stepFailure,
                                  CaptureCurrentReplaySolverHash captureCurrentReplaySolverHash,
-                                 EnterInteractiveSceneRun enterInteractiveSceneRun )
+                                 RequestInteractiveScene requestInteractiveScene )
 {
     ReplayRestoreEventContext restoreEventContext{ context.runtimeTools,
                                                    context.scene,
@@ -1880,7 +1875,7 @@ bool RunReplayRestoreTargetStep( ReplayRestoreOwnerContext& context,
                                    stepResult,
                                    stepFailure,
                                    captureCurrentReplaySolverHash,
-                                   enterInteractiveSceneRun ) )
+                                   requestInteractiveScene ) )
     {
         return false;
     }
@@ -1912,8 +1907,138 @@ bool ApplyReplayRestoreCheckpointSample( const ReplaySolverFrameSample& checkpoi
 }
 } // namespace
 
+void ReplayRuntime::ConfigureStartupWorkflows( const ReplayStartupRequest& request )
+{
+    m_startupWorkflows = StartupWorkflowState{};
+    auto copyPath = []( char* destination, std::size_t destinationSize, const char* source )
+    {
+        if ( source && source[0] != '\0' )
+        {
+            strncpy_s( destination, destinationSize, source, _TRUNCATE );
+        }
+    };
+    copyPath( m_startupWorkflows.loadPath, sizeof( m_startupWorkflows.loadPath ), request.loadPath );
+    m_startupWorkflows.loadProbe = request.loadProbe;
 #ifdef _DEBUG
-SbResult Run::TickReplayScrubProbe()
+    copyPath( m_startupWorkflows.checkpointProbePath,
+              sizeof( m_startupWorkflows.checkpointProbePath ),
+              request.checkpointProbePath );
+    copyPath( m_startupWorkflows.targetProbePath,
+              sizeof( m_startupWorkflows.targetProbePath ),
+              request.targetProbePath );
+    copyPath( m_startupWorkflows.branchProbePath,
+              sizeof( m_startupWorkflows.branchProbePath ),
+              request.branchProbePath );
+    copyPath( m_startupWorkflows.failureProbePath,
+              sizeof( m_startupWorkflows.failureProbePath ),
+              request.failureProbePath );
+#endif
+}
+
+
+ReplayRuntime::ReplayStartupResult ReplayRuntime::RunStartupWorkflows( const ReplayLiveWorld& liveWorld )
+{
+    ReplayStartupResult result;
+#ifdef _DEBUG
+    if ( m_probes.Failed() )
+    {
+        result.status = SbResult::Failure( m_probes.FailureOwner(), m_probes.FailureMessage() );
+        return result;
+    }
+#endif
+    if ( m_startupWorkflows.loadPath[0] != '\0' &&
+         !LoadPresentationArtifact( m_startupWorkflows.loadPath,
+                                    true,
+                                    liveWorld.now,
+                                    liveWorld.timelineOwners.inputRouter,
+                                    liveWorld.timelineOwners.interaction,
+                                    liveWorld.cameras,
+                                    liveWorld.timelineOwners.terrain,
+                                    liveWorld.timelineOwners.camera,
+                                    liveWorld.mousePickup,
+                                    liveWorld.normalizedCurrentMode,
+                                    liveWorld.timelineOwners.normalizedRestoreMode,
+                                    liveWorld.timelineOwners.attachedFollow,
+                                    liveWorld.timelineOwners.directorGrabbed ) )
+    {
+        result.status = SbResult::Failure( "Runtime/ReplayLoad", "failed to load replay v2 presentation artifact" );
+        return result;
+    }
+
+#ifdef _DEBUG
+    auto acceptProbe = [&result]( const SbResult& probeResult ) -> bool
+    {
+        if ( !probeResult.ok )
+        {
+            result.status = probeResult;
+            return false;
+        }
+        result.skipExecute = true;
+        return true;
+    };
+    if ( m_startupWorkflows.loadProbe )
+    {
+        if ( m_startupWorkflows.loadPath[0] == '\0' )
+        {
+            result.status = SbResult::Failure( REPLAY_PROBE_OWNER, "replay load probe requires a replay path" );
+            return result;
+        }
+        if ( !acceptProbe( VerifyLoadedPresentationProbe( liveWorld, 0.25f ) ) )
+        {
+            return result;
+        }
+    }
+    if ( m_startupWorkflows.checkpointProbePath[0] != '\0' &&
+         !acceptProbe( VerifySolverCheckpointFileProbe( liveWorld, m_startupWorkflows.checkpointProbePath ) ) )
+    {
+        return result;
+    }
+    if ( m_startupWorkflows.targetProbePath[0] != '\0' &&
+         !acceptProbe( VerifySolverTargetFileProbe( liveWorld, m_startupWorkflows.targetProbePath ) ) )
+    {
+        return result;
+    }
+    if ( m_startupWorkflows.branchProbePath[0] != '\0' &&
+         !acceptProbe( VerifySolverBranchFileProbe( liveWorld, m_startupWorkflows.branchProbePath ) ) )
+    {
+        return result;
+    }
+    if ( m_startupWorkflows.failureProbePath[0] != '\0' &&
+         !acceptProbe( VerifySolverFailureFileProbe( liveWorld, m_startupWorkflows.failureProbePath ) ) )
+    {
+        return result;
+    }
+#else
+    if ( m_startupWorkflows.loadProbe )
+    {
+        result.status = SbResult::Failure( "Runtime/ReplayLoad", "replay load probe requires a Debug build" );
+    }
+#endif
+    return result;
+}
+
+#ifdef _DEBUG
+ReplayRuntime::ReplayProbeTickResult ReplayRuntime::TickProbes( const ReplayLiveWorld& liveWorld )
+{
+    ReplayProbeTickResult result;
+    result.status = TickScrubProbe( liveWorld );
+    if ( result.status.ok )
+    {
+        result.status = TickRestoreProbe( liveWorld );
+    }
+    if ( result.status.ok )
+    {
+        result.status = TickSaveProbe( liveWorld, result.enterInteractive );
+    }
+    if ( !result.status.ok )
+    {
+        m_probes.RecordFailure( result.status );
+    }
+    return result;
+}
+
+
+SbResult ReplayRuntime::TickScrubProbe( const ReplayLiveWorld& liveWorld )
 {
     auto distanceSquared = []( const Math::Vector::Vector3& a, const Math::Vector::Vector3& b ) -> float
     {
@@ -1921,20 +2046,19 @@ SbResult Run::TickReplayScrubProbe()
         return delta.x * delta.x + delta.y * delta.y + delta.z * delta.z;
     };
 
-    if ( !m_replayProbes.scrub.enabled || m_replayProbes.scrub.completed )
+    if ( !m_probes.scrub.enabled || m_probes.scrub.completed )
     {
         return SbResult::Success();
     }
 
-    const ReplayRecorderStats stats = m_replayRuntime.Presentation().GetStats();
-    if ( stats.sampleCount < static_cast<std::size_t>( m_replayProbes.scrub.minSampleCount ) )
+    const ReplayRecorderStats stats = Presentation().GetStats();
+    if ( stats.sampleCount < static_cast<std::size_t>( m_probes.scrub.minSampleCount ) )
     {
         return SbResult::Success();
     }
 
-    const ReplayPresentationSample* selected =
-        m_replayRuntime.Presentation().SampleAtNormalized( m_replayProbes.scrub.normalized );
-    const ReplayPresentationSample* live = m_replayRuntime.Presentation().LatestSample();
+    const ReplayPresentationSample* selected = Presentation().SampleAtNormalized( m_probes.scrub.normalized );
+    const ReplayPresentationSample* live = Presentation().LatestSample();
     if ( !selected || !live || selected->frameIndex >= live->frameIndex )
     {
         return ReplayProbeFailure( "replay scrub probe could not select an older replay sample" );
@@ -1968,13 +2092,13 @@ SbResult Run::TickReplayScrubProbe()
         }
     }
 
-    if ( !selectedBody || !liveBody || bestDistanceSquared < m_replayProbes.scrub.minDistanceSquared )
+    if ( !selectedBody || !liveBody || bestDistanceSquared < m_probes.scrub.minDistanceSquared )
     {
         return ReplayProbeFailure( "replay scrub probe did not find a moved body in the selected replay window" );
     }
 
     const int probedModelIndex = liveBody->modelIndex;
-    const PhysicsBodyRecord* probedBody = TryGetReplayProbeBodyRecord( m_cGameModelCollection, probedModelIndex );
+    const PhysicsBodyRecord* probedBody = TryGetReplayProbeBodyRecord( liveWorld.models, probedModelIndex );
     if ( !probedBody )
     {
         return ReplayProbeFailure( "replay scrub probe selected an invalid live body index" );
@@ -1985,75 +2109,74 @@ SbResult Run::TickReplayScrubProbe()
     // not depend on temporary presentation rows.
     const Math::Vector::Vector3 preApplyPosition = probedBody->position;
     const float preLiveDeltaSquared = distanceSquared( preApplyPosition, liveBody->position );
-    if ( preLiveDeltaSquared > m_replayProbes.scrub.minDistanceSquared )
+    if ( preLiveDeltaSquared > m_probes.scrub.minDistanceSquared )
     {
         return ReplayProbeFailure(
             "replay scrub probe live body did not match the current replay sample before applying scrub state" );
     }
 
-    const bool applied =
-        ApplyReplayProbePresentationSampleForRender( m_cGameModelCollection, m_replayRuntime, *selected );
+    const bool applied = ApplyReplayProbePresentationSampleForRender( liveWorld.models, *this, *selected );
     if ( !applied )
     {
         return ReplayProbeFailure( "replay scrub probe failed to apply the selected presentation sample" );
     }
-    const PhysicsBodyRecord* appliedBody = TryGetReplayProbeBodyRecord( m_cGameModelCollection, probedModelIndex );
+    const PhysicsBodyRecord* appliedBody = TryGetReplayProbeBodyRecord( liveWorld.models, probedModelIndex );
     if ( !appliedBody )
     {
-        RestoreReplayProbeRenderInstances( m_cGameModelCollection );
+        RestoreReplayProbeRenderInstances( liveWorld.models );
         return ReplayProbeFailure( "replay scrub probe lost the selected live body after applying scrub state" );
     }
     const Math::Vector::Vector3 liveAfterApplyPosition = appliedBody->position;
     const float livePreservedDeltaSquared = distanceSquared( liveAfterApplyPosition, preApplyPosition );
-    if ( livePreservedDeltaSquared > m_replayProbes.scrub.minDistanceSquared )
+    if ( livePreservedDeltaSquared > m_probes.scrub.minDistanceSquared )
     {
-        RestoreReplayProbeRenderInstances( m_cGameModelCollection );
+        RestoreReplayProbeRenderInstances( liveWorld.models );
         return ReplayProbeFailure( "replay scrub probe mutated the live body while applying scrub state" );
     }
 
     Math::Vector::Vector3 appliedRenderPosition;
-    if ( !TryPrepareReplayProbeRenderPosition( m_cGameModelCollection, probedModelIndex, appliedRenderPosition ) )
+    if ( !TryPrepareReplayProbeRenderPosition( liveWorld.models, probedModelIndex, appliedRenderPosition ) )
     {
-        RestoreReplayProbeRenderInstances( m_cGameModelCollection );
+        RestoreReplayProbeRenderInstances( liveWorld.models );
         return ReplayProbeFailure( "replay scrub probe lost the selected render instance after applying scrub state" );
     }
     const float appliedDeltaSquared = distanceSquared( appliedRenderPosition, selectedBody->position );
-    if ( appliedDeltaSquared > m_replayProbes.scrub.minDistanceSquared )
+    if ( appliedDeltaSquared > m_probes.scrub.minDistanceSquared )
     {
-        RestoreReplayProbeRenderInstances( m_cGameModelCollection );
+        RestoreReplayProbeRenderInstances( liveWorld.models );
         return ReplayProbeFailure(
             "replay scrub probe did not move the render instance to the selected replay sample" );
     }
 
-    RestoreReplayProbeRenderInstances( m_cGameModelCollection );
-    const PhysicsBodyRecord* restoredBody = TryGetReplayProbeBodyRecord( m_cGameModelCollection, probedModelIndex );
+    RestoreReplayProbeRenderInstances( liveWorld.models );
+    const PhysicsBodyRecord* restoredBody = TryGetReplayProbeBodyRecord( liveWorld.models, probedModelIndex );
     if ( !restoredBody )
     {
         return ReplayProbeFailure( "replay scrub probe lost the selected live body after restoring scrub state" );
     }
     const Math::Vector::Vector3 restoredPosition = restoredBody->position;
     const float restoredDeltaSquared = distanceSquared( restoredPosition, preApplyPosition );
-    const bool restored = restoredDeltaSquared <= m_replayProbes.scrub.minDistanceSquared;
+    const bool restored = restoredDeltaSquared <= m_probes.scrub.minDistanceSquared;
     if ( !restored )
     {
         return ReplayProbeFailure(
             "replay scrub probe did not restore the live model after applying the selected sample" );
     }
 
-    m_diagnosticsRuntime.LogReplayScrubProbe( SceneState(),
-                                              *selected,
-                                              *live,
-                                              *selectedBody,
-                                              *liveBody,
-                                              m_replayProbes.scrub.normalized,
-                                              bestDistanceSquared,
-                                              applied,
-                                              restored,
-                                              preLiveDeltaSquared,
-                                              appliedDeltaSquared,
-                                              restoredDeltaSquared );
+    liveWorld.diagnostics.LogReplayScrubProbe( liveWorld.scene,
+                                               *selected,
+                                               *live,
+                                               *selectedBody,
+                                               *liveBody,
+                                               m_probes.scrub.normalized,
+                                               bestDistanceSquared,
+                                               applied,
+                                               restored,
+                                               preLiveDeltaSquared,
+                                               appliedDeltaSquared,
+                                               restoredDeltaSquared );
 
-    m_replayProbes.scrub.completed = true;
+    m_probes.scrub.completed = true;
     printf(
         "[replay] Scrub probe passed: selected_replay_frame=%llu live_replay_frame=%llu body_id=%u distance_sq=%.6f\n",
         static_cast<unsigned long long>( selected->frameIndex ),
@@ -2064,22 +2187,21 @@ SbResult Run::TickReplayScrubProbe()
     return SbResult::Success();
 }
 
-SbResult Run::TickReplayRestoreProbe()
+SbResult ReplayRuntime::TickRestoreProbe( const ReplayLiveWorld& liveWorld )
 {
-    if ( !m_replayProbes.restore.enabled || m_replayProbes.restore.completed )
+    if ( !m_probes.restore.enabled || m_probes.restore.completed )
     {
         return SbResult::Success();
     }
 
-    const ReplayRecorderStats stats = m_replayRuntime.Solver().GetStats();
-    if ( stats.sampleCount < static_cast<std::size_t>( m_replayProbes.restore.minSampleCount ) )
+    const ReplayRecorderStats stats = Solver().GetStats();
+    if ( stats.sampleCount < static_cast<std::size_t>( m_probes.restore.minSampleCount ) )
     {
         return SbResult::Success();
     }
 
-    const ReplaySolverFrameSample* selectedSample =
-        m_replayRuntime.Solver().SampleAtNormalized( m_replayProbes.restore.normalized );
-    const ReplaySolverFrameSample* latestSample = m_replayRuntime.Solver().LatestSample();
+    const ReplaySolverFrameSample* selectedSample = Solver().SampleAtNormalized( m_probes.restore.normalized );
+    const ReplaySolverFrameSample* latestSample = Solver().LatestSample();
     if ( !selectedSample || !latestSample )
     {
         return ReplayProbeFailure( "replay restore probe could not select retained solver samples" );
@@ -2093,7 +2215,7 @@ SbResult Run::TickReplayRestoreProbe()
     const ReplayFrameIndex latestFrame = latestSample->frameIndex;
     const uint64_t selectedHash = selected.solverHash;
     char reason[160] = {};
-    const bool restored = RestoreReplaySolverSampleAsLive( selected, reason, sizeof( reason ) );
+    const bool restored = RestoreSolverSampleAsLive( liveWorld, selected, reason, sizeof( reason ) );
     if ( !restored )
     {
         return SbResult::Failure( REPLAY_PROBE_OWNER,
@@ -2101,7 +2223,7 @@ SbResult Run::TickReplayRestoreProbe()
                                   reason[0] != '\0' ? reason : "unknown restore failure" );
     }
 
-    m_replayProbes.restore.completed = true;
+    m_probes.restore.completed = true;
     printf( "[replay] Restore probe passed: target_replay_frame=%llu previous_live_replay_frame=%llu "
             "solver_hash=0x%016llX\n",
             static_cast<unsigned long long>( selected.frameIndex ),
@@ -2111,87 +2233,109 @@ SbResult Run::TickReplayRestoreProbe()
     return SbResult::Success();
 }
 
-SbResult Run::TickReplaySaveProbe()
+SbResult ReplayRuntime::TickSaveProbe( const ReplayLiveWorld& liveWorld, bool& outEnterInteractive )
 {
-    if ( !m_replayProbes.save.enabled || m_replayProbes.save.completed )
+    outEnterInteractive = false;
+    if ( !m_probes.save.enabled || m_probes.save.completed )
     {
         return SbResult::Success();
     }
 
-    const ReplayRecorderStats stats = m_replayRuntime.Presentation().GetStats();
-    if ( !m_replayProbes.save.runtimeResetCoverageInjected && stats.sampleCount >= 4 )
+    const ReplayRecorderStats stats = Presentation().GetStats();
+    if ( !m_probes.save.runtimeResetCoverageInjected && stats.sampleCount >= 4 )
     {
-        m_replayProbes.save.runtimeResetCoverageInjected = true;
-        m_replayProbes.save.eventCoverageInjected = false;
-        m_sceneController.SubmitResetCurrentScene();
+        m_probes.save.runtimeResetCoverageInjected = true;
+        m_probes.save.eventCoverageInjected = false;
+        liveWorld.sceneController.SubmitResetCurrentScene();
         return SbResult::Success();
     }
 
-    if ( !m_replayProbes.save.eventCoverageInjected && stats.sampleCount >= 4 )
+    if ( !m_probes.save.eventCoverageInjected && stats.sampleCount >= 4 )
     {
-        ReplaySaveProbeEventCoverageContext eventCoverageContext{ m_replayProbes.save,
-                                                                  m_replayRuntime,
-                                                                  m_runtimeTools,
-                                                                  SceneState(),
-                                                                  m_systems,
-                                                                  m_cWorldEnvironment,
-                                                                  m_cGameModelCollection,
-                                                                  m_startup.gameModelCapacity };
+        ReplaySaveProbeEventCoverageContext eventCoverageContext{ m_probes.save,
+                                                                  *this,
+                                                                  liveWorld.runtimeTools,
+                                                                  liveWorld.scene,
+                                                                  liveWorld.systems,
+                                                                  liveWorld.world,
+                                                                  liveWorld.models,
+                                                                  liveWorld.gameModelCapacity };
         const SbResult eventCoverageResult =
-            InjectReplaySaveProbeEventCoverage( eventCoverageContext, [this]() { EnterInteractiveSceneRun(); } );
+            InjectReplaySaveProbeEventCoverage( eventCoverageContext,
+                                                [&outEnterInteractive]() { outEnterInteractive = true; } );
         if ( !eventCoverageResult.ok )
         {
             return eventCoverageResult;
         }
     }
-    if ( stats.sampleCount < static_cast<std::size_t>( m_replayProbes.save.minSampleCount ) )
+    if ( stats.sampleCount < static_cast<std::size_t>( m_probes.save.minSampleCount ) )
     {
         return SbResult::Success();
     }
 
-    ReplaySaveProbeArtifactContext artifactContext{ m_replayProbes.save, m_replayRuntime, m_cGameModelCollection };
+    ReplaySaveProbeArtifactContext artifactContext{ m_probes.save, *this, liveWorld.models };
     return ValidateReplaySaveProbeArtifact( artifactContext );
 }
 
-SbResult Run::VerifyLoadedReplayPresentationProbe( float normalized )
+SbResult ReplayRuntime::VerifyLoadedPresentationProbe( const ReplayLiveWorld& liveWorld, float normalized )
 {
+    const auto enterInspectionCamera = [&]()
+    {
+        EnterInspectionCamera( liveWorld.cameras,
+                               liveWorld.timelineOwners.camera,
+                               liveWorld.normalizedCurrentMode,
+                               liveWorld.timelineOwners.interaction,
+                               liveWorld.timelineOwners.inputRouter,
+                               liveWorld.mousePickup );
+    };
+    const auto exitInspectionCamera = [&]()
+    {
+        ExitInspectionCamera( liveWorld.cameras,
+                              liveWorld.timelineOwners.terrain,
+                              liveWorld.timelineOwners.camera,
+                              liveWorld.timelineOwners.normalizedRestoreMode,
+                              liveWorld.timelineOwners.attachedFollow,
+                              liveWorld.timelineOwners.directorGrabbed,
+                              liveWorld.timelineOwners.interaction,
+                              liveWorld.timelineOwners.inputRouter );
+    };
     auto distanceSquared = []( const Math::Vector::Vector3& a, const Math::Vector::Vector3& b ) -> float
     {
         const Math::Vector::Vector3 delta = a - b;
         return delta.x * delta.x + delta.y * delta.y + delta.z * delta.z;
     };
 
-    if ( !m_replayRuntime.HasLoadedPresentation() )
+    if ( !HasLoadedPresentation() )
     {
         return ReplayProbeFailure( "replay load probe requires a loaded v2 presentation artifact" );
     }
 
-    if ( m_replayRuntime.Scrubber().liveAdvanceHeld )
+    if ( Scrubber().liveAdvanceHeld )
     {
-        m_replayRuntime.SetLiveAdvanceHeld( false );
+        SetLiveAdvanceHeld( false );
     }
-    CancelReplayToolDragState();
+    CancelToolDragState( liveWorld.timelineOwners.interaction, liveWorld.timelineOwners.inputRouter );
 
-    m_replayRuntime.ClearCameraFocusForRestore();
-    ExitReplayInspectionCamera();
-    const bool armed = m_replayRuntime.ArmLoadedPresentationScrubber( std::clamp( normalized, 0.0f, 1.0f ),
-                                                                      m_timers.simulationTimer.GetTotalTime() );
+    ClearCameraFocusForRestore();
+    exitInspectionCamera();
+    const bool armed = ArmLoadedPresentationScrubber( std::clamp( normalized, 0.0f, 1.0f ), liveWorld.now );
     if ( !armed )
     {
         return ReplayProbeFailure( "replay load probe could not arm the loaded presentation scrubber" );
     }
-    SetWorldInteractionOwnerAfterInteractionTransition( WorldInteractionOwner::ReplayScrub,
-                                                        InteractionExitReason::EnterReplay );
-    if ( m_replayRuntime.ShouldUseInspectionCamera() )
+    liveWorld.timelineOwners.interaction.SetWorldInteractionOwnerInWorkspace( RuntimeWorkspace::Replay,
+                                                                              WorldInteractionOwner::ReplayScrub,
+                                                                              InteractionExitReason::EnterReplay );
+    if ( ShouldUseInspectionCamera() )
     {
-        EnterReplayInspectionCamera();
+        enterInspectionCamera();
     }
     else
     {
-        ExitReplayInspectionCamera();
+        exitInspectionCamera();
     }
-    const ReplayPresentationSample* selected = m_replayRuntime.CurrentScrubSample();
-    const ReplayPresentationSample* latest = m_replayRuntime.LoadedPresentationLatestSample();
+    const ReplayPresentationSample* selected = CurrentScrubSample();
+    const ReplayPresentationSample* latest = LoadedPresentationLatestSample();
     if ( !selected || !latest )
     {
         return ReplayProbeFailure( "replay load probe could not select a loaded presentation sample" );
@@ -2229,50 +2373,49 @@ SbResult Run::VerifyLoadedReplayPresentationProbe( float normalized )
     }
 
     const int probedModelIndex = selectedBody->modelIndex;
-    const PhysicsBodyRecord* probedBody = TryGetReplayProbeBodyRecord( m_cGameModelCollection, probedModelIndex );
+    const PhysicsBodyRecord* probedBody = TryGetReplayProbeBodyRecord( liveWorld.models, probedModelIndex );
     if ( !probedBody )
     {
         return ReplayProbeFailure( "replay load probe loaded an invalid body index" );
     }
 
     const Math::Vector::Vector3 preApplyPosition = probedBody->position;
-    const bool applied =
-        ApplyReplayProbePresentationSampleForRender( m_cGameModelCollection, m_replayRuntime, *selected );
+    const bool applied = ApplyReplayProbePresentationSampleForRender( liveWorld.models, *this, *selected );
     if ( !applied )
     {
         return ReplayProbeFailure( "replay load probe failed to apply the selected loaded v2 sample" );
     }
 
-    const PhysicsBodyRecord* appliedBody = TryGetReplayProbeBodyRecord( m_cGameModelCollection, probedModelIndex );
+    const PhysicsBodyRecord* appliedBody = TryGetReplayProbeBodyRecord( liveWorld.models, probedModelIndex );
     if ( !appliedBody )
     {
-        RestoreReplayProbeRenderInstances( m_cGameModelCollection );
+        RestoreReplayProbeRenderInstances( liveWorld.models );
         return ReplayProbeFailure( "replay load probe lost the selected body after applying the v2 sample" );
     }
     const Math::Vector::Vector3 liveAfterApplyPosition = appliedBody->position;
     const float livePreservedDeltaSquared = distanceSquared( liveAfterApplyPosition, preApplyPosition );
     if ( livePreservedDeltaSquared > 0.0001f )
     {
-        RestoreReplayProbeRenderInstances( m_cGameModelCollection );
+        RestoreReplayProbeRenderInstances( liveWorld.models );
         return ReplayProbeFailure( "replay load probe mutated the live body while applying the v2 sample" );
     }
 
     Math::Vector::Vector3 appliedRenderPosition;
-    if ( !TryPrepareReplayProbeRenderPosition( m_cGameModelCollection, probedModelIndex, appliedRenderPosition ) )
+    if ( !TryPrepareReplayProbeRenderPosition( liveWorld.models, probedModelIndex, appliedRenderPosition ) )
     {
-        RestoreReplayProbeRenderInstances( m_cGameModelCollection );
+        RestoreReplayProbeRenderInstances( liveWorld.models );
         return ReplayProbeFailure( "replay load probe lost the selected render instance after applying the v2 sample" );
     }
     const float appliedDeltaSquared = distanceSquared( appliedRenderPosition, selectedBody->position );
     if ( appliedDeltaSquared > 0.0001f )
     {
-        RestoreReplayProbeRenderInstances( m_cGameModelCollection );
+        RestoreReplayProbeRenderInstances( liveWorld.models );
         return ReplayProbeFailure(
             "replay load probe did not move the render instance to the selected loaded v2 sample" );
     }
 
-    RestoreReplayProbeRenderInstances( m_cGameModelCollection );
-    const PhysicsBodyRecord* restoredBody = TryGetReplayProbeBodyRecord( m_cGameModelCollection, probedModelIndex );
+    RestoreReplayProbeRenderInstances( liveWorld.models );
+    const PhysicsBodyRecord* restoredBody = TryGetReplayProbeBodyRecord( liveWorld.models, probedModelIndex );
     if ( !restoredBody )
     {
         return ReplayProbeFailure( "replay load probe lost the selected body after restoring the v2 sample" );
@@ -2286,10 +2429,10 @@ SbResult Run::VerifyLoadedReplayPresentationProbe( float normalized )
 
     printf( "[replay] Load probe passed: path=%s samples=%llu bodies=%llu first_frame=%llu selected_frame=%llu "
             "latest_frame=%llu body_id=%u distance_sq=%.6f\n",
-            m_replayRuntime.LoadedPresentation().path,
-            static_cast<unsigned long long>( m_replayRuntime.LoadedPresentation().samples.size() ),
-            static_cast<unsigned long long>( m_replayRuntime.LoadedPresentation().bodyDictionaryCount ),
-            static_cast<unsigned long long>( m_replayRuntime.LoadedPresentation().firstFrame ),
+            LoadedPresentation().path,
+            static_cast<unsigned long long>( LoadedPresentation().samples.size() ),
+            static_cast<unsigned long long>( LoadedPresentation().bodyDictionaryCount ),
+            static_cast<unsigned long long>( LoadedPresentation().firstFrame ),
             static_cast<unsigned long long>( selected->frameIndex ),
             static_cast<unsigned long long>( latest->frameIndex ),
             selectedBody->id.value,
@@ -2297,7 +2440,7 @@ SbResult Run::VerifyLoadedReplayPresentationProbe( float normalized )
     return SbResult::Success();
 }
 
-SbResult Run::VerifyReplaySolverCheckpointFileProbe( const char* path )
+SbResult ReplayRuntime::VerifySolverCheckpointFileProbe( const ReplayLiveWorld& liveWorld, const char* path )
 {
     if ( !path || path[0] == '\0' )
     {
@@ -2321,7 +2464,7 @@ SbResult Run::VerifyReplaySolverCheckpointFileProbe( const char* path )
         return ReplayProbeFailure( "replay restore file probe loaded a checkpoint without an event cursor" );
     }
     char reason[160] = {};
-    if ( !RestoreReplaySolverSampleAsLive( checkpoint, reason, sizeof( reason ) ) )
+    if ( !RestoreSolverSampleAsLive( liveWorld, checkpoint, reason, sizeof( reason ) ) )
     {
         return SbResult::Failure( REPLAY_PROBE_OWNER,
                                   "replay restore file probe failed: %s",
@@ -2342,12 +2485,13 @@ SbResult Run::VerifyReplaySolverCheckpointFileProbe( const char* path )
 }
 #endif
 
-bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
-                                              ReplayFrameIndex requestedFrame,
-                                              bool makeLiveBranch,
-                                              RunReplayV2TargetRestoreResult& outResult,
-                                              char* outReason,
-                                              std::size_t reasonSize )
+bool ReplayRuntime::RestoreV2ArtifactTargetState( const ReplayLiveWorld& liveWorld,
+                                                  const char* path,
+                                                  ReplayFrameIndex requestedFrame,
+                                                  bool makeLiveBranch,
+                                                  RunReplayV2TargetRestoreResult& outResult,
+                                                  char* outReason,
+                                                  std::size_t reasonSize )
 {
     outResult = RunReplayV2TargetRestoreResult();
     auto writeReason = [outReason, reasonSize]( const char* reason )
@@ -2368,8 +2512,8 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
                                    bool fallbackAttempted = false,
                                    bool fallbackRestored = false ) -> bool
     {
-        LogReplayV2TargetRestoreDiagnostic( m_diagnosticsRuntime,
-                                            SceneState(),
+        LogReplayV2TargetRestoreDiagnostic( liveWorld.diagnostics,
+                                            liveWorld.scene,
                                             restoreSource,
                                             requestedFrame,
                                             LATEST_NON_CHECKPOINT_TARGET,
@@ -2403,7 +2547,7 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
 
     ReplaySolverFrameSample liveBackup;
     bool hasLiveBackup = false;
-    if ( const ReplaySolverFrameSample* latest = m_replayRuntime.Solver().LatestSample() )
+    if ( const ReplaySolverFrameSample* latest = Solver().LatestSample() )
     {
         liveBackup = *latest;
         hasLiveBackup = true;
@@ -2422,7 +2566,8 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
         if ( stateMutated && hasLiveBackup )
         {
             char fallbackReason[128] = {};
-            fallbackRestored = ApplyReplaySolverSampleState( liveBackup, fallbackReason, sizeof( fallbackReason ) );
+            fallbackRestored =
+                ApplySolverSampleState( liveWorld, liveBackup, fallbackReason, sizeof( fallbackReason ) );
         }
         return failWithDiagnostic( message,
                                    diagnosticTarget,
@@ -2438,16 +2583,16 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
 
     bool generatedTopologyRebuilt = false;
     char topologyReason[320] = {};
-    ReplayRestoreOwnerContext restoreOwnerContext{ m_runtimeTools,
-                                                   m_simulation,
-                                                   m_sceneController,
-                                                   SceneState(),
-                                                   m_config,
-                                                   m_systems,
-                                                   m_cWorldEnvironment,
-                                                   m_cGameModelCollection,
-                                                   m_launchOptions.generatedObjectTypeOverride,
-                                                   m_startup.gameModelCapacity };
+    ReplayRestoreOwnerContext restoreOwnerContext{ liveWorld.runtimeTools,
+                                                   liveWorld.simulation,
+                                                   liveWorld.sceneController,
+                                                   liveWorld.scene,
+                                                   liveWorld.config,
+                                                   liveWorld.systems,
+                                                   liveWorld.world,
+                                                   liveWorld.models,
+                                                   liveWorld.generatedObjectTypeOverride,
+                                                   liveWorld.gameModelCapacity };
     if ( !EnsureReplayRestoreCheckpointTopology( restoreOwnerContext,
                                                  artifact,
                                                  *checkpoint,
@@ -2464,19 +2609,19 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
              *checkpoint,
              checkpointReason,
              sizeof( checkpointReason ),
-             [this]( const ReplaySolverFrameSample& sample, char* reason, std::size_t reasonSize )
-             { return ApplyReplaySolverSampleState( sample, reason, reasonSize ); } ) )
+             [this, &liveWorld]( const ReplaySolverFrameSample& sample, char* reason, std::size_t reasonSize )
+             { return ApplySolverSampleState( liveWorld, sample, reason, reasonSize ); } ) )
     {
         return failWithDiagnostic( checkpointReason, target, checkpoint );
     }
     stateMutated = true;
 
-    auto captureCurrentReplaySolverHash = [this]( const ReplaySolverFrameSample& reference,
-                                                  uint64_t& solverHash,
-                                                  uint64_t& presentationHash,
-                                                  std::size_t& bodyCount )
-    { return CaptureCurrentReplaySolverHash( reference, solverHash, presentationHash, bodyCount ); };
-    auto enterInteractiveSceneRun = [this]() { EnterInteractiveSceneRun(); };
+    auto captureCurrentReplaySolverHash = [this, &liveWorld]( const ReplaySolverFrameSample& reference,
+                                                              uint64_t& solverHash,
+                                                              uint64_t& presentationHash,
+                                                              std::size_t& bodyCount )
+    { return CaptureCurrentSolverHash( liveWorld, reference, solverHash, presentationHash, bodyCount ); };
+    auto requestInteractiveSceneRun = [&outResult]() { outResult.enterInteractiveRequested = true; };
 
     ReplayRestoreStepResult stepResult;
     ReplayRestoreStepFailure stepFailure;
@@ -2487,7 +2632,7 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
                                       stepResult,
                                       stepFailure,
                                       captureCurrentReplaySolverHash,
-                                      enterInteractiveSceneRun ) )
+                                      requestInteractiveSceneRun ) )
     {
         return failAfterMutation( stepFailure.message,
                                   stepFailure.diagnosticTarget,
@@ -2521,8 +2666,8 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
                                        stepResult,
                                        targetHash,
                                        generatedTopologyRebuilt );
-    LogReplayRestoreTargetSuccess( m_diagnosticsRuntime,
-                                   SceneState(),
+    LogReplayRestoreTargetSuccess( liveWorld.diagnostics,
+                                   liveWorld.scene,
                                    restoreSource,
                                    requestedFrame,
                                    LATEST_NON_CHECKPOINT_TARGET,
@@ -2532,11 +2677,16 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
 
     if ( makeLiveBranch )
     {
-        ApplyReplayRestoreLiveBranch( m_replayRuntime,
+        ApplyReplayRestoreLiveBranch( *this,
                                       *checkpoint,
                                       *target,
                                       outResult,
-                                      [this]() { ResetReplayTimelineForActiveScene( true ); } );
+                                      [this, &liveWorld]()
+                                      {
+                                          SceneTimelineResetInput reset = liveWorld.timelineReset;
+                                          reset.preserveBranchMetadata = true;
+                                          ResetSceneTimeline( reset, liveWorld.timelineOwners );
+                                      } );
     }
 
     writeReason( "restored hash match" );
@@ -2544,16 +2694,17 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
 }
 
 #ifdef _DEBUG
-SbResult Run::VerifyReplaySolverTargetFileProbe( const char* path )
+SbResult ReplayRuntime::VerifySolverTargetFileProbe( const ReplayLiveWorld& liveWorld, const char* path )
 {
     RunReplayV2TargetRestoreResult result;
     char reason[256] = {};
-    if ( !RestoreReplayV2ArtifactTargetState( path,
-                                              ( std::numeric_limits<ReplayFrameIndex>::max )(),
-                                              false,
-                                              result,
-                                              reason,
-                                              sizeof( reason ) ) )
+    if ( !RestoreV2ArtifactTargetState( liveWorld,
+                                        path,
+                                        ( std::numeric_limits<ReplayFrameIndex>::max )(),
+                                        false,
+                                        result,
+                                        reason,
+                                        sizeof( reason ) ) )
     {
         return SbResult::Failure( REPLAY_PROBE_OWNER,
                                   "replay restore target probe failed: %s",
@@ -2581,12 +2732,18 @@ SbResult Run::VerifyReplaySolverTargetFileProbe( const char* path )
     return SbResult::Success();
 }
 
-SbResult Run::VerifyReplaySolverFailureFileProbe( const char* path )
+SbResult ReplayRuntime::VerifySolverFailureFileProbe( const ReplayLiveWorld& liveWorld, const char* path )
 {
     constexpr ReplayFrameIndex MISSING_TARGET_FRAME = 999999999u;
     RunReplayV2TargetRestoreResult result;
     char reason[256] = {};
-    if ( RestoreReplayV2ArtifactTargetState( path, MISSING_TARGET_FRAME, false, result, reason, sizeof( reason ) ) )
+    if ( RestoreV2ArtifactTargetState( liveWorld,
+                                       path,
+                                       MISSING_TARGET_FRAME,
+                                       false,
+                                       result,
+                                       reason,
+                                       sizeof( reason ) ) )
     {
         return ReplayProbeFailure( "replay restore failure probe unexpectedly restored a missing target frame" );
     }
@@ -2604,22 +2761,47 @@ SbResult Run::VerifyReplaySolverFailureFileProbe( const char* path )
     return SbResult::Success();
 }
 
-SbResult Run::VerifyReplaySolverBranchFileProbe( const char* path )
+SbResult ReplayRuntime::VerifySolverBranchFileProbe( const ReplayLiveWorld& liveWorld, const char* path )
 {
-    if ( !LoadReplayPresentationArtifact( path, true ) )
+    if ( !LoadPresentationArtifact( path,
+                                    true,
+                                    liveWorld.now,
+                                    liveWorld.timelineOwners.inputRouter,
+                                    liveWorld.timelineOwners.interaction,
+                                    liveWorld.cameras,
+                                    liveWorld.timelineOwners.terrain,
+                                    liveWorld.timelineOwners.camera,
+                                    liveWorld.mousePickup,
+                                    liveWorld.normalizedCurrentMode,
+                                    liveWorld.timelineOwners.normalizedRestoreMode,
+                                    liveWorld.timelineOwners.attachedFollow,
+                                    liveWorld.timelineOwners.directorGrabbed ) )
     {
         return ReplayProbeFailure( "replay restore branch probe failed to load v2 presentation scrub source" );
     }
-    m_replayRuntime.Scrubber().historicalSamplePaused = true;
-    m_replayRuntime.Scrubber().activeTrack = RunReplayTrack::Presentation;
-    m_replayRuntime.SetTrackPosition( RunReplayTrack::Presentation, 1.0f );
+    Scrubber().historicalSamplePaused = true;
+    Scrubber().activeTrack = RunReplayTrack::Presentation;
+    SetTrackPosition( RunReplayTrack::Presentation, 1.0f );
 
     RunReplayV2TargetRestoreResult result;
     char reason[256] = {};
-    if ( !RestoreReplayScrubberSelectionAsLive( m_timers.simulationTimer.GetTotalTime(),
-                                                &result,
-                                                reason,
-                                                sizeof( reason ) ) )
+    ReplayInteractionController replayInteraction;
+    ReplayLiveRestoreRequest request;
+    if ( !replayInteraction.BuildScrubberRestoreRequest( *this, liveWorld.now, request, reason, sizeof( reason ) ) )
+    {
+        return SbResult::Failure( REPLAY_PROBE_OWNER,
+                                  "replay restore branch probe failed: %s",
+                                  reason[0] != '\0' ? reason : "failed to build restore request" );
+    }
+    const bool restored = RestoreV2ArtifactTargetState( liveWorld,
+                                                        request.path,
+                                                        request.requestedFrame,
+                                                        request.makeLiveBranch,
+                                                        result,
+                                                        reason,
+                                                        sizeof( reason ) );
+    replayInteraction.CompleteScrubberRestore( *this, request, restored, result, reason );
+    if ( !restored )
     {
         return SbResult::Failure( REPLAY_PROBE_OWNER,
                                   "replay restore branch probe failed: %s",

@@ -3087,6 +3087,8 @@ RunStartupOverrides BuildRunStartupOverrides( const ParsedArgs& args )
     overrides.replayRecordingEnabled = true;
     overrides.replayRetentionSeconds = args.replaySeconds;
     overrides.replayHashLogPath = args.replayHashLogPath[0] != '\0' ? args.replayHashLogPath : nullptr;
+    overrides.replayLoadPath = args.replayLoad ? args.replayLoadPath : nullptr;
+    overrides.replayLoadProbe = args.replayLoadProbe;
 
     overrides.hasInitialOverlayMode = args.showProfiler;
     overrides.initialOverlayMode = args.showProfiler ? OverlayMode::Timers : OverlayMode::None;
@@ -3100,6 +3102,13 @@ RunStartupOverrides BuildRunStartupOverrides( const ParsedArgs& args )
     overrides.replayRestoreProbeNormalized = args.replayRestoreProbeNormalized;
     overrides.replaySaveProbe = args.replaySaveProbe;
     overrides.replaySaveProbePath = args.replaySaveProbe ? args.replaySaveProbePath : nullptr;
+    overrides.replayRestoreFileProbePath = args.replayRestoreFileProbe ? args.replayRestoreFileProbePath : nullptr;
+    overrides.replayRestoreTargetFileProbePath =
+        args.replayRestoreTargetFileProbe ? args.replayRestoreTargetFileProbePath : nullptr;
+    overrides.replayRestoreBranchFileProbePath =
+        args.replayRestoreBranchFileProbe ? args.replayRestoreBranchFileProbePath : nullptr;
+    overrides.replayRestoreFailureFileProbePath =
+        args.replayRestoreFailureFileProbe ? args.replayRestoreFailureFileProbePath : nullptr;
     overrides.physicsRegressionLogPath =
         args.physicsRegressionLogOverride[0] != '\0' ? args.physicsRegressionLogOverride : nullptr;
     overrides.physicsCollisionTimeLogPath =
@@ -3143,28 +3152,6 @@ int RunApp( Window* window,
 #endif
         const RunStartupOverrides startupOverrides = BuildRunStartupOverrides( args );
         cRun->ApplyStartupOverrides( startupOverrides );
-#ifdef _DEBUG
-        // Why: Debug replay probes are CLI diagnostics, not interaction
-        // automation actions. They report through the process exit code and log
-        // boundary so validation can fail without using fatal exceptions.
-        auto reportReplayProbeFailure = [&]( const char* owner, const char* message ) -> int
-        {
-            const char* safeOwner = owner && owner[0] != '\0' ? owner : "ReplayProbe";
-            const char* safeMessage = message && message[0] != '\0' ? message : "replay probe failed";
-            Log().WriteEventf( "replay_probe_failed owner=\"%s\" message=\"%s\"", safeOwner, safeMessage );
-            fprintf( stderr, "[replay] Probe failed: %s\n", safeMessage );
-            fflush( stderr );
-            Log().FlushAll();
-            if ( !args.isSuiteOrSceneMode && !args.suppressExitDialog )
-            {
-                window->MsgBox( safeMessage, "Replay Probe Failed", MB_OK );
-            }
-            return 1;
-        };
-
-        auto reportReplayProbeResult = [&]( const SbResult& result ) -> int
-        { return reportReplayProbeFailure( result.error.owner, result.error.message ); };
-#endif
         auto reportRunResult = [&]( const SbResult& result ) -> int
         {
             const char* safeOwner =
@@ -3198,16 +3185,6 @@ int RunApp( Window* window,
 
         try
         {
-#ifdef _DEBUG
-            // Why: startup replay-probe configuration can fail before the frame
-            // loop exists, but validation still needs the same nonzero exit path
-            // as a frame-driven probe failure.
-            if ( cRun->ReplayProbes().Failed() )
-            {
-                return reportReplayProbeFailure( cRun->ReplayProbes().FailureOwner(),
-                                                 cRun->ReplayProbes().FailureMessage() );
-            }
-#endif
             cRun->Initialise();
             if ( !cRun->LastSceneLoadResult().ok )
             {
@@ -3223,66 +3200,6 @@ int RunApp( Window* window,
                     return reportInteractionAutomationResult( automationSetupResult );
                 }
             }
-            bool skipExecute = false;
-            if ( args.replayLoad )
-            {
-                if ( !cRun->LoadReplayPresentationArtifact( args.replayLoadPath, true ) )
-                {
-                    return reportRunResult(
-                        SbResult::Failure( "Runtime/ReplayLoad", "failed to load replay v2 presentation artifact" ) );
-                }
-            }
-#ifdef _DEBUG
-            if ( args.replayLoadProbe )
-            {
-                const SbResult probeResult = cRun->VerifyLoadedReplayPresentationProbe( 0.25f );
-                if ( !probeResult.ok )
-                {
-                    return reportReplayProbeResult( probeResult );
-                }
-                skipExecute = true;
-            }
-            if ( args.replayRestoreFileProbe )
-            {
-                const SbResult probeResult =
-                    cRun->VerifyReplaySolverCheckpointFileProbe( args.replayRestoreFileProbePath );
-                if ( !probeResult.ok )
-                {
-                    return reportReplayProbeResult( probeResult );
-                }
-                skipExecute = true;
-            }
-            if ( args.replayRestoreTargetFileProbe )
-            {
-                const SbResult probeResult =
-                    cRun->VerifyReplaySolverTargetFileProbe( args.replayRestoreTargetFileProbePath );
-                if ( !probeResult.ok )
-                {
-                    return reportReplayProbeResult( probeResult );
-                }
-                skipExecute = true;
-            }
-            if ( args.replayRestoreBranchFileProbe )
-            {
-                const SbResult probeResult =
-                    cRun->VerifyReplaySolverBranchFileProbe( args.replayRestoreBranchFileProbePath );
-                if ( !probeResult.ok )
-                {
-                    return reportReplayProbeResult( probeResult );
-                }
-                skipExecute = true;
-            }
-            if ( args.replayRestoreFailureFileProbe )
-            {
-                const SbResult probeResult =
-                    cRun->VerifyReplaySolverFailureFileProbe( args.replayRestoreFailureFileProbePath );
-                if ( !probeResult.ok )
-                {
-                    return reportReplayProbeResult( probeResult );
-                }
-                skipExecute = true;
-            }
-#endif
             if ( args.dumpAssets )
             {
                 cRun->DumpTextureAssets( stdout );
@@ -3296,20 +3213,13 @@ int RunApp( Window* window,
                     return reportRunResult( sceneLoadOnlyResult );
                 }
             }
-            else if ( !skipExecute )
+            else
             {
                 const SbResult executeResult = cRun->Execute();
                 if ( !executeResult.ok )
                 {
                     return reportRunResult( executeResult );
                 }
-#ifdef _DEBUG
-                if ( cRun->ReplayProbes().Failed() )
-                {
-                    return reportReplayProbeFailure( cRun->ReplayProbes().FailureOwner(),
-                                                     cRun->ReplayProbes().FailureMessage() );
-                }
-#endif
                 const SbResult interactionAutomationResult = cRun->InteractionAutomationResult();
                 if ( !interactionAutomationResult.ok )
                 {

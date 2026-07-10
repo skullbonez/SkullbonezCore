@@ -1097,7 +1097,22 @@ SbResult Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnCom
     m_timers.updateTimer.StartTimer();
     m_timers.cameraTimer.StartTimer();
     m_timers.simulationTimer.StartTimer();
-    ResetReplayTimelineForActiveScene();
+    const ReplayRuntime::SceneTimelineResetInput replayReset =
+        ReplayRuntime::DescribeSceneTimeline( m_sceneController,
+                                              SceneState(),
+                                              m_startup.gameModelCapacity,
+                                              static_cast<uint32_t>( m_launchOptions.generatedObjectTypeOverride ) );
+    m_replayRuntime.ResetSceneTimeline(
+        replayReset,
+        ReplayRuntime::SceneTimelineResetOwners{
+            m_inputRouter,
+            m_interaction,
+            m_systems.cameras,
+            m_systems.terrain.get(),
+            m_camera,
+            NormalizeCameraModeForCurrentScene( m_replayRuntime.Camera().restoreCameraMode ),
+            m_attachedCamera.activeFollow,
+            m_camera.director.grabbed } );
 
     // Initialize DXR raytracing on first scene load (requires terrain + sphere meshes to exist)
     // Force sphere mesh creation (normally lazy-init on first render)

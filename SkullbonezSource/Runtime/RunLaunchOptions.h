@@ -95,6 +95,14 @@ struct RunStartupOverrides
     bool replayRecordingEnabled = true;
     int replayRetentionSeconds = 0;
     const char* replayHashLogPath = nullptr;
+    const char* replayLoadPath = nullptr;
+    bool replayLoadProbe = false;
+#ifdef _DEBUG
+    const char* replayRestoreFileProbePath = nullptr;
+    const char* replayRestoreTargetFileProbePath = nullptr;
+    const char* replayRestoreBranchFileProbePath = nullptr;
+    const char* replayRestoreFailureFileProbePath = nullptr;
+#endif
     bool hasInitialOverlayMode = false;
     OverlayMode initialOverlayMode = OverlayMode::None;
     bool hideTopText = false;

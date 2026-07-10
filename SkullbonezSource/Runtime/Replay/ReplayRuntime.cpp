@@ -1,12 +1,12 @@
 /*
 File: SkullbonezSource/Runtime/Replay/ReplayRuntime.cpp
 Purpose:
-  Provides the replay subsystem ownership boundary for legacy Run replay callers.
+  Implements replay recording, workspace, restore, prediction, and probe ownership.
 
 Mental model:
-  ReplayRuntime is mostly an accessor and coordination shell. It keeps recorder,
-  loaded-artifact, tool, branch, and camera state in one owned object while Run
-  still performs most replay behavior.
+  ReplayRuntime owns the replay timeline and its tools. The application shell
+  supplies frame-scoped owner views, then replay sequences workspace input,
+  transactional restore, prediction, artifact, and validation behavior.
 
 Glossary:
   Branch: Child replay timeline created from a restored source frame.
@@ -40,6 +40,7 @@ Related:
 #include "ReplayOverlayLayout.h"
 #include "ReplayV2Artifact.h"
 #include "../RuntimeFileWriter.h"
+#include "../InputRouter.h"
 #include "../../Core/AmortizedTask.h"
 #include "../../Core/Profiler.h"
 #include "../../GameObjects/GameModelCollection.h"
@@ -72,11 +73,6 @@ constexpr uint32_t REPLAY_EDITOR_PLACE_TERRAIN_ALIGN = 2u;
 constexpr uint32_t REPLAY_EDITOR_TRANSFORM_TRANSLATE = 1u;
 constexpr uint32_t REPLAY_EDITOR_TRANSFORM_ROTATE = 2u;
 constexpr uint32_t REPLAY_EDITOR_TRANSFORM_SCALE = 4u;
-constexpr uint32_t REPLAY_GENERATED_SCENE_EXACT_SOLVER_COUNTS = 1u;
-constexpr uint32_t REPLAY_GENERATED_SCENE_UI_MODEL_COUNT = 2u;
-constexpr uint32_t REPLAY_GENERATED_SCENE_UI_SOLVER_COUNTS = 4u;
-constexpr uint32_t REPLAY_GENERATED_SCENE_OVERRIDE_SHIFT = 8u;
-constexpr uint32_t REPLAY_GENERATED_SCENE_OVERRIDE_MASK = 3u << REPLAY_GENERATED_SCENE_OVERRIDE_SHIFT;
 constexpr uint64_t REPLAY_EVENT_FNV_OFFSET = 14695981039346656037ull;
 constexpr uint64_t REPLAY_EVENT_FNV_PRIME = 1099511628211ull;
 constexpr int REPLAY_TRAJECTORY_SUBMISSION_STEADY_FRAME_TARGET = 120;
@@ -1043,6 +1039,140 @@ void ReplayRuntime::ClearPathVisualizerState()
     MarkPredictionDirty();
 }
 
+bool ReplayRuntime::SetPathTarget( const char* name, int modelIndex, const PhysicsBodyStore& bodyStore )
+{
+    if ( modelIndex < 0 )
+    {
+        return false;
+    }
+    const PhysicsBodyRecord* body = bodyStore.RecordForModelIndex( modelIndex );
+    if ( !body || body->replayBodyId == 0 )
+    {
+        return false;
+    }
+
+    m_pathVisualizer.hasTarget = true;
+    m_pathVisualizer.targetId.value = body->replayBodyId;
+    m_pathVisualizer.targetModelIndex = modelIndex;
+    m_pathVisualizer.targetName[0] = '\0';
+    if ( name && name[0] != '\0' )
+    {
+        strncpy_s( m_pathVisualizer.targetName, sizeof( m_pathVisualizer.targetName ), name, _TRUNCATE );
+    }
+    m_pathVisualizer.futureNodes.clear();
+    ClearPredictionCache();
+    MarkPredictionDirty();
+    return true;
+}
+
+void ReplayRuntime::BeginToolGesture( RuntimeInteractionController& interaction,
+                                      RuntimeInteractionGestureKind kind,
+                                      WorldInteractionOwner owner,
+                                      RuntimePointerButton button,
+                                      int startX,
+                                      int startY,
+                                      int modelIndex,
+                                      int axis,
+                                      bool angular )
+{
+    interaction.SetWorldInteractionOwnerInWorkspace( RuntimeWorkspace::Replay,
+                                                     owner,
+                                                     InteractionExitReason::BeginGesture );
+    RuntimeInteractionGesture gesture;
+    gesture.kind = kind;
+    gesture.button = button;
+    gesture.startX = startX;
+    gesture.startY = startY;
+    gesture.modelIndex = modelIndex;
+    gesture.axis = axis;
+    gesture.angular = angular;
+    interaction.BeginGesture( gesture, RuntimePointerCaptureOwner::ToolGesture, InteractionExitReason::BeginGesture );
+}
+
+void ReplayRuntime::EndToolGesture( RuntimeInteractionController& interaction, RuntimeInteractionGestureKind kind )
+{
+    if ( interaction.Gesture().kind == kind )
+    {
+        interaction.EndGesture( InteractionExitReason::EndGesture );
+    }
+}
+
+void ReplayRuntime::CancelToolGesture( RuntimeInteractionController& interaction )
+{
+    switch ( interaction.Gesture().kind )
+    {
+    case RuntimeInteractionGestureKind::ReplayScrubDrag:
+    case RuntimeInteractionGestureKind::ReplayVelocityDrag:
+    case RuntimeInteractionGestureKind::ReplayPredictionHorizonDrag:
+    case RuntimeInteractionGestureKind::ReplayCauseTreeDrag:
+        interaction.EndGesture( InteractionExitReason::EndGesture );
+        break;
+    default:
+        break;
+    }
+}
+
+void ReplayRuntime::CancelToolDragState( RuntimeInteractionController& interaction, InputRouter& inputRouter )
+{
+    CancelToolGesture( interaction );
+    if ( m_scrubber.mouseCaptured || m_velocityEdit.mouseCaptured || m_causeTree.draggingWindow ||
+         m_causeTree.resizingWindow )
+    {
+        inputRouter.ReleaseNativeCapture();
+    }
+    m_scrubber.dragging = false;
+    m_scrubber.mouseCaptured = false;
+    m_prediction.ui.horizonDragging = false;
+    m_velocityEdit.dragging = false;
+    m_velocityEdit.draggingAngular = false;
+    m_velocityEdit.activeAxis = -1;
+    m_velocityEdit.mouseCaptured = false;
+    m_causeTree.draggingWindow = false;
+    m_causeTree.resizingWindow = false;
+}
+
+bool ReplayRuntime::HasActiveInteractionState() const
+{
+    return m_camera.active || m_camera.focusKind != RunReplayCameraFocusKind::None || m_scrubber.dragging ||
+           m_scrubber.historicalSamplePaused || m_scrubber.liveAdvanceHeld || m_scrubber.mouseCaptured ||
+           m_pathVisualizer.hasTarget || !m_pathVisualizer.targets.empty() || m_prediction.enabled ||
+           m_prediction.ui.horizonDragging || m_prediction.build.building || m_velocityEdit.enabled ||
+           m_velocityEdit.dragging || m_velocityEdit.mouseCaptured || m_causeTree.draggingWindow ||
+           m_causeTree.resizingWindow || m_causeTree.selectedRow >= 0 || !m_causeTree.rows.empty();
+}
+
+bool ReplayRuntime::ClearInteractionForRuntimeTransition( RuntimeInteractionController& interaction,
+                                                          InputRouter& inputRouter )
+{
+    CancelToolDragState( interaction, inputRouter );
+    SetLiveAdvanceHeld( false );
+    const bool exitInspectionCamera = ResetScrubberState() || m_camera.active;
+    SetAllTrackPositions( 1.0f );
+    m_scrubber.visible = false;
+    m_scrubber.visibleAlpha = 0.0f;
+    m_scrubber.fadeUpdatedAt = 0.0;
+    m_scrubber.dragging = false;
+    m_scrubber.mouseCaptured = false;
+    m_scrubber.branchHovered = false;
+    m_scrubber.pauseHovered = false;
+    m_scrubber.saveHovered = false;
+    m_scrubber.loadHovered = false;
+    m_pathVisualizer.pastPathHovered = false;
+    ClearCameraFocusForRestore();
+    ClearPathVisualizerState();
+    m_prediction.enabled = false;
+    m_prediction.ui = RunReplayPredictionUiState{};
+    ClearPredictionCache();
+    m_velocityEdit = RunReplayVelocityEditState{};
+    m_causeTree.hoveredRow = -1;
+    m_causeTree.selectedRow = -1;
+    m_causeTree.draggingWindow = false;
+    m_causeTree.resizingWindow = false;
+    m_causeTree.scrollY = 0.0f;
+    m_causeTree.rows.clear();
+    return exitInspectionCamera;
+}
+
 RunReplayCauseTreeState& ReplayRuntime::CauseTree()
 {
     return m_causeTree;
@@ -1487,7 +1617,7 @@ ReplayRuntime::SceneTimelineResetResult ReplayRuntime::BeginSceneTimelineReset( 
     // Prediction workers hold only replay-owned values, but cancellation still
     // waits here before old private-engine snapshots are cleared or replaced.
     CancelPredictionJob( true );
-    if ( !input.preserveBranchMetadata )
+    if ( SceneTimelineResetClearsBranch( input ) )
     {
         ResetBranch();
     }
@@ -1525,15 +1655,9 @@ ReplayRuntime::SceneTimelineResetResult ReplayRuntime::FinishSceneTimelineReset(
     m_captureMismatchReports = 0;
     m_captureMismatchSuppressed = false;
 
-    if ( !( input.isSceneMode && input.solverBallCount <= 0 && input.solverBoxCount <= 0 ) )
+    if ( SceneTimelineRecordsGeneratedConfig( input ) )
     {
-        uint32_t flags = 0;
-        flags |=
-            ( input.solverBallCount > 0 || input.solverBoxCount > 0 ) ? REPLAY_GENERATED_SCENE_EXACT_SOLVER_COUNTS : 0u;
-        flags |= input.hasUiModelCountOverride ? REPLAY_GENERATED_SCENE_UI_MODEL_COUNT : 0u;
-        flags |= input.hasUiSolverCountOverride ? REPLAY_GENERATED_SCENE_UI_SOLVER_COUNTS : 0u;
-        flags |= ( input.generatedObjectTypeOverride << REPLAY_GENERATED_SCENE_OVERRIDE_SHIFT ) &
-                 REPLAY_GENERATED_SCENE_OVERRIDE_MASK;
+        const uint32_t flags = SceneTimelineGeneratedConfigFlags( input );
 
         uint64_t hash = REPLAY_EVENT_FNV_OFFSET;
         ReplayRuntimeHashInt( hash, input.modelCount );
@@ -3441,5 +3565,73 @@ bool ReplayRuntime::SavePresentationFromScrubber( double now )
     m_scrubber.visibleUntil = now + ReplayOverlay::REPLAY_SCRUBBER_VISIBLE_SECONDS;
     m_scrubber.visible = true;
     return saved;
+}
+
+bool ReplayRuntime::LoadPresentationArtifact( const char* path,
+                                              bool activateScrubber,
+                                              double now,
+                                              InputRouter& inputRouter,
+                                              RuntimeInteractionController& interaction,
+                                              Environment::CameraCollection* cameras,
+                                              Geometry::Terrain* terrain,
+                                              RunCameraState& camera,
+                                              RunMousePickupState& mousePickup,
+                                              RunCameraMode normalizedCurrentMode,
+                                              RunCameraMode normalizedRestoreMode,
+                                              bool attachedFollow,
+                                              bool directorGrabbed )
+{
+    if ( !path || path[0] == '\0' )
+    {
+        return false;
+    }
+    std::vector<ReplayPresentationSample> samples;
+    ReplayV2LoadResult result;
+    if ( !ReplayV2Artifact::LoadPresentation( path, samples, &result ) || samples.size() < 2 )
+    {
+        return false;
+    }
+
+    m_loadedPresentation = RunLoadedReplayPresentationState{};
+    m_loadedPresentation.samples.swap( samples );
+    m_loadedPresentation.enabled = true;
+    m_loadedPresentation.bodyDictionaryCount = result.bodyDictionaryCount;
+    m_loadedPresentation.fileBytes = result.fileBytes;
+    m_loadedPresentation.firstFrame = result.firstFrame;
+    m_loadedPresentation.lastFrame = result.lastFrame;
+    strncpy_s( m_loadedPresentation.path, sizeof( m_loadedPresentation.path ), path, _TRUNCATE );
+
+    if ( activateScrubber )
+    {
+        SetLiveAdvanceHeld( false );
+        CancelToolDragState( interaction, inputRouter );
+        ClearCameraFocusForRestore();
+        ExitInspectionCamera( cameras,
+                              terrain,
+                              camera,
+                              normalizedRestoreMode,
+                              attachedFollow,
+                              directorGrabbed,
+                              interaction,
+                              inputRouter );
+        ArmLoadedPresentationScrubber( 0.25f, now );
+        interaction.SetWorldInteractionOwnerInWorkspace( RuntimeWorkspace::Replay,
+                                                         WorldInteractionOwner::ReplayScrub,
+                                                         InteractionExitReason::EnterReplay );
+        if ( ShouldUseInspectionCamera() )
+        {
+            EnterInspectionCamera( cameras, camera, normalizedCurrentMode, interaction, inputRouter, mousePickup );
+        }
+    }
+
+    printf( "[replay] Loaded v2 presentation artifact: path=%s samples=%llu bodies=%llu first_frame=%llu "
+            "last_frame=%llu bytes=%llu\n",
+            m_loadedPresentation.path,
+            static_cast<unsigned long long>( m_loadedPresentation.samples.size() ),
+            static_cast<unsigned long long>( m_loadedPresentation.bodyDictionaryCount ),
+            static_cast<unsigned long long>( m_loadedPresentation.firstFrame ),
+            static_cast<unsigned long long>( m_loadedPresentation.lastFrame ),
+            static_cast<unsigned long long>( m_loadedPresentation.fileBytes ) );
+    return true;
 }
 } // namespace SkullbonezCore::Basics

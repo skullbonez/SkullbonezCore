@@ -61,7 +61,6 @@ Related:
 #include "Render/RuntimeRenderer.h"
 #include "RunDebugState.h"
 #include "RunLaunchOptions.h"
-#include "RunReplayProbeState.h"
 #include "RunCameraState.h"
 #include "RunRuntimeSettings.h"
 #include "RunSubsystemState.h"
@@ -120,6 +119,7 @@ class Run
     SceneController m_sceneController;                                  // Owns scene queue and current scene-run state
     SceneRuntimeCoordinator m_sceneCoordinator;                         // Produces scene load/reset/advance control intents.
     SbResult m_lastSceneLoadResult;                                     // Last queue load outcome observed by startup/load-only paths.
+    bool m_skipExecute = false;                                         // Startup-only probes can complete without entering the frame loop.
     RunLaunchOptions m_launchOptions;                                   // CLI/startup policy reapplied across scene loads.
     ApplicationExitState m_applicationExit;                             // First-failure exit latch resolved by the platform message loop.
     CinematicRenderConfig m_defaultCinematicRender;                     // engine.cfg cinematic baseline restored by the Demo Scene cine mode
@@ -129,9 +129,6 @@ class Run
     // Subsystem owners below are ordered by lifetime dependency. Render-host
     // bindings borrow from these objects; they do not own them.
     DiagnosticsRuntime m_diagnosticsRuntime;                            // Capture, perf, and queryable physics diagnostics owner.
-#ifdef _DEBUG
-    RunReplayProbeState m_replayProbes;                                 // CLI-only replay self-test state and non-throwing failures.
-#endif
     RunRuntimeSettings m_runtimeSettings;                               // Scene/app runtime swap policy toggles
     RunTimerState m_timers;                                             // Frame/simulation timers and rolling timing values
     RunSubsystemState m_systems;                                        // Window, camera, texture, terrain, and pass resource ownership
@@ -177,7 +174,6 @@ class Run
     void ClearInteractionAutomationInput();                             // Releases input overrides after completion or failure.
     void WriteInteractionAutomationReport();                            // Writes JSON result for --interaction-report.
     bool TryFindInteractionAutomationModel( const char* name, int& outIndex ) const;
-    bool TrySetInteractionAutomationReplayPathTarget( const char* name );
     bool TryProjectInteractionAutomationModel( const char* name, POINT& outMouse );
     bool DrainSceneRequests();                                          // Temporary C1 execution seam for scene-owned deferred intent.
     bool DrainCaptureRequests();                                        // Executes capture-owned input requests against the active backend.
@@ -199,27 +195,13 @@ class Run
     void SyncCameraLookGesture( const RuntimeInputSnapshot& inputSnapshot,
                                 const RuntimeInteractionFramePolicy& inputPolicy,
                                 bool mouseLookOwnsCursor );             // Mirrors camera-look policy into pointer capture state.
-    void BeginReplayToolGesture( RuntimeInteractionGestureKind kind,
-                                 WorldInteractionOwner owner,
-                                 RuntimePointerButton button,
-                                 int startX,
-                                 int startY,
-                                 int modelIndex = -1,
-                                 int axis = -1,
-                                 bool angular = false );                // Captures typed replay drag ownership.
-    void EndReplayToolGesture( RuntimeInteractionGestureKind kind );    // Releases a matching typed replay drag gesture.
-    void CancelReplayToolGesture();                                     // Clears any active replay drag gesture from the controller.
-    void CancelReplayToolDragState();                                   // Releases controller capture and legacy replay drag booleans together.
     RuntimeInteractionTransition EnterInteractionForCameraMode(
         RunCameraMode mode );                                           // Converts camera/tool requests into controller workspace transitions.
     void ApplyRuntimeInteractionTransitionCleanup(
         const RuntimeInteractionTransition&
             transition );                                               // Clears stale tool ownership before the new mode consumes input.
-    void ClearReplayInteractionForRuntimeTransition();                  // Clears replay-owned scrub, prediction, velocity, cause, and
-                                                       // path state.
     void ClearEditorInteractionForRuntimeTransition(
         bool clearSelection );                                          // Clears editor placement/gizmo ownership before leaving Edit.
-    bool HasActiveReplayInteractionState() const;                       // True when replay owns transient input or historical presentation.
     bool HasActiveEditorInteractionState() const;                       // True when editor owns placement/gizmo/input state.
     bool InspectGizmoInteractionActive() const;                         // True when Inspect owns live transform-gizmo interaction.
     bool MouseLookOwnsCursor() const;                                   // True while RMB/editor/replay mouse-look temporarily owns the cursor.
@@ -284,41 +266,9 @@ class Run
     void RunGraphicsStressActions(
         const Rendering::IRenderDiagnostics&
             renderDiagnostics );                                        // Deterministic render/scene churn used to shake out DX12 crashes.
-    void ResetReplayTimelineForActiveScene(
-        bool preserveBranchMetadata = false );                          // Scene/model rebuilds start a fresh in-memory replay branch.
     void AfterPhysicsStep();                                            // Post-step hooks that must see committed physics state.
     void ApplyMousePickupPhysicsStep();                                 // Manipulator spring impulse before one fixed physics step.
     void RestoreMousePickupAngularVelocity();                           // Holds grabbed body angular velocity stable during drag.
-    bool TryPickReplayPathTargetFromMouse( bool additive, bool clearOnMiss );
-    // Prediction work shares the replay visualizer deadline. These calls may
-    // leave prediction dirty/building so a later frame can resume without
-    // exceeding the current render-frame budget.
-    void RenderReplayPathVisualizer( RunEditorTracer& tracer );
-    bool TickReplayCauseTreeInput( bool uiBlocksMouse, int wheelDelta );
-    void RenderReplayCauseFocusOverlay( RunEditorTracer& tracer );
-    bool TickReplayVelocityEditInput( bool uiBlocksMouse );
-    void RenderReplayVelocityEditOverlay( RunEditorTracer& tracer );
-    void EnterReplayInspectionCamera();
-    void ExitReplayInspectionCamera();
-    bool TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse );
-    bool RestoreReplayScrubberSelectionAsLive( double now,
-                                               RunReplayV2TargetRestoreResult* outV2Result = nullptr,
-                                               char* outReason = nullptr,
-                                               std::size_t reasonSize = 0 );
-    bool ApplyReplaySolverSampleState( const ReplaySolverFrameSample& sample, char* outReason, std::size_t reasonSize );
-    bool CaptureCurrentReplaySolverHash( const ReplaySolverFrameSample& reference,
-                                         uint64_t& outSolverHash,
-                                         uint64_t& outPresentationHash,
-                                         std::size_t& outBodyCount );
-    bool RestoreReplayV2ArtifactTargetState( const char* path,
-                                             ReplayFrameIndex requestedFrame,
-                                             bool makeLiveBranch,
-                                             RunReplayV2TargetRestoreResult& outResult,
-                                             char* outReason,
-                                             std::size_t reasonSize );
-    bool
-    RestoreReplaySolverSampleAsLive( const ReplaySolverFrameSample& sample, char* outReason, std::size_t reasonSize );
-
     // --- Per-frame tick helpers (called from Execute()) ---
     void TickPhysics( double dt );                                      // Physics dispatch: fixed-step and variable-step accumulator
     bool TickScreenshots();                                             // Screenshot triggers; returns true when frame should restart (continue)
@@ -348,9 +298,6 @@ class Run
 #ifdef _DEBUG
     void LogSceneFinished( const char* reason );
     void BeginPhysicsDiagnosticsRun( const char* scenePath );
-    SbResult TickReplayScrubProbe();
-    SbResult TickReplayRestoreProbe();
-    SbResult TickReplaySaveProbe();
     void EndPhysicsDiagnosticsRun( const char* status );
 #endif
 
@@ -372,22 +319,7 @@ class Run
         const char* scriptPath,
         const char* reportPath );                                       // CLI harness for deterministic world-click interaction scripts.
     SbResult InteractionAutomationResult() const;                       // Non-throwing CLI automation result after Execute().
-    bool LoadReplayPresentationArtifact( const char* path,
-                                         bool activateScrubber );       // Load a v2 presentation artifact as a scrub source.
     void DumpTextureAssets( FILE* out ) const;
-
-#ifdef _DEBUG
-    const RunReplayProbeState& ReplayProbes() const;                    // Debug CLI replay probe state and failure accessors.
-    SbResult VerifyLoadedReplayPresentationProbe( float normalized );   // Validate runtime scrubbing from a loaded v2 file.
-    SbResult VerifyReplaySolverCheckpointFileProbe(
-        const char* path );                                             // Validate hash-gated restore from a v2 solver checkpoint.
-    SbResult VerifyReplaySolverTargetFileProbe(
-        const char* path );                                             // Validate checkpoint-plus-event replay to a saved non-checkpoint target.
-    SbResult VerifyReplaySolverBranchFileProbe(
-        const char* path );                                             // Validate checkpoint-plus-event replay can become a live branch.
-    SbResult VerifyReplaySolverFailureFileProbe(
-        const char* path );                                             // Validate saved-file restore failures emit SkullScope diagnostics.
-#endif
 };
 } // namespace Basics
 } // namespace SkullbonezCore

@@ -5,17 +5,19 @@ Purpose:
 
 Mental model:
   ReplayInteractionController converts operator replay intent into replay-owned
-  state changes. Run still supplies live-world restore APIs because those calls
-  touch scene, physics, world, and camera owners outside ReplayRuntime.
+  state changes. It builds a one-frame restore command; ReplayRuntime owns the
+  cross-owner transaction and returns the result for UI publication.
 
 Glossary:
   Live restore: Applying a historical replay sample back into the active scene.
-  Restore API: Borrowed function table for Run-owned world/physics mutation.
+  Restore request: Value command naming the retained sample or saved artifact
+    target that should become live.
   Live edge: Scrubber position representing the newest branch frame after a
     successful restore.
 
 Invariants:
-  - Restore API callbacks are cold user commands, never per-frame physics hooks.
+  - Restore requests borrow retained samples only until the current workspace
+    command is applied.
   - Scrubber message, consumed-input state, and live-edge reset are published in
     one place after every restore attempt.
 
@@ -37,35 +39,6 @@ class GameModelCollection;
 }
 namespace Basics
 {
-struct ReplayLiveRestoreApi
-{
-    // Lifetime: callbacks borrow the active Run instance for one cold replay
-    // command. The controller never stores this table beyond the call.
-    void* user = nullptr;
-    void ( *enterInteractiveSceneRun )( void* user ) = nullptr;
-    bool ( *restoreV2ArtifactTargetState )( void* user,
-                                            const char* path,
-                                            ReplayFrameIndex requestedFrame,
-                                            bool makeLiveBranch,
-                                            RunReplayV2TargetRestoreResult& outResult,
-                                            char* outReason,
-                                            std::size_t reasonSize ) = nullptr;
-    bool ( *restoreSolverSampleAsLive )( void* user,
-                                         const ReplaySolverFrameSample& sample,
-                                         char* outReason,
-                                         std::size_t reasonSize ) = nullptr;
-};
-
-struct ReplayLiveRestoreContext
-{
-    ReplayRuntime& replayRuntime;
-    double now = 0.0;
-    ReplayLiveRestoreApi api;
-    RunReplayV2TargetRestoreResult* outV2Result = nullptr;
-    char* outReason = nullptr;
-    std::size_t reasonSize = 0;
-};
-
 struct ReplayVelocityEditInputFrame
 {
     bool leftDown = false;
@@ -105,7 +78,19 @@ struct ReplayVelocityEditApplyContext
 class ReplayInteractionController
 {
   public:
-    bool RestoreScrubberSelectionAsLive( const ReplayLiveRestoreContext& context );
+    bool BuildScrubberRestoreRequest( ReplayRuntime& replayRuntime,
+                                      double now,
+                                      ReplayLiveRestoreRequest& outRequest,
+                                      char* outReason = nullptr,
+                                      std::size_t reasonSize = 0 );
+    void CompleteScrubberRestore( ReplayRuntime& replayRuntime,
+                                  const ReplayLiveRestoreRequest& request,
+                                  bool restored,
+                                  const RunReplayV2TargetRestoreResult& v2Result,
+                                  const char* reason,
+                                  RunReplayV2TargetRestoreResult* outV2Result = nullptr,
+                                  char* outReason = nullptr,
+                                  std::size_t reasonSize = 0 );
     ReplayVelocityEditInputFrame BeginVelocityEditInputFrame( bool leftDown, bool leftPressed, bool leftReleased );
     void SetVelocityEditHoverAxes( ReplayRuntime& replayRuntime, int linearAxis, int angularAxis );
     ReplayVelocityEditResetResult ResetVelocityEditInteraction( ReplayRuntime& replayRuntime, bool clearHoverAxes );

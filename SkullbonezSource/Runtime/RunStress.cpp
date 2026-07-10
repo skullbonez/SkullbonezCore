@@ -777,7 +777,22 @@ SbResult Run::RunUIStressActions()
         }
         if ( action.resetReplayTimeline )
         {
-            ResetReplayTimelineForActiveScene();
+            const ReplayRuntime::SceneTimelineResetInput reset = ReplayRuntime::DescribeSceneTimeline(
+                m_sceneController,
+                SceneState(),
+                m_startup.gameModelCapacity,
+                static_cast<uint32_t>( m_launchOptions.generatedObjectTypeOverride ) );
+            m_replayRuntime.ResetSceneTimeline(
+                reset,
+                ReplayRuntime::SceneTimelineResetOwners{
+                    m_inputRouter,
+                    m_interaction,
+                    m_systems.cameras,
+                    m_systems.terrain.get(),
+                    m_camera,
+                    NormalizeCameraModeForCurrentScene( m_replayRuntime.Camera().restoreCameraMode ),
+                    m_attachedCamera.activeFollow,
+                    m_camera.director.grabbed } );
         }
         if ( action.scheduleProfileReset )
         {

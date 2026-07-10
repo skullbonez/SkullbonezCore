@@ -1,7 +1,7 @@
 # Runtime Shell Decomposition
 
 Date: 2026-07-10 (reconciled)
-Status: In progress — 6/26 remaining checklist items complete; earlier
+Status: In progress — 11/27 checklist items complete; earlier
 foundation work is summarized separately and is not mixed into this count
 Impact area: runtime architecture, scene lifecycle, input routing, render host
 Owner: application composition root
@@ -228,6 +228,12 @@ baseline. The comment-style audit covered all 35 touched source-bearing files.
   `SceneController`, then delete `DrainSceneRequests`, scene `void*` callbacks,
   and all remaining owner bypasses. The generic queue/type and dead
   zero-producer cases were already deleted under B2b-B2e.
+- [x] B3. Complete ownership extraction 4. `ReplayRuntime::TickWorkspace`
+  consumes one typed frame view; replay owns scrub/cause/velocity/prediction,
+  inspection-camera, overlay, restore/hash, startup, and probe decisions. `Run.h`
+  and all `Run*.cpp` files expose no replay business method, callback pack,
+  backpointer, or forwarding facade. Evidence and gates are recorded in
+  `Agentic/Reports/replay_r2_workspace_20260710.md`.
 
 ### C. Scene lifecycle ownership
 

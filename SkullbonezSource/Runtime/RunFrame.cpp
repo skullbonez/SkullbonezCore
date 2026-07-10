@@ -552,6 +552,10 @@ class SimulationPostStepPipeline
 
 SbResult Run::Execute()
 {
+    if ( m_skipExecute )
+    {
+        return SbResult::Success();
+    }
     MSG msg;
     int messageExitCode = 0;
 
@@ -898,31 +902,52 @@ void Run::AfterPhysicsStep()
 #ifdef _DEBUG
     if ( result.replayCaptured )
     {
-        // Why: WM_QUIT's code is not WinMain's final status in this app. Store
-        // the probe failure on Run so Runtime/Init can return the CLI-visible
-        // nonzero result after Execute() unwinds normally.
-        auto handleReplayProbeResult = [this]( const SbResult& probeResult ) -> bool
+        const ReplayRuntime::SceneTimelineResetInput timelineReset = ReplayRuntime::DescribeSceneTimeline(
+            m_sceneController,
+            SceneState(),
+            m_startup.gameModelCapacity,
+            static_cast<uint32_t>( m_launchOptions.generatedObjectTypeOverride ) );
+        const ReplayRuntime::ReplayLiveWorld replayWorld{
+            m_cGameModelCollection,
+            m_cWorldEnvironment,
+            SceneState(),
+            m_runtimeSettings,
+            m_debug,
+            m_systems.cameras,
+            m_runtimeTools,
+            m_sceneController,
+            m_simulation,
+            m_config,
+            m_systems,
+            m_launchOptions.generatedObjectTypeOverride,
+            m_startup.gameModelCapacity,
+            m_diagnosticsRuntime,
+            m_runtimeTools.MousePickup(),
+            NormalizeCameraModeForCurrentScene( m_camera.mode ),
+            m_timers.simulationTimer.GetTotalTime(),
+            timelineReset,
+            ReplayRuntime::SceneTimelineResetOwners{
+                m_inputRouter,
+                m_interaction,
+                m_systems.cameras,
+                m_systems.terrain.get(),
+                m_camera,
+                NormalizeCameraModeForCurrentScene( m_replayRuntime.Camera().restoreCameraMode ),
+                m_attachedCamera.activeFollow,
+                m_camera.director.grabbed } };
+        // Why: ReplayRuntime owns probe sequencing and bounded failure state;
+        // the application exit latch only preserves that first owned failure
+        // while WM_QUIT unwinds the frame loop.
+        const ReplayRuntime::ReplayProbeTickResult probeResult = m_replayRuntime.TickProbes( replayWorld );
+        if ( !probeResult.status.ok )
         {
-            if ( probeResult.ok )
-            {
-                return false;
-            }
-            m_replayProbes.RecordFailure( probeResult );
-            m_applicationExit.RequestOwnedFailure( probeResult );
+            m_applicationExit.RequestOwnedFailure( probeResult.status );
             PostQuitMessage( 0 );
-            return true;
-        };
-        if ( handleReplayProbeResult( TickReplayScrubProbe() ) )
-        {
             return;
         }
-        if ( handleReplayProbeResult( TickReplayRestoreProbe() ) )
+        if ( probeResult.enterInteractive )
         {
-            return;
-        }
-        if ( handleReplayProbeResult( TickReplaySaveProbe() ) )
-        {
-            return;
+            EnterInteractiveSceneRun();
         }
     }
 #endif

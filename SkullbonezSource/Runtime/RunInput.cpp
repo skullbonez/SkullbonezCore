@@ -541,6 +541,10 @@ struct RuntimeUIFrameContext
     RunCameraState& camera;
     RuntimeTools& runtimeTools;
     ReplayRuntime& replayRuntime;
+    ReplayRuntime::PathPickInput replayPointerRay;
+    RunCameraMode replayCurrentCameraMode = RunCameraMode::Demo;
+    RunCameraMode replayRestoreCameraMode = RunCameraMode::Demo;
+    bool attachedCameraFollow = false;
     RuntimeInteractionController& interaction;
     RunTimerState& timers;
     RunDebugState& debug;
@@ -564,15 +568,13 @@ struct RuntimeUIFrameContext
 struct RuntimeUIFrameResult
 {
     SbResult status = SbResult::Success();
+    ReplayRuntime::ReplayWorkspaceOutput replayWorkspace;
     bool suppressWorldActionThisFrame = false;
     int editorUnhandledWheelDelta = 0;
 };
 
 template <typename CameraModeEnabledMask,
           typename EnterInteractiveSceneRun,
-          typename TickReplayScrubberInput,
-          typename TickReplayCauseTreeInput,
-          typename TickReplayVelocityEditInput,
           typename DispatchAfterUIKeyboardActions,
           typename UpdateRuntimeInputModeAfterAction,
           typename ApplyCameraMode,
@@ -589,9 +591,6 @@ ApplyRuntimeUIFrameCommands( const RuntimeUIFrameContext& context,
                              bool keyboardToggleEditorMode,
                              CameraModeEnabledMask cameraModeEnabledMask,
                              EnterInteractiveSceneRun enterInteractiveSceneRun,
-                             TickReplayScrubberInput tickReplayScrubberInput,
-                             TickReplayCauseTreeInput tickReplayCauseTreeInput,
-                             TickReplayVelocityEditInput tickReplayVelocityEditInput,
                              DispatchAfterUIKeyboardActions dispatchAfterUIKeyboardActions,
                              UpdateRuntimeInputModeAfterAction updateRuntimeInputModeAfterAction,
                              ApplyCameraMode applyCameraMode,
@@ -661,18 +660,38 @@ ApplyRuntimeUIFrameCommands( const RuntimeUIFrameContext& context,
         enterInteractiveSceneRun();
     }
     result.suppressWorldActionThisFrame = result.suppressWorldActionThisFrame || uiCommands.ui.userInteracted;
-    const bool replayScrubberOwnsMouse = tickReplayScrubberInput( windowHandle, context.ui.BlocksCameraMouse() );
-    const bool replayCauseTreeOwnsMouse =
-        tickReplayCauseTreeInput( context.ui.BlocksCameraMouse() || replayScrubberOwnsMouse,
-                                  result.editorUnhandledWheelDelta );
-    const bool replayVelocityEditOwnsMouse = tickReplayVelocityEditInput(
-        context.ui.BlocksCameraMouse() || replayScrubberOwnsMouse || replayCauseTreeOwnsMouse );
-    result.suppressWorldActionThisFrame = result.suppressWorldActionThisFrame || replayScrubberOwnsMouse ||
-                                          replayCauseTreeOwnsMouse || replayVelocityEditOwnsMouse;
+    context.replayRuntime.TickWorkspace(
+        ReplayRuntime::ReplayWorkspaceInput{ windowHandle,
+                                             context.ui.BlocksCameraMouse(),
+                                             result.editorUnhandledWheelDelta,
+                                             context.replayPointerRay,
+                                             context.inputRouter,
+                                             context.interaction,
+                                             context.gameModels,
+                                             context.systems.cameras,
+                                             context.systems.terrain.get(),
+                                             context.camera,
+                                             context.runtimeTools.MousePickup(),
+                                             context.replayCurrentCameraMode,
+                                             context.replayRestoreCameraMode,
+                                             context.attachedCameraFollow,
+                                             context.camera.director.grabbed,
+                                             context.runtimeTools.Editor().editorModeEnabled,
+                                             context.sceneState.isScenePhysics,
+                                             context.ui.IsVisible(),
+                                             context.ui.IsMinimized(),
+                                             context.systems.window->ClientWidth(),
+                                             context.systems.window->ClientHeight(),
+                                             context.timers.simulationTimer.GetTotalTime() },
+        result.replayWorkspace );
+    if ( result.replayWorkspace.enterInteractive )
+    {
+        enterInteractiveSceneRun();
+    }
+    result.suppressWorldActionThisFrame = result.suppressWorldActionThisFrame || result.replayWorkspace.consumesMouse;
     context.runtimeInput.BeginFrame( true,
                                      context.ui.BlocksKeyboard(),
-                                     context.ui.BlocksCameraMouse() || replayScrubberOwnsMouse ||
-                                         replayCauseTreeOwnsMouse || replayVelocityEditOwnsMouse );
+                                     context.ui.BlocksCameraMouse() || result.replayWorkspace.consumesMouse );
 
     dispatchAfterUIKeyboardActions( uiCommands.ui.userInteracted );
 
@@ -1124,7 +1143,32 @@ bool Run::RouteRuntimePointerInput( const RuntimeInputSnapshot& inputSnapshot, c
          ( inputSnapshot.pointer.controlDown || !RunCameraModeUsesLauncher( m_camera.mode ) ) )
     {
         const bool additiveReplayPick = inputSnapshot.pointer.shiftDown;
-        TryPickReplayPathTargetFromMouse( additiveReplayPick, !additiveReplayPick );
+        Vector3 rayOrigin;
+        Vector3 rayDirection;
+        ReplayRuntime::PathPickInput pickInput;
+        pickInput.hasWorldRay = TryBuildMouseWorldRay( rayOrigin, rayDirection );
+        pickInput.rayOrigin = rayOrigin;
+        pickInput.rayDirection = rayDirection;
+        pickInput.additive = additiveReplayPick;
+        pickInput.clearOnMiss = !additiveReplayPick;
+        const ReplayRuntime::PathPickResult pickResult =
+            m_replayRuntime.TryPickPathTarget( pickInput,
+                                               m_cGameModelCollection,
+                                               m_cGameModelCollection.BodyStore(),
+                                               m_cGameModelCollection.Colliders(),
+                                               m_cGameModelCollection.RenderPresentationRecords() );
+        if ( pickResult.exitInspectionCamera )
+        {
+            m_replayRuntime.ExitInspectionCamera(
+                m_systems.cameras,
+                m_systems.terrain.get(),
+                m_camera,
+                NormalizeCameraModeForCurrentScene( m_replayRuntime.Camera().restoreCameraMode ),
+                m_attachedCamera.activeFollow,
+                m_camera.director.grabbed,
+                m_interaction,
+                m_inputRouter );
+        }
         consumedWorldClick = true;
     }
 
@@ -1204,92 +1248,9 @@ void Run::SyncCameraLookGesture( const RuntimeInputSnapshot& inputSnapshot,
 }
 
 
-void Run::BeginReplayToolGesture( RuntimeInteractionGestureKind kind,
-                                  WorldInteractionOwner owner,
-                                  RuntimePointerButton button,
-                                  int startX,
-                                  int startY,
-                                  int modelIndex,
-                                  int axis,
-                                  bool angular )
-{
-    SetWorldInteractionOwnerAfterInteractionTransition( owner, InteractionExitReason::BeginGesture );
-
-    RuntimeInteractionGesture gesture;
-    gesture.kind = kind;
-    gesture.button = button;
-    gesture.startX = startX;
-    gesture.startY = startY;
-    gesture.modelIndex = modelIndex;
-    gesture.axis = axis;
-    gesture.angular = angular;
-    m_interaction.BeginGesture( gesture, RuntimePointerCaptureOwner::ToolGesture, InteractionExitReason::BeginGesture );
-}
-
-
-void Run::EndReplayToolGesture( RuntimeInteractionGestureKind kind )
-{
-    if ( m_interaction.Gesture().kind == kind )
-    {
-        m_interaction.EndGesture( InteractionExitReason::EndGesture );
-    }
-}
-
-
-void Run::CancelReplayToolGesture()
-{
-    switch ( m_interaction.Gesture().kind )
-    {
-    case RuntimeInteractionGestureKind::ReplayScrubDrag:
-    case RuntimeInteractionGestureKind::ReplayVelocityDrag:
-    case RuntimeInteractionGestureKind::ReplayPredictionHorizonDrag:
-    case RuntimeInteractionGestureKind::ReplayCauseTreeDrag:
-        m_interaction.EndGesture( InteractionExitReason::EndGesture );
-        break;
-    default:
-        break;
-    }
-}
-
-
-void Run::CancelReplayToolDragState()
-{
-    CancelReplayToolGesture();
-    if ( m_replayRuntime.Scrubber().mouseCaptured || m_replayRuntime.VelocityEdit().mouseCaptured ||
-         m_replayRuntime.CauseTree().draggingWindow || m_replayRuntime.CauseTree().resizingWindow )
-    {
-        m_inputRouter.ReleaseNativeCapture();
-    }
-
-    m_replayRuntime.Scrubber().dragging = false;
-    m_replayRuntime.Scrubber().mouseCaptured = false;
-    m_replayRuntime.Prediction().ui.horizonDragging = false;
-    m_replayRuntime.VelocityEdit().dragging = false;
-    m_replayRuntime.VelocityEdit().draggingAngular = false;
-    m_replayRuntime.VelocityEdit().activeAxis = -1;
-    m_replayRuntime.VelocityEdit().mouseCaptured = false;
-    m_replayRuntime.CauseTree().draggingWindow = false;
-    m_replayRuntime.CauseTree().resizingWindow = false;
-}
-
-
 RuntimeInteractionTransition Run::EnterInteractionForCameraMode( RunCameraMode mode )
 {
     return m_interaction.EnterCameraMode( NormalizeCameraModeForCurrentScene( mode ) );
-}
-
-
-bool Run::HasActiveReplayInteractionState() const
-{
-    return m_replayRuntime.Camera().active || m_replayRuntime.Camera().focusKind != RunReplayCameraFocusKind::None ||
-           m_replayRuntime.Scrubber().dragging || m_replayRuntime.Scrubber().historicalSamplePaused ||
-           m_replayRuntime.Scrubber().liveAdvanceHeld || m_replayRuntime.Scrubber().mouseCaptured ||
-           m_replayRuntime.PathVisualizer().hasTarget || !m_replayRuntime.PathVisualizer().targets.empty() ||
-           m_replayRuntime.Prediction().enabled || m_replayRuntime.Prediction().ui.horizonDragging ||
-           m_replayRuntime.Prediction().build.building || m_replayRuntime.VelocityEdit().enabled ||
-           m_replayRuntime.VelocityEdit().dragging || m_replayRuntime.VelocityEdit().mouseCaptured ||
-           m_replayRuntime.CauseTree().draggingWindow || m_replayRuntime.CauseTree().resizingWindow ||
-           m_replayRuntime.CauseTree().selectedRow >= 0 || !m_replayRuntime.CauseTree().rows.empty();
 }
 
 
@@ -1307,51 +1268,6 @@ bool Run::InspectGizmoInteractionActive() const
 {
     return !m_runtimeTools.Editor().editorModeEnabled && m_camera.mode == RunCameraMode::Inspect &&
            !m_replayRuntime.InspectionActive();
-}
-
-
-void Run::ClearReplayInteractionForRuntimeTransition()
-{
-    CancelReplayToolDragState();
-
-    m_replayRuntime.SetLiveAdvanceHeld( false );
-    if ( m_replayRuntime.ResetScrubberState() )
-    {
-        ExitReplayInspectionCamera();
-    }
-    m_replayRuntime.SetAllTrackPositions( 1.0f );
-    m_replayRuntime.Scrubber().visible = false;
-    m_replayRuntime.Scrubber().visibleAlpha = 0.0f;
-    m_replayRuntime.Scrubber().fadeUpdatedAt = 0.0;
-    m_replayRuntime.Scrubber().dragging = false;
-    m_replayRuntime.Scrubber().mouseCaptured = false;
-    m_replayRuntime.Scrubber().branchHovered = false;
-    m_replayRuntime.Scrubber().pauseHovered = false;
-    m_replayRuntime.Scrubber().saveHovered = false;
-    m_replayRuntime.Scrubber().loadHovered = false;
-    m_replayRuntime.PathVisualizer().pastPathHovered = false;
-
-    m_replayRuntime.ClearCameraFocusForRestore();
-    ExitReplayInspectionCamera();
-    m_replayRuntime.ClearPathVisualizerState();
-    m_replayRuntime.Prediction().enabled = false;
-    m_replayRuntime.Prediction().ui.checkboxHovered = false;
-    m_replayRuntime.Prediction().ui.decreaseHovered = false;
-    m_replayRuntime.Prediction().ui.increaseHovered = false;
-    m_replayRuntime.Prediction().ui.horizonHovered = false;
-    m_replayRuntime.Prediction().ui.horizonDragging = false;
-    m_replayRuntime.ClearPredictionCache();
-
-    m_replayRuntime.VelocityEdit() = RunReplayVelocityEditState{};
-    m_replayRuntime.CauseTree().hoveredRow = -1;
-    m_replayRuntime.CauseTree().selectedRow = -1;
-    m_replayRuntime.CauseTree().draggingWindow = false;
-    m_replayRuntime.CauseTree().resizingWindow = false;
-    m_replayRuntime.CauseTree().scrollY = 0.0f;
-    m_replayRuntime.CauseTree().rows.clear();
-
-    ExitReplayInspectionCamera();
-    ApplyCursorOwnership();
 }
 
 
@@ -1389,9 +1305,22 @@ void Run::ClearRuntimeInteractionStateForTransition( const RuntimeInteractionTra
                                                 ( transition.previousOwner == WorldInteractionOwner::None ||
                                                   transition.previousOwner == WorldInteractionOwner::InspectGizmo );
 
-    if ( !enteringReplay && ( HasActiveReplayInteractionState() || IsReplayWorldOwner( transition.previousOwner ) ) )
+    if ( !enteringReplay &&
+         ( m_replayRuntime.HasActiveInteractionState() || IsReplayWorldOwner( transition.previousOwner ) ) )
     {
-        ClearReplayInteractionForRuntimeTransition();
+        if ( m_replayRuntime.ClearInteractionForRuntimeTransition( m_interaction, m_inputRouter ) )
+        {
+            m_replayRuntime.ExitInspectionCamera(
+                m_systems.cameras,
+                m_systems.terrain.get(),
+                m_camera,
+                NormalizeCameraModeForCurrentScene( m_replayRuntime.Camera().restoreCameraMode ),
+                m_attachedCamera.activeFollow,
+                m_camera.director.grabbed,
+                m_interaction,
+                m_inputRouter );
+        }
+        ApplyCursorOwnership();
     }
 
     if ( transition.previousOwner == WorldInteractionOwner::Manipulator &&
@@ -2202,11 +2131,19 @@ bool Run::HandleUnfocusedInputFrame()
     // Invariant: focus loss releases every active tool capture and refreshes
     // action memory so refocus cannot replay stale drag/key edges.
     CancelCameraLookGesture();
-    CancelReplayToolDragState();
+    m_replayRuntime.CancelToolDragState( m_interaction, m_inputRouter );
     m_inputRouter.CancelPointerPresentation();
     if ( m_replayRuntime.ResetScrubberState() )
     {
-        ExitReplayInspectionCamera();
+        m_replayRuntime.ExitInspectionCamera(
+            m_systems.cameras,
+            m_systems.terrain.get(),
+            m_camera,
+            NormalizeCameraModeForCurrentScene( m_replayRuntime.Camera().restoreCameraMode ),
+            m_attachedCamera.activeFollow,
+            m_camera.director.grabbed,
+            m_interaction,
+            m_inputRouter );
     }
     m_replayRuntime.Prediction().ui.checkboxHovered = false;
     m_replayRuntime.Prediction().ui.decreaseHovered = false;
@@ -2779,18 +2716,43 @@ void Run::TakeInput()
         PostMappedKeyboardShortcutContext{ m_runtimeTools, m_replayRuntime, m_interaction, m_timers },
         keyboardEditorToolShortcut,
         applyEditorPlacementModeToggle,
-        [this]() { CancelReplayToolDragState(); },
+        [this]() { m_replayRuntime.CancelToolDragState( m_interaction, m_inputRouter ); },
         [this]() { EnterInteractiveSceneRun(); },
-        [this]() { EnterReplayInspectionCamera(); },
-        [this]() { ExitReplayInspectionCamera(); },
+        [this]()
+        {
+            m_replayRuntime.EnterInspectionCamera( m_systems.cameras,
+                                                   m_camera,
+                                                   NormalizeCameraModeForCurrentScene( m_camera.mode ),
+                                                   m_interaction,
+                                                   m_inputRouter,
+                                                   m_runtimeTools.MousePickup() );
+        },
+        [this]()
+        {
+            m_replayRuntime.ExitInspectionCamera(
+                m_systems.cameras,
+                m_systems.terrain.get(),
+                m_camera,
+                NormalizeCameraModeForCurrentScene( m_replayRuntime.Camera().restoreCameraMode ),
+                m_attachedCamera.activeFollow,
+                m_camera.director.grabbed,
+                m_interaction,
+                m_inputRouter );
+        },
         [this]( WorldInteractionOwner owner, InteractionExitReason reason )
         { SetWorldInteractionOwnerAfterInteractionTransition( owner, reason ); } );
+    ReplayRuntime::PathPickInput replayPointerRay;
+    replayPointerRay.hasWorldRay = TryBuildMouseWorldRay( replayPointerRay.rayOrigin, replayPointerRay.rayDirection );
     const RuntimeUIFrameResult uiFrameResult = ApplyRuntimeUIFrameCommands(
         RuntimeUIFrameContext{ m_runtimeInput,
                                m_inputRouter,
                                m_camera,
                                m_runtimeTools,
                                m_replayRuntime,
+                               replayPointerRay,
+                               NormalizeCameraModeForCurrentScene( m_camera.mode ),
+                               NormalizeCameraModeForCurrentScene( m_replayRuntime.Camera().restoreCameraMode ),
+                               m_attachedCamera.activeFollow,
                                m_interaction,
                                m_timers,
                                m_debug,
@@ -2813,10 +2775,6 @@ void Run::TakeInput()
         keyboardToggleEditorMode,
         [this]() { return CameraModeEnabledMask(); },
         [this]() { EnterInteractiveSceneRun(); },
-        [this]( HWND window, bool blocksCameraMouse ) { return TickReplayScrubberInput( window, blocksCameraMouse ); },
-        [this]( bool blocksCameraMouse, int editorWheelDelta )
-        { return TickReplayCauseTreeInput( blocksCameraMouse, editorWheelDelta ); },
-        [this]( bool blocksCameraMouse ) { return TickReplayVelocityEditInput( blocksCameraMouse ); },
         [this]( bool uiUserInteracted ) { DispatchAfterUIKeyboardActions( uiUserInteracted ); },
         [this]( RuntimeInputAction action, RuntimeInputActionSource source )
         { UpdateRuntimeInputModeAfterAction( action, source ); },
@@ -2824,10 +2782,71 @@ void Run::TakeInput()
         applyEditorPlacementModeChange,
         applyEditorModeToggle,
         applyEditorPlacementModeToggle,
-        [this]() { ResetReplayTimelineForActiveScene(); },
+        [this]()
+        {
+            const ReplayRuntime::SceneTimelineResetInput reset = ReplayRuntime::DescribeSceneTimeline(
+                m_sceneController,
+                SceneState(),
+                m_startup.gameModelCapacity,
+                static_cast<uint32_t>( m_launchOptions.generatedObjectTypeOverride ) );
+            m_replayRuntime.ResetSceneTimeline(
+                reset,
+                ReplayRuntime::SceneTimelineResetOwners{
+                    m_inputRouter,
+                    m_interaction,
+                    m_systems.cameras,
+                    m_systems.terrain.get(),
+                    m_camera,
+                    NormalizeCameraModeForCurrentScene( m_replayRuntime.Camera().restoreCameraMode ),
+                    m_attachedCamera.activeFollow,
+                    m_camera.director.grabbed } );
+        },
         [this]() { return RunUIStressActions(); },
         [this]( int editorWheelDelta ) { TickAttachedCameraOrbitInput( editorWheelDelta ); },
         [this]( int editorWheelDelta ) { TickEditorViewportAndPlacementScaleInput( editorWheelDelta ); } );
+    const ReplayLiveRestoreRequest& restoreRequest = uiFrameResult.replayWorkspace.restoreRequest;
+    if ( restoreRequest.kind != ReplayLiveRestoreKind::None )
+    {
+        const ReplayRuntime::SceneTimelineResetInput timelineReset = ReplayRuntime::DescribeSceneTimeline(
+            m_sceneController,
+            SceneState(),
+            m_startup.gameModelCapacity,
+            static_cast<uint32_t>( m_launchOptions.generatedObjectTypeOverride ) );
+        const ReplayRuntime::ReplayLiveWorld liveWorld{
+            m_cGameModelCollection,
+            m_cWorldEnvironment,
+            SceneState(),
+            m_runtimeSettings,
+            m_debug,
+            m_systems.cameras,
+            m_runtimeTools,
+            m_sceneController,
+            m_simulation,
+            m_config,
+            m_systems,
+            m_launchOptions.generatedObjectTypeOverride,
+            m_startup.gameModelCapacity,
+            m_diagnosticsRuntime,
+            m_runtimeTools.MousePickup(),
+            NormalizeCameraModeForCurrentScene( m_camera.mode ),
+            m_timers.simulationTimer.GetTotalTime(),
+            timelineReset,
+            ReplayRuntime::SceneTimelineResetOwners{
+                m_inputRouter,
+                m_interaction,
+                m_systems.cameras,
+                m_systems.terrain.get(),
+                m_camera,
+                NormalizeCameraModeForCurrentScene( m_replayRuntime.Camera().restoreCameraMode ),
+                m_attachedCamera.activeFollow,
+                m_camera.director.grabbed } };
+        const ReplayRuntime::ReplayLiveRestoreOutcome restoreOutcome =
+            m_replayRuntime.ApplyLiveRestoreRequest( liveWorld, restoreRequest );
+        if ( restoreOutcome.enterInteractive )
+        {
+            EnterInteractiveSceneRun();
+        }
+    }
     if ( !uiFrameResult.status.ok )
     {
         // Lane R: a generated-resource rebuild could not prove its GPU drain.

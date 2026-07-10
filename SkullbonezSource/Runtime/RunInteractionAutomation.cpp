@@ -1841,35 +1841,6 @@ bool Run::TryFindInteractionAutomationModel( const char* name, int& outIndex ) c
     return outIndex >= 0;
 }
 
-bool Run::TrySetInteractionAutomationReplayPathTarget( const char* name )
-{
-    int modelIndex = -1;
-    if ( !TryFindInteractionAutomationModel( name, modelIndex ) )
-    {
-        return false;
-    }
-
-    const auto* body = m_cGameModelCollection.BodyStore().RecordForModelIndex( modelIndex );
-    if ( !body || body->replayBodyId == 0 )
-    {
-        return false;
-    }
-
-    RunReplayPathVisualizerState& visualizer = m_replayRuntime.PathVisualizer();
-    visualizer.hasTarget = true;
-    visualizer.targetId.value = body->replayBodyId;
-    visualizer.targetModelIndex = modelIndex;
-    visualizer.targetName[0] = '\0';
-    if ( name && name[0] != '\0' )
-    {
-        strncpy_s( visualizer.targetName, sizeof( visualizer.targetName ), name, _TRUNCATE );
-    }
-    visualizer.futureNodes.clear();
-    m_replayRuntime.ClearPredictionCache();
-    m_replayRuntime.MarkPredictionDirty();
-    return true;
-}
-
 bool Run::TryProjectInteractionAutomationModel( const char* name, POINT& outMouse )
 {
     int modelIndex = -1;
@@ -2008,7 +1979,12 @@ void Run::TickInteractionAutomationBeforeInput()
                 replayStateContext,
                 action,
                 frame,
-                [this]( const char* name ) { return TrySetInteractionAutomationReplayPathTarget( name ); },
+                [this]( const char* name )
+                {
+                    int modelIndex = -1;
+                    return TryFindInteractionAutomationModel( name, modelIndex ) &&
+                           m_replayRuntime.SetPathTarget( name, modelIndex, m_cGameModelCollection.BodyStore() );
+                },
                 [this]( WorldInteractionOwner owner, InteractionExitReason reason )
                 { SetWorldInteractionOwnerAfterInteractionTransition( owner, reason ); } );
             action.processed = true;

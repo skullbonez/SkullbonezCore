@@ -35,18 +35,19 @@
 
 using SkullbonezCore::Basics::ReplayBodyShapeKind;
 using SkullbonezCore::Basics::ReplayFrameIndex;
+using SkullbonezCore::Basics::ReplayMemoryPolicy;
+using SkullbonezCore::Basics::ReplayMemoryPolicyRequest;
+using SkullbonezCore::Basics::ReplayMemoryPreset;
+using SkullbonezCore::Basics::ReplayMemoryPresetPolicy;
 using SkullbonezCore::Basics::ReplayPresentationSample;
 using SkullbonezCore::Basics::ReplayRecorder;
 using SkullbonezCore::Basics::ReplayRecorderConfig;
 using SkullbonezCore::Basics::ReplayRecorderStats;
-using SkullbonezCore::Basics::ReplayMemoryPolicyRequest;
-using SkullbonezCore::Basics::ReplayMemoryPreset;
+using SkullbonezCore::Basics::ReplayRuntime;
 using SkullbonezCore::Basics::ReplaySolverBodySample;
 using SkullbonezCore::Basics::ReplaySolverFrameSample;
 using SkullbonezCore::Basics::ReplaySolverRecorder;
 using SkullbonezCore::Basics::ResolveReplayMemoryPolicy;
-using SkullbonezCore::Basics::ReplayMemoryPolicy;
-using SkullbonezCore::Basics::ReplayMemoryPresetPolicy;
 using SkullbonezCore::Math::Vector::Vector3;
 
 namespace
@@ -193,6 +194,34 @@ TEST_CASE( "ReplayRuntime: replay memory policy trims solver history before pres
     REQUIRE( solver.Configure( solverConfig ) );
     CHECK( presentation.GetStats().sampleCapacity == static_cast<std::size_t>( 30 * kReplayTicksPerSecond ) );
     CHECK( solver.GetStats().sampleCapacity == static_cast<std::size_t>( 5 * kReplayTicksPerSecond ) );
+}
+
+
+TEST_CASE( "ReplayRuntime: scene timeline reset decisions preserve branch and authored-scene semantics" )
+{
+    ReplayRuntime::SceneTimelineResetInput reset;
+    reset.modelCount = 5;
+    reset.solverBallCount = 3;
+    reset.solverBoxCount = 2;
+    reset.rngSeed = 1234u;
+    reset.gameModelCapacity = 8;
+    reset.hasUiModelCountOverride = true;
+    reset.hasUiSolverCountOverride = true;
+
+    CHECK( ReplayRuntime::SceneTimelineResetClearsBranch( reset ) );
+    CHECK( ReplayRuntime::SceneTimelineRecordsGeneratedConfig( reset ) );
+    const uint32_t generatedFlags = ReplayRuntime::SceneTimelineGeneratedConfigFlags( reset );
+    CHECK( ( generatedFlags & SkullbonezCore::Basics::REPLAY_GENERATED_SCENE_EXACT_SOLVER_COUNTS ) != 0u );
+    CHECK( ( generatedFlags & SkullbonezCore::Basics::REPLAY_GENERATED_SCENE_UI_MODEL_COUNT ) != 0u );
+    CHECK( ( generatedFlags & SkullbonezCore::Basics::REPLAY_GENERATED_SCENE_UI_SOLVER_COUNTS ) != 0u );
+
+    reset.preserveBranchMetadata = true;
+    CHECK_FALSE( ReplayRuntime::SceneTimelineResetClearsBranch( reset ) );
+
+    reset.isSceneMode = true;
+    reset.solverBallCount = 0;
+    reset.solverBoxCount = 0;
+    CHECK_FALSE( ReplayRuntime::SceneTimelineRecordsGeneratedConfig( reset ) );
 }
 
 

@@ -126,26 +126,27 @@ void ApplyReplayQueryPrimaryPathTarget( RunReplayPathVisualizerState& visualizer
 } // namespace
 
 
-bool Run::TryPickReplayPathTargetFromMouse( bool additive, bool clearOnMiss )
+ReplayRuntime::PathPickResult
+ReplayRuntime::TryPickPathTarget( const PathPickInput& input,
+                                  const GameObjects::GameModelCollection& models,
+                                  const PhysicsBodyStore& bodyStore,
+                                  const ColliderStore& colliderStore,
+                                  const std::vector<Rendering::RenderInstancePresentationRecord>& presentationRecords )
 {
+    PathPickResult pickResult;
     // Concept: A path pick converts volatile mouse/model hits into stable
     // ReplayBodyId targets before prediction and retained-path caches observe it.
-    Vector3 rayOrigin;
-    Vector3 rayDirection;
-    if ( !TryBuildMouseWorldRay( rayOrigin, rayDirection ) )
+    if ( !input.hasWorldRay )
     {
-        if ( clearOnMiss )
+        if ( input.clearOnMiss )
         {
-            m_replayRuntime.ClearCameraFocusForRestore();
-            ExitReplayInspectionCamera();
-            m_replayRuntime.ClearPathVisualizerState();
+            ClearCameraFocusForRestore();
+            ClearPathVisualizerState();
+            pickResult.exitInspectionCamera = true;
         }
-        return false;
+        return pickResult;
     }
 
-    const PhysicsBodyStore& bodyStore = m_cGameModelCollection.BodyStore();
-    const ColliderStore& colliderStore = m_cGameModelCollection.Colliders();
-    const auto& presentationRecords = m_cGameModelCollection.RenderPresentationRecords();
     const int modelCount = bodyStore.Count() < colliderStore.Count() ? bodyStore.Count() : colliderStore.Count();
     const auto copyPresentationName = [&]( int modelIndex, char* outName, std::size_t outSize )
     {
@@ -166,7 +167,7 @@ bool Run::TryPickReplayPathTargetFromMouse( bool additive, bool clearOnMiss )
     ReplayBodyId pickedId;
     int pickedIndex = -1;
     char pickedName[64] = {};
-    if ( const ReplaySolverFrameSample* sample = m_replayRuntime.CurrentSolverScrubSample() )
+    if ( const ReplaySolverFrameSample* sample = CurrentSolverScrubSample() )
     {
         float bestT = FLT_MAX;
         for ( const ReplaySolverBodySample& body : sample->bodies )
@@ -177,7 +178,8 @@ bool Run::TryPickReplayPathTargetFromMouse( bool additive, bool clearOnMiss )
                 radius = ReplayQueryColliderRadiusForModelIndex( colliderStore, body.modelIndex ) + 1.0f;
             }
             float rayT = 0.0f;
-            if ( ReplayQueryIntersectRaySphere( rayOrigin, rayDirection, body.position, radius, rayT ) && rayT < bestT )
+            if ( ReplayQueryIntersectRaySphere( input.rayOrigin, input.rayDirection, body.position, radius, rayT ) &&
+                 rayT < bestT )
             {
                 bestT = rayT;
                 pickedId = body.id;
@@ -196,8 +198,8 @@ bool Run::TryPickReplayPathTargetFromMouse( bool additive, bool clearOnMiss )
         request.purpose = RuntimePickPurpose::ReplayPathTarget;
         request.bodyStore = &bodyStore;
         request.colliderStore = &colliderStore;
-        request.rayOrigin = rayOrigin;
-        request.rayDirection = rayDirection;
+        request.rayOrigin = input.rayOrigin;
+        request.rayDirection = input.rayDirection;
 
         RuntimePickResult result;
         if ( RuntimePickService::TryPickModel( request, result ) && result.modelIndex >= 0 &&
@@ -211,7 +213,7 @@ bool Run::TryPickReplayPathTargetFromMouse( bool additive, bool clearOnMiss )
 
     if ( pickedIndex >= 0 && pickedIndex < modelCount )
     {
-        const int collectionIndex = m_cGameModelCollection.RagdollRootModelIndexForPart( pickedIndex );
+        const int collectionIndex = models.RagdollRootModelIndexForPart( pickedIndex );
         if ( collectionIndex >= 0 && collectionIndex < modelCount && collectionIndex != pickedIndex )
         {
             pickedIndex = collectionIndex;
@@ -222,8 +224,8 @@ bool Run::TryPickReplayPathTargetFromMouse( bool additive, bool clearOnMiss )
 
     if ( pickedId.value != 0 )
     {
-        RunReplayPathVisualizerState& visualizer = m_replayRuntime.PathVisualizer();
-        if ( !additive )
+        RunReplayPathVisualizerState& visualizer = PathVisualizer();
+        if ( !input.additive )
         {
             visualizer.targets.clear();
         }
@@ -236,7 +238,7 @@ bool Run::TryPickReplayPathTargetFromMouse( bool additive, bool clearOnMiss )
             // it must not request replay growth while the scene is live.
             if ( visualizer.targets.capacity() < REPLAY_PATH_MAX_ROOT_TARGETS )
             {
-                return false;
+                return pickResult;
             }
             if ( visualizer.targets.size() >= REPLAY_PATH_MAX_ROOT_TARGETS )
             {
@@ -244,7 +246,7 @@ bool Run::TryPickReplayPathTargetFromMouse( bool additive, bool clearOnMiss )
             }
             if ( visualizer.targets.size() >= visualizer.targets.capacity() )
             {
-                return false;
+                return pickResult;
             }
             RunReplayPathTarget nextTarget;
             nextTarget.id = pickedId;
@@ -260,16 +262,17 @@ bool Run::TryPickReplayPathTargetFromMouse( bool additive, bool clearOnMiss )
         }
         ApplyReplayQueryPrimaryPathTarget( visualizer, pickedId, pickedIndex, target->name );
         visualizer.futureNodes.clear();
-        m_replayRuntime.ClearPredictionCache();
-        m_replayRuntime.MarkPredictionDirty();
-        return true;
+        ClearPredictionCache();
+        MarkPredictionDirty();
+        pickResult.picked = true;
+        return pickResult;
     }
 
-    if ( clearOnMiss )
+    if ( input.clearOnMiss )
     {
-        m_replayRuntime.ClearCameraFocusForRestore();
-        ExitReplayInspectionCamera();
-        m_replayRuntime.ClearPathVisualizerState();
+        ClearCameraFocusForRestore();
+        ClearPathVisualizerState();
+        pickResult.exitInspectionCamera = true;
     }
-    return false;
+    return pickResult;
 }

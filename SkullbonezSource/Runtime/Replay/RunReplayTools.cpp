@@ -4583,68 +4583,70 @@ void RenderReplayPathVisualizer( const ReplayPathVisualizerRenderContext& contex
 }
 } // namespace SkullbonezCore::Basics::ReplayOverlay
 
-void Run::RenderReplayPathVisualizer( RunEditorTracer& tracer )
+void ReplayRuntime::RenderPathVisualizer( GameObjects::GameModelCollection& models,
+                                          const EngineConfig& config,
+                                          const Physics::PhysicsWorldForces& worldForces,
+                                          Threading::WorkerPool& workerPool,
+                                          RunEditorTracer& tracer,
+                                          bool scenePhysicsEnabled,
+                                          int currentFrame,
+                                          double frameSeconds,
+                                          double totalSeconds )
 {
     tracer.ClearReplayTrajectoryStats();
-    const auto physicsWorldForces = m_cWorldEnvironment.GetPhysicsWorldForces();
-    // Lifetime: physicsWorldForces is a local value because the overlay context
-    // borrows it by reference for the immediate delegate call.
-    const SkullbonezCore::Basics::ReplayOverlay::ReplayPathVisualizerRenderContext context{
-        m_replayRuntime,
-        m_cGameModelCollection,
-        *m_systems.config,
-        physicsWorldForces,
-        *m_systems.workerPool,
-        tracer,
-        SceneState().isScenePhysics,
-        SceneState().currentFrame,
-        m_timers.simulationTimer.GetTimeSinceLastStart(),
-        m_timers.simulationTimer.GetTotalTime() };
+    const SkullbonezCore::Basics::ReplayOverlay::ReplayPathVisualizerRenderContext context{ *this,
+                                                                                            models,
+                                                                                            config,
+                                                                                            worldForces,
+                                                                                            workerPool,
+                                                                                            tracer,
+                                                                                            scenePhysicsEnabled,
+                                                                                            currentFrame,
+                                                                                            frameSeconds,
+                                                                                            totalSeconds };
     SkullbonezCore::Basics::ReplayOverlay::RenderReplayPathVisualizer( context );
-    m_replayRuntime.RecordReplayTrajectoryFrameStats( tracer.ReplayTrajectoryStats() );
+    RecordReplayTrajectoryFrameStats( tracer.ReplayTrajectoryStats() );
 }
 
 
-void Run::RenderReplayCauseFocusOverlay( RunEditorTracer& tracer )
+void ReplayRuntime::RenderCauseFocusOverlay( GameObjects::GameModelCollection& models, RunEditorTracer& tracer )
 {
-    if ( m_replayRuntime.Camera().focusKind == RunReplayCameraFocusKind::None )
+    if ( Camera().focusKind == RunReplayCameraFocusKind::None )
     {
         return;
     }
 
-    if ( m_replayRuntime.Camera().focusKind == RunReplayCameraFocusKind::Body )
+    if ( Camera().focusKind == RunReplayCameraFocusKind::Body )
     {
-        const PhysicsBodyStore& bodyStore = m_cGameModelCollection.BodyStore();
-        const ColliderStore& colliderStore = m_cGameModelCollection.Colliders();
+        const PhysicsBodyStore& bodyStore = models.BodyStore();
+        const ColliderStore& colliderStore = models.Colliders();
         ModelRowHint focusHint;
-        focusHint.value = m_replayRuntime.Camera().focusModelIndex;
+        focusHint.value = Camera().focusModelIndex;
         int focusedModelIndex = -1;
         if ( TryResolveReplayBodyModelIndex( bodyStore,
-                                             m_replayRuntime.Camera().focusedId,
+                                             Camera().focusedId,
                                              focusHint,
                                              bodyStore.Count(),
                                              focusedModelIndex ) )
         {
-            m_replayRuntime.Camera().focusModelIndex = focusHint.value;
+            Camera().focusModelIndex = focusHint.value;
             TryAddReplayTargetMarkerFromStores( tracer, bodyStore, colliderStore, focusedModelIndex );
             return;
         }
-        m_replayRuntime.Camera().focusModelIndex = focusHint.value;
+        Camera().focusModelIndex = focusHint.value;
     }
 
-    if ( m_replayRuntime.Camera().focusKind == RunReplayCameraFocusKind::Manifold ||
-         m_replayRuntime.Camera().focusKind == RunReplayCameraFocusKind::PredictionContact ||
-         m_replayRuntime.Camera().focusKind == RunReplayCameraFocusKind::PredictionMotion )
+    if ( Camera().focusKind == RunReplayCameraFocusKind::Manifold ||
+         Camera().focusKind == RunReplayCameraFocusKind::PredictionContact ||
+         Camera().focusKind == RunReplayCameraFocusKind::PredictionMotion )
     {
-        if ( m_replayRuntime.Camera().focusKind == RunReplayCameraFocusKind::Manifold )
+        if ( Camera().focusKind == RunReplayCameraFocusKind::Manifold )
         {
-            const ReplaySolverFrameSample* sample = m_replayRuntime.CurrentSolverScrubSample();
+            const ReplaySolverFrameSample* sample = CurrentSolverScrubSample();
             if ( sample )
             {
-                const ReplaySolverBodySample* focusedBody =
-                    FindReplayBodyById( *sample, m_replayRuntime.Camera().focusedId );
-                const ReplaySolverBodySample* counterpartBody =
-                    FindReplayBodyById( *sample, m_replayRuntime.Camera().counterpartId );
+                const ReplaySolverBodySample* focusedBody = FindReplayBodyById( *sample, Camera().focusedId );
+                const ReplaySolverBodySample* counterpartBody = FindReplayBodyById( *sample, Camera().counterpartId );
                 if ( focusedBody )
                 {
                     bool drewContact = false;
@@ -4657,7 +4659,7 @@ void Run::RenderReplayCauseFocusOverlay( RunEditorTracer& tracer )
                         }
                         const int otherModelIndex = ReplayContactOtherModelIndex( contact, focusedBody->modelIndex );
                         const bool terrain = contact.isTerrain || otherModelIndex < 0;
-                        if ( m_replayRuntime.Camera().focusTerrain != terrain )
+                        if ( Camera().focusTerrain != terrain )
                         {
                             continue;
                         }
@@ -4679,32 +4681,30 @@ void Run::RenderReplayCauseFocusOverlay( RunEditorTracer& tracer )
                 }
             }
         }
-        else if ( m_replayRuntime.Camera().focusKind == RunReplayCameraFocusKind::PredictionContact )
+        else if ( Camera().focusKind == RunReplayCameraFocusKind::PredictionContact )
         {
             ReplayFrameIndex focusFrame = 0;
-            int focusedModelIndex = m_replayRuntime.Camera().focusModelIndex;
-            int counterpartModelIndex = m_replayRuntime.Camera().focusCounterpartModelIndex;
+            int focusedModelIndex = Camera().focusModelIndex;
+            int counterpartModelIndex = Camera().focusCounterpartModelIndex;
 
-            const RunReplayCauseTreeState& causeTree = m_replayRuntime.CauseTree();
+            const RunReplayCauseTreeState& causeTree = CauseTree();
             if ( causeTree.selectedRow >= 0 && causeTree.selectedRow < static_cast<int>( causeTree.rows.size() ) )
             {
                 const RunReplayCauseTreeRow& row = causeTree.rows[static_cast<std::size_t>( causeTree.selectedRow )];
                 if ( row.kind == RunReplayCauseTreeRowKind::PredictionContact &&
-                     row.id.value == m_replayRuntime.Camera().focusedId.value )
+                     row.id.value == Camera().focusedId.value )
                 {
                     focusFrame = row.firstFrame;
                     focusedModelIndex = row.modelIndex;
                     counterpartModelIndex = row.counterpartModelIndex;
                 }
             }
-            else if ( m_replayRuntime.Camera().focusContactIndex >= 0 &&
-                      m_replayRuntime.Camera().focusContactIndex <
-                          static_cast<int>( m_replayRuntime.Prediction().futureNodeCache.futureNodes.size() ) )
+            else if ( Camera().focusContactIndex >= 0 &&
+                      Camera().focusContactIndex < static_cast<int>( Prediction().futureNodeCache.futureNodes.size() ) )
             {
                 const RunReplayPathTraceNode& node =
-                    m_replayRuntime.Prediction().futureNodeCache.futureNodes[static_cast<std::size_t>(
-                        m_replayRuntime.Camera().focusContactIndex )];
-                if ( node.id.value == m_replayRuntime.Camera().focusedId.value && node.contactDerived )
+                    Prediction().futureNodeCache.futureNodes[static_cast<std::size_t>( Camera().focusContactIndex )];
+                if ( node.id.value == Camera().focusedId.value && node.contactDerived )
                 {
                     focusFrame = node.firstFrame;
                     focusedModelIndex = node.modelIndex;
@@ -4713,7 +4713,7 @@ void Run::RenderReplayCauseFocusOverlay( RunEditorTracer& tracer )
             }
 
             bool drewPredictionManifold = false;
-            const std::vector<RunReplayPredictionFrame>& frames = m_replayRuntime.ActivePredictionFrames();
+            const std::vector<RunReplayPredictionFrame>& frames = ActivePredictionFrames();
             for ( const RunReplayPredictionFrame& frame : frames )
             {
                 if ( frame.frameIndex != focusFrame )
@@ -4728,12 +4728,10 @@ void Run::RenderReplayCauseFocusOverlay( RunEditorTracer& tracer )
                 // selected.
                 for ( const PhysicsDebugContact& contact : frame.debugContacts )
                 {
-                    const int contactModelA =
-                        ReplayRagdollTorsoModelIndexForPart( m_cGameModelCollection, contact.bodyA );
-                    const int contactModelB =
-                        contact.bodyB >= 0
-                            ? ReplayRagdollTorsoModelIndexForPart( m_cGameModelCollection, contact.bodyB )
-                            : contact.bodyB;
+                    const int contactModelA = ReplayRagdollTorsoModelIndexForPart( models, contact.bodyA );
+                    const int contactModelB = contact.bodyB >= 0
+                                                  ? ReplayRagdollTorsoModelIndexForPart( models, contact.bodyB )
+                                                  : contact.bodyB;
                     const bool selectedPairAB = contactModelA == focusedModelIndex &&
                                                 ( counterpartModelIndex < 0 || contactModelB == counterpartModelIndex );
                     const bool selectedPairBA = contactModelB == focusedModelIndex &&
@@ -4762,25 +4760,13 @@ void Run::RenderReplayCauseFocusOverlay( RunEditorTracer& tracer )
                 return;
             }
         }
-        tracer.AddReplayContactMarker( m_replayRuntime.Camera().targetPoint,
-                                       m_replayRuntime.Camera().targetNormal,
-                                       0.1f,
-                                       0.95f,
-                                       1.0f );
+        tracer.AddReplayContactMarker( Camera().targetPoint, Camera().targetNormal, 0.1f, 0.95f, 1.0f );
         return;
     }
 
-    if ( m_replayRuntime.Camera().focusKind == RunReplayCameraFocusKind::SolverRow )
+    if ( Camera().focusKind == RunReplayCameraFocusKind::SolverRow )
     {
-        tracer.AddReplayContactMarker( m_replayRuntime.Camera().targetPoint,
-                                       m_replayRuntime.Camera().targetNormal,
-                                       0.2f,
-                                       0.85f,
-                                       1.0f );
-        tracer.AddReplayImpulseVector( m_replayRuntime.Camera().targetPoint,
-                                       m_replayRuntime.Camera().impulseVector,
-                                       1.0f,
-                                       0.32f,
-                                       0.12f );
+        tracer.AddReplayContactMarker( Camera().targetPoint, Camera().targetNormal, 0.2f, 0.85f, 1.0f );
+        tracer.AddReplayImpulseVector( Camera().targetPoint, Camera().impulseVector, 1.0f, 0.32f, 0.12f );
     }
 }

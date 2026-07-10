@@ -1,7 +1,7 @@
 # Replay Architecture And Right-Sizing
 
 Date: 2026-07-10
-Status: In progress - 2/6 phases complete
+Status: In progress - 3/6 phases complete
 Impact area: replay runtime, prediction, scrub/restore, replay UI, memory policy,
 Run decomposition
 Owner: replay subsystem
@@ -57,12 +57,18 @@ bounded by purpose, and the replay allocation exception remains narrow.
   redundant CLI synonyms, deleted wire interpretation, and the untyped solver
   iteration callback. Binary v2 is the sole artifact format. The final fast,
   allocation, CPU, replay scrub, v2, interaction, and full gates passed.
-- [ ] **R2 — Move replay workspace behavior out of `Run`.** Move scrubber,
+- [x] **R2 — Move replay workspace behavior out of `Run`.** Move scrubber,
   cause-tree, velocity-edit, prediction-horizon, inspection-camera request,
   and overlay decisions behind replay-owned APIs. Input produces typed replay
   actions; replay returns commands and fixed-capacity draw records. Acceptance:
   `Run.h` exposes no `TickReplay*`, `RenderReplay*`, or replay camera-transition
   business method.
+  Evidence: `Agentic/Reports/replay_r2_workspace_20260710.md` records the typed
+  `TickWorkspace` boundary, replay-owned restore/reset/startup/probe transactions,
+  fixed-capacity overlay production, zero replay business methods on `Run`, and
+  zero Run pointer/backpointer/callback smuggling in replay owner headers. The
+  CPU umbrella, allocation checker, replay scrub, v2 artifact, interaction,
+  physics, DX12 renderer, and full gates passed from the final formatted source.
 - [ ] **R3 — Stabilise the retained-sample and memory model.** Name the durable
   recorded solver sample, presentation sample, prediction prefix, and artifact
   ownership rules. Right-size capacities from measured high-water evidence;

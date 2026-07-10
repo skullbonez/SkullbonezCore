@@ -59,8 +59,41 @@ Vector3 ReplayCauseTreeNormalizeOr( Vector3 value, const Vector3& fallback )
 } // namespace
 
 
-bool Run::TickReplayCauseTreeInput( bool uiBlocksMouse, int wheelDelta )
+bool ReplayRuntime::TickCauseTreeInput( bool uiBlocksMouse,
+                                        int wheelDelta,
+                                        InputRouter& inputRouter,
+                                        RuntimeInteractionController& interaction,
+                                        GameObjects::GameModelCollection& models,
+                                        Environment::CameraCollection* cameras,
+                                        Geometry::Terrain* terrain,
+                                        RunCameraState& camera,
+                                        RunMousePickupState& mousePickup,
+                                        RunCameraMode normalizedCurrentMode,
+                                        RunCameraMode normalizedRestoreMode,
+                                        bool attachedFollow,
+                                        bool directorGrabbed,
+                                        bool editorModeEnabled,
+                                        int screenWidth,
+                                        int screenHeight,
+                                        bool& outEnterInteractive )
 {
+    ReplayRuntime& m_replayRuntime = *this;
+    InputRouter& m_inputRouter = inputRouter;
+    RuntimeInteractionController& m_interaction = interaction;
+    GameObjects::GameModelCollection& m_cGameModelCollection = models;
+    const auto enterInspectionCamera = [&]()
+    { EnterInspectionCamera( cameras, camera, normalizedCurrentMode, m_interaction, m_inputRouter, mousePickup ); };
+    const auto exitInspectionCamera = [&]()
+    {
+        ExitInspectionCamera( cameras,
+                              terrain,
+                              camera,
+                              normalizedRestoreMode,
+                              attachedFollow,
+                              directorGrabbed,
+                              m_interaction,
+                              m_inputRouter );
+    };
     PROFILE_SCOPED( "Frame/Replay/CauseTree/Input" );
     // Concept: Cause-tree input owns the explanatory replay window state while
     // delegating body/sample interpretation to ReplayRuntime queries.
@@ -140,14 +173,15 @@ bool Run::TickReplayCauseTreeInput( bool uiBlocksMouse, int wheelDelta )
             return;
         }
 
-        EnterInteractiveSceneRun();
+        outEnterInteractive = true;
         const bool hadReplayCameraFocus = m_replayRuntime.Camera().focusKind != RunReplayCameraFocusKind::None;
         if ( !m_replayRuntime.Scrubber().liveAdvanceHeld )
         {
             if ( m_replayRuntime.SetLiveAdvanceHeld( true ) && !IsReplayCauseTreeToolOwner( m_interaction.Owner() ) )
             {
-                SetWorldInteractionOwnerAfterInteractionTransition( WorldInteractionOwner::ReplayScrub,
-                                                                    InteractionExitReason::EnterReplay );
+                interaction.SetWorldInteractionOwnerInWorkspace( RuntimeWorkspace::Replay,
+                                                                 WorldInteractionOwner::ReplayScrub,
+                                                                 InteractionExitReason::EnterReplay );
             }
             m_replayRuntime.Camera().ownsSimulationPause = true;
         }
@@ -155,7 +189,7 @@ bool Run::TickReplayCauseTreeInput( bool uiBlocksMouse, int wheelDelta )
         {
             m_replayRuntime.Camera().ownsSimulationPause = false;
         }
-        EnterReplayInspectionCamera();
+        enterInspectionCamera();
 
         m_replayRuntime.Camera().focusKind = focusKind;
         m_replayRuntime.Camera().focusedId = row.id;
@@ -175,34 +209,34 @@ bool Run::TickReplayCauseTreeInput( bool uiBlocksMouse, int wheelDelta )
         m_replayRuntime.CauseTree().focusedId = row.id;
         m_replayRuntime.CauseTree().selectedRow = rowIndex;
 
-        if ( m_systems.cameras )
+        if ( cameras )
         {
-            const Vector3 eye = m_systems.cameras->GetRenderCameraTranslation();
+            const Vector3 eye = cameras->GetRenderCameraTranslation();
             Vector3 direction = ReplayCauseTreeNormalizeOr( eye - targetPosition, Vector3( 0.45f, 0.28f, 0.85f ) );
             direction = ReplayCauseTreeNormalizeOr( direction, Vector3( 0.45f, 0.28f, 0.85f ) );
             const float distance = (std::max)( 12.0f, targetRadius * 5.5f );
             const Vector3 newEye = targetPosition + direction * distance + Vector3( 0.0f, targetRadius * 0.35f, 0.0f );
-            m_systems.cameras->TweenPrimaryToPose( newEye, targetPosition, m_systems.cameras->GetRenderCameraUp() );
-            m_systems.cameras->ResetRelativity();
+            cameras->TweenPrimaryToPose( newEye, targetPosition, cameras->GetRenderCameraUp() );
+            cameras->ResetRelativity();
         }
-        InputController::ResetMouseLook( m_camera );
+        InputController::ResetMouseLook( camera );
         m_inputRouter.RequestCursorVisible( true );
     };
 
-    const int screenW = RuntimeWindowScreenWidth( m_systems, m_config );
-    const int screenH = RuntimeWindowScreenHeight( m_systems, m_config );
+    const int screenW = screenWidth;
+    const int screenH = screenHeight;
     const auto endCauseTreeDragIfReleased = [&]()
     {
         if ( leftReleased &&
              ( m_replayRuntime.CauseTree().draggingWindow || m_replayRuntime.CauseTree().resizingWindow ) )
         {
             m_inputRouter.ReleaseNativeCapture();
-            EndReplayToolGesture( RuntimeInteractionGestureKind::ReplayCauseTreeDrag );
+            m_replayRuntime.EndToolGesture( m_interaction, RuntimeInteractionGestureKind::ReplayCauseTreeDrag );
             m_replayRuntime.CauseTree().draggingWindow = false;
             m_replayRuntime.CauseTree().resizingWindow = false;
         }
     };
-    if ( m_runtimeTools.Editor().editorModeEnabled || screenW <= 0 || screenH <= 0 )
+    if ( editorModeEnabled || screenW <= 0 || screenH <= 0 )
     {
         endCauseTreeDragIfReleased();
         return false;
@@ -236,7 +270,7 @@ bool Run::TickReplayCauseTreeInput( bool uiBlocksMouse, int wheelDelta )
         if ( leftReleased )
         {
             m_inputRouter.ReleaseNativeCapture();
-            EndReplayToolGesture( RuntimeInteractionGestureKind::ReplayCauseTreeDrag );
+            m_replayRuntime.EndToolGesture( m_interaction, RuntimeInteractionGestureKind::ReplayCauseTreeDrag );
             m_replayRuntime.CauseTree().draggingWindow = false;
         }
         return true;
@@ -252,7 +286,7 @@ bool Run::TickReplayCauseTreeInput( bool uiBlocksMouse, int wheelDelta )
         if ( leftReleased )
         {
             m_inputRouter.ReleaseNativeCapture();
-            EndReplayToolGesture( RuntimeInteractionGestureKind::ReplayCauseTreeDrag );
+            m_replayRuntime.EndToolGesture( m_interaction, RuntimeInteractionGestureKind::ReplayCauseTreeDrag );
             m_replayRuntime.CauseTree().resizingWindow = false;
         }
         return true;
@@ -266,8 +300,9 @@ bool Run::TickReplayCauseTreeInput( bool uiBlocksMouse, int wheelDelta )
 
     if ( wheelDelta != 0 )
     {
-        SetWorldInteractionOwnerAfterInteractionTransition( WorldInteractionOwner::ReplayCauseTree,
-                                                            InteractionExitReason::EnterReplay );
+        interaction.SetWorldInteractionOwnerInWorkspace( RuntimeWorkspace::Replay,
+                                                         WorldInteractionOwner::ReplayCauseTree,
+                                                         InteractionExitReason::EnterReplay );
         const float wheelRows = static_cast<float>( wheelDelta ) / 120.0f;
         m_replayRuntime.CauseTree().scrollY -= wheelRows * REPLAY_CAUSE_WINDOW_ROW_HEIGHT * 3.0f;
         ClampReplayCauseWindow( m_replayRuntime.CauseTree(), screenW, screenH );
@@ -276,13 +311,14 @@ bool Run::TickReplayCauseTreeInput( bool uiBlocksMouse, int wheelDelta )
 
     if ( leftPressed && resize.Contains( mouse.x, mouse.y ) )
     {
-        BeginReplayToolGesture( RuntimeInteractionGestureKind::ReplayCauseTreeDrag,
-                                WorldInteractionOwner::ReplayCauseTree,
-                                RuntimePointerButton::Left,
-                                mouse.x,
-                                mouse.y,
-                                -1,
-                                1 );
+        m_replayRuntime.BeginToolGesture( m_interaction,
+                                          RuntimeInteractionGestureKind::ReplayCauseTreeDrag,
+                                          WorldInteractionOwner::ReplayCauseTree,
+                                          RuntimePointerButton::Left,
+                                          mouse.x,
+                                          mouse.y,
+                                          -1,
+                                          1 );
         m_replayRuntime.CauseTree().resizingWindow = true;
         m_replayRuntime.CauseTree().resizeStartMouseX = mouse.x;
         m_replayRuntime.CauseTree().resizeStartMouseY = mouse.y;
@@ -294,13 +330,14 @@ bool Run::TickReplayCauseTreeInput( bool uiBlocksMouse, int wheelDelta )
 
     if ( leftPressed && title.Contains( mouse.x, mouse.y ) )
     {
-        BeginReplayToolGesture( RuntimeInteractionGestureKind::ReplayCauseTreeDrag,
-                                WorldInteractionOwner::ReplayCauseTree,
-                                RuntimePointerButton::Left,
-                                mouse.x,
-                                mouse.y,
-                                -1,
-                                0 );
+        m_replayRuntime.BeginToolGesture( m_interaction,
+                                          RuntimeInteractionGestureKind::ReplayCauseTreeDrag,
+                                          WorldInteractionOwner::ReplayCauseTree,
+                                          RuntimePointerButton::Left,
+                                          mouse.x,
+                                          mouse.y,
+                                          -1,
+                                          0 );
         m_replayRuntime.CauseTree().draggingWindow = true;
         m_replayRuntime.CauseTree().dragOffsetX = mouse.x - m_replayRuntime.CauseTree().x;
         m_replayRuntime.CauseTree().dragOffsetY = mouse.y - m_replayRuntime.CauseTree().y;
@@ -317,8 +354,9 @@ bool Run::TickReplayCauseTreeInput( bool uiBlocksMouse, int wheelDelta )
             m_replayRuntime.CauseTree().hoveredRow = rowIndex;
             if ( leftPressed )
             {
-                SetWorldInteractionOwnerAfterInteractionTransition( WorldInteractionOwner::ReplayCauseTree,
-                                                                    InteractionExitReason::EnterReplay );
+                interaction.SetWorldInteractionOwnerInWorkspace( RuntimeWorkspace::Replay,
+                                                                 WorldInteractionOwner::ReplayCauseTree,
+                                                                 InteractionExitReason::EnterReplay );
                 activateReplayCameraForCauseRow( m_replayRuntime.CauseTree().rows[static_cast<std::size_t>( rowIndex )],
                                                  rowIndex );
             }
@@ -326,7 +364,7 @@ bool Run::TickReplayCauseTreeInput( bool uiBlocksMouse, int wheelDelta )
         else if ( leftPressed )
         {
             m_replayRuntime.ClearCauseTreeFocusSelection();
-            ExitReplayInspectionCamera();
+            exitInspectionCamera();
         }
     }
 

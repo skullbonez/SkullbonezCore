@@ -5,8 +5,8 @@ Purpose:
 
 Mental model:
   This controller handles cold replay commands. It decides which selected
-  timeline track should become live, asks Run-provided restore APIs to mutate
-  the active world, then publishes the scrubber status consistently.
+  timeline track should become live, emits a typed restore request for
+  ReplayRuntime, then publishes the scrubber status consistently.
 
 Glossary:
   Presentation restore: V2 artifact target restore that can create a live
@@ -37,75 +37,82 @@ namespace SkullbonezCore
 {
 namespace Basics
 {
-bool ReplayInteractionController::RestoreScrubberSelectionAsLive( const ReplayLiveRestoreContext& context )
+bool ReplayInteractionController::BuildScrubberRestoreRequest( ReplayRuntime& replayRuntime,
+                                                               double now,
+                                                               ReplayLiveRestoreRequest& outRequest,
+                                                               char* outReason,
+                                                               std::size_t reasonSize )
 {
-    if ( context.outV2Result )
+    outRequest = ReplayLiveRestoreRequest{};
+    outRequest.now = now;
+    if ( replayRuntime.HasLoadedPresentation() && replayRuntime.Scrubber().historicalSamplePaused &&
+         replayRuntime.Scrubber().activeTrack == RunReplayTrack::Presentation )
     {
-        *context.outV2Result = RunReplayV2TargetRestoreResult();
+        replayRuntime.CancelPredictionJob( false );
+        const ReplayPresentationSample* selected = replayRuntime.CurrentScrubSample();
+        if ( selected )
+        {
+            outRequest.kind = ReplayLiveRestoreKind::V2ArtifactTarget;
+            outRequest.requestedFrame = selected->frameIndex;
+            outRequest.makeLiveBranch = true;
+            outRequest.enterInteractive = true;
+            outRequest.messageTrack = RunReplayTrack::Presentation;
+            strncpy_s( outRequest.path, sizeof( outRequest.path ), replayRuntime.LoadedPresentation().path, _TRUNCATE );
+            return true;
+        }
+    }
+    else if ( replayRuntime.Scrubber().historicalSamplePaused &&
+              replayRuntime.Scrubber().activeTrack == RunReplayTrack::Solver )
+    {
+        replayRuntime.CancelPredictionJob( false );
+        if ( const ReplaySolverFrameSample* sample = replayRuntime.CurrentSolverScrubSample() )
+        {
+            outRequest.kind = ReplayLiveRestoreKind::SolverSample;
+            outRequest.solverSample = sample;
+            outRequest.enterInteractive = true;
+            outRequest.messageTrack = RunReplayTrack::Solver;
+            return true;
+        }
     }
 
-    char reason[160] = {};
-    bool restored = false;
-    RunReplayTrack messageTrack = context.replayRuntime.Scrubber().activeTrack;
-    if ( context.replayRuntime.HasLoadedPresentation() && context.replayRuntime.Scrubber().historicalSamplePaused &&
-         context.replayRuntime.Scrubber().activeTrack == RunReplayTrack::Presentation )
+    const char* reason = "no historical replay branch target selected";
+    fprintf( stderr, "[replay] Branch restore failed: %s\n", reason );
+    PublishScrubberRestoreResult( replayRuntime.Scrubber(), now, false, replayRuntime.Scrubber().activeTrack );
+    WriteReason( outReason, reasonSize, reason );
+    return false;
+}
+
+void ReplayInteractionController::CompleteScrubberRestore( ReplayRuntime& replayRuntime,
+                                                           const ReplayLiveRestoreRequest& request,
+                                                           bool restored,
+                                                           const RunReplayV2TargetRestoreResult& v2Result,
+                                                           const char* reason,
+                                                           RunReplayV2TargetRestoreResult* outV2Result,
+                                                           char* outReason,
+                                                           std::size_t reasonSize )
+{
+    const char* safeReason = reason ? reason : "";
+    if ( request.kind == ReplayLiveRestoreKind::V2ArtifactTarget )
     {
-        // Hazard: branch restore mutates live scene state through Run callbacks.
-        // Stop any prediction worker before the restore can replace body/store
-        // authority under the replay preview.
-        context.replayRuntime.CancelPredictionJob( false );
-        if ( context.api.enterInteractiveSceneRun )
+        if ( outV2Result )
         {
-            context.api.enterInteractiveSceneRun( context.api.user );
+            *outV2Result = v2Result;
         }
-        RunReplayV2TargetRestoreResult result;
-        const ReplayPresentationSample* selected = context.replayRuntime.CurrentScrubSample();
-        const ReplayFrameIndex selectedFrame = selected ? selected->frameIndex : 0;
-        restored = selected && context.api.restoreV2ArtifactTargetState &&
-                   context.api.restoreV2ArtifactTargetState( context.api.user,
-                                                             context.replayRuntime.LoadedPresentation().path,
-                                                             selectedFrame,
-                                                             true,
-                                                             result,
-                                                             reason,
-                                                             sizeof( reason ) );
-        if ( context.outV2Result )
-        {
-            *context.outV2Result = result;
-        }
-        messageTrack = RunReplayTrack::Presentation;
         fprintf( stderr,
                  "[replay] V2 file restore %s target_frame=%llu branch_id=%u%s%s\n",
                  restored ? "applied" : "failed",
-                 static_cast<unsigned long long>( selectedFrame ),
-                 restored ? result.branchId : 0,
-                 reason[0] != '\0' ? ": " : "",
-                 reason );
-    }
-    else if ( context.replayRuntime.Scrubber().historicalSamplePaused &&
-              context.replayRuntime.Scrubber().activeTrack == RunReplayTrack::Solver )
-    {
-        // Hazard: solver restore promotes a retained sample into the live
-        // timeline, so no prediction worker may keep publishing the old branch.
-        context.replayRuntime.CancelPredictionJob( false );
-        if ( context.api.enterInteractiveSceneRun )
-        {
-            context.api.enterInteractiveSceneRun( context.api.user );
-        }
-        const ReplaySolverFrameSample* sample = context.replayRuntime.CurrentSolverScrubSample();
-        restored = sample && context.api.restoreSolverSampleAsLive &&
-                   context.api.restoreSolverSampleAsLive( context.api.user, *sample, reason, sizeof( reason ) );
-        messageTrack = RunReplayTrack::Solver;
-        fprintf( stderr,
-                 "[replay] Solver restore %s%s%s\n",
-                 restored ? "applied" : "failed",
-                 reason[0] != '\0' ? ": " : "",
-                 reason );
+                 static_cast<unsigned long long>( request.requestedFrame ),
+                 restored ? v2Result.branchId : 0,
+                 safeReason[0] != '\0' ? ": " : "",
+                 safeReason );
     }
     else
     {
-        sprintf_s( reason, sizeof( reason ), "no historical replay branch target selected" );
-        fprintf( stderr, "[replay] Branch restore failed: %s\n", reason );
+        fprintf( stderr,
+                 "[replay] Solver restore %s%s%s\n",
+                 restored ? "applied" : "failed",
+                 safeReason[0] != '\0' ? ": " : "",
+                 safeReason );
     }
 
     if ( restored )
@@ -113,15 +120,13 @@ bool ReplayInteractionController::RestoreScrubberSelectionAsLive( const ReplayLi
         // Why: a branch restore makes the selected historical frame the new live
         // timeline. Keep the visible scrubber at the live edge instead of
         // leaving it on the parent timeline's old historical position.
-        context.replayRuntime.Scrubber().activeTrack = RunReplayTrack::Solver;
-        context.replayRuntime.Scrubber().historicalSamplePaused = false;
-        context.replayRuntime.Scrubber().branchHovered = false;
-        context.replayRuntime.SetAllTrackPositions( 1.0f );
+        replayRuntime.Scrubber().activeTrack = RunReplayTrack::Solver;
+        replayRuntime.Scrubber().historicalSamplePaused = false;
+        replayRuntime.Scrubber().branchHovered = false;
+        replayRuntime.SetAllTrackPositions( 1.0f );
     }
-
-    PublishScrubberRestoreResult( context.replayRuntime.Scrubber(), context.now, restored, messageTrack );
-    WriteReason( context.outReason, context.reasonSize, reason );
-    return restored;
+    PublishScrubberRestoreResult( replayRuntime.Scrubber(), request.now, restored, request.messageTrack );
+    WriteReason( outReason, reasonSize, safeReason );
 }
 
 

@@ -429,8 +429,43 @@ bool TryReplayVelocityAngularRayAngle( const ReplayVelocityBodyView& body,
 } // namespace
 
 
-bool Run::TickReplayVelocityEditInput( bool uiBlocksMouse )
+bool ReplayRuntime::TickVelocityEditInput( bool uiBlocksMouse,
+                                           const PathPickInput& pointerRay,
+                                           InputRouter& inputRouter,
+                                           RuntimeInteractionController& interaction,
+                                           GameObjects::GameModelCollection& models,
+                                           Environment::CameraCollection* cameras,
+                                           Geometry::Terrain* terrain,
+                                           RunCameraState& camera,
+                                           RunMousePickupState& mousePickup,
+                                           RunCameraMode normalizedCurrentMode,
+                                           RunCameraMode normalizedRestoreMode,
+                                           bool attachedFollow,
+                                           bool directorGrabbed,
+                                           bool editorModeEnabled,
+                                           bool scenePhysicsEnabled,
+                                           int screenWidth,
+                                           int screenHeight,
+                                           double now,
+                                           bool& outEnterInteractive )
 {
+    ReplayRuntime& m_replayRuntime = *this;
+    InputRouter& m_inputRouter = inputRouter;
+    RuntimeInteractionController& m_interaction = interaction;
+    GameObjects::GameModelCollection& m_cGameModelCollection = models;
+    const auto enterInspectionCamera = [&]()
+    { EnterInspectionCamera( cameras, camera, normalizedCurrentMode, m_interaction, m_inputRouter, mousePickup ); };
+    const auto exitInspectionCamera = [&]()
+    {
+        ExitInspectionCamera( cameras,
+                              terrain,
+                              camera,
+                              normalizedRestoreMode,
+                              attachedFollow,
+                              directorGrabbed,
+                              m_interaction,
+                              m_inputRouter );
+    };
     PROFILE_SCOPED( "Frame/Replay/VelocityEdit/Input" );
     ReplayInteractionController replayInteraction;
     const RuntimeMouseEdges& pointer = m_inputRouter.UiSnapshot().mouse;
@@ -440,15 +475,14 @@ bool Run::TickReplayVelocityEditInput( bool uiBlocksMouse )
     const bool leftPressed = inputFrame.leftPressed;
     const bool leftReleased = inputFrame.leftReleased;
 
-    if ( !m_replayRuntime.VelocityEdit().enabled || m_runtimeTools.Editor().editorModeEnabled ||
-         !SceneState().isScenePhysics || RuntimeWindowScreenWidth( m_systems, m_config ) <= 0 ||
-         RuntimeWindowScreenHeight( m_systems, m_config ) <= 0 )
+    if ( !m_replayRuntime.VelocityEdit().enabled || editorModeEnabled || !scenePhysicsEnabled || screenWidth <= 0 ||
+         screenHeight <= 0 )
     {
         const ReplayVelocityEditResetResult resetResult =
             replayInteraction.ResetVelocityEditInteraction( m_replayRuntime, true );
         if ( resetResult.endDragGesture )
         {
-            EndReplayToolGesture( RuntimeInteractionGestureKind::ReplayVelocityDrag );
+            m_replayRuntime.EndToolGesture( m_interaction, RuntimeInteractionGestureKind::ReplayVelocityDrag );
         }
         if ( resetResult.releaseMouseCapture )
         {
@@ -457,16 +491,16 @@ bool Run::TickReplayVelocityEditInput( bool uiBlocksMouse )
         return false;
     }
 
-    Vector3 rayOrigin;
-    Vector3 rayDirection;
-    if ( !TryBuildMouseWorldRay( rayOrigin, rayDirection ) )
+    const Vector3& rayOrigin = pointerRay.rayOrigin;
+    const Vector3& rayDirection = pointerRay.rayDirection;
+    if ( !pointerRay.hasWorldRay )
     {
         if ( m_replayRuntime.VelocityEdit().dragging && ( leftReleased || !leftDown ) )
         {
             const ReplayVelocityEditResetResult resetResult = replayInteraction.EndVelocityEditDrag( m_replayRuntime );
             if ( resetResult.endDragGesture )
             {
-                EndReplayToolGesture( RuntimeInteractionGestureKind::ReplayVelocityDrag );
+                m_replayRuntime.EndToolGesture( m_interaction, RuntimeInteractionGestureKind::ReplayVelocityDrag );
             }
             if ( resetResult.releaseMouseCapture )
             {
@@ -501,7 +535,7 @@ bool Run::TickReplayVelocityEditInput( bool uiBlocksMouse )
             const ReplayVelocityEditResetResult resetResult = replayInteraction.EndVelocityEditDrag( m_replayRuntime );
             if ( resetResult.endDragGesture )
             {
-                EndReplayToolGesture( RuntimeInteractionGestureKind::ReplayVelocityDrag );
+                m_replayRuntime.EndToolGesture( m_interaction, RuntimeInteractionGestureKind::ReplayVelocityDrag );
             }
             if ( resetResult.releaseMouseCapture )
             {
@@ -555,15 +589,15 @@ bool Run::TickReplayVelocityEditInput( bool uiBlocksMouse )
                 std::clamp( component, -REPLAY_VELOCITY_EDIT_LINEAR_MAX, REPLAY_VELOCITY_EDIT_LINEAR_MAX ) );
         }
 
-        replayInteraction.ApplyVelocityEditToBody( ReplayVelocityEditApplyContext{
-            m_replayRuntime,
-            m_cGameModelCollection,
-            body.body,
-            linearVelocity,
-            angularVelocity,
-            REPLAY_VELOCITY_EDIT_LINEAR_MAX,
-            REPLAY_VELOCITY_EDIT_ANGULAR_MAX,
-            m_timers.simulationTimer.GetTotalTime() + REPLAY_SCRUBBER_VISIBLE_SECONDS } );
+        replayInteraction.ApplyVelocityEditToBody(
+            ReplayVelocityEditApplyContext{ m_replayRuntime,
+                                            m_cGameModelCollection,
+                                            body.body,
+                                            linearVelocity,
+                                            angularVelocity,
+                                            REPLAY_VELOCITY_EDIT_LINEAR_MAX,
+                                            REPLAY_VELOCITY_EDIT_ANGULAR_MAX,
+                                            now + REPLAY_SCRUBBER_VISIBLE_SECONDS } );
     };
 
     if ( m_replayRuntime.VelocityEdit().dragging )
@@ -577,7 +611,7 @@ bool Run::TickReplayVelocityEditInput( bool uiBlocksMouse )
             const ReplayVelocityEditResetResult resetResult = replayInteraction.EndVelocityEditDrag( m_replayRuntime );
             if ( resetResult.endDragGesture )
             {
-                EndReplayToolGesture( RuntimeInteractionGestureKind::ReplayVelocityDrag );
+                m_replayRuntime.EndToolGesture( m_interaction, RuntimeInteractionGestureKind::ReplayVelocityDrag );
             }
             if ( resetResult.releaseMouseCapture )
             {
@@ -626,28 +660,30 @@ bool Run::TickReplayVelocityEditInput( bool uiBlocksMouse )
                                                        rayDirection,
                                                        startAngle ) )
                 {
-                    EnterInteractiveSceneRun();
+                    outEnterInteractive = true;
                     if ( m_replayRuntime.SetLiveAdvanceHeld( true ) && !IsReplayToolOwner( m_interaction.Owner() ) )
                     {
-                        SetWorldInteractionOwnerAfterInteractionTransition( WorldInteractionOwner::ReplayScrub,
-                                                                            InteractionExitReason::EnterReplay );
+                        interaction.SetWorldInteractionOwnerInWorkspace( RuntimeWorkspace::Replay,
+                                                                         WorldInteractionOwner::ReplayScrub,
+                                                                         InteractionExitReason::EnterReplay );
                     }
                     if ( m_replayRuntime.ShouldUseInspectionCamera() )
                     {
-                        EnterReplayInspectionCamera();
+                        enterInspectionCamera();
                     }
                     else
                     {
-                        ExitReplayInspectionCamera();
+                        exitInspectionCamera();
                     }
-                    BeginReplayToolGesture( RuntimeInteractionGestureKind::ReplayVelocityDrag,
-                                            WorldInteractionOwner::ReplayVelocityEdit,
-                                            RuntimePointerButton::Left,
-                                            mouse.x,
-                                            mouse.y,
-                                            body.modelIndex,
-                                            m_replayRuntime.VelocityEdit().hotAngularAxis,
-                                            true );
+                    m_replayRuntime.BeginToolGesture( m_interaction,
+                                                      RuntimeInteractionGestureKind::ReplayVelocityDrag,
+                                                      WorldInteractionOwner::ReplayVelocityEdit,
+                                                      RuntimePointerButton::Left,
+                                                      mouse.x,
+                                                      mouse.y,
+                                                      body.modelIndex,
+                                                      m_replayRuntime.VelocityEdit().hotAngularAxis,
+                                                      true );
                     ReplayVelocityEditDragStart dragStart;
                     dragStart.modelIndex = body.modelIndex;
                     dragStart.axis = m_replayRuntime.VelocityEdit().hotAngularAxis;
@@ -674,28 +710,30 @@ bool Run::TickReplayVelocityEditInput( bool uiBlocksMouse )
                                                         rayDirection,
                                                         axisT ) )
                 {
-                    EnterInteractiveSceneRun();
+                    outEnterInteractive = true;
                     if ( m_replayRuntime.SetLiveAdvanceHeld( true ) && !IsReplayToolOwner( m_interaction.Owner() ) )
                     {
-                        SetWorldInteractionOwnerAfterInteractionTransition( WorldInteractionOwner::ReplayScrub,
-                                                                            InteractionExitReason::EnterReplay );
+                        interaction.SetWorldInteractionOwnerInWorkspace( RuntimeWorkspace::Replay,
+                                                                         WorldInteractionOwner::ReplayScrub,
+                                                                         InteractionExitReason::EnterReplay );
                     }
                     if ( m_replayRuntime.ShouldUseInspectionCamera() )
                     {
-                        EnterReplayInspectionCamera();
+                        enterInspectionCamera();
                     }
                     else
                     {
-                        ExitReplayInspectionCamera();
+                        exitInspectionCamera();
                     }
-                    BeginReplayToolGesture( RuntimeInteractionGestureKind::ReplayVelocityDrag,
-                                            WorldInteractionOwner::ReplayVelocityEdit,
-                                            RuntimePointerButton::Left,
-                                            mouse.x,
-                                            mouse.y,
-                                            body.modelIndex,
-                                            m_replayRuntime.VelocityEdit().hotLinearAxis,
-                                            false );
+                    m_replayRuntime.BeginToolGesture( m_interaction,
+                                                      RuntimeInteractionGestureKind::ReplayVelocityDrag,
+                                                      WorldInteractionOwner::ReplayVelocityEdit,
+                                                      RuntimePointerButton::Left,
+                                                      mouse.x,
+                                                      mouse.y,
+                                                      body.modelIndex,
+                                                      m_replayRuntime.VelocityEdit().hotLinearAxis,
+                                                      false );
                     ReplayVelocityEditDragStart dragStart;
                     dragStart.modelIndex = body.modelIndex;
                     dragStart.axis = m_replayRuntime.VelocityEdit().hotLinearAxis;
@@ -718,19 +756,26 @@ bool Run::TickReplayVelocityEditInput( bool uiBlocksMouse )
         // Concept: velocity edit owns replay body targeting. A click on the
         // body itself should select the replay path target for the velocity
         // gizmo, not fall through to normal editor/world selection and clear it.
-        (void)TryPickReplayPathTargetFromMouse( false, false );
+        ReplayRuntime::PathPickInput pickInput;
+        pickInput.hasWorldRay = pointerRay.hasWorldRay;
+        pickInput.rayOrigin = rayOrigin;
+        pickInput.rayDirection = rayDirection;
+        (void)m_replayRuntime.TryPickPathTarget( pickInput,
+                                                 m_cGameModelCollection,
+                                                 m_cGameModelCollection.BodyStore(),
+                                                 m_cGameModelCollection.Colliders(),
+                                                 m_cGameModelCollection.RenderPresentationRecords() );
         if ( m_replayRuntime.PathVisualizer().hasTarget )
         {
-            EnterInteractiveSceneRun();
+            outEnterInteractive = true;
             if ( m_replayRuntime.SetLiveAdvanceHeld( true ) && m_replayRuntime.ShouldUseInspectionCamera() )
             {
-                EnterReplayInspectionCamera();
+                enterInspectionCamera();
             }
-            SetWorldInteractionOwnerAfterInteractionTransition( WorldInteractionOwner::ReplayVelocityEdit,
-                                                                InteractionExitReason::EnterReplay );
-            replayInteraction.SelectVelocityEditTarget(
-                m_replayRuntime,
-                m_timers.simulationTimer.GetTotalTime() + REPLAY_SCRUBBER_VISIBLE_SECONDS );
+            interaction.SetWorldInteractionOwnerInWorkspace( RuntimeWorkspace::Replay,
+                                                             WorldInteractionOwner::ReplayVelocityEdit,
+                                                             InteractionExitReason::EnterReplay );
+            replayInteraction.SelectVelocityEditTarget( m_replayRuntime, now + REPLAY_SCRUBBER_VISIBLE_SECONDS );
         }
         return true;
     }
@@ -739,22 +784,24 @@ bool Run::TickReplayVelocityEditInput( bool uiBlocksMouse )
 }
 
 
-void Run::RenderReplayVelocityEditOverlay( RunEditorTracer& tracer )
+void ReplayRuntime::RenderVelocityEditOverlay( GameObjects::GameModelCollection& models,
+                                               bool editorModeEnabled,
+                                               RunEditorTracer& tracer )
 {
     PROFILE_SCOPED( "Frame/Replay/VelocityEdit/Overlay" );
-    if ( !m_replayRuntime.VelocityEdit().enabled || m_runtimeTools.Editor().editorModeEnabled )
+    if ( !VelocityEdit().enabled || editorModeEnabled )
     {
         return;
     }
 
     ReplayVelocityBodyView body;
-    if ( !m_cGameModelCollection.RepairPhysicsBodyAndColliderTopology() )
+    if ( !models.RepairPhysicsBodyAndColliderTopology() )
     {
         return;
     }
-    PhysicsEngine& velocityPhysics = m_cGameModelCollection.GetPhysicsEngine();
+    PhysicsEngine& velocityPhysics = models.GetPhysicsEngine();
     if ( !TryResolveReplayVelocityBodyView(
-             m_replayRuntime,
+             *this,
              SkullbonezCore::Physics::PhysicsEngineStoreQueries::BodyStore( velocityPhysics ),
              SkullbonezCore::Physics::PhysicsEngineStoreQueries::Colliders( velocityPhysics ),
              body ) ||
@@ -768,8 +815,8 @@ void Run::RenderReplayVelocityEditOverlay( RunEditorTracer& tracer )
                                    body.radius,
                                    body.linearVelocity,
                                    body.angularVelocity,
-                                   m_replayRuntime.VelocityEdit().hotLinearAxis,
-                                   m_replayRuntime.VelocityEdit().hotAngularAxis,
-                                   m_replayRuntime.VelocityEdit().activeAxis,
-                                   m_replayRuntime.VelocityEdit().draggingAngular );
+                                   VelocityEdit().hotLinearAxis,
+                                   VelocityEdit().hotAngularAxis,
+                                   VelocityEdit().activeAxis,
+                                   VelocityEdit().draggingAngular );
 }

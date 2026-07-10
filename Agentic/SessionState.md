@@ -10,9 +10,9 @@ reports, and git history.
 | Field | Value |
 |---|---|
 | Branch | `engine-cleanup-10th-july`, tracking `origin/engine-cleanup-10th-july` |
-| Current pushed baseline | `ac9c4aea fix: reconcile replay owner-action artifacts` |
-| Current objective | Complete ReplayRuntime workspace ownership, then RuntimeRenderer composition ownership |
-| Last broad local gate | `tools\validate_full.bat` passed final DX12 D4-D5 source with zero-warning builds, the mandatory CPU umbrella, DX12 with zero InfoQueue errors/matching screenshots, standalone physics smoke, and byte-exact physics in 49.5s |
+| Current pushed baseline | `824fafaf refactor: delete obsolete replay compatibility paths` |
+| Current objective | Complete RuntimeRenderer composition ownership, then Replay R3 retained-memory ownership |
+| Last broad local gate | `tools\validate_full.bat` passed final Replay R2 source with the CPU umbrella, zero-warning builds, DX12 with zero InfoQueue errors/matching screenshots, standalone physics smoke, and byte-exact physics in 52.3s |
 | Native evidence | Injected heap-use-after-free caught; healthy ASan and five-file `/analyze` passed in 16.185s |
 
 ## Pushed Cleanup Commits
@@ -85,7 +85,18 @@ the solver recorder's `void*` visitor are deleted; binary v2 is the sole saved
 artifact. The first scrub gate exposed terrain contact index `-1` reaching
 ragdoll scene metadata; the replay helper now preserves non-entity sentinels,
 and the complete scrub/prediction gate passes. Final fast, allocation, CPU, v2,
-interaction, replay, and full gates passed. R2 workspace extraction is next.
+interaction, replay, and full gates passed. That source was the R2 starting point.
+
+Replay R2 is complete at 24 files / 24,350 lines. `ReplayRuntime` owns the one
+typed workspace tick, scrub/cause/velocity/prediction and inspection-camera
+decisions, fixed-capacity overlay production, live restore/hash transactions,
+scene timeline reset, startup artifact/probe workflows, and frame-probe
+sequencing. `Run.h` and every `Run*.cpp` expose zero replay business methods;
+replay owner headers retain no Run pointer/reference, `void*`, callback pack, or
+friend backdoor. The added lines are explicit owner code moved out of Run; R4
+owns live-view narrowing and R5 owns size closure. CPU, allocation, replay,
+interaction, physics, DX12, and full gates passed. Detailed evidence is in
+`Agentic/Reports/replay_r2_workspace_20260710.md`.
 
 Scene provenance C1a is complete: parser-owned library/instance/ordered-part
 records retain exact shape sources, hierarchy transforms use rotated offsets
@@ -134,10 +145,11 @@ corrected fixture recreates fresh owners and passes 444 stable-id comparisons;
 the follow-up review is clean. Parser, CPU, allocation, physics, performance,
 and full gates pass from the final source.
 
-## Ten Workstreams To Prioritize
+## Workstreams To Prioritize
 
-1. Move replay workspace decisions, tools, and overlays behind `ReplayRuntime`.
-2. Move render composition, bindings, and overlay views behind `RuntimeRenderer`.
+1. Move render composition, bindings, and overlay views behind `RuntimeRenderer`.
+2. Stabilise replay retained-sample/memory ownership in R3, then narrow live
+   owner access in R4 and close replay tests/size in R5.
 3. Close the dependent B1f scene/input seam and promote `SceneController` to
    own real load/reset/save lifecycle and delete `Run` scene callbacks.
 4. Finish physics stable-identity D1-D4 and the remaining interaction/UI work.

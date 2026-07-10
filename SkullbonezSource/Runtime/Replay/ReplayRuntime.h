@@ -4,9 +4,9 @@ Purpose:
   Owns replay recorders and branch state for the runtime replay subsystem.
 
 Mental model:
-  ReplayRuntime is the compatibility boundary while replay behavior moves out
-  of Run. Existing Run methods can still reach the legacy recorders through
-  explicit accessors, but ownership now belongs to the replay subsystem.
+  ReplayRuntime owns replay timelines and workspace behavior. The application
+  shell supplies frame-scoped live-owner views and sequences the result; it does
+  not implement scrub, restore, prediction, camera, overlay, or probe decisions.
 
 Glossary:
   Presentation track: Render-facing replay samples used for visual scrubbing.
@@ -54,6 +54,8 @@ Related:
 #include "ReplayRecorder.h"
 #include "TrajectoryStore.h"
 #include "../RuntimeCameraMode.h"
+#include "../RuntimeInteractionController.h"
+#include "../RunReplayProbeState.h"
 #include "../../Core/MainMemoryStats.h"
 #include "../../Core/Common.h"
 #include "../../Maths/Quaternion.h"
@@ -75,6 +77,17 @@ namespace GameObjects
 class GameModelCollection;
 } // namespace GameObjects
 
+namespace Environment
+{
+class CameraCollection;
+class WorldEnvironment;
+} // namespace Environment
+
+namespace Geometry
+{
+class Terrain;
+} // namespace Geometry
+
 namespace Physics
 {
 class ColliderStore;
@@ -85,10 +98,25 @@ class PhysicsBodyStore;
 namespace Threading
 {
 class AmortizedTask;
+class WorkerPool;
 } // namespace Threading
 
 namespace Basics
 {
+class EngineConfig;
+class InputRouter;
+class RunEditorTracer;
+class RuntimeTools;
+class SceneController;
+class DiagnosticsRuntime;
+class SimulationSystem;
+enum class GeneratedObjectTypeOverride;
+struct RunCameraState;
+struct RunDebugState;
+struct RunMousePickupState;
+struct RunRuntimeSettings;
+struct RunSceneState;
+struct RunSubsystemState;
 struct ReplayV2SaveResult;
 
 inline constexpr std::size_t REPLAY_PREDICTION_GHOST_MAX_FRAMES = 24;
@@ -102,6 +130,11 @@ inline constexpr std::size_t REPLAY_PATH_MAX_ROOT_TARGETS = 100u;
 inline constexpr std::size_t REPLAY_CAUSE_TREE_CONTACT_CAPACITY = static_cast<std::size_t>( MAX_GAME_MODELS ) * 4u;
 inline constexpr std::size_t REPLAY_CAUSE_TREE_ROW_CAPACITY =
     1u + static_cast<std::size_t>( MAX_GAME_MODELS ) + REPLAY_CAUSE_TREE_CONTACT_CAPACITY * 3u;
+inline constexpr uint32_t REPLAY_GENERATED_SCENE_EXACT_SOLVER_COUNTS = 1u;
+inline constexpr uint32_t REPLAY_GENERATED_SCENE_UI_MODEL_COUNT = 2u;
+inline constexpr uint32_t REPLAY_GENERATED_SCENE_UI_SOLVER_COUNTS = 4u;
+inline constexpr uint32_t REPLAY_GENERATED_SCENE_OVERRIDE_SHIFT = 8u;
+inline constexpr uint32_t REPLAY_GENERATED_SCENE_OVERRIDE_MASK = 3u << REPLAY_GENERATED_SCENE_OVERRIDE_SHIFT;
 
 enum class RunReplayTrack
 {
@@ -777,11 +810,107 @@ struct RunReplayV2TargetRestoreResult
     uint64_t presentationHash = 0;
     bool generatedTopologyRebuilt = false;
     bool madeLiveBranch = false;
+    bool enterInteractiveRequested = false;
+};
+
+enum class ReplayLiveRestoreKind : uint8_t
+{
+    None,
+    V2ArtifactTarget,
+    SolverSample
+};
+
+struct ReplayLiveRestoreRequest
+{
+    ReplayLiveRestoreKind kind = ReplayLiveRestoreKind::None;
+    const ReplaySolverFrameSample* solverSample = nullptr;            // Borrowed until the workspace command is applied this frame.
+    ReplayFrameIndex requestedFrame = 0;
+    bool makeLiveBranch = false;
+    bool enterInteractive = false;
+    RunReplayTrack messageTrack = RunReplayTrack::Solver;
+    double now = 0.0;
+    char path[260] = {};
 };
 
 class ReplayRuntime
 {
   public:
+    struct PathPickInput
+    {
+        Math::Vector::Vector3 rayOrigin = Math::Vector::ZERO_VECTOR;
+        Math::Vector::Vector3 rayDirection = Math::Vector::ZERO_VECTOR;
+        bool hasWorldRay = false;
+        bool additive = false;
+        bool clearOnMiss = false;
+    };
+
+    struct PathPickResult
+    {
+        bool picked = false;
+        bool exitInspectionCamera = false;
+    };
+
+    // Concept: one borrowed, frame-scoped replay workspace view replaces the
+    // three callback packs formerly threaded through Run's UI command helper.
+    // Every reference belongs to a replay interaction, camera, or live-body
+    // operation; ReplayRuntime never stores this view beyond TickWorkspace.
+    struct ReplayWorkspaceInput
+    {
+        HWND window = nullptr;
+        bool uiBlocksMouse = false;
+        int wheelDelta = 0;
+        PathPickInput pointerRay;
+        InputRouter& inputRouter;
+        RuntimeInteractionController& interaction;
+        GameObjects::GameModelCollection& models;
+        Environment::CameraCollection* cameras = nullptr;
+        Geometry::Terrain* terrain = nullptr;
+        RunCameraState& camera;
+        RunMousePickupState& mousePickup;
+        RunCameraMode normalizedCurrentMode = RunCameraMode::Demo;
+        RunCameraMode normalizedRestoreMode = RunCameraMode::Demo;
+        bool attachedFollow = false;
+        bool directorGrabbed = false;
+        bool editorModeEnabled = false;
+        bool scenePhysicsEnabled = false;
+        bool uiVisible = false;
+        bool uiMinimized = false;
+        int screenWidth = 0;
+        int screenHeight = 0;
+        double now = 0.0;
+    };
+
+    struct ReplayWorkspaceOutput
+    {
+        ReplayLiveRestoreRequest restoreRequest;
+        bool consumesMouse = false;
+        bool enterInteractive = false;
+    };
+
+    struct ReplayLiveRestoreOutcome
+    {
+        bool requested = false;
+        bool restored = false;
+        bool enterInteractive = false;
+    };
+
+    struct ReplayStartupRequest
+    {
+        const char* loadPath = nullptr;
+        bool loadProbe = false;
+#ifdef _DEBUG
+        const char* checkpointProbePath = nullptr;
+        const char* targetProbePath = nullptr;
+        const char* branchProbePath = nullptr;
+        const char* failureProbePath = nullptr;
+#endif
+    };
+
+    struct ReplayStartupResult
+    {
+        SbResult status = SbResult::Success();
+        bool skipExecute = false;
+    };
     struct RecordingConfigResult
     {
         ReplayRecorderConfig presentationConfig;
@@ -809,12 +938,74 @@ class ReplayRuntime
         bool hasUiSolverCountOverride = false;
     };
 
-    // Run still owns process/UI side effects such as leaving inspection camera;
-    // the replay command reports those actions instead of calling back into Run.
+    static bool SceneTimelineResetClearsBranch( const SceneTimelineResetInput& input )
+    {
+        return !input.preserveBranchMetadata;
+    }
+
+    static bool SceneTimelineRecordsGeneratedConfig( const SceneTimelineResetInput& input )
+    {
+        return !( input.isSceneMode && input.solverBallCount <= 0 && input.solverBoxCount <= 0 );
+    }
+
+    static uint32_t SceneTimelineGeneratedConfigFlags( const SceneTimelineResetInput& input )
+    {
+        uint32_t flags = 0;
+        flags |=
+            ( input.solverBallCount > 0 || input.solverBoxCount > 0 ) ? REPLAY_GENERATED_SCENE_EXACT_SOLVER_COUNTS : 0u;
+        flags |= input.hasUiModelCountOverride ? REPLAY_GENERATED_SCENE_UI_MODEL_COUNT : 0u;
+        flags |= input.hasUiSolverCountOverride ? REPLAY_GENERATED_SCENE_UI_SOLVER_COUNTS : 0u;
+        flags |= ( input.generatedObjectTypeOverride << REPLAY_GENERATED_SCENE_OVERRIDE_SHIFT ) &
+                 REPLAY_GENERATED_SCENE_OVERRIDE_MASK;
+        return flags;
+    }
+
+    // The two-phase reset result exposes camera cleanup facts to focused replay
+    // tests; ResetSceneTimeline applies those facts through borrowed camera/input
+    // owners without calling back into the application shell.
     struct SceneTimelineResetResult
     {
         bool exitInspectionCamera = false;
         bool timelineStarted = false;
+    };
+
+    struct SceneTimelineResetOwners
+    {
+        InputRouter& inputRouter;
+        RuntimeInteractionController& interaction;
+        Environment::CameraCollection* cameras = nullptr;
+        Geometry::Terrain* terrain = nullptr;
+        RunCameraState& camera;
+        RunCameraMode normalizedRestoreMode = RunCameraMode::Demo;
+        bool attachedFollow = false;
+        bool directorGrabbed = false;
+    };
+
+    // Lifetime: a cold restore borrows these owners only for the duration of
+    // one transaction. R4 replaces the model collection with narrow body,
+    // collider, render, and scene views; R2 centralizes ordering and rollback
+    // here first so Run no longer decides replay business behavior.
+    struct ReplayLiveWorld
+    {
+        GameObjects::GameModelCollection& models;
+        Environment::WorldEnvironment& world;
+        RunSceneState& scene;
+        RunRuntimeSettings& runtimeSettings;
+        RunDebugState& debug;
+        Environment::CameraCollection* cameras = nullptr;
+        RuntimeTools& runtimeTools;
+        SceneController& sceneController;
+        SimulationSystem& simulation;
+        const EngineConfig& config;
+        RunSubsystemState& systems;
+        GeneratedObjectTypeOverride& generatedObjectTypeOverride;
+        int gameModelCapacity = 0;
+        DiagnosticsRuntime& diagnostics;
+        RunMousePickupState& mousePickup;
+        RunCameraMode normalizedCurrentMode = RunCameraMode::Demo;
+        double now = 0.0;
+        SceneTimelineResetInput timelineReset;
+        SceneTimelineResetOwners timelineOwners;
     };
 
     // Concept: replay interaction ticks receive InputRouter-owned pointer edges;
@@ -929,6 +1120,55 @@ class ReplayRuntime
     void ResetTimeline( const char* sceneLabel );
     SceneTimelineResetResult BeginSceneTimelineReset( const SceneTimelineResetInput& input );
     SceneTimelineResetResult FinishSceneTimelineReset( const SceneTimelineResetInput& input );
+    static SceneTimelineResetInput DescribeSceneTimeline( const SceneController& sceneController,
+                                                          const RunSceneState& scene,
+                                                          int gameModelCapacity,
+                                                          uint32_t generatedObjectTypeOverride );
+    void ResetSceneTimeline( const SceneTimelineResetInput& input, const SceneTimelineResetOwners& owners );
+    bool ApplySolverSampleState( const ReplayLiveWorld& liveWorld,
+                                 const ReplaySolverFrameSample& sample,
+                                 char* outReason,
+                                 std::size_t reasonSize );
+    bool CaptureCurrentSolverHash( const ReplayLiveWorld& liveWorld,
+                                   const ReplaySolverFrameSample& reference,
+                                   uint64_t& outSolverHash,
+                                   uint64_t& outPresentationHash,
+                                   std::size_t& outBodyCount );
+    bool RestoreSolverSampleAsLive( const ReplayLiveWorld& liveWorld,
+                                    const ReplaySolverFrameSample& sample,
+                                    char* outReason,
+                                    std::size_t reasonSize );
+    bool RestoreV2ArtifactTargetState( const ReplayLiveWorld& liveWorld,
+                                       const char* path,
+                                       ReplayFrameIndex requestedFrame,
+                                       bool makeLiveBranch,
+                                       RunReplayV2TargetRestoreResult& outResult,
+                                       char* outReason,
+                                       std::size_t reasonSize );
+    ReplayLiveRestoreOutcome ApplyLiveRestoreRequest( const ReplayLiveWorld& liveWorld,
+                                                      const ReplayLiveRestoreRequest& request );
+#ifdef _DEBUG
+    struct ReplayProbeTickResult
+    {
+        SbResult status = SbResult::Success();
+        bool enterInteractive = false;
+    };
+    RunReplayProbeState& Probes();
+    const RunReplayProbeState& Probes() const;
+    ReplayProbeTickResult TickProbes( const ReplayLiveWorld& liveWorld );
+
+  private:
+    SbResult TickScrubProbe( const ReplayLiveWorld& liveWorld );
+    SbResult TickRestoreProbe( const ReplayLiveWorld& liveWorld );
+    SbResult TickSaveProbe( const ReplayLiveWorld& liveWorld, bool& outEnterInteractive );
+    SbResult VerifyLoadedPresentationProbe( const ReplayLiveWorld& liveWorld, float normalized );
+    SbResult VerifySolverCheckpointFileProbe( const ReplayLiveWorld& liveWorld, const char* path );
+    SbResult VerifySolverTargetFileProbe( const ReplayLiveWorld& liveWorld, const char* path );
+    SbResult VerifySolverBranchFileProbe( const ReplayLiveWorld& liveWorld, const char* path );
+    SbResult VerifySolverFailureFileProbe( const ReplayLiveWorld& liveWorld, const char* path );
+
+  public:
+#endif
     bool IsPresentationEnabled() const;
     bool IsCaptureEnabled() const;
     ReplayRecorderStats PresentationStats() const;
@@ -1031,6 +1271,134 @@ class ReplayRuntime
     // Owns scrubber save path sequencing and status publication so Run does not
     // retain a behavior-free import/export forwarding module.
     bool SavePresentationFromScrubber( double now );
+    bool LoadPresentationArtifact( const char* path,
+                                   bool activateScrubber,
+                                   double now,
+                                   InputRouter& inputRouter,
+                                   RuntimeInteractionController& interaction,
+                                   Environment::CameraCollection* cameras,
+                                   Geometry::Terrain* terrain,
+                                   RunCameraState& camera,
+                                   RunMousePickupState& mousePickup,
+                                   RunCameraMode normalizedCurrentMode,
+                                   RunCameraMode normalizedRestoreMode,
+                                   bool attachedFollow,
+                                   bool directorGrabbed );
+    void TickWorkspace( const ReplayWorkspaceInput& input, ReplayWorkspaceOutput& output );
+    void ConfigureStartupWorkflows( const ReplayStartupRequest& request );
+    ReplayStartupResult RunStartupWorkflows( const ReplayLiveWorld& liveWorld );
+    // Emits replay-owned fixed-capacity tracer records; Run/RuntimeRenderer
+    // only sequence the completed record buffer into render submission.
+    void RenderPathVisualizer( GameObjects::GameModelCollection& models,
+                               const EngineConfig& config,
+                               const Physics::PhysicsWorldForces& worldForces,
+                               Threading::WorkerPool& workerPool,
+                               RunEditorTracer& tracer,
+                               bool scenePhysicsEnabled,
+                               int currentFrame,
+                               double frameSeconds,
+                               double totalSeconds );
+    void RenderCauseFocusOverlay( GameObjects::GameModelCollection& models, RunEditorTracer& tracer );
+    void RenderVelocityEditOverlay( GameObjects::GameModelCollection& models,
+                                    bool editorModeEnabled,
+                                    RunEditorTracer& tracer );
+    PathPickResult TryPickPathTarget( const PathPickInput& input,
+                                      const GameObjects::GameModelCollection& models,
+                                      const Physics::PhysicsBodyStore& bodyStore,
+                                      const Physics::ColliderStore& colliderStore,
+                                      const std::vector<Rendering::RenderInstancePresentationRecord>& presentation );
+    bool SetPathTarget( const char* name, int modelIndex, const Physics::PhysicsBodyStore& bodyStore );
+    void BeginToolGesture( RuntimeInteractionController& interaction,
+                           RuntimeInteractionGestureKind kind,
+                           WorldInteractionOwner owner,
+                           RuntimePointerButton button,
+                           int startX,
+                           int startY,
+                           int modelIndex = -1,
+                           int axis = -1,
+                           bool angular = false );
+    void EndToolGesture( RuntimeInteractionController& interaction, RuntimeInteractionGestureKind kind );
+    void CancelToolGesture( RuntimeInteractionController& interaction );
+    void CancelToolDragState( RuntimeInteractionController& interaction, InputRouter& inputRouter );
+    bool HasActiveInteractionState() const;
+    // Clears replay-owned transient state and reports whether the camera owner
+    // must execute an inspection-camera exit after the state transition.
+    bool ClearInteractionForRuntimeTransition( RuntimeInteractionController& interaction, InputRouter& inputRouter );
+
+  private:
+    bool TickCauseTreeInput( bool uiBlocksMouse,
+                             int wheelDelta,
+                             InputRouter& inputRouter,
+                             RuntimeInteractionController& interaction,
+                             GameObjects::GameModelCollection& models,
+                             Environment::CameraCollection* cameras,
+                             Geometry::Terrain* terrain,
+                             RunCameraState& camera,
+                             RunMousePickupState& mousePickup,
+                             RunCameraMode normalizedCurrentMode,
+                             RunCameraMode normalizedRestoreMode,
+                             bool attachedFollow,
+                             bool directorGrabbed,
+                             bool editorModeEnabled,
+                             int screenWidth,
+                             int screenHeight,
+                             bool& outEnterInteractive );
+    bool TickVelocityEditInput( bool uiBlocksMouse,
+                                const PathPickInput& pointerRay,
+                                InputRouter& inputRouter,
+                                RuntimeInteractionController& interaction,
+                                GameObjects::GameModelCollection& models,
+                                Environment::CameraCollection* cameras,
+                                Geometry::Terrain* terrain,
+                                RunCameraState& camera,
+                                RunMousePickupState& mousePickup,
+                                RunCameraMode normalizedCurrentMode,
+                                RunCameraMode normalizedRestoreMode,
+                                bool attachedFollow,
+                                bool directorGrabbed,
+                                bool editorModeEnabled,
+                                bool scenePhysicsEnabled,
+                                int screenWidth,
+                                int screenHeight,
+                                double now,
+                                bool& outEnterInteractive );
+    bool TickScrubberInput( HWND hwnd,
+                            bool uiBlocksMouse,
+                            InputRouter& inputRouter,
+                            RuntimeInteractionController& interaction,
+                            Environment::CameraCollection* cameras,
+                            Geometry::Terrain* terrain,
+                            RunCameraState& camera,
+                            RunMousePickupState& mousePickup,
+                            RunCameraMode normalizedCurrentMode,
+                            RunCameraMode normalizedRestoreMode,
+                            bool attachedFollow,
+                            bool directorGrabbed,
+                            bool editorModeEnabled,
+                            bool scenePhysicsEnabled,
+                            bool uiVisible,
+                            bool uiMinimized,
+                            int screenWidth,
+                            int screenHeight,
+                            double now,
+                            bool& outEnterInteractive,
+                            ReplayLiveRestoreRequest& outRestoreRequest );
+
+  public:
+    void EnterInspectionCamera( Environment::CameraCollection* cameras,
+                                RunCameraState& camera,
+                                RunCameraMode normalizedCurrentMode,
+                                RuntimeInteractionController& interaction,
+                                InputRouter& inputRouter,
+                                RunMousePickupState& mousePickup );
+    void ExitInspectionCamera( Environment::CameraCollection* cameras,
+                               Geometry::Terrain* terrain,
+                               RunCameraState& camera,
+                               RunCameraMode normalizedRestoreMode,
+                               bool attachedFollow,
+                               bool directorGrabbed,
+                               RuntimeInteractionController& interaction,
+                               InputRouter& inputRouter );
 
   private:
     void ReportLatestCaptureMismatch();
@@ -1041,6 +1409,20 @@ class ReplayRuntime
     ReplayEventRecorder m_events;                                     // Bounded intent/event stream kept beside v2 replay tracks.
     ReplayBranchInfo m_branch;                                        // Current live replay branch provenance.
     ReplayMemoryPolicy m_memoryPolicy;                                // Resolved recorder-window policy owned by ReplayRuntime.
+    struct StartupWorkflowState
+    {
+        char loadPath[260] = {};
+        bool loadProbe = false;
+#ifdef _DEBUG
+        char checkpointProbePath[260] = {};
+        char targetProbePath[260] = {};
+        char branchProbePath[260] = {};
+        char failureProbePath[260] = {};
+#endif
+    } m_startupWorkflows;
+#ifdef _DEBUG
+    RunReplayProbeState m_probes;                                     // CLI-only replay validation state owned with the workflows it drives.
+#endif
     RunLoadedReplayPresentationState m_loadedPresentation;
     RunReplayScrubberState m_scrubber;
     RunReplayCameraState m_camera;
