@@ -26,9 +26,14 @@ Invariants:
   - Lifecycle methods are valid only on the thread/path that owns renderer
     startup and shutdown.
   - Finish/FlushGPU must complete submitted GPU work before resources they may
-    reference are destroyed.
-  - Init, Present, and Resize return Lane R results for environment failures;
-    callers decide whether to show UI, write logs, or end the message loop.
+    reference are destroyed. Both report recording, submission-drain, or reopen
+    failures so callers cannot continue into unsafe resource mutation.
+  - Shutdown is terminal: it must prove command-queue and present-queue drains
+    before releasing resources, and uses Lane F when that proof cannot return
+    safely to a caller.
+  - Init, Present, Finish, FlushGPU, and Resize return Lane R results for
+    environment failures; callers decide whether to show UI, write logs, or end
+    the message loop.
   - Width and height describe the active backend surface after initialization or
     resize.
 
@@ -57,8 +62,8 @@ class IRenderDeviceLifecycle
     virtual Basics::SbResult Present() = 0;
     virtual void SetVsyncEnabled( bool enabled ) = 0;
     virtual bool IsVsyncEnabled() const = 0;
-    virtual void Finish() = 0;
-    virtual void FlushGPU() = 0;
+    virtual Basics::SbResult Finish() = 0;
+    virtual Basics::SbResult FlushGPU() = 0;
     virtual Basics::SbResult Resize( int width, int height ) = 0;
     virtual int GetWidth() const = 0;
     virtual int GetHeight() const = 0;

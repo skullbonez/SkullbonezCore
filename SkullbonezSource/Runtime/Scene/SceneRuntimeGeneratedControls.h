@@ -13,11 +13,14 @@ Glossary:
   Generated UI command: One-frame Scene/Run tab request for generated object
     counts.
   Rebuild action: Returned flags for caller-owned replay/profiler cleanup.
+  Action status: Lane R result that blocks all rebuild mutations when the GPU
+    drain cannot prove old resource use complete.
   Model capacity: Active object capacity limit.
 
 Invariants:
   - Helpers mutate generated scene/model state only through the context.
-  - Returned actions describe caller-owned follow-up work and must be honored.
+  - Generated model/resource mutation starts only after a successful GPU drain.
+  - Returned status and follow-up flags must be honored by every caller.
 
 Related:
   - SkullbonezSource/Runtime/Scene/SceneGeneratedSetup.h
@@ -29,6 +32,7 @@ Related:
 #include "SceneControllerState.h"
 #include "SceneGeneratedSetup.h"
 #include "../RunCameraState.h"
+#include "../../Core/SbResult.h"
 
 namespace SkullbonezCore
 {
@@ -73,6 +77,9 @@ struct SceneRuntimeGeneratedControlContext
 
 struct SceneRuntimeGeneratedControlAction
 {
+    // Lane R: callers must terminate the current command/frame when a GPU
+    // drain failed; no generated model/resource mutation has occurred.
+    SbResult status = SbResult::Success();
     bool resetReplayTimeline = false;
     bool scheduleProfileReset = false;
 };

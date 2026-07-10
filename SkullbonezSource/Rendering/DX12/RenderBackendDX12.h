@@ -10,6 +10,10 @@ Mental model:
   glossary/invariants below.
 
 Glossary:
+  Recording epoch: Logical open/closed state of the reusable command list,
+  advanced only by successful Close or Reset operations.
+  Sticky failure: First active command-path error retained until device
+  initialization resets the epoch.
   BLAS (Bottom-Level Acceleration Structure): Raytracing spatial index for one
   mesh's triangles.
   TLAS (Top-Level Acceleration Structure): Raytracing spatial index for scene
@@ -38,6 +42,8 @@ Glossary:
 Invariants:
   - DX12 object lifetime, resource states, descriptor rows, and fence ordering
   must stay explicit.
+  - Recording failure prevents further command emission and allocator/upload
+    reuse; only successful device initialization clears it.
 
 Related:
   - SkullbonezSource/Rendering/DX12/RenderBackendDX12.cpp
@@ -54,6 +60,7 @@ Related:
 #include "../IRenderResourceFactory.h"
 #include "../IRenderRayTracing.h"
 #include "../RenderRasterBindingContract.h"
+#include "RenderBackendDX12.CommandRecordingState.h"
 #include "RenderGraphTransientDX12.h"
 #include "RenderDeviceDX12.h"
 #include "MeshDX12.h"
@@ -282,7 +289,14 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
         uint32_t hash = 0;
     };
 
-    bool m_commandListOpen = false;
+    // Invariant: only successful Close/Reset operations change this epoch. A
+    // sticky failure makes every later recording entry point a no-op until a
+    // new device initialization establishes a fresh command-list lifetime.
+    Dx12CommandRecordingState m_commandRecording;
+    // Submission completion is separate from recording state: a closed list
+    // may already be executing without a covering fence. This value blocks
+    // allocator/resource reuse until a real fence proves completion.
+    Dx12SubmittedWorkState m_submittedWork;
     int m_platformProfilerGpuDepth = 0;                            // Nesting depth guard for platform GPU marker begin/end balance.
     std::array<PlatformProfilerGpuScopeDX12, PLATFORM_PROFILER_GPU_SCOPE_STACK_MAX> m_platformProfilerGpuStack = {};
 
@@ -351,6 +365,12 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     // persistent CPU Map() pointers, and the arena reset policy tied to the
     // frame fence.
     Dx12FrameUploadSystem m_uploadSystem;
+
+    // Lifetime: an uncertain screenshot submission cannot release its readback
+    // buffer. Keep the bounded COM references until terminal shutdown proves a
+    // full queue drain; a failed terminal drain stops before Release.
+    std::array<ID3D12Resource*, FRAME_COUNT> m_uncertainReadbackResources = {};
+    size_t m_uncertainReadbackResourceCount = 0;
 
     ID3D12RootSignature* m_rootSignature = nullptr;
     int m_width = 0;
@@ -450,7 +470,8 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
 
     // --- Internal helpers ---
     Basics::SbResult WaitForGpu();
-    void EnsureCommandListOpen();
+    Basics::SbResult EnsureCommandListOpen();
+    void SubmitClosedCommandList();
     void AssignDeferredResourceReleaseFence( UINT64 fenceValue );
     void ReleaseCompletedDeferredResources( bool releaseUnfenced );
     void TryConsumeGpuTimerReadback( bool waitForFence );
@@ -465,8 +486,8 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     // Keeps cached texture-slot state from pointing at an SRV descriptor row
     // whose owning resource is being deleted or unregistered.
     void ClearBoundTextureSlotsForSrv( UINT srvIndex );
-    void FlushUploadBuffer();
-    void FlushUploadBufferIfNeeded( UINT64 size, UINT64 alignment );
+    Basics::SbResult FlushUploadBuffer();
+    Basics::SbResult FlushUploadBufferIfNeeded( UINT64 size, UINT64 alignment );
     D3D12_GPU_VIRTUAL_ADDRESS SubAllocateUpload( UINT64 size, UINT64 alignment );
     void ReportArchitectureStats( const char* reason ) const;
     GraphTransientResourceDX12* FindGraphTransientSlot( RenderGraphResourceHandle resource );
@@ -482,7 +503,7 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     Basics::SbResult CreateRTPipeline();
     Basics::SbResult CreateReflectionUAV( int width, int height );
     Basics::SbResult InitGenMipsPipeline();
-    void GenerateMipsGPU( ID3D12Resource* tex, DXGI_FORMAT fmt, UINT w, UINT h, UINT numMips );
+    bool GenerateMipsGPU( ID3D12Resource* tex, DXGI_FORMAT fmt, UINT w, UINT h, UINT numMips );
     void AssertPlatformProfilerGpuStackClosed( const char* reason ) const;
     int SuspendPlatformProfilerGpuStackForSubmit( const char* reason );
     void RestorePlatformProfilerGpuStackAfterSubmit( int suspendedDepth );
@@ -504,8 +525,8 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     Basics::SbResult Present() override;
     void SetVsyncEnabled( bool enabled ) override;
     bool IsVsyncEnabled() const override;
-    void Finish() override;
-    void FlushGPU() override;
+    Basics::SbResult Finish() override;
+    Basics::SbResult FlushGPU() override;
     Basics::SbResult Resize( int width, int height ) override;
 
     void SetViewport( int x, int y, int w, int h ) override;
@@ -700,13 +721,13 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
                             UINT fboSrvIndex = UINT_MAX,
                             UINT fboDepthSrvIndex = UINT_MAX,
                             DXGI_FORMAT rtvFormat = DXGI_FORMAT_R8G8B8A8_UNORM );
-    void ExecuteGraphTransition( const char* passName,
+    bool ExecuteGraphTransition( const char* passName,
                                  const char* resourceName,
                                  ID3D12Resource* resource,
                                  RenderGraphResourceAccess before,
                                  RenderGraphResourceAccess after,
                                  UINT subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES );
-    void ExecuteGraphUavBarrier( const char* passName, const char* resourceName, ID3D12Resource* resource );
+    bool ExecuteGraphUavBarrier( const char* passName, const char* resourceName, ID3D12Resource* resource );
 
     // Reserve CPU-written upload memory for the current command stream.
     //

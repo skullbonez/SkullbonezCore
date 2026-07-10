@@ -10,9 +10,9 @@ reports, and git history.
 | Field | Value |
 |---|---|
 | Branch | `engine-cleanup-10th-july`, tracking `origin/engine-cleanup-10th-july` |
-| Pushed baseline before this closure-gate update | `4a326189 docs: refresh the engine cleanup handoff` |
-| Current objective | Package and finish the remaining uncommitted scene, DX12, and `Run` ownership slices |
-| Last broad local gate | `tools\validate_fast.bat` passed format, filters, 14 staged blobs, unit tests, and Debug/Profile builds with zero warnings/errors |
+| Pushed baseline before the current implementation wave | `4a326189 docs: refresh the engine cleanup handoff` |
+| Current objective | Validate and commit scene provenance C1a, then finish the `ApplicationExitState`/`InputRouter` foundation |
+| Last broad local gate | `tools\validate_full.bat` passed the mandatory CPU umbrella, DX12 renderer lane with zero InfoQueue errors and matching screenshots, and byte-exact physics regression |
 | Native evidence | Injected heap-use-after-free caught; healthy ASan and five-file `/analyze` passed in 16.185s |
 
 ## Pushed Cleanup Commits
@@ -37,40 +37,39 @@ them.
    provenance, composes transforms correctly, and rejects generated-name
    collisions including ragdoll parts. Focused parser tests passed 5/5; physics
    and full gates remain before a separate commit.
-2. **DX12 D1-D3 subset.** Recording/reset/map/wait results propagate, GPU drain
-   order is explicit, submitted-but-unfenced state blocks reuse/release, and
-   Resize/Shutdown fail safely. Seventeen architecture tests and Profile build
-   passed. Three renderer gates plus full remain. D3 is not closed because
-   `GetTimestampFrequency` at `RenderBackendDX12.cpp:1639` is still unchecked.
-3. **First `Run` extraction cores.** Allocation-free `InputRouter` and
+2. **First `Run` extraction cores.** Allocation-free `InputRouter` and
    `ApplicationExitState`, with CPU tests, are now registered in production and
    test projects. They compile and their tests pass through `validate_fast`, but
    they are not wired into `Run`; no extraction deletion proof is complete.
-4. **Project-filter metadata.** `validate_project_filters.py` recognizes the two
+3. **Project-filter metadata.** `validate_project_filters.py` recognizes the two
    new runtime owners and currently passes. Commit it with the `Run` core slice.
 
-## Twelve Workstreams To Prioritize
+DX12 D1-D3 is complete: `SbResult` is non-discardable, command recording and
+submitted-work state fail closed, every D3 timestamp/map/present/resize/wait
+result is checked, 17 CPU architecture tests passed, three consecutive renderer
+gates reported zero InfoQueue errors with matching baselines, and the final full
+gate passed. D4-D5 remains in the owning plan.
 
-1. Wire `ApplicationExitState` and fix nonzero `WM_QUIT`/first-failure result
+## Eleven Workstreams To Prioritize
+
+1. Validate and commit scene provenance C1a.
+2. Wire `ApplicationExitState` and fix nonzero `WM_QUIT`/first-failure result
    propagation.
-2. Wire the immutable `InputRouter` keyboard path and delete the first callback
+3. Wire the immutable `InputRouter` keyboard path and delete the first callback
    pack from `RunInput.cpp`.
-3. Finish input pointer/focus/cursor capture ownership and remove later direct
+4. Finish input pointer/focus/cursor capture ownership and remove later direct
    hardware polling.
-4. Split the omnibus runtime command queue into scene, capture, render-default,
+5. Split the omnibus runtime command queue into scene, capture, render-default,
    and application owners.
-5. Validate and commit scene provenance C1a.
 6. Add explicit schema-versioned scene object IDs and deterministic v1 upgrade
    behavior (C1b).
-7. Complete DX12 D3 (`GetTimestampFrequency`), run three renderer gates plus
-   full, and commit D1-D3.
-8. Make DX12 resize/resource recreation transactional and define device-loss
+7. Make DX12 resize/resource recreation transactional and define device-loss
    recovery (D4-D5).
-9. Promote `SceneController` to own real load/reset/save lifecycle and delete
+8. Promote `SceneController` to own real load/reset/save lifecycle and delete
    `Run` scene callbacks.
-10. Move replay workspace decisions and overlays into `ReplayRuntime`.
-11. Move render composition/bindings and overlay views into `RuntimeRenderer`.
-12. Close the remaining interaction/UI, replay sizing, physics authority,
+9. Move replay workspace decisions and overlays into `ReplayRuntime`.
+10. Move render composition/bindings and overlay views into `RuntimeRenderer`.
+11. Close the remaining interaction/UI, replay sizing, physics authority,
    renderer decomposition, shadow quality, and behavioral-test plans after the
    five `Run` ownership extractions establish their boundaries.
 

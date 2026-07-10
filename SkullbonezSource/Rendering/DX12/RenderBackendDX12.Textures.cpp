@@ -10,6 +10,8 @@ Mental model:
   glossary/invariants below.
 
 Glossary:
+  Upload arena: Frame-scoped CPU-visible staging memory used for texture rows
+  before CopyTextureRegion moves them into GPU-owned texture memory.
   SRV (Shader Resource View): Descriptor row used when shaders read textures
   or buffers.
   UAV (Unordered Access View): Descriptor row used when compute or raytracing
@@ -23,6 +25,8 @@ Glossary:
 Invariants:
   - DX12 object lifetime, resource states, descriptor rows, and fence ordering
   must stay explicit.
+  - Texture graph state advances only after its transition barrier was recorded;
+    upload failure returns before row copies dereference the staging pointer.
 
 Related:
   - Agentic/Reference/skullbonez-core-class-structure.md
@@ -257,22 +261,25 @@ SkullbonezCore::Basics::SbResult RenderBackendDX12::InitGenMipsPipeline()
 }
 
 
-void RenderBackendDX12::GenerateMipsGPU( ID3D12Resource* tex, DXGI_FORMAT fmt, UINT w, UINT h, UINT numMips )
+bool RenderBackendDX12::GenerateMipsGPU( ID3D12Resource* tex, DXGI_FORMAT fmt, UINT w, UINT h, UINT numMips )
 {
     if ( numMips <= 1 )
     {
-        return;
+        return true;
     }
 
     // Transition mip 0 from COPY_DEST to SHADER_RESOURCE so compute can sample it
     // now and later pixel passes can sample the same texture without another
     // read-only transition. Stress runs flip those consumers rapidly.
-    ExecuteGraphTransition( "GenerateMipsMip0",
-                            "TextureMip0",
-                            tex,
-                            RenderGraphResourceAccess::CopyDest,
-                            RenderGraphResourceAccess::ShaderResource,
-                            0 );
+    if ( !ExecuteGraphTransition( "GenerateMipsMip0",
+                                  "TextureMip0",
+                                  tex,
+                                  RenderGraphResourceAccess::CopyDest,
+                                  RenderGraphResourceAccess::ShaderResource,
+                                  0 ) )
+    {
+        return false;
+    }
 
     UINT srcMip = 0;
     UINT srcMipW = w;
@@ -345,12 +352,15 @@ void RenderBackendDX12::GenerateMipsGPU( ID3D12Resource* tex, DXGI_FORMAT fmt, U
         // ------------------------------------------------------------------
         for ( UINT i = 0; i < mipsToGenerate; ++i )
         {
-            ExecuteGraphTransition( "GenerateMipsCopyToUav",
-                                    "TextureMip",
-                                    tex,
-                                    RenderGraphResourceAccess::CopyDest,
-                                    RenderGraphResourceAccess::UnorderedAccess,
-                                    srcMip + 1 + i );
+            if ( !ExecuteGraphTransition( "GenerateMipsCopyToUav",
+                                          "TextureMip",
+                                          tex,
+                                          RenderGraphResourceAccess::CopyDest,
+                                          RenderGraphResourceAccess::UnorderedAccess,
+                                          srcMip + 1 + i ) )
+            {
+                return false;
+            }
         }
 
         struct GenMipsCB
@@ -379,7 +389,10 @@ void RenderBackendDX12::GenerateMipsGPU( ID3D12Resource* tex, DXGI_FORMAT fmt, U
         // Hazard: mip N may be written as a UAV in this dispatch and sampled as
         // an SRV in the next dispatch. The UAV barrier orders those writes
         // before any later read/write work continues.
-        ExecuteGraphUavBarrier( "GenerateMipsUavOrder", "TextureMips", tex );
+        if ( !ExecuteGraphUavBarrier( "GenerateMipsUavOrder", "TextureMips", tex ) )
+        {
+            return false;
+        }
 
         // ------------------------------------------------------------------
         // Transition output mips UNORDERED_ACCESS -> SHADER_RESOURCE so the next
@@ -387,12 +400,15 @@ void RenderBackendDX12::GenerateMipsGPU( ID3D12Resource* tex, DXGI_FORMAT fmt, U
         // ------------------------------------------------------------------
         for ( UINT i = 0; i < mipsToGenerate; ++i )
         {
-            ExecuteGraphTransition( "GenerateMipsUavToSrv",
-                                    "TextureMip",
-                                    tex,
-                                    RenderGraphResourceAccess::UnorderedAccess,
-                                    RenderGraphResourceAccess::ShaderResource,
-                                    srcMip + 1 + i );
+            if ( !ExecuteGraphTransition( "GenerateMipsUavToSrv",
+                                          "TextureMip",
+                                          tex,
+                                          RenderGraphResourceAccess::UnorderedAccess,
+                                          RenderGraphResourceAccess::ShaderResource,
+                                          srcMip + 1 + i ) )
+            {
+                return false;
+            }
         }
 
         srcMip += mipsToGenerate;
@@ -409,6 +425,7 @@ void RenderBackendDX12::GenerateMipsGPU( ID3D12Resource* tex, DXGI_FORMAT fmt, U
     m_lastPSOHash = 0;
     m_texBindingsDirty = true;
     m_targetsDirty = true;
+    return true;
 }
 
 
@@ -419,7 +436,10 @@ uint32_t RenderBackendDX12::CreateTexture2D( const uint8_t* data,
                                              bool generateMips,
                                              bool /*linearFilter*/ )
 {
-    EnsureCommandListOpen();
+    if ( !EnsureCommandListOpen().ok )
+    {
+        return 0;
+    }
 
     DXGI_FORMAT fmt;
     int bytesPerPixel;
@@ -513,6 +533,11 @@ uint32_t RenderBackendDX12::CreateTexture2D( const uint8_t* data,
     Device()->GetCopyableFootprints( &texDesc, 0, 1, 0, &fp0, &rowCount0, &rowSize0, &mip0Bytes );
 
     D3D12_GPU_VIRTUAL_ADDRESS uploadBase = ReserveUpload( mip0Bytes, D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT );
+    if ( uploadBase == 0 )
+    {
+        texResource->Release();
+        return 0;
+    }
     const UINT64 baseOffset = m_uploadSystem.OffsetFromAddress( m_allocatorIndex, uploadBase );
     uint8_t* uploadDst = GetUploadPtr( uploadBase );
 
@@ -541,16 +566,22 @@ uint32_t RenderBackendDX12::CreateTexture2D( const uint8_t* data,
     // -------------------------------------------------------------------------
     if ( numMips > 1 )
     {
-        GenerateMipsGPU( texResource, fmt, static_cast<UINT>( w ), static_cast<UINT>( h ), numMips );
+        if ( !GenerateMipsGPU( texResource, fmt, static_cast<UINT>( w ), static_cast<UINT>( h ), numMips ) )
+        {
+            return 0;
+        }
         // GenerateMipsGPU leaves all subresources in combined shader-resource read state.
     }
     else
     {
-        ExecuteGraphTransition( "TextureUploadFinalPixelSrv",
-                                "Texture2D",
-                                texResource,
-                                RenderGraphResourceAccess::CopyDest,
-                                RenderGraphResourceAccess::PixelShaderResource );
+        if ( !ExecuteGraphTransition( "TextureUploadFinalPixelSrv",
+                                      "Texture2D",
+                                      texResource,
+                                      RenderGraphResourceAccess::CopyDest,
+                                      RenderGraphResourceAccess::PixelShaderResource ) )
+        {
+            return 0;
+        }
     }
 
     // The SRV exposes every generated mip so samplers can choose the right

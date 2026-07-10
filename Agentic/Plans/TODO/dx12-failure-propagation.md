@@ -1,7 +1,7 @@
 # DX12 Failure Propagation And Command-State Safety
 
 Date: 2026-07-10
-Status: In progress — 1/6 phases complete
+Status: In progress — 4/6 phases complete
 Impact area: DX12 renderer, recoverable-result policy, device-loss handling,
 renderer tests
 Owner: DX12 backend
@@ -54,21 +54,35 @@ succeeds.
   `SbResult` construction/invocation expressions (10 discarded
   `WaitForGpu()` calls), and 44 result-less API calls, with zero unclassified
   rows.
-- [ ] **D1 — Make ignored results visible.** Mark `SbResult` `[[nodiscard]]`
+- [x] **D1 — Make ignored results visible.** Mark `SbResult` `[[nodiscard]]`
   after inventorying intentional discards repository-wide. Add a named
   `IgnoreResultWithReason(...)` only where discard is genuinely harmless and
   record the reason in source. Acceptance: `/W4 /WX` builds with no implicit
-  `SbResult` discard.
-- [ ] **D2 — Repair command-list state transitions.** Make
+  `SbResult` discard. Evidence: `SbResult` is type-level `[[nodiscard]]`; the
+  2026-07-10 Profile and Debug builds completed with zero warnings/errors, and
+  the only newly exposed discard was converted to explicit sticky command-state
+  ownership in `BuildTLAS`.
+- [x] **D2 — Repair command-list state transitions.** Make
   `EnsureCommandListOpen()` return `SbResult`; check allocator `Reset`, command
   list `Reset`, and `Close`; set `m_commandListOpen` only after success. Propagate
   failure through barriers, clear, draw preparation, upload flush, readback,
   DXR, finish, and present. Acceptance: no caller records or submits after a
-  failed open/close/reset.
-- [ ] **D3 — Repair waits and submissions.** Check every `WaitForGpu`, fence,
+  failed open/close/reset. Evidence: allocation-free
+  `Dx12CommandRecordingState` commits epochs only after successful DX12 calls,
+  retains the first failure until device reset, and is exercised by the 17 new
+  CPU command/drain/submission tests in `Dx12ArchUnitTests`; the architecture
+  gate passed on 2026-07-10.
+- [x] **D3 — Repair waits and submissions.** Check every `WaitForGpu`, fence,
   query-frequency, map, present, and resize result. Resource release after a
   failed wait must not assume GPU completion. Acceptance: wait failure cannot
-  reach resource destruction or allocator reuse.
+  reach resource destruction or allocator reuse. Evidence: submitted work is
+  tracked independently from the command-list epoch, `FlushGPU` proves
+  close/submit/wait/reopen order before resource mutation, runtime callers
+  propagate drain failures before scene/resource replacement, and
+  `GetTimestampFrequency` now aborts initialization with timer cleanup on
+  failure. Three consecutive `tools\validate_dx12_renderer.bat` runs passed
+  with zero InfoQueue errors and matching baselines, followed by a passing
+  `tools\validate_full.bat` (including byte-exact physics output) on 2026-07-10.
 - [ ] **D4 — Cover partial initialisation and optional features.** Apply the same
   rules to DXR, readback, textures, dynamic geometry, framebuffer, BLAS/TLAS,
   and SBT creation. Preserve optional-feature fallback only when all consumers

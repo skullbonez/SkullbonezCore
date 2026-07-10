@@ -13,8 +13,8 @@ Glossary:
   RuntimeRenderer: Owner of pass instances and the frame pass order.
   Pass order: The stable sequence of sky, shadows, reflection, objects, terrain,
     water, post effects, and UI/text.
-  Lane R result: Recoverable resource setup failure reported through an
-    owner/message result at startup instead of throwing through the render owner.
+  Lane R result: Recoverable resource setup or GPU-drain failure reported
+    through an owner/message result instead of throwing through the render owner.
   Consequence grade: Frame-local dark/cool presentation override used when
     replay prediction wants causal overlays to dominate the image.
   Resource context: Creation/rebuild-only view of the renderer factory and
@@ -25,7 +25,8 @@ Glossary:
 Invariants:
   - RuntimeRenderer owns pass instances; Run owns one RuntimeRenderer.
   - RenderFrame preserves the existing pass order and frame graph snapshot.
-  - Backend resource release keeps consumer passes ahead of producer passes.
+  - Backend resource release begins only after a successful GPU drain, then
+    keeps consumer passes ahead of producer passes.
 
 Related:
   - SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h
@@ -102,7 +103,7 @@ class RuntimeRenderer
     void RenderFrameEntry( const FrameEntryContext& context );
     void RenderFrame( const RuntimeRenderInputs& renderInputs );
     void ReleaseBackendOwnedResources( Rendering::IRenderResourceFactory* renderResources );
-    void ReleaseBackendOwnedRuntimeResources( const BackendResourceReleaseContext& context );
+    SbResult ReleaseBackendOwnedRuntimeResources( const BackendResourceReleaseContext& context );
     SbResult RebuildRegisteredRenderResources( const RegisteredResourceRebuildContext& context );
     RenderHelper& Helper()
     {

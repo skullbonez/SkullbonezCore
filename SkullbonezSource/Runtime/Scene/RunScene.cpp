@@ -16,8 +16,8 @@ Glossary:
   Render backend facets: Narrow renderer interfaces for resources, commands,
     diagnostics, and raytracing; scene setup receives them separately instead
     of depending on a concrete backend.
-  Lane R result: Recoverable scene-load failure carrying owner/message
-    diagnostics while the runtime stays alive.
+  Lane R result: Recoverable scene-load or renderer-drain failure carrying
+    owner/message diagnostics so load stops before unsafe resource replacement.
   Required scene contact: Authored pair gate that marks a scenario objective
     once two bodies have produced an exact contact.
 
@@ -27,6 +27,7 @@ Invariants:
   - DXR reflection setup may run only after the runtime has bound the render
     resource, command, diagnostics, and raytracing facets for the active
     backend.
+  - Scene/model/terrain destruction starts only after a successful GPU drain.
 Related:
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/comment-style-guide.md
@@ -370,7 +371,13 @@ SbResult UseDefaultTerrain( RunSubsystemState& systems,
     {
         if ( renderLifecycle )
         {
-            renderLifecycle->FlushGPU();
+            const SbResult flushResult = renderLifecycle->FlushGPU();
+            if ( !flushResult.ok )
+            {
+                // Lane R: keep the currently owned terrain alive when its GPU
+                // references cannot be proven drained.
+                return flushResult;
+            }
         }
         std::unique_ptr<Terrain> terrain;
         const SbResult terrainResult = Terrain::TryCreateFromHeightMap( terrainRawPath.c_str(),
@@ -399,28 +406,35 @@ SbResult UseDefaultTerrain( RunSubsystemState& systems,
     return SbResult::Success();
 }
 
-void UseFlatSlopeTerrain( RunSubsystemState& systems,
-                          WorldEnvironment& world,
-                          const EngineConfig& config,
-                          float baseY,
-                          float slopeX,
-                          float slopeZ,
-                          SkullbonezCore::Rendering::IRenderDeviceLifecycle* renderLifecycle,
-                          SkullbonezCore::Rendering::IRenderResourceFactory* renderResources )
+SbResult UseFlatSlopeTerrain( RunSubsystemState& systems,
+                              WorldEnvironment& world,
+                              const EngineConfig& config,
+                              float baseY,
+                              float slopeX,
+                              float slopeZ,
+                              SkullbonezCore::Rendering::IRenderDeviceLifecycle* renderLifecycle,
+                              SkullbonezCore::Rendering::IRenderResourceFactory* renderResources )
 {
     assert( renderResources );
     if ( !renderResources )
     {
-        return;
+        return SbResult::Failure( "Runtime/RunScene", "Renderer resource factory unavailable for flat terrain." );
     }
     if ( renderLifecycle )
     {
-        renderLifecycle->FlushGPU();
+        const SbResult flushResult = renderLifecycle->FlushGPU();
+        if ( !flushResult.ok )
+        {
+            // Lane R: assignment below destroys the old terrain. Leave it
+            // untouched unless the GPU drain and command-list reopen succeeded.
+            return flushResult;
+        }
     }
     systems.terrain = std::make_unique<Terrain>( baseY, slopeX, slopeZ, config, systems.assets, *renderResources );
     systems.isFlatSlopeTerrain = true;
 
     UpdateWorldTerrainBounds( world, systems.terrain.get() );
+    return SbResult::Success();
 }
 
 bool SaveCurrentEditableSceneSnapshot( const std::string& scenePath,
@@ -488,6 +502,14 @@ SbResult Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnCom
     runtime.RecordLifecycleEvent( SceneRuntimeLifecycleEvent::BeforeSceneUnload );
     const SceneRuntimeLoadBeginResult loadBegin =
         BeginSceneRuntimeLoad( loadBeginContext, index, suppressExitOnComplete, preserveRuntimeState );
+    if ( !loadBegin.status.ok )
+    {
+        // Lane R: BeginSceneRuntimeLoad has not mutated or destroyed the old
+        // scene after a failed GPU drain, so preserve that state and end load.
+        m_lastSceneLoadResult = loadBegin.status;
+        LogSceneLoadFailure( loadBegin.status, loadBegin.scenePath ? *loadBegin.scenePath : std::string{} );
+        return m_lastSceneLoadResult;
+    }
     if ( !loadBegin.shouldLoad )
     {
         return m_lastSceneLoadResult;
@@ -763,22 +785,27 @@ SbResult Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnCom
         // its analytic terrain into the next height-map scene.
         if ( scene.HasFlatSlope() )
         {
+            const SbResult terrainResult = UseFlatSlopeTerrain( m_systems,
+                                                                m_cWorldEnvironment,
+                                                                m_config,
+                                                                scene.GetFlatBaseY(),
+                                                                scene.GetFlatSlopeX(),
+                                                                scene.GetFlatSlopeZ(),
+                                                                m_renderBackendView.deviceLifecycle,
+                                                                m_renderBackendView.renderResources );
+            if ( !terrainResult.ok )
+            {
+                m_lastSceneLoadResult = terrainResult;
+                LogSceneLoadFailure( terrainResult, scenePath );
+                return m_lastSceneLoadResult;
+            }
             SceneState().hasFlatSlope = true;
             SceneState().flatBaseY = scene.GetFlatBaseY();
             SceneState().flatSlopeX = scene.GetFlatSlopeX();
             SceneState().flatSlopeZ = scene.GetFlatSlopeZ();
-            UseFlatSlopeTerrain( m_systems,
-                                 m_cWorldEnvironment,
-                                 m_config,
-                                 scene.GetFlatBaseY(),
-                                 scene.GetFlatSlopeX(),
-                                 scene.GetFlatSlopeZ(),
-                                 m_renderBackendView.deviceLifecycle,
-                                 m_renderBackendView.renderResources );
         }
         else
         {
-            SceneState().hasFlatSlope = false;
             const SbResult terrainResult =
                 UseDefaultTerrain( m_systems,
                                    m_cWorldEnvironment,
@@ -794,6 +821,7 @@ SbResult Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnCom
                 LogSceneLoadFailure( terrainResult, scenePath );
                 return m_lastSceneLoadResult;
             }
+            SceneState().hasFlatSlope = false;
         }
 
         ApplyConfiguredWorldEnvironment( m_cWorldEnvironment, m_config, m_systems.terrain.get() );

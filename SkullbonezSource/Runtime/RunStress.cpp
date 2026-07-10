@@ -9,14 +9,15 @@ Mental model:
   boundaries and call direction and on the glossary/invariants below.
 
 Glossary:
-  Lane R result: Recoverable scene-load failure surfaced through the stress
-    action result instead of being counted as successful churn.
+  Lane R result: Recoverable scene-load or GPU-drain failure surfaced through
+    the stress action result instead of being counted as successful churn.
 
 Invariants:
   - UI stress randomness is deterministic from UIStressState so crashes can be
     reproduced from the same launch options.
   - UI stress keeps runtime churn disabled; graphics stress intentionally flips
     render/runtime churn on so DX12 state tracking gets exercised.
+  - A generated-scene drain failure ends the stress action before later churn.
 
 Related:
   - Agentic/Reference/runtime-reference.md
@@ -26,6 +27,8 @@ Related:
 #include "RuntimeTuning.h"
 #include "Scene/SceneRuntimeGeneratedControls.h"
 #include "Scene/SceneRuntimeStyle.h"
+
+#include <cstdio>
 
 using namespace SkullbonezCore::Basics;
 using namespace SkullbonezCore::Math::CollisionDetection;
@@ -725,12 +728,12 @@ float GraphicsStressController::RandomCinematicParamValue( UI::UICinematicParam 
 }
 
 
-void Run::RunUIStressActions()
+SbResult Run::RunUIStressActions()
 {
     UIStressState& stress = m_diagnosticsRuntime.UIStress();
     if ( !stress.enabled || !m_systems.window )
     {
-        return;
+        return SbResult::Success();
     }
 
     ++stress.framesRun;
@@ -762,8 +765,15 @@ void Run::RunUIStressActions()
                                                     m_launchOptions.generatedObjectTypeOverride,
                                                     m_startup.gameModelCapacity };
     };
-    const auto executeSceneGeneratedControlAction = [this]( const SceneRuntimeGeneratedControlAction& action )
+    const auto executeSceneGeneratedControlAction =
+        [this]( const SceneRuntimeGeneratedControlAction& action ) -> SbResult
     {
+        if ( !action.status.ok )
+        {
+            // Lane R: resources remain intact; return before later stress churn
+            // and let the input boundary report and end the run.
+            return action.status;
+        }
         if ( action.resetReplayTimeline )
         {
             ResetReplayTimelineForActiveScene();
@@ -772,14 +782,19 @@ void Run::RunUIStressActions()
         {
             PROFILE_SCHEDULE_RESET();
         }
+        return SbResult::Success();
     };
     if ( stress.framesRun == 18 )
     {
         const int modelCount = 96 + StressHarness::NextInt( stress, 160 );
         if ( allowRuntimeChurn )
         {
-            executeSceneGeneratedControlAction(
+            const SbResult actionResult = executeSceneGeneratedControlAction(
                 ApplyUIModelCountOverride( makeSceneGeneratedControlContext(), modelCount ) );
+            if ( !actionResult.ok )
+            {
+                return actionResult;
+            }
         }
     }
     if ( stress.framesRun == 42 )
@@ -788,8 +803,12 @@ void Run::RunUIStressActions()
         const int boxes = StressHarness::NextInt( stress, 1000 - balls + 1 );
         if ( allowRuntimeChurn )
         {
-            executeSceneGeneratedControlAction(
+            const SbResult actionResult = executeSceneGeneratedControlAction(
                 ApplyUISolverObjectCounts( makeSceneGeneratedControlContext(), balls, boxes ) );
+            if ( !actionResult.ok )
+            {
+                return actionResult;
+            }
         }
     }
     UIStressActionContext actionContext{ m_UI,
@@ -807,6 +826,7 @@ void Run::RunUIStressActions()
     {
         ApplyUIStressAction( actionContext, stress, allowRuntimeChurn );
     }
+    return SbResult::Success();
 }
 
 

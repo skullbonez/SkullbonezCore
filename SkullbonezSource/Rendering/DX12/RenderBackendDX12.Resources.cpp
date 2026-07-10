@@ -10,6 +10,8 @@ Mental model:
   and on the glossary/invariants below.
 
 Glossary:
+  Upload arena: Frame-scoped CPU-visible staging memory used to seed default
+  heap resources before their copy commands execute.
   Descriptor: Small binding record that tells a renderer how to interpret a
   resource.
   Back buffer: Swap-chain image that will be presented to the window.
@@ -17,6 +19,8 @@ Glossary:
 Invariants:
   - DX12 object lifetime, resource states, descriptor rows, and fence ordering
   must stay explicit.
+  - Mesh resource creation stops before pointer access when command reopening
+    or upload reservation has latched a failure.
 
 Related:
   - Agentic/Reference/skullbonez-core-class-structure.md
@@ -97,9 +101,16 @@ RenderBackendDX12::CreateMesh( const float* data, int vertexCount, bool hasNorma
         floatsPerVert = 3;
     }
 
-    EnsureCommandListOpen();
+    if ( !EnsureCommandListOpen().ok )
+    {
+        return nullptr;
+    }
     UINT64 dataSize = (UINT64)vertexCount * floatsPerVert * sizeof( float );
     D3D12_GPU_VIRTUAL_ADDRESS uploadAddr = ReserveUpload( dataSize, 4 );
+    if ( uploadAddr == 0 )
+    {
+        return nullptr;
+    }
     uint8_t* uploadPtr = GetUploadPtr( uploadAddr );
 
     auto mesh = std::make_unique<MeshDX12>( *this );

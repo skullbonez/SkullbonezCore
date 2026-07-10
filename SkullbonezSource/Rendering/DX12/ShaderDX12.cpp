@@ -10,6 +10,8 @@ Mental model:
   glossary/invariants below.
 
 Glossary:
+  Upload arena: Frame-scoped CPU-visible staging memory used for packed shader
+  constants before a draw binds their GPU address.
   CBV (Constant Buffer View): Descriptor or root binding that lets shaders read
   a packed block of constants.
   PSO (Pipeline State Object): Precompiled bundle of shaders and fixed render
@@ -21,6 +23,8 @@ Glossary:
 Invariants:
   - DX12 object lifetime, resource states, descriptor rows, and fence ordering
   must stay explicit.
+  - Address zero means constant upload failed; FlushCB must not dereference it
+    or clear the dirty bit.
 
 Related:
   - SkullbonezSource/Rendering/DX12/ShaderDX12.h
@@ -781,6 +785,10 @@ D3D12_GPU_VIRTUAL_ADDRESS ShaderDX12::FlushCB() const
     // with that same alignment and flushes/resets the upload arena if needed,
     // instead of letting a busy frame throw after the arena fills up.
     D3D12_GPU_VIRTUAL_ADDRESS addr = m_backend.ReserveUpload( m_cbSize, 256 );
+    if ( addr == 0 )
+    {
+        return 0;
+    }
     memcpy( m_backend.GetUploadPtr( addr ), m_cbData.data(), m_cbSize );
     m_cbDirty = false;
     return addr;

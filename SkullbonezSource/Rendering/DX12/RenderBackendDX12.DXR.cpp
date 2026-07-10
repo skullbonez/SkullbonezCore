@@ -465,12 +465,37 @@ SbResult RenderBackendDX12::InitDXR( uint64_t terrainVBVA,
             return failDxrInit( SbResult::Failure( "Rendering/DX12", "Failed to create RT constant buffer" ) );
         }
         NameDx12Object( m_rtConstantBuffer, L"Skullbonez DX12 Raytracing Constants Upload Buffer" );
-        m_rtConstantBuffer->Map( 0, nullptr, (void**)&m_rtConstantBufferMapped );
+        void* rawMapped = nullptr;
+        const HRESULT mapResult = m_rtConstantBuffer->Map( 0, nullptr, &rawMapped );
+        const Dx12MappedPointerResult checkedMap =
+            ValidateDx12MappedPointer( mapResult, rawMapped, "DXR constant buffer Map" );
+        if ( !checkedMap.result.ok )
+        {
+            return failDxrInit( checkedMap.result );
+        }
+        m_rtConstantBufferMapped = static_cast<uint8_t*>( checkedMap.pointer );
     }
 
     // Build the static BLAS objects once. The terrain BLAS holds terrain
     // triangles; the sphere BLAS is reused by every moving sphere instance.
-    EnsureCommandListOpen();
+    setupResult = EnsureCommandListOpen();
+    if ( !setupResult.ok )
+    {
+        return failDxrInit( setupResult );
+    }
+
+    auto submitAndWaitForDxrBuilds = [this]( const char* reason )
+    {
+        AssertPlatformProfilerGpuStackClosed( reason );
+        const SbResult closeResult = m_commandRecording.CommitClose( CommandList()->Close(), reason );
+        if ( !closeResult.ok )
+        {
+            return closeResult;
+        }
+
+        SubmitClosedCommandList();
+        return m_commandRecording.CommitWait( WaitForGpu() );
+    };
 
     setupResult = m_terrainBLAS.Build( m_device5,
                                        m_cmdList4,
@@ -496,23 +521,26 @@ SbResult RenderBackendDX12::InitDXR( uint64_t terrainVBVA,
         // and drain that command before releasing DXR resources during failure
         // cleanup so the command list does not retain references to freed BLAS
         // memory.
-        AssertPlatformProfilerGpuStackClosed( "InitDXRFailure" );
-        CommandList()->Close();
-        m_commandListOpen = false;
-        ID3D12CommandList* ppCLs[] = { CommandList() };
-        m_commandQueue->ExecuteCommandLists( 1, ppCLs );
-        WaitForGpu();
+        const SbResult drainResult = submitAndWaitForDxrBuilds( "InitDXRFailure command list Close" );
+        if ( !drainResult.ok )
+        {
+            // Lifetime: a failed wait leaves the terrain BLAS work in flight.
+            // Keep every referenced resource alive for the checked terminal
+            // shutdown drain.
+            return drainResult;
+        }
         m_terrainBLAS.ReleaseAfterBuild();
         return failDxrInit( setupResult );
     }
 
     // Submit and wait for BLAS builds to complete
-    AssertPlatformProfilerGpuStackClosed( "InitDXR" );
-    CommandList()->Close();
-    m_commandListOpen = false;
-    ID3D12CommandList* ppCLs[] = { CommandList() };
-    m_commandQueue->ExecuteCommandLists( 1, ppCLs );
-    WaitForGpu();
+    const SbResult drainResult = submitAndWaitForDxrBuilds( "InitDXR command list Close" );
+    if ( !drainResult.ok )
+    {
+        // Lifetime: do not release scratch or result buffers after an uncertain
+        // wait. The sticky epoch prevents later recording/reuse.
+        return drainResult;
+    }
 
     // Lifetime: scratch buffers are temporary GPU workspaces used only while
     // building acceleration structures. The BLAS result buffers remain alive for
@@ -611,8 +639,17 @@ void RenderBackendDX12::BuildTLAS( const float* instanceTransforms,
         inst.InstanceID = (UINT)( i + 1 );
     }
 
-    EnsureCommandListOpen();
-    m_tlas.Build( m_device5, m_cmdList4, m_tlasInstances.data(), instanceCount + 1 );
+    if ( !EnsureCommandListOpen().ok )
+    {
+        return;
+    }
+    const SbResult buildResult = m_tlas.Build( m_device5, m_cmdList4, m_tlasInstances.data(), instanceCount + 1 );
+    if ( !buildResult.ok )
+    {
+        // The command-state owner retains the failure for the enclosing frame;
+        // this void render API has no independent result channel to propagate.
+        [[maybe_unused]] const SbResult retainedFailure = m_commandRecording.RetainFailure( buildResult );
+    }
 }
 
 
@@ -642,18 +679,24 @@ void RenderBackendDX12::DispatchReflectionRays( const float* invViewProj,
     (void)width;
     (void)height;
 
-    EnsureCommandListOpen();
+    if ( !EnsureCommandListOpen().ok )
+    {
+        return;
+    }
 
     // Hazard: the reflection texture alternates between a writable UAV during
     // DispatchRays and a readable SRV while the water shader samples it. DX12
     // will not infer that transition for us; record it explicitly each frame.
     if ( m_reflectionInSRVState )
     {
-        ExecuteGraphTransition( "DxrReflectionSrvToUav",
-                                "DxrReflectionTexture",
-                                m_reflectionUAV,
-                                RenderGraphResourceAccess::PixelShaderResource,
-                                RenderGraphResourceAccess::UnorderedAccess );
+        if ( !ExecuteGraphTransition( "DxrReflectionSrvToUav",
+                                      "DxrReflectionTexture",
+                                      m_reflectionUAV,
+                                      RenderGraphResourceAccess::PixelShaderResource,
+                                      RenderGraphResourceAccess::UnorderedAccess ) )
+        {
+            return;
+        }
     }
 
     // Layout mirrors reflect.rt.hlsl: invVP, camera/water, light/time, and sky
@@ -782,15 +825,21 @@ void RenderBackendDX12::DispatchReflectionRays( const float* invViewProj,
     // reflection texture through its SRV descriptor.
     // Docs:
     // https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-resourcebarrier
-    ExecuteGraphUavBarrier( "DxrReflectionWriteOrder", "DxrReflectionTexture", m_reflectionUAV );
+    if ( !ExecuteGraphUavBarrier( "DxrReflectionWriteOrder", "DxrReflectionTexture", m_reflectionUAV ) )
+    {
+        return;
+    }
 
     // After ordering the writes, transition the texture into SRV state so the
     // raster water shader can read it.
-    ExecuteGraphTransition( "DxrReflectionUavToSrv",
-                            "DxrReflectionTexture",
-                            m_reflectionUAV,
-                            RenderGraphResourceAccess::UnorderedAccess,
-                            RenderGraphResourceAccess::PixelShaderResource );
+    if ( !ExecuteGraphTransition( "DxrReflectionUavToSrv",
+                                  "DxrReflectionTexture",
+                                  m_reflectionUAV,
+                                  RenderGraphResourceAccess::UnorderedAccess,
+                                  RenderGraphResourceAccess::PixelShaderResource ) )
+    {
+        return;
+    }
     m_reflectionInSRVState = true;
 
     // DXR uses the compute root signature/pipeline path. Mark raster state

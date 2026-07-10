@@ -139,7 +139,10 @@ void RenderBackendDX12::GpuTimerBegin( int markerIdx )
     {
         return;
     }
-    EnsureCommandListOpen();
+    if ( !EnsureCommandListOpen().ok )
+    {
+        return;
+    }
     int slot = markerIdx * 2 + 0;
     CommandList()->EndQuery( m_gpuTimers.queryHeap, D3D12_QUERY_TYPE_TIMESTAMP, (UINT)slot );
     m_gpuTimers.slotWritten[slot] = true;
@@ -148,7 +151,7 @@ void RenderBackendDX12::GpuTimerBegin( int markerIdx )
 
 void RenderBackendDX12::GpuTimerEnd( int markerIdx )
 {
-    if ( !m_gpuTimers.queryHeap || !m_commandListOpen || markerIdx < 0 || markerIdx >= TIMER_HEAP_MARKERS )
+    if ( !m_gpuTimers.queryHeap || !m_commandRecording.CanRecord() || markerIdx < 0 || markerIdx >= TIMER_HEAP_MARKERS )
     {
         return;
     }
@@ -199,7 +202,7 @@ int RenderBackendDX12::SuspendPlatformProfilerGpuStackForSubmit( const char* rea
     {
         return 0;
     }
-    if ( !CommandList() || !m_commandListOpen )
+    if ( !CommandList() || !m_commandRecording.CanRecord() )
     {
         Log().WriteEventf( "dx12_platform_profiler_gpu_suspend_without_open_command_list reason=%s depth=%d",
                            reason ? reason : "unknown",
@@ -231,9 +234,13 @@ void RenderBackendDX12::RestorePlatformProfilerGpuStackAfterSubmit( int suspende
     {
         return;
     }
-    if ( !CommandList() || !m_commandListOpen )
+    if ( !CommandList() || !m_commandRecording.CanRecord() )
     {
-        Log().WriteEventf( "dx12_platform_profiler_gpu_restore_without_open_command_list depth=%d", suspendedDepth );
+        // The PIX ranges were already ended before submission. Restore only the
+        // CPU nesting record so later PROFILE_END calls can unwind normally;
+        // sticky command failure forbids recording replacement PIX begin calls.
+        Log().WriteEventf( "dx12_platform_profiler_gpu_restore_bookkeeping_only depth=%d", suspendedDepth );
+        m_platformProfilerGpuDepth = suspendedDepth;
         return;
     }
 
@@ -265,7 +272,10 @@ void RenderBackendDX12::PlatformProfilerGpuBegin( const char* name, uint32_t has
     {
         return;
     }
-    EnsureCommandListOpen();
+    if ( !EnsureCommandListOpen().ok )
+    {
+        return;
+    }
     if ( m_platformProfilerGpuDepth >= PLATFORM_PROFILER_GPU_SCOPE_STACK_MAX )
     {
         // Invariant: the stack mirrors nested PIX GPU ranges. Overflow means
@@ -311,10 +321,12 @@ void RenderBackendDX12::PlatformProfilerGpuEnd()
         }
         return;
     }
-    if ( !CommandList() || !m_commandListOpen )
+    if ( !CommandList() || !m_commandRecording.CanRecord() )
     {
-        Log().WriteEventf( "dx12_platform_profiler_gpu_end_without_open_command_list depth=%d",
-                           m_platformProfilerGpuDepth );
+        Log().WriteEventf( "dx12_platform_profiler_gpu_end_bookkeeping_only depth=%d", m_platformProfilerGpuDepth );
+        --m_platformProfilerGpuDepth;
+        m_platformProfilerGpuStack[static_cast<std::size_t>( m_platformProfilerGpuDepth )] =
+            PlatformProfilerGpuScopeDX12();
         return;
     }
     PIXEndEvent( CommandList() );
@@ -336,7 +348,10 @@ void RenderBackendDX12::PlatformProfilerGpuMarker( const char* name, uint32_t ha
     {
         return;
     }
-    EnsureCommandListOpen();
+    if ( !EnsureCommandListOpen().ok )
+    {
+        return;
+    }
     char gpuMarkerName[SkullbonezCore::Basics::PlatformProfiler::MAX_DECORATED_MARKER_NAME_CHARS];
     const char* markerName =
         SkullbonezCore::Basics::PlatformProfiler::AreDetailedRangesEnabled()

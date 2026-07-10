@@ -23,6 +23,8 @@ Glossary:
 Invariants:
   - DX12 object lifetime, resource states, descriptor rows, and fence ordering
   must stay explicit.
+  - Shader identifiers are copied only after Map succeeds and returns a
+    non-null pointer; a failed mapping releases the unsubmitted table buffer.
 
 Related:
   - SkullbonezSource/Rendering/DX12/SBTDX12.h
@@ -44,6 +46,7 @@ Related:
 //  InstanceContributionToHitGroupIndex set in each TLAS instance descriptor.
 //
 #include "SBTDX12.h"
+#include "RenderBackendDX12.CommandRecordingState.h"
 #include "RenderDeviceDX12.h"
 #include <cstring>
 
@@ -161,8 +164,15 @@ SbResult SBT::Build( ID3D12Device* device,
     // shader in the RT pipeline state object. We write raygen, miss, and hit group IDs.
     // Docs:
     // https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12stateobjectproperties-getshaderidentifier
-    uint8_t* mapped = nullptr;
-    m_buffer->Map( 0, nullptr, (void**)&mapped );
+    void* rawMapped = nullptr;
+    const HRESULT mapResult = m_buffer->Map( 0, nullptr, &rawMapped );
+    const Dx12MappedPointerResult mappedResult = ValidateDx12MappedPointer( mapResult, rawMapped, "SBT buffer Map" );
+    if ( !mappedResult.result.ok )
+    {
+        Reset();
+        return mappedResult.result;
+    }
+    uint8_t* mapped = static_cast<uint8_t*>( mappedResult.pointer );
     memset( mapped, 0, (size_t)totalSize );
 
     // Raygen record

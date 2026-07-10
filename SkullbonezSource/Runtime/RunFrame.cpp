@@ -636,12 +636,19 @@ SbResult Run::Execute()
             if ( m_runtimeSettings.isPipelineSyncEnabled )
             {
                 PROFILE_BEGIN( "Frame/PipelineSync" );
+                SbResult finishResult = SbResult::Success();
                 {
                     RuntimeAllocation::RuntimeAllocationScope allocationScope(
                         RuntimeAllocation::RuntimeAllocationPhase::Render );
-                    renderLifecycle.Finish();
+                    finishResult = renderLifecycle.Finish();
                 }
                 PROFILE_END( "Frame/PipelineSync" );
+                if ( !finishResult.ok )
+                {
+                    m_timers.frameTimer.StopTimer();
+                    PROFILE_FRAME_END();
+                    return finishResult;
+                }
             }
 
             RuntimeRenderModelFrameView renderModels = m_renderer.BuildModelFrameView( m_cGameModelCollection );

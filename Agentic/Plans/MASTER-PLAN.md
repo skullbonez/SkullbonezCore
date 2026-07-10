@@ -44,7 +44,7 @@ Status: Authoritative inventory of every live repository plan
 | Plan | State | Verified phase count | Next blocking action |
 |---|---|---:|---|
 | [validation-gate-integrity](TODO/validation-gate-integrity.md) | In progress | 4/6 | V3 CPU/runtime CI, then V4 sanitizer/static analysis |
-| [dx12-failure-propagation](TODO/dx12-failure-propagation.md) | In progress | 1/6 | D1a active-frame recording epoch safety from the completed inventory |
+| [dx12-failure-propagation](TODO/dx12-failure-propagation.md) | In progress | 4/6 | D4 partial initialization and guarded optional-feature failure propagation |
 | [behavioral-test-depth](TODO/behavioral-test-depth.md) | In progress | 3/6; P3/P5 partial | P3 with scene/entity ownership C1-C3; then remaining P5/P6 drills |
 | [runtime-shell-decomposition](TODO/runtime-shell-decomposition.md) | In progress | 0/26 remaining items | B1a/B1b immutable input core + B2a application-exit result, then owner queues |
 | [runtime-ui-control-architecture-cleanup](TODO/runtime-ui-control-architecture-cleanup.md) | Planned | 0/7 | U0 tracked UI-surface inventory |

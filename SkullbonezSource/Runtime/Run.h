@@ -16,8 +16,8 @@ Glossary:
   HUD (Heads-Up Display): On-screen diagnostics and control overlay.
   CLI (Command-Line Interface): Text arguments or scripts used to launch
   validation and tooling paths.
-  Lane R result: Recoverable scene-load, capture, or automation failure reported
-    with owner/message diagnostics instead of escaping through exceptions.
+  Lane R result: Recoverable scene-load, capture, renderer-drain, or automation
+    failure reported with owner/message diagnostics instead of exceptions.
   Probe failure: CLI validation failure reported as bounded result/report data
     so automation exits nonzero without throwing through the frame loop.
 
@@ -255,7 +255,7 @@ class Run
     void TickAttachedCameraOrbitInput( int unhandledWheelDelta );       // Mouse wheel adjusts Attach orbit distance.
     void TickAttachedCamera();                                          // Applies the active follow solve to CameraCollection.
     RuntimeRendererBindings BuildRuntimeRendererBindings( Profiler* profiler );
-    void ReleaseBackendOwnedRenderResources(
+    SbResult ReleaseBackendOwnedRenderResources(
         const char* phaseName );                                        // Ordered GPU-resource release hook while the backend is alive.
     SbResult RebuildRegisteredRenderResources();                        // Recreates renderer resources from source asset records.
     void LogRenderResourceLifecycleStep( const char* phase, const char* step )
@@ -273,7 +273,7 @@ class Run
         bool preserveRuntimeState = false );                            // Queue-indexed scene load; preserve flags keep selected runtime/UI state.
     void MoveCamera( float keyMovementQty,
                      float mouseMovemementQty );                        // Keyboard/mouse deltas dispatched to CameraCollection.
-    void RunUIStressActions();                                          // Deterministic UI control-state churn; leaves runtime/world rebuilds gated off.
+    SbResult RunUIStressActions();                                      // Lane R deterministic UI churn result; stops before unsafe generated rebuilds.
     void RunGraphicsStressActions(
         const Rendering::IRenderDiagnostics&
             renderDiagnostics );                                        // Deterministic render/scene churn used to shake out DX12 crashes.

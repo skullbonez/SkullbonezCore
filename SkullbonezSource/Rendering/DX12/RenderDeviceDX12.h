@@ -124,7 +124,6 @@ class Dx12FenceTimeline
 
     bool IsReady() const;
     Basics::SbResult Signal( UINT64& outValue );
-    Basics::SbResult SignalAndWait();
     Basics::SbResult WaitForValue( UINT64 value ) const;
 
     UINT64 CompletedValue() const;
@@ -632,6 +631,9 @@ class Dx12ReadbackBuffer
 
     void* MapRead( UINT64 sizeBytes ) const;
     void UnmapNoWrite() const;
+    // Transfers the COM reference without releasing it. Use only when a failed
+    // fence wait cannot prove that the GPU has stopped using the resource.
+    ID3D12Resource* DetachAfterUncertainSubmission();
     Dx12ReadbackBufferStats GetStats() const;
 
   private:

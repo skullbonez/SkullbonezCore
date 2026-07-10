@@ -188,6 +188,18 @@ SceneRuntimeLoadBeginResult BeginSceneRuntimeLoad( SceneRuntimeLoadBeginContext&
         return result;
     }
 
+    result.scenePath = &context.controller.PathAt( index );
+    if ( context.renderLifecycle )
+    {
+        // Lane R: old scene resources may still be referenced by in-flight GPU
+        // work. A failed drain must leave every scene/controller owner intact.
+        result.status = context.renderLifecycle->FlushGPU();
+        if ( !result.status.ok )
+        {
+            return result;
+        }
+    }
+
     if ( suppressExitOnComplete )
     {
         context.reset.scene.isInteractiveRun = true;
@@ -209,15 +221,7 @@ SceneRuntimeLoadBeginResult BeginSceneRuntimeLoad( SceneRuntimeLoadBeginContext&
         ClearSceneRuntimeUIOverrides( context.reset );
     }
 
-    if ( context.renderLifecycle )
-    {
-        // Hazard: Old scene resources may still be referenced by in-flight GPU
-        // work. Flush before the caller tears down models, buffers, or terrain.
-        context.renderLifecycle->FlushGPU();
-    }
-
     context.controller.BeginLoad( index );
-    result.scenePath = &context.controller.PathAt( index );
     if ( !result.shouldPreserveRuntimeState )
     {
         context.sceneBrowser.selectedCineModeSceneIndex =

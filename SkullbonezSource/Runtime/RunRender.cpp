@@ -1822,7 +1822,7 @@ void RuntimeRenderer::ReleaseBackendOwnedResources( Rendering::IRenderResourceFa
 }
 
 
-void RuntimeRenderer::ReleaseBackendOwnedRuntimeResources( const BackendResourceReleaseContext& context )
+SbResult RuntimeRenderer::ReleaseBackendOwnedRuntimeResources( const BackendResourceReleaseContext& context )
 {
     enum class BackendResourceStep
     {
@@ -1843,21 +1843,20 @@ void RuntimeRenderer::ReleaseBackendOwnedRuntimeResources( const BackendResource
     {
         const char* name;
         BackendResourceStep step;
-        bool flushAfter;
     };
 
     const BackendResourcePhase releaseSteps[] = {
-        { "world_environment", BackendResourceStep::WorldEnvironment, true },
-        { "helper_owner", BackendResourceStep::HelperOwner, false },
-        { "game_model_resources", BackendResourceStep::GameModelResources, false },
-        { "collision_visualizer", BackendResourceStep::CollisionVisualizer, false },
-        { "ui_resources", BackendResourceStep::UIResources, false },
-        { "render_pass_resources", BackendResourceStep::RenderPassResources, false },
-        { "profiler_queries", BackendResourceStep::ProfilerQueries, false },
-        { "texture_collection", BackendResourceStep::TextureCollection, false },
-        { "camera_collection", BackendResourceStep::CameraCollection, false },
-        { "skybox", BackendResourceStep::SkyBox, false },
-        { "launcher_laser", BackendResourceStep::LauncherLaser, false },
+        { "world_environment", BackendResourceStep::WorldEnvironment },
+        { "helper_owner", BackendResourceStep::HelperOwner },
+        { "game_model_resources", BackendResourceStep::GameModelResources },
+        { "collision_visualizer", BackendResourceStep::CollisionVisualizer },
+        { "ui_resources", BackendResourceStep::UIResources },
+        { "render_pass_resources", BackendResourceStep::RenderPassResources },
+        { "profiler_queries", BackendResourceStep::ProfilerQueries },
+        { "texture_collection", BackendResourceStep::TextureCollection },
+        { "camera_collection", BackendResourceStep::CameraCollection },
+        { "skybox", BackendResourceStep::SkyBox },
+        { "launcher_laser", BackendResourceStep::LauncherLaser },
     };
 
     const auto logLifecycleStep = [&]( const char* step )
@@ -1868,8 +1867,21 @@ void RuntimeRenderer::ReleaseBackendOwnedRuntimeResources( const BackendResource
         }
     };
 
+    if ( context.deviceLifecycle )
+    {
+        logLifecycleStep( "flush_before_resource_release" );
+        const SbResult flushResult = context.deviceLifecycle->FlushGPU();
+        if ( !flushResult.ok )
+        {
+            // Lane R: return before the first release. The destructor caller
+            // converts this non-returnable teardown failure to Lane F.
+            return flushResult;
+        }
+    }
+
     // Lifetime: RuntimeRenderer owns the ordered teardown recipe because pass
     // resources and their consumers must release before backend-owned caches.
+    // The successful drain above is the proof that every release is GPU-safe.
     for ( const BackendResourcePhase& phase : releaseSteps )
     {
         logLifecycleStep( phase.name );
@@ -1925,13 +1937,8 @@ void RuntimeRenderer::ReleaseBackendOwnedRuntimeResources( const BackendResource
             context.tools.Laser().ResetResources( context.renderResources );
             break;
         }
-
-        if ( phase.flushAfter && context.deviceLifecycle )
-        {
-            logLifecycleStep( "flush_after_world_environment" );
-            context.deviceLifecycle->FlushGPU();
-        }
     }
+    return SbResult::Success();
 }
 
 

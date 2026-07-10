@@ -11,16 +11,14 @@ Mental model:
 Glossary:
   FBO (Framebuffer Object): Engine shorthand for an off-screen render target
   exposed through the renderer abstraction.
-  Lane R result: Recoverable scene/load-only failure reported as an SbResult
-    so CLI automation can exit nonzero without a fatal exception.
+  Lane R result: Recoverable scene/load or renderer-drain failure reported as
+    an SbResult so the owning boundary can stop before unsafe mutation.
   Probe failure: CLI validation failure reported as bounded result/report data
     so automation exits nonzero without throwing through the frame loop.
 
 Invariants:
   - Backend-owned render resources must be released while the renderer backend
     is still alive, after a GPU flush, and in the explicit release order below.
-  - WorldEnvironment reset can record upload commands; flush after that step
-    before later resources are released.
 
 Related:
   - SkullbonezSource/Runtime/Run.h
@@ -38,6 +36,7 @@ Related:
 #include "Allocation/RuntimeReserveAllocator.h"
 #include "Scene/SceneRuntimeLoad.h"
 #include "../UI/UIInput.h"
+#include "../Core/FatalError.h"
 #include "../Core/Log.h"
 #include "../Physics/PhysicsTimestep.h"
 
@@ -564,28 +563,28 @@ Run::~Run()
                 static_cast<unsigned long long>( replayStats.latestStateHash ) );
     }
 
-    // Hazard: backend resources can still be referenced by queued GPU work.
-    // Flush before releasing the runtime's owning pointers so teardown cannot
-    // free memory while the device is still reading it.
-    if ( m_renderBackendView.deviceLifecycle )
-    {
-        m_renderBackendView.deviceLifecycle->FlushGPU();
-    }
-
     // Lifetime: clean up backend-owned render resources while the current
-    // backend is still alive. The world step now releases water GPU resources
-    // without rebuilding; the flush keeps any already-submitted GPU work out of
-    // teardown.
-    ReleaseBackendOwnedRenderResources( "shutdown_release" );
+    // backend is still alive. RuntimeRenderer performs the checked drain before
+    // its first release so no owner can destroy resources after a failed wait.
+    const SbResult releaseResult = ReleaseBackendOwnedRenderResources( "shutdown_release" );
+    if ( !releaseResult.ok )
+    {
+        // Lane F: a destructor cannot propagate Lane R to a caller, and letting
+        // member destruction continue after an uncertain GPU drain is unsafe.
+        SB_FATAL( "Runtime/Run",
+                  "Backend resource release could not establish GPU safety. owner=%s reason=%s",
+                  releaseResult.error.owner[0] != '\0' ? releaseResult.error.owner : "Rendering/DX12",
+                  releaseResult.error.message[0] != '\0' ? releaseResult.error.message : "GPU drain failed" );
+    }
 }
 
 
-void Run::ReleaseBackendOwnedRenderResources( const char* phaseName )
+SbResult Run::ReleaseBackendOwnedRenderResources( const char* phaseName )
 {
     SkullbonezCore::Rendering::IRenderDeviceLifecycle* releaseDeviceLifecycle = m_renderBackendView.deviceLifecycle;
     SkullbonezCore::Rendering::IRenderResourceFactory* releaseRenderResources = m_renderBackendView.renderResources;
 
-    m_renderer.ReleaseBackendOwnedRuntimeResources(
+    return m_renderer.ReleaseBackendOwnedRuntimeResources(
         RuntimeRenderer::BackendResourceReleaseContext{ phaseName,
                                                         releaseDeviceLifecycle,
                                                         releaseRenderResources,

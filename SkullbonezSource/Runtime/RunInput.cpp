@@ -999,6 +999,7 @@ struct RuntimeUIFrameContext
 
 struct RuntimeUIFrameResult
 {
+    SbResult status = SbResult::Success();
     bool suppressWorldActionThisFrame = false;
     int editorUnhandledWheelDelta = 0;
 };
@@ -1273,6 +1274,11 @@ ApplyRuntimeUIFrameCommands( const RuntimeUIFrameContext& context,
     const SceneGeneratedUICommandResult modelCountCommand =
         ApplySceneGeneratedModelCountUICommand( makeSceneGeneratedControlContext(),
                                                 uiCommands.sceneOptions.requestedModelCount );
+    if ( !modelCountCommand.action.status.ok )
+    {
+        result.status = modelCountCommand.action.status;
+        return result;
+    }
     if ( modelCountCommand.accepted )
     {
         executeSceneGeneratedControlAction( modelCountCommand.action );
@@ -1285,6 +1291,11 @@ ApplyRuntimeUIFrameCommands( const RuntimeUIFrameContext& context,
     const SceneGeneratedUICommandResult solverBallCountCommand =
         ApplySceneGeneratedSolverBallCountUICommand( makeSceneGeneratedControlContext(),
                                                      uiCommands.run.requestedSolverBallCount );
+    if ( !solverBallCountCommand.action.status.ok )
+    {
+        result.status = solverBallCountCommand.action.status;
+        return result;
+    }
     if ( solverBallCountCommand.accepted )
     {
         executeSceneGeneratedControlAction( solverBallCountCommand.action );
@@ -1293,6 +1304,11 @@ ApplyRuntimeUIFrameCommands( const RuntimeUIFrameContext& context,
     const SceneGeneratedUICommandResult solverBoxCountCommand =
         ApplySceneGeneratedSolverBoxCountUICommand( makeSceneGeneratedControlContext(),
                                                     uiCommands.run.requestedSolverBoxCount );
+    if ( !solverBoxCountCommand.action.status.ok )
+    {
+        result.status = solverBoxCountCommand.action.status;
+        return result;
+    }
     if ( solverBoxCountCommand.accepted )
     {
         executeSceneGeneratedControlAction( solverBoxCountCommand.action );
@@ -1335,7 +1351,12 @@ ApplyRuntimeUIFrameCommands( const RuntimeUIFrameContext& context,
         QueueSceneUIRuntimeCommands( context.runtimeCommands, uiCommands.scene );
     RecordSceneRuntimeUIActions( sceneUICommands, recordUIAction );
 
-    runUIStressActions();
+    const SbResult stressResult = runUIStressActions();
+    if ( !stressResult.ok )
+    {
+        result.status = stressResult;
+        return result;
+    }
 
     tickAttachedCameraOrbitInput( result.editorUnhandledWheelDelta );
     tickEditorViewportAndPlacementScaleInput( result.editorUnhandledWheelDelta );
@@ -2641,7 +2662,15 @@ bool Run::HandleUnfocusedInputFrame()
                                  true,
                                  true );
     m_UI.CancelInputCapture();
-    RunUIStressActions();
+    const SbResult stressResult = RunUIStressActions();
+    if ( !stressResult.ok )
+    {
+        // Lane R: focus loss still routes stress churn through the same guarded
+        // rebuild path. End the run before returning to the frame loop.
+        ReportRuntimeInputFailure( stressResult );
+        std::fflush( stderr );
+        PostQuitMessage( 1 );
+    }
     return true;
 }
 
@@ -2946,9 +2975,18 @@ void Run::TakeInput()
         applyEditorModeToggle,
         applyEditorPlacementModeToggle,
         [this]() { ResetReplayTimelineForActiveScene(); },
-        [this]() { RunUIStressActions(); },
+        [this]() { return RunUIStressActions(); },
         [this]( int editorWheelDelta ) { TickAttachedCameraOrbitInput( editorWheelDelta ); },
         [this]( int editorWheelDelta ) { TickEditorViewportAndPlacementScaleInput( editorWheelDelta ); } );
+    if ( !uiFrameResult.status.ok )
+    {
+        // Lane R: a generated-resource rebuild could not prove its GPU drain.
+        // Stop this frame and end the run before any later world/input mutation.
+        ReportRuntimeInputFailure( uiFrameResult.status );
+        std::fflush( stderr );
+        PostQuitMessage( 1 );
+        return;
+    }
     const bool suppressWorldActionThisFrame = uiFrameResult.suppressWorldActionThisFrame;
 
     ProcessRuntimePointerCameraFrame(
