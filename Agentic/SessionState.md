@@ -10,7 +10,7 @@ reports, and git history.
 | Field | Value |
 |---|---|
 | Branch | `engine-cleanup-10th-july`, tracking `origin/engine-cleanup-10th-july` |
-| Pushed tip | `1e7846d5 ci: add honest CPU and native validation lanes` |
+| Pushed baseline before this closure-gate update | `4a326189 docs: refresh the engine cleanup handoff` |
 | Current objective | Package and finish the remaining uncommitted scene, DX12, and `Run` ownership slices |
 | Last broad local gate | `tools\validate_fast.bat` passed format, filters, 14 staged blobs, unit tests, and Debug/Profile builds with zero warnings/errors |
 | Native evidence | Injected heap-use-after-free caught; healthy ASan and five-file `/analyze` passed in 16.185s |
@@ -26,6 +26,7 @@ reports, and git history.
 - `c13e26ba docs: bind scene asset round-trip ownership`
 - `6976c61e docs: hand off the active engine cleanup wave`
 - `1e7846d5 ci: add honest CPU and native validation lanes`
+- `4a326189 docs: refresh the engine cleanup handoff`
 
 ## Uncommitted Wave — Preserve All Files
 
@@ -83,5 +84,22 @@ them.
 - Persistent self-hosted DX12 CI may run trusted `main`/manual refs only. A
   disposable isolated GPU runner is required before public-PR GPU execution can
   become merge-blocking.
+
+## Non-Negotiable God-Object Closure Gate
+
+Do not close the runtime plan or engine-cleanup campaign merely because
+`Run.cpp` becomes short. Treat `Run.h`, every `Run*.cpp`, shared internal
+headers, callback/context bags, and forwarding facades as one logical object.
+Its only permitted responsibilities at closure are owner construction/wiring,
+startup/shutdown, OS message pumping, top-level frame order, and final exit
+reporting. `RunInternal.h` and equivalent renamed shared-state hubs must be
+gone, and the five extracted owners must remain cohesive rather than becoming
+replacement god objects.
+
+The final independent adversarial review must report zero credible god-object,
+callback-bag, forwarding-facade, or disguised shared-state-hub findings across
+the runtime shell and current cleanup hotspots. Any credible finding reopens
+the relevant checklist item and blocks completion; log and fix it rather than
+deferring it as optional follow-up.
 
 `Agentic/Plans/MASTER-PLAN.md` remains the authoritative plan index.

@@ -123,6 +123,42 @@ historical debt. These policies are enforced by code review, owning plans,
 focused behavioral tests in `Agentic/Plans/TODO/behavioral-test-depth.md`, and
 the targeted validation gates below.
 
+## God-Object Closure Rule
+
+Ownership cleanup is judged across a logical type or module, not one physical
+file. For `Run`, review `Run.h`, every `Run*.cpp`, shared internal headers,
+callback/context types, and forwarding facades as one surface. Making
+`Run.cpp` short while the same authority remains reachable through sibling
+translation units is not decomposition.
+
+At closure, `Run` may construct and wire concrete owners, sequence
+startup/shutdown, pump operating-system messages, establish top-level frame
+order, and report the final application result. It must not own or decide
+input, scene, replay, render, UI, physics, tools, capture, defaults, or
+diagnostics business state. Those domains must have concrete owners with typed
+value boundaries.
+
+The following are closure failures, even when presented as temporary or
+compatibility architecture:
+
+- mutable multi-domain state or queues collected in `Run` or a replacement
+  `*Internal`, `*Context`, `*Services`, `*Bindings`, or similarly broad bag;
+- `void*`, stored host pointers/references, callback packs, friend access, or
+  lambdas that let an extracted owner reach back into `Run` state;
+- `Run::*` forwarding wrappers or nominal owner types that merely relay
+  business operations while authority remains in `Run`;
+- an extracted owner that absorbs unrelated domains and becomes the next god
+  object;
+- a completion claim based only on line count, file count, or a mechanical
+  translation-unit split.
+
+A final independent ownership review is mandatory for a god-object cleanup.
+A finding is credible when it identifies concrete unrelated responsibilities,
+state, or dependency authority and the owner boundary they violate. Any such
+finding reopens the owning checklist item and blocks plan/campaign completion;
+it cannot be waived as follow-up debt. Large cohesive files are allowed only
+when the review records why their state and invariants belong to one owner.
+
 ## Migration Cleanup Review Rule
 
 Compatibility code is allowed only when it is honest, bounded, and guarded.

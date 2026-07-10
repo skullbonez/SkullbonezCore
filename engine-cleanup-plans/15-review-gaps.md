@@ -38,7 +38,14 @@ large callback/boolean graphs around `Run` state.
 concrete ownership extractions and deletion proofs. UI/interaction details are
 owned by their coordinated plans.
 
-**Closure:** all five runtime-shell extraction deletion proofs pass.
+**Closure:** all five runtime-shell extraction deletion proofs pass, the final
+logical-`Run` inventory maps every remaining method/field to a permitted thin
+shell responsibility, and an independent adversarial ownership review reports
+zero credible god-object or disguised shared-state-hub findings. The review
+includes all `Run*.cpp` files and extracted owners; shortening `Run.cpp`, moving
+state into a broad context, or adding forwarding facades does not close 15.2.
+Any credible finding reopens the owning runtime-shell item and blocks this
+campaign rather than becoming optional follow-up debt.
 
 ## 15.3 Replay Architecture And Size
 
@@ -93,3 +100,10 @@ and requires the Common.h broad gate.
 This campaign closes only when 15.1-15.3 owning-plan acceptance criteria are
 complete, 15.6 is complete, and the master inventory removes this file. Do not
 derive a percentage from delegated work; use each owning plan's checked count.
+The final master-plan ownership review must also cover the current high-fan-in
+and mega-module inventory, including `PhysicsWorld`, `Init`, `ReplayRuntime`,
+`ReplayRecorder`, `RenderBackendDX12`, `TestSceneParser`, `UI`,
+`GameModelCollection`, and any newer equivalent hotspot. Campaign closure
+requires a committed final ownership-review report and zero credible god-object
+findings in scope; a cohesive large file is acceptable only with recorded
+ownership/invariant evidence.

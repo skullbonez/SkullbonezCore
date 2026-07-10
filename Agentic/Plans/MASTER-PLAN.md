@@ -17,6 +17,9 @@ Status: Authoritative inventory of every live repository plan
    phases, dependencies/decisions, acceptance, and validation.
 7. Source measurements are dated and scoped; historical numbers are not reused
    as current evidence.
+8. God-object cleanup is reviewed across logical types/modules, not individual
+   files. A short facade, shared context, callback bag, or forwarding owner does
+   not satisfy an ownership deletion proof.
 
 ## Execution Priority
 
@@ -43,7 +46,7 @@ Status: Authoritative inventory of every live repository plan
 | [validation-gate-integrity](TODO/validation-gate-integrity.md) | In progress | 4/6 | V3 CPU/runtime CI, then V4 sanitizer/static analysis |
 | [dx12-failure-propagation](TODO/dx12-failure-propagation.md) | In progress | 1/6 | D1a active-frame recording epoch safety from the completed inventory |
 | [behavioral-test-depth](TODO/behavioral-test-depth.md) | In progress | 3/6; P3/P5 partial | P3 with scene/entity ownership C1-C3; then remaining P5/P6 drills |
-| [runtime-shell-decomposition](TODO/runtime-shell-decomposition.md) | In progress | 0/23 remaining items | B1a/B1b immutable input core + B2a application-exit result, then owner queues |
+| [runtime-shell-decomposition](TODO/runtime-shell-decomposition.md) | In progress | 0/26 remaining items | B1a/B1b immutable input core + B2a application-exit result, then owner queues |
 | [runtime-ui-control-architecture-cleanup](TODO/runtime-ui-control-architecture-cleanup.md) | Planned | 0/7 | U0 tracked UI-surface inventory |
 | [interaction-state-machine](TODO/interaction-state-machine.md) | In progress | 0/6 remaining phases | I4 capture/focus behavior with CPU + interaction proof |
 | [replay-architecture-and-right-sizing](TODO/replay-architecture-and-right-sizing.md) | Planned | 0/6 | R0 reconciled file/state/memory inventory |
@@ -79,6 +82,20 @@ Open and blocking:
 
 - CI: register a GPU-capable Windows/DX12 runner before making runtime CI a
   required check; CPU Windows CI does not wait for that runner.
+
+## Engine Cleanup Campaign Closure Gate
+
+Before deleting `runtime-shell-decomposition.md` or closing the engine-cleanup
+campaign:
+
+- [ ] One final independent ownership review covers the complete logical `Run`
+  surface, every extracted owner, and the current high-fan-in/mega-module
+  inventory. It records zero credible god-object, shared-state-hub, callback-bag,
+  forwarding-facade, or renamed-compatibility findings.
+- [ ] The review's method/field ownership inventory, inspected hotspot list,
+  concrete evidence, and zero-finding verdict are committed under
+  `Agentic/Reports/<date>/`. Any credible finding reopens its owning plan and
+  blocks campaign closure.
 
 ## Plan Closure Checklist
 

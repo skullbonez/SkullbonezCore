@@ -1,7 +1,7 @@
 # Runtime Shell Decomposition
 
 Date: 2026-07-10 (reconciled)
-Status: In progress — 0/23 remaining checklist items complete; earlier
+Status: In progress — 0/26 remaining checklist items complete; earlier
 foundation work is summarized separately and is not mixed into this count
 Impact area: runtime architecture, scene lifecycle, input routing, render host
 Owner: application composition root
@@ -12,6 +12,11 @@ Owner: application composition root
 message pumping, top-level frame order, final owner wiring, and exit reporting.
 A scene, replay, render, input, tool, or diagnostics feature lands inside its
 owning subsystem without adding a `Run::*` method or a callback into `Run`.
+
+This goal applies to the logical `Run` object: `Run.h`, every `Run*.cpp`, shared
+headers, helper/context types, and forwarding facades are one review surface.
+A short `Run.cpp` does not satisfy the goal while authority survives in those
+other files.
 
 Measured reality (2026-07-10, tracked engine/shader source-bearing files):
 `Runtime/` is 82,359 lines — about 48% of 172,036 lines. The earlier split
@@ -142,6 +147,26 @@ Coordinate C with `physics-authority-and-identity.md` C0-C5 and
 - [ ] E3. Slim `Core/Common.h`: remove the stale config compatibility include
   and alias includes according to current consumers.
 
+### F. Prove the god object is gone
+
+- [ ] F1. Rebuild the final `Run` ownership inventory from current source. Map
+  every remaining `Run` method and mutable field to one of the five permitted
+  shell responsibilities (owner construction/wiring, startup/shutdown, OS
+  message pump, top-level frame order, final exit reporting), or move it to a
+  concrete domain owner. Inspect all `Run*.cpp`, not only `Run.cpp`.
+- [ ] F2. Audit the extracted owners and their boundary records for sideways
+  migration. `InputRouter`, command owners, `SceneController`, `ReplayRuntime`,
+  and `RuntimeRenderer` must not retain `Run*`/`Run&`, callback bags, `void*`
+  contexts, friend backdoors, broad mutable contexts, forwarding-only APIs, or
+  authority over unrelated domains.
+- [ ] F3. After every other runtime-shell item and required gate passes, run one
+  independent read-only adversarial ownership review. Record concrete evidence
+  for zero remaining god-object or disguised shared-state-hub findings in
+  `Agentic/Reports/<date>/runtime-shell-final-ownership-review.md`, including
+  the final method/field inventory and inspected substitute-hub surfaces. Any
+  credible finding reopens its owning item, is fixed in this plan, and blocks
+  closure rather than becoming optional follow-up debt.
+
 ## Binding And Open Decisions
 
 | Decision | Binding answer or remaining question |
@@ -170,13 +195,24 @@ deleted.
 ## Acceptance
 
 - [ ] All five ownership-extraction deletion proofs pass.
-- [ ] `Run.h` exposes process/frame composition, not subsystem business methods.
+- [ ] The complete logical `Run` surface exposes only owner construction/wiring,
+  startup/shutdown, OS message pumping, top-level frame order, and final exit
+  reporting; it owns no mutable subsystem business state.
 - [ ] `RuntimeRenderHost` is removed or a small immutable context.
 - [ ] `RunInternal.h` is deleted without a replacement shared-state header.
+- [ ] No `*Internal`, `*Context`, `*Services`, `*Bindings`, callback pack,
+  forwarding facade, stored host pointer/reference, friend access, or renamed
+  compatibility surface recreates `Run` authority.
+- [ ] Each extracted owner is cohesive and does not combine unrelated input,
+  scene, replay, render, UI, physics, tool, capture, defaults, or diagnostics
+  authority.
 - [ ] No runtime source file in the reconciled inventory exceeds 1,500 lines
   without a cohesion justification and named follow-up owner.
 - [ ] A new feature can enter input, scene, replay, or render through its owner
   without adding a `Run::*` method.
+- [ ] The final independent adversarial review reports zero credible god-object
+  findings and its evidence report is committed. Any credible finding reopens
+  this plan and blocks completion.
 
 ## Validation
 
