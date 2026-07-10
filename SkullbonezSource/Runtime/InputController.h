@@ -34,6 +34,14 @@ Related:
 
 namespace SkullbonezCore
 {
+namespace Environment
+{
+class CameraCollection;
+}
+namespace Geometry
+{
+class Terrain;
+}
 namespace Basics
 {
 struct DeviceInputFrame;
@@ -249,6 +257,23 @@ struct RuntimeCameraInputFrameResult
     bool applyCursorOwnership = false;
 };
 
+// Concept: a frame-owned camera movement input is the value boundary between
+// hardware sampling and the later presentation update. It contains no device
+// or host references, so movement cannot reopen mutable input state.
+struct RuntimeCameraMovementInput
+{
+    float keyMovementQuantity = 0.0f;
+    float mouseMovementQuantity = 0.0f;
+    float minCameraHeight = 0.0f;
+    float maxCameraHeight = 0.0f;
+    bool attachedOrbitOwnsCamera = false;
+    bool flyControlsActive = false;
+    bool editorModeEnabled = false;
+    bool editorViewportLookActive = false;
+    bool manualControlsActive = false;
+    bool authoredScene = false;
+};
+
 struct RuntimeInputTransition
 {
     RuntimeInputMode from = RuntimeInputMode::Scene;
@@ -307,6 +332,10 @@ class InputController
     static void SetMouseLookDelta( RunCameraState& camera, long rawX, long rawY );
     static RuntimeCameraInputFrameResult ApplyCameraInputFrame( RunCameraState& camera,
                                                                 const RuntimeCameraInputFrameContext& context );
+    static void ApplyCameraMovement( RunCameraState& camera,
+                                     Environment::CameraCollection& cameras,
+                                     Geometry::Terrain& terrain,
+                                     const RuntimeCameraMovementInput& input );
 };
 } // namespace Basics
 } // namespace SkullbonezCore

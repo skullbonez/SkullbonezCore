@@ -26,6 +26,8 @@ Related:
 
 #include "RunCameraState.h"
 #include "RunInternal.h"
+#include "CameraCollection.h"
+#include "../World/Terrain.h"
 
 #include <algorithm>
 #include <cstdio>
@@ -447,6 +449,8 @@ void InputController::DescribeLastTransitions( const RuntimeInputContext& contex
 void InputController::ResetUnfocusedInput( RunCameraState& camera )
 {
     camera.input = {};
+    camera.mouseLookOwnsCursor = false;
+    camera.travelSpeedMultiplier = 1.0f;
     camera.hasMouseLookLastClient = false;
     camera.needsMouseLookReset = true;
 }
@@ -487,6 +491,8 @@ RuntimeCameraInputFrameResult InputController::ApplyCameraInputFrame( RunCameraS
         return result;
     }
     const DeviceInputFrame& deviceFrame = *context.deviceFrame;
+    camera.mouseLookOwnsCursor = context.mouseLookOwnsCursor;
+    camera.travelSpeedMultiplier = deviceFrame.keys.IsDown( VK_SHIFT ) ? 3.0f : 1.0f;
     if ( context.cameraMouseLookActive )
     {
         // Why: raw mouse input gives stable deltas during native mouse-look, and
@@ -564,6 +570,62 @@ RuntimeCameraInputFrameResult InputController::ApplyCameraInputFrame( RunCameraS
         camera.input.Set( Hardware::InputState::Right, false );
     }
     return result;
+}
+
+
+void InputController::ApplyCameraMovement( RunCameraState& camera,
+                                           Environment::CameraCollection& cameras,
+                                           Geometry::Terrain& terrain,
+                                           const RuntimeCameraMovementInput& input )
+{
+    const bool hasTravelInput =
+        camera.input.Get( Hardware::InputState::Up ) || camera.input.Get( Hardware::InputState::Down ) ||
+        camera.input.Get( Hardware::InputState::Left ) || camera.input.Get( Hardware::InputState::Right );
+    if ( !input.attachedOrbitOwnsCamera &&
+         ( input.flyControlsActive || camera.mouseLookOwnsCursor || input.editorViewportLookActive || hasTravelInput ) )
+    {
+        if ( ( !input.editorModeEnabled || input.editorViewportLookActive ) &&
+             ( camera.input.xMove != 0 || camera.input.yMove != 0 ) )
+        {
+            cameras.RotatePrimary( camera.input.xMove * input.mouseMovementQuantity,
+                                   camera.input.yMove * input.mouseMovementQuantity );
+        }
+
+        const float travelQuantity = input.keyMovementQuantity * camera.travelSpeedMultiplier;
+        if ( camera.input.Get( Hardware::InputState::Up ) )
+        {
+            cameras.MovePrimary( Environment::Camera::TravelDirection::Forward, travelQuantity );
+        }
+        if ( camera.input.Get( Hardware::InputState::Left ) )
+        {
+            cameras.MovePrimary( Environment::Camera::TravelDirection::Left, travelQuantity );
+        }
+        if ( camera.input.Get( Hardware::InputState::Down ) )
+        {
+            cameras.MovePrimary( Environment::Camera::TravelDirection::Backward, travelQuantity );
+        }
+        if ( camera.input.Get( Hardware::InputState::Right ) )
+        {
+            cameras.MovePrimary( Environment::Camera::TravelDirection::Right, travelQuantity );
+        }
+        cameras.ApplyPrimaryMovementBuffer();
+    }
+
+    // Passive generated-demo camera bounds do not own manual or pinned follow views.
+    if ( !input.manualControlsActive && !input.editorViewportLookActive && !input.authoredScene )
+    {
+        const Math::Vector::Vector3 translatedCameraPosition = cameras.GetCameraTranslation();
+        const float minY = terrain.GetTerrainHeightAt( translatedCameraPosition.x, translatedCameraPosition.z, true ) +
+                           input.minCameraHeight;
+        if ( minY > translatedCameraPosition.y )
+        {
+            cameras.AmmendPrimaryY( minY );
+        }
+        else if ( translatedCameraPosition.y > input.maxCameraHeight )
+        {
+            cameras.AmmendPrimaryY( input.maxCameraHeight );
+        }
+    }
 }
 } // namespace Basics
 } // namespace SkullbonezCore

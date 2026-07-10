@@ -203,8 +203,6 @@ class Run
     void EnterInteractiveSceneRun();                                    // Locks scene automation into non-quitting interactive mode
     bool CanSceneAutomationQuit() const;                                // True for CLI suites/tests; false once the user owns scene flow
     void HoldCompletedInteractiveScene();                               // Keep the current scene alive after interactive automation completes
-    void MoveCamera( float keyMovementQty,
-                     float mouseMovemementQty );                        // Keyboard/mouse deltas dispatched to CameraCollection.
     SbResult RunUIStressActions();                                      // Lane R deterministic UI churn result; stops before unsafe generated rebuilds.
     void RunGraphicsStressActions(
         const Rendering::IRenderDiagnostics&

@@ -649,6 +649,21 @@ passed in 52.7s with zero warnings, zero DX12 InfoQueue errors, matching
 screenshots, standalone topology smoke, and the 20,001-line byte-exact physics
 baseline. Comment audit: 5/5 touched source-bearing files.
 
+Camera movement now belongs to `InputController`. Input sampling captures the
+resolved mouse-look ownership and Shift travel multiplier into camera-local
+frame state; the later presentation update consumes a compact value input and
+cannot reopen the device frame. Run's `MoveCamera` forwarding method and
+declaration are deleted. B1f remains open for the `TakeInput` UI/keyboard
+callback packs and remaining late frame/render/replay hardware reads.
+
+Evidence: the zero-warning Debug build passed after one bounded include-path
+fix. Fast passed in 31.1s; the CPU umbrella passed in 11.1s with 129/129 doctest
+cases and 2,755 assertions; all five interaction scenarios passed in 15.0s;
+perf completed in 32.6s; and full passed in 52.2s with zero warnings, zero DX12
+InfoQueue errors, matching screenshots, standalone topology smoke, and the
+20,001-line byte-exact physics baseline. Comment audit: 6/6 touched
+source-bearing files.
+
 ## Remaining Work
 
 ### A. Narrow the render host

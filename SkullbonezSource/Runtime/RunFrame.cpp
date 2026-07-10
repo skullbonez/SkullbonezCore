@@ -1384,7 +1384,27 @@ void Run::UpdateLogic( float simulationDt, float cameraDt )
     // would make sensitivity vary with FPS; the fixed reference preserves the
     // existing 60 Hz tuning while making the result frame-rate independent.
     const EngineConfig& cfg = m_config;
-    MoveCamera( cameraDt * cfg.keySpeed, CAMERA_MOUSE_REFERENCE_DT * cfg.mouseSensitivity );
+    const bool attachedOrbitOwnsCamera = RunCameraModeIsAttached( m_camera.mode ) &&
+                                         m_attachedCamera.State().activeFollow &&
+                                         m_attachedCamera.State().submode != AttachedCameraSubmode::RagdollEyes;
+    InputController::ApplyCameraMovement(
+        m_camera,
+        m_sceneController.Cameras(),
+        *m_sceneController.Terrain().Get(),
+        RuntimeCameraMovementInput{ cameraDt * cfg.keySpeed,
+                                    CAMERA_MOUSE_REFERENCE_DT * cfg.mouseSensitivity,
+                                    cfg.minCameraHeight,
+                                    cfg.maxCameraHeight,
+                                    attachedOrbitOwnsCamera,
+                                    RunCameraModeUsesFlyControls( m_camera.mode,
+                                                                  m_attachedCamera.State().activeFollow,
+                                                                  m_camera.director.grabbed ),
+                                    m_runtimeTools.Editor().editorModeEnabled,
+                                    m_runtimeTools.Editor().viewportLookActive,
+                                    RunCameraModeUsesManualControls( m_camera.mode,
+                                                                     m_attachedCamera.State().activeFollow,
+                                                                     m_camera.director.grabbed ),
+                                    SceneState().isSceneMode } );
     if ( RunCameraModeIsAttached( m_camera.mode ) )
     {
         const float orbitYawDelta =
