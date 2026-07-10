@@ -187,6 +187,22 @@ was deleted as well. B1f remains open only for extraction 1's final `Run.h`
 method/state deletion proof (`TakeInput` and pointer-routing composition), not
 for hardware polling.
 
+The next deletion seam is also complete: mouse-pickup cancellation is a
+`RuntimeTools` owner operation that atomically releases `InputRouter` native
+capture intent, ends the interaction gesture, and clears the stored body
+handle. The `Run::CancelMousePickup` forwarding method is deleted and scene,
+focus, camera-mode, editor, and physics-failure paths call the owner directly.
+The remaining B1f proof is still the full `TakeInput`/pointer-routing method
+surface; this seam is not counted as B1f closure by itself.
+
+Evidence from this owner seam: `tools\validate_all_cpu_tests.bat` passed all
+four CPU lanes with 125/125 doctest cases and 2,708 assertions in 14.4s;
+`tools\validate_interaction_clicks.bat` passed inspect-gizmo and replay-
+prediction scripts in 16.8s; and `tools\validate_full.bat` passed in 60.8s with
+zero warnings, zero DX12 InfoQueue errors, matching screenshots, standalone
+physics smoke, and the 20,001-line byte-exact physics baseline. The comment
+audit covered all six touched source-bearing files.
+
 Evidence from the final source: `tools\validate_tests.bat` passed 105/105 cases
 and 2,023 assertions; `tools\validate_interaction_clicks.bat` passed inspect
 gizmo and replay prediction click scripts; `tools\validate_perf.bat` passed the

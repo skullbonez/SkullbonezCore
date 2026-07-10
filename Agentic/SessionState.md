@@ -10,9 +10,9 @@ reports, and git history.
 | Field | Value |
 |---|---|
 | Branch | `engine-cleanup-10th-july`, tracking `origin/engine-cleanup-10th-july` |
-| Current pushed baseline | `8e39056c refactor: narrow replay live-owner identity` |
+| Current pushed baseline | `881b2ba9 refactor: move scene defaults save behind controller` |
 | Current objective | Close the dependent B1f/C1 Run scene seam and promote SceneController lifecycle ownership |
-| Last broad local gate | `tools\validate_full.bat` passed the scene-owned physics/navigation boundary with 125/125 doctest cases, 2,708 assertions, all CPU lanes, zero-warning builds, DX12 with zero InfoQueue errors/matching screenshots, standalone physics smoke, and 20,001-line byte-exact physics in 52.3s |
+| Last broad local gate | `tools\validate_full.bat` passed the mouse-pickup owner seam with 125/125 doctest cases, 2,708 assertions, all CPU lanes, zero-warning builds, DX12 with zero InfoQueue errors/matching screenshots, standalone physics smoke, and 20,001-line byte-exact physics in 60.8s |
 | Native evidence | Injected heap-use-after-free caught; healthy ASan and five-file `/analyze` passed in 16.185s |
 
 ## Pushed Cleanup Commits
@@ -146,6 +146,14 @@ The save sub-boundary is also local: SceneController owns editable snapshot and
 defaults persistence through a synchronous borrowed view, the Run save method
 is deleted, and failed reads/parses/writes return owned results without replay
 events. Fast and full gates pass from this source.
+
+The dependent B1f scene seam now has one fewer `Run` forwarding method:
+`RuntimeTools` owns mouse-pickup cancellation, including capture-intent release,
+gesture termination, and handle reset. Scene load and every input/physics
+cancellation path call the tool owner directly. B1f remains open for the full
+`TakeInput` and pointer-routing deletion proof. The CPU umbrella, interaction
+clicks, and full gate pass from this source; the touched-source comment audit is
+6/6.
 
 Scene provenance C1a is complete: parser-owned library/instance/ordered-part
 records retain exact shape sources, hierarchy transforms use rotated offsets

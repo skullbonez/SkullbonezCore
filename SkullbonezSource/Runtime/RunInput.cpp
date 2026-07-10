@@ -1333,11 +1333,11 @@ void Run::ClearRuntimeInteractionStateForTransition( const RuntimeInteractionTra
     if ( transition.previousOwner == WorldInteractionOwner::Manipulator &&
          transition.owner != WorldInteractionOwner::Manipulator )
     {
-        CancelMousePickup();
+        m_runtimeTools.CancelMousePickup( m_inputRouter, m_interaction );
     }
     if ( enteringTool && transition.owner != WorldInteractionOwner::Manipulator )
     {
-        CancelMousePickup();
+        m_runtimeTools.CancelMousePickup( m_inputRouter, m_interaction );
     }
 
     if ( ( !enteringEdit && !inspectGizmoClaimWithinInspect && HasActiveEditorInteractionState() ) ||
@@ -1961,7 +1961,7 @@ void Run::ApplyCameraMode( RunCameraMode mode, RuntimeInputActionSource source )
     }
     if ( mode != RunCameraMode::Manipulator )
     {
-        CancelMousePickup();
+        m_runtimeTools.CancelMousePickup( m_inputRouter, m_interaction );
     }
 
     const bool isFlyMode =
@@ -2170,7 +2170,7 @@ bool Run::HandleUnfocusedInputFrame()
         m_inputRouter.ReleaseNativeCapture();
         m_replayRuntime.VelocityEdit().mouseCaptured = false;
     }
-    CancelMousePickup();
+    m_runtimeTools.CancelMousePickup( m_inputRouter, m_interaction );
     if ( m_replayRuntime.CauseTree().draggingWindow || m_replayRuntime.CauseTree().resizingWindow )
     {
         m_inputRouter.ReleaseNativeCapture();
@@ -2420,7 +2420,7 @@ void Run::TakeInput()
             RunInternal::EnterEditorModeState(
                 { m_runtimeTools.Editor(), m_cGameModelCollection, m_sceneController.Physics(), m_interaction },
                 NormalizeCameraModeForCurrentScene( m_camera.mode ) );
-            CancelMousePickup();
+            m_runtimeTools.CancelMousePickup( m_inputRouter, m_interaction );
             SetCameraModeLabelAfterInteractionTransition( RunCameraMode::Inspect );
             if ( !wasFlyMode )
             {

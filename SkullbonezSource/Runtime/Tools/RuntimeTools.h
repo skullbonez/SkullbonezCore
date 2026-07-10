@@ -112,6 +112,8 @@ struct RunRuntimeSettings;
 struct RunSceneState;
 struct ReplayLauncherVisualSample;
 class SceneEntityStore;
+class InputRouter;
+class RuntimeInteractionController;
 
 struct RunRayCastTestLine
 {
@@ -545,6 +547,7 @@ class RuntimeTools
 
     RunMousePickupState& MousePickup();
     const RunMousePickupState& MousePickup() const;
+    void CancelMousePickup( InputRouter& inputRouter, RuntimeInteractionController& interaction );
 
     RunEditorPlacementState& Editor();
     const RunEditorPlacementState& Editor() const;

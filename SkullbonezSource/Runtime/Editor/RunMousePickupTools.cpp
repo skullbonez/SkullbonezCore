@@ -47,26 +47,12 @@ namespace Basics
 using Physics::PhysicsBodyRecord;
 using Physics::PhysicsBodyStore;
 
-void Run::CancelMousePickup()
-{
-    if ( m_runtimeTools.MousePickup().mouseCaptured )
-    {
-        m_inputRouter.ReleaseNativeCapture();
-    }
-    if ( m_interaction.Gesture().kind == RuntimeInteractionGestureKind::MousePickupDrag )
-    {
-        m_interaction.EndGesture( InteractionExitReason::EndGesture );
-    }
-    m_runtimeTools.MousePickup() = RunMousePickupState{};
-}
-
-
 bool Run::TickMousePickupInput( const RuntimeMouseEdges& mouseEdges, bool suppressWorldActionThisFrame )
 {
     if ( !RunCameraModeIsManipulator( m_camera.mode ) || m_runtimeTools.Editor().editorModeEnabled ||
          m_replayRuntime.InspectionActive() )
     {
-        CancelMousePickup();
+        m_runtimeTools.CancelMousePickup( m_inputRouter, m_interaction );
         return false;
     }
 
@@ -115,7 +101,7 @@ bool Run::TickMousePickupInput( const RuntimeMouseEdges& mouseEdges, bool suppre
     {
         if ( mouseEdges.leftReleased || !mouseEdges.leftDown )
         {
-            CancelMousePickup();
+            m_runtimeTools.CancelMousePickup( m_inputRouter, m_interaction );
             return true;
         }
         UpdatePickupTarget();
@@ -188,7 +174,7 @@ bool Run::TickMousePickupInput( const RuntimeMouseEdges& mouseEdges, bool suppre
     if ( !deviceFrame.hasClientPosition )
     {
         m_inputRouter.ReleaseNativeCapture();
-        CancelMousePickup();
+        m_runtimeTools.CancelMousePickup( m_inputRouter, m_interaction );
         return false;
     }
     RuntimeInteractionGesture gesture;
@@ -221,13 +207,13 @@ void Run::ApplyMousePickupPhysicsStep()
     const PhysicsBodyRecord* bodyRecord = bodyStore.RecordForHandle( pickup.body );
     if ( !bodyRecord )
     {
-        CancelMousePickup();
+        m_runtimeTools.CancelMousePickup( m_inputRouter, m_interaction );
         return;
     }
 
     if ( bodyRecord->isFixed )
     {
-        CancelMousePickup();
+        m_runtimeTools.CancelMousePickup( m_inputRouter, m_interaction );
         return;
     }
     const Vector3 bodyPosition = bodyRecord->position;
@@ -237,7 +223,7 @@ void Run::ApplyMousePickupPhysicsStep()
                                                        pickup.preservedAngularVelocity,
                                                        false ) )
     {
-        CancelMousePickup();
+        m_runtimeTools.CancelMousePickup( m_inputRouter, m_interaction );
         return;
     }
 
@@ -274,13 +260,13 @@ void Run::RestoreMousePickupAngularVelocity()
     const PhysicsBodyRecord* bodyRecord = bodyStore.RecordForHandle( pickup.body );
     if ( !bodyRecord )
     {
-        CancelMousePickup();
+        m_runtimeTools.CancelMousePickup( m_inputRouter, m_interaction );
         return;
     }
 
     if ( bodyRecord->isFixed )
     {
-        CancelMousePickup();
+        m_runtimeTools.CancelMousePickup( m_inputRouter, m_interaction );
         return;
     }
 
@@ -289,7 +275,7 @@ void Run::RestoreMousePickupAngularVelocity()
                                                        pickup.preservedAngularVelocity,
                                                        false ) )
     {
-        CancelMousePickup();
+        m_runtimeTools.CancelMousePickup( m_inputRouter, m_interaction );
     }
 }
 } // namespace Basics

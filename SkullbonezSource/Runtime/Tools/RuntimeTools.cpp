@@ -53,6 +53,8 @@ Related:
 #include "../../UI/UILayout.h"
 #include "../CameraCollection.h"
 #include "../Editor/EditorOverlayTools.h"
+#include "../InputRouter.h"
+#include "../RuntimeInteractionController.h"
 #include "../Replay/ReplayRecorder.h"
 #include "../Scene/SceneRuntime.h"
 #include "../../World/Terrain.h"
@@ -64,6 +66,23 @@ Related:
 
 namespace SkullbonezCore::Basics
 {
+void RuntimeTools::CancelMousePickup( InputRouter& inputRouter, RuntimeInteractionController& interaction )
+{
+    // Invariant: RuntimeTools owns the picked-body/capture fact. Cancellation
+    // releases input presentation and the gesture before clearing the handle,
+    // so no later frame phase can observe a half-active drag.
+    if ( m_mousePickup.mouseCaptured )
+    {
+        inputRouter.ReleaseNativeCapture();
+    }
+    if ( interaction.Gesture().kind == RuntimeInteractionGestureKind::MousePickupDrag )
+    {
+        interaction.EndGesture( InteractionExitReason::EndGesture );
+    }
+    m_mousePickup = RunMousePickupState{};
+}
+
+
 namespace
 {
 constexpr float RAY_CAST_TEST_MAX_DISTANCE = 5000.0f;

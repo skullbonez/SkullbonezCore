@@ -286,7 +286,6 @@ class Run
     bool TickEditorWorldClick(
         const RuntimeMouseEdges& mouseEdges,
         bool suppressWorldActionThisFrame );                            // Handles editor placement, selection, and gizmo mouse ownership.
-    void CancelMousePickup();                                           // Releases manipulator drag/capture state.
     bool TickMousePickupInput(
         const RuntimeMouseEdges& mouseEdges,
         bool suppressWorldActionThisFrame );                            // Handles manipulator left-click pickup and target updates.
