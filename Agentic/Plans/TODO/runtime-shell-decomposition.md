@@ -1,7 +1,7 @@
 # Runtime Shell Decomposition
 
 Date: 2026-07-10 (reconciled)
-Status: In progress — 0/26 remaining checklist items complete; earlier
+Status: In progress — 1/26 remaining checklist items complete; earlier
 foundation work is summarized separately and is not mixed into this count
 Impact area: runtime architecture, scene lifecycle, input routing, render host
 Owner: application composition root
@@ -78,9 +78,26 @@ precedence. `tools\validate_fast.bat`, the project-filter validator, and
 `tools\validate_full.bat` passed from that source with zero warnings, zero DX12
 validation errors, matching screenshots, and byte-exact physics output.
 
-No B1/B2 checkbox is closed by the foundation alone. B1a-B1c and B2a require
+No B1/B2 checkbox was closed by the foundation alone. B1a-B1c still require
 production capture/wiring, old callback/state deletion, and their named
 behavioral evidence before their deletion proofs are true.
+
+### Application Exit Wiring Evidence
+
+B2a is complete. `Run::Execute` now resolves the real `WM_QUIT` code through
+`ApplicationExitState`; nonzero platform exits return a synthetic Lane R
+failure instead of success. Capture, input-resource rebuild, interaction
+automation, replay-probe, renderer finish, and Present failures latch their
+owned result before loop shutdown. The first owned result therefore survives a
+later renderer failure, nonzero message, or normal exit. Win32 display-mode and
+resize failures publish nonzero quit codes when no richer Run-owned result can
+cross the window-procedure boundary.
+
+Evidence from the final source: the 13 platform-neutral exit-state cases passed
+inside `tools\validate_tests.bat` (99/99 total doctest cases), a Profile x64
+build completed with zero warnings/errors, and `tools\validate_full.bat` passed
+format/metadata/CPU tests, the DX12 lane with zero InfoQueue errors and matching
+screenshots, and the 20,001-line byte-exact physics baseline.
 
 ## Remaining Work
 
@@ -110,7 +127,7 @@ behavioral evidence before their deletion proofs are true.
 - [ ] B1f. Delete direct `Input::Is*`/mouse-position polling from later frame,
   physics, render, editor, and replay phases; complete extraction 1's `Run`
   method/state deletion proof.
-- [ ] B2a. Add value-only `ApplicationExitState`. Preserve the first owned
+- [x] B2a. Add value-only `ApplicationExitState`. Preserve the first owned
   Lane R failure, translate nonzero OS quit codes into failure, and prevent a
   later normal quit from overwriting failure evidence.
 - [ ] B2b. Move input-triggered capture into a fixed `CaptureController` queue;

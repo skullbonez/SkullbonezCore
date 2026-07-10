@@ -1951,10 +1951,11 @@ void Run::TickInteractionAutomationBeforeInput()
     {
         state.finished = true;
         ClearInteractionAutomationInput();
+        // Why: latch the automation-owned diagnostic before WM_QUIT. The
+        // report writer is another Lane R boundary, so it also cannot replace
+        // the earlier script failure if both operations fail.
+        m_applicationExit.RequestOwnedFailure( InteractionAutomationResult() );
         WriteInteractionAutomationReport();
-        // Why: the process boundary reads InteractionAutomationResult() after
-        // Execute() returns, so failures quit the loop instead of throwing
-        // through render/frame cleanup.
         PostQuitMessage( 0 );
         return;
     }
@@ -2201,12 +2202,18 @@ void Run::TickInteractionAutomationAfterRender()
 
         state.finished = true;
         ClearInteractionAutomationInput();
+        if ( state.failed )
+        {
+            // Invariant: assertions precede report IO and therefore own failure
+            // precedence if both the assertion and report write fail.
+            m_applicationExit.RequestOwnedFailure( InteractionAutomationResult() );
+        }
         WriteInteractionAutomationReport();
         if ( state.failed )
         {
-            // Why: assertions already wrote report ok=false; returning through
-            // the normal message-loop exit keeps cleanup behavior identical to a
-            // successful automation run.
+            // Why: the second request captures report IO failure only when no
+            // earlier assertion was already latched.
+            m_applicationExit.RequestOwnedFailure( InteractionAutomationResult() );
             PostQuitMessage( 0 );
             return;
         }

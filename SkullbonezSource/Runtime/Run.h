@@ -43,6 +43,7 @@ Related:
 #include <vector>
 #include "../Core/Common.h"
 #include "../Core/SbResult.h"
+#include "ApplicationExitState.h"
 #include "AttachedCameraController.h"
 #include "CameraCollection.h"
 #include "GraphicsStressController.h"
@@ -119,6 +120,7 @@ class Run
     SceneRuntimeCoordinator m_sceneCoordinator;                         // Produces scene load/reset/advance control intents.
     SbResult m_lastSceneLoadResult;                                     // Last queue load outcome observed by startup/load-only paths.
     RunLaunchOptions m_launchOptions;                                   // CLI/startup policy reapplied across scene loads.
+    ApplicationExitState m_applicationExit;                             // First-failure exit latch resolved by the platform message loop.
     CinematicRenderConfig m_defaultCinematicRender;                     // engine.cfg cinematic baseline restored by the Demo Scene cine mode
     RunStartupState m_startup;                                          // engine.cfg startup capacity/thread defaults restored by demo resets.
 

@@ -551,6 +551,7 @@ class SimulationPostStepPipeline
 SbResult Run::Execute()
 {
     MSG msg;
+    int messageExitCode = 0;
 
     for ( ;; )
     {
@@ -566,6 +567,11 @@ SbResult Run::Execute()
                             m_graphicsStress.SceneLoadsRequested() );
                     fflush( stdout );
                 }
+                // Concept: WM_QUIT is the platform's stop notification, not the
+                // process result by itself. Preserve a Run-owned failure when
+                // one already exists; otherwise translate the posted integer.
+                m_applicationExit.RequestNormalExit();
+                messageExitCode = static_cast<int>( msg.wParam );
                 break;
             }
             TranslateMessage( &msg );
@@ -647,7 +653,8 @@ SbResult Run::Execute()
                 {
                     m_timers.frameTimer.StopTimer();
                     PROFILE_FRAME_END();
-                    return finishResult;
+                    m_applicationExit.RequestOwnedFailure( finishResult );
+                    return m_applicationExit.Resolve( 0 );
                 }
             }
 
@@ -730,7 +737,8 @@ SbResult Run::Execute()
             {
                 m_timers.frameTimer.StopTimer();
                 PROFILE_FRAME_END();
-                return presentResult;
+                m_applicationExit.RequestOwnedFailure( presentResult );
+                return m_applicationExit.Resolve( 0 );
             }
 
             m_timers.frameTimer.StopTimer();
@@ -756,7 +764,7 @@ SbResult Run::Execute()
             }
         }
     }
-    return SbResult::Success();
+    return m_applicationExit.Resolve( messageExitCode );
 }
 
 
@@ -896,6 +904,7 @@ void Run::AfterPhysicsStep()
                 return false;
             }
             m_replayProbes.RecordFailure( probeResult );
+            m_applicationExit.RequestOwnedFailure( probeResult );
             PostQuitMessage( 0 );
             return true;
         };
@@ -970,6 +979,7 @@ bool Run::TickScreenshots()
         fprintf( stderr, "%s: %s\n", result.captureResult.error.owner, result.captureResult.error.message );
         fflush( stderr );
         PrintRuntimeExitReason( "Exiting because screenshot capture failed." );
+        m_applicationExit.RequestOwnedFailure( result.captureResult );
         PostQuitMessage( 1 );
         return false;
     }
@@ -1077,6 +1087,7 @@ void Run::TickAutoCycle()
         fprintf( stderr, "%s: %s\n", result.captureResult.error.owner, result.captureResult.error.message );
         fflush( stderr );
         PrintRuntimeExitReason( "Exiting because auto-cycle screenshot capture failed." );
+        m_applicationExit.RequestOwnedFailure( result.captureResult );
         PostQuitMessage( 1 );
         return;
     }

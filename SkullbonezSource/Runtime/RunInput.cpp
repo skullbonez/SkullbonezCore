@@ -2669,6 +2669,7 @@ bool Run::HandleUnfocusedInputFrame()
         // rebuild path. End the run before returning to the frame loop.
         ReportRuntimeInputFailure( stressResult );
         std::fflush( stderr );
+        m_applicationExit.RequestOwnedFailure( stressResult );
         PostQuitMessage( 1 );
     }
     return true;
@@ -2984,6 +2985,7 @@ void Run::TakeInput()
         // Stop this frame and end the run before any later world/input mutation.
         ReportRuntimeInputFailure( uiFrameResult.status );
         std::fflush( stderr );
+        m_applicationExit.RequestOwnedFailure( uiFrameResult.status );
         PostQuitMessage( 1 );
         return;
     }
