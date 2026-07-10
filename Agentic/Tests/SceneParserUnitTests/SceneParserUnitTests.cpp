@@ -13,6 +13,8 @@ Glossary:
   Contract test: Focused test that protects user-visible syntax and parsed
   output rather than renderer screenshots.
   Scene authoring JSON: Structured fields accepted by .scene.json and .style.json files.
+  Scene object id: Stable nonzero physics identity explicitly authored in v2
+    scenes or deterministically upgraded from v1 input.
   Lane R result: Recoverable parser failure returned by TestScene::TryLoad*
     entry points with owner/message diagnostics.
 
@@ -586,12 +588,121 @@ void TestAssetIdentityFailuresAreRecoverable()
     ExpectSceneLoadFails( scenePath, "ragdoll.name produces a part name longer than 63 characters" );
 }
 
+void TestSceneObjectIdsAreSchemaVersionedAndStable()
+{
+    static constexpr const char* libraryPath = "TestOutput/scene_parser_stable_ids.assets.json";
+    static constexpr const char* scenePath = "TestOutput/scene_parser_stable_ids.scene.json";
+    WriteTextFile( libraryPath,
+                   R"({
+  "format":"skullbonez.asset_library.json","version":1,
+  "assets":[{"name":"mixed","type":"compound","parts":[
+    {"name":"box_part","type":"box","halfExtents":[1,1,1],"mass":1,"restitution":0.1,"material":{"mode":"metal"}},
+    {"name":"sphere_part","type":"sphere","radius":1,"mass":1,"restitution":0.1,"material":{"mode":"glass"}}
+  ]}]
+})" );
+
+    // Version 1 upgrades once in the historical runtime section order. IDs then
+    // live in parsed rows, so future creation-loop changes cannot reinterpret
+    // legacy scene identity.
+    WriteTextFile( scenePath,
+                   R"({
+  "format":"skullbonez.scene.json","version":1,
+  "assetLibraries":["TestOutput/scene_parser_stable_ids.assets.json"],
+  "cameras":[{"name":"camera","position":[0,0,-10],"view":[0,0,0],"up":[0,1,0]}],
+  "objects":[
+    {"type":"box","name":"authored_box","position":[0,0,0],"halfExtents":[1,1,1],"mass":1,"restitution":0.1},
+    {"type":"ball","name":"authored_ball","position":[2,0,0],"radius":1,"mass":1,"moment":0.4,"restitution":0.1}
+  ],
+  "assetInstances":[{"asset":"mixed","name":"asset","position":[4,0,0]}]
+})" );
+    const TestScene upgraded = TestScene::LoadFromFile( scenePath );
+    EXPECT_UINT_EQ( upgraded.GetSchemaVersion(), 1u );
+    EXPECT_UINT_EQ( upgraded.GetBall( 0 ).sceneObjectId.value, 1u );
+    EXPECT_UINT_EQ( upgraded.GetBallState( 0 ).sceneObjectId.value, 2u );
+    EXPECT_UINT_EQ( upgraded.GetBox( 0 ).sceneObjectId.value, 3u );
+    EXPECT_UINT_EQ( upgraded.GetBoxState( 0 ).sceneObjectId.value, 4u );
+    EXPECT_UINT_EQ( upgraded.GetAssetPart( 0 ).sceneObjectId.value, 4u );
+    EXPECT_UINT_EQ( upgraded.GetAssetPart( 1 ).sceneObjectId.value, 2u );
+    EXPECT_UINT_EQ( upgraded.GetAssetInstance( 0 ).rootSceneObjectId.value, 4u );
+
+    WriteTextFile( scenePath,
+                   R"({
+  "format":"skullbonez.scene.json","version":2,
+  "assetLibraries":["TestOutput/scene_parser_stable_ids.assets.json"],
+  "cameras":[{"name":"camera","position":[0,0,-10],"view":[0,0,0],"up":[0,1,0]}],
+  "objects":[
+    {"type":"box","sceneObjectId":900,"name":"authored_box","position":[0,0,0],"halfExtents":[1,1,1],"mass":1,"restitution":0.1},
+    {"type":"ball","sceneObjectId":7,"name":"authored_ball","position":[2,0,0],"radius":1,"mass":1,"moment":0.4,"restitution":0.1}
+  ],
+  "assetInstances":[{
+    "asset":"mixed","name":"asset","position":[4,0,0],
+    "parts":[{"name":"box_part","sceneObjectId":300},{"name":"sphere_part","sceneObjectId":42}]
+  }]
+})" );
+    const TestScene explicitIds = TestScene::LoadFromFile( scenePath );
+    EXPECT_UINT_EQ( explicitIds.GetSchemaVersion(), 2u );
+    EXPECT_UINT_EQ( explicitIds.GetBox( 0 ).sceneObjectId.value, 900u );
+    EXPECT_UINT_EQ( explicitIds.GetBall( 0 ).sceneObjectId.value, 7u );
+    EXPECT_UINT_EQ( explicitIds.GetAssetPart( 0 ).sceneObjectId.value, 300u );
+    EXPECT_UINT_EQ( explicitIds.GetAssetPart( 1 ).sceneObjectId.value, 42u );
+    EXPECT_UINT_EQ( explicitIds.GetBoxState( 0 ).sceneObjectId.value, 300u );
+    EXPECT_UINT_EQ( explicitIds.GetBallState( 0 ).sceneObjectId.value, 42u );
+    EXPECT_UINT_EQ( explicitIds.GetAssetInstance( 0 ).rootSceneObjectId.value, 300u );
+
+    WriteTextFile( scenePath,
+                   R"({
+  "format":"skullbonez.scene.json","version":2,
+  "cameras":[{"name":"camera","position":[0,0,-10],"view":[0,0,0],"up":[0,1,0]}],
+  "objects":[{"type":"ball","name":"missing","position":[0,0,0],"radius":1,"mass":1,"moment":0.4,"restitution":0.1}]
+})" );
+    ExpectSceneLoadFails( scenePath, "ball is missing required field 'sceneObjectId'" );
+
+    WriteTextFile( scenePath,
+                   R"({
+  "format":"skullbonez.scene.json","version":1,
+  "cameras":[{"name":"camera","position":[0,0,-10],"view":[0,0,0],"up":[0,1,0]}],
+  "objects":[{"type":"ball","sceneObjectId":12,"name":"wrong_version","position":[0,0,0],"radius":1,"mass":1,"moment":0.4,"restitution":0.1}]
+})" );
+    ExpectSceneLoadFails( scenePath, "sceneObjectId requires scene schema version 2" );
+
+    WriteTextFile( scenePath,
+                   R"({
+  "format":"skullbonez.scene.json","version":2,
+  "cameras":[{"name":"camera","position":[0,0,-10],"view":[0,0,0],"up":[0,1,0]}],
+  "objects":[{"type":"ball","sceneObjectId":0,"name":"zero","position":[0,0,0],"radius":1,"mass":1,"moment":0.4,"restitution":0.1}]
+})" );
+    ExpectSceneLoadFails( scenePath, "sceneObjectId must be nonzero" );
+
+    WriteTextFile( scenePath,
+                   R"({
+  "format":"skullbonez.scene.json","version":2,
+  "cameras":[{"name":"camera","position":[0,0,-10],"view":[0,0,0],"up":[0,1,0]}],
+  "objects":[
+    {"type":"ball","sceneObjectId":77,"name":"first","position":[0,0,0],"radius":1,"mass":1,"moment":0.4,"restitution":0.1},
+    {"type":"box","sceneObjectId":77,"name":"second","position":[2,0,0],"halfExtents":[1,1,1],"mass":1,"restitution":0.1}
+  ]
+})" );
+    ExpectSceneLoadFails( scenePath, "Duplicate sceneObjectId: 77" );
+
+    WriteTextFile( scenePath,
+                   R"({
+  "format":"skullbonez.scene.json","version":2,
+  "assetLibraries":["TestOutput/scene_parser_stable_ids.assets.json"],
+  "cameras":[{"name":"camera","position":[0,0,-10],"view":[0,0,0],"up":[0,1,0]}],
+  "assetInstances":[{"asset":"mixed","name":"asset","position":[0,0,0],"parts":[
+    {"name":"box_part","sceneObjectId":55},{"name":"sphere_part","sceneObjectId":55}
+  ]}]
+})" );
+    ExpectSceneLoadFails( scenePath, "Duplicate sceneObjectId: 55" );
+}
+
 const TestCase kTests[] = {
     { "Style material authoring contract", TestStyleMaterialAuthoringContract },
     { "Scene material authoring sample loads", TestSceneCanLoadMaterialAuthoringSample },
     { "Material authoring rejects malformed options", TestMaterialAuthoringRejectsMalformedOptions },
     { "Asset instance provenance and transform composition", TestAssetInstanceProvenanceAndTransformComposition },
     { "Asset identity failures are recoverable", TestAssetIdentityFailuresAreRecoverable },
+    { "Scene object ids are schema-versioned and stable", TestSceneObjectIdsAreSchemaVersionedAndStable },
 };
 
 } // namespace

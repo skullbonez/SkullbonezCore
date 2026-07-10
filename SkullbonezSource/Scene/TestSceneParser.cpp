@@ -23,12 +23,16 @@ Glossary:
     expanded shape rows so later scene owners can save by identity.
   Scene object group: Parsed metadata that ties multi-part authored objects,
     such as releasable trees, to one root object before runtime construction.
+  Scene object id: Nonzero physics identity stored in each parsed body row;
+    schema v2 authors it explicitly and schema v1 receives one upgrade pass.
 
 Invariants:
   - Scene, style, and suite files are JSON documents.
   - Command-line scene/style field names are user-facing compatibility surface.
   - Compound offsets and orientations are composed in quaternion/matrix space;
     component-wise Euler addition is not a valid hierarchy transform.
+  - Schema v2 rejects missing, zero, or duplicate scene object ids. The v1
+    upgrade preserves the historical runtime section order exactly once.
 
 Related:
   - Agentic/Reference/runtime-reference.md
@@ -1026,6 +1030,216 @@ class TestSceneParser
     ParserFailureState m_failure;
     std::vector<ParsedAssetDefinition> m_assetDefinitions;
     std::vector<std::string> m_sceneObjectNames;
+    std::vector<uint32_t> m_sceneObjectIds;
+    uint32_t m_currentDocumentVersion = 1;
+
+    Physics::PhysicsSceneObjectId RegisterSceneObjectIdRange( uint32_t first, uint32_t count, const std::string& path )
+    {
+        Physics::PhysicsSceneObjectId result{ first };
+        if ( first == 0 )
+        {
+            Fail( path, "sceneObjectId must be nonzero" );
+            return {};
+        }
+        const uint32_t maxId = ( std::numeric_limits<uint32_t>::max )();
+        if ( count == 0 || count - 1u > maxId - first )
+        {
+            Fail( path, "sceneObjectId range exceeds uint32" );
+            return {};
+        }
+
+        // Invariant: duplicate detection covers derived ragdoll parts as well as
+        // directly authored rows, so no two bodies can enter creation with the
+        // same persistent identity.
+        for ( uint32_t offset = 0; offset < count; ++offset )
+        {
+            const uint32_t candidate = first + offset;
+            if ( std::find( m_sceneObjectIds.begin(), m_sceneObjectIds.end(), candidate ) != m_sceneObjectIds.end() )
+            {
+                Fail( path, "Duplicate sceneObjectId: " + std::to_string( candidate ) );
+                return {};
+            }
+        }
+        for ( uint32_t offset = 0; offset < count; ++offset )
+        {
+            m_sceneObjectIds.push_back( first + offset );
+        }
+        return result;
+    }
+
+    Physics::PhysicsSceneObjectId
+    ReadSceneObjectId( const Json& object, const std::string& path, const char* context, uint32_t count = 1 )
+    {
+        uint32_t first = 0;
+        if ( m_currentDocumentVersion == 2 )
+        {
+            first = ReadUInt( RequireMember( object, path, context, "sceneObjectId" ), path, "sceneObjectId" );
+        }
+        else
+        {
+            if ( FindMember( object, "sceneObjectId" ) )
+            {
+                Fail( path, "sceneObjectId requires scene schema version 2" );
+                return {};
+            }
+            // Version 1 is upgraded only after parsing, in the historical
+            // runtime shape-section order. A zero placeholder cannot escape a
+            // successful parse.
+            return {};
+        }
+        if ( ParserFailed() )
+        {
+            return {};
+        }
+
+        return RegisterSceneObjectIdRange( first, count, path );
+    }
+
+    Physics::PhysicsSceneObjectId
+    AllocateVersion1SceneObjectIdRange( uint32_t& next, uint32_t count, const std::string& path )
+    {
+        const uint32_t maxId = ( std::numeric_limits<uint32_t>::max )();
+        while ( next != 0 && count > 0 && count - 1u <= maxId - next )
+        {
+            bool available = true;
+            for ( uint32_t offset = 0; offset < count; ++offset )
+            {
+                if ( std::find( m_sceneObjectIds.begin(), m_sceneObjectIds.end(), next + offset ) !=
+                     m_sceneObjectIds.end() )
+                {
+                    next += offset + 1u;
+                    available = false;
+                    break;
+                }
+            }
+            if ( available )
+            {
+                const Physics::PhysicsSceneObjectId result = RegisterSceneObjectIdRange( next, count, path );
+                next += count;
+                return result;
+            }
+        }
+        Fail( path, "Version 1 sceneObjectId upgrade exhausted uint32" );
+        return {};
+    }
+
+    void UpgradeVersion1SceneObjectIds( const std::string& path )
+    {
+        uint32_t next = 1;
+        auto assignRows = [&]( auto& rows )
+        {
+            for ( auto& row : rows )
+            {
+                if ( !row.sceneObjectId.IsValid() )
+                {
+                    row.sceneObjectId = AllocateVersion1SceneObjectIdRange( next, 1, path );
+                    if ( ParserFailed() )
+                    {
+                        return;
+                    }
+                }
+            }
+        };
+
+        // Compatibility: this is the exact section order used by authored
+        // creation before stable ids moved into the parsed scene record.
+        assignRows( m_scene.m_balls );
+        assignRows( m_scene.m_ballStates );
+        assignRows( m_scene.m_boxes );
+        assignRows( m_scene.m_boxStates );
+        assignRows( m_scene.m_convexHulls );
+        assignRows( m_scene.m_convexHullStates );
+        for ( SceneRagdoll& ragdoll : m_scene.m_ragdolls )
+        {
+            if ( !ragdoll.firstSceneObjectId.IsValid() )
+            {
+                ragdoll.firstSceneObjectId =
+                    AllocateVersion1SceneObjectIdRange( next,
+                                                        static_cast<uint32_t>( Physics::Ragdoll::SIMPLE_PART_COUNT ),
+                                                        path );
+                if ( ParserFailed() )
+                {
+                    return;
+                }
+            }
+        }
+
+        for ( SceneAssetPartRef& part : m_scene.m_assetParts )
+        {
+            switch ( part.source )
+            {
+            case SceneAssetPartSource::BallState:
+                part.sceneObjectId = m_scene.m_ballStates[part.sourceIndex].sceneObjectId;
+                break;
+            case SceneAssetPartSource::BoxState:
+                part.sceneObjectId = m_scene.m_boxStates[part.sourceIndex].sceneObjectId;
+                break;
+            case SceneAssetPartSource::ConvexHull:
+                part.sceneObjectId = m_scene.m_convexHulls[part.sourceIndex].sceneObjectId;
+                break;
+            }
+        }
+        for ( SceneAssetInstanceRecord& instance : m_scene.m_assetInstances )
+        {
+            if ( instance.partCount > 0 )
+            {
+                instance.rootSceneObjectId = m_scene.m_assetParts[instance.firstPart].sceneObjectId;
+            }
+        }
+    }
+
+    const Json* ReadAssetPartIdentity( const Json& instance,
+                                       const std::string& path,
+                                       uint32_t partIndex,
+                                       uint32_t expectedPartCount,
+                                       const std::string& expectedPartName )
+    {
+        const Json* parts = FindMember( instance, "parts" );
+        if ( m_currentDocumentVersion == 1 )
+        {
+            if ( parts )
+            {
+                Fail( path, "assetInstance.parts requires scene schema version 2" );
+            }
+            return nullptr;
+        }
+
+        if ( !parts )
+        {
+            Fail( path, "assetInstance is missing required field 'parts'" );
+            return nullptr;
+        }
+        RequireArray( *parts, path, "assetInstance.parts" );
+        if ( ParserFailed() )
+        {
+            return nullptr;
+        }
+        if ( parts->size() != expectedPartCount )
+        {
+            Fail( path,
+                  "assetInstance.parts count does not match asset recipe: expected " +
+                      std::to_string( expectedPartCount ) + ", got " + std::to_string( parts->size() ) );
+            return nullptr;
+        }
+
+        const Json& identity = ( *parts )[partIndex];
+        RequireObject( identity, path, "assetInstance.parts[]" );
+        const std::string name = ReadString( RequireMember( identity, path, "assetInstance.parts[]", "name" ),
+                                             path,
+                                             "assetInstance.parts[].name" );
+        if ( ParserFailed() )
+        {
+            return nullptr;
+        }
+        if ( name != expectedPartName )
+        {
+            Fail( path,
+                  "assetInstance.parts[] name mismatch: expected '" + expectedPartName + "', got '" + name + "'" );
+            return nullptr;
+        }
+        (void)RequireMember( identity, path, "assetInstance.parts[]", "sceneObjectId" );
+        return ParserFailed() ? nullptr : &identity;
+    }
 
     std::string ResolveStylePath( const std::string& token ) const
     {
@@ -1446,6 +1660,7 @@ class TestSceneParser
     void RecordAssetPart( const std::string& path,
                           const std::string& partName,
                           const std::string& objectName,
+                          Physics::PhysicsSceneObjectId sceneObjectId,
                           uint32_t partIndex,
                           SceneAssetPartSource source,
                           uint32_t sourceIndex,
@@ -1458,6 +1673,7 @@ class TestSceneParser
         {
             return;
         }
+        part.sceneObjectId = sceneObjectId;
         part.partIndex = partIndex;
         // Invariant: source names the exact shape vector; sourceIndex is
         // captured before Apply* appends and recorded only after it succeeds.
@@ -1475,7 +1691,8 @@ class TestSceneParser
                                   const std::string& objectName,
                                   const std::string& partName,
                                   uint32_t partIndex,
-                                  const AssetInstanceExpansion& instance )
+                                  const AssetInstanceExpansion& instance,
+                                  const Json* authoredPartIdentity )
     {
         CheckGeneratedSceneName( objectName, path, "asset instance name" );
         if ( ParserFailed() )
@@ -1589,6 +1806,17 @@ class TestSceneParser
         object["position"] = Vector3ToJson( worldPosition );
         object["fixed"] = fixed;
         object["contactMaterial"] = ReadInferredContactMaterial( asset, path, "asset.contactMaterial" );
+        if ( authoredPartIdentity )
+        {
+            object["sceneObjectId"] =
+                ReadUInt( RequireMember( *authoredPartIdentity, path, "assetInstance.parts[]", "sceneObjectId" ),
+                          path,
+                          "assetInstance.parts[].sceneObjectId" );
+            if ( ParserFailed() )
+            {
+                return;
+            }
+        }
 
         if ( primitiveType == "convexHull" )
         {
@@ -1648,6 +1876,7 @@ class TestSceneParser
             RecordAssetPart( path,
                              partName,
                              objectName,
+                             m_scene.m_convexHulls[sourceIndex].sceneObjectId,
                              partIndex,
                              SceneAssetPartSource::ConvexHull,
                              sourceIndex,
@@ -1696,6 +1925,7 @@ class TestSceneParser
             RecordAssetPart( path,
                              partName,
                              objectName,
+                             m_scene.m_boxStates[sourceIndex].sceneObjectId,
                              partIndex,
                              SceneAssetPartSource::BoxState,
                              sourceIndex,
@@ -1724,6 +1954,7 @@ class TestSceneParser
             RecordAssetPart( path,
                              partName,
                              objectName,
+                             m_scene.m_ballStates[sourceIndex].sceneObjectId,
                              partIndex,
                              SceneAssetPartSource::BallState,
                              sourceIndex,
@@ -1889,7 +2120,12 @@ class TestSceneParser
         }
         if ( type == "convexHull" || type == "box" || type == "sphere" )
         {
-            ApplyAssetPrimitivePart( asset, path, instanceName, assetName, 0, expansion );
+            const Json* identity = ReadAssetPartIdentity( instance, path, 0, 1, assetName );
+            if ( ParserFailed() )
+            {
+                return;
+            }
+            ApplyAssetPrimitivePart( asset, path, instanceName, assetName, 0, expansion, identity );
         }
         else if ( type == "compound" )
         {
@@ -1900,10 +2136,16 @@ class TestSceneParser
                 return;
             }
             uint32_t partIndex = 0;
+            const uint32_t partCount = static_cast<uint32_t>( parts.size() );
             for ( const Json& part : parts )
             {
                 const std::string partName =
                     ReadString( RequireMember( part, path, "asset.parts[]", "name" ), path, "asset.parts[].name" );
+                if ( ParserFailed() )
+                {
+                    return;
+                }
+                const Json* identity = ReadAssetPartIdentity( instance, path, partIndex, partCount, partName );
                 if ( ParserFailed() )
                 {
                     return;
@@ -1913,7 +2155,8 @@ class TestSceneParser
                                          BuildAssetPartName( instanceName, partName, path ),
                                          partName,
                                          partIndex,
-                                         expansion );
+                                         expansion,
+                                         identity );
                 if ( ParserFailed() )
                 {
                     return;
@@ -1935,6 +2178,10 @@ class TestSceneParser
         // and ordered part reference has succeeded. Failed parses discard the
         // private TestScene and never expose a partial range to the caller.
         record.partCount = static_cast<uint32_t>( m_scene.m_assetParts.size() ) - record.firstPart;
+        if ( record.partCount > 0 )
+        {
+            record.rootSceneObjectId = m_scene.m_assetParts[record.firstPart].sceneObjectId;
+        }
         m_scene.m_assetInstances.push_back( record );
     }
 
@@ -2905,6 +3152,11 @@ class TestSceneParser
     void ApplyBall( const Json& object, const std::string& path, bool isFixed )
     {
         SceneBall ball = {};
+        ball.sceneObjectId = ReadSceneObjectId( object, path, "ball" );
+        if ( ParserFailed() )
+        {
+            return;
+        }
         ReadRequiredStringField( ball.name, object, path, "ball", "name" );
         if ( ParserFailed() || !RegisterSceneObjectName( ball.name, path ) )
         {
@@ -2946,6 +3198,11 @@ class TestSceneParser
     void ApplyBox( const Json& object, const std::string& path, bool isFixed )
     {
         SceneBox box = {};
+        box.sceneObjectId = ReadSceneObjectId( object, path, "box" );
+        if ( ParserFailed() )
+        {
+            return;
+        }
         ReadRequiredStringField( box.name, object, path, "box", "name" );
         if ( ParserFailed() || !RegisterSceneObjectName( box.name, path ) )
         {
@@ -2990,6 +3247,11 @@ class TestSceneParser
                           const Math::Orientation::Quaternion* composedOrientation = nullptr )
     {
         SceneConvexHull hull = {};
+        hull.sceneObjectId = ReadSceneObjectId( object, path, "convexHull" );
+        if ( ParserFailed() )
+        {
+            return;
+        }
         ReadRequiredStringField( hull.name, object, path, "convexHull", "name" );
         if ( ParserFailed() || !RegisterSceneObjectName( hull.name, path ) )
         {
@@ -3063,6 +3325,11 @@ class TestSceneParser
     void ApplyBallState( const Json& object, const std::string& path )
     {
         SceneBallState state = {};
+        state.sceneObjectId = ReadSceneObjectId( object, path, "ballState" );
+        if ( ParserFailed() )
+        {
+            return;
+        }
         ReadRequiredStringField( state.name, object, path, "ballState", "name" );
         if ( ParserFailed() || !RegisterSceneObjectName( state.name, path ) )
         {
@@ -3118,6 +3385,11 @@ class TestSceneParser
     void ApplyBoxState( const Json& object, const std::string& path )
     {
         SceneBoxState state = {};
+        state.sceneObjectId = ReadSceneObjectId( object, path, "boxState" );
+        if ( ParserFailed() )
+        {
+            return;
+        }
         ReadRequiredStringField( state.name, object, path, "boxState", "name" );
         if ( ParserFailed() || !RegisterSceneObjectName( state.name, path ) )
         {
@@ -3175,6 +3447,11 @@ class TestSceneParser
     void ApplyConvexHullState( const Json& object, const std::string& path )
     {
         SceneConvexHullState state = {};
+        state.sceneObjectId = ReadSceneObjectId( object, path, "convexHullState" );
+        if ( ParserFailed() )
+        {
+            return;
+        }
         ReadRequiredStringField( state.name, object, path, "convexHullState", "name" );
         if ( ParserFailed() || !RegisterSceneObjectName( state.name, path ) )
         {
@@ -3243,6 +3520,12 @@ class TestSceneParser
     void ApplyRagdoll( const Json& object, const std::string& path )
     {
         SceneRagdoll ragdoll = {};
+        ragdoll.firstSceneObjectId =
+            ReadSceneObjectId( object, path, "ragdoll", static_cast<uint32_t>( Physics::Ragdoll::SIMPLE_PART_COUNT ) );
+        if ( ParserFailed() )
+        {
+            return;
+        }
         ReadRequiredStringField( ragdoll.name, object, path, "ragdoll", "name" );
         if ( ParserFailed() )
         {
@@ -3755,6 +4038,21 @@ class TestSceneParser
             Fail( path, message.str() );
             return;
         }
+        const uint32_t documentVersion =
+            ReadUInt( RequireMember( root, path, "document root", "version" ), path, "version" );
+        if ( ParserFailed() )
+        {
+            return;
+        }
+        if ( documentVersion != 1 && documentVersion != 2 )
+        {
+            Fail( path, "Unsupported scene schema version: " + std::to_string( documentVersion ) );
+            return;
+        }
+        if ( !styleOnly && depth == 0 )
+        {
+            m_scene.m_schemaVersion = documentVersion;
+        }
 
         LoadStyleIncludes( root, path, "includes", depth );
         if ( ParserFailed() )
@@ -3769,7 +4067,13 @@ class TestSceneParser
                 return;
             }
         }
+        // Why: includes can use a different supported schema. Restore the parent
+        // document version at its body boundary so identity requirements are
+        // decided by the file that actually authored each object.
+        const uint32_t previousDocumentVersion = m_currentDocumentVersion;
+        m_currentDocumentVersion = documentVersion;
         ApplySceneBody( root, path );
+        m_currentDocumentVersion = previousDocumentVersion;
     }
 
   public:
@@ -3817,11 +4121,17 @@ class TestSceneParser
         m_scene = TestScene();
         m_assetDefinitions.clear();
         m_sceneObjectNames.clear();
+        m_sceneObjectIds.clear();
+        m_currentDocumentVersion = 1;
         m_failure = ParserFailureState{};
 
         {
             ParserFailureScope failureScope( m_failure );
             LoadDocumentIntoScene( path ? path : "", styleOnly, 0 );
+            if ( !ParserFailed() )
+            {
+                UpgradeVersion1SceneObjectIds( path ? path : "" );
+            }
             if ( !ParserFailed() && !styleOnly && m_scene.m_cameras.empty() )
             {
                 Fail( path ? path : "", "Scene JSON must define at least one camera." );

@@ -16,6 +16,8 @@ Glossary:
     owner diagnostics before process termination.
   Lane R result: Recoverable load outcome carrying owner/message diagnostics
     for authored scene/style data failures.
+  Schema version: Validated scene-file contract version retained with the
+    parsed record so later save/load owners can choose the matching shape.
 
 Invariants:
   - Command-line and scene JSON spellings are user-facing compatibility
@@ -323,6 +325,12 @@ const char* TestScene::GetScreenshotDir() const
 int TestScene::GetCameraCount() const
 {
     return static_cast<int>( m_cameras.size() );
+}
+
+
+uint32_t TestScene::GetSchemaVersion() const
+{
+    return m_schemaVersion;
 }
 
 

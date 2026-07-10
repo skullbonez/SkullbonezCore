@@ -21,9 +21,12 @@ Glossary:
   Ragdoll part: One model body in the generated simple ragdoll assembly.
   Scene object group: Parsed metadata that ties multi-part authored objects,
     such as releasable trees, to a single root scene object.
+  Scene object id: Stable parsed physics identity forwarded unchanged to body
+    and collider creation, independent of model insertion order.
 
 Invariants:
   - Scene object insertion order is validation-facing and must stay stable.
+  - Parsed scene object ids, not loop order, are authoritative identity.
   - Authored hull tokens resolve through the editor hull asset table for
     compatibility with saved scenes.
   - Gate state is initialized here but completed by frame/runtime observation.
@@ -471,7 +474,7 @@ SbResult SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context,
 
         const bool hasInitialImpulse =
             !ball.isFixed && ( ball.forceX != 0.0f || ball.forceY != 0.0f || ball.forceZ != 0.0f );
-        const Physics::PhysicsSceneObjectId sceneObjectId = context.sceneState.AllocateSceneObjectId();
+        const Physics::PhysicsSceneObjectId sceneObjectId = ball.sceneObjectId;
         const BoundingSphere shape( ball.m_radius, Vector3( 0.0f, 0.0f, 0.0f ) );
         const auto appendResult = context.models.AddGameModel(
             std::move( gameModel ),
@@ -513,7 +516,7 @@ SbResult SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context,
         gameModel.SetName( bs.name );
         ApplyEditorPlacedSphereMaterial( gameModel, bs.name );
 
-        const Physics::PhysicsSceneObjectId sceneObjectId = context.sceneState.AllocateSceneObjectId();
+        const Physics::PhysicsSceneObjectId sceneObjectId = bs.sceneObjectId;
         const BoundingSphere shape( bs.radius, Vector3( 0.0f, 0.0f, 0.0f ) );
         const auto appendResult = context.models.AddGameModel(
             std::move( gameModel ),
@@ -558,7 +561,7 @@ SbResult SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context,
 
         gameModel.SetName( box.name );
 
-        const Physics::PhysicsSceneObjectId sceneObjectId = context.sceneState.AllocateSceneObjectId();
+        const Physics::PhysicsSceneObjectId sceneObjectId = box.sceneObjectId;
         const BoundingBox shape( Vector3( box.halfX, box.halfY, box.halfZ ), Vector3( 0.0f, 0.0f, 0.0f ) );
         const auto appendResult = context.models.AddGameModel(
             std::move( gameModel ),
@@ -592,7 +595,7 @@ SbResult SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context,
 
         gameModel.SetName( box.name );
 
-        const Physics::PhysicsSceneObjectId sceneObjectId = context.sceneState.AllocateSceneObjectId();
+        const Physics::PhysicsSceneObjectId sceneObjectId = box.sceneObjectId;
         const BoundingBox shape( Vector3( box.halfX, box.halfY, box.halfZ ), Vector3( 0.0f, 0.0f, 0.0f ) );
         const auto appendResult = context.models.AddGameModel(
             std::move( gameModel ),
@@ -663,7 +666,7 @@ SbResult SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context,
         {
             return groupResult;
         }
-        const Physics::PhysicsSceneObjectId sceneObjectId = context.sceneState.AllocateSceneObjectId();
+        const Physics::PhysicsSceneObjectId sceneObjectId = hullScene.sceneObjectId;
         PhysicsBodyCreateDesc bodyDesc = MakeSceneBodyDesc(
             sceneObjectId,
             hull,
@@ -721,7 +724,7 @@ SbResult SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context,
         {
             return groupResult;
         }
-        const Physics::PhysicsSceneObjectId sceneObjectId = context.sceneState.AllocateSceneObjectId();
+        const Physics::PhysicsSceneObjectId sceneObjectId = hullScene.sceneObjectId;
         PhysicsBodyCreateDesc bodyDesc =
             MakeSceneBodyDesc( sceneObjectId,
                                hull,
@@ -763,7 +766,7 @@ SbResult SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context,
         options.scale = ragdollScene.scale;
         options.fixed = ragdollScene.isFixed;
         options.startsAsleep = ragdollScene.startsAsleep;
-        options.firstSceneObjectId = context.sceneState.AllocateSceneObjectIdRange( Ragdoll::SIMPLE_PART_COUNT );
+        options.firstSceneObjectId = ragdollScene.firstSceneObjectId;
         if ( ragdollScene.hasInitOrient )
         {
             options.orientation =
@@ -837,6 +840,9 @@ SbResult SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context,
         }
     }
 
+    // Invariant: runtime-created objects continue after the highest authored id,
+    // even when schema v2 deliberately uses sparse/non-contiguous values.
+    context.sceneState.ResetSceneObjectIdCursor( context.models.BodyStore() );
     SetUpRequiredContacts( context, scene );
     SetUpRequiredBroadphaseXCells( context, scene );
     return SbResult::Success();

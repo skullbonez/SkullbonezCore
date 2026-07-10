@@ -10,9 +10,9 @@ reports, and git history.
 | Field | Value |
 |---|---|
 | Branch | `engine-cleanup-10th-july`, tracking `origin/engine-cleanup-10th-july` |
-| Pushed baseline before owner-queue split | `225b9688 feat: centralize runtime pointer input ownership` |
-| Current objective | Close B1f by moving the remaining `Run` input-composition methods/state behind `InputRouter` |
-| Last broad local gate | `tools\validate_full.bat` passed owner-specific queues through 114 CPU tests, DX12 with zero InfoQueue errors/matching screenshots, and byte-exact physics |
+| Pushed baseline before stable scene ids | `fd48d658 feat: split runtime requests by owner` |
+| Current objective | Extract the preallocated scene-owned `SceneEntityStore` in physics-authority C2 |
+| Last broad local gate | `tools\validate_full.bat` passed stable scene ids through 114 CPU tests, zero-warning builds, DX12 with zero InfoQueue errors/matching screenshots, and byte-exact physics |
 | Native evidence | Injected heap-use-after-free caught; healthy ASan and five-file `/analyze` passed in 16.185s |
 
 ## Pushed Cleanup Commits
@@ -33,6 +33,7 @@ reports, and git history.
 - `5b56af13 fix: preserve application exit failures`
 - `e7c2e4a2 feat: route runtime keyboard actions through InputRouter`
 - `225b9688 feat: centralize runtime pointer input ownership`
+- `fd48d658 feat: split runtime requests by owner`
 
 ## Current Queue
 
@@ -66,12 +67,19 @@ and quaternion composition, duplicate explicit/asset/ragdoll names fail
 atomically, and runtime ragdoll names preflight before the first append. Parser,
 CPU umbrella, physics, and full gates passed from the final source.
 
+Stable scene identity C1b is complete. Schema v2 requires explicit nonzero ids
+for direct objects and ordered asset parts; duplicate/missing/wrong-version
+input fails atomically. Version 1 upgrades once in the historical runtime
+section order, authored creation consumes stored ids rather than allocating by
+loop order, and later runtime spawns continue above the highest sparse id. The
+parser, CPU umbrella, physics, and full gates passed from the final source.
+
 ## Ten Workstreams To Prioritize
 
-1. Close the final B1f `Run` input-composition deletion proof now that the
-   owner-specific queues no longer require the mixed `Run` input surface.
-2. Add explicit schema-versioned scene object IDs and deterministic v1 upgrade
-   behavior (C1b).
+1. Extract the preallocated scene-owned `SceneEntityStore` and move display
+   name, durable material, asset affiliation, and stable-id ownership into it.
+2. Complete transactional scene creation, v2 asset round-trip, and stable-root
+   behavior ownership (C3-C5), then close the dependent B1f scene/input seam.
 3. Make DX12 resize/resource recreation transactional and define device-loss
    recovery (D4-D5).
 4. Promote `SceneController` to own real load/reset/save lifecycle and delete

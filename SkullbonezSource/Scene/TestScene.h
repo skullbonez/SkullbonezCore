@@ -25,12 +25,15 @@ Glossary:
     instance, and ordered part produced each expanded shape row.
   Scene object group: Parsed metadata that ties multi-part authored objects,
     such as releasable trees, to one root object before runtime construction.
+  Scene object id: Stable nonzero physics identity carried by every parsed body
+    row instead of inferred later from vector or creation order.
 
 Invariants:
   - Command-line and scene JSON fields are user-facing compatibility
   surface.
   - Asset provenance vectors are populated only while loading a scene; they do
     not grow in the steady gameplay loop.
+  - Every successfully parsed physics row has a valid scene object id.
 
 Related:
   - SkullbonezSource/Scene/TestScene.cpp
@@ -45,6 +48,7 @@ Related:
 #include "../Core/Config.h"
 #include "../Core/SbResult.h"
 #include "../Physics/PhysicsDebugData.h"
+#include "../Physics/PhysicsHandles.h"
 #include "../Physics/PhysicsTimestep.h"
 #include "../Physics/TornadoField.h"
 #include "../Physics/PhysicsWorldForces.h"
@@ -75,6 +79,7 @@ struct SceneCamera
 
 struct SceneBall
 {
+    Physics::PhysicsSceneObjectId sceneObjectId;              // Stable schema identity; never derived from shape-vector order.
     char name[64];
     float posX, posY, posZ;
     float m_radius;
@@ -91,6 +96,7 @@ struct SceneBall
 
 struct SceneBallState
 {
+    Physics::PhysicsSceneObjectId sceneObjectId;
     char name[64];
     float posX, posY, posZ;
     float velX, velY, velZ;
@@ -105,6 +111,7 @@ struct SceneBallState
 
 struct SceneBoxState
 {
+    Physics::PhysicsSceneObjectId sceneObjectId;
     char name[64];
     float posX, posY, posZ;
     float velX, velY, velZ;
@@ -157,6 +164,7 @@ enum class SceneAssetPartSource : uint8_t
 
 struct SceneAssetPartRef
 {
+    Physics::PhysicsSceneObjectId sceneObjectId;              // Identity of the exact expanded physics row.
     char partName[128] = {};                                  // Asset recipe name before instance-name expansion.
     char objectName[64] = {};                                 // Generated display name used by current material/object paths.
     uint32_t partIndex = 0;                                   // Authored order inside the asset recipe.
@@ -168,6 +176,7 @@ struct SceneAssetPartRef
 
 struct SceneAssetInstanceRecord
 {
+    Physics::PhysicsSceneObjectId rootSceneObjectId;          // First ordered part; parts may otherwise use non-contiguous ids.
     char assetName[128] = {};
     char instanceName[64] = {};
     uint32_t libraryRefIndex = 0;
@@ -185,6 +194,7 @@ struct SceneAssetInstanceRecord
 
 struct SceneConvexHullState
 {
+    Physics::PhysicsSceneObjectId sceneObjectId;
     char name[64];
     char hullPath[260];
     float posX, posY, posZ;
@@ -203,6 +213,7 @@ struct SceneConvexHullState
 
 struct SceneRagdoll
 {
+    Physics::PhysicsSceneObjectId firstSceneObjectId;         // First id in the fixed SIMPLE_PART_COUNT topology.
     char name[64];
     float posX, posY, posZ;
     float scale;
@@ -227,6 +238,7 @@ struct ScenePointJointConstraint
 
 struct SceneBox
 {
+    Physics::PhysicsSceneObjectId sceneObjectId;
     char name[64];
     float posX, posY, posZ;
     float halfX, halfY, halfZ;                                // Half-extents
@@ -242,6 +254,7 @@ struct SceneBox
 
 struct SceneConvexHull
 {
+    Physics::PhysicsSceneObjectId sceneObjectId;
     char name[64];
     char hullPath[260];
     float posX, posY, posZ;
@@ -523,6 +536,7 @@ class TestScene
     std::vector<SceneAssetLibraryRef> m_assetLibraries;
     std::vector<SceneAssetInstanceRecord> m_assetInstances;
     std::vector<SceneAssetPartRef> m_assetParts;
+    uint32_t m_schemaVersion = 1;                             // Root scene schema after parser validation.
 
     SceneOptions m_sceneOptions;
     SceneCaptureOptions m_captureOptions;
@@ -607,6 +621,7 @@ class TestScene
     float GetFlatSlopeX() const;
     float GetFlatSlopeZ() const;
     int GetCameraCount() const;
+    uint32_t GetSchemaVersion() const;
     int GetBallCount() const;
     const SceneCamera& GetCamera( int index ) const;
     const SceneBall& GetBall( int index ) const;

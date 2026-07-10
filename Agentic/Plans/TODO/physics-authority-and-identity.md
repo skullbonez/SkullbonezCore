@@ -85,10 +85,24 @@ no longer an open question.
   SkullScope trace/query commands, artifact sizes, and bounded model-read
   accounting are recorded in
   `Agentic/Reports/2026-07-10/keyboard-router-skullscope-baseline-evidence.md`.
-- [ ] C1b. Add schema-versioned explicit `PhysicsSceneObjectId` values for
+- [x] C1b. Add schema-versioned explicit `PhysicsSceneObjectId` values for
   authored objects and per-instance parts, reject duplicate/zero ids, and feed
   those ids into the creation transaction instead of allocation by shape-section
   order. Version 1 remains readable through one deterministic upgrade path.
+  Evidence (2026-07-10): schema v2 requires nonzero `sceneObjectId` fields on
+  direct physics objects and ordered `{name, sceneObjectId}` part records on
+  each asset instance. The parser rejects missing, zero, duplicate,
+  wrong-version, part-count, and part-name identity input before publishing the
+  private scene. Version 1 performs one post-parse upgrade in the exact legacy
+  runtime section order, then asset provenance resolves back to those stored
+  ids. Authored setup forwards parsed ids unchanged and rebases the runtime
+  allocation cursor above the highest sparse id; no authored creation loop
+  calls `AllocateSceneObjectId*`. The final source passed
+  `tools\validate_scene_parser_tests.bat` (6/6 contracts, 8.1s),
+  `tools\validate_all_cpu_tests.bat` (114 doctest cases/2,096 assertions plus
+  all standalone CPU targets, 11.7s), `tools\validate_physics.bat` (20,001-line
+  byte-exact baseline, 26.9s), and `tools\validate_full.bat` (zero warnings,
+  zero DX12 InfoQueue errors, matching screenshots, byte-exact physics, 75.3s).
 - [ ] C2. Extract a preallocated, scene-owned `SceneEntityStore` for display
   names, durable render material intent, asset affiliation, and stable ids.
   Remove those ownership duties from `GameModel`/collection order.
