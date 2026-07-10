@@ -1152,6 +1152,69 @@ bool RuntimeTools::PrepareEditorPointerSelection( const EditorPointerSelectionIn
 }
 
 
+EditorPlacementScalePointerResult
+RuntimeTools::RouteEditorPlacementScalePointer( bool leftReleased,
+                                                bool suppressWorldAction,
+                                                GameObjects::GameModelCollection& collection,
+                                                PhysicsEngine& physics,
+                                                RunSceneState& scene,
+                                                Environment::WorldEnvironment& world,
+                                                Geometry::Terrain* terrain,
+                                                Assets::AssetSystem& assets,
+                                                int activeModelCapacity,
+                                                ReplayRuntime& replayRuntime )
+{
+    EditorPlacementScalePointerResult result;
+    if ( !m_editor.placementScaleActive )
+    {
+        return result;
+    }
+
+    result.consumed = true;
+    if ( !leftReleased && !suppressWorldAction )
+    {
+        return result;
+    }
+
+    if ( leftReleased && !suppressWorldAction && m_editor.placementPreviewVisible )
+    {
+        EditorObjectPlacementContext
+            placementContext{ m_editor, collection, physics, scene, world, terrain, assets, activeModelCapacity };
+        EditorObjectPlacementRequest placementRequest{ m_editor.objectType,
+                                                       m_editor.placeStaticObject,
+                                                       m_editor.placementTerrainPoint };
+        EditorObjectPlacementResult placementResult;
+        if ( CanPlaceEditorObjectAtTerrainPoint( placementContext, placementRequest ) )
+        {
+            result.enteredInteractiveScene = true;
+            PlaceEditorObjectAtTerrainPoint( placementContext, placementRequest, placementResult );
+            if ( placementResult.placed )
+            {
+                replayRuntime.RecordEditorPlaceEvent( placementResult.objectType,
+                                                      placementResult.fixedObject,
+                                                      placementResult.autoTerrainAlign,
+                                                      placementResult.modelCountBefore,
+                                                      placementResult.terrainPoint,
+                                                      placementResult.placementScale,
+                                                      placementResult.placementYawRadians );
+
+                RuntimeInteractionCommand command;
+                command.type = RuntimeInteractionCommandType::SetEditorSelection;
+                command.modelIndex = placementResult.modelCountAfter - 1;
+                command.body = placementResult.placedBody;
+                command.collider = placementResult.placedCollider;
+                command.claimSelectionOwner = false;
+                ApplySelectionCommand( command, collection );
+            }
+        }
+    }
+    m_editor.placementScaleActive = false;
+    m_editor.placementScaleWheelSteps = 0;
+    result.endedGesture = true;
+    return result;
+}
+
+
 bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppressWorldActionThisFrame )
 {
     const PhysicsBodyStore& editorBodyStore = m_sceneController.Models().BodyStore();
@@ -1188,55 +1251,27 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
     const bool leftReleased = mouseEdges.leftReleased;
     bool consumedWorldClick = false;
 
-    if ( m_runtimeTools.Editor().placementScaleActive )
+    const EditorPlacementScalePointerResult placementScaleResult =
+        m_runtimeTools.RouteEditorPlacementScalePointer( leftReleased,
+                                                         suppressWorldActionThisFrame,
+                                                         m_sceneController.Models(),
+                                                         m_sceneController.Physics(),
+                                                         SceneState(),
+                                                         m_sceneController.World(),
+                                                         m_sceneController.Terrain().Get(),
+                                                         m_systems.assets,
+                                                         m_startup.gameModelCapacity,
+                                                         m_replayRuntime );
+    if ( placementScaleResult.enteredInteractiveScene )
     {
-        consumedWorldClick = true;
-        if ( leftReleased || suppressWorldActionThisFrame )
-        {
-            if ( leftReleased && !suppressWorldActionThisFrame && m_runtimeTools.Editor().placementPreviewVisible )
-            {
-                EditorObjectPlacementContext placementContext{ m_runtimeTools.Editor(),
-                                                               m_sceneController.Models(),
-                                                               m_sceneController.Physics(),
-                                                               SceneState(),
-                                                               m_sceneController.World(),
-                                                               m_sceneController.Terrain().Get(),
-                                                               m_systems.assets,
-                                                               m_startup.gameModelCapacity };
-                EditorObjectPlacementRequest placementRequest{ m_runtimeTools.Editor().objectType,
-                                                               m_runtimeTools.Editor().placeStaticObject,
-                                                               m_runtimeTools.Editor().placementTerrainPoint };
-                EditorObjectPlacementResult placementResult;
-                if ( CanPlaceEditorObjectAtTerrainPoint( placementContext, placementRequest ) )
-                {
-                    EnterInteractiveSceneRun();
-                    PlaceEditorObjectAtTerrainPoint( placementContext, placementRequest, placementResult );
-                    if ( placementResult.placed )
-                    {
-                        m_replayRuntime.RecordEditorPlaceEvent( placementResult.objectType,
-                                                                placementResult.fixedObject,
-                                                                placementResult.autoTerrainAlign,
-                                                                placementResult.modelCountBefore,
-                                                                placementResult.terrainPoint,
-                                                                placementResult.placementScale,
-                                                                placementResult.placementYawRadians );
-
-                        RuntimeInteractionCommand command;
-                        command.type = RuntimeInteractionCommandType::SetEditorSelection;
-                        command.modelIndex = placementResult.modelCountAfter - 1;
-                        command.body = placementResult.placedBody;
-                        command.collider = placementResult.placedCollider;
-                        command.claimSelectionOwner = false;
-                        m_runtimeTools.ApplySelectionCommand( command, m_sceneController.Models() );
-                    }
-                }
-            }
-            m_runtimeTools.Editor().placementScaleActive = false;
-            m_runtimeTools.Editor().placementScaleWheelSteps = 0;
-            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::EndEditorPlacementScale,
-                                               RuntimeInputActionSource::Mouse );
-        }
+        EnterInteractiveSceneRun();
     }
+    if ( placementScaleResult.endedGesture )
+    {
+        UpdateRuntimeInputModeAfterAction( RuntimeInputAction::EndEditorPlacementScale,
+                                           RuntimeInputActionSource::Mouse );
+    }
+    consumedWorldClick = placementScaleResult.consumed;
 
     if ( !consumedWorldClick && m_runtimeTools.Editor().gizmoDragActive )
     {

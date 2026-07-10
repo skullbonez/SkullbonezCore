@@ -263,6 +263,15 @@ struct EditorPointerSelectionInput
     Math::Vector::Vector3 rayDirection = Math::Vector::ZERO_VECTOR;
 };
 
+struct EditorPlacementScalePointerResult
+{
+    // Composition consumes these facts after the tool has atomically ended or
+    // committed the placement gesture; no callback reaches back into Run.
+    bool consumed = false;
+    bool enteredInteractiveScene = false;
+    bool endedGesture = false;
+};
+
 struct MousePickupPointerResult
 {
     bool consumed = false;                                                  // Prevents later world owners from seeing this pointer gesture.
@@ -641,6 +650,16 @@ class RuntimeTools
                                         RuntimeInteractionSelectionPlan& outPlan,
                                         WorldInteractionOwner& outOwner,
                                         InteractionExitReason& outReason );
+    EditorPlacementScalePointerResult RouteEditorPlacementScalePointer( bool leftReleased,
+                                                                        bool suppressWorldAction,
+                                                                        GameObjects::GameModelCollection& collection,
+                                                                        Physics::PhysicsEngine& physics,
+                                                                        RunSceneState& scene,
+                                                                        Environment::WorldEnvironment& world,
+                                                                        Geometry::Terrain* terrain,
+                                                                        Assets::AssetSystem& assets,
+                                                                        int activeModelCapacity,
+                                                                        ReplayRuntime& replayRuntime );
     bool CommitSelectionCommand( const RuntimeInteractionSelectionPlan& plan, RuntimeInteractionEvent& outEvent );
     bool ApplySelectionCommand( const RuntimeInteractionCommand& command,
                                 const GameObjects::GameModelCollection& collection );

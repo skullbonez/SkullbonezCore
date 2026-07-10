@@ -547,6 +547,19 @@ assertions; all five interaction scenarios passed in 15.9s; perf completed in
 matching screenshots, standalone topology smoke, and the 20,001-line byte-exact
 physics baseline. Comment audit: 2/2 touched source-bearing files.
 
+Placement-scale release now executes inside `RuntimeTools`: the tool owns
+preflight, placement commit, replay event emission, new-object selection, and
+durable gesture teardown. A three-boolean result tells composition whether the
+pointer was consumed, interactive automation must be disabled, and the input
+mode edge must be published; no Run callback or broad context is retained. B1f
+remains open for active transform gestures and new-gesture routing.
+
+Evidence: the zero-warning Debug build passed; all five interaction scenarios
+passed in 26.1s; and full passed in 54.3s with 129/129 doctest cases, 2,755
+assertions, zero warnings, zero DX12 InfoQueue errors, matching screenshots,
+standalone topology smoke, and the 20,001-line byte-exact physics baseline.
+Comment audit: 2/2 touched source-bearing files.
+
 ## Remaining Work
 
 ### A. Narrow the render host
