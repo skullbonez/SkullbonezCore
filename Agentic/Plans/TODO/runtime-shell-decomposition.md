@@ -1,7 +1,7 @@
 # Runtime Shell Decomposition
 
 Date: 2026-07-10 (reconciled)
-Status: In progress — 0/13 remaining checklist items complete; earlier
+Status: In progress — 0/23 remaining checklist items complete; earlier
 foundation work is summarized separately and is not mixed into this count
 Impact area: runtime architecture, scene lifecycle, input routing, render host
 Owner: application composition root
@@ -40,8 +40,8 @@ authority must move to the named owner, and the deletion proof must pass.
 
 | # | Ownership extraction | Move out of `Run` | Durable API and state owner | Deletion proof | Required evidence |
 |---|---|---|---|---|---|
-| 1 | **Input routing → `InputRouter`** | `TakeInput`, blocked/unfocused handling, post-UI keyboard dispatch, pointer-camera routing, and large callback/context construction | `InputRouter::Tick(const InputFrame&, InputActions&)`; it owns `RuntimeInputContext`, while `RuntimeInteractionController` remains gesture/workspace authority and UI supplies one immutable hit snapshot | `Run.h` has no `TakeInput`, `Dispatch*Keyboard*`, or pointer-routing methods; no input callback receives `void*`/`Run*` | CPU interaction-policy tests, interaction-click automation, then full gate |
-| 2 | **Command authority → owner-specific queues** | `DrainRuntimeCommands` and the mixed scene/capture/defaults/quit switch | Replace the omnibus queue with bounded `SceneCommandQueue`, `CaptureCommandQueue`, and `ApplicationCommandQueue`; each concrete owner drains its queue and returns a typed result | No central switch names scene, screenshot, defaults, and replay logging together; replay records accepted owner events | CPU command-order tests plus full gate |
+| 1 | **Input routing → `InputRouter`** | `TakeInput`, blocked/unfocused handling, post-UI keyboard dispatch, pointer-camera routing, repeated hardware polls, and large callback/context construction | `BeginFrame(const DeviceInputFrame&, const PreUiInputFacts&, InputActions&)` before UI and `CompleteFrame(const UiInputHitSnapshot&, const RuntimeInteractionFramePolicy&, InputActions&)` after UI; it owns fixed edge/presentation state, while `RuntimeInteractionController` remains gesture/workspace authority | `Run.h` has no `TakeInput`, `Dispatch*Keyboard*`, or pointer-routing methods; no input callback receives `void*`/`Run*`; no later frame phase polls hardware directly | CPU router/interaction-policy tests, interaction-click automation, perf, then full gate |
+| 2 | **Command authority → owner-specific queues** | `DrainRuntimeCommands` and the mixed scene/capture/defaults/quit switch | Fixed bounded queues owned by `SceneController`, `CaptureController`, and `RenderDefaultsStore`, plus value-only `ApplicationExitState`; each owner returns a typed batch result and replay receives only accepted events with explicit wire codes | No central switch names scene, screenshot, defaults, and replay logging together; dead `AdvanceScene`/`Quit` types and generic runtime-command vocabulary are deleted | CPU exit/queue/order/overflow tests plus interaction and full gates |
 | 3 | **Scene lifecycle → promoted `SceneController`** | `LoadScene`, reset/preserve-state orchestration, browser refresh, defaults, adjacent/deck movement, and lifecycle callback lambdas | `SceneController` owns queue, browser, lifecycle state, explicit `BeforeSceneUnload`…`AfterSceneActivated` events, and `Load(const SceneLoadRequest&) -> SbResult` | `Run.h` has no scene-load/reset/default business methods; `SceneController.cpp` is no longer a pass-through facade | Parser/round-trip tests, full gate, physics determinism |
 | 4 | **Replay workspace → existing `ReplayRuntime`** | `TickReplayScrubberInput`, cause-tree/velocity/prediction input, inspection-camera decisions, replay overlays, restore/hash/probe coordination | `ReplayRuntime::TickWorkspace(const ReplayWorkspaceInput&, ReplayWorkspaceOutput&)` consumes typed UI actions and emits camera requests, owner commands, and fixed-capacity draw records | `Run.h` has no `TickReplay*`, `RenderReplay*`, replay restore/hash business method, or replay camera-transition method | CPU replay tests, replay scrub, interaction proofs, allocation evidence |
 | 5 | **Render composition → existing `RuntimeRenderer`** | `BuildRuntimeRendererBindings`, backend-resource release/rebuild logging, editor/replay overlay hook lambdas, and pass-level texture callbacks | `RuntimeRenderer` receives immutable `RenderWorldView`, `RenderSceneView`, `RenderReplayOverlayView`, `RenderToolOverlayView`, and `RenderUiView`; owners build draw records before submission | `Run.cpp` contains no C-style render hook, `void*` user pointer, or callback reading `Run` private members | DX12 architecture tests, renderer gate, then full gate |
@@ -56,7 +56,9 @@ deleted and the named behavioral evidence passes.
 ### Extraction Sequence
 
 1. Land `validation-gate-integrity.md` V1/V2.
-2. Extract input routing and owner-specific command queues together.
+2. Land the input snapshot/router core and application-exit result first, then
+   migrate keyboard actions into owner-specific queues without recreating a
+   central switch.
 3. Promote `SceneController`; physics creation/reset work consumes this boundary.
 4. Move replay workspace behavior with the replay and UI plans.
 5. Finish render composition after overlay producers no longer call `Run`.
@@ -72,8 +74,41 @@ deleted and the named behavioral evidence passes.
 
 ### B. Move input, command, tool, and replay decisions
 
-- [ ] B1. Implement ownership extraction 1 and delete input callback/context bags.
-- [ ] B2. Implement ownership extraction 2 and delete the mixed command switch.
+- [ ] B1a. Characterize press/hold/release/repress, simultaneous keys, binding
+  contexts, pre/post-UI phases, UI refusal, focus loss, and quick-tap behavior
+  in pure CPU tests before moving producers.
+- [ ] B1b. Capture one immutable, fixed-size `DeviceInputFrame` per frame. It
+  owns the 256-key bitset, buttons, client pointer, wheel, raw mouse delta, and
+  focus state; automation mutates that value rather than a second key path.
+- [ ] B1c. Move key-edge memory and binding-context enforcement into the
+  two-phase `InputRouter`; emit fixed ordered action records and delete
+  `MappedKeyboardDispatchContext` plus its callback pack.
+- [ ] B1d. Publish one immutable post-UI hit/pointer snapshot. Delete duplicate
+  UI/replay/editor button memories and make all consumers observe the same
+  position and edge values for a frame.
+- [ ] B1e. Give one owner focus cancellation, cursor requests, and native mouse
+  capture. Reconcile UI, replay, editor, and camera capture on focus loss.
+- [ ] B1f. Delete direct `Input::Is*`/mouse-position polling from later frame,
+  physics, render, editor, and replay phases; complete extraction 1's `Run`
+  method/state deletion proof.
+- [ ] B2a. Add value-only `ApplicationExitState`. Preserve the first owned
+  Lane R failure, translate nonzero OS quit codes into failure, and prevent a
+  later normal quit from overwriting failure evidence.
+- [ ] B2b. Move input-triggered capture into a fixed `CaptureController` queue;
+  validate bounded paths before enqueue and preserve post-render automation
+  timing until its direct sink is retired deliberately.
+- [ ] B2c. Move ordinary/cinematic persistence into `RenderDefaultsStore`,
+  convert writers to `SbResult`, and observe final frame-mutated values at its
+  named checkpoint. Defaults are not application commands.
+- [ ] B2d. Move scene queue storage and submission vocabulary into
+  `SceneController`; temporarily retain a scene-only execution drain in `Run`
+  until C1 supplies concrete load/save authority.
+- [ ] B2e. Replay records only accepted owner events with explicit stable event
+  codes. Failed/rejected work and raw domain-enum ordinals are never serialized.
+- [ ] B2f. Close extraction 2 with C1: move scene execution to
+  `SceneController`, then delete `DrainRuntimeCommands`, the generic queue/type,
+  dead zero-producer cases, scene `void*` callbacks, and all remaining owner
+  bypasses.
 
 ### C. Scene lifecycle ownership
 
@@ -107,14 +142,30 @@ Coordinate C with `physics-authority-and-identity.md` C0-C5 and
 - [ ] E3. Slim `Core/Common.h`: remove the stale config compatibility include
   and alias includes according to current consumers.
 
-## Known Hard Decisions
+## Binding And Open Decisions
 
-| Decision | Required answer |
+| Decision | Binding answer or remaining question |
 |---|---|
-| Input/UI ordering | Which immutable UI snapshot is built before world-input routing, and who owns it for the frame? |
-| Command ordering | Which owner drains first when one frame requests scene load, capture, and quit? Encode this in a CPU test. |
+| Input/UI ordering | **Binding:** sample `DeviceInputFrame` once; run `InputRouter::BeginFrame`; UI then publishes one immutable `UiInputHitSnapshot`; run `CompleteFrame`; later phases consume values only. |
+| Command ordering | **Binding:** at the unconditional pre-simulation checkpoint, return an existing owned failure, persist render defaults, accept input-triggered capture, accept at most one scene transition, then apply a normal exit. Commands produced after the checkpoint run on frame N+1. Encode this in CPU tests. |
 | Scene load contract | Which state survives reset/load and which lifecycle event clears interaction, replay, diagnostics, and camera state? |
 | Fixed-step ownership | `SimulationSystem` remains timestep owner; do not recreate a generic simulation facade. Decide only which frame coordinator calls it. |
+
+## Mapping Evidence And Defects To Preserve
+
+The 2026-07-10 call-site audit found 11 independent pointer-position reads,
+repeated late key polling in frame/render code, binding contexts recorded but
+not generically enforced, and four competing native-capture authorities. The
+input extraction is incomplete until those direct consumers are deleted; a
+file move around `TakeInput` is not acceptance.
+
+The same audit found that nonzero `WM_QUIT` values are currently discarded:
+capture/window failures post exit code 1, `Run::Execute` breaks, then returns
+success. It also found zero producers for generic `AdvanceScene` and `Quit`
+commands, swallowed file-write results, replay recording attempted rather than
+accepted work, and queue overflow without owner/high-water/phase diagnostics.
+B2 tests must prove each corrected behavior before the omnibus vocabulary is
+deleted.
 
 ## Acceptance
 
