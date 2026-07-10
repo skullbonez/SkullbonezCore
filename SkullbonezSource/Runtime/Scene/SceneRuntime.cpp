@@ -276,7 +276,7 @@ void SceneRuntime::BeginLoad( int index )
 }
 
 
-void SceneRuntime::RecordLifecycleEvent( SceneRuntimeLifecycleEvent event )
+void SceneRuntime::RecordLifecycleEvent( SceneRuntimeLifecycleEvent event, SceneLifecycleConsumerMask consumers )
 {
     // Hazard: recoverable population failures deliberately leave the previous
     // scene cleared, so a later BeforeSceneUnload may restart from any phase.
@@ -287,6 +287,15 @@ void SceneRuntime::RecordLifecycleEvent( SceneRuntimeLifecycleEvent event )
                   "Invalid scene lifecycle transition. previous=%s next=%s",
                   SceneRuntimeLifecycleEventName( m_lastLifecycleEvent ),
                   SceneRuntimeLifecycleEventName( event ) );
+    }
+    const SceneLifecycleConsumerMask requiredConsumers = SceneLifecycleRequiredConsumers( event );
+    if ( consumers != requiredConsumers )
+    {
+        SB_FATAL( "Runtime/SceneRuntime",
+                  "Scene lifecycle consumer mismatch. phase=%s expected=0x%X actual=0x%X",
+                  SceneRuntimeLifecycleEventName( event ),
+                  requiredConsumers,
+                  consumers );
     }
     m_lastLifecycleEvent = event;
 }

@@ -246,7 +246,7 @@ void SceneController::BeginLoad( int index )
 }
 
 
-void SceneController::RecordLifecycleEvent( SceneRuntimeLifecycleEvent event )
+void SceneController::RecordLifecycleEvent( SceneRuntimeLifecycleEvent event, SceneLifecycleConsumerMask consumers )
 {
     const int entityCount = m_entities.Count();
     const int bodyCount = Physics::PhysicsEngineStoreQueries::BodyStore( m_physics ).Count();
@@ -268,7 +268,7 @@ void SceneController::RecordLifecycleEvent( SceneRuntimeLifecycleEvent event )
                   bodyCount,
                   colliderCount );
     }
-    m_runtime.RecordLifecycleEvent( event );
+    m_runtime.RecordLifecycleEvent( event, consumers );
 }
 
 

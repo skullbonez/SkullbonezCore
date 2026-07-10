@@ -412,8 +412,9 @@ restart at `BeforeSceneUnload`, but an in-attempt phase skip is fatal;
 `AfterSceneCleared`/`BeforeScenePopulate` require empty metadata/body/collider
 stores, while populated/activated phases require matching counts. The unused
 `LastLifecycleEvent` forwarding API is deleted and the transition contract has
-direct CPU coverage. C2 remains open until non-scene owners consume their named
-reset/activation events and the Run scene callback pack is deleted.
+direct CPU coverage. The callback pack was subsequently deleted, and the
+milestone adversarial pass below added enforced concrete-owner receipts for the
+remaining reset/activation phases.
 
 Evidence from this lifecycle-transaction slice: the CPU umbrella passed all
 four lanes with 126/126 doctest cases and 2,717 assertions in 14.7s; the
@@ -444,6 +445,31 @@ launch was denied by Device Guard; and full passed in 53.0s with zero warnings,
 zero DX12 InfoQueue errors, matching screenshots, standalone topology smoke,
 and the 20,001-line byte-exact physics baseline. Comment audit: 3/3 touched
 source-bearing files.
+
+The required scene-milestone adversarial pass found two blocking C2 defects.
+Lifecycle labels were validated but did not prove concrete-owner consumption,
+and diagnostics plus interactive/manual-reset state could mutate before a
+failed GPU drain returned. The correction splits preparation from commit:
+queue validation, reset snapshot capture, and the checked GPU drain are
+read-only; only a successful preparation may publish `BeforeSceneUnload` and
+commit controller bookkeeping. Diagnostics consumes the old-scene unload edge
+through a typed Debug/Release boundary, reset owners accumulate receipts beside
+their concrete calls, replay acknowledges activation after timeline reset, and
+`SceneRuntime` fatally rejects missing or extra receipts. Manual-reset and
+interactive state now commit only with a successful load; no-load navigation
+retains its intentional interactive transition. The stale C1/Run comments were
+also removed.
+
+Final-source evidence after the adversarial correction: fast passed in 33.9s
+with 13 candidates, 127/127 doctest cases, and 2,736 assertions; the CPU
+umbrella passed all four lanes in 10.7s; all 135 authored scenes activated in
+257.4s with zero-warning builds and no lifecycle/topology/receipt fatal; and
+full passed in 52.4s with zero warnings, zero DX12 InfoQueue errors, matching
+screenshots, standalone topology smoke, and the 20,001-line byte-exact physics
+baseline. The final touched-source comment audit is 13/13. An intermediate
+interaction run also passed both reports in 7.6s. The first final fast attempt
+found a Release declaration inside a Debug guard; moving the typed diagnostics
+boundary outside that guard produced the clean rerun.
 
 - [x] C1. Implement ownership extraction 3: `SceneController` owns the
   preallocated scene/entity metadata store, scene-lifetime `PhysicsScene`,

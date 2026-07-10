@@ -157,7 +157,7 @@ class SceneController
     const std::vector<std::string>& Queue() const;
 
     void BeginLoad( int index );
-    void RecordLifecycleEvent( SceneRuntimeLifecycleEvent event );
+    void RecordLifecycleEvent( SceneRuntimeLifecycleEvent event, SceneLifecycleConsumerMask consumers );
     void MarkManualReset();
     int FindNormalizedPath( const std::string& normalizedPath ) const;
     int FindGeneratedDemo() const;

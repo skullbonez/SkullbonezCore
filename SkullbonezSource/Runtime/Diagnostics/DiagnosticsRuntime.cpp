@@ -1187,7 +1187,19 @@ void DiagnosticsRuntime::EndPhysicsDiagnosticsRun( const RunSceneState& scene, c
 {
     RuntimeDiagnostics::EndPhysicsDiagnosticsRun( m_diagnostics.PhysicsDiagnostics(), scene, status );
 }
+
+
 #endif
+
+
+void DiagnosticsRuntime::BeforeSceneUnload( const RunSceneState& scene )
+{
+#ifdef _DEBUG
+    EndPhysicsDiagnosticsRun( scene, "scene_reload" );
+#else
+    (void)scene;
+#endif
+}
 
 
 DiagnosticsRuntime::UIStressState& DiagnosticsRuntime::UIStress()

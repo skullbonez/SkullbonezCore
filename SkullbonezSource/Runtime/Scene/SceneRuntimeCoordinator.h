@@ -5,8 +5,8 @@ Purpose:
 
 Mental model:
   SceneController owns queue/browser navigation and returns a value-only load
-  request. The caller may sequence the load while C1 moves generated and
-  authored scene application behind SceneController.
+  request. SceneController consumes that request through its cold load
+  transaction; callers only wire the explicit per-call owner borrows.
 
 Glossary:
   Load request: Accepted navigation result containing an optional scene load
@@ -53,6 +53,7 @@ struct SceneLoadRequest
     bool preserveUIState = false;
     bool suppressExitOnComplete = false;
     bool preserveRuntimeState = false;
+    bool markManualReset = false;
 
     static SceneLoadRequest None()
     {

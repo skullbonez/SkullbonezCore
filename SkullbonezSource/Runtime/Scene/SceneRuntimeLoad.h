@@ -4,21 +4,21 @@ Purpose:
   Declares scene load orchestration helpers owned by scene runtime code.
 
 Mental model:
-  SceneController owns the complete load transaction. This module isolates its
-  load-begin decision point: queue validation, runtime-state preservation, GPU
-  flush-before-teardown, and controller bookkeeping.
+  SceneController owns the complete load transaction. This module separates
+  failure-safe preparation from the first bookkeeping mutation: queue
+  validation, runtime-state preservation, and GPU drain happen before commit.
 
 Glossary:
-  Load begin: Scene load phase before teardown and object population.
+  Load preparation: Failure-safe phase before teardown and object population.
   GPU drain: Checked close, submit, wait, and command-list reopen that proves
     old scene resources are no longer referenced by the GPU.
   Reset snapshot: Preserved operator-owned runtime state for interactive resets.
   Scene browser: UI-facing list of available scene files.
 
 Invariants:
-  - BeginSceneRuntimeLoad returns intent/state to SceneController::Load; it does
-    not populate the scene itself.
-  - A successful GPU drain precedes every scene/controller mutation.
+  - PrepareSceneRuntimeLoad returns intent/state without mutating any owner.
+  - CommitSceneRuntimeLoad is called only after a successful GPU drain and the
+    BeforeSceneUnload consumers have completed.
   - Runtime state preservation must happen before SceneController begins load.
 
 Related:
@@ -49,25 +49,28 @@ struct RunRuntimeSettings;
 
 struct SceneRuntimeLoadBeginResult
 {
-    // Lane R: a failed GPU drain leaves shouldLoad false so Run can terminate
-    // the load before SceneController or resource owners mutate old state.
+    // Lane R: a failed GPU drain leaves shouldLoad false so SceneController can
+    // report failure before it or any concrete lifecycle consumer mutates.
     SbResult status = SbResult::Success();
     bool shouldLoad = false;
+    bool makeInteractive = false;
     bool suppressAutomationExit = false;
     bool shouldPreserveRuntimeState = false;
+    int index = -1;
     SceneRuntimeResetSnapshot resetSnapshot;
     const std::string* scenePath = nullptr;
 };
 
-SceneRuntimeLoadBeginResult BeginSceneRuntimeLoad( SceneController& controller,
-                                                   RunRuntimeSettings& runtimeSettings,
-                                                   RunDebugState& debug,
-                                                   RunCameraState& camera,
-                                                   Rendering::IRenderDeviceLifecycle* renderLifecycle,
-                                                   bool interactiveSceneRunRequested,
-                                                   int index,
-                                                   bool suppressExitOnComplete,
-                                                   bool preserveRuntimeState );
+SceneRuntimeLoadBeginResult PrepareSceneRuntimeLoad( const SceneController& controller,
+                                                     const RunRuntimeSettings& runtimeSettings,
+                                                     const RunDebugState& debug,
+                                                     const RunCameraState& camera,
+                                                     Rendering::IRenderDeviceLifecycle* renderLifecycle,
+                                                     bool interactiveSceneRunRequested,
+                                                     int index,
+                                                     bool suppressExitOnComplete,
+                                                     bool preserveRuntimeState );
+void CommitSceneRuntimeLoad( SceneController& controller, const SceneRuntimeLoadBeginResult& prepared );
 void RefreshSceneBrowserList( RunSceneBrowserState& sceneBrowser );
 int CurrentSceneBrowserIndex( const SceneController& controller, const RunSceneBrowserState& sceneBrowser );
 

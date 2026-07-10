@@ -3059,50 +3059,40 @@ bool SceneController::ExecutePending( EngineConfig& m_config,
                                       int& sPerfPass )
 {
     SceneController& m_sceneController = *this;
-    const auto enterInteractiveSceneRun = [&]()
-    {
-        State().isInteractiveRun = true;
-        State().isExitOnComplete = false;
-        m_diagnosticsRuntime.Capture().Screenshot().isScreenshotAndExit = false;
-    };
     const auto executeSceneLoadRequest = [&]( const SceneLoadRequest& request )
     {
-        if ( request.enterInteractiveSceneRun )
-        {
-            enterInteractiveSceneRun();
-        }
         if ( !request.accepted )
         {
             return false;
         }
-        return !request.HasLoad() || m_sceneController
-                                         .Load( request,
-                                                m_config,
-                                                m_launchOptions,
-                                                m_defaultCinematicRender,
-                                                m_startup,
-                                                m_diagnosticsRuntime,
-                                                m_runtimeSettings,
-                                                m_timers,
-                                                assets,
-                                                workerPool,
-                                                window,
-                                                m_inputRouter,
-                                                m_interaction,
-                                                m_camera,
-                                                m_attachedCamera,
-                                                m_simulation,
-                                                m_replayRuntime,
-                                                m_contactAudio,
-                                                m_UI,
-                                                m_debug,
-                                                m_graphicsStress,
-                                                m_runtimeTools,
-                                                m_physicsDebugVisualizer,
-                                                m_renderBackendView,
-                                                m_renderer,
-                                                sPerfPass )
-                                         .ok;
+        return m_sceneController
+            .Load( request,
+                   m_config,
+                   m_launchOptions,
+                   m_defaultCinematicRender,
+                   m_startup,
+                   m_diagnosticsRuntime,
+                   m_runtimeSettings,
+                   m_timers,
+                   assets,
+                   workerPool,
+                   window,
+                   m_inputRouter,
+                   m_interaction,
+                   m_camera,
+                   m_attachedCamera,
+                   m_simulation,
+                   m_replayRuntime,
+                   m_contactAudio,
+                   m_UI,
+                   m_debug,
+                   m_graphicsStress,
+                   m_runtimeTools,
+                   m_physicsDebugVisualizer,
+                   m_renderBackendView,
+                   m_renderer,
+                   sPerfPass )
+            .ok;
     };
     const SceneRequestBatch batch = m_sceneController.TakePendingRequests();
     if ( batch.rejectedTransitionCount > 0 )
@@ -3132,7 +3122,6 @@ bool SceneController::ExecutePending( EngineConfig& m_config,
             break;
         case SceneRequestType::ResetCurrentScene:
             eventCode = ReplayOwnerEventCode::SceneReset;
-            enterInteractiveSceneRun();
             accepted = executeSceneLoadRequest( m_sceneController.ResetCurrentScene( request.preserveUIState,
                                                                                      request.suppressExitOnComplete,
                                                                                      request.preserveRuntimeState ) );

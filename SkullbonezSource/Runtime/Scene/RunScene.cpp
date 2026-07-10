@@ -513,14 +513,14 @@ SbResult SceneController::Load( const SceneLoadRequest& request,
         // preserve the active scene and report the owner boundary violation.
         return SbResult::Failure( "SceneController", "Rejected scene load request reached execution." );
     }
-    if ( request.enterInteractiveSceneRun )
-    {
-        State().isInteractiveRun = true;
-        State().isExitOnComplete = false;
-        m_diagnosticsRuntime.Capture().Screenshot().isScreenshotAndExit = false;
-    }
     if ( !request.HasLoad() )
     {
+        if ( request.enterInteractiveSceneRun )
+        {
+            State().isInteractiveRun = true;
+            State().isExitOnComplete = false;
+            m_diagnosticsRuntime.Capture().Screenshot().isScreenshotAndExit = false;
+        }
         return SbResult::Success();
     }
     const int index = request.index;
@@ -548,22 +548,19 @@ SbResult SceneController::Load( const SceneLoadRequest& request,
     SbResult m_lastSceneLoadResult = SbResult::Success();
     RuntimeAllocation::RuntimeAllocationScope allocationScope( RuntimeAllocation::RuntimeAllocationPhase::SceneLoad );
     SceneController& runtime = m_sceneController;
-#ifdef _DEBUG
-    m_diagnosticsRuntime.EndPhysicsDiagnosticsRun( SceneState(), "scene_reload" );
-#endif
-    runtime.RecordLifecycleEvent( SceneRuntimeLifecycleEvent::BeforeSceneUnload );
-    const SceneRuntimeLoadBeginResult loadBegin = BeginSceneRuntimeLoad( runtime,
-                                                                         m_runtimeSettings,
-                                                                         m_debug,
-                                                                         m_camera,
-                                                                         m_renderBackendView.deviceLifecycle,
-                                                                         m_launchOptions.interactiveSceneRun,
-                                                                         index,
-                                                                         suppressExitOnComplete,
-                                                                         preserveRuntimeState );
+    const SceneRuntimeLoadBeginResult loadBegin =
+        PrepareSceneRuntimeLoad( runtime,
+                                 m_runtimeSettings,
+                                 m_debug,
+                                 m_camera,
+                                 m_renderBackendView.deviceLifecycle,
+                                 request.enterInteractiveSceneRun || m_launchOptions.interactiveSceneRun,
+                                 index,
+                                 suppressExitOnComplete,
+                                 preserveRuntimeState );
     if ( !loadBegin.status.ok )
     {
-        // Lane R: BeginSceneRuntimeLoad has not mutated or destroyed the old
+        // Lane R: preparation has not mutated or destroyed the old
         // scene after a failed GPU drain, so preserve that state and end load.
         m_lastSceneLoadResult = loadBegin.status;
         LogSceneLoadFailure( loadBegin.status, loadBegin.scenePath ? *loadBegin.scenePath : std::string{} );
@@ -573,11 +570,27 @@ SbResult SceneController::Load( const SceneLoadRequest& request,
     {
         return m_lastSceneLoadResult;
     }
+    SceneLifecycleConsumerMask beforeUnloadConsumers =
+        SceneLifecycleConsumerBit( SceneLifecycleConsumer::RenderDevice );
+    m_diagnosticsRuntime.BeforeSceneUnload( SceneState() );
+    beforeUnloadConsumers |= SceneLifecycleConsumerBit( SceneLifecycleConsumer::Diagnostics );
+    runtime.RecordLifecycleEvent( SceneRuntimeLifecycleEvent::BeforeSceneUnload, beforeUnloadConsumers );
+    CommitSceneRuntimeLoad( runtime, loadBegin );
+    if ( request.markManualReset )
+    {
+        runtime.MarkManualReset();
+    }
+    if ( request.enterInteractiveSceneRun )
+    {
+        State().isExitOnComplete = false;
+        m_diagnosticsRuntime.Capture().Screenshot().isScreenshotAndExit = false;
+    }
 
     const bool suppressAutomationExit = loadBegin.suppressAutomationExit;
     const bool shouldPreserveRuntimeState = loadBegin.shouldPreserveRuntimeState;
     const SceneRuntimeResetSnapshot& resetSnapshot = loadBegin.resetSnapshot;
     const std::string& scenePath = *loadBegin.scenePath;
+    SceneLifecycleConsumerMask afterClearConsumers = 0;
 
     m_diagnosticsRuntime.ClosePerfLogWithMemoryCheckpoint( sPerfPass + 1, "end" );
 
@@ -585,12 +598,15 @@ SbResult SceneController::Load( const SceneLoadRequest& request,
     SceneState().ResetForLoad( m_config.cinematicRender );
     m_diagnosticsRuntime.ResetPerfLogForSceneLoad();
     m_simulation.Reset();
+    afterClearConsumers |= SceneLifecycleConsumerBit( SceneLifecycleConsumer::Simulation );
     m_diagnosticsRuntime.Capture().ResetScreenshot();
     m_contactAudio.ResetSimpleLinearHistory();
+    afterClearConsumers |= SceneLifecycleConsumerBit( SceneLifecycleConsumer::Audio );
     m_runtimeSettings.isVsyncEnabled = m_config.runtimeRender.vsyncEnabled;
     m_runtimeSettings.isPipelineSyncEnabled = m_config.runtimeRender.forcePipelineSync;
     m_diagnosticsRuntime.UIStress() = DiagnosticsRuntime::UIStressState{};
     m_sceneController.ClearRequiredAutomationGates();
+    afterClearConsumers |= SceneLifecycleConsumerBit( SceneLifecycleConsumer::Diagnostics );
 
     m_sceneController.Cameras().Reset();
     m_sceneController.Models().Clear();
@@ -619,6 +635,7 @@ SbResult SceneController::Load( const SceneLoadRequest& request,
                     m_inputRouter );
             }
         }
+        afterClearConsumers |= SceneLifecycleConsumerBit( SceneLifecycleConsumer::Replay );
         RunInternal::ClearEditorManipulationState(
             { m_runtimeTools.Editor(), m_sceneController.Models(), m_sceneController.Physics(), m_interaction } );
         m_runtimeTools.Editor().viewportLookActive = false;
@@ -627,9 +644,11 @@ SbResult SceneController::Load( const SceneLoadRequest& request,
         m_runtimeTools.Editor().hotRotationAxis = -1;
         m_runtimeTools.Editor().activeGizmoAxis = -1;
         m_interaction.ResetForScene( InteractionExitReason::LoadScene );
+        afterClearConsumers |= SceneLifecycleConsumerBit( SceneLifecycleConsumer::Interaction );
     }
     m_camera.mode = scenePath.empty() ? RunCameraMode::Demo : RunCameraMode::Scene;
     m_runtimeTools.ClearRayCastTestLines();
+    afterClearConsumers |= SceneLifecycleConsumerBit( SceneLifecycleConsumer::Tools );
     m_debug.isWaterFreezeDebug = false;
     m_debug.isWaterNoReflect = false;
     m_debug.isWaterRTReflect = false;
@@ -686,8 +705,10 @@ SbResult SceneController::Load( const SceneLoadRequest& request,
     bool sceneMutualGravityEnabled = false;
     TornadoSystemConfig sceneTornadoSystem;
 
-    runtime.RecordLifecycleEvent( SceneRuntimeLifecycleEvent::AfterSceneCleared );
-    runtime.RecordLifecycleEvent( SceneRuntimeLifecycleEvent::BeforeScenePopulate );
+    // Each bit is attached to its concrete call above. SceneRuntime rejects the
+    // phase if a future edit drops an owner receipt without updating policy.
+    runtime.RecordLifecycleEvent( SceneRuntimeLifecycleEvent::AfterSceneCleared, afterClearConsumers );
+    runtime.RecordLifecycleEvent( SceneRuntimeLifecycleEvent::BeforeScenePopulate, 0 );
 
     // Branch on file-backed scene mode vs generated demo mode.
     if ( scenePath.empty() )
@@ -1040,7 +1061,8 @@ SbResult SceneController::Load( const SceneLoadRequest& request,
         }
     }
 
-    runtime.RecordLifecycleEvent( SceneRuntimeLifecycleEvent::AfterScenePopulate );
+    runtime.RecordLifecycleEvent( SceneRuntimeLifecycleEvent::AfterScenePopulate, 0 );
+    SceneLifecycleConsumerMask afterActivationConsumers = 0;
 
     if ( shouldPreserveRuntimeState )
     {
@@ -1215,6 +1237,7 @@ SbResult SceneController::Load( const SceneLoadRequest& request,
             NormalizeCameraModeForCurrentScene( m_replayRuntime.Camera().restoreCameraMode ),
             m_attachedCamera.activeFollow,
             m_camera.director.grabbed } );
+    afterActivationConsumers |= SceneLifecycleConsumerBit( SceneLifecycleConsumer::Replay );
 
     // Initialize DXR raytracing on first scene load (requires terrain + sphere meshes to exist)
     // Force sphere mesh creation (normally lazy-init on first render)
@@ -1277,7 +1300,7 @@ SbResult SceneController::Load( const SceneLoadRequest& request,
             }
         }
     }
-    runtime.RecordLifecycleEvent( SceneRuntimeLifecycleEvent::AfterSceneActivated );
+    runtime.RecordLifecycleEvent( SceneRuntimeLifecycleEvent::AfterSceneActivated, afterActivationConsumers );
     m_lastSceneLoadResult = SbResult::Success();
     return m_lastSceneLoadResult;
 }

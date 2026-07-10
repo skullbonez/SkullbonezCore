@@ -4,14 +4,12 @@ Purpose:
   Implements scene load-begin orchestration outside Run.
 
 Mental model:
-  The begin phase decides whether a queue index can load, captures or clears
-  live reset state, flushes GPU work before old scene resources are destroyed,
-  and advances SceneController bookkeeping. Later cuts can move the reset body,
-  authored/generated setup, diagnostics, and render reinitialization behind the
-  same scene-owned boundary.
+  Preparation decides whether a queue index can load, captures live reset state,
+  and flushes GPU work before old scene resources are destroyed. Commit advances
+  controller bookkeeping only after preparation and unload consumers succeed.
 
 Glossary:
-  Load begin: Scene load phase that validates queue index, preserves optional
+  Load preparation: Scene load phase that validates queue index, preserves optional
     runtime state, and marks controller bookkeeping.
   Scene browser: UI-facing list of scene files discovered on disk.
   GPU (Graphics Processing Unit): Render device that must be flushed before old
@@ -21,7 +19,7 @@ Invariants:
   - GPU flush happens before caller-owned teardown can destroy scene resources.
   - Browser paths and queue paths compare in normalized slash form.
   - Preserve-runtime-state decisions are captured before controller load state
-    changes.
+    changes; failed preparation leaves every owner unchanged.
 
 Related:
   - SkullbonezSource/Runtime/Scene/SceneRuntimeLoad.h
@@ -177,15 +175,15 @@ int CurrentSceneBrowserIndex( const SceneController& controller, const RunSceneB
 }
 
 
-SceneRuntimeLoadBeginResult BeginSceneRuntimeLoad( SceneController& controller,
-                                                   RunRuntimeSettings& runtimeSettings,
-                                                   RunDebugState& debug,
-                                                   RunCameraState& camera,
-                                                   Rendering::IRenderDeviceLifecycle* renderLifecycle,
-                                                   bool interactiveSceneRunRequested,
-                                                   int index,
-                                                   bool suppressExitOnComplete,
-                                                   bool preserveRuntimeState )
+SceneRuntimeLoadBeginResult PrepareSceneRuntimeLoad( const SceneController& controller,
+                                                     const RunRuntimeSettings& runtimeSettings,
+                                                     const RunDebugState& debug,
+                                                     const RunCameraState& camera,
+                                                     Rendering::IRenderDeviceLifecycle* renderLifecycle,
+                                                     bool interactiveSceneRunRequested,
+                                                     int index,
+                                                     bool suppressExitOnComplete,
+                                                     bool preserveRuntimeState )
 {
     SceneRuntimeLoadBeginResult result;
     if ( !controller.HasEntry( index ) )
@@ -193,6 +191,7 @@ SceneRuntimeLoadBeginResult BeginSceneRuntimeLoad( SceneController& controller,
         return result;
     }
 
+    result.index = index;
     result.scenePath = &controller.PathAt( index );
     if ( renderLifecycle )
     {
@@ -205,15 +204,8 @@ SceneRuntimeLoadBeginResult BeginSceneRuntimeLoad( SceneController& controller,
         }
     }
 
-    if ( suppressExitOnComplete )
-    {
-        controller.State().isInteractiveRun = true;
-    }
-    if ( interactiveSceneRunRequested )
-    {
-        controller.State().isInteractiveRun = true;
-    }
-    result.suppressAutomationExit = controller.State().isInteractiveRun || suppressExitOnComplete;
+    result.makeInteractive = suppressExitOnComplete || interactiveSceneRunRequested;
+    result.suppressAutomationExit = controller.State().isInteractiveRun || result.makeInteractive;
     result.shouldPreserveRuntimeState = preserveRuntimeState && controller.HasCurrentEntry();
     if ( result.shouldPreserveRuntimeState )
     {
@@ -221,21 +213,31 @@ SceneRuntimeLoadBeginResult BeginSceneRuntimeLoad( SceneController& controller,
         // restore policy sees the live operator-owned state from the old run.
         result.resetSnapshot = CaptureSceneRuntimeResetSnapshot( controller, runtimeSettings, debug, camera );
     }
-    else
+    result.shouldLoad = true;
+    return result;
+}
+
+
+void CommitSceneRuntimeLoad( SceneController& controller, const SceneRuntimeLoadBeginResult& prepared )
+{
+    // Invariant: preparation has already validated the index and drained the
+    // device; this is the first mutation of scene/controller state.
+    if ( prepared.makeInteractive )
+    {
+        controller.State().isInteractiveRun = true;
+    }
+    if ( !prepared.shouldPreserveRuntimeState )
     {
         ClearSceneRuntimeUIOverrides( controller );
     }
-
-    controller.BeginLoad( index );
-    if ( !result.shouldPreserveRuntimeState )
+    controller.BeginLoad( prepared.index );
+    if ( !prepared.shouldPreserveRuntimeState )
     {
         controller.Browser().selectedCineModeSceneIndex =
-            ( !result.scenePath->empty() && IsCineScenePath( *result.scenePath ) )
-                ? SceneBrowserIndexForPath( controller.Browser(), *result.scenePath )
+            ( !prepared.scenePath->empty() && IsCineScenePath( *prepared.scenePath ) )
+                ? SceneBrowserIndexForPath( controller.Browser(), *prepared.scenePath )
                 : -1;
     }
-    result.shouldLoad = true;
-    return result;
 }
 
 } // namespace Basics

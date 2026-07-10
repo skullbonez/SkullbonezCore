@@ -79,6 +79,23 @@ TEST_CASE( "Scene lifecycle accepts ordered phases and explicit restart" )
                                                        SceneRuntimeLifecycleEvent::AfterSceneActivated ) );
     CHECK_FALSE( SceneRuntimeLifecycleTransitionValid( SceneRuntimeLifecycleEvent::AfterSceneActivated,
                                                        SceneRuntimeLifecycleEvent::None ) );
+
+    const SceneLifecycleConsumerMask beforeUnload =
+        SceneLifecycleConsumerBit( SceneLifecycleConsumer::Diagnostics ) |
+        SceneLifecycleConsumerBit( SceneLifecycleConsumer::RenderDevice );
+    const SceneLifecycleConsumerMask afterClear =
+        SceneLifecycleConsumerBit( SceneLifecycleConsumer::Diagnostics ) |
+        SceneLifecycleConsumerBit( SceneLifecycleConsumer::Simulation ) |
+        SceneLifecycleConsumerBit( SceneLifecycleConsumer::Audio ) |
+        SceneLifecycleConsumerBit( SceneLifecycleConsumer::Tools ) |
+        SceneLifecycleConsumerBit( SceneLifecycleConsumer::Interaction ) |
+        SceneLifecycleConsumerBit( SceneLifecycleConsumer::Replay );
+    CHECK( SceneLifecycleRequiredConsumers( SceneRuntimeLifecycleEvent::BeforeSceneUnload ) == beforeUnload );
+    CHECK( SceneLifecycleRequiredConsumers( SceneRuntimeLifecycleEvent::AfterSceneCleared ) == afterClear );
+    CHECK( SceneLifecycleRequiredConsumers( SceneRuntimeLifecycleEvent::BeforeScenePopulate ) == 0 );
+    CHECK( SceneLifecycleRequiredConsumers( SceneRuntimeLifecycleEvent::AfterScenePopulate ) == 0 );
+    CHECK( SceneLifecycleRequiredConsumers( SceneRuntimeLifecycleEvent::AfterSceneActivated ) ==
+           SceneLifecycleConsumerBit( SceneLifecycleConsumer::Replay ) );
 }
 
 TEST_CASE( "Scene navigation returns value-only accepted load decisions" )
@@ -100,6 +117,7 @@ TEST_CASE( "Scene navigation returns value-only accepted load decisions" )
     CHECK_FALSE( load.suppressExitOnComplete );
     CHECK( load.preserveRuntimeState );
     CHECK( load.enterInteractiveSceneRun );
+    CHECK_FALSE( load.markManualReset );
 
     CHECK_FALSE( SceneLoadRequest::Load( -1, true, true, true ).accepted );
 }

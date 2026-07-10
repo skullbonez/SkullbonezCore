@@ -216,6 +216,10 @@ class DiagnosticsRuntime
                                  const char* failureReason );
     void EndPhysicsDiagnosticsRun( const RunSceneState& scene, const char* status );
 #endif
+    // Consumes BeforeSceneUnload while the old scene identity is still live.
+    // Release builds keep the same typed boundary even though SkullScope end
+    // emission is Debug-only.
+    void BeforeSceneUnload( const RunSceneState& scene );
 
     // Invariant: UI stress state is deterministic scene-driven input churn.
     // Keep it cheap and seed-based so validation can reproduce failures.

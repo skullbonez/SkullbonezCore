@@ -10,9 +10,9 @@ reports, and git history.
 | Field | Value |
 |---|---|
 | Branch | `engine-cleanup-10th-july`, tracking `origin/engine-cleanup-10th-july` |
-| Current pushed baseline | `07c8fc6c refactor: promote scene load transaction` |
-| Current objective | Adversarially review the closed scene-owner milestone, then close B1f direct input/state remnants |
-| Last broad local gate | `tools\validate_full.bat` passed the SceneController-owned pending execution boundary with 127/127 doctest cases, 2,730 assertions, all CPU lanes, zero-warning builds, DX12 with zero InfoQueue errors/matching screenshots, standalone physics smoke, and 20,001-line byte-exact physics in 53.0s |
+| Current pushed baseline | `93702cb9 refactor: move pending scene execution into owner` |
+| Current objective | Repeat the scene-milestone adversarial pass once, then close B1f direct input/state remnants |
+| Last broad local gate | `tools\validate_full.bat` passed the corrected concrete-owner lifecycle receipt boundary with 127/127 doctest cases, 2,736 assertions, all CPU lanes, zero-warning builds, DX12 with zero InfoQueue errors/matching screenshots, standalone physics smoke, and 20,001-line byte-exact physics in 52.4s |
 | Native evidence | Injected heap-use-after-free caught; healthy ASan and five-file `/analyze` passed in 16.185s |
 
 ## Pushed Cleanup Commits
@@ -160,8 +160,9 @@ enforced transaction. The scene runtime rejects skipped phases while allowing
 explicit restart after a recoverable failure, and SceneController refuses to
 publish cleared/populated/activated phases unless entity, body, and collider
 topology matches the phase contract. The unused last-event forwarding accessor
-is deleted. C2 remains open for concrete non-scene owner consumption and
-callback-pack deletion.
+is deleted. At this slice C2 was still open for concrete non-scene owner
+consumption and callback-pack deletion; both are closed by the later milestone
+and adversarial correction below.
 
 All 135 authored scenes also pass the load-only sweep with empty stderr, and
 the focused physics gate remains byte-exact. The lifecycle transition test is
@@ -221,6 +222,15 @@ packs, and collection scene wrappers are deleted; cold-operation dependencies
 are explicit per-call borrows and are never retained. Fast, CPU umbrella,
 interaction clicks, and full gates pass; comment audit is 3/3. The required
 milestone adversarial review is next, before B1f resumes.
+
+The first scene-milestone adversarial pass found and fixed C2 completion
+overclaim plus a pre-drain mutation defect. Scene-load preparation is now
+read-only through a successful GPU drain; diagnostics, simulation, audio,
+tools, interaction, and replay attach enforced receipts beside their concrete
+phase calls, and controller bookkeeping/manual-reset/interactive state commit
+after preparation. Final fast, CPU, all 135 authored scene loads, and full
+gates pass; the final comment audit is 13/13. Because the first review found
+blocking defects, one read-only repeat pass is required before resuming B1f.
 
 Scene provenance C1a is complete: parser-owned library/instance/ordered-part
 records retain exact shape sources, hierarchy transforms use rotated offsets

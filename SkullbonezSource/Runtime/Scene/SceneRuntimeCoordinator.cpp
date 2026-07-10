@@ -227,8 +227,10 @@ SceneController::ResetCurrentScene( bool preserveUIState, bool suppressExitOnCom
         return SceneLoadRequest::None();
     }
 
-    MarkManualReset();
-    return SceneLoadRequest::Load( CurrentIndex(), preserveUIState, suppressExitOnComplete, preserveRuntimeState );
+    SceneLoadRequest request =
+        SceneLoadRequest::Load( CurrentIndex(), preserveUIState, suppressExitOnComplete, preserveRuntimeState, true );
+    request.markManualReset = true;
+    return request;
 }
 
 
