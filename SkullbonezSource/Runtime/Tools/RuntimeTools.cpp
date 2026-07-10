@@ -53,6 +53,7 @@ Related:
 #include "../../UI/UICommands.h"
 #include "../../UI/UILayout.h"
 #include "../CameraCollection.h"
+#include "../Editor/EditorTools.h"
 #include "../Editor/EditorOverlayTools.h"
 #include "../InputRouter.h"
 #include "../RuntimeInteractionCommands.h"
@@ -175,6 +176,28 @@ bool RuntimeTools::HasActiveEditorInteractionState() const
 bool RuntimeTools::InspectGizmoInteractionActive( RunCameraMode cameraMode, bool replayInspectionActive ) const
 {
     return !m_editor.editorModeEnabled && cameraMode == RunCameraMode::Inspect && !replayInspectionActive;
+}
+
+
+void RuntimeTools::ClearEditorInteractionForTransition( bool clearSelection,
+                                                        GameObjects::GameModelCollection& collection,
+                                                        Physics::PhysicsEngine& physics,
+                                                        RuntimeInteractionController& interaction )
+{
+    RunInternal::ClearEditorManipulationState( { m_editor, collection, physics, interaction } );
+    m_editor.viewportLookActive = false;
+    m_editor.placementModeEnabled = false;
+    m_editor.hotGizmoAxis = -1;
+    m_editor.hotRotationAxis = -1;
+    m_editor.activeGizmoAxis = -1;
+    if ( clearSelection )
+    {
+        RuntimeInteractionCommand command;
+        command.type = RuntimeInteractionCommandType::SetEditorSelection;
+        command.modelIndex = -1;
+        command.claimSelectionOwner = false;
+        ApplySelectionCommand( command, collection );
+    }
 }
 
 

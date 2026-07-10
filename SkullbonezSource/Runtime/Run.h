@@ -189,8 +189,6 @@ class Run
     void ApplyRuntimeInteractionTransitionCleanup(
         const RuntimeInteractionTransition&
             transition );                                               // Clears stale tool ownership before the new mode consumes input.
-    void ClearEditorInteractionForRuntimeTransition(
-        bool clearSelection );                                          // Clears editor placement/gizmo ownership before leaving Edit.
     void EnterFlyModeCamera();                                          // Switches camera state into free-flight controls.
     void ExitFlyModeCamera();                                           // Restores terrain camera bounds and leaves launcher mode.
     const char* CameraModeLabel( RunCameraMode mode ) const;            // Compact name for UI and transition diagnostics.

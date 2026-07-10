@@ -1154,28 +1154,6 @@ RuntimeInteractionTransition Run::EnterInteractionForCameraMode( RunCameraMode m
 }
 
 
-void Run::ClearEditorInteractionForRuntimeTransition( bool clearSelection )
-{
-    RunInternal::ClearEditorManipulationState(
-        { m_runtimeTools.Editor(), m_sceneController.Models(), m_sceneController.Physics(), m_interaction } );
-    m_runtimeTools.Editor().viewportLookActive = false;
-    m_runtimeTools.Editor().placementModeEnabled = false;
-    m_runtimeTools.Editor().hotGizmoAxis = -1;
-    m_runtimeTools.Editor().hotRotationAxis = -1;
-    m_runtimeTools.Editor().activeGizmoAxis = -1;
-    if ( clearSelection )
-    {
-        RuntimeInteractionCommand command;
-        command.type = RuntimeInteractionCommandType::SetEditorSelection;
-        command.modelIndex = -1;
-        command.claimSelectionOwner = false;
-        m_runtimeTools.ApplySelectionCommand( command, m_sceneController.Models() );
-    }
-    ReleaseRuntimeMouseToUI( m_inputRouter, m_runtimeTools.Editor(), m_replayRuntime, m_camera );
-    ApplyRuntimeCursorOwnership( m_inputRouter, m_runtimeTools.Editor(), m_replayRuntime );
-}
-
-
 void Run::ClearRuntimeInteractionStateForTransition( const RuntimeInteractionTransition& transition )
 {
     const bool enteringReplay = transition.workspace == RuntimeWorkspace::Replay;
@@ -1221,7 +1199,12 @@ void Run::ClearRuntimeInteractionStateForTransition( const RuntimeInteractionTra
          ( IsEditorWorldOwner( transition.previousOwner ) && !editorOwnerSwitchWithinEdit &&
            !inspectGizmoClaimWithinInspect ) )
     {
-        ClearEditorInteractionForRuntimeTransition( enteringReplay || enteringTool );
+        m_runtimeTools.ClearEditorInteractionForTransition( enteringReplay || enteringTool,
+                                                            m_sceneController.Models(),
+                                                            m_sceneController.Physics(),
+                                                            m_interaction );
+        ReleaseRuntimeMouseToUI( m_inputRouter, m_runtimeTools.Editor(), m_replayRuntime, m_camera );
+        ApplyRuntimeCursorOwnership( m_inputRouter, m_runtimeTools.Editor(), m_replayRuntime );
         if ( m_runtimeTools.Editor().editorModeEnabled && !enteringEdit )
         {
             m_runtimeTools.Editor().editorModeEnabled = false;

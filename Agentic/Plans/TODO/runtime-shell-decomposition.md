@@ -412,6 +412,21 @@ warnings, zero DX12 InfoQueue errors, matching screenshots, standalone topology
 smoke, and the 20,001-line byte-exact physics baseline. Comment audit: 7/7
 touched source-bearing files.
 
+Editor transition cleanup is now RuntimeTools-owned. The owner clears placement
+preview/scale, gizmo gesture state, viewport look, placement mode, hot axes, and
+optionally the validated selection through its existing command boundary. Run's
+editor-transition cleanup method is deleted; the outer transition composition
+retains only mouse-release and cursor reconciliation across input/replay owners.
+B1f remains open for that cross-owner transition coordinator, the rest of editor
+pointer behavior, replay/launcher routing, keyboard composition, camera helpers,
+and final pointer-route/`TakeInput` deletion.
+
+Evidence: fast passed in 31.1s; all four interaction scenarios passed in 12.8s;
+and full passed in 52.3s with 129/129 doctest cases, 2,755 assertions, zero
+warnings, zero DX12 InfoQueue errors, matching screenshots, standalone topology
+smoke, and the 20,001-line byte-exact physics baseline. Comment audit: 4/4
+touched source-bearing files.
+
 ## Remaining Work
 
 ### A. Narrow the render host

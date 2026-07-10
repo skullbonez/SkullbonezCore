@@ -598,6 +598,10 @@ class RuntimeTools
     const RunEditorPlacementState& Editor() const;
     bool HasActiveEditorInteractionState() const;
     bool InspectGizmoInteractionActive( RunCameraMode cameraMode, bool replayInspectionActive ) const;
+    void ClearEditorInteractionForTransition( bool clearSelection,
+                                              GameObjects::GameModelCollection& collection,
+                                              Physics::PhysicsEngine& physics,
+                                              RuntimeInteractionController& interaction );
 
     RunEditorTracer& EditorTracer();
     const RunEditorTracer& EditorTracer() const;
