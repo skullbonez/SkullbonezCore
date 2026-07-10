@@ -40,7 +40,6 @@ Related:
 #include "Replay/ReplayRuntimeOwnerViews.h"
 #include "RunDemoDirector.h"
 #include "RuntimeInteractionCommands.h"
-#include "RuntimePickService.h"
 #include "Scene/SceneRuntimeCreate.h"
 #include "RuntimeTuning.h"
 #include "Scene/SceneRuntimeGeneratedControls.h"
@@ -89,42 +88,6 @@ void ReportRuntimeInputFailure( const SbResult& result )
                   result.error.owner[0] != '\0' ? result.error.owner : "Runtime/Input",
                   result.error.message[0] != '\0' ? result.error.message : "recoverable input operation failed" );
 }
-
-AttachedCameraPose AttachedCameraPoseFromCameras( SkullbonezCore::Environment::CameraCollection& cameras )
-{
-    AttachedCameraPose pose;
-    pose.eye = cameras.GetCameraTranslation();
-    pose.view = cameras.GetCameraView();
-    pose.up = cameras.GetCameraUp();
-    return pose;
-}
-
-bool CaptureAttachedCameraFixedOffsetFromCurrentPose( AttachedCameraState& state,
-                                                      SkullbonezCore::Environment::CameraCollection* cameras,
-                                                      const AttachedCameraPhysicsTarget& target )
-{
-    if ( !cameras )
-    {
-        return false;
-    }
-
-    AttachedCameraController::CaptureFixedOffset( state, AttachedCameraPoseFromCameras( *cameras ), target );
-    return true;
-}
-
-bool CaptureAttachedCameraOrbitFromCurrentPose( AttachedCameraState& state,
-                                                SkullbonezCore::Environment::CameraCollection* cameras,
-                                                const AttachedCameraPhysicsTarget& target )
-{
-    if ( !cameras )
-    {
-        return false;
-    }
-
-    AttachedCameraController::CaptureOrbit( state, AttachedCameraPoseFromCameras( *cameras ), target );
-    return true;
-}
-
 
 RuntimeInputModeState BuildRuntimeInputModeState( RunCameraMode mode,
                                                   const RunEditorPlacementState& editor,
@@ -1073,9 +1036,33 @@ bool Run::RouteRuntimePointerInput( const RuntimeInputSnapshot& inputSnapshot, c
     {
         consumedWorldClick = TickMousePickupInput( mouseEdges, suppressWorldAction );
     }
-    if ( !consumedWorldClick )
+    if ( !consumedWorldClick && RunCameraModeIsAttached( m_camera.mode ) && mouseEdges.leftPressed &&
+         !suppressWorldAction )
     {
-        consumedWorldClick = TickAttachedCameraWorldClick( mouseEdges, suppressWorldAction );
+        Vector3 rayOrigin;
+        Vector3 rayDirection;
+        const bool hasWorldRay = TryBuildMouseWorldRay( rayOrigin, rayDirection );
+        AttachedCameraTargetSelection selection;
+        if ( m_attachedCamera.PickTarget( m_sceneController.Models(),
+                                          m_sceneController.Cameras(),
+                                          hasWorldRay,
+                                          rayOrigin,
+                                          rayDirection,
+                                          selection ) )
+        {
+            RuntimeInteractionCommand command;
+            command.type = RuntimeInteractionCommandType::SetEditorSelection;
+            command.modelIndex = selection.modelIndex;
+            command.body = selection.body;
+            command.collider = selection.collider;
+            command.selectionScope = RuntimeInteractionSelectionScope::Inspect;
+            command.claimSelectionOwner = false;
+            ExecuteRuntimeInteractionCommand( command );
+            ApplyRuntimeCursorOwnership( m_inputRouter, m_runtimeTools.Editor(), m_replayRuntime );
+        }
+        EnterInteractiveSceneRun();
+        UpdateRuntimeInputModeAfterAction( RuntimeInputAction::SetCameraMode, RuntimeInputActionSource::Mouse );
+        consumedWorldClick = true;
     }
     if ( !consumedWorldClick && leftPressed && !suppressWorldAction && !m_runtimeTools.Editor().editorModeEnabled &&
          !uiWantsNativeMouseCursor &&
@@ -1479,123 +1466,6 @@ void Run::SetCameraModeLabelAfterInteractionTransition( RunCameraMode mode )
 }
 
 
-void Run::SetAttachedCameraTarget( int modelIndex )
-{
-    AttachedCameraTargetSelection selection;
-    if ( !AttachedCameraController::SelectTarget( m_sceneController.Models(),
-                                                  m_attachedCamera.State(),
-                                                  modelIndex,
-                                                  selection ) )
-    {
-        return;
-    }
-
-    RuntimeInteractionCommand command;
-    command.type = RuntimeInteractionCommandType::SetEditorSelection;
-    command.modelIndex = modelIndex;
-    command.body = m_attachedCamera.State().target.body;
-    command.collider = m_attachedCamera.State().target.collider;
-    command.selectionScope = RuntimeInteractionSelectionScope::Inspect;
-    command.claimSelectionOwner = false;
-    ExecuteRuntimeInteractionCommand( command );
-    CaptureAttachedCameraFixedOffsetFromCurrentPose( m_attachedCamera.State(),
-                                                     &m_sceneController.Cameras(),
-                                                     selection.physics );
-    ApplyRuntimeCursorOwnership( m_inputRouter, m_runtimeTools.Editor(), m_replayRuntime );
-}
-
-
-void Run::SeedAttachedCameraTargetFromSelection()
-{
-    AttachedCameraPhysicsTarget currentState;
-    if ( AttachedCameraController::TryResolvePhysicsTarget( m_sceneController.Models(),
-                                                            m_attachedCamera.State().target,
-                                                            currentState ) )
-    {
-        CaptureAttachedCameraFixedOffsetFromCurrentPose( m_attachedCamera.State(),
-                                                         &m_sceneController.Cameras(),
-                                                         currentState );
-        m_attachedCamera.State().activeFollow = true;
-        ApplyRuntimeCursorOwnership( m_inputRouter, m_runtimeTools.Editor(), m_replayRuntime );
-        return;
-    }
-
-    int seedIndex = -1;
-    const RunReplayPathVisualizerState& path = m_replayRuntime.PathVisualizer();
-    const PhysicsBodyStore& bodyStore = m_sceneController.Models().BodyStore();
-    const int modelCount = bodyStore.Count();
-    if ( path.hasTarget && path.targetModelRow.value >= 0 && path.targetModelRow.value < modelCount )
-    {
-        seedIndex = path.targetModelRow.value;
-    }
-    else
-    {
-        const int selectedModelIndex = ResolveSelectedEditorModelIndex( m_runtimeTools.Editor(), bodyStore );
-        if ( selectedModelIndex >= 0 && selectedModelIndex < modelCount )
-        {
-            seedIndex = selectedModelIndex;
-        }
-    }
-
-    if ( seedIndex >= 0 )
-    {
-        SetAttachedCameraTarget( seedIndex );
-    }
-    else
-    {
-        m_attachedCamera.State().activeFollow = true;
-        ApplyRuntimeCursorOwnership( m_inputRouter, m_runtimeTools.Editor(), m_replayRuntime );
-    }
-}
-
-
-bool Run::TryPickAttachedCameraTargetFromMouse()
-{
-    Vector3 rayOrigin;
-    Vector3 rayDirection;
-    RuntimePickResult result;
-    if ( TryBuildMouseWorldRay( rayOrigin, rayDirection ) )
-    {
-        RuntimePickRequest request;
-        request.purpose = RuntimePickPurpose::AttachCameraTarget;
-        request.bodyStore = &m_sceneController.Models().BodyStore();
-        request.colliderStore = &m_sceneController.Models().Colliders();
-        request.rayOrigin = rayOrigin;
-        request.rayDirection = rayDirection;
-
-        if ( RuntimePickService::TryPickModel( request, result ) )
-        {
-            SetAttachedCameraTarget( result.modelIndex );
-        }
-        else
-        {
-            AttachedCameraController::ClearTarget( m_attachedCamera.State() );
-        }
-    }
-    else
-    {
-        AttachedCameraController::ClearTarget( m_attachedCamera.State() );
-    }
-    EnterInteractiveSceneRun();
-    UpdateRuntimeInputModeAfterAction( RuntimeInputAction::SetCameraMode, RuntimeInputActionSource::Mouse );
-    return true;
-}
-
-
-bool Run::TickAttachedCameraWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppressWorldActionThisFrame )
-{
-    if ( !RunCameraModeIsAttached( m_camera.mode ) || !mouseEdges.leftPressed )
-    {
-        return false;
-    }
-    if ( suppressWorldActionThisFrame )
-    {
-        return false;
-    }
-    return TryPickAttachedCameraTargetFromMouse();
-}
-
-
 uint32_t Run::CameraModeEnabledMask() const
 {
     uint32_t mask = 0;
@@ -1698,7 +1568,43 @@ void Run::ApplyCameraMode( RunCameraMode mode, RuntimeInputActionSource source )
     }
     if ( mode == RunCameraMode::Attach )
     {
-        SeedAttachedCameraTargetFromSelection();
+        int seedIndex = -1;
+        const RunReplayPathVisualizerState& path = m_replayRuntime.PathVisualizer();
+        const PhysicsBodyStore& bodyStore = m_sceneController.Models().BodyStore();
+        const int modelCount = bodyStore.Count();
+        if ( path.hasTarget && path.targetModelRow.value >= 0 && path.targetModelRow.value < modelCount )
+        {
+            seedIndex = path.targetModelRow.value;
+        }
+        else
+        {
+            const int selectedModelIndex = ResolveSelectedEditorModelIndex( m_runtimeTools.Editor(), bodyStore );
+            if ( selectedModelIndex >= 0 && selectedModelIndex < modelCount )
+            {
+                seedIndex = selectedModelIndex;
+            }
+        }
+
+        AttachedCameraTargetSelection selection;
+        const AttachedCameraSeedResult seedResult = m_attachedCamera.SeedTarget( m_sceneController.Models(),
+                                                                                 m_sceneController.Cameras(),
+                                                                                 seedIndex,
+                                                                                 selection );
+        if ( seedResult == AttachedCameraSeedResult::SelectedSeed )
+        {
+            RuntimeInteractionCommand command;
+            command.type = RuntimeInteractionCommandType::SetEditorSelection;
+            command.modelIndex = selection.modelIndex;
+            command.body = selection.body;
+            command.collider = selection.collider;
+            command.selectionScope = RuntimeInteractionSelectionScope::Inspect;
+            command.claimSelectionOwner = false;
+            ExecuteRuntimeInteractionCommand( command );
+        }
+        if ( seedResult != AttachedCameraSeedResult::Failed )
+        {
+            ApplyRuntimeCursorOwnership( m_inputRouter, m_runtimeTools.Editor(), m_replayRuntime );
+        }
     }
     UpdateRuntimeInputModeAfterAction( source == RuntimeInputActionSource::UI ? RuntimeInputAction::SetCameraMode
                                                                               : RuntimeInputAction::CycleCameraMode,

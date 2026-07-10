@@ -4,10 +4,10 @@ Purpose:
   Implements attach-camera target recovery and pose solving.
 
 Mental model:
-  The controller is a pure state transformer over attach-camera state, physics
-  target snapshots, and the current camera pose. It repairs stale target handles,
-  maintains orbit state, and emits a pose command; Run remains the owner of
-  camera collection mutation and UI/input latches.
+  The controller owns Attach target selection, durable follow/orbit state, and
+  synchronous camera pose mutation. It borrows model stores and cameras for one
+  command at a time; composition code publishes returned selection facts to UI
+  and input owners without reaching back into controller state.
 
 Glossary:
   Replay body id: Stable physics identity used to recover a followed body when
@@ -28,6 +28,7 @@ Related:
 */
 #include "AttachedCameraController.h"
 #include "CameraCollection.h"
+#include "RuntimePickService.h"
 #include "../GameObjects/GameModelCollection.h"
 #include "../Physics/ColliderStore.h"
 #include "../Physics/PhysicsBodyStore.h"
@@ -371,6 +372,72 @@ bool AttachedCameraController::ApplyOrbitInput( const GameObjects::GameModelColl
 }
 
 
+bool AttachedCameraController::SetTarget( const GameObjects::GameModelCollection& collection,
+                                          Environment::CameraCollection& cameras,
+                                          int modelIndex,
+                                          AttachedCameraTargetSelection& outSelection )
+{
+    if ( !SelectTarget( collection, m_state, modelIndex, outSelection ) )
+    {
+        return false;
+    }
+    const AttachedCameraPose pose{ cameras.GetCameraTranslation(), cameras.GetCameraView(), cameras.GetCameraUp() };
+    CaptureFixedOffset( m_state, pose, outSelection.physics );
+    return true;
+}
+
+
+AttachedCameraSeedResult AttachedCameraController::SeedTarget( const GameObjects::GameModelCollection& collection,
+                                                               Environment::CameraCollection& cameras,
+                                                               int seedModelIndex,
+                                                               AttachedCameraTargetSelection& outSelection )
+{
+    outSelection = AttachedCameraTargetSelection{};
+    AttachedCameraPhysicsTarget currentTarget;
+    if ( TryResolvePhysicsTarget( collection, m_state.target, currentTarget ) )
+    {
+        const AttachedCameraPose pose{ cameras.GetCameraTranslation(), cameras.GetCameraView(), cameras.GetCameraUp() };
+        CaptureFixedOffset( m_state, pose, currentTarget );
+        m_state.activeFollow = true;
+        return AttachedCameraSeedResult::ReusedTarget;
+    }
+    if ( seedModelIndex >= 0 )
+    {
+        return SetTarget( collection, cameras, seedModelIndex, outSelection ) ? AttachedCameraSeedResult::SelectedSeed
+                                                                              : AttachedCameraSeedResult::Failed;
+    }
+    m_state.activeFollow = true;
+    return AttachedCameraSeedResult::NoSeed;
+}
+
+
+bool AttachedCameraController::PickTarget( const GameObjects::GameModelCollection& collection,
+                                           Environment::CameraCollection& cameras,
+                                           bool hasWorldRay,
+                                           const Vector3& rayOrigin,
+                                           const Vector3& rayDirection,
+                                           AttachedCameraTargetSelection& outSelection )
+{
+    outSelection = AttachedCameraTargetSelection{};
+    RuntimePickResult pick;
+    if ( hasWorldRay )
+    {
+        RuntimePickRequest request;
+        request.purpose = RuntimePickPurpose::AttachCameraTarget;
+        request.bodyStore = &collection.BodyStore();
+        request.colliderStore = &collection.Colliders();
+        request.rayOrigin = rayOrigin;
+        request.rayDirection = rayDirection;
+        if ( RuntimePickService::TryPickModel( request, pick ) )
+        {
+            return SetTarget( collection, cameras, pick.modelIndex, outSelection );
+        }
+    }
+    ClearTarget( m_state );
+    return false;
+}
+
+
 void AttachedCameraController::Reset( AttachedCameraState& state )
 {
     state = AttachedCameraState{};
@@ -599,6 +666,9 @@ bool AttachedCameraController::SelectTarget( const GameModelCollection& collecti
     }
 
     outSelection.physics = targetState;
+    outSelection.body = state.target.body;
+    outSelection.collider = state.target.collider;
+    outSelection.modelIndex = modelIndex;
     return true;
 }
 

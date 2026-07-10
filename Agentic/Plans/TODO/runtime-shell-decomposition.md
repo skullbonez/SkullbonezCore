@@ -337,6 +337,25 @@ zero warnings, zero DX12 InfoQueue errors, matching screenshots, standalone
 topology smoke, and the 20,001-line byte-exact physics baseline. Comment audit:
 4/4 touched source-bearing files.
 
+Attach target selection is now controller-owned. `AttachedCameraController`
+performs stable target reuse, replay/editor seed acceptance, shared-service ray
+picking, identity capture, and initial camera-relative offset capture through
+synchronous store/camera borrows. It returns an exact body/collider/model
+selection receipt for interaction composition. Run's target setter, seed,
+mouse-pick, and world-click methods plus three obsolete pose helper functions
+are deleted. A third bounded interaction script proves an Attach object click
+retains Attach mode and publishes the exact selected object. B1f remains open
+for the wider editor/manipulator/replay/launcher pointer route, focus/keyboard
+composition, camera-mode helpers, and final `TakeInput` deletion.
+
+Evidence: the three-scenario interaction gate passed in 18.9s; fast passed in
+26.6s; the CPU umbrella passed in 11.0s with 129/129 doctest cases and 2,755
+assertions; perf completed in 32.4s; and full passed in 52.2s with zero warnings,
+zero DX12 InfoQueue errors, matching screenshots, standalone topology smoke,
+and the 20,001-line byte-exact physics baseline. Comment audit: 4/4 touched
+source-bearing files; the touched batch wrapper retains its complete local
+contract header.
+
 ## Remaining Work
 
 ### A. Narrow the render host

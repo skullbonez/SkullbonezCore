@@ -214,12 +214,6 @@ class Run
     void ApplyCameraMode( RunCameraMode mode,
                           RuntimeInputActionSource source );            // Applies keyboard/UI camera-mode requests.
     void CycleCameraMode();                                             // Tab cycles through enabled explicit camera modes.
-    void SetAttachedCameraTarget( int modelIndex );                     // Stores exact clicked/seeded model identity and captures offset.
-    void SeedAttachedCameraTargetFromSelection();                       // Initializes Attach from replay/editor selection when possible.
-    bool TryPickAttachedCameraTargetFromMouse();                        // Mouse ray pick through the shared runtime pick service.
-    bool
-    TickAttachedCameraWorldClick( const RuntimeMouseEdges& mouseEdges,
-                                  bool suppressWorldActionThisFrame );  // Consumes Attach left-click target selection.
     SbResult ReleaseBackendOwnedRenderResources(
         const char* phaseName );                                        // Ordered GPU-resource release hook while the backend is alive.
     SbResult RebuildRegisteredRenderResources();                        // Recreates renderer resources from source asset records.

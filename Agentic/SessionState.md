@@ -10,9 +10,9 @@ reports, and git history.
 | Field | Value |
 |---|---|
 | Branch | `engine-cleanup-10th-july`, tracking `origin/engine-cleanup-10th-july` |
-| Current pushed baseline | `7fa73031 refactor: move attach follow behavior into owner` |
+| Current pushed baseline | `7b9d9b0a refactor: move attach commands into controller` |
 | Current objective | Continue B1f by deleting Run pointer/camera composition, then TakeInput |
-| Last broad local gate | `tools\validate_full.bat` passed controller-owned Attach submode/pin/orbit commands with 129/129 doctest cases, 2,755 assertions, zero-warning builds, DX12 with zero InfoQueue errors/matching screenshots, standalone physics smoke, and 20,001-line byte-exact physics in 53.1s |
+| Last broad local gate | `tools\validate_full.bat` passed controller-owned Attach target selection with 129/129 doctest cases, 2,755 assertions, zero-warning builds, DX12 with zero InfoQueue errors/matching screenshots, standalone physics smoke, and 20,001-line byte-exact physics in 52.2s |
 | Native evidence | Injected heap-use-after-free caught; healthy ASan and five-file `/analyze` passed in 16.185s |
 
 ## Pushed Cleanup Commits
@@ -281,6 +281,13 @@ Attach submode, pin, and orbit mutation now execute inside
 callback slot are deleted. Fast, CPU, interaction, perf, and full gates pass;
 comment audit is 4/4. Selection and the outer world-pointer route remain before
 focus/keyboard callback-pack and `TakeInput` closure.
+
+Attach target reuse, seeded selection, ray picking, identity capture, and
+initial relative-pose capture now execute inside `AttachedCameraController`.
+Four Run methods and three obsolete pose helpers are deleted; composition sees
+only an exact selection receipt. The interaction gate now includes a passing
+Attach object-click regression. Fast, CPU, three interaction scenarios, perf,
+and full gates pass; comment audit is 4/4. The wider pointer route remains.
 
 Scene provenance C1a is complete: parser-owned library/instance/ordered-part
 records retain exact shape sources, hierarchy transforms use rotated offsets

@@ -1,13 +1,13 @@
 @echo off
 REM File: tools\validate_interaction_clicks.bat
 REM Purpose:
-REM   Validate scripted runtime interaction clicks for inspect gizmo and replay
-REM   prediction workflows.
+REM   Validate scripted runtime interaction clicks for inspect gizmo, Attach
+REM   target selection, and replay prediction workflows.
 REM
 REM Mental model:
 REM   This is a focused UI/runtime interaction gate. It builds Profile, runs
 REM   deterministic interaction scripts, and writes reports/screenshots for the
-REM   two covered click paths.
+REM   three covered click paths.
 REM
 REM Glossary:
 REM   Interaction script: JSON input sequence consumed by the runtime.
@@ -33,14 +33,19 @@ if not exist TestOutput\interaction mkdir TestOutput\interaction
 Profile\SKULLBONEZ_CORE.exe --scene SkullbonezData\scenes\interaction_inspect_gizmo_harness.scene.json --interaction-script SkullbonezData\interaction\inspect_gizmo_click.json --interaction-report TestOutput\interaction\inspect_gizmo_click_report.json --frames 90 --vsync off
 if errorlevel 1 goto fail
 
+Profile\SKULLBONEZ_CORE.exe --scene SkullbonezData\scenes\interaction_inspect_gizmo_harness.scene.json --interaction-script SkullbonezData\interaction\attach_target_click.json --interaction-report TestOutput\interaction\attach_target_click_report.json --frames 90 --vsync off
+if errorlevel 1 goto fail
+
 Profile\SKULLBONEZ_CORE.exe --scene SkullbonezData\scenes\interaction_replay_prediction_harness.scene.json --interaction-script SkullbonezData\interaction\replay_prediction_click.json --interaction-report TestOutput\interaction\replay_prediction_click_report.json --frames 150 --replay on --replay-seconds 2 --fixed-step --vsync off
 if errorlevel 1 goto fail
 
 echo [interaction] Reports:
 echo   TestOutput\interaction\inspect_gizmo_click_report.json
+echo   TestOutput\interaction\attach_target_click_report.json
 echo   TestOutput\interaction\replay_prediction_click_report.json
 echo [interaction] Screenshots:
 echo   TestOutput\interaction\inspect_gizmo_after_click.bmp
+echo   TestOutput\interaction\attach_target_after_click.bmp
 echo   TestOutput\interaction\replay_prediction_after_click.bmp
 popd >nul
 exit /b 0

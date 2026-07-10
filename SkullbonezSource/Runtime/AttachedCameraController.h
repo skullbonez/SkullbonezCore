@@ -4,10 +4,10 @@ Purpose:
   Owns attach-camera target identity, orbit state, and follow-pose solving.
 
 Mental model:
-  Attach mode follows a physics body through stable body/collider handles, then
-  turns the current body snapshot and camera pose into the next camera pose.
-  AttachedCameraController owns the durable attach state. Composition code
-  borrows that state while SceneController-owned cameras apply pose commands.
+  Attach mode selects and follows a physics body through stable body/collider
+  handles, then turns the current body snapshot and camera pose into the next
+  camera pose. AttachedCameraController owns that durable state and performs
+  synchronous commands through borrowed model stores and cameras.
 
 Glossary:
   Attach target: Physics body/collider identity plus replay id used to recover a
@@ -115,7 +115,18 @@ struct AttachedCameraPoseCommand
 
 struct AttachedCameraTargetSelection
 {
-    AttachedCameraPhysicsTarget physics;
+    AttachedCameraPhysicsTarget physics;               // Snapshot used to capture the initial camera-relative offset.
+    Physics::PhysicsBodyHandle body;                   // Exact selected body identity published to interaction composition.
+    Physics::PhysicsColliderHandle collider;           // Collider paired with body in the same store snapshot.
+    int modelIndex = -1;                               // Dense presentation row valid for this synchronous command only.
+};
+
+enum class AttachedCameraSeedResult
+{
+    Failed,                                            // A supplied seed no longer resolved; no presentation effect should be published.
+    ReusedTarget,                                      // Existing stable identity was refreshed without changing editor selection.
+    SelectedSeed,                                      // The supplied replay/editor hint became the Attach target.
+    NoSeed                                             // Attach remains active and waits for a world click.
 };
 
 class AttachedCameraController
@@ -137,6 +148,20 @@ class AttachedCameraController
                           bool attachModeActive,
                           int unhandledWheelDelta,
                           bool uiBlocksCameraMouse );
+    bool SetTarget( const GameObjects::GameModelCollection& collection,
+                    Environment::CameraCollection& cameras,
+                    int modelIndex,
+                    AttachedCameraTargetSelection& outSelection );
+    AttachedCameraSeedResult SeedTarget( const GameObjects::GameModelCollection& collection,
+                                         Environment::CameraCollection& cameras,
+                                         int seedModelIndex,
+                                         AttachedCameraTargetSelection& outSelection );
+    bool PickTarget( const GameObjects::GameModelCollection& collection,
+                     Environment::CameraCollection& cameras,
+                     bool hasWorldRay,
+                     const Math::Vector::Vector3& rayOrigin,
+                     const Math::Vector::Vector3& rayDirection,
+                     AttachedCameraTargetSelection& outSelection );
 
     static void Reset( AttachedCameraState& state );
     static void ClearTarget( AttachedCameraState& state );
@@ -153,10 +178,6 @@ class AttachedCameraController
     static bool TryResolveRagdollHead( const GameObjects::GameModelCollection& collection,
                                        int selectedModelIndex,
                                        int& outHeadModelIndex );
-    static bool SelectTarget( const GameObjects::GameModelCollection& collection,
-                              AttachedCameraState& state,
-                              int modelIndex,
-                              AttachedCameraTargetSelection& outSelection );
     static bool CycleSubmode( const GameObjects::GameModelCollection& collection,
                               AttachedCameraState& state,
                               AttachedCameraPhysicsTarget& outTarget,
@@ -180,6 +201,10 @@ class AttachedCameraController
                                  AttachedCameraPoseCommand& outCommand );
 
   private:
+    static bool SelectTarget( const GameObjects::GameModelCollection& collection,
+                              AttachedCameraState& state,
+                              int modelIndex,
+                              AttachedCameraTargetSelection& outSelection );
     AttachedCameraState m_state;
 };
 } // namespace Basics
