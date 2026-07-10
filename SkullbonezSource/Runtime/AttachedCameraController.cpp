@@ -27,6 +27,7 @@ Related:
   - SkullbonezSource/Runtime/RunInput.cpp
 */
 #include "AttachedCameraController.h"
+#include "CameraCollection.h"
 #include "../GameObjects/GameModelCollection.h"
 #include "../Physics/ColliderStore.h"
 #include "../Physics/PhysicsBodyStore.h"
@@ -210,6 +211,45 @@ AttachedCameraState& AttachedCameraController::State()
 const AttachedCameraState& AttachedCameraController::State() const
 {
     return m_state;
+}
+
+
+void AttachedCameraController::CaptureReturnState( RunCameraMode previousMode, Environment::CameraCollection& cameras )
+{
+    if ( previousMode == RunCameraMode::Attach )
+    {
+        return;
+    }
+    m_state.returnMode = previousMode;
+    m_state.hasReturnCameraPose = false;
+    // Why: capture the render pose, not only the selected camera slot. Attach
+    // may begin while another transition is still visible.
+    m_state.returnCameraHash = cameras.GetSelectedCameraName();
+    m_state.returnEye = cameras.GetRenderCameraTranslation();
+    m_state.returnView = cameras.GetRenderCameraView();
+    m_state.returnUp = cameras.GetRenderCameraUp();
+    if ( VectorMagSquared( m_state.returnView - m_state.returnEye ) <= TOLERANCE * TOLERANCE )
+    {
+        m_state.returnEye = cameras.GetCameraTranslation();
+        m_state.returnView = cameras.GetCameraView();
+        m_state.returnUp = cameras.GetCameraUp();
+    }
+    m_state.hasReturnCameraPose = true;
+}
+
+
+void AttachedCameraController::RestoreReturnState( Environment::CameraCollection& cameras )
+{
+    if ( !m_state.hasReturnCameraPose )
+    {
+        return;
+    }
+    if ( cameras.HasCamera( m_state.returnCameraHash ) && !cameras.IsCameraSelected( m_state.returnCameraHash ) )
+    {
+        cameras.SelectCamera( m_state.returnCameraHash, false );
+    }
+    cameras.TweenPrimaryToPose( m_state.returnEye, m_state.returnView, m_state.returnUp );
+    m_state.hasReturnCameraPose = false;
 }
 
 

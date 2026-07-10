@@ -1474,54 +1474,6 @@ void Run::SetCameraModeLabelAfterInteractionTransition( RunCameraMode mode )
 }
 
 
-void Run::CaptureAttachedCameraReturnState( RunCameraMode previousMode )
-{
-    previousMode = NormalizeCameraModeForCurrentScene( previousMode );
-    if ( previousMode == RunCameraMode::Attach )
-    {
-        return;
-    }
-
-    m_camera.modeBeforeAttach = previousMode;
-    m_attachedCamera.State().hasReturnCameraPose = false;
-    // Why: capture the render pose, not only the selected camera slot. The
-    // player may enter Attach while another transition is still visible.
-    m_attachedCamera.State().returnCameraHash = m_sceneController.Cameras().GetSelectedCameraName();
-    m_attachedCamera.State().returnEye = m_sceneController.Cameras().GetRenderCameraTranslation();
-    m_attachedCamera.State().returnView = m_sceneController.Cameras().GetRenderCameraView();
-    m_attachedCamera.State().returnUp = m_sceneController.Cameras().GetRenderCameraUp();
-    if ( VectorMagSquared( m_attachedCamera.State().returnView - m_attachedCamera.State().returnEye ) <=
-         TOLERANCE * TOLERANCE )
-    {
-        m_attachedCamera.State().returnEye = m_sceneController.Cameras().GetCameraTranslation();
-        m_attachedCamera.State().returnView = m_sceneController.Cameras().GetCameraView();
-        m_attachedCamera.State().returnUp = m_sceneController.Cameras().GetCameraUp();
-    }
-    m_attachedCamera.State().hasReturnCameraPose = true;
-}
-
-
-void Run::RestoreAttachedCameraReturnState()
-{
-    if ( !m_attachedCamera.State().hasReturnCameraPose )
-    {
-        return;
-    }
-
-    // Why: switching the logical slot without tweening keeps the previous render
-    // pose alive as the source for TweenPrimaryToPose below.
-    if ( m_sceneController.Cameras().HasCamera( m_attachedCamera.State().returnCameraHash ) &&
-         !m_sceneController.Cameras().IsCameraSelected( m_attachedCamera.State().returnCameraHash ) )
-    {
-        m_sceneController.Cameras().SelectCamera( m_attachedCamera.State().returnCameraHash, false );
-    }
-    m_sceneController.Cameras().TweenPrimaryToPose( m_attachedCamera.State().returnEye,
-                                                    m_attachedCamera.State().returnView,
-                                                    m_attachedCamera.State().returnUp );
-    m_attachedCamera.State().hasReturnCameraPose = false;
-}
-
-
 bool Run::TryResolveAttachedCameraTarget( int& outModelIndex )
 {
     if ( AttachedCameraController::TryResolveTargetIdentity( m_sceneController.Models(),
@@ -1822,7 +1774,8 @@ void Run::ApplyCameraMode( RunCameraMode mode, RuntimeInputActionSource source )
     const bool leavingAttach = previousMode == RunCameraMode::Attach && mode != RunCameraMode::Attach;
     if ( enteringAttach )
     {
-        CaptureAttachedCameraReturnState( previousMode );
+        m_attachedCamera.CaptureReturnState( NormalizeCameraModeForCurrentScene( previousMode ),
+                                             m_sceneController.Cameras() );
     }
 
     if ( mode == RunCameraMode::Demo )
@@ -1854,7 +1807,7 @@ void Run::ApplyCameraMode( RunCameraMode mode, RuntimeInputActionSource source )
     SetCameraModeLabelAfterInteractionTransition( mode );
     if ( leavingAttach )
     {
-        RestoreAttachedCameraReturnState();
+        m_attachedCamera.RestoreReturnState( m_sceneController.Cameras() );
     }
     if ( mode == RunCameraMode::Attach )
     {
@@ -1909,7 +1862,7 @@ void Run::CycleCameraMode()
 
     if ( NormalizeCameraModeForCurrentScene( m_camera.mode ) == RunCameraMode::Attach )
     {
-        const RunCameraMode restoreMode = NormalizeCameraModeForCurrentScene( m_camera.modeBeforeAttach );
+        const RunCameraMode restoreMode = NormalizeCameraModeForCurrentScene( m_attachedCamera.State().returnMode );
         const int restoreIndex = static_cast<int>( restoreMode );
         // Why: Attach is a temporary follow workspace. Keyboard cycling out of
         // it should return to the camera mode that entered Attach, not continue

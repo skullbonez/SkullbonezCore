@@ -34,6 +34,7 @@ Related:
 #include "../Maths/RotationMatrix.h"
 #include "../Maths/Vector3.h"
 #include "../Physics/PhysicsHandles.h"
+#include "RuntimeCameraMode.h"
 
 #include <cstdint>
 
@@ -42,6 +43,10 @@ namespace SkullbonezCore
 namespace GameObjects
 {
 class GameModelCollection;
+}
+namespace Environment
+{
+class CameraCollection;
 }
 
 namespace Basics
@@ -56,24 +61,25 @@ enum class AttachedCameraSubmode
 
 struct AttachedCameraTarget
 {
-    Physics::PhysicsBodyHandle body;         // Primary live physics identity for follow/orbit sampling.
-    Physics::PhysicsColliderHandle collider; // Shape/radius identity paired with body.
-    int modelIndex = -1;                     // UI/presentation hint; revalidated before use.
-    uint32_t replayBodyId = 0;               // Stable scene-local identity used to recover stale indices.
-    char name[64] = {};                      // Human/debug fallback when replay id cannot recover the target.
+    Physics::PhysicsBodyHandle body;                   // Primary live physics identity for follow/orbit sampling.
+    Physics::PhysicsColliderHandle collider;           // Shape/radius identity paired with body.
+    int modelIndex = -1;                               // UI/presentation hint; revalidated before use.
+    uint32_t replayBodyId = 0;                         // Stable scene-local identity used to recover stale indices.
+    char name[64] = {};                                // Human/debug fallback when replay id cannot recover the target.
 };
 
 struct AttachedCameraState
 {
-    AttachedCameraTarget target;             // Camera-owned target; replay/editor selections are only seeds.
+    AttachedCameraTarget target;                       // Camera-owned target; replay/editor selections are only seeds.
     AttachedCameraSubmode submode = AttachedCameraSubmode::FixedRelative;
-    bool activeFollow = true;                // false means pinned in world space with mouse released to UI.
+    bool activeFollow = true;                          // false means pinned in world space with mouse released to UI.
     bool hasFixedOffset = false;
     bool hasOrbit = false;
     bool hasLastLookDirection = false;
     bool hasReturnCameraPose = false;
-    bool needsEntryTween = false;            // Next valid follow solve should glide from the visible pose.
-    uint32_t returnCameraHash = CAMERA_FREE; // Selected slot Attach should restore before applying returnEye/view/up.
+    bool needsEntryTween = false;                      // Next valid follow solve should glide from the visible pose.
+    RunCameraMode returnMode = RunCameraMode::Inspect; // Logical workspace restored when Attach exits.
+    uint32_t returnCameraHash = CAMERA_FREE;           // Selected slot Attach should restore before applying returnEye/view/up.
     float orbitYawRadians = 0.0f;
     float orbitPitchRadians = 0.30f;
     float orbitDistance = 8.0f;
@@ -117,6 +123,8 @@ class AttachedCameraController
   public:
     AttachedCameraState& State();
     const AttachedCameraState& State() const;
+    void CaptureReturnState( RunCameraMode previousMode, Environment::CameraCollection& cameras );
+    void RestoreReturnState( Environment::CameraCollection& cameras );
 
     static void Reset( AttachedCameraState& state );
     static void ClearTarget( AttachedCameraState& state );

@@ -294,6 +294,21 @@ the mechanical replacement touching the SceneController definition parameter;
 the parameter was renamed and kept as the intended borrowed state before formal
 gates. Comment audit: 9/9 touched source-bearing files.
 
+Attach return-transition authority is also controller-owned. The logical
+pre-Attach mode moved out of `RunCameraState`, and `AttachedCameraController`
+captures the visible render pose and restores/tweens it through the borrowed
+SceneController camera owner. Run's capture/restore methods are deleted. B1f
+still owns target selection, submode/pin/orbit/follow behavior and the outer
+world-pointer route.
+
+Evidence: fast passed in 34.0s with five candidates, 129/129 doctest cases, and
+2,755 assertions; both interaction reports passed in 8.9s; and full passed in
+52.4s with zero warnings, zero DX12 InfoQueue errors, matching screenshots,
+standalone topology smoke, and the 20,001-line byte-exact physics baseline.
+The first Debug build exposed non-const legacy camera getters; the borrowed
+camera owner was made mutable before formal gates. Comment audit: 5/5 touched
+source-bearing files.
+
 ## Remaining Work
 
 ### A. Narrow the render host
