@@ -6,8 +6,8 @@ Purpose:
 Mental model:
   Attach mode follows a physics body through stable body/collider handles, then
   turns the current body snapshot and camera pose into the next camera pose.
-  Run applies the resulting pose to CameraCollection because it still owns
-  camera lifetime and tween side effects.
+  AttachedCameraController owns the durable attach state. Composition code
+  borrows that state while SceneController-owned cameras apply pose commands.
 
 Glossary:
   Attach target: Physics body/collider identity plus replay id used to recover a
@@ -115,6 +115,9 @@ struct AttachedCameraTargetSelection
 class AttachedCameraController
 {
   public:
+    AttachedCameraState& State();
+    const AttachedCameraState& State() const;
+
     static void Reset( AttachedCameraState& state );
     static void ClearTarget( AttachedCameraState& state );
     static bool TryAttachTargetHandlesFromModelIndex( const GameObjects::GameModelCollection& collection,
@@ -155,6 +158,9 @@ class AttachedCameraController
                                  float orbitYawDelta,
                                  float orbitPitchDelta,
                                  AttachedCameraPoseCommand& outCommand );
+
+  private:
+    AttachedCameraState m_state;
 };
 } // namespace Basics
 } // namespace SkullbonezCore

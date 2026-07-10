@@ -219,7 +219,7 @@ class SceneController
                          InputRouter& m_inputRouter,
                          RuntimeInteractionController& m_interaction,
                          RunCameraState& m_camera,
-                         AttachedCameraState& m_attachedCamera,
+                         AttachedCameraState& attachedCamera,
                          SimulationSystem& m_simulation,
                          ReplayRuntime& m_replayRuntime,
                          Runtime::Audio::ContactAudioService& m_contactAudio,

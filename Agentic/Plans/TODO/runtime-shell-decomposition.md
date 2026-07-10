@@ -278,6 +278,22 @@ first Debug build identified the editor TU's remaining wrapper caller; it was
 replaced with direct scalar-fact publication before formal gates. Comment
 audit: 3/3 touched source-bearing files.
 
+Attach-camera target, orbit, return-pose, and follow state is no longer a Run
+value. `AttachedCameraController` physically owns `AttachedCameraState`; frame,
+input, render, stress, and scene-load composition borrow `State()` explicitly.
+The controller retains no scene/model/camera pointer, so ownership moves without
+creating a cross-domain service bag. B1f remains open while attached-camera
+behavior methods and the wider pointer route still live on Run.
+
+Evidence: fast passed in 37.5s with nine candidates, 129/129 doctest cases, and
+2,755 assertions; the CPU umbrella passed in 10.8s; both interaction reports
+passed in 8.9s; perf completed in 32.1s; and full passed in 53.2s with zero
+warnings, zero DX12 InfoQueue errors, matching screenshots, standalone topology
+smoke, and the 20,001-line byte-exact physics baseline. Compile feedback caught
+the mechanical replacement touching the SceneController definition parameter;
+the parameter was renamed and kept as the intended borrowed state before formal
+gates. Comment audit: 9/9 touched source-bearing files.
+
 ## Remaining Work
 
 ### A. Narrow the render host

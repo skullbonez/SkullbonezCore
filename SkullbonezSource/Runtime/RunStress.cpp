@@ -791,7 +791,7 @@ SbResult Run::RunUIStressActions()
                     m_sceneController.Terrain().Get(),
                     m_camera,
                     NormalizeCameraModeForCurrentScene( m_replayRuntime.Camera().restoreCameraMode ),
-                    m_attachedCamera.activeFollow,
+                    m_attachedCamera.State().activeFollow,
                     m_camera.director.grabbed } );
         }
         if ( action.scheduleProfileReset )
@@ -889,7 +889,7 @@ void Run::RunGraphicsStressActions( const Rendering::IRenderDiagnostics& renderD
                    m_inputRouter,
                    m_interaction,
                    m_camera,
-                   m_attachedCamera,
+                   m_attachedCamera.State(),
                    m_simulation,
                    m_replayRuntime,
                    m_contactAudio,

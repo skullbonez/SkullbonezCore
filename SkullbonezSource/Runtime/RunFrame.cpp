@@ -933,7 +933,7 @@ void Run::AfterPhysicsStep()
                 m_sceneController.Terrain().Get(),
                 m_camera,
                 NormalizeCameraModeForCurrentScene( m_replayRuntime.Camera().restoreCameraMode ),
-                m_attachedCamera.activeFollow,
+                m_attachedCamera.State().activeFollow,
                 m_camera.director.grabbed } };
         // Why: ReplayRuntime owns probe sequencing and bounded failure state;
         // the application exit latch only preserves that first owned failure
@@ -1062,7 +1062,7 @@ bool Run::TickScreenshots()
                                                               m_inputRouter,
                                                               m_interaction,
                                                               m_camera,
-                                                              m_attachedCamera,
+                                                              m_attachedCamera.State(),
                                                               m_simulation,
                                                               m_replayRuntime,
                                                               m_contactAudio,
@@ -1168,7 +1168,7 @@ bool Run::TickSceneAdvance()
                                                m_inputRouter,
                                                m_interaction,
                                                m_camera,
-                                               m_attachedCamera,
+                                               m_attachedCamera.State(),
                                                m_simulation,
                                                m_replayRuntime,
                                                m_contactAudio,
@@ -1301,7 +1301,9 @@ bool Run::TickSceneAdvance()
 
     // Generated demo mode: restart every 20s to keep the sandbox moving indefinitely.
     if ( !SceneState().isSceneMode &&
-         !RunCameraModeUsesManualControls( m_camera.mode, m_attachedCamera.activeFollow, m_camera.director.grabbed ) &&
+         !RunCameraModeUsesManualControls( m_camera.mode,
+                                           m_attachedCamera.State().activeFollow,
+                                           m_camera.director.grabbed ) &&
          m_timers.simulationTimer.GetTimeSinceLastStart() > 20.0 )
     {
         const SbResult loadResult = m_sceneController.Load( SceneLoadRequest::Load( SceneState().currentSceneIndex,
@@ -1321,7 +1323,7 @@ bool Run::TickSceneAdvance()
                                                             m_inputRouter,
                                                             m_interaction,
                                                             m_camera,
-                                                            m_attachedCamera,
+                                                            m_attachedCamera.State(),
                                                             m_simulation,
                                                             m_replayRuntime,
                                                             m_contactAudio,

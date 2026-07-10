@@ -10,9 +10,9 @@ reports, and git history.
 | Field | Value |
 |---|---|
 | Branch | `engine-cleanup-10th-july`, tracking `origin/engine-cleanup-10th-july` |
-| Current pushed baseline | `f693700d refactor: move pointer presentation policy into router` |
+| Current pushed baseline | `f3d18f25 refactor: delete Run pointer presentation wrappers` |
 | Current objective | Continue B1f by deleting Run pointer/camera composition, then TakeInput |
-| Last broad local gate | `tools\validate_full.bat` passed direct InputRouter pointer-presentation mutation with 129/129 doctest cases, 2,755 assertions, zero-warning builds, DX12 with zero InfoQueue errors/matching screenshots, standalone physics smoke, and 20,001-line byte-exact physics in 51.9s |
+| Last broad local gate | `tools\validate_full.bat` passed AttachedCameraController-owned target/orbit/follow state with 129/129 doctest cases, 2,755 assertions, all CPU lanes, zero-warning builds, DX12 with zero InfoQueue errors/matching screenshots, standalone physics smoke, and 20,001-line byte-exact physics in 53.2s |
 | Native evidence | Injected heap-use-after-free caught; healthy ASan and five-file `/analyze` passed in 16.185s |
 
 ## Pushed Cleanup Commits
@@ -260,6 +260,11 @@ request router visibility/capture directly from the owner policy and reset
 camera deltas explicitly when mouse-look is inactive. Fast, interaction, and
 full gates pass; comment audit is 3/3. B1f continues with world-pointer routing,
 focus/keyboard composition, camera helpers, and final `TakeInput` deletion.
+
+`AttachedCameraController` now physically owns Attach target/orbit/follow state;
+Run stores only the concrete controller and all consumers borrow `State()`.
+Fast, CPU, interaction, perf, and full gates pass; comment audit is 9/9. B1f
+continues by moving attached-camera behavior and the world-pointer route.
 
 Scene provenance C1a is complete: parser-owned library/instance/ordered-part
 records retain exact shape sources, hierarchy transforms use rotated offsets

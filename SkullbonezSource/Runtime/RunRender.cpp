@@ -67,7 +67,7 @@ void Run::Render( const RuntimeRenderModelFrameView& renderModels )
                                              InspectGizmoInteractionActive(),
                                              m_inputRouter.DeviceFrame().keys.IsDown( VK_CONTROL ),
                                              attachedTargetIndex,
-                                             m_attachedCamera.activeFollow };
+                                             m_attachedCamera.State().activeFollow };
     m_renderer.RenderFrameEntry( RuntimeRenderer::FrameEntryContext{ m_renderBackendView,
                                                                      renderModels,
                                                                      m_sceneController.Models(),
@@ -109,7 +109,9 @@ void Run::SetViewingOrientation()
     }
 
     // Momentary right-mouse camera look should not fight generated camera cycling.
-    if ( RunCameraModeUsesFlyControls( m_camera.mode, m_attachedCamera.activeFollow, m_camera.director.grabbed ) ||
+    if ( RunCameraModeUsesFlyControls( m_camera.mode,
+                                       m_attachedCamera.State().activeFollow,
+                                       m_camera.director.grabbed ) ||
          m_interaction.PointerCapture() == RuntimePointerCaptureOwner::CameraLook )
     {
         m_camera.cameraTime = 0.0f;

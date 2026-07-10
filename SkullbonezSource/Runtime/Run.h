@@ -138,7 +138,7 @@ class Run
     RunInteractionAutomationState
         m_interactionAutomation;                                        // CLI harness that injects runtime mouse input for regression tests.
     RunCameraState m_camera;                                            // Camera/input state and ball-tracking settings
-    AttachedCameraState m_attachedCamera;                               // Non-serialized object-follow camera state for Attach mode.
+    AttachedCameraController m_attachedCamera;                          // Owns non-serialized Attach target/orbit/follow state.
     SimulationSystem m_simulation;                                      // Simulation timestep policy and physics accumulators
     ReplayRuntime m_replayRuntime;                                      // Owns replay recorders, branch provenance, and replay interaction state.
     ReplayLauncherVisualSample
