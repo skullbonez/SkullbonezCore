@@ -1,24 +1,26 @@
 @rem
 @rem File: tools/validate_select.bat
 @rem Purpose:
-@rem   Documents and runs the validate_select.bat developer/validation helper script.
+@rem   Runs one or more explicitly selected repository validation owners.
 @rem
 @rem Mental model:
-@rem   Tools are command-line guardrails around builds, validation, screenshots,
-@rem   diagnostics, and artifact handling. They make the safe path repeatable and
-@rem   keep output bounded for humans and agents.
+@rem   This is a developer convenience router. Each selected target delegates to
+@rem   its owning script; mandatory broad ordering remains in validate_full.
 @rem
 @rem Glossary:
+@rem   CPU umbrella: The four first-party CPU test targets run fail-fast through
+@rem   validate_all_cpu_tests.bat.
 @rem   Validation gate: Repository script that proves a class of changes before
 @rem   commit or PR.
 @rem
 @rem Invariants:
-@rem   - Tool output should be bounded and readable because agents and humans use
-@rem   it for decisions.
+@rem   - Every advertised selector maps to one concrete owning script.
+@rem   - Successful broad targets suppress the redundant ready-build footer.
 @rem
 @rem Related:
 @rem   - AGENTS.md
-@rem   - Agentic/Reference/comment-style-guide.md
+@rem   - tools/README.md
+@rem   - tools/validate_all_cpu_tests.bat
 @rem
 @rem
 @echo off
@@ -40,6 +42,12 @@ for %%A in (%*) do (
     set "KNOWN=1"
     if /I "!ARG!"=="fast" (
         call "%ROOT%validate_fast.bat"
+        if errorlevel 1 set "FAILED=1"
+    ) else if /I "!ARG!"=="all-cpu-tests" (
+        call "%ROOT%validate_all_cpu_tests.bat"
+        if errorlevel 1 set "FAILED=1"
+    ) else if /I "!ARG!"=="tests" (
+        call "%ROOT%validate_tests.bat"
         if errorlevel 1 set "FAILED=1"
     ) else if /I "!ARG!"=="renderers" (
         echo INFO: "renderers" is a retired compatibility target; running dx12-renderer.
@@ -74,6 +82,9 @@ for %%A in (%*) do (
         if errorlevel 1 set "FAILED=1"
     ) else if /I "!ARG!"=="runtime-interaction-policy" (
         call "%ROOT%validate_runtime_interaction_policy.bat"
+        if errorlevel 1 set "FAILED=1"
+    ) else if /I "!ARG!"=="scene-parser-tests" (
+        call "%ROOT%validate_scene_parser_tests.bat"
         if errorlevel 1 set "FAILED=1"
     ) else if /I "!ARG!"=="dx12-arch-tests" (
         call "%ROOT%validate_dx12_arch_tests.bat"
@@ -110,7 +121,7 @@ for %%A in (%*) do (
     ) else if /I "!ARG!"=="agent" (
         call "%ROOT%agent_validate.bat"
         if errorlevel 1 set "FAILED=1"
-        if not errorlevel 1 set "FULL_TARGET_RAN=1"
+        if not errorlevel 1 set "READY_BUILDS_HANDLED=1"
     ) else if /I "!ARG!"=="format" (
         call "%ROOT%validate_format.bat"
         if errorlevel 1 set "FAILED=1"
@@ -153,6 +164,8 @@ exit /b 0
 echo.
 echo Validate one or more targets from this workspace:
 echo   tools\validate_select.bat fast
+echo   tools\validate_select.bat all-cpu-tests
+echo   tools\validate_select.bat tests
 echo   tools\validate_select.bat dx12-renderer
 echo   tools\validate_select.bat dx12
 echo   tools\validate_select.bat concepts
@@ -162,6 +175,7 @@ echo   tools\validate_select.bat concept-full
 echo   tools\validate_select.bat shaders
 echo   tools\validate_select.bat project-filters
 echo   tools\validate_select.bat runtime-interaction-policy
+echo   tools\validate_select.bat scene-parser-tests
 echo   tools\validate_select.bat dx12-arch-tests
 echo   tools\validate_select.bat ui
 echo   tools\validate_select.bat ui-stress

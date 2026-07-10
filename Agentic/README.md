@@ -57,7 +57,7 @@ and validation/perf evidence.
 
 ## Validation
 
-Validation scripts are pre-commit/PR gates, not routine iteration. The current
-gap and remediation are tracked in
-`Plans/TODO/validation-gate-integrity.md`; until it completes, do not assume
-`validate_full` runs every standalone CPU test target.
+Validation scripts are pre-commit/PR gates, not routine iteration.
+`validate_full` now runs the mandatory CPU umbrella before either runtime lane;
+remaining CI and sanitizer work is tracked in
+`Plans/TODO/validation-gate-integrity.md`.

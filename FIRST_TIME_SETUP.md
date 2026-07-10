@@ -85,8 +85,9 @@ uncertain, run from the repository root:
 tools\agent_validate.bat
 ```
 
-This delegates to `tools\validate_full.bat`, which runs renderer validation,
-physics determinism validation, and performance validation.
+This delegates once to `tools\validate_full.bat`, which runs every mandatory
+CPU test target before the DX12 renderer and deterministic physics runtime
+lanes. Performance validation remains a separate targeted gate.
 
 For targeted pre-commit/PR checks:
 

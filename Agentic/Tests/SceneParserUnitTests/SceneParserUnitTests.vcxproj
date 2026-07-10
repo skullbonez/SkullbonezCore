@@ -56,6 +56,8 @@
   <ItemGroup>
     <ClCompile Include="SceneParserUnitTests.cpp" />
     <ClCompile Include="..\..\..\SkullbonezSource\Assets\AssetSystem.cpp" />
+    <ClCompile Include="..\..\..\SkullbonezSource\Core\FatalError.cpp" />
+    <ClCompile Include="..\..\..\SkullbonezSource\Core\Log.cpp" />
     <ClCompile Include="..\..\..\SkullbonezSource\Physics\BoundingBox.cpp" />
     <ClCompile Include="..\..\..\SkullbonezSource\Physics\BoundingSphere.cpp" />
     <ClCompile Include="..\..\..\SkullbonezSource\Core\Config.cpp" />

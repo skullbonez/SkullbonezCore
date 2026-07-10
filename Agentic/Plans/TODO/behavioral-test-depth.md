@@ -51,8 +51,12 @@ umbrella and from the broad PR gate.
   Manifold evidence complete: the pre-fix first-four truncation failed
   `Object contact manifold: reduced tilted face starts with deepest retained
   point` at all three deterministic poses (for example, retained depth
-  `0.472089` versus expected deepest depth `0.833631`). Solver, parser, and
-  replay injected-failure evidence remain.
+  `0.472089` versus expected deepest depth `0.833631`). Parser evidence is also
+  complete: the orphan standalone suite exposed that a missing material `mode`
+  recorded Lane R failure and then dereferenced the null member; `Material
+  authoring rejects malformed options` failed by access violation before the
+  early-return repair and passed afterward. Solver and replay injected-failure
+  evidence remain.
 - [ ] **P6 — Sustaining and gate integration.** Complete
   `validation-gate-integrity.md` V1/V2/V5 so doctest, interaction-policy,
   scene-parser, and DX12-architecture targets run from the CPU umbrella and
@@ -103,6 +107,10 @@ umbrella and from the broad PR gate.
 - 2026-07-10: `tools\validate_physics.bat` passed the standalone physics smoke
   and matched all 20,001 core solver CSV lines byte-for-byte; Debug and Profile
   builds completed with zero warnings and zero errors.
+- 2026-07-10: the new CPU umbrella passed all four first-party targets in
+  27.796s (78/78 doctest cases, 1,883 assertions, interaction Debug/Release,
+  scene parser, and DX12 architecture). V1/V2 are complete; P6 remains open for
+  validation-plan V5 and the executable-level mutation drill.
 - 2026-07-10: `tools\validate_tests.bat` passed 75/75 doctest cases and
   1,669/1,669 assertions after parser Lane R tests.
 - Log: `Agentic/Reports/validate_tests_plan04_parser_result_20260710.log`.

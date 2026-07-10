@@ -9,6 +9,10 @@ Mental model:
   or snapshot contracts and on the glossary/invariants below.
 
 Glossary:
+  JSON (JavaScript Object Notation): Authored text format used by scene and
+    style files.
+  Lane R: Recoverable-result error path that reports invalid external input
+    without terminating the engine.
   Asset system: Runtime-owned registry used to resolve logical asset-library
     names before falling back to conventional data paths.
   Asset container: Compound asset definition that expands to multiple primitive
@@ -3193,6 +3197,9 @@ class TestSceneParser
         if ( !modeValue )
         {
             Fail( path, "objectMaterial is missing required field 'mode'" );
+            // Lane R: Fail records a recoverable authoring error instead of
+            // unwinding. Return before dereferencing the absent JSON member.
+            return;
         }
 
         float tintR = 1.0f;

@@ -1,12 +1,12 @@
 # Validation Gate Integrity And Continuous Integration
 
 Date: 2026-07-10
-Status: Planned — 0/6 phases complete
+Status: In progress — 4/6 phases complete
 Impact area: validation tooling, unit-test projects, GitHub pull-request gates,
 sanitizer/static-analysis coverage
 Owner: repository validation
 
-## Problem
+## Baseline Problem (V0-V2 Closed 2026-07-10)
 
 The documented broad gate is not a superset of cheaper validation:
 
@@ -22,6 +22,10 @@ The documented broad gate is not a superset of cheaper validation:
 
 The repository therefore has strong local scripts but no single trustworthy
 answer to "is this PR safe to merge?"
+
+Current state: `validate_full` and `agent_validate` now reach all four CPU test
+targets through `validate_all_cpu_tests` before runtime work. The remaining
+trust gaps are automated CI and sanitizer/static analysis, owned by V3-V4.
 
 ## Goal
 
@@ -45,20 +49,38 @@ Separate validation by capability rather than by historical script:
 
 ## Phases
 
-- [ ] **V0 — Gate graph inventory.** Document every validation script, which
+- [x] **V0 — Gate graph inventory.** Document every validation script, which
   executable/project it builds, whether it launches the engine, runtime cost,
   and its callers. Acceptance: every test target has one owning umbrella lane.
-- [ ] **V1 — CPU-test umbrella.** Add `tools\validate_all_cpu_tests.bat` that
+  Evidence (2026-07-10):
+  `Agentic/Reports/validation_gate_inventory_20260710.md` inventories 32 batch
+  entry points, 18 owned helpers, all first-party test executables, callers,
+  launch behavior, costs, and one mandatory owner per test target.
+- [x] **V1 — CPU-test umbrella.** Add `tools\validate_all_cpu_tests.bat` that
   runs `validate_tests`, `validate_runtime_interaction_policy`,
   `validate_scene_parser_tests`, and `validate_dx12_arch_tests` with fail-fast
   exit codes and a combined summary. Avoid rebuilding unchanged dependencies
-  where existing scripts support it. Acceptance: deliberately fail one test in
-  each target and prove the umbrella fails at the named target.
-- [ ] **V2 — Make broad mean superset.** Run the CPU umbrella from
+  where existing scripts support it. Acceptance: inject a deterministic child
+  failure at each target and prove the umbrella fails at the named target while
+  later targets remain unrun. Executable-level mutation evidence belongs to
+  `behavioral-test-depth.md` P6.
+  Evidence (2026-07-10): the hermetic failure harness returned child codes 11,
+  22, 33, and 44 unchanged at the named targets and marked later targets `NOT
+  RUN`; the final production umbrella passed all four targets in 27.796s.
+- [x] **V2 — Make broad mean superset.** Run the CPU umbrella from
   `validate_full` before runtime launches; make `agent_validate` call the same
   entry point. Reconcile `validate_fast` so tests are not duplicated when a
-  caller already ran the umbrella. Acceptance: a broken unit test makes
-  `validate_full` and `agent_validate` fail before launching the engine.
+  caller already ran the umbrella. Acceptance: an injected CPU-umbrella failure
+  makes `validate_full` and `agent_validate` return that failure before building
+  Debug or launching the engine; `behavioral-test-depth.md` P6 supplies the
+  later real-test mutation drill.
+  Evidence (2026-07-10): byte-identical broad-gate harness copies both returned
+  injected code 11 before Debug, DX12, physics, or engine execution. Production
+  `validate_full` composes `validate_fast --preflight-only`, the CPU umbrella,
+  then runtime lanes; `agent_validate` delegates once. The production full gate
+  subsequently passed end-to-end: 78/78 doctest cases and 1,883 assertions,
+  every standalone CPU target, zero DX12 validation errors and matching visual
+  baselines, then a byte-exact 20,001-line physics baseline.
 - [ ] **V3 — Pull-request CI.** Add a `windows-latest` GitHub Actions workflow
   for the CPU mandatory lane with artifact upload on failure. Add a separate
   self-hosted label (`Windows`, `x64`, `dx12`) for the runtime lane; do not fake
@@ -69,10 +91,16 @@ Separate validation by capability rather than by historical script:
   equivalent static-analysis job. Record suppressions with owner, reason, and
   deletion condition. Acceptance: one injected heap-use-after-free fixture is
   caught before removing the fixture.
-- [ ] **V5 — Documentation and sustaining rule.** Update `AGENTS.md`, README,
+- [x] **V5 — Documentation and sustaining rule.** Update `AGENTS.md`, README,
   tools README, and file-to-gate mapping. New standalone test executables must
   register with the CPU umbrella in the same commit. Acceptance: no test script
   is reachable only by tribal knowledge or `validate_select`.
+  Evidence (2026-07-10): root, setup, Agentic, and tools documentation describe
+  the same CPU-first/two-runtime-lane composition and honest three-process
+  count. `Agentic/Tests/*` has an explicit gate mapping, the same-commit umbrella
+  registration rule is normative, and selectors expose the CPU umbrella plus
+  every individual CPU owner. `validate_select all-cpu-tests` passed all four
+  targets through the new selector.
 
 ## Dependencies And Safety
 

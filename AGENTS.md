@@ -222,30 +222,32 @@ owning plan when the lane is not obvious from the API being used.
 Do not run validation scripts automatically after every edit. Formal repository
 validation runs only as a pre-commit/PR gate, or when the user explicitly asks
 for it. When preparing PR-bound work, choose the smallest script from `tools\`
-that matches the fix. The default broad PR gate is intentionally limited to two
-runtime launches: one DX12 render suite and one core physics scene. Use deep,
-perf, UI, and stress validation only when the change actually needs them:
+that matches the fix. The default broad PR gate runs the mandatory CPU umbrella
+first, then two runtime lanes: one DX12 renderer process and the physics lane's
+standalone-smoke plus regression-scene processes (three engine processes total).
+Use deep, perf, UI, and stress validation only when the change actually needs
+them.
 
-Known gate-composition limitation (owned by
-`Agentic/Plans/TODO/validation-gate-integrity.md`): `validate_full` and
-`agent_validate` do not yet run every standalone CPU test target. Until phase
-V2 completes, broad/unsure PR preparation must run `validate_fast.bat`,
-`validate_runtime_interaction_policy.bat`, `validate_scene_parser_tests.bat`,
-and `validate_dx12_arch_tests.bat` before `validate_full.bat`.
+`validate_full.bat` and its `agent_validate.bat` alias are the mandatory broad
+superset. A new standalone CPU test executable must join
+`validate_all_cpu_tests.bat`, `tools/README.md`, and the file-to-gate mapping in
+the same commit; a test target reachable only through a direct script or
+`validate_select.bat` is not merge-gated.
 
 | Change Type | Pre-Commit/PR Command | Runtime |
 |-------------|---------|---------|
 | Documentation only | No validation required | N/A |
-| Unit tests only | `tools\validate_tests.bat` | build + console test runner |
+| Main doctest unit tests only | `tools\validate_tests.bat` | build + console test runner |
+| Standalone/combined CPU test targets | `tools\validate_all_cpu_tests.bat` | incremental builds + 5 console test launches |
 | Small refactor, no render or physics changes | `tools\validate_fast.bat` | ~30s |
 | Shader or render backend | `tools\validate_dx12_renderer.bat` | ~2 min |
 | DX12 renderer validation tooling | `tools\validate_fast.bat`, then `tools\validate_dx12_renderer.bat` | ~2 min |
-| Physics, collision, solver, or rigid body changes | `tools\validate_physics.bat` | 1 exe launch |
+| Physics, collision, solver, or rigid body changes | `tools\validate_physics.bat` | 2 engine processes |
 | Broad physics baseline, bullet sweep, or SkullScope diagnostics | `tools\validate_physics_deep.bat` | ~45s+ |
 | Performance-sensitive hot path | `tools\validate_perf.bat` | ~1 min |
 | General DX12 graphics stress, crash reproduction, or memory-growth investigation | `tools\run_graphics_stress.bat 1`; use `overnight` only when intentionally soaking | bounded or overnight |
-| Broad or uncertain scope | `tools\validate_full.bat` | 2 exe launches |
-| Unsure what to run at the PR gate | `tools\agent_validate.bat` | 2 exe launches |
+| Broad or uncertain scope | `tools\validate_full.bat` | CPU tests + 3 engine processes |
+| Unsure what to run at the PR gate | `tools\agent_validate.bat` | CPU tests + 3 engine processes |
 | Comment-only source or documentation cleanup | No repository validation required; prove the diff is comments/docs only | N/A |
 
 Profiling marker or platform-profiler changes must also run:
@@ -272,6 +274,7 @@ Profile\SKULLBONEZ_CORE.exe --platform-profiler-markers
 | Other physics CSV baselines or `TestOutput/baselines/physics_query*.json` | `validate_physics_deep` |
 | `Common.h` | `validate_full` |
 | `SkullbonezTests/*`, `SKULLBONEZ_TESTS.vcxproj`, `SKULLBONEZ_TESTS.vcxproj.filters` | `validate_tests` |
+| `Agentic/Tests/*` or a new standalone CPU test project/script | `validate_all_cpu_tests` |
 | `Runtime/Allocation/*` | `validate_perf` |
 | `tools/check_allocation_policy.py`, `tools/allocation_policy_allowlist.json` | `validate_fast`, then `python tools\check_allocation_policy.py --self-test` and `python tools\check_allocation_policy.py --repo .`; add `validate_perf` if runtime guard or reserve semantics change |
 | `Run*`, `Runtime/*` | `validate_full` |
@@ -281,7 +284,7 @@ Profile\SKULLBONEZ_CORE.exe --platform-profiler-markers
 | `SkullbonezData/hulls/*.hull` | `validate_full` |
 | `SkullbonezData/scenes/*.scene.json` | `validate_full` |
 | Multiple areas or unsure | `validate_full` |
-| `Agentic/*`, `*.md`, docs | No validation required when documentation-only |
+| Documentation-only `Agentic/*` (excluding `Agentic/Tests/*`), `*.md`, docs | No validation required when documentation-only |
 | `tools/*` | `validate_fast`, then run the changed script; `validate_fast` includes `validate_tests` |
 
 ---

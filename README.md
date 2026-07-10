@@ -59,19 +59,17 @@ or pushed, use the repository scripts instead of retyping long commands:
 | Physics, collision, solver, determinism | `tools\validate_physics.bat` |
 | Broad physics baseline, bullet sweep, or SkullScope diagnostics | `tools\validate_physics_deep.bat` |
 | Hot path or allocation-sensitive work | `tools\validate_perf.bat` |
+| Every first-party CPU test target | `tools\validate_all_cpu_tests.bat` |
 | Broad or uncertain scope | `tools\validate_full.bat` |
 | Unsure at the PR gate | `tools\agent_validate.bat` |
 
-Current limitation (tracked by
-`Agentic/Plans/TODO/validation-gate-integrity.md`): `validate_full` and
-`agent_validate` do not yet run every standalone CPU test target. Until phase
-V2 completes, broad/unsure PR preparation must run `validate_fast`,
-`validate_runtime_interaction_policy`, `validate_scene_parser_tests`, and
-`validate_dx12_arch_tests` before `validate_full`.
-
-The default broad gate is kept deliberately small: after builds, it launches the
-engine once for DX12 render validation and once for core physics determinism.
-Use `tools\validate_deep.bat` only for intentional broad sweeps.
+`validate_full` is the mandatory broad superset: it runs cheap preflight checks,
+then the doctest, interaction-policy, scene-parser, and DX12-architecture CPU
+targets exactly once before any engine launch. Its two runtime lanes use three
+engine processes in total: one DX12 renderer suite, then physics standalone
+smoke and the core deterministic regression scene. `agent_validate` delegates
+once to that same entry point. Use `tools\validate_deep.bat` only for intentional
+broad sweeps.
 
 General graphics stress is an opt-in crash, resource-lifetime, and memory-growth
 test rather than part of the default PR gate. Use
