@@ -2963,10 +2963,10 @@ SbResult InitRenderBackend( Window* window,
     RuntimeAllocation::RuntimeAllocationScope allocationScope( RuntimeAllocation::RuntimeAllocationPhase::BackendInit );
     auto backend = std::make_unique<RenderBackendDX12>();
     RenderBackendDX12* renderBackend = backend.get();
-    const SbResult renderInitResult = renderBackend->Init( window->m_sWindow,
-                                                           window->m_sDevice,
-                                                           window->m_sWindowDimensions.x,
-                                                           window->m_sWindowDimensions.y );
+    const SbResult renderInitResult = renderBackend->Init( window->NativeWindowHandle(),
+                                                           window->NativeDeviceContext(),
+                                                           window->ClientWidth(),
+                                                           window->ClientHeight() );
     if ( !renderInitResult.ok )
     {
         // Lane R: render backend startup probes the host graphics environment.
@@ -3310,20 +3310,18 @@ void CleanupWindow( Window* window, HINSTANCE hInstance, std::unique_ptr<RenderB
 {
     // Lifetime: disarm callback-fed input queues while the HWND still names
     // the window that WndProc used, before backend/window class teardown.
-    if ( window->m_sWindow )
+    const HWND windowHandle = window->NativeWindowHandle();
+    if ( windowHandle )
     {
-        Input::UnbindCallbackBridge( window->m_sWindow );
+        Input::UnbindCallbackBridge( windowHandle );
     }
     Input::UnbindWindow( *window );
     window->SetResizeRenderLifecycle( nullptr );
     renderBackend.reset();
 
-    if ( window->m_sDevice )
-    {
-        ReleaseDC( window->m_sWindow, window->m_sDevice );
-    }
+    window->ReleaseDeviceContext();
 
-    if ( window->m_fIsFullScreenMode )
+    if ( window->IsFullScreenMode() )
     {
         ChangeDisplaySettings( nullptr, 0 ); // Restore desktop mode
         Input::SetSystemCursorVisible( true );
@@ -3433,7 +3431,7 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine
         CoUninitialize();
         return 1;
     }
-    window->m_sDevice = GetDC( window->m_sWindow );
+    window->AcquireDeviceContext();
 
     RuntimeRenderBackendView renderBackendView;
     std::unique_ptr<RenderBackendDX12> renderBackend;

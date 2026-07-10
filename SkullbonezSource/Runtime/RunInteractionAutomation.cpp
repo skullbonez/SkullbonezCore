@@ -979,7 +979,8 @@ void ApplyInteractionAutomationReplayStateAction( InteractionAutomationReplaySta
     case RunInteractionAutomationActionType::NudgeReplayPathTargetVelocity:
     {
         Physics::PhysicsEngine& physics = context.gameModels.GetPhysicsEngine();
-        const Physics::PhysicsBodyStore& bodyStore = SkullbonezCore::Physics::PhysicsEngineStoreQueries::BodyStore( physics );
+        const Physics::PhysicsBodyStore& bodyStore =
+            SkullbonezCore::Physics::PhysicsEngineStoreQueries::BodyStore( physics );
         const Physics::PhysicsBodyHandle body = context.replayRuntime.ResolveVelocityEditBodyHandle( bodyStore );
         const Physics::PhysicsBodyRecord* record = bodyStore.RecordForHandle( body );
         const bool hasTarget = context.replayRuntime.PathVisualizer().hasTarget &&
@@ -1591,8 +1592,8 @@ EvaluateInteractionAutomationAssertion( InteractionAutomationAssertContext& cont
     case RunInteractionAutomationAssertKind::SelectedObject:
     {
         evaluation.expected = action.text;
-        const int selectedIndex = PeekSelectedEditorModelIndex( context.runtimeTools.Editor(),
-                                                                context.gameModels.BodyStore() );
+        const int selectedIndex =
+            PeekSelectedEditorModelIndex( context.runtimeTools.Editor(), context.gameModels.BodyStore() );
         if ( selectedIndex >= 0 && selectedIndex < context.gameModels.SceneEntityCount() )
         {
             evaluation.actual = context.gameModels.GetModelAtIndex( selectedIndex ).GetName();
@@ -1885,8 +1886,8 @@ bool Run::TryProjectInteractionAutomationModel( const char* name, POINT& outMous
         return false;
     }
 
-    const int width = static_cast<int>( (std::max)( 1L, m_systems.window->m_sWindowDimensions.x ) );
-    const int height = static_cast<int>( (std::max)( 1L, m_systems.window->m_sWindowDimensions.y ) );
+    const int width = (std::max)( 1, m_systems.window->ClientWidth() );
+    const int height = (std::max)( 1, m_systems.window->ClientHeight() );
     const int steps[] = { 96, 48, 24, 12, 6 };
     for ( const int step : steps )
     {

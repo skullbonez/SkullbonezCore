@@ -87,14 +87,14 @@ using SkullbonezCore::Physics::MakePhysicsColliderCountFromNonNegativeInt;
 using SkullbonezCore::Physics::ModelRowHint;
 using SkullbonezCore::Physics::PhysicsAuthoredBodyCount;
 using SkullbonezCore::Physics::PhysicsAuthoredBodyRefreshView;
-using SkullbonezCore::Physics::PhysicsBodyCreateDesc;
 using SkullbonezCore::Physics::PhysicsBodyCount;
+using SkullbonezCore::Physics::PhysicsBodyCreateDesc;
 using SkullbonezCore::Physics::PhysicsBodyHandle;
 using SkullbonezCore::Physics::PhysicsBodyMotionKind;
 using SkullbonezCore::Physics::PhysicsBodyRecord;
 using SkullbonezCore::Physics::PhysicsBodyStore;
-using SkullbonezCore::Physics::PhysicsColliderCreateDesc;
 using SkullbonezCore::Physics::PhysicsColliderCount;
+using SkullbonezCore::Physics::PhysicsColliderCreateDesc;
 using SkullbonezCore::Physics::PhysicsColliderHandle;
 using SkullbonezCore::Physics::PhysicsEngineStoreQueries;
 using SkullbonezCore::Physics::PhysicsSceneObjectId;
@@ -1181,8 +1181,7 @@ bool GameModelCollection::RepairPhysicsBodyAndColliderTopology()
             (void)RefreshPhysicsBodyStoreFromAuthoredDescriptors();
         }
         const bool colliderBindingsReady = m_physicsEngine.RefreshColliderSnapshot();
-        return BodyStore().Count() == modelCount && Colliders().Count() == modelCount &&
-               colliderBindingsReady;
+        return BodyStore().Count() == modelCount && Colliders().Count() == modelCount && colliderBindingsReady;
     }
     return BodyStore().Count() == modelCount && Colliders().Count() == modelCount;
 }
@@ -1229,11 +1228,7 @@ bool GameModelCollection::TryQueueReplayRenderPoseOverride( int modelIndex,
         return false;
     }
 
-    return m_renderInstanceStore.OverridePose( modelIndex,
-                                               replayBodyId,
-                                               position,
-                                               orientation,
-                                               Colliders() );
+    return m_renderInstanceStore.OverridePose( modelIndex, replayBodyId, position, orientation, Colliders() );
 }
 
 

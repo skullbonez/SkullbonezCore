@@ -310,8 +310,12 @@ uint64_t PredictionEngineMemoryBytes( const PhysicsEngine& engine )
     uint64_t bytes = static_cast<uint64_t>( sizeof( engine ) );
     bytes += engine.CollectPhysicsWorldMemoryBytes();
     bytes += engine.CollectDebugAndBroadphaseMemoryBytes();
-    bytes += static_cast<uint64_t>( SkullbonezCore::Physics::PhysicsEngineStoreQueries::BodyStore( engine ).Records().capacity() ) * sizeof( PhysicsBodyRecord );
-    bytes += static_cast<uint64_t>( SkullbonezCore::Physics::PhysicsEngineStoreQueries::Colliders( engine ).Records().capacity() ) * sizeof( ColliderRecord );
+    bytes += static_cast<uint64_t>(
+                 SkullbonezCore::Physics::PhysicsEngineStoreQueries::BodyStore( engine ).Records().capacity() ) *
+             sizeof( PhysicsBodyRecord );
+    bytes += static_cast<uint64_t>(
+                 SkullbonezCore::Physics::PhysicsEngineStoreQueries::Colliders( engine ).Records().capacity() ) *
+             sizeof( ColliderRecord );
     return bytes;
 }
 

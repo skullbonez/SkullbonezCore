@@ -18,8 +18,6 @@
 #   Project item: A build or content entry such as ClCompile, ClInclude, or None.
 #   Production project set: The app plus extracted static libraries that
 #     together own SkullbonezSource build/header coverage.
-#   Validation gate: Repository script that proves a class of changes before
-#   commit or PR.
 #
 # Invariants:
 #   - Every project item that belongs in Solution Explorer has one expected
@@ -122,6 +120,7 @@ PHYSICS_PREFIXES = (
     "PhysicsDebugData",
     "PhysicsDiagnosticsSink",
     "PhysicsEngine",
+    "PhysicsEngineStoreQueries",
     "PhysicsFixedList",
     "PhysicsHandles",
     "PhysicsMass",

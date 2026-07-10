@@ -735,8 +735,8 @@ void Run::RunUIStressActions()
 
     ++stress.framesRun;
     const double UINow = m_timers.simulationTimer.GetTotalTime();
-    const int screenW = (std::max)( 1, static_cast<int>( m_systems.window->m_sWindowDimensions.x ) );
-    const int screenH = (std::max)( 1, static_cast<int>( m_systems.window->m_sWindowDimensions.y ) );
+    const int screenW = (std::max)( 1, m_systems.window->ClientWidth() );
+    const int screenH = (std::max)( 1, m_systems.window->ClientHeight() );
 
     m_UI.SetVisible( true, UINow );
     m_UI.SetMinimized( false, UINow );

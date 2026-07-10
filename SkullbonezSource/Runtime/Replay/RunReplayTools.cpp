@@ -490,8 +490,12 @@ int ReplayPredictionEngineReserveBytes( const PhysicsEngine& engine )
     uint64_t bytes = static_cast<uint64_t>( sizeof( PhysicsEngine ) );
     bytes += engine.CollectPhysicsWorldMemoryBytes();
     bytes += engine.CollectDebugAndBroadphaseMemoryBytes();
-    bytes += static_cast<uint64_t>( SkullbonezCore::Physics::PhysicsEngineStoreQueries::BodyStore( engine ).Records().capacity() ) * sizeof( PhysicsBodyRecord );
-    bytes += static_cast<uint64_t>( SkullbonezCore::Physics::PhysicsEngineStoreQueries::Colliders( engine ).Records().capacity() ) * sizeof( ColliderRecord );
+    bytes += static_cast<uint64_t>(
+                 SkullbonezCore::Physics::PhysicsEngineStoreQueries::BodyStore( engine ).Records().capacity() ) *
+             sizeof( PhysicsBodyRecord );
+    bytes += static_cast<uint64_t>(
+                 SkullbonezCore::Physics::PhysicsEngineStoreQueries::Colliders( engine ).Records().capacity() ) *
+             sizeof( ColliderRecord );
     if ( bytes == 0 || bytes > static_cast<uint64_t>( REPLAY_PREDICTION_RESERVE_HARD_BYTES ) ||
          bytes > static_cast<uint64_t>( ( std::numeric_limits<int>::max )() ) )
     {
@@ -3637,7 +3641,8 @@ bool CaptureReplayPredictionFrame( ReplayRuntime& replayRuntime,
             captureBody( i );
         }
     }
-    const std::vector<PhysicsDebugContact>& debugContacts = SkullbonezCore::Physics::PhysicsEngineStoreQueries::DebugContacts( physicsEngine );
+    const std::vector<PhysicsDebugContact>& debugContacts =
+        SkullbonezCore::Physics::PhysicsEngineStoreQueries::DebugContacts( physicsEngine );
     if ( debugContacts.size() > frame.debugContacts.capacity() )
     {
         // Why: debug contacts feed the optional future-impact tree; the root
@@ -3755,7 +3760,9 @@ bool CompleteReplayPredictionJobOnFrameThread( ReplayRuntime& replayRuntime, dou
     {
         prediction.simulation.predictionEngine->CaptureReplaySolverSnapshot(
             prediction.simulation.predictionWorld,
-            MakePhysicsBodyCountFromNonNegativeInt( SkullbonezCore::Physics::PhysicsEngineStoreQueries::BodyStore( *prediction.simulation.predictionEngine ).Count() ) );
+            MakePhysicsBodyCountFromNonNegativeInt(
+                SkullbonezCore::Physics::PhysicsEngineStoreQueries::BodyStore( *prediction.simulation.predictionEngine )
+                    .Count() ) );
     }
 
     const float previousPresentT = replayRuntime.SolverPresentTrackPosition();
@@ -3872,7 +3879,8 @@ bool BeginReplayPredictionJob( ReplayRuntime& replayRuntime,
     }
     PhysicsEngine& physicsEngine = modelCollection.GetPhysicsEngine();
     const int modelCount = SkullbonezCore::Physics::PhysicsEngineStoreQueries::BodyStore( physicsEngine ).Count();
-    const PhysicsBodyStore& liveBodyStore = SkullbonezCore::Physics::PhysicsEngineStoreQueries::BodyStore( physicsEngine );
+    const PhysicsBodyStore& liveBodyStore =
+        SkullbonezCore::Physics::PhysicsEngineStoreQueries::BodyStore( physicsEngine );
     if ( replayRuntime.PathVisualizer().hasTarget && replayRuntime.PathVisualizer().targetId.value != 0 )
     {
         ModelRowHint targetHint;

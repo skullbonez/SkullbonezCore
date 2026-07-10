@@ -122,6 +122,9 @@
     <ClInclude Include="SkullbonezSource\Physics\PhysicsEngine.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\Physics\PhysicsEngineStoreQueries.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\PhysicsFixedList.h">
       <Filter>Header Files</Filter>
     </ClInclude>

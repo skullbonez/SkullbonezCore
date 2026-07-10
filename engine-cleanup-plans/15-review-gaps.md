@@ -102,14 +102,34 @@ convention only. 21 `m_sWindowDimensions` references repo-wide.
 
 **Steps:**
 
-- [ ] 15.5.1 Give `Window` value accessors (dimensions snapshot, native
+- [x] 15.5.1 Give `Window` value accessors (dimensions snapshot, native
   handles); make the `m_s*` fields private.
-- [ ] 15.5.2 Sweep for other owners with cross-module public `m_` reads and
+- [x] 15.5.2 Sweep for other owners with cross-module public `m_` reads and
   record them here (fix or justify).
 
 **Validation:** `tools\validate_full.bat` (window/init are broad-scope files).
 
 **Acceptance:** no cross-module `->m_` member reads on `Window`.
+
+**Completion note (2026-07-10):** `Window` now exposes native handle/device
+context accessors, client-dimension value accessors, and explicit device-context
+acquire/release helpers; its `m_sWindow`, `m_sDevice`, `m_sWindowDimensions`,
+and fullscreen flag are private. Runtime, input, editor, stress, and
+interaction-automation call sites no longer read `Window` storage directly.
+Structural sweeps found `m_sWindowDimensions|m_sWindow|m_sDevice|m_fIsFullScreenMode`
+only inside `Window.h`/`Window.cpp`, and
+`rg -n "(window|m_cWindow|systems\.window)->m_" SkullbonezSource/Runtime SkullbonezSource/Rendering Agentic/Tests`
+returned no matches. The broader `->m_` sweep found only `Run` implementation
+callbacks in `Run.cpp`/`RunInput.cpp`; these are same-owner runtime-shell split
+reads already tracked by `Agentic/Plans/TODO/runtime-shell-decomposition.md`,
+not public `Window` field leaks. Touched-source comment audit inspected 19
+source-bearing files and 1 substantial tool script with 0 deferred. Validation:
+`python tools\validate_project_filters.py --repo .` passed in 00:00:01.18;
+`tools\validate_fast.bat` passed in 00:00:57.75 after targeted formatting
+repairs exposed by the first run; `tools\validate_full.bat` passed in about
+00:00:33.19 with Profile/Debug builds at 0 warnings/errors, DX12 validation
+errors 0, DX12 screenshots matching baselines, and
+`physics_regression_solver.csv` byte-exact.
 
 ## 15.6 Dead-pointer hygiene in source comments (P3)
 
@@ -132,3 +152,25 @@ the exception ban (plan 04 closure item).
 `tools\validate_full.bat` (Common.h row in the validation map).
 
 **Acceptance:** no source comment names a plan file that does not exist.
+
+## Pause Handoff (2026-07-10)
+
+Owner paused the continuous night-worker run after 15.5 so local testing can
+happen before the next slice. Current completed work: 15.4 comment-boilerplate
+cleanup and 15.5 Window encapsulation. The branch is ready for owner testing
+after the 15.5 commit/push.
+
+Resume point: start at 15.6.1, the comment-only stale plan pointer pass. The
+known target is `SkullbonezSource/Core/Common.h`, whose `Cfg()` comment still
+names deleted `authoritative-plan-02`; retarget that pointer to
+`Agentic/Plans/TODO/runtime-shell-decomposition.md` E3 or delete the pointer.
+Then evaluate 15.6.2 by removing `<stdexcept>` from `Core/Common.h` only if
+build/include checks show no transitive need. Because `Common.h` is broad
+scope, 15.6.2 requires `tools\validate_full.bat`.
+
+Known validation evidence for the paused state: project filters passed in
+00:00:01.18, `tools\validate_fast.bat` passed in 00:00:57.75, and
+`tools\validate_full.bat` passed in about 00:00:33.19 with Profile/Debug builds
+at 0 warnings/errors, DX12 validation errors 0, screenshots matching baselines,
+and `physics_regression_solver.csv` byte-exact. Ignored logs are under
+`Agentic/Reports/validate_*plan15_window*20260710*.log`.

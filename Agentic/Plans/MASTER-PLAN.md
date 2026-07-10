@@ -21,7 +21,7 @@ Owner decisions of 2026-07-09 are binding — see
 
 | Plan | Status | % | Remaining work |
 |------|--------|---|----------------|
-| [15 Review gaps (2026-07-09)](../../engine-cleanup-plans/15-review-gaps.md) | In progress | 25% | 15.4 comment-boilerplate cleanup is complete. Remaining: 15.5 Window encapsulation and 15.6 stale comment/Common.h hygiene. |
+| [15 Review gaps (2026-07-09)](../../engine-cleanup-plans/15-review-gaps.md) | In progress | 50% | 15.4 comment-boilerplate cleanup and 15.5 Window encapsulation are complete. Remaining direct work: 15.6 stale comment/Common.h hygiene. |
 
 ## Consolidated active plans (`Agentic/Plans/TODO/`)
 

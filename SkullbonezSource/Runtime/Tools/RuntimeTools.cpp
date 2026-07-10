@@ -78,7 +78,8 @@ constexpr float LAUNCHER_PROJECTILE_SPAWN_DOWN_OFFSET = 0.28f;
 // edge, so tool code fails closed instead of rebuilding model-owned descriptors.
 bool LauncherPhysicsStoresReady( const Physics::PhysicsEngine& physics, int modelCount )
 {
-    return SkullbonezCore::Physics::PhysicsEngineStoreQueries::BodyStore( physics ).Count() == modelCount && SkullbonezCore::Physics::PhysicsEngineStoreQueries::Colliders( physics ).Count() == modelCount;
+    return SkullbonezCore::Physics::PhysicsEngineStoreQueries::BodyStore( physics ).Count() == modelCount &&
+           SkullbonezCore::Physics::PhysicsEngineStoreQueries::Colliders( physics ).Count() == modelCount;
 }
 
 
@@ -517,8 +518,10 @@ void RuntimeTools::FireLauncherLaser( Physics::PhysicsEngine& physics,
         return;
     }
 
-    const Physics::PhysicsBodyHandle body = SkullbonezCore::Physics::PhysicsEngineStoreQueries::BodyStore( physics ).HandleForModelIndex( modelHitIndex );
-    const Physics::PhysicsBodyRecord* bodyRecord = SkullbonezCore::Physics::PhysicsEngineStoreQueries::BodyStore( physics ).RecordForHandle( body );
+    const Physics::PhysicsBodyHandle body =
+        SkullbonezCore::Physics::PhysicsEngineStoreQueries::BodyStore( physics ).HandleForModelIndex( modelHitIndex );
+    const Physics::PhysicsBodyRecord* bodyRecord =
+        SkullbonezCore::Physics::PhysicsEngineStoreQueries::BodyStore( physics ).RecordForHandle( body );
     if ( !bodyRecord )
     {
         return;

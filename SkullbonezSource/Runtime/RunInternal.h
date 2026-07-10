@@ -166,12 +166,12 @@ inline void DrawUITestPattern( Rendering::IRenderCommandContext& renderCommands,
 
 inline int RuntimeWindowScreenWidth( const RunSubsystemState& systems, const EngineConfig& config )
 {
-    return systems.window ? static_cast<int>( systems.window->m_sWindowDimensions.x ) : config.window.screenX;
+    return systems.window ? systems.window->ClientWidth() : config.window.screenX;
 }
 
 inline int RuntimeWindowScreenHeight( const RunSubsystemState& systems, const EngineConfig& config )
 {
-    return systems.window ? static_cast<int>( systems.window->m_sWindowDimensions.y ) : config.window.screenY;
+    return systems.window ? systems.window->ClientHeight() : config.window.screenY;
 }
 
 inline CinematicRenderConfig& RuntimeActiveCinematicConfig( RunSceneState& scene, EngineConfig& config )

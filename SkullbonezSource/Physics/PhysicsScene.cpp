@@ -57,15 +57,15 @@ using SkullbonezCore::Physics::ColliderShapeKind;
 using SkullbonezCore::Physics::ColliderStore;
 using SkullbonezCore::Physics::ContactPolicy;
 using SkullbonezCore::Physics::ModelRowHint;
-using SkullbonezCore::Physics::PhysicsAuthoredBodyRefreshView;
 using SkullbonezCore::Physics::PhysicsAuthoredBodyCount;
-using SkullbonezCore::Physics::PhysicsBodyCreateDesc;
+using SkullbonezCore::Physics::PhysicsAuthoredBodyRefreshView;
 using SkullbonezCore::Physics::PhysicsBodyCount;
+using SkullbonezCore::Physics::PhysicsBodyCreateDesc;
 using SkullbonezCore::Physics::PhysicsBodyHandle;
 using SkullbonezCore::Physics::PhysicsBodyRecord;
 using SkullbonezCore::Physics::PhysicsBodyStore;
-using SkullbonezCore::Physics::PhysicsColliderCreateDesc;
 using SkullbonezCore::Physics::PhysicsColliderCount;
+using SkullbonezCore::Physics::PhysicsColliderCreateDesc;
 using SkullbonezCore::Physics::PhysicsColliderHandle;
 using SkullbonezCore::Physics::PhysicsConstraintHandle;
 using SkullbonezCore::Physics::PhysicsMaterial;
@@ -205,8 +205,7 @@ bool PhysicsScene::UpdateAuthoredBodyDescriptor( ModelRowHint bodyRow,
 {
     const int row = bodyRow.value;
     const int expectedCount = CountAsInt( expectedBodyCount );
-    if ( !bodyRow.IsValid() || row >= expectedCount ||
-         expectedBodyCount.value != AuthoredBodyDescriptorCount().value )
+    if ( !bodyRow.IsValid() || row >= expectedCount || expectedBodyCount.value != AuthoredBodyDescriptorCount().value )
     {
         return false;
     }
@@ -682,7 +681,8 @@ float PhysicsScene::GetTornadoSystemElapsedSeconds() const
 }
 
 
-void PhysicsScene::CaptureReplaySolverSnapshot( ReplaySolverWorldSnapshot& outSnapshot, PhysicsBodyCount bodyCount ) const
+void PhysicsScene::CaptureReplaySolverSnapshot( ReplaySolverWorldSnapshot& outSnapshot,
+                                                PhysicsBodyCount bodyCount ) const
 {
     m_world.CaptureReplaySolverSnapshot( outSnapshot, CountAsInt( bodyCount ) );
 }

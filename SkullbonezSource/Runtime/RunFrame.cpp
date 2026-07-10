@@ -319,7 +319,9 @@ void StepRuntimePhysicsTick( SkullbonezCore::GameObjects::GameModelCollection& m
         // Lifetime: Debug diagnostics borrow model name pointers only until
         // Step returns; physics never retains this presentation table after
         // emitting frame diagnostics.
-        modelCollection.FillPhysicsDiagnosticsNames( SkullbonezCore::Physics::PhysicsEngineStoreQueries::BodyStore( physicsEngine ).Count(), physicsDiagnosticsModelNames );
+        modelCollection.FillPhysicsDiagnosticsNames(
+            SkullbonezCore::Physics::PhysicsEngineStoreQueries::BodyStore( physicsEngine ).Count(),
+            physicsDiagnosticsModelNames );
         diagnosticNames = physicsDiagnosticsModelNames.empty() ? nullptr : physicsDiagnosticsModelNames.data();
         diagnosticNameCount = static_cast<int>( physicsDiagnosticsModelNames.size() );
     }

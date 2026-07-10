@@ -628,7 +628,8 @@ void WakeEditorPhysicsBody( SkullbonezCore::GameObjects::GameModelCollection& co
         return;
     }
 
-    const PhysicsBodyHandle body = SkullbonezCore::Physics::PhysicsEngineStoreQueries::BodyStore( physics ).HandleForModelIndex( modelIndex );
+    const PhysicsBodyHandle body =
+        SkullbonezCore::Physics::PhysicsEngineStoreQueries::BodyStore( physics ).HandleForModelIndex( modelIndex );
     if ( !body.IsValid() )
     {
         return;
@@ -652,7 +653,8 @@ void SeedEditorPhysicsBodyAsleep( SkullbonezCore::GameObjects::GameModelCollecti
         return;
     }
 
-    const PhysicsBodyHandle body = SkullbonezCore::Physics::PhysicsEngineStoreQueries::BodyStore( physics ).HandleForModelIndex( modelIndex );
+    const PhysicsBodyHandle body =
+        SkullbonezCore::Physics::PhysicsEngineStoreQueries::BodyStore( physics ).HandleForModelIndex( modelIndex );
     if ( !body.IsValid() )
     {
         return;
@@ -1572,8 +1574,8 @@ bool Run::TryBuildMouseWorldRay( Vector3& outOrigin, Vector3& outDirection, bool
         return false;
     }
     POINT mouse = mouseResult.coordinates;
-    const int screenW = (std::max)( 1, static_cast<int>( m_systems.window->m_sWindowDimensions.x ) );
-    const int screenH = (std::max)( 1, static_cast<int>( m_systems.window->m_sWindowDimensions.y ) );
+    const int screenW = (std::max)( 1, m_systems.window->ClientWidth() );
+    const int screenH = (std::max)( 1, m_systems.window->ClientHeight() );
     if ( clampToViewport )
     {
         // Invariant: Captured tool drags keep receiving mouse positions after

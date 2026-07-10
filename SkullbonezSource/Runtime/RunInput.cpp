@@ -1047,10 +1047,11 @@ ApplyRuntimeUIFrameCommands( const RuntimeUIFrameContext& context,
 
     const int selectedSceneBrowserIndex =
         CurrentSceneBrowserIndex( context.sceneController, context.sceneController.Browser() );
+    const HWND windowHandle = context.systems.window->NativeWindowHandle();
     InGameUIInputResult UIResult = context.ui.UpdateInput(
-        context.systems.window->m_sWindow,
-        static_cast<int>( context.systems.window->m_sWindowDimensions.x ),
-        static_cast<int>( context.systems.window->m_sWindowDimensions.y ),
+        windowHandle,
+        context.systems.window->ClientWidth(),
+        context.systems.window->ClientHeight(),
         context.timers.simulationTimer.GetTotalTime(),
         context.runtimeTools.Editor().editorModeEnabled,
         context.runtimeTools.Editor().placementModeEnabled,
@@ -1070,14 +1071,13 @@ ApplyRuntimeUIFrameCommands( const RuntimeUIFrameContext& context,
         enterInteractiveSceneRun();
     }
     result.suppressWorldActionThisFrame = result.suppressWorldActionThisFrame || uiCommands.ui.userInteracted;
-    const bool replayScrubberOwnsMouse =
-        tickReplayScrubberInput( context.systems.window->m_sWindow, context.ui.BlocksCameraMouse() );
+    const bool replayScrubberOwnsMouse = tickReplayScrubberInput( windowHandle, context.ui.BlocksCameraMouse() );
     const bool replayCauseTreeOwnsMouse =
-        tickReplayCauseTreeInput( context.systems.window->m_sWindow,
+        tickReplayCauseTreeInput( windowHandle,
                                   context.ui.BlocksCameraMouse() || replayScrubberOwnsMouse,
                                   result.editorUnhandledWheelDelta );
     const bool replayVelocityEditOwnsMouse = tickReplayVelocityEditInput(
-        context.systems.window->m_sWindow,
+        windowHandle,
         context.ui.BlocksCameraMouse() || replayScrubberOwnsMouse || replayCauseTreeOwnsMouse );
     result.suppressWorldActionThisFrame = result.suppressWorldActionThisFrame || replayScrubberOwnsMouse ||
                                           replayCauseTreeOwnsMouse || replayVelocityEditOwnsMouse;
@@ -1507,7 +1507,7 @@ bool Run::RouteRuntimePointerInput( const RuntimeInputSnapshot& inputSnapshot, c
     bool consumedWorldClick = TickEditorWorldClick( mouseEdges, suppressWorldAction );
     if ( !consumedWorldClick )
     {
-        consumedWorldClick = TickMousePickupInput( m_systems.window ? m_systems.window->m_sWindow : nullptr,
+        consumedWorldClick = TickMousePickupInput( m_systems.window ? m_systems.window->NativeWindowHandle() : nullptr,
                                                    mouseEdges,
                                                    suppressWorldAction );
     }

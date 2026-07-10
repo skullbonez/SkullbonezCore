@@ -188,6 +188,7 @@
     <ClInclude Include="SkullbonezSource\Physics\PhysicsDiagnosticsModel.h" />
     <ClInclude Include="SkullbonezSource\Physics\PhysicsDiagnosticsSink.h" />
     <ClInclude Include="SkullbonezSource\Physics\PhysicsEngine.h" />
+    <ClInclude Include="SkullbonezSource\Physics\PhysicsEngineStoreQueries.h" />
     <ClInclude Include="SkullbonezSource\Physics\PhysicsFixedList.h" />
     <ClInclude Include="SkullbonezSource\Physics\PhysicsHandles.h" />
     <ClInclude Include="SkullbonezSource\Physics\PhysicsMass.h" />
