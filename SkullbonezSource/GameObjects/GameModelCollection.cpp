@@ -1065,9 +1065,16 @@ MainMemoryGameObjectStats GameModelCollection::CollectMemoryStats() const
 }
 
 
+bool GameModelCollection::CanTrimPresentationRowsForSceneRestore( int modelCount ) const
+{
+    return modelCount >= 0 && modelCount <= SceneEntityCount() &&
+           modelCount <= m_renderInstanceStore.PresentationCount();
+}
+
+
 bool GameModelCollection::TrimPresentationRowsForSceneRestore( int modelCount )
 {
-    if ( modelCount < 0 || modelCount > SceneEntityCount() )
+    if ( !CanTrimPresentationRowsForSceneRestore( modelCount ) )
     {
         return false;
     }

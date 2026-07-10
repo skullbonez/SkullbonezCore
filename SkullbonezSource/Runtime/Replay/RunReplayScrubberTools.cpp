@@ -28,6 +28,7 @@ Related:
 #include "../InputController.h"
 #include "ReplayInteractionController.h"
 #include "ReplayOverlayLayout.h"
+#include "ReplayRuntimeOwnerViews.h"
 #include "../../World/Terrain.h"
 
 #include <algorithm>
@@ -321,7 +322,9 @@ void ReplayRuntime::ResetSceneTimeline( const SceneTimelineResetInput& input, co
 
 
 ReplayRuntime::ReplayLiveRestoreOutcome
-ReplayRuntime::ApplyLiveRestoreRequest( const ReplayLiveWorld& liveWorld, const ReplayLiveRestoreRequest& request )
+ReplayRuntime::ApplyLiveRestoreRequest( const ReplayRestoreTransaction& transaction,
+                                        const ReplayArtifactTopologyOwners& topologyOwners,
+                                        const ReplayLiveRestoreRequest& request )
 {
     ReplayLiveRestoreOutcome outcome;
     outcome.requested = request.kind != ReplayLiveRestoreKind::None;
@@ -334,7 +337,8 @@ ReplayRuntime::ApplyLiveRestoreRequest( const ReplayLiveWorld& liveWorld, const 
     RunReplayV2TargetRestoreResult v2Result;
     if ( request.kind == ReplayLiveRestoreKind::V2ArtifactTarget )
     {
-        outcome.restored = RestoreV2ArtifactTargetState( liveWorld,
+        outcome.restored = RestoreV2ArtifactTargetState( transaction,
+                                                         topologyOwners,
                                                          request.path,
                                                          request.requestedFrame,
                                                          request.makeLiveBranch,
@@ -344,7 +348,7 @@ ReplayRuntime::ApplyLiveRestoreRequest( const ReplayLiveWorld& liveWorld, const 
     }
     else if ( request.kind == ReplayLiveRestoreKind::SolverSample && request.solverSample )
     {
-        outcome.restored = RestoreSolverSampleAsLive( liveWorld, *request.solverSample, reason, sizeof( reason ) );
+        outcome.restored = RestoreSolverSampleAsLive( transaction, *request.solverSample, reason, sizeof( reason ) );
     }
 
     ReplayInteractionController replayInteraction;

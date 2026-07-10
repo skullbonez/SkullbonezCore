@@ -292,6 +292,7 @@ RUNTIME_REPLAY_PREFIXES = (
     "ReplayRecorder",
     "ReplayRestoreService",
     "ReplayRuntime",
+    "ReplayRuntimeOwnerViews",
     "ReplaySolverSnapshot",
     "ReplayV2Artifact",
     "TrajectoryStore",

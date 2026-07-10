@@ -91,11 +91,23 @@ bounded by purpose, and the replay allocation exception remains narrow.
   scene topology restore is coordinated by `SceneController`. CPU, scrub,
   interaction, physics, DX12, and full gates pass. Evidence:
   `Agentic/Reports/replay_r4_live_owner_identity_20260711.md`.
-- [ ] **R5 — Tests, size closure, and feature gate.** Extend scrub/restore,
+- [x] **R5 — Tests, size closure, and feature gate.** Extend scrub/restore,
   hash, branch, prediction, artifact, and allocation tests. Perform one final
   independent review. Acceptance: all replay tests run from the CPU umbrella or
   a named replay runtime gate; no replay source file exceeds 1,500 lines without
   an inventory justification based on cohesion rather than convenience.
+  Complete 2026-07-11: stable-id restore rejects duplicate ids and ignores stale
+  row hints; topology mutation preflights every row owner; recoverable failures
+  capture and hash-verify a live rollback sample. The Debug v2 probe injects a
+  post-mutation target-hash mismatch and proves fallback restoration. The
+  reconciled inventory is 26 files / 24,904 lines; `ReplayRuntime.h` is 1,485
+  lines and the five larger implementation files have explicit cohesion and
+  split-expiry evidence. The first independent review found the production
+  `ReplayLiveWorld` bag, partial-mutation hazards, and missing stale-hint proof;
+  the required repeat review found duplicate-id and rollback-test gaps. All
+  findings were fixed. Fast, CPU, scrub, v2, interaction, physics, perf, DX12,
+  and full gates pass. Evidence:
+  `Agentic/Reports/replay_r5_closure_20260711.md`.
 
 ## Dependencies And Sequencing
 

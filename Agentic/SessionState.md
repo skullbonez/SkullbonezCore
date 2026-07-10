@@ -10,9 +10,9 @@ reports, and git history.
 | Field | Value |
 |---|---|
 | Branch | `engine-cleanup-10th-july`, tracking `origin/engine-cleanup-10th-july` |
-| Current pushed baseline | `f5cbeb57 fix: bound replay retained memory by owner` |
-| Current objective | Complete Replay R5 tests, size closure, feature gate, and final independent review |
-| Last broad local gate | `tools\validate_full.bat` passed final Replay R4 source with 124/124 doctest cases, all CPU lanes, zero-warning builds, DX12 with zero InfoQueue errors/matching screenshots, standalone physics smoke, and byte-exact physics in 53.9s |
+| Current pushed baseline | `8e39056c refactor: narrow replay live-owner identity` |
+| Current objective | Close the dependent B1f/C1 Run scene seam and promote SceneController lifecycle ownership |
+| Last broad local gate | `tools\validate_full.bat` passed final Replay R5 source with 125/125 doctest cases, 2,708 assertions, all CPU lanes, zero-warning builds, DX12 with zero InfoQueue errors/matching screenshots, standalone physics smoke, and 20,001-line byte-exact physics in 50.1s |
 | Native evidence | Injected heap-use-after-free caught; healthy ASan and five-file `/analyze` passed in 16.185s |
 
 ## Pushed Cleanup Commits
@@ -45,6 +45,7 @@ reports, and git history.
 - `dfab2043 refactor: move replay workspace ownership out of Run`
 - `cb2f4dc4 refactor: move render composition behind RuntimeRenderer`
 - `f5cbeb57 fix: bound replay retained memory by owner`
+- `8e39056c refactor: narrow replay live-owner identity`
 
 ## Current Queue
 
@@ -121,6 +122,19 @@ fatal-vs-cancel exhaustion is tested. CPU, allocation, scrub, v2, interaction,
 physics, perf, and full gates pass. Evidence is in
 `Agentic/Reports/replay_r3_retained_memory_20260711.md`.
 
+Replay R4-R5 and the full replay architecture plan are complete. Production
+startup/restore no longer accepts `ReplayLiveWorld`; frame-scoped owner views
+separate sample restore, cold topology rebuild, and Debug-only probes. Stable
+ids override stale row hints and reject duplicates before mutation. Restore
+captures actual live state before mutation, reapplies it on recoverable failure,
+and hash-verifies rollback; the named v2 gate injects a target-hash mismatch to
+prove that path. The final inventory is 26 files / 24,904 lines with five
+cohesion-based size exceptions and `ReplayRuntime.h` at 1,485 lines. Both
+required adversarial passes are resolved. Fast, CPU, scrub, v2, interaction,
+physics, perf, DX12, and full gates pass. Evidence is in
+`Agentic/Reports/replay_r4_live_owner_identity_20260711.md` and
+`Agentic/Reports/replay_r5_closure_20260711.md`.
+
 Scene provenance C1a is complete: parser-owned library/instance/ordered-part
 records retain exact shape sources, hierarchy transforms use rotated offsets
 and quaternion composition, duplicate explicit/asset/ragdoll names fail
@@ -170,15 +184,14 @@ and full gates pass from the final source.
 
 ## Workstreams To Prioritize
 
-1. Close replay tests/source size and run the final independent review in R5.
-2. Close the dependent B1f scene/input seam and promote `SceneController` to
+1. Close the dependent B1f scene/input seam and promote `SceneController` to
    own real load/reset/save lifecycle and delete `Run` scene callbacks.
-3. Finish physics stable-identity D1-D4 and the remaining interaction/UI work.
-4. Finish validation-gate V3-V4 and behavioral-test P3/P5/P6 evidence.
-5. Close remaining interaction/UI, replay sizing, and physics authority items.
-6. Close renderer decomposition and shadow quality after the five `Run`
+2. Finish physics stable-identity D1-D4 and the remaining interaction/UI work.
+3. Finish validation-gate V3-V4 and behavioral-test P3/P5/P6 evidence.
+4. Close remaining interaction/UI and physics authority items.
+5. Close renderer decomposition and shadow quality after the five `Run`
    ownership extractions establish their boundaries.
-7. Run the final ownership and campaign adversarial reviews, fixing every
+6. Run the final ownership and campaign adversarial reviews, fixing every
    credible finding before closure.
 
 ## Binding Decisions And External Blocker

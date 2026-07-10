@@ -37,6 +37,7 @@ Related:
 #include "../Scene/SceneRuntime.h"
 #include "../Tools/RuntimeTools.h"
 #include "../../GameObjects/GameModelCollection.h"
+#include "../../Core/FatalError.h"
 #include "../../Maths/Quaternion.h"
 #include "../../Physics/PhysicsBodyStore.h"
 #include "../../Physics/PhysicsEngine.h"
@@ -71,6 +72,56 @@ struct ReplaySolverSampleRestoreContext
 class ReplayRestoreService
 {
   public:
+    using ResolvedBodyTable = std::array<Physics::PhysicsBodyHandle, MAX_GAME_MODELS>;
+
+    // Resolves every retained body by stable replay identity. modelRow is only
+    // a cache hint; callers may deliberately pass stale hints to prove that a
+    // restore cannot be redirected to another live body.
+    static bool ResolveBodiesForRestore( const Physics::PhysicsBodyStore& bodyStore,
+                                         const ReplaySolverFrameSample& sample,
+                                         ResolvedBodyTable& outBodies,
+                                         char* outReason,
+                                         std::size_t reasonSize )
+    {
+        const int liveModelCount = bodyStore.Count();
+        if ( sample.bodies.size() > outBodies.size() ||
+             sample.bodies.size() > static_cast<std::size_t>( liveModelCount ) )
+        {
+            WriteReason( outReason, reasonSize, "selected frame needs unavailable bodies" );
+            return false;
+        }
+
+        const int restoreModelCount = static_cast<int>( sample.bodies.size() );
+        for ( std::size_t bodyIndex = 0; bodyIndex < sample.bodies.size(); ++bodyIndex )
+        {
+            const ReplaySolverBodySample& body = sample.bodies[bodyIndex];
+            const Physics::PhysicsBodyHandle liveHandle =
+                bodyStore.HandleForReplayBodyId( body.id.value, body.modelRow.value );
+            const Physics::PhysicsBodyRecord* liveBody = bodyStore.RecordForHandle( liveHandle );
+            const int liveRow = bodyStore.ModelIndexForHandle( liveHandle );
+            // Invariant: the replay id resolves identity. The retained row is
+            // only a cache and cannot redirect restore after topology changes.
+            if ( !liveBody || liveBody->replayBodyId != body.id.value || liveRow < 0 || liveRow >= restoreModelCount )
+            {
+                WriteReason( outReason, reasonSize, "selected frame body ids no longer match" );
+                return false;
+            }
+            for ( std::size_t previousIndex = 0; previousIndex < bodyIndex; ++previousIndex )
+            {
+                // Invariant: one sample row owns one live body. Duplicate ids
+                // would otherwise apply two states to one handle while silently
+                // leaving another body unrestored.
+                if ( outBodies[previousIndex] == liveHandle )
+                {
+                    WriteReason( outReason, reasonSize, "selected frame contains duplicate body ids" );
+                    return false;
+                }
+            }
+            outBodies[bodyIndex] = liveHandle;
+        }
+        return true;
+    }
+
     static bool ApplySolverSampleState( const ReplaySolverSampleRestoreContext& context,
                                         const ReplaySolverFrameSample& sample,
                                         char* outReason,
@@ -88,31 +139,15 @@ class ReplayRestoreService
             return false;
         }
 
-        const Physics::PhysicsBodyStore& bodyStore = Physics::PhysicsEngineStoreQueries::BodyStore( context.physics );
-        const int liveModelCount = bodyStore.Count();
-        if ( sample.bodies.size() > static_cast<std::size_t>( liveModelCount ) )
-        {
-            WriteReason( outReason, reasonSize, "selected frame needs unavailable bodies" );
-            return false;
-        }
-
         const int restoreModelCount = static_cast<int>( sample.bodies.size() );
-        std::array<Physics::PhysicsBodyHandle, MAX_GAME_MODELS> resolvedBodies{};
-        for ( std::size_t bodyIndex = 0; bodyIndex < sample.bodies.size(); ++bodyIndex )
+        ResolvedBodyTable resolvedBodies{};
+        if ( !ResolveBodiesForRestore( Physics::PhysicsEngineStoreQueries::BodyStore( context.physics ),
+                                       sample,
+                                       resolvedBodies,
+                                       outReason,
+                                       reasonSize ) )
         {
-            const ReplaySolverBodySample& body = sample.bodies[bodyIndex];
-            const Physics::PhysicsBodyHandle liveHandle =
-                bodyStore.HandleForReplayBodyId( body.id.value, body.modelRow.value );
-            const Physics::PhysicsBodyRecord* liveBody = bodyStore.RecordForHandle( liveHandle );
-            const int liveRow = bodyStore.ModelIndexForHandle( liveHandle );
-            // Invariant: the replay id resolves identity. The retained row is
-            // only a cache and cannot redirect restore after topology changes.
-            if ( !liveBody || liveBody->replayBodyId != body.id.value || liveRow < 0 || liveRow >= restoreModelCount )
-            {
-                WriteReason( outReason, reasonSize, "selected frame body ids no longer match" );
-                return false;
-            }
-            resolvedBodies[bodyIndex] = liveHandle;
+            return false;
         }
 
         if ( !context.sceneController.TrimForReplayRestore( context.presentations,
@@ -143,8 +178,8 @@ class ReplayRestoreService
                                                           body.rotationalInertia,
                                                           body.inverseRotationalInertia ) )
             {
-                WriteReason( outReason, reasonSize, "failed to restore replay body state" );
-                return false;
+                SB_FATAL( "Runtime/ReplayRestore",
+                          "Replay body commit failed after stable-id preflight; live state may be partially restored" );
             }
         }
         context.physics.ClearPendingBodyImpulses();
@@ -153,8 +188,8 @@ class ReplayRestoreService
                  sample.worldSnapshot,
                  Physics::MakePhysicsBodyCountFromNonNegativeInt( restoreModelCount ) ) )
         {
-            WriteReason( outReason, reasonSize, "failed to restore solver world snapshot" );
-            return false;
+            SB_FATAL( "Runtime/ReplayRestore",
+                      "Replay solver commit rejected the version/count values accepted during preflight" );
         }
 
         context.world.SetGravity( sample.world.gravity );

@@ -45,8 +45,11 @@ bool SceneController::TrimForReplayRestore( GameObjects::GameModelCollection& pr
                                             Physics::PhysicsEngine& physics,
                                             int bodyCount )
 {
-    if ( bodyCount < 0 || bodyCount > Physics::PhysicsEngineStoreQueries::BodyStore( physics ).Count() ||
-         bodyCount > presentations.SceneEntityCount() || bodyCount > m_entities.Count() )
+    const int liveBodyCount = Physics::PhysicsEngineStoreQueries::BodyStore( physics ).Count();
+    const int liveColliderCount = Physics::PhysicsEngineStoreQueries::Colliders( physics ).Count();
+    const uint32_t authoredBodyCount = physics.AuthoredBodyDescriptorCount().value;
+    if ( bodyCount < 0 || bodyCount > liveBodyCount || static_cast<uint32_t>( bodyCount ) > authoredBodyCount ||
+         !presentations.CanTrimPresentationRowsForSceneRestore( bodyCount ) || bodyCount > m_entities.Count() )
     {
         return false;
     }
@@ -55,16 +58,21 @@ bool SceneController::TrimForReplayRestore( GameObjects::GameModelCollection& pr
     const Physics::PhysicsColliderCount colliders = Physics::MakePhysicsColliderCountFromNonNegativeInt( bodyCount );
     const Physics::PhysicsAuthoredBodyCount authored =
         Physics::MakePhysicsAuthoredBodyCountFromNonNegativeInt( bodyCount );
-    // Invariant: the scene owner shrinks simulation rows before presentation
-    // and metadata rows. Every surviving handle was validated by replay id
-    // before this command, and PhysicsBodyStore retires removed handles.
+    // Concept: replay topology restore is a two-phase transaction. Every owner
+    // rejects an impossible target above before the first write. Once commit
+    // starts, a failed shrink means an internal topology invariant broke; it is
+    // not a recoverable replay-file error because earlier owners may already
+    // have retired handles.
+    // Invariant: physics rows shrink before presentation and metadata rows.
+    // Every surviving handle was validated by replay id before this command,
+    // and PhysicsBodyStore retires removed handles.
     if ( !physics.TrimBodiesToCount( bodies ) ||
-         ( Physics::PhysicsEngineStoreQueries::Colliders( physics ).Count() > bodyCount &&
-           !physics.TrimCollidersToCount( colliders ) ) ||
+         ( liveColliderCount > bodyCount && !physics.TrimCollidersToCount( colliders ) ) ||
          !physics.TrimAuthoredBodyDescriptorsToCount( authored ) ||
          !presentations.TrimPresentationRowsForSceneRestore( bodyCount ) || !m_entities.TrimToCount( bodyCount ) )
     {
-        return false;
+        SB_FATAL( "Runtime/SceneController",
+                  "Replay topology commit failed after a successful preflight; live owners may be partially trimmed" );
     }
     return true;
 }

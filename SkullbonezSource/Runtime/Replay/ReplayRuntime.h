@@ -118,6 +118,10 @@ struct RunRuntimeSettings;
 struct RunSceneState;
 struct RunSubsystemState;
 struct ReplayV2SaveResult;
+struct ReplaySolverSampleRestoreContext;
+#ifdef _DEBUG
+struct ReplayProbeWorld;
+#endif
 
 inline constexpr std::size_t REPLAY_PREDICTION_GHOST_MAX_FRAMES = 24;
 inline constexpr std::size_t REPLAY_PREDICTION_GHOST_REQUEST_CAPACITY =
@@ -991,32 +995,9 @@ class ReplayRuntime
         bool directorGrabbed = false;
     };
 
-    // Lifetime: a cold restore borrows these owners only for the duration of
-    // one transaction. R4 replaces the model collection with narrow body,
-    // collider, render, and scene views; R2 centralizes ordering and rollback
-    // here first so Run no longer decides replay business behavior.
-    struct ReplayLiveWorld
-    {
-        GameObjects::GameModelCollection& models;
-        Environment::WorldEnvironment& world;
-        RunSceneState& scene;
-        RunRuntimeSettings& runtimeSettings;
-        RunDebugState& debug;
-        Environment::CameraCollection* cameras = nullptr;
-        RuntimeTools& runtimeTools;
-        SceneController& sceneController;
-        SimulationSystem& simulation;
-        const EngineConfig& config;
-        RunSubsystemState& systems;
-        GeneratedObjectTypeOverride& generatedObjectTypeOverride;
-        int gameModelCapacity = 0;
-        DiagnosticsRuntime& diagnostics;
-        RunMousePickupState& mousePickup;
-        RunCameraMode normalizedCurrentMode = RunCameraMode::Demo;
-        double now = 0.0;
-        SceneTimelineResetInput timelineReset;
-        SceneTimelineResetOwners timelineOwners;
-    };
+    struct ReplayStartupLoadInput;
+    struct ReplayRestoreTransaction;
+    struct ReplayArtifactTopologyOwners;
 
     // Concept: replay interaction ticks receive InputRouter-owned pointer edges;
     // ReplayRuntime owns gesture state but never advances duplicate button memory.
@@ -1135,27 +1116,29 @@ class ReplayRuntime
                                                           int gameModelCapacity,
                                                           uint32_t generatedObjectTypeOverride );
     void ResetSceneTimeline( const SceneTimelineResetInput& input, const SceneTimelineResetOwners& owners );
-    bool ApplySolverSampleState( const ReplayLiveWorld& liveWorld,
+    bool ApplySolverSampleState( const ReplaySolverSampleRestoreContext& owners,
                                  const ReplaySolverFrameSample& sample,
                                  char* outReason,
                                  std::size_t reasonSize );
-    bool CaptureCurrentSolverHash( const ReplayLiveWorld& liveWorld,
+    bool CaptureCurrentSolverHash( const ReplaySolverSampleRestoreContext& owners,
                                    const ReplaySolverFrameSample& reference,
                                    uint64_t& outSolverHash,
                                    uint64_t& outPresentationHash,
                                    std::size_t& outBodyCount );
-    bool RestoreSolverSampleAsLive( const ReplayLiveWorld& liveWorld,
+    bool RestoreSolverSampleAsLive( const ReplayRestoreTransaction& transaction,
                                     const ReplaySolverFrameSample& sample,
                                     char* outReason,
                                     std::size_t reasonSize );
-    bool RestoreV2ArtifactTargetState( const ReplayLiveWorld& liveWorld,
+    bool RestoreV2ArtifactTargetState( const ReplayRestoreTransaction& transaction,
+                                       const ReplayArtifactTopologyOwners& topologyOwners,
                                        const char* path,
                                        ReplayFrameIndex requestedFrame,
                                        bool makeLiveBranch,
                                        RunReplayV2TargetRestoreResult& outResult,
                                        char* outReason,
                                        std::size_t reasonSize );
-    ReplayLiveRestoreOutcome ApplyLiveRestoreRequest( const ReplayLiveWorld& liveWorld,
+    ReplayLiveRestoreOutcome ApplyLiveRestoreRequest( const ReplayRestoreTransaction& transaction,
+                                                      const ReplayArtifactTopologyOwners& topologyOwners,
                                                       const ReplayLiveRestoreRequest& request );
 #ifdef _DEBUG
     struct ReplayProbeTickResult
@@ -1165,17 +1148,17 @@ class ReplayRuntime
     };
     RunReplayProbeState& Probes();
     const RunReplayProbeState& Probes() const;
-    ReplayProbeTickResult TickProbes( const ReplayLiveWorld& liveWorld );
+    ReplayProbeTickResult TickProbes( const ReplayProbeWorld& liveWorld );
 
   private:
-    SbResult TickScrubProbe( const ReplayLiveWorld& liveWorld );
-    SbResult TickRestoreProbe( const ReplayLiveWorld& liveWorld );
-    SbResult TickSaveProbe( const ReplayLiveWorld& liveWorld, bool& outEnterInteractive );
-    SbResult VerifyLoadedPresentationProbe( const ReplayLiveWorld& liveWorld, float normalized );
-    SbResult VerifySolverCheckpointFileProbe( const ReplayLiveWorld& liveWorld, const char* path );
-    SbResult VerifySolverTargetFileProbe( const ReplayLiveWorld& liveWorld, const char* path );
-    SbResult VerifySolverBranchFileProbe( const ReplayLiveWorld& liveWorld, const char* path );
-    SbResult VerifySolverFailureFileProbe( const ReplayLiveWorld& liveWorld, const char* path );
+    SbResult TickScrubProbe( const ReplayProbeWorld& liveWorld );
+    SbResult TickRestoreProbe( const ReplayProbeWorld& liveWorld );
+    SbResult TickSaveProbe( const ReplayProbeWorld& liveWorld, bool& outEnterInteractive );
+    SbResult VerifyLoadedPresentationProbe( const ReplayProbeWorld& liveWorld, float normalized );
+    SbResult VerifySolverCheckpointFileProbe( const ReplayProbeWorld& liveWorld, const char* path );
+    SbResult VerifySolverTargetFileProbe( const ReplayProbeWorld& liveWorld, const char* path );
+    SbResult VerifySolverBranchFileProbe( const ReplayProbeWorld& liveWorld, const char* path );
+    SbResult VerifySolverFailureFileProbe( const ReplayProbeWorld& liveWorld, const char* path );
 
   public:
 #endif
@@ -1302,7 +1285,12 @@ class ReplayRuntime
                                    bool directorGrabbed );
     void TickWorkspace( const ReplayWorkspaceInput& input, ReplayWorkspaceOutput& output );
     void ConfigureStartupWorkflows( const ReplayStartupRequest& request );
-    ReplayStartupResult RunStartupWorkflows( const ReplayLiveWorld& liveWorld );
+    ReplayStartupResult RunStartupWorkflows( const ReplayStartupLoadInput& loadInput
+#ifdef _DEBUG
+                                             ,
+                                             const ReplayProbeWorld& probeWorld
+#endif
+    );
     // Appends replay-owned records after RuntimeTools has rebuilt the shared
     // fixed-capacity tracer. RuntimeRenderer only submits the completed buffer.
     void AppendOverlayTrace( Physics::PhysicsEngine& physics,
@@ -1434,6 +1422,18 @@ class ReplayRuntime
   private:
     void ReportLatestCaptureMismatch();
     void AppendSolverTrajectorySampleToStore( const ReplaySolverFrameSample& sample );
+    bool RestoreV2ArtifactTargetStateImpl( const ReplayRestoreTransaction& transaction,
+                                           const ReplayArtifactTopologyOwners& topologyOwners,
+                                           const char* path,
+                                           ReplayFrameIndex requestedFrame,
+                                           bool makeLiveBranch,
+                                           bool injectTargetHashMismatchForProbe,
+                                           RunReplayV2TargetRestoreResult& outResult,
+                                           char* outReason,
+                                           std::size_t reasonSize );
+    bool CaptureCurrentSolverSample( const ReplaySolverSampleRestoreContext& owners,
+                                     const ReplaySolverFrameSample& reference,
+                                     ReplaySolverFrameSample& outSample );
 
     ReplayRecorder m_presentation;                                    // Bounded replay presentation recorder for recent-frame inspection.
     ReplaySolverRecorder m_solver;                                    // Same-tick solver-state recorder kept in tandem with presentation replay.

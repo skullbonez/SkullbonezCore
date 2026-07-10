@@ -303,6 +303,7 @@ class GameModelCollection
     Basics::MainMemoryGameObjectStats CollectMemoryStats() const;
     // SceneController uses this narrow presentation-owner command while it
     // coordinates replay topology with physics and entity owners.
+    bool CanTrimPresentationRowsForSceneRestore( int modelCount ) const;
     bool TrimPresentationRowsForSceneRestore( int modelCount );
     void CaptureReplaySolverWorldSnapshot( Basics::ReplaySolverWorldSnapshot& outSnapshot ) const;
     bool RestoreReplaySolverWorldSnapshot( const Basics::ReplaySolverWorldSnapshot& snapshot );

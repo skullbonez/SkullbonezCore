@@ -32,7 +32,13 @@
 
 #include "../SkullbonezSource/Physics/ColliderStore.h"
 #include "../SkullbonezSource/Physics/PhysicsBodyStore.h"
+#include "../SkullbonezSource/Runtime/Replay/ReplayRestoreService.h"
 
+#include <cstring>
+
+using SkullbonezCore::Basics::ReplayRestoreService;
+using SkullbonezCore::Basics::ReplaySolverBodySample;
+using SkullbonezCore::Basics::ReplaySolverFrameSample;
 using SkullbonezCore::Math::Vector::Vector3;
 using SkullbonezCore::Physics::ColliderRecord;
 using SkullbonezCore::Physics::ColliderStore;
@@ -105,6 +111,42 @@ TEST_CASE( "Physics handles: body store resolves fresh handles and replay ids" )
     CHECK( store.RecordForHandle( second )->replayBodyId == 202u );
     CHECK( store.HandleForReplayBodyId( 202u, 1 ) == second );
     CHECK( store.HandleForReplayBodyId( 202u, 0 ) == second );
+}
+
+
+TEST_CASE( "Replay restore: stable body ids override stale row hints" )
+{
+    PhysicsBodyStore& store = TestBodyStore();
+    const PhysicsBodyHandle first = store.CreateBodyRecord( MakeBodyRecord( 101u, Vector3( 1.0f, 0.0f, 0.0f ) ) );
+    const PhysicsBodyHandle second = store.CreateBodyRecord( MakeBodyRecord( 202u, Vector3( 2.0f, 0.0f, 0.0f ) ) );
+
+    ReplaySolverFrameSample sample;
+    ReplaySolverBodySample firstSample;
+    firstSample.id.value = 101u;
+    firstSample.modelRow = SkullbonezCore::Physics::MakeModelRowHint( 1 );
+    sample.bodies.push_back( firstSample );
+    ReplaySolverBodySample secondSample;
+    secondSample.id.value = 202u;
+    secondSample.modelRow = SkullbonezCore::Physics::MakeModelRowHint( 0 );
+    sample.bodies.push_back( secondSample );
+
+    ReplayRestoreService::ResolvedBodyTable resolved{};
+    char reason[128] = {};
+    REQUIRE( ReplayRestoreService::ResolveBodiesForRestore( store, sample, resolved, reason, sizeof( reason ) ) );
+    CHECK( resolved[0] == first );
+    CHECK( resolved[1] == second );
+
+    sample.bodies[0].id.value = 999u;
+    CHECK_FALSE( ReplayRestoreService::ResolveBodiesForRestore( store, sample, resolved, reason, sizeof( reason ) ) );
+    REQUIRE( store.RecordForHandle( first ) != nullptr );
+    REQUIRE( store.RecordForHandle( second ) != nullptr );
+    CHECK( store.RecordForHandle( first )->position.x == 1.0f );
+    CHECK( store.RecordForHandle( second )->position.x == 2.0f );
+
+    sample.bodies[0].id.value = 101u;
+    sample.bodies[1].id.value = 101u;
+    CHECK_FALSE( ReplayRestoreService::ResolveBodiesForRestore( store, sample, resolved, reason, sizeof( reason ) ) );
+    CHECK( std::strstr( reason, "duplicate body ids" ) != nullptr );
 }
 
 

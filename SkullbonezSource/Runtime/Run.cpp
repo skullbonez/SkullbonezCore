@@ -29,6 +29,7 @@ Related:
 #include "RunInternal.h"
 #include "Replay/ReplayOverlayLayout.h"
 #include "Replay/ReplayRestoreService.h"
+#include "Replay/ReplayRuntimeOwnerViews.h"
 #include "Replay/ReplayV2Artifact.h"
 #include "RuntimeFileWriter.h"
 #include "Allocation/RuntimeAllocationTracker.h"
@@ -671,31 +672,17 @@ ReplayRuntime::SceneTimelineResetInput ReplayRuntime::DescribeSceneTimeline( con
 }
 
 
-bool ReplayRuntime::ApplySolverSampleState( const ReplayLiveWorld& liveWorld,
+bool ReplayRuntime::ApplySolverSampleState( const ReplaySolverSampleRestoreContext& owners,
                                             const ReplaySolverFrameSample& sample,
                                             char* outReason,
                                             std::size_t reasonSize )
 {
-    return ReplayRestoreService::ApplySolverSampleState(
-        ReplaySolverSampleRestoreContext{ liveWorld.models,
-                                          liveWorld.models.GetPhysicsEngine(),
-                                          liveWorld.sceneController,
-                                          liveWorld.world,
-                                          liveWorld.scene,
-                                          liveWorld.runtimeSettings,
-                                          liveWorld.debug,
-                                          liveWorld.cameras,
-                                          liveWorld.runtimeTools },
-        sample,
-        outReason,
-        reasonSize );
+    return ReplayRestoreService::ApplySolverSampleState( owners, sample, outReason, reasonSize );
 }
 
-bool ReplayRuntime::CaptureCurrentSolverHash( const ReplayLiveWorld& liveWorld,
-                                              const ReplaySolverFrameSample& reference,
-                                              uint64_t& outSolverHash,
-                                              uint64_t& outPresentationHash,
-                                              std::size_t& outBodyCount )
+bool ReplayRuntime::CaptureCurrentSolverSample( const ReplaySolverSampleRestoreContext& owners,
+                                                const ReplaySolverFrameSample& reference,
+                                                ReplaySolverFrameSample& outSample )
 {
     ReplayRecorderConfig config;
     config.enabled = true;
@@ -709,7 +696,7 @@ bool ReplayRuntime::CaptureCurrentSolverHash( const ReplayLiveWorld& liveWorld,
     }
 
     ReplayLauncherVisualSample launcherVisual;
-    liveWorld.runtimeTools.BuildReplayLauncherVisualSample( launcherVisual );
+    owners.runtimeTools.BuildReplayLauncherVisualSample( launcherVisual );
 
     ReplayCaptureInput input;
     input.branch = reference.branch;
@@ -717,17 +704,17 @@ bool ReplayRuntime::CaptureCurrentSolverHash( const ReplayLiveWorld& liveWorld,
     input.sceneFrame = reference.sceneFrame;
     input.simulationSeconds = reference.simulationSeconds;
     input.physicsDt = reference.physicsDt > 0.0f ? reference.physicsDt : PHYSICS_FIXED_DT;
-    input.fixedStep = liveWorld.scene.isFixedStep;
-    input.scenePhysicsEnabled = liveWorld.scene.isScenePhysics;
-    input.sceneTextEnabled = liveWorld.scene.isSceneText;
-    input.waterHidden = liveWorld.debug.isWaterHidden;
-    input.terrainHidden = liveWorld.debug.isTerrainHidden;
-    input.cameras = liveWorld.cameras;
-    input.world = &liveWorld.world;
-    input.physics = &liveWorld.models.GetPhysicsEngine();
-    input.entities = &liveWorld.sceneController.Entities();
-    input.bodyStore = &liveWorld.models.BodyStore();
-    input.colliderStore = &liveWorld.models.Colliders();
+    input.fixedStep = owners.scene.isFixedStep;
+    input.scenePhysicsEnabled = owners.scene.isScenePhysics;
+    input.sceneTextEnabled = owners.scene.isSceneText;
+    input.waterHidden = owners.debug.isWaterHidden;
+    input.terrainHidden = owners.debug.isTerrainHidden;
+    input.cameras = owners.cameras;
+    input.world = &owners.world;
+    input.physics = &owners.physics;
+    input.entities = &owners.sceneController.Entities();
+    input.bodyStore = &Physics::PhysicsEngineStoreQueries::BodyStore( owners.physics );
+    input.colliderStore = &Physics::PhysicsEngineStoreQueries::Colliders( owners.physics );
     input.launcherVisual = &launcherVisual;
     verifier.CaptureFrame( input );
 
@@ -737,13 +724,30 @@ bool ReplayRuntime::CaptureCurrentSolverHash( const ReplayLiveWorld& liveWorld,
         return false;
     }
 
-    outSolverHash = verified->solverHash;
-    outPresentationHash = verified->presentationHash;
-    outBodyCount = verified->bodies.size();
+    outSample = *verified;
     return true;
 }
 
-bool ReplayRuntime::RestoreSolverSampleAsLive( const ReplayLiveWorld& liveWorld,
+
+bool ReplayRuntime::CaptureCurrentSolverHash( const ReplaySolverSampleRestoreContext& owners,
+                                              const ReplaySolverFrameSample& reference,
+                                              uint64_t& outSolverHash,
+                                              uint64_t& outPresentationHash,
+                                              std::size_t& outBodyCount )
+{
+    ReplaySolverFrameSample verified;
+    if ( !CaptureCurrentSolverSample( owners, reference, verified ) )
+    {
+        return false;
+    }
+    outSolverHash = verified.solverHash;
+    outPresentationHash = verified.presentationHash;
+    outBodyCount = verified.bodies.size();
+    return true;
+}
+
+
+bool ReplayRuntime::RestoreSolverSampleAsLive( const ReplayRestoreTransaction& transaction,
                                                const ReplaySolverFrameSample& sample,
                                                char* outReason,
                                                std::size_t reasonSize )
@@ -757,18 +761,15 @@ bool ReplayRuntime::RestoreSolverSampleAsLive( const ReplayLiveWorld& liveWorld,
     };
 
     ReplaySolverFrameSample liveBackup;
-    bool hasLiveBackup = false;
-    if ( const ReplaySolverFrameSample* latest = Solver().LatestSample() )
+    if ( !CaptureCurrentSolverSample( transaction.sampleOwners, sample, liveBackup ) )
     {
-        if ( latest->frameIndex != sample.frameIndex || latest->solverHash != sample.solverHash )
-        {
-            liveBackup = *latest;
-            hasLiveBackup = true;
-        }
+        writeReason( "failed to capture live replay backup" );
+        return false;
     }
+    const bool hasLiveBackup = true;
 
     char applyReason[128] = {};
-    if ( !ApplySolverSampleState( liveWorld, sample, applyReason, sizeof( applyReason ) ) )
+    if ( !ApplySolverSampleState( transaction.sampleOwners, sample, applyReason, sizeof( applyReason ) ) )
     {
         writeReason( applyReason[0] != '\0' ? applyReason : "restore apply failed" );
         return false;
@@ -777,28 +778,41 @@ bool ReplayRuntime::RestoreSolverSampleAsLive( const ReplayLiveWorld& liveWorld,
     uint64_t restoredSolverHash = 0;
     uint64_t restoredPresentationHash = 0;
     std::size_t restoredBodyCount = 0;
-    const bool hashCaptured =
-        CaptureCurrentSolverHash( liveWorld, sample, restoredSolverHash, restoredPresentationHash, restoredBodyCount );
+    const bool hashCaptured = CaptureCurrentSolverHash( transaction.sampleOwners,
+                                                        sample,
+                                                        restoredSolverHash,
+                                                        restoredPresentationHash,
+                                                        restoredBodyCount );
     const bool hashMatched = hashCaptured && restoredSolverHash == sample.solverHash;
     bool fallbackRestored = false;
 
     if ( !hashMatched && hasLiveBackup )
     {
         char fallbackReason[128] = {};
-        fallbackRestored = ApplySolverSampleState( liveWorld, liveBackup, fallbackReason, sizeof( fallbackReason ) );
+        fallbackRestored =
+            ApplySolverSampleState( transaction.sampleOwners, liveBackup, fallbackReason, sizeof( fallbackReason ) );
     }
 
 #ifdef _DEBUG
-    liveWorld.diagnostics.LogReplayRestoreProbe( liveWorld.scene,
-                                                 sample,
-                                                 restoredSolverHash,
-                                                 restoredPresentationHash,
-                                                 restoredBodyCount,
-                                                 hashCaptured,
-                                                 hashMatched,
-                                                 !hashMatched && hasLiveBackup,
-                                                 fallbackRestored );
+    transaction.diagnostics.LogReplayRestoreProbe( transaction.sampleOwners.scene,
+                                                   sample,
+                                                   restoredSolverHash,
+                                                   restoredPresentationHash,
+                                                   restoredBodyCount,
+                                                   hashCaptured,
+                                                   hashMatched,
+                                                   !hashMatched && hasLiveBackup,
+                                                   fallbackRestored );
 #endif
+
+    // Hazard: a recoverable restore failure may return only after the live
+    // backup was reapplied. Continuing from a half-restored solver would make
+    // later physics output nondeterministic, so rollback failure is Lane F.
+    if ( !hashMatched && !fallbackRestored )
+    {
+        SB_FATAL( "Runtime/ReplayRestore",
+                  "Replay restore verification failed and the live backup could not be restored" );
+    }
 
     if ( !hashCaptured )
     {
@@ -821,9 +835,9 @@ bool ReplayRuntime::RestoreSolverSampleAsLive( const ReplayLiveWorld& liveWorld,
     restoredBranch.sourceFrame = sample.frameIndex;
     restoredBranch.sourceSolverHash = sample.solverHash;
     Branch() = restoredBranch;
-    SceneTimelineResetInput reset = liveWorld.timelineReset;
+    SceneTimelineResetInput reset = transaction.timelineReset;
     reset.preserveBranchMetadata = true;
-    ResetSceneTimeline( reset, liveWorld.timelineOwners );
+    ResetSceneTimeline( reset, transaction.timelineOwners );
     RecordEvent( ReplayEventKind::BranchRestore,
                  0,
                  0,
@@ -957,35 +971,45 @@ void Run::Initialise()
                                               SceneState(),
                                               m_startup.gameModelCapacity,
                                               static_cast<uint32_t>( m_launchOptions.generatedObjectTypeOverride ) );
-    const ReplayRuntime::ReplayLiveWorld replayWorld{
-        m_cGameModelCollection,
-        m_cWorldEnvironment,
-        SceneState(),
-        m_runtimeSettings,
-        m_debug,
+    ReplayRuntime::SceneTimelineResetOwners timelineOwners{
+        m_inputRouter,
+        m_interaction,
         m_systems.cameras,
-        m_runtimeTools,
-        m_sceneController,
-        m_simulation,
-        m_config,
-        m_systems,
-        m_launchOptions.generatedObjectTypeOverride,
-        m_startup.gameModelCapacity,
-        m_diagnosticsRuntime,
-        m_runtimeTools.MousePickup(),
-        NormalizeCameraModeForCurrentScene( m_camera.mode ),
-        m_timers.simulationTimer.GetTotalTime(),
-        timelineReset,
-        ReplayRuntime::SceneTimelineResetOwners{
-            m_inputRouter,
-            m_interaction,
-            m_systems.cameras,
-            m_systems.terrain.get(),
-            m_camera,
-            NormalizeCameraModeForCurrentScene( m_replayRuntime.Camera().restoreCameraMode ),
-            m_attachedCamera.activeFollow,
-            m_camera.director.grabbed } };
-    const ReplayRuntime::ReplayStartupResult replayStartup = m_replayRuntime.RunStartupWorkflows( replayWorld );
+        m_systems.terrain.get(),
+        m_camera,
+        NormalizeCameraModeForCurrentScene( m_replayRuntime.Camera().restoreCameraMode ),
+        m_attachedCamera.activeFollow,
+        m_camera.director.grabbed };
+    const ReplayRuntime::ReplayStartupLoadInput loadInput{ m_timers.simulationTimer.GetTotalTime(),
+                                                           m_systems.cameras,
+                                                           m_runtimeTools.MousePickup(),
+                                                           NormalizeCameraModeForCurrentScene( m_camera.mode ),
+                                                           timelineOwners };
+#ifdef _DEBUG
+    const ReplayProbeWorld probeWorld{ m_cGameModelCollection,
+                                       m_cWorldEnvironment,
+                                       SceneState(),
+                                       m_runtimeSettings,
+                                       m_debug,
+                                       m_systems.cameras,
+                                       m_runtimeTools,
+                                       m_sceneController,
+                                       m_simulation,
+                                       m_config,
+                                       m_systems,
+                                       m_launchOptions.generatedObjectTypeOverride,
+                                       m_startup.gameModelCapacity,
+                                       m_diagnosticsRuntime,
+                                       m_runtimeTools.MousePickup(),
+                                       NormalizeCameraModeForCurrentScene( m_camera.mode ),
+                                       m_timers.simulationTimer.GetTotalTime(),
+                                       timelineReset,
+                                       timelineOwners };
+    const ReplayRuntime::ReplayStartupResult replayStartup =
+        m_replayRuntime.RunStartupWorkflows( loadInput, probeWorld );
+#else
+    const ReplayRuntime::ReplayStartupResult replayStartup = m_replayRuntime.RunStartupWorkflows( loadInput );
+#endif
     if ( !replayStartup.status.ok )
     {
         m_lastSceneLoadResult = replayStartup.status;

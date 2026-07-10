@@ -6,7 +6,7 @@ Purpose:
 Mental model:
   ReplayRuntime drives cold validation and restore workflows using a frame-scoped
   live-owner view. It applies a checkpoint, replays supported events, verifies
-  the target hash, and rolls back the live state on any failed transaction.
+  the target hash, and rolls back before returning any recoverable failure.
 
 Glossary:
   Replay probe: CLI/debug validation path that proves scrub, save/load, or
@@ -18,7 +18,7 @@ Glossary:
 
 Invariants:
   - Restore failures report Lane R results or bounded reason strings; they do
-    not throw.
+    not throw. A rollback failure is a fatal replay invariant.
   - Replay restore uses PhysicsBodyStore and ColliderStore rows as authority.
   - Target restore must keep solver hashes byte-exact against saved v2 hashes.
 
@@ -31,8 +31,11 @@ Related:
 #include "../RuntimeTuning.h"
 #include "../Editor/EditorTools.h"
 #include "ReplayInteractionController.h"
+#include "ReplayRestoreService.h"
+#include "ReplayRuntimeOwnerViews.h"
 #include "ReplayV2Artifact.h"
 
+#include "../../Core/FatalError.h"
 #include "../../Physics/ColliderStore.h"
 #include "../../Physics/PhysicsApi.h"
 #include "../../Physics/PhysicsEngineStoreQueries.h"
@@ -1939,7 +1942,12 @@ void ReplayRuntime::ConfigureStartupWorkflows( const ReplayStartupRequest& reque
 }
 
 
-ReplayRuntime::ReplayStartupResult ReplayRuntime::RunStartupWorkflows( const ReplayLiveWorld& liveWorld )
+ReplayRuntime::ReplayStartupResult ReplayRuntime::RunStartupWorkflows( const ReplayStartupLoadInput& loadInput
+#ifdef _DEBUG
+                                                                       ,
+                                                                       const ReplayProbeWorld& probeWorld
+#endif
+)
 {
     ReplayStartupResult result;
 #ifdef _DEBUG
@@ -1952,17 +1960,17 @@ ReplayRuntime::ReplayStartupResult ReplayRuntime::RunStartupWorkflows( const Rep
     if ( m_startupWorkflows.loadPath[0] != '\0' &&
          !LoadPresentationArtifact( m_startupWorkflows.loadPath,
                                     true,
-                                    liveWorld.now,
-                                    liveWorld.timelineOwners.inputRouter,
-                                    liveWorld.timelineOwners.interaction,
-                                    liveWorld.cameras,
-                                    liveWorld.timelineOwners.terrain,
-                                    liveWorld.timelineOwners.camera,
-                                    liveWorld.mousePickup,
-                                    liveWorld.normalizedCurrentMode,
-                                    liveWorld.timelineOwners.normalizedRestoreMode,
-                                    liveWorld.timelineOwners.attachedFollow,
-                                    liveWorld.timelineOwners.directorGrabbed ) )
+                                    loadInput.now,
+                                    loadInput.timelineOwners.inputRouter,
+                                    loadInput.timelineOwners.interaction,
+                                    loadInput.cameras,
+                                    loadInput.timelineOwners.terrain,
+                                    loadInput.timelineOwners.camera,
+                                    loadInput.mousePickup,
+                                    loadInput.normalizedCurrentMode,
+                                    loadInput.timelineOwners.normalizedRestoreMode,
+                                    loadInput.timelineOwners.attachedFollow,
+                                    loadInput.timelineOwners.directorGrabbed ) )
     {
         result.status = SbResult::Failure( "Runtime/ReplayLoad", "failed to load replay v2 presentation artifact" );
         return result;
@@ -1986,28 +1994,28 @@ ReplayRuntime::ReplayStartupResult ReplayRuntime::RunStartupWorkflows( const Rep
             result.status = SbResult::Failure( REPLAY_PROBE_OWNER, "replay load probe requires a replay path" );
             return result;
         }
-        if ( !acceptProbe( VerifyLoadedPresentationProbe( liveWorld, 0.25f ) ) )
+        if ( !acceptProbe( VerifyLoadedPresentationProbe( probeWorld, 0.25f ) ) )
         {
             return result;
         }
     }
     if ( m_startupWorkflows.checkpointProbePath[0] != '\0' &&
-         !acceptProbe( VerifySolverCheckpointFileProbe( liveWorld, m_startupWorkflows.checkpointProbePath ) ) )
+         !acceptProbe( VerifySolverCheckpointFileProbe( probeWorld, m_startupWorkflows.checkpointProbePath ) ) )
     {
         return result;
     }
     if ( m_startupWorkflows.targetProbePath[0] != '\0' &&
-         !acceptProbe( VerifySolverTargetFileProbe( liveWorld, m_startupWorkflows.targetProbePath ) ) )
+         !acceptProbe( VerifySolverTargetFileProbe( probeWorld, m_startupWorkflows.targetProbePath ) ) )
     {
         return result;
     }
     if ( m_startupWorkflows.branchProbePath[0] != '\0' &&
-         !acceptProbe( VerifySolverBranchFileProbe( liveWorld, m_startupWorkflows.branchProbePath ) ) )
+         !acceptProbe( VerifySolverBranchFileProbe( probeWorld, m_startupWorkflows.branchProbePath ) ) )
     {
         return result;
     }
     if ( m_startupWorkflows.failureProbePath[0] != '\0' &&
-         !acceptProbe( VerifySolverFailureFileProbe( liveWorld, m_startupWorkflows.failureProbePath ) ) )
+         !acceptProbe( VerifySolverFailureFileProbe( probeWorld, m_startupWorkflows.failureProbePath ) ) )
     {
         return result;
     }
@@ -2021,7 +2029,36 @@ ReplayRuntime::ReplayStartupResult ReplayRuntime::RunStartupWorkflows( const Rep
 }
 
 #ifdef _DEBUG
-ReplayRuntime::ReplayProbeTickResult ReplayRuntime::TickProbes( const ReplayLiveWorld& liveWorld )
+namespace
+{
+struct ReplayProbeRestoreOperands
+{
+    explicit ReplayProbeRestoreOperands( const ReplayProbeWorld& world )
+        : sample{ world.models,
+                  world.models.GetPhysicsEngine(),
+                  world.sceneController,
+                  world.world,
+                  world.scene,
+                  world.runtimeSettings,
+                  world.debug,
+                  world.cameras,
+                  world.runtimeTools },
+          transaction{ sample, world.diagnostics, world.timelineReset, world.timelineOwners },
+          topology{ world.simulation,
+                    world.config,
+                    world.systems,
+                    world.generatedObjectTypeOverride,
+                    world.gameModelCapacity }
+    {
+    }
+
+    ReplaySolverSampleRestoreContext sample;
+    ReplayRuntime::ReplayRestoreTransaction transaction;
+    ReplayRuntime::ReplayArtifactTopologyOwners topology;
+};
+} // namespace
+
+ReplayRuntime::ReplayProbeTickResult ReplayRuntime::TickProbes( const ReplayProbeWorld& liveWorld )
 {
     ReplayProbeTickResult result;
     result.status = TickScrubProbe( liveWorld );
@@ -2041,7 +2078,7 @@ ReplayRuntime::ReplayProbeTickResult ReplayRuntime::TickProbes( const ReplayLive
 }
 
 
-SbResult ReplayRuntime::TickScrubProbe( const ReplayLiveWorld& liveWorld )
+SbResult ReplayRuntime::TickScrubProbe( const ReplayProbeWorld& liveWorld )
 {
     auto distanceSquared = []( const Math::Vector::Vector3& a, const Math::Vector::Vector3& b ) -> float
     {
@@ -2190,7 +2227,7 @@ SbResult ReplayRuntime::TickScrubProbe( const ReplayLiveWorld& liveWorld )
     return SbResult::Success();
 }
 
-SbResult ReplayRuntime::TickRestoreProbe( const ReplayLiveWorld& liveWorld )
+SbResult ReplayRuntime::TickRestoreProbe( const ReplayProbeWorld& liveWorld )
 {
     if ( !m_probes.restore.enabled || m_probes.restore.completed )
     {
@@ -2218,7 +2255,8 @@ SbResult ReplayRuntime::TickRestoreProbe( const ReplayLiveWorld& liveWorld )
     const ReplayFrameIndex latestFrame = latestSample->frameIndex;
     const uint64_t selectedHash = selected.solverHash;
     char reason[160] = {};
-    const bool restored = RestoreSolverSampleAsLive( liveWorld, selected, reason, sizeof( reason ) );
+    ReplayProbeRestoreOperands operands( liveWorld );
+    const bool restored = RestoreSolverSampleAsLive( operands.transaction, selected, reason, sizeof( reason ) );
     if ( !restored )
     {
         return SbResult::Failure( REPLAY_PROBE_OWNER,
@@ -2236,7 +2274,7 @@ SbResult ReplayRuntime::TickRestoreProbe( const ReplayLiveWorld& liveWorld )
     return SbResult::Success();
 }
 
-SbResult ReplayRuntime::TickSaveProbe( const ReplayLiveWorld& liveWorld, bool& outEnterInteractive )
+SbResult ReplayRuntime::TickSaveProbe( const ReplayProbeWorld& liveWorld, bool& outEnterInteractive )
 {
     outEnterInteractive = false;
     if ( !m_probes.save.enabled || m_probes.save.completed )
@@ -2280,7 +2318,7 @@ SbResult ReplayRuntime::TickSaveProbe( const ReplayLiveWorld& liveWorld, bool& o
     return ValidateReplaySaveProbeArtifact( artifactContext );
 }
 
-SbResult ReplayRuntime::VerifyLoadedPresentationProbe( const ReplayLiveWorld& liveWorld, float normalized )
+SbResult ReplayRuntime::VerifyLoadedPresentationProbe( const ReplayProbeWorld& liveWorld, float normalized )
 {
     const auto enterInspectionCamera = [&]()
     {
@@ -2443,7 +2481,7 @@ SbResult ReplayRuntime::VerifyLoadedPresentationProbe( const ReplayLiveWorld& li
     return SbResult::Success();
 }
 
-SbResult ReplayRuntime::VerifySolverCheckpointFileProbe( const ReplayLiveWorld& liveWorld, const char* path )
+SbResult ReplayRuntime::VerifySolverCheckpointFileProbe( const ReplayProbeWorld& liveWorld, const char* path )
 {
     if ( !path || path[0] == '\0' )
     {
@@ -2467,7 +2505,8 @@ SbResult ReplayRuntime::VerifySolverCheckpointFileProbe( const ReplayLiveWorld& 
         return ReplayProbeFailure( "replay restore file probe loaded a checkpoint without an event cursor" );
     }
     char reason[160] = {};
-    if ( !RestoreSolverSampleAsLive( liveWorld, checkpoint, reason, sizeof( reason ) ) )
+    ReplayProbeRestoreOperands operands( liveWorld );
+    if ( !RestoreSolverSampleAsLive( operands.transaction, checkpoint, reason, sizeof( reason ) ) )
     {
         return SbResult::Failure( REPLAY_PROBE_OWNER,
                                   "replay restore file probe failed: %s",
@@ -2488,13 +2527,36 @@ SbResult ReplayRuntime::VerifySolverCheckpointFileProbe( const ReplayLiveWorld& 
 }
 #endif
 
-bool ReplayRuntime::RestoreV2ArtifactTargetState( const ReplayLiveWorld& liveWorld,
+bool ReplayRuntime::RestoreV2ArtifactTargetState( const ReplayRestoreTransaction& transaction,
+                                                  const ReplayArtifactTopologyOwners& topologyOwners,
                                                   const char* path,
                                                   ReplayFrameIndex requestedFrame,
                                                   bool makeLiveBranch,
                                                   RunReplayV2TargetRestoreResult& outResult,
                                                   char* outReason,
                                                   std::size_t reasonSize )
+{
+    return RestoreV2ArtifactTargetStateImpl( transaction,
+                                             topologyOwners,
+                                             path,
+                                             requestedFrame,
+                                             makeLiveBranch,
+                                             false,
+                                             outResult,
+                                             outReason,
+                                             reasonSize );
+}
+
+
+bool ReplayRuntime::RestoreV2ArtifactTargetStateImpl( const ReplayRestoreTransaction& transaction,
+                                                      const ReplayArtifactTopologyOwners& topologyOwners,
+                                                      const char* path,
+                                                      ReplayFrameIndex requestedFrame,
+                                                      bool makeLiveBranch,
+                                                      bool injectTargetHashMismatchForProbe,
+                                                      RunReplayV2TargetRestoreResult& outResult,
+                                                      char* outReason,
+                                                      std::size_t reasonSize )
 {
     outResult = RunReplayV2TargetRestoreResult();
     auto writeReason = [outReason, reasonSize]( const char* reason )
@@ -2515,8 +2577,8 @@ bool ReplayRuntime::RestoreV2ArtifactTargetState( const ReplayLiveWorld& liveWor
                                    bool fallbackAttempted = false,
                                    bool fallbackRestored = false ) -> bool
     {
-        LogReplayV2TargetRestoreDiagnostic( liveWorld.diagnostics,
-                                            liveWorld.scene,
+        LogReplayV2TargetRestoreDiagnostic( transaction.diagnostics,
+                                            transaction.sampleOwners.scene,
                                             restoreSource,
                                             requestedFrame,
                                             LATEST_NON_CHECKPOINT_TARGET,
@@ -2548,13 +2610,28 @@ bool ReplayRuntime::RestoreV2ArtifactTargetState( const ReplayLiveWorld& liveWor
         return failWithDiagnostic( restoreSetupReason, target, checkpoint );
     }
 
-    ReplaySolverFrameSample liveBackup;
-    bool hasLiveBackup = false;
-    if ( const ReplaySolverFrameSample* latest = Solver().LatestSample() )
+#ifdef _DEBUG
+    ReplayV2SolverHashSample injectedTarget;
+    if ( injectTargetHashMismatchForProbe )
     {
-        liveBackup = *latest;
-        hasLiveBackup = true;
+        // Why: the Debug failure probe owns this private seam so the named v2
+        // gate can force a post-mutation verification failure and prove rollback.
+        // Delete it when target verification accepts an independently testable
+        // value program that can supply a mismatched expected hash directly.
+        injectedTarget = *target;
+        injectedTarget.solverHash ^= 1ull;
+        target = &injectedTarget;
     }
+#else
+    (void)injectTargetHashMismatchForProbe;
+#endif
+
+    ReplaySolverFrameSample liveBackup;
+    if ( !CaptureCurrentSolverSample( transaction.sampleOwners, *checkpoint, liveBackup ) )
+    {
+        return failWithDiagnostic( "failed to capture live state before restore", target, checkpoint );
+    }
+    const bool hasLiveBackup = true;
     bool stateMutated = false;
 
     auto failAfterMutation = [&]( const char* message,
@@ -2566,11 +2643,43 @@ bool ReplayRuntime::RestoreV2ArtifactTargetState( const ReplayLiveWorld& liveWor
                                   bool hashMatched = false ) -> bool
     {
         bool fallbackRestored = false;
-        if ( stateMutated && hasLiveBackup )
+        if ( stateMutated )
         {
+            if ( !hasLiveBackup )
+            {
+                SB_FATAL( "Runtime/ReplayRestore",
+                          "V2 restore mutated live state without retaining a rollback sample" );
+            }
             char fallbackReason[128] = {};
-            fallbackRestored =
-                ApplySolverSampleState( liveWorld, liveBackup, fallbackReason, sizeof( fallbackReason ) );
+            fallbackRestored = ApplySolverSampleState( transaction.sampleOwners,
+                                                       liveBackup,
+                                                       fallbackReason,
+                                                       sizeof( fallbackReason ) );
+            // Hazard: recoverable artifact errors must not return control with
+            // a partially rebuilt scene. Failure to reapply the retained live
+            // sample is a Lane F replay invariant, not a usable runtime state.
+            if ( !fallbackRestored )
+            {
+                SB_FATAL( "Runtime/ReplayRestore",
+                          "V2 restore rollback failed after live state mutation: %s",
+                          fallbackReason[0] != '\0' ? fallbackReason : "unknown rollback failure" );
+            }
+
+            uint64_t rollbackSolverHash = 0;
+            uint64_t rollbackPresentationHash = 0;
+            std::size_t rollbackBodyCount = 0;
+            if ( !CaptureCurrentSolverHash( transaction.sampleOwners,
+                                            liveBackup,
+                                            rollbackSolverHash,
+                                            rollbackPresentationHash,
+                                            rollbackBodyCount ) ||
+                 rollbackSolverHash != liveBackup.solverHash )
+            {
+                SB_FATAL( "Runtime/ReplayRestore",
+                          "V2 restore rollback hash mismatch: restored=0x%016llX expected=0x%016llX",
+                          static_cast<unsigned long long>( rollbackSolverHash ),
+                          static_cast<unsigned long long>( liveBackup.solverHash ) );
+            }
         }
         return failWithDiagnostic( message,
                                    diagnosticTarget,
@@ -2586,16 +2695,16 @@ bool ReplayRuntime::RestoreV2ArtifactTargetState( const ReplayLiveWorld& liveWor
 
     bool generatedTopologyRebuilt = false;
     char topologyReason[320] = {};
-    ReplayRestoreOwnerContext restoreOwnerContext{ liveWorld.runtimeTools,
-                                                   liveWorld.simulation,
-                                                   liveWorld.sceneController,
-                                                   liveWorld.scene,
-                                                   liveWorld.config,
-                                                   liveWorld.systems,
-                                                   liveWorld.world,
-                                                   liveWorld.models,
-                                                   liveWorld.generatedObjectTypeOverride,
-                                                   liveWorld.gameModelCapacity };
+    ReplayRestoreOwnerContext restoreOwnerContext{ transaction.sampleOwners.runtimeTools,
+                                                   topologyOwners.simulation,
+                                                   transaction.sampleOwners.sceneController,
+                                                   transaction.sampleOwners.scene,
+                                                   topologyOwners.config,
+                                                   topologyOwners.systems,
+                                                   transaction.sampleOwners.world,
+                                                   transaction.sampleOwners.presentations,
+                                                   topologyOwners.generatedObjectTypeOverride,
+                                                   topologyOwners.gameModelCapacity };
     if ( !EnsureReplayRestoreCheckpointTopology( restoreOwnerContext,
                                                  artifact,
                                                  *checkpoint,
@@ -2612,18 +2721,20 @@ bool ReplayRuntime::RestoreV2ArtifactTargetState( const ReplayLiveWorld& liveWor
              *checkpoint,
              checkpointReason,
              sizeof( checkpointReason ),
-             [this, &liveWorld]( const ReplaySolverFrameSample& sample, char* reason, std::size_t reasonSize )
-             { return ApplySolverSampleState( liveWorld, sample, reason, reasonSize ); } ) )
+             [this, &transaction]( const ReplaySolverFrameSample& sample, char* reason, std::size_t reasonSize )
+             { return ApplySolverSampleState( transaction.sampleOwners, sample, reason, reasonSize ); } ) )
     {
         return failWithDiagnostic( checkpointReason, target, checkpoint );
     }
     stateMutated = true;
 
-    auto captureCurrentReplaySolverHash = [this, &liveWorld]( const ReplaySolverFrameSample& reference,
-                                                              uint64_t& solverHash,
-                                                              uint64_t& presentationHash,
-                                                              std::size_t& bodyCount )
-    { return CaptureCurrentSolverHash( liveWorld, reference, solverHash, presentationHash, bodyCount ); };
+    auto captureCurrentReplaySolverHash = [this, &transaction]( const ReplaySolverFrameSample& reference,
+                                                                uint64_t& solverHash,
+                                                                uint64_t& presentationHash,
+                                                                std::size_t& bodyCount )
+    {
+        return CaptureCurrentSolverHash( transaction.sampleOwners, reference, solverHash, presentationHash, bodyCount );
+    };
     auto requestInteractiveSceneRun = [&outResult]() { outResult.enterInteractiveRequested = true; };
 
     ReplayRestoreStepResult stepResult;
@@ -2669,8 +2780,8 @@ bool ReplayRuntime::RestoreV2ArtifactTargetState( const ReplayLiveWorld& liveWor
                                        stepResult,
                                        targetHash,
                                        generatedTopologyRebuilt );
-    LogReplayRestoreTargetSuccess( liveWorld.diagnostics,
-                                   liveWorld.scene,
+    LogReplayRestoreTargetSuccess( transaction.diagnostics,
+                                   transaction.sampleOwners.scene,
                                    restoreSource,
                                    requestedFrame,
                                    LATEST_NON_CHECKPOINT_TARGET,
@@ -2684,11 +2795,11 @@ bool ReplayRuntime::RestoreV2ArtifactTargetState( const ReplayLiveWorld& liveWor
                                       *checkpoint,
                                       *target,
                                       outResult,
-                                      [this, &liveWorld]()
+                                      [this, &transaction]()
                                       {
-                                          SceneTimelineResetInput reset = liveWorld.timelineReset;
+                                          SceneTimelineResetInput reset = transaction.timelineReset;
                                           reset.preserveBranchMetadata = true;
-                                          ResetSceneTimeline( reset, liveWorld.timelineOwners );
+                                          ResetSceneTimeline( reset, transaction.timelineOwners );
                                       } );
     }
 
@@ -2697,11 +2808,13 @@ bool ReplayRuntime::RestoreV2ArtifactTargetState( const ReplayLiveWorld& liveWor
 }
 
 #ifdef _DEBUG
-SbResult ReplayRuntime::VerifySolverTargetFileProbe( const ReplayLiveWorld& liveWorld, const char* path )
+SbResult ReplayRuntime::VerifySolverTargetFileProbe( const ReplayProbeWorld& liveWorld, const char* path )
 {
     RunReplayV2TargetRestoreResult result;
     char reason[256] = {};
-    if ( !RestoreV2ArtifactTargetState( liveWorld,
+    ReplayProbeRestoreOperands operands( liveWorld );
+    if ( !RestoreV2ArtifactTargetState( operands.transaction,
+                                        operands.topology,
                                         path,
                                         ( std::numeric_limits<ReplayFrameIndex>::max )(),
                                         false,
@@ -2735,12 +2848,14 @@ SbResult ReplayRuntime::VerifySolverTargetFileProbe( const ReplayLiveWorld& live
     return SbResult::Success();
 }
 
-SbResult ReplayRuntime::VerifySolverFailureFileProbe( const ReplayLiveWorld& liveWorld, const char* path )
+SbResult ReplayRuntime::VerifySolverFailureFileProbe( const ReplayProbeWorld& liveWorld, const char* path )
 {
     constexpr ReplayFrameIndex MISSING_TARGET_FRAME = 999999999u;
     RunReplayV2TargetRestoreResult result;
     char reason[256] = {};
-    if ( RestoreV2ArtifactTargetState( liveWorld,
+    ReplayProbeRestoreOperands operands( liveWorld );
+    if ( RestoreV2ArtifactTargetState( operands.transaction,
+                                       operands.topology,
                                        path,
                                        MISSING_TARGET_FRAME,
                                        false,
@@ -2757,14 +2872,62 @@ SbResult ReplayRuntime::VerifySolverFailureFileProbe( const ReplayLiveWorld& liv
                                   reason[0] != '\0' ? reason : "unknown restore failure" );
     }
 
-    printf( "[replay] Restore failure probe passed: path=%s missing_frame=%llu reason=\"%s\"\n",
+    ReplaySolverFrameSample liveReference;
+    liveReference.physicsDt = PHYSICS_FIXED_DT;
+    ReplaySolverFrameSample liveBackup;
+    if ( !CaptureCurrentSolverSample( operands.sample, liveReference, liveBackup ) )
+    {
+        return ReplayProbeFailure( "replay restore failure probe could not capture the live rollback sample" );
+    }
+    RunReplayV2TargetRestoreResult hashFailureResult;
+    char hashFailureReason[256] = {};
+    if ( RestoreV2ArtifactTargetStateImpl( operands.transaction,
+                                           operands.topology,
+                                           path,
+                                           ( std::numeric_limits<ReplayFrameIndex>::max )(),
+                                           false,
+                                           true,
+                                           hashFailureResult,
+                                           hashFailureReason,
+                                           sizeof( hashFailureReason ) ) )
+    {
+        return ReplayProbeFailure( "replay restore hash-failure probe unexpectedly restored a corrupted target" );
+    }
+    if ( strstr( hashFailureReason, "solver hash mismatch" ) == nullptr )
+    {
+        return SbResult::Failure( REPLAY_PROBE_OWNER,
+                                  "replay restore hash-failure probe produced an unexpected reason: %s",
+                                  hashFailureReason[0] != '\0' ? hashFailureReason : "unknown restore failure" );
+    }
+
+    uint64_t rollbackSolverHash = 0;
+    uint64_t rollbackPresentationHash = 0;
+    std::size_t rollbackBodyCount = 0;
+    if ( !CaptureCurrentSolverHash( operands.sample,
+                                    liveBackup,
+                                    rollbackSolverHash,
+                                    rollbackPresentationHash,
+                                    rollbackBodyCount ) ||
+         rollbackSolverHash != liveBackup.solverHash )
+    {
+        return SbResult::Failure( REPLAY_PROBE_OWNER,
+                                  "replay restore hash-failure probe did not roll back the live solver: "
+                                  "restored=0x%016llX expected=0x%016llX",
+                                  static_cast<unsigned long long>( rollbackSolverHash ),
+                                  static_cast<unsigned long long>( liveBackup.solverHash ) );
+    }
+
+    printf( "[replay] Restore failure probe passed: path=%s missing_frame=%llu reason=\"%s\" "
+            "rollback_solver_hash=0x%016llX hash_failure_reason=\"%s\"\n",
             path,
             static_cast<unsigned long long>( MISSING_TARGET_FRAME ),
-            reason );
+            reason,
+            static_cast<unsigned long long>( rollbackSolverHash ),
+            hashFailureReason );
     return SbResult::Success();
 }
 
-SbResult ReplayRuntime::VerifySolverBranchFileProbe( const ReplayLiveWorld& liveWorld, const char* path )
+SbResult ReplayRuntime::VerifySolverBranchFileProbe( const ReplayProbeWorld& liveWorld, const char* path )
 {
     if ( !LoadPresentationArtifact( path,
                                     true,
@@ -2796,7 +2959,9 @@ SbResult ReplayRuntime::VerifySolverBranchFileProbe( const ReplayLiveWorld& live
                                   "replay restore branch probe failed: %s",
                                   reason[0] != '\0' ? reason : "failed to build restore request" );
     }
-    const bool restored = RestoreV2ArtifactTargetState( liveWorld,
+    ReplayProbeRestoreOperands operands( liveWorld );
+    const bool restored = RestoreV2ArtifactTargetState( operands.transaction,
+                                                        operands.topology,
                                                         request.path,
                                                         request.requestedFrame,
                                                         request.makeLiveBranch,

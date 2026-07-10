@@ -33,6 +33,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "RunInternal.h"
+#include "Replay/ReplayRuntimeOwnerViews.h"
 #include "RunDemoDirector.h"
 #include "Scene/SceneRuntimeLoad.h"
 
@@ -907,7 +908,7 @@ void Run::AfterPhysicsStep()
             SceneState(),
             m_startup.gameModelCapacity,
             static_cast<uint32_t>( m_launchOptions.generatedObjectTypeOverride ) );
-        const ReplayRuntime::ReplayLiveWorld replayWorld{
+        const ReplayProbeWorld replayWorld{
             m_cGameModelCollection,
             m_cWorldEnvironment,
             SceneState(),

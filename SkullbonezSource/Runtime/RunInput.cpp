@@ -36,6 +36,8 @@ Related:
 #include "InputController.Bindings.h"
 #include "InputController.h"
 #include "Replay/ReplayOverlayLayout.h"
+#include "Replay/ReplayRestoreService.h"
+#include "Replay/ReplayRuntimeOwnerViews.h"
 #include "RunDemoDirector.h"
 #include "RuntimeInteractionCommands.h"
 #include "RuntimePickService.h"
@@ -2814,36 +2816,35 @@ void Run::TakeInput()
             SceneState(),
             m_startup.gameModelCapacity,
             static_cast<uint32_t>( m_launchOptions.generatedObjectTypeOverride ) );
-        const ReplayRuntime::ReplayLiveWorld liveWorld{
-            m_cGameModelCollection,
-            m_cWorldEnvironment,
-            SceneState(),
-            m_runtimeSettings,
-            m_debug,
+        ReplaySolverSampleRestoreContext sampleOwners{ m_cGameModelCollection,
+                                                       m_cGameModelCollection.GetPhysicsEngine(),
+                                                       m_sceneController,
+                                                       m_cWorldEnvironment,
+                                                       SceneState(),
+                                                       m_runtimeSettings,
+                                                       m_debug,
+                                                       m_systems.cameras,
+                                                       m_runtimeTools };
+        ReplayRuntime::SceneTimelineResetOwners timelineOwners{
+            m_inputRouter,
+            m_interaction,
             m_systems.cameras,
-            m_runtimeTools,
-            m_sceneController,
-            m_simulation,
-            m_config,
-            m_systems,
-            m_launchOptions.generatedObjectTypeOverride,
-            m_startup.gameModelCapacity,
-            m_diagnosticsRuntime,
-            m_runtimeTools.MousePickup(),
-            NormalizeCameraModeForCurrentScene( m_camera.mode ),
-            m_timers.simulationTimer.GetTotalTime(),
-            timelineReset,
-            ReplayRuntime::SceneTimelineResetOwners{
-                m_inputRouter,
-                m_interaction,
-                m_systems.cameras,
-                m_systems.terrain.get(),
-                m_camera,
-                NormalizeCameraModeForCurrentScene( m_replayRuntime.Camera().restoreCameraMode ),
-                m_attachedCamera.activeFollow,
-                m_camera.director.grabbed } };
+            m_systems.terrain.get(),
+            m_camera,
+            NormalizeCameraModeForCurrentScene( m_replayRuntime.Camera().restoreCameraMode ),
+            m_attachedCamera.activeFollow,
+            m_camera.director.grabbed };
+        const ReplayRuntime::ReplayRestoreTransaction transaction{ sampleOwners,
+                                                                   m_diagnosticsRuntime,
+                                                                   timelineReset,
+                                                                   timelineOwners };
+        const ReplayRuntime::ReplayArtifactTopologyOwners topologyOwners{ m_simulation,
+                                                                          m_config,
+                                                                          m_systems,
+                                                                          m_launchOptions.generatedObjectTypeOverride,
+                                                                          m_startup.gameModelCapacity };
         const ReplayRuntime::ReplayLiveRestoreOutcome restoreOutcome =
-            m_replayRuntime.ApplyLiveRestoreRequest( liveWorld, restoreRequest );
+            m_replayRuntime.ApplyLiveRestoreRequest( transaction, topologyOwners, restoreRequest );
         if ( restoreOutcome.enterInteractive )
         {
             EnterInteractiveSceneRun();

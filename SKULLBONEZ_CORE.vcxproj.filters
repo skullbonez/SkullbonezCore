@@ -875,6 +875,9 @@
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayRuntime.h">
       <Filter>Header Files\Runtime\Replay</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayRuntimeOwnerViews.h">
+      <Filter>Header Files\Runtime\Replay</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplaySolverSnapshot.h">
       <Filter>Header Files\Runtime\Replay</Filter>
     </ClInclude>
