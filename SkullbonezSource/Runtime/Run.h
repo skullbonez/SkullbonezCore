@@ -247,7 +247,6 @@ class Run
     SbResult RebuildRegisteredRenderResources();                        // Recreates renderer resources from source asset records.
     void SetViewingOrientation();                                       // Camera-view setup for the current frame.
     SbResult SaveScreenshot( const char* path );                        // Lane R backbuffer capture result; current encoder writes BMP files.
-    bool SaveCurrentSceneDefaults();                                    // UI-controlled scene defaults persisted to the active scene file.
     void EnterInteractiveSceneRun();                                    // Locks scene automation into non-quitting interactive mode
     bool CanSceneAutomationQuit() const;                                // True for CLI suites/tests; false once the user owns scene flow
     void HoldCompletedInteractiveScene();                               // Keep the current scene alive after interactive automation completes

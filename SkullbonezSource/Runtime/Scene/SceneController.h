@@ -47,13 +47,33 @@ namespace GameObjects
 {
 class GameModelCollection;
 }
+namespace Environment
+{
+class CameraCollection;
+class WorldEnvironment;
+} // namespace Environment
 namespace Physics
 {
 class PhysicsEngine;
 }
 namespace Basics
 {
+struct RunCameraState;
+struct RunDebugState;
+struct RunRuntimeSettings;
 struct SceneRuntimeControlAction;
+struct SceneDefaultsSaveView
+{
+    // Lifetime: every owner is borrowed only for one synchronous cold save.
+    // The writer retains no pointers across a scene reload.
+    GameObjects::GameModelCollection& models;
+    Environment::WorldEnvironment& world;
+    Environment::CameraCollection& cameras;
+    const RunDebugState& debug;
+    const RunRuntimeSettings& runtimeSettings;
+    const RunCameraState& camera;
+};
+
 class SceneController
 {
   public:
@@ -103,6 +123,7 @@ class SceneController
     SceneRuntimeControlAction
     ResetCurrentScene( bool preserveUIState, bool suppressExitOnComplete, bool preserveRuntimeState );
     SceneRuntimeControlAction AdvanceScene( bool perfTestActive, int& perfPass, bool preserveInteractiveUI );
+    SbResult SaveCurrentDefaults( const SceneDefaultsSaveView& view ) const;
 
     // Scene request submission stays owner-specific even while Run temporarily
     // executes the returned batch during lifecycle extraction C1.

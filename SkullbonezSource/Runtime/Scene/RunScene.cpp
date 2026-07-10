@@ -1181,34 +1181,35 @@ SbResult Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnCom
 }
 
 
-bool Run::SaveCurrentSceneDefaults()
+// Concept: save authority belongs to the scene owner. The view is a synchronous
+// read-only join over concrete world/presentation owners; it is never retained
+// and does not allow the writer to recover Run or collection-order identity.
+SbResult SceneController::SaveCurrentDefaults( const SceneDefaultsSaveView& view ) const
 {
-    const std::string* scenePath = m_sceneController.CurrentPath();
-    if ( !SceneState().isSceneMode || !scenePath || scenePath->empty() )
+    const std::string* scenePath = CurrentPath();
+    if ( !State().isSceneMode || !scenePath || scenePath->empty() )
     {
-        return false;
+        return SbResult::Failure( "Runtime/SceneController", "No authored scene is active for defaults save" );
     }
-    if ( SceneState().isEditableScene )
+    if ( State().isEditableScene )
     {
         const SbResult saveResult = SaveCurrentEditableSceneSnapshot( *scenePath,
-                                                                      SceneState(),
-                                                                      m_sceneController.Entities(),
-                                                                      m_cGameModelCollection,
-                                                                      m_cWorldEnvironment,
-                                                                      *m_systems.cameras,
-                                                                      m_debug.isWaterHidden,
-                                                                      m_debug.isTerrainHidden );
-        if ( !saveResult.ok )
-        {
-            fprintf( stderr, "[%s] %s\n", saveResult.error.owner, saveResult.error.message );
-        }
-        return saveResult.ok;
+                                                                      State(),
+                                                                      Entities(),
+                                                                      view.models,
+                                                                      view.world,
+                                                                      view.cameras,
+                                                                      view.debug.isWaterHidden,
+                                                                      view.debug.isTerrainHidden );
+        return saveResult;
     }
 
     std::ifstream input( *scenePath );
     if ( !input )
     {
-        return false;
+        return SbResult::Failure( "Runtime/SceneController",
+                                  "Could not read active scene defaults file: %s",
+                                  scenePath->c_str() );
     }
 
     Json root;
@@ -1218,12 +1219,16 @@ bool Run::SaveCurrentSceneDefaults()
     }
     catch ( const std::exception& )
     {
-        return false;
+        return SbResult::Failure( "Runtime/SceneController",
+                                  "Active scene defaults file is not valid JSON: %s",
+                                  scenePath->c_str() );
     }
 
     if ( !root.is_object() )
     {
-        return false;
+        return SbResult::Failure( "Runtime/SceneController",
+                                  "Active scene defaults root is not an object: %s",
+                                  scenePath->c_str() );
     }
 
     root["format"] = "skullbonez.scene.json";
@@ -1235,61 +1240,61 @@ bool Run::SaveCurrentSceneDefaults()
     Json& physicsDebug = EnsureJsonObject( debug, "physics" );
     Json& world = EnsureJsonObject( simulation, "world" );
 
-    simulation["physics"] = SceneState().isScenePhysics;
-    simulation["text"] = SceneState().isSceneText;
-    simulation["textOnly"] = m_debug.isTextOnly;
-    runtime["vsync"] = m_runtimeSettings.isVsyncEnabled;
-    runtime["pipelineSync"] = m_runtimeSettings.isPipelineSyncEnabled;
-    playback["fixedStep"] = SceneState().isFixedStep;
-    if ( SceneState().targetFrameCount > 0 )
+    simulation["physics"] = State().isScenePhysics;
+    simulation["text"] = State().isSceneText;
+    simulation["textOnly"] = view.debug.isTextOnly;
+    runtime["vsync"] = view.runtimeSettings.isVsyncEnabled;
+    runtime["pipelineSync"] = view.runtimeSettings.isPipelineSyncEnabled;
+    playback["fixedStep"] = State().isFixedStep;
+    if ( State().targetFrameCount > 0 )
     {
-        playback["frames"] = SceneState().targetFrameCount;
+        playback["frames"] = State().targetFrameCount;
     }
     else
     {
         playback["frames"] = "unlimited";
     }
 
-    simulation["seed"] = (std::max)( 1u, SceneState().rngSeed );
-    simulation["timeScale"] = SceneState().timeScale;
-    playback["exitOnComplete"] = SceneState().isExitOnComplete;
+    simulation["seed"] = (std::max)( 1u, State().rngSeed );
+    simulation["timeScale"] = State().timeScale;
+    playback["exitOnComplete"] = State().isExitOnComplete;
 
-    physicsDebug["axes"] = ( m_debug.physicsDebugFlags & PHYSICS_DEBUG_AXES ) != 0;
-    physicsDebug["contacts"] = ( m_debug.physicsDebugFlags & PHYSICS_DEBUG_CONTACTS ) != 0;
-    physicsDebug["sleep"] = ( m_debug.physicsDebugFlags & PHYSICS_DEBUG_SLEEP ) != 0;
-    physicsDebug["pipeline"] = ( m_debug.physicsDebugFlags & PHYSICS_DEBUG_PIPELINE ) != 0;
-    physicsDebug["terrainContact"] = ( m_debug.physicsDebugFlags & PHYSICS_DEBUG_TERRAIN_CONTACT ) != 0;
-    physicsDebug["transparent"] = m_debug.isPhysicsDebugTransparent;
-    physicsDebug["alpha"] = m_debug.physicsDebugAlpha;
-    physicsDebug["contactLinger"] = m_debug.physicsDebugContactLinger;
+    physicsDebug["axes"] = ( view.debug.physicsDebugFlags & PHYSICS_DEBUG_AXES ) != 0;
+    physicsDebug["contacts"] = ( view.debug.physicsDebugFlags & PHYSICS_DEBUG_CONTACTS ) != 0;
+    physicsDebug["sleep"] = ( view.debug.physicsDebugFlags & PHYSICS_DEBUG_SLEEP ) != 0;
+    physicsDebug["pipeline"] = ( view.debug.physicsDebugFlags & PHYSICS_DEBUG_PIPELINE ) != 0;
+    physicsDebug["terrainContact"] = ( view.debug.physicsDebugFlags & PHYSICS_DEBUG_TERRAIN_CONTACT ) != 0;
+    physicsDebug["transparent"] = view.debug.isPhysicsDebugTransparent;
+    physicsDebug["alpha"] = view.debug.physicsDebugAlpha;
+    physicsDebug["contactLinger"] = view.debug.physicsDebugContactLinger;
 
-    debug["collisionVisualizer"] = m_debug.isCollisionVisualizer;
-    debug["broadphaseOverlay"] = m_debug.isBroadphaseOverlay;
-    debug["waterFreeze"] = m_debug.isWaterFreezeDebug;
-    debug["waterFlat"] = m_debug.isWaterFlatDebug;
-    debug["waterHidden"] = m_debug.isWaterHidden;
-    debug["terrainHidden"] = m_debug.isTerrainHidden;
-    debug["waterReflection"] = WaterReflectionJsonValue( m_debug.isWaterNoReflect, m_debug.isWaterRTReflect );
-    if ( m_camera.trackBallIndex >= 0 && m_camera.trackHeight > 0.0f )
+    debug["collisionVisualizer"] = view.debug.isCollisionVisualizer;
+    debug["broadphaseOverlay"] = view.debug.isBroadphaseOverlay;
+    debug["waterFreeze"] = view.debug.isWaterFreezeDebug;
+    debug["waterFlat"] = view.debug.isWaterFlatDebug;
+    debug["waterHidden"] = view.debug.isWaterHidden;
+    debug["terrainHidden"] = view.debug.isTerrainHidden;
+    debug["waterReflection"] = WaterReflectionJsonValue( view.debug.isWaterNoReflect, view.debug.isWaterRTReflect );
+    if ( view.camera.trackBallIndex >= 0 && view.camera.trackHeight > 0.0f )
     {
-        playback["trackHeight"] = m_camera.trackHeight;
+        playback["trackHeight"] = view.camera.trackHeight;
     }
     else
     {
         playback.erase( "trackHeight" );
     }
-    if ( m_camera.autoCycleInterval > 0.0f )
+    if ( view.camera.autoCycleInterval > 0.0f )
     {
-        playback["autoCycleInterval"] = m_camera.autoCycleInterval;
+        playback["autoCycleInterval"] = view.camera.autoCycleInterval;
     }
     else
     {
         playback.erase( "autoCycleInterval" );
     }
-    world["gravity"] = m_cWorldEnvironment.GetGravity();
-    world["fluidHeight"] = m_cWorldEnvironment.GetFluidSurfaceHeight();
-    world["fluidDensity"] = m_cWorldEnvironment.GetFluidDensity();
-    const MutualGravitySettings& mutualGravity = m_cWorldEnvironment.GetMutualGravitySettings();
+    world["gravity"] = view.world.GetGravity();
+    world["fluidHeight"] = view.world.GetFluidSurfaceHeight();
+    world["fluidDensity"] = view.world.GetFluidDensity();
+    const MutualGravitySettings& mutualGravity = view.world.GetMutualGravitySettings();
     if ( mutualGravity.enabled )
     {
         world["mutualGravity"] = {
@@ -1303,27 +1308,34 @@ bool Run::SaveCurrentSceneDefaults()
     {
         world.erase( "mutualGravity" );
     }
-    SetTouchedCinematicSceneProperties( root, SceneState().uiCinematicOverrideMask, SceneState().cinematicRender );
+    SetTouchedCinematicSceneProperties( root, State().uiCinematicOverrideMask, State().cinematicRender );
 
-    if ( m_sceneController.UIOverrides().modelCountOverride >= 0 )
+    if ( UIOverrides().modelCountOverride >= 0 )
     {
-        simulation["solverBalls"] = m_sceneController.UIOverrides().modelCountOverride;
+        simulation["solverBalls"] = UIOverrides().modelCountOverride;
         simulation.erase( "solverBoxes" );
     }
-    else if ( SceneState().solverBallCount > 0 || SceneState().solverBoxCount > 0 ||
-              m_sceneController.UIOverrides().solverBallCountOverride >= 0 ||
-              m_sceneController.UIOverrides().solverBoxCountOverride >= 0 )
+    else if ( State().solverBallCount > 0 || State().solverBoxCount > 0 || UIOverrides().solverBallCountOverride >= 0 ||
+              UIOverrides().solverBoxCountOverride >= 0 )
     {
-        simulation["solverBalls"] = SceneState().solverBallCount;
-        simulation["solverBoxes"] = SceneState().solverBoxCount;
+        simulation["solverBalls"] = State().solverBallCount;
+        simulation["solverBoxes"] = State().solverBoxCount;
     }
 
     std::ofstream output( *scenePath, std::ios::trunc );
     if ( !output )
     {
-        return false;
+        return SbResult::Failure( "Runtime/SceneController",
+                                  "Could not open active scene defaults for write: %s",
+                                  scenePath->c_str() );
     }
 
     output << root.dump( 2 ) << '\n';
-    return output.good();
+    if ( !output.good() )
+    {
+        return SbResult::Failure( "Runtime/SceneController",
+                                  "Could not write active scene defaults: %s",
+                                  scenePath->c_str() );
+    }
+    return SbResult::Success();
 }

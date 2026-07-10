@@ -3044,8 +3044,22 @@ bool Run::DrainSceneRequests()
             break;
         case SceneRequestType::SaveCurrentDefaults:
             eventCode = ReplayOwnerEventCode::SceneSaveDefaults;
-            accepted = SaveCurrentSceneDefaults();
-            break;
+            {
+                const SbResult saveResult =
+                    m_sceneController.SaveCurrentDefaults( SceneDefaultsSaveView{ m_cGameModelCollection,
+                                                                                  m_cWorldEnvironment,
+                                                                                  *m_systems.cameras,
+                                                                                  m_debug,
+                                                                                  m_runtimeSettings,
+                                                                                  m_camera } );
+                if ( !saveResult.ok )
+                {
+                    std::fprintf( stderr, "[%s] %s\n", saveResult.error.owner, saveResult.error.message );
+                    std::fflush( stderr );
+                }
+                accepted = saveResult.ok;
+                break;
+            }
         }
 
         // Invariant: replay observes completed owner work. Rejected browser

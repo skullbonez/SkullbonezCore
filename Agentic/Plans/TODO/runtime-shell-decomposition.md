@@ -258,6 +258,13 @@ selection policy also moved into `SceneController`; the forwarding-only
 `SceneRuntimeCoordinator` object/member is deleted. C1 remains open until the
 load/save execution and lifecycle-event deletion proofs below are complete.
 
+The save half of C3 landed on 2026-07-11. `SceneController::SaveCurrentDefaults`
+owns editable snapshots and non-editable defaults rewrites through a synchronous
+`SceneDefaultsSaveView`; `Run::SaveCurrentSceneDefaults` is deleted, filesystem
+and JSON failures carry Lane R `SbResult` evidence, and replay observes only a
+successful write. Load orchestration and the remaining collection business
+commands keep C3 open.
+
 - [ ] C1. Implement ownership extraction 3: `SceneController` owns the
   preallocated scene/entity metadata store, scene-lifetime `PhysicsScene`,
   load/reset state, browser selection, adjacent load, and deck movement.

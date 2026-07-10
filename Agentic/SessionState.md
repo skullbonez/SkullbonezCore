@@ -142,6 +142,10 @@ owner explicitly, and browser/adjacent/deck/reset/advance policy moved out of
 the deleted `SceneRuntimeCoordinator` object. Fast, CPU, physics, perf, and full
 gates pass; the remaining C1 work is load/save execution and lifecycle-event
 ownership, including deletion of the temporary scene action dispatcher.
+The save sub-boundary is also local: SceneController owns editable snapshot and
+defaults persistence through a synchronous borrowed view, the Run save method
+is deleted, and failed reads/parses/writes return owned results without replay
+events. Fast and full gates pass from this source.
 
 Scene provenance C1a is complete: parser-owned library/instance/ordered-part
 records retain exact shape sources, hierarchy transforms use rotated offsets
