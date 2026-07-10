@@ -10,9 +10,9 @@ reports, and git history.
 | Field | Value |
 |---|---|
 | Branch | `engine-cleanup-10th-july`, tracking `origin/engine-cleanup-10th-july` |
-| Current pushed baseline | `93702cb9 refactor: move pending scene execution into owner` |
-| Current objective | Repeat the scene-milestone adversarial pass once, then close B1f direct input/state remnants |
-| Last broad local gate | `tools\validate_full.bat` passed the corrected concrete-owner lifecycle receipt boundary with 127/127 doctest cases, 2,736 assertions, all CPU lanes, zero-warning builds, DX12 with zero InfoQueue errors/matching screenshots, standalone physics smoke, and 20,001-line byte-exact physics in 52.4s |
+| Current pushed baseline | `811f38c3 fix: enforce concrete scene lifecycle receipts` |
+| Current objective | Close B1f direct input/state remnants, then continue runtime-shell D/E work |
+| Last broad local gate | `tools\validate_full.bat` passed the final scene-milestone repeat-review correction with 127/127 doctest cases, 2,736 assertions, all CPU lanes, zero-warning builds, DX12 with zero InfoQueue errors/matching screenshots, standalone physics smoke, and 20,001-line byte-exact physics in 52.3s |
 | Native evidence | Injected heap-use-after-free caught; healthy ASan and five-file `/analyze` passed in 16.185s |
 
 ## Pushed Cleanup Commits
@@ -229,8 +229,12 @@ read-only through a successful GPU drain; diagnostics, simulation, audio,
 tools, interaction, and replay attach enforced receipts beside their concrete
 phase calls, and controller bookkeeping/manual-reset/interactive state commit
 after preparation. Final fast, CPU, all 135 authored scene loads, and full
-gates pass; the final comment audit is 13/13. Because the first review found
-blocking defects, one read-only repeat pass is required before resuming B1f.
+gates pass; the final comment audit is 13/13. The required repeat pass then
+found the same pre-drain interactive mutation in the pre-UI adjacent-navigation
+and graphics-stress helpers. Both duplicate seams are deleted; final fast,
+one-minute graphics stress (8,533 frames / 238 loads / empty stderr),
+interaction, and full gates pass. The scene-milestone adversarial loop is
+closed, so B1f resumes next.
 
 Scene provenance C1a is complete: parser-owned library/instance/ordered-part
 records retain exact shape sources, hierarchy transforms use rotated offsets

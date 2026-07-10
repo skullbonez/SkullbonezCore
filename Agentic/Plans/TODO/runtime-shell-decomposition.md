@@ -471,6 +471,19 @@ interaction run also passed both reports in 7.6s. The first final fast attempt
 found a Release declaration inside a Debug guard; moving the typed diagnostics
 boundary outside that guard produced the clean rerun.
 
+The one permitted repeat adversarial pass found the same pre-drain interactive
+mutation duplicated in the pre-UI adjacent-navigation helper and the graphics-
+stress helper. Both now delegate every accepted request, including accepted
+no-load navigation, to `SceneController::Load`; neither mutates interactive
+state or short-circuits the owner boundary. The final source search finds no
+`request.enterInteractiveSceneRun` branch calling `EnterInteractiveSceneRun`
+outside the controller. Fast passed in 26.7s with two candidates; a one-minute
+graphics stress run exercised the corrected helper for 8,533 frames and 238
+scene loads with empty stderr; both interaction reports passed in 7.5s; and
+full passed in 52.3s with zero warnings, zero DX12 InfoQueue errors, matching
+screenshots, standalone topology smoke, and the 20,001-line byte-exact physics
+baseline. Comment audit: 2/2. The scene-milestone adversarial loop is closed.
+
 - [x] C1. Implement ownership extraction 3: `SceneController` owns the
   preallocated scene/entity metadata store, scene-lifetime `PhysicsScene`,
   load/reset state, browser selection, adjacent load, and deck movement.
