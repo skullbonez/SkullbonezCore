@@ -2234,7 +2234,7 @@ void Run::DispatchPostUIKeyboardActions()
     const RunInternal::EditorSaveHotkeyContext editorSaveHotkeyContext{ m_sceneController.Models(),
                                                                         m_sceneController.Entities(),
                                                                         SceneState(),
-                                                                        m_cWorldEnvironment,
+                                                                        m_sceneController.World(),
                                                                         *m_systems.cameras,
                                                                         m_diagnosticsRuntime.Capture() };
     // Invariant: side-effect dispatch consumes only accepted semantic events.
@@ -2578,7 +2578,7 @@ void Run::TakeInput()
                       m_sceneController.Entities(),
                       m_systems.cameras,
                       m_systems.terrain.get(),
-                      m_cWorldEnvironment,
+                      m_sceneController.World(),
                       SceneState(),
                       m_sceneController.CurrentPath(),
                       m_launchOptions,
@@ -2780,7 +2780,7 @@ void Run::TakeInput()
                                m_systems,
                                m_simulation,
                                m_contactAudio,
-                               m_cWorldEnvironment,
+                               m_sceneController.World(),
                                m_sceneController.Models(),
                                m_renderBackendView,
                                m_renderDefaults,
@@ -2830,7 +2830,6 @@ void Run::TakeInput()
             static_cast<uint32_t>( m_launchOptions.generatedObjectTypeOverride ) );
         ReplaySolverSampleRestoreContext sampleOwners{ m_sceneController.Physics(),
                                                        m_sceneController,
-                                                       m_cWorldEnvironment,
                                                        SceneState(),
                                                        m_runtimeSettings,
                                                        m_debug,
@@ -3044,12 +3043,8 @@ bool Run::DrainSceneRequests()
         case SceneRequestType::SaveCurrentDefaults:
             eventCode = ReplayOwnerEventCode::SceneSaveDefaults;
             {
-                const SbResult saveResult =
-                    m_sceneController.SaveCurrentDefaults( SceneDefaultsSaveView{ m_cWorldEnvironment,
-                                                                                  *m_systems.cameras,
-                                                                                  m_debug,
-                                                                                  m_runtimeSettings,
-                                                                                  m_camera } );
+                const SbResult saveResult = m_sceneController.SaveCurrentDefaults(
+                    SceneDefaultsSaveView{ *m_systems.cameras, m_debug, m_runtimeSettings, m_camera } );
                 if ( !saveResult.ok )
                 {
                     std::fprintf( stderr, "[%s] %s\n", saveResult.error.owner, saveResult.error.message );

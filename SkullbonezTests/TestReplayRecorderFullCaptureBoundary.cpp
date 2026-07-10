@@ -102,7 +102,7 @@ const Math::Vector::Vector3& CameraCollection::GetCameraUp()
     ThrowUnexpectedReplayIntegrationCall( "CameraCollection::GetCameraUp" );
 }
 
-float WorldEnvironment::GetFluidSurfaceHeight()
+float WorldEnvironment::GetFluidSurfaceHeight() const
 {
     ThrowUnexpectedReplayIntegrationCall( "WorldEnvironment::GetFluidSurfaceHeight" );
 }

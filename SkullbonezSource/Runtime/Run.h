@@ -23,6 +23,8 @@ Glossary:
 
 Invariants:
   - Run is the composition root for process-lifetime runtime systems.
+  - Scene-lifetime world, entity, model, and physics state belongs to
+    SceneController; Run sequences work without republishing those owners.
   - Public startup code should configure Run through the small launch surface
     below instead of reaching into runtime-owned state.
   - Camera follow helpers should take store-sampled body state instead of
@@ -80,7 +82,6 @@ Related:
 #include "../World/Terrain.h"
 #include "../World/SkyBox.h"
 #include "../Maths/GeometricMath.h"
-#include "../World/WorldEnvironment.h"
 #include "../Scene/TestScene.h"
 #include "Debug/BroadphaseVisualizer.h"
 #include "Debug/CollisionVisualizer.h"
@@ -152,7 +153,6 @@ class Run
     Physics::CollisionVisualizer m_collisionVisualizer;                 // Solid collision/sleep model visualizer (V key toggle)
     Physics::PhysicsDebugVisualizer
         m_physicsDebugVisualizer;                                       // Line overlay for object axes, contact manifolds, and sleep state
-    Environment::WorldEnvironment m_cWorldEnvironment;                  // Fluid, gravity, and terrain bounds shared by physics and water.
     RuntimeViewModel m_runtimeViewModel;                                // Scalar runtime snapshot for presentation/diagnostics.
     RuntimeRenderBackendView m_renderBackendView;                       // Borrowed active renderer capabilities for renderer users.
     RuntimeRenderer m_renderer;                                         // Owns runtime render passes and frame render ordering.

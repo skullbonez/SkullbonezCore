@@ -18,6 +18,8 @@ Glossary:
 
 Invariants:
   - Restore must reject samples whose body ids no longer match live store rows.
+  - World restore reaches the environment through SceneController; the context
+    must not republish a second mutable world owner.
   - Body state, solver caches, world settings, scene flags, and tool visuals are
     restored as one ordered operation.
   - The service must not store context borrows after returning.
@@ -60,7 +62,6 @@ struct ReplaySolverSampleRestoreContext
     // only sampled values into those owners.
     Physics::PhysicsEngine& physics;
     SceneController& sceneController;
-    Environment::WorldEnvironment& world;
     RunSceneState& scene;
     RunRuntimeSettings& runtimeSettings;
     RunDebugState& debug;
@@ -189,9 +190,9 @@ class ReplayRestoreService
                       "Replay solver commit rejected the version/count values accepted during preflight" );
         }
 
-        context.world.SetGravity( sample.world.gravity );
-        context.world.SetFluidSurfaceHeight( sample.world.fluidHeight );
-        context.world.SetFluidDensity( sample.world.fluidDensity );
+        context.sceneController.World().SetGravity( sample.world.gravity );
+        context.sceneController.World().SetFluidSurfaceHeight( sample.world.fluidHeight );
+        context.sceneController.World().SetFluidDensity( sample.world.fluidDensity );
         context.debug.isWaterHidden = sample.world.waterHidden;
         context.debug.isTerrainHidden = sample.world.terrainHidden;
         context.scene.isFixedStep = sample.world.fixedStep;

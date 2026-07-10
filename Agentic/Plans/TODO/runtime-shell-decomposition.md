@@ -284,6 +284,24 @@ collection internally, and replay topology trimming no longer accepts duplicate
 model/physics arguments. C1 remains open for world/terrain/camera population
 and the final Load orchestration boundary.
 
+`SceneController` now also physically owns the active `WorldEnvironment`.
+The Run field and every direct member access are deleted; runtime, editor,
+render, replay, save, and scene-population paths borrow `SceneController::World()`.
+Save and replay restore contexts no longer duplicate the controller-owned world,
+and the Debug replay probe view no longer republishes either controller-owned
+models or world state. C1 remains open for terrain/camera ownership and the final
+load orchestration boundary.
+
+Evidence from the world-owner move: the final staged fast gate passed in 39.3s
+with 17 candidates and no size violations; the CPU umbrella passed all four
+lanes with 127/127 doctest cases and 2,730 assertions in 11.0s; replay scrub and
+v2 artifact gates passed in 73.6s and 25.9s; focused physics passed in 13.1s;
+and full passed in 51.2s with zero warnings, zero DX12 InfoQueue errors,
+matching screenshots, standalone topology smoke, and the 20,001-line byte-exact
+baseline. The first fast attempt stopped at four formatting findings before
+build work; only those files were formatted before the clean rerun. Comment
+audit: 15/15 touched source/test files.
+
 Evidence from the collection-owner move: the final staged fast gate passed in
 33.6s with 17 candidates and no size violations; the CPU umbrella passed all
 four lanes with 127/127 doctest cases and 2,730 assertions in 11.2s; replay

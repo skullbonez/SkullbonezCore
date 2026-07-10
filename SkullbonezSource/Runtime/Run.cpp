@@ -400,7 +400,7 @@ Run::Run( Window& window,
                                    m_systems.renderPasses,
                                    m_config,
                                    m_runtimeSettings,
-                                   m_cWorldEnvironment,
+                                   m_sceneController.World(),
                                    m_collisionVisualizer,
                                    m_broadphaseVisualizer,
                                    m_physicsDebugVisualizer,
@@ -708,7 +708,7 @@ bool ReplayRuntime::CaptureCurrentSolverSample( const ReplaySolverSampleRestoreC
     input.waterHidden = owners.debug.isWaterHidden;
     input.terrainHidden = owners.debug.isTerrainHidden;
     input.cameras = owners.cameras;
-    input.world = &owners.world;
+    input.world = &owners.sceneController.World();
     input.physics = &owners.physics;
     input.entities = &owners.sceneController.Entities();
     input.bodyStore = &Physics::PhysicsEngineStoreQueries::BodyStore( owners.physics );
@@ -922,10 +922,10 @@ void Run::Initialise()
         return;
     }
 
-    m_cWorldEnvironment = WorldEnvironment( cfg.fluidHeight, cfg.fluidDensity, cfg.gasDensity, cfg.gravity );
-    m_cWorldEnvironment.BindRenderContexts( m_config, m_systems.assets, renderResources );
+    m_sceneController.World() = WorldEnvironment( cfg.fluidHeight, cfg.fluidDensity, cfg.gasDensity, cfg.gravity );
+    m_sceneController.World().BindRenderContexts( m_config, m_systems.assets, renderResources );
     XZBounds tb = m_systems.terrain->GetXZBounds();
-    m_cWorldEnvironment.SetTerrainBounds( tb.m_xMin, tb.m_xMax, tb.m_zMin, tb.m_zMax );
+    m_sceneController.World().SetTerrainBounds( tb.m_xMin, tb.m_xMax, tb.m_zMin, tb.m_zMax );
 
     // Why: SDF atlas generation is a startup asset/tooling boundary. Report it
     // as Lane R before scene loading instead of throwing through Run startup.
@@ -984,9 +984,7 @@ void Run::Initialise()
                                                            NormalizeCameraModeForCurrentScene( m_camera.mode ),
                                                            timelineOwners };
 #ifdef _DEBUG
-    const ReplayProbeWorld probeWorld{ m_sceneController.Models(),
-                                       m_cWorldEnvironment,
-                                       SceneState(),
+    const ReplayProbeWorld probeWorld{ SceneState(),
                                        m_runtimeSettings,
                                        m_debug,
                                        m_systems.cameras,
@@ -1056,10 +1054,10 @@ SbResult Run::RunSceneLoadOnly( const char* snapshotOutPath )
                                       m_sceneController.Models().Colliders(),
                                       joints.data(),
                                       static_cast<int>( joints.size() ),
-                                      m_cWorldEnvironment.GetGravity(),
-                                      m_cWorldEnvironment.GetFluidSurfaceHeight(),
-                                      m_cWorldEnvironment.GetFluidDensity(),
-                                      m_cWorldEnvironment.GetMutualGravitySettings() };
+                                      m_sceneController.World().GetGravity(),
+                                      m_sceneController.World().GetFluidSurfaceHeight(),
+                                      m_sceneController.World().GetFluidDensity(),
+                                      m_sceneController.World().GetMutualGravitySettings() };
         const SceneSaveRequest saveRequest{ snapshotOutPath,
                                             m_systems.cameras->GetCameraTranslation(),
                                             m_systems.cameras->GetCameraView(),

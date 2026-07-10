@@ -688,7 +688,7 @@ SbResult Run::Execute()
                                                           SceneState(),
                                                           m_runtimeSettings,
                                                           m_config,
-                                                          m_cWorldEnvironment,
+                                                          m_sceneController.World(),
                                                           m_runtimeTools,
                                                           m_UI,
                                                           m_runtimeInput,
@@ -820,7 +820,7 @@ void Run::TickPhysics( double secondsPerFrame )
     }
     const bool manipulatorPhysics = policy.manipulatorActive;
     const bool contactAudioStep = m_contactAudio.IsEnabled();
-    const auto physicsWorldForces = m_cWorldEnvironment.GetPhysicsWorldForces();
+    const auto physicsWorldForces = m_sceneController.World().GetPhysicsWorldForces();
     const bool canStepPhysics = m_systems.config != nullptr && m_systems.workerPool != nullptr;
     const SimulationTickResult tick = m_simulation.Tick( SimulationTickInput{ secondsPerFrame,
                                                                               policy.physicsTimeScale,
@@ -898,7 +898,7 @@ void Run::AfterPhysicsStep()
                                                m_runtimeTools,
                                                m_replayRuntime,
                                                m_replayLauncherVisualScratch,
-                                               m_cWorldEnvironment,
+                                               m_sceneController.World(),
                                                m_sceneController.Models(),
                                                m_sceneController.Physics(),
                                                m_sceneController.Entities() };
@@ -912,8 +912,6 @@ void Run::AfterPhysicsStep()
             m_startup.gameModelCapacity,
             static_cast<uint32_t>( m_launchOptions.generatedObjectTypeOverride ) );
         const ReplayProbeWorld replayWorld{
-            m_sceneController.Models(),
-            m_cWorldEnvironment,
             SceneState(),
             m_runtimeSettings,
             m_debug,
@@ -1349,6 +1347,7 @@ void Run::UpdateWaterHeightControls( float dt )
     }
 
     const float direction = upNow ? 1.0f : -1.0f;
-    const float height = m_cWorldEnvironment.GetFluidSurfaceHeight() + direction * WATER_HEIGHT_CONTROL_SPEED * dt;
-    m_cWorldEnvironment.SetFluidSurfaceHeight( height );
+    const float height =
+        m_sceneController.World().GetFluidSurfaceHeight() + direction * WATER_HEIGHT_CONTROL_SPEED * dt;
+    m_sceneController.World().SetFluidSurfaceHeight( height );
 }

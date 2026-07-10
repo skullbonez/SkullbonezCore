@@ -757,7 +757,7 @@ SbResult Run::RunUIStressActions()
                                                     m_camera,
                                                     m_sceneController,
                                                     m_config,
-                                                    m_cWorldEnvironment,
+                                                    m_sceneController.World(),
                                                     m_systems.terrain.get(),
                                                     m_sceneController.Models(),
                                                     m_simulation,
@@ -835,7 +835,7 @@ SbResult Run::RunUIStressActions()
                                          m_timers,
                                          m_simulation,
                                          m_sceneController,
-                                         m_cWorldEnvironment,
+                                         m_sceneController.World(),
                                          m_replayRuntime };
     const int actionCount = StressHarness::ActionCount( stress );
     for ( int i = 0; i < actionCount; ++i )
@@ -945,7 +945,7 @@ void Run::RunGraphicsStressActions( const Rendering::IRenderDiagnostics& renderD
                                                m_defaultCinematicRender,
                                                m_simulation,
                                                m_runtimeTools,
-                                               m_cWorldEnvironment,
+                                               m_sceneController.World(),
                                                m_replayRuntime,
                                                m_sceneController.Models() };
     const int actionCount = stress.ActionCount();

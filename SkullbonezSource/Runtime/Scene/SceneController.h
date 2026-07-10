@@ -1,13 +1,14 @@
 /*
 File: SkullbonezSource/Runtime/Scene/SceneController.h
 Purpose:
-  Owns scene runtime state, durable entity metadata, physics, and scene requests.
+  Owns scene runtime state, durable entity metadata, world settings, physics,
+  and scene requests.
 
 Mental model:
   SceneController is the narrow API around scene queue and scene-run state.
   Run temporarily executes broad load side effects, while this controller owns
-  scene state, physics topology, fixed entity records, browser navigation, and
-  the ordered request batch those side effects consume.
+  scene state, world settings, physics topology, fixed entity records, browser
+  navigation, and the ordered request batch those side effects consume.
 
 Glossary:
   Scene runtime: Current scene state plus queue navigation data.
@@ -16,10 +17,12 @@ Glossary:
   Scene request: Deferred load, reset, create, or defaults-save owner intent.
   Scene entity store: Fixed scene-lifetime join between identity, live body,
     render material intent, and asset affiliation.
+  World environment: Scene-owned gravity, fluid, and terrain-bound settings
+    borrowed by physics, replay, and rendering.
 
 Invariants:
-  - SceneController owns queue/index bookkeeping and scene-lifetime physics;
-    presentation owners receive only a borrowed PhysicsEngine reference.
+  - SceneController owns queue/index bookkeeping, world settings, and
+    scene-lifetime physics; consumers receive only borrowed owner references.
   - All interactive scene submissions enter its fixed request ring.
   - Durable display/material/asset metadata lives in its fixed entity store.
   - Empty queue path is the generated demo scene sentinel.
@@ -38,6 +41,7 @@ Related:
 #include "SceneRuntime.h"
 #include "../../GameObjects/GameModelCollection.h"
 #include "../../Physics/PhysicsEngine.h"
+#include "../../World/WorldEnvironment.h"
 
 #include <string>
 #include <vector>
@@ -67,7 +71,6 @@ struct SceneDefaultsSaveView
 {
     // Lifetime: every owner is borrowed only for one synchronous cold save.
     // The writer retains no pointers across a scene reload.
-    Environment::WorldEnvironment& world;
     Environment::CameraCollection& cameras;
     const RunDebugState& debug;
     const RunRuntimeSettings& runtimeSettings;
@@ -92,6 +95,8 @@ class SceneController
     const SceneEntityStore& Entities() const;
     GameObjects::GameModelCollection& Models();
     const GameObjects::GameModelCollection& Models() const;
+    Environment::WorldEnvironment& World();
+    const Environment::WorldEnvironment& World() const;
     Physics::PhysicsEngine& Physics();
     const Physics::PhysicsEngine& Physics() const;
 
@@ -160,6 +165,7 @@ class SceneController
     RunSceneBrowserState m_browser;        // Discovered scene paths and live cine/concept selection.
     RunSceneUIOverrideState m_uiOverrides; // Live Scene-tab overrides preserved across reset when requested.
     SceneEntityStore m_entities;           // Fixed scene-lifetime identity and durable presentation metadata.
+    Environment::WorldEnvironment m_world; // Gravity, fluid, and terrain bounds for the active scene.
     // Lifetime: physics topology is born and cleared with the active scene.
     // Presentation owners borrow this engine; they never own or replace it.
     Physics::PhysicsEngine m_physics;

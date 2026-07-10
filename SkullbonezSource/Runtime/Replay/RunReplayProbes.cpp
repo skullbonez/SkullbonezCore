@@ -2050,7 +2050,6 @@ struct ReplayProbeRestoreOperands
     explicit ReplayProbeRestoreOperands( const ReplayProbeWorld& world )
         : sample{ world.sceneController.Physics(),
                   world.sceneController,
-                  world.world,
                   world.scene,
                   world.runtimeSettings,
                   world.debug,
@@ -2151,7 +2150,8 @@ SbResult ReplayRuntime::TickScrubProbe( const ReplayProbeWorld& liveWorld )
     }
 
     const int probedModelIndex = liveBody->modelRow.value;
-    const PhysicsBodyRecord* probedBody = TryGetReplayProbeBodyRecord( liveWorld.models, probedModelIndex );
+    const PhysicsBodyRecord* probedBody =
+        TryGetReplayProbeBodyRecord( liveWorld.sceneController.Models(), probedModelIndex );
     if ( !probedBody )
     {
         return ReplayProbeFailure( "replay scrub probe selected an invalid live body index" );
@@ -2168,41 +2168,46 @@ SbResult ReplayRuntime::TickScrubProbe( const ReplayProbeWorld& liveWorld )
             "replay scrub probe live body did not match the current replay sample before applying scrub state" );
     }
 
-    const bool applied = ApplyReplayProbePresentationSampleForRender( liveWorld.models, *this, *selected );
+    const bool applied =
+        ApplyReplayProbePresentationSampleForRender( liveWorld.sceneController.Models(), *this, *selected );
     if ( !applied )
     {
         return ReplayProbeFailure( "replay scrub probe failed to apply the selected presentation sample" );
     }
-    const PhysicsBodyRecord* appliedBody = TryGetReplayProbeBodyRecord( liveWorld.models, probedModelIndex );
+    const PhysicsBodyRecord* appliedBody =
+        TryGetReplayProbeBodyRecord( liveWorld.sceneController.Models(), probedModelIndex );
     if ( !appliedBody )
     {
-        RestoreReplayProbeRenderInstances( liveWorld.models );
+        RestoreReplayProbeRenderInstances( liveWorld.sceneController.Models() );
         return ReplayProbeFailure( "replay scrub probe lost the selected live body after applying scrub state" );
     }
     const Math::Vector::Vector3 liveAfterApplyPosition = appliedBody->position;
     const float livePreservedDeltaSquared = distanceSquared( liveAfterApplyPosition, preApplyPosition );
     if ( livePreservedDeltaSquared > m_probes.scrub.minDistanceSquared )
     {
-        RestoreReplayProbeRenderInstances( liveWorld.models );
+        RestoreReplayProbeRenderInstances( liveWorld.sceneController.Models() );
         return ReplayProbeFailure( "replay scrub probe mutated the live body while applying scrub state" );
     }
 
     Math::Vector::Vector3 appliedRenderPosition;
-    if ( !TryPrepareReplayProbeRenderPosition( liveWorld.models, probedModelIndex, appliedRenderPosition ) )
+    if ( !TryPrepareReplayProbeRenderPosition( liveWorld.sceneController.Models(),
+                                               probedModelIndex,
+                                               appliedRenderPosition ) )
     {
-        RestoreReplayProbeRenderInstances( liveWorld.models );
+        RestoreReplayProbeRenderInstances( liveWorld.sceneController.Models() );
         return ReplayProbeFailure( "replay scrub probe lost the selected render instance after applying scrub state" );
     }
     const float appliedDeltaSquared = distanceSquared( appliedRenderPosition, selectedBody->position );
     if ( appliedDeltaSquared > m_probes.scrub.minDistanceSquared )
     {
-        RestoreReplayProbeRenderInstances( liveWorld.models );
+        RestoreReplayProbeRenderInstances( liveWorld.sceneController.Models() );
         return ReplayProbeFailure(
             "replay scrub probe did not move the render instance to the selected replay sample" );
     }
 
-    RestoreReplayProbeRenderInstances( liveWorld.models );
-    const PhysicsBodyRecord* restoredBody = TryGetReplayProbeBodyRecord( liveWorld.models, probedModelIndex );
+    RestoreReplayProbeRenderInstances( liveWorld.sceneController.Models() );
+    const PhysicsBodyRecord* restoredBody =
+        TryGetReplayProbeBodyRecord( liveWorld.sceneController.Models(), probedModelIndex );
     if ( !restoredBody )
     {
         return ReplayProbeFailure( "replay scrub probe lost the selected live body after restoring scrub state" );
@@ -2311,8 +2316,8 @@ SbResult ReplayRuntime::TickSaveProbe( const ReplayProbeWorld& liveWorld, bool& 
                                                                   liveWorld.runtimeTools,
                                                                   liveWorld.scene,
                                                                   liveWorld.systems,
-                                                                  liveWorld.world,
-                                                                  liveWorld.models,
+                                                                  liveWorld.sceneController.World(),
+                                                                  liveWorld.sceneController.Models(),
                                                                   liveWorld.sceneController.Physics(),
                                                                   liveWorld.gameModelCapacity };
         const SbResult eventCoverageResult =
@@ -2328,7 +2333,7 @@ SbResult ReplayRuntime::TickSaveProbe( const ReplayProbeWorld& liveWorld, bool& 
         return SbResult::Success();
     }
 
-    ReplaySaveProbeArtifactContext artifactContext{ m_probes.save, *this, liveWorld.models };
+    ReplaySaveProbeArtifactContext artifactContext{ m_probes.save, *this, liveWorld.sceneController.Models() };
     return ValidateReplaySaveProbeArtifact( artifactContext );
 }
 
@@ -2428,49 +2433,55 @@ SbResult ReplayRuntime::VerifyLoadedPresentationProbe( const ReplayProbeWorld& l
     }
 
     const int probedModelIndex = selectedBody->modelRow.value;
-    const PhysicsBodyRecord* probedBody = TryGetReplayProbeBodyRecord( liveWorld.models, probedModelIndex );
+    const PhysicsBodyRecord* probedBody =
+        TryGetReplayProbeBodyRecord( liveWorld.sceneController.Models(), probedModelIndex );
     if ( !probedBody )
     {
         return ReplayProbeFailure( "replay load probe loaded an invalid body index" );
     }
 
     const Math::Vector::Vector3 preApplyPosition = probedBody->position;
-    const bool applied = ApplyReplayProbePresentationSampleForRender( liveWorld.models, *this, *selected );
+    const bool applied =
+        ApplyReplayProbePresentationSampleForRender( liveWorld.sceneController.Models(), *this, *selected );
     if ( !applied )
     {
         return ReplayProbeFailure( "replay load probe failed to apply the selected loaded v2 sample" );
     }
 
-    const PhysicsBodyRecord* appliedBody = TryGetReplayProbeBodyRecord( liveWorld.models, probedModelIndex );
+    const PhysicsBodyRecord* appliedBody =
+        TryGetReplayProbeBodyRecord( liveWorld.sceneController.Models(), probedModelIndex );
     if ( !appliedBody )
     {
-        RestoreReplayProbeRenderInstances( liveWorld.models );
+        RestoreReplayProbeRenderInstances( liveWorld.sceneController.Models() );
         return ReplayProbeFailure( "replay load probe lost the selected body after applying the v2 sample" );
     }
     const Math::Vector::Vector3 liveAfterApplyPosition = appliedBody->position;
     const float livePreservedDeltaSquared = distanceSquared( liveAfterApplyPosition, preApplyPosition );
     if ( livePreservedDeltaSquared > 0.0001f )
     {
-        RestoreReplayProbeRenderInstances( liveWorld.models );
+        RestoreReplayProbeRenderInstances( liveWorld.sceneController.Models() );
         return ReplayProbeFailure( "replay load probe mutated the live body while applying the v2 sample" );
     }
 
     Math::Vector::Vector3 appliedRenderPosition;
-    if ( !TryPrepareReplayProbeRenderPosition( liveWorld.models, probedModelIndex, appliedRenderPosition ) )
+    if ( !TryPrepareReplayProbeRenderPosition( liveWorld.sceneController.Models(),
+                                               probedModelIndex,
+                                               appliedRenderPosition ) )
     {
-        RestoreReplayProbeRenderInstances( liveWorld.models );
+        RestoreReplayProbeRenderInstances( liveWorld.sceneController.Models() );
         return ReplayProbeFailure( "replay load probe lost the selected render instance after applying the v2 sample" );
     }
     const float appliedDeltaSquared = distanceSquared( appliedRenderPosition, selectedBody->position );
     if ( appliedDeltaSquared > 0.0001f )
     {
-        RestoreReplayProbeRenderInstances( liveWorld.models );
+        RestoreReplayProbeRenderInstances( liveWorld.sceneController.Models() );
         return ReplayProbeFailure(
             "replay load probe did not move the render instance to the selected loaded v2 sample" );
     }
 
-    RestoreReplayProbeRenderInstances( liveWorld.models );
-    const PhysicsBodyRecord* restoredBody = TryGetReplayProbeBodyRecord( liveWorld.models, probedModelIndex );
+    RestoreReplayProbeRenderInstances( liveWorld.sceneController.Models() );
+    const PhysicsBodyRecord* restoredBody =
+        TryGetReplayProbeBodyRecord( liveWorld.sceneController.Models(), probedModelIndex );
     if ( !restoredBody )
     {
         return ReplayProbeFailure( "replay load probe lost the selected body after restoring the v2 sample" );
@@ -2715,7 +2726,7 @@ bool ReplayRuntime::RestoreV2ArtifactTargetStateImpl( const ReplayRestoreTransac
                                                    transaction.sampleOwners.scene,
                                                    topologyOwners.config,
                                                    topologyOwners.systems,
-                                                   transaction.sampleOwners.world,
+                                                   transaction.sampleOwners.sceneController.World(),
                                                    transaction.sampleOwners.sceneController.Models(),
                                                    topologyOwners.generatedObjectTypeOverride,
                                                    topologyOwners.gameModelCapacity };

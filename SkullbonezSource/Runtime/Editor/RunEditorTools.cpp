@@ -1129,7 +1129,7 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
                                                                m_sceneController.Models(),
                                                                m_sceneController.Physics(),
                                                                SceneState(),
-                                                               m_cWorldEnvironment,
+                                                               m_sceneController.World(),
                                                                m_systems.terrain.get(),
                                                                m_systems.assets,
                                                                m_startup.gameModelCapacity };

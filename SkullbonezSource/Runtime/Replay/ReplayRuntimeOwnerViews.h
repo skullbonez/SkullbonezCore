@@ -69,8 +69,6 @@ struct ReplayRuntime::ReplayArtifactTopologyOwners
 // only while a named replay probe runs.
 struct ReplayProbeWorld
 {
-    GameObjects::GameModelCollection& models;
-    Environment::WorldEnvironment& world;
     RunSceneState& scene;
     RunRuntimeSettings& runtimeSettings;
     RunDebugState& debug;

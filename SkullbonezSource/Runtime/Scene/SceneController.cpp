@@ -144,6 +144,18 @@ const GameObjects::GameModelCollection& SceneController::Models() const
 }
 
 
+Environment::WorldEnvironment& SceneController::World()
+{
+    return m_world;
+}
+
+
+const Environment::WorldEnvironment& SceneController::World() const
+{
+    return m_world;
+}
+
+
 Physics::PhysicsEngine& SceneController::Physics()
 {
     return m_physics;

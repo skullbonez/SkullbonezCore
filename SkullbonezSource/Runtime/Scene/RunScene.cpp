@@ -426,7 +426,7 @@ SbResult SaveCurrentEditableSceneSnapshot( const std::string& scenePath,
                                            const RunSceneState& sceneState,
                                            const SceneEntityStore& entities,
                                            const SkullbonezCore::GameObjects::GameModelCollection& modelCollection,
-                                           WorldEnvironment& world,
+                                           const WorldEnvironment& world,
                                            CameraCollection& cameras,
                                            bool waterHidden,
                                            bool terrainHidden )
@@ -487,7 +487,7 @@ SbResult Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnCom
                                            SceneState(),
                                            m_sceneController.UIOverrides(),
                                            m_camera,
-                                           m_cWorldEnvironment,
+                                           m_sceneController.World(),
                                            m_physicsDebugVisualizer };
     SceneRuntimeLoadBeginContext loadBeginContext{ runtime,
                                                    resetContext,
@@ -615,7 +615,7 @@ SbResult Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnCom
         SceneState().rngState = rngSeed;
         const SbResult terrainResult =
             UseDefaultTerrain( m_systems,
-                               m_cWorldEnvironment,
+                               m_sceneController.World(),
                                m_config,
                                m_systems.assets.RegisterSourceAssetPath( SkullbonezCore::Assets::AssetKind::Terrain,
                                                                          "terrain.raw",
@@ -628,13 +628,13 @@ SbResult Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnCom
             LogSceneLoadFailure( terrainResult, scenePath );
             return m_lastSceneLoadResult;
         }
-        ApplyConfiguredWorldEnvironment( m_cWorldEnvironment, m_config, m_systems.terrain.get() );
-        ApplyNoWaterOverride( m_cWorldEnvironment, m_systems.terrain.get(), m_launchOptions.noWater );
+        ApplyConfiguredWorldEnvironment( m_sceneController.World(), m_config, m_systems.terrain.get() );
+        ApplyNoWaterOverride( m_sceneController.World(), m_systems.terrain.get(), m_launchOptions.noWater );
         if ( shouldPreserveRuntimeState )
         {
             // Restore setup-affecting live controls before the generated model pool is rebuilt.
             // Other visual/debug controls are restored later after scene JSON has loaded.
-            ApplyUIWorldOverride( m_cWorldEnvironment,
+            ApplyUIWorldOverride( m_sceneController.World(),
                                   m_replayRuntime,
                                   resetSnapshot.worldGravity,
                                   resetSnapshot.worldFluidHeight,
@@ -646,7 +646,7 @@ SbResult Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnCom
         const SceneGeneratedSetupResult generatedSetup = SceneGeneratedSetup::TrySetUpRequestedModels(
             BuildSceneGeneratedModelContext( SceneState(),
                                              m_config,
-                                             m_cWorldEnvironment,
+                                             m_sceneController.World(),
                                              m_systems.terrain.get(),
                                              m_sceneController.Models(),
                                              m_sceneController.Physics(),
@@ -785,7 +785,7 @@ SbResult Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnCom
         if ( scene.HasFlatSlope() )
         {
             const SbResult terrainResult = UseFlatSlopeTerrain( m_systems,
-                                                                m_cWorldEnvironment,
+                                                                m_sceneController.World(),
                                                                 m_config,
                                                                 scene.GetFlatBaseY(),
                                                                 scene.GetFlatSlopeX(),
@@ -807,7 +807,7 @@ SbResult Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnCom
         {
             const SbResult terrainResult =
                 UseDefaultTerrain( m_systems,
-                                   m_cWorldEnvironment,
+                                   m_sceneController.World(),
                                    m_config,
                                    m_systems.assets.RegisterSourceAssetPath( SkullbonezCore::Assets::AssetKind::Terrain,
                                                                              "terrain.raw",
@@ -823,25 +823,25 @@ SbResult Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnCom
             SceneState().hasFlatSlope = false;
         }
 
-        ApplyConfiguredWorldEnvironment( m_cWorldEnvironment, m_config, m_systems.terrain.get() );
+        ApplyConfiguredWorldEnvironment( m_sceneController.World(), m_config, m_systems.terrain.get() );
         // Override world environment if scene specifies world values
         if ( scene.HasWorldOverride() )
         {
-            m_cWorldEnvironment = WorldEnvironment( scene.GetWorldFluidHeight(),
-                                                    scene.GetWorldFluidDensity(),
-                                                    m_config.gasDensity,
-                                                    scene.GetWorldGravity() );
-            m_cWorldEnvironment.SetMutualGravitySettings( scene.GetWorldMutualGravitySettings() );
-            m_cWorldEnvironment.BindRuntimeConfig( m_config );
-            UpdateWorldTerrainBounds( m_cWorldEnvironment, m_systems.terrain.get() );
+            m_sceneController.World() = WorldEnvironment( scene.GetWorldFluidHeight(),
+                                                          scene.GetWorldFluidDensity(),
+                                                          m_config.gasDensity,
+                                                          scene.GetWorldGravity() );
+            m_sceneController.World().SetMutualGravitySettings( scene.GetWorldMutualGravitySettings() );
+            m_sceneController.World().BindRuntimeConfig( m_config );
+            UpdateWorldTerrainBounds( m_sceneController.World(), m_systems.terrain.get() );
         }
-        ApplyNoWaterOverride( m_cWorldEnvironment, m_systems.terrain.get(), m_launchOptions.noWater );
+        ApplyNoWaterOverride( m_sceneController.World(), m_systems.terrain.get(), m_launchOptions.noWater );
         if ( shouldPreserveRuntimeState )
         {
             // World sliders/keyboard water edits are part of the live scene controls.
             // Restore them after terrain/world JSON and --no-water have resolved,
             // so a plain reset keeps the operator's current environment.
-            ApplyUIWorldOverride( m_cWorldEnvironment,
+            ApplyUIWorldOverride( m_sceneController.World(),
                                   m_replayRuntime,
                                   resetSnapshot.worldGravity,
                                   resetSnapshot.worldFluidHeight,
@@ -854,7 +854,7 @@ SbResult Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnCom
         const SceneGeneratedSetupResult generatedModels = SceneGeneratedSetup::TrySetUpRequestedModels(
             BuildSceneGeneratedModelContext( SceneState(),
                                              m_config,
-                                             m_cWorldEnvironment,
+                                             m_sceneController.World(),
                                              m_systems.terrain.get(),
                                              m_sceneController.Models(),
                                              m_sceneController.Physics(),
@@ -876,7 +876,7 @@ SbResult Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnCom
         {
             const SbResult authoredSetup = SceneAuthoredSetup::SetUpGameModels(
                 BuildSceneAuthoredModelContext( SceneState(),
-                                                m_cWorldEnvironment,
+                                                m_sceneController.World(),
                                                 m_systems.terrain.get(),
                                                 m_sceneController.Models(),
                                                 m_sceneController.Entities(),
@@ -974,7 +974,7 @@ SbResult Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnCom
         m_runtimeSettings.tornadoField = Physics::TornadoFieldConfig();
         m_runtimeSettings.tornadoSystem = Physics::TornadoSystemConfig();
         ApplyTornadoDefaultsForActiveScene( m_runtimeSettings,
-                                            m_cWorldEnvironment,
+                                            m_sceneController.World(),
                                             RuntimeActiveCinematicConfig( SceneState(), m_config ) );
         if ( hasSceneTornadoSystem )
         {
@@ -1197,7 +1197,7 @@ SbResult SceneController::SaveCurrentDefaults( const SceneDefaultsSaveView& view
                                                                       State(),
                                                                       Entities(),
                                                                       Models(),
-                                                                      view.world,
+                                                                      World(),
                                                                       view.cameras,
                                                                       view.debug.isWaterHidden,
                                                                       view.debug.isTerrainHidden );
@@ -1291,10 +1291,10 @@ SbResult SceneController::SaveCurrentDefaults( const SceneDefaultsSaveView& view
     {
         playback.erase( "autoCycleInterval" );
     }
-    world["gravity"] = view.world.GetGravity();
-    world["fluidHeight"] = view.world.GetFluidSurfaceHeight();
-    world["fluidDensity"] = view.world.GetFluidDensity();
-    const MutualGravitySettings& mutualGravity = view.world.GetMutualGravitySettings();
+    world["gravity"] = World().GetGravity();
+    world["fluidHeight"] = World().GetFluidSurfaceHeight();
+    world["fluidDensity"] = World().GetFluidDensity();
+    const MutualGravitySettings& mutualGravity = World().GetMutualGravitySettings();
     if ( mutualGravity.enabled )
     {
         world["mutualGravity"] = {
