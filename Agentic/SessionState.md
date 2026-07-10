@@ -10,9 +10,9 @@ reports, and git history.
 | Field | Value |
 |---|---|
 | Branch | `engine-cleanup-10th-july`, tracking `origin/engine-cleanup-10th-july` |
-| Current pushed baseline | `cb2f4dc4 refactor: move render composition behind RuntimeRenderer` |
-| Current objective | Stabilise Replay R3 retained-sample and memory ownership |
-| Last broad local gate | `tools\validate_full.bat` passed final RuntimeRenderer composition source with 121/121 doctest cases, all CPU lanes, zero-warning builds, DX12 with zero InfoQueue errors/matching screenshots, standalone physics smoke, and byte-exact physics in 52.6s |
+| Current pushed baseline | `f5cbeb57 fix: bound replay retained memory by owner` |
+| Current objective | Complete Replay R4 narrow live-owner access and stable identity |
+| Last broad local gate | `tools\validate_full.bat` passed final Replay R3 source with 124/124 doctest cases, all CPU lanes, zero-warning builds, DX12 with zero InfoQueue errors/matching screenshots, standalone physics smoke, and byte-exact physics in 49.2s |
 | Native evidence | Injected heap-use-after-free caught; healthy ASan and five-file `/analyze` passed in 16.185s |
 
 ## Pushed Cleanup Commits
@@ -44,6 +44,7 @@ reports, and git history.
 - `824fafaf refactor: delete obsolete replay compatibility paths`
 - `dfab2043 refactor: move replay workspace ownership out of Run`
 - `cb2f4dc4 refactor: move render composition behind RuntimeRenderer`
+- `f5cbeb57 fix: bound replay retained memory by owner`
 
 ## Current Queue
 
@@ -111,6 +112,15 @@ disguised broad host; the required repeat pass was clean. Architecture,
 renderer, full, fast, allocation-policy, project/filter, and comment gates pass.
 Evidence is in `Agentic/Reports/runtime_renderer_composition_20260710.md`.
 
+Replay R3 is complete. `ReplayRetainedMemory` names presentation, solver,
+prediction-prefix, and cold-v2 ownership plus all three registered growth
+owners. Guarded high-water evidence right-sizes recorder/solver caps to 32/8
+MiB; prediction remains 256 MiB after reaching 211,376,304 bytes. Aggregate
+active owner bytes are enforced, counters are exposed in memory JSON, and
+fatal-vs-cancel exhaustion is tested. CPU, allocation, scrub, v2, interaction,
+physics, perf, and full gates pass. Evidence is in
+`Agentic/Reports/replay_r3_retained_memory_20260711.md`.
+
 Scene provenance C1a is complete: parser-owned library/instance/ordered-part
 records retain exact shape sources, hierarchy transforms use rotated offsets
 and quaternion composition, duplicate explicit/asset/ragdoll names fail
@@ -160,8 +170,7 @@ and full gates pass from the final source.
 
 ## Workstreams To Prioritize
 
-1. Stabilise replay retained-sample/memory ownership in R3, then narrow live
-   owner access in R4 and close replay tests/size in R5.
+1. Narrow replay live-owner access in R4 and close replay tests/size in R5.
 2. Close the dependent B1f scene/input seam and promote `SceneController` to
    own real load/reset/save lifecycle and delete `Run` scene callbacks.
 3. Finish physics stable-identity D1-D4 and the remaining interaction/UI work.

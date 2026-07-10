@@ -130,4 +130,3 @@ not ingested.
 The touched-file audit covered 14 source-bearing files: 14 checked, 0 deferred,
 0 unchecked. The owning checklist/evidence path is this report plus R3 in
 `Agentic/Plans/TODO/replay-architecture-and-right-sizing.md`.
-
