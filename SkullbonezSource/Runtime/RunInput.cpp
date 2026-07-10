@@ -1070,43 +1070,28 @@ bool Run::RouteRuntimePointerInput( const RuntimeInputSnapshot& inputSnapshot, c
         consumedWorldClick = true;
     }
 
-    if ( !consumedWorldClick && RunCameraModeUsesLauncher( m_camera.mode ) && leftPressed && !suppressWorldAction &&
-         !uiWantsNativeMouseCursor )
+    if ( !consumedWorldClick )
     {
-        EnterInteractiveSceneRun();
-        Vector3 rayOrigin;
-        Vector3 rayDirection;
-        Vector3 cameraUp;
-        if ( m_runtimeTools.TryBuildLauncherCameraRay( &m_sceneController.Cameras(),
-                                                       rayOrigin,
-                                                       rayDirection,
-                                                       cameraUp ) )
+        LauncherPointerInput launcherInput;
+        launcherInput.launcherMode = RunCameraModeUsesLauncher( m_camera.mode );
+        launcherInput.leftPressed = leftPressed;
+        launcherInput.suppressWorldAction = suppressWorldAction;
+        launcherInput.uiWantsNativeCursor = uiWantsNativeMouseCursor;
+        launcherInput.activeModelCapacity = m_startup.gameModelCapacity;
+        const LauncherPointerResult launcherResult =
+            m_runtimeTools.RouteLauncherPointer( launcherInput,
+                                                 m_sceneController.Cameras(),
+                                                 m_replayRuntime,
+                                                 m_sceneController.Models(),
+                                                 m_sceneController.Physics(),
+                                                 SceneState(),
+                                                 m_sceneController.Terrain().Get() );
+        if ( launcherResult.enteredInteractive )
         {
-            m_replayRuntime.RecordLauncherFireEvent(
-                rayOrigin,
-                rayDirection,
-                cameraUp,
-                m_runtimeTools.RayCastTest().fireMode == RunLauncherFireMode::Projectile,
-                m_runtimeTools.RayCastTest().impulseStrength,
-                m_runtimeTools.RayCastTest().projectileSpeed,
-                m_sceneController.Models().SceneEntityCount() );
-            // Why: RuntimeTools now fails closed unless Run has completed the
-            // cold collection-to-store topology repair at the owner boundary.
-            const bool launcherStoresReady = m_sceneController.Models().RepairPhysicsBodyAndColliderTopology();
-            if ( launcherStoresReady && m_runtimeTools.FireLauncherRay( m_sceneController.Models(),
-                                                                        m_sceneController.Physics(),
-                                                                        SceneState(),
-                                                                        m_sceneController.Terrain().Get(),
-                                                                        m_startup.gameModelCapacity,
-                                                                        rayOrigin,
-                                                                        rayDirection,
-                                                                        cameraUp ) )
-            {
-                SceneState().modelCount = m_sceneController.Models().SceneEntityCount();
-            }
+            EnterInteractiveSceneRun();
+            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::FireLauncher, RuntimeInputActionSource::Mouse );
         }
-        UpdateRuntimeInputModeAfterAction( RuntimeInputAction::FireLauncher, RuntimeInputActionSource::Mouse );
-        consumedWorldClick = true;
+        consumedWorldClick = launcherResult.consumed;
     }
 
     return consumedWorldClick;

@@ -89,6 +89,7 @@ enum class RunInteractionAutomationAssertKind
     PredictionTrajectoryFingerprintReady,
     GizmoVisible,
     MousePickupActive,
+    LauncherRayActive,
     ReplayActiveTrack,
     ReplayHistoricalSamplePaused,
     MemoryOverlayEnabled

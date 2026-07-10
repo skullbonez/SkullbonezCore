@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "actions": [
+    { "frame": 5, "setCameraMode": "Launcher" },
+    { "frame": 10, "clickObject": "path_striker", "button": "left" },
+    { "frame": 10, "assert": { "launcherRayActive": true } },
+    { "frame": 15, "assert": { "cameraMode": "Launcher" } },
+    { "frame": 20, "screenshot": "TestOutput/interaction/launcher_fire_after_click.bmp" }
+  ]
+}

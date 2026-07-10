@@ -443,6 +443,25 @@ zero DX12 InfoQueue errors, matching screenshots, standalone topology smoke,
 and the 20,001-line byte-exact physics baseline. Comment audit: 3/3 touched
 source-bearing files.
 
+Launcher pointer routing is now one RuntimeTools-owned command. The owner
+performs mode/UI/edge gating, camera-ray construction, accepted replay-event
+publication, cold topology repair, laser/projectile execution, and scene-count
+commit. Run consumes only the command's consumed/interactive receipt and input-
+mode bookkeeping. A fifth interaction scenario enters Launcher, clicks a live
+body, proves owner-owned laser feedback, and retains Launcher mode. B1f remains
+open for editor and replay route composition, cross-owner transition sequencing,
+keyboard/camera helpers, and final pointer-route/`TakeInput` deletion.
+
+Evidence: the five-scenario interaction gate passed in 22.2s after its first
+assertion correctly showed that optional debug ray lines stay inactive when
+visualization is disabled; the final proof observes the always-recorded launcher
+laser owner instead. Fast passed in 27.4s; the CPU umbrella passed in 10.8s with
+129/129 doctest cases and 2,755 assertions; perf completed in 32.5s; and full
+passed in 52.9s with zero warnings, zero DX12 InfoQueue errors, matching
+screenshots, standalone topology smoke, and the 20,001-line byte-exact physics
+baseline. Comment audit: 5/5 touched source-bearing files; the batch wrapper
+retains its complete local contract header.
+
 ## Remaining Work
 
 ### A. Narrow the render host

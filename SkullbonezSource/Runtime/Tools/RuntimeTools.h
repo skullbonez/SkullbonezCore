@@ -115,6 +115,7 @@ struct ReplayLauncherVisualSample;
 class SceneEntityStore;
 class InputRouter;
 class RuntimeInteractionController;
+class ReplayRuntime;
 struct RuntimeInteractionCommand;
 struct RuntimeInteractionEvent;
 struct RuntimeInteractionSelectionPlan;
@@ -242,6 +243,21 @@ struct MousePickupPointerResult
 {
     bool consumed = false;                                                  // Prevents later world owners from seeing this pointer gesture.
     bool enteredInteractive = false;                                        // Composition disables automation quit after a successful grab begins.
+};
+
+struct LauncherPointerInput
+{
+    bool launcherMode = false;
+    bool leftPressed = false;
+    bool suppressWorldAction = false;
+    bool uiWantsNativeCursor = false;
+    int activeModelCapacity = 0;
+};
+
+struct LauncherPointerResult
+{
+    bool consumed = false;
+    bool enteredInteractive = false;
 };
 
 struct RunEditorPlacementState
@@ -550,6 +566,13 @@ class RuntimeTools
                           const Math::Vector::Vector3& rayOrigin,
                           const Math::Vector::Vector3& rayDirection,
                           const Math::Vector::Vector3& cameraUp );
+    LauncherPointerResult RouteLauncherPointer( const LauncherPointerInput& input,
+                                                Environment::CameraCollection& cameras,
+                                                ReplayRuntime& replayRuntime,
+                                                GameObjects::GameModelCollection& collection,
+                                                Physics::PhysicsEngine& physics,
+                                                RunSceneState& scene,
+                                                Geometry::Terrain* terrain );
     void FireLauncherLaser( Physics::PhysicsEngine& physics,
                             int modelCount,
                             Geometry::Terrain* terrain,

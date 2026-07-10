@@ -10,9 +10,9 @@ reports, and git history.
 | Field | Value |
 |---|---|
 | Branch | `engine-cleanup-10th-july`, tracking `origin/engine-cleanup-10th-july` |
-| Current pushed baseline | `95f5b691 refactor: move editor transition cleanup into tools` |
+| Current pushed baseline | `69ee7d1e refactor: move pointer presentation mutation into router` |
 | Current objective | Continue B1f by deleting Run pointer/camera composition, then TakeInput |
-| Last broad local gate | `tools\validate_full.bat` passed InputRouter-owned cursor/capture mutation with 129/129 doctest cases, 2,755 assertions, zero-warning builds, DX12 with zero InfoQueue errors/matching screenshots, standalone physics smoke, and 20,001-line byte-exact physics in 52.6s |
+| Last broad local gate | `tools\validate_full.bat` passed RuntimeTools-owned launcher pointer routing with 129/129 doctest cases, 2,755 assertions, zero-warning builds, DX12 with zero InfoQueue errors/matching screenshots, standalone physics smoke, and 20,001-line byte-exact physics in 52.9s |
 | Native evidence | Injected heap-use-after-free caught; healthy ASan and five-file `/analyze` passed in 16.185s |
 
 ## Pushed Cleanup Commits
@@ -313,6 +313,11 @@ Cursor application and UI capture release now execute inside `InputRouter`;
 four free presentation wrappers are deleted and camera delta reset consumes the
 router's explicit release result. Fast, CPU, four interaction scenarios, perf,
 and full pass; comment audit is 3/3.
+
+Launcher click gating, ray construction, replay event publication, topology
+repair, firing, and scene-count commit now execute inside `RuntimeTools`. A fifth
+interaction scenario proves accepted laser feedback. Fast, CPU, interaction,
+perf, and full pass; comment audit is 5/5. Editor/replay routing remains.
 
 Scene provenance C1a is complete: parser-owned library/instance/ordered-part
 records retain exact shape sources, hierarchy transforms use rotated offsets

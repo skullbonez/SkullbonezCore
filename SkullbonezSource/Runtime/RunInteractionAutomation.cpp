@@ -650,6 +650,8 @@ const char* AssertName( RunInteractionAutomationAssertKind kind )
         return "gizmoVisible";
     case RunInteractionAutomationAssertKind::MousePickupActive:
         return "mousePickupActive";
+    case RunInteractionAutomationAssertKind::LauncherRayActive:
+        return "launcherRayActive";
     case RunInteractionAutomationAssertKind::ReplayActiveTrack:
         return "replayActiveTrack";
     case RunInteractionAutomationAssertKind::ReplayHistoricalSamplePaused:
@@ -1526,6 +1528,11 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
             outAction.assertKind = RunInteractionAutomationAssertKind::MousePickupActive;
             outAction.boolValue = ReadBool( member.value() );
         }
+        else if ( name == "launcherRayActive" )
+        {
+            outAction.assertKind = RunInteractionAutomationAssertKind::LauncherRayActive;
+            outAction.boolValue = ReadBool( member.value() );
+        }
         else if ( name == "replayActiveTrack" )
         {
             outAction.assertKind = RunInteractionAutomationAssertKind::ReplayActiveTrack;
@@ -1748,6 +1755,14 @@ EvaluateInteractionAutomationAssertion( InteractionAutomationAssertContext& cont
     case RunInteractionAutomationAssertKind::MousePickupActive:
     {
         const bool active = context.runtimeTools.MousePickup().active;
+        evaluation.expected = BoolString( action.boolValue );
+        evaluation.actual = BoolString( active );
+        evaluation.passed = active == action.boolValue;
+        break;
+    }
+    case RunInteractionAutomationAssertKind::LauncherRayActive:
+    {
+        const bool active = context.runtimeTools.Laser().HasActiveShots();
         evaluation.expected = BoolString( action.boolValue );
         evaluation.actual = BoolString( active );
         evaluation.passed = active == action.boolValue;
@@ -2353,6 +2368,7 @@ void Run::WriteInteractionAutomationReport()
         { "selectedModelIndex", selectedIndex },
         { "gizmoVisible", gizmoVisible },
         { "mousePickupActive", m_runtimeTools.MousePickup().active },
+        { "launcherRayActive", m_runtimeTools.Laser().HasActiveShots() },
         { "memoryOverlayEnabled", m_UI.IsMemoryOverlayEnabled() },
         { "replayPredictionEnabled", predictionState.enabled },
         { "predictionHorizonSeconds", predictionState.simulation.horizonSeconds },

@@ -59,6 +59,7 @@ Related:
 #include "../RuntimeInteractionCommands.h"
 #include "../RuntimeInteractionController.h"
 #include "../Replay/ReplayRecorder.h"
+#include "../Replay/ReplayRuntime.h"
 #include "../Scene/SceneRuntime.h"
 #include "../../World/Terrain.h"
 #include "../../World/WorldEnvironment.h"
@@ -636,6 +637,55 @@ bool RuntimeTools::FireLauncherRay( GameObjects::GameModelCollection& collection
 
     FireLauncherLaser( physics, modelCount, terrain, rayOrigin, rayDirection, cameraUp );
     return false;
+}
+
+
+LauncherPointerResult RuntimeTools::RouteLauncherPointer( const LauncherPointerInput& input,
+                                                          Environment::CameraCollection& cameras,
+                                                          ReplayRuntime& replayRuntime,
+                                                          GameObjects::GameModelCollection& collection,
+                                                          Physics::PhysicsEngine& physics,
+                                                          RunSceneState& scene,
+                                                          Geometry::Terrain* terrain )
+{
+    LauncherPointerResult result;
+    if ( !input.launcherMode || !input.leftPressed || input.suppressWorldAction || input.uiWantsNativeCursor )
+    {
+        return result;
+    }
+    result.consumed = true;
+    result.enteredInteractive = true;
+
+    Math::Vector::Vector3 rayOrigin;
+    Math::Vector::Vector3 rayDirection;
+    Math::Vector::Vector3 cameraUp;
+    if ( !TryBuildLauncherCameraRay( &cameras, rayOrigin, rayDirection, cameraUp ) )
+    {
+        return result;
+    }
+
+    const int modelCountBefore = collection.SceneEntityCount();
+    replayRuntime.RecordLauncherFireEvent( rayOrigin,
+                                           rayDirection,
+                                           cameraUp,
+                                           m_rayCastTest.fireMode == RunLauncherFireMode::Projectile,
+                                           m_rayCastTest.impulseStrength,
+                                           m_rayCastTest.projectileSpeed,
+                                           modelCountBefore );
+    // Why: the launcher is a cold input action, so it repairs any construction-
+    // time collection/store drift before entering handle-based physics queries.
+    if ( collection.RepairPhysicsBodyAndColliderTopology() && FireLauncherRay( collection,
+                                                                               physics,
+                                                                               scene,
+                                                                               terrain,
+                                                                               input.activeModelCapacity,
+                                                                               rayOrigin,
+                                                                               rayDirection,
+                                                                               cameraUp ) )
+    {
+        scene.modelCount = collection.SceneEntityCount();
+    }
+    return result;
 }
 
 void RuntimeTools::FireLauncherLaser( Physics::PhysicsEngine& physics,
