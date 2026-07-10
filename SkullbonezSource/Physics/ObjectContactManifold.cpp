@@ -291,7 +291,7 @@ void AddContactPoint( const ObjectContactBodyView& a,
     cp.featureId = featureId;
 }
 
-template<std::size_t CandidateCapacity>
+template <std::size_t CandidateCapacity>
 int SelectContactCandidateIndices( const ContactCandidate ( &candidates )[CandidateCapacity],
                                    int candidateCount,
                                    const Vector3& normal,
@@ -332,8 +332,7 @@ int SelectContactCandidateIndices( const ContactCandidate ( &candidates )[Candid
     selected[deepest] = true;
     selectedIndices[selectedCount++] = deepest;
 
-    const Vector3 tangentSeed =
-        fabsf( normal.y ) < 0.9f ? Vector3( 0.0f, 1.0f, 0.0f ) : Vector3( 1.0f, 0.0f, 0.0f );
+    const Vector3 tangentSeed = fabsf( normal.y ) < 0.9f ? Vector3( 0.0f, 1.0f, 0.0f ) : Vector3( 1.0f, 0.0f, 0.0f );
     Vector3 tangent0 = CrossProduct( tangentSeed, normal );
     const float tangent0MagSq = VectorMagSquared( tangent0 );
     if ( tangent0MagSq > 1.0e-8f )
