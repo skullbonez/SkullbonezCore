@@ -2418,7 +2418,10 @@ void Run::TakeInput()
                 m_camera.director.grabbed );
         } );
     ReplayRuntime::PathPickInput replayPointerRay;
-    replayPointerRay.hasWorldRay = TryBuildMouseWorldRay( replayPointerRay.rayOrigin, replayPointerRay.rayDirection );
+    replayPointerRay.hasWorldRay = m_inputRouter.TryBuildWorldRay( m_sceneController.Cameras(),
+                                                                   *m_systems.window,
+                                                                   replayPointerRay.rayOrigin,
+                                                                   replayPointerRay.rayDirection );
     const RuntimeUIFrameResult uiFrameResult = ApplyRuntimeUIFrameCommands(
         RuntimeUIFrameContext{ m_runtimeInput,
                                m_inputRouter,
@@ -2565,9 +2568,15 @@ void Run::TakeInput()
     pointerInput.clientY = pointerDevice.clientY;
     pointerInput.activeModelCapacity = m_startup.gameModelCapacity;
     pointerInput.cameraMode = m_camera.mode;
-    pointerInput.hasWorldRay = TryBuildMouseWorldRay( pointerInput.rayOrigin, pointerInput.rayDirection );
-    pointerInput.hasClampedWorldRay =
-        TryBuildMouseWorldRay( pointerInput.clampedRayOrigin, pointerInput.clampedRayDirection, true );
+    pointerInput.hasWorldRay = m_inputRouter.TryBuildWorldRay( m_sceneController.Cameras(),
+                                                               *m_systems.window,
+                                                               pointerInput.rayOrigin,
+                                                               pointerInput.rayDirection );
+    pointerInput.hasClampedWorldRay = m_inputRouter.TryBuildWorldRay( m_sceneController.Cameras(),
+                                                                      *m_systems.window,
+                                                                      pointerInput.clampedRayOrigin,
+                                                                      pointerInput.clampedRayDirection,
+                                                                      true );
     pointerInput.cameraEye = m_sceneController.Cameras().GetCameraTranslation();
     pointerInput.cameraView = m_sceneController.Cameras().GetCameraView();
     const RuntimePointerRouteResult pointerResult = m_inputRouter.RouteRuntimePointer(

@@ -1738,33 +1738,35 @@ EditorPointerRouteResult InputRouter::RouteEditorPointer( const EditorPointerRou
 }
 
 
-bool Run::TryBuildMouseWorldRay( Vector3& outOrigin, Vector3& outDirection, bool clampToViewport ) const
+bool InputRouter::TryBuildWorldRay( const Environment::CameraCollection& cameras,
+                                    const Window& window,
+                                    Vector3& outOrigin,
+                                    Vector3& outDirection,
+                                    bool clampToViewport ) const
 {
-    if ( !m_systems.window )
-    {
-        return false;
-    }
-
-    const DeviceInputFrame& deviceFrame = m_inputRouter.DeviceFrame();
+    const DeviceInputFrame& deviceFrame = DeviceFrame();
     if ( !deviceFrame.hasClientPosition )
     {
         return false;
     }
-    return TryBuildMouseWorldRayAt( POINT{ deviceFrame.clientX, deviceFrame.clientY },
-                                    outOrigin,
-                                    outDirection,
-                                    clampToViewport );
+    return TryBuildWorldRayAt( POINT{ deviceFrame.clientX, deviceFrame.clientY },
+                               cameras,
+                               window,
+                               outOrigin,
+                               outDirection,
+                               clampToViewport );
 }
 
 
-bool Run::TryBuildMouseWorldRayAt( POINT mouse, Vector3& outOrigin, Vector3& outDirection, bool clampToViewport ) const
+bool InputRouter::TryBuildWorldRayAt( POINT mouse,
+                                      const Environment::CameraCollection& cameras,
+                                      const Window& window,
+                                      Vector3& outOrigin,
+                                      Vector3& outDirection,
+                                      bool clampToViewport ) const
 {
-    if ( !m_systems.window )
-    {
-        return false;
-    }
-    const int screenW = (std::max)( 1, m_systems.window->ClientWidth() );
-    const int screenH = (std::max)( 1, m_systems.window->ClientHeight() );
+    const int screenW = (std::max)( 1, window.ClientWidth() );
+    const int screenH = (std::max)( 1, window.ClientHeight() );
     if ( clampToViewport )
     {
         // Invariant: Captured tool drags keep receiving mouse positions after
@@ -1782,11 +1784,11 @@ bool Run::TryBuildMouseWorldRayAt( POINT mouse, Vector3& outOrigin, Vector3& out
     const float ndcX = ( static_cast<float>( mouse.x ) / static_cast<float>( screenW ) ) * 2.0f - 1.0f;
     const float ndcY = 1.0f - ( static_cast<float>( mouse.y ) / static_cast<float>( screenH ) ) * 2.0f;
 
-    const Vector3 eye = m_sceneController.Cameras().GetCameraTranslation();
-    const Vector3 view = m_sceneController.Cameras().GetCameraView();
-    const Vector3 up = m_sceneController.Cameras().GetCameraUp();
+    const Vector3 eye = cameras.GetCameraTranslation();
+    const Vector3 view = cameras.GetCameraView();
+    const Vector3 up = cameras.GetCameraUp();
     const Matrix4 viewMatrix = Matrix4::LookAt( eye, view, up );
-    const Matrix4 inverseViewProjection = ( m_systems.window->GetProjectionMatrix() * viewMatrix ).Inverse();
+    const Matrix4 inverseViewProjection = ( window.GetProjectionMatrix() * viewMatrix ).Inverse();
 
     Vector3 rayNear;
     Vector3 rayFar;

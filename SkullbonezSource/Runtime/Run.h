@@ -220,15 +220,6 @@ class Run
     void TickAutoCycle();                                               // Auto-cycle ball capture; posts WM_QUIT when all balls captured
     bool TickSceneAdvance();                                            // Frame count, exit/hold on completion, restarts; returns true to continue
     void UpdateWaterHeightControls( float dt );                         // Slide water surface up/down while held
-    bool
-    TryBuildMouseWorldRay( Math::Vector::Vector3& outOrigin,
-                           Math::Vector::Vector3& outDirection,
-                           bool clampToViewport = false ) const;        // Mouse position projected into a world-space ray.
-    bool TryBuildMouseWorldRayAt( POINT clientPosition,
-                                  Math::Vector::Vector3& outOrigin,
-                                  Math::Vector::Vector3& outDirection,
-                                  bool clampToViewport = false )
-        const;                                                          // Explicit-point variant for automation and owner-produced pointer values.
 #ifdef _DEBUG
     void LogSceneFinished( const char* reason );
     void BeginPhysicsDiagnosticsRun( const char* scenePath );

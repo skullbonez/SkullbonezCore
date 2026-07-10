@@ -1883,7 +1883,11 @@ bool Run::TryProjectInteractionAutomationModel( const char* name, POINT& outMous
 
                 Vector3 rayOrigin;
                 Vector3 rayDirection;
-                if ( TryBuildMouseWorldRayAt( candidate, rayOrigin, rayDirection ) )
+                if ( m_inputRouter.TryBuildWorldRayAt( candidate,
+                                                       m_sceneController.Cameras(),
+                                                       *m_systems.window,
+                                                       rayOrigin,
+                                                       rayDirection ) )
                 {
                     RuntimePickRequest request;
                     request.purpose = RuntimePickPurpose::EditorSelection;

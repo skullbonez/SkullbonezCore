@@ -95,6 +95,7 @@ class RuntimeInteractionController;
 class RuntimeTools;
 class AttachedCameraController;
 class SceneEntityStore;
+class Window;
 
 struct EditorPointerRouteInput
 {
@@ -402,6 +403,17 @@ class InputRouter
                                                    RunCameraMode replayRestoreCameraMode,
                                                    bool attachedCameraFollow,
                                                    bool directorGrabbed );
+    bool TryBuildWorldRay( const Environment::CameraCollection& cameras,
+                           const Window& window,
+                           Math::Vector::Vector3& outOrigin,
+                           Math::Vector::Vector3& outDirection,
+                           bool clampToViewport = false ) const;
+    bool TryBuildWorldRayAt( POINT clientPosition,
+                             const Environment::CameraCollection& cameras,
+                             const Window& window,
+                             Math::Vector::Vector3& outOrigin,
+                             Math::Vector::Vector3& outDirection,
+                             bool clampToViewport = false ) const;
 
     // Pointer presentation requests are reconciled here so UI/tools/camera do
     // not manipulate Win32 capture or cursor counters independently.

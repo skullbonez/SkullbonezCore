@@ -10,9 +10,9 @@ reports, and git history.
 | Field | Value |
 |---|---|
 | Branch | `engine-cleanup-10th-july`, tracking `origin/engine-cleanup-10th-july` |
-| Current pushed baseline | `01788603 refactor: move runtime pointer priority into router` |
-| Current objective | Continue B1f by deleting TakeInput UI/keyboard callback packs, then remaining camera helpers and late snapshot reads |
-| Last broad local gate | `tools\validate_full.bat` passed RuntimeTools-owned editor viewport/placement input with 129/129 doctest cases, 2,755 assertions, zero-warning builds, DX12 with zero InfoQueue errors/matching screenshots, standalone physics smoke, and 20,001-line byte-exact physics in 52.3s |
+| Current pushed baseline | `4c89b96a refactor: move editor viewport input into tools` |
+| Current objective | Continue B1f by deleting TakeInput UI/keyboard callback packs, then camera movement and late snapshot reads |
+| Last broad local gate | `tools\validate_full.bat` passed InputRouter-owned world-ray projection with 129/129 doctest cases, 2,755 assertions, zero-warning builds, DX12 with zero InfoQueue errors/matching screenshots, standalone physics smoke, and 20,001-line byte-exact physics in 52.7s |
 | Native evidence | Injected heap-use-after-free caught; healthy ASan and five-file `/analyze` passed in 16.185s |
 
 ## Pushed Cleanup Commits
@@ -375,6 +375,11 @@ from one post-UI device value; the UI coordinator consumes explicit effects and
 the Run callback/method are deleted. Fast, CPU, five interaction scenarios,
 perf, and full pass; comment audit is 4/4. B1f continues with TakeInput callback
 packs and camera helpers.
+
+InputRouter now owns device-pointer and explicit automation-point world-ray
+projection from immutable camera/window views; Run's ray helpers are deleted.
+Fast, CPU, five interaction scenarios, perf, and full pass; comment audit is
+5/5. B1f continues with TakeInput callback packs and camera/late-frame reads.
 
 Scene provenance C1a is complete: parser-owned library/instance/ordered-part
 records retain exact shape sources, hierarchy transforms use rotated offsets

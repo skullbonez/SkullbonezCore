@@ -635,6 +635,20 @@ passed in 52.3s with zero warnings, zero DX12 InfoQueue errors, matching
 screenshots, standalone topology smoke, and the 20,001-line byte-exact physics
 baseline. Comment audit: 4/4 touched source-bearing files.
 
+World-ray projection now belongs to `InputRouter`. Device-pointer and explicit
+automation-point APIs borrow immutable camera/window views, apply the existing
+viewport-clamp invariant, and publish value rays to pointer owners. Run's two
+ray helpers and declarations are deleted. B1f remains open for the TakeInput
+UI/keyboard callback packs, camera movement helper, and late frame/render
+snapshot reads.
+
+Evidence: the zero-warning Debug build passed. Fast passed in 30.5s; the CPU
+umbrella passed in 11.2s with 129/129 doctest cases and 2,755 assertions; all
+five interaction scenarios passed in 15.0s; perf completed in 32.3s; and full
+passed in 52.7s with zero warnings, zero DX12 InfoQueue errors, matching
+screenshots, standalone topology smoke, and the 20,001-line byte-exact physics
+baseline. Comment audit: 5/5 touched source-bearing files.
+
 ## Remaining Work
 
 ### A. Narrow the render host
