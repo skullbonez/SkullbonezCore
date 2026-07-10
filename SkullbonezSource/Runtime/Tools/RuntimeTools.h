@@ -506,6 +506,7 @@ class RuntimeTools
                                     Math::Vector::Vector3& outDirection,
                                     Math::Vector::Vector3& outCameraUp ) const;
     bool FireLauncherRay( GameObjects::GameModelCollection& collection,
+                          Physics::PhysicsEngine& physics,
                           RunSceneState& scene,
                           Geometry::Terrain* terrain,
                           int activeModelCapacity,

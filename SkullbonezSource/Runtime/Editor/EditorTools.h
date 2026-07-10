@@ -61,6 +61,7 @@ class Terrain;
 namespace Physics
 {
 class ColliderStore;
+class PhysicsEngine;
 struct ColliderRecord;
 struct PhysicsBodyRecord;
 struct PhysicsColliderCreateDesc;
@@ -109,6 +110,7 @@ struct EditorObjectPlacementContext
 {
     RunEditorPlacementState& editor;
     GameObjects::GameModelCollection& models;
+    Physics::PhysicsEngine& physics;
     RunSceneState& scene;
     Environment::WorldEnvironment& world;
     Geometry::Terrain* terrain;
@@ -143,6 +145,7 @@ struct EditorGizmoContext
 {
     RunEditorPlacementState& editor;
     GameObjects::GameModelCollection& models;
+    Physics::PhysicsEngine& physics;
     RuntimeInteractionController& interaction;
 };
 
@@ -271,12 +274,18 @@ void CaptureEditorGizmoDragGroupState( RunEditorPlacementState& editor,
                                        const Physics::PhysicsBodyStore& bodyStore,
                                        bool allowRagdollGroup );
 int ValidCapturedEditorGizmoGroupCount( const RunEditorPlacementState& editor, int modelCount );
-void WakeEditorPhysicsBody( GameObjects::GameModelCollection& collection, int modelIndex );
-void SeedEditorPhysicsBodyAsleep( GameObjects::GameModelCollection& collection, int modelIndex );
+void WakeEditorPhysicsBody( GameObjects::GameModelCollection& collection,
+                            Physics::PhysicsEngine& physics,
+                            int modelIndex );
+void SeedEditorPhysicsBodyAsleep( GameObjects::GameModelCollection& collection,
+                                  Physics::PhysicsEngine& physics,
+                                  int modelIndex );
 void ResetEditorModelMotionAndWake( GameObjects::GameModelCollection& collection,
+                                    Physics::PhysicsEngine& physics,
                                     int index,
                                     GameObjects::PhysicsBodyStateEdit edit );
 void ResetEditorModelMotionAndWake( GameObjects::GameModelCollection& collection,
+                                    Physics::PhysicsEngine& physics,
                                     int index,
                                     GameObjects::PhysicsBodyStateEdit edit,
                                     Physics::PhysicsColliderCreateDesc colliderDesc );

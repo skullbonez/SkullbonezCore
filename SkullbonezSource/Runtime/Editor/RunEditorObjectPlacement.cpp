@@ -243,11 +243,11 @@ bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
         {
             if ( modelStartsAsleep )
             {
-                SeedEditorPhysicsBodyAsleep( context.models, index );
+                SeedEditorPhysicsBodyAsleep( context.models, context.physics, index );
             }
             else
             {
-                WakeEditorPhysicsBody( context.models, index );
+                WakeEditorPhysicsBody( context.models, context.physics, index );
             }
         }
         return true;
@@ -649,7 +649,7 @@ bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
             context.world,
             context.terrain,
             context.models,
-            context.models.GetPhysicsEngine(),
+            context.physics,
         };
         const SbResult appendResult = SceneAuthoredSetup::AppendSimpleRagdoll( ragdollContext, options );
         if ( !appendResult.ok )

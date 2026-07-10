@@ -453,6 +453,7 @@ bool RuntimeTools::TryBuildLauncherCameraRay( Environment::CameraCollection* cam
 }
 
 bool RuntimeTools::FireLauncherRay( GameObjects::GameModelCollection& collection,
+                                    Physics::PhysicsEngine& physics,
                                     RunSceneState& scene,
                                     Geometry::Terrain* terrain,
                                     int activeModelCapacity,
@@ -461,7 +462,6 @@ bool RuntimeTools::FireLauncherRay( GameObjects::GameModelCollection& collection
                                     const Math::Vector::Vector3& cameraUp )
 {
     const int modelCount = collection.SceneEntityCount();
-    Physics::PhysicsEngine& physics = collection.GetPhysicsEngine();
     if ( !LauncherPhysicsStoresReady( physics, modelCount ) )
     {
         return false;

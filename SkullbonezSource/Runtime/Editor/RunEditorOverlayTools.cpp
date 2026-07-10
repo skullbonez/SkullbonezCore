@@ -111,7 +111,7 @@ EditorInteractionPreviewResult UpdateEditorInteractionPreview( EditorInteraction
     if ( selectedModelIndex >= 0 && !context.editor.gizmoDragActive && !context.editor.placementModeEnabled &&
          input.hasMouseRay )
     {
-        UpdateEditorGizmoHotAxes( { context.editor, context.models, context.interaction },
+        UpdateEditorGizmoHotAxes( { context.editor, context.models, context.physics, context.interaction },
                                   input.mouseRayOrigin,
                                   input.mouseRayDirection,
                                   input.scaleMode );

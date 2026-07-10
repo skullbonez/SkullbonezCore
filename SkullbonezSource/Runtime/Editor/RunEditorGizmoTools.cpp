@@ -358,7 +358,7 @@ void MoveSelectedEditorObjectAlongAxis( EditorGizmoContext context,
             PhysicsBodyStateEdit edit;
             edit.hasPosition = true;
             edit.position = context.editor.gizmoDragGroupStartPositions[static_cast<std::size_t>( groupIndex )] + delta;
-            ResetEditorModelMotionAndWake( context.models, modelIndex, edit );
+            ResetEditorModelMotionAndWake( context.models, context.physics, modelIndex, edit );
         }
     }
     else
@@ -366,7 +366,7 @@ void MoveSelectedEditorObjectAlongAxis( EditorGizmoContext context,
         PhysicsBodyStateEdit edit;
         edit.hasPosition = true;
         edit.position = context.editor.gizmoDragStartPosition + delta;
-        ResetEditorModelMotionAndWake( context.models, index, edit );
+        ResetEditorModelMotionAndWake( context.models, context.physics, index, edit );
     }
 }
 
@@ -424,6 +424,7 @@ void ScaleSelectedEditorObjectAlongAxis( EditorGizmoContext context,
     {
         PhysicsBodyStateEdit edit;
         ResetEditorModelMotionAndWake( context.models,
+                                       context.physics,
                                        index,
                                        edit,
                                        MakeColliderCreateDesc( std::move( scaledShape ),
@@ -478,7 +479,7 @@ void RotateSelectedEditorObjectAroundAxis( EditorGizmoContext context,
                             RotatePointAboutArbitrary( angleDelta, axisVector, startOffset );
             edit.hasOrientation = true;
             edit.orientation = orientation;
-            ResetEditorModelMotionAndWake( context.models, modelIndex, edit );
+            ResetEditorModelMotionAndWake( context.models, context.physics, modelIndex, edit );
         }
     }
     else
@@ -488,7 +489,7 @@ void RotateSelectedEditorObjectAroundAxis( EditorGizmoContext context,
         PhysicsBodyStateEdit edit;
         edit.hasOrientation = true;
         edit.orientation = orientation;
-        ResetEditorModelMotionAndWake( context.models, index, edit );
+        ResetEditorModelMotionAndWake( context.models, context.physics, index, edit );
     }
 }
 

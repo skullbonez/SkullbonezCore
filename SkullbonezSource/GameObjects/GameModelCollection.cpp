@@ -128,7 +128,7 @@ void RefreshBodyDescFromStoreBodyState( const PhysicsBodyRecord& record,
 } // namespace
 
 
-GameModelCollection::GameModelCollection()
+GameModelCollection::GameModelCollection( Physics::PhysicsEngine& physicsEngine ) : m_physicsEngine( physicsEngine )
 {
     ReserveForActiveGameModelCapacity();
 }
@@ -1093,18 +1093,6 @@ bool GameModelCollection::RestoreReplaySolverWorldSnapshot( const ReplaySolverWo
 {
     return m_physicsEngine.RestoreReplaySolverSnapshot( snapshot,
                                                         MakePhysicsBodyCountFromNonNegativeInt( SceneEntityCount() ) );
-}
-
-
-SkullbonezCore::Physics::PhysicsEngine& GameModelCollection::GetPhysicsEngine()
-{
-    return m_physicsEngine;
-}
-
-
-const SkullbonezCore::Physics::PhysicsEngine& GameModelCollection::GetPhysicsEngine() const
-{
-    return m_physicsEngine;
 }
 
 

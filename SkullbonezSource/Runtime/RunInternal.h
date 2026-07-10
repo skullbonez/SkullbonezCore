@@ -109,6 +109,7 @@ inline constexpr double LAUNCHER_REPRO_MESSAGE_SECONDS = 3.0;
 // Live frames and replay target restore use the same helper so hash validation
 // does not drift from normal gameplay stepping.
 void StepRuntimePhysicsTick( GameObjects::GameModelCollection& modelCollection,
+                             Physics::PhysicsEngine& physicsEngine,
                              float fixedDt,
                              const EngineConfig& config,
                              const Physics::PhysicsWorldForces& worldForces,

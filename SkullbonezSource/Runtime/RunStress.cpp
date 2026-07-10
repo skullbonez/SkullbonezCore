@@ -924,8 +924,7 @@ void Run::RunGraphicsStressActions( const Rendering::IRenderDiagnostics& renderD
         {
             selectedSceneIndex = stress.NextInt( static_cast<int>( m_sceneController.Browser().paths.size() ) );
             selectedSceneSource = "browser";
-            action =
-                m_sceneCoordinator.LoadSceneFromBrowserIndex( selectedSceneIndex, m_sceneController.Browser().paths );
+            action = m_sceneController.LoadSceneFromBrowserIndex( selectedSceneIndex );
         }
 
         if ( executeSceneControlAction( action ) )

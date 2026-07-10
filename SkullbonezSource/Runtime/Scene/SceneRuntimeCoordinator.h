@@ -1,14 +1,12 @@
 /*
 File: SkullbonezSource/Runtime/Scene/SceneRuntimeCoordinator.h
 Purpose:
-  Coordinates scene load/reset/advance decisions and control-intent execution
-  above SceneController.
+  Declares temporary scene control intents and immediate execution helpers.
 
 Mental model:
-  SceneRuntime owns queue state. SceneRuntimeCoordinator owns lifecycle
-  decisions that choose which scene entry to load next. Run provides a narrow
-  execution context for returned control intents until later Phase 3 slices move
-  generated and authored scene application behind scene-owned APIs.
+  SceneController owns queue/browser navigation. Run provides a temporary
+  execution context for returned control intents until C1 moves generated and
+  authored scene application behind scene-owned APIs.
 
 Glossary:
   Control action: Explicit request for Run to load, clear automation, or apply
@@ -22,8 +20,8 @@ Glossary:
     the app.
 
 Invariants:
-  - The coordinator does not own scene browser path storage.
-  - The coordinator does not own renderer, physics, replay, or UI state; the
+  - SceneController owns scene browser path storage and navigation decisions.
+  - The free dispatcher does not own renderer, physics, replay, or UI state; the
     execution context names each remaining borrowed side effect explicitly.
   - Scene queue indices stay owned by SceneController/SceneRuntime.
 
@@ -141,29 +139,6 @@ SceneRuntimeUICommandResult SubmitSceneUIRequests( SceneController& sceneControl
                                                    const UI::UISceneCommands& commands );
 bool ExecuteSceneRuntimeControlAction( SceneRuntimeControlExecutionContext context,
                                        const SceneRuntimeControlAction& action );
-
-class SceneRuntimeCoordinator
-{
-  public:
-    explicit SceneRuntimeCoordinator( SceneController& sceneController );
-
-    SceneRuntimeControlAction LoadSceneFromBrowserIndex( int index, const std::vector<std::string>& sceneBrowserPaths );
-    SceneRuntimeControlAction LoadDemoSceneFromUI();
-    SceneRuntimeControlAction ApplyAdjacentCinematicMode( int direction,
-                                                          const std::vector<std::string>& sceneBrowserPaths,
-                                                          int selectedCineModeSceneIndex,
-                                                          int currentSceneBrowserIndex,
-                                                          bool isCinematicTabActive );
-    SceneRuntimeControlAction LoadAdjacentSceneFromBrowser( int direction,
-                                                            const std::vector<std::string>& sceneBrowserPaths,
-                                                            int currentSceneBrowserIndex );
-    SceneRuntimeControlAction
-    ResetCurrentScene( bool preserveUIState, bool suppressExitOnComplete, bool preserveRuntimeState );
-    SceneRuntimeControlAction AdvanceScene( bool perfTestActive, int& perfPass, bool preserveInteractiveUI );
-
-  private:
-    SceneController& m_sceneController;
-};
 
 } // namespace Basics
 } // namespace SkullbonezCore

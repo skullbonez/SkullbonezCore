@@ -12,7 +12,7 @@ reports, and git history.
 | Branch | `engine-cleanup-10th-july`, tracking `origin/engine-cleanup-10th-july` |
 | Current pushed baseline | `8e39056c refactor: narrow replay live-owner identity` |
 | Current objective | Close the dependent B1f/C1 Run scene seam and promote SceneController lifecycle ownership |
-| Last broad local gate | `tools\validate_full.bat` passed final Replay R5 source with 125/125 doctest cases, 2,708 assertions, all CPU lanes, zero-warning builds, DX12 with zero InfoQueue errors/matching screenshots, standalone physics smoke, and 20,001-line byte-exact physics in 50.1s |
+| Last broad local gate | `tools\validate_full.bat` passed the scene-owned physics/navigation boundary with 125/125 doctest cases, 2,708 assertions, all CPU lanes, zero-warning builds, DX12 with zero InfoQueue errors/matching screenshots, standalone physics smoke, and 20,001-line byte-exact physics in 52.3s |
 | Native evidence | Injected heap-use-after-free caught; healthy ASan and five-file `/analyze` passed in 16.185s |
 
 ## Pushed Cleanup Commits
@@ -134,6 +134,14 @@ required adversarial passes are resolved. Fast, CPU, scrub, v2, interaction,
 physics, perf, DX12, and full gates pass. Evidence is in
 `Agentic/Reports/replay_r4_live_owner_identity_20260711.md` and
 `Agentic/Reports/replay_r5_closure_20260711.md`.
+
+The first SceneController C1 dependency is complete locally. SceneController
+physically owns `PhysicsEngine`; GameModelCollection requires a borrow and no
+longer publishes physics authority. All production consumers receive the scene
+owner explicitly, and browser/adjacent/deck/reset/advance policy moved out of
+the deleted `SceneRuntimeCoordinator` object. Fast, CPU, physics, perf, and full
+gates pass; the remaining C1 work is load/save execution and lifecycle-event
+ownership, including deletion of the temporary scene action dispatcher.
 
 Scene provenance C1a is complete: parser-owned library/instance/ordered-part
 records retain exact shape sources, hierarchy transforms use rotated offsets

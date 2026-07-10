@@ -389,8 +389,8 @@ Run::Run( Window& window,
           Threading::WorkerPool& workerPool,
           Profiler* profiler,
           RuntimeRenderBackendView renderBackendView )
-    : m_config( config ), m_sceneController( std::move( sceneQueue ) ), m_sceneCoordinator( m_sceneController ),
-      m_renderBackendView( renderBackendView ),
+    : m_config( config ), m_sceneController( std::move( sceneQueue ) ),
+      m_cGameModelCollection( m_sceneController.Physics() ), m_renderBackendView( renderBackendView ),
       m_renderer( m_renderBackendView,
                   RenderWorldView{ m_systems.assets,
                                    m_systems.textureCollection,
@@ -440,12 +440,11 @@ const RunSceneState& Run::SceneState() const
 
 void Run::RefreshRuntimeViewModel()
 {
-    m_runtimeViewModel =
-        RuntimeViewModelBuilder::Build( RuntimeViewModelContext{ m_sceneController,
-                                                                 m_diagnosticsRuntime.Capture(),
-                                                                 m_runtimeSettings,
-                                                                 m_cGameModelCollection.GetPhysicsEngine() },
-                                        m_contactAudio );
+    m_runtimeViewModel = RuntimeViewModelBuilder::Build( RuntimeViewModelContext{ m_sceneController,
+                                                                                  m_diagnosticsRuntime.Capture(),
+                                                                                  m_runtimeSettings,
+                                                                                  m_sceneController.Physics() },
+                                                         m_contactAudio );
 }
 
 

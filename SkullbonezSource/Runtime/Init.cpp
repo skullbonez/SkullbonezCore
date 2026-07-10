@@ -631,7 +631,11 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
     // before this helper so collection capacity uses the same config snapshot
     // as a regular runtime launch.
     auto world = std::make_unique<SkullbonezCore::Environment::WorldEnvironment>();
-    auto collection = std::make_unique<SkullbonezCore::GameObjects::GameModelCollection>();
+    // Lifetime: the validation-only PhysicsEngine contains fixed-capacity
+    // stores too large for the launcher stack. Static cold ownership avoids a
+    // second heap-policy exception and the process executes this smoke once.
+    static SkullbonezCore::Physics::PhysicsEngine physics;
+    auto collection = std::make_unique<SkullbonezCore::GameObjects::GameModelCollection>( physics );
     static SkullbonezCore::Basics::SceneEntityStore sceneEntities;
     sceneEntities.Clear();
     collection->BindSceneEntityStore( sceneEntities );
@@ -678,7 +682,7 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
     const int bodyCountBeforeFailure = collection->BodyStore().Count();
     const int colliderCountBeforeFailure = collection->Colliders().Count();
     const int renderCountBeforeFailure = collection->GetRenderInstanceStore().Count();
-    const uint32_t descriptorCountBeforeFailure = collection->GetPhysicsEngine().AuthoredBodyDescriptorCount().value;
+    const uint32_t descriptorCountBeforeFailure = physics.AuthoredBodyDescriptorCount().value;
     SkullbonezCore::Basics::SceneEntityCreateDesc duplicateEntity;
     duplicateEntity.sceneObjectId = PhysicsSceneObjectId{ 1u };
     duplicateEntity.SetName( "runtime_smoke_duplicate" );
@@ -700,12 +704,12 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
                                    nullptr,
                                    "runtime_smoke_duplicate" ),
         MakeColliderCreateDesc( duplicateShape, 0.0f, HashStr( "default" ) ) );
-    const bool failedCreationIsAtomic =
-        !duplicateResult.status.ok && sceneEntities.Count() == entityCountBeforeFailure &&
-        collection->BodyStore().Count() == bodyCountBeforeFailure &&
-        collection->Colliders().Count() == colliderCountBeforeFailure &&
-        collection->GetRenderInstanceStore().Count() == renderCountBeforeFailure &&
-        collection->GetPhysicsEngine().AuthoredBodyDescriptorCount().value == descriptorCountBeforeFailure;
+    const bool failedCreationIsAtomic = !duplicateResult.status.ok &&
+                                        sceneEntities.Count() == entityCountBeforeFailure &&
+                                        collection->BodyStore().Count() == bodyCountBeforeFailure &&
+                                        collection->Colliders().Count() == colliderCountBeforeFailure &&
+                                        collection->GetRenderInstanceStore().Count() == renderCountBeforeFailure &&
+                                        physics.AuthoredBodyDescriptorCount().value == descriptorCountBeforeFailure;
 
     const PhysicsBodyHandle bodyA = createdBodies[0];
     const PhysicsBodyHandle bodyB = createdBodies[1];
@@ -715,7 +719,7 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
     jointDesc.bodyB = bodyB;
     jointDesc.localAnchorA = SkullbonezCore::Math::Vector::Vector3( 0.25f, 0.0f, 0.0f );
     jointDesc.localAnchorB = SkullbonezCore::Math::Vector::Vector3( -0.25f, 0.0f, 0.0f );
-    const PhysicsConstraintHandle jointHandle = collection->GetPhysicsEngine().CreatePointJoint( jointDesc );
+    const PhysicsConstraintHandle jointHandle = physics.CreatePointJoint( jointDesc );
 
     const PhysicsBodyStore& bodyStore = collection->BodyStore();
     const ColliderStore& colliderStore = collection->Colliders();

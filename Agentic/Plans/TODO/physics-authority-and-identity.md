@@ -50,8 +50,24 @@ no longer an open question.
 - [ ] A1. Audit external writes to sleep/wake, force, impulse, pose, mass, and
   authored descriptors; route every mutation through handle-based physics
   commands. `GameModel` fields are already clean and are not part of this row.
-- [ ] A2. Move `PhysicsEngine` ownership out of `GameModelCollection`; runtime
+- [x] A2. Move `PhysicsEngine` ownership out of `GameModelCollection`; runtime
   stepping and diagnostics borrow the physics owner directly.
+  Evidence (2026-07-11): `SceneController` now physically owns the
+  scene-lifetime `PhysicsEngine`; `GameModelCollection` requires one borrowed
+  engine at construction and exposes no physics-owner getter. Live stepping,
+  replay target stepping/restore/probes, renderer frame views, editor tools,
+  automation, generated/authored setup, and runtime diagnostics receive the
+  scene-owned engine explicitly. The standalone handle smoke owns a separate
+  cold validation engine and still proves atomic entity/body/collider/render
+  creation. `tools\validate_fast.bat` passed zero-warning Profile/Debug builds
+  in 40.7s, `tools\validate_all_cpu_tests.bat` passed 125/125 doctest cases and
+  2,708 assertions plus every CPU lane in 11.0s,
+  `tools\validate_physics.bat` preserved the 20,001-line byte-exact baseline in
+  16.7s, `tools\validate_perf.bat` passed allocation and performance checks in
+  46.7s, and `tools\validate_full.bat` passed zero-warning builds, zero DX12
+  InfoQueue errors, matching screenshots, standalone physics smoke, and the
+  byte-exact physics baseline in 52.3s. The touched-source comment audit
+  inspected 30/30 files with 0 deferred.
 - [ ] A3. Provide one coordinated body registration path and one deterministic
   deletion path that invalidates handles and removes paired rows.
 

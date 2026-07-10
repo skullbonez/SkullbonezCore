@@ -53,6 +53,7 @@ class Terrain;
 namespace Physics
 {
 class ColliderStore;
+class PhysicsEngine;
 class PhysicsBodyStore;
 } // namespace Physics
 namespace Basics
@@ -69,6 +70,7 @@ struct EditorInteractionPreviewContext
 {
     RunEditorPlacementState& editor;
     GameObjects::GameModelCollection& models;
+    Physics::PhysicsEngine& physics;
     // Lifetime: preview validation borrows stores only when a selection exists;
     // null means the frame has no live selection identity to validate.
     const Physics::PhysicsBodyStore* bodyStore = nullptr;

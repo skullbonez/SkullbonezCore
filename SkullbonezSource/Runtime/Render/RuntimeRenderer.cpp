@@ -2036,9 +2036,9 @@ void RuntimeRenderer::RenderUiText( Rendering::IRenderDiagnostics& renderDiagnos
 
 
 RuntimeRenderModelFrameView
-RuntimeRenderer::BuildModelFrameView( SkullbonezCore::GameObjects::GameModelCollection& models ) const
+RuntimeRenderer::BuildModelFrameView( SkullbonezCore::GameObjects::GameModelCollection& models,
+                                      PhysicsEngine& physics ) const
 {
-    PhysicsEngine& physics = models.GetPhysicsEngine();
     return RuntimeRenderModelFrameView{ models.MutableRenderInstances(),
                                         models.Colliders(),
                                         SkullbonezCore::Physics::PhysicsEngineStoreQueries::BodyStore( physics ),
@@ -2153,7 +2153,7 @@ void RuntimeRenderer::RenderFrameEntry( const FrameEntryContext& context )
                                                                context.toolOverlay.attachedFollow } );
     assert( context.renderModels.renderWorkerPool && "Replay overlay preparation requires the model worker owner" );
     m_replayRuntime.AppendOverlayTrace(
-        context.renderModelOwner.GetPhysicsEngine(),
+        context.physics,
         context.replayOverlay.entities,
         m_config,
         m_world.GetPhysicsWorldForces(),

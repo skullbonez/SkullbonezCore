@@ -71,6 +71,7 @@ void Run::Render( const RuntimeRenderModelFrameView& renderModels )
     m_renderer.RenderFrameEntry( RuntimeRenderer::FrameEntryContext{ m_renderBackendView,
                                                                      renderModels,
                                                                      m_cGameModelCollection,
+                                                                     m_sceneController.Physics(),
                                                                      m_UI,
                                                                      replayOverlay,
                                                                      toolOverlay,

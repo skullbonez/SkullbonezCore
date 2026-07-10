@@ -1,12 +1,12 @@
 /*
 File: SkullbonezSource/Runtime/Scene/SceneController.cpp
 Purpose:
-  Implements scene runtime access and scene-owned deferred request submission.
+  Implements scene state, physics ownership, navigation, and deferred requests.
 
 Mental model:
-  Scene state and deferred intent live together here. Run still executes the
-  returned request batch while deeper scene-loading side effects move out of
-  RunScene.cpp during lifecycle extraction C1.
+  Scene state, physics, and deferred intent live together here. Run still
+  executes the returned request batch while deeper scene-loading side effects
+  move out of RunScene.cpp during lifecycle extraction C1.
 
 Glossary:
   Scene runtime: Mutable per-scene queue, completion, and automation state.
@@ -125,6 +125,18 @@ SceneEntityStore& SceneController::Entities()
 const SceneEntityStore& SceneController::Entities() const
 {
     return m_entities;
+}
+
+
+Physics::PhysicsEngine& SceneController::Physics()
+{
+    return m_physics;
+}
+
+
+const Physics::PhysicsEngine& SceneController::Physics() const
+{
+    return m_physics;
 }
 
 

@@ -762,6 +762,7 @@ struct InteractionAutomationReplayStateContext
     RunTimerState& timers;
     ReplayRuntime& replayRuntime;
     GameModelCollection& gameModels;
+    Physics::PhysicsEngine& physics;
 };
 
 template <typename ApplyCameraMode>
@@ -978,9 +979,8 @@ void ApplyInteractionAutomationReplayStateAction( InteractionAutomationReplaySta
     }
     case RunInteractionAutomationActionType::NudgeReplayPathTargetVelocity:
     {
-        Physics::PhysicsEngine& physics = context.gameModels.GetPhysicsEngine();
         const Physics::PhysicsBodyStore& bodyStore =
-            SkullbonezCore::Physics::PhysicsEngineStoreQueries::BodyStore( physics );
+            SkullbonezCore::Physics::PhysicsEngineStoreQueries::BodyStore( context.physics );
         const Physics::PhysicsBodyHandle body = context.replayRuntime.ResolveVelocityEditBodyHandle( bodyStore );
         const Physics::PhysicsBodyRecord* record = bodyStore.RecordForHandle( body );
         const bool hasTarget = context.replayRuntime.PathVisualizer().hasTarget &&
@@ -1005,7 +1005,7 @@ void ApplyInteractionAutomationReplayStateAction( InteractionAutomationReplaySta
                 prediction.baseline.divergenceUnits = 0.0f;
 
                 const Vector3 nextLinearVelocity = record->linearVelocity + action.vectorValue;
-                applied = physics.SetBodyVelocity( body, nextLinearVelocity, record->angularVelocity, true );
+                applied = context.physics.SetBodyVelocity( body, nextLinearVelocity, record->angularVelocity, true );
                 if ( applied )
                 {
                     context.replayRuntime.Prediction().enabled = true;
@@ -1928,7 +1928,8 @@ void Run::TickInteractionAutomationBeforeInput()
     InteractionAutomationReplayStateContext replayStateContext{ state,
                                                                 m_timers,
                                                                 m_replayRuntime,
-                                                                m_cGameModelCollection };
+                                                                m_cGameModelCollection,
+                                                                m_sceneController.Physics() };
     if ( state.releaseLeftFrame == frame )
     {
         state.leftMouseDown = false;

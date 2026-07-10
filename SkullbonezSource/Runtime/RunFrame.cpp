@@ -295,6 +295,7 @@ void WriteRuntimePhysicsDiagnosticsCsv( void*, const char* fileName, const char*
 // so the runtime frame applies those owner-side edges explicitly around the
 // store-owned engine step.
 void StepRuntimePhysicsTick( SkullbonezCore::GameObjects::GameModelCollection& modelCollection,
+                             PhysicsEngine& physicsEngine,
                              float fixedDt,
                              const EngineConfig& config,
                              const PhysicsWorldForces& worldForces,
@@ -308,7 +309,6 @@ void StepRuntimePhysicsTick( SkullbonezCore::GameObjects::GameModelCollection& m
     modelCollection.RepairPhysicsBodyAndColliderTopology();
     modelCollection.TickContactHighlights( modelCount, fixedDt );
 
-    PhysicsEngine& physicsEngine = modelCollection.GetPhysicsEngine();
     const char* const* diagnosticNames = nullptr;
     int diagnosticNameCount = 0;
     PhysicsDiagnosticsCsvWriter diagnosticsCsvWriter;
@@ -358,6 +358,7 @@ struct SimulationPostStepPipelineContext
     ReplayLauncherVisualSample& replayLauncherVisualScratch;
     SkullbonezCore::Environment::WorldEnvironment& world;
     SkullbonezCore::GameObjects::GameModelCollection& models;
+    PhysicsEngine& physics;
     const SceneEntityStore& entities;
 };
 
@@ -540,7 +541,7 @@ class SimulationPostStepPipeline
         input.terrainHidden = context.debug.isTerrainHidden;
         input.cameras = context.systems.cameras;
         input.world = &context.world;
-        input.physics = &context.models.GetPhysicsEngine();
+        input.physics = &context.physics;
         input.entities = &context.entities;
         input.bodyStore = &context.models.BodyStore();
         input.colliderStore = &context.models.Colliders();
@@ -665,7 +666,8 @@ SbResult Run::Execute()
                 }
             }
 
-            RuntimeRenderModelFrameView renderModels = m_renderer.BuildModelFrameView( m_cGameModelCollection );
+            RuntimeRenderModelFrameView renderModels =
+                m_renderer.BuildModelFrameView( m_cGameModelCollection, m_sceneController.Physics() );
 
             PROFILE_BEGIN( "Frame/Render" );
             {
@@ -844,6 +846,7 @@ void Run::TickPhysics( double secondsPerFrame )
             }
 
             StepRuntimePhysicsTick( m_cGameModelCollection,
+                                    m_sceneController.Physics(),
                                     PHYSICS_FIXED_DT,
                                     *m_systems.config,
                                     physicsWorldForces,
@@ -898,6 +901,7 @@ void Run::AfterPhysicsStep()
                                                m_replayLauncherVisualScratch,
                                                m_cWorldEnvironment,
                                                m_cGameModelCollection,
+                                               m_sceneController.Physics(),
                                                m_sceneController.Entities() };
     const SimulationPostStepPipelineResult result = SimulationPostStepPipeline::Run( context );
 #ifdef _DEBUG
@@ -1066,9 +1070,9 @@ bool Run::TickScreenshots()
                                       RuntimeActiveCinematicConfig( SceneState(), m_config ),
                                       m_defaultCinematicRender },
         };
-        const SceneRuntimeControlAction action = m_sceneCoordinator.AdvanceScene( m_diagnosticsRuntime.PerfTestActive(),
-                                                                                  sPerfPass,
-                                                                                  SceneState().isInteractiveRun );
+        const SceneRuntimeControlAction action = m_sceneController.AdvanceScene( m_diagnosticsRuntime.PerfTestActive(),
+                                                                                 sPerfPass,
+                                                                                 SceneState().isInteractiveRun );
         if ( !ExecuteSceneRuntimeControlAction( sceneControlContext, action ) )
         {
             if ( result.completion == RuntimeCaptureCompletion::Screenshot )
@@ -1193,9 +1197,9 @@ bool Run::TickSceneAdvance()
         {
             if ( !ExecuteSceneRuntimeControlAction(
                      sceneControlContext,
-                     m_sceneCoordinator.AdvanceScene( m_diagnosticsRuntime.PerfTestActive(),
-                                                      sPerfPass,
-                                                      SceneState().isInteractiveRun ) ) )
+                     m_sceneController.AdvanceScene( m_diagnosticsRuntime.PerfTestActive(),
+                                                     sPerfPass,
+                                                     SceneState().isInteractiveRun ) ) )
             {
                 PostQuitMessage( 0 );
             }
@@ -1265,9 +1269,9 @@ bool Run::TickSceneAdvance()
             {
                 if ( !ExecuteSceneRuntimeControlAction(
                          sceneControlContext,
-                         m_sceneCoordinator.AdvanceScene( m_diagnosticsRuntime.PerfTestActive(),
-                                                          sPerfPass,
-                                                          SceneState().isInteractiveRun ) ) )
+                         m_sceneController.AdvanceScene( m_diagnosticsRuntime.PerfTestActive(),
+                                                         sPerfPass,
+                                                         SceneState().isInteractiveRun ) ) )
                 {
                     PostQuitMessage( 0 );
                 }
@@ -1312,9 +1316,9 @@ bool Run::TickSceneAdvance()
         LogSceneFinished( "perf_duration" );
 #endif
         if ( !ExecuteSceneRuntimeControlAction( sceneControlContext,
-                                                m_sceneCoordinator.AdvanceScene( m_diagnosticsRuntime.PerfTestActive(),
-                                                                                 sPerfPass,
-                                                                                 SceneState().isInteractiveRun ) ) )
+                                                m_sceneController.AdvanceScene( m_diagnosticsRuntime.PerfTestActive(),
+                                                                                sPerfPass,
+                                                                                SceneState().isInteractiveRun ) ) )
         {
             if ( CanSceneAutomationQuit() )
             {

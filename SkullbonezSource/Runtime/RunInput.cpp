@@ -669,7 +669,7 @@ ApplyRuntimeUIFrameCommands( const RuntimeUIFrameContext& context,
                                              context.replayPointerRay,
                                              context.inputRouter,
                                              context.interaction,
-                                             context.gameModels.GetPhysicsEngine(),
+                                             context.sceneController.Physics(),
                                              context.sceneController.Entities(),
                                              context.gameModels.RenderPresentationRecords(),
                                              context.systems.cameras,
@@ -715,6 +715,7 @@ ApplyRuntimeUIFrameCommands( const RuntimeUIFrameContext& context,
     }
     const RunInternal::EditorGizmoContext editorGizmoContext{ context.runtimeTools.Editor(),
                                                               context.gameModels,
+                                                              context.sceneController.Physics(),
                                                               context.interaction };
     const RunInternal::EditorPlacementPreModeUICommandResult editorPreModeCommands =
         RunInternal::ApplyEditorPlacementPreModeUICommands( editorGizmoContext, uiCommands.editor );
@@ -1197,6 +1198,7 @@ bool Run::RouteRuntimePointerInput( const RuntimeInputSnapshot& inputSnapshot, c
             // cold collection-to-store topology repair at the owner boundary.
             const bool launcherStoresReady = m_cGameModelCollection.RepairPhysicsBodyAndColliderTopology();
             if ( launcherStoresReady && m_runtimeTools.FireLauncherRay( m_cGameModelCollection,
+                                                                        m_sceneController.Physics(),
                                                                         SceneState(),
                                                                         m_systems.terrain.get(),
                                                                         m_startup.gameModelCapacity,
@@ -1277,7 +1279,8 @@ bool Run::InspectGizmoInteractionActive() const
 
 void Run::ClearEditorInteractionForRuntimeTransition( bool clearSelection )
 {
-    RunInternal::ClearEditorManipulationState( { m_runtimeTools.Editor(), m_cGameModelCollection, m_interaction } );
+    RunInternal::ClearEditorManipulationState(
+        { m_runtimeTools.Editor(), m_cGameModelCollection, m_sceneController.Physics(), m_interaction } );
     m_runtimeTools.Editor().viewportLookActive = false;
     m_runtimeTools.Editor().placementModeEnabled = false;
     m_runtimeTools.Editor().hotGizmoAxis = -1;
@@ -2174,7 +2177,8 @@ bool Run::HandleUnfocusedInputFrame()
         m_replayRuntime.CauseTree().draggingWindow = false;
         m_replayRuntime.CauseTree().resizingWindow = false;
     }
-    RunInternal::ResetEditorUnfocusedInputState( { m_runtimeTools.Editor(), m_cGameModelCollection, m_interaction } );
+    RunInternal::ResetEditorUnfocusedInputState(
+        { m_runtimeTools.Editor(), m_cGameModelCollection, m_sceneController.Physics(), m_interaction } );
     InputController::ResetUnfocusedInput( m_camera );
     InputController::BeginFrame( m_runtimeInput,
                                  BuildRuntimeInputModeState( m_camera.mode,
@@ -2390,10 +2394,10 @@ void Run::TakeInput()
                                               bool clearManipulation )
     {
         EnterInteractiveSceneRun();
-        const RunInternal::EditorPlacementModeChangeResult placementMode =
-            RunInternal::SetEditorPlacementMode( { m_runtimeTools.Editor(), m_cGameModelCollection, m_interaction },
-                                                 enabled,
-                                                 clearManipulation );
+        const RunInternal::EditorPlacementModeChangeResult placementMode = RunInternal::SetEditorPlacementMode(
+            { m_runtimeTools.Editor(), m_cGameModelCollection, m_sceneController.Physics(), m_interaction },
+            enabled,
+            clearManipulation );
         completeEditorPlacementModeTransition( source, placementMode );
     };
     auto applyEditorPlacementModeToggle =
@@ -2401,7 +2405,7 @@ void Run::TakeInput()
     {
         EnterInteractiveSceneRun();
         const RunInternal::EditorPlacementModeChangeResult placementMode = RunInternal::ToggleEditorPlacementMode(
-            { m_runtimeTools.Editor(), m_cGameModelCollection, m_interaction } );
+            { m_runtimeTools.Editor(), m_cGameModelCollection, m_sceneController.Physics(), m_interaction } );
         completeEditorPlacementModeTransition( source, placementMode );
     };
     auto applyEditorModeToggle = [this]( RuntimeInputActionSource source )
@@ -2413,8 +2417,9 @@ void Run::TakeInput()
             ApplyRuntimeInteractionTransitionCleanup( m_interaction.EnterEdit() );
             const bool wasFlyMode =
                 RunCameraModeUsesFlyControls( m_camera.mode, m_attachedCamera.activeFollow, m_camera.director.grabbed );
-            RunInternal::EnterEditorModeState( { m_runtimeTools.Editor(), m_cGameModelCollection, m_interaction },
-                                               NormalizeCameraModeForCurrentScene( m_camera.mode ) );
+            RunInternal::EnterEditorModeState(
+                { m_runtimeTools.Editor(), m_cGameModelCollection, m_sceneController.Physics(), m_interaction },
+                NormalizeCameraModeForCurrentScene( m_camera.mode ) );
             CancelMousePickup();
             SetCameraModeLabelAfterInteractionTransition( RunCameraMode::Inspect );
             if ( !wasFlyMode )
@@ -2433,7 +2438,8 @@ void Run::TakeInput()
             ApplyRuntimeInteractionTransitionCleanup( EnterInteractionForCameraMode( restoreMode ) );
             const bool wasFlyMode =
                 RunCameraModeUsesFlyControls( m_camera.mode, m_attachedCamera.activeFollow, m_camera.director.grabbed );
-            RunInternal::ExitEditorModeState( { m_runtimeTools.Editor(), m_cGameModelCollection, m_interaction } );
+            RunInternal::ExitEditorModeState(
+                { m_runtimeTools.Editor(), m_cGameModelCollection, m_sceneController.Physics(), m_interaction } );
             SetCameraModeLabelAfterInteractionTransition( restoreMode );
             if ( wasFlyMode && !RunCameraModeUsesFlyControls( m_camera.mode,
                                                               m_attachedCamera.activeFollow,
@@ -2696,18 +2702,15 @@ void Run::TakeInput()
                 CurrentSceneBrowserIndex( m_sceneController, m_sceneController.Browser() );
             const bool isCinematicTabActive = m_UI.GetActiveTab() == InGameUITab::Cinematic;
             if ( !ExecuteSceneRuntimeControlAction( sceneControlContext,
-                                                    m_sceneCoordinator.ApplyAdjacentCinematicMode(
+                                                    m_sceneController.ApplyAdjacentCinematicMode(
                                                         direction,
-                                                        m_sceneController.Browser().paths,
                                                         m_sceneController.Browser().selectedCineModeSceneIndex,
                                                         currentSceneBrowserIndex,
                                                         isCinematicTabActive ) ) )
             {
                 ExecuteSceneRuntimeControlAction(
                     sceneControlContext,
-                    m_sceneCoordinator.LoadAdjacentSceneFromBrowser( direction,
-                                                                     m_sceneController.Browser().paths,
-                                                                     currentSceneBrowserIndex ) );
+                    m_sceneController.LoadAdjacentSceneFromBrowser( direction, currentSceneBrowserIndex ) );
             }
             break;
         }
@@ -2817,7 +2820,7 @@ void Run::TakeInput()
             m_startup.gameModelCapacity,
             static_cast<uint32_t>( m_launchOptions.generatedObjectTypeOverride ) );
         ReplaySolverSampleRestoreContext sampleOwners{ m_cGameModelCollection,
-                                                       m_cGameModelCollection.GetPhysicsEngine(),
+                                                       m_sceneController.Physics(),
                                                        m_sceneController,
                                                        m_cWorldEnvironment,
                                                        SceneState(),
@@ -3015,23 +3018,21 @@ bool Run::DrainSceneRequests()
         {
         case SceneRequestType::LoadBrowserIndex:
             eventCode = ReplayOwnerEventCode::SceneLoadBrowserIndex;
-            accepted = ExecuteSceneRuntimeControlAction(
-                sceneControlContext,
-                m_sceneCoordinator.LoadSceneFromBrowserIndex( request.index, m_sceneController.Browser().paths ) );
+            accepted = ExecuteSceneRuntimeControlAction( sceneControlContext,
+                                                         m_sceneController.LoadSceneFromBrowserIndex( request.index ) );
             break;
         case SceneRequestType::LoadDemoScene:
             eventCode = ReplayOwnerEventCode::SceneLoadDemo;
-            accepted =
-                ExecuteSceneRuntimeControlAction( sceneControlContext, m_sceneCoordinator.LoadDemoSceneFromUI() );
+            accepted = ExecuteSceneRuntimeControlAction( sceneControlContext, m_sceneController.LoadDemoSceneFromUI() );
             break;
         case SceneRequestType::ResetCurrentScene:
             eventCode = ReplayOwnerEventCode::SceneReset;
             EnterInteractiveSceneRun();
-            accepted = ExecuteSceneRuntimeControlAction(
-                sceneControlContext,
-                m_sceneCoordinator.ResetCurrentScene( request.preserveUIState,
-                                                      request.suppressExitOnComplete,
-                                                      request.preserveRuntimeState ) );
+            accepted =
+                ExecuteSceneRuntimeControlAction( sceneControlContext,
+                                                  m_sceneController.ResetCurrentScene( request.preserveUIState,
+                                                                                       request.suppressExitOnComplete,
+                                                                                       request.preserveRuntimeState ) );
             break;
         case SceneRequestType::CreateScene:
             eventCode = ReplayOwnerEventCode::SceneCreate;

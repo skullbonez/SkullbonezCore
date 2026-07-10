@@ -125,10 +125,6 @@ const GameModel* GameModelCollection::TryGetModel( int ) const
     ThrowUnexpectedReplayIntegrationCall( "GameModelCollection::TryGetModel" );
 }
 
-Physics::PhysicsEngine& GameModelCollection::GetPhysicsEngine()
-{
-    ThrowUnexpectedReplayIntegrationCall( "GameModelCollection::GetPhysicsEngine" );
-}
 } // namespace GameObjects
 } // namespace SkullbonezCore
 

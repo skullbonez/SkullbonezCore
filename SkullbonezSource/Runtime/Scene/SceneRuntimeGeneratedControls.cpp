@@ -77,7 +77,7 @@ SceneGeneratedModelContext BuildGeneratedModelContext( SceneRuntimeGeneratedCont
                                        context.world,
                                        context.terrain,
                                        context.models,
-                                       context.models.GetPhysicsEngine(),
+                                       context.controller.Physics(),
                                        context.objectTypeOverride };
 }
 

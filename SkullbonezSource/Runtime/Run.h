@@ -117,7 +117,6 @@ class Run
     // multiple subsystems and therefore do not have one narrower owner yet.
     EngineConfig& m_config;                                             // Borrowed process config loaded and CLI-patched by Runtime/Init.cpp.
     SceneController m_sceneController;                                  // Owns scene queue and current scene-run state
-    SceneRuntimeCoordinator m_sceneCoordinator;                         // Produces scene load/reset/advance control intents.
     SbResult m_lastSceneLoadResult;                                     // Last queue load outcome observed by startup/load-only paths.
     bool m_skipExecute = false;                                         // Startup-only probes can complete without entering the frame loop.
     RunLaunchOptions m_launchOptions;                                   // CLI/startup policy reapplied across scene loads.

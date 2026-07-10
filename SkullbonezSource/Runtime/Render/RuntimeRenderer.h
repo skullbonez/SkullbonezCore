@@ -52,6 +52,10 @@ namespace GameObjects
 {
 class GameModelCollection;
 }
+namespace Physics
+{
+class PhysicsEngine;
+}
 namespace Basics
 {
 class RuntimeRenderer
@@ -85,6 +89,7 @@ class RuntimeRenderer
         // condition: remove this borrow when model prep moves behind that owner.
         // Checker budget: RenderFrameEntry may use it only for PrepareRenderInstances().
         GameObjects::GameModelCollection& renderModelOwner;
+        Physics::PhysicsEngine& physics;
         UI::InGameUI& ui;
         const RenderReplayOverlayView& replayOverlay;
         const RenderToolOverlayView& toolOverlay;
@@ -102,7 +107,8 @@ class RuntimeRenderer
 
     void EnsureFrameResources( const RenderResourceContext& resources );
     // Packages model-owned render/debug views before the frame passes consume them.
-    RuntimeRenderModelFrameView BuildModelFrameView( GameObjects::GameModelCollection& models ) const;
+    RuntimeRenderModelFrameView BuildModelFrameView( GameObjects::GameModelCollection& models,
+                                                     Physics::PhysicsEngine& physics ) const;
     void RenderFrameEntry( const FrameEntryContext& context );
     void RenderFrame( const RuntimeRenderInputs& renderInputs );
     void ReleaseBackendOwnedResources( Rendering::IRenderResourceFactory* renderResources );

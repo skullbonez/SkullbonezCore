@@ -250,6 +250,14 @@ baseline. The comment-style audit covered all 35 touched source-bearing files.
 
 ### C. Scene lifecycle ownership
 
+The first C1 dependency landed on 2026-07-11: `SceneController` physically owns
+the scene-lifetime `PhysicsEngine`, `GameModelCollection` retains only a
+required borrow, and all runtime/editor/replay/render consumers receive that
+owner explicitly. Browser, adjacent-scene, cinematic-deck, reset, and advance
+selection policy also moved into `SceneController`; the forwarding-only
+`SceneRuntimeCoordinator` object/member is deleted. C1 remains open until the
+load/save execution and lifecycle-event deletion proofs below are complete.
+
 - [ ] C1. Implement ownership extraction 3: `SceneController` owns the
   preallocated scene/entity metadata store, scene-lifetime `PhysicsScene`,
   load/reset state, browser selection, adjacent load, and deck movement.

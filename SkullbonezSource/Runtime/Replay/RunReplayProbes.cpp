@@ -177,6 +177,7 @@ struct ReplaySaveProbeEventCoverageContext
     RunSubsystemState& systems;
     SkullbonezCore::Environment::WorldEnvironment& world;
     SkullbonezCore::GameObjects::GameModelCollection& models;
+    PhysicsEngine& physics;
     int gameModelCapacity = 0;
 };
 
@@ -198,6 +199,7 @@ SbResult InjectReplaySaveProbeEventCoverage( ReplaySaveProbeEventCoverageContext
     const int modelCountBeforePlace = context.models.SceneEntityCount();
     EditorObjectPlacementContext placementContext{ context.runtimeTools.Editor(),
                                                    context.models,
+                                                   context.physics,
                                                    context.scene,
                                                    context.world,
                                                    context.systems.terrain.get(),
@@ -306,6 +308,7 @@ SbResult InjectReplaySaveProbeEventCoverage( ReplaySaveProbeEventCoverageContext
         // collection-to-store topology repair at the owner boundary.
         const bool launcherStoresReady = context.models.RepairPhysicsBodyAndColliderTopology();
         if ( launcherStoresReady && context.runtimeTools.FireLauncherRay( context.models,
+                                                                          context.physics,
                                                                           context.scene,
                                                                           context.systems.terrain.get(),
                                                                           context.gameModelCapacity,
@@ -751,6 +754,7 @@ struct ReplayRestoreEventContext
     RunSubsystemState& systems;
     SkullbonezCore::Environment::WorldEnvironment& world;
     SkullbonezCore::GameObjects::GameModelCollection& models;
+    PhysicsEngine& physics;
     int gameModelCapacity = 0;
 };
 
@@ -802,6 +806,7 @@ bool TryApplyReplayRestoreWorldLauncherEvent( ReplayRestoreEventContext& context
         // collection-to-store topology repair at the owner boundary.
         const bool launcherStoresReady = context.models.RepairPhysicsBodyAndColliderTopology();
         if ( launcherStoresReady && context.runtimeTools.FireLauncherRay( context.models,
+                                                                          context.physics,
                                                                           context.scene,
                                                                           context.systems.terrain.get(),
                                                                           context.gameModelCapacity,
@@ -835,6 +840,7 @@ bool TryApplyReplayRestoreWorldLauncherEvent( ReplayRestoreEventContext& context
 template <typename RequestInteractiveScene>
 bool ApplyReplayRestoreEditorPlaceEvent( RuntimeTools& runtimeTools,
                                          SkullbonezCore::GameObjects::GameModelCollection& models,
+                                         PhysicsEngine& physics,
                                          RunSceneState& scene,
                                          SkullbonezCore::Environment::WorldEnvironment& world,
                                          RunSubsystemState& systems,
@@ -868,6 +874,7 @@ bool ApplyReplayRestoreEditorPlaceEvent( RuntimeTools& runtimeTools,
     runtimeTools.Editor().placementYawRadians = placementYawRadians;
     EditorObjectPlacementContext placementContext{ runtimeTools.Editor(),
                                                    models,
+                                                   physics,
                                                    scene,
                                                    world,
                                                    systems.terrain.get(),
@@ -896,6 +903,7 @@ bool ApplyReplayRestoreEditorPlaceEvent( RuntimeTools& runtimeTools,
 }
 
 bool ApplyReplayRestoreEditorTransformEvent( SkullbonezCore::GameObjects::GameModelCollection& models,
+                                             PhysicsEngine& physics,
                                              const ReplayEventSample& event,
                                              char* eventOutReason,
                                              std::size_t eventReasonSize )
@@ -1003,7 +1011,6 @@ bool ApplyReplayRestoreEditorTransformEvent( SkullbonezCore::GameObjects::GameMo
     // Why: the edited-state commit has already refreshed the edited body row.
     // The wake decision should read the committed PhysicsBodyStore record, not
     // presentation/authored pose data.
-    PhysicsEngine& physics = models.GetPhysicsEngine();
     const PhysicsBodyStore& bodyStore = SkullbonezCore::Physics::PhysicsEngineStoreQueries::BodyStore( physics );
     const PhysicsBodyHandle body =
         bodyStore.HandleForReplayBodyId( static_cast<uint32_t>( event.value1 ), event.value0 );
@@ -1077,6 +1084,7 @@ bool ApplyReplayRestoreEventForTarget( ReplayRestoreEventContext& context,
     case ReplayEventKind::EditorPlace:
         return ApplyReplayRestoreEditorPlaceEvent( context.runtimeTools,
                                                    context.models,
+                                                   context.physics,
                                                    context.scene,
                                                    context.world,
                                                    context.systems,
@@ -1086,7 +1094,11 @@ bool ApplyReplayRestoreEventForTarget( ReplayRestoreEventContext& context,
                                                    eventReasonSize,
                                                    requestInteractiveScene );
     case ReplayEventKind::EditorTransform:
-        return ApplyReplayRestoreEditorTransformEvent( context.models, event, eventOutReason, eventReasonSize );
+        return ApplyReplayRestoreEditorTransformEvent( context.models,
+                                                       context.physics,
+                                                       event,
+                                                       eventOutReason,
+                                                       eventReasonSize );
     default:
         WriteReplayProbeReason( eventOutReason, eventReasonSize, "unsupported replay event kind" );
         return false;
@@ -1492,6 +1504,7 @@ bool StepReplayRestoreTarget( ReplayRestoreStepContext& context,
 
         const auto physicsWorldForces = context.world.GetPhysicsWorldForces();
         StepRuntimePhysicsTick( context.models,
+                                context.eventContext.physics,
                                 PHYSICS_FIXED_DT,
                                 context.config,
                                 physicsWorldForces,
@@ -1766,7 +1779,7 @@ bool RebuildReplayGeneratedSceneTopology( ReplayRestoreOwnerContext& context,
                                              context.world,
                                              context.systems.terrain.get(),
                                              context.models,
-                                             context.models.GetPhysicsEngine(),
+                                             context.sceneController.Physics(),
                                              context.generatedObjectTypeOverride ),
             event.value1,
             event.value2 );
@@ -1784,7 +1797,7 @@ bool RebuildReplayGeneratedSceneTopology( ReplayRestoreOwnerContext& context,
                                              context.world,
                                              context.systems.terrain.get(),
                                              context.models,
-                                             context.models.GetPhysicsEngine(),
+                                             context.sceneController.Physics(),
                                              context.generatedObjectTypeOverride ),
             event.value0 );
         if ( !setupResult.ok )
@@ -1866,6 +1879,7 @@ bool RunReplayRestoreTargetStep( ReplayRestoreOwnerContext& context,
                                                    context.systems,
                                                    context.world,
                                                    context.models,
+                                                   context.sceneController.Physics(),
                                                    context.gameModelCapacity };
     ReplayRestoreStepContext stepContext{ context.runtimeTools,
                                           context.scene,
@@ -2035,7 +2049,7 @@ struct ReplayProbeRestoreOperands
 {
     explicit ReplayProbeRestoreOperands( const ReplayProbeWorld& world )
         : sample{ world.models,
-                  world.models.GetPhysicsEngine(),
+                  world.sceneController.Physics(),
                   world.sceneController,
                   world.world,
                   world.scene,
@@ -2300,6 +2314,7 @@ SbResult ReplayRuntime::TickSaveProbe( const ReplayProbeWorld& liveWorld, bool& 
                                                                   liveWorld.systems,
                                                                   liveWorld.world,
                                                                   liveWorld.models,
+                                                                  liveWorld.sceneController.Physics(),
                                                                   liveWorld.gameModelCapacity };
         const SbResult eventCoverageResult =
             InjectReplaySaveProbeEventCoverage( eventCoverageContext,

@@ -232,10 +232,10 @@ void Run::ApplyMousePickupPhysicsStep()
     }
     const Vector3 bodyPosition = bodyRecord->position;
     const Vector3 linearVelocity = bodyRecord->linearVelocity;
-    if ( !m_cGameModelCollection.GetPhysicsEngine().SetBodyVelocity( pickup.body,
-                                                                     linearVelocity,
-                                                                     pickup.preservedAngularVelocity,
-                                                                     false ) )
+    if ( !m_sceneController.Physics().SetBodyVelocity( pickup.body,
+                                                       linearVelocity,
+                                                       pickup.preservedAngularVelocity,
+                                                       false ) )
     {
         CancelMousePickup();
         return;
@@ -257,9 +257,7 @@ void Run::ApplyMousePickupPhysicsStep()
         impulse *= MOUSE_PICKUP_MAX_IMPULSE / sqrtf( impulseLenSq );
     }
 
-    m_cGameModelCollection.GetPhysicsEngine().ApplyBodyImpulse( pickup.body,
-                                                                impulse,
-                                                                SkullbonezCore::Math::Vector::ZERO_VECTOR );
+    m_sceneController.Physics().ApplyBodyImpulse( pickup.body, impulse, SkullbonezCore::Math::Vector::ZERO_VECTOR );
     pickup.lastImpulse = impulse;
 }
 
@@ -286,10 +284,10 @@ void Run::RestoreMousePickupAngularVelocity()
         return;
     }
 
-    if ( !m_cGameModelCollection.GetPhysicsEngine().SetBodyVelocity( pickup.body,
-                                                                     bodyRecord->linearVelocity,
-                                                                     pickup.preservedAngularVelocity,
-                                                                     false ) )
+    if ( !m_sceneController.Physics().SetBodyVelocity( pickup.body,
+                                                       bodyRecord->linearVelocity,
+                                                       pickup.preservedAngularVelocity,
+                                                       false ) )
     {
         CancelMousePickup();
     }

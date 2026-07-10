@@ -4,10 +4,10 @@ Purpose:
   Coordinates transient presentation rows with physics/collider/render stores.
 
 Mental model:
-  SceneController owns durable entity metadata. GameModelCollection coordinates
-  same-row transient feedback and the currently co-located physics/render
-  stores. Creation uses one fail-before-mutation transaction; moving the
-  physical physics owner remains the separate A2 boundary.
+  SceneController owns durable entity metadata and the scene-lifetime physics
+  engine. GameModelCollection coordinates same-row transient feedback and the
+  render snapshot through a required borrowed physics reference. Creation uses
+  one fail-before-mutation transaction across those concrete owners.
 
 Glossary:
   SkullScope: Queryable physics diagnostics workflow backed by bounded trace
@@ -39,6 +39,8 @@ Glossary:
 Invariants:
   - The bound SceneEntityStore is the stable scene-order owner; the collection
     borrows it and must keep every same-row store count aligned.
+  - PhysicsEngine lifetime belongs to SceneController. The collection cannot
+    construct, replace, or publish that owner to unrelated callers.
   - SceneEntityStore owns behavior grouping beside stable identity. The
     collection resolves root ids to dense physics rows only at physics boundaries.
   - Replay identity lives in PhysicsBodyStore rows after creation. Collection
@@ -176,7 +178,9 @@ class GameModelCollection
 
     PresentationStore m_presentations;
     Basics::SceneEntityStore* m_sceneEntityStore = nullptr;      // Borrowed scene-lifetime metadata owner.
-    Physics::PhysicsEngine m_physicsEngine;
+    // Lifetime: SceneController owns physics for the active scene. This
+    // presentation owner borrows it for coordinated row publication only.
+    Physics::PhysicsEngine& m_physicsEngine;
     Rendering::RenderInstanceStore m_renderInstanceStore;        // Render snapshot in scene/model order, owned outside physics.
     Threading::WorkerPool* m_workerPool = nullptr;               // Borrowed startup worker pool for render/physics parallel helpers.
     int m_activeGameModelCapacity = DEFAULT_GAME_MODEL_CAPACITY; // Configured model cap used by append/reserve guards.
@@ -201,7 +205,7 @@ class GameModelCollection
     void AssertSceneCreationTopology( int expectedCount ) const;
 
   public:
-    GameModelCollection();
+    explicit GameModelCollection( Physics::PhysicsEngine& physicsEngine );
     ~GameModelCollection() = default;
 
     void BindWorkerPool( Threading::WorkerPool& workerPool );
@@ -307,10 +311,6 @@ class GameModelCollection
     bool TrimPresentationRowsForSceneRestore( int modelCount );
     void CaptureReplaySolverWorldSnapshot( Basics::ReplaySolverWorldSnapshot& outSnapshot ) const;
     bool RestoreReplaySolverWorldSnapshot( const Basics::ReplaySolverWorldSnapshot& snapshot );
-    // PhysicsEngine owns body/collider store views. Callers that can observe
-    // topology drift must first run the explicit topology-repair command below.
-    Physics::PhysicsEngine& GetPhysicsEngine();
-    const Physics::PhysicsEngine& GetPhysicsEngine() const;
     // Explicit cold owner boundary before tool or picker code asks for body
     // handles and collider bounds. Read-only store accessors do not repair.
     bool RepairPhysicsBodyAndColliderTopology();

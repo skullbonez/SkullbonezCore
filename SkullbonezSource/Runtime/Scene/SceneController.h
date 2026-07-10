@@ -1,13 +1,13 @@
 /*
 File: SkullbonezSource/Runtime/Scene/SceneController.h
 Purpose:
-  Owns scene runtime state, durable entity metadata, and scene requests.
+  Owns scene runtime state, durable entity metadata, physics, and scene requests.
 
 Mental model:
   SceneController is the narrow API around scene queue and scene-run state.
   Run temporarily executes broad load side effects, while this controller owns
-  scene state, fixed entity records, and the ordered request batch those side
-  effects consume.
+  scene state, physics topology, fixed entity records, browser navigation, and
+  the ordered request batch those side effects consume.
 
 Glossary:
   Scene runtime: Current scene state plus queue navigation data.
@@ -18,8 +18,8 @@ Glossary:
     render material intent, and asset affiliation.
 
 Invariants:
-  - SceneController owns queue/index bookkeeping, not renderer or physics side
-    effects.
+  - SceneController owns queue/index bookkeeping and scene-lifetime physics;
+    presentation owners receive only a borrowed PhysicsEngine reference.
   - All interactive scene submissions enter its fixed request ring.
   - Durable display/material/asset metadata lives in its fixed entity store.
   - Empty queue path is the generated demo scene sentinel.
@@ -36,6 +36,7 @@ Related:
 #include "SceneEntityStore.h"
 #include "SceneRequestQueue.h"
 #include "SceneRuntime.h"
+#include "../../Physics/PhysicsEngine.h"
 
 #include <string>
 #include <vector>
@@ -52,6 +53,7 @@ class PhysicsEngine;
 }
 namespace Basics
 {
+struct SceneRuntimeControlAction;
 class SceneController
 {
   public:
@@ -68,6 +70,8 @@ class SceneController
     const RunSceneUIOverrideState& UIOverrides() const;
     SceneEntityStore& Entities();
     const SceneEntityStore& Entities() const;
+    Physics::PhysicsEngine& Physics();
+    const Physics::PhysicsEngine& Physics() const;
 
     bool HasEntry( int index ) const;
     bool HasCurrentEntry() const;
@@ -87,6 +91,18 @@ class SceneController
     int Append( std::string path );
     bool CurrentQueueIsCinematicDeck() const;
     int AdjacentQueueIndex( int direction ) const;
+    // Scene navigation policy stays with the queue/browser owner. Returned
+    // actions are immediate cold-boundary intents until Load owns execution.
+    SceneRuntimeControlAction LoadSceneFromBrowserIndex( int index );
+    SceneRuntimeControlAction LoadDemoSceneFromUI();
+    SceneRuntimeControlAction ApplyAdjacentCinematicMode( int direction,
+                                                          int selectedCineModeSceneIndex,
+                                                          int currentSceneBrowserIndex,
+                                                          bool isCinematicTabActive );
+    SceneRuntimeControlAction LoadAdjacentSceneFromBrowser( int direction, int currentSceneBrowserIndex );
+    SceneRuntimeControlAction
+    ResetCurrentScene( bool preserveUIState, bool suppressExitOnComplete, bool preserveRuntimeState );
+    SceneRuntimeControlAction AdvanceScene( bool perfTestActive, int& perfPass, bool preserveInteractiveUI );
 
     // Scene request submission stays owner-specific even while Run temporarily
     // executes the returned batch during lifecycle extraction C1.
@@ -125,6 +141,9 @@ class SceneController
     RunSceneBrowserState m_browser;        // Discovered scene paths and live cine/concept selection.
     RunSceneUIOverrideState m_uiOverrides; // Live Scene-tab overrides preserved across reset when requested.
     SceneEntityStore m_entities;           // Fixed scene-lifetime identity and durable presentation metadata.
+    // Lifetime: physics topology is born and cleared with the active scene.
+    // Presentation owners borrow this engine; they never own or replace it.
+    Physics::PhysicsEngine m_physics;
 };
 } // namespace Basics
 } // namespace SkullbonezCore
