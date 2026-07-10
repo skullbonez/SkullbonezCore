@@ -48,7 +48,6 @@ Related:
 #include "../Core/Log.h"
 #include "../Physics/ColliderStore.h"
 #include "../Physics/PhysicsBodyStore.h"
-#include "../UI/UIInput.h"
 #include "../UI/UILayout.h"
 
 #include <cstddef>
@@ -539,133 +538,12 @@ void ApplyPostMappedKeyboardShortcutState( PostMappedKeyboardShortcutContext con
     context.replayRuntime.VelocityEdit().keyboardAltWasDown = altDown;
 }
 
-struct EditorInputTransitionContext
-{
-    // Lifetime: borrowed only for editor shortcut/UI transition handling; all
-    // Run-owned side effects go through the callback table below.
-    RuntimeTools& runtimeTools;
-    RunCameraState& camera;
-    RuntimeInteractionController& interaction;
-    SkullbonezCore::GameObjects::GameModelCollection& gameModels;
-};
-
-struct EditorInputTransitionCallbacks
-{
-    void* context = nullptr;
-    void ( *enterInteractiveSceneRun )( void* context ) = nullptr;
-    void ( *setWorldInteractionOwnerAfterInteractionTransition )( void* context,
-                                                                  WorldInteractionOwner owner,
-                                                                  InteractionExitReason reason ) = nullptr;
-    void ( *releaseMouseToUI )( void* context ) = nullptr;
-    void ( *applyCursorOwnership )( void* context ) = nullptr;
-    void ( *updateRuntimeInputModeAfterAction )( void* context,
-                                                 RuntimeInputAction action,
-                                                 RuntimeInputActionSource source ) = nullptr;
-    RuntimeInteractionTransition ( *enterInteractionForCameraMode )( void* context, RunCameraMode mode ) = nullptr;
-    void ( *applyRuntimeInteractionTransitionCleanup )( void* context,
-                                                        const RuntimeInteractionTransition& transition ) = nullptr;
-    bool ( *isFlyCameraMode )( void* context ) = nullptr;
-    RunCameraMode ( *normalizeCameraModeForCurrentScene )( void* context, RunCameraMode mode ) = nullptr;
-    void ( *cancelMousePickup )( void* context ) = nullptr;
-    void ( *setCameraModeLabelAfterInteractionTransition )( void* context, RunCameraMode mode ) = nullptr;
-    void ( *enterFlyModeCamera )( void* context ) = nullptr;
-    void ( *exitFlyModeCamera )( void* context ) = nullptr;
-};
-
-RunInternal::EditorGizmoContext EditorGizmoContextForTransition( EditorInputTransitionContext context )
-{
-    return RunInternal::EditorGizmoContext{ context.runtimeTools.Editor(), context.gameModels, context.interaction };
-}
-
-void CompleteEditorPlacementModeTransition( const EditorInputTransitionCallbacks& callbacks,
-                                            RuntimeInputActionSource source,
-                                            const RunInternal::EditorPlacementModeChangeResult& placementMode )
-{
-    callbacks.setWorldInteractionOwnerAfterInteractionTransition( callbacks.context,
-                                                                  placementMode.worldOwner,
-                                                                  InteractionExitReason::EnterEdit );
-    callbacks.releaseMouseToUI( callbacks.context );
-    callbacks.applyCursorOwnership( callbacks.context );
-    callbacks.updateRuntimeInputModeAfterAction( callbacks.context, RuntimeInputAction::ToggleEditorTool, source );
-}
-
-void ApplyEditorPlacementModeChangeFromInput( EditorInputTransitionContext context,
-                                              const EditorInputTransitionCallbacks& callbacks,
-                                              RuntimeInputActionSource source,
-                                              bool enabled,
-                                              bool clearManipulation )
-{
-    callbacks.enterInteractiveSceneRun( callbacks.context );
-    const RunInternal::EditorPlacementModeChangeResult placementMode =
-        RunInternal::SetEditorPlacementMode( EditorGizmoContextForTransition( context ), enabled, clearManipulation );
-    CompleteEditorPlacementModeTransition( callbacks, source, placementMode );
-}
-
-void ApplyEditorPlacementModeToggleFromInput( EditorInputTransitionContext context,
-                                              const EditorInputTransitionCallbacks& callbacks,
-                                              RuntimeInputActionSource source )
-{
-    callbacks.enterInteractiveSceneRun( callbacks.context );
-    const RunInternal::EditorPlacementModeChangeResult placementMode =
-        RunInternal::ToggleEditorPlacementMode( EditorGizmoContextForTransition( context ) );
-    CompleteEditorPlacementModeTransition( callbacks, source, placementMode );
-}
-
-void ApplyEditorModeToggleFromInput( EditorInputTransitionContext context,
-                                     const EditorInputTransitionCallbacks& callbacks,
-                                     RuntimeInputActionSource source )
-{
-    callbacks.enterInteractiveSceneRun( callbacks.context );
-    const bool enteringEditor = !context.runtimeTools.Editor().editorModeEnabled;
-    if ( enteringEditor )
-    {
-        const RuntimeInteractionTransition transition = context.interaction.EnterEdit();
-        callbacks.applyRuntimeInteractionTransitionCleanup( callbacks.context, transition );
-        const bool wasFlyMode = callbacks.isFlyCameraMode( callbacks.context );
-        RunInternal::EnterEditorModeState(
-            EditorGizmoContextForTransition( context ),
-            callbacks.normalizeCameraModeForCurrentScene( callbacks.context, context.camera.mode ) );
-        callbacks.cancelMousePickup( callbacks.context );
-        callbacks.setCameraModeLabelAfterInteractionTransition( callbacks.context, RunCameraMode::Inspect );
-        if ( !wasFlyMode )
-        {
-            callbacks.enterFlyModeCamera( callbacks.context );
-        }
-        else
-        {
-            InputController::ResetMouseLook( context.camera );
-        }
-        callbacks.applyCursorOwnership( callbacks.context );
-    }
-    else
-    {
-        const RunCameraMode restoreMode =
-            callbacks.normalizeCameraModeForCurrentScene( callbacks.context,
-                                                          context.runtimeTools.Editor().restoreCameraModeAfterEditor );
-        const RuntimeInteractionTransition transition =
-            callbacks.enterInteractionForCameraMode( callbacks.context, restoreMode );
-        callbacks.applyRuntimeInteractionTransitionCleanup( callbacks.context, transition );
-        const bool wasFlyMode = callbacks.isFlyCameraMode( callbacks.context );
-        RunInternal::ExitEditorModeState( EditorGizmoContextForTransition( context ) );
-        callbacks.setCameraModeLabelAfterInteractionTransition( callbacks.context, restoreMode );
-        if ( wasFlyMode && !callbacks.isFlyCameraMode( callbacks.context ) )
-        {
-            callbacks.exitFlyModeCamera( callbacks.context );
-        }
-        else
-        {
-            InputController::ResetMouseLook( context.camera );
-        }
-        callbacks.applyCursorOwnership( callbacks.context );
-    }
-    callbacks.updateRuntimeInputModeAfterAction( callbacks.context, RuntimeInputAction::ToggleEditor, source );
-}
-
 struct RuntimeUIFrameContext
 {
     // Lifetime: borrowed for one UI command frame. The helper applies decoded
     // UI intents immediately and returns only the world-input arbitration facts.
     RuntimeInputContext& runtimeInput;
+    InputRouter& inputRouter;
     RunCameraState& camera;
     RuntimeTools& runtimeTools;
     ReplayRuntime& replayRuntime;
@@ -742,7 +620,8 @@ ApplyRuntimeUIFrameCommands( const RuntimeUIFrameContext& context,
         CurrentSceneBrowserIndex( context.sceneController, context.sceneController.Browser() );
     const HWND windowHandle = context.systems.window->NativeWindowHandle();
     InGameUIInputResult UIResult = context.ui.UpdateInput(
-        windowHandle,
+        context.inputRouter.DeviceFrame(),
+        context.inputRouter.UiSnapshot().mouse,
         context.systems.window->ClientWidth(),
         context.systems.window->ClientHeight(),
         context.timers.simulationTimer.GetTotalTime(),
@@ -757,8 +636,32 @@ ApplyRuntimeUIFrameCommands( const RuntimeUIFrameContext& context,
                                                            : context.sceneController.Browser().namePtrs.data(),
         static_cast<int>( context.sceneController.Browser().namePtrs.size() ),
         selectedSceneBrowserIndex );
+    switch ( UIResult.nativeMouseCapture )
+    {
+    case InGameUIInputResult::NativeMouseCaptureRequest::Acquire:
+        context.inputRouter.RequestNativeCapture();
+        break;
+    case InGameUIInputResult::NativeMouseCaptureRequest::Release:
+        context.inputRouter.ReleaseNativeCapture();
+        break;
+    case InGameUIInputResult::NativeMouseCaptureRequest::Unchanged:
+    default:
+        break;
+    }
     result.editorUnhandledWheelDelta = UIResult.unhandledWheelDelta;
     const InGameUICommands& uiCommands = UIResult.commands;
+    const DeviceInputFrame& deviceFrame = context.inputRouter.DeviceFrame();
+    UiInputHitSnapshot uiSnapshot;
+    uiSnapshot.mouse = context.inputRouter.UiSnapshot().mouse;
+    uiSnapshot.clientX = deviceFrame.clientX;
+    uiSnapshot.clientY = deviceFrame.clientY;
+    uiSnapshot.hasClientPosition = deviceFrame.hasClientPosition;
+    uiSnapshot.unhandledWheelDelta = UIResult.unhandledWheelDelta;
+    uiSnapshot.userInteracted = uiCommands.ui.userInteracted;
+    uiSnapshot.blocksKeyboard = context.ui.BlocksKeyboard();
+    uiSnapshot.blocksCameraMouse = context.ui.BlocksCameraMouse();
+    uiSnapshot.wantsNativeCursor = context.ui.WantsNativeMouseCursor();
+    context.inputRouter.PublishUiSnapshot( uiSnapshot );
     if ( uiCommands.ui.userInteracted )
     {
         enterInteractiveSceneRun();
@@ -766,11 +669,9 @@ ApplyRuntimeUIFrameCommands( const RuntimeUIFrameContext& context,
     result.suppressWorldActionThisFrame = result.suppressWorldActionThisFrame || uiCommands.ui.userInteracted;
     const bool replayScrubberOwnsMouse = tickReplayScrubberInput( windowHandle, context.ui.BlocksCameraMouse() );
     const bool replayCauseTreeOwnsMouse =
-        tickReplayCauseTreeInput( windowHandle,
-                                  context.ui.BlocksCameraMouse() || replayScrubberOwnsMouse,
+        tickReplayCauseTreeInput( context.ui.BlocksCameraMouse() || replayScrubberOwnsMouse,
                                   result.editorUnhandledWheelDelta );
     const bool replayVelocityEditOwnsMouse = tickReplayVelocityEditInput(
-        windowHandle,
         context.ui.BlocksCameraMouse() || replayScrubberOwnsMouse || replayCauseTreeOwnsMouse );
     result.suppressWorldActionThisFrame = result.suppressWorldActionThisFrame || replayScrubberOwnsMouse ||
                                           replayCauseTreeOwnsMouse || replayVelocityEditOwnsMouse;
@@ -1060,6 +961,7 @@ struct RuntimePointerCameraFrameContext
     // Lifetime: borrowed for the final world-input/camera phase of one input
     // frame; the helper does not retain the input snapshot it builds.
     RuntimeInputContext& runtimeInput;
+    InputRouter& inputRouter;
     RunCameraState& camera;
     RuntimeInteractionController& interaction;
     SkullbonezCore::UI::InGameUI& ui;
@@ -1086,8 +988,7 @@ void ProcessRuntimePointerCameraFrame( const RuntimePointerCameraFrameContext& c
 {
     // Editor, replay, and launcher actions share world clicks. UI interaction
     // and capture suppress them so panel controls never mutate the scene.
-    const RuntimeMouseEdges mouseEdges =
-        context.runtimeInput.CaptureMouseButtons( Input::IsLeftMouseDown(), Input::IsRightMouseDown() );
+    const RuntimeMouseEdges& mouseEdges = context.inputRouter.UiSnapshot().mouse;
     const RuntimeInputSnapshot inputSnapshot =
         buildRuntimeInputSnapshot( mouseEdges, context.suppressWorldActionThisFrame );
     routeRuntimePointerInput( inputSnapshot, mouseEdges );
@@ -1110,19 +1011,23 @@ void ProcessRuntimePointerCameraFrame( const RuntimePointerCameraFrameContext& c
     const bool mouseOwnsCursor = mouseLookOwnsCursor();
     syncCameraLookGesture( inputSnapshot, inputPolicy, mouseOwnsCursor );
     const bool cameraMouseLookActive = inputPolicy.cameraMouseLookActive && mouseOwnsCursor && inputSnapshot.appFocused;
+    if ( cameraMouseLookActive )
+    {
+        context.inputRouter.RequestNativeCapture();
+        context.inputRouter.RequestCursorVisible( false );
+    }
     const bool cameraKeyboardControlsActive = inputPolicy.cameraKeyboardControlsActive;
     const RuntimeCameraInputFrameResult cameraInputResult =
         InputController::ApplyCameraInputFrame( context.camera,
                                                 RuntimeCameraInputFrameContext{ inputSnapshot.appFocused,
                                                                                 cameraMouseLookActive,
                                                                                 mouseOwnsCursor,
-                                                                                cameraKeyboardControlsActive } );
+                                                                                cameraKeyboardControlsActive,
+                                                                                &context.inputRouter.DeviceFrame() } );
     if ( cameraInputResult.applyCursorOwnership )
     {
         applyCursorOwnership();
     }
-    ReportRuntimeInputFailure( cameraInputResult.cursorResult );
-
     drainRuntimeCommands();
 }
 
@@ -1144,18 +1049,18 @@ void Run::UpdateRuntimeInputModeAfterAction( RuntimeInputAction action, RuntimeI
 RuntimeInputSnapshot Run::BuildRuntimeInputSnapshot( const RuntimeMouseEdges& mouseEdges,
                                                      bool suppressWorldActionThisFrame ) const
 {
-    const Input::MouseCoordinatesResult mouseResult = Input::GetClientMouseCoordinates();
-    ReportRuntimeInputFailure( mouseResult.result );
+    const DeviceInputFrame& deviceFrame = m_inputRouter.DeviceFrame();
+    const UiInputHitSnapshot& uiSnapshot = m_inputRouter.UiSnapshot();
 
     RuntimeInputSnapshot snapshot;
-    snapshot.appFocused = Input::IsAppFocused();
-    snapshot.uiBlocksKeyboard = m_UI.BlocksKeyboard();
-    snapshot.uiBlocksMouse = m_UI.BlocksCameraMouse();
+    snapshot.appFocused = deviceFrame.appFocused;
+    snapshot.uiBlocksKeyboard = uiSnapshot.blocksKeyboard;
+    snapshot.uiBlocksMouse = uiSnapshot.blocksCameraMouse;
 
-    if ( mouseResult.result.ok )
+    if ( deviceFrame.hasClientPosition )
     {
-        snapshot.pointer.clientX = mouseResult.coordinates.x;
-        snapshot.pointer.clientY = mouseResult.coordinates.y;
+        snapshot.pointer.clientX = deviceFrame.clientX;
+        snapshot.pointer.clientY = deviceFrame.clientY;
     }
     snapshot.pointer.leftDown = mouseEdges.leftDown;
     snapshot.pointer.leftPressed = mouseEdges.leftPressed;
@@ -1163,10 +1068,10 @@ RuntimeInputSnapshot Run::BuildRuntimeInputSnapshot( const RuntimeMouseEdges& mo
     snapshot.pointer.rightDown = mouseEdges.rightDown;
     snapshot.pointer.rightPressed = mouseEdges.rightPressed;
     snapshot.pointer.rightReleased = mouseEdges.rightReleased;
-    snapshot.pointer.controlDown = Input::IsKeyDown( VK_CONTROL );
-    snapshot.pointer.shiftDown = Input::IsKeyDown( VK_SHIFT );
-    snapshot.pointer.uiWantsNativeMouseCursor = m_UI.WantsNativeMouseCursor();
-    snapshot.pointer.uiBlocksCameraMouse = m_UI.BlocksCameraMouse();
+    snapshot.pointer.controlDown = deviceFrame.keys.IsDown( VK_CONTROL );
+    snapshot.pointer.shiftDown = deviceFrame.keys.IsDown( VK_SHIFT );
+    snapshot.pointer.uiWantsNativeMouseCursor = uiSnapshot.wantsNativeCursor;
+    snapshot.pointer.uiBlocksCameraMouse = uiSnapshot.blocksCameraMouse;
     snapshot.pointer.suppressWorldAction = suppressWorldActionThisFrame;
 
     if ( mouseEdges.leftPressed || mouseEdges.leftReleased || mouseEdges.leftDown )
@@ -1180,14 +1085,14 @@ RuntimeInputSnapshot Run::BuildRuntimeInputSnapshot( const RuntimeMouseEdges& mo
 
     snapshot.frameInput =
         RuntimeInteractionFrameInput{ SceneState().isScenePhysics,
-                                      Input::IsKeyDown( VK_SPACE ),
+                                      deviceFrame.keys.IsDown( VK_SPACE ),
                                       m_replayRuntime.IsScrubPaused(),
                                       m_replayRuntime.Scrubber().liveAdvanceHeld,
                                       mouseEdges.rightDown,
                                       m_runtimeTools.Editor().viewportLookActive,
-                                      m_replayRuntime.InspectionMouseLookActive( Input::IsRightMouseDown(),
-                                                                                 m_UI.WantsNativeMouseCursor(),
-                                                                                 m_UI.BlocksCameraMouse() ),
+                                      m_replayRuntime.InspectionMouseLookActive( deviceFrame.rightDown,
+                                                                                 uiSnapshot.wantsNativeCursor,
+                                                                                 uiSnapshot.blocksCameraMouse ),
                                       false,
                                       SceneState().timeScale };
     return snapshot;
@@ -1208,9 +1113,7 @@ bool Run::RouteRuntimePointerInput( const RuntimeInputSnapshot& inputSnapshot, c
     bool consumedWorldClick = TickEditorWorldClick( mouseEdges, suppressWorldAction );
     if ( !consumedWorldClick )
     {
-        consumedWorldClick = TickMousePickupInput( m_systems.window ? m_systems.window->NativeWindowHandle() : nullptr,
-                                                   mouseEdges,
-                                                   suppressWorldAction );
+        consumedWorldClick = TickMousePickupInput( mouseEdges, suppressWorldAction );
     }
     if ( !consumedWorldClick )
     {
@@ -1355,7 +1258,7 @@ void Run::CancelReplayToolDragState()
     if ( m_replayRuntime.Scrubber().mouseCaptured || m_replayRuntime.VelocityEdit().mouseCaptured ||
          m_replayRuntime.CauseTree().draggingWindow || m_replayRuntime.CauseTree().resizingWindow )
     {
-        UI::InputControl::EndMouseCapture();
+        m_inputRouter.ReleaseNativeCapture();
     }
 
     m_replayRuntime.Scrubber().dragging = false;
@@ -1444,7 +1347,6 @@ void Run::ClearReplayInteractionForRuntimeTransition()
     m_replayRuntime.CauseTree().selectedRow = -1;
     m_replayRuntime.CauseTree().draggingWindow = false;
     m_replayRuntime.CauseTree().resizingWindow = false;
-    m_replayRuntime.CauseTree().leftWasDown = false;
     m_replayRuntime.CauseTree().scrollY = 0.0f;
     m_replayRuntime.CauseTree().rows.clear();
 
@@ -2192,7 +2094,8 @@ void Run::CycleCameraMode()
 
 bool Run::MouseLookOwnsCursor() const
 {
-    if ( !Input::IsAppFocused() )
+    const DeviceInputFrame& deviceFrame = m_inputRouter.DeviceFrame();
+    if ( !deviceFrame.appFocused )
     {
         return false;
     }
@@ -2204,18 +2107,18 @@ bool Run::MouseLookOwnsCursor() const
 
     if ( m_runtimeTools.Editor().editorModeEnabled )
     {
-        return m_runtimeTools.Editor().viewportLookActive || Input::IsRightMouseDown();
+        return m_runtimeTools.Editor().viewportLookActive || deviceFrame.rightDown;
     }
 
     if ( m_replayRuntime.InspectionActive() )
     {
-        return m_replayRuntime.InspectionMouseLookActive( Input::IsRightMouseDown(),
+        return m_replayRuntime.InspectionMouseLookActive( deviceFrame.rightDown,
                                                           m_UI.WantsNativeMouseCursor(),
                                                           m_UI.BlocksCameraMouse() ) ||
-               Input::IsRightMouseDown();
+               deviceFrame.rightDown;
     }
 
-    return Input::IsRightMouseDown();
+    return deviceFrame.rightDown;
 }
 
 
@@ -2234,7 +2137,7 @@ bool Run::ShouldHideNativeCursor() const
 
 void Run::ApplyCursorOwnership()
 {
-    Input::SetSystemCursorVisible( !ShouldHideNativeCursor() );
+    m_inputRouter.RequestCursorVisible( !ShouldHideNativeCursor() );
 }
 
 
@@ -2242,7 +2145,7 @@ void Run::ReleaseMouseToUI()
 {
     if ( !MouseLookOwnsCursor() )
     {
-        ReleaseCapture();
+        m_inputRouter.ReleaseNativeCapture();
         InputController::ResetMouseLook( m_camera );
     }
 }
@@ -2266,12 +2169,12 @@ void Run::EnterFlyModeCamera()
     m_systems.cameras->SetCameraXZBounds( activeCam, unbounded );
     if ( ShouldHideNativeCursor() )
     {
-        Input::SetSystemCursorVisible( false );
+        m_inputRouter.RequestCursorVisible( false );
     }
     else
     {
         ReleaseMouseToUI();
-        Input::SetSystemCursorVisible( true );
+        m_inputRouter.RequestCursorVisible( true );
     }
     InputController::ResetMouseLook( m_camera );
 }
@@ -2283,7 +2186,7 @@ void Run::ExitFlyModeCamera()
     // the stock Windows cursor.
     uint32_t activeCam = SceneState().isSceneMode ? m_systems.cameras->GetSelectedCameraName() : CAMERA_FREE;
     m_systems.cameras->SetCameraXZBounds( activeCam, m_systems.terrain->GetXZBounds() );
-    Input::SetSystemCursorVisible( true );
+    m_inputRouter.RequestCursorVisible( true );
     m_camera.cameraTime = 0.0f;
     InputController::ResetMouseLook( m_camera );
 }
@@ -2291,7 +2194,7 @@ void Run::ExitFlyModeCamera()
 
 bool Run::HandleUnfocusedInputFrame()
 {
-    if ( Input::IsAppFocused() )
+    if ( m_inputRouter.AppFocused() )
     {
         return false;
     }
@@ -2300,7 +2203,7 @@ bool Run::HandleUnfocusedInputFrame()
     // action memory so refocus cannot replay stale drag/key edges.
     CancelCameraLookGesture();
     CancelReplayToolDragState();
-    Input::SetSystemCursorVisible( true );
+    m_inputRouter.CancelPointerPresentation();
     if ( m_replayRuntime.ResetScrubberState() )
     {
         ExitReplayInspectionCamera();
@@ -2320,19 +2223,18 @@ bool Run::HandleUnfocusedInputFrame()
     m_replayRuntime.VelocityEdit().hotAngularAxis = -1;
     if ( m_replayRuntime.VelocityEdit().mouseCaptured )
     {
-        UI::InputControl::EndMouseCapture();
+        m_inputRouter.ReleaseNativeCapture();
         m_replayRuntime.VelocityEdit().mouseCaptured = false;
     }
     CancelMousePickup();
     if ( m_replayRuntime.CauseTree().draggingWindow || m_replayRuntime.CauseTree().resizingWindow )
     {
-        UI::InputControl::EndMouseCapture();
+        m_inputRouter.ReleaseNativeCapture();
         m_replayRuntime.CauseTree().draggingWindow = false;
         m_replayRuntime.CauseTree().resizingWindow = false;
     }
     RunInternal::ResetEditorUnfocusedInputState( { m_runtimeTools.Editor(), m_cGameModelCollection, m_interaction } );
     InputController::ResetUnfocusedInput( m_camera );
-    m_runtimeInput.ResetEdges();
     InputController::BeginFrame( m_runtimeInput,
                                  BuildRuntimeInputModeState( m_camera.mode,
                                                              m_runtimeTools.Editor(),
@@ -2477,19 +2379,46 @@ void Run::DispatchAfterUIKeyboardActions( bool uiUserInteracted )
 void Run::TakeInput()
 {
     DeviceInputFrame deviceFrame;
-    const SbResult keyboardCaptureResult = Input::CaptureKeyboardDeviceFrame( deviceFrame );
-    if ( !keyboardCaptureResult.ok )
+    const SbResult deviceCaptureResult = Input::CaptureDeviceInputFrame( deviceFrame );
+    if ( !deviceCaptureResult.ok )
     {
-        ReportRuntimeInputFailure( keyboardCaptureResult );
+        ReportRuntimeInputFailure( deviceCaptureResult );
         std::fflush( stderr );
-        m_applicationExit.RequestOwnedFailure( keyboardCaptureResult );
+        m_applicationExit.RequestOwnedFailure( deviceCaptureResult );
         PostQuitMessage( 1 );
         return;
     }
     const RuntimeInputKeyBindingView keyboardBindings = TakeInputKeyboardBindings();
     m_inputRouter.BeginFrame( deviceFrame, keyboardBindings, m_inputActions );
+    UiInputHitSnapshot preUiPointer;
+    preUiPointer.mouse = m_inputActions.mouse;
+    preUiPointer.clientX = deviceFrame.clientX;
+    preUiPointer.clientY = deviceFrame.clientY;
+    preUiPointer.hasClientPosition = deviceFrame.hasClientPosition;
+    preUiPointer.unhandledWheelDelta = deviceFrame.wheelDelta;
+    m_inputRouter.PublishUiSnapshot( preUiPointer );
+    auto commitPointerPresentation = [this]()
+    {
+        PointerPresentationState presentation;
+        if ( !m_inputRouter.ConsumePointerPresentationChange( presentation ) )
+        {
+            return;
+        }
+        SbResult pointerResult = Input::SetNativeMouseCapture( presentation.nativeCapture );
+        if ( pointerResult.ok )
+        {
+            Input::SetSystemCursorVisible( presentation.cursorVisible );
+        }
+        if ( !pointerResult.ok )
+        {
+            ReportRuntimeInputFailure( pointerResult );
+            m_applicationExit.RequestOwnedFailure( pointerResult );
+            PostQuitMessage( 1 );
+        }
+    };
     if ( HandleUnfocusedInputFrame() )
     {
+        commitPointerPresentation();
         return;
     }
     const bool UIBlocksKeyboardBeforeInput = m_UI.BlocksKeyboard();
@@ -2504,54 +2433,80 @@ void Run::TakeInput()
                                  m_UI.BlocksCameraMouse() );
     bool keyboardToggleEditorMode = false;
     RunInternal::EditorKeyboardShortcutResult keyboardEditorToolShortcut;
-    const EditorInputTransitionContext editorTransitionContext{ m_runtimeTools,
-                                                                m_camera,
-                                                                m_interaction,
-                                                                m_cGameModelCollection };
-    const EditorInputTransitionCallbacks editorTransitionCallbacks{
-        this,
-        []( void* context ) { static_cast<Run*>( context )->EnterInteractiveSceneRun(); },
-        []( void* context, WorldInteractionOwner owner, InteractionExitReason reason )
-        { static_cast<Run*>( context )->SetWorldInteractionOwnerAfterInteractionTransition( owner, reason ); },
-        []( void* context ) { static_cast<Run*>( context )->ReleaseMouseToUI(); },
-        []( void* context ) { static_cast<Run*>( context )->ApplyCursorOwnership(); },
-        []( void* context, RuntimeInputAction action, RuntimeInputActionSource source )
-        { static_cast<Run*>( context )->UpdateRuntimeInputModeAfterAction( action, source ); },
-        []( void* context, RunCameraMode mode ) -> RuntimeInteractionTransition
-        { return static_cast<Run*>( context )->EnterInteractionForCameraMode( mode ); },
-        []( void* context, const RuntimeInteractionTransition& transition )
-        { static_cast<Run*>( context )->ApplyRuntimeInteractionTransitionCleanup( transition ); },
-        []( void* context ) -> bool
-        {
-            const Run* run = static_cast<Run*>( context );
-            return RunCameraModeUsesFlyControls( run->m_camera.mode,
-                                                 run->m_attachedCamera.activeFollow,
-                                                 run->m_camera.director.grabbed );
-        },
-        []( void* context, RunCameraMode mode ) -> RunCameraMode
-        { return static_cast<Run*>( context )->NormalizeCameraModeForCurrentScene( mode ); },
-        []( void* context ) { static_cast<Run*>( context )->CancelMousePickup(); },
-        []( void* context, RunCameraMode mode )
-        { static_cast<Run*>( context )->SetCameraModeLabelAfterInteractionTransition( mode ); },
-        []( void* context ) { static_cast<Run*>( context )->EnterFlyModeCamera(); },
-        []( void* context ) { static_cast<Run*>( context )->ExitFlyModeCamera(); },
-    };
-    auto applyEditorPlacementModeChange =
-        [&editorTransitionContext,
-         &editorTransitionCallbacks]( RuntimeInputActionSource source, bool enabled, bool clearManipulation )
+    auto completeEditorPlacementModeTransition =
+        [this]( RuntimeInputActionSource source, const RunInternal::EditorPlacementModeChangeResult& placementMode )
     {
-        ApplyEditorPlacementModeChangeFromInput( editorTransitionContext,
-                                                 editorTransitionCallbacks,
-                                                 source,
+        SetWorldInteractionOwnerAfterInteractionTransition( placementMode.worldOwner,
+                                                            InteractionExitReason::EnterEdit );
+        ReleaseMouseToUI();
+        ApplyCursorOwnership();
+        UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleEditorTool, source );
+    };
+    auto applyEditorPlacementModeChange = [this, &completeEditorPlacementModeTransition](
+                                              RuntimeInputActionSource source,
+                                              bool enabled,
+                                              bool clearManipulation )
+    {
+        EnterInteractiveSceneRun();
+        const RunInternal::EditorPlacementModeChangeResult placementMode =
+            RunInternal::SetEditorPlacementMode( { m_runtimeTools.Editor(), m_cGameModelCollection, m_interaction },
                                                  enabled,
                                                  clearManipulation );
+        completeEditorPlacementModeTransition( source, placementMode );
     };
     auto applyEditorPlacementModeToggle =
-        [&editorTransitionContext, &editorTransitionCallbacks]( RuntimeInputActionSource source )
-    { ApplyEditorPlacementModeToggleFromInput( editorTransitionContext, editorTransitionCallbacks, source ); };
-    auto applyEditorModeToggle =
-        [&editorTransitionContext, &editorTransitionCallbacks]( RuntimeInputActionSource source )
-    { ApplyEditorModeToggleFromInput( editorTransitionContext, editorTransitionCallbacks, source ); };
+        [this, &completeEditorPlacementModeTransition]( RuntimeInputActionSource source )
+    {
+        EnterInteractiveSceneRun();
+        const RunInternal::EditorPlacementModeChangeResult placementMode = RunInternal::ToggleEditorPlacementMode(
+            { m_runtimeTools.Editor(), m_cGameModelCollection, m_interaction } );
+        completeEditorPlacementModeTransition( source, placementMode );
+    };
+    auto applyEditorModeToggle = [this]( RuntimeInputActionSource source )
+    {
+        EnterInteractiveSceneRun();
+        const bool enteringEditor = !m_runtimeTools.Editor().editorModeEnabled;
+        if ( enteringEditor )
+        {
+            ApplyRuntimeInteractionTransitionCleanup( m_interaction.EnterEdit() );
+            const bool wasFlyMode =
+                RunCameraModeUsesFlyControls( m_camera.mode, m_attachedCamera.activeFollow, m_camera.director.grabbed );
+            RunInternal::EnterEditorModeState( { m_runtimeTools.Editor(), m_cGameModelCollection, m_interaction },
+                                               NormalizeCameraModeForCurrentScene( m_camera.mode ) );
+            CancelMousePickup();
+            SetCameraModeLabelAfterInteractionTransition( RunCameraMode::Inspect );
+            if ( !wasFlyMode )
+            {
+                EnterFlyModeCamera();
+            }
+            else
+            {
+                InputController::ResetMouseLook( m_camera );
+            }
+        }
+        else
+        {
+            const RunCameraMode restoreMode =
+                NormalizeCameraModeForCurrentScene( m_runtimeTools.Editor().restoreCameraModeAfterEditor );
+            ApplyRuntimeInteractionTransitionCleanup( EnterInteractionForCameraMode( restoreMode ) );
+            const bool wasFlyMode =
+                RunCameraModeUsesFlyControls( m_camera.mode, m_attachedCamera.activeFollow, m_camera.director.grabbed );
+            RunInternal::ExitEditorModeState( { m_runtimeTools.Editor(), m_cGameModelCollection, m_interaction } );
+            SetCameraModeLabelAfterInteractionTransition( restoreMode );
+            if ( wasFlyMode && !RunCameraModeUsesFlyControls( m_camera.mode,
+                                                              m_attachedCamera.activeFollow,
+                                                              m_camera.director.grabbed ) )
+            {
+                ExitFlyModeCamera();
+            }
+            else
+            {
+                InputController::ResetMouseLook( m_camera );
+            }
+        }
+        ApplyCursorOwnership();
+        UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleEditor, source );
+    };
     const bool flyCamera =
         RunCameraModeUsesFlyControls( m_camera.mode, m_attachedCamera.activeFollow, m_camera.director.grabbed );
     const KeyboardContextFacts keyboardContextFacts{ !UIBlocksKeyboardBeforeInput,
@@ -2829,6 +2784,7 @@ void Run::TakeInput()
         { SetWorldInteractionOwnerAfterInteractionTransition( owner, reason ); } );
     const RuntimeUIFrameResult uiFrameResult = ApplyRuntimeUIFrameCommands(
         RuntimeUIFrameContext{ m_runtimeInput,
+                               m_inputRouter,
                                m_camera,
                                m_runtimeTools,
                                m_replayRuntime,
@@ -2855,10 +2811,9 @@ void Run::TakeInput()
         [this]() { return CameraModeEnabledMask(); },
         [this]() { EnterInteractiveSceneRun(); },
         [this]( HWND window, bool blocksCameraMouse ) { return TickReplayScrubberInput( window, blocksCameraMouse ); },
-        [this]( HWND window, bool blocksCameraMouse, int editorWheelDelta )
-        { return TickReplayCauseTreeInput( window, blocksCameraMouse, editorWheelDelta ); },
-        [this]( HWND window, bool blocksCameraMouse )
-        { return TickReplayVelocityEditInput( window, blocksCameraMouse ); },
+        [this]( bool blocksCameraMouse, int editorWheelDelta )
+        { return TickReplayCauseTreeInput( blocksCameraMouse, editorWheelDelta ); },
+        [this]( bool blocksCameraMouse ) { return TickReplayVelocityEditInput( blocksCameraMouse ); },
         [this]( bool uiUserInteracted ) { DispatchAfterUIKeyboardActions( uiUserInteracted ); },
         [this]( RuntimeInputAction action, RuntimeInputActionSource source )
         { UpdateRuntimeInputModeAfterAction( action, source ); },
@@ -2878,12 +2833,18 @@ void Run::TakeInput()
         std::fflush( stderr );
         m_applicationExit.RequestOwnedFailure( uiFrameResult.status );
         PostQuitMessage( 1 );
+        commitPointerPresentation();
         return;
     }
     const bool suppressWorldActionThisFrame = uiFrameResult.suppressWorldActionThisFrame;
 
     ProcessRuntimePointerCameraFrame(
-        RuntimePointerCameraFrameContext{ m_runtimeInput, m_camera, m_interaction, m_UI, suppressWorldActionThisFrame },
+        RuntimePointerCameraFrameContext{ m_runtimeInput,
+                                          m_inputRouter,
+                                          m_camera,
+                                          m_interaction,
+                                          m_UI,
+                                          suppressWorldActionThisFrame },
         [this]( const RuntimeMouseEdges& mouseEdges, bool suppressWorldAction )
         { return BuildRuntimeInputSnapshot( mouseEdges, suppressWorldAction ); },
         [this]( const RuntimeInputSnapshot& inputSnapshot, const RuntimeMouseEdges& mouseEdges )
@@ -2897,6 +2858,7 @@ void Run::TakeInput()
                 bool mouseLookOwnsCursor )
         { SyncCameraLookGesture( inputSnapshot, inputPolicy, mouseLookOwnsCursor ); },
         [this]() { DrainRuntimeCommands(); } );
+    commitPointerPresentation();
 }
 
 
@@ -3020,7 +2982,7 @@ void Run::MoveCamera( float keyMovementQty, float mouseMovementQty )
            MouseLookOwnsCursor() || m_runtimeTools.Editor().viewportLookActive || hasCameraTravelInput ) )
     {
         // Shift held = 3x speed
-        float speedMult = Input::IsKeyDown( VK_SHIFT ) ? 3.0f : 1.0f;
+        float speedMult = m_inputRouter.DeviceFrame().keys.IsDown( VK_SHIFT ) ? 3.0f : 1.0f;
 
         // Mouse look
         if ( ( !m_runtimeTools.Editor().editorModeEnabled || m_runtimeTools.Editor().viewportLookActive ) &&

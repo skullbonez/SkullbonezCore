@@ -1,8 +1,8 @@
 /*
 File: InputRouter.h
 Purpose:
-  Declares the allocation-free input snapshot and semantic keyboard router used
-  to move input edge ownership out of Run.
+  Declares the allocation-free device snapshot, semantic action router, shared
+  post-UI pointer value, and native pointer-presentation intent owner.
 
 Mental model:
   A device owner captures hardware once into DeviceInputFrame. InputRouter then
@@ -34,6 +34,10 @@ Invariants:
     held key from becoming a false press when a context later activates.
   - Action output is fixed-capacity and preserves binding-table/phase call order.
   - Focus loss releases delivered actions and pointer buttons exactly once.
+  - UI, replay, editor, and camera consumers observe one copied post-UI pointer
+    snapshot; only InputRouter advances button-edge memory.
+  - Native capture and cursor visibility are desired state. The composition
+    root applies only changes reported by ConsumePointerPresentationChange.
 
 Related:
   - InputController.h defines the existing action and context vocabulary.
@@ -90,6 +94,30 @@ struct DeviceInputFrame
     bool leftDown = false;
     bool rightDown = false;
     bool middleDown = false;
+};
+
+
+struct UiInputHitSnapshot
+{
+    // Lifetime: published once after UI hit testing and retained by InputRouter
+    // only until the next DeviceInputFrame begins.
+    RuntimeMouseEdges mouse;
+    int clientX = 0;
+    int clientY = 0;
+    int unhandledWheelDelta = 0;
+    bool hasClientPosition = false;
+    bool userInteracted = false;
+    bool blocksKeyboard = false;
+    bool blocksCameraMouse = false;
+    bool wantsNativeCursor = false;
+};
+
+
+struct PointerPresentationState
+{
+    // Value boundary between the platform-neutral router and Win32 hardware.
+    bool nativeCapture = false;
+    bool cursorVisible = true;
 };
 
 
@@ -166,6 +194,21 @@ class InputRouter
 
     void Reset();
     bool AppFocused() const;
+    const DeviceInputFrame& DeviceFrame() const;
+    void PublishUiSnapshot( const UiInputHitSnapshot& snapshot );
+    const UiInputHitSnapshot& UiSnapshot() const;
+
+    // Pointer presentation requests are reconciled here so UI/tools/camera do
+    // not manipulate Win32 capture or cursor counters independently.
+    void RequestNativeCapture();
+    void ReleaseNativeCapture();
+    void RequestCursorVisible( bool visible );
+    void CancelPointerPresentation();
+    // Returns true only when the hardware-facing state changed since the last
+    // consume. Callers apply the returned value atomically at the frame edge.
+    bool ConsumePointerPresentationChange( PointerPresentationState& state );
+    bool NativeCaptureRequested() const;
+    bool CursorVisibleRequested() const;
     // Presentation timing for repeated semantic taps belongs beside action
     // edges, not in a consumer's compatibility input context.
     bool IsQuickRepeat( RuntimeInputAction action, double nowSeconds, double intervalSeconds ) const;
@@ -195,6 +238,12 @@ class InputRouter
     std::array<InputActionEdge, ACTION_COUNT> m_frameEdges = {};
     std::array<bool, PHASE_COUNT> m_phaseRoutedThisFrame = {};
     std::array<double, ACTION_COUNT> m_lastTapSeconds = {};
+    DeviceInputFrame m_deviceFrame;
+    UiInputHitSnapshot m_uiSnapshot;
+    bool m_nativeCaptureRequested = false;
+    bool m_committedNativeCapture = false;
+    bool m_cursorVisibleRequested = true;
+    bool m_committedCursorVisible = true;
     bool m_hasFrame = false;
     bool m_appFocused = false;
     bool m_frameFocused = false;

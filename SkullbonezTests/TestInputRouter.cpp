@@ -250,6 +250,63 @@ TEST_CASE( "Input router: a skipped capture phase cannot replay a stale press" )
 }
 
 
+TEST_CASE( "Input router: post-UI pointer snapshot is published once as a value" )
+{
+    InputRouter router;
+    InputActions output;
+    DeviceInputFrame frame = FocusedFrame( {} );
+    frame.clientX = 320;
+    frame.clientY = 180;
+    frame.hasClientPosition = true;
+    frame.leftDown = true;
+    frame.wheelDelta = WHEEL_DELTA;
+
+    router.BeginFrame( frame, {}, output );
+    UiInputHitSnapshot hit;
+    hit.mouse = output.mouse;
+    hit.clientX = frame.clientX;
+    hit.clientY = frame.clientY;
+    hit.hasClientPosition = frame.hasClientPosition;
+    hit.unhandledWheelDelta = frame.wheelDelta;
+    hit.userInteracted = true;
+    hit.blocksCameraMouse = true;
+    router.PublishUiSnapshot( hit );
+
+    frame.clientX = 999;
+    hit.clientX = 999;
+    CHECK( router.DeviceFrame().clientX == 320 );
+    CHECK( router.UiSnapshot().clientX == 320 );
+    CHECK( router.UiSnapshot().mouse.leftPressed );
+    CHECK( router.UiSnapshot().unhandledWheelDelta == WHEEL_DELTA );
+    CHECK( router.UiSnapshot().userInteracted );
+    CHECK( router.UiSnapshot().blocksCameraMouse );
+}
+
+
+TEST_CASE( "Input router: focus loss cancels native capture and restores cursor intent" )
+{
+    InputRouter router;
+    InputActions output;
+    PointerPresentationState presentation;
+
+    router.BeginFrame( FocusedFrame( {} ), {}, output );
+    router.RequestNativeCapture();
+    router.RequestCursorVisible( false );
+    REQUIRE( router.ConsumePointerPresentationChange( presentation ) );
+    CHECK( presentation.nativeCapture );
+    CHECK_FALSE( presentation.cursorVisible );
+    CHECK_FALSE( router.ConsumePointerPresentationChange( presentation ) );
+
+    DeviceInputFrame unfocused;
+    unfocused.appFocused = false;
+    router.BeginFrame( unfocused, {}, output );
+    REQUIRE( output.focusLost );
+    REQUIRE( router.ConsumePointerPresentationChange( presentation ) );
+    CHECK_FALSE( presentation.nativeCapture );
+    CHECK( presentation.cursorVisible );
+}
+
+
 TEST_CASE( "Input router: context exit releases an accepted held action" )
 {
     const RuntimeInputKeyBinding bindings[] = {

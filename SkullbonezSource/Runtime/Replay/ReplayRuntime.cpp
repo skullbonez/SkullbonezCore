@@ -1161,14 +1161,12 @@ void ReplayRuntime::SetAllTrackPositions( float position )
 bool ReplayRuntime::ResetScrubberState()
 {
     const bool shouldExitInspectionCamera = m_camera.active && !m_scrubber.liveAdvanceHeld;
-    const bool leftWasDown = m_scrubber.leftWasDown;
     const bool restoreWasDown = m_scrubber.restoreWasDown;
     const bool restoreConsumedThisFrame = m_scrubber.restoreConsumedThisFrame;
     const bool liveAdvanceHeld = m_scrubber.liveAdvanceHeld;
     const bool pauseRestoreFlyMode = m_scrubber.pauseRestoreFlyMode;
     const bool pauseRestoreLauncherMode = m_scrubber.pauseRestoreLauncherMode;
     m_scrubber = RunReplayScrubberState{};
-    m_scrubber.leftWasDown = leftWasDown;
     m_scrubber.restoreWasDown = restoreWasDown;
     m_scrubber.restoreConsumedThisFrame = restoreConsumedThisFrame;
     m_scrubber.liveAdvanceHeld = liveAdvanceHeld;
@@ -1178,21 +1176,20 @@ bool ReplayRuntime::ResetScrubberState()
 }
 
 
-ReplayRuntime::ScrubberInputFrame ReplayRuntime::BeginScrubberInputFrame( bool leftDown, bool restoreDown )
+ReplayRuntime::ScrubberInputFrame
+ReplayRuntime::BeginScrubberInputFrame( bool leftPressed, bool leftReleased, bool restoreDown )
 {
     ScrubberInputFrame frame;
     m_scrubber.restoreConsumedThisFrame = false;
-    frame.leftPressed = leftDown && !m_scrubber.leftWasDown;
-    frame.leftReleased = !leftDown && m_scrubber.leftWasDown;
-    m_scrubber.leftWasDown = leftDown;
+    frame.leftPressed = leftPressed;
+    frame.leftReleased = leftReleased;
     frame.restorePressed = restoreDown && !m_scrubber.restoreWasDown;
     m_scrubber.restoreWasDown = restoreDown;
     return frame;
 }
 
 
-ReplayRuntime::ScrubberUnavailableResult ReplayRuntime::ResetUnavailableScrubberSurface( bool loadedPresentation,
-                                                                                         bool leftDown )
+ReplayRuntime::ScrubberUnavailableResult ReplayRuntime::ResetUnavailableScrubberSurface( bool loadedPresentation )
 {
     ScrubberUnavailableResult result;
     if ( !loadedPresentation )
@@ -1209,19 +1206,17 @@ ReplayRuntime::ScrubberUnavailableResult ReplayRuntime::ResetUnavailableScrubber
     m_velocityEdit.toggleHovered = false;
     m_scrubber.branchHovered = false;
     m_scrubber.loadHovered = false;
-    m_scrubber.leftWasDown = leftDown;
     m_scrubber.fadeUpdatedAt = 0.0;
     m_scrubber.visibleAlpha = 0.0f;
     return result;
 }
 
 
-ReplayRuntime::PointerButtonEdges ReplayRuntime::BeginCauseTreeInputFrame( bool leftDown )
+ReplayRuntime::PointerButtonEdges ReplayRuntime::BeginCauseTreeInputFrame( bool leftPressed, bool leftReleased )
 {
     PointerButtonEdges edges;
-    edges.leftPressed = leftDown && !m_causeTree.leftWasDown;
-    edges.leftReleased = !leftDown && m_causeTree.leftWasDown;
-    m_causeTree.leftWasDown = leftDown;
+    edges.leftPressed = leftPressed;
+    edges.leftReleased = leftReleased;
     m_causeTree.hoveredRow = -1;
     return edges;
 }

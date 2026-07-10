@@ -59,7 +59,6 @@ struct UIWindowState
 
 struct UIInteractionState
 {
-    bool leftWasDown = false;
     bool isDragging = false;
     bool isResizing = false;
     bool blocksCameraMouse = false;

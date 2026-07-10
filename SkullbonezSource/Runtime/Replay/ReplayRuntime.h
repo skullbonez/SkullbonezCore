@@ -247,7 +247,6 @@ struct RunReplayScrubberState
     RunReplayTrack activeTrack = RunReplayTrack::Solver;
     RunReplayTrack saveHoveredTrack = RunReplayTrack::Solver;
     RunReplayTrack saveMessageTrack = RunReplayTrack::Solver;
-    bool leftWasDown = false;
     float position = 1.0f;                                            // 0 = oldest retained sample, 1 = live edge.
     float presentationPosition = 1.0f;
     float solverPosition = 1.0f;
@@ -387,7 +386,6 @@ struct RunReplayCauseTreeState
     float scrollY = 0.0f;
     bool draggingWindow = false;
     bool resizingWindow = false;
-    bool leftWasDown = false;
     int dragOffsetX = 0;
     int dragOffsetY = 0;
     int resizeStartMouseX = 0;
@@ -742,7 +740,6 @@ struct RunReplayVelocityEditState
     bool dragging = false;
     bool draggingAngular = false;
     bool mouseCaptured = false;
-    bool leftWasDown = false;
     int hotLinearAxis = -1;
     int hotAngularAxis = -1;
     int activeAxis = -1;
@@ -820,8 +817,8 @@ class ReplayRuntime
         bool timelineStarted = false;
     };
 
-    // Concept: replay interaction ticks pass raw button/key snapshots to
-    // ReplayRuntime, which owns edge memory for scrubber and cause-tree controls.
+    // Concept: replay interaction ticks receive InputRouter-owned pointer edges;
+    // ReplayRuntime owns gesture state but never advances duplicate button memory.
     struct PointerButtonEdges
     {
         bool leftPressed = false;
@@ -893,9 +890,9 @@ class ReplayRuntime
     void SyncActiveTrackPosition();
     void SetAllTrackPositions( float position );
     bool ResetScrubberState();
-    ScrubberInputFrame BeginScrubberInputFrame( bool leftDown, bool restoreDown );
-    ScrubberUnavailableResult ResetUnavailableScrubberSurface( bool loadedPresentation, bool leftDown );
-    PointerButtonEdges BeginCauseTreeInputFrame( bool leftDown );
+    ScrubberInputFrame BeginScrubberInputFrame( bool leftPressed, bool leftReleased, bool restoreDown );
+    ScrubberUnavailableResult ResetUnavailableScrubberSurface( bool loadedPresentation );
+    PointerButtonEdges BeginCauseTreeInputFrame( bool leftPressed, bool leftReleased );
     void ClearCauseTreeFocusSelection();
     bool SetLiveAdvanceHeld( bool held );
     // Concept: Render/input code asks replay-owned state for intent-level

@@ -208,7 +208,12 @@ bool CanPlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context, E
 bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
                                       EditorObjectPlacementRequest request,
                                       EditorObjectPlacementResult& outResult );
-bool BeginEditorGizmoDragGesture( EditorGizmoContext context, int modelIndex, int axis, bool angular );
+bool BeginEditorGizmoDragGesture( EditorGizmoContext context,
+                                  int modelIndex,
+                                  int axis,
+                                  bool angular,
+                                  int clientX,
+                                  int clientY );
 void EndEditorGizmoDragGesture( EditorGizmoContext context );
 void CancelEditorGizmoDragState( EditorGizmoContext context );
 void ResetEditorUnfocusedInputState( EditorGizmoContext context );

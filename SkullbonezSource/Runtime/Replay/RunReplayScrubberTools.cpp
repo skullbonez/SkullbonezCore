@@ -29,7 +29,6 @@ Related:
 #include "ReplayInteractionController.h"
 #include "ReplayOverlayLayout.h"
 #include "RunReplayImportExport.h"
-#include "../../UI/UIInput.h"
 #include "../../World/Terrain.h"
 
 #include <algorithm>
@@ -119,7 +118,7 @@ void Run::EnterReplayInspectionCamera()
     SetCameraModeLabelAfterInteractionTransition( RunCameraMode::Inspect );
     if ( enteringInspectionCamera )
     {
-        Input::SetSystemCursorVisible( true );
+        m_inputRouter.RequestCursorVisible( true );
         InputController::ResetMouseLook( m_camera );
     }
 }
@@ -192,7 +191,7 @@ void Run::ExitReplayInspectionCamera()
     m_replayRuntime.Camera().hasRestorePose = false;
     m_replayRuntime.Camera().ownsSimulationPause = false;
     m_replayRuntime.Camera().restoreCameraMode = RunCameraMode::Demo;
-    Input::SetSystemCursorVisible( true );
+    m_inputRouter.RequestCursorVisible( true );
     InputController::ResetMouseLook( m_camera );
 }
 
@@ -227,10 +226,10 @@ bool Run::RestoreReplayScrubberSelectionAsLive( double now,
 bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
 {
     PROFILE_SCOPED( "Frame/Replay/ScrubberInput" );
-    const bool leftDown = Input::IsLeftMouseDown();
-    const bool restoreDown = Input::IsKeyDown( VK_RETURN );
+    const RuntimeMouseEdges& pointer = m_inputRouter.UiSnapshot().mouse;
+    const bool restoreDown = m_inputRouter.DeviceFrame().keys.IsDown( VK_RETURN );
     const ReplayRuntime::ScrubberInputFrame inputFrame =
-        m_replayRuntime.BeginScrubberInputFrame( leftDown, restoreDown );
+        m_replayRuntime.BeginScrubberInputFrame( pointer.leftPressed, pointer.leftReleased, restoreDown );
     const bool leftPressed = inputFrame.leftPressed;
     const bool leftReleased = inputFrame.leftReleased;
     const bool restorePressed = inputFrame.restorePressed;
@@ -247,7 +246,7 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
     {
         CancelReplayToolDragState();
         const ReplayRuntime::ScrubberUnavailableResult unavailable =
-            m_replayRuntime.ResetUnavailableScrubberSurface( loadedPresentation, leftDown );
+            m_replayRuntime.ResetUnavailableScrubberSurface( loadedPresentation );
         if ( unavailable.exitInspectionCamera )
         {
             ExitReplayInspectionCamera();
@@ -255,12 +254,12 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
         return false;
     }
 
-    const Input::MouseCoordinatesResult mouseResult = Input::GetClientMouseCoordinates();
-    if ( !mouseResult.result.ok )
+    const DeviceInputFrame& deviceFrame = m_inputRouter.DeviceFrame();
+    if ( !deviceFrame.hasClientPosition )
     {
         return false;
     }
-    const POINT mouse = mouseResult.coordinates;
+    const POINT mouse{ deviceFrame.clientX, deviceFrame.clientY };
     m_replayRuntime.Scrubber().mouseX = mouse.x;
     m_replayRuntime.Scrubber().mouseY = mouse.y;
 
@@ -614,7 +613,7 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
         setPredictionHorizonFromMouse( false );
         if ( !m_replayRuntime.Scrubber().mouseCaptured )
         {
-            UI::InputControl::BeginMouseCapture( hwnd );
+            m_inputRouter.RequestNativeCapture();
             m_replayRuntime.Scrubber().mouseCaptured = true;
         }
     }
@@ -675,7 +674,7 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
         m_replayRuntime.Scrubber().dragging = true;
         if ( !m_replayRuntime.Scrubber().mouseCaptured )
         {
-            UI::InputControl::BeginMouseCapture( hwnd );
+            m_inputRouter.RequestNativeCapture();
             m_replayRuntime.Scrubber().mouseCaptured = true;
         }
     }
@@ -709,7 +708,7 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
             EndReplayToolGesture( RuntimeInteractionGestureKind::ReplayScrubDrag );
             if ( m_replayRuntime.Scrubber().mouseCaptured )
             {
-                UI::InputControl::EndMouseCapture();
+                m_inputRouter.ReleaseNativeCapture();
                 m_replayRuntime.Scrubber().mouseCaptured = false;
             }
         }
@@ -723,7 +722,7 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
             EndReplayToolGesture( RuntimeInteractionGestureKind::ReplayPredictionHorizonDrag );
             if ( m_replayRuntime.Scrubber().mouseCaptured )
             {
-                UI::InputControl::EndMouseCapture();
+                m_inputRouter.ReleaseNativeCapture();
                 m_replayRuntime.Scrubber().mouseCaptured = false;
             }
         }

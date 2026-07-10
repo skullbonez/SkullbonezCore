@@ -125,15 +125,13 @@ bool ReplayInteractionController::RestoreScrubberSelectionAsLive( const ReplayLi
 }
 
 
-ReplayVelocityEditInputFrame ReplayInteractionController::BeginVelocityEditInputFrame( ReplayRuntime& replayRuntime,
-                                                                                       bool leftDown )
+ReplayVelocityEditInputFrame
+ReplayInteractionController::BeginVelocityEditInputFrame( bool leftDown, bool leftPressed, bool leftReleased )
 {
-    RunReplayVelocityEditState& velocityEdit = replayRuntime.VelocityEdit();
     ReplayVelocityEditInputFrame frame;
     frame.leftDown = leftDown;
-    frame.leftPressed = leftDown && !velocityEdit.leftWasDown;
-    frame.leftReleased = !leftDown && velocityEdit.leftWasDown;
-    velocityEdit.leftWasDown = leftDown;
+    frame.leftPressed = leftPressed;
+    frame.leftReleased = leftReleased;
     return frame;
 }
 

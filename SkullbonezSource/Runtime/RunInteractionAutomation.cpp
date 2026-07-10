@@ -1895,15 +1895,11 @@ bool Run::TryProjectInteractionAutomationModel( const char* name, POINT& outMous
         {
             for ( int x = step / 2; x < width; x += step )
             {
-                Input::AutomationState inputState;
-                inputState.enabled = true;
-                inputState.hasMouseClientPosition = true;
-                inputState.mouseClientPosition = POINT{ static_cast<LONG>( x ), static_cast<LONG>( y ) };
-                Input::SetAutomationState( inputState );
+                const POINT candidate{ static_cast<LONG>( x ), static_cast<LONG>( y ) };
 
                 Vector3 rayOrigin;
                 Vector3 rayDirection;
-                if ( TryBuildMouseWorldRay( rayOrigin, rayDirection ) )
+                if ( TryBuildMouseWorldRayAt( candidate, rayOrigin, rayDirection ) )
                 {
                     RuntimePickRequest request;
                     request.purpose = RuntimePickPurpose::EditorSelection;
@@ -1915,8 +1911,7 @@ bool Run::TryProjectInteractionAutomationModel( const char* name, POINT& outMous
                     RuntimePickResult result;
                     if ( RuntimePickService::TryPickModel( request, result ) && result.modelIndex == modelIndex )
                     {
-                        outMouse = inputState.mouseClientPosition;
-                        Input::ClearAutomationState();
+                        outMouse = candidate;
                         return true;
                     }
                 }
@@ -1924,7 +1919,6 @@ bool Run::TryProjectInteractionAutomationModel( const char* name, POINT& outMous
         }
     }
 
-    Input::ClearAutomationState();
     return false;
 }
 

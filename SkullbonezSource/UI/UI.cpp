@@ -24,6 +24,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "UI.h"
+#include "../Runtime/InputRouter.h"
 #include "../Assets/AssetSystem.h"
 #include "../Rendering/IRenderCommandContext.h"
 #include "../Rendering/IRenderDiagnostics.h"
@@ -1125,7 +1126,6 @@ InGameUITab InGameUI::GetActiveTab() const
 
 void InGameUI::CancelInputCapture()
 {
-    m_interaction.leftWasDown = false;
     m_interaction.isDragging = false;
     m_interaction.isResizing = false;
     m_interaction.blocksCameraMouse = false;
@@ -1233,7 +1233,7 @@ void InGameUI::SetSceneComboOpen( bool open )
         CinematicTab::CloseCombo( m_cinematicTab );
         m_renderTargetCombo.Close();
         m_cameraModeCombo.Close();
-        SceneTab::CaptureFilterKeyState( m_sceneTab );
+        SceneTab::RequestFilterKeySync( m_sceneTab );
     }
     else
     {
@@ -1542,7 +1542,8 @@ void InGameUI::CloseSceneCombo()
 }
 
 
-InGameUIInputResult InGameUI::UpdateInput( HWND hwnd,
+InGameUIInputResult InGameUI::UpdateInput( const Basics::DeviceInputFrame& deviceFrame,
+                                           const Basics::RuntimeMouseEdges& mouse,
                                            int screenW,
                                            int screenH,
                                            double now,
@@ -1566,10 +1567,8 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd,
     cameraModeIndex = std::clamp( cameraModeIndex, 0, CAMERA_MODE_OPTION_COUNT - 1 );
     cameraModeEnabledMask &= ( 1u << CAMERA_MODE_OPTION_COUNT ) - 1u;
     m_interaction.blocksCameraMouse = false;
-    const InputControl::UIInputSnapshot input = InputControl::CaptureSnapshot( m_interaction.leftWasDown,
-                                                                               m_hasMouseOverride,
-                                                                               m_mouseOverrideX,
-                                                                               m_mouseOverrideY );
+    const InputControl::UIInputSnapshot input =
+        InputControl::CaptureSnapshot( deviceFrame, mouse, m_hasMouseOverride, m_mouseOverrideX, m_mouseOverrideY );
     const int wheelDelta = input.wheelDelta;
     result.unhandledWheelDelta = wheelDelta;
     m_mouseX = input.mouseX;
@@ -1597,19 +1596,17 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd,
         const bool histogramIsInteracting = ProfilerTab::PerformanceHistogramIsInteracting( m_profilerTab );
         if ( input.leftPressed && histogramIsInteracting && !histogramWasInteracting )
         {
-            InputControl::BeginMouseCapture( hwnd );
+            result.nativeMouseCapture = InGameUIInputResult::NativeMouseCaptureRequest::Acquire;
         }
         if ( input.leftReleased && histogramWasInteracting )
         {
-            InputControl::EndMouseCapture();
+            result.nativeMouseCapture = InGameUIInputResult::NativeMouseCaptureRequest::Release;
         }
-        m_interaction.leftWasDown = leftNow;
         m_interaction.blocksCameraMouse = true;
         return result;
     }
     if ( !m_window.isVisible )
     {
-        m_interaction.leftWasDown = leftNow;
         return result;
     }
     ProfilerTab::ApplyDefaultExpansion( m_profilerTab );
@@ -1649,7 +1646,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd,
         {
             if ( m_editorMiniPalettePressActive )
             {
-                InputControl::EndMouseCapture();
+                result.nativeMouseCapture = InGameUIInputResult::NativeMouseCaptureRequest::Release;
             }
             CancelEditorMiniPaletteInteraction();
 
@@ -1739,7 +1736,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd,
             if ( m_editorMiniPalettePressActive && !leftNow && !input.leftReleased )
             {
                 CancelEditorMiniPaletteInteraction();
-                InputControl::EndMouseCapture();
+                result.nativeMouseCapture = InGameUIInputResult::NativeMouseCaptureRequest::Release;
             }
 
             if ( m_editorMiniPalettePressActive && !m_editorMiniPaletteFlyoutOpen &&
@@ -1788,7 +1785,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd,
                         m_editorMiniPalettePressStart = now;
                         result.commands.ui.userInteracted = true;
                         editorMiniPaletteHandled = true;
-                        InputControl::BeginMouseCapture( hwnd );
+                        result.nativeMouseCapture = InGameUIInputResult::NativeMouseCaptureRequest::Acquire;
                     }
                     else
                     {
@@ -1839,7 +1836,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd,
                         SelectEditorMiniPaletteObject( selectedObjectType, requestPlaceStatic, requestedPlaceStatic );
                     }
                     CancelEditorMiniPaletteInteraction();
-                    InputControl::EndMouseCapture();
+                    result.nativeMouseCapture = InGameUIInputResult::NativeMouseCaptureRequest::Release;
                 }
             }
         }
@@ -1855,7 +1852,6 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd,
             SetMinimized( false, now );
             result.commands.ui.userInteracted = true;
         }
-        m_interaction.leftWasDown = leftNow;
         m_interaction.blocksCameraMouse = insideMinimized || insideCameraModeCombo || cameraModeComboHandled ||
                                           insideEditorMiniPalette || insideEditorMinimizedStatusControl ||
                                           m_editorMiniPalettePressActive;
@@ -1930,7 +1926,12 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd,
 
     if ( m_activeTab == InGameUITab::Scene )
     {
-        SceneTab::UpdateFilterTyping( m_sceneTab, m_sceneCombo, result, sceneOptions, sceneOptionCount );
+        SceneTab::UpdateFilterTyping( m_sceneTab,
+                                      m_sceneCombo,
+                                      result,
+                                      deviceFrame.keys,
+                                      sceneOptions,
+                                      sceneOptionCount );
     }
 
     bool wheelHandled = false;
@@ -1975,14 +1976,14 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd,
             m_interaction.resizeStartMouseY = m_mouseY;
             m_interaction.resizeStartW = inputW;
             m_interaction.resizeStartH = inputH;
-            InputControl::BeginMouseCapture( hwnd );
+            result.nativeMouseCapture = InGameUIInputResult::NativeMouseCaptureRequest::Acquire;
         }
         else if ( inTitle )
         {
             m_interaction.isDragging = true;
             m_interaction.dragOffsetX = m_mouseX - inputX;
             m_interaction.dragOffsetY = m_mouseY - inputY;
-            InputControl::BeginMouseCapture( hwnd );
+            result.nativeMouseCapture = InGameUIInputResult::NativeMouseCaptureRequest::Acquire;
         }
         else if ( inTabs )
         {
@@ -2148,7 +2149,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd,
                                                   m_lastWorkerThreadCount,
                                                   m_lastMaxWorkerThreadCount ) )
             {
-                InputControl::BeginMouseCapture( hwnd );
+                result.nativeMouseCapture = InGameUIInputResult::NativeMouseCaptureRequest::Acquire;
                 m_scrollbarVisibleUntil = now + 1.2;
             }
             m_rendererCombo.Close();
@@ -2170,7 +2171,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd,
                                                 scrolledY,
                                                 contentW ) )
             {
-                InputControl::BeginMouseCapture( hwnd );
+                result.nativeMouseCapture = InGameUIInputResult::NativeMouseCaptureRequest::Acquire;
                 m_scrollbarVisibleUntil = now + 1.2;
             }
             m_rendererCombo.Close();
@@ -2189,6 +2190,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd,
                                                                          m_resetDefaultsButton,
                                                                          m_saveDefaultsButton,
                                                                          result,
+                                                                         deviceFrame.keys,
                                                                          m_activeSlider,
                                                                          sceneOptions,
                                                                          sceneOptionCount,
@@ -2233,7 +2235,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd,
                                                  contentW ) &&
                  m_activeSlider != 0 && m_activeSlider != previousActiveSlider )
             {
-                InputControl::BeginMouseCapture( hwnd );
+                result.nativeMouseCapture = InGameUIInputResult::NativeMouseCaptureRequest::Acquire;
             }
             m_rendererCombo.Close();
             CinematicTab::CloseCombo( m_cinematicTab );
@@ -2255,7 +2257,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd,
                                                contentW ) &&
                  m_activeSlider != 0 && m_activeSlider != previousActiveSlider )
             {
-                InputControl::BeginMouseCapture( hwnd );
+                result.nativeMouseCapture = InGameUIInputResult::NativeMouseCaptureRequest::Acquire;
             }
             m_rendererCombo.Close();
             m_reflectionCombo.Close();
@@ -2278,7 +2280,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd,
                                                  contentW,
                                                  m_lastModelCapacity ) )
             {
-                InputControl::BeginMouseCapture( hwnd );
+                result.nativeMouseCapture = InGameUIInputResult::NativeMouseCaptureRequest::Acquire;
             }
             m_rendererCombo.Close();
             m_reflectionCombo.Close();
@@ -2324,7 +2326,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd,
 
             if ( capturedSlider )
             {
-                InputControl::BeginMouseCapture( hwnd );
+                result.nativeMouseCapture = InGameUIInputResult::NativeMouseCaptureRequest::Acquire;
             }
             m_rendererCombo.Close();
             m_reflectionCombo.Close();
@@ -2372,7 +2374,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd,
 
             if ( capturedSlider )
             {
-                InputControl::BeginMouseCapture( hwnd );
+                result.nativeMouseCapture = InGameUIInputResult::NativeMouseCaptureRequest::Acquire;
             }
             m_rendererCombo.Close();
             m_reflectionCombo.Close();
@@ -2395,7 +2397,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd,
 
             if ( capturedSlider )
             {
-                InputControl::BeginMouseCapture( hwnd );
+                result.nativeMouseCapture = InGameUIInputResult::NativeMouseCaptureRequest::Acquire;
             }
             m_rendererCombo.Close();
             m_reflectionCombo.Close();
@@ -2417,7 +2419,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd,
                                                   m_lastSolverBallCount,
                                                   m_lastSolverBoxCount ) )
             {
-                InputControl::BeginMouseCapture( hwnd );
+                result.nativeMouseCapture = InGameUIInputResult::NativeMouseCaptureRequest::Acquire;
             }
             m_rendererCombo.Close();
             m_reflectionCombo.Close();
@@ -2585,10 +2587,9 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd,
         SoundTab::ResetPreviewState( m_soundTab );
         m_interaction.isDragging = false;
         m_interaction.isResizing = false;
-        InputControl::EndMouseCapture();
+        result.nativeMouseCapture = InGameUIInputResult::NativeMouseCaptureRequest::Release;
     }
 
-    m_interaction.leftWasDown = leftNow;
     m_scrollY = std::clamp( m_scrollY, 0.0f, maxScroll );
     m_interaction.blocksCameraMouse =
         inside || m_interaction.isDragging || m_interaction.isResizing || m_activeSlider != 0;

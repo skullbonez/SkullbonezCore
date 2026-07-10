@@ -48,7 +48,6 @@ Related:
 #include "../../Physics/PhysicsMass.h"
 #include "../../Physics/Ragdoll.h"
 #include "../../Core/WorkerPool.h"
-#include "../../UI/UIInput.h"
 #include "../../UI/UILayout.h"
 #include "../../../ThirdPtySource/nlohmann/json.hpp"
 
@@ -911,7 +910,12 @@ namespace Basics
 {
 namespace RunInternal
 {
-bool BeginEditorGizmoDragGesture( EditorGizmoContext context, int modelIndex, int axis, bool angular )
+bool BeginEditorGizmoDragGesture( EditorGizmoContext context,
+                                  int modelIndex,
+                                  int axis,
+                                  bool angular,
+                                  int clientX,
+                                  int clientY )
 {
     if ( context.interaction.PointerCapture() != RuntimePointerCaptureOwner::None ||
          context.interaction.Gesture().kind != RuntimeInteractionGestureKind::None )
@@ -919,16 +923,11 @@ bool BeginEditorGizmoDragGesture( EditorGizmoContext context, int modelIndex, in
         return false;
     }
 
-    const Input::MouseCoordinatesResult mouse = Input::GetClientMouseCoordinates();
-    if ( !mouse.result.ok )
-    {
-        return false;
-    }
     RuntimeInteractionGesture gesture;
     gesture.kind = RuntimeInteractionGestureKind::GizmoDrag;
     gesture.button = RuntimePointerButton::Left;
-    gesture.startX = mouse.coordinates.x;
-    gesture.startY = mouse.coordinates.y;
+    gesture.startX = clientX;
+    gesture.startY = clientY;
     gesture.modelIndex = modelIndex;
     gesture.axis = axis;
     gesture.angular = angular;
@@ -988,7 +987,7 @@ int PeekSelectedEditorModelIndex( const RunEditorPlacementState& editor, const P
 void Run::TickEditorViewportAndPlacementScaleInput( int unhandledWheelDelta )
 {
     const bool editorViewportLookNow =
-        m_runtimeTools.Editor().editorModeEnabled && Input::IsRightMouseDown() && !m_UI.BlocksCameraMouse();
+        m_runtimeTools.Editor().editorModeEnabled && m_inputRouter.DeviceFrame().rightDown && !m_UI.BlocksCameraMouse();
     if ( editorViewportLookNow != m_runtimeTools.Editor().viewportLookActive )
     {
         InputController::ResetMouseLook( m_camera );
@@ -1002,9 +1001,10 @@ void Run::TickEditorViewportAndPlacementScaleInput( int unhandledWheelDelta )
     }
 
     const int placementWheelSteps = EditorMouseWheelSteps( unhandledWheelDelta );
-    const bool placementLeftMouseNow = Input::IsLeftMouseDown();
+    const bool placementLeftMouseNow = m_inputRouter.DeviceFrame().leftDown;
     const bool placementYawWheel = placementWheelSteps != 0 && m_runtimeTools.Editor().editorModeEnabled &&
-                                   m_runtimeTools.Editor().placementModeEnabled && Input::IsKeyDown( VK_CONTROL ) &&
+                                   m_runtimeTools.Editor().placementModeEnabled &&
+                                   m_inputRouter.DeviceFrame().keys.IsDown( VK_CONTROL ) &&
                                    !m_runtimeTools.Editor().viewportLookActive && !m_UI.BlocksCameraMouse();
     if ( placementYawWheel )
     {
@@ -1022,13 +1022,13 @@ void Run::TickEditorViewportAndPlacementScaleInput( int unhandledWheelDelta )
             m_runtimeTools.Editor().placementScaleWheelSteps += placementWheelSteps;
         }
 
-        const Input::MouseCoordinatesResult currentClient = Input::GetClientMouseCoordinates();
-        if ( currentClient.result.ok )
+        const DeviceInputFrame& deviceFrame = m_inputRouter.DeviceFrame();
+        if ( deviceFrame.hasClientPosition )
         {
             const float dragPixelsX =
-                static_cast<float>( currentClient.coordinates.x - m_runtimeTools.Editor().placementScaleStartClient.x );
+                static_cast<float>( deviceFrame.clientX - m_runtimeTools.Editor().placementScaleStartClient.x );
             const float dragPixelsY =
-                static_cast<float>( currentClient.coordinates.y - m_runtimeTools.Editor().placementScaleStartClient.y );
+                static_cast<float>( deviceFrame.clientY - m_runtimeTools.Editor().placementScaleStartClient.y );
             m_runtimeTools.Editor().placementScale =
                 EditorPlacementScaleFromGesture( m_runtimeTools.Editor().objectType,
                                                  m_runtimeTools.Editor().placementScaleStart,
@@ -1093,7 +1093,7 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
                                           hasPreviewMouseRay,
                                           previewRayOrigin,
                                           previewRayDirection,
-                                          Input::IsKeyDown( VK_CONTROL ) } );
+                                          m_inputRouter.DeviceFrame().keys.IsDown( VK_CONTROL ) } );
 
     if ( previewResult.clearInvalidSelection )
     {
@@ -1316,7 +1316,7 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
             inspectGizmoActive ? InteractionExitReason::EnterInspect : InteractionExitReason::EnterEdit;
         const bool canCaptureGizmoGesture = m_interaction.PointerCapture() == RuntimePointerCaptureOwner::None &&
                                             m_interaction.Gesture().kind == RuntimeInteractionGestureKind::None;
-        const bool editorScaleMode = transformGizmoActive && Input::IsKeyDown( VK_CONTROL );
+        const bool editorScaleMode = transformGizmoActive && m_inputRouter.DeviceFrame().keys.IsDown( VK_CONTROL );
         if ( canCaptureGizmoGesture && editorScaleMode && selectedModelIndex >= 0 &&
              selectedModelIndex < m_cGameModelCollection.SceneEntityCount() &&
              m_runtimeTools.Editor().hotGizmoAxis >= 0 )
@@ -1349,7 +1349,9 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
                 if ( !BeginEditorGizmoDragGesture( gizmoContext,
                                                    selectedModelIndex,
                                                    m_runtimeTools.Editor().hotGizmoAxis,
-                                                   false ) )
+                                                   false,
+                                                   m_inputRouter.DeviceFrame().clientX,
+                                                   m_inputRouter.DeviceFrame().clientY ) )
                 {
                     return consumedWorldClick;
                 }
@@ -1390,7 +1392,9 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
                 if ( !BeginEditorGizmoDragGesture( gizmoContext,
                                                    selectedModelIndex,
                                                    m_runtimeTools.Editor().hotRotationAxis,
-                                                   true ) )
+                                                   true,
+                                                   m_inputRouter.DeviceFrame().clientX,
+                                                   m_inputRouter.DeviceFrame().clientY ) )
                 {
                     return consumedWorldClick;
                 }
@@ -1469,7 +1473,9 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
                     if ( !BeginEditorGizmoDragGesture( gizmoContext,
                                                        selectedModelIndex,
                                                        m_runtimeTools.Editor().hotGizmoAxis,
-                                                       false ) )
+                                                       false,
+                                                       m_inputRouter.DeviceFrame().clientX,
+                                                       m_inputRouter.DeviceFrame().clientY ) )
                     {
                         return consumedWorldClick;
                     }
@@ -1499,8 +1505,8 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
                 consumedWorldClick = true;
                 if ( m_runtimeTools.Editor().placementPreviewVisible )
                 {
-                    const Input::MouseCoordinatesResult startClient = Input::GetClientMouseCoordinates();
-                    if ( startClient.result.ok )
+                    const DeviceInputFrame& deviceFrame = m_inputRouter.DeviceFrame();
+                    if ( deviceFrame.hasClientPosition )
                     {
                         m_runtimeTools.Editor().placementScaleActive = true;
                         m_runtimeTools.Editor().placementScaleWheelSteps = 0;
@@ -1508,7 +1514,8 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
                             EditorClampPlacementScale( m_runtimeTools.Editor().objectType,
                                                        m_runtimeTools.Editor().placementScale );
                         m_runtimeTools.Editor().placementScale = m_runtimeTools.Editor().placementScaleStart;
-                        m_runtimeTools.Editor().placementScaleStartClient = startClient.coordinates;
+                        m_runtimeTools.Editor().placementScaleStartClient = { deviceFrame.clientX,
+                                                                              deviceFrame.clientY };
                         m_runtimeTools.Editor().placementScaleTerrainPoint =
                             m_runtimeTools.Editor().placementTerrainPoint;
                         m_runtimeTools.Editor().placementScaleRayOrigin = m_runtimeTools.Editor().placementRayOrigin;
@@ -1568,12 +1575,24 @@ bool Run::TryBuildMouseWorldRay( Vector3& outOrigin, Vector3& outDirection, bool
         return false;
     }
 
-    Input::MouseCoordinatesResult mouseResult = Input::GetClientMouseCoordinates();
-    if ( !mouseResult.result.ok )
+    const DeviceInputFrame& deviceFrame = m_inputRouter.DeviceFrame();
+    if ( !deviceFrame.hasClientPosition )
     {
         return false;
     }
-    POINT mouse = mouseResult.coordinates;
+    return TryBuildMouseWorldRayAt( POINT{ deviceFrame.clientX, deviceFrame.clientY },
+                                    outOrigin,
+                                    outDirection,
+                                    clampToViewport );
+}
+
+
+bool Run::TryBuildMouseWorldRayAt( POINT mouse, Vector3& outOrigin, Vector3& outDirection, bool clampToViewport ) const
+{
+    if ( !m_systems.window || !m_systems.cameras )
+    {
+        return false;
+    }
     const int screenW = (std::max)( 1, m_systems.window->ClientWidth() );
     const int screenH = (std::max)( 1, m_systems.window->ClientHeight() );
     if ( clampToViewport )

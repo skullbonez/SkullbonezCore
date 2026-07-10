@@ -292,9 +292,9 @@ class Run
     // leave prediction dirty/building so a later frame can resume without
     // exceeding the current render-frame budget.
     void RenderReplayPathVisualizer( RunEditorTracer& tracer );
-    bool TickReplayCauseTreeInput( HWND hwnd, bool uiBlocksMouse, int wheelDelta );
+    bool TickReplayCauseTreeInput( bool uiBlocksMouse, int wheelDelta );
     void RenderReplayCauseFocusOverlay( RunEditorTracer& tracer );
-    bool TickReplayVelocityEditInput( HWND hwnd, bool uiBlocksMouse );
+    bool TickReplayVelocityEditInput( bool uiBlocksMouse );
     void RenderReplayVelocityEditOverlay( RunEditorTracer& tracer );
     void EnterReplayInspectionCamera();
     void ExitReplayInspectionCamera();
@@ -329,6 +329,11 @@ class Run
     TryBuildMouseWorldRay( Math::Vector::Vector3& outOrigin,
                            Math::Vector::Vector3& outDirection,
                            bool clampToViewport = false ) const;        // Mouse position projected into a world-space ray.
+    bool TryBuildMouseWorldRayAt( POINT clientPosition,
+                                  Math::Vector::Vector3& outOrigin,
+                                  Math::Vector::Vector3& outDirection,
+                                  bool clampToViewport = false )
+        const;                                                          // Explicit-point variant for automation and owner-produced pointer values.
     void TickEditorViewportAndPlacementScaleInput(
         int unhandledWheelDelta );                                      // Updates viewport-look and placement scale/altitude gestures.
     bool TickEditorWorldClick(
@@ -336,7 +341,6 @@ class Run
         bool suppressWorldActionThisFrame );                            // Handles editor placement, selection, and gizmo mouse ownership.
     void CancelMousePickup();                                           // Releases manipulator drag/capture state.
     bool TickMousePickupInput(
-        HWND hwnd,
         const RuntimeMouseEdges& mouseEdges,
         bool suppressWorldActionThisFrame );                            // Handles manipulator left-click pickup and target updates.
 #ifdef _DEBUG

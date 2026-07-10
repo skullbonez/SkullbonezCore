@@ -35,7 +35,6 @@ Related:
 #include "Allocation/RuntimeAllocationTracker.h"
 #include "Allocation/RuntimeReserveAllocator.h"
 #include "Scene/SceneRuntimeLoad.h"
-#include "../UI/UIInput.h"
 #include "../Core/FatalError.h"
 #include "../Core/Log.h"
 #include "../Physics/PhysicsTimestep.h"
@@ -466,7 +465,7 @@ Run::Run( Window& window,
                                              tracer },
                                            { run->m_debug.physicsDebugContactLinger,
                                              run->InspectGizmoInteractionActive(),
-                                             Input::IsKeyDown( VK_CONTROL ),
+                                             run->m_inputRouter.DeviceFrame().keys.IsDown( VK_CONTROL ),
                                              attachedTargetIndex,
                                              run->m_attachedCamera.activeFollow } );
               run->RenderReplayPathVisualizer( tracer );

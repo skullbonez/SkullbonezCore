@@ -26,7 +26,6 @@ Related:
 #include "ReplayOverlayLayout.h"
 #include "../../Physics/ColliderStore.h"
 #include "../../Physics/PhysicsBodyStore.h"
-#include "../../UI/UIInput.h"
 
 #include <algorithm>
 #include <cmath>
@@ -60,13 +59,14 @@ Vector3 ReplayCauseTreeNormalizeOr( Vector3 value, const Vector3& fallback )
 } // namespace
 
 
-bool Run::TickReplayCauseTreeInput( HWND hwnd, bool uiBlocksMouse, int wheelDelta )
+bool Run::TickReplayCauseTreeInput( bool uiBlocksMouse, int wheelDelta )
 {
     PROFILE_SCOPED( "Frame/Replay/CauseTree/Input" );
     // Concept: Cause-tree input owns the explanatory replay window state while
     // delegating body/sample interpretation to ReplayRuntime queries.
-    const bool leftDown = Input::IsLeftMouseDown();
-    const ReplayRuntime::PointerButtonEdges inputEdges = m_replayRuntime.BeginCauseTreeInputFrame( leftDown );
+    const RuntimeMouseEdges& pointer = m_inputRouter.UiSnapshot().mouse;
+    const ReplayRuntime::PointerButtonEdges inputEdges =
+        m_replayRuntime.BeginCauseTreeInputFrame( pointer.leftPressed, pointer.leftReleased );
     const bool leftPressed = inputEdges.leftPressed;
     const bool leftReleased = inputEdges.leftReleased;
 
@@ -186,7 +186,7 @@ bool Run::TickReplayCauseTreeInput( HWND hwnd, bool uiBlocksMouse, int wheelDelt
             m_systems.cameras->ResetRelativity();
         }
         InputController::ResetMouseLook( m_camera );
-        Input::SetSystemCursorVisible( true );
+        m_inputRouter.RequestCursorVisible( true );
     };
 
     const int screenW = RuntimeWindowScreenWidth( m_systems, m_config );
@@ -196,7 +196,7 @@ bool Run::TickReplayCauseTreeInput( HWND hwnd, bool uiBlocksMouse, int wheelDelt
         if ( leftReleased &&
              ( m_replayRuntime.CauseTree().draggingWindow || m_replayRuntime.CauseTree().resizingWindow ) )
         {
-            UI::InputControl::EndMouseCapture();
+            m_inputRouter.ReleaseNativeCapture();
             EndReplayToolGesture( RuntimeInteractionGestureKind::ReplayCauseTreeDrag );
             m_replayRuntime.CauseTree().draggingWindow = false;
             m_replayRuntime.CauseTree().resizingWindow = false;
@@ -216,13 +216,13 @@ bool Run::TickReplayCauseTreeInput( HWND hwnd, bool uiBlocksMouse, int wheelDelt
     }
 
     EnsureReplayCauseWindowPlacement( m_replayRuntime.CauseTree(), screenW, screenH );
-    const Input::MouseCoordinatesResult mouseResult = Input::GetClientMouseCoordinates();
-    if ( !mouseResult.result.ok )
+    const DeviceInputFrame& deviceFrame = m_inputRouter.DeviceFrame();
+    if ( !deviceFrame.hasClientPosition )
     {
         endCauseTreeDragIfReleased();
         return false;
     }
-    const POINT mouse = mouseResult.coordinates;
+    const POINT mouse{ deviceFrame.clientX, deviceFrame.clientY };
     const UI::UIRect panel = ReplayCauseWindowRect( m_replayRuntime.CauseTree() );
     const UI::UIRect title = ReplayCauseWindowTitleRect( m_replayRuntime.CauseTree() );
     const UI::UIRect content = ReplayCauseWindowContentRect( m_replayRuntime.CauseTree() );
@@ -235,7 +235,7 @@ bool Run::TickReplayCauseTreeInput( HWND hwnd, bool uiBlocksMouse, int wheelDelt
         ClampReplayCauseWindow( m_replayRuntime.CauseTree(), screenW, screenH );
         if ( leftReleased )
         {
-            UI::InputControl::EndMouseCapture();
+            m_inputRouter.ReleaseNativeCapture();
             EndReplayToolGesture( RuntimeInteractionGestureKind::ReplayCauseTreeDrag );
             m_replayRuntime.CauseTree().draggingWindow = false;
         }
@@ -251,7 +251,7 @@ bool Run::TickReplayCauseTreeInput( HWND hwnd, bool uiBlocksMouse, int wheelDelt
         ClampReplayCauseWindow( m_replayRuntime.CauseTree(), screenW, screenH );
         if ( leftReleased )
         {
-            UI::InputControl::EndMouseCapture();
+            m_inputRouter.ReleaseNativeCapture();
             EndReplayToolGesture( RuntimeInteractionGestureKind::ReplayCauseTreeDrag );
             m_replayRuntime.CauseTree().resizingWindow = false;
         }
@@ -288,7 +288,7 @@ bool Run::TickReplayCauseTreeInput( HWND hwnd, bool uiBlocksMouse, int wheelDelt
         m_replayRuntime.CauseTree().resizeStartMouseY = mouse.y;
         m_replayRuntime.CauseTree().resizeStartWidth = m_replayRuntime.CauseTree().width;
         m_replayRuntime.CauseTree().resizeStartHeight = m_replayRuntime.CauseTree().height;
-        UI::InputControl::BeginMouseCapture( hwnd );
+        m_inputRouter.RequestNativeCapture();
         return true;
     }
 
@@ -304,7 +304,7 @@ bool Run::TickReplayCauseTreeInput( HWND hwnd, bool uiBlocksMouse, int wheelDelt
         m_replayRuntime.CauseTree().draggingWindow = true;
         m_replayRuntime.CauseTree().dragOffsetX = mouse.x - m_replayRuntime.CauseTree().x;
         m_replayRuntime.CauseTree().dragOffsetY = mouse.y - m_replayRuntime.CauseTree().y;
-        UI::InputControl::BeginMouseCapture( hwnd );
+        m_inputRouter.RequestNativeCapture();
         return true;
     }
 

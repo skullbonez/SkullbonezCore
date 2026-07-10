@@ -22,6 +22,7 @@ Related:
   - SkullbonezSource/Runtime/RunInput.cpp
 */
 #include "InputController.h"
+#include "InputRouter.h"
 
 #include "RunCameraState.h"
 #include "RunInternal.h"
@@ -41,36 +42,6 @@ void RuntimeInputContext::BeginFrame( bool appFocused, bool uiBlocksKeyboard, bo
     m_uiBlocksMouse = uiBlocksMouse;
 }
 
-void RuntimeInputContext::ResetEdges()
-{
-    ResetMouseButtons();
-}
-
-void RuntimeInputContext::ResetMouseButtons()
-{
-    SyncMouseButtons( false, false );
-}
-
-void RuntimeInputContext::SyncMouseButtons( bool leftDown, bool rightDown )
-{
-    m_leftMouseWasDown = leftDown;
-    m_rightMouseWasDown = rightDown;
-}
-
-RuntimeMouseEdges RuntimeInputContext::CaptureMouseButtons( bool leftDown, bool rightDown )
-{
-    RuntimeMouseEdges edges;
-    edges.leftDown = leftDown;
-    edges.leftPressed = leftDown && !m_leftMouseWasDown;
-    edges.leftReleased = !leftDown && m_leftMouseWasDown;
-    edges.rightDown = rightDown;
-    edges.rightPressed = rightDown && !m_rightMouseWasDown;
-    edges.rightReleased = !rightDown && m_rightMouseWasDown;
-    m_leftMouseWasDown = leftDown;
-    m_rightMouseWasDown = rightDown;
-    return edges;
-}
-
 void RuntimeInputContext::SetMode( RuntimeInputMode mode, RuntimeInputAction action, RuntimeInputActionSource source )
 {
     if ( mode == m_currentMode )
@@ -87,7 +58,6 @@ void RuntimeInputContext::SetMode( RuntimeInputMode mode, RuntimeInputAction act
     {
         ++m_transitionCount;
     }
-    SyncMouseButtons( Hardware::Input::IsLeftMouseDown(), Hardware::Input::IsRightMouseDown() );
 }
 
 RuntimeInputMode RuntimeInputContext::CurrentMode() const
@@ -479,8 +449,6 @@ void InputController::ResetUnfocusedInput( RunCameraState& camera )
     camera.input = {};
     camera.hasMouseLookLastClient = false;
     camera.needsMouseLookReset = true;
-    Hardware::Input::ResetMouseLookDeltas();
-    Hardware::Input::ConsumeMouseWheelDelta();
 }
 
 void InputController::ResetMouseLook( RunCameraState& camera )
@@ -489,7 +457,6 @@ void InputController::ResetMouseLook( RunCameraState& camera )
     camera.input.yMove = 0;
     camera.hasMouseLookLastClient = false;
     camera.needsMouseLookReset = true;
-    Hardware::Input::ResetMouseLookDeltas();
 }
 
 void InputController::SetMouseLookDelta( RunCameraState& camera, long rawX, long rawY )
@@ -514,6 +481,12 @@ RuntimeCameraInputFrameResult InputController::ApplyCameraInputFrame( RunCameraS
                                                                       const RuntimeCameraInputFrameContext& context )
 {
     RuntimeCameraInputFrameResult result;
+    assert( context.deviceFrame && "Camera input requires the immutable device frame" );
+    if ( !context.deviceFrame )
+    {
+        return result;
+    }
+    const DeviceInputFrame& deviceFrame = *context.deviceFrame;
     if ( context.cameraMouseLookActive )
     {
         // Why: raw mouse input gives stable deltas during native mouse-look, and
@@ -530,20 +503,14 @@ RuntimeCameraInputFrameResult InputController::ApplyCameraInputFrame( RunCameraS
         }
         else
         {
-            Hardware::Input::SetSystemCursorVisible( false );
-            long rawX = 0;
-            long rawY = 0;
-            const bool hasRawDelta = Hardware::Input::ConsumeRawMouseDelta( rawX, rawY );
-            const Hardware::Input::MouseCoordinatesResult currentClientResult =
-                Hardware::Input::GetClientMouseCoordinates();
-            if ( !currentClientResult.result.ok )
+            if ( !deviceFrame.hasClientPosition )
             {
                 ResetMouseLook( camera );
                 result.applyCursorOwnership = true;
-                result.cursorResult = currentClientResult.result;
                 return result;
             }
-            const POINT currentClient = currentClientResult.coordinates;
+            const POINT currentClient{ deviceFrame.clientX, deviceFrame.clientY };
+            const bool hasRawDelta = deviceFrame.rawMouseX != 0 || deviceFrame.rawMouseY != 0;
 
             if ( camera.needsMouseLookReset )
             {
@@ -555,7 +522,7 @@ RuntimeCameraInputFrameResult InputController::ApplyCameraInputFrame( RunCameraS
             }
             else if ( hasRawDelta )
             {
-                SetMouseLookDelta( camera, rawX, rawY );
+                SetMouseLookDelta( camera, deviceFrame.rawMouseX, deviceFrame.rawMouseY );
                 camera.mouseLookLastClient = currentClient;
                 camera.hasMouseLookLastClient = true;
             }
@@ -583,10 +550,10 @@ RuntimeCameraInputFrameResult InputController::ApplyCameraInputFrame( RunCameraS
 
     if ( context.cameraKeyboardControlsActive )
     {
-        camera.input.Set( Hardware::InputState::Up, Hardware::Input::IsKeyDown( 'W' ) );
-        camera.input.Set( Hardware::InputState::Left, Hardware::Input::IsKeyDown( 'A' ) );
-        camera.input.Set( Hardware::InputState::Down, Hardware::Input::IsKeyDown( 'S' ) );
-        camera.input.Set( Hardware::InputState::Right, Hardware::Input::IsKeyDown( 'D' ) );
+        camera.input.Set( Hardware::InputState::Up, deviceFrame.keys.IsDown( 'W' ) );
+        camera.input.Set( Hardware::InputState::Left, deviceFrame.keys.IsDown( 'A' ) );
+        camera.input.Set( Hardware::InputState::Down, deviceFrame.keys.IsDown( 'S' ) );
+        camera.input.Set( Hardware::InputState::Right, deviceFrame.keys.IsDown( 'D' ) );
     }
     else
     {

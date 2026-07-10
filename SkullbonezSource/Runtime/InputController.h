@@ -36,6 +36,7 @@ namespace SkullbonezCore
 {
 namespace Basics
 {
+struct DeviceInputFrame;
 struct RunCameraState;
 
 enum class RuntimeInputMode
@@ -240,12 +241,12 @@ struct RuntimeCameraInputFrameContext
     bool cameraMouseLookActive = false;
     bool mouseLookOwnsCursor = false;
     bool cameraKeyboardControlsActive = false;
+    const DeviceInputFrame* deviceFrame = nullptr;
 };
 
 struct RuntimeCameraInputFrameResult
 {
     bool applyCursorOwnership = false;
-    SbResult cursorResult; // Recoverable cursor lookup failure for Run to report at the frame boundary.
 };
 
 struct RuntimeInputTransition
@@ -262,8 +263,6 @@ class RuntimeInputContext
     RuntimeInputContext() = default;
 
     void BeginFrame( bool appFocused, bool uiBlocksKeyboard, bool uiBlocksMouse );
-    void ResetEdges();
-    RuntimeMouseEdges CaptureMouseButtons( bool leftDown, bool rightDown );
     void SetMode( RuntimeInputMode mode, RuntimeInputAction action, RuntimeInputActionSource source );
 
     RuntimeInputMode CurrentMode() const;
@@ -276,16 +275,11 @@ class RuntimeInputContext
 
   private:
     static constexpr int TRANSITION_HISTORY_COUNT = 8;
-    void ResetMouseButtons();
-    void SyncMouseButtons( bool leftDown, bool rightDown );
-
     RuntimeInputMode m_currentMode = RuntimeInputMode::Scene;
     RuntimeInputMode m_previousMode = RuntimeInputMode::Scene;
     bool m_appFocused = true;
     bool m_uiBlocksKeyboard = false;
     bool m_uiBlocksMouse = false;
-    bool m_leftMouseWasDown = false;
-    bool m_rightMouseWasDown = false;
     RuntimeInputTransition m_transitions[TRANSITION_HISTORY_COUNT] = {};
     int m_transitionWriteIndex = 0;
     int m_transitionCount = 0;

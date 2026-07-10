@@ -33,7 +33,6 @@ Related:
 #include "../../Physics/ColliderStore.h"
 #include "../../Physics/PhysicsBodyStore.h"
 #include "../../Physics/PhysicsEngineStoreQueries.h"
-#include "../../UI/UIInput.h"
 
 #include <algorithm>
 #include <cfloat>
@@ -430,12 +429,13 @@ bool TryReplayVelocityAngularRayAngle( const ReplayVelocityBodyView& body,
 } // namespace
 
 
-bool Run::TickReplayVelocityEditInput( HWND hwnd, bool uiBlocksMouse )
+bool Run::TickReplayVelocityEditInput( bool uiBlocksMouse )
 {
     PROFILE_SCOPED( "Frame/Replay/VelocityEdit/Input" );
     ReplayInteractionController replayInteraction;
+    const RuntimeMouseEdges& pointer = m_inputRouter.UiSnapshot().mouse;
     const ReplayVelocityEditInputFrame inputFrame =
-        replayInteraction.BeginVelocityEditInputFrame( m_replayRuntime, Input::IsLeftMouseDown() );
+        replayInteraction.BeginVelocityEditInputFrame( pointer.leftDown, pointer.leftPressed, pointer.leftReleased );
     const bool leftDown = inputFrame.leftDown;
     const bool leftPressed = inputFrame.leftPressed;
     const bool leftReleased = inputFrame.leftReleased;
@@ -452,7 +452,7 @@ bool Run::TickReplayVelocityEditInput( HWND hwnd, bool uiBlocksMouse )
         }
         if ( resetResult.releaseMouseCapture )
         {
-            UI::InputControl::EndMouseCapture();
+            m_inputRouter.ReleaseNativeCapture();
         }
         return false;
     }
@@ -470,7 +470,7 @@ bool Run::TickReplayVelocityEditInput( HWND hwnd, bool uiBlocksMouse )
             }
             if ( resetResult.releaseMouseCapture )
             {
-                UI::InputControl::EndMouseCapture();
+                m_inputRouter.ReleaseNativeCapture();
             }
         }
         return m_replayRuntime.VelocityEdit().dragging;
@@ -505,7 +505,7 @@ bool Run::TickReplayVelocityEditInput( HWND hwnd, bool uiBlocksMouse )
             }
             if ( resetResult.releaseMouseCapture )
             {
-                UI::InputControl::EndMouseCapture();
+                m_inputRouter.ReleaseNativeCapture();
             }
             return;
         }
@@ -581,7 +581,7 @@ bool Run::TickReplayVelocityEditInput( HWND hwnd, bool uiBlocksMouse )
             }
             if ( resetResult.releaseMouseCapture )
             {
-                UI::InputControl::EndMouseCapture();
+                m_inputRouter.ReleaseNativeCapture();
             }
         }
         return true;
@@ -612,11 +612,11 @@ bool Run::TickReplayVelocityEditInput( HWND hwnd, bool uiBlocksMouse )
 
     if ( !uiBlocksMouse && leftPressed )
     {
-        const Input::MouseCoordinatesResult mouseResult = Input::GetClientMouseCoordinates();
+        const DeviceInputFrame& deviceFrame = m_inputRouter.DeviceFrame();
         ReplayVelocityBodyView body;
-        if ( mouseResult.result.ok && tryResolveVelocityBody( body ) && !body.fixed )
+        if ( deviceFrame.hasClientPosition && tryResolveVelocityBody( body ) && !body.fixed )
         {
-            const POINT mouse = mouseResult.coordinates;
+            const POINT mouse{ deviceFrame.clientX, deviceFrame.clientY };
             if ( m_replayRuntime.VelocityEdit().hotAngularAxis >= 0 )
             {
                 float startAngle = 0.0f;
@@ -659,7 +659,7 @@ bool Run::TickReplayVelocityEditInput( HWND hwnd, bool uiBlocksMouse )
                     replayInteraction.BeginVelocityEditDrag( m_replayRuntime, dragStart );
                     if ( !m_replayRuntime.VelocityEdit().mouseCaptured )
                     {
-                        UI::InputControl::BeginMouseCapture( hwnd );
+                        m_inputRouter.RequestNativeCapture();
                         m_replayRuntime.VelocityEdit().mouseCaptured = true;
                     }
                     return true;
@@ -707,7 +707,7 @@ bool Run::TickReplayVelocityEditInput( HWND hwnd, bool uiBlocksMouse )
                     replayInteraction.BeginVelocityEditDrag( m_replayRuntime, dragStart );
                     if ( !m_replayRuntime.VelocityEdit().mouseCaptured )
                     {
-                        UI::InputControl::BeginMouseCapture( hwnd );
+                        m_inputRouter.RequestNativeCapture();
                         m_replayRuntime.VelocityEdit().mouseCaptured = true;
                     }
                     return true;

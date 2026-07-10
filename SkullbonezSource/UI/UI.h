@@ -64,6 +64,12 @@ Related:
 
 namespace SkullbonezCore
 {
+namespace Basics
+{
+struct DeviceInputFrame;
+struct RuntimeMouseEdges;
+} // namespace Basics
+
 namespace Assets
 {
 class AssetSystem;
@@ -363,7 +369,8 @@ class InGameUI
     void CancelInputCapture();
     void ResetResources( Rendering::IRenderResourceFactory* resources );
 
-    InGameUIInputResult UpdateInput( HWND hwnd,
+    InGameUIInputResult UpdateInput( const Basics::DeviceInputFrame& deviceFrame,
+                                     const Basics::RuntimeMouseEdges& mouse,
                                      int screenW,
                                      int screenH,
                                      double now,

@@ -158,6 +158,8 @@ InputRouter::InputRouter()
 
 void InputRouter::BeginFrame( const DeviceInputFrame& frame, RuntimeInputKeyBindingView bindings, InputActions& output )
 {
+    m_deviceFrame = frame;
+    m_uiSnapshot = {};
     output.Reset();
     m_actionSampledThisFrame.fill( false );
     m_frameEdges.fill( InputActionEdge::Released );
@@ -173,6 +175,7 @@ void InputRouter::BeginFrame( const DeviceInputFrame& frame, RuntimeInputKeyBind
         {
             output.focusLost = true;
             CaptureFocusLoss( bindings, output );
+            CancelPointerPresentation();
         }
         else
         {
@@ -297,11 +300,84 @@ void InputRouter::Reset()
     m_frameEdges.fill( InputActionEdge::Released );
     m_phaseRoutedThisFrame.fill( false );
     m_lastTapSeconds.fill( -1000.0 );
+    m_deviceFrame = {};
+    m_uiSnapshot = {};
+    m_nativeCaptureRequested = false;
+    m_committedNativeCapture = false;
+    m_cursorVisibleRequested = true;
+    m_committedCursorVisible = true;
     m_hasFrame = false;
     m_appFocused = false;
     m_frameFocused = false;
     m_leftWasDown = false;
     m_rightWasDown = false;
+}
+
+
+const DeviceInputFrame& InputRouter::DeviceFrame() const
+{
+    return m_deviceFrame;
+}
+
+
+void InputRouter::PublishUiSnapshot( const UiInputHitSnapshot& snapshot )
+{
+    m_uiSnapshot = snapshot;
+}
+
+
+const UiInputHitSnapshot& InputRouter::UiSnapshot() const
+{
+    return m_uiSnapshot;
+}
+
+
+void InputRouter::RequestNativeCapture()
+{
+    m_nativeCaptureRequested = true;
+}
+
+
+void InputRouter::ReleaseNativeCapture()
+{
+    m_nativeCaptureRequested = false;
+}
+
+
+void InputRouter::RequestCursorVisible( bool visible )
+{
+    m_cursorVisibleRequested = visible;
+}
+
+
+void InputRouter::CancelPointerPresentation()
+{
+    m_nativeCaptureRequested = false;
+    m_cursorVisibleRequested = true;
+}
+
+
+bool InputRouter::ConsumePointerPresentationChange( PointerPresentationState& state )
+{
+    state.nativeCapture = m_nativeCaptureRequested;
+    state.cursorVisible = m_cursorVisibleRequested;
+    const bool changed =
+        m_committedNativeCapture != m_nativeCaptureRequested || m_committedCursorVisible != m_cursorVisibleRequested;
+    m_committedNativeCapture = m_nativeCaptureRequested;
+    m_committedCursorVisible = m_cursorVisibleRequested;
+    return changed;
+}
+
+
+bool InputRouter::NativeCaptureRequested() const
+{
+    return m_nativeCaptureRequested;
+}
+
+
+bool InputRouter::CursorVisibleRequested() const
+{
+    return m_cursorVisibleRequested;
 }
 
 

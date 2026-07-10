@@ -106,7 +106,7 @@ class ReplayInteractionController
 {
   public:
     bool RestoreScrubberSelectionAsLive( const ReplayLiveRestoreContext& context );
-    ReplayVelocityEditInputFrame BeginVelocityEditInputFrame( ReplayRuntime& replayRuntime, bool leftDown );
+    ReplayVelocityEditInputFrame BeginVelocityEditInputFrame( bool leftDown, bool leftPressed, bool leftReleased );
     void SetVelocityEditHoverAxes( ReplayRuntime& replayRuntime, int linearAxis, int angularAxis );
     ReplayVelocityEditResetResult ResetVelocityEditInteraction( ReplayRuntime& replayRuntime, bool clearHoverAxes );
     ReplayVelocityEditResetResult EndVelocityEditDrag( ReplayRuntime& replayRuntime );

@@ -46,7 +46,7 @@ Status: Authoritative inventory of every live repository plan
 | [validation-gate-integrity](TODO/validation-gate-integrity.md) | In progress | 4/6 | V3 CPU/runtime CI, then V4 sanitizer/static analysis |
 | [dx12-failure-propagation](TODO/dx12-failure-propagation.md) | In progress | 4/6 | D4 partial initialization and guarded optional-feature failure propagation |
 | [behavioral-test-depth](TODO/behavioral-test-depth.md) | In progress | 3/6; P3/P5 partial | P3 with scene/entity ownership C1-C3; then remaining P5/P6 drills |
-| [runtime-shell-decomposition](TODO/runtime-shell-decomposition.md) | In progress | 3/26 remaining items | Complete B1b/B1d-B1f pointer, focus, cursor, native-capture, and later-poll ownership |
+| [runtime-shell-decomposition](TODO/runtime-shell-decomposition.md) | In progress | 6/26 remaining items | Split the omnibus queue through B2b-B2d; close B1f when final `Run` input composition moves |
 | [runtime-ui-control-architecture-cleanup](TODO/runtime-ui-control-architecture-cleanup.md) | Planned | 0/7 | U0 tracked UI-surface inventory |
 | [interaction-state-machine](TODO/interaction-state-machine.md) | In progress | 0/6 remaining phases | I4 capture/focus behavior with CPU + interaction proof |
 | [replay-architecture-and-right-sizing](TODO/replay-architecture-and-right-sizing.md) | Planned | 0/6 | R0 reconciled file/state/memory inventory |

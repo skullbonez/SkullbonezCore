@@ -31,7 +31,6 @@ Related:
 #include "../RuntimePickService.h"
 #include "../../Physics/PhysicsBodyStore.h"
 #include "../../Physics/PhysicsEngine.h"
-#include "../../UI/UIInput.h"
 
 namespace
 {
@@ -52,7 +51,7 @@ void Run::CancelMousePickup()
 {
     if ( m_runtimeTools.MousePickup().mouseCaptured )
     {
-        UI::InputControl::EndMouseCapture();
+        m_inputRouter.ReleaseNativeCapture();
     }
     if ( m_interaction.Gesture().kind == RuntimeInteractionGestureKind::MousePickupDrag )
     {
@@ -62,7 +61,7 @@ void Run::CancelMousePickup()
 }
 
 
-bool Run::TickMousePickupInput( HWND hwnd, const RuntimeMouseEdges& mouseEdges, bool suppressWorldActionThisFrame )
+bool Run::TickMousePickupInput( const RuntimeMouseEdges& mouseEdges, bool suppressWorldActionThisFrame )
 {
     if ( !RunCameraModeIsManipulator( m_camera.mode ) || m_runtimeTools.Editor().editorModeEnabled ||
          m_replayRuntime.InspectionActive() )
@@ -184,19 +183,19 @@ bool Run::TickMousePickupInput( HWND hwnd, const RuntimeMouseEdges& mouseEdges, 
     m_runtimeTools.MousePickup().targetPoint = grabPoint;
     m_runtimeTools.MousePickup().preservedAngularVelocity = pickedBody->angularVelocity;
     m_runtimeTools.MousePickup().lastImpulse = SkullbonezCore::Math::Vector::ZERO_VECTOR;
-    UI::InputControl::BeginMouseCapture( hwnd );
-    const Input::MouseCoordinatesResult mouse = Input::GetClientMouseCoordinates();
-    if ( !mouse.result.ok )
+    m_inputRouter.RequestNativeCapture();
+    const DeviceInputFrame& deviceFrame = m_inputRouter.DeviceFrame();
+    if ( !deviceFrame.hasClientPosition )
     {
-        UI::InputControl::EndMouseCapture();
+        m_inputRouter.ReleaseNativeCapture();
         CancelMousePickup();
         return false;
     }
     RuntimeInteractionGesture gesture;
     gesture.kind = RuntimeInteractionGestureKind::MousePickupDrag;
     gesture.button = RuntimePointerButton::Left;
-    gesture.startX = mouse.coordinates.x;
-    gesture.startY = mouse.coordinates.y;
+    gesture.startX = deviceFrame.clientX;
+    gesture.startY = deviceFrame.clientY;
     gesture.modelIndex = pickedIndex;
     m_interaction.BeginGesture( gesture,
                                 RuntimePointerCaptureOwner::ToolGesture,

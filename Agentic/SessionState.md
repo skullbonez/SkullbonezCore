@@ -10,9 +10,9 @@ reports, and git history.
 | Field | Value |
 |---|---|
 | Branch | `engine-cleanup-10th-july`, tracking `origin/engine-cleanup-10th-july` |
-| Pushed baseline before keyboard wiring | `5b56af13 fix: preserve application exit failures` |
-| Current objective | Complete pointer/focus/cursor/native-capture ownership and remove later direct hardware polling (B1b/B1d-B1f) |
-| Last broad local gate | `tools\validate_full.bat` passed keyboard-router wiring through 103 CPU tests, DX12 with zero InfoQueue errors/matching screenshots, and byte-exact physics |
+| Pushed baseline before pointer wiring | `e7c2e4a2 feat: route runtime keyboard actions through InputRouter` |
+| Current objective | Split the omnibus runtime command queue into scene, capture, render-default, and application owners (B2b-B2d) |
+| Last broad local gate | `tools\validate_full.bat` passed immutable pointer/native-capture wiring through 105 CPU tests, DX12 with zero InfoQueue errors/matching screenshots, and byte-exact physics |
 | Native evidence | Injected heap-use-after-free caught; healthy ASan and five-file `/analyze` passed in 16.185s |
 
 ## Pushed Cleanup Commits
@@ -31,15 +31,16 @@ reports, and git history.
 - `acdc994c feat: preserve scene asset provenance`
 - `670a9fcb feat: add runtime input and exit owners`
 - `5b56af13 fix: preserve application exit failures`
+- `e7c2e4a2 feat: route runtime keyboard actions through InputRouter`
 
 ## Current Queue
 
-`InputRouter` now owns the production keyboard snapshot, semantic edge memory,
-all-of binding contexts, ordered pre-/after-UI/capture events, focus
-resynchronization, and quick-repeat timing. The old 18-owner
-`MappedKeyboardDispatchContext`, 13-callback dispatcher, consumer polling
-helpers, and duplicate editor/diagnostics key memories are deleted. B1a/B1c are
-complete; B1b/B1d-B1f next finish pointer/focus/cursor/native-capture ownership.
+`InputRouter` now owns the complete device snapshot, semantic and pointer edge
+memory, all-of binding contexts, one post-UI hit value, focus cancellation, and
+native capture/cursor intent. Direct later hardware polls, duplicate UI/replay/
+editor pointer memories, and both input callback packs are deleted. B1a-B1e are
+complete except the intentionally separate B1f final `Run` method/state
+extraction proof. The next dependency slice splits owner-specific command queues.
 
 The first perf run exposed eight duplicate names in the varied physics bench
 fixture after C1a made name collisions honest. The ball rows now have unique
@@ -59,10 +60,10 @@ CPU umbrella, physics, and full gates passed from the final source.
 
 ## Ten Workstreams To Prioritize
 
-1. Finish input pointer/focus/cursor capture ownership and remove later direct
-   hardware polling.
-2. Split the omnibus runtime command queue into scene, capture, render-default,
+1. Split the omnibus runtime command queue into scene, capture, render-default,
    and application owners.
+2. Close the final B1f `Run` input-composition deletion proof when its owner
+   consumers no longer require the omnibus queue.
 3. Add explicit schema-versioned scene object IDs and deterministic v1 upgrade
    behavior (C1b).
 4. Make DX12 resize/resource recreation transactional and define device-loss

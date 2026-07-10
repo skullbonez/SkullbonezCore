@@ -32,6 +32,11 @@ Related:
 
 namespace SkullbonezCore
 {
+namespace Basics
+{
+class InputKeySnapshot;
+}
+
 namespace UI
 {
 
@@ -56,6 +61,7 @@ struct UISceneTabState
     int comboScroll = 0;
     UISlider timeScaleSlider;
     float previewTimeScale = -1.0f;
+    bool filterKeySyncPending = true;
 };
 
 int ContentHeight();
@@ -67,12 +73,13 @@ int FilteredPositionForIndex( const char* const* options, int optionCount, const
 void ClearFilter( UISceneTabState& state );
 void SetFilter( UISceneTabState& state, const char* filter );
 void CloseCombo( UISceneTabState& state, UIComboBox& combo );
-void CaptureFilterKeyState( UISceneTabState& state );
+void RequestFilterKeySync( UISceneTabState& state );
 void ResetPreviewState( UISceneTabState& state );
 
 void UpdateFilterTyping( UISceneTabState& state,
                          UIComboBox& combo,
                          InGameUIInputResult& result,
+                         const Basics::InputKeySnapshot& keys,
                          const char* const* sceneOptions,
                          int sceneOptionCount );
 
@@ -107,6 +114,7 @@ bool HandleContentClick( UISceneTabState& state,
                          UIButton& resetDefaultsButton,
                          UIButton& saveDefaultsButton,
                          InGameUIInputResult& result,
+                         const Basics::InputKeySnapshot& keys,
                          int& activeSlider,
                          const char* const* sceneOptions,
                          int sceneOptionCount,

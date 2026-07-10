@@ -940,7 +940,7 @@ SbResult Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnCom
             unbounded.m_zMax = 99999.9f;
             uint32_t activeCam = m_systems.cameras->GetSelectedCameraName();
             m_systems.cameras->SetCameraXZBounds( activeCam, unbounded );
-            Input::SetSystemCursorVisible( false );
+            m_inputRouter.RequestCursorVisible( false );
             m_camera.input.xMove = 0;
             m_camera.input.yMove = 0;
             m_camera.hasMouseLookLastClient = false;

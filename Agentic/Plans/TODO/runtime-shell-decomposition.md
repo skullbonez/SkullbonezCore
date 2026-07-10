@@ -1,7 +1,7 @@
 # Runtime Shell Decomposition
 
 Date: 2026-07-10 (reconciled)
-Status: In progress — 3/26 remaining checklist items complete; earlier
+Status: In progress — 6/26 remaining checklist items complete; earlier
 foundation work is summarized separately and is not mixed into this count
 Impact area: runtime architecture, scene lifecycle, input routing, render host
 Owner: application composition root
@@ -104,7 +104,7 @@ B1a and B1c are complete. The CPU suite now characterizes ordered
 press/hold/release/repress, simultaneous actions, immutable all-of contexts,
 pre-/after-UI/capture phase order, UI refusal, skipped capture, focus
 cancellation/resynchronization, and action-owned quick-repeat timing.
-`Input::CaptureKeyboardDeviceFrame` captures focus plus the complete 256-key
+`Input::CaptureDeviceInputFrame` captures focus plus the complete 256-key
 level snapshot once; automation augments that same value. `InputRouter` alone
 owns semantic action edges, context eligibility, delivery memory, and quick-tap
 presentation timing. `RuntimeInputContext`/`InputController` no longer expose
@@ -113,9 +113,7 @@ semantic keyboard edge storage or polling helpers.
 Deletion proof: `MappedKeyboardDispatchContext`, its 18-owner bag, the
 13-callback `DispatchMappedKeyboardActions` pack, blocked-key memory advances,
 consumer-side `CaptureKeyboardActionPress`, and the editor/diagnostics duplicate
-key latches are absent from source. The four remaining `Input::IsKeyDown` calls
-in `RunInput.cpp` are pointer modifiers/physics/camera consumers explicitly
-owned by B1b/B1d-B1f; they are not semantic binding dispatch.
+key latches are absent from source.
 
 Evidence from the final source: `tools\validate_tests.bat` passed 103/103 cases
 and 2,009 assertions; `tools\validate_interaction_clicks.bat` passed both
@@ -125,6 +123,35 @@ passed allocation guard, DX12 and physics performance thresholds; and
 `tools\validate_full.bat` passed with zero warnings, zero DX12 InfoQueue errors,
 matching screenshots, and the 20,001-line byte-exact physics baseline. The
 comment-style audit covered all 14 touched source-bearing files.
+
+### Pointer Snapshot And Native Ownership Evidence
+
+B1b, B1d, and B1e are complete. `CaptureDeviceInputFrame` is the only steady
+hardware read and fills keys, three buttons, client position, wheel, raw delta,
+focus, and automation overrides before any consumer runs. `InputRouter` retains
+that value, owns the only left/right edge memory, and publishes one copied
+`UiInputHitSnapshot` after hit testing. UI, editor, replay scrubber/cause-tree/
+velocity tools, camera, physics stepping, render camera selection, and frame
+code all read those owner values.
+
+`InputRouter` also owns desired native capture and cursor visibility. UI emits a
+typed capture request, tool/camera owners request the router directly, focus loss
+cancels both states, and the composition root applies only changed presentation
+values through the private Win32 seam. Direct `SetCapture`/`ReleaseCapture`
+calls exist only inside `Input::SetNativeMouseCapture`; direct runtime/UI
+`GetKeyState`, `GetAsyncKeyState`, cursor-position, wheel, raw-delta, and
+`Input::Is*` APIs/calls are deleted. The later editor input `void*` callback pack
+was deleted as well. B1f remains open only for extraction 1's final `Run.h`
+method/state deletion proof (`TakeInput` and pointer-routing composition), not
+for hardware polling.
+
+Evidence from the final source: `tools\validate_tests.bat` passed 105/105 cases
+and 2,023 assertions; `tools\validate_interaction_clicks.bat` passed inspect
+gizmo and replay prediction click scripts; `tools\validate_perf.bat` passed the
+allocation guard and DX12/physics thresholds in 48.50s; and
+`tools\validate_full.bat` passed in 56.40s with zero warnings, zero DX12
+InfoQueue errors, matching screenshots, and the 20,001-line byte-exact physics
+baseline. The comment-style audit covered all 35 touched source-bearing files.
 
 ## Remaining Work
 
@@ -140,16 +167,16 @@ comment-style audit covered all 14 touched source-bearing files.
 - [x] B1a. Characterize press/hold/release/repress, simultaneous keys, binding
   contexts, pre/post-UI phases, UI refusal, focus loss, and quick-tap behavior
   in pure CPU tests before moving producers.
-- [ ] B1b. Capture one immutable, fixed-size `DeviceInputFrame` per frame. It
+- [x] B1b. Capture one immutable, fixed-size `DeviceInputFrame` per frame. It
   owns the 256-key bitset, buttons, client pointer, wheel, raw mouse delta, and
   focus state; automation mutates that value rather than a second key path.
 - [x] B1c. Move key-edge memory and binding-context enforcement into the
   two-phase `InputRouter`; emit fixed ordered action records and delete
   `MappedKeyboardDispatchContext` plus its callback pack.
-- [ ] B1d. Publish one immutable post-UI hit/pointer snapshot. Delete duplicate
+- [x] B1d. Publish one immutable post-UI hit/pointer snapshot. Delete duplicate
   UI/replay/editor button memories and make all consumers observe the same
   position and edge values for a frame.
-- [ ] B1e. Give one owner focus cancellation, cursor requests, and native mouse
+- [x] B1e. Give one owner focus cancellation, cursor requests, and native mouse
   capture. Reconcile UI, replay, editor, and camera capture on focus loss.
 - [ ] B1f. Delete direct `Input::Is*`/mouse-position polling from later frame,
   physics, render, editor, and replay phases; complete extraction 1's `Run`

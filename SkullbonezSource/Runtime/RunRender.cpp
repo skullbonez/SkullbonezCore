@@ -2241,9 +2241,9 @@ void Run::SetViewingOrientation()
     }
 
     /*
-        if(Input::IsKeyDown('1')) m_camera.selectedCamera = 0;
-        if(Input::IsKeyDown('2')) m_camera.selectedCamera = 1;
-        if(Input::IsKeyDown('3')) m_camera.selectedCamera = 2;
+        if(m_inputRouter.DeviceFrame().keys.IsDown('1')) m_camera.selectedCamera = 0;
+        if(m_inputRouter.DeviceFrame().keys.IsDown('2')) m_camera.selectedCamera = 1;
+        if(m_inputRouter.DeviceFrame().keys.IsDown('3')) m_camera.selectedCamera = 2;
     */
 
     // maintain the camera timer
