@@ -245,6 +245,23 @@ passed in 16.4s; both interaction reports passed in 8.3s; and full passed in
 standalone topology smoke, and the 20,001-line byte-exact physics baseline.
 Comment audit: 5/5 touched source-bearing files.
 
+Pointer-presentation policy now joins inside `InputRouter`. Editor and replay
+contribute six scalar facts; the router combines them with its focused device
+frame and UI hit snapshot to decide mouse-look ownership and cursor visibility.
+The two Run query methods are deleted. Render-side generated-camera cycling
+reads `RuntimeInteractionController`'s committed CameraLook capture instead of
+recomputing input policy after the input phase. Focus, UI refusal, RMB look, and
+editor placement-preview visibility have direct CPU coverage. B1f remains open
+for the mutating presentation helpers, world-pointer route, and `TakeInput`.
+
+Evidence: fast passed in 37.9s with six candidates, 129/129 doctest cases, and
+2,755 assertions; the CPU umbrella passed in 11.0s; both interaction reports
+passed in 8.3s; perf completed in 32.1s; and full passed in 52.7s with zero
+warnings, zero DX12 InfoQueue errors, matching screenshots, standalone topology
+smoke, and the 20,001-line byte-exact physics baseline. The first Debug build
+found the deleted Run query's render caller; it was corrected to consume the
+interaction owner before formal gates. Comment audit: 6/6 touched source files.
+
 ## Remaining Work
 
 ### A. Narrow the render host

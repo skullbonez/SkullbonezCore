@@ -10,9 +10,9 @@ reports, and git history.
 | Field | Value |
 |---|---|
 | Branch | `engine-cleanup-10th-july`, tracking `origin/engine-cleanup-10th-july` |
-| Current pushed baseline | `4ef1e91a refactor: move runtime snapshot join into input owner` |
+| Current pushed baseline | `199f1f47 refactor: move camera-look gesture to interaction owner` |
 | Current objective | Continue B1f by deleting Run pointer/camera composition, then TakeInput |
-| Last broad local gate | `tools\validate_full.bat` passed interaction-owned camera-look gesture lifetime with 128/128 doctest cases, 2,749 assertions, all CPU lanes, zero-warning builds, DX12 with zero InfoQueue errors/matching screenshots, standalone physics smoke, and 20,001-line byte-exact physics in 52.5s |
+| Last broad local gate | `tools\validate_full.bat` passed InputRouter-owned pointer-presentation policy with 129/129 doctest cases, 2,755 assertions, all CPU lanes, zero-warning builds, DX12 with zero InfoQueue errors/matching screenshots, standalone physics smoke, and 20,001-line byte-exact physics in 52.7s |
 | Native evidence | Injected heap-use-after-free caught; healthy ASan and five-file `/analyze` passed in 16.185s |
 
 ## Pushed Cleanup Commits
@@ -248,6 +248,12 @@ the corresponding Run methods are deleted and standalone policy coverage calls
 the owner API directly. Fast, CPU, interaction, and full gates pass; comment
 audit is 5/5. The next B1f edge is world-pointer routing and camera/presentation
 composition.
+
+`InputRouter` now owns the pointer-presentation policy join over device/UI
+snapshots and scalar editor/replay facts. Run's mouse-look and cursor-hide query
+methods are deleted, and render camera cycling consumes committed interaction
+capture. Fast, CPU, interaction, perf, and full gates pass; comment audit is
+6/6. B1f continues with mutating pointer presentation and world-click routing.
 
 Scene provenance C1a is complete: parser-owned library/instance/ordered-part
 records retain exact shape sources, hierarchy transforms use rotated offsets

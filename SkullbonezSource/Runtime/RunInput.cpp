@@ -145,6 +145,42 @@ RuntimeInputModeState BuildRuntimeInputModeState( RunCameraMode mode,
     return state;
 }
 
+
+PointerPresentationPolicy EvaluateRuntimePointerPresentation( const InputRouter& inputRouter,
+                                                              const RunEditorPlacementState& editor,
+                                                              const ReplayRuntime& replayRuntime )
+{
+    const DeviceInputFrame& deviceFrame = inputRouter.DeviceFrame();
+    const UiInputHitSnapshot& uiSnapshot = inputRouter.UiSnapshot();
+    PointerPresentationPolicyInput input;
+    input.editorModeEnabled = editor.editorModeEnabled;
+    input.editorViewportLookActive = editor.viewportLookActive;
+    input.editorPlacementModeEnabled = editor.placementModeEnabled;
+    input.editorPlacementPreviewVisible = editor.placementPreviewVisible;
+    input.replayInspectionActive = replayRuntime.InspectionActive();
+    input.replayInspectionLookActive =
+        input.replayInspectionActive && replayRuntime.InspectionMouseLookActive( deviceFrame.rightDown,
+                                                                                 uiSnapshot.wantsNativeCursor,
+                                                                                 uiSnapshot.blocksCameraMouse );
+    return inputRouter.EvaluatePointerPresentation( input );
+}
+
+
+bool RuntimeMouseLookOwnsCursor( const InputRouter& inputRouter,
+                                 const RunEditorPlacementState& editor,
+                                 const ReplayRuntime& replayRuntime )
+{
+    return EvaluateRuntimePointerPresentation( inputRouter, editor, replayRuntime ).mouseLookOwnsCursor;
+}
+
+
+bool RuntimeShouldHideNativeCursor( const InputRouter& inputRouter,
+                                    const RunEditorPlacementState& editor,
+                                    const ReplayRuntime& replayRuntime )
+{
+    return EvaluateRuntimePointerPresentation( inputRouter, editor, replayRuntime ).hideNativeCursor;
+}
+
 // Concept: binding predicates read one immutable pre-UI fact set. A command
 // earlier in binding order cannot silently activate a sibling command's mode
 // context during the same phase; that new context begins on the next frame.
@@ -1870,58 +1906,16 @@ void Run::CycleCameraMode()
 }
 
 
-bool Run::MouseLookOwnsCursor() const
-{
-    const DeviceInputFrame& deviceFrame = m_inputRouter.DeviceFrame();
-    if ( !deviceFrame.appFocused )
-    {
-        return false;
-    }
-
-    if ( m_UI.BlocksCameraMouse() )
-    {
-        return false;
-    }
-
-    if ( m_runtimeTools.Editor().editorModeEnabled )
-    {
-        return m_runtimeTools.Editor().viewportLookActive || deviceFrame.rightDown;
-    }
-
-    if ( m_replayRuntime.InspectionActive() )
-    {
-        return m_replayRuntime.InspectionMouseLookActive( deviceFrame.rightDown,
-                                                          m_UI.WantsNativeMouseCursor(),
-                                                          m_UI.BlocksCameraMouse() ) ||
-               deviceFrame.rightDown;
-    }
-
-    return deviceFrame.rightDown;
-}
-
-
-bool Run::ShouldHideNativeCursor() const
-{
-    if ( MouseLookOwnsCursor() )
-    {
-        return true;
-    }
-
-    return m_runtimeTools.Editor().editorModeEnabled && m_runtimeTools.Editor().placementModeEnabled &&
-           m_runtimeTools.Editor().placementPreviewVisible && !m_UI.WantsNativeMouseCursor() &&
-           !m_UI.BlocksCameraMouse();
-}
-
-
 void Run::ApplyCursorOwnership()
 {
-    m_inputRouter.RequestCursorVisible( !ShouldHideNativeCursor() );
+    m_inputRouter.RequestCursorVisible(
+        !RuntimeShouldHideNativeCursor( m_inputRouter, m_runtimeTools.Editor(), m_replayRuntime ) );
 }
 
 
 void Run::ReleaseMouseToUI()
 {
-    if ( !MouseLookOwnsCursor() )
+    if ( !RuntimeMouseLookOwnsCursor( m_inputRouter, m_runtimeTools.Editor(), m_replayRuntime ) )
     {
         m_inputRouter.ReleaseNativeCapture();
         InputController::ResetMouseLook( m_camera );
@@ -1945,7 +1939,7 @@ void Run::EnterFlyModeCamera()
     unbounded.m_zMax = 99999.9f;
     uint32_t activeCam = SceneState().isSceneMode ? m_sceneController.Cameras().GetSelectedCameraName() : CAMERA_FREE;
     m_sceneController.Cameras().SetCameraXZBounds( activeCam, unbounded );
-    if ( ShouldHideNativeCursor() )
+    if ( RuntimeShouldHideNativeCursor( m_inputRouter, m_runtimeTools.Editor(), m_replayRuntime ) )
     {
         m_inputRouter.RequestCursorVisible( false );
     }
@@ -2765,7 +2759,8 @@ void Run::TakeInput()
     {
         DispatchPostUIKeyboardActions();
         const RuntimeInteractionFramePolicy inputPolicy = m_interaction.BuildFramePolicy( inputSnapshot.frameInput );
-        const bool mouseOwnsCursor = MouseLookOwnsCursor();
+        const bool mouseOwnsCursor =
+            RuntimeMouseLookOwnsCursor( m_inputRouter, m_runtimeTools.Editor(), m_replayRuntime );
         m_interaction.SyncCameraLookGesture( inputSnapshot, inputPolicy, mouseOwnsCursor );
         const bool cameraMouseLookActive =
             inputPolicy.cameraMouseLookActive && mouseOwnsCursor && inputSnapshot.appFocused;
@@ -3042,7 +3037,8 @@ void Run::MoveCamera( float keyMovementQty, float mouseMovementQty )
                                          m_attachedCamera.submode != AttachedCameraSubmode::RagdollEyes;
     if ( !attachedOrbitOwnsCamera &&
          ( RunCameraModeUsesFlyControls( m_camera.mode, m_attachedCamera.activeFollow, m_camera.director.grabbed ) ||
-           MouseLookOwnsCursor() || m_runtimeTools.Editor().viewportLookActive || hasCameraTravelInput ) )
+           RuntimeMouseLookOwnsCursor( m_inputRouter, m_runtimeTools.Editor(), m_replayRuntime ) ||
+           m_runtimeTools.Editor().viewportLookActive || hasCameraTravelInput ) )
     {
         // Shift held = 3x speed
         float speedMult = m_inputRouter.DeviceFrame().keys.IsDown( VK_SHIFT ) ? 3.0f : 1.0f;

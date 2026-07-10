@@ -498,3 +498,33 @@ TEST_CASE( "Input router: runtime snapshot joins one device and UI pointer frame
     CHECK( snapshot.frameInput.scenePhysicsEnabled );
     CHECK( snapshot.frameInput.sceneTimeScale == doctest::Approx( 0.5f ) );
 }
+
+
+TEST_CASE( "Input router: pointer presentation joins owner facts with one frame" )
+{
+    InputRouter router;
+    InputActions output;
+    router.BeginFrame( FocusedFrame( {}, false, true ), RuntimeInputKeyBindingView{}, output );
+    router.PublishUiSnapshot( UiInputHitSnapshot{} );
+
+    PointerPresentationPolicy policy = router.EvaluatePointerPresentation( PointerPresentationPolicyInput{} );
+    CHECK( policy.mouseLookOwnsCursor );
+    CHECK( policy.hideNativeCursor );
+
+    UiInputHitSnapshot blockedUi;
+    blockedUi.blocksCameraMouse = true;
+    router.PublishUiSnapshot( blockedUi );
+    policy = router.EvaluatePointerPresentation( PointerPresentationPolicyInput{} );
+    CHECK_FALSE( policy.mouseLookOwnsCursor );
+    CHECK_FALSE( policy.hideNativeCursor );
+
+    router.BeginFrame( FocusedFrame( {} ), RuntimeInputKeyBindingView{}, output );
+    router.PublishUiSnapshot( UiInputHitSnapshot{} );
+    PointerPresentationPolicyInput editor;
+    editor.editorModeEnabled = true;
+    editor.editorPlacementModeEnabled = true;
+    editor.editorPlacementPreviewVisible = true;
+    policy = router.EvaluatePointerPresentation( editor );
+    CHECK_FALSE( policy.mouseLookOwnsCursor );
+    CHECK( policy.hideNativeCursor );
+}

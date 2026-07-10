@@ -193,8 +193,6 @@ class Run
         bool clearSelection );                                          // Clears editor placement/gizmo ownership before leaving Edit.
     bool HasActiveEditorInteractionState() const;                       // True when editor owns placement/gizmo/input state.
     bool InspectGizmoInteractionActive() const;                         // True when Inspect owns live transform-gizmo interaction.
-    bool MouseLookOwnsCursor() const;                                   // True while RMB/editor/replay mouse-look temporarily owns the cursor.
-    bool ShouldHideNativeCursor() const;                                // True when the current tool mode should hide the Windows cursor.
     void ApplyCursorOwnership();                                        // Applies current cursor ownership to the system cursor.
     void ReleaseMouseToUI();                                            // Gives mouse focus back to Win32/UI when tools stop owning it.
     void EnterFlyModeCamera();                                          // Switches camera state into free-flight controls.

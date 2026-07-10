@@ -123,6 +123,25 @@ struct PointerPresentationState
 };
 
 
+struct PointerPresentationPolicyInput
+{
+    // Value-only owner facts joined with InputRouter's device/UI snapshots.
+    bool editorModeEnabled = false;
+    bool editorViewportLookActive = false;
+    bool editorPlacementModeEnabled = false;
+    bool editorPlacementPreviewVisible = false;
+    bool replayInspectionActive = false;
+    bool replayInspectionLookActive = false;
+};
+
+
+struct PointerPresentationPolicy
+{
+    bool mouseLookOwnsCursor = false;
+    bool hideNativeCursor = false;
+};
+
+
 enum class InputActionPhase : uint8_t
 {
     PreUi,
@@ -203,6 +222,7 @@ class InputRouter
     // Cross-domain policy facts arrive as values and are not retained.
     RuntimeInputSnapshot BuildRuntimeSnapshot( const RuntimeInteractionFrameInput& frameInput,
                                                bool suppressWorldAction ) const;
+    PointerPresentationPolicy EvaluatePointerPresentation( const PointerPresentationPolicyInput& input ) const;
 
     // Pointer presentation requests are reconciled here so UI/tools/camera do
     // not manipulate Win32 capture or cursor counters independently.

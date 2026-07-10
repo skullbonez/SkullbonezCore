@@ -369,6 +369,32 @@ RuntimeInputSnapshot InputRouter::BuildRuntimeSnapshot( const RuntimeInteraction
 }
 
 
+PointerPresentationPolicy InputRouter::EvaluatePointerPresentation( const PointerPresentationPolicyInput& input ) const
+{
+    PointerPresentationPolicy policy;
+    if ( !m_deviceFrame.appFocused || m_uiSnapshot.blocksCameraMouse )
+    {
+        return policy;
+    }
+    if ( input.editorModeEnabled )
+    {
+        policy.mouseLookOwnsCursor = input.editorViewportLookActive || m_deviceFrame.rightDown;
+    }
+    else if ( input.replayInspectionActive )
+    {
+        policy.mouseLookOwnsCursor = input.replayInspectionLookActive || m_deviceFrame.rightDown;
+    }
+    else
+    {
+        policy.mouseLookOwnsCursor = m_deviceFrame.rightDown;
+    }
+    policy.hideNativeCursor =
+        policy.mouseLookOwnsCursor || ( input.editorModeEnabled && input.editorPlacementModeEnabled &&
+                                        input.editorPlacementPreviewVisible && !m_uiSnapshot.wantsNativeCursor );
+    return policy;
+}
+
+
 void InputRouter::RequestNativeCapture()
 {
     m_nativeCaptureRequested = true;
