@@ -63,7 +63,9 @@ bool ReplayRuntime::TickCauseTreeInput( bool uiBlocksMouse,
                                         int wheelDelta,
                                         InputRouter& inputRouter,
                                         RuntimeInteractionController& interaction,
-                                        GameObjects::GameModelCollection& models,
+                                        const PhysicsBodyStore& bodyStore,
+                                        const ColliderStore& colliderStore,
+                                        const std::vector<Rendering::RenderInstancePresentationRecord>& presentation,
                                         Environment::CameraCollection* cameras,
                                         Geometry::Terrain* terrain,
                                         RunCameraState& camera,
@@ -80,7 +82,6 @@ bool ReplayRuntime::TickCauseTreeInput( bool uiBlocksMouse,
     ReplayRuntime& m_replayRuntime = *this;
     InputRouter& m_inputRouter = inputRouter;
     RuntimeInteractionController& m_interaction = interaction;
-    GameObjects::GameModelCollection& m_cGameModelCollection = models;
     const auto enterInspectionCamera = [&]()
     { EnterInspectionCamera( cameras, camera, normalizedCurrentMode, m_interaction, m_inputRouter, mousePickup ); };
     const auto exitInspectionCamera = [&]()
@@ -112,8 +113,6 @@ bool ReplayRuntime::TickCauseTreeInput( bool uiBlocksMouse,
         // Lifetime: replay focus borrows already-prepared physics store views
         // for one UI action. Topology repair belongs to the runtime/frame
         // boundary, not this read-only cause-tree lookup.
-        const auto& colliderStore = m_cGameModelCollection.Colliders();
-        const auto& bodyStore = m_cGameModelCollection.BodyStore();
         switch ( row.kind )
         {
         case RunReplayCauseTreeRowKind::Body:
@@ -196,8 +195,8 @@ bool ReplayRuntime::TickCauseTreeInput( bool uiBlocksMouse,
         m_replayRuntime.Camera().counterpartId = row.counterpartId;
         m_replayRuntime.Camera().focusedRow = rowIndex;
         m_replayRuntime.Camera().focusRowKind = row.kind;
-        m_replayRuntime.Camera().focusModelIndex = row.modelIndex;
-        m_replayRuntime.Camera().focusCounterpartModelIndex = row.counterpartModelIndex;
+        m_replayRuntime.Camera().focusModelRow.value = row.modelRow.value;
+        m_replayRuntime.Camera().focusCounterpartModelRow.value = row.counterpartModelRow.value;
         m_replayRuntime.Camera().focusContactIndex = row.contactIndex;
         m_replayRuntime.Camera().focusSolverRowIndex = row.solverRowIndex;
         m_replayRuntime.Camera().focusFeatureId = row.featureId;
@@ -242,8 +241,7 @@ bool ReplayRuntime::TickCauseTreeInput( bool uiBlocksMouse,
         return false;
     }
 
-    const auto& bodyStore = m_cGameModelCollection.BodyStore();
-    if ( !m_replayRuntime.BuildCauseTreeRows( m_cGameModelCollection.RenderPresentationRecords(), bodyStore ) )
+    if ( !m_replayRuntime.BuildCauseTreeRows( presentation, bodyStore ) )
     {
         endCauseTreeDragIfReleased();
         return false;

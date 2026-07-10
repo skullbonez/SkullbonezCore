@@ -25,6 +25,9 @@ Related:
 #include "SceneController.h"
 
 #include "../../Core/FatalError.h"
+#include "../../GameObjects/GameModelCollection.h"
+#include "../../Physics/PhysicsEngine.h"
+#include "../../Physics/PhysicsEngineStoreQueries.h"
 
 #include <cstring>
 #include <utility>
@@ -35,6 +38,35 @@ namespace Basics
 {
 SceneController::SceneController( std::vector<std::string> queue ) : m_runtime( std::move( queue ) )
 {
+}
+
+
+bool SceneController::TrimForReplayRestore( GameObjects::GameModelCollection& presentations,
+                                            Physics::PhysicsEngine& physics,
+                                            int bodyCount )
+{
+    if ( bodyCount < 0 || bodyCount > Physics::PhysicsEngineStoreQueries::BodyStore( physics ).Count() ||
+         bodyCount > presentations.SceneEntityCount() || bodyCount > m_entities.Count() )
+    {
+        return false;
+    }
+
+    const Physics::PhysicsBodyCount bodies = Physics::MakePhysicsBodyCountFromNonNegativeInt( bodyCount );
+    const Physics::PhysicsColliderCount colliders = Physics::MakePhysicsColliderCountFromNonNegativeInt( bodyCount );
+    const Physics::PhysicsAuthoredBodyCount authored =
+        Physics::MakePhysicsAuthoredBodyCountFromNonNegativeInt( bodyCount );
+    // Invariant: the scene owner shrinks simulation rows before presentation
+    // and metadata rows. Every surviving handle was validated by replay id
+    // before this command, and PhysicsBodyStore retires removed handles.
+    if ( !physics.TrimBodiesToCount( bodies ) ||
+         ( Physics::PhysicsEngineStoreQueries::Colliders( physics ).Count() > bodyCount &&
+           !physics.TrimCollidersToCount( colliders ) ) ||
+         !physics.TrimAuthoredBodyDescriptorsToCount( authored ) ||
+         !presentations.TrimPresentationRowsForSceneRestore( bodyCount ) || !m_entities.TrimToCount( bodyCount ) )
+    {
+        return false;
+    }
+    return true;
 }
 
 

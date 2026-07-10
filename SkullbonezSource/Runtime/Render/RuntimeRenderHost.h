@@ -139,6 +139,7 @@ struct RenderSceneView
 struct RenderReplayOverlayView
 {
     ReplayRuntime& replayRuntime;
+    const SceneEntityStore& entities;
     bool scenePhysicsEnabled = false;
     int sceneFrame = 0;
     double frameSeconds = 0.0;

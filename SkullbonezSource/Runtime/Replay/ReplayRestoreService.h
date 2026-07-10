@@ -33,16 +33,20 @@ Related:
 #include "../CameraCollection.h"
 #include "../RunDebugState.h"
 #include "../RunRuntimeSettings.h"
+#include "../Scene/SceneController.h"
 #include "../Scene/SceneRuntime.h"
 #include "../Tools/RuntimeTools.h"
 #include "../../GameObjects/GameModelCollection.h"
 #include "../../Maths/Quaternion.h"
 #include "../../Physics/PhysicsBodyStore.h"
+#include "../../Physics/PhysicsEngine.h"
+#include "../../Physics/PhysicsEngineStoreQueries.h"
 #include "../../Physics/PhysicsHandles.h"
 #include "../../World/WorldEnvironment.h"
 
 #include <cstddef>
 #include <cstring>
+#include <array>
 
 namespace SkullbonezCore
 {
@@ -53,7 +57,9 @@ struct ReplaySolverSampleRestoreContext
     // Lifetime: Run builds this from live owners for one restore call. Every
     // referenced subsystem outlives the call, and ReplayRestoreService copies
     // only sampled values into those owners.
-    GameObjects::GameModelCollection& models;
+    GameObjects::GameModelCollection& presentations;
+    Physics::PhysicsEngine& physics;
+    SceneController& sceneController;
     Environment::WorldEnvironment& world;
     RunSceneState& scene;
     RunRuntimeSettings& runtimeSettings;
@@ -82,7 +88,8 @@ class ReplayRestoreService
             return false;
         }
 
-        const int liveModelCount = context.models.SceneEntityCount();
+        const Physics::PhysicsBodyStore& bodyStore = Physics::PhysicsEngineStoreQueries::BodyStore( context.physics );
+        const int liveModelCount = bodyStore.Count();
         if ( sample.bodies.size() > static_cast<std::size_t>( liveModelCount ) )
         {
             WriteReason( outReason, reasonSize, "selected frame needs unavailable bodies" );
@@ -90,60 +97,61 @@ class ReplayRestoreService
         }
 
         const int restoreModelCount = static_cast<int>( sample.bodies.size() );
-        const Physics::PhysicsBodyStore& bodyStore = context.models.BodyStore();
-        for ( const ReplaySolverBodySample& body : sample.bodies )
+        std::array<Physics::PhysicsBodyHandle, MAX_GAME_MODELS> resolvedBodies{};
+        for ( std::size_t bodyIndex = 0; bodyIndex < sample.bodies.size(); ++bodyIndex )
         {
-            if ( body.modelIndex < 0 || body.modelIndex >= liveModelCount || body.modelIndex >= restoreModelCount )
-            {
-                WriteReason( outReason, reasonSize, "selected frame has invalid body index" );
-                return false;
-            }
-
-            // Invariant: replay restore identity belongs to the live body row.
-            // Authoring/presentation data is secondary after the restore writes
-            // store-owned pose, velocity, and fixed state.
-            const Physics::PhysicsBodyRecord* liveBody = bodyStore.RecordForModelIndex( body.modelIndex );
-            if ( !liveBody || liveBody->replayBodyId != body.id.value )
+            const ReplaySolverBodySample& body = sample.bodies[bodyIndex];
+            const Physics::PhysicsBodyHandle liveHandle =
+                bodyStore.HandleForReplayBodyId( body.id.value, body.modelRow.value );
+            const Physics::PhysicsBodyRecord* liveBody = bodyStore.RecordForHandle( liveHandle );
+            const int liveRow = bodyStore.ModelIndexForHandle( liveHandle );
+            // Invariant: the replay id resolves identity. The retained row is
+            // only a cache and cannot redirect restore after topology changes.
+            if ( !liveBody || liveBody->replayBodyId != body.id.value || liveRow < 0 || liveRow >= restoreModelCount )
             {
                 WriteReason( outReason, reasonSize, "selected frame body ids no longer match" );
                 return false;
             }
+            resolvedBodies[bodyIndex] = liveHandle;
         }
 
-        if ( !context.models.TrimModelsForReplayRestore( restoreModelCount ) )
+        if ( !context.sceneController.TrimForReplayRestore( context.presentations,
+                                                            context.physics,
+                                                            restoreModelCount ) )
         {
             WriteReason( outReason, reasonSize, "failed to trim live model list" );
             return false;
         }
-        context.scene.ResetSceneObjectIdCursor( context.models.BodyStore() );
+        context.scene.ResetSceneObjectIdCursor( Physics::PhysicsEngineStoreQueries::BodyStore( context.physics ) );
 
-        for ( const ReplaySolverBodySample& body : sample.bodies )
+        for ( std::size_t bodyIndex = 0; bodyIndex < sample.bodies.size(); ++bodyIndex )
         {
+            const ReplaySolverBodySample& body = sample.bodies[bodyIndex];
             Math::Orientation::Quaternion orientation( body.orientation[0],
                                                        body.orientation[1],
                                                        body.orientation[2],
                                                        body.orientation[3] );
-            if ( !context.models.TryRestoreReplayBodyState( body.modelIndex,
-                                                            body.id.value,
-                                                            body.fixed,
-                                                            body.position,
-                                                            orientation,
-                                                            body.linearVelocity,
-                                                            body.angularVelocity,
-                                                            body.mass,
-                                                            body.inverseMass,
-                                                            body.rotationalInertia,
-                                                            body.inverseRotationalInertia ) )
+            if ( !context.physics.RestoreReplayBodyState( resolvedBodies[bodyIndex],
+                                                          body.id.value,
+                                                          body.fixed,
+                                                          body.position,
+                                                          orientation,
+                                                          body.linearVelocity,
+                                                          body.angularVelocity,
+                                                          body.mass,
+                                                          body.inverseMass,
+                                                          body.rotationalInertia,
+                                                          body.inverseRotationalInertia ) )
             {
                 WriteReason( outReason, reasonSize, "failed to restore replay body state" );
                 return false;
             }
         }
-        context.models.GetPhysicsEngine().ClearPendingBodyImpulses();
+        context.physics.ClearPendingBodyImpulses();
 
-        if ( !context.models.GetPhysicsEngine().RestoreReplaySolverSnapshot(
+        if ( !context.physics.RestoreReplaySolverSnapshot(
                  sample.worldSnapshot,
-                 Physics::MakePhysicsBodyCountFromNonNegativeInt( context.models.SceneEntityCount() ) ) )
+                 Physics::MakePhysicsBodyCountFromNonNegativeInt( restoreModelCount ) ) )
         {
             WriteReason( outReason, reasonSize, "failed to restore solver world snapshot" );
             return false;
@@ -157,7 +165,7 @@ class ReplayRestoreService
         context.scene.isFixedStep = sample.world.fixedStep;
         context.scene.isScenePhysics = sample.world.scenePhysicsEnabled;
         context.scene.isSceneText = sample.world.sceneTextEnabled;
-        context.scene.modelCount = context.models.SceneEntityCount();
+        context.scene.modelCount = restoreModelCount;
         context.runtimeSettings.isPhysicsSleepEnabled = sample.worldSnapshot.sleepEnabled;
         context.runtimeSettings.tornadoField = sample.worldSnapshot.tornadoConfig;
         context.runtimeSettings.tornadoSystem = sample.worldSnapshot.tornadoSystemConfig;

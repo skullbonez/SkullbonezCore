@@ -37,7 +37,7 @@ Glossary:
     resolves to concrete presentation and solver recorder windows.
 
 Invariants:
-  - Stored indices are hints; ReplayBodyId remains the identity check.
+  - Stored dense rows use ModelRowHint; ReplayBodyId remains the identity check.
   - Scrub/prediction draw poses are presentation-only value overrides; replay
     must not backup or mutate live GameModel pose for rendering.
   - Prediction cache cursors must be reset whenever target, ragdoll mode, or
@@ -296,8 +296,8 @@ struct RunReplayPathTraceNode
 {
     ReplayBodyId id;
     ReplayBodyId parentId;
-    int modelIndex = -1;                                              // Fast lookup hint; ReplayBodyId remains authority.
-    int parentModelIndex = -1;                                        // Fast lookup hint for contact-chain parents.
+    Physics::ModelRowHint modelRow;                                   // Fast lookup hint; ReplayBodyId remains authority.
+    Physics::ModelRowHint parentModelRow;                             // Fast lookup hint for contact-chain parents.
     ReplayFrameIndex firstFrame = 0;
     Math::Vector::Vector3 contactPoint = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 contactNormal = Math::Vector::ZERO_VECTOR;
@@ -308,7 +308,7 @@ struct RunReplayPathTraceNode
 struct RunReplayPathTarget
 {
     ReplayBodyId id;
-    int modelIndex = -1;
+    Physics::ModelRowHint modelRow;
     char name[64] = {};
 };
 
@@ -362,8 +362,8 @@ struct RunReplayCameraState
     Math::Vector::Vector3 impulseVector = Math::Vector::ZERO_VECTOR;
     float targetRadius = 1.0f;
     RunReplayCauseTreeRowKind focusRowKind = RunReplayCauseTreeRowKind::Body;
-    int focusModelIndex = -1;
-    int focusCounterpartModelIndex = -1;
+    Physics::ModelRowHint focusModelRow;
+    Physics::ModelRowHint focusCounterpartModelRow;
     int focusContactIndex = -1;
     int focusSolverRowIndex = -1;
     int focusFeatureId = 0;
@@ -378,8 +378,8 @@ struct RunReplayCauseTreeRow
     ReplayBodyId counterpartId;
     ReplayFrameIndex firstFrame = 0;
     int depth = 0;
-    int modelIndex = -1;
-    int counterpartModelIndex = -1;
+    Physics::ModelRowHint modelRow;
+    Physics::ModelRowHint counterpartModelRow;
     int contactIndex = -1;
     int solverRowIndex = -1;
     int pipelineIndex = -1;
@@ -437,7 +437,7 @@ struct RunReplayPathVisualizerState
     bool pastPathVisible = true;
     bool pastPathHovered = false;
     ReplayBodyId targetId;
-    int targetModelIndex = -1;
+    Physics::ModelRowHint targetModelRow;
     char targetName[64] = {};
     std::vector<RunReplayPathTraceNode> futureNodes;
     std::vector<RunReplayPathTarget> targets;
@@ -447,7 +447,7 @@ struct RunReplayPathVisualizerState
 struct RunReplayPredictionBodyBackup
 {
     ReplayBodyId id;
-    int modelIndex = -1;
+    Physics::ModelRowHint modelRow;
     Math::Vector::Vector3 position = Math::Vector::ZERO_VECTOR;
     Math::Orientation::Quaternion orientation = Math::Orientation::IDENTITY_QUATERNION;
     Math::Vector::Vector3 linearVelocity = Math::Vector::ZERO_VECTOR;
@@ -456,14 +456,13 @@ struct RunReplayPredictionBodyBackup
     float inverseMass = 0.0f;
     Math::Vector::Vector3 rotationalInertia = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 inverseRotationalInertia = Math::Vector::ZERO_VECTOR;
-    float fixedContactHighlightSeconds = 0.0f;
     bool fixed = false;
 };
 
 struct RunReplayPredictionBodySample
 {
     ReplayBodyId id;
-    int modelIndex = -1;
+    Physics::ModelRowHint modelRow;
     Math::Vector::Vector3 position = Math::Vector::ZERO_VECTOR;
     Math::Orientation::Quaternion orientation = Math::Orientation::IDENTITY_QUATERNION;
     Math::Vector::Vector3 linearVelocity = Math::Vector::ZERO_VECTOR; // m/s-equivalent simulation units.
@@ -485,7 +484,7 @@ struct RunReplayPredictionFrame
 
 struct ReplayPredictionGhostDrawRequest
 {
-    int modelIndex = -1;
+    Physics::ModelRowHint modelRow;
     Math::Vector::Vector3 position = Math::Vector::ZERO_VECTOR;
     Math::Orientation::Quaternion orientation = Math::Orientation::IDENTITY_QUATERNION;
     float alpha = 1.0f;
@@ -498,7 +497,7 @@ struct ReplayPredictionGhostDrawRequest
 struct ReplayPredictionRetainedMarker
 {
     ReplayBodyId id;
-    int modelIndex = -1;
+    Physics::ModelRowHint modelRow;
     bool hasEntryPose = false;
     bool hasRestPose = false;
     bool hasHorizonPose = false;
@@ -519,7 +518,7 @@ struct ReplayPredictionBaselineRootPoint
 struct ReplayPredictionBaselineBodyPose
 {
     ReplayBodyId id;
-    int modelIndex = -1;
+    Physics::ModelRowHint modelRow;
     bool hasEntryPose = false;
     bool hasRestPose = false;
     Math::Vector::Vector3 entryPosition = Math::Vector::ZERO_VECTOR;
@@ -533,7 +532,7 @@ struct ReplayPredictionBaselineSnapshot
     bool valid = false;
     bool comparisonActive = false;
     ReplayBodyId rootId;
-    int rootModelIndex = -1;
+    Physics::ModelRowHint rootModelRow;
     ReplayFrameIndex lastFrame = 0;
     // Runtime allocation policy: baseline vectors are captured only while replay
     // prediction is active, reserved under replay_prediction_working_set, and
@@ -644,7 +643,7 @@ struct RunReplayPredictionBuildState
 struct RunReplayPredictionSimulationState
 {
     float horizonSeconds = REPLAY_FUTURE_BUFFER_SECONDS;
-    int targetModelIndex = -1;
+    Physics::ModelRowHint targetModelRow;
     ReplayBodyId targetId;
     ReplayFrameIndex sourceFrameIndex = 0;
     uint64_t sourceSolverHash = 0;
@@ -871,7 +870,9 @@ class ReplayRuntime
         PathPickInput pointerRay;
         InputRouter& inputRouter;
         RuntimeInteractionController& interaction;
-        GameObjects::GameModelCollection& models;
+        Physics::PhysicsEngine& physics;
+        const SceneEntityStore& entities;
+        const std::vector<Rendering::RenderInstancePresentationRecord>& presentation;
         Environment::CameraCollection* cameras = nullptr;
         Geometry::Terrain* terrain = nullptr;
         RunCameraState& camera;
@@ -1188,11 +1189,17 @@ class ReplayRuntime
     // The method is cheap when the cursor already matches the recorder window.
     void RefreshPastTrajectoryStoreFromSolverSamples();
     void CaptureFrame( ReplayCaptureInput input );
-    bool ApplyPresentationSampleForRender( GameObjects::GameModelCollection& collection,
+    bool ApplyPresentationSampleForRender( Rendering::RenderInstanceStore& renderInstances,
+                                           const Physics::PhysicsBodyStore& bodyStore,
+                                           const Physics::ColliderStore& colliderStore,
                                            const ReplayPresentationSample& sample );
-    bool ApplySolverSampleForRender( GameObjects::GameModelCollection& collection,
+    bool ApplySolverSampleForRender( Rendering::RenderInstanceStore& renderInstances,
+                                     const Physics::PhysicsBodyStore& bodyStore,
+                                     const Physics::ColliderStore& colliderStore,
                                      const ReplaySolverFrameSample& sample );
-    bool ApplyPredictionFrameForRender( GameObjects::GameModelCollection& collection,
+    bool ApplyPredictionFrameForRender( Rendering::RenderInstanceStore& renderInstances,
+                                        const Physics::PhysicsBodyStore& bodyStore,
+                                        const Physics::ColliderStore& colliderStore,
                                         const RunReplayPredictionFrame& frame );
     bool HasLoadedPresentation() const;
     const ReplayPresentationSample* LoadedPresentationSampleAtNormalized( float normalized ) const;
@@ -1298,7 +1305,8 @@ class ReplayRuntime
     ReplayStartupResult RunStartupWorkflows( const ReplayLiveWorld& liveWorld );
     // Appends replay-owned records after RuntimeTools has rebuilt the shared
     // fixed-capacity tracer. RuntimeRenderer only submits the completed buffer.
-    void AppendOverlayTrace( GameObjects::GameModelCollection& models,
+    void AppendOverlayTrace( Physics::PhysicsEngine& physics,
+                             const SceneEntityStore& entities,
                              const EngineConfig& config,
                              const Physics::PhysicsWorldForces& worldForces,
                              Threading::WorkerPool& workerPool,
@@ -1306,7 +1314,8 @@ class ReplayRuntime
                              const ReplayOverlayBuildInput& input );
     // Emits replay-owned fixed-capacity tracer records; Run/RuntimeRenderer
     // only sequence the completed record buffer into render submission.
-    void RenderPathVisualizer( GameObjects::GameModelCollection& models,
+    void RenderPathVisualizer( Physics::PhysicsEngine& physics,
+                               const SceneEntityStore& entities,
                                const EngineConfig& config,
                                const Physics::PhysicsWorldForces& worldForces,
                                Threading::WorkerPool& workerPool,
@@ -1315,12 +1324,13 @@ class ReplayRuntime
                                int currentFrame,
                                double frameSeconds,
                                double totalSeconds );
-    void RenderCauseFocusOverlay( GameObjects::GameModelCollection& models, RunEditorTracer& tracer );
-    void RenderVelocityEditOverlay( GameObjects::GameModelCollection& models,
-                                    bool editorModeEnabled,
-                                    RunEditorTracer& tracer );
+    void RenderCauseFocusOverlay( const Physics::PhysicsBodyStore& bodyStore,
+                                  const Physics::ColliderStore& colliderStore,
+                                  const SceneEntityStore& entities,
+                                  RunEditorTracer& tracer );
+    void RenderVelocityEditOverlay( Physics::PhysicsEngine& physics, bool editorModeEnabled, RunEditorTracer& tracer );
     PathPickResult TryPickPathTarget( const PathPickInput& input,
-                                      const GameObjects::GameModelCollection& models,
+                                      const SceneEntityStore& entities,
                                       const Physics::PhysicsBodyStore& bodyStore,
                                       const Physics::ColliderStore& colliderStore,
                                       const std::vector<Rendering::RenderInstancePresentationRecord>& presentation );
@@ -1347,7 +1357,9 @@ class ReplayRuntime
                              int wheelDelta,
                              InputRouter& inputRouter,
                              RuntimeInteractionController& interaction,
-                             GameObjects::GameModelCollection& models,
+                             const Physics::PhysicsBodyStore& bodyStore,
+                             const Physics::ColliderStore& colliderStore,
+                             const std::vector<Rendering::RenderInstancePresentationRecord>& presentation,
                              Environment::CameraCollection* cameras,
                              Geometry::Terrain* terrain,
                              RunCameraState& camera,
@@ -1364,7 +1376,9 @@ class ReplayRuntime
                                 const PathPickInput& pointerRay,
                                 InputRouter& inputRouter,
                                 RuntimeInteractionController& interaction,
-                                GameObjects::GameModelCollection& models,
+                                Physics::PhysicsEngine& physics,
+                                const SceneEntityStore& entities,
+                                const std::vector<Rendering::RenderInstancePresentationRecord>& presentation,
                                 Environment::CameraCollection* cameras,
                                 Geometry::Terrain* terrain,
                                 RunCameraState& camera,

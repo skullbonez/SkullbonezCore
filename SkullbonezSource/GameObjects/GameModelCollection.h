@@ -301,7 +301,9 @@ class GameModelCollection
     // refreshed through the same owner-checked path as replay/editor edits.
     bool TrySetModelAngularVelocity( int index, const Math::Vector::Vector3& angularVelocity );
     Basics::MainMemoryGameObjectStats CollectMemoryStats() const;
-    bool TrimModelsForReplayRestore( int modelCount );
+    // SceneController uses this narrow presentation-owner command while it
+    // coordinates replay topology with physics and entity owners.
+    bool TrimPresentationRowsForSceneRestore( int modelCount );
     void CaptureReplaySolverWorldSnapshot( Basics::ReplaySolverWorldSnapshot& outSnapshot ) const;
     bool RestoreReplaySolverWorldSnapshot( const Basics::ReplaySolverWorldSnapshot& snapshot );
     // PhysicsEngine owns body/collider store views. Callers that can observe

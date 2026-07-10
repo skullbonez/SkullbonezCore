@@ -539,7 +539,7 @@ class SimulationPostStepPipeline
         input.terrainHidden = context.debug.isTerrainHidden;
         input.cameras = context.systems.cameras;
         input.world = &context.world;
-        input.models = &context.models;
+        input.physics = &context.models.GetPhysicsEngine();
         input.entities = &context.entities;
         input.bodyStore = &context.models.BodyStore();
         input.colliderStore = &context.models.Colliders();

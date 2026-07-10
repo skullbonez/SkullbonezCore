@@ -36,10 +36,11 @@ Related:
 #include "../Allocation/RuntimeReserveAllocator.h"
 #include "../../Core/Common.h"
 #include "../../Core/FatalError.h"
-#include "../../GameObjects/GameModelCollection.h"
 #include "../Scene/SceneEntityStore.h"
 #include "../../Physics/ColliderStore.h"
 #include "../../Physics/PhysicsBodyStore.h"
+#include "../../Physics/PhysicsEngine.h"
+#include "../../Physics/PhysicsEngineStoreQueries.h"
 #include "../../World/WorldEnvironment.h"
 
 #include <algorithm>
@@ -52,7 +53,6 @@ Related:
 using namespace SkullbonezCore::Basics;
 using SkullbonezCore::Environment::CameraCollection;
 using SkullbonezCore::Environment::WorldEnvironment;
-using SkullbonezCore::GameObjects::GameModelCollection;
 using SkullbonezCore::Math::Vector::Vector3;
 using SkullbonezCore::Physics::ColliderRecord;
 using SkullbonezCore::Physics::PhysicsDebugContact;
@@ -462,7 +462,7 @@ ReplayVisualBodyMetadata VisualMetadataFromBody( const ReplayBodyPresentationSam
 {
     ReplayVisualBodyMetadata metadata;
     metadata.id = body.id;
-    metadata.modelIndex = body.modelIndex;
+    metadata.modelRow = body.modelRow;
     std::memcpy( metadata.name, body.name, sizeof( metadata.name ) );
     metadata.shapeKind = body.shapeKind;
     metadata.mass = body.mass;
@@ -493,7 +493,7 @@ ReplayVisualBodyState VisualStateFromBody( const ReplayBodyPresentationSample& b
 
 bool SameVisualMetadata( const ReplayVisualBodyMetadata& a, const ReplayVisualBodyMetadata& b )
 {
-    return a.id.value == b.id.value && a.modelIndex == b.modelIndex && a.shapeKind == b.shapeKind &&
+    return a.id.value == b.id.value && a.modelRow.value == b.modelRow.value && a.shapeKind == b.shapeKind &&
            SameFloatBits( a.mass, b.mass ) && a.fixed == b.fixed &&
            std::memcmp( a.name, b.name, sizeof( a.name ) ) == 0;
 }
@@ -531,7 +531,7 @@ void BuildPresentationBodyFromVisual( const ReplayVisualBodyMetadata& metadata,
 {
     out = ReplayBodyPresentationSample{};
     out.id = metadata.id;
-    out.modelIndex = metadata.modelIndex;
+    out.modelRow = metadata.modelRow;
     std::memcpy( out.name, metadata.name, sizeof( out.name ) );
     out.shapeKind = metadata.shapeKind;
     out.position = state.position;
@@ -557,7 +557,7 @@ ReplaySolverBodyMetadata SolverMetadataFromBody( const ReplaySolverBodySample& b
 {
     ReplaySolverBodyMetadata metadata;
     metadata.id = body.id;
-    metadata.modelIndex = body.modelIndex;
+    metadata.modelRow = body.modelRow;
     std::memcpy( metadata.name, body.name, sizeof( metadata.name ) );
     metadata.shapeKind = body.shapeKind;
     metadata.mass = body.mass;
@@ -591,7 +591,7 @@ ReplaySolverBodyState SolverStateFromBody( const ReplaySolverBodySample& body )
 
 bool SameSolverMetadata( const ReplaySolverBodyMetadata& a, const ReplaySolverBodyMetadata& b )
 {
-    return a.id.value == b.id.value && a.modelIndex == b.modelIndex && a.shapeKind == b.shapeKind &&
+    return a.id.value == b.id.value && a.modelRow.value == b.modelRow.value && a.shapeKind == b.shapeKind &&
            SameFloatBits( a.mass, b.mass ) && SameFloatBits( a.inverseMass, b.inverseMass ) &&
            SameVectorBits( a.rotationalInertia, b.rotationalInertia ) &&
            SameVectorBits( a.inverseRotationalInertia, b.inverseRotationalInertia ) &&
@@ -615,7 +615,7 @@ void BuildSolverBodyFromCompact( const ReplaySolverBodyMetadata& metadata,
 {
     out = ReplaySolverBodySample{};
     out.id = metadata.id;
-    out.modelIndex = metadata.modelIndex;
+    out.modelRow = metadata.modelRow;
     std::memcpy( out.name, metadata.name, sizeof( out.name ) );
     out.shapeKind = metadata.shapeKind;
     out.position = state.position;
@@ -1177,7 +1177,7 @@ void IncrementBodyContactSummary( int bodyIndex,
 uint64_t HashBodySample( uint64_t hash, const ReplayBodyPresentationSample& body )
 {
     hash = HashUint32( hash, body.id.value );
-    hash = HashInt( hash, body.modelIndex );
+    hash = HashInt( hash, body.modelRow.value );
     hash = HashInt( hash, static_cast<int>( body.shapeKind ) );
     hash = HashVector( hash, body.position );
     hash = HashOrientation( hash, body.orientation );
@@ -1199,7 +1199,7 @@ uint64_t HashBodySample( uint64_t hash, const ReplayBodyPresentationSample& body
 uint64_t HashSolverBodyPresentationFields( uint64_t hash, const ReplaySolverBodySample& body )
 {
     hash = HashUint32( hash, body.id.value );
-    hash = HashInt( hash, body.modelIndex );
+    hash = HashInt( hash, body.modelRow.value );
     hash = HashInt( hash, static_cast<int>( body.shapeKind ) );
     hash = HashVector( hash, body.position );
     hash = HashOrientation( hash, body.orientation );
@@ -1285,7 +1285,7 @@ bool BuildReplayPresentationBodySample( int modelIndex,
 
     outBody = ReplayBodyPresentationSample{};
     outBody.id.value = bodyRecord.replayBodyId;
-    outBody.modelIndex = modelIndex;
+    outBody.modelRow = Physics::MakeModelRowHint( modelIndex );
     const char* modelName = entity->displayName;
     if ( modelName && modelName[0] != '\0' )
     {
@@ -1320,7 +1320,7 @@ bool BuildReplaySolverBodySample( int modelIndex,
 
     outBody = ReplaySolverBodySample{};
     outBody.id = presentationBody.id;
-    outBody.modelIndex = presentationBody.modelIndex;
+    outBody.modelRow = presentationBody.modelRow;
     strncpy_s( outBody.name, sizeof( outBody.name ), presentationBody.name, _TRUNCATE );
     outBody.shapeKind = presentationBody.shapeKind;
     outBody.position = presentationBody.position;
@@ -1555,7 +1555,7 @@ void ReplayRecorder::ResetTimeline( const char* sceneLabel )
 
 void ReplayRecorder::CaptureFrame( const ReplayCaptureInput& input )
 {
-    if ( !m_config.enabled || !input.models || !input.entities || !input.bodyStore || !input.colliderStore )
+    if ( !m_config.enabled || !input.physics || !input.entities || !input.bodyStore || !input.colliderStore )
     {
         return;
     }
@@ -1599,7 +1599,7 @@ void ReplayRecorder::CaptureFrame( const ReplayCaptureInput& input )
         sample.camera.up = input.cameras->GetCameraUp();
     }
 
-    GameModelCollection& models = *input.models;
+    Physics::PhysicsEngine& physics = *input.physics;
     const SceneEntityStore& entities = *input.entities;
     const Physics::PhysicsBodyStore& bodyStore = *input.bodyStore;
     const Physics::ColliderStore& colliderStore = *input.colliderStore;
@@ -1615,7 +1615,7 @@ void ReplayRecorder::CaptureFrame( const ReplayCaptureInput& input )
     m_maxPenetrationScratch.assign( modelCountSize, 0.0f );
     m_normalImpulseSumScratch.assign( modelCountSize, 0.0f );
 
-    const std::vector<PhysicsDebugContact>& contacts = models.GetPhysicsDebugContacts();
+    const std::vector<PhysicsDebugContact>& contacts = Physics::PhysicsEngineStoreQueries::DebugContacts( physics );
     sample.contactCount = SaturatingUint16( contacts.size() );
     for ( const PhysicsDebugContact& contact : contacts )
     {
@@ -1633,13 +1633,17 @@ void ReplayRecorder::CaptureFrame( const ReplayCaptureInput& input )
                                      m_normalImpulseSumScratch );
     }
 
-    sample.pipelineRecordCount = SaturatingUint16( models.GetPhysicsPipelineTrace().size() );
+    sample.pipelineRecordCount =
+        SaturatingUint16( Physics::PhysicsEngineStoreQueries::PipelineTrace( physics ).size() );
 
-    const std::vector<uint8_t>& sleepStates = models.GetSleepStates();
-    const std::vector<uint8_t>& sleepSupportedStates = models.GetSleepSupportedStates();
-    const std::vector<uint8_t>& sleepInhibitedStates = models.GetSleepInhibitedStates();
-    const std::vector<uint8_t>& collisionContacts = models.GetCollisionVisualContacts();
-    const std::vector<int>& sleepIslandIds = models.GetSleepIslandVisualIds();
+    const std::vector<uint8_t>& sleepStates = Physics::PhysicsEngineStoreQueries::SleepStates( physics );
+    const std::vector<uint8_t>& sleepSupportedStates =
+        Physics::PhysicsEngineStoreQueries::SleepSupportedStates( physics );
+    const std::vector<uint8_t>& sleepInhibitedStates =
+        Physics::PhysicsEngineStoreQueries::SleepInhibitedStates( physics );
+    const std::vector<uint8_t>& collisionContacts =
+        Physics::PhysicsEngineStoreQueries::CollisionVisualContacts( physics );
+    const std::vector<int>& sleepIslandIds = Physics::PhysicsEngineStoreQueries::SleepIslandVisualIds( physics );
 
     uint64_t hash = FNV64_OFFSET;
     // Concept: presentation hashes summarize what the viewer would need to see
@@ -1722,7 +1726,7 @@ void ReplayRecorder::CaptureFrameFromSolverSample( const ReplaySolverFrameSample
     {
         ReplayBodyPresentationSample body;
         body.id = solverBody.id;
-        body.modelIndex = solverBody.modelIndex;
+        body.modelRow = solverBody.modelRow;
         strncpy_s( body.name, sizeof( body.name ), solverBody.name, _TRUNCATE );
         body.shapeKind = solverBody.shapeKind;
         body.position = solverBody.position;
@@ -2303,7 +2307,7 @@ void ReplaySolverRecorder::ResetTimeline( const char* sceneLabel )
 
 void ReplaySolverRecorder::CaptureFrame( const ReplayCaptureInput& input )
 {
-    if ( !m_config.enabled || !input.models || !input.entities || !input.bodyStore || !input.colliderStore )
+    if ( !m_config.enabled || !input.physics || !input.entities || !input.bodyStore || !input.colliderStore )
     {
         return;
     }
@@ -2360,7 +2364,7 @@ void ReplaySolverRecorder::CaptureFrame( const ReplayCaptureInput& input )
         sample.camera.up = input.cameras->GetCameraUp();
     }
 
-    GameModelCollection& models = *input.models;
+    Physics::PhysicsEngine& physics = *input.physics;
     const SceneEntityStore& entities = *input.entities;
     const Physics::PhysicsBodyStore& bodyStore = *input.bodyStore;
     const Physics::ColliderStore& colliderStore = *input.colliderStore;
@@ -2376,7 +2380,7 @@ void ReplaySolverRecorder::CaptureFrame( const ReplayCaptureInput& input )
     m_maxPenetrationScratch.assign( modelCountSize, 0.0f );
     m_normalImpulseSumScratch.assign( modelCountSize, 0.0f );
 
-    const std::vector<PhysicsDebugContact>& contacts = models.GetPhysicsDebugContacts();
+    const std::vector<PhysicsDebugContact>& contacts = Physics::PhysicsEngineStoreQueries::DebugContacts( physics );
     sample.contactCount = SaturatingUint16( contacts.size() );
     for ( const PhysicsDebugContact& contact : contacts )
     {
@@ -2394,16 +2398,20 @@ void ReplaySolverRecorder::CaptureFrame( const ReplayCaptureInput& input )
                                      m_normalImpulseSumScratch );
     }
 
-    sample.pipelineRecordCount = SaturatingUint16( models.GetPhysicsPipelineTrace().size() );
-    models.GetPhysicsEngine().CaptureReplaySolverSnapshot(
+    sample.pipelineRecordCount =
+        SaturatingUint16( Physics::PhysicsEngineStoreQueries::PipelineTrace( physics ).size() );
+    physics.CaptureReplaySolverSnapshot(
         m_solverCaptureWorldSnapshot,
         Physics::MakePhysicsBodyCountFromNonNegativeInt( static_cast<int>( modelCount ) ) );
 
-    const std::vector<uint8_t>& sleepStates = models.GetSleepStates();
-    const std::vector<uint8_t>& sleepSupportedStates = models.GetSleepSupportedStates();
-    const std::vector<uint8_t>& sleepInhibitedStates = models.GetSleepInhibitedStates();
-    const std::vector<uint8_t>& collisionContacts = models.GetCollisionVisualContacts();
-    const std::vector<int>& sleepIslandIds = models.GetSleepIslandVisualIds();
+    const std::vector<uint8_t>& sleepStates = Physics::PhysicsEngineStoreQueries::SleepStates( physics );
+    const std::vector<uint8_t>& sleepSupportedStates =
+        Physics::PhysicsEngineStoreQueries::SleepSupportedStates( physics );
+    const std::vector<uint8_t>& sleepInhibitedStates =
+        Physics::PhysicsEngineStoreQueries::SleepInhibitedStates( physics );
+    const std::vector<uint8_t>& collisionContacts =
+        Physics::PhysicsEngineStoreQueries::CollisionVisualContacts( physics );
+    const std::vector<int>& sleepIslandIds = Physics::PhysicsEngineStoreQueries::SleepIslandVisualIds( physics );
 
     uint64_t presentationHash = FNV64_OFFSET;
     presentationHash = HashWorld( presentationHash, sample.world );

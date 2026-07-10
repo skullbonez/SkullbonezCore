@@ -11,8 +11,8 @@ reports, and git history.
 |---|---|
 | Branch | `engine-cleanup-10th-july`, tracking `origin/engine-cleanup-10th-july` |
 | Current pushed baseline | `f5cbeb57 fix: bound replay retained memory by owner` |
-| Current objective | Complete Replay R4 narrow live-owner access and stable identity |
-| Last broad local gate | `tools\validate_full.bat` passed final Replay R3 source with 124/124 doctest cases, all CPU lanes, zero-warning builds, DX12 with zero InfoQueue errors/matching screenshots, standalone physics smoke, and byte-exact physics in 49.2s |
+| Current objective | Complete Replay R5 tests, size closure, feature gate, and final independent review |
+| Last broad local gate | `tools\validate_full.bat` passed final Replay R4 source with 124/124 doctest cases, all CPU lanes, zero-warning builds, DX12 with zero InfoQueue errors/matching screenshots, standalone physics smoke, and byte-exact physics in 53.9s |
 | Native evidence | Injected heap-use-after-free caught; healthy ASan and five-file `/analyze` passed in 16.185s |
 
 ## Pushed Cleanup Commits
@@ -170,7 +170,7 @@ and full gates pass from the final source.
 
 ## Workstreams To Prioritize
 
-1. Narrow replay live-owner access in R4 and close replay tests/size in R5.
+1. Close replay tests/source size and run the final independent review in R5.
 2. Close the dependent B1f scene/input seam and promote `SceneController` to
    own real load/reset/save lifecycle and delete `Run` scene callbacks.
 3. Finish physics stable-identity D1-D4 and the remaining interaction/UI work.

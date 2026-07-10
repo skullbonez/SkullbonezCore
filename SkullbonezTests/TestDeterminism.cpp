@@ -458,7 +458,7 @@ void HashVectorForReplayTest( uint64_t& hash, const std::vector<T>& values )
 void HashSolverBodyForReplayTest( uint64_t& hash, const ReplaySolverBodySample& body )
 {
     HashValueForReplayTest( hash, body.id.value );
-    HashValueForReplayTest( hash, body.modelIndex );
+    HashValueForReplayTest( hash, body.modelRow.value );
     HashValueForReplayTest( hash, body.shapeKind );
     HashValueForReplayTest( hash, body.position );
     HashValueForReplayTest( hash, body.linearVelocity );
@@ -537,7 +537,7 @@ ReplaySolverBodySample CaptureMicroWorldReplayBodySample( const PhysicsEngine& e
 
     ReplaySolverBodySample body;
     body.id.value = record->replayBodyId;
-    body.modelIndex = modelIndex;
+    body.modelRow = SkullbonezCore::Physics::MakeModelRowHint( modelIndex );
     body.shapeKind = ReplayBodyShapeKind::Sphere;
     body.position = record->position;
     body.linearVelocity = record->linearVelocity;
@@ -623,7 +623,7 @@ void RestoreMicroWorldReplaySample( PhysicsEngine& engine, const ReplaySolverFra
     for ( const ReplaySolverBodySample& body : sample.bodies )
     {
         const Quaternion orientation( body.orientation[0], body.orientation[1], body.orientation[2], body.orientation[3] );
-        const PhysicsBodyRecord* record = SkullbonezCore::Physics::PhysicsEngineStoreQueries::BodyStore( engine ).RecordForModelIndex( body.modelIndex );
+        const PhysicsBodyRecord* record = SkullbonezCore::Physics::PhysicsEngineStoreQueries::BodyStore( engine ).RecordForModelIndex( body.modelRow.value );
         REQUIRE( record != nullptr );
         REQUIRE( engine.RestoreReplayBodyState( record->handle,
                                                 body.id.value,
@@ -666,7 +666,7 @@ void CheckVectorContentsEqual( const std::vector<T>& lhs, const std::vector<T>& 
 void CheckReplayBodySamplesEqual( const ReplaySolverBodySample& lhs, const ReplaySolverBodySample& rhs )
 {
     CHECK( lhs.id.value == rhs.id.value );
-    CHECK( lhs.modelIndex == rhs.modelIndex );
+    CHECK( lhs.modelRow.value == rhs.modelRow.value );
     CHECK( lhs.shapeKind == rhs.shapeKind );
     CheckVectorBytesEqual( lhs.position, rhs.position );
     CheckVectorBytesEqual( lhs.linearVelocity, rhs.linearVelocity );

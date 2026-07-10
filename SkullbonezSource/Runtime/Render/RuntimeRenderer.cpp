@@ -429,13 +429,13 @@ void RenderReplayPredictionGhosts( ReplayRuntime& replayRuntime,
 
     for ( const ReplayPredictionGhostDrawRequest& request : replayRuntime.PredictionGhostDrawRequests() )
     {
-        if ( request.modelIndex < 0 || request.modelIndex >= static_cast<int>( colliders.size() ) ||
-             request.modelIndex >= static_cast<int>( renderInstances.size() ) )
+        if ( request.modelRow.value < 0 || request.modelRow.value >= static_cast<int>( colliders.size() ) ||
+             request.modelRow.value >= static_cast<int>( renderInstances.size() ) )
         {
             continue;
         }
 
-        const std::size_t modelIndex = static_cast<std::size_t>( request.modelIndex );
+        const std::size_t modelIndex = static_cast<std::size_t>( request.modelRow.value );
         const Physics::ColliderRecord& collider = colliders[modelIndex];
         const Math::CollisionDetection::BoundingBox* box =
             std::get_if<Math::CollisionDetection::BoundingBox>( &collider.shape );
@@ -2095,15 +2095,24 @@ void RuntimeRenderer::RenderFrameEntry( const FrameEntryContext& context )
             RuntimeAllocation::RuntimeAllocationPhase::Replay );
         if ( const RunReplayPredictionFrame* predictionFrame = m_replayRuntime.CurrentPredictionScrubFrame() )
         {
-            m_replayRuntime.ApplyPredictionFrameForRender( context.renderModelOwner, *predictionFrame );
+            m_replayRuntime.ApplyPredictionFrameForRender( context.renderModelOwner.MutableRenderInstances(),
+                                                           context.renderModelOwner.BodyStore(),
+                                                           context.renderModelOwner.Colliders(),
+                                                           *predictionFrame );
         }
         else if ( const ReplayPresentationSample* replaySample = m_replayRuntime.CurrentScrubSample() )
         {
-            m_replayRuntime.ApplyPresentationSampleForRender( context.renderModelOwner, *replaySample );
+            m_replayRuntime.ApplyPresentationSampleForRender( context.renderModelOwner.MutableRenderInstances(),
+                                                              context.renderModelOwner.BodyStore(),
+                                                              context.renderModelOwner.Colliders(),
+                                                              *replaySample );
         }
         else if ( const ReplaySolverFrameSample* solverSample = m_replayRuntime.CurrentSolverScrubSample() )
         {
-            m_replayRuntime.ApplySolverSampleForRender( context.renderModelOwner, *solverSample );
+            m_replayRuntime.ApplySolverSampleForRender( context.renderModelOwner.MutableRenderInstances(),
+                                                        context.renderModelOwner.BodyStore(),
+                                                        context.renderModelOwner.Colliders(),
+                                                        *solverSample );
             applyReplayLauncherVisualSampleForRender( solverSample->launcherVisual );
         }
     };
@@ -2144,7 +2153,8 @@ void RuntimeRenderer::RenderFrameEntry( const FrameEntryContext& context )
                                                                context.toolOverlay.attachedFollow } );
     assert( context.renderModels.renderWorkerPool && "Replay overlay preparation requires the model worker owner" );
     m_replayRuntime.AppendOverlayTrace(
-        context.renderModelOwner,
+        context.renderModelOwner.GetPhysicsEngine(),
+        context.replayOverlay.entities,
         m_config,
         m_world.GetPhysicsWorldForces(),
         *context.renderModels.renderWorkerPool,

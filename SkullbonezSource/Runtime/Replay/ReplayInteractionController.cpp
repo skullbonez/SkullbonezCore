@@ -27,7 +27,7 @@ Related:
 
 #include "ReplayOverlayLayout.h"
 #include "../../Core/Profiler.h"
-#include "../../GameObjects/GameModelCollection.h"
+#include "../../Physics/PhysicsEngine.h"
 
 #include <algorithm>
 #include <cstdio>
@@ -222,7 +222,7 @@ bool ReplayInteractionController::ApplyVelocityEditToBody( const ReplayVelocityE
     clampedAngular.y = std::clamp( clampedAngular.y, -context.angularVelocityLimit, context.angularVelocityLimit );
     clampedAngular.z = std::clamp( clampedAngular.z, -context.angularVelocityLimit, context.angularVelocityLimit );
 
-    if ( !context.models.GetPhysicsEngine().SetBodyVelocity( context.body, clampedLinear, clampedAngular, true ) )
+    if ( !context.physics.SetBodyVelocity( context.body, clampedLinear, clampedAngular, true ) )
     {
         return false;
     }

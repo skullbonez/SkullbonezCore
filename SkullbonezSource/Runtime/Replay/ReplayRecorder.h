@@ -48,6 +48,7 @@ Related:
 
 #include "../../Core/MainMemoryStats.h"
 #include "../../Maths/Vector3.h"
+#include "../../Physics/PhysicsHandles.h"
 #include "../Editor/LauncherLaser.h"
 #include "ReplaySolverSnapshot.h"
 
@@ -59,14 +60,10 @@ class CameraCollection;
 class WorldEnvironment;
 } // namespace Environment
 
-namespace GameObjects
-{
-class GameModelCollection;
-} // namespace GameObjects
-
 namespace Physics
 {
 class ColliderStore;
+class PhysicsEngine;
 class PhysicsBodyStore;
 } // namespace Physics
 
@@ -122,7 +119,7 @@ struct ReplayWorldPresentationSample
 struct ReplayBodyPresentationSample
 {
     ReplayBodyId id;
-    int modelIndex = -1;
+    Physics::ModelRowHint modelRow; // Optional resolver cache; ReplayBodyId remains durable identity.
     char name[64] = {};
     ReplayBodyShapeKind shapeKind = ReplayBodyShapeKind::Unknown;
     Math::Vector::Vector3 position = Math::Vector::ZERO_VECTOR;
@@ -144,7 +141,7 @@ struct ReplayBodyPresentationSample
 struct ReplayVisualBodyMetadata
 {
     ReplayBodyId id;
-    int modelIndex = -1;
+    Physics::ModelRowHint modelRow;
     char name[64] = {};
     ReplayBodyShapeKind shapeKind = ReplayBodyShapeKind::Unknown;
     float mass = 0.0f;
@@ -204,7 +201,7 @@ struct ReplayPresentationSample
 struct ReplaySolverBodySample
 {
     ReplayBodyId id;
-    int modelIndex = -1;
+    Physics::ModelRowHint modelRow; // Optional resolver cache; ReplayBodyId remains durable identity.
     char name[64] = {};
     ReplayBodyShapeKind shapeKind = ReplayBodyShapeKind::Unknown;
     Math::Vector::Vector3 position = Math::Vector::ZERO_VECTOR;
@@ -232,7 +229,7 @@ struct ReplaySolverBodySample
 struct ReplaySolverBodyMetadata
 {
     ReplayBodyId id;
-    int modelIndex = -1;
+    Physics::ModelRowHint modelRow;
     char name[64] = {};
     ReplayBodyShapeKind shapeKind = ReplayBodyShapeKind::Unknown;
     float mass = 0.0f;
@@ -473,7 +470,10 @@ struct ReplayCaptureInput
     bool terrainHidden = false;
     Environment::CameraCollection* cameras = nullptr;
     Environment::WorldEnvironment* world = nullptr;
-    GameObjects::GameModelCollection* models = nullptr;
+    // PhysicsEngine is the replay capture command owner for solver snapshots
+    // and diagnostics. Body/collider stores remain explicit read views so the
+    // recorder cannot recover presentation or scene authority through it.
+    Physics::PhysicsEngine* physics = nullptr;
     const SceneEntityStore* entities = nullptr;
     // Replay recorders borrow stores for physics state and the scene entity
     // owner for names, so capture does not depend on GameModel writeback.
@@ -487,7 +487,7 @@ struct ReplayRecorderConfig
     bool enabled = false;
     int retentionSeconds = REPLAY_PAST_BUFFER_SECONDS;
     int checkpointIntervalFrames = 30;
-    int runtimeBodyCapacity = 0; // Scene/run body cap for scratch reserves and retained-sample growth checks.
+    int runtimeBodyCapacity = 0;    // Scene/run body cap for scratch reserves and retained-sample growth checks.
     std::string hashLogPath;
 };
 

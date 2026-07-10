@@ -72,7 +72,7 @@ ReplaySolverFrameSample OneBodySolverSample( ReplayFrameIndex frameIndex )
 
     ReplaySolverBodySample body;
     body.id.value = 400u + static_cast<uint32_t>( frameIndex );
-    body.modelIndex = 0;
+    body.modelRow = SkullbonezCore::Physics::MakeModelRowHint( 0 );
     body.position = Vector3( 1.0f, 2.0f, 3.0f );
     body.linearVelocity = Vector3( 0.5f, 0.0f, 0.0f );
     body.mass = 2.0f;

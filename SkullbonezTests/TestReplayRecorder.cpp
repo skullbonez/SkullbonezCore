@@ -90,7 +90,7 @@ ReplaySolverFrameSample MakeSolverSample( ReplayFrameIndex frameIndex )
 
     ReplaySolverBodySample body;
     body.id.value = 500u + static_cast<uint32_t>( frameIndex );
-    body.modelIndex = static_cast<int>( frameIndex % 3u );
+    body.modelRow = SkullbonezCore::Physics::MakeModelRowHint( static_cast<int>( frameIndex % 3u ) );
     body.shapeKind = ReplayBodyShapeKind::Box;
     body.position = Vector3( static_cast<float>( frameIndex ), 2.0f, 3.0f );
     body.linearVelocity = Vector3( 1.0f, 0.0f, 0.0f );

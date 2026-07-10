@@ -235,7 +235,7 @@ float DistanceRayToSegmentSquared( const Vector3& rayOrigin,
 struct ReplayVelocityBodyView
 {
     PhysicsBodyHandle body;
-    int modelIndex = -1;
+    ModelRowHint modelRow;
     Vector3 position = SkullbonezCore::Math::Vector::ZERO_VECTOR;
     Quaternion orientation = IDENTITY_QUATERNION;
     Vector3 linearVelocity = SkullbonezCore::Math::Vector::ZERO_VECTOR;
@@ -271,7 +271,7 @@ static bool TryResolveReplayVelocityBodyView( const ReplayRuntime& replayRuntime
     // gesture metadata and collider pairing while replay/editor identity moves
     // away from transient GameModel order.
     outView.body = bodyHandle;
-    outView.modelIndex = modelIndex;
+    outView.modelRow.value = modelIndex;
     outView.position = body->position;
     outView.orientation = body->orientation;
     outView.linearVelocity = body->linearVelocity;
@@ -365,7 +365,7 @@ bool TryReplayVelocityAxisRayParameter( const ReplayVelocityBodyView& body,
                                         const Vector3& rayDirection,
                                         float& outAxisT )
 {
-    if ( axis < 0 || axis > 2 || body.modelIndex < 0 )
+    if ( axis < 0 || axis > 2 || body.modelRow.value < 0 )
     {
         return false;
     }
@@ -393,7 +393,7 @@ bool TryReplayVelocityAngularRayAngle( const ReplayVelocityBodyView& body,
                                        const Vector3& rayDirection,
                                        float& outAngle )
 {
-    if ( axis < 0 || axis > 2 || body.modelIndex < 0 )
+    if ( axis < 0 || axis > 2 || body.modelRow.value < 0 )
     {
         return false;
     }
@@ -433,7 +433,9 @@ bool ReplayRuntime::TickVelocityEditInput( bool uiBlocksMouse,
                                            const PathPickInput& pointerRay,
                                            InputRouter& inputRouter,
                                            RuntimeInteractionController& interaction,
-                                           GameObjects::GameModelCollection& models,
+                                           PhysicsEngine& velocityPhysics,
+                                           const SceneEntityStore& entities,
+                                           const std::vector<Rendering::RenderInstancePresentationRecord>& presentation,
                                            Environment::CameraCollection* cameras,
                                            Geometry::Terrain* terrain,
                                            RunCameraState& camera,
@@ -452,7 +454,6 @@ bool ReplayRuntime::TickVelocityEditInput( bool uiBlocksMouse,
     ReplayRuntime& m_replayRuntime = *this;
     InputRouter& m_inputRouter = inputRouter;
     RuntimeInteractionController& m_interaction = interaction;
-    GameObjects::GameModelCollection& m_cGameModelCollection = models;
     const auto enterInspectionCamera = [&]()
     { EnterInspectionCamera( cameras, camera, normalizedCurrentMode, m_interaction, m_inputRouter, mousePickup ); };
     const auto exitInspectionCamera = [&]()
@@ -510,18 +511,17 @@ bool ReplayRuntime::TickVelocityEditInput( bool uiBlocksMouse,
         return m_replayRuntime.VelocityEdit().dragging;
     }
 
-    // Why: velocity edit resolves replay identity through store-owned handles.
-    // Run owns the cold repair edge before the resolver reads body/collider rows.
-    const bool velocityStoresReady = m_cGameModelCollection.RepairPhysicsBodyAndColliderTopology();
-    PhysicsEngine& velocityPhysics = m_cGameModelCollection.GetPhysicsEngine();
+    // Invariant: the frame boundary prepares paired physics rows before replay
+    // input. This handler reads those explicit owners and never repairs legacy
+    // model topology from inside an interaction hot path.
+    const PhysicsBodyStore& velocityBodies = PhysicsEngineStoreQueries::BodyStore( velocityPhysics );
+    const ColliderStore& velocityColliders = PhysicsEngineStoreQueries::Colliders( velocityPhysics );
+    const bool velocityStoresReady =
+        velocityBodies.Count() == velocityColliders.Count() && velocityBodies.Count() == entities.Count();
     const auto tryResolveVelocityBody = [&]( ReplayVelocityBodyView& outBody )
     {
         return velocityStoresReady &&
-               TryResolveReplayVelocityBodyView(
-                   m_replayRuntime,
-                   SkullbonezCore::Physics::PhysicsEngineStoreQueries::BodyStore( velocityPhysics ),
-                   SkullbonezCore::Physics::PhysicsEngineStoreQueries::Colliders( velocityPhysics ),
-                   outBody );
+               TryResolveReplayVelocityBodyView( m_replayRuntime, velocityBodies, velocityColliders, outBody );
     };
 
     const auto applyReplayVelocityEditDrag = [&]( const Vector3& dragRayOrigin, const Vector3& dragRayDirection )
@@ -591,7 +591,7 @@ bool ReplayRuntime::TickVelocityEditInput( bool uiBlocksMouse,
 
         replayInteraction.ApplyVelocityEditToBody(
             ReplayVelocityEditApplyContext{ m_replayRuntime,
-                                            m_cGameModelCollection,
+                                            velocityPhysics,
                                             body.body,
                                             linearVelocity,
                                             angularVelocity,
@@ -681,11 +681,11 @@ bool ReplayRuntime::TickVelocityEditInput( bool uiBlocksMouse,
                                                       RuntimePointerButton::Left,
                                                       mouse.x,
                                                       mouse.y,
-                                                      body.modelIndex,
+                                                      body.modelRow.value,
                                                       m_replayRuntime.VelocityEdit().hotAngularAxis,
                                                       true );
                     ReplayVelocityEditDragStart dragStart;
-                    dragStart.modelIndex = body.modelIndex;
+                    dragStart.modelRow.value = body.modelRow.value;
                     dragStart.axis = m_replayRuntime.VelocityEdit().hotAngularAxis;
                     dragStart.angular = true;
                     dragStart.angle = startAngle;
@@ -731,11 +731,11 @@ bool ReplayRuntime::TickVelocityEditInput( bool uiBlocksMouse,
                                                       RuntimePointerButton::Left,
                                                       mouse.x,
                                                       mouse.y,
-                                                      body.modelIndex,
+                                                      body.modelRow.value,
                                                       m_replayRuntime.VelocityEdit().hotLinearAxis,
                                                       false );
                     ReplayVelocityEditDragStart dragStart;
-                    dragStart.modelIndex = body.modelIndex;
+                    dragStart.modelRow.value = body.modelRow.value;
                     dragStart.axis = m_replayRuntime.VelocityEdit().hotLinearAxis;
                     dragStart.angular = false;
                     dragStart.axisT = axisT;
@@ -760,11 +760,7 @@ bool ReplayRuntime::TickVelocityEditInput( bool uiBlocksMouse,
         pickInput.hasWorldRay = pointerRay.hasWorldRay;
         pickInput.rayOrigin = rayOrigin;
         pickInput.rayDirection = rayDirection;
-        (void)m_replayRuntime.TryPickPathTarget( pickInput,
-                                                 m_cGameModelCollection,
-                                                 m_cGameModelCollection.BodyStore(),
-                                                 m_cGameModelCollection.Colliders(),
-                                                 m_cGameModelCollection.RenderPresentationRecords() );
+        (void)m_replayRuntime.TryPickPathTarget( pickInput, entities, velocityBodies, velocityColliders, presentation );
         if ( m_replayRuntime.PathVisualizer().hasTarget )
         {
             outEnterInteractive = true;
@@ -784,7 +780,7 @@ bool ReplayRuntime::TickVelocityEditInput( bool uiBlocksMouse,
 }
 
 
-void ReplayRuntime::RenderVelocityEditOverlay( GameObjects::GameModelCollection& models,
+void ReplayRuntime::RenderVelocityEditOverlay( PhysicsEngine& velocityPhysics,
                                                bool editorModeEnabled,
                                                RunEditorTracer& tracer )
 {
@@ -795,11 +791,6 @@ void ReplayRuntime::RenderVelocityEditOverlay( GameObjects::GameModelCollection&
     }
 
     ReplayVelocityBodyView body;
-    if ( !models.RepairPhysicsBodyAndColliderTopology() )
-    {
-        return;
-    }
-    PhysicsEngine& velocityPhysics = models.GetPhysicsEngine();
     if ( !TryResolveReplayVelocityBodyView(
              *this,
              SkullbonezCore::Physics::PhysicsEngineStoreQueries::BodyStore( velocityPhysics ),

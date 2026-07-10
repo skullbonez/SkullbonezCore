@@ -1065,33 +1065,13 @@ MainMemoryGameObjectStats GameModelCollection::CollectMemoryStats() const
 }
 
 
-bool GameModelCollection::TrimModelsForReplayRestore( int modelCount )
+bool GameModelCollection::TrimPresentationRowsForSceneRestore( int modelCount )
 {
     if ( modelCount < 0 || modelCount > SceneEntityCount() )
     {
         return false;
     }
-
-    const PhysicsBodyCount bodyCount = MakePhysicsBodyCountFromNonNegativeInt( modelCount );
-    const PhysicsColliderCount colliderCount = MakePhysicsColliderCountFromNonNegativeInt( modelCount );
-    const PhysicsAuthoredBodyCount authoredBodyCount = MakePhysicsAuthoredBodyCountFromNonNegativeInt( modelCount );
-    if ( !m_physicsEngine.TrimBodiesToCount( bodyCount ) )
-    {
-        return false;
-    }
-    if ( Colliders().Count() > modelCount && !m_physicsEngine.TrimCollidersToCount( colliderCount ) )
-    {
-        return false;
-    }
-    if ( !m_physicsEngine.TrimAuthoredBodyDescriptorsToCount( authoredBodyCount ) )
-    {
-        return false;
-    }
-    if ( !m_presentations.TrimToCount( modelCount ) || !SceneEntities().TrimToCount( modelCount ) )
-    {
-        return false;
-    }
-    return true;
+    return m_presentations.TrimToCount( modelCount ) && m_renderInstanceStore.ResizePresentationRecords( modelCount );
 }
 
 

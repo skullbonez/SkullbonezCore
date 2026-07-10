@@ -667,7 +667,9 @@ ApplyRuntimeUIFrameCommands( const RuntimeUIFrameContext& context,
                                              context.replayPointerRay,
                                              context.inputRouter,
                                              context.interaction,
-                                             context.gameModels,
+                                             context.gameModels.GetPhysicsEngine(),
+                                             context.sceneController.Entities(),
+                                             context.gameModels.RenderPresentationRecords(),
                                              context.systems.cameras,
                                              context.systems.terrain.get(),
                                              context.camera,
@@ -1153,7 +1155,7 @@ bool Run::RouteRuntimePointerInput( const RuntimeInputSnapshot& inputSnapshot, c
         pickInput.clearOnMiss = !additiveReplayPick;
         const ReplayRuntime::PathPickResult pickResult =
             m_replayRuntime.TryPickPathTarget( pickInput,
-                                               m_cGameModelCollection,
+                                               m_sceneController.Entities(),
                                                m_cGameModelCollection.BodyStore(),
                                                m_cGameModelCollection.Colliders(),
                                                m_cGameModelCollection.RenderPresentationRecords() );
@@ -1676,9 +1678,9 @@ void Run::SeedAttachedCameraTargetFromSelection()
     const RunReplayPathVisualizerState& path = m_replayRuntime.PathVisualizer();
     const PhysicsBodyStore& bodyStore = m_cGameModelCollection.BodyStore();
     const int modelCount = bodyStore.Count();
-    if ( path.hasTarget && path.targetModelIndex >= 0 && path.targetModelIndex < modelCount )
+    if ( path.hasTarget && path.targetModelRow.value >= 0 && path.targetModelRow.value < modelCount )
     {
-        seedIndex = path.targetModelIndex;
+        seedIndex = path.targetModelRow.value;
     }
     else
     {

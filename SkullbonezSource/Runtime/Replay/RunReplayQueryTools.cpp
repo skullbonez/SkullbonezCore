@@ -116,7 +116,7 @@ void ApplyReplayQueryPrimaryPathTarget( RunReplayPathVisualizerState& visualizer
 {
     visualizer.hasTarget = true;
     visualizer.targetId = id;
-    visualizer.targetModelIndex = modelIndex;
+    visualizer.targetModelRow.value = modelIndex;
     visualizer.targetName[0] = '\0';
     if ( name && name[0] != '\0' )
     {
@@ -128,7 +128,7 @@ void ApplyReplayQueryPrimaryPathTarget( RunReplayPathVisualizerState& visualizer
 
 ReplayRuntime::PathPickResult
 ReplayRuntime::TryPickPathTarget( const PathPickInput& input,
-                                  const GameObjects::GameModelCollection& models,
+                                  const SceneEntityStore& entities,
                                   const PhysicsBodyStore& bodyStore,
                                   const ColliderStore& colliderStore,
                                   const std::vector<Rendering::RenderInstancePresentationRecord>& presentationRecords )
@@ -173,9 +173,9 @@ ReplayRuntime::TryPickPathTarget( const PathPickInput& input,
         for ( const ReplaySolverBodySample& body : sample->bodies )
         {
             float radius = 1.0f;
-            if ( body.modelIndex >= 0 && body.modelIndex < modelCount )
+            if ( body.modelRow.value >= 0 && body.modelRow.value < modelCount )
             {
-                radius = ReplayQueryColliderRadiusForModelIndex( colliderStore, body.modelIndex ) + 1.0f;
+                radius = ReplayQueryColliderRadiusForModelIndex( colliderStore, body.modelRow.value ) + 1.0f;
             }
             float rayT = 0.0f;
             if ( ReplayQueryIntersectRaySphere( input.rayOrigin, input.rayDirection, body.position, radius, rayT ) &&
@@ -183,7 +183,7 @@ ReplayRuntime::TryPickPathTarget( const PathPickInput& input,
             {
                 bestT = rayT;
                 pickedId = body.id;
-                pickedIndex = body.modelIndex;
+                pickedIndex = body.modelRow.value;
                 pickedName[0] = '\0';
                 if ( body.name[0] != '\0' )
                 {
@@ -213,7 +213,11 @@ ReplayRuntime::TryPickPathTarget( const PathPickInput& input,
 
     if ( pickedIndex >= 0 && pickedIndex < modelCount )
     {
-        const int collectionIndex = models.RagdollRootModelIndexForPart( pickedIndex );
+        const SceneEntityRecord* pickedEntity = entities.TryGet( pickedIndex );
+        const int collectionIndex =
+            pickedEntity && pickedEntity->behaviorGroup.kind == SceneBehaviorGroupKind::SimpleRagdoll
+                ? entities.FindBySceneObjectId( pickedEntity->behaviorGroup.rootObjectId )
+                : pickedIndex;
         if ( collectionIndex >= 0 && collectionIndex < modelCount && collectionIndex != pickedIndex )
         {
             pickedIndex = collectionIndex;
@@ -254,7 +258,7 @@ ReplayRuntime::TryPickPathTarget( const PathPickInput& input,
             target = &visualizer.targets.back();
         }
 
-        target->modelIndex = pickedIndex;
+        target->modelRow.value = pickedIndex;
         target->name[0] = '\0';
         if ( pickedName[0] != '\0' )
         {

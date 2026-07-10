@@ -42,6 +42,14 @@ Related:
 
 namespace SkullbonezCore
 {
+namespace GameObjects
+{
+class GameModelCollection;
+}
+namespace Physics
+{
+class PhysicsEngine;
+}
 namespace Basics
 {
 class SceneController
@@ -91,6 +99,11 @@ class SceneController
     void SubmitSaveCurrentDefaults();
     SceneRequestBatch TakePendingRequests();
     std::size_t PendingRequestCount() const;
+    // Cold replay restore shrinks every scene-lifetime row owner as one
+    // transaction; ReplayRuntime never writes topology through model facades.
+    bool TrimForReplayRestore( GameObjects::GameModelCollection& presentations,
+                               Physics::PhysicsEngine& physics,
+                               int bodyCount );
 
     std::vector<RunRequiredContactState>& RequiredContacts();
     const std::vector<RunRequiredContactState>& RequiredContacts() const;

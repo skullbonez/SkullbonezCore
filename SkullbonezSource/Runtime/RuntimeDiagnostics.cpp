@@ -599,7 +599,7 @@ void RuntimeDiagnostics::LogReplayScrubProbe( RunPhysicsDiagnosticsState& diagno
                   static_cast<unsigned long long>( selected.stateHash ),
                   static_cast<unsigned long long>( live.stateHash ),
                   selectedBody.id.value,
-                  liveBody.modelIndex,
+                  liveBody.modelRow.value,
                   escapedName.c_str(),
                   selectedBody.position.x,
                   selectedBody.position.y,

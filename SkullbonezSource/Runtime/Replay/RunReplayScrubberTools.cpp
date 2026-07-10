@@ -239,11 +239,15 @@ void ReplayRuntime::TickWorkspace( const ReplayWorkspaceInput& input, ReplayWork
                                                       enterInteractive,
                                                       output.restoreRequest );
 
+    const Physics::PhysicsBodyStore& bodyStore = Physics::PhysicsEngineStoreQueries::BodyStore( input.physics );
+    const Physics::ColliderStore& colliderStore = Physics::PhysicsEngineStoreQueries::Colliders( input.physics );
     const bool causeTreeOwnsMouse = TickCauseTreeInput( input.uiBlocksMouse || scrubberOwnsMouse,
                                                         input.wheelDelta,
                                                         input.inputRouter,
                                                         input.interaction,
-                                                        input.models,
+                                                        bodyStore,
+                                                        colliderStore,
+                                                        input.presentation,
                                                         input.cameras,
                                                         input.terrain,
                                                         input.camera,
@@ -262,7 +266,9 @@ void ReplayRuntime::TickWorkspace( const ReplayWorkspaceInput& input, ReplayWork
                                input.pointerRay,
                                input.inputRouter,
                                input.interaction,
-                               input.models,
+                               input.physics,
+                               input.entities,
+                               input.presentation,
                                input.cameras,
                                input.terrain,
                                input.camera,

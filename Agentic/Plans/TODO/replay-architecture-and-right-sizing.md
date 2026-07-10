@@ -81,11 +81,16 @@ bounded by purpose, and the replay allocation exception remains narrow.
   byte enforcement, fixed-registry counters, diagnostics JSON, and explicit
   fatal-vs-cancel exhaustion rules. CPU, allocation, scrub/restore/prediction,
   v2, interaction, physics, perf, and full gates pass.
-- [ ] **R4 — Narrow live-owner access.** Replace replay traversal through
+- [x] **R4 — Narrow live-owner access.** Replace replay traversal through
   `GameModelCollection` with body/collider/render/scene views and stable ids.
   Restore remains a command into physics/scene owners, not a write through a
   model compatibility surface. Acceptance: replay headers do not store a bare
-  model index as persistent identity.
+  model index as persistent identity. Complete 2026-07-11: capture, workspace,
+  picking, velocity edit, prediction, overlays, render overrides, and restore
+  use explicit owners; retained rows are typed hints paired with `ReplayBodyId`;
+  scene topology restore is coordinated by `SceneController`. CPU, scrub,
+  interaction, physics, DX12, and full gates pass. Evidence:
+  `Agentic/Reports/replay_r4_live_owner_identity_20260711.md`.
 - [ ] **R5 — Tests, size closure, and feature gate.** Extend scrub/restore,
   hash, branch, prediction, artifact, and allocation tests. Perform one final
   independent review. Acceptance: all replay tests run from the CPU umbrella or

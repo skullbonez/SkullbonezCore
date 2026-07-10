@@ -33,9 +33,9 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace GameObjects
+namespace Physics
 {
-class GameModelCollection;
+class PhysicsEngine;
 }
 namespace Basics
 {
@@ -54,7 +54,7 @@ struct ReplayVelocityEditResetResult
 
 struct ReplayVelocityEditDragStart
 {
-    int modelIndex = -1;
+    Physics::ModelRowHint modelRow;
     int axis = -1;
     bool angular = false;
     float axisT = 0.0f;
@@ -66,7 +66,7 @@ struct ReplayVelocityEditDragStart
 struct ReplayVelocityEditApplyContext
 {
     ReplayRuntime& replayRuntime;
-    GameObjects::GameModelCollection& models;
+    Physics::PhysicsEngine& physics;
     Physics::PhysicsBodyHandle body;
     Math::Vector::Vector3 linearVelocity = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 angularVelocity = Math::Vector::ZERO_VECTOR;

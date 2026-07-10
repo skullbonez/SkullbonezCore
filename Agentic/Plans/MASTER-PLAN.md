@@ -49,8 +49,8 @@ Status: Authoritative inventory of every live repository plan
 | [runtime-shell-decomposition](TODO/runtime-shell-decomposition.md) | In progress | 13/27 completed items | Close the remaining B1f/C1 shell seams, then retire `RunInternal.h` and forwarding wrappers |
 | [runtime-ui-control-architecture-cleanup](TODO/runtime-ui-control-architecture-cleanup.md) | Planned | 0/7 | U0 tracked UI-surface inventory |
 | [interaction-state-machine](TODO/interaction-state-machine.md) | In progress | 0/6 remaining phases | I4 capture/focus behavior with CPU + interaction proof |
-| [replay-architecture-and-right-sizing](TODO/replay-architecture-and-right-sizing.md) | In progress | 4/6 | R4 replace collection traversal and persistent model-index identity with narrow stable-id owner views |
-| [physics-authority-and-identity](TODO/physics-authority-and-identity.md) | In progress | 9/16 current items | D1-D4 stored identity cleanup after the ReplayRuntime/RuntimeRenderer owner boundary |
+| [replay-architecture-and-right-sizing](TODO/replay-architecture-and-right-sizing.md) | In progress | 5/6 | R5 tests, source-size closure, feature gate, and final independent review |
+| [physics-authority-and-identity](TODO/physics-authority-and-identity.md) | In progress | 10/16 current items | D1-D2 and D4 remaining stored-identity cleanup after replay D3 closure |
 | [render-backend-decomposition](TODO/render-backend-decomposition.md) | In progress | 0/8 remaining items | Begin the texture-owner split from the completed RuntimeRenderer composition boundary |
 | [stale-plan-reference-cleanup-15.6-checklist](TODO/stale-plan-reference-cleanup-15.6-checklist.md) | Complete | 86/86 files | Retain as reconciled evidence; no source rows remain |
 

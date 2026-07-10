@@ -28,7 +28,8 @@ exist; replay ids live on physics rows.
 
 Still open: `GameModelCollection` physically owns `PhysicsEngine`, scene
 grouping remains collection ordered, save still reaches through the collection,
-and runtime/replay headers still store many bare model-index hints.
+and non-replay runtime headers still store bare model-index hints. Replay-owned
+state was converted to stable ids plus typed hints in R4.
 
 ## Binding Owner Decision
 
@@ -228,8 +229,10 @@ no longer an open question.
   enqueue time.
 - [ ] D2. Stored index members in runtime state, interaction, attached-camera,
   and pick-service headers become handles or explicitly typed row hints.
-- [ ] D3. Replay live-state hints become `ModelRowHint`; recorded sample rows
-  remain row-at-record-time data keyed by authoritative replay id.
+- [x] D3. Replay live-state hints become `ModelRowHint`; recorded sample rows
+  remain row-at-record-time data keyed by authoritative replay id. Complete
+  2026-07-11 with CPU, scrub, interaction, physics, DX12, and full evidence in
+  `Agentic/Reports/replay_r4_live_owner_identity_20260711.md`.
 - [ ] D4. Delete redundant range-validation branches and reconcile glossaries.
   Acceptance: no header stores a bare model-index integer as persistent identity.
 

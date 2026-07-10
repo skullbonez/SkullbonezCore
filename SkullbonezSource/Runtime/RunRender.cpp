@@ -58,6 +58,7 @@ void Run::Render( const RuntimeRenderModelFrameView& renderModels )
         (void)TryResolveAttachedCameraTarget( attachedTargetIndex );
     }
     const RenderReplayOverlayView replayOverlay{ m_replayRuntime,
+                                                 m_sceneController.Entities(),
                                                  SceneState().isScenePhysics,
                                                  SceneState().currentFrame,
                                                  m_timers.simulationTimer.GetTimeSinceLastStart(),

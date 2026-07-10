@@ -92,7 +92,10 @@ bool ApplyReplayProbePresentationSampleForRender( SkullbonezCore::GameObjects::G
     // them: after the live render snapshot refresh and before draw submission.
     // This proves presentation overrides do not mutate live body rows.
     collection.PrepareRenderInstances();
-    return replayRuntime.ApplyPresentationSampleForRender( collection, sample );
+    return replayRuntime.ApplyPresentationSampleForRender( collection.MutableRenderInstances(),
+                                                           collection.BodyStore(),
+                                                           collection.Colliders(),
+                                                           sample );
 }
 
 void RestoreReplayProbeRenderInstances( SkullbonezCore::GameObjects::GameModelCollection& collection )
@@ -393,7 +396,7 @@ SbResult ValidateReplaySaveProbeArtifact( ReplaySaveProbeArtifactContext& contex
         return ReplayProbeFailure( "replay save probe did not find a moved body in the loaded v2 artifact" );
     }
 
-    const int probedModelIndex = liveBody->modelIndex;
+    const int probedModelIndex = liveBody->modelRow.value;
     const PhysicsBodyRecord* probedBody = TryGetReplayProbeBodyRecord( context.models, probedModelIndex );
     if ( !probedBody )
     {
@@ -1246,11 +1249,11 @@ bool ReplayCheckpointTopologyMatchesLive( const ReplaySolverFrameSample& checkpo
     }
     for ( const ReplaySolverBodySample& body : checkpoint.bodies )
     {
-        if ( body.modelIndex < 0 || body.modelIndex >= liveModelCount )
+        if ( body.modelRow.value < 0 || body.modelRow.value >= liveModelCount )
         {
             return false;
         }
-        const PhysicsBodyRecord* bodyRecord = TryGetReplayProbeBodyRecord( models, body.modelIndex );
+        const PhysicsBodyRecord* bodyRecord = TryGetReplayProbeBodyRecord( models, body.modelRow.value );
         if ( !bodyRecord || bodyRecord->replayBodyId != body.id.value )
         {
             return false;
@@ -2097,7 +2100,7 @@ SbResult ReplayRuntime::TickScrubProbe( const ReplayLiveWorld& liveWorld )
         return ReplayProbeFailure( "replay scrub probe did not find a moved body in the selected replay window" );
     }
 
-    const int probedModelIndex = liveBody->modelIndex;
+    const int probedModelIndex = liveBody->modelRow.value;
     const PhysicsBodyRecord* probedBody = TryGetReplayProbeBodyRecord( liveWorld.models, probedModelIndex );
     if ( !probedBody )
     {
@@ -2372,7 +2375,7 @@ SbResult ReplayRuntime::VerifyLoadedPresentationProbe( const ReplayLiveWorld& li
         return ReplayProbeFailure( "replay load probe did not find a moved body in the loaded v2 artifact" );
     }
 
-    const int probedModelIndex = selectedBody->modelIndex;
+    const int probedModelIndex = selectedBody->modelRow.value;
     const PhysicsBodyRecord* probedBody = TryGetReplayProbeBodyRecord( liveWorld.models, probedModelIndex );
     if ( !probedBody )
     {

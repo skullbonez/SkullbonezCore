@@ -408,7 +408,7 @@ Run::Run( Window& window,
                                    m_timers,
                                    profiler },
                   RenderSceneView{ m_sceneController, m_sceneController.Browser() },
-                  RenderReplayOverlayView{ m_replayRuntime },
+                  RenderReplayOverlayView{ m_replayRuntime, m_sceneController.Entities() },
                   RenderToolOverlayView{ m_runtimeTools },
                   RenderUiView{ m_UI, m_runtimeInput, m_camera, m_runtimeViewModel } )
 {
@@ -676,16 +676,19 @@ bool ReplayRuntime::ApplySolverSampleState( const ReplayLiveWorld& liveWorld,
                                             char* outReason,
                                             std::size_t reasonSize )
 {
-    return ReplayRestoreService::ApplySolverSampleState( ReplaySolverSampleRestoreContext{ liveWorld.models,
-                                                                                           liveWorld.world,
-                                                                                           liveWorld.scene,
-                                                                                           liveWorld.runtimeSettings,
-                                                                                           liveWorld.debug,
-                                                                                           liveWorld.cameras,
-                                                                                           liveWorld.runtimeTools },
-                                                         sample,
-                                                         outReason,
-                                                         reasonSize );
+    return ReplayRestoreService::ApplySolverSampleState(
+        ReplaySolverSampleRestoreContext{ liveWorld.models,
+                                          liveWorld.models.GetPhysicsEngine(),
+                                          liveWorld.sceneController,
+                                          liveWorld.world,
+                                          liveWorld.scene,
+                                          liveWorld.runtimeSettings,
+                                          liveWorld.debug,
+                                          liveWorld.cameras,
+                                          liveWorld.runtimeTools },
+        sample,
+        outReason,
+        reasonSize );
 }
 
 bool ReplayRuntime::CaptureCurrentSolverHash( const ReplayLiveWorld& liveWorld,
@@ -721,7 +724,7 @@ bool ReplayRuntime::CaptureCurrentSolverHash( const ReplayLiveWorld& liveWorld,
     input.terrainHidden = liveWorld.debug.isTerrainHidden;
     input.cameras = liveWorld.cameras;
     input.world = &liveWorld.world;
-    input.models = &liveWorld.models;
+    input.physics = &liveWorld.models.GetPhysicsEngine();
     input.entities = &liveWorld.sceneController.Entities();
     input.bodyStore = &liveWorld.models.BodyStore();
     input.colliderStore = &liveWorld.models.Colliders();
