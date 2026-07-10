@@ -220,9 +220,6 @@ class Run
     bool
     TickAttachedCameraWorldClick( const RuntimeMouseEdges& mouseEdges,
                                   bool suppressWorldActionThisFrame );  // Consumes Attach left-click target selection.
-    void CycleAttachedCameraSubmode();                                  // F1 cycles Fixed, Velocity, and available Eyes modes.
-    void ToggleAttachedCameraPin();                                     // Enter pins/unpins camera follow while in Attach.
-    void TickAttachedCameraOrbitInput( int unhandledWheelDelta );       // Mouse wheel adjusts Attach orbit distance.
     SbResult ReleaseBackendOwnedRenderResources(
         const char* phaseName );                                        // Ordered GPU-resource release hook while the backend is alive.
     SbResult RebuildRegisteredRenderResources();                        // Recreates renderer resources from source asset records.

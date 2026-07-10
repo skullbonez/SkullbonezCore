@@ -310,6 +310,67 @@ bool AttachedCameraController::TickFollow( const GameObjects::GameModelCollectio
 }
 
 
+bool AttachedCameraController::CycleMode( const GameObjects::GameModelCollection& collection,
+                                          Environment::CameraCollection& cameras )
+{
+    AttachedCameraPhysicsTarget target;
+    bool shouldCaptureFixedOffset = false;
+    if ( !CycleSubmode( collection, m_state, target, shouldCaptureFixedOffset ) )
+    {
+        return false;
+    }
+    if ( shouldCaptureFixedOffset )
+    {
+        AttachedCameraPose pose{ cameras.GetCameraTranslation(), cameras.GetCameraView(), cameras.GetCameraUp() };
+        CaptureFixedOffset( m_state, pose, target );
+    }
+    return true;
+}
+
+
+bool AttachedCameraController::TogglePin( const GameObjects::GameModelCollection& collection,
+                                          Environment::CameraCollection& cameras )
+{
+    m_state.activeFollow = !m_state.activeFollow;
+    if ( m_state.activeFollow )
+    {
+        AttachedCameraPhysicsTarget target;
+        if ( TryResolvePhysicsTarget( collection, m_state.target, target ) )
+        {
+            AttachedCameraPose pose{ cameras.GetCameraTranslation(), cameras.GetCameraView(), cameras.GetCameraUp() };
+            CaptureFixedOffset( m_state, pose, target );
+        }
+        m_state.needsEntryTween = true;
+    }
+    return m_state.activeFollow;
+}
+
+
+bool AttachedCameraController::ApplyOrbitInput( const GameObjects::GameModelCollection& collection,
+                                                Environment::CameraCollection& cameras,
+                                                bool attachModeActive,
+                                                int unhandledWheelDelta,
+                                                bool uiBlocksCameraMouse )
+{
+    if ( !attachModeActive || !m_state.activeFollow || m_state.submode == AttachedCameraSubmode::RagdollEyes ||
+         uiBlocksCameraMouse )
+    {
+        return false;
+    }
+    AttachedCameraPhysicsTarget target;
+    if ( !TryResolvePhysicsTarget( collection, m_state.target, target ) )
+    {
+        return false;
+    }
+    if ( !m_state.hasOrbit )
+    {
+        AttachedCameraPose pose{ cameras.GetCameraTranslation(), cameras.GetCameraView(), cameras.GetCameraUp() };
+        CaptureOrbit( m_state, pose, target );
+    }
+    return ApplyOrbitWheel( m_state, target, unhandledWheelDelta );
+}
+
+
 void AttachedCameraController::Reset( AttachedCameraState& state )
 {
     state = AttachedCameraState{};

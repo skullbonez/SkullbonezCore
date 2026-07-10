@@ -603,7 +603,7 @@ struct RuntimeUIFrameContext
     ReplayRuntime::PathPickInput replayPointerRay;
     RunCameraMode replayCurrentCameraMode = RunCameraMode::Demo;
     RunCameraMode replayRestoreCameraMode = RunCameraMode::Demo;
-    bool attachedCameraFollow = false;
+    AttachedCameraController& attachedCamera;
     RuntimeInteractionController& interaction;
     RunTimerState& timers;
     RunDebugState& debug;
@@ -642,7 +642,6 @@ template <typename CameraModeEnabledMask,
           typename ApplyEditorPlacementModeToggle,
           typename ResetReplayTimelineForActiveScene,
           typename RunUIStressActions,
-          typename TickAttachedCameraOrbitInput,
           typename TickEditorViewportAndPlacementScaleInput>
 RuntimeUIFrameResult
 ApplyRuntimeUIFrameCommands( const RuntimeUIFrameContext& context,
@@ -658,7 +657,6 @@ ApplyRuntimeUIFrameCommands( const RuntimeUIFrameContext& context,
                              ApplyEditorPlacementModeToggle applyEditorPlacementModeToggle,
                              ResetReplayTimelineForActiveScene resetReplayTimelineForActiveScene,
                              RunUIStressActions runUIStressActions,
-                             TickAttachedCameraOrbitInput tickAttachedCameraOrbitInput,
                              TickEditorViewportAndPlacementScaleInput tickEditorViewportAndPlacementScaleInput )
 {
     RuntimeUIFrameResult result;
@@ -735,7 +733,7 @@ ApplyRuntimeUIFrameCommands( const RuntimeUIFrameContext& context,
                                              context.runtimeTools.MousePickup(),
                                              context.replayCurrentCameraMode,
                                              context.replayRestoreCameraMode,
-                                             context.attachedCameraFollow,
+                                             context.attachedCamera.State().activeFollow,
                                              context.camera.director.grabbed,
                                              context.runtimeTools.Editor().editorModeEnabled,
                                              context.sceneState.isScenePhysics,
@@ -1032,7 +1030,14 @@ ApplyRuntimeUIFrameCommands( const RuntimeUIFrameContext& context,
         return result;
     }
 
-    tickAttachedCameraOrbitInput( result.editorUnhandledWheelDelta );
+    if ( context.attachedCamera.ApplyOrbitInput( context.gameModels,
+                                                 context.sceneController.Cameras(),
+                                                 RunCameraModeIsAttached( context.replayCurrentCameraMode ),
+                                                 result.editorUnhandledWheelDelta,
+                                                 context.ui.BlocksCameraMouse() ) )
+    {
+        enterInteractiveSceneRun();
+    }
     tickEditorViewportAndPlacementScaleInput( result.editorUnhandledWheelDelta );
     return result;
 }
@@ -1588,93 +1593,6 @@ bool Run::TickAttachedCameraWorldClick( const RuntimeMouseEdges& mouseEdges, boo
         return false;
     }
     return TryPickAttachedCameraTargetFromMouse();
-}
-
-
-void Run::CycleAttachedCameraSubmode()
-{
-    if ( !RunCameraModeIsAttached( m_camera.mode ) )
-    {
-        return;
-    }
-    AttachedCameraPhysicsTarget targetState;
-    bool shouldCaptureFixedOffset = false;
-    if ( !AttachedCameraController::CycleSubmode( m_sceneController.Models(),
-                                                  m_attachedCamera.State(),
-                                                  targetState,
-                                                  shouldCaptureFixedOffset ) )
-    {
-        return;
-    }
-
-    if ( shouldCaptureFixedOffset )
-    {
-        CaptureAttachedCameraFixedOffsetFromCurrentPose( m_attachedCamera.State(),
-                                                         &m_sceneController.Cameras(),
-                                                         targetState );
-    }
-    UpdateRuntimeInputModeAfterAction( RuntimeInputAction::CycleAttachedCameraSubmode,
-                                       RuntimeInputActionSource::Keyboard );
-}
-
-
-void Run::ToggleAttachedCameraPin()
-{
-    if ( !RunCameraModeIsAttached( m_camera.mode ) )
-    {
-        return;
-    }
-
-    m_attachedCamera.State().activeFollow = !m_attachedCamera.State().activeFollow;
-    if ( m_attachedCamera.State().activeFollow )
-    {
-        AttachedCameraPhysicsTarget targetState;
-        if ( AttachedCameraController::TryResolvePhysicsTarget( m_sceneController.Models(),
-                                                                m_attachedCamera.State().target,
-                                                                targetState ) )
-        {
-            CaptureAttachedCameraFixedOffsetFromCurrentPose( m_attachedCamera.State(),
-                                                             &m_sceneController.Cameras(),
-                                                             targetState );
-        }
-        m_attachedCamera.State().needsEntryTween = true;
-    }
-    else
-    {
-        ReleaseRuntimeMouseToUI( m_inputRouter, m_runtimeTools.Editor(), m_replayRuntime, m_camera );
-    }
-    ApplyRuntimeCursorOwnership( m_inputRouter, m_runtimeTools.Editor(), m_replayRuntime );
-    UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleAttachedCameraPin,
-                                       RuntimeInputActionSource::Keyboard );
-}
-
-
-void Run::TickAttachedCameraOrbitInput( int unhandledWheelDelta )
-{
-    if ( !RunCameraModeIsAttached( m_camera.mode ) || !m_attachedCamera.State().activeFollow ||
-         m_attachedCamera.State().submode == AttachedCameraSubmode::RagdollEyes || m_UI.BlocksCameraMouse() )
-    {
-        return;
-    }
-
-    AttachedCameraPhysicsTarget targetState;
-    if ( !AttachedCameraController::TryResolvePhysicsTarget( m_sceneController.Models(),
-                                                             m_attachedCamera.State().target,
-                                                             targetState ) )
-    {
-        return;
-    }
-    if ( !m_attachedCamera.State().hasOrbit )
-    {
-        CaptureAttachedCameraOrbitFromCurrentPose( m_attachedCamera.State(),
-                                                   &m_sceneController.Cameras(),
-                                                   targetState );
-    }
-
-    if ( AttachedCameraController::ApplyOrbitWheel( m_attachedCamera.State(), targetState, unhandledWheelDelta ) )
-    {
-        EnterInteractiveSceneRun();
-    }
 }
 
 
@@ -2312,15 +2230,25 @@ void Run::TakeInput()
             }
             break;
         case RuntimeInputAction::CycleAttachedCameraSubmode:
-            if ( RunCameraModeIsAttached( m_camera.mode ) )
+            if ( RunCameraModeIsAttached( m_camera.mode ) &&
+                 m_attachedCamera.CycleMode( m_sceneController.Models(), m_sceneController.Cameras() ) )
             {
-                CycleAttachedCameraSubmode();
+                UpdateRuntimeInputModeAfterAction( RuntimeInputAction::CycleAttachedCameraSubmode,
+                                                   RuntimeInputActionSource::Keyboard );
             }
             break;
         case RuntimeInputAction::ToggleAttachedCameraPin:
             if ( RunCameraModeIsAttached( m_camera.mode ) )
             {
-                ToggleAttachedCameraPin();
+                const bool activeFollow =
+                    m_attachedCamera.TogglePin( m_sceneController.Models(), m_sceneController.Cameras() );
+                if ( !activeFollow )
+                {
+                    ReleaseRuntimeMouseToUI( m_inputRouter, m_runtimeTools.Editor(), m_replayRuntime, m_camera );
+                }
+                ApplyRuntimeCursorOwnership( m_inputRouter, m_runtimeTools.Editor(), m_replayRuntime );
+                UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleAttachedCameraPin,
+                                                   RuntimeInputActionSource::Keyboard );
             }
             break;
         case RuntimeInputAction::WriteLauncherReproSnapshot:
@@ -2523,7 +2451,7 @@ void Run::TakeInput()
                                replayPointerRay,
                                NormalizeCameraModeForCurrentScene( m_camera.mode ),
                                NormalizeCameraModeForCurrentScene( m_replayRuntime.Camera().restoreCameraMode ),
-                               m_attachedCamera.State().activeFollow,
+                               m_attachedCamera,
                                m_interaction,
                                m_timers,
                                m_debug,
@@ -2573,7 +2501,6 @@ void Run::TakeInput()
                     m_camera.director.grabbed } );
         },
         [this]() { return RunUIStressActions(); },
-        [this]( int editorWheelDelta ) { TickAttachedCameraOrbitInput( editorWheelDelta ); },
         [this]( int editorWheelDelta ) { TickEditorViewportAndPlacementScaleInput( editorWheelDelta ); } );
     const ReplayLiveRestoreRequest& restoreRequest = uiFrameResult.replayWorkspace.restoreRequest;
     if ( restoreRequest.kind != ReplayLiveRestoreKind::None )

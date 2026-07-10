@@ -130,6 +130,13 @@ class AttachedCameraController
                      Environment::CameraCollection& cameras,
                      float orbitYawDelta,
                      float orbitPitchDelta );
+    bool CycleMode( const GameObjects::GameModelCollection& collection, Environment::CameraCollection& cameras );
+    bool TogglePin( const GameObjects::GameModelCollection& collection, Environment::CameraCollection& cameras );
+    bool ApplyOrbitInput( const GameObjects::GameModelCollection& collection,
+                          Environment::CameraCollection& cameras,
+                          bool attachModeActive,
+                          int unhandledWheelDelta,
+                          bool uiBlocksCameraMouse );
 
     static void Reset( AttachedCameraState& state );
     static void ClearTarget( AttachedCameraState& state );

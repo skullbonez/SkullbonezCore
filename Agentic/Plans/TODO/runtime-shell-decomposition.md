@@ -322,6 +322,21 @@ InfoQueue errors, matching screenshots, standalone topology smoke, and the
 20,001-line byte-exact physics baseline. Comment audit: 6/6 touched source-
 bearing files.
 
+Attach submode cycling, pin state transitions, and wheel-orbit mutation are now
+`AttachedCameraController` operations. The controller borrows models/cameras
+only for each synchronous command, while the caller supplies the outer camera-
+mode and UI-blocking facts. Run's three command methods and the orbit callback
+slot in the UI frame pack are deleted. B1f remains open for Attach target
+selection, the outer world-pointer route, focus/keyboard composition, and final
+`TakeInput` deletion.
+
+Evidence: fast completed in 33.9s, the CPU umbrella (129/129 doctest cases and
+2,755 assertions), both interaction reports, perf, and full passed. Final-source
+full completed in 53.1s with
+zero warnings, zero DX12 InfoQueue errors, matching screenshots, standalone
+topology smoke, and the 20,001-line byte-exact physics baseline. Comment audit:
+4/4 touched source-bearing files.
+
 ## Remaining Work
 
 ### A. Narrow the render host
