@@ -1124,127 +1124,111 @@ void Run::UpdateRuntimeInputModeAfterAction( RuntimeInputAction action, RuntimeI
 }
 
 
-bool Run::RouteRuntimePointerInput( const RuntimeInputSnapshot& inputSnapshot, const RuntimeMouseEdges& mouseEdges )
+RuntimePointerRouteResult InputRouter::RouteRuntimePointer( const RuntimePointerRouteInput& input,
+                                                            RuntimeTools& runtimeTools,
+                                                            ReplayRuntime& replayRuntime,
+                                                            AttachedCameraController& attachedCamera,
+                                                            RuntimeInteractionController& interaction,
+                                                            SceneEntityStore& entities,
+                                                            GameObjects::GameModelCollection& models,
+                                                            PhysicsEngine& physics,
+                                                            RunSceneState& scene,
+                                                            Environment::WorldEnvironment& world,
+                                                            Geometry::Terrain* terrain,
+                                                            Assets::AssetSystem& assets,
+                                                            Environment::CameraCollection& cameras,
+                                                            RunCameraState& camera,
+                                                            RunCameraMode replayRestoreCameraMode,
+                                                            bool attachedCameraFollow,
+                                                            bool directorGrabbed )
 {
-    const bool leftPressed = inputSnapshot.pointer.leftPressed;
-    const bool suppressWorldAction = inputSnapshot.pointer.suppressWorldAction;
-    const bool uiWantsNativeMouseCursor = inputSnapshot.pointer.uiWantsNativeMouseCursor;
-
-    if ( m_interaction.PointerCapture() == RuntimePointerCaptureOwner::CameraLook )
+    RuntimePointerRouteResult result;
+    auto appendModeAction = [&result]( RuntimeInputAction action )
     {
-        return false;
+        if ( result.modeActionCount >= result.modeActions.size() )
+        {
+            SB_FATAL( "Runtime/InputRouter", "Runtime pointer mode-action capacity exhausted." );
+        }
+        result.modeActions[result.modeActionCount++] = action;
+    };
+    if ( interaction.PointerCapture() == RuntimePointerCaptureOwner::CameraLook )
+    {
+        return result;
     }
 
-    const DeviceInputFrame& editorDevice = m_inputRouter.DeviceFrame();
-    EditorPointerRouteInput editorInput;
-    editorInput.leftDown = mouseEdges.leftDown;
-    editorInput.leftPressed = mouseEdges.leftPressed;
-    editorInput.leftReleased = mouseEdges.leftReleased;
-    editorInput.suppressWorldAction = suppressWorldAction;
-    editorInput.blocksCameraMouse = m_UI.BlocksCameraMouse();
-    editorInput.controlDown = inputSnapshot.pointer.controlDown;
-    editorInput.hasClientPosition = editorDevice.hasClientPosition;
-    editorInput.clientX = editorDevice.clientX;
-    editorInput.clientY = editorDevice.clientY;
-    editorInput.activeModelCapacity = m_startup.gameModelCapacity;
-    editorInput.cameraMode = m_camera.mode;
-    editorInput.replayInspectionActive = m_replayRuntime.InspectionActive();
-    editorInput.hasWorldRay = TryBuildMouseWorldRay( editorInput.rayOrigin, editorInput.rayDirection );
-    const EditorPointerRouteResult editorResult = m_inputRouter.RouteEditorPointer(
-        editorInput,
-        m_runtimeTools,
-        m_replayRuntime,
-        m_interaction,
-        m_sceneController.Models(),
-        m_sceneController.Physics(),
-        SceneState(),
-        m_sceneController.World(),
-        m_sceneController.Terrain().Get(),
-        m_systems.assets,
-        m_sceneController.Cameras(),
-        m_camera,
-        NormalizeCameraModeForCurrentScene( m_replayRuntime.Camera().restoreCameraMode ),
-        m_attachedCamera.State().activeFollow,
-        m_camera.director.grabbed );
-    if ( editorResult.enteredInteractiveScene )
-    {
-        EnterInteractiveSceneRun();
-    }
+    const EditorPointerRouteResult editorResult = RouteEditorPointer( { input.leftDown,
+                                                                        input.leftPressed,
+                                                                        input.leftReleased,
+                                                                        input.suppressWorldAction,
+                                                                        input.blocksCameraMouse,
+                                                                        input.controlDown,
+                                                                        input.hasClientPosition,
+                                                                        input.hasWorldRay,
+                                                                        input.replayInspectionActive,
+                                                                        input.clientX,
+                                                                        input.clientY,
+                                                                        input.activeModelCapacity,
+                                                                        input.cameraMode,
+                                                                        input.rayOrigin,
+                                                                        input.rayDirection },
+                                                                      runtimeTools,
+                                                                      replayRuntime,
+                                                                      interaction,
+                                                                      models,
+                                                                      physics,
+                                                                      scene,
+                                                                      world,
+                                                                      terrain,
+                                                                      assets,
+                                                                      cameras,
+                                                                      camera,
+                                                                      replayRestoreCameraMode,
+                                                                      attachedCameraFollow,
+                                                                      directorGrabbed );
+    result.enteredInteractiveScene = editorResult.enteredInteractiveScene;
     for ( std::size_t actionIndex = 0; actionIndex < editorResult.modeActionCount; ++actionIndex )
     {
-        RuntimeInputAction action = RuntimeInputAction::EndEditorGizmoDrag;
-        switch ( editorResult.modeActions[actionIndex] )
-        {
-        case EditorPointerModeAction::EndPlacementScale:
-            action = RuntimeInputAction::EndEditorPlacementScale;
-            break;
-        case EditorPointerModeAction::EndGizmoDrag:
-            action = RuntimeInputAction::EndEditorGizmoDrag;
-            break;
-        case EditorPointerModeAction::BeginGizmoScale:
-            action = RuntimeInputAction::BeginEditorGizmoScale;
-            break;
-        case EditorPointerModeAction::BeginGizmoRotate:
-            action = RuntimeInputAction::BeginEditorGizmoRotate;
-            break;
-        case EditorPointerModeAction::BeginGizmoTranslate:
-            action = RuntimeInputAction::BeginEditorGizmoTranslate;
-            break;
-        case EditorPointerModeAction::BeginPlacementScale:
-            action = RuntimeInputAction::BeginEditorPlacementScale;
-            break;
-        }
-        UpdateRuntimeInputModeAfterAction( action, RuntimeInputActionSource::Mouse );
+        appendModeAction( editorResult.modeActions[actionIndex] );
     }
-    bool consumedWorldClick = editorResult.consumed;
-    if ( !consumedWorldClick )
+    bool consumed = editorResult.consumed;
+
+    if ( !consumed )
     {
         MousePickupPointerInput pickupInput;
-        pickupInput.manipulatorMode = RunCameraModeIsManipulator( m_camera.mode );
-        pickupInput.editorMode = m_runtimeTools.Editor().editorModeEnabled;
-        pickupInput.replayInspection = m_replayRuntime.InspectionActive();
-        pickupInput.suppressWorldAction = suppressWorldAction;
-        pickupInput.uiWantsNativeCursor = uiWantsNativeMouseCursor;
-        pickupInput.leftPressed = mouseEdges.leftPressed;
-        pickupInput.leftReleased = mouseEdges.leftReleased;
-        pickupInput.leftDown = mouseEdges.leftDown;
-        const DeviceInputFrame& deviceFrame = m_inputRouter.DeviceFrame();
-        pickupInput.hasClientPosition = deviceFrame.hasClientPosition;
-        pickupInput.clientX = deviceFrame.clientX;
-        pickupInput.clientY = deviceFrame.clientY;
-        pickupInput.cameraEye = m_sceneController.Cameras().GetCameraTranslation();
-        pickupInput.cameraView = m_sceneController.Cameras().GetCameraView();
+        pickupInput.manipulatorMode = RunCameraModeIsManipulator( input.cameraMode );
+        pickupInput.editorMode = runtimeTools.Editor().editorModeEnabled;
+        pickupInput.replayInspection = input.replayInspectionActive;
+        pickupInput.suppressWorldAction = input.suppressWorldAction;
+        pickupInput.uiWantsNativeCursor = input.uiWantsNativeCursor;
+        pickupInput.leftPressed = input.leftPressed;
+        pickupInput.leftReleased = input.leftReleased;
+        pickupInput.leftDown = input.leftDown;
+        pickupInput.hasClientPosition = input.hasClientPosition;
+        pickupInput.clientX = input.clientX;
+        pickupInput.clientY = input.clientY;
+        pickupInput.cameraEye = input.cameraEye;
+        pickupInput.cameraView = input.cameraView;
         if ( pickupInput.manipulatorMode && !pickupInput.editorMode && !pickupInput.replayInspection &&
-             ( m_runtimeTools.MousePickup().active || pickupInput.leftPressed ) )
+             ( runtimeTools.MousePickup().active || pickupInput.leftPressed ) )
         {
-            pickupInput.hasWorldRay = TryBuildMouseWorldRay( pickupInput.rayOrigin, pickupInput.rayDirection );
-            pickupInput.hasClampedWorldRay =
-                TryBuildMouseWorldRay( pickupInput.clampedRayOrigin, pickupInput.clampedRayDirection, true );
+            pickupInput.hasWorldRay = input.hasWorldRay;
+            pickupInput.hasClampedWorldRay = input.hasClampedWorldRay;
+            pickupInput.rayOrigin = input.rayOrigin;
+            pickupInput.rayDirection = input.rayDirection;
+            pickupInput.clampedRayOrigin = input.clampedRayOrigin;
+            pickupInput.clampedRayDirection = input.clampedRayDirection;
         }
         const MousePickupPointerResult pickupResult =
-            m_runtimeTools.RouteMousePickupPointer( pickupInput,
-                                                    m_sceneController.Models(),
-                                                    m_inputRouter,
-                                                    m_interaction );
-        if ( pickupResult.enteredInteractive )
-        {
-            EnterInteractiveSceneRun();
-        }
-        consumedWorldClick = pickupResult.consumed;
+            runtimeTools.RouteMousePickupPointer( pickupInput, models, *this, interaction );
+        result.enteredInteractiveScene |= pickupResult.enteredInteractive;
+        consumed = pickupResult.consumed;
     }
-    if ( !consumedWorldClick && RunCameraModeIsAttached( m_camera.mode ) && mouseEdges.leftPressed &&
-         !suppressWorldAction )
+
+    if ( !consumed && RunCameraModeIsAttached( input.cameraMode ) && input.leftPressed && !input.suppressWorldAction )
     {
-        Vector3 rayOrigin;
-        Vector3 rayDirection;
-        const bool hasWorldRay = TryBuildMouseWorldRay( rayOrigin, rayDirection );
         AttachedCameraTargetSelection selection;
-        if ( m_attachedCamera.PickTarget( m_sceneController.Models(),
-                                          m_sceneController.Cameras(),
-                                          hasWorldRay,
-                                          rayOrigin,
-                                          rayDirection,
-                                          selection ) )
+        if ( attachedCamera
+                 .PickTarget( models, cameras, input.hasWorldRay, input.rayOrigin, input.rayDirection, selection ) )
         {
             RuntimeInteractionCommand command;
             command.type = RuntimeInteractionCommandType::SetEditorSelection;
@@ -1253,72 +1237,69 @@ bool Run::RouteRuntimePointerInput( const RuntimeInputSnapshot& inputSnapshot, c
             command.collider = selection.collider;
             command.selectionScope = RuntimeInteractionSelectionScope::Inspect;
             command.claimSelectionOwner = false;
-            m_runtimeTools.ApplySelectionCommand( command, m_sceneController.Models() );
-            m_inputRouter.ApplyPointerPresentation(
-                EvaluateRuntimePointerPresentation( m_inputRouter, m_runtimeTools.Editor(), m_replayRuntime ) );
+            runtimeTools.ApplySelectionCommand( command, models );
+            ApplyPointerPresentation(
+                EvaluateRuntimePointerPresentation( *this, runtimeTools.Editor(), replayRuntime ) );
         }
-        EnterInteractiveSceneRun();
-        UpdateRuntimeInputModeAfterAction( RuntimeInputAction::SetCameraMode, RuntimeInputActionSource::Mouse );
-        consumedWorldClick = true;
-    }
-    if ( !consumedWorldClick )
-    {
-        const bool additiveReplayPick = inputSnapshot.pointer.shiftDown;
-        Vector3 rayOrigin;
-        Vector3 rayDirection;
-        ReplayRuntime::PathPickInput pickInput;
-        pickInput.hasWorldRay = leftPressed && TryBuildMouseWorldRay( rayOrigin, rayDirection );
-        pickInput.rayOrigin = rayOrigin;
-        pickInput.rayDirection = rayDirection;
-        pickInput.additive = additiveReplayPick;
-        pickInput.clearOnMiss = !additiveReplayPick;
-        consumedWorldClick = m_replayRuntime.RouteWorldPointer( ReplayRuntime::WorldPointerInput{
-            leftPressed,
-            suppressWorldAction,
-            m_runtimeTools.Editor().editorModeEnabled,
-            uiWantsNativeMouseCursor,
-            inputSnapshot.pointer.controlDown,
-            RunCameraModeUsesLauncher( m_camera.mode ),
-            pickInput,
-            m_sceneController.Entities(),
-            m_sceneController.Models().BodyStore(),
-            m_sceneController.Models().Colliders(),
-            m_sceneController.Models().RenderPresentationRecords(),
-            &m_sceneController.Cameras(),
-            m_sceneController.Terrain().Get(),
-            m_camera,
-            NormalizeCameraModeForCurrentScene( m_replayRuntime.Camera().restoreCameraMode ),
-            m_attachedCamera.State().activeFollow,
-            m_camera.director.grabbed,
-            m_interaction,
-            m_inputRouter } );
+        result.enteredInteractiveScene = true;
+        appendModeAction( RuntimeInputAction::SetCameraMode );
+        consumed = true;
     }
 
-    if ( !consumedWorldClick )
+    if ( !consumed )
     {
-        LauncherPointerInput launcherInput;
-        launcherInput.launcherMode = RunCameraModeUsesLauncher( m_camera.mode );
-        launcherInput.leftPressed = leftPressed;
-        launcherInput.suppressWorldAction = suppressWorldAction;
-        launcherInput.uiWantsNativeCursor = uiWantsNativeMouseCursor;
-        launcherInput.activeModelCapacity = m_startup.gameModelCapacity;
+        ReplayRuntime::PathPickInput pickInput;
+        pickInput.hasWorldRay = input.leftPressed && input.hasWorldRay;
+        pickInput.rayOrigin = input.rayOrigin;
+        pickInput.rayDirection = input.rayDirection;
+        pickInput.additive = input.shiftDown;
+        pickInput.clearOnMiss = !input.shiftDown;
+        consumed = replayRuntime.RouteWorldPointer(
+            ReplayRuntime::WorldPointerInput{ input.leftPressed,
+                                              input.suppressWorldAction,
+                                              runtimeTools.Editor().editorModeEnabled,
+                                              input.uiWantsNativeCursor,
+                                              input.controlDown,
+                                              RunCameraModeUsesLauncher( input.cameraMode ),
+                                              pickInput,
+                                              entities,
+                                              models.BodyStore(),
+                                              models.Colliders(),
+                                              models.RenderPresentationRecords(),
+                                              &cameras,
+                                              terrain,
+                                              camera,
+                                              replayRestoreCameraMode,
+                                              attachedCameraFollow,
+                                              directorGrabbed,
+                                              interaction,
+                                              *this } );
+    }
+
+    if ( !consumed )
+    {
         const LauncherPointerResult launcherResult =
-            m_runtimeTools.RouteLauncherPointer( launcherInput,
-                                                 m_sceneController.Cameras(),
-                                                 m_replayRuntime,
-                                                 m_sceneController.Models(),
-                                                 m_sceneController.Physics(),
-                                                 SceneState(),
-                                                 m_sceneController.Terrain().Get() );
+            runtimeTools.RouteLauncherPointer( { RunCameraModeUsesLauncher( input.cameraMode ),
+                                                 input.leftPressed,
+                                                 input.suppressWorldAction,
+                                                 input.uiWantsNativeCursor,
+                                                 input.activeModelCapacity },
+                                               cameras,
+                                               replayRuntime,
+                                               models,
+                                               physics,
+                                               scene,
+                                               terrain );
         if ( launcherResult.enteredInteractive )
         {
-            EnterInteractiveSceneRun();
-            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::FireLauncher, RuntimeInputActionSource::Mouse );
+            result.enteredInteractiveScene = true;
+            appendModeAction( RuntimeInputAction::FireLauncher );
         }
-        consumedWorldClick = launcherResult.consumed;
+        consumed = launcherResult.consumed;
     }
 
-    return consumedWorldClick;
+    result.consumed = consumed;
+    return result;
 }
 
 
@@ -2531,7 +2512,53 @@ void Run::TakeInput()
         SceneState().timeScale };
     const RuntimeInputSnapshot inputSnapshot =
         m_inputRouter.BuildRuntimeSnapshot( frameInput, suppressWorldActionThisFrame );
-    RouteRuntimePointerInput( inputSnapshot, mouseEdges );
+    const DeviceInputFrame& pointerDevice = m_inputRouter.DeviceFrame();
+    RuntimePointerRouteInput pointerInput;
+    pointerInput.leftDown = mouseEdges.leftDown;
+    pointerInput.leftPressed = inputSnapshot.pointer.leftPressed;
+    pointerInput.leftReleased = mouseEdges.leftReleased;
+    pointerInput.suppressWorldAction = inputSnapshot.pointer.suppressWorldAction;
+    pointerInput.uiWantsNativeCursor = inputSnapshot.pointer.uiWantsNativeMouseCursor;
+    pointerInput.shiftDown = inputSnapshot.pointer.shiftDown;
+    pointerInput.controlDown = inputSnapshot.pointer.controlDown;
+    pointerInput.blocksCameraMouse = routedUiSnapshot.blocksCameraMouse;
+    pointerInput.hasClientPosition = pointerDevice.hasClientPosition;
+    pointerInput.replayInspectionActive = m_replayRuntime.InspectionActive();
+    pointerInput.clientX = pointerDevice.clientX;
+    pointerInput.clientY = pointerDevice.clientY;
+    pointerInput.activeModelCapacity = m_startup.gameModelCapacity;
+    pointerInput.cameraMode = m_camera.mode;
+    pointerInput.hasWorldRay = TryBuildMouseWorldRay( pointerInput.rayOrigin, pointerInput.rayDirection );
+    pointerInput.hasClampedWorldRay =
+        TryBuildMouseWorldRay( pointerInput.clampedRayOrigin, pointerInput.clampedRayDirection, true );
+    pointerInput.cameraEye = m_sceneController.Cameras().GetCameraTranslation();
+    pointerInput.cameraView = m_sceneController.Cameras().GetCameraView();
+    const RuntimePointerRouteResult pointerResult = m_inputRouter.RouteRuntimePointer(
+        pointerInput,
+        m_runtimeTools,
+        m_replayRuntime,
+        m_attachedCamera,
+        m_interaction,
+        m_sceneController.Entities(),
+        m_sceneController.Models(),
+        m_sceneController.Physics(),
+        SceneState(),
+        m_sceneController.World(),
+        m_sceneController.Terrain().Get(),
+        m_systems.assets,
+        m_sceneController.Cameras(),
+        m_camera,
+        NormalizeCameraModeForCurrentScene( m_replayRuntime.Camera().restoreCameraMode ),
+        m_attachedCamera.State().activeFollow,
+        m_camera.director.grabbed );
+    if ( pointerResult.enteredInteractiveScene )
+    {
+        EnterInteractiveSceneRun();
+    }
+    for ( std::size_t actionIndex = 0; actionIndex < pointerResult.modeActionCount; ++actionIndex )
+    {
+        UpdateRuntimeInputModeAfterAction( pointerResult.modeActions[actionIndex], RuntimeInputActionSource::Mouse );
+    }
 
     if ( m_UI.BlocksKeyboard() )
     {

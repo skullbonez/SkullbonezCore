@@ -1578,7 +1578,7 @@ EditorPointerRouteResult InputRouter::RouteEditorPointer( const EditorPointerRou
                                                           bool directorGrabbed )
 {
     EditorPointerRouteResult routeResult;
-    auto appendModeAction = [&routeResult]( EditorPointerModeAction action )
+    auto appendModeAction = [&routeResult]( RuntimeInputAction action )
     {
         if ( routeResult.modeActionCount >= routeResult.modeActions.size() )
         {
@@ -1632,7 +1632,7 @@ EditorPointerRouteResult InputRouter::RouteEditorPointer( const EditorPointerRou
     }
     if ( placementScaleResult.endedGesture )
     {
-        appendModeAction( EditorPointerModeAction::EndPlacementScale );
+        appendModeAction( RuntimeInputAction::EndEditorPlacementScale );
     }
     consumedWorldClick = placementScaleResult.consumed;
 
@@ -1656,7 +1656,7 @@ EditorPointerRouteResult InputRouter::RouteEditorPointer( const EditorPointerRou
                                                   replayRuntime );
     if ( gizmoDragResult.endedGesture )
     {
-        appendModeAction( EditorPointerModeAction::EndGizmoDrag );
+        appendModeAction( RuntimeInputAction::EndEditorGizmoDrag );
     }
     consumedWorldClick = consumedWorldClick || gizmoDragResult.consumed;
 
@@ -1702,15 +1702,15 @@ EditorPointerRouteResult InputRouter::RouteEditorPointer( const EditorPointerRou
             consumedWorldClick = gestureResult.consumed;
             if ( gestureResult.kind == EditorGizmoGestureKind::Scale )
             {
-                appendModeAction( EditorPointerModeAction::BeginGizmoScale );
+                appendModeAction( RuntimeInputAction::BeginEditorGizmoScale );
             }
             else if ( gestureResult.kind == EditorGizmoGestureKind::Rotate )
             {
-                appendModeAction( EditorPointerModeAction::BeginGizmoRotate );
+                appendModeAction( RuntimeInputAction::BeginEditorGizmoRotate );
             }
             else if ( gestureResult.kind == EditorGizmoGestureKind::Translate )
             {
-                appendModeAction( EditorPointerModeAction::BeginGizmoTranslate );
+                appendModeAction( RuntimeInputAction::BeginEditorGizmoTranslate );
             }
         }
 
@@ -1724,7 +1724,7 @@ EditorPointerRouteResult InputRouter::RouteEditorPointer( const EditorPointerRou
             consumedWorldClick = placementStart.consumed;
             if ( placementStart.beganGesture )
             {
-                appendModeAction( EditorPointerModeAction::BeginPlacementScale );
+                appendModeAction( RuntimeInputAction::BeginEditorPlacementScale );
             }
             if ( !consumedWorldClick )
             {

@@ -177,9 +177,6 @@ class Run
     void UpdateRuntimeInputModeAfterAction(
         RuntimeInputAction action,
         RuntimeInputActionSource source );                              // Records the mode transition caused by one runtime/tool action.
-    bool
-    RouteRuntimePointerInput( const RuntimeInputSnapshot& inputSnapshot,
-                              const RuntimeMouseEdges& mouseEdges );    // Routes pointer input after snapshot capture.
     bool HandleUnfocusedInputFrame();                                   // Resets transient input when the app loses focus.
     void DispatchPostUIKeyboardActions();                               // Runs capture and late reset keyboard actions after UI input.
     void DispatchAfterUIKeyboardActions(

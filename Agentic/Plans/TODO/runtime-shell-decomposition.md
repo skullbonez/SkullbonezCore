@@ -606,6 +606,21 @@ with zero warnings, zero DX12 InfoQueue errors, matching screenshots,
 standalone topology smoke, and the 20,001-line byte-exact physics baseline.
 Comment audit: 4/4 touched source-bearing files.
 
+The complete runtime pointer priority chain now belongs to
+`InputRouter::RouteRuntimePointer`. A single immutable normal/clamped ray frame
+routes editor, manipulator, attached-camera selection, replay, then launcher;
+the router preserves first-consumer priority and returns bounded semantic mode
+actions. Run's `RouteRuntimePointerInput` method and declaration are deleted.
+B1f remains open for `TakeInput`, viewport/camera helpers, and any remaining
+late hardware/state reads.
+
+Evidence: the zero-warning Debug build passed. Fast passed in 30.7s; the CPU
+umbrella passed in 11.1s with 129/129 doctest cases and 2,755 assertions; all
+five interaction scenarios passed in 15.1s; perf completed in 32.3s; and full
+passed in 52.5s with zero warnings, zero DX12 InfoQueue errors, matching
+screenshots, standalone topology smoke, and the 20,001-line byte-exact physics
+baseline. Comment audit: 4/4 touched source-bearing files.
+
 ## Remaining Work
 
 ### A. Narrow the render host

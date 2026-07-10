@@ -93,16 +93,8 @@ enum class InteractionExitReason;
 class ReplayRuntime;
 class RuntimeInteractionController;
 class RuntimeTools;
-
-enum class EditorPointerModeAction
-{
-    EndPlacementScale,
-    EndGizmoDrag,
-    BeginGizmoScale,
-    BeginGizmoRotate,
-    BeginGizmoTranslate,
-    BeginPlacementScale
-};
+class AttachedCameraController;
+class SceneEntityStore;
 
 struct EditorPointerRouteInput
 {
@@ -130,7 +122,46 @@ struct EditorPointerRouteResult
     static constexpr std::size_t MAX_MODE_ACTIONS = 2;
     bool consumed = false;
     bool enteredInteractiveScene = false;
-    std::array<EditorPointerModeAction, MAX_MODE_ACTIONS> modeActions = {};
+    std::array<RuntimeInputAction, MAX_MODE_ACTIONS> modeActions = {};
+    std::size_t modeActionCount = 0;
+};
+
+struct RuntimePointerRouteInput
+{
+    // Lifetime: one post-UI frame shared by every pointer-domain owner. Normal
+    // and clamped rays are sampled once before any owner mutates scene state.
+    bool leftDown = false;
+    bool leftPressed = false;
+    bool leftReleased = false;
+    bool suppressWorldAction = false;
+    bool uiWantsNativeCursor = false;
+    bool shiftDown = false;
+    bool controlDown = false;
+    bool blocksCameraMouse = false;
+    bool hasClientPosition = false;
+    bool hasWorldRay = false;
+    bool hasClampedWorldRay = false;
+    bool replayInspectionActive = false;
+    int clientX = 0;
+    int clientY = 0;
+    int activeModelCapacity = 0;
+    RunCameraMode cameraMode;
+    Math::Vector::Vector3 rayOrigin = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 rayDirection = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 clampedRayOrigin = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 clampedRayDirection = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 cameraEye = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 cameraView = Math::Vector::Vector3( 0.0f, 0.0f, 1.0f );
+};
+
+struct RuntimePointerRouteResult
+{
+    // Invariant: actions preserve editor/end-before-begin and domain priority;
+    // composition applies them after the router finishes synchronous borrows.
+    static constexpr std::size_t MAX_MODE_ACTIONS = 2;
+    bool consumed = false;
+    bool enteredInteractiveScene = false;
+    std::array<RuntimeInputAction, MAX_MODE_ACTIONS> modeActions = {};
     std::size_t modeActionCount = 0;
 };
 class InputKeySnapshot
@@ -354,6 +385,23 @@ class InputRouter
                                                  RunCameraMode replayRestoreCameraMode,
                                                  bool attachedCameraFollow,
                                                  bool directorGrabbed );
+    RuntimePointerRouteResult RouteRuntimePointer( const RuntimePointerRouteInput& input,
+                                                   RuntimeTools& runtimeTools,
+                                                   ReplayRuntime& replayRuntime,
+                                                   AttachedCameraController& attachedCamera,
+                                                   RuntimeInteractionController& interaction,
+                                                   SceneEntityStore& entities,
+                                                   GameObjects::GameModelCollection& models,
+                                                   Physics::PhysicsEngine& physics,
+                                                   RunSceneState& scene,
+                                                   Environment::WorldEnvironment& world,
+                                                   Geometry::Terrain* terrain,
+                                                   Assets::AssetSystem& assets,
+                                                   Environment::CameraCollection& cameras,
+                                                   RunCameraState& camera,
+                                                   RunCameraMode replayRestoreCameraMode,
+                                                   bool attachedCameraFollow,
+                                                   bool directorGrabbed );
 
     // Pointer presentation requests are reconciled here so UI/tools/camera do
     // not manipulate Win32 capture or cursor counters independently.

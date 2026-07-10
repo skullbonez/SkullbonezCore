@@ -10,9 +10,9 @@ reports, and git history.
 | Field | Value |
 |---|---|
 | Branch | `engine-cleanup-10th-july`, tracking `origin/engine-cleanup-10th-july` |
-| Current pushed baseline | `402b6b87 refactor: move editor gesture starts into tools` |
-| Current objective | Continue B1f by deleting outer pointer composition, then TakeInput and remaining camera helpers |
-| Last broad local gate | `tools\validate_full.bat` passed InputRouter-owned editor pointer composition with 129/129 doctest cases, 2,755 assertions, zero-warning builds, DX12 with zero InfoQueue errors/matching screenshots, standalone physics smoke, and 20,001-line byte-exact physics in 52.2s |
+| Current pushed baseline | `54a6d7e3 refactor: move editor pointer composition into router` |
+| Current objective | Continue B1f by decomposing TakeInput and remaining viewport/camera helpers |
+| Last broad local gate | `tools\validate_full.bat` passed InputRouter-owned complete pointer priority routing with 129/129 doctest cases, 2,755 assertions, zero-warning builds, DX12 with zero InfoQueue errors/matching screenshots, standalone physics smoke, and 20,001-line byte-exact physics in 52.5s |
 | Native evidence | Injected heap-use-after-free caught; healthy ASan and five-file `/analyze` passed in 16.185s |
 
 ## Pushed Cleanup Commits
@@ -364,6 +364,11 @@ InputRouter now sequences the entire editor pointer route from one immutable
 ray frame and returns bounded ordered semantic actions; Run's editor world-click
 method is deleted. Fast, CPU, five interaction scenarios, perf, and full pass;
 comment audit is 4/4. B1f continues with the outer pointer route.
+
+InputRouter now owns the complete editor/manipulator/attach/replay/launcher
+pointer priority chain from one immutable normal/clamped ray sample; Run's outer
+pointer method is deleted. Fast, CPU, five interaction scenarios, perf, and full
+pass; comment audit is 4/4. B1f continues with `TakeInput` and camera helpers.
 
 Scene provenance C1a is complete: parser-owned library/instance/ordered-part
 records retain exact shape sources, hierarchy transforms use rotated offsets
