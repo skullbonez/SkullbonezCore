@@ -389,8 +389,7 @@ Run::Run( Window& window,
           Threading::WorkerPool& workerPool,
           Profiler* profiler,
           RuntimeRenderBackendView renderBackendView )
-    : m_config( config ), m_sceneController( std::move( sceneQueue ) ),
-      m_cGameModelCollection( m_sceneController.Physics() ), m_renderBackendView( renderBackendView ),
+    : m_config( config ), m_sceneController( std::move( sceneQueue ) ), m_renderBackendView( renderBackendView ),
       m_renderer( m_renderBackendView,
                   RenderWorldView{ m_systems.assets,
                                    m_systems.textureCollection,
@@ -418,9 +417,9 @@ Run::Run( Window& window,
     m_systems.BindStartupServices( window, workerPool, cfg );
     RefreshRuntimeViewModel();
     RefreshSceneBrowserList( m_sceneController.Browser() );
-    m_cGameModelCollection.BindWorkerPool( workerPool );
-    m_cGameModelCollection.BindSceneEntityStore( m_sceneController.Entities() );
-    m_cGameModelCollection.ApplyRuntimeConfig( cfg );
+    m_sceneController.Models().BindWorkerPool( workerPool );
+    m_sceneController.Models().BindSceneEntityStore( m_sceneController.Entities() );
+    m_sceneController.Models().ApplyRuntimeConfig( cfg );
     m_runtimeSettings.ApplyStartupConfig( cfg );
     m_defaultCinematicRender = cfg.cinematicRender;
     m_startup.ApplyStartupConfig( cfg );
@@ -458,7 +457,7 @@ Run::~Run()
     if ( m_diagnosticsRuntime.MainMemoryDumpRequested() )
     {
         m_diagnosticsRuntime.WriteMainMemoryDump( m_replayRuntime,
-                                                  m_cGameModelCollection,
+                                                  m_sceneController.Models(),
                                                   SceneState(),
                                                   "shutdown",
                                                   m_timers.simulationTimer.GetTotalTime() );
@@ -515,7 +514,7 @@ SbResult Run::ReleaseBackendOwnedRenderResources( const char* phaseName )
         RuntimeRenderer::BackendResourceReleaseContext{ phaseName,
                                                         releaseDeviceLifecycle,
                                                         releaseRenderResources,
-                                                        m_cGameModelCollection,
+                                                        m_sceneController.Models(),
                                                         m_UI,
                                                         m_runtimeTools } );
 }
@@ -539,7 +538,7 @@ void Run::ApplyStartupOverrides( const RunStartupOverrides& overrides )
     // runtime services.
     const RunLaunchOptions& launch = overrides.launch;
 
-    ApplyRuntimeLaunchPolicy( launch, m_launchOptions, m_runtimeSettings, m_cGameModelCollection, m_contactAudio );
+    ApplyRuntimeLaunchPolicy( launch, m_launchOptions, m_runtimeSettings, m_sceneController.Models(), m_contactAudio );
     if ( overrides.liveStyleControlDirectory && overrides.liveStyleControlDirectory[0] != '\0' )
     {
         if ( m_liveStyle.ConfigureDirectory( overrides.liveStyleControlDirectory ) )
@@ -584,7 +583,7 @@ void Run::ApplyStartupOverrides( const RunStartupOverrides& overrides )
 #endif
     ApplyStartupPresentationPolicy( overrides, m_launchOptions, m_debug, m_UI );
 #ifdef _DEBUG
-    ApplyStartupDiagnosticsPolicy( overrides, m_diagnosticsRuntime, m_cGameModelCollection );
+    ApplyStartupDiagnosticsPolicy( overrides, m_diagnosticsRuntime, m_sceneController.Models() );
 #endif
 }
 
@@ -985,7 +984,7 @@ void Run::Initialise()
                                                            NormalizeCameraModeForCurrentScene( m_camera.mode ),
                                                            timelineOwners };
 #ifdef _DEBUG
-    const ReplayProbeWorld probeWorld{ m_cGameModelCollection,
+    const ReplayProbeWorld probeWorld{ m_sceneController.Models(),
                                        m_cWorldEnvironment,
                                        SceneState(),
                                        m_runtimeSettings,
@@ -1051,10 +1050,10 @@ SbResult Run::RunSceneLoadOnly( const char* snapshotOutPath )
     {
         // Lifetime: scene-load-only borrows owner arrays only until the
         // synchronous snapshot write completes.
-        const auto& joints = m_cGameModelCollection.GetPointJointConstraints();
+        const auto& joints = m_sceneController.Models().GetPointJointConstraints();
         const SceneSaveView saveView{ m_sceneController.Entities(),
-                                      m_cGameModelCollection.BodyStore(),
-                                      m_cGameModelCollection.Colliders(),
+                                      m_sceneController.Models().BodyStore(),
+                                      m_sceneController.Models().Colliders(),
                                       joints.data(),
                                       static_cast<int>( joints.size() ),
                                       m_cWorldEnvironment.GetGravity(),
@@ -1123,7 +1122,7 @@ void Run::LogSceneFinished( const char* reason )
 void Run::BeginPhysicsDiagnosticsRun( const char* scenePath )
 {
     m_diagnosticsRuntime.BeginPhysicsDiagnosticsRun(
-        m_cGameModelCollection,
+        m_sceneController.Models(),
         SceneState(),
         m_config,
         scenePath,

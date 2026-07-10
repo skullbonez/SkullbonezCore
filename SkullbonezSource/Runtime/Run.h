@@ -80,7 +80,6 @@ Related:
 #include "../World/Terrain.h"
 #include "../World/SkyBox.h"
 #include "../Maths/GeometricMath.h"
-#include "../GameObjects/GameModelCollection.h"
 #include "../World/WorldEnvironment.h"
 #include "../Scene/TestScene.h"
 #include "Debug/BroadphaseVisualizer.h"
@@ -154,7 +153,6 @@ class Run
     Physics::PhysicsDebugVisualizer
         m_physicsDebugVisualizer;                                       // Line overlay for object axes, contact manifolds, and sleep state
     Environment::WorldEnvironment m_cWorldEnvironment;                  // Fluid, gravity, and terrain bounds shared by physics and water.
-    GameObjects::GameModelCollection m_cGameModelCollection;            // Scene bodies plus solver-visible object state.
     RuntimeViewModel m_runtimeViewModel;                                // Scalar runtime snapshot for presentation/diagnostics.
     RuntimeRenderBackendView m_renderBackendView;                       // Borrowed active renderer capabilities for renderer users.
     RuntimeRenderer m_renderer;                                         // Owns runtime render passes and frame render ordering.

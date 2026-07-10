@@ -759,7 +759,7 @@ SbResult Run::RunUIStressActions()
                                                     m_config,
                                                     m_cWorldEnvironment,
                                                     m_systems.terrain.get(),
-                                                    m_cGameModelCollection,
+                                                    m_sceneController.Models(),
                                                     m_simulation,
                                                     m_runtimeTools,
                                                     m_renderBackendView.deviceLifecycle,
@@ -947,7 +947,7 @@ void Run::RunGraphicsStressActions( const Rendering::IRenderDiagnostics& renderD
                                                m_runtimeTools,
                                                m_cWorldEnvironment,
                                                m_replayRuntime,
-                                               m_cGameModelCollection };
+                                               m_sceneController.Models() };
     const int actionCount = stress.ActionCount();
     // Invariant: random values stay inside the same broad ranges exposed by the
     // runtime UI. The stress test should crash bad DX12 lifetime/state tracking,
@@ -973,7 +973,7 @@ void Run::RunGraphicsStressActions( const Rendering::IRenderDiagnostics& renderD
         // same seed/frame/scene-load position as the repro log.
         const MainMemoryStats& memoryStats =
             m_diagnosticsRuntime.RefreshMainMemoryStats( m_replayRuntime,
-                                                         m_cGameModelCollection,
+                                                         m_sceneController.Models(),
                                                          m_timers.simulationTimer.GetTotalTime(),
                                                          true );
         const SkullbonezCore::Rendering::RenderMemoryStats renderStats = renderDiagnostics.GetRenderMemoryStats();

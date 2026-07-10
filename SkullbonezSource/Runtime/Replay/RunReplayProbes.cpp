@@ -2048,8 +2048,7 @@ namespace
 struct ReplayProbeRestoreOperands
 {
     explicit ReplayProbeRestoreOperands( const ReplayProbeWorld& world )
-        : sample{ world.models,
-                  world.sceneController.Physics(),
+        : sample{ world.sceneController.Physics(),
                   world.sceneController,
                   world.world,
                   world.scene,
@@ -2717,7 +2716,7 @@ bool ReplayRuntime::RestoreV2ArtifactTargetStateImpl( const ReplayRestoreTransac
                                                    topologyOwners.config,
                                                    topologyOwners.systems,
                                                    transaction.sampleOwners.world,
-                                                   transaction.sampleOwners.presentations,
+                                                   transaction.sampleOwners.sceneController.Models(),
                                                    topologyOwners.generatedObjectTypeOverride,
                                                    topologyOwners.gameModelCapacity };
     if ( !EnsureReplayRestoreCheckpointTopology( restoreOwnerContext,

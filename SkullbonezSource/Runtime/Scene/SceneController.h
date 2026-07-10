@@ -36,6 +36,7 @@ Related:
 #include "SceneEntityStore.h"
 #include "SceneRequestQueue.h"
 #include "SceneRuntime.h"
+#include "../../GameObjects/GameModelCollection.h"
 #include "../../Physics/PhysicsEngine.h"
 
 #include <string>
@@ -66,7 +67,6 @@ struct SceneDefaultsSaveView
 {
     // Lifetime: every owner is borrowed only for one synchronous cold save.
     // The writer retains no pointers across a scene reload.
-    GameObjects::GameModelCollection& models;
     Environment::WorldEnvironment& world;
     Environment::CameraCollection& cameras;
     const RunDebugState& debug;
@@ -77,7 +77,7 @@ struct SceneDefaultsSaveView
 class SceneController
 {
   public:
-    SceneController() = default;
+    SceneController();
     explicit SceneController( std::vector<std::string> queue );
 
     RunSceneState& State();
@@ -90,6 +90,8 @@ class SceneController
     const RunSceneUIOverrideState& UIOverrides() const;
     SceneEntityStore& Entities();
     const SceneEntityStore& Entities() const;
+    GameObjects::GameModelCollection& Models();
+    const GameObjects::GameModelCollection& Models() const;
     Physics::PhysicsEngine& Physics();
     const Physics::PhysicsEngine& Physics() const;
 
@@ -136,16 +138,14 @@ class SceneController
     std::size_t PendingRequestCount() const;
     // Cold replay restore shrinks every scene-lifetime row owner as one
     // transaction; ReplayRuntime never writes topology through model facades.
-    bool TrimForReplayRestore( GameObjects::GameModelCollection& presentations,
-                               Physics::PhysicsEngine& physics,
-                               int bodyCount );
+    bool TrimForReplayRestore( int bodyCount );
 
     std::vector<RunRequiredContactState>& RequiredContacts();
     const std::vector<RunRequiredContactState>& RequiredContacts() const;
     std::vector<RunRequiredBroadphaseXCellsState>& RequiredBroadphaseXCells();
     const std::vector<RunRequiredBroadphaseXCellsState>& RequiredBroadphaseXCells() const;
     void ClearRequiredAutomationGates();
-    void UpdateRequiredContacts( GameObjects::GameModelCollection& models, float contactEpsilon );
+    void UpdateRequiredContacts( float contactEpsilon );
     bool RequiredContactsComplete() const;
     void UpdateRequiredBroadphaseXCells( const Math::CollisionDetection::SpatialGrid::ActiveCell* activeCells,
                                          int activeCellCount );
@@ -163,6 +163,9 @@ class SceneController
     // Lifetime: physics topology is born and cleared with the active scene.
     // Presentation owners borrow this engine; they never own or replace it.
     Physics::PhysicsEngine m_physics;
+    // Lifetime: presentation rows share the scene lifetime and borrow the
+    // controller-owned physics engine. Run never owns or replaces this store.
+    GameObjects::GameModelCollection m_models;
 };
 } // namespace Basics
 } // namespace SkullbonezCore

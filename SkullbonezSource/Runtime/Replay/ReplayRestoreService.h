@@ -58,7 +58,6 @@ struct ReplaySolverSampleRestoreContext
     // Lifetime: Run builds this from live owners for one restore call. Every
     // referenced subsystem outlives the call, and ReplayRestoreService copies
     // only sampled values into those owners.
-    GameObjects::GameModelCollection& presentations;
     Physics::PhysicsEngine& physics;
     SceneController& sceneController;
     Environment::WorldEnvironment& world;
@@ -150,9 +149,7 @@ class ReplayRestoreService
             return false;
         }
 
-        if ( !context.sceneController.TrimForReplayRestore( context.presentations,
-                                                            context.physics,
-                                                            restoreModelCount ) )
+        if ( !context.sceneController.TrimForReplayRestore( restoreModelCount ) )
         {
             WriteReason( outReason, reasonSize, "failed to trim live model list" );
             return false;

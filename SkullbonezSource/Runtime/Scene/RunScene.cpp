@@ -425,7 +425,7 @@ SbResult UseFlatSlopeTerrain( RunSubsystemState& systems,
 SbResult SaveCurrentEditableSceneSnapshot( const std::string& scenePath,
                                            const RunSceneState& sceneState,
                                            const SceneEntityStore& entities,
-                                           SkullbonezCore::GameObjects::GameModelCollection& modelCollection,
+                                           const SkullbonezCore::GameObjects::GameModelCollection& modelCollection,
                                            WorldEnvironment& world,
                                            CameraCollection& cameras,
                                            bool waterHidden,
@@ -532,7 +532,7 @@ SbResult Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnCom
     m_sceneController.ClearRequiredAutomationGates();
 
     m_systems.cameras->Reset();
-    m_cGameModelCollection.Clear();
+    m_sceneController.Models().Clear();
 
     m_runtimeTools.CancelMousePickup( m_inputRouter, m_interaction );
     AttachedCameraController::Reset( m_attachedCamera );
@@ -648,7 +648,7 @@ SbResult Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnCom
                                              m_config,
                                              m_cWorldEnvironment,
                                              m_systems.terrain.get(),
-                                             m_cGameModelCollection,
+                                             m_sceneController.Models(),
                                              m_sceneController.Physics(),
                                              m_launchOptions.generatedObjectTypeOverride ),
             SceneGeneratedPopulationRequest{ m_sceneController.UIOverrides().modelCountOverride,
@@ -667,7 +667,7 @@ SbResult Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnCom
         ApplyDemoHeroStyleOverride( SceneRuntimeStyleContext{ m_launchOptions,
                                                               SceneState(),
                                                               m_sceneController.Browser(),
-                                                              m_cGameModelCollection,
+                                                              m_sceneController.Models(),
                                                               m_sceneController.Entities(),
                                                               m_systems.assets,
                                                               RuntimeActiveCinematicConfig( SceneState(), m_config ),
@@ -856,7 +856,7 @@ SbResult Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnCom
                                              m_config,
                                              m_cWorldEnvironment,
                                              m_systems.terrain.get(),
-                                             m_cGameModelCollection,
+                                             m_sceneController.Models(),
                                              m_sceneController.Physics(),
                                              m_launchOptions.generatedObjectTypeOverride ),
             SceneGeneratedPopulationRequest{ m_sceneController.UIOverrides().modelCountOverride,
@@ -878,7 +878,7 @@ SbResult Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnCom
                 BuildSceneAuthoredModelContext( SceneState(),
                                                 m_cWorldEnvironment,
                                                 m_systems.terrain.get(),
-                                                m_cGameModelCollection,
+                                                m_sceneController.Models(),
                                                 m_sceneController.Entities(),
                                                 m_sceneController.Physics(),
                                                 m_sceneController.RequiredContacts(),
@@ -893,13 +893,13 @@ SbResult Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnCom
         }
         // Physics regression log: current-solver per-frame CSV enabled only by command line.
 #ifdef _DEBUG
-        m_cGameModelCollection.SetPhysicsRegressionLogPath(
+        m_sceneController.Models().SetPhysicsRegressionLogPath(
             m_diagnosticsRuntime.PerfLog().physicsRegressionLogOverride );
-        m_cGameModelCollection.SetPhysicsCollisionTimeLogPath(
+        m_sceneController.Models().SetPhysicsCollisionTimeLogPath(
             m_diagnosticsRuntime.PerfLog().physicsCollisionTimeLogOverride );
         if ( m_diagnosticsRuntime.PhysicsDiagnostics().isEnabled )
         {
-            m_cGameModelCollection.SetPhysicsDiagnosticsPath( m_diagnosticsRuntime.PhysicsDiagnostics().path );
+            m_sceneController.Models().SetPhysicsDiagnosticsPath( m_diagnosticsRuntime.PhysicsDiagnostics().path );
         }
 #endif
 
@@ -1004,14 +1004,14 @@ SbResult Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnCom
         m_runtimeSettings.tornadoField.visualizeVelocityField = true;
         m_runtimeSettings.tornadoSystem.visualizeVelocityField = true;
     }
-    SyncTornadoRuntimeSettingsToPhysics( m_cGameModelCollection, m_runtimeSettings );
+    SyncTornadoRuntimeSettingsToPhysics( m_sceneController.Models(), m_runtimeSettings );
     if ( sceneMutualGravityEnabled )
     {
         // Why: n-body space scenes have no contacts to wake quiet bodies later;
         // authored mutual gravity owns sleep policy for the duration of setup.
         m_runtimeSettings.isPhysicsSleepEnabled = false;
     }
-    m_cGameModelCollection.SetPhysicsSleepEnabled( m_runtimeSettings.isPhysicsSleepEnabled );
+    m_sceneController.Models().SetPhysicsSleepEnabled( m_runtimeSettings.isPhysicsSleepEnabled );
     if ( m_launchOptions.frameCountOverride > 0 )
     {
         SceneState().targetFrameCount = m_launchOptions.frameCountOverride;
@@ -1196,7 +1196,7 @@ SbResult SceneController::SaveCurrentDefaults( const SceneDefaultsSaveView& view
         const SbResult saveResult = SaveCurrentEditableSceneSnapshot( *scenePath,
                                                                       State(),
                                                                       Entities(),
-                                                                      view.models,
+                                                                      Models(),
                                                                       view.world,
                                                                       view.cameras,
                                                                       view.debug.isWaterHidden,

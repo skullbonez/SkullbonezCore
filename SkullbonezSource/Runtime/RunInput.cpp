@@ -1159,9 +1159,9 @@ bool Run::RouteRuntimePointerInput( const RuntimeInputSnapshot& inputSnapshot, c
         const ReplayRuntime::PathPickResult pickResult =
             m_replayRuntime.TryPickPathTarget( pickInput,
                                                m_sceneController.Entities(),
-                                               m_cGameModelCollection.BodyStore(),
-                                               m_cGameModelCollection.Colliders(),
-                                               m_cGameModelCollection.RenderPresentationRecords() );
+                                               m_sceneController.Models().BodyStore(),
+                                               m_sceneController.Models().Colliders(),
+                                               m_sceneController.Models().RenderPresentationRecords() );
         if ( pickResult.exitInspectionCamera )
         {
             m_replayRuntime.ExitInspectionCamera(
@@ -1193,11 +1193,11 @@ bool Run::RouteRuntimePointerInput( const RuntimeInputSnapshot& inputSnapshot, c
                 m_runtimeTools.RayCastTest().fireMode == RunLauncherFireMode::Projectile,
                 m_runtimeTools.RayCastTest().impulseStrength,
                 m_runtimeTools.RayCastTest().projectileSpeed,
-                m_cGameModelCollection.SceneEntityCount() );
+                m_sceneController.Models().SceneEntityCount() );
             // Why: RuntimeTools now fails closed unless Run has completed the
             // cold collection-to-store topology repair at the owner boundary.
-            const bool launcherStoresReady = m_cGameModelCollection.RepairPhysicsBodyAndColliderTopology();
-            if ( launcherStoresReady && m_runtimeTools.FireLauncherRay( m_cGameModelCollection,
+            const bool launcherStoresReady = m_sceneController.Models().RepairPhysicsBodyAndColliderTopology();
+            if ( launcherStoresReady && m_runtimeTools.FireLauncherRay( m_sceneController.Models(),
                                                                         m_sceneController.Physics(),
                                                                         SceneState(),
                                                                         m_systems.terrain.get(),
@@ -1206,7 +1206,7 @@ bool Run::RouteRuntimePointerInput( const RuntimeInputSnapshot& inputSnapshot, c
                                                                         rayDirection,
                                                                         cameraUp ) )
             {
-                SceneState().modelCount = m_cGameModelCollection.SceneEntityCount();
+                SceneState().modelCount = m_sceneController.Models().SceneEntityCount();
             }
         }
         UpdateRuntimeInputModeAfterAction( RuntimeInputAction::FireLauncher, RuntimeInputActionSource::Mouse );
@@ -1280,7 +1280,7 @@ bool Run::InspectGizmoInteractionActive() const
 void Run::ClearEditorInteractionForRuntimeTransition( bool clearSelection )
 {
     RunInternal::ClearEditorManipulationState(
-        { m_runtimeTools.Editor(), m_cGameModelCollection, m_sceneController.Physics(), m_interaction } );
+        { m_runtimeTools.Editor(), m_sceneController.Models(), m_sceneController.Physics(), m_interaction } );
     m_runtimeTools.Editor().viewportLookActive = false;
     m_runtimeTools.Editor().placementModeEnabled = false;
     m_runtimeTools.Editor().hotGizmoAxis = -1;
@@ -1421,13 +1421,13 @@ bool Run::ExecuteRuntimeInteractionCommand( const RuntimeInteractionCommand& com
     {
     case RuntimeInteractionCommandType::SetEditorSelection:
     {
-        if ( command.modelIndex < -1 || command.modelIndex >= m_cGameModelCollection.SceneEntityCount() )
+        if ( command.modelIndex < -1 || command.modelIndex >= m_sceneController.Models().SceneEntityCount() )
         {
             return false;
         }
 
-        const PhysicsBodyStore& bodyStore = m_cGameModelCollection.BodyStore();
-        const ColliderStore& colliderStore = m_cGameModelCollection.Colliders();
+        const PhysicsBodyStore& bodyStore = m_sceneController.Models().BodyStore();
+        const ColliderStore& colliderStore = m_sceneController.Models().Colliders();
         const int previousModelIndex = ResolveSelectedEditorModelIndex( m_runtimeTools.Editor(), bodyStore );
         const bool selectionHit = command.modelIndex >= 0;
         PhysicsBodyHandle selectedBody;
@@ -1545,7 +1545,7 @@ bool Run::IsDemoCameraModeAvailable() const
     {
         return false;
     }
-    return m_cGameModelCollection.SceneEntityCount() > 0;
+    return m_sceneController.Models().SceneEntityCount() > 0;
 }
 
 
@@ -1633,7 +1633,7 @@ void Run::RestoreAttachedCameraReturnState()
 
 bool Run::TryResolveAttachedCameraTarget( int& outModelIndex )
 {
-    if ( AttachedCameraController::TryResolveTargetIdentity( m_cGameModelCollection,
+    if ( AttachedCameraController::TryResolveTargetIdentity( m_sceneController.Models(),
                                                              m_attachedCamera.target,
                                                              outModelIndex ) )
     {
@@ -1648,7 +1648,10 @@ bool Run::TryResolveAttachedCameraTarget( int& outModelIndex )
 void Run::SetAttachedCameraTarget( int modelIndex )
 {
     AttachedCameraTargetSelection selection;
-    if ( !AttachedCameraController::SelectTarget( m_cGameModelCollection, m_attachedCamera, modelIndex, selection ) )
+    if ( !AttachedCameraController::SelectTarget( m_sceneController.Models(),
+                                                  m_attachedCamera,
+                                                  modelIndex,
+                                                  selection ) )
     {
         return;
     }
@@ -1669,7 +1672,7 @@ void Run::SetAttachedCameraTarget( int modelIndex )
 void Run::SeedAttachedCameraTargetFromSelection()
 {
     AttachedCameraPhysicsTarget currentState;
-    if ( AttachedCameraController::TryResolvePhysicsTarget( m_cGameModelCollection,
+    if ( AttachedCameraController::TryResolvePhysicsTarget( m_sceneController.Models(),
                                                             m_attachedCamera.target,
                                                             currentState ) )
     {
@@ -1681,7 +1684,7 @@ void Run::SeedAttachedCameraTargetFromSelection()
 
     int seedIndex = -1;
     const RunReplayPathVisualizerState& path = m_replayRuntime.PathVisualizer();
-    const PhysicsBodyStore& bodyStore = m_cGameModelCollection.BodyStore();
+    const PhysicsBodyStore& bodyStore = m_sceneController.Models().BodyStore();
     const int modelCount = bodyStore.Count();
     if ( path.hasTarget && path.targetModelRow.value >= 0 && path.targetModelRow.value < modelCount )
     {
@@ -1717,8 +1720,8 @@ bool Run::TryPickAttachedCameraTargetFromMouse()
     {
         RuntimePickRequest request;
         request.purpose = RuntimePickPurpose::AttachCameraTarget;
-        request.bodyStore = &m_cGameModelCollection.BodyStore();
-        request.colliderStore = &m_cGameModelCollection.Colliders();
+        request.bodyStore = &m_sceneController.Models().BodyStore();
+        request.colliderStore = &m_sceneController.Models().Colliders();
         request.rayOrigin = rayOrigin;
         request.rayDirection = rayDirection;
 
@@ -1763,7 +1766,7 @@ void Run::CycleAttachedCameraSubmode()
     }
     AttachedCameraPhysicsTarget targetState;
     bool shouldCaptureFixedOffset = false;
-    if ( !AttachedCameraController::CycleSubmode( m_cGameModelCollection,
+    if ( !AttachedCameraController::CycleSubmode( m_sceneController.Models(),
                                                   m_attachedCamera,
                                                   targetState,
                                                   shouldCaptureFixedOffset ) )
@@ -1791,7 +1794,7 @@ void Run::ToggleAttachedCameraPin()
     if ( m_attachedCamera.activeFollow )
     {
         AttachedCameraPhysicsTarget targetState;
-        if ( AttachedCameraController::TryResolvePhysicsTarget( m_cGameModelCollection,
+        if ( AttachedCameraController::TryResolvePhysicsTarget( m_sceneController.Models(),
                                                                 m_attachedCamera.target,
                                                                 targetState ) )
         {
@@ -1818,7 +1821,7 @@ void Run::TickAttachedCameraOrbitInput( int unhandledWheelDelta )
     }
 
     AttachedCameraPhysicsTarget targetState;
-    if ( !AttachedCameraController::TryResolvePhysicsTarget( m_cGameModelCollection,
+    if ( !AttachedCameraController::TryResolvePhysicsTarget( m_sceneController.Models(),
                                                              m_attachedCamera.target,
                                                              targetState ) )
     {
@@ -1845,7 +1848,7 @@ void Run::TickAttachedCamera()
 
     int modelIndex = -1;
     AttachedCameraPhysicsTarget targetState;
-    if ( !AttachedCameraController::TryResolvePhysicsTarget( m_cGameModelCollection,
+    if ( !AttachedCameraController::TryResolvePhysicsTarget( m_sceneController.Models(),
                                                              m_attachedCamera.target,
                                                              targetState,
                                                              &modelIndex ) )
@@ -1857,7 +1860,7 @@ void Run::TickAttachedCamera()
         static_cast<float>( m_camera.input.xMove ) * CAMERA_MOUSE_REFERENCE_DT * m_config.mouseSensitivity;
     const float orbitPitchDelta =
         static_cast<float>( m_camera.input.yMove ) * CAMERA_MOUSE_REFERENCE_DT * m_config.mouseSensitivity;
-    if ( !AttachedCameraController::BuildFollowPose( m_cGameModelCollection,
+    if ( !AttachedCameraController::BuildFollowPose( m_sceneController.Models(),
                                                      m_attachedCamera,
                                                      targetState,
                                                      modelIndex,
@@ -1921,7 +1924,7 @@ void Run::ApplyCameraMode( RunCameraMode mode, RuntimeInputActionSource source )
 
     if ( mode == RunCameraMode::Demo )
     {
-        const int modelCount = m_cGameModelCollection.SceneEntityCount();
+        const int modelCount = m_sceneController.Models().SceneEntityCount();
         if ( m_camera.trackBallIndex < 0 || m_camera.trackBallIndex >= modelCount )
         {
             m_camera.trackBallIndex = 0;
@@ -2178,7 +2181,7 @@ bool Run::HandleUnfocusedInputFrame()
         m_replayRuntime.CauseTree().resizingWindow = false;
     }
     RunInternal::ResetEditorUnfocusedInputState(
-        { m_runtimeTools.Editor(), m_cGameModelCollection, m_sceneController.Physics(), m_interaction } );
+        { m_runtimeTools.Editor(), m_sceneController.Models(), m_sceneController.Physics(), m_interaction } );
     InputController::ResetUnfocusedInput( m_camera );
     InputController::BeginFrame( m_runtimeInput,
                                  BuildRuntimeInputModeState( m_camera.mode,
@@ -2228,7 +2231,7 @@ void Run::DispatchPostUIKeyboardActions()
         SB_FATAL( "InputRouter", "Fixed input action capacity exhausted while routing capture actions." );
     }
 
-    const RunInternal::EditorSaveHotkeyContext editorSaveHotkeyContext{ m_cGameModelCollection,
+    const RunInternal::EditorSaveHotkeyContext editorSaveHotkeyContext{ m_sceneController.Models(),
                                                                         m_sceneController.Entities(),
                                                                         SceneState(),
                                                                         m_cWorldEnvironment,
@@ -2395,7 +2398,7 @@ void Run::TakeInput()
     {
         EnterInteractiveSceneRun();
         const RunInternal::EditorPlacementModeChangeResult placementMode = RunInternal::SetEditorPlacementMode(
-            { m_runtimeTools.Editor(), m_cGameModelCollection, m_sceneController.Physics(), m_interaction },
+            { m_runtimeTools.Editor(), m_sceneController.Models(), m_sceneController.Physics(), m_interaction },
             enabled,
             clearManipulation );
         completeEditorPlacementModeTransition( source, placementMode );
@@ -2405,7 +2408,7 @@ void Run::TakeInput()
     {
         EnterInteractiveSceneRun();
         const RunInternal::EditorPlacementModeChangeResult placementMode = RunInternal::ToggleEditorPlacementMode(
-            { m_runtimeTools.Editor(), m_cGameModelCollection, m_sceneController.Physics(), m_interaction } );
+            { m_runtimeTools.Editor(), m_sceneController.Models(), m_sceneController.Physics(), m_interaction } );
         completeEditorPlacementModeTransition( source, placementMode );
     };
     auto applyEditorModeToggle = [this]( RuntimeInputActionSource source )
@@ -2418,7 +2421,7 @@ void Run::TakeInput()
             const bool wasFlyMode =
                 RunCameraModeUsesFlyControls( m_camera.mode, m_attachedCamera.activeFollow, m_camera.director.grabbed );
             RunInternal::EnterEditorModeState(
-                { m_runtimeTools.Editor(), m_cGameModelCollection, m_sceneController.Physics(), m_interaction },
+                { m_runtimeTools.Editor(), m_sceneController.Models(), m_sceneController.Physics(), m_interaction },
                 NormalizeCameraModeForCurrentScene( m_camera.mode ) );
             m_runtimeTools.CancelMousePickup( m_inputRouter, m_interaction );
             SetCameraModeLabelAfterInteractionTransition( RunCameraMode::Inspect );
@@ -2439,7 +2442,7 @@ void Run::TakeInput()
             const bool wasFlyMode =
                 RunCameraModeUsesFlyControls( m_camera.mode, m_attachedCamera.activeFollow, m_camera.director.grabbed );
             RunInternal::ExitEditorModeState(
-                { m_runtimeTools.Editor(), m_cGameModelCollection, m_sceneController.Physics(), m_interaction } );
+                { m_runtimeTools.Editor(), m_sceneController.Models(), m_sceneController.Physics(), m_interaction } );
             SetCameraModeLabelAfterInteractionTransition( restoreMode );
             if ( wasFlyMode && !RunCameraModeUsesFlyControls( m_camera.mode,
                                                               m_attachedCamera.activeFollow,
@@ -2571,7 +2574,7 @@ void Run::TakeInput()
             {
                 const double simulationSeconds = m_timers.simulationTimer.GetTimeSinceLastStart();
                 m_runtimeTools.WriteLauncherReproSnapshotWithStatusMessage(
-                    { m_cGameModelCollection,
+                    { m_sceneController.Models(),
                       m_sceneController.Entities(),
                       m_systems.cameras,
                       m_systems.terrain.get(),
@@ -2658,7 +2661,7 @@ void Run::TakeInput()
             HandleDiagnosticsKeyboardShortcut(
                 DiagnosticsKeyboardShortcutContext{ m_debug,
                                                     m_camera.trackBallIndex,
-                                                    m_cGameModelCollection,
+                                                    m_sceneController.Models(),
                                                     m_renderBackendView.renderDiagnostics,
                                                     SceneState().isSceneMode,
                                                     m_timers.simulationTimer.GetTimeSinceLastStart() },
@@ -2707,7 +2710,7 @@ void Run::TakeInput()
                     SceneRuntimeStyleContext{ m_launchOptions,
                                               SceneState(),
                                               m_sceneController.Browser(),
-                                              m_cGameModelCollection,
+                                              m_sceneController.Models(),
                                               m_sceneController.Entities(),
                                               m_systems.assets,
                                               RuntimeActiveCinematicConfig( SceneState(), m_config ),
@@ -2778,7 +2781,7 @@ void Run::TakeInput()
                                m_simulation,
                                m_contactAudio,
                                m_cWorldEnvironment,
-                               m_cGameModelCollection,
+                               m_sceneController.Models(),
                                m_renderBackendView,
                                m_renderDefaults,
                                m_defaultCinematicRender,
@@ -2825,8 +2828,7 @@ void Run::TakeInput()
             SceneState(),
             m_startup.gameModelCapacity,
             static_cast<uint32_t>( m_launchOptions.generatedObjectTypeOverride ) );
-        ReplaySolverSampleRestoreContext sampleOwners{ m_cGameModelCollection,
-                                                       m_sceneController.Physics(),
+        ReplaySolverSampleRestoreContext sampleOwners{ m_sceneController.Physics(),
                                                        m_sceneController,
                                                        m_cWorldEnvironment,
                                                        SceneState(),
@@ -3043,8 +3045,7 @@ bool Run::DrainSceneRequests()
             eventCode = ReplayOwnerEventCode::SceneSaveDefaults;
             {
                 const SbResult saveResult =
-                    m_sceneController.SaveCurrentDefaults( SceneDefaultsSaveView{ m_cGameModelCollection,
-                                                                                  m_cWorldEnvironment,
+                    m_sceneController.SaveCurrentDefaults( SceneDefaultsSaveView{ m_cWorldEnvironment,
                                                                                   *m_systems.cameras,
                                                                                   m_debug,
                                                                                   m_runtimeSettings,

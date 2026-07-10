@@ -10,9 +10,9 @@ reports, and git history.
 | Field | Value |
 |---|---|
 | Branch | `engine-cleanup-10th-july`, tracking `origin/engine-cleanup-10th-july` |
-| Current pushed baseline | `d71fb190 fix: enforce scene lifecycle transaction edges` |
+| Current pushed baseline | `3738e10b refactor: delete scene execution callback pack` |
 | Current objective | Close the dependent B1f/C1 Run scene seam and promote SceneController lifecycle ownership |
-| Last broad local gate | `tools\validate_full.bat` passed the scene callback-pack deletion with 127/127 doctest cases, 2,730 assertions, all CPU lanes, zero-warning builds, DX12 with zero InfoQueue errors/matching screenshots, standalone physics smoke, and 20,001-line byte-exact physics in 53.4s |
+| Last broad local gate | `tools\validate_full.bat` passed the scene-owned model collection with 127/127 doctest cases, 2,730 assertions, all CPU lanes, zero-warning builds, DX12 with zero InfoQueue errors/matching screenshots, standalone physics smoke, and 20,001-line byte-exact physics in 52.5s |
 | Native evidence | Injected heap-use-after-free caught; healthy ASan and five-file `/analyze` passed in 16.185s |
 
 ## Pushed Cleanup Commits
@@ -175,6 +175,14 @@ scene state, or a style-owner context. B2f still requires deletion of
 `DrainSceneRequests` and promotion of the remaining Run load sequence. CPU,
 fast, one-minute graphics stress (8,309 frames / 231 loads / empty stderr), and
 full gates pass; comment audit is 9/9.
+
+SceneController now physically owns GameModelCollection beside the entity and
+physics stores. The Run collection field and all 114 direct member uses are
+deleted; save, required-contact updates, and replay trimming use controller-
+owned topology without passing it back as a duplicate owner argument. The C1
+load boundary still needs world/terrain/camera population and orchestration.
+Fast, CPU, replay scrub, replay v2, physics, and full gates pass; comment audit
+is 15/15.
 
 Scene provenance C1a is complete: parser-owned library/instance/ordered-part
 records retain exact shape sources, hierarchy transforms use rotated offsets

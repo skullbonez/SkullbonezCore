@@ -621,7 +621,7 @@ SbResult Run::Execute()
             TickLiveStyleControl();
             PROFILE_END( "Frame/Input" );
 
-            m_cGameModelCollection.BeginCollisionVisualFrame();
+            m_sceneController.Models().BeginCollisionVisualFrame();
             {
                 RuntimeAllocation::RuntimeAllocationScope allocationScope(
                     RuntimeAllocation::RuntimeAllocationPhase::Physics );
@@ -629,7 +629,7 @@ SbResult Run::Execute()
             }
 
             ExecutePostPhysicsVisualizationContext postPhysicsVisualizationContext{ m_debug,
-                                                                                    m_cGameModelCollection,
+                                                                                    m_sceneController.Models(),
                                                                                     m_broadphaseVisualizer,
                                                                                     m_collisionVisualizer,
                                                                                     m_physicsDebugVisualizer };
@@ -638,8 +638,7 @@ SbResult Run::Execute()
                 secondsPerFrame,
                 [this]( const SpatialGrid::ActiveCell* activeCells, int activeCellCount )
                 { m_sceneController.UpdateRequiredBroadphaseXCells( activeCells, activeCellCount ); },
-                [this]()
-                { m_sceneController.UpdateRequiredContacts( m_cGameModelCollection, m_config.contactEpsilon ); } );
+                [this]() { m_sceneController.UpdateRequiredContacts( m_config.contactEpsilon ); } );
 
             // Concept: graphics stress is render/runtime churn, not UI command
             // processing. Tick it once per rendered frame so headless and
@@ -667,7 +666,7 @@ SbResult Run::Execute()
             }
 
             RuntimeRenderModelFrameView renderModels =
-                m_renderer.BuildModelFrameView( m_cGameModelCollection, m_sceneController.Physics() );
+                m_renderer.BuildModelFrameView( m_sceneController.Models(), m_sceneController.Physics() );
 
             PROFILE_BEGIN( "Frame/Render" );
             {
@@ -845,7 +844,7 @@ void Run::TickPhysics( double secondsPerFrame )
                 ApplyMousePickupPhysicsStep();
             }
 
-            StepRuntimePhysicsTick( m_cGameModelCollection,
+            StepRuntimePhysicsTick( m_sceneController.Models(),
                                     m_sceneController.Physics(),
                                     PHYSICS_FIXED_DT,
                                     *m_systems.config,
@@ -876,7 +875,7 @@ void Run::TickPhysics( double secondsPerFrame )
                                     SceneRuntimeStyleContext{ m_launchOptions,
                                                               SceneState(),
                                                               m_sceneController.Browser(),
-                                                              m_cGameModelCollection,
+                                                              m_sceneController.Models(),
                                                               m_sceneController.Entities(),
                                                               m_systems.assets,
                                                               RuntimeActiveCinematicConfig( SceneState(), m_config ),
@@ -900,7 +899,7 @@ void Run::AfterPhysicsStep()
                                                m_replayRuntime,
                                                m_replayLauncherVisualScratch,
                                                m_cWorldEnvironment,
-                                               m_cGameModelCollection,
+                                               m_sceneController.Models(),
                                                m_sceneController.Physics(),
                                                m_sceneController.Entities() };
     const SimulationPostStepPipelineResult result = SimulationPostStepPipeline::Run( context );
@@ -913,7 +912,7 @@ void Run::AfterPhysicsStep()
             m_startup.gameModelCapacity,
             static_cast<uint32_t>( m_launchOptions.generatedObjectTypeOverride ) );
         const ReplayProbeWorld replayWorld{
-            m_cGameModelCollection,
+            m_sceneController.Models(),
             m_cWorldEnvironment,
             SceneState(),
             m_runtimeSettings,
@@ -1092,7 +1091,7 @@ void Run::TickAutoCycle()
     const RuntimeCaptureResult result =
         m_diagnosticsRuntime.Capture().TickAutoCycle( SceneState().isSceneMode,
                                                       SceneState().isInteractiveRun,
-                                                      m_cGameModelCollection.SceneEntityCount(),
+                                                      m_sceneController.Models().SceneEntityCount(),
                                                       m_camera.autoCycleInterval,
                                                       m_camera.autoCycleAccum,
                                                       m_camera.autoCycleShotsTaken,
@@ -1324,7 +1323,7 @@ void Run::UpdateLogic( float simulationDt, float cameraDt )
                                 SceneRuntimeStyleContext{ m_launchOptions,
                                                           SceneState(),
                                                           m_sceneController.Browser(),
-                                                          m_cGameModelCollection,
+                                                          m_sceneController.Models(),
                                                           m_sceneController.Entities(),
                                                           m_systems.assets,
                                                           RuntimeActiveCinematicConfig( SceneState(), m_config ),

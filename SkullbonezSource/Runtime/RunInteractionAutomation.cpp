@@ -1866,8 +1866,8 @@ bool Run::TryProjectInteractionAutomationModel( const char* name, POINT& outMous
                 {
                     RuntimePickRequest request;
                     request.purpose = RuntimePickPurpose::EditorSelection;
-                    request.bodyStore = &m_cGameModelCollection.BodyStore();
-                    request.colliderStore = &m_cGameModelCollection.Colliders();
+                    request.bodyStore = &m_sceneController.Models().BodyStore();
+                    request.colliderStore = &m_sceneController.Models().Colliders();
                     request.rayOrigin = rayOrigin;
                     request.rayDirection = rayDirection;
 
@@ -1928,7 +1928,7 @@ void Run::TickInteractionAutomationBeforeInput()
     InteractionAutomationReplayStateContext replayStateContext{ state,
                                                                 m_timers,
                                                                 m_replayRuntime,
-                                                                m_cGameModelCollection,
+                                                                m_sceneController.Models(),
                                                                 m_sceneController.Physics() };
     if ( state.releaseLeftFrame == frame )
     {
@@ -1984,7 +1984,7 @@ void Run::TickInteractionAutomationBeforeInput()
                 {
                     int modelIndex = -1;
                     return TryFindInteractionAutomationModel( name, modelIndex ) &&
-                           m_replayRuntime.SetPathTarget( name, modelIndex, m_cGameModelCollection.BodyStore() );
+                           m_replayRuntime.SetPathTarget( name, modelIndex, m_sceneController.Models().BodyStore() );
                 },
                 [this]( WorldInteractionOwner owner, InteractionExitReason reason )
                 { SetWorldInteractionOwnerAfterInteractionTransition( owner, reason ); } );
@@ -2075,7 +2075,7 @@ void Run::TickInteractionAutomationAfterRender()
                                                       m_replayRuntime,
                                                       m_interaction,
                                                       m_camera,
-                                                      m_cGameModelCollection,
+                                                      m_sceneController.Models(),
                                                       m_sceneController.Entities(),
                                                       m_UI };
     for ( RunInteractionAutomationAction& action : state.actions )
@@ -2228,9 +2228,9 @@ void Run::WriteInteractionAutomationReport()
     }
 
     const int selectedIndex =
-        PeekSelectedEditorModelIndex( m_runtimeTools.Editor(), m_cGameModelCollection.BodyStore() );
+        PeekSelectedEditorModelIndex( m_runtimeTools.Editor(), m_sceneController.Models().BodyStore() );
     const char* selectedName = "";
-    if ( selectedIndex >= 0 && selectedIndex < m_cGameModelCollection.SceneEntityCount() )
+    if ( selectedIndex >= 0 && selectedIndex < m_sceneController.Models().SceneEntityCount() )
     {
         selectedName = m_sceneController.Entities().At( selectedIndex ).displayName;
     }

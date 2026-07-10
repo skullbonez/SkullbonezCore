@@ -275,6 +275,25 @@ selection policy also moved into `SceneController`; the forwarding-only
 `SceneRuntimeCoordinator` object/member is deleted. C1 remains open until the
 load/save execution and lifecycle-event deletion proofs below are complete.
 
+The next C1 ownership edge is local: `SceneController` now physically owns the
+`GameModelCollection` beside its physics and entity stores. Run's collection
+field and all 114 member accesses are deleted; consumers borrow
+`SceneController::Models()`, save no longer passes the controller's own models
+back through `SceneDefaultsSaveView`, required-contact updates use the owned
+collection internally, and replay topology trimming no longer accepts duplicate
+model/physics arguments. C1 remains open for world/terrain/camera population
+and the final Load orchestration boundary.
+
+Evidence from the collection-owner move: the final staged fast gate passed in
+33.6s with 17 candidates and no size violations; the CPU umbrella passed all
+four lanes with 127/127 doctest cases and 2,730 assertions in 11.2s; replay
+scrub and v2 artifact gates passed in 74.9s and 26.2s; focused physics passed in
+13.2s; and full passed in 52.5s with zero warnings, zero DX12 InfoQueue errors,
+matching screenshots, standalone topology smoke, and the 20,001-line byte-
+exact baseline. The first fast attempt stopped at formatting; the second found
+one Debug replay-probe use of the removed duplicate field. Both were corrected
+before the clean rerun. Comment audit: 15/15 touched source-bearing files.
+
 The save half of C3 landed on 2026-07-11. `SceneController::SaveCurrentDefaults`
 owns editable snapshots and non-editable defaults rewrites through a synchronous
 `SceneDefaultsSaveView`; `Run::SaveCurrentSceneDefaults` is deleted, filesystem

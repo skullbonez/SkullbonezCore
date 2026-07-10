@@ -1059,8 +1059,8 @@ void Run::TickEditorViewportAndPlacementScaleInput( int unhandledWheelDelta )
 
 bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppressWorldActionThisFrame )
 {
-    const PhysicsBodyStore& editorBodyStore = m_cGameModelCollection.BodyStore();
-    const ColliderStore& editorColliderStore = m_cGameModelCollection.Colliders();
+    const PhysicsBodyStore& editorBodyStore = m_sceneController.Models().BodyStore();
+    const ColliderStore& editorColliderStore = m_sceneController.Models().Colliders();
     const int selectedModelIndex = ResolveSelectedEditorModelIndex( m_runtimeTools.Editor(), editorBodyStore );
     const bool previewInspectGizmoActive = InspectGizmoInteractionActive();
     const bool previewCanUseMouseRay = !m_UI.BlocksCameraMouse() && !m_runtimeTools.Editor().viewportLookActive &&
@@ -1086,7 +1086,7 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
 
     const EditorInteractionPreviewResult previewResult =
         UpdateEditorInteractionPreview( { m_runtimeTools.Editor(),
-                                          m_cGameModelCollection,
+                                          m_sceneController.Models(),
                                           m_sceneController.Physics(),
                                           previewBodyStore,
                                           previewColliderStore,
@@ -1110,7 +1110,7 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
         command.claimSelectionOwner = false;
         ExecuteRuntimeInteractionCommand( command );
         CancelEditorGizmoDragState(
-            { m_runtimeTools.Editor(), m_cGameModelCollection, m_sceneController.Physics(), m_interaction } );
+            { m_runtimeTools.Editor(), m_sceneController.Models(), m_sceneController.Physics(), m_interaction } );
     }
 
     const bool leftMouseNow = mouseEdges.leftDown;
@@ -1126,7 +1126,7 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
             if ( leftReleased && !suppressWorldActionThisFrame && m_runtimeTools.Editor().placementPreviewVisible )
             {
                 EditorObjectPlacementContext placementContext{ m_runtimeTools.Editor(),
-                                                               m_cGameModelCollection,
+                                                               m_sceneController.Models(),
                                                                m_sceneController.Physics(),
                                                                SceneState(),
                                                                m_cWorldEnvironment,
@@ -1179,31 +1179,37 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
             {
                 if ( m_runtimeTools.Editor().gizmoDragIsScale )
                 {
-                    ScaleSelectedEditorObjectAlongAxis(
-                        { m_runtimeTools.Editor(), m_cGameModelCollection, m_sceneController.Physics(), m_interaction },
-                        rayOrigin,
-                        rayDirection );
+                    ScaleSelectedEditorObjectAlongAxis( { m_runtimeTools.Editor(),
+                                                          m_sceneController.Models(),
+                                                          m_sceneController.Physics(),
+                                                          m_interaction },
+                                                        rayOrigin,
+                                                        rayDirection );
                 }
                 else if ( m_runtimeTools.Editor().gizmoDragIsRotation )
                 {
-                    RotateSelectedEditorObjectAroundAxis(
-                        { m_runtimeTools.Editor(), m_cGameModelCollection, m_sceneController.Physics(), m_interaction },
-                        rayOrigin,
-                        rayDirection );
+                    RotateSelectedEditorObjectAroundAxis( { m_runtimeTools.Editor(),
+                                                            m_sceneController.Models(),
+                                                            m_sceneController.Physics(),
+                                                            m_interaction },
+                                                          rayOrigin,
+                                                          rayDirection );
                 }
                 else
                 {
-                    MoveSelectedEditorObjectAlongAxis(
-                        { m_runtimeTools.Editor(), m_cGameModelCollection, m_sceneController.Physics(), m_interaction },
-                        rayOrigin,
-                        rayDirection );
+                    MoveSelectedEditorObjectAlongAxis( { m_runtimeTools.Editor(),
+                                                         m_sceneController.Models(),
+                                                         m_sceneController.Physics(),
+                                                         m_interaction },
+                                                       rayOrigin,
+                                                       rayDirection );
                 }
             }
         }
         if ( leftReleased || suppressWorldActionThisFrame )
         {
             if ( leftReleased && !suppressWorldActionThisFrame && selectedModelIndex >= 0 &&
-                 selectedModelIndex < m_cGameModelCollection.SceneEntityCount() )
+                 selectedModelIndex < m_sceneController.Models().SceneEntityCount() )
             {
                 if ( m_runtimeTools.Editor().gizmoDragIsScale )
                 {
@@ -1227,7 +1233,7 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
                                 ? REPLAY_EDITOR_TRANSFORM_SCALE
                                 : 0u;
                         RecordEditorTransformEventFromBodyStore( m_replayRuntime,
-                                                                 m_cGameModelCollection,
+                                                                 m_sceneController.Models(),
                                                                  selectedModelIndex,
                                                                  changedFlags,
                                                                  scaleAxis,
@@ -1238,7 +1244,7 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
                 {
                     const int groupCount =
                         ValidCapturedEditorGizmoGroupCount( m_runtimeTools.Editor(),
-                                                            m_cGameModelCollection.SceneEntityCount() );
+                                                            m_sceneController.Models().SceneEntityCount() );
                     if ( groupCount > 0 )
                     {
                         for ( int groupIndex = 0; groupIndex < groupCount; ++groupIndex )
@@ -1267,7 +1273,7 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
                                     ? REPLAY_EDITOR_TRANSFORM_ROTATE
                                     : 0u;
                             RecordEditorTransformEventFromBodyStore( m_replayRuntime,
-                                                                     m_cGameModelCollection,
+                                                                     m_sceneController.Models(),
                                                                      modelIndex,
                                                                      changedFlags,
                                                                      -1,
@@ -1283,7 +1289,7 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
                         if ( !selectedBody )
                         {
                             CancelEditorGizmoDragState( { m_runtimeTools.Editor(),
-                                                          m_cGameModelCollection,
+                                                          m_sceneController.Models(),
                                                           m_sceneController.Physics(),
                                                           m_interaction } );
                             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::EndEditorGizmoDrag,
@@ -1300,7 +1306,7 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
                                             ? REPLAY_EDITOR_TRANSFORM_ROTATE
                                             : 0u;
                         RecordEditorTransformEventFromBodyStore( m_replayRuntime,
-                                                                 m_cGameModelCollection,
+                                                                 m_sceneController.Models(),
                                                                  selectedModelIndex,
                                                                  changedFlags,
                                                                  -1,
@@ -1309,7 +1315,7 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
                 }
             }
             CancelEditorGizmoDragState(
-                { m_runtimeTools.Editor(), m_cGameModelCollection, m_sceneController.Physics(), m_interaction } );
+                { m_runtimeTools.Editor(), m_sceneController.Models(), m_sceneController.Physics(), m_interaction } );
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::EndEditorGizmoDrag,
                                                RuntimeInputActionSource::Mouse );
         }
@@ -1328,14 +1334,14 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
                                             m_interaction.Gesture().kind == RuntimeInteractionGestureKind::None;
         const bool editorScaleMode = transformGizmoActive && m_inputRouter.DeviceFrame().keys.IsDown( VK_CONTROL );
         if ( canCaptureGizmoGesture && editorScaleMode && selectedModelIndex >= 0 &&
-             selectedModelIndex < m_cGameModelCollection.SceneEntityCount() &&
+             selectedModelIndex < m_sceneController.Models().SceneEntityCount() &&
              m_runtimeTools.Editor().hotGizmoAxis >= 0 )
         {
             Vector3 rayOrigin;
             Vector3 rayDirection;
             float axisT = 0.0f;
             EditorGizmoContext gizmoContext{ m_runtimeTools.Editor(),
-                                             m_cGameModelCollection,
+                                             m_sceneController.Models(),
                                              m_sceneController.Physics(),
                                              m_interaction };
             if ( TryBuildMouseWorldRay( rayOrigin, rayDirection ) &&
@@ -1377,7 +1383,7 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
                 m_runtimeTools.Editor().gizmoDragStartPosition = selectedBody->position;
                 m_runtimeTools.Editor().gizmoDragStartOrientation = selectedBody->orientation;
                 CaptureEditorGizmoDragGroupState( m_runtimeTools.Editor(),
-                                                  m_cGameModelCollection,
+                                                  m_sceneController.Models(),
                                                   editorBodyStore,
                                                   false );
                 consumedWorldClick = true;
@@ -1393,7 +1399,7 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
             Vector3 rayDirection;
             float startAngle = 0.0f;
             EditorGizmoContext gizmoContext{ m_runtimeTools.Editor(),
-                                             m_cGameModelCollection,
+                                             m_sceneController.Models(),
                                              m_sceneController.Physics(),
                                              m_interaction };
             if ( TryBuildMouseWorldRay( rayOrigin, rayDirection ) &&
@@ -1430,7 +1436,7 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
                 }
                 Vector3 selectionOrigin = selectedBody->position;
                 float selectionRadius = 1.0f;
-                if ( !TryGetEditorSelectionFrame( m_cGameModelCollection,
+                if ( !TryGetEditorSelectionFrame( m_sceneController.Models(),
                                                   editorBodyStore,
                                                   editorColliderStore,
                                                   m_runtimeTools.Editor().selectedBody,
@@ -1445,7 +1451,7 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
                 m_runtimeTools.Editor().gizmoDragStartPosition = selectionOrigin;
                 m_runtimeTools.Editor().gizmoDragStartOrientation = selectedBody->orientation;
                 CaptureEditorGizmoDragGroupState( m_runtimeTools.Editor(),
-                                                  m_cGameModelCollection,
+                                                  m_sceneController.Models(),
                                                   editorBodyStore,
                                                   true );
                 consumedWorldClick = true;
@@ -1461,14 +1467,14 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
             Vector3 rayDirection;
             float axisT = 0.0f;
             EditorGizmoContext gizmoContext{ m_runtimeTools.Editor(),
-                                             m_cGameModelCollection,
+                                             m_sceneController.Models(),
                                              m_sceneController.Physics(),
                                              m_interaction };
             const PhysicsBodyRecord* selectedBody =
                 TryResolveEditorBodyRecord( editorBodyStore, m_runtimeTools.Editor().selectedBody, selectedModelIndex );
             Vector3 selectionOrigin;
             float selectionRadius = 1.0f;
-            const bool haveSelectionFrame = TryGetEditorSelectionFrame( m_cGameModelCollection,
+            const bool haveSelectionFrame = TryGetEditorSelectionFrame( m_sceneController.Models(),
                                                                         editorBodyStore,
                                                                         editorColliderStore,
                                                                         m_runtimeTools.Editor().selectedBody,
@@ -1507,7 +1513,7 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
                     m_runtimeTools.Editor().gizmoDragPlaneNormal = planeNormal;
                     m_runtimeTools.Editor().gizmoDragStartOrientation = selectedBody->orientation;
                     CaptureEditorGizmoDragGroupState( m_runtimeTools.Editor(),
-                                                      m_cGameModelCollection,
+                                                      m_sceneController.Models(),
                                                       editorBodyStore,
                                                       true );
                     consumedWorldClick = true;
@@ -1552,8 +1558,8 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
                 {
                     RuntimePickRequest request;
                     request.purpose = RuntimePickPurpose::EditorSelection;
-                    request.bodyStore = &m_cGameModelCollection.BodyStore();
-                    request.colliderStore = &m_cGameModelCollection.Colliders();
+                    request.bodyStore = &m_sceneController.Models().BodyStore();
+                    request.colliderStore = &m_sceneController.Models().Colliders();
                     request.rayOrigin = rayOrigin;
                     request.rayDirection = rayDirection;
                     RuntimePickService::TryPickModel( request, result );

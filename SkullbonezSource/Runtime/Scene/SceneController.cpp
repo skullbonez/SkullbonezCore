@@ -36,20 +36,24 @@ namespace SkullbonezCore
 {
 namespace Basics
 {
-SceneController::SceneController( std::vector<std::string> queue ) : m_runtime( std::move( queue ) )
+SceneController::SceneController() : m_models( m_physics )
 {
 }
 
 
-bool SceneController::TrimForReplayRestore( GameObjects::GameModelCollection& presentations,
-                                            Physics::PhysicsEngine& physics,
-                                            int bodyCount )
+SceneController::SceneController( std::vector<std::string> queue )
+    : m_runtime( std::move( queue ) ), m_models( m_physics )
 {
-    const int liveBodyCount = Physics::PhysicsEngineStoreQueries::BodyStore( physics ).Count();
-    const int liveColliderCount = Physics::PhysicsEngineStoreQueries::Colliders( physics ).Count();
-    const uint32_t authoredBodyCount = physics.AuthoredBodyDescriptorCount().value;
+}
+
+
+bool SceneController::TrimForReplayRestore( int bodyCount )
+{
+    const int liveBodyCount = Physics::PhysicsEngineStoreQueries::BodyStore( m_physics ).Count();
+    const int liveColliderCount = Physics::PhysicsEngineStoreQueries::Colliders( m_physics ).Count();
+    const uint32_t authoredBodyCount = m_physics.AuthoredBodyDescriptorCount().value;
     if ( bodyCount < 0 || bodyCount > liveBodyCount || static_cast<uint32_t>( bodyCount ) > authoredBodyCount ||
-         !presentations.CanTrimPresentationRowsForSceneRestore( bodyCount ) || bodyCount > m_entities.Count() )
+         !m_models.CanTrimPresentationRowsForSceneRestore( bodyCount ) || bodyCount > m_entities.Count() )
     {
         return false;
     }
@@ -66,10 +70,10 @@ bool SceneController::TrimForReplayRestore( GameObjects::GameModelCollection& pr
     // Invariant: physics rows shrink before presentation and metadata rows.
     // Every surviving handle was validated by replay id before this command,
     // and PhysicsBodyStore retires removed handles.
-    if ( !physics.TrimBodiesToCount( bodies ) ||
-         ( liveColliderCount > bodyCount && !physics.TrimCollidersToCount( colliders ) ) ||
-         !physics.TrimAuthoredBodyDescriptorsToCount( authored ) ||
-         !presentations.TrimPresentationRowsForSceneRestore( bodyCount ) || !m_entities.TrimToCount( bodyCount ) )
+    if ( !m_physics.TrimBodiesToCount( bodies ) ||
+         ( liveColliderCount > bodyCount && !m_physics.TrimCollidersToCount( colliders ) ) ||
+         !m_physics.TrimAuthoredBodyDescriptorsToCount( authored ) ||
+         !m_models.TrimPresentationRowsForSceneRestore( bodyCount ) || !m_entities.TrimToCount( bodyCount ) )
     {
         SB_FATAL( "Runtime/SceneController",
                   "Replay topology commit failed after a successful preflight; live owners may be partially trimmed" );
@@ -125,6 +129,18 @@ SceneEntityStore& SceneController::Entities()
 const SceneEntityStore& SceneController::Entities() const
 {
     return m_entities;
+}
+
+
+GameObjects::GameModelCollection& SceneController::Models()
+{
+    return m_models;
+}
+
+
+const GameObjects::GameModelCollection& SceneController::Models() const
+{
+    return m_models;
 }
 
 
@@ -372,10 +388,9 @@ void SceneController::ClearRequiredAutomationGates()
 }
 
 
-void SceneController::UpdateRequiredContacts( SkullbonezCore::GameObjects::GameModelCollection& models,
-                                              float contactEpsilon )
+void SceneController::UpdateRequiredContacts( float contactEpsilon )
 {
-    m_runtime.UpdateRequiredContacts( models, contactEpsilon );
+    m_runtime.UpdateRequiredContacts( m_models, contactEpsilon );
 }
 
 

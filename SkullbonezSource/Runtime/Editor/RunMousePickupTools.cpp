@@ -126,8 +126,8 @@ bool Run::TickMousePickupInput( const RuntimeMouseEdges& mouseEdges, bool suppre
 
     RuntimePickRequest request;
     request.purpose = RuntimePickPurpose::ManipulatorPickup;
-    request.bodyStore = &m_cGameModelCollection.BodyStore();
-    request.colliderStore = &m_cGameModelCollection.Colliders();
+    request.bodyStore = &m_sceneController.Models().BodyStore();
+    request.colliderStore = &m_sceneController.Models().Colliders();
     request.rayOrigin = rayOrigin;
     request.rayDirection = rayDirection;
 
@@ -137,7 +137,7 @@ bool Run::TickMousePickupInput( const RuntimeMouseEdges& mouseEdges, bool suppre
         return true;
     }
 
-    const PhysicsBodyStore& bodyStore = m_cGameModelCollection.BodyStore();
+    const PhysicsBodyStore& bodyStore = m_sceneController.Models().BodyStore();
     const PhysicsBodyRecord* pickedBody = bodyStore.RecordForHandle( result.body );
     const int pickedIndex = bodyStore.ModelIndexForHandle( result.body );
     if ( !pickedBody || pickedIndex != result.modelIndex )
@@ -203,7 +203,7 @@ void Run::ApplyMousePickupPhysicsStep()
     // physics write so deleted/reused body slots cannot receive a stale tool
     // impulse.
     RunMousePickupState& pickup = m_runtimeTools.MousePickup();
-    const PhysicsBodyStore& bodyStore = m_cGameModelCollection.BodyStore();
+    const PhysicsBodyStore& bodyStore = m_sceneController.Models().BodyStore();
     const PhysicsBodyRecord* bodyRecord = bodyStore.RecordForHandle( pickup.body );
     if ( !bodyRecord )
     {
@@ -256,7 +256,7 @@ void Run::RestoreMousePickupAngularVelocity()
     }
 
     RunMousePickupState& pickup = m_runtimeTools.MousePickup();
-    const PhysicsBodyStore& bodyStore = m_cGameModelCollection.BodyStore();
+    const PhysicsBodyStore& bodyStore = m_sceneController.Models().BodyStore();
     const PhysicsBodyRecord* bodyRecord = bodyStore.RecordForHandle( pickup.body );
     if ( !bodyRecord )
     {

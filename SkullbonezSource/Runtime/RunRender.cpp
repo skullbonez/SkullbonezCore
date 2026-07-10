@@ -70,7 +70,7 @@ void Run::Render( const RuntimeRenderModelFrameView& renderModels )
                                              m_attachedCamera.activeFollow };
     m_renderer.RenderFrameEntry( RuntimeRenderer::FrameEntryContext{ m_renderBackendView,
                                                                      renderModels,
-                                                                     m_cGameModelCollection,
+                                                                     m_sceneController.Models(),
                                                                      m_sceneController.Physics(),
                                                                      m_UI,
                                                                      replayOverlay,
@@ -150,7 +150,7 @@ void Run::SetViewingOrientation()
     if ( m_systems.cameras->IsCameraSelected( CAMERA_GAME_MODEL_1 ) )
     {
         Vector3 targetPosition;
-        if ( m_cGameModelCollection.TryGetModelPosition( 0, targetPosition ) )
+        if ( m_sceneController.Models().TryGetModelPosition( 0, targetPosition ) )
         {
             m_systems.cameras->SetViewCoordinates( targetPosition );
         }
@@ -158,7 +158,7 @@ void Run::SetViewingOrientation()
     if ( m_systems.cameras->IsCameraSelected( CAMERA_GAME_MODEL_2 ) )
     {
         Vector3 targetPosition;
-        if ( m_cGameModelCollection.TryGetModelPosition( 1, targetPosition ) )
+        if ( m_sceneController.Models().TryGetModelPosition( 1, targetPosition ) )
         {
             m_systems.cameras->SetViewCoordinates( targetPosition );
         }
