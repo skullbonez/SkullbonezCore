@@ -10,9 +10,9 @@ reports, and git history.
 | Field | Value |
 |---|---|
 | Branch | `engine-cleanup-10th-july`, tracking `origin/engine-cleanup-10th-july` |
-| Current pushed baseline | `811f38c3 fix: enforce concrete scene lifecycle receipts` |
-| Current objective | Close B1f direct input/state remnants, then continue runtime-shell D/E work |
-| Last broad local gate | `tools\validate_full.bat` passed the final scene-milestone repeat-review correction with 127/127 doctest cases, 2,736 assertions, all CPU lanes, zero-warning builds, DX12 with zero InfoQueue errors/matching screenshots, standalone physics smoke, and 20,001-line byte-exact physics in 52.3s |
+| Current pushed baseline | `0b67297c fix: route all scene transitions through owner commit` |
+| Current objective | Continue B1f by deleting Run pointer/camera composition, then TakeInput |
+| Last broad local gate | `tools\validate_full.bat` passed the InputRouter-owned runtime snapshot boundary with 128/128 doctest cases, 2,749 assertions, all CPU lanes, zero-warning builds, DX12 with zero InfoQueue errors/matching screenshots, standalone physics smoke, and 20,001-line byte-exact physics in 52.4s |
 | Native evidence | Injected heap-use-after-free caught; healthy ASan and five-file `/analyze` passed in 16.185s |
 
 ## Pushed Cleanup Commits
@@ -235,6 +235,13 @@ and graphics-stress helpers. Both duplicate seams are deleted; final fast,
 one-minute graphics stress (8,533 frames / 238 loads / empty stderr),
 interaction, and full gates pass. The scene-milestone adversarial loop is
 closed, so B1f resumes next.
+
+B1f is progressing from values outward. `InputRouter::BuildRuntimeSnapshot` now
+owns the single device/UI pointer join, `Run::BuildRuntimeInputSnapshot` is
+deleted, and the Run-capturing pointer/camera callback pack is replaced by
+direct composition over owner values. Fast, CPU umbrella, interaction, perf,
+and full gates pass; comment audit is 5/5. B1f remains open for the
+`RouteRuntimePointerInput`/camera helper surface and final `TakeInput` deletion.
 
 Scene provenance C1a is complete: parser-owned library/instance/ordered-part
 records retain exact shape sources, hierarchy transforms use rotated offsets

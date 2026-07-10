@@ -980,81 +980,6 @@ ApplyRuntimeUIFrameCommands( const RuntimeUIFrameContext& context,
     return result;
 }
 
-struct RuntimePointerCameraFrameContext
-{
-    // Lifetime: borrowed for the final world-input/camera phase of one input
-    // frame; the helper does not retain the input snapshot it builds.
-    RuntimeInputContext& runtimeInput;
-    InputRouter& inputRouter;
-    RunCameraState& camera;
-    RuntimeInteractionController& interaction;
-    SkullbonezCore::UI::InGameUI& ui;
-    bool suppressWorldActionThisFrame = false;
-};
-
-template <typename BuildRuntimeInputSnapshot,
-          typename RouteRuntimePointerInput,
-          typename CancelCameraLookGesture,
-          typename ApplyCursorOwnership,
-          typename DispatchPostUIKeyboardActions,
-          typename MouseLookOwnsCursor,
-          typename SyncCameraLookGesture,
-          typename CommitDeferredOwnerRequests>
-void ProcessRuntimePointerCameraFrame( const RuntimePointerCameraFrameContext& context,
-                                       BuildRuntimeInputSnapshot buildRuntimeInputSnapshot,
-                                       RouteRuntimePointerInput routeRuntimePointerInput,
-                                       CancelCameraLookGesture cancelCameraLookGesture,
-                                       ApplyCursorOwnership applyCursorOwnership,
-                                       DispatchPostUIKeyboardActions dispatchPostUIKeyboardActions,
-                                       MouseLookOwnsCursor mouseLookOwnsCursor,
-                                       SyncCameraLookGesture syncCameraLookGesture,
-                                       CommitDeferredOwnerRequests commitDeferredOwnerRequests )
-{
-    // Editor, replay, and launcher actions share world clicks. UI interaction
-    // and capture suppress them so panel controls never mutate the scene.
-    const RuntimeMouseEdges& mouseEdges = context.inputRouter.UiSnapshot().mouse;
-    const RuntimeInputSnapshot inputSnapshot =
-        buildRuntimeInputSnapshot( mouseEdges, context.suppressWorldActionThisFrame );
-    routeRuntimePointerInput( inputSnapshot, mouseEdges );
-
-    if ( context.ui.BlocksKeyboard() )
-    {
-        cancelCameraLookGesture();
-        InputController::ResetMouseLook( context.camera );
-        context.camera.input.Set( InputState::Up, false );
-        context.camera.input.Set( InputState::Down, false );
-        context.camera.input.Set( InputState::Left, false );
-        context.camera.input.Set( InputState::Right, false );
-        applyCursorOwnership();
-        return;
-    }
-
-    dispatchPostUIKeyboardActions();
-
-    const RuntimeInteractionFramePolicy inputPolicy = context.interaction.BuildFramePolicy( inputSnapshot.frameInput );
-    const bool mouseOwnsCursor = mouseLookOwnsCursor();
-    syncCameraLookGesture( inputSnapshot, inputPolicy, mouseOwnsCursor );
-    const bool cameraMouseLookActive = inputPolicy.cameraMouseLookActive && mouseOwnsCursor && inputSnapshot.appFocused;
-    if ( cameraMouseLookActive )
-    {
-        context.inputRouter.RequestNativeCapture();
-        context.inputRouter.RequestCursorVisible( false );
-    }
-    const bool cameraKeyboardControlsActive = inputPolicy.cameraKeyboardControlsActive;
-    const RuntimeCameraInputFrameResult cameraInputResult =
-        InputController::ApplyCameraInputFrame( context.camera,
-                                                RuntimeCameraInputFrameContext{ inputSnapshot.appFocused,
-                                                                                cameraMouseLookActive,
-                                                                                mouseOwnsCursor,
-                                                                                cameraKeyboardControlsActive,
-                                                                                &context.inputRouter.DeviceFrame() } );
-    if ( cameraInputResult.applyCursorOwnership )
-    {
-        applyCursorOwnership();
-    }
-    commitDeferredOwnerRequests();
-}
-
 } // namespace
 
 void Run::UpdateRuntimeInputModeAfterAction( RuntimeInputAction action, RuntimeInputActionSource source )
@@ -1067,59 +992,6 @@ void Run::UpdateRuntimeInputModeAfterAction( RuntimeInputAction action, RuntimeI
                                                                   m_camera.director.grabbed ) ),
         action,
         source );
-}
-
-
-RuntimeInputSnapshot Run::BuildRuntimeInputSnapshot( const RuntimeMouseEdges& mouseEdges,
-                                                     bool suppressWorldActionThisFrame ) const
-{
-    const DeviceInputFrame& deviceFrame = m_inputRouter.DeviceFrame();
-    const UiInputHitSnapshot& uiSnapshot = m_inputRouter.UiSnapshot();
-
-    RuntimeInputSnapshot snapshot;
-    snapshot.appFocused = deviceFrame.appFocused;
-    snapshot.uiBlocksKeyboard = uiSnapshot.blocksKeyboard;
-    snapshot.uiBlocksMouse = uiSnapshot.blocksCameraMouse;
-
-    if ( deviceFrame.hasClientPosition )
-    {
-        snapshot.pointer.clientX = deviceFrame.clientX;
-        snapshot.pointer.clientY = deviceFrame.clientY;
-    }
-    snapshot.pointer.leftDown = mouseEdges.leftDown;
-    snapshot.pointer.leftPressed = mouseEdges.leftPressed;
-    snapshot.pointer.leftReleased = mouseEdges.leftReleased;
-    snapshot.pointer.rightDown = mouseEdges.rightDown;
-    snapshot.pointer.rightPressed = mouseEdges.rightPressed;
-    snapshot.pointer.rightReleased = mouseEdges.rightReleased;
-    snapshot.pointer.controlDown = deviceFrame.keys.IsDown( VK_CONTROL );
-    snapshot.pointer.shiftDown = deviceFrame.keys.IsDown( VK_SHIFT );
-    snapshot.pointer.uiWantsNativeMouseCursor = uiSnapshot.wantsNativeCursor;
-    snapshot.pointer.uiBlocksCameraMouse = uiSnapshot.blocksCameraMouse;
-    snapshot.pointer.suppressWorldAction = suppressWorldActionThisFrame;
-
-    if ( mouseEdges.leftPressed || mouseEdges.leftReleased || mouseEdges.leftDown )
-    {
-        snapshot.pointer.button = RuntimePointerButton::Left;
-    }
-    else if ( mouseEdges.rightPressed || mouseEdges.rightReleased || mouseEdges.rightDown )
-    {
-        snapshot.pointer.button = RuntimePointerButton::Right;
-    }
-
-    snapshot.frameInput =
-        RuntimeInteractionFrameInput{ SceneState().isScenePhysics,
-                                      deviceFrame.keys.IsDown( VK_SPACE ),
-                                      m_replayRuntime.IsScrubPaused(),
-                                      m_replayRuntime.Scrubber().liveAdvanceHeld,
-                                      mouseEdges.rightDown,
-                                      m_runtimeTools.Editor().viewportLookActive,
-                                      m_replayRuntime.InspectionMouseLookActive( deviceFrame.rightDown,
-                                                                                 uiSnapshot.wantsNativeCursor,
-                                                                                 uiSnapshot.blocksCameraMouse ),
-                                      false,
-                                      SceneState().timeScale };
-    return snapshot;
 }
 
 
@@ -2895,62 +2767,97 @@ void Run::TakeInput()
     }
     const bool suppressWorldActionThisFrame = uiFrameResult.suppressWorldActionThisFrame;
 
-    ProcessRuntimePointerCameraFrame(
-        RuntimePointerCameraFrameContext{ m_runtimeInput,
-                                          m_inputRouter,
-                                          m_camera,
-                                          m_interaction,
-                                          m_UI,
-                                          suppressWorldActionThisFrame },
-        [this]( const RuntimeMouseEdges& mouseEdges, bool suppressWorldAction )
-        { return BuildRuntimeInputSnapshot( mouseEdges, suppressWorldAction ); },
-        [this]( const RuntimeInputSnapshot& inputSnapshot, const RuntimeMouseEdges& mouseEdges )
-        { RouteRuntimePointerInput( inputSnapshot, mouseEdges ); },
-        [this]() { CancelCameraLookGesture(); },
-        [this]() { ApplyCursorOwnership(); },
-        [this]() { DispatchPostUIKeyboardActions(); },
-        [this]() { return MouseLookOwnsCursor(); },
-        [this]( const RuntimeInputSnapshot& inputSnapshot,
-                const RuntimeInteractionFramePolicy& inputPolicy,
-                bool mouseLookOwnsCursor )
-        { SyncCameraLookGesture( inputSnapshot, inputPolicy, mouseLookOwnsCursor ); },
-        [this]()
+    // Editor, replay, and launcher actions share world clicks. UI interaction
+    // and capture suppress them so panel controls never mutate the scene.
+    const RuntimeMouseEdges& mouseEdges = m_inputRouter.UiSnapshot().mouse;
+    const DeviceInputFrame& routedDeviceFrame = m_inputRouter.DeviceFrame();
+    const UiInputHitSnapshot& routedUiSnapshot = m_inputRouter.UiSnapshot();
+    const RuntimeInteractionFrameInput frameInput{
+        SceneState().isScenePhysics,
+        routedDeviceFrame.keys.IsDown( VK_SPACE ),
+        m_replayRuntime.IsScrubPaused(),
+        m_replayRuntime.Scrubber().liveAdvanceHeld,
+        mouseEdges.rightDown,
+        m_runtimeTools.Editor().viewportLookActive,
+        m_replayRuntime.InspectionMouseLookActive( routedDeviceFrame.rightDown,
+                                                   routedUiSnapshot.wantsNativeCursor,
+                                                   routedUiSnapshot.blocksCameraMouse ),
+        false,
+        SceneState().timeScale };
+    const RuntimeInputSnapshot inputSnapshot =
+        m_inputRouter.BuildRuntimeSnapshot( frameInput, suppressWorldActionThisFrame );
+    RouteRuntimePointerInput( inputSnapshot, mouseEdges );
+
+    if ( m_UI.BlocksKeyboard() )
+    {
+        CancelCameraLookGesture();
+        InputController::ResetMouseLook( m_camera );
+        m_camera.input.Set( InputState::Up, false );
+        m_camera.input.Set( InputState::Down, false );
+        m_camera.input.Set( InputState::Left, false );
+        m_camera.input.Set( InputState::Right, false );
+        ApplyCursorOwnership();
+    }
+    else
+    {
+        DispatchPostUIKeyboardActions();
+        const RuntimeInteractionFramePolicy inputPolicy = m_interaction.BuildFramePolicy( inputSnapshot.frameInput );
+        const bool mouseOwnsCursor = MouseLookOwnsCursor();
+        SyncCameraLookGesture( inputSnapshot, inputPolicy, mouseOwnsCursor );
+        const bool cameraMouseLookActive =
+            inputPolicy.cameraMouseLookActive && mouseOwnsCursor && inputSnapshot.appFocused;
+        if ( cameraMouseLookActive )
         {
-            // Invariant: persistence samples final UI-mutated values before a
-            // same-frame scene reset can replace config. Capture keeps its
-            // historical pre-render input checkpoint; automation remains post-render.
-            const bool processedDefaults = DrainRenderDefaultRequests();
-            const bool processedCapture = DrainCaptureRequests();
-            const bool processedScene = m_sceneController.ExecutePending( m_config,
-                                                                          m_launchOptions,
-                                                                          m_defaultCinematicRender,
-                                                                          m_startup,
-                                                                          m_diagnosticsRuntime,
-                                                                          m_runtimeSettings,
-                                                                          m_timers,
-                                                                          m_systems.assets,
-                                                                          *m_systems.workerPool,
-                                                                          *m_systems.window,
-                                                                          m_inputRouter,
-                                                                          m_interaction,
-                                                                          m_camera,
-                                                                          m_attachedCamera,
-                                                                          m_simulation,
-                                                                          m_replayRuntime,
-                                                                          m_contactAudio,
-                                                                          m_UI,
-                                                                          m_debug,
-                                                                          m_graphicsStress,
-                                                                          m_runtimeTools,
-                                                                          m_physicsDebugVisualizer,
-                                                                          m_renderBackendView,
-                                                                          m_renderer,
-                                                                          sPerfPass );
-            if ( processedCapture || processedDefaults || processedScene )
-            {
-                RefreshRuntimeViewModel();
-            }
-        } );
+            m_inputRouter.RequestNativeCapture();
+            m_inputRouter.RequestCursorVisible( false );
+        }
+        const RuntimeCameraInputFrameResult cameraInputResult = InputController::ApplyCameraInputFrame(
+            m_camera,
+            RuntimeCameraInputFrameContext{ inputSnapshot.appFocused,
+                                            cameraMouseLookActive,
+                                            mouseOwnsCursor,
+                                            inputPolicy.cameraKeyboardControlsActive,
+                                            &m_inputRouter.DeviceFrame() } );
+        if ( cameraInputResult.applyCursorOwnership )
+        {
+            ApplyCursorOwnership();
+        }
+
+        // Invariant: persistence samples final UI-mutated values before a
+        // same-frame scene reset can replace config. Capture keeps its
+        // historical pre-render input checkpoint; automation remains post-render.
+        const bool processedDefaults = DrainRenderDefaultRequests();
+        const bool processedCapture = DrainCaptureRequests();
+        const bool processedScene = m_sceneController.ExecutePending( m_config,
+                                                                      m_launchOptions,
+                                                                      m_defaultCinematicRender,
+                                                                      m_startup,
+                                                                      m_diagnosticsRuntime,
+                                                                      m_runtimeSettings,
+                                                                      m_timers,
+                                                                      m_systems.assets,
+                                                                      *m_systems.workerPool,
+                                                                      *m_systems.window,
+                                                                      m_inputRouter,
+                                                                      m_interaction,
+                                                                      m_camera,
+                                                                      m_attachedCamera,
+                                                                      m_simulation,
+                                                                      m_replayRuntime,
+                                                                      m_contactAudio,
+                                                                      m_UI,
+                                                                      m_debug,
+                                                                      m_graphicsStress,
+                                                                      m_runtimeTools,
+                                                                      m_physicsDebugVisualizer,
+                                                                      m_renderBackendView,
+                                                                      m_renderer,
+                                                                      sPerfPass );
+        if ( processedCapture || processedDefaults || processedScene )
+        {
+            RefreshRuntimeViewModel();
+        }
+    }
     commitPointerPresentation();
 }
 

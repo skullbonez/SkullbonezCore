@@ -211,6 +211,25 @@ allocation guard and DX12/physics thresholds in 48.50s; and
 InfoQueue errors, matching screenshots, and the 20,001-line byte-exact physics
 baseline. The comment-style audit covered all 35 touched source-bearing files.
 
+The next B1f cut deletes the Run-capturing pointer/camera callback pack and the
+`Run::BuildRuntimeInputSnapshot` method. `InputRouter::BuildRuntimeSnapshot`
+now joins its one device frame and one published UI snapshot with a value-only
+`RuntimeInteractionFrameInput`; focused CPU coverage proves pointer coordinates,
+button edges, modifier state, UI refusal, suppression, and frame-policy values.
+The final world/camera phase is direct composition code, so no input helper
+receives callback lambdas that recover `Run`. B1f remains open for deletion of
+`TakeInput`, `RouteRuntimePointerInput`, and the remaining pointer/camera
+composition methods in `Run.h`.
+
+Evidence: final fast passed in 33.3s with five candidates, 128/128 doctest
+cases, and 2,749 assertions; the CPU umbrella passed all four lanes in 10.7s;
+both interaction reports passed in 8.3s; perf completed in 32.2s; and full
+passed in 52.4s with zero warnings, zero DX12 InfoQueue errors, matching
+screenshots, standalone topology smoke, and the 20,001-line byte-exact physics
+baseline. The first fast attempt stopped at formatting before build/runtime
+work; formatting only `RunInput.cpp` produced the clean rerun. Comment audit:
+5/5 touched source-bearing files.
+
 ## Remaining Work
 
 ### A. Narrow the render host

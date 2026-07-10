@@ -30,6 +30,7 @@ Related:
   - SkullbonezTests/TestInputRouter.cpp covers edge and context behavior.
 */
 #include "InputRouter.h"
+#include "RuntimeInteractionController.h"
 
 namespace SkullbonezCore
 {
@@ -329,6 +330,42 @@ void InputRouter::PublishUiSnapshot( const UiInputHitSnapshot& snapshot )
 const UiInputHitSnapshot& InputRouter::UiSnapshot() const
 {
     return m_uiSnapshot;
+}
+
+
+RuntimeInputSnapshot InputRouter::BuildRuntimeSnapshot( const RuntimeInteractionFrameInput& frameInput,
+                                                        bool suppressWorldAction ) const
+{
+    RuntimeInputSnapshot snapshot;
+    snapshot.appFocused = m_deviceFrame.appFocused;
+    snapshot.uiBlocksKeyboard = m_uiSnapshot.blocksKeyboard;
+    snapshot.uiBlocksMouse = m_uiSnapshot.blocksCameraMouse;
+    if ( m_deviceFrame.hasClientPosition )
+    {
+        snapshot.pointer.clientX = m_deviceFrame.clientX;
+        snapshot.pointer.clientY = m_deviceFrame.clientY;
+    }
+    snapshot.pointer.leftDown = m_uiSnapshot.mouse.leftDown;
+    snapshot.pointer.leftPressed = m_uiSnapshot.mouse.leftPressed;
+    snapshot.pointer.leftReleased = m_uiSnapshot.mouse.leftReleased;
+    snapshot.pointer.rightDown = m_uiSnapshot.mouse.rightDown;
+    snapshot.pointer.rightPressed = m_uiSnapshot.mouse.rightPressed;
+    snapshot.pointer.rightReleased = m_uiSnapshot.mouse.rightReleased;
+    snapshot.pointer.controlDown = m_deviceFrame.keys.IsDown( VK_CONTROL );
+    snapshot.pointer.shiftDown = m_deviceFrame.keys.IsDown( VK_SHIFT );
+    snapshot.pointer.uiWantsNativeMouseCursor = m_uiSnapshot.wantsNativeCursor;
+    snapshot.pointer.uiBlocksCameraMouse = m_uiSnapshot.blocksCameraMouse;
+    snapshot.pointer.suppressWorldAction = suppressWorldAction;
+    if ( m_uiSnapshot.mouse.leftPressed || m_uiSnapshot.mouse.leftReleased || m_uiSnapshot.mouse.leftDown )
+    {
+        snapshot.pointer.button = RuntimePointerButton::Left;
+    }
+    else if ( m_uiSnapshot.mouse.rightPressed || m_uiSnapshot.mouse.rightReleased || m_uiSnapshot.mouse.rightDown )
+    {
+        snapshot.pointer.button = RuntimePointerButton::Right;
+    }
+    snapshot.frameInput = frameInput;
+    return snapshot;
 }
 
 

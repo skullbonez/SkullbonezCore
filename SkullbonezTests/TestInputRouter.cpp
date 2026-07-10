@@ -34,6 +34,7 @@ Related:
 #include "../ThirdPtySource/doctest/doctest.h"
 
 #include "../SkullbonezSource/Runtime/InputRouter.h"
+#include "../SkullbonezSource/Runtime/RuntimeInteractionController.h"
 
 #include <initializer_list>
 
@@ -459,4 +460,41 @@ TEST_CASE( "Input router: context predicate requires every binding bit" )
                                                     Context( RuntimeInputBindingContext::Capture ) };
     CHECK( InputRouter::PhaseForBinding( afterBinding ) == InputActionPhase::AfterUi );
     CHECK( InputRouter::PhaseForBinding( captureBinding ) == InputActionPhase::Capture );
+}
+
+
+TEST_CASE( "Input router: runtime snapshot joins one device and UI pointer frame" )
+{
+    InputRouter router;
+    InputActions output;
+    DeviceInputFrame device = FocusedFrame( { VK_CONTROL, VK_SHIFT }, true, true );
+    device.clientX = 321;
+    device.clientY = 654;
+    device.hasClientPosition = true;
+    router.BeginFrame( device, RuntimeInputKeyBindingView{}, output );
+
+    UiInputHitSnapshot ui;
+    ui.mouse = output.mouse;
+    ui.blocksKeyboard = true;
+    ui.blocksCameraMouse = true;
+    ui.wantsNativeCursor = true;
+    router.PublishUiSnapshot( ui );
+
+    RuntimeInteractionFrameInput frameInput;
+    frameInput.scenePhysicsEnabled = true;
+    frameInput.sceneTimeScale = 0.5f;
+    const RuntimeInputSnapshot snapshot = router.BuildRuntimeSnapshot( frameInput, true );
+    CHECK( snapshot.appFocused );
+    CHECK( snapshot.uiBlocksKeyboard );
+    CHECK( snapshot.uiBlocksMouse );
+    CHECK( snapshot.pointer.clientX == 321 );
+    CHECK( snapshot.pointer.clientY == 654 );
+    CHECK( snapshot.pointer.leftPressed );
+    CHECK( snapshot.pointer.rightPressed );
+    CHECK( snapshot.pointer.controlDown );
+    CHECK( snapshot.pointer.shiftDown );
+    CHECK( snapshot.pointer.uiWantsNativeMouseCursor );
+    CHECK( snapshot.pointer.suppressWorldAction );
+    CHECK( snapshot.frameInput.scenePhysicsEnabled );
+    CHECK( snapshot.frameInput.sceneTimeScale == doctest::Approx( 0.5f ) );
 }

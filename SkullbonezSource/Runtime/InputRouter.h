@@ -56,6 +56,8 @@ namespace SkullbonezCore
 {
 namespace Basics
 {
+struct RuntimeInputSnapshot;
+struct RuntimeInteractionFrameInput;
 class InputKeySnapshot
 {
   public:
@@ -197,6 +199,10 @@ class InputRouter
     const DeviceInputFrame& DeviceFrame() const;
     void PublishUiSnapshot( const UiInputHitSnapshot& snapshot );
     const UiInputHitSnapshot& UiSnapshot() const;
+    // Builds the one post-UI pointer/policy value from router-owned snapshots.
+    // Cross-domain policy facts arrive as values and are not retained.
+    RuntimeInputSnapshot BuildRuntimeSnapshot( const RuntimeInteractionFrameInput& frameInput,
+                                               bool suppressWorldAction ) const;
 
     // Pointer presentation requests are reconciled here so UI/tools/camera do
     // not manipulate Win32 capture or cursor counters independently.
