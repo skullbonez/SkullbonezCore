@@ -1,0 +1,70 @@
+/*
+File: RenderDefaultsStore.h
+Purpose:
+  Owns deferred ordinary and cinematic render-default persistence requests.
+
+Mental model:
+  UI submits only which defaults family to save. At the named end-of-input
+  checkpoint, the store samples the final live config values and rewrites
+  engine.cfg through the domain persistence helpers.
+
+Glossary:
+  Ordinary defaults: Non-cinematic lighting, shadow, water, and material values.
+  Cinematic defaults: Sky, exposure, cloud, and post-processing values.
+  Frame checkpoint: Point after all UI mutations where persisted values are sampled.
+
+Invariants:
+  - Requests never snapshot config at submission time.
+  - Successful saves alone appear in the returned accepted-event batch.
+  - Capacity exhaustion is fatal; steady runtime never grows this store.
+
+Related:
+  - SkullbonezSource/Runtime/Scene/SceneRuntimeDefaults.h
+  - Agentic/Plans/TODO/runtime-shell-decomposition.md
+*/
+#pragma once
+
+#include "../Core/Config.h"
+#include "../Core/SbResult.h"
+
+#include <cstddef>
+
+namespace SkullbonezCore
+{
+namespace Basics
+{
+constexpr int RENDER_DEFAULTS_REQUEST_CAPACITY = 16;
+
+enum class RenderDefaultsRequestType
+{
+    Ordinary,
+    Cinematic,
+};
+
+struct RenderDefaultsSaveBatchResult
+{
+    SbResult status = SbResult::Success();
+    RenderDefaultsRequestType saved[RENDER_DEFAULTS_REQUEST_CAPACITY];
+    std::size_t savedCount = 0;
+    std::size_t failedCount = 0;
+};
+
+class RenderDefaultsStore
+{
+  public:
+    void SubmitOrdinarySave();
+    void SubmitCinematicSave();
+    RenderDefaultsSaveBatchResult DrainAtFrameCheckpoint( const OrdinaryRenderConfig& ordinary,
+                                                          const CinematicRenderConfig& cinematic );
+    std::size_t PendingCount() const;
+    RenderDefaultsRequestType PendingTypeAt( std::size_t index ) const;
+
+  private:
+    void Submit( RenderDefaultsRequestType type );
+
+    RenderDefaultsRequestType m_requests[RENDER_DEFAULTS_REQUEST_CAPACITY]; // Fixed persistence-intent ring.
+    int m_head = 0;                                                         // Oldest save request.
+    int m_count = 0;                                                        // Occupied request slots.
+};
+} // namespace Basics
+} // namespace SkullbonezCore

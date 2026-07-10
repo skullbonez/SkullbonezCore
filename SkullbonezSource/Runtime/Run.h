@@ -51,8 +51,8 @@ Related:
 #include "InputRouter.h"
 #include "LiveStyleController.h"
 #include "Diagnostics/DiagnosticsRuntime.h"
+#include "RenderDefaultsStore.h"
 #include "RuntimeInteractionController.h"
-#include "RuntimeCommandQueue.h"
 #include "RuntimeCameraMode.h"
 #include "Allocation/RuntimeAllocationTracker.h"
 #include "Audio/ContactAudioService.h"
@@ -123,6 +123,7 @@ class Run
     RunLaunchOptions m_launchOptions;                                   // CLI/startup policy reapplied across scene loads.
     ApplicationExitState m_applicationExit;                             // First-failure exit latch resolved by the platform message loop.
     CinematicRenderConfig m_defaultCinematicRender;                     // engine.cfg cinematic baseline restored by the Demo Scene cine mode
+    RenderDefaultsStore m_renderDefaults;                               // Deferred ordinary/cinematic engine.cfg persistence owner.
     RunStartupState m_startup;                                          // engine.cfg startup capacity/thread defaults restored by demo resets.
 
     // Subsystem owners below are ordered by lifetime dependency. Render-host
@@ -158,7 +159,6 @@ class Run
         m_physicsDebugVisualizer;                                       // Line overlay for object axes, contact manifolds, and sleep state
     Environment::WorldEnvironment m_cWorldEnvironment;                  // Fluid, gravity, and terrain bounds shared by physics and water.
     GameObjects::GameModelCollection m_cGameModelCollection;            // Scene bodies plus solver-visible object state.
-    RuntimeCommandQueue m_runtimeCommands;                              // Deferred runtime/tool command intent.
     RuntimeViewModel m_runtimeViewModel;                                // Scalar runtime snapshot for presentation/diagnostics.
     RuntimeRenderBackendView m_renderBackendView;                       // Borrowed active renderer capabilities for renderer users.
     RuntimeRenderer m_renderer;                                         // Owns runtime render passes and frame render ordering.
@@ -179,7 +179,9 @@ class Run
     bool TryFindInteractionAutomationModel( const char* name, int& outIndex ) const;
     bool TrySetInteractionAutomationReplayPathTarget( const char* name );
     bool TryProjectInteractionAutomationModel( const char* name, POINT& outMouse );
-    bool DrainRuntimeCommands();                                        // Applies queued runtime/tool command intents at the frame boundary.
+    bool DrainSceneRequests();                                          // Temporary C1 execution seam for scene-owned deferred intent.
+    bool DrainCaptureRequests();                                        // Executes capture-owned input requests against the active backend.
+    bool DrainRenderDefaultRequests();                                  // Persists final frame-mutated render values at the input checkpoint.
     void UpdateRuntimeInputModeAfterAction(
         RuntimeInputAction action,
         RuntimeInputActionSource source );                              // Records the mode transition caused by one runtime/tool action.

@@ -74,7 +74,7 @@ namespace Basics
 {
 class RunEditorTracer;
 class RuntimeInteractionController;
-class RuntimeCommandQueue;
+class CaptureController;
 struct RunEditorPlacementState;
 struct RunSceneState;
 
@@ -86,7 +86,7 @@ struct EditorSaveHotkeyContext
     const RunSceneState& scene;
     Environment::WorldEnvironment& world;
     Environment::CameraCollection& cameras;
-    RuntimeCommandQueue& commands;
+    CaptureController& capture;
 };
 
 struct EditorTerrainPlacement

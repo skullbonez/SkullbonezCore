@@ -1,19 +1,22 @@
 /*
 File: SkullbonezSource/Runtime/CaptureController.cpp
 Purpose:
-  Implements runtime screenshot ownership and capture automation pass-throughs.
+  Implements screenshot request ownership, capture execution, and automation pass-throughs.
 
 Mental model:
-  Run supplies frame context and a sink. CaptureController owns the mutable
-  screenshot request state and delegates pixel writing to CaptureSystem.
+  Run supplies frame context and narrow render capabilities. CaptureController
+  owns mutable screenshot automation plus the fixed input-triggered request ring,
+  then delegates pixel writing to CaptureSystem.
 
 Glossary:
   Capture sink: Value hook that performs the actual screenshot write.
   Auto-cycle: Screenshot automation that steps through tracked balls/scenes.
   Screenshot request: Runtime state describing when and where to capture pixels.
+  Request ring: Fixed FIFO storage drained at the input-frame capture checkpoint.
 
 Invariants:
   - CaptureController owns trigger state but not backbuffer readback.
+  - Failed or rejected requests never appear in the accepted result batch.
   - Tick methods must be deterministic for suite and screenshot automation.
 
 Related:
@@ -22,8 +25,10 @@ Related:
 */
 #include "CaptureController.h"
 #include "Allocation/RuntimeAllocationTracker.h"
+#include "../Core/FatalError.h"
 
 #include <cstdio>
+#include <cstring>
 
 namespace RuntimeAllocation = SkullbonezCore::Runtime::Allocation;
 
@@ -73,6 +78,77 @@ RuntimeCaptureResult CaptureController::TickAutoCycle( bool isSceneMode,
                                          autoCycleShotsTaken,
                                          trackBallIndex,
                                          sink );
+}
+
+
+SbResult CaptureController::QueueScreenshot( const char* path )
+{
+    const std::size_t pathLength = path ? strnlen_s( path, CAPTURE_REQUEST_PATH_CAPACITY ) : 0;
+    if ( pathLength == 0 || pathLength >= CAPTURE_REQUEST_PATH_CAPACITY )
+    {
+        // Lane R: file paths originate at tool/input boundaries. Rejecting the
+        // request before enqueue prevents the fixed record from truncating to a
+        // different destination than the operator selected.
+        return SbResult::Failure( "Runtime/CaptureController",
+                                  "Screenshot path must contain 1-%d bytes without truncation",
+                                  CAPTURE_REQUEST_PATH_CAPACITY - 1 );
+    }
+
+    const char* extension = strrchr( path, '.' );
+    if ( !extension || _stricmp( extension, ".bmp" ) != 0 )
+    {
+        return SbResult::Failure( "Runtime/CaptureController", "Screenshot path must end in .bmp: %s", path );
+    }
+
+    if ( m_requestCount >= CAPTURE_REQUEST_QUEUE_CAPACITY )
+    {
+        // Lane F: this queue drains once per input frame. Exhaustion means a
+        // producer violated the fixed owner budget; runtime growth is forbidden.
+        SB_FATAL( "Runtime/CaptureController",
+                  "Capture request capacity exhausted. capacity=%d high_water=%d phase=input",
+                  CAPTURE_REQUEST_QUEUE_CAPACITY,
+                  m_requestCount );
+    }
+
+    const int tail = ( m_requestHead + m_requestCount ) % CAPTURE_REQUEST_QUEUE_CAPACITY;
+    strcpy_s( m_requests[tail].path, path );
+    ++m_requestCount;
+    return SbResult::Success();
+}
+
+
+CaptureRequestBatchResult CaptureController::DrainScreenshotRequests( Rendering::IRenderCaptureBackend& backend )
+{
+    CaptureRequestBatchResult result;
+    while ( m_requestCount > 0 )
+    {
+        const CaptureRequest request = m_requests[m_requestHead];
+        m_requests[m_requestHead] = {};
+        m_requestHead = ( m_requestHead + 1 ) % CAPTURE_REQUEST_QUEUE_CAPACITY;
+        --m_requestCount;
+
+        const SbResult saveResult = SaveScreenshot( backend, request.path );
+        if ( saveResult.ok )
+        {
+            result.saved[result.savedCount++] = request;
+        }
+        else
+        {
+            if ( result.status.ok )
+            {
+                result.status = saveResult;
+            }
+            ++result.failedCount;
+        }
+    }
+    m_requestHead = 0;
+    return result;
+}
+
+
+std::size_t CaptureController::PendingScreenshotCount() const
+{
+    return static_cast<std::size_t>( m_requestCount );
 }
 
 

@@ -1049,26 +1049,23 @@ bool ApplyReplayRestoreEventForTarget( ReplayRestoreEventContext& context,
     case ReplayEventKind::TimelineStart:
         WriteReplayProbeReason( eventOutReason, eventReasonSize, "ignored" );
         return true;
-    case ReplayEventKind::RuntimeCommand:
+    case ReplayEventKind::OwnerAction:
     {
-        const RuntimeCommandType commandType = static_cast<RuntimeCommandType>( event.value0 );
-        switch ( commandType )
+        const ReplayOwnerEventCode ownerEvent = static_cast<ReplayOwnerEventCode>( event.value0 );
+        switch ( ownerEvent )
         {
-        case RuntimeCommandType::SaveScreenshot:
-        case RuntimeCommandType::SaveSceneDefaults:
-        case RuntimeCommandType::SaveRenderDefaults:
-        case RuntimeCommandType::SaveSkyDefaults:
-        case RuntimeCommandType::Quit:
-        case RuntimeCommandType::None:
-            WriteReplayProbeReason( eventOutReason, eventReasonSize, "ignored non-solver runtime command" );
+        case ReplayOwnerEventCode::CaptureScreenshot:
+        case ReplayOwnerEventCode::SceneSaveDefaults:
+        case ReplayOwnerEventCode::RenderSaveOrdinaryDefaults:
+        case ReplayOwnerEventCode::RenderSaveCinematicDefaults:
+            WriteReplayProbeReason( eventOutReason, eventReasonSize, "ignored non-solver owner action" );
             return true;
-        case RuntimeCommandType::ResetCurrentScene:
-        case RuntimeCommandType::LoadSceneIndex:
-        case RuntimeCommandType::LoadDemoScene:
-        case RuntimeCommandType::CreateScene:
-        case RuntimeCommandType::AdvanceScene:
+        case ReplayOwnerEventCode::SceneReset:
+        case ReplayOwnerEventCode::SceneLoadBrowserIndex:
+        case ReplayOwnerEventCode::SceneLoadDemo:
+        case ReplayOwnerEventCode::SceneCreate:
         default:
-            WriteReplayProbeReason( eventOutReason, eventReasonSize, "unsupported runtime timeline mutation event" );
+            WriteReplayProbeReason( eventOutReason, eventReasonSize, "unsupported scene-owner timeline mutation" );
             return false;
         }
     }
@@ -2126,7 +2123,7 @@ SbResult Run::TickReplaySaveProbe()
     {
         m_replayProbes.save.runtimeResetCoverageInjected = true;
         m_replayProbes.save.eventCoverageInjected = false;
-        m_runtimeCommands.Push( RuntimeCommand{ RuntimeCommandType::ResetCurrentScene } );
+        m_sceneController.SubmitResetCurrentScene();
         return SbResult::Success();
     }
 

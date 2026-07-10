@@ -692,8 +692,8 @@ const char* RuntimeReserveSubsystemName( RuntimeReserveSubsystem subsystem ) noe
         return "dx12_telemetry";
     case RuntimeReserveSubsystem::UI:
         return "ui";
-    case RuntimeReserveSubsystem::RuntimeCommands:
-        return "runtime_commands";
+    case RuntimeReserveSubsystem::OwnerRequests:
+        return "owner_requests";
     case RuntimeReserveSubsystem::Replay:
         return "replay";
     case RuntimeReserveSubsystem::Diagnostics:

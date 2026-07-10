@@ -15,8 +15,7 @@ Glossary:
     cinematic mode.
   Execution context: Borrowed Run-owned operations and state needed to perform
     one control action without adding another Run method.
-  Scene UI command: One-frame Scene-tab request translated into deferred runtime
-    commands.
+  Scene UI request: One-frame Scene-tab intent submitted to SceneController.
   Scene browser path: Path discovered from the scenes directory and shown in
     the UI browser.
   Interactive scene run: User-owned scene flow where automation should not exit
@@ -49,7 +48,6 @@ struct UISceneCommands;
 namespace Basics
 {
 class SceneController;
-class RuntimeCommandQueue;
 
 enum class SceneRuntimeControlActionType
 {
@@ -109,13 +107,14 @@ struct SceneRuntimeControlAction
 struct SceneRuntimeUICommandResult
 {
     // Invariant: flags report accepted UI commands for RunInput action logging;
-    // queued RuntimeCommand order remains the behavior contract.
+    // the SceneController request batch preserves their submission order.
     bool resetScene = false;
     bool resetSceneDefaults = false;
     bool loadDemoScene = false;
     bool saveSceneDefaults = false;
     bool createScene = false;
     bool selectScene = false;
+    SbResult status = SbResult::Success();
 };
 
 using SceneRuntimeEnterInteractiveSceneRunFn = void ( * )( void* context );
@@ -138,8 +137,8 @@ struct SceneRuntimeControlExecutionContext
     SceneRuntimeStyleContext style;
 };
 
-SceneRuntimeUICommandResult QueueSceneUIRuntimeCommands( RuntimeCommandQueue& runtimeCommands,
-                                                         const UI::UISceneCommands& commands );
+SceneRuntimeUICommandResult SubmitSceneUIRequests( SceneController& sceneController,
+                                                   const UI::UISceneCommands& commands );
 bool ExecuteSceneRuntimeControlAction( SceneRuntimeControlExecutionContext context,
                                        const SceneRuntimeControlAction& action );
 

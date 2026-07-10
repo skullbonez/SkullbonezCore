@@ -25,8 +25,8 @@ Related:
 #include "EditorTools.h"
 
 #include "../CameraCollection.h"
+#include "../CaptureController.h"
 #include "../InputController.h"
-#include "../RuntimeCommandQueue.h"
 #include "../RuntimeFileWriter.h"
 #include "../Scene/SceneRuntime.h"
 #include "../Tools/RuntimeTools.h"
@@ -463,9 +463,12 @@ void HandleEditorSaveHotkey( EditorSaveHotkeyContext context, RuntimeInputAction
                                                   sScreenshotSeq,
                                                   100 ) )
         {
-            RuntimeCommand command{ RuntimeCommandType::SaveScreenshot };
-            command.text = path;
-            context.commands.Push( std::move( command ) );
+            const SbResult queueResult = context.capture.QueueScreenshot( path );
+            if ( !queueResult.ok )
+            {
+                std::fprintf( stderr, "%s: %s\n", queueResult.error.owner, queueResult.error.message );
+                std::fflush( stderr );
+            }
         }
         return;
     }

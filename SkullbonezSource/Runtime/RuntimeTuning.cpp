@@ -447,7 +447,7 @@ RuntimePresentationUICommandResult ApplyRuntimePresentationUICommands( RuntimePr
     }
     if ( renderTuning.saveDefaults )
     {
-        context.runtimeCommands.Push( RuntimeCommand{ RuntimeCommandType::SaveRenderDefaults } );
+        context.renderDefaults.SubmitOrdinarySave();
         result.queuedRenderDefaultsSave = true;
     }
     if ( renderTuning.requestedParam != UIRenderParam::None )
@@ -510,7 +510,7 @@ bool QueueCinematicSkyDefaultsUICommand( CinematicUICommandContext context, cons
         return false;
     }
 
-    context.runtimeCommands.Push( RuntimeCommand{ RuntimeCommandType::SaveSkyDefaults } );
+    context.renderDefaults.SubmitCinematicSave();
     return true;
 }
 

@@ -4,9 +4,9 @@ Purpose:
   Handles runtime screenshot and capture requests.
 
 Mental model:
-  Run owns the user/runtime command, CaptureController owns image encoding, and
-  the render backend owns the actual swap-chain readback. This file is the thin
-  handoff point between those responsibilities.
+  CaptureController owns queued operator requests and image encoding, while the
+  render backend owns swap-chain readback. This file remains the direct sink for
+  post-render automation until that timing-sensitive path moves deliberately.
 
 Glossary:
   Capture backend: Narrow renderer capability that can report capture support

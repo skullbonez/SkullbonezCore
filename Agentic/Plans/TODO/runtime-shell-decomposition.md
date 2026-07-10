@@ -98,6 +98,35 @@ build completed with zero warnings/errors, and `tools\validate_full.bat` passed
 format/metadata/CPU tests, the DX12 lane with zero InfoQueue errors and matching
 screenshots, and the 20,001-line byte-exact physics baseline.
 
+### Owner Queue Wiring Evidence
+
+B2b-B2e are complete. `CaptureController` owns a fixed 16-slot request ring,
+rejects empty, truncating, and non-BMP paths before enqueue, and returns only
+complete screenshot writes in its accepted batch. The post-render automation
+sink remains direct so its validation timing did not move accidentally.
+`RenderDefaultsStore` owns a fixed 16-slot ordinary/cinematic save ring and
+samples the final live values at the end-of-input checkpoint; both config
+writers now return `SbResult`, retain the first failure, and exclude failed
+writes from accepted events. `SceneController` owns the fixed 64-slot scene
+request ring and all UI/keyboard/probe submission vocabulary. Its batch keeps
+ordered non-transition work, accepts only the first same-frame transition, and
+reports additional transitions as rejected while `Run::DrainSceneRequests`
+remains the explicit C1 execution seam.
+
+Deletion and wire proof: `RuntimeCommandQueue.*`, `RuntimeCommandType`, the
+mixed drain/switch, and the zero-producer `AdvanceScene`/`Quit` cases are absent
+from source and projects. Replay uses the new `OwnerAction = 10` wire lane plus
+explicit 1001-3002 owner codes; only successful capture, persistence, or scene
+work records an event, and raw domain enum ordinals are never serialized.
+
+The final source passed `tools\validate_fast.bat`, the production and test
+project-filter checks, `tools\validate_tests.bat` (114/114 cases, 2,096
+assertions), both `tools\validate_interaction_clicks.bat` scripts,
+`tools\validate_perf.bat`, and `tools\validate_full.bat` with zero build
+warnings, zero DX12 InfoQueue errors, matching screenshots, and the 20,001-line
+byte-exact physics baseline. The touched-file comment audit covered 25
+source-bearing files with no deferrals.
+
 ### Keyboard Router Wiring Evidence
 
 B1a and B1c are complete. The CPU suite now characterizes ordered
@@ -184,21 +213,21 @@ baseline. The comment-style audit covered all 35 touched source-bearing files.
 - [x] B2a. Add value-only `ApplicationExitState`. Preserve the first owned
   Lane R failure, translate nonzero OS quit codes into failure, and prevent a
   later normal quit from overwriting failure evidence.
-- [ ] B2b. Move input-triggered capture into a fixed `CaptureController` queue;
+- [x] B2b. Move input-triggered capture into a fixed `CaptureController` queue;
   validate bounded paths before enqueue and preserve post-render automation
   timing until its direct sink is retired deliberately.
-- [ ] B2c. Move ordinary/cinematic persistence into `RenderDefaultsStore`,
+- [x] B2c. Move ordinary/cinematic persistence into `RenderDefaultsStore`,
   convert writers to `SbResult`, and observe final frame-mutated values at its
   named checkpoint. Defaults are not application commands.
-- [ ] B2d. Move scene queue storage and submission vocabulary into
+- [x] B2d. Move scene queue storage and submission vocabulary into
   `SceneController`; temporarily retain a scene-only execution drain in `Run`
   until C1 supplies concrete load/save authority.
-- [ ] B2e. Replay records only accepted owner events with explicit stable event
+- [x] B2e. Replay records only accepted owner events with explicit stable event
   codes. Failed/rejected work and raw domain-enum ordinals are never serialized.
 - [ ] B2f. Close extraction 2 with C1: move scene execution to
-  `SceneController`, then delete `DrainRuntimeCommands`, the generic queue/type,
-  dead zero-producer cases, scene `void*` callbacks, and all remaining owner
-  bypasses.
+  `SceneController`, then delete `DrainSceneRequests`, scene `void*` callbacks,
+  and all remaining owner bypasses. The generic queue/type and dead
+  zero-producer cases were already deleted under B2b-B2e.
 
 ### C. Scene lifecycle ownership
 
@@ -257,7 +286,7 @@ Coordinate C with `physics-authority-and-identity.md` C0-C5 and
 | Decision | Binding answer or remaining question |
 |---|---|
 | Input/UI ordering | **Binding:** sample `DeviceInputFrame` once; run `InputRouter::BeginFrame`; UI then publishes one immutable `UiInputHitSnapshot`; run `CompleteFrame`; later phases consume values only. |
-| Command ordering | **Binding:** at the unconditional pre-simulation checkpoint, return an existing owned failure, persist render defaults, accept input-triggered capture, accept at most one scene transition, then apply a normal exit. Commands produced after the checkpoint run on frame N+1. Encode this in CPU tests. |
+| Command ordering | **Binding:** at the unconditional end-of-input checkpoint, persist render defaults from final UI-mutated values, process input-triggered capture, then accept at most the first scene transition while preserving ordered non-transition scene work. Application exit never enters a queue; `ApplicationExitState` resolves it at the message-loop boundary. Requests produced after the checkpoint run on frame N+1. |
 | Scene load contract | Which state survives reset/load and which lifecycle event clears interaction, replay, diagnostics, and camera state? |
 | Fixed-step ownership | `SimulationSystem` remains timestep owner; do not recreate a generic simulation facade. Decide only which frame coordinator calls it. |
 

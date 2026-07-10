@@ -43,6 +43,7 @@ Related:
 */
 #pragma once
 
+#include "RenderDefaultsStore.h"
 #include "RunInternal.h"
 #include "Scene/SceneRuntimeStyle.h"
 
@@ -110,7 +111,7 @@ struct RuntimePresentationUICommandContext
     RunSceneState& scene;
     EngineConfig& config;
     RunLaunchOptions& launchOptions;
-    RuntimeCommandQueue& runtimeCommands;
+    RenderDefaultsStore& renderDefaults;
     bool graphicsReady = false;
     double simulationSeconds = 0.0;
 };
@@ -122,7 +123,7 @@ struct CinematicUICommandContext
     RunLaunchOptions& launchOptions;
     RunSceneState& scene;
     CinematicRenderConfig& cinematic;
-    RuntimeCommandQueue& runtimeCommands;
+    RenderDefaultsStore& renderDefaults;
 };
 
 struct TornadoUICommandResult

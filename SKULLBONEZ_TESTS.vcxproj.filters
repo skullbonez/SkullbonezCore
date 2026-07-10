@@ -37,6 +37,9 @@
     <Filter Include="Source Files\Runtime\Replay">
       <UniqueIdentifier>{B75CFE80-5DE1-4FA6-B50A-6450A7E0A819}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\Runtime\Scene">
+      <UniqueIdentifier>{F44133F6-7B35-4C37-BB2B-E2F8A746D8A4}</UniqueIdentifier>
+    </Filter>
     <Filter Include="Source Files\Scene">
       <UniqueIdentifier>{B4027C52-533E-4F44-9B93-8775E7F77737}</UniqueIdentifier>
     </Filter>
@@ -76,6 +79,9 @@
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezTests\TestObjectContactManifold.cpp">
+      <Filter>Source Files\Tests</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezTests\TestOwnerRequestQueues.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezTests\TestApplicationExitState.cpp">
@@ -161,6 +167,21 @@
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\InputRouter.cpp">
       <Filter>Source Files\Runtime</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\CaptureController.cpp">
+      <Filter>Source Files\Runtime</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\CaptureSystem.cpp">
+      <Filter>Source Files\Runtime</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\RenderDefaultsStore.cpp">
+      <Filter>Source Files\Runtime</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneRequestQueue.cpp">
+      <Filter>Source Files\Runtime\Scene</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneRuntimeDefaults.cpp">
+      <Filter>Source Files\Runtime\Scene</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\RuntimeFileWriter.cpp">
       <Filter>Source Files\Runtime</Filter>

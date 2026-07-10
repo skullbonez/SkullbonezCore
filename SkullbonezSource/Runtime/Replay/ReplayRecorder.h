@@ -24,12 +24,15 @@ Glossary:
   deliberately not an authoritative restore checkpoint yet.
   Ring buffer: Fixed-capacity circular array; newest captures evict the oldest
     samples once the retention window is full.
-  Event sample: Runtime intent record, such as restore or branch actions, that
-    must be replayed alongside solver state for authoritative rollback work.
+  Event sample: Accepted owner action, restore, or branch record that must be
+    replayed alongside solver state for authoritative rollback work.
+  Wire code: Explicit serialized value whose meaning is independent of a C++
+    domain enum's declaration order.
 
 Invariants:
   - Capture order is chronological even though storage wraps internally.
   - Hash fields are compatibility surface for deterministic validation.
+  - Owner-action wire values never serialize domain enum ordinals.
 
 Related:
   - SkullbonezSource/Runtime/Replay/ReplayRecorder.cpp
@@ -392,7 +395,9 @@ enum class ReplayEventKind : uint16_t
 {
     Unknown = 0,
     TimelineStart = 1,
-    RuntimeCommand = 2,
+    // Value 2 belonged to the deleted mixed-command payload. Do not reuse it:
+    // owner actions have explicit codes and intentionally start a new wire lane.
+    OwnerAction = 10,
     BranchRestore = 3,
     WorldOverride = 4,
     LauncherConfig = 5,
@@ -400,6 +405,20 @@ enum class ReplayEventKind : uint16_t
     GeneratedSceneConfig = 7,
     EditorPlace = 8,
     EditorTransform = 9
+};
+
+// Stable wire values for accepted owner work. These numbers are serialized;
+// domain enum ordinals and rejected requests must never be substituted.
+enum class ReplayOwnerEventCode : int32_t
+{
+    SceneLoadBrowserIndex = 1001,
+    SceneLoadDemo = 1002,
+    SceneReset = 1003,
+    SceneCreate = 1004,
+    SceneSaveDefaults = 1005,
+    CaptureScreenshot = 2001,
+    RenderSaveOrdinaryDefaults = 3001,
+    RenderSaveCinematicDefaults = 3002,
 };
 
 struct ReplayEventSample

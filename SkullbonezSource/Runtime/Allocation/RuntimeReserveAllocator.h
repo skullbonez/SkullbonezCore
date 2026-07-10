@@ -59,7 +59,7 @@ enum class RuntimeReserveSubsystem
     Renderer,
     DX12Telemetry,
     UI,
-    RuntimeCommands,
+    OwnerRequests,
     Replay,
     Diagnostics,
     AllocationTracker

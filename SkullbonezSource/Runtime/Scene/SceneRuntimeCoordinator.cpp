@@ -27,7 +27,6 @@ Related:
 */
 #include "SceneRuntimeCoordinator.h"
 #include "SceneController.h"
-#include "../RuntimeCommandQueue.h"
 #include "../../UI/UICommands.h"
 
 #include <algorithm>
@@ -312,45 +311,42 @@ SceneRuntimeCoordinator::AdvanceScene( bool perfTestActive, int& perfPass, bool 
     return SceneRuntimeControlAction::LoadScene( nextIndex, preserveInteractiveUI, preserveInteractiveUI, false );
 }
 
-SceneRuntimeUICommandResult QueueSceneUIRuntimeCommands( RuntimeCommandQueue& runtimeCommands,
-                                                         const UI::UISceneCommands& commands )
+SceneRuntimeUICommandResult SubmitSceneUIRequests( SceneController& sceneController,
+                                                   const UI::UISceneCommands& commands )
 {
     SceneRuntimeUICommandResult result;
     if ( commands.resetScene )
     {
-        runtimeCommands.Push( RuntimeCommand{ RuntimeCommandType::ResetCurrentScene } );
+        sceneController.SubmitResetCurrentScene();
         result.resetScene = true;
     }
     if ( commands.resetSceneDefaults )
     {
-        RuntimeCommand command{ RuntimeCommandType::ResetCurrentScene };
-        command.preserveUIState = false;
-        command.preserveRuntimeState = false;
-        runtimeCommands.Push( command );
+        sceneController.SubmitResetCurrentScene( false, true, false );
         result.resetSceneDefaults = true;
     }
     if ( commands.requestDemoScene )
     {
-        runtimeCommands.Push( RuntimeCommand{ RuntimeCommandType::LoadDemoScene } );
+        sceneController.SubmitLoadDemoScene();
         result.loadDemoScene = true;
     }
     if ( commands.saveSceneDefaults )
     {
-        runtimeCommands.Push( RuntimeCommand{ RuntimeCommandType::SaveSceneDefaults } );
+        sceneController.SubmitSaveCurrentDefaults();
         result.saveSceneDefaults = true;
     }
     if ( commands.createScene )
     {
-        RuntimeCommand command{ RuntimeCommandType::CreateScene };
-        command.text = commands.requestedSceneName;
-        runtimeCommands.Push( command );
+        result.status = sceneController.SubmitCreateScene( commands.requestedSceneName );
+        if ( !result.status.ok )
+        {
+            return result;
+        }
         result.createScene = true;
     }
     if ( commands.requestedSceneIndex >= 0 )
     {
-        RuntimeCommand command{ RuntimeCommandType::LoadSceneIndex };
-        command.index = commands.requestedSceneIndex;
-        runtimeCommands.Push( command );
+        sceneController.SubmitLoadBrowserIndex( commands.requestedSceneIndex );
         result.selectScene = true;
     }
     return result;

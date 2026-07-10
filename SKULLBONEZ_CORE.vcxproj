@@ -188,6 +188,7 @@
     <ClCompile Include="SkullbonezSource\Runtime\AttachedCameraController.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\CaptureController.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\CaptureSystem.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\RenderDefaultsStore.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Camera.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\CameraCollection.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\DemoDirector.cpp" />
@@ -201,6 +202,7 @@
     <ClCompile Include="SkullbonezSource\Scene\SceneSnapshotWriter.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneAuthoredSetup.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneController.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneRequestQueue.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneRuntime.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneRuntimeCreate.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneGeneratedSetup.cpp" />
@@ -226,7 +228,6 @@
     <ClCompile Include="SkullbonezSource\Runtime\Replay\RunReplayCauseTreeTools.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Replay\RunReplayQueryTools.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Replay\RunReplayScrubberTools.cpp" />
-    <ClCompile Include="SkullbonezSource\Runtime\RuntimeCommandQueue.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\RuntimeDiagnostics.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Diagnostics\DiagnosticsRuntime.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Audio\ContactAudioService.cpp" />
@@ -343,6 +344,7 @@
     <ClInclude Include="SkullbonezSource\Runtime\AttachedCameraController.h" />
     <ClInclude Include="SkullbonezSource\Runtime\CaptureController.h" />
     <ClInclude Include="SkullbonezSource\Runtime\CaptureSystem.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\RenderDefaultsStore.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Camera.h" />
     <ClInclude Include="SkullbonezSource\Runtime\CameraCollection.h" />
     <ClInclude Include="SkullbonezSource\Runtime\DemoDirector.h" />
@@ -390,7 +392,6 @@
     <ClInclude Include="SkullbonezSource\Runtime\RunStartupState.h" />
     <ClInclude Include="SkullbonezSource\Runtime\RunTimerState.h" />
     <ClInclude Include="SkullbonezSource\Runtime\RuntimeCameraMode.h" />
-    <ClInclude Include="SkullbonezSource\Runtime\RuntimeCommandQueue.h" />
     <ClInclude Include="SkullbonezSource\Runtime\RuntimeInteractionCommands.h" />
     <ClInclude Include="SkullbonezSource\Runtime\RuntimeDiagnostics.h" />
     <ClInclude Include="SkullbonezSource\Runtime\RunLaunchOptions.Renderer.h" />
@@ -409,6 +410,7 @@
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneAuthoredSetup.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneController.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneControllerState.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneRequestQueue.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneRuntime.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneRuntimeCreate.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneGeneratedSetup.h" />

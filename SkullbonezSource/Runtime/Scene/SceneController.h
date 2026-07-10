@@ -1,21 +1,23 @@
 /*
 File: SkullbonezSource/Runtime/Scene/SceneController.h
 Purpose:
-  Owns the scene runtime boundary used by the main Run facade.
+  Owns scene runtime state and the fixed scene-request submission boundary.
 
 Mental model:
   SceneController is the narrow API around scene queue and scene-run state.
-  Run coordinates broad side effects, while this controller owns the scene
-  runtime object that those side effects reference.
+  Run temporarily executes broad load side effects, while this controller owns
+  scene state plus the ordered request batch those side effects consume.
 
 Glossary:
   Scene runtime: Current scene state plus queue navigation data.
   Scene queue: Ordered authored scene list, with an empty path selecting the
-  generated demo scene.
+    generated demo scene.
+  Scene request: Deferred load, reset, create, or defaults-save owner intent.
 
 Invariants:
   - SceneController owns queue/index bookkeeping, not renderer or physics side
     effects.
+  - All interactive scene submissions enter its fixed request ring.
   - Empty queue path is the generated demo scene sentinel.
   - Queue index lookups must normalize path separators before matching.
 
@@ -27,6 +29,7 @@ Related:
 #pragma once
 
 #include "SceneControllerState.h"
+#include "SceneRequestQueue.h"
 #include "SceneRuntime.h"
 
 #include <string>
@@ -69,6 +72,19 @@ class SceneController
     int Append( std::string path );
     bool CurrentQueueIsCinematicDeck() const;
     int AdjacentQueueIndex( int direction ) const;
+
+    // Scene request submission stays owner-specific even while Run temporarily
+    // executes the returned batch during lifecycle extraction C1.
+    void SubmitLoadBrowserIndex( int index );
+    void SubmitLoadDemoScene();
+    void SubmitResetCurrentScene( bool preserveUIState = true,
+                                  bool suppressExitOnComplete = true,
+                                  bool preserveRuntimeState = true );
+    SbResult SubmitCreateScene( const char* requestedName );
+    void SubmitSaveCurrentDefaults();
+    SceneRequestBatch TakePendingRequests();
+    std::size_t PendingRequestCount() const;
+
     std::vector<RunRequiredContactState>& RequiredContacts();
     const std::vector<RunRequiredContactState>& RequiredContacts() const;
     std::vector<RunRequiredBroadphaseXCellsState>& RequiredBroadphaseXCells();
@@ -85,6 +101,7 @@ class SceneController
 
   private:
     SceneRuntime m_runtime;                // Scene queue and active scene-run state
+    SceneRequestQueue m_requests;          // Fixed scene-only deferred intent ring.
     RunSceneBrowserState m_browser;        // Discovered scene paths and live cine/concept selection.
     RunSceneUIOverrideState m_uiOverrides; // Live Scene-tab overrides preserved across reset when requested.
 };

@@ -1,20 +1,21 @@
 /*
 File: SkullbonezSource/Runtime/Scene/SceneController.cpp
 Purpose:
-  Implements the scene runtime controller pass-throughs.
+  Implements scene runtime access and scene-owned deferred request submission.
 
 Mental model:
-  The controller deliberately starts as a behavior-preserving boundary. It
-  provides a named ownership point for scene state before deeper scene-loading
-  side effects move out of RunScene.cpp.
+  Scene state and deferred intent live together here. Run still executes the
+  returned request batch while deeper scene-loading side effects move out of
+  RunScene.cpp during lifecycle extraction C1.
 
 Glossary:
   Scene runtime: Mutable per-scene queue, completion, and automation state.
   Scene queue: Ordered list of authored scenes or demo entries to run.
-  Pass-through boundary: Wrapper that names ownership before moving behavior.
+  Request batch: Ordered fixed-capacity copy consumed at one frame checkpoint.
 
 Invariants:
   - Controller accessors must preserve the existing SceneRuntime semantics.
+  - Interactive scene requests cannot bypass the controller-owned ring.
   - No scene load side effects live here yet; RunScene.cpp still applies them.
 
 Related:
@@ -23,6 +24,9 @@ Related:
 */
 #include "SceneController.h"
 
+#include "../../Core/FatalError.h"
+
+#include <cstring>
 #include <utility>
 
 namespace SkullbonezCore
@@ -171,6 +175,92 @@ bool SceneController::CurrentQueueIsCinematicDeck() const
 int SceneController::AdjacentQueueIndex( int direction ) const
 {
     return m_runtime.AdjacentQueueIndex( direction );
+}
+
+
+void SceneController::SubmitLoadBrowserIndex( int index )
+{
+    SceneRequest request;
+    request.type = SceneRequestType::LoadBrowserIndex;
+    request.index = index;
+    const SbResult result = m_requests.Submit( request );
+    if ( !result.ok )
+    {
+        SB_FATAL( result.error.owner, "%s", result.error.message );
+    }
+}
+
+
+void SceneController::SubmitLoadDemoScene()
+{
+    SceneRequest request;
+    request.type = SceneRequestType::LoadDemoScene;
+    const SbResult result = m_requests.Submit( request );
+    if ( !result.ok )
+    {
+        SB_FATAL( result.error.owner, "%s", result.error.message );
+    }
+}
+
+
+void SceneController::SubmitResetCurrentScene( bool preserveUIState,
+                                               bool suppressExitOnComplete,
+                                               bool preserveRuntimeState )
+{
+    SceneRequest request;
+    request.type = SceneRequestType::ResetCurrentScene;
+    request.preserveUIState = preserveUIState;
+    request.suppressExitOnComplete = suppressExitOnComplete;
+    request.preserveRuntimeState = preserveRuntimeState;
+    const SbResult result = m_requests.Submit( request );
+    if ( !result.ok )
+    {
+        SB_FATAL( result.error.owner, "%s", result.error.message );
+    }
+}
+
+
+SbResult SceneController::SubmitCreateScene( const char* requestedName )
+{
+    const std::size_t nameLength = requestedName ? strnlen_s( requestedName, SCENE_REQUEST_TEXT_CAPACITY ) : 0;
+    if ( requestedName && nameLength >= SCENE_REQUEST_TEXT_CAPACITY )
+    {
+        return SbResult::Failure( "Runtime/SceneController",
+                                  "Scene name exceeds the fixed %d-byte request payload",
+                                  SCENE_REQUEST_TEXT_CAPACITY - 1 );
+    }
+
+    SceneRequest request;
+    request.type = SceneRequestType::CreateScene;
+    if ( requestedName )
+    {
+        strcpy_s( request.text, requestedName );
+    }
+    return m_requests.Submit( request );
+}
+
+
+void SceneController::SubmitSaveCurrentDefaults()
+{
+    SceneRequest request;
+    request.type = SceneRequestType::SaveCurrentDefaults;
+    const SbResult result = m_requests.Submit( request );
+    if ( !result.ok )
+    {
+        SB_FATAL( result.error.owner, "%s", result.error.message );
+    }
+}
+
+
+SceneRequestBatch SceneController::TakePendingRequests()
+{
+    return m_requests.TakePending();
+}
+
+
+std::size_t SceneController::PendingRequestCount() const
+{
+    return m_requests.Size();
 }
 
 

@@ -184,6 +184,9 @@
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneController.cpp">
       <Filter>Source Files\Runtime\Scene</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneRequestQueue.cpp">
+      <Filter>Source Files\Runtime\Scene</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneRuntime.cpp">
       <Filter>Source Files\Runtime\Scene</Filter>
     </ClCompile>
@@ -262,7 +265,7 @@
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayV2Artifact.cpp">
       <Filter>Source Files\Runtime\Replay</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Runtime\RuntimeCommandQueue.cpp">
+    <ClCompile Include="SkullbonezSource\Runtime\RenderDefaultsStore.cpp">
       <Filter>Source Files\Runtime</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\RuntimeFileWriter.cpp">
@@ -755,7 +758,7 @@
     <ClInclude Include="SkullbonezSource\Runtime\RuntimeCameraMode.h">
       <Filter>Header Files\Runtime</Filter>
     </ClInclude>
-    <ClInclude Include="SkullbonezSource\Runtime\RuntimeCommandQueue.h">
+    <ClInclude Include="SkullbonezSource\Runtime\RenderDefaultsStore.h">
       <Filter>Header Files\Runtime</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\RuntimeInteractionCommands.h">
@@ -810,6 +813,9 @@
       <Filter>Header Files\Runtime\Scene</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneControllerState.h">
+      <Filter>Header Files\Runtime\Scene</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneRequestQueue.h">
       <Filter>Header Files\Runtime\Scene</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneRuntime.h">

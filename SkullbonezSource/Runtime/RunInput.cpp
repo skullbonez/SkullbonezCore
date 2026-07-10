@@ -41,7 +41,6 @@ Related:
 #include "RuntimePickService.h"
 #include "Scene/SceneRuntimeCreate.h"
 #include "RuntimeTuning.h"
-#include "Scene/SceneRuntimeDefaults.h"
 #include "Scene/SceneRuntimeGeneratedControls.h"
 #include "Scene/SceneRuntimeLoad.h"
 #include "Scene/SceneRuntimeStyle.h"
@@ -220,42 +219,37 @@ RuntimeWorkspace WorkspaceForWorldInteractionOwner( RuntimeWorkspace fallback, W
     return fallback;
 }
 
-const char* ReplayRuntimeCommandName( RuntimeCommandType type )
+const char* ReplayOwnerEventName( ReplayOwnerEventCode code )
 {
-    switch ( type )
+    switch ( code )
     {
-    case RuntimeCommandType::LoadSceneIndex:
-        return "LoadSceneIndex";
-    case RuntimeCommandType::LoadDemoScene:
-        return "LoadDemoScene";
-    case RuntimeCommandType::ResetCurrentScene:
-        return "ResetCurrentScene";
-    case RuntimeCommandType::CreateScene:
-        return "CreateScene";
-    case RuntimeCommandType::SaveScreenshot:
-        return "SaveScreenshot";
-    case RuntimeCommandType::SaveSceneDefaults:
-        return "SaveSceneDefaults";
-    case RuntimeCommandType::SaveRenderDefaults:
-        return "SaveRenderDefaults";
-    case RuntimeCommandType::SaveSkyDefaults:
-        return "SaveSkyDefaults";
-    case RuntimeCommandType::AdvanceScene:
-        return "AdvanceScene";
-    case RuntimeCommandType::Quit:
-        return "Quit";
-    case RuntimeCommandType::None:
+    case ReplayOwnerEventCode::SceneLoadBrowserIndex:
+        return "SceneLoadBrowserIndex";
+    case ReplayOwnerEventCode::SceneLoadDemo:
+        return "SceneLoadDemo";
+    case ReplayOwnerEventCode::SceneReset:
+        return "SceneReset";
+    case ReplayOwnerEventCode::SceneCreate:
+        return "SceneCreate";
+    case ReplayOwnerEventCode::SceneSaveDefaults:
+        return "SceneSaveDefaults";
+    case ReplayOwnerEventCode::CaptureScreenshot:
+        return "CaptureScreenshot";
+    case ReplayOwnerEventCode::RenderSaveOrdinaryDefaults:
+        return "RenderSaveOrdinaryDefaults";
+    case ReplayOwnerEventCode::RenderSaveCinematicDefaults:
+        return "RenderSaveCinematicDefaults";
     default:
-        return "None";
+        return "UnknownOwnerEvent";
     }
 }
 
-uint32_t ReplayRuntimeCommandFlags( const RuntimeCommand& command )
+uint32_t ReplaySceneRequestFlags( const SceneRequest& request )
 {
     uint32_t flags = 0;
-    flags |= command.preserveUIState ? 1u : 0u;
-    flags |= command.suppressExitOnComplete ? 2u : 0u;
-    flags |= command.preserveRuntimeState ? 4u : 0u;
+    flags |= request.preserveUIState ? 1u : 0u;
+    flags |= request.suppressExitOnComplete ? 2u : 0u;
+    flags |= request.preserveRuntimeState ? 4u : 0u;
     return flags;
 }
 
@@ -561,7 +555,7 @@ struct RuntimeUIFrameContext
     SkullbonezCore::Environment::WorldEnvironment& worldEnvironment;
     SkullbonezCore::GameObjects::GameModelCollection& gameModels;
     RuntimeRenderBackendView& renderBackendView;
-    RuntimeCommandQueue& runtimeCommands;
+    RenderDefaultsStore& renderDefaults;
     CinematicRenderConfig& defaultCinematicRender;
     SkullbonezCore::UI::InGameUI& ui;
     int gameModelCapacity = 0;
@@ -775,7 +769,7 @@ ApplyRuntimeUIFrameCommands( const RuntimeUIFrameContext& context,
                                              context.sceneState,
                                              context.config,
                                              context.launchOptions,
-                                             context.runtimeCommands,
+                                             context.renderDefaults,
                                              context.renderBackendView.deviceLifecycle != nullptr,
                                              context.timers.simulationTimer.GetTimeSinceLastStart() },
         uiCommands.sceneOptions,
@@ -915,7 +909,7 @@ ApplyRuntimeUIFrameCommands( const RuntimeUIFrameContext& context,
     const CinematicUICommandContext cinematicUICommandContext{ context.launchOptions,
                                                                context.sceneState,
                                                                activeCinematic,
-                                                               context.runtimeCommands };
+                                                               context.renderDefaults };
     if ( ApplyCinematicRenderingToggleUICommand( cinematicUICommandContext, uiCommands.cinematic ) )
     {
         recordUIAction( RuntimeInputAction::ToggleCinematicRendering );
@@ -941,7 +935,12 @@ ApplyRuntimeUIFrameCommands( const RuntimeUIFrameContext& context,
         ApplyCinematicTuningUICommands( cinematicUICommandContext, uiCommands.cinematic );
     RecordCinematicTuningUIActions( cinematicTuningCommands, recordUIAction );
     const SceneRuntimeUICommandResult sceneUICommands =
-        QueueSceneUIRuntimeCommands( context.runtimeCommands, uiCommands.scene );
+        SubmitSceneUIRequests( context.sceneController, uiCommands.scene );
+    if ( !sceneUICommands.status.ok )
+    {
+        result.status = sceneUICommands.status;
+        return result;
+    }
     RecordSceneRuntimeUIActions( sceneUICommands, recordUIAction );
 
     const SbResult stressResult = runUIStressActions();
@@ -975,7 +974,7 @@ template <typename BuildRuntimeInputSnapshot,
           typename DispatchPostUIKeyboardActions,
           typename MouseLookOwnsCursor,
           typename SyncCameraLookGesture,
-          typename DrainRuntimeCommands>
+          typename CommitDeferredOwnerRequests>
 void ProcessRuntimePointerCameraFrame( const RuntimePointerCameraFrameContext& context,
                                        BuildRuntimeInputSnapshot buildRuntimeInputSnapshot,
                                        RouteRuntimePointerInput routeRuntimePointerInput,
@@ -984,7 +983,7 @@ void ProcessRuntimePointerCameraFrame( const RuntimePointerCameraFrameContext& c
                                        DispatchPostUIKeyboardActions dispatchPostUIKeyboardActions,
                                        MouseLookOwnsCursor mouseLookOwnsCursor,
                                        SyncCameraLookGesture syncCameraLookGesture,
-                                       DrainRuntimeCommands drainRuntimeCommands )
+                                       CommitDeferredOwnerRequests commitDeferredOwnerRequests )
 {
     // Editor, replay, and launcher actions share world clicks. UI interaction
     // and capture suppress them so panel controls never mutate the scene.
@@ -1028,7 +1027,7 @@ void ProcessRuntimePointerCameraFrame( const RuntimePointerCameraFrameContext& c
     {
         applyCursorOwnership();
     }
-    drainRuntimeCommands();
+    commitDeferredOwnerRequests();
 }
 
 } // namespace
@@ -2287,7 +2286,7 @@ void Run::DispatchPostUIKeyboardActions()
                                                                         SceneState(),
                                                                         m_cWorldEnvironment,
                                                                         *m_systems.cameras,
-                                                                        m_runtimeCommands };
+                                                                        m_diagnosticsRuntime.Capture() };
     // Invariant: side-effect dispatch consumes only accepted semantic events.
     // It must not reopen hardware polling or maintain a second edge latch.
     for ( std::size_t index = 0; index < m_inputActions.Count(); ++index )
@@ -2306,14 +2305,14 @@ void Run::DispatchPostUIKeyboardActions()
             break;
         case RuntimeInputAction::ResetScene:
             // R reloads after capture actions have had their persistence slot.
-            m_runtimeCommands.Push( RuntimeCommand{ RuntimeCommandType::ResetCurrentScene } );
+            m_sceneController.SubmitResetCurrentScene();
             break;
         case RuntimeInputAction::ResetSceneFromBackspace:
             if ( SceneState().isSceneMode )
             {
                 // Backspace is only a scene-mode reset alias; generated demos keep
                 // the key free for future non-scene tools.
-                m_runtimeCommands.Push( RuntimeCommand{ RuntimeCommandType::ResetCurrentScene } );
+                m_sceneController.SubmitResetCurrentScene();
             }
             break;
         default:
@@ -2802,7 +2801,7 @@ void Run::TakeInput()
                                m_cWorldEnvironment,
                                m_cGameModelCollection,
                                m_renderBackendView,
-                               m_runtimeCommands,
+                               m_renderDefaults,
                                m_defaultCinematicRender,
                                m_UI,
                                m_startup.gameModelCapacity },
@@ -2857,12 +2856,97 @@ void Run::TakeInput()
                 const RuntimeInteractionFramePolicy& inputPolicy,
                 bool mouseLookOwnsCursor )
         { SyncCameraLookGesture( inputSnapshot, inputPolicy, mouseLookOwnsCursor ); },
-        [this]() { DrainRuntimeCommands(); } );
+        [this]()
+        {
+            // Invariant: persistence samples final UI-mutated values before a
+            // same-frame scene reset can replace config. Capture keeps its
+            // historical pre-render input checkpoint; automation remains post-render.
+            const bool processedDefaults = DrainRenderDefaultRequests();
+            const bool processedCapture = DrainCaptureRequests();
+            const bool processedScene = DrainSceneRequests();
+            if ( processedCapture || processedDefaults || processedScene )
+            {
+                RefreshRuntimeViewModel();
+            }
+        } );
     commitPointerPresentation();
 }
 
 
-bool Run::DrainRuntimeCommands()
+bool Run::DrainCaptureRequests()
+{
+    CaptureController& capture = m_diagnosticsRuntime.Capture();
+    if ( capture.PendingScreenshotCount() == 0 )
+    {
+        return false;
+    }
+
+    Rendering::IRenderCaptureBackend* captureBackend = m_renderBackendView.captureBackend;
+    if ( !captureBackend )
+    {
+        // Lane F: startup binds this facet before input can submit capture work.
+        SB_FATAL( "Runtime/CaptureController", "Queued screenshot requires an active capture backend" );
+    }
+
+    const CaptureRequestBatchResult batch = capture.DrainScreenshotRequests( *captureBackend );
+    if ( !batch.status.ok )
+    {
+        std::fprintf( stderr, "%s: %s\n", batch.status.error.owner, batch.status.error.message );
+        std::fflush( stderr );
+    }
+
+    for ( std::size_t index = 0; index < batch.savedCount; ++index )
+    {
+        m_replayRuntime.RecordEvent( ReplayEventKind::OwnerAction,
+                                     m_replayRuntime.NextEventFrameIndex(),
+                                     0,
+                                     static_cast<int32_t>( ReplayOwnerEventCode::CaptureScreenshot ),
+                                     0,
+                                     0,
+                                     0,
+                                     0,
+                                     batch.saved[index].path );
+    }
+    return true;
+}
+
+
+bool Run::DrainRenderDefaultRequests()
+{
+    if ( m_renderDefaults.PendingCount() == 0 )
+    {
+        return false;
+    }
+
+    const RenderDefaultsSaveBatchResult batch =
+        m_renderDefaults.DrainAtFrameCheckpoint( m_config.ordinaryRender,
+                                                 RuntimeActiveCinematicConfig( SceneState(), m_config ) );
+    if ( !batch.status.ok )
+    {
+        std::fprintf( stderr, "%s: %s\n", batch.status.error.owner, batch.status.error.message );
+        std::fflush( stderr );
+    }
+
+    for ( std::size_t index = 0; index < batch.savedCount; ++index )
+    {
+        const ReplayOwnerEventCode code = batch.saved[index] == RenderDefaultsRequestType::Ordinary
+                                              ? ReplayOwnerEventCode::RenderSaveOrdinaryDefaults
+                                              : ReplayOwnerEventCode::RenderSaveCinematicDefaults;
+        m_replayRuntime.RecordEvent( ReplayEventKind::OwnerAction,
+                                     m_replayRuntime.NextEventFrameIndex(),
+                                     0,
+                                     static_cast<int32_t>( code ),
+                                     0,
+                                     0,
+                                     0,
+                                     0,
+                                     ReplayOwnerEventName( code ) );
+    }
+    return true;
+}
+
+
+bool Run::DrainSceneRequests()
 {
     SceneRuntimeControlExecutionContext sceneControlContext{
         this,
@@ -2884,90 +2968,75 @@ bool Run::DrainRuntimeCommands()
                                   RuntimeActiveCinematicConfig( SceneState(), m_config ),
                                   m_defaultCinematicRender },
     };
-    bool processed = false;
-    RuntimeCommand command;
-    while ( m_runtimeCommands.TryPop( command ) )
+    const SceneRequestBatch batch = m_sceneController.TakePendingRequests();
+    if ( batch.rejectedTransitionCount > 0 )
     {
-        processed = true;
-        switch ( command.type )
+        std::fprintf( stderr,
+                      "Runtime/SceneController: rejected %zu additional same-frame scene transition(s)\n",
+                      batch.rejectedTransitionCount );
+        std::fflush( stderr );
+    }
+    for ( std::size_t requestIndex = 0; requestIndex < batch.count; ++requestIndex )
+    {
+        const SceneRequest& request = batch.requests[requestIndex];
+        bool accepted = false;
+        ReplayOwnerEventCode eventCode = ReplayOwnerEventCode::SceneLoadBrowserIndex;
+        int eventIndex = request.index;
+        const char* eventText = nullptr;
+
+        switch ( request.type )
         {
-        case RuntimeCommandType::LoadSceneIndex:
-            ExecuteSceneRuntimeControlAction(
+        case SceneRequestType::LoadBrowserIndex:
+            eventCode = ReplayOwnerEventCode::SceneLoadBrowserIndex;
+            accepted = ExecuteSceneRuntimeControlAction(
                 sceneControlContext,
-                m_sceneCoordinator.LoadSceneFromBrowserIndex( command.index, m_sceneController.Browser().paths ) );
+                m_sceneCoordinator.LoadSceneFromBrowserIndex( request.index, m_sceneController.Browser().paths ) );
             break;
-        case RuntimeCommandType::LoadDemoScene:
-            ExecuteSceneRuntimeControlAction( sceneControlContext, m_sceneCoordinator.LoadDemoSceneFromUI() );
+        case SceneRequestType::LoadDemoScene:
+            eventCode = ReplayOwnerEventCode::SceneLoadDemo;
+            accepted =
+                ExecuteSceneRuntimeControlAction( sceneControlContext, m_sceneCoordinator.LoadDemoSceneFromUI() );
             break;
-        case RuntimeCommandType::ResetCurrentScene:
+        case SceneRequestType::ResetCurrentScene:
+            eventCode = ReplayOwnerEventCode::SceneReset;
             EnterInteractiveSceneRun();
-            ExecuteSceneRuntimeControlAction( sceneControlContext,
-                                              m_sceneCoordinator.ResetCurrentScene( command.preserveUIState,
-                                                                                    command.suppressExitOnComplete,
-                                                                                    command.preserveRuntimeState ) );
+            accepted = ExecuteSceneRuntimeControlAction(
+                sceneControlContext,
+                m_sceneCoordinator.ResetCurrentScene( request.preserveUIState,
+                                                      request.suppressExitOnComplete,
+                                                      request.preserveRuntimeState ) );
             break;
-        case RuntimeCommandType::CreateScene:
-            ExecuteSceneRuntimeControlAction(
+        case SceneRequestType::CreateScene:
+            eventCode = ReplayOwnerEventCode::SceneCreate;
+            eventText = request.text;
+            accepted = ExecuteSceneRuntimeControlAction(
                 sceneControlContext,
                 CreateSceneFromUI( SceneRuntimeCreateContext{ m_sceneController, m_sceneController.Browser() },
-                                   command.text.c_str() ) );
+                                   request.text ) );
             break;
-        case RuntimeCommandType::SaveScreenshot:
-            if ( !command.text.empty() )
-            {
-                const SbResult captureResult = SaveScreenshot( command.text.c_str() );
-                if ( !captureResult.ok )
-                {
-                    fprintf( stderr, "%s: %s\n", captureResult.error.owner, captureResult.error.message );
-                    fflush( stderr );
-                }
-            }
-            break;
-        case RuntimeCommandType::SaveSceneDefaults:
-            SaveCurrentSceneDefaults();
-            break;
-        case RuntimeCommandType::SaveRenderDefaults:
-            SaveRenderDefaults( m_config.ordinaryRender );
-            break;
-        case RuntimeCommandType::SaveSkyDefaults:
-            SaveSkyDefaults( RuntimeActiveCinematicConfig( SceneState(), m_config ) );
-            break;
-        case RuntimeCommandType::AdvanceScene:
-            if ( !ExecuteSceneRuntimeControlAction(
-                     sceneControlContext,
-                     m_sceneCoordinator.AdvanceScene( m_diagnosticsRuntime.PerfTestActive(),
-                                                      sPerfPass,
-                                                      SceneState().isInteractiveRun ) ) )
-            {
-                PostQuitMessage( 0 );
-            }
-            break;
-        case RuntimeCommandType::Quit:
-            PostQuitMessage( 0 );
-            break;
-        case RuntimeCommandType::None:
+        case SceneRequestType::SaveCurrentDefaults:
+            eventCode = ReplayOwnerEventCode::SceneSaveDefaults;
+            accepted = SaveCurrentSceneDefaults();
             break;
         }
-        if ( command.type != RuntimeCommandType::None )
-        {
-            m_replayRuntime.RecordEvent(
-                ReplayEventKind::RuntimeCommand,
-                m_replayRuntime.NextEventFrameIndex(),
-                ReplayRuntimeCommandFlags( command ),
-                static_cast<int32_t>( command.type ),
-                command.index,
-                0,
-                0,
-                0,
-                command.text.empty() ? ReplayRuntimeCommandName( command.type ) : command.text.c_str() );
-        }
-    }
 
-    if ( processed )
-    {
-        RefreshRuntimeViewModel();
+        // Invariant: replay observes completed owner work. Rejected browser
+        // indices, failed loads, invalid create names, and failed writes leave
+        // no serialized action that a restore could mistake for applied state.
+        if ( accepted )
+        {
+            m_replayRuntime.RecordEvent( ReplayEventKind::OwnerAction,
+                                         m_replayRuntime.NextEventFrameIndex(),
+                                         ReplaySceneRequestFlags( request ),
+                                         static_cast<int32_t>( eventCode ),
+                                         eventIndex,
+                                         0,
+                                         0,
+                                         0,
+                                         eventText ? eventText : ReplayOwnerEventName( eventCode ) );
+        }
     }
-    return processed;
+    return batch.count > 0;
 }
 
 
