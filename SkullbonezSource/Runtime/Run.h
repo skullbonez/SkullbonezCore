@@ -253,9 +253,6 @@ class Run
     bool TickEditorWorldClick(
         const RuntimeMouseEdges& mouseEdges,
         bool suppressWorldActionThisFrame );                            // Handles editor placement, selection, and gizmo mouse ownership.
-    bool TickMousePickupInput(
-        const RuntimeMouseEdges& mouseEdges,
-        bool suppressWorldActionThisFrame );                            // Handles manipulator left-click pickup and target updates.
 #ifdef _DEBUG
     void LogSceneFinished( const char* reason );
     void BeginPhysicsDiagnosticsRun( const char* scenePath );

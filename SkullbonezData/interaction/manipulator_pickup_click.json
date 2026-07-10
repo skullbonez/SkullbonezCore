@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "actions": [
+    { "frame": 5, "setCameraMode": "Manipulator" },
+    { "frame": 10, "clickObject": "path_striker", "button": "left" },
+    { "frame": 10, "assert": { "mousePickupActive": true } },
+    { "frame": 11, "assert": { "mousePickupActive": false } },
+    { "frame": 15, "assert": { "cameraMode": "Manipulator" } },
+    { "frame": 20, "screenshot": "TestOutput/interaction/manipulator_pickup_after_click.bmp" }
+  ]
+}

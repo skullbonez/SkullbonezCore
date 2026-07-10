@@ -10,9 +10,9 @@ reports, and git history.
 | Field | Value |
 |---|---|
 | Branch | `engine-cleanup-10th-july`, tracking `origin/engine-cleanup-10th-july` |
-| Current pushed baseline | `7b9d9b0a refactor: move attach commands into controller` |
+| Current pushed baseline | `82309c4c refactor: move attach target selection into owner` |
 | Current objective | Continue B1f by deleting Run pointer/camera composition, then TakeInput |
-| Last broad local gate | `tools\validate_full.bat` passed controller-owned Attach target selection with 129/129 doctest cases, 2,755 assertions, zero-warning builds, DX12 with zero InfoQueue errors/matching screenshots, standalone physics smoke, and 20,001-line byte-exact physics in 52.2s |
+| Last broad local gate | `tools\validate_full.bat` passed RuntimeTools-owned manipulator pointer routing with 129/129 doctest cases, 2,755 assertions, zero-warning builds, DX12 with zero InfoQueue errors/matching screenshots, standalone physics smoke, and 20,001-line byte-exact physics in 53.2s |
 | Native evidence | Injected heap-use-after-free caught; healthy ASan and five-file `/analyze` passed in 16.185s |
 
 ## Pushed Cleanup Commits
@@ -288,6 +288,12 @@ Four Run methods and three obsolete pose helpers are deleted; composition sees
 only an exact selection receipt. The interaction gate now includes a passing
 Attach object-click regression. Fast, CPU, three interaction scenarios, perf,
 and full gates pass; comment audit is 4/4. The wider pointer route remains.
+
+Manipulator pickup pointer routing now belongs to `RuntimeTools` through a
+value-only input/result boundary; Run's pickup input method is deleted. A new
+dynamic-body interaction assertion proves pickup begin and release cancellation.
+Fast, CPU, four interaction scenarios, perf, and full gates pass; comment audit
+is 6/6. Editor and replay/launcher pointer composition remain.
 
 Scene provenance C1a is complete: parser-owned library/instance/ordered-part
 records retain exact shape sources, hierarchy transforms use rotated offsets

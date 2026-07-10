@@ -1034,7 +1034,38 @@ bool Run::RouteRuntimePointerInput( const RuntimeInputSnapshot& inputSnapshot, c
     bool consumedWorldClick = TickEditorWorldClick( mouseEdges, suppressWorldAction );
     if ( !consumedWorldClick )
     {
-        consumedWorldClick = TickMousePickupInput( mouseEdges, suppressWorldAction );
+        MousePickupPointerInput pickupInput;
+        pickupInput.manipulatorMode = RunCameraModeIsManipulator( m_camera.mode );
+        pickupInput.editorMode = m_runtimeTools.Editor().editorModeEnabled;
+        pickupInput.replayInspection = m_replayRuntime.InspectionActive();
+        pickupInput.suppressWorldAction = suppressWorldAction;
+        pickupInput.uiWantsNativeCursor = uiWantsNativeMouseCursor;
+        pickupInput.leftPressed = mouseEdges.leftPressed;
+        pickupInput.leftReleased = mouseEdges.leftReleased;
+        pickupInput.leftDown = mouseEdges.leftDown;
+        const DeviceInputFrame& deviceFrame = m_inputRouter.DeviceFrame();
+        pickupInput.hasClientPosition = deviceFrame.hasClientPosition;
+        pickupInput.clientX = deviceFrame.clientX;
+        pickupInput.clientY = deviceFrame.clientY;
+        pickupInput.cameraEye = m_sceneController.Cameras().GetCameraTranslation();
+        pickupInput.cameraView = m_sceneController.Cameras().GetCameraView();
+        if ( pickupInput.manipulatorMode && !pickupInput.editorMode && !pickupInput.replayInspection &&
+             ( m_runtimeTools.MousePickup().active || pickupInput.leftPressed ) )
+        {
+            pickupInput.hasWorldRay = TryBuildMouseWorldRay( pickupInput.rayOrigin, pickupInput.rayDirection );
+            pickupInput.hasClampedWorldRay =
+                TryBuildMouseWorldRay( pickupInput.clampedRayOrigin, pickupInput.clampedRayDirection, true );
+        }
+        const MousePickupPointerResult pickupResult =
+            m_runtimeTools.RouteMousePickupPointer( pickupInput,
+                                                    m_sceneController.Models(),
+                                                    m_inputRouter,
+                                                    m_interaction );
+        if ( pickupResult.enteredInteractive )
+        {
+            EnterInteractiveSceneRun();
+        }
+        consumedWorldClick = pickupResult.consumed;
     }
     if ( !consumedWorldClick && RunCameraModeIsAttached( m_camera.mode ) && mouseEdges.leftPressed &&
          !suppressWorldAction )

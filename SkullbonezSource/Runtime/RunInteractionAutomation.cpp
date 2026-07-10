@@ -648,6 +648,8 @@ const char* AssertName( RunInteractionAutomationAssertKind kind )
         return "predictionTrajectoryFingerprintReady";
     case RunInteractionAutomationAssertKind::GizmoVisible:
         return "gizmoVisible";
+    case RunInteractionAutomationAssertKind::MousePickupActive:
+        return "mousePickupActive";
     case RunInteractionAutomationAssertKind::ReplayActiveTrack:
         return "replayActiveTrack";
     case RunInteractionAutomationAssertKind::ReplayHistoricalSamplePaused:
@@ -1519,6 +1521,11 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
             outAction.assertKind = RunInteractionAutomationAssertKind::GizmoVisible;
             outAction.boolValue = ReadBool( member.value() );
         }
+        else if ( name == "mousePickupActive" )
+        {
+            outAction.assertKind = RunInteractionAutomationAssertKind::MousePickupActive;
+            outAction.boolValue = ReadBool( member.value() );
+        }
         else if ( name == "replayActiveTrack" )
         {
             outAction.assertKind = RunInteractionAutomationAssertKind::ReplayActiveTrack;
@@ -1736,6 +1743,14 @@ EvaluateInteractionAutomationAssertion( InteractionAutomationAssertContext& cont
         evaluation.expected = BoolString( action.boolValue );
         evaluation.actual = BoolString( visible );
         evaluation.passed = visible == action.boolValue;
+        break;
+    }
+    case RunInteractionAutomationAssertKind::MousePickupActive:
+    {
+        const bool active = context.runtimeTools.MousePickup().active;
+        evaluation.expected = BoolString( action.boolValue );
+        evaluation.actual = BoolString( active );
+        evaluation.passed = active == action.boolValue;
         break;
     }
     case RunInteractionAutomationAssertKind::ReplayActiveTrack:
@@ -2331,6 +2346,7 @@ void Run::WriteInteractionAutomationReport()
         { "selectedObject", selectedName },
         { "selectedModelIndex", selectedIndex },
         { "gizmoVisible", gizmoVisible },
+        { "mousePickupActive", m_runtimeTools.MousePickup().active },
         { "memoryOverlayEnabled", m_UI.IsMemoryOverlayEnabled() },
         { "replayPredictionEnabled", predictionState.enabled },
         { "predictionHorizonSeconds", predictionState.simulation.horizonSeconds },

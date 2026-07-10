@@ -88,6 +88,7 @@ enum class RunInteractionAutomationAssertKind
     LiveSolverHashStableAcrossPrediction,
     PredictionTrajectoryFingerprintReady,
     GizmoVisible,
+    MousePickupActive,
     ReplayActiveTrack,
     ReplayHistoricalSamplePaused,
     MemoryOverlayEnabled

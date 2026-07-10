@@ -356,6 +356,27 @@ and the 20,001-line byte-exact physics baseline. Comment audit: 4/4 touched
 source-bearing files; the touched batch wrapper retains its complete local
 contract header.
 
+Manipulator pointer routing is now `RuntimeTools` behavior. Input composition
+supplies one value snapshot containing mode/UI facts, button edges, client
+position, camera pose, and ordinary/clamped rays. The tool owner performs the
+pick, validates the body handle, owns native capture and gesture begin/cancel,
+updates the camera-facing drag plane, and returns only consumed/interactive
+receipts. `Run::TickMousePickupInput` is deleted. The interaction harness now
+asserts pickup active on a dynamic-body press and inactive after release, and
+reports the final pickup state. B1f remains open for editor pointer behavior,
+the replay/launcher outer route, focus/keyboard composition, camera helpers,
+and final `RouteRuntimePointerInput`/`TakeInput` deletion.
+
+Evidence: the four-scenario interaction gate passed in 12.1s after the first
+probe correctly exposed that the inspect fixture's fixed body is canceled by
+the physics owner; the proof was moved to the existing dynamic-body fixture.
+Fast passed in 29.6s; the CPU umbrella passed in 11.4s with 129/129 doctest cases
+and 2,755 assertions; perf completed in 32.1s; and full passed in 53.2s with
+zero warnings, zero DX12 InfoQueue errors, matching screenshots, standalone
+topology smoke, and the 20,001-line byte-exact physics baseline. Comment audit:
+6/6 touched source-bearing files; the batch wrapper retains its local contract
+header.
+
 ## Remaining Work
 
 ### A. Narrow the render host

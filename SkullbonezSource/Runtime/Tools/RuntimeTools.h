@@ -5,7 +5,8 @@ Purpose:
 
 Mental model:
   RuntimeTools owns short-lived interaction state for launcher/tool behavior and
-  render feedback instead of storing that state directly on Run.
+  render feedback instead of storing that state directly on Run. Mouse pickup
+  routing consumes a value snapshot and owns its complete gesture transition.
 
 Glossary:
   Asset system: Runtime-owned registry borrowed by editor ghost tracing when a
@@ -207,6 +208,37 @@ struct RunMousePickupState
     Math::Vector::Vector3 targetPoint = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 preservedAngularVelocity = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 lastImpulse = Math::Vector::ZERO_VECTOR;
+};
+
+struct MousePickupPointerInput
+{
+    // Lifetime: one input-frame value. Rays and camera values are sampled by
+    // input composition before the tool mutates its durable pickup state.
+    bool manipulatorMode = false;
+    bool editorMode = false;
+    bool replayInspection = false;
+    bool suppressWorldAction = false;
+    bool uiWantsNativeCursor = false;
+    bool leftPressed = false;
+    bool leftReleased = false;
+    bool leftDown = false;
+    bool hasWorldRay = false;
+    bool hasClampedWorldRay = false;
+    bool hasClientPosition = false;
+    int clientX = 0;
+    int clientY = 0;
+    Math::Vector::Vector3 rayOrigin = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 rayDirection = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 clampedRayOrigin = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 clampedRayDirection = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 cameraEye = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 cameraView = Math::Vector::Vector3( 0.0f, 0.0f, 1.0f );
+};
+
+struct MousePickupPointerResult
+{
+    bool consumed = false;                                                  // Prevents later world owners from seeing this pointer gesture.
+    bool enteredInteractive = false;                                        // Composition disables automation quit after a successful grab begins.
 };
 
 struct RunEditorPlacementState
@@ -547,6 +579,10 @@ class RuntimeTools
 
     RunMousePickupState& MousePickup();
     const RunMousePickupState& MousePickup() const;
+    MousePickupPointerResult RouteMousePickupPointer( const MousePickupPointerInput& input,
+                                                      const GameObjects::GameModelCollection& collection,
+                                                      InputRouter& inputRouter,
+                                                      RuntimeInteractionController& interaction );
     void CancelMousePickup( InputRouter& inputRouter, RuntimeInteractionController& interaction );
 
     RunEditorPlacementState& Editor();
