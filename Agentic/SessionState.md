@@ -10,9 +10,9 @@ reports, and git history.
 | Field | Value |
 |---|---|
 | Branch | `engine-cleanup-10th-july`, tracking `origin/engine-cleanup-10th-july` |
-| Current pushed baseline | `62df9e36 refactor: move pickup cancellation to tool owner` |
+| Current pushed baseline | `d71fb190 fix: enforce scene lifecycle transaction edges` |
 | Current objective | Close the dependent B1f/C1 Run scene seam and promote SceneController lifecycle ownership |
-| Last broad local gate | `tools\validate_full.bat` passed the lifecycle-transaction guard with 126/126 doctest cases, 2,717 assertions, all CPU lanes, zero-warning builds, DX12 with zero InfoQueue errors/matching screenshots, standalone physics smoke, and 20,001-line byte-exact physics in 74.1s |
+| Last broad local gate | `tools\validate_full.bat` passed the scene callback-pack deletion with 127/127 doctest cases, 2,730 assertions, all CPU lanes, zero-warning builds, DX12 with zero InfoQueue errors/matching screenshots, standalone physics smoke, and 20,001-line byte-exact physics in 53.4s |
 | Native evidence | Injected heap-use-after-free caught; healthy ASan and five-file `/analyze` passed in 16.185s |
 
 ## Pushed Cleanup Commits
@@ -166,6 +166,15 @@ callback-pack deletion.
 All 135 authored scenes also pass the load-only sweep with empty stderr, and
 the focused physics gate remains byte-exact. The lifecycle transition test is
 part of the 126-case CPU suite. Comment audit: 5/5 touched source/test files.
+
+The scene execution callback pack is now deleted locally. Navigation returns a
+value-only accepted `SceneLoadRequest`, including the no-load result for the
+already-active browser scene, and cinematic selection is a separate index
+decision. No scene action retains `Run`, `void*`, callbacks, mutable capture/
+scene state, or a style-owner context. B2f still requires deletion of
+`DrainSceneRequests` and promotion of the remaining Run load sequence. CPU,
+fast, one-minute graphics stress (8,309 frames / 231 loads / empty stderr), and
+full gates pass; comment audit is 9/9.
 
 Scene provenance C1a is complete: parser-owned library/instance/ordered-part
 records retain exact shape sources, hierarchy transforms use rotated offsets

@@ -1049,31 +1049,15 @@ bool Run::TickScreenshots()
         break;
     case RuntimeCaptureAutomation::AdvanceSceneOrQuit:
     {
-        SceneRuntimeControlExecutionContext sceneControlContext{
-            this,
-            []( void* context ) { static_cast<Run*>( context )->EnterInteractiveSceneRun(); },
-            []( void* context, int index, bool preserveUIState, bool suppressExitOnComplete, bool preserveRuntimeState )
-                -> bool
-            {
-                return static_cast<Run*>( context )
-                    ->LoadScene( index, preserveUIState, suppressExitOnComplete, preserveRuntimeState )
-                    .ok;
-            },
-            SceneState(),
-            m_diagnosticsRuntime.Capture().Screenshot().isScreenshotAndExit,
-            SceneRuntimeStyleContext{ m_launchOptions,
-                                      SceneState(),
-                                      m_sceneController.Browser(),
-                                      m_cGameModelCollection,
-                                      m_sceneController.Entities(),
-                                      m_systems.assets,
-                                      RuntimeActiveCinematicConfig( SceneState(), m_config ),
-                                      m_defaultCinematicRender },
-        };
-        const SceneRuntimeControlAction action = m_sceneController.AdvanceScene( m_diagnosticsRuntime.PerfTestActive(),
-                                                                                 sPerfPass,
-                                                                                 SceneState().isInteractiveRun );
-        if ( !ExecuteSceneRuntimeControlAction( sceneControlContext, action ) )
+        const SceneLoadRequest request = m_sceneController.AdvanceScene( m_diagnosticsRuntime.PerfTestActive(),
+                                                                         sPerfPass,
+                                                                         SceneState().isInteractiveRun );
+        const bool advanced = request.HasLoad() && LoadScene( request.index,
+                                                              request.preserveUIState,
+                                                              request.suppressExitOnComplete,
+                                                              request.preserveRuntimeState )
+                                                       .ok;
+        if ( !advanced )
         {
             if ( result.completion == RuntimeCaptureCompletion::Screenshot )
             {
@@ -1149,26 +1133,13 @@ void Run::TickAutoCycle()
 
 bool Run::TickSceneAdvance()
 {
-    SceneRuntimeControlExecutionContext sceneControlContext{
-        this,
-        []( void* context ) { static_cast<Run*>( context )->EnterInteractiveSceneRun(); },
-        []( void* context, int index, bool preserveUIState, bool suppressExitOnComplete, bool preserveRuntimeState )
-            -> bool
-        {
-            return static_cast<Run*>( context )
-                ->LoadScene( index, preserveUIState, suppressExitOnComplete, preserveRuntimeState )
-                .ok;
-        },
-        SceneState(),
-        m_diagnosticsRuntime.Capture().Screenshot().isScreenshotAndExit,
-        SceneRuntimeStyleContext{ m_launchOptions,
-                                  SceneState(),
-                                  m_sceneController.Browser(),
-                                  m_cGameModelCollection,
-                                  m_sceneController.Entities(),
-                                  m_systems.assets,
-                                  RuntimeActiveCinematicConfig( SceneState(), m_config ),
-                                  m_defaultCinematicRender },
+    const auto executeSceneLoadRequest = [this]( const SceneLoadRequest& request )
+    {
+        return request.HasLoad() && LoadScene( request.index,
+                                               request.preserveUIState,
+                                               request.suppressExitOnComplete,
+                                               request.preserveRuntimeState )
+                                        .ok;
     };
     const bool sceneProceedAllowed =
         !m_debug.isCrossScenePauseLocked || m_inputRouter.DeviceFrame().keys.IsDown( VK_SPACE );
@@ -1195,11 +1166,9 @@ bool Run::TickSceneAdvance()
 #endif
         if ( SceneState().isExitOnComplete && CanSceneAutomationQuit() )
         {
-            if ( !ExecuteSceneRuntimeControlAction(
-                     sceneControlContext,
-                     m_sceneController.AdvanceScene( m_diagnosticsRuntime.PerfTestActive(),
-                                                     sPerfPass,
-                                                     SceneState().isInteractiveRun ) ) )
+            if ( !executeSceneLoadRequest( m_sceneController.AdvanceScene( m_diagnosticsRuntime.PerfTestActive(),
+                                                                           sPerfPass,
+                                                                           SceneState().isInteractiveRun ) ) )
             {
                 PostQuitMessage( 0 );
             }
@@ -1267,11 +1236,9 @@ bool Run::TickSceneAdvance()
 
             if ( SceneState().isExitOnComplete && CanSceneAutomationQuit() )
             {
-                if ( !ExecuteSceneRuntimeControlAction(
-                         sceneControlContext,
-                         m_sceneController.AdvanceScene( m_diagnosticsRuntime.PerfTestActive(),
-                                                         sPerfPass,
-                                                         SceneState().isInteractiveRun ) ) )
+                if ( !executeSceneLoadRequest( m_sceneController.AdvanceScene( m_diagnosticsRuntime.PerfTestActive(),
+                                                                               sPerfPass,
+                                                                               SceneState().isInteractiveRun ) ) )
                 {
                     PostQuitMessage( 0 );
                 }
@@ -1315,10 +1282,9 @@ bool Run::TickSceneAdvance()
 #ifdef _DEBUG
         LogSceneFinished( "perf_duration" );
 #endif
-        if ( !ExecuteSceneRuntimeControlAction( sceneControlContext,
-                                                m_sceneController.AdvanceScene( m_diagnosticsRuntime.PerfTestActive(),
-                                                                                sPerfPass,
-                                                                                SceneState().isInteractiveRun ) ) )
+        if ( !executeSceneLoadRequest( m_sceneController.AdvanceScene( m_diagnosticsRuntime.PerfTestActive(),
+                                                                       sPerfPass,
+                                                                       SceneState().isInteractiveRun ) ) )
         {
             if ( CanSceneAutomationQuit() )
             {

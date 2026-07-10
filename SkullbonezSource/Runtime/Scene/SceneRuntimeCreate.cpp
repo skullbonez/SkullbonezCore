@@ -175,14 +175,14 @@ bool WriteStarterSceneFile( const std::filesystem::path& path, const std::string
 
 } // namespace
 
-SceneRuntimeControlAction CreateSceneFromUI( SceneRuntimeCreateContext context, const char* requestedName )
+SceneLoadRequest CreateSceneFromUI( SceneRuntimeCreateContext context, const char* requestedName )
 {
     // Concept: Creating a scene queues a load action instead of loading
     // directly, keeping filesystem work separate from Run's scene side effects.
     const std::string cleanName = SanitizeSceneFileName( requestedName );
     if ( cleanName.empty() )
     {
-        return SceneRuntimeControlAction::None();
+        return SceneLoadRequest::None();
     }
 
     const std::filesystem::path sceneDir = std::filesystem::path( DATA_ROOT ) / "scenes";
@@ -193,19 +193,19 @@ SceneRuntimeControlAction CreateSceneFromUI( SceneRuntimeCreateContext context, 
         Log().WriteEventf( "scene_create_failed name=\"%s\" reason=\"mkdir\" message=\"%s\"",
                            cleanName.c_str(),
                            ec.message().c_str() );
-        return SceneRuntimeControlAction::None();
+        return SceneLoadRequest::None();
     }
 
     const std::filesystem::path scenePath = UniqueScenePath( sceneDir, cleanName );
     if ( scenePath.empty() || !WriteStarterSceneFile( scenePath, cleanName ) )
     {
         Log().WriteEventf( "scene_create_failed name=\"%s\" reason=\"write\"", cleanName.c_str() );
-        return SceneRuntimeControlAction::None();
+        return SceneLoadRequest::None();
     }
 
     RefreshSceneBrowserList( context.sceneBrowser );
     const std::string normalizedPath = NormalizeScenePathForCreate( scenePath.generic_string() );
-    return SceneRuntimeControlAction::LoadScene( context.controller.Append( normalizedPath ), true, true, false, true );
+    return SceneLoadRequest::Load( context.controller.Append( normalizedPath ), true, true, false, true );
 }
 
 } // namespace Basics

@@ -2475,26 +2475,21 @@ void Run::TakeInput()
         SB_FATAL( "InputRouter", "Fixed input action capacity exhausted while routing pre-UI actions." );
     }
 
-    SceneRuntimeControlExecutionContext sceneControlContext{
-        this,
-        []( void* context ) { static_cast<Run*>( context )->EnterInteractiveSceneRun(); },
-        []( void* context, int index, bool preserveUIState, bool suppressExitOnComplete, bool preserveRuntimeState )
-            -> bool
+    const auto executeSceneLoadRequest = [this]( const SceneLoadRequest& request )
+    {
+        if ( request.enterInteractiveSceneRun )
         {
-            return static_cast<Run*>( context )
-                ->LoadScene( index, preserveUIState, suppressExitOnComplete, preserveRuntimeState )
-                .ok;
-        },
-        SceneState(),
-        m_diagnosticsRuntime.Capture().Screenshot().isScreenshotAndExit,
-        SceneRuntimeStyleContext{ m_launchOptions,
-                                  SceneState(),
-                                  m_sceneController.Browser(),
-                                  m_cGameModelCollection,
-                                  m_sceneController.Entities(),
-                                  m_systems.assets,
-                                  RuntimeActiveCinematicConfig( SceneState(), m_config ),
-                                  m_defaultCinematicRender },
+            EnterInteractiveSceneRun();
+        }
+        if ( !request.accepted )
+        {
+            return false;
+        }
+        return !request.HasLoad() || LoadScene( request.index,
+                                                request.preserveUIState,
+                                                request.suppressExitOnComplete,
+                                                request.preserveRuntimeState )
+                                         .ok;
     };
 
     // Invariant: pre-UI consumers receive the router's fixed ordered events.
@@ -2701,15 +2696,26 @@ void Run::TakeInput()
             const int currentSceneBrowserIndex =
                 CurrentSceneBrowserIndex( m_sceneController, m_sceneController.Browser() );
             const bool isCinematicTabActive = m_UI.GetActiveTab() == InGameUITab::Cinematic;
-            if ( !ExecuteSceneRuntimeControlAction( sceneControlContext,
-                                                    m_sceneController.ApplyAdjacentCinematicMode(
-                                                        direction,
-                                                        m_sceneController.Browser().selectedCineModeSceneIndex,
-                                                        currentSceneBrowserIndex,
-                                                        isCinematicTabActive ) ) )
+            const int cinematicIndex = m_sceneController.AdjacentCinematicModeBrowserIndex(
+                direction,
+                m_sceneController.Browser().selectedCineModeSceneIndex,
+                currentSceneBrowserIndex,
+                isCinematicTabActive );
+            const bool appliedCinematic =
+                cinematicIndex >= 0 &&
+                ApplyCinematicModeFromBrowserIndex(
+                    SceneRuntimeStyleContext{ m_launchOptions,
+                                              SceneState(),
+                                              m_sceneController.Browser(),
+                                              m_cGameModelCollection,
+                                              m_sceneController.Entities(),
+                                              m_systems.assets,
+                                              RuntimeActiveCinematicConfig( SceneState(), m_config ),
+                                              m_defaultCinematicRender },
+                    cinematicIndex );
+            if ( !appliedCinematic )
             {
-                ExecuteSceneRuntimeControlAction(
-                    sceneControlContext,
+                executeSceneLoadRequest(
                     m_sceneController.LoadAdjacentSceneFromBrowser( direction, currentSceneBrowserIndex ) );
             }
             break;
@@ -2977,26 +2983,21 @@ bool Run::DrainRenderDefaultRequests()
 
 bool Run::DrainSceneRequests()
 {
-    SceneRuntimeControlExecutionContext sceneControlContext{
-        this,
-        []( void* context ) { static_cast<Run*>( context )->EnterInteractiveSceneRun(); },
-        []( void* context, int index, bool preserveUIState, bool suppressExitOnComplete, bool preserveRuntimeState )
-            -> bool
+    const auto executeSceneLoadRequest = [this]( const SceneLoadRequest& request )
+    {
+        if ( request.enterInteractiveSceneRun )
         {
-            return static_cast<Run*>( context )
-                ->LoadScene( index, preserveUIState, suppressExitOnComplete, preserveRuntimeState )
-                .ok;
-        },
-        SceneState(),
-        m_diagnosticsRuntime.Capture().Screenshot().isScreenshotAndExit,
-        SceneRuntimeStyleContext{ m_launchOptions,
-                                  SceneState(),
-                                  m_sceneController.Browser(),
-                                  m_cGameModelCollection,
-                                  m_sceneController.Entities(),
-                                  m_systems.assets,
-                                  RuntimeActiveCinematicConfig( SceneState(), m_config ),
-                                  m_defaultCinematicRender },
+            EnterInteractiveSceneRun();
+        }
+        if ( !request.accepted )
+        {
+            return false;
+        }
+        return !request.HasLoad() || LoadScene( request.index,
+                                                request.preserveUIState,
+                                                request.suppressExitOnComplete,
+                                                request.preserveRuntimeState )
+                                         .ok;
     };
     const SceneRequestBatch batch = m_sceneController.TakePendingRequests();
     if ( batch.rejectedTransitionCount > 0 )
@@ -3018,27 +3019,23 @@ bool Run::DrainSceneRequests()
         {
         case SceneRequestType::LoadBrowserIndex:
             eventCode = ReplayOwnerEventCode::SceneLoadBrowserIndex;
-            accepted = ExecuteSceneRuntimeControlAction( sceneControlContext,
-                                                         m_sceneController.LoadSceneFromBrowserIndex( request.index ) );
+            accepted = executeSceneLoadRequest( m_sceneController.LoadSceneFromBrowserIndex( request.index ) );
             break;
         case SceneRequestType::LoadDemoScene:
             eventCode = ReplayOwnerEventCode::SceneLoadDemo;
-            accepted = ExecuteSceneRuntimeControlAction( sceneControlContext, m_sceneController.LoadDemoSceneFromUI() );
+            accepted = executeSceneLoadRequest( m_sceneController.LoadDemoSceneFromUI() );
             break;
         case SceneRequestType::ResetCurrentScene:
             eventCode = ReplayOwnerEventCode::SceneReset;
             EnterInteractiveSceneRun();
-            accepted =
-                ExecuteSceneRuntimeControlAction( sceneControlContext,
-                                                  m_sceneController.ResetCurrentScene( request.preserveUIState,
-                                                                                       request.suppressExitOnComplete,
-                                                                                       request.preserveRuntimeState ) );
+            accepted = executeSceneLoadRequest( m_sceneController.ResetCurrentScene( request.preserveUIState,
+                                                                                     request.suppressExitOnComplete,
+                                                                                     request.preserveRuntimeState ) );
             break;
         case SceneRequestType::CreateScene:
             eventCode = ReplayOwnerEventCode::SceneCreate;
             eventText = request.text;
-            accepted = ExecuteSceneRuntimeControlAction(
-                sceneControlContext,
+            accepted = executeSceneLoadRequest(
                 CreateSceneFromUI( SceneRuntimeCreateContext{ m_sceneController, m_sceneController.Browser() },
                                    request.text ) );
             break;

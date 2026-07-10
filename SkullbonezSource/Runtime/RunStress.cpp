@@ -868,41 +868,21 @@ void Run::RunGraphicsStressActions( const Rendering::IRenderDiagnostics& renderD
         fflush( stdout );
     }
 
-    auto executeSceneControlAction = [&]( const SceneRuntimeControlAction& action ) -> bool
+    auto executeSceneLoadRequest = [&]( const SceneLoadRequest& request ) -> bool
     {
-        if ( action.enterInteractiveSceneRun )
+        if ( request.enterInteractiveSceneRun )
         {
             EnterInteractiveSceneRun();
         }
-
-        switch ( action.type )
+        if ( !request.accepted )
         {
-        case SceneRuntimeControlActionType::ClearCurrentSceneAutomation:
-            SceneState().isExitOnComplete = false;
-            m_diagnosticsRuntime.Capture().Screenshot().isScreenshotAndExit = false;
-            return true;
-        case SceneRuntimeControlActionType::LoadScene:
-            return LoadScene( action.index,
-                              action.preserveUIState,
-                              action.suppressExitOnComplete,
-                              action.preserveRuntimeState )
-                .ok;
-        case SceneRuntimeControlActionType::ApplyCinematicModeFromBrowserIndex:
-            EnterInteractiveSceneRun();
-            return ApplyCinematicModeFromBrowserIndex(
-                SceneRuntimeStyleContext{ m_launchOptions,
-                                          SceneState(),
-                                          m_sceneController.Browser(),
-                                          m_cGameModelCollection,
-                                          m_sceneController.Entities(),
-                                          m_systems.assets,
-                                          RuntimeActiveCinematicConfig( SceneState(), m_config ),
-                                          m_defaultCinematicRender },
-                action.index );
-        case SceneRuntimeControlActionType::None:
             return false;
         }
-        return false;
+        return !request.HasLoad() || LoadScene( request.index,
+                                                request.preserveUIState,
+                                                request.suppressExitOnComplete,
+                                                request.preserveRuntimeState )
+                                         .ok;
     };
 
     if ( stress.SceneLoadDue() )
@@ -910,24 +890,23 @@ void Run::RunGraphicsStressActions( const Rendering::IRenderDiagnostics& renderD
         // Hazard: suite order is the durable test contract. Browser fallback is
         // useful for manual app launches, but automated repros must prefer the
         // checked-in graphics_stress.suite.json scene queue.
-        SceneRuntimeControlAction action = SceneRuntimeControlAction::None();
+        SceneLoadRequest request = SceneLoadRequest::None();
         int selectedSceneIndex = -1;
         const char* selectedSceneSource = "none";
         if ( m_sceneController.QueueSize() > 0 )
         {
             selectedSceneIndex = stress.NextInt( m_sceneController.QueueSize() );
             selectedSceneSource = "queue";
-            action =
-                SceneRuntimeControlAction::LoadScene( selectedSceneIndex, true, true, stress.NextInt( 2 ) != 0, true );
+            request = SceneLoadRequest::Load( selectedSceneIndex, true, true, stress.NextInt( 2 ) != 0, true );
         }
         else if ( !m_sceneController.Browser().paths.empty() )
         {
             selectedSceneIndex = stress.NextInt( static_cast<int>( m_sceneController.Browser().paths.size() ) );
             selectedSceneSource = "browser";
-            action = m_sceneController.LoadSceneFromBrowserIndex( selectedSceneIndex );
+            request = m_sceneController.LoadSceneFromBrowserIndex( selectedSceneIndex );
         }
 
-        if ( executeSceneControlAction( action ) )
+        if ( executeSceneLoadRequest( request ) )
         {
             stress.RecordSceneLoad();
             printf( "[graphics-stress] scene_load=%d frame=%d source=%s selected_index=%d action_index=%d\n",
@@ -935,7 +914,7 @@ void Run::RunGraphicsStressActions( const Rendering::IRenderDiagnostics& renderD
                     stress.FramesRun(),
                     selectedSceneSource,
                     selectedSceneIndex,
-                    action.index );
+                    request.index );
             fflush( stdout );
         }
         else

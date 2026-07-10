@@ -11,7 +11,7 @@ Mental model:
 Glossary:
   Starter scene: Minimal editable scene file generated from UI input.
   Scene browser: UI-facing list of available scene files.
-  Control action: Explicit scene load request returned to the caller.
+  Load request: Value-only accepted navigation result returned to the caller.
 
 Invariants:
   - The create helper writes scene files but does not perform the actual load.
@@ -38,7 +38,7 @@ struct SceneRuntimeCreateContext
     RunSceneBrowserState& sceneBrowser;
 };
 
-SceneRuntimeControlAction CreateSceneFromUI( SceneRuntimeCreateContext context, const char* requestedName );
+SceneLoadRequest CreateSceneFromUI( SceneRuntimeCreateContext context, const char* requestedName );
 
 } // namespace Basics
 } // namespace SkullbonezCore

@@ -256,7 +256,8 @@ baseline. The comment-style audit covered all 35 touched source-bearing files.
 - [ ] B2f. Close extraction 2 with C1: move scene execution to
   `SceneController`, then delete `DrainSceneRequests`, scene `void*` callbacks,
   and all remaining owner bypasses. The generic queue/type and dead
-  zero-producer cases were already deleted under B2b-B2e.
+  zero-producer cases were already deleted under B2b-B2e; the scene `void*`
+  callback pack and generic action dispatcher are now deleted as well.
 - [x] B3. Complete ownership extraction 4. `ReplayRuntime::TickWorkspace`
   consumes one typed frame view; replay owns scrub/cause/velocity/prediction,
   inspection-camera, overlay, restore/hash, startup, and probe decisions. `Run.h`
@@ -280,6 +281,25 @@ owns editable snapshots and non-editable defaults rewrites through a synchronous
 and JSON failures carry Lane R `SbResult` evidence, and replay observes only a
 successful write. Load orchestration and the remaining collection business
 commands keep C3 open.
+
+The temporary scene execution callback pack is deleted. Browser/demo/reset/
+create/advance navigation now returns a value-only `SceneLoadRequest` with an
+explicit accepted/no-load result for selecting the already-active scene;
+cinematic deck selection is a separate browser-index query. Run sequencing no
+longer hands `void*`, load/interactive function pointers, mutable scene state,
+capture state, and style owners to a generic action dispatcher, and graphics
+stress consumes the same value request. B2f remains open only for deletion of
+`DrainSceneRequests` and the remaining Run load orchestration/owner bypasses.
+
+Evidence from the callback-pack deletion: the final staged fast gate passed in
+41.2s with 11 candidates and no size violations; the CPU umbrella passed all
+four lanes with 127/127 doctest cases and 2,730 assertions in 11.1s; a bounded
+one-minute graphics stress run completed by PID timeout with empty stderr after
+8,309 frames and 231 scene loads; and the full gate passed in 53.4s with zero
+warnings, zero DX12 InfoQueue errors, matching screenshots, standalone physics
+smoke, and the 20,001-line byte-exact baseline. Two earlier fast attempts
+stopped at formatting before build/runtime work; formatting only the touched
+files/signature resolved them. Comment audit: 9/9 touched source/test files.
 
 Scene lifecycle markers now enforce transaction order and scene-owner topology
 instead of merely remembering the last label. A recoverable failed attempt may

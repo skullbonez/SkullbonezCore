@@ -28,6 +28,7 @@ Related:
 #include "../SkullbonezSource/Runtime/Replay/ReplayRecorder.h"
 #include "../SkullbonezSource/Runtime/Scene/SceneRequestQueue.h"
 #include "../SkullbonezSource/Runtime/Scene/SceneRuntime.h"
+#include "../SkullbonezSource/Runtime/Scene/SceneRuntimeCoordinator.h"
 #include "../SkullbonezSource/Rendering/IRenderCaptureBackend.h"
 
 #include <cstring>
@@ -78,6 +79,29 @@ TEST_CASE( "Scene lifecycle accepts ordered phases and explicit restart" )
                                                        SceneRuntimeLifecycleEvent::AfterSceneActivated ) );
     CHECK_FALSE( SceneRuntimeLifecycleTransitionValid( SceneRuntimeLifecycleEvent::AfterSceneActivated,
                                                        SceneRuntimeLifecycleEvent::None ) );
+}
+
+TEST_CASE( "Scene navigation returns value-only accepted load decisions" )
+{
+    const SceneLoadRequest none = SceneLoadRequest::None();
+    CHECK_FALSE( none.accepted );
+    CHECK_FALSE( none.HasLoad() );
+
+    const SceneLoadRequest current = SceneLoadRequest::AcceptedWithoutLoad( true );
+    CHECK( current.accepted );
+    CHECK( current.enterInteractiveSceneRun );
+    CHECK_FALSE( current.HasLoad() );
+
+    const SceneLoadRequest load = SceneLoadRequest::Load( 7, true, false, true, true );
+    CHECK( load.accepted );
+    CHECK( load.HasLoad() );
+    CHECK( load.index == 7 );
+    CHECK( load.preserveUIState );
+    CHECK_FALSE( load.suppressExitOnComplete );
+    CHECK( load.preserveRuntimeState );
+    CHECK( load.enterInteractiveSceneRun );
+
+    CHECK_FALSE( SceneLoadRequest::Load( -1, true, true, true ).accepted );
 }
 
 TEST_CASE( "CaptureController rejects truncating paths before enqueue" )

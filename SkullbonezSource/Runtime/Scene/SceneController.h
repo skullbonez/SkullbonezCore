@@ -61,7 +61,7 @@ namespace Basics
 struct RunCameraState;
 struct RunDebugState;
 struct RunRuntimeSettings;
-struct SceneRuntimeControlAction;
+struct SceneLoadRequest;
 struct SceneDefaultsSaveView
 {
     // Lifetime: every owner is borrowed only for one synchronous cold save.
@@ -111,17 +111,16 @@ class SceneController
     bool CurrentQueueIsCinematicDeck() const;
     int AdjacentQueueIndex( int direction ) const;
     // Scene navigation policy stays with the queue/browser owner. Returned
-    // actions are immediate cold-boundary intents until Load owns execution.
-    SceneRuntimeControlAction LoadSceneFromBrowserIndex( int index );
-    SceneRuntimeControlAction LoadDemoSceneFromUI();
-    SceneRuntimeControlAction ApplyAdjacentCinematicMode( int direction,
-                                                          int selectedCineModeSceneIndex,
-                                                          int currentSceneBrowserIndex,
-                                                          bool isCinematicTabActive );
-    SceneRuntimeControlAction LoadAdjacentSceneFromBrowser( int direction, int currentSceneBrowserIndex );
-    SceneRuntimeControlAction
-    ResetCurrentScene( bool preserveUIState, bool suppressExitOnComplete, bool preserveRuntimeState );
-    SceneRuntimeControlAction AdvanceScene( bool perfTestActive, int& perfPass, bool preserveInteractiveUI );
+    // requests are value-only and retain no caller callback or context.
+    SceneLoadRequest LoadSceneFromBrowserIndex( int index );
+    SceneLoadRequest LoadDemoSceneFromUI();
+    int AdjacentCinematicModeBrowserIndex( int direction,
+                                           int selectedCineModeSceneIndex,
+                                           int currentSceneBrowserIndex,
+                                           bool isCinematicTabActive ) const;
+    SceneLoadRequest LoadAdjacentSceneFromBrowser( int direction, int currentSceneBrowserIndex );
+    SceneLoadRequest ResetCurrentScene( bool preserveUIState, bool suppressExitOnComplete, bool preserveRuntimeState );
+    SceneLoadRequest AdvanceScene( bool perfTestActive, int& perfPass, bool preserveInteractiveUI );
     SbResult SaveCurrentDefaults( const SceneDefaultsSaveView& view ) const;
 
     // Scene request submission stays owner-specific even while Run temporarily
