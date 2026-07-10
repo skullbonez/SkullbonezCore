@@ -12,8 +12,8 @@ Mental model:
 Glossary:
   ABI (Application Binary Interface): Byte-level file contract used by saved
     replay artifacts and replay_query tooling.
-  JSON (JavaScript Object Notation): Text metadata format used for the manifest
-    chunk and legacy replay exports.
+  JSON (JavaScript Object Notation): Text metadata format used inside the
+    manifest chunk.
   MANI: UTF-8 JSON manifest chunk with human-readable file facts.
   BODY: Body dictionary chunk.
   PRES: Presentation frame chunk with dense 32-byte pose records.
@@ -29,7 +29,7 @@ Invariants:
   - Numeric payloads are emitted in the host little-endian layout used by the
     Windows runtime. The manifest marks the file as little-endian.
   - Per-body pose records stay 32 bytes: body dictionary index, position, quat.
-  - Legacy v1 JSON exporters remain available for old debug workflows.
+  - Binary v2 is the sole saved replay artifact format.
 
 Related:
   - SkullbonezSource/Runtime/Replay/ReplayV2Artifact.h

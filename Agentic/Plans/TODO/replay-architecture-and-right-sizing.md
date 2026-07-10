@@ -1,15 +1,16 @@
 # Replay Architecture And Right-Sizing
 
 Date: 2026-07-10
-Status: In progress - 1/6 phases complete
+Status: In progress - 2/6 phases complete
 Impact area: replay runtime, prediction, scrub/restore, replay UI, memory policy,
 Run decomposition
 Owner: replay subsystem
 
 ## Problem
 
-Current tracked measurements are 28 replay source files / 23,814 lines, with
-`RunReplayTools.cpp` at 4,778 lines. Replay is larger than the DX12 backend and
+R0 measured 28 replay source files / 23,814 lines. After R1, the current scope
+is 24 files / 23,347 lines, with `RunReplayTools.cpp` still above 4,700 lines.
+Replay is larger than the DX12 backend and
 is the only subsystem allowed controlled runtime allocation growth. The prior
 right-sizing work improved ribbon memory and removed one legacy fallback, but
 the owning plan was deleted while review and feature plans still depended on
@@ -46,11 +47,16 @@ bounded by purpose, and the replay allocation exception remains narrow.
   observed high-water, raw artifact sizes, validation lanes, and R1/R2
   deletion candidates. The corrected v2 owner-action gate passed in 25.4s and
   the required tool-change fast gate passed in 19.4s.
-- [ ] **R1 — Delete and merge obsolete paths.** Remove duplicate presentation,
+- [x] **R1 — Delete and merge obsolete paths.** Remove duplicate presentation,
   legacy artifact, compatibility, and probe paths that no longer protect a
   supported format or workflow. Each retained legacy path needs an owner,
   supported input, and deletion condition. Acceptance: no behavior-free
   forwarding wrapper or unowned fallback remains.
+  Evidence: `Agentic/Reports/replay_r1_cleanup_20260710.md` records deletion of
+  the uncalled JSON exporter, two-file scrubber save forwarding bridge, two
+  redundant CLI synonyms, deleted wire interpretation, and the untyped solver
+  iteration callback. Binary v2 is the sole artifact format. The final fast,
+  allocation, CPU, replay scrub, v2, interaction, and full gates passed.
 - [ ] **R2 — Move replay workspace behavior out of `Run`.** Move scrubber,
   cause-tree, velocity-edit, prediction-horizon, inspection-camera request,
   and overlay decisions behind replay-owned APIs. Input produces typed replay

@@ -507,8 +507,6 @@ struct ReplayEventRecorderStats
     std::size_t eventCount = 0;
 };
 
-using ReplaySolverSampleVisitor = void ( * )( const ReplaySolverFrameSample& sample, void* userData );
-
 // Presentation recorder: stores visual scrub samples in a bounded ring buffer.
 // Callers always read samples chronologically even though storage wraps.
 class ReplayRecorder
@@ -588,7 +586,23 @@ class ReplaySolverRecorder
     void CollectMemoryCategoryBytes( MainMemoryReplayCategoryBytes& categories ) const;
     uint64_t CollectMemoryBytes() const;
     void CopySamplesChronological( std::vector<ReplaySolverFrameSample>& outSamples ) const;
-    void ForEachSampleChronological( ReplaySolverSampleVisitor visitor, void* userData ) const;
+    // Visits resolved samples without allocating a copied artifact vector. The
+    // templated callable keeps replay iteration typed and prevents a stored
+    // void-pointer callback bridge from becoming runtime authority.
+    template <typename Visitor> void ForEachSampleChronological( Visitor visitor ) const
+    {
+        if ( m_sampleCount == 0 || m_samples.empty() )
+        {
+            return;
+        }
+        for ( std::size_t i = 0; i < m_sampleCount; ++i )
+        {
+            if ( ResolveSolverSampleAtOffset( i, m_resolvedSolverSample ) )
+            {
+                visitor( m_resolvedSolverSample );
+            }
+        }
+    }
     const ReplaySolverFrameSample* LatestSample() const;
     const ReplaySolverFrameSample* SampleAtNormalized( float normalized ) const;
 

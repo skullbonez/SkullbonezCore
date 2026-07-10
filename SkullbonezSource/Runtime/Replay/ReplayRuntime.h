@@ -1025,8 +1025,12 @@ class ReplayRuntime
                                      int modelCount,
                                      int scaleAxis,
                                      float scaleFactor );
-    bool SaveSolverReplay( const char* path ) const;
+    // Writes the current presentation, solver hashes/checkpoints, and event
+    // stream to an explicit cold-I/O binary v2 path.
     bool SavePresentationWithSolverHashes( const char* path, ReplayV2SaveResult* result = nullptr ) const;
+    // Owns scrubber save path sequencing and status publication so Run does not
+    // retain a behavior-free import/export forwarding module.
+    bool SavePresentationFromScrubber( double now );
 
   private:
     void ReportLatestCaptureMismatch();
@@ -1056,6 +1060,7 @@ class ReplayRuntime
     // are applied during rendering.
     std::array<uint8_t, MAX_GAME_MODELS> m_renderPoseBodyMatched = {};
     std::string m_recordingHashLogPath;
+    int m_presentationSaveSequence = 0;                               // Next numbered binary-v2 scrubber path candidate.
     int m_recordingRuntimeBodyCapacity = 0;
     uint32_t m_captureMismatchReports = 0;                            // Process-lifetime throttle for paired presentation/solver capture diagnostics.
     bool m_captureMismatchSuppressed = false;

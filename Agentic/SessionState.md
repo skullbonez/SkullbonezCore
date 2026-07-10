@@ -10,7 +10,7 @@ reports, and git history.
 | Field | Value |
 |---|---|
 | Branch | `engine-cleanup-10th-july`, tracking `origin/engine-cleanup-10th-july` |
-| Current pushed baseline | `936eda3f fix: complete DX12 failure-safe recreation` |
+| Current pushed baseline | `ac9c4aea fix: reconcile replay owner-action artifacts` |
 | Current objective | Complete ReplayRuntime workspace ownership, then RuntimeRenderer composition ownership |
 | Last broad local gate | `tools\validate_full.bat` passed final DX12 D4-D5 source with zero-warning builds, the mandatory CPU umbrella, DX12 with zero InfoQueue errors/matching screenshots, standalone physics smoke, and byte-exact physics in 49.5s |
 | Native evidence | Injected heap-use-after-free caught; healthy ASan and five-file `/analyze` passed in 16.185s |
@@ -40,6 +40,7 @@ reports, and git history.
 - `119b359c feat: preserve live asset scene snapshots`
 - `7fdd91d3 feat: stabilize scene behavior group roots`
 - `936eda3f fix: complete DX12 failure-safe recreation`
+- `ac9c4aea fix: reconcile replay owner-action artifacts`
 
 ## Current Queue
 
@@ -76,7 +77,15 @@ Run business methods, validation lanes, and deletion/merge candidates are
 reconciled in `Agentic/Reports/replay_r0_inventory_20260710.md`. The artifact
 query/gate now treats the deleted omnibus wire kind 2 as unsupported and
 decodes explicit owner-action kind 10; the v2 gate passed in 25.4s and fast
-passed in 19.4s. R1 is next.
+passed in 19.4s.
+
+Replay R1 is complete at 24 files / 23,347 lines. The unused JSON exporter,
+behavior-free scrubber save bridge, redundant save-test/play CLI synonyms, and
+the solver recorder's `void*` visitor are deleted; binary v2 is the sole saved
+artifact. The first scrub gate exposed terrain contact index `-1` reaching
+ragdoll scene metadata; the replay helper now preserves non-entity sentinels,
+and the complete scrub/prediction gate passes. Final fast, allocation, CPU, v2,
+interaction, replay, and full gates passed. R2 workspace extraction is next.
 
 Scene provenance C1a is complete: parser-owned library/instance/ordered-part
 records retain exact shape sources, hierarchy transforms use rotated offsets

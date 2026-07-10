@@ -54,7 +54,6 @@ Related:
 #include "ReplayOverlayLayout.h"
 #include "ReplayOverlayRenderer.h"
 #include "ReplayPredictionReserve.h"
-#include "RunReplayImportExport.h"
 #include "../RuntimePickService.h"
 #include "../Allocation/RuntimeAllocationTracker.h"
 #include "../Allocation/RuntimeReserveAllocator.h"
@@ -727,12 +726,22 @@ ReplayBodyId ReplayPredictionBodyIdForModelIndex( const RunReplayPredictionFrame
 
 bool ReplayModelIndexIsRagdollPart( const SkullbonezCore::GameObjects::GameModelCollection& collection, int modelIndex )
 {
+    // Hazard: physics debug contacts use -1 for terrain/world counterparts.
+    // That sentinel is not a scene row and must never reach group metadata.
+    if ( modelIndex < 0 || modelIndex >= collection.SceneEntityCount() )
+    {
+        return false;
+    }
     return ReplayModelIsRagdollPart( collection, modelIndex );
 }
 
 int ReplayRagdollTorsoModelIndexForPart( const SkullbonezCore::GameObjects::GameModelCollection& collection,
                                          int modelIndex )
 {
+    if ( modelIndex < 0 || modelIndex >= collection.SceneEntityCount() )
+    {
+        return modelIndex;
+    }
     return collection.RagdollRootModelIndexForPart( modelIndex );
 }
 
@@ -767,11 +776,10 @@ FindReplayPredictionBodyByIdWithHint( const RunReplayPredictionFrame& frame, Rep
     return FindReplayPredictionBodyById( frame, id );
 }
 
-// Concept: TrajectoryStore records are the future draw-source, but this stage
-// still lets the legacy renderer draw from frame vectors. Branch ordinal 0 is
-// the committed prediction; branch 1 is the in-progress build preview; child
-// branches are offset by source so same-target refreshes do not overwrite the
-// old visible future before the published prefix catches up.
+// Concept: TrajectoryStore records are the future line-draw source. Branch
+// ordinal 0 is the committed prediction; branch 1 is the in-progress build
+// preview; child branches are offset by source so same-target refreshes do not
+// overwrite the old visible future before the published prefix catches up.
 constexpr uint16_t REPLAY_TRAJECTORY_COMMITTED_BRANCH = 0;
 constexpr uint16_t REPLAY_TRAJECTORY_BUILD_BRANCH = 1;
 

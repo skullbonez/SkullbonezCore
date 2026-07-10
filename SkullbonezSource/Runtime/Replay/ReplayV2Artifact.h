@@ -18,12 +18,12 @@ Glossary:
   Branch provenance chunk: Small records naming live timeline ancestry after a
     hash-verified restore creates a child branch.
   Chunk: A typed byte range in the replay file, found through the chunk table.
-  JSON (JavaScript Object Notation): Legacy text replay format kept for old
-    debugging workflows.
+  JSON (JavaScript Object Notation): Human-readable metadata encoding used by
+    the binary artifact's manifest chunk.
 
 Invariants:
   - V2 presentation artifacts are little-endian and chunk-table based.
-  - The writer does not delete or replace the legacy JSON exporter.
+  - Binary v2 is the sole saved replay artifact format.
 
 Related:
   - SkullbonezSource/Runtime/Replay/ReplayV2Artifact.cpp

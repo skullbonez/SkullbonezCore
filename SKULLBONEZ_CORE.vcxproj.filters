@@ -223,9 +223,6 @@
     <ClCompile Include="SkullbonezSource\Runtime\AttachedCameraController.cpp">
       <Filter>Source Files\Runtime</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayExporter.cpp">
-      <Filter>Source Files\Runtime\Replay</Filter>
-    </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayInteractionController.cpp">
       <Filter>Source Files\Runtime\Replay</Filter>
     </ClCompile>
@@ -248,9 +245,6 @@
       <Filter>Source Files\Runtime\Replay</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Replay\RunReplayProbes.cpp">
-      <Filter>Source Files\Runtime\Replay</Filter>
-    </ClCompile>
-    <ClCompile Include="SkullbonezSource\Runtime\Replay\RunReplayImportExport.cpp">
       <Filter>Source Files\Runtime\Replay</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Replay\RunReplayCauseTreeTools.cpp">
@@ -854,9 +848,6 @@
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneRuntimeUiOptions.h">
       <Filter>Header Files\Runtime\Scene</Filter>
     </ClInclude>
-    <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayExporter.h">
-      <Filter>Header Files\Runtime\Replay</Filter>
-    </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayInteractionController.h">
       <Filter>Header Files\Runtime\Replay</Filter>
     </ClInclude>
@@ -885,9 +876,6 @@
       <Filter>Header Files\Runtime\Replay</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayV2Artifact.h">
-      <Filter>Header Files\Runtime\Replay</Filter>
-    </ClInclude>
-    <ClInclude Include="SkullbonezSource\Runtime\Replay\RunReplayImportExport.h">
       <Filter>Header Files\Runtime\Replay</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Tools\RuntimeTools.h">

@@ -284,7 +284,6 @@ RUNTIME_ALLOCATION_PREFIXES = (
 )
 
 RUNTIME_REPLAY_PREFIXES = (
-    "ReplayExporter",
     "ReplayInteractionController",
     "ReplayOverlayLayout",
     "ReplayOverlayRenderer",
@@ -296,7 +295,6 @@ RUNTIME_REPLAY_PREFIXES = (
     "ReplayV2Artifact",
     "TrajectoryStore",
     "RunReplayCauseTreeTools",
-    "RunReplayImportExport",
     "RunReplayPredictionHelpers",
     "RunReplayPredictionVisualizer",
     "RunReplayProbes",

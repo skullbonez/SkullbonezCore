@@ -2314,10 +2314,11 @@ bool ApplyRunCliValueDirectives( const CommandLineView& commandLine, ParsedArgs&
                        args.replayRestoreProbeNormalized );
               return true;
           } },
+        // Invariant: each replay workflow has one semantic flag. The underscore
+        // spelling remains the command-line parser's universal syntax alias;
+        // deleted save-test/play synonyms carried no distinct behavior.
         { "--replay-save-probe", "--replay_save_probe", ApplyReplaySaveProbePath },
-        { "--replay-save-test", "--replay_save_test", ApplyReplaySaveProbePath },
         { "--replay-load", "--replay_load", ApplyReplayLoadPath },
-        { "--replay-play", "--replay_play", ApplyReplayLoadPath },
         { "--replay-load-probe", "--replay_load_probe", ApplyReplayLoadProbePath },
         { "--replay-restore-file-probe", "--replay_restore_file_probe", ApplyReplayRestoreFileProbePath },
         { "--replay-restore-target-file-probe",
@@ -2634,8 +2635,7 @@ bool ValidateReplayRestoreProbe( const CommandLineView& commandLine )
 // Guards the replay v2 save probe against use in non-Debug builds.
 bool ValidateReplaySaveProbe( const CommandLineView& commandLine )
 {
-    if ( !HasOption( commandLine, "--replay-save-probe" ) && !HasOption( commandLine, "--replay_save_probe" ) &&
-         !HasOption( commandLine, "--replay-save-test" ) && !HasOption( commandLine, "--replay_save_test" ) )
+    if ( !HasOption( commandLine, "--replay-save-probe" ) && !HasOption( commandLine, "--replay_save_probe" ) )
     {
         return true;
     }

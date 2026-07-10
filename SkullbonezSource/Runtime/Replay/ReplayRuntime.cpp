@@ -34,13 +34,12 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/Replay/ReplayRuntime.h
-  - SkullbonezSource/Runtime/Replay/ReplayExporter.h
   - SkullbonezSource/Runtime/Replay/ReplayV2Artifact.h
 */
 #include "ReplayRuntime.h"
-#include "ReplayExporter.h"
 #include "ReplayOverlayLayout.h"
 #include "ReplayV2Artifact.h"
+#include "../RuntimeFileWriter.h"
 #include "../../Core/AmortizedTask.h"
 #include "../../Core/Profiler.h"
 #include "../../GameObjects/GameModelCollection.h"
@@ -665,34 +664,6 @@ struct ReplayPastRootRebuildContext
     bool hasSample = false;
     bool ok = true;
 };
-
-void RebuildReplayPastRootTrajectorySample( const ReplaySolverFrameSample& sample, void* userData )
-{
-    ReplayPastRootRebuildContext* context = static_cast<ReplayPastRootRebuildContext*>( userData );
-    if ( !context || !context->ok || !context->store || !context->record )
-    {
-        return;
-    }
-
-    const ReplaySolverBodySample* body =
-        FindReplayBodyByIdWithHint( sample, context->targetId, context->targetModelIndex );
-    if ( !body )
-    {
-        return;
-    }
-
-    context->ok = AppendReplayPastRootTrajectoryPoint( *context->store, *context->record, sample, *body );
-    if ( context->ok )
-    {
-        if ( !context->hasSample )
-        {
-            context->firstFrame = sample.frameIndex;
-            context->hasSample = true;
-        }
-        context->builtThroughFrame = sample.frameIndex;
-        context->targetModelIndex = body->modelIndex;
-    }
-}
 
 template <typename FrameSample, typename BodySample, bool AllowNegativeModelIndex>
 const BodySample* FindReplayBodyByModelIndexInSample( const FrameSample& sample, int modelIndex )
@@ -1666,7 +1637,31 @@ void ReplayRuntime::RefreshPastTrajectoryStoreFromSolverSamples()
     rebuild.record = record;
     rebuild.targetId = m_pathVisualizer.targetId;
     rebuild.targetModelIndex = m_pathVisualizer.targetModelIndex;
-    m_solver.ForEachSampleChronological( RebuildReplayPastRootTrajectorySample, &rebuild );
+    m_solver.ForEachSampleChronological(
+        [&]( const ReplaySolverFrameSample& sample )
+        {
+            if ( !rebuild.ok )
+            {
+                return;
+            }
+            const ReplaySolverBodySample* body =
+                FindReplayBodyByIdWithHint( sample, rebuild.targetId, rebuild.targetModelIndex );
+            if ( !body )
+            {
+                return;
+            }
+            rebuild.ok = AppendReplayPastRootTrajectoryPoint( *rebuild.store, *rebuild.record, sample, *body );
+            if ( rebuild.ok )
+            {
+                if ( !rebuild.hasSample )
+                {
+                    rebuild.firstFrame = sample.frameIndex;
+                    rebuild.hasSample = true;
+                }
+                rebuild.builtThroughFrame = sample.frameIndex;
+                rebuild.targetModelIndex = body->modelIndex;
+            }
+        } );
     if ( !rebuild.ok || !rebuild.hasSample )
     {
         m_pathVisualizer.pastTrajectory = RunReplayPastTrajectoryBuildState{};
@@ -3406,13 +3401,45 @@ void ReplayRuntime::RecordEditorTransformEvent( int modelIndex,
                  payload );
 }
 
-bool ReplayRuntime::SaveSolverReplay( const char* path ) const
-{
-    return ReplayExporter::Save( m_solver, path );
-}
-
 bool ReplayRuntime::SavePresentationWithSolverHashes( const char* path, ReplayV2SaveResult* result ) const
 {
     return ReplayV2Artifact::SavePresentationWithSolverHashes( m_presentation, m_solver, m_events, path, result );
+}
+
+bool ReplayRuntime::SavePresentationFromScrubber( double now )
+{
+    // Invariant: the owner advances the process-local sequence and publishes
+    // success only after the binary v2 writer completes.
+    char path[256] = {};
+    bool saved = false;
+    if ( RuntimeFileWriter::NextNumberedPath( path,
+                                              sizeof( path ),
+                                              "replays",
+                                              "replay_v2_",
+                                              ".skreplay",
+                                              m_presentationSaveSequence ) )
+    {
+        saved = SavePresentationWithSolverHashes( path );
+    }
+
+    m_scrubber.saveMessageTrack = RunReplayTrack::Presentation;
+    if ( saved )
+    {
+        const char* fileName = std::strrchr( path, '\\' );
+        if ( !fileName )
+        {
+            fileName = std::strrchr( path, '/' );
+        }
+        fileName = fileName ? fileName + 1 : path;
+        sprintf_s( m_scrubber.saveMessage, sizeof( m_scrubber.saveMessage ), "SAVED %s", fileName );
+    }
+    else
+    {
+        sprintf_s( m_scrubber.saveMessage, sizeof( m_scrubber.saveMessage ), "REPLAY SAVE FAILED" );
+    }
+    m_scrubber.saveMessageUntil = now + 2.5;
+    m_scrubber.visibleUntil = now + ReplayOverlay::REPLAY_SCRUBBER_VISIBLE_SECONDS;
+    m_scrubber.visible = true;
+    return saved;
 }
 } // namespace SkullbonezCore::Basics

@@ -817,17 +817,6 @@
       "removal_or_wrapper_plan": "Move runtime orchestration storage to typed fixed buffers or owner wrappers as each subsystem is decomposed."
     },
     {
-      "path": "SkullbonezSource/Runtime/Replay/ReplayExporter.cpp",
-      "patterns": [
-        ".push_back("
-      ],
-      "owner": "Replay static STL storage/growth surface",
-      "phase": "replay",
-      "reason": "Replay is the only approved runtime growth exception; these existing recorder, prediction, query, artifact, and trajectory buffers remain reviewed while runtime reserve owners and validation guard actual gameplay growth.",
-      "cap": "Replay hard caps and artifact sizes remain enforced by the replay reserve owners and validation gates.",
-      "removal_or_wrapper_plan": "Move replay buffers behind fixed replay arenas or typed replay owner wrappers, then delete this row for the converted file."
-    },
-    {
       "path": "SkullbonezSource/Runtime/Replay/ReplayRecorder.cpp",
       "patterns": [
         ".assign(",

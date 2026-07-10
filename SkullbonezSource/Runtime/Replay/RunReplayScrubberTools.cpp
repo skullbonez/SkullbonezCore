@@ -28,7 +28,6 @@ Related:
 #include "../InputController.h"
 #include "ReplayInteractionController.h"
 #include "ReplayOverlayLayout.h"
-#include "RunReplayImportExport.h"
 #include "../../World/Terrain.h"
 
 #include <algorithm>
@@ -650,9 +649,7 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
               m_replayRuntime.Scrubber().visibleUntil >= now )
     {
         EnterInteractiveSceneRun();
-        SaveReplayBufferFromScrubber( m_replayRuntime,
-                                      RunReplayTrack::Presentation,
-                                      m_timers.simulationTimer.GetTotalTime() );
+        m_replayRuntime.SavePresentationFromScrubber( m_timers.simulationTimer.GetTotalTime() );
         consumesMouse = true;
     }
     else if ( leftPressed && canTakeMouse && overLoadButton && m_replayRuntime.Scrubber().visibleUntil >= now )

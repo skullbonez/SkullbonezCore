@@ -1,7 +1,7 @@
 # Replay R0 Reconciled Inventory
 
-Date: 2026-07-10  
-Branch: `engine-cleanup-10th-july`  
+Date: 2026-07-10
+Branch: `engine-cleanup-10th-july`
 Scope: tracked source-bearing files under `SkullbonezSource/Runtime/Replay`
 
 ## Exact source inventory

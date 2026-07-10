@@ -2590,22 +2590,6 @@ void ReplaySolverRecorder::CopySamplesChronological( std::vector<ReplaySolverFra
     }
 }
 
-void ReplaySolverRecorder::ForEachSampleChronological( ReplaySolverSampleVisitor visitor, void* userData ) const
-{
-    if ( !visitor || m_sampleCount == 0 || m_samples.empty() )
-    {
-        return;
-    }
-
-    for ( std::size_t i = 0; i < m_sampleCount; ++i )
-    {
-        if ( ResolveSolverSampleAtOffset( i, m_resolvedSolverSample ) )
-        {
-            visitor( m_resolvedSolverSample, userData );
-        }
-    }
-}
-
 const ReplaySolverFrameSample* ReplaySolverRecorder::LatestSample() const
 {
     if ( m_sampleCount == 0 || m_samples.empty() )
