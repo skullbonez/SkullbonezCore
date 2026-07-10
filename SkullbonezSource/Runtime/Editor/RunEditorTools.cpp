@@ -988,86 +988,61 @@ int PeekSelectedEditorModelIndex( const RunEditorPlacementState& editor, const P
 } // namespace SkullbonezCore
 
 
-void Run::TickEditorViewportAndPlacementScaleInput( int unhandledWheelDelta )
+EditorViewportPlacementResult RuntimeTools::RouteEditorViewportPlacement( const EditorViewportPlacementInput& input )
 {
-    const bool editorViewportLookNow =
-        m_runtimeTools.Editor().editorModeEnabled && m_inputRouter.DeviceFrame().rightDown && !m_UI.BlocksCameraMouse();
-    if ( editorViewportLookNow != m_runtimeTools.Editor().viewportLookActive )
+    EditorViewportPlacementResult result;
+    const bool editorViewportLookNow = m_editor.editorModeEnabled && input.rightDown && !input.blocksCameraMouse;
+    if ( editorViewportLookNow != m_editor.viewportLookActive )
     {
-        InputController::ResetMouseLook( m_camera );
+        result.resetMouseLook = true;
     }
-    m_runtimeTools.Editor().viewportLookActive = editorViewportLookNow;
-    if ( editorViewportLookNow != ( m_runtimeInput.CurrentMode() == RuntimeInputMode::EditorViewportLook ) )
+    m_editor.viewportLookActive = editorViewportLookNow;
+    if ( editorViewportLookNow != input.inputModeIsViewportLook )
     {
-        UpdateRuntimeInputModeAfterAction( editorViewportLookNow ? RuntimeInputAction::BeginEditorViewportLook
-                                                                 : RuntimeInputAction::EndEditorViewportLook,
-                                           RuntimeInputActionSource::Mouse );
+        result.modeAction = editorViewportLookNow ? EditorViewportModeAction::Begin : EditorViewportModeAction::End;
     }
 
-    const int placementWheelSteps = EditorMouseWheelSteps( unhandledWheelDelta );
-    const bool placementLeftMouseNow = m_inputRouter.DeviceFrame().leftDown;
-    const bool placementYawWheel = placementWheelSteps != 0 && m_runtimeTools.Editor().editorModeEnabled &&
-                                   m_runtimeTools.Editor().placementModeEnabled &&
-                                   m_inputRouter.DeviceFrame().keys.IsDown( VK_CONTROL ) &&
-                                   !m_runtimeTools.Editor().viewportLookActive && !m_UI.BlocksCameraMouse();
+    const int placementWheelSteps = EditorMouseWheelSteps( input.unhandledWheelDelta );
+    const bool placementYawWheel = placementWheelSteps != 0 && m_editor.editorModeEnabled &&
+                                   m_editor.placementModeEnabled && input.controlDown && !m_editor.viewportLookActive &&
+                                   !input.blocksCameraMouse;
     if ( placementYawWheel )
     {
-        EnterInteractiveSceneRun();
-        m_runtimeTools.Editor().placementYawRadians =
-            WrapEditorAngleDelta( m_runtimeTools.Editor().placementYawRadians +
+        result.enteredInteractiveScene = true;
+        m_editor.placementYawRadians =
+            WrapEditorAngleDelta( m_editor.placementYawRadians +
                                   static_cast<float>( placementWheelSteps ) * EDITOR_PLACEMENT_YAW_STEP_RADIANS );
     }
-    if ( m_runtimeTools.Editor().placementScaleActive && placementLeftMouseNow &&
-         !m_runtimeTools.Editor().viewportLookActive && !m_UI.BlocksCameraMouse() )
+    if ( m_editor.placementScaleActive && input.leftDown && !m_editor.viewportLookActive && !input.blocksCameraMouse )
     {
         if ( placementWheelSteps != 0 && !placementYawWheel )
         {
-            EnterInteractiveSceneRun();
-            m_runtimeTools.Editor().placementScaleWheelSteps += placementWheelSteps;
+            result.enteredInteractiveScene = true;
+            m_editor.placementScaleWheelSteps += placementWheelSteps;
         }
 
-        const DeviceInputFrame& deviceFrame = m_inputRouter.DeviceFrame();
-        if ( deviceFrame.hasClientPosition )
+        if ( input.hasClientPosition )
         {
-            const float dragPixelsX =
-                static_cast<float>( deviceFrame.clientX - m_runtimeTools.Editor().placementScaleStartClient.x );
-            const float dragPixelsY =
-                static_cast<float>( deviceFrame.clientY - m_runtimeTools.Editor().placementScaleStartClient.y );
-            m_runtimeTools.Editor().placementScale =
-                EditorPlacementScaleFromGesture( m_runtimeTools.Editor().objectType,
-                                                 m_runtimeTools.Editor().placementScaleStart,
-                                                 dragPixelsX,
-                                                 dragPixelsY,
-                                                 m_runtimeTools.Editor().placementScaleWheelSteps );
+            const float dragPixelsX = static_cast<float>( input.clientX - m_editor.placementScaleStartClient.x );
+            const float dragPixelsY = static_cast<float>( input.clientY - m_editor.placementScaleStartClient.y );
+            m_editor.placementScale = EditorPlacementScaleFromGesture( m_editor.objectType,
+                                                                       m_editor.placementScaleStart,
+                                                                       dragPixelsX,
+                                                                       dragPixelsY,
+                                                                       m_editor.placementScaleWheelSteps );
         }
     }
-    else if ( placementWheelSteps != 0 && m_runtimeTools.Editor().editorModeEnabled &&
-              m_runtimeTools.Editor().placementModeEnabled && !placementYawWheel &&
-              !m_runtimeTools.Editor().viewportLookActive && !m_UI.BlocksCameraMouse() )
+    else if ( placementWheelSteps != 0 && m_editor.editorModeEnabled && m_editor.placementModeEnabled &&
+              !placementYawWheel && !m_editor.viewportLookActive && !input.blocksCameraMouse )
     {
-        const int nextAltitudeSteps =
-            (std::max)( 0, m_runtimeTools.Editor().placementAltitudeSteps + placementWheelSteps );
-        if ( nextAltitudeSteps != m_runtimeTools.Editor().placementAltitudeSteps )
+        const int nextAltitudeSteps = (std::max)( 0, m_editor.placementAltitudeSteps + placementWheelSteps );
+        if ( nextAltitudeSteps != m_editor.placementAltitudeSteps )
         {
-            EnterInteractiveSceneRun();
-            m_runtimeTools.Editor().placementAltitudeSteps = nextAltitudeSteps;
+            result.enteredInteractiveScene = true;
+            m_editor.placementAltitudeSteps = nextAltitudeSteps;
         }
     }
-    const DeviceInputFrame& presentationDevice = m_inputRouter.DeviceFrame();
-    const UiInputHitSnapshot& presentationUi = m_inputRouter.UiSnapshot();
-    PointerPresentationPolicyInput presentationInput;
-    presentationInput.editorModeEnabled = m_runtimeTools.Editor().editorModeEnabled;
-    presentationInput.editorViewportLookActive = m_runtimeTools.Editor().viewportLookActive;
-    presentationInput.editorPlacementModeEnabled = m_runtimeTools.Editor().placementModeEnabled;
-    presentationInput.editorPlacementPreviewVisible = m_runtimeTools.Editor().placementPreviewVisible;
-    presentationInput.replayInspectionActive = m_replayRuntime.InspectionActive();
-    presentationInput.replayInspectionLookActive =
-        presentationInput.replayInspectionActive &&
-        m_replayRuntime.InspectionMouseLookActive( presentationDevice.rightDown,
-                                                   presentationUi.wantsNativeCursor,
-                                                   presentationUi.blocksCameraMouse );
-    m_inputRouter.RequestCursorVisible(
-        !m_inputRouter.EvaluatePointerPresentation( presentationInput ).hideNativeCursor );
+    return result;
 }
 
 

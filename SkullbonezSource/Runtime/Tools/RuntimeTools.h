@@ -332,6 +332,36 @@ struct EditorPlacementScaleStartResult
     bool beganGesture = false;
 };
 
+struct EditorViewportPlacementInput
+{
+    // Lifetime: one post-UI device sample; wheel and pointer facts cannot be
+    // resampled while the tool mutates its durable placement state.
+    int unhandledWheelDelta = 0;
+    bool rightDown = false;
+    bool leftDown = false;
+    bool controlDown = false;
+    bool blocksCameraMouse = false;
+    bool hasClientPosition = false;
+    bool inputModeIsViewportLook = false;
+    int clientX = 0;
+    int clientY = 0;
+};
+
+enum class EditorViewportModeAction
+{
+    None,
+    Begin,
+    End
+};
+
+struct EditorViewportPlacementResult
+{
+    // Composition applies camera/input-mode effects after the tool mutation.
+    bool resetMouseLook = false;
+    bool enteredInteractiveScene = false;
+    EditorViewportModeAction modeAction = EditorViewportModeAction::None;
+};
+
 struct MousePickupPointerResult
 {
     bool consumed = false;                                                  // Prevents later world owners from seeing this pointer gesture.
@@ -743,6 +773,7 @@ class RuntimeTools
                                                        RuntimeInteractionController& interaction );
     EditorPlacementScaleStartResult
     BeginEditorPlacementScalePointer( bool inspectGizmoActive, bool hasClientPosition, int clientX, int clientY );
+    EditorViewportPlacementResult RouteEditorViewportPlacement( const EditorViewportPlacementInput& input );
     bool CommitSelectionCommand( const RuntimeInteractionSelectionPlan& plan, RuntimeInteractionEvent& outEvent );
     bool ApplySelectionCommand( const RuntimeInteractionCommand& command,
                                 const GameObjects::GameModelCollection& collection );

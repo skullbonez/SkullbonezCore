@@ -544,23 +544,20 @@ template <typename CameraModeEnabledMask,
           typename ApplyEditorModeToggle,
           typename ApplyEditorPlacementModeToggle,
           typename ResetReplayTimelineForActiveScene,
-          typename RunUIStressActions,
-          typename TickEditorViewportAndPlacementScaleInput>
-RuntimeUIFrameResult
-ApplyRuntimeUIFrameCommands( const RuntimeUIFrameContext& context,
-                             bool suppressWorldActionThisFrame,
-                             bool keyboardToggleEditorMode,
-                             CameraModeEnabledMask cameraModeEnabledMask,
-                             EnterInteractiveSceneRun enterInteractiveSceneRun,
-                             DispatchAfterUIKeyboardActions dispatchAfterUIKeyboardActions,
-                             UpdateRuntimeInputModeAfterAction updateRuntimeInputModeAfterAction,
-                             ApplyCameraMode applyCameraMode,
-                             ApplyEditorPlacementModeChange applyEditorPlacementModeChange,
-                             ApplyEditorModeToggle applyEditorModeToggle,
-                             ApplyEditorPlacementModeToggle applyEditorPlacementModeToggle,
-                             ResetReplayTimelineForActiveScene resetReplayTimelineForActiveScene,
-                             RunUIStressActions runUIStressActions,
-                             TickEditorViewportAndPlacementScaleInput tickEditorViewportAndPlacementScaleInput )
+          typename RunUIStressActions>
+RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( const RuntimeUIFrameContext& context,
+                                                  bool suppressWorldActionThisFrame,
+                                                  bool keyboardToggleEditorMode,
+                                                  CameraModeEnabledMask cameraModeEnabledMask,
+                                                  EnterInteractiveSceneRun enterInteractiveSceneRun,
+                                                  DispatchAfterUIKeyboardActions dispatchAfterUIKeyboardActions,
+                                                  UpdateRuntimeInputModeAfterAction updateRuntimeInputModeAfterAction,
+                                                  ApplyCameraMode applyCameraMode,
+                                                  ApplyEditorPlacementModeChange applyEditorPlacementModeChange,
+                                                  ApplyEditorModeToggle applyEditorModeToggle,
+                                                  ApplyEditorPlacementModeToggle applyEditorPlacementModeToggle,
+                                                  ResetReplayTimelineForActiveScene resetReplayTimelineForActiveScene,
+                                                  RunUIStressActions runUIStressActions )
 {
     RuntimeUIFrameResult result;
     result.suppressWorldActionThisFrame = suppressWorldActionThisFrame;
@@ -941,7 +938,48 @@ ApplyRuntimeUIFrameCommands( const RuntimeUIFrameContext& context,
     {
         enterInteractiveSceneRun();
     }
-    tickEditorViewportAndPlacementScaleInput( result.editorUnhandledWheelDelta );
+    const DeviceInputFrame& editorDevice = context.inputRouter.DeviceFrame();
+    const EditorViewportPlacementResult editorPointerResult = context.runtimeTools.RouteEditorViewportPlacement(
+        { result.editorUnhandledWheelDelta,
+          editorDevice.rightDown,
+          editorDevice.leftDown,
+          editorDevice.keys.IsDown( VK_CONTROL ),
+          context.ui.BlocksCameraMouse(),
+          editorDevice.hasClientPosition,
+          context.runtimeInput.CurrentMode() == RuntimeInputMode::EditorViewportLook,
+          editorDevice.clientX,
+          editorDevice.clientY } );
+    if ( editorPointerResult.resetMouseLook )
+    {
+        InputController::ResetMouseLook( context.camera );
+    }
+    if ( editorPointerResult.modeAction == EditorViewportModeAction::Begin )
+    {
+        updateRuntimeInputModeAfterAction( RuntimeInputAction::BeginEditorViewportLook,
+                                           RuntimeInputActionSource::Mouse );
+    }
+    else if ( editorPointerResult.modeAction == EditorViewportModeAction::End )
+    {
+        updateRuntimeInputModeAfterAction( RuntimeInputAction::EndEditorViewportLook, RuntimeInputActionSource::Mouse );
+    }
+    if ( editorPointerResult.enteredInteractiveScene )
+    {
+        enterInteractiveSceneRun();
+    }
+    const UiInputHitSnapshot& presentationUi = context.inputRouter.UiSnapshot();
+    PointerPresentationPolicyInput presentationInput;
+    presentationInput.editorModeEnabled = context.runtimeTools.Editor().editorModeEnabled;
+    presentationInput.editorViewportLookActive = context.runtimeTools.Editor().viewportLookActive;
+    presentationInput.editorPlacementModeEnabled = context.runtimeTools.Editor().placementModeEnabled;
+    presentationInput.editorPlacementPreviewVisible = context.runtimeTools.Editor().placementPreviewVisible;
+    presentationInput.replayInspectionActive = context.replayRuntime.InspectionActive();
+    presentationInput.replayInspectionLookActive =
+        presentationInput.replayInspectionActive &&
+        context.replayRuntime.InspectionMouseLookActive( editorDevice.rightDown,
+                                                         presentationUi.wantsNativeCursor,
+                                                         presentationUi.blocksCameraMouse );
+    context.inputRouter.RequestCursorVisible(
+        !context.inputRouter.EvaluatePointerPresentation( presentationInput ).hideNativeCursor );
     return result;
 }
 
@@ -2439,8 +2477,7 @@ void Run::TakeInput()
                     m_attachedCamera.State().activeFollow,
                     m_camera.director.grabbed } );
         },
-        [this]() { return RunUIStressActions(); },
-        [this]( int editorWheelDelta ) { TickEditorViewportAndPlacementScaleInput( editorWheelDelta ); } );
+        [this]() { return RunUIStressActions(); } );
     const ReplayLiveRestoreRequest& restoreRequest = uiFrameResult.replayWorkspace.restoreRequest;
     if ( restoreRequest.kind != ReplayLiveRestoreKind::None )
     {

@@ -229,8 +229,6 @@ class Run
                                   Math::Vector::Vector3& outDirection,
                                   bool clampToViewport = false )
         const;                                                          // Explicit-point variant for automation and owner-produced pointer values.
-    void TickEditorViewportAndPlacementScaleInput(
-        int unhandledWheelDelta );                                      // Updates viewport-look and placement scale/altitude gestures.
 #ifdef _DEBUG
     void LogSceneFinished( const char* reason );
     void BeginPhysicsDiagnosticsRun( const char* scenePath );

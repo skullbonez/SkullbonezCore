@@ -10,9 +10,9 @@ reports, and git history.
 | Field | Value |
 |---|---|
 | Branch | `engine-cleanup-10th-july`, tracking `origin/engine-cleanup-10th-july` |
-| Current pushed baseline | `54a6d7e3 refactor: move editor pointer composition into router` |
-| Current objective | Continue B1f by decomposing TakeInput and remaining viewport/camera helpers |
-| Last broad local gate | `tools\validate_full.bat` passed InputRouter-owned complete pointer priority routing with 129/129 doctest cases, 2,755 assertions, zero-warning builds, DX12 with zero InfoQueue errors/matching screenshots, standalone physics smoke, and 20,001-line byte-exact physics in 52.5s |
+| Current pushed baseline | `01788603 refactor: move runtime pointer priority into router` |
+| Current objective | Continue B1f by deleting TakeInput UI/keyboard callback packs, then remaining camera helpers and late snapshot reads |
+| Last broad local gate | `tools\validate_full.bat` passed RuntimeTools-owned editor viewport/placement input with 129/129 doctest cases, 2,755 assertions, zero-warning builds, DX12 with zero InfoQueue errors/matching screenshots, standalone physics smoke, and 20,001-line byte-exact physics in 52.3s |
 | Native evidence | Injected heap-use-after-free caught; healthy ASan and five-file `/analyze` passed in 16.185s |
 
 ## Pushed Cleanup Commits
@@ -369,6 +369,12 @@ InputRouter now owns the complete editor/manipulator/attach/replay/launcher
 pointer priority chain from one immutable normal/clamped ray sample; Run's outer
 pointer method is deleted. Fast, CPU, five interaction scenarios, perf, and full
 pass; comment audit is 4/4. B1f continues with `TakeInput` and camera helpers.
+
+RuntimeTools now owns editor viewport-look and placement wheel/drag mutation
+from one post-UI device value; the UI coordinator consumes explicit effects and
+the Run callback/method are deleted. Fast, CPU, five interaction scenarios,
+perf, and full pass; comment audit is 4/4. B1f continues with TakeInput callback
+packs and camera helpers.
 
 Scene provenance C1a is complete: parser-owned library/instance/ordered-part
 records retain exact shape sources, hierarchy transforms use rotated offsets

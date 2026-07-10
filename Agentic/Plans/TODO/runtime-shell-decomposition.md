@@ -621,6 +621,20 @@ passed in 52.5s with zero warnings, zero DX12 InfoQueue errors, matching
 screenshots, standalone topology smoke, and the 20,001-line byte-exact physics
 baseline. Comment audit: 4/4 touched source-bearing files.
 
+Editor viewport-look and placement wheel/drag state now execute inside
+`RuntimeTools::RouteEditorViewportPlacement` from one post-UI device value.
+The UI-frame coordinator applies explicit reset/mode/interactive results and
+InputRouter cursor policy directly; the Run-capturing callback, Run method, and
+declaration are deleted. B1f remains open for the remaining `TakeInput` UI and
+keyboard callback packs, camera movement/ray helpers, and late snapshot reads.
+
+Evidence: the zero-warning Debug build passed. Fast passed in 30.8s; the CPU
+umbrella passed in 10.8s with 129/129 doctest cases and 2,755 assertions; all
+five interaction scenarios passed in 15.3s; perf completed in 32.2s; and full
+passed in 52.3s with zero warnings, zero DX12 InfoQueue errors, matching
+screenshots, standalone topology smoke, and the 20,001-line byte-exact physics
+baseline. Comment audit: 4/4 touched source-bearing files.
+
 ## Remaining Work
 
 ### A. Narrow the render host
