@@ -196,7 +196,7 @@ SbResult SceneGeneratedSetup::SetUpGameModels( SceneGeneratedModelContext contex
             float m3 = mass / 3.0f;
             Vector3 inertia( m3 * ( hy2 + hz2 ), m3 * ( hx2 + hz2 ), m3 * ( hx2 + hy2 ) );
 
-            GameObjects::GameModel gameModel;
+            SceneEntityCreateDesc gameModel;
 
             const Physics::PhysicsSceneObjectId sceneObjectId = context.scene.AllocateSceneObjectId();
             const BoundingBox shape( Vector3( hx, hy, hz ), Vector3( 0.0f, 0.0f, 0.0f ) );
@@ -223,7 +223,7 @@ SbResult SceneGeneratedSetup::SetUpGameModels( SceneGeneratedModelContext contex
             float radius =
                 ( 1.0f + static_cast<float>( NextSceneRand( context.scene.rngState ) % cfg.ballRadiusRange ) ) * 0.5f;
 
-            GameObjects::GameModel gameModel;
+            SceneEntityCreateDesc gameModel;
 
             const Physics::PhysicsSceneObjectId sceneObjectId = context.scene.AllocateSceneObjectId();
             const BoundingSphere shape( radius, Vector3( 0.0f, 0.0f, 0.0f ) );
@@ -298,7 +298,7 @@ SbResult SceneGeneratedSetup::SetUpSolverObjects( SceneGeneratedModelContext con
                        randSigned( cfg.ballForceRange ) );
         Vector3 forcePos( randSign(), randSign(), randSign() );
 
-        GameObjects::GameModel gameModel;
+        SceneEntityCreateDesc gameModel;
         const Physics::PhysicsSceneObjectId sceneObjectId = context.scene.AllocateSceneObjectId();
         const BoundingSphere shape( radius, Vector3( 0.0f, 0.0f, 0.0f ) );
         const auto appendResult = context.models.AddGameModel( std::move( gameModel ),
@@ -347,7 +347,7 @@ SbResult SceneGeneratedSetup::SetUpSolverObjects( SceneGeneratedModelContext con
         float m3 = mass / 3.0f;
         Vector3 inertia( m3 * ( hy2 + hz2 ), m3 * ( hx2 + hz2 ), m3 * ( hx2 + hy2 ) );
 
-        GameObjects::GameModel gameModel;
+        SceneEntityCreateDesc gameModel;
         const Physics::PhysicsSceneObjectId sceneObjectId = context.scene.AllocateSceneObjectId();
         const BoundingBox shape( Vector3( hx, hy, hz ), Vector3( 0.0f, 0.0f, 0.0f ) );
         const auto appendResult = context.models.AddGameModel( std::move( gameModel ),

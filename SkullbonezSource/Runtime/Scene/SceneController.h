@@ -1,23 +1,27 @@
 /*
 File: SkullbonezSource/Runtime/Scene/SceneController.h
 Purpose:
-  Owns scene runtime state and the fixed scene-request submission boundary.
+  Owns scene runtime state, durable entity metadata, and scene requests.
 
 Mental model:
   SceneController is the narrow API around scene queue and scene-run state.
   Run temporarily executes broad load side effects, while this controller owns
-  scene state plus the ordered request batch those side effects consume.
+  scene state, fixed entity records, and the ordered request batch those side
+  effects consume.
 
 Glossary:
   Scene runtime: Current scene state plus queue navigation data.
   Scene queue: Ordered authored scene list, with an empty path selecting the
     generated demo scene.
   Scene request: Deferred load, reset, create, or defaults-save owner intent.
+  Scene entity store: Fixed scene-lifetime join between identity, live body,
+    render material intent, and asset affiliation.
 
 Invariants:
   - SceneController owns queue/index bookkeeping, not renderer or physics side
     effects.
   - All interactive scene submissions enter its fixed request ring.
+  - Durable display/material/asset metadata lives in its fixed entity store.
   - Empty queue path is the generated demo scene sentinel.
   - Queue index lookups must normalize path separators before matching.
 
@@ -29,6 +33,7 @@ Related:
 #pragma once
 
 #include "SceneControllerState.h"
+#include "SceneEntityStore.h"
 #include "SceneRequestQueue.h"
 #include "SceneRuntime.h"
 
@@ -53,6 +58,8 @@ class SceneController
     const RunSceneBrowserState& Browser() const;
     RunSceneUIOverrideState& UIOverrides();
     const RunSceneUIOverrideState& UIOverrides() const;
+    SceneEntityStore& Entities();
+    const SceneEntityStore& Entities() const;
 
     bool HasEntry( int index ) const;
     bool HasCurrentEntry() const;
@@ -104,6 +111,7 @@ class SceneController
     SceneRequestQueue m_requests;          // Fixed scene-only deferred intent ring.
     RunSceneBrowserState m_browser;        // Discovered scene paths and live cine/concept selection.
     RunSceneUIOverrideState m_uiOverrides; // Live Scene-tab overrides preserved across reset when requested.
+    SceneEntityStore m_entities;           // Fixed scene-lifetime identity and durable presentation metadata.
 };
 } // namespace Basics
 } // namespace SkullbonezCore

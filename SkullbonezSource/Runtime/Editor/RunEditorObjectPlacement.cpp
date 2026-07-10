@@ -32,7 +32,6 @@ Related:
 #include "EditorTools.h"
 #include "EditorHullAssets.h"
 #include "../Scene/SceneAuthoredSetup.h"
-#include "../../GameObjects/GameModel.h"
 #include "../../GameObjects/GameModelCollection.h"
 #include "../../Physics/CollisionShape.h"
 #include "../../Physics/ConvexHullShape.h"
@@ -56,7 +55,6 @@ using namespace SkullbonezCore::Physics;
 using SkullbonezCore::Assets::EditorHullAsset;
 using SkullbonezCore::Assets::EditorHullAssetPath;
 using SkullbonezCore::Assets::EditorHullAssetToken;
-using SkullbonezCore::GameObjects::GameModel;
 using SkullbonezCore::Math::Vector::Vector3;
 using Json = SkullbonezCore::Basics::RunInternal::EditorPlacementJson;
 
@@ -70,7 +68,7 @@ namespace
 {
 constexpr float EDITOR_TEXTURE_MODE_INVERTED = -2.0f;
 
-void ApplyEditorSpawnMaterial( GameObjects::GameModel& model, bool fixedObject, bool boxObject )
+void ApplyEditorSpawnMaterial( SceneEntityCreateDesc& model, bool fixedObject, bool boxObject )
 {
     // Concept: editor-spawn material encodes placement mode before asset
     // recipes override it. Fixed bodies stay neutral, dynamic boxes keep the
@@ -215,7 +213,7 @@ bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
     int lastPlacedModelIndex = -1;
     bool appendFailed = false;
 
-    auto addModel = [&]( GameModel model,
+    auto addModel = [&]( SceneEntityCreateDesc model,
                          PhysicsBodyCreateDesc bodyDesc,
                          PhysicsColliderCreateDesc colliderDesc,
                          bool modelFixed,
@@ -261,7 +259,7 @@ bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
         const Vector3 center( terrainPoint.x,
                               terrainPoint.y + radius + EDITOR_PLACEMENT_SURFACE_EPSILON,
                               terrainPoint.z );
-        GameModel model;
+        SceneEntityCreateDesc model;
         model.SetRenderTint( 1.0f, 1.0f, 1.0f, EDITOR_TEXTURE_MODE_INVERTED );
         char name[64];
         sprintf_s( name, sizeof( name ), "%s_%s_%03d", modePrefix, label, serial );
@@ -295,7 +293,7 @@ bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
         {
             return;
         }
-        GameModel model;
+        SceneEntityCreateDesc model;
         ApplyEditorSpawnMaterial( model, fixedObject, true );
         char name[64];
         sprintf_s( name, sizeof( name ), "%s_box_%03d", modePrefix, serial );
@@ -344,7 +342,7 @@ bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
             hullRotation *
                 Vector3( 0.0f, HullAuthoredBottomOffset( scaledHull ) + EDITOR_PLACEMENT_SURFACE_EPSILON, 0.0f );
         const Vector3 center = authoredOrigin + hullRotation * scaledHull.GetAuthoredCenterOfMass();
-        GameModel model;
+        SceneEntityCreateDesc model;
         SkullbonezCore::Rendering::RenderMaterial rockMaterial;
         if ( TryEditorRockMaterial( asset, rockMaterial ) )
         {
@@ -406,7 +404,7 @@ bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
             const Vector3 center = authoredOrigin + placementRotation * hull.GetAuthoredCenterOfMass();
             const float mass = hull.GetDefaultMass();
             const Vector3 inertia = hull.ComputeBoxApproxInertia( mass );
-            GameModel model;
+            SceneEntityCreateDesc model;
             model.SetRenderMaterial( EditorTreePartMaterial( part ) );
             char name[64];
             sprintf_s( name, sizeof( name ), "%s_%s_%03d_%s", modePrefix, treeDefinition.label, serial, part.suffix );
@@ -452,7 +450,7 @@ bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
             const float mass = CalculateBoxMass( halfExtents );
             const Vector3 center = base + placementRotation * Vector3( part.offsetX, part.offsetY, part.offsetZ );
             const Vector3 inertia = CalculateBoxInertiaForHalfExtents( halfExtents, mass );
-            GameModel model;
+            SceneEntityCreateDesc model;
             model.SetRenderMaterial( EditorHousePartMaterial( part ) );
             char name[64];
             sprintf_s( name, sizeof( name ), "%s_%s_%03d_%s", modePrefix, houseDefinition.label, serial, part.suffix );
@@ -497,8 +495,9 @@ bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
                 const RotationMatrix partRotation = partCopy.GetOrientationMatrix();
                 const Vector3 authoredOrigin = base + placementRotation * offset;
                 const std::string primitiveType = EditorAssetPrimitiveType( part );
-                auto finishPartModel =
-                    [&]( GameModel&& model, PhysicsBodyCreateDesc bodyDesc, PhysicsColliderCreateDesc colliderDesc )
+                auto finishPartModel = [&]( SceneEntityCreateDesc&& model,
+                                            PhysicsBodyCreateDesc bodyDesc,
+                                            PhysicsColliderCreateDesc colliderDesc )
                 {
                     model.SetRenderMaterial( EditorBuildingPartMaterial( part ) );
                     if ( const Json* velocity = EditorJsonFindMember( part, "velocity" ) )
@@ -559,7 +558,7 @@ bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
                     const float mass = EditorJsonFloatOr( part, "mass", hull.GetDefaultMass() );
                     const Vector3 center = authoredOrigin + partRotation * hull.GetAuthoredCenterOfMass();
                     const Vector3 inertia = hull.ComputeBoxApproxInertia( mass );
-                    GameModel model;
+                    SceneEntityCreateDesc model;
                     finishPartModel( std::move( model ),
                                      MakeEditorBodyDesc( hull,
                                                          center,
@@ -583,7 +582,7 @@ bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
                     }
                     const float mass = EditorJsonFloatOr( part, "mass", CalculateBoxMass( halfExtents ) );
                     const Vector3 inertia = CalculateBoxInertiaForHalfExtents( halfExtents, mass );
-                    GameModel model;
+                    SceneEntityCreateDesc model;
                     const BoundingBox shape( halfExtents, Vector3( 0.0f, 0.0f, 0.0f ) );
                     finishPartModel( std::move( model ),
                                      MakeEditorBodyDesc( shape,
@@ -608,7 +607,7 @@ bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
                     }
                     const float mass = EditorJsonFloatOr( part, "mass", CalculateSphereMass( radius ) );
                     const Vector3 inertia = CalculateSphereInertia( radius, mass );
-                    GameModel model;
+                    SceneEntityCreateDesc model;
                     const BoundingSphere shape( radius, Vector3( 0.0f, 0.0f, 0.0f ) );
                     finishPartModel( std::move( model ),
                                      MakeEditorBodyDesc( shape,

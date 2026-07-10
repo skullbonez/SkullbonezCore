@@ -1,13 +1,12 @@
 /*
 File: SkullbonezSource/GameObjects/GameModelCollection.h
 Purpose:
-  Owns all scene models and delegates rendering, physics, and snapshots.
+  Coordinates transient presentation rows with physics/collider/render stores.
 
 Mental model:
-  GameModelCollection.h owns all scene models and delegates rendering,
-  physics, and snapshots. As a public header, keep edits anchored on model
-  ownership, dense-row identity, and render/physics handoff and on the
-  glossary/invariants below.
+  SceneController owns durable entity metadata. GameModelCollection temporarily
+  coordinates same-row contact feedback and physics/render stores while the C3
+  scene creation transaction is extracted.
 
 Glossary:
   SkullScope: Queryable physics diagnostics workflow backed by bounded trace
@@ -37,8 +36,8 @@ Glossary:
     restore paths can reject stale model slots.
 
 Invariants:
-  - SceneEntityStore is the stable scene-order owner; collaborators mirror or
-    view that order rather than replacing it.
+  - The bound SceneEntityStore is the stable scene-order owner; the collection
+    borrows it and must keep every same-row store count aligned.
   - SceneObjectGroupStore is a same-length scene metadata store keyed by
     scene entity slot. GameModel does not own runtime grouping fields;
     PhysicsScene owns body descriptor rows for topology repair.
@@ -47,8 +46,8 @@ Invariants:
   - Collider shape/material data is imported into ColliderStore at create,
     edit, config, or topology-repair boundaries; the collection does not keep a
     second collider-authoring cache.
-  - Render presentation records live in RenderInstanceStore. Collection only
-    supplies model-owned material/name/highlight values at the cold refresh edge.
+  - RenderInstanceStore reads durable material/name values from SceneEntityStore
+    and transient contact highlights from GameModel.
   - Replay body ids are derived from scene object ids at creation and stored on
     PhysicsBodyStore rows so diagnostics can identify bodies without reopening
     GameModel.
@@ -72,6 +71,7 @@ Related:
 #include "../Physics/PhysicsEngineStoreQueries.h"
 #include "../Rendering/RenderInstanceStore.h"
 #include "../Rendering/Shadow.h"
+#include "../Runtime/Scene/SceneEntityStore.h"
 #include "../Maths/Vector3.h"
 
 namespace SkullbonezCore
@@ -179,11 +179,9 @@ class GameModelCollection
         int partIndex = -1;
     };
 
-    // Scene entities preserve authored model-slot order while later owners
-    // consume explicit physics/render/group stores. GameModel remains the cold
-    // presentation record until all save/editor material callers have narrower
-    // inputs.
-    class SceneEntityStore
+    // Contact highlights are transient same-row render feedback. Durable scene
+    // identity and presentation intent live in the bound SceneEntityStore.
+    class PresentationStore
     {
       public:
         void Reserve( std::size_t capacity );
@@ -219,8 +217,9 @@ class GameModelCollection
         std::vector<SceneObjectGroupRecord> m_records;
     };
 
-    SceneEntityStore m_sceneEntities;
+    PresentationStore m_presentations;
     SceneObjectGroupStore m_sceneObjectGroupStore;
+    Basics::SceneEntityStore* m_sceneEntityStore = nullptr;      // Borrowed scene-lifetime metadata owner.
     Physics::PhysicsEngine m_physicsEngine;
     Rendering::RenderInstanceStore m_renderInstanceStore;        // Render snapshot in scene/model order, owned outside physics.
     Threading::WorkerPool* m_workerPool = nullptr;               // Borrowed startup worker pool for render/physics parallel helpers.
@@ -228,8 +227,7 @@ class GameModelCollection
     bool m_renderCollisionVolumes = false;                       // Cached render debug toggle copied from EngineConfig.
     bool m_shadowParallelPrep = false;                           // Cached worker-prep toggle copied from EngineConfig.
     void ReserveForActiveGameModelCapacity();
-    Basics::SbResult BuildSceneObjectGroupForAppend( const GameModel& gameModel,
-                                                     int newModelIndex,
+    Basics::SbResult BuildSceneObjectGroupForAppend( int newModelIndex,
                                                      SceneObjectGroupCreateDesc groupDesc,
                                                      SceneObjectGroupRecord& outGroup );
     SceneObjectGroupRecord GroupRecordAt( int modelIndex ) const;
@@ -244,7 +242,9 @@ class GameModelCollection
     bool RepairPhysicsBodyTopology();
     int FixedTreeReleaseRootForModelIndex( int modelIndex ) const;
     void RefreshRenderInstances();
-    GameModelAppendResult AppendGameModelAndPhysicsRows( GameModel gameModel,
+    Basics::SceneEntityStore& SceneEntities();
+    const Basics::SceneEntityStore& SceneEntities() const;
+    GameModelAppendResult AppendGameModelAndPhysicsRows( Basics::SceneEntityCreateDesc entity,
                                                          Physics::PhysicsBodyCreateDesc bodyDesc,
                                                          Physics::PhysicsSceneObjectId sceneObjectId,
                                                          Physics::PhysicsColliderCreateDesc colliderDesc,
@@ -255,6 +255,7 @@ class GameModelCollection
     ~GameModelCollection() = default;
 
     void BindWorkerPool( Threading::WorkerPool& workerPool );
+    void BindSceneEntityStore( Basics::SceneEntityStore& entities );
     void ApplyRuntimeConfig( const Basics::EngineConfig& config );
     bool ShouldRenderCollisionVolumes() const;
     bool ShouldUseShadowParallelPrep() const;
@@ -262,7 +263,7 @@ class GameModelCollection
     // Appends model storage while importing caller-owned collider shape/material
     // facts and any explicit scene-object grouping directly into owner stores.
     // Callers must handle a failed status before using the returned body handle.
-    GameModelAppendResult AddGameModel( GameModel gameModel,
+    GameModelAppendResult AddGameModel( Basics::SceneEntityCreateDesc entity,
                                         Physics::PhysicsBodyCreateDesc bodyDesc,
                                         Physics::PhysicsColliderCreateDesc colliderDesc,
                                         Physics::PhysicsSceneObjectId sceneObjectId,
@@ -396,8 +397,6 @@ class GameModelCollection
     {
         return m_renderInstanceStore.PresentationRecords();
     }
-    const char* DisplayNameAt( int modelIndex ) const;
-    int FindModelIndexByDisplayName( const char* name ) const;
     const Rendering::RenderInstanceStore& GetRenderInstanceStore();
     GameModel& GetModelAtIndex( int index );
     double GetSceneKineticEnergy();

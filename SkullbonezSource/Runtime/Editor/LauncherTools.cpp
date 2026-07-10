@@ -28,6 +28,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "../RunInternal.h"
+#include "../Scene/SceneEntityStore.h"
 #include "../../Physics/ColliderStore.h"
 #include "../../Physics/PhysicsBodyStore.h"
 
@@ -192,7 +193,6 @@ RuntimeTools::WriteLauncherReproSnapshot( const LauncherReproSnapshotContext& co
         return LauncherReproSnapshotStatus::NoTarget;
     }
 
-    GameModel& model = context.collection.GetModelAtIndex( targetIndex );
     const ColliderStore& colliderStore = context.collection.Colliders();
     const PhysicsBodyStore& bodyStore = context.collection.BodyStore();
     const ColliderRecord* collider = LauncherReproColliderForModelIndex( bodyStore, colliderStore, targetIndex );
@@ -234,7 +234,7 @@ RuntimeTools::WriteLauncherReproSnapshot( const LauncherReproSnapshotContext& co
     float shapeDrag = collider->dragCoefficient;
     float mass = body->mass;
     float restitution = collider->restitution;
-    const char* name = model.GetName();
+    const char* name = context.entities.At( targetIndex ).displayName;
     if ( !name || name[0] == '\0' )
     {
         name = "<unnamed>";

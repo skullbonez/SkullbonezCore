@@ -36,6 +36,7 @@ Related:
 #include "../../Core/Common.h"
 #include "../../Core/FatalError.h"
 #include "../../GameObjects/GameModelCollection.h"
+#include "../Scene/SceneEntityStore.h"
 #include "../../Physics/ColliderStore.h"
 #include "../../Physics/PhysicsBodyStore.h"
 #include "../../World/WorldEnvironment.h"
@@ -50,7 +51,6 @@ Related:
 using namespace SkullbonezCore::Basics;
 using SkullbonezCore::Environment::CameraCollection;
 using SkullbonezCore::Environment::WorldEnvironment;
-using SkullbonezCore::GameObjects::GameModel;
 using SkullbonezCore::GameObjects::GameModelCollection;
 using SkullbonezCore::Math::Vector::Vector3;
 using SkullbonezCore::Physics::ColliderRecord;
@@ -1272,11 +1272,11 @@ uint64_t HashPersistentContact( uint64_t hash, const ReplaySolverPersistentConta
     return hash;
 }
 
-// Concept: replay body samples borrow GameModel only for the stable display
-// name. Physics values come from dense stores so capture does not require
-// post-step model mirrors.
+// Concept: replay body samples borrow SceneEntityStore for stable display names.
+// Physics values come from dense stores; transient GameModel rows are irrelevant
+// to capture identity and durable presentation intent.
 bool BuildReplayPresentationBodySample( int modelIndex,
-                                        const GameModelCollection& models,
+                                        const SceneEntityStore& entities,
                                         const Physics::PhysicsBodyStore& bodyStore,
                                         const Physics::ColliderStore& colliderStore,
                                         ReplayBodyPresentationSample& outBody )
@@ -1286,8 +1286,8 @@ bool BuildReplayPresentationBodySample( int modelIndex,
         return false;
     }
 
-    const GameModel* model = models.TryGetModel( modelIndex );
-    if ( !model )
+    const SceneEntityRecord* entity = entities.TryGet( modelIndex );
+    if ( !entity )
     {
         return false;
     }
@@ -1299,7 +1299,7 @@ bool BuildReplayPresentationBodySample( int modelIndex,
     outBody = ReplayBodyPresentationSample{};
     outBody.id.value = bodyRecord.replayBodyId;
     outBody.modelIndex = modelIndex;
-    const char* modelName = model->GetName();
+    const char* modelName = entity->displayName;
     if ( modelName && modelName[0] != '\0' )
     {
         strncpy_s( outBody.name, sizeof( outBody.name ), modelName, _TRUNCATE );
@@ -1318,13 +1318,13 @@ bool BuildReplayPresentationBodySample( int modelIndex,
 }
 
 bool BuildReplaySolverBodySample( int modelIndex,
-                                  const GameModelCollection& models,
+                                  const SceneEntityStore& entities,
                                   const Physics::PhysicsBodyStore& bodyStore,
                                   const Physics::ColliderStore& colliderStore,
                                   ReplaySolverBodySample& outBody )
 {
     ReplayBodyPresentationSample presentationBody;
-    if ( !BuildReplayPresentationBodySample( modelIndex, models, bodyStore, colliderStore, presentationBody ) )
+    if ( !BuildReplayPresentationBodySample( modelIndex, entities, bodyStore, colliderStore, presentationBody ) )
     {
         return false;
     }
@@ -1568,7 +1568,7 @@ void ReplayRecorder::ResetTimeline( const char* sceneLabel )
 
 void ReplayRecorder::CaptureFrame( const ReplayCaptureInput& input )
 {
-    if ( !m_config.enabled || !input.models || !input.bodyStore || !input.colliderStore )
+    if ( !m_config.enabled || !input.models || !input.entities || !input.bodyStore || !input.colliderStore )
     {
         return;
     }
@@ -1613,6 +1613,7 @@ void ReplayRecorder::CaptureFrame( const ReplayCaptureInput& input )
     }
 
     GameModelCollection& models = *input.models;
+    const SceneEntityStore& entities = *input.entities;
     const Physics::PhysicsBodyStore& bodyStore = *input.bodyStore;
     const Physics::ColliderStore& colliderStore = *input.colliderStore;
     const int modelCount = bodyStore.Count();
@@ -1666,7 +1667,7 @@ void ReplayRecorder::CaptureFrame( const ReplayCaptureInput& input )
     {
         const std::size_t bodyIndex = static_cast<std::size_t>( i );
         ReplayBodyPresentationSample body;
-        if ( !BuildReplayPresentationBodySample( i, models, bodyStore, colliderStore, body ) )
+        if ( !BuildReplayPresentationBodySample( i, entities, bodyStore, colliderStore, body ) )
         {
             continue;
         }
@@ -2315,7 +2316,7 @@ void ReplaySolverRecorder::ResetTimeline( const char* sceneLabel )
 
 void ReplaySolverRecorder::CaptureFrame( const ReplayCaptureInput& input )
 {
-    if ( !m_config.enabled || !input.models || !input.bodyStore || !input.colliderStore )
+    if ( !m_config.enabled || !input.models || !input.entities || !input.bodyStore || !input.colliderStore )
     {
         return;
     }
@@ -2373,6 +2374,7 @@ void ReplaySolverRecorder::CaptureFrame( const ReplayCaptureInput& input )
     }
 
     GameModelCollection& models = *input.models;
+    const SceneEntityStore& entities = *input.entities;
     const Physics::PhysicsBodyStore& bodyStore = *input.bodyStore;
     const Physics::ColliderStore& colliderStore = *input.colliderStore;
     const int modelCount = bodyStore.Count();
@@ -2434,7 +2436,7 @@ void ReplaySolverRecorder::CaptureFrame( const ReplayCaptureInput& input )
     {
         const std::size_t bodyIndex = static_cast<std::size_t>( i );
         ReplaySolverBodySample body;
-        if ( !BuildReplaySolverBodySample( i, models, bodyStore, colliderStore, body ) )
+        if ( !BuildReplaySolverBodySample( i, entities, bodyStore, colliderStore, body ) )
         {
             continue;
         }

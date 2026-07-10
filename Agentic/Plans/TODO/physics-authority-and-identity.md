@@ -103,9 +103,33 @@ no longer an open question.
   all standalone CPU targets, 11.7s), `tools\validate_physics.bat` (20,001-line
   byte-exact baseline, 26.9s), and `tools\validate_full.bat` (zero warnings,
   zero DX12 InfoQueue errors, matching screenshots, byte-exact physics, 75.3s).
-- [ ] C2. Extract a preallocated, scene-owned `SceneEntityStore` for display
+- [x] C2. Extract a preallocated, scene-owned `SceneEntityStore` for display
   names, durable render material intent, asset affiliation, and stable ids.
   Remove those ownership duties from `GameModel`/collection order.
+  Evidence (2026-07-10): `SceneController` now owns `SceneEntityStore`, whose
+  pre-scene reservation holds the stable id/live body join, fixed display name,
+  durable `RenderMaterial`, and exact library/asset/instance/part affiliation.
+  All seven production creation call paths submit `SceneEntityCreateDesc`;
+  authored shape rows resolve the parser's exact source/index provenance before
+  commit, body-store rebuilds refresh handles only when stable ids match, and
+  replay, save, style, launcher, selection, and automation consumers read the
+  scene owner. `GameModel` is reduced to transient contact-highlight timers;
+  its name/material/tint fields and the collection display-name facades are
+  deleted. The store reserves only configured cold metadata pages before scene
+  population and retains the reservation across clears; commit cannot grow it.
+  This corrected an initial +5.28/+5.38 MB performance-gate regression from an
+  eagerly zeroed `MAX_GAME_MODELS` array without weakening the capacity ceiling.
+  `TestSceneEntityStore.cpp` covers metadata, duplicates, capacity, trim,
+  stable-id handle refresh, and reservation reuse. Allocation-policy self-test
+  and repository scan passed (306 files, 0 allowlist errors, 7.3s); the final
+  source passed `tools\validate_all_cpu_tests.bat` (116 doctest cases/2,122
+  assertions plus all standalone CPU targets, 13.8s),
+  `tools\validate_fast.bat` (format/project metadata and zero-warning
+  Profile/Debug builds, 23.3s), `tools\validate_physics.bat` (20,001-line
+  byte-exact baseline, 16.6s), `tools\validate_perf.bat` (32.9s), and
+  `tools\validate_full.bat` (zero warnings, zero DX12 InfoQueue errors,
+  matching screenshots, byte-exact physics, 49.2s). The touched-source comment
+  audit inspected 32/32 files with 0 deferred.
 - [ ] C3. One preflighted creation transaction commits scene metadata, body,
   collider, and render rows or commits none of them. Capacity/duplicate authored
   input is Lane R; owner topology divergence is Lane F.

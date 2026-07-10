@@ -53,6 +53,7 @@ struct SceneRuntimeStyleContext
     RunSceneState& scene;
     RunSceneBrowserState& sceneBrowser;
     GameObjects::GameModelCollection& models;
+    SceneEntityStore& entities;
     const Assets::AssetSystem& assets;
     CinematicRenderConfig& activeCinematic;
     const CinematicRenderConfig& defaultCinematic;

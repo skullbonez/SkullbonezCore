@@ -194,6 +194,7 @@
     <ClCompile Include="SkullbonezTests\TestMatrix4.cpp" />
     <ClCompile Include="SkullbonezTests\TestObjectContactManifold.cpp" />
     <ClCompile Include="SkullbonezTests\TestOwnerRequestQueues.cpp" />
+    <ClCompile Include="SkullbonezTests\TestSceneEntityStore.cpp" />
     <ClCompile Include="SkullbonezTests\TestPersistentContactSolver.cpp" />
     <ClCompile Include="SkullbonezTests\TestPhysicsHandles.cpp" />
     <ClCompile Include="SkullbonezTests\TestQuaternion.cpp" />
@@ -225,6 +226,7 @@
     <ClCompile Include="SkullbonezSource\Runtime\CaptureSystem.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\RenderDefaultsStore.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneRequestQueue.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneEntityStore.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneRuntimeDefaults.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\RuntimeFileWriter.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayRecorder.cpp" />

@@ -309,6 +309,7 @@ SceneRuntimeStyleContext BuildGraphicsStressStyleContext( GraphicsStressActionCo
                                      context.scene,
                                      context.sceneController.Browser(),
                                      context.models,
+                                     context.sceneController.Entities(),
                                      context.assets,
                                      RuntimeActiveCinematicConfig( context.scene, context.config ),
                                      context.defaultCinematicRender };
@@ -878,6 +879,7 @@ void Run::RunGraphicsStressActions( const Rendering::IRenderDiagnostics& renderD
                                           SceneState(),
                                           m_sceneController.Browser(),
                                           m_cGameModelCollection,
+                                          m_sceneController.Entities(),
                                           m_systems.assets,
                                           RuntimeActiveCinematicConfig( SceneState(), m_config ),
                                           m_defaultCinematicRender },

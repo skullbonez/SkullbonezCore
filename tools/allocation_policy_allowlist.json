@@ -285,6 +285,30 @@
       "removal_or_wrapper_plan": "Move model records to fixed-capacity stores and delete these allowlist patterns once the collection no longer grows STL storage."
     },
     {
+      "path": "SkullbonezSource/Runtime/Scene/SceneEntityStore.cpp",
+      "patterns": [
+        ".emplace_back(",
+        ".reserve(",
+        ".resize("
+      ],
+      "owner": "SceneController entity metadata preallocation",
+      "phase": "startup_scene_load_preallocation",
+      "reason": "SceneController reserves durable identity, material, display-name, and asset-affiliation rows before publishing the replacement scene; commit and trim remain within that reservation during steady gameplay.",
+      "cap": "Bounded by the configured game model capacity and the compile-time MAX_GAME_MODELS ceiling.",
+      "removal_or_wrapper_plan": "Replace the reserved cold metadata vector with a compact fixed arena if provenance storage is split into interned scene-owned tables."
+    },
+    {
+      "path": "SkullbonezSource/Runtime/Scene/SceneEntityStore.h",
+      "patterns": [
+        "std::vector<"
+      ],
+      "owner": "SceneController entity metadata preallocation",
+      "phase": "startup_scene_load_preallocation",
+      "reason": "SceneController owns one capacity-bounded cold metadata vector whose reservation is established before scene population and retained across reloads.",
+      "cap": "Bounded by the configured game model capacity and the compile-time MAX_GAME_MODELS ceiling.",
+      "removal_or_wrapper_plan": "Replace the reserved cold metadata vector with a compact fixed arena if provenance storage is split into interned scene-owned tables."
+    },
+    {
       "path": "SkullbonezSource/Physics/ColliderStore.cpp",
       "patterns": [
         ".assign(",

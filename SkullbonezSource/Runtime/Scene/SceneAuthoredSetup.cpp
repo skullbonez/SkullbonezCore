@@ -40,7 +40,6 @@ Related:
 #include "SceneRuntime.h"
 #include "../CameraCollection.h"
 #include "../Editor/EditorHullAssets.h"
-#include "../../GameObjects/GameModel.h"
 #include "../../GameObjects/GameModelCollection.h"
 #include "../../Maths/Quaternion.h"
 #include "../../Maths/RotationMatrix.h"
@@ -68,7 +67,6 @@ namespace Basics
 namespace
 {
 using SkullbonezCore::Assets::ResolveEditorHullAssetPath;
-using SkullbonezCore::GameObjects::GameModel;
 using SkullbonezCore::GameObjects::GameModelCollection;
 using SkullbonezCore::Math::CollisionDetection::BoundingBox;
 using SkullbonezCore::Math::CollisionDetection::BoundingSphere;
@@ -214,7 +212,7 @@ SbResult AppendAuthoredSimpleRagdoll( SceneSimpleRagdollAppendContext context, c
         const float mass = Physics::CalculateBoxMass( halfExtents );
         const Vector3 inertia = Physics::CalculateBoxInertiaForHalfExtents( halfExtents, mass );
         const Vector3 position = base + rotation * ScaleSceneVector( parts[i].localCenter, scale );
-        GameModel model;
+        SceneEntityCreateDesc model;
         model.SetRenderTint( parts[i].tintR, parts[i].tintG, parts[i].tintB, 1.0f );
         const char* name = partNames[i];
         model.SetName( name );
@@ -398,7 +396,7 @@ bool IsEditorPlacedSphereName( const char* name )
            SceneNameStartsWith( name, "dynamic_sphere_" ) || SceneNameStartsWith( name, "sleeping_sphere_" );
 }
 
-void ApplyEditorPlacedSphereMaterial( GameModel& model, const char* displayName )
+void ApplyEditorPlacedSphereMaterial( SceneEntityCreateDesc& model, const char* displayName )
 {
     if ( IsEditorPlacedSphereName( displayName ) )
     {
@@ -406,9 +404,44 @@ void ApplyEditorPlacedSphereMaterial( GameModel& model, const char* displayName 
     }
 }
 
-int FindModelByName( const GameModelCollection& models, const char* name )
+int FindModelByName( const SceneEntityStore& entities, const char* name )
 {
-    return models.FindModelIndexByDisplayName( name );
+    return entities.FindByDisplayName( name );
+}
+
+void ApplyAssetAffiliation( SceneEntityCreateDesc& entity,
+                            const TestScene& scene,
+                            SceneAssetPartSource source,
+                            uint32_t sourceIndex )
+{
+    // Why: parser provenance keeps exact shape-vector indices. Resolve that
+    // cold key once during creation so steady runtime rows retain durable asset
+    // identity without keeping or searching the parsed TestScene.
+    for ( int partRow = 0; partRow < scene.GetAssetPartCount(); ++partRow )
+    {
+        const SceneAssetPartRef& part = scene.GetAssetPart( partRow );
+        if ( part.source != source || part.sourceIndex != sourceIndex )
+        {
+            continue;
+        }
+        for ( int instanceRow = 0; instanceRow < scene.GetAssetInstanceCount(); ++instanceRow )
+        {
+            const SceneAssetInstanceRecord& instance = scene.GetAssetInstance( instanceRow );
+            const uint32_t row = static_cast<uint32_t>( partRow );
+            if ( row < instance.firstPart || row >= instance.firstPart + instance.partCount )
+            {
+                continue;
+            }
+            const SceneAssetLibraryRef& library = scene.GetAssetLibrary( static_cast<int>( instance.libraryRefIndex ) );
+            entity.SetAssetAffiliation( instance.rootSceneObjectId,
+                                        library.token,
+                                        instance.assetName,
+                                        instance.instanceName,
+                                        part.partName,
+                                        part.partIndex );
+            return;
+        }
+    }
 }
 } // namespace
 
@@ -467,7 +500,7 @@ SbResult SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context,
     {
         const SceneBall& ball = scene.GetBall( i );
 
-        GameModel gameModel;
+        SceneEntityCreateDesc gameModel;
 
         gameModel.SetName( ball.name );
         ApplyEditorPlacedSphereMaterial( gameModel, ball.name );
@@ -511,10 +544,11 @@ SbResult SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context,
     {
         const SceneBallState& bs = scene.GetBallState( i );
 
-        GameModel gameModel;
+        SceneEntityCreateDesc gameModel;
 
         gameModel.SetName( bs.name );
         ApplyEditorPlacedSphereMaterial( gameModel, bs.name );
+        ApplyAssetAffiliation( gameModel, scene, SceneAssetPartSource::BallState, static_cast<uint32_t>( i ) );
 
         const Physics::PhysicsSceneObjectId sceneObjectId = bs.sceneObjectId;
         const BoundingSphere shape( bs.radius, Vector3( 0.0f, 0.0f, 0.0f ) );
@@ -557,7 +591,7 @@ SbResult SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context,
         float m3 = box.mass / 3.0f;
         Vector3 inertia( m3 * ( hy2 + hz2 ), m3 * ( hx2 + hz2 ), m3 * ( hx2 + hy2 ) );
 
-        GameModel gameModel;
+        SceneEntityCreateDesc gameModel;
 
         gameModel.SetName( box.name );
 
@@ -591,9 +625,10 @@ SbResult SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context,
     {
         const SceneBoxState& box = scene.GetBoxState( i );
 
-        GameModel gameModel;
+        SceneEntityCreateDesc gameModel;
 
         gameModel.SetName( box.name );
+        ApplyAssetAffiliation( gameModel, scene, SceneAssetPartSource::BoxState, static_cast<uint32_t>( i ) );
 
         const Physics::PhysicsSceneObjectId sceneObjectId = box.sceneObjectId;
         const BoundingBox shape( Vector3( box.halfX, box.halfY, box.halfZ ), Vector3( 0.0f, 0.0f, 0.0f ) );
@@ -637,9 +672,10 @@ SbResult SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context,
         const Vector3 inertia = hull.ComputeBoxApproxInertia( hullScene.mass );
         const Vector3 authoredPosition( hullScene.posX, hullScene.posY, hullScene.posZ );
 
-        GameModel gameModel;
+        SceneEntityCreateDesc gameModel;
 
         gameModel.SetName( hullScene.name );
+        ApplyAssetAffiliation( gameModel, scene, SceneAssetPartSource::ConvexHull, static_cast<uint32_t>( i ) );
 
         Quaternion hullQuaternion;
         // Invariant: asset hierarchy composition has already produced an exact
@@ -714,7 +750,7 @@ SbResult SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context,
             return hullLoad;
         }
 
-        GameModel gameModel;
+        SceneEntityCreateDesc gameModel;
 
         gameModel.SetName( hullScene.name );
         GameObjects::SceneObjectGroupCreateDesc groupDesc;
@@ -791,8 +827,8 @@ SbResult SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context,
     {
         const ScenePointJointConstraint& sceneJoint = scene.GetPointJointConstraint( i );
         PhysicsPointJointCreateDesc joint;
-        const int bodyAIndex = FindModelByName( context.models, sceneJoint.bodyA );
-        const int bodyBIndex = FindModelByName( context.models, sceneJoint.bodyB );
+        const int bodyAIndex = FindModelByName( context.entities, sceneJoint.bodyA );
+        const int bodyBIndex = FindModelByName( context.entities, sceneJoint.bodyB );
         if ( bodyAIndex < 0 || bodyBIndex < 0 )
         {
             fprintf( stderr,
@@ -829,13 +865,12 @@ SbResult SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context,
             const ColliderShapeKind shapeKind = modelIndex < static_cast<int>( colliders.size() )
                                                     ? colliders[static_cast<std::size_t>( modelIndex )].shapeKind
                                                     : ColliderShapeKind::Sphere;
-            GameModel& model = context.models.GetModelAtIndex( modelIndex );
             if ( SceneMaterialTargetMatches( material,
-                                             context.models.DisplayNameAt( modelIndex ),
+                                             context.entities.At( modelIndex ).displayName,
                                              context.models.IsSimpleRagdollPart( modelIndex ),
                                              shapeKind ) )
             {
-                model.SetRenderMaterial( material.material );
+                context.entities.MutableAt( modelIndex ).renderMaterial = material.material;
             }
         }
     }
@@ -861,8 +896,8 @@ void SceneAuthoredSetup::SetUpRequiredContacts( SceneAuthoredModelContext contex
         RunRequiredContactState state;
         strcpy_s( state.nameA, sizeof( state.nameA ), contact.nameA );
         strcpy_s( state.nameB, sizeof( state.nameB ), contact.nameB );
-        state.bodyA = FindModelByName( context.models, state.nameA );
-        state.bodyB = FindModelByName( context.models, state.nameB );
+        state.bodyA = FindModelByName( context.entities, state.nameA );
+        state.bodyB = FindModelByName( context.entities, state.nameB );
         if ( state.bodyA < 0 || state.bodyB < 0 )
         {
             fprintf( stderr, "[scene] required_contact could not resolve '%s' <-> '%s'\n", state.nameA, state.nameB );

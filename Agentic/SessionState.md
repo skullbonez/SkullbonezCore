@@ -10,9 +10,9 @@ reports, and git history.
 | Field | Value |
 |---|---|
 | Branch | `engine-cleanup-10th-july`, tracking `origin/engine-cleanup-10th-july` |
-| Pushed baseline before stable scene ids | `fd48d658 feat: split runtime requests by owner` |
-| Current objective | Extract the preallocated scene-owned `SceneEntityStore` in physics-authority C2 |
-| Last broad local gate | `tools\validate_full.bat` passed stable scene ids through 114 CPU tests, zero-warning builds, DX12 with zero InfoQueue errors/matching screenshots, and byte-exact physics |
+| Pushed baseline before scene entity ownership | `d817a995 feat: stabilize authored scene identities` |
+| Current objective | Make scene metadata/body/collider/render creation transactional in physics-authority C3 |
+| Last broad local gate | `tools\validate_full.bat` passed scene-owned entity metadata through 116 CPU tests/2,122 assertions, zero-warning builds, DX12 with zero InfoQueue errors/matching screenshots, and byte-exact physics |
 | Native evidence | Injected heap-use-after-free caught; healthy ASan and five-file `/analyze` passed in 16.185s |
 
 ## Pushed Cleanup Commits
@@ -34,6 +34,7 @@ reports, and git history.
 - `e7c2e4a2 feat: route runtime keyboard actions through InputRouter`
 - `225b9688 feat: centralize runtime pointer input ownership`
 - `fd48d658 feat: split runtime requests by owner`
+- `d817a995 feat: stabilize authored scene identities`
 
 ## Current Queue
 
@@ -74,12 +75,20 @@ section order, authored creation consumes stored ids rather than allocating by
 loop order, and later runtime spawns continue above the highest sparse id. The
 parser, CPU umbrella, physics, and full gates passed from the final source.
 
+Scene entity ownership C2 is complete. `SceneController` owns the preallocated
+stable-id/body, display-name, material, and asset-affiliation rows; `GameModel`
+retains only transient contact-highlight timers. Creation callers publish
+`SceneEntityCreateDesc`, and replay/save/style/selection/automation consumers
+read the scene owner. An initial eager-array +5.3 MB regression was corrected by
+reserving configured cold rows before population; allocation policy, CPU, fast,
+physics, performance, and full gates pass from the final source.
+
 ## Ten Workstreams To Prioritize
 
-1. Extract the preallocated scene-owned `SceneEntityStore` and move display
-   name, durable material, asset affiliation, and stable-id ownership into it.
-2. Complete transactional scene creation, v2 asset round-trip, and stable-root
-   behavior ownership (C3-C5), then close the dependent B1f scene/input seam.
+1. Complete transactional scene creation so metadata, body, collider, and
+   render rows commit together or not at all (physics-authority C3).
+2. Complete v2 asset round-trip and stable-root
+   behavior ownership (C4-C5), then close the dependent B1f scene/input seam.
 3. Make DX12 resize/resource recreation transactional and define device-loss
    recovery (D4-D5).
 4. Promote `SceneController` to own real load/reset/save lifecycle and delete

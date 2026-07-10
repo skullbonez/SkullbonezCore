@@ -29,6 +29,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "SceneSnapshotWriter.h"
+#include "../Runtime/Scene/SceneEntityStore.h"
 
 #include "../Physics/BoundingBox.h"
 #include "../Physics/BoundingSphere.h"
@@ -58,6 +59,7 @@ using SkullbonezCore::Assets::EditorHullAsset;
 using SkullbonezCore::Assets::EditorHullAssetFromToken;
 using SkullbonezCore::Assets::EditorHullAssetToken;
 using SkullbonezCore::Basics::RuntimeFileWriter;
+using SkullbonezCore::Basics::SceneEntityStore;
 using SkullbonezCore::Math::CollisionDetection::BoundingBox;
 using SkullbonezCore::Math::CollisionDetection::BoundingSphere;
 using SkullbonezCore::Math::CollisionDetection::ConvexHullShape;
@@ -154,7 +156,7 @@ Json RenderMaterialJson( const char* target, const SkullbonezCore::Rendering::Re
 
 void AddSceneObjectGroupJson( Json& object,
                               const GameModelCollection& collection,
-                              const std::vector<GameModel>& gameModels,
+                              const SceneEntityStore& entities,
                               int modelIndex )
 {
     if ( collection.GroupKindAt( modelIndex ) != GameModelCollectionKind::ReleasableTree )
@@ -163,14 +165,14 @@ void AddSceneObjectGroupJson( Json& object,
     }
 
     const int rootModelIndex = collection.GroupRootModelIndexAt( modelIndex );
-    if ( rootModelIndex < 0 || rootModelIndex >= static_cast<int>( gameModels.size() ) )
+    if ( rootModelIndex < 0 || rootModelIndex >= entities.Count() )
     {
         return;
     }
 
     object["objectGroup"] = {
         { "kind", "releasableTree" },
-        { "root", gameModels[static_cast<std::size_t>( rootModelIndex )].GetName() },
+        { "root", entities.At( rootModelIndex ).displayName },
         { "part", collection.GroupPartIndexAt( modelIndex ) },
     };
 }
@@ -178,6 +180,7 @@ void AddSceneObjectGroupJson( Json& object,
 
 
 bool SceneSnapshotWriter::Save( GameModelCollection& collection,
+                                const SceneEntityStore& entities,
                                 const char* path,
                                 bool physicsOn,
                                 bool textOn,
@@ -197,7 +200,6 @@ bool SceneSnapshotWriter::Save( GameModelCollection& collection,
     // Invariant: Editable scene saves emit state-form objects whose positions,
     // velocities, sleeping flags, and materials can round-trip through
     // TestSceneParser without reinterpreting authored placement offsets.
-    const std::vector<GameModel>& sceneModels = collection.Models();
     const PhysicsBodyStore& bodyStore = collection.BodyStore();
     const ColliderStore& colliderStore = collection.Colliders();
 
@@ -262,11 +264,11 @@ bool SceneSnapshotWriter::Save( GameModelCollection& collection,
     scene["objects"] = Json::array();
     Json objectMaterials = Json::array();
 
-    for ( int i = 0; i < static_cast<int>( sceneModels.size() ); ++i )
+    for ( int i = 0; i < entities.Count(); ++i )
     {
         // Concept: Shape variants map to saved scene state records. These are
         // live simulation snapshots, not original authored spawn commands.
-        const char* name = sceneModels[i].GetName();
+        const char* name = entities.At( i ).displayName;
         char safeName[64];
         if ( !name[0] )
         {
@@ -371,11 +373,11 @@ bool SceneSnapshotWriter::Save( GameModelCollection& collection,
             {
                 hullState["sleeping"] = true;
             }
-            AddSceneObjectGroupJson( hullState, collection, sceneModels, i );
+            AddSceneObjectGroupJson( hullState, collection, entities, i );
             scene["objects"].push_back( hullState );
         }
 
-        const SkullbonezCore::Rendering::RenderMaterial& material = sceneModels[i].GetRenderMaterial();
+        const SkullbonezCore::Rendering::RenderMaterial& material = entities.At( i ).renderMaterial;
         if ( collection.GroupKindAt( i ) != GameModelCollectionKind::SimpleRagdoll &&
              ShouldSaveRenderMaterial( material ) )
         {
@@ -397,14 +399,13 @@ bool SceneSnapshotWriter::Save( GameModelCollection& collection,
         {
             const int bodyAIndex = joint.BodyAIndex( bodyStore );
             const int bodyBIndex = joint.BodyBIndex( bodyStore );
-            if ( bodyAIndex < 0 || bodyBIndex < 0 || bodyAIndex >= static_cast<int>( sceneModels.size() ) ||
-                 bodyBIndex >= static_cast<int>( sceneModels.size() ) )
+            if ( bodyAIndex < 0 || bodyBIndex < 0 || bodyAIndex >= entities.Count() || bodyBIndex >= entities.Count() )
             {
                 continue;
             }
             Json jointJson = {
-                { "bodyA", sceneModels[static_cast<size_t>( bodyAIndex )].GetName() },
-                { "bodyB", sceneModels[static_cast<size_t>( bodyBIndex )].GetName() },
+                { "bodyA", entities.At( bodyAIndex ).displayName },
+                { "bodyB", entities.At( bodyBIndex ).displayName },
                 { "localAnchorA", Vec3Json( joint.localAnchorA ) },
                 { "localAnchorB", Vec3Json( joint.localAnchorB ) },
                 { "slack", joint.slack },

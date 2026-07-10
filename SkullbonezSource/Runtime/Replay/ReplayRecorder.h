@@ -72,6 +72,7 @@ class PhysicsBodyStore;
 
 namespace Basics
 {
+class SceneEntityStore;
 inline constexpr int REPLAY_PAST_BUFFER_SECONDS = 60;
 inline constexpr float REPLAY_FUTURE_BUFFER_SECONDS = 20.0f;
 
@@ -466,8 +467,9 @@ struct ReplayCaptureInput
     Environment::CameraCollection* cameras = nullptr;
     Environment::WorldEnvironment* world = nullptr;
     GameObjects::GameModelCollection* models = nullptr;
-    // Replay recorders borrow stores for physics state and borrow models only
-    // for presentation names, so capture does not depend on GameModel writeback.
+    const SceneEntityStore* entities = nullptr;
+    // Replay recorders borrow stores for physics state and the scene entity
+    // owner for names, so capture does not depend on GameModel writeback.
     const Physics::PhysicsBodyStore* bodyStore = nullptr;
     const Physics::ColliderStore* colliderStore = nullptr;
     const ReplayLauncherVisualSample* launcherVisual = nullptr;

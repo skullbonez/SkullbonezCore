@@ -65,7 +65,6 @@ namespace RuntimeAllocation = SkullbonezCore::Runtime::Allocation;
 namespace
 {
 using Json = nlohmann::ordered_json;
-constexpr float SCENE_EDITOR_TEXTURE_MODE_INVERTED = -2.0f;
 
 void ApplySceneWorkerThreadSetting( EngineConfig& config,
                                     SkullbonezCore::Threading::WorkerPool& workerPool,
@@ -98,26 +97,6 @@ Quaternion MakeSceneEulerQuaternion( float eulerXDeg, float eulerYDeg, float eul
     return orientation;
 }
 
-
-bool SceneNameStartsWith( const char* name, const char* prefix )
-{
-    return name && strncmp( name, prefix, strlen( prefix ) ) == 0;
-}
-
-bool IsEditorPlacedSphereName( const char* name )
-{
-    return SceneNameStartsWith( name, "static_ball_" ) || SceneNameStartsWith( name, "dynamic_ball_" ) ||
-           SceneNameStartsWith( name, "sleeping_ball_" ) || SceneNameStartsWith( name, "static_sphere_" ) ||
-           SceneNameStartsWith( name, "dynamic_sphere_" ) || SceneNameStartsWith( name, "sleeping_sphere_" );
-}
-
-void ApplyEditorPlacedSphereMaterial( GameModel& model )
-{
-    if ( IsEditorPlacedSphereName( model.GetName() ) )
-    {
-        model.SetRenderTint( 1.0f, 1.0f, 1.0f, SCENE_EDITOR_TEXTURE_MODE_INVERTED );
-    }
-}
 
 void LogSceneLoadFailure( const SbResult& result, const std::string& scenePath )
 {
@@ -297,6 +276,7 @@ BuildSceneAuthoredModelContext( RunSceneState& sceneState,
                                 SkullbonezCore::Environment::WorldEnvironment& world,
                                 SkullbonezCore::Geometry::Terrain* terrain,
                                 SkullbonezCore::GameObjects::GameModelCollection& models,
+                                SceneEntityStore& entities,
                                 SkullbonezCore::Physics::PhysicsEngine& physics,
                                 std::vector<RunRequiredContactState>& requiredContacts,
                                 std::vector<RunRequiredBroadphaseXCellsState>& requiredBroadphaseXCells )
@@ -305,6 +285,7 @@ BuildSceneAuthoredModelContext( RunSceneState& sceneState,
                                       world,
                                       terrain,
                                       models,
+                                      entities,
                                       physics,
                                       requiredContacts,
                                       requiredBroadphaseXCells };
@@ -670,6 +651,7 @@ SbResult Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnCom
                                                               SceneState(),
                                                               m_sceneController.Browser(),
                                                               m_cGameModelCollection,
+                                                              m_sceneController.Entities(),
                                                               m_systems.assets,
                                                               RuntimeActiveCinematicConfig( SceneState(), m_config ),
                                                               m_defaultCinematicRender } );
@@ -880,6 +862,7 @@ SbResult Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnCom
                                                 m_cWorldEnvironment,
                                                 m_systems.terrain.get(),
                                                 m_cGameModelCollection,
+                                                m_sceneController.Entities(),
                                                 m_cGameModelCollection.GetPhysicsEngine(),
                                                 m_sceneController.RequiredContacts(),
                                                 m_sceneController.RequiredBroadphaseXCells() ),

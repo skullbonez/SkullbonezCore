@@ -203,6 +203,7 @@
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneAuthoredSetup.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneController.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneRequestQueue.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneEntityStore.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneRuntime.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneRuntimeCreate.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneGeneratedSetup.cpp" />
@@ -411,6 +412,7 @@
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneController.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneControllerState.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneRequestQueue.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneEntityStore.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneRuntime.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneRuntimeCreate.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneGeneratedSetup.h" />

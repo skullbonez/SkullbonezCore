@@ -111,6 +111,7 @@ struct RunLaunchOptions;
 struct RunRuntimeSettings;
 struct RunSceneState;
 struct ReplayLauncherVisualSample;
+class SceneEntityStore;
 
 struct RunRayCastTestLine
 {
@@ -160,6 +161,7 @@ struct RayCastLauncherTuningUICommandResult
 struct LauncherReproSnapshotContext
 {
     GameObjects::GameModelCollection& collection;
+    const SceneEntityStore& entities;
     Environment::CameraCollection* cameras;
     Geometry::Terrain* terrain;
     Environment::WorldEnvironment& world;

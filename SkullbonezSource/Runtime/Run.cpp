@@ -491,6 +491,7 @@ Run::Run( Window& window,
     RefreshRuntimeViewModel();
     RefreshSceneBrowserList( m_sceneController.Browser() );
     m_cGameModelCollection.BindWorkerPool( workerPool );
+    m_cGameModelCollection.BindSceneEntityStore( m_sceneController.Entities() );
     m_cGameModelCollection.ApplyRuntimeConfig( cfg );
     m_runtimeSettings.ApplyStartupConfig( cfg );
     m_defaultCinematicRender = cfg.cinematicRender;
@@ -858,6 +859,7 @@ bool Run::CaptureCurrentReplaySolverHash( const ReplaySolverFrameSample& referen
     input.cameras = m_systems.cameras;
     input.world = &m_cWorldEnvironment;
     input.models = &m_cGameModelCollection;
+    input.entities = &m_sceneController.Entities();
     input.bodyStore = &m_cGameModelCollection.BodyStore();
     input.colliderStore = &m_cGameModelCollection.Colliders();
     input.launcherVisual = &launcherVisual;

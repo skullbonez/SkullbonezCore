@@ -76,6 +76,18 @@ const RunSceneUIOverrideState& SceneController::UIOverrides() const
 }
 
 
+SceneEntityStore& SceneController::Entities()
+{
+    return m_entities;
+}
+
+
+const SceneEntityStore& SceneController::Entities() const
+{
+    return m_entities;
+}
+
+
 bool SceneController::HasEntry( int index ) const
 {
     return m_runtime.HasEntry( index );

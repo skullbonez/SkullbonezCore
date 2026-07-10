@@ -631,12 +631,15 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
     // as a regular runtime launch.
     auto world = std::make_unique<SkullbonezCore::Environment::WorldEnvironment>();
     auto collection = std::make_unique<SkullbonezCore::GameObjects::GameModelCollection>();
+    static SkullbonezCore::Basics::SceneEntityStore sceneEntities;
+    sceneEntities.Clear();
+    collection->BindSceneEntityStore( sceneEntities );
     PhysicsRuntimeHandleSmokeResult result;
     PhysicsBodyHandle createdBodies[2];
 
     for ( int i = 0; i < 2; ++i )
     {
-        SkullbonezCore::GameObjects::GameModel model;
+        SkullbonezCore::Basics::SceneEntityCreateDesc model;
         char name[32] = {};
         sprintf_s( name, sizeof( name ), "runtime_smoke_%d", i );
         model.SetName( name );

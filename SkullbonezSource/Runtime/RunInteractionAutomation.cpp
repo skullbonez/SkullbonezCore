@@ -1567,6 +1567,7 @@ struct InteractionAutomationAssertContext
     RuntimeInteractionController& interaction;
     RunCameraState& camera;
     GameModelCollection& gameModels;
+    const SceneEntityStore& entities;
     SkullbonezCore::UI::InGameUI& ui;
 };
 
@@ -1596,7 +1597,7 @@ EvaluateInteractionAutomationAssertion( InteractionAutomationAssertContext& cont
             PeekSelectedEditorModelIndex( context.runtimeTools.Editor(), context.gameModels.BodyStore() );
         if ( selectedIndex >= 0 && selectedIndex < context.gameModels.SceneEntityCount() )
         {
-            evaluation.actual = context.gameModels.GetModelAtIndex( selectedIndex ).GetName();
+            evaluation.actual = context.entities.At( selectedIndex ).displayName;
         }
         evaluation.passed = evaluation.actual == evaluation.expected;
         break;
@@ -1836,17 +1837,8 @@ bool Run::TryFindInteractionAutomationModel( const char* name, int& outIndex ) c
         return false;
     }
 
-    const std::vector<GameModel>& models = m_cGameModelCollection.Models();
-    for ( std::size_t i = 0; i < models.size(); ++i )
-    {
-        const char* modelName = models[i].GetName();
-        if ( modelName && strcmp( modelName, name ) == 0 )
-        {
-            outIndex = static_cast<int>( i );
-            return true;
-        }
-    }
-    return false;
+    outIndex = m_sceneController.Entities().FindByDisplayName( name );
+    return outIndex >= 0;
 }
 
 bool Run::TrySetInteractionAutomationReplayPathTarget( const char* name )
@@ -2107,6 +2099,7 @@ void Run::TickInteractionAutomationAfterRender()
                                                       m_interaction,
                                                       m_camera,
                                                       m_cGameModelCollection,
+                                                      m_sceneController.Entities(),
                                                       m_UI };
     for ( RunInteractionAutomationAction& action : state.actions )
     {
@@ -2262,7 +2255,7 @@ void Run::WriteInteractionAutomationReport()
     const char* selectedName = "";
     if ( selectedIndex >= 0 && selectedIndex < m_cGameModelCollection.SceneEntityCount() )
     {
-        selectedName = m_cGameModelCollection.GetModelAtIndex( selectedIndex ).GetName();
+        selectedName = m_sceneController.Entities().At( selectedIndex ).displayName;
     }
     const bool gizmoVisible =
         selectedIndex >= 0 && ( m_runtimeTools.Editor().editorModeEnabled || InspectGizmoInteractionActive() );

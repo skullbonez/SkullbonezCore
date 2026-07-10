@@ -594,7 +594,7 @@ bool RuntimeTools::FireLauncherProjectile( GameObjects::GameModelCollection& col
     }
 
     const float moment = 0.4f * LAUNCHER_PROJECTILE_MASS * LAUNCHER_PROJECTILE_RADIUS * LAUNCHER_PROJECTILE_RADIUS;
-    GameObjects::GameModel projectile;
+    SceneEntityCreateDesc projectile;
     projectile.SetRenderTint( 0.72f, 0.88f, 1.0f, 1.0f );
     projectile.SetName( "launcher_projectile" );
 

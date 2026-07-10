@@ -6,13 +6,13 @@
 // Mental model:
 //   ReplayRecorder contains both a lightweight solver-sample mirror and a full
 //   runtime capture path. The unit harness exercises the mirror path directly;
-//   live camera/world/model owner traversal remains integration-level behavior.
+//   live camera/world/entity/model owner traversal remains integration behavior.
 //
 // Glossary:
 //   Solver-sample mirror: Replay path that copies an already-built solver frame
 //     into presentation retention without walking runtime owners again.
-//   Full-capture boundary: Runtime owner traversal through cameras, world, and
-//     model collection methods that this unit target deliberately does not own.
+//   Full-capture boundary: Runtime owner traversal through cameras, world,
+//     scene entities, and collection methods this unit target deliberately omits.
 //   Owner hook: Method on a live runtime owner that full replay capture reads.
 //
 // Invariants:
@@ -48,8 +48,8 @@ namespace
 {
 [[noreturn]] void ThrowUnexpectedReplayIntegrationCall( const char* methodName )
 {
-    throw std::runtime_error(
-        std::string( "ReplayRecorder unit boundary: unexpected full replay capture call: " ) + methodName );
+    throw std::runtime_error( std::string( "ReplayRecorder unit boundary: unexpected full replay capture call: " ) +
+                              methodName );
 }
 
 ReplayRecorderConfig OneBodyRecorderConfig()
@@ -120,11 +120,6 @@ float WorldEnvironment::GetFluidDensity() const
 
 namespace GameObjects
 {
-const char* GameModel::GetName() const
-{
-    ThrowUnexpectedReplayIntegrationCall( "GameModel::GetName" );
-}
-
 const GameModel* GameModelCollection::TryGetModel( int ) const
 {
     ThrowUnexpectedReplayIntegrationCall( "GameModelCollection::TryGetModel" );

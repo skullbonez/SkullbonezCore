@@ -15,10 +15,13 @@ Glossary:
   Required contact: Validation gate requiring two named bodies to touch.
   Required broadphase cells: Validation gate requiring the broadphase grid to
     activate a particular x-cell span.
+  Scene entity: Durable scene-owned identity, display, material, and asset row
+    committed beside the live physics body.
 
 Invariants:
   - Context structs borrow state and are not retained by setup helpers.
   - Authored scene setup preserves model insertion order and gate resolution.
+  - Parsed asset provenance is copied into scene entities at creation.
   - Runtime gate state stays mutable after setup because frame updates mark
     contacts and broadphase cells complete.
 
@@ -57,6 +60,7 @@ namespace Basics
 {
 class TestScene;
 struct RunSceneState;
+class SceneEntityStore;
 
 struct RunRequiredContactState
 {
@@ -93,6 +97,7 @@ struct SceneAuthoredModelContext
     Environment::WorldEnvironment& world;
     Geometry::Terrain* terrain;
     GameObjects::GameModelCollection& models;
+    SceneEntityStore& entities;
     Physics::PhysicsEngine& physics;
     std::vector<RunRequiredContactState>& requiredContacts;
     std::vector<RunRequiredBroadphaseXCellsState>& requiredBroadphaseXCells;

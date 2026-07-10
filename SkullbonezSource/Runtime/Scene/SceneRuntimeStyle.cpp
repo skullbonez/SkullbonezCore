@@ -27,7 +27,6 @@ Related:
   - Agentic/Plans/TODO/runtime-shell-decomposition.md
 */
 #include "SceneRuntimeStyle.h"
-#include "../../GameObjects/GameModel.h"
 #include "../../GameObjects/GameModelCollection.h"
 #include "../../Physics/ColliderStore.h"
 #include "../../Scene/TestScene.h"
@@ -43,7 +42,6 @@ namespace Basics
 {
 namespace
 {
-using SkullbonezCore::GameObjects::GameModel;
 using SkullbonezCore::GameObjects::GameModelCollection;
 using SkullbonezCore::Physics::ColliderShapeKind;
 
@@ -121,21 +119,21 @@ bool SceneMaterialTargetMatches( const SceneObjectMaterialOverride& material,
     return strcmp( material.target, displayName ) == 0;
 }
 
-void ResetObjectMaterials( GameModelCollection& models )
+void ResetObjectMaterials( SceneEntityStore& entities, const GameModelCollection& models )
 {
     for ( int modelIndex = 0; modelIndex < models.SceneEntityCount(); ++modelIndex )
     {
-        GameModel& model = models.GetModelAtIndex( modelIndex );
         if ( !models.IsSimpleRagdollPart( modelIndex ) )
         {
-            model.SetRenderTint( 1.0f, 1.0f, 1.0f, 0.0f );
+            entities.MutableAt( modelIndex ).renderMaterial =
+                Rendering::MakeRenderMaterialFromLegacyTint( 1.0f, 1.0f, 1.0f, 0.0f );
         }
     }
 }
 
-void ApplyObjectMaterials( GameModelCollection& models, const TestScene& styleScene )
+void ApplyObjectMaterials( SceneEntityStore& entities, GameModelCollection& models, const TestScene& styleScene )
 {
-    ResetObjectMaterials( models );
+    ResetObjectMaterials( entities, models );
     const auto& colliders = models.Colliders().Records();
     for ( int materialIndex = 0; materialIndex < styleScene.GetObjectMaterialOverrideCount(); ++materialIndex )
     {
@@ -145,13 +143,12 @@ void ApplyObjectMaterials( GameModelCollection& models, const TestScene& styleSc
             const ColliderShapeKind shapeKind = modelIndex < static_cast<int>( colliders.size() )
                                                     ? colliders[static_cast<std::size_t>( modelIndex )].shapeKind
                                                     : ColliderShapeKind::Sphere;
-            GameModel& model = models.GetModelAtIndex( modelIndex );
             if ( SceneMaterialTargetMatches( material,
-                                             models.DisplayNameAt( modelIndex ),
+                                             entities.At( modelIndex ).displayName,
                                              models.IsSimpleRagdollPart( modelIndex ),
                                              shapeKind ) )
             {
-                model.SetRenderMaterial( material.material );
+                entities.MutableAt( modelIndex ).renderMaterial = material.material;
             }
         }
     }
@@ -272,7 +269,7 @@ bool ApplyCinematicModeFromBrowserIndex( SceneRuntimeStyleContext context, int i
             context.scene.cinematicOverrideMask = 0;
             context.scene.uiCinematicOverrideMask = 0;
         }
-        ResetObjectMaterials( context.models );
+        ResetObjectMaterials( context.entities, context.models );
         context.sceneBrowser.selectedCineModeSceneIndex = -1;
         return true;
     }
@@ -306,7 +303,7 @@ bool ApplyCinematicModeFromBrowserIndex( SceneRuntimeStyleContext context, int i
         context.scene.cinematicOverrideMask = lookScene.GetCinematicOverrideMask();
         context.scene.uiCinematicOverrideMask = 0;
     }
-    ApplyObjectMaterials( context.models, lookScene );
+    ApplyObjectMaterials( context.entities, context.models, lookScene );
     context.sceneBrowser.selectedCineModeSceneIndex = index;
     return true;
 }
@@ -315,7 +312,7 @@ bool ApplyCinematicModeFromBrowserIndex( SceneRuntimeStyleContext context, int i
 void ApplyLiveStyleScene( SceneRuntimeStyleContext context, const TestScene& styleScene )
 {
     context.launchOptions.hasCinematicRenderingOverride = false;
-    ApplyObjectMaterials( context.models, styleScene );
+    ApplyObjectMaterials( context.entities, context.models, styleScene );
 
     context.activeCinematic = context.defaultCinematic;
     ApplyCinematicSceneOverrides( context.activeCinematic,

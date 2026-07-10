@@ -357,6 +357,7 @@ struct SimulationPostStepPipelineContext
     ReplayLauncherVisualSample& replayLauncherVisualScratch;
     SkullbonezCore::Environment::WorldEnvironment& world;
     SkullbonezCore::GameObjects::GameModelCollection& models;
+    const SceneEntityStore& entities;
 };
 
 struct SimulationPostStepPipelineResult
@@ -539,6 +540,7 @@ class SimulationPostStepPipeline
         input.cameras = context.systems.cameras;
         input.world = &context.world;
         input.models = &context.models;
+        input.entities = &context.entities;
         input.bodyStore = &context.models.BodyStore();
         input.colliderStore = &context.models.Colliders();
         input.launcherVisual = &context.replayLauncherVisualScratch;
@@ -867,6 +869,7 @@ void Run::TickPhysics( double secondsPerFrame )
                                                               SceneState(),
                                                               m_sceneController.Browser(),
                                                               m_cGameModelCollection,
+                                                              m_sceneController.Entities(),
                                                               m_systems.assets,
                                                               RuntimeActiveCinematicConfig( SceneState(), m_config ),
                                                               m_defaultCinematicRender },
@@ -889,7 +892,8 @@ void Run::AfterPhysicsStep()
                                                m_replayRuntime,
                                                m_replayLauncherVisualScratch,
                                                m_cWorldEnvironment,
-                                               m_cGameModelCollection };
+                                               m_cGameModelCollection,
+                                               m_sceneController.Entities() };
     const SimulationPostStepPipelineResult result = SimulationPostStepPipeline::Run( context );
 #ifdef _DEBUG
     if ( result.replayCaptured )
@@ -1031,6 +1035,7 @@ bool Run::TickScreenshots()
                                       SceneState(),
                                       m_sceneController.Browser(),
                                       m_cGameModelCollection,
+                                      m_sceneController.Entities(),
                                       m_systems.assets,
                                       RuntimeActiveCinematicConfig( SceneState(), m_config ),
                                       m_defaultCinematicRender },
@@ -1130,6 +1135,7 @@ bool Run::TickSceneAdvance()
                                   SceneState(),
                                   m_sceneController.Browser(),
                                   m_cGameModelCollection,
+                                  m_sceneController.Entities(),
                                   m_systems.assets,
                                   RuntimeActiveCinematicConfig( SceneState(), m_config ),
                                   m_defaultCinematicRender },
@@ -1323,6 +1329,7 @@ void Run::UpdateLogic( float simulationDt, float cameraDt )
                                                           SceneState(),
                                                           m_sceneController.Browser(),
                                                           m_cGameModelCollection,
+                                                          m_sceneController.Entities(),
                                                           m_systems.assets,
                                                           RuntimeActiveCinematicConfig( SceneState(), m_config ),
                                                           m_defaultCinematicRender },
