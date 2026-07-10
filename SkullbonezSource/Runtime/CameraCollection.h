@@ -21,8 +21,8 @@ Invariants:
     register a camera before selecting it by hash.
   - m_terrain is borrowed scene state and must not be freed by the camera
     collection.
-  - Runtime-owned camera collections are value-owned by Run and borrowed through
-    explicit runtime service pointers.
+  - The active collection is value-owned by SceneController; frame, input,
+    replay, and render paths borrow that concrete scene owner directly.
 
 Related:
   - SkullbonezSource/Runtime/CameraCollection.cpp
@@ -83,9 +83,9 @@ class CameraCollection
     CameraCollection& operator=( const CameraCollection& ) = delete;
 
     void ApplyMovementSettings( const CameraMovementSettings& settings );
-    const Math::Vector::Vector3& GetCameraView();
-    const Math::Vector::Vector3& GetCameraTranslation();
-    const Math::Vector::Vector3& GetCameraUp();
+    const Math::Vector::Vector3& GetCameraView() const;
+    const Math::Vector::Vector3& GetCameraTranslation() const;
+    const Math::Vector::Vector3& GetCameraUp() const;
     const Math::Vector::Vector3&
     GetRenderCameraView() const;                                   // Render pose may be the tween camera instead of the primary camera.
     const Math::Vector::Vector3&

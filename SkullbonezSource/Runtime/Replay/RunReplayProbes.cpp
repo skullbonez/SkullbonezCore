@@ -175,6 +175,7 @@ struct ReplaySaveProbeEventCoverageContext
     RuntimeTools& runtimeTools;
     RunSceneState& scene;
     RunSubsystemState& systems;
+    SkullbonezCore::Environment::CameraCollection& cameras;
     SkullbonezCore::Environment::WorldEnvironment& world;
     SkullbonezCore::GameObjects::GameModelCollection& models;
     PhysicsEngine& physics;
@@ -294,7 +295,7 @@ SbResult InjectReplaySaveProbeEventCoverage( ReplaySaveProbeEventCoverageContext
     Vector3 rayOrigin;
     Vector3 rayDirection;
     Vector3 cameraUp;
-    if ( context.runtimeTools.TryBuildLauncherCameraRay( context.systems.cameras, rayOrigin, rayDirection, cameraUp ) )
+    if ( context.runtimeTools.TryBuildLauncherCameraRay( &context.cameras, rayOrigin, rayDirection, cameraUp ) )
     {
         context.replayRuntime.RecordLauncherFireEvent(
             rayOrigin,
@@ -2053,7 +2054,6 @@ struct ReplayProbeRestoreOperands
                   world.scene,
                   world.runtimeSettings,
                   world.debug,
-                  world.cameras,
                   world.runtimeTools },
           transaction{ sample, world.diagnostics, world.timelineReset, world.timelineOwners },
           topology{ world.simulation,
@@ -2316,6 +2316,7 @@ SbResult ReplayRuntime::TickSaveProbe( const ReplayProbeWorld& liveWorld, bool& 
                                                                   liveWorld.runtimeTools,
                                                                   liveWorld.scene,
                                                                   liveWorld.systems,
+                                                                  liveWorld.sceneController.Cameras(),
                                                                   liveWorld.sceneController.World(),
                                                                   liveWorld.sceneController.Models(),
                                                                   liveWorld.sceneController.Physics(),
@@ -2341,7 +2342,7 @@ SbResult ReplayRuntime::VerifyLoadedPresentationProbe( const ReplayProbeWorld& l
 {
     const auto enterInspectionCamera = [&]()
     {
-        EnterInspectionCamera( liveWorld.cameras,
+        EnterInspectionCamera( &liveWorld.sceneController.Cameras(),
                                liveWorld.timelineOwners.camera,
                                liveWorld.normalizedCurrentMode,
                                liveWorld.timelineOwners.interaction,
@@ -2350,7 +2351,7 @@ SbResult ReplayRuntime::VerifyLoadedPresentationProbe( const ReplayProbeWorld& l
     };
     const auto exitInspectionCamera = [&]()
     {
-        ExitInspectionCamera( liveWorld.cameras,
+        ExitInspectionCamera( &liveWorld.sceneController.Cameras(),
                               liveWorld.timelineOwners.terrain,
                               liveWorld.timelineOwners.camera,
                               liveWorld.timelineOwners.normalizedRestoreMode,
@@ -2959,7 +2960,7 @@ SbResult ReplayRuntime::VerifySolverBranchFileProbe( const ReplayProbeWorld& liv
                                     liveWorld.now,
                                     liveWorld.timelineOwners.inputRouter,
                                     liveWorld.timelineOwners.interaction,
-                                    liveWorld.cameras,
+                                    &liveWorld.sceneController.Cameras(),
                                     liveWorld.timelineOwners.terrain,
                                     liveWorld.timelineOwners.camera,
                                     liveWorld.mousePickup,

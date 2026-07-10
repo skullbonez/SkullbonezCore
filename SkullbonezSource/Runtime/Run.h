@@ -23,7 +23,7 @@ Glossary:
 
 Invariants:
   - Run is the composition root for process-lifetime runtime systems.
-  - Scene-lifetime world, entity, model, and physics state belongs to
+  - Scene-lifetime camera, world, entity, model, and physics state belongs to
     SceneController; Run sequences work without republishing those owners.
   - Public startup code should configure Run through the small launch surface
     below instead of reaching into runtime-owned state.
@@ -116,7 +116,7 @@ class Run
     // process lifetime/order, or keep launch/session choices that coordinate
     // multiple subsystems and therefore do not have one narrower owner yet.
     EngineConfig& m_config;                                             // Borrowed process config loaded and CLI-patched by Runtime/Init.cpp.
-    SceneController m_sceneController;                                  // Owns scene queue and current scene-run state
+    SceneController m_sceneController;                                  // Owns scene queue, cameras, world, entities, physics, and models.
     SbResult m_lastSceneLoadResult;                                     // Last queue load outcome observed by startup/load-only paths.
     bool m_skipExecute = false;                                         // Startup-only probes can complete without entering the frame loop.
     RunLaunchOptions m_launchOptions;                                   // CLI/startup policy reapplied across scene loads.

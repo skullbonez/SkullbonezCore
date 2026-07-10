@@ -7,8 +7,9 @@ Purpose:
 Mental model:
   SceneController is the narrow API around scene queue and scene-run state.
   Run temporarily executes broad load side effects, while this controller owns
-  scene state, world settings, physics topology, fixed entity records, browser
-  navigation, and the ordered request batch those side effects consume.
+  scene state, camera slots, world settings, physics topology, fixed entity
+  records, browser navigation, and the ordered request batch those side effects
+  consume.
 
 Glossary:
   Scene runtime: Current scene state plus queue navigation data.
@@ -19,10 +20,12 @@ Glossary:
     render material intent, and asset affiliation.
   World environment: Scene-owned gravity, fluid, and terrain-bound settings
     borrowed by physics, replay, and rendering.
+  Scene cameras: Fixed camera slots, tween state, and active render pose reset
+    and populated with each scene load.
 
 Invariants:
-  - SceneController owns queue/index bookkeeping, world settings, and
-    scene-lifetime physics; consumers receive only borrowed owner references.
+  - SceneController owns queue/index bookkeeping, camera state, world settings,
+    and scene-lifetime physics; consumers receive only borrowed owner references.
   - All interactive scene submissions enter its fixed request ring.
   - Durable display/material/asset metadata lives in its fixed entity store.
   - Empty queue path is the generated demo scene sentinel.
@@ -41,6 +44,7 @@ Related:
 #include "SceneRuntime.h"
 #include "../../GameObjects/GameModelCollection.h"
 #include "../../Physics/PhysicsEngine.h"
+#include "../CameraCollection.h"
 #include "../../World/WorldEnvironment.h"
 
 #include <string>
@@ -71,7 +75,6 @@ struct SceneDefaultsSaveView
 {
     // Lifetime: every owner is borrowed only for one synchronous cold save.
     // The writer retains no pointers across a scene reload.
-    Environment::CameraCollection& cameras;
     const RunDebugState& debug;
     const RunRuntimeSettings& runtimeSettings;
     const RunCameraState& camera;
@@ -95,6 +98,8 @@ class SceneController
     const SceneEntityStore& Entities() const;
     GameObjects::GameModelCollection& Models();
     const GameObjects::GameModelCollection& Models() const;
+    Environment::CameraCollection& Cameras();
+    const Environment::CameraCollection& Cameras() const;
     Environment::WorldEnvironment& World();
     const Environment::WorldEnvironment& World() const;
     Physics::PhysicsEngine& Physics();
@@ -160,12 +165,13 @@ class SceneController
     const SceneRuntime& Runtime() const;
 
   private:
-    SceneRuntime m_runtime;                // Scene queue and active scene-run state
-    SceneRequestQueue m_requests;          // Fixed scene-only deferred intent ring.
-    RunSceneBrowserState m_browser;        // Discovered scene paths and live cine/concept selection.
-    RunSceneUIOverrideState m_uiOverrides; // Live Scene-tab overrides preserved across reset when requested.
-    SceneEntityStore m_entities;           // Fixed scene-lifetime identity and durable presentation metadata.
-    Environment::WorldEnvironment m_world; // Gravity, fluid, and terrain bounds for the active scene.
+    SceneRuntime m_runtime;                  // Scene queue and active scene-run state
+    SceneRequestQueue m_requests;            // Fixed scene-only deferred intent ring.
+    RunSceneBrowserState m_browser;          // Discovered scene paths and live cine/concept selection.
+    RunSceneUIOverrideState m_uiOverrides;   // Live Scene-tab overrides preserved across reset when requested.
+    SceneEntityStore m_entities;             // Fixed scene-lifetime identity and durable presentation metadata.
+    Environment::CameraCollection m_cameras; // Fixed scene camera slots and active camera presentation state.
+    Environment::WorldEnvironment m_world;   // Gravity, fluid, and terrain bounds for the active scene.
     // Lifetime: physics topology is born and cleared with the active scene.
     // Presentation owners borrow this engine; they never own or replace it.
     Physics::PhysicsEngine m_physics;

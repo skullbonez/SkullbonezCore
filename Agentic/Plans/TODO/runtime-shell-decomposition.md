@@ -302,6 +302,27 @@ baseline. The first fast attempt stopped at four formatting findings before
 build work; only those files were formatted before the clean rerun. Comment
 audit: 15/15 touched source/test files.
 
+The next C1 edge moves the fixed `CameraCollection` into `SceneController`.
+`RunSubsystemState` no longer owns the collection or republishes a nullable
+camera alias; frame, input, editor, replay, render, automation, and Director
+paths borrow `SceneController::Cameras()` directly. Director helpers now accept
+the concrete camera owner instead of the broad subsystem shelf, while save and
+replay restore contexts derive controller-owned cameras rather than duplicating
+mutable authority. C1 remains open for terrain ownership and final load
+orchestration.
+
+Evidence from the camera-owner move: the final staged fast gate passed in
+42.0s with 24 candidates and no size violations; the CPU umbrella passed all
+four lanes with 127/127 doctest cases and 2,730 assertions in 10.8s;
+interaction-click camera paths passed in 8.5s; replay scrub passed in 74.9s;
+and full passed in 50.7s with zero warnings, zero DX12 InfoQueue errors,
+matching screenshots, standalone topology smoke, and the 20,001-line byte-exact
+baseline. Focused Debug compiles exposed and corrected context-initializer and
+const-reader integration errors before the gates. The first two fast attempts
+stopped at four implementation and two header formatting findings before build
+work; only the named files were formatted before the clean rerun. Comment audit:
+22/22 touched source/test files.
+
 Evidence from the collection-owner move: the final staged fast gate passed in
 33.6s with 17 candidates and no size violations; the CPU umbrella passed all
 four lanes with 127/127 doctest cases and 2,730 assertions in 11.2s; replay

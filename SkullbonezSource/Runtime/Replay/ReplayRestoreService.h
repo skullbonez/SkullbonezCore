@@ -20,6 +20,8 @@ Invariants:
   - Restore must reject samples whose body ids no longer match live store rows.
   - World restore reaches the environment through SceneController; the context
     must not republish a second mutable world owner.
+  - Camera restore reaches the collection through SceneController for the same
+    reason; the restore context carries no parallel camera pointer.
   - Body state, solver caches, world settings, scene flags, and tool visuals are
     restored as one ordered operation.
   - The service must not store context borrows after returning.
@@ -65,7 +67,6 @@ struct ReplaySolverSampleRestoreContext
     RunSceneState& scene;
     RunRuntimeSettings& runtimeSettings;
     RunDebugState& debug;
-    Environment::CameraCollection* cameras = nullptr;
     RuntimeTools& runtimeTools;
 };
 
@@ -208,13 +209,10 @@ class ReplayRestoreService
                 context.runtimeSettings.tornadoField.enabled || context.runtimeSettings.tornadoSystem.enabled;
         }
 
-        if ( context.cameras )
-        {
-            context.cameras->CancelTween();
-            context.cameras->SetPrimaryPosition( sample.camera.eye );
-            context.cameras->SetViewCoordinates( sample.camera.view );
-            context.cameras->SetCamera();
-        }
+        context.sceneController.Cameras().CancelTween();
+        context.sceneController.Cameras().SetPrimaryPosition( sample.camera.eye );
+        context.sceneController.Cameras().SetViewCoordinates( sample.camera.view );
+        context.sceneController.Cameras().SetCamera();
 
         context.runtimeTools.RestoreReplayLauncherVisualSample( sample.launcherVisual );
         WriteReason( outReason, reasonSize, "applied" );

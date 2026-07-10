@@ -10,9 +10,9 @@ reports, and git history.
 | Field | Value |
 |---|---|
 | Branch | `engine-cleanup-10th-july`, tracking `origin/engine-cleanup-10th-july` |
-| Current pushed baseline | `96ef9fe2 refactor: move model collection into scene owner` |
+| Current pushed baseline | `5b4f5f55 refactor: move world environment into scene owner` |
 | Current objective | Close the dependent B1f/C1 Run scene seam and promote SceneController lifecycle ownership |
-| Last broad local gate | `tools\validate_full.bat` passed the scene-owned world environment with 127/127 doctest cases, 2,730 assertions, all CPU lanes, zero-warning builds, DX12 with zero InfoQueue errors/matching screenshots, standalone physics smoke, and 20,001-line byte-exact physics in 51.2s |
+| Last broad local gate | `tools\validate_full.bat` passed the scene-owned camera collection with 127/127 doctest cases, 2,730 assertions, all CPU lanes, zero-warning builds, DX12 with zero InfoQueue errors/matching screenshots, standalone physics smoke, and 20,001-line byte-exact physics in 50.7s |
 | Native evidence | Injected heap-use-after-free caught; healthy ASan and five-file `/analyze` passed in 16.185s |
 
 ## Pushed Cleanup Commits
@@ -190,6 +190,13 @@ save and replay contexts derive the world through the scene owner instead of
 republishing duplicate mutable authority. Terrain/camera ownership and final
 load orchestration remain the next C1 edges. Fast, CPU, replay scrub, replay v2,
 physics, and full gates pass; comment audit is 15/15.
+
+The active CameraCollection is moving from RunSubsystemState into
+SceneController. The old value owner and nullable alias are deleted; camera
+consumers and Director playback use the concrete scene owner, and replay/save
+contexts no longer duplicate controller-owned camera authority. Terrain and
+final load orchestration remain the next C1 edges. Fast, CPU, interaction,
+replay scrub, and full gates pass; comment audit is 22/22.
 
 Scene provenance C1a is complete: parser-owned library/instance/ordered-part
 records retain exact shape sources, hierarchy transforms use rotated offsets

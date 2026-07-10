@@ -787,7 +787,7 @@ SbResult Run::RunUIStressActions()
                 ReplayRuntime::SceneTimelineResetOwners{
                     m_inputRouter,
                     m_interaction,
-                    m_systems.cameras,
+                    &m_sceneController.Cameras(),
                     m_systems.terrain.get(),
                     m_camera,
                     NormalizeCameraModeForCurrentScene( m_replayRuntime.Camera().restoreCameraMode ),

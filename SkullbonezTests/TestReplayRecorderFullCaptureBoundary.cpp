@@ -85,19 +85,19 @@ namespace SkullbonezCore
 {
 namespace Environment
 {
-const Math::Vector::Vector3& CameraCollection::GetCameraView()
+const Math::Vector::Vector3& CameraCollection::GetCameraView() const
 {
     // Hazard: reaching any owner hook means the unit target crossed from
     // solver-sample mirroring into full runtime capture without real owners.
     ThrowUnexpectedReplayIntegrationCall( "CameraCollection::GetCameraView" );
 }
 
-const Math::Vector::Vector3& CameraCollection::GetCameraTranslation()
+const Math::Vector::Vector3& CameraCollection::GetCameraTranslation() const
 {
     ThrowUnexpectedReplayIntegrationCall( "CameraCollection::GetCameraTranslation" );
 }
 
-const Math::Vector::Vector3& CameraCollection::GetCameraUp()
+const Math::Vector::Vector3& CameraCollection::GetCameraUp() const
 {
     ThrowUnexpectedReplayIntegrationCall( "CameraCollection::GetCameraUp" );
 }

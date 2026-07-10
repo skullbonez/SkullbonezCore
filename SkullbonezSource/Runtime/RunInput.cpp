@@ -672,7 +672,7 @@ ApplyRuntimeUIFrameCommands( const RuntimeUIFrameContext& context,
                                              context.sceneController.Physics(),
                                              context.sceneController.Entities(),
                                              context.gameModels.RenderPresentationRecords(),
-                                             context.systems.cameras,
+                                             &context.sceneController.Cameras(),
                                              context.systems.terrain.get(),
                                              context.camera,
                                              context.runtimeTools.MousePickup(),
@@ -1165,7 +1165,7 @@ bool Run::RouteRuntimePointerInput( const RuntimeInputSnapshot& inputSnapshot, c
         if ( pickResult.exitInspectionCamera )
         {
             m_replayRuntime.ExitInspectionCamera(
-                m_systems.cameras,
+                &m_sceneController.Cameras(),
                 m_systems.terrain.get(),
                 m_camera,
                 NormalizeCameraModeForCurrentScene( m_replayRuntime.Camera().restoreCameraMode ),
@@ -1184,7 +1184,10 @@ bool Run::RouteRuntimePointerInput( const RuntimeInputSnapshot& inputSnapshot, c
         Vector3 rayOrigin;
         Vector3 rayDirection;
         Vector3 cameraUp;
-        if ( m_runtimeTools.TryBuildLauncherCameraRay( m_systems.cameras, rayOrigin, rayDirection, cameraUp ) )
+        if ( m_runtimeTools.TryBuildLauncherCameraRay( &m_sceneController.Cameras(),
+                                                       rayOrigin,
+                                                       rayDirection,
+                                                       cameraUp ) )
         {
             m_replayRuntime.RecordLauncherFireEvent(
                 rayOrigin,
@@ -1318,7 +1321,7 @@ void Run::ClearRuntimeInteractionStateForTransition( const RuntimeInteractionTra
         if ( m_replayRuntime.ClearInteractionForRuntimeTransition( m_interaction, m_inputRouter ) )
         {
             m_replayRuntime.ExitInspectionCamera(
-                m_systems.cameras,
+                &m_sceneController.Cameras(),
                 m_systems.terrain.get(),
                 m_camera,
                 NormalizeCameraModeForCurrentScene( m_replayRuntime.Camera().restoreCameraMode ),
@@ -1589,22 +1592,17 @@ void Run::CaptureAttachedCameraReturnState( RunCameraMode previousMode )
 
     m_camera.modeBeforeAttach = previousMode;
     m_attachedCamera.hasReturnCameraPose = false;
-    if ( !m_systems.cameras )
-    {
-        return;
-    }
-
     // Why: capture the render pose, not only the selected camera slot. The
     // player may enter Attach while another transition is still visible.
-    m_attachedCamera.returnCameraHash = m_systems.cameras->GetSelectedCameraName();
-    m_attachedCamera.returnEye = m_systems.cameras->GetRenderCameraTranslation();
-    m_attachedCamera.returnView = m_systems.cameras->GetRenderCameraView();
-    m_attachedCamera.returnUp = m_systems.cameras->GetRenderCameraUp();
+    m_attachedCamera.returnCameraHash = m_sceneController.Cameras().GetSelectedCameraName();
+    m_attachedCamera.returnEye = m_sceneController.Cameras().GetRenderCameraTranslation();
+    m_attachedCamera.returnView = m_sceneController.Cameras().GetRenderCameraView();
+    m_attachedCamera.returnUp = m_sceneController.Cameras().GetRenderCameraUp();
     if ( VectorMagSquared( m_attachedCamera.returnView - m_attachedCamera.returnEye ) <= TOLERANCE * TOLERANCE )
     {
-        m_attachedCamera.returnEye = m_systems.cameras->GetCameraTranslation();
-        m_attachedCamera.returnView = m_systems.cameras->GetCameraView();
-        m_attachedCamera.returnUp = m_systems.cameras->GetCameraUp();
+        m_attachedCamera.returnEye = m_sceneController.Cameras().GetCameraTranslation();
+        m_attachedCamera.returnView = m_sceneController.Cameras().GetCameraView();
+        m_attachedCamera.returnUp = m_sceneController.Cameras().GetCameraUp();
     }
     m_attachedCamera.hasReturnCameraPose = true;
 }
@@ -1612,21 +1610,21 @@ void Run::CaptureAttachedCameraReturnState( RunCameraMode previousMode )
 
 void Run::RestoreAttachedCameraReturnState()
 {
-    if ( !m_attachedCamera.hasReturnCameraPose || !m_systems.cameras )
+    if ( !m_attachedCamera.hasReturnCameraPose )
     {
         return;
     }
 
     // Why: switching the logical slot without tweening keeps the previous render
     // pose alive as the source for TweenPrimaryToPose below.
-    if ( m_systems.cameras->HasCamera( m_attachedCamera.returnCameraHash ) &&
-         !m_systems.cameras->IsCameraSelected( m_attachedCamera.returnCameraHash ) )
+    if ( m_sceneController.Cameras().HasCamera( m_attachedCamera.returnCameraHash ) &&
+         !m_sceneController.Cameras().IsCameraSelected( m_attachedCamera.returnCameraHash ) )
     {
-        m_systems.cameras->SelectCamera( m_attachedCamera.returnCameraHash, false );
+        m_sceneController.Cameras().SelectCamera( m_attachedCamera.returnCameraHash, false );
     }
-    m_systems.cameras->TweenPrimaryToPose( m_attachedCamera.returnEye,
-                                           m_attachedCamera.returnView,
-                                           m_attachedCamera.returnUp );
+    m_sceneController.Cameras().TweenPrimaryToPose( m_attachedCamera.returnEye,
+                                                    m_attachedCamera.returnView,
+                                                    m_attachedCamera.returnUp );
     m_attachedCamera.hasReturnCameraPose = false;
 }
 
@@ -1664,7 +1662,9 @@ void Run::SetAttachedCameraTarget( int modelIndex )
     command.selectionScope = RuntimeInteractionSelectionScope::Inspect;
     command.claimSelectionOwner = false;
     ExecuteRuntimeInteractionCommand( command );
-    CaptureAttachedCameraFixedOffsetFromCurrentPose( m_attachedCamera, m_systems.cameras, selection.physics );
+    CaptureAttachedCameraFixedOffsetFromCurrentPose( m_attachedCamera,
+                                                     &m_sceneController.Cameras(),
+                                                     selection.physics );
     ApplyCursorOwnership();
 }
 
@@ -1676,7 +1676,7 @@ void Run::SeedAttachedCameraTargetFromSelection()
                                                             m_attachedCamera.target,
                                                             currentState ) )
     {
-        CaptureAttachedCameraFixedOffsetFromCurrentPose( m_attachedCamera, m_systems.cameras, currentState );
+        CaptureAttachedCameraFixedOffsetFromCurrentPose( m_attachedCamera, &m_sceneController.Cameras(), currentState );
         m_attachedCamera.activeFollow = true;
         ApplyCursorOwnership();
         return;
@@ -1776,7 +1776,7 @@ void Run::CycleAttachedCameraSubmode()
 
     if ( shouldCaptureFixedOffset )
     {
-        CaptureAttachedCameraFixedOffsetFromCurrentPose( m_attachedCamera, m_systems.cameras, targetState );
+        CaptureAttachedCameraFixedOffsetFromCurrentPose( m_attachedCamera, &m_sceneController.Cameras(), targetState );
     }
     UpdateRuntimeInputModeAfterAction( RuntimeInputAction::CycleAttachedCameraSubmode,
                                        RuntimeInputActionSource::Keyboard );
@@ -1798,7 +1798,9 @@ void Run::ToggleAttachedCameraPin()
                                                                 m_attachedCamera.target,
                                                                 targetState ) )
         {
-            CaptureAttachedCameraFixedOffsetFromCurrentPose( m_attachedCamera, m_systems.cameras, targetState );
+            CaptureAttachedCameraFixedOffsetFromCurrentPose( m_attachedCamera,
+                                                             &m_sceneController.Cameras(),
+                                                             targetState );
         }
         m_attachedCamera.needsEntryTween = true;
     }
@@ -1829,7 +1831,7 @@ void Run::TickAttachedCameraOrbitInput( int unhandledWheelDelta )
     }
     if ( !m_attachedCamera.hasOrbit )
     {
-        CaptureAttachedCameraOrbitFromCurrentPose( m_attachedCamera, m_systems.cameras, targetState );
+        CaptureAttachedCameraOrbitFromCurrentPose( m_attachedCamera, &m_sceneController.Cameras(), targetState );
     }
 
     if ( AttachedCameraController::ApplyOrbitWheel( m_attachedCamera, targetState, unhandledWheelDelta ) )
@@ -1841,7 +1843,7 @@ void Run::TickAttachedCameraOrbitInput( int unhandledWheelDelta )
 
 void Run::TickAttachedCamera()
 {
-    if ( !RunCameraModeIsAttached( m_camera.mode ) || !m_attachedCamera.activeFollow || !m_systems.cameras )
+    if ( !RunCameraModeIsAttached( m_camera.mode ) || !m_attachedCamera.activeFollow )
     {
         return;
     }
@@ -1864,7 +1866,7 @@ void Run::TickAttachedCamera()
                                                      m_attachedCamera,
                                                      targetState,
                                                      modelIndex,
-                                                     AttachedCameraPoseFromCameras( *m_systems.cameras ),
+                                                     AttachedCameraPoseFromCameras( m_sceneController.Cameras() ),
                                                      orbitYawDelta,
                                                      orbitPitchDelta,
                                                      poseCommand ) )
@@ -1877,11 +1879,13 @@ void Run::TickAttachedCamera()
     // retarget that live destination without cutting the render pose.
     if ( poseCommand.startEntryTween )
     {
-        m_systems.cameras->TweenPrimaryToPose( poseCommand.pose.eye, poseCommand.pose.view, poseCommand.pose.up );
+        m_sceneController.Cameras().TweenPrimaryToPose( poseCommand.pose.eye,
+                                                        poseCommand.pose.view,
+                                                        poseCommand.pose.up );
     }
     else
     {
-        m_systems.cameras->SetPrimaryPose( poseCommand.pose.eye, poseCommand.pose.view, poseCommand.pose.up );
+        m_sceneController.Cameras().SetPrimaryPose( poseCommand.pose.eye, poseCommand.pose.view, poseCommand.pose.up );
     }
 }
 
@@ -1936,7 +1940,7 @@ void Run::ApplyCameraMode( RunCameraMode mode, RuntimeInputActionSource source )
     }
     if ( mode == RunCameraMode::Director && previousMode != RunCameraMode::Director )
     {
-        DemoDirectorPlayback::EnterMode( m_camera, m_systems );
+        DemoDirectorPlayback::EnterMode( m_camera, m_sceneController.Cameras() );
     }
 
     const RuntimeInteractionTransition transition = EnterInteractionForCameraMode( mode );
@@ -2096,7 +2100,7 @@ void Run::EnterFlyModeCamera()
     // on the current camera so fly controls work without requiring CAMERA_FREE
     if ( !SceneState().isSceneMode )
     {
-        m_systems.cameras->SelectCamera( CAMERA_FREE, true );
+        m_sceneController.Cameras().SelectCamera( CAMERA_FREE, true );
     }
     m_camera.cameraTime = 0.0f;
     XZBounds unbounded;
@@ -2104,8 +2108,8 @@ void Run::EnterFlyModeCamera()
     unbounded.m_xMax = 99999.9f;
     unbounded.m_zMin = -99999.9f;
     unbounded.m_zMax = 99999.9f;
-    uint32_t activeCam = SceneState().isSceneMode ? m_systems.cameras->GetSelectedCameraName() : CAMERA_FREE;
-    m_systems.cameras->SetCameraXZBounds( activeCam, unbounded );
+    uint32_t activeCam = SceneState().isSceneMode ? m_sceneController.Cameras().GetSelectedCameraName() : CAMERA_FREE;
+    m_sceneController.Cameras().SetCameraXZBounds( activeCam, unbounded );
     if ( ShouldHideNativeCursor() )
     {
         m_inputRouter.RequestCursorVisible( false );
@@ -2123,8 +2127,8 @@ void Run::ExitFlyModeCamera()
 {
     // Exiting fly mode restores terrain bounds, the camera-cycle clock, and
     // the stock Windows cursor.
-    uint32_t activeCam = SceneState().isSceneMode ? m_systems.cameras->GetSelectedCameraName() : CAMERA_FREE;
-    m_systems.cameras->SetCameraXZBounds( activeCam, m_systems.terrain->GetXZBounds() );
+    uint32_t activeCam = SceneState().isSceneMode ? m_sceneController.Cameras().GetSelectedCameraName() : CAMERA_FREE;
+    m_sceneController.Cameras().SetCameraXZBounds( activeCam, m_systems.terrain->GetXZBounds() );
     m_inputRouter.RequestCursorVisible( true );
     m_camera.cameraTime = 0.0f;
     InputController::ResetMouseLook( m_camera );
@@ -2146,7 +2150,7 @@ bool Run::HandleUnfocusedInputFrame()
     if ( m_replayRuntime.ResetScrubberState() )
     {
         m_replayRuntime.ExitInspectionCamera(
-            m_systems.cameras,
+            &m_sceneController.Cameras(),
             m_systems.terrain.get(),
             m_camera,
             NormalizeCameraModeForCurrentScene( m_replayRuntime.Camera().restoreCameraMode ),
@@ -2235,7 +2239,7 @@ void Run::DispatchPostUIKeyboardActions()
                                                                         m_sceneController.Entities(),
                                                                         SceneState(),
                                                                         m_sceneController.World(),
-                                                                        *m_systems.cameras,
+                                                                        m_sceneController.Cameras(),
                                                                         m_diagnosticsRuntime.Capture() };
     // Invariant: side-effect dispatch consumes only accepted semantic events.
     // It must not reopen hardware polling or maintain a second edge latch.
@@ -2576,7 +2580,7 @@ void Run::TakeInput()
                 m_runtimeTools.WriteLauncherReproSnapshotWithStatusMessage(
                     { m_sceneController.Models(),
                       m_sceneController.Entities(),
-                      m_systems.cameras,
+                      &m_sceneController.Cameras(),
                       m_systems.terrain.get(),
                       m_sceneController.World(),
                       SceneState(),
@@ -2600,14 +2604,14 @@ void Run::TakeInput()
             }
             if ( m_camera.director.grabbed )
             {
-                if ( DemoDirectorPlayback::EndGrab( m_camera, m_systems ) )
+                if ( DemoDirectorPlayback::EndGrab( m_camera, m_sceneController.Cameras() ) )
                 {
                     ExitFlyModeCamera();
                     ApplyCursorOwnership();
                     UpdateRuntimeInputModeAfterAction( event.action, event.source );
                 }
             }
-            else if ( DemoDirectorPlayback::BeginGrab( m_camera, m_systems ) )
+            else if ( DemoDirectorPlayback::BeginGrab( m_camera, m_sceneController.Cameras() ) )
             {
                 EnterFlyModeCamera();
                 ApplyCursorOwnership();
@@ -2619,7 +2623,7 @@ void Run::TakeInput()
                    RunCameraModeUsesFlyControls( m_camera.mode,
                                                  m_attachedCamera.activeFollow,
                                                  m_camera.director.grabbed ) ) &&
-                 DemoDirectorPlayback::SetCurrentPhasePose( m_camera, m_systems ) )
+                 DemoDirectorPlayback::SetCurrentPhasePose( m_camera, m_sceneController.Cameras() ) )
             {
                 UpdateRuntimeInputModeAfterAction( event.action, event.source );
             }
@@ -2629,7 +2633,7 @@ void Run::TakeInput()
                    RunCameraModeUsesFlyControls( m_camera.mode,
                                                  m_attachedCamera.activeFollow,
                                                  m_camera.director.grabbed ) ) &&
-                 DemoDirectorPlayback::SelectNextPhaseForAuthoring( m_camera, m_systems ) )
+                 DemoDirectorPlayback::SelectNextPhaseForAuthoring( m_camera, m_sceneController.Cameras() ) )
             {
                 UpdateRuntimeInputModeAfterAction( event.action, event.source );
             }
@@ -2736,7 +2740,7 @@ void Run::TakeInput()
         [this]() { EnterInteractiveSceneRun(); },
         [this]()
         {
-            m_replayRuntime.EnterInspectionCamera( m_systems.cameras,
+            m_replayRuntime.EnterInspectionCamera( &m_sceneController.Cameras(),
                                                    m_camera,
                                                    NormalizeCameraModeForCurrentScene( m_camera.mode ),
                                                    m_interaction,
@@ -2746,7 +2750,7 @@ void Run::TakeInput()
         [this]()
         {
             m_replayRuntime.ExitInspectionCamera(
-                m_systems.cameras,
+                &m_sceneController.Cameras(),
                 m_systems.terrain.get(),
                 m_camera,
                 NormalizeCameraModeForCurrentScene( m_replayRuntime.Camera().restoreCameraMode ),
@@ -2810,7 +2814,7 @@ void Run::TakeInput()
                 ReplayRuntime::SceneTimelineResetOwners{
                     m_inputRouter,
                     m_interaction,
-                    m_systems.cameras,
+                    &m_sceneController.Cameras(),
                     m_systems.terrain.get(),
                     m_camera,
                     NormalizeCameraModeForCurrentScene( m_replayRuntime.Camera().restoreCameraMode ),
@@ -2833,12 +2837,11 @@ void Run::TakeInput()
                                                        SceneState(),
                                                        m_runtimeSettings,
                                                        m_debug,
-                                                       m_systems.cameras,
                                                        m_runtimeTools };
         ReplayRuntime::SceneTimelineResetOwners timelineOwners{
             m_inputRouter,
             m_interaction,
-            m_systems.cameras,
+            &m_sceneController.Cameras(),
             m_systems.terrain.get(),
             m_camera,
             NormalizeCameraModeForCurrentScene( m_replayRuntime.Camera().restoreCameraMode ),
@@ -3044,7 +3047,7 @@ bool Run::DrainSceneRequests()
             eventCode = ReplayOwnerEventCode::SceneSaveDefaults;
             {
                 const SbResult saveResult = m_sceneController.SaveCurrentDefaults(
-                    SceneDefaultsSaveView{ *m_systems.cameras, m_debug, m_runtimeSettings, m_camera } );
+                    SceneDefaultsSaveView{ m_debug, m_runtimeSettings, m_camera } );
                 if ( !saveResult.ok )
                 {
                     std::fprintf( stderr, "[%s] %s\n", saveResult.error.owner, saveResult.error.message );
@@ -3092,46 +3095,46 @@ void Run::MoveCamera( float keyMovementQty, float mouseMovementQty )
         if ( ( !m_runtimeTools.Editor().editorModeEnabled || m_runtimeTools.Editor().viewportLookActive ) &&
              ( m_camera.input.xMove != 0 || m_camera.input.yMove != 0 ) )
         {
-            m_systems.cameras->RotatePrimary( m_camera.input.xMove * mouseMovementQty,
-                                              m_camera.input.yMove * mouseMovementQty );
+            m_sceneController.Cameras().RotatePrimary( m_camera.input.xMove * mouseMovementQty,
+                                                       m_camera.input.yMove * mouseMovementQty );
         }
 
         // WASD movement
         if ( m_camera.input.Get( InputState::Up ) )
         {
-            m_systems.cameras->MovePrimary( Camera::TravelDirection::Forward, keyMovementQty * speedMult );
+            m_sceneController.Cameras().MovePrimary( Camera::TravelDirection::Forward, keyMovementQty * speedMult );
         }
         if ( m_camera.input.Get( InputState::Left ) )
         {
-            m_systems.cameras->MovePrimary( Camera::TravelDirection::Left, keyMovementQty * speedMult );
+            m_sceneController.Cameras().MovePrimary( Camera::TravelDirection::Left, keyMovementQty * speedMult );
         }
         if ( m_camera.input.Get( InputState::Down ) )
         {
-            m_systems.cameras->MovePrimary( Camera::TravelDirection::Backward, keyMovementQty * speedMult );
+            m_sceneController.Cameras().MovePrimary( Camera::TravelDirection::Backward, keyMovementQty * speedMult );
         }
         if ( m_camera.input.Get( InputState::Right ) )
         {
-            m_systems.cameras->MovePrimary( Camera::TravelDirection::Right, keyMovementQty * speedMult );
+            m_sceneController.Cameras().MovePrimary( Camera::TravelDirection::Right, keyMovementQty * speedMult );
         }
 
-        m_systems.cameras->ApplyPrimaryMovementBuffer();
+        m_sceneController.Cameras().ApplyPrimaryMovementBuffer();
     }
 
     // Passive generated-demo camera bounds do not own manual or pinned follow views.
     if ( !RunCameraModeUsesManualControls( m_camera.mode, m_attachedCamera.activeFollow, m_camera.director.grabbed ) &&
          !m_runtimeTools.Editor().viewportLookActive && !SceneState().isSceneMode )
     {
-        Vector3 translatedCameraPosition = m_systems.cameras->GetCameraTranslation();
+        Vector3 translatedCameraPosition = m_sceneController.Cameras().GetCameraTranslation();
         float minY =
             m_systems.terrain->GetTerrainHeightAt( translatedCameraPosition.x, translatedCameraPosition.z, true ) +
             m_config.minCameraHeight;
         if ( minY > translatedCameraPosition.y )
         {
-            m_systems.cameras->AmmendPrimaryY( minY );
+            m_sceneController.Cameras().AmmendPrimaryY( minY );
         }
         else if ( translatedCameraPosition.y > m_config.maxCameraHeight )
         {
-            m_systems.cameras->AmmendPrimaryY( m_config.maxCameraHeight );
+            m_sceneController.Cameras().AmmendPrimaryY( m_config.maxCameraHeight );
         }
     }
 }

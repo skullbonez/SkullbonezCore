@@ -72,7 +72,6 @@ struct ReplayProbeWorld
     RunSceneState& scene;
     RunRuntimeSettings& runtimeSettings;
     RunDebugState& debug;
-    Environment::CameraCollection* cameras = nullptr;
     RuntimeTools& runtimeTools;
     SceneController& sceneController;
     SimulationSystem& simulation;

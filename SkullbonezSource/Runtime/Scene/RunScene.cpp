@@ -427,7 +427,7 @@ SbResult SaveCurrentEditableSceneSnapshot( const std::string& scenePath,
                                            const SceneEntityStore& entities,
                                            const SkullbonezCore::GameObjects::GameModelCollection& modelCollection,
                                            const WorldEnvironment& world,
-                                           CameraCollection& cameras,
+                                           const CameraCollection& cameras,
                                            bool waterHidden,
                                            bool terrainHidden )
 {
@@ -531,7 +531,7 @@ SbResult Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnCom
     m_diagnosticsRuntime.UIStress() = DiagnosticsRuntime::UIStressState{};
     m_sceneController.ClearRequiredAutomationGates();
 
-    m_systems.cameras->Reset();
+    m_sceneController.Cameras().Reset();
     m_sceneController.Models().Clear();
 
     m_runtimeTools.CancelMousePickup( m_inputRouter, m_interaction );
@@ -642,7 +642,8 @@ SbResult Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnCom
         }
 
         SceneState().isSceneMode = false;
-        SceneGeneratedSetup::SetUpCameras( BuildSceneGeneratedCameraContext( *m_systems.cameras, *m_systems.terrain ) );
+        SceneGeneratedSetup::SetUpCameras(
+            BuildSceneGeneratedCameraContext( m_sceneController.Cameras(), *m_systems.terrain ) );
         const SceneGeneratedSetupResult generatedSetup = SceneGeneratedSetup::TrySetUpRequestedModels(
             BuildSceneGeneratedModelContext( SceneState(),
                                              m_config,
@@ -848,8 +849,9 @@ SbResult Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnCom
                                   resetSnapshot.worldFluidDensity );
         }
 
-        SceneAuthoredSetup::SetUpCameras( BuildSceneAuthoredCameraContext( *m_systems.cameras, *m_systems.terrain ),
-                                          scene );
+        SceneAuthoredSetup::SetUpCameras(
+            BuildSceneAuthoredCameraContext( m_sceneController.Cameras(), *m_systems.terrain ),
+            scene );
 
         const SceneGeneratedSetupResult generatedModels = SceneGeneratedSetup::TrySetUpRequestedModels(
             BuildSceneGeneratedModelContext( SceneState(),
@@ -938,8 +940,8 @@ SbResult Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnCom
             unbounded.m_xMax = 99999.9f;
             unbounded.m_zMin = -99999.9f;
             unbounded.m_zMax = 99999.9f;
-            uint32_t activeCam = m_systems.cameras->GetSelectedCameraName();
-            m_systems.cameras->SetCameraXZBounds( activeCam, unbounded );
+            uint32_t activeCam = m_sceneController.Cameras().GetSelectedCameraName();
+            m_sceneController.Cameras().SetCameraXZBounds( activeCam, unbounded );
             m_inputRouter.RequestCursorVisible( false );
             m_camera.input.xMove = 0;
             m_camera.input.yMove = 0;
@@ -1107,7 +1109,7 @@ SbResult Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnCom
         ReplayRuntime::SceneTimelineResetOwners{
             m_inputRouter,
             m_interaction,
-            m_systems.cameras,
+            &m_sceneController.Cameras(),
             m_systems.terrain.get(),
             m_camera,
             NormalizeCameraModeForCurrentScene( m_replayRuntime.Camera().restoreCameraMode ),
@@ -1198,7 +1200,7 @@ SbResult SceneController::SaveCurrentDefaults( const SceneDefaultsSaveView& view
                                                                       Entities(),
                                                                       Models(),
                                                                       World(),
-                                                                      view.cameras,
+                                                                      Cameras(),
                                                                       view.debug.isWaterHidden,
                                                                       view.debug.isTerrainHidden );
         return saveResult;

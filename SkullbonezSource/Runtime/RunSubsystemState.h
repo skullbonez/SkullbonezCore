@@ -5,7 +5,7 @@ Purpose:
 
 Mental model:
   Run is still the composition root. This aggregate groups the long-lived
-  assets, cameras, textures, terrain, skybox, and render pass resources that
+  assets, textures, terrain, skybox, and render pass resources that
   split runtime files borrow during frame, scene, and render work. The raw
   pointers are aliases into the owned members or startup-owned services.
 
@@ -18,8 +18,8 @@ Glossary:
     and bound once before the frame loop starts.
 
 Invariants:
-  - `cameraCollection`, `textureCollection`, `terrain`, `skyBoxOwner`, and
-    `renderPasses` are the owning members; pointer fields are aliases only.
+  - `textureCollection`, `terrain`, `skyBoxOwner`, and `renderPasses` are the
+    owning members; pointer fields are aliases only.
   - BindStartupServices must run before frame/update code samples window,
     worker, config, or camera movement policy.
 
@@ -36,17 +36,12 @@ Related:
 #include "../Core/Config.h"
 #include "../World/SkyBox.h"
 #include "../World/Terrain.h"
-#include "CameraCollection.h"
 #include "Render/RuntimeRenderResources.h"
 
 #include <memory>
 
 namespace SkullbonezCore
 {
-namespace Environment
-{
-class CameraCollection;
-}
 namespace Geometry
 {
 class SkyBox;
@@ -73,7 +68,6 @@ struct RunSubsystemState
 {
     Assets::AssetSystem assets;
     Textures::TextureCollection textureCollection;
-    Environment::CameraCollection cameraCollection;
     std::unique_ptr<Geometry::Terrain> terrain;
     std::unique_ptr<Geometry::SkyBox> skyBoxOwner;
     bool isFlatSlopeTerrain = false;
@@ -82,15 +76,14 @@ struct RunSubsystemState
     // shader contracts.
     RunRenderPassResources renderPasses;
 
-    Environment::CameraCollection* cameras = nullptr; // Borrowed alias of cameraCollection after Initialise wires services.
-    Textures::TextureCollection* textures = nullptr;  // Borrowed alias of textureCollection after Initialise wires services.
-    const EngineConfig* config = nullptr;             // Borrowed process config sampled through the Run composition root.
-    Threading::WorkerPool* workerPool = nullptr;      // Borrowed worker service initialised and shut down by Runtime/Init.cpp.
+    Textures::TextureCollection* textures = nullptr; // Borrowed alias of textureCollection after Initialise wires services.
+    const EngineConfig* config = nullptr;            // Borrowed process config sampled through the Run composition root.
+    Threading::WorkerPool* workerPool = nullptr;     // Borrowed worker service initialised and shut down by Runtime/Init.cpp.
     Window* window = nullptr;
     void BindStartupServices(
         Window& windowOwner,
         Threading::WorkerPool& workerPoolOwner,
-        const EngineConfig& configOwner );            // Binds process-start services and config-derived camera policy.
+        const EngineConfig& configOwner );           // Binds process-start services and config-derived camera policy.
 };
 
 } // namespace Basics

@@ -752,7 +752,7 @@ struct InteractionAutomationReplayControlContext
 struct InteractionAutomationDirectorCameraContext
 {
     RunInteractionAutomationState& state;
-    RunSubsystemState& systems;
+    SkullbonezCore::Environment::CameraCollection& cameras;
     RunCameraState& camera;
 };
 
@@ -778,7 +778,7 @@ void ApplyInteractionAutomationDirectorCameraAction( InteractionAutomationDirect
     {
     case RunInteractionAutomationActionType::LoadShotList:
     {
-        const bool loaded = DemoDirectorPlayback::LoadShotList( context.camera, context.systems, action.path );
+        const bool loaded = DemoDirectorPlayback::LoadShotList( context.camera, context.cameras, action.path );
         if ( !loaded )
         {
             FailAutomation( context.state, "failed to load director shot list" );
@@ -812,7 +812,7 @@ void ApplyInteractionAutomationDirectorCameraAction( InteractionAutomationDirect
     }
     case RunInteractionAutomationActionType::DirectorAdvance:
     {
-        const bool advanced = DemoDirectorPlayback::AdvancePhase( context.camera, context.systems );
+        const bool advanced = DemoDirectorPlayback::AdvancePhase( context.camera, context.cameras );
         if ( !advanced )
         {
             FailAutomation( context.state, "failed to advance director phase" );
@@ -828,7 +828,7 @@ void ApplyInteractionAutomationDirectorCameraAction( InteractionAutomationDirect
     }
     case RunInteractionAutomationActionType::DirectorGrab:
     {
-        const bool grabbed = DemoDirectorPlayback::BeginGrab( context.camera, context.systems );
+        const bool grabbed = DemoDirectorPlayback::BeginGrab( context.camera, context.cameras );
         if ( !grabbed )
         {
             FailAutomation( context.state, "failed to grab director camera" );
@@ -844,7 +844,7 @@ void ApplyInteractionAutomationDirectorCameraAction( InteractionAutomationDirect
     }
     case RunInteractionAutomationActionType::DirectorRelease:
     {
-        const bool released = DemoDirectorPlayback::EndGrab( context.camera, context.systems );
+        const bool released = DemoDirectorPlayback::EndGrab( context.camera, context.cameras );
         if ( !released )
         {
             FailAutomation( context.state, "failed to release director camera" );
@@ -876,19 +876,10 @@ void ApplyInteractionAutomationDirectorCameraAction( InteractionAutomationDirect
     }
     case RunInteractionAutomationActionType::SetCameraPose:
     {
-        const bool applied = context.systems.cameras != nullptr;
-        if ( applied )
-        {
-            // Why: pose-authoring proofs seed the current camera, then use
-            // normal J/L key handling to write and save the shot list.
-            context.systems.cameras->SetPrimaryPose( action.cameraPose.eye,
-                                                     action.cameraPose.view,
-                                                     action.cameraPose.up );
-        }
-        else
-        {
-            FailAutomation( context.state, "failed to set camera pose" );
-        }
+        const bool applied = true;
+        // Why: pose-authoring proofs seed the current camera, then use normal
+        // J/L key handling to write and save the shot list.
+        context.cameras.SetPrimaryPose( action.cameraPose.eye, action.cameraPose.view, action.cameraPose.up );
         AppendReportAction( context.state,
                             frame,
                             action.type,
@@ -1844,7 +1835,7 @@ bool Run::TryFindInteractionAutomationModel( const char* name, int& outIndex ) c
 bool Run::TryProjectInteractionAutomationModel( const char* name, POINT& outMouse )
 {
     int modelIndex = -1;
-    if ( !TryFindInteractionAutomationModel( name, modelIndex ) || !m_systems.cameras || !m_systems.window )
+    if ( !TryFindInteractionAutomationModel( name, modelIndex ) || !m_systems.window )
     {
         return false;
     }
@@ -1924,7 +1915,7 @@ void Run::TickInteractionAutomationBeforeInput()
                                                                     SceneState(),
                                                                     m_timers,
                                                                     m_replayRuntime };
-    InteractionAutomationDirectorCameraContext directorCameraContext{ state, m_systems, m_camera };
+    InteractionAutomationDirectorCameraContext directorCameraContext{ state, m_sceneController.Cameras(), m_camera };
     InteractionAutomationReplayStateContext replayStateContext{ state,
                                                                 m_timers,
                                                                 m_replayRuntime,

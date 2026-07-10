@@ -47,7 +47,7 @@ void Run::Render( const RuntimeRenderModelFrameView& renderModels )
 
     // Selected camera state is copied into the camera collection so render code below
     // reads one coherent eye/view/up triple for this frame.
-    m_systems.cameras->SetCamera();
+    m_sceneController.Cameras().SetCamera();
 
     const CinematicRenderConfig& activeCinematic = RuntimeActiveCinematicConfig( SceneState(), m_config );
     const bool cinematicRequested =
@@ -135,32 +135,32 @@ void Run::SetViewingOrientation()
     switch ( m_camera.selectedCamera )
     {
     case 0:
-        m_systems.cameras->SelectCamera( CAMERA_GAME_MODEL_1, true );
+        m_sceneController.Cameras().SelectCamera( CAMERA_GAME_MODEL_1, true );
         break;
     case 1:
-        m_systems.cameras->SelectCamera( CAMERA_GAME_MODEL_2, true );
+        m_sceneController.Cameras().SelectCamera( CAMERA_GAME_MODEL_2, true );
         break;
     case 2:
-        m_systems.cameras->SelectCamera( CAMERA_FREE, true );
+        m_sceneController.Cameras().SelectCamera( CAMERA_FREE, true );
         break;
     }
 
     // Object-follow cameras keep their eye fixed and retarget their view point
     // to the tracked model each frame.
-    if ( m_systems.cameras->IsCameraSelected( CAMERA_GAME_MODEL_1 ) )
+    if ( m_sceneController.Cameras().IsCameraSelected( CAMERA_GAME_MODEL_1 ) )
     {
         Vector3 targetPosition;
         if ( m_sceneController.Models().TryGetModelPosition( 0, targetPosition ) )
         {
-            m_systems.cameras->SetViewCoordinates( targetPosition );
+            m_sceneController.Cameras().SetViewCoordinates( targetPosition );
         }
     }
-    if ( m_systems.cameras->IsCameraSelected( CAMERA_GAME_MODEL_2 ) )
+    if ( m_sceneController.Cameras().IsCameraSelected( CAMERA_GAME_MODEL_2 ) )
     {
         Vector3 targetPosition;
         if ( m_sceneController.Models().TryGetModelPosition( 1, targetPosition ) )
         {
-            m_systems.cameras->SetViewCoordinates( targetPosition );
+            m_sceneController.Cameras().SetViewCoordinates( targetPosition );
         }
     }
 }
@@ -168,12 +168,12 @@ void Run::SetViewingOrientation()
 
 void Run::RelativeUpdateCamera( uint32_t hash )
 {
-    if ( !m_systems.cameras->IsCameraSelected( hash ) )
+    if ( !m_sceneController.Cameras().IsCameraSelected( hash ) )
     {
-        Vector3 translatedCameraPosition = m_systems.cameras->GetCameraTranslation( hash );
+        Vector3 translatedCameraPosition = m_sceneController.Cameras().GetCameraTranslation( hash );
         const float minY =
             m_systems.terrain->GetTerrainHeightAt( translatedCameraPosition.x, translatedCameraPosition.z, true ) +
             m_config.minCameraHeight;
-        m_systems.cameras->RelativeUpdate( hash, minY, m_config.maxCameraHeight );
+        m_sceneController.Cameras().RelativeUpdate( hash, minY, m_config.maxCameraHeight );
     }
 }

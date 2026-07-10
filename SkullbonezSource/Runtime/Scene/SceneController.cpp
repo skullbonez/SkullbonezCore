@@ -144,6 +144,18 @@ const GameObjects::GameModelCollection& SceneController::Models() const
 }
 
 
+Environment::CameraCollection& SceneController::Cameras()
+{
+    return m_cameras;
+}
+
+
+const Environment::CameraCollection& SceneController::Cameras() const
+{
+    return m_cameras;
+}
+
+
 Environment::WorldEnvironment& SceneController::World()
 {
     return m_world;

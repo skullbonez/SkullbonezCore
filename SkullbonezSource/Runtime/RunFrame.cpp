@@ -352,7 +352,7 @@ struct SimulationPostStepPipelineContext
     DiagnosticsRuntime& diagnosticsRuntime;
     RunSceneState& scene;
     RunDebugState& debug;
-    RunSubsystemState& systems;
+    SkullbonezCore::Environment::CameraCollection& cameras;
     RuntimeTools& runtimeTools;
     ReplayRuntime& replayRuntime;
     ReplayLauncherVisualSample& replayLauncherVisualScratch;
@@ -390,8 +390,7 @@ class SimulationPostStepPipeline
     {
         PROFILE_SCOPED( "Frame/Physics/Step/ContactAudio" );
 
-        const Vector3 listenerPosition = context.systems.cameras ? context.systems.cameras->GetRenderCameraTranslation()
-                                                                 : SkullbonezCore::Math::Vector::ZERO_VECTOR;
+        const Vector3 listenerPosition = context.cameras.GetRenderCameraTranslation();
         context.contactAudio.BeginPhysicsStep( PHYSICS_FIXED_DT, listenerPosition );
 
         const auto& colliderRecords = context.models.Colliders().Records();
@@ -539,7 +538,7 @@ class SimulationPostStepPipeline
         input.sceneTextEnabled = context.scene.isSceneText;
         input.waterHidden = context.debug.isWaterHidden;
         input.terrainHidden = context.debug.isTerrainHidden;
-        input.cameras = context.systems.cameras;
+        input.cameras = &context.cameras;
         input.world = &context.world;
         input.physics = &context.physics;
         input.entities = &context.entities;
@@ -870,7 +869,7 @@ void Run::TickPhysics( double secondsPerFrame )
         // UpdateLogic, but Director is presentation state. It still needs phase
         // style/camera entry work so authored show decks behave in static scenes.
         DemoDirectorPlayback::Tick( m_camera,
-                                    m_systems,
+                                    m_sceneController.Cameras(),
                                     m_replayRuntime.Prediction(),
                                     SceneRuntimeStyleContext{ m_launchOptions,
                                                               SceneState(),
@@ -894,7 +893,7 @@ void Run::AfterPhysicsStep()
                                                m_diagnosticsRuntime,
                                                SceneState(),
                                                m_debug,
-                                               m_systems,
+                                               m_sceneController.Cameras(),
                                                m_runtimeTools,
                                                m_replayRuntime,
                                                m_replayLauncherVisualScratch,
@@ -915,7 +914,6 @@ void Run::AfterPhysicsStep()
             SceneState(),
             m_runtimeSettings,
             m_debug,
-            m_systems.cameras,
             m_runtimeTools,
             m_sceneController,
             m_simulation,
@@ -931,7 +929,7 @@ void Run::AfterPhysicsStep()
             ReplayRuntime::SceneTimelineResetOwners{
                 m_inputRouter,
                 m_interaction,
-                m_systems.cameras,
+                &m_sceneController.Cameras(),
                 m_systems.terrain.get(),
                 m_camera,
                 NormalizeCameraModeForCurrentScene( m_replayRuntime.Camera().restoreCameraMode ),
@@ -1316,7 +1314,7 @@ void Run::UpdateLogic( float simulationDt, float cameraDt )
     MoveCamera( cameraDt * cfg.keySpeed, CAMERA_MOUSE_REFERENCE_DT * cfg.mouseSensitivity );
     TickAttachedCamera();
     DemoDirectorPlayback::Tick( m_camera,
-                                m_systems,
+                                m_sceneController.Cameras(),
                                 m_replayRuntime.Prediction(),
                                 SceneRuntimeStyleContext{ m_launchOptions,
                                                           SceneState(),
@@ -1333,7 +1331,7 @@ void Run::UpdateLogic( float simulationDt, float cameraDt )
     // Tween speed is also presentation-time behavior. The selected destination
     // camera can still track moving scene objects, but the interpolation rate
     // itself should be stable in real seconds instead of following time_scale.
-    m_systems.cameras->SetTweenSpeed( cfg.cameraTweenRate * cameraDt );
+    m_sceneController.Cameras().SetTweenSpeed( cfg.cameraTweenRate * cameraDt );
 }
 
 

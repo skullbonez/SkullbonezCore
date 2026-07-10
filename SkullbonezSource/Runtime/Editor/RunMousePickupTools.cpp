@@ -69,7 +69,8 @@ bool Run::TickMousePickupInput( const RuntimeMouseEdges& mouseEdges, bool suppre
             return false;
         }
 
-        Vector3 cameraNormal = m_systems.cameras->GetCameraView() - m_systems.cameras->GetCameraTranslation();
+        Vector3 cameraNormal =
+            m_sceneController.Cameras().GetCameraView() - m_sceneController.Cameras().GetCameraTranslation();
         const float normalLenSq = VectorMagSquared( cameraNormal );
         if ( normalLenSq <= TOLERANCE * TOLERANCE )
         {
@@ -78,8 +79,8 @@ bool Run::TickMousePickupInput( const RuntimeMouseEdges& mouseEdges, bool suppre
         cameraNormal *= 1.0f / sqrtf( normalLenSq );
 
         m_runtimeTools.MousePickup().planeNormal = cameraNormal;
-        m_runtimeTools.MousePickup().planePoint =
-            m_systems.cameras->GetCameraTranslation() + cameraNormal * m_runtimeTools.MousePickup().cameraPlaneDistance;
+        m_runtimeTools.MousePickup().planePoint = m_sceneController.Cameras().GetCameraTranslation() +
+                                                  cameraNormal * m_runtimeTools.MousePickup().cameraPlaneDistance;
 
         const float denom = rayDirection * cameraNormal;
         if ( fabsf( denom ) <= 1.0e-5f )
@@ -145,7 +146,8 @@ bool Run::TickMousePickupInput( const RuntimeMouseEdges& mouseEdges, bool suppre
         return true;
     }
 
-    Vector3 cameraNormal = m_systems.cameras->GetCameraView() - m_systems.cameras->GetCameraTranslation();
+    Vector3 cameraNormal =
+        m_sceneController.Cameras().GetCameraView() - m_sceneController.Cameras().GetCameraTranslation();
     const float normalLenSq = VectorMagSquared( cameraNormal );
     if ( normalLenSq <= TOLERANCE * TOLERANCE )
     {
@@ -154,7 +156,7 @@ bool Run::TickMousePickupInput( const RuntimeMouseEdges& mouseEdges, bool suppre
     cameraNormal *= 1.0f / sqrtf( normalLenSq );
 
     const Vector3 grabPoint = rayOrigin + rayDirection * result.rayT;
-    const float cameraPlaneDistance = ( grabPoint - m_systems.cameras->GetCameraTranslation() ) * cameraNormal;
+    const float cameraPlaneDistance = ( grabPoint - m_sceneController.Cameras().GetCameraTranslation() ) * cameraNormal;
     if ( cameraPlaneDistance <= TOLERANCE )
     {
         return true;

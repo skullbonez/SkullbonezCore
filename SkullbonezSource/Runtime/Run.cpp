@@ -364,7 +364,6 @@ void RunSubsystemState::BindStartupServices( Window& windowOwner,
     window = &windowOwner;
     workerPool = &workerPoolOwner;
     config = &configOwner;
-    cameraCollection.ApplyMovementSettings( BuildCameraMovementSettings( configOwner ) );
 }
 
 
@@ -393,7 +392,7 @@ Run::Run( Window& window,
       m_renderer( m_renderBackendView,
                   RenderWorldView{ m_systems.assets,
                                    m_systems.textureCollection,
-                                   m_systems.cameraCollection,
+                                   m_sceneController.Cameras(),
                                    m_systems.terrain,
                                    m_systems.skyBoxOwner,
                                    window,
@@ -415,6 +414,7 @@ Run::Run( Window& window,
     const EngineConfig& cfg = m_config;
     m_diagnosticsRuntime.BindProfiler( profiler );
     m_systems.BindStartupServices( window, workerPool, cfg );
+    m_sceneController.Cameras().ApplyMovementSettings( BuildCameraMovementSettings( cfg ) );
     RefreshRuntimeViewModel();
     RefreshSceneBrowserList( m_sceneController.Browser() );
     m_sceneController.Models().BindWorkerPool( workerPool );
@@ -559,7 +559,7 @@ void Run::ApplyStartupOverrides( const RunStartupOverrides& overrides )
                                           m_startup.gameModelCapacity ) )
     {
         m_replayRuntime.ExitInspectionCamera(
-            m_systems.cameras,
+            &m_sceneController.Cameras(),
             m_systems.terrain.get(),
             m_camera,
             NormalizeCameraModeForCurrentScene( m_replayRuntime.Camera().restoreCameraMode ),
@@ -707,7 +707,7 @@ bool ReplayRuntime::CaptureCurrentSolverSample( const ReplaySolverSampleRestoreC
     input.sceneTextEnabled = owners.scene.isSceneText;
     input.waterHidden = owners.debug.isWaterHidden;
     input.terrainHidden = owners.debug.isTerrainHidden;
-    input.cameras = owners.cameras;
+    input.cameras = &owners.sceneController.Cameras();
     input.world = &owners.sceneController.World();
     input.physics = &owners.physics;
     input.entities = &owners.sceneController.Entities();
@@ -937,9 +937,6 @@ void Run::Initialise()
         return;
     }
 
-    // Init cameras (shared across scenes, Reset() between loads)
-    m_systems.cameras = &m_systems.cameraCollection;
-
     m_contactAudio.SetMasterGain( cfg.contactAudio.masterGain );
     m_contactAudio.SetMaxDistanceScale( cfg.contactAudio.maxDistanceScale );
     m_contactAudio.SetRollingLevelDb( cfg.contactAudio.rollingLevelDb );
@@ -972,14 +969,14 @@ void Run::Initialise()
     ReplayRuntime::SceneTimelineResetOwners timelineOwners{
         m_inputRouter,
         m_interaction,
-        m_systems.cameras,
+        &m_sceneController.Cameras(),
         m_systems.terrain.get(),
         m_camera,
         NormalizeCameraModeForCurrentScene( m_replayRuntime.Camera().restoreCameraMode ),
         m_attachedCamera.activeFollow,
         m_camera.director.grabbed };
     const ReplayRuntime::ReplayStartupLoadInput loadInput{ m_timers.simulationTimer.GetTotalTime(),
-                                                           m_systems.cameras,
+                                                           &m_sceneController.Cameras(),
                                                            m_runtimeTools.MousePickup(),
                                                            NormalizeCameraModeForCurrentScene( m_camera.mode ),
                                                            timelineOwners };
@@ -987,7 +984,6 @@ void Run::Initialise()
     const ReplayProbeWorld probeWorld{ SceneState(),
                                        m_runtimeSettings,
                                        m_debug,
-                                       m_systems.cameras,
                                        m_runtimeTools,
                                        m_sceneController,
                                        m_simulation,
@@ -1059,9 +1055,9 @@ SbResult Run::RunSceneLoadOnly( const char* snapshotOutPath )
                                       m_sceneController.World().GetFluidDensity(),
                                       m_sceneController.World().GetMutualGravitySettings() };
         const SceneSaveRequest saveRequest{ snapshotOutPath,
-                                            m_systems.cameras->GetCameraTranslation(),
-                                            m_systems.cameras->GetCameraView(),
-                                            m_systems.cameras->GetCameraUp(),
+                                            m_sceneController.Cameras().GetCameraTranslation(),
+                                            m_sceneController.Cameras().GetCameraView(),
+                                            m_sceneController.Cameras().GetCameraUp(),
                                             SceneState().isScenePhysics,
                                             SceneState().isSceneText,
                                             SceneState().isEditableScene,

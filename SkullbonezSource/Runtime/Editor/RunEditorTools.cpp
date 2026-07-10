@@ -1595,7 +1595,7 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
 
 bool Run::TryBuildMouseWorldRay( Vector3& outOrigin, Vector3& outDirection, bool clampToViewport ) const
 {
-    if ( !m_systems.window || !m_systems.cameras )
+    if ( !m_systems.window )
     {
         return false;
     }
@@ -1614,7 +1614,7 @@ bool Run::TryBuildMouseWorldRay( Vector3& outOrigin, Vector3& outDirection, bool
 
 bool Run::TryBuildMouseWorldRayAt( POINT mouse, Vector3& outOrigin, Vector3& outDirection, bool clampToViewport ) const
 {
-    if ( !m_systems.window || !m_systems.cameras )
+    if ( !m_systems.window )
     {
         return false;
     }
@@ -1637,9 +1637,9 @@ bool Run::TryBuildMouseWorldRayAt( POINT mouse, Vector3& outOrigin, Vector3& out
     const float ndcX = ( static_cast<float>( mouse.x ) / static_cast<float>( screenW ) ) * 2.0f - 1.0f;
     const float ndcY = 1.0f - ( static_cast<float>( mouse.y ) / static_cast<float>( screenH ) ) * 2.0f;
 
-    const Vector3 eye = m_systems.cameras->GetCameraTranslation();
-    const Vector3 view = m_systems.cameras->GetCameraView();
-    const Vector3 up = m_systems.cameras->GetCameraUp();
+    const Vector3 eye = m_sceneController.Cameras().GetCameraTranslation();
+    const Vector3 view = m_sceneController.Cameras().GetCameraView();
+    const Vector3 up = m_sceneController.Cameras().GetCameraUp();
     const Matrix4 viewMatrix = Matrix4::LookAt( eye, view, up );
     const Matrix4 inverseViewProjection = ( m_systems.window->GetProjectionMatrix() * viewMatrix ).Inverse();
 
