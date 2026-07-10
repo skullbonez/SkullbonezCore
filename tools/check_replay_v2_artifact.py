@@ -438,13 +438,13 @@ def probe_timeline_mutation_rejection():
     probe_lines = [
         line
         for line in combined.splitlines()
-        if "[replay]" in line or "replay restore target probe failed" in line or "unsupported runtime" in line
+        if "[replay]" in line or "replay restore target probe failed" in line or "unsupported replay" in line
     ]
     for line in probe_lines[:12]:
         print(f"  {line}")
     if result.returncode == 0:
         raise RuntimeError("timeline mutation rejection probe unexpectedly restored a mutated artifact")
-    if "unsupported runtime timeline mutation event" not in combined:
+    if "unsupported replay event kind" not in combined:
         raise RuntimeError(f"timeline mutation rejection probe missing expected reason: {combined}")
     if "replay restore target probe failed to apply event sequence" not in combined:
         raise RuntimeError(f"timeline mutation rejection probe did not fail at event replay: {combined}")
@@ -588,7 +588,7 @@ def query_artifact():
         raise RuntimeError(f"expected timelineStart event first, found {event_samples[0]}")
     event_kinds = {sample.get("kind") for sample in event_samples}
     for expected_kind in (
-        "runtimeCommand",
+        "ownerAction",
         "generatedSceneConfig",
         "worldOverride",
         "editorPlace",
@@ -598,9 +598,9 @@ def query_artifact():
     ):
         if expected_kind not in event_kinds:
             raise RuntimeError(f"expected replay event kind {expected_kind}, found {sorted(event_kinds)}")
-    runtime_command_samples = [sample for sample in event_samples if sample.get("kind") == "runtimeCommand"]
-    if not any((sample.get("decoded") or {}).get("command") == "ResetCurrentScene" for sample in runtime_command_samples):
-        raise RuntimeError(f"expected decoded ResetCurrentScene runtime command, found {runtime_command_samples}")
+    owner_action_samples = [sample for sample in event_samples if sample.get("kind") == "ownerAction"]
+    if not any((sample.get("decoded") or {}).get("ownerAction") == "SceneReset" for sample in owner_action_samples):
+        raise RuntimeError(f"expected decoded SceneReset owner action, found {owner_action_samples}")
     for sample in event_samples:
         if sample.get("kind") in (
             "generatedSceneConfig",

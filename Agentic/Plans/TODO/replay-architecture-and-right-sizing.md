@@ -1,15 +1,15 @@
 # Replay Architecture And Right-Sizing
 
 Date: 2026-07-10
-Status: Planned — 0/6 phases complete
+Status: In progress - 1/6 phases complete
 Impact area: replay runtime, prediction, scrub/restore, replay UI, memory policy,
 Run decomposition
 Owner: replay subsystem
 
 ## Problem
 
-Current tracked measurements are 28 replay source files / 23,806 lines, with
-`RunReplayTools.cpp` at 4,779 lines. Replay is larger than the DX12 backend and
+Current tracked measurements are 28 replay source files / 23,814 lines, with
+`RunReplayTools.cpp` at 4,778 lines. Replay is larger than the DX12 backend and
 is the only subsystem allowed controlled runtime allocation growth. The prior
 right-sizing work improved ribbon memory and removed one legacy fallback, but
 the owning plan was deleted while review and feature plans still depended on
@@ -35,11 +35,17 @@ bounded by purpose, and the replay allocation exception remains narrow.
 
 ## Phases
 
-- [ ] **R0 — Reconciled inventory.** Record every replay file, line count,
+- [x] **R0 — Reconciled inventory.** Record every replay file, line count,
   owner/state category, public entry point, allocation owner, `Run::*` method,
   validation path, and deletion/merge candidate. Measure committed capacity,
   high-water use, and raw artifact size separately. Acceptance: inventory and
   source totals agree exactly.
+  Evidence: `Agentic/Reports/replay_r0_inventory_20260710.md` reconciles all 28
+  files / 23,814 lines, the 117-line outside probe-state adjunct, every Run
+  replay business method, allocation owners/caps, configured capacity,
+  observed high-water, raw artifact sizes, validation lanes, and R1/R2
+  deletion candidates. The corrected v2 owner-action gate passed in 25.4s and
+  the required tool-change fast gate passed in 19.4s.
 - [ ] **R1 — Delete and merge obsolete paths.** Remove duplicate presentation,
   legacy artifact, compatibility, and probe paths that no longer protect a
   supported format or workflow. Each retained legacy path needs an owner,

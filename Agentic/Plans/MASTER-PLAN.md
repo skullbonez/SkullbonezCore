@@ -49,7 +49,7 @@ Status: Authoritative inventory of every live repository plan
 | [runtime-shell-decomposition](TODO/runtime-shell-decomposition.md) | In progress | 10/26 completed items | Close B1f by moving the remaining `Run` input composition methods/state, then promote scene lifecycle ownership C1 |
 | [runtime-ui-control-architecture-cleanup](TODO/runtime-ui-control-architecture-cleanup.md) | Planned | 0/7 | U0 tracked UI-surface inventory |
 | [interaction-state-machine](TODO/interaction-state-machine.md) | In progress | 0/6 remaining phases | I4 capture/focus behavior with CPU + interaction proof |
-| [replay-architecture-and-right-sizing](TODO/replay-architecture-and-right-sizing.md) | Planned | 0/6 | R0 reconciled file/state/memory inventory |
+| [replay-architecture-and-right-sizing](TODO/replay-architecture-and-right-sizing.md) | In progress | 1/6 | R1 delete unsupported legacy and behavior-free compatibility paths |
 | [physics-authority-and-identity](TODO/physics-authority-and-identity.md) | In progress | 9/16 current items | D1-D4 stored identity cleanup after the ReplayRuntime/RuntimeRenderer owner boundary |
 | [render-backend-decomposition](TODO/render-backend-decomposition.md) | In progress | 0/8 remaining items | Begin the texture-owner split after RuntimeRenderer composition ownership is closed |
 | [stale-plan-reference-cleanup-15.6-checklist](TODO/stale-plan-reference-cleanup-15.6-checklist.md) | Complete | 86/86 files | Retain as reconciled evidence; no source rows remain |

@@ -10,7 +10,7 @@ reports, and git history.
 | Field | Value |
 |---|---|
 | Branch | `engine-cleanup-10th-july`, tracking `origin/engine-cleanup-10th-july` |
-| Pushed baseline before DX12 D4-D5 | `7fdd91d3 feat: stabilize scene behavior group roots` |
+| Current pushed baseline | `936eda3f fix: complete DX12 failure-safe recreation` |
 | Current objective | Complete ReplayRuntime workspace ownership, then RuntimeRenderer composition ownership |
 | Last broad local gate | `tools\validate_full.bat` passed final DX12 D4-D5 source with zero-warning builds, the mandatory CPU umbrella, DX12 with zero InfoQueue errors/matching screenshots, standalone physics smoke, and byte-exact physics in 49.5s |
 | Native evidence | Injected heap-use-after-free caught; healthy ASan and five-file `/analyze` passed in 16.185s |
@@ -39,6 +39,7 @@ reports, and git history.
 - `e147f9b8 feat: make scene creation transactional`
 - `119b359c feat: preserve live asset scene snapshots`
 - `7fdd91d3 feat: stabilize scene behavior group roots`
+- `936eda3f fix: complete DX12 failure-safe recreation`
 
 ## Current Queue
 
@@ -68,6 +69,14 @@ zero submissions/InfoQueue errors. The plan-level adversarial review found and
 fixed device-loss teardown issuing a later fence signal; the repeat review was
 clean. Final fast, architecture, fault, three consecutive renderer, allocation,
 and full gates passed.
+
+Replay R0 is complete at exactly 28 scoped files / 23,814 lines, plus the
+117-line outside Run probe-state adjunct. Capacity, high-water, raw artifacts,
+Run business methods, validation lanes, and deletion/merge candidates are
+reconciled in `Agentic/Reports/replay_r0_inventory_20260710.md`. The artifact
+query/gate now treats the deleted omnibus wire kind 2 as unsupported and
+decodes explicit owner-action kind 10; the v2 gate passed in 25.4s and fast
+passed in 19.4s. R1 is next.
 
 Scene provenance C1a is complete: parser-owned library/instance/ordered-part
 records retain exact shape sources, hierarchy transforms use rotated offsets
