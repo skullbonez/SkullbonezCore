@@ -10,9 +10,9 @@ reports, and git history.
 | Field | Value |
 |---|---|
 | Branch | `engine-cleanup-10th-july`, tracking `origin/engine-cleanup-10th-july` |
-| Current pushed baseline | `6945404d refactor: move manipulator pointer routing into tool owner` |
+| Current pushed baseline | `2e2dd726 refactor: move selection command authority into tools` |
 | Current objective | Continue B1f by deleting Run pointer/camera composition, then TakeInput |
-| Last broad local gate | `tools\validate_full.bat` passed RuntimeTools-owned selection command transactions with 129/129 doctest cases, 2,755 assertions, zero-warning builds, DX12 with zero InfoQueue errors/matching screenshots, standalone physics smoke, and 20,001-line byte-exact physics in 52.3s |
+| Last broad local gate | `tools\validate_full.bat` passed RuntimeTools-owned editor interaction queries with 129/129 doctest cases, 2,755 assertions, zero-warning builds, DX12 with zero InfoQueue errors/matching screenshots, standalone physics smoke, and 20,001-line byte-exact physics in 52.5s |
 | Native evidence | Injected heap-use-after-free caught; healthy ASan and five-file `/analyze` passed in 16.185s |
 
 ## Pushed Cleanup Commits
@@ -300,6 +300,10 @@ around the existing interaction-owner transition. Run's command executor and
 event publisher are deleted. Fast, CPU, four interaction scenarios, perf, and
 full gates pass; comment audit is 6/6. The remaining editor gesture/placement
 route and replay/launcher composition still block B1f closure.
+
+Editor-active and Inspect-gizmo-active queries now belong to `RuntimeTools` and
+their Run methods are deleted. Fast, four interaction scenarios, and full pass;
+comment audit is 7/7. Mutating editor transition/pointer work remains.
 
 Scene provenance C1a is complete: parser-owned library/instance/ordered-part
 records retain exact shape sources, hierarchy transforms use rotated offsets

@@ -164,6 +164,20 @@ bool RuntimeTools::ApplySelectionCommand( const RuntimeInteractionCommand& comma
 }
 
 
+bool RuntimeTools::HasActiveEditorInteractionState() const
+{
+    return m_editor.editorModeEnabled || m_editor.placementModeEnabled || m_editor.viewportLookActive ||
+           m_editor.placementPreviewVisible || m_editor.placementScaleActive || m_editor.gizmoDragActive ||
+           m_editor.hotGizmoAxis >= 0 || m_editor.hotRotationAxis >= 0 || m_editor.activeGizmoAxis >= 0;
+}
+
+
+bool RuntimeTools::InspectGizmoInteractionActive( RunCameraMode cameraMode, bool replayInspectionActive ) const
+{
+    return !m_editor.editorModeEnabled && cameraMode == RunCameraMode::Inspect && !replayInspectionActive;
+}
+
+
 void RuntimeTools::CancelMousePickup( InputRouter& inputRouter, RuntimeInteractionController& interaction )
 {
     // Invariant: RuntimeTools owns the picked-body/capture fact. Cancellation

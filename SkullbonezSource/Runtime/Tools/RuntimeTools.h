@@ -596,6 +596,8 @@ class RuntimeTools
 
     RunEditorPlacementState& Editor();
     const RunEditorPlacementState& Editor() const;
+    bool HasActiveEditorInteractionState() const;
+    bool InspectGizmoInteractionActive( RunCameraMode cameraMode, bool replayInspectionActive ) const;
 
     RunEditorTracer& EditorTracer();
     const RunEditorTracer& EditorTracer() const;

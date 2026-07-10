@@ -191,8 +191,6 @@ class Run
             transition );                                               // Clears stale tool ownership before the new mode consumes input.
     void ClearEditorInteractionForRuntimeTransition(
         bool clearSelection );                                          // Clears editor placement/gizmo ownership before leaving Edit.
-    bool HasActiveEditorInteractionState() const;                       // True when editor owns placement/gizmo/input state.
-    bool InspectGizmoInteractionActive() const;                         // True when Inspect owns live transform-gizmo interaction.
     void EnterFlyModeCamera();                                          // Switches camera state into free-flight controls.
     void ExitFlyModeCamera();                                           // Restores terrain camera bounds and leaves launcher mode.
     const char* CameraModeLabel( RunCameraMode mode ) const;            // Compact name for UI and transition diagnostics.

@@ -397,6 +397,21 @@ unqualified legacy `RunInternal` selection resolver; RuntimeTools now performs
 the small handle/row repair locally and the retry passed. Comment audit: 6/6
 touched source-bearing files.
 
+The remaining editor interaction-state queries are now RuntimeTools-owned.
+`HasActiveEditorInteractionState` reads only durable editor state;
+`InspectGizmoInteractionActive` joins that state with explicit camera-mode and
+replay-inspection facts. Editor input, automation assertions/reports, transition
+cleanup, and render overlay composition call the owner directly. Both Run query
+methods are deleted. B1f remains open for mutating editor transition/pointer
+behavior, replay/launcher routing, focus/keyboard composition, camera helpers,
+and final pointer-route/`TakeInput` deletion.
+
+Evidence: fast passed in 31.5s; all four interaction scenarios passed in 12.9s;
+and full passed in 52.5s with 129/129 doctest cases, 2,755 assertions, zero
+warnings, zero DX12 InfoQueue errors, matching screenshots, standalone topology
+smoke, and the 20,001-line byte-exact physics baseline. Comment audit: 7/7
+touched source-bearing files.
+
 ## Remaining Work
 
 ### A. Narrow the render host

@@ -63,11 +63,12 @@ void Run::Render( const RuntimeRenderModelFrameView& renderModels )
                                                  SceneState().currentFrame,
                                                  m_timers.simulationTimer.GetTimeSinceLastStart(),
                                                  m_timers.simulationTimer.GetTotalTime() };
-    const RenderToolOverlayView toolOverlay{ m_runtimeTools,
-                                             InspectGizmoInteractionActive(),
-                                             m_inputRouter.DeviceFrame().keys.IsDown( VK_CONTROL ),
-                                             attachedTargetIndex,
-                                             m_attachedCamera.State().activeFollow };
+    const RenderToolOverlayView toolOverlay{
+        m_runtimeTools,
+        m_runtimeTools.InspectGizmoInteractionActive( m_camera.mode, m_replayRuntime.InspectionActive() ),
+        m_inputRouter.DeviceFrame().keys.IsDown( VK_CONTROL ),
+        attachedTargetIndex,
+        m_attachedCamera.State().activeFollow };
     m_renderer.RenderFrameEntry( RuntimeRenderer::FrameEntryContext{ m_renderBackendView,
                                                                      renderModels,
                                                                      m_sceneController.Models(),

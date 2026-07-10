@@ -1154,23 +1154,6 @@ RuntimeInteractionTransition Run::EnterInteractionForCameraMode( RunCameraMode m
 }
 
 
-bool Run::HasActiveEditorInteractionState() const
-{
-    return m_runtimeTools.Editor().editorModeEnabled || m_runtimeTools.Editor().placementModeEnabled ||
-           m_runtimeTools.Editor().viewportLookActive || m_runtimeTools.Editor().placementPreviewVisible ||
-           m_runtimeTools.Editor().placementScaleActive || m_runtimeTools.Editor().gizmoDragActive ||
-           m_runtimeTools.Editor().hotGizmoAxis >= 0 || m_runtimeTools.Editor().hotRotationAxis >= 0 ||
-           m_runtimeTools.Editor().activeGizmoAxis >= 0;
-}
-
-
-bool Run::InspectGizmoInteractionActive() const
-{
-    return !m_runtimeTools.Editor().editorModeEnabled && m_camera.mode == RunCameraMode::Inspect &&
-           !m_replayRuntime.InspectionActive();
-}
-
-
 void Run::ClearEditorInteractionForRuntimeTransition( bool clearSelection )
 {
     RunInternal::ClearEditorManipulationState(
@@ -1234,7 +1217,7 @@ void Run::ClearRuntimeInteractionStateForTransition( const RuntimeInteractionTra
         m_runtimeTools.CancelMousePickup( m_inputRouter, m_interaction );
     }
 
-    if ( ( !enteringEdit && !inspectGizmoClaimWithinInspect && HasActiveEditorInteractionState() ) ||
+    if ( ( !enteringEdit && !inspectGizmoClaimWithinInspect && m_runtimeTools.HasActiveEditorInteractionState() ) ||
          ( IsEditorWorldOwner( transition.previousOwner ) && !editorOwnerSwitchWithinEdit &&
            !inspectGizmoClaimWithinInspect ) )
     {

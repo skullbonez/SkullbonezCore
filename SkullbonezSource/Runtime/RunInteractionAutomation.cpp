@@ -2127,10 +2127,14 @@ void Run::TickInteractionAutomationAfterRender()
         assertion.frame = frame;
         strcpy_s( assertion.name, sizeof( assertion.name ), AssertName( action.assertKind ) );
 
-        const InteractionAutomationAssertionEvaluation evaluation =
-            EvaluateInteractionAutomationAssertion( assertContext,
-                                                    action,
-                                                    [this]() { return InspectGizmoInteractionActive(); } );
+        const InteractionAutomationAssertionEvaluation evaluation = EvaluateInteractionAutomationAssertion(
+            assertContext,
+            action,
+            [this]()
+            {
+                return m_runtimeTools.InspectGizmoInteractionActive( m_camera.mode,
+                                                                     m_replayRuntime.InspectionActive() );
+            } );
 
         strcpy_s( assertion.expected, sizeof( assertion.expected ), evaluation.expected.c_str() );
         strcpy_s( assertion.actual, sizeof( assertion.actual ), evaluation.actual.c_str() );
@@ -2241,7 +2245,9 @@ void Run::WriteInteractionAutomationReport()
         selectedName = m_sceneController.Entities().At( selectedIndex ).displayName;
     }
     const bool gizmoVisible =
-        selectedIndex >= 0 && ( m_runtimeTools.Editor().editorModeEnabled || InspectGizmoInteractionActive() );
+        selectedIndex >= 0 &&
+        ( m_runtimeTools.Editor().editorModeEnabled ||
+          m_runtimeTools.InspectGizmoInteractionActive( m_camera.mode, m_replayRuntime.InspectionActive() ) );
     const bool replayPastPathVisible =
         m_replayRuntime.PathVisualizer().hasTarget && m_replayRuntime.PathVisualizer().pastPathVisible;
     const std::size_t predictionVisibleFrameCount = VisiblePredictionFrameCount( m_replayRuntime );

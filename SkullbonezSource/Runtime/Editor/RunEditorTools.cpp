@@ -1076,7 +1076,8 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
     const PhysicsBodyStore& editorBodyStore = m_sceneController.Models().BodyStore();
     const ColliderStore& editorColliderStore = m_sceneController.Models().Colliders();
     const int selectedModelIndex = ResolveSelectedEditorModelIndex( m_runtimeTools.Editor(), editorBodyStore );
-    const bool previewInspectGizmoActive = InspectGizmoInteractionActive();
+    const bool previewInspectGizmoActive =
+        m_runtimeTools.InspectGizmoInteractionActive( m_camera.mode, m_replayRuntime.InspectionActive() );
     const bool previewCanUseMouseRay = !m_UI.BlocksCameraMouse() && !m_runtimeTools.Editor().viewportLookActive &&
                                        ( m_runtimeTools.Editor().editorModeEnabled || previewInspectGizmoActive );
     const bool previewNeedsMouseRay =
@@ -1337,7 +1338,8 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
 
     if ( !consumedWorldClick && leftPressed && !suppressWorldActionThisFrame )
     {
-        const bool inspectGizmoActive = InspectGizmoInteractionActive();
+        const bool inspectGizmoActive =
+            m_runtimeTools.InspectGizmoInteractionActive( m_camera.mode, m_replayRuntime.InspectionActive() );
         const bool transformGizmoActive = ( m_runtimeTools.Editor().editorModeEnabled || inspectGizmoActive ) &&
                                           !m_runtimeTools.Editor().placementModeEnabled;
         const WorldInteractionOwner transformOwner =
