@@ -1,7 +1,7 @@
 # Physics Authority And Stable Identity
 
 Date: 2026-07-10 (source reconciled)
-Status: In progress — 2/12 current checklist items verified complete; the
+Status: In progress — 3/15 current checklist items verified complete; the
 scene-lifetime physics owner decision is binding
 Impact area: physics, game object storage, scene creation/reset, replay,
 editor tools
@@ -63,12 +63,23 @@ no longer an open question.
 
 ### C. Scene/entity metadata split
 
-- [ ] C1. Move display names/labels, grouping/hierarchy, and asset-instance
-  identity from `GameModel`/collection-order storage to scene/entity metadata.
-- [ ] C2. One creation transaction builds scene metadata, body, collider, and
-  render rows; scene save serializes from authoritative owners.
-- [ ] C3. Replace `rootModelIndex` group identity with stable scene/entity
-  grouping identity.
+- [x] C0. Inventory the complete `assetInstances[]` parse/create/save path and
+  bind the durable owner design. Evidence:
+  `Agentic/Reports/scene_asset_roundtrip_design_20260710.md`.
+- [ ] C1. Preserve parsed asset library, asset, instance, ordered part, stable
+  object-id, and override provenance. Compose compound transforms with rotated
+  offsets and quaternion multiplication rather than component-wise Euler sums.
+- [ ] C2. Extract a preallocated, scene-owned `SceneEntityStore` for display
+  names, durable render material intent, asset affiliation, and stable ids.
+  Remove those ownership duties from `GameModel`/collection order.
+- [ ] C3. One preflighted creation transaction commits scene metadata, body,
+  collider, and render rows or commits none of them. Capacity/duplicate authored
+  input is Lane R; owner topology divergence is Lane F.
+- [ ] C4. Save through borrowed `SceneSaveView`/`SceneSaveRequest` owner data,
+  emit version-2 `assetInstances[]` per-part live state, and delete silent row
+  skipping plus the collection save facade.
+- [ ] C5. Replace `rootModelIndex` behavior grouping with stable root object id.
+  Keep asset affiliation and behavior group as separate metadata dimensions.
 
 ### D. Stable identity storage
 
@@ -87,7 +98,9 @@ no longer an open question.
   extraction 3.
 - Replay identity coordinates with
   `replay-architecture-and-right-sizing.md` R4.
-- `assetInstances[]` round-trip evidence comes from
+- The binding scene/asset design is recorded in
+  `Agentic/Reports/scene_asset_roundtrip_design_20260710.md`; final
+  `assetInstances[]` round-trip evidence comes from
   `behavioral-test-depth.md` P3.
 - Broad gate claims depend on `validation-gate-integrity.md` V2.
 

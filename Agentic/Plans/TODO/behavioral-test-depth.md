@@ -38,10 +38,14 @@ umbrella and from the broad PR gate.
   an intentionally broken reduction rule fails the named test.
 - [ ] **P3 — Parser and serializer boundaries.** Existing tests cover truncated
   JSON, missing camera, wrong member type, unknown asset, and malformed style.
-  Remaining: load → save → load a scene using `assetInstances[]` and compare
-  authored object identity, grouping, transforms, asset names, physics
-  descriptors, and render material intent. Acceptance: no object-set-only test
-  that ignores identity or authored properties.
+  Remaining: use the production parse → scene/entity+physics creation → owner
+  mutation → save → parse → recreate path for a mixed-shape
+  `assetInstances[]` fixture. Compare stable object/asset/instance/part identity,
+  asset and behavior roots, ordered topology, composed transforms, physics
+  descriptors, and every durable render material field by object id. Inspect
+  saved JSON for `assetLibraries[]`, `assetInstances[]`, and per-part live state.
+  Acceptance: no parser-only or object-set-only test that ignores runtime
+  creation, identity, authored properties, or save schema.
 - [x] **P4 — Replay snapshot round-trip.** Snapshot capture/restore reproduces a
   future solver sample and nonzero solver hash without launching the full engine.
 - [ ] **P5 — Injected-bug drill.** Locally break one solver clamp, one manifold
@@ -69,7 +73,8 @@ umbrella and from the broad PR gate.
 - P2 can proceed independently but any engine-source seam change requires the
   physics gate.
 - P3 coordinates with `runtime-shell-decomposition.md` D2 and
-  `physics-authority-and-identity.md` C2.
+  scene extraction C1-C3 plus `physics-authority-and-identity.md` C0-C5. Binding
+  design: `Agentic/Reports/scene_asset_roundtrip_design_20260710.md`.
 - P4/R5 work coordinates with
   `replay-architecture-and-right-sizing.md`.
 - P6 depends on `validation-gate-integrity.md`.
@@ -109,8 +114,8 @@ umbrella and from the broad PR gate.
   builds completed with zero warnings and zero errors.
 - 2026-07-10: the new CPU umbrella passed all four first-party targets in
   27.796s (78/78 doctest cases, 1,883 assertions, interaction Debug/Release,
-  scene parser, and DX12 architecture). V1/V2 are complete; P6 remains open for
-  validation-plan V5 and the executable-level mutation drill.
+  scene parser, and DX12 architecture). V1/V2/V5 are complete; P6 remains open
+  for the executable-level mutation drill.
 - 2026-07-10: `tools\validate_tests.bat` passed 75/75 doctest cases and
   1,669/1,669 assertions after parser Lane R tests.
 - Log: `Agentic/Reports/validate_tests_plan04_parser_result_20260710.log`.

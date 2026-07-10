@@ -1,7 +1,7 @@
 # Runtime Shell Decomposition
 
 Date: 2026-07-10 (reconciled)
-Status: In progress — 0/12 remaining checklist items complete; earlier
+Status: In progress — 0/13 remaining checklist items complete; earlier
 foundation work is summarized separately and is not mixed into this count
 Impact area: runtime architecture, scene lifecycle, input routing, render host
 Owner: application composition root
@@ -77,12 +77,17 @@ deleted and the named behavioral evidence passes.
 
 ### C. Scene lifecycle ownership
 
-- [ ] C1. Implement ownership extraction 3: scene load/reset snapshot and
-  restore, browser selection, adjacent load, and deck movement move to scene ownership.
-- [ ] C2. Replace `Run` scene callbacks with explicit lifecycle events consumed
-  through concrete update calls.
+- [ ] C1. Implement ownership extraction 3: `SceneController` owns the
+  preallocated scene/entity metadata store, scene-lifetime `PhysicsScene`,
+  load/reset state, browser selection, adjacent load, and deck movement.
+- [ ] C2. Replace `Run` scene callbacks with explicit `BeforeSceneUnload`
+  through `AfterSceneActivated` lifecycle events consumed by concrete owners.
+- [ ] C3. Move scene save/load orchestration behind `SceneController` and delete
+  `Run`/`GameModelCollection` scene business wrappers. The writer consumes a
+  borrowed owner view, never `Run` callbacks or collection-order identity.
 
-Coordinate C with `physics-authority-and-identity.md` scene creation/reset work.
+Coordinate C with `physics-authority-and-identity.md` C0-C5 and
+`Agentic/Reports/scene_asset_roundtrip_design_20260710.md`.
 
 ### D. Mega-TU decomposition
 
@@ -133,5 +138,5 @@ Coordinate C with `physics-authority-and-identity.md` scene creation/reset work.
 | Mechanical file splits | owning file-to-validation gate |
 | Hot `.inl` → TU conversion | owning area gate + perf gate |
 
-`validate_full` becomes sufficient broad evidence only after
-`validation-gate-integrity.md` V2 makes it a superset of all CPU suites.
+`validate_full` is now the broad CPU/runtime superset after
+`validation-gate-integrity.md` V2; keep the owning focused gates alongside it.

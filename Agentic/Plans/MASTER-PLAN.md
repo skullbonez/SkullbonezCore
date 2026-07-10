@@ -43,11 +43,11 @@ Status: Authoritative inventory of every live repository plan
 | [validation-gate-integrity](TODO/validation-gate-integrity.md) | In progress | 4/6 | V3 CPU/runtime CI, then V4 sanitizer/static analysis |
 | [dx12-failure-propagation](TODO/dx12-failure-propagation.md) | In progress | 1/6 | D1a active-frame recording epoch safety from the completed inventory |
 | [behavioral-test-depth](TODO/behavioral-test-depth.md) | In progress | 3/6; P3/P5 partial | P3 with scene/entity ownership C1-C3; then remaining P5/P6 drills |
-| [runtime-shell-decomposition](TODO/runtime-shell-decomposition.md) | In progress | 0/12 remaining items | Extraction 1 input router + extraction 2 owner queues after CPU umbrella |
+| [runtime-shell-decomposition](TODO/runtime-shell-decomposition.md) | In progress | 0/13 remaining items | Extraction 1 input router + extraction 2 owner queues after CPU umbrella |
 | [runtime-ui-control-architecture-cleanup](TODO/runtime-ui-control-architecture-cleanup.md) | Planned | 0/7 | U0 tracked UI-surface inventory |
 | [interaction-state-machine](TODO/interaction-state-machine.md) | In progress | 0/6 remaining phases | I4 capture/focus behavior with CPU + interaction proof |
 | [replay-architecture-and-right-sizing](TODO/replay-architecture-and-right-sizing.md) | Planned | 0/6 | R0 reconciled file/state/memory inventory |
-| [physics-authority-and-identity](TODO/physics-authority-and-identity.md) | In progress | 2/12 current items | A1 mutation audit, then implement the binding scene-lifetime owner decision |
+| [physics-authority-and-identity](TODO/physics-authority-and-identity.md) | In progress | 3/15 current items | C1 parser provenance, then scene-owned metadata/creation C2-C4 |
 | [render-backend-decomposition](TODO/render-backend-decomposition.md) | In progress | 0/8 remaining items | Wait for DX12 D0-D3, then texture-owner split |
 | [stale-plan-reference-cleanup-15.6-checklist](TODO/stale-plan-reference-cleanup-15.6-checklist.md) | Complete | 86/86 files | Retain as reconciled evidence; no source rows remain |
 
