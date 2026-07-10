@@ -62,7 +62,13 @@ if errorlevel 1 exit /b 2
 echo [3/5] Checking staged file sizes...
 REM Why: the checker reads the git index, so keep it before the expensive build
 REM steps and pass the repo root explicitly for callers outside the worktree.
-python "%~dp0check_staged_file_sizes.py" --repo "%~dp0.."
+REM Hosted CI supplies a base commit because its clean index contains no pending
+REM commit; comparison mode then inspects exact HEAD blobs changed by the PR.
+if defined SKORE_SIZE_DIFF_BASE (
+    python "%~dp0check_staged_file_sizes.py" --repo "%~dp0.." --base-ref "%SKORE_SIZE_DIFF_BASE%"
+) else (
+    python "%~dp0check_staged_file_sizes.py" --repo "%~dp0.."
+)
 if errorlevel 1 exit /b 3
 
 echo [4/5] Building Profile x64...

@@ -1,0 +1,59 @@
+name: Native diagnostics
+
+# This is a scheduled safety signal, not a pull-request merge gate. It proves
+# the detector with a generated heap-use-after-free before exercising healthy
+# CPU code, then keeps the complete bounded evidence for inspection.
+"on":
+  schedule:
+    - cron: "17 5 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  native-diagnostics:
+    name: Native diagnostics (Windows hosted)
+    runs-on: windows-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Record hosted-runner context
+        shell: pwsh
+        run: |
+          $artifactDir = Join-Path $env:GITHUB_WORKSPACE "TestOutput\validation\native_diagnostics"
+          New-Item -ItemType Directory -Force -Path $artifactDir | Out-Null
+          @(
+            "runner_name=$env:RUNNER_NAME"
+            "runner_os=$env:RUNNER_OS"
+            "runner_arch=$env:RUNNER_ARCH"
+            "image_os=$env:ImageOS"
+            "image_version=$env:ImageVersion"
+          ) | Set-Content -Path (Join-Path $artifactDir "hosted-runner.txt")
+
+      - name: Prove and run native diagnostics
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          if (Test-Path variable:PSNativeCommandUseErrorActionPreference) {
+            $PSNativeCommandUseErrorActionPreference = $false
+          }
+          & cmd.exe /d /c "tools\validate_native_diagnostics.bat --prove-asan-fixture"
+          if ($LASTEXITCODE -ne 0) {
+            exit $LASTEXITCODE
+          }
+
+      - name: Upload native-diagnostics evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: native-diagnostics-${{ github.run_id }}-${{ github.run_attempt }}
+          path: TestOutput/validation/native_diagnostics/**
+          if-no-files-found: warn
+          retention-days: 14

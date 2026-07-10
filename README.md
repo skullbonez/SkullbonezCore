@@ -59,6 +59,7 @@ or pushed, use the repository scripts instead of retyping long commands:
 | Physics, collision, solver, determinism | `tools\validate_physics.bat` |
 | Broad physics baseline, bullet sweep, or SkullScope diagnostics | `tools\validate_physics_deep.bat` |
 | Hot path or allocation-sensitive work | `tools\validate_perf.bat` |
+| Opt-in native lifetime/static analysis | `tools\validate_native_diagnostics.bat` |
 | Every first-party CPU test target | `tools\validate_all_cpu_tests.bat` |
 | Broad or uncertain scope | `tools\validate_full.bat` |
 | Unsure at the PR gate | `tools\agent_validate.bat` |

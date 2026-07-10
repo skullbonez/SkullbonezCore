@@ -1,0 +1,89 @@
+name: DX12 runtime validation
+
+# Security boundary: this repository is public. A persistent self-hosted GPU
+# runner must never execute pull-request merge refs. Only reviewed main commits
+# or a privileged maintainer's explicit manual dispatch may reach this job.
+"on":
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Exactly one dedicated runner should carry all four labels below. GitHub's
+# native runner queue then serializes every job without dropping pending runs.
+jobs:
+  runtime-validation:
+    name: Runtime validation (self-hosted DX12)
+    if: vars.SKULLBONEZ_DX12_CI_ENABLED == 'true'
+    runs-on: [self-hosted, Windows, x64, dx12]
+    timeout-minutes: 60
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Record DX12-runner context
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $artifactDir = Join-Path $env:GITHUB_WORKSPACE "TestOutput\validation\ci"
+          New-Item -ItemType Directory -Force -Path $artifactDir | Out-Null
+          $contextPath = Join-Path $artifactDir "dx12-runner.txt"
+
+          @(
+            "runner_name=$env:RUNNER_NAME"
+            "runner_os=$env:RUNNER_OS"
+            "runner_arch=$env:RUNNER_ARCH"
+          ) | Set-Content -Path $contextPath
+
+          try {
+            Get-CimInstance Win32_VideoController |
+              Select-Object Name, DriverVersion, Status, VideoModeDescription |
+              Format-List |
+              Out-String |
+              Add-Content -Path $contextPath
+          }
+          catch {
+            "gpu_inventory_error=$($_.Exception.Message)" |
+              Add-Content -Path $contextPath
+          }
+
+      - name: Run broad runtime gate
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          if (Test-Path variable:PSNativeCommandUseErrorActionPreference) {
+            $PSNativeCommandUseErrorActionPreference = $false
+          }
+          $artifactDir = Join-Path $env:GITHUB_WORKSPACE "TestOutput\validation\ci"
+          New-Item -ItemType Directory -Force -Path $artifactDir | Out-Null
+          $log = Join-Path $artifactDir "runtime-validation.log"
+
+          & cmd.exe /d /c "tools\validate_full.bat" 2>&1 |
+            Tee-Object -FilePath $log
+          $exitCode = $LASTEXITCODE
+          "exit_code=$exitCode" | Add-Content -Path $log
+          if ($exitCode -ne 0) {
+            exit $exitCode
+          }
+
+      - name: Upload runtime evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: dx12-runtime-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            TestOutput/validation/**
+            Profile/dx12_*.bmp
+            Profile/dx12_stdout.txt
+            Profile/dx12_stderr.txt
+            Profile/validate_dx12_renderer_build_profile.log
+            Debug/physics_regression_solver.csv
+            dx12_validation.txt
+          if-no-files-found: warn
+          retention-days: 14

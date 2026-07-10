@@ -17,6 +17,7 @@ validation.
 | `validate_runtime_interaction_policy.bat` | Build/run Debug and Release interaction-policy tests | 2 console test launches |
 | `validate_scene_parser_tests.bat` | Build/run CPU-side scene/style parser contract tests | build + console test runner |
 | `validate_dx12_arch_tests.bat` | Build/run CPU-side renderer architecture tests; no device creation | build + console test runner |
+| `validate_native_diagnostics.bat` | Opt-in MSVC AddressSanitizer and bounded native static-analysis lane | ~20s; no engine launch |
 | `validate_dx12_renderer.bat` | DX12-only screenshot regression and InfoQueue gate | ~2 min |
 | `validate_renderers.bat` | Retired compatibility alias that runs `validate_dx12_renderer.bat` | ~2 min |
 | `validate_deep.bat` | Opt-in broad sweep: render, deep physics, and perf | ~depends |
@@ -54,6 +55,35 @@ Direct `validate_fast.bat` use still runs `SKULLBONEZ_TESTS.exe`. Its
 it prevents the doctest runner from being executed both by fast validation and
 the CPU umbrella. `agent_validate.bat` delegates once to `validate_full.bat`, so
 it has the same ordering and exit status.
+
+The file-size preflight reads the git index for local pending commits. Hosted
+PR and merge-queue jobs set `SKORE_SIZE_DIFF_BASE` so the same gate compares
+changed HEAD blobs with the event base instead of silently inspecting a clean
+CI index. Both modes disable Git rename detection so moving an allowlisted blob
+to an ordinary path checks the destination under its new policy.
+
+## Native Diagnostics
+
+Run `tools\validate_native_diagnostics.bat` for the opt-in native safety lane.
+It builds and runs an isolated AddressSanitizer copy of
+`SKULLBONEZ_TESTS`, then runs MSVC `/analyze` over the five maths-library
+translation units. Artifacts stay under
+`TestOutput\validation\native_diagnostics`; normal Debug/Profile outputs are
+not replaced. Use `--prove-asan-fixture` only to self-test the detector: that
+mode generates a temporary heap-use-after-free, requires the exact sanitizer
+diagnostic, and removes the faulty source and executable before returning.
+
+Static-analysis exceptions live in
+`tools\native_diagnostics_suppressions.json`. Each row must match one exact
+path/code and name its owner, reason, deletion condition, and review evidence;
+stale rows fail the lane.
+
+`tools\validate_native_diagnostics.bat --self-test` exercises warning
+classification and bounded-log guards without invoking Visual Studio.
+
+`.github/workflows/native-diagnostics.yml` runs the detector proof and healthy
+lanes weekly and on manual dispatch. It is an informational signal rather than
+a required pull-request check.
 
 ### Selection Example
 

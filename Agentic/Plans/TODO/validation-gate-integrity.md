@@ -1,7 +1,7 @@
 # Validation Gate Integrity And Continuous Integration
 
 Date: 2026-07-10
-Status: In progress — 4/6 phases complete
+Status: In progress — 5/6 phases complete
 Impact area: validation tooling, unit-test projects, GitHub pull-request gates,
 sanitizer/static-analysis coverage
 Owner: repository validation
@@ -23,9 +23,11 @@ The documented broad gate is not a superset of cheaper validation:
 The repository therefore has strong local scripts but no single trustworthy
 answer to "is this PR safe to merge?"
 
-Current state: `validate_full` and `agent_validate` now reach all four CPU test
-targets through `validate_all_cpu_tests` before runtime work. The remaining
-trust gaps are automated CI and sanitizer/static analysis, owned by V3-V4.
+Current state: `validate_full` and `agent_validate` reach all four CPU test
+targets through `validate_all_cpu_tests` before runtime work, and V4 supplies a
+proven ASan plus bounded `/analyze` lane. The remaining trust gap is external
+V3 activation: real hosted runs, CPU branch protection, and trusted DX12-runner
+operation.
 
 ## Goal
 
@@ -40,8 +42,10 @@ Separate validation by capability rather than by historical script:
 1. **CPU mandatory lane:** format, project/filter checks, staged-size policy,
    Profile build, doctest suite, interaction policy tests, scene parser tests,
    and DX12 architecture tests.
-2. **Runtime mandatory lane:** Debug/Profile ready builds, DX12 renderer
-   validation, and core physics determinism.
+2. **Runtime evidence lane:** Debug/Profile ready builds, DX12 renderer
+   validation, and core physics determinism. A persistent GPU machine executes
+   trusted `main`/manual refs only; public pull requests require a disposable,
+   isolated GPU runner before this evidence can become merge-blocking.
 3. **Targeted lanes:** deep physics, replay scrub, interaction clicks, perf,
    graphics stress, and fault injection when touched files require them.
 4. **Scheduled safety lane:** sanitizer/static analysis that is informative
@@ -82,15 +86,29 @@ Separate validation by capability rather than by historical script:
   every standalone CPU target, zero DX12 validation errors and matching visual
   baselines, then a byte-exact 20,001-line physics baseline.
 - [ ] **V3 — Pull-request CI.** Add a `windows-latest` GitHub Actions workflow
-  for the CPU mandatory lane with artifact upload on failure. Add a separate
-  self-hosted label (`Windows`, `x64`, `dx12`) for the runtime lane; do not fake
-  GPU success on a hosted runner. Require the CPU lane immediately and require
-  the runtime lane once a runner is registered and stable.
-- [ ] **V4 — Sanitizer/static-analysis lane.** Add an MSVC AddressSanitizer
+  for CPU preflight, every CPU test target, and a Profile engine build, with
+  artifact upload on failure and merge-queue coverage. Add a separate
+  self-hosted label (`Windows`, `x64`, `dx12`) for trusted `main`/manual runtime
+  evidence; never run public-PR code on a persistent machine or treat a skipped
+  job as evidence. Require the CPU lane after a real PR/merge-group proof.
+  Runtime may become a required PR check only after replacement by an
+  ephemeral, disposable, isolated GPU worker. Binding design and activation
+  checklist: `Agentic/Reports/validation_ci_v3_20260710.md`.
+- [x] **V4 — Sanitizer/static-analysis lane.** Add an MSVC AddressSanitizer
   configuration for CPU-testable engine code and a bounded `/analyze` or
   equivalent static-analysis job. Record suppressions with owner, reason, and
   deletion condition. Acceptance: one injected heap-use-after-free fixture is
   caught before removing the fixture.
+  Evidence (2026-07-10):
+  `tools\validate_native_diagnostics.bat --prove-asan-fixture` caught the
+  isolated heap-use-after-free with exit 3,
+  then passed 78/78 healthy ASan CPU tests and 1,883 assertions. The bounded
+  maths `/analyze` lane emitted five fresh evidence sidecars, zero warnings,
+  and zero governed suppressions. Complete-output scanning plus bounded
+  persisted logs was re-proven in 17.186s. A weekly/manual hosted workflow now
+  runs the same detector proof and healthy lanes; it remains informational
+  until a real hosted run succeeds. Report:
+  `Agentic/Reports/validation_sanitizer_v4_20260710.md`.
 - [x] **V5 — Documentation and sustaining rule.** Update `AGENTS.md`, README,
   tools README, and file-to-gate mapping. New standalone test executables must
   register with the CPU umbrella in the same commit. Acceptance: no test script
@@ -104,7 +122,8 @@ Separate validation by capability rather than by historical script:
 
 ## Dependencies And Safety
 
-- CI configuration must not claim DX12 evidence without a GPU-capable runner.
+- CI configuration must not claim DX12 evidence without a GPU-capable runner,
+  and a persistent self-hosted runner must never execute public-PR code.
 - V1/V2 should land before plans add more tests, otherwise new suites can remain
   orphaned.
 - `behavioral-test-depth.md` P6 closes only after V2 and V5 complete.
@@ -122,6 +141,8 @@ proven by an actual pull-request run before the CI phase is checked complete.
 - Every first-party test executable runs through one CPU umbrella.
 - `agent_validate` cannot pass with a broken unit test.
 - A required Windows CI check protects pull requests.
-- GPU validation is required only where a real DX12 runner supplies evidence.
+- GPU validation is required only where a real, safely isolated DX12 runner
+  supplies evidence; the persistent trusted-ref workflow is post-merge until
+  that stronger boundary exists.
 - Sanitizer/static-analysis findings have an owned baseline and no silent
   blanket suppression.

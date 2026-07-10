@@ -1,0 +1,90 @@
+name: Mandatory CPU validation
+
+"on":
+  pull_request:
+  merge_group:
+    types: [checks_requested]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  cpu-tests:
+    name: Mandatory CPU lane (Windows hosted)
+    runs-on: windows-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Record hosted-runner context
+        shell: pwsh
+        run: |
+          $artifactDir = Join-Path $env:GITHUB_WORKSPACE "TestOutput\validation\ci"
+          New-Item -ItemType Directory -Force -Path $artifactDir | Out-Null
+          @(
+            "runner_name=$env:RUNNER_NAME"
+            "runner_os=$env:RUNNER_OS"
+            "runner_arch=$env:RUNNER_ARCH"
+            "image_os=$env:ImageOS"
+            "image_version=$env:ImageVersion"
+          ) | Set-Content -Path (Join-Path $artifactDir "hosted-runner.txt")
+
+      - name: Run mandatory hosted CPU lane
+        env:
+          SKORE_SIZE_DIFF_BASE: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || '' }}
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          if (Test-Path variable:PSNativeCommandUseErrorActionPreference) {
+            $PSNativeCommandUseErrorActionPreference = $false
+          }
+          $artifactDir = Join-Path $env:GITHUB_WORKSPACE "TestOutput\validation\ci"
+          New-Item -ItemType Directory -Force -Path $artifactDir | Out-Null
+          $log = Join-Path $artifactDir "mandatory-cpu-lane.log"
+          $gates = @(
+            [pscustomobject]@{
+              Name = "validate_fast.bat --preflight-only"
+              Command = "tools\validate_fast.bat --preflight-only"
+            }
+            [pscustomobject]@{
+              Name = "validate_all_cpu_tests.bat"
+              Command = "tools\validate_all_cpu_tests.bat"
+            }
+          )
+
+          foreach ($gate in $gates) {
+            "=== $($gate.Name) ===" |
+              Tee-Object -FilePath $log -Append
+            & cmd.exe /d /c $gate.Command 2>&1 |
+              Tee-Object -FilePath $log -Append
+            $exitCode = $LASTEXITCODE
+            "child=$($gate.Name) exit_code=$exitCode" |
+              Tee-Object -FilePath $log -Append
+            if ($exitCode -ne 0) {
+              "mandatory_cpu_lane_failed=$($gate.Name)" |
+                Tee-Object -FilePath $log -Append
+              exit $exitCode
+            }
+          }
+
+          "mandatory_cpu_lane=PASS" |
+            Tee-Object -FilePath $log -Append
+
+      - name: Upload CPU failure evidence
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: mandatory-cpu-failure-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            TestOutput/validation/**
+            Profile/*.log
+            Profile/*.txt
+            Agentic/Tests/**/x64/**/*.log
+          if-no-files-found: warn
+          retention-days: 14
