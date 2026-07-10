@@ -19,7 +19,7 @@
 @rem
 @rem Related:
 @rem   - AGENTS.md
-@rem   - Agentic/Plans/runtime-interaction-state-machine-hardening-plan.md
+@rem   - Agentic/Plans/TODO/interaction-state-machine.md
 @rem   - Agentic/Tests/RuntimeInteractionPolicyTests/RuntimeInteractionPolicyTests.cpp
 @rem
 @echo off

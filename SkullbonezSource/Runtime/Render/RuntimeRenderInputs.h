@@ -94,7 +94,7 @@ struct CinematicRenderConfig;
 
 struct RuntimeRenderModelFrameView
 {
-    const Rendering::RenderInstanceStore& renderInstances;
+    Rendering::RenderInstanceStore& renderInstances;
     const Physics::ColliderStore& colliders;
     const Physics::PhysicsBodyStore& bodyStore;
     Physics::PhysicsEngine& physicsEngine;

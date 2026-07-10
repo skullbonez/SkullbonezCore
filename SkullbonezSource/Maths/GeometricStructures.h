@@ -4,9 +4,10 @@ Purpose:
   Defines small geometry structs used by math, collision, and rendering code.
 
 Mental model:
-  Math code is shared infrastructure. Coordinate conventions, units,
-  handedness, and simplifications matter because subtle assumptions spread
-  through rendering and physics.
+  GeometricStructures.h defines small geometry structs used by math,
+  collision, and rendering code. As a public header, keep edits anchored on
+  units, basis conventions, and numerical assumptions and on the
+  glossary/invariants below.
 
 Glossary:
   Engine module: A source file with one focused responsibility inside the

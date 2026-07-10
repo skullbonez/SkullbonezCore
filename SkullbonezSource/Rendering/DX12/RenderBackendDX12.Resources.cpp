@@ -4,9 +4,10 @@ Purpose:
   Creates, transitions, and names DX12 resources used by the renderer.
 
 Mental model:
-  DX12 separates resource memory, descriptor rows, command recording, and GPU
-  execution. Ownership, state transitions, descriptor lifetime, and fence
-  ordering are the important ideas.
+  RenderBackendDX12.Resources.cpp creates, transitions, and names DX12
+  resources used by the renderer. As an implementation unit, keep edits
+  anchored on DX12 ownership, descriptors, resources, and command submission
+  and on the glossary/invariants below.
 
 Glossary:
   Descriptor: Small binding record that tells a renderer how to interpret a
@@ -28,7 +29,6 @@ Related:
 #include "../RenderGraph.h"
 #include "../../Core/Log.h"
 #include "../../Core/PlatformProfiler.h"
-#include <stdexcept>
 #include <cstdio>
 #include <cstring>
 #include <algorithm>
@@ -65,7 +65,12 @@ std::unique_ptr<IShader> RenderBackendDX12::CreateShader( const char* baseName )
     auto shader = std::make_unique<ShaderDX12>( *this );
     if ( !shader->Compile( hlslPath.c_str() ) )
     {
-        throw std::runtime_error( "ShaderDX12 compilation failed: " + hlslPath );
+        // Lane R: shader files and compiler output are external inputs. Return
+        // a null shader so setup/render owners can skip the dependent draw while
+        // the DX12 validation log names the missing program.
+        Log().WriteEventf( "dx12_shader_create_failed path=%s", hlslPath.c_str() );
+        Log().FlushAll();
+        return nullptr;
     }
     return shader;
 }
@@ -98,7 +103,10 @@ RenderBackendDX12::CreateMesh( const float* data, int vertexCount, bool hasNorma
     uint8_t* uploadPtr = GetUploadPtr( uploadAddr );
 
     auto mesh = std::make_unique<MeshDX12>( *this );
-    mesh->Create( Device(), CommandList(), data, vertexCount, floatsPerVert, format, uploadAddr, uploadPtr );
+    if ( !mesh->Create( Device(), CommandList(), data, vertexCount, floatsPerVert, format, uploadAddr, uploadPtr ) )
+    {
+        return nullptr;
+    }
     return mesh;
 }
 
@@ -107,6 +115,9 @@ std::unique_ptr<IFramebuffer>
 RenderBackendDX12::CreateFramebuffer( int width, int height, FramebufferColorFormat colorFormat )
 {
     auto fbo = std::make_unique<FramebufferDX12>( *this, colorFormat );
-    fbo->Create( width, height );
+    if ( !fbo->Create( width, height ) )
+    {
+        return nullptr;
+    }
     return fbo;
 }

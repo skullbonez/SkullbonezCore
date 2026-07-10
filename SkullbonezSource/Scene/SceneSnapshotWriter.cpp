@@ -4,9 +4,9 @@ Purpose:
   Serializes the current scene state back into a JSON scene file.
 
 Mental model:
-  Scene snapshots serialize a live, editable scene. Cold presentation metadata
-  still comes from GameModel order, while live physics state is sampled from the
-  physics stores that own the current simulation frame.
+  SceneSnapshotWriter.cpp serializes the current scene state back into a JSON
+  scene file. As an implementation unit, keep edits anchored on scene-file
+  parsing or snapshot contracts and on the glossary/invariants below.
 
 Glossary:
   Scene snapshot: JSON scene emitted from current runtime state rather than the
@@ -15,8 +15,6 @@ Glossary:
     objects but do not drive physics integration.
   Scene object group: JSON metadata that lets multi-part object grouping
     round-trip without parsing display-name suffixes at collection append time.
-  Validation gate: Repository script that proves a class of changes before
-    commit or PR.
 
 Invariants:
   - Command-line and scene-file spellings are user-facing compatibility
@@ -200,8 +198,8 @@ bool SceneSnapshotWriter::Save( GameModelCollection& collection,
     // velocities, sleeping flags, and materials can round-trip through
     // TestSceneParser without reinterpreting authored placement offsets.
     const std::vector<GameModel>& sceneModels = collection.Models();
-    const PhysicsBodyStore& bodyStore = collection.GetPhysicsEngine().BodyStore();
-    const ColliderStore& colliderStore = collection.GetPhysicsEngine().Colliders();
+    const PhysicsBodyStore& bodyStore = collection.BodyStore();
+    const ColliderStore& colliderStore = collection.Colliders();
 
     std::ofstream output;
     if ( !RuntimeFileWriter::OpenTextFile( path, output ) )
@@ -220,6 +218,16 @@ bool SceneSnapshotWriter::Save( GameModelCollection& collection,
         { "fluidHeight", worldEnv.GetFluidSurfaceHeight() },
         { "fluidDensity", worldEnv.GetFluidDensity() },
     };
+    const auto& mutualGravity = worldEnv.GetMutualGravitySettings();
+    if ( mutualGravity.enabled )
+    {
+        scene["simulation"]["world"]["mutualGravity"] = {
+            { "enabled", true },
+            { "gravitationalConstant", mutualGravity.gravitationalConstant },
+            { "softeningLength", mutualGravity.softeningLength },
+            { "elasticCollisions", mutualGravity.elasticCollisions },
+        };
+    }
     scene["playback"] = Json::object();
     scene["playback"]["frames"] = "unlimited";
     scene["playback"]["fixedStep"] = fixedStep;

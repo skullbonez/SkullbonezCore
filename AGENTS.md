@@ -106,18 +106,31 @@ Comment quality is part of completion, not a follow-up nicety.
   inventory and reconcile it against the checklist. The final answer or handoff
   must include the checklist path, checked count, deferred count, and any files
   still unchecked.
+- Trivial wrappers, link stubs, one-line forwarding files, and tiny batch or
+  PowerShell helpers do not need a full learning header when the diff is
+  self-explanatory. Add local comments only for non-obvious validation purpose,
+  shell hazards, ownership, or runtime behavior.
 - Comment-only source edits count as documentation-only for repository
   validation, provided the diff is strictly comments/docs. If code behavior
   changes accidentally, stop and switch to the validation map below.
 
-## Migration Artifact Gate
+## Governance Review Model
+
+The deleted runtime-boundary regex checker is not part of repository
+enforcement. Do not recreate frozen-count or spelling-budget checks for
+migration vocabulary, inheritance, `Run` size, throw counts, or similar
+historical debt. These policies are enforced by code review, owning plans,
+focused behavioral tests in `Agentic/Plans/TODO/behavioral-test-depth.md`, and
+the targeted validation gates below.
+
+## Migration Cleanup Review Rule
 
 Compatibility code is allowed only when it is honest, bounded, and guarded.
 Do not introduce new types, functions, fields, or modules named around migration
 mechanics such as `Runtime`, `Snapshot`, `Compatibility`, `Transitional`,
 `Bridge`, `Tuning`, `ForCompatibility`, or raw `Model`/`GameModel` access unless
 the change names all four of these in the owning plan, source comment, or commit
-body: owner, reason, deletion condition, and checker budget.
+body: owner, reason, deletion condition, and review evidence.
 
 - Prefer domain nouns over migration nouns. For example, split values into
   `PhysicsMaterial`, `BodySimulationLimits`, `ContactPolicy`,
@@ -126,10 +139,8 @@ body: owner, reason, deletion condition, and checker budget.
 - A bridge that mostly answers "how did we avoid the old global/service/storage
   path?" is not done until it either becomes a domain API or has an explicit
   follow-up row with a deletion condition.
-- When deleting a migration artifact, update or add a static guardrail in
-  `tools/check_runtime_boundaries.py` in the same slice whenever the artifact can
-  be detected textually. Include a self-test for the guardrail and rerun the
-  boundary checker.
+- When deleting a migration artifact, update the owning plan and add or extend
+  behavioral coverage when the regression can be tested practically.
 - Do not mark a kill-list row or migration-cleanup plan complete while source
   still exposes the deleted shape under a new compatibility spelling. If a real
   model-owner command or context remains, describe it as the remaining domain
@@ -137,7 +148,7 @@ body: owner, reason, deletion condition, and checker budget.
 - Use a single independent rubber-duck review at the end of a whole cleanup
   plan, not one review per tiny slice, unless the user explicitly asks for more.
 
-## Hot-Path Data and Inheritance Gate
+## Hot-Path Data and Inheritance Review Rule
 
 Physics, collision, solver, audio classification, render submission, and other
 per-frame hot paths must operate on compact store arrays, value records,
@@ -149,9 +160,6 @@ polymorphic service objects, callback chains, handle lookups, scattered
   runtime polymorphism. The owning plan, source comment, and commit body must
   name the owner, why value/data composition is insufficient, the expected
   call frequency, and the validation or perf evidence required.
-- `tools/check_runtime_boundaries.py` enforces the current source inheritance
-  budget. New inheritance should fail there until an approved stable-boundary
-  row is deliberately added with the evidence above.
 - Migration cleanup must not introduce `*Sink`, `*Bridge`, `*Adapter`,
   `*Compatibility`, or callback-style interfaces on hot paths as a way to hide
   old ownership. Prefer a plain output buffer that the owner applies after the
@@ -160,17 +168,20 @@ polymorphic service objects, callback chains, handle lookups, scattered
   solver scratch arrays, and bounded side-effect arrays. Any required
   `PhysicsModelAccess`, `PhysicsBodyEventSink`, UI, audio service, or runtime
   owner work belongs outside the solver/broadphase/narrowphase loop.
-- When deleting a hot-path inheritance or callback artifact, add or tighten a
-  guardrail in `tools/check_runtime_boundaries.py` whenever the regression can
-  be detected textually. Include a self-test and rerun the boundary checker.
+- When deleting a hot-path inheritance or callback artifact, extend the focused
+  tests or validation evidence that would catch the regression. Do not replace
+  the deleted artifact with a new compatibility spelling.
 
-## Runtime Static Allocation Gate
+## Runtime Static Allocation Policy
 
-Dynamically growing STL types and direct heap calls are banned in physics and
-gameplay runtime code. Gameplay storage must be fixed or preallocated before
-steady gameplay begins, and pool exhaustion must assert in Profile/Debug or
-fail fatally in Release with owner, capacity, high-water, and phase diagnostics;
-there is no gameplay growth fallback.
+Runtime allocation policy is global zero allocation by default. Dynamically
+growing STL types, STL growth calls, direct heap calls, `std::make_unique`,
+`std::make_shared`, and equivalent heap paths are banned in steady runtime code
+unless an owner-approved exception routes through the allocation policy path.
+Gameplay storage must be fixed or preallocated before steady gameplay begins,
+and pool exhaustion must assert in Profile/Debug or fail fatally in Release with
+owner, capacity, high-water, and phase diagnostics; there is no gameplay growth
+fallback.
 
 Replay is the only runtime subsystem allowed to grow after steady gameplay
 starts, and that growth must be approved by `RuntimeReserveAllocator` through a
@@ -181,15 +192,21 @@ policy comment. Unregistered replay allocations are allocation-guard failures.
 `std::make_shared`, and equivalent heap paths are banned at runtime outside
 pre-gameplay phases, allocator/wrapper internals, and explicit cold utility
 actions such as screenshot/readback, file save/load, replay artifact IO,
-diagnostics dumps, and editor mutation actions. Violations are lint, validation,
-and review failures.
+diagnostics dumps, and editor mutation actions. Violations are allocation-policy
+validation and review failures.
+
+Static enforcement lives in `tools/check_allocation_policy.py` and
+`tools/allocation_policy_allowlist.json`. The checker scans configured source
+roots for direct heap/reserve APIs, owning dynamic STL members, and STL growth
+calls. Allowlist rows must name the owner, phase, reason, cap, and
+removal/wrapper plan; do not add ad-hoc regex gates, frozen count ratchets, or
+new runtime allocation exceptions without an owner decision.
 
 ## Error Handling Policy
 
-Exceptions are banned for new engine code. Existing `throw` sites are tracked
-by `tools/check_runtime_boundaries.py` and must only go down unless a plan names
-the owner and updates the ratchet intentionally. Any new `throw` is a review
-failure.
+Exceptions are banned for engine code. The strict source throw inventory is
+zero as of 2026-07-10. Do not add a new throw-count ratchet or frozen budget;
+any new `throw` is a review failure.
 
 | Lane | Use For | Mechanism |
 |------|---------|-----------|
@@ -248,7 +265,8 @@ Profile\SKULLBONEZ_CORE.exe --platform-profiler-markers
 | Other physics CSV baselines or `TestOutput/baselines/physics_query*.json` | `validate_physics_deep` |
 | `Common.h` | `validate_full` |
 | `SkullbonezTests/*`, `SKULLBONEZ_TESTS.vcxproj`, `SKULLBONEZ_TESTS.vcxproj.filters` | `validate_tests` |
-| `Runtime/Allocation/*`, `tools/check_allocation_policy.py`, `tools/allocation_policy_allowlist.json` | `validate_perf` |
+| `Runtime/Allocation/*` | `validate_perf` |
+| `tools/check_allocation_policy.py`, `tools/allocation_policy_allowlist.json` | `validate_fast`, then `python tools\check_allocation_policy.py --self-test` and `python tools\check_allocation_policy.py --repo .`; add `validate_perf` if runtime guard or reserve semantics change |
 | `Run*`, `Runtime/*` | `validate_full` |
 | `Window*` | `validate_full` |
 | `Init*` | `validate_full` |

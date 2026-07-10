@@ -4,9 +4,10 @@ Purpose:
   Owns all scene models and delegates rendering, physics, and snapshots.
 
 Mental model:
-  Runtime code connects authored scene data, input, simulation, render
-  backends, and validation-oriented launch modes. Follow who owns state and
-  when that state changes.
+  GameModelCollection.h owns all scene models and delegates rendering,
+  physics, and snapshots. As a public header, keep edits anchored on model
+  ownership, dense-row identity, and render/physics handoff and on the
+  glossary/invariants below.
 
 Glossary:
   SkullScope: Queryable physics diagnostics workflow backed by bounded trace
@@ -34,8 +35,6 @@ Glossary:
     scrubbing or prediction draws historical/future bodies without mutating physics.
   Replay body id: PhysicsBodyStore row identity saved in replay samples so
     restore paths can reject stale model slots.
-  Validation gate: Repository script that proves a class of changes before
-    commit or PR.
 
 Invariants:
   - SceneEntityStore is the stable scene-order owner; collaborators mirror or
@@ -70,6 +69,7 @@ Related:
 #include "../Maths/Matrix4.h"
 #include "../Physics/PhysicsApi.h"
 #include "../Physics/PhysicsEngine.h"
+#include "../Physics/PhysicsEngineStoreQueries.h"
 #include "../Rendering/RenderInstanceStore.h"
 #include "../Rendering/Shadow.h"
 #include "../Maths/Vector3.h"
@@ -222,6 +222,7 @@ class GameModelCollection
     SceneEntityStore m_sceneEntities;
     SceneObjectGroupStore m_sceneObjectGroupStore;
     Physics::PhysicsEngine m_physicsEngine;
+    Rendering::RenderInstanceStore m_renderInstanceStore;        // Render snapshot in scene/model order, owned outside physics.
     Threading::WorkerPool* m_workerPool = nullptr;               // Borrowed startup worker pool for render/physics parallel helpers.
     int m_activeGameModelCapacity = DEFAULT_GAME_MODEL_CAPACITY; // Configured model cap used by append/reserve guards.
     bool m_renderCollisionVolumes = false;                       // Cached render debug toggle copied from EngineConfig.
@@ -234,7 +235,7 @@ class GameModelCollection
     SceneObjectGroupRecord GroupRecordAt( int modelIndex ) const;
     // Owner boundary: fixed-tree grouping is collection metadata. Body-store
     // import receives only the scalar root, never collection-kind accessors.
-    std::vector<int> BuildFixedTreeReleaseRootsForReload() const;
+    std::vector<Physics::ModelRowHint> BuildFixedTreeReleaseRootsForReload() const;
     std::vector<const char*> BuildDiagnosticNamesForReload() const;
     bool RefreshPhysicsBodyStoreFromAuthoredDescriptors();
     // Private body-only repair is reserved for collection-owned projection
@@ -378,13 +379,22 @@ class GameModelCollection
     bool RepairPhysicsBodyAndColliderTopology();
     // Current prepared collider snapshot. Hot render passes use this after
     // PrepareRenderInstances() instead of invoking topology repair mid-submit.
+    const Physics::PhysicsBodyStore& BodyStore() const;
     const Physics::ColliderStore& Colliders() const;
     // Current prepared render snapshot. Call PrepareRenderInstances() before frame
     // passes; cold callers that need an ensured snapshot use GetRenderInstanceStore().
+    Rendering::RenderInstanceStore& MutableRenderInstances();
     const Rendering::RenderInstanceStore& RenderInstances() const;
+    // Replay presentation samples are one-frame render overrides. The collection
+    // validates replay body identity before mutating its render snapshot so scrub
+    // and prediction code cannot redirect stale model slots.
+    bool TryQueueReplayRenderPoseOverride( int modelIndex,
+                                           uint32_t replayBodyId,
+                                           const Math::Vector::Vector3& position,
+                                           const Math::Orientation::Quaternion& orientation );
     const std::vector<Rendering::RenderInstancePresentationRecord>& RenderPresentationRecords() const
     {
-        return m_physicsEngine.RenderPresentationRecords();
+        return m_renderInstanceStore.PresentationRecords();
     }
     const char* DisplayNameAt( int modelIndex ) const;
     int FindModelIndexByDisplayName( const char* name ) const;
@@ -452,49 +462,47 @@ class GameModelCollection
                              Rendering::IRenderCommandContext& renderCommands,
                              bool supportsDebugLines,
                              Geometry::Terrain* terrain );
-    void RenderTornadoFieldVectors( const Math::Transformation::Matrix4& viewProj,
-                                    Rendering::IRenderCommandContext& renderCommands,
-                                    bool supportsDebugLines );
-
+    // Borrowed debug/diagnostics views over physics-owned dense rows. Callers
+    // must not cache them beyond the frame/tool operation that requested them.
     const Math::CollisionDetection::SpatialGrid& GetSpatialGrid() const
     {
-        return m_physicsEngine.GetSpatialGrid();
+        return Physics::PhysicsEngineStoreQueries::SpatialGrid( m_physicsEngine );
     }
     const std::vector<int64_t>& GetCollisionCellKeys() const
     {
-        return m_physicsEngine.GetCollisionCellKeys();
+        return Physics::PhysicsEngineStoreQueries::CollisionCellKeys( m_physicsEngine );
     }
     const std::vector<uint8_t>& GetCollisionVisualContacts() const
     {
-        return m_physicsEngine.GetCollisionVisualContacts();
+        return Physics::PhysicsEngineStoreQueries::CollisionVisualContacts( m_physicsEngine );
     }
     const std::vector<uint8_t>& GetSleepStates() const
     {
-        return m_physicsEngine.GetSleepStates();
+        return Physics::PhysicsEngineStoreQueries::SleepStates( m_physicsEngine );
     }
     const std::vector<int>& GetSleepIslandVisualIds() const
     {
-        return m_physicsEngine.GetSleepIslandVisualIds();
+        return Physics::PhysicsEngineStoreQueries::SleepIslandVisualIds( m_physicsEngine );
     }
     const std::vector<uint8_t>& GetSleepSupportedStates() const
     {
-        return m_physicsEngine.GetSleepSupportedStates();
+        return Physics::PhysicsEngineStoreQueries::SleepSupportedStates( m_physicsEngine );
     }
     const std::vector<uint8_t>& GetSleepInhibitedStates() const
     {
-        return m_physicsEngine.GetSleepInhibitedStates();
+        return Physics::PhysicsEngineStoreQueries::SleepInhibitedStates( m_physicsEngine );
     }
     const std::vector<Physics::PhysicsDebugContact>& GetPhysicsDebugContacts() const
     {
-        return m_physicsEngine.GetPhysicsDebugContacts();
+        return Physics::PhysicsEngineStoreQueries::DebugContacts( m_physicsEngine );
     }
     const std::vector<Physics::PhysicsPipelineRecord>& GetPhysicsPipelineTrace() const
     {
-        return m_physicsEngine.GetPhysicsPipelineTrace();
+        return Physics::PhysicsEngineStoreQueries::PipelineTrace( m_physicsEngine );
     }
     const std::vector<Physics::PointJointConstraint>& GetPointJointConstraints() const
     {
-        return m_physicsEngine.GetPointJointConstraints();
+        return Physics::PhysicsEngineStoreQueries::PointJointConstraints( m_physicsEngine );
     }
 
 #ifdef _DEBUG

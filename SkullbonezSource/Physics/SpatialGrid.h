@@ -4,9 +4,10 @@ Purpose:
   Partitions space into broadphase cells so physics can test nearby objects cheaply.
 
 Mental model:
-  Physics is deterministic fixed-step state update. Units, contact ownership,
-  solver stages, sleep policy, and baseline-sensitive behavior are the key
-  reading anchors.
+  SpatialGrid.h partitions space into broadphase cells so physics can test
+  nearby objects cheaply. As a public header, keep edits anchored on
+  deterministic physics, diagnostics, or world-state flow and on the
+  glossary/invariants below.
 
 Glossary:
   CCD (Continuous Collision Detection): Swept test that asks whether moving

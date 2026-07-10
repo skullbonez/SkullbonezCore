@@ -239,7 +239,7 @@ SbResult AppendAuthoredSimpleRagdoll( SceneSimpleRagdollAppendContext context, c
 
     int jointCount = 0;
     const RagdollJointDesc* joints = Ragdoll::SimpleJoints( jointCount );
-    const PhysicsBodyStore& bodyStore = context.models.GetPhysicsEngine().BodyStore();
+    const PhysicsBodyStore& bodyStore = context.models.BodyStore();
     for ( int i = 0; i < jointCount; ++i )
     {
         PhysicsPointJointCreateDesc desc;
@@ -765,7 +765,7 @@ SbResult SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context,
         }
     }
 
-    const PhysicsBodyStore& bodyStore = context.models.GetPhysicsEngine().BodyStore();
+    const PhysicsBodyStore& bodyStore = context.models.BodyStore();
     for ( int i = 0; i < scene.GetPointJointConstraintCount(); ++i )
     {
         const ScenePointJointConstraint& sceneJoint = scene.GetPointJointConstraint( i );
@@ -802,7 +802,7 @@ SbResult SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context,
         // and exact-name targets can hit authored objects, generated ragdolls,
         // and snapshot bodies uniformly.
         const SceneObjectMaterialOverride& material = scene.GetObjectMaterialOverride( materialIndex );
-        const auto& colliders = context.models.GetPhysicsEngine().Colliders().Records();
+        const auto& colliders = context.models.Colliders().Records();
         for ( int modelIndex = 0; modelIndex < context.models.SceneEntityCount(); ++modelIndex )
         {
             const ColliderShapeKind shapeKind = modelIndex < static_cast<int>( colliders.size() )

@@ -33,6 +33,7 @@ Related:
 
 #include <atomic>
 #include <cstddef>
+#include <cstdio>
 #include <cstdlib>
 #include <new>
 
@@ -76,9 +77,6 @@ struct CallsiteCounters
 {
     std::atomic<uintptr_t> address;
     std::atomic<uintptr_t> parentAddress;
-    std::atomic<uintptr_t> grandparentAddress;
-    std::atomic<uintptr_t> caller3Address;
-    std::atomic<uintptr_t> caller4Address;
     std::atomic<int> phaseIndex;
     std::atomic<uint32_t> owner;
     std::atomic<uint64_t> allocations;
@@ -184,9 +182,6 @@ void RecordCallsite( RuntimeAllocationPhase phase,
                      RuntimeReserveOwnerHandle owner,
                      uintptr_t callsite,
                      uintptr_t parent,
-                     uintptr_t grandparent,
-                     uintptr_t caller3,
-                     uintptr_t caller4,
                      bool violation,
                      uint64_t size ) noexcept
 {
@@ -204,9 +199,6 @@ void RecordCallsite( RuntimeAllocationPhase phase,
         if ( observed == callsite && counters.parentAddress.load( std::memory_order_relaxed ) == parent &&
              counters.phaseIndex.load( std::memory_order_relaxed ) == phaseIndex )
         {
-            counters.grandparentAddress.store( grandparent, std::memory_order_relaxed );
-            counters.caller3Address.store( caller3, std::memory_order_relaxed );
-            counters.caller4Address.store( caller4, std::memory_order_relaxed );
             counters.owner.store( owner, std::memory_order_relaxed );
             counters.allocations.fetch_add( 1u, std::memory_order_relaxed );
             if ( violation )
@@ -222,9 +214,6 @@ void RecordCallsite( RuntimeAllocationPhase phase,
                                                                          std::memory_order_acquire ) )
         {
             counters.parentAddress.store( parent, std::memory_order_relaxed );
-            counters.grandparentAddress.store( grandparent, std::memory_order_relaxed );
-            counters.caller3Address.store( caller3, std::memory_order_relaxed );
-            counters.caller4Address.store( caller4, std::memory_order_relaxed );
             counters.phaseIndex.store( phaseIndex, std::memory_order_relaxed );
             counters.owner.store( owner, std::memory_order_relaxed );
             counters.allocations.store( 1u, std::memory_order_relaxed );
@@ -255,11 +244,11 @@ bool RecordAllocation( RuntimeAllocationPhase phase,
     s_totalBytes.fetch_add( size, std::memory_order_relaxed );
     RuntimeReserveAllocator::RecordAllocation( owner, phaseIndex, size );
 
-    uintptr_t stackFrames[5] = {};
+    uintptr_t stackFrames[2] = {};
 #if defined( _WIN32 )
-    void* capturedFrames[6] = {};
-    const USHORT capturedCount = CaptureStackBackTrace( 2u, 6u, capturedFrames, nullptr );
-    for ( USHORT index = 0; index < capturedCount && index < 5u; ++index )
+    void* capturedFrames[2] = {};
+    const USHORT capturedCount = CaptureStackBackTrace( 2u, 2u, capturedFrames, nullptr );
+    for ( USHORT index = 0; index < capturedCount && index < 2u; ++index )
     {
         stackFrames[index] = reinterpret_cast<uintptr_t>( capturedFrames[index] );
     }
@@ -268,10 +257,7 @@ bool RecordAllocation( RuntimeAllocationPhase phase,
     const bool gameplayViolation = CurrentMode() == RuntimeAllocationGuardMode::Gameplay &&
                                    IsGameplayViolationPhase( phase ) && !approvedReplayGrowth;
     const uintptr_t parent = stackFrames[1] != 0u ? stackFrames[1] : stackFrames[0];
-    const uintptr_t grandparent = stackFrames[2];
-    const uintptr_t caller3 = stackFrames[3];
-    const uintptr_t caller4 = stackFrames[4];
-    RecordCallsite( phase, owner, callsite, parent, grandparent, caller3, caller4, gameplayViolation, size );
+    RecordCallsite( phase, owner, callsite, parent, gameplayViolation, size );
 
     if ( gameplayViolation )
     {
@@ -384,13 +370,39 @@ void FreeTrackedMemory( void* pointer ) noexcept
     std::free( raw );
 }
 
-void* AllocateOrThrow( std::size_t size, std::size_t alignment, void* callsite )
+[[noreturn]] void FatalAllocationFailure( std::size_t size, std::size_t alignment ) noexcept
 {
-    if ( void* pointer = AllocateTrackedMemory( size, alignment, callsite ) )
+    char message[256] = {};
+    std::snprintf( message,
+                   sizeof( message ),
+                   "FATAL[Runtime/Allocation]: global operator new exhausted memory. size=%llu alignment=%llu\n",
+                   static_cast<unsigned long long>( size ),
+                   static_cast<unsigned long long>( alignment ) );
+
+#if defined( _WIN32 )
+    OutputDebugStringA( message );
+#endif
+    std::fputs( message, stderr );
+    std::fflush( stderr );
+
+#if ( defined( _DEBUG ) || defined( SKULLBONEZ_PROFILE_ENABLED ) ) && defined( _MSC_VER )
+    __debugbreak();
+#endif
+
+    std::abort();
+}
+
+void* AllocateOrFatal( std::size_t size, std::size_t alignment, void* callsite )
+{
+    const std::size_t normalizedAlignment = NormalizeAlignment( alignment );
+    if ( void* pointer = AllocateTrackedMemory( size, normalizedAlignment, callsite ) )
     {
         return pointer;
     }
-    throw std::bad_alloc();
+
+    // Lane F / Hazard: malloc has already failed inside the global allocation
+    // hook, so this path must not call SB_FATAL or any EngineLog-backed helper.
+    FatalAllocationFailure( size, normalizedAlignment );
 }
 } // namespace
 
@@ -517,12 +529,10 @@ void ResetRuntimeAllocationCounters() noexcept
     {
         counters.address.store( 0u, std::memory_order_relaxed );
         counters.parentAddress.store( 0u, std::memory_order_relaxed );
-        counters.grandparentAddress.store( 0u, std::memory_order_relaxed );
-        counters.caller3Address.store( 0u, std::memory_order_relaxed );
-        counters.caller4Address.store( 0u, std::memory_order_relaxed );
         counters.phaseIndex.store( -1, std::memory_order_relaxed );
         counters.owner.store( 0u, std::memory_order_relaxed );
         counters.allocations.store( 0u, std::memory_order_relaxed );
+        counters.violations.store( 0u, std::memory_order_relaxed );
         counters.bytes.store( 0u, std::memory_order_relaxed );
     }
 }
@@ -612,29 +622,17 @@ void PrintRuntimeAllocationSummary( FILE* out ) noexcept
         }
         const uintptr_t address = counters->address.load( std::memory_order_relaxed );
         const uintptr_t parent = counters->parentAddress.load( std::memory_order_relaxed );
-        const uintptr_t grandparent = counters->grandparentAddress.load( std::memory_order_relaxed );
-        const uintptr_t caller3 = counters->caller3Address.load( std::memory_order_relaxed );
-        const uintptr_t caller4 = counters->caller4Address.load( std::memory_order_relaxed );
         const uintptr_t rva = imageBase != 0u && address >= imageBase ? address - imageBase : address;
         const uintptr_t parentRva = imageBase != 0u && parent >= imageBase ? parent - imageBase : parent;
-        const uintptr_t grandparentRva =
-            imageBase != 0u && grandparent >= imageBase ? grandparent - imageBase : grandparent;
-        const uintptr_t caller3Rva = imageBase != 0u && caller3 >= imageBase ? caller3 - imageBase : caller3;
-        const uintptr_t caller4Rva = imageBase != 0u && caller4 >= imageBase ? caller4 - imageBase : caller4;
         const int phaseIndex = counters->phaseIndex.load( std::memory_order_relaxed );
         fprintf( out,
                  "[allocation-guard] callsite rank=%d phase=%s owner=%u rva=0x%llx parent_rva=0x%llx "
-                 "grandparent_rva=0x%llx caller3_rva=0x%llx caller4_rva=0x%llx address=0x%llx "
                  "allocations=%llu violations=%llu bytes=%llu\n",
                  rank + 1,
                  RuntimeAllocationPhaseName( static_cast<RuntimeAllocationPhase>( phaseIndex ) ),
                  counters->owner.load( std::memory_order_relaxed ),
                  static_cast<unsigned long long>( rva ),
                  static_cast<unsigned long long>( parentRva ),
-                 static_cast<unsigned long long>( grandparentRva ),
-                 static_cast<unsigned long long>( caller3Rva ),
-                 static_cast<unsigned long long>( caller4Rva ),
-                 static_cast<unsigned long long>( address ),
                  static_cast<unsigned long long>( counters->allocations.load( std::memory_order_relaxed ) ),
                  static_cast<unsigned long long>( counters->violations.load( std::memory_order_relaxed ) ),
                  static_cast<unsigned long long>( counters->bytes.load( std::memory_order_relaxed ) ) );
@@ -668,12 +666,12 @@ void PrintRuntimeAllocationSummary( FILE* out ) noexcept
 // forms produce one phase-accounting path instead of partial blind spots.
 void* operator new( std::size_t size )
 {
-    return AllocateOrThrow( size, DEFAULT_ALIGNMENT, SKULLBONEZ_ALLOCATION_CALLSITE() );
+    return AllocateOrFatal( size, DEFAULT_ALIGNMENT, SKULLBONEZ_ALLOCATION_CALLSITE() );
 }
 
 void* operator new[]( std::size_t size )
 {
-    return AllocateOrThrow( size, DEFAULT_ALIGNMENT, SKULLBONEZ_ALLOCATION_CALLSITE() );
+    return AllocateOrFatal( size, DEFAULT_ALIGNMENT, SKULLBONEZ_ALLOCATION_CALLSITE() );
 }
 
 void* operator new( std::size_t size, const std::nothrow_t& ) noexcept
@@ -718,12 +716,12 @@ void operator delete[]( void* pointer, const std::nothrow_t& ) noexcept
 
 void* operator new( std::size_t size, std::align_val_t alignment )
 {
-    return AllocateOrThrow( size, static_cast<std::size_t>( alignment ), SKULLBONEZ_ALLOCATION_CALLSITE() );
+    return AllocateOrFatal( size, static_cast<std::size_t>( alignment ), SKULLBONEZ_ALLOCATION_CALLSITE() );
 }
 
 void* operator new[]( std::size_t size, std::align_val_t alignment )
 {
-    return AllocateOrThrow( size, static_cast<std::size_t>( alignment ), SKULLBONEZ_ALLOCATION_CALLSITE() );
+    return AllocateOrFatal( size, static_cast<std::size_t>( alignment ), SKULLBONEZ_ALLOCATION_CALLSITE() );
 }
 
 void* operator new( std::size_t size, std::align_val_t alignment, const std::nothrow_t& ) noexcept

@@ -4,9 +4,9 @@ Purpose:
   Declares rotation matrix helpers used by transforms and collision code.
 
 Mental model:
-  Math code is shared infrastructure. Coordinate conventions, units,
-  handedness, and simplifications matter because subtle assumptions spread
-  through rendering and physics.
+  RotationMatrix.h declares rotation matrix helpers used by transforms and
+  collision code. As a public header, keep edits anchored on units, basis
+  conventions, and numerical assumptions and on the glossary/invariants below.
 
 Glossary:
   OBB (Oriented Bounding Box): Box with rotation, used for exact object-space

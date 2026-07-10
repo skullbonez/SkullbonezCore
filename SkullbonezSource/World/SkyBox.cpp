@@ -4,8 +4,10 @@ Purpose:
   Builds and renders the skybox or sky backdrop for scene rendering.
 
 Mental model:
-  Renderer-facing code translates engine concepts into backend resources, draw
-  calls, shader bindings, and validation artifacts.
+  SkyBox.cpp builds and renders the skybox or sky backdrop for scene
+  rendering. As an implementation unit, keep edits anchored on world-state
+  ownership, terrain/environment data, and physics/render handoff and on the
+  glossary/invariants below.
 
 Glossary:
   Descriptor: Small binding record that tells a renderer how to interpret a
@@ -161,6 +163,10 @@ void SkyBox::BuildMeshes( const SkullbonezCore::Basics::EngineConfig& cfg,
     }
 
     m_shader = assets.CreateShader( resources, "shader.unlit_textured" );
+    if ( !m_shader )
+    {
+        return;
+    }
     m_shader->Use();
     m_shader->SetMat4( "uModel", Matrix4() );
     m_shader->SetVec4( "uColorTint", 1.0f, 1.0f, 1.0f, 1.0f );
@@ -224,12 +230,20 @@ void SkyBox::ReleaseRenderResources()
 
 Basics::SbResult SkyBox::Render( const Matrix4& view, const Matrix4& proj )
 {
+    if ( !m_shader )
+    {
+        return Basics::SbResult::Failure( "Rendering/SkyBox", "Skybox shader is unavailable." );
+    }
     m_shader->Use();
     m_shader->SetMat4( "uView", view );
     m_shader->SetMat4( "uProjection", proj );
 
     for ( int i = 0; i < 6; ++i )
     {
+        if ( !m_faceMeshes[i] )
+        {
+            return Basics::SbResult::Failure( "Rendering/SkyBox", "Skybox face mesh %d is unavailable.", i );
+        }
         const Basics::SbResult textureResult = m_textures->SelectTexture( m_faceTextures[i] );
         if ( !textureResult.ok )
         {

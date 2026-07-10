@@ -4,13 +4,12 @@ Purpose:
   Contains DX12 architecture checks that guard renderer ownership and dependency boundaries.
 
 Mental model:
-  This module is one piece of the engine contract. Read the glossary and
-  invariants first, then follow ownership and call direction through the
-  related files.
+  Dx12ArchUnitTests.cpp contains DX12 architecture checks that guard renderer
+  ownership and dependency boundaries. As an implementation unit, keep edits
+  anchored on the behavior under test and the regression signal and on the
+  glossary/invariants below.
 
 Glossary:
-  Validation gate: Repository script that proves a class of changes before
-  commit or PR.
 
 Invariants:
   Tests stay CPU-only and must not require a real D3D12 device or renderer launch.
@@ -639,9 +638,9 @@ void TestDx12SingleTransitionExecutionProducesRecord()
     desc.subresource = 2u;
 
     const Dx12RenderGraphBarrierRecord record =
-        ExecuteDx12RenderGraphSingleTransition( "GraphOwned", "Draw", "Backbuffer", desc );
+        ExecuteDx12RenderGraphSingleTransition( "Dx12Explicit", "Draw", "Backbuffer", desc );
 
-    EXPECT_EQ( record.source, std::string( "GraphOwned:Draw" ) );
+    EXPECT_EQ( record.source, std::string( "Dx12Explicit:Draw" ) );
     EXPECT_EQ( record.passName, std::string( "Draw" ) );
     EXPECT_EQ( record.resourceName, std::string( "Backbuffer" ) );
     EXPECT_TRUE( record.nativeResource == desc.resource );
@@ -676,9 +675,9 @@ void TestDx12UavBarrierExecutionProducesRecord()
     desc.resource = reinterpret_cast<ID3D12Resource*>( static_cast<uintptr_t>( 0x5100u ) );
 
     const Dx12RenderGraphUavBarrierRecord record =
-        ExecuteDx12RenderGraphUavBarrier( "GraphOwned", "DispatchReflection", "Reflection", desc );
+        ExecuteDx12RenderGraphUavBarrier( "Dx12Explicit", "DispatchReflection", "Reflection", desc );
 
-    EXPECT_EQ( record.source, std::string( "GraphOwned:DispatchReflection" ) );
+    EXPECT_EQ( record.source, std::string( "Dx12Explicit:DispatchReflection" ) );
     EXPECT_EQ( record.resourceName, std::string( "Reflection" ) );
     EXPECT_TRUE( record.nativeResource == desc.resource );
     EXPECT_TRUE( record.hasNativeResource );

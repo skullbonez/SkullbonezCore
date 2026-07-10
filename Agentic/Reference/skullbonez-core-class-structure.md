@@ -326,7 +326,6 @@ class RenderBackendDX12 {
   +SubAllocateUpload(size, alignment)
   +ExecuteGraphTransitionBarrier(...)
   +ExecuteGraphUavBarrier(...)
-  +DumpFrameGraphSkeleton()
 }
 
 class Dx12RenderDevice {
@@ -349,7 +348,6 @@ class TextureEntryDX12
 class DynamicVBDX12
 class InstancedMeshDX12
 class PSOKey12
-class LiveBarrierRecordDX12
 class BLAS
 class TLAS
 class SBT
@@ -366,7 +364,6 @@ RenderBackendDX12 *-- TextureEntryDX12
 RenderBackendDX12 *-- DynamicVBDX12
 RenderBackendDX12 *-- InstancedMeshDX12
 RenderBackendDX12 *-- PSOKey12
-RenderBackendDX12 *-- LiveBarrierRecordDX12
 RenderBackendDX12 *-- BLAS
 RenderBackendDX12 *-- TLAS
 RenderBackendDX12 *-- SBT
@@ -379,11 +376,11 @@ GpuTimerStateDX12 *-- Dx12ReadbackBuffer
 
 ## Render Graph Contract
 
-The render graph is the API-neutral contract for resources, passes, and access
-transitions. DX12 production transition and UAV barriers now route through
-graph-owned executor helpers; pass command recording still lives in the
-extracted runtime pass classes, with actual-frame diagnostics dumped beside the
-barrier trace.
+The render graph is the API-neutral contract for resources, passes, access
+intent, callback scheduling, and transient texture lifetimes. DX12 production
+transition and UAV barriers remain explicit backend-owned calls; pass command
+recording still lives in extracted runtime pass classes or graph-scheduled
+callbacks.
 
 ```mermaid
 classDiagram
@@ -734,7 +731,6 @@ subsystem rather than by dependency edge.
 - `InstancedMeshDX12`
 - `PSOKey12`
 - `GpuTimerStateDX12`
-- `LiveBarrierRecordDX12`
 - `VertexFormat12`
 - `BLAS`
 - `TLAS`
@@ -889,8 +885,9 @@ subsystem rather than by dependency edge.
   renderer switching has been retired.
 - `RenderBackendDX12` is split across multiple `.cpp` files but remains one
   class in `RenderBackendDX12.h`.
-- `RenderGraph` owns the access vocabulary and DX12 graph-owned barrier helper
-  path. Pass command recording still runs through `Run` pass classes.
+- `RenderGraph` owns the access vocabulary, callback scheduling declarations,
+  and transient texture lifetime plan. DX12 explicit backend helpers own live
+  transition and UAV barrier emission.
 - Many nested solver/UI structs are intentionally plain data. They are listed
   because they are part of the runtime architecture even though they are not
   polymorphic classes.

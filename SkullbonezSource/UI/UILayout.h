@@ -4,8 +4,10 @@ Purpose:
   Implements UI Layout widgets, layout, drawing, or UI state for the in-engine controls.
 
 Mental model:
-  The UI is immediate-mode-style: each frame reads engine state, computes hit
-  boxes, emits draw commands, and returns requests for the run loop to apply.
+  UILayout.h implements UI Layout widgets, layout, drawing, or UI state for
+  the in-engine controls. As a public header, keep edits anchored on UI
+  request, layout, hit-test, and draw-command flow and on the
+  glossary/invariants below.
 
 Glossary:
   Draw command: Lightweight record describing a UI shape or text batch to

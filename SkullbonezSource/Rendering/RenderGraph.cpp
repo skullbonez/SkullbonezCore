@@ -1,11 +1,14 @@
 /*
 File: SkullbonezSource/Rendering/RenderGraph.cpp
 Purpose:
-  Records render pass/resource intent and transition diagnostics for DX12.
+  Records render pass/resource intent, callback execution, and transient texture
+  lifetime plans.
 
 Mental model:
-  Renderer-facing code translates engine concepts into backend resources, draw
-  calls, shader bindings, and validation artifacts.
+  RenderGraph.cpp records render pass/resource intent, callback execution, and
+  transient texture lifetime plans. As an implementation unit, keep edits
+  anchored on render submission and resource lifetime and on the
+  glossary/invariants below.
 
 Glossary:
   Descriptor: Small binding record that tells a renderer how to interpret a
@@ -15,8 +18,8 @@ Glossary:
 Invariants:
   - The graph records pass/resource intent, transient lifetime diagnostics, and
     optional callback execution; backend code owns API object creation.
-  - Pass resource accesses must name concrete states so DX12 barrier diagnostics
-    can reason about transitions.
+  - Pass resource accesses must name concrete states so backend helpers can
+    reason about transition intent.
 
 Related:
   - SkullbonezSource/Rendering/RenderGraph.h
@@ -515,13 +518,13 @@ void RenderGraph::Compile( RenderGraphCompileResult& result ) const
     // 4. Whenever the desired access differs from the tracked current access,
     //    emit a transition record before that pass.
     // 5. Remember the new access as the resource's current state.
-    // 6. Plan graph-owned transient lifetime, aliasing, and descriptor high
+    // 6. Plan graph-declared transient lifetime, aliasing, and descriptor high
     //    water diagnostics from the first/last use of each resource.
     //
-    // That mirrors the core DX12 barrier problem in API-neutral terms. The DX12
-    // backend translates these records into barrier candidates and can create
-    // graph-owned API resources from the transient allocation plan when a
-    // production pass stops importing its target.
+    // That mirrors the resource-access story in API-neutral terms. The DX12
+    // backend still emits live barriers from explicit before/after calls and can
+    // create API resources from the transient allocation plan when a production
+    // pass stops importing its target.
     result.Clear();
     result.resourceLifetimes.resize( m_resources.size() );
     for ( size_t resourceIndex = 0; resourceIndex < m_resources.size(); ++resourceIndex )
@@ -871,7 +874,7 @@ void RenderGraph::CheckedConcreteAccess( RenderGraphResourceAccess access ) cons
 {
     // Unknown is useful as an initial state when legacy backend code still owns
     // the actual DX12 object. It is not useful as a pass declaration because a
-    // future barrier compiler cannot translate "unknown" into a safe read/write
+    // backend barrier helper cannot translate "unknown" into a safe read/write
     // state for a draw or dispatch.
     if ( access == RenderGraphResourceAccess::Unknown )
     {

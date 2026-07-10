@@ -42,7 +42,9 @@ Related:
 #include "RuntimeTuning.h"
 #include "../Assets/TextureCollection.h"
 #include "../Core/FatalError.h"
+#include "../Core/Log.h"
 #include "../Physics/ColliderStore.h"
+#include "../Physics/PhysicsEngineStoreQueries.h"
 #include "../Rendering/Helper.h"
 #include "../Rendering/IRenderDiagnostics.h"
 #include "../Rendering/RenderInstanceStore.h"
@@ -560,6 +562,10 @@ void WriteCinematicPostGraphEvidence(
     out << "  reused_this_compile=" << materialization.reusedThisCompile << "\n";
     out << "  descriptor_rows_owned=" << materialization.descriptorRowsOwned << "\n";
     out << "  released_at_frame_end=" << materialization.releasedAtFrameEnd << "\n";
+    out << "  materialization_failed=" << ( materialization.failed ? "true" : "false" ) << "\n";
+    out << "  materialization_failure_stage=" << materialization.failureStage << "\n";
+    out << "  materialization_failure_resource=" << materialization.failureResource << "\n";
+    out << "  materialization_failure_hresult=0x" << std::hex << materialization.failureHresult << std::dec << "\n";
     out << "  transient_allocation_count=" << compiled.transientAllocations.size() << "\n";
     for ( size_t i = 0; i < compiled.transientAllocations.size(); ++i )
     {
@@ -1146,7 +1152,7 @@ bool RuntimeRenderer::ExecuteDebugOverlayThroughRenderGraph( const RenderFrameCo
                            "Frame/Render/DebugOverlay" );
 
     // Invariant: debug overlays are optional inside the pass body, but the pass
-    // scheduling itself is now graph-owned every frame so direct runtime calls
+    // scheduling itself is now graph-scheduled every frame so direct runtime calls
     // cannot creep back beside post-processing callbacks.
     CompileRenderPassGraph( graph );
     graph.ExecuteCallbacks( Rendering::RenderGraphCallbackExecutionMode::DryRun );
@@ -1164,6 +1170,8 @@ DebugOverlaySnapshot RuntimeRenderer::BuildDebugOverlaySnapshot( const RenderFra
                                      TornadoSystemVectorsVisible( m_runtimeSettings.tornadoSystem );
     snapshot.tornadoOverlayWorkVisible =
         m_runtimeSettings.tornadoField.visualizeVelocityField || m_runtimeSettings.tornadoSystem.visualizeVelocityField;
+    snapshot.tornadoSystem = &m_runtimeSettings.tornadoSystem;
+    snapshot.tornadoField = &m_runtimeSettings.tornadoField;
     snapshot.physicsDebugFlags = m_debug.physicsDebugFlags;
     snapshot.physicsDebugPipelineStageCursor = m_debug.physicsDebugPipelineStageCursor;
 
@@ -1257,7 +1265,15 @@ RuntimeRenderer::ExecuteCinematicPostThroughRenderGraph( const RenderFrameContex
             callbackData.volumetricLight = frame.renderCommands->ResolveGraphTextureBinding( volumetricLight );
             if ( !callbackData.volumetricLight.IsValid() )
             {
-                SB_FATAL( "RunRender", "VolumetricLight graph transient was not materialized." );
+                // Lane R: if the graph-managed texture allocation fails, the
+                // volumetric callback can still render through its legacy
+                // framebuffer target. Keep the failure visible in logs/evidence.
+                Log().WriteEventf( "render_graph_volumetric_transient_unavailable materialization_failed=%d "
+                                   "hresult=0x%08X resource=%s",
+                                   transientMaterialization.failed ? 1 : 0,
+                                   transientMaterialization.failureHresult,
+                                   transientMaterialization.failureResource );
+                Log().FlushAll();
             }
         }
     }
@@ -2022,9 +2038,9 @@ RuntimeRenderModelFrameView
 RuntimeRenderer::BuildModelFrameView( SkullbonezCore::GameObjects::GameModelCollection& models ) const
 {
     PhysicsEngine& physics = models.GetPhysicsEngine();
-    return RuntimeRenderModelFrameView{ models.RenderInstances(),
+    return RuntimeRenderModelFrameView{ models.MutableRenderInstances(),
                                         models.Colliders(),
-                                        physics.BodyStore(),
+                                        SkullbonezCore::Physics::PhysicsEngineStoreQueries::BodyStore( physics ),
                                         physics,
                                         models.RenderPresentationRecords(),
                                         models.GetCollisionVisualContacts(),
@@ -2078,15 +2094,15 @@ void RuntimeRenderer::RenderFrameEntry( const FrameEntryContext& context )
             RuntimeAllocation::RuntimeAllocationPhase::Replay );
         if ( const RunReplayPredictionFrame* predictionFrame = m_replayRuntime.CurrentPredictionScrubFrame() )
         {
-            m_replayRuntime.ApplyPredictionFrameForRender( context.renderModels.physicsEngine, *predictionFrame );
+            m_replayRuntime.ApplyPredictionFrameForRender( context.renderModelOwner, *predictionFrame );
         }
         else if ( const ReplayPresentationSample* replaySample = m_replayRuntime.CurrentScrubSample() )
         {
-            m_replayRuntime.ApplyPresentationSampleForRender( context.renderModels.physicsEngine, *replaySample );
+            m_replayRuntime.ApplyPresentationSampleForRender( context.renderModelOwner, *replaySample );
         }
         else if ( const ReplaySolverFrameSample* solverSample = m_replayRuntime.CurrentSolverScrubSample() )
         {
-            m_replayRuntime.ApplySolverSampleForRender( context.renderModels.physicsEngine, *solverSample );
+            m_replayRuntime.ApplySolverSampleForRender( context.renderModelOwner, *solverSample );
             applyReplayLauncherVisualSampleForRender( solverSample->launcherVisual );
         }
     };

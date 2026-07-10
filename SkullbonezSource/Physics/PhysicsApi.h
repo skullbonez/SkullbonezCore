@@ -74,7 +74,6 @@ Related:
 #include "../Maths/Matrix4.h"
 #include "../Maths/Quaternion.h"
 #include "../Maths/Vector3.h"
-#include "../Rendering/RenderMaterial.h"
 
 namespace SkullbonezCore
 {
@@ -134,7 +133,6 @@ struct PhysicsBodyCreateDesc
 {
     PhysicsSceneObjectId sceneObjectId;
     Math::CollisionDetection::CollisionShape shape;
-    Rendering::RenderMaterial renderMaterial;
     Math::Vector::Vector3 position = Math::Vector::ZERO_VECTOR;
     Math::Orientation::Quaternion orientation = Math::Orientation::IDENTITY_QUATERNION;
     Math::Vector::Vector3 linearVelocity = Math::Vector::ZERO_VECTOR;
@@ -217,7 +215,6 @@ struct PhysicsBodyUpdateDesc
     float friction = 0.0f;
     PhysicsBodyMotionKind motionKind = PhysicsBodyMotionKind::Dynamic;
     bool sleeping = false;
-    Rendering::RenderMaterial renderMaterial;
     const char* diagnosticName = nullptr;
 };
 
@@ -456,20 +453,14 @@ struct PhysicsIslandCollectionView
     uint32_t islandCount = 0;
 };
 
-struct PhysicsRenderInstanceView
+// Borrowed descriptor-refresh inputs owned by the scene/model collection. The
+// physics facade reads these spans only for the duration of the refresh call.
+struct PhysicsAuthoredBodyRefreshView
 {
-    PhysicsBodyHandle body;
-    PhysicsSceneObjectId sceneObjectId;
-    Math::Transformation::Matrix4 modelMatrix;
-    Rendering::RenderMaterial material;
-    bool fixed = false;
-    float fixedContactAlpha = 0.0f;
-};
-
-struct PhysicsRenderView
-{
-    const PhysicsRenderInstanceView* instances = nullptr;
-    uint32_t instanceCount = 0;
+    const uint32_t* replayBodyIds = nullptr;
+    const ModelRowHint* fixedTreeReleaseRoots = nullptr;
+    const char* const* diagnosticNames = nullptr;
+    PhysicsAuthoredBodyCount bodyCount;
 };
 
 struct PhysicsDiagnosticsSnapshot
@@ -495,7 +486,7 @@ struct PhysicsDiagnosticsSnapshot
 struct PhysicsReplaySolverSnapshotView
 {
     const Basics::ReplaySolverWorldSnapshot* snapshot = nullptr;
-    uint32_t modelCount = 0;
+    PhysicsBodyCount bodyCount;
 };
 
 struct PhysicsStandaloneSmokeResult

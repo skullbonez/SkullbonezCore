@@ -13,7 +13,7 @@ Follow the Agent Startup Contract in `../AGENTS.md`. Load a skill from
 |------|---------|
 | `SessionState.md` | Current branch, active work, blockers, and next validation. Keep this short. |
 | `Skills/` | Concise task procedures and helper scripts. |
-| `Plans/` | Design notes and implementation histories. Load on demand. |
+| `Plans/` | `MASTER-PLAN.md` (inventory + percent-complete for every remaining plan) and `TODO/` (consolidated active plans). Completed plans are deleted (git history is the archive); do not recreate `Done/`/`Failed/`/`Rejected/`/`To_Eval/`/`In_Progress/`. |
 | `Audits/` | Renderer, physics, and process audits. Load on demand. |
 | `Bugs.md` | Persistent bug notes. |
 | `Reference/` | Runtime, physics, and external reference material. |
@@ -21,9 +21,12 @@ Follow the Agent Startup Contract in `../AGENTS.md`. Load a skill from
 ## Comment Quality
 
 - `Reference/comment-style-guide.md` defines the repository comment standard.
-- `Plans/comment-style-remediation-plan.md` tracks the repository-wide
-  subsystem checklist. Use it for full or subsystem comment remediation, and
-  reconcile it against `git ls-files` before reporting completion.
+- For full or subsystem comment remediation, create a scoped checklist plan
+  from `git ls-files` per `../AGENTS.md`; the old repository-wide remediation
+  plan was retired in the 2026-07-09 plan consolidation. Note
+  `../engine-cleanup-plans/15-review-gaps.md` item 15.4: existing learning
+  headers have decayed into copy-paste boilerplate — do not add more
+  boilerplate headers while that cleanup is pending.
 - `Reference/render-backend-portability-contract.md` defines the future
   Vulkan/Metal portability seam now that DX12 is the only active renderer.
 - `Skills/comment-style-audit/skill.md` is the repeatable pass for checking
@@ -38,8 +41,9 @@ Follow the Agent Startup Contract in `../AGENTS.md`. Load a skill from
 - New inheritance is banned unless an owning plan proves a stable
   runtime-polymorphic boundary is necessary and records the validation or perf
   evidence.
-- `tools/check_runtime_boundaries.py` is the ratchet for the approved source
-  inheritance budget; do not add a base class without updating that evidence.
+- Approved source-inheritance evidence belongs in the owning plan and review
+  record; do not add a base class without recording why value composition is
+  insufficient and what validation or perf evidence backs the boundary.
 
 ## Pre-Commit/PR Validation
 

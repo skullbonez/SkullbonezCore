@@ -123,6 +123,28 @@ TEST_CASE( "TestSceneParser: missing camera reports recoverable load failure" )
 }
 
 
+TEST_CASE( "TestSceneParser: wrong member type reports recoverable load failure" )
+{
+    const TemporaryMalformedSceneFile wrongType(
+        "unit_scene_parser_wrong_type.scene.json",
+        R"({"format":"skullbonez.scene.json","version":1,"physics":false,"text":false,"cameras":{}})" );
+    TestScene scene;
+    CheckLoadFailure( TestScene::TryLoadFromFile( wrongType.path, scene ), wrongType.path, "cameras must be an array" );
+}
+
+
+TEST_CASE( "TestSceneParser: unknown asset instance reports recoverable load failure" )
+{
+    const TemporaryMalformedSceneFile unknownAsset(
+        "unit_scene_parser_unknown_asset.scene.json",
+        R"({"format":"skullbonez.scene.json","version":1,"physics":false,"text":false,"cameras":[{"name":"main","position":[0,0,0],"view":[0,0,1],"up":[0,1,0]}],"assetInstances":[{"asset":"missing.asset","name":"ghost","position":[0,0,0]}]})" );
+    TestScene scene;
+    CheckLoadFailure( TestScene::TryLoadFromFile( unknownAsset.path, scene ),
+                      unknownAsset.path,
+                      "Unknown asset instance reference" );
+}
+
+
 TEST_CASE( "TestSceneParser: malformed style JSON reports recoverable load failure" )
 {
     const TemporaryMalformedSceneFile malformedStyle(

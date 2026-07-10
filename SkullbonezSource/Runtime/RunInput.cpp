@@ -4,8 +4,9 @@ Purpose:
   Routes raw keyboard, mouse, and UI commands into runtime state changes.
 
 Mental model:
-  Input arbitration stays here.
-  Editor, launcher, and replay behavior live in dedicated runtime files.
+  RunInput.cpp routes raw keyboard, mouse, and UI commands into runtime state
+  changes. As an implementation unit, keep edits anchored on local owner
+  boundaries and call direction and on the glossary/invariants below.
 
 Glossary:
   Attach return pose: The visible camera pose captured before Attach takes over
@@ -18,8 +19,6 @@ Glossary:
     velocity, and broad radius sampled for camera follow math.
   Lane R result: Recoverable scene-control or capture failure reported without
     treating the command as successfully applied.
-  Validation gate: Repository script that proves a class of changes before
-    commit or PR.
 
 Invariants:
   - This file arbitrates ownership before mutating world state; UI, editor,
@@ -1048,10 +1047,11 @@ ApplyRuntimeUIFrameCommands( const RuntimeUIFrameContext& context,
 
     const int selectedSceneBrowserIndex =
         CurrentSceneBrowserIndex( context.sceneController, context.sceneController.Browser() );
+    const HWND windowHandle = context.systems.window->NativeWindowHandle();
     InGameUIInputResult UIResult = context.ui.UpdateInput(
-        context.systems.window->m_sWindow,
-        static_cast<int>( context.systems.window->m_sWindowDimensions.x ),
-        static_cast<int>( context.systems.window->m_sWindowDimensions.y ),
+        windowHandle,
+        context.systems.window->ClientWidth(),
+        context.systems.window->ClientHeight(),
         context.timers.simulationTimer.GetTotalTime(),
         context.runtimeTools.Editor().editorModeEnabled,
         context.runtimeTools.Editor().placementModeEnabled,
@@ -1071,14 +1071,13 @@ ApplyRuntimeUIFrameCommands( const RuntimeUIFrameContext& context,
         enterInteractiveSceneRun();
     }
     result.suppressWorldActionThisFrame = result.suppressWorldActionThisFrame || uiCommands.ui.userInteracted;
-    const bool replayScrubberOwnsMouse =
-        tickReplayScrubberInput( context.systems.window->m_sWindow, context.ui.BlocksCameraMouse() );
+    const bool replayScrubberOwnsMouse = tickReplayScrubberInput( windowHandle, context.ui.BlocksCameraMouse() );
     const bool replayCauseTreeOwnsMouse =
-        tickReplayCauseTreeInput( context.systems.window->m_sWindow,
+        tickReplayCauseTreeInput( windowHandle,
                                   context.ui.BlocksCameraMouse() || replayScrubberOwnsMouse,
                                   result.editorUnhandledWheelDelta );
     const bool replayVelocityEditOwnsMouse = tickReplayVelocityEditInput(
-        context.systems.window->m_sWindow,
+        windowHandle,
         context.ui.BlocksCameraMouse() || replayScrubberOwnsMouse || replayCauseTreeOwnsMouse );
     result.suppressWorldActionThisFrame = result.suppressWorldActionThisFrame || replayScrubberOwnsMouse ||
                                           replayCauseTreeOwnsMouse || replayVelocityEditOwnsMouse;
@@ -1195,6 +1194,19 @@ ApplyRuntimeUIFrameCommands( const RuntimeUIFrameContext& context,
                                uiCommands.sound ) )
     {
         recordUIAction( RuntimeInputAction::ApplySoundTuning );
+    }
+    if ( uiCommands.replayMemory.requestPolicy )
+    {
+        // Invariant: Memory-tab controls only request policy changes. ReplayRuntime
+        // owns the reset/reconfigure edge because it knows all recorder windows.
+        ReplayMemoryPolicyRequest request;
+        request.presetIndex = uiCommands.replayMemory.requestedPresetIndex;
+        request.retentionSeconds = uiCommands.replayMemory.requestedRetentionSeconds;
+        request.budgetMiB = uiCommands.replayMemory.requestedBudgetMiB;
+        if ( context.replayRuntime.ApplyMemoryPolicyRequest( request ) )
+        {
+            recordUIAction( RuntimeInputAction::SetReplayMemoryPolicy );
+        }
     }
     RecordRuntimePresentationWaterUIActions( presentationCommands, recordUIAction );
     const RunSimulationUICommandResult runSimulationCommands =
@@ -1495,7 +1507,7 @@ bool Run::RouteRuntimePointerInput( const RuntimeInputSnapshot& inputSnapshot, c
     bool consumedWorldClick = TickEditorWorldClick( mouseEdges, suppressWorldAction );
     if ( !consumedWorldClick )
     {
-        consumedWorldClick = TickMousePickupInput( m_systems.window ? m_systems.window->m_sWindow : nullptr,
+        consumedWorldClick = TickMousePickupInput( m_systems.window ? m_systems.window->NativeWindowHandle() : nullptr,
                                                    mouseEdges,
                                                    suppressWorldAction );
     }
@@ -1713,6 +1725,7 @@ void Run::ClearReplayInteractionForRuntimeTransition()
     m_replayRuntime.Scrubber().pauseHovered = false;
     m_replayRuntime.Scrubber().saveHovered = false;
     m_replayRuntime.Scrubber().loadHovered = false;
+    m_replayRuntime.PathVisualizer().pastPathHovered = false;
 
     m_replayRuntime.ClearCameraFocusForRestore();
     ExitReplayInspectionCamera();
@@ -1874,8 +1887,8 @@ bool Run::ExecuteRuntimeInteractionCommand( const RuntimeInteractionCommand& com
             return false;
         }
 
-        const PhysicsBodyStore& bodyStore = m_cGameModelCollection.GetPhysicsEngine().BodyStore();
-        const ColliderStore& colliderStore = m_cGameModelCollection.GetPhysicsEngine().Colliders();
+        const PhysicsBodyStore& bodyStore = m_cGameModelCollection.BodyStore();
+        const ColliderStore& colliderStore = m_cGameModelCollection.Colliders();
         const int previousModelIndex = ResolveSelectedEditorModelIndex( m_runtimeTools.Editor(), bodyStore );
         const bool selectionHit = command.modelIndex >= 0;
         PhysicsBodyHandle selectedBody;
@@ -2129,7 +2142,7 @@ void Run::SeedAttachedCameraTargetFromSelection()
 
     int seedIndex = -1;
     const RunReplayPathVisualizerState& path = m_replayRuntime.PathVisualizer();
-    const PhysicsBodyStore& bodyStore = m_cGameModelCollection.GetPhysicsEngine().BodyStore();
+    const PhysicsBodyStore& bodyStore = m_cGameModelCollection.BodyStore();
     const int modelCount = bodyStore.Count();
     if ( path.hasTarget && path.targetModelIndex >= 0 && path.targetModelIndex < modelCount )
     {
@@ -2165,8 +2178,8 @@ bool Run::TryPickAttachedCameraTargetFromMouse()
     {
         RuntimePickRequest request;
         request.purpose = RuntimePickPurpose::AttachCameraTarget;
-        request.bodyStore = &m_cGameModelCollection.GetPhysicsEngine().BodyStore();
-        request.colliderStore = &m_cGameModelCollection.GetPhysicsEngine().Colliders();
+        request.bodyStore = &m_cGameModelCollection.BodyStore();
+        request.colliderStore = &m_cGameModelCollection.Colliders();
         request.rayOrigin = rayOrigin;
         request.rayDirection = rayDirection;
 
@@ -2596,6 +2609,7 @@ bool Run::HandleUnfocusedInputFrame()
     m_replayRuntime.Prediction().ui.increaseHovered = false;
     m_replayRuntime.Prediction().ui.horizonHovered = false;
     m_replayRuntime.Prediction().ui.horizonDragging = false;
+    m_replayRuntime.PathVisualizer().pastPathHovered = false;
     m_replayRuntime.VelocityEdit().toggleHovered = false;
     m_replayRuntime.VelocityEdit().keyboardAltWasDown = false;
     m_replayRuntime.VelocityEdit().dragging = false;

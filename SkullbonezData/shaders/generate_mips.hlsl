@@ -4,9 +4,9 @@ Purpose:
   Runs the generate_mips HLSL shader program used by the renderer.
 
 Mental model:
-  Shaders are GPU programs. Constant buffers provide per-frame data, shader
-  stages transform or shade inputs, and CPU-side renderer bindings must match
-  the declarations in this file.
+  generate_mips.hlsl is shader source for the renderer's generate_mips pass.
+  Keep edits anchored on shader inputs, bindings, and render-output contracts
+  and on the glossary/invariants below.
 
 Glossary:
   SRV (Shader Resource View): Descriptor row used when shaders read textures

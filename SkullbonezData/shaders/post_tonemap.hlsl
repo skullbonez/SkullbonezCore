@@ -4,9 +4,9 @@ Purpose:
   Runs the post_tonemap HLSL shader program used by the renderer.
 
 Mental model:
-  Shaders are GPU programs. Constant buffers provide per-frame data, shader
-  stages transform or shade inputs, and CPU-side renderer bindings must match
-  the declarations in this file.
+  post_tonemap.hlsl is shader source for the renderer's post_tonemap pass.
+  Keep edits anchored on shader inputs, bindings, and render-output contracts
+  and on the glossary/invariants below.
 
 Glossary:
   HDR (High Dynamic Range): Floating-point scene color that can hold values

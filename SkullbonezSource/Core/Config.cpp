@@ -4,13 +4,12 @@ Purpose:
   Loads, stores, and exposes engine configuration values from files and command-line overrides.
 
 Mental model:
-  Runtime code connects authored scene data, input, simulation, render
-  backends, and validation-oriented launch modes. Follow who owns state and
-  when that state changes.
+  Config.cpp loads, stores, and exposes engine configuration values from files
+  and command-line overrides. As an implementation unit, keep edits anchored
+  on process-wide contracts, diagnostics, and validation-sensitive state and
+  on the glossary/invariants below.
 
 Glossary:
-  Validation gate: Repository script that proves a class of changes before
-  commit or PR.
 
 Invariants:
   - Command-line and scene-file spellings are user-facing compatibility

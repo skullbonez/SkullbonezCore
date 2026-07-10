@@ -4,9 +4,10 @@ Purpose:
   Stores world forces, fluid parameters, and water rendering resources.
 
 Mental model:
-  Physics is deterministic fixed-step state update. Units, contact ownership,
-  solver stages, sleep policy, and baseline-sensitive behavior are the key
-  reading anchors.
+  WorldEnvironment.cpp stores world forces, fluid parameters, and water
+  rendering resources. As an implementation unit, keep edits anchored on
+  world-state ownership, terrain/environment data, and physics/render handoff
+  and on the glossary/invariants below.
 
 Glossary:
   Buoyancy: Upward force from displaced water, applied through the center of
@@ -264,9 +265,13 @@ void WorldEnvironment::RenderFluid( const Matrix4& view,
                                     bool cinematic,
                                     const SkullbonezCore::Basics::CinematicRenderConfig* cinematicConfig )
 {
-    if ( !m_calmMesh )
+    if ( !m_calmMesh || !m_oceanMesh || !m_calmShader || !m_oceanShader )
     {
         ResetRenderResources();
+    }
+    if ( !m_calmMesh || !m_oceanMesh || !m_calmShader || !m_oceanShader )
+    {
+        return;
     }
     const SkullbonezCore::Basics::CinematicRenderConfig& cinematicStyle =
         cinematicConfig ? *cinematicConfig : m_waterStyle.cinematicFallback;
@@ -411,6 +416,10 @@ void WorldEnvironment::BuildFluidMesh()
     m_oceanMesh = m_resources->CreateMesh( oceanVerts.data(), oceanCount, false, false );
 
     m_calmShader = m_assets->CreateShader( *m_resources, "shader.water_calm" );
+    if ( !m_calmShader )
+    {
+        return;
+    }
     m_calmShader->Use();
     m_calmShader->SetMat4( "uModel", Matrix4() );
     m_calmShader->SetVec4( "uColorTint", 0.05f, 0.15f, 0.42f, 0.65f );
@@ -429,6 +438,10 @@ void WorldEnvironment::BuildFluidMesh()
     m_calmShader->SetFloat( "uBasinMaskFeather", 1.0f );
 
     m_oceanShader = m_assets->CreateShader( *m_resources, "shader.water_ocean" );
+    if ( !m_oceanShader )
+    {
+        return;
+    }
     m_oceanShader->Use();
     m_oceanShader->SetMat4( "uModel", Matrix4() );
     m_oceanShader->SetVec4( "uColorTint", 0.02f, 0.10f, 0.35f, 0.72f );
@@ -489,6 +502,7 @@ SkullbonezCore::Physics::PhysicsWorldForces WorldEnvironment::GetPhysicsWorldFor
     forces.gasDensity = m_gasDensity;
     forces.gravity = m_gravity;
     forces.angularDragMultiplier = m_fluidForces.angularDragMultiplier;
+    forces.mutualGravity = m_mutualGravity;
     return forces;
 }
 
@@ -520,4 +534,16 @@ float WorldEnvironment::GetFluidDensity() const
 void WorldEnvironment::SetFluidDensity( float density )
 {
     m_fluidDensity = density;
+}
+
+
+const SkullbonezCore::Physics::MutualGravitySettings& WorldEnvironment::GetMutualGravitySettings() const
+{
+    return m_mutualGravity;
+}
+
+
+void WorldEnvironment::SetMutualGravitySettings( const SkullbonezCore::Physics::MutualGravitySettings& settings )
+{
+    m_mutualGravity = settings;
 }

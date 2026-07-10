@@ -1,0 +1,214 @@
+﻿# Comment Boilerplate Cleanup 15.4 Checklist
+
+Source: `engine-cleanup-plans/15-review-gaps.md` step 15.4.1.
+Inventory command: `git ls-files` over `.cpp`, `.h`, `.hpp`, `.inl`, and `.hlsl` files, grouped by duplicate learning-header mental-model paragraphs and duplicate generic `Validation gate` glossary entries.
+
+Scope count: 186 tracked source-bearing files.
+
+A checked item means the file was inspected against `Agentic/Reference/comment-style-guide.md`, duplicate boilerplate was removed or made file-specific, and no generic `Validation gate` glossary entry remains unless it is locally justified.
+
+## Files
+
+- [x] `Agentic/Tests/Dx12ArchUnitTests/Dx12ArchUnitTests.cpp`
+- [x] `Agentic/Tests/RuntimeInteractionPolicyTests/RuntimeInteractionPolicyTests.cpp`
+- [x] `SkullbonezData/shaders/collision_visualizer.hlsl`
+- [x] `SkullbonezData/shaders/generate_mips.hlsl`
+- [x] `SkullbonezData/shaders/grid_line.hlsl`
+- [x] `SkullbonezData/shaders/lit_textured.hlsl`
+- [x] `SkullbonezData/shaders/lit_textured_instanced.hlsl`
+- [x] `SkullbonezData/shaders/post_tonemap.hlsl`
+- [x] `SkullbonezData/shaders/post_volumetric_light.hlsl`
+- [x] `SkullbonezData/shaders/reflect.rt.hlsl`
+- [x] `SkullbonezData/shaders/shadow_depth.hlsl`
+- [x] `SkullbonezData/shaders/shadow_depth_instanced.hlsl`
+- [x] `SkullbonezData/shaders/sky_atmosphere.hlsl`
+- [x] `SkullbonezData/shaders/solid_color.hlsl`
+- [x] `SkullbonezData/shaders/solid_color_batch.hlsl`
+- [x] `SkullbonezData/shaders/text.hlsl`
+- [x] `SkullbonezData/shaders/UIBackdropBlur.hlsl`
+- [x] `SkullbonezData/shaders/unlit_textured.hlsl`
+- [x] `SkullbonezData/shaders/water_calm.hlsl`
+- [x] `SkullbonezData/shaders/water_ocean.hlsl`
+- [x] `SkullbonezSource/Assets/AssetSystem.cpp`
+- [x] `SkullbonezSource/Assets/AssetSystem.h`
+- [x] `SkullbonezSource/Assets/TextureCollection.cpp`
+- [x] `SkullbonezSource/Assets/TextureCollection.h`
+- [x] `SkullbonezSource/Core/Common.h`
+- [x] `SkullbonezSource/Core/Config.cpp`
+- [x] `SkullbonezSource/Core/Config.h`
+- [x] `SkullbonezSource/Core/Log.cpp`
+- [x] `SkullbonezSource/Core/Log.h`
+- [x] `SkullbonezSource/Core/PlatformProfiler.cpp`
+- [x] `SkullbonezSource/Core/PlatformProfiler.h`
+- [x] `SkullbonezSource/Core/Profiler.cpp`
+- [x] `SkullbonezSource/Core/Profiler.h`
+- [x] `SkullbonezSource/Core/SkullScope.cpp`
+- [x] `SkullbonezSource/Core/SkullScope.h`
+- [x] `SkullbonezSource/Core/Timer.cpp`
+- [x] `SkullbonezSource/Core/Timer.h`
+- [x] `SkullbonezSource/GameObjects/GameModelCollection.cpp`
+- [x] `SkullbonezSource/GameObjects/GameModelCollection.h`
+- [x] `SkullbonezSource/Maths/GeometricMath.cpp`
+- [x] `SkullbonezSource/Maths/GeometricMath.h`
+- [x] `SkullbonezSource/Maths/GeometricStructures.h`
+- [x] `SkullbonezSource/Maths/Matrix4.cpp`
+- [x] `SkullbonezSource/Maths/Matrix4.h`
+- [x] `SkullbonezSource/Maths/Quaternion.cpp`
+- [x] `SkullbonezSource/Maths/Quaternion.h`
+- [x] `SkullbonezSource/Maths/RotationMatrix.cpp`
+- [x] `SkullbonezSource/Maths/RotationMatrix.h`
+- [x] `SkullbonezSource/Maths/Vector3.cpp`
+- [x] `SkullbonezSource/Maths/Vector3.h`
+- [x] `SkullbonezSource/Physics/BoundingBox.cpp`
+- [x] `SkullbonezSource/Physics/BoundingBox.h`
+- [x] `SkullbonezSource/Physics/BoundingSphere.cpp`
+- [x] `SkullbonezSource/Physics/BoundingSphere.h`
+- [x] `SkullbonezSource/Physics/CollisionShape.h`
+- [x] `SkullbonezSource/Physics/ContactSolverCommon.h`
+- [x] `SkullbonezSource/Physics/ObjectContactManifold.cpp`
+- [x] `SkullbonezSource/Physics/ObjectContactManifold.h`
+- [x] `SkullbonezSource/Physics/PersistentContactSolver.cpp`
+- [x] `SkullbonezSource/Physics/PersistentContactSolver.h`
+- [x] `SkullbonezSource/Physics/PhysicsDiagnosticsSink.cpp`
+- [x] `SkullbonezSource/Physics/PhysicsDiagnosticsSink.h`
+- [x] `SkullbonezSource/Physics/PhysicsWorld.cpp`
+- [x] `SkullbonezSource/Physics/PhysicsWorld.h`
+- [x] `SkullbonezSource/Physics/SleepIslandSystem.cpp`
+- [x] `SkullbonezSource/Physics/SleepIslandSystem.h`
+- [x] `SkullbonezSource/Physics/SpatialGrid.cpp`
+- [x] `SkullbonezSource/Physics/SpatialGrid.h`
+- [x] `SkullbonezSource/Physics/TornadoField.cpp`
+- [x] `SkullbonezSource/Physics/TornadoField.h`
+- [x] `SkullbonezSource/Rendering/DX12/BLASDX12.cpp`
+- [x] `SkullbonezSource/Rendering/DX12/BLASDX12.h`
+- [x] `SkullbonezSource/Rendering/DX12/FramebufferDX12.cpp`
+- [x] `SkullbonezSource/Rendering/DX12/FramebufferDX12.h`
+- [x] `SkullbonezSource/Rendering/DX12/MeshDX12.cpp`
+- [x] `SkullbonezSource/Rendering/DX12/MeshDX12.h`
+- [x] `SkullbonezSource/Rendering/DX12/RenderBackendDX12.cpp`
+- [x] `SkullbonezSource/Rendering/DX12/RenderBackendDX12.DXR.cpp`
+- [x] `SkullbonezSource/Rendering/DX12/RenderBackendDX12.DynamicGeometry.cpp`
+- [x] `SkullbonezSource/Rendering/DX12/RenderBackendDX12.h`
+- [x] `SkullbonezSource/Rendering/DX12/RenderBackendDX12.Pipeline.cpp`
+- [x] `SkullbonezSource/Rendering/DX12/RenderBackendDX12.Profiler.cpp`
+- [x] `SkullbonezSource/Rendering/DX12/RenderBackendDX12.Readback.cpp`
+- [x] `SkullbonezSource/Rendering/DX12/RenderBackendDX12.Resources.cpp`
+- [x] `SkullbonezSource/Rendering/DX12/RenderBackendDX12.Textures.cpp`
+- [x] `SkullbonezSource/Rendering/DX12/RenderDeviceDX12.cpp`
+- [x] `SkullbonezSource/Rendering/DX12/RenderDeviceDX12.h`
+- [x] `SkullbonezSource/Rendering/DX12/SBTDX12.cpp`
+- [x] `SkullbonezSource/Rendering/DX12/SBTDX12.h`
+- [x] `SkullbonezSource/Rendering/DX12/ShaderDX12.cpp`
+- [x] `SkullbonezSource/Rendering/DX12/ShaderDX12.h`
+- [x] `SkullbonezSource/Rendering/DX12/TLASDX12.cpp`
+- [x] `SkullbonezSource/Rendering/DX12/TLASDX12.h`
+- [x] `SkullbonezSource/Rendering/GameModelRenderer.h`
+- [x] `SkullbonezSource/Rendering/Helper.cpp`
+- [x] `SkullbonezSource/Rendering/Helper.h`
+- [x] `SkullbonezSource/Rendering/IFramebuffer.h`
+- [x] `SkullbonezSource/Rendering/IMesh.h`
+- [x] `SkullbonezSource/Rendering/IShader.h`
+- [x] `SkullbonezSource/Rendering/PrimitiveMeshBuilder.h`
+- [x] `SkullbonezSource/Rendering/RenderGraph.cpp`
+- [x] `SkullbonezSource/Rendering/RenderGraph.h`
+- [x] `SkullbonezSource/Rendering/Shadow.h`
+- [x] `SkullbonezSource/Rendering/Text.cpp`
+- [x] `SkullbonezSource/Rendering/Text.h`
+- [x] `SkullbonezSource/Runtime/Camera.cpp`
+- [x] `SkullbonezSource/Runtime/CameraCollection.cpp`
+- [x] `SkullbonezSource/Runtime/CameraCollection.h`
+- [x] `SkullbonezSource/Runtime/Debug/BroadphaseVisualizer.cpp`
+- [x] `SkullbonezSource/Runtime/Debug/CollisionVisualizer.cpp`
+- [x] `SkullbonezSource/Runtime/Debug/CollisionVisualizer.h`
+- [x] `SkullbonezSource/Runtime/Debug/PhysicsDebugVisualizer.cpp`
+- [x] `SkullbonezSource/Runtime/Debug/PhysicsDebugVisualizer.h`
+- [x] `SkullbonezSource/Runtime/Editor/LauncherTools.cpp`
+- [x] `SkullbonezSource/Runtime/Editor/RunEditorTools.cpp`
+- [x] `SkullbonezSource/Runtime/Init.cpp`
+- [x] `SkullbonezSource/Runtime/Input.h`
+- [x] `SkullbonezSource/Runtime/Run.cpp`
+- [x] `SkullbonezSource/Runtime/Run.h`
+- [x] `SkullbonezSource/Runtime/RunFrame.cpp`
+- [x] `SkullbonezSource/Runtime/RunInput.cpp`
+- [x] `SkullbonezSource/Runtime/RunInternal.h`
+- [x] `SkullbonezSource/Runtime/RunLiveStyle.cpp`
+- [x] `SkullbonezSource/Runtime/RunStress.cpp`
+- [x] `SkullbonezSource/Runtime/RuntimePickService.h`
+- [x] `SkullbonezSource/Runtime/Scene/RunScene.cpp`
+- [x] `SkullbonezSource/Runtime/Window.h`
+- [x] `SkullbonezSource/Scene/SceneSnapshotWriter.cpp`
+- [x] `SkullbonezSource/Scene/SceneSnapshotWriter.h`
+- [x] `SkullbonezSource/Scene/TestScene.cpp`
+- [x] `SkullbonezSource/Scene/TestScene.h`
+- [x] `SkullbonezSource/Scene/TestSceneParser.cpp`
+- [x] `SkullbonezSource/UI/UI.cpp`
+- [x] `SkullbonezSource/UI/UI.h`
+- [x] `SkullbonezSource/UI/UIButton.cpp`
+- [x] `SkullbonezSource/UI/UIButton.h`
+- [x] `SkullbonezSource/UI/UICache.cpp`
+- [x] `SkullbonezSource/UI/UICache.h`
+- [x] `SkullbonezSource/UI/UICheckBox.cpp`
+- [x] `SkullbonezSource/UI/UICheckBox.h`
+- [x] `SkullbonezSource/UI/UIComboBox.cpp`
+- [x] `SkullbonezSource/UI/UIComboBox.h`
+- [x] `SkullbonezSource/UI/UICommands.h`
+- [x] `SkullbonezSource/UI/UIDraw.cpp`
+- [x] `SkullbonezSource/UI/UIDraw.h`
+- [x] `SkullbonezSource/UI/UIDrawList.cpp`
+- [x] `SkullbonezSource/UI/UIDrawList.h`
+- [x] `SkullbonezSource/UI/UIDrawWidgets.cpp`
+- [x] `SkullbonezSource/UI/UIDrawWidgets.h`
+- [x] `SkullbonezSource/UI/UIIconButton.cpp`
+- [x] `SkullbonezSource/UI/UIIconButton.h`
+- [x] `SkullbonezSource/UI/UIInput.cpp`
+- [x] `SkullbonezSource/UI/UIInput.h`
+- [x] `SkullbonezSource/UI/UILayout.cpp`
+- [x] `SkullbonezSource/UI/UILayout.h`
+- [x] `SkullbonezSource/UI/UIScrollBar.cpp`
+- [x] `SkullbonezSource/UI/UIScrollBar.h`
+- [x] `SkullbonezSource/UI/UISlider.cpp`
+- [x] `SkullbonezSource/UI/UISlider.h`
+- [x] `SkullbonezSource/UI/UIState.h`
+- [x] `SkullbonezSource/UI/UIStyle.cpp`
+- [x] `SkullbonezSource/UI/UIStyle.h`
+- [x] `SkullbonezSource/UI/UITabBar.cpp`
+- [x] `SkullbonezSource/UI/UITabBar.h`
+- [x] `SkullbonezSource/UI/UITabCinematic.cpp`
+- [x] `SkullbonezSource/UI/UITabCinematic.h`
+- [x] `SkullbonezSource/UI/UITabControls.cpp`
+- [x] `SkullbonezSource/UI/UITabControls.h`
+- [x] `SkullbonezSource/UI/UITabOptions.cpp`
+- [x] `SkullbonezSource/UI/UITabOptions.h`
+- [x] `SkullbonezSource/UI/UITabPhysics.cpp`
+- [x] `SkullbonezSource/UI/UITabPhysics.h`
+- [x] `SkullbonezSource/UI/UITabProfiler.cpp`
+- [x] `SkullbonezSource/UI/UITabProfiler.h`
+- [x] `SkullbonezSource/UI/UITabScene.cpp`
+- [x] `SkullbonezSource/UI/UITabScene.h`
+- [x] `SkullbonezSource/UI/UITabSky.cpp`
+- [x] `SkullbonezSource/UI/UIWindowChrome.cpp`
+- [x] `SkullbonezSource/UI/UIWindowChrome.h`
+- [x] `SkullbonezSource/World/SkyBox.cpp`
+- [x] `SkullbonezSource/World/SkyBox.h`
+- [x] `SkullbonezSource/World/Terrain.cpp`
+- [x] `SkullbonezSource/World/Terrain.h`
+- [x] `SkullbonezSource/World/TerrainSupportClassifier.h`
+- [x] `SkullbonezSource/World/WorldEnvironment.cpp`
+- [x] `SkullbonezSource/World/WorldEnvironment.h`
+
+## Audit result
+
+Completed 2026-07-10.
+
+- Checked: 186 / 186 scoped tracked source-bearing files.
+- Deferred: 0.
+- Duplicate mental-model paragraph groups: 0.
+- Generic `Validation gate` glossary matches: 0.
+- Checklist reconciliation: 186 modified source files, 186 checklist entries, 0 missing, 0 extra, 0 duplicates.
+- Comment-only proof: zero-context diff hunks outside the top learning header: 0.
+- Formatting proof: `git diff --check` passed.
+
+Repeated glossary entries for subsystem vocabulary such as descriptor, draw
+command, broadphase, and manifold were retained where the term is a local edit
+contract for that file; the cleanup target was duplicate boilerplate and generic
+repository-process glossary text.

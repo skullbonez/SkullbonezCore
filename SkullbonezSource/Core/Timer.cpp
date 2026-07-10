@@ -4,15 +4,14 @@ Purpose:
   Measures elapsed time for frame pacing and simulation updates.
 
 Mental model:
-  Runtime code connects authored scene data, input, simulation, render
-  backends, and validation-oriented launch modes. Follow who owns state and
-  when that state changes.
+  Timer.cpp measures elapsed time for frame pacing and simulation updates. As
+  an implementation unit, keep edits anchored on process-wide contracts,
+  diagnostics, and validation-sensitive state and on the glossary/invariants
+  below.
 
 Glossary:
   Lane R result: Recoverable platform/environment startup failure reported
     through an owner/message result instead of an exception.
-  Validation gate: Repository script that proves a class of changes before
-  commit or PR.
 
 Invariants:
   - Timer startup returns a Lane R result when high-resolution counters are

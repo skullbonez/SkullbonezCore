@@ -4,9 +4,10 @@ Purpose:
   Owns per-scene physics working state shared by broadphase, solver, and diagnostics.
 
 Mental model:
-  Physics is deterministic fixed-step state update. Units, contact ownership,
-  solver stages, sleep policy, and baseline-sensitive behavior are the key
-  reading anchors.
+  PhysicsWorld.h owns per-scene physics working state shared by broadphase,
+  solver, and diagnostics. As a public header, keep edits anchored on
+  deterministic physics, diagnostics, or world-state flow and on the
+  glossary/invariants below.
 
 Glossary:
   SkullScope: Queryable physics diagnostics workflow backed by bounded trace
@@ -42,7 +43,7 @@ Related:
 #include "PersistentContactSolver.h"
 #include "PhysicsBodyStore.h"
 #include "PhysicsDiagnosticsSink.h"
-#include "Debug/PhysicsDebugVisualizer.h"
+#include "PhysicsDebugData.h"
 #include "Ragdoll.h"
 #include "../Runtime/Replay/ReplaySolverSnapshot.h"
 #include "SleepIslandSystem.h"
@@ -61,11 +62,6 @@ namespace Threading
 {
 class WorkerPool;
 } // namespace Threading
-
-namespace Rendering
-{
-class IRenderCommandContext;
-} // namespace Rendering
 
 namespace Physics
 {
@@ -104,6 +100,7 @@ class PhysicsWorld
     Math::CollisionDetection::SpatialGrid m_spatialGrid;
     std::vector<std::pair<int, int>> m_candidatePairs;
     std::vector<float> m_timeRemaining;
+    std::vector<Math::Vector::Vector3> m_mutualGravityForces; // Model-order scratch forces, reserved before gameplay.
 
     // Sleep policy working state.
     //
@@ -428,6 +425,9 @@ class PhysicsWorld
                            const char* const* diagnosticNames,
                            int diagnosticNameCount,
                            const PhysicsDiagnosticsCsvWriter& diagnosticsCsvWriter );
+    const Math::Vector::Vector3* PrepareMutualGravityForces( const PhysicsBodyRecordList& bodyRecords,
+                                                             int modelCount,
+                                                             const PhysicsWorldForces& worldForces );
     void EmitPhysicsCollisionTime( const char* const* diagnosticNames,
                                    int diagnosticNameCount,
                                    const PhysicsDiagnosticsCsvWriter& diagnosticsCsvWriter,
@@ -438,7 +438,8 @@ class PhysicsWorld
                                    float availableTime );
     PersistentContactSolverContext CreatePersistentContactSolverContext( PhysicsBodyStore& bodyStore,
                                                                          const ColliderStore& colliderStore,
-                                                                         const Basics::EngineConfig& config );
+                                                                         const Basics::EngineConfig& config,
+                                                                         const PhysicsWorldForces& worldForces );
     void PreparePersistentContactSideEffects( int modelCount );
     void ApplyPersistentContactSideEffects( PhysicsBodyStore& bodyStore,
                                             const ColliderStore& colliderStore,
@@ -513,6 +514,7 @@ class PhysicsWorld
 
     void ApplyRuntimeConfig( const Basics::EngineConfig& config );
     void Clear();
+    void ReserveBodyScratchCapacity( std::size_t capacity );
     // Runs one fixed world step over the stores. diagnosticNames is a cold
     // Debug presentation overlay for collision-time rows; diagnosticsCsvWriter
     // is the cold CSV output edge supplied by runtime, not a solver service.
@@ -557,11 +559,6 @@ class PhysicsWorld
     void SetTornadoSystemConfig( const TornadoSystemConfig& config );
     const TornadoSystemConfig& GetTornadoSystemConfig() const;
     float GetTornadoSystemElapsedSeconds() const;
-    // Debug overlay edge: world generates line vertices, while the runtime
-    // supplies renderer capability and draw submission.
-    void RenderTornadoFieldVectors( const Math::Transformation::Matrix4& viewProj,
-                                    Rendering::IRenderCommandContext& renderCommands,
-                                    bool supportsDebugLines );
     void CaptureReplaySolverSnapshot( Basics::ReplaySolverWorldSnapshot& outSnapshot, int modelCount ) const;
     bool RestoreReplaySolverSnapshot( const Basics::ReplaySolverWorldSnapshot& snapshot, int modelCount );
     PhysicsDiagnosticsView GetDiagnosticsView() const;
@@ -631,6 +628,7 @@ struct PersistentContactSolverContext
     const ColliderRecordList& colliderRecords;
     int bodyStoreCount = 0;
     int pipelineRecordCapacity = 0;
+    bool elasticCollisions = false;
     const Basics::EngineConfig& config;
 };
 

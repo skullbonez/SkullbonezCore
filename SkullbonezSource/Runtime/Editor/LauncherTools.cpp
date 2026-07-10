@@ -4,8 +4,9 @@ Purpose:
   Owns launcher-mode raycast, projectile, laser, and repro snapshot behavior.
 
 Mental model:
-  Input decides when launcher actions fire. This file turns those actions into
-  world queries, transient visuals, physics impulses, and debug repro output.
+  LauncherTools.cpp owns launcher-mode raycast, projectile, laser, and repro
+  snapshot behavior. As an implementation unit, keep edits anchored on local
+  owner boundaries and call direction and on the glossary/invariants below.
 
 Glossary:
   Body store: Physics-owned live body records used for pose and velocity
@@ -14,8 +15,6 @@ Glossary:
     body handles.
   Repro snapshot: Debug-only text dump of the object under the launcher
     crosshair, including enough scene and physics state to recreate the issue.
-  Validation gate: Repository script that proves a class of changes before
-    commit or PR.
 
 Invariants:
   - Launcher repro output is a debugging interface; key names and numeric
@@ -118,8 +117,8 @@ bool RuntimeTools::PickLauncherReproTarget( GameModelCollection& collection,
     // sphere around its current physics body position, then chooses the nearest
     // sphere pierced by the camera ray. GameModel remains only the cold identity
     // table for the eventual snapshot row.
-    const ColliderStore& colliderStore = collection.GetPhysicsEngine().Colliders();
-    const PhysicsBodyStore& bodyStore = collection.GetPhysicsEngine().BodyStore();
+    const ColliderStore& colliderStore = collection.Colliders();
+    const PhysicsBodyStore& bodyStore = collection.BodyStore();
     const auto& colliders = colliderStore.Records();
     for ( const ColliderRecord& collider : colliders )
     {
@@ -194,8 +193,8 @@ RuntimeTools::WriteLauncherReproSnapshot( const LauncherReproSnapshotContext& co
     }
 
     GameModel& model = context.collection.GetModelAtIndex( targetIndex );
-    const ColliderStore& colliderStore = context.collection.GetPhysicsEngine().Colliders();
-    const PhysicsBodyStore& bodyStore = context.collection.GetPhysicsEngine().BodyStore();
+    const ColliderStore& colliderStore = context.collection.Colliders();
+    const PhysicsBodyStore& bodyStore = context.collection.BodyStore();
     const ColliderRecord* collider = LauncherReproColliderForModelIndex( bodyStore, colliderStore, targetIndex );
     if ( !collider )
     {

@@ -20,7 +20,7 @@
 @rem     the same working directory as the engine validation scripts.
 @rem
 @rem Related:
-@rem   - fable_plans/01-unit-test-pyramid-plan.md
+@rem   - Agentic/Plans/TODO/behavioral-test-depth.md
 @rem   - Agentic/Reference/comment-style-guide.md
 @rem
 @echo off

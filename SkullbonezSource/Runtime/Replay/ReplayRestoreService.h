@@ -38,6 +38,7 @@ Related:
 #include "../../GameObjects/GameModelCollection.h"
 #include "../../Maths/Quaternion.h"
 #include "../../Physics/PhysicsBodyStore.h"
+#include "../../Physics/PhysicsHandles.h"
 #include "../../World/WorldEnvironment.h"
 
 #include <cstddef>
@@ -89,7 +90,7 @@ class ReplayRestoreService
         }
 
         const int restoreModelCount = static_cast<int>( sample.bodies.size() );
-        const Physics::PhysicsBodyStore& bodyStore = context.models.GetPhysicsEngine().BodyStore();
+        const Physics::PhysicsBodyStore& bodyStore = context.models.BodyStore();
         for ( const ReplaySolverBodySample& body : sample.bodies )
         {
             if ( body.modelIndex < 0 || body.modelIndex >= liveModelCount || body.modelIndex >= restoreModelCount )
@@ -114,7 +115,7 @@ class ReplayRestoreService
             WriteReason( outReason, reasonSize, "failed to trim live model list" );
             return false;
         }
-        context.scene.ResetSceneObjectIdCursor( context.models.GetPhysicsEngine().BodyStore() );
+        context.scene.ResetSceneObjectIdCursor( context.models.BodyStore() );
 
         for ( const ReplaySolverBodySample& body : sample.bodies )
         {
@@ -140,8 +141,9 @@ class ReplayRestoreService
         }
         context.models.GetPhysicsEngine().ClearPendingBodyImpulses();
 
-        if ( !context.models.GetPhysicsEngine().RestoreReplaySolverSnapshot( sample.worldSnapshot,
-                                                                             context.models.SceneEntityCount() ) )
+        if ( !context.models.GetPhysicsEngine().RestoreReplaySolverSnapshot(
+                 sample.worldSnapshot,
+                 Physics::MakePhysicsBodyCountFromNonNegativeInt( context.models.SceneEntityCount() ) ) )
         {
             WriteReason( outReason, reasonSize, "failed to restore solver world snapshot" );
             return false;

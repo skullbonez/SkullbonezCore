@@ -4,8 +4,10 @@ Purpose:
   Builds simple procedural meshes used by debug rendering and generated scenes.
 
 Mental model:
-  Renderer-facing code translates engine concepts into backend resources, draw
-  calls, shader bindings, and validation artifacts.
+  PrimitiveMeshBuilder.h builds simple procedural meshes used by debug
+  rendering and generated scenes. As a public header, keep edits anchored on
+  render submission and resource lifetime and on the glossary/invariants
+  below.
 
 Glossary:
   Descriptor: Small binding record that tells a renderer how to interpret a

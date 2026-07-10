@@ -274,13 +274,23 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
     const UI::UIRect predictToggle = ReplayScrubberPredictToggleRect( screenW, screenH );
     const UI::UIRect predictHorizon = ReplayScrubberPredictHorizonRect( screenW, screenH );
     const UI::UIRect ragdollVisualToggle = ReplayScrubberRagdollVisualToggleRect( screenW, screenH );
+    const UI::UIRect pastPathToggle = ReplayScrubberPastPathToggleRect( screenW, screenH );
     const RunReplayTrack scrubTrack = loadedPresentation ? RunReplayTrack::Presentation : RunReplayTrack::Solver;
+    const UI::UIRect scrubTrackRect = ReplayScrubberTrackRect( screenW, screenH, scrubTrack );
     const UI::UIRect replayLoadButton = ReplayScrubberLoadButtonRect( screenW, screenH, scrubTrack );
     // Why: paused scenes may not have accumulated two solver frames yet. Scrub,
     // save, and branch tools need retained history; prediction can start from
     // the current live solver state as long as scene physics is available.
     const bool solverToolsEnabled = !loadedPresentation && solverReplayAvailable;
     const bool predictionToolsEnabled = !loadedPresentation && solverReplayEnabled && SceneState().isScenePhysics;
+    const bool pastPathToolsEnabled = solverToolsEnabled && m_replayRuntime.PathVisualizer().hasTarget;
+    // Why: forward prediction scrubbing needs a coherent prediction timeline,
+    // not two retained solver samples. The visible build prefix is enough to
+    // inspect while a fresh paused scene still lacks normal solver history.
+    const bool predictionTimelineAvailable =
+        predictionToolsEnabled && ( m_replayRuntime.ActivePredictionFrames().size() >= 2 ||
+                                    m_replayRuntime.Prediction().BuildPrefixShouldBePresented() );
+    const bool scrubTrackDragEnabled = loadedPresentation || solverToolsEnabled || predictionTimelineAvailable;
     const bool inHotZone = hotZone.Contains( mouse.x, mouse.y );
     const bool overPanel = panel.Contains( mouse.x, mouse.y );
     const bool overSaveButton = solverToolsEnabled && solverSaveButton.Contains( mouse.x, mouse.y );
@@ -297,15 +307,32 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
     const bool overPredictControl = predictionToolsEnabled && predictControl.Contains( mouse.x, mouse.y );
     const bool overPredictToggle = predictionToolsEnabled && predictToggle.Contains( mouse.x, mouse.y );
     const bool overRagdollVisualToggle = predictionToolsEnabled && ragdollVisualToggle.Contains( mouse.x, mouse.y );
-    const bool overPredictUi = overPredictControl || overPredictToggle || overRagdollVisualToggle;
+    const bool overPastPathToggle = pastPathToolsEnabled && pastPathToggle.Contains( mouse.x, mouse.y );
     const bool overPredictHorizon =
         predictionToolsEnabled && ( predictHorizon.Contains( mouse.x, mouse.y ) ||
                                     ( predictControl.Contains( mouse.x, mouse.y ) && mouse.x >= predictHorizon.x &&
                                       mouse.x <= predictHorizon.x + predictHorizon.w ) );
+    const bool overPredictUi = overPredictControl || overPredictToggle || overRagdollVisualToggle || overPredictHorizon;
+    // Why: the visible track should claim mouse input directly. If only the
+    // bottom hot-zone or paused state opens the gesture, clicking an exposed
+    // forward-prediction segment can feel dead until Space changes the mode.
+    const bool overScrubTrack = scrubTrackDragEnabled && scrubTrackRect.Contains( mouse.x, mouse.y );
     const RunReplayTrack hoveredTrack = scrubTrack;
     const bool canTakeMouse =
         !uiBlocksMouse || m_replayRuntime.Scrubber().dragging || m_replayRuntime.Prediction().ui.horizonDragging;
     const bool hotZoneCanReveal = inHotZone && !uiBlocksMouse;
+    const bool pointerOverScrubberSurface = hotZoneCanReveal || overPanel || overScrubTrack;
+    const bool pointerOverScrubberCommand = overSaveButton || overLoadButton || overBranchButton || overPauseButton;
+    const bool pointerOverReplayTool = overVelocityEditToggle || overPredictUi || overPastPathToggle;
+    const bool pointerRequestsReplayOverlay =
+        pointerOverScrubberSurface || pointerOverScrubberCommand || pointerOverReplayTool;
+    const bool replayDragInProgress =
+        m_replayRuntime.Scrubber().dragging || m_replayRuntime.Prediction().ui.horizonDragging;
+    const bool replayStateKeepsScrubberVisible = replayDragInProgress ||
+                                                 m_replayRuntime.Scrubber().historicalSamplePaused ||
+                                                 m_replayRuntime.Scrubber().liveAdvanceHeld;
+    const bool scrubTrackStartTarget =
+        inHotZone || overPanel || overScrubTrack || m_replayRuntime.Scrubber().historicalSamplePaused;
     const double now = m_timers.simulationTimer.GetTotalTime();
     auto promptLoadReplayPresentationArtifact = [&]() -> bool
     {
@@ -373,11 +400,9 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
     // Why: the replay reveal zone is mode-agnostic. Passive Scene/Demo cameras
     // do not own mouse tools, but moving to the bottom edge should still expose
     // retained replay controls. UI-owned mouse areas, such as the minimized
-    // options window, should not wake the replay bar.
-    if ( hotZoneCanReveal || overPanel || overSaveButton || overLoadButton || overBranchButton || overPauseButton ||
-         overVelocityEditToggle || overPredictUi || m_replayRuntime.Scrubber().dragging ||
-         m_replayRuntime.Prediction().ui.horizonDragging || m_replayRuntime.Scrubber().historicalSamplePaused ||
-         m_replayRuntime.Scrubber().liveAdvanceHeld )
+    // options window, should not wake the replay bar. Paused/held replay states
+    // pin the bar open without making empty screen space consume mouse input.
+    if ( pointerRequestsReplayOverlay || replayStateKeepsScrubberVisible )
     {
         m_replayRuntime.Scrubber().visibleUntil = now + REPLAY_SCRUBBER_VISIBLE_SECONDS;
     }
@@ -404,6 +429,8 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
           m_replayRuntime.Scrubber().liveAdvanceHeld );
     m_replayRuntime.Scrubber().pauseHovered = solverToolsEnabled && overPauseButton && solverControlVisible;
     m_replayRuntime.VelocityEdit().toggleHovered = solverToolsEnabled && overVelocityEditToggle && solverControlVisible;
+    m_replayRuntime.PathVisualizer().pastPathHovered =
+        pastPathToolsEnabled && overPastPathToggle && solverControlVisible;
     m_replayRuntime.Prediction().ui.checkboxHovered =
         predictionToolsEnabled && overPredictToggle && predictionControlVisible;
     m_replayRuntime.Prediction().ui.ragdollVisualsHovered =
@@ -414,10 +441,8 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
         predictionToolsEnabled && overPredictHorizon && predictionControlVisible;
 
     bool consumesMouse =
-        canTakeMouse && ( m_replayRuntime.Scrubber().dragging || m_replayRuntime.Prediction().ui.horizonDragging ||
-                          ( m_replayRuntime.Scrubber().visibleUntil >= now &&
-                            ( hotZoneCanReveal || overPanel || overSaveButton || overBranchButton || overLoadButton ||
-                              overPauseButton || overVelocityEditToggle || overPredictUi ) ) );
+        canTakeMouse &&
+        ( replayDragInProgress || ( m_replayRuntime.Scrubber().visibleUntil >= now && pointerRequestsReplayOverlay ) );
 
     if ( branchTargetAvailable &&
          ( restorePressed || ( leftPressed && canTakeMouse && overBranchButton && branchControlVisible ) ) )
@@ -455,21 +480,23 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
             // Prediction can still be rebuilt explicitly, but the play button
             // must not let automatic refresh chase the moving live frame.
             RunReplayPredictionState& prediction = m_replayRuntime.Prediction();
+            bool promotedBuildPrefix = false;
             if ( prediction.BuildPrefixShouldBePresented() )
             {
                 // Why: the overlay may be drawing a build prefix before the
                 // full horizon finishes. Promote that visible prefix so Play
                 // freezes the lines the user saw instead of clearing them.
-                // Hazard: if prediction stepping moves to a worker, this helper
-                // must stay false while that worker can still write buildFrames.
-                const std::size_t promotedFrameCount = prediction.PublishedBuildFrameCount();
-                prediction.simulation.frames.swap( prediction.build.buildFrames );
-                prediction.simulation.frames.resize( promotedFrameCount );
-                prediction.ResetBuildFramePublication();
+                // Hazard: promotion swaps vector ownership and republishes the
+                // committed root trajectory, so it must own the worker wait and
+                // cleanup as one replay-runtime transition.
+                promotedBuildPrefix = m_replayRuntime.PromotePredictionBuildPrefixToCommitted();
             }
             m_replayRuntime.Prediction().enabled = false;
             m_replayRuntime.Prediction().ui.horizonDragging = false;
-            m_replayRuntime.CancelPredictionJob( false );
+            if ( !promotedBuildPrefix )
+            {
+                m_replayRuntime.CancelPredictionJob( false );
+            }
             const float currentPosition = m_replayRuntime.TrackPosition( RunReplayTrack::Solver );
             if ( ReplayRuntime::TrackPositionIsFuture( currentPosition, previousPredictionPresentT ) )
             {
@@ -551,6 +578,21 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
         m_replayRuntime.Scrubber().visible = true;
         consumesMouse = true;
     }
+    else if ( pastPathToolsEnabled && leftPressed && canTakeMouse && overPastPathToggle &&
+              m_replayRuntime.Scrubber().visibleUntil >= now )
+    {
+        RunReplayPathVisualizerState& pathVisualizer = m_replayRuntime.PathVisualizer();
+        pathVisualizer.pastPathVisible = !pathVisualizer.pastPathVisible;
+        if ( !pathVisualizer.pastPathVisible )
+        {
+            // Why: the retained solver lane is now intentionally hidden, so the
+            // automation-facing node cache must not report stale past-path rows.
+            pathVisualizer.futureNodes.clear();
+        }
+        m_replayRuntime.Scrubber().visibleUntil = now + REPLAY_SCRUBBER_VISIBLE_SECONDS;
+        m_replayRuntime.Scrubber().visible = true;
+        consumesMouse = true;
+    }
     else if ( predictionToolsEnabled && leftPressed && canTakeMouse && overRagdollVisualToggle &&
               m_replayRuntime.Scrubber().visibleUntil >= now )
     {
@@ -619,9 +661,8 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
         promptLoadReplayPresentationArtifact();
         consumesMouse = true;
     }
-    else if ( ( loadedPresentation || solverToolsEnabled ) && leftPressed && canTakeMouse && !overBranchButton &&
-              !overPauseButton && !overPredictUi && !overLoadButton &&
-              ( inHotZone || overPanel || m_replayRuntime.Scrubber().historicalSamplePaused ) )
+    else if ( scrubTrackDragEnabled && leftPressed && canTakeMouse && !overBranchButton && !overPauseButton &&
+              !overPredictUi && !overPastPathToggle && !overLoadButton && scrubTrackStartTarget )
     {
         EnterInteractiveSceneRun();
         BeginReplayToolGesture( RuntimeInteractionGestureKind::ReplayScrubDrag,

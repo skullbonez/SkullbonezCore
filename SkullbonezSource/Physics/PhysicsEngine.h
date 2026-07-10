@@ -31,8 +31,6 @@ Related:
 
 #include <cstddef>
 #include <cstdint>
-#include <vector>
-
 #include "PhysicsScene.h"
 
 namespace SkullbonezCore
@@ -47,14 +45,11 @@ namespace Threading
 class WorkerPool;
 } // namespace Threading
 
-namespace Rendering
-{
-class IRenderCommandContext;
-} // namespace Rendering
-
 namespace Physics
 {
+struct PhysicsAuthoredBodyRefreshView;
 struct PhysicsColliderCreateDesc;
+class PhysicsEngineStoreQueries;
 struct PhysicsMaterial;
 
 class PhysicsEngine
@@ -68,32 +63,33 @@ class PhysicsEngine
     void ApplyAuthoredBodyPolicy( PhysicsBodyCreateDesc& desc ) const;
     void ApplyAuthoredColliderPolicy( PhysicsColliderCreateDesc& desc ) const;
     void ReserveAuthoredBodyCapacity( std::size_t capacity );
-    int AuthoredBodyDescriptorCount() const;
-    bool TryGetAuthoredBodyDescriptor( int modelIndex, PhysicsBodyCreateDesc& outDesc ) const;
-    bool UpdateAuthoredBodyDescriptor( int modelIndex, PhysicsBodyCreateDesc& desc, int expectedModelCount );
-    bool TrimAuthoredBodyDescriptorsToCount( int bodyCount );
+    PhysicsAuthoredBodyCount AuthoredBodyDescriptorCount() const;
+    bool TryGetAuthoredBodyDescriptor( ModelRowHint bodyRow, PhysicsBodyCreateDesc& outDesc ) const;
+    bool UpdateAuthoredBodyDescriptor( ModelRowHint bodyRow,
+                                       PhysicsBodyCreateDesc& desc,
+                                       PhysicsAuthoredBodyCount expectedBodyCount );
+    bool TrimAuthoredBodyDescriptorsToCount( PhysicsAuthoredBodyCount bodyCount );
     void Clear();
-    bool RefreshBodyStoreFromAuthoredDescriptors( const std::vector<uint32_t>& replayBodyIds,
-                                                  const std::vector<int>& fixedTreeReleaseRoots,
-                                                  const std::vector<const char*>& diagnosticNames );
-    void RefreshBodyStore( const std::vector<PhysicsBodyCreateDesc>& bodyDescs );
-    // Owner passes the expected count so single-row descriptor commits cannot
-    // paper over topology drift.
-    void RefreshBodyFromDescriptor( const PhysicsBodyCreateDesc& desc, int modelIndex, int expectedModelCount );
+    bool RefreshBodyStoreFromAuthoredDescriptors( const PhysicsAuthoredBodyRefreshView& refreshView );
+    // Owner passes a row hint and expected count so single-row descriptor commits
+    // cannot paper over topology drift or treat the hint as identity.
+    void RefreshBodyFromDescriptor( const PhysicsBodyCreateDesc& desc,
+                                    ModelRowHint bodyRow,
+                                    PhysicsBodyCount expectedBodyCount );
     // Scene/model construction receives a body handle at append time instead of
     // resolving the just-created row through a legacy adapter.
     PhysicsBodyHandle RegisterAuthoredBody( const PhysicsBodyCreateDesc& desc );
     // Scene/model construction submits a collider descriptor at the append
-    // edge; PhysicsScene owns conversion into the dense ColliderStore row.
+    // edge; PhysicsScene owns conversion into the dense collider row.
     PhysicsColliderHandle RegisterAuthoredCollider( const PhysicsColliderCreateDesc& desc );
     // Replaces one authored collider descriptor without moving its stable
-    // ColliderStore handle.
+    // collider handle.
     bool UpdateAuthoredCollider( PhysicsColliderHandle collider, const PhysicsColliderCreateDesc& desc );
     void ClearPendingBodyImpulses();
-    // Replay restore trims the authoritative body store directly; callers must
+    // Replay restore trims authoritative physics bodies directly; callers must
     // not force a model-to-store refresh after this succeeds.
-    bool TrimBodyStoreToCount( int bodyCount );
-    bool TrimColliderStoreToCount( int colliderCount );
+    bool TrimBodiesToCount( PhysicsBodyCount bodyCount );
+    bool TrimCollidersToCount( PhysicsColliderCount colliderCount );
     // Store-owned replay restore facade. Callers resolve a body handle at the
     // owner edge so physics does not accept transient model slots as authority.
     bool RestoreReplayBodyState( PhysicsBodyHandle body,
@@ -107,27 +103,10 @@ class PhysicsEngine
                                  float inverseMass,
                                  const Math::Vector::Vector3& rotationalInertia,
                                  const Math::Vector::Vector3& inverseRotationalInertia );
-    // Rebinds existing collider rows from PhysicsBodyStore. Missing collider
+    // Rebinds existing collider rows from physics body identity. Missing collider
     // rows are a topology bug, not a cue to rebuild shape facts from authoring
     // storage.
     bool RefreshColliderSnapshot();
-    // Prepares body/collider rows for the render-store projection refresh. The
-    // collection owner fills render presentation rows after this returns.
-    bool PrepareRenderStoreRefresh( int expectedModelCount );
-    void ReserveRenderPresentationCapacity( std::size_t capacity );
-    bool ResizeRenderPresentationRecords( int presentationCount );
-    Rendering::RenderInstancePresentationRecord* MutableRenderPresentationRecordForModelIndex( int modelIndex );
-    const std::vector<Rendering::RenderInstancePresentationRecord>& RenderPresentationRecords() const;
-    bool RefreshRenderInstancesFromPresentation();
-    // Applies a one-frame draw-pose override to the prepared render snapshot.
-    // Replay uses this after normal projection refresh so historical/future
-    // poses affect pixels without mutating body rows or authoring descriptors.
-    bool OverrideRenderInstancePose( int modelIndex,
-                                     uint32_t replayBodyId,
-                                     const Math::Vector::Vector3& position,
-                                     const Math::Orientation::Quaternion& orientation );
-    // Mutable only for replay/render presentation pose overrides.
-    Rendering::RenderInstanceStore& MutableRenderInstances();
     // Steps the owned stores. Model-order descriptor import lives with the
     // collection owner, and diagnosticsCsvWriter carries cold Debug CSV output
     // authority instead of letting physics reach through global logging.
@@ -167,7 +146,7 @@ class PhysicsEngine
                            const Math::Vector::Vector3& impulse,
                            const Math::Vector::Vector3& localApplicationPoint );
     void SetSleepEnabled( bool enabled );
-    void BeginCollisionVisualFrame( int modelCount );
+    void BeginCollisionVisualFrame( PhysicsBodyCount bodyCount );
     void EndCollisionVisualFrame();
     void ClearPointJointConstraints();
     // Creates a point joint from physics body handles and rejects stale or
@@ -178,36 +157,16 @@ class PhysicsEngine
     void SetTornadoSystemConfig( const TornadoSystemConfig& config );
     const TornadoSystemConfig& GetTornadoSystemConfig() const;
     float GetTornadoSystemElapsedSeconds() const;
-    // Debug overlay edge: caller owns renderer readiness/capabilities; physics
-    // only contributes tornado vector geometry.
-    void RenderTornadoFieldVectors( const Math::Transformation::Matrix4& viewProj,
-                                    Rendering::IRenderCommandContext& renderCommands,
-                                    bool supportsDebugLines );
-    void CaptureReplaySolverSnapshot( Basics::ReplaySolverWorldSnapshot& outSnapshot, int modelCount ) const;
-    bool RestoreReplaySolverSnapshot( const Basics::ReplaySolverWorldSnapshot& snapshot, int modelCount );
+    void CaptureReplaySolverSnapshot( Basics::ReplaySolverWorldSnapshot& outSnapshot,
+                                      PhysicsBodyCount bodyCount ) const;
+    bool RestoreReplaySolverSnapshot( const Basics::ReplaySolverWorldSnapshot& snapshot, PhysicsBodyCount bodyCount );
     PhysicsDiagnosticsView GetDiagnosticsView() const;
     uint64_t CollectPhysicsWorldMemoryBytes() const;
     uint64_t CollectDebugAndBroadphaseMemoryBytes() const;
     bool ShouldEmitStepDiagnostics() const;
     bool ShouldEmitCollisionTimeDiagnostics() const;
-    const std::vector<int>& GetFixedContactHighlightBodies() const;
-
-    const PhysicsBodyStore& BodyStore() const;
-    const ColliderStore& Colliders() const;
-    const Rendering::RenderInstanceStore& RenderInstances() const;
-    const Math::CollisionDetection::SpatialGrid& GetSpatialGrid() const;
-    const std::vector<int64_t>& GetCollisionCellKeys() const;
-    const std::vector<uint8_t>& GetCollisionVisualContacts() const;
-    const std::vector<uint8_t>& GetSleepStates() const;
-    const std::vector<int>& GetSleepIslandVisualIds() const;
-    const std::vector<uint8_t>& GetSleepSupportedStates() const;
-    const std::vector<uint8_t>& GetSleepInhibitedStates() const;
-    const std::vector<PhysicsDebugContact>& GetPhysicsDebugContacts() const;
-    const std::vector<PhysicsPipelineRecord>& GetPhysicsPipelineTrace() const;
-    const std::vector<PointJointConstraint>& GetPointJointConstraints() const;
 
 #ifdef _DEBUG
-    void ValidateRenderStore( int expectedModelCount ) const;
     void SetPhysicsRegressionLogPath( const char* path );
     void SetPhysicsCollisionTimeLogPath( const char* path );
     void SetPhysicsDiagnosticsPath( const char* path );
@@ -216,6 +175,8 @@ class PhysicsEngine
 #endif
 
   private:
+    friend class PhysicsEngineStoreQueries;
+
     PhysicsScene m_scene;
 };
 } // namespace Physics

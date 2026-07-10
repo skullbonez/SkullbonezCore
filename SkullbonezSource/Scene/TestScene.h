@@ -4,9 +4,9 @@ Purpose:
   Stores parsed test-scene JSON and applies it to runtime scene state.
 
 Mental model:
-  Runtime code connects authored scene data, input, simulation, render
-  backends, and validation-oriented launch modes. Follow who owns state and
-  when that state changes.
+  TestScene.h stores parsed test-scene JSON and applies it to runtime scene
+  state. As a public header, keep edits anchored on scene-file parsing or
+  snapshot contracts and on the glossary/invariants below.
 
 Glossary:
   DXR (DirectX Raytracing): DX12 API used for hardware ray traversal and
@@ -15,8 +15,6 @@ Glossary:
   exposed through the renderer abstraction.
   CSV (Comma-Separated Values): Text table format used for byte-exact physics
   regression output.
-  Validation gate: Repository script that proves a class of changes before
-  commit or PR.
   Override mask: Bitfield that records which optional JSON fields were authored
     so unspecified values keep engine.cfg defaults.
   Lane R result: Recoverable load outcome carrying owner/message diagnostics
@@ -42,9 +40,10 @@ Related:
 #include "../Core/Common.h"
 #include "../Core/Config.h"
 #include "../Core/SbResult.h"
-#include "../Physics/Debug/PhysicsDebugVisualizer.h"
+#include "../Physics/PhysicsDebugData.h"
 #include "../Physics/PhysicsTimestep.h"
 #include "../Physics/TornadoField.h"
+#include "../Physics/PhysicsWorldForces.h"
 #include "../Rendering/RenderMaterial.h"
 #include "../Maths/Vector3.h"
 #include <cstdint>
@@ -58,6 +57,8 @@ class TestScene;
 class TestSceneParser;
 TestScene LoadTestSceneFromFileImpl( const char* path, Assets::AssetContext assets );
 TestScene LoadStyleSceneFromFileImpl( const char* path, Assets::AssetContext assets );
+SbResult TryLoadTestSceneFromFileImpl( const char* path, Assets::AssetContext assets, TestScene& outScene );
+SbResult TryLoadStyleSceneFromFileImpl( const char* path, Assets::AssetContext assets, TestScene& outScene );
 
 struct SceneCamera
 {
@@ -377,6 +378,7 @@ struct SceneWorldOverride
     float worldGravity = 0.0f;
     float worldFluidHeight = 0.0f;
     float worldFluidDensity = 0.0f;
+    Physics::MutualGravitySettings mutualGravity;             // Optional authored n-body attraction settings.
 };
 
 struct SceneTornadoSystem
@@ -572,6 +574,8 @@ class TestScene
     float GetWorldGravity() const;
     float GetWorldFluidHeight() const;
     float GetWorldFluidDensity() const;
+    const Physics::MutualGravitySettings& GetWorldMutualGravitySettings() const;
+    bool HasMutualGravityEnabled() const;
     bool HasTornadoSystem() const;
     const Physics::TornadoSystemConfig& GetTornadoSystemConfig() const;
     const SceneUIOptions& GetUIOptions() const;

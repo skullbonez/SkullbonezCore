@@ -684,6 +684,14 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         UIData.currentSceneIndex = view.sceneIndex;
         UIData.sceneCount = view.sceneCount;
         UIData.now = state.timers.simulationTimer.GetTotalTime();
+        const ReplayMemoryPolicy& replayMemoryPolicy = inputs.replayRuntime.MemoryPolicy();
+        UIData.replayMemoryPreset = static_cast<int>( replayMemoryPolicy.preset );
+        UIData.replayMemoryRequestedRetentionSeconds = replayMemoryPolicy.requestedRetentionSeconds;
+        UIData.replayMemoryRequestedBudgetMiB = replayMemoryPolicy.requestedBudgetMiB;
+        UIData.replayMemoryPresentationRetentionSeconds = replayMemoryPolicy.presentationRetentionSeconds;
+        UIData.replayMemorySolverRetentionSeconds = replayMemoryPolicy.solverRetentionSeconds;
+        UIData.replayMemoryBudgetClamped = replayMemoryPolicy.budgetClamped;
+        UIData.replayMemorySolverWindowReduced = replayMemoryPolicy.solverWindowReduced;
         const bool memoryTabActive =
             state.ui.IsVisible() && !state.ui.IsMinimized() && state.ui.GetActiveTab() == InGameUITab::Memory;
         const bool memoryOverlayEnabled = state.ui.IsMemoryOverlayEnabled();

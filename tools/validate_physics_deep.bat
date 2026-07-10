@@ -53,6 +53,7 @@ echo [2/4] Running broad physics regression scenes...
 del /q "%REPO%\Debug\physics_regression_*.csv" 2>nul
 del /q "%REPO%\Debug\bullet_sweep_*.csv" 2>nul
 del /q "%REPO%\Debug\shooting_reaction_*.csv" 2>nul
+del /q "%REPO%\Debug\space_three_body_*.csv" 2>nul
 del /q "%REPO%\Debug\physics_known_*.csv" 2>nul
 
 echo   Running physics_regression_solver...
@@ -87,6 +88,13 @@ echo   Running shooting_reaction_volley...
 "%REPO%\Debug\SKULLBONEZ_CORE.exe" --renderer dx12 --vsync off --fixed-step --shadows off --scene SkullbonezData/scenes/shooting_reaction_volley.scene.json --physics-regression-log Debug/shooting_reaction_volley.csv
 if errorlevel 1 (
     echo FAIL: shooting_reaction_volley crashed or errored.
+    exit /b 2
+)
+
+echo   Running space_three_body_chaos...
+"%REPO%\Debug\SKULLBONEZ_CORE.exe" --renderer dx12 --vsync off --fixed-step --shadows off --scene SkullbonezData/scenes/three_body_chaos.scene.json --physics-regression-log Debug/space_three_body_chaos.csv
+if errorlevel 1 (
+    echo FAIL: space_three_body_chaos crashed or errored.
     exit /b 2
 )
 

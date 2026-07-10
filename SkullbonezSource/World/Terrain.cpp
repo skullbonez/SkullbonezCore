@@ -4,9 +4,10 @@ Purpose:
   Stores terrain mesh, height queries, and terrain rendering resources.
 
 Mental model:
-  Physics is deterministic fixed-step state update. Units, contact ownership,
-  solver stages, sleep policy, and baseline-sensitive behavior are the key
-  reading anchors.
+  Terrain.cpp stores terrain mesh, height queries, and terrain rendering
+  resources. As an implementation unit, keep edits anchored on world-state
+  ownership, terrain/environment data, and physics/render handoff and on the
+  glossary/invariants below.
 
 Glossary:
   Broadphase: Cheap collision pass that finds object pairs worth testing more
@@ -190,6 +191,10 @@ void Terrain::InitialiseTerrainShader()
     assert( m_assets );
     assert( m_resources );
     m_terrainShader = m_assets->CreateShader( *m_resources, "shader.lit_textured" );
+    if ( !m_terrainShader )
+    {
+        return;
+    }
     m_terrainShader->Use();
     const auto& ordinary = Config().ordinaryRender;
     m_terrainShader->SetVec4( "uLightAmbient",
@@ -612,6 +617,11 @@ void Terrain::Render( const Matrix4& view,
                       const SkullbonezCore::Basics::CinematicRenderConfig* cinematicOverride,
                       const ShadowFrameData* shadow )
 {
+    if ( !m_terrainShader || !m_terrainMesh )
+    {
+        return;
+    }
+
     m_terrainShader->Use();
 
     // Model matrix is identity (m_terrain vertices are in world space)
@@ -719,6 +729,10 @@ void Terrain::RenderShadowDepth( const Matrix4& lightView,
     if ( !m_shadowDepthShader )
     {
         EnsureShadowDepthResources();
+    }
+    if ( !m_shadowDepthShader || !m_terrainMesh )
+    {
+        return;
     }
 
     m_shadowDepthShader->Use();

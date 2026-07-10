@@ -210,7 +210,8 @@ class PhysicsBodyStore
     bool ApplyForces( const PhysicsWorldForces& worldForces,
                       const ColliderStore& colliderStore,
                       int modelIndex,
-                      float deltaSeconds );
+                      float deltaSeconds,
+                      const Math::Vector::Vector3* precomputedMutualGravityForce = nullptr );
 
   private:
     PhysicsBodyHandle ResolveHandleForModelIndex( int modelIndex,

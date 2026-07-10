@@ -4,9 +4,10 @@ Purpose:
   Owns low-level DX12 device objects, fences, command allocators, and frame pacing.
 
 Mental model:
-  DX12 separates resource memory, descriptor rows, command recording, and GPU
-  execution. Ownership, state transitions, descriptor lifetime, and fence
-  ordering are the important ideas.
+  RenderDeviceDX12.cpp owns low-level DX12 device objects, fences, command
+  allocators, and frame pacing. As an implementation unit, keep edits anchored
+  on DX12 ownership, descriptors, resources, and command submission and on the
+  glossary/invariants below.
 
 Glossary:
   RTV (Render Target View): Descriptor row used when the GPU writes color
@@ -53,7 +54,6 @@ Related:
 #include <cwchar>
 #include <d3d12sdklayers.h>
 #include <sstream>
-#include <stdexcept>
 
 namespace SkullbonezCore
 {
@@ -76,12 +76,16 @@ static inline Basics::SbResult Dx12StartupResult( HRESULT hr, const char* msg )
 }
 
 
-static inline void ThrowIfFailed( HRESULT hr, const char* msg )
+static inline Basics::SbResult Dx12RuntimeResult( HRESULT hr, const char* msg )
 {
     if ( FAILED( hr ) )
     {
-        throw std::runtime_error( msg );
+        return Basics::SbResult::Failure( "Rendering/DX12",
+                                          "%s (HRESULT 0x%08X)",
+                                          msg ? msg : "DX12 runtime call failed",
+                                          static_cast<unsigned int>( hr ) );
     }
+    return Basics::SbResult::Success();
 }
 
 struct Dx12RenderDeviceInitRollback
@@ -192,8 +196,9 @@ bool Dx12FenceTimeline::IsReady() const
 }
 
 
-UINT64 Dx12FenceTimeline::Signal()
+Basics::SbResult Dx12FenceTimeline::Signal( UINT64& outValue )
 {
+    outValue = 0;
     if ( !IsReady() )
     {
         SB_FATAL( "RenderDeviceDX12", "DX12 fence timeline used before Init." );
@@ -202,32 +207,42 @@ UINT64 Dx12FenceTimeline::Signal()
     // Signal creates the next completion marker on the GPU timeline. The queue
     // does not write this value immediately. It writes the value after every
     // command submitted before this Signal() has finished on the GPU.
-    const UINT64 value = ++m_lastSignaledValue;
-    if ( FAILED( m_queue->Signal( m_fence, value ) ) )
+    // Lane R: queue/fence calls can fail because the device or driver is gone.
+    // Keep the timeline value unchanged unless the marker was actually queued.
+    const UINT64 value = m_lastSignaledValue + 1;
+    const Basics::SbResult signalResult =
+        Dx12RuntimeResult( m_queue->Signal( m_fence, value ), "DX12 command queue Signal failed" );
+    if ( !signalResult.ok )
     {
-        throw std::runtime_error( "DX12 command queue Signal failed" );
+        return signalResult;
     }
-    return value;
+    m_lastSignaledValue = value;
+    outValue = value;
+    return Basics::SbResult::Success();
 }
 
 
-UINT64 Dx12FenceTimeline::SignalAndWait()
+Basics::SbResult Dx12FenceTimeline::SignalAndWait()
 {
     // This is the "drain the GPU" path. It is intentionally blocking: the CPU
     // asks the GPU to signal a new value, then waits until that exact value is
     // complete. Use it for shutdown, resize, and rare mid-frame flushes, not for
     // normal per-draw work.
-    const UINT64 value = Signal();
-    WaitForValue( value );
-    return value;
+    UINT64 value = 0;
+    const Basics::SbResult signalResult = Signal( value );
+    if ( !signalResult.ok )
+    {
+        return signalResult;
+    }
+    return WaitForValue( value );
 }
 
 
-void Dx12FenceTimeline::WaitForValue( UINT64 value ) const
+Basics::SbResult Dx12FenceTimeline::WaitForValue( UINT64 value ) const
 {
     if ( value == 0 )
     {
-        return;
+        return Basics::SbResult::Success();
     }
     if ( !IsReady() )
     {
@@ -240,12 +255,21 @@ void Dx12FenceTimeline::WaitForValue( UINT64 value ) const
     // that happens.
     if ( m_fence->GetCompletedValue() < value )
     {
-        if ( FAILED( m_fence->SetEventOnCompletion( value, m_eventHandle ) ) )
+        const Basics::SbResult eventResult = Dx12RuntimeResult( m_fence->SetEventOnCompletion( value, m_eventHandle ),
+                                                                "DX12 fence SetEventOnCompletion failed" );
+        if ( !eventResult.ok )
         {
-            throw std::runtime_error( "DX12 fence SetEventOnCompletion failed" );
+            return eventResult;
         }
-        WaitForSingleObject( m_eventHandle, INFINITE );
+        const DWORD waitResult = WaitForSingleObject( m_eventHandle, INFINITE );
+        if ( waitResult != WAIT_OBJECT_0 )
+        {
+            return Basics::SbResult::Failure( "Rendering/DX12",
+                                              "DX12 fence wait failed (wait result 0x%08X)",
+                                              static_cast<unsigned int>( waitResult ) );
+        }
     }
+    return Basics::SbResult::Success();
 }
 
 
@@ -805,17 +829,25 @@ bool Dx12FrameUploadSystem::Init( ID3D12Device* device,
         desc.SampleDesc.Count = 1;
         desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
 
-        ThrowIfFailed( device->CreateCommittedResource( &heapProps,
-                                                        D3D12_HEAP_FLAG_NONE,
-                                                        &desc,
-                                                        D3D12_RESOURCE_STATE_GENERIC_READ,
-                                                        nullptr,
-                                                        IID_PPV_ARGS( &m_resources[i] ) ),
-                       "CreateCommittedResource (frame upload) failed" );
+        const HRESULT createResult = device->CreateCommittedResource( &heapProps,
+                                                                      D3D12_HEAP_FLAG_NONE,
+                                                                      &desc,
+                                                                      D3D12_RESOURCE_STATE_GENERIC_READ,
+                                                                      nullptr,
+                                                                      IID_PPV_ARGS( &m_resources[i] ) );
+        if ( FAILED( createResult ) )
+        {
+            Shutdown();
+            return false;
+        }
         NameDx12ObjectIndexed( m_resources[i], safeName, i );
 
-        ThrowIfFailed( m_resources[i]->Map( 0, nullptr, reinterpret_cast<void**>( &m_mappedPtrs[i] ) ),
-                       "Map frame upload buffer failed" );
+        const HRESULT mapResult = m_resources[i]->Map( 0, nullptr, reinterpret_cast<void**>( &m_mappedPtrs[i] ) );
+        if ( FAILED( mapResult ) )
+        {
+            Shutdown();
+            return false;
+        }
 
         // The arena owns byte-range accounting for this resource. The system
         // owns the COM resource and its persistent CPU Map() pointer.
@@ -1004,7 +1036,12 @@ void* Dx12ReadbackBuffer::MapRead( UINT64 sizeBytes ) const
 
     void* mappedData = nullptr;
     D3D12_RANGE readRange = { 0, static_cast<SIZE_T>( sizeBytes ) };
-    ThrowIfFailed( m_resource->Map( 0, &readRange, &mappedData ), "Map readback buffer failed" );
+    // Lane R: Map can fail after device removal or readback-memory pressure.
+    // Callers own the report boundary, so return null instead of unwinding.
+    if ( FAILED( m_resource->Map( 0, &readRange, &mappedData ) ) )
+    {
+        return nullptr;
+    }
     return mappedData;
 }
 

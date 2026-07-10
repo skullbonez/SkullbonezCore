@@ -4,9 +4,9 @@ Purpose:
   Shares private run-loop data structures between split runtime implementation files.
 
 Mental model:
-  Runtime code connects authored scene data, input, simulation, render
-  backends, and validation-oriented launch modes. Follow who owns state and
-  when that state changes.
+  RunInternal.h shares private run-loop data structures between split runtime
+  implementation files. As a public header, keep edits anchored on local owner
+  boundaries and call direction and on the glossary/invariants below.
 
 Glossary:
   HUD (Heads-Up Display): On-screen diagnostics and control overlay.
@@ -15,8 +15,6 @@ Glossary:
   Scrubber: Replay timeline control that lets the operator inspect stored
   solver or presentation samples.
   Hot zone: Screen-space rectangle that wakes hidden UI controls when hovered.
-  Validation gate: Repository script that proves a class of changes before
-  commit or PR.
 
 Invariants:
   - Types in this header are private to split Run implementation files; public
@@ -168,12 +166,12 @@ inline void DrawUITestPattern( Rendering::IRenderCommandContext& renderCommands,
 
 inline int RuntimeWindowScreenWidth( const RunSubsystemState& systems, const EngineConfig& config )
 {
-    return systems.window ? static_cast<int>( systems.window->m_sWindowDimensions.x ) : config.window.screenX;
+    return systems.window ? systems.window->ClientWidth() : config.window.screenX;
 }
 
 inline int RuntimeWindowScreenHeight( const RunSubsystemState& systems, const EngineConfig& config )
 {
-    return systems.window ? static_cast<int>( systems.window->m_sWindowDimensions.y ) : config.window.screenY;
+    return systems.window ? systems.window->ClientHeight() : config.window.screenY;
 }
 
 inline CinematicRenderConfig& RuntimeActiveCinematicConfig( RunSceneState& scene, EngineConfig& config )

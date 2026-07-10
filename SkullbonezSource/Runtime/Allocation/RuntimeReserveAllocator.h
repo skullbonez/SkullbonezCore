@@ -25,9 +25,11 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/Allocation/RuntimeAllocationTracker.h
-  - Agentic/Plans/Done/runtime-static-allocation-policy-plan.md
+  - engine-cleanup-plans/07-allocation-gate-right-sizing.md
 */
 #pragma once
+
+#include "RuntimeAllocationTracker.h"
 
 #include <cstdint>
 #include <cstdio>
@@ -44,19 +46,10 @@ constexpr RuntimeReserveOwnerHandle INVALID_RUNTIME_RESERVE_OWNER = 0u;
 constexpr int RUNTIME_RESERVE_REPLAY_GROWTH_LIMIT_UNBOUNDED = -1;
 constexpr int RUNTIME_RESERVE_GROWTH_EVENT_HISTORY = 256;
 
-enum class RuntimeReservePhase
-{
-    Startup = 0,
-    SceneLoad,
-    BackendInit,
-    SteadyGameplay,
-    Physics,
-    Render,
-    Replay,
-    Capture,
-    Diagnostics,
-    Shutdown
-};
+// Concept: reserve growth approval uses the same lifecycle phases as the global
+// allocation guard. Keeping one phase type prevents the reserve ledger from
+// drifting away from the runtime hook that ultimately records the allocation.
+using RuntimeReservePhase = RuntimeAllocationPhase;
 
 enum class RuntimeReserveSubsystem
 {

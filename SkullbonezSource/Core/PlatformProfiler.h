@@ -4,13 +4,12 @@ Purpose:
   Bridges engine profiler markers to platform tools such as PIX when available.
 
 Mental model:
-  Runtime code connects authored scene data, input, simulation, render
-  backends, and validation-oriented launch modes. Follow who owns state and
-  when that state changes.
+  PlatformProfiler.h bridges engine profiler markers to platform tools such as
+  PIX when available. As a public header, keep edits anchored on process-wide
+  contracts, diagnostics, and validation-sensitive state and on the
+  glossary/invariants below.
 
 Glossary:
-  Validation gate: Repository script that proves a class of changes before
-  commit or PR.
 
 Invariants:
   - All functions are safe to call when platform profiling is unavailable; they

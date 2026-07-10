@@ -4,9 +4,9 @@ Purpose:
   Coordinates the main game loop and high-level runtime lifecycle.
 
 Mental model:
-  Runtime code connects authored scene data, input, simulation, render
-  backends, and validation-oriented launch modes. Follow who owns state and
-  when that state changes.
+  Run.cpp coordinates the main game loop and high-level runtime lifecycle. As
+  an implementation unit, keep edits anchored on local owner boundaries and
+  call direction and on the glossary/invariants below.
 
 Glossary:
   FBO (Framebuffer Object): Engine shorthand for an off-screen render target
@@ -15,8 +15,6 @@ Glossary:
     so CLI automation can exit nonzero without a fatal exception.
   Probe failure: CLI validation failure reported as bounded result/report data
     so automation exits nonzero without throwing through the frame loop.
-  Validation gate: Repository script that proves a class of changes before
-  commit or PR.
 
 Invariants:
   - Backend-owned render resources must be released while the renderer backend
@@ -37,6 +35,7 @@ Related:
 #include "Replay/ReplayV2Artifact.h"
 #include "RuntimeFileWriter.h"
 #include "Allocation/RuntimeAllocationTracker.h"
+#include "Allocation/RuntimeReserveAllocator.h"
 #include "Scene/SceneRuntimeLoad.h"
 #include "../UI/UIInput.h"
 #include "../Core/Log.h"
@@ -462,8 +461,8 @@ Run::Run( Window& window,
                                              run->m_runtimeTools.RayCastTest(),
                                              run->m_runtimeTools.MousePickup(),
                                              run->m_cGameModelCollection,
-                                             run->m_cGameModelCollection.GetPhysicsEngine().BodyStore(),
-                                             run->m_cGameModelCollection.GetPhysicsEngine().Colliders(),
+                                             run->m_cGameModelCollection.BodyStore(),
+                                             run->m_cGameModelCollection.Colliders(),
                                              run->m_systems.assets,
                                              tracer },
                                            { run->m_debug.physicsDebugContactLinger,
@@ -475,6 +474,10 @@ Run::Run( Window& window,
               run->RenderReplayCauseFocusOverlay( tracer );
               run->RenderReplayVelocityEditOverlay( tracer );
               tracer.Render( viewProjection, cameraEye, cameraUp, renderCommands );
+              run->m_replayRuntime.RecordReplayTrajectorySubmissionFrame(
+                  tracer.ReplaySubmissionStats(),
+                  run->SceneState().currentFrame,
+                  RuntimeAllocation::RuntimeReserveAllocator::GrowthEventCount() );
               run->m_runtimeTools.Laser().Render( viewProjection,
                                                   cameraEye,
                                                   cameraUp,
@@ -857,8 +860,8 @@ bool Run::CaptureCurrentReplaySolverHash( const ReplaySolverFrameSample& referen
     input.cameras = m_systems.cameras;
     input.world = &m_cWorldEnvironment;
     input.models = &m_cGameModelCollection;
-    input.bodyStore = &m_cGameModelCollection.GetPhysicsEngine().BodyStore();
-    input.colliderStore = &m_cGameModelCollection.GetPhysicsEngine().Colliders();
+    input.bodyStore = &m_cGameModelCollection.BodyStore();
+    input.colliderStore = &m_cGameModelCollection.Colliders();
     input.launcherVisual = &launcherVisual;
     verifier.CaptureFrame( input );
 

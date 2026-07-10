@@ -4,9 +4,10 @@ Purpose:
   Streams bounded physics diagnostics to SkullScope trace files.
 
 Mental model:
-  Physics is deterministic fixed-step state update. Units, contact ownership,
-  solver stages, sleep policy, and baseline-sensitive behavior are the key
-  reading anchors.
+  PhysicsDiagnosticsSink.cpp streams bounded physics diagnostics to SkullScope
+  trace files. As an implementation unit, keep edits anchored on deterministic
+  physics, diagnostics, or world-state flow and on the glossary/invariants
+  below.
 
 Glossary:
   Broadphase: Cheap collision pass that finds object pairs worth testing more

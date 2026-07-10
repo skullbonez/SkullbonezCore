@@ -109,9 +109,6 @@ class TornadoGameplay
                                                 PhysicsBodyStore& bodyStore );
     void ApplyBodyForces( const TornadoGameplayStepState& stepState, const TornadoBodyForceContext& context );
 
-    void RenderVectors( const Math::Transformation::Matrix4& viewProj,
-                        Rendering::IRenderCommandContext& renderCommands,
-                        bool supportsDebugLines );
     uint64_t CollectMemoryBytes() const;
     uint64_t CollectDebugMemoryBytes() const;
 

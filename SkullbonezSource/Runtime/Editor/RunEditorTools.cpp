@@ -4,8 +4,9 @@ Purpose:
   Owns runtime editor placement, selection, gizmos, and overlay tracing.
 
 Mental model:
-  Input asks for editor actions. This file performs editor math, picking,
-  placement, gizmos, and line visualization.
+  RunEditorTools.cpp owns runtime editor placement, selection, gizmos, and
+  overlay tracing. As an implementation unit, keep edits anchored on local
+  owner boundaries and call direction and on the glossary/invariants below.
 
 Glossary:
   Gizmo: World-space editor axes or rotation rings used to transform selected
@@ -16,8 +17,6 @@ Glossary:
     after a model-index selection has been validated.
   Topology drift: Temporary mismatch between editor model count and physics
     store rows after scene/editor construction or deletion.
-  Validation gate: Repository script that proves a class of changes before
-    commit or PR.
 
 Invariants:
   - Preview, preflight, and placement commit must use the same object-type,
@@ -45,6 +44,7 @@ Related:
 #include "../../Physics/PhysicsBodyStore.h"
 #include "../../Physics/PhysicsApi.h"
 #include "../../Physics/PhysicsEngine.h"
+#include "../../Physics/PhysicsEngineStoreQueries.h"
 #include "../../Physics/PhysicsMass.h"
 #include "../../Physics/Ragdoll.h"
 #include "../../Core/WorkerPool.h"
@@ -134,7 +134,7 @@ bool RecordEditorTransformEventFromBodyStore( ReplayRuntime& replayRuntime,
         return false;
     }
 
-    const PhysicsBodyRecord* body = collection.GetPhysicsEngine().BodyStore().RecordForModelIndex( modelIndex );
+    const PhysicsBodyRecord* body = collection.BodyStore().RecordForModelIndex( modelIndex );
     if ( !body || body->replayBodyId == 0 )
     {
         return false;
@@ -628,7 +628,8 @@ void WakeEditorPhysicsBody( SkullbonezCore::GameObjects::GameModelCollection& co
         return;
     }
 
-    const PhysicsBodyHandle body = physics.BodyStore().HandleForModelIndex( modelIndex );
+    const PhysicsBodyHandle body =
+        SkullbonezCore::Physics::PhysicsEngineStoreQueries::BodyStore( physics ).HandleForModelIndex( modelIndex );
     if ( !body.IsValid() )
     {
         return;
@@ -652,7 +653,8 @@ void SeedEditorPhysicsBodyAsleep( SkullbonezCore::GameObjects::GameModelCollecti
         return;
     }
 
-    const PhysicsBodyHandle body = physics.BodyStore().HandleForModelIndex( modelIndex );
+    const PhysicsBodyHandle body =
+        SkullbonezCore::Physics::PhysicsEngineStoreQueries::BodyStore( physics ).HandleForModelIndex( modelIndex );
     if ( !body.IsValid() )
     {
         return;
@@ -674,7 +676,7 @@ void ResetEditorModelMotionAndWake( SkullbonezCore::GameObjects::GameModelCollec
     edit.hasAngularVelocity = true;
     edit.angularVelocity = SkullbonezCore::Math::Vector::ZERO_VECTOR;
     collection.ApplyPhysicsBodyEdit( index, edit );
-    const PhysicsBodyRecord* body = collection.GetPhysicsEngine().BodyStore().RecordForModelIndex( index );
+    const PhysicsBodyRecord* body = collection.BodyStore().RecordForModelIndex( index );
     // Why: the explicit edit just refreshed the physics row; wake eligibility
     // should now follow PhysicsBodyStore, not legacy model-side body state.
     if ( body && !body->isFixed )
@@ -697,7 +699,7 @@ void ResetEditorModelMotionAndWake( SkullbonezCore::GameObjects::GameModelCollec
     edit.hasAngularVelocity = true;
     edit.angularVelocity = SkullbonezCore::Math::Vector::ZERO_VECTOR;
     collection.ApplyPhysicsBodyColliderEdit( index, edit, std::move( colliderDesc ) );
-    const PhysicsBodyRecord* body = collection.GetPhysicsEngine().BodyStore().RecordForModelIndex( index );
+    const PhysicsBodyRecord* body = collection.BodyStore().RecordForModelIndex( index );
     if ( body && !body->isFixed )
     {
         WakeEditorPhysicsBody( collection, index );
@@ -1053,8 +1055,8 @@ void Run::TickEditorViewportAndPlacementScaleInput( int unhandledWheelDelta )
 
 bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppressWorldActionThisFrame )
 {
-    const PhysicsBodyStore& editorBodyStore = m_cGameModelCollection.GetPhysicsEngine().BodyStore();
-    const ColliderStore& editorColliderStore = m_cGameModelCollection.GetPhysicsEngine().Colliders();
+    const PhysicsBodyStore& editorBodyStore = m_cGameModelCollection.BodyStore();
+    const ColliderStore& editorColliderStore = m_cGameModelCollection.Colliders();
     const int selectedModelIndex = ResolveSelectedEditorModelIndex( m_runtimeTools.Editor(), editorBodyStore );
     const bool previewInspectGizmoActive = InspectGizmoInteractionActive();
     const bool previewCanUseMouseRay = !m_UI.BlocksCameraMouse() && !m_runtimeTools.Editor().viewportLookActive &&
@@ -1524,8 +1526,8 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
                 {
                     RuntimePickRequest request;
                     request.purpose = RuntimePickPurpose::EditorSelection;
-                    request.bodyStore = &m_cGameModelCollection.GetPhysicsEngine().BodyStore();
-                    request.colliderStore = &m_cGameModelCollection.GetPhysicsEngine().Colliders();
+                    request.bodyStore = &m_cGameModelCollection.BodyStore();
+                    request.colliderStore = &m_cGameModelCollection.Colliders();
                     request.rayOrigin = rayOrigin;
                     request.rayDirection = rayDirection;
                     RuntimePickService::TryPickModel( request, result );
@@ -1572,8 +1574,8 @@ bool Run::TryBuildMouseWorldRay( Vector3& outOrigin, Vector3& outDirection, bool
         return false;
     }
     POINT mouse = mouseResult.coordinates;
-    const int screenW = (std::max)( 1, static_cast<int>( m_systems.window->m_sWindowDimensions.x ) );
-    const int screenH = (std::max)( 1, static_cast<int>( m_systems.window->m_sWindowDimensions.y ) );
+    const int screenW = (std::max)( 1, m_systems.window->ClientWidth() );
+    const int screenH = (std::max)( 1, m_systems.window->ClientHeight() );
     if ( clampToViewport )
     {
         // Invariant: Captured tool drags keep receiving mouse positions after

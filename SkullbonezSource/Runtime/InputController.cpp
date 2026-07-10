@@ -484,6 +484,8 @@ const char* InputController::DescribeAction( RuntimeInputAction action )
         return "ApplyRenderTuning";
     case RuntimeInputAction::ApplySoundTuning:
         return "ApplySoundTuning";
+    case RuntimeInputAction::SetReplayMemoryPolicy:
+        return "SetReplayMemoryPolicy";
     case RuntimeInputAction::ToggleCinematicRendering:
         return "ToggleCinematicRendering";
     case RuntimeInputAction::SelectCinematicScene:

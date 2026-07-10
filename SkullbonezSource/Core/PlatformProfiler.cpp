@@ -4,13 +4,12 @@ Purpose:
   Bridges engine profiler markers to platform tools such as PIX when available.
 
 Mental model:
-  Runtime code connects authored scene data, input, simulation, render
-  backends, and validation-oriented launch modes. Follow who owns state and
-  when that state changes.
+  PlatformProfiler.cpp bridges engine profiler markers to platform tools such
+  as PIX when available. As an implementation unit, keep edits anchored on
+  process-wide contracts, diagnostics, and validation-sensitive state and on
+  the glossary/invariants below.
 
 Glossary:
-  Validation gate: Repository script that proves a class of changes before
-  commit or PR.
 
 Invariants:
   - Platform profiler calls must be optional; engine profiling remains valid

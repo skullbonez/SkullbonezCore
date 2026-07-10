@@ -4,9 +4,9 @@ Purpose:
   Collects keyboard and mouse state for the run loop and UI.
 
 Mental model:
-  Runtime code connects authored scene data, input, simulation, render
-  backends, and validation-oriented launch modes. Follow who owns state and
-  when that state changes.
+  Input.h collects keyboard and mouse state for the run loop and UI. As a
+  public header, keep edits anchored on local owner boundaries and call
+  direction and on the glossary/invariants below.
 
 Glossary:
   Win32: Windows desktop API used for the app window, messages, and process
@@ -22,8 +22,6 @@ Glossary:
     native window.
   Lane R result: Recoverable input/environment failure reported without
     treating the cursor operation as a fatal engine invariant.
-  Validation gate: Repository script that proves a class of changes before
-  commit or PR.
 
 Invariants:
   - InputState is a frame snapshot; command-edge memory lives in

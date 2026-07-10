@@ -160,7 +160,7 @@ A render pass should describe:
 - required pipeline
 - synchronization intent
 
-The render graph now owns DX12 transition/UAV barrier emission through the graph executor helper path, while runtime pass order still lives in the extracted render passes. Backend diagnostics should keep the actual executed frame graph and graph-owned barrier trace easy to compare until pass callbacks move into the graph.
+The render graph records pass/resource intent, callback scheduling, and transient texture lifetime plans. DX12 transition/UAV barrier emission remains explicit backend-owned behavior through the DX12 helper path, while runtime pass order lives in extracted render passes or graph-scheduled callbacks.
 
 ### Synchronization Intent
 

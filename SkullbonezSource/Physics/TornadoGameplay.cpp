@@ -368,19 +368,6 @@ void TornadoGameplay::ApplyBodyForces( const TornadoGameplayStepState& stepState
 }
 
 
-void TornadoGameplay::RenderVectors( const Math::Transformation::Matrix4& viewProj,
-                                     Rendering::IRenderCommandContext& renderCommands,
-                                     bool supportsDebugLines )
-{
-    if ( m_system.IsEnabled() )
-    {
-        m_system.RenderVectors( viewProj, renderCommands, supportsDebugLines );
-        return;
-    }
-    m_field.RenderVectors( viewProj, renderCommands, supportsDebugLines );
-}
-
-
 uint64_t TornadoGameplay::CollectMemoryBytes() const
 {
     uint64_t bytes = 0;

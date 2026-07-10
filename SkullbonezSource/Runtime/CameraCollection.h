@@ -4,9 +4,9 @@ Purpose:
   Owns scene cameras and camera cycling state.
 
 Mental model:
-  Runtime code connects authored scene data, input, simulation, render
-  backends, and validation-oriented launch modes. Follow who owns state and
-  when that state changes.
+  CameraCollection.h owns scene cameras and camera cycling state. As a public
+  header, keep edits anchored on local owner boundaries and call direction and
+  on the glossary/invariants below.
 
 Glossary:
   Primary camera: Camera slot controlled directly by player/debug input.
@@ -15,8 +15,6 @@ Glossary:
   Tween: Time-based interpolation between camera poses for non-jarring cuts.
   Render pose: The eye/view/up triple actually used for the current frame; it
     can differ from the selected camera slot while a tween is active.
-  Validation gate: Repository script that proves a class of changes before
-  commit or PR.
 
 Invariants:
   - Camera slots are fixed-size and keyed by m_cameraHashes; scene code must

@@ -4,9 +4,10 @@ Purpose:
   Solves object/object and object/terrain persistent contact rows.
 
 Mental model:
-  Physics is deterministic fixed-step state update. Units, contact ownership,
-  solver stages, sleep policy, and baseline-sensitive behavior are the key
-  reading anchors.
+  PersistentContactSolver.cpp solves object/object and object/terrain
+  persistent contact rows. As an implementation unit, keep edits anchored on
+  deterministic physics, diagnostics, or world-state flow and on the
+  glossary/invariants below.
 
 Glossary:
   OBB (Oriented Bounding Box): Box with rotation, used for exact object-space
@@ -24,6 +25,9 @@ Glossary:
   Manifold: Set of contact points and normals describing one colliding pair.
   Contact row: One solver constraint created from a manifold point and solved
   by the Projected Gauss-Seidel loop.
+  Restitution: Bounce response that restores closing speed along the contact
+    normal after impact.
+  Friction: Tangent impulse that resists sliding along the contact plane.
   Feature ID: Deterministic contact identifier used to match rows across frames
   for warm starting.
   Resting footprint: Stable multi-point support patch that can seed sleep and
@@ -187,7 +191,11 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
     // stack stability and keeping the physics hot path affordable.
     const int solverIterations = (std::max)( 1, config.persistentContactSolverIterations );
     const float invDt = ( dt > TOLERANCE ) ? ( 1.0f / dt ) : 120.0f;
-    const float objectFrictionCoeff = config.objectFrictionCoeff;
+    // Why: mutual-gravity space has no ambient support surface. Contacts should
+    // exchange momentum instead of cooling into friction or cached resting rows.
+    const bool elasticCollisions = context.elasticCollisions;
+    const float restitutionThreshold = elasticCollisions ? 0.0f : config.contactRestitutionThreshold;
+    const float objectFrictionCoeff = elasticCollisions ? 0.0f : config.objectFrictionCoeff;
 
     // CATTO REF:
     //   Catto 2005, PDF pp. 18-19, Section 8.1/8.2 and Algorithm 5 store lambda
@@ -1006,14 +1014,13 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
             if ( c.isTerrain )
             {
                 const float terrainSlop = (std::max)( 0.0f, config.terrainContactSlop );
-                if ( !c.supportsRestingPolicy && c.penetration <= terrainSlop &&
-                     vn > -config.contactRestitutionThreshold )
+                if ( !c.supportsRestingPolicy && c.penetration <= terrainSlop && vn > -restitutionThreshold )
                 {
                     c.normalMass = 0.0f;
                     c.tangentMass1 = 0.0f;
                     c.tangentMass2 = 0.0f;
                 }
-                else if ( fabsf( vn ) < config.contactRestitutionThreshold )
+                else if ( fabsf( vn ) < restitutionThreshold )
                 {
                     float penetrationError = c.penetration - terrainSlop;
                     if ( penetrationError > 0.0f )
@@ -1027,21 +1034,26 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
                         }
                     }
                 }
-                else if ( vn < -config.contactRestitutionThreshold )
+                else if ( vn < -restitutionThreshold )
                 {
                     const uint8_t pointCount = c.manifoldPointCount > 0 ? c.manifoldPointCount : 1;
-                    const float restitution = m_colliderRecords[static_cast<size_t>( c.bodyA )].restitution;
+                    const float restitution =
+                        elasticCollisions ? 1.0f : m_colliderRecords[static_cast<size_t>( c.bodyA )].restitution;
                     c.bias = ( -restitution * vn ) / static_cast<float>( pointCount );
                 }
             }
-            else if ( vn < -config.contactRestitutionThreshold )
+            else if ( vn < -restitutionThreshold )
             {
-                const float restitutionA = m_colliderRecords[static_cast<size_t>( c.bodyA )].restitution;
-                const float restitutionB = m_colliderRecords[static_cast<size_t>( c.bodyB )].restitution;
-                float restitution = sqrtf( restitutionA * restitutionB );
+                float restitution = 1.0f;
+                if ( !elasticCollisions )
+                {
+                    const float restitutionA = m_colliderRecords[static_cast<size_t>( c.bodyA )].restitution;
+                    const float restitutionB = m_colliderRecords[static_cast<size_t>( c.bodyB )].restitution;
+                    restitution = sqrtf( restitutionA * restitutionB );
+                }
                 c.bias = -restitution * vn;
             }
-            else if ( vn >= -config.contactRestitutionThreshold )
+            else if ( vn >= -restitutionThreshold )
             {
                 float penetrationError = c.penetration - contactSlop;
                 if ( penetrationError > 0.0f )
@@ -1069,11 +1081,12 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
             //   Catto 2005, PDF p. 12, Section 4.3, Equations 24-25 bound tangent
             //   lambdas by +/-mu*m_c*g. Reason: avoid coupling tangent friction to
             //   solved normal force while keeping static friction usable in games.
-            c.frictionLimit =
-                c.isTerrain
-                    ? ( c.allowsTangentFriction ? config.frictionCoeff * c.terrainWarmStart : 0.0f )
-                    : ( c.normalCoupledFriction ? 0.0f
-                                                : objectFrictionCoeff * contactMass * fabsf( config.gravity ) * dt );
+            c.frictionLimit = ( elasticCollisions || !c.allowsTangentFriction )
+                                  ? 0.0f
+                                  : ( c.isTerrain ? config.frictionCoeff * c.terrainWarmStart
+                                                  : ( c.normalCoupledFriction ? 0.0f
+                                                                              : objectFrictionCoeff * contactMass *
+                                                                                    fabsf( config.gravity ) * dt ) );
 
             // CATTO REF:
             //   Catto 2005, PDF pp. 18-19, Section 8.1 and Algorithm 5. Reason:
@@ -1082,7 +1095,9 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
             // Warm starting: if this same pair+feature was touching last frame,
             // start from the cached solution instead of zero.  The cache is sorted so
             // lookup does not linearly scan every previous-frame contact.
-            const bool canUseCachedWarmStart = c.supportsRestingPolicy;
+            // Why: warm-start cache is a stack-support tool. In elastic space it
+            // can preserve last frame's push and make grazing bodies look glued.
+            const bool canUseCachedWarmStart = c.supportsRestingPolicy && !elasticCollisions;
             auto cachedIt = canUseCachedWarmStart
                                 ? std::lower_bound( m_persistentContactCache.begin(),
                                                     m_persistentContactCache.end(),
@@ -1097,7 +1112,7 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
                 c.accT1 = cachedIt->accT1;
                 c.accT2 = cachedIt->accT2;
                 const float cachedFrictionLimit =
-                    !c.allowsTangentFriction
+                    ( elasticCollisions || !c.allowsTangentFriction )
                         ? 0.0f
                         : ( c.isTerrain
                                 ? config.frictionCoeff *
@@ -1224,7 +1239,7 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
                 c.accT1 = oldAccT1 + lambdaT1;
                 c.accT2 = oldAccT2 + lambdaT2;
                 const float frictionLimit =
-                    !c.allowsTangentFriction
+                    ( elasticCollisions || !c.allowsTangentFriction )
                         ? 0.0f
                         : ( c.isTerrain
                                 ? config.frictionCoeff *

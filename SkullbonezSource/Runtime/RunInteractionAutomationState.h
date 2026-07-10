@@ -86,6 +86,7 @@ enum class RunInteractionAutomationAssertKind
     PredictionScrubFrameActive,
     PredictionTargetDisplacementMin,
     LiveSolverHashStableAcrossPrediction,
+    PredictionTrajectoryFingerprintReady,
     GizmoVisible,
     ReplayActiveTrack,
     ReplayHistoricalSamplePaused,

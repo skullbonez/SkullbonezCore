@@ -48,9 +48,11 @@ return without failing the draw.
 | `shadow_depth.hlsl` | Terrain/static depth-only shadow map pass. |
 | `shadow_depth_instanced.hlsl` | Instanced dynamic-object depth-only shadow map pass. |
 | `sky_atmosphere.hlsl` | Procedural cinematic sky pass. |
+| `soft_additive_ribbon.hlsl` | Legacy transient soft-additive ribbon overlay. |
 | `solid_color.hlsl` | HUD/background solid quads. |
 | `solid_color_batch.hlsl` | Batched colored UI/debug quads. |
 | `text.hlsl` | Batched font-atlas text rendering. |
+| `trajectory_ribbon.hlsl` | Replay trajectory ribbon overlay with shader-side screen-space expansion, style feathering, and depth-hint underlay. |
 | `UIBackdropBlur.hlsl` | UI backdrop blur sampling pass. |
 | `unlit_textured.hlsl` | Unlit textured skybox/simple textured pass. |
 | `water_calm.hlsl` | Inner flat reflective water zone. |

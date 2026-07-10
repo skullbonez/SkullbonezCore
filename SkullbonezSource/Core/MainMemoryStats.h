@@ -31,6 +31,148 @@ namespace SkullbonezCore
 {
 namespace Basics
 {
+// Concept: replay diagnostics use enum-indexed POD arrays so memory dumps and UI
+// frames can copy counters and byte categories without allocating or depending
+// on replay owner types.
+enum class MainMemoryReplayTrajectoryLane : std::size_t
+{
+    PastRoot,
+    FutureRoot,
+    FutureChildIncoming,
+    FutureChildOutgoing,
+    RetainedTrail,
+    BaselineRoot,
+    CausalMarker,
+    AuxiliaryTrail,
+    Count
+};
+
+inline constexpr std::size_t MAIN_MEMORY_REPLAY_TRAJECTORY_LANE_COUNT =
+    static_cast<std::size_t>( MainMemoryReplayTrajectoryLane::Count );
+
+enum class MainMemoryReplayBudgetPass : std::size_t
+{
+    PredictionBegin,
+    PredictionStep,
+    PredictionBuildTree,
+    RetainedRefresh,
+    Count
+};
+
+inline constexpr std::size_t MAIN_MEMORY_REPLAY_BUDGET_PASS_COUNT =
+    static_cast<std::size_t>( MainMemoryReplayBudgetPass::Count );
+
+enum class MainMemoryReplayRebuildCause : std::size_t
+{
+    Dirty,
+    AutomaticRefresh,
+    Count
+};
+
+inline constexpr std::size_t MAIN_MEMORY_REPLAY_REBUILD_CAUSE_COUNT =
+    static_cast<std::size_t>( MainMemoryReplayRebuildCause::Count );
+
+enum class MainMemoryReplayByteCategory : std::size_t
+{
+    PresentationOwner,
+    PresentationSampleRecords,
+    PresentationCheckpoints,
+    PresentationScratch,
+    PresentationBodies,
+    SolverOwner,
+    SolverSampleRecords,
+    SolverCheckpoints,
+    SolverScratch,
+    SolverBodies,
+    SolverWorldState,
+    SolverLauncherVisuals,
+    EventsOwner,
+    Events,
+    LoadedOwner,
+    LoadedSampleRecords,
+    LoadedBodies,
+    PredictionOwner,
+    PredictionEngine,
+    PredictionWorldState,
+    PredictionBodyState,
+    PredictionFrameRecords,
+    PredictionFrameBodies,
+    PredictionDebugContacts,
+    PredictionFutureTree,
+    PathOwner,
+    PathTargets,
+    PathFutureNodes,
+    PathCauseRows,
+    RenderGhostRequests,
+    RenderFocusMask,
+    RenderLauncherBackup,
+    TrajectoryStore,
+    Count
+};
+
+inline constexpr std::size_t MAIN_MEMORY_REPLAY_BYTE_CATEGORY_COUNT =
+    static_cast<std::size_t>( MainMemoryReplayByteCategory::Count );
+
+struct MainMemoryReplayCategoryBytes
+{
+    uint64_t bytes[MAIN_MEMORY_REPLAY_BYTE_CATEGORY_COUNT] = {};
+};
+
+inline uint64_t MainMemoryReplayCategoryByte( const MainMemoryReplayCategoryBytes& categories,
+                                              MainMemoryReplayByteCategory category )
+{
+    const std::size_t categoryIndex = static_cast<std::size_t>( category );
+    return categoryIndex < MAIN_MEMORY_REPLAY_BYTE_CATEGORY_COUNT ? categories.bytes[categoryIndex] : 0;
+}
+
+inline void MainMemoryAddReplayCategoryBytes( MainMemoryReplayCategoryBytes& categories,
+                                              MainMemoryReplayByteCategory category,
+                                              uint64_t bytes )
+{
+    const std::size_t categoryIndex = static_cast<std::size_t>( category );
+    if ( categoryIndex < MAIN_MEMORY_REPLAY_BYTE_CATEGORY_COUNT )
+    {
+        categories.bytes[categoryIndex] += bytes;
+    }
+}
+
+inline uint64_t MainMemoryReplayCategoryRangeBytes( const MainMemoryReplayCategoryBytes& categories,
+                                                    MainMemoryReplayByteCategory first,
+                                                    MainMemoryReplayByteCategory end )
+{
+    const std::size_t firstIndex = static_cast<std::size_t>( first );
+    const std::size_t endIndex = static_cast<std::size_t>( end );
+    uint64_t total = 0;
+    for ( std::size_t i = firstIndex; i < endIndex && i < MAIN_MEMORY_REPLAY_BYTE_CATEGORY_COUNT; ++i )
+    {
+        total += categories.bytes[i];
+    }
+    return total;
+}
+
+struct MainMemoryReplayTrajectoryStats
+{
+    uint64_t storeBytes = 0;                                // Current TrajectoryStore allocation; 0 until the store lands.
+    uint64_t recordCount = 0;                               // Live TrajectoryStore record count visible to replay tooling.
+    uint64_t pointCount = 0;                                // Total stored trajectory points, including unpublished build slack.
+    uint64_t publishedPointCount = 0;                       // Points currently exposed through record published prefixes.
+    uint64_t versionChurn = 0;                              // Number of allocated record versions since the store was reset.
+    uint32_t maxRecordVersion = 0;                          // Highest version still resident in the store.
+    uint64_t emittedSegments[MAIN_MEMORY_REPLAY_TRAJECTORY_LANE_COUNT] = {};
+    uint64_t droppedSegments[MAIN_MEMORY_REPLAY_TRAJECTORY_LANE_COUNT] = {};
+    uint64_t budgetExpiries[MAIN_MEMORY_REPLAY_BUDGET_PASS_COUNT] = {};
+    uint64_t rebuildCauses[MAIN_MEMORY_REPLAY_REBUILD_CAUSE_COUNT] = {};
+};
+
+struct MainMemoryReplayTrajectorySubmissionStats
+{
+    bool hasGeometry = false;                               // True when the tracer submitted replay ribbon vertices this frame.
+    uint64_t vertexHash = 0;                                // FNV hash of the exact submitted replay ribbon vertex byte stream.
+    uint64_t vertexBytes = 0;                               // Submitted replay ribbon byte count for the frame.
+    uint32_t vertexCount = 0;                               // Submitted replay ribbon vertex count for the frame.
+    uint32_t segmentCount = 0;                              // Source replay ribbon segment count expanded into vertices.
+};
+
 struct MainMemoryProcessStats
 {
     bool available = false;                                 // False when the OS process-memory query failed.
@@ -60,6 +202,17 @@ struct MainMemoryReplayStats
     std::size_t pathNodes = 0;
     std::size_t causeRows = 0;
     std::size_t ghostRequests = 0;
+    // Replay policy fields report the requested knobs and the resolved recorder
+    // windows that were actually applied by ReplayRuntime.
+    int memoryPreset = 0;                                   // 0=lossless look, 1=balanced, 2=compact.
+    int requestedRetentionSeconds = 0;
+    int requestedBudgetMiB = 0;
+    int presentationRetentionSeconds = 0;
+    int solverRetentionSeconds = 0;
+    bool memoryBudgetClamped = false;
+    bool solverWindowReduced = false;
+    MainMemoryReplayCategoryBytes categoryBytes;
+    MainMemoryReplayTrajectoryStats trajectory;
 };
 
 struct MainMemoryGameObjectStats

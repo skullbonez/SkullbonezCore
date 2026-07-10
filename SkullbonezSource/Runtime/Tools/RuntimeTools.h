@@ -16,8 +16,8 @@ Glossary:
     scrubbing so debug feedback follows recorded frames.
   Replay target marker: Debug overlay outline/ring drawn around a replay body
     from live body/collider store values.
-  Replay ribbon: Camera-facing overlay stroke generated from replay path or
-    marker segments so the shader can apply smooth edges and glow.
+  Replay ribbon: Screen-space-width overlay stroke generated from replay path
+    segments and the yellow entry marker so the shader can apply smooth glow.
   Gizmo drag group: Bounded set of selected model indices transformed as one
     editor gesture.
   Body store: Physics-owned dense body rows borrowed by tool hit tests and
@@ -50,6 +50,7 @@ Related:
 #pragma once
 
 #include "../../Core/Common.h"
+#include "../../Core/MainMemoryStats.h"
 #include "../Editor/LauncherLaser.h"
 #include "../RuntimeCameraMode.h"
 #include "../../Maths/Matrix4.h"
@@ -255,19 +256,21 @@ class RunEditorTracer
   private:
     struct ReplayRibbonStyle
     {
-        float width = 0.25f;                                                // World-space ribbon width.
+        float width = 0.25f;                                                // Replay-ribbon width unit expanded to pixels by the shader.
         float alpha = 0.80f;                                                // Blend weight before shader edge falloff.
-        float edgeFeather = 0.38f;                                          // Fraction of half-width used for antialias fading.
-        float hdrScale = 1.0f;                                              // Brightness multiplier for bloom/emphasis.
+        float edgeFeather = 0.38f;                                          // Edge fade width consumed by replay/legacy ribbon shaders.
+        float hdrScale = 1.0f;                                              // HDR emphasis hint consumed by ribbon pixel shaders.
     };
 
     std::vector<float> m_lineData;
     std::vector<float> m_priorityLineData;
     std::vector<float> m_renderLineData;
-    std::vector<float> m_replayRibbonSegments;                              // Packed 13-float replay segments before camera-facing expansion.
+    std::vector<float> m_replayRibbonSegments;                              // Packed 13-float replay segments before shader-side expansion.
+    std::vector<float> m_priorityReplayRibbonSegments;                      // Retained yellow entry ribbon segments that survive path overflow.
     std::vector<float>
-        m_priorityReplayRibbonSegments;                                     // Retained causal marker segments that survive ordinary path overflow.
-    std::vector<float> m_replayRibbonVertexData;                            // Packed 11-float vertices consumed by the soft-additive ribbon style.
+        m_replayRibbonVertexData;                                           // Packed 13-float segment vertices consumed by the trajectory ribbon style.
+    MainMemoryReplayTrajectorySubmissionStats
+        m_replaySubmissionStats;                                            // Frame-local submitted replay ribbon hash sampled after tracer render.
 
     void EmitLineTo( std::vector<float>& lineData,
                      const Math::Vector::Vector3& a,
@@ -319,7 +322,8 @@ class RunEditorTracer
                                     float r,
                                     float g,
                                     float bl,
-                                    const ReplayRibbonStyle& style );
+                                    const ReplayRibbonStyle& style,
+                                    MainMemoryReplayTrajectoryLane lane );
     void EmitReplayRibbonGlowPairTo( std::vector<float>& ribbonData,
                                      const Math::Vector::Vector3& a,
                                      const Math::Vector::Vector3& b,
@@ -327,7 +331,8 @@ class RunEditorTracer
                                      float g,
                                      float bl,
                                      const ReplayRibbonStyle& glow,
-                                     const ReplayRibbonStyle& core );
+                                     const ReplayRibbonStyle& core,
+                                     MainMemoryReplayTrajectoryLane lane );
     void EmitReplayRibbonShapeOutlineTo( std::vector<float>& ribbonData,
                                          const Math::Vector::Vector3& position,
                                          const Math::Orientation::Quaternion& orientation,
@@ -335,12 +340,25 @@ class RunEditorTracer
                                          float r,
                                          float g,
                                          float b,
-                                         const ReplayRibbonStyle& style );
+                                         const ReplayRibbonStyle& style,
+                                         MainMemoryReplayTrajectoryLane lane );
     void BuildReplayRibbonVertices( const Math::Vector::Vector3& cameraEye, const Math::Vector::Vector3& cameraUp );
+    MainMemoryReplayTrajectoryStats m_replayTrajectoryStats;                // Frame-local replay ribbon counters sampled by ReplayRuntime.
 
   public:
     RunEditorTracer();
     void Clear();
+    // Resets only the replay trajectory counters; callers use this before the
+    // replay pass so editor tool ribbons do not count as replay trajectory work.
+    void ClearReplayTrajectoryStats();
+    // Returns the current replay-pass counters without taking ownership.
+    const MainMemoryReplayTrajectoryStats& ReplayTrajectoryStats() const;
+    // Returns the post-build replay ribbon submission hash for validation probes.
+    const MainMemoryReplayTrajectorySubmissionStats& ReplaySubmissionStats() const;
+    // Invariant: replay path drawing budgets against ordinary ribbon slots
+    // before emitting segments, so the tracer's fixed reserve remains the
+    // single source of capacity truth.
+    std::size_t ReplayPathRibbonSegmentCapacityRemaining() const;
     void AddPlacementRay( const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& hitPoint );
     void AddPlacementGhost( int objectType,
                             const Math::Vector::Vector3& center,
@@ -354,7 +372,8 @@ class RunEditorTracer
                                const Math::Vector::Vector3& end,
                                float r,
                                float g,
-                               float b );
+                               float b,
+                               MainMemoryReplayTrajectoryLane lane = MainMemoryReplayTrajectoryLane::FutureRoot );
     void AddReplayCausalTrailSegment( const Math::Vector::Vector3& start,
                                       const Math::Vector::Vector3& end,
                                       float r,

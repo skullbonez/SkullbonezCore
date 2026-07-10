@@ -4,9 +4,10 @@ Purpose:
   Compiles and binds shaders/root signatures for the DX12 renderer.
 
 Mental model:
-  DX12 separates resource memory, descriptor rows, command recording, and GPU
-  execution. Ownership, state transitions, descriptor lifetime, and fence
-  ordering are the important ideas.
+  ShaderDX12.cpp compiles and binds shaders/root signatures for the DX12
+  renderer. As an implementation unit, keep edits anchored on DX12 ownership,
+  descriptors, resources, and command submission and on the
+  glossary/invariants below.
 
 Glossary:
   CBV (Constant Buffer View): Descriptor or root binding that lets shaders read

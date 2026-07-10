@@ -4,9 +4,10 @@ Purpose:
   Stores terrain mesh, height queries, and terrain rendering resources.
 
 Mental model:
-  Physics is deterministic fixed-step state update. Units, contact ownership,
-  solver stages, sleep policy, and baseline-sensitive behavior are the key
-  reading anchors.
+  Terrain.h stores terrain mesh, height queries, and terrain rendering
+  resources. As a public header, keep edits anchored on world-state ownership,
+  terrain/environment data, and physics/render handoff and on the
+  glossary/invariants below.
 
 Glossary:
   DXR (DirectX Raytracing): DirectX 12 feature used for hardware ray traversal and

@@ -4,9 +4,10 @@ Purpose:
   Implements rotation matrix helpers used by transforms and collision code.
 
 Mental model:
-  Math code is shared infrastructure. Coordinate conventions, units,
-  handedness, and simplifications matter because subtle assumptions spread
-  through rendering and physics.
+  RotationMatrix.cpp implements rotation matrix helpers used by transforms and
+  collision code. As an implementation unit, keep edits anchored on units,
+  basis conventions, and numerical assumptions and on the glossary/invariants
+  below.
 
 Glossary:
   Engine module: A source file with one focused responsibility inside the

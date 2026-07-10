@@ -53,6 +53,8 @@ Window::Window()
 {
     m_sWindow = 0;
     m_sDevice = 0;
+    m_sWindowDimensions = {};
+    m_fIsFullScreenMode = false;
     m_projectionNearPlane = 1.0f;
     m_projectionFarPlane = 5500.0f;
     m_startupWindowWidth = 1800;
@@ -97,6 +99,27 @@ void Window::SetStartupWindowSize( int width, int height )
 void Window::SetResizeRenderLifecycle( IRenderDeviceLifecycle* deviceLifecycle )
 {
     m_resizeRenderLifecycle = deviceLifecycle;
+}
+
+
+HDC Window::AcquireDeviceContext()
+{
+    m_sDevice = GetDC( m_sWindow );
+    return m_sDevice;
+}
+
+
+void Window::ReleaseDeviceContext()
+{
+    if ( !m_sDevice )
+    {
+        return;
+    }
+
+    // Lifetime: the HDC is paired with this HWND. Centralize release here so
+    // startup cleanup does not need to know which native fields are live.
+    ReleaseDC( m_sWindow, m_sDevice );
+    m_sDevice = nullptr;
 }
 
 

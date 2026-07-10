@@ -4,9 +4,9 @@ Purpose:
   Creates and owns the Win32 window and message pump integration.
 
 Mental model:
-  Runtime code connects authored scene data, input, simulation, render
-  backends, and validation-oriented launch modes. Follow who owns state and
-  when that state changes.
+  Window.h creates and owns the Win32 window and message pump integration. As
+  a public header, keep edits anchored on local owner boundaries and call
+  direction and on the glossary/invariants below.
 
 Glossary:
   HWND (Window Handle): Win32 identifier for the native application window.
@@ -18,11 +18,9 @@ Glossary:
     owner/message instead of throwing through WndProc.
   Projection frustum: Camera depth range used when rebuilding the perspective
   matrix after a client-size change.
-  Validation gate: Repository script that proves a class of changes before
-  commit or PR.
 
 Invariants:
-  - m_sWindowDimensions stores client width/height, not monitor or full window
+  - Cached dimensions store client width/height, not monitor or full window
     bounds.
   - m_resizeRenderLifecycle is borrowed from startup and must be cleared before
     the render backend is destroyed.
@@ -58,6 +56,11 @@ class Window
 {
 
   private:
+    HWND m_sWindow;                                                       // Native Win32 window handle owned by startup/window creation.
+    HDC m_sDevice;                                                        // Native device context paired with m_sWindow.
+    POINT m_sWindowDimensions;                                            // Client width/height cached for projection and recentering.
+    bool m_fIsFullScreenMode;                                             // Window-mode policy chosen at creation time.
+    Math::Transformation::Matrix4 projectionMatrix;                       // Perspective projection rebuilt after client-size changes.
     float m_projectionNearPlane;                                          // Near depth plane used by the cached perspective projection.
     float m_projectionFarPlane;                                           // Far depth plane used by the cached perspective projection.
     int m_startupWindowWidth = 1800;                                      // Configured initial window width supplied by startup.
@@ -68,13 +71,32 @@ class Window
     Window();                                                             // Startup constructs the single runtime window owner.
     ~Window();                                                            // Native teardown is explicit in Runtime/Init.cpp cleanup.
 
-    HWND m_sWindow;                                                       // Native Win32 window handle used by renderer and input code.
-    HDC m_sDevice;                                                        // Native device context paired with m_sWindow.
-    POINT m_sWindowDimensions;                                            // Client width/height cached for projection and recentering.
-    bool m_fIsFullScreenMode;                                             // Window-mode policy chosen at creation time.
-
-    Math::Transformation::Matrix4 projectionMatrix;                       // Perspective projection rebuilt after client-size changes.
-
+    HWND NativeWindowHandle() const
+    {
+        return m_sWindow;
+    } // Native Win32 handle for renderer/input API calls.
+    HDC NativeDeviceContext() const
+    {
+        return m_sDevice;
+    } // Native device context currently acquired for the window.
+    POINT ClientDimensions() const
+    {
+        return m_sWindowDimensions;
+    } // Snapshot of cached client-area width/height.
+    int ClientWidth() const
+    {
+        return static_cast<int>( m_sWindowDimensions.x );
+    } // Cached client-area width in pixels.
+    int ClientHeight() const
+    {
+        return static_cast<int>( m_sWindowDimensions.y );
+    } // Cached client-area height in pixels.
+    bool IsFullScreenMode() const
+    {
+        return m_fIsFullScreenMode;
+    } // True when CreateAppWindow selected fullscreen mode.
+    HDC AcquireDeviceContext();                                           // Caches GetDC() for startup render initialization.
+    void ReleaseDeviceContext();                                          // Releases the cached HDC before native window teardown.
     SbResult HandleScreenResize();                                        // Resizes the renderer/projection or reports a Lane R resize failure.
     void SetTitleText( const char* cText );                               // Updates the native title bar without touching renderer text.
     void SetProjectionFrustum( float nearPlane,

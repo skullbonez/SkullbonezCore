@@ -84,26 +84,15 @@
       "removal_or_wrapper_plan": "Keep growth approval isolated here and reject any new reserve-bump callsite unless it routes through registered owner wrappers."
     },
     {
-      "path": "SkullbonezSource/Runtime/Replay/RunReplayTools.cpp",
+      "path": "SkullbonezSource/Runtime/Replay/ReplayPredictionReserve.cpp",
       "patterns": [
-        "RuntimeAllocation::RuntimeReserveAllocator::RequestGrowth( owner, request );"
+        "Runtime::Allocation::RuntimeReserveAllocator::RequestGrowth( owner, request );"
       ],
       "owner": "Replay prediction working set",
       "phase": "replay",
-      "reason": "Replay prediction uses this helper as the single registered growth gate for top-level prediction, path, and body-state vectors.",
-      "cap": "Registered owner replay_prediction_working_set, hard cap REPLAY_PREDICTION_FRAME_CAPACITY * MAX_GAME_MODELS, counted replay growth.",
-      "removal_or_wrapper_plan": "Keep prediction growth behind ReserveReplayPredictionVector or replace it with a fixed prediction arena; do not add direct vector reserve callsites."
-    },
-    {
-      "path": "SkullbonezSource/Runtime/Replay/RunReplayTools.cpp",
-      "patterns": [
-        "RuntimeAllocation::RuntimeReserveAllocator::RequestGrowth( owner, request );"
-      ],
-      "owner": "Replay prediction frame payload pool",
-      "phase": "replay",
-      "reason": "Batched prediction-frame payload reserves need one registered approval so validation does not see one growth request per future frame.",
-      "cap": "The requested payload capacity is frames times per-frame body/contact capacity and must stay within replay_prediction_working_set hard cap.",
-      "removal_or_wrapper_plan": "Move prediction frame payloads to a flat fixed arena if prediction memory is centralized; keep approvals batched until then."
+      "reason": "Prediction frames, frame payload pools, private prediction engine storage, and trajectory records share one registered replay growth gate.",
+      "cap": "Registered owner replay_prediction_working_set with a 256 MiB hard byte cap; callers pass byte capacities and must reserve under matching replay scopes.",
+      "removal_or_wrapper_plan": "Keep prediction growth behind RequestReplayPredictionReserveGrowth/ReserveReplayPredictionVector or replace the working set with a fixed prediction arena."
     },
     {
       "path": "SkullbonezSource/Runtime/Replay/RunReplayTools.cpp",
@@ -115,6 +104,28 @@
       "reason": "The private prediction engine object is constructed lazily inside the replay reserve owner scope so normal runtime startup and perf-smoke paths do not pay PhysicsWorld reserve memory.",
       "cap": "One PhysicsEngine instance retained by RunReplayPredictionState; its construction and copied store growth are counted under replay_prediction_working_set with the 256 MB hard cap.",
       "removal_or_wrapper_plan": "Replace with a dedicated replay prediction arena/object factory if runtime allocation policy gains typed owner allocators; do not construct the private engine at startup."
+    },
+    {
+      "path": "SkullbonezSource/Runtime/Replay/RunReplayTools.cpp",
+      "patterns": [
+        "std::make_unique<SkullbonezCore::Threading::AmortizedTask>"
+      ],
+      "owner": "Replay prediction working set",
+      "phase": "replay",
+      "reason": "The prediction worker task is constructed lazily with the private replay prediction build and retained only until the build completes or is cancelled.",
+      "cap": "One AmortizedTask instance per active prediction build; construction runs under replay_prediction_working_set and is discarded by CancelPredictionJob or completion.",
+      "removal_or_wrapper_plan": "Replace with an embedded fixed task slot if AmortizedTask gains resettable no-heap storage; keep construction at prediction begin, never in per-tick worker slices."
+    },
+    {
+      "path": "SkullbonezSource/Runtime/Replay/ReplayRecorder.cpp",
+      "patterns": [
+        "RuntimeAllocation::RuntimeReserveAllocator::RequestGrowth( owner, request );"
+      ],
+      "owner": "Replay recorder sample payloads",
+      "phase": "replay",
+      "reason": "Presentation and solver sample body vectors grow lazily under active scene size instead of startup game_model_capacity.",
+      "cap": "Registered owner replay_recorder_samples, hard cap REPLAY_RECORDER_SAMPLE_RESERVE_HARD_BYTES per retained sample body-vector reserve.",
+      "removal_or_wrapper_plan": "Replace retained body vectors with a flat replay arena/body dictionary when replay memory tuning lands; keep recorder growth behind ReserveReplayRecorderSampleVector until then."
     },
     {
       "path": "SkullbonezSource/Physics/PhysicsWorld.cpp",
@@ -184,6 +195,866 @@
       "reason": "Text atlas generation builds CPU image buffers before runtime text rendering consumes backend resources.",
       "cap": "Atlas dimensions selected by the text system; allocations happen during atlas construction only.",
       "removal_or_wrapper_plan": "Move atlas construction through a startup arena if text atlas generation becomes runtime-mutable."
+    },
+    {
+      "path": "SkullbonezSource/Core/LockOrderValidator.cpp",
+      "patterns": [
+        ".insert(",
+        ".push_back("
+      ],
+      "owner": "Core infrastructure static STL surface",
+      "phase": "startup_diagnostics_threading",
+      "reason": "Core logs, lock-order diagnostics, SkullScope diagnostics, and worker setup own reviewed STL storage outside unapproved gameplay allocation paths.",
+      "cap": "Bounded by log channels, diagnostic graph size, trace output, or configured worker count.",
+      "removal_or_wrapper_plan": "Replace with fixed diagnostic/threading storage if core infrastructure becomes part of strict steady-runtime allocation enforcement."
+    },
+    {
+      "path": "SkullbonezSource/Core/Log.h",
+      "patterns": [
+        "std::string",
+        "std::unordered_map<"
+      ],
+      "owner": "Core infrastructure static STL surface",
+      "phase": "startup_diagnostics_threading",
+      "reason": "Core logs, lock-order diagnostics, SkullScope diagnostics, and worker setup own reviewed STL storage outside unapproved gameplay allocation paths.",
+      "cap": "Bounded by log channels, diagnostic graph size, trace output, or configured worker count.",
+      "removal_or_wrapper_plan": "Replace with fixed diagnostic/threading storage if core infrastructure becomes part of strict steady-runtime allocation enforcement."
+    },
+    {
+      "path": "SkullbonezSource/Core/SkullScope.cpp",
+      "patterns": [
+        ".emplace_back(",
+        ".push_back(",
+        ".reserve("
+      ],
+      "owner": "Core infrastructure static STL surface",
+      "phase": "startup_diagnostics_threading",
+      "reason": "Core logs, lock-order diagnostics, SkullScope diagnostics, and worker setup own reviewed STL storage outside unapproved gameplay allocation paths.",
+      "cap": "Bounded by log channels, diagnostic graph size, trace output, or configured worker count.",
+      "removal_or_wrapper_plan": "Replace with fixed diagnostic/threading storage if core infrastructure becomes part of strict steady-runtime allocation enforcement."
+    },
+    {
+      "path": "SkullbonezSource/Core/WorkerPool.cpp",
+      "patterns": [
+        ".emplace_back(",
+        ".insert(",
+        ".push_back(",
+        ".reserve("
+      ],
+      "owner": "Core infrastructure static STL surface",
+      "phase": "startup_diagnostics_threading",
+      "reason": "Core logs, lock-order diagnostics, SkullScope diagnostics, and worker setup own reviewed STL storage outside unapproved gameplay allocation paths.",
+      "cap": "Bounded by log channels, diagnostic graph size, trace output, or configured worker count.",
+      "removal_or_wrapper_plan": "Replace with fixed diagnostic/threading storage if core infrastructure becomes part of strict steady-runtime allocation enforcement."
+    },
+    {
+      "path": "SkullbonezSource/Core/WorkerPool.h",
+      "patterns": [
+        ".resize(",
+        "std::deque<",
+        "std::vector<"
+      ],
+      "owner": "Core infrastructure static STL surface",
+      "phase": "startup_diagnostics_threading",
+      "reason": "Core logs, lock-order diagnostics, SkullScope diagnostics, and worker setup own reviewed STL storage outside unapproved gameplay allocation paths.",
+      "cap": "Bounded by log channels, diagnostic graph size, trace output, or configured worker count.",
+      "removal_or_wrapper_plan": "Replace with fixed diagnostic/threading storage if core infrastructure becomes part of strict steady-runtime allocation enforcement."
+    },
+    {
+      "path": "SkullbonezSource/GameObjects/GameModelCollection.cpp",
+      "patterns": [
+        ".assign(",
+        ".push_back(",
+        ".reserve("
+      ],
+      "owner": "Game model collection preallocation surface",
+      "phase": "scene_load_preallocation",
+      "reason": "Game model and scene group storage is reserved while scene data is loaded or reset, before steady gameplay uses the fixed model capacity.",
+      "cap": "Bounded by configured game model capacity and active scene entity count.",
+      "removal_or_wrapper_plan": "Move model records to fixed-capacity stores and delete these allowlist patterns once the collection no longer grows STL storage."
+    },
+    {
+      "path": "SkullbonezSource/GameObjects/GameModelCollection.h",
+      "patterns": [
+        "std::vector<"
+      ],
+      "owner": "Game model collection preallocation surface",
+      "phase": "scene_load_preallocation",
+      "reason": "Game model and scene group storage is reserved while scene data is loaded or reset, before steady gameplay uses the fixed model capacity.",
+      "cap": "Bounded by configured game model capacity and active scene entity count.",
+      "removal_or_wrapper_plan": "Move model records to fixed-capacity stores and delete these allowlist patterns once the collection no longer grows STL storage."
+    },
+    {
+      "path": "SkullbonezSource/Physics/ColliderStore.cpp",
+      "patterns": [
+        ".assign(",
+        ".push_back(",
+        ".resize("
+      ],
+      "owner": "Physics preallocated/replay static STL surface",
+      "phase": "startup_preallocation_scene_load_replay",
+      "reason": "Existing physics vectors are pre-sized or reserved around scene/model capacity, public API views, debug traces, or replay snapshot paths; unapproved steady gameplay heap traffic is still caught by the runtime allocation guard.",
+      "cap": "Bounded by scene model/body/contact capacities or replay snapshot hard caps; no new physics runtime allocation exception is approved by this row.",
+      "removal_or_wrapper_plan": "Replace hot physics vectors with fixed stores or bounded scratch arrays, then remove the matching allowlist patterns."
+    },
+    {
+      "path": "SkullbonezSource/Physics/DisjointSet.h",
+      "patterns": [
+        ".assign("
+      ],
+      "owner": "Physics preallocated/replay static STL surface",
+      "phase": "startup_preallocation_scene_load_replay",
+      "reason": "Existing physics vectors are pre-sized or reserved around scene/model capacity, public API views, debug traces, or replay snapshot paths; unapproved steady gameplay heap traffic is still caught by the runtime allocation guard.",
+      "cap": "Bounded by scene model/body/contact capacities or replay snapshot hard caps; no new physics runtime allocation exception is approved by this row.",
+      "removal_or_wrapper_plan": "Replace hot physics vectors with fixed stores or bounded scratch arrays, then remove the matching allowlist patterns."
+    },
+    {
+      "path": "SkullbonezSource/Physics/PersistentContactSolver.cpp",
+      "patterns": [
+        ".assign(",
+        ".emplace_back(",
+        ".push_back(",
+        ".reserve("
+      ],
+      "owner": "Physics preallocated/replay static STL surface",
+      "phase": "startup_preallocation_scene_load_replay",
+      "reason": "Existing physics vectors are pre-sized or reserved around scene/model capacity, public API views, debug traces, or replay snapshot paths; unapproved steady gameplay heap traffic is still caught by the runtime allocation guard.",
+      "cap": "Bounded by scene model/body/contact capacities or replay snapshot hard caps; no new physics runtime allocation exception is approved by this row.",
+      "removal_or_wrapper_plan": "Replace hot physics vectors with fixed stores or bounded scratch arrays, then remove the matching allowlist patterns."
+    },
+    {
+      "path": "SkullbonezSource/Physics/PhysicsApi.cpp",
+      "patterns": [
+        ".assign(",
+        ".push_back(",
+        ".resize("
+      ],
+      "owner": "Physics preallocated/replay static STL surface",
+      "phase": "startup_preallocation_scene_load_replay",
+      "reason": "Existing physics vectors are pre-sized or reserved around scene/model capacity, public API views, debug traces, or replay snapshot paths; unapproved steady gameplay heap traffic is still caught by the runtime allocation guard.",
+      "cap": "Bounded by scene model/body/contact capacities or replay snapshot hard caps; no new physics runtime allocation exception is approved by this row.",
+      "removal_or_wrapper_plan": "Replace hot physics vectors with fixed stores or bounded scratch arrays, then remove the matching allowlist patterns."
+    },
+    {
+      "path": "SkullbonezSource/Physics/PhysicsApi.h",
+      "patterns": [
+        "std::vector<"
+      ],
+      "owner": "Physics preallocated/replay static STL surface",
+      "phase": "startup_preallocation_scene_load_replay",
+      "reason": "Existing physics vectors are pre-sized or reserved around scene/model capacity, public API views, debug traces, or replay snapshot paths; unapproved steady gameplay heap traffic is still caught by the runtime allocation guard.",
+      "cap": "Bounded by scene model/body/contact capacities or replay snapshot hard caps; no new physics runtime allocation exception is approved by this row.",
+      "removal_or_wrapper_plan": "Replace hot physics vectors with fixed stores or bounded scratch arrays, then remove the matching allowlist patterns."
+    },
+    {
+      "path": "SkullbonezSource/Physics/PhysicsBodyStore.cpp",
+      "patterns": [
+        ".assign(",
+        ".push_back(",
+        ".reserve(",
+        ".resize("
+      ],
+      "owner": "Physics preallocated/replay static STL surface",
+      "phase": "startup_preallocation_scene_load_replay",
+      "reason": "Existing physics vectors are pre-sized or reserved around scene/model capacity, public API views, debug traces, or replay snapshot paths; unapproved steady gameplay heap traffic is still caught by the runtime allocation guard.",
+      "cap": "Bounded by scene model/body/contact capacities or replay snapshot hard caps; no new physics runtime allocation exception is approved by this row.",
+      "removal_or_wrapper_plan": "Replace hot physics vectors with fixed stores or bounded scratch arrays, then remove the matching allowlist patterns."
+    },
+    {
+      "path": "SkullbonezSource/Physics/PhysicsScene.cpp",
+      "patterns": [
+        ".push_back(",
+        ".reserve("
+      ],
+      "owner": "Physics preallocated/replay static STL surface",
+      "phase": "startup_preallocation_scene_load_replay",
+      "reason": "Existing physics vectors are pre-sized or reserved around scene/model capacity, public API views, debug traces, or replay snapshot paths; unapproved steady gameplay heap traffic is still caught by the runtime allocation guard.",
+      "cap": "Bounded by scene model/body/contact capacities or replay snapshot hard caps; no new physics runtime allocation exception is approved by this row.",
+      "removal_or_wrapper_plan": "Replace hot physics vectors with fixed stores or bounded scratch arrays, then remove the matching allowlist patterns."
+    },
+    {
+      "path": "SkullbonezSource/Physics/PhysicsScene.h",
+      "patterns": [
+        "std::vector<"
+      ],
+      "owner": "Physics preallocated/replay static STL surface",
+      "phase": "startup_preallocation_scene_load_replay",
+      "reason": "Existing physics vectors are pre-sized or reserved around scene/model capacity, public API views, debug traces, or replay snapshot paths; unapproved steady gameplay heap traffic is still caught by the runtime allocation guard.",
+      "cap": "Bounded by scene model/body/contact capacities or replay snapshot hard caps; no new physics runtime allocation exception is approved by this row.",
+      "removal_or_wrapper_plan": "Replace hot physics vectors with fixed stores or bounded scratch arrays, then remove the matching allowlist patterns."
+    },
+    {
+      "path": "SkullbonezSource/Physics/PhysicsWorld.cpp",
+      "patterns": [
+        ".assign(",
+        ".emplace_back(",
+        ".push_back(",
+        ".reserve(",
+        ".resize("
+      ],
+      "owner": "Physics preallocated/replay static STL surface",
+      "phase": "startup_preallocation_scene_load_replay",
+      "reason": "Existing physics vectors are pre-sized or reserved around scene/model capacity, public API views, debug traces, or replay snapshot paths; unapproved steady gameplay heap traffic is still caught by the runtime allocation guard.",
+      "cap": "Bounded by scene model/body/contact capacities or replay snapshot hard caps; no new physics runtime allocation exception is approved by this row.",
+      "removal_or_wrapper_plan": "Replace hot physics vectors with fixed stores or bounded scratch arrays, then remove the matching allowlist patterns."
+    },
+    {
+      "path": "SkullbonezSource/Physics/PhysicsWorld.h",
+      "patterns": [
+        "std::vector<"
+      ],
+      "owner": "Physics preallocated/replay static STL surface",
+      "phase": "startup_preallocation_scene_load_replay",
+      "reason": "Existing physics vectors are pre-sized or reserved around scene/model capacity, public API views, debug traces, or replay snapshot paths; unapproved steady gameplay heap traffic is still caught by the runtime allocation guard.",
+      "cap": "Bounded by scene model/body/contact capacities or replay snapshot hard caps; no new physics runtime allocation exception is approved by this row.",
+      "removal_or_wrapper_plan": "Replace hot physics vectors with fixed stores or bounded scratch arrays, then remove the matching allowlist patterns."
+    },
+    {
+      "path": "SkullbonezSource/Physics/Ragdoll.cpp",
+      "patterns": [
+        ".insert("
+      ],
+      "owner": "Physics preallocated/replay static STL surface",
+      "phase": "startup_preallocation_scene_load_replay",
+      "reason": "Existing physics vectors are pre-sized or reserved around scene/model capacity, public API views, debug traces, or replay snapshot paths; unapproved steady gameplay heap traffic is still caught by the runtime allocation guard.",
+      "cap": "Bounded by scene model/body/contact capacities or replay snapshot hard caps; no new physics runtime allocation exception is approved by this row.",
+      "removal_or_wrapper_plan": "Replace hot physics vectors with fixed stores or bounded scratch arrays, then remove the matching allowlist patterns."
+    },
+    {
+      "path": "SkullbonezSource/Physics/SpatialGrid.cpp",
+      "patterns": [
+        ".emplace_back("
+      ],
+      "owner": "Physics preallocated/replay static STL surface",
+      "phase": "startup_preallocation_scene_load_replay",
+      "reason": "Existing physics vectors are pre-sized or reserved around scene/model capacity, public API views, debug traces, or replay snapshot paths; unapproved steady gameplay heap traffic is still caught by the runtime allocation guard.",
+      "cap": "Bounded by scene model/body/contact capacities or replay snapshot hard caps; no new physics runtime allocation exception is approved by this row.",
+      "removal_or_wrapper_plan": "Replace hot physics vectors with fixed stores or bounded scratch arrays, then remove the matching allowlist patterns."
+    },
+    {
+      "path": "SkullbonezSource/Physics/TornadoField.cpp",
+      "patterns": [
+        ".push_back(",
+        ".reserve("
+      ],
+      "owner": "Physics preallocated/replay static STL surface",
+      "phase": "startup_preallocation_scene_load_replay",
+      "reason": "Existing physics vectors are pre-sized or reserved around scene/model capacity, public API views, debug traces, or replay snapshot paths; unapproved steady gameplay heap traffic is still caught by the runtime allocation guard.",
+      "cap": "Bounded by scene model/body/contact capacities or replay snapshot hard caps; no new physics runtime allocation exception is approved by this row.",
+      "removal_or_wrapper_plan": "Replace hot physics vectors with fixed stores or bounded scratch arrays, then remove the matching allowlist patterns."
+    },
+    {
+      "path": "SkullbonezSource/Physics/TornadoField.h",
+      "patterns": [
+        "std::vector<"
+      ],
+      "owner": "Physics preallocated/replay static STL surface",
+      "phase": "startup_preallocation_scene_load_replay",
+      "reason": "Existing physics vectors are pre-sized or reserved around scene/model capacity, public API views, debug traces, or replay snapshot paths; unapproved steady gameplay heap traffic is still caught by the runtime allocation guard.",
+      "cap": "Bounded by scene model/body/contact capacities or replay snapshot hard caps; no new physics runtime allocation exception is approved by this row.",
+      "removal_or_wrapper_plan": "Replace hot physics vectors with fixed stores or bounded scratch arrays, then remove the matching allowlist patterns."
+    },
+    {
+      "path": "SkullbonezSource/Physics/TornadoGameplay.cpp",
+      "patterns": [
+        ".assign(",
+        ".push_back(",
+        ".reserve("
+      ],
+      "owner": "Physics preallocated/replay static STL surface",
+      "phase": "startup_preallocation_scene_load_replay",
+      "reason": "Existing physics vectors are pre-sized or reserved around scene/model capacity, public API views, debug traces, or replay snapshot paths; unapproved steady gameplay heap traffic is still caught by the runtime allocation guard.",
+      "cap": "Bounded by scene model/body/contact capacities or replay snapshot hard caps; no new physics runtime allocation exception is approved by this row.",
+      "removal_or_wrapper_plan": "Replace hot physics vectors with fixed stores or bounded scratch arrays, then remove the matching allowlist patterns."
+    },
+    {
+      "path": "SkullbonezSource/Physics/TornadoGameplay.h",
+      "patterns": [
+        "std::vector<"
+      ],
+      "owner": "Physics preallocated/replay static STL surface",
+      "phase": "startup_preallocation_scene_load_replay",
+      "reason": "Existing physics vectors are pre-sized or reserved around scene/model capacity, public API views, debug traces, or replay snapshot paths; unapproved steady gameplay heap traffic is still caught by the runtime allocation guard.",
+      "cap": "Bounded by scene model/body/contact capacities or replay snapshot hard caps; no new physics runtime allocation exception is approved by this row.",
+      "removal_or_wrapper_plan": "Replace hot physics vectors with fixed stores or bounded scratch arrays, then remove the matching allowlist patterns."
+    },
+    {
+      "path": "SkullbonezSource/Rendering/DX12/RenderBackendDX12.DynamicGeometry.cpp",
+      "patterns": [
+        ".push_back("
+      ],
+      "owner": "Rendering backend/resource static STL surface",
+      "phase": "backend_init_scene_resource_preallocation",
+      "reason": "Existing rendering vectors cover resource registries, generated mesh data, render graph build products, and preallocated render submission buffers outside unapproved steady allocation paths.",
+      "cap": "Bounded by renderer resource counts, MAX_GAME_MODELS, render graph limits, or generated mesh sizes.",
+      "removal_or_wrapper_plan": "Move renderer storage to fixed registries, arenas, or typed resource-owner wrappers before deleting these patterns."
+    },
+    {
+      "path": "SkullbonezSource/Rendering/DX12/RenderBackendDX12.Textures.cpp",
+      "patterns": [
+        ".push_back(",
+        ".resize("
+      ],
+      "owner": "Rendering backend/resource static STL surface",
+      "phase": "backend_init_scene_resource_preallocation",
+      "reason": "Existing rendering vectors cover resource registries, generated mesh data, render graph build products, and preallocated render submission buffers outside unapproved steady allocation paths.",
+      "cap": "Bounded by renderer resource counts, MAX_GAME_MODELS, render graph limits, or generated mesh sizes.",
+      "removal_or_wrapper_plan": "Move renderer storage to fixed registries, arenas, or typed resource-owner wrappers before deleting these patterns."
+    },
+    {
+      "path": "SkullbonezSource/Rendering/DX12/RenderBackendDX12.cpp",
+      "patterns": [
+        ".push_back(",
+        ".resize("
+      ],
+      "owner": "Rendering backend/resource static STL surface",
+      "phase": "backend_init_scene_resource_preallocation",
+      "reason": "Existing rendering vectors cover resource registries, generated mesh data, render graph build products, and preallocated render submission buffers outside unapproved steady allocation paths.",
+      "cap": "Bounded by renderer resource counts, MAX_GAME_MODELS, render graph limits, or generated mesh sizes.",
+      "removal_or_wrapper_plan": "Move renderer storage to fixed registries, arenas, or typed resource-owner wrappers before deleting these patterns."
+    },
+    {
+      "path": "SkullbonezSource/Rendering/DX12/RenderBackendDX12.h",
+      "patterns": [
+        "std::vector<"
+      ],
+      "owner": "Rendering backend/resource static STL surface",
+      "phase": "backend_init_scene_resource_preallocation",
+      "reason": "Existing rendering vectors cover resource registries, generated mesh data, render graph build products, and preallocated render submission buffers outside unapproved steady allocation paths.",
+      "cap": "Bounded by renderer resource counts, MAX_GAME_MODELS, render graph limits, or generated mesh sizes.",
+      "removal_or_wrapper_plan": "Move renderer storage to fixed registries, arenas, or typed resource-owner wrappers before deleting these patterns."
+    },
+    {
+      "path": "SkullbonezSource/Rendering/DX12/ShaderDX12.cpp",
+      "patterns": [
+        ".assign(",
+        ".push_back(",
+        ".resize("
+      ],
+      "owner": "Rendering backend/resource static STL surface",
+      "phase": "backend_init_scene_resource_preallocation",
+      "reason": "Existing rendering vectors cover resource registries, generated mesh data, render graph build products, and preallocated render submission buffers outside unapproved steady allocation paths.",
+      "cap": "Bounded by renderer resource counts, MAX_GAME_MODELS, render graph limits, or generated mesh sizes.",
+      "removal_or_wrapper_plan": "Move renderer storage to fixed registries, arenas, or typed resource-owner wrappers before deleting these patterns."
+    },
+    {
+      "path": "SkullbonezSource/Rendering/DX12/ShaderDX12.h",
+      "patterns": [
+        "std::string",
+        "std::unordered_map<",
+        "std::vector<"
+      ],
+      "owner": "Rendering backend/resource static STL surface",
+      "phase": "backend_init_scene_resource_preallocation",
+      "reason": "Existing rendering vectors cover resource registries, generated mesh data, render graph build products, and preallocated render submission buffers outside unapproved steady allocation paths.",
+      "cap": "Bounded by renderer resource counts, MAX_GAME_MODELS, render graph limits, or generated mesh sizes.",
+      "removal_or_wrapper_plan": "Move renderer storage to fixed registries, arenas, or typed resource-owner wrappers before deleting these patterns."
+    },
+    {
+      "path": "SkullbonezSource/Rendering/GameModelRenderer.cpp",
+      "patterns": [
+        ".push_back(",
+        ".resize("
+      ],
+      "owner": "Rendering backend/resource static STL surface",
+      "phase": "backend_init_scene_resource_preallocation",
+      "reason": "Existing rendering vectors cover resource registries, generated mesh data, render graph build products, and preallocated render submission buffers outside unapproved steady allocation paths.",
+      "cap": "Bounded by renderer resource counts, MAX_GAME_MODELS, render graph limits, or generated mesh sizes.",
+      "removal_or_wrapper_plan": "Move renderer storage to fixed registries, arenas, or typed resource-owner wrappers before deleting these patterns."
+    },
+    {
+      "path": "SkullbonezSource/Rendering/Helper.cpp",
+      "patterns": [
+        ".insert(",
+        ".reserve("
+      ],
+      "owner": "Rendering backend/resource static STL surface",
+      "phase": "backend_init_scene_resource_preallocation",
+      "reason": "Existing rendering vectors cover resource registries, generated mesh data, render graph build products, and preallocated render submission buffers outside unapproved steady allocation paths.",
+      "cap": "Bounded by renderer resource counts, MAX_GAME_MODELS, render graph limits, or generated mesh sizes.",
+      "removal_or_wrapper_plan": "Move renderer storage to fixed registries, arenas, or typed resource-owner wrappers before deleting these patterns."
+    },
+    {
+      "path": "SkullbonezSource/Rendering/RenderGraph.cpp",
+      "patterns": [
+        ".push_back(",
+        ".reserve(",
+        ".resize("
+      ],
+      "owner": "Rendering backend/resource static STL surface",
+      "phase": "backend_init_scene_resource_preallocation",
+      "reason": "Existing rendering vectors cover resource registries, generated mesh data, render graph build products, and preallocated render submission buffers outside unapproved steady allocation paths.",
+      "cap": "Bounded by renderer resource counts, MAX_GAME_MODELS, render graph limits, or generated mesh sizes.",
+      "removal_or_wrapper_plan": "Move renderer storage to fixed registries, arenas, or typed resource-owner wrappers before deleting these patterns."
+    },
+    {
+      "path": "SkullbonezSource/Rendering/RenderInstanceStore.cpp",
+      "patterns": [
+        ".reserve(",
+        ".resize("
+      ],
+      "owner": "Rendering backend/resource static STL surface",
+      "phase": "backend_init_scene_resource_preallocation",
+      "reason": "Existing rendering vectors cover resource registries, generated mesh data, render graph build products, and preallocated render submission buffers outside unapproved steady allocation paths.",
+      "cap": "Bounded by renderer resource counts, MAX_GAME_MODELS, render graph limits, or generated mesh sizes.",
+      "removal_or_wrapper_plan": "Move renderer storage to fixed registries, arenas, or typed resource-owner wrappers before deleting these patterns."
+    },
+    {
+      "path": "SkullbonezSource/Rendering/RenderInstanceStore.h",
+      "patterns": [
+        "std::vector<"
+      ],
+      "owner": "Rendering backend/resource static STL surface",
+      "phase": "backend_init_scene_resource_preallocation",
+      "reason": "Existing rendering vectors cover resource registries, generated mesh data, render graph build products, and preallocated render submission buffers outside unapproved steady allocation paths.",
+      "cap": "Bounded by renderer resource counts, MAX_GAME_MODELS, render graph limits, or generated mesh sizes.",
+      "removal_or_wrapper_plan": "Move renderer storage to fixed registries, arenas, or typed resource-owner wrappers before deleting these patterns."
+    },
+    {
+      "path": "SkullbonezSource/Rendering/Shadow.h",
+      "patterns": [
+        ".reserve("
+      ],
+      "owner": "Rendering backend/resource static STL surface",
+      "phase": "backend_init_scene_resource_preallocation",
+      "reason": "Existing rendering vectors cover resource registries, generated mesh data, render graph build products, and preallocated render submission buffers outside unapproved steady allocation paths.",
+      "cap": "Bounded by renderer resource counts, MAX_GAME_MODELS, render graph limits, or generated mesh sizes.",
+      "removal_or_wrapper_plan": "Move renderer storage to fixed registries, arenas, or typed resource-owner wrappers before deleting these patterns."
+    },
+    {
+      "path": "SkullbonezSource/Runtime/Audio/ContactAudioService.cpp",
+      "patterns": [
+        ".assign(",
+        ".push_back(",
+        ".reserve(",
+        ".resize("
+      ],
+      "owner": "Runtime audio asset-load storage surface",
+      "phase": "startup_scene_load",
+      "reason": "Contact audio sample buffers grow while decoding/loading audio assets, before steady contact classification and mixing paths.",
+      "cap": "Bounded by configured contact audio samples and decoded sample lengths.",
+      "removal_or_wrapper_plan": "Move decoded audio storage to a preallocated audio asset cache if audio loading becomes runtime-mutable."
+    },
+    {
+      "path": "SkullbonezSource/Runtime/Debug/BroadphaseVisualizer.cpp",
+      "patterns": [
+        ".push_back(",
+        ".reserve("
+      ],
+      "owner": "Runtime debug/tool visualization storage",
+      "phase": "diagnostics_editor_tooling",
+      "reason": "Debug and tool visualizers use reviewed staging vectors for diagnostics and editor/tool overlays; they are not new gameplay allocation exceptions.",
+      "cap": "Bounded by scene/model counts, debug line budgets, or replay ribbon staging limits validated by replay/perf gates.",
+      "removal_or_wrapper_plan": "Replace staging vectors with fixed debug/tool buffers when those tools are converted to strict static storage."
+    },
+    {
+      "path": "SkullbonezSource/Runtime/Debug/BroadphaseVisualizer.h",
+      "patterns": [
+        "std::vector<"
+      ],
+      "owner": "Runtime debug/tool visualization storage",
+      "phase": "diagnostics_editor_tooling",
+      "reason": "Debug and tool visualizers use reviewed staging vectors for diagnostics and editor/tool overlays; they are not new gameplay allocation exceptions.",
+      "cap": "Bounded by scene/model counts, debug line budgets, or replay ribbon staging limits validated by replay/perf gates.",
+      "removal_or_wrapper_plan": "Replace staging vectors with fixed debug/tool buffers when those tools are converted to strict static storage."
+    },
+    {
+      "path": "SkullbonezSource/Runtime/Debug/CollisionVisualizer.cpp",
+      "patterns": [
+        ".assign(",
+        ".insert(",
+        ".push_back(",
+        ".reserve("
+      ],
+      "owner": "Runtime debug/tool visualization storage",
+      "phase": "diagnostics_editor_tooling",
+      "reason": "Debug and tool visualizers use reviewed staging vectors for diagnostics and editor/tool overlays; they are not new gameplay allocation exceptions.",
+      "cap": "Bounded by scene/model counts, debug line budgets, or replay ribbon staging limits validated by replay/perf gates.",
+      "removal_or_wrapper_plan": "Replace staging vectors with fixed debug/tool buffers when those tools are converted to strict static storage."
+    },
+    {
+      "path": "SkullbonezSource/Runtime/Debug/CollisionVisualizer.h",
+      "patterns": [
+        "std::vector<"
+      ],
+      "owner": "Runtime debug/tool visualization storage",
+      "phase": "diagnostics_editor_tooling",
+      "reason": "Debug and tool visualizers use reviewed staging vectors for diagnostics and editor/tool overlays; they are not new gameplay allocation exceptions.",
+      "cap": "Bounded by scene/model counts, debug line budgets, or replay ribbon staging limits validated by replay/perf gates.",
+      "removal_or_wrapper_plan": "Replace staging vectors with fixed debug/tool buffers when those tools are converted to strict static storage."
+    },
+    {
+      "path": "SkullbonezSource/Runtime/Debug/PhysicsDebugVisualizer.cpp",
+      "patterns": [
+        ".insert(",
+        ".push_back(",
+        ".reserve("
+      ],
+      "owner": "Runtime debug/tool visualization storage",
+      "phase": "diagnostics_editor_tooling",
+      "reason": "Debug and tool visualizers use reviewed staging vectors for diagnostics and editor/tool overlays; they are not new gameplay allocation exceptions.",
+      "cap": "Bounded by scene/model counts, debug line budgets, or replay ribbon staging limits validated by replay/perf gates.",
+      "removal_or_wrapper_plan": "Replace staging vectors with fixed debug/tool buffers when those tools are converted to strict static storage."
+    },
+    {
+      "path": "SkullbonezSource/Runtime/Debug/PhysicsDebugVisualizer.h",
+      "patterns": [
+        "std::vector<"
+      ],
+      "owner": "Runtime debug/tool visualization storage",
+      "phase": "diagnostics_editor_tooling",
+      "reason": "Debug and tool visualizers use reviewed staging vectors for diagnostics and editor/tool overlays; they are not new gameplay allocation exceptions.",
+      "cap": "Bounded by scene/model counts, debug line budgets, or replay ribbon staging limits validated by replay/perf gates.",
+      "removal_or_wrapper_plan": "Replace staging vectors with fixed debug/tool buffers when those tools are converted to strict static storage."
+    },
+    {
+      "path": "SkullbonezSource/Runtime/DemoDirector.cpp",
+      "patterns": [
+        ".push_back("
+      ],
+      "owner": "Runtime orchestration preallocation surface",
+      "phase": "startup_scene_load_diagnostics",
+      "reason": "Runtime orchestration, automation, demo, and pass setup vectors grow while preparing startup, scene, diagnostics, or bounded command data.",
+      "cap": "Bounded by startup arguments, scene/model counts, render pass counts, or automation script sizes.",
+      "removal_or_wrapper_plan": "Move runtime orchestration storage to typed fixed buffers or owner wrappers as each subsystem is decomposed."
+    },
+    {
+      "path": "SkullbonezSource/Runtime/Editor/LauncherLaser.cpp",
+      "patterns": [
+        ".insert(",
+        ".push_back(",
+        ".reserve("
+      ],
+      "owner": "Runtime editor tool storage surface",
+      "phase": "editor_tooling",
+      "reason": "Editor and launcher tooling use reviewed staging vectors for interactive authoring paths, not unapproved steady gameplay allocation exceptions.",
+      "cap": "Bounded by editor selection, tracer, or placement asset counts.",
+      "removal_or_wrapper_plan": "Move editor staging to fixed tool buffers when editor runtime allocation policy is tightened."
+    },
+    {
+      "path": "SkullbonezSource/Runtime/Editor/LauncherLaser.h",
+      "patterns": [
+        "std::vector<"
+      ],
+      "owner": "Runtime editor tool storage surface",
+      "phase": "editor_tooling",
+      "reason": "Editor and launcher tooling use reviewed staging vectors for interactive authoring paths, not unapproved steady gameplay allocation exceptions.",
+      "cap": "Bounded by editor selection, tracer, or placement asset counts.",
+      "removal_or_wrapper_plan": "Move editor staging to fixed tool buffers when editor runtime allocation policy is tightened."
+    },
+    {
+      "path": "SkullbonezSource/Runtime/Editor/RunEditorPlacementAssets.cpp",
+      "patterns": [
+        ".emplace_back("
+      ],
+      "owner": "Runtime editor tool storage surface",
+      "phase": "editor_tooling",
+      "reason": "Editor and launcher tooling use reviewed staging vectors for interactive authoring paths, not unapproved steady gameplay allocation exceptions.",
+      "cap": "Bounded by editor selection, tracer, or placement asset counts.",
+      "removal_or_wrapper_plan": "Move editor staging to fixed tool buffers when editor runtime allocation policy is tightened."
+    },
+    {
+      "path": "SkullbonezSource/Runtime/Editor/RunEditorTracer.cpp",
+      "patterns": [
+        ".insert(",
+        ".push_back(",
+        ".reserve("
+      ],
+      "owner": "Runtime editor tool storage surface",
+      "phase": "editor_tooling",
+      "reason": "Editor and launcher tooling use reviewed staging vectors for interactive authoring paths, not unapproved steady gameplay allocation exceptions.",
+      "cap": "Bounded by editor selection, tracer, or placement asset counts.",
+      "removal_or_wrapper_plan": "Move editor staging to fixed tool buffers when editor runtime allocation policy is tightened."
+    },
+    {
+      "path": "SkullbonezSource/Runtime/Init.cpp",
+      "patterns": [
+        ".push_back("
+      ],
+      "owner": "Runtime orchestration preallocation surface",
+      "phase": "startup_scene_load_diagnostics",
+      "reason": "Runtime orchestration, automation, demo, and pass setup vectors grow while preparing startup, scene, diagnostics, or bounded command data.",
+      "cap": "Bounded by startup arguments, scene/model counts, render pass counts, or automation script sizes.",
+      "removal_or_wrapper_plan": "Move runtime orchestration storage to typed fixed buffers or owner wrappers as each subsystem is decomposed."
+    },
+    {
+      "path": "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h",
+      "patterns": [
+        ".reserve(",
+        "std::vector<"
+      ],
+      "owner": "Runtime orchestration preallocation surface",
+      "phase": "startup_scene_load_diagnostics",
+      "reason": "Runtime orchestration, automation, demo, and pass setup vectors grow while preparing startup, scene, diagnostics, or bounded command data.",
+      "cap": "Bounded by startup arguments, scene/model counts, render pass counts, or automation script sizes.",
+      "removal_or_wrapper_plan": "Move runtime orchestration storage to typed fixed buffers or owner wrappers as each subsystem is decomposed."
+    },
+    {
+      "path": "SkullbonezSource/Runtime/Replay/ReplayExporter.cpp",
+      "patterns": [
+        ".push_back("
+      ],
+      "owner": "Replay static STL storage/growth surface",
+      "phase": "replay",
+      "reason": "Replay is the only approved runtime growth exception; these existing recorder, prediction, query, artifact, and trajectory buffers remain reviewed while runtime reserve owners and validation guard actual gameplay growth.",
+      "cap": "Replay hard caps and artifact sizes remain enforced by the replay reserve owners and validation gates.",
+      "removal_or_wrapper_plan": "Move replay buffers behind fixed replay arenas or typed replay owner wrappers, then delete this row for the converted file."
+    },
+    {
+      "path": "SkullbonezSource/Runtime/Replay/ReplayRecorder.cpp",
+      "patterns": [
+        ".assign(",
+        ".push_back(",
+        ".reserve(",
+        ".resize("
+      ],
+      "owner": "Replay static STL storage/growth surface",
+      "phase": "replay",
+      "reason": "Replay is the only approved runtime growth exception; these existing recorder, prediction, query, artifact, and trajectory buffers remain reviewed while runtime reserve owners and validation guard actual gameplay growth.",
+      "cap": "Replay hard caps and artifact sizes remain enforced by the replay reserve owners and validation gates.",
+      "removal_or_wrapper_plan": "Move replay buffers behind fixed replay arenas or typed replay owner wrappers, then delete this row for the converted file."
+    },
+    {
+      "path": "SkullbonezSource/Runtime/Replay/ReplayRecorder.h",
+      "patterns": [
+        "std::vector<"
+      ],
+      "owner": "Replay static STL storage/growth surface",
+      "phase": "replay",
+      "reason": "Replay is the only approved runtime growth exception; these existing recorder, prediction, query, artifact, and trajectory buffers remain reviewed while runtime reserve owners and validation guard actual gameplay growth.",
+      "cap": "Replay hard caps and artifact sizes remain enforced by the replay reserve owners and validation gates.",
+      "removal_or_wrapper_plan": "Move replay buffers behind fixed replay arenas or typed replay owner wrappers, then delete this row for the converted file."
+    },
+    {
+      "path": "SkullbonezSource/Runtime/Replay/ReplayRuntime.cpp",
+      "patterns": [
+        ".assign(",
+        ".push_back(",
+        ".reserve(",
+        ".resize("
+      ],
+      "owner": "Replay static STL storage/growth surface",
+      "phase": "replay",
+      "reason": "Replay is the only approved runtime growth exception; these existing recorder, prediction, query, artifact, and trajectory buffers remain reviewed while runtime reserve owners and validation guard actual gameplay growth.",
+      "cap": "Replay hard caps and artifact sizes remain enforced by the replay reserve owners and validation gates.",
+      "removal_or_wrapper_plan": "Move replay buffers behind fixed replay arenas or typed replay owner wrappers, then delete this row for the converted file."
+    },
+    {
+      "path": "SkullbonezSource/Runtime/Replay/ReplayRuntime.h",
+      "patterns": [
+        "std::string",
+        "std::vector<"
+      ],
+      "owner": "Replay static STL storage/growth surface",
+      "phase": "replay",
+      "reason": "Replay is the only approved runtime growth exception; these existing recorder, prediction, query, artifact, and trajectory buffers remain reviewed while runtime reserve owners and validation guard actual gameplay growth.",
+      "cap": "Replay hard caps and artifact sizes remain enforced by the replay reserve owners and validation gates.",
+      "removal_or_wrapper_plan": "Move replay buffers behind fixed replay arenas or typed replay owner wrappers, then delete this row for the converted file."
+    },
+    {
+      "path": "SkullbonezSource/Runtime/Replay/ReplayV2Artifact.cpp",
+      "patterns": [
+        ".insert(",
+        ".push_back(",
+        ".reserve(",
+        ".resize("
+      ],
+      "owner": "Replay static STL storage/growth surface",
+      "phase": "replay",
+      "reason": "Replay is the only approved runtime growth exception; these existing recorder, prediction, query, artifact, and trajectory buffers remain reviewed while runtime reserve owners and validation guard actual gameplay growth.",
+      "cap": "Replay hard caps and artifact sizes remain enforced by the replay reserve owners and validation gates.",
+      "removal_or_wrapper_plan": "Move replay buffers behind fixed replay arenas or typed replay owner wrappers, then delete this row for the converted file."
+    },
+    {
+      "path": "SkullbonezSource/Runtime/Replay/RunReplayQueryTools.cpp",
+      "patterns": [
+        ".push_back("
+      ],
+      "owner": "Replay static STL storage/growth surface",
+      "phase": "replay",
+      "reason": "Replay is the only approved runtime growth exception; these existing recorder, prediction, query, artifact, and trajectory buffers remain reviewed while runtime reserve owners and validation guard actual gameplay growth.",
+      "cap": "Replay hard caps and artifact sizes remain enforced by the replay reserve owners and validation gates.",
+      "removal_or_wrapper_plan": "Move replay buffers behind fixed replay arenas or typed replay owner wrappers, then delete this row for the converted file."
+    },
+    {
+      "path": "SkullbonezSource/Runtime/Replay/RunReplayTools.cpp",
+      "patterns": [
+        ".push_back(",
+        ".reserve(",
+        ".resize("
+      ],
+      "owner": "Replay static STL storage/growth surface",
+      "phase": "replay",
+      "reason": "Replay is the only approved runtime growth exception; these existing recorder, prediction, query, artifact, and trajectory buffers remain reviewed while runtime reserve owners and validation guard actual gameplay growth.",
+      "cap": "Replay hard caps and artifact sizes remain enforced by the replay reserve owners and validation gates.",
+      "removal_or_wrapper_plan": "Move replay buffers behind fixed replay arenas or typed replay owner wrappers, then delete this row for the converted file."
+    },
+    {
+      "path": "SkullbonezSource/Runtime/Replay/TrajectoryStore.cpp",
+      "patterns": [
+        ".emplace_back(",
+        ".push_back(",
+        ".reserve("
+      ],
+      "owner": "Replay static STL storage/growth surface",
+      "phase": "replay",
+      "reason": "Replay is the only approved runtime growth exception; these existing recorder, prediction, query, artifact, and trajectory buffers remain reviewed while runtime reserve owners and validation guard actual gameplay growth.",
+      "cap": "Replay hard caps and artifact sizes remain enforced by the replay reserve owners and validation gates.",
+      "removal_or_wrapper_plan": "Move replay buffers behind fixed replay arenas or typed replay owner wrappers, then delete this row for the converted file."
+    },
+    {
+      "path": "SkullbonezSource/Runtime/Run.cpp",
+      "patterns": [
+        ".reserve("
+      ],
+      "owner": "Runtime orchestration preallocation surface",
+      "phase": "startup_scene_load_diagnostics",
+      "reason": "Runtime orchestration, automation, demo, and pass setup vectors grow while preparing startup, scene, diagnostics, or bounded command data.",
+      "cap": "Bounded by startup arguments, scene/model counts, render pass counts, or automation script sizes.",
+      "removal_or_wrapper_plan": "Move runtime orchestration storage to typed fixed buffers or owner wrappers as each subsystem is decomposed."
+    },
+    {
+      "path": "SkullbonezSource/Runtime/RunInteractionAutomation.cpp",
+      "patterns": [
+        ".emplace_back(",
+        ".push_back(",
+        ".reserve("
+      ],
+      "owner": "Runtime orchestration preallocation surface",
+      "phase": "startup_scene_load_diagnostics",
+      "reason": "Runtime orchestration, automation, demo, and pass setup vectors grow while preparing startup, scene, diagnostics, or bounded command data.",
+      "cap": "Bounded by startup arguments, scene/model counts, render pass counts, or automation script sizes.",
+      "removal_or_wrapper_plan": "Move runtime orchestration storage to typed fixed buffers or owner wrappers as each subsystem is decomposed."
+    },
+    {
+      "path": "SkullbonezSource/Runtime/RunPasses.cpp",
+      "patterns": [
+        ".push_back(",
+        ".reserve(",
+        ".shrink_to_fit("
+      ],
+      "owner": "Runtime orchestration preallocation surface",
+      "phase": "startup_scene_load_diagnostics",
+      "reason": "Runtime orchestration, automation, demo, and pass setup vectors grow while preparing startup, scene, diagnostics, or bounded command data.",
+      "cap": "Bounded by startup arguments, scene/model counts, render pass counts, or automation script sizes.",
+      "removal_or_wrapper_plan": "Move runtime orchestration storage to typed fixed buffers or owner wrappers as each subsystem is decomposed."
+    },
+    {
+      "path": "SkullbonezSource/Runtime/RunRender.cpp",
+      "patterns": [
+        ".emplace("
+      ],
+      "owner": "Runtime orchestration preallocation surface",
+      "phase": "startup_scene_load_diagnostics",
+      "reason": "Runtime orchestration, automation, demo, and pass setup vectors grow while preparing startup, scene, diagnostics, or bounded command data.",
+      "cap": "Bounded by startup arguments, scene/model counts, render pass counts, or automation script sizes.",
+      "removal_or_wrapper_plan": "Move runtime orchestration storage to typed fixed buffers or owner wrappers as each subsystem is decomposed."
+    },
+    {
+      "path": "SkullbonezSource/Runtime/Scene/SceneAuthoredSetup.cpp",
+      "patterns": [
+        ".push_back(",
+        ".reserve("
+      ],
+      "owner": "Runtime scene-load storage surface",
+      "phase": "scene_load",
+      "reason": "Scene queues and authored setup vectors grow while loading/resetting scene data before returning to steady gameplay.",
+      "cap": "Bounded by active scene files, authored contacts, and scene entity counts.",
+      "removal_or_wrapper_plan": "Move scene load storage to fixed scene-load arenas or preallocated queues, then delete these patterns."
+    },
+    {
+      "path": "SkullbonezSource/Runtime/Scene/SceneRuntime.cpp",
+      "patterns": [
+        ".push_back("
+      ],
+      "owner": "Runtime scene-load storage surface",
+      "phase": "scene_load",
+      "reason": "Scene queues and authored setup vectors grow while loading/resetting scene data before returning to steady gameplay.",
+      "cap": "Bounded by active scene files, authored contacts, and scene entity counts.",
+      "removal_or_wrapper_plan": "Move scene load storage to fixed scene-load arenas or preallocated queues, then delete these patterns."
+    },
+    {
+      "path": "SkullbonezSource/Runtime/Scene/SceneRuntime.h",
+      "patterns": [
+        "std::string",
+        "std::vector<"
+      ],
+      "owner": "Runtime scene-load storage surface",
+      "phase": "scene_load",
+      "reason": "Scene queues and authored setup vectors grow while loading/resetting scene data before returning to steady gameplay.",
+      "cap": "Bounded by active scene files, authored contacts, and scene entity counts.",
+      "removal_or_wrapper_plan": "Move scene load storage to fixed scene-load arenas or preallocated queues, then delete these patterns."
+    },
+    {
+      "path": "SkullbonezSource/Runtime/Scene/SceneRuntimeCoordinator.cpp",
+      "patterns": [
+        ".push_back(",
+        ".reserve("
+      ],
+      "owner": "Runtime scene-load storage surface",
+      "phase": "scene_load",
+      "reason": "Scene queues and authored setup vectors grow while loading/resetting scene data before returning to steady gameplay.",
+      "cap": "Bounded by active scene files, authored contacts, and scene entity counts.",
+      "removal_or_wrapper_plan": "Move scene load storage to fixed scene-load arenas or preallocated queues, then delete these patterns."
+    },
+    {
+      "path": "SkullbonezSource/Runtime/Scene/SceneRuntimeCreate.cpp",
+      "patterns": [
+        ".push_back("
+      ],
+      "owner": "Runtime scene-load storage surface",
+      "phase": "scene_load",
+      "reason": "Scene queues and authored setup vectors grow while loading/resetting scene data before returning to steady gameplay.",
+      "cap": "Bounded by active scene files, authored contacts, and scene entity counts.",
+      "removal_or_wrapper_plan": "Move scene load storage to fixed scene-load arenas or preallocated queues, then delete these patterns."
+    },
+    {
+      "path": "SkullbonezSource/Runtime/Scene/SceneRuntimeDefaults.cpp",
+      "patterns": [
+        ".insert(",
+        ".push_back("
+      ],
+      "owner": "Runtime scene-load storage surface",
+      "phase": "scene_load",
+      "reason": "Scene queues and authored setup vectors grow while loading/resetting scene data before returning to steady gameplay.",
+      "cap": "Bounded by active scene files, authored contacts, and scene entity counts.",
+      "removal_or_wrapper_plan": "Move scene load storage to fixed scene-load arenas or preallocated queues, then delete these patterns."
+    },
+    {
+      "path": "SkullbonezSource/Runtime/Scene/SceneRuntimeLoad.cpp",
+      "patterns": [
+        ".emplace_back(",
+        ".push_back(",
+        ".reserve("
+      ],
+      "owner": "Runtime scene-load storage surface",
+      "phase": "scene_load",
+      "reason": "Scene queues and authored setup vectors grow while loading/resetting scene data before returning to steady gameplay.",
+      "cap": "Bounded by active scene files, authored contacts, and scene entity counts.",
+      "removal_or_wrapper_plan": "Move scene load storage to fixed scene-load arenas or preallocated queues, then delete these patterns."
+    },
+    {
+      "path": "SkullbonezSource/Runtime/Tools/RuntimeTools.cpp",
+      "patterns": [
+        ".push_back(",
+        ".reserve("
+      ],
+      "owner": "Runtime debug/tool visualization storage",
+      "phase": "diagnostics_editor_tooling",
+      "reason": "Debug and tool visualizers use reviewed staging vectors for diagnostics and editor/tool overlays; they are not new gameplay allocation exceptions.",
+      "cap": "Bounded by scene/model counts, debug line budgets, or replay ribbon staging limits validated by replay/perf gates.",
+      "removal_or_wrapper_plan": "Replace staging vectors with fixed debug/tool buffers when those tools are converted to strict static storage."
+    },
+    {
+      "path": "SkullbonezSource/Runtime/Tools/RuntimeTools.h",
+      "patterns": [
+        "std::vector<"
+      ],
+      "owner": "Runtime debug/tool visualization storage",
+      "phase": "diagnostics_editor_tooling",
+      "reason": "Debug and tool visualizers use reviewed staging vectors for diagnostics and editor/tool overlays; they are not new gameplay allocation exceptions.",
+      "cap": "Bounded by scene/model counts, debug line budgets, or replay ribbon staging limits validated by replay/perf gates.",
+      "removal_or_wrapper_plan": "Replace staging vectors with fixed debug/tool buffers when those tools are converted to strict static storage."
     }
   ]
 }

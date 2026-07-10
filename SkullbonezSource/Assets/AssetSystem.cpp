@@ -4,9 +4,10 @@ Purpose:
   Loads, owns, and resolves reusable runtime assets for scenes and render code.
 
 Mental model:
-  Runtime code connects authored scene data, input, simulation, render
-  backends, and validation-oriented launch modes. Follow who owns state and
-  when that state changes.
+  AssetSystem.cpp loads, owns, and resolves reusable runtime assets for scenes
+  and render code. As an implementation unit, keep edits anchored on asset
+  lifetime, cache ownership, and load/fallback behavior and on the
+  glossary/invariants below.
 
 Glossary:
   Logical asset name: Stable engine-facing identifier such as
@@ -14,8 +15,6 @@ Glossary:
     knowing a disk path.
   Shader base name: Data-root-relative shader path without the backend-specific
     file extension.
-  Validation gate: Repository script that proves a class of changes before
-  commit or PR.
 
 Invariants:
   - Logical asset names are stable scene/runtime contracts; re-registering an
@@ -70,6 +69,7 @@ const char* BuiltInShaderBaseNameForLogicalName( const char* logicalName )
         { "shader.collision_visualizer", "shaders/collision_visualizer" },
         { "shader.grid_line", "shaders/grid_line" },
         { "shader.soft_additive_ribbon", "shaders/soft_additive_ribbon" },
+        { "shader.trajectory_ribbon", "shaders/trajectory_ribbon" },
         { "shader.launcher_laser", "shaders/launcher_laser" },
         { "shader.tornado_fx", "shaders/tornado_fx" },
         { "shader.ui_backdrop_blur", "shaders/UIBackdropBlur" },
@@ -206,6 +206,10 @@ void AssetSystem::RegisterBuiltInSourceAssets( const Basics::EngineConfig& confi
                                BuiltInShaderContract( false, false, false, false, false ) );
     RegisterShaderSourceAsset( "shader.soft_additive_ribbon",
                                "shaders/soft_additive_ribbon",
+                               ShaderProgramKind::DebugLine,
+                               BuiltInShaderContract( false, false, false, false, false ) );
+    RegisterShaderSourceAsset( "shader.trajectory_ribbon",
+                               "shaders/trajectory_ribbon",
                                ShaderProgramKind::DebugLine,
                                BuiltInShaderContract( false, false, false, false, false ) );
     RegisterShaderSourceAsset( "shader.launcher_laser",

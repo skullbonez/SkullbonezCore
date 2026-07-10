@@ -9,6 +9,10 @@
       <Configuration>Profile</Configuration>
       <Platform>x64</Platform>
     </ProjectConfiguration>
+    <ProjectConfiguration Include="Profile-WPO|x64">
+      <Configuration>Profile-WPO</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
     <ProjectConfiguration Include="Release|x64">
       <Configuration>Release</Configuration>
       <Platform>x64</Platform>
@@ -23,11 +27,21 @@
     <ConfigurationType>Application</ConfigurationType>
     <PlatformToolset>v145</PlatformToolset>
     <CharacterSet>MultiByte</CharacterSet>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Profile|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <PlatformToolset>v145</PlatformToolset>
     <CharacterSet>MultiByte</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Profile-WPO|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <PlatformToolset>v145</PlatformToolset>
+    <CharacterSet>MultiByte</CharacterSet>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <OutDir>Profile-WPO\</OutDir>
+    <IntDir>Profile-WPO\</IntDir>
+    <LinkIncremental>false</LinkIncremental>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
@@ -35,12 +49,14 @@
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
-  <ImportGroup Label="ExtensionSettings">
-  </ImportGroup>
+  <ImportGroup Label="ExtensionSettings"></ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Profile|x64'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Profile-WPO|x64'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="PropertySheets">
@@ -113,6 +129,7 @@
       <OptimizeReferences>true</OptimizeReferences>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <IgnoreSpecificDefaultLibraries>libc.lib</IgnoreSpecificDefaultLibraries>
+      <LinkTimeCodeGeneration>UseLinkTimeCodeGeneration</LinkTimeCodeGeneration>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Profile|x64'">
@@ -139,13 +156,33 @@
       <IgnoreSpecificDefaultLibraries>libc.lib</IgnoreSpecificDefaultLibraries>
     </Link>
   </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Profile-WPO|x64'">
+    <ClCompile>
+      <AdditionalIncludeDirectories>./ThirdPtySource/stb;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>NDEBUG;_WINDOWS;SKULLBONEZ_PROFILE_ENABLED;SKULLBONEZ_PLATFORM_PROFILER_PIX;USE_PIX;_HAS_STD_BYTE=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <BasicRuntimeChecks>Default</BasicRuntimeChecks>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <RuntimeTypeInfo>false</RuntimeTypeInfo>
+      <PrecompiledHeader />
+      <WarningLevel>Level4</WarningLevel>
+      <TreatWarningAsError>false</TreatWarningAsError>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+    </ClCompile>
+    <Link>
+      <AdditionalDependencies>libcmt.lib;legacy_stdio_definitions.lib;psapi.lib;d3d12.lib;dxgi.lib;dxguid.lib;d3dcompiler.lib;xaudio2.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <OutputFile>$(OutDir)SKULLBONEZ_CORE.exe</OutputFile>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <SubSystem>Windows</SubSystem>
+      <OptimizeReferences>true</OptimizeReferences>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <IgnoreSpecificDefaultLibraries>libc.lib</IgnoreSpecificDefaultLibraries>
+      <LinkTimeCodeGeneration>UseLinkTimeCodeGeneration</LinkTimeCodeGeneration>
+    </Link>
+  </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="SkullbonezSource\Assets\AssetSystem.cpp" />
-    <ClCompile Include="SkullbonezSource\Physics\BoundingBox.cpp" />
-    <ClCompile Include="SkullbonezSource\Physics\BoundingSphere.cpp" />
-    <ClCompile Include="SkullbonezSource\Physics\ColliderStore.cpp" />
-    <ClCompile Include="SkullbonezSource\Physics\ConvexHullShape.cpp" />
-    <ClCompile Include="SkullbonezSource\Physics\Debug\BroadphaseVisualizer.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Allocation\RuntimeReserveAllocator.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Allocation\RuntimeAllocationTracker.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\AttachedCameraController.cpp" />
@@ -154,10 +191,6 @@
     <ClCompile Include="SkullbonezSource\Runtime\Camera.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\CameraCollection.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\DemoDirector.cpp" />
-    <ClCompile Include="SkullbonezSource\Physics\Debug\CollisionVisualizer.cpp" />
-    <ClCompile Include="SkullbonezSource\Physics\ObjectContactManifold.cpp" />
-    <ClCompile Include="SkullbonezSource\Physics\TerrainContactManifold.cpp" />
-    <ClCompile Include="SkullbonezSource\Physics\Debug\PhysicsDebugVisualizer.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Editor\LauncherLaser.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Editor\LauncherTools.cpp" />
     <ClCompile Include="SkullbonezSource\Core\AmortizedTask.cpp" />
@@ -165,15 +198,6 @@
     <ClCompile Include="SkullbonezSource\GameObjects\GameModel.cpp" />
     <ClCompile Include="SkullbonezSource\GameObjects\GameModelCollection.cpp" />
     <ClCompile Include="SkullbonezSource\Rendering\GameModelRenderer.cpp" />
-    <ClCompile Include="SkullbonezSource\Physics\PersistentContactSolver.cpp" />
-    <ClCompile Include="SkullbonezSource\Physics\PhysicsApi.cpp" />
-    <ClCompile Include="SkullbonezSource\Physics\PhysicsBodyStore.cpp" />
-    <ClCompile Include="SkullbonezSource\Physics\PhysicsDiagnosticsSink.cpp" />
-    <ClCompile Include="SkullbonezSource\Physics\PhysicsEngine.cpp" />
-    <ClCompile Include="SkullbonezSource\Physics\PhysicsObjectPolicy.cpp" />
-    <ClCompile Include="SkullbonezSource\Physics\Ragdoll.cpp" />
-    <ClCompile Include="SkullbonezSource\Physics\PhysicsScene.cpp" />
-    <ClCompile Include="SkullbonezSource\Physics\PhysicsWorld.cpp" />
     <ClCompile Include="SkullbonezSource\Scene\SceneSnapshotWriter.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneAuthoredSetup.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneController.cpp" />
@@ -187,15 +211,15 @@
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneRuntimeReset.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneRuntimeStyle.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneRuntimeUiOptions.cpp" />
-    <ClCompile Include="SkullbonezSource\Physics\SleepIslandSystem.cpp" />
-    <ClCompile Include="SkullbonezSource\Physics\SimulationSystem.cpp" />
     <ClCompile Include="SkullbonezSource\Core\SkullScope.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayExporter.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayInteractionController.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayOverlayLayout.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayOverlayRenderer.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayPredictionReserve.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayRecorder.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayRuntime.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Replay\TrajectoryStore.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Replay\RunReplayProbes.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayV2Artifact.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Replay\RunReplayImportExport.cpp" />
@@ -246,15 +270,11 @@
     <ClCompile Include="SkullbonezSource\Runtime\RunStress.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\RunUiTextPass.cpp" />
     <ClCompile Include="SkullbonezSource\World\SkyBox.cpp" />
-    <ClCompile Include="SkullbonezSource\Physics\SpatialGrid.cpp" />
-    <ClCompile Include="SkullbonezSource\Physics\BuoyancySystem.cpp" />
     <ClCompile Include="SkullbonezSource\World\Terrain.cpp" />
     <ClCompile Include="SkullbonezSource\Rendering\Text.cpp" />
     <ClCompile Include="SkullbonezSource\Assets\TextureCollection.cpp" />
     <ClCompile Include="SkullbonezSource\Core\Timer.cpp" />
     <ClCompile Include="SkullbonezSource\Rendering\DrawCallTrace.cpp" />
-    <ClCompile Include="SkullbonezSource\Physics\TornadoField.cpp" />
-    <ClCompile Include="SkullbonezSource\Physics\TornadoGameplay.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Window.cpp" />
     <ClCompile Include="SkullbonezSource\Core\WorkerPool.cpp" />
     <ClCompile Include="SkullbonezSource\World\WorldEnvironment.cpp" />
@@ -309,15 +329,13 @@
     <ClCompile Include="SkullbonezSource\Rendering\DX12\BLASDX12.cpp" />
     <ClCompile Include="SkullbonezSource\Rendering\DX12\TLASDX12.cpp" />
     <ClCompile Include="SkullbonezSource\Rendering\DX12\SBTDX12.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Debug\BroadphaseVisualizer.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Debug\CollisionVisualizer.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Debug\PhysicsDebugVisualizer.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="SkullbonezSource\Assets\AssetKeys.h" />
     <ClInclude Include="SkullbonezSource\Assets\AssetSystem.h" />
-    <ClInclude Include="SkullbonezSource\Physics\BoundingBox.h" />
-    <ClInclude Include="SkullbonezSource\Physics\BoundingSphere.h" />
-    <ClInclude Include="SkullbonezSource\Physics\ColliderStore.h" />
-    <ClInclude Include="SkullbonezSource\Physics\ConvexHullShape.h" />
-    <ClInclude Include="SkullbonezSource\Physics\Debug\BroadphaseVisualizer.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Allocation\RuntimeReserveAllocator.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Allocation\RuntimeAllocationTracker.h" />
     <ClInclude Include="SkullbonezSource\Runtime\AttachedCameraController.h" />
@@ -326,46 +344,22 @@
     <ClInclude Include="SkullbonezSource\Runtime\Camera.h" />
     <ClInclude Include="SkullbonezSource\Runtime\CameraCollection.h" />
     <ClInclude Include="SkullbonezSource\Runtime\DemoDirector.h" />
-    <ClInclude Include="SkullbonezSource\Physics\Debug\CollisionVisualizer.h" />
-    <ClInclude Include="SkullbonezSource\Physics\ObjectContactManifold.h" />
-    <ClInclude Include="SkullbonezSource\Physics\TerrainContactManifold.h" />
-    <ClInclude Include="SkullbonezSource\Physics\Debug\PhysicsDebugVisualizer.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Editor\EditorTools.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Editor\EditorPlacementAssets.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Editor\EditorOverlayTools.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Editor\EditorHullAssets.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Editor\LauncherLaser.h" />
     <ClInclude Include="SkullbonezSource\Core\AmortizedTask.h" />
-    <ClInclude Include="SkullbonezSource\Physics\CollisionShape.h" />
     <ClInclude Include="SkullbonezSource\Core\Common.h" />
     <ClInclude Include="SkullbonezSource\Core\FatalError.h" />
     <ClInclude Include="SkullbonezSource\Core\MainMemoryStats.h" />
-    <ClInclude Include="SkullbonezSource\Physics\ContactSolverCommon.h" />
-    <ClInclude Include="SkullbonezSource\Physics\DisjointSet.h" />
     <ClInclude Include="SkullbonezSource\Rendering\DrawCallTrace.h" />
     <ClInclude Include="SkullbonezSource\Core\Fence.h" />
     <ClInclude Include="SkullbonezSource\GameObjects\GameModel.h" />
     <ClInclude Include="SkullbonezSource\GameObjects\GameModelCollection.h" />
     <ClInclude Include="SkullbonezSource\GameObjects\SceneCapacity.h" />
     <ClInclude Include="SkullbonezSource\Rendering\GameModelRenderer.h" />
-    <ClInclude Include="SkullbonezSource\Physics\PersistentContactSolver.h" />
-    <ClInclude Include="SkullbonezSource\Physics\PhysicsApi.h" />
-    <ClInclude Include="SkullbonezSource\Physics\PhysicsBodyStore.h" />
-    <ClInclude Include="SkullbonezSource\Physics\PhysicsFixedList.h" />
-    <ClInclude Include="SkullbonezSource\Physics\PhysicsDiagnosticsSink.h" />
-    <ClInclude Include="SkullbonezSource\Physics\PhysicsDiagnosticsModel.h" />
-    <ClInclude Include="SkullbonezSource\Physics\PhysicsEngine.h" />
-    <ClInclude Include="SkullbonezSource\Physics\PhysicsHandles.h" />
-    <ClInclude Include="SkullbonezSource\Physics\PhysicsMass.h" />
-    <ClInclude Include="SkullbonezSource\Physics\PhysicsObjectPolicy.h" />
-    <ClInclude Include="SkullbonezSource\Physics\PhysicsTimestep.h" />
-    <ClInclude Include="SkullbonezSource\Physics\PhysicsWorldForces.h" />
-    <ClInclude Include="SkullbonezSource\Physics\SolverBroadphaseStage.h" />
-    <ClInclude Include="SkullbonezSource\Physics\PhysicsScene.h" />
-    <ClInclude Include="SkullbonezSource\Physics\PhysicsWorld.h" />
-    <ClInclude Include="SkullbonezSource\Physics\Ragdoll.h" />
     <ClInclude Include="SkullbonezSource\Scene\SceneSnapshotWriter.h" />
-    <ClInclude Include="SkullbonezSource\Physics\SleepIslandSystem.h" />
     <ClInclude Include="SkullbonezSource\Core\SkullScope.h" />
     <ClInclude Include="SkullbonezSource\Rendering\Helper.h" />
     <ClInclude Include="SkullbonezSource\Runtime\GraphicsStressController.h" />
@@ -395,6 +389,7 @@
     <ClInclude Include="SkullbonezSource\Runtime\RuntimeCommandQueue.h" />
     <ClInclude Include="SkullbonezSource\Runtime\RuntimeInteractionCommands.h" />
     <ClInclude Include="SkullbonezSource\Runtime\RuntimeDiagnostics.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\RunLaunchOptions.Renderer.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Diagnostics\DiagnosticsRuntime.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Audio\ContactAudioService.h" />
     <ClInclude Include="SkullbonezSource\Runtime\RuntimeTuning.h" />
@@ -420,29 +415,26 @@
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneRuntimeReset.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneRuntimeStyle.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneRuntimeUiOptions.h" />
-    <ClInclude Include="SkullbonezSource\Physics\SimulationSystem.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayExporter.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayInteractionController.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayOverlayLayout.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayOverlayRenderer.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayPredictionReserve.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayRecorder.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayRestoreService.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayRuntime.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplaySolverSnapshot.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Replay\TrajectoryStore.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayV2Artifact.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\RunReplayImportExport.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Tools\RuntimeTools.h" />
     <ClInclude Include="SkullbonezSource\Runtime\RuntimeFileWriter.h" />
     <ClInclude Include="SkullbonezSource\World\SkyBox.h" />
-    <ClInclude Include="SkullbonezSource\Physics\SpatialGrid.h" />
-    <ClInclude Include="SkullbonezSource\Physics\BuoyancySystem.h" />
     <ClInclude Include="SkullbonezSource\World\Terrain.h" />
     <ClInclude Include="SkullbonezSource\World\TerrainSupportClassifier.h" />
     <ClInclude Include="SkullbonezSource\Rendering\Text.h" />
     <ClInclude Include="SkullbonezSource\Assets\TextureCollection.h" />
     <ClInclude Include="SkullbonezSource\Core\Timer.h" />
-    <ClInclude Include="SkullbonezSource\Physics\TornadoField.h" />
-    <ClInclude Include="SkullbonezSource\Physics\TornadoGameplay.h" />
     <ClInclude Include="SkullbonezSource\Runtime\WindowConstants.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Window.h" />
     <ClInclude Include="SkullbonezSource\Core\WorkerPool.h" />
@@ -508,10 +500,16 @@
     <ClInclude Include="SkullbonezSource\Rendering\DX12\TLASDX12.h" />
     <ClInclude Include="SkullbonezSource\Rendering\DX12\SBTDX12.h" />
     <ClInclude Include="ThirdPtySource\nlohmann\json.hpp" />
+    <ClInclude Include="SkullbonezSource\Runtime\Debug\BroadphaseVisualizer.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Debug\CollisionVisualizer.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Debug\PhysicsDebugVisualizer.h" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="SKULLBONEZ_MATHS.vcxproj">
       <Project>{5D4A47DA-54C6-4142-9FA9-1A63E976BA2D}</Project>
+    </ProjectReference>
+    <ProjectReference Include="SKULLBONEZ_PHYSICS.vcxproj">
+      <Project>{2CC512B8-5A21-49F4-AE75-9982116F5B62}</Project>
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
@@ -559,6 +557,7 @@
     <None Include="SkullbonezData\audio\impacts\impact_thud_wood_alt_03.ogg" />
     <None Include="ThirdPtySource\stb\stb_vorbis.c" />
     <None Include="SkullbonezData\shaders\launcher_laser.hlsl" />
+    <None Include="SkullbonezData\shaders\trajectory_ribbon.hlsl" />
     <None Include="SkullbonezData\shaders\tornado_fx.hlsl" />
     <None Include="SkullbonezData\hulls\diamond.hull" />
     <None Include="SkullbonezData\hulls\hex_prism.hull" />

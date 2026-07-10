@@ -39,11 +39,15 @@ Related:
 #include "RuntimeFileWriter.h"
 #include "RuntimePickService.h"
 
+#include "../Physics/PhysicsEngineStoreQueries.h"
+
 #pragma warning( push, 0 )
 #include "../../ThirdPtySource/nlohmann/json.hpp"
 #pragma warning( pop )
 
 #include <algorithm>
+#include <cstdint>
+#include <cstring>
 #include <sstream>
 
 using namespace SkullbonezCore::Basics;
@@ -70,6 +74,94 @@ void CopyText( char* destination, std::size_t destinationSize, const std::string
 Json Vec3Json( const Vector3& value )
 {
     return Json::array( { value.x, value.y, value.z } );
+}
+
+constexpr uint64_t INTERACTION_PREDICTION_FINGERPRINT_OFFSET = 1469598103934665603ull;
+constexpr uint64_t INTERACTION_PREDICTION_FINGERPRINT_PRIME = 1099511628211ull;
+
+struct PredictionTrajectoryFingerprint
+{
+    uint64_t hash = INTERACTION_PREDICTION_FINGERPRINT_OFFSET;
+    std::size_t recordCount = 0;
+    std::size_t pointCount = 0;
+
+    bool Ready() const
+    {
+        return recordCount > 0 && pointCount > 0;
+    }
+};
+
+void HashPredictionByte( uint64_t& hash, uint8_t value )
+{
+    hash ^= static_cast<uint64_t>( value );
+    hash *= INTERACTION_PREDICTION_FINGERPRINT_PRIME;
+}
+
+template <typename T> void HashPredictionScalar( uint64_t& hash, T value )
+{
+    const uint8_t* bytes = reinterpret_cast<const uint8_t*>( &value );
+    for ( std::size_t i = 0; i < sizeof( T ); ++i )
+    {
+        HashPredictionByte( hash, bytes[i] );
+    }
+}
+
+void HashPredictionFloat( uint64_t& hash, float value )
+{
+    uint32_t bits = 0;
+    std::memcpy( &bits, &value, sizeof( bits ) );
+    HashPredictionScalar( hash, bits );
+}
+
+void HashPredictionVector( uint64_t& hash, const Vector3& value )
+{
+    HashPredictionFloat( hash, value.x );
+    HashPredictionFloat( hash, value.y );
+    HashPredictionFloat( hash, value.z );
+}
+
+std::string FormatPredictionHash( uint64_t hash )
+{
+    char buffer[24] = {};
+    sprintf_s( buffer, sizeof( buffer ), "0x%016llX", static_cast<unsigned long long>( hash ) );
+    return buffer;
+}
+
+PredictionTrajectoryFingerprint BuildPredictionTrajectoryFingerprint( const ReplayRuntime& replayRuntime )
+{
+    PredictionTrajectoryFingerprint fingerprint;
+    const ReplayTrajectoryStore& store = replayRuntime.Prediction().trajectoryStore;
+    for ( const ReplayTrajectoryRecord& record : store.records )
+    {
+        const std::size_t publishedPointCount = (std::min)( record.publishedPointCount, record.points.size() );
+        if ( publishedPointCount == 0 )
+        {
+            continue;
+        }
+
+        // Invariant: this report hash intentionally ignores record versions and
+        // vector capacity. It fingerprints only the sampled polylines and draw
+        // hierarchy that should be byte-identical across two identical
+        // prediction runs.
+        HashPredictionScalar( fingerprint.hash, record.key.bodyId.value );
+        HashPredictionScalar( fingerprint.hash, static_cast<uint8_t>( record.key.lane ) );
+        HashPredictionScalar( fingerprint.hash, record.key.branchOrdinal );
+        HashPredictionScalar( fingerprint.hash, record.styleId );
+        HashPredictionScalar( fingerprint.hash, record.parentId.value );
+        HashPredictionScalar( fingerprint.hash, record.depth );
+        HashPredictionScalar( fingerprint.hash, record.firstFrame );
+        HashPredictionScalar( fingerprint.hash, static_cast<uint8_t>( record.contactDerived ? 1u : 0u ) );
+        HashPredictionScalar( fingerprint.hash, static_cast<uint64_t>( publishedPointCount ) );
+        for ( std::size_t i = 0; i < publishedPointCount; ++i )
+        {
+            const ReplayTrajectoryPoint& point = record.points[i];
+            HashPredictionScalar( fingerprint.hash, point.frameIndex );
+            HashPredictionVector( fingerprint.hash, point.position );
+        }
+        ++fingerprint.recordCount;
+        fingerprint.pointCount += publishedPointCount;
+    }
+    return fingerprint;
 }
 
 const RunReplayPredictionBodySample* FindPredictionBodyById( const RunReplayPredictionFrame& frame, ReplayBodyId id )
@@ -149,6 +241,30 @@ bool ReplayPredictionPathVisible( const ReplayRuntime& replayRuntime )
     return replayRuntime.PathVisualizer().hasTarget &&
            ( !replayRuntime.PathVisualizer().futureNodes.empty() || VisiblePredictionFrameCount( replayRuntime ) >= 2 ||
              !replayRuntime.Prediction().futureNodeCache.futureNodes.empty() );
+}
+
+bool ReplayPredictionContactsIncomplete( const ReplayRuntime& replayRuntime )
+{
+    // Concept: automation reports should distinguish a valid root prediction
+    // from a partial contact-derived tree, because contact reserve failures are
+    // intentionally non-fatal to prediction drawing.
+    const RunReplayPredictionState& prediction = replayRuntime.Prediction();
+    const std::vector<RunReplayPredictionFrame>* frames = &prediction.simulation.frames;
+    std::size_t frameCount = frames->size();
+    if ( prediction.BuildPrefixShouldBePresented() )
+    {
+        frames = &prediction.build.buildFrames;
+        frameCount = prediction.PublishedBuildFrameCount();
+    }
+    frameCount = (std::min)( frameCount, frames->size() );
+    for ( std::size_t i = 0; i < frameCount; ++i )
+    {
+        if ( ( *frames )[i].contactsIncomplete )
+        {
+            return true;
+        }
+    }
+    return false;
 }
 
 const DemoPhase* ActiveDirectorPhase( const RunCameraState& camera )
@@ -528,6 +644,8 @@ const char* AssertName( RunInteractionAutomationAssertKind kind )
         return "predictionTargetDisplacementMin";
     case RunInteractionAutomationAssertKind::LiveSolverHashStableAcrossPrediction:
         return "liveSolverHashStableAcrossPrediction";
+    case RunInteractionAutomationAssertKind::PredictionTrajectoryFingerprintReady:
+        return "predictionTrajectoryFingerprintReady";
     case RunInteractionAutomationAssertKind::GizmoVisible:
         return "gizmoVisible";
     case RunInteractionAutomationAssertKind::ReplayActiveTrack:
@@ -861,7 +979,8 @@ void ApplyInteractionAutomationReplayStateAction( InteractionAutomationReplaySta
     case RunInteractionAutomationActionType::NudgeReplayPathTargetVelocity:
     {
         Physics::PhysicsEngine& physics = context.gameModels.GetPhysicsEngine();
-        const Physics::PhysicsBodyStore& bodyStore = physics.BodyStore();
+        const Physics::PhysicsBodyStore& bodyStore =
+            SkullbonezCore::Physics::PhysicsEngineStoreQueries::BodyStore( physics );
         const Physics::PhysicsBodyHandle body = context.replayRuntime.ResolveVelocityEditBodyHandle( bodyStore );
         const Physics::PhysicsBodyRecord* record = bodyStore.RecordForHandle( body );
         const bool hasTarget = context.replayRuntime.PathVisualizer().hasTarget &&
@@ -980,6 +1099,32 @@ void ApplyInteractionAutomationReplayControlClick( InteractionAutomationReplayCo
                                                              action,
                                                              "replay predict control unavailable",
                                                              "replay predict control unavailable" );
+        }
+        return;
+    }
+
+    if ( strcmp( action.text, "past" ) == 0 || strcmp( action.text, "pastPath" ) == 0 )
+    {
+        const int screenW = RuntimeWindowScreenWidth( context.systems, context.config );
+        const int screenH = RuntimeWindowScreenHeight( context.systems, context.config );
+        const ReplayRecorderStats solverReplayStats = context.replayRuntime.Solver().GetStats();
+        const bool pastPathControlEnabled = solverReplayStats.enabled && solverReplayStats.sampleCount >= 2 &&
+                                            context.replayRuntime.PathVisualizer().hasTarget;
+        if ( screenW > 0 && screenH > 0 && pastPathControlEnabled )
+        {
+            InjectInteractionAutomationReplayControlClick( context,
+                                                           action,
+                                                           frame,
+                                                           ReplayScrubberPastPathToggleRect( screenW, screenH ),
+                                                           "mouse press injected at past-path toggle" );
+        }
+        else
+        {
+            AppendInteractionAutomationReplayControlFailure( context,
+                                                             frame,
+                                                             action,
+                                                             "replay past-path control unavailable",
+                                                             "replay past-path control unavailable" );
         }
         return;
     }
@@ -1373,6 +1518,11 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
             outAction.assertKind = RunInteractionAutomationAssertKind::LiveSolverHashStableAcrossPrediction;
             outAction.boolValue = ReadBool( member.value() );
         }
+        else if ( name == "predictionTrajectoryFingerprintReady" )
+        {
+            outAction.assertKind = RunInteractionAutomationAssertKind::PredictionTrajectoryFingerprintReady;
+            outAction.boolValue = ReadBool( member.value() );
+        }
         else if ( name == "gizmoVisible" )
         {
             outAction.assertKind = RunInteractionAutomationAssertKind::GizmoVisible;
@@ -1442,8 +1592,8 @@ EvaluateInteractionAutomationAssertion( InteractionAutomationAssertContext& cont
     case RunInteractionAutomationAssertKind::SelectedObject:
     {
         evaluation.expected = action.text;
-        const int selectedIndex = PeekSelectedEditorModelIndex( context.runtimeTools.Editor(),
-                                                                context.gameModels.GetPhysicsEngine().BodyStore() );
+        const int selectedIndex =
+            PeekSelectedEditorModelIndex( context.runtimeTools.Editor(), context.gameModels.BodyStore() );
         if ( selectedIndex >= 0 && selectedIndex < context.gameModels.SceneEntityCount() )
         {
             evaluation.actual = context.gameModels.GetModelAtIndex( selectedIndex ).GetName();
@@ -1577,6 +1727,16 @@ EvaluateInteractionAutomationAssertion( InteractionAutomationAssertContext& cont
         evaluation.passed = stable == action.boolValue;
         break;
     }
+    case RunInteractionAutomationAssertKind::PredictionTrajectoryFingerprintReady:
+    {
+        const PredictionTrajectoryFingerprint fingerprint =
+            BuildPredictionTrajectoryFingerprint( context.replayRuntime );
+        const bool ready = fingerprint.Ready();
+        evaluation.expected = BoolString( action.boolValue );
+        evaluation.actual = BoolString( ready );
+        evaluation.passed = ready == action.boolValue;
+        break;
+    }
     case RunInteractionAutomationAssertKind::GizmoVisible:
     {
         const bool visible = context.runtimeTools.Editor().selectedBody.IsValid() &&
@@ -1697,7 +1857,7 @@ bool Run::TrySetInteractionAutomationReplayPathTarget( const char* name )
         return false;
     }
 
-    const auto* body = m_cGameModelCollection.GetPhysicsEngine().BodyStore().RecordForModelIndex( modelIndex );
+    const auto* body = m_cGameModelCollection.BodyStore().RecordForModelIndex( modelIndex );
     if ( !body || body->replayBodyId == 0 )
     {
         return false;
@@ -1726,8 +1886,8 @@ bool Run::TryProjectInteractionAutomationModel( const char* name, POINT& outMous
         return false;
     }
 
-    const int width = static_cast<int>( (std::max)( 1L, m_systems.window->m_sWindowDimensions.x ) );
-    const int height = static_cast<int>( (std::max)( 1L, m_systems.window->m_sWindowDimensions.y ) );
+    const int width = (std::max)( 1, m_systems.window->ClientWidth() );
+    const int height = (std::max)( 1, m_systems.window->ClientHeight() );
     const int steps[] = { 96, 48, 24, 12, 6 };
     for ( const int step : steps )
     {
@@ -1747,8 +1907,8 @@ bool Run::TryProjectInteractionAutomationModel( const char* name, POINT& outMous
                 {
                     RuntimePickRequest request;
                     request.purpose = RuntimePickPurpose::EditorSelection;
-                    request.bodyStore = &m_cGameModelCollection.GetPhysicsEngine().BodyStore();
-                    request.colliderStore = &m_cGameModelCollection.GetPhysicsEngine().Colliders();
+                    request.bodyStore = &m_cGameModelCollection.BodyStore();
+                    request.colliderStore = &m_cGameModelCollection.Colliders();
                     request.rayOrigin = rayOrigin;
                     request.rayDirection = rayDirection;
 
@@ -2029,6 +2189,16 @@ void Run::TickInteractionAutomationAfterRender()
 
     if ( allProcessed && frame >= lastFrame )
     {
+        if ( !state.failed && m_replayRuntime.Prediction().build.building )
+        {
+            // Why: prediction reports read committed topology, frame counts,
+            // and trajectory hashes. Let the normal render-frame replay path
+            // finish its worker swap/rebuild instead of draining physics under
+            // the post-draw automation profiler scope.
+            ClearInteractionAutomationInput();
+            return;
+        }
+
         state.finished = true;
         ClearInteractionAutomationInput();
         WriteInteractionAutomationReport();
@@ -2087,7 +2257,7 @@ void Run::WriteInteractionAutomationReport()
     }
 
     const int selectedIndex =
-        PeekSelectedEditorModelIndex( m_runtimeTools.Editor(), m_cGameModelCollection.GetPhysicsEngine().BodyStore() );
+        PeekSelectedEditorModelIndex( m_runtimeTools.Editor(), m_cGameModelCollection.BodyStore() );
     const char* selectedName = "";
     if ( selectedIndex >= 0 && selectedIndex < m_cGameModelCollection.SceneEntityCount() )
     {
@@ -2095,8 +2265,11 @@ void Run::WriteInteractionAutomationReport()
     }
     const bool gizmoVisible =
         selectedIndex >= 0 && ( m_runtimeTools.Editor().editorModeEnabled || InspectGizmoInteractionActive() );
+    const bool replayPastPathVisible =
+        m_replayRuntime.PathVisualizer().hasTarget && m_replayRuntime.PathVisualizer().pastPathVisible;
     const std::size_t predictionVisibleFrameCount = VisiblePredictionFrameCount( m_replayRuntime );
     const bool predictionPathVisible = ReplayPredictionPathVisible( m_replayRuntime );
+    const bool predictionContactsIncomplete = ReplayPredictionContactsIncomplete( m_replayRuntime );
     uint64_t predictionSourceSolverHash = 0;
     uint64_t liveSolverHash = 0;
     const bool liveSolverHashStableAcrossPrediction =
@@ -2117,6 +2290,10 @@ void Run::WriteInteractionAutomationReport()
     const RunReplayPredictionState& predictionState = m_replayRuntime.Prediction();
     const ReplayPredictionBaselineSnapshot& predictionBaseline = predictionState.baseline;
     const bool predictionBaselineVisible = predictionBaseline.valid && predictionBaseline.comparisonActive;
+    const PredictionTrajectoryFingerprint predictionTrajectoryFingerprint =
+        BuildPredictionTrajectoryFingerprint( m_replayRuntime );
+    const ReplayTrajectorySubmissionProbeStats& predictionSubmissionProbe =
+        m_replayRuntime.ReplayTrajectorySubmissionProbe();
     std::size_t predictionRetainedEntryMarkerCount = 0;
     std::size_t predictionRetainedRestMarkerCount = 0;
     std::size_t predictionRetainedHorizonMarkerCount = 0;
@@ -2168,66 +2345,84 @@ void Run::WriteInteractionAutomationReport()
     report["assertions"] = assertions;
     report["screenshots"] = screenshots;
     report["failure"] = state.failure;
-    report["finalState"] =
-        Json{ { "cameraMode", CameraModeName( m_camera.mode ) },
-              { "directorShotListLoaded", m_camera.director.hasActiveShotList },
-              { "directorPhaseIndex", m_camera.director.currentPhaseIndex },
-              { "directorPhaseCount", m_camera.director.activeShotList.phaseCount },
-              { "directorGrabbed", m_camera.director.grabbed },
-              { "directorShotListPath", m_camera.director.activeShotListPath },
-              { "directorPhaseName", directorPhaseName },
-              { "directorPhaseStylePath", directorPhaseStylePath },
-              { "directorPhaseRevealRate", directorPhaseRevealRate },
-              { "directorAppliedStylePhaseIndex", m_camera.director.appliedStylePhaseIndex },
-              { "directorAppliedStylePath", m_camera.director.appliedStylePath },
-              { "directorAppliedStyleCount", m_camera.director.appliedStyleCount },
-              { "directorAppliedRevealRatePhaseIndex", m_camera.director.appliedRevealRatePhaseIndex },
-              { "directorAppliedRevealRate", m_camera.director.appliedRevealRate },
-              { "directorAppliedRevealRateCount", m_camera.director.appliedRevealRateCount },
-              { "directorPhaseCameraEye", directorPhaseCameraEye },
-              { "directorPhaseCameraView", directorPhaseCameraView },
-              { "directorPhaseCameraUp", directorPhaseCameraUp },
-              { "workspace", WorkspaceName( m_interaction.Workspace() ) },
-              { "owner", OwnerName( m_interaction.Owner() ) },
-              { "selectedObject", selectedName },
-              { "selectedModelIndex", selectedIndex },
-              { "gizmoVisible", gizmoVisible },
-              { "memoryOverlayEnabled", m_UI.IsMemoryOverlayEnabled() },
-              { "replayPredictionEnabled", predictionState.enabled },
-              { "predictionHorizonSeconds", predictionState.simulation.horizonSeconds },
-              { "predictionRevealSecondsPerSecond", predictionState.revealClock.secondsPerSecond },
-              { "replayPathTarget",
-                m_replayRuntime.PathVisualizer().hasTarget ? m_replayRuntime.PathVisualizer().targetName : "" },
-              { "replayPathTargetCount", static_cast<int>( m_replayRuntime.PathVisualizer().targets.size() ) },
-              { "predictionPathVisible", predictionPathVisible },
-              { "predictionBaselineVisible", predictionBaselineVisible },
-              { "predictionBaselineRootPointCount", static_cast<int>( predictionBaseline.rootPolyline.size() ) },
-              { "predictionBaselineBodyPoseCount", static_cast<int>( predictionBaseline.bodyPoses.size() ) },
-              { "predictionDivergenceValid", predictionBaseline.divergenceValid },
-              { "predictionDivergenceUnits", predictionBaseline.divergenceUnits },
-              { "liveSolverHashStableAcrossPrediction", liveSolverHashStableAcrossPrediction },
-              { "predictionSourceSolverHash", predictionSourceSolverHash },
-              { "liveSolverHash", liveSolverHash },
-              { "predictionActiveFrameCount", static_cast<int>( predictionVisibleFrameCount ) },
-              { "predictionFrameCount", static_cast<int>( predictionState.simulation.frames.size() ) },
-              { "predictionBuildFrameCount", static_cast<int>( predictionState.PublishedBuildFrameCount() ) },
-              { "predictionTargetDisplacementValid", predictionTargetDisplacementValid },
-              { "predictionTargetFirst", Vec3Json( predictionTargetFirst ) },
-              { "predictionTargetLast", Vec3Json( predictionTargetLast ) },
-              { "predictionTargetDisplacement", predictionTargetDisplacement },
-              { "predictionFutureNodeCount", static_cast<int>( predictionState.futureNodeCache.futureNodes.size() ) },
-              { "predictionFutureNodeBuildFrameCount",
-                static_cast<int>( predictionState.futureNodeCache.futureNodesBuiltFrameCount ) },
-              { "predictionRetainedEntryMarkerCount", static_cast<int>( predictionRetainedEntryMarkerCount ) },
-              { "predictionRetainedRestMarkerCount", static_cast<int>( predictionRetainedRestMarkerCount ) },
-              { "predictionRetainedHorizonMarkerCount", static_cast<int>( predictionRetainedHorizonMarkerCount ) },
-              { "replayActiveTrack", ReplayTrackName( m_replayRuntime.Scrubber().activeTrack ) },
-              { "replayHistoricalSamplePaused", m_replayRuntime.Scrubber().historicalSamplePaused },
-              { "replaySolverTrackPosition", replaySolverTrackPosition },
-              { "replaySolverPresentTrackPosition", replaySolverPresentTrackPosition },
-              { "replaySolverTrackAtPresent", replaySolverTrackAtPresent },
-              { "predictionScrubFrameActive", predictionScrubFrameActive },
-              { "replayFutureNodeCount", static_cast<int>( m_replayRuntime.PathVisualizer().futureNodes.size() ) } };
+    report["finalState"] = Json{
+        { "cameraMode", CameraModeName( m_camera.mode ) },
+        { "directorShotListLoaded", m_camera.director.hasActiveShotList },
+        { "directorPhaseIndex", m_camera.director.currentPhaseIndex },
+        { "directorPhaseCount", m_camera.director.activeShotList.phaseCount },
+        { "directorGrabbed", m_camera.director.grabbed },
+        { "directorShotListPath", m_camera.director.activeShotListPath },
+        { "directorPhaseName", directorPhaseName },
+        { "directorPhaseStylePath", directorPhaseStylePath },
+        { "directorPhaseRevealRate", directorPhaseRevealRate },
+        { "directorAppliedStylePhaseIndex", m_camera.director.appliedStylePhaseIndex },
+        { "directorAppliedStylePath", m_camera.director.appliedStylePath },
+        { "directorAppliedStyleCount", m_camera.director.appliedStyleCount },
+        { "directorAppliedRevealRatePhaseIndex", m_camera.director.appliedRevealRatePhaseIndex },
+        { "directorAppliedRevealRate", m_camera.director.appliedRevealRate },
+        { "directorAppliedRevealRateCount", m_camera.director.appliedRevealRateCount },
+        { "directorPhaseCameraEye", directorPhaseCameraEye },
+        { "directorPhaseCameraView", directorPhaseCameraView },
+        { "directorPhaseCameraUp", directorPhaseCameraUp },
+        { "workspace", WorkspaceName( m_interaction.Workspace() ) },
+        { "owner", OwnerName( m_interaction.Owner() ) },
+        { "selectedObject", selectedName },
+        { "selectedModelIndex", selectedIndex },
+        { "gizmoVisible", gizmoVisible },
+        { "memoryOverlayEnabled", m_UI.IsMemoryOverlayEnabled() },
+        { "replayPredictionEnabled", predictionState.enabled },
+        { "predictionHorizonSeconds", predictionState.simulation.horizonSeconds },
+        { "predictionRevealSecondsPerSecond", predictionState.revealClock.secondsPerSecond },
+        { "replayPathTarget",
+          m_replayRuntime.PathVisualizer().hasTarget ? m_replayRuntime.PathVisualizer().targetName : "" },
+        { "replayPathTargetCount", static_cast<int>( m_replayRuntime.PathVisualizer().targets.size() ) },
+        { "replayPastPathVisible", replayPastPathVisible },
+        { "predictionPathVisible", predictionPathVisible },
+        { "predictionContactsIncomplete", predictionContactsIncomplete },
+        { "predictionBaselineVisible", predictionBaselineVisible },
+        { "predictionBaselineRootPointCount", static_cast<int>( predictionBaseline.rootPolyline.size() ) },
+        { "predictionBaselineBodyPoseCount", static_cast<int>( predictionBaseline.bodyPoses.size() ) },
+        { "predictionDivergenceValid", predictionBaseline.divergenceValid },
+        { "predictionDivergenceUnits", predictionBaseline.divergenceUnits },
+        { "liveSolverHashStableAcrossPrediction", liveSolverHashStableAcrossPrediction },
+        { "predictionSourceSolverHash", predictionSourceSolverHash },
+        { "liveSolverHash", liveSolverHash },
+        { "predictionActiveFrameCount", static_cast<int>( predictionVisibleFrameCount ) },
+        { "predictionFrameCount", static_cast<int>( predictionState.simulation.frames.size() ) },
+        { "predictionBuildFrameCount", static_cast<int>( predictionState.PublishedBuildFrameCount() ) },
+        { "predictionTargetDisplacementValid", predictionTargetDisplacementValid },
+        { "predictionTargetFirst", Vec3Json( predictionTargetFirst ) },
+        { "predictionTargetLast", Vec3Json( predictionTargetLast ) },
+        { "predictionTargetDisplacement", predictionTargetDisplacement },
+        { "predictionTrajectoryFingerprintReady", predictionTrajectoryFingerprint.Ready() },
+        { "predictionTrajectoryFingerprint", FormatPredictionHash( predictionTrajectoryFingerprint.hash ) },
+        { "predictionTrajectoryRecordCount", static_cast<int>( predictionTrajectoryFingerprint.recordCount ) },
+        { "predictionTrajectoryPointCount", static_cast<int>( predictionTrajectoryFingerprint.pointCount ) },
+        { "predictionTrajectorySubmissionStable", predictionSubmissionProbe.stableWindowReady },
+        { "predictionTrajectorySubmissionFrameCount", predictionSubmissionProbe.stableFrameCount },
+        { "predictionTrajectorySubmissionObservedFrameCount", predictionSubmissionProbe.observedFrameCount },
+        { "predictionTrajectorySubmissionHash", FormatPredictionHash( predictionSubmissionProbe.stableHash ) },
+        { "predictionTrajectorySubmissionVertexBytes", predictionSubmissionProbe.vertexBytes },
+        { "predictionTrajectorySubmissionVertexCount", static_cast<int>( predictionSubmissionProbe.vertexCount ) },
+        { "predictionTrajectorySubmissionSegmentCount", static_cast<int>( predictionSubmissionProbe.segmentCount ) },
+        { "predictionTrajectorySubmissionFirstFrame", predictionSubmissionProbe.firstFrame },
+        { "predictionTrajectorySubmissionLastFrame", predictionSubmissionProbe.lastFrame },
+        { "predictionTrajectorySteadyStateNoReserveGrowth", predictionSubmissionProbe.noReserveGrowth },
+        { "predictionTrajectoryReserveGrowthEventsAtStart", predictionSubmissionProbe.reserveGrowthEventsAtStart },
+        { "predictionTrajectoryReserveGrowthEventsAtEnd", predictionSubmissionProbe.reserveGrowthEventsAtEnd },
+        { "predictionFutureNodeCount", static_cast<int>( predictionState.futureNodeCache.futureNodes.size() ) },
+        { "predictionFutureNodeBuildFrameCount",
+          static_cast<int>( predictionState.futureNodeCache.futureNodesBuiltFrameCount ) },
+        { "predictionRetainedEntryMarkerCount", static_cast<int>( predictionRetainedEntryMarkerCount ) },
+        { "predictionRetainedRestMarkerCount", static_cast<int>( predictionRetainedRestMarkerCount ) },
+        { "predictionRetainedHorizonMarkerCount", static_cast<int>( predictionRetainedHorizonMarkerCount ) },
+        { "replayActiveTrack", ReplayTrackName( m_replayRuntime.Scrubber().activeTrack ) },
+        { "replayHistoricalSamplePaused", m_replayRuntime.Scrubber().historicalSamplePaused },
+        { "replaySolverTrackPosition", replaySolverTrackPosition },
+        { "replaySolverPresentTrackPosition", replaySolverPresentTrackPosition },
+        { "replaySolverTrackAtPresent", replaySolverTrackAtPresent },
+        { "predictionScrubFrameActive", predictionScrubFrameActive },
+        { "replayFutureNodeCount", static_cast<int>( m_replayRuntime.PathVisualizer().futureNodes.size() ) } };
 
     std::ofstream output;
     if ( !RuntimeFileWriter::OpenTextFile( state.reportPath, output ) )

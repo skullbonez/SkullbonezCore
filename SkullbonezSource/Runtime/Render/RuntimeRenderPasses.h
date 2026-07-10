@@ -436,6 +436,8 @@ struct DebugOverlaySnapshot
     bool broadphaseOverlayVisible = false;
     bool tornadoVectorsVisible = false;     // Includes per-vortex flags once another overlay wakes the pass.
     bool tornadoOverlayWorkVisible = false; // Legacy pass wake-up predicate from global tornado vector toggles.
+    const Physics::TornadoSystemConfig* tornadoSystem = nullptr;
+    const Physics::TornadoFieldConfig* tornadoField = nullptr;
     bool editorOverlayWorkVisible = false;
     uint32_t physicsDebugFlags = 0u;
     int physicsDebugPipelineStageCursor = 0;
@@ -769,6 +771,11 @@ class DebugOverlayPass
           m_terrain( terrain ), m_renderEditorOverlay( renderEditorOverlay ),
           m_renderEditorOverlayUser( renderEditorOverlayUser )
     {
+        // Invariant: tornado vector arrows are a runtime debug overlay. The
+        // transient line buffer stays with the render pass so physics sampling
+        // code remains render-API-free.
+        m_tornadoVectorLineData.reserve( 12u * 4u * 5u * 6u * 6u );
+        m_tornadoVectorVortices.reserve( 16u );
     }
 
     void EnsureGpuResources( const RenderResourceContext& resources );
@@ -777,9 +784,12 @@ class DebugOverlayPass
 
   private:
     bool HasOverlayWork( const DebugOverlayPassInputs& inputs ) const;
+    void RenderTornadoVectorOverlay( const DebugOverlayPassInputs& inputs );
 
     Physics::BroadphaseVisualizer& m_broadphaseVisualizer;
     Physics::PhysicsDebugVisualizer& m_physicsDebugVisualizer;
+    std::vector<float> m_tornadoVectorLineData;
+    std::vector<Physics::TornadoActiveVortex> m_tornadoVectorVortices;
     // Lifetime: aliases RunSubsystemState::terrain because scene loads may
     // replace the terrain object after RuntimeRenderer construction.
     std::unique_ptr<Geometry::Terrain>& m_terrain;

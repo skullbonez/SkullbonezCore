@@ -56,10 +56,15 @@ using SkullbonezCore::Physics::ColliderRecord;
 using SkullbonezCore::Physics::ColliderShapeKind;
 using SkullbonezCore::Physics::ColliderStore;
 using SkullbonezCore::Physics::ContactPolicy;
+using SkullbonezCore::Physics::ModelRowHint;
+using SkullbonezCore::Physics::PhysicsAuthoredBodyCount;
+using SkullbonezCore::Physics::PhysicsAuthoredBodyRefreshView;
+using SkullbonezCore::Physics::PhysicsBodyCount;
 using SkullbonezCore::Physics::PhysicsBodyCreateDesc;
 using SkullbonezCore::Physics::PhysicsBodyHandle;
 using SkullbonezCore::Physics::PhysicsBodyRecord;
 using SkullbonezCore::Physics::PhysicsBodyStore;
+using SkullbonezCore::Physics::PhysicsColliderCount;
 using SkullbonezCore::Physics::PhysicsColliderCreateDesc;
 using SkullbonezCore::Physics::PhysicsColliderHandle;
 using SkullbonezCore::Physics::PhysicsConstraintHandle;
@@ -69,6 +74,24 @@ using SkullbonezCore::Physics::PhysicsScene;
 
 namespace
 {
+int CountAsInt( PhysicsBodyCount count )
+{
+    return static_cast<int>( count.value );
+}
+
+
+int CountAsInt( PhysicsColliderCount count )
+{
+    return static_cast<int>( count.value );
+}
+
+
+int CountAsInt( PhysicsAuthoredBodyCount count )
+{
+    return static_cast<int>( count.value );
+}
+
+
 ColliderShapeKind ShapeKindForColliderDesc( const SkullbonezCore::Math::CollisionDetection::CollisionShape& shape )
 {
     if ( std::holds_alternative<BoundingBox>( shape ) )
@@ -152,52 +175,56 @@ void PhysicsScene::ApplyAuthoredColliderPolicy( PhysicsColliderCreateDesc& desc 
 void PhysicsScene::ReserveAuthoredBodyCapacity( std::size_t capacity )
 {
     m_authoredBodyDescs.reserve( capacity );
+    m_world.ReserveBodyScratchCapacity( capacity );
 }
 
 
-int PhysicsScene::AuthoredBodyDescriptorCount() const
+PhysicsAuthoredBodyCount PhysicsScene::AuthoredBodyDescriptorCount() const
 {
-    return static_cast<int>( m_authoredBodyDescs.size() );
+    PhysicsAuthoredBodyCount count;
+    count.value = static_cast<uint32_t>( m_authoredBodyDescs.size() );
+    return count;
 }
 
 
-bool PhysicsScene::TryGetAuthoredBodyDescriptor( int modelIndex, PhysicsBodyCreateDesc& outDesc ) const
+bool PhysicsScene::TryGetAuthoredBodyDescriptor( ModelRowHint bodyRow, PhysicsBodyCreateDesc& outDesc ) const
 {
-    if ( modelIndex < 0 || modelIndex >= AuthoredBodyDescriptorCount() )
+    const int row = bodyRow.value;
+    if ( !bodyRow.IsValid() || row >= CountAsInt( AuthoredBodyDescriptorCount() ) )
     {
         return false;
     }
-    outDesc = m_authoredBodyDescs[static_cast<std::size_t>( modelIndex )];
+    outDesc = m_authoredBodyDescs[static_cast<std::size_t>( row )];
     return true;
 }
 
 
-bool PhysicsScene::UpdateAuthoredBodyDescriptor( int modelIndex, PhysicsBodyCreateDesc& desc, int expectedModelCount )
+bool PhysicsScene::UpdateAuthoredBodyDescriptor( ModelRowHint bodyRow,
+                                                 PhysicsBodyCreateDesc& desc,
+                                                 PhysicsAuthoredBodyCount expectedBodyCount )
 {
-    if ( modelIndex < 0 || modelIndex >= expectedModelCount || expectedModelCount != AuthoredBodyDescriptorCount() )
+    const int row = bodyRow.value;
+    const int expectedCount = CountAsInt( expectedBodyCount );
+    if ( !bodyRow.IsValid() || row >= expectedCount || expectedBodyCount.value != AuthoredBodyDescriptorCount().value )
     {
         return false;
     }
     ApplyAuthoredBodyPolicy( desc );
-    m_authoredBodyDescs[static_cast<std::size_t>( modelIndex )] = desc;
+    m_authoredBodyDescs[static_cast<std::size_t>( row )] = desc;
     return true;
 }
 
 
-bool PhysicsScene::TrimAuthoredBodyDescriptorsToCount( int bodyCount )
+bool PhysicsScene::TrimAuthoredBodyDescriptorsToCount( PhysicsAuthoredBodyCount bodyCount )
 {
-    if ( bodyCount < 0 )
-    {
-        return false;
-    }
-    const std::size_t targetCount = static_cast<std::size_t>( bodyCount );
+    const std::size_t targetCount = static_cast<std::size_t>( bodyCount.value );
     if ( targetCount > m_authoredBodyDescs.size() )
     {
         return false;
     }
     m_authoredBodyDescs.erase( m_authoredBodyDescs.begin() + static_cast<std::ptrdiff_t>( targetCount ),
                                m_authoredBodyDescs.end() );
-    return AuthoredBodyDescriptorCount() == bodyCount;
+    return AuthoredBodyDescriptorCount().value == bodyCount.value;
 }
 
 
@@ -207,17 +234,15 @@ void PhysicsScene::Clear()
     m_authoredBodyDescs.clear();
     m_bodyStore.Clear();
     m_colliderStore.Clear();
-    m_renderInstanceStore.Clear();
 }
 
 
-bool PhysicsScene::RefreshBodyStoreFromAuthoredDescriptors( const std::vector<uint32_t>& replayBodyIds,
-                                                            const std::vector<int>& fixedTreeReleaseRoots,
-                                                            const std::vector<const char*>& diagnosticNames )
+bool PhysicsScene::RefreshBodyStoreFromAuthoredDescriptors( const PhysicsAuthoredBodyRefreshView& refreshView )
 {
     const std::size_t descriptorCount = m_authoredBodyDescs.size();
-    if ( replayBodyIds.size() != descriptorCount || fixedTreeReleaseRoots.size() != descriptorCount ||
-         diagnosticNames.size() != descriptorCount )
+    if ( static_cast<std::size_t>( refreshView.bodyCount.value ) != descriptorCount ||
+         ( descriptorCount > 0u &&
+           ( !refreshView.replayBodyIds || !refreshView.fixedTreeReleaseRoots || !refreshView.diagnosticNames ) ) )
     {
         return false;
     }
@@ -228,38 +253,41 @@ bool PhysicsScene::RefreshBodyStoreFromAuthoredDescriptors( const std::vector<ui
     for ( int i = 0; i < static_cast<int>( descriptorCount ); ++i )
     {
         PhysicsBodyCreateDesc desc = m_authoredBodyDescs[static_cast<std::size_t>( i )];
-        desc.sceneObjectId = MakePhysicsSceneObjectIdFromReplayBodyId( replayBodyIds[static_cast<std::size_t>( i )] );
-        desc.fixedTreeReleaseRootIndex = fixedTreeReleaseRoots[static_cast<std::size_t>( i )];
-        desc.diagnosticName = diagnosticNames[static_cast<std::size_t>( i )];
+        desc.sceneObjectId =
+            MakePhysicsSceneObjectIdFromReplayBodyId( refreshView.replayBodyIds[static_cast<std::size_t>( i )] );
+        desc.fixedTreeReleaseRootIndex = refreshView.fixedTreeReleaseRoots[static_cast<std::size_t>( i )].value;
+        desc.diagnosticName = refreshView.diagnosticNames[static_cast<std::size_t>( i )];
         ApplyAuthoredBodyPolicy( desc );
         bodyDescs.push_back( desc );
     }
 
-    RefreshBodyStore( bodyDescs );
-    return m_bodyStore.Count() == AuthoredBodyDescriptorCount();
+    LoadBodyDescriptors( bodyDescs );
+    return m_bodyStore.Count() == CountAsInt( AuthoredBodyDescriptorCount() );
 }
 
 
-void PhysicsScene::RefreshBodyStore( const std::vector<PhysicsBodyCreateDesc>& bodyDescs )
+void PhysicsScene::LoadBodyDescriptors( const std::vector<PhysicsBodyCreateDesc>& bodyDescs )
 {
     m_bodyStore.LoadFromDescriptors( bodyDescs, m_world.GetSleepStates() );
 }
 
 
 void PhysicsScene::RefreshBodyFromDescriptor( const PhysicsBodyCreateDesc& desc,
-                                              int modelIndex,
-                                              int expectedModelCount )
+                                              ModelRowHint bodyRow,
+                                              PhysicsBodyCount expectedBodyCount )
 {
-    if ( modelIndex < 0 || modelIndex >= expectedModelCount )
+    const int row = bodyRow.value;
+    const int expectedCount = CountAsInt( expectedBodyCount );
+    if ( !bodyRow.IsValid() || row >= expectedCount )
     {
         return;
     }
-    if ( m_bodyStore.Count() != expectedModelCount )
+    if ( m_bodyStore.Count() != expectedCount )
     {
         return;
     }
 
-    m_bodyStore.RefreshRecordFromDescriptorAt( desc, modelIndex );
+    m_bodyStore.RefreshRecordFromDescriptorAt( desc, row );
 }
 
 
@@ -294,15 +322,15 @@ void PhysicsScene::ClearPendingBodyImpulses()
 }
 
 
-bool PhysicsScene::TrimBodyStoreToCount( int bodyCount )
+bool PhysicsScene::TrimBodiesToCount( PhysicsBodyCount bodyCount )
 {
-    return m_bodyStore.TrimToCount( bodyCount );
+    return m_bodyStore.TrimToCount( CountAsInt( bodyCount ) );
 }
 
 
-bool PhysicsScene::TrimColliderStoreToCount( int colliderCount )
+bool PhysicsScene::TrimCollidersToCount( PhysicsColliderCount colliderCount )
 {
-    return m_colliderStore.TrimToCount( colliderCount );
+    return m_colliderStore.TrimToCount( CountAsInt( colliderCount ) );
 }
 
 
@@ -338,79 +366,7 @@ bool PhysicsScene::RefreshColliderSnapshot()
 }
 
 
-bool PhysicsScene::PrepareRenderStoreRefresh( int expectedModelCount )
-{
-    if ( m_bodyStore.Count() != expectedModelCount )
-    {
-        m_renderInstanceStore.Clear();
-        return false;
-    }
-    if ( !RefreshColliderSnapshot() )
-    {
-        // Hazard: render rows consume collider shape/material data. If topology
-        // drift has removed collider rows, do not manufacture a partial render
-        // snapshot from stale model-owned shape fields.
-        m_renderInstanceStore.Clear();
-        return false;
-    }
-    if ( m_bodyStore.Count() != expectedModelCount || m_colliderStore.Count() != expectedModelCount )
-    {
-        m_renderInstanceStore.Clear();
-        return false;
-    }
 #ifdef _DEBUG
-    ValidatePhysicsStoreMappings( expectedModelCount );
-#endif
-    return true;
-}
-
-
-void PhysicsScene::ReserveRenderPresentationCapacity( std::size_t capacity )
-{
-    m_renderInstanceStore.ReservePresentationCapacity( capacity );
-}
-
-
-bool PhysicsScene::ResizeRenderPresentationRecords( int presentationCount )
-{
-    return m_renderInstanceStore.ResizePresentationRecords( presentationCount );
-}
-
-
-SkullbonezCore::Rendering::RenderInstancePresentationRecord*
-PhysicsScene::MutableRenderPresentationRecordForModelIndex( int modelIndex )
-{
-    return m_renderInstanceStore.MutablePresentationRecordForModelIndex( modelIndex );
-}
-
-
-const std::vector<SkullbonezCore::Rendering::RenderInstancePresentationRecord>&
-PhysicsScene::RenderPresentationRecords() const
-{
-    return m_renderInstanceStore.PresentationRecords();
-}
-
-
-bool PhysicsScene::RefreshRenderInstancesFromPresentation()
-{
-    m_renderInstanceStore.Refresh( m_bodyStore, m_colliderStore );
-    return m_renderInstanceStore.Count() == m_bodyStore.Count();
-}
-
-
-SkullbonezCore::Rendering::RenderInstanceStore& PhysicsScene::MutableRenderInstances()
-{
-    return m_renderInstanceStore;
-}
-
-
-#ifdef _DEBUG
-void PhysicsScene::ValidateRenderStore( int expectedModelCount ) const
-{
-    ValidateRenderStoreMappings( expectedModelCount );
-}
-
-
 void PhysicsScene::ValidatePhysicsStoreMappings( int modelCount ) const
 {
     assert( m_bodyStore.Count() == modelCount );
@@ -435,25 +391,6 @@ void PhysicsScene::ValidatePhysicsStoreMappings( int modelCount ) const
         assert( m_colliderStore.ModelIndexForHandle( colliderHandle ) == i );
         assert( body.replayBodyId == collider.replayBodyId );
         assert( body.sceneObjectId == collider.sceneObjectId );
-    }
-}
-
-
-void PhysicsScene::ValidateRenderStoreMappings( int modelCount ) const
-{
-    assert( m_renderInstanceStore.Count() == modelCount );
-
-    const std::vector<SkullbonezCore::Rendering::RenderInstanceRecord>& instances = m_renderInstanceStore.Records();
-    for ( int i = 0; i < modelCount; ++i )
-    {
-        const std::size_t index = static_cast<std::size_t>( i );
-        const SkullbonezCore::Rendering::RenderInstanceRecord& instance = instances[index];
-        const SkullbonezCore::Rendering::RenderInstanceHandle renderHandle =
-            m_renderInstanceStore.HandleForModelIndex( i );
-
-        assert( renderHandle.IsValid() );
-        assert( instance.handle == renderHandle );
-        assert( m_renderInstanceStore.ModelIndexForHandle( renderHandle ) == i );
     }
 }
 #endif
@@ -683,9 +620,9 @@ void PhysicsScene::SetPhysicsSleepEnabled( bool enabled )
 }
 
 
-void PhysicsScene::BeginCollisionVisualFrame( int modelCount )
+void PhysicsScene::BeginCollisionVisualFrame( PhysicsBodyCount bodyCount )
 {
-    m_world.BeginCollisionVisualFrame( modelCount );
+    m_world.BeginCollisionVisualFrame( CountAsInt( bodyCount ) );
 }
 
 
@@ -744,23 +681,16 @@ float PhysicsScene::GetTornadoSystemElapsedSeconds() const
 }
 
 
-void PhysicsScene::RenderTornadoFieldVectors( const Math::Transformation::Matrix4& viewProj,
-                                              Rendering::IRenderCommandContext& renderCommands,
-                                              bool supportsDebugLines )
+void PhysicsScene::CaptureReplaySolverSnapshot( ReplaySolverWorldSnapshot& outSnapshot,
+                                                PhysicsBodyCount bodyCount ) const
 {
-    m_world.RenderTornadoFieldVectors( viewProj, renderCommands, supportsDebugLines );
+    m_world.CaptureReplaySolverSnapshot( outSnapshot, CountAsInt( bodyCount ) );
 }
 
 
-void PhysicsScene::CaptureReplaySolverSnapshot( ReplaySolverWorldSnapshot& outSnapshot, int modelCount ) const
+bool PhysicsScene::RestoreReplaySolverSnapshot( const ReplaySolverWorldSnapshot& snapshot, PhysicsBodyCount bodyCount )
 {
-    m_world.CaptureReplaySolverSnapshot( outSnapshot, modelCount );
-}
-
-
-bool PhysicsScene::RestoreReplaySolverSnapshot( const ReplaySolverWorldSnapshot& snapshot, int modelCount )
-{
-    const bool restored = m_world.RestoreReplaySolverSnapshot( snapshot, modelCount );
+    const bool restored = m_world.RestoreReplaySolverSnapshot( snapshot, CountAsInt( bodyCount ) );
     if ( restored )
     {
         m_bodyStore.CopySleepStatesFrom( m_world.GetSleepStates() );
@@ -813,12 +743,6 @@ const PhysicsBodyStore& PhysicsScene::BodyStore() const
 const ColliderStore& PhysicsScene::Colliders() const
 {
     return m_colliderStore;
-}
-
-
-const SkullbonezCore::Rendering::RenderInstanceStore& PhysicsScene::RenderInstances() const
-{
-    return m_renderInstanceStore;
 }
 
 

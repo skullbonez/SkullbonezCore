@@ -3,6 +3,7 @@
   "version": 1,
   "scenes": [
     "SkullbonezData/scenes/water_ball_test.scene.json",
-    "SkullbonezData/scenes/solver_smoke.scene.json"
+    "SkullbonezData/scenes/solver_smoke.scene.json",
+    "SkullbonezData/scenes/three_body_chaos.scene.json"
   ]
 }

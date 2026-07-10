@@ -4,9 +4,10 @@ Purpose:
   Records hierarchical CPU/GPU timing markers for runtime diagnostics.
 
 Mental model:
-  Runtime code connects authored scene data, input, simulation, render
-  backends, and validation-oriented launch modes. Follow who owns state and
-  when that state changes.
+  Profiler.h records hierarchical CPU/GPU timing markers for runtime
+  diagnostics. As a public header, keep edits anchored on process-wide
+  contracts, diagnostics, and validation-sensitive state and on the
+  glossary/invariants below.
 
 Glossary:
   CSV (Comma-Separated Values): Text table format used for byte-exact physics
@@ -21,8 +22,6 @@ Glossary:
   Ring buffer: Fixed-size rolling sample window used for p50/p99 statistics.
   Warmup frame: Completed frame intentionally excluded from profiler stats and
     perf CSV rows while a scene/pass settles.
-  Validation gate: Repository script that proves a class of changes before
-  commit or PR.
 
 Invariants:
   - Public macros are the supported entry points; direct calls risk mismatched

@@ -61,6 +61,3 @@ Recommended next batches:
 - Scene parser boundary: `TestSceneParser` has one authored-input row and may be
   a smaller non-DX12 Lane R slice if the parser `Fail` contract is already
   localized.
-
-The unrelated untracked user-owned file remains:
-`Agentic/Plans/NEXT_FABLE_PLANS/space-nbody-gravity-demo-plan.md`.

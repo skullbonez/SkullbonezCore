@@ -6,7 +6,8 @@ Purpose:
 Mental model:
   Runtime refreshes memory data for the Memory tab, while the F6 overlay renders
   tracked/cached counters and reserve-growth events without sampling process
-  memory. This file formats those snapshots without owning any sampling policy.
+  memory. This file formats snapshots and emits replay-memory policy commands;
+  ReplayRuntime owns the actual recorder reconfiguration.
 
 Glossary:
   Allocation size: Bytes newly reserved by a successful growth request.
@@ -20,6 +21,8 @@ Invariants:
     the one the user is trying to understand.
   - The F6 overlay keeps retained event pins in fixed arrays so diagnostics do
     not allocate while visualizing allocator activity.
+  - Replay policy controls emit one-frame requests and never resize recorder
+    storage from UI code.
 
 Related:
   - SkullbonezSource/UI/UITabMemory.h
@@ -34,6 +37,7 @@ Related:
 
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
@@ -42,7 +46,9 @@ using namespace SkullbonezCore::Basics;
 
 namespace
 {
-constexpr float MEMORY_SUMMARY_BLOCK_H = 138.0f;
+constexpr float MEMORY_SUMMARY_BLOCK_H = 246.0f;
+constexpr float MEMORY_REPLAY_POLICY_BLOCK_H = 154.0f;
+constexpr float MEMORY_PANEL_GAP = 14.0f;
 constexpr float MEMORY_EVENT_HEADER_H = 62.0f;
 constexpr float MEMORY_EVENT_ROW_H = 22.0f;
 constexpr float MEMORY_EVENT_BOTTOM_PAD = 18.0f;
@@ -51,6 +57,16 @@ constexpr float MEMORY_OVERLAY_PANEL_H = 166.0f;
 constexpr float MEMORY_OVERLAY_MARGIN = 16.0f;
 constexpr float MEMORY_OVERLAY_EVENT_RAIL_W = 74.0f;
 constexpr uint64_t MEMORY_BYTES_PER_MIB = 1024ull * 1024ull;
+constexpr int MEMORY_REPLAY_SLIDER_BASE = 9000;
+constexpr int MEMORY_REPLAY_SLIDER_RETENTION = MEMORY_REPLAY_SLIDER_BASE + 0;
+constexpr int MEMORY_REPLAY_SLIDER_BUDGET = MEMORY_REPLAY_SLIDER_BASE + 1;
+constexpr int MEMORY_REPLAY_RETENTION_MIN = 1;
+constexpr int MEMORY_REPLAY_RETENTION_MAX = 120;
+constexpr int MEMORY_REPLAY_BUDGET_MIN_MIB = 32;
+constexpr int MEMORY_REPLAY_BUDGET_MAX_MIB = 512;
+constexpr int MEMORY_REPLAY_BUDGET_STEP_MIB = 16;
+constexpr int MEMORY_REPLAY_DEFAULT_RETENTION_SECONDS = 60;
+constexpr int MEMORY_REPLAY_DEFAULT_BUDGET_MIB = 256;
 
 bool IsMemoryRowVisible( float contentY, float contentH, float rowY, float rowH )
 {
@@ -88,6 +104,86 @@ void FormatAllocationBytes( uint64_t bytes, char* out, std::size_t outSize )
     {
         snprintf( out, outSize, "%llu B", static_cast<unsigned long long>( bytes ) );
     }
+}
+
+const char* ReplayMemoryPresetLabel( int preset )
+{
+    switch ( preset )
+    {
+    case 1:
+        return "Balanced";
+    case 2:
+        return "Compact";
+    case 0:
+    default:
+        return "Lossless";
+    }
+}
+
+int ReplayMemoryDisplayRetention( const SkullbonezCore::UI::MemoryTab::UIMemoryOverlayState& state )
+{
+    const int value =
+        state.previewRetentionSeconds >= 0 ? state.previewRetentionSeconds : state.lastRequestedRetentionSeconds;
+    return std::clamp( value, MEMORY_REPLAY_RETENTION_MIN, MEMORY_REPLAY_RETENTION_MAX );
+}
+
+int ReplayMemoryDisplayBudgetMiB( const SkullbonezCore::UI::MemoryTab::UIMemoryOverlayState& state )
+{
+    const int value = state.previewBudgetMiB >= 0 ? state.previewBudgetMiB : state.lastRequestedBudgetMiB;
+    return std::clamp( value, MEMORY_REPLAY_BUDGET_MIN_MIB, MEMORY_REPLAY_BUDGET_MAX_MIB );
+}
+
+void SetReplayMemoryPolicyCommand( SkullbonezCore::UI::InGameUIInputResult& result,
+                                   int presetIndex,
+                                   int retentionSeconds,
+                                   int budgetMiB )
+{
+    result.commands.replayMemory.requestPolicy = true;
+    result.commands.replayMemory.requestedPresetIndex = presetIndex;
+    result.commands.replayMemory.requestedRetentionSeconds = retentionSeconds;
+    result.commands.replayMemory.requestedBudgetMiB = budgetMiB;
+}
+
+void SetReplayPolicyControlBounds( SkullbonezCore::UI::MemoryTab::UIMemoryOverlayState& state,
+                                   float contentX,
+                                   float panelY,
+                                   float contentW )
+{
+    const float buttonGap = 6.0f;
+    const float buttonW =
+        ( contentW - 28.0f -
+          buttonGap * static_cast<float>( SkullbonezCore::UI::MemoryTab::MEMORY_REPLAY_PRESET_COUNT - 1 ) ) /
+        static_cast<float>( SkullbonezCore::UI::MemoryTab::MEMORY_REPLAY_PRESET_COUNT );
+    const float buttonY = panelY + 35.0f;
+    for ( int i = 0; i < SkullbonezCore::UI::MemoryTab::MEMORY_REPLAY_PRESET_COUNT; ++i )
+    {
+        state.replayPresetButtons[i].SetBounds( contentX + 14.0f + static_cast<float>( i ) * ( buttonW + buttonGap ),
+                                                buttonY,
+                                                buttonW,
+                                                24.0f );
+    }
+    state.replayRetentionSlider.SetBounds( contentX + 14.0f, panelY + 70.0f, contentW - 28.0f, 34.0f );
+    state.replayBudgetSlider.SetBounds( contentX + 14.0f, panelY + 108.0f, contentW - 28.0f, 34.0f );
+}
+
+void RefreshReplayPolicySnapshot( SkullbonezCore::UI::MemoryTab::UIMemoryOverlayState& state,
+                                  const SkullbonezCore::UI::InGameUIFrameData& data )
+{
+    state.lastReplayPreset =
+        std::clamp( data.replayMemoryPreset, 0, SkullbonezCore::UI::MemoryTab::MEMORY_REPLAY_PRESET_COUNT - 1 );
+    state.lastRequestedRetentionSeconds = data.replayMemoryRequestedRetentionSeconds > 0
+                                              ? data.replayMemoryRequestedRetentionSeconds
+                                              : MEMORY_REPLAY_DEFAULT_RETENTION_SECONDS;
+    state.lastRequestedBudgetMiB = data.replayMemoryRequestedBudgetMiB > 0 ? data.replayMemoryRequestedBudgetMiB
+                                                                           : MEMORY_REPLAY_DEFAULT_BUDGET_MIB;
+    state.lastPresentationRetentionSeconds = data.replayMemoryPresentationRetentionSeconds > 0
+                                                 ? data.replayMemoryPresentationRetentionSeconds
+                                                 : state.lastRequestedRetentionSeconds;
+    state.lastSolverRetentionSeconds = data.replayMemorySolverRetentionSeconds > 0
+                                           ? data.replayMemorySolverRetentionSeconds
+                                           : state.lastRequestedRetentionSeconds;
+    state.lastBudgetClamped = data.replayMemoryBudgetClamped;
+    state.lastSolverWindowReduced = data.replayMemorySolverWindowReduced;
 }
 
 void CopyShortLabel( const char* source, char* out, std::size_t outSize )
@@ -505,6 +601,150 @@ void DrawMemoryRow( const SkullbonezCore::UI::UIDrawContext& draw,
     draw.Text( x + labelW, y, 9.6f, r, g, b, value );
 }
 
+uint64_t ReplayTrajectoryLaneCounter( const uint64_t* counters, MainMemoryReplayTrajectoryLane lane )
+{
+    const std::size_t laneIndex = static_cast<std::size_t>( lane );
+    return laneIndex < MAIN_MEMORY_REPLAY_TRAJECTORY_LANE_COUNT ? counters[laneIndex] : 0;
+}
+
+uint64_t ReplayMemoryCategoryCounter( const MainMemoryReplayStats& replay, MainMemoryReplayByteCategory category )
+{
+    return MainMemoryReplayCategoryByte( replay.categoryBytes, category );
+}
+
+// Concept: the memory tab prints emitted/dropped trajectory pairs compactly so
+// a manual flicker repro can watch which lane starts dropping segments.
+void FormatReplayTrajectoryPair( char* out,
+                                 std::size_t outSize,
+                                 const char* label,
+                                 const MainMemoryReplayTrajectoryStats& trajectory,
+                                 MainMemoryReplayTrajectoryLane lane )
+{
+    snprintf( out,
+              outSize,
+              "%s %llu/%llu",
+              label,
+              static_cast<unsigned long long>( ReplayTrajectoryLaneCounter( trajectory.emittedSegments, lane ) ),
+              static_cast<unsigned long long>( ReplayTrajectoryLaneCounter( trajectory.droppedSegments, lane ) ) );
+}
+
+void DrawReplayPresetButton( const SkullbonezCore::UI::UIDrawContext& draw,
+                             const SkullbonezCore::UI::UIButton& button,
+                             const char* label,
+                             bool active,
+                             bool hovered )
+{
+    const SkullbonezCore::UI::UIRect bounds = button.Bounds();
+    const SkullbonezCore::UI::Style::UIPalette& palette = SkullbonezCore::UI::Style::Palette();
+    const float fillA = active ? 0.78f : ( hovered ? 0.48f : 0.30f );
+    const float r = active ? palette.accentStrong.r : palette.window.r;
+    const float g = active ? palette.accentStrong.g : palette.window.g;
+    const float b = active ? palette.accentStrong.b : palette.window.b;
+    draw.RoundedRect( bounds.x,
+                      bounds.y,
+                      bounds.w,
+                      bounds.h,
+                      SkullbonezCore::UI::Style::Radii().control,
+                      r,
+                      g,
+                      b,
+                      fillA );
+    draw.Outline( bounds.x,
+                  bounds.y,
+                  bounds.w,
+                  bounds.h,
+                  active ? palette.accentStrong.r : palette.innerBorder.r,
+                  active ? palette.accentStrong.g : palette.innerBorder.g,
+                  active ? palette.accentStrong.b : palette.innerBorder.b,
+                  active ? 0.78f : 0.54f );
+    draw.Text( bounds.x + 9.0f,
+               bounds.y + 6.0f,
+               8.8f,
+               active ? 0.02f : palette.textSecondary.r,
+               active ? 0.04f : palette.textSecondary.g,
+               active ? 0.05f : palette.textSecondary.b,
+               label );
+}
+
+void DrawReplayMemoryPolicyPanel( const SkullbonezCore::UI::UIDrawContext& draw,
+                                  SkullbonezCore::UI::MemoryTab::UIMemoryOverlayState& state,
+                                  const SkullbonezCore::UI::InGameUIFrameData& data,
+                                  float contentX,
+                                  float contentY,
+                                  float contentW,
+                                  float contentH,
+                                  float panelY,
+                                  int activeSlider,
+                                  int mouseX,
+                                  int mouseY )
+{
+    if ( !IsMemoryRowVisible( contentY, contentH, panelY, MEMORY_REPLAY_POLICY_BLOCK_H ) )
+    {
+        return;
+    }
+
+    SetReplayPolicyControlBounds( state, contentX, panelY, contentW );
+    RefreshReplayPolicySnapshot( state, data );
+
+    const SkullbonezCore::UI::Style::UIPalette& palette = SkullbonezCore::UI::Style::Palette();
+    draw.Rect( contentX, panelY, contentW, MEMORY_REPLAY_POLICY_BLOCK_H, 0.018f, 0.030f, 0.038f, 0.58f );
+    draw.Outline( contentX, panelY, contentW, MEMORY_REPLAY_POLICY_BLOCK_H, 0.18f, 0.30f, 0.34f, 0.62f );
+    draw.Rect( contentX, panelY + 27.0f, contentW, 1.0f, 0.26f, 0.44f, 0.50f, 0.45f );
+    draw.Text( contentX + 14.0f,
+               panelY + 9.0f,
+               10.4f,
+               palette.textSecondary.r,
+               palette.textSecondary.g,
+               palette.textSecondary.b,
+               "Replay Policy" );
+
+    char text[160] = {};
+    snprintf( text,
+              sizeof( text ),
+              "visual %ds  solver %ds%s",
+              state.lastPresentationRetentionSeconds,
+              state.lastSolverRetentionSeconds,
+              state.lastSolverWindowReduced ? "  solver trimmed" : "" );
+    draw.Text( contentX + contentW - 226.0f, panelY + 10.0f, 8.4f, 0.54f, 0.66f, 0.70f, text );
+
+    for ( int i = 0; i < SkullbonezCore::UI::MemoryTab::MEMORY_REPLAY_PRESET_COUNT; ++i )
+    {
+        DrawReplayPresetButton( draw,
+                                state.replayPresetButtons[i],
+                                ReplayMemoryPresetLabel( i ),
+                                state.lastReplayPreset == i,
+                                state.replayPresetButtons[i].HitTest( mouseX, mouseY ) );
+    }
+
+    const int displayRetention = ReplayMemoryDisplayRetention( state );
+    const int displayBudget = ReplayMemoryDisplayBudgetMiB( state );
+    snprintf( text, sizeof( text ), "%ds", displayRetention );
+    if ( IsMemoryRowVisible( contentY, contentH, panelY + 70.0f, 34.0f ) )
+    {
+        state.replayRetentionSlider.Draw( draw,
+                                          "Retention",
+                                          text,
+                                          static_cast<float>( displayRetention ),
+                                          static_cast<float>( MEMORY_REPLAY_RETENTION_MIN ),
+                                          static_cast<float>( MEMORY_REPLAY_RETENTION_MAX ) );
+    }
+    snprintf( text, sizeof( text ), "%d MiB", displayBudget );
+    if ( IsMemoryRowVisible( contentY, contentH, panelY + 108.0f, 34.0f ) )
+    {
+        state.replayBudgetSlider.Draw( draw,
+                                       "Budget",
+                                       text,
+                                       static_cast<float>( displayBudget ),
+                                       static_cast<float>( MEMORY_REPLAY_BUDGET_MIN_MIB ),
+                                       static_cast<float>( MEMORY_REPLAY_BUDGET_MAX_MIB ) );
+    }
+
+    if ( state.lastBudgetClamped && activeSlider == 0 )
+    {
+        draw.Text( contentX + 14.0f, panelY + 136.0f, 8.0f, 0.90f, 0.66f, 0.34f, "budget clamp active" );
+    }
+}
+
 void DrawMainMemoryPanel( const SkullbonezCore::UI::UIDrawContext& draw,
                           const SkullbonezCore::UI::InGameUIFrameData& data,
                           float contentX,
@@ -530,6 +770,7 @@ void DrawMainMemoryPanel( const SkullbonezCore::UI::UIDrawContext& draw,
     char a[32] = {};
     char b[32] = {};
     char c[32] = {};
+    char d[32] = {};
     const SkullbonezCore::UI::Style::UIPalette& palette = SkullbonezCore::UI::Style::Palette();
 
     draw.Rect( panelX, panelY, panelW, panelH, 0.018f, 0.030f, 0.038f, 0.58f );
@@ -563,26 +804,32 @@ void DrawMainMemoryPanel( const SkullbonezCore::UI::UIDrawContext& draw,
     snprintf( text, sizeof( text ), "P %s  S %s  Pred %s", a, b, c );
     draw.Text( subX, row0 + 18.0f, 8.4f, 0.48f, 0.60f, 0.64f, text );
 
-    DrawMemoryRow( draw, x, row0 + 36.0f, labelW, "Objects", memory.gameObjects.totalBytes, 0.70f, 0.90f, 0.54f );
+    FormatMemoryMiB( memory.replay.pathAndCauseBytes, a, sizeof( a ) );
+    FormatMemoryMiB( memory.replay.renderScratchBytes, b, sizeof( b ) );
+    FormatMemoryMiB( memory.replay.trajectory.storeBytes, c, sizeof( c ) );
+    snprintf( text, sizeof( text ), "Path %s  Scratch %s  Store %s", a, b, c );
+    draw.Text( subX, row0 + 32.0f, 8.1f, 0.44f, 0.56f, 0.60f, text );
+
+    DrawMemoryRow( draw, x, row0 + 50.0f, labelW, "Objects", memory.gameObjects.totalBytes, 0.70f, 0.90f, 0.54f );
     const uint64_t gameObjectStoreBytes = memory.gameObjects.physicsStoreBytes + memory.gameObjects.colliderStoreBytes +
                                           memory.gameObjects.renderStoreBytes;
     FormatMemoryMiB( memory.gameObjects.modelVectorBytes, a, sizeof( a ) );
     FormatMemoryMiB( gameObjectStoreBytes, b, sizeof( b ) );
     FormatMemoryMiB( memory.gameObjects.physicsWorldBytes, c, sizeof( c ) );
     snprintf( text, sizeof( text ), "Models %s  Stores %s  World %s", a, b, c );
-    draw.Text( subX, row0 + 36.0f, 8.4f, 0.48f, 0.60f, 0.64f, text );
+    draw.Text( subX, row0 + 50.0f, 8.4f, 0.48f, 0.60f, 0.64f, text );
 
-    DrawMemoryRow( draw, x, row0 + 54.0f, labelW, "Unattrib", memory.unattributedProcessBytes, 0.82f, 0.74f, 0.55f );
+    DrawMemoryRow( draw, x, row0 + 68.0f, labelW, "Unattrib", memory.unattributedProcessBytes, 0.82f, 0.74f, 0.55f );
     FormatMemoryMiB( memory.trackedEngineBytes, a, sizeof( a ) );
     FormatMemoryMiB( memory.reconciledTotalBytes, b, sizeof( b ) );
     snprintf( text, sizeof( text ), "Tracked %s  Sum %s", a, b );
-    draw.Text( subX, row0 + 54.0f, 8.4f, 0.48f, 0.60f, 0.64f, text );
+    draw.Text( subX, row0 + 68.0f, 8.4f, 0.48f, 0.60f, 0.64f, text );
 
     if ( memory.trackedOvershootBytes > 0 )
     {
         FormatMemoryMiB( memory.trackedOvershootBytes, a, sizeof( a ) );
         snprintf( text, sizeof( text ), "Tracked exceeds process by %s", a );
-        draw.Text( x, row0 + 76.0f, 9.2f, 0.95f, 0.58f, 0.38f, text );
+        draw.Text( x, row0 + 92.0f, 9.2f, 0.95f, 0.58f, 0.38f, text );
     }
     else
     {
@@ -593,8 +840,159 @@ void DrawMainMemoryPanel( const SkullbonezCore::UI::UIDrawContext& draw,
                   static_cast<unsigned long long>( memory.gameObjects.modelCapacity ),
                   static_cast<unsigned long long>( memory.replay.presentationSamples ),
                   static_cast<unsigned long long>( memory.replay.solverSamples ) );
-        draw.Text( x, row0 + 76.0f, 8.8f, 0.48f, 0.60f, 0.64f, text );
+        draw.Text( x, row0 + 92.0f, 8.8f, 0.48f, 0.60f, 0.64f, text );
     }
+
+    char pastPair[36] = {};
+    char futurePair[36] = {};
+    char childInPair[40] = {};
+    char childOutPair[40] = {};
+    FormatReplayTrajectoryPair( pastPair,
+                                sizeof( pastPair ),
+                                "past",
+                                memory.replay.trajectory,
+                                MainMemoryReplayTrajectoryLane::PastRoot );
+    FormatReplayTrajectoryPair( futurePair,
+                                sizeof( futurePair ),
+                                "future",
+                                memory.replay.trajectory,
+                                MainMemoryReplayTrajectoryLane::FutureRoot );
+    FormatReplayTrajectoryPair( childInPair,
+                                sizeof( childInPair ),
+                                "child-in",
+                                memory.replay.trajectory,
+                                MainMemoryReplayTrajectoryLane::FutureChildIncoming );
+    FormatReplayTrajectoryPair( childOutPair,
+                                sizeof( childOutPair ),
+                                "child-out",
+                                memory.replay.trajectory,
+                                MainMemoryReplayTrajectoryLane::FutureChildOutgoing );
+    snprintf( text, sizeof( text ), "traj seg e/d  %s  %s  %s  %s", pastPair, futurePair, childInPair, childOutPair );
+    draw.Text( x, row0 + 112.0f, 8.0f, 0.48f, 0.66f, 0.68f, text );
+
+    char retainedPair[40] = {};
+    char baselinePair[40] = {};
+    char markerPair[40] = {};
+    char auxiliaryPair[40] = {};
+    FormatReplayTrajectoryPair( retainedPair,
+                                sizeof( retainedPair ),
+                                "retained",
+                                memory.replay.trajectory,
+                                MainMemoryReplayTrajectoryLane::RetainedTrail );
+    FormatReplayTrajectoryPair( baselinePair,
+                                sizeof( baselinePair ),
+                                "base",
+                                memory.replay.trajectory,
+                                MainMemoryReplayTrajectoryLane::BaselineRoot );
+    FormatReplayTrajectoryPair( markerPair,
+                                sizeof( markerPair ),
+                                "mark",
+                                memory.replay.trajectory,
+                                MainMemoryReplayTrajectoryLane::CausalMarker );
+    FormatReplayTrajectoryPair( auxiliaryPair,
+                                sizeof( auxiliaryPair ),
+                                "aux",
+                                memory.replay.trajectory,
+                                MainMemoryReplayTrajectoryLane::AuxiliaryTrail );
+    snprintf( text, sizeof( text ), "%s  %s  %s  %s", retainedPair, baselinePair, markerPair, auxiliaryPair );
+    draw.Text( x, row0 + 126.0f, 8.0f, 0.48f, 0.66f, 0.68f, text );
+
+    snprintf( text,
+              sizeof( text ),
+              "traj store rec %llu  pts %llu/%llu  ver max %u churn %llu",
+              static_cast<unsigned long long>( memory.replay.trajectory.recordCount ),
+              static_cast<unsigned long long>( memory.replay.trajectory.publishedPointCount ),
+              static_cast<unsigned long long>( memory.replay.trajectory.pointCount ),
+              memory.replay.trajectory.maxRecordVersion,
+              static_cast<unsigned long long>( memory.replay.trajectory.versionChurn ) );
+    draw.Text( x, row0 + 140.0f, 8.0f, 0.48f, 0.66f, 0.68f, text );
+
+    snprintf(
+        text,
+        sizeof( text ),
+        "budget begin %llu step %llu tree %llu retained %llu rebuild d/a %llu/%llu",
+        static_cast<unsigned long long>( memory.replay.trajectory.budgetExpiries[static_cast<std::size_t>(
+            MainMemoryReplayBudgetPass::PredictionBegin )] ),
+        static_cast<unsigned long long>( memory.replay.trajectory.budgetExpiries[static_cast<std::size_t>(
+            MainMemoryReplayBudgetPass::PredictionStep )] ),
+        static_cast<unsigned long long>( memory.replay.trajectory.budgetExpiries[static_cast<std::size_t>(
+            MainMemoryReplayBudgetPass::PredictionBuildTree )] ),
+        static_cast<unsigned long long>( memory.replay.trajectory.budgetExpiries[static_cast<std::size_t>(
+            MainMemoryReplayBudgetPass::RetainedRefresh )] ),
+        static_cast<unsigned long long>(
+            memory.replay.trajectory.rebuildCauses[static_cast<std::size_t>( MainMemoryReplayRebuildCause::Dirty )] ),
+        static_cast<unsigned long long>( memory.replay.trajectory.rebuildCauses[static_cast<std::size_t>(
+            MainMemoryReplayRebuildCause::AutomaticRefresh )] ) );
+    draw.Text( x, row0 + 154.0f, 8.0f, 0.48f, 0.66f, 0.68f, text );
+
+    // Why: the category rows make memory-model tradeoffs visible during manual
+    // replay repros without opening the full JSON dump.
+    FormatMemoryMiB( ReplayMemoryCategoryCounter( memory.replay, MainMemoryReplayByteCategory::PresentationBodies ),
+                     a,
+                     sizeof( a ) );
+    FormatMemoryMiB( ReplayMemoryCategoryCounter( memory.replay, MainMemoryReplayByteCategory::SolverBodies ),
+                     b,
+                     sizeof( b ) );
+    FormatMemoryMiB( ReplayMemoryCategoryCounter( memory.replay, MainMemoryReplayByteCategory::PredictionFrameBodies ),
+                     c,
+                     sizeof( c ) );
+    FormatMemoryMiB( ReplayMemoryCategoryCounter( memory.replay, MainMemoryReplayByteCategory::LoadedBodies ),
+                     d,
+                     sizeof( d ) );
+    snprintf( text, sizeof( text ), "cat bodies p %s  s %s  pred %s  load %s", a, b, c, d );
+    draw.Text( x, row0 + 168.0f, 8.0f, 0.50f, 0.64f, 0.66f, text );
+
+    FormatMemoryMiB( ReplayMemoryCategoryCounter( memory.replay, MainMemoryReplayByteCategory::SolverWorldState ),
+                     a,
+                     sizeof( a ) );
+    FormatMemoryMiB( ReplayMemoryCategoryCounter( memory.replay, MainMemoryReplayByteCategory::PredictionWorldState ),
+                     b,
+                     sizeof( b ) );
+    FormatMemoryMiB( ReplayMemoryCategoryCounter( memory.replay, MainMemoryReplayByteCategory::PredictionEngine ),
+                     c,
+                     sizeof( c ) );
+    FormatMemoryMiB( ReplayMemoryCategoryCounter( memory.replay, MainMemoryReplayByteCategory::PredictionFutureTree ),
+                     d,
+                     sizeof( d ) );
+    snprintf( text, sizeof( text ), "cat state sw %s  pw %s  eng %s  tree %s", a, b, c, d );
+    draw.Text( x, row0 + 182.0f, 8.0f, 0.50f, 0.64f, 0.66f, text );
+
+    const uint64_t recordBytes =
+        ReplayMemoryCategoryCounter( memory.replay, MainMemoryReplayByteCategory::PresentationSampleRecords ) +
+        ReplayMemoryCategoryCounter( memory.replay, MainMemoryReplayByteCategory::SolverSampleRecords ) +
+        ReplayMemoryCategoryCounter( memory.replay, MainMemoryReplayByteCategory::LoadedSampleRecords ) +
+        ReplayMemoryCategoryCounter( memory.replay, MainMemoryReplayByteCategory::PredictionFrameRecords );
+    const uint64_t checkpointBytes =
+        ReplayMemoryCategoryCounter( memory.replay, MainMemoryReplayByteCategory::PresentationCheckpoints ) +
+        ReplayMemoryCategoryCounter( memory.replay, MainMemoryReplayByteCategory::SolverCheckpoints );
+    const uint64_t scratchBytes =
+        ReplayMemoryCategoryCounter( memory.replay, MainMemoryReplayByteCategory::PresentationScratch ) +
+        ReplayMemoryCategoryCounter( memory.replay, MainMemoryReplayByteCategory::SolverScratch );
+    FormatMemoryMiB( recordBytes, a, sizeof( a ) );
+    FormatMemoryMiB( checkpointBytes, b, sizeof( b ) );
+    FormatMemoryMiB( scratchBytes, c, sizeof( c ) );
+    FormatMemoryMiB( ReplayMemoryCategoryCounter( memory.replay, MainMemoryReplayByteCategory::Events ),
+                     d,
+                     sizeof( d ) );
+    snprintf( text, sizeof( text ), "cat records %s  check %s  scratch %s  events %s", a, b, c, d );
+    draw.Text( x, row0 + 196.0f, 8.0f, 0.50f, 0.64f, 0.66f, text );
+
+    const uint64_t visualPathBytes =
+        ReplayMemoryCategoryCounter( memory.replay, MainMemoryReplayByteCategory::PathTargets ) +
+        ReplayMemoryCategoryCounter( memory.replay, MainMemoryReplayByteCategory::PathFutureNodes );
+    const uint64_t launcherVisualBytes =
+        ReplayMemoryCategoryCounter( memory.replay, MainMemoryReplayByteCategory::SolverLauncherVisuals ) +
+        ReplayMemoryCategoryCounter( memory.replay, MainMemoryReplayByteCategory::RenderLauncherBackup );
+    FormatMemoryMiB( visualPathBytes, a, sizeof( a ) );
+    FormatMemoryMiB( ReplayMemoryCategoryCounter( memory.replay, MainMemoryReplayByteCategory::PathCauseRows ),
+                     b,
+                     sizeof( b ) );
+    FormatMemoryMiB( ReplayMemoryCategoryCounter( memory.replay, MainMemoryReplayByteCategory::RenderGhostRequests ),
+                     c,
+                     sizeof( c ) );
+    FormatMemoryMiB( launcherVisualBytes, d, sizeof( d ) );
+    snprintf( text, sizeof( text ), "cat visual path %s  cause %s  ghost %s  launch %s", a, b, c, d );
+    draw.Text( x, row0 + 210.0f, 8.0f, 0.50f, 0.64f, 0.66f, text );
 }
 
 void DrawReserveGrowthEvents( const SkullbonezCore::UI::UIDrawContext& draw,
@@ -688,9 +1086,9 @@ namespace MemoryTab
 
 int ContentHeight()
 {
-    return static_cast<int>( MEMORY_SUMMARY_BLOCK_H + 18.0f + MEMORY_EVENT_HEADER_H +
-                             static_cast<float>( UI_RUNTIME_RESERVE_GROWTH_EVENT_MAX ) * MEMORY_EVENT_ROW_H +
-                             MEMORY_EVENT_BOTTOM_PAD );
+    return static_cast<int>(
+        MEMORY_REPLAY_POLICY_BLOCK_H + MEMORY_PANEL_GAP + MEMORY_SUMMARY_BLOCK_H + 18.0f + MEMORY_EVENT_HEADER_H +
+        static_cast<float>( UI_RUNTIME_RESERVE_GROWTH_EVENT_MAX ) * MEMORY_EVENT_ROW_H + MEMORY_EVENT_BOTTOM_PAD );
 }
 
 bool OverlayEnabled( const UIMemoryOverlayState& state )
@@ -918,15 +1316,118 @@ void DrawOverlay( UIMemoryOverlayState& state,
 }
 
 void Draw( const UIDrawContext& draw,
+           UIMemoryOverlayState& state,
            const InGameUIFrameData& data,
            float contentX,
            float contentY,
            float contentW,
            float contentH,
-           float scrolledY )
+           float scrolledY,
+           int activeSlider,
+           int mouseX,
+           int mouseY )
 {
-    DrawMainMemoryPanel( draw, data, contentX, contentY, contentW, contentH, scrolledY );
-    DrawReserveGrowthEvents( draw, data, contentX, contentY, contentW, contentH, scrolledY );
+    DrawReplayMemoryPolicyPanel( draw,
+                                 state,
+                                 data,
+                                 contentX,
+                                 contentY,
+                                 contentW,
+                                 contentH,
+                                 scrolledY,
+                                 activeSlider,
+                                 mouseX,
+                                 mouseY );
+    const float memoryPanelY = scrolledY + MEMORY_REPLAY_POLICY_BLOCK_H + MEMORY_PANEL_GAP;
+    DrawMainMemoryPanel( draw, data, contentX, contentY, contentW, contentH, memoryPanelY );
+    DrawReserveGrowthEvents( draw, data, contentX, contentY, contentW, contentH, memoryPanelY );
+}
+
+bool HandleContentClick( UIMemoryOverlayState& state,
+                         InGameUIInputResult& result,
+                         int& activeSlider,
+                         int mouseX,
+                         int mouseY,
+                         float contentX,
+                         float scrolledY,
+                         float contentW )
+{
+    SetReplayPolicyControlBounds( state, contentX, scrolledY, contentW );
+    for ( int i = 0; i < MEMORY_REPLAY_PRESET_COUNT; ++i )
+    {
+        if ( state.replayPresetButtons[i].HitTest( mouseX, mouseY ) )
+        {
+            state.previewRetentionSeconds = -1;
+            state.previewBudgetMiB = -1;
+            SetReplayMemoryPolicyCommand( result, i, -1, -1 );
+            return false;
+        }
+    }
+    if ( state.replayRetentionSlider.HitTest( mouseX, mouseY ) )
+    {
+        activeSlider = MEMORY_REPLAY_SLIDER_RETENTION;
+        state.previewRetentionSeconds = static_cast<int>(
+            state.replayRetentionSlider.ValueFromMouse( mouseX,
+                                                        static_cast<float>( MEMORY_REPLAY_RETENTION_MIN ),
+                                                        static_cast<float>( MEMORY_REPLAY_RETENTION_MAX ),
+                                                        1.0f ) );
+        return true;
+    }
+    if ( state.replayBudgetSlider.HitTest( mouseX, mouseY ) )
+    {
+        activeSlider = MEMORY_REPLAY_SLIDER_BUDGET;
+        state.previewBudgetMiB = static_cast<int>(
+            state.replayBudgetSlider.ValueFromMouse( mouseX,
+                                                     static_cast<float>( MEMORY_REPLAY_BUDGET_MIN_MIB ),
+                                                     static_cast<float>( MEMORY_REPLAY_BUDGET_MAX_MIB ),
+                                                     static_cast<float>( MEMORY_REPLAY_BUDGET_STEP_MIB ) ) );
+        return true;
+    }
+    return false;
+}
+
+bool UpdateActiveSlider( UIMemoryOverlayState& state, int activeSlider, int mouseX, InGameUIInputResult& )
+{
+    if ( activeSlider == MEMORY_REPLAY_SLIDER_RETENTION )
+    {
+        state.previewRetentionSeconds = static_cast<int>(
+            state.replayRetentionSlider.ValueFromMouse( mouseX,
+                                                        static_cast<float>( MEMORY_REPLAY_RETENTION_MIN ),
+                                                        static_cast<float>( MEMORY_REPLAY_RETENTION_MAX ),
+                                                        1.0f ) );
+        return true;
+    }
+    if ( activeSlider == MEMORY_REPLAY_SLIDER_BUDGET )
+    {
+        state.previewBudgetMiB = static_cast<int>(
+            state.replayBudgetSlider.ValueFromMouse( mouseX,
+                                                     static_cast<float>( MEMORY_REPLAY_BUDGET_MIN_MIB ),
+                                                     static_cast<float>( MEMORY_REPLAY_BUDGET_MAX_MIB ),
+                                                     static_cast<float>( MEMORY_REPLAY_BUDGET_STEP_MIB ) ) );
+        return true;
+    }
+    return false;
+}
+
+bool CommitActiveSlider( UIMemoryOverlayState& state, int activeSlider, InGameUIInputResult& result )
+{
+    if ( activeSlider == MEMORY_REPLAY_SLIDER_RETENTION && state.previewRetentionSeconds >= 0 )
+    {
+        SetReplayMemoryPolicyCommand( result, -1, state.previewRetentionSeconds, -1 );
+        return true;
+    }
+    if ( activeSlider == MEMORY_REPLAY_SLIDER_BUDGET && state.previewBudgetMiB >= 0 )
+    {
+        SetReplayMemoryPolicyCommand( result, -1, -1, state.previewBudgetMiB );
+        return true;
+    }
+    return false;
+}
+
+void ResetPreviewState( UIMemoryOverlayState& state )
+{
+    state.previewRetentionSeconds = -1;
+    state.previewBudgetMiB = -1;
 }
 
 } // namespace MemoryTab

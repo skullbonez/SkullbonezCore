@@ -4,9 +4,10 @@ Purpose:
   Implements off-screen framebuffer resources and descriptor views for the DX12 renderer.
 
 Mental model:
-  DX12 separates resource memory, descriptor rows, command recording, and GPU
-  execution. Ownership, state transitions, descriptor lifetime, and fence
-  ordering are the important ideas.
+  FramebufferDX12.cpp implements off-screen framebuffer resources and
+  descriptor views for the DX12 renderer. As an implementation unit, keep
+  edits anchored on DX12 ownership, descriptors, resources, and command
+  submission and on the glossary/invariants below.
 
 Glossary:
   RTV (Render Target View): Descriptor row used when the GPU writes color
@@ -35,8 +36,8 @@ Related:
 */
 #include "FramebufferDX12.h"
 #include "../../Core/FatalError.h"
+#include "../../Core/Log.h"
 #include "RenderBackendDX12.h"
-#include <stdexcept>
 
 
 using namespace SkullbonezCore::Rendering;
@@ -68,7 +69,7 @@ FramebufferDX12::~FramebufferDX12()
 }
 
 
-void FramebufferDX12::Create( int width, int height )
+bool FramebufferDX12::Create( int width, int height )
 {
     // Invariant: off-screen targets borrow descriptor allocators and device
     // state from RenderBackendDX12. Without a device there is no recoverable
@@ -78,8 +79,6 @@ void FramebufferDX12::Create( int width, int height )
         SB_FATAL( "FramebufferDX12", "Create requires an initialized DX12 backend." );
     }
 
-    m_width = width;
-    m_height = height;
     auto* device = m_backend.GetDevice();
 
     // Color texture (RENDER_TARGET + PIXEL_SHADER_RESOURCE)
@@ -108,14 +107,24 @@ void FramebufferDX12::Create( int width, int height )
     // "Committed" means this texture gets its own dedicated GPU memory allocation. The initial
     // state is PIXEL_SHADER_RESOURCE because when not actively rendering to it, shaders read it.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createcommittedresource
-    if ( FAILED( device->CreateCommittedResource( &defaultHeap,
-                                                  D3D12_HEAP_FLAG_NONE,
-                                                  &colorDesc,
-                                                  D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
-                                                  &colorClear,
-                                                  IID_PPV_ARGS( &m_colorTexture ) ) ) )
+    const HRESULT colorResult = device->CreateCommittedResource( &defaultHeap,
+                                                                 D3D12_HEAP_FLAG_NONE,
+                                                                 &colorDesc,
+                                                                 D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
+                                                                 &colorClear,
+                                                                 IID_PPV_ARGS( &m_colorTexture ) );
+    if ( FAILED( colorResult ) )
     {
-        throw std::runtime_error( "FramebufferDX12: Failed to create color texture" );
+        // Lane R: off-screen targets are optional render resources for
+        // reflection, shadow, and post passes. The factory returns null and the
+        // owning pass skips until a later recreate succeeds.
+        Log().WriteEventf( "dx12_framebuffer_color_create_failed hresult=0x%08X width=%d height=%d format=%u",
+                           static_cast<unsigned int>( colorResult ),
+                           width,
+                           height,
+                           static_cast<unsigned int>( colorFormat ) );
+        Log().FlushAll();
+        return false;
     }
     NameDx12Object( m_colorTexture, L"Skullbonez DX12 Framebuffer Color Texture" );
 
@@ -140,14 +149,21 @@ void FramebufferDX12::Create( int width, int height )
     // This stores per-pixel depth values so the GPU knows which objects are in front of others.
     // Initial state is DEPTH_WRITE because we clear and write depth whenever this FBO is bound.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createcommittedresource
-    if ( FAILED( device->CreateCommittedResource( &defaultHeap,
-                                                  D3D12_HEAP_FLAG_NONE,
-                                                  &depthDesc,
-                                                  D3D12_RESOURCE_STATE_DEPTH_WRITE,
-                                                  &depthClear,
-                                                  IID_PPV_ARGS( &m_depthTexture ) ) ) )
+    const HRESULT depthResult = device->CreateCommittedResource( &defaultHeap,
+                                                                 D3D12_HEAP_FLAG_NONE,
+                                                                 &depthDesc,
+                                                                 D3D12_RESOURCE_STATE_DEPTH_WRITE,
+                                                                 &depthClear,
+                                                                 IID_PPV_ARGS( &m_depthTexture ) );
+    if ( FAILED( depthResult ) )
     {
-        throw std::runtime_error( "FramebufferDX12: Failed to create depth texture" );
+        Log().WriteEventf( "dx12_framebuffer_depth_create_failed hresult=0x%08X width=%d height=%d",
+                           static_cast<unsigned int>( depthResult ),
+                           width,
+                           height );
+        Log().FlushAll();
+        ResetResources();
+        return false;
     }
     NameDx12Object( m_depthTexture, L"Skullbonez DX12 Framebuffer Depth Texture" );
 
@@ -203,12 +219,15 @@ void FramebufferDX12::Create( int width, int height )
                                       m_backend.GetSRVStagingCpuHandle( m_depthSrvIndex ) );
     m_depthTexHandle = m_backend.RegisterSRV( m_depthSrvIndex );
     m_depthState = D3D12_RESOURCE_STATE_DEPTH_WRITE;
+    m_width = width;
+    m_height = height;
+    return true;
 }
 
 
 void FramebufferDX12::Bind() const
 {
-    if ( !m_backend.GetDevice() )
+    if ( !m_backend.GetDevice() || !m_colorTexture || !m_depthTexture )
     {
         return;
     }
@@ -256,7 +275,7 @@ void FramebufferDX12::Bind() const
 
 void FramebufferDX12::Unbind() const
 {
-    if ( !m_backend.GetDevice() )
+    if ( !m_backend.GetDevice() || !m_colorTexture || !m_depthTexture )
     {
         return;
     }

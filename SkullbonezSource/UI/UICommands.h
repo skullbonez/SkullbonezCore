@@ -4,8 +4,10 @@ Purpose:
   Implements UI Commands widgets, layout, drawing, or UI state for the in-engine controls.
 
 Mental model:
-  The UI is immediate-mode-style: each frame reads engine state, computes hit
-  boxes, emits draw commands, and returns requests for the run loop to apply.
+  UICommands.h implements UI Commands widgets, layout, drawing, or UI state
+  for the in-engine controls. As a public header, keep edits anchored on UI
+  request, layout, hit-test, and draw-command flow and on the
+  glossary/invariants below.
 
 Glossary:
   DXR (DirectX Raytracing): DX12 API used for hardware ray traversal and
@@ -352,6 +354,16 @@ struct UISoundCommands
     int selectSampleIndex = -1;
 };
 
+struct UIReplayMemoryCommands
+{
+    // One-frame replay policy request from the Memory tab. RunInput translates
+    // these UI-facing values into ReplayRuntime's authoritative policy owner.
+    bool requestPolicy = false;
+    int requestedPresetIndex = -1;
+    int requestedRetentionSeconds = -1;
+    int requestedBudgetMiB = -1;
+};
+
 struct InGameUICommands
 {
     UIOnlyCommands ui;
@@ -366,6 +378,7 @@ struct InGameUICommands
     UIRenderCommands renderTuning;
     UISoundCommands sound;
     UICinematicCommands cinematic;
+    UIReplayMemoryCommands replayMemory;
 };
 
 struct InGameUIInputResult

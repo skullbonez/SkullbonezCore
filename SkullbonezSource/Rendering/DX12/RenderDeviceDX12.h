@@ -4,9 +4,10 @@ Purpose:
   Owns low-level DX12 device objects, fences, command allocators, and frame pacing.
 
 Mental model:
-  DX12 separates resource memory, descriptor rows, command recording, and GPU
-  execution. Ownership, state transitions, descriptor lifetime, and fence
-  ordering are the important ideas.
+  RenderDeviceDX12.h owns low-level DX12 device objects, fences, command
+  allocators, and frame pacing. As a public header, keep edits anchored on
+  DX12 ownership, descriptors, resources, and command submission and on the
+  glossary/invariants below.
 
 Glossary:
   DXR (DirectX Raytracing): DX12 API used for hardware ray traversal and
@@ -122,9 +123,9 @@ class Dx12FenceTimeline
     void Reset();
 
     bool IsReady() const;
-    UINT64 Signal();
-    UINT64 SignalAndWait();
-    void WaitForValue( UINT64 value ) const;
+    Basics::SbResult Signal( UINT64& outValue );
+    Basics::SbResult SignalAndWait();
+    Basics::SbResult WaitForValue( UINT64 value ) const;
 
     UINT64 CompletedValue() const;
     UINT64 LastSignaledValue() const

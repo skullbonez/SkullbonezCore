@@ -4,9 +4,10 @@ Purpose:
   Builds and owns the DX12 raytracing top-level scene acceleration structure.
 
 Mental model:
-  DX12 separates resource memory, descriptor rows, command recording, and GPU
-  execution. Ownership, state transitions, descriptor lifetime, and fence
-  ordering are the important ideas.
+  TLASDX12.cpp builds and owns the DX12 raytracing top-level scene
+  acceleration structure. As an implementation unit, keep edits anchored on
+  DX12 ownership, descriptors, resources, and command submission and on the
+  glossary/invariants below.
 
 Glossary:
   DXR (DirectX Raytracing): DX12 API used for hardware ray traversal and

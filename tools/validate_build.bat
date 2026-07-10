@@ -26,7 +26,7 @@ setlocal enabledelayedexpansion
 REM ===============================================================
 REM  validate_build.bat - Build SkullbonezCore solution.
 REM  Usage: validate_build.bat [Configuration]
-REM    Configuration = Debug | Release | Profile (default: Profile)
+REM    Configuration = Debug | Release | Profile | Profile-WPO (default: Profile)
 REM  Exit 0 = build succeeded, Exit 1 = build failed.
 REM ===============================================================
 

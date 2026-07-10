@@ -4,8 +4,10 @@ Purpose:
   Implements SkullbonezUI widgets, layout, drawing, or UI state for the in-engine controls.
 
 Mental model:
-  The UI is immediate-mode-style: each frame reads engine state, computes hit
-  boxes, emits draw commands, and returns requests for the run loop to apply.
+  UI.h implements SkullbonezUI widgets, layout, drawing, or UI state for the
+  in-engine controls. As a public header, keep edits anchored on UI request,
+  layout, hit-test, and draw-command flow and on the glossary/invariants
+  below.
 
 Glossary:
   Draw command: Lightweight record describing a UI shape or text batch to
@@ -211,6 +213,13 @@ struct InGameUIFrameData
     int reserveGrowthEventCount = 0;
     uint64_t reserveGrowthEventTotalCount = 0;
     uint64_t reserveGrowthEventDroppedCount = 0;
+    int replayMemoryPreset = 0;
+    int replayMemoryRequestedRetentionSeconds = 0;
+    int replayMemoryRequestedBudgetMiB = 0;
+    int replayMemoryPresentationRetentionSeconds = 0;
+    int replayMemorySolverRetentionSeconds = 0;
+    bool replayMemoryBudgetClamped = false;
+    bool replayMemorySolverWindowReduced = false;
     int modelCount = 0;
     int modelCapacity = DEFAULT_GAME_MODEL_CAPACITY;
     int workerThreadCount = 0;

@@ -4,9 +4,10 @@ Purpose:
   Implements the production DX12 renderer and its frame, resource, and pipeline state.
 
 Mental model:
-  DX12 separates resource memory, descriptor rows, command recording, and GPU
-  execution. Ownership, state transitions, descriptor lifetime, and fence
-  ordering are the important ideas.
+  RenderBackendDX12.cpp implements the production DX12 renderer and its frame,
+  resource, and pipeline state. As an implementation unit, keep edits anchored
+  on DX12 ownership, descriptors, resources, and command submission and on the
+  glossary/invariants below.
 
 Glossary:
   DXR (DirectX Raytracing): DX12 API used for hardware ray traversal and
@@ -92,8 +93,9 @@ Related:
 //   Resource Barrier
 //     A synchronization command that tells the GPU a resource is changing use.
 //     Example: "this texture was a render target; now shaders will sample it."
-//     Graph-owned DX12 helpers now emit these transitions so pass code names
-//     resource access intent instead of hand-coding D3D12 barrier structs.
+//     DX12 backend helpers emit these transitions from explicit before/after
+//     access states so pass code names intent without hand-coding D3D12 barrier
+//     structs at every call site.
 //
 #include "RenderBackendDX12.h"
 #include "ShaderDX12.h"
@@ -104,13 +106,9 @@ Related:
 #include "../../Core/Log.h"
 #include "../../Core/PlatformProfiler.h"
 #include "../../Core/FatalError.h"
-#include <stdexcept>
 #include <cstdio>
-#include <cstring>
 #include <algorithm>
 #include <string>
-#include <fstream>
-#include <sstream>
 #include <wrl/client.h>
 
 
@@ -290,19 +288,23 @@ RenderMemoryStats RenderBackendDX12::GetRenderMemoryStats() const
 // --- Helpers ---
 
 
-void RenderBackendDX12::WaitForGpu()
+SkullbonezCore::Basics::SbResult RenderBackendDX12::WaitForGpu()
 {
     if ( !m_renderDevice.FrameFence().IsReady() )
     {
         ReleaseCompletedDeferredResources( !m_commandListOpen );
-        return;
+        return SkullbonezCore::Basics::SbResult::Success();
     }
 
     // Tell the GPU to mark the next fence value after all already-submitted
     // queue work, then block until that value is complete. In plain terms:
     // WaitForGpu() means "do not let the CPU continue until the GPU has caught
     // up to every command we submitted so far."
-    m_renderDevice.FrameFence().SignalAndWait();
+    const SkullbonezCore::Basics::SbResult waitResult = m_renderDevice.FrameFence().SignalAndWait();
+    if ( !waitResult.ok )
+    {
+        return waitResult;
+    }
 
     // After full GPU wait, all frame fences are implicitly completed
     for ( int i = 0; i < FRAME_COUNT; ++i )
@@ -311,6 +313,7 @@ void RenderBackendDX12::WaitForGpu()
     }
 
     ReleaseCompletedDeferredResources( !m_commandListOpen );
+    return SkullbonezCore::Basics::SbResult::Success();
 }
 
 
@@ -452,7 +455,15 @@ void RenderBackendDX12::EnsureCommandListOpen()
     UINT64 completedFence = m_renderDevice.FrameFence().CompletedValue();
     if ( m_frameFenceValues[m_allocatorIndex] > completedFence )
     {
-        m_renderDevice.FrameFence().WaitForValue( m_frameFenceValues[m_allocatorIndex] );
+        const SkullbonezCore::Basics::SbResult waitResult =
+            m_renderDevice.FrameFence().WaitForValue( m_frameFenceValues[m_allocatorIndex] );
+        if ( !waitResult.ok )
+        {
+            Log().WriteEventf( "dx12_frame_allocator_wait_failed owner=%s message=%s",
+                               waitResult.error.owner,
+                               waitResult.error.message );
+            return;
+        }
     }
     ReleaseCompletedDeferredResources( false );
 
@@ -500,62 +511,6 @@ void RenderBackendDX12::EnsureCommandListOpen()
 }
 
 
-void RenderBackendDX12::RecordLiveBarrier( const char* source,
-                                           const char* resourceName,
-                                           ID3D12Resource* resource,
-                                           RenderGraphResourceAccess beforeAccess,
-                                           RenderGraphResourceAccess afterAccess,
-                                           D3D12_RESOURCE_STATES before,
-                                           D3D12_RESOURCE_STATES after,
-                                           UINT subresource )
-{
-    if ( !resource || before == after )
-    {
-        return;
-    }
-
-    // This is barrier telemetry, not a hot-path render feature. Keep a bounded
-    // sample in fixed storage so long validation runs cannot grow frame memory.
-    // The first records are the most useful because they show the frame's
-    // graph-owned transition path in execution order.
-    if ( m_liveBarrierRecords.size() >= MAX_LIVE_BARRIER_RECORDS )
-    {
-        return;
-    }
-
-    LiveBarrierRecordDX12 record;
-    record.resource = resource;
-    record.beforeAccess = beforeAccess;
-    record.afterAccess = afterAccess;
-    record.before = before;
-    record.after = after;
-    record.subresource = subresource;
-    strncpy_s( record.resourceName, resourceName ? resourceName : "unknown", _TRUNCATE );
-    strncpy_s( record.source, source ? source : "unknown", _TRUNCATE );
-    m_liveBarrierRecords.push_back( record );
-}
-
-
-void RenderBackendDX12::RecordLiveUavBarrier( const char* source, const char* resourceName, ID3D12Resource* resource )
-{
-    if ( !resource )
-    {
-        return;
-    }
-
-    if ( m_liveUavBarrierRecords.size() >= MAX_LIVE_BARRIER_RECORDS )
-    {
-        return;
-    }
-
-    LiveUavBarrierRecordDX12 record;
-    record.resource = resource;
-    strncpy_s( record.resourceName, resourceName ? resourceName : "unknown", _TRUNCATE );
-    strncpy_s( record.source, source ? source : "unknown", _TRUNCATE );
-    m_liveUavBarrierRecords.push_back( record );
-}
-
-
 void RenderBackendDX12::ExecuteGraphTransition( const char* passName,
                                                 const char* resourceName,
                                                 ID3D12Resource* resource,
@@ -570,7 +525,7 @@ void RenderBackendDX12::ExecuteGraphTransition( const char* passName,
 
     if ( !m_commandListOpen )
     {
-        // Hazard: a graph-owned barrier can be the first command after Present()
+        // Hazard: an explicit backend barrier can be the first command after Present()
         // or a mid-frame drain closed the list. Reopen before handing the raw
         // list to the DX12 executor; ResourceBarrier is still a recorded command.
         EnsureCommandListOpen();
@@ -583,24 +538,15 @@ void RenderBackendDX12::ExecuteGraphTransition( const char* passName,
     desc.after = after;
     desc.subresource = subresource;
     const Dx12RenderGraphBarrierRecord record =
-        ExecuteDx12RenderGraphSingleTransition( "GraphOwned", passName, resourceName, desc );
+        ExecuteDx12RenderGraphSingleTransition( "Dx12Explicit", passName, resourceName, desc );
     if ( !record.hasConcreteStates || !record.hasNativeResource || record.missingCommandList ||
          record.beforeState == record.afterState || !record.emitted )
     {
         SB_FATAL( "RenderBackendDX12",
-                  "DX12 graph-owned transition did not emit exactly one concrete barrier. pass=%s resource=%s",
+                  "DX12 explicit transition did not emit exactly one concrete barrier. pass=%s resource=%s",
                   passName ? passName : "unknown",
                   resourceName ? resourceName : "unknown" );
     }
-
-    RecordLiveBarrier( record.source,
-                       record.resourceName,
-                       resource,
-                       before,
-                       after,
-                       record.beforeState,
-                       record.afterState,
-                       subresource );
 }
 
 
@@ -639,16 +585,14 @@ void RenderBackendDX12::ExecuteGraphUavBarrier( const char* passName,
     desc.commandList = CommandList();
     desc.resource = resource;
     const Dx12RenderGraphUavBarrierRecord record =
-        ExecuteDx12RenderGraphUavBarrier( "GraphOwned", passName, resourceName, desc );
+        ExecuteDx12RenderGraphUavBarrier( "Dx12Explicit", passName, resourceName, desc );
     if ( !record.hasNativeResource || record.missingCommandList || !record.emitted )
     {
         SB_FATAL( "RenderBackendDX12",
-                  "DX12 graph-owned UAV barrier did not emit exactly one concrete barrier. pass=%s resource=%s",
+                  "DX12 explicit UAV barrier did not emit exactly one concrete barrier. pass=%s resource=%s",
                   passName ? passName : "unknown",
                   resourceName ? resourceName : "unknown" );
     }
-
-    RecordLiveUavBarrier( record.source, record.resourceName, resource );
 }
 
 
@@ -785,6 +729,24 @@ static size_t CountGraphDescriptorRows( const RenderGraphDescriptorNeeds& descri
            ( descriptors.shaderResource ? 1u : 0u ) + ( descriptors.unorderedAccess ? 1u : 0u );
 }
 
+static void MarkGraphTransientMaterializationFailure( RenderGraphTransientMaterializationStats& stats,
+                                                      HRESULT result,
+                                                      const RenderGraphResourceDesc& resource )
+{
+    stats.failed = true;
+    stats.failureHresult = static_cast<unsigned int>( result );
+    std::snprintf( stats.failureStage, sizeof( stats.failureStage ), "%s", "CreateCommittedResource" );
+    std::snprintf( stats.failureResource,
+                   sizeof( stats.failureResource ),
+                   "%s",
+                   ( resource.name && resource.name[0] != '\0' ) ? resource.name : "UnnamedGraphTransient" );
+    Log().WriteEventf( "dx12_graph_transient_materialize_failed stage=%s resource=%s hresult=0x%08X",
+                       stats.failureStage,
+                       stats.failureResource,
+                       stats.failureHresult );
+    Log().FlushAll();
+}
+
 
 RenderGraphTransientMaterializationStats
 RenderBackendDX12::MaterializeGraphTransientResources( const RenderGraph& graph,
@@ -905,7 +867,13 @@ RenderBackendDX12::MaterializeGraphTransientResources( const RenderGraph& graph,
                                                                   IID_PPV_ARGS( &slot->resource ) );
             if ( FAILED( hr ) )
             {
-                throw std::runtime_error( "DX12 graph transient materializer failed to create a texture" );
+                // Lane R: graph transients back optional post-process features.
+                // Report the failed resource and let the pass fall back to its
+                // older framebuffer target instead of unwinding the frame.
+                MarkGraphTransientMaterializationFailure( m_graphTransientStats, hr, resource );
+                m_graphTransientResources.pop_back();
+                m_graphTransientStats.poolSize = m_graphTransientResources.size();
+                return m_graphTransientStats;
             }
             NameDx12Object( slot->resource, L"Skullbonez DX12 RenderGraph Transient Texture" );
 
@@ -1128,358 +1096,6 @@ void RenderBackendDX12::ReleaseGraphTransientResources( const char* reason )
 }
 
 
-void RenderBackendDX12::DumpFrameGraphSkeleton()
-{
-    // Diagnostic render graph sketch.
-    //
-    // Production transition and UAV barriers now route through graph-owned DX12
-    // helpers. This method keeps the older high-level superset graph around so
-    // reviewers can compare planned pass/resource shape against the actual
-    // emitted graph-owned barrier trace.
-    //
-    // The purpose of this skeleton is to make the intended frame shape visible
-    // in the same pass/resource language the callback-driven graph will use. It
-    // is a bridge for humans and future code review:
-    //
-    // - resources below are names for existing backend-owned render targets,
-    //   depth buffers, shadow maps, and reflection outputs,
-    // - passes below are the current high-level frame phases, including optional
-    //   cinematic and DXR paths,
-    // - Compile() emits API-neutral transitions that can be compared with the
-    //   graph-owned live barrier trace and the actual runtime frame graph dump.
-    //
-    // This is a superset of possible frame paths. A normal non-cinematic frame
-    // writes directly to the backbuffer; a cinematic frame writes SceneColor and
-    // then tonemaps it to the backbuffer; reflection can be raster FBO or DXR.
-    // Keeping the alternatives explicit is useful while the old renderer is
-    // still being decomposed.
-    RenderGraph graph;
-
-    const RenderGraphResourceHandle backbuffer =
-        graph.AddExternalResource( "SwapchainBackbuffer", m_backBufferAccess, m_renderTargets[m_frameIndex] );
-    const RenderGraphResourceHandle mainDepth =
-        graph.AddExternalResource( "MainDepthStencil", RenderGraphResourceAccess::DepthWrite, m_depthStencil );
-    const RenderGraphResourceHandle shadowDepth =
-        graph.AddExternalResource( "TerrainShadowMapDepth", RenderGraphResourceAccess::PixelShaderResource );
-    const RenderGraphResourceHandle objectShadowDepth =
-        graph.AddExternalResource( "ObjectShadowMapDepth", RenderGraphResourceAccess::PixelShaderResource );
-    const RenderGraphResourceHandle reflectionColor =
-        graph.AddExternalResource( "RasterReflectionColor", RenderGraphResourceAccess::PixelShaderResource );
-    const RenderGraphResourceHandle reflectionDepth =
-        graph.AddExternalResource( "RasterReflectionDepth", RenderGraphResourceAccess::PixelShaderResource );
-    const RenderGraphResourceHandle dxrReflection =
-        graph.AddExternalResource( "DxrReflectionTexture",
-                                   RenderGraphResourceAccess::PixelShaderResource,
-                                   m_reflectionUAV );
-    const RenderGraphResourceHandle sceneColor =
-        graph.AddExternalResource( "CinematicSceneColor", RenderGraphResourceAccess::PixelShaderResource );
-    const RenderGraphResourceHandle sceneDepth =
-        graph.AddExternalResource( "CinematicSceneDepth", RenderGraphResourceAccess::PixelShaderResource );
-    const RenderGraphResourceHandle volumetricLight =
-        graph.AddExternalResource( "VolumetricLight", RenderGraphResourceAccess::PixelShaderResource );
-    RenderGraphTransientResourceDesc transientProbeDesc;
-    transientProbeDesc.kind = RenderGraphResourceKind::Texture2D;
-    transientProbeDesc.format = RenderGraphResourceFormat::RGBA16F;
-    // Why: this diagnostic resource proves the backend materialization path
-    // without adding a frame-resolution allocation to every validation launch.
-    // The live VolumetricLight migration is evidenced by the cinematic post
-    // graph dump; this tiny probe remains a cheap skeleton smoke test.
-    transientProbeDesc.width = 16;
-    transientProbeDesc.height = 16;
-    transientProbeDesc.mipLevels = 1;
-    transientProbeDesc.descriptors.renderTarget = true;
-    transientProbeDesc.descriptors.shaderResource = true;
-    const RenderGraphResourceHandle graphTransientProbe =
-        graph.AddTransientResource( "GraphTransientProbeColor",
-                                    transientProbeDesc,
-                                    RenderGraphResourceAccess::RenderTarget );
-
-    uint32_t pass = graph.AddPass( "ShadowMapPass" );
-    graph.AddWrite( pass, shadowDepth, RenderGraphResourceAccess::DepthWrite );
-    graph.AddWrite( pass, objectShadowDepth, RenderGraphResourceAccess::DepthWrite );
-
-    pass = graph.AddPass( "RasterReflectionPass" );
-    graph.AddRead( pass, shadowDepth, RenderGraphResourceAccess::PixelShaderResource );
-    graph.AddRead( pass, objectShadowDepth, RenderGraphResourceAccess::PixelShaderResource );
-    graph.AddWrite( pass, reflectionColor, RenderGraphResourceAccess::RenderTarget );
-    graph.AddWrite( pass, reflectionDepth, RenderGraphResourceAccess::DepthWrite );
-
-    pass = graph.AddPass( "DxrReflectionPass", RenderGraphQueueType::Compute );
-    graph.AddWrite( pass, dxrReflection, RenderGraphResourceAccess::UnorderedAccess );
-
-    pass = graph.AddPass( "BackbufferScenePass" );
-    graph.AddRead( pass, shadowDepth, RenderGraphResourceAccess::PixelShaderResource );
-    graph.AddRead( pass, objectShadowDepth, RenderGraphResourceAccess::PixelShaderResource );
-    graph.AddRead( pass, reflectionColor, RenderGraphResourceAccess::PixelShaderResource );
-    graph.AddRead( pass, dxrReflection, RenderGraphResourceAccess::PixelShaderResource );
-    graph.AddWrite( pass, backbuffer, RenderGraphResourceAccess::RenderTarget );
-    graph.AddWrite( pass, mainDepth, RenderGraphResourceAccess::DepthWrite );
-
-    pass = graph.AddPass( "CinematicScenePass" );
-    graph.AddRead( pass, shadowDepth, RenderGraphResourceAccess::PixelShaderResource );
-    graph.AddRead( pass, objectShadowDepth, RenderGraphResourceAccess::PixelShaderResource );
-    graph.AddRead( pass, reflectionColor, RenderGraphResourceAccess::PixelShaderResource );
-    graph.AddRead( pass, dxrReflection, RenderGraphResourceAccess::PixelShaderResource );
-    graph.AddWrite( pass, sceneColor, RenderGraphResourceAccess::RenderTarget );
-    graph.AddWrite( pass, sceneDepth, RenderGraphResourceAccess::DepthWrite );
-
-    pass = graph.AddPass( "VolumetricLightPass",
-                          RenderGraphQueueType::Graphics,
-                          RenderGraphBarrierPolicy::HandoffValidated );
-    graph.AddRead( pass, sceneColor, RenderGraphResourceAccess::PixelShaderResource );
-    graph.AddRead( pass, sceneDepth, RenderGraphResourceAccess::PixelShaderResource );
-    graph.AddWrite( pass, volumetricLight, RenderGraphResourceAccess::RenderTarget );
-
-    pass = graph.AddPass( "ToneMapPass", RenderGraphQueueType::Graphics, RenderGraphBarrierPolicy::HandoffValidated );
-    graph.AddRead( pass, sceneColor, RenderGraphResourceAccess::PixelShaderResource );
-    graph.AddRead( pass, sceneDepth, RenderGraphResourceAccess::PixelShaderResource );
-    graph.AddRead( pass, volumetricLight, RenderGraphResourceAccess::PixelShaderResource );
-    graph.AddWrite( pass, backbuffer, RenderGraphResourceAccess::RenderTarget );
-
-    pass = graph.AddPass( "DebugAndUiPass" );
-    graph.AddWrite( pass, backbuffer, RenderGraphResourceAccess::RenderTarget );
-
-    pass = graph.AddPass( "GraphTransientProbeWrite" );
-    graph.AddWrite( pass, graphTransientProbe, RenderGraphResourceAccess::RenderTarget );
-
-    pass = graph.AddPass( "GraphTransientProbeRead" );
-    graph.AddRead( pass, graphTransientProbe, RenderGraphResourceAccess::PixelShaderResource );
-
-    pass = graph.AddPass( "Present" );
-    graph.AddWrite( pass, backbuffer, RenderGraphResourceAccess::Present );
-
-    const RenderGraphCompileResult compiled = graph.Compile();
-    const RenderGraphTransientMaterializationStats transientMaterialization =
-        MaterializeGraphTransientResources( graph, compiled );
-    std::vector<bool> liveBarrierMatched( m_liveBarrierRecords.size(), false );
-    const auto liveResourceLabel = [&]( const void* resource ) -> const char*
-    {
-        if ( !resource )
-        {
-            return nullptr;
-        }
-        for ( int i = 0; i < FRAME_COUNT; ++i )
-        {
-            if ( resource == m_renderTargets[i] )
-            {
-                return "SwapchainBackbuffer";
-            }
-        }
-        if ( resource == m_depthStencil )
-        {
-            return "MainDepthStencil";
-        }
-        if ( resource == m_reflectionUAV )
-        {
-            return "DxrReflectionTexture";
-        }
-        return nullptr;
-    };
-    const auto subresourceText = []( UINT subresource ) -> std::string
-    {
-        return subresource == D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES ? std::string( "all" )
-                                                                      : std::to_string( subresource );
-    };
-
-    std::ostringstream out;
-    out << graph.DumpText();
-    Dx12RenderGraphExecutionDesc graphDryRunDesc;
-    graphDryRunDesc.mode = Dx12RenderGraphExecutionMode::DryRun;
-    graphDryRunDesc.sourcePrefix = "GraphDryRun";
-    const Dx12RenderGraphExecutionResult graphDryRun =
-        ExecuteDx12RenderGraphTransitions( graph, compiled, graphDryRunDesc );
-
-    out << "\nGraphDryRunTransitionBarriers:\n";
-    out << "  candidate_count=" << graphDryRun.barrierCount << "\n";
-    out << "  candidate_overflow=" << ( graphDryRun.barrierOverflow ? "true" : "false" ) << "\n";
-    out << "  concrete_transition_count=" << graphDryRun.transitionBarrierCount << "\n";
-    out << "  emitted_transition_count=" << graphDryRun.emittedTransitionBarrierCount << "\n";
-    out << "  skipped_same_state_count=" << graphDryRun.skippedSameStateCount << "\n";
-    out << "  unknown_state_transition_count=" << graphDryRun.unknownStateTransitionCount << "\n";
-    out << "  missing_native_resource_count=" << graphDryRun.missingNativeResourceTransitionCount << "\n";
-    out << "  missing_command_list_emit_count=" << graphDryRun.missingCommandListEmissionCount << "\n";
-    out << "  uav_access_transition_count=" << graphDryRun.uavAccessTransitionCount << "\n";
-    for ( size_t i = 0; i < graphDryRun.barrierCount; ++i )
-    {
-        const Dx12RenderGraphBarrierRecord& barrier = graphDryRun.barriers[i];
-        out << "  [" << i << "] source=" << barrier.source << " pass=" << barrier.passName
-            << " resource=" << barrier.nativeResource << " name=" << barrier.resourceName
-            << " subresource=" << subresourceText( barrier.subresource ) << " " << ToString( barrier.beforeAccess )
-            << "/" << Dx12ResourceStateToString( barrier.beforeState ) << " -> " << ToString( barrier.afterAccess )
-            << "/" << Dx12ResourceStateToString( barrier.afterState )
-            << " native=" << ( barrier.hasNativeResource ? "true" : "false" )
-            << " uav_review=" << ( barrier.requiresUavOrderingReview ? "true" : "false" )
-            << " emitted=" << ( barrier.emitted ? "true" : "false" ) << "\n";
-    }
-
-    out << "\nGraphTransientMaterialization:\n";
-    out << "  pool_size=" << transientMaterialization.poolSize << "\n";
-    out << "  created_this_compile=" << transientMaterialization.createdThisCompile << "\n";
-    out << "  reused_this_compile=" << transientMaterialization.reusedThisCompile << "\n";
-    out << "  descriptor_rows_owned=" << transientMaterialization.descriptorRowsOwned << "\n";
-    out << "  released_at_frame_end=" << transientMaterialization.releasedAtFrameEnd << "\n";
-
-    out << "\nLiveBackendTransitionBarriers:\n";
-    if ( m_liveBarrierRecords.empty() )
-    {
-        out << "  none recorded yet\n";
-    }
-    for ( size_t i = 0; i < m_liveBarrierRecords.size(); ++i )
-    {
-        const LiveBarrierRecordDX12& live = m_liveBarrierRecords[i];
-        const char* resourceLabel = liveResourceLabel( live.resource );
-        out << "  [" << i << "] source=" << ( live.source[0] != '\0' ? live.source : "unknown" )
-            << " resource=" << live.resource
-            << " name=" << ( live.resourceName[0] != '\0' ? live.resourceName : "unknown" )
-            << " label=" << ( resourceLabel ? resourceLabel : "unlabeled" )
-            << " subresource=" << subresourceText( live.subresource ) << " " << ToString( live.beforeAccess ) << "/"
-            << Dx12ResourceStateToString( live.before ) << " -> " << ToString( live.afterAccess ) << "/"
-            << Dx12ResourceStateToString( live.after ) << "\n";
-    }
-
-    out << "\nLiveBackendUavBarriers:\n";
-    if ( m_liveUavBarrierRecords.empty() )
-    {
-        out << "  none recorded yet\n";
-    }
-    for ( size_t i = 0; i < m_liveUavBarrierRecords.size(); ++i )
-    {
-        const LiveUavBarrierRecordDX12& live = m_liveUavBarrierRecords[i];
-        const char* resourceLabel = liveResourceLabel( live.resource );
-        out << "  [" << i << "] source=" << ( live.source[0] != '\0' ? live.source : "unknown" )
-            << " resource=" << live.resource
-            << " name=" << ( live.resourceName[0] != '\0' ? live.resourceName : "unknown" )
-            << " label=" << ( resourceLabel ? resourceLabel : "unlabeled" ) << " type=UAV\n";
-    }
-
-    out << "\nGraphVsLiveTransitionStatePairs:\n";
-    out << "  graph_transition_count=" << compiled.transitions.size() << "\n";
-    out << "  live_transition_barrier_count=" << m_liveBarrierRecords.size() << "\n";
-    out << "  live_uav_barrier_count=" << m_liveUavBarrierRecords.size() << "\n";
-
-    size_t matchedResourcePairs = 0;
-    size_t matchedStateOnlyPairs = 0;
-    size_t graphHandoffTransitionCount = 0;
-    size_t graphOnlyDetails = 0;
-    size_t unknownGraphTransitions = 0;
-    constexpr size_t MAX_COMPARISON_DETAILS = 256;
-    for ( const RenderGraphTransitionDesc& transition : compiled.transitions )
-    {
-        D3D12_RESOURCE_STATES graphBefore = D3D12_RESOURCE_STATE_COMMON;
-        D3D12_RESOURCE_STATES graphAfter = D3D12_RESOURCE_STATE_COMMON;
-        const bool hasConcreteBefore = TryDx12RenderGraphAccessToResourceState( transition.before, graphBefore );
-        const bool hasConcreteAfter = TryDx12RenderGraphAccessToResourceState( transition.after, graphAfter );
-        const RenderGraphResourceDesc& resource = graph.Resources()[transition.resource.index];
-        const RenderGraphPassDesc& passDesc = graph.Passes()[transition.passIndex];
-        if ( passDesc.barrierPolicy == RenderGraphBarrierPolicy::HandoffValidated )
-        {
-            ++graphHandoffTransitionCount;
-        }
-        if ( !hasConcreteBefore || !hasConcreteAfter )
-        {
-            ++unknownGraphTransitions;
-            if ( graphOnlyDetails < MAX_COMPARISON_DETAILS )
-            {
-                out << "  graph_unknown before pass [" << transition.passIndex << "] " << passDesc.name << ": "
-                    << resource.name << " " << ToString( transition.before ) << " -> " << ToString( transition.after )
-                    << "\n";
-                ++graphOnlyDetails;
-            }
-            continue;
-        }
-
-        bool matched = false;
-        for ( size_t liveIndex = 0; liveIndex < m_liveBarrierRecords.size(); ++liveIndex )
-        {
-            const LiveBarrierRecordDX12& live = m_liveBarrierRecords[liveIndex];
-            const char* label = liveResourceLabel( live.resource );
-            if ( !liveBarrierMatched[liveIndex] && transition.nativeResource &&
-                 live.resource == transition.nativeResource && live.before == graphBefore && live.after == graphAfter )
-            {
-                liveBarrierMatched[liveIndex] = true;
-                matched = true;
-                ++matchedResourcePairs;
-                break;
-            }
-            if ( !liveBarrierMatched[liveIndex] && label && resource.name && std::strcmp( label, resource.name ) == 0 &&
-                 live.before == graphBefore && live.after == graphAfter )
-            {
-                liveBarrierMatched[liveIndex] = true;
-                matched = true;
-                ++matchedResourcePairs;
-                break;
-            }
-        }
-        if ( !matched )
-        {
-            for ( size_t liveIndex = 0; liveIndex < m_liveBarrierRecords.size(); ++liveIndex )
-            {
-                const LiveBarrierRecordDX12& live = m_liveBarrierRecords[liveIndex];
-                if ( !liveBarrierMatched[liveIndex] && live.before == graphBefore && live.after == graphAfter )
-                {
-                    liveBarrierMatched[liveIndex] = true;
-                    matched = true;
-                    ++matchedStateOnlyPairs;
-                    break;
-                }
-            }
-        }
-
-        if ( !matched && graphOnlyDetails < MAX_COMPARISON_DETAILS )
-        {
-            out << "  graph_only before pass [" << transition.passIndex << "] " << passDesc.name << ": "
-                << resource.name << " " << ToString( transition.before ) << "/"
-                << Dx12ResourceStateToString( graphBefore ) << " -> " << ToString( transition.after ) << "/"
-                << Dx12ResourceStateToString( graphAfter ) << "\n";
-            ++graphOnlyDetails;
-        }
-    }
-
-    size_t liveOnlyDetails = 0;
-    for ( size_t liveIndex = 0; liveIndex < m_liveBarrierRecords.size(); ++liveIndex )
-    {
-        if ( liveBarrierMatched[liveIndex] )
-        {
-            continue;
-        }
-        const LiveBarrierRecordDX12& live = m_liveBarrierRecords[liveIndex];
-        if ( liveOnlyDetails < MAX_COMPARISON_DETAILS )
-        {
-            const char* resourceLabel = liveResourceLabel( live.resource );
-            out << "  live_only [" << liveIndex << "] source=" << ( live.source[0] != '\0' ? live.source : "unknown" )
-                << " resource=" << live.resource
-                << " name=" << ( live.resourceName[0] != '\0' ? live.resourceName : "unknown" )
-                << " label=" << ( resourceLabel ? resourceLabel : "unlabeled" )
-                << " subresource=" << subresourceText( live.subresource ) << " " << ToString( live.beforeAccess ) << "/"
-                << Dx12ResourceStateToString( live.before ) << " -> " << ToString( live.afterAccess ) << "/"
-                << Dx12ResourceStateToString( live.after ) << "\n";
-        }
-        ++liveOnlyDetails;
-    }
-
-    out << "  matched_resource_state_pairs=" << matchedResourcePairs << "\n";
-    out << "  matched_state_only_pairs=" << matchedStateOnlyPairs << "\n";
-    out << "  graph_handoff_transition_count=" << graphHandoffTransitionCount << "\n";
-    out << "  unknown_graph_transition_count=" << unknownGraphTransitions << "\n";
-    out << "  graph_only_detail_count=" << graphOnlyDetails << "\n";
-    out << "  live_only_count=" << liveOnlyDetails << "\n";
-    out << "  note=Resource-labeled matches are stronger than state-only matches. Unlabeled live resources remain "
-           "telemetry, not proof; PRESENT and COMMON share a DX12 value. GraphDryRun records production-shaped "
-           "candidates; GraphOwned live records show the emitted DX12 barrier path.\n";
-
-    const std::string dump = out.str();
-    {
-        std::ofstream file( "Debug/dx12_frame_graph_skeleton.txt", std::ios::binary );
-        if ( file.is_open() )
-        {
-            file << dump << "\n";
-        }
-    }
-    Log().Writef( "Debug/dx12_frame_graph_skeleton.txt", "%s\n", dump.c_str() );
-    Log().FlushAll();
-}
-
-
 void RenderBackendDX12::ReportDeviceLost( const char* context, HRESULT result ) const
 {
     const HRESULT removedReason = Device() ? Device()->GetDeviceRemovedReason() : result;
@@ -1653,8 +1269,6 @@ SkullbonezCore::Basics::SbResult RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/
     m_allocatorIndex = m_renderDevice.AllocatorIndex();
     m_frameIndex = m_renderDevice.FrameIndex();
     m_allowTearing = m_renderDevice.AllowTearing();
-    m_liveBarrierRecords.clear();
-
     // DXR is optional hardware support; fall back to raster water if the device
     // cannot expose raytracing interfaces.
     CheckDXRSupport();
@@ -1839,6 +1453,8 @@ SkullbonezCore::Basics::SbResult RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/
     EnsureGridLinePipeline( DXGI_FORMAT_R16G16B16A16_FLOAT );
     EnsureTransientTriangleShader( TransientTriangleStyle::Color );
     EnsureTransientTriangleShader( TransientTriangleStyle::SoftAdditiveRibbon );
+    EnsureTransientTriangleShader( TransientTriangleStyle::TrajectoryRibbon );
+    EnsureTransientTriangleShader( TransientTriangleStyle::TrajectoryRibbonDepthHint );
 
     // GPU timestamp query heap — used for GPU-side performance profiling. The GPU writes
     // timestamps at specific points in the command stream, which we later read back to
@@ -1884,8 +1500,6 @@ SkullbonezCore::Basics::SbResult RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/
 
     m_currentRTV = m_backBufferRTVs[m_frameIndex];
     m_currentDSV = m_mainDSV;
-
-    DumpFrameGraphSkeleton();
 
     return SkullbonezCore::Basics::SbResult::Success();
 }
@@ -2138,7 +1752,6 @@ void RenderBackendDX12::Shutdown()
     ShutdownDXR();
 
     ReportArchitectureStats( "Shutdown" );
-    DumpFrameGraphSkeleton();
     ReleaseGraphTransientResources( "Shutdown" );
 
     // GPU timer cleanup
@@ -2389,7 +2002,13 @@ SkullbonezCore::Basics::SbResult RenderBackendDX12::Present()
     // Later, EnsureCommandListOpen asks the timeline helper whether this value
     // has completed before reusing this frame's command allocator, upload arena,
     // and transient descriptor range.
-    m_frameFenceValues[m_allocatorIndex] = m_renderDevice.FrameFence().Signal();
+    UINT64 presentFenceValue = 0;
+    const SkullbonezCore::Basics::SbResult signalResult = m_renderDevice.FrameFence().Signal( presentFenceValue );
+    if ( !signalResult.ok )
+    {
+        return signalResult;
+    }
+    m_frameFenceValues[m_allocatorIndex] = presentFenceValue;
     AssignDeferredResourceReleaseFence( m_frameFenceValues[m_allocatorIndex] );
 
     // Timer readback can be mapped once this frame's signal fence is reached.
@@ -2420,7 +2039,12 @@ SkullbonezCore::Basics::SbResult RenderBackendDX12::Present()
     const UINT64 nextFrameFenceValue = m_frameFenceValues[m_allocatorIndex];
     if ( nextFrameFenceValue > m_renderDevice.FrameFence().CompletedValue() )
     {
-        m_renderDevice.FrameFence().WaitForValue( nextFrameFenceValue );
+        const SkullbonezCore::Basics::SbResult waitResult =
+            m_renderDevice.FrameFence().WaitForValue( nextFrameFenceValue );
+        if ( !waitResult.ok )
+        {
+            return waitResult;
+        }
     }
     ReleaseCompletedDeferredResources( false );
     return SkullbonezCore::Basics::SbResult::Success();
@@ -2462,7 +2086,7 @@ void RenderBackendDX12::Finish()
 
     // Hazard: runtime pipeline-sync calls Finish() between physics and render.
     // That wait is allowed to drain submitted GPU work, but the next render pass
-    // still expects a recording command list for graph-owned barriers and draws.
+    // still expects a recording command list for explicit barriers and draws.
     EnsureCommandListOpen();
 }
 

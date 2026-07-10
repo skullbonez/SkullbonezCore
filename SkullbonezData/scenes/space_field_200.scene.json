@@ -1,0 +1,7093 @@
+{
+  "format": "skullbonez.scene.json",
+  "version": 1,
+  "cinematic": {
+    "rendering": true,
+    "skyAtmosphere": true,
+    "clouds": false,
+    "godRays": false,
+    "volumetricLighting": false,
+    "bloom": false,
+    "fog": false,
+    "styleModes": [
+      0,
+      3,
+      2,
+      0
+    ],
+    "exposure": 1.18,
+    "gamma": 1.25,
+    "sunScreenX": 0.58,
+    "sunScreenY": 0.66,
+    "sunColorR": 1.0,
+    "sunColorG": 0.98,
+    "sunColorB": 0.92,
+    "sunIntensity": 22.0,
+    "skyHorizonR": 0.0,
+    "skyHorizonG": 0.0,
+    "skyHorizonB": 0.0,
+    "skyZenithR": 0.0,
+    "skyZenithG": 0.0,
+    "skyZenithB": 0.0,
+    "skyGlowStrength": 0.0
+  },
+  "simulation": {
+    "seed": 200919,
+    "physics": true,
+    "text": false,
+    "modelCapacity": 240,
+    "world": {
+      "gravity": 0.0,
+      "fluidHeight": -100000.0,
+      "fluidDensity": 0.0,
+      "mutualGravity": {
+        "enabled": true,
+        "gravitationalConstant": 8.0,
+        "softeningLength": 6.0,
+        "elasticCollisions": true
+      }
+    }
+  },
+  "runtime": {
+    "vsync": false
+  },
+  "playback": {
+    "frames": 360,
+    "fixedStep": true,
+    "pauseSnapshotState": false,
+    "exitOnComplete": true
+  },
+  "debug": {
+    "waterHidden": true,
+    "terrainHidden": true
+  },
+  "terrain": {
+    "flatSlope": {
+      "baseY": -100000.0,
+      "slopeX": 0.0,
+      "slopeZ": 0.0
+    }
+  },
+  "cameras": [
+    {
+      "name": "main",
+      "position": [
+        0.0,
+        285.0,
+        360.0
+      ],
+      "view": [
+        0.0,
+        96.0,
+        0.0
+      ],
+      "up": [
+        0.0,
+        1.0,
+        0.0
+      ]
+    }
+  ],
+  "objects": [
+    {
+      "type": "ballState",
+      "name": "field_000",
+      "position": [
+        27.229,
+        99.754,
+        0.0
+      ],
+      "velocity": [
+        -0.0168,
+        0.0,
+        0.196
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.034,
+      "mass": 1.777,
+      "restitution": 0.02,
+      "inertia": [
+        0.759956,
+        0.759956,
+        0.759956
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_001",
+      "position": [
+        -64.002,
+        88.51,
+        22.039
+      ],
+      "velocity": [
+        -0.0766,
+        0.0,
+        -0.2422
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.375,
+      "mass": 3.907,
+      "restitution": 0.02,
+      "inertia": [
+        2.954669,
+        2.954669,
+        2.954669
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_002",
+      "position": [
+        77.343,
+        104.849,
+        -60.431
+      ],
+      "velocity": [
+        0.1255,
+        0.0,
+        0.1945
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.129,
+      "mass": 2.367,
+      "restitution": 0.02,
+      "inertia": [
+        1.20683,
+        1.20683,
+        1.20683
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_003",
+      "position": [
+        -73.257,
+        102.423,
+        112.819
+      ],
+      "velocity": [
+        -0.1801,
+        0.0,
+        -0.1243
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 0.95,
+      "mass": 1.248,
+      "restitution": 0.02,
+      "inertia": [
+        0.450528,
+        0.450528,
+        0.450528
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_004",
+      "position": [
+        41.205,
+        95.032,
+        -165.311
+      ],
+      "velocity": [
+        0.2066,
+        0.0,
+        0.0303
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 0.935,
+      "mass": 1.156,
+      "restitution": 0.02,
+      "inertia": [
+        0.404242,
+        0.404242,
+        0.404242
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_005",
+      "position": [
+        33.939,
+        99.656,
+        -21.589
+      ],
+      "velocity": [
+        0.1349,
+        0.0,
+        0.1907
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.299,
+      "mass": 3.429,
+      "restitution": 0.02,
+      "inertia": [
+        2.314439,
+        2.314439,
+        2.314439
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_006",
+      "position": [
+        -37.842,
+        99.386,
+        47.509
+      ],
+      "velocity": [
+        -0.1515,
+        0.0,
+        -0.1461
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.37,
+      "mass": 3.872,
+      "restitution": 0.02,
+      "inertia": [
+        2.906943,
+        2.906943,
+        2.906943
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_007",
+      "position": [
+        32.688,
+        104.426,
+        -92.119
+      ],
+      "velocity": [
+        0.1936,
+        0.0,
+        0.0807
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 0.974,
+      "mass": 1.402,
+      "restitution": 0.02,
+      "inertia": [
+        0.532018,
+        0.532018,
+        0.532018
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_008",
+      "position": [
+        -1.277,
+        91.126,
+        136.477
+      ],
+      "velocity": [
+        -0.2042,
+        0.0,
+        -0.0091
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.025,
+      "mass": 1.719,
+      "restitution": 0.02,
+      "inertia": [
+        0.72241,
+        0.72241,
+        0.72241
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_009",
+      "position": [
+        -51.372,
+        95.114,
+        -153.846
+      ],
+      "velocity": [
+        0.2315,
+        0.0,
+        -0.0872
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.085,
+      "mass": 2.091,
+      "restitution": 0.02,
+      "inertia": [
+        0.984631,
+        0.984631,
+        0.984631
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_010",
+      "position": [
+        14.628,
+        93.585,
+        -31.258
+      ],
+      "velocity": [
+        0.2021,
+        0.0,
+        0.1126
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.155,
+      "mass": 2.533,
+      "restitution": 0.02,
+      "inertia": [
+        1.351634,
+        1.351634,
+        1.351634
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_011",
+      "position": [
+        -6.35,
+        87.179,
+        59.647
+      ],
+      "velocity": [
+        -0.1806,
+        0.0,
+        0.0012
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 0.986,
+      "mass": 1.476,
+      "restitution": 0.02,
+      "inertia": [
+        0.573985,
+        0.573985,
+        0.573985
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_012",
+      "position": [
+        -21.754,
+        95.299,
+        -94.796
+      ],
+      "velocity": [
+        0.1993,
+        0.0,
+        -0.0445
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.021,
+      "mass": 1.695,
+      "restitution": 0.02,
+      "inertia": [
+        0.706775,
+        0.706775,
+        0.706775
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_013",
+      "position": [
+        68.084,
+        103.236,
+        109.274
+      ],
+      "velocity": [
+        -0.2475,
+        0.0,
+        0.1283
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.258,
+      "mass": 3.177,
+      "restitution": 0.02,
+      "inertia": [
+        2.011122,
+        2.011122,
+        2.011122
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_014",
+      "position": [
+        -121.365,
+        103.494,
+        -98.539
+      ],
+      "velocity": [
+        0.1182,
+        0.0,
+        -0.1908
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 0.985,
+      "mass": 1.467,
+      "restitution": 0.02,
+      "inertia": [
+        0.569328,
+        0.569328,
+        0.569328
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_015",
+      "position": [
+        -5.084,
+        96.368,
+        -39.231
+      ],
+      "velocity": [
+        0.1209,
+        0.0,
+        -0.0521
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.337,
+      "mass": 3.67,
+      "restitution": 0.02,
+      "inertia": [
+        2.624151,
+        2.624151,
+        2.624151
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_016",
+      "position": [
+        28.196,
+        99.741,
+        56.838
+      ],
+      "velocity": [
+        -0.1455,
+        0.0,
+        0.0418
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.423,
+      "mass": 4.208,
+      "restitution": 0.02,
+      "inertia": [
+        3.40836,
+        3.40836,
+        3.40836
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_017",
+      "position": [
+        -68.301,
+        89.668,
+        -67.388
+      ],
+      "velocity": [
+        0.1133,
+        0.0,
+        -0.1172
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.194,
+      "mass": 2.778,
+      "restitution": 0.02,
+      "inertia": [
+        1.584167,
+        1.584167,
+        1.584167
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_018",
+      "position": [
+        120.497,
+        86.064,
+        57.767
+      ],
+      "velocity": [
+        -0.1382,
+        0.0,
+        0.2034
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.057,
+      "mass": 1.917,
+      "restitution": 0.02,
+      "inertia": [
+        0.856707,
+        0.856707,
+        0.856707
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_019",
+      "position": [
+        -164.644,
+        100.554,
+        -19.087
+      ],
+      "velocity": [
+        0.0179,
+        0.0,
+        -0.1904
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.432,
+      "mass": 4.264,
+      "restitution": 0.02,
+      "inertia": [
+        3.497544,
+        3.497544,
+        3.497544
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_020",
+      "position": [
+        -20.302,
+        88.749,
+        -24.329
+      ],
+      "velocity": [
+        0.1164,
+        0.0,
+        -0.0821
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.428,
+      "mass": 4.24,
+      "restitution": 0.02,
+      "inertia": [
+        3.458456,
+        3.458456,
+        3.458456
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_021",
+      "position": [
+        53.985,
+        103.318,
+        32.636
+      ],
+      "velocity": [
+        -0.123,
+        0.0,
+        0.1767
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.377,
+      "mass": 3.916,
+      "restitution": 0.02,
+      "inertia": [
+        2.970096,
+        2.970096,
+        2.970096
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_022",
+      "position": [
+        -101.034,
+        104.487,
+        -21.758
+      ],
+      "velocity": [
+        0.0728,
+        0.0,
+        -0.1304
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.041,
+      "mass": 1.821,
+      "restitution": 0.02,
+      "inertia": [
+        0.789353,
+        0.789353,
+        0.789353
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_023",
+      "position": [
+        132.924,
+        95.818,
+        -15.962
+      ],
+      "velocity": [
+        0.0633,
+        0.0,
+        0.1994
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.022,
+      "mass": 1.701,
+      "restitution": 0.02,
+      "inertia": [
+        0.710667,
+        0.710667,
+        0.710667
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_024",
+      "position": [
+        -148.431,
+        98.193,
+        71.909
+      ],
+      "velocity": [
+        -0.1341,
+        0.0,
+        -0.2606
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.269,
+      "mass": 3.246,
+      "restitution": 0.02,
+      "inertia": [
+        2.090893,
+        2.090893,
+        2.090893
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_025",
+      "position": [
+        -40.697,
+        105.079,
+        -12.984
+      ],
+      "velocity": [
+        0.0871,
+        0.0,
+        -0.1855
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.214,
+      "mass": 2.9,
+      "restitution": 0.02,
+      "inertia": [
+        1.709603,
+        1.709603,
+        1.709603
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_026",
+      "position": [
+        65.258,
+        89.932,
+        -1.489
+      ],
+      "velocity": [
+        -0.0259,
+        0.0,
+        0.2169
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.171,
+      "mass": 2.632,
+      "restitution": 0.02,
+      "inertia": [
+        1.443643,
+        1.443643,
+        1.443643
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_027",
+      "position": [
+        -88.655,
+        96.81,
+        32.808
+      ],
+      "velocity": [
+        -0.0285,
+        0.0,
+        -0.1835
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 0.986,
+      "mass": 1.476,
+      "restitution": 0.02,
+      "inertia": [
+        0.573985,
+        0.573985,
+        0.573985
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_028",
+      "position": [
+        97.64,
+        101.922,
+        -79.942
+      ],
+      "velocity": [
+        0.1472,
+        0.0,
+        0.1825
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.067,
+      "mass": 1.979,
+      "restitution": 0.02,
+      "inertia": [
+        0.901228,
+        0.901228,
+        0.901228
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_029",
+      "position": [
+        -84.575,
+        100.347,
+        136.99
+      ],
+      "velocity": [
+        -0.1774,
+        0.0,
+        -0.1177
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.416,
+      "mass": 4.16,
+      "restitution": 0.02,
+      "inertia": [
+        3.336413,
+        3.336413,
+        3.336413
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_030",
+      "position": [
+        -27.159,
+        89.401,
+        7.159
+      ],
+      "velocity": [
+        -0.0414,
+        0.0,
+        -0.1836
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 0.985,
+      "mass": 1.469,
+      "restitution": 0.02,
+      "inertia": [
+        0.570104,
+        0.570104,
+        0.570104
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_031",
+      "position": [
+        49.132,
+        90.88,
+        -32.852
+      ],
+      "velocity": [
+        0.0727,
+        0.0,
+        0.1353
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.107,
+      "mass": 2.23,
+      "restitution": 0.02,
+      "inertia": [
+        1.093101,
+        1.093101,
+        1.093101
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_032",
+      "position": [
+        -62.306,
+        101.842,
+        81.993
+      ],
+      "velocity": [
+        -0.1403,
+        0.0,
+        -0.1584
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 0.943,
+      "mass": 1.204,
+      "restitution": 0.02,
+      "inertia": [
+        0.428262,
+        0.428262,
+        0.428262
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_033",
+      "position": [
+        39.643,
+        86.323,
+        -120.363
+      ],
+      "velocity": [
+        0.2311,
+        0.0,
+        0.1002
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.261,
+      "mass": 3.194,
+      "restitution": 0.02,
+      "inertia": [
+        2.031539,
+        2.031539,
+        2.031539
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_034",
+      "position": [
+        2.28,
+        103.878,
+        169.412
+      ],
+      "velocity": [
+        -0.2508,
+        0.0,
+        0.0116
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.369,
+      "mass": 3.868,
+      "restitution": 0.02,
+      "inertia": [
+        2.899702,
+        2.899702,
+        2.899702
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_035",
+      "position": [
+        -25.034,
+        90.161,
+        27.061
+      ],
+      "velocity": [
+        -0.1553,
+        0.0,
+        -0.1479
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.187,
+      "mass": 2.731,
+      "restitution": 0.02,
+      "inertia": [
+        1.539158,
+        1.539158,
+        1.539158
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_036",
+      "position": [
+        26.136,
+        92.899,
+        -59.341
+      ],
+      "velocity": [
+        0.192,
+        0.0,
+        0.0327
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 0.988,
+      "mass": 1.488,
+      "restitution": 0.02,
+      "inertia": [
+        0.581001,
+        0.581001,
+        0.581001
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_037",
+      "position": [
+        -7.905,
+        102.424,
+        94.741
+      ],
+      "velocity": [
+        -0.2205,
+        0.0,
+        -0.0276
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.411,
+      "mass": 4.133,
+      "restitution": 0.02,
+      "inertia": [
+        3.291391,
+        3.291391,
+        3.291391
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_038",
+      "position": [
+        -31.442,
+        93.059,
+        -123.974
+      ],
+      "velocity": [
+        0.2636,
+        0.0,
+        -0.0362
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 0.99,
+      "mass": 1.502,
+      "restitution": 0.02,
+      "inertia": [
+        0.588844,
+        0.588844,
+        0.588844
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_039",
+      "position": [
+        85.113,
+        93.199,
+        129.908
+      ],
+      "velocity": [
+        -0.1745,
+        0.0,
+        0.1167
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.403,
+      "mass": 4.08,
+      "restitution": 0.02,
+      "inertia": [
+        3.212443,
+        3.212443,
+        3.212443
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_040",
+      "position": [
+        -5.676,
+        98.389,
+        31.202
+      ],
+      "velocity": [
+        -0.1811,
+        0.0,
+        -0.0761
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 0.977,
+      "mass": 1.421,
+      "restitution": 0.02,
+      "inertia": [
+        0.542554,
+        0.542554,
+        0.542554
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_041",
+      "position": [
+        -9.157,
+        94.145,
+        -59.907
+      ],
+      "velocity": [
+        0.1663,
+        0.0,
+        -0.0443
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.418,
+      "mass": 4.178,
+      "restitution": 0.02,
+      "inertia": [
+        3.360322,
+        3.360322,
+        3.360322
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_042",
+      "position": [
+        46.12,
+        88.145,
+        87.877
+      ],
+      "velocity": [
+        -0.1361,
+        0.0,
+        0.1128
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.094,
+      "mass": 2.148,
+      "restitution": 0.02,
+      "inertia": [
+        1.028321,
+        1.028321,
+        1.028321
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_043",
+      "position": [
+        -100.797,
+        105.01,
+        -95.012
+      ],
+      "velocity": [
+        0.1498,
+        0.0,
+        -0.1751
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.146,
+      "mass": 2.473,
+      "restitution": 0.02,
+      "inertia": [
+        1.299132,
+        1.299132,
+        1.299132
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_044",
+      "position": [
+        153.156,
+        100.638,
+        69.174
+      ],
+      "velocity": [
+        -0.1243,
+        0.0,
+        0.2114
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.186,
+      "mass": 2.722,
+      "restitution": 0.02,
+      "inertia": [
+        1.531502,
+        1.531502,
+        1.531502
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_045",
+      "position": [
+        13.634,
+        99.211,
+        33.491
+      ],
+      "velocity": [
+        -0.2084,
+        0.0,
+        0.0981
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.303,
+      "mass": 3.458,
+      "restitution": 0.02,
+      "inertia": [
+        2.348409,
+        2.348409,
+        2.348409
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_046",
+      "position": [
+        -39.409,
+        103.469,
+        -45.093
+      ],
+      "velocity": [
+        0.1539,
+        0.0,
+        -0.1572
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.235,
+      "mass": 3.029,
+      "restitution": 0.02,
+      "inertia": [
+        1.847963,
+        1.847963,
+        1.847963
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_047",
+      "position": [
+        89.488,
+        96.744,
+        51.349
+      ],
+      "velocity": [
+        -0.148,
+        0.0,
+        0.1802
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.359,
+      "mass": 3.808,
+      "restitution": 0.02,
+      "inertia": [
+        2.813169,
+        2.813169,
+        2.813169
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_048",
+      "position": [
+        -129.259,
+        92.62,
+        -24.766
+      ],
+      "velocity": [
+        0.0385,
+        0.0,
+        -0.2351
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 0.967,
+      "mass": 1.354,
+      "restitution": 0.02,
+      "inertia": [
+        0.506444,
+        0.506444,
+        0.506444
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_049",
+      "position": [
+        165.082,
+        99.044,
+        -23.655
+      ],
+      "velocity": [
+        0.0229,
+        0.0,
+        0.262
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 0.985,
+      "mass": 1.467,
+      "restitution": 0.02,
+      "inertia": [
+        0.569328,
+        0.569328,
+        0.569328
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_050",
+      "position": [
+        29.167,
+        95.463,
+        20.719
+      ],
+      "velocity": [
+        -0.1027,
+        0.0,
+        0.17
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.305,
+      "mass": 3.466,
+      "restitution": 0.02,
+      "inertia": [
+        2.361074,
+        2.361074,
+        2.361074
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_051",
+      "position": [
+        -59.447,
+        93.162,
+        -17.482
+      ],
+      "velocity": [
+        0.029,
+        0.0,
+        -0.2033
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.379,
+      "mass": 3.931,
+      "restitution": 0.02,
+      "inertia": [
+        2.99014,
+        2.99014,
+        2.99014
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_052",
+      "position": [
+        92.776,
+        93.114,
+        -4.235
+      ],
+      "velocity": [
+        0.0257,
+        0.0,
+        0.2043
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.408,
+      "mass": 4.113,
+      "restitution": 0.02,
+      "inertia": [
+        3.26155,
+        3.26155,
+        3.26155
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_053",
+      "position": [
+        -124.932,
+        105.489,
+        49.501
+      ],
+      "velocity": [
+        -0.1148,
+        0.0,
+        -0.2262
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.006,
+      "mass": 1.598,
+      "restitution": 0.02,
+      "inertia": [
+        0.646893,
+        0.646893,
+        0.646893
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_054",
+      "position": [
+        126.883,
+        90.066,
+        -108.812
+      ],
+      "velocity": [
+        0.1627,
+        0.0,
+        0.2154
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.079,
+      "mass": 2.056,
+      "restitution": 0.02,
+      "inertia": [
+        0.957472,
+        0.957472,
+        0.957472
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_055",
+      "position": [
+        41.146,
+        89.044,
+        2.104
+      ],
+      "velocity": [
+        -0.0101,
+        0.0,
+        0.1924
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 0.982,
+      "mass": 1.448,
+      "restitution": 0.02,
+      "inertia": [
+        0.558536,
+        0.558536,
+        0.558536
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_056",
+      "position": [
+        -67.05,
+        96.181,
+        19.32
+      ],
+      "velocity": [
+        -0.0853,
+        0.0,
+        -0.2241
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.388,
+      "mass": 3.987,
+      "restitution": 0.02,
+      "inertia": [
+        3.072452,
+        3.072452,
+        3.072452
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_057",
+      "position": [
+        83.861,
+        92.669,
+        -58.884
+      ],
+      "velocity": [
+        0.1452,
+        0.0,
+        0.1404
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.172,
+      "mass": 2.636,
+      "restitution": 0.02,
+      "inertia": [
+        1.448307,
+        1.448307,
+        1.448307
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_058",
+      "position": [
+        -78.593,
+        98.433,
+        108.476
+      ],
+      "velocity": [
+        -0.2167,
+        0.0,
+        -0.1756
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.251,
+      "mass": 3.129,
+      "restitution": 0.02,
+      "inertia": [
+        1.958755,
+        1.958755,
+        1.958755
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_059",
+      "position": [
+        48.984,
+        93.212,
+        -160.992
+      ],
+      "velocity": [
+        0.2334,
+        0.0,
+        0.0734
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.133,
+      "mass": 2.396,
+      "restitution": 0.02,
+      "inertia": [
+        1.230288,
+        1.230288,
+        1.230288
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_060",
+      "position": [
+        36.044,
+        97.311,
+        -20.421
+      ],
+      "velocity": [
+        0.0381,
+        0.0,
+        0.1277
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.17,
+      "mass": 2.622,
+      "restitution": 0.02,
+      "inertia": [
+        1.435702,
+        1.435702,
+        1.435702
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_061",
+      "position": [
+        -46.738,
+        94.185,
+        52.893
+      ],
+      "velocity": [
+        -0.1078,
+        0.0,
+        -0.1218
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.216,
+      "mass": 2.911,
+      "restitution": 0.02,
+      "inertia": [
+        1.721747,
+        1.721747,
+        1.721747
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_062",
+      "position": [
+        38.65,
+        89.552,
+        -93.476
+      ],
+      "velocity": [
+        0.2002,
+        0.0,
+        0.0667
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 0.937,
+      "mass": 1.166,
+      "restitution": 0.02,
+      "inertia": [
+        0.409485,
+        0.409485,
+        0.409485
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_063",
+      "position": [
+        -7.849,
+        104.756,
+        129.709
+      ],
+      "velocity": [
+        -0.2821,
+        0.0,
+        -0.038
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 0.914,
+      "mass": 1.023,
+      "restitution": 0.02,
+      "inertia": [
+        0.341844,
+        0.341844,
+        0.341844
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_064",
+      "position": [
+        -43.877,
+        103.212,
+        -157.808
+      ],
+      "velocity": [
+        0.2196,
+        0.0,
+        -0.0664
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.422,
+      "mass": 4.2,
+      "restitution": 0.02,
+      "inertia": [
+        3.397101,
+        3.397101,
+        3.397101
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_065",
+      "position": [
+        20.07,
+        92.515,
+        -37.738
+      ],
+      "velocity": [
+        0.1681,
+        0.0,
+        0.0943
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.436,
+      "mass": 4.287,
+      "restitution": 0.02,
+      "inertia": [
+        3.536082,
+        3.536082,
+        3.536082
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_066",
+      "position": [
+        -9.451,
+        96.807,
+        59.646
+      ],
+      "velocity": [
+        -0.1533,
+        0.0,
+        -0.0165
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.219,
+      "mass": 2.929,
+      "restitution": 0.02,
+      "inertia": [
+        1.740952,
+        1.740952,
+        1.740952
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_067",
+      "position": [
+        -16.768,
+        99.851,
+        -95.123
+      ],
+      "velocity": [
+        0.2341,
+        0.0,
+        -0.0145
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.019,
+      "mass": 1.681,
+      "restitution": 0.02,
+      "inertia": [
+        0.698194,
+        0.698194,
+        0.698194
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_068",
+      "position": [
+        62.87,
+        99.105,
+        113.428
+      ],
+      "velocity": [
+        -0.2274,
+        0.0,
+        0.1301
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.011,
+      "mass": 1.629,
+      "restitution": 0.02,
+      "inertia": [
+        0.666014,
+        0.666014,
+        0.666014
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_069",
+      "position": [
+        -119.57,
+        95.595,
+        -107.664
+      ],
+      "velocity": [
+        0.1944,
+        0.0,
+        -0.1497
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.339,
+      "mass": 3.683,
+      "restitution": 0.02,
+      "inertia": [
+        2.641331,
+        2.641331,
+        2.641331
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_070",
+      "position": [
+        -2.923,
+        98.143,
+        -37.507
+      ],
+      "velocity": [
+        0.1736,
+        0.0,
+        0.0021
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.157,
+      "mass": 2.544,
+      "restitution": 0.02,
+      "inertia": [
+        1.362209,
+        1.362209,
+        1.362209
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_071",
+      "position": [
+        26.884,
+        105.814,
+        61.955
+      ],
+      "velocity": [
+        -0.1797,
+        0.0,
+        0.0641
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.128,
+      "mass": 2.364,
+      "restitution": 0.02,
+      "inertia": [
+        1.203166,
+        1.203166,
+        1.203166
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_072",
+      "position": [
+        -67.877,
+        98.023,
+        -74.183
+      ],
+      "velocity": [
+        0.2071,
+        0.0,
+        -0.1399
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.13,
+      "mass": 2.374,
+      "restitution": 0.02,
+      "inertia": [
+        1.212544,
+        1.212544,
+        1.212544
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_073",
+      "position": [
+        115.669,
+        86.059,
+        62.909
+      ],
+      "velocity": [
+        -0.1211,
+        0.0,
+        0.197
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.363,
+      "mass": 3.831,
+      "restitution": 0.02,
+      "inertia": [
+        2.846845,
+        2.846845,
+        2.846845
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_074",
+      "position": [
+        -165.578,
+        103.179,
+        -27.826
+      ],
+      "velocity": [
+        -0.0014,
+        0.0,
+        -0.187
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.373,
+      "mass": 3.892,
+      "restitution": 0.02,
+      "inertia": [
+        2.934769,
+        2.934769,
+        2.934769
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_075",
+      "position": [
+        -18.751,
+        88.728,
+        -24.957
+      ],
+      "velocity": [
+        0.1973,
+        0.0,
+        -0.1499
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 0.951,
+      "mass": 1.256,
+      "restitution": 0.02,
+      "inertia": [
+        0.454371,
+        0.454371,
+        0.454371
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_076",
+      "position": [
+        59.457,
+        103.487,
+        40.227
+      ],
+      "velocity": [
+        -0.1168,
+        0.0,
+        0.1692
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.291,
+      "mass": 3.381,
+      "restitution": 0.02,
+      "inertia": [
+        2.254019,
+        2.254019,
+        2.254019
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_077",
+      "position": [
+        -101.6,
+        97.651,
+        -27.377
+      ],
+      "velocity": [
+        0.0652,
+        0.0,
+        -0.2379
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.425,
+      "mass": 4.22,
+      "restitution": 0.02,
+      "inertia": [
+        3.427695,
+        3.427695,
+        3.427695
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_078",
+      "position": [
+        126.793,
+        92.955,
+        -8.69
+      ],
+      "velocity": [
+        0.051,
+        0.0,
+        0.2138
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.327,
+      "mass": 3.609,
+      "restitution": 0.02,
+      "inertia": [
+        2.542077,
+        2.542077,
+        2.542077
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_079",
+      "position": [
+        -147.779,
+        101.885,
+        62.49
+      ],
+      "velocity": [
+        -0.1146,
+        0.0,
+        -0.2231
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 0.927,
+      "mass": 1.109,
+      "restitution": 0.02,
+      "inertia": [
+        0.381198,
+        0.381198,
+        0.381198
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_080",
+      "position": [
+        -38.016,
+        89.334,
+        -14.305
+      ],
+      "velocity": [
+        0.0743,
+        0.0,
+        -0.1436
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.025,
+      "mass": 1.721,
+      "restitution": 0.02,
+      "inertia": [
+        0.72325,
+        0.72325,
+        0.72325
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_081",
+      "position": [
+        67.526,
+        103.814,
+        1.91
+      ],
+      "velocity": [
+        0.0129,
+        0.0,
+        0.2472
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.27,
+      "mass": 3.25,
+      "restitution": 0.02,
+      "inertia": [
+        2.09677,
+        2.09677,
+        2.09677
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_082",
+      "position": [
+        -98.368,
+        88.722,
+        30.79
+      ],
+      "velocity": [
+        -0.0391,
+        0.0,
+        -0.1841
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.014,
+      "mass": 1.651,
+      "restitution": 0.02,
+      "inertia": [
+        0.679021,
+        0.679021,
+        0.679021
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_083",
+      "position": [
+        104.605,
+        97.397,
+        -77.07
+      ],
+      "velocity": [
+        0.1334,
+        0.0,
+        0.1663
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 0.921,
+      "mass": 1.07,
+      "restitution": 0.02,
+      "inertia": [
+        0.363047,
+        0.363047,
+        0.363047
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_084",
+      "position": [
+        -92.193,
+        88.651,
+        133.556
+      ],
+      "velocity": [
+        -0.2506,
+        0.0,
+        -0.1429
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.244,
+      "mass": 3.089,
+      "restitution": 0.02,
+      "inertia": [
+        1.912135,
+        1.912135,
+        1.912135
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_085",
+      "position": [
+        -40.956,
+        95.549,
+        8.586
+      ],
+      "velocity": [
+        -0.0399,
+        0.0,
+        -0.1621
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.421,
+      "mass": 4.196,
+      "restitution": 0.02,
+      "inertia": [
+        3.389094,
+        3.389094,
+        3.389094
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_086",
+      "position": [
+        59.104,
+        90.888,
+        -35.29
+      ],
+      "velocity": [
+        0.1256,
+        0.0,
+        0.2057
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.123,
+      "mass": 2.333,
+      "restitution": 0.02,
+      "inertia": [
+        1.176886,
+        1.176886,
+        1.176886
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_087",
+      "position": [
+        -64.055,
+        105.54,
+        75.912
+      ],
+      "velocity": [
+        -0.1286,
+        0.0,
+        -0.1126
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.258,
+      "mass": 3.178,
+      "restitution": 0.02,
+      "inertia": [
+        2.011755,
+        2.011755,
+        2.011755
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_088",
+      "position": [
+        45.549,
+        105.42,
+        -117.693
+      ],
+      "velocity": [
+        0.1843,
+        0.0,
+        0.0685
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 0.971,
+      "mass": 1.384,
+      "restitution": 0.02,
+      "inertia": [
+        0.521957,
+        0.521957,
+        0.521957
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_089",
+      "position": [
+        -5.854,
+        101.292,
+        155.489
+      ],
+      "velocity": [
+        -0.1869,
+        0.0,
+        0.0044
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.222,
+      "mass": 2.949,
+      "restitution": 0.02,
+      "inertia": [
+        1.761478,
+        1.761478,
+        1.761478
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_090",
+      "position": [
+        -22.232,
+        105.498,
+        21.696
+      ],
+      "velocity": [
+        -0.076,
+        0.0,
+        -0.0946
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.461,
+      "mass": 4.441,
+      "restitution": 0.02,
+      "inertia": [
+        3.791763,
+        3.791763,
+        3.791763
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_091",
+      "position": [
+        30.044,
+        103.657,
+        -59.741
+      ],
+      "velocity": [
+        0.1499,
+        0.0,
+        0.1188
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.179,
+      "mass": 2.68,
+      "restitution": 0.02,
+      "inertia": [
+        1.490124,
+        1.490124,
+        1.490124
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_092",
+      "position": [
+        -12.262,
+        103.135,
+        90.732
+      ],
+      "velocity": [
+        -0.1415,
+        0.0,
+        -0.0154
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 0.961,
+      "mass": 1.319,
+      "restitution": 0.02,
+      "inertia": [
+        0.48725,
+        0.48725,
+        0.48725
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_093",
+      "position": [
+        -26.574,
+        86.944,
+        -132.94
+      ],
+      "velocity": [
+        0.1863,
+        0.0,
+        -0.0462
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.327,
+      "mass": 3.608,
+      "restitution": 0.02,
+      "inertia": [
+        2.541373,
+        2.541373,
+        2.541373
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_094",
+      "position": [
+        80.415,
+        89.191,
+        137.585
+      ],
+      "velocity": [
+        -0.1681,
+        0.0,
+        0.0799
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.392,
+      "mass": 4.012,
+      "restitution": 0.02,
+      "inertia": [
+        3.109563,
+        3.109563,
+        3.109563
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_095",
+      "position": [
+        -6.571,
+        94.851,
+        27.932
+      ],
+      "velocity": [
+        -0.1832,
+        0.0,
+        -0.0225
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.309,
+      "mass": 3.496,
+      "restitution": 0.02,
+      "inertia": [
+        2.396132,
+        2.396132,
+        2.396132
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_096",
+      "position": [
+        -6.632,
+        96.898,
+        -65.711
+      ],
+      "velocity": [
+        0.1658,
+        0.0,
+        -0.0298
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.113,
+      "mass": 2.269,
+      "restitution": 0.02,
+      "inertia": [
+        1.124307,
+        1.124307,
+        1.124307
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_097",
+      "position": [
+        43.384,
+        100.481,
+        94.045
+      ],
+      "velocity": [
+        -0.1923,
+        0.0,
+        0.1188
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.443,
+      "mass": 4.33,
+      "restitution": 0.02,
+      "inertia": [
+        3.606455,
+        3.606455,
+        3.606455
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_098",
+      "position": [
+        -92.529,
+        93.867,
+        -96.605
+      ],
+      "velocity": [
+        0.1143,
+        0.0,
+        -0.1195
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.197,
+      "mass": 2.795,
+      "restitution": 0.02,
+      "inertia": [
+        1.60188,
+        1.60188,
+        1.60188
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_099",
+      "position": [
+        141.016,
+        95.561,
+        72.577
+      ],
+      "velocity": [
+        -0.1432,
+        0.0,
+        0.23
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 0.998,
+      "mass": 1.549,
+      "restitution": 0.02,
+      "inertia": [
+        0.617124,
+        0.617124,
+        0.617124
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_100",
+      "position": [
+        13.764,
+        101.638,
+        39.472
+      ],
+      "velocity": [
+        -0.1206,
+        0.0,
+        0.0291
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.071,
+      "mass": 2.006,
+      "restitution": 0.02,
+      "inertia": [
+        0.920386,
+        0.920386,
+        0.920386
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_101",
+      "position": [
+        -41.084,
+        88.448,
+        -52.162
+      ],
+      "velocity": [
+        0.1191,
+        0.0,
+        -0.0892
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.357,
+      "mass": 3.792,
+      "restitution": 0.02,
+      "inertia": [
+        2.79311,
+        2.79311,
+        2.79311
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_102",
+      "position": [
+        88.108,
+        97.661,
+        56.726
+      ],
+      "velocity": [
+        -0.1465,
+        0.0,
+        0.2071
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.397,
+      "mass": 4.046,
+      "restitution": 0.02,
+      "inertia": [
+        3.158484,
+        3.158484,
+        3.158484
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_103",
+      "position": [
+        -126.871,
+        101.469,
+        -31.1
+      ],
+      "velocity": [
+        0.0545,
+        0.0,
+        -0.1917
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.228,
+      "mass": 2.987,
+      "restitution": 0.02,
+      "inertia": [
+        1.801739,
+        1.801739,
+        1.801739
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_104",
+      "position": [
+        155.45,
+        105.088,
+        -14.222
+      ],
+      "velocity": [
+        0.0521,
+        0.0,
+        0.2326
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.348,
+      "mass": 3.74,
+      "restitution": 0.02,
+      "inertia": [
+        2.718388,
+        2.718388,
+        2.718388
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_105",
+      "position": [
+        33.708,
+        93.52,
+        26.636
+      ],
+      "velocity": [
+        -0.1441,
+        0.0,
+        0.1667
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 0.944,
+      "mass": 1.213,
+      "restitution": 0.02,
+      "inertia": [
+        0.432379,
+        0.432379,
+        0.432379
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_106",
+      "position": [
+        -69.611,
+        103.754,
+        -24.397
+      ],
+      "velocity": [
+        0.0597,
+        0.0,
+        -0.1874
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.468,
+      "mass": 4.485,
+      "restitution": 0.02,
+      "inertia": [
+        3.866113,
+        3.866113,
+        3.866113
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_107",
+      "position": [
+        96.147,
+        92.054,
+        0.526
+      ],
+      "velocity": [
+        -0.0034,
+        0.0,
+        0.2691
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.015,
+      "mass": 1.658,
+      "restitution": 0.02,
+      "inertia": [
+        0.683245,
+        0.683245,
+        0.683245
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_108",
+      "position": [
+        -126.173,
+        86.64,
+        42.677
+      ],
+      "velocity": [
+        -0.0814,
+        0.0,
+        -0.1941
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.287,
+      "mass": 3.355,
+      "restitution": 0.02,
+      "inertia": [
+        2.222847,
+        2.222847,
+        2.222847
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_109",
+      "position": [
+        124.63,
+        87.879,
+        -96.286
+      ],
+      "velocity": [
+        0.1323,
+        0.0,
+        0.2216
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.249,
+      "mass": 3.117,
+      "restitution": 0.02,
+      "inertia": [
+        1.945009,
+        1.945009,
+        1.945009
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_110",
+      "position": [
+        38.444,
+        98.757,
+        3.942
+      ],
+      "velocity": [
+        -0.0291,
+        0.0,
+        0.2116
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.454,
+      "mass": 4.4,
+      "restitution": 0.02,
+      "inertia": [
+        3.720844,
+        3.720844,
+        3.720844
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_111",
+      "position": [
+        -58.518,
+        102.561,
+        13.668
+      ],
+      "velocity": [
+        -0.0261,
+        0.0,
+        -0.2548
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.016,
+      "mass": 1.661,
+      "restitution": 0.02,
+      "inertia": [
+        0.685831,
+        0.685831,
+        0.685831
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_112",
+      "position": [
+        84.392,
+        100.877,
+        -53.038
+      ],
+      "velocity": [
+        0.0825,
+        0.0,
+        0.2238
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.388,
+      "mass": 3.985,
+      "restitution": 0.02,
+      "inertia": [
+        3.070911,
+        3.070911,
+        3.070911
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_113",
+      "position": [
+        -78.883,
+        87.607,
+        97.932
+      ],
+      "velocity": [
+        -0.1605,
+        0.0,
+        -0.1657
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.197,
+      "mass": 2.796,
+      "restitution": 0.02,
+      "inertia": [
+        1.602454,
+        1.602454,
+        1.602454
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_114",
+      "position": [
+        52.814,
+        102.202,
+        -146.293
+      ],
+      "velocity": [
+        0.2308,
+        0.0,
+        0.0783
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.094,
+      "mass": 2.152,
+      "restitution": 0.02,
+      "inertia": [
+        1.030236,
+        1.030236,
+        1.030236
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_115",
+      "position": [
+        31.484,
+        95.135,
+        -15.771
+      ],
+      "velocity": [
+        0.1055,
+        0.0,
+        0.204
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 0.935,
+      "mass": 1.154,
+      "restitution": 0.02,
+      "inertia": [
+        0.403542,
+        0.403542,
+        0.403542
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_116",
+      "position": [
+        -48.288,
+        96.455,
+        49.324
+      ],
+      "velocity": [
+        -0.1461,
+        0.0,
+        -0.1487
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.437,
+      "mass": 4.296,
+      "restitution": 0.02,
+      "inertia": [
+        3.548443,
+        3.548443,
+        3.548443
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_117",
+      "position": [
+        41.861,
+        104.037,
+        -88.194
+      ],
+      "velocity": [
+        0.2179,
+        0.0,
+        0.047
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.321,
+      "mass": 3.569,
+      "restitution": 0.02,
+      "inertia": [
+        2.491221,
+        2.491221,
+        2.491221
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_118",
+      "position": [
+        -15.134,
+        101.664,
+        135.135
+      ],
+      "velocity": [
+        -0.2133,
+        0.0,
+        -0.0527
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.441,
+      "mass": 4.319,
+      "restitution": 0.02,
+      "inertia": [
+        3.587329,
+        3.587329,
+        3.587329
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_119",
+      "position": [
+        -35.861,
+        92.971,
+        -160.289
+      ],
+      "velocity": [
+        0.2464,
+        0.0,
+        -0.0514
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.113,
+      "mass": 2.268,
+      "restitution": 0.02,
+      "inertia": [
+        1.123811,
+        1.123811,
+        1.123811
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_120",
+      "position": [
+        16.419,
+        100.473,
+        -27.4
+      ],
+      "velocity": [
+        0.2162,
+        0.0,
+        0.1205
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.003,
+      "mass": 1.582,
+      "restitution": 0.02,
+      "inertia": [
+        0.636602,
+        0.636602,
+        0.636602
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_121",
+      "position": [
+        -14.151,
+        101.138,
+        66.973
+      ],
+      "velocity": [
+        -0.2273,
+        0.0,
+        -0.0161
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.4,
+      "mass": 4.063,
+      "restitution": 0.02,
+      "inertia": [
+        3.185392,
+        3.185392,
+        3.185392
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_122",
+      "position": [
+        -13.016,
+        100.238,
+        -104.943
+      ],
+      "velocity": [
+        0.2584,
+        0.0,
+        -0.0355
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.134,
+      "mass": 2.401,
+      "restitution": 0.02,
+      "inertia": [
+        1.235032,
+        1.235032,
+        1.235032
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_123",
+      "position": [
+        57.941,
+        105.861,
+        118.424
+      ],
+      "velocity": [
+        -0.217,
+        0.0,
+        0.0909
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.223,
+      "mass": 2.954,
+      "restitution": 0.02,
+      "inertia": [
+        1.767353,
+        1.767353,
+        1.767353
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_124",
+      "position": [
+        -118.768,
+        89.077,
+        -118.47
+      ],
+      "velocity": [
+        0.1468,
+        0.0,
+        -0.1562
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.15,
+      "mass": 2.497,
+      "restitution": 0.02,
+      "inertia": [
+        1.320913,
+        1.320913,
+        1.320913
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_125",
+      "position": [
+        -0.869,
+        94.951,
+        -32.541
+      ],
+      "velocity": [
+        0.1783,
+        0.0,
+        -0.042
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 0.978,
+      "mass": 1.426,
+      "restitution": 0.02,
+      "inertia": [
+        0.545578,
+        0.545578,
+        0.545578
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_126",
+      "position": [
+        25.564,
+        99.853,
+        68.262
+      ],
+      "velocity": [
+        -0.1918,
+        0.0,
+        0.1021
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.434,
+      "mass": 4.276,
+      "restitution": 0.02,
+      "inertia": [
+        3.517191,
+        3.517191,
+        3.517191
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_127",
+      "position": [
+        -63.461,
+        105.433,
+        -76.898
+      ],
+      "velocity": [
+        0.1311,
+        0.0,
+        -0.0914
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.191,
+      "mass": 2.759,
+      "restitution": 0.02,
+      "inertia": [
+        1.565436,
+        1.565436,
+        1.565436
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_128",
+      "position": [
+        110.595,
+        99.067,
+        67.687
+      ],
+      "velocity": [
+        -0.1096,
+        0.0,
+        0.1492
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.236,
+      "mass": 3.037,
+      "restitution": 0.02,
+      "inertia": [
+        1.855845,
+        1.855845,
+        1.855845
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_129",
+      "position": [
+        -151.549,
+        103.363,
+        -33.505
+      ],
+      "velocity": [
+        0.0612,
+        0.0,
+        -0.2092
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.426,
+      "mass": 4.228,
+      "restitution": 0.02,
+      "inertia": [
+        3.439015,
+        3.439015,
+        3.439015
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_130",
+      "position": [
+        -15.553,
+        88.334,
+        -23.067
+      ],
+      "velocity": [
+        0.1713,
+        0.0,
+        -0.1
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.468,
+      "mass": 4.485,
+      "restitution": 0.02,
+      "inertia": [
+        3.866113,
+        3.866113,
+        3.866113
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_131",
+      "position": [
+        50.937,
+        98.707,
+        38.396
+      ],
+      "velocity": [
+        -0.0883,
+        0.0,
+        0.099
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.328,
+      "mass": 3.615,
+      "restitution": 0.02,
+      "inertia": [
+        2.550142,
+        2.550142,
+        2.550142
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_132",
+      "position": [
+        -89.393,
+        104.488,
+        -29.058
+      ],
+      "velocity": [
+        0.0268,
+        0.0,
+        -0.1647
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.046,
+      "mass": 1.848,
+      "restitution": 0.02,
+      "inertia": [
+        0.808771,
+        0.808771,
+        0.808771
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_133",
+      "position": [
+        134.777,
+        95.996,
+        -2.337
+      ],
+      "velocity": [
+        -0.0301,
+        0.0,
+        0.1775
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 0.927,
+      "mass": 1.106,
+      "restitution": 0.02,
+      "inertia": [
+        0.380167,
+        0.380167,
+        0.380167
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_134",
+      "position": [
+        -156.517,
+        105.853,
+        56.951
+      ],
+      "velocity": [
+        -0.0903,
+        0.0,
+        -0.204
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 0.978,
+      "mass": 1.427,
+      "restitution": 0.02,
+      "inertia": [
+        0.545961,
+        0.545961,
+        0.545961
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_135",
+      "position": [
+        -32.419,
+        92.59,
+        -14.129
+      ],
+      "velocity": [
+        0.0867,
+        0.0,
+        -0.202
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 0.938,
+      "mass": 1.177,
+      "restitution": 0.02,
+      "inertia": [
+        0.414231,
+        0.414231,
+        0.414231
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_136",
+      "position": [
+        70.707,
+        98.562,
+        5.623
+      ],
+      "velocity": [
+        0.0138,
+        0.0,
+        0.2235
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.047,
+      "mass": 1.857,
+      "restitution": 0.02,
+      "inertia": [
+        0.814264,
+        0.814264,
+        0.814264
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_137",
+      "position": [
+        -101.166,
+        89.325,
+        26.076
+      ],
+      "velocity": [
+        -0.067,
+        0.0,
+        -0.2014
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.022,
+      "mass": 1.701,
+      "restitution": 0.02,
+      "inertia": [
+        0.710667,
+        0.710667,
+        0.710667
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_138",
+      "position": [
+        110.405,
+        88.081,
+        -72.95
+      ],
+      "velocity": [
+        0.1026,
+        0.0,
+        0.1571
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.4,
+      "mass": 4.063,
+      "restitution": 0.02,
+      "inertia": [
+        3.185392,
+        3.185392,
+        3.185392
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_139",
+      "position": [
+        -102.128,
+        100.532,
+        132.883
+      ],
+      "velocity": [
+        -0.1876,
+        0.0,
+        -0.0973
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.038,
+      "mass": 1.803,
+      "restitution": 0.02,
+      "inertia": [
+        0.777053,
+        0.777053,
+        0.777053
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_140",
+      "position": [
+        -41.557,
+        104.939,
+        6.517
+      ],
+      "velocity": [
+        0.0137,
+        0.0,
+        -0.1677
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.118,
+      "mass": 2.3,
+      "restitution": 0.02,
+      "inertia": [
+        1.14993,
+        1.14993,
+        1.14993
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_141",
+      "position": [
+        56.929,
+        90.618,
+        -30.16
+      ],
+      "velocity": [
+        0.1063,
+        0.0,
+        0.1427
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.005,
+      "mass": 1.591,
+      "restitution": 0.02,
+      "inertia": [
+        0.64278,
+        0.64278,
+        0.64278
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_142",
+      "position": [
+        -69.326,
+        92.535,
+        74.122
+      ],
+      "velocity": [
+        -0.1578,
+        0.0,
+        -0.1352
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.065,
+      "mass": 1.969,
+      "restitution": 0.02,
+      "inertia": [
+        0.893316,
+        0.893316,
+        0.893316
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_143",
+      "position": [
+        53.458,
+        87.979,
+        -119.596
+      ],
+      "velocity": [
+        0.1641,
+        0.0,
+        0.0374
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.382,
+      "mass": 3.953,
+      "restitution": 0.02,
+      "inertia": [
+        3.019972,
+        3.019972,
+        3.019972
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_144",
+      "position": [
+        -14.287,
+        97.948,
+        160.614
+      ],
+      "velocity": [
+        -0.226,
+        0.0,
+        -0.0049
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 0.963,
+      "mass": 1.333,
+      "restitution": 0.02,
+      "inertia": [
+        0.494473,
+        0.494473,
+        0.494473
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_145",
+      "position": [
+        -22.874,
+        99.963,
+        20.148
+      ],
+      "velocity": [
+        -0.1701,
+        0.0,
+        -0.1937
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 0.961,
+      "mass": 1.317,
+      "restitution": 0.02,
+      "inertia": [
+        0.486511,
+        0.486511,
+        0.486511
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_146",
+      "position": [
+        32.451,
+        87.772,
+        -57.067
+      ],
+      "velocity": [
+        0.1327,
+        0.0,
+        0.1002
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.342,
+      "mass": 3.699,
+      "restitution": 0.02,
+      "inertia": [
+        2.664706,
+        2.664706,
+        2.664706
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_147",
+      "position": [
+        -17.259,
+        91.045,
+        92.009
+      ],
+      "velocity": [
+        -0.1745,
+        0.0,
+        -0.0782
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.09,
+      "mass": 2.125,
+      "restitution": 0.02,
+      "inertia": [
+        1.009885,
+        1.009885,
+        1.009885
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_148",
+      "position": [
+        -19.688,
+        105.13,
+        -133.696
+      ],
+      "velocity": [
+        0.226,
+        0.0,
+        -0.0261
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.391,
+      "mass": 4.004,
+      "restitution": 0.02,
+      "inertia": [
+        3.098905,
+        3.098905,
+        3.098905
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_149",
+      "position": [
+        77.808,
+        103.479,
+        150.247
+      ],
+      "velocity": [
+        -0.1736,
+        0.0,
+        0.1156
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 0.959,
+      "mass": 1.308,
+      "restitution": 0.02,
+      "inertia": [
+        0.481177,
+        0.481177,
+        0.481177
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_150",
+      "position": [
+        -11.155,
+        100.98,
+        38.485
+      ],
+      "velocity": [
+        -0.1452,
+        0.0,
+        -0.0174
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.143,
+      "mass": 2.454,
+      "restitution": 0.02,
+      "inertia": [
+        1.28241,
+        1.28241,
+        1.28241
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_151",
+      "position": [
+        -3.023,
+        87.884,
+        -61.017
+      ],
+      "velocity": [
+        0.1448,
+        0.0,
+        0.0155
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.251,
+      "mass": 3.131,
+      "restitution": 0.02,
+      "inertia": [
+        1.960007,
+        1.960007,
+        1.960007
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_152",
+      "position": [
+        36.458,
+        92.079,
+        90.979
+      ],
+      "velocity": [
+        -0.1421,
+        0.0,
+        0.0874
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.416,
+      "mass": 4.16,
+      "restitution": 0.02,
+      "inertia": [
+        3.336413,
+        3.336413,
+        3.336413
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_153",
+      "position": [
+        -88.823,
+        91.26,
+        -102.764
+      ],
+      "velocity": [
+        0.1946,
+        0.0,
+        -0.1779
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.181,
+      "mass": 2.693,
+      "restitution": 0.02,
+      "inertia": [
+        1.502437,
+        1.502437,
+        1.502437
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_154",
+      "position": [
+        140.013,
+        97.102,
+        81.361
+      ],
+      "velocity": [
+        -0.1369,
+        0.0,
+        0.198
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.302,
+      "mass": 3.449,
+      "restitution": 0.02,
+      "inertia": [
+        2.338703,
+        2.338703,
+        2.338703
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_155",
+      "position": [
+        10.134,
+        99.047,
+        34.664
+      ],
+      "velocity": [
+        -0.1718,
+        0.0,
+        0.0429
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 0.922,
+      "mass": 1.073,
+      "restitution": 0.02,
+      "inertia": [
+        0.364856,
+        0.364856,
+        0.364856
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_156",
+      "position": [
+        -40.001,
+        105.432,
+        -56.501
+      ],
+      "velocity": [
+        0.1591,
+        0.0,
+        -0.105
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.004,
+      "mass": 1.587,
+      "restitution": 0.02,
+      "inertia": [
+        0.639889,
+        0.639889,
+        0.639889
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_157",
+      "position": [
+        78.991,
+        104.252,
+        56.764
+      ],
+      "velocity": [
+        -0.1084,
+        0.0,
+        0.2023
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.182,
+      "mass": 2.698,
+      "restitution": 0.02,
+      "inertia": [
+        1.507776,
+        1.507776,
+        1.507776
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_158",
+      "position": [
+        -123.261,
+        92.105,
+        -36.981
+      ],
+      "velocity": [
+        0.0742,
+        0.0,
+        -0.2193
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.384,
+      "mass": 3.961,
+      "restitution": 0.02,
+      "inertia": [
+        3.034848,
+        3.034848,
+        3.034848
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_159",
+      "position": [
+        162.41,
+        95.524,
+        -6.524
+      ],
+      "velocity": [
+        -0.0197,
+        0.0,
+        0.1863
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.195,
+      "mass": 2.78,
+      "restitution": 0.02,
+      "inertia": [
+        1.587964,
+        1.587964,
+        1.587964
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_160",
+      "position": [
+        31.849,
+        89.508,
+        27.923
+      ],
+      "velocity": [
+        -0.1248,
+        0.0,
+        0.1576
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 0.991,
+      "mass": 1.509,
+      "restitution": 0.02,
+      "inertia": [
+        0.592784,
+        0.592784,
+        0.592784
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_161",
+      "position": [
+        -58.675,
+        100.421,
+        -23.994
+      ],
+      "velocity": [
+        0.0822,
+        0.0,
+        -0.1452
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.358,
+      "mass": 3.8,
+      "restitution": 0.02,
+      "inertia": [
+        2.803129,
+        2.803129,
+        2.803129
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_162",
+      "position": [
+        105.316,
+        102.872,
+        5.962
+      ],
+      "velocity": [
+        0.0233,
+        0.0,
+        0.1936
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.261,
+      "mass": 3.192,
+      "restitution": 0.02,
+      "inertia": [
+        2.030266,
+        2.030266,
+        2.030266
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_163",
+      "position": [
+        -128.217,
+        105.28,
+        36.187
+      ],
+      "velocity": [
+        -0.0804,
+        0.0,
+        -0.1786
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.104,
+      "mass": 2.214,
+      "restitution": 0.02,
+      "inertia": [
+        1.079383,
+        1.079383,
+        1.079383
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_164",
+      "position": [
+        129.87,
+        89.236,
+        -90.133
+      ],
+      "velocity": [
+        0.1141,
+        0.0,
+        0.2055
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.33,
+      "mass": 3.626,
+      "restitution": 0.02,
+      "inertia": [
+        2.565613,
+        2.565613,
+        2.565613
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_165",
+      "position": [
+        38.912,
+        103.078,
+        6.011
+      ],
+      "velocity": [
+        -0.06,
+        0.0,
+        0.1969
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.467,
+      "mass": 4.482,
+      "restitution": 0.02,
+      "inertia": [
+        3.858265,
+        3.858265,
+        3.858265
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_166",
+      "position": [
+        -64.948,
+        95.888,
+        11.709
+      ],
+      "velocity": [
+        -0.0062,
+        0.0,
+        -0.2086
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.031,
+      "mass": 1.759,
+      "restitution": 0.02,
+      "inertia": [
+        0.747899,
+        0.747899,
+        0.747899
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_167",
+      "position": [
+        93.128,
+        102.11,
+        -52.092
+      ],
+      "velocity": [
+        0.1489,
+        0.0,
+        0.2087
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.407,
+      "mass": 4.108,
+      "restitution": 0.02,
+      "inertia": [
+        3.252959,
+        3.252959,
+        3.252959
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_168",
+      "position": [
+        -88.067,
+        87.468,
+        98.573
+      ],
+      "velocity": [
+        -0.1963,
+        0.0,
+        -0.1622
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.158,
+      "mass": 2.547,
+      "restitution": 0.02,
+      "inertia": [
+        1.366174,
+        1.366174,
+        1.366174
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_169",
+      "position": [
+        63.322,
+        101.778,
+        -150.804
+      ],
+      "velocity": [
+        0.1892,
+        0.0,
+        0.0848
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.049,
+      "mass": 1.867,
+      "restitution": 0.02,
+      "inertia": [
+        0.821779,
+        0.821779,
+        0.821779
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_170",
+      "position": [
+        31.898,
+        94.208,
+        -13.989
+      ],
+      "velocity": [
+        0.0729,
+        0.0,
+        0.2025
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.329,
+      "mass": 3.62,
+      "restitution": 0.02,
+      "inertia": [
+        2.557517,
+        2.557517,
+        2.557517
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_171",
+      "position": [
+        -50.918,
+        87.622,
+        46.954
+      ],
+      "velocity": [
+        -0.1223,
+        0.0,
+        -0.1169
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.088,
+      "mass": 2.113,
+      "restitution": 0.02,
+      "inertia": [
+        1.0005,
+        1.0005,
+        1.0005
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_172",
+      "position": [
+        49.142,
+        100.239,
+        -91.199
+      ],
+      "velocity": [
+        0.1284,
+        0.0,
+        0.1072
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.151,
+      "mass": 2.505,
+      "restitution": 0.02,
+      "inertia": [
+        1.327451,
+        1.327451,
+        1.327451
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_173",
+      "position": [
+        -21.717,
+        90.577,
+        132.374
+      ],
+      "velocity": [
+        -0.2485,
+        0.0,
+        -0.0317
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.324,
+      "mass": 3.59,
+      "restitution": 0.02,
+      "inertia": [
+        2.517274,
+        2.517274,
+        2.517274
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_174",
+      "position": [
+        -26.968,
+        94.968,
+        -158.037
+      ],
+      "velocity": [
+        0.2385,
+        0.0,
+        -0.0176
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.464,
+      "mass": 4.465,
+      "restitution": 0.02,
+      "inertia": [
+        3.827927,
+        3.827927,
+        3.827927
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_175",
+      "position": [
+        15.588,
+        96.546,
+        -23.234
+      ],
+      "velocity": [
+        0.1828,
+        0.0,
+        0.1167
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.081,
+      "mass": 2.068,
+      "restitution": 0.02,
+      "inertia": [
+        0.966634,
+        0.966634,
+        0.966634
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_176",
+      "position": [
+        -15.723,
+        98.56,
+        59.267
+      ],
+      "velocity": [
+        -0.1916,
+        0.0,
+        -0.0544
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.291,
+      "mass": 3.384,
+      "restitution": 0.02,
+      "inertia": [
+        2.256019,
+        2.256019,
+        2.256019
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_177",
+      "position": [
+        -7.054,
+        97.352,
+        -97.38
+      ],
+      "velocity": [
+        0.2301,
+        0.0,
+        -0.0042
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.434,
+      "mass": 4.274,
+      "restitution": 0.02,
+      "inertia": [
+        3.515546,
+        3.515546,
+        3.515546
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_178",
+      "position": [
+        53.065,
+        98.018,
+        124.143
+      ],
+      "velocity": [
+        -0.1804,
+        0.0,
+        0.0544
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.022,
+      "mass": 1.701,
+      "restitution": 0.02,
+      "inertia": [
+        0.710667,
+        0.710667,
+        0.710667
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_179",
+      "position": [
+        -105.701,
+        87.251,
+        -116.796
+      ],
+      "velocity": [
+        0.2086,
+        0.0,
+        -0.1876
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 0.962,
+      "mass": 1.328,
+      "restitution": 0.02,
+      "inertia": [
+        0.491596,
+        0.491596,
+        0.491596
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_180",
+      "position": [
+        0.892,
+        90.796,
+        -36.566
+      ],
+      "velocity": [
+        0.1452,
+        0.0,
+        -0.0182
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.148,
+      "mass": 2.485,
+      "restitution": 0.02,
+      "inertia": [
+        1.309997,
+        1.309997,
+        1.309997
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_181",
+      "position": [
+        21.3,
+        91.186,
+        67.134
+      ],
+      "velocity": [
+        -0.2079,
+        0.0,
+        0.0344
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.304,
+      "mass": 3.461,
+      "restitution": 0.02,
+      "inertia": [
+        2.354056,
+        2.354056,
+        2.354056
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_182",
+      "position": [
+        -58.077,
+        101.902,
+        -78.188
+      ],
+      "velocity": [
+        0.1573,
+        0.0,
+        -0.1137
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.38,
+      "mass": 3.935,
+      "restitution": 0.02,
+      "inertia": [
+        2.997526,
+        2.997526,
+        2.997526
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_183",
+      "position": [
+        105.747,
+        97.142,
+        72.392
+      ],
+      "velocity": [
+        -0.0896,
+        0.0,
+        0.163
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.104,
+      "mass": 2.215,
+      "restitution": 0.02,
+      "inertia": [
+        1.079871,
+        1.079871,
+        1.079871
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_184",
+      "position": [
+        -160.718,
+        94.756,
+        -44.25
+      ],
+      "velocity": [
+        0.0532,
+        0.0,
+        -0.1884
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.378,
+      "mass": 3.925,
+      "restitution": 0.02,
+      "inertia": [
+        2.981248,
+        2.981248,
+        2.981248
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_185",
+      "position": [
+        -16.455,
+        102.337,
+        -27.317
+      ],
+      "velocity": [
+        0.1697,
+        0.0,
+        -0.0953
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.077,
+      "mass": 2.041,
+      "restitution": 0.02,
+      "inertia": [
+        0.946966,
+        0.946966,
+        0.946966
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_186",
+      "position": [
+        57.253,
+        105.875,
+        47.931
+      ],
+      "velocity": [
+        -0.1127,
+        0.0,
+        0.1445
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.046,
+      "mass": 1.848,
+      "restitution": 0.02,
+      "inertia": [
+        0.808771,
+        0.808771,
+        0.808771
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_187",
+      "position": [
+        -85.199,
+        89.997,
+        -32.593
+      ],
+      "velocity": [
+        0.0641,
+        0.0,
+        -0.1947
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.277,
+      "mass": 3.295,
+      "restitution": 0.02,
+      "inertia": [
+        2.149301,
+        2.149301,
+        2.149301
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_188",
+      "position": [
+        127.292,
+        88.311,
+        4.297
+      ],
+      "velocity": [
+        0.008,
+        0.0,
+        0.211
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 0.983,
+      "mass": 1.456,
+      "restitution": 0.02,
+      "inertia": [
+        0.562767,
+        0.562767,
+        0.562767
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_189",
+      "position": [
+        -159.837,
+        104.843,
+        49.073
+      ],
+      "velocity": [
+        -0.0697,
+        0.0,
+        -0.2615
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.152,
+      "mass": 2.514,
+      "restitution": 0.02,
+      "inertia": [
+        1.334536,
+        1.334536,
+        1.334536
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_190",
+      "position": [
+        -36.15,
+        92.147,
+        -18.004
+      ],
+      "velocity": [
+        0.0734,
+        0.0,
+        -0.1496
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.389,
+      "mass": 3.996,
+      "restitution": 0.02,
+      "inertia": [
+        3.083827,
+        3.083827,
+        3.083827
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_191",
+      "position": [
+        68.88,
+        105.005,
+        9.037
+      ],
+      "velocity": [
+        -0.0269,
+        0.0,
+        0.1976
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.19,
+      "mass": 2.748,
+      "restitution": 0.02,
+      "inertia": [
+        1.556577,
+        1.556577,
+        1.556577
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_192",
+      "position": [
+        -104.437,
+        98.856,
+        21.299
+      ],
+      "velocity": [
+        -0.0403,
+        0.0,
+        -0.2155
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.16,
+      "mass": 2.561,
+      "restitution": 0.02,
+      "inertia": [
+        1.378433,
+        1.378433,
+        1.378433
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_193",
+      "position": [
+        110.011,
+        99.053,
+        -64.873
+      ],
+      "velocity": [
+        0.1397,
+        0.0,
+        0.1957
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.199,
+      "mass": 2.804,
+      "restitution": 0.02,
+      "inertia": [
+        1.612413,
+        1.612413,
+        1.612413
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_194",
+      "position": [
+        -103.404,
+        99.368,
+        121.193
+      ],
+      "velocity": [
+        -0.1761,
+        0.0,
+        -0.1286
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.425,
+      "mass": 4.221,
+      "restitution": 0.02,
+      "inertia": [
+        3.428507,
+        3.428507,
+        3.428507
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_195",
+      "position": [
+        -39.466,
+        86.078,
+        4.138
+      ],
+      "velocity": [
+        0.0064,
+        0.0,
+        -0.2092
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.368,
+      "mass": 3.861,
+      "restitution": 0.02,
+      "inertia": [
+        2.890227,
+        2.890227,
+        2.890227
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_196",
+      "position": [
+        56.558,
+        92.07,
+        -26.358
+      ],
+      "velocity": [
+        0.05,
+        0.0,
+        0.1693
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.246,
+      "mass": 3.102,
+      "restitution": 0.02,
+      "inertia": [
+        1.926362,
+        1.926362,
+        1.926362
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_197",
+      "position": [
+        -72.55,
+        91.477,
+        70.032
+      ],
+      "velocity": [
+        -0.1122,
+        0.0,
+        -0.191
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 0.919,
+      "mass": 1.059,
+      "restitution": 0.02,
+      "inertia": [
+        0.357756,
+        0.357756,
+        0.357756
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_198",
+      "position": [
+        59.996,
+        104.517,
+        -117.693
+      ],
+      "velocity": [
+        0.1991,
+        0.0,
+        0.1111
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 1.032,
+      "mass": 1.76,
+      "restitution": 0.02,
+      "inertia": [
+        0.749777,
+        0.749777,
+        0.749777
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "field_199",
+      "position": [
+        -23.794,
+        104.609,
+        169.084
+      ],
+      "velocity": [
+        -0.273,
+        0.0,
+        -0.0655
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "radius": 0.915,
+      "mass": 1.032,
+      "restitution": 0.02,
+      "inertia": [
+        0.345606,
+        0.345606,
+        0.345606
+      ],
+      "fixed": false,
+      "sleeping": false
+    }
+  ]
+}

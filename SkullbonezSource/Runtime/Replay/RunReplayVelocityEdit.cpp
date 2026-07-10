@@ -32,6 +32,7 @@ Related:
 #include "ReplayOverlayLayout.h"
 #include "../../Physics/ColliderStore.h"
 #include "../../Physics/PhysicsBodyStore.h"
+#include "../../Physics/PhysicsEngineStoreQueries.h"
 #include "../../UI/UIInput.h"
 
 #include <algorithm>
@@ -481,10 +482,12 @@ bool Run::TickReplayVelocityEditInput( HWND hwnd, bool uiBlocksMouse )
     PhysicsEngine& velocityPhysics = m_cGameModelCollection.GetPhysicsEngine();
     const auto tryResolveVelocityBody = [&]( ReplayVelocityBodyView& outBody )
     {
-        return velocityStoresReady && TryResolveReplayVelocityBodyView( m_replayRuntime,
-                                                                        velocityPhysics.BodyStore(),
-                                                                        velocityPhysics.Colliders(),
-                                                                        outBody );
+        return velocityStoresReady &&
+               TryResolveReplayVelocityBodyView(
+                   m_replayRuntime,
+                   SkullbonezCore::Physics::PhysicsEngineStoreQueries::BodyStore( velocityPhysics ),
+                   SkullbonezCore::Physics::PhysicsEngineStoreQueries::Colliders( velocityPhysics ),
+                   outBody );
     };
 
     const auto applyReplayVelocityEditDrag = [&]( const Vector3& dragRayOrigin, const Vector3& dragRayDirection )
@@ -750,10 +753,11 @@ void Run::RenderReplayVelocityEditOverlay( RunEditorTracer& tracer )
         return;
     }
     PhysicsEngine& velocityPhysics = m_cGameModelCollection.GetPhysicsEngine();
-    if ( !TryResolveReplayVelocityBodyView( m_replayRuntime,
-                                            velocityPhysics.BodyStore(),
-                                            velocityPhysics.Colliders(),
-                                            body ) ||
+    if ( !TryResolveReplayVelocityBodyView(
+             m_replayRuntime,
+             SkullbonezCore::Physics::PhysicsEngineStoreQueries::BodyStore( velocityPhysics ),
+             SkullbonezCore::Physics::PhysicsEngineStoreQueries::Colliders( velocityPhysics ),
+             body ) ||
          body.fixed || !body.shape )
     {
         return;

@@ -4,9 +4,10 @@ Purpose:
   Computes a procedural tornado force field for generated physics scenes.
 
 Mental model:
-  Physics is deterministic fixed-step state update. Units, contact ownership,
-  solver stages, sleep policy, and baseline-sensitive behavior are the key
-  reading anchors.
+  TornadoField.h computes a procedural tornado force field for generated
+  physics scenes. As a public header, keep edits anchored on deterministic
+  physics, diagnostics, or world-state flow and on the glossary/invariants
+  below.
 
 Glossary:
   Broadphase: Cheap collision pass that finds object pairs worth testing more
@@ -14,14 +15,12 @@ Glossary:
   Narrowphase: Precise collision pass that computes contact points, normals,
   and penetration.
   Manifold: Set of contact points and normals describing one colliding pair.
-  Debug-line command context: Borrowed render surface used only to submit
-  overlay line vertices after the runtime has proven the backend capability.
 
 Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines
     are the validation contract.
-  - Tornado vector rendering is debug-overlay output; callers supply renderer
-    capability facts so physics does not reopen the process-global renderer.
+  - Tornado vector visualization samples this math from runtime-side render
+    passes; physics never submits draw commands.
 
 Related:
   - SkullbonezSource/Physics/TornadoField.cpp
@@ -33,16 +32,11 @@ Related:
 
 #include <cstddef>
 #include <vector>
-#include "../Maths/Matrix4.h"
 #include "../Maths/Vector3.h"
 
 
 namespace SkullbonezCore
 {
-namespace Rendering
-{
-class IRenderCommandContext;
-} // namespace Rendering
 namespace Physics
 {
 struct TornadoFieldConfig
@@ -95,8 +89,6 @@ struct TornadoActiveVortex
 class TornadoField
 {
   public:
-    TornadoField();
-
     void SetConfig( const TornadoFieldConfig& config );
     const TornadoFieldConfig& GetConfig() const
     {
@@ -106,16 +98,10 @@ class TornadoField
     static Math::Vector::Vector3 SampleAccelerationForConfig( const TornadoFieldConfig& config,
                                                               const Math::Vector::Vector3& position );
     Math::Vector::Vector3 SampleAcceleration( const Math::Vector::Vector3& position ) const;
-    // Debug overlay entry: emits visualization lines only through the supplied
-    // command context and only when the caller-provided capability bit allows it.
-    void RenderVectors( const Math::Transformation::Matrix4& viewProj,
-                        Rendering::IRenderCommandContext& renderCommands,
-                        bool supportsDebugLines );
     std::size_t DynamicMemoryBytes() const;
 
   private:
     TornadoFieldConfig m_config;
-    std::vector<float> m_lineData;
 };
 
 class TornadoSystem
@@ -139,11 +125,6 @@ class TornadoSystem
         return m_activeVortices;
     }
     Math::Vector::Vector3 SampleAcceleration( const Math::Vector::Vector3& position ) const;
-    // Debug overlay entry: forwards each active vortex through the caller-owned
-    // render command context instead of querying renderer globals.
-    void RenderVectors( const Math::Transformation::Matrix4& viewProj,
-                        Rendering::IRenderCommandContext& renderCommands,
-                        bool supportsDebugLines );
     std::size_t DynamicMemoryBytes() const;
 
     static void BuildActiveVortices( const TornadoSystemConfig& config,
@@ -154,7 +135,6 @@ class TornadoSystem
     TornadoSystemConfig m_config;
     float m_elapsedSeconds = 0.0f;
     std::vector<TornadoActiveVortex> m_activeVortices;
-    TornadoField m_debugField;
 
     void RebuildActiveVortices();
 };

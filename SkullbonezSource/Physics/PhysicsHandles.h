@@ -1,7 +1,8 @@
 /*
 File: SkullbonezSource/Physics/PhysicsHandles.h
 Purpose:
-  Defines stable public handles for physics bodies, colliders, constraints, and scene correlation.
+  Defines stable public handles and typed public-boundary counts for physics
+  bodies, colliders, constraints, and scene correlation.
 
 Mental model:
   Runtime, scene, tools, replay, rendering, and diagnostics should identify
@@ -14,12 +15,16 @@ Glossary:
   storage.
   Generation: Version counter that makes stale recycled handles detectable.
   Dense row: Compact store array index used by hot simulation scans.
+  Boundary count: Public count used to validate topology or view size; it is not
+    object identity and must not pick an individual store row.
   Model row hint: Cached dense-row guess paired with stable identity to avoid
     scans when the row has not moved.
   Scene object id: Stable scene/replay correlation id independent of storage.
 
 Invariants:
   - Index/generation handles are identity only; they do not expose storage.
+  - Count wrappers describe topology or view size only; they never identify a
+    specific body, collider, or authoring row.
   - ModelRowHint is never identity; stale hints must be repaired by store resolvers.
   - PhysicsSceneObjectId value 0 is reserved for "not assigned".
 
@@ -37,6 +42,23 @@ namespace Physics
 {
 inline constexpr uint32_t INVALID_PHYSICS_HANDLE_INDEX = 0xffffffffu;
 inline constexpr uint32_t PHYSICS_HANDLE_INITIAL_GENERATION = 1u;
+
+// Concept: typed public counts keep row authority explicit at API boundaries.
+// A count may validate topology, but only handles or scene ids identify objects.
+struct PhysicsBodyCount
+{
+    uint32_t value = 0;
+};
+
+struct PhysicsColliderCount
+{
+    uint32_t value = 0;
+};
+
+struct PhysicsAuthoredBodyCount
+{
+    uint32_t value = 0;
+};
 
 struct PhysicsBodyHandle
 {
@@ -87,7 +109,43 @@ struct PhysicsSceneObjectId
 struct ModelRowHint
 {
     int value = -1;
+
+    bool IsValid() const
+    {
+        return value >= 0;
+    }
 };
+
+// Why: owner edges still receive signed scene or replay counts from legacy
+// call chains. Converting at the edge keeps the public physics API typed while
+// the caller remains responsible for rejecting impossible negative counts.
+inline PhysicsBodyCount MakePhysicsBodyCountFromNonNegativeInt( int value )
+{
+    PhysicsBodyCount count;
+    count.value = value > 0 ? static_cast<uint32_t>( value ) : 0u;
+    return count;
+}
+
+inline PhysicsColliderCount MakePhysicsColliderCountFromNonNegativeInt( int value )
+{
+    PhysicsColliderCount count;
+    count.value = value > 0 ? static_cast<uint32_t>( value ) : 0u;
+    return count;
+}
+
+inline PhysicsAuthoredBodyCount MakePhysicsAuthoredBodyCountFromNonNegativeInt( int value )
+{
+    PhysicsAuthoredBodyCount count;
+    count.value = value > 0 ? static_cast<uint32_t>( value ) : 0u;
+    return count;
+}
+
+inline ModelRowHint MakeModelRowHint( int value )
+{
+    ModelRowHint hint;
+    hint.value = value;
+    return hint;
+}
 
 inline PhysicsSceneObjectId MakePhysicsSceneObjectIdFromReplayBodyId( uint32_t replayBodyId )
 {

@@ -79,8 +79,8 @@ bool Run::TickReplayCauseTreeInput( HWND hwnd, bool uiBlocksMouse, int wheelDelt
         // Lifetime: replay focus borrows already-prepared physics store views
         // for one UI action. Topology repair belongs to the runtime/frame
         // boundary, not this read-only cause-tree lookup.
-        const auto& colliderStore = m_cGameModelCollection.GetPhysicsEngine().Colliders();
-        const auto& bodyStore = m_cGameModelCollection.GetPhysicsEngine().BodyStore();
+        const auto& colliderStore = m_cGameModelCollection.Colliders();
+        const auto& bodyStore = m_cGameModelCollection.BodyStore();
         switch ( row.kind )
         {
         case RunReplayCauseTreeRowKind::Body:
@@ -208,7 +208,7 @@ bool Run::TickReplayCauseTreeInput( HWND hwnd, bool uiBlocksMouse, int wheelDelt
         return false;
     }
 
-    const auto& bodyStore = m_cGameModelCollection.GetPhysicsEngine().BodyStore();
+    const auto& bodyStore = m_cGameModelCollection.BodyStore();
     if ( !m_replayRuntime.BuildCauseTreeRows( m_cGameModelCollection.RenderPresentationRecords(), bodyStore ) )
     {
         endCauseTreeDragIfReleased();

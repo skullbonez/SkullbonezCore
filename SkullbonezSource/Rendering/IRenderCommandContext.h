@@ -17,8 +17,8 @@ Glossary:
   Blend state: Rule for combining new pixel color with the target's old color.
   Dynamic vertex buffer: Backend-owned transient buffer used for text, overlays,
     and other per-frame geometry.
-  Transient triangle style: Shader interpretation for packed position/color/fx
-    triangles submitted for one frame.
+  Transient triangle style: Shader interpretation for packed overlay triangles
+    or replay segment payloads submitted for one frame.
   Instanced mesh: Static mesh plus per-instance data drawn many times in one
     backend call.
 
@@ -55,7 +55,9 @@ enum class BlendFactor
 enum class TransientTriangleStyle
 {
     Color,
-    SoftAdditiveRibbon
+    SoftAdditiveRibbon,
+    TrajectoryRibbon,
+    TrajectoryRibbonDepthHint
 };
 
 class IRenderCommandContext
@@ -77,9 +79,9 @@ class IRenderCommandContext
     virtual void SetClipPlane( int index, bool enable ) = 0;
 
     virtual void BindTexture( uint32_t handle, int slot ) = 0;
-    // Concept: graph-owned textures resolve through the command context so
-    // runtime passes can bind ordinary engine texture handles without learning
-    // native DX12 descriptor or resource ownership.
+    // Concept: graph-declared transient textures resolve through the command
+    // context so runtime passes can bind ordinary engine texture handles
+    // without learning native DX12 descriptor or resource ownership.
     virtual RenderGraphTransientMaterializationStats
     MaterializeGraphTransientResources( const RenderGraph& graph, const RenderGraphCompileResult& compiled )
     {

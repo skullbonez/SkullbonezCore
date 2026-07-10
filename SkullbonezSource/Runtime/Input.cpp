@@ -163,12 +163,13 @@ long RawAbsoluteToPixels( long value, int extent )
 bool Input::IsAppFocused()
 {
     Window* window = BoundInputWindow();
-    if ( !window || !window->m_sWindow )
+    const HWND windowHandle = window ? window->NativeWindowHandle() : nullptr;
+    if ( !windowHandle )
     {
         return false;
     }
 
-    return GetForegroundWindow() == window->m_sWindow;
+    return GetForegroundWindow() == windowHandle;
 }
 
 
@@ -435,7 +436,7 @@ Input::MouseCoordinatesResult Input::GetClientMouseCoordinates()
         FatalInputWindowBridgeMissing( "Input::GetClientMouseCoordinates" );
     }
     POINT clientCoordinates = mousePos.coordinates;
-    if ( !ScreenToClient( m_cWindow->m_sWindow, &clientCoordinates ) )
+    if ( !ScreenToClient( m_cWindow->NativeWindowHandle(), &clientCoordinates ) )
     {
         result.result = SbResult::Failure( "Runtime/Input",
                                            "ScreenToClient failed in Input::GetClientMouseCoordinates lastError=%lu",
@@ -548,8 +549,10 @@ SbResult Input::CentreMouseCoordinates()
     {
         FatalInputWindowBridgeMissing( "Input::CentreMouseCoordinates" );
     }
-    POINT clientCenter = { m_cWindow->m_sWindowDimensions.x >> 1, m_cWindow->m_sWindowDimensions.y >> 1 };
-    if ( !ClientToScreen( m_cWindow->m_sWindow, &clientCenter ) )
+    POINT clientCenter = m_cWindow->ClientDimensions();
+    clientCenter.x >>= 1;
+    clientCenter.y >>= 1;
+    if ( !ClientToScreen( m_cWindow->NativeWindowHandle(), &clientCenter ) )
     {
         return SbResult::Failure( "Runtime/Input",
                                   "ClientToScreen failed in Input::CentreMouseCoordinates lastError=%lu",

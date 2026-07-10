@@ -4,9 +4,9 @@ Purpose:
   Bootstraps the Windows process, parses command-line options, and starts the run loop.
 
 Mental model:
-  Runtime code connects authored scene data, input, simulation, render
-  backends, and validation-oriented launch modes. Follow who owns state and
-  when that state changes.
+  Init.cpp bootstraps the Windows process, parses command-line options, and
+  starts the run loop. As an implementation unit, keep edits anchored on local
+  owner boundaries and call direction and on the glossary/invariants below.
 
 Glossary:
   DX11/OpenGL: Retired runtime renderer choices. The parser names them only to
@@ -15,8 +15,6 @@ Glossary:
   and platform APIs through reference-counted objects.
   SDF (Signed Distance Field): Texture representation used for crisp scalable
   text rendering.
-  Validation gate: Repository script that proves a class of changes before
-    commit or PR.
   Standalone physics smoke: Early-exit validation mode that exercises public
     physics API construction without runtime/window/renderer ownership.
   Runtime handle smoke: Early-exit validation mode that uses runtime
@@ -47,6 +45,7 @@ Related:
 #include "Input.h"
 #include "../Core/Timer.h"
 #include "../Rendering/DX12/RenderBackendDX12.h"
+#include "RunLaunchOptions.Renderer.h"
 #include "../GameObjects/GameModel.h"
 #include "../GameObjects/GameModelCollection.h"
 #include "../Physics/ColliderStore.h"
@@ -681,8 +680,8 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
     jointDesc.localAnchorB = SkullbonezCore::Math::Vector::Vector3( -0.25f, 0.0f, 0.0f );
     const PhysicsConstraintHandle jointHandle = collection->GetPhysicsEngine().CreatePointJoint( jointDesc );
 
-    const PhysicsBodyStore& bodyStore = collection->GetPhysicsEngine().BodyStore();
-    const ColliderStore& colliderStore = collection->GetPhysicsEngine().Colliders();
+    const PhysicsBodyStore& bodyStore = collection->BodyStore();
+    const ColliderStore& colliderStore = collection->Colliders();
     const RenderInstanceStore& renderStore = collection->GetRenderInstanceStore();
     const std::vector<PointJointConstraint>& pointJoints = collection->GetPointJointConstraints();
     const size_t initialColliderCount = colliderStore.Count();
@@ -697,7 +696,7 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
                                     SkullbonezCore::Math::Vector::Vector3( 0.0f, 0.0f, 0.0f ) ),
                                 EDITED_RESTITUTION,
                                 HashStr( "default" ) ) );
-    const ColliderStore& refreshedColliderStore = collection->GetPhysicsEngine().Colliders();
+    const ColliderStore& refreshedColliderStore = collection->Colliders();
     const ColliderRecord& refreshedCollider = refreshedColliderStore.Records()[0];
     const float expectedBoxRadius = sqrtf( 0.25f * 0.25f + 1.25f * 1.25f + 0.5f * 0.5f );
     // Invariant: same-count authoring edits must be visible through the explicit
@@ -896,12 +895,6 @@ bool HandlePhysicsStandaloneSmoke( const CommandLineView& commandLine, int& outE
 // ---------------------------------------------------------------------------
 // Command-line parsing
 // ---------------------------------------------------------------------------
-
-struct RendererOption
-{
-    const char* name;
-    const char* alias;
-};
 
 struct ParsedArgs
 {
@@ -1692,10 +1685,6 @@ bool ParseSceneArgs( const CommandLineView& commandLine, std::vector<std::string
 
 bool ParseRendererArg( const CommandLineView& commandLine )
 {
-    static const RendererOption kRenderers[] = {
-        { "dx12", "d3d12" },
-    };
-
     const char* rendererArg = FindOptionValue( commandLine, "--renderer" );
     if ( !rendererArg )
     {
@@ -1707,7 +1696,8 @@ bool ParseRendererArg( const CommandLineView& commandLine )
         return FailCommandLineParse( "--renderer expects dx12. GL and DX11 are retired runtime choices." );
     }
 
-    for ( const RendererOption& renderer : kRenderers )
+    for ( const SkullbonezCore::Runtime::RuntimeRendererOption& renderer :
+          SkullbonezCore::Runtime::kRuntimeRendererOptions )
     {
         if ( _stricmp( rendererArg, renderer.name ) == 0 ||
              ( renderer.alias && _stricmp( rendererArg, renderer.alias ) == 0 ) )
@@ -2973,10 +2963,10 @@ SbResult InitRenderBackend( Window* window,
     RuntimeAllocation::RuntimeAllocationScope allocationScope( RuntimeAllocation::RuntimeAllocationPhase::BackendInit );
     auto backend = std::make_unique<RenderBackendDX12>();
     RenderBackendDX12* renderBackend = backend.get();
-    const SbResult renderInitResult = renderBackend->Init( window->m_sWindow,
-                                                           window->m_sDevice,
-                                                           window->m_sWindowDimensions.x,
-                                                           window->m_sWindowDimensions.y );
+    const SbResult renderInitResult = renderBackend->Init( window->NativeWindowHandle(),
+                                                           window->NativeDeviceContext(),
+                                                           window->ClientWidth(),
+                                                           window->ClientHeight() );
     if ( !renderInitResult.ok )
     {
         // Lane R: render backend startup probes the host graphics environment.
@@ -3320,20 +3310,18 @@ void CleanupWindow( Window* window, HINSTANCE hInstance, std::unique_ptr<RenderB
 {
     // Lifetime: disarm callback-fed input queues while the HWND still names
     // the window that WndProc used, before backend/window class teardown.
-    if ( window->m_sWindow )
+    const HWND windowHandle = window->NativeWindowHandle();
+    if ( windowHandle )
     {
-        Input::UnbindCallbackBridge( window->m_sWindow );
+        Input::UnbindCallbackBridge( windowHandle );
     }
     Input::UnbindWindow( *window );
     window->SetResizeRenderLifecycle( nullptr );
     renderBackend.reset();
 
-    if ( window->m_sDevice )
-    {
-        ReleaseDC( window->m_sWindow, window->m_sDevice );
-    }
+    window->ReleaseDeviceContext();
 
-    if ( window->m_fIsFullScreenMode )
+    if ( window->IsFullScreenMode() )
     {
         ChangeDisplaySettings( nullptr, 0 ); // Restore desktop mode
         Input::SetSystemCursorVisible( true );
@@ -3443,7 +3431,7 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine
         CoUninitialize();
         return 1;
     }
-    window->m_sDevice = GetDC( window->m_sWindow );
+    window->AcquireDeviceContext();
 
     RuntimeRenderBackendView renderBackendView;
     std::unique_ptr<RenderBackendDX12> renderBackend;

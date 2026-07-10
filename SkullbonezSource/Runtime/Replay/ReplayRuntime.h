@@ -27,9 +27,14 @@ Glossary:
   Runtime state: UI and tool state that belongs to replay but is still consumed
     by Run while the subsystem is being separated.
   Prediction cache: Incremental future-path data built from predicted solver
-    frames under a render-frame budget.
+    frames; a worker publishes build prefixes while render consumes them.
   Published build prefix: Contiguous prediction frames whose rows are fully
     written and safe for render, automation, or Director readers to inspect.
+  Trajectory record: Versioned polyline storage for one replay body and lane.
+  Recorder eviction: Removal of the oldest bounded-ring sample when replay
+    capture appends beyond the configured retention window.
+  Replay memory policy: Runtime-owned preset, retention, and budget request that
+    resolves to concrete presentation and solver recorder windows.
 
 Invariants:
   - Stored indices are hints; ReplayBodyId remains the identity check.
@@ -37,6 +42,8 @@ Invariants:
     must not backup or mutate live GameModel pose for rendering.
   - Prediction cache cursors must be reset whenever target, ragdoll mode, or
     sample storage changes.
+  - Prediction worker tasks must be idle before build scratch, trajectory slots,
+    or private-engine state are cleared.
 
 Related:
   - SkullbonezSource/Runtime/Replay/RunReplayTools.cpp
@@ -45,6 +52,7 @@ Related:
 #pragma once
 
 #include "ReplayRecorder.h"
+#include "TrajectoryStore.h"
 #include "../RuntimeCameraMode.h"
 #include "../../Core/MainMemoryStats.h"
 #include "../../Core/Common.h"
@@ -53,18 +61,31 @@ Related:
 #include "../../Physics/PhysicsWorldForces.h"
 #include "../../Rendering/RenderInstanceStore.h"
 
+#include <algorithm>
 #include <array>
+#include <atomic>
 #include <chrono>
 #include <memory>
+#include <string>
 
 namespace SkullbonezCore
 {
+namespace GameObjects
+{
+class GameModelCollection;
+} // namespace GameObjects
+
 namespace Physics
 {
 class ColliderStore;
 class PhysicsEngine;
 class PhysicsBodyStore;
 } // namespace Physics
+
+namespace Threading
+{
+class AmortizedTask;
+} // namespace Threading
 
 namespace Basics
 {
@@ -87,6 +108,126 @@ enum class RunReplayTrack
     Presentation,
     Solver
 };
+
+enum class ReplayMemoryPreset : int
+{
+    LosslessLook = 0,
+    Balanced = 1,
+    Compact = 2,
+    Count
+};
+
+struct ReplayMemoryPolicy
+{
+    // Concept: presets and sliders resolve to concrete recorder windows here so
+    // UI code never needs to know how presentation, solver, and event rings are
+    // sized or degraded.
+    ReplayMemoryPreset preset = ReplayMemoryPreset::LosslessLook;
+    int requestedRetentionSeconds = REPLAY_PAST_BUFFER_SECONDS;
+    int requestedBudgetMiB = 256;
+    int presentationRetentionSeconds = REPLAY_PAST_BUFFER_SECONDS;
+    int solverRetentionSeconds = REPLAY_PAST_BUFFER_SECONDS;
+    bool budgetClamped = false;
+    bool solverWindowReduced = false;
+};
+
+struct ReplayMemoryPolicyRequest
+{
+    // Sentinel -1 means "leave the current policy value unchanged"; UI controls
+    // can therefore emit one focused command without mirroring every slider.
+    int presetIndex = -1;
+    int retentionSeconds = -1;
+    int budgetMiB = -1;
+};
+
+inline constexpr int REPLAY_MEMORY_POLICY_MIN_SECONDS = 1;
+inline constexpr int REPLAY_MEMORY_POLICY_MAX_SECONDS = 600;
+inline constexpr int REPLAY_MEMORY_POLICY_MIN_BUDGET_MIB = 32;
+inline constexpr int REPLAY_MEMORY_POLICY_MAX_BUDGET_MIB = 512;
+
+inline ReplayMemoryPreset ReplayMemoryPresetFromIndex( int presetIndex )
+{
+    switch ( presetIndex )
+    {
+    case static_cast<int>( ReplayMemoryPreset::Balanced ):
+        return ReplayMemoryPreset::Balanced;
+    case static_cast<int>( ReplayMemoryPreset::Compact ):
+        return ReplayMemoryPreset::Compact;
+    case static_cast<int>( ReplayMemoryPreset::LosslessLook ):
+    default:
+        return ReplayMemoryPreset::LosslessLook;
+    }
+}
+
+inline ReplayMemoryPolicy ReplayMemoryPresetPolicy( ReplayMemoryPreset preset )
+{
+    ReplayMemoryPolicy policy;
+    policy.preset = preset;
+    switch ( preset )
+    {
+    case ReplayMemoryPreset::Balanced:
+        policy.requestedRetentionSeconds = 45;
+        policy.requestedBudgetMiB = 128;
+        break;
+    case ReplayMemoryPreset::Compact:
+        policy.requestedRetentionSeconds = 20;
+        policy.requestedBudgetMiB = 64;
+        break;
+    case ReplayMemoryPreset::LosslessLook:
+    default:
+        policy.requestedRetentionSeconds = REPLAY_PAST_BUFFER_SECONDS;
+        policy.requestedBudgetMiB = 256;
+        break;
+    }
+    return policy;
+}
+
+inline ReplayMemoryPolicy ResolveReplayMemoryPolicy( ReplayMemoryPolicy policy )
+{
+    policy.requestedRetentionSeconds = std::clamp( policy.requestedRetentionSeconds,
+                                                   REPLAY_MEMORY_POLICY_MIN_SECONDS,
+                                                   REPLAY_MEMORY_POLICY_MAX_SECONDS );
+    policy.requestedBudgetMiB = std::clamp( policy.requestedBudgetMiB,
+                                            REPLAY_MEMORY_POLICY_MIN_BUDGET_MIB,
+                                            REPLAY_MEMORY_POLICY_MAX_BUDGET_MIB );
+    policy.presentationRetentionSeconds = policy.requestedRetentionSeconds;
+    policy.solverRetentionSeconds = policy.requestedRetentionSeconds;
+
+    if ( policy.preset == ReplayMemoryPreset::Balanced )
+    {
+        policy.solverRetentionSeconds = (std::min)( policy.solverRetentionSeconds, 30 );
+    }
+    else if ( policy.preset == ReplayMemoryPreset::Compact )
+    {
+        policy.solverRetentionSeconds = (std::min)( policy.solverRetentionSeconds, 10 );
+    }
+
+    // Why: lower memory-budget requests keep the visual/presentation look as
+    // long as possible and shorten solver/debug inspection history first.
+    if ( policy.requestedBudgetMiB < 192 )
+    {
+        policy.solverRetentionSeconds = (std::min)( policy.solverRetentionSeconds, 30 );
+    }
+    if ( policy.requestedBudgetMiB < 128 )
+    {
+        policy.solverRetentionSeconds = (std::min)( policy.solverRetentionSeconds, 15 );
+    }
+    if ( policy.requestedBudgetMiB < 64 )
+    {
+        policy.solverRetentionSeconds = (std::min)( policy.solverRetentionSeconds, 5 );
+        policy.presentationRetentionSeconds = (std::min)( policy.presentationRetentionSeconds, 30 );
+    }
+
+    policy.solverRetentionSeconds =
+        std::clamp( policy.solverRetentionSeconds, REPLAY_MEMORY_POLICY_MIN_SECONDS, REPLAY_MEMORY_POLICY_MAX_SECONDS );
+    policy.presentationRetentionSeconds = std::clamp( policy.presentationRetentionSeconds,
+                                                      REPLAY_MEMORY_POLICY_MIN_SECONDS,
+                                                      REPLAY_MEMORY_POLICY_MAX_SECONDS );
+    policy.solverWindowReduced = policy.solverRetentionSeconds < policy.requestedRetentionSeconds;
+    policy.budgetClamped =
+        policy.solverWindowReduced || policy.presentationRetentionSeconds < policy.requestedRetentionSeconds;
+    return policy;
+}
 
 struct RunReplayScrubberState
 {
@@ -137,6 +278,18 @@ struct RunReplayPathTarget
     ReplayBodyId id;
     int modelIndex = -1;
     char name[64] = {};
+};
+
+struct RunReplayPastTrajectoryBuildState
+{
+    // Concept: retained solver paths are built from the bounded solver ring and
+    // then appended as new samples arrive. The eviction counter keeps the store
+    // from outliving the recorder window it represents.
+    ReplayBodyId targetId;
+    ReplayFrameIndex firstFrame = 0;
+    ReplayFrameIndex builtThroughFrame = 0;
+    uint64_t totalFramesEvicted = 0;
+    bool valid = false;
 };
 
 enum class RunReplayCameraFocusKind
@@ -245,12 +398,19 @@ struct RunReplayCauseTreeState
 
 struct RunReplayPathVisualizerState
 {
+    // Concept: the retained/past lane is an operator-visible overlay choice.
+    // A selected target remains the authority for *what* could draw; this flag
+    // only answers whether the solver-history lane should be emitted this
+    // frame.
     bool hasTarget = false;
+    bool pastPathVisible = true;
+    bool pastPathHovered = false;
     ReplayBodyId targetId;
     int targetModelIndex = -1;
     char targetName[64] = {};
     std::vector<RunReplayPathTraceNode> futureNodes;
     std::vector<RunReplayPathTarget> targets;
+    RunReplayPastTrajectoryBuildState pastTrajectory;
 };
 
 struct RunReplayPredictionBodyBackup
@@ -280,11 +440,16 @@ struct RunReplayPredictionBodySample
 
 struct RunReplayPredictionFrame
 {
+    // Concept: body samples are authoritative for the root trajectory, while
+    // debugContacts are optional evidence for the contact-derived cause tree.
+    // contactsIncomplete means the frame stayed usable after contact scratch
+    // reserve failed, so UI/reporting can label the tree as partial.
     ReplayFrameIndex frameIndex = 0;
     double simulationSeconds = 0.0;
     float tornadoSystemElapsedSeconds = 0.0f;
     std::vector<RunReplayPredictionBodySample> bodies;
     std::vector<Physics::PhysicsDebugContact> debugContacts;
+    bool contactsIncomplete = false;
 };
 
 struct ReplayPredictionGhostDrawRequest
@@ -384,6 +549,11 @@ struct RunReplayPredictionFutureNodeCache
     std::size_t futureNodesBuiltFrameCount = 0;
     std::size_t futureNodesBuiltContactIndex = 0;
     ReplayBodyId futureNodesBuiltTargetId;
+    // Invariant: topologyVersion identifies the published node set/order and
+    // firstFrame values. The next counter survives cache clears so a same-root
+    // rebuild cannot masquerade as an older child trajectory version.
+    uint32_t futureNodesTopologyVersion = 0;
+    uint32_t nextFutureNodesTopologyVersion = 1;
     bool futureNodesBuiltRagdollVisuals = false;
     bool futureNodesBuiltFromBuildFrames = false;
     bool futureNodesCacheValid = false;
@@ -392,6 +562,22 @@ struct RunReplayPredictionFutureNodeCache
     // marker poses until a new prediction/future cache resets the story.
     std::array<ReplayPredictionRetainedMarker, REPLAY_PREDICTION_MARKER_CAPACITY> retainedMarkers = {};
     std::size_t retainedMarkerCount = 0;
+};
+
+struct RunReplayPredictionTrajectoryBuildState
+{
+    // Concept: prediction trajectory records follow the same published-prefix
+    // contract as buildFrames. Root points are appended when frames publish;
+    // child records catch up after the future-node cache publishes topology.
+    ReplayBodyId rootId;
+    bool usingBuildFrames = false;
+    std::size_t rootFrameCount = 0;
+    std::size_t childFrameCount = 0;
+    std::size_t builtNodeCount = 0;
+    // Invariant: child trajectory records are drawable only when this version
+    // matches the future-node cache version that selected their branch ordinals.
+    uint32_t topologyVersion = 0;
+    bool valid = false;
 };
 
 struct RunReplayPredictionBuildState
@@ -405,11 +591,23 @@ struct RunReplayPredictionBuildState
     // Runtime allocation policy: prediction buildFrames can be pre-sized for a
     // whole horizon while only buildFrameCount rows are populated. Render reads
     // frames, not the pre-sized build vector, until completion swaps them.
-    // Invariant: buildFrameCount is the single published prefix cursor. Future
-    // async stepping must publish it only after the corresponding rows are
-    // complete, then cancel or invalidate that writer before clearing storage.
+    // Invariant: buildFrameCount is the single published prefix cursor. Worker
+    // stepping publishes it with release ordering only after the
+    // corresponding frame rows and trajectory slots are complete. Readers use
+    // PublishedBuildFrameCount() as the acquire edge before inspecting rows.
+    // Invariant: during a same-target refresh, the building prefix may replace
+    // committed frames only after it reaches the reveal cursor captured at job
+    // start. This prevents auto-refresh from replaying the causal unfold from
+    // frame zero.
     std::vector<RunReplayPredictionFrame> buildFrames;
-    std::size_t buildFrameCount = 0;
+    std::atomic<std::size_t> buildFrameCount{ 0 };
+    std::size_t buildPresentationFrameCount = 2u;
+    // Concept: the amortized task owns prediction physics/capture slices while
+    // the frame loop only submits ticks and consumes the published prefix.
+    // Hazard: cancellation must wait for an in-flight slice before clearing
+    // buildFrames, trajectory records, or the private prediction engine.
+    std::unique_ptr<Threading::AmortizedTask> workerTask;
+    std::atomic<bool> workerFailed{ false };
 };
 
 struct RunReplayPredictionSimulationState
@@ -443,12 +641,12 @@ struct RunReplayPredictionState
     ~RunReplayPredictionState();
     RunReplayPredictionState( const RunReplayPredictionState& ) = delete;
     RunReplayPredictionState& operator=( const RunReplayPredictionState& ) = delete;
-    RunReplayPredictionState( RunReplayPredictionState&& ) noexcept;
-    RunReplayPredictionState& operator=( RunReplayPredictionState&& ) noexcept;
+    RunReplayPredictionState( RunReplayPredictionState&& ) noexcept = delete;
+    RunReplayPredictionState& operator=( RunReplayPredictionState&& ) noexcept = delete;
 
     // Concept: prediction builders fill buildFrames first, then publish a
     // prefix count. Readers must ask these helpers for the visible range so a
-    // future async worker can tighten ownership without changing every overlay.
+    // worker-owned build can tighten ownership without changing every overlay.
     std::size_t PublishedBuildFrameCount() const noexcept;
     bool HasPublishedBuildFramePrefix( std::size_t minFrameCount = 2u ) const noexcept;
     bool BuildPrefixShouldBePresented() const noexcept;
@@ -462,6 +660,12 @@ struct RunReplayPredictionState
     RunReplayPredictionBuildState build;
     RunReplayPredictionSimulationState simulation;
     RunReplayPredictionFutureNodeCache futureNodeCache;
+    // Concept: trajectory records are the publication layer between
+    // prediction/solver builders and overlay drawing. Main root/child ribbons
+    // read these records; auxiliary marker/ragdoll paths keep using frame data
+    // when they need orientation or velocity, not just trajectory points.
+    ReplayTrajectoryStore trajectoryStore;
+    RunReplayPredictionTrajectoryBuildState trajectoryBuild;
     // Concept: the butterfly baseline is a retained presentation snapshot of
     // the pre-nudge future. It is intentionally smaller than the committed
     // simulation frame list: one cold root polyline, two poses per affected
@@ -473,7 +677,8 @@ struct RunReplayPredictionState
 
 inline std::size_t RunReplayPredictionState::PublishedBuildFrameCount() const noexcept
 {
-    return build.buildFrameCount < build.buildFrames.size() ? build.buildFrameCount : build.buildFrames.size();
+    const std::size_t publishedCount = build.buildFrameCount.load( std::memory_order_acquire );
+    return publishedCount < build.buildFrames.size() ? publishedCount : build.buildFrames.size();
 }
 
 inline bool RunReplayPredictionState::HasPublishedBuildFramePrefix( std::size_t minFrameCount ) const noexcept
@@ -484,8 +689,10 @@ inline bool RunReplayPredictionState::HasPublishedBuildFramePrefix( std::size_t 
 inline bool RunReplayPredictionState::BuildPrefixShouldBePresented() const noexcept
 {
     const std::size_t publishedCount = PublishedBuildFrameCount();
-    return build.building && publishedCount >= 2u &&
-           ( simulation.frames.empty() || publishedCount >= simulation.frames.size() );
+    const std::size_t requiredFrameCount = simulation.frames.empty() || build.buildPresentationFrameCount < 2u
+                                               ? std::size_t{ 2u }
+                                               : build.buildPresentationFrameCount;
+    return build.building && publishedCount >= requiredFrameCount;
 }
 
 inline bool RunReplayPredictionState::BuildFramesAreComplete() const noexcept
@@ -495,17 +702,37 @@ inline bool RunReplayPredictionState::BuildFramesAreComplete() const noexcept
 
 inline void RunReplayPredictionState::ResetBuildFramePublication() noexcept
 {
-    build.buildFrameCount = 0;
+    build.buildFrameCount.store( 0, std::memory_order_release );
+    build.buildPresentationFrameCount = 2u;
+    build.workerFailed.store( false, std::memory_order_release );
 }
 
 inline void RunReplayPredictionState::PublishBuildFrameSlot( std::size_t frameSlot ) noexcept
 {
     const std::size_t publishedCount = frameSlot < build.buildFrames.size() ? frameSlot + 1u : build.buildFrames.size();
-    if ( publishedCount > build.buildFrameCount )
+    if ( publishedCount > build.buildFrameCount.load( std::memory_order_relaxed ) )
     {
-        build.buildFrameCount = publishedCount;
+        build.buildFrameCount.store( publishedCount, std::memory_order_release );
     }
 }
+
+struct ReplayTrajectorySubmissionProbeStats
+{
+    bool hasSubmission = false;
+    bool stableWindowReady = false;
+    bool noReserveGrowth = true;
+    int observedFrameCount = 0;
+    int stableFrameCount = 0;
+    int stableWindowTargetFrameCount = 120;
+    int firstFrame = -1;
+    int lastFrame = -1;
+    uint64_t stableHash = 0;
+    uint64_t vertexBytes = 0;
+    uint32_t vertexCount = 0;
+    uint32_t segmentCount = 0;
+    uint64_t reserveGrowthEventsAtStart = 0;
+    uint64_t reserveGrowthEventsAtEnd = 0;
+};
 
 struct RunReplayVelocityEditState
 {
@@ -643,6 +870,12 @@ class ReplayRuntime
     const RunReplayPredictionState& Prediction() const;
     const std::vector<RunReplayPredictionFrame>& ActivePredictionFrames() const;
     void ClearPredictionFutureNodeCache();
+    void WaitForPredictionJobIdle();
+    // Promotes the currently visible worker-built prediction prefix into the
+    // committed preview and releases private build scratch. Returns false when
+    // no coherent prefix is available or the committed root trajectory cannot be
+    // published under the replay reserve budget.
+    bool PromotePredictionBuildPrefixToCommitted();
     void CancelPredictionJob( bool clearSamples );
     void ClearPredictionCache();
     void MarkPredictionDirty();
@@ -688,6 +921,12 @@ class ReplayRuntime
     // scene/run body cap known before capture so replay frames do not allocate.
     RecordingConfigResult
     ConfigureRecording( bool enabled, int retentionSeconds, const char* hashLogPath, int runtimeBodyCapacity );
+    // Applies a UI or tool policy request. A true return means recorder windows
+    // changed or queued policy state changed before recording was configured.
+    bool ApplyMemoryPolicyRequest( const ReplayMemoryPolicyRequest& request );
+    // Exposes the resolved policy for diagnostics/UI; callers must not infer
+    // recorder capacity from raw requested fields.
+    const ReplayMemoryPolicy& MemoryPolicy() const;
     void FlushHashLogs();
     void ResetBranch();
     void ResetTimeline( const char* sceneLabel );
@@ -699,11 +938,16 @@ class ReplayRuntime
     ReplayRecorderStats SolverStats() const;
     ReplayEventRecorderStats EventStats() const;
     ReplayFrameIndex NextEventFrameIndex() const;
+    // Refreshes the selected past-root trajectory from retained solver samples.
+    // The method is cheap when the cursor already matches the recorder window.
+    void RefreshPastTrajectoryStoreFromSolverSamples();
     void CaptureFrame( ReplayCaptureInput input );
-    bool ApplyPresentationSampleForRender( Physics::PhysicsEngine& physicsEngine,
+    bool ApplyPresentationSampleForRender( GameObjects::GameModelCollection& collection,
                                            const ReplayPresentationSample& sample );
-    bool ApplySolverSampleForRender( Physics::PhysicsEngine& physicsEngine, const ReplaySolverFrameSample& sample );
-    bool ApplyPredictionFrameForRender( Physics::PhysicsEngine& physicsEngine, const RunReplayPredictionFrame& frame );
+    bool ApplySolverSampleForRender( GameObjects::GameModelCollection& collection,
+                                     const ReplaySolverFrameSample& sample );
+    bool ApplyPredictionFrameForRender( GameObjects::GameModelCollection& collection,
+                                        const RunReplayPredictionFrame& frame );
     bool HasLoadedPresentation() const;
     const ReplayPresentationSample* LoadedPresentationSampleAtNormalized( float normalized ) const;
     const ReplayPresentationSample* LoadedPresentationLatestSample() const;
@@ -734,6 +978,15 @@ class ReplayRuntime
     void StoreLauncherVisualBackup( const ReplayLauncherVisualSample& sample );
     const ReplayLauncherVisualSample& LauncherVisualBackup() const;
     void ClearLauncherVisualBackup();
+    // Accumulates one rendered replay overlay pass into the repro-session
+    // trajectory counters exposed through memory diagnostics.
+    void RecordReplayTrajectoryFrameStats( const MainMemoryReplayTrajectoryStats& frameStats );
+    void RecordReplayTrajectorySubmissionFrame( const MainMemoryReplayTrajectorySubmissionStats& submissionStats,
+                                                int frameNumber,
+                                                uint64_t reserveGrowthEventCount );
+    const ReplayTrajectorySubmissionProbeStats& ReplayTrajectorySubmissionProbe() const;
+    void RecordReplayTrajectoryBudgetExpiry( MainMemoryReplayBudgetPass pass );
+    void RecordReplayTrajectoryRebuildCause( MainMemoryReplayRebuildCause cause );
     MainMemoryReplayStats CollectMemoryStats() const;
     void RecordEvent( ReplayEventKind kind,
                       ReplayFrameIndex frameIndex,
@@ -780,16 +1033,22 @@ class ReplayRuntime
 
   private:
     void ReportLatestCaptureMismatch();
+    void AppendSolverTrajectorySampleToStore( const ReplaySolverFrameSample& sample );
 
     ReplayRecorder m_presentation;                                    // Bounded replay presentation recorder for recent-frame inspection.
     ReplaySolverRecorder m_solver;                                    // Same-tick solver-state recorder kept in tandem with presentation replay.
     ReplayEventRecorder m_events;                                     // Bounded intent/event stream kept beside v2 replay tracks.
     ReplayBranchInfo m_branch;                                        // Current live replay branch provenance.
+    ReplayMemoryPolicy m_memoryPolicy;                                // Resolved recorder-window policy owned by ReplayRuntime.
     RunLoadedReplayPresentationState m_loadedPresentation;
     RunReplayScrubberState m_scrubber;
     RunReplayCameraState m_camera;
     RunReplayPathVisualizerState m_pathVisualizer;
     RunReplayPredictionState m_prediction;
+    MainMemoryReplayTrajectoryStats
+        m_trajectoryVisualStats;                                      // Cumulative replay trajectory diagnostics for the current process.
+    ReplayTrajectorySubmissionProbeStats
+        m_trajectorySubmissionProbe;                                  // Submitted replay-ribbon stability window for validation reports.
     RunReplayCauseTreeState m_causeTree;
     RunReplayVelocityEditState m_velocityEdit;
     std::vector<ReplayPredictionGhostDrawRequest> m_predictionGhostDrawRequests;
@@ -799,9 +1058,13 @@ class ReplayRuntime
     // the live model budget. It must not allocate while scrub/prediction views
     // are applied during rendering.
     std::array<uint8_t, MAX_GAME_MODELS> m_renderPoseBodyMatched = {};
+    std::string m_recordingHashLogPath;
+    int m_recordingRuntimeBodyCapacity = 0;
     uint32_t m_captureMismatchReports = 0;                            // Process-lifetime throttle for paired presentation/solver capture diagnostics.
     bool m_captureMismatchSuppressed = false;
     bool m_launcherVisualBackupActive = false;
+    bool m_recordingConfigured = false;
+    bool m_recordingEnabled = false;
 };
 } // namespace Basics
 } // namespace SkullbonezCore

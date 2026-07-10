@@ -29,11 +29,13 @@ Related:
 #include "PhysicsEngine.h"
 
 using SkullbonezCore::Basics::ReplaySolverWorldSnapshot;
-using SkullbonezCore::Physics::ColliderStore;
+using SkullbonezCore::Physics::ModelRowHint;
+using SkullbonezCore::Physics::PhysicsAuthoredBodyCount;
+using SkullbonezCore::Physics::PhysicsAuthoredBodyRefreshView;
+using SkullbonezCore::Physics::PhysicsBodyCount;
 using SkullbonezCore::Physics::PhysicsBodyCreateDesc;
 using SkullbonezCore::Physics::PhysicsBodyHandle;
-using SkullbonezCore::Physics::PhysicsBodyRecord;
-using SkullbonezCore::Physics::PhysicsBodyStore;
+using SkullbonezCore::Physics::PhysicsColliderCount;
 using SkullbonezCore::Physics::PhysicsColliderCreateDesc;
 using SkullbonezCore::Physics::PhysicsColliderHandle;
 using SkullbonezCore::Physics::PhysicsConstraintHandle;
@@ -62,25 +64,27 @@ void PhysicsEngine::ReserveAuthoredBodyCapacity( std::size_t capacity )
 }
 
 
-int PhysicsEngine::AuthoredBodyDescriptorCount() const
+PhysicsAuthoredBodyCount PhysicsEngine::AuthoredBodyDescriptorCount() const
 {
     return m_scene.AuthoredBodyDescriptorCount();
 }
 
 
-bool PhysicsEngine::TryGetAuthoredBodyDescriptor( int modelIndex, PhysicsBodyCreateDesc& outDesc ) const
+bool PhysicsEngine::TryGetAuthoredBodyDescriptor( ModelRowHint bodyRow, PhysicsBodyCreateDesc& outDesc ) const
 {
-    return m_scene.TryGetAuthoredBodyDescriptor( modelIndex, outDesc );
+    return m_scene.TryGetAuthoredBodyDescriptor( bodyRow, outDesc );
 }
 
 
-bool PhysicsEngine::UpdateAuthoredBodyDescriptor( int modelIndex, PhysicsBodyCreateDesc& desc, int expectedModelCount )
+bool PhysicsEngine::UpdateAuthoredBodyDescriptor( ModelRowHint bodyRow,
+                                                  PhysicsBodyCreateDesc& desc,
+                                                  PhysicsAuthoredBodyCount expectedBodyCount )
 {
-    return m_scene.UpdateAuthoredBodyDescriptor( modelIndex, desc, expectedModelCount );
+    return m_scene.UpdateAuthoredBodyDescriptor( bodyRow, desc, expectedBodyCount );
 }
 
 
-bool PhysicsEngine::TrimAuthoredBodyDescriptorsToCount( int bodyCount )
+bool PhysicsEngine::TrimAuthoredBodyDescriptorsToCount( PhysicsAuthoredBodyCount bodyCount )
 {
     return m_scene.TrimAuthoredBodyDescriptorsToCount( bodyCount );
 }
@@ -92,25 +96,17 @@ void PhysicsEngine::Clear()
 }
 
 
-bool PhysicsEngine::RefreshBodyStoreFromAuthoredDescriptors( const std::vector<uint32_t>& replayBodyIds,
-                                                             const std::vector<int>& fixedTreeReleaseRoots,
-                                                             const std::vector<const char*>& diagnosticNames )
+bool PhysicsEngine::RefreshBodyStoreFromAuthoredDescriptors( const PhysicsAuthoredBodyRefreshView& refreshView )
 {
-    return m_scene.RefreshBodyStoreFromAuthoredDescriptors( replayBodyIds, fixedTreeReleaseRoots, diagnosticNames );
-}
-
-
-void PhysicsEngine::RefreshBodyStore( const std::vector<PhysicsBodyCreateDesc>& bodyDescs )
-{
-    m_scene.RefreshBodyStore( bodyDescs );
+    return m_scene.RefreshBodyStoreFromAuthoredDescriptors( refreshView );
 }
 
 
 void PhysicsEngine::RefreshBodyFromDescriptor( const PhysicsBodyCreateDesc& desc,
-                                               int modelIndex,
-                                               int expectedModelCount )
+                                               ModelRowHint bodyRow,
+                                               PhysicsBodyCount expectedBodyCount )
 {
-    m_scene.RefreshBodyFromDescriptor( desc, modelIndex, expectedModelCount );
+    m_scene.RefreshBodyFromDescriptor( desc, bodyRow, expectedBodyCount );
 }
 
 
@@ -138,15 +134,15 @@ void PhysicsEngine::ClearPendingBodyImpulses()
 }
 
 
-bool PhysicsEngine::TrimBodyStoreToCount( int bodyCount )
+bool PhysicsEngine::TrimBodiesToCount( PhysicsBodyCount bodyCount )
 {
-    return m_scene.TrimBodyStoreToCount( bodyCount );
+    return m_scene.TrimBodiesToCount( bodyCount );
 }
 
 
-bool PhysicsEngine::TrimColliderStoreToCount( int colliderCount )
+bool PhysicsEngine::TrimCollidersToCount( PhysicsColliderCount colliderCount )
 {
-    return m_scene.TrimColliderStoreToCount( colliderCount );
+    return m_scene.TrimCollidersToCount( colliderCount );
 }
 
 
@@ -179,75 +175,6 @@ bool PhysicsEngine::RestoreReplayBodyState( PhysicsBodyHandle body,
 bool PhysicsEngine::RefreshColliderSnapshot()
 {
     return m_scene.RefreshColliderSnapshot();
-}
-
-
-bool PhysicsEngine::PrepareRenderStoreRefresh( int expectedModelCount )
-{
-    return m_scene.PrepareRenderStoreRefresh( expectedModelCount );
-}
-
-
-void PhysicsEngine::ReserveRenderPresentationCapacity( std::size_t capacity )
-{
-    m_scene.ReserveRenderPresentationCapacity( capacity );
-}
-
-
-bool PhysicsEngine::ResizeRenderPresentationRecords( int presentationCount )
-{
-    return m_scene.ResizeRenderPresentationRecords( presentationCount );
-}
-
-
-SkullbonezCore::Rendering::RenderInstancePresentationRecord*
-PhysicsEngine::MutableRenderPresentationRecordForModelIndex( int modelIndex )
-{
-    return m_scene.MutableRenderPresentationRecordForModelIndex( modelIndex );
-}
-
-
-const std::vector<SkullbonezCore::Rendering::RenderInstancePresentationRecord>&
-PhysicsEngine::RenderPresentationRecords() const
-{
-    return m_scene.RenderPresentationRecords();
-}
-
-
-bool PhysicsEngine::RefreshRenderInstancesFromPresentation()
-{
-    return m_scene.RefreshRenderInstancesFromPresentation();
-}
-
-
-bool PhysicsEngine::OverrideRenderInstancePose( int modelIndex,
-                                                uint32_t replayBodyId,
-                                                const Math::Vector::Vector3& position,
-                                                const Math::Orientation::Quaternion& orientation )
-{
-    const PhysicsBodyStore& bodyStore = m_scene.BodyStore();
-    const PhysicsBodyHandle body = bodyStore.HandleForModelIndex( modelIndex );
-    const PhysicsBodyRecord* bodyRecord = bodyStore.RecordForHandle( body );
-    // Invariant: render-pose overrides are keyed by the physics-owned body id.
-    // The model-index hint can lag during scrub/prediction presentation, so it
-    // is not allowed to approve which live render instance receives the pose.
-    if ( !bodyRecord || bodyStore.ModelIndexForHandle( body ) != modelIndex ||
-         bodyRecord->replayBodyId != replayBodyId )
-    {
-        return false;
-    }
-
-    return m_scene.MutableRenderInstances().OverridePose( modelIndex,
-                                                          replayBodyId,
-                                                          position,
-                                                          orientation,
-                                                          m_scene.Colliders() );
-}
-
-
-SkullbonezCore::Rendering::RenderInstanceStore& PhysicsEngine::MutableRenderInstances()
-{
-    return m_scene.MutableRenderInstances();
 }
 
 
@@ -324,9 +251,9 @@ void PhysicsEngine::SetSleepEnabled( bool enabled )
 }
 
 
-void PhysicsEngine::BeginCollisionVisualFrame( int modelCount )
+void PhysicsEngine::BeginCollisionVisualFrame( PhysicsBodyCount bodyCount )
 {
-    m_scene.BeginCollisionVisualFrame( modelCount );
+    m_scene.BeginCollisionVisualFrame( bodyCount );
 }
 
 
@@ -378,23 +305,16 @@ float PhysicsEngine::GetTornadoSystemElapsedSeconds() const
 }
 
 
-void PhysicsEngine::RenderTornadoFieldVectors( const Math::Transformation::Matrix4& viewProj,
-                                               Rendering::IRenderCommandContext& renderCommands,
-                                               bool supportsDebugLines )
+void PhysicsEngine::CaptureReplaySolverSnapshot( ReplaySolverWorldSnapshot& outSnapshot,
+                                                 PhysicsBodyCount bodyCount ) const
 {
-    m_scene.RenderTornadoFieldVectors( viewProj, renderCommands, supportsDebugLines );
+    m_scene.CaptureReplaySolverSnapshot( outSnapshot, bodyCount );
 }
 
 
-void PhysicsEngine::CaptureReplaySolverSnapshot( ReplaySolverWorldSnapshot& outSnapshot, int modelCount ) const
+bool PhysicsEngine::RestoreReplaySolverSnapshot( const ReplaySolverWorldSnapshot& snapshot, PhysicsBodyCount bodyCount )
 {
-    m_scene.CaptureReplaySolverSnapshot( outSnapshot, modelCount );
-}
-
-
-bool PhysicsEngine::RestoreReplaySolverSnapshot( const ReplaySolverWorldSnapshot& snapshot, int modelCount )
-{
-    return m_scene.RestoreReplaySolverSnapshot( snapshot, modelCount );
+    return m_scene.RestoreReplaySolverSnapshot( snapshot, bodyCount );
 }
 
 
@@ -424,98 +344,6 @@ bool PhysicsEngine::ShouldEmitStepDiagnostics() const
 bool PhysicsEngine::ShouldEmitCollisionTimeDiagnostics() const
 {
     return m_scene.ShouldEmitCollisionTimeDiagnostics();
-}
-
-
-const std::vector<int>& PhysicsEngine::GetFixedContactHighlightBodies() const
-{
-    return m_scene.GetFixedContactHighlightBodies();
-}
-
-
-const PhysicsBodyStore& PhysicsEngine::BodyStore() const
-{
-    return m_scene.BodyStore();
-}
-
-
-const ColliderStore& PhysicsEngine::Colliders() const
-{
-    return m_scene.Colliders();
-}
-
-
-const SkullbonezCore::Rendering::RenderInstanceStore& PhysicsEngine::RenderInstances() const
-{
-    return m_scene.RenderInstances();
-}
-
-
-#ifdef _DEBUG
-void PhysicsEngine::ValidateRenderStore( int expectedModelCount ) const
-{
-    m_scene.ValidateRenderStore( expectedModelCount );
-}
-#endif
-
-
-const SkullbonezCore::Math::CollisionDetection::SpatialGrid& PhysicsEngine::GetSpatialGrid() const
-{
-    return m_scene.GetSpatialGrid();
-}
-
-
-const std::vector<int64_t>& PhysicsEngine::GetCollisionCellKeys() const
-{
-    return m_scene.GetCollisionCellKeys();
-}
-
-
-const std::vector<uint8_t>& PhysicsEngine::GetCollisionVisualContacts() const
-{
-    return m_scene.GetCollisionVisualContacts();
-}
-
-
-const std::vector<uint8_t>& PhysicsEngine::GetSleepStates() const
-{
-    return m_scene.GetSleepStates();
-}
-
-
-const std::vector<int>& PhysicsEngine::GetSleepIslandVisualIds() const
-{
-    return m_scene.GetSleepIslandVisualIds();
-}
-
-
-const std::vector<uint8_t>& PhysicsEngine::GetSleepSupportedStates() const
-{
-    return m_scene.GetSleepSupportedStates();
-}
-
-
-const std::vector<uint8_t>& PhysicsEngine::GetSleepInhibitedStates() const
-{
-    return m_scene.GetSleepInhibitedStates();
-}
-
-
-const std::vector<SkullbonezCore::Physics::PhysicsDebugContact>& PhysicsEngine::GetPhysicsDebugContacts() const
-{
-    return m_scene.GetPhysicsDebugContacts();
-}
-
-
-const std::vector<SkullbonezCore::Physics::PhysicsPipelineRecord>& PhysicsEngine::GetPhysicsPipelineTrace() const
-{
-    return m_scene.GetPhysicsPipelineTrace();
-}
-
-
-const std::vector<SkullbonezCore::Physics::PointJointConstraint>& PhysicsEngine::GetPointJointConstraints() const
-{
-    return m_scene.GetPointJointConstraints();
 }
 
 
