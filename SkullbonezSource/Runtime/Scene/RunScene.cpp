@@ -340,7 +340,8 @@ void ApplyNoWaterOverride( WorldEnvironment& world, Terrain* terrain, bool noWat
     world.SetFluidSurfaceHeight( terrain->GetMinHeight() - NO_WATER_TERRAIN_CLEARANCE );
 }
 
-SbResult UseDefaultTerrain( RunSubsystemState& systems,
+SbResult UseDefaultTerrain( SceneTerrain& terrainOwner,
+                            SkullbonezCore::Assets::AssetSystem& assets,
                             WorldEnvironment& world,
                             const EngineConfig& config,
                             const std::string& terrainRawPath,
@@ -352,7 +353,7 @@ SbResult UseDefaultTerrain( RunSubsystemState& systems,
     {
         return SbResult::Failure( "Runtime/RunScene", "Renderer resource factory unavailable for terrain load." );
     }
-    if ( !systems.terrain || systems.isFlatSlopeTerrain )
+    if ( !terrainOwner.Get() || terrainOwner.IsFlatSlope() )
     {
         if ( renderLifecycle )
         {
@@ -370,7 +371,7 @@ SbResult UseDefaultTerrain( RunSubsystemState& systems,
                                                                         8,
                                                                         15,
                                                                         config,
-                                                                        systems.assets,
+                                                                        assets,
                                                                         *renderResources,
                                                                         terrain );
         if ( !terrainResult.ok )
@@ -379,19 +380,19 @@ SbResult UseDefaultTerrain( RunSubsystemState& systems,
             // failure before replacing the currently owned terrain.
             return terrainResult;
         }
-        systems.terrain = std::move( terrain );
-        systems.isFlatSlopeTerrain = false;
+        terrainOwner.Replace( std::move( terrain ), false );
     }
     else
     {
-        systems.terrain->BindRenderContexts( config, systems.assets, *renderResources );
+        terrainOwner.Get()->BindRenderContexts( config, assets, *renderResources );
     }
 
-    UpdateWorldTerrainBounds( world, systems.terrain.get() );
+    UpdateWorldTerrainBounds( world, terrainOwner.Get() );
     return SbResult::Success();
 }
 
-SbResult UseFlatSlopeTerrain( RunSubsystemState& systems,
+SbResult UseFlatSlopeTerrain( SceneTerrain& terrainOwner,
+                              SkullbonezCore::Assets::AssetSystem& assets,
                               WorldEnvironment& world,
                               const EngineConfig& config,
                               float baseY,
@@ -415,10 +416,10 @@ SbResult UseFlatSlopeTerrain( RunSubsystemState& systems,
             return flushResult;
         }
     }
-    systems.terrain = std::make_unique<Terrain>( baseY, slopeX, slopeZ, config, systems.assets, *renderResources );
-    systems.isFlatSlopeTerrain = true;
+    auto terrain = std::make_unique<Terrain>( baseY, slopeX, slopeZ, config, assets, *renderResources );
+    terrainOwner.Replace( std::move( terrain ), true );
 
-    UpdateWorldTerrainBounds( world, systems.terrain.get() );
+    UpdateWorldTerrainBounds( world, terrainOwner.Get() );
     return SbResult::Success();
 }
 
@@ -614,7 +615,8 @@ SbResult Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnCom
         SceneState().rngSeed = rngSeed;
         SceneState().rngState = rngSeed;
         const SbResult terrainResult =
-            UseDefaultTerrain( m_systems,
+            UseDefaultTerrain( m_sceneController.Terrain(),
+                               m_systems.assets,
                                m_sceneController.World(),
                                m_config,
                                m_systems.assets.RegisterSourceAssetPath( SkullbonezCore::Assets::AssetKind::Terrain,
@@ -628,8 +630,8 @@ SbResult Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnCom
             LogSceneLoadFailure( terrainResult, scenePath );
             return m_lastSceneLoadResult;
         }
-        ApplyConfiguredWorldEnvironment( m_sceneController.World(), m_config, m_systems.terrain.get() );
-        ApplyNoWaterOverride( m_sceneController.World(), m_systems.terrain.get(), m_launchOptions.noWater );
+        ApplyConfiguredWorldEnvironment( m_sceneController.World(), m_config, m_sceneController.Terrain().Get() );
+        ApplyNoWaterOverride( m_sceneController.World(), m_sceneController.Terrain().Get(), m_launchOptions.noWater );
         if ( shouldPreserveRuntimeState )
         {
             // Restore setup-affecting live controls before the generated model pool is rebuilt.
@@ -643,12 +645,12 @@ SbResult Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnCom
 
         SceneState().isSceneMode = false;
         SceneGeneratedSetup::SetUpCameras(
-            BuildSceneGeneratedCameraContext( m_sceneController.Cameras(), *m_systems.terrain ) );
+            BuildSceneGeneratedCameraContext( m_sceneController.Cameras(), *m_sceneController.Terrain().Get() ) );
         const SceneGeneratedSetupResult generatedSetup = SceneGeneratedSetup::TrySetUpRequestedModels(
             BuildSceneGeneratedModelContext( SceneState(),
                                              m_config,
                                              m_sceneController.World(),
-                                             m_systems.terrain.get(),
+                                             m_sceneController.Terrain().Get(),
                                              m_sceneController.Models(),
                                              m_sceneController.Physics(),
                                              m_launchOptions.generatedObjectTypeOverride ),
@@ -785,7 +787,8 @@ SbResult Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnCom
         // its analytic terrain into the next height-map scene.
         if ( scene.HasFlatSlope() )
         {
-            const SbResult terrainResult = UseFlatSlopeTerrain( m_systems,
+            const SbResult terrainResult = UseFlatSlopeTerrain( m_sceneController.Terrain(),
+                                                                m_systems.assets,
                                                                 m_sceneController.World(),
                                                                 m_config,
                                                                 scene.GetFlatBaseY(),
@@ -807,7 +810,8 @@ SbResult Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnCom
         else
         {
             const SbResult terrainResult =
-                UseDefaultTerrain( m_systems,
+                UseDefaultTerrain( m_sceneController.Terrain(),
+                                   m_systems.assets,
                                    m_sceneController.World(),
                                    m_config,
                                    m_systems.assets.RegisterSourceAssetPath( SkullbonezCore::Assets::AssetKind::Terrain,
@@ -824,7 +828,7 @@ SbResult Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnCom
             SceneState().hasFlatSlope = false;
         }
 
-        ApplyConfiguredWorldEnvironment( m_sceneController.World(), m_config, m_systems.terrain.get() );
+        ApplyConfiguredWorldEnvironment( m_sceneController.World(), m_config, m_sceneController.Terrain().Get() );
         // Override world environment if scene specifies world values
         if ( scene.HasWorldOverride() )
         {
@@ -834,9 +838,9 @@ SbResult Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnCom
                                                           scene.GetWorldGravity() );
             m_sceneController.World().SetMutualGravitySettings( scene.GetWorldMutualGravitySettings() );
             m_sceneController.World().BindRuntimeConfig( m_config );
-            UpdateWorldTerrainBounds( m_sceneController.World(), m_systems.terrain.get() );
+            UpdateWorldTerrainBounds( m_sceneController.World(), m_sceneController.Terrain().Get() );
         }
-        ApplyNoWaterOverride( m_sceneController.World(), m_systems.terrain.get(), m_launchOptions.noWater );
+        ApplyNoWaterOverride( m_sceneController.World(), m_sceneController.Terrain().Get(), m_launchOptions.noWater );
         if ( shouldPreserveRuntimeState )
         {
             // World sliders/keyboard water edits are part of the live scene controls.
@@ -850,14 +854,14 @@ SbResult Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnCom
         }
 
         SceneAuthoredSetup::SetUpCameras(
-            BuildSceneAuthoredCameraContext( m_sceneController.Cameras(), *m_systems.terrain ),
+            BuildSceneAuthoredCameraContext( m_sceneController.Cameras(), *m_sceneController.Terrain().Get() ),
             scene );
 
         const SceneGeneratedSetupResult generatedModels = SceneGeneratedSetup::TrySetUpRequestedModels(
             BuildSceneGeneratedModelContext( SceneState(),
                                              m_config,
                                              m_sceneController.World(),
-                                             m_systems.terrain.get(),
+                                             m_sceneController.Terrain().Get(),
                                              m_sceneController.Models(),
                                              m_sceneController.Physics(),
                                              m_launchOptions.generatedObjectTypeOverride ),
@@ -879,7 +883,7 @@ SbResult Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnCom
             const SbResult authoredSetup = SceneAuthoredSetup::SetUpGameModels(
                 BuildSceneAuthoredModelContext( SceneState(),
                                                 m_sceneController.World(),
-                                                m_systems.terrain.get(),
+                                                m_sceneController.Terrain().Get(),
                                                 m_sceneController.Models(),
                                                 m_sceneController.Entities(),
                                                 m_sceneController.Physics(),
@@ -1110,7 +1114,7 @@ SbResult Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnCom
             m_inputRouter,
             m_interaction,
             &m_sceneController.Cameras(),
-            m_systems.terrain.get(),
+            m_sceneController.Terrain().Get(),
             m_camera,
             NormalizeCameraModeForCurrentScene( m_replayRuntime.Camera().restoreCameraMode ),
             m_attachedCamera.activeFollow,
@@ -1146,9 +1150,9 @@ SbResult Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnCom
                                                  m_renderer.Helper() };
         m_renderer.Helper().EnsureSphereMesh( helperContext );
     }
-    if ( hasRayTracingReflection && m_systems.terrain && m_systems.terrain->GetMesh() )
+    if ( hasRayTracingReflection && m_sceneController.Terrain().Get() && m_sceneController.Terrain().Get()->GetMesh() )
     {
-        IMesh* terrainMesh = m_systems.terrain->GetMesh();
+        IMesh* terrainMesh = m_sceneController.Terrain().Get()->GetMesh();
         uint64_t terrainVBVA = terrainMesh->GetVertexBufferGPUVA();
         int terrainVertCount = terrainMesh->GetVertexCount();
         int terrainStride = terrainMesh->GetStride();

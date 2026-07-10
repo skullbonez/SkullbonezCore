@@ -23,8 +23,9 @@ Glossary:
 
 Invariants:
   - Run is the composition root for process-lifetime runtime systems.
-  - Scene-lifetime camera, world, entity, model, and physics state belongs to
-    SceneController; Run sequences work without republishing those owners.
+  - Scene-lifetime camera, terrain, world, entity, model, and physics state
+    belongs to SceneController; Run sequences work without republishing those
+    owners.
   - Public startup code should configure Run through the small launch surface
     below instead of reaching into runtime-owned state.
   - Camera follow helpers should take store-sampled body state instead of
@@ -79,7 +80,6 @@ Related:
 #include "../Assets/TextureCollection.h"
 #include "Window.h"
 #include "../Rendering/Text.h"
-#include "../World/Terrain.h"
 #include "../World/SkyBox.h"
 #include "../Maths/GeometricMath.h"
 #include "../Scene/TestScene.h"
@@ -130,7 +130,7 @@ class Run
     DiagnosticsRuntime m_diagnosticsRuntime;                            // Capture, perf, and queryable physics diagnostics owner.
     RunRuntimeSettings m_runtimeSettings;                               // Scene/app runtime swap policy toggles
     RunTimerState m_timers;                                             // Frame/simulation timers and rolling timing values
-    RunSubsystemState m_systems;                                        // Window, camera, texture, terrain, and pass resource ownership
+    RunSubsystemState m_systems;                                        // Window, texture, skybox, asset, and pass-resource shelf.
     RuntimeInputContext m_runtimeInput;                                 // Semantic input mode/action state owned by input routing.
     InputRouter m_inputRouter;                                          // Owns keyboard/pointer edge memory and binding-context enforcement.
     InputActions m_inputActions;                                        // Fixed ordered semantic events for the current device frame.

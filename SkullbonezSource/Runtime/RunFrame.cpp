@@ -930,7 +930,7 @@ void Run::AfterPhysicsStep()
                 m_inputRouter,
                 m_interaction,
                 &m_sceneController.Cameras(),
-                m_systems.terrain.get(),
+                m_sceneController.Terrain().Get(),
                 m_camera,
                 NormalizeCameraModeForCurrentScene( m_replayRuntime.Camera().restoreCameraMode ),
                 m_attachedCamera.activeFollow,

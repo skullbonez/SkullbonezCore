@@ -409,6 +409,7 @@
     <ClInclude Include="SkullbonezSource\Runtime\RuntimeViewModel.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneAuthoredSetup.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneController.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneTerrain.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneControllerState.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneRequestQueue.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneEntityStore.h" />

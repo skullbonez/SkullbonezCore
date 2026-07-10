@@ -1091,7 +1091,7 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
                                           previewBodyStore,
                                           previewColliderStore,
                                           m_interaction,
-                                          m_systems.terrain.get(),
+                                          m_sceneController.Terrain().Get(),
                                           m_systems.assets },
                                         { m_UI.BlocksCameraMouse(),
                                           previewInspectGizmoActive,
@@ -1130,7 +1130,7 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
                                                                m_sceneController.Physics(),
                                                                SceneState(),
                                                                m_sceneController.World(),
-                                                               m_systems.terrain.get(),
+                                                               m_sceneController.Terrain().Get(),
                                                                m_systems.assets,
                                                                m_startup.gameModelCapacity };
                 EditorObjectPlacementRequest placementRequest{ m_runtimeTools.Editor().objectType,

@@ -323,6 +323,29 @@ stopped at four implementation and two header formatting findings before build
 work; only the named files were formatted before the clean rerun. Comment audit:
 22/22 touched source/test files.
 
+Terrain ownership now follows the same boundary. `SceneController` owns a
+`SceneTerrain` that publishes the active terrain and its flat-slope
+classification atomically; `RunSubsystemState` no longer owns either field.
+Runtime, editor, replay, scene-population, and render consumers resolve the
+terrain through that owner. Render passes retain a stable `SceneTerrain&`
+rather than mutable `unique_ptr` storage, so scene replacement cannot invalidate
+their owner binding. C1 is now open only for promotion of the remaining load
+orchestration and deletion of its Run execution seam.
+
+Evidence from the terrain-owner move: the final staged fast gate passed in
+40.2s with 23 candidates and no size violations; the project-filter validator
+covered 593/593 production items in 1.3s; allocation policy scanned 306 files
+with zero allowlist errors in 7.2s; and the CPU umbrella passed all four lanes
+with 127/127 doctest cases and 2,730 assertions in 11.2s. A one-minute graphics
+stress run completed 8,371 frames and 233 scene loads with empty stderr; all 135
+authored scenes passed load-only DX12 activation with 135 empty stderr files in
+250.7s; focused physics passed in 16.1s; and full passed in 50.7s with zero
+warnings, zero DX12 InfoQueue errors, matching screenshots, standalone topology
+smoke, and the 20,001-line byte-exact baseline. The first two fast attempts
+stopped at implementation/header formatting; the third identified the missing
+project-filter classifier for the new domain header. Each was corrected before
+the clean gate. Comment audit: 18/18 touched C++ source/header files.
+
 Evidence from the collection-owner move: the final staged fast gate passed in
 33.6s with 17 candidates and no size violations; the CPU umbrella passed all
 four lanes with 127/127 doctest cases and 2,730 assertions in 11.2s; replay

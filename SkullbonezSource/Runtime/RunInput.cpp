@@ -673,7 +673,7 @@ ApplyRuntimeUIFrameCommands( const RuntimeUIFrameContext& context,
                                              context.sceneController.Entities(),
                                              context.gameModels.RenderPresentationRecords(),
                                              &context.sceneController.Cameras(),
-                                             context.systems.terrain.get(),
+                                             context.sceneController.Terrain().Get(),
                                              context.camera,
                                              context.runtimeTools.MousePickup(),
                                              context.replayCurrentCameraMode,
@@ -862,7 +862,7 @@ ApplyRuntimeUIFrameCommands( const RuntimeUIFrameContext& context,
                                                     context.sceneController,
                                                     liveConfig,
                                                     context.worldEnvironment,
-                                                    context.systems.terrain.get(),
+                                                    context.sceneController.Terrain().Get(),
                                                     context.gameModels,
                                                     context.simulation,
                                                     context.runtimeTools,
@@ -1166,7 +1166,7 @@ bool Run::RouteRuntimePointerInput( const RuntimeInputSnapshot& inputSnapshot, c
         {
             m_replayRuntime.ExitInspectionCamera(
                 &m_sceneController.Cameras(),
-                m_systems.terrain.get(),
+                m_sceneController.Terrain().Get(),
                 m_camera,
                 NormalizeCameraModeForCurrentScene( m_replayRuntime.Camera().restoreCameraMode ),
                 m_attachedCamera.activeFollow,
@@ -1203,7 +1203,7 @@ bool Run::RouteRuntimePointerInput( const RuntimeInputSnapshot& inputSnapshot, c
             if ( launcherStoresReady && m_runtimeTools.FireLauncherRay( m_sceneController.Models(),
                                                                         m_sceneController.Physics(),
                                                                         SceneState(),
-                                                                        m_systems.terrain.get(),
+                                                                        m_sceneController.Terrain().Get(),
                                                                         m_startup.gameModelCapacity,
                                                                         rayOrigin,
                                                                         rayDirection,
@@ -1322,7 +1322,7 @@ void Run::ClearRuntimeInteractionStateForTransition( const RuntimeInteractionTra
         {
             m_replayRuntime.ExitInspectionCamera(
                 &m_sceneController.Cameras(),
-                m_systems.terrain.get(),
+                m_sceneController.Terrain().Get(),
                 m_camera,
                 NormalizeCameraModeForCurrentScene( m_replayRuntime.Camera().restoreCameraMode ),
                 m_attachedCamera.activeFollow,
@@ -2128,7 +2128,7 @@ void Run::ExitFlyModeCamera()
     // Exiting fly mode restores terrain bounds, the camera-cycle clock, and
     // the stock Windows cursor.
     uint32_t activeCam = SceneState().isSceneMode ? m_sceneController.Cameras().GetSelectedCameraName() : CAMERA_FREE;
-    m_sceneController.Cameras().SetCameraXZBounds( activeCam, m_systems.terrain->GetXZBounds() );
+    m_sceneController.Cameras().SetCameraXZBounds( activeCam, m_sceneController.Terrain().Get()->GetXZBounds() );
     m_inputRouter.RequestCursorVisible( true );
     m_camera.cameraTime = 0.0f;
     InputController::ResetMouseLook( m_camera );
@@ -2151,7 +2151,7 @@ bool Run::HandleUnfocusedInputFrame()
     {
         m_replayRuntime.ExitInspectionCamera(
             &m_sceneController.Cameras(),
-            m_systems.terrain.get(),
+            m_sceneController.Terrain().Get(),
             m_camera,
             NormalizeCameraModeForCurrentScene( m_replayRuntime.Camera().restoreCameraMode ),
             m_attachedCamera.activeFollow,
@@ -2581,7 +2581,7 @@ void Run::TakeInput()
                     { m_sceneController.Models(),
                       m_sceneController.Entities(),
                       &m_sceneController.Cameras(),
-                      m_systems.terrain.get(),
+                      m_sceneController.Terrain().Get(),
                       m_sceneController.World(),
                       SceneState(),
                       m_sceneController.CurrentPath(),
@@ -2751,7 +2751,7 @@ void Run::TakeInput()
         {
             m_replayRuntime.ExitInspectionCamera(
                 &m_sceneController.Cameras(),
-                m_systems.terrain.get(),
+                m_sceneController.Terrain().Get(),
                 m_camera,
                 NormalizeCameraModeForCurrentScene( m_replayRuntime.Camera().restoreCameraMode ),
                 m_attachedCamera.activeFollow,
@@ -2815,7 +2815,7 @@ void Run::TakeInput()
                     m_inputRouter,
                     m_interaction,
                     &m_sceneController.Cameras(),
-                    m_systems.terrain.get(),
+                    m_sceneController.Terrain().Get(),
                     m_camera,
                     NormalizeCameraModeForCurrentScene( m_replayRuntime.Camera().restoreCameraMode ),
                     m_attachedCamera.activeFollow,
@@ -2842,7 +2842,7 @@ void Run::TakeInput()
             m_inputRouter,
             m_interaction,
             &m_sceneController.Cameras(),
-            m_systems.terrain.get(),
+            m_sceneController.Terrain().Get(),
             m_camera,
             NormalizeCameraModeForCurrentScene( m_replayRuntime.Camera().restoreCameraMode ),
             m_attachedCamera.activeFollow,
@@ -3125,9 +3125,10 @@ void Run::MoveCamera( float keyMovementQty, float mouseMovementQty )
          !m_runtimeTools.Editor().viewportLookActive && !SceneState().isSceneMode )
     {
         Vector3 translatedCameraPosition = m_sceneController.Cameras().GetCameraTranslation();
-        float minY =
-            m_systems.terrain->GetTerrainHeightAt( translatedCameraPosition.x, translatedCameraPosition.z, true ) +
-            m_config.minCameraHeight;
+        float minY = m_sceneController.Terrain().Get()->GetTerrainHeightAt( translatedCameraPosition.x,
+                                                                            translatedCameraPosition.z,
+                                                                            true ) +
+                     m_config.minCameraHeight;
         if ( minY > translatedCameraPosition.y )
         {
             m_sceneController.Cameras().AmmendPrimaryY( minY );

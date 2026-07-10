@@ -40,6 +40,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "../RunInternal.h"
+#include "../Scene/SceneTerrain.h"
 #include "../RuntimeTuning.h"
 #include "../../Assets/TextureCollection.h"
 #include "../../Core/PlatformProfiler.h"
@@ -737,7 +738,7 @@ ShadowPass::BuildTerrainFrameData( const CinematicRenderConfig& cinematic,
     PROFILE_SCOPED( "Frame/Shadows/ShadowMap/BuildTerrainFrame" );
 
     Rendering::ShadowFrameData shadowFrame;
-    if ( !m_terrain || !m_resources.terrainTarget )
+    if ( !m_terrain.Get() || !m_resources.terrainTarget )
     {
         return shadowFrame;
     }
@@ -748,10 +749,11 @@ ShadowPass::BuildTerrainFrameData( const CinematicRenderConfig& cinematic,
     // shadow visibility blocks the direct light the BRDF is actually shading.
     Vector3 lightDir = NormalizeShadowLightDirection( lightDirectionWorld );
 
-    const XZBounds terrainBounds = m_terrain->GetXZBounds();
+    const XZBounds terrainBounds = m_terrain.Get()->GetXZBounds();
     const float extentX = (std::max)( terrainBounds.m_xMax - terrainBounds.m_xMin, 1.0f );
     const float extentZ = (std::max)( terrainBounds.m_zMax - terrainBounds.m_zMin, 1.0f );
-    const float terrainHeightRange = (std::max)( m_terrain->GetMaxHeight() - m_terrain->GetMinHeight(), 64.0f );
+    const float terrainHeightRange =
+        (std::max)( m_terrain.Get()->GetMaxHeight() - m_terrain.Get()->GetMinHeight(), 64.0f );
     const float terrainRadius = (std::max)( extentX, extentZ ) * 0.5f;
     const float shadowRadius =
         std::clamp( terrainRadius + 180.0f, 128.0f, (std::max)( cinematic.shadowMaxDistance, 128.0f ) );
@@ -761,7 +763,7 @@ ShadowPass::BuildTerrainFrameData( const CinematicRenderConfig& cinematic,
     // and makes screenshots deterministic, at the cost of spreading resolution
     // across the authored terrain bounds instead of using cascades.
     const Vector3 focus( ( terrainBounds.m_xMin + terrainBounds.m_xMax ) * 0.5f,
-                         ( m_terrain->GetMinHeight() + m_terrain->GetMaxHeight() ) * 0.5f,
+                         ( m_terrain.Get()->GetMinHeight() + m_terrain.Get()->GetMaxHeight() ) * 0.5f,
                          ( terrainBounds.m_zMin + terrainBounds.m_zMax ) * 0.5f );
     const float lightBackDistance = shadowRadius + terrainHeightRange + 650.0f;
     const Vector3 lightEye = focus + lightDir * lightBackDistance;
@@ -906,7 +908,7 @@ void ShadowPass::RenderShadowMap( Rendering::IFramebuffer& target,
     // scene cannot leak into this off-screen pass.
     ClearAllRenderTextureSlots( renderCommands );
 
-    if ( renderTerrain && cinematic.shadowTerrainCasts && !m_activeTerrainHidden && m_terrain )
+    if ( renderTerrain && cinematic.shadowTerrainCasts && !m_activeTerrainHidden && m_terrain.Get() )
     {
         PROFILE_SCOPED( "Frame/Shadows/ShadowMap/RenderMap/TerrainCasters" );
         DRAW_CALL_TRACE_SCOPE( helperContext.renderDiagnostics, "Frame/Shadows/ShadowMap/RenderMap/TerrainCasters" );
@@ -915,7 +917,7 @@ void ShadowPass::RenderShadowMap( Rendering::IFramebuffer& target,
         // visible terrain uses. Otherwise cinematic basin relief would receive
         // shadows from the flat CPU height map and the contact would visibly
         // detach. With normal rendering the relief amount is zero by default.
-        m_terrain->RenderShadowDepth( shadowFrame.lightView, shadowFrame.lightProjection, &cinematic );
+        m_terrain.Get()->RenderShadowDepth( shadowFrame.lightView, shadowFrame.lightProjection, &cinematic );
     }
 
     if ( renderObjects && cinematic.shadowObjectsCast && !m_activeCollisionVisualizerVisible )
@@ -1393,7 +1395,7 @@ void ObjectPass::ReleaseGpuResources()
 
 void TerrainPass::Render( const TerrainPassInputs& inputs )
 {
-    if ( inputs.terrainHidden || !m_terrain )
+    if ( inputs.terrainHidden || !m_terrain.Get() )
     {
         return;
     }
@@ -1408,13 +1410,13 @@ void TerrainPass::Render( const TerrainPassInputs& inputs )
         RENDER_TEXTURE_SLOT_0 | ( inputs.shadow && inputs.shadow->valid ? RENDER_TEXTURE_SLOT_3 : 0u ) );
     if ( SelectRenderTexture( inputs.frame, TEXTURE_GROUND, "Frame/Render/Terrain" ) )
     {
-        m_terrain->Render( inputs.frame.baseView,
-                           inputs.frame.projection,
-                           renderCommands,
-                           inputs.frame.lightPosition,
-                           inputs.clipPlane,
-                           inputs.cinematic,
-                           inputs.shadow );
+        m_terrain.Get()->Render( inputs.frame.baseView,
+                                 inputs.frame.projection,
+                                 renderCommands,
+                                 inputs.frame.lightPosition,
+                                 inputs.clipPlane,
+                                 inputs.cinematic,
+                                 inputs.shadow );
     }
     PROFILE_GPU_END( "Frame/Render/Terrain" );
 }
@@ -1424,18 +1426,18 @@ void TerrainPass::EnsureGpuResources( const RenderResourceContext& resources )
 {
     // Terrain mesh/material resources live on Terrain; this pass owns ordering
     // and the receiver texture-slot contract.
-    if ( m_terrain )
+    if ( m_terrain.Get() )
     {
-        m_terrain->EnsureRenderResources( m_config, resources.assets, RenderResources( resources ) );
+        m_terrain.Get()->EnsureRenderResources( m_config, resources.assets, RenderResources( resources ) );
     }
 }
 
 
 void TerrainPass::ReleaseGpuResources()
 {
-    if ( m_terrain )
+    if ( m_terrain.Get() )
     {
-        m_terrain->ReleaseRenderResources();
+        m_terrain.Get()->ReleaseRenderResources();
     }
 }
 
@@ -1643,9 +1645,9 @@ bool TornadoVisualPass::Render( const TornadoVisualPassInputs& inputs )
     const Vector3 billboardUp = NormalizeOr( CrossProduct( cameraRight, cameraForward ), cameraUp );
     const auto terrainHeightFor = [&]( const Vector3& position )
     {
-        if ( m_terrain && m_terrain->IsInBounds( position.x, position.z ) )
+        if ( m_terrain.Get() && m_terrain.Get()->IsInBounds( position.x, position.z ) )
         {
-            return m_terrain->GetTerrainHeightAt( position.x, position.z );
+            return m_terrain.Get()->GetTerrainHeightAt( position.x, position.z );
         }
         return position.y - 64.0f;
     };
@@ -1913,7 +1915,7 @@ void DebugOverlayPass::Render( const DebugOverlayPassInputs& inputs )
                                              inputs.frame.viewProjection,
                                              RenderCommands( inputs.frame ),
                                              supportsDebugLines,
-                                             m_terrain.get() );
+                                             m_terrain.Get() );
         }
         if ( detailMarkers )
         {

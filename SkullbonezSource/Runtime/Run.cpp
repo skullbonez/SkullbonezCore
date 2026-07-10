@@ -393,7 +393,7 @@ Run::Run( Window& window,
                   RenderWorldView{ m_systems.assets,
                                    m_systems.textureCollection,
                                    m_sceneController.Cameras(),
-                                   m_systems.terrain,
+                                   m_sceneController.Terrain(),
                                    m_systems.skyBoxOwner,
                                    window,
                                    m_systems.renderPasses,
@@ -560,7 +560,7 @@ void Run::ApplyStartupOverrides( const RunStartupOverrides& overrides )
     {
         m_replayRuntime.ExitInspectionCamera(
             &m_sceneController.Cameras(),
-            m_systems.terrain.get(),
+            m_sceneController.Terrain().Get(),
             m_camera,
             NormalizeCameraModeForCurrentScene( m_replayRuntime.Camera().restoreCameraMode ),
             m_attachedCamera.activeFollow,
@@ -908,8 +908,7 @@ void Run::Initialise()
         m_lastSceneLoadResult = startupTerrainResult;
         return;
     }
-    m_systems.terrain = std::move( startupTerrain );
-    m_systems.isFlatSlopeTerrain = false;
+    m_sceneController.Terrain().Replace( std::move( startupTerrain ), false );
 
     // Init SkyBox (m_xMin, m_xMax, yMin, yMax, m_zMin, m_zMax)
     m_systems.skyBoxOwner = std::make_unique<SkyBox>( -250, 300, -300, 300, -250, 300 );
@@ -924,7 +923,7 @@ void Run::Initialise()
 
     m_sceneController.World() = WorldEnvironment( cfg.fluidHeight, cfg.fluidDensity, cfg.gasDensity, cfg.gravity );
     m_sceneController.World().BindRenderContexts( m_config, m_systems.assets, renderResources );
-    XZBounds tb = m_systems.terrain->GetXZBounds();
+    XZBounds tb = m_sceneController.Terrain().Get()->GetXZBounds();
     m_sceneController.World().SetTerrainBounds( tb.m_xMin, tb.m_xMax, tb.m_zMin, tb.m_zMax );
 
     // Why: SDF atlas generation is a startup asset/tooling boundary. Report it
@@ -970,7 +969,7 @@ void Run::Initialise()
         m_inputRouter,
         m_interaction,
         &m_sceneController.Cameras(),
-        m_systems.terrain.get(),
+        m_sceneController.Terrain().Get(),
         m_camera,
         NormalizeCameraModeForCurrentScene( m_replayRuntime.Camera().restoreCameraMode ),
         m_attachedCamera.activeFollow,

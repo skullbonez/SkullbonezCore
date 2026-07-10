@@ -171,9 +171,10 @@ void Run::RelativeUpdateCamera( uint32_t hash )
     if ( !m_sceneController.Cameras().IsCameraSelected( hash ) )
     {
         Vector3 translatedCameraPosition = m_sceneController.Cameras().GetCameraTranslation( hash );
-        const float minY =
-            m_systems.terrain->GetTerrainHeightAt( translatedCameraPosition.x, translatedCameraPosition.z, true ) +
-            m_config.minCameraHeight;
+        const float minY = m_sceneController.Terrain().Get()->GetTerrainHeightAt( translatedCameraPosition.x,
+                                                                                  translatedCameraPosition.z,
+                                                                                  true ) +
+                           m_config.minCameraHeight;
         m_sceneController.Cameras().RelativeUpdate( hash, minY, m_config.maxCameraHeight );
     }
 }

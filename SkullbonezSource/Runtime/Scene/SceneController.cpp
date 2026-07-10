@@ -168,6 +168,18 @@ const Environment::WorldEnvironment& SceneController::World() const
 }
 
 
+SceneTerrain& SceneController::Terrain()
+{
+    return m_terrain;
+}
+
+
+const SceneTerrain& SceneController::Terrain() const
+{
+    return m_terrain;
+}
+
+
 Physics::PhysicsEngine& SceneController::Physics()
 {
     return m_physics;

@@ -86,6 +86,7 @@ class Profiler;
 class LauncherLaser;
 class RuntimeInputContext;
 class SceneController;
+class SceneTerrain;
 enum class RunCameraMode;
 struct CinematicRenderConfig;
 struct RenderFrameContext;
@@ -115,7 +116,7 @@ struct RenderWorldView
     Assets::AssetSystem& assets;
     Textures::TextureCollection& textures;
     Environment::CameraCollection& cameras;
-    std::unique_ptr<Geometry::Terrain>& terrain;
+    SceneTerrain& terrain;
     std::unique_ptr<Geometry::SkyBox>& skyBox;
     Window& window;
     RunRenderPassResources& renderPasses;

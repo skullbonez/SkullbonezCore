@@ -114,6 +114,7 @@ class RuntimeTools;
 class RunEditorTracer;
 class LauncherLaser;
 class RuntimeInputContext;
+class SceneTerrain;
 struct CinematicScenePassResources;
 struct FullscreenPassResources;
 struct ReflectionPassResources;
@@ -577,7 +578,7 @@ class ShadowPass
 {
   public:
     ShadowPass( ShadowPassResources& resources,
-                std::unique_ptr<Geometry::Terrain>& terrain,
+                SceneTerrain& terrain,
                 const EngineConfig& config,
                 RenderResourceLifecycleLog& lifecycleLog )
         : m_resources( resources ), m_terrain( terrain ), m_config( config ), m_lifecycleLog( lifecycleLog )
@@ -612,7 +613,7 @@ class ShadowPass
                           const Rendering::ShadowCasterBatches* objectCasters );
 
     ShadowPassResources& m_resources;
-    std::unique_ptr<Geometry::Terrain>& m_terrain;
+    SceneTerrain& m_terrain;
     const EngineConfig& m_config;
     RenderResourceLifecycleLog& m_lifecycleLog;
     bool m_activeTerrainHidden = false;
@@ -691,8 +692,7 @@ class ObjectPass
 class TerrainPass
 {
   public:
-    TerrainPass( std::unique_ptr<Geometry::Terrain>& terrain, const EngineConfig& config )
-        : m_terrain( terrain ), m_config( config )
+    TerrainPass( SceneTerrain& terrain, const EngineConfig& config ) : m_terrain( terrain ), m_config( config )
     {
     }
 
@@ -701,9 +701,9 @@ class TerrainPass
     void Render( const TerrainPassInputs& inputs );
 
   private:
-    // Lifetime: aliases the scene-owned unique owner because scene activation
-    // may replace terrain after RuntimeRenderer construction.
-    std::unique_ptr<Geometry::Terrain>& m_terrain;
+    // Lifetime: borrows the stable scene terrain owner and resolves its current
+    // terrain after each scene activation.
+    SceneTerrain& m_terrain;
     const EngineConfig& m_config;
 };
 
@@ -743,7 +743,7 @@ class WaterPass
 class TornadoVisualPass
 {
   public:
-    explicit TornadoVisualPass( std::unique_ptr<Geometry::Terrain>& terrain ) : m_terrain( terrain )
+    explicit TornadoVisualPass( SceneTerrain& terrain ) : m_terrain( terrain )
     {
     }
 
@@ -752,9 +752,9 @@ class TornadoVisualPass
     bool Render( const TornadoVisualPassInputs& inputs );
 
   private:
-    // Lifetime: aliases the scene-owned unique owner because scene loads may
-    // replace terrain after RuntimeRenderer construction.
-    std::unique_ptr<Geometry::Terrain>& m_terrain;
+    // Lifetime: borrows the stable scene terrain owner and resolves its current
+    // terrain after each scene load.
+    SceneTerrain& m_terrain;
     std::vector<float> m_vertices;
     std::vector<Physics::TornadoActiveVortex> m_activeVisualVortices;
     float m_liveVisualTimeSeconds = 0.0f;
@@ -774,7 +774,7 @@ class DebugOverlayPass
   public:
     DebugOverlayPass( Physics::BroadphaseVisualizer& broadphaseVisualizer,
                       Physics::PhysicsDebugVisualizer& physicsDebugVisualizer,
-                      std::unique_ptr<Geometry::Terrain>& terrain,
+                      SceneTerrain& terrain,
                       RuntimeTools& runtimeTools,
                       Assets::AssetSystem& assets,
                       ReplayRuntime& replayRuntime )
@@ -800,9 +800,9 @@ class DebugOverlayPass
     Physics::PhysicsDebugVisualizer& m_physicsDebugVisualizer;
     std::vector<float> m_tornadoVectorLineData;
     std::vector<Physics::TornadoActiveVortex> m_tornadoVectorVortices;
-    // Lifetime: aliases the scene-owned unique owner because scene loads may
-    // replace terrain after RuntimeRenderer construction.
-    std::unique_ptr<Geometry::Terrain>& m_terrain;
+    // Lifetime: borrows the stable scene terrain owner and resolves its current
+    // terrain after each scene load.
+    SceneTerrain& m_terrain;
     RuntimeTools& m_runtimeTools;
     Assets::AssetSystem& m_assets;
     ReplayRuntime& m_replayRuntime;

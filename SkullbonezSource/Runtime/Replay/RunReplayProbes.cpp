@@ -176,6 +176,7 @@ struct ReplaySaveProbeEventCoverageContext
     RunSceneState& scene;
     RunSubsystemState& systems;
     SkullbonezCore::Environment::CameraCollection& cameras;
+    SceneTerrain& terrain;
     SkullbonezCore::Environment::WorldEnvironment& world;
     SkullbonezCore::GameObjects::GameModelCollection& models;
     PhysicsEngine& physics;
@@ -203,7 +204,7 @@ SbResult InjectReplaySaveProbeEventCoverage( ReplaySaveProbeEventCoverageContext
                                                    context.physics,
                                                    context.scene,
                                                    context.world,
-                                                   context.systems.terrain.get(),
+                                                   context.terrain.Get(),
                                                    context.systems.assets,
                                                    context.gameModelCapacity };
     EditorObjectPlacementRequest placementRequest{ SkullbonezCore::UI::EditorTab::OBJECT_BOX,
@@ -311,7 +312,7 @@ SbResult InjectReplaySaveProbeEventCoverage( ReplaySaveProbeEventCoverageContext
         if ( launcherStoresReady && context.runtimeTools.FireLauncherRay( context.models,
                                                                           context.physics,
                                                                           context.scene,
-                                                                          context.systems.terrain.get(),
+                                                                          context.terrain.Get(),
                                                                           context.gameModelCapacity,
                                                                           rayOrigin,
                                                                           rayDirection,
@@ -753,6 +754,7 @@ struct ReplayRestoreEventContext
     RuntimeTools& runtimeTools;
     RunSceneState& scene;
     RunSubsystemState& systems;
+    SceneTerrain& terrain;
     SkullbonezCore::Environment::WorldEnvironment& world;
     SkullbonezCore::GameObjects::GameModelCollection& models;
     PhysicsEngine& physics;
@@ -809,7 +811,7 @@ bool TryApplyReplayRestoreWorldLauncherEvent( ReplayRestoreEventContext& context
         if ( launcherStoresReady && context.runtimeTools.FireLauncherRay( context.models,
                                                                           context.physics,
                                                                           context.scene,
-                                                                          context.systems.terrain.get(),
+                                                                          context.terrain.Get(),
                                                                           context.gameModelCapacity,
                                                                           rayOrigin,
                                                                           rayDirection,
@@ -845,6 +847,7 @@ bool ApplyReplayRestoreEditorPlaceEvent( RuntimeTools& runtimeTools,
                                          RunSceneState& scene,
                                          SkullbonezCore::Environment::WorldEnvironment& world,
                                          RunSubsystemState& systems,
+                                         SceneTerrain& terrain,
                                          int gameModelCapacity,
                                          const ReplayEventSample& event,
                                          char* eventOutReason,
@@ -878,7 +881,7 @@ bool ApplyReplayRestoreEditorPlaceEvent( RuntimeTools& runtimeTools,
                                                    physics,
                                                    scene,
                                                    world,
-                                                   systems.terrain.get(),
+                                                   terrain.Get(),
                                                    systems.assets,
                                                    gameModelCapacity };
     EditorObjectPlacementRequest placementRequest{ event.value0,
@@ -1089,6 +1092,7 @@ bool ApplyReplayRestoreEventForTarget( ReplayRestoreEventContext& context,
                                                    context.scene,
                                                    context.world,
                                                    context.systems,
+                                                   context.terrain,
                                                    context.gameModelCapacity,
                                                    event,
                                                    eventOutReason,
@@ -1778,7 +1782,7 @@ bool RebuildReplayGeneratedSceneTopology( ReplayRestoreOwnerContext& context,
             BuildSceneGeneratedModelContext( context.scene,
                                              context.config,
                                              context.world,
-                                             context.systems.terrain.get(),
+                                             context.sceneController.Terrain().Get(),
                                              context.models,
                                              context.sceneController.Physics(),
                                              context.generatedObjectTypeOverride ),
@@ -1796,7 +1800,7 @@ bool RebuildReplayGeneratedSceneTopology( ReplayRestoreOwnerContext& context,
             BuildSceneGeneratedModelContext( context.scene,
                                              context.config,
                                              context.world,
-                                             context.systems.terrain.get(),
+                                             context.sceneController.Terrain().Get(),
                                              context.models,
                                              context.sceneController.Physics(),
                                              context.generatedObjectTypeOverride ),
@@ -1878,6 +1882,7 @@ bool RunReplayRestoreTargetStep( ReplayRestoreOwnerContext& context,
     ReplayRestoreEventContext restoreEventContext{ context.runtimeTools,
                                                    context.scene,
                                                    context.systems,
+                                                   context.sceneController.Terrain(),
                                                    context.world,
                                                    context.models,
                                                    context.sceneController.Physics(),
@@ -2317,6 +2322,7 @@ SbResult ReplayRuntime::TickSaveProbe( const ReplayProbeWorld& liveWorld, bool& 
                                                                   liveWorld.scene,
                                                                   liveWorld.systems,
                                                                   liveWorld.sceneController.Cameras(),
+                                                                  liveWorld.sceneController.Terrain(),
                                                                   liveWorld.sceneController.World(),
                                                                   liveWorld.sceneController.Models(),
                                                                   liveWorld.sceneController.Physics(),

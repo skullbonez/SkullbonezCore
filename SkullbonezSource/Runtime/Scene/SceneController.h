@@ -1,15 +1,15 @@
 /*
 File: SkullbonezSource/Runtime/Scene/SceneController.h
 Purpose:
-  Owns scene runtime state, durable entity metadata, world settings, physics,
-  and scene requests.
+  Owns scene runtime state, cameras, terrain, world settings, durable entity
+  metadata, physics, and scene requests.
 
 Mental model:
   SceneController is the narrow API around scene queue and scene-run state.
   Run temporarily executes broad load side effects, while this controller owns
-  scene state, camera slots, world settings, physics topology, fixed entity
-  records, browser navigation, and the ordered request batch those side effects
-  consume.
+  scene state, camera slots, replaceable terrain, world settings, physics
+  topology, fixed entity records, browser navigation, and the ordered request
+  batch those side effects consume.
 
 Glossary:
   Scene runtime: Current scene state plus queue navigation data.
@@ -22,10 +22,13 @@ Glossary:
     borrowed by physics, replay, and rendering.
   Scene cameras: Fixed camera slots, tween state, and active render pose reset
     and populated with each scene load.
+  Scene terrain: Replaceable height-map or flat-slope owner published only after
+    construction and any required GPU drain succeed.
 
 Invariants:
-  - SceneController owns queue/index bookkeeping, camera state, world settings,
-    and scene-lifetime physics; consumers receive only borrowed owner references.
+  - SceneController owns queue/index bookkeeping, camera/terrain state, world
+    settings, and scene-lifetime physics; consumers receive only borrowed owner
+    references.
   - All interactive scene submissions enter its fixed request ring.
   - Durable display/material/asset metadata lives in its fixed entity store.
   - Empty queue path is the generated demo scene sentinel.
@@ -42,6 +45,7 @@ Related:
 #include "SceneEntityStore.h"
 #include "SceneRequestQueue.h"
 #include "SceneRuntime.h"
+#include "SceneTerrain.h"
 #include "../../GameObjects/GameModelCollection.h"
 #include "../../Physics/PhysicsEngine.h"
 #include "../CameraCollection.h"
@@ -102,6 +106,8 @@ class SceneController
     const Environment::CameraCollection& Cameras() const;
     Environment::WorldEnvironment& World();
     const Environment::WorldEnvironment& World() const;
+    SceneTerrain& Terrain();
+    const SceneTerrain& Terrain() const;
     Physics::PhysicsEngine& Physics();
     const Physics::PhysicsEngine& Physics() const;
 
@@ -172,6 +178,7 @@ class SceneController
     SceneEntityStore m_entities;             // Fixed scene-lifetime identity and durable presentation metadata.
     Environment::CameraCollection m_cameras; // Fixed scene camera slots and active camera presentation state.
     Environment::WorldEnvironment m_world;   // Gravity, fluid, and terrain bounds for the active scene.
+    SceneTerrain m_terrain;                  // Replaceable terrain and its matching scene-shape classification.
     // Lifetime: physics topology is born and cleared with the active scene.
     // Presentation owners borrow this engine; they never own or replace it.
     Physics::PhysicsEngine m_physics;

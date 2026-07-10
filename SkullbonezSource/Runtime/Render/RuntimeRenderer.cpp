@@ -38,6 +38,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "../RunInternal.h"
+#include "../Scene/SceneTerrain.h"
 #include "../Allocation/RuntimeAllocationTracker.h"
 #include "../Allocation/RuntimeReserveAllocator.h"
 #include "../RuntimeTuning.h"
@@ -2186,7 +2187,7 @@ void RuntimeRenderer::RenderFrameEntry( const FrameEntryContext& context )
         ( context.cinematicRequested || m_consequenceGradeStrength > 0.01f ) && renderReady && !m_debug.isTextOnly;
     RenderFrame( BuildRuntimeRenderInputs( m_assets,
                                            m_textures,
-                                           m_terrain.get(),
+                                           m_terrain.Get(),
                                            m_cameras,
                                            m_window,
                                            m_skyBox.get(),
