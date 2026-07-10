@@ -4,9 +4,10 @@ Purpose:
   Coordinates transient presentation rows with physics/collider/render stores.
 
 Mental model:
-  SceneController owns durable entity metadata. GameModelCollection temporarily
-  coordinates same-row contact feedback and physics/render stores while the C3
-  scene creation transaction is extracted.
+  SceneController owns durable entity metadata. GameModelCollection coordinates
+  same-row transient feedback and the currently co-located physics/render
+  stores. Creation uses one fail-before-mutation transaction; moving the
+  physical physics owner remains the separate A2 boundary.
 
 Glossary:
   SkullScope: Queryable physics diagnostics workflow backed by bounded trace
@@ -151,11 +152,10 @@ struct PhysicsBodyStateEdit
     Math::Vector::Vector3 angularVelocity;
 };
 
-// Concept: append carries both the recoverable status and the created body
-// handle. Scene files, generated setup, editor placement, and runtime tools can
-// exceed capacity or supply invalid creation metadata; callers must check the
-// status before using the handle.
-struct GameModelAppendResult
+// Concept: creation returns both the recoverable status and the created body
+// handle. Capacity, duplicate identity, and malformed grouping fail before any
+// owner row changes; callers must check status before using the handle.
+struct SceneEntityCreateResult
 {
     Basics::SbResult status;
     Physics::PhysicsBodyHandle body;
@@ -210,6 +210,7 @@ class GameModelCollection
         void Append( SceneObjectGroupRecord record );
         bool TrimToCount( int count );
         int Count() const;
+        std::size_t Capacity() const;
         uint64_t CapacityBytes() const;
         SceneObjectGroupRecord RecordAt( int modelIndex ) const;
 
@@ -244,11 +245,7 @@ class GameModelCollection
     void RefreshRenderInstances();
     Basics::SceneEntityStore& SceneEntities();
     const Basics::SceneEntityStore& SceneEntities() const;
-    GameModelAppendResult AppendGameModelAndPhysicsRows( Basics::SceneEntityCreateDesc entity,
-                                                         Physics::PhysicsBodyCreateDesc bodyDesc,
-                                                         Physics::PhysicsSceneObjectId sceneObjectId,
-                                                         Physics::PhysicsColliderCreateDesc colliderDesc,
-                                                         SceneObjectGroupCreateDesc groupDesc );
+    void AssertSceneCreationTopology( int expectedCount ) const;
 
   public:
     GameModelCollection();
@@ -260,14 +257,13 @@ class GameModelCollection
     bool ShouldRenderCollisionVolumes() const;
     bool ShouldUseShadowParallelPrep() const;
     Threading::WorkerPool* RenderWorkerPool() const;
-    // Appends model storage while importing caller-owned collider shape/material
-    // facts and any explicit scene-object grouping directly into owner stores.
-    // Callers must handle a failed status before using the returned body handle.
-    GameModelAppendResult AddGameModel( Basics::SceneEntityCreateDesc entity,
-                                        Physics::PhysicsBodyCreateDesc bodyDesc,
-                                        Physics::PhysicsColliderCreateDesc colliderDesc,
-                                        Physics::PhysicsSceneObjectId sceneObjectId,
-                                        SceneObjectGroupCreateDesc groupDesc = {} );
+    // One preflighted scene-creation command publishes metadata, physics, and
+    // render rows together. Lane R input failures leave every owner unchanged;
+    // a mismatched owner count is a fatal topology invariant.
+    SceneEntityCreateResult TryCreateSceneEntity( Basics::SceneEntityCreateDesc entity,
+                                                  Physics::PhysicsBodyCreateDesc bodyDesc,
+                                                  Physics::PhysicsColliderCreateDesc colliderDesc,
+                                                  SceneObjectGroupCreateDesc groupDesc = {} );
     void Clear();
     int CopyDxrModelMatrices( float* outMatrixFloats, int maxModelCount );
     void RenderModels( const Basics::RenderHelperContext& helperContext,

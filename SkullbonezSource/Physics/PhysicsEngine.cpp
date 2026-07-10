@@ -69,6 +69,11 @@ PhysicsAuthoredBodyCount PhysicsEngine::AuthoredBodyDescriptorCount() const
     return m_scene.AuthoredBodyDescriptorCount();
 }
 
+bool PhysicsEngine::CanRegisterAuthoredBody( PhysicsAuthoredBodyCount expectedBodyCount ) const
+{
+    return m_scene.CanRegisterAuthoredBody( expectedBodyCount );
+}
+
 
 bool PhysicsEngine::TryGetAuthoredBodyDescriptor( ModelRowHint bodyRow, PhysicsBodyCreateDesc& outDesc ) const
 {

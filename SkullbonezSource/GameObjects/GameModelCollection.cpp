@@ -5,8 +5,9 @@ Purpose:
 
 Mental model:
   SceneController owns durable SceneEntityStore rows. This collection borrows
-  that owner while coordinating the existing append/reset topology until C3
-  moves the whole transaction to scene lifecycle ownership.
+  that owner while coordinating the currently co-located transient, physics,
+  and render stores. Creation preflights every owner before its first mutation;
+  A2 separately moves physical physics ownership out of this type.
 
 Glossary:
   Physics material: Per-object friction and drag coefficients owned by
@@ -101,7 +102,7 @@ using SkullbonezCore::Rendering::ShadowFrameData;
 
 namespace
 {
-constexpr const char* GAME_MODEL_COLLECTION_APPEND_OWNER = "GameObjects/GameModelCollection";
+constexpr const char* SCENE_ENTITY_CREATION_OWNER = "Scene/EntityCreation";
 
 template <typename T> uint64_t VectorCapacityBytes( const T& values )
 {
@@ -248,6 +249,11 @@ int GameModelCollection::SceneObjectGroupStore::Count() const
     return static_cast<int>( m_records.size() );
 }
 
+std::size_t GameModelCollection::SceneObjectGroupStore::Capacity() const
+{
+    return m_records.capacity();
+}
+
 
 uint64_t GameModelCollection::SceneObjectGroupStore::CapacityBytes() const
 {
@@ -293,8 +299,8 @@ SbResult GameModelCollection::BuildSceneObjectGroupForAppend( int newModelIndex,
         // an impossible group, so fail closed before rows diverge.
         if ( groupDesc.rootModelIndex < 0 || groupDesc.rootModelIndex > newModelIndex || groupDesc.partIndex < 0 )
         {
-            return SbResult::Failure( GAME_MODEL_COLLECTION_APPEND_OWNER,
-                                      "Invalid scene-object group descriptor supplied during model append." );
+            return SbResult::Failure( SCENE_ENTITY_CREATION_OWNER,
+                                      "Invalid scene-object group descriptor supplied during entity creation." );
         }
 
         group.kind = groupDesc.kind;
@@ -441,38 +447,56 @@ SkullbonezCore::Threading::WorkerPool* GameModelCollection::RenderWorkerPool() c
 }
 
 
-GameModelAppendResult GameModelCollection::AddGameModel( SceneEntityCreateDesc entity,
-                                                         PhysicsBodyCreateDesc bodyDesc,
-                                                         PhysicsColliderCreateDesc colliderDesc,
-                                                         PhysicsSceneObjectId sceneObjectId,
-                                                         SceneObjectGroupCreateDesc groupDesc )
+void GameModelCollection::AssertSceneCreationTopology( int expectedCount ) const
 {
-    return AppendGameModelAndPhysicsRows( std::move( entity ),
-                                          std::move( bodyDesc ),
-                                          sceneObjectId,
-                                          std::move( colliderDesc ),
-                                          groupDesc );
+    const int descriptorCount = static_cast<int>( m_physicsEngine.AuthoredBodyDescriptorCount().value );
+    const int bodyCount = BodyStore().Count();
+    const int colliderCount = Colliders().Count();
+    const int presentationCount = m_presentations.Count();
+    const int groupCount = m_sceneObjectGroupStore.Count();
+    const int renderPresentationCount = m_renderInstanceStore.PresentationCount();
+    const int renderCount = m_renderInstanceStore.Count();
+    const bool reservationsReady =
+        m_presentations.Capacity() >= static_cast<std::size_t>( m_activeGameModelCapacity ) &&
+        m_sceneObjectGroupStore.Capacity() >= static_cast<std::size_t>( m_activeGameModelCapacity );
+    if ( expectedCount < 0 || SceneEntities().Count() != expectedCount || presentationCount != expectedCount ||
+         groupCount != expectedCount || descriptorCount != expectedCount || bodyCount != expectedCount ||
+         colliderCount != expectedCount || renderPresentationCount != expectedCount || renderCount != expectedCount ||
+         !reservationsReady )
+    {
+        SB_FATAL( "GameObjects/GameModelCollection",
+                  "Scene creation topology diverged. expected=%d entities=%d transient=%d groups=%d descriptors=%d "
+                  "bodies=%d colliders=%d render_presentation=%d render=%d reservations_ready=%d",
+                  expectedCount,
+                  SceneEntities().Count(),
+                  presentationCount,
+                  groupCount,
+                  descriptorCount,
+                  bodyCount,
+                  colliderCount,
+                  renderPresentationCount,
+                  renderCount,
+                  reservationsReady ? 1 : 0 );
+    }
 }
 
 
-GameModelAppendResult GameModelCollection::AppendGameModelAndPhysicsRows( SceneEntityCreateDesc entity,
-                                                                          PhysicsBodyCreateDesc bodyDesc,
-                                                                          PhysicsSceneObjectId sceneObjectId,
-                                                                          PhysicsColliderCreateDesc colliderDesc,
-                                                                          SceneObjectGroupCreateDesc groupDesc )
+SceneEntityCreateResult GameModelCollection::TryCreateSceneEntity( SceneEntityCreateDesc entity,
+                                                                   PhysicsBodyCreateDesc bodyDesc,
+                                                                   PhysicsColliderCreateDesc colliderDesc,
+                                                                   SceneObjectGroupCreateDesc groupDesc )
 {
     const int activeCapacity = m_activeGameModelCapacity;
-    assert( SceneEntityCount() < activeCapacity && "Exceeded active game model capacity" );
+    const int modelIndex = SceneEntityCount();
+    AssertSceneCreationTopology( modelIndex );
     if ( SceneEntityCount() >= activeCapacity )
     {
         return {
-            SbResult::Failure( GAME_MODEL_COLLECTION_APPEND_OWNER,
+            SbResult::Failure( SCENE_ENTITY_CREATION_OWNER,
                                "Exceeded active game model capacity; raise --model-capacity or game_model_capacity." ),
             PhysicsBodyHandle{} };
     }
-    const int modelIndex = SceneEntityCount();
     SceneObjectGroupRecord groupRecord;
-    entity.sceneObjectId = sceneObjectId;
     const SbResult entityResult = SceneEntities().PreflightAppend( entity );
     if ( !entityResult.ok )
     {
@@ -483,32 +507,53 @@ GameModelAppendResult GameModelCollection::AppendGameModelAndPhysicsRows( SceneE
     {
         return { groupResult, PhysicsBodyHandle{} };
     }
-    if ( !sceneObjectId.IsValid() )
+    if ( bodyDesc.sceneObjectId.IsValid() && bodyDesc.sceneObjectId.value != entity.sceneObjectId.value )
     {
-        return {
-            SbResult::Failure( GAME_MODEL_COLLECTION_APPEND_OWNER, "Cannot append model without a scene object id." ),
-            PhysicsBodyHandle{} };
+        return { SbResult::Failure( SCENE_ENTITY_CREATION_OWNER,
+                                    "Body scene object id %u does not match entity id %u.",
+                                    bodyDesc.sceneObjectId.value,
+                                    entity.sceneObjectId.value ),
+                 PhysicsBodyHandle{} };
     }
-    // Invariant: creation identity is scene-owned. Collection appends the model
-    // row and forwards the id once; body/collider/render stores then carry it
-    // through their dense rows without a collection-side allocator or sidecar.
-    // Hazard: append-time body/collider registration assumes existing rows are
-    // aligned. Missing collider rows mean a caller skipped the creation command
-    // that owns shape data; do not recapture old GameModel fields to paper over
-    // the topology bug.
-    if ( !RepairPhysicsBodyAndColliderTopology() )
+    if ( !m_physicsEngine.CanRegisterAuthoredBody( MakePhysicsAuthoredBodyCountFromNonNegativeInt( modelIndex ) ) )
     {
-        SB_FATAL( "GameObjects/GameModelCollection", "Cannot append model while physics collider rows are missing." );
+        SB_FATAL( "GameObjects/GameModelCollection",
+                  "Physics creation storage is not preflight-ready. expected=%d descriptors=%u bodies=%d",
+                  modelIndex,
+                  m_physicsEngine.AuthoredBodyDescriptorCount().value,
+                  BodyStore().Count() );
     }
-    bodyDesc.sceneObjectId = sceneObjectId;
+    if ( !m_renderInstanceStore.CanAppendCreationRow( modelIndex ) )
+    {
+        SB_FATAL( "GameObjects/GameModelCollection",
+                  "Render creation storage is not preflight-ready. expected=%d presentation=%d render=%d",
+                  modelIndex,
+                  m_renderInstanceStore.PresentationCount(),
+                  m_renderInstanceStore.Count() );
+    }
+
+    Rendering::RenderInstancePresentationRecord renderPresentation;
+    renderPresentation.material = entity.renderMaterial;
+    strncpy_s( renderPresentation.displayName,
+               sizeof( renderPresentation.displayName ),
+               entity.displayName,
+               _TRUNCATE );
+    renderPresentation.simpleRagdollPart = groupRecord.kind == GameModelCollectionKind::SimpleRagdoll;
+
+    // Invariant: every recoverable check is complete before the first mutation.
+    // The following owner appends use fixed or pre-reserved storage; any count or
+    // identity mismatch is Lane F because partial topology cannot be recovered.
+    bodyDesc.sceneObjectId = entity.sceneObjectId;
     bodyDesc.fixedTreeReleaseRootIndex =
         groupRecord.kind == GameModelCollectionKind::ReleasableTree ? groupRecord.rootModelIndex : -1;
-    bodyDesc.diagnosticName = entity.GetName();
+    // Lifetime: authored descriptors outlive this value-local entity packet.
+    // Diagnostics receive stable SceneEntityStore names through the explicit
+    // refresh/step view, so never retain the packet's displayName pointer.
+    bodyDesc.diagnosticName = nullptr;
     m_presentations.Append( GameModel{} );
     m_sceneObjectGroupStore.Append( groupRecord );
     const PhysicsBodyHandle bodyHandle = m_physicsEngine.RegisterAuthoredBody( bodyDesc );
     const PhysicsBodyRecord* bodyRecord = BodyStore().RecordForHandle( bodyHandle );
-    assert( bodyRecord != nullptr );
     if ( !bodyRecord )
     {
         // Invariant: RegisterAuthoredBody returns the handle for the row it just
@@ -519,22 +564,24 @@ GameModelAppendResult GameModelCollection::AppendGameModelAndPhysicsRows( SceneE
     // Owner: creation callers provide shape facts; PhysicsScene owns live
     // collider rows. Reason: radius/extents/hull values exist before append, so
     // recapturing them from GameModel preserves old ownership and extra work.
-    // Checker: runtime boundaries reject bare AddGameModel calls that omit a
-    // collider descriptor.
+    // Transaction API: callers cannot create an entity without supplying the
+    // collider descriptor owned by the same preflight.
     PhysicsColliderCreateDesc authoredCollider = std::move( colliderDesc );
     authoredCollider.body = bodyRecord->handle;
     authoredCollider.sceneObjectId = bodyRecord->sceneObjectId;
     m_physicsEngine.ApplyAuthoredColliderPolicy( authoredCollider );
     const auto colliderHandle = m_physicsEngine.RegisterAuthoredCollider( authoredCollider );
-    assert( colliderHandle.IsValid() );
-    if ( !colliderHandle.IsValid() )
+    const ColliderRecord* colliderRecord = Colliders().RecordForHandle( colliderHandle );
+    if ( !colliderHandle.IsValid() || !colliderRecord )
     {
-        // Invariant: collider registration is the second half of the append
-        // transaction. Reaching this point with no collider handle leaves a
-        // model/body row that cannot safely enter physics or render snapshots.
+        // Invariant: collider registration is the physics half of the creation
+        // transaction. No collider handle means owner topology diverged after
+        // preflight and cannot safely enter physics or render snapshots.
         SB_FATAL( "GameObjects/GameModelCollection", "Failed to register newly authored physics collider record." );
     }
     SceneEntities().CommitAppend( entity, bodyHandle );
+    m_renderInstanceStore.CommitCreationRow( renderPresentation, *bodyRecord, *colliderRecord, modelIndex );
+    AssertSceneCreationTopology( modelIndex + 1 );
     return { SbResult::Success(), bodyHandle };
 }
 
@@ -545,6 +592,8 @@ void GameModelCollection::Clear()
     SceneEntities().Clear();
     m_sceneObjectGroupStore.Clear();
     m_physicsEngine.Clear();
+    m_renderInstanceStore.Clear();
+    AssertSceneCreationTopology( 0 );
 }
 
 

@@ -199,17 +199,18 @@ SbResult SceneGeneratedSetup::SetUpGameModels( SceneGeneratedModelContext contex
             SceneEntityCreateDesc gameModel;
 
             const Physics::PhysicsSceneObjectId sceneObjectId = context.scene.AllocateSceneObjectId();
+            gameModel.sceneObjectId = sceneObjectId;
             const BoundingBox shape( Vector3( hx, hy, hz ), Vector3( 0.0f, 0.0f, 0.0f ) );
-            const auto appendResult = context.models.AddGameModel( std::move( gameModel ),
-                                                                   MakeGeneratedBodyDesc( sceneObjectId,
-                                                                                          shape,
-                                                                                          Vector3( posX, posY, posZ ),
-                                                                                          inertia,
-                                                                                          mass,
-                                                                                          restitution,
-                                                                                          context.terrain ),
-                                                                   MakeGeneratedColliderDesc( shape, restitution ),
-                                                                   sceneObjectId );
+            const auto appendResult =
+                context.models.TryCreateSceneEntity( std::move( gameModel ),
+                                                     MakeGeneratedBodyDesc( sceneObjectId,
+                                                                            shape,
+                                                                            Vector3( posX, posY, posZ ),
+                                                                            inertia,
+                                                                            mass,
+                                                                            restitution,
+                                                                            context.terrain ),
+                                                     MakeGeneratedColliderDesc( shape, restitution ) );
             if ( !appendResult.status.ok )
             {
                 return appendResult.status;
@@ -226,18 +227,18 @@ SbResult SceneGeneratedSetup::SetUpGameModels( SceneGeneratedModelContext contex
             SceneEntityCreateDesc gameModel;
 
             const Physics::PhysicsSceneObjectId sceneObjectId = context.scene.AllocateSceneObjectId();
+            gameModel.sceneObjectId = sceneObjectId;
             const BoundingSphere shape( radius, Vector3( 0.0f, 0.0f, 0.0f ) );
             const auto appendResult =
-                context.models.AddGameModel( std::move( gameModel ),
-                                             MakeGeneratedBodyDesc( sceneObjectId,
-                                                                    shape,
-                                                                    Vector3( posX, posY, posZ ),
-                                                                    Vector3( moment, moment, moment ),
-                                                                    mass,
-                                                                    restitution,
-                                                                    context.terrain ),
-                                             MakeGeneratedColliderDesc( shape, restitution ),
-                                             sceneObjectId );
+                context.models.TryCreateSceneEntity( std::move( gameModel ),
+                                                     MakeGeneratedBodyDesc( sceneObjectId,
+                                                                            shape,
+                                                                            Vector3( posX, posY, posZ ),
+                                                                            Vector3( moment, moment, moment ),
+                                                                            mass,
+                                                                            restitution,
+                                                                            context.terrain ),
+                                                     MakeGeneratedColliderDesc( shape, restitution ) );
             if ( !appendResult.status.ok )
             {
                 return appendResult.status;
@@ -300,17 +301,18 @@ SbResult SceneGeneratedSetup::SetUpSolverObjects( SceneGeneratedModelContext con
 
         SceneEntityCreateDesc gameModel;
         const Physics::PhysicsSceneObjectId sceneObjectId = context.scene.AllocateSceneObjectId();
+        gameModel.sceneObjectId = sceneObjectId;
         const BoundingSphere shape( radius, Vector3( 0.0f, 0.0f, 0.0f ) );
-        const auto appendResult = context.models.AddGameModel( std::move( gameModel ),
-                                                               MakeGeneratedBodyDesc( sceneObjectId,
-                                                                                      shape,
-                                                                                      Vector3( posX, posY, posZ ),
-                                                                                      Vector3( moment, moment, moment ),
-                                                                                      mass,
-                                                                                      restitution,
-                                                                                      context.terrain ),
-                                                               MakeGeneratedColliderDesc( shape, restitution ),
-                                                               sceneObjectId );
+        const auto appendResult =
+            context.models.TryCreateSceneEntity( std::move( gameModel ),
+                                                 MakeGeneratedBodyDesc( sceneObjectId,
+                                                                        shape,
+                                                                        Vector3( posX, posY, posZ ),
+                                                                        Vector3( moment, moment, moment ),
+                                                                        mass,
+                                                                        restitution,
+                                                                        context.terrain ),
+                                                 MakeGeneratedColliderDesc( shape, restitution ) );
         if ( !appendResult.status.ok )
         {
             return appendResult.status;
@@ -349,17 +351,18 @@ SbResult SceneGeneratedSetup::SetUpSolverObjects( SceneGeneratedModelContext con
 
         SceneEntityCreateDesc gameModel;
         const Physics::PhysicsSceneObjectId sceneObjectId = context.scene.AllocateSceneObjectId();
+        gameModel.sceneObjectId = sceneObjectId;
         const BoundingBox shape( Vector3( hx, hy, hz ), Vector3( 0.0f, 0.0f, 0.0f ) );
-        const auto appendResult = context.models.AddGameModel( std::move( gameModel ),
-                                                               MakeGeneratedBodyDesc( sceneObjectId,
-                                                                                      shape,
-                                                                                      Vector3( posX, posY, posZ ),
-                                                                                      inertia,
-                                                                                      mass,
-                                                                                      restitution,
-                                                                                      context.terrain ),
-                                                               MakeGeneratedColliderDesc( shape, restitution ),
-                                                               sceneObjectId );
+        const auto appendResult =
+            context.models.TryCreateSceneEntity( std::move( gameModel ),
+                                                 MakeGeneratedBodyDesc( sceneObjectId,
+                                                                        shape,
+                                                                        Vector3( posX, posY, posZ ),
+                                                                        inertia,
+                                                                        mass,
+                                                                        restitution,
+                                                                        context.terrain ),
+                                                 MakeGeneratedColliderDesc( shape, restitution ) );
         if ( !appendResult.status.ok )
         {
             return appendResult.status;

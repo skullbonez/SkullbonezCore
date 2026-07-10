@@ -64,6 +64,9 @@ class PhysicsEngine
     void ApplyAuthoredColliderPolicy( PhysicsColliderCreateDesc& desc ) const;
     void ReserveAuthoredBodyCapacity( std::size_t capacity );
     PhysicsAuthoredBodyCount AuthoredBodyDescriptorCount() const;
+    // Scene creation uses this before its first owner mutation; false is a
+    // topology/reservation invariant, not recoverable authored input.
+    bool CanRegisterAuthoredBody( PhysicsAuthoredBodyCount expectedBodyCount ) const;
     bool TryGetAuthoredBodyDescriptor( ModelRowHint bodyRow, PhysicsBodyCreateDesc& outDesc ) const;
     bool UpdateAuthoredBodyDescriptor( ModelRowHint bodyRow,
                                        PhysicsBodyCreateDesc& desc,

@@ -5,13 +5,14 @@
       "path": "SkullbonezSource/Runtime/Init.cpp",
       "patterns": [
         "std::make_unique<SkullbonezCore::Environment::WorldEnvironment>",
-        "std::make_unique<SkullbonezCore::GameObjects::GameModelCollection>"
+        "std::make_unique<SkullbonezCore::GameObjects::GameModelCollection>",
+        "std::make_unique<PhysicsBodyStore>"
       ],
       "owner": "Standalone physics smoke bootstrap",
       "phase": "startup_validation",
-      "reason": "The runtime handle smoke constructs isolated runtime owners before WorkerPool, Window, renderer, or Run startup.",
-      "cap": "Two owner allocations when --physics-standalone-smoke is requested.",
-      "removal_or_wrapper_plan": "Keep this validation-only path outside steady gameplay; convert to stack or fixture-owned storage if the smoke grows."
+      "reason": "The runtime handle smoke constructs isolated runtime owners before WorkerPool, Window, renderer, or Run startup; fixed-array physics stores stay off the bounded launcher stack.",
+      "cap": "Three owner allocations when --physics-standalone-smoke is requested.",
+      "removal_or_wrapper_plan": "Keep this validation-only path outside steady gameplay and retain explicit heap ownership for MAX_GAME_MODELS fixed stores."
     },
     {
       "path": "SkullbonezSource/Runtime/Init.cpp",
@@ -315,11 +316,11 @@
         ".push_back(",
         ".resize("
       ],
-      "owner": "Physics preallocated/replay static STL surface",
-      "phase": "startup_preallocation_scene_load_replay",
-      "reason": "Existing physics vectors are pre-sized or reserved around scene/model capacity, public API views, debug traces, or replay snapshot paths; unapproved steady gameplay heap traffic is still caught by the runtime allocation guard.",
-      "cap": "Bounded by scene model/body/contact capacities or replay snapshot hard caps; no new physics runtime allocation exception is approved by this row.",
-      "removal_or_wrapper_plan": "Replace hot physics vectors with fixed stores or bounded scratch arrays, then remove the matching allowlist patterns."
+      "owner": "Standalone physics API and cold validation probe",
+      "phase": "cold_validation_and_preallocated_public_views",
+      "reason": "Public query/contact vectors are bounded standalone-world storage; the validation-only smoke allocates its fixed-array world off the launcher stack before any gameplay phase.",
+      "cap": "At most nine scenario-specific PhysicsStandaloneWorld owners per synchronous smoke invocation; public view/contact rows remain bounded by MAX_GAME_MODELS and fixed constraint/query inputs.",
+      "removal_or_wrapper_plan": "Keep the smoke owner cold; replace public view vectors with fixed stores if the standalone API is promoted into steady runtime."
     },
     {
       "path": "SkullbonezSource/Physics/DisjointSet.h",
@@ -351,7 +352,8 @@
       "patterns": [
         ".assign(",
         ".push_back(",
-        ".resize("
+        ".resize(",
+        "std::make_unique<PhysicsStandaloneWorld>"
       ],
       "owner": "Physics preallocated/replay static STL surface",
       "phase": "startup_preallocation_scene_load_replay",
@@ -614,6 +616,7 @@
     {
       "path": "SkullbonezSource/Rendering/RenderInstanceStore.cpp",
       "patterns": [
+        ".push_back(",
         ".reserve(",
         ".resize("
       ],

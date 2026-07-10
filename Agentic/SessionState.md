@@ -10,9 +10,9 @@ reports, and git history.
 | Field | Value |
 |---|---|
 | Branch | `engine-cleanup-10th-july`, tracking `origin/engine-cleanup-10th-july` |
-| Pushed baseline before scene entity ownership | `d817a995 feat: stabilize authored scene identities` |
-| Current objective | Make scene metadata/body/collider/render creation transactional in physics-authority C3 |
-| Last broad local gate | `tools\validate_full.bat` passed scene-owned entity metadata through 116 CPU tests/2,122 assertions, zero-warning builds, DX12 with zero InfoQueue errors/matching screenshots, and byte-exact physics |
+| Pushed baseline before transactional creation | `28a8b205 feat: move scene entity metadata to scene owner` |
+| Current objective | Save v2 asset instances through borrowed owner data in physics-authority C4 |
+| Last broad local gate | `tools\validate_full.bat` passed transactional creation through 117 CPU tests/2,129 assertions, zero-warning builds, DX12 with zero InfoQueue errors/matching screenshots, atomic creation smoke, and byte-exact physics |
 | Native evidence | Injected heap-use-after-free caught; healthy ASan and five-file `/analyze` passed in 16.185s |
 
 ## Pushed Cleanup Commits
@@ -35,6 +35,7 @@ reports, and git history.
 - `225b9688 feat: centralize runtime pointer input ownership`
 - `fd48d658 feat: split runtime requests by owner`
 - `d817a995 feat: stabilize authored scene identities`
+- `28a8b205 feat: move scene entity metadata to scene owner`
 
 ## Current Queue
 
@@ -83,12 +84,20 @@ read the scene owner. An initial eager-array +5.3 MB regression was corrected by
 reserving configured cold rows before population; allocation policy, CPU, fast,
 physics, performance, and full gates pass from the final source.
 
+Transactional creation C3 is complete. `TryCreateSceneEntity` preflights every
+same-row metadata, physics, and render owner before mutation; recoverable input
+failure leaves every count unchanged, while topology/reservation drift is
+fatal. Render rows publish during creation, the old append API and duplicate id
+parameter are deleted, and clear proves zero topology. The waited standalone
+smoke reports `creation_atomic=pass`; CPU, allocation, fast, physics,
+performance, and full gates pass from the final source.
+
 ## Ten Workstreams To Prioritize
 
-1. Complete transactional scene creation so metadata, body, collider, and
-   render rows commit together or not at all (physics-authority C3).
-2. Complete v2 asset round-trip and stable-root
-   behavior ownership (C4-C5), then close the dependent B1f scene/input seam.
+1. Save through borrowed owner data and emit version-2 `assetInstances[]` with
+   per-part live state instead of flattening or silently skipping rows (C4).
+2. Replace row-index behavior roots with stable scene object ids (C5), then
+   close the dependent B1f scene/input seam.
 3. Make DX12 resize/resource recreation transactional and define device-loss
    recovery (D4-D5).
 4. Promote `SceneController` to own real load/reset/save lifecycle and delete

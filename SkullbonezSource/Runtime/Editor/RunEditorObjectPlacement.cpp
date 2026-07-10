@@ -220,16 +220,17 @@ bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
                          bool modelStartsAsleep = false,
                          GameObjects::SceneObjectGroupCreateDesc groupDesc = {} ) -> bool
     {
-        // Lifetime: The new model becomes owned by GameModelCollection here.
+        // Lifetime: the transaction publishes the new scene, physics, and
+        // render rows together before the returned handle becomes observable.
         // Physics sleep state must be seeded immediately, while the returned
         // placement result reports only the before/after count.
         bodyDesc.motionKind = modelFixed ? PhysicsBodyMotionKind::Fixed : PhysicsBodyMotionKind::Dynamic;
+        model.sceneObjectId = context.scene.AllocateSceneObjectId();
         const int index = context.models.SceneEntityCount();
-        const auto appendResult = context.models.AddGameModel( std::move( model ),
-                                                               std::move( bodyDesc ),
-                                                               std::move( colliderDesc ),
-                                                               context.scene.AllocateSceneObjectId(),
-                                                               groupDesc );
+        const auto appendResult = context.models.TryCreateSceneEntity( std::move( model ),
+                                                                       std::move( bodyDesc ),
+                                                                       std::move( colliderDesc ),
+                                                                       groupDesc );
         if ( !appendResult.status.ok )
         {
             appendFailed = true;

@@ -78,6 +78,9 @@ class PhysicsScene
     // it must not keep a competing body descriptor sidecar.
     void ReserveAuthoredBodyCapacity( std::size_t capacity );
     PhysicsAuthoredBodyCount AuthoredBodyDescriptorCount() const;
+    // Creation preflight proves descriptor and fixed body storage can append
+    // without mutation or allocation before the cross-owner commit begins.
+    bool CanRegisterAuthoredBody( PhysicsAuthoredBodyCount expectedBodyCount ) const;
     bool TryGetAuthoredBodyDescriptor( ModelRowHint bodyRow, PhysicsBodyCreateDesc& outDesc ) const;
     bool UpdateAuthoredBodyDescriptor( ModelRowHint bodyRow,
                                        PhysicsBodyCreateDesc& desc,

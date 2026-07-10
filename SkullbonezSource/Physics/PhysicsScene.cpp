@@ -186,6 +186,14 @@ PhysicsAuthoredBodyCount PhysicsScene::AuthoredBodyDescriptorCount() const
     return count;
 }
 
+bool PhysicsScene::CanRegisterAuthoredBody( PhysicsAuthoredBodyCount expectedBodyCount ) const
+{
+    const std::size_t expected = static_cast<std::size_t>( expectedBodyCount.value );
+    return m_authoredBodyDescs.size() == expected &&
+           m_bodyStore.Count() == static_cast<int>( expectedBodyCount.value ) &&
+           m_authoredBodyDescs.size() < m_authoredBodyDescs.capacity() && expected < MAX_GAME_MODELS;
+}
+
 
 bool PhysicsScene::TryGetAuthoredBodyDescriptor( ModelRowHint bodyRow, PhysicsBodyCreateDesc& outDesc ) const
 {

@@ -219,30 +219,30 @@ SbResult AppendAuthoredSimpleRagdoll( SceneSimpleRagdollAppendContext context, c
 
         Physics::PhysicsSceneObjectId partSceneObjectId;
         partSceneObjectId.value = options.firstSceneObjectId.value + static_cast<uint32_t>( i );
+        model.sceneObjectId = partSceneObjectId;
         GameObjects::SceneObjectGroupCreateDesc groupDesc;
         groupDesc.kind = GameObjects::GameModelCollectionKind::SimpleRagdoll;
         groupDesc.rootModelIndex = firstBody;
         groupDesc.partIndex = i;
 
         // Invariant: ragdoll grouping is prefab metadata. Pass root/part facts
-        // directly so collection append never parses display names to recover it.
+        // directly so the creation transaction never parses display names to recover it.
         const auto appendResult =
-            context.models.AddGameModel( std::move( model ),
-                                         MakeSceneBodyDesc( partSceneObjectId,
-                                                            shape,
-                                                            position,
-                                                            orientation,
-                                                            Vector3( 0.0f, 0.0f, 0.0f ),
-                                                            Vector3( 0.0f, 0.0f, 0.0f ),
-                                                            inertia,
-                                                            mass,
-                                                            parts[i].restitution,
-                                                            options.fixed,
-                                                            context.terrain,
-                                                            name ),
-                                         MakeSceneColliderDesc( shape, parts[i].restitution, "default" ),
-                                         partSceneObjectId,
-                                         groupDesc );
+            context.models.TryCreateSceneEntity( std::move( model ),
+                                                 MakeSceneBodyDesc( partSceneObjectId,
+                                                                    shape,
+                                                                    position,
+                                                                    orientation,
+                                                                    Vector3( 0.0f, 0.0f, 0.0f ),
+                                                                    Vector3( 0.0f, 0.0f, 0.0f ),
+                                                                    inertia,
+                                                                    mass,
+                                                                    parts[i].restitution,
+                                                                    options.fixed,
+                                                                    context.terrain,
+                                                                    name ),
+                                                 MakeSceneColliderDesc( shape, parts[i].restitution, "default" ),
+                                                 groupDesc );
         if ( !appendResult.status.ok )
         {
             return appendResult.status;
@@ -508,8 +508,9 @@ SbResult SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context,
         const bool hasInitialImpulse =
             !ball.isFixed && ( ball.forceX != 0.0f || ball.forceY != 0.0f || ball.forceZ != 0.0f );
         const Physics::PhysicsSceneObjectId sceneObjectId = ball.sceneObjectId;
+        gameModel.sceneObjectId = sceneObjectId;
         const BoundingSphere shape( ball.m_radius, Vector3( 0.0f, 0.0f, 0.0f ) );
-        const auto appendResult = context.models.AddGameModel(
+        const auto appendResult = context.models.TryCreateSceneEntity(
             std::move( gameModel ),
             MakeSceneBodyDesc(
                 sceneObjectId,
@@ -524,8 +525,7 @@ SbResult SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context,
                 ball.isFixed,
                 context.terrain,
                 ball.name ),
-            MakeSceneColliderDesc( shape, ball.restitution, ball.contactMaterial ),
-            sceneObjectId );
+            MakeSceneColliderDesc( shape, ball.restitution, ball.contactMaterial ) );
         if ( !appendResult.status.ok )
         {
             return appendResult.status;
@@ -551,8 +551,9 @@ SbResult SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context,
         ApplyAssetAffiliation( gameModel, scene, SceneAssetPartSource::BallState, static_cast<uint32_t>( i ) );
 
         const Physics::PhysicsSceneObjectId sceneObjectId = bs.sceneObjectId;
+        gameModel.sceneObjectId = sceneObjectId;
         const BoundingSphere shape( bs.radius, Vector3( 0.0f, 0.0f, 0.0f ) );
-        const auto appendResult = context.models.AddGameModel(
+        const auto appendResult = context.models.TryCreateSceneEntity(
             std::move( gameModel ),
             MakeSceneBodyDesc( sceneObjectId,
                                shape,
@@ -566,8 +567,7 @@ SbResult SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context,
                                bs.isFixed,
                                context.terrain,
                                bs.name ),
-            MakeSceneColliderDesc( shape, bs.restitution, bs.contactMaterial ),
-            sceneObjectId );
+            MakeSceneColliderDesc( shape, bs.restitution, bs.contactMaterial ) );
         if ( !appendResult.status.ok )
         {
             return appendResult.status;
@@ -596,8 +596,9 @@ SbResult SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context,
         gameModel.SetName( box.name );
 
         const Physics::PhysicsSceneObjectId sceneObjectId = box.sceneObjectId;
+        gameModel.sceneObjectId = sceneObjectId;
         const BoundingBox shape( Vector3( box.halfX, box.halfY, box.halfZ ), Vector3( 0.0f, 0.0f, 0.0f ) );
-        const auto appendResult = context.models.AddGameModel(
+        const auto appendResult = context.models.TryCreateSceneEntity(
             std::move( gameModel ),
             MakeSceneBodyDesc(
                 sceneObjectId,
@@ -612,8 +613,7 @@ SbResult SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context,
                 box.isFixed,
                 context.terrain,
                 box.name ),
-            MakeSceneColliderDesc( shape, box.restitution, box.contactMaterial ),
-            sceneObjectId );
+            MakeSceneColliderDesc( shape, box.restitution, box.contactMaterial ) );
         if ( !appendResult.status.ok )
         {
             return appendResult.status;
@@ -631,8 +631,9 @@ SbResult SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context,
         ApplyAssetAffiliation( gameModel, scene, SceneAssetPartSource::BoxState, static_cast<uint32_t>( i ) );
 
         const Physics::PhysicsSceneObjectId sceneObjectId = box.sceneObjectId;
+        gameModel.sceneObjectId = sceneObjectId;
         const BoundingBox shape( Vector3( box.halfX, box.halfY, box.halfZ ), Vector3( 0.0f, 0.0f, 0.0f ) );
-        const auto appendResult = context.models.AddGameModel(
+        const auto appendResult = context.models.TryCreateSceneEntity(
             std::move( gameModel ),
             MakeSceneBodyDesc( sceneObjectId,
                                shape,
@@ -646,8 +647,7 @@ SbResult SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context,
                                box.isFixed,
                                context.terrain,
                                box.name ),
-            MakeSceneColliderDesc( shape, box.restitution, box.contactMaterial ),
-            sceneObjectId );
+            MakeSceneColliderDesc( shape, box.restitution, box.contactMaterial ) );
         if ( !appendResult.status.ok )
         {
             return appendResult.status;
@@ -703,6 +703,7 @@ SbResult SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context,
             return groupResult;
         }
         const Physics::PhysicsSceneObjectId sceneObjectId = hullScene.sceneObjectId;
+        gameModel.sceneObjectId = sceneObjectId;
         PhysicsBodyCreateDesc bodyDesc = MakeSceneBodyDesc(
             sceneObjectId,
             hull,
@@ -720,11 +721,10 @@ SbResult SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context,
             hullScene.name );
         bodyDesc.releasesFromFixedOnContact = hullScene.contactReleaseOnImpact;
         bodyDesc.contactReleaseImpulseThreshold = hullScene.contactReleaseImpulseThreshold;
-        const auto appendResult = context.models.AddGameModel(
+        const auto appendResult = context.models.TryCreateSceneEntity(
             std::move( gameModel ),
             bodyDesc,
             MakeSceneHullColliderDesc( hull, hullScene.restitution, hullScene.contactMaterial ),
-            sceneObjectId,
             groupDesc );
         if ( !appendResult.status.ok )
         {
@@ -761,6 +761,7 @@ SbResult SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context,
             return groupResult;
         }
         const Physics::PhysicsSceneObjectId sceneObjectId = hullScene.sceneObjectId;
+        gameModel.sceneObjectId = sceneObjectId;
         PhysicsBodyCreateDesc bodyDesc =
             MakeSceneBodyDesc( sceneObjectId,
                                hull,
@@ -776,11 +777,10 @@ SbResult SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context,
                                hullScene.name );
         bodyDesc.releasesFromFixedOnContact = hullScene.contactReleaseOnImpact;
         bodyDesc.contactReleaseImpulseThreshold = hullScene.contactReleaseImpulseThreshold;
-        const auto appendResult = context.models.AddGameModel(
+        const auto appendResult = context.models.TryCreateSceneEntity(
             std::move( gameModel ),
             bodyDesc,
             MakeSceneHullColliderDesc( hull, hullScene.restitution, hullScene.contactMaterial ),
-            sceneObjectId,
             groupDesc );
         if ( !appendResult.status.ok )
         {

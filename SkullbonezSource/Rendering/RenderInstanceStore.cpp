@@ -21,6 +21,8 @@ Glossary:
 Invariants:
   - Records stay in scene model order and render handles mirror model indices
     until render owns a separate allocation id.
+  - Creation appends all three render-side rows without allocation after one
+    caller-owned cross-store preflight.
   - Refresh snapshots CPU draw intent only; it does not create or destroy GPU
     resources.
 
@@ -33,6 +35,7 @@ Related:
 #include <cstddef>
 
 #include "../Core/Common.h"
+#include "../Core/FatalError.h"
 #include "../Maths/Matrix4.h"
 #include "../Physics/ColliderStore.h"
 #include "../Physics/PhysicsBodyStore.h"
@@ -102,6 +105,60 @@ void RenderInstanceStore::ReservePresentationCapacity( std::size_t capacity )
     m_presentationRecords.reserve( capacity );
 }
 
+bool RenderInstanceStore::CanAppendCreationRow( int expectedCount ) const
+{
+    if ( expectedCount < 0 )
+    {
+        return false;
+    }
+    const std::size_t expected = static_cast<std::size_t>( expectedCount );
+    return m_presentationRecords.size() == expected && m_instances.size() == expected &&
+           m_modelInstanceHandles.size() == expected &&
+           m_presentationRecords.size() < m_presentationRecords.capacity() &&
+           m_instances.size() < m_instances.capacity() &&
+           m_modelInstanceHandles.size() < m_modelInstanceHandles.capacity();
+}
+
+void RenderInstanceStore::CommitCreationRow( const RenderInstancePresentationRecord& presentation,
+                                             const PhysicsBodyRecord& body,
+                                             const ColliderRecord& collider,
+                                             int expectedIndex )
+{
+    if ( !CanAppendCreationRow( expectedIndex ) || !body.handle.IsValid() || !collider.handle.IsValid() ||
+         collider.body != body.handle || collider.sceneObjectId.value != body.sceneObjectId.value )
+    {
+        SB_FATAL( "Rendering/RenderInstanceStore",
+                  "Invalid preflighted creation commit. expected=%d presentation=%zu instances=%zu handles=%zu "
+                  "body_valid=%d collider_valid=%d body_id=%u collider_id=%u",
+                  expectedIndex,
+                  m_presentationRecords.size(),
+                  m_instances.size(),
+                  m_modelInstanceHandles.size(),
+                  body.handle.IsValid() ? 1 : 0,
+                  collider.handle.IsValid() ? 1 : 0,
+                  body.sceneObjectId.value,
+                  collider.sceneObjectId.value );
+    }
+
+    const uint32_t modelIndex = static_cast<uint32_t>( expectedIndex );
+    RenderInstanceRecord record;
+    record.handle = MakeRenderInstanceHandleForModelIndex( modelIndex );
+    record.replayBodyId = body.replayBodyId;
+    record.modelMatrix = BuildPhysicsModelMatrix( body, collider );
+    record.material = presentation.material;
+    record.boundingRadius = collider.boundingRadius;
+    record.shapeKind = ShapeKindFromCollider( collider.shapeKind );
+    record.isFixed = body.isFixed;
+    record.fixedContactAlpha = presentation.fixedContactAlpha;
+    record.audioContactAlpha = presentation.audioContactAlpha;
+
+    // Invariant: CanAppendCreationRow proves all three pushes reuse existing
+    // reservations, so no partial render row can result from allocation failure.
+    m_presentationRecords.push_back( presentation );
+    m_instances.push_back( record );
+    m_modelInstanceHandles.push_back( record.handle );
+}
+
 
 bool RenderInstanceStore::ResizePresentationRecords( int presentationCount )
 {
@@ -127,6 +184,11 @@ RenderInstancePresentationRecord* RenderInstanceStore::MutablePresentationRecord
 const std::vector<RenderInstancePresentationRecord>& RenderInstanceStore::PresentationRecords() const
 {
     return m_presentationRecords;
+}
+
+int RenderInstanceStore::PresentationCount() const
+{
+    return static_cast<int>( m_presentationRecords.size() );
 }
 
 

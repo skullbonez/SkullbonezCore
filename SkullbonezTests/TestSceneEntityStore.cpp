@@ -1,7 +1,7 @@
 /*
 File: SkullbonezTests/TestSceneEntityStore.cpp
 Purpose:
-  Verifies fixed-capacity scene identity and asset-affiliation storage.
+  Verifies scene identity storage and the paired render creation row.
 
 Mental model:
   Creation preflights metadata without mutation, then commits the body-linked
@@ -15,6 +15,7 @@ Invariants:
   - Duplicate ids and capacity exhaustion are recoverable preflight failures.
   - Successful commits retain exact identity, material, and affiliation values.
   - Clear and commit reuse the pre-scene reservation without growing storage.
+  - Render creation publishes presentation, instance, and handle rows together.
 
 Related:
   - SkullbonezSource/Runtime/Scene/SceneEntityStore.h
@@ -23,6 +24,9 @@ Related:
 #include "../ThirdPtySource/doctest/doctest.h"
 
 #include "../SkullbonezSource/Runtime/Scene/SceneEntityStore.h"
+#include "../SkullbonezSource/Physics/ColliderStore.h"
+#include "../SkullbonezSource/Physics/PhysicsBodyStore.h"
+#include "../SkullbonezSource/Rendering/RenderInstanceStore.h"
 
 #include <string>
 
@@ -99,4 +103,40 @@ TEST_CASE( "SceneEntityStore: active capacity is enforced without growth" )
     CHECK( store.Count() == 0 );
     CHECK( store.CapacityBytes() == reservedBytes );
     CHECK( store.PreflightAppend( second ).ok );
+}
+
+TEST_CASE( "RenderInstanceStore: preflighted creation publishes every render row" )
+{
+    using namespace SkullbonezCore::Physics;
+    using namespace SkullbonezCore::Rendering;
+
+    RenderInstanceStore renderStore;
+    RenderInstancePresentationRecord presentation;
+    presentation.material.baseColor[0] = 0.25f;
+    strcpy_s( presentation.displayName, "transaction_entity" );
+
+    PhysicsBodyRecord body;
+    body.handle = PhysicsBodyHandle{ 7u, 1u };
+    body.sceneObjectId = PhysicsSceneObjectId{ 77u };
+    body.replayBodyId = 77u;
+
+    ColliderRecord collider;
+    collider.handle = PhysicsColliderHandle{ 9u, 1u };
+    collider.body = body.handle;
+    collider.sceneObjectId = body.sceneObjectId;
+    collider.replayBodyId = body.replayBodyId;
+    collider.shape =
+        SkullbonezCore::Math::CollisionDetection::BoundingSphere( 1.5f, SkullbonezCore::Math::Vector::ZERO_VECTOR );
+    collider.shapeKind = ColliderShapeKind::Sphere;
+    collider.boundingRadius = 1.5f;
+
+    REQUIRE( renderStore.CanAppendCreationRow( 0 ) );
+    renderStore.CommitCreationRow( presentation, body, collider, 0 );
+
+    CHECK( renderStore.PresentationCount() == 1 );
+    CHECK( renderStore.Count() == 1 );
+    CHECK( renderStore.HandleForModelIndex( 0 ).IsValid() );
+    CHECK( renderStore.Records()[0].replayBodyId == 77u );
+    CHECK( renderStore.Records()[0].material.baseColor[0] == doctest::Approx( 0.25f ) );
+    CHECK_FALSE( renderStore.CanAppendCreationRow( 0 ) );
 }

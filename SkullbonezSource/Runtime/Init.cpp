@@ -613,6 +613,7 @@ struct PhysicsRuntimeHandleSmokeResult
     bool jointUsesHandles = false;
     bool colliderRefreshMatches = false;
     bool reorderPreservesHandleState = false;
+    bool failedCreationIsAtomic = false;
     int bodyCount = 0;
     int colliderCount = 0;
     int renderInstanceCount = 0;
@@ -645,10 +646,11 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
         model.SetName( name );
         PhysicsSceneObjectId sceneObjectId;
         sceneObjectId.value = static_cast<uint32_t>( i + 1 );
+        model.sceneObjectId = sceneObjectId;
         const SkullbonezCore::Math::CollisionDetection::BoundingSphere shape(
             0.75f,
             SkullbonezCore::Math::Vector::Vector3( 0.0f, 0.0f, 0.0f ) );
-        const auto appendResult = collection->AddGameModel(
+        const auto appendResult = collection->TryCreateSceneEntity(
             std::move( model ),
             MakePhysicsBodyCreateDesc(
                 sceneObjectId,
@@ -663,8 +665,7 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
                 PhysicsBodyMotionKind::Dynamic,
                 nullptr,
                 name ),
-            MakeColliderCreateDesc( shape, 0.0f, HashStr( "default" ) ),
-            sceneObjectId );
+            MakeColliderCreateDesc( shape, 0.0f, HashStr( "default" ) ) );
         if ( !appendResult.status.ok )
         {
             result.errorMessage = appendResult.status.error.message;
@@ -672,6 +673,39 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
         }
         createdBodies[i] = appendResult.body;
     }
+
+    const int entityCountBeforeFailure = sceneEntities.Count();
+    const int bodyCountBeforeFailure = collection->BodyStore().Count();
+    const int colliderCountBeforeFailure = collection->Colliders().Count();
+    const int renderCountBeforeFailure = collection->GetRenderInstanceStore().Count();
+    const uint32_t descriptorCountBeforeFailure = collection->GetPhysicsEngine().AuthoredBodyDescriptorCount().value;
+    SkullbonezCore::Basics::SceneEntityCreateDesc duplicateEntity;
+    duplicateEntity.sceneObjectId = PhysicsSceneObjectId{ 1u };
+    duplicateEntity.SetName( "runtime_smoke_duplicate" );
+    const SkullbonezCore::Math::CollisionDetection::BoundingSphere duplicateShape(
+        0.5f,
+        SkullbonezCore::Math::Vector::Vector3( 0.0f, 0.0f, 0.0f ) );
+    const auto duplicateResult = collection->TryCreateSceneEntity(
+        std::move( duplicateEntity ),
+        MakePhysicsBodyCreateDesc( PhysicsSceneObjectId{ 1u },
+                                   duplicateShape,
+                                   SkullbonezCore::Math::Vector::Vector3( 0.0f, 8.0f, 0.0f ),
+                                   SkullbonezCore::Math::Orientation::IDENTITY_QUATERNION,
+                                   SkullbonezCore::Math::Vector::Vector3( 0.0f, 0.0f, 0.0f ),
+                                   SkullbonezCore::Math::Vector::Vector3( 0.0f, 0.0f, 0.0f ),
+                                   SkullbonezCore::Math::Vector::Vector3( 1.0f, 1.0f, 1.0f ),
+                                   1.0f,
+                                   0.0f,
+                                   PhysicsBodyMotionKind::Dynamic,
+                                   nullptr,
+                                   "runtime_smoke_duplicate" ),
+        MakeColliderCreateDesc( duplicateShape, 0.0f, HashStr( "default" ) ) );
+    const bool failedCreationIsAtomic =
+        !duplicateResult.status.ok && sceneEntities.Count() == entityCountBeforeFailure &&
+        collection->BodyStore().Count() == bodyCountBeforeFailure &&
+        collection->Colliders().Count() == colliderCountBeforeFailure &&
+        collection->GetRenderInstanceStore().Count() == renderCountBeforeFailure &&
+        collection->GetPhysicsEngine().AuthoredBodyDescriptorCount().value == descriptorCountBeforeFailure;
 
     const PhysicsBodyHandle bodyA = createdBodies[0];
     const PhysicsBodyHandle bodyB = createdBodies[1];
@@ -732,7 +766,9 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
 
     constexpr uint32_t REORDER_BODY_A_REPLAY_ID = 100u;
     constexpr uint32_t REORDER_BODY_B_REPLAY_ID = 101u;
-    PhysicsBodyStore reorderBodyStore;
+    // Why: PhysicsBodyStore owns MAX_GAME_MODELS fixed arrays. Keep this cold
+    // standalone probe owner off WinMain's bounded thread stack.
+    auto reorderBodyStore = std::make_unique<PhysicsBodyStore>();
     std::vector<PhysicsBodyCreateDesc> reorderBodyDescs;
     for ( int i = 0; i < 2; ++i )
     {
@@ -752,21 +788,21 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
         desc.dragCoefficient = SkullbonezCore::Math::CollisionDetection::GetShapeDragCoefficient( desc.shape );
         reorderBodyDescs.push_back( desc );
     }
-    reorderBodyStore.LoadFromDescriptors( reorderBodyDescs, std::vector<uint8_t>{} );
-    const PhysicsBodyHandle reorderedOriginalBody = reorderBodyStore.HandleForModelIndex( 0 );
+    reorderBodyStore->LoadFromDescriptors( reorderBodyDescs, std::vector<uint8_t>{} );
+    const PhysicsBodyHandle reorderedOriginalBody = reorderBodyStore->HandleForModelIndex( 0 );
     const uint32_t reorderBodyAReplayId = REORDER_BODY_A_REPLAY_ID;
     const uint32_t reorderBodyBReplayId = REORDER_BODY_B_REPLAY_ID;
     const SkullbonezCore::Math::Vector::Vector3 pendingImpulse( 0.0f, 2.0f, 0.0f );
     const SkullbonezCore::Math::Vector::Vector3 pendingImpulsePoint( 0.25f, 0.0f, 0.0f );
     const bool seededReorderState =
-        reorderBodyStore.SetPendingBodyImpulse( reorderedOriginalBody, pendingImpulse, pendingImpulsePoint ) &&
-        reorderBodyStore.SeedBodyAsleep( reorderedOriginalBody );
+        reorderBodyStore->SetPendingBodyImpulse( reorderedOriginalBody, pendingImpulse, pendingImpulsePoint ) &&
+        reorderBodyStore->SeedBodyAsleep( reorderedOriginalBody );
     reorderBodyDescs[0].sceneObjectId = MakePhysicsSceneObjectIdFromReplayBodyId( reorderBodyBReplayId );
     reorderBodyDescs[1].sceneObjectId = MakePhysicsSceneObjectIdFromReplayBodyId( reorderBodyAReplayId );
-    reorderBodyStore.LoadFromDescriptors( reorderBodyDescs, std::vector<uint8_t>{} );
-    const int reorderedBodyAIndex = reorderBodyStore.ModelIndexForHandle( reorderedOriginalBody );
+    reorderBodyStore->LoadFromDescriptors( reorderBodyDescs, std::vector<uint8_t>{} );
+    const int reorderedBodyAIndex = reorderBodyStore->ModelIndexForHandle( reorderedOriginalBody );
     const PhysicsBodyRecord* reorderedBodyARecord =
-        reorderedBodyAIndex >= 0 ? reorderBodyStore.RecordForModelIndex( reorderedBodyAIndex ) : nullptr;
+        reorderedBodyAIndex >= 0 ? reorderBodyStore->RecordForModelIndex( reorderedBodyAIndex ) : nullptr;
     // Invariant: allocator-owned handles must carry physics-owned one-shot
     // state through a same-scene reorder. Otherwise the handle identity is only
     // nominally independent from model order.
@@ -782,13 +818,14 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
     result.jointUsesHandles = jointUsesHandles;
     result.colliderRefreshMatches = colliderRefreshMatches;
     result.reorderPreservesHandleState = reorderPreservesHandleState;
+    result.failedCreationIsAtomic = failedCreationIsAtomic;
     result.bodyCount = bodyStore.Count();
     result.colliderCount = colliderStore.Count();
     result.renderInstanceCount = renderStore.Count();
     result.pointJointCount = pointJoints.size();
     result.bodyA = bodyA;
     result.passed = handlesMatchStores && renderMirrorMatches && jointUsesHandles && colliderRefreshMatches &&
-                    reorderPreservesHandleState;
+                    reorderPreservesHandleState && failedCreationIsAtomic;
     return result;
 }
 
@@ -848,7 +885,7 @@ bool HandlePhysicsStandaloneSmoke( const CommandLineView& commandLine, int& outE
         fprintf( stream,
                  "[physics-runtime-handle-smoke] bodies=%d colliders=%d render_instances=%d point_joints=%zu "
                  "handle_a=(%u,%u) store_handles=%s render_mirror=%s joint_handles=%s collider_refresh=%s "
-                 "reorder_state=%s\n",
+                 "reorder_state=%s creation_atomic=%s\n",
                  runtimeMirror.bodyCount,
                  runtimeMirror.colliderCount,
                  runtimeMirror.renderInstanceCount,
@@ -859,7 +896,8 @@ bool HandlePhysicsStandaloneSmoke( const CommandLineView& commandLine, int& outE
                  runtimeMirror.renderMirrorMatches ? "pass" : "fail",
                  runtimeMirror.jointUsesHandles ? "pass" : "fail",
                  runtimeMirror.colliderRefreshMatches ? "pass" : "fail",
-                 runtimeMirror.reorderPreservesHandleState ? "pass" : "fail" );
+                 runtimeMirror.reorderPreservesHandleState ? "pass" : "fail",
+                 runtimeMirror.failedCreationIsAtomic ? "pass" : "fail" );
         if ( !runtimeMirror.errorMessage.empty() )
         {
             fprintf( stream, "[physics-runtime-handle-smoke] error=\"%s\"\n", runtimeMirror.errorMessage.c_str() );

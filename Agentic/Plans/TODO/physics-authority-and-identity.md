@@ -1,7 +1,7 @@
 # Physics Authority And Stable Identity
 
 Date: 2026-07-10 (source reconciled)
-Status: In progress — 4/16 current checklist items verified complete; the
+Status: In progress — 7/16 current checklist items verified complete; the
 scene-lifetime physics owner decision is binding
 Impact area: physics, game object storage, scene creation/reset, replay,
 editor tools
@@ -20,16 +20,15 @@ Owner: physics/scene boundary
 
 ## Reconciled Current State
 
-Verified complete in current source: `GameModel` stores presentation metadata
-only; `PhysicsModelAccess` and the old model-index physics adapter are gone;
+Verified complete in current source: `GameModel` stores transient contact
+feedback only; `PhysicsModelAccess` and the old model-index physics adapter are gone;
 public physics APIs no longer expose `GameModel`; physics implementation files
 do not depend on `GameModel`; body/collider/render stores and stable handles
 exist; replay ids live on physics rows.
 
 Still open: `GameModelCollection` physically owns `PhysicsEngine`, scene
-creation/reset commits model/physics/render rows as a collection transaction,
-scene grouping/name metadata remains collection/model ordered, and runtime/
-replay headers still store many bare model-index hints.
+grouping remains collection ordered, save still reaches through the collection,
+and runtime/replay headers still store many bare model-index hints.
 
 ## Binding Owner Decision
 
@@ -130,9 +129,37 @@ no longer an open question.
   `tools\validate_full.bat` (zero warnings, zero DX12 InfoQueue errors,
   matching screenshots, byte-exact physics, 49.2s). The touched-source comment
   audit inspected 32/32 files with 0 deferred.
-- [ ] C3. One preflighted creation transaction commits scene metadata, body,
+- [x] C3. One preflighted creation transaction commits scene metadata, body,
   collider, and render rows or commits none of them. Capacity/duplicate authored
   input is Lane R; owner topology divergence is Lane F.
+  Evidence (2026-07-10): all seven production creation functions enter
+  `TryCreateSceneEntity`; the former `AddGameModel`, private append wrapper, and
+  separately supplied scene-id parameter are deleted. Each caller sets the
+  entity's single authoritative id. The command verifies aligned entity,
+  transient feedback, behavior-group, authored-descriptor, body, collider,
+  render-presentation, and render-instance counts, plus physics/render
+  reservations, before mutation. Capacity, duplicate id, invalid group, and
+  body/entity-id mismatch return Lane R; preflight reservation or topology
+  divergence is Lane F and is no longer silently repaired during creation.
+  Commit appends body/collider rows, publishes the entity/body join, and creates
+  render presentation/instance/handle rows from existing reservations, then
+  rechecks every count. Clear now removes render rows and proves zero topology.
+  The standalone runtime smoke attempts a duplicate id and verifies unchanged
+  entity, descriptor, body, collider, and render counts; its waited report says
+  `creation_atomic=pass`. `TestSceneEntityStore.cpp` also verifies the three
+  render-side rows publish together. The probe's nine fixed-array standalone
+  worlds and reorder store moved from the bounded launcher stack to explicit
+  cold validation ownership after a waited Profile run exposed stack overflow.
+  Allocation-policy self-test/repository scan passed (306 files, 0 allowlist
+  errors, 7.4s). Final source passed `tools\validate_all_cpu_tests.bat` (117
+  doctest cases/2,129 assertions plus all standalone CPU targets, 15.7s),
+  `tools\validate_fast.bat` (format/project metadata and zero-warning
+  Profile/Debug builds, 32.2s), `tools\validate_physics.bat`
+  (`creation_atomic=pass` and 20,001-line byte-exact baseline, 16.6s),
+  `tools\validate_perf.bat` (32.7s), and `tools\validate_full.bat` (zero
+  warnings, zero DX12 InfoQueue errors, matching screenshots, atomic creation
+  smoke, and byte-exact physics, 49.7s). The touched-source comment audit
+  inspected 15/15 files with 0 deferred.
 - [ ] C4. Save through borrowed `SceneSaveView`/`SceneSaveRequest` owner data,
   emit version-2 `assetInstances[]` per-part live state, and delete silent row
   skipping plus the collection save facade.
