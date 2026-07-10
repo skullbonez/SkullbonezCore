@@ -41,6 +41,7 @@ Related:
 #include "RuntimeTools.h"
 
 #include "../../Core/Common.h"
+#include "../../Core/Log.h"
 #include "../../GameObjects/GameModel.h"
 #include "../../GameObjects/GameModelCollection.h"
 #include "../../Physics/ColliderStore.h"
@@ -54,6 +55,7 @@ Related:
 #include "../CameraCollection.h"
 #include "../Editor/EditorOverlayTools.h"
 #include "../InputRouter.h"
+#include "../RuntimeInteractionCommands.h"
 #include "../RuntimeInteractionController.h"
 #include "../Replay/ReplayRecorder.h"
 #include "../Scene/SceneRuntime.h"
@@ -66,6 +68,102 @@ Related:
 
 namespace SkullbonezCore::Basics
 {
+bool RuntimeTools::PrepareSelectionCommand( const RuntimeInteractionCommand& command,
+                                            const GameObjects::GameModelCollection& collection,
+                                            RuntimeInteractionSelectionPlan& outPlan )
+{
+    outPlan = RuntimeInteractionSelectionPlan{};
+    if ( command.type != RuntimeInteractionCommandType::SetEditorSelection || command.modelIndex < -1 ||
+         command.modelIndex >= collection.SceneEntityCount() )
+    {
+        return false;
+    }
+
+    const Physics::PhysicsBodyStore& bodyStore = collection.BodyStore();
+    const Physics::ColliderStore& colliderStore = collection.Colliders();
+    Physics::PhysicsBodyHandle selectedBody;
+    Physics::PhysicsColliderHandle selectedCollider;
+    if ( command.modelIndex >= 0 )
+    {
+        selectedBody = command.body;
+        selectedCollider = command.collider;
+        const Physics::PhysicsBodyRecord* body = bodyStore.RecordForHandle( selectedBody );
+        const Physics::ColliderRecord* collider = colliderStore.RecordForHandle( selectedCollider );
+        if ( !body || !collider || bodyStore.ModelIndexForHandle( selectedBody ) != command.modelIndex ||
+             colliderStore.ModelIndexForHandle( selectedCollider ) != command.modelIndex ||
+             collider->body != selectedBody )
+        {
+            return false;
+        }
+    }
+
+    if ( !m_editor.selectedBody.IsValid() )
+    {
+        m_editor.selectedModelRow.value = -1;
+        outPlan.previousModelIndex = -1;
+    }
+    else
+    {
+        outPlan.previousModelIndex = bodyStore.ResolveModelRow( m_editor.selectedBody, m_editor.selectedModelRow );
+    }
+    outPlan.modelIndex = command.modelIndex;
+    outPlan.previousBody = m_editor.selectedBody;
+    outPlan.body = selectedBody;
+    outPlan.previousCollider = m_editor.selectedCollider;
+    outPlan.collider = selectedCollider;
+    outPlan.selectionScope = command.selectionScope;
+    outPlan.claimSelectionOwner = command.claimSelectionOwner;
+    return true;
+}
+
+
+bool RuntimeTools::CommitSelectionCommand( const RuntimeInteractionSelectionPlan& plan,
+                                           RuntimeInteractionEvent& outEvent )
+{
+    outEvent = RuntimeInteractionEvent{};
+    // Invariant: preparation and commit are synchronous around the optional
+    // owner transition. Transition cleanup may deliberately clear the previous
+    // selection; the prepared command still becomes the new authoritative one.
+    m_editor.selectedModelRow.value = plan.modelIndex;
+    m_editor.selectedBody = plan.body;
+    m_editor.selectedCollider = plan.collider;
+    if ( plan.previousModelIndex != plan.modelIndex || plan.previousBody != plan.body ||
+         plan.previousCollider != plan.collider )
+    {
+        outEvent.type = RuntimeInteractionEventType::SelectionChanged;
+        outEvent.previousModelIndex = plan.previousModelIndex;
+        outEvent.modelIndex = plan.modelIndex;
+        outEvent.previousBody = plan.previousBody;
+        outEvent.body = plan.body;
+        outEvent.previousCollider = plan.previousCollider;
+        outEvent.collider = plan.collider;
+        outEvent.selectionScope = plan.selectionScope;
+        Log().WriteEventf(
+            "runtime_interaction_command_event type=selection_changed scope=%s previous_model=%d model=%d",
+            outEvent.selectionScope == RuntimeInteractionSelectionScope::Inspect ? "inspect" : "editor",
+            outEvent.previousModelIndex,
+            outEvent.modelIndex );
+    }
+    return true;
+}
+
+
+bool RuntimeTools::ApplySelectionCommand( const RuntimeInteractionCommand& command,
+                                          const GameObjects::GameModelCollection& collection )
+{
+    // Why: owner-claiming commands need composition to apply transition cleanup
+    // between prepare and commit. The convenience path is intentionally limited
+    // to commands whose interaction owner is already established.
+    if ( command.claimSelectionOwner )
+    {
+        return false;
+    }
+    RuntimeInteractionSelectionPlan plan;
+    RuntimeInteractionEvent event;
+    return PrepareSelectionCommand( command, collection, plan ) && CommitSelectionCommand( plan, event );
+}
+
+
 void RuntimeTools::CancelMousePickup( InputRouter& inputRouter, RuntimeInteractionController& interaction )
 {
     // Invariant: RuntimeTools owns the picked-body/capture fact. Cancellation

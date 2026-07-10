@@ -10,9 +10,9 @@ reports, and git history.
 | Field | Value |
 |---|---|
 | Branch | `engine-cleanup-10th-july`, tracking `origin/engine-cleanup-10th-july` |
-| Current pushed baseline | `82309c4c refactor: move attach target selection into owner` |
+| Current pushed baseline | `6945404d refactor: move manipulator pointer routing into tool owner` |
 | Current objective | Continue B1f by deleting Run pointer/camera composition, then TakeInput |
-| Last broad local gate | `tools\validate_full.bat` passed RuntimeTools-owned manipulator pointer routing with 129/129 doctest cases, 2,755 assertions, zero-warning builds, DX12 with zero InfoQueue errors/matching screenshots, standalone physics smoke, and 20,001-line byte-exact physics in 53.2s |
+| Last broad local gate | `tools\validate_full.bat` passed RuntimeTools-owned selection command transactions with 129/129 doctest cases, 2,755 assertions, zero-warning builds, DX12 with zero InfoQueue errors/matching screenshots, standalone physics smoke, and 20,001-line byte-exact physics in 52.3s |
 | Native evidence | Injected heap-use-after-free caught; healthy ASan and five-file `/analyze` passed in 16.185s |
 
 ## Pushed Cleanup Commits
@@ -294,6 +294,12 @@ value-only input/result boundary; Run's pickup input method is deleted. A new
 dynamic-body interaction assertion proves pickup begin and release cancellation.
 Fast, CPU, four interaction scenarios, perf, and full gates pass; comment audit
 is 6/6. Editor and replay/launcher pointer composition remain.
+
+Editor/Inspect selection commands now prepare and commit inside `RuntimeTools`
+around the existing interaction-owner transition. Run's command executor and
+event publisher are deleted. Fast, CPU, four interaction scenarios, perf, and
+full gates pass; comment audit is 6/6. The remaining editor gesture/placement
+route and replay/launcher composition still block B1f closure.
 
 Scene provenance C1a is complete: parser-owned library/instance/ordered-part
 records retain exact shape sources, hierarchy transforms use rotated offsets

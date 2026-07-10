@@ -275,30 +275,6 @@ uint32_t ReplaySceneRequestFlags( const SceneRequest& request )
     return flags;
 }
 
-const char* RuntimeInteractionSelectionScopeName( RuntimeInteractionSelectionScope scope )
-{
-    switch ( scope )
-    {
-    case RuntimeInteractionSelectionScope::Inspect:
-        return "inspect";
-    case RuntimeInteractionSelectionScope::Editor:
-    default:
-        return "editor";
-    }
-}
-
-const char* RuntimeInteractionEventName( RuntimeInteractionEventType type )
-{
-    switch ( type )
-    {
-    case RuntimeInteractionEventType::SelectionChanged:
-        return "selection_changed";
-    case RuntimeInteractionEventType::None:
-    default:
-        return "none";
-    }
-}
-
 // Concept: UI command domains return accepted-command facts. These mappers keep
 // RuntimeInput transition recording in the original order without forcing each
 // domain helper to know about Run's input-mode history.
@@ -1088,7 +1064,7 @@ bool Run::RouteRuntimePointerInput( const RuntimeInputSnapshot& inputSnapshot, c
             command.collider = selection.collider;
             command.selectionScope = RuntimeInteractionSelectionScope::Inspect;
             command.claimSelectionOwner = false;
-            ExecuteRuntimeInteractionCommand( command );
+            m_runtimeTools.ApplySelectionCommand( command, m_sceneController.Models() );
             ApplyRuntimeCursorOwnership( m_inputRouter, m_runtimeTools.Editor(), m_replayRuntime );
         }
         EnterInteractiveSceneRun();
@@ -1210,7 +1186,7 @@ void Run::ClearEditorInteractionForRuntimeTransition( bool clearSelection )
         command.type = RuntimeInteractionCommandType::SetEditorSelection;
         command.modelIndex = -1;
         command.claimSelectionOwner = false;
-        ExecuteRuntimeInteractionCommand( command );
+        m_runtimeTools.ApplySelectionCommand( command, m_sceneController.Models() );
     }
     ReleaseRuntimeMouseToUI( m_inputRouter, m_runtimeTools.Editor(), m_replayRuntime, m_camera );
     ApplyRuntimeCursorOwnership( m_inputRouter, m_runtimeTools.Editor(), m_replayRuntime );
@@ -1313,95 +1289,6 @@ RuntimeInteractionTransition Run::SetWorldInteractionOwnerAfterInteractionTransi
     ClearRuntimeInteractionStateForTransition( transition );
     m_interaction.SetWorldInteractionOwnerInWorkspace( workspace, owner, reason );
     return transition;
-}
-
-
-void Run::PublishRuntimeInteractionEvent( const RuntimeInteractionEvent& event )
-{
-    switch ( event.type )
-    {
-    case RuntimeInteractionEventType::SelectionChanged:
-        Log().WriteEventf( "runtime_interaction_command_event type=%s scope=%s previous_model=%d model=%d",
-                           RuntimeInteractionEventName( event.type ),
-                           RuntimeInteractionSelectionScopeName( event.selectionScope ),
-                           event.previousModelIndex,
-                           event.modelIndex );
-        break;
-    case RuntimeInteractionEventType::None:
-        break;
-    }
-}
-
-
-bool Run::ExecuteRuntimeInteractionCommand( const RuntimeInteractionCommand& command )
-{
-    switch ( command.type )
-    {
-    case RuntimeInteractionCommandType::SetEditorSelection:
-    {
-        if ( command.modelIndex < -1 || command.modelIndex >= m_sceneController.Models().SceneEntityCount() )
-        {
-            return false;
-        }
-
-        const PhysicsBodyStore& bodyStore = m_sceneController.Models().BodyStore();
-        const ColliderStore& colliderStore = m_sceneController.Models().Colliders();
-        const int previousModelIndex = ResolveSelectedEditorModelIndex( m_runtimeTools.Editor(), bodyStore );
-        const bool selectionHit = command.modelIndex >= 0;
-        PhysicsBodyHandle selectedBody;
-        PhysicsColliderHandle selectedCollider;
-        if ( selectionHit )
-        {
-            // Invariant: positive selection commands prove identity with
-            // handles. The model index only checks the paired UI row.
-            selectedBody = command.body;
-            selectedCollider = command.collider;
-            const PhysicsBodyRecord* body = bodyStore.RecordForHandle( selectedBody );
-            const ColliderRecord* collider = colliderStore.RecordForHandle( selectedCollider );
-            if ( !body || !collider || bodyStore.ModelIndexForHandle( selectedBody ) != command.modelIndex ||
-                 colliderStore.ModelIndexForHandle( selectedCollider ) != command.modelIndex ||
-                 collider->body != selectedBody )
-            {
-                return false;
-            }
-        }
-
-        const PhysicsBodyHandle previousBody = m_runtimeTools.Editor().selectedBody;
-        const PhysicsColliderHandle previousCollider = m_runtimeTools.Editor().selectedCollider;
-        const bool inspectSelection = command.selectionScope == RuntimeInteractionSelectionScope::Inspect;
-        if ( command.claimSelectionOwner )
-        {
-            const WorldInteractionOwner owner = selectionHit ? ( inspectSelection ? WorldInteractionOwner::InspectGizmo
-                                                                                  : WorldInteractionOwner::EditorGizmo )
-                                                             : WorldInteractionOwner::None;
-            const InteractionExitReason reason =
-                inspectSelection ? InteractionExitReason::EnterInspect : InteractionExitReason::EnterEdit;
-            SetWorldInteractionOwnerAfterInteractionTransition( owner, reason );
-        }
-        m_runtimeTools.Editor().selectedModelRow.value = command.modelIndex;
-        m_runtimeTools.Editor().selectedBody = selectedBody;
-        m_runtimeTools.Editor().selectedCollider = selectedCollider;
-        if ( previousModelIndex != command.modelIndex || previousBody != selectedBody ||
-             previousCollider != selectedCollider )
-        {
-            RuntimeInteractionEvent event;
-            event.type = RuntimeInteractionEventType::SelectionChanged;
-            event.previousModelIndex = previousModelIndex;
-            event.modelIndex = command.modelIndex;
-            event.previousBody = previousBody;
-            event.body = selectedBody;
-            event.previousCollider = previousCollider;
-            event.collider = selectedCollider;
-            event.selectionScope = command.selectionScope;
-            PublishRuntimeInteractionEvent( event );
-        }
-        return true;
-    }
-    case RuntimeInteractionCommandType::None:
-        break;
-    }
-
-    return false;
 }
 
 
@@ -1630,7 +1517,7 @@ void Run::ApplyCameraMode( RunCameraMode mode, RuntimeInputActionSource source )
             command.collider = selection.collider;
             command.selectionScope = RuntimeInteractionSelectionScope::Inspect;
             command.claimSelectionOwner = false;
-            ExecuteRuntimeInteractionCommand( command );
+            m_runtimeTools.ApplySelectionCommand( command, m_sceneController.Models() );
         }
         if ( seedResult != AttachedCameraSeedResult::Failed )
         {

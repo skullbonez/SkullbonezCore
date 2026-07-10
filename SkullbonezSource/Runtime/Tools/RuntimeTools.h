@@ -115,6 +115,9 @@ struct ReplayLauncherVisualSample;
 class SceneEntityStore;
 class InputRouter;
 class RuntimeInteractionController;
+struct RuntimeInteractionCommand;
+struct RuntimeInteractionEvent;
+struct RuntimeInteractionSelectionPlan;
 
 struct RunRayCastTestLine
 {
@@ -583,6 +586,12 @@ class RuntimeTools
                                                       const GameObjects::GameModelCollection& collection,
                                                       InputRouter& inputRouter,
                                                       RuntimeInteractionController& interaction );
+    bool PrepareSelectionCommand( const RuntimeInteractionCommand& command,
+                                  const GameObjects::GameModelCollection& collection,
+                                  RuntimeInteractionSelectionPlan& outPlan );
+    bool CommitSelectionCommand( const RuntimeInteractionSelectionPlan& plan, RuntimeInteractionEvent& outEvent );
+    bool ApplySelectionCommand( const RuntimeInteractionCommand& command,
+                                const GameObjects::GameModelCollection& collection );
     void CancelMousePickup( InputRouter& inputRouter, RuntimeInteractionController& interaction );
 
     RunEditorPlacementState& Editor();

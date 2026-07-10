@@ -5,8 +5,9 @@ Purpose:
 
 Mental model:
   Runtime input code converts mouse/editor decisions into narrow command
-  records before mutating selection state. These records describe intent; the
-  process-level Run object still decides when to execute them.
+  records before mutating selection state. RuntimeTools validates commands into
+  exact plans, composition applies any requested owner transition, and the tool
+  owner commits the plan without callbacks into Run.
 
 Glossary:
   Command: A synchronous runtime mutation request emitted by routed input.
@@ -55,6 +56,18 @@ struct RuntimeInteractionCommand
     Physics::PhysicsColliderHandle collider;
     RuntimeInteractionSelectionScope selectionScope = RuntimeInteractionSelectionScope::Editor;
     bool claimSelectionOwner = true;
+};
+
+struct RuntimeInteractionSelectionPlan
+{
+    int previousModelIndex = -1;
+    int modelIndex = -1;
+    Physics::PhysicsBodyHandle previousBody;
+    Physics::PhysicsBodyHandle body;
+    Physics::PhysicsColliderHandle previousCollider;
+    Physics::PhysicsColliderHandle collider;
+    RuntimeInteractionSelectionScope selectionScope = RuntimeInteractionSelectionScope::Editor;
+    bool claimSelectionOwner = false;
 };
 
 enum class RuntimeInteractionEventType

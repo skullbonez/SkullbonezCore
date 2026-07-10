@@ -1122,7 +1122,7 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
         command.selectionScope = previewResult.inspectSelectionScope ? RuntimeInteractionSelectionScope::Inspect
                                                                      : RuntimeInteractionSelectionScope::Editor;
         command.claimSelectionOwner = false;
-        ExecuteRuntimeInteractionCommand( command );
+        m_runtimeTools.ApplySelectionCommand( command, m_sceneController.Models() );
         CancelEditorGizmoDragState(
             { m_runtimeTools.Editor(), m_sceneController.Models(), m_sceneController.Physics(), m_interaction } );
     }
@@ -1171,7 +1171,7 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
                         command.body = placementResult.placedBody;
                         command.collider = placementResult.placedCollider;
                         command.claimSelectionOwner = false;
-                        ExecuteRuntimeInteractionCommand( command );
+                        m_runtimeTools.ApplySelectionCommand( command, m_sceneController.Models() );
                     }
                 }
             }
@@ -1579,25 +1579,25 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
                     RuntimePickService::TryPickModel( request, result );
                 }
 
-                if ( result.modelIndex >= 0 )
+                RuntimeInteractionCommand command;
+                command.type = RuntimeInteractionCommandType::SetEditorSelection;
+                command.modelIndex = result.modelIndex;
+                command.body = result.body;
+                command.collider = result.collider;
+                command.selectionScope = inspectGizmoActive ? RuntimeInteractionSelectionScope::Inspect
+                                                            : RuntimeInteractionSelectionScope::Editor;
+                RuntimeInteractionSelectionPlan plan;
+                if ( m_runtimeTools.PrepareSelectionCommand( command, m_sceneController.Models(), plan ) )
                 {
-                    RuntimeInteractionCommand command;
-                    command.type = RuntimeInteractionCommandType::SetEditorSelection;
-                    command.modelIndex = result.modelIndex;
-                    command.body = result.body;
-                    command.collider = result.collider;
-                    command.selectionScope = inspectGizmoActive ? RuntimeInteractionSelectionScope::Inspect
-                                                                : RuntimeInteractionSelectionScope::Editor;
-                    consumedWorldClick = ExecuteRuntimeInteractionCommand( command );
-                }
-                else
-                {
-                    RuntimeInteractionCommand command;
-                    command.type = RuntimeInteractionCommandType::SetEditorSelection;
-                    command.modelIndex = -1;
-                    command.selectionScope = inspectGizmoActive ? RuntimeInteractionSelectionScope::Inspect
-                                                                : RuntimeInteractionSelectionScope::Editor;
-                    consumedWorldClick = ExecuteRuntimeInteractionCommand( command );
+                    const WorldInteractionOwner selectionOwner =
+                        result.modelIndex >= 0 ? ( inspectGizmoActive ? WorldInteractionOwner::InspectGizmo
+                                                                      : WorldInteractionOwner::EditorGizmo )
+                                               : WorldInteractionOwner::None;
+                    const InteractionExitReason selectionReason =
+                        inspectGizmoActive ? InteractionExitReason::EnterInspect : InteractionExitReason::EnterEdit;
+                    SetWorldInteractionOwnerAfterInteractionTransition( selectionOwner, selectionReason );
+                    RuntimeInteractionEvent event;
+                    consumedWorldClick = m_runtimeTools.CommitSelectionCommand( plan, event );
                 }
             }
         }

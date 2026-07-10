@@ -205,10 +205,6 @@ class Run
     RuntimeInteractionTransition SetWorldInteractionOwnerAfterInteractionTransition(
         WorldInteractionOwner owner,
         InteractionExitReason reason );                                 // Applies tool-owner transitions through runtime cleanup.
-    bool ExecuteRuntimeInteractionCommand(
-        const RuntimeInteractionCommand& command );                     // Applies synchronous interaction mutations from routed input.
-    void PublishRuntimeInteractionEvent(
-        const RuntimeInteractionEvent& event );                         // Emits observation-only command-result events after commands succeed.
     void ClearRuntimeInteractionStateForTransition(
         const RuntimeInteractionTransition& transition );               // Clears state owned by the interaction being exited.
     void ApplyCameraMode( RunCameraMode mode,

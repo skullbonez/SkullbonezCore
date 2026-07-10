@@ -377,6 +377,26 @@ topology smoke, and the 20,001-line byte-exact physics baseline. Comment audit:
 6/6 touched source-bearing files; the batch wrapper retains its local contract
 header.
 
+Editor/Inspect selection command authority is now `RuntimeTools` behavior.
+Commands first validate model bounds and the exact body/collider pairing into a
+value-only selection plan. Composition applies an optional interaction-owner
+transition between prepare and commit, preserving cleanup-before-mutation
+ordering without a callback. RuntimeTools commits the selected handles/row and
+publishes the accepted selection event. Run's generic interaction command
+executor and event publisher are deleted, along with their local naming helpers.
+B1f remains open for the rest of editor pointer behavior, replay/launcher outer
+routing, focus/keyboard composition, camera helpers, and final pointer-route/
+`TakeInput` deletion.
+
+Evidence: all four interaction scenarios passed in 23.7s; fast passed in 21.4s;
+the CPU umbrella passed in 11.0s with 129/129 doctest cases and 2,755 assertions;
+perf completed in 32.4s; and full passed in 52.3s with zero warnings, zero DX12
+InfoQueue errors, matching screenshots, standalone topology smoke, and the
+20,001-line byte-exact physics baseline. The first Debug build found an
+unqualified legacy `RunInternal` selection resolver; RuntimeTools now performs
+the small handle/row repair locally and the retry passed. Comment audit: 6/6
+touched source-bearing files.
+
 ## Remaining Work
 
 ### A. Narrow the render host
