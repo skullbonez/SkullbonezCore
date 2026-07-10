@@ -262,6 +262,22 @@ smoke, and the 20,001-line byte-exact physics baseline. The first Debug build
 found the deleted Run query's render caller; it was corrected to consume the
 interaction owner before formal gates. Comment audit: 6/6 touched source files.
 
+The two mutating Run pointer-presentation wrappers are deleted. Composition
+sites request router cursor visibility directly from the router-owned policy;
+mouse release changes router capture intent and explicitly resets camera deltas
+only when mouse-look does not own the cursor. The editor viewport/placement
+path publishes the same six scalar facts without recovering a Run method.
+B1f remains open for world-pointer routing, focus cleanup, keyboard dispatch,
+camera mode helpers, and final `TakeInput` deletion.
+
+Evidence: fast passed in 33.7s with three candidates, 129/129 doctest cases, and
+2,755 assertions; both interaction reports passed in 8.5s; and full passed in
+51.9s with zero warnings, zero DX12 InfoQueue errors, matching screenshots,
+standalone topology smoke, and the 20,001-line byte-exact physics baseline. The
+first Debug build identified the editor TU's remaining wrapper caller; it was
+replaced with direct scalar-fact publication before formal gates. Comment
+audit: 3/3 touched source-bearing files.
+
 ## Remaining Work
 
 ### A. Narrow the render host

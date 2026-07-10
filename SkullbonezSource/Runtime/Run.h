@@ -193,8 +193,6 @@ class Run
         bool clearSelection );                                          // Clears editor placement/gizmo ownership before leaving Edit.
     bool HasActiveEditorInteractionState() const;                       // True when editor owns placement/gizmo/input state.
     bool InspectGizmoInteractionActive() const;                         // True when Inspect owns live transform-gizmo interaction.
-    void ApplyCursorOwnership();                                        // Applies current cursor ownership to the system cursor.
-    void ReleaseMouseToUI();                                            // Gives mouse focus back to Win32/UI when tools stop owning it.
     void EnterFlyModeCamera();                                          // Switches camera state into free-flight controls.
     void ExitFlyModeCamera();                                           // Restores terrain camera bounds and leaves launcher mode.
     const char* CameraModeLabel( RunCameraMode mode ) const;            // Compact name for UI and transition diagnostics.

@@ -10,9 +10,9 @@ reports, and git history.
 | Field | Value |
 |---|---|
 | Branch | `engine-cleanup-10th-july`, tracking `origin/engine-cleanup-10th-july` |
-| Current pushed baseline | `199f1f47 refactor: move camera-look gesture to interaction owner` |
+| Current pushed baseline | `f693700d refactor: move pointer presentation policy into router` |
 | Current objective | Continue B1f by deleting Run pointer/camera composition, then TakeInput |
-| Last broad local gate | `tools\validate_full.bat` passed InputRouter-owned pointer-presentation policy with 129/129 doctest cases, 2,755 assertions, all CPU lanes, zero-warning builds, DX12 with zero InfoQueue errors/matching screenshots, standalone physics smoke, and 20,001-line byte-exact physics in 52.7s |
+| Last broad local gate | `tools\validate_full.bat` passed direct InputRouter pointer-presentation mutation with 129/129 doctest cases, 2,755 assertions, zero-warning builds, DX12 with zero InfoQueue errors/matching screenshots, standalone physics smoke, and 20,001-line byte-exact physics in 51.9s |
 | Native evidence | Injected heap-use-after-free caught; healthy ASan and five-file `/analyze` passed in 16.185s |
 
 ## Pushed Cleanup Commits
@@ -254,6 +254,12 @@ snapshots and scalar editor/replay facts. Run's mouse-look and cursor-hide query
 methods are deleted, and render camera cycling consumes committed interaction
 capture. Fast, CPU, interaction, perf, and full gates pass; comment audit is
 6/6. B1f continues with mutating pointer presentation and world-click routing.
+
+Run's two mutating pointer-presentation wrappers are now deleted. Callers
+request router visibility/capture directly from the owner policy and reset
+camera deltas explicitly when mouse-look is inactive. Fast, interaction, and
+full gates pass; comment audit is 3/3. B1f continues with world-pointer routing,
+focus/keyboard composition, camera helpers, and final `TakeInput` deletion.
 
 Scene provenance C1a is complete: parser-owned library/instance/ordered-part
 records retain exact shape sources, hierarchy transforms use rotated offsets

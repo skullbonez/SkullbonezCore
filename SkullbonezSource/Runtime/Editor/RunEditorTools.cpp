@@ -1053,7 +1053,21 @@ void Run::TickEditorViewportAndPlacementScaleInput( int unhandledWheelDelta )
             m_runtimeTools.Editor().placementAltitudeSteps = nextAltitudeSteps;
         }
     }
-    ApplyCursorOwnership();
+    const DeviceInputFrame& presentationDevice = m_inputRouter.DeviceFrame();
+    const UiInputHitSnapshot& presentationUi = m_inputRouter.UiSnapshot();
+    PointerPresentationPolicyInput presentationInput;
+    presentationInput.editorModeEnabled = m_runtimeTools.Editor().editorModeEnabled;
+    presentationInput.editorViewportLookActive = m_runtimeTools.Editor().viewportLookActive;
+    presentationInput.editorPlacementModeEnabled = m_runtimeTools.Editor().placementModeEnabled;
+    presentationInput.editorPlacementPreviewVisible = m_runtimeTools.Editor().placementPreviewVisible;
+    presentationInput.replayInspectionActive = m_replayRuntime.InspectionActive();
+    presentationInput.replayInspectionLookActive =
+        presentationInput.replayInspectionActive &&
+        m_replayRuntime.InspectionMouseLookActive( presentationDevice.rightDown,
+                                                   presentationUi.wantsNativeCursor,
+                                                   presentationUi.blocksCameraMouse );
+    m_inputRouter.RequestCursorVisible(
+        !m_inputRouter.EvaluatePointerPresentation( presentationInput ).hideNativeCursor );
 }
 
 
