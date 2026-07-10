@@ -395,6 +395,25 @@ PointerPresentationPolicy InputRouter::EvaluatePointerPresentation( const Pointe
 }
 
 
+void InputRouter::ApplyPointerPresentation( const PointerPresentationPolicy& policy )
+{
+    RequestCursorVisible( !policy.hideNativeCursor );
+}
+
+
+bool InputRouter::ReleasePointerToUi( const PointerPresentationPolicy& policy )
+{
+    // Invariant: UI release cannot steal the pointer from an active camera-look
+    // gesture. A true result tells the camera owner to clear accumulated deltas.
+    if ( policy.mouseLookOwnsCursor )
+    {
+        return false;
+    }
+    ReleaseNativeCapture();
+    return true;
+}
+
+
 void InputRouter::RequestNativeCapture()
 {
     m_nativeCaptureRequested = true;

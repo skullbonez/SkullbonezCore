@@ -129,42 +129,6 @@ PointerPresentationPolicy EvaluateRuntimePointerPresentation( const InputRouter&
 }
 
 
-bool RuntimeMouseLookOwnsCursor( const InputRouter& inputRouter,
-                                 const RunEditorPlacementState& editor,
-                                 const ReplayRuntime& replayRuntime )
-{
-    return EvaluateRuntimePointerPresentation( inputRouter, editor, replayRuntime ).mouseLookOwnsCursor;
-}
-
-
-bool RuntimeShouldHideNativeCursor( const InputRouter& inputRouter,
-                                    const RunEditorPlacementState& editor,
-                                    const ReplayRuntime& replayRuntime )
-{
-    return EvaluateRuntimePointerPresentation( inputRouter, editor, replayRuntime ).hideNativeCursor;
-}
-
-
-void ApplyRuntimeCursorOwnership( InputRouter& inputRouter,
-                                  const RunEditorPlacementState& editor,
-                                  const ReplayRuntime& replayRuntime )
-{
-    inputRouter.RequestCursorVisible( !RuntimeShouldHideNativeCursor( inputRouter, editor, replayRuntime ) );
-}
-
-
-void ReleaseRuntimeMouseToUI( InputRouter& inputRouter,
-                              const RunEditorPlacementState& editor,
-                              const ReplayRuntime& replayRuntime,
-                              RunCameraState& camera )
-{
-    if ( !RuntimeMouseLookOwnsCursor( inputRouter, editor, replayRuntime ) )
-    {
-        inputRouter.ReleaseNativeCapture();
-        InputController::ResetMouseLook( camera );
-    }
-}
-
 // Concept: binding predicates read one immutable pre-UI fact set. A command
 // earlier in binding order cannot silently activate a sibling command's mode
 // context during the same phase; that new context begins on the next frame.
@@ -1065,7 +1029,8 @@ bool Run::RouteRuntimePointerInput( const RuntimeInputSnapshot& inputSnapshot, c
             command.selectionScope = RuntimeInteractionSelectionScope::Inspect;
             command.claimSelectionOwner = false;
             m_runtimeTools.ApplySelectionCommand( command, m_sceneController.Models() );
-            ApplyRuntimeCursorOwnership( m_inputRouter, m_runtimeTools.Editor(), m_replayRuntime );
+            m_inputRouter.ApplyPointerPresentation(
+                EvaluateRuntimePointerPresentation( m_inputRouter, m_runtimeTools.Editor(), m_replayRuntime ) );
         }
         EnterInteractiveSceneRun();
         UpdateRuntimeInputModeAfterAction( RuntimeInputAction::SetCameraMode, RuntimeInputActionSource::Mouse );
@@ -1182,7 +1147,8 @@ void Run::ClearRuntimeInteractionStateForTransition( const RuntimeInteractionTra
                 m_interaction,
                 m_inputRouter );
         }
-        ApplyRuntimeCursorOwnership( m_inputRouter, m_runtimeTools.Editor(), m_replayRuntime );
+        m_inputRouter.ApplyPointerPresentation(
+            EvaluateRuntimePointerPresentation( m_inputRouter, m_runtimeTools.Editor(), m_replayRuntime ) );
     }
 
     if ( transition.previousOwner == WorldInteractionOwner::Manipulator &&
@@ -1203,8 +1169,13 @@ void Run::ClearRuntimeInteractionStateForTransition( const RuntimeInteractionTra
                                                             m_sceneController.Models(),
                                                             m_sceneController.Physics(),
                                                             m_interaction );
-        ReleaseRuntimeMouseToUI( m_inputRouter, m_runtimeTools.Editor(), m_replayRuntime, m_camera );
-        ApplyRuntimeCursorOwnership( m_inputRouter, m_runtimeTools.Editor(), m_replayRuntime );
+        if ( m_inputRouter.ReleasePointerToUi(
+                 EvaluateRuntimePointerPresentation( m_inputRouter, m_runtimeTools.Editor(), m_replayRuntime ) ) )
+        {
+            InputController::ResetMouseLook( m_camera );
+        }
+        m_inputRouter.ApplyPointerPresentation(
+            EvaluateRuntimePointerPresentation( m_inputRouter, m_runtimeTools.Editor(), m_replayRuntime ) );
         if ( m_runtimeTools.Editor().editorModeEnabled && !enteringEdit )
         {
             m_runtimeTools.Editor().editorModeEnabled = false;
@@ -1448,7 +1419,8 @@ void Run::ApplyCameraMode( RunCameraMode mode, RuntimeInputActionSource source )
     else
     {
         InputController::ResetMouseLook( m_camera );
-        ApplyRuntimeCursorOwnership( m_inputRouter, m_runtimeTools.Editor(), m_replayRuntime );
+        m_inputRouter.ApplyPointerPresentation(
+            EvaluateRuntimePointerPresentation( m_inputRouter, m_runtimeTools.Editor(), m_replayRuntime ) );
     }
     if ( mode == RunCameraMode::Attach )
     {
@@ -1487,7 +1459,8 @@ void Run::ApplyCameraMode( RunCameraMode mode, RuntimeInputActionSource source )
         }
         if ( seedResult != AttachedCameraSeedResult::Failed )
         {
-            ApplyRuntimeCursorOwnership( m_inputRouter, m_runtimeTools.Editor(), m_replayRuntime );
+            m_inputRouter.ApplyPointerPresentation(
+                EvaluateRuntimePointerPresentation( m_inputRouter, m_runtimeTools.Editor(), m_replayRuntime ) );
         }
     }
     UpdateRuntimeInputModeAfterAction( source == RuntimeInputActionSource::UI ? RuntimeInputAction::SetCameraMode
@@ -1548,13 +1521,18 @@ void Run::EnterFlyModeCamera()
     unbounded.m_zMax = 99999.9f;
     uint32_t activeCam = SceneState().isSceneMode ? m_sceneController.Cameras().GetSelectedCameraName() : CAMERA_FREE;
     m_sceneController.Cameras().SetCameraXZBounds( activeCam, unbounded );
-    if ( RuntimeShouldHideNativeCursor( m_inputRouter, m_runtimeTools.Editor(), m_replayRuntime ) )
+    if ( EvaluateRuntimePointerPresentation( m_inputRouter, m_runtimeTools.Editor(), m_replayRuntime )
+             .hideNativeCursor )
     {
         m_inputRouter.RequestCursorVisible( false );
     }
     else
     {
-        ReleaseRuntimeMouseToUI( m_inputRouter, m_runtimeTools.Editor(), m_replayRuntime, m_camera );
+        if ( m_inputRouter.ReleasePointerToUi(
+                 EvaluateRuntimePointerPresentation( m_inputRouter, m_runtimeTools.Editor(), m_replayRuntime ) ) )
+        {
+            InputController::ResetMouseLook( m_camera );
+        }
         m_inputRouter.RequestCursorVisible( true );
     }
     InputController::ResetMouseLook( m_camera );
@@ -1760,8 +1738,13 @@ void Run::DispatchAfterUIKeyboardActions( bool uiUserInteracted )
             m_UI.ToggleVisible( UINow );
             m_debug.overlayMode = OverlayMode::None;
             m_inputRouter.RecordTap( event.action, UINow );
-            ApplyRuntimeCursorOwnership( m_inputRouter, m_runtimeTools.Editor(), m_replayRuntime );
-            ReleaseRuntimeMouseToUI( m_inputRouter, m_runtimeTools.Editor(), m_replayRuntime, m_camera );
+            m_inputRouter.ApplyPointerPresentation(
+                EvaluateRuntimePointerPresentation( m_inputRouter, m_runtimeTools.Editor(), m_replayRuntime ) );
+            if ( m_inputRouter.ReleasePointerToUi(
+                     EvaluateRuntimePointerPresentation( m_inputRouter, m_runtimeTools.Editor(), m_replayRuntime ) ) )
+            {
+                InputController::ResetMouseLook( m_camera );
+            }
         }
     }
 }
@@ -1813,7 +1796,8 @@ void Run::TakeInput()
         return;
     }
     const bool UIBlocksKeyboardBeforeInput = m_UI.BlocksKeyboard();
-    ApplyRuntimeCursorOwnership( m_inputRouter, m_runtimeTools.Editor(), m_replayRuntime );
+    m_inputRouter.ApplyPointerPresentation(
+        EvaluateRuntimePointerPresentation( m_inputRouter, m_runtimeTools.Editor(), m_replayRuntime ) );
     InputController::BeginFrame( m_runtimeInput,
                                  BuildRuntimeInputModeState( m_camera.mode,
                                                              m_runtimeTools.Editor(),
@@ -1829,8 +1813,13 @@ void Run::TakeInput()
     {
         SetWorldInteractionOwnerAfterInteractionTransition( placementMode.worldOwner,
                                                             InteractionExitReason::EnterEdit );
-        ReleaseRuntimeMouseToUI( m_inputRouter, m_runtimeTools.Editor(), m_replayRuntime, m_camera );
-        ApplyRuntimeCursorOwnership( m_inputRouter, m_runtimeTools.Editor(), m_replayRuntime );
+        if ( m_inputRouter.ReleasePointerToUi(
+                 EvaluateRuntimePointerPresentation( m_inputRouter, m_runtimeTools.Editor(), m_replayRuntime ) ) )
+        {
+            InputController::ResetMouseLook( m_camera );
+        }
+        m_inputRouter.ApplyPointerPresentation(
+            EvaluateRuntimePointerPresentation( m_inputRouter, m_runtimeTools.Editor(), m_replayRuntime ) );
         UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleEditorTool, source );
     };
     auto applyEditorPlacementModeChange = [this, &completeEditorPlacementModeTransition](
@@ -1899,7 +1888,8 @@ void Run::TakeInput()
                 InputController::ResetMouseLook( m_camera );
             }
         }
-        ApplyRuntimeCursorOwnership( m_inputRouter, m_runtimeTools.Editor(), m_replayRuntime );
+        m_inputRouter.ApplyPointerPresentation(
+            EvaluateRuntimePointerPresentation( m_inputRouter, m_runtimeTools.Editor(), m_replayRuntime ) );
         UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleEditor, source );
     };
     const bool flyCamera =
@@ -2034,9 +2024,15 @@ void Run::TakeInput()
                     m_attachedCamera.TogglePin( m_sceneController.Models(), m_sceneController.Cameras() );
                 if ( !activeFollow )
                 {
-                    ReleaseRuntimeMouseToUI( m_inputRouter, m_runtimeTools.Editor(), m_replayRuntime, m_camera );
+                    if ( m_inputRouter.ReleasePointerToUi( EvaluateRuntimePointerPresentation( m_inputRouter,
+                                                                                               m_runtimeTools.Editor(),
+                                                                                               m_replayRuntime ) ) )
+                    {
+                        InputController::ResetMouseLook( m_camera );
+                    }
                 }
-                ApplyRuntimeCursorOwnership( m_inputRouter, m_runtimeTools.Editor(), m_replayRuntime );
+                m_inputRouter.ApplyPointerPresentation(
+                    EvaluateRuntimePointerPresentation( m_inputRouter, m_runtimeTools.Editor(), m_replayRuntime ) );
                 UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleAttachedCameraPin,
                                                    RuntimeInputActionSource::Keyboard );
             }
@@ -2076,14 +2072,16 @@ void Run::TakeInput()
                 if ( DemoDirectorPlayback::EndGrab( m_camera, m_sceneController.Cameras() ) )
                 {
                     ExitFlyModeCamera();
-                    ApplyRuntimeCursorOwnership( m_inputRouter, m_runtimeTools.Editor(), m_replayRuntime );
+                    m_inputRouter.ApplyPointerPresentation(
+                        EvaluateRuntimePointerPresentation( m_inputRouter, m_runtimeTools.Editor(), m_replayRuntime ) );
                     UpdateRuntimeInputModeAfterAction( event.action, event.source );
                 }
             }
             else if ( DemoDirectorPlayback::BeginGrab( m_camera, m_sceneController.Cameras() ) )
             {
                 EnterFlyModeCamera();
-                ApplyRuntimeCursorOwnership( m_inputRouter, m_runtimeTools.Editor(), m_replayRuntime );
+                m_inputRouter.ApplyPointerPresentation(
+                    EvaluateRuntimePointerPresentation( m_inputRouter, m_runtimeTools.Editor(), m_replayRuntime ) );
                 UpdateRuntimeInputModeAfterAction( event.action, event.source );
             }
             break;
@@ -2157,8 +2155,14 @@ void Run::TakeInput()
             {
                 if ( shortcutResult.releaseMouseToUI )
                 {
-                    ApplyRuntimeCursorOwnership( m_inputRouter, m_runtimeTools.Editor(), m_replayRuntime );
-                    ReleaseRuntimeMouseToUI( m_inputRouter, m_runtimeTools.Editor(), m_replayRuntime, m_camera );
+                    m_inputRouter.ApplyPointerPresentation(
+                        EvaluateRuntimePointerPresentation( m_inputRouter, m_runtimeTools.Editor(), m_replayRuntime ) );
+                    if ( m_inputRouter.ReleasePointerToUi( EvaluateRuntimePointerPresentation( m_inputRouter,
+                                                                                               m_runtimeTools.Editor(),
+                                                                                               m_replayRuntime ) ) )
+                    {
+                        InputController::ResetMouseLook( m_camera );
+                    }
                 }
                 UpdateRuntimeInputModeAfterAction( event.action, event.source );
             }
@@ -2373,14 +2377,16 @@ void Run::TakeInput()
         m_camera.input.Set( InputState::Down, false );
         m_camera.input.Set( InputState::Left, false );
         m_camera.input.Set( InputState::Right, false );
-        ApplyRuntimeCursorOwnership( m_inputRouter, m_runtimeTools.Editor(), m_replayRuntime );
+        m_inputRouter.ApplyPointerPresentation(
+            EvaluateRuntimePointerPresentation( m_inputRouter, m_runtimeTools.Editor(), m_replayRuntime ) );
     }
     else
     {
         DispatchPostUIKeyboardActions();
         const RuntimeInteractionFramePolicy inputPolicy = m_interaction.BuildFramePolicy( inputSnapshot.frameInput );
         const bool mouseOwnsCursor =
-            RuntimeMouseLookOwnsCursor( m_inputRouter, m_runtimeTools.Editor(), m_replayRuntime );
+            EvaluateRuntimePointerPresentation( m_inputRouter, m_runtimeTools.Editor(), m_replayRuntime )
+                .mouseLookOwnsCursor;
         m_interaction.SyncCameraLookGesture( inputSnapshot, inputPolicy, mouseOwnsCursor );
         const bool cameraMouseLookActive =
             inputPolicy.cameraMouseLookActive && mouseOwnsCursor && inputSnapshot.appFocused;
@@ -2398,7 +2404,8 @@ void Run::TakeInput()
                                             &m_inputRouter.DeviceFrame() } );
         if ( cameraInputResult.applyCursorOwnership )
         {
-            ApplyRuntimeCursorOwnership( m_inputRouter, m_runtimeTools.Editor(), m_replayRuntime );
+            m_inputRouter.ApplyPointerPresentation(
+                EvaluateRuntimePointerPresentation( m_inputRouter, m_runtimeTools.Editor(), m_replayRuntime ) );
         }
 
         // Invariant: persistence samples final UI-mutated values before a
@@ -2660,7 +2667,8 @@ void Run::MoveCamera( float keyMovementQty, float mouseMovementQty )
          ( RunCameraModeUsesFlyControls( m_camera.mode,
                                          m_attachedCamera.State().activeFollow,
                                          m_camera.director.grabbed ) ||
-           RuntimeMouseLookOwnsCursor( m_inputRouter, m_runtimeTools.Editor(), m_replayRuntime ) ||
+           EvaluateRuntimePointerPresentation( m_inputRouter, m_runtimeTools.Editor(), m_replayRuntime )
+               .mouseLookOwnsCursor ||
            m_runtimeTools.Editor().viewportLookActive || hasCameraTravelInput ) )
     {
         // Shift held = 3x speed

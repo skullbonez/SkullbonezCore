@@ -223,6 +223,10 @@ class InputRouter
     RuntimeInputSnapshot BuildRuntimeSnapshot( const RuntimeInteractionFrameInput& frameInput,
                                                bool suppressWorldAction ) const;
     PointerPresentationPolicy EvaluatePointerPresentation( const PointerPresentationPolicyInput& input ) const;
+    void ApplyPointerPresentation(
+        const PointerPresentationPolicy& policy ); // Commits the policy's desired native cursor visibility.
+    bool ReleasePointerToUi( const PointerPresentationPolicy&
+                                 policy );         // Releases native capture only when mouse look has no stronger claim.
 
     // Pointer presentation requests are reconciled here so UI/tools/camera do
     // not manipulate Win32 capture or cursor counters independently.

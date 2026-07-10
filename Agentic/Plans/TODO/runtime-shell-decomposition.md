@@ -427,6 +427,22 @@ warnings, zero DX12 InfoQueue errors, matching screenshots, standalone topology
 smoke, and the 20,001-line byte-exact physics baseline. Comment audit: 4/4
 touched source-bearing files.
 
+Pointer presentation mutation is now direct `InputRouter` behavior.
+`ApplyPointerPresentation` commits cursor visibility from the evaluated policy;
+`ReleasePointerToUi` refuses to steal camera-look capture and returns the exact
+camera-reset effect when it releases native capture. All four free runtime
+cursor/capture query and mutation wrappers are deleted, and every input/camera/
+editor call site consumes the router-owned policy directly. B1f remains open
+for cross-owner transition sequencing, editor/replay/launcher routing, keyboard
+composition, camera helpers, and final pointer-route/`TakeInput` deletion.
+
+Evidence: fast passed in 38.5s; the CPU umbrella passed in 11.0s with 129/129
+doctest cases and 2,755 assertions; all four interaction scenarios passed in
+13.4s; perf completed in 32.5s; and full passed in 52.6s with zero warnings,
+zero DX12 InfoQueue errors, matching screenshots, standalone topology smoke,
+and the 20,001-line byte-exact physics baseline. Comment audit: 3/3 touched
+source-bearing files.
+
 ## Remaining Work
 
 ### A. Narrow the render host
