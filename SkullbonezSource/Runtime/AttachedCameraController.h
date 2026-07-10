@@ -125,6 +125,11 @@ class AttachedCameraController
     const AttachedCameraState& State() const;
     void CaptureReturnState( RunCameraMode previousMode, Environment::CameraCollection& cameras );
     void RestoreReturnState( Environment::CameraCollection& cameras );
+    bool ResolveTargetIdentity( const GameObjects::GameModelCollection& collection, int& outModelIndex );
+    bool TickFollow( const GameObjects::GameModelCollection& collection,
+                     Environment::CameraCollection& cameras,
+                     float orbitYawDelta,
+                     float orbitPitchDelta );
 
     static void Reset( AttachedCameraState& state );
     static void ClearTarget( AttachedCameraState& state );

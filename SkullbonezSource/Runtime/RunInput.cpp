@@ -1474,20 +1474,6 @@ void Run::SetCameraModeLabelAfterInteractionTransition( RunCameraMode mode )
 }
 
 
-bool Run::TryResolveAttachedCameraTarget( int& outModelIndex )
-{
-    if ( AttachedCameraController::TryResolveTargetIdentity( m_sceneController.Models(),
-                                                             m_attachedCamera.State().target,
-                                                             outModelIndex ) )
-    {
-        return true;
-    }
-
-    AttachedCameraController::ClearTarget( m_attachedCamera.State() );
-    return false;
-}
-
-
 void Run::SetAttachedCameraTarget( int modelIndex )
 {
     AttachedCameraTargetSelection selection;
@@ -1688,55 +1674,6 @@ void Run::TickAttachedCameraOrbitInput( int unhandledWheelDelta )
     if ( AttachedCameraController::ApplyOrbitWheel( m_attachedCamera.State(), targetState, unhandledWheelDelta ) )
     {
         EnterInteractiveSceneRun();
-    }
-}
-
-
-void Run::TickAttachedCamera()
-{
-    if ( !RunCameraModeIsAttached( m_camera.mode ) || !m_attachedCamera.State().activeFollow )
-    {
-        return;
-    }
-
-    int modelIndex = -1;
-    AttachedCameraPhysicsTarget targetState;
-    if ( !AttachedCameraController::TryResolvePhysicsTarget( m_sceneController.Models(),
-                                                             m_attachedCamera.State().target,
-                                                             targetState,
-                                                             &modelIndex ) )
-    {
-        return;
-    }
-    AttachedCameraPoseCommand poseCommand;
-    const float orbitYawDelta =
-        static_cast<float>( m_camera.input.xMove ) * CAMERA_MOUSE_REFERENCE_DT * m_config.mouseSensitivity;
-    const float orbitPitchDelta =
-        static_cast<float>( m_camera.input.yMove ) * CAMERA_MOUSE_REFERENCE_DT * m_config.mouseSensitivity;
-    if ( !AttachedCameraController::BuildFollowPose( m_sceneController.Models(),
-                                                     m_attachedCamera.State(),
-                                                     targetState,
-                                                     modelIndex,
-                                                     AttachedCameraPoseFromCameras( m_sceneController.Cameras() ),
-                                                     orbitYawDelta,
-                                                     orbitPitchDelta,
-                                                     poseCommand ) )
-    {
-        return;
-    }
-
-    // Why: follow cameras update their destination every frame. Only the first
-    // valid solve after an Attach transition starts a tween; later solves
-    // retarget that live destination without cutting the render pose.
-    if ( poseCommand.startEntryTween )
-    {
-        m_sceneController.Cameras().TweenPrimaryToPose( poseCommand.pose.eye,
-                                                        poseCommand.pose.view,
-                                                        poseCommand.pose.up );
-    }
-    else
-    {
-        m_sceneController.Cameras().SetPrimaryPose( poseCommand.pose.eye, poseCommand.pose.view, poseCommand.pose.up );
     }
 }
 

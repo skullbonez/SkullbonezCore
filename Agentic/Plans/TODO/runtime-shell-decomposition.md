@@ -309,6 +309,19 @@ The first Debug build exposed non-const legacy camera getters; the borrowed
 camera owner was made mutable before formal gates. Comment audit: 5/5 touched
 source-bearing files.
 
+Attach target recovery and per-frame follow application are now controller
+operations. `ResolveTargetIdentity` owns stale-target clearing, while
+`TickFollow` resolves physics identity, builds the pose, and applies the first-
+solve tween or live retarget through a synchronous camera borrow. Run's resolve
+and follow-tick methods are deleted; frame/render composition call the owner
+directly. Remaining Attach input work is selection, submode/pin/orbit commands.
+
+Evidence: fast passed in 33.8s; both interaction reports passed in 8.5s; perf
+completed in 32.1s; and full passed in 52.6s with zero warnings, zero DX12
+InfoQueue errors, matching screenshots, standalone topology smoke, and the
+20,001-line byte-exact physics baseline. Comment audit: 6/6 touched source-
+bearing files.
+
 ## Remaining Work
 
 ### A. Narrow the render host

@@ -1385,7 +1385,17 @@ void Run::UpdateLogic( float simulationDt, float cameraDt )
     // existing 60 Hz tuning while making the result frame-rate independent.
     const EngineConfig& cfg = m_config;
     MoveCamera( cameraDt * cfg.keySpeed, CAMERA_MOUSE_REFERENCE_DT * cfg.mouseSensitivity );
-    TickAttachedCamera();
+    if ( RunCameraModeIsAttached( m_camera.mode ) )
+    {
+        const float orbitYawDelta =
+            static_cast<float>( m_camera.input.xMove ) * CAMERA_MOUSE_REFERENCE_DT * m_config.mouseSensitivity;
+        const float orbitPitchDelta =
+            static_cast<float>( m_camera.input.yMove ) * CAMERA_MOUSE_REFERENCE_DT * m_config.mouseSensitivity;
+        (void)m_attachedCamera.TickFollow( m_sceneController.Models(),
+                                           m_sceneController.Cameras(),
+                                           orbitYawDelta,
+                                           orbitPitchDelta );
+    }
     DemoDirectorPlayback::Tick( m_camera,
                                 m_sceneController.Cameras(),
                                 m_replayRuntime.Prediction(),

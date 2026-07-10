@@ -253,6 +253,63 @@ void AttachedCameraController::RestoreReturnState( Environment::CameraCollection
 }
 
 
+bool AttachedCameraController::ResolveTargetIdentity( const GameObjects::GameModelCollection& collection,
+                                                      int& outModelIndex )
+{
+    if ( TryResolveTargetIdentity( collection, m_state.target, outModelIndex ) )
+    {
+        return true;
+    }
+    ClearTarget( m_state );
+    return false;
+}
+
+
+bool AttachedCameraController::TickFollow( const GameObjects::GameModelCollection& collection,
+                                           Environment::CameraCollection& cameras,
+                                           float orbitYawDelta,
+                                           float orbitPitchDelta )
+{
+    if ( !m_state.activeFollow )
+    {
+        return false;
+    }
+    int modelIndex = -1;
+    AttachedCameraPhysicsTarget target;
+    if ( !TryResolvePhysicsTarget( collection, m_state.target, target, &modelIndex ) )
+    {
+        return false;
+    }
+    AttachedCameraPose currentPose;
+    currentPose.eye = cameras.GetCameraTranslation();
+    currentPose.view = cameras.GetCameraView();
+    currentPose.up = cameras.GetCameraUp();
+    AttachedCameraPoseCommand command;
+    if ( !BuildFollowPose( collection,
+                           m_state,
+                           target,
+                           modelIndex,
+                           currentPose,
+                           orbitYawDelta,
+                           orbitPitchDelta,
+                           command ) )
+    {
+        return false;
+    }
+    // Why: only the first valid solve starts a tween. Later solves retarget the
+    // live destination so a moving body never restarts the transition.
+    if ( command.startEntryTween )
+    {
+        cameras.TweenPrimaryToPose( command.pose.eye, command.pose.view, command.pose.up );
+    }
+    else
+    {
+        cameras.SetPrimaryPose( command.pose.eye, command.pose.view, command.pose.up );
+    }
+    return true;
+}
+
+
 void AttachedCameraController::Reset( AttachedCameraState& state )
 {
     state = AttachedCameraState{};

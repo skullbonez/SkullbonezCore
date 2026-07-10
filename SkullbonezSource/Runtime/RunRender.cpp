@@ -55,7 +55,7 @@ void Run::Render( const RuntimeRenderModelFrameView& renderModels )
     int attachedTargetIndex = -1;
     if ( RunCameraModeIsAttached( m_camera.mode ) )
     {
-        (void)TryResolveAttachedCameraTarget( attachedTargetIndex );
+        (void)m_attachedCamera.ResolveTargetIdentity( m_sceneController.Models(), attachedTargetIndex );
     }
     const RenderReplayOverlayView replayOverlay{ m_replayRuntime,
                                                  m_sceneController.Entities(),

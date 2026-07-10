@@ -10,9 +10,9 @@ reports, and git history.
 | Field | Value |
 |---|---|
 | Branch | `engine-cleanup-10th-july`, tracking `origin/engine-cleanup-10th-july` |
-| Current pushed baseline | `3fafbd0c refactor: move attach camera state into controller` |
+| Current pushed baseline | `ffa05bfc refactor: move attach return transition into owner` |
 | Current objective | Continue B1f by deleting Run pointer/camera composition, then TakeInput |
-| Last broad local gate | `tools\validate_full.bat` passed controller-owned Attach return-mode/pose transitions with 129/129 doctest cases, 2,755 assertions, zero-warning builds, DX12 with zero InfoQueue errors/matching screenshots, standalone physics smoke, and 20,001-line byte-exact physics in 52.4s |
+| Last broad local gate | `tools\validate_full.bat` passed controller-owned Attach target recovery/follow application with 129/129 doctest cases, 2,755 assertions, zero-warning builds, DX12 with zero InfoQueue errors/matching screenshots, standalone physics smoke, and 20,001-line byte-exact physics in 52.6s |
 | Native evidence | Injected heap-use-after-free caught; healthy ASan and five-file `/analyze` passed in 16.185s |
 
 ## Pushed Cleanup Commits
@@ -270,6 +270,11 @@ Attach return-mode and visible render-pose capture/restore now belong to
 `AttachedCameraController`; the duplicate RunCameraState field and two Run
 methods are deleted. Fast, interaction, and full gates pass; comment audit is
 5/5. Target selection/submode/pin/orbit/follow and world-pointer routing remain.
+
+Attach target recovery and per-frame follow pose application now execute inside
+`AttachedCameraController`; Run's resolve/follow methods are deleted. Fast,
+interaction, perf, and full gates pass; comment audit is 6/6. Selection,
+submode/pin/orbit commands and the outer world-pointer route remain.
 
 Scene provenance C1a is complete: parser-owned library/instance/ordered-part
 records retain exact shape sources, hierarchy transforms use rotated offsets
