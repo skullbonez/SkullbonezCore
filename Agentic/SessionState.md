@@ -10,9 +10,9 @@ reports, and git history.
 | Field | Value |
 |---|---|
 | Branch | `engine-cleanup-10th-july`, tracking `origin/engine-cleanup-10th-july` |
-| Current pushed baseline | `38e1305a refactor: finalize interaction transitions in router` |
-| Current objective | Continue B1f by moving the editor pointer route to RuntimeTools, then delete outer pointer routing and TakeInput |
-| Last broad local gate | `tools\validate_full.bat` passed InputRouter-owned world-owner transitions with 129/129 doctest cases, 2,755 assertions, zero-warning builds, DX12 with zero InfoQueue errors/matching screenshots, standalone physics smoke, and 20,001-line byte-exact physics in 53.8s |
+| Current pushed baseline | `9016e9a0 refactor: move world owner transitions into router` |
+| Current objective | Continue B1f by moving editor placement/transform pointer gestures to RuntimeTools, then delete outer pointer routing and TakeInput |
+| Last broad local gate | `tools\validate_full.bat` passed RuntimeTools-owned editor preview/selection planning with 129/129 doctest cases, 2,755 assertions, zero-warning builds, DX12 with zero InfoQueue errors/matching screenshots, standalone physics smoke, and 20,001-line byte-exact physics in 53.2s |
 | Native evidence | Injected heap-use-after-free caught; healthy ASan and five-file `/analyze` passed in 16.185s |
 
 ## Pushed Cleanup Commits
@@ -338,6 +338,12 @@ execute inside `InputRouter`; Run's world-owner forwarding wrapper is deleted.
 Editor, replay automation, and placement-mode callers use the owner API
 directly. Fast, CPU, five interaction scenarios, perf, and full pass; comment
 audit is 5/5. B1f continues with the editor world-pointer route.
+
+Editor pointer preview, invalid-selection cleanup, picking, and selection-plan
+construction now execute inside `RuntimeTools` from value-only ray inputs. Run
+retains only transition-before-commit composition for that path. Fast, CPU,
+five interaction scenarios, perf, and full pass; comment audit is 2/2. B1f
+continues with placement and transform gestures.
 
 Scene provenance C1a is complete: parser-owned library/instance/ordered-part
 records retain exact shape sources, hierarchy transforms use rotated offsets

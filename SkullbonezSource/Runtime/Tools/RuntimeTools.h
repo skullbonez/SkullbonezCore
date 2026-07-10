@@ -116,6 +116,8 @@ class SceneEntityStore;
 class InputRouter;
 class RuntimeInteractionController;
 class ReplayRuntime;
+enum class WorldInteractionOwner;
+enum class InteractionExitReason;
 struct RuntimeInteractionCommand;
 struct RuntimeInteractionEvent;
 struct RuntimeInteractionSelectionPlan;
@@ -237,6 +239,28 @@ struct MousePickupPointerInput
     Math::Vector::Vector3 clampedRayDirection = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 cameraEye = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 cameraView = Math::Vector::Vector3( 0.0f, 0.0f, 1.0f );
+};
+
+struct EditorPointerPreviewInput
+{
+    // Lifetime: one post-UI pointer sample; world rays are values so the tool
+    // never reaches back into Window, CameraCollection, or InputRouter.
+    bool blocksCameraMouse = false;
+    bool inspectGizmoActive = false;
+    bool hasWorldRay = false;
+    bool controlDown = false;
+    Math::Vector::Vector3 rayOrigin = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 rayDirection = Math::Vector::ZERO_VECTOR;
+};
+
+struct EditorPointerSelectionInput
+{
+    // Invariant: selection preparation is side-effect free. InputRouter applies
+    // the returned owner transition before CommitSelectionCommand mutates state.
+    bool inspectGizmoActive = false;
+    bool hasWorldRay = false;
+    Math::Vector::Vector3 rayOrigin = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 rayDirection = Math::Vector::ZERO_VECTOR;
 };
 
 struct MousePickupPointerResult
@@ -612,6 +636,11 @@ class RuntimeTools
     bool PrepareSelectionCommand( const RuntimeInteractionCommand& command,
                                   const GameObjects::GameModelCollection& collection,
                                   RuntimeInteractionSelectionPlan& outPlan );
+    bool PrepareEditorPointerSelection( const EditorPointerSelectionInput& input,
+                                        const GameObjects::GameModelCollection& collection,
+                                        RuntimeInteractionSelectionPlan& outPlan,
+                                        WorldInteractionOwner& outOwner,
+                                        InteractionExitReason& outReason );
     bool CommitSelectionCommand( const RuntimeInteractionSelectionPlan& plan, RuntimeInteractionEvent& outEvent );
     bool ApplySelectionCommand( const RuntimeInteractionCommand& command,
                                 const GameObjects::GameModelCollection& collection );
@@ -621,6 +650,12 @@ class RuntimeTools
     const RunEditorPlacementState& Editor() const;
     bool HasActiveEditorInteractionState() const;
     bool InspectGizmoInteractionActive( RunCameraMode cameraMode, bool replayInspectionActive ) const;
+    int RefreshEditorPointerPreview( const EditorPointerPreviewInput& input,
+                                     GameObjects::GameModelCollection& collection,
+                                     Physics::PhysicsEngine& physics,
+                                     RuntimeInteractionController& interaction,
+                                     Geometry::Terrain* terrain,
+                                     const Assets::AssetSystem& assets );
     void ClearEditorInteractionForTransition( bool clearSelection,
                                               GameObjects::GameModelCollection& collection,
                                               Physics::PhysicsEngine& physics,

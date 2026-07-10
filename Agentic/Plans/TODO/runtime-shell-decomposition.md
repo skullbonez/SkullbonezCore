@@ -531,6 +531,22 @@ passed in 53.8s with zero warnings, zero DX12 InfoQueue errors, matching
 screenshots, standalone topology smoke, and the 20,001-line byte-exact physics
 baseline. Comment audit: 5/5 touched source-bearing files.
 
+Editor hover/placement preview, invalid-selection repair, and pointer-selection
+planning now execute inside `RuntimeTools`. The owner consumes value-only ray
+records, borrows model/physics/terrain/asset owners synchronously, and returns a
+prepared selection plus exact interaction transition so cleanup still occurs
+before selection commit. Run no longer decides pointer picking, selection scope,
+or invalid-selection gizmo cancellation. B1f remains open for placement and
+transform gesture routing, then outer pointer/`TakeInput` deletion.
+
+Evidence: after one Debug compile exposed an unqualified zero-vector constant,
+the corrected Debug build passed in 10.2s with zero warnings. Fast passed in
+31.8s; the CPU umbrella passed in 11.4s with 129/129 doctest cases and 2,755
+assertions; all five interaction scenarios passed in 15.9s; perf completed in
+32.8s; and full passed in 53.2s with zero warnings, zero DX12 InfoQueue errors,
+matching screenshots, standalone topology smoke, and the 20,001-line byte-exact
+physics baseline. Comment audit: 2/2 touched source-bearing files.
+
 ## Remaining Work
 
 ### A. Narrow the render host

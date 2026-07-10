@@ -1071,49 +1071,32 @@ void Run::TickEditorViewportAndPlacementScaleInput( int unhandledWheelDelta )
 }
 
 
-bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppressWorldActionThisFrame )
+int RuntimeTools::RefreshEditorPointerPreview( const EditorPointerPreviewInput& input,
+                                               GameObjects::GameModelCollection& collection,
+                                               PhysicsEngine& physics,
+                                               RuntimeInteractionController& interaction,
+                                               Geometry::Terrain* terrain,
+                                               const Assets::AssetSystem& assets )
 {
-    const PhysicsBodyStore& editorBodyStore = m_sceneController.Models().BodyStore();
-    const ColliderStore& editorColliderStore = m_sceneController.Models().Colliders();
-    const int selectedModelIndex = ResolveSelectedEditorModelIndex( m_runtimeTools.Editor(), editorBodyStore );
-    const bool previewInspectGizmoActive =
-        m_runtimeTools.InspectGizmoInteractionActive( m_camera.mode, m_replayRuntime.InspectionActive() );
-    const bool previewCanUseMouseRay = !m_UI.BlocksCameraMouse() && !m_runtimeTools.Editor().viewportLookActive &&
-                                       ( m_runtimeTools.Editor().editorModeEnabled || previewInspectGizmoActive );
-    const bool previewNeedsMouseRay =
-        previewCanUseMouseRay &&
-        ( ( m_runtimeTools.Editor().editorModeEnabled && m_runtimeTools.Editor().placementModeEnabled &&
-            !m_runtimeTools.Editor().placementScaleActive ) ||
-          ( selectedModelIndex >= 0 && !m_runtimeTools.Editor().gizmoDragActive &&
-            !m_runtimeTools.Editor().placementModeEnabled ) );
-
-    Vector3 previewRayOrigin;
-    Vector3 previewRayDirection;
-    const bool hasPreviewMouseRay =
-        previewNeedsMouseRay && TryBuildMouseWorldRay( previewRayOrigin, previewRayDirection );
-    const PhysicsBodyStore* previewBodyStore = nullptr;
-    const ColliderStore* previewColliderStore = nullptr;
+    const PhysicsBodyStore& bodyStore = collection.BodyStore();
+    const ColliderStore& colliderStore = collection.Colliders();
+    const int selectedModelIndex = ResolveSelectedEditorModelIndex( m_editor, bodyStore );
+    const PhysicsBodyStore* selectedBodyStore = nullptr;
+    const ColliderStore* selectedColliderStore = nullptr;
     if ( selectedModelIndex >= 0 )
     {
-        previewBodyStore = &editorBodyStore;
-        previewColliderStore = &editorColliderStore;
+        selectedBodyStore = &bodyStore;
+        selectedColliderStore = &colliderStore;
     }
 
-    const EditorInteractionPreviewResult previewResult =
-        UpdateEditorInteractionPreview( { m_runtimeTools.Editor(),
-                                          m_sceneController.Models(),
-                                          m_sceneController.Physics(),
-                                          previewBodyStore,
-                                          previewColliderStore,
-                                          m_interaction,
-                                          m_sceneController.Terrain().Get(),
-                                          m_systems.assets },
-                                        { m_UI.BlocksCameraMouse(),
-                                          previewInspectGizmoActive,
-                                          hasPreviewMouseRay,
-                                          previewRayOrigin,
-                                          previewRayDirection,
-                                          m_inputRouter.DeviceFrame().keys.IsDown( VK_CONTROL ) } );
+    const EditorInteractionPreviewResult previewResult = UpdateEditorInteractionPreview(
+        { m_editor, collection, physics, selectedBodyStore, selectedColliderStore, interaction, terrain, assets },
+        { input.blocksCameraMouse,
+          input.inspectGizmoActive,
+          input.hasWorldRay,
+          input.rayOrigin,
+          input.rayDirection,
+          input.controlDown } );
 
     if ( previewResult.clearInvalidSelection )
     {
@@ -1123,10 +1106,82 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
         command.selectionScope = previewResult.inspectSelectionScope ? RuntimeInteractionSelectionScope::Inspect
                                                                      : RuntimeInteractionSelectionScope::Editor;
         command.claimSelectionOwner = false;
-        m_runtimeTools.ApplySelectionCommand( command, m_sceneController.Models() );
-        CancelEditorGizmoDragState(
-            { m_runtimeTools.Editor(), m_sceneController.Models(), m_sceneController.Physics(), m_interaction } );
+        ApplySelectionCommand( command, collection );
+        CancelEditorGizmoDragState( { m_editor, collection, physics, interaction } );
     }
+
+    return selectedModelIndex;
+}
+
+
+bool RuntimeTools::PrepareEditorPointerSelection( const EditorPointerSelectionInput& input,
+                                                  const GameObjects::GameModelCollection& collection,
+                                                  RuntimeInteractionSelectionPlan& outPlan,
+                                                  WorldInteractionOwner& outOwner,
+                                                  InteractionExitReason& outReason )
+{
+    RuntimePickResult result;
+    if ( input.hasWorldRay )
+    {
+        RuntimePickRequest request;
+        request.purpose = RuntimePickPurpose::EditorSelection;
+        request.bodyStore = &collection.BodyStore();
+        request.colliderStore = &collection.Colliders();
+        request.rayOrigin = input.rayOrigin;
+        request.rayDirection = input.rayDirection;
+        RuntimePickService::TryPickModel( request, result );
+    }
+
+    RuntimeInteractionCommand command;
+    command.type = RuntimeInteractionCommandType::SetEditorSelection;
+    command.modelIndex = result.modelIndex;
+    command.body = result.body;
+    command.collider = result.collider;
+    command.selectionScope =
+        input.inspectGizmoActive ? RuntimeInteractionSelectionScope::Inspect : RuntimeInteractionSelectionScope::Editor;
+    if ( !PrepareSelectionCommand( command, collection, outPlan ) )
+    {
+        return false;
+    }
+
+    outOwner = result.modelIndex >= 0 ? ( input.inspectGizmoActive ? WorldInteractionOwner::InspectGizmo
+                                                                   : WorldInteractionOwner::EditorGizmo )
+                                      : WorldInteractionOwner::None;
+    outReason = input.inspectGizmoActive ? InteractionExitReason::EnterInspect : InteractionExitReason::EnterEdit;
+    return true;
+}
+
+
+bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppressWorldActionThisFrame )
+{
+    const PhysicsBodyStore& editorBodyStore = m_sceneController.Models().BodyStore();
+    const ColliderStore& editorColliderStore = m_sceneController.Models().Colliders();
+    const bool previewInspectGizmoActive =
+        m_runtimeTools.InspectGizmoInteractionActive( m_camera.mode, m_replayRuntime.InspectionActive() );
+    const bool previewCanUseMouseRay = !m_UI.BlocksCameraMouse() && !m_runtimeTools.Editor().viewportLookActive &&
+                                       ( m_runtimeTools.Editor().editorModeEnabled || previewInspectGizmoActive );
+    const bool previewNeedsMouseRay =
+        previewCanUseMouseRay &&
+        ( ( m_runtimeTools.Editor().editorModeEnabled && m_runtimeTools.Editor().placementModeEnabled &&
+            !m_runtimeTools.Editor().placementScaleActive ) ||
+          ( ResolveSelectedEditorModelIndex( m_runtimeTools.Editor(), editorBodyStore ) >= 0 &&
+            !m_runtimeTools.Editor().gizmoDragActive && !m_runtimeTools.Editor().placementModeEnabled ) );
+    Vector3 previewRayOrigin = SkullbonezCore::Math::Vector::ZERO_VECTOR;
+    Vector3 previewRayDirection = SkullbonezCore::Math::Vector::ZERO_VECTOR;
+    const bool hasPreviewMouseRay =
+        previewNeedsMouseRay && TryBuildMouseWorldRay( previewRayOrigin, previewRayDirection );
+    const int selectedModelIndex =
+        m_runtimeTools.RefreshEditorPointerPreview( { m_UI.BlocksCameraMouse(),
+                                                      previewInspectGizmoActive,
+                                                      hasPreviewMouseRay,
+                                                      m_inputRouter.DeviceFrame().keys.IsDown( VK_CONTROL ),
+                                                      previewRayOrigin,
+                                                      previewRayDirection },
+                                                    m_sceneController.Models(),
+                                                    m_sceneController.Physics(),
+                                                    m_interaction,
+                                                    m_sceneController.Terrain().Get(),
+                                                    m_systems.assets );
 
     const bool leftMouseNow = mouseEdges.leftDown;
     const bool leftPressed = mouseEdges.leftPressed;
@@ -1606,36 +1661,19 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
             }
             else
             {
-                Vector3 rayOrigin;
-                Vector3 rayDirection;
-                RuntimePickResult result;
-                if ( TryBuildMouseWorldRay( rayOrigin, rayDirection ) )
-                {
-                    RuntimePickRequest request;
-                    request.purpose = RuntimePickPurpose::EditorSelection;
-                    request.bodyStore = &m_sceneController.Models().BodyStore();
-                    request.colliderStore = &m_sceneController.Models().Colliders();
-                    request.rayOrigin = rayOrigin;
-                    request.rayDirection = rayDirection;
-                    RuntimePickService::TryPickModel( request, result );
-                }
-
-                RuntimeInteractionCommand command;
-                command.type = RuntimeInteractionCommandType::SetEditorSelection;
-                command.modelIndex = result.modelIndex;
-                command.body = result.body;
-                command.collider = result.collider;
-                command.selectionScope = inspectGizmoActive ? RuntimeInteractionSelectionScope::Inspect
-                                                            : RuntimeInteractionSelectionScope::Editor;
+                Vector3 rayOrigin = SkullbonezCore::Math::Vector::ZERO_VECTOR;
+                Vector3 rayDirection = SkullbonezCore::Math::Vector::ZERO_VECTOR;
+                const bool hasWorldRay = TryBuildMouseWorldRay( rayOrigin, rayDirection );
                 RuntimeInteractionSelectionPlan plan;
-                if ( m_runtimeTools.PrepareSelectionCommand( command, m_sceneController.Models(), plan ) )
+                WorldInteractionOwner selectionOwner = WorldInteractionOwner::None;
+                InteractionExitReason selectionReason = InteractionExitReason::EnterEdit;
+                if ( m_runtimeTools.PrepareEditorPointerSelection(
+                         { inspectGizmoActive, hasWorldRay, rayOrigin, rayDirection },
+                         m_sceneController.Models(),
+                         plan,
+                         selectionOwner,
+                         selectionReason ) )
                 {
-                    const WorldInteractionOwner selectionOwner =
-                        result.modelIndex >= 0 ? ( inspectGizmoActive ? WorldInteractionOwner::InspectGizmo
-                                                                      : WorldInteractionOwner::EditorGizmo )
-                                               : WorldInteractionOwner::None;
-                    const InteractionExitReason selectionReason =
-                        inspectGizmoActive ? InteractionExitReason::EnterInspect : InteractionExitReason::EnterEdit;
                     m_inputRouter.SetWorldInteractionOwner(
                         selectionOwner,
                         selectionReason,
