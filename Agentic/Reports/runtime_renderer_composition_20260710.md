@@ -94,4 +94,3 @@ The touched-file comment-style audit covered 13 source-bearing files with
 13 checked, 0 deferred, and no unchecked files. The owning checklist/evidence
 path is this report plus A1-A2 in
 `Agentic/Plans/TODO/runtime-shell-decomposition.md`.
-

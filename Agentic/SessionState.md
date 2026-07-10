@@ -10,9 +10,9 @@ reports, and git history.
 | Field | Value |
 |---|---|
 | Branch | `engine-cleanup-10th-july`, tracking `origin/engine-cleanup-10th-july` |
-| Current pushed baseline | `824fafaf refactor: delete obsolete replay compatibility paths` |
-| Current objective | Complete RuntimeRenderer composition ownership, then Replay R3 retained-memory ownership |
-| Last broad local gate | `tools\validate_full.bat` passed final Replay R2 source with the CPU umbrella, zero-warning builds, DX12 with zero InfoQueue errors/matching screenshots, standalone physics smoke, and byte-exact physics in 52.3s |
+| Current pushed baseline | `cb2f4dc4 refactor: move render composition behind RuntimeRenderer` |
+| Current objective | Stabilise Replay R3 retained-sample and memory ownership |
+| Last broad local gate | `tools\validate_full.bat` passed final RuntimeRenderer composition source with 121/121 doctest cases, all CPU lanes, zero-warning builds, DX12 with zero InfoQueue errors/matching screenshots, standalone physics smoke, and byte-exact physics in 52.6s |
 | Native evidence | Injected heap-use-after-free caught; healthy ASan and five-file `/analyze` passed in 16.185s |
 
 ## Pushed Cleanup Commits
@@ -41,6 +41,9 @@ reports, and git history.
 - `7fdd91d3 feat: stabilize scene behavior group roots`
 - `936eda3f fix: complete DX12 failure-safe recreation`
 - `ac9c4aea fix: reconcile replay owner-action artifacts`
+- `824fafaf refactor: delete obsolete replay compatibility paths`
+- `dfab2043 refactor: move replay workspace ownership out of Run`
+- `cb2f4dc4 refactor: move render composition behind RuntimeRenderer`
 
 ## Current Queue
 
@@ -98,6 +101,16 @@ owns live-view narrowing and R5 owns size closure. CPU, allocation, replay,
 interaction, physics, DX12, and full gates passed. Detailed evidence is in
 `Agentic/Reports/replay_r2_workspace_20260710.md`.
 
+RuntimeRenderer composition A1-A2 is complete. The renderer receives the five
+named owner views, stores explicit render/world owners rather than
+`RunSubsystemState`, owns pass/resource lifecycle and submission, and invokes
+tool/replay record owners after replay overrides. The old binding bag, Run C
+hooks, `void*` callback user, texture callback path, and raw sky alias are
+deleted. The first adversarial pass found and fixed overlay ordering plus a
+disguised broad host; the required repeat pass was clean. Architecture,
+renderer, full, fast, allocation-policy, project/filter, and comment gates pass.
+Evidence is in `Agentic/Reports/runtime_renderer_composition_20260710.md`.
+
 Scene provenance C1a is complete: parser-owned library/instance/ordered-part
 records retain exact shape sources, hierarchy transforms use rotated offsets
 and quaternion composition, duplicate explicit/asset/ragdoll names fail
@@ -147,17 +160,16 @@ and full gates pass from the final source.
 
 ## Workstreams To Prioritize
 
-1. Move render composition, bindings, and overlay views behind `RuntimeRenderer`.
-2. Stabilise replay retained-sample/memory ownership in R3, then narrow live
+1. Stabilise replay retained-sample/memory ownership in R3, then narrow live
    owner access in R4 and close replay tests/size in R5.
-3. Close the dependent B1f scene/input seam and promote `SceneController` to
+2. Close the dependent B1f scene/input seam and promote `SceneController` to
    own real load/reset/save lifecycle and delete `Run` scene callbacks.
-4. Finish physics stable-identity D1-D4 and the remaining interaction/UI work.
-5. Finish validation-gate V3-V4 and behavioral-test P3/P5/P6 evidence.
-6. Close remaining interaction/UI, replay sizing, and physics authority items.
-7. Close renderer decomposition and shadow quality after the five `Run`
+3. Finish physics stable-identity D1-D4 and the remaining interaction/UI work.
+4. Finish validation-gate V3-V4 and behavioral-test P3/P5/P6 evidence.
+5. Close remaining interaction/UI, replay sizing, and physics authority items.
+6. Close renderer decomposition and shadow quality after the five `Run`
    ownership extractions establish their boundaries.
-8. Run the final ownership and campaign adversarial reviews, fixing every
+7. Run the final ownership and campaign adversarial reviews, fixing every
    credible finding before closure.
 
 ## Binding Decisions And External Blocker
