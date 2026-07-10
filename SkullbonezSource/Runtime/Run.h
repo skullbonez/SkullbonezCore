@@ -180,14 +180,10 @@ class Run
     bool
     RouteRuntimePointerInput( const RuntimeInputSnapshot& inputSnapshot,
                               const RuntimeMouseEdges& mouseEdges );    // Routes pointer input after snapshot capture.
-    void CancelCameraLookGesture();                                     // Clears controller-owned camera-look pointer capture.
     bool HandleUnfocusedInputFrame();                                   // Resets transient input when the app loses focus.
     void DispatchPostUIKeyboardActions();                               // Runs capture and late reset keyboard actions after UI input.
     void DispatchAfterUIKeyboardActions(
         bool uiUserInteracted );                                        // Runs ESC/UI dismissal after UI controls get first refusal.
-    void SyncCameraLookGesture( const RuntimeInputSnapshot& inputSnapshot,
-                                const RuntimeInteractionFramePolicy& inputPolicy,
-                                bool mouseLookOwnsCursor );             // Mirrors camera-look policy into pointer capture state.
     RuntimeInteractionTransition EnterInteractionForCameraMode(
         RunCameraMode mode );                                           // Converts camera/tool requests into controller workspace transitions.
     void ApplyRuntimeInteractionTransitionCleanup(

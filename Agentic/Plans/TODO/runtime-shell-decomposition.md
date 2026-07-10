@@ -230,6 +230,21 @@ baseline. The first fast attempt stopped at formatting before build/runtime
 work; formatting only `RunInput.cpp` produced the clean rerun. Comment audit:
 5/5 touched source-bearing files.
 
+Camera-look gesture lifetime is now a `RuntimeInteractionController` decision.
+Its typed sync operation begins camera capture only from an idle gesture owner,
+uses the immutable runtime snapshot for button/position facts, and cancels on
+focus or frame-policy exit. The two Run camera-look gesture methods are deleted,
+and the standalone interaction policy test now exercises the owner API rather
+than manually reproducing it. B1f remains open for the larger world-pointer and
+camera-mode/presentation composition surface.
+
+Evidence: fast passed in 41.0s with five candidates, 128/128 doctest cases, and
+2,749 assertions; the CPU umbrella including Debug/Release interaction policy
+passed in 16.4s; both interaction reports passed in 8.3s; and full passed in
+52.5s with zero warnings, zero DX12 InfoQueue errors, matching screenshots,
+standalone topology smoke, and the 20,001-line byte-exact physics baseline.
+Comment audit: 5/5 touched source-bearing files.
+
 ## Remaining Work
 
 ### A. Narrow the render host

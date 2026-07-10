@@ -270,6 +270,40 @@ RuntimeInteractionTransition RuntimeInteractionController::EndGesture( Interacti
 }
 
 
+void RuntimeInteractionController::CancelCameraLookGesture()
+{
+    if ( m_pointerCapture == RuntimePointerCaptureOwner::CameraLook )
+    {
+        EndGesture( InteractionExitReason::EndGesture );
+    }
+}
+
+
+void RuntimeInteractionController::SyncCameraLookGesture( const RuntimeInputSnapshot& input,
+                                                          const RuntimeInteractionFramePolicy& policy,
+                                                          bool mouseLookOwnsCursor )
+{
+    const bool wantsCameraLook = input.appFocused && mouseLookOwnsCursor && policy.cameraMouseLookActive;
+    if ( !wantsCameraLook )
+    {
+        CancelCameraLookGesture();
+        return;
+    }
+    if ( m_pointerCapture == RuntimePointerCaptureOwner::CameraLook ||
+         m_pointerCapture != RuntimePointerCaptureOwner::None || m_gesture.kind != RuntimeInteractionGestureKind::None )
+    {
+        return;
+    }
+
+    RuntimeInteractionGesture gesture;
+    gesture.kind = RuntimeInteractionGestureKind::CameraLook;
+    gesture.button = input.pointer.rightDown ? RuntimePointerButton::Right : RuntimePointerButton::None;
+    gesture.startX = input.pointer.clientX;
+    gesture.startY = input.pointer.clientY;
+    BeginGesture( gesture, RuntimePointerCaptureOwner::CameraLook, InteractionExitReason::BeginGesture );
+}
+
+
 RuntimeInteractionTransition RuntimeInteractionController::ResetForScene( InteractionExitReason reason )
 {
     return TransitionTo( RuntimeWorkspace::Live, WorldInteractionOwner::None, reason );

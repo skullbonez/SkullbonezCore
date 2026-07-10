@@ -230,6 +230,12 @@ class RuntimeInteractionController
                                                RuntimePointerCaptureOwner captureOwner,
                                                InteractionExitReason reason );
     RuntimeInteractionTransition EndGesture( InteractionExitReason reason );
+    // Camera-look gesture ownership is interaction policy, not Run routing.
+    // Sync begins only from an idle pointer owner and cancels on focus/policy exit.
+    void SyncCameraLookGesture( const RuntimeInputSnapshot& input,
+                                const RuntimeInteractionFramePolicy& policy,
+                                bool mouseLookOwnsCursor );
+    void CancelCameraLookGesture();
     RuntimeInteractionTransition ResetForScene( InteractionExitReason reason );
 
     RuntimeInteractionFramePolicy BuildFramePolicy( const RuntimeInteractionFrameInput& input ) const;

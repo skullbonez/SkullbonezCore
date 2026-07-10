@@ -323,25 +323,21 @@ void TestToolGestureSuppressesCameraLook()
 void TestCameraLookGestureCapturesPointer()
 {
     RuntimeInteractionController controller;
-
-    const RuntimeInteractionTransition beginTransition =
-        controller.BeginGesture( MakeCameraLookGesture(),
-                                 RuntimePointerCaptureOwner::CameraLook,
-                                 InteractionExitReason::BeginGesture );
-
-    EXPECT_TRUE( beginTransition.gestureChanged );
-    EXPECT_TRUE( beginTransition.pointerCaptureChanged );
-    EXPECT_EQ( beginTransition.pointerCapture, RuntimePointerCaptureOwner::CameraLook );
-    EXPECT_EQ( beginTransition.gesture.kind, RuntimeInteractionGestureKind::CameraLook );
-    EXPECT_EQ( beginTransition.gesture.button, RuntimePointerButton::Right );
-
     RuntimeInteractionFrameInput input = MakeDefaultFrameInput();
     input.rightMouseLookHeld = true;
-
     const RuntimeInteractionFramePolicy policy = controller.BuildFramePolicy( input );
+    RuntimeInputSnapshot snapshot;
+    snapshot.appFocused = true;
+    snapshot.pointer.rightDown = true;
+    snapshot.pointer.clientX = 321;
+    snapshot.pointer.clientY = 654;
+    controller.SyncCameraLookGesture( snapshot, policy, true );
 
-    EXPECT_EQ( policy.pointerCapture, RuntimePointerCaptureOwner::CameraLook );
-    EXPECT_EQ( policy.gesture, RuntimeInteractionGestureKind::CameraLook );
+    EXPECT_EQ( controller.PointerCapture(), RuntimePointerCaptureOwner::CameraLook );
+    EXPECT_EQ( controller.Gesture().kind, RuntimeInteractionGestureKind::CameraLook );
+    EXPECT_EQ( controller.Gesture().button, RuntimePointerButton::Right );
+    EXPECT_EQ( controller.Gesture().startX, 321 );
+    EXPECT_EQ( controller.Gesture().startY, 654 );
     EXPECT_EQ( policy.cameraLook, CameraLookState::RightMouseLook );
     EXPECT_TRUE( policy.cameraMouseLookActive );
 }
@@ -354,14 +350,10 @@ void TestCameraLookGestureEndsCleanly()
                              RuntimePointerCaptureOwner::CameraLook,
                              InteractionExitReason::BeginGesture );
 
-    const RuntimeInteractionTransition endTransition = controller.EndGesture( InteractionExitReason::EndGesture );
+    controller.CancelCameraLookGesture();
 
-    EXPECT_TRUE( endTransition.gestureChanged );
-    EXPECT_TRUE( endTransition.pointerCaptureChanged );
-    EXPECT_EQ( endTransition.previousGesture.kind, RuntimeInteractionGestureKind::CameraLook );
-    EXPECT_EQ( endTransition.gesture.kind, RuntimeInteractionGestureKind::None );
-    EXPECT_EQ( endTransition.previousPointerCapture, RuntimePointerCaptureOwner::CameraLook );
-    EXPECT_EQ( endTransition.pointerCapture, RuntimePointerCaptureOwner::None );
+    EXPECT_EQ( controller.Gesture().kind, RuntimeInteractionGestureKind::None );
+    EXPECT_EQ( controller.PointerCapture(), RuntimePointerCaptureOwner::None );
 }
 
 
