@@ -1121,13 +1121,10 @@ SbResult Run::RunSceneLoadOnly( const char* snapshotOutPath )
     {
         // Lifetime: scene-load-only borrows owner arrays only until the
         // synchronous snapshot write completes.
-        const auto& groups = m_cGameModelCollection.SceneObjectGroups();
         const auto& joints = m_cGameModelCollection.GetPointJointConstraints();
         const SceneSaveView saveView{ m_sceneController.Entities(),
                                       m_cGameModelCollection.BodyStore(),
                                       m_cGameModelCollection.Colliders(),
-                                      groups.data(),
-                                      static_cast<int>( groups.size() ),
                                       joints.data(),
                                       static_cast<int>( joints.size() ),
                                       m_cWorldEnvironment.GetGravity(),

@@ -441,13 +441,10 @@ void HandleEditorSaveHotkey( EditorSaveHotkeyContext context, RuntimeInputAction
         {
             // Lifetime: the save view borrows cold owner arrays only for this
             // synchronous file write; editor input retains none of the rows.
-            const auto& groups = context.models.SceneObjectGroups();
             const auto& joints = context.models.GetPointJointConstraints();
             const SceneSaveView saveView{ context.entities,
                                           context.models.BodyStore(),
                                           context.models.Colliders(),
-                                          groups.data(),
-                                          static_cast<int>( groups.size() ),
                                           joints.data(),
                                           static_cast<int>( joints.size() ),
                                           context.world.GetGravity(),

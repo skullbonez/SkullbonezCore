@@ -10,10 +10,11 @@ Mental model:
 Glossary:
   Stable identity: Nonzero PhysicsSceneObjectId independent of dense row order.
   Asset affiliation: Durable library/asset/instance/part provenance.
+  Behavior group: Ragdoll/tree membership keyed by stable root id and part order.
 
 Invariants:
   - Duplicate ids and capacity exhaustion are recoverable preflight failures.
-  - Successful commits retain exact identity, material, and affiliation values.
+  - Successful commits retain exact identity, material, affiliation, and group values.
   - Clear and commit reuse the pre-scene reservation without growing storage.
   - Render creation publishes presentation, instance, and handle rows together.
 
@@ -45,6 +46,7 @@ TEST_CASE( "SceneEntityStore: preflight and commit preserve durable owner metada
     entity.SetName( "tower_part" );
     entity.SetRenderTint( 0.2f, 0.4f, 0.6f, 1.0f );
     entity.SetAssetAffiliation( PhysicsSceneObjectId{ 900u }, "structures", "tower", "tower_a", "wall", 3u );
+    entity.SetBehaviorGroup( SceneBehaviorGroupKind::ReleasableTree, PhysicsSceneObjectId{ 42u }, 0 );
     REQUIRE( store.PreflightAppend( entity ).ok );
 
     PhysicsBodyHandle body;
@@ -65,6 +67,9 @@ TEST_CASE( "SceneEntityStore: preflight and commit preserve durable owner metada
     CHECK( std::string( record.asset.instanceName ) == "tower_a" );
     CHECK( std::string( record.asset.partName ) == "wall" );
     CHECK( record.asset.partIndex == 3u );
+    CHECK( record.behaviorGroup.kind == SceneBehaviorGroupKind::ReleasableTree );
+    CHECK( record.behaviorGroup.rootObjectId.value == 42u );
+    CHECK( record.behaviorGroup.partIndex == 0 );
     CHECK( store.FindByDisplayName( "tower_part" ) == 0 );
     CHECK( store.FindBySceneObjectId( PhysicsSceneObjectId{ 42u } ) == 0 );
 
@@ -76,6 +81,19 @@ TEST_CASE( "SceneEntityStore: preflight and commit preserve durable owner metada
     CHECK( store.At( 0 ).body.generation == 4u );
 
     CHECK_FALSE( store.PreflightAppend( entity ).ok );
+
+    SceneEntityCreateDesc orphan;
+    orphan.sceneObjectId = PhysicsSceneObjectId{ 44u };
+    orphan.SetBehaviorGroup( SceneBehaviorGroupKind::ReleasableTree, PhysicsSceneObjectId{ 999u }, 1 );
+    CHECK_FALSE( store.PreflightAppend( orphan ).ok );
+
+    SceneEntityCreateDesc child;
+    child.sceneObjectId = PhysicsSceneObjectId{ 43u };
+    child.SetName( "tower_child" );
+    child.SetBehaviorGroup( SceneBehaviorGroupKind::ReleasableTree, PhysicsSceneObjectId{ 42u }, 1 );
+    REQUIRE( store.PreflightAppend( child ).ok );
+    store.CommitAppend( child, PhysicsBodyHandle{ 10u, 1u } );
+    CHECK( store.At( 1 ).behaviorGroup.rootObjectId.value == 42u );
 }
 
 TEST_CASE( "SceneEntityStore: active capacity is enforced without growth" )

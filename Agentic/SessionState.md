@@ -10,9 +10,9 @@ reports, and git history.
 | Field | Value |
 |---|---|
 | Branch | `engine-cleanup-10th-july`, tracking `origin/engine-cleanup-10th-july` |
-| Pushed baseline before C4 | `e147f9b8 feat: make scene creation transactional` |
-| Current objective | Replace row-index behavior roots with stable scene ids in physics-authority C5 |
-| Last broad local gate | `tools\validate_full.bat` passed C4 through 118 CPU tests/2,159 assertions, zero-warning builds, DX12 with zero InfoQueue errors/matching screenshots, atomic creation smoke, and byte-exact physics in 87.2s |
+| Pushed baseline before C5 | `119b359c feat: preserve live asset scene snapshots` |
+| Current objective | Complete transactional DX12 recreation, fault injection, and device-loss behavior (D4-D5) |
+| Last broad local gate | `tools\validate_full.bat` passed C5 through 120 CPU tests/2,633 assertions, zero-warning builds, DX12 with zero InfoQueue errors/matching screenshots, atomic creation smoke, and byte-exact physics in 49.6s |
 | Native evidence | Injected heap-use-after-free caught; healthy ASan and five-file `/analyze` passed in 16.185s |
 
 ## Pushed Cleanup Commits
@@ -36,6 +36,8 @@ reports, and git history.
 - `fd48d658 feat: split runtime requests by owner`
 - `d817a995 feat: stabilize authored scene identities`
 - `28a8b205 feat: move scene entity metadata to scene owner`
+- `e147f9b8 feat: make scene creation transactional`
+- `119b359c feat: preserve live asset scene snapshots`
 
 ## Current Queue
 
@@ -100,16 +102,26 @@ facade is deleted. A mixed-shape no-`Run` writer/parser regression and a waited
 production building-asset save/reload probe pass; allocation policy, CPU, and
 full gates pass from the final source.
 
+Stable behavior ownership C5 is complete. `SceneEntityStore` owns behavior
+groups separately from asset affiliation and stores stable root object ids;
+collection physics paths derive dense rows only at cold compatibility
+boundaries. The collection group sidecar/types/creation argument and scoped
+row-root spellings are deleted. The C1-C5 adversarial review found and fixed
+parser publication of missing roots plus incomplete no-`Run` evidence. The
+corrected fixture recreates fresh owners and passes 444 stable-id comparisons;
+the follow-up review is clean. Parser, CPU, allocation, physics, performance,
+and full gates pass from the final source.
+
 ## Ten Workstreams To Prioritize
 
-1. Replace row-index behavior roots with stable scene object ids (C5).
-2. Close the dependent B1f scene/input seam after stable behavior roots land.
-3. Make DX12 resize/resource recreation transactional and define device-loss
+1. Make DX12 resize/resource recreation transactional and define device-loss
    recovery (D4-D5).
-4. Promote `SceneController` to own real load/reset/save lifecycle and delete
+2. Close the dependent B1f scene/input seam now that stable behavior roots are complete.
+3. Promote `SceneController` to own real load/reset/save lifecycle and delete
    `Run` scene callbacks.
-5. Move replay workspace decisions and overlays into `ReplayRuntime`.
-6. Move render composition/bindings and overlay views into `RuntimeRenderer`.
+4. Move replay workspace decisions and overlays into `ReplayRuntime`.
+5. Move render composition/bindings and overlay views into `RuntimeRenderer`.
+6. Finish physics stable-identity D1-D4 and the remaining interaction/UI work.
 7. Finish validation-gate V3-V4 and behavioral-test P3/P5/P6 evidence.
 8. Close remaining interaction/UI, replay sizing, and physics authority items.
 9. Close renderer decomposition and shadow quality after the five `Run`

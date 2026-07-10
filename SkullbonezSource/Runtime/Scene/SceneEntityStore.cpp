@@ -4,9 +4,9 @@ Purpose:
   Implements allocation-free scene entity metadata storage.
 
 Mental model:
-  Creation first asks whether an entity can be appended, commits physics owner
-  rows, then publishes the fully linked entity record. The fixed array makes
-  capacity checks honest and prevents steady-runtime growth.
+  Creation first validates identity, behavior-root topology, and capacity,
+  commits physics owner rows, then publishes the fully linked entity record.
+  Reserved storage prevents steady-runtime growth.
 
 Glossary:
   Lane R: Recoverable result for invalid authored input or capacity exhaustion.
@@ -86,6 +86,15 @@ void SceneEntityCreateDesc::SetAssetAffiliation( Physics::PhysicsSceneObjectId r
     asset.isAssetBacked = true;
 }
 
+void SceneEntityCreateDesc::SetBehaviorGroup( SceneBehaviorGroupKind kind,
+                                              Physics::PhysicsSceneObjectId rootObjectId,
+                                              int partIndex )
+{
+    behaviorGroup.kind = kind;
+    behaviorGroup.rootObjectId = rootObjectId;
+    behaviorGroup.partIndex = partIndex;
+}
+
 SceneEntityStore::SceneEntityStore()
 {
     // Phase: startup preallocation. The default capacity is reserved before
@@ -137,6 +146,42 @@ SbResult SceneEntityStore::PreflightAppend( const SceneEntityCreateDesc& entity 
                                   "Duplicate scene entity id %u.",
                                   entity.sceneObjectId.value );
     }
+    // Invariant: stable group roots are validated before downstream physics or
+    // render rows mutate. A root may name this part-zero entity; later members
+    // must reference an already committed compatible root.
+    const SceneBehaviorGroup& group = entity.behaviorGroup;
+    if ( group.kind != SceneBehaviorGroupKind::None )
+    {
+        if ( !group.rootObjectId.IsValid() || group.partIndex < 0 )
+        {
+            return SbResult::Failure( "Scene/SceneEntityStore", "Behavior group requires a valid root id and part." );
+        }
+        const int rootIndex = FindBySceneObjectId( group.rootObjectId );
+        if ( group.rootObjectId.value == entity.sceneObjectId.value )
+        {
+            if ( group.partIndex != 0 )
+            {
+                return SbResult::Failure( "Scene/SceneEntityStore", "Behavior group root must be part zero." );
+            }
+        }
+        else if ( rootIndex < 0 )
+        {
+            return SbResult::Failure( "Scene/SceneEntityStore",
+                                      "Behavior group root id %u has not been created.",
+                                      group.rootObjectId.value );
+        }
+        else
+        {
+            const SceneBehaviorGroup& rootGroup = At( rootIndex ).behaviorGroup;
+            if ( rootGroup.kind != group.kind || rootGroup.rootObjectId.value != group.rootObjectId.value ||
+                 rootGroup.partIndex != 0 )
+            {
+                return SbResult::Failure( "Scene/SceneEntityStore",
+                                          "Behavior group root id %u has incompatible metadata.",
+                                          group.rootObjectId.value );
+            }
+        }
+    }
     return SbResult::Success();
 }
 
@@ -165,6 +210,7 @@ void SceneEntityStore::CommitAppend( const SceneEntityCreateDesc& entity, Physic
     record.body = body;
     record.renderMaterial = entity.renderMaterial;
     record.asset = entity.asset;
+    record.behaviorGroup = entity.behaviorGroup;
     CopyBounded( record.displayName, sizeof( record.displayName ), entity.displayName );
 }
 

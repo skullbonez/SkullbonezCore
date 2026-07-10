@@ -25,7 +25,7 @@ Glossary:
   Topology drift: A body/collider/model count mismatch that means stores must
     import explicit construction descriptors before stepping.
   Scene-object group: Cold metadata that maps multi-part authored objects, such
-    as ragdolls or releasable trees, back to a root model slot.
+    as ragdolls or releasable trees, to a stable root scene object id.
   Fixed-tree release: Authored scene rule that lets tree parts become dynamic
     when a related fixed part is hit strongly enough.
   Replay body id: PhysicsBodyStore-owned identity saved in replay samples so
@@ -35,9 +35,8 @@ Invariants:
   - SceneEntityStore order remains the scene alignment key for physics stores,
     render batches, and scene snapshots. Replay ids live in PhysicsBodyStore
     rows after append.
-  - SceneObjectGroupStore is a same-length scene metadata store keyed by model
-    slot. GameModel does not carry runtime grouping fields. PhysicsScene owns
-    the same-order authored body descriptors.
+  - SceneEntityStore owns behavior groups with stable root ids. Dense root rows
+    are derived only when physics or a model-index compatibility API requires one.
   - Render prep imports store-backed snapshots once before frame passes; render
     code must not rebuild model-derived pose streams.
   - Owner-side release paths repair topology once before resolving body handles
@@ -209,73 +208,6 @@ const GameModel* GameModelCollection::PresentationStore::TryGet( int index ) con
 }
 
 
-void GameModelCollection::SceneObjectGroupStore::Reserve( std::size_t capacity )
-{
-    m_records.reserve( capacity );
-}
-
-
-void GameModelCollection::SceneObjectGroupStore::Clear()
-{
-    m_records.clear();
-}
-
-
-void GameModelCollection::SceneObjectGroupStore::Append( SceneObjectGroupRecord record )
-{
-    m_records.push_back( record );
-}
-
-
-bool GameModelCollection::SceneObjectGroupStore::TrimToCount( int count )
-{
-    if ( count < 0 || count > static_cast<int>( m_records.size() ) )
-    {
-        return false;
-    }
-
-    const std::size_t targetCount = static_cast<std::size_t>( count );
-    if ( targetCount < m_records.size() )
-    {
-        m_records.erase( m_records.begin() + static_cast<std::ptrdiff_t>( targetCount ), m_records.end() );
-    }
-    return true;
-}
-
-
-int GameModelCollection::SceneObjectGroupStore::Count() const
-{
-    return static_cast<int>( m_records.size() );
-}
-
-std::size_t GameModelCollection::SceneObjectGroupStore::Capacity() const
-{
-    return m_records.capacity();
-}
-
-
-uint64_t GameModelCollection::SceneObjectGroupStore::CapacityBytes() const
-{
-    return VectorCapacityBytes( m_records );
-}
-
-
-SceneObjectGroupRecord GameModelCollection::SceneObjectGroupStore::RecordAt( int modelIndex ) const
-{
-    if ( modelIndex < 0 || modelIndex >= static_cast<int>( m_records.size() ) )
-    {
-        return SceneObjectGroupRecord{};
-    }
-    return m_records[static_cast<std::size_t>( modelIndex )];
-}
-
-
-const std::vector<SceneObjectGroupRecord>& GameModelCollection::SceneObjectGroupStore::Records() const
-{
-    return m_records;
-}
-
-
 void GameModelCollection::ReserveForActiveGameModelCapacity()
 {
     // Invariant: model-order storage must be fully sized before steady frames.
@@ -284,45 +216,35 @@ void GameModelCollection::ReserveForActiveGameModelCapacity()
     // append paths discover the new capacity by reallocating.
     const std::size_t capacity = static_cast<std::size_t>( m_activeGameModelCapacity );
     m_presentations.Reserve( capacity );
-    m_sceneObjectGroupStore.Reserve( capacity );
     m_physicsEngine.ReserveAuthoredBodyCapacity( capacity );
     m_renderInstanceStore.ReservePresentationCapacity( capacity );
 }
 
 
-SbResult GameModelCollection::BuildSceneObjectGroupForAppend( int newModelIndex,
-                                                              SceneObjectGroupCreateDesc groupDesc,
-                                                              SceneObjectGroupRecord& outGroup )
+const SceneBehaviorGroup& GameModelCollection::BehaviorGroupAt( int modelIndex ) const
 {
-    assert( m_sceneObjectGroupStore.Count() == SceneEntityCount() );
-    SceneObjectGroupRecord group;
-
-    if ( groupDesc.kind != GameModelCollectionKind::None )
-    {
-        // Invariant: explicit grouping is creation metadata, not a discovery
-        // task for collection append. Bad root/part input means the owner passed
-        // an impossible group, so fail closed before rows diverge.
-        if ( groupDesc.rootModelIndex < 0 || groupDesc.rootModelIndex > newModelIndex || groupDesc.partIndex < 0 )
-        {
-            return SbResult::Failure( SCENE_ENTITY_CREATION_OWNER,
-                                      "Invalid scene-object group descriptor supplied during entity creation." );
-        }
-
-        group.kind = groupDesc.kind;
-        group.rootModelIndex = groupDesc.rootModelIndex;
-        group.partIndex = groupDesc.partIndex;
-        outGroup = group;
-        return SbResult::Success();
-    }
-
-    outGroup = group;
-    return SbResult::Success();
+    return SceneEntities().At( modelIndex ).behaviorGroup;
 }
 
 
-SceneObjectGroupRecord GameModelCollection::GroupRecordAt( int modelIndex ) const
+int GameModelCollection::ResolveBehaviorGroupRootModelIndex( const SceneBehaviorGroup& group ) const
 {
-    return m_sceneObjectGroupStore.RecordAt( modelIndex );
+    if ( group.kind == SceneBehaviorGroupKind::None )
+    {
+        return -1;
+    }
+    // Why: physics descriptors and compatibility APIs still consume dense rows,
+    // but the scene owner stores only stable identity. Resolve at this cold
+    // boundary instead of caching a movable root row in group metadata.
+    const int rootIndex = SceneEntities().FindBySceneObjectId( group.rootObjectId );
+    if ( rootIndex < 0 )
+    {
+        SB_FATAL( "GameObjects/GameModelCollection",
+                  "Behavior group root is missing. root_id=%u kind=%u",
+                  group.rootObjectId.value,
+                  static_cast<unsigned int>( group.kind ) );
+    }
+    return rootIndex;
 }
 
 
@@ -382,8 +304,8 @@ bool GameModelCollection::RefreshPhysicsBodyStoreFromAuthoredDescriptors()
 
 int GameModelCollection::FixedTreeReleaseRootForModelIndex( int modelIndex ) const
 {
-    const SceneObjectGroupRecord group = GroupRecordAt( modelIndex );
-    return group.kind == GameModelCollectionKind::ReleasableTree ? group.rootModelIndex : -1;
+    const SceneBehaviorGroup& group = BehaviorGroupAt( modelIndex );
+    return group.kind == SceneBehaviorGroupKind::ReleasableTree ? ResolveBehaviorGroupRootModelIndex( group ) : -1;
 }
 
 
@@ -458,24 +380,19 @@ void GameModelCollection::AssertSceneCreationTopology( int expectedCount ) const
     const int bodyCount = BodyStore().Count();
     const int colliderCount = Colliders().Count();
     const int presentationCount = m_presentations.Count();
-    const int groupCount = m_sceneObjectGroupStore.Count();
     const int renderPresentationCount = m_renderInstanceStore.PresentationCount();
     const int renderCount = m_renderInstanceStore.Count();
-    const bool reservationsReady =
-        m_presentations.Capacity() >= static_cast<std::size_t>( m_activeGameModelCapacity ) &&
-        m_sceneObjectGroupStore.Capacity() >= static_cast<std::size_t>( m_activeGameModelCapacity );
+    const bool reservationsReady = m_presentations.Capacity() >= static_cast<std::size_t>( m_activeGameModelCapacity );
     if ( expectedCount < 0 || SceneEntities().Count() != expectedCount || presentationCount != expectedCount ||
-         groupCount != expectedCount || descriptorCount != expectedCount || bodyCount != expectedCount ||
-         colliderCount != expectedCount || renderPresentationCount != expectedCount || renderCount != expectedCount ||
-         !reservationsReady )
+         descriptorCount != expectedCount || bodyCount != expectedCount || colliderCount != expectedCount ||
+         renderPresentationCount != expectedCount || renderCount != expectedCount || !reservationsReady )
     {
         SB_FATAL( "GameObjects/GameModelCollection",
-                  "Scene creation topology diverged. expected=%d entities=%d transient=%d groups=%d descriptors=%d "
+                  "Scene creation topology diverged. expected=%d entities=%d transient=%d descriptors=%d "
                   "bodies=%d colliders=%d render_presentation=%d render=%d reservations_ready=%d",
                   expectedCount,
                   SceneEntities().Count(),
                   presentationCount,
-                  groupCount,
                   descriptorCount,
                   bodyCount,
                   colliderCount,
@@ -488,8 +405,7 @@ void GameModelCollection::AssertSceneCreationTopology( int expectedCount ) const
 
 SceneEntityCreateResult GameModelCollection::TryCreateSceneEntity( SceneEntityCreateDesc entity,
                                                                    PhysicsBodyCreateDesc bodyDesc,
-                                                                   PhysicsColliderCreateDesc colliderDesc,
-                                                                   SceneObjectGroupCreateDesc groupDesc )
+                                                                   PhysicsColliderCreateDesc colliderDesc )
 {
     const int activeCapacity = m_activeGameModelCapacity;
     const int modelIndex = SceneEntityCount();
@@ -501,16 +417,10 @@ SceneEntityCreateResult GameModelCollection::TryCreateSceneEntity( SceneEntityCr
                                "Exceeded active game model capacity; raise --model-capacity or game_model_capacity." ),
             PhysicsBodyHandle{} };
     }
-    SceneObjectGroupRecord groupRecord;
     const SbResult entityResult = SceneEntities().PreflightAppend( entity );
     if ( !entityResult.ok )
     {
         return { entityResult, PhysicsBodyHandle{} };
-    }
-    const SbResult groupResult = BuildSceneObjectGroupForAppend( modelIndex, groupDesc, groupRecord );
-    if ( !groupResult.ok )
-    {
-        return { groupResult, PhysicsBodyHandle{} };
     }
     if ( bodyDesc.sceneObjectId.IsValid() && bodyDesc.sceneObjectId.value != entity.sceneObjectId.value )
     {
@@ -543,20 +453,22 @@ SceneEntityCreateResult GameModelCollection::TryCreateSceneEntity( SceneEntityCr
                sizeof( renderPresentation.displayName ),
                entity.displayName,
                _TRUNCATE );
-    renderPresentation.simpleRagdollPart = groupRecord.kind == GameModelCollectionKind::SimpleRagdoll;
+    renderPresentation.simpleRagdollPart = entity.behaviorGroup.kind == SceneBehaviorGroupKind::SimpleRagdoll;
 
     // Invariant: every recoverable check is complete before the first mutation.
     // The following owner appends use fixed or pre-reserved storage; any count or
     // identity mismatch is Lane F because partial topology cannot be recovered.
     bodyDesc.sceneObjectId = entity.sceneObjectId;
-    bodyDesc.fixedTreeReleaseRootIndex =
-        groupRecord.kind == GameModelCollectionKind::ReleasableTree ? groupRecord.rootModelIndex : -1;
+    bodyDesc.fixedTreeReleaseRootIndex = entity.behaviorGroup.kind != SceneBehaviorGroupKind::ReleasableTree
+                                             ? -1
+                                             : ( entity.behaviorGroup.rootObjectId.value == entity.sceneObjectId.value
+                                                     ? modelIndex
+                                                     : ResolveBehaviorGroupRootModelIndex( entity.behaviorGroup ) );
     // Lifetime: authored descriptors outlive this value-local entity packet.
     // Diagnostics receive stable SceneEntityStore names through the explicit
     // refresh/step view, so never retain the packet's displayName pointer.
     bodyDesc.diagnosticName = nullptr;
     m_presentations.Append( GameModel{} );
-    m_sceneObjectGroupStore.Append( groupRecord );
     const PhysicsBodyHandle bodyHandle = m_physicsEngine.RegisterAuthoredBody( bodyDesc );
     const PhysicsBodyRecord* bodyRecord = BodyStore().RecordForHandle( bodyHandle );
     if ( !bodyRecord )
@@ -595,7 +507,6 @@ void GameModelCollection::Clear()
 {
     m_presentations.Clear();
     SceneEntities().Clear();
-    m_sceneObjectGroupStore.Clear();
     m_physicsEngine.Clear();
     m_renderInstanceStore.Clear();
     AssertSceneCreationTopology( 0 );
@@ -850,33 +761,27 @@ const GameModel* GameModelCollection::TryGetModel( int index ) const
 }
 
 
-GameModelCollectionKind GameModelCollection::GroupKindAt( int modelIndex ) const
+SceneBehaviorGroupKind GameModelCollection::GroupKindAt( int modelIndex ) const
 {
-    return GroupRecordAt( modelIndex ).kind;
+    return BehaviorGroupAt( modelIndex ).kind;
 }
 
 
-int GameModelCollection::GroupRootModelIndexAt( int modelIndex ) const
+PhysicsSceneObjectId GameModelCollection::GroupRootObjectIdAt( int modelIndex ) const
 {
-    return GroupRecordAt( modelIndex ).rootModelIndex;
+    return BehaviorGroupAt( modelIndex ).rootObjectId;
 }
 
 
 int GameModelCollection::GroupPartIndexAt( int modelIndex ) const
 {
-    return GroupRecordAt( modelIndex ).partIndex;
-}
-
-
-const std::vector<SceneObjectGroupRecord>& GameModelCollection::SceneObjectGroups() const
-{
-    return m_sceneObjectGroupStore.Records();
+    return BehaviorGroupAt( modelIndex ).partIndex;
 }
 
 
 bool GameModelCollection::IsSimpleRagdollPart( int modelIndex ) const
 {
-    return GroupKindAt( modelIndex ) == GameModelCollectionKind::SimpleRagdoll;
+    return GroupKindAt( modelIndex ) == SceneBehaviorGroupKind::SimpleRagdoll;
 }
 
 
@@ -888,16 +793,16 @@ bool GameModelCollection::IsSimpleRagdollTorso( int modelIndex ) const
 
 int GameModelCollection::RagdollRootModelIndexForPart( int modelIndex ) const
 {
-    const SceneObjectGroupRecord group = GroupRecordAt( modelIndex );
-    if ( group.kind != GameModelCollectionKind::SimpleRagdoll )
+    const SceneBehaviorGroup& group = BehaviorGroupAt( modelIndex );
+    if ( group.kind != SceneBehaviorGroupKind::SimpleRagdoll )
     {
         return modelIndex;
     }
 
-    if ( group.rootModelIndex >= 0 && group.rootModelIndex < SceneEntityCount() &&
-         IsSimpleRagdollPart( group.rootModelIndex ) )
+    const int rootIndex = ResolveBehaviorGroupRootModelIndex( group );
+    if ( IsSimpleRagdollPart( rootIndex ) )
     {
-        return group.rootModelIndex;
+        return rootIndex;
     }
     return modelIndex;
 }
@@ -911,11 +816,11 @@ bool GameModelCollection::TryFindSimpleRagdollPart( int selectedModelIndex, int 
         return false;
     }
 
-    const int rootModelIndex = GroupRootModelIndexAt( selectedModelIndex );
+    const PhysicsSceneObjectId rootObjectId = GroupRootObjectIdAt( selectedModelIndex );
     for ( int i = 0; i < SceneEntityCount(); ++i )
     {
-        const SceneObjectGroupRecord group = GroupRecordAt( i );
-        if ( group.kind == GameModelCollectionKind::SimpleRagdoll && group.rootModelIndex == rootModelIndex &&
+        const SceneBehaviorGroup& group = BehaviorGroupAt( i );
+        if ( group.kind == SceneBehaviorGroupKind::SimpleRagdoll && group.rootObjectId.value == rootObjectId.value &&
              group.partIndex == partIndex )
         {
             outModelIndex = i;
@@ -940,25 +845,20 @@ int GameModelCollection::GatherGroupMemberIndices( int selectedModelIndex, int* 
         return 0;
     }
 
-    const SceneObjectGroupRecord selectedGroup = GroupRecordAt( selectedModelIndex );
-    if ( selectedGroup.kind != GameModelCollectionKind::SimpleRagdoll )
+    const SceneBehaviorGroup& selectedGroup = BehaviorGroupAt( selectedModelIndex );
+    if ( selectedGroup.kind != SceneBehaviorGroupKind::SimpleRagdoll )
     {
         outIndices[0] = selectedModelIndex;
         return 1;
     }
 
-    const int selectedRootIndex = selectedGroup.rootModelIndex;
-    if ( selectedRootIndex < 0 || selectedRootIndex >= SceneEntityCount() )
-    {
-        outIndices[0] = selectedModelIndex;
-        return 1;
-    }
+    (void)ResolveBehaviorGroupRootModelIndex( selectedGroup );
 
     int count = 0;
     for ( int i = 0; i < SceneEntityCount() && count < maxIndices; ++i )
     {
-        const SceneObjectGroupRecord group = GroupRecordAt( i );
-        if ( group.kind == selectedGroup.kind && group.rootModelIndex == selectedRootIndex )
+        const SceneBehaviorGroup& group = BehaviorGroupAt( i );
+        if ( group.kind == selectedGroup.kind && group.rootObjectId.value == selectedGroup.rootObjectId.value )
         {
             outIndices[count] = i;
             ++count;
@@ -1159,9 +1059,8 @@ MainMemoryGameObjectStats GameModelCollection::CollectMemoryStats() const
     stats.renderStoreBytes = VectorCapacityBytes( renderStore.Records() );
     stats.physicsWorldBytes = m_physicsEngine.CollectPhysicsWorldMemoryBytes();
     stats.debugAndBroadphaseBytes = m_physicsEngine.CollectDebugAndBroadphaseMemoryBytes();
-    const uint64_t sceneObjectGroupBytes = m_sceneObjectGroupStore.CapacityBytes();
-    stats.totalBytes = stats.modelVectorBytes + sceneObjectGroupBytes + stats.physicsStoreBytes +
-                       stats.colliderStoreBytes + stats.renderStoreBytes + stats.physicsWorldBytes;
+    stats.totalBytes = stats.modelVectorBytes + stats.physicsStoreBytes + stats.colliderStoreBytes +
+                       stats.renderStoreBytes + stats.physicsWorldBytes;
     return stats;
 }
 
@@ -1189,10 +1088,6 @@ bool GameModelCollection::TrimModelsForReplayRestore( int modelCount )
         return false;
     }
     if ( !m_presentations.TrimToCount( modelCount ) || !SceneEntities().TrimToCount( modelCount ) )
-    {
-        return false;
-    }
-    if ( !m_sceneObjectGroupStore.TrimToCount( modelCount ) )
     {
         return false;
     }

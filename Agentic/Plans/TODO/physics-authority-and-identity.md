@@ -1,7 +1,7 @@
 # Physics Authority And Stable Identity
 
 Date: 2026-07-10 (source reconciled)
-Status: In progress — 7/16 current checklist items verified complete; the
+Status: In progress — 9/16 current checklist items verified complete; the
 scene-lifetime physics owner decision is binding
 Impact area: physics, game object storage, scene creation/reset, replay,
 editor tools
@@ -188,8 +188,39 @@ no longer an open question.
   matching screenshots, atomic creation smoke, and the 20,001-line byte-exact
   physics baseline in 87.2s. The touched-source comment audit inspected 13/13
   files with 0 deferred.
-- [ ] C5. Replace `rootModelIndex` behavior grouping with stable root object id.
+- [x] C5. Replace `rootModelIndex` behavior grouping with stable root object id.
   Keep asset affiliation and behavior group as separate metadata dimensions.
+  Evidence (2026-07-10): `SceneEntityStore` owns a separate
+  `SceneBehaviorGroup {kind, rootObjectId, partIndex}` beside asset
+  affiliation. Creation validates self-root part zero or an already committed
+  compatible stable root before mutation; collection physics compatibility
+  derives a dense row only at cold boundaries. Authored ragdolls, releasable
+  trees, editor placement, attached-camera fallback, render preparation, and
+  scene snapshots consume stable roots. The collection-owned group sidecar,
+  its create/record/kind types, fourth creation argument, memory accounting,
+  and row-root APIs are deleted; the scoped source contains no behavior
+  `rootModelIndex` or `rootObjectIndex` spelling.
+
+  The required C1-C5 adversarial review initially blocked completion because a
+  missing `objectGroup.root` could publish id zero and the no-`Run` fixture
+  stopped after reparsing. The correction validates final explicit/legacy root
+  topology after includes and version-1 id upgrade, adds a recoverable malformed
+  root test, and recreates fresh entity/body/collider owners from the saved
+  scene. The 444-assertion fixture compares by sparse stable id across dense-row
+  reorder, including quaternion-equivalent orientation, complete hull geometry,
+  durable material name/alpha/response/flags, and one row carrying independent
+  asset and behavior roots. The one permitted follow-up adversarial pass found
+  no remaining blocking, non-blocking, or missing-evidence findings.
+
+  Final source passed `tools\validate_scene_parser_tests.bat` (all six
+  contracts, 6.5s), `tools\validate_all_cpu_tests.bat` (120 doctest cases/2,633
+  assertions plus all standalone CPU targets, 11.0s),
+  `tools\validate_physics.bat` (atomic creation smoke and 20,001-line
+  byte-exact baseline, 27.8s), `tools\validate_perf.bat` (32.7s), and
+  `tools\validate_full.bat` (zero-warning Profile/Debug builds, zero DX12
+  InfoQueue errors with matching captures, and byte-exact physics, 49.6s).
+  Allocation policy scanned 306 files with 0 allowlist errors. The touched-file
+  comment audit inspected 17/17 source-bearing files with 0 deferred.
 
 ### D. Stable identity storage
 

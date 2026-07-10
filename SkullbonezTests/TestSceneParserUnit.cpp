@@ -35,6 +35,7 @@
 
 using SkullbonezCore::Basics::SbResult;
 using SkullbonezCore::Basics::SceneCamera;
+using SkullbonezCore::Basics::SceneObjectGroupKind;
 using SkullbonezCore::Basics::TestScene;
 
 namespace
@@ -108,6 +109,47 @@ TEST_CASE( "TestSceneParser: malformed JSON reports recoverable load failure" )
                                                  "{ \"format\": \"skullbonez.scene.json\", \"cameras\": [" );
     TestScene scene;
     CheckLoadFailure( TestScene::TryLoadFromFile( malformed.path, scene ), malformed.path, "Invalid JSON" );
+}
+
+
+TEST_CASE( "TestSceneParser: legacy releasable trees resolve stable root ids" )
+{
+    const TestScene scene = TestScene::LoadFromFile( "SkullbonezData/scenes/nature_hull_assets.scene.json" );
+    int groupedHullCount = 0;
+    for ( int index = 0; index < scene.GetConvexHullCount(); ++index )
+    {
+        const auto& hull = scene.GetConvexHull( index );
+        if ( hull.group.kind != SceneObjectGroupKind::ReleasableTree )
+        {
+            continue;
+        }
+        ++groupedHullCount;
+        CHECK( hull.group.rootObjectId.IsValid() );
+
+        bool foundRoot = false;
+        for ( int candidate = 0; candidate < scene.GetConvexHullCount(); ++candidate )
+        {
+            if ( scene.GetConvexHull( candidate ).sceneObjectId.value == hull.group.rootObjectId.value )
+            {
+                foundRoot = true;
+                break;
+            }
+        }
+        CHECK( foundRoot );
+    }
+    CHECK( groupedHullCount > 0 );
+}
+
+
+TEST_CASE( "TestSceneParser: missing behavior-group root is a recoverable parse failure" )
+{
+    const TemporaryMalformedSceneFile missingGroupRoot(
+        "unit_scene_parser_missing_group_root.scene.json",
+        R"({"format":"skullbonez.scene.json","version":1,"physics":false,"text":false,"cameras":[{"name":"main","position":[0,0,0],"view":[0,0,1],"up":[0,1,0]}],"objects":[{"type":"convexHull","name":"tree_child","hull":"pyramid","position":[0,0,0],"restitution":0.1,"objectGroup":{"kind":"releasableTree","root":"missing_root","part":1}}]})" );
+    TestScene scene;
+    CheckLoadFailure( TestScene::TryLoadFromFile( missingGroupRoot.path, scene ),
+                      missingGroupRoot.path,
+                      "does not name an object" );
 }
 
 

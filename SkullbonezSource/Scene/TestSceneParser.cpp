@@ -323,7 +323,7 @@ template <typename THull> void AssignReleasableTreeGroupsToHulls( std::vector<TH
             const THull& candidate = hulls[static_cast<std::size_t>( candidateIndex )];
             if ( strcmp( candidate.name, hull.group.rootObjectName ) == 0 )
             {
-                hull.group.rootObjectIndex = candidateIndex;
+                hull.group.rootObjectId = candidate.sceneObjectId;
                 break;
             }
         }
@@ -350,8 +350,9 @@ template <typename THull> void AssignReleasableTreeGroupsToHulls( std::vector<TH
 
         SceneObjectGroupMetadata group;
         group.kind = SceneObjectGroupKind::ReleasableTree;
-        group.rootObjectIndex = i;
+        group.rootObjectId = hull.sceneObjectId;
         group.partIndex = 0;
+        strncpy_s( group.rootObjectName, hull.name, _TRUNCATE );
 
         for ( int previousIndex = 0; previousIndex < i; ++previousIndex )
         {
@@ -369,12 +370,54 @@ template <typename THull> void AssignReleasableTreeGroupsToHulls( std::vector<TH
                 continue;
             }
 
-            group.rootObjectIndex =
-                previous.group.rootObjectIndex >= 0 ? previous.group.rootObjectIndex : previousIndex;
+            group.rootObjectId =
+                previous.group.rootObjectId.IsValid() ? previous.group.rootObjectId : previous.sceneObjectId;
+            strncpy_s( group.rootObjectName,
+                       previous.group.rootObjectName[0] != '\0' ? previous.group.rootObjectName : previous.name,
+                       _TRUNCATE );
             group.partIndex = (std::max)( group.partIndex, previous.group.partIndex + 1 );
         }
 
         hull.group = group;
+    }
+}
+
+
+template <typename THull> void ValidateReleasableTreeGroups( const std::vector<THull>& hulls, const std::string& path )
+{
+    for ( const THull& hull : hulls )
+    {
+        if ( hull.group.kind == SceneObjectGroupKind::None )
+        {
+            continue;
+        }
+        if ( !hull.group.rootObjectId.IsValid() )
+        {
+            Fail( path,
+                  std::string( "objectGroup root '" ) + hull.group.rootObjectName + "' for '" + hull.name +
+                      "' does not name an object in the same hull section" );
+            return;
+        }
+
+        const THull* root = nullptr;
+        for ( const THull& candidate : hulls )
+        {
+            if ( candidate.sceneObjectId.value == hull.group.rootObjectId.value )
+            {
+                root = &candidate;
+                break;
+            }
+        }
+        // Lane R: a parsed scene must never publish group metadata that can
+        // only fail after earlier entities have already entered runtime stores.
+        if ( !root || root->group.kind != hull.group.kind ||
+             root->group.rootObjectId.value != root->sceneObjectId.value || root->group.partIndex != 0 )
+        {
+            Fail( path,
+                  std::string( "objectGroup root '" ) + hull.group.rootObjectName + "' for '" + hull.name +
+                      "' is not a compatible part-zero group root" );
+            return;
+        }
     }
 }
 
@@ -692,9 +735,9 @@ void ReadOptionalSceneObjectGroup( SceneObjectGroupMetadata& group,
                                    const std::string& path,
                                    const char* objectContext )
 {
-    // Concept: objectGroup JSON uses the authored root name as the stable scene
-    // reference. The parser resolves that name to a section-local index only
-    // after includes, objects, and asset instances have all expanded.
+    // Concept: objectGroup JSON uses the authored root name as its file-facing
+    // reference. After expansion, the parser resolves that name once to the
+    // root's stable scene object id; runtime grouping never stores the row.
     const Json* groupJson = FindMember( object, "objectGroup" );
     if ( !groupJson )
     {
@@ -1177,6 +1220,9 @@ class TestSceneParser
             case SceneAssetPartSource::ConvexHull:
                 part.sceneObjectId = m_scene.m_convexHulls[part.sourceIndex].sceneObjectId;
                 break;
+            case SceneAssetPartSource::ConvexHullState:
+                part.sceneObjectId = m_scene.m_convexHullStates[part.sourceIndex].sceneObjectId;
+                break;
             }
         }
         for ( SceneAssetInstanceRecord& instance : m_scene.m_assetInstances )
@@ -1186,6 +1232,11 @@ class TestSceneParser
                 instance.rootSceneObjectId = m_scene.m_assetParts[instance.firstPart].sceneObjectId;
             }
         }
+        // Version-1 compatibility grouping runs once before legacy ids exist so
+        // it can preserve authored ordering. Resolve the retained root names to
+        // stable ids after the upgrade pass assigns every hull identity.
+        AssignReleasableTreeGroupsToHulls( m_scene.m_convexHulls );
+        AssignReleasableTreeGroupsToHulls( m_scene.m_convexHullStates );
     }
 
     const Json* ReadAssetPartIdentity( const Json& instance,
@@ -3809,6 +3860,11 @@ class TestSceneParser
                    _TRUNCATE );
         SetObjectMaterialBaseColor( material, tintR, tintG, tintB );
 
+        if ( const Json* alpha = FindMember( materialJson, "alpha" ) )
+        {
+            material.material.baseColor[3] = ReadUnitFloat( *alpha, path, "objectMaterial.alpha" );
+        }
+
         if ( const Json* roughness = FindMember( materialJson, "roughness" ) )
         {
             material.material.roughness = ReadUnitFloat( *roughness, path, "objectMaterial.roughness" );
@@ -3862,6 +3918,7 @@ class TestSceneParser
             "tint",
             "color",
             "colour",
+            "alpha",
             "roughness",
             "metallic",
             "specular",
@@ -4228,6 +4285,13 @@ class TestSceneParser
             if ( !ParserFailed() )
             {
                 UpgradeVersion1SceneObjectIds( path ? path : "" );
+            }
+            if ( !ParserFailed() )
+            {
+                // Invariant: explicit and legacy group names are resolved only
+                // after includes and version-1 ids have reached their final form.
+                ValidateReleasableTreeGroups( m_scene.m_convexHulls, path ? path : "" );
+                ValidateReleasableTreeGroups( m_scene.m_convexHullStates, path ? path : "" );
             }
             if ( !ParserFailed() && !styleOnly && m_scene.m_cameras.empty() )
             {

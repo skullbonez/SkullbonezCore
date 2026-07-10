@@ -15,8 +15,8 @@ Glossary:
     terrain point.
   Asset primitive: Single spawned collision body inside a placeable asset
     container, such as a box, sphere, or convex hull.
-  Scene-object group: Collection sidecar metadata that keeps multi-part editor
-    prefabs, such as releasable trees, tied to one root model slot.
+  Scene-object group: Scene-owned behavior metadata that keeps multi-part editor
+    prefabs, such as releasable trees, tied to one stable root object id.
 
 Invariants:
   - Preflight and commit must use matching geometry decisions.
@@ -217,20 +217,20 @@ bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
                          PhysicsBodyCreateDesc bodyDesc,
                          PhysicsColliderCreateDesc colliderDesc,
                          bool modelFixed,
-                         bool modelStartsAsleep = false,
-                         GameObjects::SceneObjectGroupCreateDesc groupDesc = {} ) -> bool
+                         bool modelStartsAsleep = false ) -> bool
     {
         // Lifetime: the transaction publishes the new scene, physics, and
         // render rows together before the returned handle becomes observable.
         // Physics sleep state must be seeded immediately, while the returned
         // placement result reports only the before/after count.
         bodyDesc.motionKind = modelFixed ? PhysicsBodyMotionKind::Fixed : PhysicsBodyMotionKind::Dynamic;
-        model.sceneObjectId = context.scene.AllocateSceneObjectId();
+        if ( !model.sceneObjectId.IsValid() )
+        {
+            model.sceneObjectId = context.scene.AllocateSceneObjectId();
+        }
         const int index = context.models.SceneEntityCount();
-        const auto appendResult = context.models.TryCreateSceneEntity( std::move( model ),
-                                                                       std::move( bodyDesc ),
-                                                                       std::move( colliderDesc ),
-                                                                       groupDesc );
+        const auto appendResult =
+            context.models.TryCreateSceneEntity( std::move( model ), std::move( bodyDesc ), std::move( colliderDesc ) );
         if ( !appendResult.status.ok )
         {
             appendFailed = true;
@@ -376,7 +376,7 @@ bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
 
     auto addTree = [&]( const EditorTreeDefinition& treeDefinition )
     {
-        const int treeRootModelIndex = context.models.SceneEntityCount();
+        PhysicsSceneObjectId treeRootObjectId;
         for ( int partIndex = 0; partIndex < treeDefinition.partCount; ++partIndex )
         {
             const EditorTreePartDefinition& part = treeDefinition.parts[partIndex];
@@ -410,14 +410,16 @@ bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
             char name[64];
             sprintf_s( name, sizeof( name ), "%s_%s_%03d_%s", modePrefix, treeDefinition.label, serial, part.suffix );
             model.SetName( name );
+            model.sceneObjectId = context.scene.AllocateSceneObjectId();
+            if ( partIndex == 0 )
+            {
+                treeRootObjectId = model.sceneObjectId;
+            }
             const bool partFixed = treeDefinition.forceFixed || part.startsFixed || placementFixed;
             // Invariant: editor tree grouping is prefab metadata known before
             // append. Pass it directly instead of making the collection recover
             // group identity from display-name suffixes.
-            GameObjects::SceneObjectGroupCreateDesc groupDesc;
-            groupDesc.kind = GameObjects::GameModelCollectionKind::ReleasableTree;
-            groupDesc.rootModelIndex = treeRootModelIndex;
-            groupDesc.partIndex = partIndex;
+            model.SetBehaviorGroup( SceneBehaviorGroupKind::ReleasableTree, treeRootObjectId, partIndex );
             PhysicsBodyCreateDesc bodyDesc = MakeEditorBodyDesc( hull,
                                                                  center,
                                                                  placementOrientation,
@@ -433,8 +435,7 @@ bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
                             std::move( bodyDesc ),
                             MakeEditorColliderDesc( hull, part.restitution ),
                             partFixed,
-                            treeDefinition.seedAsleep && !partFixed,
-                            groupDesc ) )
+                            treeDefinition.seedAsleep && !partFixed ) )
             {
                 return;
             }

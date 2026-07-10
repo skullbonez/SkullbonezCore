@@ -26,7 +26,7 @@ Glossary:
   Topology drift: A body/collider/model count mismatch that means stores must
     import explicit construction descriptors before stepping.
   Scene-object group: Cold metadata that maps multi-part authored objects, such
-    as ragdolls or releasable trees, back to a root model slot.
+    as ragdolls or releasable trees, to a stable root scene object id.
   Collider descriptor: Value packet containing shape/material facts that
     PhysicsScene turns into a live ColliderStore row.
   Fixed-tree release: Authored scene rule that lets tree parts become dynamic
@@ -39,9 +39,8 @@ Glossary:
 Invariants:
   - The bound SceneEntityStore is the stable scene-order owner; the collection
     borrows it and must keep every same-row store count aligned.
-  - SceneObjectGroupStore is a same-length scene metadata store keyed by
-    scene entity slot. GameModel does not own runtime grouping fields;
-    PhysicsScene owns body descriptor rows for topology repair.
+  - SceneEntityStore owns behavior grouping beside stable identity. The
+    collection resolves root ids to dense physics rows only at physics boundaries.
   - Replay identity lives in PhysicsBodyStore rows after creation. Collection
     code receives scene-owned ids at creation and does not allocate them.
   - Collider shape/material data is imported into ColliderStore at create,
@@ -121,30 +120,6 @@ namespace GameObjects
 {
 class GameModelRenderer;
 
-enum class GameModelCollectionKind : uint8_t
-{
-    None = 0,
-    SimpleRagdoll,
-    ReleasableTree
-};
-
-// Creation-only metadata for multi-part authored objects. Callers that already
-// know root/part order pass it once; the collection copies it into the dense
-// sidecar instead of deriving grouping from display names.
-struct SceneObjectGroupCreateDesc
-{
-    GameModelCollectionKind kind = GameModelCollectionKind::None;
-    int rootModelIndex = -1;
-    int partIndex = -1;
-};
-
-struct SceneObjectGroupRecord
-{
-    GameModelCollectionKind kind = GameModelCollectionKind::None;
-    int rootModelIndex = -1;
-    int partIndex = -1;
-};
-
 // Value packet for cold editor/replay body edits. Set only the fields changed by
 // the command; unchanged fields are copied from the current PhysicsBodyStore row.
 struct PhysicsBodyStateEdit
@@ -199,28 +174,7 @@ class GameModelCollection
         std::vector<GameModel> m_records;
     };
 
-    // Scene-object groups are cold scene identity metadata, not per-frame model
-    // data. Keep their dense storage behind query methods so editor/replay code
-    // can ask by scene slot without reopening GameModel fields.
-    class SceneObjectGroupStore
-    {
-      public:
-        void Reserve( std::size_t capacity );
-        void Clear();
-        void Append( SceneObjectGroupRecord record );
-        bool TrimToCount( int count );
-        int Count() const;
-        std::size_t Capacity() const;
-        uint64_t CapacityBytes() const;
-        SceneObjectGroupRecord RecordAt( int modelIndex ) const;
-        const std::vector<SceneObjectGroupRecord>& Records() const;
-
-      private:
-        std::vector<SceneObjectGroupRecord> m_records;
-    };
-
     PresentationStore m_presentations;
-    SceneObjectGroupStore m_sceneObjectGroupStore;
     Basics::SceneEntityStore* m_sceneEntityStore = nullptr;      // Borrowed scene-lifetime metadata owner.
     Physics::PhysicsEngine m_physicsEngine;
     Rendering::RenderInstanceStore m_renderInstanceStore;        // Render snapshot in scene/model order, owned outside physics.
@@ -229,12 +183,10 @@ class GameModelCollection
     bool m_renderCollisionVolumes = false;                       // Cached render debug toggle copied from EngineConfig.
     bool m_shadowParallelPrep = false;                           // Cached worker-prep toggle copied from EngineConfig.
     void ReserveForActiveGameModelCapacity();
-    Basics::SbResult BuildSceneObjectGroupForAppend( int newModelIndex,
-                                                     SceneObjectGroupCreateDesc groupDesc,
-                                                     SceneObjectGroupRecord& outGroup );
-    SceneObjectGroupRecord GroupRecordAt( int modelIndex ) const;
-    // Owner boundary: fixed-tree grouping is collection metadata. Body-store
-    // import receives only the scalar root, never collection-kind accessors.
+    const Basics::SceneBehaviorGroup& BehaviorGroupAt( int modelIndex ) const;
+    int ResolveBehaviorGroupRootModelIndex( const Basics::SceneBehaviorGroup& group ) const;
+    // Owner boundary: SceneEntityStore owns fixed-tree grouping. Body-store
+    // import receives only derived row hints, never scene metadata accessors.
     std::vector<Physics::ModelRowHint> BuildFixedTreeReleaseRootsForReload() const;
     std::vector<const char*> BuildDiagnosticNamesForReload() const;
     bool RefreshPhysicsBodyStoreFromAuthoredDescriptors();
@@ -263,8 +215,7 @@ class GameModelCollection
     // a mismatched owner count is a fatal topology invariant.
     SceneEntityCreateResult TryCreateSceneEntity( Basics::SceneEntityCreateDesc entity,
                                                   Physics::PhysicsBodyCreateDesc bodyDesc,
-                                                  Physics::PhysicsColliderCreateDesc colliderDesc,
-                                                  SceneObjectGroupCreateDesc groupDesc = {} );
+                                                  Physics::PhysicsColliderCreateDesc colliderDesc );
     void Clear();
     int CopyDxrModelMatrices( float* outMatrixFloats, int maxModelCount );
     void RenderModels( const Basics::RenderHelperContext& helperContext,
@@ -304,14 +255,11 @@ class GameModelCollection
     // Lifetime: returned model pointers are stable only until collection
     // mutation. Null means the caller held a stale model index.
     const GameModel* TryGetModel( int index ) const;
-    // Scene-object grouping belongs to the collection because model order is the
-    // scene key shared by editor, replay, snapshots, and physics import.
-    GameModelCollectionKind GroupKindAt( int modelIndex ) const;
-    int GroupRootModelIndexAt( int modelIndex ) const;
+    // These compatibility queries read SceneEntityStore-owned stable behavior
+    // groups; callers receive a row only when their operation requires one.
+    Basics::SceneBehaviorGroupKind GroupKindAt( int modelIndex ) const;
+    Physics::PhysicsSceneObjectId GroupRootObjectIdAt( int modelIndex ) const;
     int GroupPartIndexAt( int modelIndex ) const;
-    // Lifetime: the save boundary may borrow this dense view only until the
-    // next collection mutation. C5 replaces row roots with stable object ids.
-    const std::vector<SceneObjectGroupRecord>& SceneObjectGroups() const;
     bool IsSimpleRagdollPart( int modelIndex ) const;
     bool IsSimpleRagdollTorso( int modelIndex ) const;
     int RagdollRootModelIndexForPart( int modelIndex ) const;

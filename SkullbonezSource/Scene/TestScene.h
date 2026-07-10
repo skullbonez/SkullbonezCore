@@ -135,7 +135,7 @@ struct SceneObjectGroupMetadata
 {
     SceneObjectGroupKind kind = SceneObjectGroupKind::None;
     char rootObjectName[64] = {};                             // Authored root name, resolved after scene expansion.
-    int rootObjectIndex = -1;                                 // Index in the owning parsed object section.
+    Physics::PhysicsSceneObjectId rootObjectId;               // Stable identity resolved from the authored root name.
     int partIndex = -1;                                       // Deterministic part order inside the group.
 };
 

@@ -433,13 +433,10 @@ SbResult SaveCurrentEditableSceneSnapshot( const std::string& scenePath,
 {
     // Lifetime: editable persistence borrows the active scene's owner arrays
     // only for the synchronous write; scene reload may replace them afterward.
-    const auto& groups = modelCollection.SceneObjectGroups();
     const auto& joints = modelCollection.GetPointJointConstraints();
     const SceneSaveView saveView{ entities,
                                   modelCollection.BodyStore(),
                                   modelCollection.Colliders(),
-                                  groups.data(),
-                                  static_cast<int>( groups.size() ),
                                   joints.data(),
                                   static_cast<int>( joints.size() ),
                                   world.GetGravity(),

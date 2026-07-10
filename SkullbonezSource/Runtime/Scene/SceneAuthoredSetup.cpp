@@ -220,10 +220,7 @@ SbResult AppendAuthoredSimpleRagdoll( SceneSimpleRagdollAppendContext context, c
         Physics::PhysicsSceneObjectId partSceneObjectId;
         partSceneObjectId.value = options.firstSceneObjectId.value + static_cast<uint32_t>( i );
         model.sceneObjectId = partSceneObjectId;
-        GameObjects::SceneObjectGroupCreateDesc groupDesc;
-        groupDesc.kind = GameObjects::GameModelCollectionKind::SimpleRagdoll;
-        groupDesc.rootModelIndex = firstBody;
-        groupDesc.partIndex = i;
+        model.SetBehaviorGroup( SceneBehaviorGroupKind::SimpleRagdoll, options.firstSceneObjectId, i );
 
         // Invariant: ragdoll grouping is prefab metadata. Pass root/part facts
         // directly so the creation transaction never parses display names to recover it.
@@ -241,8 +238,7 @@ SbResult AppendAuthoredSimpleRagdoll( SceneSimpleRagdollAppendContext context, c
                                                                     options.fixed,
                                                                     context.terrain,
                                                                     name ),
-                                                 MakeSceneColliderDesc( shape, parts[i].restitution, "default" ),
-                                                 groupDesc );
+                                                 MakeSceneColliderDesc( shape, parts[i].restitution, "default" ) );
         if ( !appendResult.status.ok )
         {
             return appendResult.status;
@@ -280,29 +276,24 @@ SbResult AppendAuthoredSimpleRagdoll( SceneSimpleRagdollAppendContext context, c
     return SbResult::Success();
 }
 
-SbResult MakeSceneObjectGroupCreateDesc( const SceneObjectGroupMetadata& group,
-                                         int sectionModelIndexBase,
-                                         GameObjects::SceneObjectGroupCreateDesc& outDesc )
+SbResult ApplySceneBehaviorGroup( const SceneObjectGroupMetadata& group, SceneEntityCreateDesc& entity )
 {
-    outDesc = {};
     if ( group.kind == SceneObjectGroupKind::None )
     {
         return SbResult::Success();
     }
-    if ( group.kind != SceneObjectGroupKind::ReleasableTree || group.rootObjectIndex < 0 || group.partIndex < 0 )
+    if ( group.kind != SceneObjectGroupKind::ReleasableTree || !group.rootObjectId.IsValid() || group.partIndex < 0 )
     {
         // Lane R: authored scene metadata can become invalid when an include or
         // editor save names a group root that cannot be resolved for this hull section.
         return SbResult::Failure( "Runtime/SceneAuthoredSetup",
-                                  "Invalid authored scene object group metadata: kind=%u root=%d part=%d.",
+                                  "Invalid authored scene object group metadata: kind=%u root_id=%u part=%d.",
                                   static_cast<unsigned int>( group.kind ),
-                                  group.rootObjectIndex,
+                                  group.rootObjectId.value,
                                   group.partIndex );
     }
 
-    outDesc.kind = GameObjects::GameModelCollectionKind::ReleasableTree;
-    outDesc.rootModelIndex = sectionModelIndexBase + group.rootObjectIndex;
-    outDesc.partIndex = group.partIndex;
+    entity.SetBehaviorGroup( SceneBehaviorGroupKind::ReleasableTree, group.rootObjectId, group.partIndex );
     return SbResult::Success();
 }
 
@@ -493,9 +484,6 @@ SbResult SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context,
                                     scene.GetConvexHullStateCount() +
                                     scene.GetRagdollCount() * Ragdoll::SIMPLE_PART_COUNT;
     context.physics.ClearPointJointConstraints();
-    const int convexHullModelBase =
-        scene.GetBallCount() + scene.GetBallStateCount() + scene.GetBoxCount() + scene.GetBoxStateCount();
-    const int convexHullStateModelBase = convexHullModelBase + scene.GetConvexHullCount();
     for ( int i = 0; i < scene.GetBallCount(); ++i )
     {
         const SceneBall& ball = scene.GetBall( i );
@@ -693,11 +681,9 @@ SbResult SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context,
         const RotationMatrix hullOrientation = hullQuaternion.GetOrientationMatrix();
         const Vector3 bodyPosition = authoredPosition + hullOrientation * hull.GetAuthoredCenterOfMass();
 
-        // Invariant: parsed scene object grouping is converted once at the
-        // authored construction edge. Collection append only copies the
-        // descriptor into its dense sidecar.
-        GameObjects::SceneObjectGroupCreateDesc groupDesc;
-        const SbResult groupResult = MakeSceneObjectGroupCreateDesc( hullScene.group, convexHullModelBase, groupDesc );
+        // Invariant: parsed scene grouping crosses the construction edge as a
+        // stable root id and stays separate from asset affiliation.
+        const SbResult groupResult = ApplySceneBehaviorGroup( hullScene.group, gameModel );
         if ( !groupResult.ok )
         {
             return groupResult;
@@ -724,8 +710,7 @@ SbResult SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context,
         const auto appendResult = context.models.TryCreateSceneEntity(
             std::move( gameModel ),
             bodyDesc,
-            MakeSceneHullColliderDesc( hull, hullScene.restitution, hullScene.contactMaterial ),
-            groupDesc );
+            MakeSceneHullColliderDesc( hull, hullScene.restitution, hullScene.contactMaterial ) );
         if ( !appendResult.status.ok )
         {
             return appendResult.status;
@@ -754,9 +739,7 @@ SbResult SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context,
 
         gameModel.SetName( hullScene.name );
         ApplyAssetAffiliation( gameModel, scene, SceneAssetPartSource::ConvexHullState, static_cast<uint32_t>( i ) );
-        GameObjects::SceneObjectGroupCreateDesc groupDesc;
-        const SbResult groupResult =
-            MakeSceneObjectGroupCreateDesc( hullScene.group, convexHullStateModelBase, groupDesc );
+        const SbResult groupResult = ApplySceneBehaviorGroup( hullScene.group, gameModel );
         if ( !groupResult.ok )
         {
             return groupResult;
@@ -781,8 +764,7 @@ SbResult SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context,
         const auto appendResult = context.models.TryCreateSceneEntity(
             std::move( gameModel ),
             bodyDesc,
-            MakeSceneHullColliderDesc( hull, hullScene.restitution, hullScene.contactMaterial ),
-            groupDesc );
+            MakeSceneHullColliderDesc( hull, hullScene.restitution, hullScene.contactMaterial ) );
         if ( !appendResult.status.ok )
         {
             return appendResult.status;

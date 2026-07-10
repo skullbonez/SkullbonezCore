@@ -4,9 +4,9 @@ Purpose:
   Serializes the current scene state back into a scene JSON file.
 
 Mental model:
-  Callers assemble a non-owning view from the scene, physics, grouping, joint,
-  and world owners. The writer resolves every row by stable identity and emits
-  either a direct state object or an asset-instance part state.
+  Callers assemble a non-owning view from the scene (including behavior
+  grouping), physics, joint, and world owners. The writer resolves every row by
+  stable identity and emits either a direct state object or an asset part state.
 
 Glossary:
   Snapshot: Saved live body/collider/material state, not the original spawn command.
@@ -48,8 +48,6 @@ struct PointJointConstraint;
 
 namespace GameObjects
 {
-struct SceneObjectGroupRecord;
-
 struct SceneSaveView
 {
     // Lifetime: every member is borrowed for one synchronous Save call. The
@@ -57,8 +55,6 @@ struct SceneSaveView
     const Basics::SceneEntityStore& entities;
     const Physics::PhysicsBodyStore& bodies;
     const Physics::ColliderStore& colliders;
-    const SceneObjectGroupRecord* behaviorGroups = nullptr;
-    int behaviorGroupCount = 0;
     const Physics::PointJointConstraint* pointJoints = nullptr;
     int pointJointCount = 0;
     float gravity = 0.0f;

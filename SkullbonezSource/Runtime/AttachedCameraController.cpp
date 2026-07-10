@@ -376,10 +376,12 @@ bool AttachedCameraController::TryResolveRagdollHead( const GameModelCollection&
         return true;
     }
 
-    const int rootModelIndex = collection.GroupRootModelIndexAt( selectedModelIndex );
+    // Why: the suffix fallback still serves old ragdoll display names, but its
+    // membership boundary is the stable group root rather than a cached row.
+    const PhysicsSceneObjectId rootObjectId = collection.GroupRootObjectIdAt( selectedModelIndex );
     for ( int i = 0; i < modelCount; ++i )
     {
-        if ( collection.IsSimpleRagdollPart( i ) && collection.GroupRootModelIndexAt( i ) == rootModelIndex &&
+        if ( collection.IsSimpleRagdollPart( i ) && collection.GroupRootObjectIdAt( i ).value == rootObjectId.value &&
              EndsWith( PresentationNameForModelIndex( collection, i ), "_head" ) )
         {
             outHeadModelIndex = i;

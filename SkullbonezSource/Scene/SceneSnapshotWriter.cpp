@@ -41,8 +41,8 @@ Related:
 #include "../Physics/ColliderStore.h"
 #include "../Physics/ConvexHullShape.h"
 #include "../Physics/PhysicsBodyStore.h"
+#include "../Physics/Ragdoll.h"
 #include "../Runtime/Editor/EditorHullAssets.h"
-#include "../GameObjects/GameModelCollection.h"
 #include "../Rendering/RenderMaterial.h"
 #include "../Runtime/RuntimeFileWriter.h"
 
@@ -66,6 +66,8 @@ using SkullbonezCore::Assets::EditorHullAssetToken;
 using SkullbonezCore::Basics::RuntimeFileWriter;
 using SkullbonezCore::Basics::SbResult;
 using SkullbonezCore::Basics::SceneAssetAffiliation;
+using SkullbonezCore::Basics::SceneBehaviorGroup;
+using SkullbonezCore::Basics::SceneBehaviorGroupKind;
 using SkullbonezCore::Basics::SceneEntityRecord;
 using SkullbonezCore::Basics::SceneEntityStore;
 using SkullbonezCore::Math::CollisionDetection::BoundingBox;
@@ -114,6 +116,7 @@ bool ShouldSaveRenderMaterial( const SkullbonezCore::Rendering::RenderMaterial& 
            SceneMaterialFloatDiffers( material.baseColor[0], defaults.baseColor[0] ) ||
            SceneMaterialFloatDiffers( material.baseColor[1], defaults.baseColor[1] ) ||
            SceneMaterialFloatDiffers( material.baseColor[2], defaults.baseColor[2] ) ||
+           SceneMaterialFloatDiffers( material.baseColor[3], defaults.baseColor[3] ) ||
            SceneMaterialFloatDiffers( material.roughness, defaults.roughness ) ||
            SceneMaterialFloatDiffers( material.metallic, defaults.metallic ) ||
            SceneMaterialFloatDiffers( material.specular, defaults.specular ) ||
@@ -130,7 +133,11 @@ Json RenderMaterialJson( const char* target, const SkullbonezCore::Rendering::Re
 {
     Json materialJson = {
         { "target", target ? target : "" },
+        // Empty is meaningful: omitting the field lets the parser replace it
+        // with the material-kind spelling and mutates the live material.
+        { "name", material.name },
         { "color", Vec3Json( material.baseColor[0], material.baseColor[1], material.baseColor[2] ) },
+        { "alpha", material.baseColor[3] },
         { "roughness", material.roughness },
         { "metallic", material.metallic },
         { "specular", material.specular },
@@ -145,10 +152,6 @@ Json RenderMaterialJson( const char* target, const SkullbonezCore::Rendering::Re
     {
         materialJson["mode"] = SkullbonezCore::Rendering::RenderMaterialKindName( material.kind );
     }
-    if ( material.name[0] != '\0' )
-    {
-        materialJson["name"] = material.name;
-    }
     if ( material.kind == SkullbonezCore::Rendering::RenderMaterialKind::Emissive || material.emissiveStrength > 0.0f )
     {
         materialJson["emissive"] =
@@ -162,39 +165,31 @@ Json RenderMaterialJson( const char* target, const SkullbonezCore::Rendering::Re
     return materialJson;
 }
 
-const SceneObjectGroupRecord& BehaviorGroupAt( const SceneSaveView& scene, int entityIndex )
+const SceneBehaviorGroup& BehaviorGroupAt( const SceneSaveView& scene, int entityIndex )
 {
-    if ( !scene.behaviorGroups || scene.behaviorGroupCount != scene.entities.Count() || entityIndex < 0 ||
-         entityIndex >= scene.behaviorGroupCount )
-    {
-        SB_FATAL( "Scene/SceneSnapshotWriter",
-                  "Behavior-group topology does not match scene entities. entities=%d groups=%d row=%d",
-                  scene.entities.Count(),
-                  scene.behaviorGroupCount,
-                  entityIndex );
-    }
-    return scene.behaviorGroups[entityIndex];
+    return scene.entities.At( entityIndex ).behaviorGroup;
 }
 
 void AddSceneObjectGroupJson( Json& object, const SceneSaveView& scene, int entityIndex )
 {
-    const SceneObjectGroupRecord& group = BehaviorGroupAt( scene, entityIndex );
-    if ( group.kind != GameModelCollectionKind::ReleasableTree )
+    const SceneBehaviorGroup& group = BehaviorGroupAt( scene, entityIndex );
+    if ( group.kind != SceneBehaviorGroupKind::ReleasableTree )
     {
         return;
     }
-    if ( group.rootModelIndex < 0 || group.rootModelIndex >= scene.entities.Count() || group.partIndex < 0 )
+    const int rootIndex = scene.entities.FindBySceneObjectId( group.rootObjectId );
+    if ( rootIndex < 0 || group.partIndex < 0 )
     {
         SB_FATAL( "Scene/SceneSnapshotWriter",
-                  "Invalid releasable-tree group at save. row=%d root=%d part=%d",
+                  "Invalid releasable-tree group at save. row=%d root_id=%u part=%d",
                   entityIndex,
-                  group.rootModelIndex,
+                  group.rootObjectId.value,
                   group.partIndex );
     }
 
     object["objectGroup"] = {
         { "kind", "releasableTree" },
-        { "root", scene.entities.At( group.rootModelIndex ).displayName },
+        { "root", scene.entities.At( rootIndex ).displayName },
         { "part", group.partIndex },
     };
 }
@@ -368,7 +363,7 @@ SbResult SceneSnapshotWriter::Save( const SceneSaveView& sceneView, const SceneS
                       entity.sceneObjectId.value );
         }
         (void)ResolveLiveSceneRow( sceneView, i );
-        const SceneObjectGroupRecord& behaviorGroup = BehaviorGroupAt( sceneView, i );
+        const SceneBehaviorGroup& behaviorGroup = BehaviorGroupAt( sceneView, i );
 
         if ( entity.asset.isAssetBacked && entity.asset.partIndex == 0 )
         {
@@ -459,7 +454,7 @@ SbResult SceneSnapshotWriter::Save( const SceneSaveView& sceneView, const SceneS
         }
 
         const auto& material = entity.renderMaterial;
-        if ( behaviorGroup.kind != GameModelCollectionKind::SimpleRagdoll &&
+        if ( behaviorGroup.kind != SceneBehaviorGroupKind::SimpleRagdoll &&
              ( entity.asset.isAssetBacked || ShouldSaveRenderMaterial( material ) ) )
         {
             objectMaterials.push_back( RenderMaterialJson( entity.displayName, material ) );
