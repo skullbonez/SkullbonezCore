@@ -10,9 +10,9 @@ reports, and git history.
 | Field | Value |
 |---|---|
 | Branch | `engine-cleanup-10th-july`, tracking `origin/engine-cleanup-10th-july` |
-| Pushed baseline before the current scene commit | `2592c0ac fix: make DX12 command failures fail closed` |
-| Current objective | Finish and commit the `ApplicationExitState`/`InputRouter` foundation, then wire exit ownership |
-| Last broad local gate | `tools\validate_full.bat` passed final C1a source through the CPU umbrella, DX12 lane with zero InfoQueue errors and matching screenshots, and byte-exact physics regression |
+| Pushed baseline before the foundation commit | `acdc994c feat: preserve scene asset provenance` |
+| Current objective | Wire `ApplicationExitState` through the process/frame loop and fix lost nonzero `WM_QUIT` plus first-failure propagation |
+| Last broad local gate | `tools\validate_full.bat` passed the runtime foundation through the CPU umbrella, DX12 lane with zero InfoQueue errors and matching screenshots, and byte-exact physics regression |
 | Native evidence | Injected heap-use-after-free caught; healthy ASan and five-file `/analyze` passed in 16.185s |
 
 ## Pushed Cleanup Commits
@@ -28,18 +28,15 @@ reports, and git history.
 - `1e7846d5 ci: add honest CPU and native validation lanes`
 - `4a326189 docs: refresh the engine cleanup handoff`
 - `2592c0ac fix: make DX12 command failures fail closed`
+- `acdc994c feat: preserve scene asset provenance`
 
-## Uncommitted Wave — Preserve All Files
+## Current Queue
 
-All current dirty files belong to this cleanup session. Do not discard or reset
-them.
-
-1. **First `Run` extraction cores.** Allocation-free `InputRouter` and
-   `ApplicationExitState`, with CPU tests, are now registered in production and
-   test projects. They compile and their tests pass through `validate_fast`, but
-   they are not wired into `Run`; no extraction deletion proof is complete.
-2. **Project-filter metadata.** `validate_project_filters.py` recognizes the two
-   new runtime owners and currently passes. Commit it with the `Run` core slice.
+The allocation-free `InputRouter` and `ApplicationExitState` foundation is now
+registered in production/tests and validated. Neither owner is wired into
+`Run` yet, so no runtime-shell deletion proof is complete. The next slice starts
+with application-exit ownership, then routes keyboard actions and deletes the
+first input callback/context pack.
 
 DX12 D1-D3 is complete: `SbResult` is non-discardable, command recording and
 submitted-work state fail closed, every D3 timestamp/map/present/resize/wait

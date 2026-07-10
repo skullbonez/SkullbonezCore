@@ -206,6 +206,7 @@ WORLD_PREFIXES = (
 )
 
 RUNTIME_PREFIXES = (
+    "ApplicationExitState",
     "AttachedCameraController",
     "Camera",
     "CameraCollection",
@@ -217,6 +218,7 @@ RUNTIME_PREFIXES = (
     "Init",
     "Input",
     "InputController",
+    "InputRouter",
     "LiveStyleController",
     "Run",
     "RunCapture",

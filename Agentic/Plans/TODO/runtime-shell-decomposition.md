@@ -68,6 +68,20 @@ deleted and the named behavioral evidence passes.
 4. Move replay workspace behavior with the replay and UI plans.
 5. Finish render composition after overlay producers no longer call `Run`.
 
+### Landed Foundation (not checklist completion)
+
+The 2026-07-10 foundation commit adds allocation-free `InputRouter` and
+`ApplicationExitState` owners plus direct CPU coverage for key ordering,
+press/hold/release, inactive contexts, focus cancellation/resynchronization,
+bounded diagnostics, nonzero platform exit codes, and first-failure
+precedence. `tools\validate_fast.bat`, the project-filter validator, and
+`tools\validate_full.bat` passed from that source with zero warnings, zero DX12
+validation errors, matching screenshots, and byte-exact physics output.
+
+No B1/B2 checkbox is closed by the foundation alone. B1a-B1c and B2a require
+production capture/wiring, old callback/state deletion, and their named
+behavioral evidence before their deletion proofs are true.
+
 ## Remaining Work
 
 ### A. Narrow the render host
