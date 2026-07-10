@@ -154,6 +154,102 @@ TEST_CASE( "Input router: inactive context advances memory and prevents ghost pr
 }
 
 
+TEST_CASE( "Input router: UI refusal requires release and repress" )
+{
+    const RuntimeInputKeyBinding bindings[] = {
+        { VK_ESCAPE,
+          RuntimeInputAction::DismissOrExitUI,
+          Context( RuntimeInputBindingContext::AfterUIUpdate ) | RuntimeInputBindingContext::UINotInteracted },
+    };
+    const RuntimeInputKeyBindingView view = BindingView( bindings );
+    const RuntimeInputContextMask accepted = Context( RuntimeInputBindingContext::UINotInteracted );
+    InputRouter router;
+    InputActions output;
+
+    router.BeginFrame( FocusedFrame( { VK_ESCAPE } ), view, output );
+    router.RoutePhase( view, InputActionPhase::AfterUi, 0u, output );
+    CHECK( output.Empty() );
+
+    router.BeginFrame( FocusedFrame( { VK_ESCAPE } ), view, output );
+    router.RoutePhase( view, InputActionPhase::AfterUi, accepted, output );
+    CHECK( output.Empty() );
+
+    router.BeginFrame( FocusedFrame( {} ), view, output );
+    router.RoutePhase( view, InputActionPhase::AfterUi, accepted, output );
+    CHECK( output.Empty() );
+
+    router.BeginFrame( FocusedFrame( { VK_ESCAPE } ), view, output );
+    router.RoutePhase( view, InputActionPhase::AfterUi, accepted, output );
+    REQUIRE( output.Count() == 1 );
+    CHECK( output[0].action == RuntimeInputAction::DismissOrExitUI );
+    CHECK( output[0].edge == InputActionEdge::Pressed );
+}
+
+
+TEST_CASE( "Input router: simultaneous actions cannot activate a sibling context mid-phase" )
+{
+    const RuntimeInputKeyBinding bindings[] = {
+        { 'N', RuntimeInputAction::ToggleLauncher, Context( RuntimeInputBindingContext::KeyboardUnblocked ) },
+        { 'M',
+          RuntimeInputAction::CycleLauncherFireMode,
+          Context( RuntimeInputBindingContext::KeyboardUnblocked ) | RuntimeInputBindingContext::Launcher },
+    };
+    const RuntimeInputKeyBindingView view = BindingView( bindings );
+    const RuntimeInputContextMask preLauncher = Context( RuntimeInputBindingContext::KeyboardUnblocked );
+    InputRouter router;
+    InputActions output;
+
+    router.BeginFrame( FocusedFrame( { 'N', 'M' } ), view, output );
+    router.RoutePhase( view, InputActionPhase::PreUi, preLauncher, output );
+
+    REQUIRE( output.Count() == 1 );
+    CHECK( output[0].action == RuntimeInputAction::ToggleLauncher );
+    CHECK( output[0].edge == InputActionEdge::Pressed );
+}
+
+
+TEST_CASE( "Input router: quick-repeat timing is action-owned and resettable" )
+{
+    InputRouter router;
+
+    CHECK_FALSE( router.IsQuickRepeat( RuntimeInputAction::DismissOrExitUI, 10.0, 0.32 ) );
+    router.RecordTap( RuntimeInputAction::DismissOrExitUI, 10.0 );
+    CHECK( router.IsQuickRepeat( RuntimeInputAction::DismissOrExitUI, 10.31, 0.32 ) );
+    CHECK_FALSE( router.IsQuickRepeat( RuntimeInputAction::DismissOrExitUI, 10.33, 0.32 ) );
+    CHECK_FALSE( router.IsQuickRepeat( RuntimeInputAction::ToggleEditor, 10.1, 0.32 ) );
+
+    router.Reset();
+    CHECK_FALSE( router.IsQuickRepeat( RuntimeInputAction::DismissOrExitUI, 10.1, 0.32 ) );
+}
+
+
+TEST_CASE( "Input router: a skipped capture phase cannot replay a stale press" )
+{
+    const RuntimeInputKeyBinding bindings[] = {
+        { VK_F3, RuntimeInputAction::SaveScreenshot, Context( RuntimeInputBindingContext::Capture ) },
+    };
+    const RuntimeInputKeyBindingView view = BindingView( bindings );
+    InputRouter router;
+    InputActions output;
+
+    router.BeginFrame( FocusedFrame( { VK_F3 } ), view, output );
+    CHECK( output.Empty() );
+
+    router.BeginFrame( FocusedFrame( { VK_F3 } ), view, output );
+    router.RoutePhase( view, InputActionPhase::Capture, 0u, output );
+    CHECK( output.Empty() );
+
+    router.BeginFrame( FocusedFrame( {} ), view, output );
+    router.RoutePhase( view, InputActionPhase::Capture, 0u, output );
+    CHECK( output.Empty() );
+
+    router.BeginFrame( FocusedFrame( { VK_F3 } ), view, output );
+    router.RoutePhase( view, InputActionPhase::Capture, 0u, output );
+    REQUIRE( output.Count() == 1 );
+    CHECK( output[0].edge == InputActionEdge::Pressed );
+}
+
+
 TEST_CASE( "Input router: context exit releases an accepted held action" )
 {
     const RuntimeInputKeyBinding bindings[] = {

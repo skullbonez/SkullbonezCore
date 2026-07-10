@@ -1,11 +1,11 @@
 /*
 File: SkullbonezSource/Runtime/InputController.h
 Purpose:
-  Provides runtime input edge detection and camera mouse-look input policy.
+  Provides runtime input mode bookkeeping and camera mouse-look input policy.
 
 Mental model:
-  Hardware::Input reads device state. InputController turns that state into
-  stable per-frame runtime input events and camera deltas.
+  InputRouter owns semantic keyboard edges. InputController keeps the remaining
+  runtime mode history, pointer-button compatibility state, and camera deltas.
 
 Glossary:
   Input edge: Transition from not pressed to pressed, used for one-shot
@@ -14,8 +14,8 @@ Glossary:
   Runtime input event: Frame-local input state consumed by Run.
 
 Invariants:
-  - RuntimeInputAction order is shared by fixed-size arrays in
-    RuntimeInputContext and should only grow by appending before Count.
+  - RuntimeInputAction order is shared by InputRouter fixed-size arrays and
+    should only grow by appending before Count.
   - RuntimeInputModeState contains resolved per-frame mode facts; it must not own
     persistent subsystem state.
 
@@ -27,7 +27,6 @@ Related:
 
 #include "../Core/SbResult.h"
 
-#include <array>
 #include <cstddef>
 #include <cstdint>
 
@@ -38,12 +37,6 @@ namespace SkullbonezCore
 namespace Basics
 {
 struct RunCameraState;
-
-struct RuntimeKeyEdge
-{
-    bool isDown = false;
-    bool wasPressed = false;
-};
 
 enum class RuntimeInputMode
 {
@@ -252,7 +245,7 @@ struct RuntimeCameraInputFrameContext
 struct RuntimeCameraInputFrameResult
 {
     bool applyCursorOwnership = false;
-    SbResult cursorResult;                // Recoverable cursor lookup failure for Run to report at the frame boundary.
+    SbResult cursorResult; // Recoverable cursor lookup failure for Run to report at the frame boundary.
 };
 
 struct RuntimeInputTransition
@@ -266,15 +259,11 @@ struct RuntimeInputTransition
 class RuntimeInputContext
 {
   public:
-    RuntimeInputContext();
+    RuntimeInputContext() = default;
 
     void BeginFrame( bool appFocused, bool uiBlocksKeyboard, bool uiBlocksMouse );
     void ResetEdges();
-    bool CaptureActionPress( RuntimeInputAction action, int virtualKey );
-    void SetActionDown( RuntimeInputAction action, bool isDown );
     RuntimeMouseEdges CaptureMouseButtons( bool leftDown, bool rightDown );
-    bool IsEscapeQuickTap( double nowSeconds, double quickTapSeconds ) const;
-    void RecordEscapeTap( double nowSeconds );
     void SetMode( RuntimeInputMode mode, RuntimeInputAction action, RuntimeInputActionSource source );
 
     RuntimeInputMode CurrentMode() const;
@@ -287,8 +276,6 @@ class RuntimeInputContext
 
   private:
     static constexpr int TRANSITION_HISTORY_COUNT = 8;
-    static constexpr std::size_t ACTION_COUNT = static_cast<std::size_t>( RuntimeInputAction::Count );
-
     void ResetMouseButtons();
     void SyncMouseButtons( bool leftDown, bool rightDown );
 
@@ -297,10 +284,8 @@ class RuntimeInputContext
     bool m_appFocused = true;
     bool m_uiBlocksKeyboard = false;
     bool m_uiBlocksMouse = false;
-    std::array<bool, ACTION_COUNT> m_actionDown = {};
     bool m_leftMouseWasDown = false;
     bool m_rightMouseWasDown = false;
-    double m_lastEscapeTapTime = -1000.0; // Last ESC UI-dismiss tap; owned with semantic input edge memory.
     RuntimeInputTransition m_transitions[TRANSITION_HISTORY_COUNT] = {};
     int m_transitionWriteIndex = 0;
     int m_transitionCount = 0;
@@ -309,15 +294,11 @@ class RuntimeInputContext
 class InputController
 {
   public:
-    static RuntimeKeyEdge
-    CaptureKeyEdge( Hardware::InputState& state, Hardware::InputState::Key memoryKey, int virtualKey );
-    static bool CaptureKeyPress( bool& wasDown, int virtualKey );
     static void BeginFrame( RuntimeInputContext& context,
                             const RuntimeInputModeState& modeState,
                             bool appFocused,
                             bool uiBlocksKeyboard,
                             bool uiBlocksMouse );
-    static bool CaptureKeyboardActionPress( RuntimeInputContext& context, RuntimeInputAction action, int virtualKey );
     static void ApplyModeAction( RuntimeInputContext& context,
                                  RuntimeInputMode mode,
                                  RuntimeInputAction action,

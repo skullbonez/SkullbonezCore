@@ -607,7 +607,7 @@
     },
     {
       "type": "ball",
-      "name": "drop_a",
+      "name": "ball_drop_a",
       "position": [
         475,
         104,
@@ -631,7 +631,7 @@
     },
     {
       "type": "ball",
-      "name": "drop_b",
+      "name": "ball_drop_b",
       "position": [
         535,
         108,
@@ -655,7 +655,7 @@
     },
     {
       "type": "ball",
-      "name": "drop_c",
+      "name": "ball_drop_c",
       "position": [
         445,
         118,
@@ -679,7 +679,7 @@
     },
     {
       "type": "ball",
-      "name": "drop_d",
+      "name": "ball_drop_d",
       "position": [
         565,
         122,
@@ -769,7 +769,7 @@
     },
     {
       "type": "ball",
-      "name": "side_a",
+      "name": "ball_side_a",
       "position": [
         416,
         44,
@@ -793,7 +793,7 @@
     },
     {
       "type": "ball",
-      "name": "side_b",
+      "name": "ball_side_b",
       "position": [
         448,
         58,
@@ -883,7 +883,7 @@
     },
     {
       "type": "ball",
-      "name": "side_c",
+      "name": "ball_side_c",
       "position": [
         592,
         48,
@@ -907,7 +907,7 @@
     },
     {
       "type": "ball",
-      "name": "side_d",
+      "name": "ball_side_d",
       "position": [
         552,
         60,

@@ -75,7 +75,6 @@ namespace Basics
 class RunEditorTracer;
 class RuntimeInteractionController;
 class RuntimeCommandQueue;
-class RuntimeInputContext;
 struct RunEditorPlacementState;
 struct RunSceneState;
 
@@ -83,7 +82,6 @@ namespace RunInternal
 {
 struct EditorSaveHotkeyContext
 {
-    RuntimeInputContext& input;
     GameObjects::GameModelCollection& models;
     const RunSceneState& scene;
     Environment::WorldEnvironment& world;
@@ -144,11 +142,6 @@ struct EditorGizmoContext
     RunEditorPlacementState& editor;
     GameObjects::GameModelCollection& models;
     RuntimeInteractionController& interaction;
-};
-
-struct EditorKeyboardShortcutContext
-{
-    RuntimeInputContext& input;
 };
 
 struct EditorKeyboardShortcutResult
@@ -297,7 +290,6 @@ float DistanceRayToSegmentSquared( const Math::Vector::Vector3& rayOrigin,
                                    const Math::Vector::Vector3& rayDirection,
                                    const Math::Vector::Vector3& segmentA,
                                    const Math::Vector::Vector3& segmentB );
-EditorKeyboardShortcutResult HandleEditorKeyboardShortcuts( EditorKeyboardShortcutContext context );
 EditorKeyboardShortcutResult HandleEditorKeyboardShortcut( RuntimeInputAction action, bool isDown, bool wasPressed );
 EditorPlacementModeChangeResult
 SetEditorPlacementMode( EditorGizmoContext context, bool enabled, bool clearManipulation );
@@ -351,8 +343,7 @@ void UpdateEditorGizmoHotAxes( EditorGizmoContext context,
                                bool scaleMode );
 // Concept: RunInput owns keybinding data, but editor tools still own the cold
 // save and screenshot side effects behind this action boundary.
-void HandleEditorSaveHotkey( EditorSaveHotkeyContext context, RuntimeInputAction action, int virtualKey );
-void HandleEditorSaveHotkeys( EditorSaveHotkeyContext context );
+void HandleEditorSaveHotkey( EditorSaveHotkeyContext context, RuntimeInputAction action, bool wasPressed );
 } // namespace RunInternal
 } // namespace Basics
 } // namespace SkullbonezCore

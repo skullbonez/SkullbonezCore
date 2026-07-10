@@ -235,9 +235,6 @@ void ResetEditorUnfocusedInputState( EditorGizmoContext context )
     // editor choices such as object type and static/dynamic placement survive
     // so toggling focus does not rewrite the authoring mode.
     context.editor.viewportLookActive = false;
-    context.editor.altShortcutWasDown = false;
-    context.editor.tabShortcutWasDown = false;
-    context.editor.tildeShortcutWasDown = false;
     context.editor.placementScaleActive = false;
     context.editor.placementScaleWheelSteps = 0;
     CancelEditorGizmoDragState( context );
@@ -258,15 +255,6 @@ void ClearEditorManipulationState( EditorGizmoContext context )
     CancelEditorGizmoDragState( context );
     context.editor.placementAltitudeSteps = 0;
     context.editor.placementYawRadians = 0.0f;
-}
-
-
-EditorKeyboardShortcutResult HandleEditorKeyboardShortcuts( EditorKeyboardShortcutContext context )
-{
-    return HandleEditorKeyboardShortcut(
-        RuntimeInputAction::ToggleEditorTool,
-        Hardware::Input::IsKeyDown( VK_MENU ),
-        InputController::CaptureKeyboardActionPress( context.input, RuntimeInputAction::ToggleEditorTool, VK_MENU ) );
 }
 
 
@@ -424,7 +412,7 @@ EditorPlacementPostModeUICommandResult ApplyEditorPlacementPostModeUICommands( R
 }
 
 
-void HandleEditorSaveHotkey( EditorSaveHotkeyContext context, RuntimeInputAction action, int virtualKey )
+void HandleEditorSaveHotkey( EditorSaveHotkeyContext context, RuntimeInputAction action, bool wasPressed )
 {
     // Why: the binding table owns the key/action pair, while editor tools keep
     // numbered snapshot paths and screenshot commands behind the editor boundary.
@@ -432,7 +420,7 @@ void HandleEditorSaveHotkey( EditorSaveHotkeyContext context, RuntimeInputAction
     {
     case RuntimeInputAction::SaveSceneSnapshot:
     {
-        if ( !InputController::CaptureKeyboardActionPress( context.input, action, virtualKey ) )
+        if ( !wasPressed )
         {
             return;
         }
@@ -460,7 +448,7 @@ void HandleEditorSaveHotkey( EditorSaveHotkeyContext context, RuntimeInputAction
 
     case RuntimeInputAction::SaveScreenshot:
     {
-        if ( !InputController::CaptureKeyboardActionPress( context.input, action, virtualKey ) )
+        if ( !wasPressed )
         {
             return;
         }
@@ -488,11 +476,6 @@ void HandleEditorSaveHotkey( EditorSaveHotkeyContext context, RuntimeInputAction
 }
 
 
-void HandleEditorSaveHotkeys( EditorSaveHotkeyContext context )
-{
-    HandleEditorSaveHotkey( context, RuntimeInputAction::SaveSceneSnapshot, VK_F2 );
-    HandleEditorSaveHotkey( context, RuntimeInputAction::SaveScreenshot, VK_F3 );
-}
 } // namespace RunInternal
 } // namespace Basics
 } // namespace SkullbonezCore

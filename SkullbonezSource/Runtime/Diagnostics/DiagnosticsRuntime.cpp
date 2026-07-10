@@ -340,9 +340,9 @@ void StepDiagnosticsPhysicsPipelineStage( RunDebugState& debug, int direction )
 
 bool HandleDiagnosticsKeyboardShortcut( DiagnosticsKeyboardShortcutContext context,
                                         RuntimeInputAction action,
-                                        int virtualKey )
+                                        bool wasPressed )
 {
-    if ( !InputController::CaptureKeyboardActionPress( context.input, action, virtualKey ) )
+    if ( !wasPressed )
     {
         switch ( action )
         {
@@ -492,7 +492,7 @@ bool HandleDiagnosticsKeyboardShortcut( DiagnosticsKeyboardShortcutContext conte
 
 DiagnosticsUIKeyboardShortcutResult HandleDiagnosticsUIKeyboardShortcut( DiagnosticsUIKeyboardShortcutContext context,
                                                                          RuntimeInputAction action,
-                                                                         int virtualKey )
+                                                                         bool wasPressed )
 {
     DiagnosticsUIKeyboardShortcutResult result;
     switch ( action )
@@ -506,7 +506,7 @@ DiagnosticsUIKeyboardShortcutResult HandleDiagnosticsUIKeyboardShortcut( Diagnos
         return result;
     }
 
-    if ( !InputController::CaptureKeyboardActionPress( context.input, action, virtualKey ) )
+    if ( !wasPressed )
     {
         return result;
     }

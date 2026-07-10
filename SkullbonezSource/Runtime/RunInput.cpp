@@ -145,6 +145,48 @@ RuntimeInputModeState BuildRuntimeInputModeState( RunCameraMode mode,
     return state;
 }
 
+// Concept: binding predicates read one immutable pre-UI fact set. A command
+// earlier in binding order cannot silently activate a sibling command's mode
+// context during the same phase; that new context begins on the next frame.
+struct KeyboardContextFacts
+{
+    bool keyboardUnblocked = false;
+    bool scene = false;
+    bool flyCamera = false;
+    bool launcher = false;
+    bool attachedCamera = false;
+    bool director = false;
+    bool directorAuthoring = false;
+    bool replayRestoreNotConsumed = false;
+    bool uiNotInteracted = false;
+};
+
+RuntimeInputContextMask BuildKeyboardContextMask( const KeyboardContextFacts& facts )
+{
+    RuntimeInputContextMask mask = 0;
+    auto include = [&mask]( RuntimeInputBindingContext context, bool enabled )
+    {
+        if ( enabled )
+        {
+            mask |= RuntimeInputContextBit( context );
+        }
+    };
+    include( RuntimeInputBindingContext::KeyboardUnblocked, facts.keyboardUnblocked );
+    include( RuntimeInputBindingContext::Scene, facts.scene );
+    include( RuntimeInputBindingContext::GeneratedDemo, !facts.scene );
+    include( RuntimeInputBindingContext::FlyCamera, facts.flyCamera );
+    include( RuntimeInputBindingContext::Launcher, facts.launcher );
+    include( RuntimeInputBindingContext::AttachedCamera, facts.attachedCamera );
+    include( RuntimeInputBindingContext::Director, facts.director );
+    include( RuntimeInputBindingContext::DirectorAuthoring, facts.directorAuthoring );
+    include( RuntimeInputBindingContext::ReplayRestoreNotConsumed, facts.replayRestoreNotConsumed );
+    include( RuntimeInputBindingContext::UINotInteracted, facts.uiNotInteracted );
+#ifdef _DEBUG
+    include( RuntimeInputBindingContext::DebugOnly, true );
+#endif
+    return mask;
+}
+
 bool IsReplayWorldOwner( WorldInteractionOwner owner )
 {
     return owner == WorldInteractionOwner::ReplayScrub || owner == WorldInteractionOwner::ReplayVelocityEdit ||
@@ -239,19 +281,6 @@ const char* RuntimeInteractionEventName( RuntimeInteractionEventType type )
     case RuntimeInteractionEventType::None:
     default:
         return "none";
-    }
-}
-
-constexpr RuntimeInputContextMask kAfterUIUpdateContext =
-    RuntimeInputContextBit( RuntimeInputBindingContext::AfterUIUpdate );
-constexpr RuntimeInputContextMask kCaptureContext = RuntimeInputContextBit( RuntimeInputBindingContext::Capture );
-
-void AdvanceTakeInputKeyboardActionMemories( RuntimeInputContext& input )
-{
-    const RuntimeInputKeyBindingView bindings = TakeInputKeyboardBindings();
-    for ( std::size_t i = 0; i < bindings.count; ++i )
-    {
-        input.SetActionDown( bindings.bindings[i].action, Input::IsKeyDown( bindings.bindings[i].virtualKey ) );
     }
 }
 
@@ -439,345 +468,12 @@ void RecordSceneRuntimeUIActions( const SceneRuntimeUICommandResult& commands, R
     }
 }
 
-struct MappedKeyboardDispatchContext
-{
-    // Lifetime: borrowed only while the keyboard binding table is replayed for
-    // the current frame; callbacks own all transitions that must stay on Run.
-    RuntimeInputContext& runtimeInput;
-    RunCameraState& camera;
-    RuntimeTools& runtimeTools;
-    ReplayRuntime& replayRuntime;
-    RunTimerState& timers;
-    RunDebugState& debug;
-    RunLaunchOptions& launchOptions;
-    RunRuntimeSettings& runtimeSettings;
-    EngineConfig& config;
-    RunSceneState& sceneState;
-    SceneController& sceneController;
-    SceneRuntimeCoordinator& sceneCoordinator;
-    RunSubsystemState& systems;
-    CaptureController& capture;
-    SkullbonezCore::Environment::WorldEnvironment& worldEnvironment;
-    SkullbonezCore::GameObjects::GameModelCollection& gameModels;
-    RuntimeRenderBackendView& renderBackendView;
-    SkullbonezCore::UI::InGameUI& ui;
-};
-
-template <typename CycleCameraMode,
-          typename ApplyCameraMode,
-          typename IsLauncherCameraMode,
-          typename IsAttachedCameraMode,
-          typename CycleAttachedCameraSubmode,
-          typename ToggleAttachedCameraPin,
-          typename IsFlyCameraMode,
-          typename EnterFlyModeCamera,
-          typename ExitFlyModeCamera,
-          typename ApplyCursorOwnership,
-          typename ReleaseMouseToUI,
-          typename UpdateRuntimeInputModeAfterAction,
-          typename EnterInteractiveSceneRun>
-void DispatchMappedKeyboardActions( const MappedKeyboardDispatchContext& context,
-                                    SceneRuntimeControlExecutionContext& sceneControlContext,
-                                    bool& keyboardToggleEditorMode,
-                                    RunInternal::EditorKeyboardShortcutResult& keyboardEditorToolShortcut,
-                                    CycleCameraMode cycleCameraMode,
-                                    ApplyCameraMode applyCameraMode,
-                                    IsLauncherCameraMode isLauncherCameraMode,
-                                    IsAttachedCameraMode isAttachedCameraMode,
-                                    CycleAttachedCameraSubmode cycleAttachedCameraSubmode,
-                                    ToggleAttachedCameraPin toggleAttachedCameraPin,
-                                    IsFlyCameraMode isFlyCameraMode,
-                                    EnterFlyModeCamera enterFlyModeCamera,
-                                    ExitFlyModeCamera exitFlyModeCamera,
-                                    ApplyCursorOwnership applyCursorOwnership,
-                                    ReleaseMouseToUI releaseMouseToUI,
-                                    UpdateRuntimeInputModeAfterAction updateRuntimeInputModeAfterAction,
-                                    EnterInteractiveSceneRun enterInteractiveSceneRun )
-{
-    auto dispatchMappedKeyboardAction = [&]( const RuntimeInputKeyBinding& binding ) -> bool
-    {
-        switch ( binding.action )
-        {
-        case RuntimeInputAction::ToggleEditor:
-            // Backtick is captured early but applied after UI command processing
-            // so keyboard and UI editor toggles share the same transition path.
-            keyboardToggleEditorMode =
-                InputController::CaptureKeyboardActionPress( context.runtimeInput, binding.action, binding.virtualKey );
-            return true;
-        case RuntimeInputAction::ToggleEditorTool:
-            keyboardEditorToolShortcut = RunInternal::HandleEditorKeyboardShortcut(
-                binding.action,
-                Input::IsKeyDown( binding.virtualKey ),
-                InputController::CaptureKeyboardActionPress( context.runtimeInput,
-                                                             binding.action,
-                                                             binding.virtualKey ) );
-            return true;
-        case RuntimeInputAction::CycleCameraMode:
-            if ( InputController::CaptureKeyboardActionPress( context.runtimeInput,
-                                                              binding.action,
-                                                              binding.virtualKey ) )
-            {
-                cycleCameraMode();
-            }
-            return true;
-        case RuntimeInputAction::ToggleFlyCamera:
-            if ( InputController::CaptureKeyboardActionPress( context.runtimeInput,
-                                                              binding.action,
-                                                              binding.virtualKey ) )
-            {
-                // F enters Inspect, or returns to the passive camera mode when already inspecting.
-                const RunCameraMode passiveMode =
-                    context.sceneState.isSceneMode ? RunCameraMode::Scene : RunCameraMode::Demo;
-                applyCameraMode( context.camera.mode == RunCameraMode::Inspect ? passiveMode : RunCameraMode::Inspect,
-                                 RuntimeInputActionSource::Keyboard );
-            }
-            return true;
-        case RuntimeInputAction::ToggleLauncher:
-            if ( InputController::CaptureKeyboardActionPress( context.runtimeInput,
-                                                              binding.action,
-                                                              binding.virtualKey ) )
-            {
-                // N toggles launcher view with live simulation and returns to the previous non-launcher mode.
-                if ( context.camera.mode == RunCameraMode::Launcher )
-                {
-                    applyCameraMode( context.camera.modeBeforeLauncher, RuntimeInputActionSource::Keyboard );
-                }
-                else
-                {
-                    context.camera.modeBeforeLauncher = context.camera.mode == RunCameraMode::Manipulator
-                                                            ? RunCameraMode::Inspect
-                                                            : context.camera.mode;
-                    applyCameraMode( RunCameraMode::Launcher, RuntimeInputActionSource::Keyboard );
-                }
-            }
-            return true;
-        case RuntimeInputAction::CycleLauncherFireMode:
-            if ( InputController::CaptureKeyboardActionPress( context.runtimeInput,
-                                                              binding.action,
-                                                              binding.virtualKey ) &&
-                 isLauncherCameraMode() )
-            {
-                context.runtimeTools.RayCastTest().fireMode =
-                    context.runtimeTools.RayCastTest().fireMode == RunLauncherFireMode::Laser
-                        ? RunLauncherFireMode::Projectile
-                        : RunLauncherFireMode::Laser;
-            }
-            return true;
-        case RuntimeInputAction::CycleAttachedCameraSubmode:
-            if ( InputController::CaptureKeyboardActionPress( context.runtimeInput,
-                                                              binding.action,
-                                                              binding.virtualKey ) &&
-                 isAttachedCameraMode() )
-            {
-                cycleAttachedCameraSubmode();
-            }
-            return true;
-        case RuntimeInputAction::ToggleAttachedCameraPin:
-            if ( InputController::CaptureKeyboardActionPress( context.runtimeInput,
-                                                              binding.action,
-                                                              binding.virtualKey ) &&
-                 isAttachedCameraMode() )
-            {
-                toggleAttachedCameraPin();
-            }
-            return true;
-        case RuntimeInputAction::WriteLauncherReproSnapshot:
-#ifdef _DEBUG
-            if ( InputController::CaptureKeyboardActionPress( context.runtimeInput,
-                                                              binding.action,
-                                                              binding.virtualKey ) &&
-                 isLauncherCameraMode() && !context.replayRuntime.Scrubber().restoreConsumedThisFrame )
-            {
-                // Debug-only Enter writes a launcher repro snapshot unless a replay
-                // restore consumed Enter this frame; Profile keeps this table row inert.
-                const double simulationSeconds = context.timers.simulationTimer.GetTimeSinceLastStart();
-                context.runtimeTools.WriteLauncherReproSnapshotWithStatusMessage(
-                    { context.gameModels,
-                      context.systems.cameras,
-                      context.systems.terrain.get(),
-                      context.worldEnvironment,
-                      context.sceneState,
-                      context.sceneController.CurrentPath(),
-                      context.launchOptions,
-                      context.runtimeSettings,
-                      context.config.contactEpsilon,
-                      context.config.frictionCoeff,
-                      context.debug,
-                      context.renderBackendView.renderDiagnostics
-                          ? context.renderBackendView.renderDiagnostics->GetRendererName()
-                          : "DirectX 12",
-                      simulationSeconds },
-                    context.debug );
-            }
-#endif
-            return true;
-        case RuntimeInputAction::ToggleDirectorGrab:
-            if ( InputController::CaptureKeyboardActionPress( context.runtimeInput,
-                                                              binding.action,
-                                                              binding.virtualKey ) &&
-                 context.camera.mode == RunCameraMode::Director )
-            {
-                // B key: Director grab/release keeps the visible mode as Director while
-                // temporarily letting the operator fly the selected camera.
-                if ( context.camera.director.grabbed )
-                {
-                    if ( DemoDirectorPlayback::EndGrab( context.camera, context.systems ) )
-                    {
-                        exitFlyModeCamera();
-                        applyCursorOwnership();
-                        updateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleDirectorGrab,
-                                                           RuntimeInputActionSource::Keyboard );
-                    }
-                }
-                else if ( DemoDirectorPlayback::BeginGrab( context.camera, context.systems ) )
-                {
-                    enterFlyModeCamera();
-                    applyCursorOwnership();
-                    updateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleDirectorGrab,
-                                                       RuntimeInputActionSource::Keyboard );
-                }
-            }
-            return true;
-        case RuntimeInputAction::SetDirectorPhasePose:
-        {
-            const bool directorAuthoringAvailable = context.camera.mode == RunCameraMode::Director || isFlyCameraMode();
-            if ( InputController::CaptureKeyboardActionPress( context.runtimeInput,
-                                                              binding.action,
-                                                              binding.virtualKey ) &&
-                 directorAuthoringAvailable &&
-                 DemoDirectorPlayback::SetCurrentPhasePose( context.camera, context.systems ) )
-            {
-                updateRuntimeInputModeAfterAction( RuntimeInputAction::SetDirectorPhasePose,
-                                                   RuntimeInputActionSource::Keyboard );
-            }
-            return true;
-        }
-        case RuntimeInputAction::StepDirectorPhase:
-        {
-            const bool directorAuthoringAvailable = context.camera.mode == RunCameraMode::Director || isFlyCameraMode();
-            if ( InputController::CaptureKeyboardActionPress( context.runtimeInput,
-                                                              binding.action,
-                                                              binding.virtualKey ) &&
-                 directorAuthoringAvailable &&
-                 DemoDirectorPlayback::SelectNextPhaseForAuthoring( context.camera, context.systems ) )
-            {
-                updateRuntimeInputModeAfterAction( RuntimeInputAction::StepDirectorPhase,
-                                                   RuntimeInputActionSource::Keyboard );
-            }
-            return true;
-        }
-        case RuntimeInputAction::SaveDirectorShotList:
-        {
-            const bool directorAuthoringAvailable = context.camera.mode == RunCameraMode::Director || isFlyCameraMode();
-            if ( InputController::CaptureKeyboardActionPress( context.runtimeInput,
-                                                              binding.action,
-                                                              binding.virtualKey ) &&
-                 directorAuthoringAvailable && DemoDirectorPlayback::SaveShotList( context.camera ) )
-            {
-                updateRuntimeInputModeAfterAction( RuntimeInputAction::SaveDirectorShotList,
-                                                   RuntimeInputActionSource::Keyboard );
-            }
-            return true;
-        }
-        case RuntimeInputAction::ToggleWaterFreeze:
-        case RuntimeInputAction::CycleWaterReflection:
-        case RuntimeInputAction::ToggleWaterFlat:
-        case RuntimeInputAction::ToggleTerrainHidden:
-        case RuntimeInputAction::ToggleWaterHidden:
-        case RuntimeInputAction::ToggleCollisionVisualizer:
-        case RuntimeInputAction::CyclePhysicsDebugOverlay:
-        case RuntimeInputAction::ToggleTerrainContactProbe:
-        case RuntimeInputAction::StepPhysicsPipelinePrevious:
-        case RuntimeInputAction::StepPhysicsPipelineNext:
-        case RuntimeInputAction::TogglePhysicsDebugTransparent:
-        case RuntimeInputAction::ReportRendererRuntimeRetired:
-        case RuntimeInputAction::ToggleCrossScenePause:
-        case RuntimeInputAction::ToggleBroadphaseOverlay:
-        {
-            return HandleDiagnosticsKeyboardShortcut(
-                DiagnosticsKeyboardShortcutContext{ context.runtimeInput,
-                                                    context.debug,
-                                                    context.camera.trackBallIndex,
-                                                    context.gameModels,
-                                                    context.renderBackendView.renderDiagnostics,
-                                                    context.sceneState.isSceneMode,
-                                                    context.timers.simulationTimer.GetTimeSinceLastStart() },
-                binding.action,
-                binding.virtualKey );
-        }
-        case RuntimeInputAction::ToggleUIVisibility:
-        case RuntimeInputAction::TogglePerformanceHistogram:
-        case RuntimeInputAction::ToggleMemoryOverlay:
-        {
-            const DiagnosticsUIKeyboardShortcutResult shortcutResult = HandleDiagnosticsUIKeyboardShortcut(
-                DiagnosticsUIKeyboardShortcutContext{ context.runtimeInput,
-                                                      context.ui,
-                                                      context.debug,
-                                                      context.sceneState,
-                                                      context.capture,
-                                                      context.timers.simulationTimer.GetTotalTime() },
-                binding.action,
-                binding.virtualKey );
-            if ( shortcutResult.triggered )
-            {
-                if ( shortcutResult.releaseMouseToUI )
-                {
-                    applyCursorOwnership();
-                    releaseMouseToUI();
-                }
-                updateRuntimeInputModeAfterAction( binding.action, RuntimeInputActionSource::Keyboard );
-            }
-            return shortcutResult.handled;
-        }
-        case RuntimeInputAction::NavigateScenePrevious:
-        case RuntimeInputAction::NavigateSceneNext:
-            if ( InputController::CaptureKeyboardActionPress( context.runtimeInput,
-                                                              binding.action,
-                                                              binding.virtualKey ) )
-            {
-                const int direction = binding.action == RuntimeInputAction::NavigateScenePrevious ? -1 : 1;
-                // Left/right first move through cinematic variants when that tab
-                // owns context; otherwise they load the adjacent browser scene.
-                enterInteractiveSceneRun();
-                const int currentSceneBrowserIndex =
-                    CurrentSceneBrowserIndex( context.sceneController, context.sceneController.Browser() );
-                const bool isCinematicTabActive = context.ui.GetActiveTab() == InGameUITab::Cinematic;
-                if ( !ExecuteSceneRuntimeControlAction(
-                         sceneControlContext,
-                         context.sceneCoordinator.ApplyAdjacentCinematicMode(
-                             direction,
-                             context.sceneController.Browser().paths,
-                             context.sceneController.Browser().selectedCineModeSceneIndex,
-                             currentSceneBrowserIndex,
-                             isCinematicTabActive ) ) )
-                {
-                    ExecuteSceneRuntimeControlAction(
-                        sceneControlContext,
-                        context.sceneCoordinator.LoadAdjacentSceneFromBrowser( direction,
-                                                                               context.sceneController.Browser().paths,
-                                                                               currentSceneBrowserIndex ) );
-                }
-            }
-            return true;
-        default:
-            return false;
-        }
-    };
-
-    const RuntimeInputKeyBindingView bindings = TakeInputKeyboardBindings();
-    for ( std::size_t i = 0; i < bindings.count; ++i )
-    {
-        dispatchMappedKeyboardAction( bindings.bindings[i] );
-    }
-}
-
 struct PostMappedKeyboardShortcutContext
 {
     // Lifetime: borrowed for one post-keyboard dispatch pass. The helper does
     // not store owner references or callbacks past the current frame.
     RuntimeTools& runtimeTools;
     ReplayRuntime& replayRuntime;
-    RuntimeInputContext& runtimeInput;
     RuntimeInteractionController& interaction;
     RunTimerState& timers;
 };
@@ -841,10 +537,6 @@ void ApplyPostMappedKeyboardShortcutState( PostMappedKeyboardShortcutContext con
         context.replayRuntime.Scrubber().visible = true;
     }
     context.replayRuntime.VelocityEdit().keyboardAltWasDown = altDown;
-    context.runtimeInput.SetActionDown( RuntimeInputAction::ToggleEditorTool, altDown );
-    context.runtimeInput.SetActionDown( RuntimeInputAction::CycleCameraMode, Input::IsKeyDown( VK_TAB ) );
-    context.runtimeTools.Editor().altShortcutWasDown = altDown;
-    context.runtimeTools.Editor().tabShortcutWasDown = Input::IsKeyDown( VK_TAB );
 }
 
 struct EditorInputTransitionContext
@@ -1363,17 +1055,6 @@ ApplyRuntimeUIFrameCommands( const RuntimeUIFrameContext& context,
     return result;
 }
 
-void AdvanceKeyboardBlockedInputMemories( RuntimeInputContext& runtimeInput,
-                                          ReplayRuntime& replayRuntime,
-                                          RuntimeTools& runtimeTools )
-{
-    AdvanceTakeInputKeyboardActionMemories( runtimeInput );
-    replayRuntime.VelocityEdit().keyboardAltWasDown = Input::IsKeyDown( VK_MENU );
-    runtimeTools.Editor().altShortcutWasDown = Input::IsKeyDown( VK_MENU );
-    runtimeTools.Editor().tabShortcutWasDown = Input::IsKeyDown( VK_TAB );
-    runtimeTools.Editor().tildeShortcutWasDown = Input::IsKeyDown( VK_OEM_3 );
-}
-
 struct RuntimePointerCameraFrameContext
 {
     // Lifetime: borrowed for the final world-input/camera phase of one input
@@ -1413,7 +1094,6 @@ void ProcessRuntimePointerCameraFrame( const RuntimePointerCameraFrameContext& c
 
     if ( context.ui.BlocksKeyboard() )
     {
-        AdvanceTakeInputKeyboardActionMemories( context.runtimeInput );
         cancelCameraLookGesture();
         InputController::ResetMouseLook( context.camera );
         context.camera.input.Set( InputState::Up, false );
@@ -2680,64 +2360,62 @@ void Run::DispatchPostUIKeyboardActions()
 {
     // Why: capture/reset shortcuts run after UI input so focused controls and
     // panels get first refusal on keyboard ownership.
-    const RunInternal::EditorSaveHotkeyContext editorSaveHotkeyContext{ m_runtimeInput,
-                                                                        m_cGameModelCollection,
+    const bool flyCamera =
+        RunCameraModeUsesFlyControls( m_camera.mode, m_attachedCamera.activeFollow, m_camera.director.grabbed );
+    const KeyboardContextFacts contextFacts{ !m_UI.BlocksKeyboard(),
+                                             SceneState().isSceneMode,
+                                             flyCamera,
+                                             RunCameraModeUsesLauncher( m_camera.mode ),
+                                             RunCameraModeIsAttached( m_camera.mode ),
+                                             m_camera.mode == RunCameraMode::Director,
+                                             m_camera.mode == RunCameraMode::Director || flyCamera,
+                                             !m_replayRuntime.Scrubber().restoreConsumedThisFrame,
+                                             false };
+    const RuntimeInputKeyBindingView bindings = TakeInputKeyboardBindings();
+    m_inputRouter.RoutePhase( bindings,
+                              InputActionPhase::Capture,
+                              BuildKeyboardContextMask( contextFacts ),
+                              m_inputActions );
+    if ( m_inputActions.Overflowed() )
+    {
+        SB_FATAL( "InputRouter", "Fixed input action capacity exhausted while routing capture actions." );
+    }
+
+    const RunInternal::EditorSaveHotkeyContext editorSaveHotkeyContext{ m_cGameModelCollection,
                                                                         SceneState(),
                                                                         m_cWorldEnvironment,
                                                                         *m_systems.cameras,
                                                                         m_runtimeCommands };
-    auto dispatchCaptureKeyboardAction = [&editorSaveHotkeyContext]( const RuntimeInputKeyBinding& binding ) -> bool
+    // Invariant: side-effect dispatch consumes only accepted semantic events.
+    // It must not reopen hardware polling or maintain a second edge latch.
+    for ( std::size_t index = 0; index < m_inputActions.Count(); ++index )
     {
-        switch ( binding.action )
+        const InputActionEvent& event = m_inputActions[index];
+        if ( event.edge != InputActionEdge::Pressed )
+        {
+            continue;
+        }
+
+        switch ( event.action )
         {
         case RuntimeInputAction::SaveSceneSnapshot:
         case RuntimeInputAction::SaveScreenshot:
-            RunInternal::HandleEditorSaveHotkey( editorSaveHotkeyContext, binding.action, binding.virtualKey );
-            return true;
-        default:
-            return false;
-        }
-    };
-    const RuntimeInputKeyBindingView captureBindings = TakeInputKeyboardBindings();
-    for ( std::size_t i = 0; i < captureBindings.count; ++i )
-    {
-        if ( ( captureBindings.bindings[i].contexts & kCaptureContext ) != 0 )
-        {
-            dispatchCaptureKeyboardAction( captureBindings.bindings[i] );
-        }
-    }
-
-    auto dispatchLateKeyboardAction = [this]( const RuntimeInputKeyBinding& binding ) -> bool
-    {
-        switch ( binding.action )
-        {
+            RunInternal::HandleEditorSaveHotkey( editorSaveHotkeyContext, event.action, true );
+            break;
         case RuntimeInputAction::ResetScene:
-            if ( InputController::CaptureKeyboardActionPress( m_runtimeInput, binding.action, binding.virtualKey ) )
-            {
-                // R reloads the current scene after editor save hotkeys have had
-                // their chance to consume Ctrl-based persistence shortcuts.
-                m_runtimeCommands.Push( RuntimeCommand{ RuntimeCommandType::ResetCurrentScene } );
-            }
-            return true;
+            // R reloads after capture actions have had their persistence slot.
+            m_runtimeCommands.Push( RuntimeCommand{ RuntimeCommandType::ResetCurrentScene } );
+            break;
         case RuntimeInputAction::ResetSceneFromBackspace:
-            if ( SceneState().isSceneMode &&
-                 InputController::CaptureKeyboardActionPress( m_runtimeInput, binding.action, binding.virtualKey ) )
+            if ( SceneState().isSceneMode )
             {
                 // Backspace is only a scene-mode reset alias; generated demos keep
                 // the key free for future non-scene tools.
                 m_runtimeCommands.Push( RuntimeCommand{ RuntimeCommandType::ResetCurrentScene } );
             }
-            return true;
+            break;
         default:
-            return false;
-        }
-    };
-    const RuntimeInputKeyBindingView lateBindings = TakeInputKeyboardBindings();
-    for ( std::size_t i = 0; i < lateBindings.count; ++i )
-    {
-        if ( ( lateBindings.bindings[i].contexts & kAfterUIUpdateContext ) != 0 )
-        {
-            dispatchLateKeyboardAction( lateBindings.bindings[i] );
+            break;
         }
     }
 }
@@ -2745,43 +2423,52 @@ void Run::DispatchPostUIKeyboardActions()
 
 void Run::DispatchAfterUIKeyboardActions( bool uiUserInteracted )
 {
-    auto dispatchAfterUIKeyboardAction = [this, uiUserInteracted]( const RuntimeInputKeyBinding& binding ) -> bool
-    {
-        switch ( binding.action )
-        {
-        case RuntimeInputAction::DismissOrExitUI:
-            if ( InputController::CaptureKeyboardActionPress( m_runtimeInput, binding.action, binding.virtualKey ) &&
-                 !uiUserInteracted )
-            {
-                // ESC is intentionally after UI processing: focused controls
-                // keep local ESC behavior before the diagnostics window reacts.
-                constexpr double ESC_QUICK_EXIT_SECONDS = 0.32;
-                const double UINow = m_timers.simulationTimer.GetTotalTime();
-                if ( m_runtimeInput.IsEscapeQuickTap( UINow, ESC_QUICK_EXIT_SECONDS ) )
-                {
-                    PostQuitMessage( 0 );
-                }
-                else
-                {
-                    EnterInteractiveSceneRun();
-                    m_UI.ToggleVisible( UINow );
-                    m_debug.overlayMode = OverlayMode::None;
-                    m_runtimeInput.RecordEscapeTap( UINow );
-                    ApplyCursorOwnership();
-                    ReleaseMouseToUI();
-                }
-            }
-            return true;
-        default:
-            return false;
-        }
-    };
+    const bool flyCamera =
+        RunCameraModeUsesFlyControls( m_camera.mode, m_attachedCamera.activeFollow, m_camera.director.grabbed );
+    const KeyboardContextFacts contextFacts{ !m_UI.BlocksKeyboard(),
+                                             SceneState().isSceneMode,
+                                             flyCamera,
+                                             RunCameraModeUsesLauncher( m_camera.mode ),
+                                             RunCameraModeIsAttached( m_camera.mode ),
+                                             m_camera.mode == RunCameraMode::Director,
+                                             m_camera.mode == RunCameraMode::Director || flyCamera,
+                                             !m_replayRuntime.Scrubber().restoreConsumedThisFrame,
+                                             !uiUserInteracted };
     const RuntimeInputKeyBindingView bindings = TakeInputKeyboardBindings();
-    for ( std::size_t i = 0; i < bindings.count; ++i )
+    m_inputRouter.RoutePhase( bindings,
+                              InputActionPhase::AfterUi,
+                              BuildKeyboardContextMask( contextFacts ),
+                              m_inputActions );
+    if ( m_inputActions.Overflowed() )
     {
-        if ( ( bindings.bindings[i].contexts & kAfterUIUpdateContext ) != 0 )
+        SB_FATAL( "InputRouter", "Fixed input action capacity exhausted while routing after-UI actions." );
+    }
+
+    for ( std::size_t index = 0; index < m_inputActions.Count(); ++index )
+    {
+        const InputActionEvent& event = m_inputActions[index];
+        if ( event.phase != InputActionPhase::AfterUi || event.action != RuntimeInputAction::DismissOrExitUI ||
+             event.edge != InputActionEdge::Pressed )
         {
-            dispatchAfterUIKeyboardAction( bindings.bindings[i] );
+            continue;
+        }
+
+        // ESC is intentionally after UI processing: focused controls keep
+        // local ESC behavior before the diagnostics window reacts.
+        constexpr double ESC_QUICK_EXIT_SECONDS = 0.32;
+        const double UINow = m_timers.simulationTimer.GetTotalTime();
+        if ( m_inputRouter.IsQuickRepeat( event.action, UINow, ESC_QUICK_EXIT_SECONDS ) )
+        {
+            PostQuitMessage( 0 );
+        }
+        else
+        {
+            EnterInteractiveSceneRun();
+            m_UI.ToggleVisible( UINow );
+            m_debug.overlayMode = OverlayMode::None;
+            m_inputRouter.RecordTap( event.action, UINow );
+            ApplyCursorOwnership();
+            ReleaseMouseToUI();
         }
     }
 }
@@ -2789,6 +2476,18 @@ void Run::DispatchAfterUIKeyboardActions( bool uiUserInteracted )
 
 void Run::TakeInput()
 {
+    DeviceInputFrame deviceFrame;
+    const SbResult keyboardCaptureResult = Input::CaptureKeyboardDeviceFrame( deviceFrame );
+    if ( !keyboardCaptureResult.ok )
+    {
+        ReportRuntimeInputFailure( keyboardCaptureResult );
+        std::fflush( stderr );
+        m_applicationExit.RequestOwnedFailure( keyboardCaptureResult );
+        PostQuitMessage( 1 );
+        return;
+    }
+    const RuntimeInputKeyBindingView keyboardBindings = TakeInputKeyboardBindings();
+    m_inputRouter.BeginFrame( deviceFrame, keyboardBindings, m_inputActions );
     if ( HandleUnfocusedInputFrame() )
     {
         return;
@@ -2853,89 +2552,281 @@ void Run::TakeInput()
     auto applyEditorModeToggle =
         [&editorTransitionContext, &editorTransitionCallbacks]( RuntimeInputActionSource source )
     { ApplyEditorModeToggleFromInput( editorTransitionContext, editorTransitionCallbacks, source ); };
-    if ( !UIBlocksKeyboardBeforeInput )
+    const bool flyCamera =
+        RunCameraModeUsesFlyControls( m_camera.mode, m_attachedCamera.activeFollow, m_camera.director.grabbed );
+    const KeyboardContextFacts keyboardContextFacts{ !UIBlocksKeyboardBeforeInput,
+                                                     SceneState().isSceneMode,
+                                                     flyCamera,
+                                                     RunCameraModeUsesLauncher( m_camera.mode ),
+                                                     RunCameraModeIsAttached( m_camera.mode ),
+                                                     m_camera.mode == RunCameraMode::Director,
+                                                     m_camera.mode == RunCameraMode::Director || flyCamera,
+                                                     !m_replayRuntime.Scrubber().restoreConsumedThisFrame,
+                                                     false };
+    m_inputRouter.RoutePhase( keyboardBindings,
+                              InputActionPhase::PreUi,
+                              BuildKeyboardContextMask( keyboardContextFacts ),
+                              m_inputActions );
+    if ( m_inputActions.Overflowed() )
     {
-        SceneRuntimeControlExecutionContext sceneControlContext{
-            this,
-            []( void* context ) { static_cast<Run*>( context )->EnterInteractiveSceneRun(); },
-            []( void* context, int index, bool preserveUIState, bool suppressExitOnComplete, bool preserveRuntimeState )
-                -> bool
-            {
-                return static_cast<Run*>( context )
-                    ->LoadScene( index, preserveUIState, suppressExitOnComplete, preserveRuntimeState )
-                    .ok;
-            },
-            SceneState(),
-            m_diagnosticsRuntime.Capture().Screenshot().isScreenshotAndExit,
-            SceneRuntimeStyleContext{ m_launchOptions,
-                                      SceneState(),
-                                      m_sceneController.Browser(),
-                                      m_cGameModelCollection,
-                                      m_systems.assets,
-                                      RuntimeActiveCinematicConfig( SceneState(), m_config ),
-                                      m_defaultCinematicRender },
-        };
-        DispatchMappedKeyboardActions(
-            MappedKeyboardDispatchContext{ m_runtimeInput,
-                                           m_camera,
-                                           m_runtimeTools,
-                                           m_replayRuntime,
-                                           m_timers,
-                                           m_debug,
-                                           m_launchOptions,
-                                           m_runtimeSettings,
-                                           m_config,
-                                           SceneState(),
-                                           m_sceneController,
-                                           m_sceneCoordinator,
-                                           m_systems,
-                                           m_diagnosticsRuntime.Capture(),
-                                           m_cWorldEnvironment,
-                                           m_cGameModelCollection,
-                                           m_renderBackendView,
-                                           m_UI },
-            sceneControlContext,
-            keyboardToggleEditorMode,
-            keyboardEditorToolShortcut,
-            [this]() { CycleCameraMode(); },
-            [this]( RunCameraMode mode, RuntimeInputActionSource source ) { ApplyCameraMode( mode, source ); },
-            [this]() { return RunCameraModeUsesLauncher( m_camera.mode ); },
-            [this]() { return RunCameraModeIsAttached( m_camera.mode ); },
-            [this]() { CycleAttachedCameraSubmode(); },
-            [this]() { ToggleAttachedCameraPin(); },
-            [this]()
-            {
-                return RunCameraModeUsesFlyControls( m_camera.mode,
-                                                     m_attachedCamera.activeFollow,
-                                                     m_camera.director.grabbed );
-            },
-            [this]() { EnterFlyModeCamera(); },
-            [this]() { ExitFlyModeCamera(); },
-            [this]() { ApplyCursorOwnership(); },
-            [this]() { ReleaseMouseToUI(); },
-            [this]( RuntimeInputAction action, RuntimeInputActionSource source )
-            { UpdateRuntimeInputModeAfterAction( action, source ); },
-            [this]() { EnterInteractiveSceneRun(); } );
+        SB_FATAL( "InputRouter", "Fixed input action capacity exhausted while routing pre-UI actions." );
+    }
 
-        ApplyPostMappedKeyboardShortcutState(
-            PostMappedKeyboardShortcutContext{ m_runtimeTools,
-                                               m_replayRuntime,
-                                               m_runtimeInput,
-                                               m_interaction,
-                                               m_timers },
-            keyboardEditorToolShortcut,
-            applyEditorPlacementModeToggle,
-            [this]() { CancelReplayToolDragState(); },
-            [this]() { EnterInteractiveSceneRun(); },
-            [this]() { EnterReplayInspectionCamera(); },
-            [this]() { ExitReplayInspectionCamera(); },
-            [this]( WorldInteractionOwner owner, InteractionExitReason reason )
-            { SetWorldInteractionOwnerAfterInteractionTransition( owner, reason ); } );
-    }
-    else
+    SceneRuntimeControlExecutionContext sceneControlContext{
+        this,
+        []( void* context ) { static_cast<Run*>( context )->EnterInteractiveSceneRun(); },
+        []( void* context, int index, bool preserveUIState, bool suppressExitOnComplete, bool preserveRuntimeState )
+            -> bool
+        {
+            return static_cast<Run*>( context )
+                ->LoadScene( index, preserveUIState, suppressExitOnComplete, preserveRuntimeState )
+                .ok;
+        },
+        SceneState(),
+        m_diagnosticsRuntime.Capture().Screenshot().isScreenshotAndExit,
+        SceneRuntimeStyleContext{ m_launchOptions,
+                                  SceneState(),
+                                  m_sceneController.Browser(),
+                                  m_cGameModelCollection,
+                                  m_systems.assets,
+                                  RuntimeActiveCinematicConfig( SceneState(), m_config ),
+                                  m_defaultCinematicRender },
+    };
+
+    // Invariant: pre-UI consumers receive the router's fixed ordered events.
+    // Mode checks below may fail closed after an earlier action mutates state,
+    // but no consumer may re-sample its physical key.
+    for ( std::size_t index = 0; index < m_inputActions.Count(); ++index )
     {
-        AdvanceKeyboardBlockedInputMemories( m_runtimeInput, m_replayRuntime, m_runtimeTools );
+        const InputActionEvent& event = m_inputActions[index];
+        if ( event.phase != InputActionPhase::PreUi )
+        {
+            continue;
+        }
+
+        if ( event.action == RuntimeInputAction::ToggleEditorTool )
+        {
+            keyboardEditorToolShortcut =
+                RunInternal::HandleEditorKeyboardShortcut( event.action,
+                                                           event.edge != InputActionEdge::Released,
+                                                           event.edge == InputActionEdge::Pressed );
+            continue;
+        }
+        if ( event.edge != InputActionEdge::Pressed )
+        {
+            continue;
+        }
+
+        switch ( event.action )
+        {
+        case RuntimeInputAction::ToggleEditor:
+            // Backtick is captured early but applied after UI command processing.
+            keyboardToggleEditorMode = true;
+            break;
+        case RuntimeInputAction::CycleCameraMode:
+            CycleCameraMode();
+            break;
+        case RuntimeInputAction::ToggleFlyCamera:
+        {
+            const RunCameraMode passiveMode = SceneState().isSceneMode ? RunCameraMode::Scene : RunCameraMode::Demo;
+            ApplyCameraMode( m_camera.mode == RunCameraMode::Inspect ? passiveMode : RunCameraMode::Inspect,
+                             event.source );
+            break;
+        }
+        case RuntimeInputAction::ToggleLauncher:
+            if ( m_camera.mode == RunCameraMode::Launcher )
+            {
+                ApplyCameraMode( m_camera.modeBeforeLauncher, event.source );
+            }
+            else
+            {
+                m_camera.modeBeforeLauncher =
+                    m_camera.mode == RunCameraMode::Manipulator ? RunCameraMode::Inspect : m_camera.mode;
+                ApplyCameraMode( RunCameraMode::Launcher, event.source );
+            }
+            break;
+        case RuntimeInputAction::CycleLauncherFireMode:
+            if ( RunCameraModeUsesLauncher( m_camera.mode ) )
+            {
+                m_runtimeTools.RayCastTest().fireMode =
+                    m_runtimeTools.RayCastTest().fireMode == RunLauncherFireMode::Laser
+                        ? RunLauncherFireMode::Projectile
+                        : RunLauncherFireMode::Laser;
+            }
+            break;
+        case RuntimeInputAction::CycleAttachedCameraSubmode:
+            if ( RunCameraModeIsAttached( m_camera.mode ) )
+            {
+                CycleAttachedCameraSubmode();
+            }
+            break;
+        case RuntimeInputAction::ToggleAttachedCameraPin:
+            if ( RunCameraModeIsAttached( m_camera.mode ) )
+            {
+                ToggleAttachedCameraPin();
+            }
+            break;
+        case RuntimeInputAction::WriteLauncherReproSnapshot:
+#ifdef _DEBUG
+            if ( RunCameraModeUsesLauncher( m_camera.mode ) && !m_replayRuntime.Scrubber().restoreConsumedThisFrame )
+            {
+                const double simulationSeconds = m_timers.simulationTimer.GetTimeSinceLastStart();
+                m_runtimeTools.WriteLauncherReproSnapshotWithStatusMessage(
+                    { m_cGameModelCollection,
+                      m_systems.cameras,
+                      m_systems.terrain.get(),
+                      m_cWorldEnvironment,
+                      SceneState(),
+                      m_sceneController.CurrentPath(),
+                      m_launchOptions,
+                      m_runtimeSettings,
+                      m_config.contactEpsilon,
+                      m_config.frictionCoeff,
+                      m_debug,
+                      m_renderBackendView.renderDiagnostics ? m_renderBackendView.renderDiagnostics->GetRendererName()
+                                                            : "DirectX 12",
+                      simulationSeconds },
+                    m_debug );
+            }
+#endif
+            break;
+        case RuntimeInputAction::ToggleDirectorGrab:
+            if ( m_camera.mode != RunCameraMode::Director )
+            {
+                break;
+            }
+            if ( m_camera.director.grabbed )
+            {
+                if ( DemoDirectorPlayback::EndGrab( m_camera, m_systems ) )
+                {
+                    ExitFlyModeCamera();
+                    ApplyCursorOwnership();
+                    UpdateRuntimeInputModeAfterAction( event.action, event.source );
+                }
+            }
+            else if ( DemoDirectorPlayback::BeginGrab( m_camera, m_systems ) )
+            {
+                EnterFlyModeCamera();
+                ApplyCursorOwnership();
+                UpdateRuntimeInputModeAfterAction( event.action, event.source );
+            }
+            break;
+        case RuntimeInputAction::SetDirectorPhasePose:
+            if ( ( m_camera.mode == RunCameraMode::Director ||
+                   RunCameraModeUsesFlyControls( m_camera.mode,
+                                                 m_attachedCamera.activeFollow,
+                                                 m_camera.director.grabbed ) ) &&
+                 DemoDirectorPlayback::SetCurrentPhasePose( m_camera, m_systems ) )
+            {
+                UpdateRuntimeInputModeAfterAction( event.action, event.source );
+            }
+            break;
+        case RuntimeInputAction::StepDirectorPhase:
+            if ( ( m_camera.mode == RunCameraMode::Director ||
+                   RunCameraModeUsesFlyControls( m_camera.mode,
+                                                 m_attachedCamera.activeFollow,
+                                                 m_camera.director.grabbed ) ) &&
+                 DemoDirectorPlayback::SelectNextPhaseForAuthoring( m_camera, m_systems ) )
+            {
+                UpdateRuntimeInputModeAfterAction( event.action, event.source );
+            }
+            break;
+        case RuntimeInputAction::SaveDirectorShotList:
+            if ( ( m_camera.mode == RunCameraMode::Director ||
+                   RunCameraModeUsesFlyControls( m_camera.mode,
+                                                 m_attachedCamera.activeFollow,
+                                                 m_camera.director.grabbed ) ) &&
+                 DemoDirectorPlayback::SaveShotList( m_camera ) )
+            {
+                UpdateRuntimeInputModeAfterAction( event.action, event.source );
+            }
+            break;
+        case RuntimeInputAction::ToggleWaterFreeze:
+        case RuntimeInputAction::CycleWaterReflection:
+        case RuntimeInputAction::ToggleWaterFlat:
+        case RuntimeInputAction::ToggleTerrainHidden:
+        case RuntimeInputAction::ToggleWaterHidden:
+        case RuntimeInputAction::ToggleCollisionVisualizer:
+        case RuntimeInputAction::CyclePhysicsDebugOverlay:
+        case RuntimeInputAction::ToggleTerrainContactProbe:
+        case RuntimeInputAction::StepPhysicsPipelinePrevious:
+        case RuntimeInputAction::StepPhysicsPipelineNext:
+        case RuntimeInputAction::TogglePhysicsDebugTransparent:
+        case RuntimeInputAction::ReportRendererRuntimeRetired:
+        case RuntimeInputAction::ToggleCrossScenePause:
+        case RuntimeInputAction::ToggleBroadphaseOverlay:
+            HandleDiagnosticsKeyboardShortcut(
+                DiagnosticsKeyboardShortcutContext{ m_debug,
+                                                    m_camera.trackBallIndex,
+                                                    m_cGameModelCollection,
+                                                    m_renderBackendView.renderDiagnostics,
+                                                    SceneState().isSceneMode,
+                                                    m_timers.simulationTimer.GetTimeSinceLastStart() },
+                event.action,
+                true );
+            break;
+        case RuntimeInputAction::ToggleUIVisibility:
+        case RuntimeInputAction::TogglePerformanceHistogram:
+        case RuntimeInputAction::ToggleMemoryOverlay:
+        {
+            const DiagnosticsUIKeyboardShortcutResult shortcutResult = HandleDiagnosticsUIKeyboardShortcut(
+                DiagnosticsUIKeyboardShortcutContext{ m_UI,
+                                                      m_debug,
+                                                      SceneState(),
+                                                      m_diagnosticsRuntime.Capture(),
+                                                      m_timers.simulationTimer.GetTotalTime() },
+                event.action,
+                true );
+            if ( shortcutResult.triggered )
+            {
+                if ( shortcutResult.releaseMouseToUI )
+                {
+                    ApplyCursorOwnership();
+                    ReleaseMouseToUI();
+                }
+                UpdateRuntimeInputModeAfterAction( event.action, event.source );
+            }
+            break;
+        }
+        case RuntimeInputAction::NavigateScenePrevious:
+        case RuntimeInputAction::NavigateSceneNext:
+        {
+            const int direction = event.action == RuntimeInputAction::NavigateScenePrevious ? -1 : 1;
+            EnterInteractiveSceneRun();
+            const int currentSceneBrowserIndex =
+                CurrentSceneBrowserIndex( m_sceneController, m_sceneController.Browser() );
+            const bool isCinematicTabActive = m_UI.GetActiveTab() == InGameUITab::Cinematic;
+            if ( !ExecuteSceneRuntimeControlAction( sceneControlContext,
+                                                    m_sceneCoordinator.ApplyAdjacentCinematicMode(
+                                                        direction,
+                                                        m_sceneController.Browser().paths,
+                                                        m_sceneController.Browser().selectedCineModeSceneIndex,
+                                                        currentSceneBrowserIndex,
+                                                        isCinematicTabActive ) ) )
+            {
+                ExecuteSceneRuntimeControlAction(
+                    sceneControlContext,
+                    m_sceneCoordinator.LoadAdjacentSceneFromBrowser( direction,
+                                                                     m_sceneController.Browser().paths,
+                                                                     currentSceneBrowserIndex ) );
+            }
+            break;
+        }
+        default:
+            break;
+        }
     }
+
+    ApplyPostMappedKeyboardShortcutState(
+        PostMappedKeyboardShortcutContext{ m_runtimeTools, m_replayRuntime, m_interaction, m_timers },
+        keyboardEditorToolShortcut,
+        applyEditorPlacementModeToggle,
+        [this]() { CancelReplayToolDragState(); },
+        [this]() { EnterInteractiveSceneRun(); },
+        [this]() { EnterReplayInspectionCamera(); },
+        [this]() { ExitReplayInspectionCamera(); },
+        [this]( WorldInteractionOwner owner, InteractionExitReason reason )
+        { SetWorldInteractionOwnerAfterInteractionTransition( owner, reason ); } );
     const RuntimeUIFrameResult uiFrameResult = ApplyRuntimeUIFrameCommands(
         RuntimeUIFrameContext{ m_runtimeInput,
                                m_camera,

@@ -1,11 +1,11 @@
 /*
 File: SkullbonezSource/Runtime/InputController.cpp
 Purpose:
-  Converts raw runtime input state into edge-triggered commands and camera deltas.
+  Maintains runtime input-mode state and applies camera mouse-look deltas.
 
 Mental model:
-  This layer is intentionally narrow: it does not apply gameplay commands, it
-  only normalizes keyboard/mouse edges for the runtime.
+  InputRouter normalizes semantic keyboard edges. This layer retains camera and
+  pointer compatibility behavior while later input slices move those paths.
 
 Glossary:
   Input edge: Transition from not pressed to pressed, used for one-shot
@@ -14,10 +14,8 @@ Glossary:
   Runtime command: Normalized input event consumed later by Run.
 
 Invariants:
-  - CaptureActionPress must be called once per frame for each action whose edge
-    is needed; the context stores previous down state.
-  - UI/focus blocking policy is resolved before commands are emitted so later
-    Run code can stay command-oriented.
+  - UI/focus blocking policy is resolved before camera/pointer work is applied.
+  - RuntimeInputContext does not store semantic keyboard edge memory.
 
 Related:
   - SkullbonezSource/Runtime/InputController.h
@@ -36,24 +34,6 @@ namespace SkullbonezCore
 {
 namespace Basics
 {
-namespace
-{
-std::size_t ActionIndex( RuntimeInputAction action )
-{
-    return static_cast<std::size_t>( action );
-}
-
-bool IsActionMemoryValid( RuntimeInputAction action )
-{
-    return action != RuntimeInputAction::None && action != RuntimeInputAction::Count;
-}
-} // namespace
-
-RuntimeInputContext::RuntimeInputContext()
-{
-    m_actionDown.fill( false );
-}
-
 void RuntimeInputContext::BeginFrame( bool appFocused, bool uiBlocksKeyboard, bool uiBlocksMouse )
 {
     m_appFocused = appFocused;
@@ -63,7 +43,6 @@ void RuntimeInputContext::BeginFrame( bool appFocused, bool uiBlocksKeyboard, bo
 
 void RuntimeInputContext::ResetEdges()
 {
-    m_actionDown.fill( false );
     ResetMouseButtons();
 }
 
@@ -78,32 +57,6 @@ void RuntimeInputContext::SyncMouseButtons( bool leftDown, bool rightDown )
     m_rightMouseWasDown = rightDown;
 }
 
-bool RuntimeInputContext::CaptureActionPress( RuntimeInputAction action, int virtualKey )
-{
-    // Concept: this is edge detection, not command execution. Run decides what
-    // the normalized action means after all UI/focus gates have been applied.
-    const bool isDown = Hardware::Input::IsKeyDown( virtualKey );
-    if ( !IsActionMemoryValid( action ) )
-    {
-        return false;
-    }
-
-    const std::size_t index = ActionIndex( action );
-    const bool wasPressed = isDown && !m_actionDown[index];
-    m_actionDown[index] = isDown;
-    return wasPressed;
-}
-
-void RuntimeInputContext::SetActionDown( RuntimeInputAction action, bool isDown )
-{
-    if ( !IsActionMemoryValid( action ) )
-    {
-        return;
-    }
-
-    m_actionDown[ActionIndex( action )] = isDown;
-}
-
 RuntimeMouseEdges RuntimeInputContext::CaptureMouseButtons( bool leftDown, bool rightDown )
 {
     RuntimeMouseEdges edges;
@@ -116,16 +69,6 @@ RuntimeMouseEdges RuntimeInputContext::CaptureMouseButtons( bool leftDown, bool 
     m_leftMouseWasDown = leftDown;
     m_rightMouseWasDown = rightDown;
     return edges;
-}
-
-bool RuntimeInputContext::IsEscapeQuickTap( double nowSeconds, double quickTapSeconds ) const
-{
-    return nowSeconds - m_lastEscapeTapTime <= quickTapSeconds;
-}
-
-void RuntimeInputContext::RecordEscapeTap( double nowSeconds )
-{
-    m_lastEscapeTapTime = nowSeconds;
 }
 
 void RuntimeInputContext::SetMode( RuntimeInputMode mode, RuntimeInputAction action, RuntimeInputActionSource source )
@@ -191,23 +134,6 @@ RuntimeInputTransition RuntimeInputContext::TransitionAt( int historyIndex ) con
     return m_transitions[index];
 }
 
-RuntimeKeyEdge
-InputController::CaptureKeyEdge( Hardware::InputState& state, Hardware::InputState::Key memoryKey, int virtualKey )
-{
-    const bool isDown = Hardware::Input::IsKeyDown( virtualKey );
-    const bool wasPressed = isDown && !state.Get( memoryKey );
-    state.Set( memoryKey, isDown );
-    return { isDown, wasPressed };
-}
-
-bool InputController::CaptureKeyPress( bool& wasDown, int virtualKey )
-{
-    const bool isDown = Hardware::Input::IsKeyDown( virtualKey );
-    const bool wasPressed = isDown && !wasDown;
-    wasDown = isDown;
-    return wasPressed;
-}
-
 void InputController::BeginFrame( RuntimeInputContext& context,
                                   const RuntimeInputModeState& modeState,
                                   bool appFocused,
@@ -218,13 +144,6 @@ void InputController::BeginFrame( RuntimeInputContext& context,
     context.SetMode( ResolveMode( modeState ),
                      RuntimeInputAction::None,
                      appFocused ? RuntimeInputActionSource::Runtime : RuntimeInputActionSource::FocusLost );
-}
-
-bool InputController::CaptureKeyboardActionPress( RuntimeInputContext& context,
-                                                  RuntimeInputAction action,
-                                                  int virtualKey )
-{
-    return context.CaptureActionPress( action, virtualKey );
 }
 
 void InputController::ApplyModeAction( RuntimeInputContext& context,

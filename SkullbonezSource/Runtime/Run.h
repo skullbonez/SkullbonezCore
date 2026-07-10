@@ -48,6 +48,7 @@ Related:
 #include "CameraCollection.h"
 #include "GraphicsStressController.h"
 #include "InputController.h"
+#include "InputRouter.h"
 #include "LiveStyleController.h"
 #include "Diagnostics/DiagnosticsRuntime.h"
 #include "RuntimeInteractionController.h"
@@ -134,6 +135,8 @@ class Run
     RunTimerState m_timers;                                             // Frame/simulation timers and rolling timing values
     RunSubsystemState m_systems;                                        // Window, camera, texture, terrain, and pass resource ownership
     RuntimeInputContext m_runtimeInput;                                 // Semantic input mode/action state owned by input routing.
+    InputRouter m_inputRouter;                                          // Owns keyboard/pointer edge memory and binding-context enforcement.
+    InputActions m_inputActions;                                        // Fixed ordered semantic events for the current device frame.
     RuntimeInteractionController m_interaction;                         // Authoritative runtime workspace and world-input owner.
     RunInteractionAutomationState
         m_interactionAutomation;                                        // CLI harness that injects runtime mouse input for regression tests.

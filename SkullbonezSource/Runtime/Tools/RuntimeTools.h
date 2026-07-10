@@ -211,9 +211,6 @@ struct RunEditorPlacementState
     bool gizmoDragActive = false;
     bool gizmoDragIsRotation = false;
     bool gizmoDragIsScale = false;
-    bool altShortcutWasDown = false;
-    bool tabShortcutWasDown = false;
-    bool tildeShortcutWasDown = false;
     int objectType = UI::EditorTab::OBJECT_BOX;
     int placedObjectSerial = 0;
     // Lifetime: selectedBody/selectedCollider are live store identities. The

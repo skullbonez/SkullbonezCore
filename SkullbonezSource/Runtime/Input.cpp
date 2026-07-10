@@ -36,6 +36,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "Input.h"
+#include "InputRouter.h"
 #include "Window.h"
 
 #include "../Core/FatalError.h"
@@ -170,6 +171,51 @@ bool Input::IsAppFocused()
     }
 
     return GetForegroundWindow() == windowHandle;
+}
+
+
+SbResult Input::CaptureKeyboardDeviceFrame( DeviceInputFrame& frame )
+{
+    frame = {};
+    frame.appFocused = IsAppFocused();
+    if ( !frame.appFocused )
+    {
+        return SbResult::Success();
+    }
+
+    BYTE keyboardState[InputKeySnapshot::VIRTUAL_KEY_COUNT] = {};
+    if ( !GetKeyboardState( keyboardState ) )
+    {
+        // Lane R: desktop/session state can make Win32 keyboard capture fail.
+        // The frame owner must stop rather than route a fabricated all-up frame.
+        return SbResult::Failure( "Runtime/Input",
+                                  "GetKeyboardState failed while capturing the device frame (win32=%lu)",
+                                  static_cast<unsigned long>( GetLastError() ) );
+    }
+
+    std::array<uint64_t, InputKeySnapshot::WORD_COUNT> words = {};
+    for ( int virtualKey = 0; virtualKey < InputKeySnapshot::VIRTUAL_KEY_COUNT; ++virtualKey )
+    {
+        if ( ( keyboardState[virtualKey] & 0x80u ) == 0u )
+        {
+            continue;
+        }
+        const std::size_t word = static_cast<std::size_t>( virtualKey ) / 64u;
+        words[word] |= uint64_t{ 1 } << ( static_cast<unsigned int>( virtualKey ) & 63u );
+    }
+
+    if ( s_automationState.enabled && s_automationState.keyDown && s_automationState.keyVirtualKey >= 0 &&
+         s_automationState.keyVirtualKey < InputKeySnapshot::VIRTUAL_KEY_COUNT )
+    {
+        // Invariant: automation augments the same immutable snapshot consumed by
+        // physical input; it does not retain a second command-edge path.
+        const int virtualKey = s_automationState.keyVirtualKey;
+        const std::size_t word = static_cast<std::size_t>( virtualKey ) / 64u;
+        words[word] |= uint64_t{ 1 } << ( static_cast<unsigned int>( virtualKey ) & 63u );
+    }
+
+    frame.keys = InputKeySnapshot::FromWords( words );
+    return SbResult::Success();
 }
 
 

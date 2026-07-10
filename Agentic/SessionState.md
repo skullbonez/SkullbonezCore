@@ -10,9 +10,9 @@ reports, and git history.
 | Field | Value |
 |---|---|
 | Branch | `engine-cleanup-10th-july`, tracking `origin/engine-cleanup-10th-july` |
-| Pushed baseline before exit wiring | `670a9fcb feat: add runtime input and exit owners` |
-| Current objective | Wire the immutable `InputRouter` keyboard path and delete `MappedKeyboardDispatchContext` plus its callback pack |
-| Last broad local gate | `tools\validate_full.bat` passed ApplicationExitState production wiring through the CPU umbrella, DX12 lane with zero InfoQueue errors and matching screenshots, and byte-exact physics regression |
+| Pushed baseline before keyboard wiring | `5b56af13 fix: preserve application exit failures` |
+| Current objective | Complete pointer/focus/cursor/native-capture ownership and remove later direct hardware polling (B1b/B1d-B1f) |
+| Last broad local gate | `tools\validate_full.bat` passed keyboard-router wiring through 103 CPU tests, DX12 with zero InfoQueue errors/matching screenshots, and byte-exact physics |
 | Native evidence | Injected heap-use-after-free caught; healthy ASan and five-file `/analyze` passed in 16.185s |
 
 ## Pushed Cleanup Commits
@@ -30,15 +30,20 @@ reports, and git history.
 - `2592c0ac fix: make DX12 command failures fail closed`
 - `acdc994c feat: preserve scene asset provenance`
 - `670a9fcb feat: add runtime input and exit owners`
+- `5b56af13 fix: preserve application exit failures`
 
 ## Current Queue
 
-`ApplicationExitState` is now the production frame-loop result owner. It
-preserves the first capture/input/automation/replay/renderer failure, translates
-nonzero `WM_QUIT`, and prevents later normal shutdown from erasing evidence.
-B2a is complete with CPU and full-gate proof. `InputRouter` remains the next
-foundation owner to wire; the next slice routes keyboard actions and deletes
-the first input callback/context pack.
+`InputRouter` now owns the production keyboard snapshot, semantic edge memory,
+all-of binding contexts, ordered pre-/after-UI/capture events, focus
+resynchronization, and quick-repeat timing. The old 18-owner
+`MappedKeyboardDispatchContext`, 13-callback dispatcher, consumer polling
+helpers, and duplicate editor/diagnostics key memories are deleted. B1a/B1c are
+complete; B1b/B1d-B1f next finish pointer/focus/cursor/native-capture ownership.
+
+The first perf run exposed eight duplicate names in the varied physics bench
+fixture after C1a made name collisions honest. The ball rows now have unique
+names; the final performance and full gates pass without relaxing validation.
 
 DX12 D1-D3 is complete: `SbResult` is non-discardable, command recording and
 submitted-work state fail closed, every D3 timestamp/map/present/resize/wait
@@ -54,24 +59,22 @@ CPU umbrella, physics, and full gates passed from the final source.
 
 ## Ten Workstreams To Prioritize
 
-1. Wire the immutable `InputRouter` keyboard path and delete the first callback
-   pack from `RunInput.cpp`.
-2. Finish input pointer/focus/cursor capture ownership and remove later direct
+1. Finish input pointer/focus/cursor capture ownership and remove later direct
    hardware polling.
-3. Split the omnibus runtime command queue into scene, capture, render-default,
+2. Split the omnibus runtime command queue into scene, capture, render-default,
    and application owners.
-4. Add explicit schema-versioned scene object IDs and deterministic v1 upgrade
+3. Add explicit schema-versioned scene object IDs and deterministic v1 upgrade
    behavior (C1b).
-5. Make DX12 resize/resource recreation transactional and define device-loss
+4. Make DX12 resize/resource recreation transactional and define device-loss
    recovery (D4-D5).
-6. Promote `SceneController` to own real load/reset/save lifecycle and delete
+5. Promote `SceneController` to own real load/reset/save lifecycle and delete
    `Run` scene callbacks.
-7. Move replay workspace decisions and overlays into `ReplayRuntime`.
-8. Move render composition/bindings and overlay views into `RuntimeRenderer`.
-9. Finish validation-gate V3-V4 and behavioral-test P3/P5/P6 evidence.
-10. Close the remaining interaction/UI, replay sizing, physics authority,
-   renderer decomposition, shadow quality, and behavioral-test plans after the
-   five `Run` ownership extractions establish their boundaries.
+6. Move replay workspace decisions and overlays into `ReplayRuntime`.
+7. Move render composition/bindings and overlay views into `RuntimeRenderer`.
+8. Finish validation-gate V3-V4 and behavioral-test P3/P5/P6 evidence.
+9. Close remaining interaction/UI, replay sizing, and physics authority items.
+10. Close renderer decomposition, shadow quality, and final ownership reviews
+    after the five `Run` ownership extractions establish their boundaries.
 
 ## Binding Decisions And External Blocker
 

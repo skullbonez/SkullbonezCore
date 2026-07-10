@@ -1,7 +1,7 @@
 # Runtime Shell Decomposition
 
 Date: 2026-07-10 (reconciled)
-Status: In progress — 1/26 remaining checklist items complete; earlier
+Status: In progress — 3/26 remaining checklist items complete; earlier
 foundation work is summarized separately and is not mixed into this count
 Impact area: runtime architecture, scene lifecycle, input routing, render host
 Owner: application composition root
@@ -78,9 +78,8 @@ precedence. `tools\validate_fast.bat`, the project-filter validator, and
 `tools\validate_full.bat` passed from that source with zero warnings, zero DX12
 validation errors, matching screenshots, and byte-exact physics output.
 
-No B1/B2 checkbox was closed by the foundation alone. B1a-B1c still require
-production capture/wiring, old callback/state deletion, and their named
-behavioral evidence before their deletion proofs are true.
+No B1/B2 checkbox was closed by the foundation alone. Production wiring and
+the named deletion/evidence proofs remain authoritative for each row.
 
 ### Application Exit Wiring Evidence
 
@@ -99,6 +98,34 @@ build completed with zero warnings/errors, and `tools\validate_full.bat` passed
 format/metadata/CPU tests, the DX12 lane with zero InfoQueue errors and matching
 screenshots, and the 20,001-line byte-exact physics baseline.
 
+### Keyboard Router Wiring Evidence
+
+B1a and B1c are complete. The CPU suite now characterizes ordered
+press/hold/release/repress, simultaneous actions, immutable all-of contexts,
+pre-/after-UI/capture phase order, UI refusal, skipped capture, focus
+cancellation/resynchronization, and action-owned quick-repeat timing.
+`Input::CaptureKeyboardDeviceFrame` captures focus plus the complete 256-key
+level snapshot once; automation augments that same value. `InputRouter` alone
+owns semantic action edges, context eligibility, delivery memory, and quick-tap
+presentation timing. `RuntimeInputContext`/`InputController` no longer expose
+semantic keyboard edge storage or polling helpers.
+
+Deletion proof: `MappedKeyboardDispatchContext`, its 18-owner bag, the
+13-callback `DispatchMappedKeyboardActions` pack, blocked-key memory advances,
+consumer-side `CaptureKeyboardActionPress`, and the editor/diagnostics duplicate
+key latches are absent from source. The four remaining `Input::IsKeyDown` calls
+in `RunInput.cpp` are pointer modifiers/physics/camera consumers explicitly
+owned by B1b/B1d-B1f; they are not semantic binding dispatch.
+
+Evidence from the final source: `tools\validate_tests.bat` passed 103/103 cases
+and 2,009 assertions; `tools\validate_interaction_clicks.bat` passed both
+inspect and replay scripts; the F6 automation report returned `ok=1` through
+the production snapshot/router/diagnostics path; `tools\validate_perf.bat`
+passed allocation guard, DX12 and physics performance thresholds; and
+`tools\validate_full.bat` passed with zero warnings, zero DX12 InfoQueue errors,
+matching screenshots, and the 20,001-line byte-exact physics baseline. The
+comment-style audit covered all 14 touched source-bearing files.
+
 ## Remaining Work
 
 ### A. Narrow the render host
@@ -110,13 +137,13 @@ screenshots, and the 20,001-line byte-exact physics baseline.
 
 ### B. Move input, command, tool, and replay decisions
 
-- [ ] B1a. Characterize press/hold/release/repress, simultaneous keys, binding
+- [x] B1a. Characterize press/hold/release/repress, simultaneous keys, binding
   contexts, pre/post-UI phases, UI refusal, focus loss, and quick-tap behavior
   in pure CPU tests before moving producers.
 - [ ] B1b. Capture one immutable, fixed-size `DeviceInputFrame` per frame. It
   owns the 256-key bitset, buttons, client pointer, wheel, raw mouse delta, and
   focus state; automation mutates that value rather than a second key path.
-- [ ] B1c. Move key-edge memory and binding-context enforcement into the
+- [x] B1c. Move key-edge memory and binding-context enforcement into the
   two-phase `InputRouter`; emit fixed ordered action records and delete
   `MappedKeyboardDispatchContext` plus its callback pack.
 - [ ] B1d. Publish one immutable post-UI hit/pointer snapshot. Delete duplicate

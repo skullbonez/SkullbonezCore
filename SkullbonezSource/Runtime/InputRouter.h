@@ -166,6 +166,10 @@ class InputRouter
 
     void Reset();
     bool AppFocused() const;
+    // Presentation timing for repeated semantic taps belongs beside action
+    // edges, not in a consumer's compatibility input context.
+    bool IsQuickRepeat( RuntimeInputAction action, double nowSeconds, double intervalSeconds ) const;
+    void RecordTap( RuntimeInputAction action, double nowSeconds );
 
     static bool ContextsSatisfied( RuntimeInputContextMask requiredContexts, RuntimeInputContextMask activeContexts );
     static InputActionPhase PhaseForBinding( const RuntimeInputKeyBinding& binding );
@@ -190,6 +194,7 @@ class InputRouter
     std::array<bool, ACTION_COUNT> m_actionSampledThisFrame = {};
     std::array<InputActionEdge, ACTION_COUNT> m_frameEdges = {};
     std::array<bool, PHASE_COUNT> m_phaseRoutedThisFrame = {};
+    std::array<double, ACTION_COUNT> m_lastTapSeconds = {};
     bool m_hasFrame = false;
     bool m_appFocused = false;
     bool m_frameFocused = false;

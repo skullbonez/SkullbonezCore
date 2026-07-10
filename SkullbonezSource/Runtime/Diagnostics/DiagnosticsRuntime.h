@@ -51,14 +51,12 @@ class Profiler;
 class ReplayRuntime;
 class TestScene;
 enum class RuntimeInputAction;
-class RuntimeInputContext;
 struct RunDebugState;
 
 struct DiagnosticsKeyboardShortcutContext
 {
-    // Lifetime: borrowed for one keyboard dispatch only; diagnostics mutates
-    // only debug presentation state and input-edge memory.
-    RuntimeInputContext& input;
+    // Lifetime: borrowed for one already-routed action only; InputRouter owns
+    // the edge and diagnostics mutates only debug presentation state.
     RunDebugState& debug;
     int& cameraTrackBallIndex;
     const GameObjects::GameModelCollection& sceneEntities;
@@ -72,7 +70,6 @@ struct DiagnosticsUIKeyboardShortcutContext
     // Lifetime: borrowed for one keyboard dispatch only; the handler mutates UI
     // overlay visibility, automation flags, and debug presentation state, then
     // reports any cursor/action bookkeeping still owned by the composition root.
-    RuntimeInputContext& input;
     UI::InGameUI& ui;
     RunDebugState& debug;
     RunSceneState& scene;
@@ -106,10 +103,10 @@ struct DiagnosticsPhysicsDebugValueUICommandResult
 void StepDiagnosticsPhysicsPipelineStage( RunDebugState& debug, int direction );
 bool HandleDiagnosticsKeyboardShortcut( DiagnosticsKeyboardShortcutContext context,
                                         RuntimeInputAction action,
-                                        int virtualKey );
+                                        bool wasPressed );
 DiagnosticsUIKeyboardShortcutResult HandleDiagnosticsUIKeyboardShortcut( DiagnosticsUIKeyboardShortcutContext context,
                                                                          RuntimeInputAction action,
-                                                                         int virtualKey );
+                                                                         bool wasPressed );
 DiagnosticsPhysicsOverlayUICommandResult
 ApplyDiagnosticsPhysicsOverlayUICommands( RunDebugState& debug, const UI::UIPhysicsCommands& commands );
 bool ApplyDiagnosticsTerrainContactProbeUICommand( RunDebugState& debug, const UI::UIPhysicsCommands& commands );

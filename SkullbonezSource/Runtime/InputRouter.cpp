@@ -296,11 +296,33 @@ void InputRouter::Reset()
     m_actionSampledThisFrame.fill( false );
     m_frameEdges.fill( InputActionEdge::Released );
     m_phaseRoutedThisFrame.fill( false );
+    m_lastTapSeconds.fill( -1000.0 );
     m_hasFrame = false;
     m_appFocused = false;
     m_frameFocused = false;
     m_leftWasDown = false;
     m_rightWasDown = false;
+}
+
+
+bool InputRouter::IsQuickRepeat( RuntimeInputAction action, double nowSeconds, double intervalSeconds ) const
+{
+    if ( !IsActionValid( action ) )
+    {
+        return false;
+    }
+    // Preserve the existing UI clock contract: the caller supplies one
+    // monotonic timeline and owns the repeat interval policy.
+    return nowSeconds - m_lastTapSeconds[ActionIndex( action )] <= intervalSeconds;
+}
+
+
+void InputRouter::RecordTap( RuntimeInputAction action, double nowSeconds )
+{
+    if ( IsActionValid( action ) )
+    {
+        m_lastTapSeconds[ActionIndex( action )] = nowSeconds;
+    }
 }
 
 

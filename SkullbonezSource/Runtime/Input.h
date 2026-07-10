@@ -24,8 +24,8 @@ Glossary:
     treating the cursor operation as a fatal engine invariant.
 
 Invariants:
-  - InputState is a frame snapshot; command-edge memory lives in
-    RuntimeInputContext, not in raw device polling.
+  - InputState is a legacy camera snapshot; semantic command-edge memory lives
+    in InputRouter, not in raw device polling or domain consumers.
   - Key enum order is storage ABI for the bit mask and should be appended to,
     not reordered.
   - Window-dependent polling borrows the active runtime window through the input
@@ -46,8 +46,9 @@ namespace SkullbonezCore
 {
 namespace Basics
 {
+struct DeviceInputFrame;
 class Window;
-}
+} // namespace Basics
 
 namespace Hardware
 {
@@ -152,6 +153,8 @@ class Input
     static void UnbindWindow( Basics::Window& window );  // Clears the polling window before HWND teardown.
     static void SetSystemCursorVisible( bool visible );  // Shows or hides the Win32 cursor display counter
     static bool IsSystemCursorVisibleRequested();        // Last requested native cursor ownership state
+    static Basics::SbResult CaptureKeyboardDeviceFrame(
+        Basics::DeviceInputFrame& frame );               // Captures focus and the complete 256-key level snapshot once.
     static bool IsKeyDown( int virtualKey );             // Polls Win32 virtual-key state; alphabetic callers pass uppercase codes.
     static bool IsKeyToggled( int virtualKey );          // Reads Win32 toggle state for latch-style keys such as Caps Lock.
     static void BindCallbackBridge( HWND window );       // Arms callback-fed input queues for the active HWND.

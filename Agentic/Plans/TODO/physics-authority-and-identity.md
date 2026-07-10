@@ -77,7 +77,14 @@ no longer an open question.
   source passed `tools\validate_scene_parser_tests.bat`, the mandatory
   `tools\validate_all_cpu_tests.bat` umbrella, `tools\validate_physics.bat`
   with a 20,001-line byte-exact solver baseline, and `tools\validate_full.bat`
-  with zero DX12 validation errors and matching screenshots.
+  with zero DX12 validation errors and matching screenshots. The subsequent
+  performance gate exposed eight legacy duplicate ball/box names in
+  `physics_bench_varied.scene.json`; the ball rows now have unique authored
+  names, and the final perf/deep/full gates pass without weakening
+  duplicate-name rejection. The deterministic signature proof, exact
+  SkullScope trace/query commands, artifact sizes, and bounded model-read
+  accounting are recorded in
+  `Agentic/Reports/2026-07-10/keyboard-router-skullscope-baseline-evidence.md`.
 - [ ] C1b. Add schema-versioned explicit `PhysicsSceneObjectId` values for
   authored objects and per-instance parts, reject duplicate/zero ids, and feed
   those ids into the creation transaction instead of allocation by shape-section
