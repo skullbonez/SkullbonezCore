@@ -104,7 +104,6 @@ class SceneController
 
     void BeginLoad( int index );
     void RecordLifecycleEvent( SceneRuntimeLifecycleEvent event );
-    SceneRuntimeLifecycleEvent LastLifecycleEvent() const;
     void MarkManualReset();
     int FindNormalizedPath( const std::string& normalizedPath ) const;
     int FindGeneratedDemo() const;

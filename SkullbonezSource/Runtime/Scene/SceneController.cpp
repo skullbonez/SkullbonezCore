@@ -196,13 +196,27 @@ void SceneController::BeginLoad( int index )
 
 void SceneController::RecordLifecycleEvent( SceneRuntimeLifecycleEvent event )
 {
+    const int entityCount = m_entities.Count();
+    const int bodyCount = Physics::PhysicsEngineStoreQueries::BodyStore( m_physics ).Count();
+    const int colliderCount = Physics::PhysicsEngineStoreQueries::Colliders( m_physics ).Count();
+    const bool requiresEmptyTopology = event == SceneRuntimeLifecycleEvent::AfterSceneCleared ||
+                                       event == SceneRuntimeLifecycleEvent::BeforeScenePopulate;
+    const bool requiresMatchedTopology = event == SceneRuntimeLifecycleEvent::AfterScenePopulate ||
+                                         event == SceneRuntimeLifecycleEvent::AfterSceneActivated;
+    // Invariant: lifecycle publication is the commit edge observed by later
+    // owners. Never publish a cleared or populated phase while scene metadata,
+    // bodies, and colliders disagree about the live topology.
+    if ( ( requiresEmptyTopology && ( entityCount != 0 || bodyCount != 0 || colliderCount != 0 ) ) ||
+         ( requiresMatchedTopology && ( entityCount != bodyCount || entityCount != colliderCount ) ) )
+    {
+        SB_FATAL( "Runtime/SceneController",
+                  "Scene lifecycle topology mismatch. phase=%s entities=%d bodies=%d colliders=%d",
+                  SceneRuntimeLifecycleEventName( event ),
+                  entityCount,
+                  bodyCount,
+                  colliderCount );
+    }
     m_runtime.RecordLifecycleEvent( event );
-}
-
-
-SceneRuntimeLifecycleEvent SceneController::LastLifecycleEvent() const
-{
-    return m_runtime.LastLifecycleEvent();
 }
 
 

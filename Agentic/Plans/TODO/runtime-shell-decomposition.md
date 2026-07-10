@@ -281,6 +281,25 @@ and JSON failures carry Lane R `SbResult` evidence, and replay observes only a
 successful write. Load orchestration and the remaining collection business
 commands keep C3 open.
 
+Scene lifecycle markers now enforce transaction order and scene-owner topology
+instead of merely remembering the last label. A recoverable failed attempt may
+restart at `BeforeSceneUnload`, but an in-attempt phase skip is fatal;
+`AfterSceneCleared`/`BeforeScenePopulate` require empty metadata/body/collider
+stores, while populated/activated phases require matching counts. The unused
+`LastLifecycleEvent` forwarding API is deleted and the transition contract has
+direct CPU coverage. C2 remains open until non-scene owners consume their named
+reset/activation events and the Run scene callback pack is deleted.
+
+Evidence from this lifecycle-transaction slice: the CPU umbrella passed all
+four lanes with 126/126 doctest cases and 2,717 assertions in 14.7s; the
+load-only sweep activated all 135 authored scenes with empty stderr in 274.7s;
+the focused physics gate passed in 16.2s; and the corrected full gate passed in
+74.1s with zero warnings, zero DX12 InfoQueue errors, matching screenshots,
+standalone topology smoke, and the 20,001-line byte-exact physics baseline. The
+first full attempt stopped at formatting before build/runtime work; formatting
+the touched helper signature resolved it. Comment audit: 5/5 touched source
+and test files.
+
 - [ ] C1. Implement ownership extraction 3: `SceneController` owns the
   preallocated scene/entity metadata store, scene-lifetime `PhysicsScene`,
   load/reset state, browser selection, adjacent load, and deck movement.

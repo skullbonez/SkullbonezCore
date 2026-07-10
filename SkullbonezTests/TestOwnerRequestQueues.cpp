@@ -27,6 +27,7 @@ Related:
 #include "../SkullbonezSource/Runtime/RenderDefaultsStore.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayRecorder.h"
 #include "../SkullbonezSource/Runtime/Scene/SceneRequestQueue.h"
+#include "../SkullbonezSource/Runtime/Scene/SceneRuntime.h"
 #include "../SkullbonezSource/Rendering/IRenderCaptureBackend.h"
 
 #include <cstring>
@@ -53,6 +54,31 @@ class UnsupportedCaptureBackend final : public SkullbonezCore::Rendering::IRende
     }
 };
 } // namespace
+
+TEST_CASE( "Scene lifecycle accepts ordered phases and explicit restart" )
+{
+    CHECK( SceneRuntimeLifecycleTransitionValid( SceneRuntimeLifecycleEvent::None,
+                                                 SceneRuntimeLifecycleEvent::BeforeSceneUnload ) );
+    CHECK( SceneRuntimeLifecycleTransitionValid( SceneRuntimeLifecycleEvent::BeforeSceneUnload,
+                                                 SceneRuntimeLifecycleEvent::AfterSceneCleared ) );
+    CHECK( SceneRuntimeLifecycleTransitionValid( SceneRuntimeLifecycleEvent::AfterSceneCleared,
+                                                 SceneRuntimeLifecycleEvent::BeforeScenePopulate ) );
+    CHECK( SceneRuntimeLifecycleTransitionValid( SceneRuntimeLifecycleEvent::BeforeScenePopulate,
+                                                 SceneRuntimeLifecycleEvent::AfterScenePopulate ) );
+    CHECK( SceneRuntimeLifecycleTransitionValid( SceneRuntimeLifecycleEvent::AfterScenePopulate,
+                                                 SceneRuntimeLifecycleEvent::AfterSceneActivated ) );
+
+    // A recoverable failure may restart the transaction, but it cannot skip a
+    // commit phase and publish plausible lifecycle evidence out of order.
+    CHECK( SceneRuntimeLifecycleTransitionValid( SceneRuntimeLifecycleEvent::BeforeScenePopulate,
+                                                 SceneRuntimeLifecycleEvent::BeforeSceneUnload ) );
+    CHECK_FALSE( SceneRuntimeLifecycleTransitionValid( SceneRuntimeLifecycleEvent::BeforeSceneUnload,
+                                                       SceneRuntimeLifecycleEvent::BeforeScenePopulate ) );
+    CHECK_FALSE( SceneRuntimeLifecycleTransitionValid( SceneRuntimeLifecycleEvent::AfterSceneCleared,
+                                                       SceneRuntimeLifecycleEvent::AfterSceneActivated ) );
+    CHECK_FALSE( SceneRuntimeLifecycleTransitionValid( SceneRuntimeLifecycleEvent::AfterSceneActivated,
+                                                       SceneRuntimeLifecycleEvent::None ) );
+}
 
 TEST_CASE( "CaptureController rejects truncating paths before enqueue" )
 {

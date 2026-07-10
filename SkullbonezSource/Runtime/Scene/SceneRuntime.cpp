@@ -278,16 +278,17 @@ void SceneRuntime::BeginLoad( int index )
 
 void SceneRuntime::RecordLifecycleEvent( SceneRuntimeLifecycleEvent event )
 {
-    // Concept: Scene lifecycle names live with scene runtime ownership. Run can
-    // still perform broad side effects, but call sites now mark which phase a
-    // future owner API should absorb.
+    // Hazard: recoverable population failures deliberately leave the previous
+    // scene cleared, so a later BeforeSceneUnload may restart from any phase.
+    // Every phase inside one attempt must still remain strictly ordered.
+    if ( !SceneRuntimeLifecycleTransitionValid( m_lastLifecycleEvent, event ) )
+    {
+        SB_FATAL( "Runtime/SceneRuntime",
+                  "Invalid scene lifecycle transition. previous=%s next=%s",
+                  SceneRuntimeLifecycleEventName( m_lastLifecycleEvent ),
+                  SceneRuntimeLifecycleEventName( event ) );
+    }
     m_lastLifecycleEvent = event;
-}
-
-
-SceneRuntimeLifecycleEvent SceneRuntime::LastLifecycleEvent() const
-{
-    return m_lastLifecycleEvent;
 }
 
 

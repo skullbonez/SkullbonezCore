@@ -62,6 +62,22 @@ enum class SceneRuntimeLifecycleEvent
     AfterSceneActivated,
 };
 
+// Recoverable load failures may restart with BeforeSceneUnload from any phase;
+// all phases within one load attempt remain strictly ordered.
+constexpr bool SceneRuntimeLifecycleTransitionValid( SceneRuntimeLifecycleEvent previous,
+                                                     SceneRuntimeLifecycleEvent next )
+{
+    return next == SceneRuntimeLifecycleEvent::BeforeSceneUnload ||
+           ( previous == SceneRuntimeLifecycleEvent::BeforeSceneUnload &&
+             next == SceneRuntimeLifecycleEvent::AfterSceneCleared ) ||
+           ( previous == SceneRuntimeLifecycleEvent::AfterSceneCleared &&
+             next == SceneRuntimeLifecycleEvent::BeforeScenePopulate ) ||
+           ( previous == SceneRuntimeLifecycleEvent::BeforeScenePopulate &&
+             next == SceneRuntimeLifecycleEvent::AfterScenePopulate ) ||
+           ( previous == SceneRuntimeLifecycleEvent::AfterScenePopulate &&
+             next == SceneRuntimeLifecycleEvent::AfterSceneActivated );
+}
+
 const char* SceneRuntimeLifecycleEventName( SceneRuntimeLifecycleEvent event );
 
 struct RunSceneState
@@ -132,7 +148,6 @@ class SceneRuntime
 
     void BeginLoad( int index );
     void RecordLifecycleEvent( SceneRuntimeLifecycleEvent event );
-    SceneRuntimeLifecycleEvent LastLifecycleEvent() const;
     void MarkManualReset();
     int FindNormalizedPath( const std::string& normalizedPath ) const;
     int FindGeneratedDemo() const;

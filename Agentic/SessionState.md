@@ -10,9 +10,9 @@ reports, and git history.
 | Field | Value |
 |---|---|
 | Branch | `engine-cleanup-10th-july`, tracking `origin/engine-cleanup-10th-july` |
-| Current pushed baseline | `881b2ba9 refactor: move scene defaults save behind controller` |
+| Current pushed baseline | `62df9e36 refactor: move pickup cancellation to tool owner` |
 | Current objective | Close the dependent B1f/C1 Run scene seam and promote SceneController lifecycle ownership |
-| Last broad local gate | `tools\validate_full.bat` passed the mouse-pickup owner seam with 125/125 doctest cases, 2,708 assertions, all CPU lanes, zero-warning builds, DX12 with zero InfoQueue errors/matching screenshots, standalone physics smoke, and 20,001-line byte-exact physics in 60.8s |
+| Last broad local gate | `tools\validate_full.bat` passed the lifecycle-transaction guard with 126/126 doctest cases, 2,717 assertions, all CPU lanes, zero-warning builds, DX12 with zero InfoQueue errors/matching screenshots, standalone physics smoke, and 20,001-line byte-exact physics in 74.1s |
 | Native evidence | Injected heap-use-after-free caught; healthy ASan and five-file `/analyze` passed in 16.185s |
 
 ## Pushed Cleanup Commits
@@ -154,6 +154,18 @@ cancellation path call the tool owner directly. B1f remains open for the full
 `TakeInput` and pointer-routing deletion proof. The CPU umbrella, interaction
 clicks, and full gate pass from this source; the touched-source comment audit is
 6/6.
+
+Scene lifecycle publication is being converted from passive labels into an
+enforced transaction. The scene runtime rejects skipped phases while allowing
+explicit restart after a recoverable failure, and SceneController refuses to
+publish cleared/populated/activated phases unless entity, body, and collider
+topology matches the phase contract. The unused last-event forwarding accessor
+is deleted. C2 remains open for concrete non-scene owner consumption and
+callback-pack deletion.
+
+All 135 authored scenes also pass the load-only sweep with empty stderr, and
+the focused physics gate remains byte-exact. The lifecycle transition test is
+part of the 126-case CPU suite. Comment audit: 5/5 touched source/test files.
 
 Scene provenance C1a is complete: parser-owned library/instance/ordered-part
 records retain exact shape sources, hierarchy transforms use rotated offsets
