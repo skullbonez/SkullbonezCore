@@ -1,10 +1,10 @@
 /*
-File: SkullbonezSource/Runtime/RunPasses.cpp
+File: SkullbonezSource/Runtime/Render/RuntimeRenderPasses.cpp
 Purpose:
-  Implements the named world-render pass classes owned by Run.
+  Implements the named world-render pass classes owned by RuntimeRenderer.
 
 Mental model:
-  RunRender.cpp should read like a frame story: build one frame
+  RuntimeRenderer.cpp should read like a frame story: build one frame
   context, run named passes, then hand each pass output to its downstream
   consumer. This file owns the rendering guts and GPU lifetime hooks for those
   passes so pass contracts are visible where the work happens.
@@ -35,22 +35,23 @@ Invariants:
     cache borrowed pointers from those structs.
 
 Related:
-  - SkullbonezSource/Runtime/Run.h declares pass contracts and resources.
-  - SkullbonezSource/Runtime/RunRender.cpp owns frame orchestration.
+  - SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h declares pass contracts.
+  - SkullbonezSource/Runtime/Render/RuntimeRenderer.cpp owns frame orchestration.
   - Agentic/Reference/comment-style-guide.md
 */
-#include "RunInternal.h"
-#include "RuntimeTuning.h"
-#include "../Assets/TextureCollection.h"
-#include "../Core/PlatformProfiler.h"
-#include "../Rendering/IRenderDiagnostics.h"
-#include "../Rendering/IRenderRayTracing.h"
-#include "../Rendering/IRenderResourceFactory.h"
-#include "../Rendering/GameModelRenderer.h"
-#include "../Rendering/Helper.h"
-#include "../Rendering/RenderGraph.h"
-#include "../Rendering/RenderInstanceStore.h"
-#include "../Rendering/RenderRasterBindingContract.h"
+#include "../RunInternal.h"
+#include "../RuntimeTuning.h"
+#include "../../Assets/TextureCollection.h"
+#include "../../Core/PlatformProfiler.h"
+#include "../../Core/Log.h"
+#include "../../Rendering/IRenderDiagnostics.h"
+#include "../../Rendering/IRenderRayTracing.h"
+#include "../../Rendering/IRenderResourceFactory.h"
+#include "../../Rendering/GameModelRenderer.h"
+#include "../../Rendering/Helper.h"
+#include "../../Rendering/RenderGraph.h"
+#include "../../Rendering/RenderInstanceStore.h"
+#include "../../Rendering/RenderRasterBindingContract.h"
 
 #include <cstdio>
 
@@ -478,6 +479,23 @@ void BindTonemapPassParams( SkullbonezCore::Rendering::IShader& shader,
 
 } // namespace
 
+void RenderResourceLifecycleLog::Write( const char* phase, const char* step ) const
+{
+    const bool backendReady = m_deviceLifecycle != nullptr;
+    const int backendWidth = m_deviceLifecycle ? m_deviceLifecycle->GetWidth() : 0;
+    const int backendHeight = m_deviceLifecycle ? m_deviceLifecycle->GetHeight() : 0;
+    Log().WriteEventf( "render_resource_lifecycle phase=%s step=%s gfx_ready=%d backend_width=%d backend_height=%d "
+                       "scene_index=%d load=%d",
+                       phase ? phase : "unknown",
+                       step ? step : "unknown",
+                       backendReady ? 1 : 0,
+                       backendWidth,
+                       backendHeight,
+                       m_scene.currentSceneIndex,
+                       m_scene.loadCount );
+}
+
+
 void FullscreenQuadPass::EnsureGpuResources( const RenderResourceContext& resources )
 {
     if ( !resources.cinematicEnabled )
@@ -617,10 +635,7 @@ void ReflectionPass::ReleaseGpuResources()
 
 void ReflectionPass::LogResourceLifecycleStep( const char* phase, const char* step ) const
 {
-    if ( m_lifecycleLog )
-    {
-        m_lifecycleLog( m_lifecycleLogUser, phase, step );
-    }
+    m_lifecycleLog.Write( phase, step );
 }
 
 
@@ -655,10 +670,7 @@ void ShadowPass::EnsureGpuResources( const RenderResourceContext& resources, con
 
 void ShadowPass::LogResourceLifecycleStep( const char* phase, const char* step ) const
 {
-    if ( m_lifecycleLog )
-    {
-        m_lifecycleLog( m_lifecycleLogUser, phase, step );
-    }
+    m_lifecycleLog.Write( phase, step );
 }
 
 
@@ -1088,7 +1100,7 @@ void SkyPass::Render( const RenderFrameContext& frame, const Math::Transformatio
     // Pass contract: cube-map skybox faces sample only slot 0. Slots owned by
     // water, post, or shadows must not leak into these six mesh draws.
     ClearRenderTextureSlotsExcept( RenderCommands( frame ), RENDER_TEXTURE_SLOT_0 );
-    assert( m_skyBox && "SkyPass requires RunSubsystemState::skyBox after initialise" );
+    assert( m_skyBox && "SkyPass requires the world-view sky owner after initialise" );
     ReportRenderTextureResult( "Frame/Render/Skybox", m_skyBox->Render( skyView, frame.projection ) );
 }
 
@@ -1870,16 +1882,17 @@ void DebugOverlayPass::Render( const DebugOverlayPassInputs& inputs )
         }
     }
 
-    assert( m_renderEditorOverlay && "DebugOverlayPass requires an editor overlay callback" );
-    if ( m_renderEditorOverlay )
-    {
-        m_renderEditorOverlay( m_renderEditorOverlayUser,
-                               RenderResources( inputs.frame ),
-                               RenderCommands( inputs.frame ),
-                               inputs.frame.viewProjection,
-                               inputs.frame.eye,
-                               inputs.frame.up );
-    }
+    RunEditorTracer& tracer = m_runtimeTools.EditorTracer();
+    tracer.Render( inputs.frame.viewProjection, inputs.frame.eye, inputs.frame.up, RenderCommands( inputs.frame ) );
+    m_replayRuntime.RecordReplayTrajectorySubmissionFrame( tracer.ReplaySubmissionStats(),
+                                                           inputs.replaySceneFrame,
+                                                           inputs.replayGrowthEventCount );
+    m_runtimeTools.Laser().Render( inputs.frame.viewProjection,
+                                   inputs.frame.eye,
+                                   inputs.frame.up,
+                                   m_assets,
+                                   RenderResources( inputs.frame ),
+                                   RenderCommands( inputs.frame ) );
 
     if ( snapshot.physicsDebugFlags != PHYSICS_DEBUG_NONE )
     {

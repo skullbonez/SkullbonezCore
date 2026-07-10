@@ -29,8 +29,8 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/Render/RuntimeRenderHost.h
-  - SkullbonezSource/Runtime/RunPasses.cpp
-  - SkullbonezSource/Runtime/RunRender.cpp
+  - SkullbonezSource/Runtime/Render/RuntimeRenderPasses.cpp
+  - SkullbonezSource/Runtime/Render/RuntimeRenderer.cpp
   - Agentic/Plans/TODO/runtime-shell-decomposition.md
 */
 #pragma once
@@ -68,6 +68,7 @@ class WorldEnvironment;
 namespace Rendering
 {
 class IRenderCommandContext;
+class IRenderDeviceLifecycle;
 class IRenderDiagnostics;
 class IRenderRayTracing;
 class IRenderResourceFactory;
@@ -109,6 +110,9 @@ class DiagnosticsRuntime;
 class EngineConfig;
 class Profiler;
 class RenderHelper;
+class RuntimeTools;
+class RunEditorTracer;
+class LauncherLaser;
 class RuntimeInputContext;
 struct CinematicScenePassResources;
 struct FullscreenPassResources;
@@ -152,13 +156,23 @@ enum class ObjectPassMode
     Transparent                             // Debug alpha body draw after water so overlays remain readable.
 };
 
-using RenderResourceLifecycleLogFn = void ( * )( void* user, const char* phase, const char* step );
-using RenderEditorOverlayFn = void ( * )( void* user,
-                                          Rendering::IRenderResourceFactory& renderResources,
-                                          Rendering::IRenderCommandContext& renderCommands,
-                                          const Math::Transformation::Matrix4& viewProjection,
-                                          const Math::Vector::Vector3& cameraEye,
-                                          const Math::Vector::Vector3& cameraUp );
+// Concrete renderer diagnostic owner shared by resource-producing passes. It
+// borrows the device and scene state for RuntimeRenderer's lifetime and never
+// calls back into the application shell.
+class RenderResourceLifecycleLog
+{
+  public:
+    RenderResourceLifecycleLog( Rendering::IRenderDeviceLifecycle* deviceLifecycle, const RunSceneState& scene )
+        : m_deviceLifecycle( deviceLifecycle ), m_scene( scene )
+    {
+    }
+
+    void Write( const char* phase, const char* step ) const;
+
+  private:
+    Rendering::IRenderDeviceLifecycle* m_deviceLifecycle = nullptr;
+    const RunSceneState& m_scene;
+};
 
 struct RenderFrameContext
 {
@@ -450,6 +464,8 @@ struct DebugOverlayPassInputs
     // ownership.
     const RenderFrameContext& frame;
     const DebugOverlaySnapshot& snapshot;
+    int replaySceneFrame = 0;
+    uint64_t replayGrowthEventCount = 0;
 };
 
 struct ShadowPassInputs
@@ -505,7 +521,7 @@ class SkyPass
   public:
     SkyPass( SkyPassResources& skyResources,
              FullscreenPassResources& fullscreenResources,
-             Geometry::SkyBox*& skyBox,
+             std::unique_ptr<Geometry::SkyBox>& skyBox,
              const EngineConfig& config )
         : m_skyResources( skyResources ), m_fullscreenResources( fullscreenResources ), m_skyBox( skyBox ),
           m_config( config )
@@ -521,9 +537,9 @@ class SkyPass
 
     SkyPassResources& m_skyResources;
     FullscreenPassResources& m_fullscreenResources;
-    // Lifetime: this aliases RunSubsystemState::skyBox because RuntimeRenderer
-    // is constructed before Initialise wires the owned SkyBox pointer.
-    Geometry::SkyBox*& m_skyBox;
+    // Lifetime: this aliases the composition root's unique owner so startup and
+    // backend teardown can replace the object without rebinding the pass.
+    std::unique_ptr<Geometry::SkyBox>& m_skyBox;
     const EngineConfig& m_config;
 };
 
@@ -563,10 +579,8 @@ class ShadowPass
     ShadowPass( ShadowPassResources& resources,
                 std::unique_ptr<Geometry::Terrain>& terrain,
                 const EngineConfig& config,
-                RenderResourceLifecycleLogFn lifecycleLog,
-                void* lifecycleLogUser )
-        : m_resources( resources ), m_terrain( terrain ), m_config( config ), m_lifecycleLog( lifecycleLog ),
-          m_lifecycleLogUser( lifecycleLogUser )
+                RenderResourceLifecycleLog& lifecycleLog )
+        : m_resources( resources ), m_terrain( terrain ), m_config( config ), m_lifecycleLog( lifecycleLog )
     {
     }
 
@@ -600,8 +614,7 @@ class ShadowPass
     ShadowPassResources& m_resources;
     std::unique_ptr<Geometry::Terrain>& m_terrain;
     const EngineConfig& m_config;
-    RenderResourceLifecycleLogFn m_lifecycleLog = nullptr;
-    void* m_lifecycleLogUser = nullptr;
+    RenderResourceLifecycleLog& m_lifecycleLog;
     bool m_activeTerrainHidden = false;
     bool m_activeCollisionVisualizerVisible = false;
     int m_activeWindowWidth = 1;
@@ -623,12 +636,10 @@ class ReflectionPass
                     const EngineConfig& config,
                     float* dxrReflectionTransforms,
                     int dxrReflectionTransformCapacity,
-                    RenderResourceLifecycleLogFn lifecycleLog,
-                    void* lifecycleLogUser )
+                    RenderResourceLifecycleLog& lifecycleLog )
         : m_resources( resources ), m_collisionVisualizer( collisionVisualizer ), m_config( config ),
           m_dxrReflectionTransforms( dxrReflectionTransforms ),
-          m_dxrReflectionTransformCapacity( dxrReflectionTransformCapacity ), m_lifecycleLog( lifecycleLog ),
-          m_lifecycleLogUser( lifecycleLogUser )
+          m_dxrReflectionTransformCapacity( dxrReflectionTransformCapacity ), m_lifecycleLog( lifecycleLog )
     {
     }
 
@@ -644,8 +655,7 @@ class ReflectionPass
     const EngineConfig& m_config;
     float* m_dxrReflectionTransforms = nullptr;
     int m_dxrReflectionTransformCapacity = 0;
-    RenderResourceLifecycleLogFn m_lifecycleLog = nullptr;
-    void* m_lifecycleLogUser = nullptr;
+    RenderResourceLifecycleLog& m_lifecycleLog;
 };
 
 /* -- ObjectPass
@@ -691,8 +701,8 @@ class TerrainPass
     void Render( const TerrainPassInputs& inputs );
 
   private:
-    // Lifetime: aliases RunSubsystemState::terrain because terrain is scene-owned
-    // and may be replaced after RuntimeRenderer construction.
+    // Lifetime: aliases the scene-owned unique owner because scene activation
+    // may replace terrain after RuntimeRenderer construction.
     std::unique_ptr<Geometry::Terrain>& m_terrain;
     const EngineConfig& m_config;
 };
@@ -742,8 +752,8 @@ class TornadoVisualPass
     bool Render( const TornadoVisualPassInputs& inputs );
 
   private:
-    // Lifetime: aliases RunSubsystemState::terrain because scene loads may
-    // replace the terrain object after RuntimeRenderer construction.
+    // Lifetime: aliases the scene-owned unique owner because scene loads may
+    // replace terrain after RuntimeRenderer construction.
     std::unique_ptr<Geometry::Terrain>& m_terrain;
     std::vector<float> m_vertices;
     std::vector<Physics::TornadoActiveVortex> m_activeVisualVortices;
@@ -765,11 +775,11 @@ class DebugOverlayPass
     DebugOverlayPass( Physics::BroadphaseVisualizer& broadphaseVisualizer,
                       Physics::PhysicsDebugVisualizer& physicsDebugVisualizer,
                       std::unique_ptr<Geometry::Terrain>& terrain,
-                      RenderEditorOverlayFn renderEditorOverlay,
-                      void* renderEditorOverlayUser )
+                      RuntimeTools& runtimeTools,
+                      Assets::AssetSystem& assets,
+                      ReplayRuntime& replayRuntime )
         : m_broadphaseVisualizer( broadphaseVisualizer ), m_physicsDebugVisualizer( physicsDebugVisualizer ),
-          m_terrain( terrain ), m_renderEditorOverlay( renderEditorOverlay ),
-          m_renderEditorOverlayUser( renderEditorOverlayUser )
+          m_terrain( terrain ), m_runtimeTools( runtimeTools ), m_assets( assets ), m_replayRuntime( replayRuntime )
     {
         // Invariant: tornado vector arrows are a runtime debug overlay. The
         // transient line buffer stays with the render pass so physics sampling
@@ -790,11 +800,12 @@ class DebugOverlayPass
     Physics::PhysicsDebugVisualizer& m_physicsDebugVisualizer;
     std::vector<float> m_tornadoVectorLineData;
     std::vector<Physics::TornadoActiveVortex> m_tornadoVectorVortices;
-    // Lifetime: aliases RunSubsystemState::terrain because scene loads may
-    // replace the terrain object after RuntimeRenderer construction.
+    // Lifetime: aliases the scene-owned unique owner because scene loads may
+    // replace terrain after RuntimeRenderer construction.
     std::unique_ptr<Geometry::Terrain>& m_terrain;
-    RenderEditorOverlayFn m_renderEditorOverlay = nullptr;
-    void* m_renderEditorOverlayUser = nullptr;
+    RuntimeTools& m_runtimeTools;
+    Assets::AssetSystem& m_assets;
+    ReplayRuntime& m_replayRuntime;
 };
 
 /* -- VolumetricPass

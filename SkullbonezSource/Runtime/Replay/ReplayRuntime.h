@@ -835,6 +835,15 @@ struct ReplayLiveRestoreRequest
 class ReplayRuntime
 {
   public:
+    struct ReplayOverlayBuildInput
+    {
+        bool scenePhysicsEnabled = false;
+        bool editorModeEnabled = false;
+        int sceneFrame = 0;
+        double frameSeconds = 0.0;
+        double totalSeconds = 0.0;
+    };
+
     struct PathPickInput
     {
         Math::Vector::Vector3 rayOrigin = Math::Vector::ZERO_VECTOR;
@@ -1287,6 +1296,14 @@ class ReplayRuntime
     void TickWorkspace( const ReplayWorkspaceInput& input, ReplayWorkspaceOutput& output );
     void ConfigureStartupWorkflows( const ReplayStartupRequest& request );
     ReplayStartupResult RunStartupWorkflows( const ReplayLiveWorld& liveWorld );
+    // Appends replay-owned records after RuntimeTools has rebuilt the shared
+    // fixed-capacity tracer. RuntimeRenderer only submits the completed buffer.
+    void AppendOverlayTrace( GameObjects::GameModelCollection& models,
+                             const EngineConfig& config,
+                             const Physics::PhysicsWorldForces& worldForces,
+                             Threading::WorkerPool& workerPool,
+                             RunEditorTracer& tracer,
+                             const ReplayOverlayBuildInput& input );
     // Emits replay-owned fixed-capacity tracer records; Run/RuntimeRenderer
     // only sequence the completed record buffer into render submission.
     void RenderPathVisualizer( GameObjects::GameModelCollection& models,

@@ -87,8 +87,6 @@ struct RunSubsystemState
     const EngineConfig* config = nullptr;             // Borrowed process config sampled through the Run composition root.
     Threading::WorkerPool* workerPool = nullptr;      // Borrowed worker service initialised and shut down by Runtime/Init.cpp.
     Window* window = nullptr;
-    Geometry::SkyBox* skyBox = nullptr;               // Borrowed alias of skyBoxOwner after Initialise wires services.
-
     void BindStartupServices(
         Window& windowOwner,
         Threading::WorkerPool& workerPoolOwner,

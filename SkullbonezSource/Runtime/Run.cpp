@@ -27,7 +27,6 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "RunInternal.h"
-#include "Editor/EditorOverlayTools.h"
 #include "Replay/ReplayOverlayLayout.h"
 #include "Replay/ReplayRestoreService.h"
 #include "Replay/ReplayV2Artifact.h"
@@ -383,39 +382,6 @@ void RunStartupState::ApplyStartupConfig( const EngineConfig& config )
 }
 
 
-RuntimeRendererBindings Run::BuildRuntimeRendererBindings( Profiler* profiler )
-{
-    // Lifetime: Init resolves the optional profiler once, then Run wires that
-    // borrowed diagnostics source into the owners that sample it. Frame code
-    // should not reopen the global profiler accessor.
-    RuntimeRendererBindings bindings;
-    bindings.backend = m_renderBackendView;
-    bindings.runtime.systems = &m_systems;
-    bindings.runtime.config = &m_config;
-    bindings.runtime.launchOptions = &m_launchOptions;
-    bindings.runtime.runtimeSettings = &m_runtimeSettings;
-    bindings.world.worldEnvironment = &m_cWorldEnvironment;
-    bindings.world.collisionVisualizer = &m_collisionVisualizer;
-    bindings.world.broadphaseVisualizer = &m_broadphaseVisualizer;
-    bindings.world.physicsDebugVisualizer = &m_physicsDebugVisualizer;
-    bindings.scene.sceneController = &m_sceneController;
-    bindings.scene.sceneBrowser = &m_sceneController.Browser();
-    bindings.replayOverlay.replayRuntime = &m_replayRuntime;
-    bindings.toolOverlay.tools = &m_runtimeTools;
-    bindings.ui.ui = &m_UI;
-    bindings.ui.runtimeInput = &m_runtimeInput;
-    bindings.ui.camera = &m_camera;
-    bindings.ui.runtimeViewModel = &m_runtimeViewModel;
-    bindings.diagnostics.debug = &m_debug;
-    bindings.diagnostics.timers = &m_timers;
-    bindings.diagnostics.profiler = profiler;
-    return bindings;
-}
-
-
-// Why: RuntimeRenderer still passes C-style hooks down to a few pass owners.
-// Keeping the noncapturing hook lambdas here lets them access Run-owned editor
-// overlay behavior without adding another Run.h method or callback-holder type.
 Run::Run( Window& window,
           std::vector<std::string> sceneQueue,
           EngineConfig& config,
@@ -424,81 +390,27 @@ Run::Run( Window& window,
           RuntimeRenderBackendView renderBackendView )
     : m_config( config ), m_sceneController( std::move( sceneQueue ) ), m_sceneCoordinator( m_sceneController ),
       m_renderBackendView( renderBackendView ),
-      m_renderer(
-          BuildRuntimeRendererBindings( profiler ),
-          []( void* user, const char* phase, const char* step )
-          {
-              if ( Run* run = static_cast<Run*>( user ) )
-              {
-                  run->LogRenderResourceLifecycleStep( phase, step );
-              }
-          },
-          []( void* user,
-              SkullbonezCore::Rendering::IRenderResourceFactory& renderResources,
-              SkullbonezCore::Rendering::IRenderCommandContext& renderCommands,
-              const Math::Transformation::Matrix4& viewProjection,
-              const Math::Vector::Vector3& cameraEye,
-              const Math::Vector::Vector3& cameraUp )
-          {
-              Run* run = static_cast<Run*>( user );
-              if ( !run )
-              {
-                  return;
-              }
-
-              RunEditorTracer& tracer = run->m_runtimeTools.EditorTracer();
-              tracer.Clear();
-
-              int attachedTargetIndex = -1;
-              if ( RunCameraModeIsAttached( run->m_camera.mode ) )
-              {
-                  int targetIndex = -1;
-                  if ( run->TryResolveAttachedCameraTarget( targetIndex ) )
-                  {
-                      attachedTargetIndex = targetIndex;
-                  }
-              }
-
-              BuildEditorToolOverlayTrace( { run->m_runtimeTools.Editor(),
-                                             run->m_runtimeTools.RayCastTest(),
-                                             run->m_runtimeTools.MousePickup(),
-                                             run->m_cGameModelCollection,
-                                             run->m_cGameModelCollection.BodyStore(),
-                                             run->m_cGameModelCollection.Colliders(),
-                                             run->m_systems.assets,
-                                             tracer },
-                                           { run->m_debug.physicsDebugContactLinger,
-                                             run->InspectGizmoInteractionActive(),
-                                             run->m_inputRouter.DeviceFrame().keys.IsDown( VK_CONTROL ),
-                                             attachedTargetIndex,
-                                             run->m_attachedCamera.activeFollow } );
-              const auto replayWorldForces = run->m_cWorldEnvironment.GetPhysicsWorldForces();
-              run->m_replayRuntime.RenderPathVisualizer( run->m_cGameModelCollection,
-                                                         run->m_config,
-                                                         replayWorldForces,
-                                                         *run->m_systems.workerPool,
-                                                         tracer,
-                                                         run->SceneState().isScenePhysics,
-                                                         run->SceneState().currentFrame,
-                                                         run->m_timers.simulationTimer.GetTimeSinceLastStart(),
-                                                         run->m_timers.simulationTimer.GetTotalTime() );
-              run->m_replayRuntime.RenderCauseFocusOverlay( run->m_cGameModelCollection, tracer );
-              run->m_replayRuntime.RenderVelocityEditOverlay( run->m_cGameModelCollection,
-                                                              run->m_runtimeTools.Editor().editorModeEnabled,
-                                                              tracer );
-              tracer.Render( viewProjection, cameraEye, cameraUp, renderCommands );
-              run->m_replayRuntime.RecordReplayTrajectorySubmissionFrame(
-                  tracer.ReplaySubmissionStats(),
-                  run->SceneState().currentFrame,
-                  RuntimeAllocation::RuntimeReserveAllocator::GrowthEventCount() );
-              run->m_runtimeTools.Laser().Render( viewProjection,
-                                                  cameraEye,
-                                                  cameraUp,
-                                                  run->m_systems.assets,
-                                                  renderResources,
-                                                  renderCommands );
-          },
-          this )
+      m_renderer( m_renderBackendView,
+                  RenderWorldView{ m_systems.assets,
+                                   m_systems.textureCollection,
+                                   m_systems.cameraCollection,
+                                   m_systems.terrain,
+                                   m_systems.skyBoxOwner,
+                                   window,
+                                   m_systems.renderPasses,
+                                   m_config,
+                                   m_runtimeSettings,
+                                   m_cWorldEnvironment,
+                                   m_collisionVisualizer,
+                                   m_broadphaseVisualizer,
+                                   m_physicsDebugVisualizer,
+                                   m_debug,
+                                   m_timers,
+                                   profiler },
+                  RenderSceneView{ m_sceneController, m_sceneController.Browser() },
+                  RenderReplayOverlayView{ m_replayRuntime },
+                  RenderToolOverlayView{ m_runtimeTools },
+                  RenderUiView{ m_UI, m_runtimeInput, m_camera, m_runtimeViewModel } )
 {
     const EngineConfig& cfg = m_config;
     m_diagnosticsRuntime.BindProfiler( profiler );
@@ -615,24 +527,6 @@ void Run::DumpTextureAssets( FILE* out ) const
     {
         m_systems.textures->DumpTextureAssets( out );
     }
-}
-
-
-void Run::LogRenderResourceLifecycleStep( const char* phase, const char* step ) const
-{
-    const SkullbonezCore::Rendering::IRenderDeviceLifecycle* renderLifecycle = m_renderBackendView.deviceLifecycle;
-    const bool gfxReady = renderLifecycle != nullptr;
-    const int backendWidth = renderLifecycle ? renderLifecycle->GetWidth() : 0;
-    const int backendHeight = renderLifecycle ? renderLifecycle->GetHeight() : 0;
-    Log().WriteEventf( "render_resource_lifecycle phase=%s step=%s gfx_ready=%d backend_width=%d backend_height=%d "
-                       "scene_index=%d load=%d",
-                       phase ? phase : "unknown",
-                       step ? step : "unknown",
-                       gfxReady ? 1 : 0,
-                       backendWidth,
-                       backendHeight,
-                       SceneState().currentSceneIndex,
-                       SceneState().loadCount );
 }
 
 
@@ -1004,10 +898,9 @@ void Run::Initialise()
 
     // Init SkyBox (m_xMin, m_xMax, yMin, yMax, m_zMin, m_zMax)
     m_systems.skyBoxOwner = std::make_unique<SkyBox>( -250, 300, -300, 300, -250, 300 );
-    m_systems.skyBox = m_systems.skyBoxOwner.get();
-    m_systems.skyBox->BindTextures( *m_systems.textures );
-    m_systems.skyBox->BindRenderContexts( m_config, m_systems.assets, renderResources );
-    const SbResult skyBoxResourceResult = m_systems.skyBox->ResetRenderResources();
+    m_systems.skyBoxOwner->BindTextures( *m_systems.textures );
+    m_systems.skyBoxOwner->BindRenderContexts( m_config, m_systems.assets, renderResources );
+    const SbResult skyBoxResourceResult = m_systems.skyBoxOwner->ResetRenderResources();
     if ( !skyBoxResourceResult.ok )
     {
         m_lastSceneLoadResult = skyBoxResourceResult;

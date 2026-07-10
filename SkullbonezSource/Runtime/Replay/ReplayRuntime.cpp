@@ -830,6 +830,27 @@ ReplayRuntime::ReplayRuntime()
 }
 
 
+void ReplayRuntime::AppendOverlayTrace( GameObjects::GameModelCollection& models,
+                                        const EngineConfig& config,
+                                        const Physics::PhysicsWorldForces& worldForces,
+                                        Threading::WorkerPool& workerPool,
+                                        RunEditorTracer& tracer,
+                                        const ReplayOverlayBuildInput& input )
+{
+    RenderPathVisualizer( models,
+                          config,
+                          worldForces,
+                          workerPool,
+                          tracer,
+                          input.scenePhysicsEnabled,
+                          input.sceneFrame,
+                          input.frameSeconds,
+                          input.totalSeconds );
+    RenderCauseFocusOverlay( models, tracer );
+    RenderVelocityEditOverlay( models, input.editorModeEnabled, tracer );
+}
+
+
 ReplayRecorder& ReplayRuntime::Presentation()
 {
     return m_presentation;

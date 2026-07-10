@@ -157,6 +157,15 @@ struct RayCastLauncherTuningUICommandResult
     float projectileConfigProjectileSpeed = 0.0f;
 };
 
+struct ToolOverlayBuildInput
+{
+    float rayLingerSeconds = 0.0f;
+    bool inspectGizmoActive = false;
+    bool scaleMode = false;
+    int attachedCameraTargetIndex = -1;
+    bool attachedCameraActiveFollow = false;
+};
+
 #ifdef _DEBUG
 struct LauncherReproSnapshotContext
 {
@@ -541,6 +550,11 @@ class RuntimeTools
 
     RunEditorTracer& EditorTracer();
     const RunEditorTracer& EditorTracer() const;
+    // Rebuilds the fixed-capacity tool draw records before RuntimeRenderer
+    // submits them. World/model/asset owners remain borrowed for this call.
+    void PrepareOverlayTrace( GameObjects::GameModelCollection& models,
+                              const Assets::AssetSystem& assets,
+                              const ToolOverlayBuildInput& input );
 
   private:
     RunRayCastTestState m_rayCastTest;

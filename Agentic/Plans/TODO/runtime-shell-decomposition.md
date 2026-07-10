@@ -1,7 +1,7 @@
 # Runtime Shell Decomposition
 
 Date: 2026-07-10 (reconciled)
-Status: In progress — 11/27 checklist items complete; earlier
+Status: In progress — 13/27 checklist items complete; earlier
 foundation work is summarized separately and is not mixed into this count
 Impact area: runtime architecture, scene lifecycle, input routing, render host
 Owner: application composition root
@@ -127,6 +127,19 @@ warnings, zero DX12 InfoQueue errors, matching screenshots, and the 20,001-line
 byte-exact physics baseline. The touched-file comment audit covered 25
 source-bearing files with no deferrals.
 
+### RuntimeRenderer Composition Evidence
+
+A1-A2 are complete. `RuntimeRenderer` receives the five named owner views,
+stores explicit render/world owners rather than `RunSubsystemState`, owns
+resource lifecycle logging and pass submission, and sequences tool/replay
+record producers after replay overrides. The old binding aggregate, two Run
+C hooks, `void*` callback user, pass-level texture callback path, and raw sky
+alias are deleted. The first adversarial pass found and corrected overlay-order
+and disguised-host defects; the required repeat pass was clean. Architecture,
+renderer, full, fast, allocation-policy, project/filter, and comment gates pass.
+Detailed evidence is in
+`Agentic/Reports/runtime_renderer_composition_20260710.md`.
+
 ### Keyboard Router Wiring Evidence
 
 B1a and B1c are complete. The CPU suite now characterizes ordered
@@ -186,9 +199,9 @@ baseline. The comment-style audit covered all 35 touched source-bearing files.
 
 ### A. Narrow the render host
 
-- [ ] A1. Implement ownership extraction 5: replace `RuntimeRenderHostBindings`
+- [x] A1. Implement ownership extraction 5: replace `RuntimeRenderHostBindings`
   with the five immutable views and move replay/tool overlay production to owners.
-- [ ] A2. Put texture lookup/select behind the asset/render view; no pass-level
+- [x] A2. Put texture lookup/select behind the asset/render view; no pass-level
   call back into `Run` for texture handles.
 
 ### B. Move input, command, tool, and replay decisions

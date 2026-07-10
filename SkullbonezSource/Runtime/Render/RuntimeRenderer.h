@@ -4,10 +4,9 @@ Purpose:
   Declares the runtime renderer owner for ordered render passes.
 
 Mental model:
-  RuntimeRenderer is the Phase 2 ownership shell around the existing pass graph.
-  It owns pass objects and the frame pass order. Startup bindings provide the
-  long-lived owners that passes need, while per-frame data travels through input
-  structs.
+  RuntimeRenderer owns pass objects, backend-resource lifetime, and the frame
+  pass order. Five named owner views supply lifetime-stable dependencies;
+  immutable per-frame records carry submission facts and completed overlays.
 
 Glossary:
   RuntimeRenderer: Owner of pass instances and the frame pass order.
@@ -87,15 +86,19 @@ class RuntimeRenderer
         // Checker budget: RenderFrameEntry may use it only for PrepareRenderInstances().
         GameObjects::GameModelCollection& renderModelOwner;
         UI::InGameUI& ui;
+        const RenderReplayOverlayView& replayOverlay;
+        const RenderToolOverlayView& toolOverlay;
         const CinematicRenderConfig& cinematic;
         bool cinematicRequested = false;
-        bool consequenceGradeRequested = false;            // True while replay prediction should fade into the causality look.
+        bool consequenceGradeRequested = false;    // True while replay prediction should fade into the causality look.
     };
 
-    RuntimeRenderer( const RuntimeRendererBindings& bindings,
-                     RenderResourceLifecycleLogFn lifecycleLog,
-                     RenderEditorOverlayFn editorOverlay,
-                     void* callbackUser );
+    RuntimeRenderer( RuntimeRenderBackendView backend,
+                     const RenderWorldView& world,
+                     const RenderSceneView& scene,
+                     const RenderReplayOverlayView& replayOverlay,
+                     const RenderToolOverlayView& toolOverlay,
+                     const RenderUiView& ui );
 
     void EnsureFrameResources( const RenderResourceContext& resources );
     // Packages model-owned render/debug views before the frame passes consume them.
@@ -147,27 +150,27 @@ class RuntimeRenderer
     // or Run borrows to Runtime/Render contracts.
     struct CinematicPostGraphResult
     {
-        bool volumetricReady = false;                      // Volumetric target was produced and can be sampled by tonemap.
-        bool volumetricCallbackOwned = false;              // Volumetric command recording ran through RenderGraph callback execution.
-        bool tonemapCallbackOwned = false;                 // Tonemap command recording ran through RenderGraph callback execution.
-        uint32_t volumetricTextureHandle = 0;              // Renderer texture handle resolved from the graph-managed transient SRV.
-        uint32_t volumetricWidth = 0;                      // Materialized graph transient width for diagnostics.
-        uint32_t volumetricHeight = 0;                     // Materialized graph transient height for diagnostics.
+        bool volumetricReady = false;              // Volumetric target was produced and can be sampled by tonemap.
+        bool volumetricCallbackOwned = false;      // Volumetric command recording ran through RenderGraph callback execution.
+        bool tonemapCallbackOwned = false;         // Tonemap command recording ran through RenderGraph callback execution.
+        uint32_t volumetricTextureHandle = 0;      // Renderer texture handle resolved from the graph-managed transient SRV.
+        uint32_t volumetricWidth = 0;              // Materialized graph transient width for diagnostics.
+        uint32_t volumetricHeight = 0;             // Materialized graph transient height for diagnostics.
     };
     struct GraphPassResult
     {
-        bool rendered = false;                             // Pass body produced visible output.
-        bool callbackOwned = false;                        // Pass scheduling ran through RenderGraph callback execution.
+        bool rendered = false;                     // Pass body produced visible output.
+        bool callbackOwned = false;                // Pass scheduling ran through RenderGraph callback execution.
     };
     struct ShadowGraphResult
     {
-        ShadowPassOutput output;                           // Shadow maps produced by the callback-owned shadow pass.
-        bool callbackOwned = false;                        // Shadow pass scheduling ran through RenderGraph callback execution.
+        ShadowPassOutput output;                   // Shadow maps produced by the callback-owned shadow pass.
+        bool callbackOwned = false;                // Shadow pass scheduling ran through RenderGraph callback execution.
     };
     struct ReflectionGraphResult
     {
-        ReflectionPassOutput output;                       // Reflection texture produced by the callback-owned reflection pass.
-        bool callbackOwned = false;                        // Reflection pass scheduling ran through RenderGraph callback execution.
+        ReflectionPassOutput output;               // Reflection texture produced by the callback-owned reflection pass.
+        bool callbackOwned = false;                // Reflection pass scheduling ran through RenderGraph callback execution.
     };
 
     RenderFrameContext BuildRenderFrameContext( const RuntimeRenderInputs& renderInputs,
@@ -240,43 +243,48 @@ class RuntimeRenderer
                                           bool cinematicRendering,
                                           Rendering::IRenderRayTracing* renderRayTracing,
                                           double secondsPerFrame );
-
-    RenderResourceLifecycleLogFn m_lifecycleLog = nullptr; // Run-owned resource lifecycle diagnostic hook.
-    RenderEditorOverlayFn m_editorOverlay = nullptr;       // Run-owned editor overlay draw hook.
-    void* m_callbackUser = nullptr;                        // Borrowed Run instance used only by the two hooks above.
-    RunSubsystemState& m_systems;                          // Long-lived render pass resources owned by Run.
-    RunDebugState& m_debug;                                // Frame/debug toggles sampled by render scheduling.
-    RunTimerState& m_timers;                               // Simulation clock used by visual/replay overlays.
-    EngineConfig& m_config;                                // Process config that owns ordinary render style.
-    RunRuntimeSettings& m_runtimeSettings;                 // Runtime-toggled render/physics presentation settings.
-    Environment::WorldEnvironment& m_world;                // Fluid surface and gravity owner for pass contexts.
-    std::optional<RenderHelper> m_renderHelper;            // Backend-lifetime primitive render cache and batch scratch.
+    RenderResourceLifecycleLog m_lifecycleLog;     // Concrete renderer-owned lifecycle diagnostic writer.
+    Assets::AssetSystem& m_assets;                 // Registered render asset/shader lookup owner.
+    Textures::TextureCollection& m_textures;       // Stable texture handle/select owner.
+    Environment::CameraCollection& m_cameras;      // Active render-camera owner.
+    std::unique_ptr<Geometry::Terrain>& m_terrain; // World terrain lifetime borrowed by terrain/debug passes.
+    std::unique_ptr<Geometry::SkyBox>& m_skyBox;   // Sky resource lifetime released before backend teardown.
+    Window& m_window;                              // Client dimensions sampled for render targets.
+    RunRenderPassResources& m_passResources;       // GPU objects owned by named RuntimeRenderer passes.
+    RunDebugState& m_debug;                        // Frame/debug toggles sampled by render scheduling.
+    RunTimerState& m_timers;                       // Simulation clock used by visual/replay overlays.
+    EngineConfig& m_config;                        // Process config that owns ordinary render style.
+    RunRuntimeSettings& m_runtimeSettings;         // Runtime-toggled render/physics presentation settings.
+    Environment::WorldEnvironment& m_world;        // Fluid surface and gravity owner for pass contexts.
+    std::optional<RenderHelper> m_renderHelper;    // Backend-lifetime primitive render cache and batch scratch.
     Physics::CollisionVisualizer& m_collisionVisualizer;
     Physics::BroadphaseVisualizer& m_broadphaseVisualizer;
     Physics::PhysicsDebugVisualizer& m_physicsDebugVisualizer;
-    RuntimeTools& m_runtimeTools;                          // Tool overlay owner used outside hot render loops.
-    RunEditorPlacementState& m_editor;                     // Editor overlay state sampled once per frame.
-    RunCameraState& m_camera;                              // Current camera mode needed by tool overlay wake-up checks.
-    Profiler* m_profiler = nullptr;                        // Startup-bound diagnostics source; null in non-profile builds.
-    ReplayRuntime& m_replayRuntime;                        // Replay presentation owner for ghost/focus overlays.
-    float m_consequenceGradeStrength = 0.0f;               // Render-owned fade strength for the frame-local consequence grade.
+    RuntimeTools& m_runtimeTools;                  // Tool overlay owner used outside hot render loops.
+    RunEditorPlacementState& m_editor;             // Editor overlay state sampled once per frame.
+    RunCameraState& m_camera;                      // Current camera mode needed by tool overlay wake-up checks.
+    Profiler* m_profiler = nullptr;                // Startup-bound diagnostics source; null in non-profile builds.
+    ReplayRuntime& m_replayRuntime;                // Replay presentation owner for ghost/focus overlays.
+    int m_toolOverlaySceneFrame = 0;               // Scene frame paired with the prepared fixed-capacity overlay records.
+    uint64_t m_toolOverlayGrowthEventCount = 0;    // Replay reserve counter sampled by the composition root.
+    float m_consequenceGradeStrength = 0.0f;       // Render-owned fade strength for the frame-local consequence grade.
     std::chrono::steady_clock::time_point
-        m_consequenceGradeLastTick;                        // Wall-clock anchor for the grade crossfade; zero means uninitialized.
+        m_consequenceGradeLastTick;                // Wall-clock anchor for the grade crossfade; zero means uninitialized.
     std::array<float, MAX_GAME_MODELS * 16> m_dxrReflectionTransforms =
-        {};                                                // Scratch matrices for DXR TLAS instance upload.
-    FullscreenQuadPass m_fullscreenQuadPass;               // Shared full-screen vertex buffer pass used by sky/post effects.
-    SkyPass m_skyPass;                                     // Background sky pass, reused by reflection and scene target passes.
-    SceneTargetPass m_sceneTargetPass;                     // Cinematic HDR scene-target begin/release pass.
-    ShadowPass m_shadowPass;                               // Terrain/object shadow-map producer pass.
-    ReflectionPass m_reflectionPass;                       // Water reflection texture producer pass.
-    ObjectPass m_objectPass;                               // Production body and collision-solid pass.
-    TerrainPass m_terrainPass;                             // Terrain material/shadow receiver pass.
-    WaterPass m_waterPass;                                 // Calm/ocean water pass.
-    TornadoVisualPass m_tornadoVisualPass;                 // Sparse alpha tornado shell/dust pass.
-    DebugOverlayPass m_debugOverlayPass;                   // Broadphase and physics debug overlay pass.
-    VolumetricPass m_volumetricPass;                       // Half-resolution cinematic light-shaft pass.
-    TonemapPass m_tonemapPass;                             // HDR-to-backbuffer resolve pass.
-    UiTextPass m_uiTextPass;                               // HUD/UI/text pass.
+        {};                                        // Scratch matrices for DXR TLAS instance upload.
+    FullscreenQuadPass m_fullscreenQuadPass;       // Shared full-screen vertex buffer pass used by sky/post effects.
+    SkyPass m_skyPass;                             // Background sky pass, reused by reflection and scene target passes.
+    SceneTargetPass m_sceneTargetPass;             // Cinematic HDR scene-target begin/release pass.
+    ShadowPass m_shadowPass;                       // Terrain/object shadow-map producer pass.
+    ReflectionPass m_reflectionPass;               // Water reflection texture producer pass.
+    ObjectPass m_objectPass;                       // Production body and collision-solid pass.
+    TerrainPass m_terrainPass;                     // Terrain material/shadow receiver pass.
+    WaterPass m_waterPass;                         // Calm/ocean water pass.
+    TornadoVisualPass m_tornadoVisualPass;         // Sparse alpha tornado shell/dust pass.
+    DebugOverlayPass m_debugOverlayPass;           // Broadphase and physics debug overlay pass.
+    VolumetricPass m_volumetricPass;               // Half-resolution cinematic light-shaft pass.
+    TonemapPass m_tonemapPass;                     // HDR-to-backbuffer resolve pass.
+    UiTextPass m_uiTextPass;                       // HUD/UI/text pass.
     // Runtime allocation policy: graph wrapper passes reuse this owner scratch
     // storage. Pass labels are borrowed literals and per-pass reads/writes are
     // bounded, so steady render frames do not create per-wrapper graph heaps.

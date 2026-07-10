@@ -262,7 +262,8 @@
     <ClCompile Include="SkullbonezSource\Runtime\RunInteractionAutomation.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\RunInput.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\RunLiveStyle.cpp" />
-    <ClCompile Include="SkullbonezSource\Runtime\RunPasses.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Render\RuntimeRenderPasses.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Render\RuntimeRenderer.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Replay\RunReplayTools.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Replay\RunReplayVelocityEdit.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Render\RuntimeRenderHost.cpp" />

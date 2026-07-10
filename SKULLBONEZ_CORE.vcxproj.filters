@@ -352,8 +352,11 @@
     <ClCompile Include="SkullbonezSource\Runtime\RunLiveStyle.cpp">
       <Filter>Source Files\Runtime</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Runtime\RunPasses.cpp">
-      <Filter>Source Files\Runtime</Filter>
+    <ClCompile Include="SkullbonezSource\Runtime\Render\RuntimeRenderPasses.cpp">
+      <Filter>Source Files\Runtime\Render</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Render\RuntimeRenderer.cpp">
+      <Filter>Source Files\Runtime\Render</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Replay\RunReplayTools.cpp">
       <Filter>Source Files\Runtime\Replay</Filter>

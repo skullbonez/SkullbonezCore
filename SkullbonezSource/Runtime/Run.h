@@ -243,12 +243,9 @@ class Run
     void ToggleAttachedCameraPin();                                     // Enter pins/unpins camera follow while in Attach.
     void TickAttachedCameraOrbitInput( int unhandledWheelDelta );       // Mouse wheel adjusts Attach orbit distance.
     void TickAttachedCamera();                                          // Applies the active follow solve to CameraCollection.
-    RuntimeRendererBindings BuildRuntimeRendererBindings( Profiler* profiler );
     SbResult ReleaseBackendOwnedRenderResources(
         const char* phaseName );                                        // Ordered GPU-resource release hook while the backend is alive.
     SbResult RebuildRegisteredRenderResources();                        // Recreates renderer resources from source asset records.
-    void LogRenderResourceLifecycleStep( const char* phase, const char* step )
-        const;                                                          // Debug event log record for a named resource-lifetime phase.
     void SetViewingOrientation();                                       // Camera-view setup for the current frame.
     SbResult SaveScreenshot( const char* path );                        // Lane R backbuffer capture result; current encoder writes BMP files.
     bool SaveCurrentSceneDefaults();                                    // UI-controlled scene defaults persisted to the active scene file.

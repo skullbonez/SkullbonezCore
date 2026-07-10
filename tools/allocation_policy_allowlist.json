@@ -943,28 +943,28 @@
       "removal_or_wrapper_plan": "Move runtime orchestration storage to typed fixed buffers or owner wrappers as each subsystem is decomposed."
     },
     {
-      "path": "SkullbonezSource/Runtime/RunPasses.cpp",
+      "path": "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.cpp",
       "patterns": [
         ".push_back(",
         ".reserve(",
         ".shrink_to_fit("
       ],
-      "owner": "Runtime orchestration preallocation surface",
-      "phase": "startup_scene_load_diagnostics",
-      "reason": "Runtime orchestration, automation, demo, and pass setup vectors grow while preparing startup, scene, diagnostics, or bounded command data.",
-      "cap": "Bounded by startup arguments, scene/model counts, render pass counts, or automation script sizes.",
-      "removal_or_wrapper_plan": "Move runtime orchestration storage to typed fixed buffers or owner wrappers as each subsystem is decomposed."
+      "owner": "RuntimeRenderer tornado and debug-overlay passes",
+      "phase": "startup_backend_resource_prepare_and_release",
+      "reason": "Pass-owned vectors reserve bounded tornado/debug geometry before submission and release capacity during explicit backend teardown.",
+      "cap": "Bounded by configured tornado vortex limits and the fixed debug-overlay sampling grid.",
+      "removal_or_wrapper_plan": "Replace these vectors with pass-owned fixed buffers when render-backend decomposition closes the tornado/debug pass storage rows."
     },
     {
-      "path": "SkullbonezSource/Runtime/RunRender.cpp",
+      "path": "SkullbonezSource/Runtime/Render/RuntimeRenderer.cpp",
       "patterns": [
         ".emplace("
       ],
-      "owner": "Runtime orchestration preallocation surface",
-      "phase": "startup_scene_load_diagnostics",
-      "reason": "Runtime orchestration, automation, demo, and pass setup vectors grow while preparing startup, scene, diagnostics, or bounded command data.",
-      "cap": "Bounded by startup arguments, scene/model counts, render pass counts, or automation script sizes.",
-      "removal_or_wrapper_plan": "Move runtime orchestration storage to typed fixed buffers or owner wrappers as each subsystem is decomposed."
+      "owner": "RuntimeRenderer render-helper lifecycle",
+      "phase": "startup_and_backend_rebuild",
+      "reason": "The optional RenderHelper reconstructs its single backend-bound value only after a successful device/resource rebuild.",
+      "cap": "Exactly one optional RenderHelper instance.",
+      "removal_or_wrapper_plan": "Route RenderHelper reconstruction through the renderer resource owner when render-backend decomposition assigns its final lifecycle boundary."
     },
     {
       "path": "SkullbonezSource/Runtime/Scene/SceneAuthoredSetup.cpp",

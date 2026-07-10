@@ -52,6 +52,7 @@ Related:
 #include "../../UI/UICommands.h"
 #include "../../UI/UILayout.h"
 #include "../CameraCollection.h"
+#include "../Editor/EditorOverlayTools.h"
 #include "../Replay/ReplayRecorder.h"
 #include "../Scene/SceneRuntime.h"
 #include "../../World/Terrain.h"
@@ -670,5 +671,28 @@ RunEditorTracer& RuntimeTools::EditorTracer()
 const RunEditorTracer& RuntimeTools::EditorTracer() const
 {
     return m_editorTracer;
+}
+
+
+void RuntimeTools::PrepareOverlayTrace( GameObjects::GameModelCollection& models,
+                                        const Assets::AssetSystem& assets,
+                                        const ToolOverlayBuildInput& input )
+{
+    // Invariant: one owner clears and rebuilds the shared tracer exactly once
+    // before replay appends its records for the same frame.
+    m_editorTracer.Clear();
+    RunInternal::BuildEditorToolOverlayTrace( { m_editor,
+                                                m_rayCastTest,
+                                                m_mousePickup,
+                                                models,
+                                                models.BodyStore(),
+                                                models.Colliders(),
+                                                assets,
+                                                m_editorTracer },
+                                              { input.rayLingerSeconds,
+                                                input.inspectGizmoActive,
+                                                input.scaleMode,
+                                                input.attachedCameraTargetIndex,
+                                                input.attachedCameraActiveFollow } );
 }
 } // namespace SkullbonezCore::Basics

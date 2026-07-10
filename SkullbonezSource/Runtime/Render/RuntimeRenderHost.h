@@ -1,23 +1,25 @@
 /*
 File: SkullbonezSource/Runtime/Render/RuntimeRenderHost.h
 Purpose:
-  Names the startup bindings for runtime render passes.
+  Defines the five owner views and active-backend capabilities consumed by
+  RuntimeRenderer.
 
 Mental model:
-  RuntimeRenderer owns pass order and pass objects. Renderer dependencies travel
-  through named startup bindings while Run stays the composition root.
+  Run constructs five named views once. RuntimeRenderer borrows those concrete
+  owners for its lifetime, then receives immutable frame facts for submission.
 
 Glossary:
-  Binding: Pointer set that connects RuntimeRenderer to current runtime owners.
+  Owner view: Named set of lifetime-stable borrows for one render domain.
   Render backend view: Borrowed active renderer capabilities published by the
     composition root; null pointers mean the backend is not available.
-  DXR reflection transform buffer: Host-owned per-frame scratch matrix data
-    streamed from the scene view into the DX12 TLAS build.
+  Submission view: One-frame values sampled only after tool/replay owners have
+    completed their bounded draw records.
 
 Invariants:
   - RuntimeRenderer owns renderer scratch state that should not leak back into
     Run.h, including DXR reflection instance transforms.
-  - All references must outlive RuntimeRenderer and its passes.
+  - All owner-view references must outlive RuntimeRenderer and its passes.
+  - A frame view is read-only after construction and is never cached by a pass.
 
 Related:
   - SkullbonezSource/Runtime/Render/RuntimeRenderer.h
@@ -36,13 +38,24 @@ Related:
 
 #include <array>
 #include <cstdint>
+#include <memory>
 
 namespace SkullbonezCore
 {
+namespace Assets
+{
+class AssetSystem;
+}
 namespace Environment
 {
+class CameraCollection;
 class WorldEnvironment;
-}
+} // namespace Environment
+namespace Geometry
+{
+class SkyBox;
+class Terrain;
+} // namespace Geometry
 namespace Physics
 {
 class BroadphaseVisualizer;
@@ -58,12 +71,17 @@ class IRenderDiagnostics;
 class IRenderResourceFactory;
 class IRenderRayTracing;
 } // namespace Rendering
+namespace Textures
+{
+class TextureCollection;
+}
 namespace UI
 {
 class InGameUI;
 }
 namespace Basics
 {
+class Window;
 class Profiler;
 class LauncherLaser;
 class RuntimeInputContext;
@@ -81,61 +99,67 @@ struct RunMousePickupState;
 struct RunRayCastTestState;
 struct RunReplayPredictionFrame;
 struct RunRuntimeSettings;
+struct RunRenderPassResources;
 struct RunSceneBrowserState;
 struct RunSceneState;
-struct RunSubsystemState;
 struct RunTimerState;
 struct RuntimeRenderModelFrameView;
 class ReplayRuntime;
 struct RuntimeViewModel;
 
-// Concept: Render passes borrow grouped views from the runtime shell. The groups
-// make new dependencies choose an owning view instead of growing one flat bag.
-struct RenderRuntimeView
-{
-    RunSubsystemState* systems = nullptr;
-    EngineConfig* config = nullptr;
-    const RunLaunchOptions* launchOptions = nullptr;
-    RunRuntimeSettings* runtimeSettings = nullptr;
-};
-
+// Concept: RuntimeRenderer receives five named, immutable-at-the-boundary
+// views. Each pointer identifies one concrete owner that outlives the renderer;
+// callers cannot replace bindings after construction.
 struct RenderWorldView
 {
-    Environment::WorldEnvironment* worldEnvironment = nullptr;
-    Physics::CollisionVisualizer* collisionVisualizer = nullptr;
-    Physics::BroadphaseVisualizer* broadphaseVisualizer = nullptr;
-    Physics::PhysicsDebugVisualizer* physicsDebugVisualizer = nullptr;
+    Assets::AssetSystem& assets;
+    Textures::TextureCollection& textures;
+    Environment::CameraCollection& cameras;
+    std::unique_ptr<Geometry::Terrain>& terrain;
+    std::unique_ptr<Geometry::SkyBox>& skyBox;
+    Window& window;
+    RunRenderPassResources& renderPasses;
+    EngineConfig& config;
+    RunRuntimeSettings& runtimeSettings;
+    Environment::WorldEnvironment& worldEnvironment;
+    Physics::CollisionVisualizer& collisionVisualizer;
+    Physics::BroadphaseVisualizer& broadphaseVisualizer;
+    Physics::PhysicsDebugVisualizer& physicsDebugVisualizer;
+    RunDebugState& debug;
+    RunTimerState& timers;
+    Profiler* profiler = nullptr;
 };
 
 struct RenderSceneView
 {
-    SceneController* sceneController = nullptr;
-    RunSceneBrowserState* sceneBrowser = nullptr;
+    SceneController& sceneController;
+    RunSceneBrowserState& sceneBrowser;
 };
 
 struct RenderReplayOverlayView
 {
-    ReplayRuntime* replayRuntime = nullptr;
+    ReplayRuntime& replayRuntime;
+    bool scenePhysicsEnabled = false;
+    int sceneFrame = 0;
+    double frameSeconds = 0.0;
+    double totalSeconds = 0.0;
 };
 
 struct RenderToolOverlayView
 {
-    RuntimeTools* tools = nullptr;
+    RuntimeTools& tools;
+    bool inspectGizmoInteractionActive = false;
+    bool controlDown = false;
+    int attachedTargetIndex = -1;
+    bool attachedFollow = false;
 };
 
 struct RenderUiView
 {
-    UI::InGameUI* ui = nullptr;
-    RuntimeInputContext* runtimeInput = nullptr;
-    RunCameraState* camera = nullptr;
-    RuntimeViewModel* runtimeViewModel = nullptr;
-};
-
-struct RenderDiagnosticsView
-{
-    RunDebugState* debug = nullptr;
-    RunTimerState* timers = nullptr;
-    Profiler* profiler = nullptr;                                 // Startup-bound diagnostics source; null in non-profile builds.
+    UI::InGameUI& ui;
+    RuntimeInputContext& runtimeInput;
+    RunCameraState& camera;
+    RuntimeViewModel& runtimeViewModel;
 };
 
 struct RuntimeRenderBackendView
@@ -146,24 +170,6 @@ struct RuntimeRenderBackendView
     Rendering::IRenderDiagnostics* renderDiagnostics = nullptr;   // Capability, draw-trace, timer, and memory snapshots.
     Rendering::IRenderCaptureBackend* captureBackend = nullptr;   // Screenshot/readback capability.
     Rendering::IRenderRayTracing* rayTracingBackend = nullptr;    // Optional DXR facet borrowed from the active renderer.
-};
-
-// Concept: RuntimeRendererBindings is the startup borrow set for pass owners.
-// Owner: RuntimeRenderer. Reason: Run is still the composition root, but render
-// pass construction needs explicit long-lived owners instead of a browsable host.
-// Deletion condition: replace each borrowed owner with a domain renderer/pass
-// owner as plans 01/03/04 drain. Checker budget: bindings may be populated only
-// by Run startup code and must not grow per-frame draw decisions.
-struct RuntimeRendererBindings
-{
-    RuntimeRenderBackendView backend;                             // Stable backend capability pointers captured at Run startup.
-    RenderRuntimeView runtime;
-    RenderWorldView world;
-    RenderSceneView scene;
-    RenderReplayOverlayView replayOverlay;
-    RenderToolOverlayView toolOverlay;
-    RenderUiView ui;
-    RenderDiagnosticsView diagnostics;
 };
 
 } // namespace Basics
