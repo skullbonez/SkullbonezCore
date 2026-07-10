@@ -13,6 +13,8 @@ Glossary:
   Point joint: Constraint that keeps two local anchors near each other.
   Slack: Allowed anchor separation before the solver applies correction.
   Preview lines: Editor-only visualization geometry for placement feedback.
+  Part display name: Deterministic `<prefix>_<suffix>` identity shared by
+    parser collision checks and runtime construction.
   Body record: Physics-owned snapshot of pose, velocity, mass, and inertia used
     by the joint solver.
 
@@ -22,6 +24,8 @@ Invariants:
     PhysicsBodyStore may resolve those handles to current model-order rows.
   - The joint solver mutates PhysicsBodyStore records only; later presentation
     mirrors are owner-side side effects, not ragdoll solver state.
+  - Every simple-ragdoll part name is preflighted against the engine's 64-byte
+    display-name field before the first part is appended.
 
 Related:
   - SkullbonezSource/Physics/Ragdoll.cpp
@@ -30,6 +34,7 @@ Related:
 #pragma once
 
 #include <cstdint>
+#include <cstring>
 #include <vector>
 
 #include "PhysicsHandles.h"
@@ -107,6 +112,45 @@ class Ragdoll
 {
   public:
     static constexpr int SIMPLE_PART_COUNT = 10;
+    static inline constexpr const char* SIMPLE_PART_SUFFIXES[SIMPLE_PART_COUNT] = {
+        "torso",
+        "head",
+        "upper_arm_l",
+        "lower_arm_l",
+        "upper_arm_r",
+        "lower_arm_r",
+        "upper_leg_l",
+        "lower_leg_l",
+        "upper_leg_r",
+        "lower_leg_r",
+    };
+
+    static bool TryBuildSimplePartName( const char* prefix, int partIndex, char ( &outName )[64] )
+    {
+        if ( partIndex < 0 || partIndex >= SIMPLE_PART_COUNT )
+        {
+            outName[0] = '\0';
+            return false;
+        }
+        const char* resolvedPrefix = prefix && prefix[0] ? prefix : "ragdoll";
+        const char* suffix = SIMPLE_PART_SUFFIXES[partIndex];
+        const std::size_t prefixLength = std::strlen( resolvedPrefix );
+        const std::size_t suffixLength = std::strlen( suffix );
+        if ( prefixLength + 1u + suffixLength >= sizeof( outName ) )
+        {
+            outName[0] = '\0';
+            return false;
+        }
+
+        // Invariant: both lengths were bounded against the fixed destination,
+        // so these copies cannot overrun or silently truncate; the scene owner
+        // remains responsible for rejecting duplicate complete names.
+        std::memcpy( outName, resolvedPrefix, prefixLength );
+        outName[prefixLength] = '_';
+        std::memcpy( outName + prefixLength + 1u, suffix, suffixLength );
+        outName[prefixLength + 1u + suffixLength] = '\0';
+        return true;
+    }
 
     static float DefaultEditorScale();
     static float ClampScale( float scale );

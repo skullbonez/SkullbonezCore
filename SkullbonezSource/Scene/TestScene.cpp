@@ -648,6 +648,66 @@ const SceneRequiredBroadphaseXCells& TestScene::GetRequiredBroadphaseXCell( int 
 }
 
 
+int TestScene::GetAssetLibraryCount() const
+{
+    return static_cast<int>( m_assetLibraries.size() );
+}
+
+
+const SceneAssetLibraryRef& TestScene::GetAssetLibrary( int index ) const
+{
+    if ( index < 0 || index >= static_cast<int>( m_assetLibraries.size() ) )
+    {
+        FatalSceneIndexOutOfRange( "AssetLibrary",
+                                   "TestScene::GetAssetLibrary",
+                                   index,
+                                   static_cast<int>( m_assetLibraries.size() ) );
+    }
+
+    return m_assetLibraries[index];
+}
+
+
+int TestScene::GetAssetInstanceCount() const
+{
+    return static_cast<int>( m_assetInstances.size() );
+}
+
+
+const SceneAssetInstanceRecord& TestScene::GetAssetInstance( int index ) const
+{
+    if ( index < 0 || index >= static_cast<int>( m_assetInstances.size() ) )
+    {
+        FatalSceneIndexOutOfRange( "AssetInstance",
+                                   "TestScene::GetAssetInstance",
+                                   index,
+                                   static_cast<int>( m_assetInstances.size() ) );
+    }
+
+    return m_assetInstances[index];
+}
+
+
+int TestScene::GetAssetPartCount() const
+{
+    return static_cast<int>( m_assetParts.size() );
+}
+
+
+const SceneAssetPartRef& TestScene::GetAssetPart( int index ) const
+{
+    if ( index < 0 || index >= static_cast<int>( m_assetParts.size() ) )
+    {
+        FatalSceneIndexOutOfRange( "AssetPart",
+                                   "TestScene::GetAssetPart",
+                                   index,
+                                   static_cast<int>( m_assetParts.size() ) );
+    }
+
+    return m_assetParts[index];
+}
+
+
 int TestScene::GetObjectMaterialOverrideCount() const
 {
     return static_cast<int>( m_objectMaterials.size() );

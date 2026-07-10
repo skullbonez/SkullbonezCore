@@ -1,7 +1,7 @@
 # Physics Authority And Stable Identity
 
 Date: 2026-07-10 (source reconciled)
-Status: In progress — 3/15 current checklist items verified complete; the
+Status: In progress — 4/16 current checklist items verified complete; the
 scene-lifetime physics owner decision is binding
 Impact area: physics, game object storage, scene creation/reset, replay,
 editor tools
@@ -66,9 +66,22 @@ no longer an open question.
 - [x] C0. Inventory the complete `assetInstances[]` parse/create/save path and
   bind the durable owner design. Evidence:
   `Agentic/Reports/scene_asset_roundtrip_design_20260710.md`.
-- [ ] C1. Preserve parsed asset library, asset, instance, ordered part, stable
-  object-id, and override provenance. Compose compound transforms with rotated
-  offsets and quaternion multiplication rather than component-wise Euler sums.
+- [x] C1a. Preserve parsed asset library, asset, instance, ordered part, and
+  override provenance. Compose compound transforms with rotated offsets and
+  quaternion multiplication, retain exact shape-row sources, and reject name
+  collisions across explicit objects, asset parts, and deferred ragdoll parts.
+  Evidence (2026-07-10): the standalone parser suite passes a two-library,
+  two-instance mixed-shape fixture with nonzero provenance indices plus
+  duplicate/partial-failure rollback cases. Runtime ragdoll construction now
+  preflights every fixed-buffer part name before its first append. The final
+  source passed `tools\validate_scene_parser_tests.bat`, the mandatory
+  `tools\validate_all_cpu_tests.bat` umbrella, `tools\validate_physics.bat`
+  with a 20,001-line byte-exact solver baseline, and `tools\validate_full.bat`
+  with zero DX12 validation errors and matching screenshots.
+- [ ] C1b. Add schema-versioned explicit `PhysicsSceneObjectId` values for
+  authored objects and per-instance parts, reject duplicate/zero ids, and feed
+  those ids into the creation transaction instead of allocation by shape-section
+  order. Version 1 remains readable through one deterministic upgrade path.
 - [ ] C2. Extract a preallocated, scene-owned `SceneEntityStore` for display
   names, durable render material intent, asset affiliation, and stable ids.
   Remove those ownership duties from `GameModel`/collection order.

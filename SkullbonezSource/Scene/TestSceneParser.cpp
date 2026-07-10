@@ -19,12 +19,16 @@ Glossary:
     scene objects; the container itself is not a physics body.
   Asset primitive: Single collision shape inside an asset, such as a box,
     sphere, or convex hull.
+  Asset provenance: Library, instance, and ordered-part records retained beside
+    expanded shape rows so later scene owners can save by identity.
   Scene object group: Parsed metadata that ties multi-part authored objects,
     such as releasable trees, to one root object before runtime construction.
 
 Invariants:
   - Scene, style, and suite files are JSON documents.
   - Command-line scene/style field names are user-facing compatibility surface.
+  - Compound offsets and orientations are composed in quaternion/matrix space;
+    component-wise Euler addition is not a valid hierarchy transform.
 
 Related:
   - Agentic/Reference/runtime-reference.md
@@ -36,6 +40,7 @@ Related:
 #include "../Maths/Quaternion.h"
 #include "../Physics/ConvexHullShape.h"
 #include "../Physics/PhysicsMass.h"
+#include "../Physics/Ragdoll.h"
 #include "../Runtime/Editor/EditorHullAssets.h"
 
 #include <algorithm>
@@ -635,13 +640,32 @@ template <size_t N> void CopyStringField( char ( &out )[N], const std::string& t
 }
 
 template <size_t N>
+bool CopyCheckedStringField( char ( &out )[N], const std::string& text, const std::string& path, const char* context )
+{
+    if ( text.size() >= N )
+    {
+        std::ostringstream message;
+        message << context << " must be shorter than " << N << " characters";
+        Fail( path, message.str() );
+        return false;
+    }
+    strcpy_s( out, N, text.c_str() );
+    return true;
+}
+
+template <size_t N>
 void ReadRequiredStringField( char ( &out )[N],
                               const Json& object,
                               const std::string& path,
                               const char* context,
                               const char* key )
 {
-    CopyStringField( out, ReadString( RequireMember( object, path, context, key ), path, key ) );
+    const std::string text = ReadString( RequireMember( object, path, context, key ), path, key );
+    if ( ParserFailed() )
+    {
+        return;
+    }
+    (void)CopyCheckedStringField( out, text, path, key );
 }
 
 SceneObjectGroupKind ReadSceneObjectGroupKind( const Json& value, const std::string& path, const char* context )
@@ -974,10 +998,34 @@ float ReadUnitFloat( const Json& value, const std::string& path, const char* con
 class TestSceneParser
 {
   private:
+    struct ParsedAssetDefinition
+    {
+        Json value;
+        uint32_t libraryRefIndex = 0; // Exact library token/path owner retained beside copied JSON.
+    };
+
+    struct AssetInstanceExpansion
+    {
+        Math::Vector::Vector3 position = Math::Vector::ZERO_VECTOR;
+        Math::Vector::Vector3 authoredEuler = Math::Vector::ZERO_VECTOR;
+        Math::Orientation::Quaternion orientation;
+        Math::Vector::Vector3 velocity = Math::Vector::ZERO_VECTOR;
+        Math::Vector::Vector3 angularVelocity = Math::Vector::ZERO_VECTOR;
+        uint32_t overrideMask = 0;
+        bool fixed = false;
+        bool sleeping = false;
+
+        bool HasOverride( uint32_t bit ) const
+        {
+            return ( overrideMask & bit ) != 0;
+        }
+    };
+
     TestScene m_scene;
     Assets::AssetContext m_assets;
     ParserFailureState m_failure;
-    std::vector<Json> m_assetDefinitions;
+    std::vector<ParsedAssetDefinition> m_assetDefinitions;
+    std::vector<std::string> m_sceneObjectNames;
 
     std::string ResolveStylePath( const std::string& token ) const
     {
@@ -989,6 +1037,24 @@ class TestSceneParser
         return std::string( "SkullbonezData/styles/" ) + token + ".style.json";
     }
 
+    const Assets::AssetLibrarySourceAsset* FindRegisteredAssetLibrary( const std::string& token ) const
+    {
+        if ( !m_assets.assets || token.find( '/' ) != std::string::npos || token.find( '\\' ) != std::string::npos ||
+             EndsWith( token, ".assets.json" ) )
+        {
+            return nullptr;
+        }
+
+        if ( const Assets::AssetLibrarySourceAsset* library =
+                 m_assets.assets->FindAssetLibrarySourceAsset( token.c_str() ) )
+        {
+            return library;
+        }
+
+        const std::string prefixedToken = std::string( "assetlib." ) + token;
+        return m_assets.assets->FindAssetLibrarySourceAsset( prefixedToken.c_str() );
+    }
+
     std::string ResolveAssetLibraryPath( const std::string& token ) const
     {
         if ( token.find( '/' ) != std::string::npos || token.find( '\\' ) != std::string::npos ||
@@ -997,36 +1063,39 @@ class TestSceneParser
             return token;
         }
 
-        if ( m_assets.assets )
+        if ( const Assets::AssetLibrarySourceAsset* library = FindRegisteredAssetLibrary( token ) )
         {
-            if ( const Assets::AssetLibrarySourceAsset* library =
-                     m_assets.assets->FindAssetLibrarySourceAsset( token.c_str() ) )
-            {
-                return library->resolvedPath;
-            }
-
-            const std::string prefixedToken = std::string( "assetlib." ) + token;
-            if ( const Assets::AssetLibrarySourceAsset* library =
-                     m_assets.assets->FindAssetLibrarySourceAsset( prefixedToken.c_str() ) )
-            {
-                return library->resolvedPath;
-            }
+            return library->resolvedPath;
         }
 
         return std::string( "SkullbonezData/assets/" ) + token + ".assets.json";
     }
 
-    const Json* FindAssetDefinition( const std::string& name ) const
+    const ParsedAssetDefinition* FindAssetDefinition( const std::string& name ) const
     {
-        for ( const Json& asset : m_assetDefinitions )
+        for ( const ParsedAssetDefinition& asset : m_assetDefinitions )
         {
-            const Json* assetName = FindMember( asset, "name" );
+            const Json* assetName = FindMember( asset.value, "name" );
             if ( assetName && assetName->is_string() && assetName->get<std::string>() == name )
             {
                 return &asset;
             }
         }
         return nullptr;
+    }
+
+    bool RegisterSceneObjectName( const char* name, const std::string& path )
+    {
+        // Invariant: display-name material targeting and current runtime lookup
+        // are unambiguous only when every parsed shape row owns a unique name.
+        const std::string candidate = name ? name : "";
+        if ( std::find( m_sceneObjectNames.begin(), m_sceneObjectNames.end(), candidate ) != m_sceneObjectNames.end() )
+        {
+            Fail( path, "Duplicate scene object name: " + candidate );
+            return false;
+        }
+        m_sceneObjectNames.push_back( candidate );
+        return true;
     }
 
     void ValidateAssetMaterial( const Json& owner, const std::string& path, const char* context ) const
@@ -1203,7 +1272,7 @@ class TestSceneParser
         return;
     }
 
-    void LoadAssetLibrary( const std::string& assetPath )
+    void LoadAssetLibrary( const std::string& assetPath, uint32_t libraryRefIndex )
     {
         const Json root = ReadJsonFile( assetPath );
         RequireObject( root, assetPath, "asset library root" );
@@ -1258,6 +1327,7 @@ class TestSceneParser
                     Fail( assetPath, "asset.parts must not be empty" );
                     return;
                 }
+                std::vector<std::string> partNames;
                 for ( const Json& part : parts )
                 {
                     RequireObject( part, assetPath, "asset.parts[]" );
@@ -1273,6 +1343,12 @@ class TestSceneParser
                         Fail( assetPath, "asset.parts[].name must not be empty" );
                         return;
                     }
+                    if ( std::find( partNames.begin(), partNames.end(), partName ) != partNames.end() )
+                    {
+                        Fail( assetPath, "Duplicate asset part name: " + partName );
+                        return;
+                    }
+                    partNames.push_back( partName );
                     ValidateAssetPrimitiveFields( part, assetPath, "asset.parts[]" );
                     if ( ParserFailed() )
                     {
@@ -1286,7 +1362,7 @@ class TestSceneParser
                 return;
             }
 
-            m_assetDefinitions.push_back( asset );
+            m_assetDefinitions.push_back( ParsedAssetDefinition{ asset, libraryRefIndex } );
         }
     }
 
@@ -1305,7 +1381,20 @@ class TestSceneParser
         for ( const Json& library : *libraries )
         {
             const std::string token = ReadString( library, path, "assetLibraries" );
-            LoadAssetLibrary( ResolveAssetLibraryPath( token ) );
+            const std::string resolvedPath = ResolveAssetLibraryPath( token );
+            const Assets::AssetLibrarySourceAsset* registeredLibrary = FindRegisteredAssetLibrary( token );
+
+            SceneAssetLibraryRef reference;
+            if ( !CopyCheckedStringField( reference.token, token, path, "assetLibraries[]" ) ||
+                 !CopyCheckedStringField( reference.resolvedPath, resolvedPath, path, "resolved asset-library path" ) )
+            {
+                return;
+            }
+            reference.resolvedAssetId = registeredLibrary ? registeredLibrary->id : 0;
+            const uint32_t libraryRefIndex = static_cast<uint32_t>( m_scene.m_assetLibraries.size() );
+            m_scene.m_assetLibraries.push_back( reference );
+
+            LoadAssetLibrary( resolvedPath, libraryRefIndex );
             if ( ParserFailed() )
             {
                 return;
@@ -1354,28 +1443,39 @@ class TestSceneParser
         ApplyObjectMaterial( material, path );
     }
 
+    void RecordAssetPart( const std::string& path,
+                          const std::string& partName,
+                          const std::string& objectName,
+                          uint32_t partIndex,
+                          SceneAssetPartSource source,
+                          uint32_t sourceIndex,
+                          const Math::Vector::Vector3& worldPosition,
+                          const Math::Orientation::Quaternion& worldOrientation )
+    {
+        SceneAssetPartRef part;
+        if ( !CopyCheckedStringField( part.partName, partName, path, "asset part name" ) ||
+             !CopyCheckedStringField( part.objectName, objectName, path, "expanded asset object name" ) )
+        {
+            return;
+        }
+        part.partIndex = partIndex;
+        // Invariant: source names the exact shape vector; sourceIndex is
+        // captured before Apply* appends and recorded only after it succeeds.
+        part.sourceIndex = sourceIndex;
+        part.source = source;
+        part.posX = worldPosition.x;
+        part.posY = worldPosition.y;
+        part.posZ = worldPosition.z;
+        worldOrientation.GetComponents( part.orientX, part.orientY, part.orientZ, part.orientW );
+        m_scene.m_assetParts.push_back( part );
+    }
+
     void ApplyAssetPrimitivePart( const Json& asset,
                                   const std::string& path,
                                   const std::string& objectName,
-                                  float baseX,
-                                  float baseY,
-                                  float baseZ,
-                                  float instanceEulerX,
-                                  float instanceEulerY,
-                                  float instanceEulerZ,
-                                  bool hasInstanceEuler,
-                                  bool hasFixedOverride,
-                                  bool fixedOverride,
-                                  bool hasSleepingOverride,
-                                  bool sleepingOverride,
-                                  bool hasInstanceVelocity,
-                                  float instanceVelX,
-                                  float instanceVelY,
-                                  float instanceVelZ,
-                                  bool hasInstanceAngularVelocity,
-                                  float instanceAngVelX,
-                                  float instanceAngVelY,
-                                  float instanceAngVelZ )
+                                  const std::string& partName,
+                                  uint32_t partIndex,
+                                  const AssetInstanceExpansion& instance )
     {
         CheckGeneratedSceneName( objectName, path, "asset instance name" );
         if ( ParserFailed() )
@@ -1389,61 +1489,60 @@ class TestSceneParser
             return;
         }
 
-        float offsetX = 0.0f, offsetY = 0.0f, offsetZ = 0.0f;
+        Math::Vector::Vector3 localOffset = Math::Vector::ZERO_VECTOR;
         if ( const Json* offset = FindMember( asset, "offset" ) )
         {
-            ReadVec3( *offset, path, "asset.offset", offsetX, offsetY, offsetZ );
+            ReadVec3( *offset, path, "asset.offset", localOffset.x, localOffset.y, localOffset.z );
             if ( ParserFailed() )
             {
                 return;
             }
         }
 
-        float eulerX = instanceEulerX, eulerY = instanceEulerY, eulerZ = instanceEulerZ;
-        bool hasEuler = hasInstanceEuler;
+        Math::Orientation::Quaternion partOrientation;
+        bool hasPartEuler = false;
         if ( const Json* euler = FindMember( asset, "euler" ) )
         {
-            float partX = 0.0f, partY = 0.0f, partZ = 0.0f;
-            ReadVec3( *euler, path, "asset.euler", partX, partY, partZ );
+            Math::Vector::Vector3 partEuler = Math::Vector::ZERO_VECTOR;
+            ReadVec3( *euler, path, "asset.euler", partEuler.x, partEuler.y, partEuler.z );
             if ( ParserFailed() )
             {
                 return;
             }
-            eulerX += partX;
-            eulerY += partY;
-            eulerZ += partZ;
-            hasEuler = true;
+            partOrientation = MakeSceneEulerQuaternion( partEuler.x, partEuler.y, partEuler.z );
+            hasPartEuler = true;
         }
 
-        float velX = instanceVelX, velY = instanceVelY, velZ = instanceVelZ;
-        bool hasVelocity = hasInstanceVelocity;
-        if ( const Json* velocity = FindMember( asset, "velocity" ) )
+        Math::Vector::Vector3 velocity = instance.velocity;
+        bool hasVelocity = instance.HasOverride( SCENE_ASSET_OVERRIDE_VELOCITY );
+        if ( const Json* velocityValue = FindMember( asset, "velocity" ) )
         {
-            float partX = 0.0f, partY = 0.0f, partZ = 0.0f;
-            ReadVec3( *velocity, path, "asset.velocity", partX, partY, partZ );
+            Math::Vector::Vector3 partVelocity = Math::Vector::ZERO_VECTOR;
+            ReadVec3( *velocityValue, path, "asset.velocity", partVelocity.x, partVelocity.y, partVelocity.z );
             if ( ParserFailed() )
             {
                 return;
             }
-            velX += partX;
-            velY += partY;
-            velZ += partZ;
+            velocity += partVelocity;
             hasVelocity = true;
         }
 
-        float angVelX = instanceAngVelX, angVelY = instanceAngVelY, angVelZ = instanceAngVelZ;
-        bool hasAngularVelocity = hasInstanceAngularVelocity;
-        if ( const Json* angularVelocity = FindMember( asset, "angularVelocity" ) )
+        Math::Vector::Vector3 angularVelocity = instance.angularVelocity;
+        bool hasAngularVelocity = instance.HasOverride( SCENE_ASSET_OVERRIDE_ANGULAR_VELOCITY );
+        if ( const Json* angularVelocityValue = FindMember( asset, "angularVelocity" ) )
         {
-            float partX = 0.0f, partY = 0.0f, partZ = 0.0f;
-            ReadVec3( *angularVelocity, path, "asset.angularVelocity", partX, partY, partZ );
+            Math::Vector::Vector3 partAngularVelocity = Math::Vector::ZERO_VECTOR;
+            ReadVec3( *angularVelocityValue,
+                      path,
+                      "asset.angularVelocity",
+                      partAngularVelocity.x,
+                      partAngularVelocity.y,
+                      partAngularVelocity.z );
             if ( ParserFailed() )
             {
                 return;
             }
-            angVelX += partX;
-            angVelY += partY;
-            angVelZ += partZ;
+            angularVelocity += partAngularVelocity;
             hasAngularVelocity = true;
         }
 
@@ -1456,9 +1555,9 @@ class TestSceneParser
                 return;
             }
         }
-        if ( hasFixedOverride )
+        if ( instance.HasOverride( SCENE_ASSET_OVERRIDE_FIXED ) )
         {
-            fixed = fixedOverride;
+            fixed = instance.fixed;
         }
 
         bool sleeping = false;
@@ -1470,19 +1569,30 @@ class TestSceneParser
                 return;
             }
         }
-        if ( hasSleepingOverride )
+        if ( instance.HasOverride( SCENE_ASSET_OVERRIDE_SLEEPING ) )
         {
-            sleeping = sleepingOverride;
+            sleeping = instance.sleeping;
         }
+
+        // Concept: an asset part is a child transform. Rotate its local offset
+        // by the instance orientation, then compose part rotation after the
+        // instance rotation using the engine's documented quaternion order.
+        Math::Orientation::Quaternion instanceOrientation = instance.orientation;
+        const Math::Vector::Vector3 worldPosition =
+            instance.position + instanceOrientation.GetOrientationMatrix() * localOffset;
+        Math::Orientation::Quaternion worldOrientation = instance.orientation * partOrientation;
+        worldOrientation.Normalise();
+        const bool hasOrientation = instance.HasOverride( SCENE_ASSET_OVERRIDE_EULER ) || hasPartEuler;
 
         Json object = Json::object();
         object["name"] = objectName;
-        object["position"] = Json::array( { baseX + offsetX, baseY + offsetY, baseZ + offsetZ } );
+        object["position"] = Vector3ToJson( worldPosition );
         object["fixed"] = fixed;
         object["contactMaterial"] = ReadInferredContactMaterial( asset, path, "asset.contactMaterial" );
 
         if ( primitiveType == "convexHull" )
         {
+            const uint32_t sourceIndex = static_cast<uint32_t>( m_scene.m_convexHulls.size() );
             object["hull"] = ReadString( RequireMember( asset, path, "asset", "hull" ), path, "asset.hull" );
             if ( ParserFailed() )
             {
@@ -1520,33 +1630,37 @@ class TestSceneParser
                     return;
                 }
             }
-            if ( hasEuler )
-            {
-                object["euler"] = Json::array( { eulerX, eulerY, eulerZ } );
-            }
             if ( hasVelocity )
             {
-                object["velocity"] = Json::array( { velX, velY, velZ } );
+                object["velocity"] = Vector3ToJson( velocity );
             }
             if ( hasAngularVelocity )
             {
-                object["angularVelocity"] = Json::array( { angVelX, angVelY, angVelZ } );
+                object["angularVelocity"] = Vector3ToJson( angularVelocity );
             }
 
-            ApplyConvexHull( object, path, false );
+            ApplyConvexHull( object, path, false, hasOrientation ? &worldOrientation : nullptr );
             ApplyAssetMaterialForTarget( asset, path, objectName );
+            if ( ParserFailed() )
+            {
+                return;
+            }
+            RecordAssetPart( path,
+                             partName,
+                             objectName,
+                             partIndex,
+                             SceneAssetPartSource::ConvexHull,
+                             sourceIndex,
+                             worldPosition,
+                             worldOrientation );
             return;
         }
 
         // Why: primitive container parts need state records so asset-authored
         // sleep, velocity, angular velocity, and orientation survive expansion.
-        object["velocity"] =
-            Json::array( { hasVelocity ? velX : 0.0f, hasVelocity ? velY : 0.0f, hasVelocity ? velZ : 0.0f } );
-        object["angularVelocity"] = Json::array( { hasAngularVelocity ? angVelX : 0.0f,
-                                                   hasAngularVelocity ? angVelY : 0.0f,
-                                                   hasAngularVelocity ? angVelZ : 0.0f } );
-        object["orientation"] = QuaternionToJson( hasEuler ? MakeSceneEulerQuaternion( eulerX, eulerY, eulerZ )
-                                                           : Math::Orientation::IDENTITY_QUATERNION );
+        object["velocity"] = Vector3ToJson( hasVelocity ? velocity : Math::Vector::ZERO_VECTOR );
+        object["angularVelocity"] = Vector3ToJson( hasAngularVelocity ? angularVelocity : Math::Vector::ZERO_VECTOR );
+        object["orientation"] = QuaternionToJson( worldOrientation );
         object["mass"] = ReadFloat( RequireMember( asset, path, "asset", "mass" ), path, "asset.mass" );
         object["restitution"] =
             ReadFloat( RequireMember( asset, path, "asset", "restitution" ), path, "asset.restitution" );
@@ -1558,6 +1672,7 @@ class TestSceneParser
 
         if ( primitiveType == "box" )
         {
+            const uint32_t sourceIndex = static_cast<uint32_t>( m_scene.m_boxStates.size() );
             Math::Vector::Vector3 halfExtents;
             ReadVec3( RequireMember( asset, path, "asset", "halfExtents" ),
                       path,
@@ -1574,11 +1689,24 @@ class TestSceneParser
             object["inertia"] = Vector3ToJson( Physics::CalculateBoxInertiaForHalfExtents( halfExtents, mass ) );
             ApplyBoxState( object, path );
             ApplyAssetMaterialForTarget( asset, path, objectName );
+            if ( ParserFailed() )
+            {
+                return;
+            }
+            RecordAssetPart( path,
+                             partName,
+                             objectName,
+                             partIndex,
+                             SceneAssetPartSource::BoxState,
+                             sourceIndex,
+                             worldPosition,
+                             worldOrientation );
             return;
         }
 
         if ( primitiveType == "sphere" )
         {
+            const uint32_t sourceIndex = static_cast<uint32_t>( m_scene.m_ballStates.size() );
             const float radius = ReadFloat( RequireMember( asset, path, "asset", "radius" ), path, "asset.radius" );
             if ( ParserFailed() )
             {
@@ -1589,6 +1717,18 @@ class TestSceneParser
             object["inertia"] = Vector3ToJson( Physics::CalculateSphereInertia( radius, mass ) );
             ApplyBallState( object, path );
             ApplyAssetMaterialForTarget( asset, path, objectName );
+            if ( ParserFailed() )
+            {
+                return;
+            }
+            RecordAssetPart( path,
+                             partName,
+                             objectName,
+                             partIndex,
+                             SceneAssetPartSource::BallState,
+                             sourceIndex,
+                             worldPosition,
+                             worldOrientation );
             return;
         }
 
@@ -1609,12 +1749,13 @@ class TestSceneParser
         {
             return;
         }
-        const Json* asset = FindAssetDefinition( assetName );
-        if ( !asset )
+        const ParsedAssetDefinition* assetDefinition = FindAssetDefinition( assetName );
+        if ( !assetDefinition )
         {
             Fail( path, "Unknown asset instance reference: " + assetName );
             return;
         }
+        const Json& asset = assetDefinition->value;
 
         const std::string instanceName =
             ReadString( RequireMember( instance, path, "assetInstance", "name" ), path, "assetInstance.name" );
@@ -1627,124 +1768,138 @@ class TestSceneParser
         {
             return;
         }
+        for ( const SceneAssetInstanceRecord& existing : m_scene.m_assetInstances )
+        {
+            if ( instanceName == existing.instanceName )
+            {
+                Fail( path, "Duplicate asset instance name: " + instanceName );
+                return;
+            }
+        }
 
-        float baseX = 0.0f, baseY = 0.0f, baseZ = 0.0f;
+        AssetInstanceExpansion expansion;
         ReadVec3( RequireMember( instance, path, "assetInstance", "position" ),
                   path,
                   "assetInstance.position",
-                  baseX,
-                  baseY,
-                  baseZ );
+                  expansion.position.x,
+                  expansion.position.y,
+                  expansion.position.z );
         if ( ParserFailed() )
         {
             return;
         }
 
-        bool hasFixedOverride = false;
-        bool fixedOverride = false;
         if ( const Json* fixed = FindMember( instance, "fixed" ) )
         {
-            hasFixedOverride = true;
-            fixedOverride = ReadBool( *fixed, path, "assetInstance.fixed" );
+            expansion.overrideMask |= SCENE_ASSET_OVERRIDE_FIXED;
+            expansion.fixed = ReadBool( *fixed, path, "assetInstance.fixed" );
             if ( ParserFailed() )
             {
                 return;
             }
         }
 
-        bool hasSleepingOverride = false;
-        bool sleepingOverride = false;
         if ( const Json* sleeping = FindMember( instance, "sleeping" ) )
         {
-            hasSleepingOverride = true;
-            sleepingOverride = ReadBool( *sleeping, path, "assetInstance.sleeping" );
+            expansion.overrideMask |= SCENE_ASSET_OVERRIDE_SLEEPING;
+            expansion.sleeping = ReadBool( *sleeping, path, "assetInstance.sleeping" );
             if ( ParserFailed() )
             {
                 return;
             }
         }
 
-        bool hasInstanceEuler = false;
-        float instanceEulerX = 0.0f, instanceEulerY = 0.0f, instanceEulerZ = 0.0f;
         if ( const Json* euler = FindMember( instance, "euler" ) )
         {
-            ReadVec3( *euler, path, "assetInstance.euler", instanceEulerX, instanceEulerY, instanceEulerZ );
+            ReadVec3( *euler,
+                      path,
+                      "assetInstance.euler",
+                      expansion.authoredEuler.x,
+                      expansion.authoredEuler.y,
+                      expansion.authoredEuler.z );
             if ( ParserFailed() )
             {
                 return;
             }
-            hasInstanceEuler = true;
+            expansion.overrideMask |= SCENE_ASSET_OVERRIDE_EULER;
+            expansion.orientation = MakeSceneEulerQuaternion( expansion.authoredEuler.x,
+                                                              expansion.authoredEuler.y,
+                                                              expansion.authoredEuler.z );
         }
 
-        bool hasInstanceVelocity = false;
-        float instanceVelX = 0.0f, instanceVelY = 0.0f, instanceVelZ = 0.0f;
         if ( const Json* velocity = FindMember( instance, "velocity" ) )
         {
-            ReadVec3( *velocity, path, "assetInstance.velocity", instanceVelX, instanceVelY, instanceVelZ );
+            ReadVec3( *velocity,
+                      path,
+                      "assetInstance.velocity",
+                      expansion.velocity.x,
+                      expansion.velocity.y,
+                      expansion.velocity.z );
             if ( ParserFailed() )
             {
                 return;
             }
-            hasInstanceVelocity = true;
+            expansion.overrideMask |= SCENE_ASSET_OVERRIDE_VELOCITY;
         }
 
-        bool hasInstanceAngularVelocity = false;
-        float instanceAngVelX = 0.0f, instanceAngVelY = 0.0f, instanceAngVelZ = 0.0f;
         if ( const Json* angularVelocity = FindMember( instance, "angularVelocity" ) )
         {
             ReadVec3( *angularVelocity,
                       path,
                       "assetInstance.angularVelocity",
-                      instanceAngVelX,
-                      instanceAngVelY,
-                      instanceAngVelZ );
+                      expansion.angularVelocity.x,
+                      expansion.angularVelocity.y,
+                      expansion.angularVelocity.z );
             if ( ParserFailed() )
             {
                 return;
             }
-            hasInstanceAngularVelocity = true;
+            expansion.overrideMask |= SCENE_ASSET_OVERRIDE_ANGULAR_VELOCITY;
         }
 
-        const std::string type = ReadString( RequireMember( *asset, path, "asset", "type" ), path, "asset.type" );
+        SceneAssetInstanceRecord record;
+        if ( !CopyCheckedStringField( record.assetName, assetName, path, "assetInstance.asset" ) ||
+             !CopyCheckedStringField( record.instanceName, instanceName, path, "assetInstance.name" ) )
+        {
+            return;
+        }
+        record.libraryRefIndex = assetDefinition->libraryRefIndex;
+        record.firstPart = static_cast<uint32_t>( m_scene.m_assetParts.size() );
+        record.overrideMask = expansion.overrideMask;
+        record.posX = expansion.position.x;
+        record.posY = expansion.position.y;
+        record.posZ = expansion.position.z;
+        record.eulerX = expansion.authoredEuler.x;
+        record.eulerY = expansion.authoredEuler.y;
+        record.eulerZ = expansion.authoredEuler.z;
+        expansion.orientation.GetComponents( record.orientX, record.orientY, record.orientZ, record.orientW );
+        record.velX = expansion.velocity.x;
+        record.velY = expansion.velocity.y;
+        record.velZ = expansion.velocity.z;
+        record.angVelX = expansion.angularVelocity.x;
+        record.angVelY = expansion.angularVelocity.y;
+        record.angVelZ = expansion.angularVelocity.z;
+        record.fixed = expansion.fixed;
+        record.sleeping = expansion.sleeping;
+
+        const std::string type = ReadString( RequireMember( asset, path, "asset", "type" ), path, "asset.type" );
         if ( ParserFailed() )
         {
             return;
         }
         if ( type == "convexHull" || type == "box" || type == "sphere" )
         {
-            ApplyAssetPrimitivePart( *asset,
-                                     path,
-                                     instanceName,
-                                     baseX,
-                                     baseY,
-                                     baseZ,
-                                     instanceEulerX,
-                                     instanceEulerY,
-                                     instanceEulerZ,
-                                     hasInstanceEuler,
-                                     hasFixedOverride,
-                                     fixedOverride,
-                                     hasSleepingOverride,
-                                     sleepingOverride,
-                                     hasInstanceVelocity,
-                                     instanceVelX,
-                                     instanceVelY,
-                                     instanceVelZ,
-                                     hasInstanceAngularVelocity,
-                                     instanceAngVelX,
-                                     instanceAngVelY,
-                                     instanceAngVelZ );
-            return;
+            ApplyAssetPrimitivePart( asset, path, instanceName, assetName, 0, expansion );
         }
-
-        if ( type == "compound" )
+        else if ( type == "compound" )
         {
-            const Json& parts = RequireMember( *asset, path, "asset", "parts" );
+            const Json& parts = RequireMember( asset, path, "asset", "parts" );
             RequireArray( parts, path, "asset.parts" );
             if ( ParserFailed() )
             {
                 return;
             }
+            uint32_t partIndex = 0;
             for ( const Json& part : parts )
             {
                 const std::string partName =
@@ -1756,35 +1911,31 @@ class TestSceneParser
                 ApplyAssetPrimitivePart( part,
                                          path,
                                          BuildAssetPartName( instanceName, partName, path ),
-                                         baseX,
-                                         baseY,
-                                         baseZ,
-                                         instanceEulerX,
-                                         instanceEulerY,
-                                         instanceEulerZ,
-                                         hasInstanceEuler,
-                                         hasFixedOverride,
-                                         fixedOverride,
-                                         hasSleepingOverride,
-                                         sleepingOverride,
-                                         hasInstanceVelocity,
-                                         instanceVelX,
-                                         instanceVelY,
-                                         instanceVelZ,
-                                         hasInstanceAngularVelocity,
-                                         instanceAngVelX,
-                                         instanceAngVelY,
-                                         instanceAngVelZ );
+                                         partName,
+                                         partIndex,
+                                         expansion );
                 if ( ParserFailed() )
                 {
                     return;
                 }
+                ++partIndex;
             }
+        }
+        else
+        {
+            Fail( path, "Unknown asset type: " + type );
             return;
         }
 
-        Fail( path, "Unknown asset type: " + type );
-        return;
+        if ( ParserFailed() )
+        {
+            return;
+        }
+        // Invariant: publish the instance range only after every expanded shape
+        // and ordered part reference has succeeded. Failed parses discard the
+        // private TestScene and never expose a partial range to the caller.
+        record.partCount = static_cast<uint32_t>( m_scene.m_assetParts.size() ) - record.firstPart;
+        m_scene.m_assetInstances.push_back( record );
     }
 
     void ApplyAssetInstances( const Json& root, const std::string& path )
@@ -2755,6 +2906,10 @@ class TestSceneParser
     {
         SceneBall ball = {};
         ReadRequiredStringField( ball.name, object, path, "ball", "name" );
+        if ( ParserFailed() || !RegisterSceneObjectName( ball.name, path ) )
+        {
+            return;
+        }
         ReadVec3( RequireMember( object, path, "ball", "position" ),
                   path,
                   "ball.position",
@@ -2792,6 +2947,10 @@ class TestSceneParser
     {
         SceneBox box = {};
         ReadRequiredStringField( box.name, object, path, "box", "name" );
+        if ( ParserFailed() || !RegisterSceneObjectName( box.name, path ) )
+        {
+            return;
+        }
         ReadVec3( RequireMember( object, path, "box", "position" ),
                   path,
                   "box.position",
@@ -2825,10 +2984,17 @@ class TestSceneParser
         m_scene.m_boxes.push_back( box );
     }
 
-    void ApplyConvexHull( const Json& object, const std::string& path, bool isFixed )
+    void ApplyConvexHull( const Json& object,
+                          const std::string& path,
+                          bool isFixed,
+                          const Math::Orientation::Quaternion* composedOrientation = nullptr )
     {
         SceneConvexHull hull = {};
         ReadRequiredStringField( hull.name, object, path, "convexHull", "name" );
+        if ( ParserFailed() || !RegisterSceneObjectName( hull.name, path ) )
+        {
+            return;
+        }
         ReadRequiredStringField( hull.hullPath, object, path, "convexHull", "hull" );
         ReadOptionalSceneObjectGroup( hull.group, object, path, "convexHull" );
         ReadVec3( RequireMember( object, path, "convexHull", "position" ),
@@ -2869,7 +3035,14 @@ class TestSceneParser
             hull.contactReleaseImpulseThreshold =
                 (std::max)( 0.0f, ReadFloat( *threshold, path, "convexHull.contactReleaseImpulseThreshold" ) );
         }
-        if ( const Json* euler = FindMember( object, "euler" ) )
+        if ( composedOrientation )
+        {
+            // Lifetime: this pointer is borrowed only for the internal asset
+            // expansion call. It is not an authored JSON field or retained.
+            composedOrientation->GetComponents( hull.orientX, hull.orientY, hull.orientZ, hull.orientW );
+            hull.hasInitQuaternionOrient = true;
+        }
+        else if ( const Json* euler = FindMember( object, "euler" ) )
         {
             ReadVec3( *euler, path, "convexHull.euler", hull.eulerX, hull.eulerY, hull.eulerZ );
             hull.hasInitOrient = true;
@@ -2891,6 +3064,10 @@ class TestSceneParser
     {
         SceneBallState state = {};
         ReadRequiredStringField( state.name, object, path, "ballState", "name" );
+        if ( ParserFailed() || !RegisterSceneObjectName( state.name, path ) )
+        {
+            return;
+        }
         ReadVec3( RequireMember( object, path, "ballState", "position" ),
                   path,
                   "ballState.position",
@@ -2942,6 +3119,10 @@ class TestSceneParser
     {
         SceneBoxState state = {};
         ReadRequiredStringField( state.name, object, path, "boxState", "name" );
+        if ( ParserFailed() || !RegisterSceneObjectName( state.name, path ) )
+        {
+            return;
+        }
         ReadVec3( RequireMember( object, path, "boxState", "position" ),
                   path,
                   "boxState.position",
@@ -2995,6 +3176,10 @@ class TestSceneParser
     {
         SceneConvexHullState state = {};
         ReadRequiredStringField( state.name, object, path, "convexHullState", "name" );
+        if ( ParserFailed() || !RegisterSceneObjectName( state.name, path ) )
+        {
+            return;
+        }
         ReadRequiredStringField( state.hullPath, object, path, "convexHullState", "hull" );
         ReadOptionalSceneObjectGroup( state.group, object, path, "convexHullState" );
         ReadVec3( RequireMember( object, path, "convexHullState", "position" ),
@@ -3059,6 +3244,23 @@ class TestSceneParser
     {
         SceneRagdoll ragdoll = {};
         ReadRequiredStringField( ragdoll.name, object, path, "ragdoll", "name" );
+        if ( ParserFailed() )
+        {
+            return;
+        }
+        for ( int partIndex = 0; partIndex < Physics::Ragdoll::SIMPLE_PART_COUNT; ++partIndex )
+        {
+            char partName[64] = {};
+            if ( !Physics::Ragdoll::TryBuildSimplePartName( ragdoll.name, partIndex, partName ) )
+            {
+                Fail( path, "ragdoll.name produces a part name longer than 63 characters" );
+                return;
+            }
+            if ( !RegisterSceneObjectName( partName, path ) )
+            {
+                return;
+            }
+        }
         ReadVec3( RequireMember( object, path, "ragdoll", "position" ),
                   path,
                   "ragdoll.position",
@@ -3614,6 +3816,7 @@ class TestSceneParser
     {
         m_scene = TestScene();
         m_assetDefinitions.clear();
+        m_sceneObjectNames.clear();
         m_failure = ParserFailureState{};
 
         {

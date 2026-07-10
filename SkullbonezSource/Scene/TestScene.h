@@ -21,12 +21,16 @@ Glossary:
     instead of letting malformed authored input escape as an exception.
   Asset system: Runtime-owned registry that resolves logical asset-library names
     without requiring the parser to query process-global state.
+  Asset provenance: Cold scene-file records that retain which library, asset,
+    instance, and ordered part produced each expanded shape row.
   Scene object group: Parsed metadata that ties multi-part authored objects,
     such as releasable trees, to one root object before runtime construction.
 
 Invariants:
   - Command-line and scene JSON fields are user-facing compatibility
   surface.
+  - Asset provenance vectors are populated only while loading a scene; they do
+    not grow in the steady gameplay loop.
 
 Related:
   - SkullbonezSource/Scene/TestScene.cpp
@@ -128,6 +132,57 @@ struct SceneObjectGroupMetadata
     int partIndex = -1;                                       // Deterministic part order inside the group.
 };
 
+enum SceneAssetInstanceOverrideBits : uint32_t
+{
+    SCENE_ASSET_OVERRIDE_FIXED = 1u << 0,
+    SCENE_ASSET_OVERRIDE_SLEEPING = 1u << 1,
+    SCENE_ASSET_OVERRIDE_EULER = 1u << 2,
+    SCENE_ASSET_OVERRIDE_VELOCITY = 1u << 3,
+    SCENE_ASSET_OVERRIDE_ANGULAR_VELOCITY = 1u << 4,
+};
+
+struct SceneAssetLibraryRef
+{
+    char token[260] = {};                                     // Exact token authored in assetLibraries[].
+    char resolvedPath[260] = {};                              // Path actually loaded, retained for diagnostics and association.
+    Assets::AssetId resolvedAssetId = 0;                      // Process-local registry id; never serialized as scene identity.
+};
+
+enum class SceneAssetPartSource : uint8_t
+{
+    BallState = 0,
+    BoxState,
+    ConvexHull,
+};
+
+struct SceneAssetPartRef
+{
+    char partName[128] = {};                                  // Asset recipe name before instance-name expansion.
+    char objectName[64] = {};                                 // Generated display name used by current material/object paths.
+    uint32_t partIndex = 0;                                   // Authored order inside the asset recipe.
+    uint32_t sourceIndex = 0;                                 // Row in the exact TestScene vector named by source.
+    SceneAssetPartSource source = SceneAssetPartSource::BallState;
+    float posX = 0.0f, posY = 0.0f, posZ = 0.0f;              // Composed world position.
+    float orientX = 0.0f, orientY = 0.0f, orientZ = 0.0f, orientW = 1.0f;
+};
+
+struct SceneAssetInstanceRecord
+{
+    char assetName[128] = {};
+    char instanceName[64] = {};
+    uint32_t libraryRefIndex = 0;
+    uint32_t firstPart = 0;                                   // Range into TestScene's ordered asset-part vector.
+    uint32_t partCount = 0;
+    uint32_t overrideMask = 0;
+    float posX = 0.0f, posY = 0.0f, posZ = 0.0f;
+    float eulerX = 0.0f, eulerY = 0.0f, eulerZ = 0.0f;        // Exact authored instance Euler degrees.
+    float orientX = 0.0f, orientY = 0.0f, orientZ = 0.0f, orientW = 1.0f;
+    float velX = 0.0f, velY = 0.0f, velZ = 0.0f;
+    float angVelX = 0.0f, angVelY = 0.0f, angVelZ = 0.0f;
+    bool fixed = false;
+    bool sleeping = false;
+};
+
 struct SceneConvexHullState
 {
     char name[64];
@@ -193,12 +248,14 @@ struct SceneConvexHull
     float mass;
     float restitution;
     float eulerX, eulerY, eulerZ;
+    float orientX, orientY, orientZ, orientW;                 // Exact quaternion for composed asset-part orientation.
     float velX, velY, velZ;
     float angVelX, angVelY, angVelZ;
     float contactReleaseImpulseThreshold;
     char contactMaterial[32];                                 // Gameplay/audio contact material token.
     SceneObjectGroupMetadata group;                           // Parsed multi-part object ownership metadata.
     bool hasInitOrient;
+    bool hasInitQuaternionOrient;                             // Takes precedence over Euler when true.
     bool hasInitVelocity;
     bool hasInitAngularVelocity;
     bool isFixed;
@@ -463,6 +520,9 @@ class TestScene
     std::vector<SceneObjectMaterialOverride> m_objectMaterials;
     std::vector<SceneRequiredContact> m_requiredContacts;
     std::vector<SceneRequiredBroadphaseXCells> m_requiredBroadphaseXCells;
+    std::vector<SceneAssetLibraryRef> m_assetLibraries;
+    std::vector<SceneAssetInstanceRecord> m_assetInstances;
+    std::vector<SceneAssetPartRef> m_assetParts;
 
     SceneOptions m_sceneOptions;
     SceneCaptureOptions m_captureOptions;
@@ -570,6 +630,12 @@ class TestScene
     const SceneRequiredContact& GetRequiredContact( int index ) const;
     int GetRequiredBroadphaseXCellCount() const;
     const SceneRequiredBroadphaseXCells& GetRequiredBroadphaseXCell( int index ) const;
+    int GetAssetLibraryCount() const;
+    const SceneAssetLibraryRef& GetAssetLibrary( int index ) const;
+    int GetAssetInstanceCount() const;
+    const SceneAssetInstanceRecord& GetAssetInstance( int index ) const;
+    int GetAssetPartCount() const;
+    const SceneAssetPartRef& GetAssetPart( int index ) const;
     bool HasWorldOverride() const;
     float GetWorldGravity() const;
     float GetWorldFluidHeight() const;

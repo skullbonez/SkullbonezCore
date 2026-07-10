@@ -192,6 +192,18 @@ SbResult AppendAuthoredSimpleRagdoll( SceneSimpleRagdollAppendContext context, c
         return SbResult::Failure( "Runtime/SceneAuthoredSetup", "Ragdoll build requires a scene object id range." );
     }
 
+    char partNames[Ragdoll::SIMPLE_PART_COUNT][64] = {};
+    for ( int i = 0; i < Ragdoll::SIMPLE_PART_COUNT; ++i )
+    {
+        if ( !Ragdoll::TryBuildSimplePartName( prefix, i, partNames[i] ) )
+        {
+            // Lane R: preflight the longest generated names before the first
+            // append so one bad prefix cannot publish a partial ragdoll.
+            return SbResult::Failure( "Runtime/SceneAuthoredSetup",
+                                      "Ragdoll part name exceeds the 63-character display-name limit." );
+        }
+    }
+
     for ( int i = 0; i < Ragdoll::SIMPLE_PART_COUNT; ++i )
     {
         const Vector3 halfExtents = ScaleSceneVector( parts[i].halfExtents, scale );
@@ -201,8 +213,7 @@ SbResult AppendAuthoredSimpleRagdoll( SceneSimpleRagdollAppendContext context, c
         const Vector3 position = base + rotation * ScaleSceneVector( parts[i].localCenter, scale );
         GameModel model;
         model.SetRenderTint( parts[i].tintR, parts[i].tintG, parts[i].tintB, 1.0f );
-        char name[64];
-        sprintf_s( name, sizeof( name ), "%s_%s", prefix, parts[i].suffix );
+        const char* name = partNames[i];
         model.SetName( name );
 
         Physics::PhysicsSceneObjectId partSceneObjectId;
@@ -628,7 +639,14 @@ SbResult SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context,
         gameModel.SetName( hullScene.name );
 
         Quaternion hullQuaternion;
-        if ( hullScene.hasInitOrient )
+        // Invariant: asset hierarchy composition has already produced an exact
+        // quaternion. Euler remains only for ordinary version-1 authored hulls.
+        if ( hullScene.hasInitQuaternionOrient )
+        {
+            hullQuaternion = Quaternion( hullScene.orientX, hullScene.orientY, hullScene.orientZ, hullScene.orientW );
+            hullQuaternion.Normalise();
+        }
+        else if ( hullScene.hasInitOrient )
         {
             hullQuaternion = MakeSceneEulerQuaternion( hullScene.eulerX, hullScene.eulerY, hullScene.eulerZ );
         }
