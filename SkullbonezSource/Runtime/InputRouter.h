@@ -265,6 +265,18 @@ class InputRouter
                                             RunCameraMode replayRestoreCameraMode,
                                             bool attachedCameraFollow,
                                             bool directorGrabbed );
+    void ApplyInteractionTransition( const RuntimeInteractionTransition& transition,
+                                     ReplayRuntime& replayRuntime,
+                                     RuntimeTools& runtimeTools,
+                                     RuntimeInteractionController& interaction,
+                                     Environment::CameraCollection& cameras,
+                                     Geometry::Terrain* terrain,
+                                     GameObjects::GameModelCollection& models,
+                                     Physics::PhysicsEngine& physics,
+                                     RunCameraState& camera,
+                                     RunCameraMode replayRestoreCameraMode,
+                                     bool attachedCameraFollow,
+                                     bool directorGrabbed );
 
     // Pointer presentation requests are reconciled here so UI/tools/camera do
     // not manipulate Win32 capture or cursor counters independently.

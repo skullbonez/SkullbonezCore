@@ -500,6 +500,21 @@ a missing `RunCameraMode` forward declaration in the expanded router contract;
 the declaration was added and the retry passed. Comment audit: 3/3 touched
 source-bearing files.
 
+Transition finalization is now InputRouter-owned as well. The router first runs
+the proven cancellation sequence, then re-establishes the authoritative
+Launcher, Manipulator, Edit, Replay, Inspect, or Live controller state from the
+transition value. Camera-mode and editor-mode composition call this owner API
+directly. Run's `ApplyRuntimeInteractionTransitionCleanup` wrapper is deleted.
+B1f remains open for the world-owner transition wrapper, editor pointer route,
+keyboard/camera helpers, and final pointer-route/`TakeInput` deletion.
+
+Evidence: fast passed in 30.8s; the CPU umbrella passed in 10.9s with 129/129
+doctest cases and 2,755 assertions; all five interaction scenarios passed in
+14.9s; perf completed in 32.4s; and full passed in 52.6s with zero warnings,
+zero DX12 InfoQueue errors, matching screenshots, standalone topology smoke,
+and the 20,001-line byte-exact physics baseline. Comment audit: 3/3 touched
+source-bearing files.
+
 ## Remaining Work
 
 ### A. Narrow the render host

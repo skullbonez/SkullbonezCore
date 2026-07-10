@@ -186,9 +186,6 @@ class Run
         bool uiUserInteracted );                                        // Runs ESC/UI dismissal after UI controls get first refusal.
     RuntimeInteractionTransition EnterInteractionForCameraMode(
         RunCameraMode mode );                                           // Converts camera/tool requests into controller workspace transitions.
-    void ApplyRuntimeInteractionTransitionCleanup(
-        const RuntimeInteractionTransition&
-            transition );                                               // Clears stale tool ownership before the new mode consumes input.
     void EnterFlyModeCamera();                                          // Switches camera state into free-flight controls.
     void ExitFlyModeCamera();                                           // Restores terrain camera bounds and leaves launcher mode.
     const char* CameraModeLabel( RunCameraMode mode ) const;            // Compact name for UI and transition diagnostics.

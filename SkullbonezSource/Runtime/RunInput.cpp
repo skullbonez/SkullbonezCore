@@ -1018,6 +1018,61 @@ void InputRouter::ApplyInteractionTransitionCleanup( const RuntimeInteractionTra
     }
 }
 
+
+void InputRouter::ApplyInteractionTransition( const RuntimeInteractionTransition& transition,
+                                              ReplayRuntime& replayRuntime,
+                                              RuntimeTools& runtimeTools,
+                                              RuntimeInteractionController& interaction,
+                                              SkullbonezCore::Environment::CameraCollection& cameras,
+                                              SkullbonezCore::Geometry::Terrain* terrain,
+                                              SkullbonezCore::GameObjects::GameModelCollection& models,
+                                              PhysicsEngine& physics,
+                                              RunCameraState& camera,
+                                              RunCameraMode replayRestoreCameraMode,
+                                              bool attachedCameraFollow,
+                                              bool directorGrabbed )
+{
+    ApplyInteractionTransitionCleanup( transition,
+                                       replayRuntime,
+                                       runtimeTools,
+                                       interaction,
+                                       cameras,
+                                       terrain,
+                                       models,
+                                       physics,
+                                       camera,
+                                       replayRestoreCameraMode,
+                                       attachedCameraFollow,
+                                       directorGrabbed );
+    switch ( transition.owner )
+    {
+    case WorldInteractionOwner::Launcher:
+        interaction.EnterLauncher();
+        break;
+    case WorldInteractionOwner::Manipulator:
+        interaction.EnterManipulator();
+        break;
+    default:
+        if ( transition.workspace == RuntimeWorkspace::Edit )
+        {
+            interaction.EnterEdit();
+        }
+        else if ( transition.workspace == RuntimeWorkspace::Replay )
+        {
+            interaction.EnterReplay();
+        }
+        else if ( transition.workspace == RuntimeWorkspace::Inspect )
+        {
+            interaction.EnterInspect();
+        }
+        else
+        {
+            interaction.EnterLive();
+        }
+        break;
+    }
+}
+
 void Run::UpdateRuntimeInputModeAfterAction( RuntimeInputAction action, RuntimeInputActionSource source )
 {
     InputController::ApplyModeAction(
@@ -1171,51 +1226,6 @@ bool Run::RouteRuntimePointerInput( const RuntimeInputSnapshot& inputSnapshot, c
 RuntimeInteractionTransition Run::EnterInteractionForCameraMode( RunCameraMode mode )
 {
     return m_interaction.EnterCameraMode( NormalizeCameraModeForCurrentScene( mode ) );
-}
-
-
-void Run::ApplyRuntimeInteractionTransitionCleanup( const RuntimeInteractionTransition& transition )
-{
-    m_inputRouter.ApplyInteractionTransitionCleanup(
-        transition,
-        m_replayRuntime,
-        m_runtimeTools,
-        m_interaction,
-        m_sceneController.Cameras(),
-        m_sceneController.Terrain().Get(),
-        m_sceneController.Models(),
-        m_sceneController.Physics(),
-        m_camera,
-        NormalizeCameraModeForCurrentScene( m_replayRuntime.Camera().restoreCameraMode ),
-        m_attachedCamera.State().activeFollow,
-        m_camera.director.grabbed );
-    switch ( transition.owner )
-    {
-    case WorldInteractionOwner::Launcher:
-        m_interaction.EnterLauncher();
-        break;
-    case WorldInteractionOwner::Manipulator:
-        m_interaction.EnterManipulator();
-        break;
-    default:
-        if ( transition.workspace == RuntimeWorkspace::Edit )
-        {
-            m_interaction.EnterEdit();
-        }
-        else if ( transition.workspace == RuntimeWorkspace::Replay )
-        {
-            m_interaction.EnterReplay();
-        }
-        else if ( transition.workspace == RuntimeWorkspace::Inspect )
-        {
-            m_interaction.EnterInspect();
-        }
-        else
-        {
-            m_interaction.EnterLive();
-        }
-        break;
-    }
 }
 
 
@@ -1390,7 +1400,19 @@ void Run::ApplyCameraMode( RunCameraMode mode, RuntimeInputActionSource source )
     }
 
     const RuntimeInteractionTransition transition = EnterInteractionForCameraMode( mode );
-    ApplyRuntimeInteractionTransitionCleanup( transition );
+    m_inputRouter.ApplyInteractionTransition(
+        transition,
+        m_replayRuntime,
+        m_runtimeTools,
+        m_interaction,
+        m_sceneController.Cameras(),
+        m_sceneController.Terrain().Get(),
+        m_sceneController.Models(),
+        m_sceneController.Physics(),
+        m_camera,
+        NormalizeCameraModeForCurrentScene( m_replayRuntime.Camera().restoreCameraMode ),
+        m_attachedCamera.State().activeFollow,
+        m_camera.director.grabbed );
 
     const bool wasFlyMode =
         RunCameraModeUsesFlyControls( m_camera.mode, m_attachedCamera.State().activeFollow, m_camera.director.grabbed );
@@ -1862,7 +1884,20 @@ void Run::TakeInput()
         const bool enteringEditor = !m_runtimeTools.Editor().editorModeEnabled;
         if ( enteringEditor )
         {
-            ApplyRuntimeInteractionTransitionCleanup( m_interaction.EnterEdit() );
+            const RuntimeInteractionTransition editorTransition = m_interaction.EnterEdit();
+            m_inputRouter.ApplyInteractionTransition(
+                editorTransition,
+                m_replayRuntime,
+                m_runtimeTools,
+                m_interaction,
+                m_sceneController.Cameras(),
+                m_sceneController.Terrain().Get(),
+                m_sceneController.Models(),
+                m_sceneController.Physics(),
+                m_camera,
+                NormalizeCameraModeForCurrentScene( m_replayRuntime.Camera().restoreCameraMode ),
+                m_attachedCamera.State().activeFollow,
+                m_camera.director.grabbed );
             const bool wasFlyMode = RunCameraModeUsesFlyControls( m_camera.mode,
                                                                   m_attachedCamera.State().activeFollow,
                                                                   m_camera.director.grabbed );
@@ -1884,7 +1919,20 @@ void Run::TakeInput()
         {
             const RunCameraMode restoreMode =
                 NormalizeCameraModeForCurrentScene( m_runtimeTools.Editor().restoreCameraModeAfterEditor );
-            ApplyRuntimeInteractionTransitionCleanup( EnterInteractionForCameraMode( restoreMode ) );
+            const RuntimeInteractionTransition restoreTransition = EnterInteractionForCameraMode( restoreMode );
+            m_inputRouter.ApplyInteractionTransition(
+                restoreTransition,
+                m_replayRuntime,
+                m_runtimeTools,
+                m_interaction,
+                m_sceneController.Cameras(),
+                m_sceneController.Terrain().Get(),
+                m_sceneController.Models(),
+                m_sceneController.Physics(),
+                m_camera,
+                NormalizeCameraModeForCurrentScene( m_replayRuntime.Camera().restoreCameraMode ),
+                m_attachedCamera.State().activeFollow,
+                m_camera.director.grabbed );
             const bool wasFlyMode = RunCameraModeUsesFlyControls( m_camera.mode,
                                                                   m_attachedCamera.State().activeFollow,
                                                                   m_camera.director.grabbed );
