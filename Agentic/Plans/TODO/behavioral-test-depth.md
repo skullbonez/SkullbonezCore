@@ -1,7 +1,7 @@
 # Behavioral Test Depth
 
 Date: 2026-07-10 (reconciled)
-Status: In progress — 2/6 phases complete; P3 partially complete
+Status: In progress — 3/6 phases complete; P3 and P5 partially complete
 Impact area: SkullbonezTests, physics solver/manifold, scene parser/serializer,
 replay restore
 Owner: subsystem behavior tests
@@ -32,7 +32,7 @@ umbrella and from the broad PR gate.
   friction-cone clamp, restitution bounce, and sleep/wake thresholds.
   Evidence: `validate_tests` passed 72/72 cases and 1,643 assertions on
   2026-07-09.
-- [ ] **P2 — Manifold reduction.** Direct fixtures prove deepest-point
+- [x] **P2 — Manifold reduction.** Direct fixtures prove deepest-point
   retention, stable four-point box manifolds across two steps, stable feature
   ids, and finite non-empty output for degenerate/coplanar inputs. Acceptance:
   an intentionally broken reduction rule fails the named test.
@@ -48,6 +48,11 @@ umbrella and from the broad PR gate.
   reduction rule, one parser guard, and one replay restore field. Record the
   exact failing test/assertion for each, then revert the defects. This is
   evidence that tests can fail for the intended reason, not merely pass.
+  Manifold evidence complete: the pre-fix first-four truncation failed
+  `Object contact manifold: reduced tilted face starts with deepest retained
+  point` at all three deterministic poses (for example, retained depth
+  `0.472089` versus expected deepest depth `0.833631`). Solver, parser, and
+  replay injected-failure evidence remain.
 - [ ] **P6 — Sustaining and gate integration.** Complete
   `validation-gate-integrity.md` V1/V2/V5 so doctest, interaction-policy,
   scene-parser, and DX12-architecture targets run from the CPU umbrella and
@@ -87,6 +92,17 @@ umbrella and from the broad PR gate.
 
 ## Latest Evidence
 
+- 2026-07-10: added direct box-manifold fixtures for stable four-row feature
+  identity, tilted-face deepest-point retention, exact coplanar contact, and a
+  zero-height slab. The deepest-point test failed against the original
+  first-four truncation at three assertions, then passed after box and hull face
+  clipping shared one deepest-first/spread-maximizing fixed-capacity reducer.
+- 2026-07-10: `tools\validate_tests.bat` passed 78/78 doctest cases and
+  1,883/1,883 assertions after the manifold correction and final feature-id
+  checks (Profile build: zero warnings and zero errors).
+- 2026-07-10: `tools\validate_physics.bat` passed the standalone physics smoke
+  and matched all 20,001 core solver CSV lines byte-for-byte; Debug and Profile
+  builds completed with zero warnings and zero errors.
 - 2026-07-10: `tools\validate_tests.bat` passed 75/75 doctest cases and
   1,669/1,669 assertions after parser Lane R tests.
 - Log: `Agentic/Reports/validate_tests_plan04_parser_result_20260710.log`.
