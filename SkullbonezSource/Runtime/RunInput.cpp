@@ -947,6 +947,77 @@ ApplyRuntimeUIFrameCommands( const RuntimeUIFrameContext& context,
 
 } // namespace
 
+void InputRouter::ApplyInteractionTransitionCleanup( const RuntimeInteractionTransition& transition,
+                                                     ReplayRuntime& replayRuntime,
+                                                     RuntimeTools& runtimeTools,
+                                                     RuntimeInteractionController& interaction,
+                                                     SkullbonezCore::Environment::CameraCollection& cameras,
+                                                     SkullbonezCore::Geometry::Terrain* terrain,
+                                                     SkullbonezCore::GameObjects::GameModelCollection& models,
+                                                     PhysicsEngine& physics,
+                                                     RunCameraState& camera,
+                                                     RunCameraMode replayRestoreCameraMode,
+                                                     bool attachedCameraFollow,
+                                                     bool directorGrabbed )
+{
+    const bool enteringReplay = transition.workspace == RuntimeWorkspace::Replay;
+    const bool enteringEdit = transition.workspace == RuntimeWorkspace::Edit;
+    const bool enteringTool =
+        transition.owner == WorldInteractionOwner::Launcher || transition.owner == WorldInteractionOwner::Manipulator;
+    const bool editorOwnerSwitchWithinEdit =
+        enteringEdit && IsEditorWorldOwner( transition.previousOwner ) && IsEditorWorldOwner( transition.owner );
+    const bool inspectGizmoClaimWithinInspect = transition.workspace == RuntimeWorkspace::Inspect &&
+                                                transition.owner == WorldInteractionOwner::InspectGizmo &&
+                                                ( transition.previousOwner == WorldInteractionOwner::None ||
+                                                  transition.previousOwner == WorldInteractionOwner::InspectGizmo );
+
+    if ( !enteringReplay &&
+         ( replayRuntime.HasActiveInteractionState() || IsReplayWorldOwner( transition.previousOwner ) ) )
+    {
+        if ( replayRuntime.ClearInteractionForRuntimeTransition( interaction, *this ) )
+        {
+            replayRuntime.ExitInspectionCamera( &cameras,
+                                                terrain,
+                                                camera,
+                                                replayRestoreCameraMode,
+                                                attachedCameraFollow,
+                                                directorGrabbed,
+                                                interaction,
+                                                *this );
+        }
+        ApplyPointerPresentation( EvaluateRuntimePointerPresentation( *this, runtimeTools.Editor(), replayRuntime ) );
+    }
+
+    if ( transition.previousOwner == WorldInteractionOwner::Manipulator &&
+         transition.owner != WorldInteractionOwner::Manipulator )
+    {
+        runtimeTools.CancelMousePickup( *this, interaction );
+    }
+    if ( enteringTool && transition.owner != WorldInteractionOwner::Manipulator )
+    {
+        runtimeTools.CancelMousePickup( *this, interaction );
+    }
+
+    if ( ( !enteringEdit && !inspectGizmoClaimWithinInspect && runtimeTools.HasActiveEditorInteractionState() ) ||
+         ( IsEditorWorldOwner( transition.previousOwner ) && !editorOwnerSwitchWithinEdit &&
+           !inspectGizmoClaimWithinInspect ) )
+    {
+        runtimeTools.ClearEditorInteractionForTransition( enteringReplay || enteringTool,
+                                                          models,
+                                                          physics,
+                                                          interaction );
+        if ( ReleasePointerToUi( EvaluateRuntimePointerPresentation( *this, runtimeTools.Editor(), replayRuntime ) ) )
+        {
+            InputController::ResetMouseLook( camera );
+        }
+        ApplyPointerPresentation( EvaluateRuntimePointerPresentation( *this, runtimeTools.Editor(), replayRuntime ) );
+        if ( runtimeTools.Editor().editorModeEnabled && !enteringEdit )
+        {
+            runtimeTools.Editor().editorModeEnabled = false;
+        }
+    }
+}
+
 void Run::UpdateRuntimeInputModeAfterAction( RuntimeInputAction action, RuntimeInputActionSource source )
 {
     InputController::ApplyModeAction(
@@ -1103,74 +1174,21 @@ RuntimeInteractionTransition Run::EnterInteractionForCameraMode( RunCameraMode m
 }
 
 
-void Run::ClearRuntimeInteractionStateForTransition( const RuntimeInteractionTransition& transition )
-{
-    const bool enteringReplay = transition.workspace == RuntimeWorkspace::Replay;
-    const bool enteringEdit = transition.workspace == RuntimeWorkspace::Edit;
-    const bool enteringTool =
-        transition.owner == WorldInteractionOwner::Launcher || transition.owner == WorldInteractionOwner::Manipulator;
-    const bool editorOwnerSwitchWithinEdit =
-        enteringEdit && IsEditorWorldOwner( transition.previousOwner ) && IsEditorWorldOwner( transition.owner );
-    const bool inspectGizmoClaimWithinInspect = transition.workspace == RuntimeWorkspace::Inspect &&
-                                                transition.owner == WorldInteractionOwner::InspectGizmo &&
-                                                ( transition.previousOwner == WorldInteractionOwner::None ||
-                                                  transition.previousOwner == WorldInteractionOwner::InspectGizmo );
-
-    if ( !enteringReplay &&
-         ( m_replayRuntime.HasActiveInteractionState() || IsReplayWorldOwner( transition.previousOwner ) ) )
-    {
-        if ( m_replayRuntime.ClearInteractionForRuntimeTransition( m_interaction, m_inputRouter ) )
-        {
-            m_replayRuntime.ExitInspectionCamera(
-                &m_sceneController.Cameras(),
-                m_sceneController.Terrain().Get(),
-                m_camera,
-                NormalizeCameraModeForCurrentScene( m_replayRuntime.Camera().restoreCameraMode ),
-                m_attachedCamera.State().activeFollow,
-                m_camera.director.grabbed,
-                m_interaction,
-                m_inputRouter );
-        }
-        m_inputRouter.ApplyPointerPresentation(
-            EvaluateRuntimePointerPresentation( m_inputRouter, m_runtimeTools.Editor(), m_replayRuntime ) );
-    }
-
-    if ( transition.previousOwner == WorldInteractionOwner::Manipulator &&
-         transition.owner != WorldInteractionOwner::Manipulator )
-    {
-        m_runtimeTools.CancelMousePickup( m_inputRouter, m_interaction );
-    }
-    if ( enteringTool && transition.owner != WorldInteractionOwner::Manipulator )
-    {
-        m_runtimeTools.CancelMousePickup( m_inputRouter, m_interaction );
-    }
-
-    if ( ( !enteringEdit && !inspectGizmoClaimWithinInspect && m_runtimeTools.HasActiveEditorInteractionState() ) ||
-         ( IsEditorWorldOwner( transition.previousOwner ) && !editorOwnerSwitchWithinEdit &&
-           !inspectGizmoClaimWithinInspect ) )
-    {
-        m_runtimeTools.ClearEditorInteractionForTransition( enteringReplay || enteringTool,
-                                                            m_sceneController.Models(),
-                                                            m_sceneController.Physics(),
-                                                            m_interaction );
-        if ( m_inputRouter.ReleasePointerToUi(
-                 EvaluateRuntimePointerPresentation( m_inputRouter, m_runtimeTools.Editor(), m_replayRuntime ) ) )
-        {
-            InputController::ResetMouseLook( m_camera );
-        }
-        m_inputRouter.ApplyPointerPresentation(
-            EvaluateRuntimePointerPresentation( m_inputRouter, m_runtimeTools.Editor(), m_replayRuntime ) );
-        if ( m_runtimeTools.Editor().editorModeEnabled && !enteringEdit )
-        {
-            m_runtimeTools.Editor().editorModeEnabled = false;
-        }
-    }
-}
-
-
 void Run::ApplyRuntimeInteractionTransitionCleanup( const RuntimeInteractionTransition& transition )
 {
-    ClearRuntimeInteractionStateForTransition( transition );
+    m_inputRouter.ApplyInteractionTransitionCleanup(
+        transition,
+        m_replayRuntime,
+        m_runtimeTools,
+        m_interaction,
+        m_sceneController.Cameras(),
+        m_sceneController.Terrain().Get(),
+        m_sceneController.Models(),
+        m_sceneController.Physics(),
+        m_camera,
+        NormalizeCameraModeForCurrentScene( m_replayRuntime.Camera().restoreCameraMode ),
+        m_attachedCamera.State().activeFollow,
+        m_camera.director.grabbed );
     switch ( transition.owner )
     {
     case WorldInteractionOwner::Launcher:
@@ -1207,7 +1225,19 @@ RuntimeInteractionTransition Run::SetWorldInteractionOwnerAfterInteractionTransi
     const RuntimeWorkspace workspace = WorkspaceForWorldInteractionOwner( m_interaction.Workspace(), owner );
     const RuntimeInteractionTransition transition =
         m_interaction.SetWorldInteractionOwnerInWorkspace( workspace, owner, reason );
-    ClearRuntimeInteractionStateForTransition( transition );
+    m_inputRouter.ApplyInteractionTransitionCleanup(
+        transition,
+        m_replayRuntime,
+        m_runtimeTools,
+        m_interaction,
+        m_sceneController.Cameras(),
+        m_sceneController.Terrain().Get(),
+        m_sceneController.Models(),
+        m_sceneController.Physics(),
+        m_camera,
+        NormalizeCameraModeForCurrentScene( m_replayRuntime.Camera().restoreCameraMode ),
+        m_attachedCamera.State().activeFollow,
+        m_camera.director.grabbed );
     m_interaction.SetWorldInteractionOwnerInWorkspace( workspace, owner, reason );
     return transition;
 }

@@ -10,9 +10,9 @@ reports, and git history.
 | Field | Value |
 |---|---|
 | Branch | `engine-cleanup-10th-july`, tracking `origin/engine-cleanup-10th-july` |
-| Current pushed baseline | `e88eac18 refactor: move launcher pointer routing into tools` |
+| Current pushed baseline | `2eead4b6 refactor: move replay world pointer routing into owner` |
 | Current objective | Continue B1f by deleting Run pointer/camera composition, then TakeInput |
-| Last broad local gate | `tools\validate_full.bat` passed ReplayRuntime-owned world-pointer routing with 129/129 doctest cases, 2,755 assertions, zero-warning builds, DX12 with zero InfoQueue errors/matching screenshots, standalone physics smoke, and 20,001-line byte-exact physics in 52.7s |
+| Last broad local gate | `tools\validate_full.bat` passed InputRouter-owned interaction-transition cancellation with 129/129 doctest cases, 2,755 assertions, zero-warning builds, DX12 with zero InfoQueue errors/matching screenshots, standalone physics smoke, and 20,001-line byte-exact physics in 52.9s |
 | Native evidence | Injected heap-use-after-free caught; healthy ASan and five-file `/analyze` passed in 16.185s |
 
 ## Pushed Cleanup Commits
@@ -323,6 +323,11 @@ Replay path-target world-pointer gating, picking, and optional inspection-camera
 exit now execute inside `ReplayRuntime`; Run observes only `consumed`. The Attach
 probe now asserts press/release selection timing. Fast, CPU, five interaction
 scenarios, perf, and full pass; comment audit is 3/3. Editor routing remains.
+
+Interaction transition cancellation now sequences through `InputRouter`, which
+borrows ReplayRuntime/RuntimeTools only to invoke their own cancellation APIs.
+Run's broad transition cleanup method is deleted. Fast, CPU, five interaction
+scenarios, perf, and full pass; comment audit is 3/3.
 
 Scene provenance C1a is complete: parser-owned library/instance/ordered-part
 records retain exact shape sources, hierarchy transforms use rotated offsets

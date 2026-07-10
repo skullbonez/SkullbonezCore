@@ -23,6 +23,8 @@ Glossary:
     may be delivered.
   Focus resynchronization: First focused sample after focus loss; held inputs are
     remembered without being reported as fresh presses.
+  Transition cleanup: Ordered cancellation sent to the replay/tool owners before
+    a new workspace or world-input owner begins consuming gestures.
 
 Invariants:
   - BeginFrame is called once before any RoutePhase call for a device snapshot.
@@ -38,6 +40,8 @@ Invariants:
     snapshot; only InputRouter advances button-edge memory.
   - Native capture and cursor visibility are desired state. The composition
     root applies only changes reported by ConsumePointerPresentationChange.
+  - Transition cleanup borrows concrete owners synchronously and never stores
+    their references or absorbs their domain state.
 
 Related:
   - InputController.h defines the existing action and context vocabulary.
@@ -54,10 +58,32 @@ Related:
 
 namespace SkullbonezCore
 {
+namespace Environment
+{
+class CameraCollection;
+}
+namespace Geometry
+{
+class Terrain;
+}
+namespace GameObjects
+{
+class GameModelCollection;
+}
+namespace Physics
+{
+class PhysicsEngine;
+}
 namespace Basics
 {
 struct RuntimeInputSnapshot;
 struct RuntimeInteractionFrameInput;
+struct RuntimeInteractionTransition;
+struct RunCameraState;
+enum class RunCameraMode;
+class ReplayRuntime;
+class RuntimeInteractionController;
+class RuntimeTools;
 class InputKeySnapshot
 {
   public:
@@ -227,6 +253,18 @@ class InputRouter
         const PointerPresentationPolicy& policy ); // Commits the policy's desired native cursor visibility.
     bool ReleasePointerToUi( const PointerPresentationPolicy&
                                  policy );         // Releases native capture only when mouse look has no stronger claim.
+    void ApplyInteractionTransitionCleanup( const RuntimeInteractionTransition& transition,
+                                            ReplayRuntime& replayRuntime,
+                                            RuntimeTools& runtimeTools,
+                                            RuntimeInteractionController& interaction,
+                                            Environment::CameraCollection& cameras,
+                                            Geometry::Terrain* terrain,
+                                            GameObjects::GameModelCollection& models,
+                                            Physics::PhysicsEngine& physics,
+                                            RunCameraState& camera,
+                                            RunCameraMode replayRestoreCameraMode,
+                                            bool attachedCameraFollow,
+                                            bool directorGrabbed );
 
     // Pointer presentation requests are reconciled here so UI/tools/camera do
     // not manipulate Win32 capture or cursor counters independently.

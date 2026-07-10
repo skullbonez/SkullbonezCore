@@ -481,6 +481,25 @@ doctest cases and 2,755 assertions; perf completed in 32.5s; and full passed in
 standalone topology smoke, and the 20,001-line byte-exact physics baseline.
 Comment audit: 3/3 touched source-bearing files.
 
+Cross-owner interaction-transition cancellation now sequences through
+`InputRouter::ApplyInteractionTransitionCleanup`. The router interprets the
+transition record, asks ReplayRuntime and RuntimeTools to cancel only their own
+state, reconciles router-owned capture/cursor policy, and resets camera deltas
+only from the explicit capture-release result. All owner references are
+synchronous borrows and are never stored. Run's broad
+`ClearRuntimeInteractionStateForTransition` method is deleted. B1f remains open
+for the final transition wrapper, editor pointer route, keyboard/camera helpers,
+and pointer-route/`TakeInput` deletion.
+
+Evidence: fast passed in 39.2s; the CPU umbrella passed in 11.3s with 129/129
+doctest cases and 2,755 assertions; all five interaction scenarios passed in
+15.0s; perf completed in 32.2s; and full passed in 52.9s with zero warnings,
+zero DX12 InfoQueue errors, matching screenshots, standalone topology smoke,
+and the 20,001-line byte-exact physics baseline. The first Debug build exposed
+a missing `RunCameraMode` forward declaration in the expanded router contract;
+the declaration was added and the retry passed. Comment audit: 3/3 touched
+source-bearing files.
+
 ## Remaining Work
 
 ### A. Narrow the render host

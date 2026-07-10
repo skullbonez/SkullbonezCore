@@ -201,8 +201,6 @@ class Run
     RuntimeInteractionTransition SetWorldInteractionOwnerAfterInteractionTransition(
         WorldInteractionOwner owner,
         InteractionExitReason reason );                                 // Applies tool-owner transitions through runtime cleanup.
-    void ClearRuntimeInteractionStateForTransition(
-        const RuntimeInteractionTransition& transition );               // Clears state owned by the interaction being exited.
     void ApplyCameraMode( RunCameraMode mode,
                           RuntimeInputActionSource source );            // Applies keyboard/UI camera-mode requests.
     void CycleCameraMode();                                             // Tab cycles through enabled explicit camera modes.
