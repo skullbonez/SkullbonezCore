@@ -560,6 +560,19 @@ assertions, zero warnings, zero DX12 InfoQueue errors, matching screenshots,
 standalone topology smoke, and the 20,001-line byte-exact physics baseline.
 Comment audit: 2/2 touched source-bearing files.
 
+Active editor transform drags now execute entirely inside `RuntimeTools`.
+Value-only pointer/ray input drives per-frame translate, rotate, or scale
+mutation; release computes single- or bounded-group replay deltas and tears down
+the gesture before returning an explicit input-mode edge. Run no longer reads
+gizmo start state or records editor transform events. B1f remains open for new
+transform gesture starts and final editor/outer route deletion.
+
+Evidence: the zero-warning Debug build passed in 10.0s; all five interaction
+scenarios passed in 25.1s; and full passed in 54.3s with 129/129 doctest cases,
+2,755 assertions, zero warnings, zero DX12 InfoQueue errors, matching
+screenshots, standalone topology smoke, and the 20,001-line byte-exact physics
+baseline. Comment audit: 2/2 touched source-bearing files.
+
 ## Remaining Work
 
 ### A. Narrow the render host

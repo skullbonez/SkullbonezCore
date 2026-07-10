@@ -272,6 +272,26 @@ struct EditorPlacementScalePointerResult
     bool endedGesture = false;
 };
 
+struct EditorGizmoDragPointerInput
+{
+    // Lifetime: one routed pointer frame. The sampled ray remains stable while
+    // the tool mutates physics and records the release event.
+    bool leftDown = false;
+    bool leftReleased = false;
+    bool suppressWorldAction = false;
+    bool hasWorldRay = false;
+    int selectedModelIndex = -1;
+    Math::Vector::Vector3 rayOrigin = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 rayDirection = Math::Vector::ZERO_VECTOR;
+};
+
+struct EditorGizmoDragPointerResult
+{
+    // Composition publishes the input-mode edge after owner teardown.
+    bool consumed = false;
+    bool endedGesture = false;
+};
+
 struct MousePickupPointerResult
 {
     bool consumed = false;                                                  // Prevents later world owners from seeing this pointer gesture.
@@ -660,6 +680,11 @@ class RuntimeTools
                                                                         Assets::AssetSystem& assets,
                                                                         int activeModelCapacity,
                                                                         ReplayRuntime& replayRuntime );
+    EditorGizmoDragPointerResult RouteEditorGizmoDragPointer( const EditorGizmoDragPointerInput& input,
+                                                              GameObjects::GameModelCollection& collection,
+                                                              Physics::PhysicsEngine& physics,
+                                                              RuntimeInteractionController& interaction,
+                                                              ReplayRuntime& replayRuntime );
     bool CommitSelectionCommand( const RuntimeInteractionSelectionPlan& plan, RuntimeInteractionEvent& outEvent );
     bool ApplySelectionCommand( const RuntimeInteractionCommand& command,
                                 const GameObjects::GameModelCollection& collection );
