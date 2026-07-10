@@ -60,6 +60,10 @@ namespace GameObjects
 {
 class GameModelCollection;
 }
+namespace Assets
+{
+class AssetSystem;
+}
 namespace Environment
 {
 class CameraCollection;
@@ -68,12 +72,44 @@ class WorldEnvironment;
 namespace Physics
 {
 class PhysicsEngine;
+class PhysicsDebugVisualizer;
+} // namespace Physics
+namespace Threading
+{
+class WorkerPool;
+}
+namespace Runtime
+{
+namespace Audio
+{
+class ContactAudioService;
+}
+} // namespace Runtime
+namespace UI
+{
+class InGameUI;
 }
 namespace Basics
 {
+class DiagnosticsRuntime;
+class GraphicsStressController;
+class InputRouter;
+class ReplayRuntime;
+class RuntimeInteractionController;
+class RuntimeRenderer;
+class RuntimeTools;
+class SimulationSystem;
+class Window;
+struct AttachedCameraState;
+struct CinematicRenderConfig;
+class EngineConfig;
 struct RunCameraState;
 struct RunDebugState;
+struct RunLaunchOptions;
 struct RunRuntimeSettings;
+struct RunStartupState;
+struct RunTimerState;
+struct RuntimeRenderBackendView;
 struct SceneLoadRequest;
 struct SceneDefaultsSaveView
 {
@@ -139,6 +175,35 @@ class SceneController
     SceneLoadRequest LoadAdjacentSceneFromBrowser( int direction, int currentSceneBrowserIndex );
     SceneLoadRequest ResetCurrentScene( bool preserveUIState, bool suppressExitOnComplete, bool preserveRuntimeState );
     SceneLoadRequest AdvanceScene( bool perfTestActive, int& perfPass, bool preserveInteractiveUI );
+    // Lifetime: cold load orchestration borrows each concrete owner only for
+    // this call. The explicit list is intentional: no Run backpointer or broad
+    // mutable context is retained behind the scene boundary.
+    SbResult Load( const SceneLoadRequest& request,
+                   EngineConfig& m_config,
+                   RunLaunchOptions& m_launchOptions,
+                   const CinematicRenderConfig& m_defaultCinematicRender,
+                   const RunStartupState& m_startup,
+                   DiagnosticsRuntime& m_diagnosticsRuntime,
+                   RunRuntimeSettings& m_runtimeSettings,
+                   RunTimerState& m_timers,
+                   Assets::AssetSystem& assets,
+                   Threading::WorkerPool& workerPool,
+                   Window& window,
+                   InputRouter& m_inputRouter,
+                   RuntimeInteractionController& m_interaction,
+                   RunCameraState& m_camera,
+                   AttachedCameraState& m_attachedCamera,
+                   SimulationSystem& m_simulation,
+                   ReplayRuntime& m_replayRuntime,
+                   Runtime::Audio::ContactAudioService& m_contactAudio,
+                   UI::InGameUI& m_UI,
+                   RunDebugState& m_debug,
+                   GraphicsStressController& m_graphicsStress,
+                   RuntimeTools& m_runtimeTools,
+                   Physics::PhysicsDebugVisualizer& m_physicsDebugVisualizer,
+                   const RuntimeRenderBackendView& m_renderBackendView,
+                   RuntimeRenderer& m_renderer,
+                   int& sPerfPass );
     SbResult SaveCurrentDefaults( const SceneDefaultsSaveView& view ) const;
 
     // Scene request submission stays owner-specific even while Run temporarily

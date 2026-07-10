@@ -1047,10 +1047,33 @@ bool Run::TickScreenshots()
         const SceneLoadRequest request = m_sceneController.AdvanceScene( m_diagnosticsRuntime.PerfTestActive(),
                                                                          sPerfPass,
                                                                          SceneState().isInteractiveRun );
-        const bool advanced = request.HasLoad() && LoadScene( request.index,
-                                                              request.preserveUIState,
-                                                              request.suppressExitOnComplete,
-                                                              request.preserveRuntimeState )
+        const bool advanced = request.HasLoad() && m_sceneController
+                                                       .Load( request,
+                                                              m_config,
+                                                              m_launchOptions,
+                                                              m_defaultCinematicRender,
+                                                              m_startup,
+                                                              m_diagnosticsRuntime,
+                                                              m_runtimeSettings,
+                                                              m_timers,
+                                                              m_systems.assets,
+                                                              *m_systems.workerPool,
+                                                              *m_systems.window,
+                                                              m_inputRouter,
+                                                              m_interaction,
+                                                              m_camera,
+                                                              m_attachedCamera,
+                                                              m_simulation,
+                                                              m_replayRuntime,
+                                                              m_contactAudio,
+                                                              m_UI,
+                                                              m_debug,
+                                                              m_graphicsStress,
+                                                              m_runtimeTools,
+                                                              m_physicsDebugVisualizer,
+                                                              m_renderBackendView,
+                                                              m_renderer,
+                                                              sPerfPass )
                                                        .ok;
         if ( !advanced )
         {
@@ -1130,10 +1153,33 @@ bool Run::TickSceneAdvance()
 {
     const auto executeSceneLoadRequest = [this]( const SceneLoadRequest& request )
     {
-        return request.HasLoad() && LoadScene( request.index,
-                                               request.preserveUIState,
-                                               request.suppressExitOnComplete,
-                                               request.preserveRuntimeState )
+        return request.HasLoad() && m_sceneController
+                                        .Load( request,
+                                               m_config,
+                                               m_launchOptions,
+                                               m_defaultCinematicRender,
+                                               m_startup,
+                                               m_diagnosticsRuntime,
+                                               m_runtimeSettings,
+                                               m_timers,
+                                               m_systems.assets,
+                                               *m_systems.workerPool,
+                                               *m_systems.window,
+                                               m_inputRouter,
+                                               m_interaction,
+                                               m_camera,
+                                               m_attachedCamera,
+                                               m_simulation,
+                                               m_replayRuntime,
+                                               m_contactAudio,
+                                               m_UI,
+                                               m_debug,
+                                               m_graphicsStress,
+                                               m_runtimeTools,
+                                               m_physicsDebugVisualizer,
+                                               m_renderBackendView,
+                                               m_renderer,
+                                               sPerfPass )
                                         .ok;
     };
     const bool sceneProceedAllowed =
@@ -1258,10 +1304,35 @@ bool Run::TickSceneAdvance()
          !RunCameraModeUsesManualControls( m_camera.mode, m_attachedCamera.activeFollow, m_camera.director.grabbed ) &&
          m_timers.simulationTimer.GetTimeSinceLastStart() > 20.0 )
     {
-        const SbResult loadResult = LoadScene( SceneState().currentSceneIndex,
-                                               SceneState().isInteractiveRun,
-                                               SceneState().isInteractiveRun,
-                                               SceneState().isInteractiveRun );
+        const SbResult loadResult = m_sceneController.Load( SceneLoadRequest::Load( SceneState().currentSceneIndex,
+                                                                                    SceneState().isInteractiveRun,
+                                                                                    SceneState().isInteractiveRun,
+                                                                                    SceneState().isInteractiveRun ),
+                                                            m_config,
+                                                            m_launchOptions,
+                                                            m_defaultCinematicRender,
+                                                            m_startup,
+                                                            m_diagnosticsRuntime,
+                                                            m_runtimeSettings,
+                                                            m_timers,
+                                                            m_systems.assets,
+                                                            *m_systems.workerPool,
+                                                            *m_systems.window,
+                                                            m_inputRouter,
+                                                            m_interaction,
+                                                            m_camera,
+                                                            m_attachedCamera,
+                                                            m_simulation,
+                                                            m_replayRuntime,
+                                                            m_contactAudio,
+                                                            m_UI,
+                                                            m_debug,
+                                                            m_graphicsStress,
+                                                            m_runtimeTools,
+                                                            m_physicsDebugVisualizer,
+                                                            m_renderBackendView,
+                                                            m_renderer,
+                                                            sPerfPass );
         if ( !loadResult.ok )
         {
             return false;

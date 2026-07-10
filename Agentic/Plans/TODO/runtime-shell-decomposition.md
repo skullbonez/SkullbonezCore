@@ -346,6 +346,29 @@ stopped at implementation/header formatting; the third identified the missing
 project-filter classifier for the new domain header. Each was corrected before
 the clean gate. Comment audit: 18/18 touched C++ source/header files.
 
+The full cold load transaction is now implemented by `SceneController::Load`.
+Run's `LoadScene` method is deleted; startup, automation, frame advance,
+graphics stress, and request execution wire concrete owners directly. The load
+boundary retains no Run pointer/reference, callback, or mutable multi-domain
+context. `SceneRuntimeResetContext` and `SceneRuntimeLoadBeginContext` are also
+deleted; preserve/restore and checked GPU-drain inputs are explicit. C1/C3 and
+B2f remain open only for moving the scene-only pending-request switch into the
+controller and deleting `DrainSceneRequests`.
+
+Evidence from the load-owner promotion: the final staged fast gate passed in
+39.7s with 13 candidates and no size violations; the CPU umbrella passed all
+four lanes with 127/127 doctest cases and 2,730 assertions in 10.8s;
+interaction clicks passed in 8.3s; and replay scrub passed in 75.1s. A
+one-minute graphics stress run completed 8,517 frames and 237 scene loads with
+empty stderr; all 135 authored scenes activated with 135 empty stderr files in
+247.7s; focused physics passed in 13.3s; and full passed in 50.2s with zero
+warnings, zero DX12 InfoQueue errors, matching screenshots, standalone topology
+smoke, and the 20,001-line byte-exact baseline. Compile feedback corrected the
+remaining callers and formerly implicit RunInput helpers before gates. The first
+two fast attempts stopped at four implementation and one header formatting
+finding before build work; only those files were formatted. Comment audit:
+11/11 touched C++ source/header files.
+
 Evidence from the collection-owner move: the final staged fast gate passed in
 33.6s with 17 candidates and no size violations; the CPU umbrella passed all
 four lanes with 127/127 doctest cases and 2,730 assertions in 11.2s; replay

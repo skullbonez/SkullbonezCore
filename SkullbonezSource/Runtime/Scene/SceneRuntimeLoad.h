@@ -4,9 +4,9 @@ Purpose:
   Declares scene load orchestration helpers owned by scene runtime code.
 
 Mental model:
-  Scene loading is still being peeled out of Run one phase at a time. This
-  module owns the load-begin decision point: queue validation, runtime-state
-  preservation, GPU flush-before-teardown, and SceneController load bookkeeping.
+  SceneController owns the complete load transaction. This module isolates its
+  load-begin decision point: queue validation, runtime-state preservation, GPU
+  flush-before-teardown, and controller bookkeeping.
 
 Glossary:
   Load begin: Scene load phase before teardown and object population.
@@ -16,7 +16,8 @@ Glossary:
   Scene browser: UI-facing list of available scene files.
 
 Invariants:
-  - BeginSceneRuntimeLoad returns intent/state; it does not populate the scene.
+  - BeginSceneRuntimeLoad returns intent/state to SceneController::Load; it does
+    not populate the scene itself.
   - A successful GPU drain precedes every scene/controller mutation.
   - Runtime state preservation must happen before SceneController begins load.
 
@@ -42,15 +43,9 @@ class IRenderDeviceLifecycle;
 namespace Basics
 {
 class SceneController;
-
-struct SceneRuntimeLoadBeginContext
-{
-    SceneController& controller;
-    SceneRuntimeResetContext reset;
-    RunSceneBrowserState& sceneBrowser;
-    Rendering::IRenderDeviceLifecycle* renderLifecycle = nullptr;
-    bool interactiveSceneRunRequested = false;
-};
+struct RunCameraState;
+struct RunDebugState;
+struct RunRuntimeSettings;
 
 struct SceneRuntimeLoadBeginResult
 {
@@ -64,7 +59,12 @@ struct SceneRuntimeLoadBeginResult
     const std::string* scenePath = nullptr;
 };
 
-SceneRuntimeLoadBeginResult BeginSceneRuntimeLoad( SceneRuntimeLoadBeginContext& context,
+SceneRuntimeLoadBeginResult BeginSceneRuntimeLoad( SceneController& controller,
+                                                   RunRuntimeSettings& runtimeSettings,
+                                                   RunDebugState& debug,
+                                                   RunCameraState& camera,
+                                                   Rendering::IRenderDeviceLifecycle* renderLifecycle,
+                                                   bool interactiveSceneRunRequested,
                                                    int index,
                                                    bool suppressExitOnComplete,
                                                    bool preserveRuntimeState );

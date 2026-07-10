@@ -16,7 +16,8 @@ Glossary:
 
 Invariants:
   - Snapshot fields must mirror restore logic one-for-one.
-  - Context references are borrowed only for capture/restore duration.
+  - Concrete owner references are borrowed only for capture/restore duration;
+    no multi-domain reset context is retained.
 
 Related:
   - SkullbonezSource/Runtime/Scene/RunScene.cpp
@@ -44,6 +45,7 @@ class PhysicsDebugVisualizer;
 }
 namespace Basics
 {
+class SceneController;
 struct RunSceneState;
 
 // Captures the part of a live run that belongs to the operator's current scene
@@ -85,22 +87,18 @@ struct SceneRuntimeResetSnapshot
     int autoCycleShotsTaken = 0;
 };
 
-struct SceneRuntimeResetContext
-{
-    RunRuntimeSettings& runtimeSettings;
-    RunDebugState& debug;
-    RunSceneState& scene;
-    RunSceneUIOverrideState& uiOverrides;
-    RunCameraState& camera;
-    Environment::WorldEnvironment& worldEnvironment;
-    Physics::PhysicsDebugVisualizer& physicsDebugVisualizer;
-};
-
-SceneRuntimeResetSnapshot CaptureSceneRuntimeResetSnapshot( const SceneRuntimeResetContext& context );
-void RestoreSceneRuntimeResetSnapshot( SceneRuntimeResetContext& context,
+SceneRuntimeResetSnapshot CaptureSceneRuntimeResetSnapshot( const SceneController& controller,
+                                                            const RunRuntimeSettings& runtimeSettings,
+                                                            const RunDebugState& debug,
+                                                            const RunCameraState& camera );
+void RestoreSceneRuntimeResetSnapshot( SceneController& controller,
+                                       RunRuntimeSettings& runtimeSettings,
+                                       RunDebugState& debug,
+                                       RunCameraState& camera,
+                                       Physics::PhysicsDebugVisualizer& physicsDebugVisualizer,
                                        const SceneRuntimeResetSnapshot& snapshot,
                                        bool suppressExitOnComplete );
-void ClearSceneRuntimeUIOverrides( SceneRuntimeResetContext& context );
+void ClearSceneRuntimeUIOverrides( SceneController& controller );
 
 } // namespace Basics
 } // namespace SkullbonezCore

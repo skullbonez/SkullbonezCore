@@ -177,23 +177,28 @@ int CurrentSceneBrowserIndex( const SceneController& controller, const RunSceneB
 }
 
 
-SceneRuntimeLoadBeginResult BeginSceneRuntimeLoad( SceneRuntimeLoadBeginContext& context,
+SceneRuntimeLoadBeginResult BeginSceneRuntimeLoad( SceneController& controller,
+                                                   RunRuntimeSettings& runtimeSettings,
+                                                   RunDebugState& debug,
+                                                   RunCameraState& camera,
+                                                   Rendering::IRenderDeviceLifecycle* renderLifecycle,
+                                                   bool interactiveSceneRunRequested,
                                                    int index,
                                                    bool suppressExitOnComplete,
                                                    bool preserveRuntimeState )
 {
     SceneRuntimeLoadBeginResult result;
-    if ( !context.controller.HasEntry( index ) )
+    if ( !controller.HasEntry( index ) )
     {
         return result;
     }
 
-    result.scenePath = &context.controller.PathAt( index );
-    if ( context.renderLifecycle )
+    result.scenePath = &controller.PathAt( index );
+    if ( renderLifecycle )
     {
         // Lane R: old scene resources may still be referenced by in-flight GPU
         // work. A failed drain must leave every scene/controller owner intact.
-        result.status = context.renderLifecycle->FlushGPU();
+        result.status = renderLifecycle->FlushGPU();
         if ( !result.status.ok )
         {
             return result;
@@ -202,31 +207,31 @@ SceneRuntimeLoadBeginResult BeginSceneRuntimeLoad( SceneRuntimeLoadBeginContext&
 
     if ( suppressExitOnComplete )
     {
-        context.reset.scene.isInteractiveRun = true;
+        controller.State().isInteractiveRun = true;
     }
-    if ( context.interactiveSceneRunRequested )
+    if ( interactiveSceneRunRequested )
     {
-        context.reset.scene.isInteractiveRun = true;
+        controller.State().isInteractiveRun = true;
     }
-    result.suppressAutomationExit = context.reset.scene.isInteractiveRun || suppressExitOnComplete;
-    result.shouldPreserveRuntimeState = preserveRuntimeState && context.controller.HasCurrentEntry();
+    result.suppressAutomationExit = controller.State().isInteractiveRun || suppressExitOnComplete;
+    result.shouldPreserveRuntimeState = preserveRuntimeState && controller.HasCurrentEntry();
     if ( result.shouldPreserveRuntimeState )
     {
         // Lifetime: Snapshot before BeginLoad mutates scene bookkeeping so the
         // restore policy sees the live operator-owned state from the old run.
-        result.resetSnapshot = CaptureSceneRuntimeResetSnapshot( context.reset );
+        result.resetSnapshot = CaptureSceneRuntimeResetSnapshot( controller, runtimeSettings, debug, camera );
     }
     else
     {
-        ClearSceneRuntimeUIOverrides( context.reset );
+        ClearSceneRuntimeUIOverrides( controller );
     }
 
-    context.controller.BeginLoad( index );
+    controller.BeginLoad( index );
     if ( !result.shouldPreserveRuntimeState )
     {
-        context.sceneBrowser.selectedCineModeSceneIndex =
+        controller.Browser().selectedCineModeSceneIndex =
             ( !result.scenePath->empty() && IsCineScenePath( *result.scenePath ) )
-                ? SceneBrowserIndexForPath( context.sceneBrowser, *result.scenePath )
+                ? SceneBrowserIndexForPath( controller.Browser(), *result.scenePath )
                 : -1;
     }
     result.shouldLoad = true;

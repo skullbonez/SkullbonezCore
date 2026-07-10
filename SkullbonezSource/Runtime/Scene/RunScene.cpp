@@ -4,9 +4,9 @@ Purpose:
   Loads, resets, and advances authored and generated scenes.
 
 Mental model:
-  RunScene.cpp loads, resets, and advances authored and generated scenes. As
-  an implementation unit, keep edits anchored on local owner boundaries and
-  call direction and on the glossary/invariants below.
+  SceneController owns the cold load transaction and borrows each concrete
+  process owner only for that call. Run wires those owners but has no scene-load
+  method or callback into its private state.
 
 Glossary:
   CLI (Command-Line Interface): Text arguments or scripts used to launch
@@ -28,6 +28,7 @@ Invariants:
     resource, command, diagnostics, and raytracing facets for the active
     backend.
   - Scene/model/terrain destruction starts only after a successful GPU drain.
+  - Load orchestration retains no caller pointer, callback, or mutable owner bag.
 Related:
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/comment-style-guide.md
@@ -39,6 +40,7 @@ Related:
 #include "SceneRuntimeReset.h"
 #include "SceneRuntimeStyle.h"
 #include "SceneRuntimeUiOptions.h"
+#include "../Editor/EditorTools.h"
 #include "../Editor/EditorHullAssets.h"
 #include "../../Physics/Ragdoll.h"
 #include "../../Core/FatalError.h"
@@ -478,29 +480,87 @@ void ApplyTornadoDefaultsForActiveScene( RunRuntimeSettings& runtimeSettings,
 }
 } // namespace
 
-SbResult Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplete, bool preserveRuntimeState )
+SbResult SceneController::Load( const SceneLoadRequest& request,
+                                EngineConfig& m_config,
+                                RunLaunchOptions& m_launchOptions,
+                                const CinematicRenderConfig& m_defaultCinematicRender,
+                                const RunStartupState& m_startup,
+                                DiagnosticsRuntime& m_diagnosticsRuntime,
+                                RunRuntimeSettings& m_runtimeSettings,
+                                RunTimerState& m_timers,
+                                SkullbonezCore::Assets::AssetSystem& assets,
+                                Threading::WorkerPool& workerPool,
+                                Window& window,
+                                InputRouter& m_inputRouter,
+                                RuntimeInteractionController& m_interaction,
+                                RunCameraState& m_camera,
+                                AttachedCameraState& m_attachedCamera,
+                                SimulationSystem& m_simulation,
+                                ReplayRuntime& m_replayRuntime,
+                                SkullbonezCore::Runtime::Audio::ContactAudioService& m_contactAudio,
+                                SkullbonezCore::UI::InGameUI& m_UI,
+                                RunDebugState& m_debug,
+                                GraphicsStressController& m_graphicsStress,
+                                RuntimeTools& m_runtimeTools,
+                                Physics::PhysicsDebugVisualizer& m_physicsDebugVisualizer,
+                                const RuntimeRenderBackendView& m_renderBackendView,
+                                RuntimeRenderer& m_renderer,
+                                int& sPerfPass )
 {
-    m_lastSceneLoadResult = SbResult::Success();
+    if ( !request.accepted )
+    {
+        // Lane R: a rejected navigation value cannot identify a scene to load;
+        // preserve the active scene and report the owner boundary violation.
+        return SbResult::Failure( "SceneController", "Rejected scene load request reached execution." );
+    }
+    if ( request.enterInteractiveSceneRun )
+    {
+        State().isInteractiveRun = true;
+        State().isExitOnComplete = false;
+        m_diagnosticsRuntime.Capture().Screenshot().isScreenshotAndExit = false;
+    }
+    if ( !request.HasLoad() )
+    {
+        return SbResult::Success();
+    }
+    const int index = request.index;
+    const bool preserveUIState = request.preserveUIState;
+    const bool suppressExitOnComplete = request.suppressExitOnComplete;
+    const bool preserveRuntimeState = request.preserveRuntimeState;
+    SceneController& m_sceneController = *this;
+    const auto SceneState = [this]() -> RunSceneState& { return State(); };
+    const auto NormalizeCameraModeForCurrentScene = [this]( RunCameraMode mode )
+    {
+        if ( State().isSceneMode )
+        {
+            return mode == RunCameraMode::Demo ? RunCameraMode::Scene : mode;
+        }
+        if ( mode == RunCameraMode::Scene )
+        {
+            return Models().SceneEntityCount() > 0 ? RunCameraMode::Demo : RunCameraMode::Inspect;
+        }
+        if ( mode == RunCameraMode::Demo && Models().SceneEntityCount() <= 0 )
+        {
+            return RunCameraMode::Inspect;
+        }
+        return mode;
+    };
+    SbResult m_lastSceneLoadResult = SbResult::Success();
     RuntimeAllocation::RuntimeAllocationScope allocationScope( RuntimeAllocation::RuntimeAllocationPhase::SceneLoad );
     SceneController& runtime = m_sceneController;
-    SceneRuntimeResetContext resetContext{ m_runtimeSettings,
-                                           m_debug,
-                                           SceneState(),
-                                           m_sceneController.UIOverrides(),
-                                           m_camera,
-                                           m_sceneController.World(),
-                                           m_physicsDebugVisualizer };
-    SceneRuntimeLoadBeginContext loadBeginContext{ runtime,
-                                                   resetContext,
-                                                   m_sceneController.Browser(),
-                                                   m_renderBackendView.deviceLifecycle,
-                                                   m_launchOptions.interactiveSceneRun };
 #ifdef _DEBUG
-    EndPhysicsDiagnosticsRun( "scene_reload" );
+    m_diagnosticsRuntime.EndPhysicsDiagnosticsRun( SceneState(), "scene_reload" );
 #endif
     runtime.RecordLifecycleEvent( SceneRuntimeLifecycleEvent::BeforeSceneUnload );
-    const SceneRuntimeLoadBeginResult loadBegin =
-        BeginSceneRuntimeLoad( loadBeginContext, index, suppressExitOnComplete, preserveRuntimeState );
+    const SceneRuntimeLoadBeginResult loadBegin = BeginSceneRuntimeLoad( runtime,
+                                                                         m_runtimeSettings,
+                                                                         m_debug,
+                                                                         m_camera,
+                                                                         m_renderBackendView.deviceLifecycle,
+                                                                         m_launchOptions.interactiveSceneRun,
+                                                                         index,
+                                                                         suppressExitOnComplete,
+                                                                         preserveRuntimeState );
     if ( !loadBegin.status.ok )
     {
         // Lane R: BeginSceneRuntimeLoad has not mutated or destroyed the old
@@ -539,10 +599,36 @@ SbResult Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnCom
     AttachedCameraController::Reset( m_attachedCamera );
     {
         const RuntimeInteractionTransition transition = m_interaction.ResetForScene( InteractionExitReason::LoadScene );
-        ClearRuntimeInteractionStateForTransition( transition );
+        const bool previousOwnerWasReplay = transition.previousOwner == WorldInteractionOwner::ReplayScrub ||
+                                            transition.previousOwner == WorldInteractionOwner::ReplayVelocityEdit ||
+                                            transition.previousOwner == WorldInteractionOwner::ReplayPrediction ||
+                                            transition.previousOwner == WorldInteractionOwner::ReplayBranchTarget ||
+                                            transition.previousOwner == WorldInteractionOwner::ReplayCauseTree;
+        if ( m_replayRuntime.HasActiveInteractionState() || previousOwnerWasReplay )
+        {
+            if ( m_replayRuntime.ClearInteractionForRuntimeTransition( m_interaction, m_inputRouter ) )
+            {
+                m_replayRuntime.ExitInspectionCamera(
+                    &m_sceneController.Cameras(),
+                    m_sceneController.Terrain().Get(),
+                    m_camera,
+                    NormalizeCameraModeForCurrentScene( m_replayRuntime.Camera().restoreCameraMode ),
+                    m_attachedCamera.activeFollow,
+                    m_camera.director.grabbed,
+                    m_interaction,
+                    m_inputRouter );
+            }
+        }
+        RunInternal::ClearEditorManipulationState(
+            { m_runtimeTools.Editor(), m_sceneController.Models(), m_sceneController.Physics(), m_interaction } );
+        m_runtimeTools.Editor().viewportLookActive = false;
+        m_runtimeTools.Editor().placementModeEnabled = false;
+        m_runtimeTools.Editor().hotGizmoAxis = -1;
+        m_runtimeTools.Editor().hotRotationAxis = -1;
+        m_runtimeTools.Editor().activeGizmoAxis = -1;
         m_interaction.ResetForScene( InteractionExitReason::LoadScene );
     }
-    SetCameraModeLabelAfterInteractionTransition( scenePath.empty() ? RunCameraMode::Demo : RunCameraMode::Scene );
+    m_camera.mode = scenePath.empty() ? RunCameraMode::Demo : RunCameraMode::Scene;
     m_runtimeTools.ClearRayCastTestLines();
     m_debug.isWaterFreezeDebug = false;
     m_debug.isWaterNoReflect = false;
@@ -607,7 +693,7 @@ SbResult Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnCom
     if ( scenePath.empty() )
     {
         m_config.gameModelCapacity = m_startup.gameModelCapacity;
-        ApplySceneWorkerThreadSetting( m_config, *m_systems.workerPool, m_startup.workerThreads );
+        ApplySceneWorkerThreadSetting( m_config, workerPool, m_startup.workerThreads );
         if ( m_launchOptions.seedOverride > 0 )
         {
             rngSeed = m_launchOptions.seedOverride;
@@ -616,12 +702,12 @@ SbResult Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnCom
         SceneState().rngState = rngSeed;
         const SbResult terrainResult =
             UseDefaultTerrain( m_sceneController.Terrain(),
-                               m_systems.assets,
+                               assets,
                                m_sceneController.World(),
                                m_config,
-                               m_systems.assets.RegisterSourceAssetPath( SkullbonezCore::Assets::AssetKind::Terrain,
-                                                                         "terrain.raw",
-                                                                         m_config.terrainRaw.c_str() ),
+                               assets.RegisterSourceAssetPath( SkullbonezCore::Assets::AssetKind::Terrain,
+                                                               "terrain.raw",
+                                                               m_config.terrainRaw.c_str() ),
                                m_renderBackendView.deviceLifecycle,
                                m_renderBackendView.renderResources );
         if ( !terrainResult.ok )
@@ -672,7 +758,7 @@ SbResult Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnCom
                                                               m_sceneController.Browser(),
                                                               m_sceneController.Models(),
                                                               m_sceneController.Entities(),
-                                                              m_systems.assets,
+                                                              assets,
                                                               RuntimeActiveCinematicConfig( SceneState(), m_config ),
                                                               m_defaultCinematicRender } );
         const char* rendererName = m_renderBackendView.renderDiagnostics
@@ -680,13 +766,13 @@ SbResult Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnCom
                                        : "unknown";
         char titleText[256];
         sprintf_s( titleText, "%s [%s]", TITLE_TEXT, rendererName );
-        m_systems.window->SetTitleText( titleText );
+        window.SetTitleText( titleText );
     }
     else
     {
         SceneState().isSceneMode = true;
         TestScene scene;
-        const SbResult sceneLoad = TestScene::TryLoadFromFile( scenePath.c_str(), m_systems.assets, scene );
+        const SbResult sceneLoad = TestScene::TryLoadFromFile( scenePath.c_str(), assets, scene );
         if ( !sceneLoad.ok )
         {
             m_lastSceneLoadResult = sceneLoad;
@@ -703,7 +789,7 @@ SbResult Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnCom
             scene.HasModelCapacityOverride() ? scene.GetModelCapacity() : m_startup.gameModelCapacity;
         ApplySceneWorkerThreadSetting(
             m_config,
-            *m_systems.workerPool,
+            workerPool,
             scene.HasWorkerThreadOverride() ? scene.GetWorkerThreads() : m_startup.workerThreads );
         SceneState().isScenePhysics = scene.IsPhysicsEnabled();
         SceneState().isSceneText = scene.IsTextEnabled();
@@ -788,7 +874,7 @@ SbResult Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnCom
         if ( scene.HasFlatSlope() )
         {
             const SbResult terrainResult = UseFlatSlopeTerrain( m_sceneController.Terrain(),
-                                                                m_systems.assets,
+                                                                assets,
                                                                 m_sceneController.World(),
                                                                 m_config,
                                                                 scene.GetFlatBaseY(),
@@ -811,12 +897,12 @@ SbResult Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnCom
         {
             const SbResult terrainResult =
                 UseDefaultTerrain( m_sceneController.Terrain(),
-                                   m_systems.assets,
+                                   assets,
                                    m_sceneController.World(),
                                    m_config,
-                                   m_systems.assets.RegisterSourceAssetPath( SkullbonezCore::Assets::AssetKind::Terrain,
-                                                                             "terrain.raw",
-                                                                             m_config.terrainRaw.c_str() ),
+                                   assets.RegisterSourceAssetPath( SkullbonezCore::Assets::AssetKind::Terrain,
+                                                                   "terrain.raw",
+                                                                   m_config.terrainRaw.c_str() ),
                                    m_renderBackendView.deviceLifecycle,
                                    m_renderBackendView.renderResources );
             if ( !terrainResult.ok )
@@ -921,7 +1007,7 @@ SbResult Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnCom
                                        : "unknown";
         char titleText[256];
         sprintf_s( titleText, "%s [SCENE MODE] [%s]", TITLE_TEXT, rendererName );
-        m_systems.window->SetTitleText( titleText );
+        window.SetTitleText( titleText );
 
         // Snapshot scenes start paused in Inspect by default; authored live scenes
         // may opt out when body-state entries are just stable initial poses.
@@ -935,9 +1021,8 @@ SbResult Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnCom
 #endif
         if ( shouldPauseSnapshotState )
         {
-            const RuntimeInteractionTransition transition = m_interaction.EnterInspect();
-            ApplyRuntimeInteractionTransitionCleanup( transition );
-            SetCameraModeLabelAfterInteractionTransition( RunCameraMode::Inspect );
+            m_interaction.EnterInspect();
+            m_camera.mode = RunCameraMode::Inspect;
             m_camera.cameraTime = 0.0f;
             XZBounds unbounded;
             unbounded.m_xMin = -99999.9f;
@@ -959,7 +1044,13 @@ SbResult Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnCom
 
     if ( shouldPreserveRuntimeState )
     {
-        RestoreSceneRuntimeResetSnapshot( resetContext, resetSnapshot, suppressExitOnComplete );
+        RestoreSceneRuntimeResetSnapshot( m_sceneController,
+                                          m_runtimeSettings,
+                                          m_debug,
+                                          m_camera,
+                                          m_physicsDebugVisualizer,
+                                          resetSnapshot,
+                                          suppressExitOnComplete );
     }
 
     // CLI --time-scale and --fixed-step override anything the scene file sets.
@@ -1088,7 +1179,12 @@ SbResult Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnCom
 #endif
 
 #ifdef _DEBUG
-    BeginPhysicsDiagnosticsRun( scenePath.c_str() );
+    m_diagnosticsRuntime.BeginPhysicsDiagnosticsRun(
+        m_sceneController.Models(),
+        SceneState(),
+        m_config,
+        scenePath.c_str(),
+        m_renderBackendView.renderDiagnostics ? m_renderBackendView.renderDiagnostics->GetRendererName() : "unknown" );
 #endif
 
     // Runtime swap policy is chosen after config/scene overrides are resolved.
@@ -1145,7 +1241,7 @@ SbResult Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnCom
         const RenderHelperContext helperContext{ *renderResources,
                                                  *renderCommands,
                                                  *renderDiagnostics,
-                                                 m_systems.assets,
+                                                 assets,
                                                  m_config,
                                                  m_renderer.Helper() };
         m_renderer.Helper().EnsureSphereMesh( helperContext );

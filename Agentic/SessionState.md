@@ -10,9 +10,9 @@ reports, and git history.
 | Field | Value |
 |---|---|
 | Branch | `engine-cleanup-10th-july`, tracking `origin/engine-cleanup-10th-july` |
-| Current pushed baseline | `ba491051 refactor: move cameras into scene owner` |
+| Current pushed baseline | `92b2fda6 refactor: move terrain into scene owner` |
 | Current objective | Close the dependent B1f/C1 Run scene seam and promote SceneController lifecycle ownership |
-| Last broad local gate | `tools\validate_full.bat` passed the scene-owned terrain boundary with 127/127 doctest cases, 2,730 assertions, all CPU lanes, zero-warning builds, DX12 with zero InfoQueue errors/matching screenshots, standalone physics smoke, and 20,001-line byte-exact physics in 50.7s |
+| Last broad local gate | `tools\validate_full.bat` passed the SceneController-owned cold load transaction with 127/127 doctest cases, 2,730 assertions, all CPU lanes, zero-warning builds, DX12 with zero InfoQueue errors/matching screenshots, standalone physics smoke, and 20,001-line byte-exact physics in 50.2s |
 | Native evidence | Injected heap-use-after-free caught; healthy ASan and five-file `/analyze` passed in 16.185s |
 
 ## Pushed Cleanup Commits
@@ -205,6 +205,13 @@ instead of mutable unique-owner storage. Final Run load orchestration is the
 remaining C1 seam. Allocation, project filters, fast, CPU, one-minute graphics
 stress, all 135 scene loads, physics, and full gates pass; comment audit is
 18/18.
+
+SceneController now implements the complete cold load transaction with explicit
+per-call concrete owners. Run::LoadScene and both broad load/reset context bags
+are deleted. The remaining C1 seam is the scene-only pending-request switch and
+its Run::DrainSceneRequests wrapper. Fast, CPU, interaction, replay scrub,
+one-minute graphics stress, all 135 scene loads, physics, and full gates pass;
+comment audit is 11/11.
 
 Scene provenance C1a is complete: parser-owned library/instance/ordered-part
 records retain exact shape sources, hierarchy transforms use rotated offsets

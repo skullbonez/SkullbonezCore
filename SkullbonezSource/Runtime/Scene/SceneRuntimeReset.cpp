@@ -4,9 +4,9 @@ Purpose:
   Implements scene reset preserve/restore policy outside Run.
 
 Mental model:
-  Reset preservation belongs to scene loading, but it still borrows state that
-  has not moved out of Run yet. Keep the mutation boundary explicit in
-  SceneRuntimeResetContext until the remaining load phases are extracted.
+  Reset preservation belongs to scene loading. SceneController supplies its
+  owned state directly while the remaining value owners are explicit function
+  arguments; no mutable multi-domain context is retained or stored.
 
 Glossary:
   Reset snapshot: Copy of operator-owned runtime settings preserved across a
@@ -26,6 +26,7 @@ Related:
   - Agentic/Plans/TODO/runtime-shell-decomposition.md
 */
 #include "SceneRuntimeReset.h"
+#include "SceneController.h"
 #include "SceneRuntime.h"
 #include "../Debug/PhysicsDebugVisualizer.h"
 #include "../../World/WorldEnvironment.h"
@@ -34,93 +35,102 @@ namespace SkullbonezCore
 {
 namespace Basics
 {
-SceneRuntimeResetSnapshot CaptureSceneRuntimeResetSnapshot( const SceneRuntimeResetContext& context )
+SceneRuntimeResetSnapshot CaptureSceneRuntimeResetSnapshot( const SceneController& controller,
+                                                            const RunRuntimeSettings& runtimeSettings,
+                                                            const RunDebugState& debug,
+                                                            const RunCameraState& camera )
 {
     SceneRuntimeResetSnapshot snapshot;
+    const RunSceneState& scene = controller.State();
+    const RunSceneUIOverrideState& uiOverrides = controller.UIOverrides();
     // Invariant: Capture every field restored below. Adding a new preserved
     // runtime knob requires updating both sides of this snapshot contract.
-    snapshot.runtimeSettings = context.runtimeSettings;
-    snapshot.debug = context.debug;
-    snapshot.isScenePhysics = context.scene.isScenePhysics;
-    snapshot.isSceneText = context.scene.isSceneText;
-    snapshot.isFixedStep = context.scene.isFixedStep;
-    snapshot.isExitOnComplete = context.scene.isExitOnComplete;
-    snapshot.isInteractiveRun = context.scene.isInteractiveRun;
-    snapshot.targetFrameCount = context.scene.targetFrameCount;
-    snapshot.timeScale = context.scene.timeScale;
-    snapshot.worldGravity = context.worldEnvironment.GetGravity();
-    snapshot.worldFluidHeight = context.worldEnvironment.GetFluidSurfaceHeight();
-    snapshot.worldFluidDensity = context.worldEnvironment.GetFluidDensity();
-    snapshot.hasCinematicRenderingOverride = context.scene.hasCinematicRenderingOverride;
-    snapshot.isCinematicRenderingEnabled = context.scene.isCinematicRenderingEnabled;
-    snapshot.hasCinematicExposure = context.scene.hasCinematicExposure;
-    snapshot.cinematicExposure = context.scene.cinematicExposure;
-    snapshot.hasCinematicGamma = context.scene.hasCinematicGamma;
-    snapshot.cinematicGamma = context.scene.cinematicGamma;
-    snapshot.cinematicOverrideMask = context.scene.cinematicOverrideMask;
-    snapshot.uiCinematicOverrideMask = context.scene.uiCinematicOverrideMask;
-    snapshot.cinematicRender = context.scene.cinematicRender;
-    snapshot.uiTimeScaleOverride = context.uiOverrides.timeScaleOverride;
-    snapshot.uiModelCountOverride = context.uiOverrides.modelCountOverride;
-    snapshot.uiSolverBallCountOverride = context.uiOverrides.solverBallCountOverride;
-    snapshot.uiSolverBoxCountOverride = context.uiOverrides.solverBoxCountOverride;
-    snapshot.trackBallIndex = context.camera.trackBallIndex;
-    snapshot.trackHeight = context.camera.trackHeight;
-    snapshot.autoCycleInterval = context.camera.autoCycleInterval;
-    snapshot.autoCycleAccum = context.camera.autoCycleAccum;
-    snapshot.autoCycleShotsTaken = context.camera.autoCycleShotsTaken;
+    snapshot.runtimeSettings = runtimeSettings;
+    snapshot.debug = debug;
+    snapshot.isScenePhysics = scene.isScenePhysics;
+    snapshot.isSceneText = scene.isSceneText;
+    snapshot.isFixedStep = scene.isFixedStep;
+    snapshot.isExitOnComplete = scene.isExitOnComplete;
+    snapshot.isInteractiveRun = scene.isInteractiveRun;
+    snapshot.targetFrameCount = scene.targetFrameCount;
+    snapshot.timeScale = scene.timeScale;
+    snapshot.worldGravity = controller.World().GetGravity();
+    snapshot.worldFluidHeight = controller.World().GetFluidSurfaceHeight();
+    snapshot.worldFluidDensity = controller.World().GetFluidDensity();
+    snapshot.hasCinematicRenderingOverride = scene.hasCinematicRenderingOverride;
+    snapshot.isCinematicRenderingEnabled = scene.isCinematicRenderingEnabled;
+    snapshot.hasCinematicExposure = scene.hasCinematicExposure;
+    snapshot.cinematicExposure = scene.cinematicExposure;
+    snapshot.hasCinematicGamma = scene.hasCinematicGamma;
+    snapshot.cinematicGamma = scene.cinematicGamma;
+    snapshot.cinematicOverrideMask = scene.cinematicOverrideMask;
+    snapshot.uiCinematicOverrideMask = scene.uiCinematicOverrideMask;
+    snapshot.cinematicRender = scene.cinematicRender;
+    snapshot.uiTimeScaleOverride = uiOverrides.timeScaleOverride;
+    snapshot.uiModelCountOverride = uiOverrides.modelCountOverride;
+    snapshot.uiSolverBallCountOverride = uiOverrides.solverBallCountOverride;
+    snapshot.uiSolverBoxCountOverride = uiOverrides.solverBoxCountOverride;
+    snapshot.trackBallIndex = camera.trackBallIndex;
+    snapshot.trackHeight = camera.trackHeight;
+    snapshot.autoCycleInterval = camera.autoCycleInterval;
+    snapshot.autoCycleAccum = camera.autoCycleAccum;
+    snapshot.autoCycleShotsTaken = camera.autoCycleShotsTaken;
     return snapshot;
 }
 
 
-void RestoreSceneRuntimeResetSnapshot( SceneRuntimeResetContext& context,
+void RestoreSceneRuntimeResetSnapshot( SceneController& controller,
+                                       RunRuntimeSettings& runtimeSettings,
+                                       RunDebugState& debug,
+                                       RunCameraState& camera,
+                                       Physics::PhysicsDebugVisualizer& physicsDebugVisualizer,
                                        const SceneRuntimeResetSnapshot& snapshot,
                                        bool suppressExitOnComplete )
 {
+    RunSceneState& scene = controller.State();
+    RunSceneUIOverrideState& uiOverrides = controller.UIOverrides();
     // Why: Interactive resets preserve the user's run-control choices, but
     // suppressing exit also forces automation-safe non-exit behavior.
-    context.runtimeSettings = snapshot.runtimeSettings;
-    context.debug = snapshot.debug;
-    context.scene.isScenePhysics = snapshot.isScenePhysics;
-    context.scene.isSceneText = snapshot.isSceneText;
-    context.scene.timeScale = snapshot.timeScale;
-    context.scene.isFixedStep = snapshot.isFixedStep;
-    context.scene.isInteractiveRun = snapshot.isInteractiveRun || suppressExitOnComplete;
-    context.scene.isExitOnComplete = context.scene.isInteractiveRun ? false : snapshot.isExitOnComplete;
-    context.scene.targetFrameCount = snapshot.targetFrameCount;
-    context.scene.hasCinematicRenderingOverride = snapshot.hasCinematicRenderingOverride;
-    context.scene.isCinematicRenderingEnabled = snapshot.isCinematicRenderingEnabled;
-    context.scene.hasCinematicExposure = snapshot.hasCinematicExposure;
-    context.scene.cinematicExposure = snapshot.cinematicExposure;
-    context.scene.hasCinematicGamma = snapshot.hasCinematicGamma;
-    context.scene.cinematicGamma = snapshot.cinematicGamma;
-    context.scene.cinematicOverrideMask = snapshot.cinematicOverrideMask;
-    context.scene.uiCinematicOverrideMask = snapshot.uiCinematicOverrideMask;
-    context.scene.cinematicRender = snapshot.cinematicRender;
-    context.uiOverrides.timeScaleOverride = snapshot.uiTimeScaleOverride;
-    context.uiOverrides.modelCountOverride = snapshot.uiModelCountOverride;
-    context.uiOverrides.solverBallCountOverride = snapshot.uiSolverBallCountOverride;
-    context.uiOverrides.solverBoxCountOverride = snapshot.uiSolverBoxCountOverride;
-    context.camera.trackHeight = snapshot.trackHeight;
-    context.camera.trackBallIndex =
-        ( snapshot.trackBallIndex >= 0 && snapshot.trackBallIndex < context.scene.modelCount ) ? snapshot.trackBallIndex
-                                                                                               : -1;
-    context.camera.autoCycleInterval = snapshot.autoCycleInterval;
-    context.camera.autoCycleAccum = snapshot.autoCycleAccum;
-    context.camera.autoCycleShotsTaken = snapshot.autoCycleShotsTaken;
-    context.physicsDebugVisualizer.SetFlags( context.debug.physicsDebugFlags );
-    context.physicsDebugVisualizer.SetContactLingerSeconds( context.debug.physicsDebugContactLinger );
+    runtimeSettings = snapshot.runtimeSettings;
+    debug = snapshot.debug;
+    scene.isScenePhysics = snapshot.isScenePhysics;
+    scene.isSceneText = snapshot.isSceneText;
+    scene.timeScale = snapshot.timeScale;
+    scene.isFixedStep = snapshot.isFixedStep;
+    scene.isInteractiveRun = snapshot.isInteractiveRun || suppressExitOnComplete;
+    scene.isExitOnComplete = scene.isInteractiveRun ? false : snapshot.isExitOnComplete;
+    scene.targetFrameCount = snapshot.targetFrameCount;
+    scene.hasCinematicRenderingOverride = snapshot.hasCinematicRenderingOverride;
+    scene.isCinematicRenderingEnabled = snapshot.isCinematicRenderingEnabled;
+    scene.hasCinematicExposure = snapshot.hasCinematicExposure;
+    scene.cinematicExposure = snapshot.cinematicExposure;
+    scene.hasCinematicGamma = snapshot.hasCinematicGamma;
+    scene.cinematicOverrideMask = snapshot.cinematicOverrideMask;
+    scene.uiCinematicOverrideMask = snapshot.uiCinematicOverrideMask;
+    scene.cinematicRender = snapshot.cinematicRender;
+    uiOverrides.timeScaleOverride = snapshot.uiTimeScaleOverride;
+    uiOverrides.modelCountOverride = snapshot.uiModelCountOverride;
+    uiOverrides.solverBallCountOverride = snapshot.uiSolverBallCountOverride;
+    uiOverrides.solverBoxCountOverride = snapshot.uiSolverBoxCountOverride;
+    camera.trackHeight = snapshot.trackHeight;
+    camera.trackBallIndex =
+        ( snapshot.trackBallIndex >= 0 && snapshot.trackBallIndex < scene.modelCount ) ? snapshot.trackBallIndex : -1;
+    camera.autoCycleInterval = snapshot.autoCycleInterval;
+    camera.autoCycleAccum = snapshot.autoCycleAccum;
+    camera.autoCycleShotsTaken = snapshot.autoCycleShotsTaken;
+    physicsDebugVisualizer.SetFlags( debug.physicsDebugFlags );
+    physicsDebugVisualizer.SetContactLingerSeconds( debug.physicsDebugContactLinger );
 }
 
 
-void ClearSceneRuntimeUIOverrides( SceneRuntimeResetContext& context )
+void ClearSceneRuntimeUIOverrides( SceneController& controller )
 {
     // Concept: Reset-to-defaults hands authority back to authored scene data by
     // clearing UI-generated setup overrides.
-    context.uiOverrides.timeScaleOverride = 0.0f;
-    context.uiOverrides.modelCountOverride = -1;
-    context.uiOverrides.solverBallCountOverride = -1;
-    context.uiOverrides.solverBoxCountOverride = -1;
+    controller.UIOverrides().timeScaleOverride = 0.0f;
+    controller.UIOverrides().modelCountOverride = -1;
+    controller.UIOverrides().solverBallCountOverride = -1;
+    controller.UIOverrides().solverBoxCountOverride = -1;
 }
 
 } // namespace Basics

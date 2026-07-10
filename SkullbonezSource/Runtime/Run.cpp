@@ -954,7 +954,32 @@ void Run::Initialise()
         m_contactAudio.SetEnabled( false );
     }
 
-    m_lastSceneLoadResult = LoadScene( 0 );
+    m_lastSceneLoadResult = m_sceneController.Load( SceneLoadRequest::Load( 0, false, false, false ),
+                                                    m_config,
+                                                    m_launchOptions,
+                                                    m_defaultCinematicRender,
+                                                    m_startup,
+                                                    m_diagnosticsRuntime,
+                                                    m_runtimeSettings,
+                                                    m_timers,
+                                                    m_systems.assets,
+                                                    *m_systems.workerPool,
+                                                    *m_systems.window,
+                                                    m_inputRouter,
+                                                    m_interaction,
+                                                    m_camera,
+                                                    m_attachedCamera,
+                                                    m_simulation,
+                                                    m_replayRuntime,
+                                                    m_contactAudio,
+                                                    m_UI,
+                                                    m_debug,
+                                                    m_graphicsStress,
+                                                    m_runtimeTools,
+                                                    m_physicsDebugVisualizer,
+                                                    m_renderBackendView,
+                                                    m_renderer,
+                                                    sPerfPass );
     if ( !m_lastSceneLoadResult.ok )
     {
         return;
@@ -1076,7 +1101,32 @@ SbResult Run::RunSceneLoadOnly( const char* snapshotOutPath )
     }
     for ( int i = 1; i < sceneCount; ++i )
     {
-        const SbResult loadResult = LoadScene( i );
+        const SbResult loadResult = m_sceneController.Load( SceneLoadRequest::Load( i, false, false, false ),
+                                                            m_config,
+                                                            m_launchOptions,
+                                                            m_defaultCinematicRender,
+                                                            m_startup,
+                                                            m_diagnosticsRuntime,
+                                                            m_runtimeSettings,
+                                                            m_timers,
+                                                            m_systems.assets,
+                                                            *m_systems.workerPool,
+                                                            *m_systems.window,
+                                                            m_inputRouter,
+                                                            m_interaction,
+                                                            m_camera,
+                                                            m_attachedCamera,
+                                                            m_simulation,
+                                                            m_replayRuntime,
+                                                            m_contactAudio,
+                                                            m_UI,
+                                                            m_debug,
+                                                            m_graphicsStress,
+                                                            m_runtimeTools,
+                                                            m_physicsDebugVisualizer,
+                                                            m_renderBackendView,
+                                                            m_renderer,
+                                                            sPerfPass );
         if ( !loadResult.ok )
         {
             return loadResult;

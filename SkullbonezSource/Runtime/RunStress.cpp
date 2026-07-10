@@ -878,10 +878,33 @@ void Run::RunGraphicsStressActions( const Rendering::IRenderDiagnostics& renderD
         {
             return false;
         }
-        return !request.HasLoad() || LoadScene( request.index,
-                                                request.preserveUIState,
-                                                request.suppressExitOnComplete,
-                                                request.preserveRuntimeState )
+        return !request.HasLoad() || m_sceneController
+                                         .Load( request,
+                                                m_config,
+                                                m_launchOptions,
+                                                m_defaultCinematicRender,
+                                                m_startup,
+                                                m_diagnosticsRuntime,
+                                                m_runtimeSettings,
+                                                m_timers,
+                                                m_systems.assets,
+                                                *m_systems.workerPool,
+                                                *m_systems.window,
+                                                m_inputRouter,
+                                                m_interaction,
+                                                m_camera,
+                                                m_attachedCamera,
+                                                m_simulation,
+                                                m_replayRuntime,
+                                                m_contactAudio,
+                                                m_UI,
+                                                m_debug,
+                                                m_graphicsStress,
+                                                m_runtimeTools,
+                                                m_physicsDebugVisualizer,
+                                                m_renderBackendView,
+                                                m_renderer,
+                                                sPerfPass )
                                          .ok;
     };
 
