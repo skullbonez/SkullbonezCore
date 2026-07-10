@@ -29,6 +29,12 @@ validation.
 | `validate_physics_query.bat` | SkullScope query-output baseline check | ~depends |
 | `validate_perf.bat` | Hard gate for DX12, physics, and hot-path perf budgets/regressions | ~1 min |
 | `validate_full.bat` | Default broad PR gate: DX12 renderer plus core physics | 2 exe launches |
+
+Known limitation: `validate_full.bat` is not yet a superset of all standalone
+CPU test targets. Until `Agentic/Plans/TODO/validation-gate-integrity.md` V2
+lands, broad/unsure PR work must run `validate_fast.bat`,
+`validate_runtime_interaction_policy.bat`, `validate_scene_parser_tests.bat`,
+and `validate_dx12_arch_tests.bat` before `validate_full.bat`.
 | `watch_ui_stress.bat` | Repeated UI stress watcher, finite by default | ~depends |
 | `watch_demo_stress.bat` | Repeated generated demo stress watcher, finite by default | ~depends |
 

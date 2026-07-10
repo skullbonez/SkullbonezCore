@@ -1,5 +1,19 @@
 # Runtime UI Control Architecture Cleanup
 
+Date: 2026-07-10 (promoted into the authoritative TODO inventory)
+Status: Planned — 0/7 phases complete
+Impact area: replay UI, editor UI, diagnostics UI, input routing, interaction
+gesture ownership
+Owner: runtime UI surfaces; subsystem commands remain with their domain owners
+
+## Dependencies
+
+- Coordinate gesture ownership with `interaction-state-machine.md`.
+- Coordinate removal of `Run::*` UI/replay handlers with
+  `runtime-shell-decomposition.md` and
+  `replay-architecture-and-right-sizing.md`.
+- Register CPU tests through `validation-gate-integrity.md` V1/V2.
+
 ## Problem
 
 Runtime UI code is treating controls as scattered boolean expressions instead
@@ -229,7 +243,8 @@ Subsystem state remains with its owner:
 - editor state in `RuntimeTools` or editor owner
 - in-game UI state in `UI::InGameUI`
 - interaction owner and pointer capture in `RuntimeInteractionController`
-- camera/tool transitions in `Run`
+- camera/tool transitions in `RuntimeInteractionController` and their owning
+  camera/tool subsystem
 
 The UI layer requests actions; it does not become a new global state bag.
 
@@ -247,6 +262,16 @@ Delete or absorb these patterns across runtime UI:
 - Handlers that are really anonymous blocks inside input tick functions.
 
 ## Phases
+
+| Phase | State | Completion evidence |
+|---|---|---|
+| U0 Inventory UI surfaces | Pending | Tracked-file checklist with owner/input/render/gate per surface |
+| U1 Shared control vocabulary | Pending | Fixed-capacity value types and CPU tests |
+| U2 Replay scrubber vertical slice | Pending | Old scrubber boolean ladder deleted |
+| U3 Action dispatch | Pending | Named handler table and shared shortcut path |
+| U4 Gesture lifecycle | Pending | Central begin/update/cancel/release tests |
+| U5 Shared render/input snapshots | Pending | Draw and hit-test geometry equality tests |
+| U6 Remaining runtime surfaces | Pending | Inventory reconciled with zero unchecked files |
 
 ### Phase 1: Inventory UI Surfaces
 
@@ -349,11 +374,14 @@ Documentation-only changes to this plan require no validation.
 Implementation slices should use the narrowest matching gate:
 
 - Focused build: `tools\validate_build.bat Profile`
+- CPU control/gesture behavior: `tools\validate_all_cpu_tests.bat` after
+  `validation-gate-integrity.md` V1 lands; until then run
+  `tools\validate_runtime_interaction_policy.bat` explicitly.
 - Replay UI changes: `tools\validate_replay_scrub.bat`
 - In-game UI or runtime input routing: `tools\validate_fast.bat`
 - Renderer-visible UI changes: `tools\validate_dx12_renderer.bat`
-- Editor/world interaction changes: relevant interaction automation plus
-  `tools\validate_fast.bat`
+- Editor/world interaction changes: `tools\validate_interaction_clicks.bat`,
+  relevant interaction automation, and the CPU interaction-policy tests.
 - Broad or cross-surface changes: `tools\validate_full.bat`
 
 Any source-bearing implementation slice must also run the touched-file comment

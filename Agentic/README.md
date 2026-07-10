@@ -1,56 +1,63 @@
 # Agentic Workspace
 
-This folder contains agent handoff state, task-specific skills, long-running plans, audits, and reference material.
+This folder contains agent handoff state, task-specific skills, live plans,
+audits, reports, and reference material.
 
 ## Fresh Agent Start
 
-Follow the Agent Startup Contract in `../AGENTS.md`. Load a skill from
-`Skills/` only when the current task calls for it.
+Follow the startup contract in `../AGENTS.md`. Load only the skill, plan, audit,
+report, or reference needed for the current task.
 
 ## Contents
 
 | Path | Purpose |
-|------|---------|
-| `SessionState.md` | Current branch, active work, blockers, and next validation. Keep this short. |
-| `Skills/` | Concise task procedures and helper scripts. |
-| `Plans/` | `MASTER-PLAN.md` (inventory + percent-complete for every remaining plan) and `TODO/` (consolidated active plans). Completed plans are deleted (git history is the archive); do not recreate `Done/`/`Failed/`/`Rejected/`/`To_Eval/`/`In_Progress/`. |
-| `Audits/` | Renderer, physics, and process audits. Load on demand. |
-| `Bugs.md` | Persistent bug notes. |
-| `Reference/` | Runtime, physics, and external reference material. |
+|---|---|
+| `SessionState.md` | Short operational state: branch, active objective, blockers, next work |
+| `Skills/` | Task procedures and helpers |
+| `Plans/MASTER-PLAN.md` | Authoritative inventory, checked-phase counts, priority, decisions, and closure rules |
+| `Plans/TODO/` | Every live implementation plan and execution checklist |
+| `Audits/` | Renderer, physics, and process audits loaded on demand |
+| `Bugs.md` | Persistent product bug notes |
+| `Reference/` | Runtime, physics, style, and external reference material |
+| `Reports/` | Validation/investigation evidence; not plan status authority |
+
+Completed plans/checklists are deleted; git history is the archive. Do not
+recreate `Done`, `Failed`, `Rejected`, `To_Eval`, `In_Progress`, or
+`awaiting_verification` plan folders.
+
+## Plan Quality
+
+- Use checked phase/file counts, not subjective percentages.
+- A plan names owner, dated evidence, goal, phases, dependencies/decisions,
+  acceptance, deletion or behavioral proof, and exact validation.
+- Every dependency path resolves to a live file.
+- A checked phase includes its required evidence; prose claiming completion is
+  insufficient.
+- `Plans/MASTER-PLAN.md` and `SessionState.md` update with every plan closure.
 
 ## Comment Quality
 
-- `Reference/comment-style-guide.md` defines the repository comment standard.
-- For full or subsystem comment remediation, create a scoped checklist plan
-  from `git ls-files` per `../AGENTS.md`; the old repository-wide remediation
-  plan was retired in the 2026-07-09 plan consolidation. Note
-  `../engine-cleanup-plans/15-review-gaps.md` item 15.4: existing learning
-  headers have decayed into copy-paste boilerplate — do not add more
-  boilerplate headers while that cleanup is pending.
-- `Reference/render-backend-portability-contract.md` defines the future
-  Vulkan/Metal portability seam now that DX12 is the only active renderer.
-- `Skills/comment-style-audit/skill.md` is the repeatable pass for checking
-  touched files, or the full repository when explicitly requested.
+- `Reference/comment-style-guide.md` defines the standard.
+- Full/subsystem remediation starts with a `git ls-files` checklist as required
+  by `../AGENTS.md`.
+- The boilerplate cleanup completed on 2026-07-10. Do not recreate generic
+  learning headers; teach file-specific vocabulary, ownership, invariants,
+  lifetime, hazards, and validation-sensitive behavior.
+- The active stale-reference inventory is
+  `Plans/TODO/stale-plan-reference-cleanup-15.6-checklist.md`.
+- `Skills/comment-style-audit/skill.md` is the touched-file/full-scope audit.
 
 ## Hot Paths
 
-- `../AGENTS.md` is the source of truth for hot-path data and inheritance rules:
-  physics, collision, audio classification, render submission, and similar
-  per-frame code should stay on compact arrays/value records and explicit
-  side-effect buffers.
-- New inheritance is banned unless an owning plan proves a stable
-  runtime-polymorphic boundary is necessary and records the validation or perf
-  evidence.
-- Approved source-inheritance evidence belongs in the owning plan and review
-  record; do not add a base class without recording why value composition is
-  insufficient and what validation or perf evidence backs the boundary.
+`../AGENTS.md` is authoritative: physics, collision, audio classification,
+render submission, and similar per-frame code use compact arrays/value records
+and explicit side-effect buffers. New runtime inheritance requires an owning
+plan proving why value composition is insufficient and naming call frequency
+and validation/perf evidence.
 
-## Pre-Commit/PR Validation
+## Validation
 
-Validation scripts are pre-commit/PR gates, not normal iteration steps. Choose
-the narrowest validation for the fix. When the PR-bound scope is truly unsure,
-run:
-
-```bat
-tools\agent_validate.bat
-```
+Validation scripts are pre-commit/PR gates, not routine iteration. The current
+gap and remediation are tracked in
+`Plans/TODO/validation-gate-integrity.md`; until it completes, do not assume
+`validate_full` runs every standalone CPU test target.

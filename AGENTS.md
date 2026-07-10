@@ -226,6 +226,13 @@ that matches the fix. The default broad PR gate is intentionally limited to two
 runtime launches: one DX12 render suite and one core physics scene. Use deep,
 perf, UI, and stress validation only when the change actually needs them:
 
+Known gate-composition limitation (owned by
+`Agentic/Plans/TODO/validation-gate-integrity.md`): `validate_full` and
+`agent_validate` do not yet run every standalone CPU test target. Until phase
+V2 completes, broad/unsure PR preparation must run `validate_fast.bat`,
+`validate_runtime_interaction_policy.bat`, `validate_scene_parser_tests.bat`,
+and `validate_dx12_arch_tests.bat` before `validate_full.bat`.
+
 | Change Type | Pre-Commit/PR Command | Runtime |
 |-------------|---------|---------|
 | Documentation only | No validation required | N/A |

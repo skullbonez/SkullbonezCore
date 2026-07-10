@@ -1,47 +1,45 @@
 # Engine Cleanup Plans
 
-Date: 2026-07-08 (consolidated 2026-07-09)
-Status: In Progress
-Owner: Architecture cleanup
+Date: 2026-07-10 (reconciled)
+Status: In progress
+Owner: architecture cleanup
 
-> **Start here: [`Agentic/Plans/MASTER-PLAN.md`](../Agentic/Plans/MASTER-PLAN.md)**
-> — the authoritative inventory of every remaining plan in the repository with
-> percent-complete. The working protocol for this campaign lives in
-> [`00-EXECUTION-GUIDE.md`](00-EXECUTION-GUIDE.md).
+Start with [`Agentic/Plans/MASTER-PLAN.md`](../Agentic/Plans/MASTER-PLAN.md),
+the authoritative inventory of every live plan and its checked-phase count.
+The campaign protocol is [`00-EXECUTION-GUIDE.md`](00-EXECUTION-GUIDE.md).
 
-These plans come from an adversarial architecture audit of SkullbonezCore
-(~145K lines first-party C++). The through-line the audit found: **the codebase
-invests heavily in *policing* architecture (a multi-thousand-line boundary
-linter, hundreds of docs, formal gates) while the architecture itself carries
-classic god-objects, a documented policy its code contradicts, and almost no
-behavioral tests.** These plans target substance, not ceremony.
+The current audit scope is 406 tracked engine/shader source-bearing files and
+172,036 lines. The campaign targets substantive risks: unsafe failure paths,
+missing mandatory test execution, god-object ownership, replay size, physics/
+scene authority, and concrete renderer ownership. Documentation volume or
+spelling changes are not architecture evidence.
 
-Every plan follows two rules learned from the facade-retirement review:
+## Quality Rules
 
-1. **Acceptance is structural and measurable** (types deleted, function line
-   counts down, tests exist) — never "the word is gone" or "a comment changed."
-2. **No plan adds boundary-checker rules as its enforcement.** Plan `03`
-   *removes* that apparatus entirely — the regex linter and every frozen
-   `MAX_*` ratchet are deleted, not trimmed.
+1. Acceptance is behavioral or structural and measurable: an owner/state
+   surface moves, a type/method is deleted, a fault is caught, or a named test
+   proves the contract.
+2. Status uses checked counts, not subjective percentages.
+3. Each phase names its owner, dependency, deletion/behavior proof, and exact
+   validation gate.
+4. No plan adds regex/frozen-count architecture budgets as a substitute for
+   design and behavioral tests.
+5. Completed plans/checklists are deleted; git history is the archive.
+6. Live plans stay in `Agentic/Plans/TODO/`; do not recreate historical status
+   folders.
 
-## Lifecycle
+## Current Campaign File
 
-- Remaining plans and their status:
-  [`Agentic/Plans/MASTER-PLAN.md`](../Agentic/Plans/MASTER-PLAN.md).
-- **Completed plans are deleted, not archived.** Git history is the archive.
-  Do not recreate `DONE/`, `Done/`, `Failed/`, `Rejected/`, `To_Eval/`, or
-  `In_Progress/` folders. Consolidated active plans live in
-  `Agentic/Plans/TODO/`.
-- Handoffs: keep only load-bearing ones (owner decisions, the latest slice
-  handoff per active plan). Delete slice records once superseded — the
-  evidence lives in commit messages.
-- Owner steering on 2026-07-09 approved the Plan 03, Plan 07, Plan 11, and
-  FAC-005 decision gates. Use the recorded decisions in
-  [`HANDOFF-2026-07-09-OWNER-DECISIONS.md`](HANDOFF-2026-07-09-OWNER-DECISIONS.md)
-  instead of asking again.
+[`15-review-gaps.md`](15-review-gaps.md) maps external-review findings to their
+owning TODO plans and carries the remaining 15.6 comment-reference cleanup.
 
-## Notes
+Owner decisions recorded in
+[`HANDOFF-2026-07-09-OWNER-DECISIONS.md`](HANDOFF-2026-07-09-OWNER-DECISIONS.md)
+remain binding unless the owner changes direction.
 
-- All files here are documentation. Creating or editing them requires no
-  repository validation. Each plan names the validation its *implementation*
-  needs.
+## Validation
+
+These files are documentation. Editing them requires no repository validation.
+Implementation plans name their required source/test/runtime gates. Always
+verify plan links, inventory counts, `git diff --check`, and that the diff is
+Markdown-only before reporting plan work complete.

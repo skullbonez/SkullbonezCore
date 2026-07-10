@@ -1,114 +1,137 @@
 # Runtime Shell Decomposition
 
-Date: 2026-07-09 (consolidated)
-Status: In progress — ~25% complete
+Date: 2026-07-10 (reconciled)
+Status: In progress — 0/12 remaining checklist items complete; earlier
+foundation work is summarized separately and is not mixed into this count
 Impact area: runtime architecture, scene lifecycle, input routing, render host
-Consolidates: `run-shell-extraction-plan.md`, the mega-file phase of
-`fable_plans/04-build-layering-and-repo-hygiene` (M1–M3), the RUN-* rows from
-the 2026-07-07 overnight blocker ledger, and item 15.2 of
-`engine-cleanup-plans/15-review-gaps.md`. Full history in git history of those
-files.
+Owner: application composition root
 
 ## Goal
 
-`Run` is a thin application shell: process lifetime, startup/shutdown,
-top-level frame order, final owner wiring — nothing else. A new scene, replay,
-render, input, tool, or diagnostics feature lands inside its owning subsystem
-without adding a `Run::*` method or threading a callback through `Run`.
+`Run` is a thin application shell: process lifetime, startup/shutdown, Win32
+message pumping, top-level frame order, final owner wiring, and exit reporting.
+A scene, replay, render, input, tool, or diagnostics feature lands inside its
+owning subsystem without adding a `Run::*` method or a callback into `Run`.
 
-Measured reality (2026-07-09): `Runtime/` is 68,491 lines — 47% of the engine.
-The plan-01 split produced 16+ `Run*.cpp` TUs sharing private state through
-`RunInternal.h` (partial-class emulation, not ownership transfer). Mega-TUs
-persist: `Init.cpp` 3,203, `RunInput.cpp` 2,904, `RunRender.cpp` 2,089,
-`RunPasses.cpp` 1,971, plus `UI.cpp` 3,117 and `TestSceneParser.cpp` 2,962.
+Measured reality (2026-07-10, tracked engine/shader source-bearing files):
+`Runtime/` is 82,359 lines — about 48% of 172,036 lines. The earlier split
+produced 16+ `Run*.cpp` translation units sharing private state through
+`RunInternal.h`; 27 files now include that header. This is partial-class
+emulation, not ownership transfer. Current mega-TUs include `RunInput.cpp`
+3,140, `Init.cpp` 3,495, `RunPasses.cpp` 2,333, and `RunRender.cpp` 2,323.
+Cross-plan mega-files include `RunReplayTools.cpp` 4,779,
+`TestSceneParser.cpp` 3,651, and `UI.cpp` 3,381.
 
-## Design rules
+## Design Rules
 
-1. Preserve behavior; extraction commits are boring and revertible.
-2. Split by ownership of state and invariants, not by file length. A file
-   split without an authority move does not count.
-3. No stored `Run&`/`Run*` or broad host-bag dependencies in extracted systems.
-4. Each phase leaves less reason for another file to call back into `Run`.
+1. Preserve behavior; extraction commits are small and revertible.
+2. Split by ownership of state and invariants, not file length.
+3. No stored `Run&`/`Run*`, `void*` user hooks, or broad host bags in extracted
+   systems.
+4. Use concrete owners and value records; do not add callback or inheritance
+   seams to hide the same coupling.
+5. Each phase deletes a named `Run` method/state surface and adds behavioral
+   evidence for the moved boundary.
 
-## Remaining work
+## Five Concrete Ownership Extractions From `Run`
 
-### A. Narrow the render host (was run-shell Phase 1)
+A mechanical file move does not complete a row. State, invariants, and command
+authority must move to the named owner, and the deletion proof must pass.
 
-- [ ] A1. Split `RuntimeRenderHostBindings` into small view structs
-  (`RenderWorldView`, `RenderSceneView`, `RenderReplayOverlayView`,
-  `RenderToolOverlayView`, `RenderUiView`); move replay-overlay callback logic
-  into `ReplayRuntime` and tool-overlay logic into `RuntimeTools`.
-- [ ] A2. Texture lookup/select goes behind a renderer/asset view — no
-  pass-level call back into `Run` for texture handles.
-  Gate: `validate_dx12_renderer`, `validate_full` if behavior shifts.
+| # | Ownership extraction | Move out of `Run` | Durable API and state owner | Deletion proof | Required evidence |
+|---|---|---|---|---|---|
+| 1 | **Input routing → `InputRouter`** | `TakeInput`, blocked/unfocused handling, post-UI keyboard dispatch, pointer-camera routing, and large callback/context construction | `InputRouter::Tick(const InputFrame&, InputActions&)`; it owns `RuntimeInputContext`, while `RuntimeInteractionController` remains gesture/workspace authority and UI supplies one immutable hit snapshot | `Run.h` has no `TakeInput`, `Dispatch*Keyboard*`, or pointer-routing methods; no input callback receives `void*`/`Run*` | CPU interaction-policy tests, interaction-click automation, then full gate |
+| 2 | **Command authority → owner-specific queues** | `DrainRuntimeCommands` and the mixed scene/capture/defaults/quit switch | Replace the omnibus queue with bounded `SceneCommandQueue`, `CaptureCommandQueue`, and `ApplicationCommandQueue`; each concrete owner drains its queue and returns a typed result | No central switch names scene, screenshot, defaults, and replay logging together; replay records accepted owner events | CPU command-order tests plus full gate |
+| 3 | **Scene lifecycle → promoted `SceneController`** | `LoadScene`, reset/preserve-state orchestration, browser refresh, defaults, adjacent/deck movement, and lifecycle callback lambdas | `SceneController` owns queue, browser, lifecycle state, explicit `BeforeSceneUnload`…`AfterSceneActivated` events, and `Load(const SceneLoadRequest&) -> SbResult` | `Run.h` has no scene-load/reset/default business methods; `SceneController.cpp` is no longer a pass-through facade | Parser/round-trip tests, full gate, physics determinism |
+| 4 | **Replay workspace → existing `ReplayRuntime`** | `TickReplayScrubberInput`, cause-tree/velocity/prediction input, inspection-camera decisions, replay overlays, restore/hash/probe coordination | `ReplayRuntime::TickWorkspace(const ReplayWorkspaceInput&, ReplayWorkspaceOutput&)` consumes typed UI actions and emits camera requests, owner commands, and fixed-capacity draw records | `Run.h` has no `TickReplay*`, `RenderReplay*`, replay restore/hash business method, or replay camera-transition method | CPU replay tests, replay scrub, interaction proofs, allocation evidence |
+| 5 | **Render composition → existing `RuntimeRenderer`** | `BuildRuntimeRendererBindings`, backend-resource release/rebuild logging, editor/replay overlay hook lambdas, and pass-level texture callbacks | `RuntimeRenderer` receives immutable `RenderWorldView`, `RenderSceneView`, `RenderReplayOverlayView`, `RenderToolOverlayView`, and `RenderUiView`; owners build draw records before submission | `Run.cpp` contains no C-style render hook, `void*` user pointer, or callback reading `Run` private members | DX12 architecture tests, renderer gate, then full gate |
 
-### B. Move tool/replay decision flow out of `Run` (was Phase 2)
+These are durable domain boundaries, not migration wrappers. `InputRouter` owns
+input orchestration because raw/semantic/UI ordering is one invariant; it is not
+a compatibility forwarding layer. Its deletion condition is replacement by an
+equivalent input owner, not completion of this migration. The existing scene,
+replay, and render owners graduate only when their old `Run` surfaces are
+deleted and the named behavioral evidence passes.
 
-- [ ] B1. Replay scrub, focus-mask, prediction-ghost, launcher-visual
-  decisions behind `ReplayRuntime` APIs; editor/manipulator/mouse-pickup/
-  ray-test/launcher decisions behind `RuntimeTools` APIs.
-- [ ] B2. Input/UI requests mutate via command structs; delete compatibility
-  accessors per migrated route. Gate: `validate_full`.
+### Extraction Sequence
 
-### C. Scene lifecycle ownership (was Phase 3)
+1. Land `validation-gate-integrity.md` V1/V2.
+2. Extract input routing and owner-specific command queues together.
+3. Promote `SceneController`; physics creation/reset work consumes this boundary.
+4. Move replay workspace behavior with the replay and UI plans.
+5. Finish render composition after overlay producers no longer call `Run`.
 
-- [ ] C1. Scene load/reset snapshot+restore logic moves into scene runtime
-  ownership; browser selection, adjacent-scene load, deck movement into a
-  scene-facing service.
-- [ ] C2. Replace `Run`-owned scene callbacks with explicit lifecycle events
-  (`BeforeSceneUnload` … `AfterSceneActivated`), consumed via explicit update
-  calls. Gate: `validate_full`.
-- Coordinate with `TODO/physics-authority-and-identity.md` blocker rows
-  PHYS-025/026/027 — the scene creation pipeline split serves both plans.
+## Remaining Work
 
-### D. Mega-TU decomposition (was fable-04 M1–M3)
+### A. Narrow the render host
 
-- [ ] D1. `RunInput.cpp` split by the verified inventory (mechanical moves):
-  attached-camera cluster, camera-modes cluster, interaction-transitions
-  cluster, matching the existing `Run*Tools.cpp` naming. Sequence after/with
-  `TODO/interaction-state-machine.md` phases so code moves once.
-- [ ] D2. `TestSceneParser.cpp` (2,962 lines): split by schema domain
-  (bodies/assets/groups/water/cameras) — or decide once to vendor a minimal
-  JSON reader and delete the hand-rolled tokenizer. Gate: `validate_full`.
-- [ ] D3. Convert remaining shared `.inl` composition to real TUs as areas are
-  touched; pair hot-path conversions with `validate_perf`.
+- [ ] A1. Implement ownership extraction 5: replace `RuntimeRenderHostBindings`
+  with the five immutable views and move replay/tool overlay production to owners.
+- [ ] A2. Put texture lookup/select behind the asset/render view; no pass-level
+  call back into `Run` for texture handles.
 
-### E. Collapse the compatibility surface (was Phase 4 + 15.2)
+### B. Move input, command, tool, and replay decisions
 
-- [ ] E1. Retire `RunInternal.h` as a shared-state channel: constants move to
-  owning subsystem headers; inline helpers move next to their single caller or
-  a named owner. Acceptance: `RunInternal.h` no longer defines cross-TU shared
-  state used by more than one `Run*.cpp`, and no sibling "Internal" header
-  replaces it.
-- [ ] E2. Delete `Run::*` wrappers that only forward to a subsystem; keep only
-  process-level methods on `Run`.
-- [ ] E3. Slim `Core/Common.h`: delete the `Config.h` compatibility include
-  and stale alias includes per its own in-file deletion schedule (the global
-  accessor work it referenced is already done — `Cfg()`/`Gfx()` call sites are
-  at zero).
+- [ ] B1. Implement ownership extraction 1 and delete input callback/context bags.
+- [ ] B2. Implement ownership extraction 2 and delete the mixed command switch.
 
-## Known hard blockers (from the 2026-07-07 overnight ledger)
+### C. Scene lifecycle ownership
 
-| Row | Knot |
-|-----|------|
-| RUN-010 | `Run::TakeInput` routes camera/editor/replay/scene/diagnostics commands through Run-private callbacks; needs decomposition into explicit command events with routing-matrix coverage (pairs with D1 and the interaction plan). |
-| RUN-011 | `Run::DrainRuntimeCommands` drains scene load, cinematic, capture, quit policy, and replay logging in one ordered loop; needs per-subsystem handlers and an ordering decision. |
-| RUN-009 | `Run::LoadScene` extraction crosses interaction/camera hooks, diagnostics reset, teardown ordering, and preserve-runtime semantics (pairs with C1/C2). |
-| RUN-015 | Fixed-step loop ownership move needs a `SimulationController` ownership decision plus determinism proof. |
+- [ ] C1. Implement ownership extraction 3: scene load/reset snapshot and
+  restore, browser selection, adjacent load, and deck movement move to scene ownership.
+- [ ] C2. Replace `Run` scene callbacks with explicit lifecycle events consumed
+  through concrete update calls.
+
+Coordinate C with `physics-authority-and-identity.md` scene creation/reset work.
+
+### D. Mega-TU decomposition
+
+- [ ] D1. Split `RunInput.cpp` only as ownership extraction 1 lands; do not move
+  the same code twice.
+- [ ] D2. Split `TestSceneParser.cpp` by schema domain
+  (bodies/assets/groups/water/cameras). It already uses nlohmann JSON; this is
+  schema/ownership decomposition, not a JSON-library replacement.
+- [ ] D3. Convert shared `.inl` composition to real translation units as owners
+  move; pair hot-path conversions with perf validation.
+
+### E. Collapse compatibility surfaces
+
+- [ ] E1. Retire `RunInternal.h`; constants/helpers move to a single owner and
+  no sibling `Internal` header replaces it.
+- [ ] E2. Delete `Run::*` wrappers that only forward to a subsystem.
+- [ ] E3. Slim `Core/Common.h`: remove the stale config compatibility include
+  and alias includes according to current consumers.
+
+## Known Hard Decisions
+
+| Decision | Required answer |
+|---|---|
+| Input/UI ordering | Which immutable UI snapshot is built before world-input routing, and who owns it for the frame? |
+| Command ordering | Which owner drains first when one frame requests scene load, capture, and quit? Encode this in a CPU test. |
+| Scene load contract | Which state survives reset/load and which lifecycle event clears interaction, replay, diagnostics, and camera state? |
+| Fixed-step ownership | `SimulationSystem` remains timestep owner; do not recreate a generic simulation facade. Decide only which frame coordinator calls it. |
 
 ## Acceptance
 
-- [ ] `Run.h` no longer exposes subsystem internals as the default
-  integration path; new features do not add `Run::*` methods.
-- [ ] `RuntimeRenderHost` removed or reduced to a small immutable context.
-- [ ] `RunInternal.h` retired per E1.
-- [ ] No source file over ~1,500 lines without a written justification.
+- [ ] All five ownership-extraction deletion proofs pass.
+- [ ] `Run.h` exposes process/frame composition, not subsystem business methods.
+- [ ] `RuntimeRenderHost` is removed or a small immutable context.
+- [ ] `RunInternal.h` is deleted without a replacement shared-state header.
+- [ ] No runtime source file in the reconciled inventory exceeds 1,500 lines
+  without a cohesion justification and named follow-up owner.
+- [ ] A new feature can enter input, scene, replay, or render through its owner
+  without adding a `Run::*` method.
 
-## Validation map
+## Validation
 
-| Slice | Gate |
-|-------|------|
-| Render host narrowing | `validate_dx12_renderer` (+ `validate_full` if scene/replay/tool render behavior changes) |
-| Tool/replay/scene ownership moves | `validate_full` |
-| Mechanical file splits | per file-to-validation map |
-| Hot `.inl` → TU conversions | area gate + `validate_perf` |
+| Slice | Required gate |
+|---|---|
+| Render host narrowing | CPU DX12 architecture tests + renderer gate; add full gate if behavior shifts |
+| Input/interaction ownership | CPU-test umbrella + interaction policy + interaction clicks + full gate |
+| Replay workspace | CPU-test umbrella + replay scrub + focused interaction proof + allocation gate when capacity changes |
+| Scene ownership | parser/round-trip tests + full gate + physics gate when creation/reset changes |
+| Mechanical file splits | owning file-to-validation gate |
+| Hot `.inl` → TU conversion | owning area gate + perf gate |
+
+`validate_full` becomes sufficient broad evidence only after
+`validation-gate-integrity.md` V2 makes it a superset of all CPU suites.
