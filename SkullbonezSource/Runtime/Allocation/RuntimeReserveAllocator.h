@@ -22,6 +22,8 @@ Invariants:
   - Handle zero is reserved for unregistered allocations so missing owner scopes
     are visible in validation output.
   - Gameplay owners never receive growth approval from this allocator.
+  - Replay byte-budget owners share one active-allocation cap across all of
+    their vector/object targets.
 
 Related:
   - SkullbonezSource/Runtime/Allocation/RuntimeAllocationTracker.h
@@ -72,7 +74,7 @@ struct RuntimeReserveOwnerDesc
     RuntimeReservePhase initPhase;
     int initialCapacity;
     int hardCapacity;
-    int replayGrowthLimit; // Negative means hard-cap-only; every growth is still counted.
+    int replayGrowthLimit;   // Negative means hard-cap-only; every growth is still counted.
     bool allowReplayGrowth;
     const char* capacityReason;
 };
@@ -111,6 +113,24 @@ struct RuntimeReserveGrowthEventView
     int elementSizeBytes;
     int growthCount;
     bool granted;
+};
+
+struct RuntimeReserveOwnerStatsView
+{
+    const char* ownerName;
+    RuntimeReserveSubsystem subsystem;
+    RuntimeReservePhase initPhase;
+    const char* capacityReason;
+    uint64_t allocations;
+    uint64_t activeBytes;    // Currently live allocation bytes attributed to this owner.
+    uint64_t highWaterBytes; // Largest transient active-byte total since counters reset.
+    uint64_t replayGrowths;
+    uint64_t failedGrowths;
+    int currentCapacity;
+    int hardCapacity;
+    int highWaterCapacity;   // Owner capacity units; byte-budget owners use bytes.
+    int lastGrowthFrame;
+    bool allowReplayGrowth;
 };
 
 class RuntimeReserveGrowthScope
@@ -158,6 +178,10 @@ class RuntimeReserveAllocator
     static void RecordAllocation( RuntimeReserveOwnerHandle owner, int phaseIndex, uint64_t bytes ) noexcept;
     static void RecordFree( RuntimeReserveOwnerHandle owner, uint64_t bytes ) noexcept;
     static int CopyRecentGrowthEvents( RuntimeReserveGrowthEventView* outEvents, int maxEvents ) noexcept;
+    // Copies one fixed-registry owner row without allocating. Name lookup lets
+    // domain diagnostics report owners without retaining allocator handles.
+    static bool CopyOwnerStats( RuntimeReserveOwnerHandle owner, RuntimeReserveOwnerStatsView& outStats ) noexcept;
+    static bool CopyOwnerStatsByName( const char* ownerName, RuntimeReserveOwnerStatsView& outStats ) noexcept;
     static uint64_t GrowthEventCount() noexcept;
     static uint64_t GrowthEventDroppedCount() noexcept;
     static void ResetCounters() noexcept;

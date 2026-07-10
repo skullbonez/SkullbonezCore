@@ -28,13 +28,10 @@ Related:
 */
 #pragma once
 
-#include "../Allocation/RuntimeReserveAllocator.h"
+#include "ReplayRetainedMemory.h"
 
 namespace SkullbonezCore::Basics
 {
-inline constexpr const char* REPLAY_PREDICTION_RESERVE_OWNER = "replay_prediction_working_set";
-inline constexpr int REPLAY_PREDICTION_RESERVE_HARD_BYTES = 256 * 1024 * 1024;
-
 Runtime::Allocation::RuntimeReserveOwnerHandle ReplayPredictionReserveOwner() noexcept;
 bool RequestReplayPredictionReserveGrowth( const char* targetName,
                                            int frameNumber,

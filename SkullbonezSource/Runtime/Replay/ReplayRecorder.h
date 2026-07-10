@@ -180,6 +180,10 @@ struct ReplayVisualDeltaFrame
     std::vector<ReplayVisualBodyDelta> changedBodies;
 };
 
+// Concept: this is the sole durable per-frame visual extension seam. A new
+// replayed visual feature extends this value (or a value it owns), its delta
+// capture, hash, and v2 serialization together; it must not create a parallel
+// retained timeline.
 struct ReplayPresentationSample
 {
     ReplayFrameIndex frameIndex = 0;
@@ -361,6 +365,9 @@ struct ReplayLauncherVisualSample
     float projectileSpeed = 0.0f;
 };
 
+// Concept: solver samples own authoritative restore state and may project a
+// presentation sample, but presentation-only feature payloads do not belong in
+// this larger deterministic checkpoint value.
 struct ReplaySolverFrameSample
 {
     ReplayFrameIndex frameIndex = 0;

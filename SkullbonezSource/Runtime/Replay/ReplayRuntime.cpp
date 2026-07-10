@@ -38,6 +38,7 @@ Related:
 */
 #include "ReplayRuntime.h"
 #include "ReplayOverlayLayout.h"
+#include "ReplayRetainedMemory.h"
 #include "ReplayV2Artifact.h"
 #include "../RuntimeFileWriter.h"
 #include "../InputRouter.h"
@@ -3181,6 +3182,27 @@ MainMemoryReplayStats ReplayRuntime::CollectMemoryStats() const
     stats.solverRetentionSeconds = m_memoryPolicy.solverRetentionSeconds;
     stats.memoryBudgetClamped = m_memoryPolicy.budgetClamped;
     stats.solverWindowReduced = m_memoryPolicy.solverWindowReduced;
+    // The policy table is stable and fixed-size; diagnostics never discovers
+    // replay owners by scanning recent-event text or allocating a report map.
+    for ( std::size_t index = 0; index < REPLAY_GROWTH_OWNER_POLICIES.size(); ++index )
+    {
+        const ReplayGrowthOwnerPolicy& policy = REPLAY_GROWTH_OWNER_POLICIES[index];
+        MainMemoryReplayStats::GrowthOwner& growth = stats.growthOwners[index];
+        growth.ownerName = policy.ownerName;
+        growth.hardBytes = policy.hardBytes;
+        growth.measuredHighWaterBytes = policy.measuredHighWaterBytes;
+        Runtime::Allocation::RuntimeReserveOwnerStatsView ownerStats = {};
+        growth.registered =
+            Runtime::Allocation::RuntimeReserveAllocator::CopyOwnerStatsByName( policy.ownerName, ownerStats );
+        if ( growth.registered )
+        {
+            growth.allocatorHighWaterBytes = ownerStats.highWaterBytes;
+            growth.replayGrowths = ownerStats.replayGrowths;
+            growth.failedGrowths = ownerStats.failedGrowths;
+            growth.reportedHighWaterCapacity = ownerStats.highWaterCapacity;
+            growth.lastGrowthFrame = ownerStats.lastGrowthFrame;
+        }
+    }
 
     MainMemoryAddReplayCategoryBytes( stats.categoryBytes,
                                       MainMemoryReplayByteCategory::LoadedOwner,

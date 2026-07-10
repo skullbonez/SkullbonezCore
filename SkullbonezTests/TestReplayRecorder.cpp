@@ -30,11 +30,19 @@
 
 #include "../SkullbonezSource/Runtime/Replay/ReplayRecorder.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayRuntime.h"
+#include "../SkullbonezSource/Runtime/Replay/ReplayRetainedMemory.h"
 
 #include <vector>
 
+using SkullbonezCore::Basics::FindReplayGrowthOwnerPolicy;
+using SkullbonezCore::Basics::REPLAY_GROWTH_OWNER_POLICIES;
+using SkullbonezCore::Basics::REPLAY_PREDICTION_RESERVE_HARD_BYTES;
+using SkullbonezCore::Basics::REPLAY_RECORDER_SAMPLE_RESERVE_HARD_BYTES;
+using SkullbonezCore::Basics::REPLAY_RETAINED_OWNERSHIP_RULES;
+using SkullbonezCore::Basics::REPLAY_SOLVER_SNAPSHOT_RESERVE_HARD_BYTES;
 using SkullbonezCore::Basics::ReplayBodyShapeKind;
 using SkullbonezCore::Basics::ReplayFrameIndex;
+using SkullbonezCore::Basics::ReplayGrowthExhaustionRule;
 using SkullbonezCore::Basics::ReplayMemoryPolicy;
 using SkullbonezCore::Basics::ReplayMemoryPolicyRequest;
 using SkullbonezCore::Basics::ReplayMemoryPreset;
@@ -43,6 +51,7 @@ using SkullbonezCore::Basics::ReplayPresentationSample;
 using SkullbonezCore::Basics::ReplayRecorder;
 using SkullbonezCore::Basics::ReplayRecorderConfig;
 using SkullbonezCore::Basics::ReplayRecorderStats;
+using SkullbonezCore::Basics::ReplayRetainedDataOwner;
 using SkullbonezCore::Basics::ReplayRuntime;
 using SkullbonezCore::Basics::ReplaySolverBodySample;
 using SkullbonezCore::Basics::ReplaySolverFrameSample;
@@ -194,6 +203,48 @@ TEST_CASE( "ReplayRuntime: replay memory policy trims solver history before pres
     REQUIRE( solver.Configure( solverConfig ) );
     CHECK( presentation.GetStats().sampleCapacity == static_cast<std::size_t>( 30 * kReplayTicksPerSecond ) );
     CHECK( solver.GetStats().sampleCapacity == static_cast<std::size_t>( 5 * kReplayTicksPerSecond ) );
+}
+
+
+TEST_CASE( "ReplayRuntime: retained ownership and growth policies are complete and evidence bounded" )
+{
+    REQUIRE( REPLAY_RETAINED_OWNERSHIP_RULES.size() == 4u );
+    CHECK( REPLAY_RETAINED_OWNERSHIP_RULES[0].owner == ReplayRetainedDataOwner::PresentationRecorder );
+    CHECK( REPLAY_RETAINED_OWNERSHIP_RULES[0].retainedAtRuntime );
+    CHECK( REPLAY_RETAINED_OWNERSHIP_RULES[0].durableArtifact );
+    CHECK( REPLAY_RETAINED_OWNERSHIP_RULES[1].owner == ReplayRetainedDataOwner::SolverRecorder );
+    CHECK( REPLAY_RETAINED_OWNERSHIP_RULES[1].retainedAtRuntime );
+    CHECK( REPLAY_RETAINED_OWNERSHIP_RULES[1].durableArtifact );
+    CHECK( REPLAY_RETAINED_OWNERSHIP_RULES[2].owner == ReplayRetainedDataOwner::PredictionPrefix );
+    CHECK( REPLAY_RETAINED_OWNERSHIP_RULES[2].retainedAtRuntime );
+    CHECK_FALSE( REPLAY_RETAINED_OWNERSHIP_RULES[2].durableArtifact );
+    CHECK( REPLAY_RETAINED_OWNERSHIP_RULES[3].owner == ReplayRetainedDataOwner::V2Artifact );
+    CHECK_FALSE( REPLAY_RETAINED_OWNERSHIP_RULES[3].retainedAtRuntime );
+    CHECK( REPLAY_RETAINED_OWNERSHIP_RULES[3].durableArtifact );
+
+    REQUIRE( REPLAY_GROWTH_OWNER_POLICIES.size() == 3u );
+    for ( const auto& policy : REPLAY_GROWTH_OWNER_POLICIES )
+    {
+        CHECK( policy.phase == SkullbonezCore::Runtime::Allocation::RuntimeReservePhase::Replay );
+        CHECK( policy.hardBytes > 0 );
+        CHECK( policy.measuredHighWaterBytes < static_cast<uint64_t>( policy.hardBytes ) );
+        CHECK( FindReplayGrowthOwnerPolicy( policy.ownerName ) == &policy );
+    }
+    CHECK( REPLAY_GROWTH_OWNER_POLICIES[0].exhaustion == ReplayGrowthExhaustionRule::FatalRetainedState );
+    CHECK( REPLAY_GROWTH_OWNER_POLICIES[1].exhaustion == ReplayGrowthExhaustionRule::FatalRetainedState );
+    CHECK( REPLAY_GROWTH_OWNER_POLICIES[2].exhaustion == ReplayGrowthExhaustionRule::CancelPredictionBuild );
+
+    CHECK( REPLAY_RECORDER_SAMPLE_RESERVE_HARD_BYTES == 32 * 1024 * 1024 );
+    CHECK( REPLAY_GROWTH_OWNER_POLICIES[0].measuredHighWaterBytes * 5u <
+           static_cast<uint64_t>( REPLAY_RECORDER_SAMPLE_RESERVE_HARD_BYTES ) );
+    CHECK( REPLAY_SOLVER_SNAPSHOT_RESERVE_HARD_BYTES == 8 * 1024 * 1024 );
+    CHECK( REPLAY_GROWTH_OWNER_POLICIES[1].measuredHighWaterBytes * 5u <
+           static_cast<uint64_t>( REPLAY_SOLVER_SNAPSHOT_RESERVE_HARD_BYTES ) );
+    CHECK( REPLAY_GROWTH_OWNER_POLICIES[2].measuredHighWaterBytes <
+           static_cast<uint64_t>( REPLAY_PREDICTION_RESERVE_HARD_BYTES ) );
+    CHECK( static_cast<uint64_t>( REPLAY_PREDICTION_RESERVE_HARD_BYTES ) -
+               REPLAY_GROWTH_OWNER_POLICIES[2].measuredHighWaterBytes <
+           64ull * 1024ull * 1024ull );
 }
 
 

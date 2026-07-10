@@ -1,7 +1,7 @@
 # Replay Architecture And Right-Sizing
 
 Date: 2026-07-10
-Status: In progress - 3/6 phases complete
+Status: In progress - 4/6 phases complete
 Impact area: replay runtime, prediction, scrub/restore, replay UI, memory policy,
 Run decomposition
 Owner: replay subsystem
@@ -69,12 +69,18 @@ bounded by purpose, and the replay allocation exception remains narrow.
   zero Run pointer/backpointer/callback smuggling in replay owner headers. The
   CPU umbrella, allocation checker, replay scrub, v2 artifact, interaction,
   physics, DX12 renderer, and full gates passed from the final formatted source.
-- [ ] **R3 — Stabilise the retained-sample and memory model.** Name the durable
+- [x] **R3 — Stabilise the retained-sample and memory model.** Name the durable
   recorded solver sample, presentation sample, prediction prefix, and artifact
   ownership rules. Right-size capacities from measured high-water evidence;
   preserve registered replay growth only where fixed preallocation is
   impractical. Acceptance: every replay growth owner has phase, hard cap,
   counter, and exhaustion behavior.
+  Evidence: `Agentic/Reports/replay_r3_retained_memory_20260711.md` records the
+  four durable data owners, sole presentation extension seam, three registered
+  replay growth policies, evidence-backed 32/8/256 MiB caps, aggregate active
+  byte enforcement, fixed-registry counters, diagnostics JSON, and explicit
+  fatal-vs-cancel exhaustion rules. CPU, allocation, scrub/restore/prediction,
+  v2, interaction, physics, perf, and full gates pass.
 - [ ] **R4 — Narrow live-owner access.** Replace replay traversal through
   `GameModelCollection` with body/collider/render/scene views and stable ids.
   Restore remains a command into physics/scene owners, not a write through a

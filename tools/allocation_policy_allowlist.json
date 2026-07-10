@@ -92,7 +92,7 @@
       "owner": "Replay prediction working set",
       "phase": "replay",
       "reason": "Prediction frames, frame payload pools, private prediction engine storage, and trajectory records share one registered replay growth gate.",
-      "cap": "Registered owner replay_prediction_working_set with a 256 MiB hard byte cap; callers pass byte capacities and must reserve under matching replay scopes.",
+      "cap": "ReplayRetainedMemory policy registers replay_prediction_working_set with a 256 MiB hard byte cap; measured combined high-water is 211,376,304 bytes.",
       "removal_or_wrapper_plan": "Keep prediction growth behind RequestReplayPredictionReserveGrowth/ReserveReplayPredictionVector or replace the working set with a fixed prediction arena."
     },
     {
@@ -125,7 +125,7 @@
       "owner": "Replay recorder sample payloads",
       "phase": "replay",
       "reason": "Presentation and solver sample body vectors grow lazily under active scene size instead of startup game_model_capacity.",
-      "cap": "Registered owner replay_recorder_samples, hard cap REPLAY_RECORDER_SAMPLE_RESERVE_HARD_BYTES per retained sample body-vector reserve.",
+      "cap": "ReplayRetainedMemory policy registers replay_recorder_samples with a 32 MiB aggregate hard cap from the guarded 6,206,626-byte high-water; denial is fatal to prevent partial scrub state.",
       "removal_or_wrapper_plan": "Replace retained body vectors with a flat replay arena/body dictionary when replay memory tuning lands; keep recorder growth behind ReserveReplayRecorderSampleVector until then."
     },
     {
@@ -136,7 +136,7 @@
       "owner": "Replay solver snapshot reserve",
       "phase": "replay",
       "reason": "Solver replay snapshots batch many typed vector payload reserves into one byte-budget approval before copying physics state.",
-      "cap": "Registered owner replay_solver_snapshot, hard cap REPLAY_SOLVER_SNAPSHOT_RESERVE_HARD_BYTES.",
+      "cap": "ReplayRetainedMemory policy registers replay_solver_snapshot with an 8 MiB hard byte cap from the measured 1,437,696-byte high-water; denial is fatal.",
       "removal_or_wrapper_plan": "Replace snapshot vectors with an arena-backed snapshot record if replay solver storage is flattened."
     },
     {

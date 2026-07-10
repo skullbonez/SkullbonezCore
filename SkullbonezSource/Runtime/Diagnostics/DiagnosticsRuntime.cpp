@@ -221,6 +221,33 @@ void WriteReplayMemoryCategories( FILE* file, const MainMemoryReplayStats& repla
     fputs( "    },\n", file );
 }
 
+void WriteReplayGrowthOwners( FILE* file, const MainMemoryReplayStats& replay )
+{
+    // Concept: each row pairs the committed sizing evidence with live allocator
+    // counters, so dumps distinguish an intentional cap from observed use.
+    fputs( "    \"growth_owners\": [\n", file );
+    for ( std::size_t index = 0; index < replay.growthOwners.size(); ++index )
+    {
+        const MainMemoryReplayStats::GrowthOwner& owner = replay.growthOwners[index];
+        fprintf( file,
+                 "      { \"owner\": \"%s\", \"registered\": %s, \"hard_bytes\": %d, "
+                 "\"measured_high_water_bytes\": %llu, \"allocator_high_water_bytes\": %llu, "
+                 "\"reported_high_water_capacity\": %d, \"growths\": %llu, \"failed_growths\": %llu, "
+                 "\"last_growth_frame\": %d }%s\n",
+                 owner.ownerName ? owner.ownerName : "",
+                 owner.registered ? "true" : "false",
+                 owner.hardBytes,
+                 static_cast<unsigned long long>( owner.measuredHighWaterBytes ),
+                 static_cast<unsigned long long>( owner.allocatorHighWaterBytes ),
+                 owner.reportedHighWaterCapacity,
+                 static_cast<unsigned long long>( owner.replayGrowths ),
+                 static_cast<unsigned long long>( owner.failedGrowths ),
+                 owner.lastGrowthFrame,
+                 index + 1u < replay.growthOwners.size() ? "," : "" );
+    }
+    fputs( "    ],\n", file );
+}
+
 void WriteReplayTrajectoryCounters( FILE* file, const MainMemoryReplayTrajectoryStats& trajectory )
 {
     fprintf(
@@ -928,6 +955,7 @@ bool DiagnosticsRuntime::WriteMainMemoryDump( const ReplayRuntime& replay,
              stats.replay.memoryBudgetClamped ? "true" : "false",
              stats.replay.solverWindowReduced ? "true" : "false" );
     WriteReplayMemoryCategories( file, stats.replay );
+    WriteReplayGrowthOwners( file, stats.replay );
     WriteReplayTrajectoryCounters( file, stats.replay.trajectory );
     fprintf( file,
              "  },\n"

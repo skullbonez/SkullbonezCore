@@ -28,6 +28,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Replay/ReplayV2Artifact.cpp
   - SkullbonezSource/Runtime/Replay/ReplayRecorder.h
+  - SkullbonezSource/Runtime/Replay/ReplayRetainedMemory.h
 */
 #pragma once
 
