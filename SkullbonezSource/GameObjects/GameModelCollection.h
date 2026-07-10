@@ -138,6 +138,13 @@ struct SceneObjectGroupCreateDesc
     int partIndex = -1;
 };
 
+struct SceneObjectGroupRecord
+{
+    GameModelCollectionKind kind = GameModelCollectionKind::None;
+    int rootModelIndex = -1;
+    int partIndex = -1;
+};
+
 // Value packet for cold editor/replay body edits. Set only the fields changed by
 // the command; unchanged fields are copied from the current PhysicsBodyStore row.
 struct PhysicsBodyStateEdit
@@ -172,13 +179,6 @@ struct SceneEntityCreateResult
 class GameModelCollection
 {
   private:
-    struct SceneObjectGroupRecord
-    {
-        GameModelCollectionKind kind = GameModelCollectionKind::None;
-        int rootModelIndex = -1;
-        int partIndex = -1;
-    };
-
     // Contact highlights are transient same-row render feedback. Durable scene
     // identity and presentation intent live in the bound SceneEntityStore.
     class PresentationStore
@@ -213,6 +213,7 @@ class GameModelCollection
         std::size_t Capacity() const;
         uint64_t CapacityBytes() const;
         SceneObjectGroupRecord RecordAt( int modelIndex ) const;
+        const std::vector<SceneObjectGroupRecord>& Records() const;
 
       private:
         std::vector<SceneObjectGroupRecord> m_records;
@@ -292,21 +293,6 @@ class GameModelCollection
                                 float& outRadius,
                                 float& outHeightRange );
     void ResetRenderResources();
-    bool SaveSceneSnapshot( const char* path,
-                            bool physicsOn,
-                            bool textOn,
-                            Environment::WorldEnvironment& worldEnv,
-                            const Math::Vector::Vector3& camEye,
-                            const Math::Vector::Vector3& camView,
-                            const Math::Vector::Vector3& camUp,
-                            bool editableScene = false,
-                            bool fixedStep = false,
-                            bool waterHidden = false,
-                            bool terrainHidden = false,
-                            bool hasFlatSlope = false,
-                            float flatBaseY = 0.0f,
-                            float flatSlopeX = 0.0f,
-                            float flatSlopeZ = 0.0f );
     // Legacy object-follow cameras can outlive the model slots they track.
     // Returns false only for an absent slot; a present model without a body is
     // store-topology drift and still fails through the fatal invariant lane.
@@ -323,6 +309,9 @@ class GameModelCollection
     GameModelCollectionKind GroupKindAt( int modelIndex ) const;
     int GroupRootModelIndexAt( int modelIndex ) const;
     int GroupPartIndexAt( int modelIndex ) const;
+    // Lifetime: the save boundary may borrow this dense view only until the
+    // next collection mutation. C5 replaces row roots with stable object ids.
+    const std::vector<SceneObjectGroupRecord>& SceneObjectGroups() const;
     bool IsSimpleRagdollPart( int modelIndex ) const;
     bool IsSimpleRagdollTorso( int modelIndex ) const;
     int RagdollRootModelIndexForPart( int modelIndex ) const;

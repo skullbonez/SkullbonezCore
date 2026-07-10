@@ -75,6 +75,7 @@ namespace Basics
 class RunEditorTracer;
 class RuntimeInteractionController;
 class CaptureController;
+class SceneEntityStore;
 struct RunEditorPlacementState;
 struct RunSceneState;
 
@@ -83,6 +84,7 @@ namespace RunInternal
 struct EditorSaveHotkeyContext
 {
     GameObjects::GameModelCollection& models;
+    const SceneEntityStore& entities;
     const RunSceneState& scene;
     Environment::WorldEnvironment& world;
     Environment::CameraCollection& cameras;

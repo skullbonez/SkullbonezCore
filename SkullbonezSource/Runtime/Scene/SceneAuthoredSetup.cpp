@@ -753,6 +753,7 @@ SbResult SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context,
         SceneEntityCreateDesc gameModel;
 
         gameModel.SetName( hullScene.name );
+        ApplyAssetAffiliation( gameModel, scene, SceneAssetPartSource::ConvexHullState, static_cast<uint32_t>( i ) );
         GameObjects::SceneObjectGroupCreateDesc groupDesc;
         const SbResult groupResult =
             MakeSceneObjectGroupCreateDesc( hullScene.group, convexHullStateModelBase, groupDesc );

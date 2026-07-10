@@ -4,15 +4,17 @@ Purpose:
   Serializes the current scene state back into a JSON scene file.
 
 Mental model:
-  SceneSnapshotWriter.cpp serializes the current scene state back into a JSON
-  scene file. As an implementation unit, keep edits anchored on scene-file
-  parsing or snapshot contracts and on the glossary/invariants below.
+  The writer validates borrowed owner topology, resolves each entity through
+  its stable body/collider identity, then emits non-asset objects directly and
+  groups asset-backed rows by their stable asset root.
 
 Glossary:
   Scene snapshot: JSON scene emitted from current runtime state rather than the
     original authored file.
-  Cold metadata: Names, render materials, and collection grouping that identify
+  Cold metadata: Names, render materials, and behavior grouping that identify
     objects but do not drive physics integration.
+  Asset affiliation: Library, asset, instance, root, and ordered-part identity
+    retained by SceneEntityStore after the original parse data is gone.
   Scene object group: JSON metadata that lets multi-part object grouping
     round-trip without parsing display-name suffixes at collection append time.
 
@@ -22,6 +24,8 @@ Invariants:
   - Saved body pose, velocity, sleep, mass, inertia, and shape data come from
     PhysicsBodyStore/ColliderStore so scene saving does not depend on post-step
     GameModel body writeback.
+  - No entity or point joint is silently skipped; owner topology disagreement
+    is an engine invariant failure.
 
 Related:
   - SkullbonezSource/Scene/SceneSnapshotWriter.h
@@ -31,6 +35,7 @@ Related:
 #include "SceneSnapshotWriter.h"
 #include "../Runtime/Scene/SceneEntityStore.h"
 
+#include "../Core/FatalError.h"
 #include "../Physics/BoundingBox.h"
 #include "../Physics/BoundingSphere.h"
 #include "../Physics/ColliderStore.h"
@@ -40,12 +45,13 @@ Related:
 #include "../GameObjects/GameModelCollection.h"
 #include "../Rendering/RenderMaterial.h"
 #include "../Runtime/RuntimeFileWriter.h"
-#include "../World/WorldEnvironment.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <cstring>
 #include <fstream>
+#include <string>
 #include <variant>
 #include <vector>
 
@@ -53,12 +59,14 @@ Related:
 #include "../../ThirdPtySource/nlohmann/json.hpp"
 #pragma warning( pop )
 
-using namespace SkullbonezCore::Environment;
 using namespace SkullbonezCore::GameObjects;
 using SkullbonezCore::Assets::EditorHullAsset;
 using SkullbonezCore::Assets::EditorHullAssetFromToken;
 using SkullbonezCore::Assets::EditorHullAssetToken;
 using SkullbonezCore::Basics::RuntimeFileWriter;
+using SkullbonezCore::Basics::SbResult;
+using SkullbonezCore::Basics::SceneAssetAffiliation;
+using SkullbonezCore::Basics::SceneEntityRecord;
 using SkullbonezCore::Basics::SceneEntityStore;
 using SkullbonezCore::Math::CollisionDetection::BoundingBox;
 using SkullbonezCore::Math::CollisionDetection::BoundingSphere;
@@ -154,73 +162,154 @@ Json RenderMaterialJson( const char* target, const SkullbonezCore::Rendering::Re
     return materialJson;
 }
 
-void AddSceneObjectGroupJson( Json& object,
-                              const GameModelCollection& collection,
-                              const SceneEntityStore& entities,
-                              int modelIndex )
+const SceneObjectGroupRecord& BehaviorGroupAt( const SceneSaveView& scene, int entityIndex )
 {
-    if ( collection.GroupKindAt( modelIndex ) != GameModelCollectionKind::ReleasableTree )
+    if ( !scene.behaviorGroups || scene.behaviorGroupCount != scene.entities.Count() || entityIndex < 0 ||
+         entityIndex >= scene.behaviorGroupCount )
+    {
+        SB_FATAL( "Scene/SceneSnapshotWriter",
+                  "Behavior-group topology does not match scene entities. entities=%d groups=%d row=%d",
+                  scene.entities.Count(),
+                  scene.behaviorGroupCount,
+                  entityIndex );
+    }
+    return scene.behaviorGroups[entityIndex];
+}
+
+void AddSceneObjectGroupJson( Json& object, const SceneSaveView& scene, int entityIndex )
+{
+    const SceneObjectGroupRecord& group = BehaviorGroupAt( scene, entityIndex );
+    if ( group.kind != GameModelCollectionKind::ReleasableTree )
     {
         return;
     }
-
-    const int rootModelIndex = collection.GroupRootModelIndexAt( modelIndex );
-    if ( rootModelIndex < 0 || rootModelIndex >= entities.Count() )
+    if ( group.rootModelIndex < 0 || group.rootModelIndex >= scene.entities.Count() || group.partIndex < 0 )
     {
-        return;
+        SB_FATAL( "Scene/SceneSnapshotWriter",
+                  "Invalid releasable-tree group at save. row=%d root=%d part=%d",
+                  entityIndex,
+                  group.rootModelIndex,
+                  group.partIndex );
     }
 
     object["objectGroup"] = {
         { "kind", "releasableTree" },
-        { "root", entities.At( rootModelIndex ).displayName },
-        { "part", collection.GroupPartIndexAt( modelIndex ) },
+        { "root", scene.entities.At( group.rootModelIndex ).displayName },
+        { "part", group.partIndex },
     };
+}
+
+struct LiveSceneRow
+{
+    const SceneEntityRecord& entity;
+    const PhysicsBodyRecord& body;
+    const ColliderRecord& collider;
+};
+
+LiveSceneRow ResolveLiveSceneRow( const SceneSaveView& scene, int entityIndex )
+{
+    const SceneEntityRecord& entity = scene.entities.At( entityIndex );
+    const PhysicsBodyRecord* body = scene.bodies.RecordForHandle( entity.body );
+    const ColliderRecord* collider =
+        body ? scene.colliders.RecordForHandle( scene.colliders.HandleForBodyHandle( body->handle ) ) : nullptr;
+    if ( !body || !collider || collider->body != body->handle ||
+         body->sceneObjectId.value != entity.sceneObjectId.value ||
+         collider->sceneObjectId.value != entity.sceneObjectId.value )
+    {
+        SB_FATAL( "Scene/SceneSnapshotWriter",
+                  "Entity/body/collider identity topology diverged at save. row=%d entity_id=%u",
+                  entityIndex,
+                  entity.sceneObjectId.value );
+    }
+    return { entity, *body, *collider };
+}
+
+Json BuildLiveStateJson( const SceneSaveView& scene, int entityIndex )
+{
+    const LiveSceneRow row = ResolveLiveSceneRow( scene, entityIndex );
+    const char* contactMaterial =
+        row.collider.contactMaterialName[0] != '\0' ? row.collider.contactMaterialName : "default";
+    Json state = {
+        { "sceneObjectId", row.entity.sceneObjectId.value },
+        { "name", row.entity.displayName },
+        { "position", Vec3Json( row.body.position ) },
+        { "velocity", Vec3Json( row.body.linearVelocity ) },
+        { "angularVelocity", Vec3Json( row.body.angularVelocity ) },
+        { "orientation", OrientationJson( row.body.orientation ) },
+        { "mass", row.body.mass },
+        { "restitution", row.collider.restitution },
+        { "contactMaterial", contactMaterial },
+        { "inertia", Vec3Json( row.body.rotationalInertia ) },
+        { "fixed", row.body.isFixed },
+    };
+    // Invariant: part state overrides asset-recipe defaults in both
+    // directions. Explicit false values are required so a live awake/release-
+    // disabled body cannot inherit stale true authoring on reparse.
+    state["sleeping"] = row.body.isSleeping;
+
+    const auto& shape = row.collider.shape;
+    if ( std::holds_alternative<BoundingSphere>( shape ) )
+    {
+        state["type"] = "ballState";
+        state["radius"] = std::get<BoundingSphere>( shape ).GetRadius();
+    }
+    else if ( std::holds_alternative<BoundingBox>( shape ) )
+    {
+        state["type"] = "boxState";
+        state["halfExtents"] = Vec3Json( std::get<BoundingBox>( shape ).GetHalfExtents() );
+    }
+    else if ( std::holds_alternative<ConvexHullShape>( shape ) )
+    {
+        const ConvexHullShape& hull = std::get<ConvexHullShape>( shape );
+        const EditorHullAsset hullAsset = EditorHullAssetFromToken( hull.GetName() );
+        state["type"] = "convexHullState";
+        state["hull"] = hullAsset == EditorHullAsset::UNKNOWN ? hull.GetName() : EditorHullAssetToken( hullAsset );
+        state["contactReleaseOnImpact"] = row.body.releasesFromFixedOnContact;
+        state["contactReleaseImpulseThreshold"] = row.body.contactReleaseImpulseThreshold;
+        AddSceneObjectGroupJson( state, scene, entityIndex );
+    }
+    else
+    {
+        SB_FATAL( "Scene/SceneSnapshotWriter", "Unsupported collider shape at save. row=%d", entityIndex );
+    }
+    return state;
+}
+
+bool SameAssetInstance( const SceneAssetAffiliation& a, const SceneAssetAffiliation& b )
+{
+    return a.rootObjectId.value == b.rootObjectId.value && std::strcmp( a.libraryToken, b.libraryToken ) == 0 &&
+           std::strcmp( a.assetName, b.assetName ) == 0 && std::strcmp( a.instanceName, b.instanceName ) == 0;
 }
 } // namespace
 
 
-bool SceneSnapshotWriter::Save( GameModelCollection& collection,
-                                const SceneEntityStore& entities,
-                                const char* path,
-                                bool physicsOn,
-                                bool textOn,
-                                WorldEnvironment& worldEnv,
-                                const Vector3& camEye,
-                                const Vector3& camView,
-                                const Vector3& camUp,
-                                bool editableScene,
-                                bool fixedStep,
-                                bool waterHidden,
-                                bool terrainHidden,
-                                bool hasFlatSlope,
-                                float flatBaseY,
-                                float flatSlopeX,
-                                float flatSlopeZ )
+SbResult SceneSnapshotWriter::Save( const SceneSaveView& sceneView, const SceneSaveRequest& request )
 {
     // Invariant: Editable scene saves emit state-form objects whose positions,
     // velocities, sleeping flags, and materials can round-trip through
     // TestSceneParser without reinterpreting authored placement offsets.
-    const PhysicsBodyStore& bodyStore = collection.BodyStore();
-    const ColliderStore& colliderStore = collection.Colliders();
-
-    std::ofstream output;
-    if ( !RuntimeFileWriter::OpenTextFile( path, output ) )
+    if ( sceneView.entities.Count() != sceneView.bodies.Count() ||
+         sceneView.entities.Count() != sceneView.colliders.Count() )
     {
-        return false;
+        SB_FATAL( "Scene/SceneSnapshotWriter",
+                  "Save owner counts diverged. entities=%d bodies=%d colliders=%d",
+                  sceneView.entities.Count(),
+                  sceneView.bodies.Count(),
+                  sceneView.colliders.Count() );
     }
 
     Json scene;
     scene["format"] = "skullbonez.scene.json";
-    scene["version"] = 1;
+    scene["version"] = 2;
     scene["simulation"] = Json::object();
-    scene["simulation"]["physics"] = physicsOn;
-    scene["simulation"]["text"] = textOn;
+    scene["simulation"]["physics"] = request.physicsOn;
+    scene["simulation"]["text"] = request.textOn;
     scene["simulation"]["world"] = {
-        { "gravity", worldEnv.GetGravity() },
-        { "fluidHeight", worldEnv.GetFluidSurfaceHeight() },
-        { "fluidDensity", worldEnv.GetFluidDensity() },
+        { "gravity", sceneView.gravity },
+        { "fluidHeight", sceneView.fluidSurfaceHeight },
+        { "fluidDensity", sceneView.fluidDensity },
     };
-    const auto& mutualGravity = worldEnv.GetMutualGravitySettings();
+    const auto& mutualGravity = sceneView.mutualGravity;
     if ( mutualGravity.enabled )
     {
         scene["simulation"]["world"]["mutualGravity"] = {
@@ -232,24 +321,24 @@ bool SceneSnapshotWriter::Save( GameModelCollection& collection,
     }
     scene["playback"] = Json::object();
     scene["playback"]["frames"] = "unlimited";
-    scene["playback"]["fixedStep"] = fixedStep;
-    if ( editableScene )
+    scene["playback"]["fixedStep"] = request.fixedStep;
+    if ( request.editableScene )
     {
         scene["editor"] = {
             { "editableScene", true },
         };
     }
     scene["debug"] = Json::object();
-    scene["debug"]["waterHidden"] = waterHidden;
-    scene["debug"]["terrainHidden"] = terrainHidden;
-    if ( hasFlatSlope )
+    scene["debug"]["waterHidden"] = request.waterHidden;
+    scene["debug"]["terrainHidden"] = request.terrainHidden;
+    if ( request.hasFlatSlope )
     {
         scene["terrain"] = {
             { "flatSlope",
               {
-                  { "baseY", flatBaseY },
-                  { "slopeX", flatSlopeX },
-                  { "slopeZ", flatSlopeZ },
+                  { "baseY", request.flatBaseY },
+                  { "slopeX", request.flatSlopeX },
+                  { "slopeZ", request.flatSlopeZ },
               } },
         };
     }
@@ -257,132 +346,137 @@ bool SceneSnapshotWriter::Save( GameModelCollection& collection,
     scene["cameras"] = Json::array();
     scene["cameras"].push_back( {
         { "name", "main" },
-        { "position", Vec3Json( camEye ) },
-        { "view", Vec3Json( camView ) },
-        { "up", Vec3Json( camUp ) },
+        { "position", Vec3Json( request.cameraEye ) },
+        { "view", Vec3Json( request.cameraView ) },
+        { "up", Vec3Json( request.cameraUp ) },
     } );
     scene["objects"] = Json::array();
     Json objectMaterials = Json::array();
 
-    for ( int i = 0; i < entities.Count(); ++i )
+    scene["assetLibraries"] = Json::array();
+    scene["assetInstances"] = Json::array();
+    std::vector<bool> emittedAssetRows( static_cast<std::size_t>( sceneView.entities.Count() ), false );
+
+    for ( int i = 0; i < sceneView.entities.Count(); ++i )
     {
-        // Concept: Shape variants map to saved scene state records. These are
-        // live simulation snapshots, not original authored spawn commands.
-        const char* name = entities.At( i ).displayName;
-        char safeName[64];
-        if ( !name[0] )
+        const SceneEntityRecord& entity = sceneView.entities.At( i );
+        if ( !entity.sceneObjectId.IsValid() || entity.displayName[0] == '\0' )
         {
-            sprintf_s( safeName, sizeof( safeName ), "_ball_%d", i );
-            name = safeName;
+            SB_FATAL( "Scene/SceneSnapshotWriter",
+                      "Scene entity lacks durable identity or display name at save. row=%d id=%u",
+                      i,
+                      entity.sceneObjectId.value );
         }
+        (void)ResolveLiveSceneRow( sceneView, i );
+        const SceneObjectGroupRecord& behaviorGroup = BehaviorGroupAt( sceneView, i );
 
-        // Invariant: scene entity index is only the saved row key here. Live
-        // physics values must come from the stores so saving does not need the
-        // post-step GameModel presentation record to be fresh.
-        const PhysicsBodyRecord* body = bodyStore.RecordForModelIndex( i );
-        const ColliderRecord* collider =
-            body ? colliderStore.RecordForHandle( colliderStore.HandleForBodyHandle( body->handle ) ) : nullptr;
-        if ( !body || !collider || collider->body != body->handle )
+        if ( entity.asset.isAssetBacked && entity.asset.partIndex == 0 )
         {
-            continue;
-        }
-
-        const Vector3& pos = body->position;
-        const Vector3& vel = body->linearVelocity;
-        const Vector3& avel = body->angularVelocity;
-        const Vector3& ri = body->rotationalInertia;
-        const auto& shape = collider->shape;
-        const float mass = body->mass;
-        const float rest = collider->restitution;
-        const char* contactMaterial =
-            collider->contactMaterialName[0] != '\0' ? collider->contactMaterialName : "default";
-        const bool fixed = body->isFixed;
-        const bool sleeping = body->isSleeping;
-
-        if ( std::holds_alternative<BoundingSphere>( shape ) )
-        {
-            const BoundingSphere& sphere = std::get<BoundingSphere>( shape );
-            scene["objects"].push_back( {
-                { "type", "ballState" },
-                { "name", name },
-                { "position", Vec3Json( pos ) },
-                { "velocity", Vec3Json( vel ) },
-                { "angularVelocity", Vec3Json( avel ) },
-                { "orientation", OrientationJson( body->orientation ) },
-                { "radius", sphere.GetRadius() },
-                { "mass", mass },
-                { "restitution", rest },
-                { "contactMaterial", contactMaterial },
-                { "inertia", Vec3Json( ri ) },
-                { "fixed", fixed },
-            } );
-            if ( sleeping && !fixed )
+            if ( entity.asset.rootObjectId.value != entity.sceneObjectId.value ||
+                 entity.asset.libraryToken[0] == '\0' || entity.asset.assetName[0] == '\0' ||
+                 entity.asset.instanceName[0] == '\0' || entity.asset.partName[0] == '\0' )
             {
-                scene["objects"].back()["sleeping"] = true;
+                SB_FATAL( "Scene/SceneSnapshotWriter", "Invalid asset-root affiliation at save. row=%d", i );
             }
-        }
-        else if ( std::holds_alternative<BoundingBox>( shape ) )
-        {
-            const BoundingBox& box = std::get<BoundingBox>( shape );
-            const Vector3& halfExtents = box.GetHalfExtents();
-            scene["objects"].push_back( {
-                { "type", "boxState" },
-                { "name", name },
-                { "position", Vec3Json( pos ) },
-                { "velocity", Vec3Json( vel ) },
-                { "angularVelocity", Vec3Json( avel ) },
-                { "orientation", OrientationJson( body->orientation ) },
-                { "halfExtents", Vec3Json( halfExtents ) },
-                { "mass", mass },
-                { "restitution", rest },
-                { "contactMaterial", contactMaterial },
-                { "inertia", Vec3Json( ri ) },
-                { "fixed", fixed },
-            } );
-            if ( sleeping && !fixed )
+
+            std::vector<int> partRows;
+            for ( int candidate = 0; candidate < sceneView.entities.Count(); ++candidate )
             {
-                scene["objects"].back()["sleeping"] = true;
+                const SceneEntityRecord& partEntity = sceneView.entities.At( candidate );
+                if ( partEntity.asset.isAssetBacked &&
+                     partEntity.asset.rootObjectId.value == entity.asset.rootObjectId.value )
+                {
+                    if ( !SameAssetInstance( entity.asset, partEntity.asset ) )
+                    {
+                        SB_FATAL( "Scene/SceneSnapshotWriter",
+                                  "Asset instance affiliation disagrees across parts. root_id=%u row=%d",
+                                  entity.asset.rootObjectId.value,
+                                  candidate );
+                    }
+                    partRows.push_back( candidate );
+                }
             }
-        }
-        else if ( std::holds_alternative<ConvexHullShape>( shape ) )
-        {
-            const ConvexHullShape& hull = std::get<ConvexHullShape>( shape );
-            const EditorHullAsset hullAsset = EditorHullAssetFromToken( hull.GetName() );
-            const char* hullToken =
-                hullAsset == EditorHullAsset::UNKNOWN ? hull.GetName() : EditorHullAssetToken( hullAsset );
-            Json hullState = {
-                { "type", "convexHullState" },
-                { "name", name },
-                { "hull", hullToken },
-                { "position", Vec3Json( pos ) },
-                { "velocity", Vec3Json( vel ) },
-                { "angularVelocity", Vec3Json( avel ) },
-                { "orientation", OrientationJson( body->orientation ) },
-                { "mass", mass },
-                { "restitution", rest },
-                { "contactMaterial", contactMaterial },
-                { "inertia", Vec3Json( ri ) },
-                { "fixed", fixed },
+            std::sort(
+                partRows.begin(),
+                partRows.end(),
+                [&]( int a, int b )
+                { return sceneView.entities.At( a ).asset.partIndex < sceneView.entities.At( b ).asset.partIndex; } );
+            if ( partRows.empty() )
+            {
+                SB_FATAL( "Scene/SceneSnapshotWriter",
+                          "Asset root has no parts. root_id=%u",
+                          entity.sceneObjectId.value );
+            }
+
+            Json instance = {
+                { "asset", entity.asset.assetName },
+                { "name", entity.asset.instanceName },
+                { "position", Vec3Json( SkullbonezCore::Math::Vector::ZERO_VECTOR ) },
+                { "parts", Json::array() },
             };
-            if ( body->releasesFromFixedOnContact )
+            for ( std::size_t partOrdinal = 0; partOrdinal < partRows.size(); ++partOrdinal )
             {
-                hullState["contactReleaseOnImpact"] = true;
-                hullState["contactReleaseImpulseThreshold"] = body->contactReleaseImpulseThreshold;
+                const int partRow = partRows[partOrdinal];
+                const SceneEntityRecord& partEntity = sceneView.entities.At( partRow );
+                if ( partEntity.asset.partIndex != partOrdinal ||
+                     emittedAssetRows[static_cast<std::size_t>( partRow )] )
+                {
+                    SB_FATAL( "Scene/SceneSnapshotWriter",
+                              "Asset part order is not unique and contiguous. root_id=%u expected=%zu actual=%u",
+                              entity.sceneObjectId.value,
+                              partOrdinal,
+                              partEntity.asset.partIndex );
+                }
+                Json partState = BuildLiveStateJson( sceneView, partRow );
+                partState["name"] = partEntity.asset.partName;
+                partState["objectName"] = partEntity.displayName;
+                // Why: ConvexHullShape retains the baked hull's diagnostic
+                // name, not the authored library token/path. Asset affiliation
+                // proves this row still belongs to the recipe, so the recipe's
+                // exact hull field remains authoritative on reparse.
+                if ( partState["type"] == "convexHullState" )
+                {
+                    partState.erase( "hull" );
+                }
+                instance["parts"].push_back( std::move( partState ) );
+                emittedAssetRows[static_cast<std::size_t>( partRow )] = true;
             }
-            if ( sleeping && !fixed )
+            scene["assetInstances"].push_back( std::move( instance ) );
+
+            const bool libraryAlreadyEmitted =
+                std::any_of( scene["assetLibraries"].begin(),
+                             scene["assetLibraries"].end(),
+                             [&]( const Json& value )
+                             { return value.is_string() && value.get<std::string>() == entity.asset.libraryToken; } );
+            if ( !libraryAlreadyEmitted )
             {
-                hullState["sleeping"] = true;
+                scene["assetLibraries"].push_back( entity.asset.libraryToken );
             }
-            AddSceneObjectGroupJson( hullState, collection, entities, i );
-            scene["objects"].push_back( hullState );
+        }
+        else if ( !entity.asset.isAssetBacked )
+        {
+            scene["objects"].push_back( BuildLiveStateJson( sceneView, i ) );
         }
 
-        const SkullbonezCore::Rendering::RenderMaterial& material = entities.At( i ).renderMaterial;
-        if ( collection.GroupKindAt( i ) != GameModelCollectionKind::SimpleRagdoll &&
-             ShouldSaveRenderMaterial( material ) )
+        const auto& material = entity.renderMaterial;
+        if ( behaviorGroup.kind != GameModelCollectionKind::SimpleRagdoll &&
+             ( entity.asset.isAssetBacked || ShouldSaveRenderMaterial( material ) ) )
         {
-            objectMaterials.push_back( RenderMaterialJson( name, material ) );
+            objectMaterials.push_back( RenderMaterialJson( entity.displayName, material ) );
         }
+    }
+
+    for ( int i = 0; i < sceneView.entities.Count(); ++i )
+    {
+        if ( sceneView.entities.At( i ).asset.isAssetBacked && !emittedAssetRows[static_cast<std::size_t>( i )] )
+        {
+            SB_FATAL( "Scene/SceneSnapshotWriter", "Asset-backed entity was not emitted. row=%d", i );
+        }
+    }
+    if ( scene["assetLibraries"].empty() )
+    {
+        scene.erase( "assetLibraries" );
+        scene.erase( "assetInstances" );
     }
 
     if ( !objectMaterials.empty() )
@@ -390,22 +484,28 @@ bool SceneSnapshotWriter::Save( GameModelCollection& collection,
         scene["objectMaterials"] = objectMaterials;
     }
 
-    const std::vector<SkullbonezCore::Physics::PointJointConstraint>& pointJoints =
-        collection.GetPointJointConstraints();
-    if ( !pointJoints.empty() )
+    if ( sceneView.pointJointCount < 0 || ( sceneView.pointJointCount > 0 && !sceneView.pointJoints ) )
+    {
+        SB_FATAL( "Scene/SceneSnapshotWriter", "Invalid point-joint save view." );
+    }
+    if ( sceneView.pointJointCount > 0 )
     {
         scene["ragdollJoints"] = Json::array();
-        for ( const SkullbonezCore::Physics::PointJointConstraint& joint : pointJoints )
+        for ( int jointIndex = 0; jointIndex < sceneView.pointJointCount; ++jointIndex )
         {
-            const int bodyAIndex = joint.BodyAIndex( bodyStore );
-            const int bodyBIndex = joint.BodyBIndex( bodyStore );
-            if ( bodyAIndex < 0 || bodyBIndex < 0 || bodyAIndex >= entities.Count() || bodyBIndex >= entities.Count() )
+            const auto& joint = sceneView.pointJoints[jointIndex];
+            const int bodyAIndex = joint.BodyAIndex( sceneView.bodies );
+            const int bodyBIndex = joint.BodyBIndex( sceneView.bodies );
+            if ( bodyAIndex < 0 || bodyBIndex < 0 || bodyAIndex >= sceneView.entities.Count() ||
+                 bodyBIndex >= sceneView.entities.Count() )
             {
-                continue;
+                SB_FATAL( "Scene/SceneSnapshotWriter",
+                          "Point joint references a missing scene body. joint=%d",
+                          jointIndex );
             }
             Json jointJson = {
-                { "bodyA", entities.At( bodyAIndex ).displayName },
-                { "bodyB", entities.At( bodyBIndex ).displayName },
+                { "bodyA", sceneView.entities.At( bodyAIndex ).displayName },
+                { "bodyB", sceneView.entities.At( bodyBIndex ).displayName },
                 { "localAnchorA", Vec3Json( joint.localAnchorA ) },
                 { "localAnchorB", Vec3Json( joint.localAnchorB ) },
                 { "slack", joint.slack },
@@ -421,6 +521,22 @@ bool SceneSnapshotWriter::Save( GameModelCollection& collection,
         }
     }
 
-    output << scene.dump( 2 ) << '\n';
-    return output.good();
+    // Why: validate and serialize every owner row before opening the target so
+    // a fatal topology finding cannot truncate the previous editable scene.
+    const std::string serializedScene = scene.dump( 2 );
+    std::ofstream output;
+    if ( !request.path || request.path[0] == '\0' || !RuntimeFileWriter::OpenTextFile( request.path, output ) )
+    {
+        return SbResult::Failure( "Scene/SceneSnapshotWriter",
+                                  "Failed to open scene snapshot path '%s' for writing.",
+                                  request.path ? request.path : "" );
+    }
+    output << serializedScene << '\n';
+    if ( !output.good() )
+    {
+        return SbResult::Failure( "Scene/SceneSnapshotWriter",
+                                  "Failed while writing scene snapshot '%s'.",
+                                  request.path );
+    }
+    return SbResult::Success();
 }

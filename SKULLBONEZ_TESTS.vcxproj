@@ -195,6 +195,7 @@
     <ClCompile Include="SkullbonezTests\TestObjectContactManifold.cpp" />
     <ClCompile Include="SkullbonezTests\TestOwnerRequestQueues.cpp" />
     <ClCompile Include="SkullbonezTests\TestSceneEntityStore.cpp" />
+    <ClCompile Include="SkullbonezTests\TestSceneSnapshotWriter.cpp" />
     <ClCompile Include="SkullbonezTests\TestPersistentContactSolver.cpp" />
     <ClCompile Include="SkullbonezTests\TestPhysicsHandles.cpp" />
     <ClCompile Include="SkullbonezTests\TestQuaternion.cpp" />
@@ -233,6 +234,7 @@
     <ClCompile Include="SkullbonezSource\Rendering\RenderInstanceStore.cpp" />
     <ClCompile Include="SkullbonezSource\Scene\TestScene.cpp" />
     <ClCompile Include="SkullbonezSource\Scene\TestSceneParser.cpp" />
+    <ClCompile Include="SkullbonezSource\Scene\SceneSnapshotWriter.cpp" />
     <ClCompile Include="SkullbonezSource\World\Terrain.cpp" />
   </ItemGroup>
   <ItemGroup>

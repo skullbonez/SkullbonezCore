@@ -2284,6 +2284,7 @@ void Run::DispatchPostUIKeyboardActions()
     }
 
     const RunInternal::EditorSaveHotkeyContext editorSaveHotkeyContext{ m_cGameModelCollection,
+                                                                        m_sceneController.Entities(),
                                                                         SceneState(),
                                                                         m_cWorldEnvironment,
                                                                         *m_systems.cameras,

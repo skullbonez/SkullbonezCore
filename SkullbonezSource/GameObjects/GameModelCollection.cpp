@@ -62,7 +62,6 @@ Related:
 #include "../Physics/PhysicsBodyStore.h"
 #include "../Rendering/GameModelRenderer.h"
 #include "../Rendering/RenderInstanceStore.h"
-#include "../Scene/SceneSnapshotWriter.h"
 
 #include <algorithm>
 #include <cassert>
@@ -261,13 +260,19 @@ uint64_t GameModelCollection::SceneObjectGroupStore::CapacityBytes() const
 }
 
 
-GameModelCollection::SceneObjectGroupRecord GameModelCollection::SceneObjectGroupStore::RecordAt( int modelIndex ) const
+SceneObjectGroupRecord GameModelCollection::SceneObjectGroupStore::RecordAt( int modelIndex ) const
 {
     if ( modelIndex < 0 || modelIndex >= static_cast<int>( m_records.size() ) )
     {
         return SceneObjectGroupRecord{};
     }
     return m_records[static_cast<std::size_t>( modelIndex )];
+}
+
+
+const std::vector<SceneObjectGroupRecord>& GameModelCollection::SceneObjectGroupStore::Records() const
+{
+    return m_records;
 }
 
 
@@ -315,7 +320,7 @@ SbResult GameModelCollection::BuildSceneObjectGroupForAppend( int newModelIndex,
 }
 
 
-GameModelCollection::SceneObjectGroupRecord GameModelCollection::GroupRecordAt( int modelIndex ) const
+SceneObjectGroupRecord GameModelCollection::GroupRecordAt( int modelIndex ) const
 {
     return m_sceneObjectGroupStore.RecordAt( modelIndex );
 }
@@ -796,42 +801,6 @@ void GameModelCollection::ResetRenderResources()
 }
 
 
-bool GameModelCollection::SaveSceneSnapshot( const char* path,
-                                             bool physicsOn,
-                                             bool textOn,
-                                             Environment::WorldEnvironment& worldEnv,
-                                             const Vector3& camEye,
-                                             const Vector3& camView,
-                                             const Vector3& camUp,
-                                             bool editableScene,
-                                             bool fixedStep,
-                                             bool waterHidden,
-                                             bool terrainHidden,
-                                             bool hasFlatSlope,
-                                             float flatBaseY,
-                                             float flatSlopeX,
-                                             float flatSlopeZ )
-{
-    return SceneSnapshotWriter::Save( *this,
-                                      SceneEntities(),
-                                      path,
-                                      physicsOn,
-                                      textOn,
-                                      worldEnv,
-                                      camEye,
-                                      camView,
-                                      camUp,
-                                      editableScene,
-                                      fixedStep,
-                                      waterHidden,
-                                      terrainHidden,
-                                      hasFlatSlope,
-                                      flatBaseY,
-                                      flatSlopeX,
-                                      flatSlopeZ );
-}
-
-
 bool GameModelCollection::TryGetModelPosition( int index, Vector3& outPosition ) const
 {
     if ( index < 0 || index >= SceneEntityCount() )
@@ -896,6 +865,12 @@ int GameModelCollection::GroupRootModelIndexAt( int modelIndex ) const
 int GameModelCollection::GroupPartIndexAt( int modelIndex ) const
 {
     return GroupRecordAt( modelIndex ).partIndex;
+}
+
+
+const std::vector<SceneObjectGroupRecord>& GameModelCollection::SceneObjectGroups() const
+{
+    return m_sceneObjectGroupStore.Records();
 }
 
 

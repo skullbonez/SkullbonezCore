@@ -160,6 +160,7 @@ enum class SceneAssetPartSource : uint8_t
     BallState = 0,
     BoxState,
     ConvexHull,
+    ConvexHullState,                                          // Snapshot part whose pose/inertia are already live body state.
 };
 
 struct SceneAssetPartRef

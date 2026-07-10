@@ -87,6 +87,9 @@
     <ClCompile Include="SkullbonezTests\TestSceneEntityStore.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezTests\TestSceneSnapshotWriter.cpp">
+      <Filter>Source Files\Tests</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezTests\TestApplicationExitState.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
@@ -202,6 +205,9 @@
       <Filter>Source Files\Scene</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Scene\TestSceneParser.cpp">
+      <Filter>Source Files\Scene</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Scene\SceneSnapshotWriter.cpp">
       <Filter>Source Files\Scene</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\World\Terrain.cpp">

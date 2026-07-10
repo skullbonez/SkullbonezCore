@@ -35,6 +35,7 @@ Related:
 #include "Allocation/RuntimeAllocationTracker.h"
 #include "Allocation/RuntimeReserveAllocator.h"
 #include "Scene/SceneRuntimeLoad.h"
+#include "../Scene/SceneSnapshotWriter.h"
 #include "../Core/FatalError.h"
 #include "../Core/Log.h"
 #include "../Physics/PhysicsTimestep.h"
@@ -48,6 +49,9 @@ using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Math::Orientation;
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Physics;
+using SkullbonezCore::GameObjects::SceneSaveRequest;
+using SkullbonezCore::GameObjects::SceneSaveView;
+using SkullbonezCore::GameObjects::SceneSnapshotWriter;
 using namespace SkullbonezCore::Basics::RunInternal;
 using namespace SkullbonezCore::Basics::ReplayOverlay;
 namespace RuntimeAllocation = SkullbonezCore::Runtime::Allocation;
@@ -1115,24 +1119,39 @@ SbResult Run::RunSceneLoadOnly( const char* snapshotOutPath )
             m_sceneController.PathAt( 0 ).empty() ? "generated" : m_sceneController.PathAt( 0 ).c_str() );
     if ( writeSnapshot )
     {
-        const bool saved = m_cGameModelCollection.SaveSceneSnapshot( snapshotOutPath,
-                                                                     SceneState().isScenePhysics,
-                                                                     SceneState().isSceneText,
-                                                                     m_cWorldEnvironment,
-                                                                     m_systems.cameras->GetCameraTranslation(),
-                                                                     m_systems.cameras->GetCameraView(),
-                                                                     m_systems.cameras->GetCameraUp(),
-                                                                     SceneState().isEditableScene,
-                                                                     SceneState().isFixedStep,
-                                                                     m_debug.isWaterHidden,
-                                                                     m_debug.isTerrainHidden,
-                                                                     SceneState().hasFlatSlope,
-                                                                     SceneState().flatBaseY,
-                                                                     SceneState().flatSlopeX,
-                                                                     SceneState().flatSlopeZ );
-        if ( !saved )
+        // Lifetime: scene-load-only borrows owner arrays only until the
+        // synchronous snapshot write completes.
+        const auto& groups = m_cGameModelCollection.SceneObjectGroups();
+        const auto& joints = m_cGameModelCollection.GetPointJointConstraints();
+        const SceneSaveView saveView{ m_sceneController.Entities(),
+                                      m_cGameModelCollection.BodyStore(),
+                                      m_cGameModelCollection.Colliders(),
+                                      groups.data(),
+                                      static_cast<int>( groups.size() ),
+                                      joints.data(),
+                                      static_cast<int>( joints.size() ),
+                                      m_cWorldEnvironment.GetGravity(),
+                                      m_cWorldEnvironment.GetFluidSurfaceHeight(),
+                                      m_cWorldEnvironment.GetFluidDensity(),
+                                      m_cWorldEnvironment.GetMutualGravitySettings() };
+        const SceneSaveRequest saveRequest{ snapshotOutPath,
+                                            m_systems.cameras->GetCameraTranslation(),
+                                            m_systems.cameras->GetCameraView(),
+                                            m_systems.cameras->GetCameraUp(),
+                                            SceneState().isScenePhysics,
+                                            SceneState().isSceneText,
+                                            SceneState().isEditableScene,
+                                            SceneState().isFixedStep,
+                                            m_debug.isWaterHidden,
+                                            m_debug.isTerrainHidden,
+                                            SceneState().hasFlatSlope,
+                                            SceneState().flatBaseY,
+                                            SceneState().flatSlopeX,
+                                            SceneState().flatSlopeZ };
+        const SbResult saveResult = SceneSnapshotWriter::Save( saveView, saveRequest );
+        if ( !saveResult.ok )
         {
-            return SbResult::Failure( "Runtime/SceneLoadOnly", "Failed to write scene snapshot." );
+            return saveResult;
         }
         printf( "[scene-load-only] Snapshot written: %s\n", snapshotOutPath );
     }

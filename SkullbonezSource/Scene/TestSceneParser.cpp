@@ -1694,7 +1694,16 @@ class TestSceneParser
                                   const AssetInstanceExpansion& instance,
                                   const Json* authoredPartIdentity )
     {
-        CheckGeneratedSceneName( objectName, path, "asset instance name" );
+        std::string effectiveObjectName = objectName;
+        const Json* liveStateType = authoredPartIdentity ? FindMember( *authoredPartIdentity, "type" ) : nullptr;
+        if ( authoredPartIdentity )
+        {
+            if ( const Json* authoredObjectName = FindMember( *authoredPartIdentity, "objectName" ) )
+            {
+                effectiveObjectName = ReadString( *authoredObjectName, path, "assetInstance.parts[].objectName" );
+            }
+        }
+        CheckGeneratedSceneName( effectiveObjectName, path, "asset instance part objectName" );
         if ( ParserFailed() )
         {
             return;
@@ -1802,7 +1811,7 @@ class TestSceneParser
         const bool hasOrientation = instance.HasOverride( SCENE_ASSET_OVERRIDE_EULER ) || hasPartEuler;
 
         Json object = Json::object();
-        object["name"] = objectName;
+        object["name"] = effectiveObjectName;
         object["position"] = Vector3ToJson( worldPosition );
         object["fixed"] = fixed;
         object["contactMaterial"] = ReadInferredContactMaterial( asset, path, "asset.contactMaterial" );
@@ -1818,9 +1827,66 @@ class TestSceneParser
             }
         }
 
+        // Concept: schema-v2 saved asset parts may carry a full live-state
+        // packet. Identity-only part records still expand the recipe exactly as
+        // before, while a typed packet replaces every independently simulated
+        // body/collider field without reapplying the stale instance transform.
+        if ( liveStateType )
+        {
+            const std::string expectedStateType = primitiveType == "sphere" ? "ballState"
+                                                  : primitiveType == "box"  ? "boxState"
+                                                                            : "convexHullState";
+            const std::string authoredStateType = ReadString( *liveStateType, path, "assetInstance.parts[].type" );
+            if ( ParserFailed() )
+            {
+                return;
+            }
+            if ( authoredStateType != expectedStateType )
+            {
+                Fail( path,
+                      "assetInstance.parts[] live type mismatch: expected '" + expectedStateType + "', got '" +
+                          authoredStateType + "'" );
+                return;
+            }
+        }
+
+        const auto applyLiveState = [&]()
+        {
+            if ( !liveStateType )
+            {
+                return;
+            }
+            static constexpr const char* kLiveStateFields[] = {
+                "position",
+                "velocity",
+                "angularVelocity",
+                "orientation",
+                "radius",
+                "halfExtents",
+                "hull",
+                "mass",
+                "restitution",
+                "contactMaterial",
+                "inertia",
+                "fixed",
+                "sleeping",
+                "contactReleaseOnImpact",
+                "contactReleaseImpulseThreshold",
+                "objectGroup",
+            };
+            for ( const char* field : kLiveStateFields )
+            {
+                if ( const Json* value = FindMember( *authoredPartIdentity, field ) )
+                {
+                    object[field] = *value;
+                }
+            }
+        };
+
         if ( primitiveType == "convexHull" )
         {
-            const uint32_t sourceIndex = static_cast<uint32_t>( m_scene.m_convexHulls.size() );
+            const uint32_t sourceIndex = static_cast<uint32_t>( liveStateType ? m_scene.m_convexHullStates.size()
+                                                                              : m_scene.m_convexHulls.size() );
             object["hull"] = ReadString( RequireMember( asset, path, "asset", "hull" ), path, "asset.hull" );
             if ( ParserFailed() )
             {
@@ -1866,22 +1932,47 @@ class TestSceneParser
             {
                 object["angularVelocity"] = Vector3ToJson( angularVelocity );
             }
+            applyLiveState();
 
-            ApplyConvexHull( object, path, false, hasOrientation ? &worldOrientation : nullptr );
-            ApplyAssetMaterialForTarget( asset, path, objectName );
+            if ( liveStateType )
+            {
+                ApplyConvexHullState( object, path );
+            }
+            else
+            {
+                ApplyConvexHull( object, path, false, hasOrientation ? &worldOrientation : nullptr );
+            }
+            ApplyAssetMaterialForTarget( asset, path, effectiveObjectName );
             if ( ParserFailed() )
             {
                 return;
             }
-            RecordAssetPart( path,
-                             partName,
-                             objectName,
-                             m_scene.m_convexHulls[sourceIndex].sceneObjectId,
-                             partIndex,
-                             SceneAssetPartSource::ConvexHull,
-                             sourceIndex,
-                             worldPosition,
-                             worldOrientation );
+            if ( liveStateType )
+            {
+                const SceneConvexHullState& state = m_scene.m_convexHullStates[sourceIndex];
+                RecordAssetPart(
+                    path,
+                    partName,
+                    effectiveObjectName,
+                    state.sceneObjectId,
+                    partIndex,
+                    SceneAssetPartSource::ConvexHullState,
+                    sourceIndex,
+                    Math::Vector::Vector3( state.posX, state.posY, state.posZ ),
+                    Math::Orientation::Quaternion( state.orientX, state.orientY, state.orientZ, state.orientW ) );
+            }
+            else
+            {
+                RecordAssetPart( path,
+                                 partName,
+                                 effectiveObjectName,
+                                 m_scene.m_convexHulls[sourceIndex].sceneObjectId,
+                                 partIndex,
+                                 SceneAssetPartSource::ConvexHull,
+                                 sourceIndex,
+                                 worldPosition,
+                                 worldOrientation );
+            }
             return;
         }
 
@@ -1916,21 +2007,24 @@ class TestSceneParser
             const float mass = object["mass"].get<float>();
             object["halfExtents"] = Vector3ToJson( halfExtents );
             object["inertia"] = Vector3ToJson( Physics::CalculateBoxInertiaForHalfExtents( halfExtents, mass ) );
+            applyLiveState();
             ApplyBoxState( object, path );
-            ApplyAssetMaterialForTarget( asset, path, objectName );
+            ApplyAssetMaterialForTarget( asset, path, effectiveObjectName );
             if ( ParserFailed() )
             {
                 return;
             }
-            RecordAssetPart( path,
-                             partName,
-                             objectName,
-                             m_scene.m_boxStates[sourceIndex].sceneObjectId,
-                             partIndex,
-                             SceneAssetPartSource::BoxState,
-                             sourceIndex,
-                             worldPosition,
-                             worldOrientation );
+            const SceneBoxState& state = m_scene.m_boxStates[sourceIndex];
+            RecordAssetPart(
+                path,
+                partName,
+                effectiveObjectName,
+                state.sceneObjectId,
+                partIndex,
+                SceneAssetPartSource::BoxState,
+                sourceIndex,
+                Math::Vector::Vector3( state.posX, state.posY, state.posZ ),
+                Math::Orientation::Quaternion( state.orientX, state.orientY, state.orientZ, state.orientW ) );
             return;
         }
 
@@ -1945,21 +2039,24 @@ class TestSceneParser
             const float mass = object["mass"].get<float>();
             object["radius"] = radius;
             object["inertia"] = Vector3ToJson( Physics::CalculateSphereInertia( radius, mass ) );
+            applyLiveState();
             ApplyBallState( object, path );
-            ApplyAssetMaterialForTarget( asset, path, objectName );
+            ApplyAssetMaterialForTarget( asset, path, effectiveObjectName );
             if ( ParserFailed() )
             {
                 return;
             }
-            RecordAssetPart( path,
-                             partName,
-                             objectName,
-                             m_scene.m_ballStates[sourceIndex].sceneObjectId,
-                             partIndex,
-                             SceneAssetPartSource::BallState,
-                             sourceIndex,
-                             worldPosition,
-                             worldOrientation );
+            const SceneBallState& state = m_scene.m_ballStates[sourceIndex];
+            RecordAssetPart(
+                path,
+                partName,
+                effectiveObjectName,
+                state.sceneObjectId,
+                partIndex,
+                SceneAssetPartSource::BallState,
+                sourceIndex,
+                Math::Vector::Vector3( state.posX, state.posY, state.posZ ),
+                Math::Orientation::Quaternion( state.orientX, state.orientY, state.orientZ, state.orientW ) );
             return;
         }
 

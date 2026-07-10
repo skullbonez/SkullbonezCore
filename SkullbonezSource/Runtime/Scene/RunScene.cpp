@@ -48,6 +48,7 @@ Related:
 #include "../../Rendering/IRenderDeviceLifecycle.h"
 #include "../../Rendering/IRenderRayTracing.h"
 #include "../../Rendering/IRenderResourceFactory.h"
+#include "../../Scene/SceneSnapshotWriter.h"
 
 #pragma warning( push, 0 )
 #include "../../../ThirdPtySource/nlohmann/json.hpp"
@@ -59,6 +60,9 @@ using namespace SkullbonezCore::Math::Orientation;
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Physics;
 using SkullbonezCore::Assets::ResolveEditorHullAssetPath;
+using SkullbonezCore::GameObjects::SceneSaveRequest;
+using SkullbonezCore::GameObjects::SceneSaveView;
+using SkullbonezCore::GameObjects::SceneSnapshotWriter;
 using namespace SkullbonezCore::Basics::RunInternal;
 namespace RuntimeAllocation = SkullbonezCore::Runtime::Allocation;
 
@@ -418,29 +422,45 @@ SbResult UseFlatSlopeTerrain( RunSubsystemState& systems,
     return SbResult::Success();
 }
 
-bool SaveCurrentEditableSceneSnapshot( const std::string& scenePath,
-                                       const RunSceneState& sceneState,
-                                       SkullbonezCore::GameObjects::GameModelCollection& modelCollection,
-                                       WorldEnvironment& world,
-                                       CameraCollection& cameras,
-                                       bool waterHidden,
-                                       bool terrainHidden )
+SbResult SaveCurrentEditableSceneSnapshot( const std::string& scenePath,
+                                           const RunSceneState& sceneState,
+                                           const SceneEntityStore& entities,
+                                           SkullbonezCore::GameObjects::GameModelCollection& modelCollection,
+                                           WorldEnvironment& world,
+                                           CameraCollection& cameras,
+                                           bool waterHidden,
+                                           bool terrainHidden )
 {
-    return modelCollection.SaveSceneSnapshot( scenePath.c_str(),
-                                              sceneState.isScenePhysics,
-                                              sceneState.isSceneText,
-                                              world,
-                                              cameras.GetCameraTranslation(),
-                                              cameras.GetCameraView(),
-                                              cameras.GetCameraUp(),
-                                              true,
-                                              sceneState.isFixedStep,
-                                              waterHidden,
-                                              terrainHidden,
-                                              sceneState.hasFlatSlope,
-                                              sceneState.flatBaseY,
-                                              sceneState.flatSlopeX,
-                                              sceneState.flatSlopeZ );
+    // Lifetime: editable persistence borrows the active scene's owner arrays
+    // only for the synchronous write; scene reload may replace them afterward.
+    const auto& groups = modelCollection.SceneObjectGroups();
+    const auto& joints = modelCollection.GetPointJointConstraints();
+    const SceneSaveView saveView{ entities,
+                                  modelCollection.BodyStore(),
+                                  modelCollection.Colliders(),
+                                  groups.data(),
+                                  static_cast<int>( groups.size() ),
+                                  joints.data(),
+                                  static_cast<int>( joints.size() ),
+                                  world.GetGravity(),
+                                  world.GetFluidSurfaceHeight(),
+                                  world.GetFluidDensity(),
+                                  world.GetMutualGravitySettings() };
+    const SceneSaveRequest request{ scenePath.c_str(),
+                                    cameras.GetCameraTranslation(),
+                                    cameras.GetCameraView(),
+                                    cameras.GetCameraUp(),
+                                    sceneState.isScenePhysics,
+                                    sceneState.isSceneText,
+                                    true,
+                                    sceneState.isFixedStep,
+                                    waterHidden,
+                                    terrainHidden,
+                                    sceneState.hasFlatSlope,
+                                    sceneState.flatBaseY,
+                                    sceneState.flatSlopeX,
+                                    sceneState.flatSlopeZ };
+    return SceneSnapshotWriter::Save( saveView, request );
 }
 
 void ApplyTornadoDefaultsForActiveScene( RunRuntimeSettings& runtimeSettings,
@@ -1158,13 +1178,19 @@ bool Run::SaveCurrentSceneDefaults()
     }
     if ( SceneState().isEditableScene )
     {
-        return SaveCurrentEditableSceneSnapshot( *scenePath,
-                                                 SceneState(),
-                                                 m_cGameModelCollection,
-                                                 m_cWorldEnvironment,
-                                                 *m_systems.cameras,
-                                                 m_debug.isWaterHidden,
-                                                 m_debug.isTerrainHidden );
+        const SbResult saveResult = SaveCurrentEditableSceneSnapshot( *scenePath,
+                                                                      SceneState(),
+                                                                      m_sceneController.Entities(),
+                                                                      m_cGameModelCollection,
+                                                                      m_cWorldEnvironment,
+                                                                      *m_systems.cameras,
+                                                                      m_debug.isWaterHidden,
+                                                                      m_debug.isTerrainHidden );
+        if ( !saveResult.ok )
+        {
+            fprintf( stderr, "[%s] %s\n", saveResult.error.owner, saveResult.error.message );
+        }
+        return saveResult.ok;
     }
 
     std::ifstream input( *scenePath );

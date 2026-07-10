@@ -160,9 +160,34 @@ no longer an open question.
   warnings, zero DX12 InfoQueue errors, matching screenshots, atomic creation
   smoke, and byte-exact physics, 49.7s). The touched-source comment audit
   inspected 15/15 files with 0 deferred.
-- [ ] C4. Save through borrowed `SceneSaveView`/`SceneSaveRequest` owner data,
+- [x] C4. Save through borrowed `SceneSaveView`/`SceneSaveRequest` owner data,
   emit version-2 `assetInstances[]` per-part live state, and delete silent row
   skipping plus the collection save facade.
+  `SceneSnapshotWriter` now borrows explicit entity/body/collider/group/joint
+  owner views plus scalar world/camera request values and returns `SbResult` for
+  file failures. It resolves rows through stable entity/body/collider identity;
+  count, identity, asset-part topology, behavior-root, or joint disagreement is
+  fatal instead of skipped. The collection facade is deleted and all three
+  callers assemble synchronous borrowed views. Schema v2 groups asset-backed
+  rows by stable asset root, emits exact library/asset/instance/ordered-part
+  affiliation, and stores authoritative per-part pose, velocity, angular
+  velocity, sleep/fixed state, mass, inertia, restitution, contact material,
+  shape values, release intent, display name, and explicit id. Asset convex
+  hulls retain the recipe's authored hull path because live shapes expose only
+  a diagnostic name. The parser accepts identity-only v2 parts or typed live
+  state, routes saved hull parts through `SceneConvexHullState`, and preserves
+  affiliation during recreation. The new no-`Run` writer/parser test covers a
+  mixed box/sphere/hull asset, sparse ids, explicit false overrides, a direct
+  non-asset row, render materials, and contact-release intent (118 doctest
+  cases/2,159 assertions overall). A waited production
+  `building_assets_showcase` save/reload probe passed with a 466,775-byte
+  snapshot. Allocation policy scanned 306 files with 0 allowlist errors.
+  `tools\validate_all_cpu_tests.bat` passed all four CPU suites in 18.1s;
+  `tools\validate_full.bat` passed formatting/project metadata, zero-warning
+  Profile/Debug builds, the CPU umbrella, zero DX12 InfoQueue errors with
+  matching screenshots, atomic creation smoke, and the 20,001-line byte-exact
+  physics baseline in 87.2s. The touched-source comment audit inspected 13/13
+  files with 0 deferred.
 - [ ] C5. Replace `rootModelIndex` behavior grouping with stable root object id.
   Keep asset affiliation and behavior group as separate metadata dimensions.
 

@@ -32,6 +32,7 @@ Related:
 #include "../Tools/RuntimeTools.h"
 #include "../../Core/Common.h"
 #include "../../GameObjects/GameModelCollection.h"
+#include "../../Scene/SceneSnapshotWriter.h"
 #include "../../UI/UICommands.h"
 #include "../../UI/UITabEditor.h"
 #include "../../World/WorldEnvironment.h"
@@ -39,6 +40,9 @@ Related:
 #include <algorithm>
 #include <utility>
 
+using SkullbonezCore::GameObjects::SceneSaveRequest;
+using SkullbonezCore::GameObjects::SceneSaveView;
+using SkullbonezCore::GameObjects::SceneSnapshotWriter;
 using SkullbonezCore::Math::Vector::Vector3;
 
 namespace SkullbonezCore
@@ -435,13 +439,32 @@ void HandleEditorSaveHotkey( EditorSaveHotkeyContext context, RuntimeInputAction
                                                   sSnapshotSeq,
                                                   100 ) )
         {
-            context.models.SaveSceneSnapshot( path,
-                                              context.scene.isScenePhysics,
-                                              context.scene.isSceneText,
-                                              context.world,
-                                              context.cameras.GetCameraTranslation(),
-                                              context.cameras.GetCameraView(),
-                                              context.cameras.GetCameraUp() );
+            // Lifetime: the save view borrows cold owner arrays only for this
+            // synchronous file write; editor input retains none of the rows.
+            const auto& groups = context.models.SceneObjectGroups();
+            const auto& joints = context.models.GetPointJointConstraints();
+            const SceneSaveView saveView{ context.entities,
+                                          context.models.BodyStore(),
+                                          context.models.Colliders(),
+                                          groups.data(),
+                                          static_cast<int>( groups.size() ),
+                                          joints.data(),
+                                          static_cast<int>( joints.size() ),
+                                          context.world.GetGravity(),
+                                          context.world.GetFluidSurfaceHeight(),
+                                          context.world.GetFluidDensity(),
+                                          context.world.GetMutualGravitySettings() };
+            const SceneSaveRequest request{ path,
+                                            context.cameras.GetCameraTranslation(),
+                                            context.cameras.GetCameraView(),
+                                            context.cameras.GetCameraUp(),
+                                            context.scene.isScenePhysics,
+                                            context.scene.isSceneText };
+            const SbResult saveResult = SceneSnapshotWriter::Save( saveView, request );
+            if ( !saveResult.ok )
+            {
+                fprintf( stderr, "[%s] %s\n", saveResult.error.owner, saveResult.error.message );
+            }
         }
         return;
     }
