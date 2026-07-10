@@ -10,9 +10,9 @@ reports, and git history.
 | Field | Value |
 |---|---|
 | Branch | `engine-cleanup-10th-july`, tracking `origin/engine-cleanup-10th-july` |
-| Current pushed baseline | `69ee7d1e refactor: move pointer presentation mutation into router` |
+| Current pushed baseline | `e88eac18 refactor: move launcher pointer routing into tools` |
 | Current objective | Continue B1f by deleting Run pointer/camera composition, then TakeInput |
-| Last broad local gate | `tools\validate_full.bat` passed RuntimeTools-owned launcher pointer routing with 129/129 doctest cases, 2,755 assertions, zero-warning builds, DX12 with zero InfoQueue errors/matching screenshots, standalone physics smoke, and 20,001-line byte-exact physics in 52.9s |
+| Last broad local gate | `tools\validate_full.bat` passed ReplayRuntime-owned world-pointer routing with 129/129 doctest cases, 2,755 assertions, zero-warning builds, DX12 with zero InfoQueue errors/matching screenshots, standalone physics smoke, and 20,001-line byte-exact physics in 52.7s |
 | Native evidence | Injected heap-use-after-free caught; healthy ASan and five-file `/analyze` passed in 16.185s |
 
 ## Pushed Cleanup Commits
@@ -318,6 +318,11 @@ Launcher click gating, ray construction, replay event publication, topology
 repair, firing, and scene-count commit now execute inside `RuntimeTools`. A fifth
 interaction scenario proves accepted laser feedback. Fast, CPU, interaction,
 perf, and full pass; comment audit is 5/5. Editor/replay routing remains.
+
+Replay path-target world-pointer gating, picking, and optional inspection-camera
+exit now execute inside `ReplayRuntime`; Run observes only `consumed`. The Attach
+probe now asserts press/release selection timing. Fast, CPU, five interaction
+scenarios, perf, and full pass; comment audit is 3/3. Editor routing remains.
 
 Scene provenance C1a is complete: parser-owned library/instance/ordered-part
 records retain exact shape sources, hierarchy transforms use rotated offsets

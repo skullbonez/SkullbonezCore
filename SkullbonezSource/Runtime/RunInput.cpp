@@ -1036,38 +1036,37 @@ bool Run::RouteRuntimePointerInput( const RuntimeInputSnapshot& inputSnapshot, c
         UpdateRuntimeInputModeAfterAction( RuntimeInputAction::SetCameraMode, RuntimeInputActionSource::Mouse );
         consumedWorldClick = true;
     }
-    if ( !consumedWorldClick && leftPressed && !suppressWorldAction && !m_runtimeTools.Editor().editorModeEnabled &&
-         !uiWantsNativeMouseCursor &&
-         ( inputSnapshot.pointer.controlDown || !RunCameraModeUsesLauncher( m_camera.mode ) ) )
+    if ( !consumedWorldClick )
     {
         const bool additiveReplayPick = inputSnapshot.pointer.shiftDown;
         Vector3 rayOrigin;
         Vector3 rayDirection;
         ReplayRuntime::PathPickInput pickInput;
-        pickInput.hasWorldRay = TryBuildMouseWorldRay( rayOrigin, rayDirection );
+        pickInput.hasWorldRay = leftPressed && TryBuildMouseWorldRay( rayOrigin, rayDirection );
         pickInput.rayOrigin = rayOrigin;
         pickInput.rayDirection = rayDirection;
         pickInput.additive = additiveReplayPick;
         pickInput.clearOnMiss = !additiveReplayPick;
-        const ReplayRuntime::PathPickResult pickResult =
-            m_replayRuntime.TryPickPathTarget( pickInput,
-                                               m_sceneController.Entities(),
-                                               m_sceneController.Models().BodyStore(),
-                                               m_sceneController.Models().Colliders(),
-                                               m_sceneController.Models().RenderPresentationRecords() );
-        if ( pickResult.exitInspectionCamera )
-        {
-            m_replayRuntime.ExitInspectionCamera(
-                &m_sceneController.Cameras(),
-                m_sceneController.Terrain().Get(),
-                m_camera,
-                NormalizeCameraModeForCurrentScene( m_replayRuntime.Camera().restoreCameraMode ),
-                m_attachedCamera.State().activeFollow,
-                m_camera.director.grabbed,
-                m_interaction,
-                m_inputRouter );
-        }
-        consumedWorldClick = true;
+        consumedWorldClick = m_replayRuntime.RouteWorldPointer( ReplayRuntime::WorldPointerInput{
+            leftPressed,
+            suppressWorldAction,
+            m_runtimeTools.Editor().editorModeEnabled,
+            uiWantsNativeMouseCursor,
+            inputSnapshot.pointer.controlDown,
+            RunCameraModeUsesLauncher( m_camera.mode ),
+            pickInput,
+            m_sceneController.Entities(),
+            m_sceneController.Models().BodyStore(),
+            m_sceneController.Models().Colliders(),
+            m_sceneController.Models().RenderPresentationRecords(),
+            &m_sceneController.Cameras(),
+            m_sceneController.Terrain().Get(),
+            m_camera,
+            NormalizeCameraModeForCurrentScene( m_replayRuntime.Camera().restoreCameraMode ),
+            m_attachedCamera.State().activeFollow,
+            m_camera.director.grabbed,
+            m_interaction,
+            m_inputRouter } );
     }
 
     if ( !consumedWorldClick )

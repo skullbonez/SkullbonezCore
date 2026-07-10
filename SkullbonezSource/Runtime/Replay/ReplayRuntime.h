@@ -862,6 +862,31 @@ class ReplayRuntime
         bool exitInspectionCamera = false;
     };
 
+    struct WorldPointerInput
+    {
+        // Lifetime: one routed pointer gesture. Every reference is borrowed for
+        // the synchronous pick/optional camera-exit operation and is never stored.
+        bool leftPressed = false;
+        bool suppressWorldAction = false;
+        bool editorMode = false;
+        bool uiWantsNativeCursor = false;
+        bool controlDown = false;
+        bool launcherMode = false;
+        PathPickInput pick;
+        const SceneEntityStore& entities;
+        const Physics::PhysicsBodyStore& bodyStore;
+        const Physics::ColliderStore& colliderStore;
+        const std::vector<Rendering::RenderInstancePresentationRecord>& presentation;
+        Environment::CameraCollection* cameras = nullptr;
+        Geometry::Terrain* terrain = nullptr;
+        RunCameraState& camera;
+        RunCameraMode restoreCameraMode = RunCameraMode::Inspect;
+        bool attachedCameraFollow = false;
+        bool directorGrabbed = false;
+        RuntimeInteractionController& interaction;
+        InputRouter& inputRouter;
+    };
+
     // Concept: one borrowed, frame-scoped replay workspace view replaces the
     // three callback packs formerly threaded through Run's UI command helper.
     // Every reference belongs to a replay interaction, camera, or live-body
@@ -1322,6 +1347,7 @@ class ReplayRuntime
                                       const Physics::PhysicsBodyStore& bodyStore,
                                       const Physics::ColliderStore& colliderStore,
                                       const std::vector<Rendering::RenderInstancePresentationRecord>& presentation );
+    bool RouteWorldPointer( const WorldPointerInput& input );
     bool SetPathTarget( const char* name, int modelIndex, const Physics::PhysicsBodyStore& bodyStore );
     void BeginToolGesture( RuntimeInteractionController& interaction,
                            RuntimeInteractionGestureKind kind,

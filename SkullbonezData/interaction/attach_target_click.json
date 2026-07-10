@@ -3,6 +3,8 @@
   "actions": [
     { "frame": 5, "setCameraMode": "Attach" },
     { "frame": 10, "clickObject": "inspect_target", "button": "left" },
+    { "frame": 10, "assert": { "selectedObject": "inspect_target" } },
+    { "frame": 11, "assert": { "selectedObject": "inspect_target" } },
     { "frame": 20, "assert": { "cameraMode": "Attach" } },
     { "frame": 20, "assert": { "selectedObject": "inspect_target" } },
     { "frame": 25, "screenshot": "TestOutput/interaction/attach_target_after_click.bmp" }

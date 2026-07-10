@@ -462,6 +462,25 @@ screenshots, standalone topology smoke, and the 20,001-line byte-exact physics
 baseline. Comment audit: 5/5 touched source-bearing files; the batch wrapper
 retains its complete local contract header.
 
+Replay world-pointer routing is now ReplayRuntime-owned. One synchronous,
+frame-scoped input value carries gating facts, the prebuilt ray, stable entity/
+store views, and camera-exit owners. ReplayRuntime decides eligibility, updates
+the stable path target (including additive/clear-on-miss behavior), and exits
+inspection camera when the accepted pick requires it. Run's replay branch now
+only constructs the borrowed value and observes `consumed`. The Attach click
+regression additionally asserts selection on the press frame and release frame.
+B1f remains open for editor routing, cross-owner transition sequencing,
+keyboard/camera helpers, and final pointer-route/`TakeInput` deletion.
+
+Evidence: the five-scenario interaction gate passed in 14.4s after one initial
+Attach assertion failure did not reproduce; same-frame and release-frame
+assertions were added, the isolated Attach run passed, and the complete gate
+then passed. Fast passed in 21.6s; the CPU umbrella passed in 10.9s with 129/129
+doctest cases and 2,755 assertions; perf completed in 32.5s; and full passed in
+52.7s with zero warnings, zero DX12 InfoQueue errors, matching screenshots,
+standalone topology smoke, and the 20,001-line byte-exact physics baseline.
+Comment audit: 3/3 touched source-bearing files.
+
 ## Remaining Work
 
 ### A. Narrow the render host

@@ -280,3 +280,28 @@ ReplayRuntime::TryPickPathTarget( const PathPickInput& input,
     }
     return pickResult;
 }
+
+
+bool ReplayRuntime::RouteWorldPointer( const WorldPointerInput& input )
+{
+    if ( !input.leftPressed || input.suppressWorldAction || input.editorMode || input.uiWantsNativeCursor ||
+         ( !input.controlDown && input.launcherMode ) )
+    {
+        return false;
+    }
+
+    const PathPickResult pickResult =
+        TryPickPathTarget( input.pick, input.entities, input.bodyStore, input.colliderStore, input.presentation );
+    if ( pickResult.exitInspectionCamera )
+    {
+        ExitInspectionCamera( input.cameras,
+                              input.terrain,
+                              input.camera,
+                              input.restoreCameraMode,
+                              input.attachedCameraFollow,
+                              input.directorGrabbed,
+                              input.interaction,
+                              input.inputRouter );
+    }
+    return true;
+}
