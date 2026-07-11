@@ -287,10 +287,7 @@ inline const ShaderProgramDesc* HighRiskShaderContracts()
         { "uDepthParams", ShaderValueType::Vec4, true },
         { "uFogParams", ShaderValueType::Vec4, true },
         { "uFogColor", ShaderValueType::Vec3, true },
-        { "uSunShaftParams", ShaderValueType::Vec4, true },
-        { "uSunColor", ShaderValueType::Vec3, true },
         { "uBloomParams", ShaderValueType::Vec4, true },
-        { "uCloudParams", ShaderValueType::Vec4, true },
         { "uStyleGrade", ShaderValueType::Vec4, true },
     };
     static constexpr ShaderResourceDecl tonemapResources[] = {
@@ -304,7 +301,6 @@ inline const ShaderProgramDesc* HighRiskShaderContracts()
         { "uSunShaftParams", ShaderValueType::Vec4, true },
         { "uSunColor", ShaderValueType::Vec3, true },
         { "uVolumetricParams", ShaderValueType::Vec4, true },
-        { "uCloudParams", ShaderValueType::Vec4, true },
     };
     static constexpr ShaderResourceDecl volumetricResources[] = {
         { "uSceneTex", 0, ShaderResourceKind::Texture2D, true },

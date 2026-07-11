@@ -126,9 +126,10 @@ struct CinematicRenderConfig
     // can also force it on/off for quick visual checks.
     bool enabled = false;
 
-    // Individual pass toggles. These let the Cine tab turn pieces of the look on
-    // and off without rebuilding the renderer: sky, clouds, shafts, bloom, fog,
-    // and the visual-only terrain morph.
+    // Individual pass toggles. God rays controls shaft energy inside the sole
+    // half-resolution sun march; volumetric lighting controls whether that pass
+    // runs and whether tonemap composites its result. The other toggles control
+    // sky, clouds, bloom, fog, and the visual-only terrain morph.
     bool skyAtmosphereEnabled = true;
     bool cloudsEnabled = true;
     bool godRaysEnabled = true;
@@ -168,9 +169,10 @@ struct CinematicRenderConfig
     float cloudScale = 5.2f;
     float cloudIntensity = 1.08f;
 
-    // God-ray and volumetric controls. Strength is visible brightness, density is
-    // how far each ray marches toward the sun, and decay is how quickly light
-    // fades along that march.
+    // God-ray and volumetric controls all feed the half-resolution volumetric
+    // pass. Shaft strength/falloff shape its brightness and radial reach;
+    // volumetric strength scales the completed shaft texture, density controls
+    // march distance, and decay controls how quickly samples fade along it.
     float sunShaftStrength = 0.34f;
     float sunShaftFalloff = 2.40f;
     float volumetricStrength = 0.12f;

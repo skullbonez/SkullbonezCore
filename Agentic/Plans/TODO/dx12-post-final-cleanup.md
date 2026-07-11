@@ -1,7 +1,7 @@
 # DX12 Post-Processing Final Cleanup Pass
 
 Date: 2026-07-11
-Status: Not started — 0%
+Status: In progress — Phases 1-2 complete; Phase 3 next
 Impact area: DX12 renderer post chain (shaders + pass binding code), cinematic
 config, visual baselines
 Companion checklist: `Agentic/Plans/TODO/dx12-post-final-cleanup-progress.md`
@@ -94,6 +94,15 @@ validation errors 0.
 ### Phase 2 — Consolidate god rays into the half-res volumetric pass
 
 Goal: exactly one sun march per frame, at half resolution.
+
+Shaping decision (2026-07-12): retain the half-resolution volumetric pass's
+existing radial falloff, below-sun fade, vertical-column weighting, and
+geometry receiver softening as the canonical shaft contract. These are the
+volumetric equivalents of tonemap's duplicated beam/occlusion terms, so the
+full-resolution shaping block is intentionally removed instead of being added
+to the half-resolution pass a second time. The resulting baseline change is
+intentional: it removes the additive full-resolution duplicate while preserving
+the complete art-directed shaft vocabulary in its single owner.
 
 - Remove `RadialGodRays` + its `SampleSkyTransmittance` from
   `post_tonemap.hlsl`. Tonemap keeps only: fog, the volumetric texture

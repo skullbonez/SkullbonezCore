@@ -439,22 +439,14 @@ void BindVolumetricPassParams( SkullbonezCore::Rendering::IShader& shader,
                     cinematic.volumetricDensity,
                     cinematic.volumetricDecay,
                     cinematic.fogDensity );
-    shader.SetVec4( "uCloudParams",
-                    cinematic.cloudCoverage,
-                    cinematic.cloudSoftness,
-                    cinematic.cloudScale,
-                    cinematic.cloudsEnabled ? cinematic.cloudIntensity : 0.0f );
 }
 
 void BindTonemapPassParams( SkullbonezCore::Rendering::IShader& shader,
-                            const Vector3& eye,
-                            const Matrix4& viewProjection,
                             const CinematicRenderConfig& cinematic,
                             float frustumNear,
                             float frustumFar,
                             bool volumetricReady )
 {
-    const ScreenSunPosition sunScreen = ProjectCinematicSunToScreen( eye, viewProjection, cinematic );
     shader.SetInt( "uSceneTex", 0 );
     shader.SetInt( "uDepthTex", 1 );
     shader.SetInt( "uVolumetricTex", 2 );
@@ -467,22 +459,11 @@ void BindTonemapPassParams( SkullbonezCore::Rendering::IShader& shader,
                     cinematic.fogEnabled ? cinematic.fogDensity : 0.0f,
                     cinematic.fogEnabled ? cinematic.fogMaxOpacity : 0.0f );
     shader.SetVec3( "uFogColor", cinematic.fogColorR, cinematic.fogColorG, cinematic.fogColorB );
-    shader.SetVec4( "uSunShaftParams",
-                    sunScreen.x,
-                    sunScreen.y,
-                    cinematic.godRaysEnabled ? cinematic.sunShaftStrength : 0.0f,
-                    cinematic.sunShaftFalloff );
-    shader.SetVec3( "uSunColor", cinematic.sunColorR, cinematic.sunColorG, cinematic.sunColorB );
     shader.SetVec4( "uBloomParams",
                     cinematic.bloomThreshold,
                     cinematic.bloomKnee,
                     cinematic.bloomEnabled ? cinematic.bloomStrength : 0.0f,
                     cinematic.bloomRadius );
-    shader.SetVec4( "uCloudParams",
-                    cinematic.cloudCoverage,
-                    cinematic.cloudSoftness,
-                    cinematic.cloudScale,
-                    cinematic.cloudsEnabled ? cinematic.cloudIntensity : 0.0f );
     shader.SetVec4( "uStyleGrade",
                     cinematic.styleSaturation,
                     cinematic.styleContrast,
@@ -2324,8 +2305,6 @@ void TonemapPass::Render( const RenderFrameContext& frame,
         assert( frame.cinematic && "Tonemap pass requires a frame cinematic snapshot" );
         const CinematicRenderConfig& cinematic = *frame.cinematic;
         BindTonemapPassParams( *m_tonemapResources.shader,
-                               frame.eye,
-                               frame.viewProjection,
                                cinematic,
                                m_config.frustumNear,
                                m_config.frustumFar,
@@ -2337,9 +2316,9 @@ void TonemapPass::Render( const RenderFrameContext& frame,
                                                : ( volumetricReady && m_volumetricResources.target
                                                        ? m_volumetricResources.target->GetColorTextureHandle()
                                                        : m_sceneResources.hdrTarget->GetColorTextureHandle() );
-        // Pass contract: slot 0 is the bright HDR scene, slot 1 is its depth buffer,
-        // and slot 2 is either the volumetric-light texture or a harmless fallback
-        // when that pass is disabled.
+        // Pass contract: slot 0 is the bright HDR scene, slot 1 is its depth
+        // buffer for fog, and slot 2 is the sole completed shaft texture or a
+        // harmless fallback when the volumetric pass is disabled.
         BindRenderTextureSlots( renderCommands,
                                 m_sceneResources.hdrTarget->GetColorTextureHandle(),
                                 m_sceneResources.hdrTarget->GetDepthTextureHandle(),
