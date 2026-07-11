@@ -11,11 +11,11 @@ plan inventory.
 | Field | Value |
 |---|---|
 | Branch | `nightrunner-11th-july` |
-| Current pushed baseline | `shader-pipeline-modernization` is complete locally after independent review fixes; the closure commit/push is the next repository action |
-| Current objective | Execute `render-visibility-architecture` P0-P6, then continue the binding MASTER path |
-| Portfolio progress | 248 / 276 tasks = 90% overall |
+| Current pushed baseline | `shader-pipeline-modernization` is complete and pushed at `b5a89af3`; the visibility P0-P1 grouped slice is ready to commit and push |
+| Current objective | Continue `render-visibility-architecture` at P2 shadow-view culling, then execute P3-P6 and the remaining binding MASTER path |
+| Portfolio progress | 250 / 276 tasks = 91% overall |
 | Last broad local gate | Direct `tools\\validate_full.bat` passed final shader source on 2026-07-12 in approximately 85s: formatting and 657 project/filter items clean, every CPU lane passed (150 doctest cases, 3,505 assertions), zero-warning Profile/Debug builds, zero DX12 InfoQueue errors with matching 33/61/0 screenshot maxima, and the 44,401-line varied physics baseline byte-exactly |
-| Validation for current edits | Shader review findings are resolved; live pixel-change commit and incompatible-contract rollback drills passed. Final graphics stress ran 59.820s for 12,978 frames/361 scene loads with empty stderr. P7 comment audit is 6/6 with 0 deferred. |
+| Validation for current edits | Visibility P0-P1 passed 153 doctest cases / 3,515 assertions, DX12 renderer baselines with zero InfoQueue errors and 33/61/0 maxima, and both perf comparisons. Graphics stress ran 59.674640s for 12,562 frames / 349 scene loads with empty stderr. Touched-source comment audit is 13/13 with 0 deferred. |
 
 ## Live Queue
 
@@ -82,5 +82,5 @@ plan inventory.
 ## Next Handoff
 
 Use `Agentic/Plans/MASTER-PLAN.md` for selection and the repo-local orchestrator
-skill when implementing a plan. The next binding implementation plan is
-`render-visibility-architecture` phase P0.
+skill when implementing a plan. The next binding implementation phase is
+`render-visibility-architecture` P2 shadow-view culling.

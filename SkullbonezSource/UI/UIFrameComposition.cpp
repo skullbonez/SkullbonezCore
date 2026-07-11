@@ -206,6 +206,16 @@ uint32_t BuildUIContentSignature( const InGameUIFrameData& data )
     }
     hash = HashInt( hash, data.drawCallsBeforeUI );
     hash = HashInt( hash, data.UIDrawCalls );
+    // Invariant: visibility rows are live diagnostics. Hash every field so a
+    // retained UI draw cannot display the preceding frame's culling result.
+    for ( int viewIndex = 0; viewIndex < static_cast<int>( Rendering::RenderVisibilityView::Count ); ++viewIndex )
+    {
+        const Rendering::RenderVisibilityViewStats& visibility = data.visibility.views[viewIndex];
+        hash = HashInt( hash, visibility.candidates );
+        hash = HashInt( hash, visibility.submitted );
+        hash = HashInt( hash, visibility.culled );
+        hash = HashInt( hash, visibility.draws );
+    }
     hash = HashInt( hash, static_cast<int>( data.reserveGrowthEventTotalCount ) );
     hash = HashInt( hash, data.reserveGrowthEventCount );
     for ( int eventIndex = 0;

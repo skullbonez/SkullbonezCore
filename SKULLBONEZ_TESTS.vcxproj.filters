@@ -90,6 +90,9 @@
     <ClCompile Include="SkullbonezTests\TestMain.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezTests\TestFrustum.cpp">
+      <Filter>Source Files\Tests</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezTests\TestMatrix4.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>

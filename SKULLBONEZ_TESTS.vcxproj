@@ -194,6 +194,7 @@
     <ClCompile Include="SkullbonezTests\TestShaderReflectionContracts.cpp" />
     <ClCompile Include="SkullbonezTests\TestGeometricMath.cpp" />
     <ClCompile Include="SkullbonezTests\TestMain.cpp" />
+    <ClCompile Include="SkullbonezTests\TestFrustum.cpp" />
     <ClCompile Include="SkullbonezTests\TestMatrix4.cpp" />
     <ClCompile Include="SkullbonezTests\TestObjectContactManifold.cpp" />
     <ClCompile Include="SkullbonezTests\TestOwnerRequestQueues.cpp" />

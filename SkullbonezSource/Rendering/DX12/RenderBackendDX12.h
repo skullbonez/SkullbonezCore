@@ -966,6 +966,7 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     bool m_isVsyncEnabled = true;
     bool m_allowTearing = false;
     int m_frameDrawCallCount = 0;
+    RenderVisibilityStats m_frameVisibilityStats;                  // Reset with draw diagnostics; copied read-only into UI frame data.
     DrawCallTrace m_drawCallTrace;
 
     float m_clearColor[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
@@ -1106,6 +1107,7 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     void ResetFrameDrawCalls() override
     {
         m_frameDrawCallCount = 0;
+        m_frameVisibilityStats = RenderVisibilityStats();
         m_drawCallTrace.BeginFrame();
     }
     void RecordDrawCall( const DrawCallRecord& record ) override
@@ -1120,6 +1122,23 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     int GetFrameDrawCallCount() const override
     {
         return m_frameDrawCallCount;
+    }
+    void RecordVisibility( RenderVisibilityView view, int candidates, int submitted, int culled, int draws ) override
+    {
+        const int index = static_cast<int>( view );
+        if ( index < 0 || index >= static_cast<int>( RenderVisibilityView::Count ) )
+        {
+            return;
+        }
+        RenderVisibilityViewStats& stats = m_frameVisibilityStats.views[index];
+        stats.candidates += candidates;
+        stats.submitted += submitted;
+        stats.culled += culled;
+        stats.draws += draws;
+    }
+    RenderVisibilityStats GetFrameVisibilityStats() const override
+    {
+        return m_frameVisibilityStats;
     }
     DrawCallTraceSnapshot GetFrameDrawCallTrace() const override
     {

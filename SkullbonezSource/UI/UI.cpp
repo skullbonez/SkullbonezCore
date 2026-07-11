@@ -2076,6 +2076,29 @@ void InGameUI::Draw( const InGameUIFrameData& data, const UIRenderContext& rende
             m_saveRenderDefaultsButton.Draw( draw, "Save CFG", m_mouseX, m_mouseY );
         }
 
+        static constexpr const char* visibilityLabels[] = { "Main", "Reflection", "Terrain shadow", "Object shadow" };
+        char visibilityText[96];
+        for ( int viewIndex = 0; viewIndex < static_cast<int>( Rendering::RenderVisibilityView::Count ); ++viewIndex )
+        {
+            const Rendering::RenderVisibilityViewStats& visibility = data.visibility.views[viewIndex];
+            snprintf( visibilityText,
+                      sizeof( visibilityText ),
+                      "%d submitted, %d culled, %d draws",
+                      visibility.submitted,
+                      visibility.culled,
+                      visibility.draws );
+            DrawLabelValueAt( draw,
+                              contentY,
+                              contentH,
+                              contentX,
+                              scrolledY + 76.0f + static_cast<float>( viewIndex ) * 18.0f,
+                              visibilityLabels[viewIndex],
+                              visibilityText,
+                              palette.accent.r,
+                              palette.accent.g,
+                              palette.accent.b );
+        }
+
         const float baseY = scrolledY + UI_RENDER_START_Y;
         for ( int i = 0; i < static_cast<int>( UIRenderParam::Count ); ++i )
         {

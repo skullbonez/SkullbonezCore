@@ -39,6 +39,7 @@ Related:
 #include "../Core/Profiler.h"
 #include "../Core/WorkerPool.h"
 #include "../Physics/ColliderStore.h"
+#include "../Maths/Frustum.h"
 #include "Helper.h"
 #include "IRenderDiagnostics.h"
 #include "RenderInstanceStore.h"
@@ -342,7 +343,8 @@ void GameModelRenderer::RenderModels( const RenderHelperContext& helperContext,
                                       const ShadowFrameData* shadow,
                                       float materialAlpha,
                                       const std::vector<uint8_t>* modelMask,
-                                      bool drawMaskedModels )
+                                      bool drawMaskedModels,
+                                      Rendering::RenderVisibilityView visibilityView )
 {
     const std::vector<RenderInstanceRecord>& instances = renderStore.Records();
 
@@ -352,6 +354,38 @@ void GameModelRenderer::RenderModels( const RenderHelperContext& helperContext,
     }
 
     const int modelCount = static_cast<int>( instances.size() );
+    // Invariant: the visible-index scratch array mirrors the scene store's
+    // compile-time ceiling. Crossing it would corrupt render-thread stack data.
+    if ( modelCount > MAX_GAME_MODELS )
+    {
+        SB_FATAL( "Rendering/Visibility",
+                  "Render instance count exceeds visibility capacity. count=%d capacity=%d",
+                  modelCount,
+                  MAX_GAME_MODELS );
+    }
+    int visibleIndices[MAX_GAME_MODELS] = {};
+    int visibleCount = 0;
+    if ( visibilityView == Rendering::RenderVisibilityView::Main )
+    {
+        const Math::Visibility::Frustum frustum = Math::Visibility::Frustum::FromViewProjection( view, proj );
+        for ( int index = 0; index < modelCount; ++index )
+        {
+            const RenderInstanceRecord& instance = instances[static_cast<std::size_t>( index )];
+            const Vector3 center( instance.modelMatrix.m[12], instance.modelMatrix.m[13], instance.modelMatrix.m[14] );
+            if ( frustum.IntersectsSphere( center, instance.boundingRadius ) )
+            {
+                visibleIndices[visibleCount++] = index;
+            }
+        }
+    }
+    else
+    {
+        for ( int index = 0; index < modelCount; ++index )
+        {
+            visibleIndices[visibleCount++] = index;
+        }
+    }
+
     const float clampedMaterialAlpha = std::clamp( materialAlpha, 0.0f, 1.0f );
     const bool alphaBlendedPass = renderCollisionVolumes || clampedMaterialAlpha < 1.0f;
     const auto shouldDrawModel = [&]( int index ) -> bool
@@ -367,6 +401,12 @@ void GameModelRenderer::RenderModels( const RenderHelperContext& helperContext,
         const bool masked = ( *modelMask )[static_cast<std::size_t>( index )] != 0;
         return drawMaskedModels ? masked : !masked;
     };
+    int submittedCount = 0;
+    for ( int visibleIndex = 0; visibleIndex < visibleCount; ++visibleIndex )
+    {
+        submittedCount += shouldDrawModel( visibleIndices[visibleIndex] ) ? 1 : 0;
+    }
+    const int drawCountBefore = helperContext.renderDiagnostics.GetFrameDrawCallCount();
 
     {
         DRAW_CALL_TRACE_SCOPE( helperContext.renderDiagnostics, "Spheres" );
@@ -378,8 +418,9 @@ void GameModelRenderer::RenderModels( const RenderHelperContext& helperContext,
                                                                   cinematic,
                                                                   shadow,
                                                                   clampedMaterialAlpha );
-        for ( int x = 0; x < modelCount; ++x )
+        for ( int visibleIndex = 0; visibleIndex < visibleCount; ++visibleIndex )
         {
+            const int x = visibleIndices[visibleIndex];
             if ( !shouldDrawModel( x ) )
             {
                 continue;
@@ -396,8 +437,9 @@ void GameModelRenderer::RenderModels( const RenderHelperContext& helperContext,
     bool hasPineVisualModels = false;
     auto appendBoxLikeModels = [&]( bool pineVisualPass, RenderHelper::PrimitiveBatchScope& batch )
     {
-        for ( int x = 0; x < modelCount; ++x )
+        for ( int visibleIndex = 0; visibleIndex < visibleCount; ++visibleIndex )
         {
+            const int x = visibleIndices[visibleIndex];
             if ( !shouldDrawModel( x ) )
             {
                 continue;
@@ -457,8 +499,9 @@ void GameModelRenderer::RenderModels( const RenderHelperContext& helperContext,
     {
         DRAW_CALL_TRACE_SCOPE( helperContext.renderDiagnostics, "ConvexHulls" );
         const ColliderRecordList* colliders = nullptr;
-        for ( int x = 0; x < modelCount; ++x )
+        for ( int visibleIndex = 0; visibleIndex < visibleCount; ++visibleIndex )
         {
+            const int x = visibleIndices[visibleIndex];
             if ( !shouldDrawModel( x ) )
             {
                 continue;
@@ -498,6 +541,12 @@ void GameModelRenderer::RenderModels( const RenderHelperContext& helperContext,
                                                       clampedMaterialAlpha );
         }
     }
+    const int drawCountAfter = helperContext.renderDiagnostics.GetFrameDrawCallCount();
+    helperContext.renderDiagnostics.RecordVisibility( visibilityView,
+                                                      modelCount,
+                                                      submittedCount,
+                                                      modelCount - visibleCount,
+                                                      (std::max)( 0, drawCountAfter - drawCountBefore ) );
 }
 
 
@@ -559,12 +608,15 @@ void GameModelRenderer::SubmitShadowCasterBatches( const RenderHelperContext& he
                                                    const ShadowCasterBatches& batches,
                                                    const Matrix4& view,
                                                    const Matrix4& proj,
-                                                   const CinematicRenderConfig* cinematic )
+                                                   const CinematicRenderConfig* cinematic,
+                                                   Rendering::RenderVisibilityView visibilityView )
 {
     if ( batches.Empty() )
     {
         return;
     }
+
+    const int drawCountBefore = helperContext.renderDiagnostics.GetFrameDrawCallCount();
 
     {
         PROFILE_SCOPED( "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters/SubmitBatches/Spheres" );
@@ -617,6 +669,14 @@ void GameModelRenderer::SubmitShadowCasterBatches( const RenderHelperContext& he
             }
         }
     }
+    const int submitted = static_cast<int>( batches.spheres.size() + batches.boxes.size() + batches.pines.size() +
+                                            batches.convexHulls.size() );
+    helperContext.renderDiagnostics.RecordVisibility(
+        visibilityView,
+        submitted,
+        submitted,
+        0,
+        (std::max)( 0, helperContext.renderDiagnostics.GetFrameDrawCallCount() - drawCountBefore ) );
 }
 
 
@@ -627,11 +687,12 @@ void GameModelRenderer::RenderShadowCasters( const RenderHelperContext& helperCo
                                              bool useShadowParallelPrep,
                                              const Matrix4& view,
                                              const Matrix4& proj,
-                                             const CinematicRenderConfig* cinematic )
+                                             const CinematicRenderConfig* cinematic,
+                                             Rendering::RenderVisibilityView visibilityView )
 {
     ShadowCasterBatches batches;
     BuildShadowCasterBatches( renderStore, colliderStore, workerPool, useShadowParallelPrep, batches );
-    SubmitShadowCasterBatches( helperContext, batches, view, proj, cinematic );
+    SubmitShadowCasterBatches( helperContext, batches, view, proj, cinematic, visibilityView );
 }
 
 

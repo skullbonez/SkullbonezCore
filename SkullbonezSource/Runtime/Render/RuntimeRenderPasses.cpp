@@ -931,13 +931,19 @@ void ShadowPass::RenderShadowMap( Rendering::IFramebuffer& target,
         // Balls, boxes, and pine-style box visuals all write depth here. The
         // prepared render store keeps separate instanced batches so each caster
         // shape uses the same mesh silhouette as the visible forward pass.
+        // Why: both passes submit the same prepared caster shape, so the map
+        // selection at this orchestration boundary preserves per-view evidence.
+        const Rendering::RenderVisibilityView visibilityView = renderTerrain
+                                                                   ? Rendering::RenderVisibilityView::TerrainShadow
+                                                                   : Rendering::RenderVisibilityView::ObjectShadow;
         if ( objectCasters )
         {
             GameObjects::GameModelRenderer::SubmitShadowCasterBatches( helperContext,
                                                                        *objectCasters,
                                                                        shadowFrame.lightView,
                                                                        shadowFrame.lightProjection,
-                                                                       &cinematic );
+                                                                       &cinematic,
+                                                                       visibilityView );
         }
         else
         {
@@ -948,7 +954,8 @@ void ShadowPass::RenderShadowMap( Rendering::IFramebuffer& target,
                                                                  shadowParallelPrep,
                                                                  shadowFrame.lightView,
                                                                  shadowFrame.lightProjection,
-                                                                 &cinematic );
+                                                                 &cinematic,
+                                                                 visibilityView );
         }
     }
 
@@ -1306,7 +1313,10 @@ ReflectionPassOutput ReflectionPass::Render( const ReflectionPassInputs& inputs,
                                                               inputs.frame.lightPosition,
                                                               inputs.cinematic,
                                                               inputs.objectShadow,
-                                                              inputs.bodyAlpha );
+                                                              inputs.bodyAlpha,
+                                                              nullptr,
+                                                              true,
+                                                              Rendering::RenderVisibilityView::Reflection );
             }
         }
         renderCommands.SetClipPlane( 0, false );

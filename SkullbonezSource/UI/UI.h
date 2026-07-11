@@ -38,6 +38,7 @@ Related:
 #include "../Core/MainMemoryStats.h"
 #include "../Runtime/Allocation/RuntimeReserveAllocator.h"
 #include "../Rendering/IShader.h"
+#include "../Rendering/IRenderDiagnostics.h"
 #include "UIButton.h"
 #include "UICheckBox.h"
 #include "UIComboBox.h"
@@ -198,6 +199,7 @@ struct InGameUIFrameData
     int selectedCineModeSceneOption = -1;
     int drawCallsBeforeUI = 0;
     int UIDrawCalls = 0;
+    Rendering::RenderVisibilityStats visibility;
     float fps = 0.0f;
     float renderMs = 0.0f;
     float physicsMs = 0.0f;

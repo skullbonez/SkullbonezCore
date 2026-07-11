@@ -495,6 +495,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         UIData.selectedSceneOption = state.currentSceneBrowserIndex;
         UIData.selectedCineModeSceneOption = state.sceneBrowser.selectedCineModeSceneIndex;
         UIData.UIDrawCalls = inputs.timers.lastUIDrawCalls;
+        UIData.visibility = inputs.renderDiagnostics.GetFrameVisibilityStats();
         UIData.fps =
             inputs.timers.rollingFpsTime > 0.0f
                 ? inputs.timers.rollingFpsTime

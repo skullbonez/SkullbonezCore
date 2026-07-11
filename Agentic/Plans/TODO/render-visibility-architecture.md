@@ -1,7 +1,7 @@
 # Render Visibility Architecture
 
 Date: 2026-07-11
-Status: Not started — 0%
+Status: In progress — 29% (P0-P1 complete)
 Impact area: DX12 renderer submission, `RenderInstanceStore`, shadow and
 reflection passes, perf baselines
 Origin: 2026-07-11 architecture gap review. The renderer submits every scene
@@ -46,7 +46,7 @@ diagnostics.
 
 ## Phases
 
-### P0 — Instrumentation first
+### P0 — Instrumentation first ✅
 
 Add per-frame counters to the existing diagnostics/UI stats path: instances
 submitted per view, draws per view, culled counts (zero until P1). Record
@@ -54,7 +54,23 @@ current numbers for the standard validation scenes in this plan as the
 baseline story. Gate: `validate_dx12_renderer` (baselines unchanged —
 counters only).
 
-### P1 — Frustum math + main-view culling
+Completed 2026-07-12. `IRenderDiagnostics` now accumulates candidates,
+submitted instances, culled instances, and draw counts separately for main,
+reflection, terrain-shadow, and object-shadow views. The Render UI shows all
+four rows. A temporary environment-gated probe was used only to capture the
+standard-scene numbers below, then removed before final validation.
+
+| Standard scene | Main candidates | Main submitted | Main culled | Reflection submitted | Terrain / object shadow submitted |
+|---|---:|---:|---:|---:|---:|
+| `water_ball_test` | 300 | 54 | 246 | 300 | 300 / 300 |
+| `solver_smoke` | 1 | 1 | 0 | 1 | 1 / 1 |
+| `three_body_chaos` | 3 | 3 | 0 | 0 (disabled) | 3 / 3 |
+
+Each active row emitted one instanced draw in this suite. Candidate count is
+the pre-frustum baseline, so `water_ball_test` proves the main view avoids 246
+instance submissions while later view phases remain deliberately uncropped.
+
+### P1 — Frustum math + main-view culling ✅
 
 - Frustum plane extraction from the view-projection matrix into a small
   value type in `Maths/` (6 planes; unit-tested against known
@@ -68,6 +84,25 @@ counters only).
 
 Gate: `validate_tests` (frustum math), `validate_dx12_renderer` (screenshots
 byte-identical — culling must be invisible), `validate_perf`.
+
+Completed 2026-07-12. `Maths/Frustum` extracts normalized DX12 zero-to-one
+planes and conservatively classifies store-owned world spheres with an epsilon.
+`GameModelRenderer` fills a fixed `MAX_GAME_MODELS` index array, submits only
+main-view survivors, and fails fatally if the render-store ceiling is ever
+violated. Named doctest coverage exercises inside/outside, near/far,
+straddle/epsilon, and translated-camera cases.
+
+Validation evidence for the grouped P0/P1 slice:
+
+- `tools\validate_tests.bat`: 153/153 cases and 3,515/3,515 assertions passed.
+- `tools\validate_dx12_renderer.bat`: zero DX12 InfoQueue errors; screenshot
+  maxima remained 33 / 61 / 0 for water / solver / three-body.
+- `tools\validate_perf.bat`: DX12 and physics-bench comparisons reported no
+  regressions.
+- `tools\run_graphics_stress.bat 1`: 59.674640 seconds, 12,562 frames, 349
+  scene loads, empty stderr, clean PID-scoped shutdown.
+- `python tools\check_allocation_policy.py --repo .`: 317 files scanned and
+  zero allowlist errors; the cull loop uses only fixed stack/store data.
 
 ### P2 — Shadow view culling
 
