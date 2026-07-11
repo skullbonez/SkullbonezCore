@@ -10,8 +10,8 @@ reports, and git history.
 | Field | Value |
 |---|---|
 | Branch | `engine-cleanup-10th-july`, tracking `origin/engine-cleanup-10th-july` |
-| Current pushed baseline | `7724cfe7 refactor: close physics authority and identity` |
-| Current objective | Commit/push the completed interaction-state closure, then execute runtime UI/control ownership in dependency order |
+| Current pushed baseline | `42c4b4cf refactor: close interaction state ownership` |
+| Current objective | Execute runtime UI/control ownership from U1 using the reconciled 95-file surface inventory |
 | Last broad local gate | `tools\validate_full.bat` passed final interaction source in 72.5s: 131/131 doctests and 2,814 assertions, every standalone CPU lane, zero-warning Profile/Debug builds, DX12 InfoQueue errors = 0 with matching screenshots, handle smoke, and the 44,401-line varied baseline byte-exactly |
 | Latest focused gates | Final policy plus five Win32 scenarios passed serially in 28.2s; replay scrub passed in 69.0s; comment audit is 38/38; the repeat review and final generic-mirror inventory are clean |
 | Native evidence | Injected heap-use-after-free caught; healthy ASan and five-file `/analyze` passed in 16.185s |
@@ -22,6 +22,7 @@ reports, and git history.
 - `31395ba5 docs: reconcile stale engine plan references`
 - `c3a02e31 refactor: close runtime shell ownership`
 - `7724cfe7 refactor: close physics authority and identity`
+- `42c4b4cf refactor: close interaction state ownership`
 - `125bb8a9 docs: inventory DX12 failure surfaces`
 - `0c9097ec fix: reduce box manifolds by depth and spread`
 - `e752c395 style: format manifold reducer`
@@ -65,9 +66,13 @@ A final main-pass inventory then caught and deleted the generic mouse-pickup
 `active` mirror. Policy, five Win32 scenarios, final replay scrub, and full pass. Evidence:
 `Agentic/Reports/2026-07-11/interaction-state-machine-closure-review.md`.
 
-Next execute `runtime-ui-control-architecture-cleanup.md` from U0; interaction
-gesture geometry and capture are now stable dependencies rather than UI-owned
-state.
+Runtime UI/control U0 is complete at 1/7. The owning plan reconciles all 60
+tracked `SkullbonezSource/UI` source files plus 35 interactive replay, editor,
+input, automation, and render-boundary files. Every row records persistent
+owner, input entry, render entry, and validation path; U6 conversion/review
+remains independently unchecked. Next execute U1 fixed-capacity control values
+and CPU tests. Interaction gesture geometry and capture are stable dependencies
+rather than UI-owned state.
 
 Runtime-shell decomposition is complete at 27/27. E1-E3 deleted `RunInternal.h`,
 forwarding-only Run methods, and Common compatibility includes. F1-F2 then
