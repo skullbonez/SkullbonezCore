@@ -486,6 +486,17 @@ corrected fixture recreates fresh owners and passes 444 stable-id comparisons;
 the follow-up review is clean. Parser, CPU, allocation, physics, performance,
 and full gates pass from the final source.
 
+The normal physics determinism gate now uses the authored 37-body, 1,200-frame
+`physics_bench_varied.scene.json` workload as its primary full CSV contract.
+Validation compares one canonical 44,401-line/6,330,789-byte pass exactly and
+requires repeated emitted passes to be byte-identical. The former seeded
+20-body solver scene remains in the deep gate through an exact 20,001-line
+SHA-256 signature. `tools\validate_fast.bat` and
+`tools\validate_physics.bat` passed from the final baseline state with zero
+warnings/errors, `creation_atomic=pass`, and the varied CSV byte-exact match.
+`tools\validate_physics_deep.bat` also passed with the varied CSV, legacy
+solver signature, and SkullScope query packet all exact.
+
 ## Workstreams To Prioritize
 
 1. Complete runtime-shell D1-D3, then E1-E3 and the final F1-F3 ownership proof.

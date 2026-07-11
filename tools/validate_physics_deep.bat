@@ -10,7 +10,7 @@
 @rem
 @rem Glossary:
 @rem   Deep physics validation: Broad deterministic physics sweep beyond the
-@rem   cheap core solver baseline.
+@rem   cheap core varied-scene baseline.
 @rem   Collision-time log: CSV artifact for bullet sweep timing assertions.
 @rem
 @rem Invariants:
@@ -55,6 +55,13 @@ del /q "%REPO%\Debug\bullet_sweep_*.csv" 2>nul
 del /q "%REPO%\Debug\shooting_reaction_*.csv" 2>nul
 del /q "%REPO%\Debug\space_three_body_*.csv" 2>nul
 del /q "%REPO%\Debug\physics_known_*.csv" 2>nul
+
+echo   Running physics_bench_varied...
+"%REPO%\Debug\SKULLBONEZ_CORE.exe" --renderer dx12 --vsync off --fixed-step --shadows off --scene SkullbonezData/scenes/physics_bench_varied.scene.json --physics-regression-log Debug/physics_regression_varied.csv
+if errorlevel 1 (
+    echo FAIL: physics_bench_varied crashed or errored.
+    exit /b 2
+)
 
 echo   Running physics_regression_solver...
 "%REPO%\Debug\SKULLBONEZ_CORE.exe" --renderer dx12 --vsync off --fixed-step --shadows off --scene SkullbonezData/scenes/physics_regression_solver.scene.json --physics-regression-log Debug/physics_regression_solver.csv

@@ -26,7 +26,7 @@
 """
 Compare physics CSV output against committed baselines.
 
-By default this checks the core solver baseline used by the cheap physics gate.
+By default this checks the authored varied-scene baseline used by the cheap physics gate.
 Pass --deep to include the opt-in bullet sweep and shooting CSV baselines.
 Physics scenes use fixed_step + deterministic authored state, so output is
 exactly deterministic. Any single differing byte is a real regression.
@@ -34,14 +34,13 @@ exactly deterministic. Any single differing byte is a real regression.
 Exit 0 = all match, Exit 1 = regression detected or files missing.
 """
 import os
-import shutil
 import sys
 
 REPO = os.environ.get("SKORE_REPO", os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 BASELINE_DIR = os.path.join(REPO, "TestOutput", "baselines")
 
 CORE_TESTS = [
-    (os.path.join(REPO, "Debug", "physics_regression_solver.csv"), "physics_regression_solver.csv"),
+    (os.path.join(REPO, "Debug", "physics_regression_varied.csv"), "physics_regression_varied.csv"),
 ]
 
 DEEP_TESTS = [
@@ -52,6 +51,31 @@ DEEP_TESTS = [
     (os.path.join(REPO, "Debug", "shooting_reaction_volley.csv"), "shooting_reaction_volley.csv"),
     (os.path.join(REPO, "Debug", "space_three_body_chaos.csv"), "space_three_body_chaos.csv"),
 ]
+
+
+def canonical_complete_run(data, artifact_name):
+    """Collapse repeated byte-identical CSV runs while rejecting divergent passes."""
+    # Invariant: one committed baseline represents one complete deterministic
+    # playback. A runtime may reopen the log and append another complete pass,
+    # but validation accepts that only when every byte of every pass agrees.
+    first_newline = data.find(b"\n")
+    if first_newline < 0:
+        return data, 1
+
+    header = data[: first_newline + 1]
+    starts = [0]
+    next_start = data.find(header, len(header))
+    while next_start >= 0:
+        starts.append(next_start)
+        next_start = data.find(header, next_start + len(header))
+
+    if len(starts) == 1:
+        return data, 1
+
+    runs = [data[start:end] for start, end in zip(starts, starts[1:] + [len(data)])]
+    if any(run != runs[0] for run in runs[1:]):
+        raise ValueError(f"{artifact_name} emitted {len(runs)} complete CSV runs that are not byte-identical")
+    return runs[0], len(runs)
 
 
 def main():
@@ -91,11 +115,12 @@ def main():
             continue
 
         if update:
-            shutil.copy(output_path, baseline_path)
             with open(output_path, "rb") as f:
-                current = f.read()
+                current, run_count = canonical_complete_run(f.read(), baseline_name)
+            with open(baseline_path, "wb") as f:
+                f.write(current)
             line_count = current.count(b"\n")
-            print(f"  BASELINE UPDATED: {baseline_name} ({line_count} lines)")
+            print(f"  BASELINE UPDATED: {baseline_name} ({line_count} lines from {run_count} byte-identical run(s))")
             continue
 
         if not os.path.exists(baseline_path):
@@ -104,13 +129,26 @@ def main():
             continue
 
         with open(output_path, "rb") as f:
-            current = f.read()
+            try:
+                current, run_count = canonical_complete_run(f.read(), baseline_name)
+            except ValueError as exc:
+                print(f"  FAIL: {exc}")
+                all_pass = False
+                continue
         with open(baseline_path, "rb") as f:
-            baseline = f.read()
+            try:
+                baseline, baseline_run_count = canonical_complete_run(f.read(), baseline_name)
+            except ValueError as exc:
+                print(f"  FAIL: committed baseline is invalid: {exc}")
+                all_pass = False
+                continue
 
         if current == baseline:
             line_count = current.count(b"\n")
-            print(f"  PASS: {baseline_name} ({line_count} lines, byte-exact match)")
+            print(
+                f"  PASS: {baseline_name} ({line_count} lines, byte-exact match; "
+                f"output runs={run_count}, baseline runs={baseline_run_count})"
+            )
         else:
             all_pass = False
             current_line_count = current.count(b"\n")

@@ -3,6 +3,15 @@
   "name": "Known physics issue regression signatures",
   "tests": [
     {
+      "artifact": "Debug/physics_regression_solver.csv",
+      "bytes": 2774416,
+      "lines": 20001,
+      "name": "seeded_solver_distribution_watch",
+      "risk": "Seeded mixed solver distribution drifts after the varied scene becomes the primary full CSV baseline.",
+      "scene": "SkullbonezData/scenes/physics_regression_solver.scene.json",
+      "sha256": "e0461730fdfb705cca364ef62fdbaa6a9cb8ab01a90605fb2bf4f2a01e39cf2e"
+    },
+    {
       "artifact": "Debug/physics_known_stacking.csv",
       "bytes": 6178560,
       "lines": 45001,

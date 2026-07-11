@@ -80,7 +80,7 @@ settings churn, render-toggle fuzzing, and overnight soaks.
 Physics baseline changes are behavior changes. If a physics CSV or SkullScope
 baseline is intentionally refreshed, update it from the final Debug executable
 and committed scene/config state, then rerun the matching gate:
-`tools\validate_physics.bat` for the core solver baseline, or
+`tools\validate_physics.bat` for the core varied-scene baseline, or
 `tools\validate_physics_deep.bat` for the broader physics/SkullScope baseline
 set. `tools\update_baselines.bat` is for visual and perf artifacts, not physics
 baselines.

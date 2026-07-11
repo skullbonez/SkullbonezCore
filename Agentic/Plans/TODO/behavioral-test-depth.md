@@ -101,6 +101,16 @@ umbrella and from the broad PR gate.
 
 ## Latest Evidence
 
+- 2026-07-11: promoted the authored 37-body, 1,200-frame
+  `physics_bench_varied.scene.json` workload to the normal gate's 44,401-row
+  byte-exact CSV contract. The CSV records named body pose, quaternion, linear
+  and angular velocity, grounded state, sleeping state, and sleep inhibition.
+  If one process emits repeated complete CSV passes, validation requires every
+  pass to be byte-identical and commits only one canonical pass.
+  The prior seeded 20-body solver workload remains exact-signature coverage in
+  the deep gate rather than disappearing with its committed full CSV. Fast,
+  physics, and deep-physics gates passed from the final artifacts; the deep
+  gate matched the varied CSV, legacy solver signature, and SkullScope packet.
 - 2026-07-10: added direct box-manifold fixtures for stable four-row feature
   identity, tilted-face deepest-point retention, exact coplanar contact, and a
   zero-height slab. The deepest-point test failed against the original
