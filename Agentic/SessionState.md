@@ -10,9 +10,9 @@ reports, and git history.
 | Field | Value |
 |---|---|
 | Branch | `engine-cleanup-10th-july`, tracking `origin/engine-cleanup-10th-july` |
-| Current pushed baseline | `249135a2 refactor: delete broad runtime UI frame context` |
-| Current objective | D1 split `RunInput.cpp` along the proven input-owner boundaries |
-| Last broad local gate | `tools\validate_full.bat` passed final B1f input ownership with 130/130 doctest cases, 2,770 assertions, zero-warning builds, DX12 with zero InfoQueue errors/matching screenshots, standalone physics smoke, and 20,001-line byte-exact physics in 53.1s |
+| Current pushed baseline | `68a0642b refactor: complete runtime input ownership` |
+| Current objective | D2 split `TestSceneParser.cpp` by schema domain |
+| Last broad local gate | `tools\validate_full.bat` passed D1 input translation-unit decomposition with 130/130 doctest cases, 2,770 assertions, zero-warning builds, DX12 with zero InfoQueue errors/matching screenshots, standalone physics smoke, and 20,001-line byte-exact physics in 53.1s |
 | Native evidence | Injected heap-use-after-free caught; healthy ASan and five-file `/analyze` passed in 16.185s |
 
 ## Pushed Cleanup Commits
@@ -46,8 +46,16 @@ reports, and git history.
 - `cb2f4dc4 refactor: move render composition behind RuntimeRenderer`
 - `f5cbeb57 fix: bound replay retained memory by owner`
 - `8e39056c refactor: narrow replay live-owner identity`
+- `68a0642b refactor: complete runtime input ownership`
 
 ## Current Queue
+
+D1 is complete. The former 3,192-line `RunInput.cpp` is split at established
+owner boundaries into the 951-line `InputRouter` implementation, 1,144-line
+shared input-frame value/UI policy, 1,074-line stateless frame execution, and
+183-line scene-request execution owned by `SceneController`. All files are
+below the staged size limit; fast, CPU, five interaction scenarios, and full
+pass. D2 now owns the `TestSceneParser.cpp` schema-domain split.
 
 Input ownership B1a-B1f is complete. `InputRouter` owns device, semantic-action,
 focus, pointer, and presentation state; `Run` stores no input context/action

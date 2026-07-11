@@ -1082,9 +1082,28 @@ baseline. Comment audit: 2/2. The scene-milestone adversarial loop is closed.
 Coordinate C with `physics-authority-and-identity.md` C0-C5 and
 `Agentic/Reports/scene_asset_roundtrip_design_20260710.md`.
 
+The D1 physical decomposition landed after B1f established the real input
+owners. `RunInput.cpp` is now a 951-line `InputRouter` implementation rather
+than the frame-composition hub. Shared input-frame value policy and UI command
+application live in `InputFrame.cpp` (1,144 lines), stateless top-level frame
+sequencing lives in `InputFrameExecution.cpp` (1,074 lines), and the scene
+owner's pending-request execution lives in
+`Scene/SceneRequestExecution.cpp` (183 lines). No callback pack, host pointer,
+or replacement broad owner was introduced; the remaining camera forwarding
+shims stay visible in `RunInput.cpp` for E2 rather than being hidden by this
+mechanical split. The project/filter inventory covers all three translation
+units. Comment audit: 5/5 touched C++ source-bearing files inspected, zero
+deferred. Evidence: final `tools\validate_fast.bat` passed in 27.3s with eight
+staged candidates and zero size/filter/build failures;
+`tools\validate_all_cpu_tests.bat` passed in 10.9s with 130/130 cases and 2,770
+assertions; `tools\validate_interaction_clicks.bat` passed all five scenarios in
+14.1s; and `tools\validate_full.bat` passed in 53.1s with zero-warning builds,
+zero DX12 InfoQueue errors, matching screenshots, standalone physics smoke, and
+the 20,001-line byte-exact physics baseline.
+
 ### D. Mega-TU decomposition
 
-- [ ] D1. Split `RunInput.cpp` only as ownership extraction 1 lands; do not move
+- [x] D1. Split `RunInput.cpp` only as ownership extraction 1 lands; do not move
   the same code twice.
 - [ ] D2. Split `TestSceneParser.cpp` by schema domain
   (bodies/assets/groups/water/cameras). It already uses nlohmann JSON; this is

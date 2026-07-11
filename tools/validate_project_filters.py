@@ -193,6 +193,7 @@ RENDERING_PREFIXES = (
 )
 
 SCENE_PREFIXES = (
+    "SceneRequestExecution",
     "SceneSnapshotWriter",
     "TestScene",
     "TestSceneParser",
@@ -219,6 +220,7 @@ RUNTIME_PREFIXES = (
     "Input",
     "InputController",
     "InputFrame",
+    "InputFrameExecution",
     "InputRouter",
     "LiveStyleController",
     "Run",

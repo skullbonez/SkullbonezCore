@@ -202,6 +202,9 @@
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneRuntimeCoordinator.cpp">
       <Filter>Source Files\Runtime\Scene</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneRequestExecution.cpp">
+      <Filter>Source Files\Scene</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneRuntimeDefaults.cpp">
       <Filter>Source Files\Runtime\Scene</Filter>
     </ClCompile>
@@ -329,6 +332,12 @@
       <Filter>Source Files\Runtime</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\InputRouter.cpp">
+      <Filter>Source Files\Runtime</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\InputFrame.cpp">
+      <Filter>Source Files\Runtime</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\InputFrameExecution.cpp">
       <Filter>Source Files\Runtime</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\DiagnosticsController.cpp">

@@ -208,6 +208,7 @@
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneRuntimeCreate.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneGeneratedSetup.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneRuntimeCoordinator.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneRequestExecution.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneRuntimeDefaults.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneRuntimeGeneratedControls.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneRuntimeLoad.cpp" />
@@ -243,6 +244,8 @@
     <ClCompile Include="SkullbonezSource\Runtime\InputController.Bindings.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\InputController.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\InputRouter.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\InputFrame.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\InputFrameExecution.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\DiagnosticsController.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Editor\EditorTools.cpp" />
     <ClCompile Include="SkullbonezSource\Core\LockOrderValidator.cpp" />
