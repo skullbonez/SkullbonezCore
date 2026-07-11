@@ -811,7 +811,7 @@ void RenderBackendDX12::DispatchReflectionRays( const float* invViewProj,
     bool allValid = true;
     for ( int i = 0; i < 8; ++i )
     {
-        if ( texHandles[i] == 0 || texHandles[i] > (uint32_t)m_textures.size() )
+        if ( m_textureOwner.ResolveSrv( texHandles[i] ) == UINT_MAX )
         {
             allValid = false;
             break;
@@ -831,7 +831,7 @@ void RenderBackendDX12::DispatchReflectionRays( const float* invViewProj,
         for ( int i = 0; i < 8; ++i )
         {
             D3D12_CPU_DESCRIPTOR_HANDLE dst = m_srvDescriptors.ShaderVisibleCpuHandle( slot0 + (UINT)i );
-            UINT srcIdx = m_textures[texHandles[i] - 1].srvIndex;
+            UINT srcIdx = m_textureOwner.ResolveSrv( texHandles[i] );
             Device()->CopyDescriptorsSimple( 1,
                                              dst,
                                              GetSRVStagingCpuHandle( srcIdx ),
@@ -882,9 +882,8 @@ void RenderBackendDX12::DispatchReflectionRays( const float* invViewProj,
     // DXR uses the compute root signature/pipeline path. Mark raster state
     // dirty so the next draw restores graphics bindings instead of inheriting
     // raytracing state.
-    m_lastPSOHash = 0;
-    m_texBindingsDirty = true;
-    m_targetsDirty = true;
+    m_pipelineOwner.InvalidateCommandState();
+    m_textureOwner.InvalidateBindings();
 }
 
 
@@ -899,12 +898,10 @@ uint32_t RenderBackendDX12::GetReflectionUAVTexture() const
     }
     // Reuse an existing registry handle when the reflection SRV has already
     // been exposed to the water path.
-    for ( size_t i = 0; i < m_textures.size(); ++i )
+    const uint32_t existingHandle = m_textureOwner.FindHandleForSrv( m_reflectionSRVIndex );
+    if ( existingHandle != 0 )
     {
-        if ( m_textures[i].srvIndex == m_reflectionSRVIndex )
-        {
-            return (uint32_t)( i + 1 );
-        }
+        return existingHandle;
     }
     // const_cast is local to this lazy registration path: externally this query
     // remains a handle lookup, while internally the texture registry gains one

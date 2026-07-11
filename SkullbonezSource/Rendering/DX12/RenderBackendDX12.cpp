@@ -219,13 +219,13 @@ RenderMemoryStats RenderBackendDX12::GetRenderMemoryStats() const
         stats.timerReadbackBytes = timerReadbackStats.sizeBytes;
     }
 
-    stats.textureRegistryCount = m_textures.size();
-    stats.textureRegistryCapacity = m_textures.capacity();
+    stats.textureRegistryCount = m_textureOwner.RegistryCount();
+    stats.textureRegistryCapacity = m_textureOwner.RegistryCapacity();
     stats.dynamicVertexBufferCount = m_dynamicVBs.size();
     stats.dynamicVertexBufferCapacity = m_dynamicVBs.capacity();
     stats.instancedMeshCount = m_instancedMeshes.size();
     stats.instancedMeshCapacity = m_instancedMeshes.capacity();
-    stats.psoCacheCount = m_psoCacheCount;
+    stats.psoCacheCount = m_pipelineOwner.CacheCount();
     stats.graphTransientCount = m_graphTransientResources.size();
     stats.graphTransientCapacity = m_graphTransientResources.capacity();
 
@@ -645,7 +645,7 @@ SkullbonezCore::Basics::SbResult RenderBackendDX12::EnsureCommandListOpen()
     // constant buffers, texture descriptors, etc.). Must match what the PSO was created with.
     // Docs:
     // https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-setgraphicsrootsignature
-    CommandList()->SetGraphicsRootSignature( m_rootSignature );
+    CommandList()->SetGraphicsRootSignature( m_pipelineOwner.RootSignature() );
     // The command allocator, upload arena, and transient descriptor range all
     // share the same lifetime. We waited for this frame allocator's fence above,
     // so the GPU is no longer reading:
@@ -660,9 +660,8 @@ SkullbonezCore::Basics::SbResult RenderBackendDX12::EnsureCommandListOpen()
     m_srvDescriptors.ResetFrame( m_allocatorIndex );
 
     // All command list state is reset — force full rebind on next draw
-    m_lastPSOHash = 0;
-    m_texBindingsDirty = true;
-    m_targetsDirty = true;
+    m_pipelineOwner.InvalidateCommandState();
+    m_textureOwner.InvalidateBindings();
     return SkullbonezCore::Basics::SbResult::Success();
 }
 
@@ -814,7 +813,7 @@ SkullbonezCore::Basics::SbResult RenderBackendDX12::FlushUploadBuffer()
     }
     ID3D12DescriptorHeap* heaps[] = { m_srvHeap };
     CommandList()->SetDescriptorHeaps( 1, heaps );
-    CommandList()->SetGraphicsRootSignature( m_rootSignature );
+    CommandList()->SetGraphicsRootSignature( m_pipelineOwner.RootSignature() );
     RestorePlatformProfilerGpuStackAfterSubmit( suspendedPlatformGpuDepth );
 
     // FlushUploadBuffer submits and waits for all current GPU work before it
@@ -823,9 +822,8 @@ SkullbonezCore::Basics::SbResult RenderBackendDX12::FlushUploadBuffer()
     // and temporary descriptors are no longer in use, so the arenas can rewind.
     m_uploadSystem.ResetFrame( m_allocatorIndex );
     m_srvDescriptors.ResetFrame( m_allocatorIndex );
-    m_lastPSOHash = 0;
-    m_texBindingsDirty = true;
-    m_targetsDirty = true;
+    m_pipelineOwner.InvalidateCommandState();
+    m_textureOwner.InvalidateBindings();
     return SkullbonezCore::Basics::SbResult::Success();
 }
 
@@ -1227,9 +1225,9 @@ void RenderBackendDX12::BeginGraphTextureRenderTarget( const RenderGraphTextureB
 
     // Lifetime: callback-owned graph passes borrow the active backbuffer/depth
     // target while a transient is bound, then restore it before the next pass.
-    m_savedGraphRTV = m_currentRTV;
-    m_savedGraphDSV = m_currentDSV;
-    m_savedGraphRTVFormat = m_currentRTVFormat;
+    m_savedGraphRTV = m_pipelineOwner.CurrentRTV();
+    m_savedGraphDSV = m_pipelineOwner.CurrentDSV();
+    m_savedGraphRTVFormat = m_pipelineOwner.RenderTargetFormat();
     if ( !ExecuteGraphTransition( passName,
                                   slot->resourceName,
                                   slot->resource,
@@ -1272,8 +1270,7 @@ void RenderBackendDX12::EndGraphTextureRenderTarget( const RenderGraphTextureBin
     slot->currentAccess = RenderGraphResourceAccess::PixelShaderResource;
     SetRenderingToFBO( false );
     SetCurrentTargets( m_savedGraphRTV, m_savedGraphDSV );
-    m_currentRTVFormat = m_savedGraphRTVFormat;
-    m_psoDirty = true;
+    m_pipelineOwner.RestoreRenderTargetFormat( m_savedGraphRTVFormat );
     m_graphRenderTargetActive = false;
     m_activeGraphRenderTarget = {};
 }
@@ -1607,13 +1604,14 @@ SkullbonezCore::Basics::SbResult RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/
     // BindTexture(0) maps to this typed null SRV so shaders that sample an
     // intentionally empty slot read safe zero/default values instead of whatever
     // descriptor was previously bound to the root parameter.
-    m_nullTextureSRVIndex = AllocateStaticSRV();
+    const UINT nullTextureSrvIndex = AllocateStaticSRV();
+    m_textureOwner.SetNullSrvIndex( nullTextureSrvIndex );
     D3D12_SHADER_RESOURCE_VIEW_DESC nullTextureSrv = {};
     nullTextureSrv.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
     nullTextureSrv.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
     nullTextureSrv.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
     nullTextureSrv.Texture2D.MipLevels = 1;
-    Device()->CreateShaderResourceView( nullptr, &nullTextureSrv, GetSRVStagingCpuHandle( m_nullTextureSRVIndex ) );
+    Device()->CreateShaderResourceView( nullptr, &nullTextureSrv, GetSRVStagingCpuHandle( nullTextureSrvIndex ) );
 
     // Lifetime: swap-chain images are replaced on resize, but the engine keeps
     // one stable RTV descriptor row per back buffer index. ResizeBuffers swaps
@@ -1660,12 +1658,12 @@ SkullbonezCore::Basics::SbResult RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/
             "DX12 frame upload buffer creation or persistent Map failed" );
     }
 
-    const SkullbonezCore::Basics::SbResult rootSignatureResult = CreateRootSignature();
+    const SkullbonezCore::Basics::SbResult rootSignatureResult = m_pipelineOwner.Initialize( Device() );
     if ( !rootSignatureResult.ok )
     {
         return rootSignatureResult;
     }
-    const SkullbonezCore::Basics::SbResult genMipsResult = InitGenMipsPipeline();
+    const SkullbonezCore::Basics::SbResult genMipsResult = m_textureOwner.Initialize( *this );
     if ( !genMipsResult.ok )
     {
         return genMipsResult;
@@ -1742,11 +1740,9 @@ SkullbonezCore::Basics::SbResult RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/
         }
     }
 
-    m_viewport = { 0.0f, 0.0f, (float)width, (float)height, 0.0f, 1.0f };
-    m_scissorRect = { 0, 0, (LONG)width, (LONG)height };
-
-    m_currentRTV = m_backBufferRTVs[m_frameIndex];
-    m_currentDSV = m_mainDSV;
+    m_pipelineOwner.SetViewport( { 0.0f, 0.0f, (float)width, (float)height, 0.0f, 1.0f },
+                                 { 0, 0, (LONG)width, (LONG)height } );
+    m_pipelineOwner.SetCurrentTargets( m_backBufferRTVs[m_frameIndex], m_mainDSV );
     // Publication boundary: callers observe dimensions only after every
     // required device, upload, pipeline, and framebuffer resource is ready.
     m_width = width;
@@ -1757,8 +1753,12 @@ SkullbonezCore::Basics::SbResult RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/
 }
 
 
-SkullbonezCore::Basics::SbResult RenderBackendDX12::CreateRootSignature()
+SkullbonezCore::Basics::SbResult Dx12PipelineOwner::Initialize( ID3D12Device* device )
 {
+    // Lifetime: initialization is reusable after a prior Shutdown or partial
+    // startup failure. Desired state returns to cold defaults before publishing
+    // a new root signature.
+    ResetDesiredState();
     // Root signature mental model:
     //
     // A shader cannot freely access arbitrary C++ variables or texture objects.
@@ -1866,11 +1866,17 @@ SkullbonezCore::Basics::SbResult RenderBackendDX12::CreateRootSignature()
     // the application and shaders — it defines the layout of all shader-visible parameters.
     // Every PSO must reference a root signature, and every draw call must bind matching data.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createrootsignature
-    if ( FAILED( Device()->CreateRootSignature( 0,
-                                                signature->GetBufferPointer(),
-                                                signature->GetBufferSize(),
-                                                IID_PPV_ARGS( &m_rootSignature ) ) ) )
+    const HRESULT rootSignatureResult = device->CreateRootSignature( 0,
+                                                                     signature->GetBufferPointer(),
+                                                                     signature->GetBufferSize(),
+                                                                     IID_PPV_ARGS( &m_rootSignature ) );
+    if ( FAILED( rootSignatureResult ) || !m_rootSignature )
     {
+        if ( m_rootSignature )
+        {
+            m_rootSignature->Release();
+            m_rootSignature = nullptr;
+        }
         return SkullbonezCore::Basics::SbResult::Failure( "Rendering/DX12", "CreateRootSignature failed" );
     }
     NameDx12Object( m_rootSignature, L"Skullbonez DX12 Main Root Signature" );
@@ -2004,8 +2010,9 @@ void RenderBackendDX12::Shutdown()
     // RENDER_TARGET state after readback. Shutdown does one final DXGI Present()
     // below to drain the flip queue, and DX12 requires that resource to be in
     // PRESENT state first so the final DXGI Present() has a legal resource.
-    if ( !m_commandRecording.HasFailure() && m_deviceHealth.CanIssueDeviceWork() && !m_renderingToFBO &&
-         m_backBufferAccess != RenderGraphResourceAccess::Present && SwapChain() && m_renderTargets[m_frameIndex] )
+    if ( !m_commandRecording.HasFailure() && m_deviceHealth.CanIssueDeviceWork() &&
+         !m_pipelineOwner.RenderingToFramebuffer() && m_backBufferAccess != RenderGraphResourceAccess::Present &&
+         SwapChain() && m_renderTargets[m_frameIndex] )
     {
         const SkullbonezCore::Basics::SbResult openResult = EnsureCommandListOpen();
         if ( !openResult.ok )
@@ -2144,17 +2151,6 @@ void RenderBackendDX12::Shutdown()
         m_gpuTimers.queryHeap = nullptr;
     }
 
-    if ( m_genMipsPSO )
-    {
-        m_genMipsPSO->Release();
-        m_genMipsPSO = nullptr;
-    }
-    if ( m_genMipsRS )
-    {
-        m_genMipsRS->Release();
-        m_genMipsRS = nullptr;
-    }
-
     // Report any accumulated D3D12 validation errors to dx12_validation.txt
     {
         ID3D12InfoQueue* infoQueue = nullptr;
@@ -2192,17 +2188,11 @@ void RenderBackendDX12::Shutdown()
         }
     }
 
-    // Cached PSOs are backend-owned COM objects. They are shared across draws
-    // while the backend lives, then released as one cache at shutdown.
-    for ( size_t i = 0; i < m_psoCacheCount; ++i )
-    {
-        if ( m_psoCache[i].pso )
-        {
-            m_psoCache[i].pso->Release();
-            m_psoCache[i].pso = nullptr;
-        }
-    }
-    m_psoCacheCount = 0;
+    // Lifetime: the concrete owners release their registries and compiled
+    // pipelines only after the terminal GPU drain above proves no command list
+    // can still reference them.
+    m_textureOwner.Shutdown();
+    m_pipelineOwner.Shutdown();
 
     // Grid line overlay resources. These PSOs are keyed by RTV format because
     // cinematic HDR and ordinary swapchain draws bind different color formats.
@@ -2232,24 +2222,10 @@ void RenderBackendDX12::Shutdown()
     m_instancedMeshes.clear();
     m_dynamicVBs.clear();
 
-    // Textures
-    for ( auto& tex : m_textures )
-    {
-        if ( tex.owned && tex.resource )
-        {
-            tex.resource->Release();
-        }
-    }
-    m_textures.clear();
-
     m_uploadSystem.Shutdown();
     if ( m_depthStencil )
     {
         m_depthStencil->Release();
-    }
-    if ( m_rootSignature )
-    {
-        m_rootSignature->Release();
     }
     for ( int i = 0; i < FRAME_COUNT; ++i )
     {
@@ -2267,7 +2243,6 @@ void RenderBackendDX12::Shutdown()
         m_srvStagingHeap->Release();
     }
     m_srvDescriptors.Reset();
-    m_nullTextureSRVIndex = UINT_MAX;
     if ( m_dsvHeap )
     {
         m_dsvHeap->Release();
@@ -2424,7 +2399,7 @@ SkullbonezCore::Basics::SbResult RenderBackendDX12::Present()
     // Advance to next frame's allocator and swap chain buffer.
     m_allocatorIndex = m_renderDevice.AdvanceAllocatorIndex();
     m_frameIndex = m_renderDevice.RefreshFrameIndexFromSwapChain();
-    m_currentRTV = m_backBufferRTVs[m_frameIndex];
+    m_pipelineOwner.SetCurrentColorTarget( m_backBufferRTVs[m_frameIndex] );
     m_backBufferAccess = RenderGraphResourceAccess::Present;
 
     // Charge allocator/upload/descriptor pacing to Present/VsyncWait instead of
@@ -2704,7 +2679,7 @@ SkullbonezCore::Basics::SbResult RenderBackendDX12::Resize( int width, int heigh
                 m_renderTargets[i] = restored[i];
                 Device()->CreateRenderTargetView( m_renderTargets[i], nullptr, m_backBufferRTVs[i] );
             }
-            m_currentRTV = m_backBufferRTVs[m_frameIndex];
+            m_pipelineOwner.SetCurrentColorTarget( m_backBufferRTVs[m_frameIndex] );
             return transaction.Fail( resizeFailure );
         }
         for ( ID3D12Resource* resource : restored )
@@ -2774,10 +2749,9 @@ SkullbonezCore::Basics::SbResult RenderBackendDX12::Resize( int width, int heigh
 
     m_width = width;
     m_height = height;
-    m_viewport = { 0.0f, 0.0f, (float)width, (float)height, 0.0f, 1.0f };
-    m_scissorRect = { 0, 0, (LONG)width, (LONG)height };
-    m_currentRTV = m_backBufferRTVs[m_frameIndex];
-    m_currentDSV = m_mainDSV;
+    m_pipelineOwner.SetViewport( { 0.0f, 0.0f, (float)width, (float)height, 0.0f, 1.0f },
+                                 { 0, 0, (LONG)width, (LONG)height } );
+    m_pipelineOwner.SetCurrentTargets( m_backBufferRTVs[m_frameIndex], m_mainDSV );
     ++m_recreationGeneration;
     if ( !transaction.CommitPublished( m_recreationGeneration ) ||
          transaction.PublishedGeneration() != m_recreationGeneration )
@@ -2793,9 +2767,8 @@ SkullbonezCore::Basics::SbResult RenderBackendDX12::Resize( int width, int heigh
 
 void RenderBackendDX12::SetViewport( int x, int y, int w, int h )
 {
-    m_viewport = { (float)x, (float)y, (float)w, (float)h, 0.0f, 1.0f };
-    m_scissorRect = { (LONG)x, (LONG)y, (LONG)( x + w ), (LONG)( y + h ) };
-    m_targetsDirty = true;
+    m_pipelineOwner.SetViewport( { (float)x, (float)y, (float)w, (float)h, 0.0f, 1.0f },
+                                 { (LONG)x, (LONG)y, (LONG)( x + w ), (LONG)( y + h ) } );
 }
 
 
@@ -2806,7 +2779,7 @@ void RenderBackendDX12::Clear( bool color, bool depth )
         return;
     }
 
-    if ( !m_renderingToFBO )
+    if ( !m_pipelineOwner.RenderingToFramebuffer() )
     {
         TransitionBackbuffer( "ClearBackbuffer", RenderGraphResourceAccess::RenderTarget );
         if ( m_commandRecording.HasFailure() )
@@ -2818,22 +2791,19 @@ void RenderBackendDX12::Clear( bool color, bool depth )
     // GPU where to write pixel colors and depth values for subsequent draw calls.
     // Docs:
     // https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-omsetrendertargets
-    CommandList()->OMSetRenderTargets( 1, &m_currentRTV, FALSE, &m_currentDSV );
+    m_pipelineOwner.BindCurrentOutputs( CommandList() );
 
     // Viewport defines where rendering appears, and the scissor rect clips pixels
     // (pixels outside the scissor are clipped/discarded). Both must be set every time in DX12.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-rssetviewports
     // Docs:
     // https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-rssetscissorrects
-    CommandList()->RSSetViewports( 1, &m_viewport );
-    CommandList()->RSSetScissorRects( 1, &m_scissorRect );
-
     if ( color )
     {
         // Clear the render target to a solid color (wipes the entire back buffer).
         // Docs:
         // https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-clearrendertargetview
-        CommandList()->ClearRenderTargetView( m_currentRTV, m_clearColor, 0, nullptr );
+        m_pipelineOwner.ClearCurrentColor( CommandList(), m_clearColor );
     }
     if ( depth )
     {
@@ -2841,7 +2811,7 @@ void RenderBackendDX12::Clear( bool color, bool depth )
         // the depth test. This is done at the start of each frame or when switching render targets.
         // Docs:
         // https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-cleardepthstencilview
-        CommandList()->ClearDepthStencilView( m_currentDSV, D3D12_CLEAR_FLAG_DEPTH, m_clearDepth, 0, 0, nullptr );
+        m_pipelineOwner.ClearCurrentDepth( CommandList(), m_clearDepth );
     }
 }
 
@@ -2866,64 +2836,37 @@ void RenderBackendDX12::SetClearDepth( float depth )
 
 void RenderBackendDX12::SetDepthTest( bool enable )
 {
-    if ( m_depthTestEnabled != enable )
-    {
-        m_depthTestEnabled = enable;
-        m_psoDirty = true;
-    }
+    m_pipelineOwner.SetDepthTest( enable );
 }
 
 
 void RenderBackendDX12::SetDepthWrite( bool enable )
 {
-    if ( m_depthWriteEnabled != enable )
-    {
-        m_depthWriteEnabled = enable;
-        m_psoDirty = true;
-    }
+    m_pipelineOwner.SetDepthWrite( enable );
 }
 
 
 void RenderBackendDX12::SetBlend( bool enable )
 {
-    if ( m_blendEnabled != enable )
-    {
-        m_blendEnabled = enable;
-        m_psoDirty = true;
-    }
+    m_pipelineOwner.SetBlend( enable );
 }
 
 
 void RenderBackendDX12::SetBlendFunc( BlendFactor src, BlendFactor dst )
 {
-    if ( m_blendSrc != src || m_blendDst != dst )
-    {
-        m_blendSrc = src;
-        m_blendDst = dst;
-        m_psoDirty = true;
-    }
+    m_pipelineOwner.SetBlendFunc( src, dst );
 }
 
 
 void RenderBackendDX12::SetCullFace( bool enable )
 {
-    if ( m_cullEnabled != enable )
-    {
-        m_cullEnabled = enable;
-        m_psoDirty = true;
-    }
+    m_pipelineOwner.SetCullFace( enable );
 }
 
 
 void RenderBackendDX12::SetPolygonOffset( bool enable, float factor, float units )
 {
-    if ( m_polyOffsetEnabled != enable || m_polyOffsetFactor != factor || m_polyOffsetUnits != units )
-    {
-        m_polyOffsetEnabled = enable;
-        m_polyOffsetFactor = factor;
-        m_polyOffsetUnits = units;
-        m_psoDirty = true;
-    }
+    m_pipelineOwner.SetPolygonOffset( enable, factor, units );
 }
 
 
@@ -3001,32 +2944,31 @@ int RenderBackendDX12::GetHeight() const
 
 bool RenderBackendDX12::IsDepthTestEnabled() const
 {
-    return m_depthTestEnabled;
+    return m_pipelineOwner.DepthTestEnabled();
 }
 
 
 bool RenderBackendDX12::IsDepthWriteEnabled() const
 {
-    return m_depthWriteEnabled;
+    return m_pipelineOwner.DepthWriteEnabled();
 }
 
 
 bool RenderBackendDX12::IsBlendEnabled() const
 {
-    return m_blendEnabled;
+    return m_pipelineOwner.BlendEnabled();
 }
 
 
 bool RenderBackendDX12::IsCullFaceEnabled() const
 {
-    return m_cullEnabled;
+    return m_pipelineOwner.CullEnabled();
 }
 
 
 void RenderBackendDX12::GetBlendFunc( BlendFactor& outSrc, BlendFactor& outDst ) const
 {
-    outSrc = m_blendSrc;
-    outDst = m_blendDst;
+    m_pipelineOwner.GetBlendFunc( outSrc, outDst );
 }
 
 

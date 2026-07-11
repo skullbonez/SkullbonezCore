@@ -506,6 +506,7 @@
     <ClInclude Include="SkullbonezSource\Rendering\RenderRasterBindingContract.h" />
     <ClInclude Include="SkullbonezSource\Rendering\RenderSceneSnapshot.h" />
     <ClInclude Include="SkullbonezSource\Rendering\DX12\RenderBackendDX12.CommandRecordingState.h" />
+    <ClInclude Include="SkullbonezSource\Rendering\DX12\RenderBackendDX12.PipelineState.h" />
     <ClInclude Include="SkullbonezSource\Rendering\DX12\Dx12RenderGraphExecutor.h" />
     <ClInclude Include="SkullbonezSource\Rendering\RenderMaterial.h" />
     <ClInclude Include="SkullbonezSource\Rendering\DX12\RenderBackendDX12.h" />

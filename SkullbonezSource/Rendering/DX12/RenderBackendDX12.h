@@ -1,13 +1,12 @@
 /*
 File: SkullbonezSource/Rendering/DX12/RenderBackendDX12.h
 Purpose:
-  Declares the production DX12 renderer and its frame, resource, and pipeline state.
+  Declares the production DX12 renderer plus concrete texture and pipeline owners.
 
 Mental model:
-  RenderBackendDX12.h declares the production DX12 renderer and its frame,
-  resource, and pipeline state. As a public header, keep edits anchored on
-  DX12 ownership, descriptors, resources, and command submission and on the
-  glossary/invariants below.
+  RenderBackendDX12 coordinates device/frame work. Dx12TextureOwner retains
+  texture residency and binding state, while Dx12PipelineOwner retains the
+  ordinary raster recipe and draw-preparation cache.
 
 Glossary:
   Recording epoch: Logical open/closed state of the reusable command list,
@@ -62,6 +61,7 @@ Related:
 #include "../IRenderRayTracing.h"
 #include "../RenderRasterBindingContract.h"
 #include "RenderBackendDX12.CommandRecordingState.h"
+#include "RenderBackendDX12.PipelineState.h"
 #include "RenderGraphTransientDX12.h"
 #include "RenderDeviceDX12.h"
 #include "MeshDX12.h"
@@ -83,6 +83,7 @@ namespace Rendering
 {
 
 class ShaderDX12;
+class RenderBackendDX12;
 
 
 // Texture entry for the DX12 SRV registry.
@@ -191,17 +192,154 @@ struct DeferredResourceReleaseDX12
     bool fenceAssigned = false;
 };
 
+// Concept: texture lifetime is independent from frame/device orchestration.
+// This owner retains the 1-based handle table, binding rows, and mip pipeline;
+// callers lend command-recording dependencies only for the duration of an
+// operation, so shutdown cannot leave a stored pointer back into the backend.
+class Dx12TextureOwner
+{
+  public:
+    Basics::SbResult Initialize( RenderBackendDX12& backend );
+    void Shutdown();
+    uint32_t CreateTexture2D( RenderBackendDX12& backend,
+                              const uint8_t* data,
+                              int width,
+                              int height,
+                              int channels,
+                              bool generateMips,
+                              bool linearFilter,
+                              bool& graphicsStateInvalidated );
+    void BindTexture( uint32_t handle, int slot );
+    void DeleteTexture( RenderBackendDX12& backend, uint32_t handle );
+    UINT RegisterSRV( UINT srvIndex );
+    void UnregisterSRV( uint32_t handle );
+    void ClearBoundSlotsForSrv( UINT srvIndex );
+    UINT ResolveBoundSrv( int slot ) const;
+    void SetNullSrvIndex( UINT index );
+    void MarkBindingsClean();
+    void InvalidateBindings();
+    bool BindingsDirty() const;
+    size_t RegistryCount() const;
+    size_t RegistryCapacity() const;
+    UINT ResolveSrv( uint32_t handle ) const;
+    uint32_t FindHandleForSrv( UINT srvIndex ) const;
+
+  private:
+    bool GenerateMips( RenderBackendDX12& backend,
+                       ID3D12Resource* texture,
+                       DXGI_FORMAT format,
+                       UINT width,
+                       UINT height,
+                       UINT mipCount,
+                       bool& graphicsStateInvalidated );
+
+    std::vector<TextureEntryDX12> m_textures;
+    UINT m_boundTexSlot[TEXTURE_SLOT_COUNT] = { UINT_MAX, UINT_MAX, UINT_MAX, UINT_MAX, UINT_MAX };
+    UINT m_nullTextureSRVIndex = UINT_MAX;
+    ID3D12PipelineState* m_genMipsPSO = nullptr;
+    ID3D12RootSignature* m_genMipsRS = nullptr;
+    UINT m_genMipsNullUAV = UINT_MAX;
+    bool m_texBindingsDirty = true;
+};
+
+// Concept: a pipeline is the complete draw recipe, not a collection of backend
+// flags. This owner retains root-signature, fixed-state intent, target state,
+// PSO cache, and the dirty-state fast path as one coherent lifetime.
+class Dx12PipelineOwner
+{
+  public:
+    Basics::SbResult Initialize( ID3D12Device* device );
+    void Shutdown();
+    bool PrepareDraw( ID3D12Device* device,
+                      ID3D12GraphicsCommandList* commandList,
+                      Dx12CommandRecordingState& recording,
+                      Dx12TextureOwner& textures,
+                      Dx12DescriptorAllocator& descriptors,
+                      VertexFormat12 format,
+                      bool instanced,
+                      const InstancedMeshDX12* instancedMesh,
+                      const DynamicVBDX12* dynamicVertexBuffer );
+    void SetActiveShader( ShaderDX12* shader );
+    ShaderDX12* ActiveShader() const;
+    void SetCurrentTargets( D3D12_CPU_DESCRIPTOR_HANDLE rtv, D3D12_CPU_DESCRIPTOR_HANDLE dsv );
+    void SetRenderingToFBO( bool rendering, DXGI_FORMAT rtvFormat );
+    void SetViewport( const D3D12_VIEWPORT& viewport, const D3D12_RECT& scissor );
+    void SetDepthTest( bool enabled );
+    void SetDepthWrite( bool enabled );
+    void SetBlend( bool enabled );
+    void SetBlendFunc( BlendFactor src, BlendFactor dst );
+    void SetCullFace( bool enabled );
+    void SetPolygonOffset( bool enabled, float factor, float units );
+    bool DepthTestEnabled() const;
+    bool DepthWriteEnabled() const;
+    bool BlendEnabled() const;
+    bool CullEnabled() const;
+    void GetBlendFunc( BlendFactor& src, BlendFactor& dst ) const;
+    void InvalidateCommandState();
+    void InvalidateTargets();
+    DXGI_FORMAT RenderTargetFormat() const;
+    ID3D12RootSignature* RootSignature() const;
+    D3D12_CPU_DESCRIPTOR_HANDLE CurrentRTV() const;
+    D3D12_CPU_DESCRIPTOR_HANDLE CurrentDSV() const;
+    bool RenderingToFramebuffer() const;
+    void RestoreRenderTargetFormat( DXGI_FORMAT format );
+    void SetCurrentColorTarget( D3D12_CPU_DESCRIPTOR_HANDLE rtv );
+    void BindCurrentOutputs( ID3D12GraphicsCommandList* commandList ) const;
+    void ClearCurrentColor( ID3D12GraphicsCommandList* commandList, const float color[4] ) const;
+    void ClearCurrentDepth( ID3D12GraphicsCommandList* commandList, float depth ) const;
+    size_t CacheCount() const;
+
+  private:
+    static size_t HashPSOKey( const PSOKey12& key );
+    static void BuildInputLayout( VertexFormat12 format, D3D12_INPUT_ELEMENT_DESC* output, UINT& count );
+    static void
+    BuildInstancedInputLayout( const InstancedMeshDX12& mesh, D3D12_INPUT_ELEMENT_DESC* output, UINT& count );
+    static void BuildDynamicVBInputLayout( const DynamicVBDX12& buffer, D3D12_INPUT_ELEMENT_DESC* output, UINT& count );
+    ID3D12PipelineState* CreatePSO( ID3D12Device* device,
+                                    VertexFormat12 format,
+                                    bool instanced,
+                                    const InstancedMeshDX12* instancedMesh,
+                                    const DynamicVBDX12* dynamicVertexBuffer );
+    void ResetDesiredState();
+
+    static constexpr size_t CACHE_CAPACITY = 96;
+    std::array<CachedPSODX12, CACHE_CAPACITY> m_psoCache = {};
+    size_t m_psoCacheCount = 0;
+    ID3D12RootSignature* m_rootSignature = nullptr;
+    ShaderDX12* m_activeShader = nullptr;
+    D3D12_VIEWPORT m_viewport = {};
+    D3D12_RECT m_scissorRect = {};
+    D3D12_CPU_DESCRIPTOR_HANDLE m_currentRTV = {};
+    D3D12_CPU_DESCRIPTOR_HANDLE m_currentDSV = {};
+    DXGI_FORMAT m_currentRTVFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
+    bool m_depthTestEnabled = true;
+    bool m_depthWriteEnabled = true;
+    bool m_blendEnabled = false;
+    BlendFactor m_blendSrc = BlendFactor::One;
+    BlendFactor m_blendDst = BlendFactor::Zero;
+    bool m_cullEnabled = true;
+    bool m_polyOffsetEnabled = false;
+    float m_polyOffsetFactor = 0.0f;
+    float m_polyOffsetUnits = 0.0f;
+    bool m_renderingToFBO = false;
+    size_t m_lastPSOHash = 0;
+    bool m_psoDirty = true;
+    bool m_targetsDirty = true;
+};
+
 // Lifetime: graph transient slots own their DX12 resource until the backend
 // releases the graph pool. Descriptor rows come from the backend descriptor
 // allocators and are reused with the slot; they must not be mixed into
 // material/object texture ownership.
-// Concept: RenderBackendDX12 owns the concrete DX12 implementation behind the
+// Concept: RenderBackendDX12 composes the concrete DX12 owners behind the
 // engine-facing capability interfaces.
 //
 // The public interfaces use engine verbs: set a shader, set textures, draw
 // meshes, present the frame. Internally, DX12 requires the backend to make every
 // hidden GPU concept explicit: descriptor table rows, command allocators,
-// resource states, fences, upload memory, and compiled pipeline state.
+// resource states, fences, upload memory, and compiled pipeline state. Texture
+// and pipeline lifetime belong to the named owners above; this class sequences
+// their work with the device/frame command stream.
 class RenderBackendDX12 : public IRenderDeviceLifecycle,
                           public IRenderResourceFactory,
                           public IRenderCommandContext,
@@ -209,6 +347,7 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
                           public IRenderCaptureBackend,
                           public IRenderRayTracing
 {
+    friend class Dx12TextureOwner;
 
   private:
     // Frame management:
@@ -230,7 +369,6 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
 
     // Ordinary raster binding ABI lives in RenderRasterBindingContract.h so
     // runtime passes and the DX12 backend consume one shader/root-signature map.
-    static constexpr size_t MAX_CACHED_GRAPHICS_PSOS = 96;
     static constexpr size_t MAX_GRID_LINE_PSOS = 4;
     static constexpr size_t TRANSIENT_TRIANGLE_STYLE_COUNT = 4;
 
@@ -240,20 +378,14 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     // Runtime allocation policy: PSO discovery is bounded. A cache miss may
     // compile a GPU object during warm-up, but inserting it never grows a heap
     // container and cap exhaustion fails with the missing pipeline shape.
-    std::array<CachedPSODX12, MAX_CACHED_GRAPHICS_PSOS> m_psoCache = {};
-    size_t m_psoCacheCount = 0;
-    std::vector<TextureEntryDX12> m_textures;                          // Texture registry (1-based, index 0 unused)
+    Dx12TextureOwner m_textureOwner;
+    Dx12PipelineOwner m_pipelineOwner;
     std::vector<DynamicVBDX12> m_dynamicVBs;
     std::vector<InstancedMeshDX12> m_instancedMeshes;
 
     // Currently bound render state. DX12 does not remember high-level engine
     // intent for us, so the backend tracks the desired state and emits concrete
     // command-list binds only when the state becomes dirty.
-    D3D12_VIEWPORT m_viewport = {};
-    D3D12_RECT m_scissorRect = {};
-    D3D12_CPU_DESCRIPTOR_HANDLE m_currentRTV = {};
-    D3D12_CPU_DESCRIPTOR_HANDLE m_currentDSV = {};
-    DXGI_FORMAT m_currentRTVFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
     BLAS m_terrainBLAS;
     BLAS m_sphereBLAS;
     TLAS m_tlas;
@@ -376,7 +508,6 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     std::array<ID3D12Resource*, FRAME_COUNT> m_uncertainReadbackResources = {};
     size_t m_uncertainReadbackResourceCount = 0;
 
-    ID3D12RootSignature* m_rootSignature = nullptr;
     int m_width = 0;
     int m_height = 0;
     bool m_isVsyncEnabled = true;
@@ -384,18 +515,8 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     int m_frameDrawCallCount = 0;
     DrawCallTrace m_drawCallTrace;
 
-    bool m_depthTestEnabled = true;
-    bool m_depthWriteEnabled = true;
-    bool m_blendEnabled = false;
-    BlendFactor m_blendSrc = BlendFactor::One;
-    BlendFactor m_blendDst = BlendFactor::Zero;
-    bool m_cullEnabled = true;
-    bool m_polyOffsetEnabled = false;
-    float m_polyOffsetFactor = 0.0f;
-    float m_polyOffsetUnits = 0.0f;
     float m_clearColor[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
     float m_clearDepth = 1.0f;
-    bool m_psoDirty = true;
     // Lifetime: resource owners transfer COM references here when a framebuffer
     // or texture is invalidated before the GPU has necessarily consumed the
     // command stream that mentioned it.
@@ -416,13 +537,6 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     D3D12_CPU_DESCRIPTOR_HANDLE m_savedGraphDSV = {};
     DXGI_FORMAT m_savedGraphRTVFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
 
-    ShaderDX12* m_activeShader = nullptr;
-    // Currently bound persistent SRV descriptor indices for shader texture
-    // slots t0..t4. These are not GPU handles. Before a draw, the backend copies
-    // each persistent descriptor into a transient shader-visible row and binds
-    // that transient GPU handle through the root signature.
-    UINT m_boundTexSlot[TEXTURE_SLOT_COUNT] = { UINT_MAX, UINT_MAX, UINT_MAX, UINT_MAX, UINT_MAX };
-    UINT m_nullTextureSRVIndex = UINT_MAX;                             // Static null Texture2D SRV copied into cleared texture slots.
 
     // Runtime allocation policy: debug-line shader and PSOs are warmed during
     // backend setup for every engine RTV format, so overlay draws do not compile
@@ -436,15 +550,11 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     // while building a frame.
     std::array<std::unique_ptr<IShader>, TRANSIENT_TRIANGLE_STYLE_COUNT> m_transientTriangleShaders;
 
-    bool m_renderingToFBO = false;
     // Invariant: this is the graph-visible state for the current swap-chain
     // image in m_frameIndex. It resets to Present whenever DXGI gives us a new
     // current backbuffer through resize or Present.
     RenderGraphResourceAccess m_backBufferAccess = RenderGraphResourceAccess::Present;
 
-    size_t m_lastPSOHash = 0;
-    bool m_texBindingsDirty = true;
-    bool m_targetsDirty = true;
 
     bool m_dxrSupported = false;
     Basics::SbResult m_dxrFeatureResult = Basics::SbResult::Success(); // Retains one bounded optional-fallback reason.
@@ -469,9 +579,6 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     int m_dxrMaxInstances = 0;
     std::array<D3D12_RAYTRACING_INSTANCE_DESC, MAX_GAME_MODELS + 1> m_tlasInstances = {};
 
-    ID3D12PipelineState* m_genMipsPSO = nullptr;                       // Compute PSO for generate_mips.hlsl
-    ID3D12RootSignature* m_genMipsRS = nullptr;                        // Root signature: 4 root constants + SRV + 4 UAVs
-    UINT m_genMipsNullUAV = 0;                                         // Static SRV slot holding a null UAV (padding)
 
     // --- Internal helpers ---
     Basics::SbResult WaitForGpu();
@@ -482,7 +589,6 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     void AssignDeferredResourceReleaseFence( UINT64 fenceValue );
     void ReleaseCompletedDeferredResources( bool releaseUnfenced );
     void TryConsumeGpuTimerReadback( bool waitForFence );
-    Basics::SbResult CreateRootSignature();
     Basics::SbResult CreateDepthStencil( int w, int h );
     Basics::SbResult CreateDepthStencilResource( int w, int h, ID3D12Resource*& outResource );
     void PublishDepthStencilView( ID3D12Resource* resource );
@@ -503,24 +609,16 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     const GraphTransientResourceDX12* FindGraphTransientSlot( RenderGraphResourceHandle resource ) const;
     void ReleaseGraphTransientResources( const char* reason );
     void ReportDeviceLost( const char* context, HRESULT result ) const;
-    size_t HashPSOKey( const PSOKey12& key );
-    ID3D12PipelineState*
-    CreatePSO( VertexFormat12 format, bool instanced, const InstancedMeshDX12* im, const DynamicVBDX12* dvb );
     ID3D12PipelineState* EnsureGridLinePipeline( DXGI_FORMAT rtvFormat );
     void CheckDXRSupport();
     Basics::SbResult CreateRTRootSignature();
     Basics::SbResult CreateRTPipeline();
     Basics::SbResult CreateReflectionUAV( int width, int height );
-    Basics::SbResult InitGenMipsPipeline();
-    bool GenerateMipsGPU( ID3D12Resource* tex, DXGI_FORMAT fmt, UINT w, UINT h, UINT numMips );
     void AssertPlatformProfilerGpuStackClosed( const char* reason ) const;
     int SuspendPlatformProfilerGpuStackForSubmit( const char* reason );
     void RestorePlatformProfilerGpuStackAfterSubmit( int suspendedDepth );
     IShader* EnsureTransientTriangleShader( TransientTriangleStyle style );
 
-    static void BuildInputLayout( VertexFormat12 format, D3D12_INPUT_ELEMENT_DESC* out, UINT& count );
-    static void BuildInstancedInputLayout( const InstancedMeshDX12& im, D3D12_INPUT_ELEMENT_DESC* out, UINT& count );
-    static void BuildDynamicVBInputLayout( const DynamicVBDX12& dvb, D3D12_INPUT_ELEMENT_DESC* out, UINT& count );
 
   public:
     RenderBackendDX12();
@@ -697,7 +795,7 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     void SetActiveShader( ShaderDX12* shader );
     ShaderDX12* GetActiveShader() const
     {
-        return m_activeShader;
+        return m_pipelineOwner.ActiveShader();
     }
     ID3D12Device* GetDevice() const
     {
@@ -720,11 +818,11 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
 
     D3D12_CPU_DESCRIPTOR_HANDLE GetCurrentRTV() const
     {
-        return m_currentRTV;
+        return m_pipelineOwner.CurrentRTV();
     }
     D3D12_CPU_DESCRIPTOR_HANDLE GetCurrentDSV() const
     {
-        return m_currentDSV;
+        return m_pipelineOwner.CurrentDSV();
     }
     void SetCurrentTargets( D3D12_CPU_DESCRIPTOR_HANDLE rtv, D3D12_CPU_DESCRIPTOR_HANDLE dsv );
     void SetRenderingToFBO( bool rendering,

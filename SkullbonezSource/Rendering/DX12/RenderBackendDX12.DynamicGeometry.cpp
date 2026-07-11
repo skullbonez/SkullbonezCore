@@ -162,7 +162,7 @@ ID3D12PipelineState* RenderBackendDX12::EnsureGridLinePipeline( DXGI_FORMAT rtvF
     D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc = {};
     psoDesc.InputLayout.pInputElementDescs = elements;
     psoDesc.InputLayout.NumElements = 2;
-    psoDesc.pRootSignature = m_rootSignature;
+    psoDesc.pRootSignature = m_pipelineOwner.RootSignature();
     psoDesc.VS.pShaderBytecode = shader->GetVSBytecode();
     psoDesc.VS.BytecodeLength = shader->GetVSBytecodeSize();
     psoDesc.PS.pShaderBytecode = shader->GetPSBytecode();
@@ -304,7 +304,7 @@ void RenderBackendDX12::DrawLinesColored( const float* data, int vertCount, cons
         return;
     }
 
-    ID3D12PipelineState* gridLinePSO = EnsureGridLinePipeline( m_currentRTVFormat );
+    ID3D12PipelineState* gridLinePSO = EnsureGridLinePipeline( m_pipelineOwner.RenderTargetFormat() );
     if ( !gridLinePSO )
     {
         return;
@@ -322,14 +322,14 @@ void RenderBackendDX12::DrawLinesColored( const float* data, int vertCount, cons
     memcpy( GetUploadPtr( vbAddress ), data, (size_t)dataSize );
 
     CommandList()->SetPipelineState( gridLinePSO );
-    CommandList()->SetGraphicsRootSignature( m_rootSignature );
+    CommandList()->SetGraphicsRootSignature( m_pipelineOwner.RootSignature() );
     CommandList()->IASetPrimitiveTopology( D3D_PRIMITIVE_TOPOLOGY_LINELIST );
 
     // Grid lines use the same constant-buffer slot as ordinary shader constants
     // so the debug path can share the renderer root-signature contract.
     ShaderDX12* shader = static_cast<ShaderDX12*>( m_gridLineShader.get() );
-    m_activeShader = shader;
-    m_psoDirty = true; // Force PSO rebind on next normal draw
+    m_pipelineOwner.SetActiveShader( shader );
+    m_pipelineOwner.InvalidateCommandState(); // Force PSO rebind on next normal draw.
 
     Matrix4 vpMat( viewProjMatrix16 );
     shader->SetMat4( "uViewProj", vpMat );
@@ -350,9 +350,7 @@ void RenderBackendDX12::DrawLinesColored( const float* data, int vertCount, cons
     CommandList()->IASetVertexBuffers( 0, 1, &vbView );
 
     // Bind render targets (depth disabled in PSO)
-    CommandList()->OMSetRenderTargets( 1, &m_currentRTV, FALSE, &m_currentDSV );
-    CommandList()->RSSetViewports( 1, &m_viewport );
-    CommandList()->RSSetScissorRects( 1, &m_scissorRect );
+    m_pipelineOwner.BindCurrentOutputs( CommandList() );
 
     RecordDrawCall( { DrawCallKind::DebugLines, "DebugLines", vertCount, 1 } );
     CommandList()->DrawInstanced( (UINT)vertCount, 1, 0, 0 );

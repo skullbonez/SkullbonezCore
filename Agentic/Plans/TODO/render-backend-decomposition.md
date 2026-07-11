@@ -1,7 +1,7 @@
 # Render Backend Decomposition
 
 Date: 2026-07-10 (source reconciled)
-Status: In progress — 0/8 remaining checklist items complete; completed facet
+Status: In progress — 2/8 remaining checklist items complete; completed facet
 and render-graph decisions are historical evidence, not part of this count
 Impact area: DX12 renderer, backend ownership, runtime render wiring
 Owner: DX12 device/render layer
@@ -31,9 +31,9 @@ is owned by `dx12-failure-propagation.md` and should land before owner moves.
 
 ### A. Concrete owner split
 
-- [ ] A1. Texture owner: texture creation, upload reservations, descriptors,
+- [x] A1. Texture owner: texture creation, upload reservations, descriptors,
   SRV registration, mip generation, and texture-handle table.
-- [ ] A2. Pipeline owner: root signature/bytecode recipe, raster/depth/blend/RTV
+- [x] A2. Pipeline owner: root signature/bytecode recipe, raster/depth/blend/RTV
   state, PSO cache, and draw-preparation state.
 - [ ] A3. DXR owner: device5/command-list capability, BLAS/TLAS/SBT, reflection
   resources, and DXR failure state. It must be a real owner, not a forwarding shim.
@@ -59,6 +59,26 @@ is owned by `dx12-failure-propagation.md` and should land before owner moves.
   suffices; keep DX12 types out of engine-facing headers.
 - [ ] D2. Verify capture/readback and platform-profiler marker paths after each
   split; register their CPU tests with the validation umbrella.
+
+### A1-A2 evidence (2026-07-11)
+
+- `Dx12TextureOwner` owns the texture handle table, persistent/bound SRV rows,
+  null binding, mip root signature/PSO, creation/upload/mip path, and terminal
+  release. Deleted texture and FBO rows are reclaimed before registry growth.
+- `Dx12PipelineOwner` owns the ordinary root signature, active shader recipe,
+  bounded PSO cache, fixed-function/target state, and draw dirty-state fast
+  path. It receives only explicit device, command-list, recording, texture-
+  binding, and descriptor dependencies per draw; it has no backend friendship
+  or stored host pointer.
+- Pipeline desired state resets to reusable defaults at both initialization and
+  shutdown. The allocation-free architecture test covers every reset field.
+- The independent review initially blocked reciprocal authority and incomplete
+  reinitialization. Both findings were fixed; the final follow-up reported no
+  remaining credible blocker.
+- Validation: `validate_all_cpu_tests` passed all four CPU lanes in 29.849s;
+  three consecutive `validate_dx12_renderer` runs passed with zero InfoQueue
+  errors and matching screenshots (39.836s, 22.893s, 22.825s); and
+  `run_graphics_stress.bat 1` completed crash-free in 60.865s.
 
 ## Dependencies
 
