@@ -526,6 +526,13 @@ UINT Dx12DescriptorAllocator::AllocateTransientRange( UINT count )
 }
 
 
+bool Dx12DescriptorAllocator::CanAllocateTransientRange( UINT count ) const
+{
+    return count > 0 && m_frameCount > 0 && m_currentFrame < m_frameCount && count <= m_transientCapacityPerFrame &&
+           m_nextTransientInFrame <= m_transientCapacityPerFrame - count;
+}
+
+
 UINT Dx12DescriptorAllocator::ShaderVisibleCapacity() const
 {
     return static_cast<UINT>( static_cast<UINT64>( m_staticCapacity ) +

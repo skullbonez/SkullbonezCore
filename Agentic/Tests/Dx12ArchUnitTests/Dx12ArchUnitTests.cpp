@@ -41,9 +41,10 @@ Related:
 #include "Rendering/RenderGraph.h"
 
 #include <cstdint>
+#include <cstring>
 #include <exception>
-#include <functional>
 #include <iostream>
+#include <process.h>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -104,24 +105,34 @@ void ExpectEqualImpl( const T& actual,
     }
 }
 
-void ExpectThrows( const std::function<void()>& callback, const char* expression, const char* file, int line )
+const char* g_executablePath = nullptr;
+
+void ExpectFatalCase( const char* caseName, const char* file, int line )
 {
-    try
+    if ( !g_executablePath )
     {
-        callback();
-    }
-    catch ( const std::exception& )
-    {
-        return;
+        Fail( file, line, "fatal child executable path is unavailable" );
     }
 
-    Fail( file, line, std::string( "expected exception from: " ) + expression );
+    // Hazard: fatal engine invariants break/terminate the current process, so
+    // each negative contract runs in a child. A normal zero exit means the
+    // expected fatal boundary silently returned.
+    const intptr_t childExit =
+        _spawnl( _P_WAIT, g_executablePath, g_executablePath, "--fatal-case", caseName, static_cast<char*>( nullptr ) );
+    if ( childExit == -1 )
+    {
+        Fail( file, line, std::string( "failed to launch fatal child case: " ) + caseName );
+    }
+    if ( childExit == 0 )
+    {
+        Fail( file, line, std::string( "expected fatal child failure from: " ) + caseName );
+    }
 }
 
 #define EXPECT_TRUE( expression ) ExpectTrue( !!( expression ), #expression, __FILE__, __LINE__ )
 #define EXPECT_EQ( actual, expected )                                                                                  \
     ExpectEqualImpl( ( actual ), ( expected ), #actual, #expected, __FILE__, __LINE__ )
-#define EXPECT_THROWS( expression ) ExpectThrows( [&]() { expression; }, #expression, __FILE__, __LINE__ )
+#define EXPECT_FATAL_CASE( caseName ) ExpectFatalCase( caseName, __FILE__, __LINE__ )
 
 struct TestCase
 {
@@ -549,20 +560,20 @@ void TestDescriptorTransientRangeIsContiguous()
     EXPECT_EQ( frameOneStats.currentFrame, 1u );
 }
 
-void TestDescriptorTransientRangeFailureIsAtomic()
+void TestDescriptorTransientRangeCapacityProbeIsAtomic()
 {
     Dx12DescriptorAllocator allocator = MakeDescriptorAllocator();
 
     allocator.ResetFrame( 0 );
     EXPECT_EQ( allocator.AllocateTransientRange( 7 ), 4u );
 
-    EXPECT_THROWS( allocator.AllocateTransientRange( 2 ) );
+    EXPECT_TRUE( !allocator.CanAllocateTransientRange( 2 ) );
 
     const Dx12DescriptorAllocatorStats afterFailedRange = allocator.GetStats();
     EXPECT_EQ( afterFailedRange.transientUsedThisFrame, 7u );
     EXPECT_EQ( afterFailedRange.transientPeakThisRun, 7u );
 
-    EXPECT_THROWS( allocator.AllocateTransientRange( 0 ) );
+    EXPECT_TRUE( !allocator.CanAllocateTransientRange( 0 ) );
 
     const Dx12DescriptorAllocatorStats afterZeroRange = allocator.GetStats();
     EXPECT_EQ( afterZeroRange.transientUsedThisFrame, 7u );
@@ -715,41 +726,19 @@ void TestRenderGraphClearsSpecificStateWhenItReturnsToAllState()
 
 void TestRenderGraphRejectsMixedSpecificThenAllSubresourceTransition()
 {
-    RenderGraph graph;
-    const RenderGraphResourceHandle texture =
-        graph.AddExternalResource( "MixedTexture", RenderGraphResourceAccess::PixelShaderResource );
-
-    const uint32_t writeMipOne = graph.AddPass( "WriteMipOne" );
-    graph.AddWrite( writeMipOne, texture, RenderGraphResourceAccess::UnorderedAccess, 1u );
-
-    const uint32_t writeAll = graph.AddPass( "WriteAll" );
-    graph.AddWrite( writeAll, texture, RenderGraphResourceAccess::RenderTarget );
-
-    EXPECT_THROWS( graph.Compile() );
+    EXPECT_FATAL_CASE( "mixed-subresource-transition" );
 }
 
 void TestRenderGraphRejectsUnknownPassAccess()
 {
-    RenderGraph graph;
-    const RenderGraphResourceHandle texture =
-        graph.AddExternalResource( "Texture", RenderGraphResourceAccess::PixelShaderResource );
-    const uint32_t pass = graph.AddPass( "BadPass" );
-
-    EXPECT_THROWS( graph.AddRead( pass, texture, RenderGraphResourceAccess::Unknown ) );
-    EXPECT_THROWS( graph.AddWrite( pass, texture, RenderGraphResourceAccess::Unknown ) );
+    EXPECT_FATAL_CASE( "unknown-read-access" );
+    EXPECT_FATAL_CASE( "unknown-write-access" );
 }
 
 void TestRenderGraphRejectsBadHandles()
 {
-    RenderGraph graph;
-    const RenderGraphResourceHandle texture =
-        graph.AddExternalResource( "Texture", RenderGraphResourceAccess::PixelShaderResource );
-    const uint32_t pass = graph.AddPass( "Pass" );
-    RenderGraphResourceHandle badResource;
-    badResource.index = texture.index + 100u;
-
-    EXPECT_THROWS( graph.AddRead( pass, badResource, RenderGraphResourceAccess::PixelShaderResource ) );
-    EXPECT_THROWS( graph.AddWrite( pass + 100u, texture, RenderGraphResourceAccess::RenderTarget ) );
+    EXPECT_FATAL_CASE( "bad-read-resource" );
+    EXPECT_FATAL_CASE( "bad-write-pass" );
 }
 
 RenderGraphTransientResourceDesc MakeTransientColorDesc( uint32_t width = 128u, uint32_t height = 64u )
@@ -815,10 +804,7 @@ void TestRenderGraphReusesCompatibleNonOverlappingTransientResources()
 
 void TestRenderGraphRejectsUnusedTransientResource()
 {
-    RenderGraph graph;
-    graph.AddTransientResource( "Unused", MakeTransientColorDesc(), RenderGraphResourceAccess::Unknown );
-
-    EXPECT_THROWS( graph.Compile() );
+    EXPECT_FATAL_CASE( "unused-transient" );
 }
 
 void TestRenderGraphExecutesCallbacksInPassOrder()
@@ -892,12 +878,7 @@ void TestRenderGraphDisabledCallbackDoesNotExecute()
 
 void TestRenderGraphRejectsCallbackWithoutResourceDeclarations()
 {
-    RenderGraph graph;
-    RenderGraphCallbackTrace trace;
-    const uint32_t pass = graph.AddPass( "MissingDeclarations" );
-    graph.SetPassCallback( pass, RecordRenderGraphCallback, &trace );
-
-    EXPECT_THROWS( graph.ExecuteCallbacks( RenderGraphCallbackExecutionMode::DryRun ) );
+    EXPECT_FATAL_CASE( "callback-without-resources" );
 }
 
 void TestDx12RenderGraphAccessMapsToDx12States()
@@ -1107,6 +1088,63 @@ void TestDx12GraphTransientPoolSlotReuseAllowsSameCompileAlias()
     EXPECT_TRUE( !GraphTransientPoolSlotCanSatisfyDX12( candidate, 3, incompatibleDesc ) );
 }
 
+bool RunFatalCase( const char* caseName )
+{
+    RenderGraph graph;
+    if ( std::strcmp( caseName, "mixed-subresource-transition" ) == 0 )
+    {
+        const RenderGraphResourceHandle texture =
+            graph.AddExternalResource( "MixedTexture", RenderGraphResourceAccess::PixelShaderResource );
+        const uint32_t writeMipOne = graph.AddPass( "WriteMipOne" );
+        graph.AddWrite( writeMipOne, texture, RenderGraphResourceAccess::UnorderedAccess, 1u );
+        const uint32_t writeAll = graph.AddPass( "WriteAll" );
+        graph.AddWrite( writeAll, texture, RenderGraphResourceAccess::RenderTarget );
+        (void)graph.Compile();
+        return true;
+    }
+
+    const RenderGraphResourceHandle texture =
+        graph.AddExternalResource( "Texture", RenderGraphResourceAccess::PixelShaderResource );
+    const uint32_t pass = graph.AddPass( "Pass" );
+    if ( std::strcmp( caseName, "unknown-read-access" ) == 0 )
+    {
+        graph.AddRead( pass, texture, RenderGraphResourceAccess::Unknown );
+    }
+    else if ( std::strcmp( caseName, "unknown-write-access" ) == 0 )
+    {
+        graph.AddWrite( pass, texture, RenderGraphResourceAccess::Unknown );
+    }
+    else if ( std::strcmp( caseName, "bad-read-resource" ) == 0 )
+    {
+        RenderGraphResourceHandle badResource;
+        badResource.index = texture.index + 100u;
+        graph.AddRead( pass, badResource, RenderGraphResourceAccess::PixelShaderResource );
+    }
+    else if ( std::strcmp( caseName, "bad-write-pass" ) == 0 )
+    {
+        graph.AddWrite( pass + 100u, texture, RenderGraphResourceAccess::RenderTarget );
+    }
+    else if ( std::strcmp( caseName, "unused-transient" ) == 0 )
+    {
+        RenderGraph unusedGraph;
+        unusedGraph.AddTransientResource( "Unused", MakeTransientColorDesc(), RenderGraphResourceAccess::Unknown );
+        (void)unusedGraph.Compile();
+    }
+    else if ( std::strcmp( caseName, "callback-without-resources" ) == 0 )
+    {
+        RenderGraph callbackGraph;
+        RenderGraphCallbackTrace trace;
+        const uint32_t callbackPass = callbackGraph.AddPass( "MissingDeclarations" );
+        callbackGraph.SetPassCallback( callbackPass, RecordRenderGraphCallback, &trace );
+        (void)callbackGraph.ExecuteCallbacks( RenderGraphCallbackExecutionMode::DryRun );
+    }
+    else
+    {
+        return false;
+    }
+    return true;
+}
+
 const TestCase kTests[] = {
     { "Command close failure does not commit closed state", TestCommandCloseFailureDoesNotCommitClosedState },
     { "Command close success commits closed state", TestCommandCloseSuccessCommitsClosedState },
@@ -1135,7 +1173,7 @@ const TestCase kTests[] = {
       TestFaultInjectionBlocksFirstAndSubsequentSubmissions },
     { "Unarmed fault injection allows submission accounting", TestUnarmedFaultInjectionAllowsSubmissionAccounting },
     { "Descriptor transient ranges are contiguous", TestDescriptorTransientRangeIsContiguous },
-    { "Descriptor transient range failures are atomic", TestDescriptorTransientRangeFailureIsAtomic },
+    { "Descriptor transient range capacity probes are atomic", TestDescriptorTransientRangeCapacityProbeIsAtomic },
     { "Render graph skips Unknown initial transitions", TestRenderGraphSkipsUnknownInitialTransition },
     { "Render graph emits explicit initial-state transitions", TestRenderGraphExplicitInitialStateTransitions },
     { "Render graph tracks subresource transitions independently",
@@ -1173,8 +1211,17 @@ const TestCase kTests[] = {
 
 } // namespace
 
-int main()
+int main( int argc, char** argv )
 {
+    g_executablePath = argc > 0 ? argv[0] : nullptr;
+    if ( argc == 3 && std::strcmp( argv[1], "--fatal-case" ) == 0 )
+    {
+        // A normal return means the engine failed to enforce the fatal
+        // invariant. The parent test requires this child to terminate nonzero.
+        (void)RunFatalCase( argv[2] );
+        return 0;
+    }
+
     int failures = 0;
 
     for ( const TestCase& test : kTests )

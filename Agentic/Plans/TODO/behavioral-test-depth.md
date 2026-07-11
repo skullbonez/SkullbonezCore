@@ -1,7 +1,7 @@
 # Behavioral Test Depth
 
 Date: 2026-07-10 (reconciled)
-Status: In progress — 3/6 phases complete; P3 and P5 partially complete
+Status: Complete — 6/6 phases complete
 Impact area: SkullbonezTests, physics solver/manifold, scene parser/serializer,
 replay restore
 Owner: subsystem behavior tests
@@ -36,7 +36,7 @@ umbrella and from the broad PR gate.
   retention, stable four-point box manifolds across two steps, stable feature
   ids, and finite non-empty output for degenerate/coplanar inputs. Acceptance:
   an intentionally broken reduction rule fails the named test.
-- [ ] **P3 — Parser and serializer boundaries.** Existing tests cover truncated
+- [x] **P3 — Parser and serializer boundaries.** Existing tests cover truncated
   JSON, missing camera, wrong member type, unknown asset, and malformed style.
   Remaining: use the production parse → scene/entity+physics creation → owner
   mutation → save → parse → recreate path for a mixed-shape
@@ -46,9 +46,12 @@ umbrella and from the broad PR gate.
   saved JSON for `assetLibraries[]`, `assetInstances[]`, and per-part live state.
   Acceptance: no parser-only or object-set-only test that ignores runtime
   creation, identity, authored properties, or save schema.
+  Evidence: `119b359c` and `7fdd91d3` added the schema-v2 mixed-shape no-`Run`
+  owner recreation, complete durable state comparisons, and a waited production
+  building-asset save/reload probe.
 - [x] **P4 — Replay snapshot round-trip.** Snapshot capture/restore reproduces a
   future solver sample and nonzero solver hash without launching the full engine.
-- [ ] **P5 — Injected-bug drill.** Locally break one solver clamp, one manifold
+- [x] **P5 — Injected-bug drill.** Locally break one solver clamp, one manifold
   reduction rule, one parser guard, and one replay restore field. Record the
   exact failing test/assertion for each, then revert the defects. This is
   evidence that tests can fail for the intended reason, not merely pass.
@@ -59,14 +62,20 @@ umbrella and from the broad PR gate.
   complete: the orphan standalone suite exposed that a missing material `mode`
   recorded Lane R failure and then dereferenced the null member; `Material
   authoring rejects malformed options` failed by access violation before the
-  early-return repair and passed afterward. Solver and replay injected-failure
-  evidence remain.
-- [ ] **P6 — Sustaining and gate integration.** Complete
+  early-return repair and passed afterward. Removing the friction-cone clamp
+  failed at `4.04061 <= 0.1001`; dropping restored angular velocity produced
+  solver hash `4558989638039294353` versus `8448418270499344807`. Both defects
+  were restored before final validation.
+- [x] **P6 — Sustaining and gate integration.** Complete
   `validation-gate-integrity.md` V1/V2/V5 so doctest, interaction-policy,
   scene-parser, and DX12-architecture targets run from the CPU umbrella and
   `validate_full`. Update `AGENTS.md` so a new standalone test target must join
   the umbrella in the same commit. Acceptance: deliberately fail one test in
   each executable and prove `validate_full` stops before runtime launch.
+  Evidence: all four executable mutations reached their named test and stopped
+  the umbrella. The DX12 drill exposed and fixed signed fatal exits escaping the
+  wrapper and fatal tests aborting the parent. See
+  `Agentic/Reports/behavioral_test_depth_closure_20260711.md`.
 
 ## Dependencies
 
@@ -81,12 +90,12 @@ umbrella and from the broad PR gate.
 
 ## Acceptance
 
-- [ ] Solver, manifold, parser/serializer, and replay restore each have named
+- [x] Solver, manifold, parser/serializer, and replay restore each have named
   behavioral tests.
-- [ ] P5 records all four expected failures.
-- [ ] Every first-party test executable runs from the CPU umbrella.
-- [ ] `validate_full` cannot pass with a broken CPU test.
-- [ ] End-to-end physics/DX12 baselines remain determinism/visual evidence, not
+- [x] P5 records all four expected failures.
+- [x] Every first-party test executable runs from the CPU umbrella.
+- [x] `validate_full` cannot pass with a broken CPU test.
+- [x] End-to-end physics/DX12 baselines remain determinism/visual evidence, not
   the only regression net.
 
 ## Validation
@@ -100,6 +109,12 @@ umbrella and from the broad PR gate.
 | Gate integration | `tools\validate_fast.bat`, then changed umbrella/full script |
 
 ## Latest Evidence
+
+- 2026-07-11: P5/P6 closure is recorded in
+  `Agentic/Reports/behavioral_test_depth_closure_20260711.md`.
+  `tools\validate_dx12_arch_tests.bat` passed 50 cases in 26.1s and final
+  `tools\validate_full.bat` passed in 96.5s with zero warnings, DX12 InfoQueue
+  errors = 0, matching captures, and byte-exact varied physics.
 
 - 2026-07-11: promoted the authored 37-body, 1,200-frame
   `physics_bench_varied.scene.json` workload to the normal gate's 44,401-row

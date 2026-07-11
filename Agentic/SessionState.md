@@ -10,10 +10,10 @@ reports, and git history.
 | Field | Value |
 |---|---|
 | Branch | `engine-cleanup-10th-july`, tracking `origin/engine-cleanup-10th-july` |
-| Current pushed baseline | `fd9a7f48 refactor: close runtime UI control ownership` |
-| Current objective | Complete locally actionable behavioral-test depth P3/P5/P6 gaps |
-| Last broad local gate | `tools\validate_full.bat` passed final runtime UI/control source in 87.3s: CPU umbrella, zero-warning Profile/Debug builds, DX12 InfoQueue errors = 0 with matching screenshots, handle smoke, and the 44,401-line varied baseline byte-exactly |
-| Latest focused gates | V3 workflow syntax: actionlint 1.7.12 passed hosted CPU and trusted DX12 workflows; live GitHub audit found zero workflows/runs/protection/variables/runners on `main` |
+| Current pushed baseline | `df1406f6 docs: record validation CI activation blocker` |
+| Current objective | Commit, push, and open the engine-cleanup pull request |
+| Last broad local gate | `tools\validate_full.bat` passed final behavioral/gate source in 96.5s: every CPU target, zero-warning Profile/Debug builds, DX12 InfoQueue errors = 0 with matching screenshots, handle smoke, and the 44,401-line varied baseline byte-exactly |
+| Latest focused gates | DX12 architecture suite passed 50/50 in 26.1s; seven fatal contracts run in isolated child processes and the wrapper requires exact-zero exit |
 | Native evidence | Injected heap-use-after-free caught; healthy ASan and five-file `/analyze` passed in 16.185s |
 
 ## Pushed Cleanup Commits
@@ -31,6 +31,7 @@ reports, and git history.
 - `ad598ddc refactor: share replay control snapshots with rendering`
 - `116fd343 refactor: share cause-window control geometry`
 - `fd9a7f48 refactor: close runtime UI control ownership`
+- `df1406f6 docs: record validation CI activation blocker`
 - `125bb8a9 docs: inventory DX12 failure surfaces`
 - `0c9097ec fix: reduce box manifolds by depth and spread`
 - `e752c395 style: format manifold reducer`
@@ -93,6 +94,11 @@ Opening/integrating a PR or changing repository administration is out of scope.
 Recommended default and unblock evidence are recorded in
 `Agentic/Reports/validation_ci_v3_20260710.md`; continue behavioral-test depth
 without treating the unavailable GPU runner as a local blocker.
+
+Behavioral-test depth is complete at 6/6. P5 records all four intended mutation
+failures and P6 proves each CPU executable stops the broad gate. The DX12 drill
+also fixed in-process fatal tests and signed fatal exits escaping the wrapper.
+Evidence: `Agentic/Reports/behavioral_test_depth_closure_20260711.md`.
 
 Runtime-shell decomposition is complete at 27/27. E1-E3 deleted `RunInternal.h`,
 forwarding-only Run methods, and Common compatibility includes. F1-F2 then

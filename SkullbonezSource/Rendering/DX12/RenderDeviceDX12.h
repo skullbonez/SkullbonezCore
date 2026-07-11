@@ -382,6 +382,11 @@ class Dx12DescriptorAllocator
     // exhaustion failure cannot leave the caller with a half-reserved table.
     UINT AllocateTransientRange( UINT count );
 
+    // Reports whether a complete range fits without mutating counters. Fatal
+    // allocation policy remains in AllocateTransientRange; tests and callers
+    // may use this only to reason about capacity before committing a table.
+    bool CanAllocateTransientRange( UINT count ) const;
+
     // CPU handle into the shader-visible heap. The CPU uses this to write or
     // copy a descriptor into a shader-readable slot.
     D3D12_CPU_DESCRIPTOR_HANDLE ShaderVisibleCpuHandle( UINT index ) const;
