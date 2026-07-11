@@ -98,14 +98,15 @@ class ShaderDX12 : public IShader
     std::string m_sourcePath;
     const ShaderProgramDesc* m_contract;
     bool m_registeredWithPipeline = false;
-#ifdef _DEBUG
     struct ResourceInfo
     {
         UINT bindPoint;
+        UINT space;
         D3D_SHADER_INPUT_TYPE type;
         D3D_SRV_DIMENSION dimension;
     };
     std::unordered_map<std::string, ResourceInfo> m_resourceMap;
+#ifdef _DEBUG
     mutable std::vector<uint8_t> m_contractUniformsSet;
     mutable std::vector<uint8_t> m_contractMissingRequiredLogged;
     mutable std::vector<std::string> m_missingUniformWarnings;
@@ -113,6 +114,7 @@ class ShaderDX12 : public IShader
 #endif
 
     bool ReflectCB( ID3DBlob* blob, const char* hlslPath, const char* stageName );
+    bool ValidateReflectedContract( std::string& outError ) const;
     const UniformInfo* FindUniformInfo( const char* name ) const;
 #ifdef _DEBUG
     void ResetContractActivation() const;

@@ -11,18 +11,18 @@ plan inventory.
 | Field | Value |
 |---|---|
 | Branch | `nightrunner-11th-july` |
-| Current pushed baseline | `engine-config-decomposition` is closed and pushed on `nightrunner-11th-july`; use `git log -1` for the closure hash |
-| Current objective | Execute `shader-pipeline-modernization` P0-P5, then continue the binding MASTER path |
-| Portfolio progress | 240 / 276 tasks = 87% overall |
-| Last broad local gate | `tools\\validate_full.bat` passed final engine-config source on 2026-07-12 in 134.932s: formatting and filters clean, every CPU lane passed (139 doctest cases, 3,311 assertions), zero-warning Profile/Debug builds, zero DX12 InfoQueue errors with matching screenshots, and the 44,401-line varied physics baseline byte-exactly |
-| Validation for current edits | Final config dump retained all 219 lines and the original SHA-256; `validate_physics_deep` passed in 122.369s; final `validate_full` passed in 134.932s after a targeted Config.h formatting fix. Independent review is resolved and the full-plan comment audit is 28/28 with 0 deferred. |
+| Current pushed baseline | `shader-pipeline-modernization` is complete locally after independent review fixes; the closure commit/push is the next repository action |
+| Current objective | Execute `render-visibility-architecture` P0-P6, then continue the binding MASTER path |
+| Portfolio progress | 248 / 276 tasks = 90% overall |
+| Last broad local gate | Direct `tools\\validate_full.bat` passed final shader source on 2026-07-12 in approximately 85s: formatting and 657 project/filter items clean, every CPU lane passed (150 doctest cases, 3,505 assertions), zero-warning Profile/Debug builds, zero DX12 InfoQueue errors with matching 33/61/0 screenshot maxima, and the 44,401-line varied physics baseline byte-exactly |
+| Validation for current edits | Shader review findings are resolved; live pixel-change commit and incompatible-contract rollback drills passed. Final graphics stress ran 59.820s for 12,978 frames/361 scene loads with empty stderr. P7 comment audit is 6/6 with 0 deferred. |
 
 ## Live Queue
 
 1. Prepare the engine-cleanup aggregate review in parallel with the critical path;
    fix findings, pass the closure gate, and delete all eight retained completed
    plans.
-2. Continue the binding path recorded in MASTER: shader P0-P5, visibility, shadows,
+2. Continue the binding path recorded in MASTER: visibility, shadows,
    interpolation, editor undo/redo, then data-format versioning. Phase-level
    preparation and dependency barriers are authoritative in MASTER and the
    owning plans.
@@ -76,9 +76,11 @@ plan inventory.
   `Agentic/Reports/2026-07-12/dx12-post-final-cleanup-closure.md`.
 - Engine-config closure evidence:
   `Agentic/Reports/2026-07-12/engine-config-decomposition-closure.md`.
+- Shader-pipeline closure evidence:
+  `Agentic/Reports/2026-07-12/shader-pipeline-modernization-closure.md`.
 
 ## Next Handoff
 
 Use `Agentic/Plans/MASTER-PLAN.md` for selection and the repo-local orchestrator
 skill when implementing a plan. The next binding implementation plan is
-`shader-pipeline-modernization` phase P0.
+`render-visibility-architecture` phase P0.

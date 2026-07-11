@@ -116,9 +116,7 @@ bool ShaderDX12::Compile( const char* hlslPath )
     m_cbData.clear();
     m_vsBytecodeHash = 0;
     m_psBytecodeHash = 0;
-#ifdef _DEBUG
     m_resourceMap.clear();
-#endif
 
     std::string loadError;
     bool loadedBaked = LoadManifestCurrentShaderBytecode( hlslPath, "vs", m_vsBlob, loadError ) &&
@@ -137,24 +135,41 @@ bool ShaderDX12::Compile( const char* hlslPath )
     m_vsBytecodeHash = HashShaderBytecode( m_vsBlob.Get() );
     m_psBytecodeHash = HashShaderBytecode( m_psBlob.Get() );
 
-    if ( m_contract )
+    if ( !m_contract )
     {
-        std::string contractError;
-        if ( !ValidateGeneratedShaderProgramContract( hlslPath, *m_contract, contractError ) )
-        {
-            // Lane R: authored shader assets are external startup inputs. Reject
-            // a stale CPU/DXIL ABI with the owning shader and exact mismatch.
-            Log().WriteEventf( "dx12_shader_reflection_contract_rejected owner=ShaderDX12 path=%s reason=%s",
-                               hlslPath ? hlslPath : "<null>",
-                               contractError.c_str() );
-            Log().FlushAll();
-            return false;
-        }
+        Log().WriteEventf( "dx12_shader_cpu_contract_missing owner=ShaderDX12 path=%s",
+                           hlslPath ? hlslPath : "<null>" );
+        Log().FlushAll();
+        return false;
+    }
+
+    std::string contractError;
+    if ( !ValidateGeneratedShaderProgramContract( hlslPath, *m_contract, contractError ) )
+    {
+        // Lane R: authored shader assets are external startup inputs. Reject
+        // a stale CPU/DXIL ABI with the owning shader and exact mismatch.
+        Log().WriteEventf( "dx12_shader_reflection_contract_rejected owner=ShaderDX12 path=%s reason=%s",
+                           hlslPath ? hlslPath : "<null>",
+                           contractError.c_str() );
+        Log().FlushAll();
+        return false;
     }
 
     // Reflect both stages so PS-only post/sky uniforms are visible to SetFloat/SetVec*.
     if ( !ReflectCB( m_vsBlob.Get(), hlslPath, "vs" ) || !ReflectCB( m_psBlob.Get(), hlslPath, "ps" ) )
     {
+        return false;
+    }
+    std::string reflectedContractError;
+    if ( !ValidateReflectedContract( reflectedContractError ) )
+    {
+        // Hazard: hot reload changes the baked files without recompiling this
+        // executable's generated metadata. Validate the candidate DXIL itself
+        // before it can enter the transaction, including optional-present rows.
+        Log().WriteEventf( "dx12_shader_live_reflection_contract_rejected owner=ShaderDX12 path=%s reason=%s",
+                           hlslPath ? hlslPath : "<null>",
+                           reflectedContractError.c_str() );
+        Log().FlushAll();
         return false;
     }
 #ifdef _DEBUG
@@ -282,7 +297,6 @@ bool ShaderDX12::ReflectCB( ID3DBlob* blob, const char* hlslPath, const char* st
         return reflectionFailure( "generated metadata lookup", E_INVALIDARG );
     }
 
-#ifdef _DEBUG
     for ( UINT i = 0; i < shaderDesc.BoundResources; ++i )
     {
         D3D12_SHADER_INPUT_BIND_DESC bindDesc = {};
@@ -293,10 +307,9 @@ bool ShaderDX12::ReflectCB( ID3DBlob* blob, const char* hlslPath, const char* st
         }
         if ( bindDesc.Name && bindDesc.Name[0] != '\0' )
         {
-            m_resourceMap[bindDesc.Name] = { bindDesc.BindPoint, bindDesc.Type, bindDesc.Dimension };
+            m_resourceMap[bindDesc.Name] = { bindDesc.BindPoint, bindDesc.Space, bindDesc.Type, bindDesc.Dimension };
         }
     }
-#endif
 
     for ( UINT i = 0; i < shaderDesc.ConstantBuffers; ++i )
     {
@@ -389,6 +402,62 @@ bool ShaderDX12::ReflectCB( ID3DBlob* blob, const char* hlslPath, const char* st
     // Align CB size to 256 bytes (DX12 requirement)
     m_cbSize = ( m_cbReflectedSize + 255 ) & ~255u;
     m_cbData.resize( m_cbSize, 0 );
+    return true;
+}
+
+
+bool ShaderDX12::ValidateReflectedContract( std::string& outError ) const
+{
+    if ( !m_contract )
+    {
+        outError = "missing CPU shader contract";
+        return false;
+    }
+
+    for ( size_t i = 0; i < m_contract->uniformCount; ++i )
+    {
+        const ShaderUniformDecl& expected = m_contract->uniforms[i];
+        const auto found = m_uniformMap.find( expected.name );
+        if ( ( expected.required && found == m_uniformMap.end() ) ||
+             ( found != m_uniformMap.end() && found->second.size != ShaderValueByteSize( expected.type ) ) )
+        {
+            outError = std::string( "cbuffer field mismatch: " ) + expected.name;
+            return false;
+        }
+    }
+
+    for ( size_t i = 0; i < m_contract->resourceCount; ++i )
+    {
+        const ShaderResourceDecl& expected = m_contract->resources[i];
+        const auto found = m_resourceMap.find( expected.name );
+        const bool matches = found != m_resourceMap.end() &&
+                             found->second.bindPoint == static_cast<UINT>( expected.slot ) &&
+                             found->second.space == 0 && found->second.type == D3D_SIT_TEXTURE &&
+                             found->second.dimension == D3D_SRV_DIMENSION_TEXTURE2D;
+        if ( ( expected.required && found == m_resourceMap.end() ) || ( found != m_resourceMap.end() && !matches ) )
+        {
+            outError = std::string( "resource binding mismatch: " ) + expected.name;
+            return false;
+        }
+    }
+    for ( const auto& reflected : m_uniformMap )
+    {
+        if ( !reflected.first.empty() && reflected.first[0] != '_' &&
+             !FindShaderUniformDecl( *m_contract, reflected.first.c_str() ) )
+        {
+            outError = std::string( "undeclared cbuffer field: " ) + reflected.first;
+            return false;
+        }
+    }
+    for ( const auto& reflected : m_resourceMap )
+    {
+        if ( reflected.second.type == D3D_SIT_TEXTURE &&
+             !FindShaderResourceDecl( *m_contract, reflected.first.c_str() ) )
+        {
+            outError = std::string( "undeclared texture resource: " ) + reflected.first;
+            return false;
+        }
+    }
     return true;
 }
 

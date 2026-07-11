@@ -92,7 +92,7 @@ concrete plan rows and counting it would duplicate tasks.
 | render-backend-decomposition | 8 | 8 | 100% |
 | stale-plan-reference-cleanup-15.6-checklist | 86 | 86 | 100% |
 | dx12-post-final-cleanup | 6 | 6 | 100% |
-| shader-pipeline-modernization | 7 | 8 | 88% |
+| shader-pipeline-modernization | 8 | 8 | 100% |
 | render-visibility-architecture | 0 | 7 | 0% |
 | sim-render-interpolation | 0 | 5 | 0% |
 | editor-undo-redo | 0 | 5 | 0% |
@@ -101,39 +101,35 @@ concrete plan rows and counting it would duplicate tasks.
 | entity-model-endgame | 4 | 4 | 100% |
 | instant-prediction-velocity-chaos | 52 | 52 | 100% |
 | shadow-edge-quality | 0 | 5 | 0% |
-| **Portfolio total** | **247** | **276** | **89%** |
+| **Portfolio total** | **248** | **276** | **90%** |
 
 ## Current Execution Priority
 
 For maximum impact with minimal rework, use this binding critical path:
 
-`shader contract` → `visibility` → `shadows` → `interpolation` →
-`editor` → `data versioning`
+`visibility` → `shadows` → `interpolation` → `editor` →
+`data versioning`
 
 1. **Engine-cleanup aggregate review and plan deletion — parallel lane.** Run
    review preparation alongside the critical path rather than as another serial
    implementation campaign. Fix every credible ownership finding, pass the
    closure gate, and delete the eight retained completed plans to remove stale
    control-plane noise.
-2. **`shader-pipeline-modernization` P0-P5.** With the surviving shader set and
-   A2 owner established, execute inventory, offline DXC, reflection contracts,
-   root-signature consolidation, pipeline cache, then the bindless decision.
-   Record P5's decision before shadow S1. P6 hot reload is optional follow-up.
-3. **`render-visibility-architecture`.** P0 instrumentation may start at any
+2. **`render-visibility-architecture`.** P0 instrumentation may start at any
    time; implementation waits for stable backend ownership. Complete main,
    shadow, reflection, and instancing culling before final shadow-quality work
    so its GPU budget reflects the actual visible workload.
-4. **`shadow-edge-quality`.** S0 baseline capture may run earlier. S1 waits for
+3. **`shadow-edge-quality`.** S0 baseline capture may run earlier. S1 waits for
    backend A2, shader P3, shader P5's binding decision, and visibility closure.
    Then execute filtering, snapping/bias, and only afterward decide whether
    cascades or clipmaps are necessary.
-5. **`sim-render-interpolation`.** Begin after entity identity and renderer
+4. **`sim-render-interpolation`.** Begin after entity identity and renderer
     ownership stabilize; avoid churning presentation transforms, cameras,
     capture timing, and replay across moving foundations.
-6. **`editor-undo-redo`.** Interaction ownership is ready, but history must
+5. **`editor-undo-redo`.** Interaction ownership is ready, but history must
     target final `PhysicsSceneObjectId` and post-`GameModelCollection` scene
     APIs, so entity-model closure is a hard prerequisite.
-7. **`data-format-versioning`.** Asset/hull preparation is independent, but
+6. **`data-format-versioning`.** Asset/hull preparation is independent, but
     schedule delivery here. The `engine.cfg` portion waits for config
     decomposition so version plumbing targets the surviving parser/domain
     structure once.
@@ -174,7 +170,6 @@ Reconciliation notes live inside each plan.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [shader-pipeline-modernization](TODO/shader-pipeline-modernization.md) | Active | 7/8 | P5's measured no-bindless decision and P6 transactional offline-DXC F9 reload are complete; run P7 independent review, final gate, handoff updates, and plan deletion |
 | [render-visibility-architecture](TODO/render-visibility-architecture.md) | Planned | 0/7 | P0 instrumentation may start any time; implementation follows stable backend ownership and closes before shadow-quality implementation |
 | [sim-render-interpolation](TODO/sim-render-interpolation.md) | Planned | 0/5 | After entity-model closure and stable renderer ownership; P1 capture-determinism guard lands first |
 | [editor-undo-redo](TODO/editor-undo-redo.md) | Planned | 0/5 | After entity-model closure; build history on final `PhysicsSceneObjectId` and post-`GameModelCollection` scene APIs |

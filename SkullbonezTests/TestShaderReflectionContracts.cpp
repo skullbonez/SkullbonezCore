@@ -45,8 +45,9 @@ TEST_CASE( "Shader reflection contracts: every shipping stage is represented" )
 
 TEST_CASE( "Shader reflection contracts: CPU declarations match baked DXIL" )
 {
-    const ShaderProgramDesc* contracts = HighRiskShaderContracts();
-    for ( size_t i = 0; i < HighRiskShaderContractCount(); ++i )
+    const ShaderProgramDesc* contracts = ShippingRasterShaderContracts();
+    REQUIRE( ShippingRasterShaderContractCount() == ShippingShaderVertexInputContractCount() );
+    for ( size_t i = 0; i < ShippingRasterShaderContractCount(); ++i )
     {
         std::string error;
         CHECK_MESSAGE( ValidateGeneratedShaderProgramContract( contracts[i].baseName, contracts[i], error ),
@@ -54,6 +55,20 @@ TEST_CASE( "Shader reflection contracts: CPU declarations match baked DXIL" )
                        ": ",
                        error );
     }
+}
+
+TEST_CASE( "Shader reflection contracts: optional present binding still owns its slot" )
+{
+    const ShaderProgramDesc& source = *FindShaderProgramDesc( "lit_textured.hlsl" );
+    ShaderResourceDecl mutatedResources[2] = { source.resources[0], source.resources[1] };
+    REQUIRE_FALSE( mutatedResources[1].required );
+    mutatedResources[1].slot = 4;
+    ShaderProgramDesc mutated = source;
+    mutated.resources = mutatedResources;
+
+    std::string error;
+    CHECK_FALSE( ValidateGeneratedShaderProgramContract( "lit_textured.hlsl", mutated, error ) );
+    CHECK( error == "resource binding mismatch: uShadowMap" );
 }
 
 TEST_CASE( "Shader reflection contracts: every raster input signature matches the CPU table" )

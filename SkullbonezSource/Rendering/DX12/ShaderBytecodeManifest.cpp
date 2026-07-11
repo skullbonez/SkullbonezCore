@@ -419,8 +419,8 @@ bool ReflectShaderBytecode( ID3DBlob* blob, ComPtr<ID3D12ShaderReflection>& outR
         }
     }
 
-    // Dev fallback blobs are FXC DXBC containers. D3DReflect keeps that
-    // explicitly requested cold path usable without weakening shipping DXIL.
+    // DXC container compatibility: D3DReflect is the final reflection route on
+    // machines where the preferred container-reflection interface is absent.
     outResult = D3DReflect( blob->GetBufferPointer(),
                             blob->GetBufferSize(),
                             IID_ID3D12ShaderReflection,

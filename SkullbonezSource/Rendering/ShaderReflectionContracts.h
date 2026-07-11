@@ -130,10 +130,6 @@ ValidateGeneratedShaderProgramContract( const char* path, const ShaderProgramDes
     for ( size_t uniformIndex = 0; uniformIndex < contract.uniformCount; ++uniformIndex )
     {
         const ShaderUniformDecl& expected = contract.uniforms[uniformIndex];
-        if ( !expected.required )
-        {
-            continue;
-        }
         const GeneratedShaderReflection::Field* found = nullptr;
         const GeneratedShaderReflection::Stage* stages[] = { vs, ps };
         for ( const auto* reflectedStage : stages )
@@ -148,7 +144,9 @@ ValidateGeneratedShaderProgramContract( const char* path, const ShaderProgramDes
                 }
             }
         }
-        if ( !found || found->size != ShaderValueByteSize( expected.type ) )
+        // Optional means the compiler may remove an unused declaration. When
+        // the declaration survives, it still owns the same name and type.
+        if ( ( expected.required && !found ) || ( found && found->size != ShaderValueByteSize( expected.type ) ) )
         {
             outError = std::string( "cbuffer field mismatch: " ) + expected.name;
             return false;
@@ -158,28 +156,55 @@ ValidateGeneratedShaderProgramContract( const char* path, const ShaderProgramDes
     for ( size_t resourceIndex = 0; resourceIndex < contract.resourceCount; ++resourceIndex )
     {
         const ShaderResourceDecl& expected = contract.resources[resourceIndex];
-        if ( !expected.required )
-        {
-            continue;
-        }
-        bool matched = false;
+        const GeneratedShaderReflection::Resource* found = nullptr;
         const GeneratedShaderReflection::Stage* stages[] = { vs, ps };
         for ( const auto* reflectedStage : stages )
         {
             for ( std::uint32_t i = 0; i < reflectedStage->resourceCount; ++i )
             {
                 const auto& resource = GeneratedShaderReflection::Resources[reflectedStage->resourceStart + i];
-                matched =
-                    matched ||
-                    ( std::strcmp( resource.name, expected.name ) == 0 && resource.registerClass == 't' &&
-                      resource.slot == static_cast<std::uint32_t>( expected.slot ) && resource.space == 0 &&
-                      std::strcmp( resource.type, "texture" ) == 0 && std::strcmp( resource.dimension, "2d" ) == 0 );
+                if ( std::strcmp( resource.name, expected.name ) == 0 )
+                {
+                    found = &resource;
+                    break;
+                }
             }
         }
-        if ( !matched )
+        const bool matches = found && found->registerClass == 't' &&
+                             found->slot == static_cast<std::uint32_t>( expected.slot ) && found->space == 0 &&
+                             std::strcmp( found->type, "texture" ) == 0 && std::strcmp( found->dimension, "2d" ) == 0;
+        // Optional means absence is legal, not that a present declaration may
+        // silently move to another UnifiedRaster slot.
+        if ( ( expected.required && !found ) || ( found && !matches ) )
         {
             outError = std::string( "resource binding mismatch: " ) + expected.name;
             return false;
+        }
+    }
+
+    // Invariant: the CPU table is exhaustive for authored ABI names. Generated
+    // padding and non-texture root objects are implementation details; every
+    // other reflected field/texture must have an independent CPU declaration.
+    const GeneratedShaderReflection::Stage* stages[] = { vs, ps };
+    for ( const auto* reflectedStage : stages )
+    {
+        for ( std::uint32_t i = 0; i < reflectedStage->fieldCount; ++i )
+        {
+            const auto& field = GeneratedShaderReflection::Fields[reflectedStage->fieldStart + i];
+            if ( field.name[0] != '_' && !FindShaderUniformDecl( contract, field.name ) )
+            {
+                outError = std::string( "undeclared cbuffer field: " ) + field.name;
+                return false;
+            }
+        }
+        for ( std::uint32_t i = 0; i < reflectedStage->resourceCount; ++i )
+        {
+            const auto& resource = GeneratedShaderReflection::Resources[reflectedStage->resourceStart + i];
+            if ( resource.registerClass == 't' && !FindShaderResourceDecl( contract, resource.name ) )
+            {
+                outError = std::string( "undeclared texture resource: " ) + resource.name;
+                return false;
+            }
         }
     }
     return true;
