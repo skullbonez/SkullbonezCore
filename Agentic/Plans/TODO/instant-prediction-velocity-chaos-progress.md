@@ -1,5 +1,9 @@
 # Progress: Instant 20s Prediction While Dragging Velocity
 
+Status: owner-priority live checklist; 1/50 preparation items complete. This
+file and its owning plan remain in `TODO/` unless the owner explicitly directs
+otherwise.
+
 Companion checklist for `Agentic/Plans/TODO/instant-prediction-velocity-chaos.md`.
 Work through the checkboxes **in order**. Do not skip ahead: later phases
 assume earlier ones landed. Tick a box only when the item is implemented,
@@ -304,9 +308,8 @@ fixed-length capture/regression scene (`playback.frames: 360`,
       gate output.
 - [ ] Comment-quality pass: inspect every touched source file against
       `Agentic/Skills/comment-style-audit/skill.md` before reporting done.
-- [ ] Update `Agentic/SessionState.md` handoff notes; move the plan file
-      out of TODO per repo convention (or mark its Status line complete)
-      and set this file's remaining boxes.
+- [ ] Update `Agentic/SessionState.md` and `Agentic/Plans/MASTER-PLAN.md`, then
+      delete the completed plan and checklist so git history is the archive.
 - [ ] Final commit + push; report elapsed wall-clock time per the AGENTS.md
       timing rule.
 

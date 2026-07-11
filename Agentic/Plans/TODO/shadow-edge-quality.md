@@ -17,7 +17,10 @@ crawling during orbit/zoom.
 
 - Complete `dx12-failure-propagation.md` command-state work before root-signature
   or resource-lifetime changes.
-- Coordinate binding ownership with `render-backend-decomposition.md`.
+- Binding order is fixed: `render-backend-decomposition.md` A2 establishes the
+  concrete pipeline/root-signature owner, then `shader-pipeline-modernization.md`
+  P1-P3 modernizes and consolidates its contract. S1 must extend that surviving
+  contract rather than adding a temporary shadow-owned root-signature path.
 - Use the CPU/full umbrella once `validation-gate-integrity.md` lands.
 
 ## Phases

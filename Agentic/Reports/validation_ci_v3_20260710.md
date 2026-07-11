@@ -8,7 +8,8 @@ Branch: `engine-cleanup-10th-july`
 
 ## Result
 
-Two capability-honest workflows now exist:
+Three capability-honest workflows are active on the default branch. The two V3
+workflows are:
 
 - `.github/workflows/mandatory-cpu-validation.yml` runs the mandatory hosted
   lane on `windows-latest`: `validate_fast --preflight-only` followed by the
@@ -27,6 +28,10 @@ Both workflows have read-only repository permissions, use immutable commit pins
 for the official checkout and artifact actions, capture their batch exit code
 without losing it through PowerShell logging, and bound execution/artifact
 retention.
+
+`.github/workflows/native-diagnostics.yml` supplies the separate V4 weekly/
+manual hosted diagnostics lane. It does not change the V3 CPU/runtime security
+boundary.
 
 ## Hosted CPU And Merge-Queue Lane
 
@@ -176,39 +181,41 @@ The local Windows PowerShell probes use the same ordered native-command-to-
 `Tee-Object` control flow as the workflow step. They prove exact child-code
 propagation, later-gate suppression, one two-gate success transcript, and
 that transcript capture does not replace a batch failure with a successful
-pipeline result. The real hosted run must still prove the same behavior under
-its PowerShell 7 `pwsh` environment.
+pipeline result. Hosted run 29148955729 now proves the healthy path under its
+PowerShell 7 `pwsh` environment; the injected failure-code cases remain local
+mutation evidence by design.
 
-V3 remains incomplete. Actual pull-request and merge-queue CPU runs, CPU branch
-protection, and trusted runtime runs are still required. Local validation
-cannot prove hosted image contents, repository policy, runner registration,
+V3 remains incomplete. A real pull-request CPU run now passes; a merge-queue
+CPU run, CPU branch protection, and trusted runtime runs are still required.
+Local validation cannot prove repository policy, runner registration,
 interactive DX12 access, or branch protection.
 
 ## Live Activation Audit — 2026-07-11
 
-Read-only GitHub API inspection of `skullbonez/SkullbonezCore` returned:
+Read-only GitHub inspection was refreshed after default-branch integration:
 
 - default branch `main`; repository is public;
-- zero registered Actions workflows and zero workflow runs, because the new
-  workflow files have not reached the default branch;
-- no pull request for `engine-cleanup-10th-july`;
-- `main` is not protected;
-- zero Actions repository variables; and
-- zero self-hosted runners.
+- `Mandatory CPU validation`, `DX12 runtime validation`, and
+  `Native diagnostics` are registered and active;
+- pull-request run
+  `https://github.com/skullbonez/SkullbonezCore/actions/runs/29148955729`
+  completed successfully for `engine-cleanup-10th-july`;
+- DX12 main-push runs 29149260881 and 29149344794 completed as skipped, which
+  correctly supplies no runtime evidence while runner activation is disabled;
+- `main` is not protected.
 
-Both local workflow files still pass the downloaded actionlint 1.7.12 binary
+Both V3 workflow files still pass the downloaded actionlint 1.7.12 binary
 (`ACTIONLINT_CPU_EXIT=0`, `ACTIONLINT_RUNTIME_EXIT=0`), with only the documented
 custom-label diagnostic ignored for the DX12 workflow. This proves the local
 configuration remains actionable but cannot substitute for hosted execution.
 
-The blocker is external GitHub integration and administration, not missing
-local implementation. Opening a PR, merging, and changing repository settings
-are outside this campaign's authority. The recommended activation order is:
+The remaining blocker is external GitHub administration, not missing local
+implementation. Changing repository settings and registering runners are
+outside this campaign's authority. The remaining activation order is:
 
-1. Integrate the hosted CPU workflow through a reviewed change and prove both a
-   pull-request event and a real `merge_group` event.
-2. Add `Mandatory CPU lane (Windows hosted)` to `main` branch protection only
-   after those runs exist, avoiding a permanently expected merge-queue check.
+1. Exercise the merge queue and prove a real `merge_group` event.
+2. Add `Mandatory CPU lane (Windows hosted)` to `main` branch protection after
+   that proof, avoiding a permanently expected merge-queue check.
 3. Register and harden exactly one trusted-ref persistent DX12 runner, set the
    enable variable, and keep that lane post-merge/informational.
 4. If GPU evidence must block pull requests, replace the persistent machine
@@ -219,8 +226,9 @@ repository-variable state, and trusted runtime evidence can be recorded below.
 
 ## External Activation Checklist
 
-- [ ] Push the workflow files and observe one successful pull-request run of
-  `Mandatory CPU lane (Windows hosted)`.
+- [x] Push the workflow files and observe one successful pull-request run of
+  `Mandatory CPU lane (Windows hosted)`. Evidence: run 29148955729 completed
+  successfully on 2026-07-11.
 - [ ] Exercise the merge queue and prove the same CPU check runs for a
   `merge_group` event rather than remaining permanently expected. Confirm the
   log names that event's `base_sha` for changed-file size inspection.

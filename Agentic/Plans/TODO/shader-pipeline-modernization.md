@@ -57,10 +57,11 @@ possible once the compiler layer is modernized.
   `ResourceDescriptorHeap` indexing is evaluated on merit at P5 with the
   descriptor-management owner; the plan is complete without it if the owner
   declines.
-- Coordinate with `TODO/render-backend-decomposition.md` A2 (PSO/pipeline
-  owner split): if A2 lands first, the pipeline owner hosts the cache; if
-  this plan lands first, keep the cache in the current pipeline TU and note
-  the handoff.
+- Binding order is fixed. `TODO/render-backend-decomposition.md` A2 first
+  establishes the concrete pipeline/root-signature owner. P1-P3 then modernize
+  bytecode and consolidate that owner's contract. P4 places its cache in that
+  owner. `TODO/shadow-edge-quality.md` S1 follows P3 and extends the surviving
+  named contract. P0 inventory may run before A2 because it is read-only.
 
 ## Phases
 

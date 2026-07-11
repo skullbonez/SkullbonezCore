@@ -10,7 +10,10 @@ Status: Authoritative inventory of every live repository plan
 2. Completion uses checked-phase counts, not subjective percentages. Partial
    phases are named as partial and do not increment the completed count.
 3. A checkbox closes only with its acceptance evidence and required validation.
-4. Completed plans/checklists are deleted; git history is the archive.
+4. Completed plans/checklists are deleted; git history is the archive. A
+   completed plan may remain temporarily only when this file explicitly marks
+   it as evidence for an unmet aggregate closure gate; delete it as soon as
+   that gate passes.
 5. Every dependency link must resolve to a live file. A missing link is a plan
    defect and blocks the dependent phase.
 6. A plan must name owner, problem/evidence, goal, non-goals where needed,
@@ -24,19 +27,22 @@ Status: Authoritative inventory of every live repository plan
    ignore that folder entirely — do not list, resume, update, or delete its
    contents unless the owner explicitly moves a file back out of it.
 
-## Execution Priority
+## Current Execution Priority
 
-1. Validation gate integrity V0-V2 and DX12 failure inventory D0.
-2. DX12 command-state/failure propagation D1-D5.
-3. Behavioral gaps P2/P3/P5 while the CPU umbrella is integrated.
-4. Runtime-shell input/command/scene extractions, coordinated with UI and
-   interaction ownership.
-5. Replay workspace/right-sizing and physics stable-identity work.
-6. Render concrete-owner decomposition after failure propagation.
-7. Stale reference cleanup as a documentation-only parallel lane.
-8. Shadow quality after renderer foundations; fracture replay remains blocked.
-9. 2026-07-11 gap-review plans (table below) slot in after their named start
-   conditions; entity-model-endgame is decision-blocked first.
+1. Schedule `instant-prediction-velocity-chaos` as important owner-priority
+   live feature work. It remains in `TODO/` and is not paused or parked.
+2. Run the final engine-cleanup aggregate ownership review. Fix credible
+   findings, close the campaign gate, then delete every completed plan retained
+   temporarily as closure evidence.
+3. Complete validation V3 administration in parallel when repository access is
+   available: prove `merge_group`, require the hosted CPU check, and activate a
+   trusted-main/manual DX12 runner without exposing it to public-PR code.
+4. Execute render-backend A1-A2. A2 establishes the pipeline/root-signature
+   owner before any dependent implementation changes that contract.
+5. Execute shader modernization P1-P3 against the A2 owner; P0 inventory may
+   run earlier. Shadow S1 follows P3 and extends the consolidated contract.
+6. Slot the remaining 2026-07-11 gap-review plans after their named start
+   conditions. Fracture replay remains owner-parked in `WNF/`.
 
 ## Engine Cleanup Campaign
 
@@ -46,17 +52,21 @@ Status: Authoritative inventory of every live repository plan
 
 ## Active Architecture, Safety, And Test Plans
 
+Every Complete row retained in this table is temporary engine-cleanup campaign
+closure evidence under inventory rule 4. Delete those files together when the
+aggregate closure gate passes; do not treat retention as a permanent archive.
+
 | Plan | State | Verified phase count | Next blocking action |
 |---|---|---:|---|
-| [validation-gate-integrity](TODO/validation-gate-integrity.md) | Externally blocked | 5/6 | V3 needs default-branch hosted runs, branch protection, and trusted runner administration; no local implementation remains |
+| [validation-gate-integrity](TODO/validation-gate-integrity.md) | Externally blocked | 5/6 | Hosted CPU PR proof now passes; V3 still needs merge-group proof, required branch protection, and trusted DX12 runner administration |
 | [dx12-failure-propagation](TODO/dx12-failure-propagation.md) | Complete | 6/6 | Retain as closure evidence; failure propagation, transactional recreation, device-loss teardown, and fault injection are proven |
 | [behavioral-test-depth](TODO/behavioral-test-depth.md) | Complete | 6/6 | Retain as closure evidence; named tests, four mutation drills, stop proofs, and final gates pass |
 | [runtime-shell-decomposition](TODO/runtime-shell-decomposition.md) | Complete | 27/27 completed items | Retain as closure evidence; final inventory, deletion proofs, adversarial review, and required gates pass |
 | [runtime-ui-control-architecture-cleanup](TODO/runtime-ui-control-architecture-cleanup.md) | Complete | 7/7 | Retain as closure evidence; 96-file inventory, shared surfaces, deletion proofs, review fixes, and final gates pass |
 | [interaction-state-machine](TODO/interaction-state-machine.md) | Complete | 6/6 remaining phases | Retain as closure evidence; typed gesture payload, native capture, focus/UI crossing, deletion proofs, and repeat adversarial review pass |
 | [replay-architecture-and-right-sizing](TODO/replay-architecture-and-right-sizing.md) | Complete | 6/6 | Retain as closure evidence; stable identity, bounded memory, named gates, rollback proof, and source-size justifications are complete |
-| [physics-authority-and-identity](TODO/physics-authority-and-identity.md) | Complete | 16/16 current items | Handle-owned mutation, coordinated lifecycle, stable runtime identity, full gate, and repeat adversarial review complete |
-| [render-backend-decomposition](TODO/render-backend-decomposition.md) | In progress | 0/8 remaining items | Begin the texture-owner split from the completed RuntimeRenderer composition boundary |
+| [physics-authority-and-identity](TODO/physics-authority-and-identity.md) | Complete | 16/16 current items | Retain as closure evidence; handle-owned mutation, coordinated lifecycle, stable runtime identity, full gate, and repeat adversarial review complete |
+| [render-backend-decomposition](TODO/render-backend-decomposition.md) | In progress | 0/8 remaining items | Begin A1, then establish the A2 pipeline/root-signature owner before shader P1-P3 or shadow S1 changes that contract |
 | [stale-plan-reference-cleanup-15.6-checklist](TODO/stale-plan-reference-cleanup-15.6-checklist.md) | Complete | 86/86 files | Retain as reconciled evidence; no source rows remain |
 
 ## Planned Architecture Work (2026-07-11 gap review)
@@ -68,11 +78,11 @@ Reconciliation notes live inside each plan.
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
 | [dx12-post-final-cleanup](TODO/dx12-post-final-cleanup.md) | Planned | 0/6 | Independent; shader edits coordinate with shader-pipeline-modernization if both run |
-| [shader-pipeline-modernization](TODO/shader-pipeline-modernization.md) | Planned | 0/8 | Coordinate with render-backend-decomposition texture/PSO owner split and shadow-edge-quality root-signature work — root-signature ownership must move once, not twice |
+| [shader-pipeline-modernization](TODO/shader-pipeline-modernization.md) | Planned | 0/8 | P0 may inventory now; implementation P1-P3 follows render-backend A2, and shadow S1 follows P3 |
 | [render-visibility-architecture](TODO/render-visibility-architecture.md) | Planned | 0/7 | Independent; P0 instrumentation can start any time |
 | [sim-render-interpolation](TODO/sim-render-interpolation.md) | Planned | 0/5 | Independent; P1 capture-determinism guard lands first |
 | [editor-undo-redo](TODO/editor-undo-redo.md) | Planned | 0/5 | Unblocked — interaction-state-machine completed 2026-07-11; build on its command/gesture surface |
-| [data-format-versioning](TODO/data-format-versioning.md) | Planned | 0/5 | Rescoped 2026-07-11: scene schema versioning (v2 + v1 upgrade) already shipped with physics-authority C1b; remaining scope is assets/hulls/cfg + the uniform policy and migration tool |
+| [data-format-versioning](TODO/data-format-versioning.md) | Planned | 0/5 | Scene `version` v2 with deterministic v1 upgrade is the binding semantic precedent; implement equivalent policy for assets/hulls/cfg without rewriting scene history |
 | [engine-config-decomposition](TODO/engine-config-decomposition.md) | Planned | 0/5 | Independent; physics-default moves isolated behind byte-exact `validate_physics` |
 | [entity-model-endgame](TODO/entity-model-endgame.md) | Planned | 0/4 | Reconciled 2026-07-11 by definitive owner ruling: no `SimulationController`, no unified `EntityId`. Remaining scope: promote `PhysicsSceneObjectId` as the single cross-system identity (docs), relocate transient contact feedback, then delete `GameModel` and `GameModelCollection` with structural proof |
 
@@ -80,8 +90,8 @@ Reconciliation notes live inside each plan.
 
 | Plan | State | Verified phase count | Start condition |
 |---|---|---:|---|
-| [instant-prediction-velocity-chaos](TODO/instant-prediction-velocity-chaos.md) | In progress (paused) | 1/50 checklist items | Progress checklist: `TODO/instant-prediction-velocity-chaos-progress.md`; resume per owner priority |
-| [shadow-edge-quality](TODO/shadow-edge-quality.md) | Planned | 0/5 | DX12 failure state safe; coordinate renderer owner/binding work |
+| [instant-prediction-velocity-chaos](TODO/instant-prediction-velocity-chaos.md) | Planned — owner-priority live work | 1/50 preparation checklist items | Keep in `TODO/`; schedule from `TODO/instant-prediction-velocity-chaos-progress.md` and do not park without an explicit owner directive |
+| [shadow-edge-quality](TODO/shadow-edge-quality.md) | Planned | 0/5 | Begin S0 when useful; S1 waits for render-backend A2 and shader P3 |
 
 Fracture replay was moved to `WNF/` by the owner on 2026-07-11 (inventory
 rule 9 applies — it is not live work and is not tracked here).
@@ -101,7 +111,16 @@ Binding:
   stops owning `PhysicsEngine`.
 - Inspect and Editor share one stable selection identity; workspace-specific
   gesture/presentation state remains separate.
-- Completed files are deleted rather than archived in the tip tree.
+- Completed files are deleted rather than archived in the tip tree, except for
+  the temporary aggregate-closure evidence allowed by inventory rule 4.
+- Root-signature work executes in one ownership sequence: render-backend A2
+  establishes the pipeline owner, shader P1-P3 modernizes and consolidates its
+  contract, and shadow S1 extends that surviving contract.
+- Scene schema v2 and its deterministic v1 upgrade are the versioning-policy
+  precedent. Other formats adopt the same semantics without renaming the scene
+  field, resetting its version history, or adding a competing scene migration.
+- `instant-prediction-velocity-chaos` is important live work and remains in
+  `TODO/`; moving it to `WNF/` requires an explicit owner directive.
 - 2026-07-11 owner ruling (definitive): no `SimulationController` — the
   implemented `SimulationSystem` pacing / `SceneController` ownership / `Run`
   frame-order split stands. No unified `EntityId` registry —

@@ -8,7 +8,8 @@ Owner: repository validation
 
 ## Baseline Problem (V0-V2 Closed 2026-07-10)
 
-The documented broad gate is not a superset of cheaper validation:
+At the V0 baseline, the documented broad gate was not a superset of cheaper
+validation:
 
 - `tools\validate_full.bat` builds Profile/Debug, runs DX12 validation, and runs
   physics validation, but does not run `tools\validate_tests.bat`.
@@ -17,17 +18,21 @@ The documented broad gate is not a superset of cheaper validation:
   solution or the default broad gate.
 - `tools\agent_validate.bat` delegates to `validate_full`, so the "unsure"
   choice can pass while a CPU unit suite fails.
-- No tracked CI workflow enforces even the CPU-only gates on pull requests.
-- No sanitizer or compiler static-analysis lane covers native lifetime errors.
+- At the V0 baseline, no tracked CI workflow enforced even the CPU-only gates
+  on pull requests.
+- At the V0 baseline, no sanitizer or compiler static-analysis lane covered
+  native lifetime errors.
 
-The repository therefore has strong local scripts but no single trustworthy
+The repository therefore had strong local scripts but no single trustworthy
 answer to "is this PR safe to merge?"
 
-Current state: `validate_full` and `agent_validate` reach all four CPU test
-targets through `validate_all_cpu_tests` before runtime work, and V4 supplies a
-proven ASan plus bounded `/analyze` lane. The remaining trust gap is external
-V3 activation: real hosted runs, CPU branch protection, and trusted DX12-runner
-operation.
+Current state (2026-07-11): `validate_full` and `agent_validate` reach all four
+CPU test targets through `validate_all_cpu_tests` before runtime work, V4
+supplies a proven ASan plus bounded `/analyze` lane, and all three workflows are
+active on the default branch. Mandatory CPU validation passed a real pull-
+request run. The remaining V3 trust gap is a real `merge_group` proof, required
+CPU branch protection, and trusted DX12-runner activation; public-PR GPU
+evidence still requires an ephemeral isolated runner.
 
 ## Goal
 
@@ -94,20 +99,17 @@ Separate validation by capability rather than by historical script:
   Runtime may become a required PR check only after replacement by an
   ephemeral, disposable, isolated GPU worker. Binding design and activation
   checklist: `Agentic/Reports/validation_ci_v3_20260710.md`.
-  External blocker audit (2026-07-11): the live public repository reports zero
-  registered workflows on `main`, zero Actions runs, no `main` branch
-  protection, no repository variables, and no self-hosted runners. This branch
-  has no PR. Local workflow syntax remains clean under actionlint 1.7.12. No
-  further repository implementation is missing; activation requires GitHub
-  administrative state and a reviewed integration path that this campaign is
-  explicitly forbidden to create. Recommended default: land the hosted CPU
-  workflow first, prove pull-request and `merge_group` runs, then require its
-  exact stable job name. Keep the persistent DX12 lane disabled and
-  informational until one dedicated trusted-ref runner is registered; require
-  GPU PR evidence only after an ephemeral isolated runner replaces it. Unblock
-  V3 when the external activation checklist in the report has command/run URL
-  evidence for the CPU lane and branch protection, plus trusted runtime-runner
-  evidence where available.
+  Activation audit refreshed 2026-07-11: GitHub registers all three default-
+  branch workflows, and `Mandatory CPU validation` passed pull-request run
+  29148955729 for `engine-cleanup-10th-july`. DX12 main-push runs 29149260881
+  and 29149344794 were correctly skipped because trusted runner activation is
+  still disabled; skipped jobs are not evidence. `main` remains unprotected.
+  No local implementation is missing. Prove the `merge_group` event next, then
+  require the stable CPU job name through branch protection. Keep the
+  persistent DX12 lane post-merge/informational until a dedicated trusted-ref
+  runner is registered; require public-PR GPU evidence only after an ephemeral
+  isolated runner replaces it. Current evidence and remaining administration
+  are recorded in `Agentic/Reports/validation_ci_v3_20260710.md`.
 - [x] **V4 — Sanitizer/static-analysis lane.** Add an MSVC AddressSanitizer
   configuration for CPU-testable engine code and a bounded `/analyze` or
   equivalent static-analysis job. Record suppressions with owner, reason, and

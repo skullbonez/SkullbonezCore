@@ -16,12 +16,15 @@ report, or reference needed for the current task.
 | `Skills/` | Task procedures and helpers |
 | `Plans/MASTER-PLAN.md` | Authoritative inventory, checked-phase counts, priority, decisions, and closure rules |
 | `Plans/TODO/` | Every live implementation plan and execution checklist |
+| `Plans/WNF/` | Owner-parked “will not do now” plans; agents ignore them unless the owner explicitly restores them to `TODO/` |
 | `Audits/` | Renderer, physics, and process audits loaded on demand |
 | `Bugs.md` | Persistent product bug notes |
 | `Reference/` | Runtime, physics, style, and external reference material |
 | `Reports/` | Validation/investigation evidence; not plan status authority |
 
-Completed plans/checklists are deleted; git history is the archive. Do not
+Completed plans/checklists are deleted; git history is the archive. A completed
+plan may remain temporarily only when `MASTER-PLAN.md` explicitly retains it
+for an unmet aggregate closure gate, and is deleted when that gate passes. Do not
 recreate `Done`, `Failed`, `Rejected`, `To_Eval`, `In_Progress`, or
 `awaiting_verification` plan folders.
 
