@@ -103,8 +103,7 @@ struct RuntimeUiControl
 // Concept: array order is the z-order contract. Builders add the most specific
 // or visually front-most controls first and broad panels/hot zones last. Hit
 // testing therefore never needs sorting, allocation, or a callback.
-template <std::size_t Capacity>
-struct RuntimeUiSurface
+template <std::size_t Capacity> struct RuntimeUiSurface
 {
     static_assert( Capacity > 0, "A runtime UI surface must hold at least one control." );
 

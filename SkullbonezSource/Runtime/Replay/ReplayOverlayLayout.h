@@ -125,6 +125,12 @@ struct ReplayScrubberSurfaceInput
 
 using ReplayScrubberSurface = RuntimeUiSurface<13>;
 
+ReplayScrubberSurfaceInput DescribeReplayScrubberSurface( const ReplayRuntime& replayRuntime,
+                                                          bool scenePhysicsEnabled,
+                                                          bool uiBlocksMouse,
+                                                          int screenW,
+                                                          int screenH,
+                                                          RuntimeInteractionGestureKind gesture );
 void BuildReplayScrubberSurface( const ReplayScrubberSurfaceInput& input, ReplayScrubberSurface& outSurface );
 
 UI::UIRect ReplayScrubberPanelRect( int screenW, int screenH );

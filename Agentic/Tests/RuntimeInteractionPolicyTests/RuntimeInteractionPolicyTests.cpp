@@ -873,6 +873,27 @@ void TestRuntimeUiSurfaceDisabledControlPreventsClickThrough()
 }
 
 
+void TestRuntimeUiSurfacePublishesHitStateWithDrawGeometry()
+{
+    RuntimeUiSurface<1> surface;
+    EXPECT_TRUE( surface.TryAdd( MakeUiControl( 9u, RuntimeUiControlKind::Track, 12.0f, 18.0f, 80.0f, 10.0f ) ) );
+
+    surface.ResolvePointer( 40, 22 );
+
+    const RuntimeUiControl* renderRow = surface.Find( surface.hotControl );
+    EXPECT_TRUE( renderRow != nullptr );
+    EXPECT_TRUE( renderRow->hovered );
+    EXPECT_NEAR( renderRow->drawRect.x, 12.0f, 0.0001f );
+    EXPECT_NEAR( renderRow->drawRect.y, 18.0f, 0.0001f );
+    EXPECT_NEAR( renderRow->drawRect.w, 80.0f, 0.0001f );
+    EXPECT_NEAR( renderRow->drawRect.h, 10.0f, 0.0001f );
+    EXPECT_NEAR( renderRow->hitRect.x, renderRow->drawRect.x, 0.0001f );
+    EXPECT_NEAR( renderRow->hitRect.y, renderRow->drawRect.y, 0.0001f );
+    EXPECT_NEAR( renderRow->hitRect.w, renderRow->drawRect.w, 0.0001f );
+    EXPECT_NEAR( renderRow->hitRect.h, renderRow->drawRect.h, 0.0001f );
+}
+
+
 void TestRuntimeUiSurfaceResetClearsDisposableFrameState()
 {
     RuntimeUiSurface<1> surface;
@@ -931,6 +952,8 @@ int main()
         { "RuntimeUiSurfaceResolvesOneOrderedEligibleHit", &TestRuntimeUiSurfaceResolvesOneOrderedEligibleHit },
         { "RuntimeUiSurfaceDisabledControlPreventsClickThrough",
           &TestRuntimeUiSurfaceDisabledControlPreventsClickThrough },
+        { "RuntimeUiSurfacePublishesHitStateWithDrawGeometry",
+          &TestRuntimeUiSurfacePublishesHitStateWithDrawGeometry },
         { "RuntimeUiSurfaceResetClearsDisposableFrameState", &TestRuntimeUiSurfaceResetClearsDisposableFrameState },
     };
 

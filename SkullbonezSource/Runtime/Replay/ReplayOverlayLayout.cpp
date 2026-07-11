@@ -223,13 +223,13 @@ void BuildReplayScrubberSurface( const ReplayScrubberSurfaceInput& input, Replay
     const UI::UIRect track = ReplayScrubberTrackRect( input.screenW, input.screenH, input.track );
     const UI::UIRect panel = ReplayScrubberPanelRect( input.screenW, input.screenH );
     const UI::UIRect hotZone = ReplayScrubberHotZoneRect( input.screenW, input.screenH );
-    const float horizonHitBottom = (std::max)( predictionHorizon.y + predictionHorizon.h,
-                                               predictionPanel.y + predictionPanel.h );
+    const float horizonHitBottom =
+        (std::max)( predictionHorizon.y + predictionHorizon.h, predictionPanel.y + predictionPanel.h );
     const float horizonHitTop = (std::min)( predictionHorizon.y, predictionPanel.y );
     const UI::UIRect predictionHorizonHit = { predictionHorizon.x,
-                                               horizonHitTop,
-                                               predictionHorizon.w,
-                                               horizonHitBottom - horizonHitTop };
+                                              horizonHitTop,
+                                              predictionHorizon.w,
+                                              horizonHitBottom - horizonHitTop };
 
     // Invariant: rows are added front-to-back. Disabled controls still block
     // click-through, while broad panel/reveal zones sit behind real controls.
@@ -343,6 +343,39 @@ void BuildReplayScrubberSurface( const ReplayScrubberSurfaceInput& input, Replay
             control->active = true;
         }
     }
+}
+
+ReplayScrubberSurfaceInput DescribeReplayScrubberSurface( const ReplayRuntime& replayRuntime,
+                                                          bool scenePhysicsEnabled,
+                                                          bool uiBlocksMouse,
+                                                          int screenW,
+                                                          int screenH,
+                                                          RuntimeInteractionGestureKind gesture )
+{
+    ReplayScrubberSurfaceInput input;
+    input.screenW = screenW;
+    input.screenH = screenH;
+    input.gesture = gesture;
+    input.loadedPresentation = replayRuntime.HasLoadedPresentation();
+    input.track = input.loadedPresentation ? RunReplayTrack::Presentation : RunReplayTrack::Solver;
+    const ReplayRecorderStats solverStats = replayRuntime.Solver().GetStats();
+    const bool solverReplayEnabled = solverStats.enabled;
+    const bool solverReplayAvailable = solverReplayEnabled && solverStats.sampleCount >= 2;
+    input.solverToolsEnabled = !input.loadedPresentation && solverReplayAvailable;
+    input.predictionToolsEnabled = !input.loadedPresentation && solverReplayEnabled && scenePhysicsEnabled;
+    input.pastPathToolsEnabled = input.solverToolsEnabled && replayRuntime.PathVisualizer().hasTarget;
+    const bool predictionTimelineAvailable =
+        input.predictionToolsEnabled && ( replayRuntime.ActivePredictionFrames().size() >= 2 ||
+                                          replayRuntime.Prediction().BuildPrefixShouldBePresented() );
+    input.scrubTrackDragEnabled = input.loadedPresentation || input.solverToolsEnabled || predictionTimelineAvailable;
+    input.branchTargetAvailable =
+        replayRuntime.Scrubber().historicalSamplePaused &&
+        ( ( input.loadedPresentation && replayRuntime.Scrubber().activeTrack == RunReplayTrack::Presentation &&
+            replayRuntime.CurrentScrubSample() != nullptr ) ||
+          ( input.solverToolsEnabled && replayRuntime.Scrubber().activeTrack == RunReplayTrack::Solver &&
+            replayRuntime.CurrentSolverScrubSample() != nullptr ) );
+    input.hotZoneEnabled = !uiBlocksMouse;
+    return input;
 }
 
 UI::UIRect ReplayCauseTreePanelRect( int screenW, int screenH )

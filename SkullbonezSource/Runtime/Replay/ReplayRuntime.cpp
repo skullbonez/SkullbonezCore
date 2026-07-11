@@ -1063,7 +1063,6 @@ void ReplayRuntime::ClearPathVisualizerState()
     m_pathVisualizer.targetId = ReplayBodyId{};
     m_pathVisualizer.targetModelRow.value = -1;
     m_pathVisualizer.targetName[0] = '\0';
-    m_pathVisualizer.pastPathHovered = false;
     m_pathVisualizer.futureNodes.clear();
     m_pathVisualizer.targets.clear();
     m_pathVisualizer.pastTrajectory = RunReplayPastTrajectoryBuildState{};
@@ -1196,15 +1195,9 @@ bool ReplayRuntime::ClearInteractionForRuntimeTransition( RuntimeInteractionCont
     m_scrubber.visible = false;
     m_scrubber.visibleAlpha = 0.0f;
     m_scrubber.fadeUpdatedAt = 0.0;
-    m_scrubber.branchHovered = false;
-    m_scrubber.pauseHovered = false;
-    m_scrubber.saveHovered = false;
-    m_scrubber.loadHovered = false;
-    m_pathVisualizer.pastPathHovered = false;
     ClearCameraFocusForRestore();
     ClearPathVisualizerState();
     m_prediction.enabled = false;
-    m_prediction.ui = RunReplayPredictionUiState{};
     ClearPredictionCache();
     m_velocityEdit = RunReplayVelocityEditState{};
     m_causeTree.hoveredRow = -1;
@@ -1373,15 +1366,6 @@ ReplayRuntime::ScrubberUnavailableResult ReplayRuntime::ResetUnavailableScrubber
     {
         result.exitInspectionCamera = ResetScrubberState();
     }
-    m_prediction.ui.checkboxHovered = false;
-    m_prediction.ui.ragdollVisualsHovered = false;
-    m_prediction.ui.decreaseHovered = false;
-    m_prediction.ui.increaseHovered = false;
-    m_prediction.ui.horizonHovered = false;
-    m_pathVisualizer.pastPathHovered = false;
-    m_velocityEdit.toggleHovered = false;
-    m_scrubber.branchHovered = false;
-    m_scrubber.loadHovered = false;
     m_scrubber.fadeUpdatedAt = 0.0;
     m_scrubber.visibleAlpha = 0.0f;
     return result;

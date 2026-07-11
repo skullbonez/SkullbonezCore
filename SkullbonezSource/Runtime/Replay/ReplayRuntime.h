@@ -271,16 +271,11 @@ struct RunReplayScrubberState
     bool visible = false;
     bool historicalSamplePaused = false;
     bool liveAdvanceHeld = false;
-    bool branchHovered = false;
-    bool pauseHovered = false;
     bool pauseRestoreFlyMode = false;
     bool pauseRestoreLauncherMode = false;
-    bool saveHovered = false;
-    bool loadHovered = false;
     bool restoreWasDown = false;
     bool restoreConsumedThisFrame = false;
     RunReplayTrack activeTrack = RunReplayTrack::Solver;
-    RunReplayTrack saveHoveredTrack = RunReplayTrack::Solver;
     RunReplayTrack saveMessageTrack = RunReplayTrack::Solver;
     float position = 1.0f;                                            // 0 = oldest retained sample, 1 = live edge.
     float presentationPosition = 1.0f;
@@ -435,7 +430,6 @@ struct RunReplayPathVisualizerState
     // frame.
     bool hasTarget = false;
     bool pastPathVisible = true;
-    bool pastPathHovered = false;
     ReplayBodyId targetId;
     Physics::ModelRowHint targetModelRow;
     char targetName[64] = {};
@@ -556,18 +550,6 @@ struct RunReplayPredictionRevealClock
     bool anchorValid = false;
 };
 
-struct RunReplayPredictionUiState
-{
-    // Concept: these fields are replay-overlay hit-test memory. Hover values are
-    // rewritten each input tick from panel geometry. Active slider ownership
-    // lives only in RuntimeInteractionController's typed gesture.
-    bool checkboxHovered = false;
-    bool ragdollVisualsHovered = false;
-    bool decreaseHovered = false;
-    bool increaseHovered = false;
-    bool horizonHovered = false;
-};
-
 struct RunReplayPredictionFutureNodeCache
 {
     // Concept: future-node cache is render-facing topology derived from
@@ -685,7 +667,6 @@ struct RunReplayPredictionState
 
     bool enabled = false;
     bool ragdollVisualsEnabled = false;
-    RunReplayPredictionUiState ui;
     RunReplayPredictionBuildState build;
     RunReplayPredictionSimulationState simulation;
     RunReplayPredictionFutureNodeCache futureNodeCache;
@@ -766,7 +747,6 @@ struct ReplayTrajectorySubmissionProbeStats
 struct RunReplayVelocityEditState
 {
     bool enabled = false;
-    bool toggleHovered = false;
     bool keyboardAltWasDown = false;
     int hotLinearAxis = -1;
     int hotAngularAxis = -1;

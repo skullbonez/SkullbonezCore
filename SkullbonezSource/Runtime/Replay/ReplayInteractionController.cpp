@@ -123,7 +123,6 @@ void ReplayInteractionController::CompleteScrubberRestore( ReplayRuntime& replay
         // leaving it on the parent timeline's old historical position.
         replayRuntime.Scrubber().activeTrack = RunReplayTrack::Solver;
         replayRuntime.Scrubber().historicalSamplePaused = false;
-        replayRuntime.Scrubber().branchHovered = false;
         replayRuntime.SetAllTrackPositions( 1.0f );
     }
     PublishScrubberRestoreResult( replayRuntime.Scrubber(), request.now, restored, request.messageTrack );

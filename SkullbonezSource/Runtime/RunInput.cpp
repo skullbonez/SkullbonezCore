@@ -697,12 +697,6 @@ bool InputRouter::HandleUnfocusedFrame( RuntimeInputContext& runtimeInput,
             interaction,
             *this );
     }
-    replayRuntime.Prediction().ui.checkboxHovered = false;
-    replayRuntime.Prediction().ui.decreaseHovered = false;
-    replayRuntime.Prediction().ui.increaseHovered = false;
-    replayRuntime.Prediction().ui.horizonHovered = false;
-    replayRuntime.PathVisualizer().pastPathHovered = false;
-    replayRuntime.VelocityEdit().toggleHovered = false;
     replayRuntime.VelocityEdit().keyboardAltWasDown = false;
     replayRuntime.VelocityEdit().hotLinearAxis = -1;
     replayRuntime.VelocityEdit().hotAngularAxis = -1;

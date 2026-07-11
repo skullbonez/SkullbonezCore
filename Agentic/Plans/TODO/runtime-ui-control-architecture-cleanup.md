@@ -1,7 +1,7 @@
 # Runtime UI Control Architecture Cleanup
 
 Date: 2026-07-10 (promoted into the authoritative TODO inventory)
-Status: In progress - 5/7 phases complete
+Status: In progress - 6/7 phases complete
 Impact area: replay UI, editor UI, diagnostics UI, input routing, interaction
 gesture ownership
 Owner: runtime UI surfaces; subsystem commands remain with their domain owners
@@ -270,7 +270,7 @@ Delete or absorb these patterns across runtime UI:
 | U2 Replay scrubber vertical slice | Complete | 13-row surface owns scrubber hit/reveal state; old `overX` ladder deleted |
 | U3 Action dispatch | Complete | Control action table plus named value dispatch shared by pointer and Enter restore |
 | U4 Gesture lifecycle | Complete | Central scrubber begin/tick/end plus controller-owned cancel and reset tests |
-| U5 Shared render/input snapshots | Pending | Draw and hit-test geometry equality tests |
+| U5 Shared render/input snapshots | Complete | Input/render derive the same 13 rows; hover mirrors and render layout duplication deleted |
 | U6 Remaining runtime surfaces | Pending | Inventory reconciled with zero unchecked files |
 
 ### Phase 1: Inventory UI Surfaces
@@ -515,9 +515,30 @@ derived directly from it.
 
 Acceptance:
 
-- Drawn hover equals hit-test hover.
-- Disabled controls draw and behave consistently.
-- Layout math is not duplicated between render and input paths.
+- [x] Drawn hover equals hit-test hover.
+- [x] Disabled controls draw and behave consistently.
+- [x] Layout math is not duplicated between render and input paths.
+
+Evidence:
+
+- `DescribeReplayScrubberSurface` derives feature/owner policy once. Both input
+  and render call it, build the same 13 ordered rows, and resolve the pointer
+  against `RunReplayScrubberState::mouseX/mouseY` sampled by input.
+- `ReplayOverlayRenderer` reads every panel/button/track/slider rectangle and
+  hover directly from the resolved control rows. It contains zero direct
+  `ReplayScrubber*Rect` calls.
+- Stored branch, pause, save, load, velocity, prediction, ragdoll, path, and
+  horizon hover mirrors are deleted, together with the empty
+  `RunReplayPredictionUiState` compatibility shape. Repository search finds
+  none of those fields.
+- The CPU suite adds `RuntimeUiSurfacePublishesHitStateWithDrawGeometry`, proving
+  the hot row consumed by rendering carries the draw and hit snapshot.
+- Corrected Profile build passed in 5.1s. `tools\validate_all_cpu_tests.bat`
+  passed in 18.4s with 131/131 doctests, 2,814 assertions, and 25/25 interaction
+  cases in Debug and Release. `tools\validate_replay_scrub.bat` passed in
+  86.1s. `tools\validate_dx12_renderer.bat` passed in 36.0s with formatting
+  clean, DX12 InfoQueue errors = 0, and all three captures matching baselines.
+- Comment audit: 10/10 touched source-bearing files checked, zero deferred.
 
 ### Phase 7: Apply To Other UI
 
