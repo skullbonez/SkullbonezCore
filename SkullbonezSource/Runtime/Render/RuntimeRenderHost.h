@@ -158,7 +158,6 @@ struct RenderUiView
     UI::InGameUI& ui;
     RuntimeInputContext& runtimeInput;
     RunCameraState& camera;
-    RuntimeViewModel& runtimeViewModel;
 };
 
 struct RuntimeRenderBackendView

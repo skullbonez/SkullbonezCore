@@ -100,7 +100,7 @@ void ExecuteGraphicsStressFrame( GraphicsStressController& stress,
                                  Window* window,
                                  EngineConfig& config,
                                  RunLaunchOptions& launchOptions,
-                                 CinematicRenderConfig& defaultCinematicRender,
+                                 const CinematicRenderConfig& defaultCinematicRender,
                                  const RunStartupState& startup,
                                  DiagnosticsRuntime& diagnosticsRuntime,
                                  RunRuntimeSettings& runtimeSettings,
@@ -121,7 +121,6 @@ void ExecuteGraphicsStressFrame( GraphicsStressController& stress,
                                  RuntimeRenderBackendView& renderBackendView,
                                  RuntimeRenderer& renderer,
                                  SceneController& sceneController,
-                                 int& perfPass,
                                  const Rendering::IRenderDiagnostics& renderDiagnostics );
 } // namespace Basics
 } // namespace SkullbonezCore

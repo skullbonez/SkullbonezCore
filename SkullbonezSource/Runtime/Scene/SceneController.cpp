@@ -134,6 +134,18 @@ void SceneController::MarkInteractiveRunComplete()
 }
 
 
+void SceneController::ToggleCrossScenePause()
+{
+    m_crossScenePauseLocked = !m_crossScenePauseLocked;
+}
+
+
+bool SceneController::CrossScenePauseLocked() const
+{
+    return m_crossScenePauseLocked;
+}
+
+
 SceneController::SceneController( std::vector<std::string> queue )
     : m_runtime( std::move( queue ) ), m_models( m_physics )
 {
@@ -547,8 +559,7 @@ SceneFrameAdvanceResult SceneController::AdvanceFrame( bool proceedAllowed,
                                                        bool perfTestActive,
                                                        bool screenshotSaved,
                                                        bool manualCameraActive,
-                                                       double elapsedSeconds,
-                                                       int& perfPass )
+                                                       double elapsedSeconds )
 {
     SceneFrameAdvanceResult result;
     if ( !proceedAllowed )
@@ -565,7 +576,7 @@ SceneFrameAdvanceResult SceneController::AdvanceFrame( bool proceedAllowed,
         result.finishReason = reason;
         if ( m_runtime.State().isExitOnComplete && CanAutomationQuit() )
         {
-            result.loadRequest = AdvanceScene( perfTestActive, perfPass, m_runtime.State().isInteractiveRun );
+            result.loadRequest = AdvanceScene( perfTestActive, m_runtime.State().isInteractiveRun );
             result.requestQuit = !result.loadRequest.HasLoad();
             result.quitIfLoadFails = true;
             result.restartFrame = true;
@@ -651,7 +662,7 @@ SceneFrameAdvanceResult SceneController::AdvanceFrame( bool proceedAllowed,
     if ( perfTestActive && m_runtime.State().targetFrameCount <= 0 && elapsedSeconds > SCENE_PERF_PASS_SECONDS )
     {
         result.finishReason = "perf_duration";
-        result.loadRequest = AdvanceScene( true, perfPass, m_runtime.State().isInteractiveRun );
+        result.loadRequest = AdvanceScene( true, m_runtime.State().isInteractiveRun );
         result.restartFrame = true;
         if ( !result.loadRequest.HasLoad() )
         {

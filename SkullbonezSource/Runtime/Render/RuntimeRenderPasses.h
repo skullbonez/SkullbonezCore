@@ -358,6 +358,7 @@ struct UiTextPassState
     // this frame only; mutations stay limited to timer rolling diagnostics and
     // immediate UI drawing.
     RunDebugState& debug;
+    bool crossScenePauseLocked = false;
     RunTimerState& timers;
     const RunSceneState& scene;
     const RunRuntimeSettings& runtimeSettings;

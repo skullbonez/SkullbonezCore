@@ -646,7 +646,6 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
                                                   SkullbonezCore::Runtime::Audio::ContactAudioService& contactAudio,
                                                   RuntimeRenderBackendView& renderBackendView,
                                                   RenderDefaultsStore& renderDefaults,
-                                                  CinematicRenderConfig& defaultCinematicRender,
                                                   int gameModelCapacity )
 {
     if ( !result.frameActive )
@@ -1051,7 +1050,7 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
                                                                sceneController.Entities(),
                                                                assets,
                                                                activeCinematic,
-                                                               defaultCinematicRender },
+                                                               renderDefaults.CinematicBaseline() },
                                      uiCommands.cinematic );
         recordUIAction( RuntimeInputAction::SelectCinematicScene );
     }

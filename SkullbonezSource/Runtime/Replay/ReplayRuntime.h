@@ -1266,6 +1266,7 @@ class ReplayRuntime
     bool HasLauncherVisualBackup() const;
     void StoreLauncherVisualBackup( const ReplayLauncherVisualSample& sample );
     const ReplayLauncherVisualSample& LauncherVisualBackup() const;
+    ReplayLauncherVisualSample& LauncherVisualCaptureScratch();
     void ClearLauncherVisualBackup();
     // Accumulates one rendered replay overlay pass into the repro-session
     // trajectory counters exposed through memory diagnostics.
@@ -1521,7 +1522,10 @@ class ReplayRuntime
     RunReplayVelocityEditState m_velocityEdit;
     std::vector<ReplayPredictionGhostDrawRequest> m_predictionGhostDrawRequests;
     std::vector<uint8_t> m_focusModelMask;
-    ReplayLauncherVisualSample m_launcherVisualBackup;
+    ReplayLauncherVisualSample
+        m_launcherVisualBackup;                                       // Live launcher visuals restored after replay presentation overrides.
+    ReplayLauncherVisualSample
+        m_launcherVisualCaptureScratch;                               // Reserved post-physics capture payload reused every replay tick.
     // Invariant: replay render pose matching is a per-frame mark table capped by
     // the live model budget. It must not allocate while scrub/prediction views
     // are applied during rendering.

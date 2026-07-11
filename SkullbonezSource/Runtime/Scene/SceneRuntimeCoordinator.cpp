@@ -234,18 +234,18 @@ SceneController::ResetCurrentScene( bool preserveUIState, bool suppressExitOnCom
 }
 
 
-SceneLoadRequest SceneController::AdvanceScene( bool perfTestActive, int& perfPass, bool preserveInteractiveUI )
+SceneLoadRequest SceneController::AdvanceScene( bool perfTestActive, bool preserveInteractiveUI )
 {
-    if ( perfTestActive && perfPass == 0 )
+    if ( perfTestActive && m_perfPass == 0 )
     {
-        perfPass = 1;
+        m_perfPass = 1;
         return SceneLoadRequest::Load( CurrentIndex(),
                                        preserveInteractiveUI,
                                        preserveInteractiveUI,
                                        preserveInteractiveUI );
     }
 
-    perfPass = 0;
+    m_perfPass = 0;
 
     const int nextIndex = NextIndex();
     if ( !HasEntry( nextIndex ) )
@@ -254,6 +254,12 @@ SceneLoadRequest SceneController::AdvanceScene( bool perfTestActive, int& perfPa
     }
 
     return SceneLoadRequest::Load( nextIndex, preserveInteractiveUI, preserveInteractiveUI, false );
+}
+
+
+int SceneController::PerfPass() const
+{
+    return m_perfPass;
 }
 
 SceneRuntimeUICommandResult SubmitSceneUIRequests( SceneController& sceneController,

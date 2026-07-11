@@ -321,7 +321,7 @@ struct GraphicsStressActionContext
     SkullbonezCore::UI::InGameUI& ui;
     SceneController& sceneController;
     const SkullbonezCore::Assets::AssetSystem& assets;
-    CinematicRenderConfig& defaultCinematicRender;
+    const CinematicRenderConfig& defaultCinematicRender;
     SimulationSystem& simulation;
     RuntimeTools& runtimeTools;
     SkullbonezCore::Environment::WorldEnvironment& world;
@@ -896,7 +896,7 @@ void SkullbonezCore::Basics::ExecuteGraphicsStressFrame( GraphicsStressControlle
                                                          Window* window,
                                                          EngineConfig& config,
                                                          RunLaunchOptions& launchOptions,
-                                                         CinematicRenderConfig& defaultCinematicRender,
+                                                         const CinematicRenderConfig& defaultCinematicRender,
                                                          const RunStartupState& startup,
                                                          DiagnosticsRuntime& diagnosticsRuntime,
                                                          RunRuntimeSettings& runtimeSettings,
@@ -917,7 +917,6 @@ void SkullbonezCore::Basics::ExecuteGraphicsStressFrame( GraphicsStressControlle
                                                          RuntimeRenderBackendView& renderBackendView,
                                                          RuntimeRenderer& renderer,
                                                          SceneController& sceneController,
-                                                         int& perfPass,
                                                          const Rendering::IRenderDiagnostics& renderDiagnostics )
 {
     // Concept: graphics stress is a deterministic fuzzer over scene loading,
@@ -970,8 +969,7 @@ void SkullbonezCore::Basics::ExecuteGraphicsStressFrame( GraphicsStressControlle
                    runtimeTools,
                    physicsDebugVisualizer,
                    renderBackendView,
-                   renderer,
-                   perfPass )
+                   renderer )
             .ok;
     };
 

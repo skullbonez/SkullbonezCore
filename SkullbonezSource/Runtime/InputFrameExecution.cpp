@@ -94,7 +94,6 @@ void SkullbonezCore::Basics::ProcessInputFrame( InputRouter& inputRouter,
                                                 EngineConfig& m_config,
                                                 RunLaunchOptions& m_launchOptions,
                                                 ApplicationExitState& m_applicationExit,
-                                                CinematicRenderConfig& m_defaultCinematicRender,
                                                 RenderDefaultsStore& m_renderDefaults,
                                                 const RunStartupState& m_startup,
                                                 DiagnosticsRuntime& m_diagnosticsRuntime,
@@ -114,11 +113,9 @@ void SkullbonezCore::Basics::ProcessInputFrame( InputRouter& inputRouter,
                                                 GraphicsStressController& m_graphicsStress,
                                                 RuntimeTools& m_runtimeTools,
                                                 Physics::PhysicsDebugVisualizer& m_physicsDebugVisualizer,
-                                                RuntimeViewModel& m_runtimeViewModel,
                                                 RuntimeRenderBackendView& m_renderBackendView,
                                                 RuntimeRenderer& m_renderer,
-                                                SceneController& m_sceneController,
-                                                int& sPerfPass )
+                                                SceneController& m_sceneController )
 {
     InputRouter& m_inputRouter = inputRouter;
     // Lifetime: these aliases expose InputRouter-owned frame state only for
@@ -224,14 +221,6 @@ void SkullbonezCore::Basics::ProcessInputFrame( InputRouter& inputRouter,
                                          ReplayOwnerEventName( code ) );
         }
         return true;
-    };
-    const auto RefreshRuntimeViewModel = [&]()
-    {
-        m_runtimeViewModel = RuntimeViewModelBuilder::Build( RuntimeViewModelContext{ m_sceneController,
-                                                                                      m_diagnosticsRuntime.Capture(),
-                                                                                      m_runtimeSettings,
-                                                                                      m_sceneController.Physics() },
-                                                             m_contactAudio );
     };
     DeviceInputFrame deviceFrame;
     const SbResult deviceCaptureResult = Input::CaptureDeviceInputFrame( deviceFrame );
@@ -374,7 +363,7 @@ void SkullbonezCore::Basics::ProcessInputFrame( InputRouter& inputRouter,
             .Load( request,
                    m_config,
                    m_launchOptions,
-                   m_defaultCinematicRender,
+                   m_renderDefaults.CinematicBaseline(),
                    m_startup,
                    m_diagnosticsRuntime,
                    m_runtimeSettings,
@@ -395,8 +384,7 @@ void SkullbonezCore::Basics::ProcessInputFrame( InputRouter& inputRouter,
                    m_runtimeTools,
                    m_physicsDebugVisualizer,
                    m_renderBackendView,
-                   m_renderer,
-                   sPerfPass )
+                   m_renderer )
             .ok;
     };
 
@@ -651,7 +639,6 @@ void SkullbonezCore::Basics::ProcessInputFrame( InputRouter& inputRouter,
         case RuntimeInputAction::StepPhysicsPipelineNext:
         case RuntimeInputAction::TogglePhysicsDebugTransparent:
         case RuntimeInputAction::ReportRendererRuntimeRetired:
-        case RuntimeInputAction::ToggleCrossScenePause:
         case RuntimeInputAction::ToggleBroadphaseOverlay:
             HandleDiagnosticsKeyboardShortcut(
                 DiagnosticsKeyboardShortcutContext{ m_debug,
@@ -662,6 +649,11 @@ void SkullbonezCore::Basics::ProcessInputFrame( InputRouter& inputRouter,
                                                     m_timers.simulationTimer.GetTimeSinceLastStart() },
                 event.action,
                 true );
+            break;
+        case RuntimeInputAction::ToggleCrossScenePause:
+            // P locks scene automation without turning the run interactive;
+            // SceneController preserves the policy across load transactions.
+            m_sceneController.ToggleCrossScenePause();
             break;
         case RuntimeInputAction::ToggleUIVisibility:
         case RuntimeInputAction::TogglePerformanceHistogram:
@@ -720,7 +712,7 @@ void SkullbonezCore::Basics::ProcessInputFrame( InputRouter& inputRouter,
                                               m_sceneController.Entities(),
                                               m_assets,
                                               ActiveSceneCinematicConfig( SceneState(), m_config ),
-                                              m_defaultCinematicRender },
+                                              m_renderDefaults.CinematicBaseline() },
                     cinematicIndex );
             if ( !appliedCinematic )
             {
@@ -861,7 +853,6 @@ void SkullbonezCore::Basics::ProcessInputFrame( InputRouter& inputRouter,
                                      m_contactAudio,
                                      m_renderBackendView,
                                      m_renderDefaults,
-                                     m_defaultCinematicRender,
                                      m_startup.gameModelCapacity );
     if ( uiFrameResult.status.ok && uiFrameResult.frameActive )
     {
@@ -1064,7 +1055,7 @@ void SkullbonezCore::Basics::ProcessInputFrame( InputRouter& inputRouter,
         const bool processedCapture = DrainCaptureRequests();
         const bool processedScene = m_sceneController.ExecutePending( m_config,
                                                                       m_launchOptions,
-                                                                      m_defaultCinematicRender,
+                                                                      m_renderDefaults.CinematicBaseline(),
                                                                       m_startup,
                                                                       m_diagnosticsRuntime,
                                                                       m_runtimeSettings,
@@ -1085,11 +1076,9 @@ void SkullbonezCore::Basics::ProcessInputFrame( InputRouter& inputRouter,
                                                                       m_runtimeTools,
                                                                       m_physicsDebugVisualizer,
                                                                       m_renderBackendView,
-                                                                      m_renderer,
-                                                                      sPerfPass );
+                                                                      m_renderer );
         if ( processedCapture || processedDefaults || processedScene )
         {
-            RefreshRuntimeViewModel();
         }
     }
     commitPointerPresentation();

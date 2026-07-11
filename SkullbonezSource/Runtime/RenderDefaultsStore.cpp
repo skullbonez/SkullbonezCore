@@ -29,6 +29,18 @@ namespace SkullbonezCore
 {
 namespace Basics
 {
+void RenderDefaultsStore::CaptureStartupCinematicBaseline( const CinematicRenderConfig& cinematic )
+{
+    m_cinematicBaseline = cinematic;
+}
+
+
+const CinematicRenderConfig& RenderDefaultsStore::CinematicBaseline() const
+{
+    return m_cinematicBaseline;
+}
+
+
 void RenderDefaultsStore::SubmitOrdinarySave()
 {
     Submit( RenderDefaultsRequestType::Ordinary );

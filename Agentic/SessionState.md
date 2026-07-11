@@ -10,10 +10,10 @@ reports, and git history.
 | Field | Value |
 |---|---|
 | Branch | `engine-cleanup-10th-july`, tracking `origin/engine-cleanup-10th-july` |
-| Current pushed baseline | `87b7594b refactor: collapse runtime shell compatibility surfaces` |
-| Current objective | Finish F1 raw-field mapping and substitute-hub proof after deleting `RunSubsystemState` and forwarding surfaces |
-| Last broad local gate | `tools\validate_full.bat` passed the F1 owner-boundary slice with 130/130 doctest cases, 2,770 assertions, zero-warning Profile/Debug builds, DX12 with zero InfoQueue errors and matching screenshots, standalone physics smoke, and the 44,401-line varied baseline byte-exactly in 109.8s |
-| Latest focused gates | Five interaction scenarios passed in 34.9s; project-filter validation covered 604/604 production items; allocation-policy self-test and the 309-file repository scan passed in 7.5s with zero allowlist errors |
+| Current pushed baseline | `0d67e0a6 refactor: remove runtime shell state shelf` |
+| Current objective | Finish F1 multi-domain settings split and broad frame-context/substitute-hub proof |
+| Last broad local gate | `tools\validate_full.bat` passed the F1 field-owner slice with 130/130 doctest cases, 2,770 assertions, zero-warning Profile/Debug builds, DX12 with zero InfoQueue errors and matching screenshots, standalone physics smoke, and the 44,401-line varied baseline byte-exactly in 110.8s |
+| Latest focused gates | Five interaction scenarios passed in 34.1s; the prior owner-boundary project/allocation checks remain green |
 | Native evidence | Injected heap-use-after-free caught; healthy ASan and five-file `/analyze` passed in 16.185s |
 
 ## Pushed Cleanup Commits
@@ -70,6 +70,13 @@ diagnostics finish logging, and interaction automation no longer add forwarding
 methods to `Run`. Five interaction scenarios, allocation/project checks, and the
 full gate pass; the touched-source comment audit is 37/37. F1 remains open for
 the raw-field/substitute-hub proof and the interaction automation size decision.
+
+The next F1 field slice removes replay capture scratch, the cinematic startup
+baseline, the runtime UI snapshot, perf-pass state, and cross-scene pause policy
+from the shell/debug shelf. Replay, defaults, frame UI, and SceneController own
+those values directly. Five interaction scenarios and the full gate pass; the
+touched-source comment audit is 22/22. Remaining F1 work is the multi-domain
+runtime-settings split plus broad frame/substitute-owner contexts.
 
 D3 is complete. The repository has no tracked `.inl` files. The former editor
 mini-palette fragment is split into real palette policy/layout, drawing, and

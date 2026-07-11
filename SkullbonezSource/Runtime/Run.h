@@ -123,7 +123,6 @@ class Run
     bool m_skipExecute = false;                                         // Startup-only probes can complete without entering the frame loop.
     RunLaunchOptions m_launchOptions;                                   // CLI/startup policy reapplied across scene loads.
     ApplicationExitState m_applicationExit;                             // First-failure exit latch resolved by the platform message loop.
-    CinematicRenderConfig m_defaultCinematicRender;                     // engine.cfg cinematic baseline restored by the Demo Scene cine mode
     RenderDefaultsStore m_renderDefaults;                               // Deferred ordinary/cinematic engine.cfg persistence owner.
     RunStartupState m_startup;                                          // engine.cfg startup capacity/thread defaults restored by demo resets.
 
@@ -140,8 +139,6 @@ class Run
     AttachedCameraController m_attachedCamera;                          // Owns non-serialized Attach target/orbit/follow state.
     SimulationSystem m_simulation;                                      // Simulation timestep policy and physics accumulators
     ReplayRuntime m_replayRuntime;                                      // Owns replay recorders, branch provenance, and replay interaction state.
-    ReplayLauncherVisualSample
-        m_replayLauncherVisualScratch;                                  // Reused replay capture payload; capacity is kept outside gameplay.
     Runtime::Audio::ContactAudioService m_contactAudio;                 // Presentation-only material impact playback sink.
     LiveStyleController m_liveStyle;                                    // Owns live style tweak/capture harness file-watching state.
     UI::InGameUI m_UI;                                                  // Encapsulated in-game diagnostics window
@@ -152,11 +149,9 @@ class Run
     Physics::CollisionVisualizer m_collisionVisualizer;                 // Solid collision/sleep model visualizer (V key toggle)
     Physics::PhysicsDebugVisualizer
         m_physicsDebugVisualizer;                                       // Line overlay for object axes, contact manifolds, and sleep state
-    RuntimeViewModel m_runtimeViewModel;                                // Scalar runtime snapshot for presentation/diagnostics.
     RuntimeRenderBackendView m_renderBackendView;                       // Borrowed active renderer capabilities for renderer users.
     RuntimeRenderer m_renderer;                                         // Owns runtime render passes and frame render ordering.
 
-    inline static int sPerfPass = 0;
     void Render( const RuntimeRenderModelFrameView&
                      renderModels );                                    // Skips 3D in text-only runs, then records passes for the current camera state.
     void UpdateLogic( float simulationDt, float cameraDt );             // simulationDt drives physics; cameraDt is unscaled wall time.

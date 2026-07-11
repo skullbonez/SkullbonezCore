@@ -167,12 +167,13 @@ class SceneController
     void EnterInteractiveRun();
     bool CanAutomationQuit() const;
     void MarkInteractiveRunComplete();
+    void ToggleCrossScenePause();
+    bool CrossScenePauseLocked() const;
     SceneFrameAdvanceResult AdvanceFrame( bool proceedAllowed,
                                           bool perfTestActive,
                                           bool screenshotSaved,
                                           bool manualCameraActive,
-                                          double elapsedSeconds,
-                                          int& perfPass );
+                                          double elapsedSeconds );
 
     bool HasEntry( int index ) const;
     bool HasCurrentEntry() const;
@@ -201,7 +202,8 @@ class SceneController
                                            bool isCinematicTabActive ) const;
     SceneLoadRequest LoadAdjacentSceneFromBrowser( int direction, int currentSceneBrowserIndex );
     SceneLoadRequest ResetCurrentScene( bool preserveUIState, bool suppressExitOnComplete, bool preserveRuntimeState );
-    SceneLoadRequest AdvanceScene( bool perfTestActive, int& perfPass, bool preserveInteractiveUI );
+    SceneLoadRequest AdvanceScene( bool perfTestActive, bool preserveInteractiveUI );
+    int PerfPass() const;
     // Lifetime: cold load orchestration borrows each concrete owner only for
     // this call. The explicit list is intentional: no Run backpointer or broad
     // mutable context is retained behind the scene boundary.
@@ -229,8 +231,7 @@ class SceneController
                    RuntimeTools& m_runtimeTools,
                    Physics::PhysicsDebugVisualizer& m_physicsDebugVisualizer,
                    const RuntimeRenderBackendView& m_renderBackendView,
-                   RuntimeRenderer& m_renderer,
-                   int& sPerfPass );
+                   RuntimeRenderer& m_renderer );
     // Executes the fixed pending batch inside the scene owner. Replay records
     // only requests whose load/create/save operation completes successfully.
     bool ExecutePending( EngineConfig& m_config,
@@ -256,8 +257,7 @@ class SceneController
                          RuntimeTools& m_runtimeTools,
                          Physics::PhysicsDebugVisualizer& m_physicsDebugVisualizer,
                          const RuntimeRenderBackendView& m_renderBackendView,
-                         RuntimeRenderer& m_renderer,
-                         int& sPerfPass );
+                         RuntimeRenderer& m_renderer );
     SbResult SaveCurrentDefaults( const SceneDefaultsSaveView& view ) const;
 
     // Scene request submission stays owner-specific even while Run temporarily
@@ -294,6 +294,8 @@ class SceneController
     SceneRequestQueue m_requests;            // Fixed scene-only deferred intent ring.
     RunSceneBrowserState m_browser;          // Discovered scene paths and live cine/concept selection.
     RunSceneUIOverrideState m_uiOverrides;   // Live Scene-tab overrides preserved across reset when requested.
+    int m_perfPass = 0;                      // Scene navigation pass index for two-pass performance captures.
+    bool m_crossScenePauseLocked = false;    // Operator scene-flow lock preserved across load transactions.
     SceneEntityStore m_entities;             // Fixed scene-lifetime identity and durable presentation metadata.
     Environment::CameraCollection m_cameras; // Fixed scene camera slots and active camera presentation state.
     Environment::WorldEnvironment m_world;   // Gravity, fluid, and terrain bounds for the active scene.

@@ -173,7 +173,7 @@ bool UiTextPass::ShouldRender( const UiTextPassState& state ) const
 {
     return state.debug.isTextOnly || !state.scene.isSceneMode || state.scene.isSceneText ||
            state.debug.overlayMode != OverlayMode::None || state.ui.NeedsUiTextPass() ||
-           ( state.debug.isCrossScenePauseLocked && !state.debug.isTopTextHidden ) ||
+           ( state.crossScenePauseLocked && !state.debug.isTopTextHidden ) ||
            ( state.scene.isTestComplete && !state.debug.isTopTextHidden ) || state.replayScrubberVisible ||
            state.replayPathVisualizerHasTarget ||
            ( state.camera.mode != RunCameraMode::Demo && state.camera.mode != RunCameraMode::Scene &&
@@ -263,7 +263,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
     const auto renderScenePauseBadge = [&]()
     {
         if ( state.debug.isTopTextHidden ||
-             ( !state.scene.isSceneMode && !state.debug.isCrossScenePauseLocked && !state.scene.isTestComplete ) )
+             ( !state.scene.isSceneMode && !state.crossScenePauseLocked && !state.scene.isTestComplete ) )
         {
             return;
         }
@@ -302,7 +302,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
                        state.scene.currentFrame );
         }
 
-        const char* stateLine = state.debug.isCrossScenePauseLocked
+        const char* stateLine = state.crossScenePauseLocked
                                     ? "P Pause Lock   Space advances"
                                     : ( state.scene.isTestComplete ? "Scene complete" : "P pause lock" );
         const float titlePx = 11.5f;
@@ -326,9 +326,9 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
                           4.0f,
                           panelH - 2.0f,
                           radii.smallButton,
-                          state.debug.isCrossScenePauseLocked ? palette.warningAccent.r : palette.accent.r,
-                          state.debug.isCrossScenePauseLocked ? palette.warningAccent.g : palette.accent.g,
-                          state.debug.isCrossScenePauseLocked ? palette.warningAccent.b : palette.accent.b,
+                          state.crossScenePauseLocked ? palette.warningAccent.r : palette.accent.r,
+                          state.crossScenePauseLocked ? palette.warningAccent.g : palette.accent.g,
+                          state.crossScenePauseLocked ? palette.warningAccent.b : palette.accent.b,
                           0.90f );
         Text2d::FlushQuads( renderCommands );
         draw.Text( x + padX,
@@ -341,9 +341,9 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         draw.Text( x + padX,
                    y + padY + lineGap,
                    valuePx,
-                   state.debug.isCrossScenePauseLocked ? palette.warningAccent.r : palette.accent.r,
-                   state.debug.isCrossScenePauseLocked ? palette.warningAccent.g : palette.accent.g,
-                   state.debug.isCrossScenePauseLocked ? palette.warningAccent.b : palette.accent.b,
+                   state.crossScenePauseLocked ? palette.warningAccent.r : palette.accent.r,
+                   state.crossScenePauseLocked ? palette.warningAccent.g : palette.accent.g,
+                   state.crossScenePauseLocked ? palette.warningAccent.b : palette.accent.b,
                    stateLine );
         topRightBadgeY = y + panelH + TOP_RIGHT_BADGE_GAP;
     };

@@ -386,7 +386,6 @@ bool HandleDiagnosticsKeyboardShortcut( DiagnosticsKeyboardShortcutContext conte
         case RuntimeInputAction::StepPhysicsPipelineNext:
         case RuntimeInputAction::TogglePhysicsDebugTransparent:
         case RuntimeInputAction::ReportRendererRuntimeRetired:
-        case RuntimeInputAction::ToggleCrossScenePause:
         case RuntimeInputAction::ToggleBroadphaseOverlay:
             return true;
         default:
@@ -490,11 +489,6 @@ bool HandleDiagnosticsKeyboardShortcut( DiagnosticsKeyboardShortcutContext conte
         // Q used to cycle legacy renderers; keep the key as a bounded
         // diagnostic report because DX12 is now the sole runtime backend.
         fprintf( stderr, "Renderer switch ignored: DX12 is the only runtime renderer.\n" );
-        return true;
-    case RuntimeInputAction::ToggleCrossScenePause:
-        // P locks automation between scenes without marking the scene
-        // interactive, so clearing it resumes the original automation mode.
-        debug.isCrossScenePauseLocked = !debug.isCrossScenePauseLocked;
         return true;
     case RuntimeInputAction::ToggleBroadphaseOverlay:
         // G cycles the tracked ball while the broadphase overlay is off; once

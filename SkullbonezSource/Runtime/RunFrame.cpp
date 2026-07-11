@@ -125,7 +125,7 @@ struct ExecuteUiTextFrameContext
     SkullbonezCore::UI::InGameUI& ui;
     RuntimeInputContext& runtimeInput;
     RunCameraState& camera;
-    RuntimeViewModel& runtimeViewModel;
+    SkullbonezCore::Runtime::Audio::ContactAudioService& contactAudio;
     SceneController& sceneController;
     SkullbonezCore::Threading::WorkerPool& workerPool;
     Window& window;
@@ -138,16 +138,17 @@ struct ExecuteUiTextFrameContext
 };
 
 
-template <typename RefreshRuntimeViewModel>
-void RenderExecuteUiTextFrame( ExecuteUiTextFrameContext& context, RefreshRuntimeViewModel refreshRuntimeViewModel )
+void RenderExecuteUiTextFrame( ExecuteUiTextFrameContext& context )
 {
     // Concept: frame-loop UI text is a late render pass. Keep the state package
     // rebuilt here and refresh the scalar view only after the renderer says the
     // pass will execute, matching the previous Run::Execute ordering.
     const RunSceneBrowserState& uiSceneBrowser = context.sceneController.Browser();
     const std::string* uiScenePath = context.sceneController.CurrentPath();
+    RuntimeViewModel runtimeViewModel;
     const UiTextPassState uiTextState{
         context.debug,
+        context.sceneController.CrossScenePauseLocked(),
         context.timers,
         context.scene,
         context.runtimeSettings,
@@ -158,7 +159,7 @@ void RenderExecuteUiTextFrame( ExecuteUiTextFrameContext& context, RefreshRuntim
         context.ui,
         context.runtimeInput,
         context.camera,
-        context.runtimeViewModel,
+        runtimeViewModel,
         uiSceneBrowser,
         context.renderer.RenderPassResources(),
         &context.workerPool,
@@ -179,7 +180,12 @@ void RenderExecuteUiTextFrame( ExecuteUiTextFrameContext& context, RefreshRuntim
 
     if ( context.renderer.ShouldRenderUiText( uiTextState ) )
     {
-        refreshRuntimeViewModel();
+        runtimeViewModel =
+            RuntimeViewModelBuilder::Build( RuntimeViewModelContext{ context.sceneController,
+                                                                     context.diagnosticsRuntime.Capture(),
+                                                                     context.runtimeSettings,
+                                                                     context.sceneController.Physics() },
+                                            context.contactAudio );
         const CinematicRenderConfig& uiCinematic = ActiveSceneCinematicConfig( context.scene, context.config );
         const bool uiCinematicRendering = IsSceneCinematicRenderingEnabled( context.scene,
                                                                             context.config,
@@ -299,7 +305,6 @@ struct SimulationPostStepPipelineContext
     SkullbonezCore::Environment::CameraCollection& cameras;
     RuntimeTools& runtimeTools;
     ReplayRuntime& replayRuntime;
-    ReplayLauncherVisualSample& replayLauncherVisualScratch;
     SkullbonezCore::Environment::WorldEnvironment& world;
     SkullbonezCore::GameObjects::GameModelCollection& models;
     PhysicsEngine& physics;
@@ -471,7 +476,8 @@ class SimulationPostStepPipeline
     {
         RuntimeAllocation::RuntimeAllocationScope allocationScope( RuntimeAllocation::RuntimeAllocationPhase::Replay );
         PROFILE_SCOPED( "Frame/Physics/Step/ReplayCapture" );
-        context.runtimeTools.BuildReplayLauncherVisualSample( context.replayLauncherVisualScratch );
+        ReplayLauncherVisualSample& launcherVisual = context.replayRuntime.LauncherVisualCaptureScratch();
+        context.runtimeTools.BuildReplayLauncherVisualSample( launcherVisual );
 
         ReplayCaptureInput input;
         input.sceneFrame = context.scene.currentFrame;
@@ -488,7 +494,7 @@ class SimulationPostStepPipeline
         input.entities = &context.entities;
         input.bodyStore = &context.models.BodyStore();
         input.colliderStore = &context.models.Colliders();
-        input.launcherVisual = &context.replayLauncherVisualScratch;
+        input.launcherVisual = &launcherVisual;
         context.replayRuntime.CaptureFrame( input );
     }
 };
@@ -584,7 +590,6 @@ SbResult Run::Execute()
                                m_config,
                                m_launchOptions,
                                m_applicationExit,
-                               m_defaultCinematicRender,
                                m_renderDefaults,
                                m_startup,
                                m_diagnosticsRuntime,
@@ -604,11 +609,9 @@ SbResult Run::Execute()
                                m_graphicsStress,
                                m_runtimeTools,
                                m_physicsDebugVisualizer,
-                               m_runtimeViewModel,
                                m_renderBackendView,
                                m_renderer,
-                               m_sceneController,
-                               sPerfPass );
+                               m_sceneController );
             m_liveStyle.Tick(
                 SceneRuntimeStyleContext{ m_launchOptions,
                                           m_sceneController.State(),
@@ -617,7 +620,7 @@ SbResult Run::Execute()
                                           m_sceneController.Entities(),
                                           m_assets,
                                           ActiveSceneCinematicConfig( m_sceneController.State(), m_config ),
-                                          m_defaultCinematicRender } );
+                                          m_renderDefaults.CinematicBaseline() } );
             PROFILE_END( "Frame/Input" );
 
             m_sceneController.Models().BeginCollisionVisualFrame();
@@ -647,7 +650,7 @@ SbResult Run::Execute()
                                         &m_window,
                                         m_config,
                                         m_launchOptions,
-                                        m_defaultCinematicRender,
+                                        m_renderDefaults.CinematicBaseline(),
                                         m_startup,
                                         m_diagnosticsRuntime,
                                         m_runtimeSettings,
@@ -668,7 +671,6 @@ SbResult Run::Execute()
                                         m_renderBackendView,
                                         m_renderer,
                                         m_sceneController,
-                                        sPerfPass,
                                         frameRenderDiagnostics );
 
             if ( m_runtimeSettings.isPipelineSyncEnabled )
@@ -718,7 +720,7 @@ SbResult Run::Execute()
                                                           m_UI,
                                                           m_inputRouter.RuntimeContext(),
                                                           m_camera,
-                                                          m_runtimeViewModel,
+                                                          m_contactAudio,
                                                           m_sceneController,
                                                           m_workerPool,
                                                           m_window,
@@ -730,16 +732,7 @@ SbResult Run::Execute()
                                                           m_runtimeTools.LauncherFireModeLabel(),
                                                           RunCameraModeUsesLauncher( m_camera.mode ),
                                                           secondsPerFrame };
-            RenderExecuteUiTextFrame( uiTextFrameContext,
-                                      [this]()
-                                      {
-                                          m_runtimeViewModel = RuntimeViewModelBuilder::Build(
-                                              RuntimeViewModelContext{ m_sceneController,
-                                                                       m_diagnosticsRuntime.Capture(),
-                                                                       m_runtimeSettings,
-                                                                       m_sceneController.Physics() },
-                                              m_contactAudio );
-                                      } );
+            RenderExecuteUiTextFrame( uiTextFrameContext );
 
             PROFILE_BEGIN( "Frame/PostDraw/LiveStyleCapture" );
             {
@@ -816,7 +809,7 @@ SbResult Run::Execute()
             }
 #endif
 
-            m_diagnosticsRuntime.TickPerfLog( RuntimePerfTickContext{ sPerfPass + 1,
+            m_diagnosticsRuntime.TickPerfLog( RuntimePerfTickContext{ m_sceneController.PerfPass() + 1,
                                                                       m_sceneController.State().currentFrame + 1,
                                                                       m_timers.physicsTime,
                                                                       m_timers.renderTime } );
@@ -861,7 +854,7 @@ void Run::TickPhysics( double secondsPerFrame )
                                       inputSnapshot.frameInput.replayInspectionLookActive,
                                       physicsCapture,
                                       m_sceneController.State().timeScale } );
-    if ( m_debug.isCrossScenePauseLocked )
+    if ( m_sceneController.CrossScenePauseLocked() )
     {
         // Invariant: the P-key pause lock outranks camera/tool mode. Launcher
         // and passive scene cameras normally keep physics running, but the lock
@@ -932,7 +925,7 @@ void Run::TickPhysics( double secondsPerFrame )
                                       m_sceneController.Entities(),
                                       m_assets,
                                       ActiveSceneCinematicConfig( m_sceneController.State(), m_config ),
-                                      m_defaultCinematicRender },
+                                      m_renderDefaults.CinematicBaseline() },
             static_cast<float>( secondsPerFrame ) );
     }
 }
@@ -953,7 +946,6 @@ void Run::AfterPhysicsStep()
                                                m_sceneController.Cameras(),
                                                m_runtimeTools,
                                                m_replayRuntime,
-                                               m_replayLauncherVisualScratch,
                                                m_sceneController.World(),
                                                m_sceneController.Models(),
                                                m_sceneController.Physics(),
@@ -1020,7 +1012,7 @@ void Run::AfterPhysicsStep()
 bool Run::TickScreenshots()
 {
     PROFILE_BEGIN( "Frame/PostDraw/Screenshots" );
-    if ( m_debug.isCrossScenePauseLocked && !m_inputRouter.RuntimeSnapshot().frameInput.stepHeld )
+    if ( m_sceneController.CrossScenePauseLocked() && !m_inputRouter.RuntimeSnapshot().frameInput.stepHeld )
     {
         PROFILE_END( "Frame/PostDraw/Screenshots" );
         return false;
@@ -1083,13 +1075,12 @@ bool Run::TickScreenshots()
     case RuntimeCaptureAutomation::AdvanceSceneOrQuit:
     {
         const SceneLoadRequest request = m_sceneController.AdvanceScene( m_diagnosticsRuntime.PerfTestActive(),
-                                                                         sPerfPass,
                                                                          m_sceneController.State().isInteractiveRun );
         const bool advanced = request.HasLoad() && m_sceneController
                                                        .Load( request,
                                                               m_config,
                                                               m_launchOptions,
-                                                              m_defaultCinematicRender,
+                                                              m_renderDefaults.CinematicBaseline(),
                                                               m_startup,
                                                               m_diagnosticsRuntime,
                                                               m_runtimeSettings,
@@ -1110,8 +1101,7 @@ bool Run::TickScreenshots()
                                                               m_runtimeTools,
                                                               m_physicsDebugVisualizer,
                                                               m_renderBackendView,
-                                                              m_renderer,
-                                                              sPerfPass )
+                                                              m_renderer )
                                                        .ok;
         if ( !advanced )
         {
@@ -1139,7 +1129,7 @@ bool Run::TickScreenshots()
 
 void Run::TickAutoCycle()
 {
-    if ( m_debug.isCrossScenePauseLocked && !m_inputRouter.RuntimeSnapshot().frameInput.stepHeld )
+    if ( m_sceneController.CrossScenePauseLocked() && !m_inputRouter.RuntimeSnapshot().frameInput.stepHeld )
     {
         return;
     }
@@ -1191,7 +1181,7 @@ void Run::TickAutoCycle()
 bool Run::TickSceneAdvance()
 {
     const bool sceneProceedAllowed =
-        !m_debug.isCrossScenePauseLocked || m_inputRouter.RuntimeSnapshot().frameInput.stepHeld;
+        !m_sceneController.CrossScenePauseLocked() || m_inputRouter.RuntimeSnapshot().frameInput.stepHeld;
     const SceneFrameAdvanceResult result =
         m_sceneController.AdvanceFrame( sceneProceedAllowed,
                                         m_diagnosticsRuntime.PerfTestActive(),
@@ -1199,8 +1189,7 @@ bool Run::TickSceneAdvance()
                                         RunCameraModeUsesManualControls( m_camera.mode,
                                                                          m_attachedCamera.State().activeFollow,
                                                                          m_camera.director.grabbed ),
-                                        m_timers.simulationTimer.GetTimeSinceLastStart(),
-                                        sPerfPass );
+                                        m_timers.simulationTimer.GetTimeSinceLastStart() );
 #ifdef _DEBUG
     if ( result.finishReason )
     {
@@ -1222,7 +1211,7 @@ bool Run::TickSceneAdvance()
                             .Load( result.loadRequest,
                                    m_config,
                                    m_launchOptions,
-                                   m_defaultCinematicRender,
+                                   m_renderDefaults.CinematicBaseline(),
                                    m_startup,
                                    m_diagnosticsRuntime,
                                    m_runtimeSettings,
@@ -1243,8 +1232,7 @@ bool Run::TickSceneAdvance()
                                    m_runtimeTools,
                                    m_physicsDebugVisualizer,
                                    m_renderBackendView,
-                                   m_renderer,
-                                   sPerfPass )
+                                   m_renderer )
                             .ok;
     }
     if ( loadSucceeded && result.restartSimulationTimerAfterLoad )
@@ -1286,7 +1274,7 @@ void Run::UpdateLogic( float simulationDt, float cameraDt )
                                   m_sceneController.Entities(),
                                   m_assets,
                                   ActiveSceneCinematicConfig( m_sceneController.State(), m_config ),
-                                  m_defaultCinematicRender },
+                                  m_renderDefaults.CinematicBaseline() },
         cameraDt );
 
     m_sceneController.ApplyWaterHeightControl( m_inputRouter.RuntimeSnapshot().pageDown,

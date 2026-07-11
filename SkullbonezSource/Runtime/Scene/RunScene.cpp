@@ -532,8 +532,7 @@ SbResult SceneController::Load( const SceneLoadRequest& request,
                                 RuntimeTools& m_runtimeTools,
                                 Physics::PhysicsDebugVisualizer& m_physicsDebugVisualizer,
                                 const RuntimeRenderBackendView& m_renderBackendView,
-                                RuntimeRenderer& m_renderer,
-                                int& sPerfPass )
+                                RuntimeRenderer& m_renderer )
 {
     if ( !request.accepted )
     {
@@ -620,7 +619,7 @@ SbResult SceneController::Load( const SceneLoadRequest& request,
     const std::string& scenePath = *loadBegin.scenePath;
     SceneLifecycleConsumerMask afterClearConsumers = 0;
 
-    m_diagnosticsRuntime.ClosePerfLogWithMemoryCheckpoint( sPerfPass + 1, "end" );
+    m_diagnosticsRuntime.ClosePerfLogWithMemoryCheckpoint( m_perfPass + 1, "end" );
 
     // Reset scene-local state; operator HUD preferences are restored below.
     SceneState().ResetForLoad( m_config.cinematicRender );
@@ -903,7 +902,7 @@ SbResult SceneController::Load( const SceneLoadRequest& request,
                                     UIOptions );
         SceneState().targetFrameCount = scene.GetFrameCount();
         SceneState().isExitOnComplete = suppressAutomationExit ? false : scene.IsExitOnComplete();
-        m_diagnosticsRuntime.ApplySceneAutomationOptions( scene, suppressAutomationExit, sPerfPass );
+        m_diagnosticsRuntime.ApplySceneAutomationOptions( scene, suppressAutomationExit, m_perfPass );
 
         // Override RNG seed for deterministic scenes. CLI --seed wins so a launcher snapshot can
         // replay an unseeded/random scene or deliberately override a scene file seed.

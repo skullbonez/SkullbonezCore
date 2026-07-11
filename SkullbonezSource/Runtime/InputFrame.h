@@ -173,7 +173,6 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
                                                   Runtime::Audio::ContactAudioService& contactAudio,
                                                   RuntimeRenderBackendView& renderBackendView,
                                                   RenderDefaultsStore& renderDefaults,
-                                                  CinematicRenderConfig& defaultCinematicRender,
                                                   int gameModelCapacity );
 RuntimeUIFrameResult FinishRuntimeUIFramePointer( RuntimeUIFrameResult result,
                                                   RuntimeInputContext& runtimeInput,
@@ -192,7 +191,6 @@ void ProcessInputFrame( InputRouter& inputRouter,
                         EngineConfig& config,
                         RunLaunchOptions& launchOptions,
                         ApplicationExitState& applicationExit,
-                        CinematicRenderConfig& defaultCinematicRender,
                         RenderDefaultsStore& renderDefaults,
                         const RunStartupState& startup,
                         DiagnosticsRuntime& diagnosticsRuntime,
@@ -212,10 +210,8 @@ void ProcessInputFrame( InputRouter& inputRouter,
                         GraphicsStressController& graphicsStress,
                         RuntimeTools& runtimeTools,
                         Physics::PhysicsDebugVisualizer& physicsDebugVisualizer,
-                        RuntimeViewModel& runtimeViewModel,
                         RuntimeRenderBackendView& renderBackendView,
                         RuntimeRenderer& renderer,
-                        SceneController& sceneController,
-                        int& perfPass );
+                        SceneController& sceneController );
 } // namespace Basics
 } // namespace SkullbonezCore

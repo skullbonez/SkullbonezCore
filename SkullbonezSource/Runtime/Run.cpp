@@ -197,7 +197,6 @@ void ApplyStressLaunchPolicy( const RunLaunchOptions& launch,
 
 bool ConfigureStartupReplayRecording( const RunStartupOverrides& overrides,
                                       ReplayRuntime& replayRuntime,
-                                      ReplayLauncherVisualSample& launcherVisualScratch,
                                       int gameModelCapacity )
 {
     if ( !overrides.configureReplayRecording )
@@ -208,6 +207,7 @@ bool ConfigureStartupReplayRecording( const RunStartupOverrides& overrides,
     // Runtime allocation policy: launcher replay visuals are copied every
     // captured physics tick, so keep their scratch vectors reserved before the
     // replay phase begins.
+    ReplayLauncherVisualSample& launcherVisualScratch = replayRuntime.LauncherVisualCaptureScratch();
     launcherVisualScratch.rayLines.reserve( RunRayCastTestState::MAX_LINES );
     launcherVisualScratch.laserShots.reserve( REPLAY_LAUNCHER_LASER_SHOT_CAPACITY );
 
@@ -404,22 +404,17 @@ Run::Run( Window& window,
                   RenderSceneView{ m_sceneController, m_sceneController.Browser() },
                   RenderReplayOverlayView{ m_replayRuntime, m_sceneController.Entities() },
                   RenderToolOverlayView{ m_runtimeTools },
-                  RenderUiView{ m_UI, m_inputRouter.RuntimeContext(), m_camera, m_runtimeViewModel } )
+                  RenderUiView{ m_UI, m_inputRouter.RuntimeContext(), m_camera } )
 {
     const EngineConfig& cfg = m_config;
     m_diagnosticsRuntime.BindProfiler( profiler );
     m_sceneController.Cameras().ApplyMovementSettings( BuildCameraMovementSettings( cfg ) );
-    m_runtimeViewModel = RuntimeViewModelBuilder::Build( RuntimeViewModelContext{ m_sceneController,
-                                                                                  m_diagnosticsRuntime.Capture(),
-                                                                                  m_runtimeSettings,
-                                                                                  m_sceneController.Physics() },
-                                                         m_contactAudio );
     RefreshSceneBrowserList( m_sceneController.Browser() );
     m_sceneController.Models().BindWorkerPool( workerPool );
     m_sceneController.Models().BindSceneEntityStore( m_sceneController.Entities() );
     m_sceneController.Models().ApplyRuntimeConfig( cfg );
     m_runtimeSettings.ApplyStartupConfig( cfg );
-    m_defaultCinematicRender = cfg.cinematicRender;
+    m_renderDefaults.CaptureStartupCinematicBaseline( cfg.cinematicRender );
     m_startup.ApplyStartupConfig( cfg );
 }
 
@@ -513,10 +508,7 @@ void Run::ApplyStartupOverrides( const RunStartupOverrides& overrides )
     {
         m_diagnosticsRuntime.SetMainMemoryDumpPath( overrides.mainMemoryDumpPath );
     }
-    if ( ConfigureStartupReplayRecording( overrides,
-                                          m_replayRuntime,
-                                          m_replayLauncherVisualScratch,
-                                          m_startup.gameModelCapacity ) )
+    if ( ConfigureStartupReplayRecording( overrides, m_replayRuntime, m_startup.gameModelCapacity ) )
     {
         m_replayRuntime.ExitInspectionCamera(
             &m_sceneController.Cameras(),
@@ -880,7 +872,7 @@ void Run::Initialise()
     m_lastSceneLoadResult = m_sceneController.Load( SceneLoadRequest::Load( 0, false, false, false ),
                                                     m_config,
                                                     m_launchOptions,
-                                                    m_defaultCinematicRender,
+                                                    m_renderDefaults.CinematicBaseline(),
                                                     m_startup,
                                                     m_diagnosticsRuntime,
                                                     m_runtimeSettings,
@@ -901,8 +893,7 @@ void Run::Initialise()
                                                     m_runtimeTools,
                                                     m_physicsDebugVisualizer,
                                                     m_renderBackendView,
-                                                    m_renderer,
-                                                    sPerfPass );
+                                                    m_renderer );
     if ( !m_lastSceneLoadResult.ok )
     {
         return;
@@ -1035,7 +1026,7 @@ SbResult Run::RunSceneLoadOnly( const char* snapshotOutPath )
         const SbResult loadResult = m_sceneController.Load( SceneLoadRequest::Load( i, false, false, false ),
                                                             m_config,
                                                             m_launchOptions,
-                                                            m_defaultCinematicRender,
+                                                            m_renderDefaults.CinematicBaseline(),
                                                             m_startup,
                                                             m_diagnosticsRuntime,
                                                             m_runtimeSettings,
@@ -1056,8 +1047,7 @@ SbResult Run::RunSceneLoadOnly( const char* snapshotOutPath )
                                                             m_runtimeTools,
                                                             m_physicsDebugVisualizer,
                                                             m_renderBackendView,
-                                                            m_renderer,
-                                                            sPerfPass );
+                                                            m_renderer );
         if ( !loadResult.ok )
         {
             return loadResult;

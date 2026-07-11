@@ -67,8 +67,7 @@ bool SceneController::ExecutePending( EngineConfig& m_config,
                                       RuntimeTools& m_runtimeTools,
                                       Physics::PhysicsDebugVisualizer& m_physicsDebugVisualizer,
                                       const RuntimeRenderBackendView& m_renderBackendView,
-                                      RuntimeRenderer& m_renderer,
-                                      int& sPerfPass )
+                                      RuntimeRenderer& m_renderer )
 {
     SceneController& m_sceneController = *this;
     const auto executeSceneLoadRequest = [&]( const SceneLoadRequest& request )
@@ -102,8 +101,7 @@ bool SceneController::ExecutePending( EngineConfig& m_config,
                    m_runtimeTools,
                    m_physicsDebugVisualizer,
                    m_renderBackendView,
-                   m_renderer,
-                   sPerfPass )
+                   m_renderer )
             .ok;
     };
     const SceneRequestBatch batch = m_sceneController.TakePendingRequests();

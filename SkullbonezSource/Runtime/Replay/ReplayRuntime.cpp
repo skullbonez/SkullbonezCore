@@ -3126,6 +3126,14 @@ const ReplayLauncherVisualSample& ReplayRuntime::LauncherVisualBackup() const
     return m_launcherVisualBackup;
 }
 
+
+ReplayLauncherVisualSample& ReplayRuntime::LauncherVisualCaptureScratch()
+{
+    // Lifetime: this scratch belongs to replay capture and is reused only at
+    // the synchronous post-physics capture boundary.
+    return m_launcherVisualCaptureScratch;
+}
+
 void ReplayRuntime::ClearLauncherVisualBackup()
 {
     m_launcherVisualBackup = ReplayLauncherVisualSample();

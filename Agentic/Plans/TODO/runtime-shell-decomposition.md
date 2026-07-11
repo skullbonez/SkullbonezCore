@@ -1232,6 +1232,21 @@ zero DX12 InfoQueue errors, matching screenshots, standalone physics handle
 smoke, and the 44,401-line varied baseline byte-exactly. Comment audit:
 `Agentic/Reports/2026-07-11/runtime-shell-f1-owner-boundary-comment-audit.md`,
 37 checked, 0 deferred.
+
+F1 field-owner progress (2026-07-11): four additional mutable values left the
+shell. ReplayRuntime owns and pre-reserves its launcher-visual capture scratch;
+RenderDefaultsStore owns the immutable process-start cinematic baseline; the UI
+view model is rebuilt as a frame-local value only when the text pass runs; and
+SceneController owns both the two-pass perf navigation index and the
+cross-scene pause policy. The diagnostics shortcut no longer mutates scene-flow
+state through `RunDebugState`, and `Run` no longer stores any of those values.
+Five interaction scenarios passed in 34.1s and `tools\validate_full.bat` passed
+in 110.8s with the complete CPU umbrella, zero-warning Profile/Debug builds,
+zero DX12 InfoQueue errors, matching screenshots, standalone handle smoke, and
+the 44,401-line varied physics baseline byte-exactly. Comment audit:
+`Agentic/Reports/2026-07-11/runtime-shell-f1-field-owner-comment-audit.md`,
+22 checked, 0 deferred. F1 remains open for the multi-domain runtime-settings
+split and broad frame-context/substitute-owner audit.
 - [ ] F2. Audit the extracted owners and their boundary records for sideways
   migration. `InputRouter`, command owners, `SceneController`, `ReplayRuntime`,
   and `RuntimeRenderer` must not retain `Run*`/`Run&`, callback bags, `void*`
