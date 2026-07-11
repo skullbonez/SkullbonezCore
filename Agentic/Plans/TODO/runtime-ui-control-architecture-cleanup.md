@@ -555,6 +555,17 @@ Acceptance:
   half-dozen unrelated conditions.
 - Existing UI behavior is preserved unless the slice explicitly fixes a bug.
 
+Progress evidence:
+
+- Cause-tree window converted: panel, title drag track, content, and resize
+  handle are four front-to-back controls shared by input and rendering. Direct
+  cause-window `Contains` calls and stored `hoveredRow` are deleted; render
+  derives row hover from the content control and input-owned pointer snapshot.
+- Cause-tree Profile build passed in 13.0s, replay scrub passed in 84.8s, and
+  DX12 renderer passed in 23.8s with formatting clean, InfoQueue errors = 0,
+  and all captures matching. This is a U6 sub-boundary only; the phase remains
+  open pending the 96-row disposition reconciliation.
+
 ## Validation
 
 Documentation-only changes to this plan require no validation.

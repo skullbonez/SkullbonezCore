@@ -378,6 +378,30 @@ ReplayScrubberSurfaceInput DescribeReplayScrubberSurface( const ReplayRuntime& r
     return input;
 }
 
+void BuildReplayCauseWindowSurface( const RunReplayCauseTreeState& state, ReplayCauseWindowSurface& outSurface )
+{
+    outSurface.Reset();
+    const auto add = [&]( ReplayCauseWindowControl id, RuntimeUiControlKind kind, const UI::UIRect& bounds )
+    {
+        RuntimeUiControl control;
+        control.id = ReplayCauseWindowControlId( id );
+        control.action = RuntimeUiActionId{ static_cast<uint32_t>( id ) };
+        control.kind = kind;
+        control.drawRect = bounds;
+        control.hitRect = bounds;
+        if ( !outSurface.TryAdd( control ) )
+        {
+            SB_FATAL( "ReplayCauseWindowSurface", "Cannot publish cause-window control id=%u.", control.id.value );
+        }
+    };
+
+    // Resize and title sit in front of content and the broad panel background.
+    add( ReplayCauseWindowControl::Resize, RuntimeUiControlKind::ToolHandle, ReplayCauseWindowResizeRect( state ) );
+    add( ReplayCauseWindowControl::Title, RuntimeUiControlKind::Track, ReplayCauseWindowTitleRect( state ) );
+    add( ReplayCauseWindowControl::Content, RuntimeUiControlKind::Panel, ReplayCauseWindowContentRect( state ) );
+    add( ReplayCauseWindowControl::Panel, RuntimeUiControlKind::Panel, ReplayCauseWindowRect( state ) );
+}
+
 UI::UIRect ReplayCauseTreePanelRect( int screenW, int screenH )
 {
     const UI::UIRect scrubber = ReplayScrubberPanelRect( screenW, screenH );

@@ -10,10 +10,10 @@ reports, and git history.
 | Field | Value |
 |---|---|
 | Branch | `engine-cleanup-10th-july`, tracking `origin/engine-cleanup-10th-july` |
-| Current pushed baseline | `1617df02 refactor: centralize replay control gestures` |
+| Current pushed baseline | `ad598ddc refactor: share replay control snapshots with rendering` |
 | Current objective | Execute runtime UI/control U6: reconcile and convert/review every remaining inventory row |
 | Last broad local gate | `tools\validate_full.bat` passed final interaction source in 72.5s: 131/131 doctests and 2,814 assertions, every standalone CPU lane, zero-warning Profile/Debug builds, DX12 InfoQueue errors = 0 with matching screenshots, handle smoke, and the 44,401-line varied baseline byte-exactly |
-| Latest focused gates | U5 Profile 5.1s; CPU 18.4s with 25/25 interaction cases; replay scrub 86.1s; DX12 36.0s with InfoQueue 0 and matching captures; comment audit 10/10 |
+| Latest focused gates | U6 cause-window slice: Profile 13.0s, replay scrub 84.8s, DX12 23.8s with InfoQueue 0 and matching captures; formatting clean |
 | Native evidence | Injected heap-use-after-free caught; healthy ASan and five-file `/analyze` passed in 16.185s |
 
 ## Pushed Cleanup Commits
@@ -28,6 +28,7 @@ reports, and git history.
 - `0186818a refactor: build replay scrubber as a control surface`
 - `70f75d60 refactor: dispatch replay scrubber actions by value`
 - `1617df02 refactor: centralize replay control gestures`
+- `ad598ddc refactor: share replay control snapshots with rendering`
 - `125bb8a9 docs: inventory DX12 failure surfaces`
 - `0c9097ec fix: reduce box manifolds by depth and spread`
 - `e752c395 style: format manifold reducer`
@@ -82,6 +83,11 @@ controller-owned cancel. U5 makes input and rendering derive the same control
 rows and deletes all scrubber hover bridges and render-side layout duplication.
 CPU, replay scrub, and DX12 gates pass. U6 conversion/review remains
 independently unchecked and is next.
+
+U6 cause-tree sub-boundary is complete but U6 remains open. Cause-window panel,
+title, content, and resize input/render now share four surface rows; direct hit
+tests and the stored row-hover bridge are deleted. Continue the 96-row
+disposition reconciliation before awarding phase completion.
 Interaction gesture geometry and capture remain with
 `RuntimeInteractionController`.
 

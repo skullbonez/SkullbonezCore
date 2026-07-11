@@ -1067,7 +1067,6 @@ void ReplayRuntime::ClearPathVisualizerState()
     m_pathVisualizer.targets.clear();
     m_pathVisualizer.pastTrajectory = RunReplayPastTrajectoryBuildState{};
     m_causeTree.rows.clear();
-    m_causeTree.hoveredRow = -1;
     m_causeTree.selectedRow = -1;
     m_causeTree.scrollY = 0.0f;
     ClearPredictionCache();
@@ -1200,7 +1199,6 @@ bool ReplayRuntime::ClearInteractionForRuntimeTransition( RuntimeInteractionCont
     m_prediction.enabled = false;
     ClearPredictionCache();
     m_velocityEdit = RunReplayVelocityEditState{};
-    m_causeTree.hoveredRow = -1;
     m_causeTree.selectedRow = -1;
     m_causeTree.scrollY = 0.0f;
     m_causeTree.rows.clear();
@@ -1377,7 +1375,6 @@ ReplayRuntime::PointerButtonEdges ReplayRuntime::BeginCauseTreeInputFrame( bool 
     PointerButtonEdges edges;
     edges.leftPressed = leftPressed;
     edges.leftReleased = leftReleased;
-    m_causeTree.hoveredRow = -1;
     return edges;
 }
 

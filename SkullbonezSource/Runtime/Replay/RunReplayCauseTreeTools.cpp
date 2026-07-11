@@ -27,6 +27,7 @@ Related:
 #include "../InputController.h"
 #include "../InputRouter.h"
 #include "../../Core/Profiler.h"
+#include "../../Core/FatalError.h"
 #include "ReplayOverlayLayout.h"
 #include "../../Physics/ColliderStore.h"
 #include "../../Physics/PhysicsBodyStore.h"
@@ -260,10 +261,20 @@ bool ReplayRuntime::TickCauseTreeInput( bool uiBlocksMouse,
         return false;
     }
     const POINT mouse{ runtimePointer.clientX, runtimePointer.clientY };
-    const UI::UIRect panel = ReplayCauseWindowRect( m_replayRuntime.CauseTree() );
-    const UI::UIRect title = ReplayCauseWindowTitleRect( m_replayRuntime.CauseTree() );
-    const UI::UIRect content = ReplayCauseWindowContentRect( m_replayRuntime.CauseTree() );
-    const UI::UIRect resize = ReplayCauseWindowResizeRect( m_replayRuntime.CauseTree() );
+    m_replayRuntime.CauseTree().mouseX = mouse.x;
+    m_replayRuntime.CauseTree().mouseY = mouse.y;
+    ReplayCauseWindowSurface surface;
+    BuildReplayCauseWindowSurface( m_replayRuntime.CauseTree(), surface );
+    surface.ResolvePointer( mouse.x, mouse.y );
+    const auto isHotControl = [&]( ReplayCauseWindowControl control )
+    { return surface.hasHotControl && surface.hotControl == ReplayCauseWindowControlId( control ); };
+    const RuntimeUiControl* contentControl =
+        surface.Find( ReplayCauseWindowControlId( ReplayCauseWindowControl::Content ) );
+    if ( !contentControl )
+    {
+        SB_FATAL( "ReplayCauseWindowSurface", "Content control is missing from the cause-window surface." );
+    }
+    const UI::UIRect content = contentControl->drawRect;
 
     if ( causeTreeDragMode() == 0 )
     {
@@ -293,8 +304,7 @@ bool ReplayRuntime::TickCauseTreeInput( bool uiBlocksMouse,
         return true;
     }
 
-    const bool insidePanel = panel.Contains( mouse.x, mouse.y );
-    if ( uiBlocksMouse || !insidePanel )
+    if ( uiBlocksMouse || !surface.consumesPointer )
     {
         return false;
     }
@@ -310,7 +320,7 @@ bool ReplayRuntime::TickCauseTreeInput( bool uiBlocksMouse,
         return true;
     }
 
-    if ( leftPressed && resize.Contains( mouse.x, mouse.y ) )
+    if ( leftPressed && isHotControl( ReplayCauseWindowControl::Resize ) )
     {
         if ( !m_replayRuntime.BeginToolGesture( m_interaction,
                                                 RuntimeInteractionGestureKind::ReplayCauseTreeDrag,
@@ -331,7 +341,7 @@ bool ReplayRuntime::TickCauseTreeInput( bool uiBlocksMouse,
         return true;
     }
 
-    if ( leftPressed && title.Contains( mouse.x, mouse.y ) )
+    if ( leftPressed && isHotControl( ReplayCauseWindowControl::Title ) )
     {
         if ( !m_replayRuntime.BeginToolGesture( m_interaction,
                                                 RuntimeInteractionGestureKind::ReplayCauseTreeDrag,
@@ -350,13 +360,12 @@ bool ReplayRuntime::TickCauseTreeInput( bool uiBlocksMouse,
         return true;
     }
 
-    if ( content.Contains( mouse.x, mouse.y ) )
+    if ( isHotControl( ReplayCauseWindowControl::Content ) )
     {
         const float localY = static_cast<float>( mouse.y ) - content.y + m_replayRuntime.CauseTree().scrollY;
         const int rowIndex = static_cast<int>( floorf( localY / REPLAY_CAUSE_WINDOW_ROW_HEIGHT ) );
         if ( rowIndex >= 0 && rowIndex < static_cast<int>( m_replayRuntime.CauseTree().rows.size() ) )
         {
-            m_replayRuntime.CauseTree().hoveredRow = rowIndex;
             if ( leftPressed )
             {
                 interaction.SetWorldInteractionOwnerInWorkspace( RuntimeWorkspace::Replay,

@@ -405,7 +405,6 @@ struct RunReplayCauseTreeState
     // render, so the vector reserves its full replay/physics budget at startup
     // and builders fail closed instead of growing on a frame.
     std::vector<RunReplayCauseTreeRow> rows;
-    int hoveredRow = -1;
     int selectedRow = -1;
     ReplayBodyId focusedId;
     bool hasWindowPlacement = false;
@@ -420,6 +419,8 @@ struct RunReplayCauseTreeState
     int resizeStartMouseY = 0;
     int resizeStartWidth = 0;
     int resizeStartHeight = 0;
+    int mouseX = 0;
+    int mouseY = 0;
 };
 
 struct RunReplayPathVisualizerState

@@ -125,6 +125,22 @@ struct ReplayScrubberSurfaceInput
 
 using ReplayScrubberSurface = RuntimeUiSurface<13>;
 
+enum class ReplayCauseWindowControl : uint32_t
+{
+    None,
+    Resize,
+    Title,
+    Content,
+    Panel
+};
+
+inline RuntimeUiControlId ReplayCauseWindowControlId( ReplayCauseWindowControl control )
+{
+    return RuntimeUiControlId{ static_cast<uint32_t>( control ) };
+}
+
+using ReplayCauseWindowSurface = RuntimeUiSurface<4>;
+
 ReplayScrubberSurfaceInput DescribeReplayScrubberSurface( const ReplayRuntime& replayRuntime,
                                                           bool scenePhysicsEnabled,
                                                           bool uiBlocksMouse,
@@ -132,6 +148,7 @@ ReplayScrubberSurfaceInput DescribeReplayScrubberSurface( const ReplayRuntime& r
                                                           int screenH,
                                                           RuntimeInteractionGestureKind gesture );
 void BuildReplayScrubberSurface( const ReplayScrubberSurfaceInput& input, ReplayScrubberSurface& outSurface );
+void BuildReplayCauseWindowSurface( const RunReplayCauseTreeState& state, ReplayCauseWindowSurface& outSurface );
 
 UI::UIRect ReplayScrubberPanelRect( int screenW, int screenH );
 float ReplayScrubberRowCenterY( const UI::UIRect& panel, RunReplayTrack track );

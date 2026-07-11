@@ -801,10 +801,24 @@ void RenderReplayCauseTreeOverlay( const ReplayOverlayRenderContext& context )
     // cause-tree state. Clamp window geometry before deriving visible rows so
     // scroll offsets cannot point outside the rendered content.
     EnsureReplayCauseWindowPlacement( replayRuntime.CauseTree(), screenW, screenH );
-    const UI::UIRect panel = ReplayCauseWindowRect( replayRuntime.CauseTree() );
-    const UI::UIRect title = ReplayCauseWindowTitleRect( replayRuntime.CauseTree() );
-    const UI::UIRect content = ReplayCauseWindowContentRect( replayRuntime.CauseTree() );
-    const UI::UIRect resize = ReplayCauseWindowResizeRect( replayRuntime.CauseTree() );
+    ReplayCauseWindowSurface surface;
+    BuildReplayCauseWindowSurface( replayRuntime.CauseTree(), surface );
+    surface.ResolvePointer( replayRuntime.CauseTree().mouseX, replayRuntime.CauseTree().mouseY );
+    const auto controlRect = [&]( ReplayCauseWindowControl id ) -> const UI::UIRect&
+    {
+        const RuntimeUiControl* row = surface.Find( ReplayCauseWindowControlId( id ) );
+        if ( !row )
+        {
+            SB_FATAL( "ReplayCauseWindowSurface",
+                      "Render snapshot is missing cause-window control id=%u.",
+                      static_cast<uint32_t>( id ) );
+        }
+        return row->drawRect;
+    };
+    const UI::UIRect panel = controlRect( ReplayCauseWindowControl::Panel );
+    const UI::UIRect title = controlRect( ReplayCauseWindowControl::Title );
+    const UI::UIRect content = controlRect( ReplayCauseWindowControl::Content );
+    const UI::UIRect resize = controlRect( ReplayCauseWindowControl::Resize );
 
     const UI::UIDrawContext draw( screenW, screenH, nullptr, &renderCommands );
     const UI::Style::UIPalette& palette = UI::Style::Palette();
@@ -902,6 +916,18 @@ void RenderReplayCauseTreeOverlay( const ReplayOverlayRenderContext& context )
         (std::max)( 0,
                     static_cast<int>( floorf( replayRuntime.CauseTree().scrollY / REPLAY_CAUSE_WINDOW_ROW_HEIGHT ) ) );
     const int rowCount = static_cast<int>( replayRuntime.CauseTree().rows.size() );
+    int hoveredRow = -1;
+    if ( surface.hasHotControl &&
+         surface.hotControl == ReplayCauseWindowControlId( ReplayCauseWindowControl::Content ) )
+    {
+        const float localY =
+            static_cast<float>( replayRuntime.CauseTree().mouseY ) - content.y + replayRuntime.CauseTree().scrollY;
+        const int candidate = static_cast<int>( floorf( localY / REPLAY_CAUSE_WINDOW_ROW_HEIGHT ) );
+        if ( candidate >= 0 && candidate < rowCount )
+        {
+            hoveredRow = candidate;
+        }
+    }
     for ( int rowIndex = firstRow; rowIndex < rowCount; ++rowIndex )
     {
         const RunReplayCauseTreeRow& row = replayRuntime.CauseTree().rows[static_cast<std::size_t>( rowIndex )];
@@ -917,7 +943,7 @@ void RenderReplayCauseTreeOverlay( const ReplayOverlayRenderContext& context )
         }
 
         const UI::UIRect rowRect = { content.x + 2.0f, rowY, rowAreaW, REPLAY_CAUSE_WINDOW_ROW_HEIGHT - 2.0f };
-        const bool hovered = rowIndex == replayRuntime.CauseTree().hoveredRow;
+        const bool hovered = rowIndex == hoveredRow;
         const bool selected = rowIndex == replayRuntime.CauseTree().selectedRow;
         if ( hovered || selected )
         {
