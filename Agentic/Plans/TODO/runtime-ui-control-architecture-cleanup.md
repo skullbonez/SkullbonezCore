@@ -1,7 +1,7 @@
 # Runtime UI Control Architecture Cleanup
 
 Date: 2026-07-10 (promoted into the authoritative TODO inventory)
-Status: In progress - 3/7 phases complete
+Status: In progress - 4/7 phases complete
 Impact area: replay UI, editor UI, diagnostics UI, input routing, interaction
 gesture ownership
 Owner: runtime UI surfaces; subsystem commands remain with their domain owners
@@ -268,7 +268,7 @@ Delete or absorb these patterns across runtime UI:
 | U0 Inventory UI surfaces | Complete | 95 tracked source files reconciled below with owner/input/render/gate evidence |
 | U1 Shared control vocabulary | Complete | Inline `RuntimeUiSurface` values and four Debug/Release CPU tests pass |
 | U2 Replay scrubber vertical slice | Complete | 13-row surface owns scrubber hit/reveal state; old `overX` ladder deleted |
-| U3 Action dispatch | Pending | Named handler table and shared shortcut path |
+| U3 Action dispatch | Complete | Control action table plus named value dispatch shared by pointer and Enter restore |
 | U4 Gesture lifecycle | Pending | Central begin/update/cancel/release tests |
 | U5 Shared render/input snapshots | Pending | Draw and hit-test geometry equality tests |
 | U6 Remaining runtime surfaces | Pending | Inventory reconciled with zero unchecked files |
@@ -455,11 +455,27 @@ Replace per-control click branches with action dispatch.
 
 Acceptance:
 
-- Every button/slider/toggle action has one named handler.
-- Keyboard shortcuts that trigger the same command route through the same
+- [x] Every button/slider/toggle action has one named handler.
+- [x] Keyboard shortcuts that trigger the same command route through the same
   handler as pointer input.
-- Input tick functions mostly orchestrate surface build, hit test, dispatch,
+- [x] Input tick functions mostly orchestrate surface build, hit test, dispatch,
   gesture tick, and render handoff.
+
+Evidence:
+
+- Surface rows map controls to `ReplayScrubberAction` values. Pointer input
+  reads the hot row's action, while the Enter restore edge selects the same
+  `RestoreBranch` value as the branch button before either mutates an owner.
+- One explicit switch dispatches values to named pause, velocity, past-path,
+  ragdoll, prediction, horizon, branch, save, load, and scrub handlers. The
+  switch is synchronous and retains no callback table, function object, or
+  multi-domain handler pack.
+- The cold native file picker lives inside `HandleReplayLoadPressed`; it is
+  invoked only after typed Load dispatch and is not polled or retained.
+- Focused Profile build passed after namespace correction in 5.1s with zero
+  warnings/errors. `tools\validate_replay_scrub.bat` passed in 73.3s with zero
+  build warnings/errors and all replay probes successful.
+- Comment audit: 1/1 touched source-bearing file checked, zero deferred.
 
 ### Phase 5: Gesture Lifecycle
 
