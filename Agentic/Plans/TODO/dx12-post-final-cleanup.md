@@ -107,11 +107,24 @@ Goal: exactly one sun march per frame, at half resolution.
 - `godRaysEnabled` and `volumetricLightingEnabled` config/UI toggles must
   both still do something sensible; document the new meaning in `Config.h`
   comments and the Cine tab tooltip text if present.
+- UI **sliders** and live-style param routing must be reconciled, not just
+  toggles: `sunShaftStrength`/`sunShaftFalloff` are exposed at
+  `UITabCinematic.cpp` (~331-333) and routed through
+  `ApplyCinematicUIParam`/`LiveStyleController`. After the tonemap cbuffer
+  trim, every surviving cinematic param must still reach the pass that
+  consumes it, and any param that now feeds nothing gets its UI route
+  removed in the same commit (no dead sliders).
+- After consolidation, the `rawDepth >= 0.9999f` sky-depth convention lives
+  only in `post_volumetric_light.hlsl`; keep it that way (single owner) and
+  note the convention in that shader's header.
 
 Acceptance: single march confirmed by reading the compiled shader source;
 `tools\validate_dx12_renderer.bat` run with an intentional, isolated baseline
 update commit; DX12 validation errors 0; before/after screenshots attached to
-the progress file notes.
+the progress file notes. If any RenderGraph pass declaration, resource use,
+or debug label changed (e.g. dropped tonemap reads), also run
+`tools\validate_dx12_arch_tests.bat` — Plan 11's rubber-duck review already
+caught this exact gap once (see `Agentic/SessionState.md`, Plan 11 row).
 
 ### Phase 3 — Bloom cost cleanup
 
@@ -128,7 +141,11 @@ its own commit + baseline update; if skipped, record why in the progress file.
 
 Acceptance: `tools\validate_dx12_renderer.bat` (+ baseline update only if the
 image changes); `tools\validate_perf.bat` because this is per-pixel hot-path
-cost work; no new runtime allocations.
+cost work; no new runtime allocations. If the perf gate compares against
+`TestOutput/baselines/*_perf.json` and the (expected, cheaper) new timings
+fall outside its thresholds, refresh the perf baselines intentionally via
+`tools\update_baselines.bat` (visual/perf baselines are its supported scope)
+in an isolated commit, then rerun `tools\validate_perf.bat` clean.
 
 ### Phase 4 — Name the style modes
 
@@ -183,8 +200,8 @@ with unchanged baselines (this phase must be visually inert).
 | Phase | Gate |
 |-------|------|
 | 1 (dead code) | `validate_dx12_renderer`, baselines must match unchanged |
-| 2 (god-ray consolidation) | `validate_dx12_renderer` + intentional baseline update commit |
-| 3 (bloom) | `validate_dx12_renderer` (+ baseline update if image changes) + `validate_perf` |
+| 2 (god-ray consolidation) | `validate_dx12_renderer` + intentional baseline update commit; `validate_dx12_arch_tests` if graph declarations/labels changed |
+| 3 (bloom) | `validate_dx12_renderer` (+ baseline update if image changes) + `validate_perf` (+ intentional perf-baseline refresh if thresholds trip) |
 | 4 (style-mode names) | `validate_dx12_renderer`, baselines unchanged |
 | 5 (config dedupe) | `validate_fast` + `validate_dx12_renderer`, baselines unchanged |
 | 6 (final) | `validate_full`; comment audit; rubber-duck review |
